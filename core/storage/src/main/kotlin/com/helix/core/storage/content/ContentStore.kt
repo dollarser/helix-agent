@@ -48,6 +48,12 @@ class FileContentStore(
             } finally {
                 if (tmp.exists()) tmp.delete()
             }
+        } else {
+            // Idempotent write on an already-present file is still a "verified reference":
+            // re-read and hash-check the existing bytes (write-then-verify, interface
+            // contract) so a corrupted or tampered pre-existing file is rejected here
+            // instead of silently linked and only failing at read().
+            require(readHashOrNull(file) == hash) { "pre-existing content file does not match its hash: $hash" }
         }
         val ref = ContentRef(ContentRef.expectedPath(hash), bytes.size.toLong(), hash)
         require(exists(ref)) { "content reference not readable after write: $ref" }

@@ -487,15 +487,24 @@ object TurnReducer {
         event: TurnEvent.Tool.ExecutionFinished,
     ): TurnStep {
         val current = state.pendingCalls.firstOrNull()
-        if (state.phase != TurnPhase.RUNNING_TOOL || current?.toolCallId != event.toolCallId) {
+        // A denied call never executes (it is DENIED at the approval gate and is audit-only);
+        // a Denied outcome in ExecutionFinished is off-contract and is dropped per the
+        // illegal-event contract (ignored, state unchanged) instead of crashing the reduce.
+        val deniedOffContract = event.outcome is ToolOutcome.Denied
+        if (state.phase != TurnPhase.RUNNING_TOOL || current?.toolCallId != event.toolCallId || deniedOffContract) {
             return TurnStep.unchanged(state)
         }
         val terminal =
             when (event.outcome) {
                 is ToolOutcome.Succeeded -> ToolCallState.COMPLETED
+
                 is ToolOutcome.Failed -> ToolCallState.FAILED
+
                 is ToolOutcome.TimedOut -> ToolCallState.FAILED
+
+                // Unreachable (early-returned above); kept so the mapping stays exhaustive.
                 is ToolOutcome.Denied -> ToolCallState.DENIED
+
                 is ToolOutcome.Cancelled -> ToolCallState.CANCELLED
             }
         val finished = current.withState(terminal)

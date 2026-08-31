@@ -41,6 +41,29 @@ class HelixErrorTest {
         assertThrows<IllegalArgumentException> {
             HelixError(ErrorCode.INTERNAL, "m", false, tooMany, CorrelationId("c"))
         }
+        // Documented value contract (HXA-010): 1..1024, no whitespace, no control characters.
+        // Empty values, whitespace (space / tab), DEL and C1 controls must all be rejected.
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to ""), CorrelationId("c"))
+        }
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to "a b"), CorrelationId("c"))
+        }
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to "a\tb"), CorrelationId("c"))
+        }
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to "a" + 0x7F.toChar() + "b"), CorrelationId("c"))
+        }
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to "a" + 0x85.toChar() + "b"), CorrelationId("c"))
+        }
+        // Key length boundary: 64 is legal, 65 is not (HXA-010: 键 1..64).
+        assertThrows<IllegalArgumentException> {
+            HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k".repeat(65) to "v"), CorrelationId("c"))
+        }
+        HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k".repeat(64) to "v"), CorrelationId("c"))
+        HelixError(ErrorCode.INTERNAL, "m", false, mapOf("k" to "v".repeat(1024)), CorrelationId("c"))
     }
 
     @Test

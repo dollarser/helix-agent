@@ -63,10 +63,18 @@ data class HelixError(
                     "safeDetails key contains invalid character"
                 }
             }
-            require(value.length <= MAX_DETAIL_VALUE_LENGTH) {
-                "safeDetails value exceeds $MAX_DETAIL_VALUE_LENGTH characters"
+            // Documented contract (HXA-010): value 1..1024, no whitespace, no control
+            // characters. Whitespace covers C0 + space; C1 (0x80-0x9F) and DEL (0x7F) are
+            // not whitespace in Kotlin and must be rejected explicitly.
+            require(value.length in 1..MAX_DETAIL_VALUE_LENGTH) {
+                "safeDetails value length must be 1..$MAX_DETAIL_VALUE_LENGTH"
             }
-            value.forEach { c -> require(c.code >= 0x20) { "safeDetails value contains a control character" } }
+            value.forEach { c ->
+                require(!c.isWhitespace()) { "safeDetails value must not contain whitespace" }
+                require(c.code !in 0x00..0x1F && c.code !in 0x7F..0x9F) {
+                    "safeDetails value contains a control character"
+                }
+            }
         }
     }
 

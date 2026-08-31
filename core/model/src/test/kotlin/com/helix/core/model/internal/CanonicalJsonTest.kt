@@ -98,6 +98,11 @@ class CanonicalJsonTest {
         assertEquals("Aé", parsed.value)
         assertThrows<IllegalArgumentException> { parseJson("\"" + bs + "u00") }
         assertThrows<IllegalArgumentException> { parseJson("\"" + bs + "uGGGG\"") }
+        // Signed hex is not a legal \uXXXX escape (RFC 8259: exactly four hex digits);
+        // parseInt radix-16 would silently accept the leading sign and decode a different
+        // value, so a corrupted escape must fail closed instead.
+        assertThrows<IllegalArgumentException> { parseJson("\"" + bs + "u-123\"") }
+        assertThrows<IllegalArgumentException> { parseJson("\"" + bs + "u-fff\"") }
     }
 
     @Test

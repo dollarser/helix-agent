@@ -123,6 +123,61 @@ class TurnReducerCancellationTest {
     }
 
     @Test
+    fun cancelWithExecutingUncertainCallAndQueuedBehindRecordsOnlyTheQueued() {
+        // The safety-critical composition: call 1 is executing (its external effect is unknown
+        // the moment cancellation lands) while call 2 sits PENDING behind it. Cancel must leave
+        // a durable Cancelled outcome for call 2 and record NO outcome for the uncertain call 1
+        // (a recorded Cancelled on an executing call would destroy the uncertainty tracking the
+        // HXA-015 review flow depends on).
+        val receiving = driveTo(Phase.RECEIVING_MODEL)
+        val running =
+            TurnReducer.reduce(receiving, TurnEvent.Model.Finished(Fixtures.call(1), 400, twoCallResponse())).state
+        assertEquals(Phase.RUNNING_TOOL, running.phase)
+        val cancelling = TurnReducer.reduce(running, TurnEvent.Lifecycle.CancelRequested).state
+        val step = TurnReducer.reduce(cancelling, TurnEvent.Lifecycle.CancelFinished(Fixtures.tool(1)))
+        assertEquals(Phase.CANCELLED, step.state.phase)
+        assertEquals(Fixtures.tool(1), step.state.uncertainToolCallId)
+        val outcomes = step.state.recordedOutcomes.associate { it.toolCallId to it.outcome }
+        assertTrue("queued call 2 must be recorded Cancelled", outcomes[Fixtures.tool(2)] is ToolOutcome.Cancelled)
+        assertTrue("uncertain executing call 1 must not be recorded", outcomes[Fixtures.tool(1)] == null)
+    }
+
+    @Test
+    fun discardAfterDeathWithUncertainCallAndQueuedBehindRecordsOnlyTheQueued() {
+        // Same composition through process death: the frozen queue keeps call 2 PENDING behind
+        // the executing call 1; discarding the interrupted turn must record call 2 Cancelled
+        // and leave the uncertain call 1 untouched (it is resolved only by the review flow).
+        val receiving = driveTo(Phase.RECEIVING_MODEL)
+        val running =
+            TurnReducer.reduce(receiving, TurnEvent.Model.Finished(Fixtures.call(1), 400, twoCallResponse())).state
+        val dead = TurnReducer.afterProcessDeath(running)
+        assertEquals(Phase.INTERRUPTED, dead.phase)
+        assertEquals(Fixtures.tool(1), dead.uncertainToolCallId)
+        val step = TurnReducer.reduce(dead, TurnEvent.Lifecycle.TurnDiscarded)
+        assertEquals(Phase.CANCELLED, step.state.phase)
+        val outcomes = step.state.recordedOutcomes.associate { it.toolCallId to it.outcome }
+        assertTrue("queued call 2 must be recorded Cancelled", outcomes[Fixtures.tool(2)] is ToolOutcome.Cancelled)
+        assertTrue("uncertain executing call 1 must not be recorded", outcomes[Fixtures.tool(1)] == null)
+    }
+
+    @Test
+    fun executionFinishedWithDeniedOutcomeIsIgnored() {
+        // A denied call never executes (DENIED is the approval-gate outcome, audit-only); a
+        // Denied outcome arriving in ExecutionFinished is off-contract and must be dropped per
+        // the illegal-event contract instead of crashing the reduce with a state-machine
+        // violation (RUNNING has no edge to DENIED).
+        val running = driveTo(Phase.RUNNING_TOOL)
+        val step =
+            TurnReducer.reduce(
+                running,
+                TurnEvent.Tool.ExecutionFinished(Fixtures.tool(1), ToolOutcome.Denied("denied mid-execution")),
+            )
+        assertTrue("off-contract Denied outcome must be ignored", step.ignored)
+        assertEquals(running, step.state)
+        assertTrue(step.effects.isEmpty())
+    }
+
+    @Test
     fun cancelKeepsUncertainCallOutOfRecordedOutcomes() {
         val recording = runningWithQueuedCall()
         val cancelling = TurnReducer.reduce(recording, TurnEvent.Lifecycle.CancelRequested).state

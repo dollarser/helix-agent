@@ -18,9 +18,14 @@ import java.util.concurrent.TimeUnit
  * The agent runtime consumes `GoalEffect.ScheduleCheckpointReminder`/`ReminderCancelled`
  * through this facade; that wiring lands with the GoalFlow (M2+ agent runtime — HXA-015
  * delivered the recovery coordinator, not the wake/run loop that emits these effects).
+ *
+ * The scheduling decision (work name, delay, payload) is a pure composition over
+ * [ReminderPlan] and [GoalReminderPayload.uniqueWorkName], handed to a [ReminderEnqueuer]
+ * seam so it is unit-testable on the JVM; the WorkManager REPLACE effect itself is
+ * device-verified by GoalReminderTest.
  */
 class GoalReminderScheduler(
-    private val workManager: WorkManager,
+    private val enqueuer: ReminderEnqueuer,
 ) {
     /**
      * Schedules (or replaces) the reminder for [goalId] near [checkpoint]. [nowEpochMillis] is
@@ -30,11 +35,57 @@ class GoalReminderScheduler(
     fun scheduleReminder(
         goalId: String,
         objective: String,
-        checkpoint: Checkpoint,
+        checkpoint: Checkpoint?,
         nowEpochMillis: Long,
     ) {
         val plan = ReminderPlan.forCheckpoint(nowEpochMillis, checkpoint)
         if (plan.skip) return
+        enqueuer.enqueueOrReplace(
+            workName = GoalReminderPayload.uniqueWorkName(goalId),
+            delayMillis = plan.delayMillis,
+            goalId = goalId,
+            objective = objective,
+        )
+    }
+
+    /** Cancels the pending reminder for [goalId] (goal completed/failed/cancelled/input-required). */
+    fun cancelReminder(goalId: String) {
+        enqueuer.cancel(GoalReminderPayload.uniqueWorkName(goalId))
+    }
+
+    companion object {
+        fun create(context: Context): GoalReminderScheduler =
+            GoalReminderScheduler(WorkManagerReminderEnqueuer(WorkManager.getInstance(context)))
+    }
+}
+
+/**
+ * Minimal WorkManager queue seam: keeps the scheduling decision (unique work name, delay,
+ * payload) testable on the JVM. The production implementation is a unique-work enqueue with
+ * [ExistingWorkPolicy.REPLACE] — one reminder per goal, reschedule replaces instead of
+ * stacking (HXA-013 invariant).
+ */
+interface ReminderEnqueuer {
+    fun enqueueOrReplace(
+        workName: String,
+        delayMillis: Long,
+        goalId: String,
+        objective: String,
+    )
+
+    fun cancel(workName: String)
+}
+
+/** The production [ReminderEnqueuer]: a unique-work enqueue that always replaces. */
+class WorkManagerReminderEnqueuer(
+    private val workManager: WorkManager,
+) : ReminderEnqueuer {
+    override fun enqueueOrReplace(
+        workName: String,
+        delayMillis: Long,
+        goalId: String,
+        objective: String,
+    ) {
         val request =
             OneTimeWorkRequestBuilder<GoalReminderWorker>()
                 .setInputData(
@@ -42,17 +93,12 @@ class GoalReminderScheduler(
                         GoalReminderPayload.KEY_GOAL_ID to goalId,
                         GoalReminderPayload.KEY_OBJECTIVE to objective,
                     ),
-                ).setInitialDelay(plan.delayMillis, TimeUnit.MILLISECONDS)
+                ).setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
                 .build()
-        workManager.enqueueUniqueWork(GoalReminderPayload.uniqueWorkName(goalId), ExistingWorkPolicy.REPLACE, request)
+        workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
     }
 
-    /** Cancels the pending reminder for [goalId] (goal completed/failed/cancelled/input-required). */
-    fun cancelReminder(goalId: String) {
-        workManager.cancelUniqueWork(GoalReminderPayload.uniqueWorkName(goalId))
-    }
-
-    companion object {
-        fun create(context: Context): GoalReminderScheduler = GoalReminderScheduler(WorkManager.getInstance(context))
+    override fun cancel(workName: String) {
+        workManager.cancelUniqueWork(workName)
     }
 }

@@ -74,7 +74,16 @@ object GoalReducer {
         event: GoalEvent.Ready,
     ): GoalStep {
         if (state.state != GoalState.DRAFT) return GoalStep.unchanged(state)
-        val next = state.copy(state = GoalState.READY, planId = event.planId, planHash = event.planHash)
+        // The event carries the plan pair or not at all (GoalEvent.Ready init enforces the
+        // pair), so the null-coalesced swap keeps a plan already attached at DRAFT when the
+        // event carries none, and replaces the whole pair otherwise — never a mixed
+        // id/hash from two different sources.
+        val next =
+            state.copy(
+                state = GoalState.READY,
+                planId = event.planId ?: state.planId,
+                planHash = event.planHash ?: state.planHash,
+            )
         return step(state, next)
     }
 
@@ -195,15 +204,17 @@ object GoalReducer {
     ): GoalStep {
         val budgets = event.budgets
         // A budget below already-consumed usage would make the StartRun remainders negative
-        // (illegal TurnBudgets) and park the goal on the very next wake report; extending is
-        // the only meaningful update, so a reduction below usage is ignored.
+        // (illegal TurnBudgets) and park or fail the goal on the next wake; extending is the
+        // only meaningful update, so a reduction below usage in ANY of the six dimensions —
+        // including maxRetries vs state.retries — is ignored.
         val acceptable =
             (state.state == GoalState.PAUSED || state.state == GoalState.INPUT_REQUIRED) &&
                 budgets.maxModelCalls >= state.modelCalls &&
                 budgets.maxToolCalls >= state.toolCalls &&
                 budgets.maxTotalTokens >= state.totalTokens &&
                 budgets.maxDurationMillis >= state.runTimeMillis &&
-                budgets.maxWakeDurationMillis >= state.currentWakeMillis
+                budgets.maxWakeDurationMillis >= state.currentWakeMillis &&
+                budgets.maxRetries >= state.retries
         if (!acceptable) return GoalStep.unchanged(state)
         return step(state, state.copy(budgets = budgets))
     }

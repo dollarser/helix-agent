@@ -111,6 +111,19 @@ class FileContentStoreTest {
     }
 
     @Test
+    fun `idempotent write re-verifies a pre-existing file instead of trusting it`() {
+        // The interface contract is "returns its verified reference": a content-addressed file
+        // that already exists but no longer matches its own hash (corruption/tamper) must be
+        // rejected at write time, not linked and only failing later at read().
+        withTempRoot { root ->
+            val store = FileContentStore(root)
+            val ref = store.write("original")
+            File(root, ref.relativePath).writeText("corrupted in place")
+            assertThrows("pre-existing file does not match its hash") { store.write("original") }
+        }
+    }
+
+    @Test
     fun `sha256Hex matches a known vector`() {
         val expected = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         assertEquals(expected, FileContentStore.sha256Hex("hello".toByteArray()))

@@ -2,6 +2,8 @@ package com.helix.core.agent
 
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.GoalState
+import com.helix.core.model.PlanId
+import com.helix.core.model.Sha256
 import com.helix.core.model.ToolCallId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -60,6 +62,58 @@ class GoalReducerCriteriaTest {
         val effects = completed.effects
         assertTrue(effects.contains(GoalEffect.GoalCompleted))
         assertTrue(effects.contains(GoalEffect.ReminderCancelled))
+    }
+
+    @Test
+    fun completionRequiresEveryCriterionInMultiCriterionGoal() {
+        // The discriminating case of the all-criteria gate (ADR-0004: CompleteRequested only
+        // when ALL criteria carry evidence): 1 of 2 satisfied must not complete. A regression
+        // that completes on the first evidence would pass the single-criterion tests only.
+        val twoCriteria =
+            Goal.initial(
+                GoalFixtures.goal,
+                "Two-part objective",
+                listOf(Criterion("c1", "First part"), Criterion("c2", "Second part")),
+                GoalFixtures.budgets(),
+                GoalFixtures.correlation,
+            )
+        val ready = reduceGoal(twoCriteria, GoalEvent.Ready(null, null)).state
+        var running = reduceGoal(ready, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state
+        running = reduceGoal(running, GoalEvent.CriterionSatisfied("c1", evidence())).state
+        val premature = GoalReducer.reduce(running, GoalEvent.CompleteRequested)
+        assertTrue("complete with 1 of 2 criteria satisfied must be ignored", premature.ignored)
+        assertEquals(GoalState.RUNNING, premature.state.state)
+        running = reduceGoal(running, GoalEvent.CriterionSatisfied("c2", evidence())).state
+        val completed = reduceGoal(running, GoalEvent.CompleteRequested)
+        assertEquals(GoalState.COMPLETED, completed.state.state)
+        assertTrue(completed.state.unsatisfiedCriteria.isEmpty())
+    }
+
+    @Test
+    fun readyKeepsPlanAttachedAtDraft() {
+        // A plan attached at DRAFT must survive a Ready event that carries none — Ready
+        // replaces the whole pair or keeps the existing one, never unwrites it silently.
+        val planId = PlanId("plan-1")
+        val planHash = Sha256("a".repeat(64))
+        val withPlan =
+            Goal.initial(
+                GoalFixtures.goal,
+                "Planned objective",
+                listOf(GoalFixtures.criterion()),
+                GoalFixtures.budgets(),
+                GoalFixtures.correlation,
+                planId,
+                planHash,
+            )
+        val ready = reduceGoal(withPlan, GoalEvent.Ready(null, null)).state
+        assertEquals(planId, ready.planId)
+        assertEquals(planHash, ready.planHash)
+        // A Ready carrying a plan replaces the pair wholesale.
+        val otherId = PlanId("plan-2")
+        val otherHash = Sha256("b".repeat(64))
+        val replaced = reduceGoal(withPlan, GoalEvent.Ready(otherId, otherHash)).state
+        assertEquals(otherId, replaced.planId)
+        assertEquals(otherHash, replaced.planHash)
     }
 
     @Test

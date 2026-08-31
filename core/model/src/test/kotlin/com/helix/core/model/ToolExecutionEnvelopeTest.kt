@@ -101,5 +101,15 @@ class ToolExecutionEnvelopeTest {
         assertThrows<IllegalArgumentException> { ToolExecutionEnvelope.parse(valid.replace("\"appr-1\"", "123")) }
         // Corrupted limits object.
         assertThrows<IllegalArgumentException> { ToolExecutionEnvelope.parse(valid.replace("60000", "60000.5")) }
+        // Parse-level timeout bounds: 0 and negative fail closed with IAE.
+        assertThrows<IllegalArgumentException> { ExecutionLimits.parse("""{"timeoutMillis":0,"maxOutputBytes":1}""") }
+        assertThrows<IllegalArgumentException> { ExecutionLimits.parse("""{"timeoutMillis":-1,"maxOutputBytes":1}""") }
+        // The 64-bit boundary is a legal whole number of milliseconds: it must parse and
+        // round-trip without loss. (The old toNanos() granularity check overflowed here into
+        // an ArithmeticException that escaped the ADR-0001 IAE decode contract; the nano-part
+        // check must not reintroduce that.)
+        val maxLong = ExecutionLimits.parse("""{"timeoutMillis":9223372036854775807,"maxOutputBytes":1}""")
+        assertEquals(9223372036854775807L, maxLong.timeout.toMillis())
+        assertEquals("""{"timeoutMillis":9223372036854775807,"maxOutputBytes":1}""", maxLong.toStorageString())
     }
 }

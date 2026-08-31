@@ -138,6 +138,26 @@ class GoalReducerBudgetTest {
     }
 
     @Test
+    fun budgetsUpdatedBelowUsedRetriesIsIgnored() {
+        // A goal that already consumed one retry must be protected from a maxRetries shrink
+        // below the used amount: the old gate checked only five of the six budget dimensions,
+        // let the shrink through, and the next retryable WakeFailed then FAILED a goal that
+        // was still within its originally granted budget.
+        val running = runningGoal(GoalFixtures.budgets(maxRetries = 2))
+        val retried = reduceGoal(running, GoalEvent.WakeFailed(GoalFixtures.error("x", retryable = true))).state
+        assertEquals(1, retried.retries)
+        val parked = reduceGoal(retried, GoalEvent.RunFinished).state
+        assertEquals(GoalState.PAUSED, parked.state)
+        val step = GoalReducer.reduce(parked, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxRetries = 0)))
+        assertTrue("shrinking maxRetries below used retries must be ignored", step.ignored)
+        assertEquals(parked, step.state)
+        // Boundary: shrinking to exactly the used amount leaves no negative remainder and is
+        // accepted (retries 1 of 1 is legal).
+        val boundary = reduceGoal(parked, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxRetries = 1)))
+        assertEquals(1, boundary.state.budgets.maxRetries)
+    }
+
+    @Test
     fun wakeFailureRetriesWithinBudget() {
         val goal = runningGoal()
         val retryable = GoalFixtures.error("provider 500", retryable = true)

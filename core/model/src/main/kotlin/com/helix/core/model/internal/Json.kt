@@ -248,8 +248,13 @@ private class JsonParser(
     private fun appendUnicodeEscape(sb: StringBuilder) {
         if (s.length - pos < 5) throw fail("truncated unicode escape")
         val hex = s.substring(pos + 1, pos + 5)
-        val code = hex.toIntOrNull(16) ?: throw fail("invalid unicode escape")
-        sb.append(code.toChar())
+        // RFC 8259: exactly four hex digits. Validate the charset explicitly —
+        // `toIntOrNull(16)` would silently accept a leading sign ("\u-123" -> U+FED5),
+        // turning a corrupted escape into a silent value change instead of a diagnostic.
+        for (c in hex) {
+            if (c !in '0'..'9' && c !in 'a'..'f' && c !in 'A'..'F') throw fail("invalid unicode escape")
+        }
+        sb.append(hex.toInt(16).toChar())
         pos += 4
     }
 

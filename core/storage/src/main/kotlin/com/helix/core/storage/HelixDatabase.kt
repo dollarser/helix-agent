@@ -53,7 +53,8 @@ import com.helix.core.storage.entity.TurnEntity
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
  * - schema export is enabled and the committed export lives in
- *   `src/androidTest/assets/schemas` as the Room migration fixture for this and future
+ *   `src/androidTest/assets/com.helix.core.storage.HelixDatabase/` (Room 2.8
+ *   `<databaseFqn>/<version>.json` convention) as the migration fixture for this and future
  *   migrations (doc 9.2: migrations require a schema export plus an instrumentation test);
  * - secrets never enter the schema: `provider_configs` and `mcp_servers` store alias fields
  *   only; large bodies live in files and rows store `ContentRef` references.

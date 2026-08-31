@@ -104,7 +104,11 @@ interface GoalRunDao {
     )
     fun listOpenByGoal(goalId: String): List<GoalRunEntity>
 
-    /** One-time finish: affected row count is 0 when the run already has an `endedAt`. */
+    /**
+     * One-time finish: affected row count is 0 when the run already has an `endedAt`. All
+     * terminal fields are non-nullable here so the guard cannot be defeated by passing a
+     * null `endedAt` (which would keep the run open while stamping an outcome).
+     */
     @Query(
         "UPDATE goal_runs SET outcome = :outcome, endedAt = :endedAt, wakeDurationMillis = :wakeDurationMillis, " +
             "modelCalls = :modelCalls, toolCalls = :toolCalls, tokens = :tokens " +
@@ -112,9 +116,9 @@ interface GoalRunDao {
     )
     fun updateOutcome(
         id: String,
-        outcome: String?,
-        endedAt: Long?,
-        wakeDurationMillis: Long?,
+        outcome: String,
+        endedAt: Long,
+        wakeDurationMillis: Long,
         modelCalls: Int,
         toolCalls: Int,
         tokens: Long,
