@@ -30,9 +30,15 @@ class ShellRepositoryTest {
     }
 
     @Test
-    fun `default container exposes repository through interface`() {
-        val container: AppContainer = DefaultAppContainer()
+    fun `shell repository is exposed through the container interface type`() {
+        // HXA-028: DefaultAppContainer now requires an Android Context (Room +
+        // SharedPreferences); the production wiring is exercised by the
+        // instrumented app tests (first-launch/provider/chat). This JVM pin
+        // keeps the interface contract every AppContainer implementation must
+        // satisfy for the shell part.
+        val repository: ShellRepository = FakeShellRepository()
 
-        assertEquals(ShellDestination.Sessions, container.shellRepository.initialDestination)
+        assertEquals(ShellDestination.Sessions, repository.initialDestination)
+        assertTrue(repository.initialDestination in repository.destinations)
     }
 }

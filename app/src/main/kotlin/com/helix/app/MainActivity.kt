@@ -23,7 +23,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -33,6 +36,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.FirstLaunchNoticeScreen
+import com.helix.app.ui.SettingsScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -43,12 +49,33 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The app shell (HXA-028): the first-launch privacy notice gates the whole UI
+ * (ADR-0006: fresh install / reset → the notice + STANDARD), then the standard
+ * drawer + NavHost shell. The routes that exist in M2 get real screens
+ * (sessions = chat, settings = profile + providers); the not-yet-milestoned
+ * destinations keep their honest empty states. ADR-0006: the UI shows only the
+ * product name “Helix” — never a distribution/edition label.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 // The Compose UI DSL keeps this screen intentionally in one composable; detekt's LongMethod
 // threshold does not model UI composition well, so it is suppressed here only.
 @Suppress("FunctionName", "LongMethod")
 @Composable
 internal fun HelixApp(container: AppContainer) {
+    var noticeDismissed by remember { mutableStateOf(container.firstLaunch.noticeSeen) }
+    if (!noticeDismissed) {
+        MaterialTheme {
+            FirstLaunchNoticeScreen(
+                onContinue = {
+                    container.firstLaunch.markSeen()
+                    noticeDismissed = true
+                },
+            )
+        }
+        return
+    }
+
     val repository = container.shellRepository
     val navController = rememberNavController()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -118,7 +145,19 @@ internal fun HelixApp(container: AppContainer) {
                 ) {
                     repository.destinations.forEach { destination ->
                         composable(destination.route) {
-                            EmptyDestination(destination, PaddingValues(24.dp))
+                            when (destination) {
+                                ShellDestination.Sessions -> {
+                                    ChatScreen(container.chatService, container.providerService)
+                                }
+
+                                ShellDestination.Settings -> {
+                                    SettingsScreen(container.profileStore, container.providerService)
+                                }
+
+                                else -> {
+                                    EmptyDestination(destination, PaddingValues(24.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -154,12 +193,6 @@ private fun EmptyDestination(
                 text = destination.emptyState,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Text(
-                text = "当前为 ${DistributionModuleRegistry.EDITION} 分发版本",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
         }

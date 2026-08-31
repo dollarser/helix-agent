@@ -8,7 +8,7 @@ enum class ShellDestination(
     Sessions(
         route = "sessions",
         title = "会话",
-        emptyState = "会话状态与 Agent 循环将在 M1–M2 实现。",
+        emptyState = "会话列表与模型对话（M2）。",
     ),
     Files(
         route = "files",

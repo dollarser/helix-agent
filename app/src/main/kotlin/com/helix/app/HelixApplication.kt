@@ -4,19 +4,19 @@ import android.app.Application
 import android.util.Log
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
-import com.helix.core.storage.HelixStorage
 
 class HelixApplication : Application() {
-    val appContainer: AppContainer by lazy(::DefaultAppContainer)
+    val appContainer: AppContainer by lazy { DefaultAppContainer(this) }
 
     /**
      * Process-restart recovery (HXA-015). The storage-backed coordinator marks leftover active
      * Turns INTERRUPTED and parks RUNNING goals; it is a no-op on an already-recovered
      * database. It runs on a background thread because Room queries are not allowed on the
-     * main thread.
+     * main thread. HXA-028: the coordinator shares the container's HelixStorage (one database
+     * connection per process) instead of opening a second connection.
      */
     private val recoveryCoordinator: RecoveryCoordinatorApp by lazy {
-        RecoveryCoordinatorApp(HelixStorage.create(this), SystemClock())
+        RecoveryCoordinatorApp(appContainer.storage, SystemClock())
     }
 
     /**

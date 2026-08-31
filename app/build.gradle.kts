@@ -65,6 +65,15 @@ dependencies {
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
     implementation(project(":core:storage"))
     implementation(project(":feature:files"))
+    // HXA-028: the chat/provider UI wires the M2 provider stack into the production app
+    // (provider doc section 2; ADR-0005 profile switching; ADR-0006 single main app).
+    // The okhttp→okhttp-jvm substitution below covers this production classpath as well
+    // (okhttp-android requires compileSdk 37; the project is pinned to 36).
+    implementation(project(":provider:api"))
+    implementation(project(":provider:openai-chat"))
+    implementation(project(":provider:openai-responses"))
+    implementation(project(":provider:anthropic"))
+    implementation(project(":provider:catalog"))
 
     add("developerImplementation", project(":feature:files-allfiles"))
     add("developerImplementation", project(":tools:automation"))
