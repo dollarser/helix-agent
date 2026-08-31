@@ -38,13 +38,15 @@
   - [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md) 经主流 durable workflow / human-in-the-loop 实践核对后由项目所有者接受；主体保留，补入持久化 pause reason 与有界 crash 计量窗口，后者归 HXA-102 验证。
 - M2 / HXA-020 已完成（M2 首个 HXA，2026-08-31）：`core:model` 封闭词表（`ProviderProtocol`/`ProviderResidence`/`NormalizedEndpoint`/`ProviderHeaders`/`SecretAlias`，全 fail-closed 解析）+ `provider:api` 类型化 `ProviderConfig`（含 `fromStorage` 严格恢复解析）+ `core:storage` `SecretStore` 接口与 `AndroidKeystoreSecretStore`（非导出 AES-256-GCM 主密钥、每 alias 加密文件 0600、篡改/密钥重置 fail-closed）+ `ProviderConfigSpec` 类型化 protocol 与规范存储（endpoint 存 `normalized.full`、headers 存排序规范 JSON）+ 显式 `overwrite`/`delete` 原语。residence 只从规范化实际 endpoint 派生（doc 10 §2.5 / ADR-0005 首个代码落点），同一 Ollama 模板指向 loopback/LAN/公网分类不同有双层测试断言（doc 07 §7.2）。Room schema 零新增列（alias-only 设计），`1.json` 无变化。core:model 96（+19）、provider:api 5（新）、core:storage JVM 46、core:agent 165、app 24 纯 JVM 测试 0 failures + API 36 arm64 模拟器 core:storage 28（+11，含真机 Keystore round-trip/篡改/无明文断言）与 app 7×2 flavor 0 failures；`spotlessCheck`/`detekt`/3 个 lint/5 个 shell 门禁/`git diff --check` 全部通过。证据见 [HXA-020 完成记录](completion-records/HXA-020.md)。
 
+- M2 / HXA-021 已完成（2026-08-31）：`core:model` 内部统一契约——`ModelRequest`（文本消息 + 图像不透明引用 `ImageReference`（ArtifactRef + 封闭 mediaType）、`ModelToolSchema`（ToolName + 严格 JSON 对象 schema）、`ReasoningEffort`、采样参数，全 fail-closed 构造校验）+ `ModelEvent` sealed（doc 02 §6.1 九变体：TextDelta/ReasoningDelta/ToolCallStarted/ToolArgumentsDelta/ToolCallFinished/Usage/Refusal/Error/Completed）+ `ModelErrorCode` 封闭 8 类与 ErrorCode 映射。契约落位 core:model 共享内核（core:agent 唯一依赖），Agent Core 不依赖厂商 DTO。纯 JVM，core:model 119（+23）0 failures，全量回归与 5 个门禁脚本通过。证据见 [HXA-021 完成记录](completion-records/HXA-021.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-021 内部 ModelRequest/ModelEvent（roadmap M2）：纯 Kotlin contract 支持文本、图像引用、工具 schema、reasoning、tool arguments delta、usage、finish/refusal/error；Agent Core 不依赖厂商 DTO。
+- HXA-022 OpenAI Responses adapter（roadmap M2）：实现 Responses 流和 function calls；fixture 覆盖任意字节拆包、UTF-8、多个工具、拒绝、usage、无终止和断流。
 
 ## Blocked
 

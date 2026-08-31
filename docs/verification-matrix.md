@@ -43,7 +43,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
 | HXA-020 | `./gradlew :core:model:test :provider:api:test :core:storage:testDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；Android Keystore（真机/模拟器执行，非 fake） |
-| HXA-021 | `./gradlew :provider:api:test` | 无 |
+| HXA-021 | `./gradlew :core:model:test :provider:api:test` | 无（纯 JVM 契约；契约落位 core:model 共享内核，core:agent 仅依赖它） |
 | HXA-022 | `./gradlew :provider:openai-responses:test` | 本地流 fixture |
 | HXA-023 | `./gradlew :provider:openai-chat:test` | 本地流 fixture |
 | HXA-024 | `./gradlew :provider:anthropic:test` | 本地流 fixture |
