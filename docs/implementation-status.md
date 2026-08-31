@@ -42,13 +42,15 @@
 
 - M2 / HXA-022 已完成（2026-08-31）：`provider:openai-responses` OpenAI Responses adapter（协议岛，transport 归 HXA-025）——`ResponsesSseParser`（WHATWG 增量 SSE：任意字节拆包、多字节 UTF-8 序列跨 chunk 缓冲、CRLF/裸 CR、多行 data、1 MiB 行/8 MiB 事件有界防护）+ `ResponsesStreamDecoder`（vendor 事件 → `ModelEvent`：终止唯一守卫、两段式 content_filter 拒绝、usage 透传、`max_output_tokens`→`Completed("length")`、无终止/断流→`Error(PROTOCOL, retryable=true)`、非法 JSON/缺字段/终止后事件/charset 越界→`retryable=false` 且停止产出、未知 vendor 错误码 fail-closed 不重试、未知事件忽略）+ `ResponsesRequestEncoder`（stateless `input` 编码：四角色、`input_image` 经注入 `ImageResolver` 解析为 data URL/公共 URL、`function_call_output`、tools+parameters 逐字嵌入、采样字段按需出现）+ `OpenAiResponsesAdapter` 门面（无状态编码器 + 每流解码器）。fixture 覆盖任务书七项：任意字节拆包（1/7/64 等价）、UTF-8 4 字节 emoji 2+2 拆包、多工具交错、拒绝、usage、无终止、断流。`kotlinx-serialization-json 1.9.0`（catalog 既有版本，仅 JsonElement API 无编译器插件）首次进入该模块，lockfile + verification-metadata sha256 锁定。纯 JVM 44 个新测试 0 failures（parser 16/decoder 21/encoder 7），全量回归 + spotless/detekt + 5 个门禁脚本通过。证据见 [HXA-022 完成记录](completion-records/HXA-022.md)。
 
+- M2 / HXA-023 已完成（2026-08-31）：`provider:openai-chat` OpenAI Chat Completions adapter（独立协议岛，与 openai-responses 零共享代码，失败不切协议）——`ChatSseReader`（自有增量 SSE：一行拆包、多行 data、UTF-8 字节边界、`[DONE]`、注释 ping、1 MiB/8 MiB 有界防护）+ `ChatCompletionsStreamDecoder`（`chat.completion.chunk` → `ModelEvent`：content delta、`tool_calls[]` 按 vendor index 键控的增量 arguments、`finish_reason` 四值映射（stop/length/tool_calls 升序闭合/content_filter 拒绝）、usage 尾块（finish 块之后、终止后唯一放行）、`[DONE]` 无 finish 块=无终止可重试、终止后块/块内 error/未知 reason/工具违约=不可重试停止产出）+ `ChatCompletionsRequestEncoder`（Chat 形态：`messages` 四角色、USER 图像 content 数组 `image_url`、`role:"tool"`+`tool_call_id`、tools function 嵌套、`max_tokens`、`stream_options.include_usage`、`reasoning_effort`、stateless）+ `OpenAiChatAdapter` 门面。fixture 覆盖任务书要求：任意字节拆包（1/7/64 等价）、UTF-8 4 字节 emoji 2+2 拆包、多工具交错、拒绝、usage、无终止、断流。依赖零新增组件（kotlinx-serialization 1.9.0 由 HXA-022 注册，本 HXA 仅 openai-chat lockfile 锁定 +5）。纯 JVM 44 个新测试 0 failures（reader 14/decoder 23/encoder 7），全量回归 + spotless/detekt + 5 个门禁脚本通过。证据见 [HXA-023 完成记录](completion-records/HXA-023.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-023 OpenAI Chat Completions adapter（roadmap M2）：独立实现 Chat Completions SSE；不得失败后自动切 Responses，协议由配置确定。
+- HXA-024 Anthropic Messages adapter（roadmap M2）：实现 Messages streaming、`tool_use/tool_result`、stop reason 和错误映射；测试 tool result 顺序约束。
 
 ## Blocked
 
