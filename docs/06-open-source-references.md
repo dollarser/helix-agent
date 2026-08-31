@@ -192,6 +192,38 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - 原 Auto.js 已不适合作为维护底座；历史 fork 的维护和来源差异较大。
 - Helix 不嵌入其 JavaScript 自动化 runtime，不复制源码；只实现强类型 `ui.*` 工具、目标包 allowlist 和敏感界面拒绝。
 
+### 5.11 主流 Coding Agent / Agent Harness 设计参考
+
+下列项目可用于回答“成熟 Agent 如何组织 provider、session、tool loop、上下文、审批、扩展、验证与 UI”等设计问题，但**不是 Helix 的依赖候选清单**。每次调研只选择与当前 HXA 最相关的 1～2 个项目，引用官方仓库中的具体协议、状态机、测试或安全说明；不得凭产品印象声称某个边界已经安全，也不得把桌面 unrestricted shell、全仓库文件权限、自动 Git commit 或插件权限原样搬到 Android。
+
+| 项目 | 当前可核实事实 | 适合参考 | Helix 不照搬的部分 |
+| --- | --- | --- | --- |
+| [Claude Code](https://github.com/anthropics/claude-code) | Anthropic 终端/IDE Agent；公开仓库许可证为 Anthropic 商业条款，并非开源源码许可证，因此不把“TypeScript/Bun 实现”当作可审计事实 | 用户确认、计划/执行交互、hooks/skills/MCP 的产品契约、长任务 UX | 源码复制、内部订阅认证、桌面 shell/文件权限假设 |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Google；TypeScript + Ink，Apache-2.0 | core/CLI 分包、工具声明、MCP/扩展、provider 路由、测试和 headless 工作流 | Node runtime、Google 登录令牌和主机权限模型 |
+| [Codex CLI](https://github.com/openai/codex) | OpenAI；维护中的 CLI 核心为 Rust，npm 只是分发入口，Apache-2.0 | Rust core 与界面/协议分层、结构化事件、会话恢复、审批/sandbox、app-server 边界 | 复用 ChatGPT 凭据、桌面 sandbox 或把 CLI 内置工具绕过 Helix Policy |
+| [Cline](https://github.com/cline/cline) | Cline 社区/公司；以 TypeScript 为主，Apache-2.0，现同时提供 SDK、CLI、VS Code/JetBrains 入口 | diff 审阅、逐步批准、provider 抽象、任务时间线、IDE 与核心解耦 | 编辑器信任区、任意命令执行和 hosted service 条款 |
+| [Continue](https://github.com/continuedev/continue) | TypeScript，Apache-2.0；官方 README 当前将原仓库标为不再积极维护/最终 2.0.0，因此只作有日期的历史参考 | IDE adapter、上下文 provider、配置版本化、代码检查与 CI gate | 作为活跃底座或依据旧 API 设计稳定公开契约 |
+| [Aider](https://github.com/Aider-AI/aider) | Python，Apache-2.0，终端结对编程 Agent | repo map、受控 edit/diff 格式、lint/test 反馈回路、Git 可回退体验、模型基准 | 自动提交默认值、全仓库读写和桌面进程执行 |
+| [OpenCode](https://github.com/anomalyco/opencode) | TypeScript/Bun，MIT，终端/桌面 coding agent | client/server、session/event、provider adapter、工具和 TUI 分层 | Bun runtime、任意插件/命令权限和桌面文件系统假设 |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | DeepSeek；TypeScript monorepo，MIT，`everything-is-a-plugin`；官方明确为快速变化、未经安全审计的 developer preview | plugin 生命周期、scope、invariant、agent loop/driver 分层、可替换 preset 和测试组织 | 动态装卸插件即获得权限、生成代码执行和“preview 等于 production 安全” |
+| [goose](https://github.com/aaif-goose/goose) | 起源于 Block，现由 Linux Foundation Agentic AI Foundation 托管；Rust core/CLI + Electron/TypeScript desktop，Apache-2.0 | interface/agent/extension 分层、MCP/ACP、Rust core 与多前端共享协议 | 桌面 extension 权限、ACP Agent 自行执行工具或把 MCP 当授权 |
+| [Amazon Q Developer CLI](https://github.com/aws/amazon-q-developer-cli) | AWS；Rust，MIT OR Apache-2.0；开源仓库已停止常规维护，只接收关键安全修复，后续产品为闭源 Kiro CLI | 企业配置、遥测边界、身份/凭据隔离、Rust TUI 的历史实现 | 作为活跃底座、复制 AWS 登录/服务客户端或假定 Kiro 源码可审计 |
+| [Hermes Agent](https://github.com/NousResearch/hermes-agent) | Nous Research；Python，MIT；是可嵌入库/CLI/多入口通用 Agent，不只限 coding | provider routing、持久 memory 与 skills 的职责区分、gateway allowlist、可嵌入 agent API | Telegram/Discord 等消息渠道、长期记忆自动出网和 unrestricted host tools |
+
+这些项目给 Helix 的共同启发应转换为本仓库自己的约束与测试，而不是转换为同语言实现：
+
+| 参考思想 | Helix 的落点 |
+| --- | --- |
+| core 与 UI/CLI 分离、结构化 event stream | `core:model`/`core:agent` 纯状态与 effect；UI 只订阅状态，不直接调用 Provider/DAO/Runtime |
+| provider adapter 与能力探测 | M2 HXA-020～027；三个协议独立 fixture，不做猜测式统一 adapter |
+| 小而稳定的工具集合、扩展协议 | M3 Tool Registry/Policy/Approval；M7 MCP/Skills；扩展描述永远不能授权 |
+| repo map、渐进上下文和可复现编辑 | HXA-016 Context Builder + M4 Workspace；确定性裁剪、ArtifactRef、scope 与原子写后验证 |
+| diff/审批/测试反馈闭环 | HXA-034～036 approval proof/timeline；Dispatcher 变更后 verifier；verification matrix 的真实命令 |
+| session checkpoint、恢复和去重 | Turn/Goal/Room + ADR-0004；不明确副作用停泊；PRoot/CLI 使用 ADR-0007 jobId journal |
+| 可插拔架构与 invariants | 只在编译期/注册表内采用强类型 adapter；运行时插件、MCP annotation、Skill 指令不能改变 Policy |
+
+采用上述项目的代码、协议包或登录方式仍会触发第 8 节依赖审查；改变 Helix 安全/IPC/持久化/扩展边界时仍必须按 ADR 约定决策。“参考过某 Agent”不是跳过当前 HXA、测试或授权的理由。
+
 ## 6. 不建议作为底座的仓库
 
 ### 6.1 AnyClaw / OpenClaude Android

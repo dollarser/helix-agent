@@ -101,7 +101,21 @@ data class ProviderCapabilities(
 - 证书错误不得静默降级 HTTP；自签 CA 通过用户显式导入/固定证书处理。
 - Provider 请求仍只包含 Context Builder 选择的数据，自建服务器也不能直接读取手机文件。
 
+“自建”或产品名称不等于“数据留在本机”。Helix 必须根据规范化实际 endpoint 标记 `ON_DEVICE_LOOPBACK`、`USER_AUTHORIZED_LAN`、`PUBLIC_CLOUD` 或 `CUSTOM_REMOTE_UNKNOWN`；同一个 Ollama/SGLang 模板可以落入任一类别。residence 只描述数据去向，不表示服务可信，也不能降低输入、输出、认证或 Prompt Injection 防护。
+
 Ollama 支持部分 OpenAI API，包括 Chat Completions、Responses、streaming 和 tools；其 Responses stateful 字段并非全部支持。SGLang 提供 OpenAI-compatible endpoint，但不同模型的 tool-call parser 需要服务端正确配置。Helix 必须依赖能力测试，不根据产品名称猜测。
+
+### 2.6 数据敏感度与发送门控
+
+Provider 请求在发送前形成用户可见、可审计的 `EgressSummary`，至少包含 Provider ID、protocol、规范 origin、residence、数据类别、scope 和正文是否被裁剪。规则如下：
+
+| 数据类别 | 示例 | `STANDARD` | `ADVANCED` |
+| --- | --- | --- | --- |
+| 普通内容 | 用户本轮主动输入、公开网页引用 | 显示当前 Provider/origin，按会话正常发送 | 同 Standard |
+| 高敏内容 | 联系人、通知正文、精确位置、文件正文、浏览器页面、Accessibility 内容 | 每次发送前确认，不提供永久允许 | 默认逐次确认；可保存绑定 Provider ID + origin + 类别 + scope 的可撤销规则，期限仅 1h/24h/7d/30d，默认 24h、最大 30d |
+| 禁止发送 | API key、OAuth token、Cookie、密码、验证码、认证字段、CLI credential | 拒绝 | 拒绝，不能通过专家设置放行 |
+
+自建/LAN/loopback Provider 仍按相同数据分类执行；用户对某个 LAN host 的网络授权不等于同意发送全部通知、文件或屏幕内容。Provider endpoint、residence、数据类别、scope 或规则有效期任一变化都要重新门控。规则不滑动续期；当前时间早于 `createdAt` 或不早于 `expiresAt` 时按已过期处理。Safety Profile 契约见 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)。
 
 ## 3. 订阅账号后端的诚实边界
 
@@ -184,6 +198,8 @@ mcp.<serverSlug>.<toolName>
 - stdio server 环境变量使用 allowlist；Provider key 不自动传入。
 - MCP sampling/elicitation/roots 默认关闭，分别设计后再开放。
 - 首版不实现 MCP Server 托管，只实现 Client。
+- MCP 网络调用复用 Provider 的数据分类与 `EgressSummary` 语义；Advanced 规则绑定 MCP server ID + 规范 origin + 数据类别 + scope + 有效期，不能因 bearer 已配置而静默发送高敏内容。
+- 不采用单纯“每 N 次调用提醒”作为安全边界。会话维护有界调用/出网摘要；endpoint、tool schema hash 或敏感数据类别变化时强制检查点，结束时提供脱敏发送摘要。
 
 ## 5. Agent Skills
 
@@ -277,6 +293,8 @@ data class Goal(
 
 首版只有用户显式继续才创建新 `goal_run`。WorkManager 可在 `nextCheckpoint` 附近发提醒通知，但不得在后台调用模型/工具，且调度可被 Doze、强制停止和系统限制延迟。`wakeReason` 记录 `USER_OPEN`、`NOTIFICATION_ACTION` 等真实来源。
 
+Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](11-mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。
+
 ### 6.2 状态
 
 ```text
@@ -288,11 +306,11 @@ DRAFT → READY → RUNNING
                  └─ CANCELLED
 ```
 
-恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功。
+恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见已接受的 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。PAUSED 不扩枚举，但当前原因必须从稳定的 run outcome + audit 得到：`RUN_FINISHED`、`BUDGET_EXHAUSTED(limit)` 或 `PROCESS_INTERRUPTED`，不得只依赖进程内 effect。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽按 ADR-0004 进入可由用户扩预算后继续的 `PAUSED`，不是成功；若未来改为终态 `FAILED(BUDGET_EXCEEDED)`，必须以 superseding ADR 修改。
 
 ## 7. 数据模型扩展
 
-Room 表和规范性关键字段只在 [总体方案 §9.1](02-architecture-design.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason，MCP/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/Skill 大型正文、资源和 schema 存文件并保存 hash。
+Room 表和规范性关键字段只在 [总体方案 §9.1](02-architecture-design.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason 和稳定 outcome（含 ADR-0004 的 pause reason），MCP/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/Skill 大型正文、资源和 schema 存文件并保存 hash。
 
 ## 8. 未来远程执行扩展点
 
@@ -316,7 +334,10 @@ Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审�
 - Skill catalog 只预载 metadata，正文按需读取；恶意 zip 和越界 resource 被拒绝。
 - Plan 模式不能执行写入/代码/UI 动作。
 - Goal 可在进程重启后恢复，预算和验收证据一致，绝不自动重放不明确副作用。
+- 单 Turn 多 ToolCall 只并行平台证明无冲突的读取，取消/恢复有持久结果，模型回填顺序不随完成速度变化。
+- child delegation/JSON Workflow 在 ADR-0009 接受前不可用；即使以后启用也不是新模式，不能继承审批或扩大父 Goal 预算。
 - CLI 订阅后端只有在官方客户端持有凭据且 Helix 不接触 token 时才可启用；未完成安全 Spike 前不得列为正式 ModelProvider。
+- Provider/MCP 数据去向取自实际 endpoint；Standard/Advanced 的高敏出网门控和禁止发送类别均有 Policy/UI 测试。
 
 ## 10. 主要依据
 

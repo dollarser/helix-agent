@@ -13,3 +13,4 @@ externalNativeBuild/
 runtime-lock.local.json
 local-rootfs/
 .kotlin/
+.codegraph/

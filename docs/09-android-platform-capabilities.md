@@ -192,6 +192,7 @@ MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返�
 - 默认拒绝目标：系统权限设置、辅助功能设置、设备管理、Root 管理器、软件安装器、支付/银行、密码管理器、认证器、生物识别和锁屏。
 - 默认拒绝点击语义：支付、转账、购买、发送、发布、删除账号、授权、允许安装、开启 Root。
 - 单次 session 默认 5 分钟、30 个动作；每 10 个动作强制检查点。
+- 检查点同时考虑经过时间、目标 package/window 和敏感语义变化；连续快速批准不会升级为自动允许。Advanced 只能在发布硬上限内调整 session/动作预算，不能关闭敏感目标或敏感语义拒绝。
 - snapshot token 绑定 package、windowId、node fingerprint 和 generation。
 - 目标包变化时暂停并请求用户确认；不得自动跟随 Intent 进入新 App。
 - `FLAG_SECURE`、无法读取的 WebView/Canvas 和 OEM 自定义界面必须返回 `UNSUPPORTED_UI`，不能假装识别成功。
@@ -204,7 +205,7 @@ MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返�
 
 采用 [topjohnwu/libsu](https://github.com/topjohnwu/libsu) `core` + `service`，基线 `6.0.0`。它提供 Root Shell 和基于 Binder 的 RootService。不要自行解析不同 Root 管理器协议，也不要把 `su` 字符串散落在业务代码中。
 
-libsu 通过 JitPack 发布。仓库配置必须只给 `com.github.topjohnwu.libsu` 使用 exclusive content，固定 tag，并启用 Gradle dependency verification；如果团队不能接受 JitPack 供应链，则改为在仓库内维护经过审查的源码镜像和对应 notice，而不是替换成低维护度 Root 库。
+libsu 通过 JitPack 发布。当前 HXA-094 的计划路径是只给 `com.github.topjohnwu.libsu` 使用 exclusive content、固定 tag，并启用 Gradle dependency verification；M9/HXA-094 前不得提前加入 JitPack。HXA-094 必须通过依赖 ADR 记录 Spike、校验和与供应链接受结论。如果项目所有者届时不能接受 JitPack，则改为在仓库内维护经过审查的源码镜像和对应 notice，而不是替换成低维护度 Root 库；该替代方案不是与当前路径并行的隐式选择，必须先获得授权并更新 ADR/路线。
 
 ### 6.2 产品流程
 

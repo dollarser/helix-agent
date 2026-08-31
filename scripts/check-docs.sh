@@ -66,9 +66,14 @@ for section in required_status_sections:
 # must point at an existing record (M0: the single m0-completion-record.md; M1+: one file
 # per HXA in completion-records/), and every M1+ record must contain a 决策记录 section
 # (completion-records/README.md). This is what makes the status file auditable.
+# Bullets are "- Mx / HXA-NNN 已完成：…" — match the bullet prefix, and fail when the
+# pattern matches nothing at all so the contract can never be silently vacuous.
 completed_match = re.search(r"^## Completed\n(.*?)(?=^## )", status, re.MULTILINE | re.DOTALL)
 completed_section = completed_match.group(1) if completed_match else ""
-for milestone, task_id in re.findall(r"^M(\d+) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE):
+completed_entries = re.findall(r"^\s*[-*]\s*M(\d+) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE)
+if not completed_entries:
+    fail(status_path, "no 'Mx / HXA-NNN 已完成' bullets found in the Completed section (gate would be vacuous)")
+for milestone, task_id in completed_entries:
     if milestone == "0":
         record = root / "docs" / "m0-completion-record.md"
     else:

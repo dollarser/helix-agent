@@ -34,6 +34,7 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 14. 用户主动开启的 Accessibility 自动化与可选 Root 高级能力。
 15. 任务中断后的持久化恢复。
 16. 可选 PRoot + Alpine Linux 开发者模式。
+17. 确定性 Tool 编排：单一安全管线、有界读并发、写屏障、按模型 call sequence 回填、取消/恢复可回放和分阶段审计。
 
 ### 2.2 明确不实现
 
@@ -44,7 +45,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 - 未经确认自动发送消息、邮件或公开内容。
 - 从模型响应中下载并加载 DEX/APK/native library。
 - 手机端完整 Android SDK/Gradle 构建环境。
-- 多 Agent 群体编排。
+- 多 Agent 群体/递归编排、Agent 间任意 peer 通信；后期只允许 HXA-105/ADR-0009 评估 Advanced 的深度 1 只读委托。
+- 云端任务舰队、远程 diff apply、可执行 Workflow/Policy DSL、Agent 自修改或自行挂载插件。
 - MCP Server 托管。
 - Skill 在线市场、自动下载依赖或未经检查的远程 Skill 安装。
 - 提取浏览器 Cookie、复用其他 App token 或调用模型厂商未公开的订阅接口。
@@ -62,6 +64,21 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 ### P3：开发者
 
 希望启用 Linux 开发者模式，在手机上运行 Python、Node.js、Git 和 Shell；接受额外下载、功耗、兼容性和安全提示。
+
+### 3.1 两级安全配置
+
+目标用户不直接等于安全配置。Helix 采用 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)定义的两级运行时边界：
+
+| 配置 | 默认与可用范围 | 产品要求 |
+| --- | --- | --- |
+| `STANDARD` | 所有安装默认；consumer 只提供此配置 | 完整安全默认、最少设置；Workspace/SAF 优先；高敏数据出网逐次确认；不显示 All-files、Accessibility、PRoot、Root 等高级入口 |
+| `ADVANCED` | 仅 developer 变体可显式开启 | 分能力风险说明和启用；可开放受限 All-files、Accessibility、离线 PRoot、Root 和精确 LAN origin；每项有 scope、期限、停止和撤销 |
+
+`consumer/developer` 是编译期内容边界，`STANDARD/ADVANCED` 是运行时 Policy 边界，两者不能合并为同一个开关。developer 首次启动仍为 `STANDARD`；切换 `ADVANCED` 不自动申请系统权限、不安装 Runtime、不请求 Root、不连接新端点。
+
+Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核。schema/Policy/Approval、Secret 隔离、进程/UID 隔离、敏感界面拒绝、审计、取消和变更后验证在两级中完全一致。
+
+当前直接分发遵循 [ADR-0006](adr/0006-single-direct-main-package.md)：用户只获取一个 Helix 主应用，工程内部由 `developer` 变体构建；普通用户直接使用默认 Standard，高级用户在同一安装内进入 Advanced，不需要卸载、换包或迁移数据。`consumer` 仅保留给未来商店、企业或合规受限渠道，不是当前默认下载。
 
 ## 4. 核心用户旅程
 
@@ -93,10 +110,11 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 ### UJ-04：Linux 开发者模式
 
 1. 用户在设置中阅读风险说明并启用开发者变体能力。
-2. 用户安装与 Helix 同签名的独立 PRoot Runtime APK；Runtime 安装固定版本、带哈希的 Alpine RootFS。
+2. 用户安装与 Helix 同签名的独立 PRoot Runtime APK，并点击一次“验证 Runtime”完成零 Job 的签名/协议/ABI 握手；Runtime 安装固定版本、带哈希的 Alpine RootFS。
 3. Agent 提议一条命令及其目录、超时、环境变量和输入快照。
-4. 用户批准后，主 App 把 Workspace 输入副本传给独立 UID 的 PRoot Runtime 执行。
-5. 结果被截断、结构化并写入审计日志。
+4. 用户批准后，主 App 按需冷启动/绑定独立 UID 的 PRoot Runtime，并把 Workspace 输入副本传入；用户不需要预先打开或保持 Runtime 应用在前台。
+5. 结果被截断、结构化并写入审计日志；空闲后解绑，Runtime 进程可以被系统回收。
+6. 若执行中断或 Runtime 被强制停止，Helix 显示中断原因和“修复 Runtime”入口，不自动重复执行命令。
 
 ### UJ-05：网页研究与受控交互
 
@@ -148,6 +166,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | FR-LLM-006 | P1 | 常用厂商模板与自建服务 | SGLang/Ollama 真机连接；不硬编码模型名 |
 | FR-LLM-007 | P1 | 上下文裁剪 | 永不截断待执行工具参数和审批上下文 |
 | FR-LLM-008 | P2 | Codex/Claude 官方 CLI 订阅后端 | CLI 持有凭据；安全 Spike 前不冒充纯 ModelProvider |
+| FR-LLM-009 | P0 | Provider 数据去向分类 | 按实际 endpoint 标记本机、已授权局域网、公有云或未知远端；不按 Ollama/SGLang 等模板名猜测 |
+| FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝 |
 
 ### 5.3 Agent Runtime
 
@@ -168,6 +188,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 
 每个工具必须包含：稳定名称、版本、描述、输入 Schema、输出 Schema、操作类别（是否只读）、风险等级、超时、最大输出、权限声明、幂等性说明和实现者。Plan 只看操作类别是否为 `READ_ONLY`，不使用风险等级猜测。
 
+同一模型响应包含多个 ToolCall 时，由平台根据规范化参数生成 effect footprint。只读且资源不冲突的调用可在手机有界并行；写入、代码、Root、Accessibility、同一页面/Runtime lane 或未知效应默认串行。实际完成顺序不改变模型历史：结果按原始 call sequence 回填，真实 timing 单独审计。模型、MCP 和 Skill 不能声明自己“并发安全”。
+
 下表是产品级首批核心工具；完整名称、风险和实施顺序以 [Android 平台能力 §7](09-android-platform-capabilities.md#7-android-基础工具最小集合) 及 backlog 为准。短工具名采用 Pi Agent 已验证的模型交互习惯，但执行实现必须符合 Android scope：
 
 | 工具 | 优先级 | 默认风险 | 说明 |
@@ -183,7 +205,7 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | `files.copy` | P1 | L1/L2 | 目标冲突和跨 scope 必须显式策略 |
 | `files.move` | P1 | L2 | 默认审批 |
 | `files.delete` | P1 | L2 | 每次审批，优先进入 Helix 回收站 |
-| `http.fetch` | P1 | L1 | 默认 GET、禁止私网和凭据转发 |
+| `http.fetch` | P1 | L1 | 默认 GET；Standard 仅公网；Advanced 仅可访问用户预建的精确 LAN/loopback origin scope；metadata 和凭据转发始终拒绝 |
 | `code.javascript.run` | P0 | L2 | 必须展示代码并审批 |
 | `bash` | P1 | L2 | 仅独立 PRoot Runtime；每次展示 script/argv |
 | `browser.open` / `browser.snapshot` | P1 | L1 | 内置浏览器导航和页面语义快照 |
@@ -210,6 +232,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | L3 | Root 写入、通用 Root 命令、权限边界变化或不可逆高影响动作 | 默认拒绝；仅明确的开发者控制台流程逐次确认 |
 
 审批决定只对“工具名/版本/schema hash + 参数摘要 + scope + 会话 + 执行目标 + 短期页面/UI token + 一次执行”有效。MVP 不提供永久允许生成代码。
+
+只有明确的批准决定能生成并消费 `ApprovalProof`。拒绝决定可以记录为已处理，但不能被消费为执行授权；并发消费最多一个批准凭证成功。Advanced 可以保存的只是 ADR-0005 允许的精确数据发送规则，不能把 L2/L3 工具审批、生成代码或 Root 命令永久放行。
 
 ### 5.6 Workspace
 
@@ -268,8 +292,11 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 
 ### 5.11 直接分发与降级
 
-- 完成 M7 后的 `consumer` Beta/Release 保留 Workspace/SAF、浏览器、Provider、MCP/Skills 和 QuickJS，不含 All-files、Accessibility、Root、PRoot/CLI 入口。M0–M6 的 Consumer Alpha 不声称 MCP/Skills 可用，相关 route/Tool 保持关闭直到 M7 验收。
-- `developer` 是当前直接分发主版本，包含高级权限 UI 和 Runtime clients，但 PRoot/CLI binary 仍位于独立 APK/UID。
+- 当前直接分发只提供一个用户主应用：工程内部的 `developer` 变体，下载页和 UI 统一称为 Helix，不要求用户选择“consumer 还是 developer”。
+- `developer` 包含高级权限 UI 和 Runtime clients，但 PRoot/CLI binary 仍位于独立 APK/UID，按需安装且不形成第二个主应用。
+- `developer` 安装后默认仍使用 `STANDARD`；`ADVANCED` 及其各项能力必须分别显式开启，不能因安装 developer APK 自动获得权限或扩大 Tool Registry。
+- developer 未来声明 All-files/Accessibility 组件后，Android 系统设置仍可能列出 Helix；Standard 只承诺这些能力默认关闭、不自动申请/启用且没有 Agent scope，不承诺从系统设置隐藏 manifest 声明。
+- `consumer` 保留为未来应用商店、企业策略或其他严格受限渠道产物：只提供 Standard，完成 M7 后可保留 Workspace/SAF、浏览器、Provider、MCP/Skills 和 QuickJS，但不含 All-files、Accessibility、Root、PRoot/CLI 入口。它不是当前普通用户默认下载，也不承诺与直接分发主应用跨 applicationId 原地迁移。
 - 未安装 Runtime、未 Root、未开启 All-files/Accessibility 或未配置 MCP 时，相关工具不进入模型工具表，其余能力正常运行。
 - 当前不保证 Google Play 可上架；未来渠道版必须重新做权限与功能裁剪。
 
@@ -287,23 +314,27 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | NFR-008 | 可观察性 | 每个 Turn、ToolCall、Approval、Execution 有 correlation ID |
 | NFR-009 | 可测试性 | core 模块 JVM 单元测试；Android 边界用 instrumentation 测试 |
 | NFR-010 | 可维护性 | 无循环模块依赖；UI 不直接访问 DAO、HTTP 或执行器 |
+| NFR-011 | 安全默认 | consumer 仅 Standard；developer 首次启动为 Standard；切换 Advanced 产生 0 次权限、Root、Runtime 安装或网络副作用 |
+| NFR-012 | 单一主包 | 直接分发清单只有一个主 App；同一安装切换 Standard/Advanced 不丢失会话、Workspace 或 Provider 配置 |
+| NFR-013 | Runtime 生命周期 | companion 无需预先打开/常驻即可冷绑定；进程回收后可重连，未知执行结果不自动重放 |
 
 ## 7. 页面需求
 
-1. 首次启动：隐私说明、Provider 配置、连接测试。
+1. 首次启动：隐私说明、Provider 配置、连接测试；直接分发主应用默认 Standard，不向用户展示工程 flavor 选择。
 2. 会话列表：创建、重命名、归档、模型标识。
 3. 会话页面：时间线、输入、停止、工具展开、审批卡片。
 4. Workspace：文件树、文本预览、Diff、导入、导出。
 5. 任务详情：状态机、模型调用、工具调用、耗时、产物。
 6. Provider 设置：密钥、Endpoint、Model、连接检查。
 7. 权限中心：通知、日历、麦克风、文件授权及用途。
-8. Runtime 设置：QuickJS 限额；developer 变体的 Linux 安装与删除。
+8. Runtime 设置：QuickJS 限额；developer 变体的 Linux 安装、状态、更新、修复与删除。进程存活不作为“已安装/可用”的显示条件。
 9. 审计日志：按会话、工具、风险、日期过滤。
 10. 内置浏览器：地址栏、标签、站点权限、下载和 Agent 动作指示。
 11. 文件管理器：Workspace/SAF/All-files/Root 来源标识、冲突和长任务进度。
 12. MCP 与 Skills：Server 连接、动态能力启停、Skill 导入/校验/快照。
-13. Agent 模式与 Goal：模式切换、Plan、验收条件、预算和检查点。
-14. 高级能力：Accessibility、Root、Linux/CLI Runtime 的独立风险页和停止/卸载入口。
+13. 安全配置：developer 中展示 Standard/Advanced、不可变安全内核、分能力启用状态、scope/规则期限和一键撤销；consumer 不显示 Advanced。
+14. Agent 模式与 Goal：模式切换、Plan、验收条件、预算和检查点。
+15. 高级能力：Accessibility、Root、Linux/CLI Runtime 的独立风险页和停止/卸载入口。
 
 首版 UI 跟随系统语言，提供简体中文和英文资源；用户可见字符串不得硬编码在 Kotlin/Compose 中。
 
@@ -349,6 +380,12 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 28. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
 29. Goal 预算耗尽进入暂停/失败而非完成，重启后不重复副作用。
 30. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
+31. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
+32. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。
+33. 两个无冲突只读 Tool 可有界并行，但模型收到结果顺序与原始 call sequence 一致；重跑 fixture 结果确定。
+34. 并行队列取消时，未启动调用留下 `ABORTED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
+35. 调度失败不能回退到更低隔离 target、扩大 scope/权限或先联网后补审批。
+36. 若未来启用 child delegation，child 只读、深度 1、共享父预算且无 Approval Proof/Secret；写入 proposal 必须由父 Turn 重新审批。
 
 ## 10. 成功定义
 

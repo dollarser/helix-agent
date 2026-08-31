@@ -181,6 +181,8 @@ CLI Runtime APK：:runtime:cli-app:assembleDebug / assembleRelease
 
 主 App developer 包含高级能力和 Runtime IPC client，但不包含 PRoot/RootFS/CLI binary。`runtime:proot-app` 是无 INTERNET 的独立 APK/UID；`runtime:cli-app` 是有 INTERNET、无 All-files/Accessibility/Root 的独立 APK/UID。CI 分别验证权限和禁止内容。
 
+发布角色与 Gradle 名称分开：当前直接分发只把 developer 构建作为用户主应用，产品名仍为 Helix；consumer 只为未来受限渠道保留。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名迁移决定不得机械重命名。PRoot/CLI APK 是按需 companion，不得出现在“选择主应用版本”的 UI 中。
+
 applicationId 基线：`consumer=com.helix.agent`、`developer=com.helix.agent.developer`、`runtime:proot-app=com.helix.runtime.proot`、`runtime:cli-app=com.helix.runtime.cli`。变体使用 `developerImplementation` + `src/developer` 隔离 `feature:files-allfiles`、`tools:automation`、`tools:root`、`runtime:proot-client`、`runtime:cli-client`，不仅依赖运行时 feature flag 隐藏 consumer 入口。
 
 ## 7. 本地配置和 Secret
@@ -259,18 +261,20 @@ Helix/
 ./gradlew :runtime:proot-app:assembleDebug
 ./gradlew :runtime:cli-app:assembleDebug
 ./gradlew test
-./gradlew lintConsumerDebug
-./gradlew connectedConsumerDebugAndroidTest
+./gradlew lintConsumerDebug lintDeveloperDebug
+./gradlew connectedConsumerDebugAndroidTest connectedDeveloperDebugAndroidTest
 ```
 
-安装：
+安装当前直接分发主应用的开发构建：
 
 ```bash
 adb devices
-adb install -r app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
+adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
 ```
 
-PRoot/CLI 开发者模式安装顺序：先安装与主 App 同签名证书构建的所需 Runtime APK，再安装 developer 主 App；启动时执行协议、版本和签名握手。不要为调试关闭签名校验。
+consumer 只用于受限渠道和裁剪门禁 smoke，需要验证时单独安装 `app-consumer-debug.apk`，不能把该命令写成当前普通用户安装路径。
+
+PRoot/CLI 是可选 companion。需要测试时，先安装与主 App 同签名证书构建的所需 Runtime APK，再安装 developer 主 App；启动时执行协议、版本和签名握手。不测试高级 Runtime 时只安装主 App，不要求普通用户预装 companion。不要为调试关闭签名校验。
 
 不要把 `adb shell pm grant` 当正常用户权限流程。权限必须从产品 UI 引导用户在系统界面授予。
 
@@ -307,7 +311,7 @@ checkout
 → git diff --check
 ```
 
-workflow 的 action 均固定到 commit SHA，但仓库尚未推送，因此目前只有本地等价命令证据，没有远端 run。HXA-003 已在本机 API 36 arm64-v8a AVD 通过 instrumentation。
+workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 GitHub：最早 1 次 Android CI 失败后，依赖验证/Action 版本修复带来 3 次连续成功；最新成功运行是 [33364284426](https://github.com/dollarser/helix-agent/actions/runs/33364284426)，并生成保留 1 天的 debug APK bundle。当前远端 workflow 仍不运行 emulator/真机；HXA-003 的 API 36 arm64-v8a instrumentation 证据来自本机，不能由远端构建替代。
 
 后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
 

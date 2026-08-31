@@ -29,6 +29,14 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
 
 处理 Provider/MCP/Skill/Plan/Goal 时读取 [专项方案](10-provider-mcp-skills-modes.md)；处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](09-android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
 
+需要比较 Agent 设计时再读取[主流 Coding Agent / Harness 参考](06-open-source-references.md#511-主流-coding-agent--agent-harness-设计参考)，并遵守以下顺序：
+
+1. 先写清当前 HXA 的具体问题，例如“tool result 如何进入事件流”，不要泛泛地“研究 Claude Code”。
+2. 只选择 1～2 个能回答该问题且仍可核实的参考；优先官方仓库、协议、测试和安全说明。
+3. 摘录可验证的 invariant、接口形状或攻击/恢复用例，不复制整段实现，不依赖二手架构图。
+4. 把桌面 shell、Git、插件、OAuth 和文件权限假设逐项映射到 Android scope/Policy/Approval/UID 生命周期；无法映射就不采纳。
+5. 最终方案以 Helix 当前规范、代码和测试为准；若参考方案要求改变已接受边界，起草 proposed ADR 并暂停，不得以“主流工具这样做”直接改写。
+
 ## 3. 主控工作流
 
 ```text
@@ -36,6 +44,7 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
   → 选择该 Goal 的第一个 HXA checkpoint
   → 检查前置任务和工作树
   → 检索相关 ADR 并判断本任务是否触发决策记录
+  → 如需外部参考，只围绕当前问题核实 1～2 个官方实现/协议
   → 简短列出计划和实际需要修改的范围
   → 实现最小纵向切片
   → 运行局部测试
@@ -132,11 +141,15 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 - 是否没有 step/output/context 上限？
 - 是否把 Plan 当作普通文本，没有保存 artifact/hash？
 - 是否把 Goal 预算耗尽或无证据状态标成 completed？
+- 是否让模型/MCP/Skill 自报“并发安全”？并发必须由规范化参数的 effect footprint 决定，未知/写/代码/UI/Root 默认排他。
+- 并发结果是否按完成速度而不是原始 call sequence 回填模型？取消后未启动项是否从持久状态消失？两者都不允许。
+- Tool 失败后是否自动扩大 scope/权限、切换低隔离 target、请求 Root/LAN，或先联网再补审批？必须 fail closed 或创建新的明确审批。
 
 ### 安全
 
 - 是否在主进程执行 QuickJS？
 - 是否把 PRoot 放在主 App 的同 UID 子进程，而不是独立 Runtime APK？
+- 是否误把“本机执行”理解成主进程执行，或把 isolated process/PRoot 宣称为 VM？必须写清 CPU/内核、UID、权限、网络与数据入口。
 - 是否给 JS 注册了文件、网络或 Android bridge？
 - 是否只靠 Prompt 决定权限？
 - 是否审批后重新生成/修改了参数？
@@ -145,6 +158,21 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 - 是否让官方 CLI token 进入主 App/Room/日志？
 - 是否把 All-files 系统授权等同于 Agent 可访问整个共享存储？
 - 是否在启动时触发 Root 请求，或把 `root.exec` 放进普通工具表？
+- 是否把 `consumer/developer` 构建变体和 `STANDARD/ADVANCED` Safety Profile 合成了一个布尔值？consumer 只能 Standard，developer 默认仍是 Standard。
+- 是否承诺 Standard 能从 Android 系统设置隐藏 developer 已声明的 All-files/Accessibility 组件？只能承诺默认关闭、不自动启用和无 Agent scope。
+- Advanced 高敏出网规则是否使用固定 1h/24h/7d/30d（默认 24h、最大 30d）、不滑动续期，并在到期或时钟回拨时 fail closed？
+- 是否把 consumer 和 developer 同时列为当前普通用户下载，或要求用户为 Advanced 更换 applicationId？直接分发只有 developer 构建的一个 Helix 主应用，consumer 仅为受限渠道。
+- 是否把 PRoot/CLI companion 写成第二个主应用，或让它复制主 App 数据？companion 只通过受保护 IPC 接收有界 Job。
+- 是否要求用户先打开/常驻 Runtime，或把“进程当前存在”当成 Tool 可用条件？只有用户点击的零 Job 验证/修复/登录，或批准后的真实 Job，才能显式 `BIND_AUTO_CREATE` 冷绑定；应用启动、切换 Advanced 和被动 Registry 刷新不得启动 Runtime，空闲允许回收。
+- Binder death 后是否直接重提 argv/script？必须先按 jobId 查询并核对 input hash/terminal proof；未知结果停泊 `INTERRUPTED`，不得自动重放。
+- 是否把任意 PRoot/CLI 计算标成 `dataSync` 前台服务，或认为 FGS 永远不会被杀？类型必须匹配真实用途；无合法类型就前台有界并在退后台暂停/取消。
+- 如使用 wake lock，是否只存在于用户可见 FGS 的 RUNNING 窗口、带硬 timeout，并在成功/失败/取消/timeout/异常路径全部释放？
+- Runtime journal 是否限制为 128 条/1 MiB metadata，额度满时拒绝新 Job而不是删除 active/未对账证据，并按 7 天已对账 tombstone/30 天未对账 evidence-expired 清理？
+- 是否让 Advanced 跳过 schema/Policy/Approval、Secret/UID 隔离、审计、敏感界面拒绝或变更后验证？Advanced 只能扩大显式 scope 内能力。
+- 是否因切换 Advanced 自动申请权限、安装/启动 PRoot、请求 Root、连接 LAN 或扩大 Tool Registry？这些必须分别由用户启用。
+- 是否把 `DENIED` 或任意非空 decision/consumedAt 当作可消费的 Approval Proof？只有类型化批准能授权。
+- 是否新增 `FULL_ACCESS`、自动批准、模型代用户批准，或把 Advanced/Profile/系统权限/Root grant 当成 Approval Proof？这些路径都禁止。
+- URL 检查是否只解析一次做分类，却让 transport 在建连时走未验证的二次 DNS？必须限制到已验证地址集合并逐跳复验。
 
 ### Browser/Accessibility
 
@@ -163,9 +191,14 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 - Skill 是否在 discovery 阶段把全部正文/资源塞入 context？
 - Skill 脚本是否绕过了正常的 code/bash Tool？
 - 是否把 ChatGPT/Claude 订阅当作可直接使用的 API key？
+- 是否根据 Ollama/SGLang/“自建”模板名称猜测数据驻留位置？必须按规范化实际 endpoint 分类。
+- Standard 是否允许高敏数据永久放行？Advanced 规则是否遗漏 Provider/MCP ID、origin、数据类别、scope、有效期或撤销？
+- API key、OAuth token、Cookie、密码、验证码或认证字段是否存在任何 Advanced 放行路径？这些始终拒绝发送。
 
 ### 文件
 
+- 是否把 PRoot 里存在 `git` 二进制误写为持久 Git 管理？`.git` 权威位置和原子交换在 ADR-0008 接受前未定，禁止提前做 Git UI、remote Git 或凭据流。
+- 是否提前实现 subagent、Agent graph 或 Workflow DSL？ADR-0009 仍 proposed；HXA-105 前保持单 Agent，不复制云端任务、自修改插件、递归/peer Agent 或可执行 JS/Starlark 编排。
 - 是否直接拼 `File(root, userPath)`？
 - 是否跟随了越界 symlink？
 - 是否直接覆盖，没有临时文件/hash/conflict？
@@ -177,6 +210,7 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 - 是否使用真实网络导致不稳定？
 - 是否为通过测试增加 sleep？
 - 是否把异常 catch 后返回成功？
+- 是否在没有 HXA-122/迁移 ADR 和代码证据时重命名 flavor、交换 applicationId，或声称不同 applicationId 可以原地升级？
 
 ## 9. 测试反馈策略
 

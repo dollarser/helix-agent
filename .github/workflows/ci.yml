@@ -21,6 +21,10 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Full history so the whitespace check below can diff the actual change range
+          # (merge base on PRs, HEAD~1 on pushes) instead of an always-clean worktree.
+          fetch-depth: 0
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0 (node24)
@@ -59,7 +63,9 @@ jobs:
         # Debug-signed build artifacts for installation (development use, not for
         # distribution). retention-days: 1 keeps storage in the free 2 GB tier
         # regardless of push volume (~68 MB per run). Uploaded right after the
-        # build so the APKs survive even if a later gate step fails.
+        # build so the APKs survive even if a later gate step fails. The bundle
+        # contains one direct-distribution main-app candidate (developer), one
+        # restricted-channel boundary artifact (consumer), and two companions.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (node24)
         with:
           name: helix-apks-${{ github.sha }}
@@ -69,6 +75,21 @@ jobs:
             app/build/outputs/apk/developer/debug/app-developer-debug.apk
             runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
             runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
+
+      - name: Describe debug APK roles
+        run: |
+          printf '%s\n' \
+            '## Debug APK artifact roles' \
+            '' \
+            '| APK | Role |' \
+            '| --- | --- |' \
+            '| `app-developer-debug.apk` | Current direct-distribution Helix main-app candidate; defaults to Standard |' \
+            '| `app-consumer-debug.apk` | Restricted-channel/variant-boundary artifact; not the default user download |' \
+            '| `proot-app-debug.apk` | Optional PRoot companion Runtime |' \
+            '| `cli-app-debug.apk` | Optional experimental CLI companion Runtime |' \
+            '' \
+            '> Debug-signed development artifacts only; not release evidence.' \
+            >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify dependency locks
         run: ./scripts/check-lockfiles.sh
@@ -86,4 +107,12 @@ jobs:
         run: ./scripts/verify-variant-boundaries.sh
 
       - name: Check whitespace
-        run: git diff --check
+        # `git diff --check` on a fresh checkout inspects an always-empty worktree diff and
+        # can never fail; check the actual change range instead (merge base on PRs,
+        # the last commit on pushes).
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ] && git rev-parse --verify "origin/$GITHUB_BASE_REF" >/dev/null 2>&1; then
+            git diff --check "$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" HEAD
+          else
+            git diff --check HEAD~1 HEAD
+          fi

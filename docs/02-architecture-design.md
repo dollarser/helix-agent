@@ -14,6 +14,24 @@
 7. 系统权限、MCP annotation、Skill 指令和 Root grant 都不能代替 Tool Policy。
 8. 当前单机实现不混入远程 Worker/HarmonyOS 传输代码，只保持执行目标接口可扩展。
 
+运行时安全配置遵循 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)：`STANDARD` 是所有安装默认，`ADVANCED` 只在 developer 变体显式可用。Gradle `consumer/developer` 决定代码是否进入 APK，Safety Profile 决定已编译能力在本次运行中是否可见；二者正交，均不能替代 Android 系统权限、Capability 实时状态、Tool Policy 或逐次审批。
+
+发布角色遵循 [ADR-0006](adr/0006-single-direct-main-package.md)：当前直接分发只提供 developer 变体生成的一个用户主应用，产品层不暴露 flavor 名；consumer 是未来受限渠道构建。PRoot/CLI Runtime 是独立 UID 的可选 companion，不是另一个主应用，也不能持有或迁移主应用数据库。
+
+Companion 生命周期遵循 [ADR-0007](adr/0007-companion-runtime-lifecycle.md)：用户只需安装匹配的 PRoot/CLI Runtime，不必预先打开或保持其进程；Helix 只在用户触发并通过 Policy/Approval 的 Job 上按需冷绑定，断连后查询/对账，未知结果停泊而不自动重放。
+
+### 1.1 “本机执行”与隔离强度
+
+| 执行目标 | 物理执行位置 | 安全边界 | 不得宣称 |
+| --- | --- | --- | --- |
+| E0 原生 Tool | 手机、主 App UID | schema + scope + Policy + Approval + Android 权限 | 通用代码沙箱 |
+| E1 QuickJS | 手机、系统分配的 isolated UID | 非导出 isolated Service、无权限、无 Host Bridge、输入输出有界 | Zipline/QuickJS 自身提供沙箱或 VM |
+| E2 PRoot | 手机、独立 companion APK/UID | 签名 IPC、Job 快照、无 INTERNET、进程与资源限制 | PRoot 提供内核/虚拟机级隔离，或直接挂载真实 Workspace |
+| E2C CLI Runtime | 手机、独立有网 companion APK/UID | 私有 Job、官方 CLI 自持凭据、签名 IPC；是否接入 Agent 取决于 Spike | 远程 Worker，或默认继承主 App 文件/权限 |
+| LLM Provider | 设备或网络 endpoint | Context Builder + egress Policy；只收到明确选择的上下文 | 在手机上执行 Tool，或直接拥有 Android 权限 |
+
+当前没有 E3 Remote Worker。以后即使新增远程执行，也必须使用新的执行目标、数据出境提示和威胁模型，不能把 Provider API 静默升级为远程 shell。Root 与 Accessibility 是高权限平台执行域，不是沙箱；它们依靠结构化工具、限时 scope、实时权限检查、逐次 Policy/Approval 和拒绝清单收口。
+
 ## 2. 系统上下文
 
 ```text
@@ -320,6 +338,9 @@ sealed interface ModelEvent {
 - `OPENAI_RESPONSES`、`OPENAI_CHAT_COMPLETIONS`、`ANTHROPIC_MESSAGES` 是独立 adapter，不做失败后猜测式换协议。
 - Ollama/SGLang 等自建服务先做文本和 ToolCall 能力探测；兼容性结论记录到 snapshot。
 - ChatGPT/Claude 消费者订阅只允许通过官方 CLI 自己登录；token 不进入主 App。详见 [专项方案](10-provider-mcp-skills-modes.md)。
+- Provider 数据去向根据规范化后的实际 endpoint 分类为 `ON_DEVICE_LOOPBACK`、`USER_AUTHORIZED_LAN`、`PUBLIC_CLOUD` 或 `CUSTOM_REMOTE_UNKNOWN`；模板名、自建标签和手工声明不能替代 endpoint 校验，也不代表端点可信。
+- Provider 请求在发送前携带可审计的数据类别清单。API key、OAuth token、Cookie、密码、验证码和认证字段始终拒绝进入请求；联系人、通知、位置、文件正文、浏览器或 Accessibility 内容按 ADR-0005 的 Safety Profile 门控。
+- `STANDARD` 的高敏数据每次发送都展示 Provider、规范 origin、数据类别和 scope；`ADVANCED` 只允许保存绑定 Provider ID + origin + 数据类别 + scope + 有效期的规则，新 origin/类别或规则过期时重新确认。
 
 ## 7. Tool 模型
 
@@ -363,6 +384,28 @@ data class ToolDescriptor(
 
 `read`、`write`、`edit`、`bash` 是面向模型的稳定短名称；namespaced 文件工具是扩展集合，两者必须委托给同一实现和 Policy，不能复制逻辑。
 
+### 7.2 手机端确定性调度
+
+详细契约见[手机端 Tool 编排方案](11-mobile-tool-orchestration.md)。首版调度器遵守：
+
+- 并发安全由平台根据规范化参数计算的 effect footprint 决定，至少包含 operation class、execution target、scope、canonical resource key、origin 和排他标志；模型、MCP annotation、Skill 或工具描述文本不能声明自己可并发。
+- 只并行已证明不冲突的读取。未知 footprint、写/删、代码执行、Root、Accessibility、同一 browser tab 和同一 Runtime lane 默认排他；QuickJS/PRoot 等执行域自己的并发上限仍独立生效。
+- 手机默认总并发 2，HXA-037 在真机资源证据后才可把候选硬上限放宽到 4；后台、热限制或低内存时可降为 1。不得把桌面默认 10 并发照搬到手机。
+- 执行可以乱序完成，但 ToolResult 必须按模型原始 call sequence 进入上下文；真实完成顺序和 queue/approval/execution/verification timing 单独审计。
+- 取消后未启动项也要持久化 `ABORTED_BEFORE_START`；已启动项 cancel 后等待确定 terminal 或进入 unknown outcome，不删除、不自动重放。
+- 重试只允许相同 envelope、确认零副作用、同一或更强隔离条件下的有界技术重试。参数/scope/origin/target/token/权限变化必须新建 ToolCall 和 approval；任何失败都不能回退主进程 shell 或自动请求 Root/All-files/Accessibility/LAN。
+
+必须维护 `model-visible ⇔ persisted` 不变量：所有进入下一次模型请求的 ToolResult、用户回答、委托结果和 compaction summary 都能从持久事件及 content hash/ref 重建。瞬时 telemetry 可以更详细，但不能成为恢复的唯一真相。
+
+### 7.3 后期委托与 Workflow 边界
+
+当前产品仍是单 Agent Tool Loop。proposed [ADR-0009](adr/0009-bounded-local-orchestration.md)只允许 HXA-105 评估两项后期能力：
+
+1. developer/Advanced 的深度 1 只读 child delegation；child 不持有 Approval Proof、Secret、Root/Automation session 或写工具，需要变更时只向父 Turn 返回 proposal。
+2. 有版本 JSON DAG 的声明式 Workflow 子集；所有节点编译回同一 Dispatcher，不执行模型生成的 JS/Starlark Policy/Workflow，也不允许自修改插件。
+
+Goal 已提供持久目标、预算和恢复，不再另建 ralph/无限自治生命周期。Remote Worker、云端任务舰队、cloud diff apply、任意 Agent peer 通信和递归群体编排继续不实现。
+
 ## 8. Policy Engine
 
 动态风险由以下因素合成：
@@ -388,6 +431,18 @@ approvalHash = SHA-256(
 
 任何参数、代码、命令、文件列表、网络权限、超时变化都会使旧审批无效。
 
+审批记录和执行授权必须分开表达：`DENIED` 可以持久化和显示为已处理决定，但只有明确批准且未过期的记录可以生成/消费 `ApprovalProof`。Dispatcher 不得把 `decision != null` 或 `consumedAt != null` 单独解释为获准执行；HXA-034 必须覆盖拒绝、过期和并发消费。
+
+Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Profile 只能由设置 UI 中的用户操作触发，进入 `ADVANCED` 不自动授予系统权限、创建 scope、安装 Runtime、请求 Root 或允许网络 origin。
+
+### 8.1 审批 UI 与授权模式
+
+- 当前通用 Tool 审批只有 `ASK_EACH_TIME`：L2/L3 每个 ToolCall 都展示规范化后的完整授权摘要，用户只能对该次摘要批准或拒绝；批准后修改参数、scope、origin、代码、target 或 transient token 必须重新询问。
+- 模型、MCP、Skill、网页、通知或 Runtime 都不能代替用户按下批准，也不能请求系统生成“帮我批准”的决定。拒绝后同一 Turn 不得用相同动作骚扰式重试。
+- 产品不提供全局 `FULL_ACCESS`、`AUTO_APPROVE_MODEL` 或“Advanced = 全部批准”。Profile 切换、Android 权限、Root grant、Runtime 安装和审批是彼此独立的状态。
+- ADR-0005 的 Advanced 高敏出网规则是精确绑定 Provider/origin/数据类别/scope/期限的可撤销 Policy 规则，不是通用 Tool Approval Proof，不能授权文件修改、shell、Root、Accessibility 或新 origin。
+- 将来若要增加低风险会话规则，只能约束明确工具、operation class、scope、参数上限、次数/时间上限和撤销入口；任何会减少现有 L2/L3 逐次确认的设计都属于安全边界变更，必须先有 proposed ADR、攻击测试和所有者接受。
+
 ## 9. 数据模型
 
 ### 9.1 Room 表
@@ -400,14 +455,14 @@ approvalHash = SHA-256(
 | `model_calls` | id, turnId, providerSnapshot, state, usage, requestId | 模型调用，不存 secret |
 | `tool_calls` | id, turnId, callId, name, version, argsJson, argsHash, state | 工具请求 |
 | `tool_results` | id, toolCallId, status, summary, contentRef, verified | 工具结果 |
-| `approvals` | id, toolCallId, argsHash, decision, decidedAt, consumedAt | 一次性审批 |
+| `approvals` | id, toolCallId, argsHash, decision, decidedAt, consumedAt | `decision` 仅 `APPROVED`/`DENIED`；只有 `APPROVED` 可一次性消费 |
 | `executions` | id, toolCallId, runtime, limitsJson, exitCode, signal | 代码/命令执行 |
 | `artifacts` | id, sessionId, relativePath, mediaType, size, sha256 | 产物索引 |
 | `audit_events` | id, correlationId, type, actor, redactedPayload, timestamp | 审计 |
 | `provider_configs` | id, displayName, protocol, endpoint, model, headersJson, secretAlias, capabilitySnapshot | 无明文 key |
 | `runtime_installs` | id, type, version, state, manifestHash, installedAt | PRoot/RootFS |
 | `plans` / `plan_steps` | objective, version, hash, state, evidenceRef | 版本化计划 |
-| `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录 |
+| `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
 | `skills` / `skill_snapshots` | name, source, version, rootRef, contentHash, enabled / runId, skillId, contentHash, catalogEntry | Skill 渐进加载和固定版本 |
 | `capability_grants` | type, systemState, userScopeRef, checkedAt | 权限状态缓存，不代替实时检查 |
@@ -454,6 +509,7 @@ All files access 通过系统设置授权后仍要求用户在 Helix 内选择 r
 - Accessibility：用户从系统设置开启，目标包 allowlist、限时 session、节点 token 和停止入口；敏感系统/支付/认证界面拒绝。
 - Root：用户明确触发 libsu Root 请求；高层只读工具优先，`root.exec` 默认不对 Agent 开放。
 - Network Security Config：公网 release 禁止 cleartext；用户可为明确的局域网模型/MCP host 开启受限 HTTP 配置。
+- 通用 URL Policy：解析得到的全部 A/AAAA 地址先规范化和分类，HTTP client 只能尝试本次已验证的地址集合；连接时保持原 hostname 的 Host/SNI/证书验证，并复验实际 peer address。每次重定向重新执行 scheme/origin/DNS/IP/credential Policy，拒绝 IPv4/IPv6 编码变体、DNS rebinding、云 metadata 和越出授权 scope 的地址。
 
 ## 12. 生命周期与并发
 
@@ -463,6 +519,18 @@ All files access 通过系统设置授权后仍要求用户在 Helix 内选择 r
 - 代码执行全局最多 1 个，避免手机资源争用。
 - Application 退后台不意味着 Turn 自动结束；是否提升前台服务取决于任务类型和用户可感知状态。
 - UI 通过 Repository/Runtime 的 `Flow` 恢复，不持有执行 Job 所有权。
+
+### 12.1 Companion Runtime Supervisor
+
+- `RuntimeSupervisor` 是进程级客户端，不属于 Activity/ViewModel。它检查目标 package 是否安装/启用、签名是否匹配，并用 explicit `ComponentName` + signature permission + `BIND_AUTO_CREATE` 冷绑定；进程预先存活或用户手动打开 Runtime 都不是前置条件。
+- 切换 `ADVANCED`、应用启动和被动 Registry 刷新不安装、不启动、不绑定 Runtime。只有用户点击“验证/修复/登录”时可建立零 Job 握手，或对应 ToolCall 已通过 Registry、Policy、Approval 且输入快照已固定后，才允许绑定并提交 Job；进程是否存活不影响已验证 descriptor。
+- `ServiceConnection` 连接后先完成 protocol/runtime/ABI/capability 握手。未安装、禁用、被强制停止、签名/版本不符时 fail closed，不得回退到主 App shell、QuickJS 或权限更大的执行目标。
+- 每个 Job 绑定 `executionId/jobId`、input manifest hash、deadline 和 output limit。Runtime 在独立 UID 私有目录原子记录有界 journal/terminal commit；主 App Room 仍是 Agent/审批权威，Runtime journal 只提供恢复证据。
+- Binder death、`DeadObjectException` 或主 App 恢复后，先重连并按 jobId 查询；只接受与输入 hash 一致的完整 terminal record/output manifest。无法证明结果时进入现有 `ExecutionState.INTERRUPTED`，不得重新提交原命令。
+- 无活动 Job、结果传输或登录交互后主动解绑，允许系统回收 Runtime。CLI 首次登录/重新认证可以打开 companion UI，但正常调用不要求该 UI 在前台。
+- 需要退后台继续的用户主动任务，只有存在与真实工作匹配的 foreground service type 时，才由 Runtime 自己进入 started + bound 前台服务并显示停止通知；`dataSync` 不能伪装任意 Shell/CLI 计算。无合法类型时任务保持前台有界，并在退后台时暂停或取消。
+- 前台服务仍可能被系统/OEM 终止。若真机证明确需 wake lock，只能在用户可见前台服务的 `RUNNING` 窗口持有带硬超时的 `PARTIAL_WAKE_LOCK`，并在所有 terminal/cancel/timeout 路径释放；不得持有无限 wake lock。
+- 强制停止、禁用、设备重启或 OEM 限制后不自动启动 Runtime、不自动恢复或重放 Job；UI 显示中断/不可用及恢复步骤。若平台要求显式恢复 stopped package，只在用户点击后打开 companion 的最小设置/修复入口。
 
 ## 13. 错误契约
 
@@ -500,6 +568,9 @@ sessionId → turnId → modelCallId/toolCallId → approvalId/executionId
 - QuickJS Service 被声明为 `isolatedProcess=true`、`exported=false`。
 - QuickJS 超时实例的回收有 PID/Binder death 证据，后续执行使用新 instance name 和新进程。
 - PRoot Runtime 使用独立 applicationId/UID；跨 App Service 只允许同签名客户端绑定，并执行协议版本握手。
+- PRoot/CLI Runtime 未运行且未手动打开时可按需冷绑定；空闲解绑后可被回收，下次 Job 可重新冷启动。
+- Runtime Binder 断连后按 jobId 查询/对账；没有匹配 input hash 的 terminal proof 时停泊为 `INTERRUPTED`，不会自动重放。
+- 需要后台继续的 Runtime Job 使用与真实用途匹配的用户可见前台服务；任意计算不冒充 `dataSync`，所有可选 wake lock 都有硬超时和释放证据。
 - 主进程崩溃重启后，活动 Turn 不会静默标记完成。
 - UI 源码中不存在 DAO、OkHttpClient、QuickJs 或 PRoot 直接调用。
 - Tool 实现没有静态全局 Context。

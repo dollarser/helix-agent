@@ -14,6 +14,8 @@ Helix 需要允许 Agent 临时生成代码解决长尾任务，但不同代码�
 
 路由原则：能用 E0 就不用代码；能用 E1 就不用 Linux；只有依赖完整 CLI/包生态或 stdio MCP 时才使用 E2。内置浏览器属于 E0 平台工具，不属于远程浏览器。
 
+这里的 E0/E1/E2/E2C 都在用户手机的物理 CPU 和 Android/Linux 内核上执行；区别是进程、UID、权限、网络和数据入口，而不是“本机/云端”二选一。模型推理可以来自公网、LAN 或设备内 Provider，但 Provider 只返回文本/ToolCall，真正 Tool 执行仍由 Helix 的本机管线完成。当前没有远程 shell/Worker，也不能把“isolated process”“PRoot”宣传成 VM：前者是 Android isolated UID 边界，后者是独立 UID 中的 Linux 用户态兼容层。
+
 ## 2. QuickJS 技术选型
 
 ### 2.1 选型
@@ -164,6 +166,8 @@ PRoot 模式用于必须依赖 Linux 用户态、Python/Node/Git/Shell 的任务
 - 每个 Job 通过 Binder/PFD 接收经过审批的输入快照，输出也以快照返回。
 - Linux 命令仍经过 Policy Engine，每次执行属于 L2。
 
+PRoot 离线是 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)接受的产品边界，不是等待实现者选择的临时默认。即使用户进入 Advanced、授权 LAN/All-files/Root，PRoot Runtime 仍不得声明或继承 `INTERNET`。未来联网 Shell 必须使用新的执行域并单独完成威胁模型、ADR 和发布门禁，不能在 HXA-084/085 中增加网络开关。
+
 ### 6.2 运行时组成
 
 ```text
@@ -242,6 +246,8 @@ Runtime APK 声明独立 `applicationId`，跨 App Service 必须 `exported=true
 
 主 App 使用同名 `uses-permission`，并以 explicit ComponentName 绑定。Service 再校验调用 UID 对应包签名，完成 `protocolVersion/runtimeVersion/ABI` 握手。
 
+跨 APK 不等于用户要先打开 Runtime。PRoot 不需要日常 launcher UI，但要提供 Helix 可在用户点击后打开的最小设置/修复入口；正常 Job 在安装且校验通过后，由主 App 使用 `BIND_AUTO_CREATE` 按需创建 Service 进程。不得把 `ActivityManager` 观察到进程、用户“打开过一次”或后台常驻作为 Tool 可用条件。CLI Runtime 也使用相同的冷绑定规则，只有首次登录、重新认证或退出需要可见 UI。完整契约见 [ADR-0007](adr/0007-companion-runtime-lifecycle.md)。
+
 Job 数据流：
 
 ```text
@@ -263,6 +269,21 @@ Job 数据流：
 
 输入/输出 archive 同样执行路径穿越、symlink、文件数、单文件和总大小检查。Runtime 崩溃只能损坏自己的 Job 副本，不能直接修改主 App Workspace。
 
+### 6.6 Job 生命周期、断连与后台执行
+
+主 App 的 `RuntimeSupervisor` 与 Runtime Service 必须共同实现以下状态协议：
+
+1. 主 App 先检查 package/启用状态/签名。用户点击“验证/修复/登录”可以冷绑定做零 Job 握手；真实执行则必须在批准和输入快照固定后冷绑定，并重新完成协议、版本、ABI 和 capability 握手。应用启动、切换 Advanced 和被动 Registry 刷新不绑定。
+2. 每个请求携带稳定 `executionId/jobId`、input manifest hash、deadline 和 output limit。Runtime 原子写入私有 Job journal 后才能回报 accepted；重复提交同一 jobId 只能返回已有状态，不能启动第二份进程树。
+3. Runtime 的 journal 至少能证明 `PENDING/RUNNING`、已有 `ExecutionState` 的 terminal outcome、input hash、结果 manifest/hash 和 terminal commit。它不保存 approval proof/Secret，也不能自行创建后续 Job。
+4. 主 App 监听 `ServiceConnection`、Binder death 和 `DeadObjectException`。断连后只允许重连并 `query(jobId)`；匹配的 terminal record 可继续结果校验，其他情况将执行停泊为 `INTERRUPTED`。禁止因 Binder 超时/断连直接重新提交 argv/script。
+5. 无活动 Job、结果传输或登录交互后解绑；Runtime 进程可被 Android 回收。下一 Job 重新冷启动，不能依赖进程内缓存恢复授权或 scope。
+6. 用户强制停止/禁用 Runtime、设备重启或 OEM 后台限制后，Helix 显示不可用/中断，不自动唤醒或重放。若平台要求用户显式恢复 stopped package，只有用户点击“修复 Runtime”后才能打开 companion 的最小设置/修复 Activity；恢复后重试产生新的 ToolCall/approval/jobId。
+
+短 Job 只需 bound service。确需在主 App 退后台后继续的用户主动 Job，必须在 Helix 仍可见时启动由 Runtime 所有的 started + bound foreground service，通知展示 Runtime、任务摘要、耗时和停止动作。前台服务类型必须匹配真实工作：快照传输/本地文件处理可以使用 `dataSync`，任意 Python/Node/Shell/CLI 计算不能仅为保活冒充 `dataSync`；没有合法类型时保持前台有界执行，退后台即暂停或取消。等待审批、登录选择或人工输入时停止前台服务。
+
+前台服务只降低回收概率。若 HXA-084/CLI Spike 的锁屏真机测试证明必须阻止 CPU suspend，只能在用户可见前台服务的 `RUNNING` 窗口持有带硬超时的 `PARTIAL_WAKE_LOCK`，deadline 不晚于 Job deadline，并在成功、失败、取消、timeout、`onTimeout()` 和异常清理的 `finally` 路径释放。不得用无限 wake lock、循环重启 Service 或请求忽略电池优化来代替正确恢复。
+
 ## 7. 包安装策略
 
 ### 7.1 默认包
@@ -275,12 +296,25 @@ RootFS manifest 中的基础包由 Helix 维护，CI 构建时锁定，设备安
 
 需要新 package 时必须通过 Helix 的 Runtime 构建流程加入锁文件、许可证清单和下一版 Runtime APK，不能让 Agent 在用户设备上临时联网安装。需要联网模型订阅 CLI 时，不给现有 Runtime 静默加 `INTERNET`，而是使用下一节的独立 CLI Runtime。
 
-### 7.3 CLI Runtime（P2 实验）
+### 7.3 Git 的当前边界与决策入口
+
+RootFS 中预装 `git` 的当前含义仅是：HXA-081 固定并审计二进制，HXA-086 在离线 Job 副本中执行版本/smoke。它不等于 Helix 已具备“内置 Git 仓库管理”：
+
+- PRoot 每个 Job 只看到输入快照，不能挂载主 App 的真实 Workspace；Job 结束只返回经 hash/diff 验证的输出快照。
+- 第一版 Runtime 无 INTERNET，因此 `clone/fetch/pull/push`、远程凭据、credential helper 和 SSH agent 均不可用。
+- 不得把 Job 输出中的零散 `.git` 文件覆盖回 Workspace。对象库、index、refs 和工作树必须作为同一一致性边界处理，否则崩溃或部分导入会损坏仓库。
+- Git hooks、alias、外部 diff/merge、pager、filter、submodule、worktree 和仓库级 config 都是不可信执行/配置输入；在形成专门 Policy 和测试前不得由结构化 Git UI 隐式触发。
+- 普通用户优先获得不要求理解 Git 的 Helix 原生历史、diff、回收站和恢复；Advanced 的结构化离线 Git 是否以及如何出现，由 HXA-088 Spike 和 [ADR-0008](adr/0008-git-workspace-management.md) 决定。该 ADR 接受前，`git` 只能是每次已批准 `bash` Job 内的离线工具，不能声称持久仓库可用。
+
+HXA-088 必须在“主 App Workspace 为权威”“Runtime 私有仓库为权威”“主 App 使用 Android Git 库”之间做设备实证比较，确定原子传输、崩溃恢复、大小限额、hooks/config 禁用和 UI 语义。远程 Git 需要新的联网执行域、凭据所有权和出网威胁模型，不属于 HXA-088 首版。
+
+### 7.4 CLI Runtime（P2 实验）
 
 `cli-runtime` 用于运行厂商官方 Codex CLI/app-server 或 Claude Code CLI。它不是普通 PRoot 执行器，也不是远程 Worker：
 
 - 独立 applicationId/UID，声明 `INTERNET`，不共享离线 PRoot Runtime 的 home、RootFS 和 Job。
 - 官方 CLI 自己完成 OAuth/device-code 登录、token 保存和刷新；主 App 只接收登录状态、登录 URL/验证码及有界会话事件。
+- 登录完成后的普通会话由 Helix 按需冷绑定，不要求用户保持 CLI Runtime Activity 或进程在前台；进程回收不删除 Runtime 私有凭据。强制停止/禁用/认证失效时显示不可用或重新登录，不自动重放会话命令。
 - 主 App 不读取 CLI 凭据文件，不把 Cookie/token 复制进 Keystore，也不调用未公开服务接口。
 - 输入是经过 Context Builder 和 Policy 的 Job snapshot；默认不给 CLI All-files、Accessibility、Root、Android Intent 或主 Workspace。
 - CLI/Node/runtime 版本、来源、SHA-256、许可证和更新方式进入独立 `cli-runtime-lock.json`。
@@ -298,7 +332,7 @@ Android 官方安全指南建议避免从 APK 外动态加载代码；许多远�
 | --- | --- | --- |
 | `consumer` | 原生 Tools + APK 内 Zipline/QuickJS；不下载 native executable | 常规测试/应用商店评估 |
 | 主 App `developer` | 当前直接分发主版本；包含高级能力和 Runtime IPC client，不含 PRoot/RootFS/CLI binary | 内测、直接分发 |
-| `proot-runtime` APK | 独立 UID；内含固定 PRoot/RootFS；无 INTERNET | 与 developer 主 App 成套直接分发 |
+| `proot-runtime` APK | 独立 UID；内含固定 PRoot/RootFS；无 INTERNET | Advanced 用户按需安装的 companion；不进入默认主包下载 |
 | `cli-runtime` APK | 独立 UID；内含固定官方 CLI runtime；有 INTERNET，无 Android 高级权限 | P2 可选、直接分发 |
 
 JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁止把下载的 DEX/JAR/APK/SO 当更新机制。PRoot/CLI Runtime 通过正常签名 APK 更新，不在应用内部更新 executable。当前不以 Google Play 上架为目标；若未来上架，必须按当时渠道政策重新设计 build flavor 和权限，而不是假定直接分发版本可原样提交。
@@ -342,6 +376,11 @@ JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁�
 - stdout/stderr 洪泛受限。
 - 更新失败保持旧 runtime 可用。
 - 卸载删除 RootFS、凭据和临时文件，但不误删 Workspace。
+- Runtime 未运行且未手动打开时，显式冷绑定可创建进程并完成握手；切换 Advanced 本身不启动 Runtime。
+- 空闲解绑/系统回收后下一 Job 可冷启动；连接状态不缓存成永久 Capability。
+- 分别在 accepted 前、RUNNING、terminal commit 前后杀主 App/Runtime；重连只查询同一 jobId，未知结果进入 `INTERRUPTED` 且命令只执行一次。
+- 后台、锁屏、Doze、低内存和强制停止覆盖通知/停止/timeout；无合法 FGS 类型时按契约暂停或取消，不冒充 `dataSync`。
+- 如使用 wake lock，成功、失败、取消、timeout 和异常路径均释放，最长持有不超过 Job deadline。
 
 ### CLI Runtime
 
@@ -350,11 +389,13 @@ JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁�
 - CLI 尝试读取主 App dataDir、All-files roots 或离线 Runtime home 失败。
 - CLI 内置工具无法绕过 Helix approval；若无法证明则禁止 Act/Goal 集成。
 - 网络/输出洪泛、进程树取消、版本不匹配和 IPC 断连不会拖死主 App。
+- 未运行/未打开 companion UI 时可冷绑定；登录 UI 退出后正常会话仍可按需启动。
+- 主 App/CLI Runtime 在会话各阶段死亡后只按 jobId 查询/对账，未知结果不重放；后台继续、通知、停止和 wake lock 遵循 §6.6。
 
 ## 11. 完成标准
 
 E1 完成：在真实 Android 设备上，用户批准一段 Agent 生成的 JavaScript，代码在无权限隔离进程中运行，能处理 JSON 并返回结果；无限循环、内存膨胀、进程崩溃不影响主应用和后续任务。
 
-E2 完成：同签名的独立 Runtime APK 可从 embedded manifest 安装并验证 Alpine/PRoot，在自己的 Job 输入副本上运行 `python3`/`node`/`git` smoke test；主 App 私有数据不可见，输出经 manifest/hash 验证后才导入，更新失败可回滚，所有第三方许可证和源码信息可离线查看。
+E2 完成：同签名的独立 Runtime APK 可从 embedded manifest 安装并验证 Alpine/PRoot，在自己的 Job 输入副本上运行 `python3`/`node`/`git` smoke test；主 App 私有数据不可见，输出经 manifest/hash 验证后才导入，更新失败可回滚，所有第三方许可证和源码信息可离线查看。Runtime 无需用户手动打开即可冷绑定，空闲回收后可重启，进程死亡按 jobId 对账且未知结果不重放；后台、锁屏、Doze、停止通知和可选 wake lock 均有真机证据。
 
-E2C 完成：官方 CLI 在独立网络 UID 中完成官方登录，凭据不离开 Runtime；主 App 可创建和取消有界 CLI 会话。只有在工具拦截、审批和副作用测试全部通过后，才能把它标记为 Helix Agent 可用后端，否则 UI 必须明确显示“隔离 CLI 会话”。
+E2C 完成：官方 CLI 在独立网络 UID 中完成官方登录，凭据不离开 Runtime；主 App 可在 companion UI 不常驻时冷绑定、创建和取消有界 CLI 会话，断连后只查询/对账。只有在工具拦截、审批和副作用测试全部通过后，才能把它标记为 Helix Agent 可用后端，否则 UI 必须明确显示“隔离 CLI 会话”。

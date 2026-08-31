@@ -13,7 +13,7 @@
 
 ## 2. 一致性结果
 
-- 路线文档与验收矩阵均包含同一组 83 个 HXA，无缺失或额外任务。
+- 路线文档与验收矩阵均包含同一组 86 个 HXA，无缺失或额外任务；HXA-088 负责 Git Workspace 语义，HXA-037 负责确定性 Tool Scheduler，HXA-105 只负责有界委托/Workflow Spike，不把规划误算为已实现能力。
 - 所有仓库内 Markdown 相对链接可解析；检查已固化为 `scripts/check-docs.sh` 并接入 CI。
 - 工具链版本与当前配置一致：JDK 17、AGP 9.3.2、Gradle 9.5.0、Kotlin 2.3.21、compile/target SDK 36、min SDK 29、Compose BOM 2026.06.01。
 - 架构模块清单与 `settings.gradle.kts` 的 28 个子项目一致。
@@ -32,7 +32,7 @@
 ## 4. 当前已知缺口
 
 - 仓库尚无首个 Git commit，全部基线仍处于未跟踪工作树；用户授权提交前，继续开发者必须谨慎保留这些文件。（补记：该缺口已于 2026-08-31 关闭——用户授权建立 Git 基线 `e5e3558`，此后每完成一个 HXA 提交一版。）
-- GitHub Actions 尚无远端运行证据，也尚未配置 emulator job；当前只有本地等价门禁和 HXA-003 本机 instrumentation 证据。
+- GitHub Actions 已有 4 次远端运行证据（最早 1 次失败，随后 3 次连续成功；截至 2026-08-31 最新为 [33364284426](https://github.com/dollarser/helix-agent/actions/runs/33364284426)），但仍未配置 emulator job；HXA-003 instrumentation 仍只有本机证据，远端构建成功不能替代设备验收。
 - M0 Compose 空壳中的中文说明仍硬编码在 Kotlin；这是原型壳层，正式的简体中文/英文资源化和硬编码扫描由 HXA-067 验收。在此之前不能声称 UI 本地化完成。
 - 开源仓库状态、Android 政策、Provider/CLI 登录方式和依赖最新版本会变化。当前 lockfile 是可重复构建事实，不表示永久最新；进入相关 HXA 时按官方来源重新核实。
 - M1 之后的绝大多数模块仍为空骨架。模块存在、marker 存在或 route 可见不等于业务能力完成。
@@ -67,3 +67,18 @@
 - 持续开发实况可能快于状态文档。本轮观察到 HXA-013 源码已开始写入但尚无完成记录，因此只记为 in progress，不把源码存在当完成证据。
 
 本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 §4 补记；本文其余结论在 M1 完成后仍然有效。）
+
+## 8. 本地执行、审批与 Git 收口（2026-08-31）
+
+- 把“沙箱”拆成可验证原语：E1 是手机本机 isolated UID，E2/E2C 是手机本机独立 companion UID；Provider 可远程推理但不是远程 Worker，QuickJS/PRoot 不宣称 VM。
+- 通用 L2/L3 审批固定为精确 ToolCall 的逐次批准/拒绝；不提供模型自批、Advanced 自动批准或全局完全访问。审查同时发现并修复 Room `decision IS NOT NULL` 可消费 denied 的基础守卫漏洞；真实设备测试证明 pending/denied 不可消费。
+- 区分 PRoot 中的 Git binary/smoke 与持久 Git 产品。新增 HXA-088 和 proposed ADR-0008，要求先比较仓库权威位置、原子交换、崩溃恢复和 Git 隐式执行面；在接受决定前不实现 Git UI、remote Git、凭据或零散 `.git` 导入。
+- 本轮只修改上述必要存储守卫和测试，没有提前实现 Provider、Dispatcher、QuickJS、PRoot、Git UI 或 M2/M3 业务。
+
+## 9. 手机端 Tool 编排取舍（2026-08-31）
+
+- 首版建议吸收确定性和安全机制，而非桌面端规模：统一 Dispatcher、参数级 effect footprint、有界读并发/写屏障、按模型 call sequence 回填、持久事件回放、分阶段 timing 和一次性 interaction receipt。
+- 不照搬 approval→sandbox escalation：Helix 失败后不得自动扩大 Android 权限、scope、origin 或回退低隔离 target；网络连接/发送前必须完成门控，禁止 deferred approval。
+- 子 Agent 有潜在价值，但只作为 HXA-105/ADR-0009 的后期 Advanced 候选：深度 1、只读、父预算、无审批凭证/Secret/高权限 session；变更只返回 proposal 给父 Turn。
+- Workflow 若成立只用静态有界 JSON DAG，并编译回相同 Dispatcher。可执行 JS/Starlark Policy/Workflow、自修改插件、递归/peer Agent、cloud tasks、Remote Worker 和另一个 ralph 生命周期均不进入当前路线。
+- 本轮只更新文档、backlog 和 proposed ADR，没有修改生产代码或声明上述能力已实现。

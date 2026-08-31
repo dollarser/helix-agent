@@ -8,7 +8,9 @@ if [[ -z "${JAVA_HOME:-}" && -x /opt/homebrew/opt/openjdk@17/bin/java ]]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
 fi
 
-if rg --line-number '(^|[=[:space:]"])\+(["[:space:]]|$)|latest\.(release|integration)|SNAPSHOT' gradle/libs.versions.toml; then
+# Wildcard versions in any Maven position: a run of version characters ending in `+`
+# (covers bare "+", "1.+", "1.2.3+"), latest.release/integration, and SNAPSHOT.
+if rg --line-number '(^|[=[:space:]"])[A-Za-z0-9.+-]*\+|latest\.(release|integration)|SNAPSHOT' gradle/libs.versions.toml; then
     printf 'Dynamic or snapshot version found in the version catalog.\n' >&2
     exit 1
 fi

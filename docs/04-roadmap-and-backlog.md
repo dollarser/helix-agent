@@ -30,14 +30,14 @@ M0 工程基线
 | M0 | App 可安装，显示空壳页面 | CI、lint、unit test、debug build 通过 |
 | M1 | 会话、Plan、Goal 可持久化 | 状态机、预算、Context Builder 裁剪/信任标记和 migration 测试通过 |
 | M2 | 可选择官方 API 或自建模型流式聊天 | 三协议 fixture、能力探测、取消和错误分类通过 |
-| M3 | 模型能提出工具并等待审批 | 参数/scope/schema 变化使审批失效 |
+| M3 | 模型能提出工具并等待审批 | 参数/scope/schema 变化使审批失效；并发读取、排他屏障、取消与固定顺序回填可确定重放 |
 | M4 | 用户可管理和让 Agent 处理授权文件 | Workspace/SAF/All-files 攻击测试通过 |
 | M5 | Agent 可安全生成并运行 JS | isolated process、超时、内存测试通过 |
 | M6 | Agent 可研究网页并调用 Android 基础能力 | WebView token、权限拒绝和站点安全测试通过 |
 | M7 | 用户可连接 MCP、导入和运行 Skill | 动态 schema、恶意 Skill 和渐进加载测试通过 |
 | M8 | `bash` 可在本地 Linux Job 副本执行 | PRoot 安装、IPC、smoke、回滚、许可证通过 |
 | M9 | 高级用户可开启跨 App 自动化、Android UI Skill 和 Root 只读工具 | 敏感界面、scope、停止、Skill 逐步复验和 Root 拒绝测试通过 |
-| M10 | 固定场景可重复完成 | 指标、安全、恢复、资源和隐私门禁达标 |
+| M10 | 固定场景可重复完成 | 指标、安全、恢复、资源和隐私门禁达标；HXA-105 以接受或有证据拒绝的 ADR 收口，不留半实现编排入口 |
 | M11 | 可选官方 CLI 隔离会话 | 凭据隔离和工具拦截结论有证据；不合格则保持独立 CLI 模式 |
 | M12 | Android 直接分发包可发布 | 全部门禁、SBOM、notice、权限说明和真机证据齐全 |
 
@@ -126,7 +126,7 @@ M1 已完成（2026-08-31）：各任务完成证据见 [completion-records](com
 
 ### HXA-020 SecretStore 与 Provider 配置
 
-Android Keystore 包装 secret；实现 protocol、endpoint、model、headers allowlist、secretAlias、删除和覆盖。日志/Room/SavedStateHandle 不含 secret。
+Android Keystore 包装 secret；实现 protocol、endpoint、model、headers allowlist、secretAlias、删除和覆盖。规范化实际 endpoint 并得出 `ON_DEVICE_LOOPBACK/USER_AUTHORIZED_LAN/PUBLIC_CLOUD/CUSTOM_REMOTE_UNKNOWN` residence，不能按模板名或手工标签猜测。日志/Room/SavedStateHandle 不含 secret。若新增持久字段，必须更新 Room schema/migration fixture，不能只改文档表。
 
 ### HXA-021 内部 ModelRequest/ModelEvent
 
@@ -158,7 +158,7 @@ Android Keystore 包装 secret；实现 protocol、endpoint、model、headers al
 
 ### HXA-028 聊天 UI
 
-首次启动隐私说明、Provider 创建/编辑/连接测试、会话、模型选择、流式输出、停止、错误、重试、能力标签和当前 mode。UI 订阅持久化状态，不持有网络 Job；未完成连接测试不贬为“已可用”。
+首次启动隐私说明、Provider 创建/编辑/连接测试、会话、模型选择、流式输出、停止、错误、重试、能力标签和当前 mode。consumer 固定 Standard；developer 首次启动仍为 Standard，并提供不产生权限/网络副作用的 Advanced 风险说明与显式切换。直接分发 UI 只显示产品名 Helix，不显示 developer flavor 或要求选择 APK。显示 Provider 规范 origin/residence；发送高敏 Context 前展示数据类别 + scope，Standard 不提供永久允许。UI 订阅持久化状态，不持有网络 Job；未完成连接测试不贬为“已可用”。本任务只交付 M2 可见性，不提前实现 HXA-033 的通用 Policy 或伪造“已门控”状态。
 
 ## 7. M3：Tool、Policy、Approval 与 Capability
 
@@ -176,11 +176,11 @@ Android Keystore 包装 secret；实现 protocol、endpoint、model、headers al
 
 ### HXA-033 Policy Engine
 
-风险结合 mode、scope、数据敏感度、网络 origin、tool source、execution target 和参数。未知工具/Capability/L3 默认拒绝。
+风险结合 mode、Safety Profile、scope、数据敏感度、规范网络 origin/residence、tool source、execution target 和参数。实现 ADR-0005：Standard 高敏出网逐次确认；Advanced 规则精确绑定 Provider/MCP ID + origin + 数据类别 + scope，可撤销，期限只允许 1h/24h/7d/30d（默认 24h、最大 30d、不得滑动续期）；`createdAt/expiresAt` 到期或时钟回拨 fail closed。Secret/凭据和未知工具/Capability/L3 默认拒绝。模型、MCP 或 Skill 不能切换 Profile、创建 LAN scope 或降低 residence。测试默认/上限、重启、撤销、到期、时钟回拨和绑定字段变化。
 
 ### HXA-034 Approval hash 与一次性消费
 
-canonical JSON + tool/version/schema/scope/session/target hash；一次性、过期、拒绝和并发 consume。页面/UI token 也绑定 approval。
+canonical JSON + tool/version/schema/scope/session/target hash；一次性、过期、拒绝和并发 consume。复用存储层封闭 `ApprovalDecision(APPROVED, DENIED)` 和 DAO 的 `decision = 'APPROVED'` 原子守卫，禁止重新开放自由字符串。明确区分“决定记录已处理”和“批准凭证被消费”：只有类型化 `APPROVED` 能生成/消费 Approval Proof，`DENIED` 即使已记录/已查看也不能授权执行，禁止用 `decision != null` 或 `consumedAt != null` 单独判断批准。页面/UI token 也绑定 approval；测试 pending/denied/过期不可消费、任意字符串无法进入仓库 API、并发只有一个批准消费成功。现有守卫只是 HXA-014 后加固，不等于本任务的 hash、expiry、Proof 与 Dispatcher 已实现。
 
 ### HXA-035 Dispatcher 与审计
 
@@ -188,7 +188,11 @@ validate → capability → policy → approval → timeout/cancel → execute �
 
 ### HXA-036 Timeline 和审批卡
 
-显示来源、目标、scope、参数、风险、代码/命令、网络 origin、预期影响和 verifier。参数变化重建审批。同任务交付审计日志页，可按会话、工具、风险和日期过滤，只展示脱敏记录/有界摘要。
+显示来源、目标、scope、参数、风险、Safety Profile、Provider/MCP ID、网络 origin/residence、数据类别、规则有效期、代码/命令、预期影响和 verifier。参数、origin、数据类别、scope、profile 或 target 变化重建审批。通用 L2/L3 只提供“本次批准/拒绝”，不得提供“模型帮我批准”“此后全部允许”或把 Advanced 显示为完全访问；高敏出网规则单独标为有界 Policy 规则。测试切换 Profile 不改变待审批决定，拒绝后同动作不重复弹卡。同任务交付审计日志页，可按会话、工具、风险和日期过滤，只展示脱敏记录/有界摘要。
+
+### HXA-037 确定性 Tool Scheduler 与交互 receipt
+
+落实 [11 手机端编排方案](11-mobile-tool-orchestration.md)：从规范化参数生成平台所有的 `EffectFootprint`，仅并行无冲突 `READ_ONLY`；未知效应、写/删、代码、Root、Accessibility、同 tab/Runtime lane 默认排他。默认总并发 2，真机证据前不超过 4，QuickJS/PRoot/UI 等保持各自单并发；低内存/后台/热限制只降并发。执行完成可乱序，但模型回填固定按 call sequence；queue/approval/execution/verification timing、decision source 和 attemptId 持久审计。取消为未启动项写 `ABORTED_BEFORE_START`，已启动项 cancel 后保存 terminal/unknown outcome。结构化用户问题使用一次性 receipt，迟到/重复/已取消答复返回 `NOT_PENDING`，且不能代替 Approval Proof。只允许确认零副作用、相同 envelope、同/更强隔离的有界技术重试；target/scope/origin/权限变化新建 ToolCall/approval，禁止自动权限/网络/sandbox escalation 和主进程 fallback。测试确定性顺序、屏障、公平性、预算、取消、进程恢复和 `model-visible ⇔ persisted`。
 
 ## 8. M4：Workspace 与文件管理器
 
@@ -274,7 +278,7 @@ URL/重定向/MIME/size/name/target policy，下载到 Workspace/SAF；不自动
 
 ### HXA-066 HTTP fetch 与前台任务
 
-GET/HEAD、SSRF/redirect/size/timeout；前台服务只覆盖用户主动发起的 Provider/MCP 传输或本地文件处理，声明 `dataSync` + `FOREGROUND_SERVICE_DATA_SYNC`，等待审批/输入时停止，实现 Android 15+ `onTimeout()` 和 6 小时/24 小时限额测试。通知提供停止；WorkManager 只做可延期维护/提醒。
+GET/HEAD、SSRF/redirect/size/timeout；URL Policy 检查全部 A/AAAA/IPv4-mapped IPv6，只把本次已验证地址集合交给 transport，保持原 hostname 的 TLS Host/SNI/证书验证并复验 peer，每跳重做 origin/DNS/IP/credential/scope 检查。测试 DNS rebinding、连接复用、编码地址、metadata 和 redirect 逃逸。Standard 仅公网；Advanced 只能使用用户预建的精确 LAN/loopback `NetworkOriginScope`，模型 URL 不能创建 scope。前台服务只覆盖用户主动发起的 Provider/MCP 传输或本地文件处理，声明 `dataSync` + `FOREGROUND_SERVICE_DATA_SYNC`，等待审批/输入时停止，实现 Android 15+ `onTimeout()` 和 6 小时/24 小时限额测试。通知提供停止；WorkManager 只做可延期维护/提醒。
 
 ### HXA-067 语音输入与本地化
 
@@ -288,11 +292,11 @@ GET/HEAD、SSRF/redirect/size/timeout；前台服务只覆盖用户主动发起�
 
 ### HXA-071 MCP Server 配置和握手
 
-disabled-by-default config、SecretStore bearer auth、initialize、protocol/capability snapshot、tools/resources/prompts 有界 metadata 列表。首版 resources/prompts 正文不进 Context，OAuth/PKCE 不实现。
+disabled-by-default config、SecretStore bearer auth、initialize、protocol/capability snapshot、规范 origin/residence、tools/resources/prompts 有界 metadata 列表。首版 resources/prompts 正文不进 Context，OAuth/PKCE 不实现；bearer 已配置不代表允许发送高敏数据。
 
 ### HXA-072 MCP 动态 Tool bridge
 
-注册 `mcp.<server>.<tool>`；annotation 不能降风险；schema hash 变化撤销审批；结果块有界。sampling/elicitation/roots 关闭。
+注册 `mcp.<server>.<tool>`；annotation 不能降风险；schema hash 变化撤销审批；结果块有界。网络调用生成有界 EgressSummary 和会话发送摘要，endpoint/schema/敏感数据类别变化时强制检查点；Advanced 规则精确绑定 server/origin/类别/scope/有效期。sampling/elicitation/roots 关闭。
 
 ### HXA-073 MCP stdio bridge
 
@@ -318,7 +322,7 @@ component、version、ABI、URL、size、sha256、license、source、patches；�
 
 ### HXA-081 构建期固定资产
 
-固定 PRoot、Alpine、bash/git/python/node/ripgrep；验证 hash/ABI/license/ELF `LOAD` alignment，记录 APK 压缩、安装后和临时峰值体积，不在设备下载 executable。
+固定 PRoot、Alpine、bash/git/python/node/ripgrep；验证 hash/ABI/license/ELF `LOAD` alignment，记录 APK 压缩、安装后和临时峰值体积，不在设备下载 executable。这里的 Git 交付仅是离线 Runtime 组件与版本/smoke 基线，不包含持久 `.git` 仓库、结构化 Git UI 或 remote transport。
 
 ### HXA-082 RootFS installer
 
@@ -326,23 +330,27 @@ component、version、ABI、URL、size、sha256、license、source、patches；�
 
 ### HXA-083 独立 Runtime APK/IPC
 
-独立 applicationId/UID、signature permission、caller signature、protocol/version/ABI handshake、PFD manifest。
+独立 applicationId/UID、signature permission、caller signature、protocol/version/ABI handshake、PFD manifest；落实 ADR-0007：explicit ComponentName + `BIND_AUTO_CREATE` 冷绑定，不要求用户打开/常驻 Runtime。应用启动、切换 Advanced 和被动 Registry 刷新不启动进程；只允许用户点击的零 Job 验证/修复，或批准并固定输入后的真实 Job 建立绑定。提供仅由用户点击进入的最小设置/修复 Activity。覆盖未安装、禁用、强制停止、签名/协议/ABI 不符、空闲解绑重启、Binder death/`DeadObjectException` 和稳定不可用状态；任何失败都不得回退到主 App shell。
 
 ### HXA-084 PRoot runner
 
-Job copy、argv/显式 shell script、cwd/env allowlist、timeout/process-group cancel、bounded stdout/stderr、output archive/hash。任务自定义 env 对名称 secret pattern、已知 SecretStore 值和认证来源做拒绝测试，Runtime 不获得 SecretStore 能力。
+Job copy、argv/显式 shell script、cwd/env allowlist、timeout/process-group cancel、bounded stdout/stderr、output archive/hash。任务自定义 env 对名称 secret pattern、已知 SecretStore 值和认证来源做拒绝测试，Runtime 不获得 SecretStore 能力。以 `executionId/jobId` 原子维护有界 journal/terminal commit；重复 jobId 不重复启动。journal 首版上限 128 条/1 MiB metadata：active 与未对账 terminal 不因额度静默删除，额度满则拒绝新 Job；已对账 payload 立即删除、tombstone 最多留 7 天；未对账 terminal 最多保留 30 天，之后只留 evidence-expired marker 并使主 App 停泊 `INTERRUPTED`。Binder 断连后只查询/对账，匹配 input hash 的 terminal proof 才可恢复结果，否则停泊 `INTERRUPTED`。实现前后台状态机：任意计算不得冒充 `dataSync`；没有合法 FGS 类型时退后台暂停/取消。若真机证明确需 wake lock，只在用户可见 FGS 的 RUNNING 窗口限时持有并覆盖全路径释放。
 
 ### HXA-085 `bash` Tool
 
-每次审批；禁止 Android 主进程 shell、真实 Workspace mount、网络包安装和 secret inheritance。
+每次审批；仅 Advanced 且 Runtime 已单独安装、启用并由用户完成过签名/协议/ABI 零 Job 验证时进入工具表，进程预先存活或用户手动打开不是条件，被动 Registry 刷新不得重新绑定。每次执行在批准后重新握手。禁止 Android 主进程 shell、真实 Workspace mount、网络包安装和 secret inheritance；Advanced 或 LAN scope 均不能给 PRoot 增加 INTERNET。UI 区分未安装、未验证、需更新、被禁用/强制停止、连接失败和执行中断；“修复 Runtime”只在用户点击后打开 companion 恢复入口，恢复后重试创建新的 ToolCall/approval/jobId。
 
 ### HXA-086 真机 smoke 与隔离
 
-arm64 分别在 4 KiB/16 KiB 页真机执行 python/node/git/ripgrep；Runtime 不能读主 App dataDir、共享存储或联网。任一 ELF 或 smoke 不兼容时阻断对该设备分发并记录最低设备集。
+arm64 分别在 4 KiB/16 KiB 页真机执行 python/node/git/ripgrep；Runtime 不能读主 App dataDir、共享存储或联网。增加从未打开的 Runtime 冷绑定、空闲回收再启动、后台/锁屏/Doze/低内存、强制停止、主 App/Runtime 分阶段 kill、同 jobId 不重复执行、通知停止和可选 wake lock 泄漏测试。任一 ELF、生命周期或 smoke 不兼容时阻断对该设备分发并记录最低设备集。
 
 ### HXA-087 更新/卸载/法律页
 
 同签名 APK 更新、rollback、完整删除、离线 notice/source URL/build manifest。
+
+### HXA-088 Git Workspace 语义 Spike 与 ADR
+
+在 PRoot Job/snapshot 真机链路完成后，比较三条路径：主 App Workspace 持有权威仓库并原子交换完整仓库状态、Runtime 私有目录持有权威仓库并提供受限协议、主 App 引入 Android Git 库。测量含 `.git` 的归档体积/耗时、部分传输、进程死亡、并发修改、symlink、对象膨胀与损坏恢复；定义 hooks/alias/filter/external diff/submodule/worktree/config/credential helper 的拒绝或禁用策略。Standard 首版只需要 Helix 原生历史/diff/回收站；Advanced 候选只限结构化离线 `status/diff/log/init/add/commit`，`reset --hard`/`clean` 等破坏操作默认不进入首版。产出并由所有者决定 [ADR-0008](adr/0008-git-workspace-management.md)；在 accepted 前不得把 Job-local Git 描述成持久仓库管理。`clone/fetch/pull/push` 与凭据不在本任务范围，未来需新的联网执行域和 ADR。
 
 ## 13. M9：Accessibility 与 Root
 
@@ -360,11 +368,11 @@ find/click/long_click/set_text/scroll/back/home/wait。目标包变化暂停；�
 
 ### HXA-093 Accessibility 攻击/恢复测试
 
-系统权限、安装器、Root 管理、支付/认证界面拒绝；锁屏、服务断开、强停、snapshot 过期和连续动作预算。
+系统权限、安装器、Root 管理、支付/认证界面拒绝；锁屏、服务断开、强停、snapshot 过期和连续动作预算。检查点覆盖动作数、时间、package/window 和敏感语义变化；连续快速批准不形成自动允许。Advanced 可在硬上限内调整预算，但不能关闭拒绝清单。
 
 ### HXA-094 libsu Spike 与依赖审计
 
-使用 libsu 6.0.0 core/service；JitPack exclusive content + dependency verification。Root 不可用、拒绝、授权、丢失和 RootService crash 真机测试。
+使用 libsu 6.0.0 core/service；计划路径为 JitPack exclusive content + dependency verification，M9 前不加仓库。Spike 核对固定 tag/artifact/checksum/notice 并产出依赖 ADR；若项目所有者拒绝 JitPack，先获授权再改为审查过的源码镜像，不能临场换库。Root 只在 Advanced 中由用户主动请求；测试 Profile 切换不触发 `su`，以及不可用、拒绝、授权、丢失和 RootService crash。
 
 ### HXA-095 Root 高层只读工具
 
@@ -390,21 +398,25 @@ status、file.read、package.info、process.list、bounded log.read；短时 Roo
 
 ### HXA-102 恢复和副作用
 
-模型流、审批、文件写、浏览器动作、UI 动作、MCP call、PRoot 运行各阶段 kill/restart；不明确结果进入 `NEEDS_REVIEW`。
+模型流、审批、文件写、浏览器动作、UI 动作、MCP call、PRoot 运行各阶段 kill/restart；不明确结果进入 `NEEDS_REVIEW`。按 ADR-0004 收口 Goal 恢复：PAUSED 原因以稳定 outcome + audit 原子持久化；模型/工具/副作用边界写入有界间隔的 durable usage checkpoint，确定并测试最大未记账窗口；反复 kill/restart、长时间离线和墙钟回拨均不得持续增加可用预算，也不得自动重放 open run 或不明确副作用。
 
 ### HXA-103 资源/稳定性
 
-API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebView/Room/coroutine/Binder/process/file descriptor 无泄漏。
+API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebView/Room/coroutine/Binder/process/file descriptor 无泄漏。PRoot/CLI 覆盖冷绑定、空闲回收、强制停止、前台服务类型/timeout/停止通知和可选 wake lock 全路径释放，不把 FGS 当作不会被杀的保证。
 
 ### HXA-104 隐私/诊断/删除
 
 日志脱敏、用户预览诊断包、删除会话/Provider/MCP/Skill/Goal/Workspace/Runtime/站点数据和 Root session。API 30+ 用 `ApplicationExitInfo`，所有版本保存脱敏最后状态/heartbeat，uncaught handler 写有界摘要后继续交给系统；24 小时证据同时保留 instrumentation、logcat/ANR 和退出原因，不声称 App watchdog 能完整捕获 ANR。
 
+### HXA-105 有界只读委托与声明式 Workflow Spike
+
+根据 [11 手机端编排方案](11-mobile-tool-orchestration.md)产出并由所有者决定 proposed [ADR-0009](adr/0009-bounded-local-orchestration.md)。只评估 developer/Advanced：child 深度 1、并发 2、每父 Turn 总数 4，模型/token/Tool/墙钟全部计入父预算；child 只得到最小 snapshot，只注册 `READ_ONLY` 且动态风险 ≤ L1 的工具，不继承 pending approval、Secret、UI token、Root/Automation session 或可写 scope。通信只允许 parent→child task/cancel 与 child→parent structured result，Agent graph/状态/预算/completion 持久化；写入需求只返回 proposal，由父 Turn 新建 ToolCall 并审批。并行收益、费用、温升、内存、取消、恢复和 prompt-injection 证据不达标则保持单 Agent。可选 Workflow 只做版本化 JSON DAG（封闭 node type、静态上限、无循环或有硬界），节点全部编译回 Dispatcher；不执行 JS/Starlark 编排、不自挂插件、不增加云端任务/Remote Worker。ADR 未 accepted 前不进入产品工具表。
+
 ## 15. M11：官方 CLI 订阅后端实验
 
 ### HXA-110 CLI Runtime manifest 与独立 UID
 
-有 INTERNET，无 All-files/Accessibility/Root/主 App数据；固定 Node/official CLI/hash/license/terms URL。
+有 INTERNET，无 All-files/Accessibility/Root/主 App数据；固定 Node/official CLI/hash/license/terms URL。跨 App Service 按 ADR-0007 使用 signature permission、显式冷绑定、状态查询和空闲解绑；正常会话不要求 companion Activity/进程常驻，只有登录/重认证/退出使用可见 UI。
 
 ### HXA-111 Codex app-server 登录 Spike
 
@@ -416,25 +428,25 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 
 ### HXA-113 工具与审批兼容性结论
 
-证明能禁用或代理 CLI 内置工具且不会绕过 Helix Policy，才实现 Agent backend adapter。否则明确保留“隔离 CLI 会话”，不进入 Act/Goal Provider 列表。
+证明能禁用或代理 CLI 内置工具且不会绕过 Helix Policy，才实现 Agent backend adapter；同时证明断连后可按 jobId 查询/对账，未知状态不会重放 CLI 命令。否则明确保留“隔离 CLI 会话”，不进入 Act/Goal Provider 列表。
 
 ## 16. M12：直接分发发布
 
 ### HXA-120 变体和 APK 审计
 
-consumer 不含 `files-allfiles`、`tools:automation`、`tools:root`、PRoot/CLI client/route/permission；developer 声明的 All-files/Accessibility 与 UI 功能一致；Runtime applicationId/UID/权限正确。核对 HXA-001 的四个 applicationId、variant dependency graph 和 source set marker，并根据 HXA-081 真实产物设定 Runtime 发布体积预算。
+按 ADR-0006 生成直接分发清单：只有 developer 构建是用户主应用，产品名不暴露 flavor；PRoot/CLI 标为可选 companion，consumer 不进入当前默认下载。consumer 仍须证明不含 `files-allfiles`、`tools:automation`、`tools:root`、PRoot/CLI client/route/permission 或 Advanced profile 入口；developer 声明的 All-files/Accessibility 与 UI 功能一致且首次启动为 Standard，切换 Advanced 不自动请求权限/Root、安装 Runtime 或连接网络；Runtime applicationId/UID/权限正确。核对 HXA-001 的四个 applicationId、variant dependency graph 和 source set marker，并根据 HXA-081 真实产物设定 Runtime 发布体积预算。
 
 ### HXA-121 发布门禁
 
-执行 [安全文档](07-security-testing-release.md) 全部命令、真机矩阵、SBOM、notice、权限说明、数据流和已知限制。
+执行 [安全文档](07-security-testing-release.md) 全部命令、Standard/Advanced 组合与不可变安全内核测试、单一主包下载清单、companion 标识、真机矩阵、SBOM、notice、权限说明、数据流和已知限制。consumer 受限渠道未启用时仍运行构建/裁剪门禁，但不把它列为普通用户下载。
 
 ### HXA-122 签名和更新
 
-离线签名材料流程、主/Runtime 同签名关系、可回滚升级、安装顺序和来源校验。当前不做 App 内静默自更新。
+离线签名材料流程、主/Runtime 同签名关系、可回滚升级、安装顺序和来源校验。首次对外稳定发布前决定直接分发主应用的最终 applicationId：可以保留当前 `com.helix.agent.developer`，或通过新 ADR 和代码/签名/升级测试迁移；不得只改文档、交换 ID 或声称不同 applicationId 可原地升级。当前不做 App 内静默自更新。
 
 ### HXA-123 未来渠道评估
 
-若决定进入 Google Play 或其他商店，重新评估 All-files、Accessibility、动态代码、Root 和 CLI Runtime，并新建受限 flavor；不得修改当前事实来“假装合规”。
+若决定进入 Google Play、企业或其他受限渠道，使用现有 consumer 变体作为评估起点，重新评估 All-files、Accessibility、动态代码、Root 和 CLI Runtime；只有对应渠道真实启用时才发布 consumer，不得把它列为当前直接分发主包或修改事实来“假装合规”。
 
 ## 17. 每任务完成记录
 
