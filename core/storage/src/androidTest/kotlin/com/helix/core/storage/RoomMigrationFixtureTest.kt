@@ -12,6 +12,7 @@ import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
+import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.criteria.StoredCriterion
@@ -115,14 +116,14 @@ class RoomMigrationFixtureTest {
             // real provider row.
             storage.providerConfigs.save(
                 ProviderConfigSpec(
-                    "provider-crud",
-                    "Crud Provider",
-                    "openai-responses",
-                    "http://localhost:1",
-                    "model-1",
-                    "{}",
-                    "alias-only",
-                    "{}",
+                    id = "provider-crud",
+                    displayName = "Crud Provider",
+                    protocol = ProviderProtocol.OPENAI_RESPONSES,
+                    endpoint = "http://localhost:1",
+                    model = "model-1",
+                    headersJson = "{}",
+                    secretAlias = "alias-only",
+                    capabilitySnapshot = "{}",
                 ),
             )
             val session = storage.sessions.create("session-crud", "crud session", "provider-crud", "model-1", 10L)
@@ -291,14 +292,14 @@ class RoomMigrationFixtureTest {
         withStorage("crud-config.db") { storage ->
             storage.providerConfigs.save(
                 ProviderConfigSpec(
-                    "provider-crud-1",
-                    "Local Provider",
-                    "openai-responses",
-                    "http://localhost:1",
-                    "m1",
-                    "{}",
-                    "alias-only-no-secret",
-                    "{}",
+                    id = "provider-crud-1",
+                    displayName = "Local Provider",
+                    protocol = ProviderProtocol.OPENAI_RESPONSES,
+                    endpoint = "http://localhost:1",
+                    model = "m1",
+                    headersJson = "{}",
+                    secretAlias = "alias-only-no-secret",
+                    capabilitySnapshot = "{}",
                 ),
             )
             assertEquals("alias-only-no-secret", storage.providerConfigs.resolve("provider-crud-1").secretAlias)
@@ -515,7 +516,7 @@ class RoomMigrationFixtureTest {
         context.deleteDatabase(dbName)
         File(context.cacheDir, "content-$dbName").deleteRecursively()
         val db = Room.databaseBuilder(context, HelixDatabase::class.java, dbName).build()
-        val storage = HelixStorage(db, FileContentStore(File(context.cacheDir, "content-$dbName")))
+        val storage = HelixStorage(db, FileContentStore(File(context.cacheDir, "content-$dbName")), TestSecretStore())
         try {
             block(storage)
         } finally {

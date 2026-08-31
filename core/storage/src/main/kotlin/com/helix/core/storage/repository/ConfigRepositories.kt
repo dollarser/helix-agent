@@ -1,5 +1,10 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderHeaders
+import com.helix.core.model.ProviderId
+import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.SecretAlias
 import com.helix.core.storage.dao.CapabilityGrantDao
 import com.helix.core.storage.dao.ExecutionTargetDao
 import com.helix.core.storage.dao.McpCapabilityDao
@@ -17,47 +22,81 @@ import com.helix.core.storage.entity.RuntimeInstallEntity
 import com.helix.core.storage.entity.SkillEntity
 import com.helix.core.storage.entity.SkillSnapshotEntity
 
-/** Provider configuration input (doc 9.1 `provider_configs` row fields). */
+/**
+ * Provider configuration input (doc 9.1 `provider_configs` row fields). [protocol] is the
+ * closed [ProviderProtocol] enum; [endpoint] is a raw URL fully validated (and stored in
+ * canonical normalized form); [headersJson] must pass the [ProviderHeaders] allowlist;
+ * [secretAlias] must be a legal [SecretAlias] (the credential itself lives only in the
+ * SecretStore — no plaintext column, doc 9.1 / 07-security).
+ */
 data class ProviderConfigSpec(
     val id: String,
     val displayName: String,
-    val protocol: String,
+    val protocol: ProviderProtocol,
     val endpoint: String,
     val model: String,
     val headersJson: String,
     val secretAlias: String,
     val capabilitySnapshot: String,
-)
+) {
+    /** Validated, canonical row shared by save/overwrite; fails closed on any violation. */
+    internal fun toEntity(): ProviderConfigEntity {
+        ProviderId(id)
+        require(displayName.isNotBlank() && displayName.length <= MAX_DISPLAY_NAME_LENGTH) {
+            "displayName must be 1..$MAX_DISPLAY_NAME_LENGTH non-blank chars"
+        }
+        val normalized = NormalizedEndpoint.parse(endpoint)
+        require(model.isNotBlank() && model.length <= MAX_MODEL_LENGTH) {
+            "model must be 1..$MAX_MODEL_LENGTH non-blank chars"
+        }
+        require(model.none { it <= ' ' || it == '\u007F' }) { "model contains control characters" }
+        val headers = ProviderHeaders.parse(headersJson)
+        SecretAlias(secretAlias)
+        require(capabilitySnapshot.isNotBlank()) { "capabilitySnapshot must not be blank" }
+        return ProviderConfigEntity(
+            id,
+            displayName,
+            protocol.name,
+            normalized.full,
+            model,
+            ProviderHeaders.toStorageString(headers),
+            secretAlias,
+            capabilitySnapshot,
+        )
+    }
+
+    private companion object {
+        const val MAX_DISPLAY_NAME_LENGTH = 128
+        const val MAX_MODEL_LENGTH = 256
+    }
+}
 
 /**
  * Provider configuration repository. The schema stores [ProviderConfigSpec.secretAlias]
  * only — there is no plaintext key or token column (doc 9.1, 07-security: API key/token 只保存
- * alias).
+ * alias). [save] rejects duplicates; [overwrite] is the explicit replace; [delete] removes
+ * the row (referencing sessions keep their rows with a nulled providerId FK).
  */
 class ProviderConfigRepository(
     private val dao: ProviderConfigDao,
 ) {
+    /** Inserts a new configuration; throws when the id already exists. */
     fun save(spec: ProviderConfigSpec): ProviderConfigEntity {
-        require(spec.displayName.isNotBlank()) { "displayName must not be blank" }
-        require(spec.protocol.isNotBlank()) { "protocol must not be blank" }
-        require(spec.endpoint.isNotBlank()) { "endpoint must not be blank" }
-        require(spec.model.isNotBlank()) { "model must not be blank" }
-        require(spec.secretAlias.isNotBlank() && spec.secretAlias.length <= MAX_ALIAS_LENGTH) {
-            "secretAlias must be 1..$MAX_ALIAS_LENGTH non-blank chars"
-        }
-        val entity =
-            ProviderConfigEntity(
-                spec.id,
-                spec.displayName,
-                spec.protocol,
-                spec.endpoint,
-                spec.model,
-                spec.headersJson,
-                spec.secretAlias,
-                spec.capabilitySnapshot,
-            )
+        val entity = spec.toEntity()
         dao.insert(entity)
         return entity
+    }
+
+    /** Explicit overwrite of an existing (or new) configuration for the same id. */
+    fun overwrite(spec: ProviderConfigSpec): ProviderConfigEntity {
+        val entity = spec.toEntity()
+        dao.upsert(entity)
+        return entity
+    }
+
+    /** Deletes the configuration row; throws when the id does not exist. */
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "provider config not found: $id" }
     }
 
     fun resolve(id: String): ProviderConfigEntity {
@@ -67,10 +106,6 @@ class ProviderConfigRepository(
     }
 
     fun list(): List<ProviderConfigEntity> = dao.list()
-
-    private companion object {
-        const val MAX_ALIAS_LENGTH = 128
-    }
 }
 
 class RuntimeInstallRepository(

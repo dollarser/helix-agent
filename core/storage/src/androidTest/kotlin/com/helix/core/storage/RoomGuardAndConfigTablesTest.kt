@@ -9,6 +9,7 @@ import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
+import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.mapping.StoredGoal
@@ -102,7 +103,7 @@ class RoomGuardAndConfigTablesTest {
                 ProviderConfigSpec(
                     id = "provider-setnull-1",
                     displayName = "Setnull provider",
-                    protocol = "OPENAI_RESPONSES",
+                    protocol = ProviderProtocol.OPENAI_RESPONSES,
                     endpoint = "https://api.example.com/v1",
                     model = "model-1",
                     headersJson = "{}",
@@ -457,7 +458,7 @@ class RoomGuardAndConfigTablesTest {
         context.deleteDatabase(dbName)
         File(context.cacheDir, "content-$dbName").deleteRecursively()
         val db = Room.databaseBuilder(context, HelixDatabase::class.java, dbName).build()
-        val storage = HelixStorage(db, FileContentStore(File(context.cacheDir, "content-$dbName")))
+        val storage = HelixStorage(db, FileContentStore(File(context.cacheDir, "content-$dbName")), TestSecretStore())
         try {
             block(storage)
         } finally {

@@ -38,6 +38,7 @@ import java.io.File
 class HelixStorage internal constructor(
     internal val database: HelixDatabase,
     val contentStore: ContentStore,
+    val secrets: SecretStore,
 ) {
     val sessions: SessionRepository by lazy { SessionRepository(database.sessionDao()) }
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
@@ -92,7 +93,7 @@ class HelixStorage internal constructor(
                     .databaseBuilder(context, HelixDatabase::class.java, HelixDatabase.DATABASE_NAME)
                     .build()
             val contentStore = FileContentStore(File(context.filesDir, CONTENT_DIR))
-            return HelixStorage(database, contentStore)
+            return HelixStorage(database, contentStore, AndroidKeystoreSecretStore.create(context))
         }
 
         /**
@@ -105,7 +106,7 @@ class HelixStorage internal constructor(
             contentDir: File,
         ): HelixStorage {
             val database = Room.databaseBuilder(context, HelixDatabase::class.java, databaseName).build()
-            return HelixStorage(database, FileContentStore(contentDir))
+            return HelixStorage(database, FileContentStore(contentDir), AndroidKeystoreSecretStore.create(context))
         }
 
         private const val CONTENT_DIR = "helix-content"

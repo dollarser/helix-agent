@@ -27,6 +27,14 @@ interface ProviderConfigDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(config: ProviderConfigEntity)
 
+    /** Explicit overwrite: replaces the existing row for the same id. */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(config: ProviderConfigEntity)
+
+    /** Rows are deleted only through the repository's explicit delete; returns affected count. */
+    @Query("DELETE FROM provider_configs WHERE id = :id")
+    fun delete(id: String): Int
+
     @Query("SELECT * FROM provider_configs WHERE id = :id")
     fun byId(id: String): ProviderConfigEntity?
 
