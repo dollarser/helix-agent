@@ -57,13 +57,15 @@
 
 - M3 / HXA-031 已完成（2026-08-31）：`tools:framework` JSON Schema 子集——`ToolSchema`（允许类型 object/array/string/number/integer/boolean；keyword 按类型上下文：object 的 properties/required/additionalProperties、array 的 items（单 schema，无 tuple）/minItems/maxItems、string 的 minLength/maxLength/pattern、number/integer 的 minimum/maximum/exclusiveMinimum/exclusiveMaximum + 类型无关 type/enum + 注解 keyword（description/title/default/examples/$comment 允许且忽略）；**unknown keyword/越类型 keyword/未知类型名/畸形值一律拒绝注册**（format/const/anyOf/oneOf/allOf/not/if/$ref/definitions/uniqueItems/multipleOf/propertyNames/patternProperties/contains/$id/$schema/布尔 subschema 全拒）；pattern ≤256 字符+可编译+嵌套无界量词拒绝（有界 `{n,m}` 不误伤）；enum 条目是值不递归）+ `ToolSchemaValidator`（值验证：type/enum 结构化深等/required/properties/additionalProperties 三态/items 逐元素/minLength 按 code point（4 字节 emoji=1）/pattern 无锚/含界+不含界边界精确；**全部违规收集**带 JSONPath 定位供 HXA-035 回填模型；畸形 schema 失败关闭）+ `ToolJsonPrimitives`（kotlinx 1.9.0 无公开 isNumber/isBoolean，从规范字面量派生且 isString 先守卫——字符串 "true"/"123" 非 boolean/number）。子集门落 `ToolDescriptor` 构造器（input+output 双查，违规即不可构造=注册必拒，单点强制）。纯 JVM 30 新测试 0 failures（子集 14/值验证 13/构造拒绝 3，模块累计 59/0），app 单元回归 54+54/0，spotless/detekt（0 issues、零告警）+ 5 门禁脚本 + `git diff --check` 通过，零新依赖。证据见 [HXA-031 完成记录](completion-records/HXA-031.md)。
 
+- M3 / HXA-032 已完成（2026-09-01）：Capability Center——`core:policy`（`GrantState` 四态 GRANTED/DENIED/UNAVAILABLE/LOST；`UserScope` 六类型 Workspace/DocumentTree(SAF)/SharedStorage(All-files)/BrowserTab/AutomationSession/RootSession，fail-closed 构造+规范化审计 ref（排序、≤1024 构造期强制）；`CapabilityGrant`（doc 09 §2 形状，`isUsable=GRANTED && grantedBySystem`——审计水化值必带 grantedBySystem=false 因而不可能可用）；`CapabilityResolver` 契约；`CapabilityCenter`（每次 check 必过 live resolver，recorder write-only、失败 fail closed，结构上无“缓存代替执行时检查”路径））+ `app` 生产 `SystemCapabilityResolver`（7 能力全实时系统查询：WebView 存在性/SAF 平台恒有/isExternalStorageManager()/PackageManager+meta-data 无障碍探测（无服务=诚实 UNAVAILABLE，服务落地后零改动生效）/ROOT_SHELL=UNAVAILABLE（libsu 在 HXA-094 门后，“检测到 su”不冒充授予）/POST_NOTIFICATIONS/WRITE_CALENDAR）+ `StorageCapabilityGrantRecorder`（`capability_grants` 审计行，执行路径永不回读）+ AppContainer 接线。26 新 JVM 测试 0 failures（含核心不变式“审计行仍写 GRANTED 时 resolver 翻态必见 DENIED”），设备验收 9 测试 0 failures（全套件 20/0，含真实授予变化经 center 立即可见；撤销方向因 Android 杀可见应用进程的平台约束由 JVM 覆盖，logcat 证据在记录），app 单元回归 54+54/0，spotless/detekt（0 issues、零告警、零 Suppress）+ 5 门禁脚本 + `git diff --check` 通过，零新依赖。证据见 [HXA-032 完成记录](completion-records/HXA-032.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-032 Capability Center：实现系统真实状态 resolver 和 Workspace/SAF/All-files/BrowserTab/Automation/Root scope 类型。缓存不代替执行时检查。
+- HXA-033 Policy Engine：风险结合 mode、Safety Profile、scope、数据敏感度、规范网络 origin/residence、tool source、execution target 和参数。实现 ADR-0005：Standard 高敏出网逐次确认；Advanced 规则精确绑定 Provider/MCP ID + origin + 数据类别 + scope，可撤销，期限只允许 1h/24h/7d/30d（默认 24h、最大 30d、不得滑动续期）；`createdAt/expiresAt` 到期或时钟回拨 fail closed。Secret/凭据和未知工具/Capability/L3 默认拒绝。模型、MCP 或 Skill 不能切换 Profile、创建 LAN scope 或降低 residence。测试默认/上限、重启、撤销、到期、时钟回拨和绑定字段变化。
 
 ## Blocked
 

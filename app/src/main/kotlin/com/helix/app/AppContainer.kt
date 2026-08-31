@@ -1,6 +1,8 @@
 package com.helix.app
 
 import android.content.Context
+import com.helix.app.capability.StorageCapabilityGrantRecorder
+import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.ChatService
 import com.helix.app.internal.PrefsLineStore
 import com.helix.app.profile.AdvancedProfileAvailability
@@ -13,6 +15,7 @@ import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
+import com.helix.core.policy.CapabilityCenter
 import com.helix.core.storage.HelixStorage
 import com.helix.provider.api.CredentialLookup
 
@@ -20,8 +23,10 @@ import com.helix.provider.api.CredentialLookup
  * The app's manual DI container (M0 pattern; no framework). HXA-028 adds the
  * production provider/chat stack: one shared [HelixStorage] (recovery +
  * providers + sessions), the safety-profile store, and the two services the
- * UI talks to. The UI never sees DAOs, OkHttp or the Keystore directly
- * (AGENTS.md; doc 02 section 16).
+ * UI talks to. HXA-032 adds the [CapabilityCenter]: live system-state
+ * resolver plus the write-only `capability_grants` audit recorder. The UI
+ * never sees DAOs, OkHttp or the Keystore directly (AGENTS.md; doc 02
+ * section 16).
  */
 interface AppContainer {
     val shellRepository: ShellRepository
@@ -35,6 +40,8 @@ interface AppContainer {
     val providerService: ProviderService
 
     val chatService: ChatService
+
+    val capabilityCenter: CapabilityCenter
 }
 
 internal class DefaultAppContainer(
@@ -84,6 +91,18 @@ internal class DefaultAppContainer(
             profileStore = profileStore,
             clock = SystemClock(),
             idGenerator = { idGenerator.next() },
+        )
+
+    /**
+     * Capability Center (HXA-032, doc 9 section 2): [SystemCapabilityResolver] queries the real
+     * system state on every check; [StorageCapabilityGrantRecorder] writes the result to
+     * `capability_grants` for audit only — the stored rows never replace the execution-time
+     * check (doc 02 section 9.1).
+     */
+    override val capabilityCenter: CapabilityCenter =
+        CapabilityCenter(
+            SystemCapabilityResolver(context),
+            StorageCapabilityGrantRecorder(storage),
         )
 
     private companion object {
