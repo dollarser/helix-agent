@@ -5,6 +5,7 @@ import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
+import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -102,9 +103,9 @@ public fun interface ImageResolver {
  */
 public class AnthropicRequestEncoder(
     public val imageResolver: ImageResolver,
-) {
+) : RequestEncoder {
     /** Encode the request body as a compact JSON string. */
-    public fun encode(request: ModelRequest): String {
+    public override fun encode(request: ModelRequest): String {
         val body =
             buildJsonObject {
                 put("model", request.model)

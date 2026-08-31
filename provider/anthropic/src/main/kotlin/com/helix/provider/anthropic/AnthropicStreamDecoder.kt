@@ -3,6 +3,7 @@ package com.helix.provider.anthropic
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ToolCallId
+import com.helix.provider.api.StreamDecoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -63,7 +64,7 @@ import kotlinx.serialization.json.longOrNull
  * style is one early return per vendor contract violation.
  */
 @Suppress("TooManyFunctions", "ReturnCount")
-public class AnthropicStreamDecoder {
+public class AnthropicStreamDecoder : StreamDecoder {
     private val reader = AnthropicSseReader()
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
@@ -79,7 +80,7 @@ public class AnthropicStreamDecoder {
         get() = failureDetail
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
-    public fun feed(chunk: ByteArray): List<ModelEvent> {
+    public override fun feed(chunk: ByteArray): List<ModelEvent> {
         if (protocolFailed) return emptyList()
         val out = ArrayList<ModelEvent>()
         for (event in reader.feed(chunk)) {
@@ -91,7 +92,7 @@ public class AnthropicStreamDecoder {
     }
 
     /** The stream ended; flushes the tail and enforces the terminal guard. */
-    public fun finish(): List<ModelEvent> {
+    public override fun finish(): List<ModelEvent> {
         if (protocolFailed) return emptyList()
         val out = ArrayList<ModelEvent>()
         for (event in reader.finish()) {

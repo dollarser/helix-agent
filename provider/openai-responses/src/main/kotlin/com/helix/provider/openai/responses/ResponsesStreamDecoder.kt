@@ -3,6 +3,7 @@ package com.helix.provider.openai.responses
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ToolCallId
+import com.helix.provider.api.StreamDecoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -52,7 +53,7 @@ import kotlinx.serialization.json.longOrNull
  * protocol surface.
  */
 @Suppress("TooManyFunctions")
-public class ResponsesStreamDecoder {
+public class ResponsesStreamDecoder : StreamDecoder {
     private val parser = ResponsesSseParser()
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
@@ -67,7 +68,7 @@ public class ResponsesStreamDecoder {
         get() = failureDetail
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
-    public fun feed(chunk: ByteArray): List<ModelEvent> {
+    public override fun feed(chunk: ByteArray): List<ModelEvent> {
         if (protocolFailed) return emptyList()
         val out = ArrayList<ModelEvent>()
         for (event in parser.feed(chunk)) {
@@ -79,7 +80,7 @@ public class ResponsesStreamDecoder {
     }
 
     /** The stream ended; flushes the tail and enforces the terminal guard. */
-    public fun finish(): List<ModelEvent> {
+    public override fun finish(): List<ModelEvent> {
         if (protocolFailed) return emptyList()
         val out = ArrayList<ModelEvent>()
         for (event in parser.finish()) {

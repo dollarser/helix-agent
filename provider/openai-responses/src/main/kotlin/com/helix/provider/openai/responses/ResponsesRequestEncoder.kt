@@ -5,6 +5,7 @@ import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ReasoningEffort
+import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -61,8 +62,8 @@ public fun interface ImageResolver {
  */
 public class ResponsesRequestEncoder(
     private val imageResolver: ImageResolver,
-) {
-    public fun encode(request: ModelRequest): String {
+) : RequestEncoder {
+    public override fun encode(request: ModelRequest): String {
         val root =
             buildJsonObject {
                 put("model", request.model)

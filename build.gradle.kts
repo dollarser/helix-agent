@@ -98,6 +98,8 @@ val androidLibraries =
 
 val jvmTestDependency = libs.junit4
 val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
+val coroutinesCoreDependency = libs.kotlinx.coroutines.core
+val okhttpDependency = libs.okhttp.wire
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
@@ -241,13 +243,25 @@ subprojects {
             // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,
             // HXA-024 Anthropic Messages) encode request bodies and decode vendor
             // SSE payloads with the pinned kotlinx-serialization JsonElement API
-            // (no serialization compiler plugin needed).
+            // (no serialization compiler plugin needed). provider:api (HXA-025)
+            // uses the same API for the capability snapshot wire form.
             if (
                 path == ":provider:openai-responses" ||
                 path == ":provider:openai-chat" ||
-                path == ":provider:anthropic"
+                path == ":provider:anthropic" ||
+                path == ":provider:api"
             ) {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-025: provider:api owns the ModelProvider contract (suspend/Flow),
+            // the OkHttp transport and the capability probe. Coroutines are exposed
+            // as `api` because the interface signatures use Flow/suspend; OkHttp is
+            // implementation-scoped behind the WireClient seam (no vendor HTTP types
+            // leak into the public API or the adapter modules).
+            if (path == ":provider:api") {
+                dependencies.add("api", coroutinesCoreDependency.get())
+                dependencies.add("implementation", okhttpDependency.get())
             }
         }
     }
