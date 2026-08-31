@@ -17,6 +17,7 @@
 - 2026-08-31 二次收口审查完成（仅文档与决策）：[ADR-0001](adr/0001-canonical-json-storage-encoding.md)按固定 shape、非通用 JSON 的窄范围接受；[ADR-0002](adr/0002-turn-state-intra-response-edges.md)接受三条 HXA-011 增量边并纠正恢复边归属；新增 [ADR-0003](adr/0003-plan-read-only-risk-ceiling.md)接受 Plan 的 READ_ONLY + 动态风险 ≤ L1 双重门；交接入口改为动态读取本状态文件。详见[文档复核记录 §7](documentation-review.md)。
 - M1 / HXA-013 已完成：`core:agent` Goal reducer（`state + event -> state/effects`，复用 HXA-010 `GoalState` 零新增边）+ `GoalBudgets`（core:model，六项预算 + `stricterWith` + ADR-0001 canonical 编码）：run/wake 分离（只有用户显式继续创建新 run、重试不离开 RUNNING）、五类预算耗尽一律 PAUSED（`BudgetExhausted(limit)`，不得完成）、criterion 仅 verifier evidence 可满足且完成需全部有证据、进程死亡 RUNNING→PAUSED 且保留 checkpoint；`:app` WorkManager 可延迟提醒（唯一工作名 + REPLACE，过期 checkpoint 立即补发，worker 只发通知、零模型/工具调用——不变量计数器 + 设备测试证据，UI 文案无精确定时器）。core:agent 107 个、core:model 75 个、app consumer 8 个纯 JVM 测试 + API 36 模拟器 3 个仪器测试（提醒真实发出/REPLACE/取消）通过。run/wake 与预算耗尽语义记入 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md)（proposed）。证据见 [HXA-013 完成记录](completion-records/HXA-013.md)。
 - 2026-08-31 起按用户授权建立 Git 提交基线：首个 commit 为 M0 + HXA-010～012 基线，此后每完成一个 HXA 提交一版（可回退管理）。
+- M1 / HXA-014 已完成：`core:storage` Room 2.8.4 持久层（KSP 2.3.11）：doc 9.1 全部 22 张表（关系表 FK、唯一索引、`provider_configs`/`mcp_servers` 仅 alias 无明文密钥列）+ 22 DAO + 21 个仓库（plan 行与步骤行同事务、审批/verified 一次性守卫、artifact 文件+hash 先校验、plan 按 ADR-0001 从规范化列恢复并以 hash 列绑定精确版本）+ `ContentStore`（内容寻址、写后校验、原子替换）+ 存储层严格 JSON 编解码（criteria/ContentRef）+ `HelixStorage` 组合根与 `withTransaction`（9.2 事务入口）。JVM 44 个测试（含解析已提交 v1 schema 导出对 doc 9.1 的契约对照）+ API 36 模拟器 10 个 Room migration fixture 仪器测试（导出↔代码双路径 schema 对照、`PRAGMA foreign_keys=1`、FK 违规/级联、全部表 round-trip）通过；v1 schema 导出提交入库作为未来 migration 基线。证据见 [HXA-014 完成记录](completion-records/HXA-014.md)。
 
 ## In progress
 
@@ -24,7 +25,7 @@
 
 ## Next task
 
-- HXA-014：Room schema 与 Repository（验收矩阵第 36 行：JVM `./gradlew :core:storage:testDebugUnitTest` + Android `./gradlew :core:storage:connectedDebugAndroidTest`；Room migration fixture）。
+- HXA-015：恢复协调器（roadmap：遗留活动 Turn 标为 `INTERRUPTED`；Goal 可恢复，但不自动重放有副作用或结果不明确的 ToolCall；消费 HXA-013 `GoalEffect` 并落地 `HelixStorage` 持久化配对）。
 
 ## Blocked
 

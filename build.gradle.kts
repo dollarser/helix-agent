@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.compose) apply false
+    alias(libs.plugins.kotlin.ksp) apply false
     alias(libs.plugins.spotless)
 }
 
@@ -96,6 +97,13 @@ val androidLibraries =
     )
 
 val jvmTestDependency = libs.junit4
+val roomRuntimeDependency = libs.room.runtime
+val roomKtxDependency = libs.room.ktx
+val roomCompilerDependency = libs.room.compiler
+val roomTestingDependency = libs.room.testing
+val androidTestCoreKtxDependency = libs.androidx.test.core.ktx
+val androidTestRunnerDependency = libs.androidx.test.runner
+val androidTestJunitDependency = libs.androidx.test.junit
 
 val jvmLibraries =
     setOf(
@@ -174,6 +182,25 @@ subprojects {
                     warningsAsErrors = true
                     lintConfig = rootProject.file("config/lint/lint.xml")
                 }
+            }
+
+            if (path == ":core:storage") {
+                pluginManager.apply("com.google.devtools.ksp")
+                // Room schema export goes into the androidTest assets so the migration
+                // fixture (HXA-014 matrix row 36) can load the committed v1 schema. The Room
+                // 2.8 helper loads `<databaseFqn>/<version>.json` from the asset root.
+                extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
+                    arg("room.schemaLocation", "$projectDir/src/androidTest/assets")
+                    arg("room.incremental", "true")
+                }
+                dependencies.add("implementation", roomRuntimeDependency.get())
+                dependencies.add("implementation", roomKtxDependency.get())
+                dependencies.add("ksp", roomCompilerDependency.get())
+                dependencies.add("testImplementation", jvmTestDependency)
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+                dependencies.add("androidTestImplementation", roomTestingDependency.get())
             }
         }
 
