@@ -23,7 +23,10 @@ Helix 是一个 Android 优先、手机本地执行的个人 Agent。模型可�
 | [验收命令矩阵](docs/verification-matrix.md) | 每个 HXA 的真实 Gradle task、设备要求和预期证据 |
 | [当前实施状态](docs/implementation-status.md) | 区分已完成文档、下一任务与尚未实现代码 |
 | [M0 完成记录](docs/m0-completion-record.md) | HXA-001～003 的实际命令、结果、设备和限制 |
+| [HXA 完成记录](docs/completion-records/README.md) | 逐 HXA 真实命令、exit code 与设备证据（M0 合并记录 + M1 HXA-010～016） |
 | [文档复核记录](docs/documentation-review.md) | Baseline 1.3 的一致性检查、修正项和已知缺口 |
+
+当前进展：M0 与 M1（HXA-001～016）已完成，M2 等待启动指令；详见[当前实施状态](docs/implementation-status.md)。
 
 ## 当前固定决策
 

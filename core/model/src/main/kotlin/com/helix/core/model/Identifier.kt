@@ -22,15 +22,18 @@ internal object Identifier {
         }
     }
 
-    fun isAllowedCharacter(c: Char): Boolean = c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '_' || c == '-'
+    fun isAllowedCharacter(c: Char): Boolean = isAsciiLetterOrDigit(c) || c == '_' || c == '-'
+
+    fun isAsciiLetterOrDigit(c: Char): Boolean = c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9'
 }
 
 /**
  * Generates unique identifier values for the domain ID value classes in this module.
  *
  * Implementations must return values that satisfy [Identifier.requireValid]. Tests must use a
- * deterministic implementation (see `testing` module) so that runs are reproducible; the
- * production implementation must not embed timestamps or host-specific data.
+ * deterministic implementation (e.g. a sequential generator defined in the test) so that runs
+ * are reproducible; the production implementation must not embed timestamps or
+ * host-specific data.
  */
 interface IdGenerator {
     fun next(): String
@@ -48,16 +51,10 @@ class RandomIdGenerator(
     override fun next(): String {
         val bytes = ByteArray(RANDOM_BYTES)
         random.nextBytes(bytes)
-        val sb = StringBuilder(bytes.size * 2)
-        for (b in bytes) {
-            sb.append(HEX_CHARS[(b.toInt() shr 4) and 0x0F])
-            sb.append(HEX_CHARS[b.toInt() and 0x0F])
-        }
-        return sb.toString()
+        return Hex.encode(bytes)
     }
 
     private companion object {
         const val RANDOM_BYTES = 16
-        const val HEX_CHARS = "0123456789abcdef"
     }
 }

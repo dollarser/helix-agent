@@ -1,6 +1,7 @@
 package com.helix.core.agent
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.ProviderId
 import com.helix.core.model.SessionId
 import com.helix.core.model.Sha256
 import com.helix.core.model.TurnId
@@ -18,7 +19,7 @@ import java.security.MessageDigest
  * tool results, missing token usage.
  */
 class ContextBuilderTest {
-    private val capability = ProviderCapability("provider-1", "model-1", 100_000)
+    private val capability = ProviderCapability(ProviderId("provider-1"), "model-1", 100_000)
     private val session = SessionId("session-1")
     private val turn = TurnId("turn-1")
 

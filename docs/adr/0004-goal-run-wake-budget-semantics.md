@@ -13,7 +13,7 @@ Superseded by: none
 
 规范给出的是状态与约束，不是事件/运行模型：
 
-- [02 §6.2](../02-architecture-design.md) 的 `GoalState` 图（HXA-010 已实现并有全矩阵测试）只有 `DRAFT → READY → RUNNING` 与 RUNNING 的五个出边（`INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLED`），**没有** RUNNING → RUNNING 边，也没有独立的“运行之间等待”状态。
+- [10 §6.2](../10-provider-mcp-skills-modes.md) 的 `GoalState` 图（HXA-010 已实现并有全矩阵测试；Goal 状态列表见 [02 §5.2](../02-architecture-design.md)）只有 `DRAFT → READY → RUNNING` 与 RUNNING 的五个出边（`INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLED`），**没有** RUNNING → RUNNING 边，也没有独立的“运行之间等待”状态。
 - [10 §6.1](../10-provider-mcp-skills-modes.md) 规定“首版只有用户显式继续才创建新 `goal_run`”，唤醒源只有 `USER_OPEN`/`NOTIFICATION_ACTION`；WorkManager 只发可延迟提醒，Doze/强制停止可延迟或取消提醒。
 - [10 §6.2](../10-provider-mcp-skills-modes.md) 规定“预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功”，两种归宿都被允许，但没指定取哪个。
 - `GoalBudgets` 同时含“运行时长”与“单次唤醒时长”两个上限，说明一次 run 内可以有多次唤醒（wake），否则两个上限重合。
@@ -25,7 +25,7 @@ HXA-013 实现必须把“run / wake / 唤醒源 / 预算归属”落成 reducer
 `GoalReducer`（`core:agent`）采用如下事件/语义：
 
 1. **run 与 wake 分离**：`Continued(USER_OPEN|NOTIFICATION_ACTION)` 创建一次新 run（`runCount+1`，发出 `StartRun` 效果，携带剩余预算与 plan hash 供协调器组装 `TurnBudgets`）。一次 run 内的每次唤醒（wake）是一次 Turn；`WakeFailed` 在 `maxRetries` 内重试时**不离开 RUNNING**（不占状态机边，是同一 run 的新 wake）；唤醒失败次数消耗 `maxRetries`，重试耗尽或不可重试错误进入 `FAILED`。
-2. **正常结束的 wake 使 Goal park 到 PAUSED**：`RunFinished`（Turn 正常结束、未耗尽预算、未请求完成）使 `RUNNING → PAUSED` 并发出 `RunFinished` 效果（若设置了 `nextCheckpoint` 则追加 `ScheduleCheckpointReminder`）。PAUSED 是 §6.2 中唯一的非终态“等待用户”状态：它同时承载“run 结束等下次唤醒”“预算耗尽”“进程死亡 park”三种情形；下一次唤醒只来自显式用户继续（`Continued` 从 `PAUSED`/`INPUT_REQUIRED`/`READY` 出发）。
+2. **正常结束的 wake 使 Goal park 到 PAUSED**：`RunFinished`（Turn 正常结束、未耗尽预算、未请求完成）使 `RUNNING → PAUSED` 并发出 `RunFinished` 效果（若设置了 `nextCheckpoint` 则追加 `ScheduleCheckpointReminder`）。PAUSED 是 10 §6.2 中唯一的非终态“等待用户”状态：它同时承载“run 结束等下次唤醒”“预算耗尽”“进程死亡 park”三种情形；下一次唤醒只来自显式用户继续（`Continued` 从 `PAUSED`/`INPUT_REQUIRED`/`READY` 出发）。
 3. **预算耗尽一律 PAUSED，不是 COMPLETED 也不是 FAILED**：`WakeUsageReported`（每次唤醒的聚合用量报告）按固定顺序检查 `maxModelCalls → maxToolCalls → maxTotalTokens → maxWakeDurationMillis → maxDurationMillis`，第一个超限即 `RUNNING → PAUSED` 并发出 `BudgetExhausted(limit)`（limit 为预算字段名）。选 PAUSED 而非 `FAILED(BUDGET_EXCEEDED)` 的原因：PAUSED 可被 `BudgetsUpdated`（仅 parked 时允许）+ 显式 `Continued` 恢复，符合“预算耗尽不得完成”且保留用户继续的路径；FAILED 是终态，会把本可恢复的目标杀死。`FAILED` 只保留给 wake 失败（不可重试或重试耗尽）。
 4. **计数归属**：模型/工具/token/时长计数在 Goal 上跨 run 累计（goal 生命周期预算）；`currentWakeMillis` 只属于当前 wake，run 结束、park、失败重试时清零。
 5. **进程死亡**：`afterProcessDeath` 复用 HXA-010 的 `GoalState.stateAfterProcessDeath()`（仅 `RUNNING → PAUSED`），重置 `currentWakeMillis`（未记账的部分唤醒作废），**保留** `nextCheckpoint`——提醒通知是合法的 `NOTIFICATION_ACTION` 唤醒源。
@@ -65,7 +65,7 @@ required before acceptance：无额外实验；本 ADR 的语义已由上述测�
 
 ## References
 
-- [02-architecture-design.md 第 5.3/6.2 节与 §9.1（Goal 状态、预算、Room 表）](../02-architecture-design.md)
+- [02-architecture-design.md 第 5.2/5.3 节与 §9.1（Goal 状态列表、预算、Room 表）](../02-architecture-design.md)
 - [10-provider-mcp-skills-modes.md 第 6.1/6.2 节（Goal 语义与状态）](../10-provider-mcp-skills-modes.md)
 - [ADR-0002](0002-turn-state-intra-response-edges.md)（Turn 状态机增量边的先例）
 - [HXA-013 完成记录](../completion-records/HXA-013.md)

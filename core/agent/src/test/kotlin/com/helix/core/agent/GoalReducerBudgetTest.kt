@@ -101,6 +101,43 @@ class GoalReducerBudgetTest {
     }
 
     @Test
+    fun continuedIsIgnoredWhenNoModelCallsRemain() {
+        // The single model call of the goal was used in the run; the goal parks in PAUSED and
+        // an explicit continue must be IGNORED (stay parked), not start a run the coordinator
+        // cannot budget (StartRun remainders would be 0/negative — an illegal TurnBudgets).
+        val running = runningGoal(GoalFixtures.budgets(maxModelCalls = 1))
+        val used = reduceGoal(running, GoalEvent.WakeUsageReported(1, 0, 0, 0)).state
+        val parked = reduceGoal(used, GoalEvent.RunFinished).state
+        assertEquals(GoalState.PAUSED, parked.state)
+        val step = GoalReducer.reduce(parked, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
+        assertTrue("continue with zero remaining model calls must be ignored", step.ignored)
+        assertEquals(parked, step.state)
+    }
+
+    @Test
+    fun budgetExtensionUnblocksContinue() {
+        val running = runningGoal(GoalFixtures.budgets(maxModelCalls = 1))
+        val used = reduceGoal(running, GoalEvent.WakeUsageReported(1, 0, 0, 0)).state
+        val parked = reduceGoal(used, GoalEvent.RunFinished).state
+        assertTrue(GoalReducer.reduce(parked, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).ignored)
+        val extended = reduceGoal(parked, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 2))).state
+        val continued = reduceGoal(extended, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
+        assertEquals(GoalState.RUNNING, continued.state.state)
+    }
+
+    @Test
+    fun budgetsUpdatedBelowCurrentUsageIsIgnored() {
+        // Shrinking the budget below what the goal already consumed would park it on the very
+        // next wake report and make the StartRun remainders negative — ignored, not applied.
+        val running = runningGoal(GoalFixtures.budgets(maxModelCalls = 2))
+        val used = reduceGoal(running, GoalEvent.WakeUsageReported(2, 0, 0, 0)).state
+        val parked = reduceGoal(used, GoalEvent.RunFinished).state
+        val step = GoalReducer.reduce(parked, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 1)))
+        assertTrue("budget below current usage must be ignored", step.ignored)
+        assertEquals(parked, step.state)
+    }
+
+    @Test
     fun wakeFailureRetriesWithinBudget() {
         val goal = runningGoal()
         val retryable = GoalFixtures.error("provider 500", retryable = true)

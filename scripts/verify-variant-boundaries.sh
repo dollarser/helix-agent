@@ -52,6 +52,9 @@ readonly developer_markers=(
 consumer_strings="$(
     {
         unzip -p "$consumer_apk" 'classes*.dex' 2>/dev/null
+        # resources.arsc is scanned symmetrically with the developer APK: a marker smuggled
+        # into consumer resources (not just dex) must also fail this gate.
+        unzip -p "$consumer_apk" resources.arsc 2>/dev/null
         "$apkanalyzer_bin" manifest print "$consumer_apk"
     } | strings
 )"

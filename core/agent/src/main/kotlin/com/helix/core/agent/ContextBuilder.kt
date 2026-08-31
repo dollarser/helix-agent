@@ -1,6 +1,8 @@
 package com.helix.core.agent
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.Hex
+import com.helix.core.model.ProviderId
 import com.helix.core.model.SessionId
 import com.helix.core.model.Sha256
 import com.helix.core.model.TurnId
@@ -102,12 +104,11 @@ data class ContextSource(
  * provider catalog is M2; the context builder only needs the context-window bound.
  */
 data class ProviderCapability(
-    val providerId: String,
+    val providerId: ProviderId,
     val modelId: String,
     val maxContextTokens: Long,
 ) {
     init {
-        require(providerId.isNotBlank()) { "providerId must not be blank" }
         require(modelId.isNotBlank()) { "modelId must not be blank" }
         require(maxContextTokens >= 1) { "maxContextTokens must be >= 1" }
     }
@@ -119,8 +120,11 @@ data class ProviderCapability(
  *
  * [inputTokenBudget] must already be the stricter of the user config (TurnBudgets) and the
  * Provider capability (doc 02 section 5.3) — the builder validates, it does not re-derive.
- * The snapshot must be in chronological order (oldest first); recency is the deterministic
- * relevance proxy of the first-version trim.
+ * A zero budget is legal (TurnBudgets allows zero token limits): it simply fits nothing,
+ * every source is dropped, and the result carries zero tokens — the same structured
+ * outcome the turn reducer produces for a zero-budget turn. The snapshot must be in
+ * chronological order (oldest first); recency is the deterministic relevance proxy of the
+ * first-version trim.
  */
 data class ContextBuildRequest(
     val sessionId: SessionId,
@@ -130,7 +134,7 @@ data class ContextBuildRequest(
     val snapshot: List<ContextSource>,
 ) {
     init {
-        require(inputTokenBudget >= 1) { "inputTokenBudget must be >= 1" }
+        require(inputTokenBudget >= 0) { "inputTokenBudget must be >= 0" }
         require(inputTokenBudget <= capability.maxContextTokens) {
             "inputTokenBudget must be the stricter of user config and provider capability"
         }
@@ -281,7 +285,9 @@ object ContextBuilder {
     }
 
     private fun sha256Of(content: String): Sha256 =
-        Sha256(MessageDigest.getInstance("SHA-256").digest(content.toByteArray(Charsets.UTF_8)).toHex())
-
-    private fun ByteArray.toHex(): String = joinToString("") { byte -> "%02x".format(byte) }
+        Sha256(
+            Hex.encode(
+                MessageDigest.getInstance("SHA-256").digest(content.toByteArray(Charsets.UTF_8)),
+            ),
+        )
 }

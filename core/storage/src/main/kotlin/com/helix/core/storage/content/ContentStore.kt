@@ -2,6 +2,7 @@ package com.helix.core.storage.content
 
 import java.io.File
 import java.security.MessageDigest
+import java.util.UUID
 
 /**
  * File-backed store for large content bodies (architecture doc 9.2: 大型正文和二进制存文件,
@@ -33,11 +34,17 @@ class FileContentStore(
         val file = File(root, ContentRef.expectedPath(hash))
         if (!file.exists()) {
             require(dir.mkdirs() || dir.exists()) { "cannot create content dir: ${dir.absolutePath}" }
-            val tmp = File(dir, "$hash.tmp")
+            // A unique temp name per attempt: concurrent writers of identical content must
+            // never share a temp file (interleaved bytes corrupt the verify-read), and a
+            // rename that fails because the target already exists resolves by re-verifying
+            // the winner's bytes instead of throwing (idempotent write).
+            val tmp = File(dir, "$hash.tmp-${UUID.randomUUID()}")
             tmp.writeBytes(bytes)
             try {
                 require(sha256Hex(tmp.readBytes()) == hash) { "content hash mismatch after write" }
-                require(tmp.renameTo(file)) { "cannot finalize content file at ${file.absolutePath}" }
+                require(tmp.renameTo(file) || readHashOrNull(file) == hash) {
+                    "cannot finalize content file at ${file.absolutePath}"
+                }
             } finally {
                 if (tmp.exists()) tmp.delete()
             }
@@ -57,6 +64,15 @@ class FileContentStore(
     }
 
     override fun exists(ref: ContentRef): Boolean = fileFor(ref).isFile
+
+    private fun readHashOrNull(file: File): String? =
+        if (file.isFile) {
+            runCatching {
+                sha256Hex(file.readBytes())
+            }.getOrNull()
+        } else {
+            null
+        }
 
     private fun fileFor(ref: ContentRef): File {
         // The path must be exactly the content-addressed layout derived from the hash;

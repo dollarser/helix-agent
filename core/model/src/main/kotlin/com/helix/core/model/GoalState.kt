@@ -4,12 +4,9 @@ package com.helix.core.model
  * Persistent Goal state machine (modes doc section 6.2).
  *
  * ```text
- * DRAFT -> READY -> RUNNING
- *                        -> INPUT_REQUIRED
- *                        -> PAUSED
- *                        -> COMPLETED
- *                        -> FAILED
- *                        -> CANCELLED
+ * DRAFT          -> READY | CANCELLED
+ * READY          -> RUNNING | CANCELLED
+ * RUNNING        -> INPUT_REQUIRED | PAUSED | COMPLETED | FAILED | CANCELLED
  * INPUT_REQUIRED -> RUNNING | CANCELLED   (explicit user resume / discard)
  * PAUSED         -> RUNNING | CANCELLED   (explicit user continue / discard)
  * process death: RUNNING -> PAUSED        (durable park; resume is user-explicit)

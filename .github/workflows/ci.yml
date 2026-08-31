@@ -15,7 +15,8 @@ concurrency:
 jobs:
   verify:
     runs-on: macos-15
-    timeout-minutes: 45
+    # Headroom for the per-module lintDebug tasks (warningsAsErrors) on a cold runner.
+    timeout-minutes: 60
 
     steps:
       - name: Check out source
@@ -37,10 +38,14 @@ jobs:
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
 
       - name: Install Android platform
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+        # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
+        # verify-variant-boundaries.sh on a cold runner.
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
 
       - name: Static checks and tests
-        run: ./gradlew spotlessCheck detekt test lintConsumerDebug lintDeveloperDebug
+        # :core:storage:lintDebug covers the Room module the app lints do not reach
+        # (lintConsumerDebug only lints :app and its consumers' views of it).
+        run: ./gradlew spotlessCheck detekt test :core:storage:lintDebug lintConsumerDebug lintDeveloperDebug
 
       - name: Build all M0 applications
         run: >-

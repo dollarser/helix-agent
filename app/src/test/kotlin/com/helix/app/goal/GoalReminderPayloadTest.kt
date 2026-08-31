@@ -16,7 +16,10 @@ class GoalReminderPayloadTest {
     fun textIsBoundedForLongObjectives() {
         val longObjective = "x".repeat(10_000)
         val text = GoalReminderPayload.text(longObjective)
-        assertTrue(text.length <= 128 + "Goal checkpoint:  - open Helix to continue.".length)
+        // The objective is truncated to 128 characters, so the full notification text is
+        // bounded: prefix + 128 + suffix.
+        val bound = "Goal checkpoint: ".length + 128 + " - open Helix to continue.".length
+        assertTrue("text of ${text.length} chars exceeds the $bound bound", text.length <= bound)
     }
 
     @Test

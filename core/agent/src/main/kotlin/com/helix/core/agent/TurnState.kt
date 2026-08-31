@@ -94,8 +94,11 @@ data class RecordedToolOutcome(
  * Invariants (enforced by the reducer, not by the constructor):
  * - terminal phase => [error]/[finishReason] consistent with the phase;
  * - non-terminal phase => no [error] and no [finishReason];
- * - [pendingCalls] non-empty only while a model response is being processed;
- * - [committedCallId] and [activeCallId] are never set at the same time.
+ * - [pendingCalls] non-empty only in the tool phases (WAITING_APPROVAL, RUNNING_TOOL,
+ *   RECORDING_TOOL_RESULT); in CANCELLING/INTERRUPTED the queue is frozen (never advanced,
+ *   never re-executed) until resume/cancel/discard resolves it;
+ * - [committedCallId] and [activeCallId] are never set at the same time; each is valid only
+ *   in its model phase (WAITING_MODEL / RECEIVING_MODEL) and is cleared by process death.
  */
 data class TurnState(
     val sessionId: SessionId,

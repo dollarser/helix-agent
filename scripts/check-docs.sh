@@ -62,6 +62,23 @@ for section in required_status_sections:
     if len(re.findall(rf"^## {re.escape(section)}$", status, re.MULTILINE)) != 1:
         fail(status_path, f"requires exactly one '## {section}' section")
 
+# Completion-record contract: every "Mx / HXA-NNN 已完成" bullet in the Completed section
+# must point at an existing record (M0: the single m0-completion-record.md; M1+: one file
+# per HXA in completion-records/), and every M1+ record must contain a 决策记录 section
+# (completion-records/README.md). This is what makes the status file auditable.
+completed_match = re.search(r"^## Completed\n(.*?)(?=^## )", status, re.MULTILINE | re.DOTALL)
+completed_section = completed_match.group(1) if completed_match else ""
+for milestone, task_id in re.findall(r"^M(\d+) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE):
+    if milestone == "0":
+        record = root / "docs" / "m0-completion-record.md"
+    else:
+        record = root / "docs" / "completion-records" / f"{task_id}.md"
+    if not record.is_file():
+        fail(status_path, f"'M{milestone} / {task_id} 已完成' has no completion record: {record.relative_to(root)}")
+        continue
+    if milestone != "0" and "决策记录：" not in record.read_text(encoding="utf-8"):
+        fail(record, "missing the '决策记录：' section required by completion-records/README.md")
+
 handoff_path = root / "docs" / "small-model-handoff.md"
 handoff = handoff_path.read_text(encoding="utf-8")
 for required_text in ("Goal: HELIX-M1", "HXA-010", "HXA-016", "verification matrix"):

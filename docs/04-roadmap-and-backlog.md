@@ -92,6 +92,8 @@ HXA-002 以后，若矩阵中该任务的命令缺失或已失效，先更新矩
 
 ## 5. M1：领域状态、Plan/Goal 与存储
 
+M1 已完成（2026-08-31）：各任务完成证据见 [completion-records](completion-records/README.md) 的 HXA-010～016 记录，状态以 [implementation-status](implementation-status.md) 为准。
+
 ### HXA-010 领域 ID、错误和执行目标
 
 实现 value classes、Turn/Tool/Execution/Goal 状态、RiskLevel、统一 `Capability`、`ToolOperationClass`、`TurnBudgets`、不含文件 I/O 的不透明 `ArtifactRef`、HelixError、Clock、IdGenerator、`ExecutionTargetDescriptor`、`ToolExecutionEnvelope`。纯 Kotlin 测试序列化和非法输入。

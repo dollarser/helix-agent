@@ -5,8 +5,24 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-/** architecture doc 9.1: `sessions` — conversation root; archive, do not delete. */
-@Entity(tableName = "sessions")
+/**
+ * architecture doc 9.1: `sessions` — conversation root; archive, do not delete.
+ * `providerId` is a foreign key (SET NULL): deleting a provider config (M2, HXA-020) must not
+ * orphan sessions, which are archived, never deleted.
+ */
+@Entity(
+    tableName = "sessions",
+    foreignKeys =
+        [
+            ForeignKey(
+                entity = ProviderConfigEntity::class,
+                parentColumns = ["id"],
+                childColumns = ["providerId"],
+                onDelete = ForeignKey.SET_NULL,
+            ),
+        ],
+    indices = [Index("providerId")],
+)
 data class SessionEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -164,7 +180,11 @@ data class ApprovalEntity(
     val consumedAt: Long?,
 )
 
-/** architecture doc 9.1: `executions` — runtime, limits, exit code / signal. */
+/**
+ * architecture doc 9.1: `executions` — runtime, limits, exit code / signal. One row per tool
+ * call (same per-call convention as `approvals`/`tool_results`): `byToolCall` returns a single
+ * row, so duplicates are rejected at the schema level.
+ */
 @Entity(
     tableName = "executions",
     foreignKeys =
@@ -176,6 +196,7 @@ data class ApprovalEntity(
                 onDelete = ForeignKey.CASCADE,
             ),
         ],
+    indices = [Index("toolCallId", unique = true)],
 )
 data class ExecutionEntity(
     @PrimaryKey val id: String,

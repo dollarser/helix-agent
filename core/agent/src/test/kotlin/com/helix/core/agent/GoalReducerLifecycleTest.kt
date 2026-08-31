@@ -89,7 +89,7 @@ class GoalReducerLifecycleTest {
     }
 
     @Test
-    fun continueIsIgnoredFromTerminalAndDraft() {
+    fun continueIsIgnoredFromDraftAndTerminalStates() {
         val terminal =
             listOf(
                 GoalState.DRAFT to GoalFixtures.newGoal(),

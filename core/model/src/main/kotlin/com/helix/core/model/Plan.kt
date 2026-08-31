@@ -96,12 +96,10 @@ data class PlanArtifact(
     }
 
     /** Deterministic SHA-256 over [toStorageString]; identifies this exact plan version. */
-    fun sha256(): Sha256 = Sha256(MessageDigest.getInstance("SHA-256").digest(storageBytes()).toHexString())
+    fun sha256(): Sha256 = Sha256(Hex.encode(MessageDigest.getInstance("SHA-256").digest(storageBytes())))
 
     private fun storageBytes(): ByteArray = toStorageString().toByteArray(StandardCharsets.UTF_8)
 
     /** Returns this plan revised as the next version; the hash changes accordingly. */
     fun withNextVersion(): PlanArtifact = copy(version = version + 1)
 }
-
-private fun ByteArray.toHexString(): String = joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }

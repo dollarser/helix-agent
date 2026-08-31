@@ -163,7 +163,11 @@ class CapabilityGrantRepository(
 class McpServerRepository(
     private val dao: McpServerDao,
 ) {
-    /** [authAlias] is an alias only; credentials never enter the schema (doc 9.1). */
+    /**
+     * [authAlias] is an alias only; credentials never enter the schema (doc 9.1). Servers are
+     * registered disabled by default (roadmap HXA-071: disabled-by-default MCP config) and can
+     * be enabled through [update] after the user approves the server.
+     */
     fun register(
         id: String,
         transport: String,
@@ -177,7 +181,7 @@ class McpServerRepository(
         require(endpointRef != null || commandRef != null) {
             "mcp server needs an endpoint reference or a command reference"
         }
-        val entity = McpServerEntity(id, transport, endpointRef, commandRef, authAlias, true, trustState)
+        val entity = McpServerEntity(id, transport, endpointRef, commandRef, authAlias, false, trustState)
         dao.insert(entity)
         return entity
     }

@@ -16,7 +16,7 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 - Room 行在调试、崩溃分析和审计时需要人类可读，团队用 `sqlite3`/Studio 直接查看；
 - `core:model` 是纯 JVM 模块（无 Android 依赖），且 AGENTS 规则禁止新增未经任务授权的重量级第三方组件。version catalog 与 [05-development-environment.md](../05-development-environment.md) 第 4 节基线已固定 `kotlinx-serialization-json` 1.9.0，但截至本 ADR 没有模块消费该依赖，Gradle 也没有应用 serialization 编译器插件；`core:model` 是否引入该库仍需单独决策（见 Alternatives 第 1 条）。
 
-设计文档 [02-architecture-design.md](../02-architecture-design.md) 还规划了另一个不同的 canonical JSON：工具**参数**的规范化（用于审批哈希，`toolName || toolVersion || toolSchemaHash || canonicalArguments || ...`），该实现按路线属于 `tools:framework`（HXA-031），其规则更严格（如键排序的语义、对嵌套工具 schema 的处理），不必然与本 ADR 的存储编码相同。
+设计文档 [02-architecture-design.md](../02-architecture-design.md) 还规划了另一个不同的 canonical JSON：工具**参数**的规范化（用于审批哈希，`toolName || toolVersion || toolSchemaHash || canonicalArguments || ...`），该实现按路线属于 HXA-034（“Approval hash 与一次性消费”，矩阵行在 `:core:policy`），其规则更严格（如键排序的语义、对嵌套工具 schema 的处理），不必然与本 ADR 的存储编码相同。
 
 ## Decision
 
@@ -24,7 +24,7 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 
 - 写入：每个领域类型选择固定字段顺序（`toStorageString()` 中的 `FIELDS` 列表）；map 字段按键排序；RFC 8259 转义；仅 64-bit 整数；紧凑分隔符（`,` 后无空格）；空对象/数组输出 `{}`/`[]`；可选字段为 `null`。
 - 解析：只接受上述子集；拒绝浮点数、前导零、超出 signed 64-bit 的整数、重复键、未转义控制字符、尾随内容；所有解码失败抛 `IllegalArgumentException`（调用方映射为 `HelixError`）。
-- 边界：该编码器是 `internal` 的，不属于公开 API；本 ADR 不适用于 Provider/MCP wire DTO、导入导出格式或工具参数 canonical 哈希。工具参数 canonical 哈希（HXA-031）必须单独实现并单独评审，不得假设两者字节兼容。
+- 边界：该编码器是 `internal` 的，不属于公开 API；本 ADR 不适用于 Provider/MCP wire DTO、导入导出格式或工具参数 canonical 哈希。工具参数 canonical 哈希（HXA-034）必须单独实现并单独评审，不得假设两者字节兼容。
 - HXA-010 已双向编码的领域类型为 `TurnBudgets`、`HelixError`、`ExecutionTargetDescriptor`、`ExecutionLimits`、`ToolExecutionEnvelope`。新增类型只有在具备已知向量、round-trip 和 malformed-input 测试后，才能把该 JSON 当作恢复来源。
 - 仅使用 canonical writer 计算 hash 的类型不因此自动具备可恢复存储格式。例如 `PlanArtifact` 若没有领域 decoder，HXA-014 必须从规范化的 `plans`/`plan_steps` 列重建，或先补齐 decoder 与迁移测试，不能只保存一段无法恢复的 JSON。
 
@@ -56,7 +56,7 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 
 - M2 Provider 层（HXA-021 起）需要跨模块序列化复杂嵌套 DTO，手写映射维护成本超过引入 kotlinx.serialization 的成本；
 - 存储编码需要跨进程/跨设备稳定（当前仅单机 Room，不触发）；
-- HXA-031 的工具参数 canonical 实现与本实现规则冲突且无法兼容；
+- HXA-034 的工具参数 canonical 实现与本实现规则冲突且无法兼容；
 - 手写解析器在 HXA-014/015 的实际恢复路径中暴露出严格性缺陷（例如需要支持浮点 token 计数）。
 
 ## References

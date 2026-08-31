@@ -92,4 +92,44 @@ class TurnReducerCancellationTest {
         assertTrue(step.ignored)
         assertFalse(step.state.isTerminal())
     }
+
+    private fun twoCallResponse(): ModelTerminal.ToolCalls =
+        ModelTerminal.ToolCalls(
+            listOf(Fixtures.modelToolCall(1), Fixtures.modelToolCall(2)),
+        )
+
+    /** Runs to RUNNING_TOOL with call 1 executing and call 2 queued PENDING behind it. */
+    private fun runningWithQueuedCall(): TurnState {
+        val receiving = driveTo(Phase.RECEIVING_MODEL)
+        val started = TurnReducer.reduce(receiving, TurnEvent.Model.Finished(Fixtures.call(1), 400, twoCallResponse()))
+        assertEquals(Phase.RUNNING_TOOL, started.state.phase)
+        return TurnReducer
+            .reduce(started.state, TurnEvent.Tool.ExecutionFinished(Fixtures.tool(1), Fixtures.success()))
+            .state // RECORDING_TOOL_RESULT with call 2 still queued
+    }
+
+    @Test
+    fun cancelRecordsCancelledOutcomeForQueuedUnexecutedCalls() {
+        // After call 1 finishes, call 2 sits PENDING in the queue; cancelling the turn must
+        // give it the terminal Cancelled outcome (never executed) so no stale PENDING row
+        // survives under a CANCELLED turn.
+        val recording = runningWithQueuedCall()
+        val cancelling = TurnReducer.reduce(recording, TurnEvent.Lifecycle.CancelRequested).state
+        val step = TurnReducer.reduce(cancelling, TurnEvent.Lifecycle.CancelFinished(null))
+        assertEquals(Phase.CANCELLED, step.state.phase)
+        val outcomes = step.state.recordedOutcomes.associate { it.toolCallId to it.outcome }
+        assertTrue("queued call must be recorded Cancelled", outcomes[Fixtures.tool(2)] is ToolOutcome.Cancelled)
+        assertTrue(step.effects.any { it == TurnEffect.RecordToolResult(Fixtures.tool(2), ToolOutcome.Cancelled) })
+    }
+
+    @Test
+    fun cancelKeepsUncertainCallOutOfRecordedOutcomes() {
+        val recording = runningWithQueuedCall()
+        val cancelling = TurnReducer.reduce(recording, TurnEvent.Lifecycle.CancelRequested).state
+        val step = TurnReducer.reduce(cancelling, TurnEvent.Lifecycle.CancelFinished(Fixtures.tool(2)))
+        assertEquals(Fixtures.tool(2), step.state.uncertainToolCallId)
+        // The uncertain call's side effect is unknown: it is tracked, not recorded as cancelled.
+        val outcomes = step.state.recordedOutcomes
+        assertTrue("uncertain call must not be recorded", outcomes.none { it.toolCallId == Fixtures.tool(2) })
+    }
 }

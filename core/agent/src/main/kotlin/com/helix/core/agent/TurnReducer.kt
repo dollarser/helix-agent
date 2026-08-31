@@ -42,6 +42,10 @@ object TurnReducer {
      * except INTERRUPTED becomes INTERRUPTED. A call that was actually running (RUNNING_TOOL,
      * or the candidate tracked while CANCELLING) is marked as an uncertain side effect; a
      * call still waiting for approval was never executed and is not uncertain.
+     *
+     * The in-flight model call (committed/active) is dead with the process, so both ids are
+     * cleared: the state must satisfy the same invariants as any INTERRUPTED turn, and a
+     * resume re-issues the model call with a fresh callId via [TurnEvent.Lifecycle.TurnResumed].
      */
     fun afterProcessDeath(state: TurnState): TurnState {
         if (!state.phase.canBecomeInterruptedOnProcessDeath()) return state
@@ -54,7 +58,12 @@ object TurnReducer {
             } else {
                 null
             }
-        return state.copy(phase = TurnPhase.INTERRUPTED, uncertainToolCallId = uncertain)
+        return state.copy(
+            phase = TurnPhase.INTERRUPTED,
+            uncertainToolCallId = uncertain,
+            committedCallId = null,
+            activeCallId = null,
+        )
     }
 
     private fun reduceLifecycle(
@@ -62,14 +71,43 @@ object TurnReducer {
         event: TurnEvent.Lifecycle,
     ): TurnStep =
         when (event) {
-            is TurnEvent.Lifecycle.TurnSubmitted -> onSubmitted(state)
-            is TurnEvent.Lifecycle.ContextReady -> onContextReady(state, event)
-            is TurnEvent.Lifecycle.CancelRequested -> onCancelRequested(state)
-            is TurnEvent.Lifecycle.CancelFinished -> onCancelFinished(state, event)
-            is TurnEvent.Lifecycle.UncertainToolCallResolved -> onUncertainResolved(state, event)
-            is TurnEvent.Lifecycle.TurnResumed -> onResumed(state)
-            is TurnEvent.Lifecycle.TurnDiscarded -> onDiscarded(state)
-            is TurnEvent.Lifecycle.ProcessDied -> TurnStep(afterProcessDeath(state))
+            is TurnEvent.Lifecycle.TurnSubmitted -> {
+                onSubmitted(state)
+            }
+
+            is TurnEvent.Lifecycle.ContextReady -> {
+                onContextReady(state, event)
+            }
+
+            is TurnEvent.Lifecycle.CancelRequested -> {
+                onCancelRequested(state)
+            }
+
+            is TurnEvent.Lifecycle.CancelFinished -> {
+                onCancelFinished(state, event)
+            }
+
+            is TurnEvent.Lifecycle.UncertainToolCallResolved -> {
+                onUncertainResolved(state, event)
+            }
+
+            is TurnEvent.Lifecycle.TurnResumed -> {
+                onResumed(state)
+            }
+
+            is TurnEvent.Lifecycle.TurnDiscarded -> {
+                onDiscarded(state)
+            }
+
+            is TurnEvent.Lifecycle.ProcessDied -> {
+                if (state.phase.canBecomeInterruptedOnProcessDeath()) {
+                    TurnStep(afterProcessDeath(state))
+                } else {
+                    // Terminal (or already INTERRUPTED) turns do not change on death; report
+                    // it as an ignored stale event, like every other no-op path.
+                    TurnStep.unchanged(state)
+                }
+            }
         }
 
     private fun onSubmitted(state: TurnState): TurnStep {
@@ -85,6 +123,10 @@ object TurnReducer {
         if (state.phase != TurnPhase.BUILDING_CONTEXT) return TurnStep.unchanged(state)
         val estimate = TokenEstimator.estimateTokens(event.requestBytes)
         val budgets = state.budgets
+        // M1 note: `step` and `modelCalls` are incremented together here, so in practice the
+        // maxSteps gate decides before maxModelCalls (they diverge only if a future
+        // mechanism re-issues a model call within one step). Both are kept: the budgets are
+        // independent by design (doc 02 5.3) and the check order is deterministic.
         val exhaustion =
             when {
                 state.step + 1 > budgets.maxSteps -> {
@@ -166,14 +208,28 @@ object TurnReducer {
         event: TurnEvent.Lifecycle.CancelFinished,
     ): TurnStep {
         if (state.phase != TurnPhase.CANCELLING) return TurnStep.unchanged(state)
+        // Every queued call that never executed gets the terminal Cancelled outcome (the
+        // coordinator persists it as such). Excluded: the uncertain call (when cancellation
+        // left a side effect unknown — it is tracked on the turn for the HXA-015 review flow)
+        // and calls whose outcome was already recorded (a terminal queue head in
+        // RECORDING_TOOL_RESULT must not be re-recorded).
+        val recordedIds = state.recordedOutcomes.mapTo(mutableSetOf()) { it.toolCallId }
+        val cancelledCalls =
+            state.pendingCalls.filter { call ->
+                call.toolCallId !in recordedIds && call.toolCallId != event.uncertainToolCallId
+            }
         val next =
             state.copy(
                 phase = TurnPhase.CANCELLED,
                 finishReason = "cancelled",
                 uncertainToolCallId = event.uncertainToolCallId,
                 pendingCalls = emptyList(),
+                recordedOutcomes =
+                    state.recordedOutcomes +
+                        cancelledCalls.map { call -> RecordedToolOutcome(call.toolCallId, ToolOutcome.Cancelled) },
             )
-        return step(state, next, listOf(TurnEffect.CompleteTurn("cancelled")))
+        val effects = cancelledCalls.map { call -> TurnEffect.RecordToolResult(call.toolCallId, ToolOutcome.Cancelled) }
+        return step(state, next, effects + TurnEffect.CompleteTurn("cancelled"))
     }
 
     private fun onUncertainResolved(
@@ -218,13 +274,25 @@ object TurnReducer {
         if (state.phase != TurnPhase.INTERRUPTED && state.phase != TurnPhase.CANCELLING) {
             return TurnStep.unchanged(state)
         }
+        // Same rule as [onCancelFinished]: queued calls that never executed are terminal
+        // Cancelled; the uncertain call (frozen queue of a dead process, or an unfinished
+        // cancellation) and already-recorded calls are left untouched.
+        val recordedIds = state.recordedOutcomes.mapTo(mutableSetOf()) { it.toolCallId }
+        val cancelledCalls =
+            state.pendingCalls.filter { call ->
+                call.toolCallId !in recordedIds && call.toolCallId != state.uncertainToolCallId
+            }
         val next =
             state.copy(
                 phase = TurnPhase.CANCELLED,
                 finishReason = "discarded",
                 pendingCalls = emptyList(),
+                recordedOutcomes =
+                    state.recordedOutcomes +
+                        cancelledCalls.map { call -> RecordedToolOutcome(call.toolCallId, ToolOutcome.Cancelled) },
             )
-        return step(state, next, listOf(TurnEffect.CompleteTurn("discarded")))
+        val effects = cancelledCalls.map { call -> TurnEffect.RecordToolResult(call.toolCallId, ToolOutcome.Cancelled) }
+        return step(state, next, effects + TurnEffect.CompleteTurn("discarded"))
     }
 
     private fun interruptError(state: TurnState): HelixError =
@@ -308,9 +376,15 @@ object TurnReducer {
             fail(next, violation)
         } else {
             when (val terminal = event.terminal) {
-                is ModelTerminal.FinalText -> complete(next, terminal.finishReason)
+                // A provider end-of-stream without a reason is legitimate (doc 02 6.1:
+                // Completed(finishReason: String?)); coalesce to the canonical reason the
+                // same as Refusal does, so verify() never rejects a COMPLETED turn.
+                is ModelTerminal.FinalText -> complete(next, terminal.finishReason ?: "stop")
+
                 is ModelTerminal.Refusal -> complete(next, terminal.finishReason ?: "refusal")
+
                 is ModelTerminal.ProtocolError -> fail(next, terminal.error)
+
                 is ModelTerminal.ToolCalls -> startToolCalls(next, terminal.calls)
             }
         }

@@ -124,7 +124,18 @@ class TurnReducerInterruptionTest {
         assertEquals(Phase.CANCELLED, step.state.phase)
         assertEquals("discarded", step.state.finishReason)
         assertTrue(step.state.pendingCalls.isEmpty())
-        assertEquals(listOf<TurnEffect>(TurnEffect.CompleteTurn("discarded")), step.effects)
+        // The call that was awaiting approval never executed: the discarded turn gives it the
+        // terminal Cancelled outcome so its row does not stay pending under a CANCELLED turn.
+        assertEquals(
+            listOf<TurnEffect>(
+                TurnEffect.RecordToolResult(Fixtures.tool(1), ToolOutcome.Cancelled),
+                TurnEffect.CompleteTurn("discarded"),
+            ),
+            step.effects,
+        )
+        val recorded = step.state.recordedOutcomes.single()
+        assertEquals(Fixtures.tool(1), recorded.toolCallId)
+        assertTrue(recorded.outcome is ToolOutcome.Cancelled)
     }
 
     @Test
@@ -133,6 +144,51 @@ class TurnReducerInterruptionTest {
         val step = TurnReducer.reduce(cancelling, TurnEvent.Lifecycle.TurnDiscarded)
         assertEquals(Phase.CANCELLED, step.state.phase)
         assertEquals("discarded", step.state.finishReason)
+    }
+
+    @Test
+    fun deathDuringWaitingModelClearsCommittedCallAndAllowsResume() {
+        // Death while the model call is committed (before the stream starts): the in-flight
+        // call is dead, so the id must be cleared and resume must re-issue it instead of
+        // crashing in verify().
+        val waiting = driveTo(Phase.WAITING_MODEL)
+        val interrupted = TurnReducer.afterProcessDeath(waiting)
+        assertEquals(Phase.INTERRUPTED, interrupted.phase)
+        assertNull(interrupted.committedCallId)
+        assertNull(interrupted.activeCallId)
+        assertNull(interrupted.uncertainToolCallId)
+        val resumed = TurnReducer.reduce(interrupted, TurnEvent.Lifecycle.TurnResumed)
+        assertEquals(Phase.BUILDING_CONTEXT, resumed.state.phase)
+    }
+
+    @Test
+    fun deathDuringReceivingModelClearsActiveCallAndAllowsDiscard() {
+        val receiving = driveTo(Phase.RECEIVING_MODEL)
+        val interrupted = TurnReducer.afterProcessDeath(receiving)
+        assertEquals(Phase.INTERRUPTED, interrupted.phase)
+        assertNull(interrupted.committedCallId)
+        assertNull(interrupted.activeCallId)
+        val discarded = TurnReducer.reduce(interrupted, TurnEvent.Lifecycle.TurnDiscarded)
+        assertEquals(Phase.CANCELLED, discarded.state.phase)
+        assertEquals("discarded", discarded.state.finishReason)
+    }
+
+    @Test
+    fun processDiedOnTerminalTurnIsIgnored() {
+        for (phase in listOf(Phase.COMPLETED, Phase.FAILED, Phase.CANCELLED)) {
+            val state = driveTo(phase)
+            val step = TurnReducer.reduce(state, TurnEvent.Lifecycle.ProcessDied)
+            assertTrue("ProcessDied on $phase must be ignored", step.ignored)
+            assertEquals(state, step.state)
+        }
+    }
+
+    @Test
+    fun processDiedOnInterruptedTurnIsIgnored() {
+        val interrupted = TurnReducer.afterProcessDeath(driveTo(Phase.RECEIVING_MODEL))
+        val step = TurnReducer.reduce(interrupted, TurnEvent.Lifecycle.ProcessDied)
+        assertTrue(step.ignored)
+        assertEquals(interrupted, step.state)
     }
 
     @Test

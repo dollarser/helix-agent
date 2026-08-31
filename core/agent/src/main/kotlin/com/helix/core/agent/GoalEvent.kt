@@ -40,6 +40,11 @@ sealed interface GoalEvent {
      * The wake's Turn finished; the coordinator reports the aggregated usage of that wake.
      * The reducer accumulates it into the goal-lifetime budget and parks the goal in PAUSED
      * when any budget is exhausted.
+     *
+     * Ordering contract: for one wake, [WakeUsageReported] must precede [RunFinished] (or a
+     * terminal [WakeFailed]/[GoalEvent.InputRequired]). A late usage report after the wake
+     * already ended is ignored by the reducer (the goal is no longer RUNNING) and its usage
+     * never counts against the budget — the coordinator must not emit it.
      */
     data class WakeUsageReported(
         val modelCalls: Int,
@@ -57,6 +62,12 @@ sealed interface GoalEvent {
     /**
      * The wake's run failed. Retryable failures consume [com.helix.core.model.GoalBudgets.maxRetries]
      * and the goal stays RUNNING (a new wake of the same run); otherwise the goal fails.
+     *
+     * Documented choice (matches [GoalReducer.afterProcessDeath]): a failed wake carries no
+     * duration — `currentWakeMillis` is reset without crediting `runTimeMillis`, so a
+     * repeatedly failing wake loop cannot exhaust the goal-lifetime duration budget. The
+     * usage of a wake that *did* run is reported by [WakeUsageReported] before the terminal
+     * event.
      */
     data class WakeFailed(
         val error: HelixError,

@@ -12,3 +12,4 @@ externalNativeBuild/
 .cxx/
 runtime-lock.local.json
 local-rootfs/
+.kotlin/

@@ -6,6 +6,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class FileContentStoreTest {
     @Test
@@ -70,6 +73,40 @@ class FileContentStoreTest {
             val missing = ContentRef(ContentRef.expectedPath(otherHash), 1, otherHash)
             assertFalse(store.exists(missing))
             assertThrows("missing") { store.read(missing) }
+        }
+    }
+
+    @Test
+    fun `concurrent writes of identical content all succeed and store one file`() {
+        withTempRoot { root ->
+            val store = FileContentStore(root)
+            val body = "same body written concurrently"
+            // release is a one-shot start gate (counted down once by the main thread); done
+            // has one count per writer thread.
+            val release = CountDownLatch(1)
+            val done = CountDownLatch(8)
+            val failures = ConcurrentLinkedQueue<Throwable>()
+            (1..8)
+                .map {
+                    Thread {
+                        release.await()
+                        try {
+                            store.write(body)
+                        } catch (t: Throwable) {
+                            failures.add(t)
+                        } finally {
+                            done.countDown()
+                        }
+                    }
+                }.forEach { it.start() }
+            release.countDown()
+            assertTrue("timed out waiting for writers", done.await(30, TimeUnit.SECONDS))
+            assertTrue("concurrent write failed: $failures", failures.isEmpty())
+            val ref = store.write(body)
+            assertTrue(store.exists(ref))
+            assertEquals(body, store.read(ref))
+            val dir = File(root, ref.relativePath.substringBeforeLast('/'))
+            assertEquals(1, dir.listFiles { f -> !f.name.endsWith(".tmp") }.orEmpty().size)
         }
     }
 

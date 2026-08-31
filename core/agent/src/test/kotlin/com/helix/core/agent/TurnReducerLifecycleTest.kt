@@ -61,6 +61,23 @@ class TurnReducerLifecycleTest {
     }
 
     @Test
+    fun finalTextWithoutFinishReasonCompletesWithCanonicalReason() {
+        // A provider end-of-stream without a reason is legitimate (doc 02 6.1: nullable
+        // reason): the turn completes with the canonical "stop", it must never be a verify()
+        // crash.
+        val state = driveTo(Phase.RECEIVING_MODEL)
+        val step =
+            TurnReducer.reduce(
+                state,
+                TurnEvent.Model.Finished(activeCall(state), 800, ModelTerminal.FinalText(null)),
+            )
+        assertEquals(Phase.COMPLETED, step.state.phase)
+        assertEquals("stop", step.state.finishReason)
+        assertNull(step.state.error)
+        assertEquals(listOf<TurnEffect>(TurnEffect.CompleteTurn("stop")), step.effects)
+    }
+
+    @Test
     fun eventsAfterCompletionAreIgnored() {
         val completed = driveTo(Phase.COMPLETED)
         for (event in listOf<TurnEvent>(

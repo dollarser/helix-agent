@@ -38,7 +38,7 @@ class GoalReminderWorker(
                 .setAutoCancel(true)
                 .build()
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, notification)
+        manager.notify(notificationIdFor(goalId), notification)
         return Result.success()
     }
 
@@ -59,11 +59,20 @@ class GoalReminderWorker(
     }
 
     companion object {
-        const val NOTIFICATION_ID = 4201
+        /**
+         * Stable notification ID per goal: each goal's reminder occupies its own slot so that
+         * reminders for several pending goals coexist instead of overwriting each other
+         * (`notify` with a shared ID replaces the earlier notification). `String.hashCode`
+         * is spec-stable across runs, so the same goal always maps to the same ID.
+         */
+        fun notificationIdFor(goalId: String): Int = goalId.hashCode() and 0x7fffffff
 
         /**
-         * Invariant counter: this worker must never invoke a model or tool. The instrumented
-         * test asserts it stays 0, turning the architecture rule into executable evidence.
+         * Regression tripwire for the architecture rule (doc 02 section 5.1: the reminder
+         * worker must never start model or tool work): nothing in this worker increments the
+         * counter, and the instrumented test asserts it stays 0, so any future code path that
+         * does will fail the test. (Current-worker evidence is the [lastProcessedObjective]
+         * echo, which also verifies which objective ran.)
          */
         val modelOrToolInvocations = AtomicInteger(0)
 

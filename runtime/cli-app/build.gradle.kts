@@ -25,3 +25,9 @@ android {
         lintConfig = rootProject.file("config/lint/lint.xml")
     }
 }
+
+// Test baseline (matches the root build's android-library convention): the first M9
+// instrumented/JVM test does not need to re-declare the platform dependency.
+dependencies {
+    testImplementation(libs.junit4)
+}

@@ -14,9 +14,14 @@ if rg --line-number '(^|[=[:space:]"])\+(["[:space:]]|$)|latest\.(release|integr
 fi
 
 lock_snapshot() {
+    # sha256sum (Linux/CI) or shasum (macOS); both produce "<hash>  <file>" lines.
     find . -name gradle.lockfile -not -path '*/build/*' -print0 |
         sort -z |
-        xargs -0 shasum -a 256
+        if command -v sha256sum >/dev/null 2>&1; then
+            xargs -0 sha256sum
+        else
+            xargs -0 shasum -a 256
+        fi
 }
 
 readonly before="$(lock_snapshot)"

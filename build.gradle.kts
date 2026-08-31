@@ -163,6 +163,11 @@ subprojects {
         in androidLibraries -> {
             pluginManager.apply("com.android.library")
 
+            // Uniform test baseline for every android library: a module adding its first
+            // JVM test (or instrumented test) does not re-declare the platform dependency
+            // and the version stays centralized here.
+            dependencies.add("testImplementation", jvmTestDependency)
+
             extensions.configure<LibraryExtension> {
                 namespace = androidLibraries.getValue(path)
                 compileSdk = 36
@@ -187,16 +192,28 @@ subprojects {
             if (path == ":core:storage") {
                 pluginManager.apply("com.google.devtools.ksp")
                 // Room schema export goes into the androidTest assets so the migration
-                // fixture (HXA-014 matrix row 36) can load the committed v1 schema. The Room
-                // 2.8 helper loads `<databaseFqn>/<version>.json` from the asset root.
+                // fixture (HXA-014) can load the committed v1 schema. The Room 2.8 helper
+                // loads `<databaseFqn>/<version>.json` from the asset root.
                 extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
                     arg("room.schemaLocation", "$projectDir/src/androidTest/assets")
                     arg("room.incremental", "true")
                 }
+                // The JVM contract test (DatabaseContractTest) reads the same committed
+                // export; pass the asset directory explicitly because the unit test's
+                // working directory is the module directory only by Gradle convention.
+                tasks.withType<Test> {
+                    systemProperty(
+                        "helix.schema.dir",
+                        layout.projectDirectory
+                            .dir("src/androidTest/assets")
+                            .asFile.absolutePath,
+                    )
+                }
                 dependencies.add("implementation", roomRuntimeDependency.get())
                 dependencies.add("implementation", roomKtxDependency.get())
                 dependencies.add("ksp", roomCompilerDependency.get())
-                dependencies.add("testImplementation", jvmTestDependency)
+                // The only android library with instrumented tests; the androidx.test
+                // dependencies stay module-local (the shared baseline above is JVM only).
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

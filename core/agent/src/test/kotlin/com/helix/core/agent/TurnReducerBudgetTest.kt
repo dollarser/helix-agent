@@ -143,4 +143,15 @@ class TurnReducerBudgetTest {
         // used after commit = 250 (request estimate); headroom = 14000 - 250 = 13750.
         assertEquals(2_000, start.maxOutputTokens)
     }
+
+    @Test
+    fun outputCapIsLimitedByRemainingTotalBudgetHeadroom() {
+        // maxTotalTokens = 1_000; the 1000-byte request estimates to 250 used, so the
+        // headroom (750) is smaller than maxOutputTokens (2_000) and must win the min().
+        var state = Fixtures.newTurn(Fixtures.budgets(maxOutputTokens = 2_000, maxTotalTokens = 1_000))
+        state = reduce(state, TurnEvent.Lifecycle.TurnSubmitted).state
+        val step = reduce(state, TurnEvent.Lifecycle.ContextReady(Fixtures.call(1), 1000))
+        val start = step.effects.single() as TurnEffect.StartModelCall
+        assertEquals(750, start.maxOutputTokens)
+    }
 }

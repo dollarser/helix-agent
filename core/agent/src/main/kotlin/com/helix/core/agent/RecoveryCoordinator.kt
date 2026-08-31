@@ -146,8 +146,13 @@ object RecoveryCoordinator {
             turns
                 .mapNotNull { turn -> recoveryForTurn(turn) as? TurnRecovery.Interrupt }
                 .sortedBy { it.turnId.value }
+        // Only calls under non-terminal turns are parked: a terminal turn (COMPLETED/FAILED/
+        // CANCELLED) never had in-flight work — its queued calls were recorded Cancelled by
+        // the reducer at cancel/discard time, and parking stale rows would fabricate an
+        // "uncertain side effect" that does not exist.
         val parkedToolCalls =
             turns
+                .filter { turn -> !turn.phase.isTerminal }
                 .flatMap { turn ->
                     turn.toolCalls
                         .filter { call -> recoveryForToolCall(call) == ToolCallRecovery.ParkInterrupted }

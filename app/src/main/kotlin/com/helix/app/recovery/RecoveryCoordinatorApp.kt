@@ -129,7 +129,10 @@ class RecoveryCoordinatorApp(
                     storage.toolCalls.updateState(call, ToolCallState.INTERRUPTED)
                     call.callId
                 }.sorted()
-        storage.turns.updateState(turn, TurnState.INTERRUPTED, turn.stepCount, now, null)
+        // A backward wall-clock step between the dead process and this start (manual time
+        // change, NTP correction) must not wedge recovery: clamp endedAt to startedAt so the
+        // repository invariant holds while the audit keeps the real `now`.
+        storage.turns.updateState(turn, TurnState.INTERRUPTED, turn.stepCount, now.coerceAtLeast(turn.startedAt), null)
         val uncertain = interrupt.uncertainToolCall?.value
         audit(
             correlationId = turn.sessionId,
@@ -162,11 +165,13 @@ class RecoveryCoordinatorApp(
         storage.goals.updateGoal(goal.copy(state = GoalState.PAUSED.name, currentWakeMillis = 0L))
         val closedRuns =
             storage.goalRuns.listOpenByGoal(goal.id).map { run ->
+                // Clock-rewind clamp: see the turn interruption above.
+                val endedAt = now.coerceAtLeast(run.startedAt)
                 storage.goalRuns.finish(
                     run,
                     OUTCOME_INTERRUPTED,
-                    now,
-                    (now - run.startedAt).coerceAtLeast(0L),
+                    endedAt,
+                    (endedAt - run.startedAt).coerceAtLeast(0L),
                     run.modelCalls,
                     run.toolCalls,
                     run.tokens,

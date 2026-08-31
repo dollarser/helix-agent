@@ -1,0 +1,14 @@
+# Single source of truth for line length: detekt's MaxLineLength is 120 (config/detekt/detekt.yml)
+# and ktlint (via spotless) otherwise defaults to 140 — the two gates must agree.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 120

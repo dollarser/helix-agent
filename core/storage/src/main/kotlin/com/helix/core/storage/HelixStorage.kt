@@ -35,8 +35,8 @@ import java.io.File
  * operation must pair writes, e.g. a turn/tool-call state update with its audit event
  * (doc 9.2).
  */
-class HelixStorage(
-    val database: HelixDatabase,
+class HelixStorage internal constructor(
+    internal val database: HelixDatabase,
     val contentStore: ContentStore,
 ) {
     val sessions: SessionRepository by lazy { SessionRepository(database.sessionDao()) }

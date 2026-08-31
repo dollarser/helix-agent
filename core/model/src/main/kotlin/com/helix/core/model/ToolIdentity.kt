@@ -23,9 +23,13 @@ value class ToolName(
             require(segment.length in 1..MAX_SEGMENT_LENGTH) {
                 "tool name segment must be 1..$MAX_SEGMENT_LENGTH characters"
             }
-            require(segment.first().isLetterOrDigit()) { "tool name segment must start with a letter or digit" }
+            // Strict ASCII, the same convention as Identifier.isAllowedCharacter for the
+            // domain IDs (a Unicode-aware isLetterOrDigit would accept e.g. "café").
+            require(Identifier.isAsciiLetterOrDigit(segment.first())) {
+                "tool name segment must start with an ASCII letter or digit"
+            }
             segment.forEach { c ->
-                require(c.isLetterOrDigit() || c == '_' || c == '-') {
+                require(c == '_' || c == '-' || Identifier.isAsciiLetterOrDigit(c)) {
                     "tool name segment contains invalid character"
                 }
             }

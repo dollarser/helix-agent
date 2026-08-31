@@ -1,5 +1,8 @@
 # Helix Android 单机版总体技术方案
 
+文档状态：Baseline 1.3
+基线日期：2026-08-31
+
 ## 1. 设计原则
 
 1. 模型不等于权限主体。模型只能提出 ToolCall，Policy Engine 决定是否允许。
@@ -404,7 +407,7 @@ approvalHash = SHA-256(
 | `provider_configs` | id, displayName, protocol, endpoint, model, headersJson, secretAlias, capabilitySnapshot | 无明文 key |
 | `runtime_installs` | id, type, version, state, manifestHash, installedAt | PRoot/RootFS |
 | `plans` / `plan_steps` | objective, version, hash, state, evidenceRef | 版本化计划 |
-| `goals` / `goal_runs` | objective, criteriaRef, budgets, state, planId, checkpoint / goalId, wakeReason, outcome | 持久目标与唤醒记录 |
+| `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录 |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
 | `skills` / `skill_snapshots` | name, source, version, rootRef, contentHash, enabled / runId, skillId, contentHash, catalogEntry | Skill 渐进加载和固定版本 |
 | `capability_grants` | type, systemState, userScopeRef, checkedAt | 权限状态缓存，不代替实时检查 |

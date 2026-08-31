@@ -15,8 +15,9 @@ import java.util.concurrent.TimeUnit
  * Doze, force-stop and system scheduling may delay or drop the work; the Goal reducer treats
  * the reminder as an optional wake source, never as a timer.
  *
- * The coordinator consumes `GoalEffect.ScheduleCheckpointReminder`/`ReminderCancelled` through
- * this facade; the consuming wiring lands with the recovery coordinator (HXA-015).
+ * The agent runtime consumes `GoalEffect.ScheduleCheckpointReminder`/`ReminderCancelled`
+ * through this facade; that wiring lands with the GoalFlow (M2+ agent runtime — HXA-015
+ * delivered the recovery coordinator, not the wake/run loop that emits these effects).
  */
 class GoalReminderScheduler(
     private val workManager: WorkManager,

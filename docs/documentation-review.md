@@ -31,7 +31,7 @@
 
 ## 4. 当前已知缺口
 
-- 仓库尚无首个 Git commit，全部基线仍处于未跟踪工作树；用户授权提交前，继续开发者必须谨慎保留这些文件。
+- 仓库尚无首个 Git commit，全部基线仍处于未跟踪工作树；用户授权提交前，继续开发者必须谨慎保留这些文件。（补记：该缺口已于 2026-08-31 关闭——用户授权建立 Git 基线 `e5e3558`，此后每完成一个 HXA 提交一版。）
 - GitHub Actions 尚无远端运行证据，也尚未配置 emulator job；当前只有本地等价门禁和 HXA-003 本机 instrumentation 证据。
 - M0 Compose 空壳中的中文说明仍硬编码在 Kotlin；这是原型壳层，正式的简体中文/英文资源化和硬编码扫描由 HXA-067 验收。在此之前不能声称 UI 本地化完成。
 - 开源仓库状态、Android 政策、Provider/CLI 登录方式和依赖最新版本会变化。当前 lockfile 是可重复构建事实，不表示永久最新；进入相关 HXA 时按官方来源重新核实。
@@ -66,4 +66,4 @@
 - [small-model-handoff](small-model-handoff.md)删除硬编码的“当前 HXA”和旧启动代码，改为始终读取 `implementation-status.md` 的当前唯一任务；历史 checkpoint 仍保留在 Goal 表中，但不得重复实现。
 - 持续开发实况可能快于状态文档。本轮观察到 HXA-013 源码已开始写入但尚无完成记录，因此只记为 in progress，不把源码存在当完成证据。
 
-本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。
+本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 §4 补记；本文其余结论在 M1 完成后仍然有效。）

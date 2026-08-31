@@ -1,8 +1,10 @@
 package com.helix.core.model
 
 /**
- * Code/command execution state for the `executions` table (architecture doc section 9.1) and
- * the QuickJS/PRoot execution flows (local execution doc section 10).
+ * Code/command execution state, tracked in the execution layer (QuickJS/PRoot/CLI flows,
+ * local execution doc section 4) until HXA-035+ wires an executor. The persisted `executions`
+ * row (architecture doc section 9.1) records the final outcome via `exitCode`/`signal` only —
+ * it has no state column — so this machine is the in-flight contract, not the schema.
  *
  * ```text
  * PENDING -> RUNNING | CANCELLED | FAILED
@@ -10,9 +12,10 @@ package com.helix.core.model
  * process death: PENDING | RUNNING -> INTERRUPTED
  * ```
  *
- * [TIMED_OUT] is the stable outcome of the interrupt-then-cancel flow (interrupt, 1 s grace,
- * cancel the Binder interaction, recycle the isolated instance). An [INTERRUPTED] execution has
- * unclear side effects for mutating runtimes and is parked for review, never replayed.
+ * [TIMED_OUT] is the stable outcome of the interrupt-then-cancel flow (timeout triggers
+ * interrupt; if nothing returns within the 1 s grace period the main process cancels the
+ * Binder interaction — local execution doc section 4). An [INTERRUPTED] execution has unclear
+ * side effects for mutating runtimes and is parked for review, never replayed.
  */
 enum class ExecutionState(
     val isTerminal: Boolean,

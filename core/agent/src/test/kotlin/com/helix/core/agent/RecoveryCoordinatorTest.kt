@@ -55,6 +55,22 @@ class RecoveryCoordinatorTest {
     }
 
     @Test
+    fun `the plan never parks calls under a terminal turn`() {
+        // A PENDING row under a CANCELLED turn is a stale artifact (older versions persisted
+        // queued calls without giving them a terminal state): parking it would fabricate an
+        // "uncertain side effect" that does not exist. The same row under an INTERRUPTED turn
+        // is genuinely in flight and is still parked.
+        val turns =
+            listOf(
+                persistedTurn(turn(1), Phase.CANCELLED, "c1" to ToolCallState.PENDING),
+                persistedTurn(turn(2), Phase.INTERRUPTED, "c2" to ToolCallState.PENDING),
+            )
+        val plan = RecoveryCoordinator.plan(turns, emptyList())
+        assertTrue(plan.interruptedTurns.isEmpty())
+        assertEquals(listOf(ToolCallParking(turn(2), toolId("c2"))), plan.parkedToolCalls)
+    }
+
+    @Test
     fun `an already interrupted turn is a no-op (idempotent recovery)`() {
         val decision =
             RecoveryCoordinator.recoveryForTurn(

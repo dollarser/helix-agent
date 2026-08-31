@@ -281,14 +281,14 @@ data class Goal(
 
 ```text
 DRAFT → READY → RUNNING
-                 ├─ INPUT_REQUIRED
-                 ├─ PAUSED
+                 ├─ INPUT_REQUIRED ─┐
+                 ├─ PAUSED ─────────┴─► RUNNING（仅用户显式继续）
                  ├─ COMPLETED
                  ├─ FAILED
                  └─ CANCELLED
 ```
 
-只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功。
+恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功。
 
 ## 7. 数据模型扩展
 

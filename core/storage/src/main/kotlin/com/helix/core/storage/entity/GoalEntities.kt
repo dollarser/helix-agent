@@ -12,7 +12,21 @@ import androidx.room.PrimaryKey
  * exceeds the detekt constructor threshold, hence the constructor suppression.
  */
 @Suppress("LongParameterList")
-@Entity(tableName = "goals", indices = [Index("state")])
+@Entity(
+    tableName = "goals",
+    foreignKeys =
+        [
+            // `planId` must reference a real plan (SET NULL: deleting a plan detaches the goal
+            // instead of failing it; the planHash column keeps the exact reviewed version).
+            ForeignKey(
+                entity = PlanEntity::class,
+                parentColumns = ["id"],
+                childColumns = ["planId"],
+                onDelete = ForeignKey.SET_NULL,
+            ),
+        ],
+    indices = [Index("state"), Index("planId")],
+)
 data class GoalEntity(
     @PrimaryKey val id: String,
     val objective: String,

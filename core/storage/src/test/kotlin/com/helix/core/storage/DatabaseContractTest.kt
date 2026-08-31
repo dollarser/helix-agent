@@ -9,8 +9,8 @@ import java.io.File
 
 /**
  * JVM-side contract check for the Room schema export (the committed v1 fixture). The
- * device-side migration fixture (matrix row 36) verifies that the code-built schema matches
- * this export; together the two close the drift loop without a device.
+ * device-side [RoomMigrationFixtureTest] verifies that the code-built schema matches this
+ * export; together the two close the drift loop without a device.
  */
 class DatabaseContractTest {
     private val expectedTables =
@@ -39,8 +39,11 @@ class DatabaseContractTest {
             "execution_targets",
         )
 
+    // Every table that declares at least one FOREIGN KEY in the export (14 tables; sessions
+    // and goals gained provider/plan references with the v1 index+FK hardening).
     private val fkTables =
         setOf(
+            "sessions",
             "messages",
             "turns",
             "model_calls",
@@ -50,17 +53,23 @@ class DatabaseContractTest {
             "executions",
             "artifacts",
             "plan_steps",
+            "goals",
             "goal_runs",
             "mcp_capabilities",
             "skill_snapshots",
         )
 
     private fun schemaPath(): File {
+        // The build file passes the asset directory explicitly (the JVM unit test runs from a
+        // Gradle working directory, so user.dir is not reliable across setups); the relative
+        // fallback keeps manual IDE runs working.
+        val property = System.getProperty("helix.schema.dir")
         val candidate =
-            File(
-                System.getProperty("user.dir"),
-                "src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json",
-            )
+            if (property.isNullOrBlank()) {
+                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json")
+            } else {
+                File(property, "com.helix.core.storage.HelixDatabase/1.json")
+            }
         assertTrue("schema export not found at ${candidate.absolutePath}", candidate.isFile)
         return candidate
     }

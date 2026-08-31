@@ -104,9 +104,11 @@ interface GoalRunDao {
     )
     fun listOpenByGoal(goalId: String): List<GoalRunEntity>
 
+    /** One-time finish: affected row count is 0 when the run already has an `endedAt`. */
     @Query(
         "UPDATE goal_runs SET outcome = :outcome, endedAt = :endedAt, wakeDurationMillis = :wakeDurationMillis, " +
-            "modelCalls = :modelCalls, toolCalls = :toolCalls, tokens = :tokens WHERE id = :id",
+            "modelCalls = :modelCalls, toolCalls = :toolCalls, tokens = :tokens " +
+            "WHERE id = :id AND endedAt IS NULL",
     )
     fun updateOutcome(
         id: String,
@@ -116,5 +118,5 @@ interface GoalRunDao {
         modelCalls: Int,
         toolCalls: Int,
         tokens: Long,
-    )
+    ): Int
 }

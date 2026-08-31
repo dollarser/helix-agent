@@ -14,6 +14,7 @@ import com.helix.app.goal.GoalReminderScheduler
 import com.helix.app.goal.GoalReminderWorker
 import com.helix.core.agent.Checkpoint
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,9 +41,16 @@ class GoalReminderTest {
         scheduler.scheduleReminder("goal-reminder-test", objective, Checkpoint(now + 5_000L), now)
         waitUntilWorkerProcessed(objective)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val expectedId = GoalReminderWorker.notificationIdFor("goal-reminder-test")
         assertTrue(
             "reminder notification expected after the worker ran",
-            manager.activeNotifications.any { it.id == GoalReminderWorker.NOTIFICATION_ID },
+            manager.activeNotifications.any { it.id == expectedId },
+        )
+        // Distinct goals must own distinct notification slots (shared IDs overwrite each other).
+        assertNotEquals(
+            "two goals must not share a notification ID",
+            expectedId,
+            GoalReminderWorker.notificationIdFor("goal-reminder-other"),
         )
         assertEquals(
             "worker must never invoke a model or tool (architecture doc 5.1)",

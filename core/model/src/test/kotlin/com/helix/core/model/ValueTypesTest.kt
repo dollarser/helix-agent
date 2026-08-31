@@ -64,6 +64,10 @@ class ValueTypesTest {
         assertThrows<IllegalArgumentException> { ToolName(List(9) { "a" }.joinToString(".")) }
         assertThrows<IllegalArgumentException> { ToolName("a." + "b".repeat(65)) }
         assertThrows<IllegalArgumentException> { ToolName("-a") }
+        // Strict ASCII: Unicode letters/digits are not in the [A-Za-z0-9_-] contract.
+        assertThrows<IllegalArgumentException> { ToolName("café") }
+        assertThrows<IllegalArgumentException> { ToolName("café.tool") }
+        assertThrows<IllegalArgumentException> { ToolName("１２３") }
     }
 
     @Test

@@ -29,16 +29,19 @@ data class ReminderPlan(
         }
 
         /**
-         * Decides the reminder for a goal state: only goals that are actively parked or running
-         * want a reminder (RUNNING, PAUSED, INPUT_REQUIRED are checkpointable); a terminal or
-         * not-yet-running goal has nothing to remind.
+         * Decides the reminder for a goal state: only RUNNING and PAUSED goals want a
+         * checkpoint reminder (ADR-0004 item 6: `ScheduleCheckpointReminder` is only ever
+         * issued from those states, and the [GoalReducer] cancels the reminder on entering
+         * INPUT_REQUIRED/COMPLETED/FAILED/CANCELLED). A terminal, not-yet-running or
+         * input-required goal has nothing to remind — holding a checkpoint (INPUT_REQUIRED is
+         * checkpointable) does not mean wanting a reminder.
          */
         fun forGoal(
             nowEpochMillis: Long,
             state: GoalState,
             checkpoint: Checkpoint?,
         ): ReminderPlan {
-            val wantsReminder = state in setOf(GoalState.RUNNING, GoalState.PAUSED, GoalState.INPUT_REQUIRED)
+            val wantsReminder = state in setOf(GoalState.RUNNING, GoalState.PAUSED)
             if (!wantsReminder) return ReminderPlan(true, 0L)
             return forCheckpoint(nowEpochMillis, checkpoint)
         }

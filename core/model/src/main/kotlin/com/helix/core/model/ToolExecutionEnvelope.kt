@@ -23,6 +23,10 @@ data class ExecutionLimits(
 ) {
     init {
         require(!timeout.isNegative && timeout > Duration.ZERO) { "timeout must be positive" }
+        // The storage encoding is `timeoutMillis` (ADR-0001): sub-millisecond timeouts would
+        // truncate to 0 on encode and be rejected again on decode, so the domain value is
+        // millisecond-granular by construction.
+        require(timeout.toNanos() % 1_000_000L == 0L) { "timeout must be a whole number of milliseconds" }
         require(maxOutputBytes > 0) { "maxOutputBytes must be > 0" }
     }
 

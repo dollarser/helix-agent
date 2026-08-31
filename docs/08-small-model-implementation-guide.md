@@ -250,17 +250,9 @@ ADR 记录“为什么决定”，不重复源码和规范，也不证明功能�
 
 ## 12. 当前推荐 Goal 与后续序列
 
-M0 的 HXA-001～003 已完成，不能重复生成。当前先建立 M1 Goal：
+M0（HXA-001～003）与 M1（HXA-010～016：领域模型、Turn/Goal reducer、PlanArtifact、Room 持久化、恢复协调器、Context Builder）均已完成，证据见 [implementation-status](implementation-status.md) 与逐 HXA 完成记录，不得重复实现。
 
-1. HXA-010 领域模型。
-2. HXA-011 Turn reducer。
-3. HXA-012 PlanArtifact 与模式策略。
-4. HXA-013 Goal reducer 与预算。
-5. HXA-014 Room schema。
-6. HXA-015 恢复协调器。
-7. HXA-016 Context Builder。
-
-M1 全部退出条件通过并经审查后，再建立 M2 Goal，从 HXA-020 开始。不要把 HXA-020 或聊天 UI 混入当前 Goal。完整启动提示和 checkpoint 见[继续开发交接](small-model-handoff.md)。
+下一个 Goal 是 M2（从 HXA-020 SecretStore 与 Provider 配置开始，至 HXA-028 聊天 UI）：在用户明确授权后再建立 M2 Goal，不要把 M2 或其他里程碑的工作混入当前状态。完整启动提示与 checkpoint 约定见[继续开发交接](small-model-handoff.md)。
 
 不要先做漂亮聊天 UI、WebView 自动点击、Accessibility、Root、PRoot 或 CLI 登录。先让状态、协议、工具、Capability 和审批可测试。
 

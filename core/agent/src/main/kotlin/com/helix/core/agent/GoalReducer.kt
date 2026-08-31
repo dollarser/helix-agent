@@ -82,7 +82,10 @@ object GoalReducer {
         state: Goal,
         event: GoalEvent.Continued,
     ): GoalStep {
-        val resumable = state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED)
+        // A parked goal whose lifetime budget is exhausted stays parked: continuing it is
+        // ignored (not failed) until the user extends the budget with BudgetsUpdated.
+        val resumable =
+            state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED) && state.canStartRun()
         if (!resumable) return GoalStep.unchanged(state)
         val next =
             state.copy(
@@ -190,9 +193,19 @@ object GoalReducer {
         state: Goal,
         event: GoalEvent.BudgetsUpdated,
     ): GoalStep {
-        val parked = state.state == GoalState.PAUSED || state.state == GoalState.INPUT_REQUIRED
-        if (!parked) return GoalStep.unchanged(state)
-        return step(state, state.copy(budgets = event.budgets))
+        val budgets = event.budgets
+        // A budget below already-consumed usage would make the StartRun remainders negative
+        // (illegal TurnBudgets) and park the goal on the very next wake report; extending is
+        // the only meaningful update, so a reduction below usage is ignored.
+        val acceptable =
+            (state.state == GoalState.PAUSED || state.state == GoalState.INPUT_REQUIRED) &&
+                budgets.maxModelCalls >= state.modelCalls &&
+                budgets.maxToolCalls >= state.toolCalls &&
+                budgets.maxTotalTokens >= state.totalTokens &&
+                budgets.maxDurationMillis >= state.runTimeMillis &&
+                budgets.maxWakeDurationMillis >= state.currentWakeMillis
+        if (!acceptable) return GoalStep.unchanged(state)
+        return step(state, state.copy(budgets = budgets))
     }
 
     private fun onCompleteRequested(state: Goal): GoalStep {
@@ -219,6 +232,14 @@ object GoalReducer {
             )
         return step(state, next, listOf(GoalEffect.GoalCancelled, GoalEffect.ReminderCancelled))
     }
+
+    /**
+     * A new run can start only while the remaining goal budget can be materialized as a
+     * legal [com.helix.core.model.TurnBudgets] by the coordinator (ADR-0004 item 1): at
+     * least one model call, one tool call and one token of headroom per run.
+     */
+    private fun Goal.canStartRun(): Boolean =
+        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1
 
     /** First goal-lifetime budget that `goal` exceeds, in a fixed check order, or null. */
     private fun firstExhaustedLimit(goal: Goal): String? =

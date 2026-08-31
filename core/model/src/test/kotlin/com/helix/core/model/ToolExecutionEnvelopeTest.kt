@@ -32,6 +32,12 @@ class ToolExecutionEnvelopeTest {
         assertThrows<IllegalArgumentException> { ExecutionLimits(Duration.ofMillis(-1), 1) }
         assertThrows<IllegalArgumentException> { ExecutionLimits(Duration.ofMillis(1), 0) }
         assertThrows<IllegalArgumentException> { ExecutionLimits(Duration.ofMillis(1), -5) }
+        // The storage encoding is timeoutMillis (ADR-0001): a sub-millisecond timeout would
+        // truncate to 0 on encode and be rejected on decode, so the domain value is
+        // millisecond-granular by construction.
+        assertThrows<IllegalArgumentException> { ExecutionLimits(Duration.ofNanos(999_999), 1) }
+        assertThrows<IllegalArgumentException> { ExecutionLimits(Duration.ofMillis(1).plusNanos(1), 1) }
+        assertEquals(Duration.ofMillis(1), ExecutionLimits(Duration.ofMillis(1), 1).timeout)
     }
 
     @Test

@@ -6,8 +6,8 @@ package com.helix.core.model
  *
  * Levels are ordinal-ordered L0 < L1 < L2 < L3. `L2` and `L3` always require per-call user
  * approval; unknown tools, unknown capabilities and `L3` are denied by default (roadmap
- * HXA-032). [ToolOperationClass] is orthogonal to risk: Plan mode filters on `READ_ONLY` only
- * and must never substitute a `baseRisk <= L1` check.
+ * HXA-033, Policy Engine). [ToolOperationClass] is orthogonal to risk: Plan mode filters on
+ * `READ_ONLY` only and must never substitute a `baseRisk <= L1` check.
  */
 enum class RiskLevel {
     L0,

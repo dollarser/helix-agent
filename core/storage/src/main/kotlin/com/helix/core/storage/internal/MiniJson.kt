@@ -13,12 +13,16 @@ package com.helix.core.storage.internal
  * - strings: RFC 8259 with `\" \\ \/ \b \f \n \r \t \uXXXX` escapes; raw control chars rejected;
  * - numbers: signed 64-bit integers only; no leading zeros; no floats or exponents;
  * - literals: `true` / `false` / `null`;
- * - trailing content rejected; insignificant whitespace between tokens allowed.
+ * - trailing content rejected; insignificant whitespace between tokens limited to
+ *   space/tab/CR/LF (parity with the core:model ADR-0001 parser).
  *
  * All failures throw [IllegalArgumentException] (via `require`).
  */
 internal object MiniJson {
     private val HEX_DIGITS: Set<Char> = "0123456789abcdefABCDEF".toSet()
+
+    /** Insignificant whitespace, exactly the ADR-0001 subset (see [Reader.skipWhitespace]). */
+    private val WHITESPACE: Set<Char> = " \t\r\n".toSet()
 
     fun parse(text: String): Value {
         val reader = Reader(text)
@@ -205,7 +209,10 @@ internal object MiniJson {
         }
 
         fun skipWhitespace() {
-            while (pos < text.length && text[pos].isWhitespace()) pos++
+            // Parity with the ADR-0001 parser in core:model: only space/tab/CR/LF are
+            // insignificant. Char.isWhitespace() would also accept e.g. U+001C..U+001F,
+            // U+1680 and U+2000..U+3000, letting one codec accept what the other rejects.
+            while (pos < text.length && WHITESPACE.contains(text[pos])) pos++
         }
     }
 }

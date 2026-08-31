@@ -158,6 +158,8 @@ class GoalRunRepository(
         require(endedAt >= run.startedAt) { "endedAt must be >= startedAt" }
         require(wakeDurationMillis >= 0) { "wakeDurationMillis must be >= 0" }
         require(modelCalls >= 0 && toolCalls >= 0 && tokens >= 0) { "run usage must be >= 0" }
-        dao.updateOutcome(run.id, outcome, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens)
+        require(dao.updateOutcome(run.id, outcome, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens) == 1) {
+            "goal run already finished: ${run.id}"
+        }
     }
 }

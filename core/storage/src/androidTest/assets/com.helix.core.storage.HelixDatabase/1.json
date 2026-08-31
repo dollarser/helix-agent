@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "2536c09cb7a31d95a7223598d409c5a8",
+    "identityHash": "988bcff8aa592afe2ee2bb3246c71e5b",
     "entities": [
       {
         "tableName": "sessions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `providerId` TEXT, `modelId` TEXT, `createdAt` INTEGER NOT NULL, `archivedAt` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `providerId` TEXT, `modelId` TEXT, `createdAt` INTEGER NOT NULL, `archivedAt` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`providerId`) REFERENCES `provider_configs`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -47,7 +47,31 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_sessions_providerId",
+            "unique": false,
+            "columnNames": [
+              "providerId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_sessions_providerId` ON `${TABLE_NAME}` (`providerId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "provider_configs",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "providerId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       },
       {
         "tableName": "messages",
@@ -562,6 +586,17 @@
             "id"
           ]
         },
+        "indices": [
+          {
+            "name": "index_executions_toolCallId",
+            "unique": true,
+            "columnNames": [
+              "toolCallId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_executions_toolCallId` ON `${TABLE_NAME}` (`toolCallId`)"
+          }
+        ],
         "foreignKeys": [
           {
             "table": "tool_calls",
@@ -959,7 +994,7 @@
       },
       {
         "tableName": "goals",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `criteria` TEXT NOT NULL, `budgets` TEXT NOT NULL, `state` TEXT NOT NULL, `planId` TEXT, `planHash` TEXT, `nextCheckpoint` INTEGER, `correlationId` TEXT NOT NULL, `runCount` INTEGER NOT NULL, `modelCalls` INTEGER NOT NULL, `toolCalls` INTEGER NOT NULL, `totalTokens` INTEGER NOT NULL, `runTimeMillis` INTEGER NOT NULL, `currentWakeMillis` INTEGER NOT NULL, `retries` INTEGER NOT NULL, `lastWakeReason` TEXT, `error` TEXT, `finishReason` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `objective` TEXT NOT NULL, `criteria` TEXT NOT NULL, `budgets` TEXT NOT NULL, `state` TEXT NOT NULL, `planId` TEXT, `planHash` TEXT, `nextCheckpoint` INTEGER, `correlationId` TEXT NOT NULL, `runCount` INTEGER NOT NULL, `modelCalls` INTEGER NOT NULL, `toolCalls` INTEGER NOT NULL, `totalTokens` INTEGER NOT NULL, `runTimeMillis` INTEGER NOT NULL, `currentWakeMillis` INTEGER NOT NULL, `retries` INTEGER NOT NULL, `lastWakeReason` TEXT, `error` TEXT, `finishReason` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`planId`) REFERENCES `plans`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1085,6 +1120,28 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_goals_state` ON `${TABLE_NAME}` (`state`)"
+          },
+          {
+            "name": "index_goals_planId",
+            "unique": false,
+            "columnNames": [
+              "planId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_goals_planId` ON `${TABLE_NAME}` (`planId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "plans",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "planId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
           }
         ]
       },
@@ -1508,7 +1565,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2536c09cb7a31d95a7223598d409c5a8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '988bcff8aa592afe2ee2bb3246c71e5b')"
     ]
   }
 }

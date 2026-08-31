@@ -25,7 +25,7 @@ import org.junit.runner.RunWith
 import java.io.File
 
 /**
- * Room migration fixture (HXA-014, matrix row 36). The committed schema export in
+ * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
  * - [v1ExportMatchesTheCodeBuiltSchema] closes the drift loop (the JVM contract test
@@ -63,18 +63,28 @@ class RoomMigrationFixtureTest {
     @Test
     fun v1ExportMatchesTheCodeBuiltSchema() {
         val exportedDb = helper.createDatabase(EXPORTED_DB, 1)
-        val exportedTables = tables(exportedDb)
+        val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
         val codeDb = Room.databaseBuilder(context, HelixDatabase::class.java, CODE_DB).build()
         try {
-            val codeTables = tables(codeDb.openHelper.writableDatabase)
+            val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
                 "code-built v1 schema must match the exported v1 schema",
                 expectedTables().sorted(),
-                codeTables.sorted(),
+                code.tables.sorted(),
             )
-            assertEquals(codeTables.sorted(), exportedTables.sorted())
+            assertEquals(
+                "column sets (name/type/nullability/PK) drifted between export and code",
+                exported.columns,
+                code.columns,
+            )
+            assertEquals(
+                "foreign keys (parent table/column, on-delete) drifted between export and code",
+                exported.foreignKeys,
+                code.foreignKeys,
+            )
+            assertEquals("indexes drifted between export and code", exported.indexes, code.indexes)
         } finally {
             codeDb.close()
         }
@@ -99,7 +109,22 @@ class RoomMigrationFixtureTest {
     @Test
     fun v1RoundTripsSessionsMessagesTurnsAndContent() {
         withStorage("crud-conversation.db") { storage ->
-            val session = storage.sessions.create("session-crud", "crud session", "provider-1", "model-1", 10L)
+            // sessions.providerId is an FK to provider_configs: the session must reference a
+            // real provider row.
+            storage.providerConfigs.save(
+                ProviderConfigSpec(
+                    "provider-crud",
+                    "Crud Provider",
+                    "openai-responses",
+                    "http://localhost:1",
+                    "model-1",
+                    "{}",
+                    "alias-only",
+                    "{}",
+                ),
+            )
+            val session = storage.sessions.create("session-crud", "crud session", "provider-crud", "model-1", 10L)
+            assertEquals("provider-crud", storage.sessions.resolve(session.id).providerId)
             storage.sessions.archive(session.id, 20L)
             assertEquals(20L, storage.sessions.resolve(session.id).archivedAt)
 
@@ -316,6 +341,112 @@ class RoomMigrationFixtureTest {
             assertTrue(storage.messages.listBySession(session.id).isEmpty())
             assertTrue(storage.turns.listBySession(session.id).isEmpty())
         }
+    }
+
+    @Test
+    fun v1TransactionRollsBackEarlierWritesOnFailure() {
+        // A constraint violation mid-transaction must roll back the earlier writes of the
+        // same transaction (the repository layers rely on Room transactions for atomicity).
+        withStorage("tx-rollback.db") { storage ->
+            val thrown =
+                try {
+                    storage.withTransaction {
+                        storage.sessions.create("session-tx", "tx session", null, null, 10L)
+                        storage.messages.append(
+                            id = "msg-tx-orphan",
+                            sessionId = "session-does-not-exist",
+                            turnId = null,
+                            role = "user",
+                            kind = "text",
+                            content = "orphan inside a transaction",
+                        )
+                    }
+                    null
+                } catch (e: Throwable) {
+                    e
+                }
+            assertTrue(
+                "FK violation inside withTransaction must throw, was: $thrown",
+                thrown is android.database.sqlite.SQLiteConstraintException,
+            )
+            assertTrue(
+                "session created before the violation must be rolled back",
+                storage.sessions.list().none {
+                    it.id ==
+                        "session-tx"
+                },
+            )
+        }
+    }
+
+    /** Column/FK/index facts per table — the full drift surface of a schema export. */
+    private data class SchemaFacts(
+        val tables: Set<String>,
+        val columns: Map<String, List<List<String>>>,
+        val foreignKeys: Map<String, List<List<String>>>,
+        val indexes: Map<String, List<String>>,
+    )
+
+    private fun schemaFacts(sqlite: SupportSQLiteDatabase): SchemaFacts {
+        val tableNames = tables(sqlite)
+        val columns = mutableMapOf<String, List<List<String>>>()
+        val foreignKeys = mutableMapOf<String, List<List<String>>>()
+        val indexes = mutableMapOf<String, List<String>>()
+        tableNames.forEach { table ->
+            // name, type, notnull, pk
+            columns[table] =
+                pragmaRows(sqlite, "PRAGMA table_info($table)").map { row -> listOf(row[1], row[2], row[3], row[5]) }
+            // parent table, from column, on-delete action
+            foreignKeys[table] =
+                pragmaRows(sqlite, "PRAGMA foreign_key_list($table)").map { row -> listOf(row[2], row[3], row[6]) }
+            indexes[table] = indexFacts(sqlite, table).sorted()
+        }
+        return SchemaFacts(tableNames, columns, foreignKeys, indexes)
+    }
+
+    private fun pragmaRows(
+        sqlite: SupportSQLiteDatabase,
+        pragma: String,
+    ): List<Array<String>> {
+        val rows = mutableListOf<Array<String>>()
+        val cursor = sqlite.query(pragma)
+        try {
+            while (cursor.moveToNext()) {
+                val row = arrayOfNulls<String>(cursor.columnCount)
+                for (i in 0 until cursor.columnCount) {
+                    row[i] = cursor.getString(i)
+                }
+                @Suppress("UNCHECKED_CAST")
+                rows += row as Array<String>
+            }
+        } finally {
+            cursor.close()
+        }
+        return rows
+    }
+
+    private fun indexFacts(
+        sqlite: SupportSQLiteDatabase,
+        table: String,
+    ): List<String> {
+        val facts = mutableListOf<String>()
+        val cursor =
+            sqlite.query(
+                "SELECT name, sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? ORDER BY name",
+                arrayOf(table),
+            )
+        try {
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(0)
+                // sqlite_autoindex_* entries are schema-derived and carry no SQL; the named
+                // (Room-declared) indexes are the drift surface.
+                if (name.startsWith("sqlite_autoindex")) continue
+                facts += "$name :: ${cursor.getString(1)}"
+            }
+        } finally {
+            cursor.close()
+        }
+        return facts
     }
 
     private inline fun withStorage(

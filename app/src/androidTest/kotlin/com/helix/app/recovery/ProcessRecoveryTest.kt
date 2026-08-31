@@ -120,6 +120,43 @@ class ProcessRecoveryTest {
     }
 
     @Test
+    fun clockRewindBeforeStartTimesIsClampedNotReversed() {
+        // A backward wall-clock step between the dead process and this start (manual time
+        // change, NTP correction) puts `now` before the persisted startedAt: recovery must
+        // still succeed, with endedAt clamped to startedAt (no reversed timeline, no negative
+        // wake duration).
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dying = isolatedStorage(context, "rewind-1")
+        try {
+            dying.sessions.create("session-1", "Rewind", null, null, 1_000L)
+            val turn = dying.turns.start("turn-1", "session-1", 1_100L)
+            dying.turns.updateState(turn, Phase.RUNNING_TOOL, 1, null, null)
+            dying.seedCall("tc-1", "turn-1", "call-1", "bash", """{"cmd":"ls"}""", ToolCallState.RUNNING)
+            dying.goals.save(goal("goal-1", GoalState.RUNNING.name, currentWakeMillis = 200L))
+            dying.goalRuns.open("run-1", "goal-1", GoalWakeReason.USER_OPEN.name, 1_300L)
+        } finally {
+            dying.close()
+        }
+
+        val storage = isolatedStorage(context, "rewind-1")
+        val report = RecoveryCoordinatorApp(storage, FixedClock(500L)).recover()
+        assertEquals(mapOf("turn-1" to "call-1"), report.interruptedTurns)
+        assertEquals(listOf("goal-1"), report.parkedGoals)
+        assertEquals(listOf("run-1"), report.closedRuns)
+
+        val recovered = storage.turns.resolve("turn-1")
+        assertEquals(Phase.INTERRUPTED.name, recovered.state)
+        assertEquals(1_100L, recovered.endedAt)
+        val run = storage.goalRuns.resolve("run-1")
+        assertEquals("INTERRUPTED", run.outcome)
+        assertEquals(1_300L, run.endedAt)
+        assertEquals(0L, run.wakeDurationMillis)
+        // The goal parked with the wake dropped (same as any process death).
+        assertEquals(GoalState.PAUSED.name, storage.goals.resolve("goal-1").state)
+        assertEquals(0L, storage.goals.resolve("goal-1").currentWakeMillis)
+    }
+
+    @Test
     fun recoveredTurnWithoutSideEffectResumesDirectlyWithoutReplay() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dying = isolatedStorage(context, "death-3")

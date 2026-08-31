@@ -30,12 +30,19 @@ class ReminderPlanTest {
     }
 
     @Test
-    fun onlyCheckpointableStatesWantReminders() {
+    fun onlyRunningAndPausedWantReminders() {
+        // ADR-0004 item 6 + GoalReducer: the reminder is cancelled on INPUT_REQUIRED (and all
+        // terminal states), so only RUNNING/PAUSED want one — even though INPUT_REQUIRED is
+        // still checkpointable (holding a checkpoint != wanting a reminder).
         for (state in GoalState.entries) {
-            val wants = state in setOf(GoalState.RUNNING, GoalState.PAUSED, GoalState.INPUT_REQUIRED)
+            val wants = state in setOf(GoalState.RUNNING, GoalState.PAUSED)
             val plan = ReminderPlan.forGoal(1_000L, state, Checkpoint(10_000L))
             assertEquals("$state should not skip", !wants, plan.skip)
         }
+        assertTrue(
+            "INPUT_REQUIRED must skip (reducer cancels the reminder on entering it)",
+            ReminderPlan.forGoal(1_000L, GoalState.INPUT_REQUIRED, Checkpoint(10_000L)).skip,
+        )
     }
 
     @Test

@@ -86,8 +86,8 @@ class MessageRepository(
     ): MessageEntity {
         require(role.isNotBlank()) { "role must not be blank" }
         require(kind.isNotBlank()) { "kind must not be blank" }
+        // maxSequence is COALESCE(MAX(sequence), -1), so max + 1 is always a valid sequence.
         val sequence = dao.maxSequence(sessionId) + 1
-        require(sequence >= 0) { "sequence underflow for session $sessionId" }
         val contentRef =
             if (content.isBlank()) {
                 null
@@ -235,14 +235,6 @@ class ToolCallRepository(
         turnId: String,
         callId: String,
     ): ToolCallEntity? = dao.byTurnAndCallId(turnId, callId)
-
-    fun updateState(
-        call: ToolCallEntity,
-        state: String,
-    ) {
-        require(state.isNotBlank()) { "state must not be blank" }
-        dao.updateState(call.id, state)
-    }
 
     /**
      * Updates a tool call to [state]. The [ToolCallState] is validated before it hits the column

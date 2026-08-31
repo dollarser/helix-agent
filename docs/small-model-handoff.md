@@ -5,9 +5,10 @@
 ## 1. 当前事实
 
 - M0 / HXA-001～003 已完成。证据见 [M0 完成记录](m0-completion-record.md)。
-- M1 正在按 HXA-010～016 持续推进；已完成范围、当前唯一任务和下一任务只以 [implementation-status](implementation-status.md)及对应[完成记录](completion-records/README.md)为准，本文件不复制易漂移的 checkpoint 状态。Provider、Tool、文件、浏览器、MCP、Skill 和代码执行业务能力在各自完成记录出现前均视为未实现。
+- M1 / HXA-010～016 已全部完成（领域模型、Turn/Goal reducer、PlanArtifact、Room 持久化、恢复协调器、Context Builder），M1 退出条件测试全部通过。证据见 [HXA 完成记录](completion-records/README.md)。
+- 已完成范围、当前唯一任务和下一任务只以 [implementation-status](implementation-status.md) 及对应[完成记录](completion-records/README.md)为准，本文件不复制易漂移的 checkpoint 状态。Provider、Tool、文件、浏览器、MCP、Skill 和代码执行业务能力在各自完成记录出现前均视为未实现（M1 只交付领域状态与持久化，不是可对话的 Agent）。
 - 主 App 已有手工 `AppContainer`、`ShellRepository` fake 和七个空状态 route。不要把空页面当成功能实现。
-- 当前仓库分支为 `main`，但尚无首个 Git commit，现有基线文件都在未跟踪工作树中。继续开发前必须先查看 `git status`；未经用户授权不要擅自创建提交或覆盖基线。
+- 当前仓库分支为 `main`，已有 5 个 commit（M0 + M1 基线 → HXA-013 → HXA-014 → HXA-015 → HXA-016），工作树应保持干净。继续开发前必须先查看 `git status`；按用户授权每完成一个 HXA 提交一版（可回退管理），不要合并多个 HXA 到一个 commit，也不要提交机器路径或 Secret。
 - 本机已配置 JDK 17.0.20.1、Android SDK 36、Gradle Wrapper 9.5.0，以及 `Helix_API_29`、`Helix_API_36` AVD。2026-08-31 复核时磁盘可用约 427 GiB。
 - `local.properties` 已配置并被忽略；仓库不含业务 Secret。需要 Java 时可设置：
 
@@ -17,24 +18,17 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 
 ## 2. 建议建立的长程 Goal
 
-如果编码 Agent 支持持久 Goal，建立下列目标；若不支持，就把本节作为持续工作目标，不必模拟不存在的状态系统。
+如果编码 Agent 支持持久 Goal，按下列模式为**当前里程碑**建立目标；若不支持，就把本节作为持续工作目标，不必模拟不存在的状态系统。
 
-```text
-Goal: HELIX-M1
-Objective: 按 HXA-010 → HXA-016 的顺序完成 Helix M1，使领域模型、Turn/Plan/Goal 状态机、Room 持久化、恢复协调器和 Context Builder 形成可测试且可恢复的单机基础。
-Success criteria:
-1. HXA-010～016 各自需求与 verification-matrix 命令全部通过。
-2. 每项都有 docs/completion-records/HXA-NNN.md 的真实证据。
-3. docs/implementation-status.md 与源码、测试和实际设备证据一致。
-4. M1 退出条件中的状态机、预算、迁移、恢复和上下文裁剪测试全部通过。
-5. M2 Provider 网络实现尚未开始。
-```
+`Goal: HELIX-M1`（Objective：按 HXA-010 → HXA-016 的顺序完成 M1）已于 2026-08-31 完成并收口：五条 Success criteria（矩阵命令、完成记录、状态一致、退出测试、M2 未开始）全部满足，逐 HXA 证据见[完成记录](completion-records/README.md)。
+
+下一 Goal 为 `HELIX-M2`（Provider，HXA-020 → HXA-028），**在用户明确授权 M2 启动后再建立**，Success criteria 按同一模式：各 HXA 需求与 verification-matrix 命令通过、逐项完成记录、状态文件一致、M2 退出条件（三协议 fixture、能力探测、取消和错误分类）通过、M3 未开始。
 
 除非用户明确给出，不要自行设置 token 或时间预算。长程 Goal 只是持续推进的工作容器，不改变 Helix 产品中 Goal 模式的权限语义。
 
 ## 3. Goal checkpoint
 
-Goal 跨越一个里程碑，但任一时刻只推进一个 HXA：
+Goal 跨越一个里程碑，但任一时刻只推进一个 HXA。下表为 M1 的 checkpoint（已全部完成，保留作历史参照）；M2 的 checkpoint 为 HXA-020～028，原文以[路线文档](04-roadmap-and-backlog.md)为准：
 
 | 顺序 | checkpoint | 主要产物 | 最小验收 |
 | --- | --- | --- | --- |
@@ -68,13 +62,13 @@ Goal 跨越一个里程碑，但任一时刻只推进一个 HXA：
 下面这段提示刻意保持简短；详细边界由仓库文档承担，不需要在每轮消息重复几十条禁止项。
 
 ```text
-请接手 /Users/dollars/Helix 的后续开发。
+请接手本仓库的后续开发（工作目录为仓库根目录）。
 
-先读取 AGENTS.md、README.md、docs/small-model-handoff.md、docs/implementation-status.md，以及路线中的当前任务。若你支持持久 Goal，请建立 handoff 中定义的 HELIX-M1 Goal；按 HXA-010 到 HXA-016 顺序持续推进，每次只让一个 HXA 处于进行中。
+先读取 AGENTS.md、README.md、docs/small-model-handoff.md、docs/implementation-status.md，以及路线中的当前任务。M0 与 M1（HXA-001～016）已完成；若 implementation-status 标明 M2（HXA-020 起）已获用户授权，则按 handoff 中定义的模式建立 HELIX-M2 Goal，按 HXA-020 到 HXA-028 顺序持续推进，每次只让一个 HXA 处于进行中；M2 未获授权时不要开始任何 M2 工作。
 
 从 implementation-status.md 标明的当前唯一任务继续；已有完成记录的 HXA 不得重复实现。根据现有架构自行做简单、可逆、主流的实现选择，补齐测试并运行 verification matrix 的真实命令。一个 checkpoint 验收通过后，写完成记录、更新实施状态并继续下一项，不必为普通实现细节等待确认。
 
-不要把计划或编译成功写成完成功能。只有遇到需要改变既定架构/权限、关键依赖升级、外部条件缺失或无法在当前 HXA 内解决的真实阻塞时再暂停并说明证据。不要提交 Git commit，除非用户另行授权。
+不要把计划或编译成功写成完成功能。只有遇到需要改变既定架构/权限、关键依赖升级、外部条件缺失或无法在当前 HXA 内解决的真实阻塞时再暂停并说明证据。按用户授权每完成一个 HXA 提交一版 commit，不要合并多个 HXA，也不要提交机器路径或 Secret。
 ```
 
 ## 6. 交接完成的判断
