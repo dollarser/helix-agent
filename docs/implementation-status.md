@@ -40,13 +40,15 @@
 
 - M2 / HXA-021 已完成（2026-08-31）：`core:model` 内部统一契约——`ModelRequest`（文本消息 + 图像不透明引用 `ImageReference`（ArtifactRef + 封闭 mediaType）、`ModelToolSchema`（ToolName + 严格 JSON 对象 schema）、`ReasoningEffort`、采样参数，全 fail-closed 构造校验）+ `ModelEvent` sealed（doc 02 §6.1 九变体：TextDelta/ReasoningDelta/ToolCallStarted/ToolArgumentsDelta/ToolCallFinished/Usage/Refusal/Error/Completed）+ `ModelErrorCode` 封闭 8 类与 ErrorCode 映射。契约落位 core:model 共享内核（core:agent 唯一依赖），Agent Core 不依赖厂商 DTO。纯 JVM，core:model 119（+23）0 failures，全量回归与 5 个门禁脚本通过。证据见 [HXA-021 完成记录](completion-records/HXA-021.md)。
 
+- M2 / HXA-022 已完成（2026-08-31）：`provider:openai-responses` OpenAI Responses adapter（协议岛，transport 归 HXA-025）——`ResponsesSseParser`（WHATWG 增量 SSE：任意字节拆包、多字节 UTF-8 序列跨 chunk 缓冲、CRLF/裸 CR、多行 data、1 MiB 行/8 MiB 事件有界防护）+ `ResponsesStreamDecoder`（vendor 事件 → `ModelEvent`：终止唯一守卫、两段式 content_filter 拒绝、usage 透传、`max_output_tokens`→`Completed("length")`、无终止/断流→`Error(PROTOCOL, retryable=true)`、非法 JSON/缺字段/终止后事件/charset 越界→`retryable=false` 且停止产出、未知 vendor 错误码 fail-closed 不重试、未知事件忽略）+ `ResponsesRequestEncoder`（stateless `input` 编码：四角色、`input_image` 经注入 `ImageResolver` 解析为 data URL/公共 URL、`function_call_output`、tools+parameters 逐字嵌入、采样字段按需出现）+ `OpenAiResponsesAdapter` 门面（无状态编码器 + 每流解码器）。fixture 覆盖任务书七项：任意字节拆包（1/7/64 等价）、UTF-8 4 字节 emoji 2+2 拆包、多工具交错、拒绝、usage、无终止、断流。`kotlinx-serialization-json 1.9.0`（catalog 既有版本，仅 JsonElement API 无编译器插件）首次进入该模块，lockfile + verification-metadata sha256 锁定。纯 JVM 44 个新测试 0 failures（parser 16/decoder 21/encoder 7），全量回归 + spotless/detekt + 5 个门禁脚本通过。证据见 [HXA-022 完成记录](completion-records/HXA-022.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-022 OpenAI Responses adapter（roadmap M2）：实现 Responses 流和 function calls；fixture 覆盖任意字节拆包、UTF-8、多个工具、拒绝、usage、无终止和断流。
+- HXA-023 OpenAI Chat Completions adapter（roadmap M2）：独立实现 Chat Completions SSE；不得失败后自动切 Responses，协议由配置确定。
 
 ## Blocked
 

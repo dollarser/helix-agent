@@ -97,6 +97,7 @@ val androidLibraries =
     )
 
 val jvmTestDependency = libs.junit4
+val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
@@ -236,6 +237,14 @@ subprojects {
             }
 
             dependencies.add("testImplementation", jvmTestDependency)
+
+            // The OpenAI Responses adapter (HXA-022) encodes request bodies and decodes
+            // vendor SSE payloads with the pinned kotlinx-serialization JsonElement API
+            // (no serialization compiler plugin needed). The other adapters (HXA-023/024)
+            // will declare the same dependency when they land.
+            if (path == ":provider:openai-responses") {
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
         }
     }
 
