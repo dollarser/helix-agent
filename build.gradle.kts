@@ -238,11 +238,15 @@ subprojects {
 
             dependencies.add("testImplementation", jvmTestDependency)
 
-            // The OpenAI Responses (HXA-022) and Chat Completions (HXA-023) adapters
-            // encode request bodies and decode vendor SSE payloads with the pinned
-            // kotlinx-serialization JsonElement API (no serialization compiler plugin
-            // needed). HXA-024 (Anthropic) will declare the same dependency when it lands.
-            if (path == ":provider:openai-responses" || path == ":provider:openai-chat") {
+            // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,
+            // HXA-024 Anthropic Messages) encode request bodies and decode vendor
+            // SSE payloads with the pinned kotlinx-serialization JsonElement API
+            // (no serialization compiler plugin needed).
+            if (
+                path == ":provider:openai-responses" ||
+                path == ":provider:openai-chat" ||
+                path == ":provider:anthropic"
+            ) {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
         }

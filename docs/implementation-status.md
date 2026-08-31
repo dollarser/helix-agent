@@ -44,13 +44,15 @@
 
 - M2 / HXA-023 已完成（2026-08-31）：`provider:openai-chat` OpenAI Chat Completions adapter（独立协议岛，与 openai-responses 零共享代码，失败不切协议）——`ChatSseReader`（自有增量 SSE：一行拆包、多行 data、UTF-8 字节边界、`[DONE]`、注释 ping、1 MiB/8 MiB 有界防护）+ `ChatCompletionsStreamDecoder`（`chat.completion.chunk` → `ModelEvent`：content delta、`tool_calls[]` 按 vendor index 键控的增量 arguments、`finish_reason` 四值映射（stop/length/tool_calls 升序闭合/content_filter 拒绝）、usage 尾块（finish 块之后、终止后唯一放行）、`[DONE]` 无 finish 块=无终止可重试、终止后块/块内 error/未知 reason/工具违约=不可重试停止产出）+ `ChatCompletionsRequestEncoder`（Chat 形态：`messages` 四角色、USER 图像 content 数组 `image_url`、`role:"tool"`+`tool_call_id`、tools function 嵌套、`max_tokens`、`stream_options.include_usage`、`reasoning_effort`、stateless）+ `OpenAiChatAdapter` 门面。fixture 覆盖任务书要求：任意字节拆包（1/7/64 等价）、UTF-8 4 字节 emoji 2+2 拆包、多工具交错、拒绝、usage、无终止、断流。依赖零新增组件（kotlinx-serialization 1.9.0 由 HXA-022 注册，本 HXA 仅 openai-chat lockfile 锁定 +5）。纯 JVM 44 个新测试 0 failures（reader 14/decoder 23/encoder 7），全量回归 + spotless/detekt + 5 个门禁脚本通过。证据见 [HXA-023 完成记录](completion-records/HXA-023.md)。
 
+- M2 / HXA-024 已完成（2026-08-31）：`provider:anthropic` Anthropic Messages adapter（独立协议岛，失败不切协议）——`AnthropicSseReader`（自有 typed-event 增量 SSE：`event:`+`data:` 成对帧、一行拆包、多行 data、UTF-8 字节边界、宽容尾部）+ `AnthropicStreamDecoder`（`message_start`/`content_block_*`/`message_delta`/`message_stop`/`error` → `ModelEvent`：text/thinking/tool_use 块按 index 键控、thinking_delta→ReasoningDelta、input_json_delta 增量 arguments、块序约束（未知/已停止块上的 delta 与种类不符 delta 失败）、stop reason 四值+refusal+未知 fail-closed、单 Usage 随终止（input 来自 message_start/output 来自 message_delta，先校验 reason 后发射）、`message_stop` 非终止（无终止→可重试）、流内 error 事件 vendor 映射（overloaded/api_error 可重试、rate_limit→RATE_LIMITED、invalid_request/not_found→PROTOCOL、permission→AUTH、未知→SERVER_ERROR 不可重试））+ `AnthropicRequestEncoder`（Messages 形态：顶层 `system`（多条合并）、USER 图像块数组、TOOL run 合并为单条 user `tool_result` 消息（保序）、严格角色交替 + 首条 user 顺序约束 fail-closed、扁平 `input_schema`、`max_tokens` 必填（null→默认 8192）、thinking 预算 LOW/MEDIUM/HIGH→1024/4096/16384 clamped 且不可行 fail-closed、seed 不发送）+ `AnthropicAdapter` 门面。fixture 覆盖任务书要求：tool result 顺序约束（解码侧块序 + 编码侧交替/合并/保序）。依赖零新增组件（kotlinx-serialization 1.9.0 由 HXA-022 注册，本 HXA 仅 anthropic lockfile 锁定 +5）。纯 JVM 64 个新测试 0 failures（reader 16/decoder 33/encoder 15），全量回归 + spotless/detekt + 5 个门禁脚本通过。证据见 [HXA-024 完成记录](completion-records/HXA-024.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-024 Anthropic Messages adapter（roadmap M2）：实现 Messages streaming、`tool_use/tool_result`、stop reason 和错误映射；测试 tool result 顺序约束。
+- HXA-025 Provider 连接与能力探测（roadmap M2）：依次测试 transport/auth、models、最小文本流、最小 ToolCall；保存 capability snapshot 和来源；手工 override 必须标记。
 
 ## Blocked
 
