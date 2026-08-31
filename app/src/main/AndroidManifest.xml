@@ -3,6 +3,11 @@
     <!-- Goal checkpoint reminders are deferrable notifications (architecture doc 5.1).
          POST_NOTIFICATIONS is a normal (non-dangerous) runtime permission, required on API 33+. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Provider connectivity (provider doc section 2): all model traffic is outbound
+         HTTPS/cleartext-LAN from the app; no location/contact/sms permission is implied.
+         HXA-027 needs it for the developer instrumented smoke; HXA-028 wires the same
+         permission into the production provider UI for both variants. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".HelixApplication"

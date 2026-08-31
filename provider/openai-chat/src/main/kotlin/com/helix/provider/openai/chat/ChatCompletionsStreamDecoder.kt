@@ -225,14 +225,28 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             }
             openToolCalls[i] = OpenToolCall(toolCallId, name)
             out += ModelEvent.ToolCallStarted(i, toolCallId, name)
+            // Some OpenAI-compatible servers (observed: Ollama /v1, HXA-027 device
+            // smoke) carry the complete function arguments in the SAME start
+            // fragment instead of separate incremental fragments — emit them
+            // after the start; this is not a duplicate start.
+            emitArguments(i, function, out)
         } else {
             if (!openToolCalls.containsKey(i)) {
                 throw ProtocolViolation("arguments fragment for unknown tool call index $i")
             }
-            val arguments = (function?.get("arguments") as? JsonPrimitive)?.contentOrNull
-            if (arguments != null && arguments.isNotEmpty()) {
-                out += ModelEvent.ToolArgumentsDelta(i, arguments)
-            }
+            emitArguments(i, function, out)
+        }
+    }
+
+    /** Emits [ModelEvent.ToolArgumentsDelta] when the fragment carries a non-blank `function.arguments`. */
+    private fun emitArguments(
+        index: Int,
+        function: JsonObject?,
+        out: MutableList<ModelEvent>,
+    ) {
+        val arguments = (function?.get("arguments") as? JsonPrimitive)?.contentOrNull
+        if (arguments != null && arguments.isNotEmpty()) {
+            out += ModelEvent.ToolArgumentsDelta(index, arguments)
         }
     }
 

@@ -86,8 +86,38 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.espresso.core)
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
+
+    // HXA-027: the developer instrumented smoke (SelfHostedSmokeTest, in the
+    // androidTestDeveloper source set — compiled for the developer variant only)
+    // drives the real provider stack (OpenAiChatProvider + OkHttpWireClient)
+    // against the dev-machine model server through the emulator host bridge
+    // (10.0.2.2). Test-scoped only: no production dependency is added to either
+    // variant. Declared on the shared androidTest classpath because the
+    // variant-specific androidTest configuration (androidTestDeveloperDebug
+    // implementation) only exists after AGP variant realization, and extending
+    // it from afterEvaluate breaks configuration-cache serialization of the
+    // aapt2 inputs.
+    androidTestImplementation(project(":provider:api"))
+    androidTestImplementation(project(":provider:openai-chat"))
+}
+
+// HXA-027: OkHttp 5's platform selector resolves to the `okhttp-android` artifact
+// for Android consumers, which requires compileSdk 37; this project is pinned to
+// compileSdk 36 (M0 baseline). The `okhttp-jvm` artifact is the same library as
+// plain JVM bytecode (no Android-specific parts), so the app's configurations
+// substitute the platform selector with the JVM variant instead of a platform
+// bump. The provider:api module itself keeps the normal selector (its consumers
+// are JVM and resolve okhttp-jvm natively). When HXA-028 wires the provider
+// stack into the production app, this substitution covers that classpath too.
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        // catalog-pinned version (same as provider:api resolves); only the artifact changes
+        substitute(module("com.squareup.okhttp3:okhttp"))
+            .using(module("com.squareup.okhttp3:okhttp-jvm:${libs.versions.okhttp.get()}"))
+    }
 }

@@ -16,6 +16,11 @@ import java.util.concurrent.TimeUnit
  * - the exchange is opened with a blocking OkHttp call on [Dispatchers.IO] (the
  *   suspending [WireClient.open] is a coroutine-friendly wrapper; the read
  *   timeout bounds a stuck peer);
+ * - [WireBody.forEachChunk] performs its blocking reads on the CALLING thread
+ *   (the caller must be on a non-UI dispatcher — [com.helix.provider.api.WireModelProvider]
+ *   guarantees this with `flowOn(Dispatchers.IO)`); no inner dispatcher hop: the
+ *   chunk callback is where the provider emits into the event flow, and a
+ *   dispatcher switch around it breaks the flow's SafeCollector context check;
  * - the [WireResponse] owns the connection: the caller MUST [WireBody.close] the
  *   body when done (a `finally` in the provider's flow) — for non-2xx responses
  *   the body is drained and closed before the status is consumed;
@@ -83,19 +88,23 @@ public class OkHttpWireClient(
 
         override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
             checkOpen()
-            withContext(Dispatchers.IO) {
-                val source = response.body?.source() ?: return@withContext
-                val buffer = okio.Buffer()
-                var read = source.read(buffer, CHUNK_SIZE)
-                while (read >= 0) {
-                    consumed += read
-                    if (consumed > maxBodyBytes) {
-                        close()
-                        throw IOException("response body exceeds $maxBodyBytes bytes")
-                    }
-                    if (!onChunk(buffer.readByteArray())) return@withContext
-                    read = source.read(buffer, CHUNK_SIZE)
+            // BLOCKING reads on the CALLING thread (no withContext): the caller is
+            // contractually on a non-UI dispatcher (WireModelProvider collects its
+            // stream flowOn(Dispatchers.IO)). Wrapping this in withContext(Dispatchers.IO)
+            // would run the callback — and the flow emission out of it — in a child
+            // coroutine context, which the SafeCollector cross-context emission check
+            // rejects (HXA-027 device smoke caught exactly that).
+            val source = response.body.source()
+            val buffer = okio.Buffer()
+            var read = source.read(buffer, CHUNK_SIZE)
+            while (read >= 0) {
+                consumed += read
+                if (consumed > maxBodyBytes) {
+                    close()
+                    throw IOException("response body exceeds $maxBodyBytes bytes")
                 }
+                if (!onChunk(buffer.readByteArray())) return
+                read = source.read(buffer, CHUNK_SIZE)
             }
         }
 

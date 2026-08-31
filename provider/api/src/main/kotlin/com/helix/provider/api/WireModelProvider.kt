@@ -10,8 +10,10 @@ import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
 import com.helix.provider.api.wire.mapHttpStatus
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -75,6 +77,13 @@ public abstract class WireModelProvider(
      * the cause class is already encoded in the error code — so the exception
      * object has no further use; suppressing SwallowedException documents that
      * conversion rather than hiding a bug.
+     *
+     * The flow is collected with [flowOn] on [Dispatchers.IO]: the wire reads
+     * are blocking and the emission must therefore happen on the IO dispatcher;
+     * the collector receives events on ITS OWN context (the flow machinery
+     * bridges the dispatchers) — without this, collecting from a blocking
+     * context (e.g. `runBlocking` on the main thread, as the HXA-027 device
+     * smoke does) violates the SafeCollector cross-context emission check.
      */
     @Suppress("SwallowedException") // connection exception converted to the terminal Error event
     override fun stream(request: ModelRequest): Flow<ModelEvent> =
@@ -124,7 +133,7 @@ public abstract class WireModelProvider(
             } finally {
                 response.body.close()
             }
-        }
+        }.flowOn(Dispatchers.IO)
 
     override suspend fun listModels(): ModelCatalogResult {
         val path = modelsPath() ?: return ModelCatalogResult.Unsupported

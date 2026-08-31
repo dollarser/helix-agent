@@ -50,13 +50,15 @@
 
 - M2 / HXA-026 已完成（2026-08-31）：`provider:catalog` 模板目录——`ProviderTemplate`（id/displayName/priority/protocol/defaultEndpoint(可空)/defaultHeaders/credentialRequired/notes，类型面无 model 字段无 key 字段——“不写死模型名和 key”是结构保证）+ `ProviderTemplateCatalog`（15 模板：P0 OpenAI（OPENAI_RESPONSES 优先）/Anthropic（ANTHROPIC_MESSAGES）/Generic OpenAI（无默认 endpoint）/Ollama（`http://127.0.0.1:11434/v1`）/SGLang（无默认 endpoint，工具调用前能力探测）+ P1 DeepSeek/DashScope-Qwen/OpenRouter（唯一模板级 header `X-Title`）/Moonshot-Kimi/Zhipu-GLM/MiniMax/xAI/Groq/vLLM/LM Studio 全钉 OPENAI_CHAT_COMPLETIONS——模板族不是模糊开关，失败不切协议）。官方 endpoint 形式逐模板对照厂商文档核验（DeepSeek 官方 base_url 无 `/v1`、Zhipu `/api/paas/v4`、DashScope `/compatible-mode/v1`、MiniMax `api.minimaxi.com/v1` 等），endpoint path 是 HXA-025 API root 语义（资源路径由 adapter 追加，测试保证不内嵌资源段）；residence 由 endpoint 派生（12 个默认 endpoint 分类测试）；零新依赖零 lockfile 变化。纯 JVM 16 个新测试 0 failures，全量回归 + spotless/detekt + 5 个门禁脚本通过。真实 fixture（带用户 key）验证按 doc 2.3 落位 HXA-027/028。证据见 [HXA-026 完成记录](completion-records/HXA-026.md)。
 
+- M2 / HXA-027 已完成（2026-08-31，Ollama 半；SGLang 半有证据阻塞）：自建服务真机 smoke——app 层 `CleartextAuthorization`（host+port 精确绑定的 LAN 明文授权边界，https 恒允许/http 精确命中，7 测试）+ developer variant transport NSEC（静态 NSEC 无法表达用户输入 LAN host，真实边界在 app 层；lint `InsecureBaseConfiguration` 元素级 `tools:ignore` + 注释豁免；consumer 零变化）+ `INTERNET` 权限（main，两 variant，provider 连通性）+ `app/src/androidTestDeveloper` 的 `SelfHostedSmokeTest`（assume 守卫——无服务 SKIPPED 带原因不伪造成功；有服务必过：文本流终端 `Completed`+`TextDelta`、echo 工具 started∩finished 闭合 + `Completed("tool_calls")`、`listModels`/`validateConfiguration`/不支持字段记录；驱动生产类型 `OpenAiChatProvider`+`OkHttpWireClient` 打 `10.0.2.2:11434/v1`）。真机（emulator API 36 ↔ host Ollama 0.33.0 + qwen2.5:3b-instruct）10/0/0 全过且 **0 skipped**，证据：文本流 `[TextDelta, Completed, Usage]` 终端 stop；工具流 index=0 闭合 `args={"text":"probe"}`；`listModels Listed([qwen2.5:3b-instruct])`、`validateConfiguration Ok`；不支持字段记录：Responses 状态化字段不在 Ollama `/v1`，协议钉 `OPENAI_CHAT_COMPLETIONS` 无 fallback。smoke 发现并修复两个真实缺陷：① `flowOn(Dispatchers.IO)` + `forEachChunk` 调用线程阻塞读契约（SafeCollector 跨上下文发射，JVM FakeWire 掩盖）；② Ollama 工具 arguments 与 start 同 chunk 下发被解码器丢弃（`emitArguments` 修复 + 实抓三 chunk 流 JVM 回归测试）。构建侧：androidTest 依赖仅测试作用域（共享 `androidTestImplementation`——AGP 9 变体特定配置 only-after-realization）、app classpath `okhttp→okhttp-jvm` 替换（`okhttp-android` 要求 compileSdk 37，项目钉 36；同库纯 JVM 构件，版本取 catalog）、lockfile/verification-metadata android 变体锁定。SGLang 半：本机（Apple M5 Pro）无可用安装路径（`pip --dry-run sglang` 在 flashinfer_python 构建依赖失败，CUDA 栈）——按不伪造成功纪律记录为待环境项。自动测试：新增 JVM 8 个 0 failures（api 75/0、openai-chat 52/0），developer connected 10/0/0、consumer connected 7/0/0、app 单元 12+12/0，全量回归 + lint + spotless/detekt + 5 门禁脚本通过。证据见 [HXA-027 完成记录](completion-records/HXA-027.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-027 自建服务真机 smoke（roadmap M2）：使用开发者本地 Ollama 和 SGLang，各验证文本流和 ToolCall。明确记录不支持字段；局域网 HTTP 必须按 host:port 单独开启。
+- HXA-028 聊天 UI（roadmap M2）：首次启动隐私说明、Provider 创建/编辑/连接测试、会话、模型选择、流式输出、停止、错误、重试、能力标签和当前 mode。consumer 固定 Standard；developer 首次启动仍为 Standard，并提供不产生权限/网络副作用的 Advanced 风险说明与显式切换。直接分发 UI 只显示产品名 Helix，不显示 developer flavor 或要求选择 APK。显示 Provider 规范 origin/residence；发送高敏 Context 前展示数据类别 + scope，Standard 不提供永久允许。UI 订阅持久化状态，不持有网络 Job；未完成连接测试不贬为“已可用”。本任务只交付 M2 可见性，不提前实现 HXA-033 的通用 Policy 或伪造“已门控”状态。
 
 ## Blocked
 

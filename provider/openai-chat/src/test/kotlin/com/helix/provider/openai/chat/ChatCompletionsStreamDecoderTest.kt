@@ -67,6 +67,42 @@ class ChatCompletionsStreamDecoderTest {
                 ",\"finish_reason\":null}]}",
         )
 
+    /**
+     * The exact three-chunk stream Ollama's OpenAI-compatible /v1 emits for a tool
+     * call (captured from ollama 0.33.0 + qwen2.5:3b-instruct, HXA-027 device
+     * smoke): the COMPLETE arguments ride in the start fragment.
+     */
+    @Test
+    fun ollamaArgumentsInStartFragmentAreEmitted() {
+        val stream =
+            chunk(
+                "{\"id\":\"chatcmpl-812\",\"object\":\"chat.completion.chunk\"," +
+                    "\"created\":1788178221,\"model\":\"qwen2.5:3b-instruct\"," +
+                    "\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{\"role\":\"assistant\",\"content\":\"\"," +
+                    "\"tool_calls\":[{\"id\":\"call_tbxphj8z\",\"index\":0," +
+                    "\"type\":\"function\"," +
+                    "\"function\":{\"name\":\"echo\",\"arguments\":\"{\\\"text\\\":\\\"probe\\\"}\"}}]}," +
+                    "\"finish_reason\":null}]}",
+            ) +
+                chunk(
+                    "{\"id\":\"chatcmpl-812\",\"object\":\"chat.completion.chunk\"," +
+                        "\"created\":1788178221,\"model\":\"qwen2.5:3b-instruct\"," +
+                        "\"system_fingerprint\":\"fp_ollama\",\"choices\":[{\"index\":0," +
+                        "\"delta\":{},\"finish_reason\":\"tool_calls\"}]}",
+                ) +
+                DONE_SSE
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(0, ToolCallId("call_tbxphj8z"), "echo"),
+                ModelEvent.ToolArgumentsDelta(0, """{"text":"probe"}"""),
+                ModelEvent.ToolCallFinished(0),
+                ModelEvent.Completed("tool_calls"),
+            ),
+            decodeAll(stream),
+        )
+    }
+
     private fun decodeAll(text: String): List<ModelEvent> {
         val decoder = ChatCompletionsStreamDecoder()
         return decoder.feed(text.toByteArray()) + decoder.finish()

@@ -63,6 +63,11 @@ public interface WireBody {
      * Streams the body in chunks for the SSE decoders; the callback is
      * suspending (the caller emits into the model event flow from it). Return
      * `false` to stop reading.
+     *
+     * Implementations perform their blocking reads on the CALLING thread: the
+     * caller must be on a non-UI dispatcher (the provider stream runs on the IO
+     * dispatcher). A dispatcher hop around the callback would break the event
+     * flow's SafeCollector cross-context emission check.
      */
     public suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean)
 

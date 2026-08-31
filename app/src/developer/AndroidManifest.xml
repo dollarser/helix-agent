@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+    <application
+        android:networkSecurityConfig="@xml/network_security_config">
         <meta-data
             android:name="com.helix.agent.DEVELOPER_VARIANT"
             android:value="HELIX_DEVELOPER_ONLY_APP" />

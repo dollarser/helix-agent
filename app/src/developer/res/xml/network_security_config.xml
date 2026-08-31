@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HXA-027: the developer build supports self-hosted LAN model servers (provider doc
+     section 2.5). Cleartext is permitted at the TRANSPORT level here because a static
+     network-security-config cannot express a user-entered LAN host; the actual
+     authorization boundary is the app-layer com.helix.provider.api.CleartextAuthorization
+     (bound to an explicit host + port per user action, with the risk display in the
+     provider UI — HXA-028). A TLS failure is never silently downgraded to http.
+     The consumer variant carries no NSEC and keeps the main manifest's explicit
+     usesCleartextTraffic=false. Verified on API 36 (HXA-027 smoke): this NSEC
+     takes precedence over that attribute for the developer variant. -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <!-- tools:ignore documents the accepted risk (HXA-027): the developer build
+         must reach user-entered LAN model servers over http; the authorization
+         boundary is the app-layer CleartextAuthorization, not the transport. -->
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>
