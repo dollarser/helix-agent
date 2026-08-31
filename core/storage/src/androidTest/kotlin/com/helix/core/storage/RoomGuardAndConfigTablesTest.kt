@@ -5,11 +5,16 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.policy.ApprovalBinding
+import com.helix.core.policy.ApprovalMintOutcome
+import com.helix.core.policy.ApprovalProof
+import com.helix.core.policy.MintRejectionCode
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.mapping.StoredGoal
@@ -77,10 +82,10 @@ class RoomGuardAndConfigTablesTest {
             val session = storage.sessions.create("session-appr", "appr session", null, null, 1L)
             val turn = storage.turns.start("turn-appr-1", session.id, 2L)
             val toolCall = storage.toolCalls.append("toolcall-appr-1", turn.id, "call-a", "bash", "1", "{}", "PENDING")
-            val hash = "c".repeat(64)
-            storage.approvals.create("approval-appr-1", toolCall.id, hash)
+            val binding = approvalBinding(toolCall.id, "c")
+            storage.approvals.create("approval-appr-1", toolCall.id, binding, 1L, 1000L)
             expectConstraintViolation("second approval for the same tool call must fail the unique index") {
-                storage.approvals.create("approval-appr-2", toolCall.id, hash)
+                storage.approvals.create("approval-appr-2", toolCall.id, binding, 1L, 1000L)
             }
         }
     }
@@ -190,21 +195,60 @@ class RoomGuardAndConfigTablesTest {
         return storage.toolCalls.append("toolcall-guards-1", turn.id, "call-g", "bash", "1", "{}", "PENDING")
     }
 
-    /** approvals: decide is one-time; only APPROVED is consumable and only once. */
+    private fun approvalBinding(
+        toolCallId: String,
+        digestSeed: String,
+    ): ApprovalBinding =
+        ApprovalBinding(
+            toolCallId = toolCallId,
+            toolName = "bash",
+            toolVersion = "1",
+            schemaHash = digestSeed + "0".repeat(63),
+            scopeRef = "workspace:test",
+            sessionId = "session-guards",
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            uiToken = "ui:test-page",
+            argsHash = digestSeed + "1".repeat(63),
+        )
+
+    /** approvals: decide is one-time; only APPROVED mints a proof; the proof is consumed once. */
     private fun guardsForApprovals(
         storage: HelixStorage,
         toolCall: ToolCallEntity,
     ) {
-        val hash = "a".repeat(64)
-        val approval = storage.approvals.create("approval-guards-1", toolCall.id, hash)
+        approvalDecideAndConsumeAreOneTime(storage, toolCall)
+        // approvals.toolCallId is unique (one approval per tool call), so the
+        // consume-before-decide probe needs its own tool call.
+        pendingCannotBeConsumedOrForged(storage)
+        deniedCannotBeConsumed(storage)
+    }
+
+    /** decide is one-time; an APPROVED record mints exactly one proof, consumed exactly once. */
+    private fun approvalDecideAndConsumeAreOneTime(
+        storage: HelixStorage,
+        toolCall: ToolCallEntity,
+    ) {
+        val approval =
+            storage.approvals.create(
+                "approval-guards-1",
+                toolCall.id,
+                approvalBinding(toolCall.id, "a"),
+                10L,
+                100000L,
+            )
         storage.approvals.decide(approval.id, ApprovalDecision.APPROVED, 10L)
         assertThrows(IllegalArgumentException::class.java) {
             storage.approvals.decide(approval.id, ApprovalDecision.DENIED, 11L)
         }
-        storage.approvals.consume(approval.id, 12L)
-        assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(approval.id, 13L) }
-        // approvals.toolCallId is unique (one approval per tool call), so the
-        // consume-before-decide probe needs its own tool call.
+        val minted = storage.approvals.mint(approval.id, 12L)
+        val proof = (minted as ApprovalMintOutcome.Minted).proof
+        storage.approvals.consume(proof, 12L, 12L)
+        val reConsume = ApprovalProof(approval.id, proof.bindingHash)
+        assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(reConsume, 13L, 13L) }
+    }
+
+    /** pending records mint nothing; a forged proof fails the SQL guard. */
+    private fun pendingCannotBeConsumedOrForged(storage: HelixStorage) {
         val secondCall =
             storage.toolCalls.append(
                 "toolcall-guards-2",
@@ -215,11 +259,29 @@ class RoomGuardAndConfigTablesTest {
                 "{}",
                 "PENDING",
             )
-        val pendingApproval = storage.approvals.create("approval-guards-2", secondCall.id, hash)
-        assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(pendingApproval.id, 14L) }
+        val pendingApproval =
+            storage.approvals.create(
+                "approval-guards-2",
+                secondCall.id,
+                approvalBinding(secondCall.id, "b"),
+                10L,
+                100000L,
+            )
+        // pending: no proof exists to consume — minting is rejected, and a forged proof fails
+        // the SQL guard (decision is not APPROVED).
+        assertEquals(
+            ApprovalMintOutcome.Rejected(MintRejectionCode.PENDING),
+            storage.approvals.mint(pendingApproval.id, 14L),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            storage.approvals.consume(ApprovalProof(pendingApproval.id, pendingApproval.bindingHash), 14L, 14L)
+        }
         assertEquals(0, storage.database.approvalDao().decide(pendingApproval.id, "ALLOWED", 15L))
         assertEquals(null, storage.approvals.resolve(pendingApproval.id).decision)
+    }
 
+    /** DENIED is a processed decision, not a credential: no mint, no consume. */
+    private fun deniedCannotBeConsumed(storage: HelixStorage) {
         val deniedCall =
             storage.toolCalls.append(
                 "toolcall-guards-3",
@@ -230,9 +292,23 @@ class RoomGuardAndConfigTablesTest {
                 "{}",
                 "PENDING",
             )
-        val deniedApproval = storage.approvals.create("approval-guards-3", deniedCall.id, hash)
+        val deniedApproval =
+            storage.approvals.create(
+                "approval-guards-3",
+                deniedCall.id,
+                approvalBinding(deniedCall.id, "d"),
+                10L,
+                100000L,
+            )
         storage.approvals.decide(deniedApproval.id, ApprovalDecision.DENIED, 16L)
-        assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(deniedApproval.id, 17L) }
+        // DENIED is a processed decision, not a credential: minting and consuming both fail.
+        assertEquals(
+            ApprovalMintOutcome.Rejected(MintRejectionCode.DENIED),
+            storage.approvals.mint(deniedApproval.id, 17L),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            storage.approvals.consume(ApprovalProof(deniedApproval.id, deniedApproval.bindingHash), 17L, 17L)
+        }
         assertEquals(null, storage.approvals.resolve(deniedApproval.id).consumedAt)
     }
 

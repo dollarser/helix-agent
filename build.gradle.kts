@@ -130,7 +130,7 @@ val projectDependencies =
     mapOf(
         ":core:agent" to listOf(":core:model"),
         ":core:policy" to listOf(":core:model"),
-        ":core:storage" to listOf(":core:model"),
+        ":core:storage" to listOf(":core:model", ":core:policy"),
         ":core:workspace" to listOf(":core:model"),
         ":provider:api" to listOf(":core:model"),
         ":provider:openai-responses" to listOf(":provider:api", ":core:model"),

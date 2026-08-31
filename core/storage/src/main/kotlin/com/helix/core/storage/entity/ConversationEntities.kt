@@ -157,7 +157,13 @@ data class ToolResultEntity(
     val verified: Boolean,
 )
 
-/** architecture doc 9.1: `approvals` — one-time, per (toolCall, argsHash), with decision audit. */
+/**
+ * architecture doc 9.1: `approvals` — one-time, per ToolCall, with decision audit.
+ * `bindingHash` (v2, HXA-034; renamed from `argsHash`) is the full ApprovalBinding hash —
+ * tool/version/schema/scope/session/target/UI token/args — not just the argument digest.
+ * `expiresAt` (v2) bounds the approval window; migrated v1 rows default to 0 = already
+ * expired (fail closed). Only `APPROVED` records can mint/consume a proof (doc 9.2).
+ */
 @Entity(
     tableName = "approvals",
     foreignKeys =
@@ -174,10 +180,11 @@ data class ToolResultEntity(
 data class ApprovalEntity(
     @PrimaryKey val id: String,
     val toolCallId: String,
-    val argsHash: String,
+    val bindingHash: String,
     val decision: String?,
     val decidedAt: Long?,
     val consumedAt: Long?,
+    val expiresAt: Long,
 )
 
 /**

@@ -8,7 +8,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * JVM-side contract check for the Room schema export (the committed v1 fixture). The
+ * JVM-side contract check for the Room schema export (the committed v2 fixture; v1 stays
+ * committed as the migration baseline). The
  * device-side [RoomMigrationFixtureTest] verifies that the code-built schema matches this
  * export; together the two close the drift loop without a device.
  */
@@ -66,9 +67,9 @@ class DatabaseContractTest {
         val property = System.getProperty("helix.schema.dir")
         val candidate =
             if (property.isNullOrBlank()) {
-                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json")
+                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/2.json")
             } else {
-                File(property, "com.helix.core.storage.HelixDatabase/1.json")
+                File(property, "com.helix.core.storage.HelixDatabase/2.json")
             }
         assertTrue("schema export not found at ${candidate.absolutePath}", candidate.isFile)
         return candidate
@@ -80,9 +81,9 @@ class DatabaseContractTest {
     }
 
     @Test
-    fun `exported schema is version 1 with the full section 9-1 table set`() {
+    fun `exported schema is version 2 with the full section 9-1 table set`() {
         val database = (loadSchema().entries.getValue("database") as Value.Obj)
-        assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
+        assertEquals(2L, (database.entries.getValue("version") as Value.Num).value)
         val entities = (database.entries.getValue("entities") as Value.Arr).items
         val tables =
             entities.map { entity ->
@@ -148,6 +149,34 @@ class DatabaseContractTest {
                 ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
             }
         assertTrue("provider_configs must keep the secretAlias column", "secretAlias" in providerColumns)
+    }
+
+    @Test
+    fun `approvals table carries the full binding hash and expiry column`() {
+        val entities =
+            loadSchema()
+                .entries
+                .getValue("database")
+                .let { it as Value.Obj }
+                .entries
+                .getValue("entities") as Value.Arr
+        val approval =
+            (
+                entities.items.first {
+                    (it as Value.Obj).entries.getValue("tableName") == Value.Str("approvals")
+                }
+            ) as Value.Obj
+        val columns =
+            (approval.entries.getValue("fields") as Value.Arr).items.map {
+                ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
+            }
+        assertEquals(
+            listOf("id", "toolCallId", "bindingHash", "decision", "decidedAt", "consumedAt", "expiresAt"),
+            columns,
+        )
+        val createSql = (approval.entries.getValue("createSql") as Value.Str).value
+        assertTrue("expiresAt must be NOT NULL", "expiresAt` INTEGER NOT NULL" in createSql)
+        assertTrue("v1 argsHash column must be gone", "argsHash" !in createSql)
     }
 
     @Test

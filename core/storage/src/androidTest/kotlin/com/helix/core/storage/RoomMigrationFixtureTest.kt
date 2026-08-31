@@ -8,11 +8,14 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.policy.ApprovalBinding
+import com.helix.core.policy.ApprovalMintOutcome
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.criteria.StoredCriterion
@@ -31,13 +34,16 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - [v1ExportMatchesTheCodeBuiltSchema] closes the drift loop (the JVM contract test
- *   checks the export against doc 9.1; this test checks the code against the export);
+ * - the export/code drift loop is closed by [v2ExportMatchesTheCodeBuiltSchema] (the live
+ *   version) plus the JVM contract test; the committed v1 export stays the migration
+ *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
  * - the CRUD round-trip and FK-violation tests exercise the v1 fixture end to end.
  *
  * Future schema changes add a `Migration` object plus a new exported version here
- * (doc 9.2: migrations require a schema export and an instrumentation test).
+ * (doc 9.2: migrations require a schema export and an instrumentation test). The v1 -> v2
+ * migration (HXA-034: approvals gain `expiresAt`, `argsHash` becomes `bindingHash`) is
+ * covered by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals].
  */
 @RunWith(AndroidJUnit4::class)
 class RoomMigrationFixtureTest {
@@ -49,7 +55,7 @@ class RoomMigrationFixtureTest {
         context = ApplicationProvider.getApplicationContext()
         // Fresh fixture per run: installed APKs keep app data between connected-test runs,
         // so stale rows would break the round-trip assertions.
-        listOf(EXPORTED_DB, CODE_DB, FK_DB).forEach { context.deleteDatabase(it) }
+        listOf(EXPORTED_DB, CODE_DB, FK_DB, MIGRATION_DB).forEach { context.deleteDatabase(it) }
         helper =
             MigrationTestHelper(
                 InstrumentationRegistry.getInstrumentation(),
@@ -64,8 +70,17 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v1ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase(EXPORTED_DB, 1)
+    fun v2ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        val list = versions?.toList()
+        val hasV1 = list?.contains("1.json") ?: false
+        val hasV2 = list?.contains("2.json") ?: false
+        assertTrue("schema export v1+v2 missing from assets: $list", hasV1 && hasV2)
+    }
+
+    @Test
+    fun v2ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v2-export.db", 2)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -73,7 +88,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v1 schema must match the exported v1 schema",
+                "code-built v2 schema must match the exported v2 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -90,6 +105,65 @@ class RoomMigrationFixtureTest {
             assertEquals("indexes drifted between export and code", exported.indexes, code.indexes)
         } finally {
             codeDb.close()
+        }
+    }
+
+    @Test
+    fun v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals() {
+        val db = helper.createDatabase(MIGRATION_DB, 1)
+        // The v1 fixture does not enforce FKs on this raw connection, so the approvals rows
+        // stand in for the full session/turn/tool-call chain.
+        db.execSQL(
+            "INSERT INTO approvals (id, toolCallId, argsHash, decision, decidedAt, consumedAt) " +
+                "VALUES ('approval-mig-1', 'toolcall-mig-1', '${"p".repeat(64)}', NULL, NULL, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO approvals (id, toolCallId, argsHash, decision, decidedAt, consumedAt) " +
+                "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
+        )
+        db.close()
+        // Room opens the v1 file, discovers the committed 1 -> 2 migration and applies it —
+        // the exact production path (including the room_master_table identity update).
+        val roomDb =
+            Room
+                .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
+                .addMigrations(HelixDatabase.MIGRATION_1_2)
+                .build()
+        try {
+            val sqlite = roomDb.openHelper.writableDatabase
+            val columns =
+                pragmaRows(sqlite, "PRAGMA table_info(approvals)").map { row -> row[1] }.toSet()
+            assertTrue(
+                "v2 approvals must carry bindingHash + expiresAt and drop argsHash: $columns",
+                "bindingHash" in columns && "expiresAt" in columns && "argsHash" !in columns,
+            )
+
+            fun row(id: String): List<String> {
+                val cursor =
+                    sqlite.query(
+                        "SELECT bindingHash, decision, consumedAt, expiresAt FROM approvals WHERE id = ?",
+                        arrayOf(id),
+                    )
+                try {
+                    assertTrue(cursor.moveToFirst())
+                    return listOf(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                    )
+                } finally {
+                    cursor.close()
+                }
+            }
+            // Rows survive the migration; the hash content is preserved under the new name.
+            assertEquals(listOf("p".repeat(64), null, null, "0"), row("approval-mig-1"))
+            assertEquals(listOf("q".repeat(64), "APPROVED", "20", "0"), row("approval-mig-2"))
+            // expiresAt = 0: every migrated approval is already expired (fail closed) — the
+            // old APPROVED row can never consume a proof post-migration (SQL guard).
+            assertEquals(0, roomDb.approvalDao().consumeByBinding("approval-mig-2", "q".repeat(64), 30L, 30L))
+        } finally {
+            roomDb.close()
         }
     }
 
@@ -196,9 +270,17 @@ class RoomMigrationFixtureTest {
             assertTrue(storage.toolResults.byToolCall(toolCall.id)?.verified == true)
             assertEquals("file listing body", storage.toolResults.readContent(result))
 
-            val approval = storage.approvals.create("approval-crud-1", toolCall.id, toolCall.argsHash)
+            val approval =
+                storage.approvals.create(
+                    "approval-crud-1",
+                    toolCall.id,
+                    approvalBinding(toolCall.id, toolCall.argsHash),
+                    40L,
+                    100_000L,
+                )
             storage.approvals.decide(approval.id, ApprovalDecision.APPROVED, 40L)
-            storage.approvals.consume(approval.id, 50L)
+            val proof = (storage.approvals.mint(approval.id, 50L) as ApprovalMintOutcome.Minted).proof
+            storage.approvals.consume(proof, 50L, 50L)
             val consumed = storage.approvals.resolve(approval.id)
             assertEquals("APPROVED", consumed.decision)
             assertEquals(50L, consumed.consumedAt)
@@ -439,6 +521,22 @@ class RoomMigrationFixtureTest {
         }
     }
 
+    private fun approvalBinding(
+        toolCallId: String,
+        argsHash: String,
+    ): ApprovalBinding =
+        ApprovalBinding(
+            toolCallId = toolCallId,
+            toolName = "bash",
+            toolVersion = "1",
+            schemaHash = "a".repeat(64),
+            scopeRef = "workspace:test",
+            sessionId = "session-mig",
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            uiToken = "ui:test-page",
+            argsHash = argsHash,
+        )
+
     /** Column/FK/index facts per table — the full drift surface of a schema export. */
     private data class SchemaFacts(
         val tables: Set<String>,
@@ -574,5 +672,6 @@ class RoomMigrationFixtureTest {
         const val EXPORTED_DB = "exported-v1.db"
         const val CODE_DB = "code-v1.db"
         const val FK_DB = "fk-v1.db"
+        const val MIGRATION_DB = "migration-1-2.db"
     }
 }

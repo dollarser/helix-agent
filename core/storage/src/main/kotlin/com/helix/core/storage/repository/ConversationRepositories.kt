@@ -3,6 +3,10 @@ package com.helix.core.storage.repository
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
+import com.helix.core.policy.ApprovalBinding
+import com.helix.core.policy.ApprovalMintOutcome
+import com.helix.core.policy.ApprovalProof
+import com.helix.core.policy.MintRejectionCode
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
@@ -293,16 +297,38 @@ class ToolResultRepository(
     }
 }
 
+/**
+ * Approval records with one-time, binding-checked proof consumption (HXA-034).
+ *
+ * The repository API only accepts the closed [ApprovalDecision] set — free strings cannot
+ * enter (the DAO re-checks `IN ('APPROVED', 'DENIED')` in SQL as a second layer). Minting a
+ * typed [ApprovalProof] happens only for APPROVED, unexpired, unconsumed records; consuming
+ * verifies the proof's binding hash inside the atomic UPDATE, so pending/DENIED/expired
+ * records and forged hashes can never authorize execution. `decision != null` and
+ * `consumedAt != null` are record-processing facts and are never approval by themselves
+ * (architecture doc 9.2; security doc 7.3).
+ */
 class ApprovalRepository(
     private val dao: ApprovalDao,
 ) {
+    /**
+     * Creates a pending approval bound to the exact [binding]. The window is
+     * `createdAt < expiresAt` with a hard [MAX_APPROVAL_TTL_MILLIS] cap: an approval is
+     * per-exact-ToolCall and finite — there is no permanent or unbounded approval.
+     */
     fun create(
         id: String,
         toolCallId: String,
-        argsHash: String,
+        binding: ApprovalBinding,
+        createdAt: Long,
+        expiresAt: Long,
     ): ApprovalEntity {
-        require(argsHash.length == 64) { "argsHash must be a sha256 hex string" }
-        val entity = ApprovalEntity(id, toolCallId, argsHash, null, null, null)
+        require(createdAt >= 0) { "createdAt must be >= 0" }
+        require(expiresAt > createdAt) { "expiresAt must be after createdAt" }
+        require(expiresAt - createdAt <= MAX_APPROVAL_TTL_MILLIS) {
+            "approval window exceeds the $MAX_APPROVAL_TTL_MILLIS ms hard cap"
+        }
+        val entity = ApprovalEntity(id, toolCallId, binding.hash, null, null, null, expiresAt)
         dao.insert(entity)
         return entity
     }
@@ -326,14 +352,62 @@ class ApprovalRepository(
         return resolve(id)
     }
 
-    /** One-time: throws when pending, denied, or already consumed. */
-    fun consume(
+    /**
+     * Mints the typed proof for an approval — the ONLY path to an [ApprovalProof]. Pending,
+     * DENIED, expired and already-consumed records are rejected with a stable code (never
+     * minted, even if their decision/consumed fields are non-null).
+     */
+    fun mint(
         id: String,
+        now: Long,
+    ): ApprovalMintOutcome {
+        require(now >= 0) { "now must be >= 0" }
+        val entity = dao.byId(id) ?: return ApprovalMintOutcome.Rejected(MintRejectionCode.NOT_FOUND)
+        return when {
+            entity.decision == null -> {
+                ApprovalMintOutcome.Rejected(MintRejectionCode.PENDING)
+            }
+
+            entity.decision == ApprovalDecision.DENIED.name -> {
+                ApprovalMintOutcome.Rejected(MintRejectionCode.DENIED)
+            }
+
+            entity.consumedAt != null -> {
+                ApprovalMintOutcome.Rejected(MintRejectionCode.CONSUMED)
+            }
+
+            now >= entity.expiresAt -> {
+                ApprovalMintOutcome.Rejected(MintRejectionCode.EXPIRED)
+            }
+
+            else -> {
+                ApprovalMintOutcome.Minted(ApprovalProof(id, entity.bindingHash))
+            }
+        }
+    }
+
+    /**
+     * One-time consumption of a minted proof. The atomic guard re-checks in SQL: APPROVED,
+     * not consumed, not expired at [now], and stored binding hash equal to the proof's.
+     * Throws when the record is pending, DENIED, expired, consumed or hash-mismatched — and
+     * under concurrency exactly one consumer wins (affected-row-count guard).
+     */
+    fun consume(
+        proof: ApprovalProof,
         consumedAt: Long,
+        now: Long,
     ): ApprovalEntity {
         require(consumedAt >= 0) { "consumedAt must be >= 0" }
-        require(dao.consume(id, consumedAt) == 1) { "approval not consumable: $id" }
-        return resolve(id)
+        require(now >= 0) { "now must be >= 0" }
+        require(
+            dao.consumeByBinding(proof.approvalId, proof.bindingHash, consumedAt, now) == 1,
+        ) { "approval not consumable: ${proof.approvalId}" }
+        return resolve(proof.approvalId)
+    }
+
+    companion object {
+        /** Product hard cap for an approval window (24 h): per-exact-ToolCall, finite, no permanent approval. */
+        const val MAX_APPROVAL_TTL_MILLIS = 24L * 60L * 60L * 1000L
     }
 }
 

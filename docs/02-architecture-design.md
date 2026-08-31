@@ -455,7 +455,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `model_calls` | id, turnId, providerSnapshot, state, usage, requestId | 模型调用，不存 secret |
 | `tool_calls` | id, turnId, callId, name, version, argsJson, argsHash, state | 工具请求 |
 | `tool_results` | id, toolCallId, status, summary, contentRef, verified | 工具结果 |
-| `approvals` | id, toolCallId, argsHash, decision, decidedAt, consumedAt | `decision` 仅 `APPROVED`/`DENIED`；只有 `APPROVED` 可一次性消费 |
+| `approvals` | id, toolCallId, bindingHash, decision, decidedAt, consumedAt, expiresAt | `decision` 仅 `APPROVED`/`DENIED`；`bindingHash` 是 ApprovalBinding 全量哈希（tool/version/schema/scope/session/target/UI token/args，canonical JSON，HXA-034）；只有 `APPROVED` 且未过期可生成类型化 Approval Proof 并一次性消费（consume 在 SQL 原子守卫内复核哈希与 `expiresAt`，迁移行默认过期 fail closed） |
 | `executions` | id, toolCallId, runtime, limitsJson, exitCode, signal | 代码/命令执行 |
 | `artifacts` | id, sessionId, relativePath, mediaType, size, sha256 | 产物索引 |
 | `audit_events` | id, correlationId, type, actor, redactedPayload, timestamp | 审计 |

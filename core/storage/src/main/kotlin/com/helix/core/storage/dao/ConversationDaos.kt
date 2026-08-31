@@ -163,14 +163,22 @@ interface ApprovalDao {
         decidedAt: Long,
     ): Int
 
-    /** One-time consumption: affected row count is 0 unless the decision is APPROVED. */
+    /**
+     * One-time, binding-checked consumption: affected row count is 1 only when the record is
+     * APPROVED, not yet consumed, not expired at [now], and the stored binding hash matches
+     * the proof's hash. Pending, DENIED, expired, already-consumed and mismatched-hash
+     * consumptions all return 0 — enforced in SQL, never in caller pre-checks (HXA-034).
+     */
     @Query(
         "UPDATE approvals SET consumedAt = :consumedAt " +
-            "WHERE id = :id AND consumedAt IS NULL AND decision = 'APPROVED'",
+            "WHERE id = :id AND consumedAt IS NULL AND decision = 'APPROVED' " +
+            "AND expiresAt > :now AND bindingHash = :bindingHash",
     )
-    fun consume(
+    fun consumeByBinding(
         id: String,
+        bindingHash: String,
         consumedAt: Long,
+        now: Long,
     ): Int
 }
 
