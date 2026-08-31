@@ -35,6 +35,11 @@ import kotlin.time.Duration.Companion.hours
  * [timeout] and [maxOutputBytes] are the hard LIMITS the dispatcher enforces
  * (doc 02 section 7.1: Timeout/Cancellation 包装 + 输出大小限制); they are
  * part of the contract, not runtime tuning.
+ *
+ * Both [inputSchema] and [outputSchema] must satisfy the tool schema SUBSET
+ * ([ToolSchema], HXA-031) at construction — an unknown keyword, an out-of-type
+ * keyword, or a malformed keyword value makes the descriptor unconstructible,
+ * which is how "unknown keyword 拒绝注册" is enforced for every source.
  */
 @Suppress("LongParameterList") // one parameter per doc 02 section 7 contract field (+ execution target + origin)
 data class ToolDescriptor(
@@ -64,6 +69,18 @@ data class ToolDescriptor(
         require(maxOutputBytes > 0) { "maxOutputBytes must be positive" }
         require(maxOutputBytes <= MAX_OUTPUT_BYTES_CAP) {
             "maxOutputBytes exceeds the ${MAX_OUTPUT_BYTES_CAP} byte framework cap"
+        }
+        // Schema subset gate (HXA-031, "unknown keyword 拒绝注册"): a
+        // descriptor with an out-of-subset schema cannot be constructed, so
+        // no source and no registry path can register one (single
+        // enforcement point).
+        val inputViolations = ToolSchema.check(inputSchema)
+        require(inputViolations.isEmpty()) {
+            "invalid input schema for ${name.value}: ${inputViolations.joinToString("; ")}"
+        }
+        val outputViolations = ToolSchema.check(outputSchema)
+        require(outputViolations.isEmpty()) {
+            "invalid output schema for ${name.value}: ${outputViolations.joinToString("; ")}"
         }
         // Namespace separation (doc 02 section 7.1): MCP names come from MCP
         // origins only, built-in names from built-in origins only.

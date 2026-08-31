@@ -23,8 +23,9 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * NOTE: this canonicalizer is for the tool SCHEMA contract. The canonical
  * encoding of tool ARGUMENTS (approval hashing, ADR-0001 lineage) is a
- * separate, stricter implementation owned by the Tool framework (HXA-031)
- * and must not be assumed to be this one.
+ * separate, STRICTER implementation owned by the Tool framework for the
+ * approval-hash work and must not be assumed to be this one. (HXA-031
+ * delivers the JSON Schema subset + value validation, not that encoder.)
  */
 internal object ToolSchemaCanonicalizer {
     fun canonicalize(element: JsonElement): String =

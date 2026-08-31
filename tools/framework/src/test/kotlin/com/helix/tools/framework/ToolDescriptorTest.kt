@@ -114,4 +114,47 @@ class ToolDescriptorTest {
     fun executionTargetIsPartOfTheContract() {
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, builtIn().executionTarget)
     }
+
+    @Test
+    fun outOfSubsetInputSchemaIsRejectedAtConstruction() {
+        // "unknown keyword 拒绝注册": the descriptor (and therefore the
+        // registration) cannot be built with an out-of-subset schema.
+        assertThrows(IllegalArgumentException::class.java) {
+            builtIn().copy(inputSchema = json("""{"type":"string","format":"uri"}"""))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            builtIn().copy(inputSchema = json("""{"anyOf":[{"type":"string"}]}"""))
+        }
+        // an out-of-type keyword is also rejected
+        assertThrows(IllegalArgumentException::class.java) {
+            builtIn().copy(inputSchema = json("""{"type":"object","minLength":1}"""))
+        }
+    }
+
+    @Test
+    fun outOfSubsetOutputSchemaIsRejectedAtConstruction() {
+        assertThrows(IllegalArgumentException::class.java) {
+            builtIn().copy(outputSchema = json("""{"type":"object","const":1}"""))
+        }
+        // a catastrophic pattern in the output schema is rejected too
+        assertThrows(IllegalArgumentException::class.java) {
+            builtIn().copy(outputSchema = json("""{"type":"string","pattern":"(a+)+"}"""))
+        }
+    }
+
+    @Test
+    fun validSubsetSchemasAreAccepted() {
+        val d =
+            builtIn().copy(
+                inputSchema =
+                    json(
+                        """
+                        {"type":"object","required":["path"],
+                         "properties":{"path":{"type":"string","minLength":1,"pattern":"^/"}},
+                         "additionalProperties":false}
+                        """,
+                    ),
+            )
+        assertEquals("read", d.name.value)
+    }
 }

@@ -22,9 +22,10 @@ import com.helix.core.model.ToolVersion
  * - the registry is thread-safe: registrations are synchronized and every
  *   read returns an immutable snapshot.
  *
- * The registry holds descriptors only. Schemas are NOT validated here
- * (HXA-031), policy is NOT evaluated here (HXA-033), execution happens
- * only in the dispatcher (HXA-035).
+ * The registry holds descriptors only. Schema SUBSET validity is enforced in
+ * the [ToolDescriptor] constructor (HXA-031), so the registry never sees an
+ * out-of-subset schema; policy is NOT evaluated here (HXA-033); execution
+ * happens only in the dispatcher (HXA-035).
  */
 class ToolRegistry(
     sources: List<ToolSource> = emptyList(),

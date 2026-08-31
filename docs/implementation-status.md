@@ -55,13 +55,15 @@
 
 - M3 / HXA-030 已完成（2026-08-31）：`tools:framework` 工具契约与注册面——`ToolDescriptor`（doc 02 §7 全字段：name/version 身份、kotlinx `JsonObject` 输入/输出 schema、`operationClass`/`baseRisk`/`timeout`（≤24h 上限）/`maxOutputBytes`（≤8 MiB 上限）/统一 `Capability`/`Idempotency`/`ExecutionTargetType`/`ToolOrigin`）+ 稳定 schema hash（规范序列化：对象键排序、数组保序、minified 字面量重渲染；SHA-256(canonical(input)+\u0000+canonical(output))，键序不变性/语义敏感性/无歧义拼接全测试）+ `ToolSource`（`BuiltInToolSource` 固定名集、`McpToolSource` 强制 `mcp.<serverId>.<toolName>` 三段命名+单 server 快照语义+`McpOrigin` 溯源 serverId/协议版本/自报 hints）+ `ToolRegistry`（(name,version) 唯一、**重复注册失败**、同名新版本合法演化、`visibleFor(效果类)` mode 视图每 name 取最新——Plan 视图只出 READ_ONLY 且 L0 风险 LOCAL_MUTATION 不进视图（风险不替代效果类）、synchronized 注册+快照读）。MCP annotation 结构性不参与分类（`McpToolSpec.operationClass` 是 Helix 显式参数，hints 只进 origin 审计位；MCP 工具 READ_ONLY 三层构造拒绝）。schema 规范式与 HXA-031 的参数 canonical 编码显式分界（core:model internal Json KDoc 承诺落位）。kotlinx-serialization-json 1.9.0（既有 pin，零新组件）`api` 入模块，lockfile 3 文件更新（extensions:mcp/skills 传递 +5）。纯 JVM 29 新测试 0 failures（hash 7/契约 8/源 7/注册表 7 含 8 线程并发），app 单元回归 54+54/0，spotless/detekt（0 issues）+ 5 门禁脚本 + `git diff --check` 通过。证据见 [HXA-030 完成记录](completion-records/HXA-030.md)。
 
+- M3 / HXA-031 已完成（2026-08-31）：`tools:framework` JSON Schema 子集——`ToolSchema`（允许类型 object/array/string/number/integer/boolean；keyword 按类型上下文：object 的 properties/required/additionalProperties、array 的 items（单 schema，无 tuple）/minItems/maxItems、string 的 minLength/maxLength/pattern、number/integer 的 minimum/maximum/exclusiveMinimum/exclusiveMaximum + 类型无关 type/enum + 注解 keyword（description/title/default/examples/$comment 允许且忽略）；**unknown keyword/越类型 keyword/未知类型名/畸形值一律拒绝注册**（format/const/anyOf/oneOf/allOf/not/if/$ref/definitions/uniqueItems/multipleOf/propertyNames/patternProperties/contains/$id/$schema/布尔 subschema 全拒）；pattern ≤256 字符+可编译+嵌套无界量词拒绝（有界 `{n,m}` 不误伤）；enum 条目是值不递归）+ `ToolSchemaValidator`（值验证：type/enum 结构化深等/required/properties/additionalProperties 三态/items 逐元素/minLength 按 code point（4 字节 emoji=1）/pattern 无锚/含界+不含界边界精确；**全部违规收集**带 JSONPath 定位供 HXA-035 回填模型；畸形 schema 失败关闭）+ `ToolJsonPrimitives`（kotlinx 1.9.0 无公开 isNumber/isBoolean，从规范字面量派生且 isString 先守卫——字符串 "true"/"123" 非 boolean/number）。子集门落 `ToolDescriptor` 构造器（input+output 双查，违规即不可构造=注册必拒，单点强制）。纯 JVM 30 新测试 0 failures（子集 14/值验证 13/构造拒绝 3，模块累计 59/0），app 单元回归 54+54/0，spotless/detekt（0 issues、零告警）+ 5 门禁脚本 + `git diff --check` 通过，零新依赖。证据见 [HXA-031 完成记录](completion-records/HXA-031.md)。
+
 ## In progress
 
 - 无。
 
 ## Next task
 
-- HXA-031 JSON Schema 子集：实现项目需要的 object/array/string/number/integer/boolean/enum/required/additionalProperties/min/max/pattern；unknown keyword 拒绝注册。
+- HXA-032 Capability Center：实现系统真实状态 resolver 和 Workspace/SAF/All-files/BrowserTab/Automation/Root scope 类型。缓存不代替执行时检查。
 
 ## Blocked
 
