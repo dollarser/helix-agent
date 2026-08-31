@@ -254,6 +254,14 @@ subprojects {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
 
+            // HXA-030: tools:framework carries the tool input/output schemas as kotlinx
+            // JsonElement (the JsonObject of doc 02 section 7). `api` scope: the type is
+            // part of the public ToolDescriptor contract, so consumers must see it. Same
+            // pinned catalog artifact (1.9.0) as the provider modules — no new version.
+            if (path == ":tools:framework") {
+                dependencies.add("api", kotlinxSerializationJsonDependency.get())
+            }
+
             // HXA-025: provider:api owns the ModelProvider contract (suspend/Flow),
             // the OkHttp transport and the capability probe. Coroutines are exposed
             // as `api` because the interface signatures use Flow/suspend; OkHttp is
