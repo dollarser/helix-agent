@@ -19,6 +19,8 @@
 - 2026-08-31 起按用户授权建立 Git 提交基线：首个 commit 为 M0 + HXA-010～012 基线，此后每完成一个 HXA 提交一版（可回退管理）。
 - M1 / HXA-014 已完成：`core:storage` Room 2.8.4 持久层（KSP 2.3.11）：doc 9.1 全部 22 张表（关系表 FK、唯一索引、`provider_configs`/`mcp_servers` 仅 alias 无明文密钥列）+ 22 DAO + 21 个仓库（plan 行与步骤行同事务、审批/verified 一次性守卫、artifact 文件+hash 先校验、plan 按 ADR-0001 从规范化列恢复并以 hash 列绑定精确版本）+ `ContentStore`（内容寻址、写后校验、原子替换）+ 存储层严格 JSON 编解码（criteria/ContentRef）+ `HelixStorage` 组合根与 `withTransaction`（9.2 事务入口）。JVM 44 个测试（含解析已提交 v1 schema 导出对 doc 9.1 的契约对照）+ API 36 模拟器 10 个 Room migration fixture 仪器测试（导出↔代码双路径 schema 对照、`PRAGMA foreign_keys=1`、FK 违规/级联、全部表 round-trip）通过；v1 schema 导出提交入库作为未来 migration 基线。证据见 [HXA-014 完成记录](completion-records/HXA-014.md)。
 - M1 / HXA-015 已完成：恢复协调器（进程重启恢复）：`core:agent` 纯决策层 `RecoveryCoordinator`（从持久化事实——`turns`/`tool_calls`/`goals` 行——判定：非终态 Turn→INTERRUPTED 且死亡时 RUNNING 调用为不确定副作用源、仅 PENDING/RUNNING 调用停泊（AWAITING_APPROVAL 从未执行不动）、RUNNING Goal→PAUSED；确定性 plan 只标记/停泊/关闭、类型层不含重执行；resume/wake 双门——不确定调用未解决不可恢复、唤醒仅 READY/PAUSED/INPUT_REQUIRED）+ `:core:storage` 恢复扫描（`TurnDao.listActive`、`GoalRunDao.listOpenByGoal`）与类型安全写入（`ToolCallState` 重载、`HelixStorage.open/close` 收口 Room 边界）+ `:app` 可执行协调器（`RecoveryCoordinatorApp`：扫描→plan→单一 `withTransaction` 内状态更新+审计同提交，doc 9.2；goal 停泊保留 checkpoint/清零 wake、死亡 run 以 INTERRUPTED 关闭）+ `HelixApplication` 启动后台触发（幂等 no-op 安全）。core:agent 126 个（+19 恢复决策/跨层一致性/不重放）、core:storage 44 个 JVM 测试 + API 36 模拟器 6 个设备测试（含 3 个进程恢复 fixture：死亡停泊全断言+审计+幂等、唤醒门跟随恢复且死亡 run 永不重放、无副作用 Turn 直接恢复不重放）通过；ADR-0004 进程恢复条款落地（保持 proposed）。证据见 [HXA-015 完成记录](completion-records/HXA-015.md)。
+- M1 / HXA-016 已完成：`core:agent` 可审计 Context Builder（doc 02 §5.4/§5.3、doc 07 §7）：13 类 `ContextSourceType`（六个内容源 WEB/FILE/MCP/SKILL/NOTIFICATION/ACCESSIBILITY 恒 `UNTRUSTED`、system/mode 契约恒 `TRUSTED`）+ `ContextSource`/`ContextItem`/`ContextBuildResult` 可审计字段（`sourceType/sourceId/trust/contentRef|contentHash`/估算 token，总和 = 各项和、每项 ≥1）；确定性裁剪三步（契约 + `retained` 项永不裁剪不截断、仅其超预算 fail-closed、剩余预算自新向旧整项填充、最终契约在前 + 快照序）；**永不字符级截断**（内联 ≤32 KiB、summary ≤2 KiB + `ArtifactRef` + 全量 SHA-256，超限 fail-closed；分块读属 HXA-041）；全文项 hash 构建器计算 + 提供须一致、summary 项透传全量 hash；Secret 无源类型无入口；保守字节估算（未知 usage 不当 0）。core:agent 147 个纯 JVM 测试（+21，覆盖不可信来源/超预算两种形态/稳定排序/多工具结果/token usage 缺失）通过，零新依赖。证据见 [HXA-016 完成记录](completion-records/HXA-016.md)。
+- **M1 退出条件已满足**（状态机、预算、Context Builder 裁剪/信任标记、migration 测试全部通过，见上 HXA-010～016 证据）；M2（Provider 网络）按交接约束尚未开始。
 
 ## In progress
 
@@ -26,7 +28,7 @@
 
 ## Next task
 
-- HXA-016：Context Builder（roadmap：在 `core:agent` 实现可审计的上下文装配——`sourceType/sourceId/trust/contentHash`、Provider/token 预算、确定性裁剪、大 ToolResult 转 summary + `ArtifactRef`；只用 HXA-010 不透明引用 + fake repository，不做 artifact 文件存储/hash 生命周期/Workspace I/O（HXA-041）；当前工具参数、审批上下文与对应结果不得字符级截断；Secret 和未选中文件不进入请求）。
+- M1 已完成并收口；下一个里程碑为 M2（Provider 网络，roadmap HXA-017 起）。按用户约束 M2 未开始，等待用户明确指令后再启动。
 
 ## Blocked
 
