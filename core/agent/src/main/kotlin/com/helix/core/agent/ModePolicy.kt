@@ -1,13 +1,16 @@
 package com.helix.core.agent
 
+import com.helix.core.model.AgentMode
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 
 /**
  * The two tool facts the mode filter needs. Dynamic risk is computed per call by the Policy
- * engine (architecture doc section 8); the mode filter only consumes it and never computes it.
- * (The full ToolDescriptor lives in the Tool framework, HXA-030; keeping the profile small
- * keeps `core:agent` decoupled from it.)
+ * Engine (`com.helix.core.policy.PolicyEngine`, HXA-033; architecture doc section 8) and the
+ * mode filter only consumes it and never computes it (ADR-0003: MCP annotation, Skill
+ * instruction and static baseRisk can never lower dynamic risk — the engine computes it as
+ * `max(baseRisk, factors)`). (The full ToolDescriptor lives in the Tool framework, HXA-030;
+ * keeping the profile small keeps `core:agent` decoupled from it.)
  */
 data class ToolModeProfile(
     val operationClass: ToolOperationClass,

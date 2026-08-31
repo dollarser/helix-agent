@@ -1,6 +1,7 @@
 package com.helix.app.profile
 
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.core.model.SafetyProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test

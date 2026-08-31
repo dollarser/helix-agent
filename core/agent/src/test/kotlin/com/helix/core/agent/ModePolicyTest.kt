@@ -1,5 +1,6 @@
 package com.helix.core.agent
 
+import com.helix.core.model.AgentMode
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
 import org.junit.Assert.assertEquals

@@ -1,19 +1,10 @@
 package com.helix.app.profile
 
 import com.helix.app.internal.LineStore
+import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-
-/**
- * Runtime safety profile (ADR-0005, accepted): [STANDARD] is the default of every
- * installation; [ADVANCED] exists only in the developer variant and must be
- * switched on explicitly after the user reads the risk explanation. The profile
- * is orthogonal to the compile-time consumer/developer boundary and is never a
- * ToolCall parameter (ADR-0005: model, MCP, Skill or imported content cannot
- * switch it).
- */
-enum class SafetyProfile { STANDARD, ADVANCED }
 
 /**
  * Persisted safety-profile state. Switching is a PURE state transition: the only

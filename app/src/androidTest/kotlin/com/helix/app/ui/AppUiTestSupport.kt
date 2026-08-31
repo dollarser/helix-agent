@@ -6,7 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
-import com.helix.app.profile.SafetyProfile
+import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.runBlocking
 
 /*

@@ -25,9 +25,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.profile.AdvancedProfileAvailability
-import com.helix.app.profile.SafetyProfile
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
+import com.helix.core.model.SafetyProfile
 
 /**
  * The settings screen (HXA-028): the safety-profile section (ADR-0005/0006)

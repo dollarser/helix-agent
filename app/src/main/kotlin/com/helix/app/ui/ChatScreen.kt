@@ -34,9 +34,9 @@ import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
 import com.helix.app.chat.SessionRowUi
-import com.helix.app.profile.SafetyProfile
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
 

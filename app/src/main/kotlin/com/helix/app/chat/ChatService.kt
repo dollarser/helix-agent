@@ -1,7 +1,6 @@
 package com.helix.app.chat
 
 import android.util.Log
-import com.helix.app.profile.SafetyProfile
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ProviderBadgeUi
@@ -13,6 +12,7 @@ import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
