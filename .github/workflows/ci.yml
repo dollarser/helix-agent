@@ -55,6 +55,21 @@ jobs:
           :runtime:proot-app:assembleDebug
           :runtime:cli-app:assembleDebug
 
+      - name: Upload debug APKs
+        # Debug-signed build artifacts for installation (development use, not for
+        # distribution). retention-days: 1 keeps storage in the free 2 GB tier
+        # regardless of push volume (~68 MB per run). Uploaded right after the
+        # build so the APKs survive even if a later gate step fails.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (node24)
+        with:
+          name: helix-apks-${{ github.sha }}
+          retention-days: 1
+          path: |
+            app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
+            app/build/outputs/apk/developer/debug/app-developer-debug.apk
+            runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
+            runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
+
       - name: Verify dependency locks
         run: ./scripts/check-lockfiles.sh
 
