@@ -1,5 +1,6 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
@@ -134,6 +135,9 @@ class TurnRepository(
 
     fun listBySession(sessionId: String): List<TurnEntity> = dao.listBySession(sessionId)
 
+    /** Non-terminal turns left by a previous process — the HXA-015 recovery scan. */
+    fun listActive(): List<TurnEntity> = dao.listActive()
+
     /** [TurnState] name is validated before it hits the column. */
     fun updateState(
         turn: TurnEntity,
@@ -238,6 +242,18 @@ class ToolCallRepository(
     ) {
         require(state.isNotBlank()) { "state must not be blank" }
         dao.updateState(call.id, state)
+    }
+
+    /**
+     * Updates a tool call to [state]. The [ToolCallState] is validated before it hits the column
+     * (HXA-015 recovery parks in-flight calls in [ToolCallState.INTERRUPTED]; a parked state must
+     * never silently degrade to an arbitrary string).
+     */
+    fun updateState(
+        call: ToolCallEntity,
+        state: ToolCallState,
+    ) {
+        dao.updateState(call.id, state.name)
     }
 }
 

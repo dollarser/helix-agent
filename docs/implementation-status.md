@@ -18,6 +18,7 @@
 - M1 / HXA-013 已完成：`core:agent` Goal reducer（`state + event -> state/effects`，复用 HXA-010 `GoalState` 零新增边）+ `GoalBudgets`（core:model，六项预算 + `stricterWith` + ADR-0001 canonical 编码）：run/wake 分离（只有用户显式继续创建新 run、重试不离开 RUNNING）、五类预算耗尽一律 PAUSED（`BudgetExhausted(limit)`，不得完成）、criterion 仅 verifier evidence 可满足且完成需全部有证据、进程死亡 RUNNING→PAUSED 且保留 checkpoint；`:app` WorkManager 可延迟提醒（唯一工作名 + REPLACE，过期 checkpoint 立即补发，worker 只发通知、零模型/工具调用——不变量计数器 + 设备测试证据，UI 文案无精确定时器）。core:agent 107 个、core:model 75 个、app consumer 8 个纯 JVM 测试 + API 36 模拟器 3 个仪器测试（提醒真实发出/REPLACE/取消）通过。run/wake 与预算耗尽语义记入 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md)（proposed）。证据见 [HXA-013 完成记录](completion-records/HXA-013.md)。
 - 2026-08-31 起按用户授权建立 Git 提交基线：首个 commit 为 M0 + HXA-010～012 基线，此后每完成一个 HXA 提交一版（可回退管理）。
 - M1 / HXA-014 已完成：`core:storage` Room 2.8.4 持久层（KSP 2.3.11）：doc 9.1 全部 22 张表（关系表 FK、唯一索引、`provider_configs`/`mcp_servers` 仅 alias 无明文密钥列）+ 22 DAO + 21 个仓库（plan 行与步骤行同事务、审批/verified 一次性守卫、artifact 文件+hash 先校验、plan 按 ADR-0001 从规范化列恢复并以 hash 列绑定精确版本）+ `ContentStore`（内容寻址、写后校验、原子替换）+ 存储层严格 JSON 编解码（criteria/ContentRef）+ `HelixStorage` 组合根与 `withTransaction`（9.2 事务入口）。JVM 44 个测试（含解析已提交 v1 schema 导出对 doc 9.1 的契约对照）+ API 36 模拟器 10 个 Room migration fixture 仪器测试（导出↔代码双路径 schema 对照、`PRAGMA foreign_keys=1`、FK 违规/级联、全部表 round-trip）通过；v1 schema 导出提交入库作为未来 migration 基线。证据见 [HXA-014 完成记录](completion-records/HXA-014.md)。
+- M1 / HXA-015 已完成：恢复协调器（进程重启恢复）：`core:agent` 纯决策层 `RecoveryCoordinator`（从持久化事实——`turns`/`tool_calls`/`goals` 行——判定：非终态 Turn→INTERRUPTED 且死亡时 RUNNING 调用为不确定副作用源、仅 PENDING/RUNNING 调用停泊（AWAITING_APPROVAL 从未执行不动）、RUNNING Goal→PAUSED；确定性 plan 只标记/停泊/关闭、类型层不含重执行；resume/wake 双门——不确定调用未解决不可恢复、唤醒仅 READY/PAUSED/INPUT_REQUIRED）+ `:core:storage` 恢复扫描（`TurnDao.listActive`、`GoalRunDao.listOpenByGoal`）与类型安全写入（`ToolCallState` 重载、`HelixStorage.open/close` 收口 Room 边界）+ `:app` 可执行协调器（`RecoveryCoordinatorApp`：扫描→plan→单一 `withTransaction` 内状态更新+审计同提交，doc 9.2；goal 停泊保留 checkpoint/清零 wake、死亡 run 以 INTERRUPTED 关闭）+ `HelixApplication` 启动后台触发（幂等 no-op 安全）。core:agent 126 个（+19 恢复决策/跨层一致性/不重放）、core:storage 44 个 JVM 测试 + API 36 模拟器 6 个设备测试（含 3 个进程恢复 fixture：死亡停泊全断言+审计+幂等、唤醒门跟随恢复且死亡 run 永不重放、无副作用 Turn 直接恢复不重放）通过；ADR-0004 进程恢复条款落地（保持 proposed）。证据见 [HXA-015 完成记录](completion-records/HXA-015.md)。
 
 ## In progress
 
@@ -25,7 +26,7 @@
 
 ## Next task
 
-- HXA-015：恢复协调器（roadmap：遗留活动 Turn 标为 `INTERRUPTED`；Goal 可恢复，但不自动重放有副作用或结果不明确的 ToolCall；消费 HXA-013 `GoalEffect` 并落地 `HelixStorage` 持久化配对）。
+- HXA-016：Context Builder（roadmap：在 `core:agent` 实现可审计的上下文装配——`sourceType/sourceId/trust/contentHash`、Provider/token 预算、确定性裁剪、大 ToolResult 转 summary + `ArtifactRef`；只用 HXA-010 不透明引用 + fake repository，不做 artifact 文件存储/hash 生命周期/Workspace I/O（HXA-041）；当前工具参数、审批上下文与对应结果不得字符级截断；Secret 和未选中文件不进入请求）。
 
 ## Blocked
 

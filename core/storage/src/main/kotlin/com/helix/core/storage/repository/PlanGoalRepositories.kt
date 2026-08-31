@@ -142,6 +142,9 @@ class GoalRunRepository(
 
     fun listByGoal(goalId: String): List<GoalRunEntity> = dao.listByGoal(goalId)
 
+    /** Runs still open (no `endedAt`) — recovery closes them when their goal parks (HXA-015). */
+    fun listOpenByGoal(goalId: String): List<GoalRunEntity> = dao.listOpenByGoal(goalId)
+
     fun finish(
         run: GoalRunEntity,
         outcome: String,

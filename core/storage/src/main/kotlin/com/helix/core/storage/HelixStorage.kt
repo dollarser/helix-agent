@@ -80,6 +80,11 @@ class HelixStorage(
         database.runInTransaction(Runnable { block() })
     }
 
+    /** Closes the database; a later [open] over the same file sees exactly the committed rows. */
+    fun close() {
+        database.close()
+    }
+
     companion object {
         fun create(context: Context): HelixStorage {
             val database =
@@ -88,6 +93,19 @@ class HelixStorage(
                     .build()
             val contentStore = FileContentStore(File(context.filesDir, CONTENT_DIR))
             return HelixStorage(database, contentStore)
+        }
+
+        /**
+         * Opens a database with an explicit name and content directory. Callers see [HelixStorage]
+         * only — the Room types stay inside this module (feature layers never touch them).
+         */
+        fun open(
+            context: Context,
+            databaseName: String,
+            contentDir: File,
+        ): HelixStorage {
+            val database = Room.databaseBuilder(context, HelixDatabase::class.java, databaseName).build()
+            return HelixStorage(database, FileContentStore(contentDir))
         }
 
         private const val CONTENT_DIR = "helix-content"

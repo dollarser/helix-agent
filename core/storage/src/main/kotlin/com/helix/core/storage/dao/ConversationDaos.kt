@@ -62,6 +62,13 @@ interface TurnDao {
     @Query("SELECT * FROM turns WHERE sessionId = :sessionId ORDER BY startedAt ASC, rowid ASC")
     fun listBySession(sessionId: String): List<TurnEntity>
 
+    /** Non-terminal turns left by a previous process — the HXA-015 recovery scan. */
+    @Query(
+        "SELECT * FROM turns WHERE state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') " +
+            "ORDER BY startedAt ASC, rowid ASC",
+    )
+    fun listActive(): List<TurnEntity>
+
     @Query(
         "UPDATE turns SET state = :state, stepCount = :stepCount, endedAt = :endedAt, " +
             "errorCode = :errorCode WHERE id = :id",

@@ -97,6 +97,13 @@ interface GoalRunDao {
     @Query("SELECT * FROM goal_runs WHERE goalId = :goalId ORDER BY startedAt ASC, rowid ASC")
     fun listByGoal(goalId: String): List<GoalRunEntity>
 
+    /** Runs still open (no end) — recovery closes them when their goal parks (HXA-015). */
+    @Query(
+        "SELECT * FROM goal_runs WHERE goalId = :goalId AND endedAt IS NULL " +
+            "ORDER BY startedAt ASC, rowid ASC",
+    )
+    fun listOpenByGoal(goalId: String): List<GoalRunEntity>
+
     @Query(
         "UPDATE goal_runs SET outcome = :outcome, endedAt = :endedAt, wakeDurationMillis = :wakeDurationMillis, " +
             "modelCalls = :modelCalls, toolCalls = :toolCalls, tokens = :tokens WHERE id = :id",

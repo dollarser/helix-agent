@@ -62,6 +62,8 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:agent"))
     implementation(project(":core:policy"))
+    // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
+    implementation(project(":core:storage"))
     implementation(project(":feature:files"))
 
     add("developerImplementation", project(":feature:files-allfiles"))
