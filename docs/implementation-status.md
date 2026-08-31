@@ -15,14 +15,16 @@
 - M1 / HXA-011 已完成：`core:agent` Turn reducer（`state + event -> state/effects`，纯函数 + 副作用分离），覆盖完成/拒绝、工具结果回填重入 context/model 循环、审批与拒绝、多工具调用串行、step/token/模型调用预算门控（usage 缺失按保守字节估算、绝不按 0）、模型失败、取消、进程中断与不确定副作用（解决后才可恢复，恢复不重放未执行调用）；57 个纯 JVM 测试通过；对 core:model `TurnState` 的 3 条增量转移边已作为契约解释记录在案。证据见 [HXA-011 完成记录](completion-records/HXA-011.md)。
 - M1 / HXA-012 已完成：Chat/Plan/Act/Goal 模式策略（`ModePolicy`：Chat 默认无工具、显式启用后仅 READ_ONLY+L0；Plan 仅 READ_ONLY 且动态风险 ≤L1，风险判断不能替代 operation-class 判断；Act/Goal 模式层不加限）+ 版本化 `PlanArtifact`/`PlanStep`（core:model 领域值，canonical JSON 存储编码 + SHA-256，hash 随版本变化）；core:agent 66 个、core:model 70 个纯 JVM 测试通过。证据见 [HXA-012 完成记录](completion-records/HXA-012.md)。
 - 2026-08-31 二次收口审查完成（仅文档与决策）：[ADR-0001](adr/0001-canonical-json-storage-encoding.md)按固定 shape、非通用 JSON 的窄范围接受；[ADR-0002](adr/0002-turn-state-intra-response-edges.md)接受三条 HXA-011 增量边并纠正恢复边归属；新增 [ADR-0003](adr/0003-plan-read-only-risk-ceiling.md)接受 Plan 的 READ_ONLY + 动态风险 ≤ L1 双重门；交接入口改为动态读取本状态文件。详见[文档复核记录 §7](documentation-review.md)。
+- M1 / HXA-013 已完成：`core:agent` Goal reducer（`state + event -> state/effects`，复用 HXA-010 `GoalState` 零新增边）+ `GoalBudgets`（core:model，六项预算 + `stricterWith` + ADR-0001 canonical 编码）：run/wake 分离（只有用户显式继续创建新 run、重试不离开 RUNNING）、五类预算耗尽一律 PAUSED（`BudgetExhausted(limit)`，不得完成）、criterion 仅 verifier evidence 可满足且完成需全部有证据、进程死亡 RUNNING→PAUSED 且保留 checkpoint；`:app` WorkManager 可延迟提醒（唯一工作名 + REPLACE，过期 checkpoint 立即补发，worker 只发通知、零模型/工具调用——不变量计数器 + 设备测试证据，UI 文案无精确定时器）。core:agent 107 个、core:model 75 个、app consumer 8 个纯 JVM 测试 + API 36 模拟器 3 个仪器测试（提醒真实发出/REPLACE/取消）通过。run/wake 与预算耗尽语义记入 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md)（proposed）。证据见 [HXA-013 完成记录](completion-records/HXA-013.md)。
+- 2026-08-31 起按用户授权建立 Git 提交基线：首个 commit 为 M0 + HXA-010～012 基线，此后每完成一个 HXA 提交一版（可回退管理）。
 
 ## In progress
 
-- HXA-013 已在工作树中开始，尚无完成记录；只有通过其验收矩阵并写入完成记录后才能标为完成。该事实可能随持续开发推进，由接收 Agent 在 checkpoint 结束时更新。
+- 无。
 
 ## Next task
 
-- HXA-013：实现 Goal reducer 与预算（Goal 状态、验收条件、模型/工具/token/时长/重试预算、checkpoint、`INPUT_REQUIRED`；首版只有用户显式继续创建新 run；预算耗尽不得完成、只有 verifier evidence 可满足 criterion）；验收 `./gradlew :core:agent:test`（验收矩阵第 35 行另含 Android 项，届时按矩阵执行）。
+- HXA-014：Room schema 与 Repository（验收矩阵第 36 行：JVM `./gradlew :core:storage:testDebugUnitTest` + Android `./gradlew :core:storage:connectedDebugAndroidTest`；Room migration fixture）。
 
 ## Blocked
 
@@ -43,5 +45,5 @@
 - GitHub Actions workflow 已配置且 action 引用固定到 commit SHA；仓库尚未推送，因此没有远端 CI run 可引用。本地对应 Gradle 和 shell 门禁均已通过。
 - Agent/Provider/MCP/Skill/Browser/文件操作/Accessibility/Root/QuickJS/PRoot 业务能力尚未实现；当前界面明确显示空状态。
 - M0 只在 API 36 arm64-v8a 模拟器完成设备验收；API 29、多 ABI 和真机矩阵由后续能力任务按验收矩阵执行。
-- 当前仓库尚无首个 Git commit，全部基线文件未跟踪；继续开发时必须先检查工作树并保留现有内容。
+- Git 基线已建立（2026-08-31 用户授权）：首个 commit 覆盖 M0 + HXA-010～012，之后每完成一个 HXA 提交一版；继续开发前仍需先 `git status` 检查工作树。
 - M0 空壳的中文 Compose 文本尚未资源化；简体中文/英文资源和硬编码扫描由 HXA-067 完成。

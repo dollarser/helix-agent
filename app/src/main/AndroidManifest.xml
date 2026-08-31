@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Goal checkpoint reminders are deferrable notifications (architecture doc 5.1).
+         POST_NOTIFICATIONS is a normal (non-dangerous) runtime permission, required on API 33+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".HelixApplication"
         android:allowBackup="false"
