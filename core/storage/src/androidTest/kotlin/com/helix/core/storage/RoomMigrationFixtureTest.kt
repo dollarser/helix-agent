@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
@@ -18,6 +19,7 @@ import com.helix.core.storage.mapping.StoredGoal
 import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -194,10 +196,10 @@ class RoomMigrationFixtureTest {
             assertEquals("file listing body", storage.toolResults.readContent(result))
 
             val approval = storage.approvals.create("approval-crud-1", toolCall.id, toolCall.argsHash)
-            storage.approvals.decide(approval.id, "ALLOWED", 40L)
+            storage.approvals.decide(approval.id, ApprovalDecision.APPROVED, 40L)
             storage.approvals.consume(approval.id, 50L)
             val consumed = storage.approvals.resolve(approval.id)
-            assertEquals("ALLOWED", consumed.decision)
+            assertEquals("APPROVED", consumed.decision)
             assertEquals(50L, consumed.consumedAt)
 
             val execution =
@@ -332,14 +334,71 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v1CascadesSessionDeletionToChildTables() {
+    fun v1CascadeFkRemovesChildRowsWhenSessionRowGoesAway() {
+        // Schema-level probe: the repositories deliberately expose no session deletion
+        // (sessions are archived, never deleted — doc 9.1), so the declared CASCADE FK
+        // action is exercised directly on Room's connection (which enforces foreign keys).
         withStorage("cascade.db") { storage ->
             val session = storage.sessions.create("session-cascade", "cascade session", null, null, 1L)
             storage.messages.append("msg-cascade-1", session.id, null, "user", "text", "hello")
             storage.turns.start("turn-cascade-1", session.id, 2L)
-            storage.sessions.delete(session.id)
-            assertTrue(storage.messages.listBySession(session.id).isEmpty())
-            assertTrue(storage.turns.listBySession(session.id).isEmpty())
+            storage.database.openHelper.writableDatabase
+                .execSQL("DELETE FROM sessions WHERE id = 'session-cascade'")
+            assertTrue(
+                "messages must cascade with the session row",
+                storage.messages.listBySession(session.id).isEmpty(),
+            )
+            assertTrue("turns must cascade with the session row", storage.turns.listBySession(session.id).isEmpty())
+        }
+    }
+
+    @Test
+    fun v1ArtifactRegistrationRejectsUnverifiedFiles() {
+        // doc 9.2: the file with its hash must exist first, verified by the repository before
+        // the row lands. The guard is unconditional: missing file, size mismatch and hash
+        // mismatch all fail closed and persist nothing.
+        withStorage("crud-artifacts-guard.db") { storage ->
+            val session = storage.sessions.create("session-artguard", "artguard session", null, null, 10L)
+            val file = File(context.cacheDir, "artifact-guard.txt")
+            file.writeText("artifact body")
+            val hash = FileContentStore.sha256Hex(file.readBytes())
+            assertThrows(IllegalArgumentException::class.java) {
+                storage.artifacts.register(
+                    "artifact-g-1",
+                    session.id,
+                    "artifacts/missing.txt",
+                    "text/plain",
+                    1,
+                    "d".repeat(64),
+                    File(context.cacheDir, "no-such-artifact.txt"),
+                )
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                storage.artifacts.register(
+                    "artifact-g-2",
+                    session.id,
+                    "artifacts/artifact-guard.txt",
+                    "text/plain",
+                    file.length() + 1,
+                    hash,
+                    file,
+                )
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                storage.artifacts.register(
+                    "artifact-g-3",
+                    session.id,
+                    "artifacts/artifact-guard.txt",
+                    "text/plain",
+                    file.length(),
+                    "e".repeat(64),
+                    file,
+                )
+            }
+            // None of the rejected registrations may have persisted a row.
+            for (id in listOf("artifact-g-1", "artifact-g-2", "artifact-g-3")) {
+                assertThrows(IllegalArgumentException::class.java) { storage.artifacts.resolve(id) }
+            }
         }
     }
 

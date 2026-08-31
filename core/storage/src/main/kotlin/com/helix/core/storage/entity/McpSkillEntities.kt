@@ -60,6 +60,7 @@ data class SkillEntity(
 @Entity(
     tableName = "skill_snapshots",
     primaryKeys = ["runId", "skillId"],
+    indices = [Index(value = ["skillId"])],
     foreignKeys =
         [
             ForeignKey(

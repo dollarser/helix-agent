@@ -4,10 +4,15 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.PlanArtifact
+import com.helix.core.model.PlanId
+import com.helix.core.model.PlanStep
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.mapping.StoredGoal
+import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -24,6 +29,10 @@ import java.io.File
  *   are each one-time and throw on a repeated transition;
  * - [v1RejectsOrphanReferencesAndDuplicateExecutions] — the sessions/goals FKs and the
  *   executions unique index reject rows that violate them at runtime;
+ * - [v1RejectsSecondApprovalPerToolCall] — the approvals.toolCallId unique index rejects a
+ *   second approval for the same tool call;
+ * - [v1ProviderDeletionDetachesSessionAndReferencedPlanDeletionIsRejected] — the parent
+ *   deletion FK actions: SET NULL detaches a session, NO ACTION protects a referenced plan;
  * - [v1RoundTripsRuntimeMcpSkillAndGrantTables] — the config tables (runtime installs,
  *   execution targets, capability grants, MCP servers+capabilities, skills+snapshots)
  *   round-trip through the repositories.
@@ -60,6 +69,109 @@ class RoomGuardAndConfigTablesTest {
     }
 
     @Test
+    fun v1RejectsSecondApprovalPerToolCall() {
+        // approvals.toolCallId is unique (one approval per tool call, doc 9.1): the unique
+        // index must reject a second approval row for the same call at runtime.
+        withStorage("fk-approval.db") { storage ->
+            val session = storage.sessions.create("session-appr", "appr session", null, null, 1L)
+            val turn = storage.turns.start("turn-appr-1", session.id, 2L)
+            val toolCall = storage.toolCalls.append("toolcall-appr-1", turn.id, "call-a", "bash", "1", "{}", "PENDING")
+            val hash = "c".repeat(64)
+            storage.approvals.create("approval-appr-1", toolCall.id, hash)
+            expectConstraintViolation("second approval for the same tool call must fail the unique index") {
+                storage.approvals.create("approval-appr-2", toolCall.id, hash)
+            }
+        }
+    }
+
+    @Test
+    fun v1ProviderDeletionDetachesSessionAndReferencedPlanDeletionIsRejected() {
+        withStorage("fk-setnull.db") { storage ->
+            providerConfigSetNullDetachesSession(storage)
+            referencedPlanDeletionIsRejected(storage)
+        }
+    }
+
+    /**
+     * sessions.providerId -> provider_configs is SET NULL: deleting the provider config must
+     * detach the session (providerId = NULL), not cascade the session row away.
+     */
+    private fun providerConfigSetNullDetachesSession(storage: HelixStorage) {
+        val provider =
+            storage.providerConfigs.save(
+                ProviderConfigSpec(
+                    id = "provider-setnull-1",
+                    displayName = "Setnull provider",
+                    protocol = "OPENAI_RESPONSES",
+                    endpoint = "https://api.example.com/v1",
+                    model = "model-1",
+                    headersJson = "{}",
+                    secretAlias = "alias-setnull-1",
+                    capabilitySnapshot = "{}",
+                ),
+            )
+        val session = storage.sessions.create("session-setnull-1", "setnull session", provider.id, "m1", 1L)
+        rawSql(storage, "DELETE FROM provider_configs WHERE id = 'provider-setnull-1'")
+        assertEquals(
+            "session must survive provider deletion with a nulled FK",
+            null,
+            storage.sessions.resolve(session.id).providerId,
+        )
+    }
+
+    /**
+     * goals.planId -> plans is NO ACTION (not SET NULL): a goal row carries the
+     * planId+planHash pair as an invariant, and an FK SET NULL on the id column alone would
+     * orphan the hash and make the goal unresolvable. Deleting a plan that a goal still
+     * references must therefore fail, and the goal keeps its pair intact.
+     */
+    private fun referencedPlanDeletionIsRejected(storage: HelixStorage) {
+        val plan =
+            storage.plans.save(
+                PlanArtifact(
+                    PlanId("plan-protected-1"),
+                    "protected plan",
+                    emptyList(),
+                    listOf(PlanStep("step one", "do the thing")),
+                    listOf("it works"),
+                    emptyList(),
+                    1,
+                ),
+                "DRAFT",
+                null,
+            )
+        val goal =
+            StoredGoal(
+                id = "goal-protected-1",
+                objective = "protected goal",
+                criteria = emptyList(),
+                budgets = GoalBudgets(4, 8, 1000L, 60_000L, 10_000L, 1),
+                state = "DRAFT",
+                planId = plan.id,
+                planHash = "f".repeat(64),
+                nextCheckpoint = null,
+                correlationId = "corr-protected-1",
+                runCount = 0,
+                modelCalls = 0,
+                toolCalls = 0,
+                totalTokens = 0L,
+                runTimeMillis = 0L,
+                currentWakeMillis = 0L,
+                retries = 0,
+                lastWakeReason = null,
+                error = null,
+                finishReason = null,
+            )
+        storage.goals.save(goal)
+        expectConstraintViolation("deleting a plan referenced by a goal must fail the NO ACTION FK") {
+            rawSql(storage, "DELETE FROM plans WHERE id = 'plan-protected-1'")
+        }
+        val resolved = storage.goals.resolve(goal.id)
+        assertEquals("goal must keep its plan reference after the rejected delete", plan.id, resolved.planId)
+        assertEquals("f".repeat(64), resolved.planHash)
+    }
+
+    @Test
     fun v1RoundTripsRuntimeMcpSkillAndGrantTables() {
         // The seven tables without a dedicated round-trip test before: runtime installs,
         // execution targets, capability grants, MCP servers+capabilities, skills+snapshots.
@@ -77,15 +189,17 @@ class RoomGuardAndConfigTablesTest {
         return storage.toolCalls.append("toolcall-guards-1", turn.id, "call-g", "bash", "1", "{}", "PENDING")
     }
 
-    /** approvals: decide is one-time; consume requires a decision and is one-time. */
+    /** approvals: decide is one-time; only APPROVED is consumable and only once. */
     private fun guardsForApprovals(
         storage: HelixStorage,
         toolCall: ToolCallEntity,
     ) {
         val hash = "a".repeat(64)
         val approval = storage.approvals.create("approval-guards-1", toolCall.id, hash)
-        storage.approvals.decide(approval.id, "ALLOWED", 10L)
-        assertThrows(IllegalArgumentException::class.java) { storage.approvals.decide(approval.id, "DENIED", 11L) }
+        storage.approvals.decide(approval.id, ApprovalDecision.APPROVED, 10L)
+        assertThrows(IllegalArgumentException::class.java) {
+            storage.approvals.decide(approval.id, ApprovalDecision.DENIED, 11L)
+        }
         storage.approvals.consume(approval.id, 12L)
         assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(approval.id, 13L) }
         // approvals.toolCallId is unique (one approval per tool call), so the
@@ -102,6 +216,23 @@ class RoomGuardAndConfigTablesTest {
             )
         val pendingApproval = storage.approvals.create("approval-guards-2", secondCall.id, hash)
         assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(pendingApproval.id, 14L) }
+        assertEquals(0, storage.database.approvalDao().decide(pendingApproval.id, "ALLOWED", 15L))
+        assertEquals(null, storage.approvals.resolve(pendingApproval.id).decision)
+
+        val deniedCall =
+            storage.toolCalls.append(
+                "toolcall-guards-3",
+                "turn-guards-1",
+                "call-g3",
+                "bash",
+                "1",
+                "{}",
+                "PENDING",
+            )
+        val deniedApproval = storage.approvals.create("approval-guards-3", deniedCall.id, hash)
+        storage.approvals.decide(deniedApproval.id, ApprovalDecision.DENIED, 16L)
+        assertThrows(IllegalArgumentException::class.java) { storage.approvals.consume(deniedApproval.id, 17L) }
+        assertEquals(null, storage.approvals.resolve(deniedApproval.id).consumedAt)
     }
 
     /** tool results: verification is one-time; sessions: archive is one-time. */
@@ -187,6 +318,20 @@ class RoomGuardAndConfigTablesTest {
         expectConstraintViolation("second execution for the same tool call must fail the unique index") {
             storage.executions.register("execution-exec-2", toolCall.id, "quickjs", "{}")
         }
+    }
+
+    /**
+     * Schema-level probe on Room's own connection (the generated database enables
+     * `PRAGMA foreign_keys = ON` there, asserted by v1EnforcesForeignKeysAtRuntime). Used only
+     * to exercise FK actions (SET NULL / NO ACTION) that the repositories deliberately do not
+     * expose — production code never deletes sessions or their parents.
+     */
+    private fun rawSql(
+        storage: HelixStorage,
+        sql: String,
+    ) {
+        storage.database.openHelper.writableDatabase
+            .execSQL(sql)
     }
 
     private fun expectConstraintViolation(

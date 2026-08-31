@@ -16,13 +16,16 @@ import androidx.room.PrimaryKey
     tableName = "goals",
     foreignKeys =
         [
-            // `planId` must reference a real plan (SET NULL: deleting a plan detaches the goal
-            // instead of failing it; the planHash column keeps the exact reviewed version).
+            // `planId` must reference a real plan. NO ACTION (not SET NULL): a goal row
+            // carries the planId+planHash pair as an invariant (EntityMappers), and an FK
+            // SET NULL on the id column alone would orphan the hash and make the goal
+            // unresolvable — a plan referenced by a goal is durable and cannot be deleted
+            // while referenced (there is no plan deletion path in the app).
             ForeignKey(
                 entity = PlanEntity::class,
                 parentColumns = ["id"],
                 childColumns = ["planId"],
-                onDelete = ForeignKey.SET_NULL,
+                onDelete = ForeignKey.NO_ACTION,
             ),
         ],
     indices = [Index("state"), Index("planId")],

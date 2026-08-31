@@ -31,9 +31,8 @@ interface SessionDao {
         id: String,
         archivedAt: Long,
     ): Int
-
-    @Query("DELETE FROM sessions WHERE id = :id")
-    fun delete(id: String)
+    // No delete query: sessions are archived, never deleted (doc 9.1). Deleting would cascade
+    // the session's approval/execution audit rows, which must remain durable.
 }
 
 @Dao
@@ -153,17 +152,21 @@ interface ApprovalDao {
     @Query("SELECT * FROM approvals WHERE toolCallId = :toolCallId")
     fun byToolCall(toolCallId: String): ApprovalEntity?
 
-    /** One-time decision: affected row count is 0 when the approval is already decided. */
-    @Query("UPDATE approvals SET decision = :decision, decidedAt = :decidedAt WHERE id = :id AND decision IS NULL")
+    /** One-time closed decision: affected row count is 0 for unknown or already-decided values. */
+    @Query(
+        "UPDATE approvals SET decision = :decision, decidedAt = :decidedAt " +
+            "WHERE id = :id AND decision IS NULL AND :decision IN ('APPROVED', 'DENIED')",
+    )
     fun decide(
         id: String,
         decision: String,
         decidedAt: Long,
     ): Int
 
-    /** One-time consumption: affected row count is 0 unless a decision exists first. */
+    /** One-time consumption: affected row count is 0 unless the decision is APPROVED. */
     @Query(
-        "UPDATE approvals SET consumedAt = :consumedAt WHERE id = :id AND consumedAt IS NULL AND decision IS NOT NULL",
+        "UPDATE approvals SET consumedAt = :consumedAt " +
+            "WHERE id = :id AND consumedAt IS NULL AND decision = 'APPROVED'",
     )
     fun consume(
         id: String,

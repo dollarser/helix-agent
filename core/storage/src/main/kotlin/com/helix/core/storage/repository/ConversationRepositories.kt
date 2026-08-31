@@ -1,5 +1,6 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.content.ContentRef
@@ -61,10 +62,10 @@ class SessionRepository(
         val updated = dao.archive(id, archivedAt)
         require(updated == 1) { "session not archivable: $id" }
     }
-
-    fun delete(id: String) {
-        dao.delete(id)
-    }
+    // No delete: sessions are archived, never deleted (doc 9.1 / entity contract). A hard
+    // delete would cascade the session's approvals/executions audit rows, which must be
+    // durable (AGENTS.md: every tool call goes through audit). A retention wipe, if ever
+    // authorized, is a future HXA decision with its own review.
 }
 
 class MessageRepository(
@@ -317,16 +318,15 @@ class ApprovalRepository(
     /** One-time: throws when a decision already exists. */
     fun decide(
         id: String,
-        decision: String,
+        decision: ApprovalDecision,
         decidedAt: Long,
     ): ApprovalEntity {
-        require(decision.isNotBlank()) { "decision must not be blank" }
         require(decidedAt >= 0) { "decidedAt must be >= 0" }
-        require(dao.decide(id, decision, decidedAt) == 1) { "approval already decided: $id" }
+        require(dao.decide(id, decision.name, decidedAt) == 1) { "approval already decided: $id" }
         return resolve(id)
     }
 
-    /** One-time: throws when not yet decided or already consumed. */
+    /** One-time: throws when pending, denied, or already consumed. */
     fun consume(
         id: String,
         consumedAt: Long,
@@ -375,9 +375,10 @@ class ArtifactRepository(
     private val dao: ArtifactDao,
 ) {
     /**
-     * Registers an artifact. doc 9.2: the file with its hash must exist first — pass [file] to
-     * verify size and SHA-256 before the row lands, or pass `null` when the caller verified
-     * the file out-of-band.
+     * Registers an artifact. doc 9.2: the file with its hash must exist first — [file] is
+     * always re-verified (existence, size, SHA-256) before the row lands. There is no
+     * out-of-band path: an unverified reference row is exactly what this guard exists to
+     * prevent.
      */
     fun register(
         id: String,
@@ -386,7 +387,7 @@ class ArtifactRepository(
         mediaType: String,
         size: Long,
         sha256: String,
-        file: File?,
+        file: File,
     ): ArtifactEntity {
         require(relativePath.isNotBlank() && !relativePath.startsWith("/")) {
             "relativePath must be a non-blank relative path"
@@ -394,12 +395,10 @@ class ArtifactRepository(
         require(mediaType.isNotBlank()) { "mediaType must not be blank" }
         require(size >= 0) { "size must be >= 0" }
         require(sha256.length == 64) { "sha256 must be a hex string" }
-        if (file != null) {
-            require(file.isFile) { "artifact file not found: $relativePath" }
-            require(file.length() == size) { "artifact file size mismatch for $relativePath" }
-            require(FileContentStore.sha256Hex(file.readBytes()) == sha256) {
-                "artifact file hash mismatch for $relativePath"
-            }
+        require(file.isFile) { "artifact file not found: $relativePath" }
+        require(file.length() == size) { "artifact file size mismatch for $relativePath" }
+        require(FileContentStore.sha256Hex(file.readBytes()) == sha256) {
+            "artifact file hash mismatch for $relativePath"
         }
         val entity = ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256)
         dao.insert(entity)

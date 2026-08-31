@@ -10,6 +10,11 @@ import org.junit.Test
  */
 class EnumsContractTest {
     @Test
+    fun approvalDecisionMatchesClosedStorageContract() {
+        assertEquals(listOf("APPROVED", "DENIED"), ApprovalDecision.entries.map { it.name })
+    }
+
+    @Test
     fun capabilityMatchesDocumentedSet() {
         assertEquals(
             listOf(
