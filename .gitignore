@@ -1,0 +1,14 @@
+.gradle/
+.idea/
+**/build/
+local.properties
+*.iml
+.DS_Store
+.env
+*.jks
+*.keystore
+captures/
+externalNativeBuild/
+.cxx/
+runtime-lock.local.json
+local-rootfs/

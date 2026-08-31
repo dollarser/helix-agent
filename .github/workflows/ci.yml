@@ -1,0 +1,69 @@
+name: Android CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
+      - name: Configure JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Static checks and tests
+        run: ./gradlew spotlessCheck detekt test lintConsumerDebug lintDeveloperDebug
+
+      - name: Build all M0 applications
+        run: >-
+          ./gradlew
+          :app:assembleConsumerDebug
+          :app:assembleDeveloperDebug
+          :runtime:proot-app:assembleDebug
+          :runtime:cli-app:assembleDebug
+
+      - name: Verify dependency locks
+        run: ./scripts/check-lockfiles.sh
+
+      - name: Scan for secrets
+        run: ./scripts/check-secrets.sh
+
+      - name: Verify architecture decisions
+        run: ./scripts/verify-adr.sh
+
+      - name: Verify documentation contracts
+        run: ./scripts/check-docs.sh
+
+      - name: Verify variant boundaries
+        run: ./scripts/verify-variant-boundaries.sh
+
+      - name: Check whitespace
+        run: git diff --check
