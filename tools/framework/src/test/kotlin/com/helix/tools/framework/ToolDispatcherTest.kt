@@ -34,6 +34,7 @@ import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -353,10 +354,13 @@ class ToolDispatcherTest {
                 DispatchOutcomeCode.APPROVAL_CONSUMED,
                 DispatchOutcomeCode.APPROVAL_NOT_FOUND,
             )
+        // Each rejection is a DIFFERENT action identity (distinct argument bytes): the
+        // per-action fingerprint recording must not bleed across actions — every scripted
+        // rejection in the list is still reached.
         expected.forEachIndexed { index, code ->
             val outcome =
                 dispatcher.dispatch(
-                    request(tool("fake"), version(1), emptyArgs(), toolCallId = "call-$index"),
+                    request(tool("fake"), version(1), json("""{"k":"a$index"}"""), toolCallId = "call-$index"),
                 )
             val denied = outcome as ToolDispatchOutcome.Denied
             assertEquals(code, denied.code)
@@ -630,7 +634,9 @@ class ToolDispatcherTest {
     fun theRetryReusesTheReMintedProofWithoutRePresentingTheCard() {
         val proof = proofFor("call-1")
         val reminted = ApprovalProof("call-1", "f".repeat(64))
-        broker.script(ApprovalAcquisition.Approved(proof))
+        // Two approvals scripted: the card is presented once, and a SECOND presentation
+        // would pop this Approved — the "exactly one card" assertion would then be lying.
+        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
         broker.reMintResult = reminted
         var attempts = 0
         registerTool(
@@ -671,7 +677,9 @@ class ToolDispatcherTest {
     @Test
     fun anUnMintableReMintEndsTheRetryWithTheOriginalFailure() {
         val proof = proofFor("call-1")
-        broker.script(ApprovalAcquisition.Approved(proof))
+        // Two approvals scripted: the card is presented once (the retry must ride the
+        // re-mint path, never a second card — a second presentation would pop this one).
+        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
         broker.reMintReturnsNull = true
         var attempts = 0
         registerTool(
@@ -701,7 +709,8 @@ class ToolDispatcherTest {
         // First dispatch spends the fake's one-time reMint for this binding (it fails at
         // attempt 2's budget edge: attempt 1 re-mints, attempt 2 fails terminally).
         val proof = proofFor("call-1")
-        broker.script(ApprovalAcquisition.Approved(proof))
+        // Two approvals scripted: exactly one card per dispatch.
+        broker.script(ApprovalAcquisition.Approved(proof), ApprovalAcquisition.Approved(proof))
         broker.reMintResult = ApprovalProof("call-1", "f".repeat(64))
         var attempts = 0
         registerTool(
@@ -718,7 +727,12 @@ class ToolDispatcherTest {
         assertEquals(1, broker.reMintCalls.size)
         // Second dispatch, same binding: the reMint guard is already spent → the retry
         // stops with the original attempt-1 failure (a double refund is impossible).
-        broker.script(ApprovalAcquisition.Approved(proofFor("call-2")))
+        // Two approvals scripted: exactly one card per dispatch (a second presentation
+        // would pop the spare and mask a re-presentation bug).
+        broker.script(
+            ApprovalAcquisition.Approved(proofFor("call-2")),
+            ApprovalAcquisition.Approved(proofFor("call-2")),
+        )
         val outcome2 =
             dispatcher.dispatch(
                 request(tool("fake"), version(1), emptyArgs(), toolCallId = "call-2").copy(maxAttempts = 2),
@@ -729,6 +743,116 @@ class ToolDispatcherTest {
         assertEquals(2, broker.reMintCalls.size)
         assertEquals("call-2", sink.events.last().correlationId)
         assertEquals(1, sink.events.last().attemptId)
+    }
+
+    @Test
+    fun anUnexpectedThrowSettlesTheAttemptAuditBeforePropagating() {
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult = error("companion binder crashed")
+            },
+        )
+        // The executor's runtime exception propagates (fail closed: the caller settles the
+        // slot), BUT the attempt still gets its exactly-one audit row first.
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()).copy(maxAttempts = 2))
+            }
+        assertTrue(thrown.message?.contains("companion binder crashed") == true)
+        val event = sink.events.single()
+        assertEquals(DispatchOutcomeCode.TOOL_FAILED, event.code)
+        assertEquals(DecisionSource.FRAMEWORK, event.decisionSource)
+        assertEquals(1, event.attemptId)
+        // No retry: an unexpected throw means the side-effect state is UNKNOWN.
+        assertEquals(1, sink.events.size)
+    }
+
+    @Test
+    fun aStopWhileAwaitingApprovalSettlesTheAttemptAsCancelledNotFailed() {
+        // The production broker blocks until the user decides or the turn stops, then
+        // throws its cancel exception. The attempt's honest audit outcome is Cancelled
+        // (the tool never started — no side effects): the SAME outcome the caller settles
+        // durably. Recording TOOL_FAILED here would contradict the CANCELLED settlement
+        // and paint an ordinary user stop as a tool failure on the audit page.
+        val cancel = ManualCancel()
+        broker.acquireThrows =
+            { request ->
+                (request.cancel as? ManualCancel)?.cancelled = true
+                IllegalStateException("approval wait cancelled (turn stopped)")
+            }
+        registerTool(
+            descriptor(),
+            CaptureExecutor { error("the tool must never run after a stop") },
+        )
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()).copy(cancel = cancel))
+            }
+        assertTrue(thrown.message?.contains("approval wait cancelled") == true)
+        val event = sink.events.single()
+        assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, event.code)
+        assertEquals(DecisionSource.FRAMEWORK, event.decisionSource)
+        assertNull("a cancelled-before-start attempt never executed", event.executionStartedAt)
+    }
+
+    @Test
+    fun aRejectedDeniedIsRecordedSoTheSameActionIsNotRePresentedInTheTurn() {
+        // The broker surfaces an already-DENIED record as Rejected(DENIED) from its mint
+        // chain: the same action must then be SAME_TURN_DENIED, not re-presented.
+        val proof = proofFor("call-1")
+        broker.script(
+            ApprovalAcquisition.Rejected(MintRejectionCode.DENIED),
+            ApprovalAcquisition.Approved(proof),
+        )
+        registerTool(
+            descriptor(),
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+        )
+        val first = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        val denied = first as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, denied.code)
+        // Same action, new call id: the fingerprint guard stops it without a second card.
+        val second = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), toolCallId = "call-2"))
+        val secondDenied = second as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.SAME_TURN_DENIED, secondDenied.code)
+        assertEquals("the card must not be presented twice for the same action", 1, broker.acquireCalls.size)
+    }
+
+    @Test
+    fun anExpiredRejectionIsARecordStateSoASubstantiallyNewActionMayStillBeAsked() {
+        // EXPIRED is a per-RECORD storage state (the card window lapsed), not a decision
+        // about the action: it must NOT poison the action fingerprint. The SAME action is
+        // re-asked (fresh card, approved); a materially CHANGED action is independently
+        // approvable.
+        val proof = proofFor("call-1")
+        broker.script(
+            ApprovalAcquisition.Rejected(MintRejectionCode.EXPIRED),
+            ApprovalAcquisition.Approved(proof),
+            ApprovalAcquisition.Approved(proof),
+        )
+        registerTool(
+            descriptor(),
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+        )
+        val first = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        assertEquals(
+            DispatchOutcomeCode.APPROVAL_EXPIRED,
+            (first as ToolDispatchOutcome.Denied).code,
+        )
+        // Same action, new card: allowed to be asked again.
+        assertTrue(
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), emptyArgs(), toolCallId = "call-2"),
+            ) is ToolDispatchOutcome.Succeeded,
+        )
+        // A materially changed action (new argument bytes = new fingerprint): approvable.
+        assertTrue(
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), json("""{"k":"changed"}"""), toolCallId = "call-3"),
+            ) is ToolDispatchOutcome.Succeeded,
+        )
+        assertEquals(3, broker.acquireCalls.size)
     }
 
     @Test
@@ -918,6 +1042,9 @@ class ToolDispatcherTest {
         val reMintCalls = mutableListOf<ApprovalProof>()
         var reMintResult: ApprovalProof? = null
 
+        /** When it returns non-null, acquire throws that (the broker's cancel exception). */
+        var acquireThrows: (ApprovalRequest) -> Throwable? = { null }
+
         /** Forces the un-mintable path (the record's window elapsed in the meantime). */
         var reMintReturnsNull = false
         private val reminted = mutableSetOf<String>()
@@ -928,6 +1055,7 @@ class ToolDispatcherTest {
 
         override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
             acquireCalls += request
+            acquireThrows(request)?.let { throw it }
             check(scripted.isNotEmpty()) { "broker scripted empty" }
             return scripted.removeFirst()
         }

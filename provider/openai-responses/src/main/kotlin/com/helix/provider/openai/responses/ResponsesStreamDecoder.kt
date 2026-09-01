@@ -55,12 +55,26 @@ import kotlinx.serialization.json.longOrNull
 @Suppress("TooManyFunctions")
 public class ResponsesStreamDecoder : StreamDecoder {
     private val parser = ResponsesSseParser()
+
+    // Known, recorded trade-off (M3 closeout review): the vendor CHUNK parser is lenient
+    // where kotlinx has no strict switch — duplicate object KEYS are last-wins accepted,
+    // unlike core:model's canonical parser which rejects them. The structural guards
+    // (charset/index/fan-out/terminal) still bound the damage; the chunks are NOT the
+    // canonical storage surface (the app re-parses what it persists through the strict
+    // parser), so this leniency stays at the transport edge by design.
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
     private var protocolFailed = false
     private var pendingRefusal = false
     private var hasFunctionCall = false
     private var toolCallCount = 0
+
+    /** Started-but-not-finished function calls (output_index -> id). The event contract
+     * ([ModelEvent]: "deltas reference a tool call by index; ToolCallFinished closes an
+     * index") requires every delta/done to reference a STARTED index and every start to
+     * be closed before the terminal — orphan events and terminal truncation fail the
+     * stream, exactly like the chat and anthropic decoders. */
+    private val openCalls = LinkedHashMap<Int, ToolCallId>()
     private var failureDetail: String? = null
 
     /** Diagnostic detail of the protocol failure (exception class / vendor field, no payload). */
@@ -238,10 +252,25 @@ public class ResponsesStreamDecoder : StreamDecoder {
             } catch (e: IllegalArgumentException) {
                 throw ProtocolViolation("call id charset: ${e::class.simpleName}")
             }
+        // Same index added twice: the second item would be silently overwritten
+        // downstream (and its id could collide with a sibling's) — fail the stream.
+        if (openCalls.containsKey(index)) {
+            throw ProtocolViolation("duplicate output_item.added for index $index")
+        }
+        // Cross-index duplicate ids fail the stream too: the same id on a DIFFERENT
+        // index is unrecoverable downstream (the app persists both rows against the
+        // (turnId, callId) unique constraint, and the strict history parser rejects
+        // the duplicate at every later turn, permanently poisoning the session).
+        for ((otherIndex, otherId) in openCalls) {
+            if (otherId == id) {
+                throw ProtocolViolation("duplicate tool call id on index $otherIndex and $index")
+            }
+        }
         toolCallCount++
         if (toolCallCount > MAX_TOOL_CALLS) {
             throw ProtocolViolation("too many function calls in one response")
         }
+        openCalls[index] = id
         hasFunctionCall = true
         out += ModelEvent.ToolCallStarted(index, id, name)
     }
@@ -263,6 +292,11 @@ public class ResponsesStreamDecoder : StreamDecoder {
     ) {
         val obj = parsePayload(event)
         val index = requireIndex(obj)
+        // An orphan delta (no started index) would be dropped or mis-attributed by a
+        // strict consumer: the event contract says deltas reference a started index.
+        if (!openCalls.containsKey(index)) {
+            throw ProtocolViolation("arguments delta for unknown index $index")
+        }
         val delta = requireString(obj, "delta")
         if (delta.isEmpty()) return
         out += ModelEvent.ToolArgumentsDelta(index, delta)
@@ -274,6 +308,9 @@ public class ResponsesStreamDecoder : StreamDecoder {
     ) {
         val obj = parsePayload(event)
         val index = requireIndex(obj)
+        // A done for an unknown or already-closed index closes nothing downstream:
+        // reject it instead of emitting a spurious ToolCallFinished.
+        openCalls.remove(index) ?: throw ProtocolViolation("arguments done for unknown index $index")
         out += ModelEvent.ToolCallFinished(index)
     }
 
@@ -300,6 +337,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         if (stringOf(response["status"]) != "completed") {
             throw ProtocolViolation("response.completed with unexpected status")
         }
+        assertNoOpenCalls()
         emitUsage(response, out)
         terminalEmitted = true
         out += ModelEvent.Completed(if (hasFunctionCall) FINISH_TOOL_CALLS else FINISH_STOP)
@@ -324,6 +362,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         val response =
             obj["response"] as? JsonObject
                 ?: throw ProtocolViolation("response.incomplete: missing response object")
+        assertNoOpenCalls()
         emitUsage(response, out)
         terminalEmitted = true
         // The response-level reason is authoritative over the item-level prime.
@@ -332,6 +371,21 @@ public class ResponsesStreamDecoder : StreamDecoder {
             "content_filter" -> out += ModelEvent.Refusal("content_filter")
             "max_output_tokens" -> out += ModelEvent.Completed(FINISH_LENGTH)
             else -> throw ProtocolViolation("response.incomplete with unknown reason")
+        }
+    }
+
+    /**
+     * A terminal response with still-open function calls is a truncated tool stream:
+     * the output budget ran out mid-arguments (or the vendor simply stopped). The chat
+     * and anthropic decoders fail such a stream with a non-retryable PROTOCOL error;
+     * this one previously reported it as a clean length-completion and the app would
+     * have SILENTLY DROPPED the truncated call (never persisted, never back-filled,
+     * turn marked COMPLETED) — the same user-visible work the model claimed it did.
+     * Align: fail the stream, the user retries, the model regenerates.
+     */
+    private fun assertNoOpenCalls() {
+        if (openCalls.isNotEmpty()) {
+            throw ProtocolViolation("response terminated with ${openCalls.size} unfinished function call(s)")
         }
     }
 

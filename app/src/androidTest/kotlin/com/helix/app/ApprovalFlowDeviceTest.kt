@@ -170,7 +170,11 @@ class ApprovalFlowDeviceTest {
         }
 
         fun joinError(): Throwable {
-            assertTrue("dispatch must finish", latch.await(30, TimeUnit.SECONDS))
+            val finished = latch.await(30, TimeUnit.SECONDS)
+            assertTrue(
+                "dispatch must finish (thread still blocked — pool exhausted or wait never ended)",
+                finished,
+            )
             return error[0] ?: error("no error was thrown")
         }
     }

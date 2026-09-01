@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v2ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v3ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -43,7 +43,10 @@ import java.io.File
  * Future schema changes add a `Migration` object plus a new exported version here
  * (doc 9.2: migrations require a schema export and an instrumentation test). The v1 -> v2
  * migration (HXA-034: approvals gain `expiresAt`, `argsHash` becomes `bindingHash`) is
- * covered by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals].
+ * covered by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals], which now runs
+ * through the FULL production chain (v1 -> v2 -> v3) because Room only opens a v1 file
+ * when every step up to the live version is registered. The v2 -> v3 step (HXA-037: adds
+ * `interaction_receipts`) is exercised by the same chain.
  */
 @RunWith(AndroidJUnit4::class)
 class RoomMigrationFixtureTest {
@@ -79,8 +82,17 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v2ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v2-export.db", 2)
+    fun v3ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v3 missing from assets: ${versions?.toList()}",
+            versions?.contains("3.json") == true,
+        )
+    }
+
+    @Test
+    fun v3ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v3-export.db", 3)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -88,7 +100,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v2 schema must match the exported v2 schema",
+                "code-built v3 schema must match the exported v3 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -122,12 +134,14 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file, discovers the committed 1 -> 2 migration and applies it —
-        // the exact production path (including the room_master_table identity update).
+        // Room opens the v1 file and applies the FULL committed chain (1 -> 2 -> 3) — the
+        // exact production path (HelixStorage registers the same set; including the
+        // room_master_table identity update). The assertions below verify the 1 -> 2 step
+        // specifically; the chain also proves 2 -> 3 (interaction_receipts) applied.
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
-                .addMigrations(HelixDatabase.MIGRATION_1_2)
+                .addMigrations(HelixDatabase.MIGRATION_1_2, HelixDatabase.MIGRATION_2_3)
                 .build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -162,6 +176,11 @@ class RoomMigrationFixtureTest {
             // expiresAt = 0: every migrated approval is already expired (fail closed) — the
             // old APPROVED row can never consume a proof post-migration (SQL guard).
             assertEquals(0, roomDb.approvalDao().consumeByBinding("approval-mig-2", "q".repeat(64), 30L, 30L))
+            // The 2 -> 3 step landed: the live schema carries the receipts table.
+            assertTrue(
+                "v3 upgrade must add interaction_receipts",
+                "interaction_receipts" in tables(sqlite),
+            )
         } finally {
             roomDb.close()
         }
@@ -646,6 +665,7 @@ class RoomMigrationFixtureTest {
             "skill_snapshots",
             "capability_grants",
             "execution_targets",
+            "interaction_receipts",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

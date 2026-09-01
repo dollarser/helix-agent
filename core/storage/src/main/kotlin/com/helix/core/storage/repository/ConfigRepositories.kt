@@ -87,10 +87,28 @@ class ProviderConfigRepository(
         return entity
     }
 
-    /** Explicit overwrite of an existing (or new) configuration for the same id. */
+    /**
+     * Explicit overwrite of an existing (or new) configuration for the same id. The
+     * existing case is an IN-PLACE UPDATE (row identity preserved): the DELETE+INSERT
+     * of a REPLACE would fire `sessions.providerId`'s `ON DELETE SET NULL` and unbind
+     * every session of the provider being edited (M3 closeout review bug).
+     */
     fun overwrite(spec: ProviderConfigSpec): ProviderConfigEntity {
         val entity = spec.toEntity()
-        dao.upsert(entity)
+        if (
+            dao.update(
+                id = entity.id,
+                displayName = entity.displayName,
+                protocol = entity.protocol,
+                endpoint = entity.endpoint,
+                model = entity.model,
+                headersJson = entity.headersJson,
+                secretAlias = entity.secretAlias,
+                capabilitySnapshot = entity.capabilitySnapshot,
+            ) == 0
+        ) {
+            dao.insert(entity)
+        }
         return entity
     }
 

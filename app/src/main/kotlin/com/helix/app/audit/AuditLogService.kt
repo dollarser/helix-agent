@@ -48,7 +48,12 @@ class AuditLogService(
     // snapshot. The generation counter makes every push a fresh load request.
     private val filterState = MutableStateFlow<Pair<AuditLogFilter, Long>>(AuditLogFilter() to 0L)
 
-    private var generation = 0L
+    // Atomic (M3 closeout review): the counter is bumped on the main thread while the
+    // collector thread reads the pair it published — a torn read of a plain Long field
+    // would let two different filters share one generation and one page win by chance.
+    private val generation =
+        java.util.concurrent.atomic
+            .AtomicLong(0L)
 
     private val _records = MutableStateFlow<List<DispatchAuditRecord>>(emptyList())
 
@@ -80,8 +85,7 @@ class AuditLogService(
     /** Changes the page filter (or re-requests the current one); the page reloads on IO
      * and republishes [records] + [toolNames]. */
     fun setFilter(filter: AuditLogFilter) {
-        generation += 1
-        filterState.value = filter to generation
+        filterState.value = filter to generation.incrementAndGet()
     }
 
     /** The newest [limit] COMPLETE tool-dispatch records on the page, unfiltered (the

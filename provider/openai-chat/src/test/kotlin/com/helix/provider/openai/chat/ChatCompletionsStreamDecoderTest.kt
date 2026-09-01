@@ -392,6 +392,22 @@ class ChatCompletionsStreamDecoderTest {
     }
 
     @Test
+    fun duplicateToolCallIdAcrossIndexesFails() {
+        // The SAME id on a DIFFERENT index: downstream the app persists both rows
+        // against the (turnId, callId) unique constraint and the strict history parser
+        // rejects the duplicate at every later turn — a poisoned session. The stream
+        // must fail NOW (non-retryable PROTOCOL), not every future request.
+        val stream = toolStartChunk(0, "call_a", "read") + toolStartChunk(1, "call_a", "write")
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(0, ToolCallId("call_a"), "read"),
+                ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
+            ),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
     fun parallelChoiceIndexIsRejected() {
         val stream =
             chunk(

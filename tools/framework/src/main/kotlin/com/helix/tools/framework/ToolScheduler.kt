@@ -29,6 +29,14 @@ import java.util.concurrent.Executors
  *
  * The footprints come from [EffectFootprintBuilder] over trusted facts — the model and
  * MCP annotations have no path into the parallelism decision.
+ *
+ * Concurrency of [scheduleBatch] itself: the in-flight slots are keyed by the call's
+ * [ToolDispatchRequest.toolCallId] (globally unique, never a batch-local index), the
+ * admission check AND the slot claim happen under ONE lock, and a pool rejection rolls
+ * the slot back — so two batches running concurrently on the same scheduler instance
+ * cannot double-book a slot, over-admit past [maxConcurrency], or see each other's
+ * conflicting calls as absent. (The app today serializes turns, so batches never
+ * actually overlap; this is the framework contract for when they do.)
  */
 class ToolScheduler(
     private val clock: Clock,
@@ -50,9 +58,11 @@ class ToolScheduler(
         ) { r -> Thread(r, "tool-scheduler").apply { isDaemon = true } }
     private val inFlightLock = Any()
 
-    /** In-flight calls as (queueIndex, footprint): removed BY INDEX because two calls
-     * can have value-equal footprints (removing by value would free a slot too early). */
-    private val inFlight = mutableListOf<Pair<Int, EffectFootprint>>()
+    /** In-flight calls as (toolCallId, footprint): keyed by the call's GLOBALLY UNIQUE
+     * id (never a batch-local index — two concurrent batches would collide on indices
+     * and one batch's completion would free the other's slot). Removing by value would
+     * also be wrong: two calls can have value-equal footprints. */
+    private val inFlight = mutableListOf<Pair<String, EffectFootprint>>()
 
     /**
      * The batch's settled view: terminal outcomes IN CALL SEQUENCE plus the first
@@ -150,9 +160,6 @@ class ToolScheduler(
      * Scans the queue from the front and starts the EARLIEST eligible calls (fairness:
      * queue order, no re-queueing). Returns true when at least one call was started.
      */
-    @Suppress("TooGenericExceptionCaught")
-    // The pool task must settle its future for ANY dispatcher throw (contract violation
-    // included) — the caller reads it as the batch's firstError with a null slot.
     private fun admitNext(
         calls: List<ToolDispatchRequest>,
         footprints: List<EffectFootprint>,
@@ -161,53 +168,94 @@ class ToolScheduler(
     ): Boolean {
         var started = false
         for (idx in calls.indices) {
-            if (!submitted[idx]) {
-                val fp = footprints[idx]
-                val admittedNow =
-                    synchronized(inFlightLock) {
-                        inFlight.size < effectiveConcurrency() &&
-                            inFlight.none { (_, other) -> other.conflictsWith(fp) }
-                    }
-                if (admittedNow) {
-                    submitted[idx] = true
-                    started = true
-                    // The footprint occupies its slot AT ADMISSION (before the pool thread
-                    // even starts): the slot count must reflect every admitted-but-not-yet-
-                    // complete call, including ones still waiting for a pool thread.
-                    synchronized(inFlightLock) {
-                        inFlight += idx to fp
-                    }
-                    // Capture idx/fp/future by VALUE: the task runs on a pool thread after
-                    // this scan has moved on (capturing the loop variable would read a
-                    // stale index once the scan finishes).
-                    val future = futures[idx]
-                    pool.execute {
-                        // The dispatcher's contract returns an outcome; ANY throw is a
-                        // contract violation that must still settle the future (the caller
-                        // reads it as the batch's firstError with a null slot).
-                        try {
-                            future.complete(dispatcher.dispatch(calls[idx]))
-                        } catch (t: Throwable) {
-                            future.completeExceptionally(t)
-                        } finally {
-                            synchronized(inFlightLock) {
-                                inFlight.removeAll { it.first == idx }
-                            }
-                        }
-                    }
-                }
+            if (!submitted[idx] && tryClaimSlot(calls[idx].toolCallId, footprints[idx])) {
+                submitted[idx] = true
+                started = true
+                // The footprint occupies its slot AT ADMISSION (before the pool thread
+                // even starts): the slot count must reflect every admitted-but-not-yet-
+                // complete call, including ones still waiting for a pool thread.
+                submitPoolTask(calls[idx], futures[idx])
             }
         }
         return started
     }
 
+    /**
+     * Admission CHECK and slot CLAIM as ONE atomic step: a check-then-add split across
+     * two lock acquisitions would let two concurrent batches both see "free" and both
+     * claim, over-admitting past the cap.
+     */
+    private fun tryClaimSlot(
+        callId: String,
+        fp: EffectFootprint,
+    ): Boolean =
+        synchronized(inFlightLock) {
+            inFlight.size < effectiveConcurrency() &&
+                inFlight
+                    .none { (_, other) -> other.conflictsWith(fp) }
+                    .also { free ->
+                        if (free) {
+                            inFlight += callId to fp
+                        }
+                    }
+        }
+
+    // The pool task must settle its future for ANY dispatcher throw (contract violation
+    // included) — the caller reads it as the batch's firstError with a null slot. A pool
+    // rejection (JVM shutdown) must likewise roll the claimed slot back: one broad
+    // catch per terminal path, hence the single suppression below.
+    @Suppress("TooGenericExceptionCaught")
+    private fun submitPoolTask(
+        call: ToolDispatchRequest,
+        future: CompletableFuture<ToolDispatchOutcome>,
+    ) {
+        val callId = call.toolCallId
+        try {
+            pool.execute {
+                // The dispatcher's contract returns an outcome; ANY throw is a contract
+                // violation that must still settle the future.
+                try {
+                    future.complete(dispatcher.dispatch(call))
+                } catch (t: Throwable) {
+                    future.completeExceptionally(t)
+                } finally {
+                    releaseSlot(callId)
+                }
+            }
+        } catch (t: Throwable) {
+            // The pool refused the task (shutdown): no thread will ever run it, so roll
+            // the claimed slot back NOW and settle the future — otherwise the slot is
+            // occupied forever (permanently lowering admission) and this call's batch
+            // never terminates.
+            releaseSlot(callId)
+            future.completeExceptionally(t)
+        }
+    }
+
+    private fun releaseSlot(callId: String) {
+        synchronized(inFlightLock) {
+            inFlight.removeAll { it.first == callId }
+        }
+    }
+
     /** The current allowance: the configured cap lowered (never raised) by the resource gate. */
     private fun effectiveConcurrency(): Int = minOf(maxConcurrency, resourceGate().coerceAtLeast(1))
 
-    @Suppress("SwallowedException") // the IAE is the registry's exact "unknown name" signal; the null IS the mapping
+    /**
+     * The footprint descriptor MUST be the SAME contract the dispatcher executes: the
+     * exact (name, version) from the request, never the registry's newest version. A
+     * newer version registered between the model's tool table and the dispatch could
+     * carry a different operation class (e.g. a read that is really a write in the
+     * pinned version) — deciding parallelism on the wrong descriptor would let
+     * conflicting calls run in parallel (doc 11 section 3.1). Unknown (name, version)
+     * -> null -> the builder's conservative LOCAL_MUTATION path, the same mapping the
+     * dispatcher's validation rejects later. The require is the registry's exact
+     * "unknown tool" signal; the null IS the conservative mapping.
+     */
+    @Suppress("SwallowedException")
     private fun resolveDescriptor(call: ToolDispatchRequest): ToolDescriptor? =
         try {
-            registry.resolveLatest(call.toolName)
+            registry.resolve(call.toolName, call.toolVersion)
         } catch (e: IllegalArgumentException) {
             null
         }

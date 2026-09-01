@@ -35,9 +35,35 @@ interface ProviderConfigDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(config: ProviderConfigEntity)
 
-    /** Explicit overwrite: replaces the existing row for the same id. */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun upsert(config: ProviderConfigEntity)
+    /**
+     * Explicit overwrite: updates the existing row for the same id IN PLACE.
+     *
+     * Deliberately NOT [OnConflictStrategy.REPLACE]: an `INSERT OR REPLACE` is a
+     * DELETE+INSERT under the hood, and `sessions.providerId` references this table
+     * with `ON DELETE SET NULL` — editing ANY provider used to silently UNBIND every
+     * session pointing at it (the user changed an endpoint and all their sessions lost
+     * their provider). An in-place UPDATE keeps the row identity: the FK targets never
+     * see a delete, so no SET NULL fires. Eight scalar parameters because Room @Query
+     * cannot bind an entity's property paths: the UPDATE carries the row's columns
+     * explicitly (identity-preserving overwrite).
+     */
+    @Suppress("LongParameterList")
+    @Query(
+        "UPDATE provider_configs SET displayName = :displayName, protocol = :protocol, " +
+            "endpoint = :endpoint, model = :model, headersJson = :headersJson, " +
+            "secretAlias = :secretAlias, capabilitySnapshot = :capabilitySnapshot " +
+            "WHERE id = :id",
+    )
+    fun update(
+        id: String,
+        displayName: String,
+        protocol: String,
+        endpoint: String,
+        model: String,
+        headersJson: String,
+        secretAlias: String,
+        capabilitySnapshot: String,
+    ): Int
 
     /** Rows are deleted only through the repository's explicit delete; returns affected count. */
     @Query("DELETE FROM provider_configs WHERE id = :id")

@@ -131,10 +131,37 @@ object CriteriaCodec {
         }
         return StoredEvidence(
             verifier = entries.getValue("verifier").asString("verifier"),
-            artifactRef = (entries.getValue("artifactRef") as? Value.Str)?.value?.let { ArtifactRef(it) },
-            toolCallId = (entries.getValue("toolCallId") as? Value.Str)?.value?.let { ToolCallId(it) },
+            artifactRef = parseRef(entries.getValue("artifactRef"), "artifactRef")?.let { ArtifactRef(it) },
+            toolCallId = parseRef(entries.getValue("toolCallId"), "toolCallId")?.let { ToolCallId(it) },
         )
     }
+
+    /**
+     * The reference fields are nullable STRINGS: [Value.Null] -> null, [Value.Str] ->
+     * the typed id. Any other type (a tampered or corrupt criteria JSON carrying a
+     * number/bool/object where a ref belongs) must FAIL, not silently shrink the
+     * criterion — goal recovery treats the stored criteria as the canonical source, so
+     * a silently dropped ref would change which evidence satisfies a goal.
+     */
+    private fun parseRef(
+        value: Value,
+        field: String,
+    ): String? =
+        when (value) {
+            is Value.Null -> {
+                null
+            }
+
+            is Value.Str -> {
+                value.value
+            }
+
+            else -> {
+                throw IllegalArgumentException(
+                    "evidence field '$field' must be a string or null, was ${value::class.simpleName}",
+                )
+            }
+        }
 
     private fun encodeRef(value: String?): String = if (value == null) "null" else "\"${escape(value)}\""
 

@@ -61,10 +61,21 @@ import kotlinx.serialization.json.longOrNull
 @Suppress("TooManyFunctions", "ReturnCount")
 public class ChatCompletionsStreamDecoder : StreamDecoder {
     private val reader = ChatSseReader()
+
+    // Known, recorded trade-off (M3 closeout review): the vendor CHUNK parser is lenient
+    // where kotlinx has no strict switch — duplicate object KEYS are last-wins accepted,
+    // unlike core:model's canonical parser which rejects them. The structural guards
+    // (charset/index/fan-out/terminal) still bound the damage; the chunks are NOT the
+    // canonical storage surface (the app re-parses what it persists through the strict
+    // parser), so this leniency stays at the transport edge by design.
     private val json = Json { ignoreUnknownKeys = true }
     private var terminalEmitted = false
     private var protocolFailed = false
     private var openToolCalls = LinkedHashMap<Int, OpenToolCall>()
+
+    /** Every started call id and the index that started it (duplicate-id guard, see
+     * [handleToolCallFragment]). */
+    private val startedIds = LinkedHashMap<ToolCallId, Int>()
     private var toolCallCount = 0
     private var failureDetail: String? = null
 
@@ -219,6 +230,16 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
                 } catch (e: IllegalArgumentException) {
                     throw ProtocolViolation("call id charset: ${e::class.simpleName}")
                 }
+            // Cross-index duplicate ids fail the stream too: the same call id on a
+            // DIFFERENT index is unrecoverable downstream — the app persists both rows
+            // against the (turnId, callId) unique constraint, and the strict history
+            // parser rejects the duplicate at every LATER turn, permanently poisoning
+            // the session. A fault (or malicious relay) that replays an id must fail
+            // THIS stream, not every future request.
+            if (startedIds.containsKey(toolCallId)) {
+                throw ProtocolViolation("duplicate tool call id on index ${startedIds[toolCallId]} and $i")
+            }
+            startedIds[toolCallId] = i
             toolCallCount++
             if (toolCallCount > MAX_TOOL_CALLS) {
                 throw ProtocolViolation("too many function calls in one response")
@@ -294,6 +315,9 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
     private fun closeOpenToolCalls(out: MutableList<ModelEvent>) {
         openToolCalls.keys.sorted().forEach { out += ModelEvent.ToolCallFinished(it) }
         openToolCalls.clear()
+        // The id guard is stream-scoped (a vendor may never reuse an id within ONE
+        // response); a fresh stream is a fresh namespace.
+        startedIds.clear()
     }
 
     private fun handleUsage(

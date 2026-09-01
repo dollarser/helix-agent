@@ -100,6 +100,9 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.espresso.core)
+    // The production-migration device test builds a v1 fixture database (MigrationTestHelper).
+    // Pinned component already locked in core:storage; no new module or version.
+    androidTestImplementation(libs.room.testing)
 
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)

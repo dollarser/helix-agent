@@ -199,7 +199,13 @@ class ToolDispatcher(
      * required, re-mints the proof from the SAME typed APPROVED record (no new card, no
      * new question to the user). Any other failure is terminal. Every attempt emits its
      * own audit event with its [DispatchAuditEvent.attemptId].
+     *
+     * Both catches below are deliberately broad: the dispatcher's contract is that ANY
+     * unexpected stage/dependency throw (not just one declared type) still settles the
+     * attempt durably before propagating, and a throwing audit sink must not lose the
+     * original root cause. Catching less would let an undeclared type escape unaudited.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun dispatch(request: ToolDispatchRequest): ToolDispatchOutcome {
         var attempt = 0
         var carriedProof: ApprovalProof? = null
@@ -217,14 +223,54 @@ class ToolDispatcher(
                 ctx.bindingHash = carriedBindingHash
                 ctx.actionFingerprint = carriedActionFingerprint
             }
-            val descriptor = validateStage(request, ctx)
-            val proof =
-                if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
+            // Contract: EXACTLY ONE audit event per attempt (HXA-035 stage 8). An unexpected
+            // throw from a stage or dependency (executor NPE, broker/center ISE) must still
+            // settle that attempt durably before propagating — a dispatch that cannot be
+            // audited is not a silent success, and the caller (scheduler batch) settles the
+            // slot from the thrown error. No retry: an unexpected throw means the side-effect
+            // state is UNKNOWN, which is the one case a technical retry is forbidden.
             val outcome =
-                when {
-                    descriptor == null || ctx.stopped != null -> finishStop(request, startedAt, ctx)
-                    else -> executeStage(request, proof, ctx, startedAt)
+                try {
+                    runAttempt(request, startedAt, ctx, carriedProof)
+                } catch (t: Throwable) {
+                    // Settle the attempt durably (the audit event) BEFORE rethrowing. The
+                    // honest outcome depends on WHY the stage threw:
+                    // - the turn was stopped while the stage was blocked (the broker's
+                    //   approval wait throws its cancel exception; the cancel gate would
+                    //   have returned Cancelled had it run later) -> Cancelled, the SAME
+                    //   outcome the caller settles durably — audit and settlement agree
+                    //   ("cancelled before start, no side effects");
+                    // - anything else (executor NPE, dependency ISE) -> TOOL_FAILED with
+                    //   unknown side-effect state.
+                    // Neither case retries: the turn is being torn down, or the side-effect
+                    // state is UNKNOWN (the one case a technical retry is forbidden).
+                    val turnStoppedBeforeExecution =
+                        request.cancel.isCancelled() && ctx.executionStartedAt == null
+                    ctx.stopped =
+                        DispatchContext.StopResult(
+                            if (turnStoppedBeforeExecution) {
+                                ToolDispatchOutcome.Cancelled
+                            } else {
+                                ToolDispatchOutcome.ExecutionFailed(
+                                    DispatchOutcomeCode.TOOL_FAILED,
+                                    "unexpected dispatch failure: ${t::class.simpleName} — ${t.message}",
+                                )
+                            },
+                            DecisionSource.FRAMEWORK,
+                        )
+                    try {
+                        finishStop(request, startedAt, ctx)
+                    } catch (auditFailure: Throwable) {
+                        // Fail closed (the audit failure still propagates) but do not LOSE
+                        // the original root cause: keep it as a suppressed exception.
+                        auditFailure.addSuppressed(t)
+                        throw auditFailure
+                    }
+                    throw t
                 }
+            // The proof THIS attempt acquired (set by the approval stage, which runs
+            // INSIDE the attempt): the retry refunds exactly the proof the attempt spent.
+            val spent = ctx.attemptProof
             if (
                 outcome is ToolDispatchOutcome.ExecutionFailed &&
                 outcome.sideEffectFree &&
@@ -233,7 +279,6 @@ class ToolDispatcher(
                 // Re-mint from the same APPROVED record when the attempt spent a proof;
                 // approval-free calls simply re-run. A record that can no longer mint
                 // (window elapsed) ends the retry with the original failure.
-                val spent = proof
                 val reminted = spent?.let { approvals.reMint(it) }
                 if (spent != null && reminted == null) {
                     return outcome
@@ -244,6 +289,26 @@ class ToolDispatcher(
             } else {
                 return outcome
             }
+        }
+    }
+
+    /**
+     * One attempt: stages 1-7. Returns the settled outcome (its single audit event already
+     * emitted inside the stage's finish). An unexpected throw from any stage/dependency
+     * propagates — the caller in [dispatch] settles the audit before rethrowing.
+     */
+    private fun runAttempt(
+        request: ToolDispatchRequest,
+        startedAt: Instant,
+        ctx: DispatchContext,
+        carriedProof: ApprovalProof?,
+    ): ToolDispatchOutcome {
+        val descriptor = validateStage(request, ctx)
+        val proof =
+            if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
+        return when {
+            descriptor == null || ctx.stopped != null -> finishStop(request, startedAt, ctx)
+            else -> executeStage(request, proof, ctx, startedAt)
         }
     }
 
@@ -293,6 +358,7 @@ class ToolDispatcher(
             is PolicyDecision.RequiresApproval -> {
                 if (carriedProof != null) {
                     ctx.approvalAcquiredAt = clock.now().toEpochMilli()
+                    ctx.attemptProof = carriedProof
                     carriedProof
                 } else {
                     acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
@@ -432,10 +498,25 @@ class ToolDispatcher(
         ctx.approvalAcquiredAt = clock.now().toEpochMilli()
         return when (acquisition) {
             is ApprovalAcquisition.Approved -> {
+                ctx.attemptProof = acquisition.proof
                 acquisition.proof
             }
 
             is ApprovalAcquisition.Rejected -> {
+                // A record the user DECIDED DENIED is a user-side stop for the SAME action
+                // identity: record the fingerprint so the exact action is not re-presented
+                // in this turn (HXA-035 invariant — the broker may surface this as
+                // Rejected(DENIED) from its mint chain, not only as the dedicated Denied
+                // object). The other codes are per-RECORD storage states (consumed,
+                // not-found, pending, expired window) and say nothing about the action:
+                // a materially changed action (new fingerprint) must still be approvable.
+                // The bounded technical retry (doc 11 section 3.3) rides a REFUND, not a
+                // re-mint: the spent proof is refunded and re-minted from the same record
+                // without presenting the card again, so a retried attempt must never be
+                // treated as a user denial here.
+                if (acquisition.code == MintRejectionCode.DENIED) {
+                    markDenied(request.turnId, fingerprint)
+                }
                 stopped(
                     ctx,
                     ToolDispatchOutcome.Denied(
@@ -760,6 +841,9 @@ class ToolDispatcher(
         var stopped: StopResult? = null
         var descriptor: ToolDescriptor? = null
         var executor: ToolExecutor? = null
+
+        /** The proof THIS attempt will spend at execution start (null = approval-free). */
+        var attemptProof: ApprovalProof? = null
 
         data class StopResult(
             val outcome: ToolDispatchOutcome,

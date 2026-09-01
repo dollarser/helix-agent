@@ -46,6 +46,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -103,7 +104,14 @@ class ChatService(
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = Any()
     private var activeTurnJob: Job? = null
+
+    // Written on the main thread (open/close/cancel), read from the work-scope IO pool
+    // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
+    // write would silently drop the user's message with no UI feedback).
+    @Volatile
     private var openSessionId: String? = null
+
+    @Volatile
     private var pendingSend: String? = null
 
     // --- HXA-036: the tool pipeline state (cards, dispatch facts, turn cancels) ---
@@ -195,7 +203,7 @@ class ChatService(
 
     /** Dismisses the current user-visible [ChatScreenState.blockedReason] banner. */
     fun dismissBlocked() {
-        _screen.value = _screen.value.copy(blockedReason = null)
+        _screen.update { it.copy(blockedReason = null) }
     }
 
     // --------------------------------------------------------------------------------
@@ -243,7 +251,7 @@ class ChatService(
 
             is EgressDisclosure.Decision.Confirm -> {
                 pendingSend = text
-                _screen.value = _screen.value.copy(pendingDisclosure = decision.summary, blockedReason = null)
+                _screen.update { it.copy(pendingDisclosure = decision.summary, blockedReason = null) }
             }
 
             EgressDisclosure.Decision.Proceed -> {
@@ -263,7 +271,7 @@ class ChatService(
         val session = currentSession() ?: return
         val providerId = session.providerId ?: return
         pendingSend = null
-        _screen.value = _screen.value.copy(pendingDisclosure = null)
+        _screen.update { it.copy(pendingDisclosure = null) }
         // Fail-closed re-check (the gate already ran when the disclosure was
         // shown): a provider re-test/revocation between the dialog and this
         // confirmation must not open a wire path the user has not approved.
@@ -280,7 +288,7 @@ class ChatService(
 
     fun cancelPendingSend() {
         pendingSend = null
-        _screen.value = _screen.value.copy(pendingDisclosure = null)
+        _screen.update { it.copy(pendingDisclosure = null) }
     }
 
     /**
@@ -689,7 +697,18 @@ class ChatService(
             }
 
             is ModelEvent.ToolArgumentsDelta -> {
-                acc.toolCalls[event.index]?.args?.append(event.jsonFragment)
+                val call = acc.toolCalls[event.index] ?: return
+                // Total-argument bound (RISK: the decoder caps ONE fragment but the
+                // NUMBER of fragments is unbounded — a relay can stream gigabytes of
+                // deltas). The provider stream is external untrusted input; a call that
+                // crosses the cap fails the turn closed (the model regenerates) instead
+                // of growing memory, a Room row, or an approval card without bound.
+                if (call.args.length + event.jsonFragment.length > MAX_TOOL_ARGS_PER_CALL) {
+                    acc.errorCode = "TOOL_ARGS_OVERFLOW"
+                    acc.errorLabel = "工具参数超出上限"
+                    return
+                }
+                call.args.append(event.jsonFragment)
             }
 
             is ModelEvent.ToolCallFinished -> {
@@ -729,6 +748,19 @@ class ChatService(
 
             acc.errorCode != null -> {
                 TerminalOutcome(TurnState.FAILED, acc.errorCode, acc.errorLabel)
+            }
+
+            // Fail-closed protocol guard (M3 closeout review): the stream ended while one
+            // of the model's tool calls was STARTED but never FINISHED (a truncated or
+            // corrupt tool event sequence — the strictest decoders fail the stream with a
+            // PROTOCOL error, the lenient ones would deliver this state). Executing the
+            // FINISHED siblings would split the model's response into "ran" and "silently
+            // dropped" halves (the dropped one is never persisted, never back-filled, and
+            // the user believes it happened); parsing half arguments would feed garbage
+            // into the dispatcher. The honest outcome is a FAILED turn: nothing is
+            // persisted or executed, the user retries, the model regenerates the calls.
+            acc.toolCalls.values.any { !it.finished } -> {
+                TerminalOutcome(TurnState.FAILED, "TOOL_STREAM_TRUNCATED", "工具调用流不完整，请重试")
             }
 
             else -> {
@@ -867,8 +899,12 @@ class ChatService(
     /**
      * Persists the assistant's tool-call step (roadmap HXA-037): the model-visible content
      * of the step is exactly the calls — `[{"id","name","arguments"}]` in the model's
-     * ORIGINAL order (`arguments` is the model's raw argument JSON object string, the same
-     * bytes the dispatcher canonicalizes and the approval binding hashes).
+     * ORIGINAL order (`arguments` is the model's RAW argument JSON object string). The
+     * approval binding hashes the CANONICAL form of the same object (sorted keys,
+     * minified — [CanonicalArgs.canonicalize]); the two representations agree as
+     * objects but are generally different byte strings, so this row stores the model's
+     * original text while the binding hashes its canonical form (same source, two
+     * representations).
      */
     private fun persistAssistantToolStep(
         sessionId: String,
@@ -1020,8 +1056,14 @@ class ChatService(
                     // persistRejectedToolCall already wrote row + result + audit.
                     SettledCall(p.callId, p.toolNameRaw, p.preSettled)
                 } else {
+                    // A null slot means the dispatcher THREW for this call (its [error]
+                    // is the batch's first such throw). Only the broker's own cancel
+                    // exception proves "cancelled before start, no side effects"; any
+                    // other throw left the side-effect state UNKNOWN, so the durable row
+                    // must be FAILED — never "已取消（无副作用）" — to agree with the
+                    // dispatcher's TOOL_FAILED audit for the same attempt.
                     val outcome =
-                        batch.outcomes[slot++] ?: ToolDispatchOutcome.Cancelled
+                        batch.outcomes[slot++] ?: unsettledSlotSettlement(batch.error)
                     settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome)
                     SettledCall(p.callId, p.toolNameRaw, outcome)
                 }
@@ -1072,7 +1114,15 @@ class ChatService(
         val turnId = turn.id
         val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
         val descriptor = toolPipeline.resolveLatest(toolNameRaw)
-        val args: JsonObject? = parseJsonObjectOrNull(rawArgsJson)
+        // No-argument tools (e.g. time.now, whose ONLY valid input is {}) receive
+        // arguments as an empty string or no argument fragments at all on many
+        // OpenAI-compatible servers (observed: Ollama) — the decoders skip blank
+        // fragments, so the accumulated buffer ends up empty. Normalize empty to the
+        // empty object: a tool that REQUIRES arguments still gets its precise schema
+        // rejection (missing properties), instead of the misleading "not a valid JSON
+        // object" for a call the model made correctly.
+        val normalizedArgs = if (rawArgsJson.isBlank()) "{}" else rawArgsJson
+        val args: JsonObject? = parseJsonObjectOrNull(normalizedArgs)
         // Malformed input the dispatcher can never see (an invalid tool name, non-object
         // arguments) is persisted + audited HERE as a stable Denied (preSettled).
         val rejection = invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
@@ -1179,12 +1229,14 @@ class ChatService(
         prepared.preSettled?.let { return it }
         val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
         val outcome =
-            batch.outcomes.singleOrNull() ?: ToolDispatchOutcome.Cancelled
+            batch.outcomes.singleOrNull() ?: unsettledSlotSettlement(batch.error)
         settleToolCall(prepared.row!!, toolCallId, toolNameRaw, outcome)
+        // The call has settled (either way): its cancel signal has served its purpose.
+        // Releasing it here (the direct path has no turn-level finalizer, unlike the
+        // stream path) prevents both a process-lifetime leak and a later stop() reaching
+        // a call of this turn that was never started.
+        turnCancels.remove(turnId)
         batch.error?.let { error ->
-            if (error is ApprovalCancelledException) {
-                turnCancels.remove(turnId)
-            }
             throw error
         }
         return outcome
@@ -1231,7 +1283,26 @@ class ChatService(
             cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal() },
         )
 
-    /** Persists the bounded result + the timeline row for a finished dispatch. */
+    /**
+     * The durable settlement for a slot the dispatcher threw away instead of returning
+     * (the scheduler records it as a null outcome plus the batch's [error]). The honest
+     * outcome depends on the error: the broker's cancel exception is the ONLY proof that
+     * nothing executed ("cancelled before start, no side effects" -> CANCELLED); every
+     * other throw (executor crash, pool rejection, framework ISE) means the side-effect
+     * state is UNKNOWN -> FAILED. Settling an unknown as "no side effects" would tell
+     * the model the call never happened while the audit row says it failed — the exact
+     * settlement/audit disagreement the audit page exists to prevent.
+     */
+    private fun unsettledSlotSettlement(error: Throwable?): ToolDispatchOutcome =
+        if (error is ApprovalCancelledException) {
+            ToolDispatchOutcome.Cancelled
+        } else {
+            ToolDispatchOutcome.ExecutionFailed(
+                DispatchOutcomeCode.TOOL_FAILED,
+                "工具调用被编排层异常中断（${error?.javaClass?.simpleName ?: "未知"}），副作用状态未知",
+            )
+        }
+
     private fun settleToolCall(
         row: com.helix.core.storage.entity.ToolCallEntity,
         toolCallId: String,
@@ -1423,14 +1494,19 @@ class ChatService(
         resultSummary: String?,
         card: com.helix.app.approval.ApprovalCardUi?,
     ) {
-        val preserved =
-            card ?: _screen.value.toolTimeline
-                .firstOrNull { it.turnId == turnId && it.callId == callId }
-                ?.card
-        _screen.value =
-            _screen.value.copy(
+        // Atomic update: this row mutation races other timeline writers (the card sink
+        // runs on a scheduler pool thread; settle/cancel run on the IO scope). A
+        // read-modify-write on the whole screen state would let a concurrent write lose
+        // this update — and the card is published exactly ONCE, so a lost publish is a
+        // turn the user can never approve.
+        _screen.update { screen ->
+            val preserved =
+                card ?: screen.toolTimeline
+                    .firstOrNull { it.turnId == turnId && it.callId == callId }
+                    ?.card
+            screen.copy(
                 toolTimeline =
-                    _screen.value.toolTimeline
+                    screen.toolTimeline
                         .filterNot { it.turnId == turnId && it.callId == callId }
                         .plus(
                             ToolTimelineRow(
@@ -1444,16 +1520,17 @@ class ChatService(
                             ),
                         ),
             )
+        }
     }
 
     private fun attachCardToRow(
         callId: String,
         card: com.helix.app.approval.ApprovalCardUi,
     ) {
-        _screen.value =
-            _screen.value.copy(
+        _screen.update { screen ->
+            screen.copy(
                 toolTimeline =
-                    _screen.value.toolTimeline.map { row ->
+                    screen.toolTimeline.map { row ->
                         if (row.callId == callId) {
                             row.copy(card = card, stateLabel = "待审批")
                         } else {
@@ -1461,21 +1538,23 @@ class ChatService(
                         }
                     },
             )
+        }
     }
 
     private fun updateCard(
         approvalId: String,
         transform: (com.helix.app.approval.ApprovalCardUi) -> com.helix.app.approval.ApprovalCardUi,
     ) {
-        _screen.value =
-            _screen.value.copy(
+        _screen.update { screen ->
+            screen.copy(
                 toolTimeline =
-                    _screen.value.toolTimeline.map { row ->
+                    screen.toolTimeline.map { row ->
                         val card = row.card ?: return@map row
                         if (card.approvalId != approvalId) return@map row
                         row.copy(card = transform(card))
                     },
             )
+        }
     }
 
     private fun setCardStateForCall(
@@ -1484,10 +1563,10 @@ class ChatService(
         terminalDetail: String?,
         keepDenied: Boolean = false,
     ) {
-        _screen.value =
-            _screen.value.copy(
+        _screen.update { screen ->
+            screen.copy(
                 toolTimeline =
-                    _screen.value.toolTimeline.map { row ->
+                    screen.toolTimeline.map { row ->
                         val card = row.card ?: return@map row
                         // Scoped to THIS call's row: timeline rows keep their terminal
                         // cards (a denied card stays visible), so an unscoped update would
@@ -1499,6 +1578,7 @@ class ChatService(
                         row.copy(card = card.copy(state = state, terminalDetail = terminalDetail))
                     },
             )
+        }
     }
 
     private fun boundedSummary(payload: String): String {
@@ -1541,10 +1621,16 @@ class ChatService(
         sessionId: String?,
         liveRows: List<ToolTimelineRow>,
     ): List<ToolTimelineRow> {
-        if (sessionId == null) return emptyList()
+        // No open session: KEEP the live rows as-is. A pending approval card lives ONLY
+        // here (the dispatcher is still blocked in the broker while the user navigates
+        // away); dropping it on close would leave the call "待审批" with no card to tap —
+        // the turn un-approvable until stop or the 24h window expiry. The session-list
+        // screen does not render the timeline, so this is invisible there and the overlay
+        // is restored verbatim when the session reopens.
+        if (sessionId == null) return liveRows
+        val sessionTurns = storage.turns.listBySession(sessionId)
         val persisted =
-            storage.turns
-                .listBySession(sessionId)
+            sessionTurns
                 .flatMap { turn ->
                     storage.toolCalls
                         .listByTurn(turn.id)
@@ -1561,10 +1647,14 @@ class ChatService(
                             )
                         }
                 }.takeLast(TOOL_TIMELINE_CAP)
-        return if (liveRows.isEmpty()) {
+        // Scope the overlay to THIS session's turns: a live row from another session
+        // (e.g. a pending card left open when the user switched) must not appear here.
+        val turnsInSession = sessionTurns.map { it.id }.toSet()
+        val scoped = liveRows.filter { it.turnId in turnsInSession }
+        return if (scoped.isEmpty()) {
             persisted
         } else {
-            val liveByCall = liveRows.associateBy { it.callId }
+            val liveByCall = scoped.associateBy { it.callId }
             persisted
                 .map { row ->
                     val live = liveByCall[row.callId] ?: return@map row
@@ -1573,7 +1663,7 @@ class ChatService(
                         stateLabel = live.stateLabel,
                         resultSummary = live.resultSummary ?: row.resultSummary,
                     )
-                }.plus(liveRows.filter { live -> persisted.none { it.callId == live.callId } })
+                }.plus(scoped.filter { live -> persisted.none { it.callId == live.callId } })
         }
     }
 
@@ -1661,11 +1751,11 @@ class ChatService(
     }
 
     private fun publishTurn(turn: TurnUi) {
-        _screen.value = _screen.value.copy(activeTurn = turn)
+        _screen.update { it.copy(activeTurn = turn) }
     }
 
     private fun setBlocked(reason: String) {
-        _screen.value = _screen.value.copy(blockedReason = reason)
+        _screen.update { it.copy(blockedReason = reason) }
     }
 
     private fun currentSession() = openSessionId?.let { storage.sessions.resolve(it) }
@@ -1734,6 +1824,11 @@ class ChatService(
          * arrive with the budget UI, this is the hard product cap in the meantime).
          */
         const val MAX_TOOL_ROUNDS_PER_TURN = 8
+
+        /** Per-call total accumulated argument budget (1 MiB): a call's full argument
+         * JSON beyond this is a protocol-level failure, not a tool input (see the
+         * [ModelEvent.ToolArgumentsDelta] branch of [applyEvent]). */
+        const val MAX_TOOL_ARGS_PER_CALL = 1_048_576
         const val CALL_RUNNING = "RUNNING"
         const val CALL_COMPLETED = "COMPLETED"
         const val CALL_CANCELLED = "CANCELLED"

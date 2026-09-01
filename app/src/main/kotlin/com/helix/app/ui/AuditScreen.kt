@@ -97,8 +97,10 @@ fun AuditScreen(
             },
         )
 
+        // The filters apply to the loaded newest [AuditLogService.PAGE_LIMIT] rows only
+        // (the documented bounded-page tradeoff; older records are never loaded here).
         Text(
-            if (records.isEmpty()) "当前过滤条件下没有审计记录。" else "共 ${records.size} 条（最近一页）",
+            auditCountText(records.size),
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -109,6 +111,15 @@ fun AuditScreen(
         }
     }
 }
+
+/** The page count with the bounded-page caveat: "no records" must not read as "the whole
+ * audit history is empty" — the filters act on the loaded newest page only. */
+private fun auditCountText(size: Int): String =
+    if (size == 0) {
+        "最近 ${AuditLogService.PAGE_LIMIT} 条内、当前过滤条件下没有审计记录。"
+    } else {
+        "共 $size 条（仅作用于已加载的最近 ${AuditLogService.PAGE_LIMIT} 条）"
+    }
 
 /** The page title + the redaction note (what this page may and may not show). */
 @Composable

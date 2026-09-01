@@ -91,6 +91,42 @@ class ProviderConfigAndSecretStoreTest {
     }
 
     @Test
+    fun overwriteKeepsSessionProviderBindings() {
+        // M3 closeout review bug: the old REPLACE upsert was a DELETE+INSERT under the
+        // hood, and sessions.providerId is ON DELETE SET NULL — editing a provider
+        // silently UNBOUND every session of it (the user changed an endpoint and all
+        // their sessions lost their provider, blocking them with "no provider bound").
+        // The in-place update must keep every binding intact.
+        withStorage("provider-bind.db") { storage ->
+            storage.providerConfigs.save(spec("provider-bind"))
+            val session =
+                storage.sessions.create(
+                    id = "session-bind",
+                    title = "bound",
+                    providerId = "provider-bind",
+                    modelId = null,
+                    createdAt = 1L,
+                )
+            assertEquals("provider-bind", session.providerId)
+            // Edit the provider (the ProviderService.update path).
+            storage.providerConfigs.overwrite(spec("provider-bind", model = "model-2"))
+            assertEquals("model-2", storage.providerConfigs.resolve("provider-bind").model)
+            // The binding must survive the edit.
+            assertEquals(
+                "editing a provider must not unbind its sessions",
+                "provider-bind",
+                storage.sessions.resolve("session-bind").providerId,
+            )
+            // A second edit (update path again, not just the first overwrite) keeps it too.
+            storage.providerConfigs.overwrite(spec("provider-bind", model = "model-3"))
+            assertEquals(
+                "provider-bind",
+                storage.sessions.resolve("session-bind").providerId,
+            )
+        }
+    }
+
+    @Test
     fun deleteRemovesTheRowAndMissingIdFails() {
         withStorage("provider-delete.db") { storage ->
             storage.providerConfigs.save(spec("provider-del"))

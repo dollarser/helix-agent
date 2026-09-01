@@ -1,7 +1,12 @@
+// [Migration].addMigrations(vararg) is Room's only migration-registration API: the
+// spread of the 2-element const array is the idiom, not a hot path.
+@file:Suppress("SpreadOperator")
+
 package com.helix.core.storage
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.ApprovalRepository
@@ -91,10 +96,24 @@ class HelixStorage internal constructor(
     }
 
     companion object {
+        /**
+         * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts).
+         * Both production entries register it: Room does NOT auto-discover migrations, so a
+         * missing registration is a startup crash on any device holding an older schema
+         * (`A migration from N to M is required`) — fresh installs never exercise it, which
+         * is exactly why this must be explicit and device-tested.
+         */
+        private val ALL_MIGRATIONS: Array<Migration> =
+            arrayOf(
+                HelixDatabase.MIGRATION_1_2,
+                HelixDatabase.MIGRATION_2_3,
+            )
+
         fun create(context: Context): HelixStorage {
             val database =
                 Room
                     .databaseBuilder(context, HelixDatabase::class.java, HelixDatabase.DATABASE_NAME)
+                    .addMigrations(*ALL_MIGRATIONS)
                     .build()
             val contentStore = FileContentStore(File(context.filesDir, CONTENT_DIR))
             return HelixStorage(database, contentStore, AndroidKeystoreSecretStore.create(context))
@@ -109,7 +128,11 @@ class HelixStorage internal constructor(
             databaseName: String,
             contentDir: File,
         ): HelixStorage {
-            val database = Room.databaseBuilder(context, HelixDatabase::class.java, databaseName).build()
+            val database =
+                Room
+                    .databaseBuilder(context, HelixDatabase::class.java, databaseName)
+                    .addMigrations(*ALL_MIGRATIONS)
+                    .build()
             return HelixStorage(database, FileContentStore(contentDir), AndroidKeystoreSecretStore.create(context))
         }
 

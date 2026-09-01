@@ -71,6 +71,20 @@ class ResponsesStreamDecoderTest {
 
     private fun jsonStr(s: String): String = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 
+    /** A `response.output_item.added` carrying a function_call item. */
+    private fun functionCallItemAdded(
+        outputIndex: Int,
+        itemId: String,
+        callId: String,
+        name: String,
+    ): String =
+        sse(
+            "response.output_item.added",
+            "{\"type\":\"response.output_item.added\",\"output_index\":$outputIndex," +
+                "\"item\":{\"id\":\"$itemId\",\"type\":\"function_call\",\"status\":\"in_progress\"," +
+                "\"call_id\":\"$callId\",\"name\":\"$name\",\"arguments\":\"\"}}",
+        )
+
     private fun decodeAll(text: String): List<ModelEvent> {
         val decoder = ResponsesStreamDecoder()
         return decoder.feed(text.toByteArray()) + decoder.finish()
@@ -282,6 +296,102 @@ class ResponsesStreamDecoderTest {
         assertEquals(
             listOf<ModelEvent>(ModelEvent.Usage(2, 128), ModelEvent.Completed("length")),
             decodeAll(stream),
+        )
+    }
+
+    @Test
+    fun argumentsDeltaForUnknownIndexFails() {
+        // The event contract: deltas reference a tool call BY STARTED index. An orphan
+        // delta was silently accepted (and dropped by strict consumers); now it fails
+        // the stream like the sibling decoders do.
+        val stream =
+            sse(
+                "response.function_call_arguments.delta",
+                "{\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"fc_x\"," +
+                    "\"output_index\":3,\"delta\":\"{\\\\\"a\\\\\"}\"}",
+            ) +
+                sse(
+                    "response.completed",
+                    """{"type":"response.completed","response":{"status":"completed"}}""",
+                )
+        assertEquals(
+            listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
+    fun argumentsDoneForUnknownIndexFails() {
+        val stream =
+            sse(
+                "response.function_call_arguments.done",
+                "{\"type\":\"response.function_call_arguments.done\",\"item_id\":\"fc_x\"," +
+                    "\"output_index\":7,\"name\":\"read\",\"arguments\":\"{}\"}",
+            )
+        assertEquals(
+            listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false)),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
+    fun duplicateItemAddedForSameIndexFails() {
+        val added = functionCallItemAdded(1, "fc_1", "call_1", "read")
+        val stream = added + added
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(1, ToolCallId("call_1"), "read"),
+                ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
+            ),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
+    fun duplicateCallIdAcrossIndexesFails() {
+        // The SAME call id on a DIFFERENT output index: the app would persist both rows
+        // against the (turnId, callId) unique constraint and the strict history parser
+        // would reject the duplicate at every later turn — a poisoned session. Fail now.
+        val added1 = functionCallItemAdded(1, "fc_1", "call_1", "read")
+        val added2 = functionCallItemAdded(2, "fc_2", "call_1", "write")
+        val stream = added1 + added2
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(1, ToolCallId("call_1"), "read"),
+                ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
+            ),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
+    fun completedWithOpenFunctionCallFails() {
+        // RISK-1 alignment: a response that terminates while a function call is still
+        // open (truncated mid-arguments) is a protocol failure — the chat/anthropic
+        // decoders fail it, and this one used to report a clean length-completion that
+        // let the app SILENTLY DROP the truncated call (never persisted, never
+        // back-filled, turn marked COMPLETED).
+        val added = functionCallItemAdded(1, "fc_1", "call_1", "read")
+        val delta =
+            sse(
+                "response.function_call_arguments.delta",
+                "{\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"fc_1\"," +
+                    "\"output_index\":1,\"delta\":\"{\\\"path\\\"}\"}",
+            )
+        val incomplete =
+            sse(
+                "response.incomplete",
+                """{"type":"response.incomplete","response":{"status":"incomplete",""" +
+                    """"incomplete_details":{"reason":"max_output_tokens"},""" +
+                    """"usage":{"input_tokens":2,"output_tokens":128}}}""",
+            )
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(1, ToolCallId("call_1"), "read"),
+                ModelEvent.ToolArgumentsDelta(1, """{"path"}"""),
+                ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
+            ),
+            decodeAll(added + delta + incomplete),
         )
     }
 

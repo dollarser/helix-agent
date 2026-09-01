@@ -208,6 +208,15 @@ object TurnReducer {
         event: TurnEvent.Lifecycle.CancelFinished,
     ): TurnStep {
         if (state.phase != TurnPhase.CANCELLING) return TurnStep.unchanged(state)
+        // The coordinator's uncertain-call id must be one of THIS turn's pending calls
+        // (or null for a clean cancel). A wrong id would not replay anything (the resume
+        // gate blocks the turn either way), but it would freeze a CLEAN cancel into a
+        // stuck review flow that only manual resolution can end — reject bad input here,
+        // in the same id-validation style as the rest of the reducer.
+        val id = event.uncertainToolCallId
+        require(id == null || state.pendingCalls.any { it.toolCallId == id }) {
+            "CancelFinished carries an uncertain call id that is not a pending call: $id"
+        }
         // Every queued call that never executed gets the terminal Cancelled outcome (the
         // coordinator persists it as such). Excluded: the uncertain call (when cancellation
         // left a side effect unknown — it is tracked on the turn for the HXA-015 review flow)
@@ -216,13 +225,13 @@ object TurnReducer {
         val recordedIds = state.recordedOutcomes.mapTo(mutableSetOf()) { it.toolCallId }
         val cancelledCalls =
             state.pendingCalls.filter { call ->
-                call.toolCallId !in recordedIds && call.toolCallId != event.uncertainToolCallId
+                call.toolCallId !in recordedIds && call.toolCallId != id
             }
         val next =
             state.copy(
                 phase = TurnPhase.CANCELLED,
                 finishReason = "cancelled",
-                uncertainToolCallId = event.uncertainToolCallId,
+                uncertainToolCallId = id,
                 pendingCalls = emptyList(),
                 recordedOutcomes =
                     state.recordedOutcomes +

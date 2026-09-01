@@ -70,7 +70,12 @@ class AndroidKeystoreSecretStore internal constructor(
         val iv = cipher.iv
         directory.mkdirs()
         val target = File(directory, alias.value + FILE_SUFFIX)
-        val tmp = File(directory, target.name + ".tmp")
+        // A UNIQUE temp name per put (M3 closeout review): a fixed "<name>.tmp" is
+        // shared by concurrent puts of the same alias — one put's truncate/rewrite can
+        // land in another put's file mid-write, leaving a torn ciphertext that GCM
+        // authentication then rejects (the secret is lost, not leaked). The content
+        // store already does this (FileContentStore); align.
+        val tmp = File(directory, "${target.name}-${java.util.UUID.randomUUID()}.tmp")
         FileOutputStream(tmp).use { out ->
             out.write(iv)
             out.write(ciphertext)

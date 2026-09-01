@@ -61,9 +61,11 @@ public fun interface ImageResolver {
  *   content array for USER messages carrying images (`text` part first, then
  *   one `image_url` part per image);
  * - TOOL → `{"role": "tool", "tool_call_id": ..., "content": ...}`;
- * - an assistant message's tool calls are not re-encoded: [ModelMessage]
- *   carries tool association only on TOOL messages (the HXA-021 contract);
- *   assistant content is sent as plain text.
+ * - an assistant message's tool calls ARE re-encoded (HXA-037 back-fill): a
+ *   tool-call step re-carries `tool_calls` in the model's original order
+ *   (id / function.name / raw arguments); the following `tool` messages key
+ *   by these ids — without this the history of any tool-using turn would be
+ *   unrepresentable to the model.
  */
 public class ChatCompletionsRequestEncoder(
     public val imageResolver: ImageResolver,

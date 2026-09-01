@@ -326,6 +326,28 @@ class AnthropicStreamDecoderTest {
     }
 
     @Test
+    fun duplicateToolCallIdAcrossBlocksFails() {
+        // The SAME id on a DIFFERENT block index: downstream the app persists both rows
+        // against the (turnId, callId) unique constraint and the strict history parser
+        // rejects the duplicate at every later turn — a poisoned session. Fail NOW.
+        val stream =
+            messageStart(1) +
+                toolStart(0, "toolu_1", "read") +
+                blockStop(0) +
+                toolStart(1, "toolu_1", "write") +
+                messageDelta("tool_use", 1) +
+                messageStop()
+        assertEquals(
+            listOf(
+                ModelEvent.ToolCallStarted(0, ToolCallId("toolu_1"), "read"),
+                ModelEvent.ToolCallFinished(0),
+                ModelEvent.Error(ModelErrorCode.PROTOCOL, retryable = false),
+            ),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
     fun multipleBlocksInterleaved() {
         val stream =
             messageStart(3) +

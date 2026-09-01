@@ -65,9 +65,10 @@ public fun interface ImageResolver {
  * - a USER message without images encodes `content` as a plain string; with
  *   images it becomes a block array — one `text` block first, then one
  *   `image` block per image (`source.type` `base64` or `url`);
- * - an ASSISTANT message encodes as a plain string (assistant tool calls are
- *   not representable in the internal contract — see [encode] for the
- *   TOOL message consequence);
+ * - an ASSISTANT message encodes as a plain string when it has no tool calls;
+ *   a tool-call step becomes a content block array — a `text` block (when any
+ *   text) followed by one `tool_use` block per call in the model's ORIGINAL
+ *   order (HXA-037 back-fill), answered by the merged `tool_result` run below;
  * - a run of consecutive TOOL messages merges into ONE user message whose
  *   content is a block array of `tool_result` blocks
  *   (`tool_use_id` = the internal call id, `content` = the result text),
@@ -374,7 +375,7 @@ private fun JsonArrayBuilder.addImageBlock(
 }
 
 private fun requireValidUrl(url: String) {
-        require(url.isNotBlank() && url.none { it.code in 0x00..0x1F || it.code == 0x7F }) {
-            "image url is blank or contains a control character"
-        }
+    require(url.isNotBlank() && url.none { it.code in 0x00..0x1F || it.code == 0x7F }) {
+        "image url is blank or contains a control character"
     }
+}

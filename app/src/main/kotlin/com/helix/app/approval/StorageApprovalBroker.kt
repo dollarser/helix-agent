@@ -37,34 +37,70 @@ private sealed interface WaitOutcome {
 }
 
 /**
- * One pending approval's decision slot. Deliberately simple and portable: the Android SDK
- * has no `Object.wait`/`notify` and its queue/stub condition APIs are not uniform, so the
- * slot is a plain locked cell. The dispatcher's poll loop ([POLL_MILLIS]) re-checks the
- * slot, the turn-level [CancelSignal] carried by the request AND the card-level
- * [cancelled] set, and the record's window on every tick — the user's tap (or the turn
- * stop) reaches the dispatch thread within one poll (<= [POLL_MILLIS] ms), and the thread
- * is never interrupted (it is a shared worker).
+ * One pending approval's decision slot. A plain `Object.wait`/`notifyAll` rendezvous:
+ * the UI thread ([StorageApprovalBroker.decide]) and the turn stop ([StorageApprovalBroker.cancel])
+ * wake the waiting dispatch thread IMMEDIATELY — no polling. The wait is bounded by a
+ * timed slice ([WAIT_SLICE_MILLIS]) so the expiry / cancel re-check stays periodic even
+ * when no one notifies (the record window elapsing while the user is away). `notifyAll`
+ * (not `notify`) because the waiter re-enters the loop after every wake: lost single
+ * notifications are structurally impossible, and spurious wakes are re-checked.
  */
 private class DecisionWaiter {
-    private val lock = Any()
+    private val monitor = Object()
 
+    /**
+     * Records the decision (first one wins — the record is one-time) and wakes the waiter.
+     * Offer AND wake inside the same monitor: the waiter either sees the decision or is
+     * woken, never neither (the classic lost-wakeup bug).
+     */
     fun offer(decision: ApprovalDecision) {
-        synchronized(lock) {
+        val monitor = monitor
+        synchronized(monitor) {
             if (this.decision == null) {
                 this.decision = decision
             }
+            monitor.notifyAll()
         }
     }
 
-    /** Returns the recorded decision (clearing it) or null when the user has not decided yet. */
-    fun poll(): ApprovalDecision? =
-        synchronized(lock) {
-            val d = decision
-            if (d != null) {
-                decision = null
-            }
-            d
+    /** Wakes the waiter (turn stop); the waiter's cancel re-check ends the wait. */
+    fun wake() {
+        val monitor = monitor
+        synchronized(monitor) {
+            monitor.notifyAll()
         }
+    }
+
+    /**
+     * Returns the recorded decision (clearing it), or null after blocking up to
+     * [timeoutMillis] when the user has not decided yet. The interrupt state is restored
+     * on timeout (the caller treats an interrupted worker as cancelled).
+     */
+    fun await(timeoutMillis: Long): ApprovalDecision? {
+        // The deadline is fixed at ENTRY (one slice per caller request). After it elapses
+        // with no recorded decision the wait MUST return null — the caller re-checks
+        // cancel/expiry on its own loop. (Returning is mandatory: a null spin here would
+        // burn a scheduler pool thread forever and leave its in-flight footprint
+        // occupying a concurrency slot, starving every conflicting call in the process.)
+        val deadline = System.nanoTime() + timeoutMillis * 1_000_000L
+        val monitor = monitor
+        while (true) {
+            val result =
+                synchronized(monitor) {
+                    val recorded = decision
+                    if (recorded == null) {
+                        val remainingMillis = (deadline - System.nanoTime()) / 1_000_000L
+                        if (remainingMillis > 0) monitor.wait(remainingMillis)
+                        decision
+                    } else {
+                        decision = null
+                        recorded
+                    }
+                }
+            if (result != null) return result
+            if ((deadline - System.nanoTime()) <= 0L) return null
+        }
+    }
 
     private var decision: ApprovalDecision? = null
 }
@@ -79,8 +115,8 @@ private class DecisionWaiter {
  *    never permanent);
  * 2. publish the card to the confirmation surface via [cardSink] (the chat timeline); a
  *    sink that throws propagates — a call that cannot be shown cannot be approved;
- * 3. WAIT for the user's typed decision on this exact record (polling [POLL_MILLIS] so a
- *    turn cancellation or the window expiry can break the wait);
+ * 3. WAIT for the user's typed decision on this exact record (woken immediately by the
+ *    decision or a turn stop; a [WAIT_SLICE_MILLIS] slice keeps the expiry re-check alive);
  * 4. map the outcome: `APPROVED` -> MINT (read-only, HXA-034) — only an APPROVED +
  *    unexpired + unconsumed record can ever produce [ApprovalAcquisition.Approved];
  *    `DENIED` -> [ApprovalAcquisition.Denied] (audit-only, never a credential);
@@ -197,7 +233,7 @@ class StorageApprovalBroker(
         approvals.decide(approvalId, decision, clock.now().toEpochMilli())
         val wait =
             synchronized(lock) {
-                waits[approvalId]
+                waits.remove(approvalId)
             }
         if (wait != null) {
             wait.offer(decision)
@@ -206,13 +242,25 @@ class StorageApprovalBroker(
 
     /**
      * Cancels the pending wait for [approvalId] (turn stop). The waiting [acquire] throws
-     * [ApprovalCancelledException] within one poll; the record stays PENDING (the user
-     * never decided) and expires with its window.
+     * [ApprovalCancelledException] immediately (the cancel wakes its waiter); the record
+     * stays PENDING (the user never decided) and expires with its window.
+     *
+     * A cancel for an id with NO live wait slot is a NO-OP (and records nothing): the
+     * `cancelled` set is cleaned only by the acquire that registered the slot, so a
+     * stale id — e.g. the chat service's last-active-card pointer after that card was
+     * already decided — would leak a set entry for the whole process lifetime. This is
+     * symmetric with [decide], which also acts only on ids it knows.
      */
     fun cancel(approvalId: String) {
-        synchronized(lock) {
-            cancelled.add(approvalId)
-        }
+        val wait =
+            synchronized(lock) {
+                val w = waits[approvalId]
+                if (w != null) {
+                    cancelled.add(approvalId)
+                }
+                w
+            }
+        wait?.wake()
     }
 
     override fun consume(proof: ApprovalProof) {
@@ -257,22 +305,39 @@ class StorageApprovalBroker(
             if (clock.now().toEpochMilli() >= entity.expiresAt) {
                 return WaitOutcome.Expired
             }
-            val decision = wait.poll()
+            val decision =
+                try {
+                    wait.await(WAIT_SLICE_MILLIS)
+                } catch (e: InterruptedException) {
+                    // The worker was interrupted (process shutdown / scope teardown): stop
+                    // waiting and fail closed — the turn is being torn down anyway.
+                    Thread.currentThread().interrupt()
+                    return WaitOutcome.Cancelled
+                }
             if (decision != null) {
-                return WaitOutcome.Decision(decision)
-            }
-            try {
-                Thread.sleep(POLL_MILLIS)
-            } catch (e: InterruptedException) {
-                // The worker was interrupted (process shutdown / scope teardown): stop
-                // waiting and fail closed — the turn is being torn down anyway.
-                Thread.currentThread().interrupt()
-                return WaitOutcome.Cancelled
+                // Cancellation wins over a racing decision (M3 closeout review): the user
+                // tapped approve in the same instant the turn stopped (stop() cancels the
+                // wait AFTER the broker already wrote the decision row — both facts are
+                // true, and the turn-level outcome is the honest one). The record keeps
+                // its typed APPROVED and simply expires unconsumed; surfacing Decision
+                // here would mint a proof the dispatcher will never consume and show the
+                // card "approved" for a turn the user just stopped.
+                val cancelledInRace =
+                    cancel.isCancelled() ||
+                        synchronized(lock) {
+                            cancelled.contains(approvalId)
+                        }
+                return if (cancelledInRace) WaitOutcome.Cancelled else WaitOutcome.Decision(decision)
             }
         }
     }
 
     private companion object {
-        const val POLL_MILLIS = 500L
+        /**
+         * The expiry/cancel re-check slice. The wait is normally woken IMMEDIATELY by the
+         * user's decision or a turn stop (notifyAll); the slice only bounds the no-wake
+         * case (the window elapsing while no one is at the card).
+         */
+        const val WAIT_SLICE_MILLIS = 500L
     }
 }
