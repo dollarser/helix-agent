@@ -58,6 +58,22 @@ class FileScopePathTest {
         assertIllegal { FileScopePath("a:b", "a") }
     }
 
+    @Test
+    fun oversizedReferenceIsRejectedAtConstruction() {
+        // The model-reference bound (doc 13) is a fail-closed construction check: an oversized
+        // reference is rejected up front rather than throwing from toString(). Reference =
+        // "scope:" + scopeId + ":" + relative, so with scopeId "s" (1 char) the reference is
+        // 8 + relative.length. Each segment stays <= 255 chars so the *reference* bound (not
+        // the segment/count limits) is what fires.
+        val tooLong = "a".repeat(255) + "/" + "a".repeat(250) // 506 -> ref 514
+        assertIllegal { FileScopePath("s", tooLong) }
+        val atLimit = FileScopePath("s", "a".repeat(255) + "/" + "a".repeat(248)) // 504 -> ref 512
+        assertEquals(FileScopePath.MAX_MODEL_REFERENCE_LENGTH, atLimit.toModelReference().length)
+        // A constructed instance whose reference is within the bound always renders without
+        // throwing, including toString().
+        assertEquals(atLimit.toModelReference(), atLimit.toString())
+    }
+
     // -- model reference round-trip ----------------------------------------------
 
     @Test

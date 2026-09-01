@@ -22,8 +22,12 @@ class FileScopePath(
     init {
         scopeId = requireValidScopeId(scopeIdRaw)
         val normalized = PathSyntax.normalizeRelative(relativePathRaw)
-        require(normalized.length <= MAX_CANONICAL_LENGTH) {
-            "scope path exceeds $MAX_CANONICAL_LENGTH characters after normalization"
+        // Enforce the model-reference bound here (not in toModelReference) so every instance's
+        // reference is bounded and toString/toModelReference can never throw (doc 13: bounded
+        // outputs). The reference is "scope:" + scopeId + ":" + relative, so 7 chars of fixed
+        // prefix/delimiters are reserved on top of the scope id and the relative path.
+        require(normalized.length <= MAX_MODEL_REFERENCE_LENGTH - scopeId.length - 7) {
+            "model reference would exceed $MAX_MODEL_REFERENCE_LENGTH characters after normalization"
         }
         relativePath = normalized
     }
@@ -50,14 +54,11 @@ class FileScopePath(
      * The stable, bounded, model-safe string form: `scope:<scopeId>:<relativePath>`. This — and
      * only this — is what adapters render into model context or tool arguments (doc 10: 不同
      * scope adapter 不泄漏真实路径给模型).
+     *
+     * Total on every constructed instance: [init] guarantees the reference length bound, so
+     * rendering (including [toString]) can never throw.
      */
-    fun toModelReference(): String {
-        val ref = "scope:$scopeId:${relativePath.ifEmpty { "." }}"
-        require(ref.length <= MAX_MODEL_REFERENCE_LENGTH) {
-            "model reference exceeds $MAX_MODEL_REFERENCE_LENGTH characters"
-        }
-        return ref
-    }
+    fun toModelReference(): String = "scope:$scopeId:${relativePath.ifEmpty { "." }}"
 
     override fun toString(): String = toModelReference()
 
@@ -69,7 +70,6 @@ class FileScopePath(
     companion object {
         const val MAX_SCOPE_ID_LENGTH = 64
         const val MAX_MODEL_REFERENCE_LENGTH = 512
-        const val MAX_CANONICAL_LENGTH = 17_000
 
         /**
          * Parses a model reference of the form produced by [toModelReference] back into a
