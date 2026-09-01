@@ -392,6 +392,24 @@ class ChatCompletionsStreamDecoderTest {
     }
 
     @Test
+    fun explicitNullToolCallsFieldIsIgnored() {
+        // sglang emits EXPLICIT null for `tool_calls` on text-only deltas (and omits the
+        // field entirely on others): both mean "no tool fragments in this delta". The
+        // decoder used to crash on the explicit null (JsonNull is not a JsonArray) and
+        // kill the stream — a self-hosted sglang service was unusable.
+        val stream =
+            chunk(
+                "{\"id\":\"c\",\"choices\":[{\"index\":0,\"delta\":{" +
+                    "\"role\":\"assistant\",\"content\":\"ok\",\"tool_calls\":null}," +
+                    "\"finish_reason\":null}]}",
+            ) + finishChunk("stop")
+        assertEquals(
+            listOf<ModelEvent>(ModelEvent.TextDelta("ok"), ModelEvent.Completed("stop")),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
     fun duplicateToolCallIdAcrossIndexesFails() {
         // The SAME id on a DIFFERENT index: downstream the app persists both rows
         // against the (turnId, callId) unique constraint and the strict history parser

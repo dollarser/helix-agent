@@ -53,6 +53,9 @@ import java.net.UnknownHostException
  * passes for the exact host:port binding, and the same check without the
  * authorization is asserted to fail closed.
  */
+@Suppress(
+    "TooManyFunctions", // one class per smoke target (Ollama + sglang) sharing the fetch/parse helpers
+)
 @RunWith(AndroidJUnit4::class)
 class SelfHostedSmokeTest {
     private var serverModel: String = ""
@@ -220,6 +223,7 @@ class SelfHostedSmokeTest {
         )
     }
 
+    /** Terminal events for the smoke assertions (completed, refusal, error). */
     private fun isTerminal(event: ModelEvent): Boolean =
         event is ModelEvent.Completed || event is ModelEvent.Refusal || event is ModelEvent.Error
 
@@ -260,10 +264,164 @@ class SelfHostedSmokeTest {
         return Regex("\"id\"\\s*:\\s*\"([^\"]+)\"").find(modelsBody.substring(from))?.groupValues?.get(1)
     }
 
+    @Test
+    fun sglangTextStreamCompletesWithTextDelta() {
+        val events =
+            runBlocking {
+                sglangProvider()
+                    .stream(
+                        ModelRequest(
+                            model = sglangModel(),
+                            messages =
+                                listOf(
+                                    ModelMessage(ModelRole.USER, "用一句话介绍你自己。"),
+                                ),
+                            // The model reasons before answering (reasoning_content deltas);
+                            // the budget must cover thinking + answer.
+                            maxOutputTokens = 2000,
+                        ),
+                    ).toList()
+            }
+        Log.d(TAG, "sglang text stream events: ${events.map { it::class.simpleName }}")
+        val terminal = events.firstOrNull { isTerminal(it) }
+        assertTrue("stream must end in a terminal, got ${events.last()}", terminal != null)
+        assertTrue("text stream must end in Completed, got $terminal", terminal is ModelEvent.Completed)
+        val text = events.filterIsInstance<ModelEvent.TextDelta>().joinToString("") { it.text }
+        assertTrue("sglang text stream must emit non-blank content, got '${text.take(40)}'", text.isNotBlank())
+        Log.d(
+            TAG,
+            "sglang text evidence: model=${sglangModel()} terminal=$terminal " +
+                "chars=${text.length} preview=${text.take(80)}",
+        )
+    }
+
+    @Test
+    fun sglangToolCallCompletesWithClosedToolIndex() {
+        val events =
+            runBlocking {
+                sglangProvider()
+                    .stream(
+                        ModelRequest(
+                            model = sglangModel(),
+                            messages =
+                                listOf(
+                                    ModelMessage(
+                                        ModelRole.USER,
+                                        "使用 echo 工具发送文本 probe。必须调用工具，不要用纯文本回答。",
+                                    ),
+                                ),
+                            tools =
+                                listOf(
+                                    ModelToolSchema(
+                                        ToolName("echo"),
+                                        "Return the given text unchanged.",
+                                        ECHO_TOOL_SCHEMA,
+                                    ),
+                                ),
+                            maxOutputTokens = 2000,
+                        ),
+                    ).toList()
+            }
+        Log.d(TAG, "sglang tool stream events: ${events.map { it::class.simpleName }}")
+        val terminal = events.firstOrNull { isTerminal(it) }
+        assertTrue("tool stream must end in a terminal, got ${events.last()}", terminal != null)
+        assertTrue("tool stream must end in Completed, got $terminal", terminal is ModelEvent.Completed)
+        val completed = terminal as ModelEvent.Completed
+        assertEquals("tool fixture must finish with tool_calls", "tool_calls", completed.finishReason)
+        val started = events.filterIsInstance<ModelEvent.ToolCallStarted>().map { it.index }.toSet()
+        val finished = events.filterIsInstance<ModelEvent.ToolCallFinished>().map { it.index }.toSet()
+        val closed = started.intersect(finished).firstOrNull()
+        assertTrue(
+            "a tool-call index must be both started and finished (started=$started finished=$finished)",
+            closed != null,
+        )
+        val args =
+            events
+                .filterIsInstance<ModelEvent.ToolArgumentsDelta>()
+                .filter { it.index == closed }
+                .joinToString("") { it.jsonFragment }
+        assertTrue("tool args must mention the probe text, got: $args", args.contains("probe"))
+        Log.d(TAG, "sglang tool evidence: model=${sglangModel()} index=$closed args=${args.take(120)}")
+    }
+
+    @Test
+    fun sglangConfigurationCheckAndModelListPass() {
+        val provider = sglangProvider()
+        val listed = runBlocking { provider.listModels() }
+        Log.d(TAG, "sglang listModels: $listed")
+        assertTrue(
+            "sglang must support /v1/models (recorded finding if changed)",
+            listed is ModelCatalogResult.Listed,
+        )
+        val models = (listed as ModelCatalogResult.Listed).models
+        assertTrue("the smoke model must be in the server list", models.contains(sglangModel()))
+        val check = runBlocking { provider.validateConfiguration() }
+        Log.d(TAG, "sglang validateConfiguration: $check")
+        assertTrue(
+            "configuration check must pass against a reachable sglang",
+            check is ProviderCheckResult.Ok,
+        )
+        Log.d(
+            TAG,
+            "sglang protocol island recorded: OPENAI_CHAT_COMPLETIONS against the OpenAI-compatible " +
+                "/v1 surface (streaming + tool calls verified); reasoning_content deltas are vendor " +
+                "output, not a protocol event (completion record HXA-027 extension)",
+        )
+    }
+
+    /** The dev-machine sglang server (host bridge 10.0.2.2, port 30008). */
+    private val sglangEndpoint: NormalizedEndpoint
+        get() = NormalizedEndpoint.parse("http://$HOST:$SGLANG_PORT/v1")
+
+    private fun sglangModel(): String {
+        val body = fetchText("http://$HOST:$SGLANG_PORT/v1/models")
+        assumeTrue(
+            "no sglang service on $HOST:$SGLANG_PORT — smoke skipped (start sglang on the dev machine)",
+            body != null,
+        )
+        val model = firstModelId(requireNotNull(body))
+        assumeTrue("sglang /v1/models returned nothing parseable — smoke skipped", model != null)
+        return requireNotNull(model)
+    }
+
+    private fun sglangProvider(): OpenAiChatProvider =
+        OpenAiChatProvider(
+            config =
+                ProviderConfig(
+                    id = "sglang-smoke",
+                    displayName = "sglang Smoke",
+                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    endpoint = sglangEndpoint,
+                    model = sglangModel(),
+                    headers = emptyMap(),
+                    secretAlias = SecretAlias("sglang-local"),
+                    capabilitySnapshot =
+                        ProviderCapabilities.toJsonString(
+                            ProviderCapabilities(
+                                streaming = true,
+                                toolCalls = true,
+                                parallelToolCalls = false,
+                                vision = false,
+                                reasoning = true,
+                                jsonSchemaOutput = false,
+                                maxContextTokens = null,
+                                source = CapabilitySource.MANUAL,
+                            ),
+                        ),
+                ),
+            credentials = CredentialLookup { "sglang-local" },
+            wire = OkHttpWireClient(),
+            imageResolver =
+                ImageResolver {
+                    throw UnsupportedOperationException("smoke is text-only; no images")
+                },
+        )
+
     public companion object {
         private const val TAG = "HelixSmoke"
         private const val HOST = "10.0.2.2"
         private const val PORT = 11434
+        private const val SGLANG_PORT = 30008
         private const val ECHO_TOOL_SCHEMA =
             "{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}," +
                 "\"required\":[\"text\"]}"

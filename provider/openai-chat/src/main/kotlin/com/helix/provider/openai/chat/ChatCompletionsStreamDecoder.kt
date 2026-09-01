@@ -6,6 +6,8 @@ import com.helix.core.model.ToolCallId
 import com.helix.provider.api.StreamDecoder
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -190,7 +192,17 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         if (delta == null) return
         val content = (delta["content"] as? JsonPrimitive)?.contentOrNull
         if (content != null && content.isNotEmpty()) out += ModelEvent.TextDelta(content)
-        val fragments = delta["tool_calls"]?.jsonArray
+        // sglang sends an EXPLICIT null for `tool_calls` on text-only deltas (and many
+        // servers omit the field entirely): an absent OR null field means "no tool
+        // fragments in this delta". `?.jsonArray` alone would still crash on the
+        // explicit null (JsonNull is not a JsonArray), killing the whole stream.
+        val fragmentsElement = delta["tool_calls"]
+        val fragments =
+            when (fragmentsElement) {
+                is JsonArray -> fragmentsElement
+                null, is JsonNull -> null
+                else -> throw ProtocolViolation("delta.tool_calls must be an array or null")
+            }
         if (fragments != null) {
             for (fragment in fragments) handleToolCallFragment(fragment.jsonObject, out)
         }
