@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -26,7 +27,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
-import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
@@ -38,9 +38,10 @@ import java.net.UnknownHostException
 
 /**
  * HXA-027 self-hosted service smoke (developer instrumented test): drives the REAL
- * provider stack — [OpenAiChatProvider] + [OkHttpWireClient] — from the emulator
- * through the host bridge `10.0.2.2` (provider doc 2.5) against the dev-machine
- * Ollama server. Verifies the minimal text stream and the minimal ToolCall, and
+ * provider stack — [OpenAiChatProvider] + [OkHttpWireClient] — from an emulator
+ * or physical device against a dev-machine model server. The host defaults to the
+ * emulator bridge `10.0.2.2` and can be overridden with the instrumentation argument
+ * `helix.smoke.host` for a LAN-reachable address. Verifies the minimal text stream and ToolCall, and
  * records the server's capabilities/unsupported fields (doc: “明确记录不支持字段”).
  *
  * The test is assumption-guarded: when no model server listens on the bridge
@@ -49,7 +50,7 @@ import java.net.UnknownHostException
  * it does not fake success.
  *
  * The LAN cleartext gate (doc 2.5) is exercised on the real path: the endpoint
- * `http://10.0.2.2:11434` is only contacted after [CleartextAuthorization.isPermitted]
+ * the selected host is only contacted after [CleartextAuthorization.isPermitted]
  * passes for the exact host:port binding, and the same check without the
  * authorization is asserted to fail closed.
  */
@@ -61,19 +62,26 @@ class SelfHostedSmokeTest {
     private var serverModel: String = ""
     private lateinit var provider: OpenAiChatProvider
 
-    private val endpoint: NormalizedEndpoint
-        get() = NormalizedEndpoint.parse("http://$HOST:$PORT/v1")
+    private val host: String =
+        InstrumentationRegistry
+            .getArguments()
+            .getString(HOST_ARGUMENT)
+            ?.trim()
+            ?.takeIf(String::isNotEmpty)
+            ?: DEFAULT_HOST
 
-    @Before
-    fun setUpGuarded() {
-        val version = fetchText("http://$HOST:$PORT/api/version")
+    private val endpoint: NormalizedEndpoint
+        get() = NormalizedEndpoint.parse("http://$host:$PORT/v1")
+
+    private fun setUpOllamaGuarded() {
+        val version = fetchText("http://$host:$PORT/api/version")
         assumeTrue(
-            "no Ollama on the emulator host bridge $HOST:$PORT — smoke skipped " +
+            "no Ollama on $host:$PORT — smoke skipped " +
                 "(start: ollama serve + ollama pull <model> on the dev machine)",
             version != null,
         )
         Log.d(TAG, "Ollama version: ${version?.trim()}")
-        val models = fetchText("http://$HOST:$PORT/v1/models")
+        val models = fetchText("http://$host:$PORT/v1/models")
         assumeTrue("Ollama /v1/models returned nothing parseable — smoke skipped", models != null)
         val modelsBody = requireNotNull(models)
         val first = firstModelId(modelsBody)
@@ -82,10 +90,10 @@ class SelfHostedSmokeTest {
         Log.d(TAG, "smoke model: $serverModel (model list: $modelsBody)")
 
         // the app-layer LAN gate: exact host:port binding, fail closed otherwise
-        val authorized = setOf(CleartextAuthorization(HOST, PORT))
+        val authorized = setOf(CleartextAuthorization(host, PORT))
         assertTrue(CleartextAuthorization.isPermitted(endpoint, authorized))
         assertTrue(!CleartextAuthorization.isPermitted(endpoint, emptySet()))
-        assertEquals(CleartextAuthorization(HOST, PORT), CleartextAuthorization.requiredFor(endpoint))
+        assertEquals(CleartextAuthorization(host, PORT), CleartextAuthorization.requiredFor(endpoint))
 
         provider =
             OpenAiChatProvider(
@@ -123,6 +131,7 @@ class SelfHostedSmokeTest {
 
     @Test
     fun textStreamCompletesWithTextDelta() {
+        setUpOllamaGuarded()
         val events =
             runBlocking {
                 provider
@@ -148,6 +157,7 @@ class SelfHostedSmokeTest {
 
     @Test
     fun toolCallCompletesWithClosedToolIndex() {
+        setUpOllamaGuarded()
         val events =
             runBlocking {
                 provider
@@ -196,6 +206,7 @@ class SelfHostedSmokeTest {
 
     @Test
     fun recordsServerCapabilitiesAndUnsupportedFields() {
+        setUpOllamaGuarded()
         // list endpoint (phase 2): Ollama exposes the OpenAI-compatible /v1/models
         val listed = runBlocking { provider.listModels() }
         Log.d(TAG, "listModels: $listed")
@@ -274,11 +285,11 @@ class SelfHostedSmokeTest {
                             model = sglangModel(),
                             messages =
                                 listOf(
-                                    ModelMessage(ModelRole.USER, "用一句话介绍你自己。"),
+                                    ModelMessage(ModelRole.USER, "/no_think 用一句话介绍你自己。"),
                                 ),
-                            // The model reasons before answering (reasoning_content deltas);
-                            // the budget must cover thinking + answer.
-                            maxOutputTokens = 2000,
+                            // Keep the device/LAN smoke bounded. Qwen may still emit a short
+                            // reasoning_content prefix, so leave enough room for final content.
+                            maxOutputTokens = 256,
                         ),
                     ).toList()
             }
@@ -369,14 +380,14 @@ class SelfHostedSmokeTest {
         )
     }
 
-    /** The dev-machine sglang server (host bridge 10.0.2.2, port 30008). */
+    /** The dev-machine sglang server (emulator bridge or LAN host, port 30008). */
     private val sglangEndpoint: NormalizedEndpoint
-        get() = NormalizedEndpoint.parse("http://$HOST:$SGLANG_PORT/v1")
+        get() = NormalizedEndpoint.parse("http://$host:$SGLANG_PORT/v1")
 
     private fun sglangModel(): String {
-        val body = fetchText("http://$HOST:$SGLANG_PORT/v1/models")
+        val body = fetchText("http://$host:$SGLANG_PORT/v1/models")
         assumeTrue(
-            "no sglang service on $HOST:$SGLANG_PORT — smoke skipped (start sglang on the dev machine)",
+            "no sglang service on $host:$SGLANG_PORT — smoke skipped (start sglang on the dev machine)",
             body != null,
         )
         val model = firstModelId(requireNotNull(body))
@@ -419,7 +430,8 @@ class SelfHostedSmokeTest {
 
     public companion object {
         private const val TAG = "HelixSmoke"
-        private const val HOST = "10.0.2.2"
+        private const val HOST_ARGUMENT = "helix.smoke.host"
+        private const val DEFAULT_HOST = "10.0.2.2"
         private const val PORT = 11434
         private const val SGLANG_PORT = 30008
         private const val ECHO_TOOL_SCHEMA =

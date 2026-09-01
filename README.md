@@ -12,7 +12,7 @@ Helix 是一个 Android 优先、手机本地执行的个人 Agent。模型可�
 | [总体技术方案](docs/02-architecture-design.md) | 定义模块、状态机、接口、安全架构与面向 LLM 的工程约束 |
 | [本地代码执行方案](docs/03-local-code-execution.md) | 定义 QuickJS 沙箱与 PRoot Linux 开发者模式 |
 | [技术路线与开发计划](docs/04-roadmap-and-backlog.md) | 按依赖顺序拆分小模型可执行的开发任务 |
-| [开发环境与依赖基线](docs/05-development-environment.md) | 固定工具链、版本、设备和构建命令 |
+| [开发环境与依赖基线](docs/05-development-environment.md) | 从零配置 JDK/SDK/AVD/真机，并固定工具链、版本与构建验收 |
 | [开源依赖与参考仓库](docs/06-open-source-references.md) | 区分直接依赖、设计参考和禁止复制项目 |
 | [安全、测试与发布门禁](docs/07-security-testing-release.md) | 定义威胁模型、测试矩阵和发布条件 |
 | [小模型实施指南](docs/08-small-model-implementation-guide.md) | 规定 Qwen 等较小编码模型的工作方式与最小护栏 |
