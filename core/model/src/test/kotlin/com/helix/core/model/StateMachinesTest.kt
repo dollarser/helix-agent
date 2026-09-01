@@ -19,11 +19,13 @@ class StateMachinesTest {
             TurnState.RECEIVING_MODEL to TurnState.FAILED,
             TurnState.WAITING_APPROVAL to TurnState.RUNNING_TOOL,
             TurnState.WAITING_APPROVAL to TurnState.RECORDING_TOOL_RESULT,
+            TurnState.WAITING_APPROVAL to TurnState.FAILED,
             TurnState.RUNNING_TOOL to TurnState.RECORDING_TOOL_RESULT,
+            TurnState.RUNNING_TOOL to TurnState.FAILED,
             TurnState.RECORDING_TOOL_RESULT to TurnState.BUILDING_CONTEXT,
-            // Serial next call of the same model response (first version, doc 02 section 5.3).
             TurnState.RECORDING_TOOL_RESULT to TurnState.WAITING_APPROVAL,
             TurnState.RECORDING_TOOL_RESULT to TurnState.RUNNING_TOOL,
+            TurnState.RECORDING_TOOL_RESULT to TurnState.FAILED,
             // Cancellation from any non-terminal state except CANCELLING and INTERRUPTED.
             TurnState.CREATED to TurnState.CANCELLING,
             TurnState.BUILDING_CONTEXT to TurnState.CANCELLING,
@@ -78,6 +80,7 @@ class StateMachinesTest {
             ToolCallState.PENDING to ToolCallState.DENIED,
             ToolCallState.PENDING to ToolCallState.FAILED,
             ToolCallState.PENDING to ToolCallState.CANCELLED,
+            ToolCallState.PENDING to ToolCallState.NEEDS_REVIEW,
             ToolCallState.AWAITING_APPROVAL to ToolCallState.RUNNING,
             ToolCallState.AWAITING_APPROVAL to ToolCallState.DENIED,
             ToolCallState.AWAITING_APPROVAL to ToolCallState.FAILED,

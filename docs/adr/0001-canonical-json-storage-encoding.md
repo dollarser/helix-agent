@@ -16,7 +16,7 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 - Room 行在调试、崩溃分析和审计时需要人类可读，团队用 `sqlite3`/Studio 直接查看；
 - `core:model` 是纯 JVM 模块（无 Android 依赖），且 AGENTS 规则禁止新增未经任务授权的重量级第三方组件。version catalog 与 [05-development-environment.md](../05-development-environment.md) 第 4 节基线已固定 `kotlinx-serialization-json` 1.9.0，但截至本 ADR 没有模块消费该依赖，Gradle 也没有应用 serialization 编译器插件；`core:model` 是否引入该库仍需单独决策（见 Alternatives 第 1 条）。
 
-设计文档 [02-architecture-design.md](../02-architecture-design.md) 还规划了另一个不同的 canonical JSON：工具**参数**的规范化（用于审批哈希，`toolName || toolVersion || toolSchemaHash || canonicalArguments || ...`），该实现按路线属于 HXA-034（“Approval hash 与一次性消费”，矩阵行在 `:core:policy`），其规则更严格（如键排序的语义、对嵌套工具 schema 的处理），不必然与本 ADR 的存储编码相同。
+设计文档 [02-architecture-design.md](../02-architecture-design.md) 另外定义了工具**参数**的 canonical JSON 家族：HXA-031 在 `tools:framework` 落位 `CanonicalArgs`，HXA-034 使用 `argsHash` 与九个可信字段构造 `ApprovalBinding.canonicalJson`/`bindingHash`。它们服务 schema 化工具参数和精确审批，不属于本 ADR 的内部存储编码适用面，也不要求与本 ADR 共用 writer/decoder。
 
 ## Decision
 

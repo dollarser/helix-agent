@@ -392,10 +392,12 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 31. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
 32. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。
 33. 两个无冲突只读 Tool 可有界并行，但模型收到结果顺序与原始 call sequence 一致；重跑 fixture 结果确定。
-34. 并行队列取消时，未启动调用留下 `ABORTED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
+34. 并行队列取消时，未启动调用留下 `CANCELLED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
 35. 调度失败不能回退到更低隔离 target、扩大 scope/权限或先联网后补审批。
 36. 若未来启用 child delegation，child 只读、深度 1、共享父预算且无 Approval Proof/Secret；写入 proposal 必须由父 Turn 重新审批。
 
 ## 10. 成功定义
 
 首次单机正式版完成的标志不是“可以聊天”，而是：用户能给出一个涉及网页、文件或手机 UI 的目标，Helix 能选择 Provider、加载所需 Skill/MCP 能力、生成计划、请求必要审批、在正确的本地执行域中运行工具或代码、基于真实输出验证产物，并留下完整可审计记录；全过程不依赖电脑或远程 Worker。
+
+可持续跟踪的产品指标见[竞品分析 §10](12-competitive-landscape.md#10-后续跟踪指标)；该表是里程碑/季度跟踪框架，不替代[安全、测试与发布门禁](07-security-testing-release.md)的硬性验收。

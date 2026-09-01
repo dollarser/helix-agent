@@ -64,6 +64,8 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-035 | `./gradlew :tools:framework:test` | 无 |
 | HXA-036 | `./gradlew :app:testConsumerDebugUnitTest :app:lintConsumerDebug` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-037 | `./gradlew :tools:framework:test :core:agent:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；并发读/排他屏障/固定回填顺序/receipt/取消/恢复/资源降级 |
+| HXA-038 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest spotlessCheck detekt :app:lintConsumerDebug` | 无；纯 JVM characterization，不改变设备行为 |
+| HXA-039 | `./gradlew :core:agent:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；批量工具乱序结算/逐调用审批/取消/进程死亡/恢复等价性 |
 
 ### M4：Workspace 与文件
 
@@ -71,7 +73,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | --- | --- | --- |
 | HXA-040 | `./gradlew :core:workspace:test` | 无 |
 | HXA-041 | `./gradlew :core:workspace:test` | 磁盘满/中断 fixture |
-| HXA-042 | `./gradlew :tools:files:test :core:workspace:test` | 无 |
+| HXA-042 | `./gradlew :tools:files:test :tools:framework:test :core:workspace:test` | 无；首个业务工具注册前证明安全 descriptor 变化强制新 version/新 binding，或按 accepted ADR 验证完整 contract hash |
 | HXA-043 | `./gradlew :tools:files:test :core:workspace:test` | 无 |
 | HXA-044 | `./gradlew :feature:files:testDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest`；恶意 ContentProvider |
 | HXA-045 | `./gradlew :feature:files-allfiles:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；专用设备 |
@@ -100,6 +102,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-065 | `./gradlew :tools:android:testDebugUnitTest` | `./gradlew :tools:android:connectedDebugAndroidTest` |
 | HXA-066 | `./gradlew :tools:android:testDebugUnitTest :core:policy:test` | `./gradlew :tools:android:connectedDebugAndroidTest`；DNS rebinding/redirect/peer/scope 与 Standard/Advanced 网络边界 |
 | HXA-067 | `./gradlew :app:testConsumerDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
+| HXA-068 | `./gradlew :app:testDeveloperDebugUnitTest :core:policy:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；规则创建/撤销/到期/重启/时钟回拨/切回 Standard，consumer 无入口 |
 
 ### M7：MCP 与 Skills
 
@@ -144,6 +147,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
+| HXA-099 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :core:agent:test :tools:framework:test` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；Mode/预算 UI、低内存/后台/热信号只降并发、重启与边界值 |
 | HXA-100 | `./gradlew test` | 固定场景集；记录模型/工具版本和证据 |
 | HXA-101 | `./gradlew test` | 攻击语料集，不调用真实付费模型 |
 | HXA-102 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 真机低内存/后台/Doze/进程回收；持久化 pause reason、有界 usage checkpoint、反复 crash/墙钟回拨不增加预算、不重放副作用 |

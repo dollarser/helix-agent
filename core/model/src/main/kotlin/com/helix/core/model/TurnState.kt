@@ -17,11 +17,13 @@ package com.helix.core.model
  *                    -> FAILED
  *              -> FAILED
  *
- * RECORDING_TOOL_RESULT -> BUILDING_CONTEXT -> WAITING_MODEL   (loop after the last call)
- * RECORDING_TOOL_RESULT -> WAITING_APPROVAL | RUNNING_TOOL
- *        (serial next call from the same model response; first version executes all tool
- *        calls of one response serially - architecture doc 5.3 - and provider protocols
- *        require every call of a response to receive a result before the next model call)
+ * RECORDING_TOOL_RESULT -> BUILDING_CONTEXT -> WAITING_MODEL   (loop after a settled batch)
+ *
+ * A model response's tool calls are a batch: individual PENDING/AWAITING_APPROVAL/RUNNING/
+ * terminal states live on ToolCall rows, while the Turn uses RUNNING_TOOL as the aggregate
+ * batch phase. Safe reads may execute concurrently; every result is persisted in original
+ * call sequence before BUILDING_CONTEXT. WAITING_APPROVAL remains for recovery compatibility
+ * with pre-HXA-039 rows, not as the production batch coordinator's single-call queue.
  *
  * any non-terminal state -> CANCELLING -> CANCELLED
  * process death on any non-terminal state -> INTERRUPTED
@@ -80,11 +82,14 @@ enum class TurnState(
 
                 RECEIVING_MODEL -> setOf(WAITING_APPROVAL, RUNNING_TOOL, COMPLETED, FAILED)
 
-                WAITING_APPROVAL -> setOf(RUNNING_TOOL, RECORDING_TOOL_RESULT)
+                WAITING_APPROVAL -> setOf(RUNNING_TOOL, RECORDING_TOOL_RESULT, FAILED)
 
-                RUNNING_TOOL -> setOf(RECORDING_TOOL_RESULT)
+                RUNNING_TOOL -> setOf(RECORDING_TOOL_RESULT, FAILED)
 
-                RECORDING_TOOL_RESULT -> setOf(BUILDING_CONTEXT, WAITING_APPROVAL, RUNNING_TOOL)
+                // WAITING_APPROVAL/RUNNING_TOOL remain compatibility edges for persisted
+                // pre-HXA-039 serial reducer state; the production batch coordinator does
+                // not take them for new turns.
+                RECORDING_TOOL_RESULT -> setOf(BUILDING_CONTEXT, WAITING_APPROVAL, RUNNING_TOOL, FAILED)
 
                 CANCELLING -> setOf(CANCELLED)
 

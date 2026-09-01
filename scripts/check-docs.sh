@@ -62,18 +62,36 @@ for section in required_status_sections:
     if len(re.findall(rf"^## {re.escape(section)}$", status, re.MULTILINE)) != 1:
         fail(status_path, f"requires exactly one '## {section}' section")
 
-# Completion-record contract: every "Mx / HXA-NNN 已完成" bullet in the Completed section
-# must point at an existing record (M0: the single m0-completion-record.md; M1+: one file
-# per HXA in completion-records/), and every M1+ record must contain a 决策记录 section
-# (completion-records/README.md). This is what makes the status file auditable.
-# Bullets are "- Mx / HXA-NNN 已完成：…" — match the bullet prefix, and fail when the
-# pattern matches nothing at all so the contract can never be silently vacuous.
+# Completion-record contract: the compact milestone table in Completed declares inclusive
+# HXA ranges (for example "| M3 | HXA-030～038：… |"). Every declared task must have
+# evidence (M0: the combined m0-completion-record.md; M1+: one file per HXA), every M1+
+# record must contain a 决策记录 section, and no M1+ record may silently disappear from
+# the status summary. Keep accepting the legacy per-HXA bullet form while old branches migrate.
 completed_match = re.search(r"^## Completed\n(.*?)(?=^## )", status, re.MULTILINE | re.DOTALL)
 completed_section = completed_match.group(1) if completed_match else ""
 completed_entries = re.findall(r"^\s*[-*]\s*M(\d+) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE)
+for milestone, start, end in re.findall(
+    r"^\|\s*M(\d+)\s*\|\s*HXA-(\d{3})～(?:HXA-)?(\d{3})\b",
+    completed_section,
+    re.MULTILINE,
+):
+    if int(start) > int(end):
+        fail(status_path, f"M{milestone} has a reversed completed range: HXA-{start}～{end}")
+        continue
+    completed_entries.extend(
+        (milestone, f"HXA-{task_number:03d}")
+        for task_number in range(int(start), int(end) + 1)
+    )
+
 if not completed_entries:
-    fail(status_path, "no 'Mx / HXA-NNN 已完成' bullets found in the Completed section (gate would be vacuous)")
+    fail(status_path, "Completed has neither milestone ranges nor legacy per-HXA bullets (gate would be vacuous)")
+
+listed_task_ids: set[str] = set()
 for milestone, task_id in completed_entries:
+    if task_id in listed_task_ids:
+        fail(status_path, f"Completed lists {task_id} more than once")
+        continue
+    listed_task_ids.add(task_id)
     if milestone == "0":
         record = root / "docs" / "m0-completion-record.md"
     else:
@@ -83,6 +101,24 @@ for milestone, task_id in completed_entries:
         continue
     if milestone != "0" and "决策记录：" not in record.read_text(encoding="utf-8"):
         fail(record, "missing the '决策记录：' section required by completion-records/README.md")
+
+record_task_ids = {
+    path.stem
+    for path in (root / "docs" / "completion-records").glob("HXA-*.md")
+}
+listed_record_task_ids = {
+    task_id
+    for milestone, task_id in completed_entries
+    if milestone != "0"
+}
+if listed_record_task_ids != record_task_ids:
+    missing_from_status = sorted(record_task_ids - listed_record_task_ids)
+    missing_records = sorted(listed_record_task_ids - record_task_ids)
+    fail(
+        status_path,
+        "completion-record index mismatch; "
+        f"missing_from_status={missing_from_status}, missing_records={missing_records}",
+    )
 
 guide_path = root / "docs" / "08-small-model-implementation-guide.md"
 guide = guide_path.read_text(encoding="utf-8")

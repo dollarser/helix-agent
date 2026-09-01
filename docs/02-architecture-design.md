@@ -142,7 +142,7 @@ app
 
 ## 4. 核心领域接口
 
-以下接口形状为实现契约，允许补充字段，不允许绕过边界。
+以下代码块是跨层**目标端口伪代码**：它固定输入、输出、取消和边界职责，不保证与当前 Kotlin 声明逐字符一致。已落位的类型以源码签名为准；未落位的端口仍是后续 HXA 的目标边界，不得据此声称功能已实现，也不得绕过 Dispatcher/Policy/Approval。
 
 ```kotlin
 interface ModelProvider {
@@ -220,6 +220,21 @@ interface ToolExecutor {
     suspend fun cancel(executionId: ExecutionId): CancelResult
 }
 ```
+
+当前落位对照（未列出的伪代码字段不是可以直接 import 的 API）：
+
+| 目标端口 | 当前落位 | 状态/边界 |
+| --- | --- | --- |
+| `ModelProvider` | `provider/api/.../ModelProvider.kt` | 已落位；以源码的流式契约为准 |
+| `AgentRuntime` | 无同名端口；`core:agent` 有 `TurnReducer`，生产聊天仍由 `app` 的 `ChatService` 编排 | 目标形态；不得把 `ChatService` 当作已完成的唯一 Turn coordinator |
+| `ContextBuilder` | `core:agent/.../ContextBuilder.kt` 的 `object ContextBuilder` | 已落位；不是 interface |
+| `Tool` / `ToolRegistry` | `tools:framework` 的 `ToolDescriptor` + `ToolExecutor` + `ToolImplementationRegistry`，以及具体类 `ToolRegistry` | 已落位的工具执行契约与伪代码形状不同 |
+| `PolicyEngine` | `core:policy/.../PolicyEngine.kt` 的具体类 | 已落位；动态风险与封闭结果以源码为准 |
+| `ApprovalRepository` | `core:storage/.../ConversationRepositories.kt` 的具体类 | 已落位；只有类型化 `APPROVED` 可铸造/消费 Proof |
+| `CapabilityResolver` | `core:policy/.../CapabilityResolver.kt` | 已落位 interface |
+| `WorkspaceFileSystem` / `CodeExecutor` / `BrowserController` / `McpClientFacade` | 无同名生产端口 | 分别待 M4 / M5+M8 / M6 / M7 落位 |
+| `SkillRepository` | `core:storage` 已有同名元数据 repository；本节的 content/hash 加载端口尚未落位 | 不得将同名存储类误当成 M7 Skill 运行时 |
+| `ToolExecutor` | `tools:framework/.../ToolExecution.kt` 已使用该简名表示进程内单调用执行者 | 本节带 `target/execute/cancel` 的跨执行域形状仍是目标端口；后续落位时必须避免同包同名和旁路 Dispatcher |
 
 ## 5. Agent 模式与状态机
 
@@ -386,14 +401,7 @@ data class ToolDescriptor(
 
 ### 7.2 手机端确定性调度
 
-详细契约见[手机端 Tool 编排方案](11-mobile-tool-orchestration.md)。首版调度器遵守：
-
-- 并发安全由平台根据规范化参数计算的 effect footprint 决定，至少包含 operation class、execution target、scope、canonical resource key、origin 和排他标志；模型、MCP annotation、Skill 或工具描述文本不能声明自己可并发。
-- 只并行已证明不冲突的读取。未知 footprint、写/删、代码执行、Root、Accessibility、同一 browser tab 和同一 Runtime lane 默认排他；QuickJS/PRoot 等执行域自己的并发上限仍独立生效。
-- 手机默认总并发 2，HXA-037 在真机资源证据后才可把候选硬上限放宽到 4；后台、热限制或低内存时可降为 1。不得把桌面默认 10 并发照搬到手机。
-- 执行可以乱序完成，但 ToolResult 必须按模型原始 call sequence 进入上下文；真实完成顺序和 queue/approval/execution/verification timing 单独审计。
-- 取消后未启动项也要持久化 `ABORTED_BEFORE_START`；已启动项 cancel 后等待确定 terminal 或进入 unknown outcome，不删除、不自动重放。
-- 重试只允许相同 envelope、确认零副作用、同一或更强隔离条件下的有界技术重试。参数/scope/origin/target/token/权限变化必须新建 ToolCall 和 approval；任何失败都不能回退主进程 shell 或自动请求 Root/All-files/Accessibility/LAN。
+详细且规范性契约只在[手机端 Tool 编排方案 §3](11-mobile-tool-orchestration.md#3-首版确定性-tool-scheduler)维护。本文只保留跨层不变式：并发性由平台生成的 effect footprint 决定，仅已证明不冲突的读取可并行；结果按原始 call sequence 回填；未启动取消持久为 `CANCELLED_BEFORE_START`，已启动项必须对账 terminal/unknown outcome；只有相同 envelope、确认零副作用且不降低隔离的技术失败可有界重试。
 
 必须维护 `model-visible ⇔ persisted` 不变量：所有进入下一次模型请求的 ToolResult、用户回答、委托结果和 compaction summary 都能从持久事件及 content hash/ref 重建。瞬时 telemetry 可以更详细，但不能成为恢复的唯一真相。
 
@@ -420,16 +428,20 @@ Goal 已提供持久目标、预算和恢复，不再另建 ralph/无限自治�
 - 数据来自 Workspace、SAF、All-files、浏览器、Accessibility、MCP 还是 Root。
 - MCP server/tool schema hash、Skill snapshot hash、浏览器页面代次或 UI window/package 是否变化。
 
-审批参数摘要必须使用规范 JSON 计算：
+审批绑定必须使用两步哈希，字段集与 `core:policy` 的 `ApprovalBinding` 一致：
 
 ```text
-approvalHash = SHA-256(
-  toolName || toolVersion || toolSchemaHash || canonicalArguments ||
-  scopeId || sessionId || executionTargetId || transientTokenBinding
-)
+argsHash = SHA-256(UTF-8(CanonicalArgs(arguments)))
+
+bindingHash = SHA-256(UTF-8(canonical JSON object {
+  argsHash, executionTarget, scopeRef, schemaHash, sessionId,
+  toolCallId, toolName, toolVersion, uiToken
+}))
 ```
 
-任何参数、代码、命令、文件列表、网络权限、超时变化都会使旧审批无效。
+`ApprovalBinding.canonicalJson` 使用固定字母序键顺序与完整 JSON 转义。九个绑定字段的任意一个变化都生成新 `bindingHash`；`argsHash` 绑定完整规范参数，不是 UI 摘要。
+
+参数、代码、命令、文件列表、scope、session、execution target、UI token、工具版本或输入/输出 schema 的变化会通过上述九字段使旧审批失效。`timeout`、`maxOutputBytes`、`requiredCapabilities`、`operationClass`、`baseRisk`、`idempotency` 和 origin 等 descriptor 契约字段**当前不直接进入** `bindingHash`；它们不是运行期可调参数，任何变化都必须提升 `toolVersion`，由版本字段使旧审批失效。首个非 `time.now` 业务工具进入生产前，HXA-042 必须用机械门禁/合同测试证明这条版本纪律，或先通过 proposed ADR 改为覆盖完整安全 descriptor 的 contract hash；在此之前不得声称单独修改 timeout 已自动撤销旧审批。
 
 审批记录和执行授权必须分开表达：`DENIED` 可以持久化和显示为已处理决定，但只有明确批准且未过期的记录可以生成/消费 `ApprovalProof`。Dispatcher 不得把 `decision != null` 或 `consumedAt != null` 单独解释为获准执行；HXA-034 必须覆盖拒绝、过期和并发消费。
 
@@ -456,6 +468,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `tool_calls` | id, turnId, callId, name, version, argsJson, argsHash, state | 工具请求 |
 | `tool_results` | id, toolCallId, status, summary, contentRef, verified | 工具结果 |
 | `approvals` | id, toolCallId, bindingHash, decision, decidedAt, consumedAt, expiresAt | `decision` 仅 `APPROVED`/`DENIED`；`bindingHash` 是 ApprovalBinding 全量哈希（tool/version/schema/scope/session/target/UI token/args，canonical JSON，HXA-034）；只有 `APPROVED` 且未过期可生成类型化 Approval Proof 并一次性消费（consume 在 SQL 原子守卫内复核哈希与 `expiresAt`，迁移行默认过期 fail closed） |
+| `interaction_receipts` | id, sessionId, turnId, requestId, version, questionSummary, state, createdAt, expiresAt, answerHash, answeredAt | 结构化用户问题的一次性 receipt；状态为 `PENDING/ANSWERED/CANCELLED/SUPERSEDED`，回答仅保存 hash；表中无 Approval binding/proof 字段，不能替代 Tool Approval Proof |
 | `executions` | id, toolCallId, runtime, limitsJson, exitCode, signal | 代码/命令执行 |
 | `artifacts` | id, sessionId, relativePath, mediaType, size, sha256 | 产物索引 |
 | `audit_events` | id, correlationId, type, actor, redactedPayload, timestamp | 审计 |
@@ -587,7 +600,7 @@ Helix 区分两种“面向 LLM”：
 1. **运行时面向 LLM**：模型面对稳定、短小、强类型的 Tool/Model/Event 契约，只负责提出意图、参数和策略；平台负责权限、确定性执行、验证、恢复与审计。
 2. **开发时面向 LLM**：编码 Agent 能用有限上下文定位责任、理解调用契约、执行验收并从唯一状态源续接，不依赖阅读整仓库或猜测隐式约定。
 
-按这个定义，Helix 的运行时架构已经高度面向 LLM：`ModelEvent` 统一协议差异，`ToolDescriptor`/Schema 封闭模型可表达空间，Context Builder 管理可信度与预算，Reducer 保存显式状态转移，Dispatcher 把概率性 ToolCall 收敛到确定性安全管线，`model-visible ⇔ persisted` 保证回填可恢复。开发时架构则是**部分达标**：模块边界、ADR、HXA、完成记录和纯 JVM 合同测试较好，但仍有少数大文件要求编码模型一次加载过多无关责任。
+按这个定义，Helix 的目标运行时架构高度面向 LLM：`ModelEvent` 统一协议差异，`ToolDescriptor`/Schema 封闭模型可表达空间，Context Builder 管理可信度与预算，Dispatcher 把概率性 ToolCall 收敛到确定性安全管线，`model-visible ⇔ persisted` 保证回填可恢复。当前实现是**部分达标**：`core:agent` reducer 显式表达了 M1 状态转移，但尚未成为生产唯一语义来源；开发侧的模块边界、ADR、HXA、完成记录和纯 JVM 合同测试较好，仍有少数大文件要求编码模型一次加载过多无关责任。
 
 ### 17.1 对 LLM-Oriented Design Patterns 的取舍
 
@@ -607,15 +620,17 @@ Helix 区分两种“面向 LLM”：
 
 ### 17.2 当前结构热点与优化顺序
 
+下表 LOC 是 2026-09-01 复核时的工作树快照，只用于表达相对规模，不是验收门禁；职责和契约比行数更权威。
+
 | 热点 | 当前判断 | 优化要求 |
 | --- | --- | --- |
-| `core:agent` reducer 与生产聊天链路 | `TurnReducer`/`TurnEffect` 已定义并充分测试，但当前 `ChatService` 不消费它们，而是直接更新 Room 中的 Turn/ModelCall/ToolCall 状态；存在两套状态推进语义 | 这是最高优先级架构债：引入 application-level Turn coordinator，以持久快照 + `TurnEvent → TurnReducer → TurnEffect` 驱动生产链路；I/O adapter 执行 effect 并提交状态/审计，`ChatService` 只保留 UI facade。迁移必须用当前聊天、工具回填、取消、失败和恢复 fixture 做等价性测试，不能一次重写 |
-| `ChatService.kt`（约 1750 LOC） | 同时承担发送门控、Turn 生命周期、Provider stream、Tool Loop、Room 写入、审批卡/Timeline 投影和 UI state，属于真实多职责热点 | 在首个非 `time.now` 业务工具进入生产聊天工具表前，随 coordinator 迁移按 egress/send gate、model/tool-loop orchestration、durable persistence/backfill、timeline/approval projection 四个 seam 渐进拆分；保留 UI 只依赖一个 application-service facade |
-| `ToolDispatcher.kt`（约 820 LOC） | 文件偏大，但八段安全管线具有强顺序不变量，机械拆分类会增加绕过风险 | 保留唯一公开 `dispatch` facade；新增能力导致阶段继续增长时，只抽取 package-internal validator/approval/execution/result/audit phase，并用端到端合同测试证明阶段不可跳过 |
+| `core:agent` reducer 与生产聊天链路 | HXA-039/ADR-0010 已选择新的 batch-safe application `TurnCoordinator`：生产 Turn 以 batch aggregate phase + 每调用 ToolCall 状态表达并发、结算和 unknown outcome；当前 ModelCall/stream checkpoint 与模型可见回填由 coordinator 统一持有。M1 串行 `TurnReducer` 只保留历史测试和旧恢复兼容 | 新生产路径不得调用旧 reducer；旧 `RECORDING_TOOL_RESULT → WAITING_APPROVAL/RUNNING_TOOL` 边只作兼容。后续改变 batch/恢复契约必须取代 ADR-0010，并继续用聊天、乱序结算、取消、失败和恢复 fixture 验证 |
+| `ChatService.kt`（约 1600 LOC） | HXA-038 已抽出 `ModelStreamState`；HXA-039 又把 Turn/ModelCall checkpoint、合法状态推进和事务化终局/回填抽到 `TurnCoordinator`。本类仍承担 egress/send gate、Tool Loop 调用、ToolCall 准备、审批卡/Timeline 投影和 UI facade | 继续按 egress gate、tool pipeline adapter、timeline/approval projection 三个真实 seam 渐进提取；UI 仍只依赖一个 application-service facade，不新增 Manager/DAO 旁路 |
+| `ToolDispatcher.kt`（853 LOC） | 文件偏大，但八段安全管线具有强顺序不变量，机械拆分类会增加绕过风险 | 保留唯一公开 `dispatch` facade；新增能力导致阶段继续增长时，只抽取 package-internal validator/approval/execution/result/audit phase，并用端到端合同测试证明阶段不可跳过 |
 | 三套 Provider SSE reader | UTF-8、行边界、data framing 存在相似实现，重复修复风险较高 | 先建立三协议共享 framing golden tests，再抽取无 vendor 语义的 `SseFramer`；各 Provider 的事件映射、终止和错误语义继续独立 |
 | `ConversationRepositories.kt`（约 710 LOC） | 多个 repository 同文件，运行时边界尚清楚但开发上下文过宽 | 后续触碰对应 repository 时按聚合根拆文件，不改变 `HelixStorage` 组合入口或事务语义 |
-| `TurnReducer.kt`（约 685 LOC） | 体量较大但纯函数、单一状态机、测试密集 | 不因 LOC 单独拆分；只有状态族出现独立不变量和独立测试 seam 时再提取 transition helper |
-| `AppContainer.kt`（约 200 LOC） | 手工 composition root，依赖方向清晰，没有深工厂链 | 保留；按 feature 增长可抽取 package-internal assembler，但不引入 Hilt 或 Service Locator |
+| `TurnReducer.kt`（694 LOC） | 体量较大但纯函数、单一状态机、测试密集 | 不因 LOC 单独拆分；只有状态族出现独立不变量和独立测试 seam 时再提取 transition helper |
+| `AppContainer.kt`（201 LOC） | 手工 composition root，依赖方向清晰，没有深工厂链 | 保留；按 feature 增长可抽取 package-internal assembler，但不引入 Hilt 或 Service Locator |
 
 ### 17.3 面向 LLM 的项目级约束
 

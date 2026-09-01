@@ -208,6 +208,8 @@ HELIX_TEST_API_KEY
 
 ## 8. 推荐仓库目录
 
+下图是目标模块/目录布局，不是实时实现清单。目录存在、可参与 Gradle 构建或包含 marker 都不表示业务能力已落位；已实现范围、空骨架和唯一当前任务以[实施状态](implementation-status.md)为准。
+
 ```text
 Helix/
 ├── .github/workflows/

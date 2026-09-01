@@ -129,8 +129,7 @@ class ProcessRecoveryTest {
         val dying = isolatedStorage(context, "rewind-1")
         try {
             dying.sessions.create("session-1", "Rewind", null, null, 1_000L)
-            val turn = dying.turns.start("turn-1", "session-1", 1_100L)
-            dying.turns.updateState(turn, Phase.RUNNING_TOOL, 1, null, null)
+            dying.advanceTurnTo("turn-1", "session-1", 1_100L, Phase.RUNNING_TOOL, 1)
             dying.seedCall("tc-1", "turn-1", "call-1", "bash", """{"cmd":"ls"}""", ToolCallState.RUNNING)
             dying.goals.save(goal("goal-1", GoalState.RUNNING.name, currentWakeMillis = 200L))
             dying.goalRuns.open("run-1", "goal-1", GoalWakeReason.USER_OPEN.name, 1_300L)
@@ -162,8 +161,7 @@ class ProcessRecoveryTest {
         val dying = isolatedStorage(context, "death-3")
         try {
             dying.sessions.create("session-1", "Waiting approval", null, null, 1_000L)
-            val turn = dying.turns.start("turn-1", "session-1", 1_100L)
-            dying.turns.updateState(turn, Phase.WAITING_APPROVAL, 1, null, null)
+            dying.advanceTurnTo("turn-1", "session-1", 1_100L, Phase.WAITING_APPROVAL, 1)
             dying.seedCall(
                 "tc-1",
                 "turn-1",
@@ -309,22 +307,54 @@ class ProcessRecoveryTest {
         storage.sessions.create("session-2", "Waiting approval", null, null, 950L)
         storage.sessions.create("session-3", "Done", null, null, 990L)
 
-        val t1 = storage.turns.start("turn-1", "session-1", 1_000L)
-        storage.turns.updateState(t1, Phase.RUNNING_TOOL, 2, null, null)
+        storage.advanceTurnTo("turn-1", "session-1", 1_000L, Phase.RUNNING_TOOL, 2)
         storage.seedCall("tc-1", "turn-1", "call-1", "bash", """{"cmd":"sleep 5"}""", ToolCallState.RUNNING)
         storage.seedCall("tc-2", "turn-1", "call-2", "write", """{"path":"/tmp/a"}""", ToolCallState.PENDING)
 
-        val t2 = storage.turns.start("turn-2", "session-2", 1_100L)
-        storage.turns.updateState(t2, Phase.WAITING_APPROVAL, 1, null, null)
+        storage.advanceTurnTo("turn-2", "session-2", 1_100L, Phase.WAITING_APPROVAL, 1)
         storage.seedCall("tc-3", "turn-2", "call-3", "write", """{"path":"/tmp/b"}""", ToolCallState.AWAITING_APPROVAL)
 
-        val t3 = storage.turns.start("turn-3", "session-3", 1_200L)
-        storage.turns.updateState(t3, Phase.COMPLETED, 3, 1_500L, null)
+        storage.advanceTurnTo("turn-3", "session-3", 1_200L, Phase.COMPLETED, 3, 1_500L)
         storage.seedCall("tc-4", "turn-3", "call-4", "read", """{"path":"/tmp/c"}""", ToolCallState.COMPLETED)
 
         storage.goals.save(goal("goal-1", GoalState.RUNNING.name, nextCheckpoint = 9_999L, currentWakeMillis = 1_300L))
         storage.goalRuns.open("run-1", "goal-1", GoalWakeReason.USER_OPEN.name, 1_300L)
         storage.goals.save(goal("goal-2", GoalState.PAUSED.name))
+    }
+
+    /** Builds recovery fixtures through the same legal Turn edges production must use. */
+    private fun HelixStorage.advanceTurnTo(
+        turnId: String,
+        sessionId: String,
+        startedAt: Long,
+        target: Phase,
+        stepCount: Int,
+        endedAt: Long? = null,
+    ) {
+        var turn = turns.start(turnId, sessionId, startedAt)
+        val path =
+            when (target) {
+                Phase.RUNNING_TOOL -> {
+                    listOf(Phase.BUILDING_CONTEXT, Phase.WAITING_MODEL, Phase.RECEIVING_MODEL, Phase.RUNNING_TOOL)
+                }
+
+                Phase.WAITING_APPROVAL -> {
+                    listOf(Phase.BUILDING_CONTEXT, Phase.WAITING_MODEL, Phase.RECEIVING_MODEL, Phase.WAITING_APPROVAL)
+                }
+
+                Phase.COMPLETED -> {
+                    listOf(Phase.BUILDING_CONTEXT, Phase.WAITING_MODEL, Phase.RECEIVING_MODEL, Phase.COMPLETED)
+                }
+
+                else -> {
+                    error("unsupported recovery fixture target: $target")
+                }
+            }
+        path.forEach { state ->
+            val terminalAt = if (state == target) endedAt else null
+            val step = if (state == Phase.BUILDING_CONTEXT || state == Phase.WAITING_MODEL) 0 else stepCount
+            turn = turns.updateState(turn, state, step, terminalAt, null)
+        }
     }
 
     private fun goal(

@@ -66,7 +66,7 @@ import kotlin.time.Duration.Companion.seconds
  * - 固定回填顺序: completion may be out of order, the batch result and the persisted
  *   model-visible rows are in the ORIGINAL call sequence;
  * - 取消: an unstarted call ends in the durable CANCELLED_BEFORE_START audit outcome
- *   (doc 11 ABORTED_BEFORE_START) while the started calls complete; a failing item never
+ *   (doc 11 CANCELLED_BEFORE_START) while the started calls complete; a failing item never
  *   cancels the others;
  * - 资源降级: the resource gate lowers (never raises) the effective concurrency;
  * - receipt 一次性: late/duplicate/cancelled/superseded/expired answers return
@@ -414,7 +414,7 @@ class ToolSchedulerDeviceTest {
         assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
         assertTrue(batch.outcomes[1] is ToolDispatchOutcome.Succeeded)
         // The queued cancelled call is durably CANCELLED — and its audit row is
-        // CANCELLED_BEFORE_START (doc 11: ABORTED_BEFORE_START), with the queue stamp.
+        // CANCELLED_BEFORE_START (doc 11: CANCELLED_BEFORE_START), with the queue stamp.
         assertTrue(batch.outcomes[2] is ToolDispatchOutcome.Cancelled)
         val rows = auditRows(ids.toSet())
         assertEquals(3, rows.size)

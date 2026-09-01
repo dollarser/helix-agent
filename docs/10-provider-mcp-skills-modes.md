@@ -314,17 +314,9 @@ Room 表和规范性关键字段只在 [总体方案 §9.1](02-architecture-desi
 
 ## 8. 未来远程执行扩展点
 
-当前只实现 `LOCAL_ANDROID`、`LOCAL_QUICKJS`、`LOCAL_PROOT`、`LOCAL_CLI_RUNTIME`。现在定义：
+当前领域枚举已定义 `LOCAL_ANDROID`、`LOCAL_QUICKJS`、`LOCAL_PROOT`、`LOCAL_CLI_RUNTIME` 四类本机目标，但生产工具执行路径目前只有 `LOCAL_ANDROID`（`time.now`）；其余三类仍分别等待 M5、M8、M11 的执行器和设备验收。目标定义不等于 Runtime 已实现。
 
-```kotlin
-interface ToolExecutor {
-    val target: ExecutionTargetDescriptor
-    suspend fun execute(request: ToolExecutionEnvelope): ToolResultEnvelope
-    suspend fun cancel(executionId: ExecutionId): CancelResult
-}
-```
-
-Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。未来远程 Worker 通过新的 transport 实现该接口；当前不写 socket、配对、云端账号或空网络模块。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
+跨执行域目标端口只在[总体方案 §4](02-architecture-design.md#4-核心接口)维护；该处同时区分目标伪代码与当前 `tools:framework` 进程内 `ToolExecutor` 的同名不同形。Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。未来远程 Worker 必须通过新 transport 且仍进入同一 Dispatcher；当前不写 socket、配对、云端账号或空网络模块。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
 
 ## 9. 完成标准
 

@@ -15,7 +15,6 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelErrorCode
-import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
@@ -227,6 +226,10 @@ class ChatService(
 
     @Suppress("ReturnCount") // one fail-closed early return per gate condition
     private suspend fun sendNow(text: String) {
+        if (text.isBlank() || text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
+            setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
+            return
+        }
         val session = currentSession() ?: return
         val providerId =
             session.providerId ?: run {
@@ -454,22 +457,17 @@ class ChatService(
         synchronized(turnGate) {
             if (activeTurnJob?.isActive == true) return
             val turnId = idGenerator()
-            val now = clock.now().toEpochMilli()
-            if (text != null) {
-                storage.withTransaction {
-                    storage.turns.start(turnId, sessionId, now)
-                    storage.messages.append(idGenerator(), sessionId, turnId, ModelRole.USER.name, KIND_TEXT, text)
-                }
-            } else {
-                storage.turns.start(turnId, sessionId, now)
-            }
             val callId = idGenerator()
-            storage.modelCalls.append(callId, turnId, snapshot, CALL_RUNNING)
-            val turn = storage.turns.resolve(turnId)
-            storage.turns.updateState(turn, TurnState.WAITING_MODEL, 0, null, null)
+            val coordinator =
+                TurnCoordinator.start(
+                    storage = storage,
+                    clock = clock,
+                    idGenerator = idGenerator,
+                    spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text),
+                )
             activeTurnJob =
                 workScope.launch {
-                    runTurn(sessionId, turnId, callId, providerId, retryTurnId)
+                    runTurn(sessionId, coordinator, providerId, retryTurnId)
                 }
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
         }
@@ -482,20 +480,16 @@ class ChatService(
     @Suppress("TooGenericExceptionCaught")
     private suspend fun runTurn(
         sessionId: String,
-        turnId: String,
-        callId: String,
+        coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
     ) {
-        var acc = StreamAccumulator()
-        var activeCallId = callId
+        val turnId = coordinator.id
         try {
-            val result = runToolLoop(sessionId, turnId, providerId, retryTurnId, callId)
-            acc = result.acc
-            activeCallId = result.callId
-            terminalize(turnId, activeCallId, sessionId, acc, result.decision)
+            val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId)
+            terminalize(coordinator, decision)
         } catch (e: CancellationException) {
-            terminalize(turnId, activeCallId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, null))
+            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null, null))
             throw e
         } catch (e: ApprovalCancelledException) {
             // The user stopped the turn while the approval card was pending: the turn
@@ -504,7 +498,7 @@ class ChatService(
             // cancellation was the user's own action, not a failure. (The exception
             // carries only the approval id — safe to log as metadata.)
             Log.i(TAG, "turn $turnId stopped while awaiting approval: ${e.message}")
-            terminalize(turnId, activeCallId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, "已停止"))
+            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null, "已停止"))
         } catch (e: Exception) {
             // An unexpected boundary failure (a guard reject, corrupt rows, a
             // provider row deleted mid-turn): the turn STILL reaches a
@@ -512,21 +506,11 @@ class ChatService(
             // (doc 02 section 13: raw messages are never shown).
             Log.e(TAG, "turn $turnId failed at the model boundary", e)
             terminalize(
-                turnId,
-                activeCallId,
-                sessionId,
-                acc,
-                TerminalOutcome(TurnState.FAILED, ErrorCode.INTERNAL.name, "请求失败，请重试"),
+                coordinator,
+                ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name, "请求失败，请重试"),
             )
         }
     }
-
-    /** The tool loop's terminal state: the LAST model step's call id, its accumulator, the decision. */
-    private data class ToolLoopResult(
-        val callId: String,
-        val acc: StreamAccumulator,
-        val decision: TerminalOutcome,
-    )
 
     /**
      * The multi-step tool loop (roadmap HXA-037; doc 11 sections 3/5): model step →
@@ -541,42 +525,36 @@ class ChatService(
     @Suppress("ReturnCount") // one early return per terminal condition of the loop (cancel / non-completed / budget)
     private suspend fun runToolLoop(
         sessionId: String,
-        turnId: String,
+        coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
-        firstCallId: String,
-    ): ToolLoopResult {
+    ): ModelStreamTerminal {
+        val turnId = coordinator.id
         val provider = providerService.modelProviderFor(providerId)
-        val snapshot = providerSnapshot(providerId)
-        var callId = firstCallId
         var request = buildRequest(sessionId, retryTurnId)
         var toolRounds = 0
         while (true) {
             if (turnCancels[turnId]?.isCancelled() == true) {
-                return ToolLoopResult(callId, StreamAccumulator(), TerminalOutcome(TurnState.CANCELLED, null, "已停止"))
+                return ModelStreamTerminal(TurnState.CANCELLED, null, "已停止")
             }
-            val acc = StreamAccumulator()
+            val acc = coordinator.beginModelStream()
             provider.stream(request).collect { event ->
                 applyEvent(event, acc, turnId)
             }
-            val decision = terminalDecision(acc, turnId)
+            val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
             if (decision.state == TurnState.COMPLETED) {
                 val toolRound =
                     runToolRound(
-                        sessionId,
-                        turnId,
-                        callId,
+                        coordinator,
                         acc,
                         toolRounds,
-                        snapshot,
                     )
                 if (toolRound is ToolRoundLimit) {
                     // The turn's tool-round budget is exhausted: fail closed.
-                    return ToolLoopResult(callId, acc, TerminalOutcome(TurnState.FAILED, "TOOL_STEP_LIMIT", "工具步骤超过上限"))
+                    return ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT", "工具步骤超过上限")
                 }
                 if (toolRound is ToolRoundContinued) {
                     toolRounds = toolRound.toolRounds
-                    callId = toolRound.nextCallId
                     request = buildBackfillRequest(sessionId)
                     continue
                 }
@@ -584,7 +562,7 @@ class ChatService(
             // The loop is terminal: the turn is cancelled or failed, or the model gave a
             // final answer (no more tool calls). A continued round already advanced the
             // loop state above.
-            return ToolLoopResult(callId, acc, decision)
+            return decision
         }
     }
 
@@ -593,7 +571,6 @@ class ChatService(
 
     private class ToolRoundContinued(
         val toolRounds: Int,
-        val nextCallId: String,
     ) : ToolRoundResult()
 
     private class ToolRoundLimit : ToolRoundResult()
@@ -609,171 +586,37 @@ class ChatService(
      */
     @Suppress("ReturnCount") // one early return per guard (no finished call / budget limit)
     private suspend fun runToolRound(
-        sessionId: String,
-        turnId: String,
-        callId: String,
-        acc: StreamAccumulator,
+        coordinator: TurnCoordinator,
+        acc: ModelStreamState,
         toolRounds: Int,
-        snapshot: String,
     ): ToolRoundResult? {
-        val calls = acc.toolCalls.values.filter { it.finished }
+        val turnId = coordinator.id
+        val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
         if (toolRounds >= MAX_TOOL_ROUNDS_PER_TURN) return ToolRoundLimit()
-        finishModelStep(callId, acc)
-        persistAssistantToolStep(sessionId, turnId, calls)
+        coordinator.beginToolBatch(calls.map { it.callId })
+        coordinator.commitModelToolStep(assistantToolStepJson(calls))
         val turn = storage.turns.resolve(turnId)
-        val settled = runToolBatch(turn, turnId, calls)
-        settled.forEach { persistToolResult(sessionId, turnId, it) }
+        val settled = runToolBatch(turn, turnId, calls, coordinator)
         val nextCallId = idGenerator()
-        storage.modelCalls.append(nextCallId, turnId, snapshot, CALL_RUNNING)
-        return ToolRoundContinued(toolRounds + 1, nextCallId)
-    }
-
-    /** The stream collector's working set: the text buffer + the terminal-decision inputs. */
-    private class StreamAccumulator {
-        val buffer = StringBuilder()
-        var usageJson: String? = null
-        var refusalLabel: String? = null
-        var errorLabel: String? = null
-        var errorCode: String? = null
-        var receiving = false
-
-        /** The model's tool calls in stream order (index -> working set). */
-        val toolCalls = LinkedHashMap<Int, ModelToolCall>()
-    }
-
-    /** One in-flight model tool call: the provider call id, the name, the argument deltas. */
-    private class ModelToolCall(
-        val callId: String,
-        val name: String,
-    ) {
-        val args = StringBuilder()
-        var finished = false
+        coordinator.openNextModelCall(settled.map(::toolResultDraft), nextCallId)
+        return ToolRoundContinued(toolRounds + 1)
     }
 
     /**
-     * One stream event → the turn's working set. M2: reasoning/tool events
-     * are consumed but not rendered (the M2 chat UI shows text + terminal
-     * state only).
+     * One stream event → pure stream state → application effects. Reasoning/tool events
+     * are accumulated but not rendered; tool calls enter the timeline only through the
+     * dispatcher path.
      */
     private fun applyEvent(
-        event: ModelEvent,
-        acc: StreamAccumulator,
+        event: com.helix.core.model.ModelEvent,
+        acc: ModelStreamState,
         turnId: String,
     ) {
-        when (event) {
-            is ModelEvent.TextDelta -> {
-                acc.buffer.append(event.text)
-                if (!acc.receiving) {
-                    acc.receiving = true
-                    storage.turns.updateState(
-                        storage.turns.resolve(turnId),
-                        TurnState.RECEIVING_MODEL,
-                        1,
-                        null,
-                        null,
-                    )
-                }
-                publishTurn(
-                    TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.buffer.toString(), null, false),
-                )
-            }
-
-            is ModelEvent.Usage -> {
-                acc.usageJson = usageToJson(event)
-            }
-
-            is ModelEvent.Refusal -> {
-                acc.refusalLabel = "模型拒绝（安全/策略）"
-            }
-
-            is ModelEvent.Error -> {
-                acc.errorLabel = ConnectionTestMapping.codeLabel(event.code)
-                acc.errorCode = event.code.name
-            }
-
-            is ModelEvent.ToolCallStarted -> {
-                acc.toolCalls[event.index] = ModelToolCall(event.id.value, event.name)
-            }
-
-            is ModelEvent.ToolArgumentsDelta -> {
-                val call = acc.toolCalls[event.index] ?: return
-                // Total-argument bound (RISK: the decoder caps ONE fragment but the
-                // NUMBER of fragments is unbounded — a relay can stream gigabytes of
-                // deltas). The provider stream is external untrusted input; a call that
-                // crosses the cap fails the turn closed (the model regenerates) instead
-                // of growing memory, a Room row, or an approval card without bound.
-                if (call.args.length + event.jsonFragment.length > MAX_TOOL_ARGS_PER_CALL) {
-                    acc.errorCode = "TOOL_ARGS_OVERFLOW"
-                    acc.errorLabel = "工具参数超出上限"
-                    return
-                }
-                call.args.append(event.jsonFragment)
-            }
-
-            is ModelEvent.ToolCallFinished -> {
-                acc.toolCalls[event.index]?.finished = true
-            }
-
-            // The M3 chat UI renders tool CALLS through the timeline (HXA-036); reasoning
-            // and the stream's terminal marker are still consumed but not rendered.
-            is ModelEvent.ReasoningDelta,
-            is ModelEvent.Completed,
-            -> {
-                Unit
-            }
-        }
+        val update = acc.apply(event, ConnectionTestMapping::codeLabel)
+        if (!update.textChanged) return
+        publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.text, null, false))
     }
-
-    /**
-     * The turn's terminal state. Order matters: a refusal is the honest
-     * "the model declined" state; otherwise a terminal Error event
-     * (transport/auth/protocol — HXA-025 maps EVERY stream failure to a
-     * terminal Error, the collector never sees an exception) must persist as
-     * FAILED with its safe label + code — never as COMPLETED; only a clean
-     * stream completes the turn.
-     */
-    private fun terminalDecision(
-        acc: StreamAccumulator,
-        turnId: String,
-    ): TerminalOutcome =
-        when {
-            turnCancels[turnId]?.isCancelled() == true -> {
-                TerminalOutcome(TurnState.CANCELLED, null, "已停止")
-            }
-
-            acc.refusalLabel != null -> {
-                TerminalOutcome(TurnState.FAILED, null, acc.refusalLabel)
-            }
-
-            acc.errorCode != null -> {
-                TerminalOutcome(TurnState.FAILED, acc.errorCode, acc.errorLabel)
-            }
-
-            // Fail-closed protocol guard (M3 closeout review): the stream ended while one
-            // of the model's tool calls was STARTED but never FINISHED (a truncated or
-            // corrupt tool event sequence — the strictest decoders fail the stream with a
-            // PROTOCOL error, the lenient ones would deliver this state). Executing the
-            // FINISHED siblings would split the model's response into "ran" and "silently
-            // dropped" halves (the dropped one is never persisted, never back-filled, and
-            // the user believes it happened); parsing half arguments would feed garbage
-            // into the dispatcher. The honest outcome is a FAILED turn: nothing is
-            // persisted or executed, the user retries, the model regenerates the calls.
-            acc.toolCalls.values.any { !it.finished } -> {
-                TerminalOutcome(TurnState.FAILED, "TOOL_STREAM_TRUNCATED", "工具调用流不完整，请重试")
-            }
-
-            else -> {
-                TerminalOutcome(TurnState.COMPLETED, null, null)
-            }
-        }
-
-    /** A turn's terminal state: the persisted state, the persisted safe code, the user-visible label. */
-    private data class TerminalOutcome(
-        val state: TurnState,
-        val errorCode: String?,
-        val displayLabel: String?,
-    )
 
     /**
      * Persists the turn terminal + the assistant content row (when any) + the
@@ -781,40 +624,11 @@ class ChatService(
      * completion, the stop path or the error path — always exactly once.
      */
     private fun terminalize(
-        turnId: String,
-        callId: String,
-        sessionId: String,
-        acc: StreamAccumulator,
-        outcome: TerminalOutcome,
+        coordinator: TurnCoordinator,
+        outcome: ModelStreamTerminal,
     ) {
-        val text = acc.buffer.toString()
-        if (text.isNotBlank()) {
-            // The turn's OWN session, not the currently open one: the user
-            // may have navigated back to the session list while the stream
-            // was still running (the in-flight turn keeps running by design).
-            storage.messages.append(
-                idGenerator(),
-                sessionId,
-                turnId,
-                ModelRole.ASSISTANT.name,
-                KIND_TEXT,
-                text,
-            )
-        }
-        val turn = storage.turns.resolve(turnId)
-        storage.turns.updateState(
-            turn,
-            outcome.state,
-            maxOf(turn.stepCount, 1),
-            clock.now().toEpochMilli(),
-            outcome.errorCode,
-        )
-        storage.modelCalls.update(
-            storage.modelCalls.resolve(callId),
-            callState(outcome.state),
-            acc.usageJson,
-            null,
-        )
+        val turnId = coordinator.id
+        coordinator.terminalize(outcome)
         // HXA-036: the turn is over — clear the dispatcher's same-turn denial set for it
         // (a later turn may re-request a previously denied action and get a fresh card)
         // and drop this turn's pipeline state.
@@ -845,7 +659,7 @@ class ChatService(
             "the request must end with the user message"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
-        return ModelRequest(model = config.model, messages = history)
+        return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
     }
 
     /**
@@ -860,7 +674,7 @@ class ChatService(
             "a back-fill request must end with the tool results"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
-        return ModelRequest(model = config.model, messages = history)
+        return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
     }
 
     /** The persisted rows → strict model messages (a malformed tool row fails the turn closed). */
@@ -883,19 +697,6 @@ class ChatService(
         return ChatHistoryBuilder.toModelMessagesStrict(historyRows)
     }
 
-    /** Closes a tool-loop model step's `model_calls` row (COMPLETED + its usage). */
-    private fun finishModelStep(
-        callId: String,
-        acc: StreamAccumulator,
-    ) {
-        storage.modelCalls.update(
-            storage.modelCalls.resolve(callId),
-            CALL_COMPLETED,
-            acc.usageJson,
-            null,
-        )
-    }
-
     /**
      * Persists the assistant's tool-call step (roadmap HXA-037): the model-visible content
      * of the step is exactly the calls — `[{"id","name","arguments"}]` in the model's
@@ -906,43 +707,25 @@ class ChatService(
      * original text while the binding hashes its canonical form (same source, two
      * representations).
      */
-    private fun persistAssistantToolStep(
-        sessionId: String,
-        turnId: String,
-        calls: List<ModelToolCall>,
-    ) {
-        val body =
-            buildJsonArray {
-                calls.forEach { call ->
-                    add(
-                        buildJsonObject {
-                            put("id", call.callId)
-                            put("name", call.name)
-                            put("arguments", call.args.toString())
-                        },
-                    )
-                }
+    private fun assistantToolStepJson(calls: List<BufferedModelToolCall>): String =
+        buildJsonArray {
+            calls.forEach { call ->
+                add(
+                    buildJsonObject {
+                        put("id", call.callId)
+                        put("name", call.name)
+                        put("arguments", call.arguments)
+                    },
+                )
             }
-        storage.messages.append(
-            idGenerator(),
-            sessionId,
-            turnId,
-            ModelRole.ASSISTANT.name,
-            ChatHistoryBuilder.KIND_TOOL_CALLS,
-            body.toString(),
-        )
-    }
+        }.toString()
 
     /**
      * Persists ONE settled tool result as a TOOL message (called in CALL SEQUENCE — the
      * back-fill order the next model request re-carries). The content is the bounded
      * `{"id","tool","status","summary"}` — exactly the text the timeline shows.
      */
-    private fun persistToolResult(
-        sessionId: String,
-        turnId: String,
-        settled: SettledCall,
-    ) {
+    private fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
         val status: String
         val summary: String
         when (val o = settled.outcome) {
@@ -973,13 +756,10 @@ class ChatService(
                 put("status", status)
                 put("summary", summary)
             }
-        storage.messages.append(
-            idGenerator(),
-            sessionId,
-            turnId,
-            ModelRole.TOOL.name,
-            ChatHistoryBuilder.KIND_TOOL_RESULT,
-            body.toString(),
+        return TurnMessageDraft(
+            role = ModelRole.TOOL,
+            kind = ChatHistoryBuilder.KIND_TOOL_RESULT,
+            content = body.toString(),
         )
     }
 
@@ -1035,16 +815,17 @@ class ChatService(
     private fun runToolBatch(
         turn: com.helix.core.storage.entity.TurnEntity,
         turnId: String,
-        calls: List<ModelToolCall>,
+        calls: List<BufferedModelToolCall>,
+        coordinator: TurnCoordinator,
     ): List<SettledCall> {
         val prepareds =
             calls.map { call ->
-                prepareToolCall(turn, call.callId, call.name, call.args.toString())
+                prepareToolCall(turn, call.callId, call.name, call.arguments)
             }
         val requests = prepareds.mapNotNull { it.request }
         val batch =
             if (requests.isEmpty()) {
-                ToolScheduler.BatchResult(emptyList(), null)
+                ToolScheduler.BatchResult(emptyList())
             } else {
                 toolPipeline.scheduler.scheduleBatch(requests)
             }
@@ -1054,21 +835,23 @@ class ChatService(
                 if (p.preSettled != null) {
                     // Malformed BEFORE the dispatcher (invalid name / non-object args):
                     // persistRejectedToolCall already wrote row + result + audit.
+                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = false)
                     SettledCall(p.callId, p.toolNameRaw, p.preSettled)
                 } else {
-                    // A null slot means the dispatcher THREW for this call (its [error]
-                    // is the batch's first such throw). Only the broker's own cancel
-                    // exception proves "cancelled before start, no side effects"; any
-                    // other throw left the side-effect state UNKNOWN, so the durable row
-                    // must be FAILED — never "已取消（无副作用）" — to agree with the
-                    // dispatcher's TOOL_FAILED audit for the same attempt.
+                    val settlement = batch.settlements[slot++]
+                    val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
+                    val unknown = thrown != null && thrown !is ApprovalCancelledException
                     val outcome =
-                        batch.outcomes[slot++] ?: unsettledSlotSettlement(batch.error)
-                    settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome)
+                        when (settlement) {
+                            is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
+                            is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
+                        }
+                    settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
+                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
                     SettledCall(p.callId, p.toolNameRaw, outcome)
                 }
             }
-        batch.error?.let { error ->
+        batch.firstError?.let { error ->
             if (error is ApprovalCancelledException) {
                 // The turn is over (doc 11: cancel leaves a durable outcome for every
                 // queued call — all slots above are settled); drop the signal and
@@ -1228,15 +1011,21 @@ class ChatService(
         val prepared = prepareToolCall(turn, toolCallId, toolNameRaw, rawArgsJson)
         prepared.preSettled?.let { return it }
         val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
+        val settlement = batch.settlements.single()
+        val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
+        val unknown = thrown != null && thrown !is ApprovalCancelledException
         val outcome =
-            batch.outcomes.singleOrNull() ?: unsettledSlotSettlement(batch.error)
-        settleToolCall(prepared.row!!, toolCallId, toolNameRaw, outcome)
+            when (settlement) {
+                is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
+                is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
+            }
+        settleToolCall(prepared.row!!, toolCallId, toolNameRaw, outcome, unknown)
         // The call has settled (either way): its cancel signal has served its purpose.
         // Releasing it here (the direct path has no turn-level finalizer, unlike the
         // stream path) prevents both a process-lifetime leak and a later stop() reaching
         // a call of this turn that was never started.
         turnCancels.remove(turnId)
-        batch.error?.let { error ->
+        batch.firstError?.let { error ->
             throw error
         }
         return outcome
@@ -1285,8 +1074,8 @@ class ChatService(
 
     /**
      * The durable settlement for a slot the dispatcher threw away instead of returning
-     * (the scheduler records it as a null outcome plus the batch's [error]). The honest
-     * outcome depends on the error: the broker's cancel exception is the ONLY proof that
+     * (the scheduler records it as that slot's [ToolScheduler.BatchSettlement.Thrown]).
+     * The honest outcome depends on the cause: the broker's cancel exception is the ONLY proof that
      * nothing executed ("cancelled before start, no side effects" -> CANCELLED); every
      * other throw (executor crash, pool rejection, framework ISE) means the side-effect
      * state is UNKNOWN -> FAILED. Settling an unknown as "no side effects" would tell
@@ -1308,6 +1097,7 @@ class ChatService(
         toolCallId: String,
         toolName: String,
         outcome: ToolDispatchOutcome,
+        sideEffectUnknown: Boolean = false,
     ) {
         when (outcome) {
             is ToolDispatchOutcome.Succeeded -> {
@@ -1323,7 +1113,7 @@ class ChatService(
             }
 
             is ToolDispatchOutcome.ExecutionFailed -> {
-                settleExecutionFailed(row, toolCallId, toolName, outcome)
+                settleExecutionFailed(row, toolCallId, toolName, outcome, sideEffectUnknown)
             }
         }
     }
@@ -1402,12 +1192,14 @@ class ChatService(
         toolCallId: String,
         toolName: String,
         outcome: ToolDispatchOutcome.ExecutionFailed,
+        sideEffectUnknown: Boolean,
     ) {
-        storage.toolCalls.updateState(row, ToolCallState.FAILED)
+        val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
+        storage.toolCalls.updateState(row, state)
         storage.toolResults.append(
             id = idGenerator(),
             toolCallId = toolCallId,
-            status = "FAILED",
+            status = state.name,
             summary = outcome.detail,
             content = null,
         )
@@ -1416,7 +1208,8 @@ class ChatService(
             ApprovalCardState.FAILED,
             ApprovalUiMapper.codeLabel(outcome.code) + "：" + outcome.detail,
         )
-        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, "执行失败", outcome.detail, null)
+        val label = if (sideEffectUnknown) "副作用待确认" else "执行失败"
+        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, outcome.detail, null)
     }
 
     /**
@@ -1791,26 +1584,6 @@ class ChatService(
             .replace("\r", "\\r")
             .replace("\t", "\\t")
 
-    /** Encodes a [ModelEvent.Usage] for the model_calls.usage column (nulls stay null — never 0). */
-    private fun usageToJson(usage: ModelEvent.Usage): String? {
-        val input = usage.inputTokens
-        val output = usage.outputTokens
-        if (input == null && output == null) return null
-        val sb = StringBuilder("{")
-        if (input != null) sb.append("\"inputTokens\":").append(input)
-        if (input != null && output != null) sb.append(",")
-        if (output != null) sb.append("\"outputTokens\":").append(output)
-        sb.append("}")
-        return sb.toString()
-    }
-
-    private fun callState(turn: TurnState): String =
-        when (turn) {
-            TurnState.COMPLETED -> CALL_COMPLETED
-            TurnState.CANCELLED -> CALL_CANCELLED
-            else -> CALL_FAILED
-        }
-
     private companion object {
         const val TAG = "HelixChat"
         const val SUMMARY_CAP = 500
@@ -1824,15 +1597,8 @@ class ChatService(
          * arrive with the budget UI, this is the hard product cap in the meantime).
          */
         const val MAX_TOOL_ROUNDS_PER_TURN = 8
+        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
 
-        /** Per-call total accumulated argument budget (1 MiB): a call's full argument
-         * JSON beyond this is a protocol-level failure, not a tool input (see the
-         * [ModelEvent.ToolArgumentsDelta] branch of [applyEvent]). */
-        const val MAX_TOOL_ARGS_PER_CALL = 1_048_576
-        const val CALL_RUNNING = "RUNNING"
-        const val CALL_COMPLETED = "COMPLETED"
-        const val CALL_CANCELLED = "CANCELLED"
-        const val CALL_FAILED = "FAILED"
         val EMPTY_SCREEN =
             ChatScreenState(
                 sessions = emptyList(),

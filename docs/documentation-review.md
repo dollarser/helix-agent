@@ -13,7 +13,7 @@
 
 ## 2. 一致性结果
 
-- 路线文档与验收矩阵均包含同一组 86 个 HXA，无缺失或额外任务；HXA-088 负责 Git Workspace 语义，HXA-037 负责确定性 Tool Scheduler，HXA-105 只负责有界委托/Workflow Spike，不把规划误算为已实现能力。
+- 路线文档与验收矩阵均包含同一组 90 个 HXA，无缺失或额外任务；HXA-038/039 负责模型流状态拆分与批量语义 Turn Coordinator 收口，HXA-068/099 收编此前无主的规则管理与运行控制，HXA-088 负责 Git Workspace 语义，HXA-037 负责确定性 Tool Scheduler，HXA-105 只负责有界委托/Workflow Spike，不把规划误算为已实现能力。
 - 所有仓库内 Markdown 相对链接可解析；检查已固化为 `scripts/check-docs.sh` 并接入 CI。
 - 工具链版本与当前配置一致：JDK 17、AGP 9.3.2、Gradle 9.5.0、Kotlin 2.3.21、compile/target SDK 36、min SDK 29、Compose BOM 2026.06.01。
 - 架构模块清单与 `settings.gradle.kts` 的 28 个子项目一致。
@@ -113,7 +113,7 @@
 ### 10.4 本轮文档修正
 
 - 产品需求新增“当前产品阶段与近期闭环”，明确 M4 文件闭环是首次本地价值验证，不等于 Alpha 或正式版完成。
-- README 与状态摘要更新到已验证 M3 / HXA-037、下一项 M4 / HXA-040。
+- 当轮 README 与状态摘要曾更新到已验证 M3 / HXA-037、下一项 M4 / HXA-040；后续 HXA-038 架构收口已在第 12 节继续更新当前状态。
 - `implementation-status.md` 区分已落地框架和未落地业务执行器，并修正 M2/M3、Approval、Dispatcher/Scheduler 的历史措辞。
 - 小模型实施指南移除硬编码 M1/M2 checkpoint、commit/机器快照，统一动态读取唯一状态源；原 `small-model-handoff.md` 的长期规则迁入 `AGENTS.md`、开发环境和实施指南后删除。文档门禁改为校验实施指南中的动态状态源、禁止重复实现和显式 Goal 授权契约。
 - HXA-037 完成记录补齐“决策记录”，恢复文档契约门禁。
@@ -126,3 +126,44 @@
 - 对 `llm-oriented-design-patterns` 的三组原则进行适用性审查：采纳上下文管理、结构化反馈和确定性边界；拒绝固定 LOC 硬门、动态 import/弱类型字典分发、无界自愈和“所有 Tool 无副作用”等不适合 Android 安全 Agent 的绝对规则。
 - Helix 的目标运行时架构高度面向 LLM：统一 ModelEvent、受限 Tool Schema、显式状态机、确定性 Dispatcher、可恢复回填和精确审批都在收窄概率输出。当前生产接线仅部分达标：`TurnReducer` 尚未驱动 `ChatService` 的生产状态推进，导致领域状态机与应用层直接 Room 写入并存；其次才是 `ChatService` 多职责大文件和 Provider SSE framing 重复。
 - 总体方案新增 §17，给出项目级 LLM-oriented 约束和结构热点顺序。该节是现有边界内的可维护性解释，没有改变模块依赖、权限、安全管线或外部契约，因此不新增 ADR。
+
+## 12. HXA-038 架构切片与全局复扫（2026-09-01）
+
+- 生产代码核验确认：M1 `TurnReducer` 逐调用串行推进，而 HXA-037 `ToolScheduler`/`ChatService` 已按批次执行无冲突读取；因此“直接把旧 reducer 接上生产”会回退或错误表达现有批量语义，不能作为机械重构。
+- HXA-038 把 `ModelEvent` 累积与 terminal decision 从 `ChatService` 抽为纯 JVM `ModelStreamState`，以 10 个 characterization tests 固定文本、usage null、原始工具参数、总量上限、截断失败关闭、拒绝/错误/取消优先级；Room/UI/Dispatcher 副作用仍留在应用层。
+- 全局复扫后的顺序保持克制：HXA-039 先用 ADR 决定 batch-safe reducer 的演进/取代并接入唯一 coordinator；`ToolDispatcher` 不按 LOC 拆掉单入口；Provider SSE framing 先补共享 golden tests 再抽；repository 文件只在触碰相应聚合根时机械拆文件。
+- 本切片不改变外部契约、权限、安全边界或已接受 ADR；HXA-039 若改变 M1 reducer 契约，必须走 ADR-0002 的部分取代/补充流程。
+
+## 13. 外部文档架构审核复评（2026-09-01）
+
+- 按当前代码、Room schema、HXA 记录与 Git 状态重新核对外部审核，不直接接受其旧快照结论。审核所列 `StorageApprovalBroker`/设备测试等“无 HXA 归属”改动集已不是当前工作树；本轮复评期间出现的 HXA-038 改动已有独立完成记录与状态条目，不把它混入旧快照结论。verification matrix 已覆盖 HXA-037 的 receipt/取消/恢复；完成记录模板也已包含手工设备、决策和后续风险字段，因此不重复修改。
+- 确认并修正三个实质漂移：审批公式与 `ApprovalBinding` 九字段/两步哈希不一致；总体方案的唯一规范 Room 清单缺 `interaction_receipts`；规范文档的 `ABORTED_BEFORE_START` 与已落位稳定枚举 `CANCELLED_BEFORE_START` 不同。
+- 核心接口代码块改为明确的“目标端口伪代码”，新增当前源码落位表，特别标明 `ContextBuilder`/`PolicyEngine`/`ToolRegistry` 形态差异、未落位端口，以及两个 `ToolExecutor` 概念的同名不同形；Provider/MCP/Skills 专项删除重复签名，改为引用唯一权威位置。
+- 不回填 ADR-0010/0011/0013：HXA-037 是已审查规范内实现；ADR-0001 已明确切分 storage JSON 与 approval arguments，本轮只将其 HXA-031/034 引用从未来时更正为已落位事实；Room v1→v3 未更换持久化底座。当前没有新决定或外部契约变更，倒填 ADR 反而违反“不为填满目录制造历史 ADR”的原则。
+- 产品需求、竞品分析与开源参考补职责链接；目录树标明为目标布局而非实时实现地图。这些是导航和事实性修正，不改变 HXA-039 交付范围、安全边界或 ADR 状态。
+
+## 14. M3 收口代码审查与修复（2026-09-01）
+
+本轮是 HXA-030～037 完成后的跨层缺陷审查，不改变各 HXA 的原交付范围：
+
+- `core:storage` 将 provider 覆盖从会触发外键 `ON DELETE SET NULL` 的 `REPLACE` 改为原地 UPDATE；Keystore 临时文件改用唯一名称；Goal criteria 非字符串引用改为显式失败。迁移链 v1→v2→v3、审批一次性消费与并发守卫重新核验通过。
+- `tools:framework` 修正取消与真失败的审计分类，保留 audit sink 的原始 suppressed 异常；Scheduler 槽位改为全局 toolCallId、准入检查与占槽原子化，并按精确 `(name, version)` 解析 footprint。技术重试仍只接受逐 attempt 确认零副作用的结果。
+- `app` 将屏状态更新改为原子操作，保留跨会话待审批卡，清理取消槽和 Turn cancel 生命周期；工具参数 working set 设 1,048,576 UTF-16 code unit 上限，截断工具流 fail closed，空参数归一为 `{}`，审计页明确过滤只作用于已加载页。
+- 三个 Provider 解码器拒绝跨 index 重复 toolCallId；Responses 补齐孤儿/重复/未闭合工具流检查。`core:agent` 收紧 `CancelFinished` 的 uncertain call 归属。
+- 验证：JVM 全矩阵 747/0，设备 app 39/39 + storage 38/38（API 36 arm64 模拟器），app lint、Spotless、Detekt、五个门禁脚本和 `git diff --check` 通过。
+- 保留并显式记录的取舍：审计页只加载最近 200 行后内存过滤；`MAX_TOOL_ROUNDS_PER_TURN=8`；`SKIPPED_DEPENDENCY` v1 尚未触发；assistant TOOL_CALLS 行保存模型原始参数、binding 使用 canonical 参数；同 Turn 拒绝 check-then-mark 非原子；阶段时间戳遇时钟回拨 fail closed。真实资源信号接线已归 HXA-099。
+
+## 15. 状态源与无主事项收口（2026-09-01）
+
+- `implementation-status.md` 从约 60 KiB 的逐 HXA 字段复述压缩为当前摘要、完成索引、唯一 Next task、接口和限制；实现字段、命令和测试数量只在 completion records 维护，历史复核只在本文维护。
+- 修正执行目标措辞：领域枚举定义四类本机目标不等于四类执行器已实现；当前生产只有 `LOCAL_ANDROID/time.now`，QuickJS/PRoot/CLI 分别等待 M5/M8/M11。
+- 审批文档不再声称 timeout 单独变化已直接进入九字段 `ApprovalBinding`。安全 descriptor 字段属于不可运行期修改的契约；首个业务工具 HXA-042 必须机械证明变更会提升 toolVersion，或先以 ADR 决定完整 contract hash。
+- 新增 HXA-068，负责 Advanced 有界出网规则的持久化与创建/撤销 UI；新增 HXA-099，负责 Mode/TurnBudgets UI 与真实低内存/后台/热状态只降并发接线。路线与 verification matrix 同步到 90 个 HXA。
+
+## 16. HXA-039 批量 Turn Coordinator 收口（2026-09-01）
+
+- accepted ADR-0010 取代 ADR-0002 的同响应串行生产决定：HXA-037 的有界只读并发继续保留，生产聊天改由唯一 batch-safe `TurnCoordinator` 持有 Turn aggregate phase、当前 ModelCall/stream checkpoint 和事务化模型回填。M1 reducer 只保留历史测试与旧恢复数据兼容。
+- 修复第二轮以后异常仍引用首个 ModelCall 的状态错误；终局 assistant/Turn/ModelCall、工具步骤 close/assistant ToolCalls、按序结果回填/下一 ModelCall/Turn 回环分别形成原子 Room 边界。外部工具副作用始终在事务外，恢复只对账、不盲目重放。
+- Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
+- Provider-neutral 流边界新增累计文本、调用数、聚合参数和事件序列失败关闭；发送路径增加模型可见长度/NUL 检查，并在可配置预算 UI 落地前使用固定输出 token 上限。
+- API 36 arm64-v8a 模拟器通过完整 consumer instrumentation；第二 ModelCall 失败、部分文本、合法状态边和进程恢复均有设备 fixture。当前状态转入 M4/HXA-040，不把本次架构收口扩写成文件业务工具已经可用。

@@ -1,11 +1,11 @@
 # ADR-0002: Turn 状态机补充同响应内串行工具调用边与预调用预算失败边
 
-Status: accepted
+Status: superseded
 Date: 2026-08-31
 HXA: HXA-011
 Deciders: Project owner（通过 Codex 文档与决策收口审查授权）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0010](0010-batch-turn-coordinator.md)
 
 ## Context
 

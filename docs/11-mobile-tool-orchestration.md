@@ -15,7 +15,7 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | --- | --- | --- | --- |
 | 统一 approval → execution target → attempt → verify → audit 管道 | **首版采纳** | Dispatcher 唯一入口；target 在 approval hash 中，失败不回退到低隔离执行域 | HXA-035 |
 | 参数级并发安全分类、读并行/写屏障 | **首版采纳** | 由 Helix 根据规范化参数生成 effect footprint；模型/MCP annotation 不能自报安全 | HXA-037 |
-| 有界并发池、取消与按模型顺序回填 | **首版采纳** | 默认并发 2，候选硬上限 4；QuickJS/PRoot/Root/UI 动作各自单并发；完成时间单独审计，模型上下文按 call sequence 提交 | HXA-037 |
+| 有界并发池、取消与按模型顺序回填 | **首版采纳** | 默认并发 2，构造期硬上限 4；QuickJS/PRoot/Root/UI 动作各自单并发；完成时间单独审计，模型上下文按 call sequence 提交 | HXA-037 |
 | model-visible ⇔ persisted/logged、回放恢复 | **首版采纳** | 任何进入模型的 ToolResult、用户回答、委托结果和 compaction summary 都必须可由持久事件重建 | HXA-035/037/102 |
 | 分阶段 timing、decision source、correlation ID | **首版采纳** | 记录 queue/approval/execution/verification 时间和 Policy/User/Recovery 来源，不记录敏感正文 | HXA-035/037 |
 | 结构化用户提问与迟到 receipt 拒绝 | **采纳** | 问题绑定 turn/request/version；已取消、已回答或状态变化后的答复不生效；提问不代替审批 | HXA-036/037 |
@@ -57,9 +57,12 @@ data class EffectFootprint(
 
 - 调度可以并行开始安全调用，但进入模型上下文的 ToolResult 必须按原始 `callId/sequence` 提交，避免完成速度改变推理历史。
 - 每次调用记录 `QUEUED → WAITING_APPROVAL → RUNNING → VERIFYING → terminal`；queue、审批等待、执行和验证耗时分开。
-- 用户取消后，未启动项得到持久 `ABORTED_BEFORE_START` 结果；已启动项收到 cancel，并等待 terminal/unknown outcome 对账。不能直接丢弃行。
+- 用户取消后，未启动项得到持久 `CANCELLED_BEFORE_START` 结果；已启动项收到 cancel，并等待 terminal/unknown outcome 对账。不能直接丢弃行。
 - 一个并行项失败不自动取消已产生外部副作用的其他项；未启动的依赖项按 DAG/序列标为 `SKIPPED_DEPENDENCY`。
+- Scheduler 为每个调用保留独立 typed outcome 或异常原因；首个异常只用于 Turn 级传播，不能替其他槽位分类。无法证明未产生副作用的 contract throw 进入 `NEEDS_REVIEW`，同批或并发批次重复 `toolCallId` 在准入前失败关闭。
 - 内存压力、前后台切换或热限制可以降低并发到 1，但不能提高审批权限或改变结果顺序。
+
+生产聊天由 [ADR-0010](adr/0010-batch-turn-coordinator.md)的唯一 application `TurnCoordinator` 持有当前 ModelCall/stream checkpoint 和 batch aggregate phase。模型工具步骤、固定顺序回填、下一 ModelCall 与 Turn 回环使用明确事务边界；外部 Tool 副作用不进入 Room transaction，也不因持久化失败盲目重放。
 
 ### 3.3 Attempt 与重试
 

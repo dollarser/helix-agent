@@ -24,7 +24,7 @@ import java.util.concurrent.Executors
  *   (doc 11 section 3.2, release blocker section 7);
  * - a failing item does NOT cancel other items; a cancelled turn's unstarted items go
  *   through the dispatcher with the already-set cancel signal and end in the durable
- *   CANCELLED_BEFORE_START outcome (doc 11: 未启动项得到持久 ABORTED_BEFORE_START, 已启动项
+ *   CANCELLED_BEFORE_START outcome (doc 11: 未启动项得到持久 CANCELLED_BEFORE_START, 已启动项
  *   收到 cancel 并等待 terminal/unknown 对账 — the batch always waits for every terminal).
  *
  * The footprints come from [EffectFootprintBuilder] over trusted facts — the model and
@@ -38,6 +38,7 @@ import java.util.concurrent.Executors
  * conflicting calls as absent. (The app today serializes turns, so batches never
  * actually overlap; this is the framework contract for when they do.)
  */
+@Suppress("TooManyFunctions") // reservation, admission and settlement stay one scheduler invariant
 class ToolScheduler(
     private val clock: Clock,
     private val dispatcher: ToolDispatcher,
@@ -58,22 +59,42 @@ class ToolScheduler(
         ) { r -> Thread(r, "tool-scheduler").apply { isDaemon = true } }
     private val inFlightLock = Any()
 
+    /** Call ids reserved by every currently executing batch, including calls still queued. */
+    private val activeBatchCallIds = mutableSetOf<String>()
+
     /** In-flight calls as (toolCallId, footprint): keyed by the call's GLOBALLY UNIQUE
      * id (never a batch-local index — two concurrent batches would collide on indices
      * and one batch's completion would free the other's slot). Removing by value would
      * also be wrong: two calls can have value-equal footprints. */
     private val inFlight = mutableListOf<Pair<String, EffectFootprint>>()
 
-    /**
-     * The batch's settled view: terminal outcomes IN CALL SEQUENCE plus the first
-     * dispatcher exception (if any). A null outcome slot means that call's dispatch
-     * threw (its [Throwable] is [error]) — the caller settles that slot durably
-     * (e.g. CANCELLED on a turn stop) and then decides whether to propagate [error].
-     */
+    /** One call's terminal scheduler settlement. Every exceptional slot keeps its own cause. */
+    sealed interface BatchSettlement {
+        data class Outcome(
+            val outcome: ToolDispatchOutcome,
+        ) : BatchSettlement
+
+        data class Thrown(
+            val cause: Throwable,
+        ) : BatchSettlement
+    }
+
+    /** The batch's settled view in original call sequence. */
     data class BatchResult(
-        val outcomes: List<ToolDispatchOutcome?>,
-        val error: Throwable?,
-    )
+        val settlements: List<BatchSettlement>,
+    ) {
+        /** First exceptional settlement in call order, for turn-level propagation only. */
+        val firstError: Throwable?
+            get() = settlements.filterIsInstance<BatchSettlement.Thrown>().firstOrNull()?.cause
+
+        /** Compatibility summary for existing diagnostics; production must inspect [settlements]. */
+        val outcomes: List<ToolDispatchOutcome?>
+            get() = settlements.map { (it as? BatchSettlement.Outcome)?.outcome }
+
+        /** Compatibility alias for [firstError]. It never classifies another slot's cause. */
+        val error: Throwable?
+            get() = firstError
+    }
 
     /**
      * Runs [calls] through the dispatcher with the admission rules above and returns the
@@ -82,12 +103,22 @@ class ToolScheduler(
      * doc 11 section 7). One failing item does NOT cancel the others (pool independence).
      *
      * Each call is stamped with its `queuedAt` (enqueue time) before dispatch so the
-     * queue wait is auditable per attempt. A dispatcher throw lands in
-     * [BatchResult.error] together with the OTHER calls' settled outcomes — the scheduler
-     * never swallows a dispatch failure and never loses a settled outcome.
+     * queue wait is auditable per attempt. A dispatcher throw lands in that call's
+     * [BatchSettlement.Thrown] slot; [BatchResult.firstError] is only a propagation summary.
+     * The scheduler never swallows a dispatch failure or borrows another slot's cause.
      */
     fun scheduleBatch(calls: List<ToolDispatchRequest>): BatchResult {
-        if (calls.isEmpty()) return BatchResult(emptyList(), null)
+        if (calls.isEmpty()) return BatchResult(emptyList())
+        val callIds = calls.map { it.toolCallId }
+        reserveBatchCallIds(callIds)
+        return try {
+            scheduleReservedBatch(calls)
+        } finally {
+            releaseBatchCallIds(callIds)
+        }
+    }
+
+    private fun scheduleReservedBatch(calls: List<ToolDispatchRequest>): BatchResult {
         val stamped =
             calls.map { call ->
                 call.copy(queuedAt = clock.now().toEpochMilli())
@@ -122,29 +153,43 @@ class ToolScheduler(
             // Drop exactly the futures that reached a terminal state.
             pending.removeAll { it.isDone }
         }
-        return collectOutcomes(futures)
+        return collectSettlements(futures)
     }
 
     /**
-     * The settled outcomes IN CALL SEQUENCE; a dispatcher throw lands in [BatchResult.error]
-     * (the first one, in call order) with that call's slot null — the caller settles that
-     * slot durably and decides whether to propagate the error.
+     * The settled outcomes IN CALL SEQUENCE; every dispatcher throw keeps its own cause in
+     * [BatchSettlement.Thrown], so the caller can classify each durable slot independently.
      */
     @Suppress("TooGenericExceptionCaught") // the future's join wraps ANY dispatcher throw in a CompletionException
-    private fun collectOutcomes(futures: Array<CompletableFuture<ToolDispatchOutcome>>): BatchResult {
-        var firstError: Throwable? = null
-        val outcomes =
+    private fun collectSettlements(futures: Array<CompletableFuture<ToolDispatchOutcome>>): BatchResult {
+        val settlements =
             futures.map { future ->
                 if (!future.isCompletedExceptionally) {
-                    future.join()
+                    BatchSettlement.Outcome(future.join())
                 } else {
-                    if (firstError == null) {
-                        firstError = unwrapCompletion(future)
-                    }
-                    null
+                    BatchSettlement.Thrown(unwrapCompletion(future))
                 }
             }
-        return BatchResult(outcomes, firstError)
+        return BatchResult(settlements)
+    }
+
+    /**
+     * Reserves every id before admission. Duplicate ids inside one response or across two
+     * concurrent batches violate the global ToolCall identity contract and fail closed;
+     * waiting for the first call to finish would silently execute the same identity twice.
+     */
+    private fun reserveBatchCallIds(callIds: List<String>) {
+        require(callIds.toSet().size == callIds.size) { "duplicate toolCallId in batch" }
+        synchronized(inFlightLock) {
+            require(callIds.none(activeBatchCallIds::contains)) { "toolCallId is already active in another batch" }
+            activeBatchCallIds += callIds
+        }
+    }
+
+    private fun releaseBatchCallIds(callIds: List<String>) {
+        synchronized(inFlightLock) {
+            callIds.forEach(activeBatchCallIds::remove)
+        }
     }
 
     /** The cause behind a failed future (never null for a completed-exceptionally future). */
@@ -213,13 +258,16 @@ class ToolScheduler(
         try {
             pool.execute {
                 // The dispatcher's contract returns an outcome; ANY throw is a contract
-                // violation that must still settle the future.
+                // violation that must still settle the future. Release the admission slot
+                // BEFORE completing the future: completion wakes the scheduler waiter,
+                // which must observe the freed slot when it immediately re-evaluates.
                 try {
-                    future.complete(dispatcher.dispatch(call))
-                } catch (t: Throwable) {
-                    future.completeExceptionally(t)
-                } finally {
+                    val outcome = dispatcher.dispatch(call)
                     releaseSlot(callId)
+                    future.complete(outcome)
+                } catch (t: Throwable) {
+                    releaseSlot(callId)
+                    future.completeExceptionally(t)
                 }
             }
         } catch (t: Throwable) {

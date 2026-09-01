@@ -192,7 +192,15 @@ validate → capability → policy → approval → timeout/cancel → execute �
 
 ### HXA-037 确定性 Tool Scheduler 与交互 receipt
 
-落实 [11 手机端编排方案](11-mobile-tool-orchestration.md)：从规范化参数生成平台所有的 `EffectFootprint`，仅并行无冲突 `READ_ONLY`；未知效应、写/删、代码、Root、Accessibility、同 tab/Runtime lane 默认排他。默认总并发 2，真机证据前不超过 4，QuickJS/PRoot/UI 等保持各自单并发；低内存/后台/热限制只降并发。执行完成可乱序，但模型回填固定按 call sequence；queue/approval/execution/verification timing、decision source 和 attemptId 持久审计。取消为未启动项写 `ABORTED_BEFORE_START`，已启动项 cancel 后保存 terminal/unknown outcome。结构化用户问题使用一次性 receipt，迟到/重复/已取消答复返回 `NOT_PENDING`，且不能代替 Approval Proof。只允许确认零副作用、相同 envelope、同/更强隔离的有界技术重试；target/scope/origin/权限变化新建 ToolCall/approval，禁止自动权限/网络/sandbox escalation 和主进程 fallback。测试确定性顺序、屏障、公平性、预算、取消、进程恢复和 `model-visible ⇔ persisted`。
+落实 [11 手机端编排方案](11-mobile-tool-orchestration.md)：从规范化参数生成平台所有的 `EffectFootprint`，仅并行无冲突 `READ_ONLY`；未知效应、写/删、代码、Root、Accessibility、同 tab/Runtime lane 默认排他。默认总并发 2，真机证据前不超过 4，QuickJS/PRoot/UI 等保持各自单并发；低内存/后台/热限制只降并发。执行完成可乱序，但模型回填固定按 call sequence；queue/approval/execution/verification timing、decision source 和 attemptId 持久审计。取消为未启动项写 `CANCELLED_BEFORE_START`，已启动项 cancel 后保存 terminal/unknown outcome。结构化用户问题使用一次性 receipt，迟到/重复/已取消答复返回 `NOT_PENDING`，且不能代替 Approval Proof。只允许确认零副作用、相同 envelope、同/更强隔离的有界技术重试；target/scope/origin/权限变化新建 ToolCall/approval，禁止自动权限/网络/sandbox escalation 和主进程 fallback。测试确定性顺序、屏障、公平性、预算、取消、进程恢复和 `model-visible ⇔ persisted`。
+
+### HXA-038 模型流状态合同与 ChatService 第一阶段拆分
+
+把 Provider-neutral `ModelEvent` 的文本累积、usage null 语义、工具参数总量上限、拒绝/错误/取消优先级和截断工具流失败关闭抽成纯 JVM 状态对象；`ChatService` 只执行 Room/UI 副作用。用 characterization tests 锁定现有行为，不改变 Dispatcher、Scheduler、审批或回填顺序。这是渐进拆分，不宣称已经解决 Turn 状态的双重语义。
+
+### HXA-039 批量语义 Turn Coordinator
+
+在首个非 `time.now` 业务工具注册到生产聊天工具表前，消除 M1 串行 `TurnReducer` 与 HXA-037 批量并发 Tool Round 的语义冲突。先按 ADR 约定决定“演进现有 reducer”还是“以兼容恢复合同的新 reducer 取代”，明确一批多个 pending/running/unknown outcome、逐调用审批、固定顺序持久化、取消和进程死亡；未获接受不得把旧 reducer 直接接入生产。随后以唯一 application-level coordinator 驱动 Turn/ModelCall/ToolCall 状态与 effect，保留 `ToolDispatcher.dispatch` 单入口，并用聊天、工具乱序结算、拒绝、取消、失败和恢复 fixture 证明与已验收行为等价。
 
 ## 8. M4：Workspace 与文件管理器
 
@@ -207,6 +215,8 @@ validate → capability → policy → approval → timeout/cancel → execute �
 ### HXA-042 Pi 风格基础工具
 
 实现 `read`、`write`、`edit` 和 `files.list/search/stat/mkdir`。`read` 必须有 `offset/maxBytes`、编码边界和稳定 EOF 语义，覆盖 10 MiB 文件分块处理。短名称与 namespaced implementation 共用同一 Policy。
+
+本任务是首个非 `time.now` 业务工具进入生产工具表的门槛，注册前必须关闭 descriptor 变更的审批失效缺口：要么以机械门禁/合同测试强制 `timeout/maxOutputBytes/requiredCapabilities/operationClass/baseRisk/idempotency/origin` 等未直接绑定的安全契约字段变化必提升 `toolVersion`，要么先以 proposed ADR 决定并实现覆盖完整安全 descriptor 的 contract hash。仅修改这些字段但保持 `(name, version, schemaHash)` 不变必须测试为拒绝；不得只靠 KDoc 约定或声称 timeout 已直接进入现有九字段 `ApprovalBinding`。`executionTarget` 已是现有 binding 的直接字段，仍按 HXA-034/035 精确绑定。
 
 ### HXA-043 Copy/Move/Delete/Trash
 
@@ -283,6 +293,10 @@ GET/HEAD、SSRF/redirect/size/timeout；URL Policy 检查全部 A/AAAA/IPv4-mapp
 ### HXA-067 语音输入与本地化
 
 使用系统语音识别 Activity/Service 能力将用户主动录音转为可编辑草稿，不后台常驻监听、不自动发送给模型；覆盖 unavailable/denied/cancel/error 和前后台转换。UI 提供简体中文/英文资源并跟随系统，扫描用户可见硬编码字符串。
+
+### HXA-068 Advanced 有界出网规则管理
+
+为 ADR-0005 的高敏出网规则提供类型化持久化、列表、创建、到期和显式撤销 UI；仅 developer/Advanced 可创建，consumer/Standard 永远不提供入口。规则严格绑定 Provider/MCP ID、规范 origin、数据类别、scope 与固定期限（1h/24h/7d/30d），不能包含通配符、滑动续期、Tool Approval Proof 或“全部允许”。接入 Dispatcher 的 `ruleProvider`，覆盖进程重启、到期、时钟回拨、撤销、切回 Standard、Provider/MCP/schema/origin/scope 变化和并发读写；现有逐次审批在 store/UI 不可用时保持 fail closed。HXA-072 复用本任务的 store/UI，不另建 MCP 专用规则体系。
 
 ## 11. M7：MCP 与 Skills
 
@@ -387,6 +401,10 @@ status、file.read、package.info、process.list、bounded log.read；短时 Roo
 依赖 HXA-091/092/093 已验收的 snapshot/token、UI actions 和敏感界面拒绝契约，再实现 `android-ui-task` 内置 Skill：先 snapshot、只用节点 token 动作、每步复验、目标包变化立即暂停。Skill 不新增权限或执行器，并用自建 fixture App 覆盖成功、过期 token、敏感界面和中途停止。
 
 ## 14. M10：单机硬化
+
+### HXA-099 模式、预算与资源降级运行控制
+
+在固定评测前补齐现有无主运行控制：提供 Chat/Plan/Act/Goal 的可解释入口与有界 `TurnBudgets` 配置，不能让 UI 降低 ModePolicy、Policy、Approval 或 Goal budget accounting；把低内存、后台和热状态的 Android 真实信号接入 HXA-037 `resourceGate`，只允许把总并发降到 1/2，绝不提高构造期硬上限 4、改变 call sequence 或取消已获批准调用。覆盖配置重启、非法/极值预算、Profile/Mode 切换、低内存/后台/热状态恢复、并发只降不升，以及 Plan/Goal 工具入口仍经过同一 Dispatcher。资源长稳矩阵继续由 HXA-103 验收。
 
 ### HXA-100 固定评测集
 

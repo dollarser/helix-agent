@@ -352,7 +352,7 @@ class ToolSchedulerTest {
             "the queued cancelled call must be durably CANCELLED",
             batch.outcomes[1] is ToolDispatchOutcome.Cancelled,
         )
-        // The durable audit (doc 11: ABORTED_BEFORE_START): the unstarted call's row is
+        // The durable audit (doc 11: CANCELLED_BEFORE_START): the unstarted call's row is
         // CANCELLED_BEFORE_START with its queuedAt stamp and the attempt metadata.
         val aborted = sink.events.first { it.correlationId == "call-2" }
         assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, aborted.code)
@@ -442,9 +442,75 @@ class ToolSchedulerTest {
         assertEquals("the aborted slot is null", null, batch.outcomes[1])
     }
 
+    @Test
+    fun everyExceptionalSlotKeepsItsOwnCauseInCallOrder() {
+        register(
+            "t.first",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L2,
+            TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        register(
+            "t.second",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L2,
+            TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+
+        class PerCallThrowingBroker : ApprovalBroker {
+            override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
+                if (request.binding.toolName == "t.first") throw FirstFailure()
+                throw SecondFailure()
+            }
+
+            override fun consume(proof: ApprovalProof) = Unit
+
+            override fun reMint(proof: ApprovalProof): ApprovalProof? = null
+        }
+        val throwingDispatcher =
+            ToolDispatcher(
+                clock,
+                registry,
+                impls,
+                CapabilityCenter(RecordingResolver(usableCaps, clock)),
+                PolicyEngine(clock),
+                PerCallThrowingBroker(),
+                sink,
+            )
+
+        val batch =
+            ToolScheduler(clock, throwingDispatcher, registry).scheduleBatch(
+                listOf(call("call-first", "t.first"), call("call-second", "t.second")),
+            )
+
+        assertTrue((batch.settlements[0] as ToolScheduler.BatchSettlement.Thrown).cause is FirstFailure)
+        assertTrue((batch.settlements[1] as ToolScheduler.BatchSettlement.Thrown).cause is SecondFailure)
+        assertTrue(batch.firstError is FirstFailure)
+    }
+
+    @Test
+    fun duplicateToolCallIdsFailBeforeAnyDispatch() {
+        register(
+            "t.read",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        val scheduler = ToolScheduler(clock, dispatcher, registry)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            scheduler.scheduleBatch(listOf(call("same-id", "t.read"), call("same-id", "t.read")))
+        }
+        assertTrue(sink.events.isEmpty())
+    }
+
     private class TurnStopForTest(
         message: String,
     ) : RuntimeException(message)
+
+    private class FirstFailure : RuntimeException()
+
+    private class SecondFailure : RuntimeException()
 
     // ------------------------------------------------------------------ fixtures (mirrors ToolDispatcherTest)
 

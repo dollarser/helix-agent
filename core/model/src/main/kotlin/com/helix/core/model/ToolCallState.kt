@@ -4,7 +4,7 @@ package com.helix.core.model
  * ToolCall state (architecture doc sections 5.2/7.1, security doc section 7.1).
  *
  * ```text
- * PENDING -> AWAITING_APPROVAL | RUNNING | DENIED | FAILED | CANCELLED
+ * PENDING -> AWAITING_APPROVAL | RUNNING | DENIED | FAILED | CANCELLED | NEEDS_REVIEW
  * AWAITING_APPROVAL -> RUNNING | DENIED | CANCELLED | FAILED
  * RUNNING -> COMPLETED | FAILED | CANCELLED | NEEDS_REVIEW
  * process death: PENDING | RUNNING -> INTERRUPTED
@@ -46,9 +46,14 @@ enum class ToolCallState(
     private val outgoing: Set<ToolCallState>
         get() =
             when (this) {
-                PENDING -> setOf(AWAITING_APPROVAL, RUNNING, DENIED, FAILED, CANCELLED)
+                // NEEDS_REVIEW covers a dispatcher contract throw after an executor may
+                // have started but before the application received a typed settlement.
+                PENDING -> setOf(AWAITING_APPROVAL, RUNNING, DENIED, FAILED, CANCELLED, NEEDS_REVIEW)
+
                 AWAITING_APPROVAL -> setOf(RUNNING, DENIED, CANCELLED, FAILED)
+
                 RUNNING -> setOf(COMPLETED, FAILED, CANCELLED, NEEDS_REVIEW)
+
                 else -> emptySet()
             }
 

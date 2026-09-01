@@ -186,7 +186,7 @@ Android 官方说明动态加载 APK 外代码会显著增加风险，许多从�
 - Tool result 超限截断并保留 hash/Artifact 引用。
 - 并发安全只由规范化参数生成的 effect footprint 决定；伪造的模型/MCP/Skill `isConcurrencySafe` 不生效。无冲突读取可并行，未知/写/代码/Root/UI/同 target lane 必须形成屏障。
 - 并行调用以不同完成顺序重复运行，进入模型的结果仍按原始 call sequence 完全一致；真实 timing 只进入审计。
-- cancel/kill 时未启动项持久 `ABORTED_BEFORE_START`，已启动项有 terminal 或 unknown outcome；任何项都不消失、不盲重放。
+- cancel/kill 时未启动项持久 `CANCELLED_BEFORE_START`，已启动项有 terminal 或 unknown outcome；任何项都不消失、不盲重放。
 - sandbox/target/网络失败不触发权限升级、scope 扩大、Root/All-files/Accessibility/LAN 请求或主进程 fallback。技术重试必须证明前一 attempt 零副作用且 envelope 不变。
 - 网络连接和正文发送都发生在 origin/数据类别/scope/approval 完成后；禁止 deferred approval 或“先尝试再补批”。
 - 结构化用户答案 receipt 在重复、迟到、已取消或 turn/version 变化后返回 `NOT_PENDING`，不能被消费为 Approval Proof。

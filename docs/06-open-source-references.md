@@ -194,6 +194,8 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 
 ### 5.11 主流 Coding Agent / Agent Harness 设计参考
 
+移动端市场定位、产品能力对照和后续跟踪指标统一在[移动端 Agent 竞品分析](12-competitive-landscape.md)维护；本节只负责设计参考、依赖候选与许可证/禁止复制边界。
+
 下列项目可用于回答“成熟 Agent 如何组织 provider、session、tool loop、上下文、审批、扩展、验证与 UI”等设计问题，但**不是 Helix 的依赖候选清单**。每次调研只选择与当前 HXA 最相关的 1～2 个项目，引用官方仓库中的具体协议、状态机、测试或安全说明；不得凭产品印象声称某个边界已经安全，也不得把桌面 unrestricted shell、全仓库文件权限、自动 Git commit 或插件权限原样搬到 Android。
 
 | 项目 | 当前可核实事实 | 适合参考 | Helix 不照搬的部分 |

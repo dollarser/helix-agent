@@ -323,7 +323,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 
 ### P0：先证明“受控本机 Agent”闭环
 
-- 按当前顺序完成 M4/HXA-040～047，优先形成 `read`、`write`、`edit` 的真实 Workspace 演示。
+- 先完成 HXA-039 的批量语义 Turn Coordinator 收口，再按顺序完成 M4/HXA-040～047，优先形成 `read`、`write`、`edit` 的真实 Workspace 演示。
 - 用同一个验收场景展示：读取文件 → 生成 diff → 参数级审批 → 原子写入 → verifier → Timeline/Audit → 进程恢复后可重建。
 - 宣传口径保持“受控工作区 Agent”，在 PRoot/Accessibility 未完成前不宣传“万能手机 Agent”。
 

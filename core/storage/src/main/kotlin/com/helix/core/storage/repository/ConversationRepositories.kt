@@ -155,6 +155,12 @@ class TurnRepository(
     ): TurnEntity {
         require(stepCount >= turn.stepCount) { "stepCount must never decrease" }
         endedAt?.let { require(it >= turn.startedAt) { "endedAt must be >= startedAt" } }
+        val current = TurnState.valueOf(turn.state)
+        val valid =
+            current == state ||
+                current.canTransitionTo(state) ||
+                (state == TurnState.INTERRUPTED && current.canBecomeInterruptedOnProcessDeath())
+        require(valid) { "illegal turn transition $current -> $state" }
         dao.updateState(turn.id, state.name, stepCount, endedAt, errorCode)
         return turn.copy(state = state.name, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
     }
