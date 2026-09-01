@@ -6,10 +6,10 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～040 |
-| 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、WorkspacePath/FileScopePath 路径 value object 与 scope 边界 |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～041 |
+| 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、WorkspacePath/FileScopePath 路径 value object 与 scope 边界、Workspace 原子文件持久化（目录布局/hash/临时写+fsync+replace/前置 hash/配额/bounded MIME/Artifact 登记 seam） |
 | 尚无业务执行器 | Workspace/文件、Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-041 Artifact、配额和原子文件操作 |
+| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-042 Pi 风格基础工具（read/write/edit 与 files.*） |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -22,7 +22,7 @@
 | M1 | HXA-010～016：领域状态、Plan/Goal、Room、恢复、Context Builder | [逐 HXA 索引](completion-records/README.md) |
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](completion-records/README.md) |
-| M4 | HXA-040～040：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界 | [逐 HXA 索引](completion-records/README.md) |
+| M4 | HXA-040～041：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam） | [逐 HXA 索引](completion-records/README.md) |
 
 架构决定的状态与理由见 [ADR 目录](adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](documentation-review.md)。“有完成记录”仍不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +32,7 @@
 
 ## Next task
 
-- M4 / HXA-041 Artifact、配额和原子文件操作：实现目录布局、hash、临时写+fsync+replace、前置 hash、配额和 bounded MIME/encoding detection。
+- M4 / HXA-042 Pi 风格基础工具：实现 `read`、`write`、`edit` 与 `files.list/search/stat/mkdir`；`read` 必须有 `offset/maxBytes`、编码边界和稳定 EOF 语义（覆盖 10 MiB 分块）。这是首个非 `time.now` 业务工具进入生产工具表的门槛，注册前必须关闭 descriptor 变更的审批失效缺口（机械门禁/合同测试，或 proposed ADR + 完整 contract hash）。
 
 ## Blocked
 
