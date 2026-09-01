@@ -65,6 +65,11 @@ dependencies {
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
     implementation(project(":core:storage"))
     implementation(project(":feature:files"))
+    // HXA-036: the chat flow routes model-requested tool calls through the framework
+    // dispatcher (validate→capability→policy→approval→execute→verify→audit) with the
+    // storage-backed approval broker and audit sink; the approval card + audit page are
+    // the UI of that pipeline (doc 02 section 5.3/7.1; doc 11 唯一入口).
+    implementation(project(":tools:framework"))
     // HXA-028: the chat/provider UI wires the M2 provider stack into the production app
     // (provider doc section 2; ADR-0005 profile switching; ADR-0006 single main app).
     // The okhttp→okhttp-jvm substitution below covers this production classpath as well

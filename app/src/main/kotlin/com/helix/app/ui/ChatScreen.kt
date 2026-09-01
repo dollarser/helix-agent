@@ -94,6 +94,8 @@ fun ChatScreen(
                         onStop = { chatService.stop() },
                         onRetry = { chatService.retry() },
                         onDismissBlocked = { chatService.dismissBlocked() },
+                        onApproveApproval = { chatService.approveApproval(it) },
+                        onDenyApproval = { chatService.denyApproval(it) },
                     ),
             )
         }
@@ -303,6 +305,8 @@ data class ConversationIntents(
     val onStop: () -> Unit,
     val onRetry: () -> Unit,
     val onDismissBlocked: () -> Unit,
+    val onApproveApproval: (String) -> Unit,
+    val onDenyApproval: (String) -> Unit,
 )
 
 @Composable
@@ -384,6 +388,9 @@ private fun ConversationSection(
             items(screen.messages, key = { it.id }) { message ->
                 MessageRow(message)
             }
+            items(screen.toolTimeline, key = { "tool-${it.turnId}-${it.callId}" }) { row ->
+                ToolTimelineItem(row, intents)
+            }
             val turn = screen.activeTurn
             if (turn != null && !turn.state.isTerminal) {
                 item(key = "streaming") {
@@ -441,6 +448,62 @@ private fun ConversationSection(
                     Text("发送")
                 }
             }
+        }
+    }
+}
+
+/**
+ * One tool-timeline row (roadmap HXA-036): the tool REQUEST + RESULT, and — while the
+ * approval card is live — the full [ApprovalCard] confirmation surface. The four timeline
+ * message types (model text, tool request, tool result, approval card) are visually
+ * distinct here (doc 01 FR-CHAT-003).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineItem(
+    row: com.helix.app.chat.ToolTimelineRow,
+    intents: ConversationIntents,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+                .testTag("tool-row-${row.callId}"),
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "工具：${row.toolName}",
+                style = MaterialTheme.typography.labelMedium,
+            )
+            Text(
+                row.stateLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("tool-row-state-${row.callId}"),
+            )
+        }
+        Text(
+            "请求参数：${row.requestSummary}",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("tool-row-args-${row.callId}"),
+        )
+        row.resultSummary?.let { summary ->
+            Text(
+                "结果：$summary",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("tool-row-result-${row.callId}"),
+            )
+        }
+        row.card?.let { card ->
+            ApprovalCard(
+                card = card,
+                onApprove = { intents.onApproveApproval(card.approvalId) },
+                onDeny = { intents.onDenyApproval(card.approvalId) },
+            )
         }
     }
 }

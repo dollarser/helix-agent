@@ -22,8 +22,13 @@ import kotlinx.serialization.json.JsonPrimitive
  * `ApprovalBinding.argsHash`: the same parsed argument object must always yield the same
  * bytes, so a re-issued identical action produces an identical hash (and the same-turn
  * denial invariant, security doc section 7.3, keys on it).
+ *
+ * Public (HXA-036) because the storage layer persists the SAME canonical bytes: the
+ * `tool_calls.argsJson` column is this encoder's output and `tool_calls.argsHash` is the
+ * SHA-256 of it (architecture doc section 9.1/9.2), so the persisted row and the approval
+ * binding can never disagree on what the arguments were.
  */
-internal object CanonicalArgs {
+object CanonicalArgs {
     fun canonicalize(element: JsonElement): String =
         when (element) {
             is JsonPrimitive -> {

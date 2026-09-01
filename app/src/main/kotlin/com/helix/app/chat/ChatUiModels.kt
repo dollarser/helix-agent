@@ -61,6 +61,8 @@ data class ChatScreenState(
     val openSessionId: String?,
     val badge: ProviderBadgeUi?,
     val messages: List<MessageUi>,
+    /** The open session's tool timeline rows (requests + results + live approval cards). */
+    val toolTimeline: List<ToolTimelineRow>,
     val activeTurn: TurnUi?,
     val pendingDisclosure: EgressDisclosure.EgressSummary?,
     val blockedReason: String?,

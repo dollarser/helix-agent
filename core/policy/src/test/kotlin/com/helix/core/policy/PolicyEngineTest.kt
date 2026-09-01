@@ -12,6 +12,8 @@ import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolOperationClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
@@ -241,6 +243,9 @@ class PolicyEngineTest {
         assertTrue(approval.detail.contains("provider-1"))
         assertTrue(approval.detail.contains("https://api.example.com:443"))
         assertEquals(DataSensitivity.SENSITIVE, evaluation.effectiveDataCategory)
+        // The rule exists but does NOT cover a STANDARD call: nothing may be displayed as
+        // a covering bounded rule.
+        assertNull(evaluation.matchedEgressRule)
     }
 
     @Test
@@ -254,10 +259,12 @@ class PolicyEngineTest {
                 ),
             )
         approvalOf(evaluation)
+        assertNull(evaluation.matchedEgressRule)
     }
 
     @Test
     fun sensitiveEgressUnderAdvancedWithLiveMatchingRuleIsAllowed() {
+        val live = rule()
         val evaluation =
             engine.evaluate(
                 input(
@@ -265,10 +272,12 @@ class PolicyEngineTest {
                     egress = egress(sensitivity = DataSensitivity.SENSITIVE),
                     scope = scope,
                 ),
-                setOf(rule()),
+                setOf(live),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
         assertTrue(evaluation.riskFactors.any { it.contains("ADVANCED high-sensitivity rule active") })
+        // The covering rule is surfaced (HXA-036: the card must show it as a BOUNDED rule).
+        assertSame(live, evaluation.matchedEgressRule)
     }
 
     @Test

@@ -515,4 +515,17 @@ class AuditEventRepository(
     }
 
     fun listByCorrelation(correlationId: String): List<AuditEventEntity> = dao.listByCorrelation(correlationId)
+
+    /**
+     * The newest [limit] audit rows, newest first — the audit log page's bounded load
+     * (roadmap HXA-036; the page filters these in memory and never loads the whole table).
+     */
+    fun recent(limit: Int): List<AuditEventEntity> {
+        require(limit in 1..MAX_RECENT_LIMIT) { "recent limit must be in 1..$MAX_RECENT_LIMIT" }
+        return dao.recent(limit)
+    }
+
+    private companion object {
+        const val MAX_RECENT_LIMIT = 1000
+    }
 }

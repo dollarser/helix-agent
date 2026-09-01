@@ -1,5 +1,7 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.RiskLevel
+
 /**
  * Stable per-dispatch audit codes (roadmap HXA-035 "audit"; doc 11 采纳矩阵:
  * "记录 queue/approval/execution/verification 时间、decision source，不记录敏感正文").
@@ -51,6 +53,10 @@ enum class DecisionSource {
  * binding hash, the action fingerprint, the output hash) and bounded metadata. Timestamps
  * are epoch milliseconds from the injected clock; stage timestamps are null until the
  * stage was reached (e.g. `approvalAcquiredAt` is null when the policy allowed the call).
+ *
+ * [riskLevel] is the Policy Engine's DYNAMIC risk for this dispatch (base risk plus the
+ * egress/change factors) — the value the audit page (HXA-036) filters by. It is null when
+ * the dispatch stopped before the policy stage ran (validation, unknown tool).
  */
 data class DispatchAuditEvent(
     val correlationId: String,
@@ -65,6 +71,7 @@ data class DispatchAuditEvent(
     val finishedAt: Long,
     val code: DispatchOutcomeCode,
     val decisionSource: DecisionSource,
+    val riskLevel: RiskLevel?,
     val bindingHash: String?,
     val actionFingerprint: String?,
     val outputHash: String?,

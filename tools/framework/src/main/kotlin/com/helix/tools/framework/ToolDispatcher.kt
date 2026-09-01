@@ -6,6 +6,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
 import com.helix.core.model.McpServerId
+import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
 import com.helix.core.model.ToolName
@@ -185,6 +186,7 @@ class ToolDispatcher(
                 ruleProvider(),
             )
         ctx.policyDecidedAt = clock.now().toEpochMilli()
+        ctx.riskLevel = policy.dynamicRisk
         return when (val decision = policy.decision) {
             is PolicyDecision.Deny -> {
                 stopped(
@@ -202,7 +204,7 @@ class ToolDispatcher(
             }
 
             is PolicyDecision.RequiresApproval -> {
-                acquireApproval(request, descriptor, decision, ctx)
+                acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
             }
         }
     }
@@ -309,6 +311,7 @@ class ToolDispatcher(
         descriptor: ToolDescriptor,
         decision: PolicyDecision.RequiresApproval,
         ctx: DispatchContext,
+        matchedEgressRule: HighSensitivityRule?,
     ): ApprovalProof? {
         val binding = buildBinding(request, descriptor)
         ctx.bindingHash = binding.hash
@@ -324,7 +327,16 @@ class ToolDispatcher(
                 DecisionSource.USER,
             )
         }
-        val acquisition = approvals.acquire(ApprovalRequest(binding, decision.detail))
+        val acquisition =
+            approvals.acquire(
+                ApprovalRequest(
+                    binding,
+                    decision.detail,
+                    ctx.riskLevel ?: error("dynamic risk unset before the approval stage"),
+                    request.cancel,
+                    matchedEgressRule,
+                ),
+            )
         ctx.approvalAcquiredAt = clock.now().toEpochMilli()
         return when (acquisition) {
             is ApprovalAcquisition.Approved -> {
@@ -525,6 +537,7 @@ class ToolDispatcher(
                 finishedAt = clock.now().toEpochMilli(),
                 code = code,
                 decisionSource = source,
+                riskLevel = ctx.riskLevel,
                 bindingHash = ctx.bindingHash,
                 actionFingerprint = ctx.actionFingerprint,
                 outputHash = ctx.outputHash,
@@ -635,6 +648,7 @@ class ToolDispatcher(
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */
     private class DispatchContext {
         var policyDecidedAt: Long? = null
+        var riskLevel: RiskLevel? = null
         var approvalAcquiredAt: Long? = null
         var executionStartedAt: Long? = null
         var bindingHash: String? = null

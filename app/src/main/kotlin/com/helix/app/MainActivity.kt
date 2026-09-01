@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
@@ -154,6 +156,10 @@ internal fun HelixApp(container: AppContainer) {
                                     SettingsScreen(container.profileStore, container.providerService)
                                 }
 
+                                ShellDestination.Audit -> {
+                                    AuditScreenDestination(container)
+                                }
+
                                 else -> {
                                     EmptyDestination(destination, PaddingValues(24.dp))
                                 }
@@ -164,6 +170,17 @@ internal fun HelixApp(container: AppContainer) {
             }
         }
     }
+}
+
+/**
+ * Observes the chat session list as Compose state so the audit page's 会话 filter stays in
+ * sync (reading `StateFlow.value` directly in composition would never recompose on change).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun AuditScreenDestination(container: AppContainer) {
+    val sessions by container.chatService.sessions.collectAsState()
+    AuditScreen(container.auditLogService, sessions)
 }
 
 @Composable

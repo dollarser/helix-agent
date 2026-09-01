@@ -4,6 +4,8 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderId
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolName
@@ -15,7 +17,11 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.policy.DataOrigin
+import com.helix.core.policy.DataSensitivity
+import com.helix.core.policy.EgressRequest
+import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.GrantState
+import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.UserScope
@@ -28,6 +34,7 @@ import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -197,6 +204,50 @@ class ToolDispatcherTest {
             sink.events.single().bindingHash,
         )
         assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
+    }
+
+    @Test
+    fun aLiveAdvancedEgressRuleReachesTheBrokerSoTheCardShowsABoundedRule() {
+        // HXA-036 (高敏出网规则单独标为有界 Policy 规则): ADVANCED + a live exactly-bound
+        // rule that releases the SENSITIVE egress. The tool's own L2 risk still gates the
+        // call, so the broker is called — and must receive the covering rule for display.
+        val scope = WorkspaceScope("ws-9")
+        val endpoint = NormalizedEndpoint.parse("https://api.example.com/v1")
+        val target = EgressTarget.Provider(ProviderId("provider-1"))
+        val created = clock.instant.minusSeconds(3_600L)
+        val rule =
+            HighSensitivityRule(
+                target,
+                endpoint,
+                DataSensitivity.SENSITIVE,
+                scope,
+                created,
+                created.plusSeconds(86_400L),
+            )
+        val center = CapabilityCenter(RecordingResolver(usableCaps, clock))
+        dispatcher =
+            ToolDispatcher(
+                clock,
+                registry,
+                impls,
+                center,
+                PolicyEngine(clock),
+                broker,
+                sink,
+            ) { setOf(rule) }
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        registerTool(descriptor(), CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
+        val request =
+            request(tool("fake"), version(1), emptyArgs(), profile = SafetyProfile.ADVANCED, scope = scope).copy(
+                egress = EgressRequest(target, endpoint, DataSensitivity.SENSITIVE),
+            )
+        val outcome = dispatcher.dispatch(request)
+        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
+        assertSame(
+            "the covering bounded rule must reach the approval card",
+            rule,
+            broker.acquireCalls.single().boundedEgressRule,
+        )
     }
 
     @Test

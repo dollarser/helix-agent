@@ -20,6 +20,14 @@ interface AuditEventDao {
 
     @Query("SELECT * FROM audit_events WHERE correlationId = :correlationId ORDER BY timestamp ASC, rowid ASC")
     fun listByCorrelation(correlationId: String): List<AuditEventEntity>
+
+    /**
+     * The NEWEST [limit] rows, newest first — the bounded load of the audit log page
+     * (roadmap HXA-036; security doc section 10: the page never loads the whole table).
+     * `rowid` breaks timestamp ties so the page is deterministic.
+     */
+    @Query("SELECT * FROM audit_events ORDER BY timestamp DESC, rowid DESC LIMIT :limit")
+    fun recent(limit: Int): List<AuditEventEntity>
 }
 
 @Dao

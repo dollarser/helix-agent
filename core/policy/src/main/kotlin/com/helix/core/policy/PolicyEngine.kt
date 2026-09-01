@@ -65,6 +65,13 @@ data class PolicyEvaluation(
     val riskFactors: List<String>,
     /** The egress category after the origin floor (null when the call does not egress). */
     val effectiveDataCategory: DataSensitivity?,
+    /**
+     * The LIVE, exactly-bound ADVANCED rule that satisfied this call's high-sensitivity
+     * egress (null when the egress is per-call gated or the call does not egress). The
+     * approval card must display it as a BOUNDED Policy rule with its window — never as a
+     * general credential (roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则).
+     */
+    val matchedEgressRule: HighSensitivityRule? = null,
 )
 
 /**
@@ -111,6 +118,7 @@ class PolicyEngine(
                 deny(PolicyDenialCode.L3_DEFAULT_DENY, "dynamic risk reached L3 and is denied by default"),
                 factors,
                 gate.category,
+                gate.matchedRule,
             )
         }
         val decision =
@@ -135,7 +143,7 @@ class PolicyEngine(
                     PolicyDecision.Allow
                 }
             }
-        return PolicyEvaluation(risk, decision, factors, gate.category)
+        return PolicyEvaluation(risk, decision, factors, gate.category, gate.matchedRule)
     }
 
     /** Default denials checked before any risk arithmetic (roadmap HXA-033). */
@@ -195,9 +203,8 @@ class PolicyEngine(
             }
         }
 
-        val approvalDetail =
-            egressApprovalDetail(input, rules, now, factors, egress, category, denial)
-        return EgressGate(category, denial, approvalDetail)
+        val approval = egressApprovalDetail(input, rules, now, factors, egress, category, denial)
+        return EgressGate(category, denial, approval.detail, approval.matchedRule)
     }
 
     /** The exact user-created LAN/loopback scope for this egress, if any (no wildcards). */
@@ -263,8 +270,9 @@ class PolicyEngine(
         }
 
     /**
-     * Per-call confirmation detail for high-sensitivity egress; null when an ADVANCED rule
-     * covers the exact binding (recorded as a risk factor instead).
+     * Per-call confirmation detail for high-sensitivity egress; the detail is null when an
+     * ADVANCED rule covers the exact binding (recorded as a risk factor instead), and the
+     * covering rule is surfaced so the approval card can show it as a BOUNDED rule.
      */
     private fun egressApprovalDetail(
         input: PolicyInput,
@@ -274,17 +282,30 @@ class PolicyEngine(
         egress: EgressRequest?,
         category: DataSensitivity?,
         denial: PolicyDecision.Deny?,
-    ): String? {
-        val needsGate = egress != null && denial == null && category == DataSensitivity.SENSITIVE
-        val covered =
-            needsGate &&
-                input.profile == SafetyProfile.ADVANCED &&
-                rules.any { rule -> rule.isLiveFor(egress!!, category, input.scope, now) }
-        if (covered) factors += "ADVANCED high-sensitivity rule active (exact binding, live window)"
-        if (!needsGate || covered) return null
-        return "per-call confirmation: $category data to ${egress!!.target} " +
-            "at ${egress.endpoint.origin} " +
-            "(scope: ${input.scope?.toScopeRef() ?: "none"}) — no stored rule covers this exact binding"
+    ): EgressApproval {
+        if (egress == null || denial != null || category != DataSensitivity.SENSITIVE) {
+            return EgressApproval(null, null)
+        }
+        // Past the guard: egress is non-null and the category is SENSITIVE.
+        val matchedRule =
+            if (input.profile == SafetyProfile.ADVANCED) {
+                rules.firstOrNull { rule -> rule.isLiveFor(egress, category, input.scope, now) }
+            } else {
+                null
+            }
+        if (matchedRule != null) {
+            factors += "ADVANCED high-sensitivity rule active (exact binding, live window)"
+        }
+        return if (matchedRule != null) {
+            EgressApproval(null, matchedRule)
+        } else {
+            EgressApproval(
+                "per-call confirmation: $category data to ${egress.target} " +
+                    "at ${egress.endpoint.origin} " +
+                    "(scope: ${input.scope?.toScopeRef() ?: "none"}) — no stored rule covers this exact binding",
+                null,
+            )
+        }
     }
 
     /** Dynamic risk factors (architecture doc section 8); never below [PolicyInput.baseRisk]. */
@@ -357,11 +378,18 @@ class PolicyEngine(
         val category: DataSensitivity?,
         val denial: PolicyDecision.Deny?,
         val approvalDetail: String?,
+        val matchedRule: HighSensitivityRule?,
     ) {
         companion object {
-            fun none(): EgressGate = EgressGate(null, null, null)
+            fun none(): EgressGate = EgressGate(null, null, null, null)
         }
     }
+
+    /** The egress gate's approval surface: the per-call detail and the rule that covers it. */
+    private data class EgressApproval(
+        val detail: String?,
+        val matchedRule: HighSensitivityRule?,
+    )
 
     companion object {
         /** PRoot and CLI runtimes are Advanced-only (ADR-0005). QuickJS is a P0 tool and profile-independent. */
