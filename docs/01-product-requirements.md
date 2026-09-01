@@ -51,6 +51,15 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 - Skill 在线市场、自动下载依赖或未经检查的远程 Skill 安装。
 - 提取浏览器 Cookie、复用其他 App token 或调用模型厂商未公开的订阅接口。
 
+### 2.3 当前产品阶段与近期闭环
+
+本节只定义优先级，不替代 [implementation-status](implementation-status.md) 的当前进度，也不把后续能力写成已实现。
+
+- 当前工程已具备 Provider 聊天、Tool Loop、Capability/Policy/Approval、确定性调度和审计骨架；下一阶段先完成 M4 Workspace/文件能力。
+- 第一个可感知的本地执行闭环是“导入或创建文件 → Agent 读取/生成 Diff → 用户按精确参数批准写入 → 验证产物 → 审计可回看”。它用于验证 Helix 相比纯 API 客户端的核心价值，但不等于 Alpha 或正式版完成。
+- QuickJS、Browser、MCP/Skill、PRoot/CLI、Accessibility、Root 按路线依赖和风险逐级接入。未完成的高权限能力不得出现在默认营销承诺、首屏引导或可调用工具表中。
+- 对外产品定位统一为“Android 原生、Provider-neutral、手机本地执行、每次调用可控”；HarmonyOS 和系统 Agent 生态只作为竞品参照，不进入当前实现范围。
+
 ## 3. 目标用户
 
 ### P1：普通效率用户

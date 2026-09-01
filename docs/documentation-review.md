@@ -1,6 +1,6 @@
 # Helix 文档复核记录
 
-复核日期：2026-08-31。复核后文档版本：Baseline 1.3。
+初始复核日期：2026-08-31。复核后文档版本：Baseline 1.3。本文是累积复核记录；唯一当前进度以 [implementation-status](implementation-status.md) 为准。
 
 ## 1. 复核范围
 
@@ -39,7 +39,7 @@
 
 ## 5. 继续开发入口
 
-编码 Agent 从[小模型继续开发交接](small-model-handoff.md)开始，人或更强模型在每个里程碑末按[安全与发布门禁](07-security-testing-release.md)和任务完成记录审查。当前不需要为普通实现细节增加更多 Prompt 限制；发现架构、安全、权限、许可证或关键依赖变化时，再针对具体证据升级审查。
+编码 Agent 从根 `AGENTS.md`、当前状态和当前 HXA 开始，人或更强模型在每个里程碑末按[安全与发布门禁](07-security-testing-release.md)和任务完成记录审查。当前不需要为普通实现细节增加更多 Prompt 限制；发现架构、安全、权限、许可证或关键依赖变化时，再针对具体证据升级审查。
 
 ## 6. 收口审查（M1 进行中，2026-08-31）
 
@@ -49,7 +49,7 @@
 - 新增 [ADR-0002](adr/0002-turn-state-intra-response-edges.md)（proposed）：把 HXA-011 的 3 条严格增量 Turn 状态边（预调用预算失败、同一响应内串行、`INTERRUPTED` 恢复/丢弃）从“契约解释”升级为正式决定；[02 第 5.2 节](02-architecture-design.md) 状态图同步补全（原图另漏 `RUNNING_TOOL→RECORDING_TOOL_RESULT`）。
 - Plan 双重门措辞规范化（[02 §5.1](02-architecture-design.md)、[10 §6.1](10-provider-mcp-skills-modes.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
 - [05 第 8 节](05-development-environment.md) 目录树补 `docs/completion-records/`、`config/` 与根 `LICENSE`/`THIRD_PARTY_NOTICES.md`。
-- [small-model-handoff](small-model-handoff.md) 的当前事实更新到 HXA-013 入口；第 4/5 节标注为交接时快照。
+- 历史 `small-model-handoff.md` 的当前事实曾更新到 HXA-013 入口；第 4/5 节标注为交接时快照。该快照已在 2026-09-01 完成信息迁移后删除。
 - HXA-011/012 完成记录的决策记录行补 ADR-0002 引用与文档同步事实。
 
 上述内容是小模型第一轮收口的历史记录；两项待决问题已在下节完成授权复核。
@@ -63,7 +63,7 @@
 - [ADR-0001](adr/0001-canonical-json-storage-encoding.md)设为 `accepted`，但只接受 `core:model` 少量固定 shape 的内部存储编码；明确不适用于 Provider/MCP wire DTO、导入导出或审批 canonical JSON。只有具备 decoder、已知向量、round-trip 和 malformed-input 测试的类型才能把 JSON 当恢复来源；`PlanArtifact` 当前只有 canonical writer 时必须从规范化 Room 列重建，或在 HXA-014 前补 decoder 与迁移测试。
 - [ADR-0002](adr/0002-turn-state-intra-response-edges.md)设为 `accepted`：接受 HXA-011 实际新增的三条边；`INTERRUPTED → BUILDING_CONTEXT/CANCELLED` 是 HXA-010 既有边，本轮只补规范图，不再把它们写成 HXA-011 新增实现。
 - 新增并接受 [ADR-0003](adr/0003-plan-read-only-risk-ceiling.md)：Plan 同时要求 `operationClass=READ_ONLY` 和动态风险 ≤ L1；该安全边界同步到路线、架构、专项方案、安全测试和 HXA-012 完成记录。
-- [small-model-handoff](small-model-handoff.md)删除硬编码的“当前 HXA”和旧启动代码，改为始终读取 `implementation-status.md` 的当前唯一任务；历史 checkpoint 仍保留在 Goal 表中，但不得重复实现。
+- 历史 `small-model-handoff.md` 删除硬编码的“当前 HXA”和旧启动代码，改为始终读取 `implementation-status.md` 的当前唯一任务；其长期规则后来迁入 `AGENTS.md` 和小模型实施指南，文件本身已删除。
 - 持续开发实况可能快于状态文档。本轮观察到 HXA-013 源码已开始写入但尚无完成记录，因此只记为 in progress，不把源码存在当完成证据。
 
 本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 §4 补记；本文其余结论在 M1 完成后仍然有效。）
@@ -82,3 +82,47 @@
 - 子 Agent 有潜在价值，但只作为 HXA-105/ADR-0009 的后期 Advanced 候选：深度 1、只读、父预算、无审批凭证/Secret/高权限 session；变更只返回 proposal 给父 Turn。
 - Workflow 若成立只用静态有界 JSON DAG，并编译回相同 Dispatcher。可执行 JS/Starlark Policy/Workflow、自修改插件、递归/peer Agent、cloud tasks、Remote Worker 和另一个 ralph 生命周期均不进入当前路线。
 - 本轮只更新文档、backlog 和 proposed ADR，没有修改生产代码或声明上述能力已实现。
+
+## 10. 技术选型、产品方案与交接复核（2026-09-01）
+
+本轮对照当前代码接线、HXA-001～037 完成证据、移动端竞品分析和 M4 之后路线进行复核。结论是主架构继续成立，不需要更换技术栈或引入大型 Agent 框架；主要风险来自状态文档漂移、首个可感知本地能力尚未交付，以及若干必须等 Spike/ADR 才能决定的高成本集成。
+
+### 10.1 保留的技术选型
+
+- 保留 Kotlin + Compose、Android 原生多模块和手工依赖注入。当前问题是业务能力覆盖率，不是 UI 技术栈或 DI 框架不足；此时迁移 Flutter、React Native 或 Hilt 会扩大迁移面而不改善安全边界。
+- 保留自研有限状态机、单一 Dispatcher/Policy/Approval 管线和 Provider 协议岛，不引入 LangChain 类通用框架。HXA-020～037 已证明该组合可以把供应商协议、状态恢复、精确审批、确定性调度和持久回填分离验证。
+- 保留分层执行：E0 原生工具、E1 isolated QuickJS、E2 独立 PRoot Runtime、E2C 独立官方 CLI Runtime。Termux 适合作为参考生态和人工验证环境，不适合作为 Helix 的生产宿主；PRoot 只是一项用户态 Linux 兼容技术，真正的产品边界仍来自独立 APK/UID、Binder/PFD、Job 快照、Policy 与审批。
+- 保留 Android System WebView、Workspace/SAF 和 MCP Client-only 方向。MCP 只解决 Agent 与工具服务的调用协议，不替代 Android Intent/App Actions、系统权限、Accessibility、Binder 或每次 ToolCall 的安全决策。
+
+### 10.2 产品方案优化
+
+- 近期产品主线应从“框架完整”转向“首个可感知闭环”：M4 先交付受 scope 约束的 Workspace 路径、内容存储和 `read/write/edit`，让聊天、审批、调度和审计第一次连接到真实本地任务。
+- 后续按风险递增推进 QuickJS、Browser、MCP，再通过独立 Runtime 评估 PRoot/CLI。高权限 Accessibility/Root 不应被当作早期差异化卖点；只有能力可见性、逐次批准、执行结果与审计都在产品 UI 中可解释时才开放。
+- 对外定位应保持“Android 原生、Provider-neutral、local-first execution、每次调用可控”，不宣称尚未实现的系统级控制、完整 Linux、持久 Git、多 Agent 或 HarmonyOS 支持。HarmonyOS 的系统 Agent 生态可作为产品体验参照，但不进入当前 Android 实施范围。
+- ChatBox/Cherry Studio/LobeChat 一类 API 客户端、Termux + CLI、系统 Agent 与 Helix 应分赛道比较：前者验证模型接入体验，CLI 验证工具广度，系统 Agent 验证 OS 集成；Helix 的竞争力取决于把这些能力收敛到同一 Android 安全管线，而不是简单堆插件数量。
+
+### 10.3 仍需按触发点决策
+
+- HXA-050：QuickJS/Zipline 的二进制、启动、内存和取消 Spike；未通过前不扩大 E1 API。
+- HXA-080～084：PRoot 可行性、RootFS 供应链和 Runtime IPC；不得把 Termux 用户量或 PRoot 包兼容性直接当作集成验收。
+- HXA-088 + proposed ADR-0008：Git Workspace 权威位置、原子传输、恢复、hooks/config/credential 边界。
+- HXA-094：libsu/JitPack artifact、checksum 与许可证证据；当前不新增仓库或依赖。
+- HXA-105 + proposed ADR-0009：只评估有界只读 child/JSON DAG，不预设一定引入多 Agent。
+- HXA-122：首次稳定发布前决定最终 applicationId、签名和升级路径。
+
+### 10.4 本轮文档修正
+
+- 产品需求新增“当前产品阶段与近期闭环”，明确 M4 文件闭环是首次本地价值验证，不等于 Alpha 或正式版完成。
+- README 与状态摘要更新到已验证 M3 / HXA-037、下一项 M4 / HXA-040。
+- `implementation-status.md` 区分已落地框架和未落地业务执行器，并修正 M2/M3、Approval、Dispatcher/Scheduler 的历史措辞。
+- 小模型实施指南移除硬编码 M1/M2 checkpoint、commit/机器快照，统一动态读取唯一状态源；原 `small-model-handoff.md` 的长期规则迁入 `AGENTS.md`、开发环境和实施指南后删除。文档门禁改为校验实施指南中的动态状态源、禁止重复实现和显式 Goal 授权契约。
+- HXA-037 完成记录补齐“决策记录”，恢复文档契约门禁。
+
+本轮没有修改已接受 ADR、依赖或生产代码，因此不触发新的 ADR。未来若改变执行域、权限模型、分发身份、PRoot/CLI 生命周期、Git 权威位置或 child Agent 边界，必须按对应 HXA 与 ADR 触发器单独决策。
+
+## 11. 面向 LLM 的架构与交接退役复核（2026-09-01）
+
+- 删除已完成使命的 `small-model-handoff.md`；动态任务续接、禁止重复 HXA、显式 Goal 授权和暂停条件分别迁入 `AGENTS.md`、小模型实施指南、开发环境与文档门禁。历史复核记录保留文件名和删除原因，不保留失效链接。
+- 对 `llm-oriented-design-patterns` 的三组原则进行适用性审查：采纳上下文管理、结构化反馈和确定性边界；拒绝固定 LOC 硬门、动态 import/弱类型字典分发、无界自愈和“所有 Tool 无副作用”等不适合 Android 安全 Agent 的绝对规则。
+- Helix 的目标运行时架构高度面向 LLM：统一 ModelEvent、受限 Tool Schema、显式状态机、确定性 Dispatcher、可恢复回填和精确审批都在收窄概率输出。当前生产接线仅部分达标：`TurnReducer` 尚未驱动 `ChatService` 的生产状态推进，导致领域状态机与应用层直接 Room 写入并存；其次才是 `ChatService` 多职责大文件和 Provider SSE framing 重复。
+- 总体方案新增 §17，给出项目级 LLM-oriented 约束和结构热点顺序。该节是现有边界内的可维护性解释，没有改变模块依赖、权限、安全管线或外部契约，因此不新增 ADR。

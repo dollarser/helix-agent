@@ -84,11 +84,16 @@ for milestone, task_id in completed_entries:
     if milestone != "0" and "决策记录：" not in record.read_text(encoding="utf-8"):
         fail(record, "missing the '决策记录：' section required by completion-records/README.md")
 
-handoff_path = root / "docs" / "small-model-handoff.md"
-handoff = handoff_path.read_text(encoding="utf-8")
-for required_text in ("Goal: HELIX-M1", "HXA-010", "HXA-016", "verification matrix"):
-    if required_text not in handoff:
-        fail(handoff_path, f"missing handoff contract text: {required_text}")
+guide_path = root / "docs" / "08-small-model-implementation-guide.md"
+guide = guide_path.read_text(encoding="utf-8")
+for required_text in (
+    "implementation-status",
+    "已有完成记录的 HXA 不得重复实现",
+    "只有用户明确要求建立持久 Goal 时才创建",
+    "verification matrix",
+):
+    if required_text not in guide:
+        fail(guide_path, f"missing implementation-guide contract text: {required_text}")
 
 if errors:
     print("Documentation verification failed:", file=sys.stderr)

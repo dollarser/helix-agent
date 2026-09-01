@@ -25,8 +25,6 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
 4. [技术路线](04-roadmap-and-backlog.md) 中当前任务及前置任务。
 5. 当前模块的 README/API/测试。
 
-长程接力开发再读取[小模型继续开发交接](small-model-handoff.md)。
-
 处理 Provider/MCP/Skill/Plan/Goal 时读取 [专项方案](10-provider-mcp-skills-modes.md)；处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](09-android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
 
 需要比较 Agent 设计时再读取[主流 Coding Agent / Harness 参考](06-open-source-references.md#511-主流-coding-agent--agent-harness-设计参考)，并遵守以下顺序：
@@ -284,11 +282,11 @@ ADR 记录“为什么决定”，不重复源码和规范，也不证明功能�
 
 ## 12. 当前推荐 Goal 与后续序列
 
-M0（HXA-001～003）与 M1（HXA-010～016：领域模型、Turn/Goal reducer、PlanArtifact、Room 持久化、恢复协调器、Context Builder）均已完成，证据见 [implementation-status](implementation-status.md) 与逐 HXA 完成记录，不得重复实现。
+已完成范围、进行中任务和下一检查点只从 [implementation-status](implementation-status.md) 读取；本指南不再硬编码里程碑编号，避免交接文本落后于真实代码。已有完成记录的 HXA 不得重复实现。
 
-下一个 Goal 是 M2（从 HXA-020 SecretStore 与 Provider 配置开始，至 HXA-028 聊天 UI）：在用户明确授权后再建立 M2 Goal，不要把 M2 或其他里程碑的工作混入当前状态。完整启动提示与 checkpoint 约定见[继续开发交接](small-model-handoff.md)。
+只有用户明确要求建立持久 Goal 时才创建 Goal；Goal 覆盖用户授权的里程碑或范围，但任一时刻只允许一个 HXA checkpoint 处于进行中。当前 checkpoint 完成后，必须先写完成记录、更新唯一状态源并通过验收矩阵，再根据路线依赖进入下一项。
 
-不要先做漂亮聊天 UI、WebView 自动点击、Accessibility、Root、PRoot 或 CLI 登录。先让状态、协议、工具、Capability 和审批可测试。
+实现顺序以[路线文档](04-roadmap-and-backlog.md)为准：先交付可测试的底层契约、安全边界和最小业务闭环，再接入依赖它们的 UI 或高权限能力。暂停条件以根 `AGENTS.md` 的任务纪律为准。
 
 ## 13. 阶段性上下文摘要
 

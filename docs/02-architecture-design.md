@@ -579,3 +579,49 @@ sessionId → turnId → modelCallId/toolCallId → approvalId/executionId
 - Plan 模式无法注册或执行 mutating tool；Goal 恢复不重放不明确副作用。
 - WebView、Accessibility 和 Root 的动作都能追溯到同一个 ToolCall/Approval correlation chain。
 - MCP schema 或 Skill content hash 变化后，正在运行的 snapshot 不被静默替换。
+
+## 17. 面向 LLM 的工程设计
+
+Helix 区分两种“面向 LLM”：
+
+1. **运行时面向 LLM**：模型面对稳定、短小、强类型的 Tool/Model/Event 契约，只负责提出意图、参数和策略；平台负责权限、确定性执行、验证、恢复与审计。
+2. **开发时面向 LLM**：编码 Agent 能用有限上下文定位责任、理解调用契约、执行验收并从唯一状态源续接，不依赖阅读整仓库或猜测隐式约定。
+
+按这个定义，Helix 的运行时架构已经高度面向 LLM：`ModelEvent` 统一协议差异，`ToolDescriptor`/Schema 封闭模型可表达空间，Context Builder 管理可信度与预算，Reducer 保存显式状态转移，Dispatcher 把概率性 ToolCall 收敛到确定性安全管线，`model-visible ⇔ persisted` 保证回填可恢复。开发时架构则是**部分达标**：模块边界、ADR、HXA、完成记录和纯 JVM 合同测试较好，但仍有少数大文件要求编码模型一次加载过多无关责任。
+
+### 17.1 对 LLM-Oriented Design Patterns 的取舍
+
+[warlockee/llm-oriented-design-patterns](https://github.com/warlockee/llm-oriented-design-patterns)提出 Context Management、Feedback Loop、Tooling 三组原则。它是基于单个 Python/LLM 训练框架重构经验形成的设计宣言，不是跨语言标准或经独立验证的通用架构方法；其中的数字应视为案例结果，不能直接作为 Android 项目门禁。
+
+| 主张 | Helix 判断 | 本项目采用方式 |
+| --- | --- | --- |
+| 小而单一职责的模块 | 合理，但固定 800 LOC 只能作气味提示 | 先看职责、依赖和测试 seam；超过约 600 LOC 进入复核，超过 1000 LOC 且混合职责时必须形成拆分计划，不按行数机械切文件 |
+| 文件顶部 calling spec | 方向合理，不应复制一套容易漂移的接口文档 | 公共 Kotlin 类型、KDoc、不变量、错误/副作用说明和合同测试共同构成 calling contract |
+| 纯函数、Schema 与逻辑分离 | 合理 | Reducer、canonical 编码、Schema validator、Policy 计算优先纯 JVM/无 Android 状态；I/O 留在 adapter/repository |
+| Registry/平面分发优于深继承 | 有条件合理 | 使用封闭 enum、sealed interface 和类型化 Registry；不采用字符串 `dict`、反射或动态 import，因为它们削弱编译期校验、供应链边界和可审计性 |
+| 薄 Orchestrator | 合理 | 顶层对象描述阶段顺序，阶段逻辑由可独立测试的 collaborator 承担；但安全管线保留一个公开入口，不能为“变薄”暴露旁路 |
+| 多层反馈与自动自愈 | 只接受可测反馈，不接受无界自适应 | 每阶段返回结构化结果并持久化；只有确认零副作用、相同 envelope、同/更强隔离的技术失败可有界重试，不能自动改参数、扩大 scope/权限或更换执行目标 |
+| 确定性逻辑封装成 Tool | 核心原则合理 | 模型决定“请求什么”，平台封闭“能否做、如何做、如何验证”；Tool 可以有受控副作用，不要求所有 Tool 都是纯函数 |
+
+因此，本项目不接受“OOP/SOLID 天然是 context poison”“Strategy 一律不如字典分发”“所有工具都必须无副作用”这类绝对化结论。Kotlin 的 value class、sealed hierarchy、接口隔离和构造注入能同时提供上下文压缩、编译期穷尽检查与安全边界，通常比动态分发更适合 Helix。
+
+### 17.2 当前结构热点与优化顺序
+
+| 热点 | 当前判断 | 优化要求 |
+| --- | --- | --- |
+| `core:agent` reducer 与生产聊天链路 | `TurnReducer`/`TurnEffect` 已定义并充分测试，但当前 `ChatService` 不消费它们，而是直接更新 Room 中的 Turn/ModelCall/ToolCall 状态；存在两套状态推进语义 | 这是最高优先级架构债：引入 application-level Turn coordinator，以持久快照 + `TurnEvent → TurnReducer → TurnEffect` 驱动生产链路；I/O adapter 执行 effect 并提交状态/审计，`ChatService` 只保留 UI facade。迁移必须用当前聊天、工具回填、取消、失败和恢复 fixture 做等价性测试，不能一次重写 |
+| `ChatService.kt`（约 1750 LOC） | 同时承担发送门控、Turn 生命周期、Provider stream、Tool Loop、Room 写入、审批卡/Timeline 投影和 UI state，属于真实多职责热点 | 在首个非 `time.now` 业务工具进入生产聊天工具表前，随 coordinator 迁移按 egress/send gate、model/tool-loop orchestration、durable persistence/backfill、timeline/approval projection 四个 seam 渐进拆分；保留 UI 只依赖一个 application-service facade |
+| `ToolDispatcher.kt`（约 820 LOC） | 文件偏大，但八段安全管线具有强顺序不变量，机械拆分类会增加绕过风险 | 保留唯一公开 `dispatch` facade；新增能力导致阶段继续增长时，只抽取 package-internal validator/approval/execution/result/audit phase，并用端到端合同测试证明阶段不可跳过 |
+| 三套 Provider SSE reader | UTF-8、行边界、data framing 存在相似实现，重复修复风险较高 | 先建立三协议共享 framing golden tests，再抽取无 vendor 语义的 `SseFramer`；各 Provider 的事件映射、终止和错误语义继续独立 |
+| `ConversationRepositories.kt`（约 710 LOC） | 多个 repository 同文件，运行时边界尚清楚但开发上下文过宽 | 后续触碰对应 repository 时按聚合根拆文件，不改变 `HelixStorage` 组合入口或事务语义 |
+| `TurnReducer.kt`（约 685 LOC） | 体量较大但纯函数、单一状态机、测试密集 | 不因 LOC 单独拆分；只有状态族出现独立不变量和独立测试 seam 时再提取 transition helper |
+| `AppContainer.kt`（约 200 LOC） | 手工 composition root，依赖方向清晰，没有深工厂链 | 保留；按 feature 增长可抽取 package-internal assembler，但不引入 Hilt 或 Service Locator |
+
+### 17.3 面向 LLM 的项目级约束
+
+- 每个公开边界写清输入、输出、失败、持久化、副作用和权限；优先由类型和测试表达，不维护与源码重复的大段 calling spec。
+- 面向模型的名字保持短而稳定；面向平台的实现保持类型化、可穷尽、可审计。模型看到的简单不等于内部使用字符串和弱类型。
+- 拆分以“减少完成一个改动所需的无关上下文”为目标，同时把跨文件不变量集中在 facade/contract test；不追求最小文件数量或最少 LOC。
+- 反馈必须转化为结构化状态、指标或可操作错误；日志不是唯一事实，自适应不能越过 Policy、Approval、预算和恢复规则。
+- 先测再抽象：只有至少两个真实调用方或重复协议逻辑，并且能写共同合同测试时，才建立共享抽象；不为未来猜测创建 Manager/Factory/Provider-of-Provider。
+- 领域状态机只能有一个生产语义来源。UI/application service 不得以直接 DAO 状态写入复制 reducer 转移；临时迁移期必须用 characterization test 锁定旧行为，并按事件族逐段切换。

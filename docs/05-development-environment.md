@@ -339,4 +339,4 @@ cd Helix
 
 若还需手工下载未记录文件、修改绝对路径或复制他人 `local.properties` 才能构建，则开发环境文档不合格。
 
-继续当前仓库开发时先读[小模型继续开发交接](small-model-handoff.md)，其中记录了本机已安装环境与交接约定；Git 基线（`e5e3558` 起，每完成一个 HXA 提交一版）与里程碑状态（M1 已完成、M2 待授权）以 [implementation-status](implementation-status.md) 为准。交接文件是时间点快照；与 `git status`、实际 SDK 或测试冲突时，以实时检查为准并同步更新交接。
+继续当前仓库开发时，任务状态只以 [implementation-status](implementation-status.md) 为准：`In progress` 非空则续接，否则使用 `Next task`；已有完成记录的 HXA 不重复实现。分支、commit、CI、SDK 和设备均以实时检查为准，不在长期文档中固化机器快照。

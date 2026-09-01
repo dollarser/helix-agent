@@ -168,7 +168,66 @@ PRoot 模式用于必须依赖 Linux 用户态、Python/Node/Git/Shell 的任务
 
 PRoot 离线是 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)接受的产品边界，不是等待实现者选择的临时默认。即使用户进入 Advanced、授权 LAN/All-files/Root，PRoot Runtime 仍不得声明或继承 `INTERNET`。未来联网 Shell 必须使用新的执行域并单独完成威胁模型、ADR 和发布门禁，不能在 HXA-084/085 中增加网络开关。
 
-### 6.2 运行时组成
+### 6.2 Termux 与 PRoot 对比及集成结论
+
+Termux 与 PRoot 不是同一层的替代品：Termux 是 Android Terminal App、原生命令行用户空间和软件仓库；PRoot 是通过 `ptrace` 模拟路径、身份和部分系统调用行为的无特权兼容层。Termux 也可以安装 PRoot/PRoot-Distro，因此“Termux 路线”内部仍可能包含 PRoot。
+
+| 维度 | Termux 原生环境 | PRoot + Linux RootFS |
+| --- | --- | --- |
+| 执行方式 | 包使用 Android NDK 构建，直接在 Android/Linux 内核上运行并链接 `bionic` | guest 程序仍使用手机内核，但 syscall 经 `ptrace` 拦截和转换 |
+| 产品形态 | 完整 App：终端、bootstrap、`pkg/apt`、插件和用户 home | 底层组件；集成方还需 RootFS、loader、安装器、进程/Job 管理和 UI |
+| Linux 兼容性 | 不是标准 GNU/Linux；使用自有 `$PREFIX`，桌面二进制通常需重新编译/打补丁 | 可提供 Alpine/Debian/Ubuntu 等标准目录和 musl/glibc 用户空间，现成 Linux arm64 程序兼容概率更高 |
+| 软件生态 | Termux 自有仓库，移动端适配好 | 可使用 RootFS 自带 `apk`/`apt`，但包依赖的 kernel feature 仍可能失败 |
+| Root/容器能力 | 普通 Android App UID，不是真 Root | UID/GID 0 是模拟值；没有 namespace、cgroup、seccomp、真实 mount、iptables 或内核模块 |
+| systemd/后台服务 | 不提供完整 Linux init | 一般不能可靠运行完整 init/systemd；只能受 Android 生命周期约束地启动有界进程 |
+| Android 集成 | 可通过 Termux:API、插件或 `RUN_COMMAND` 接入，但环境由用户管理 | 本身没有 Android API；可由 Helix 在独立 Runtime APK 中提供窄 Binder/PFD 协议 |
+| 网络与更新 | 通常可联网，用户能任意安装/升级包 | 由宿主 APK 权限决定；Helix 基线可固定为无 `INTERNET` 且只随签名 APK 更新 |
+| 可重复性 | 用户 package source、签名来源、home 和版本均可变化 | 可固定 PRoot、RootFS、包、hash、ABI、许可证和 rollback 版本 |
+| 安全边界 | Android App UID 是边界；同一 Termux home 中的命令共享其权限和网络 | PRoot 自身不是安全边界；Helix 依赖独立 Runtime applicationId/UID、最小权限和快照 IPC |
+
+#### 功能与性能
+
+Termux 官方说明其 package 默认不经过 VM、容器或 PRoot，直接使用 Android host kernel；代价是包必须适配 `bionic`、Termux 固定安装前缀和 Android executable 限制。PRoot-Distro 可以运行多种标准 Linux/OCI RootFS，但官方同时明确：PRoot 拦截每个 syscall，文件系统密集型任务、包管理和编译会明显慢于原生执行，并且不提供真正的 namespace/cgroup/seccomp 隔离。
+
+性能预期按工作负载区分：
+
+- `git status`、`ripgrep` 扫描、解压、`npm/pip/apk` 安装、编译和大量短进程 shell 管线，Termux 原生通常明显更快。
+- 长时间纯 CPU、较少 syscall 的 Python/Node 计算，PRoot 相对损失可能较小，但仍需真机测量。
+- PRoot 还有 RootFS 解压、冷启动、路径转换和 Job snapshot 传输成本；Alpine 比完整 Ubuntu/Debian 更适合作为 Helix 固定基线。
+- 2026-05 的一份 Termux 社区 UnixBench 单机测试报告 PRoot-Distro 综合分数低约 44%。该测试运行在 x86 Linux 主机而非 Android 手机，只有单一样本，只能作为“损耗可能显著”的风险信号，不能直接用作 Helix 性能预算。
+
+HXA-084/086 必须在目标手机重新测量冷绑定、RootFS 首次/重复启动、Python/Node 启动、Git/ripgrep 小文件负载、snapshot 归档、取消和进程回收；4 KiB/16 KiB 页、锁屏、Doze、低内存和热限制均须覆盖。不能仅凭桌面 benchmark 宣称性能达标。
+
+#### 开源社区、用户量和维护风险
+
+2026-09-01 GitHub/API 快照只能作为社区规模代理，不等于安装量或活跃用户：
+
+| 项目 | Stars 约数 | 当期维护信号 | 对 Helix 的意义 |
+| --- | ---: | --- | --- |
+| [`termux/termux-app`](https://github.com/termux/termux-app) | 60.1k | 2026-08 仍有提交；App、终端和插件生态规模最大 | 适合参考 Android 进程、终端和包环境；完整 fork 的维护与许可证成本高 |
+| [`termux/termux-packages`](https://github.com/termux/termux-packages) | 16.9k | 2026-09 仍持续更新 packages | Android 原生 CLI 适配资产丰富，但二进制与路径/package name 强绑定，不能直接搬入 Helix |
+| [`termux/proot-distro`](https://github.com/termux/proot-distro) | 3.4k | `v5.8.0` 于 2026-08-22 发布 | PRoot 管理层活跃；功能与用户量仍依附 Termux/其他宿主 |
+| [`termux/proot`](https://github.com/termux/proot) | 1.1k | Android 定制 tag 在 2026-08 持续更新 | Helix 计划固定使用的 Android 分支，应锁 tag/source/patch/hash |
+| [`proot-me/proot`](https://github.com/proot-me/proot) | 2.6k | 上游仍有维护活动，但正式 release 节奏较慢 | 上游原理和许可证来源；Android 集成优先验证 Termux 分支 |
+
+Google Play 的 Termux 页面显示累计 `10M+` 下载和约 `170K` 评论，但 Play、F-Droid 与 GitHub 构建的签名、功能和维护路径并不完全相同，累计下载也不是活跃用户数。PRoot 没有可靠的独立用户统计，因为大量使用发生在 Termux、PRoot-Distro 或其他集成产品内部。因此只能确认 Termux 的终端/包生态和用户社区显著更大，不能用两组商店数字直接计算 PRoot 市占率。
+
+#### 集成路径比较
+
+| 路径 | 优势 | 主要问题 | 结论 |
+| --- | --- | --- | --- |
+| 依赖用户安装 Termux，通过外部命令桥调用 | 原型最快、性能好、包丰富，适合高级用户自行维护 | 多一次安装/初始化；F-Droid/GitHub/Play 来源和签名不同；home、包、网络和版本可变；不能天然满足 Helix jobId、快照、逐调用审批和恢复契约 | 可用于研发 Spike 或未来专家自带 Runtime；不作为默认产品依赖 |
+| Fork/嵌入完整 Termux | 理论上兼得原生性能和生态 | package name/安装前缀进入二进制和 bootstrap；需重编 packages、维护仓库与安全更新；Termux App GPL-3.0，包许可证各异；等同维护一个自己的 Termux 发行版 | 首版不选 |
+| 自有 PRoot companion APK | 固定资产、RootFS、ABI、hash 和许可证；独立 UID、可无网、可实现 signature Binder/PFD、Job journal 和 rollback | 性能较低、体积和安装峰值较大；需自建安装/升级/恢复；Linux 包仍有兼容性缺口 | **Helix E2 正式集成路径** |
+| 原生 E0/E1 + 按需 PRoot | 常用能力保持低延迟；只为标准 Linux 兼容性支付 PRoot 成本 | 需要清晰路由和两套执行器验收 | **总体推荐** |
+
+最终选择按目标区分：快速验证 CLI/包兼容性或给专家提供自由终端时，Termux 更合适；作为 Helix 可重复、离线、可审计的正式执行后端，独立 PRoot companion 更合适。PRoot 只负责兼容性，真正隔离来自独立 Android UID；性能敏感和稳定手机能力应继续优先落在 E0 原生 Tool，文本/数据计算优先 E1 QuickJS，不能把所有任务都路由到 PRoot。
+
+该比较是现有 PRoot 路线的工程依据，不新增能力承诺，也不把外部 Termux bridge 加入当前 HXA。若未来要把 Termux 作为可选 execution target，必须单独定义安装来源、签名/版本握手、命令协议、数据/网络边界、取消恢复和许可证方案，并通过 ADR/HXA 授权。
+
+主要依据：[Termux execution environment](https://github.com/termux/termux-packages/wiki/Termux-execution-environment)、[Termux App 与分发限制](https://github.com/termux/termux-app)、[第三方复用与 package name 限制](https://github.com/termux/termux-app/discussions/4564)、[PRoot-Distro 功能与限制](https://github.com/termux/proot-distro)、[PRoot benchmark 样本](https://github.com/termux/termux-packages/discussions/29944)、[Google Play Termux 累计下载](https://play.google.com/store/apps/details?id=com.termux)。
+
+### 6.3 运行时组成
 
 ```text
 com.helix.runtime.proot 私有 filesDir/
@@ -197,7 +256,7 @@ com.helix.runtime.proot 私有 filesDir/
 
 具体版本不在文档中写死为“永远版本”。实施 HXA-080 时生成 `runtime-lock.json`，记录 URL、版本、大小、SHA-256、许可证和源码 URL；该文件是唯一版本真相。
 
-### 6.3 获取和激活
+### 6.4 获取和激活
 
 参考 AndCode 的可靠做法，但不得直接复制其代码：
 
@@ -211,7 +270,7 @@ com.helix.runtime.proot 私有 filesDir/
 8. 原子切换 `active.json`，保留一个可回滚版本。
 9. Runtime 更新通过新的同签名 APK 完成，不在 App 内自更新 native code。
 
-### 6.4 命令请求
+### 6.5 命令请求
 
 ```kotlin
 data class LinuxExecutionRequest(
@@ -229,7 +288,7 @@ data class LinuxExecutionRequest(
 
 环境变量采用名称白名单：`HOME`、`PATH`、`LANG`、`TMPDIR`、任务自定义非 secret 变量。自定义名称命中 `KEY|TOKEN|SECRET|PASSWORD|AUTH|COOKIE|CREDENTIAL` 等模式、值与 SecretStore 已知 secret 匹配，或来自 Provider/MCP/CLI 认证结构时必须拒绝。筛查在主进程建立 snapshot 前完成，Runtime 不接收 SecretStore 访问能力。主进程环境、Provider key、Android 路径不继承。基线 Runtime 没有 INTERNET 权限，因此请求中也不提供可切换的网络开关。
 
-### 6.5 独立 UID 与 IPC
+### 6.6 独立 UID 与 IPC
 
 Runtime APK 声明独立 `applicationId`，跨 App Service 必须 `exported=true` 才能绑定，但同时设置 `signature` 级权限：
 
@@ -269,7 +328,7 @@ Job 数据流：
 
 输入/输出 archive 同样执行路径穿越、symlink、文件数、单文件和总大小检查。Runtime 崩溃只能损坏自己的 Job 副本，不能直接修改主 App Workspace。
 
-### 6.6 Job 生命周期、断连与后台执行
+### 6.7 Job 生命周期、断连与后台执行
 
 主 App 的 `RuntimeSupervisor` 与 Runtime Service 必须共同实现以下状态协议：
 
@@ -390,7 +449,7 @@ JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁�
 - CLI 内置工具无法绕过 Helix approval；若无法证明则禁止 Act/Goal 集成。
 - 网络/输出洪泛、进程树取消、版本不匹配和 IPC 断连不会拖死主 App。
 - 未运行/未打开 companion UI 时可冷绑定；登录 UI 退出后正常会话仍可按需启动。
-- 主 App/CLI Runtime 在会话各阶段死亡后只按 jobId 查询/对账，未知结果不重放；后台继续、通知、停止和 wake lock 遵循 §6.6。
+- 主 App/CLI Runtime 在会话各阶段死亡后只按 jobId 查询/对账，未知结果不重放；后台继续、通知、停止和 wake lock 遵循 §6.7。
 
 ## 11. 完成标准
 

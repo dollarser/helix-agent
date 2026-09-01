@@ -9,7 +9,7 @@ Superseded by: none
 
 ## Context
 
-HXA-081 计划在无网络的 PRoot Runtime 中固定 `git` 二进制，HXA-086 只验证离线 Job 副本里的版本和基本执行。现有 [PRoot Job 数据流](../03-local-code-execution.md#65-独立-uid-与-ipc)把主 App Workspace 的有界输入复制到独立 UID，运行后只把经验证的输出快照交回；Runtime 不挂载真实 Workspace。
+HXA-081 计划在无网络的 PRoot Runtime 中固定 `git` 二进制，HXA-086 只验证离线 Job 副本里的版本和基本执行。现有 [PRoot Job 数据流](../03-local-code-execution.md#66-独立-uid-与-ipc)把主 App Workspace 的有界输入复制到独立 UID，运行后只把经验证的输出快照交回；Runtime 不挂载真实 Workspace。
 
 持久 Git 仓库不是普通文件批量复制问题。`.git/objects`、index、refs、工作树、锁文件和进行中的操作必须保持一致；部分导入、并发修改或进程死亡可能留下仓库损坏。hooks、alias、filter、external diff/merge、pager、submodule、worktree、仓库 config 和 credential helper 还会引入隐式执行、路径、网络或凭据边界。普通用户也不应为了获得撤销/历史而被迫理解 Git。
 

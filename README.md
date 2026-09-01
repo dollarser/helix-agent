@@ -9,25 +9,25 @@ Helix 是一个 Android 优先、手机本地执行的个人 Agent。模型可�
 | 文档 | 用途 |
 | --- | --- |
 | [产品需求文档](docs/01-product-requirements.md) | 定义用户、场景、功能、边界和验收指标 |
-| [总体技术方案](docs/02-architecture-design.md) | 定义模块、状态机、接口、数据和安全架构 |
+| [总体技术方案](docs/02-architecture-design.md) | 定义模块、状态机、接口、安全架构与面向 LLM 的工程约束 |
 | [本地代码执行方案](docs/03-local-code-execution.md) | 定义 QuickJS 沙箱与 PRoot Linux 开发者模式 |
 | [技术路线与开发计划](docs/04-roadmap-and-backlog.md) | 按依赖顺序拆分小模型可执行的开发任务 |
 | [开发环境与依赖基线](docs/05-development-environment.md) | 固定工具链、版本、设备和构建命令 |
 | [开源依赖与参考仓库](docs/06-open-source-references.md) | 区分直接依赖、设计参考和禁止复制项目 |
 | [安全、测试与发布门禁](docs/07-security-testing-release.md) | 定义威胁模型、测试矩阵和发布条件 |
 | [小模型实施指南](docs/08-small-model-implementation-guide.md) | 规定 Qwen 等较小编码模型的工作方式与最小护栏 |
-| [小模型继续开发交接](docs/small-model-handoff.md) | 当前代码事实、M1 长程 Goal、checkpoint 和可直接使用的启动提示 |
 | [Android 平台能力](docs/09-android-platform-capabilities.md) | 浏览器、文件管理、Accessibility、Root 与 Android 基础工具 |
 | [Provider/MCP/Skills/模式](docs/10-provider-mcp-skills-modes.md) | 多协议 Provider、自建模型、MCP、Skills、Plan/Goal 与订阅边界 |
 | [手机端 Tool 编排](docs/11-mobile-tool-orchestration.md) | 确定性并发、安全管线、回放、受限委托与明确不采纳项 |
+| [移动端 Agent 竞品分析](docs/12-competitive-landscape.md) | 对照 AI 客户端、原生移动 Runtime、HarmonyOS/Android/iOS 系统 Agent 生态，并给出 Helix 定位与路线建议 |
 | [架构决策记录约定](docs/adr/README.md) | 定义 ADR 触发条件、状态、模板、取代关系和小模型权限边界 |
 | [验收命令矩阵](docs/verification-matrix.md) | 每个 HXA 的真实 Gradle task、设备要求和预期证据 |
 | [当前实施状态](docs/implementation-status.md) | 区分已完成文档、下一任务与尚未实现代码 |
 | [M0 完成记录](docs/m0-completion-record.md) | HXA-001～003 的实际命令、结果、设备和限制 |
-| [HXA 完成记录](docs/completion-records/README.md) | 逐 HXA 真实命令、exit code 与设备证据（M0 合并记录 + M1 HXA-010～016） |
-| [文档复核记录](docs/documentation-review.md) | Baseline 1.3 的一致性检查、修正项和已知缺口 |
+| [HXA 完成记录](docs/completion-records/README.md) | 逐 HXA 真实命令、exit code、设备证据与决策记录 |
+| [文档复核记录](docs/documentation-review.md) | Baseline 1.3 历史复核及后续技术、产品与交接收口 |
 
-当前进展：M0 与 M1（HXA-001～016）已完成，M2 等待启动指令；详见[当前实施状态](docs/implementation-status.md)。
+当前已验证至 M3 / HXA-037；当前无进行中任务，下一检查点是 M4 / HXA-040。能力边界和唯一当前状态以[当前实施状态](docs/implementation-status.md)为准。
 
 ## 当前固定决策
 
@@ -63,4 +63,4 @@ Helix 是一个 Android 优先、手机本地执行的个人 Agent。模型可�
 
 ## 调研快照
 
-文档 Baseline 1.3，复核日期：2026-08-31。涉及 Android、依赖版本、服务登录方式和第三方仓库的内容会随时间变化；升级前必须重新核实并单独提交依赖升级变更。
+架构文档基线为 Baseline 1.3；实施状态最近复核于 2026-09-01。涉及 Android、依赖版本、服务登录方式和第三方仓库的内容会随时间变化；升级前必须重新核实并单独提交依赖升级变更。
