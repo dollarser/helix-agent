@@ -62,7 +62,31 @@ data class ToolDispatchRequest(
     val codeOrCommandChanged: Boolean = false,
     val sourceBindingChanged: Boolean = false,
     val cancel: CancelSignal = NoCancellation,
-)
+    /**
+     * SCHEDULER metadata (roadmap HXA-037; doc 11 section 3.2): the moment the
+     * ToolScheduler enqueued this call, epoch millis. Trusted platform facts — the model
+     * cannot influence them (they arrive only via the app's scheduler). Null for a direct
+     * (non-scheduled) dispatch. Audit-only: never part of the binding hash.
+     */
+    val queuedAt: Long? = null,
+    /**
+     * SCHEDULER metadata (roadmap HXA-037; doc 11 section 3.3): the hard attempt cap for
+     * this call. 1 (default) = exactly one attempt (HXA-035 behavior). 2 = one bounded
+     * technical retry, allowed ONLY after a confirmed zero-side-effect execution failure
+     * and only for the identical envelope — any material change means a NEW ToolCall with
+     * a new approval, never a retry.
+     */
+    val maxAttempts: Int = 1,
+) {
+    init {
+        require(maxAttempts in 1..MAX_ATTEMPTS_HARD_CAP) {
+            "maxAttempts must be in 1..$MAX_ATTEMPTS_HARD_CAP: $maxAttempts"
+        }
+    }
+}
+
+/** Hard attempt cap for one ToolCall (doc 11 section 3.3: 重试必须有稳定理由和硬上限). */
+const val MAX_ATTEMPTS_HARD_CAP = 2
 
 /**
  * The model-visible, bounded result of a successful dispatch: canonical output text
@@ -97,10 +121,17 @@ sealed interface ToolDispatchOutcome {
     /** Cancelled before start: zero side effects, no proof consumed, nothing executed. */
     data object Cancelled : ToolDispatchOutcome
 
-    /** Execution started and ended non-successfully with a stable error code. */
+    /**
+     * Execution started and ended non-successfully with a stable error code.
+     * [sideEffectFree] is the executor's CONFIRMED report that this attempt produced no
+     * side effect (doc 11 section 3.3) — the only case a bounded technical retry is
+     * allowed. The framework trusts this flag only because it is set by the platform
+     * executor (never by the model or MCP); when in doubt it must stay false.
+     */
     data class ExecutionFailed(
         val code: DispatchOutcomeCode,
         val detail: String,
+        val sideEffectFree: Boolean = false,
     ) : ToolDispatchOutcome
 }
 
@@ -127,8 +158,9 @@ sealed interface ToolDispatchOutcome {
  * 7. **bound result / verify** — the output must validate against the registered output
  *    schema (a tool violating its own contract is a stable error; its output never reaches
  *    the model), then canonicalized, hashed and truncated to the byte cap;
- * 8. **audit** — exactly one [DispatchAuditEvent] per dispatch (no bodies, only hashes,
- *    stage timestamps and the decision source).
+ * 8. **audit** — exactly one [DispatchAuditEvent] per ATTEMPT (no bodies, only hashes,
+ *    stage timestamps, the decision source and the attemptId; a retried call therefore
+ *    has one row per attempt, doc 11 section 3.3).
  *
  * Same-turn denial invariant (roadmap HXA-035 / security doc section 7.3): when the user
  * DENIES an approval, the dispatcher records the ACTION FINGERPRINT (the binding hash with
@@ -156,15 +188,62 @@ class ToolDispatcher(
     private val deniedLock = Any()
     private val deniedByTurn: LinkedHashMap<String, MutableSet<String>> = LinkedHashMap(16, 0.75f, true)
 
-    /** The single entry point; see the class KDoc for the pipeline. */
+    /**
+     * The single entry point; see the class KDoc for the pipeline.
+     *
+     * Bounded technical retry (roadmap HXA-037; doc 11 section 3.3): when an attempt
+     * fails with a CONFIRMED zero-side-effect [ToolDispatchOutcome.ExecutionFailed] and
+     * [ToolDispatchRequest.maxAttempts] allows it, the dispatcher re-runs the FULL
+     * pre-approval pipeline (validate → capability → policy are re-checked live — a
+     * revoked capability or a policy change stops the retry) and, if the approval is still
+     * required, re-mints the proof from the SAME typed APPROVED record (no new card, no
+     * new question to the user). Any other failure is terminal. Every attempt emits its
+     * own audit event with its [DispatchAuditEvent.attemptId].
+     */
     fun dispatch(request: ToolDispatchRequest): ToolDispatchOutcome {
-        val startedAt = clock.now()
-        val ctx = DispatchContext()
-        val descriptor = validateStage(request, ctx)
-        val proof = if (descriptor != null) policyStage(request, descriptor, ctx) else null
-        return when {
-            descriptor == null || ctx.stopped != null -> finishStop(request, startedAt, ctx)
-            else -> executeStage(request, proof, ctx, startedAt)
+        var attempt = 0
+        var carriedProof: ApprovalProof? = null
+        // The re-minted retry reuses the SAME binding (same record): its audit rows must
+        // carry the same binding hash and action fingerprint as the attempt that minted
+        // them, even though the retry never presents the card again.
+        var carriedBindingHash: String? = null
+        var carriedActionFingerprint: String? = null
+        while (true) {
+            attempt += 1
+            val startedAt = clock.now()
+            val ctx = DispatchContext()
+            ctx.attemptId = attempt
+            if (carriedProof != null) {
+                ctx.bindingHash = carriedBindingHash
+                ctx.actionFingerprint = carriedActionFingerprint
+            }
+            val descriptor = validateStage(request, ctx)
+            val proof =
+                if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
+            val outcome =
+                when {
+                    descriptor == null || ctx.stopped != null -> finishStop(request, startedAt, ctx)
+                    else -> executeStage(request, proof, ctx, startedAt)
+                }
+            if (
+                outcome is ToolDispatchOutcome.ExecutionFailed &&
+                outcome.sideEffectFree &&
+                attempt < request.maxAttempts
+            ) {
+                // Re-mint from the same APPROVED record when the attempt spent a proof;
+                // approval-free calls simply re-run. A record that can no longer mint
+                // (window elapsed) ends the retry with the original failure.
+                val spent = proof
+                val reminted = spent?.let { approvals.reMint(it) }
+                if (spent != null && reminted == null) {
+                    return outcome
+                }
+                reminted?.let { carriedProof = it }
+                carriedBindingHash = ctx.bindingHash
+                carriedActionFingerprint = ctx.actionFingerprint
+            } else {
+                return outcome
+            }
         }
     }
 
@@ -173,11 +252,19 @@ class ToolDispatcher(
      * execution start, or null for an allowed call. On a stop the outcome is recorded on
      * [ctx] and null is returned as well; [dispatch] distinguishes the two via
      * [DispatchContext.stopped].
+     *
+     * [carriedProof] (bounded technical retry, doc 11 section 3.3): when a previous attempt
+     * of the SAME call was refunded and re-minted, the re-minted proof is reused here —
+     * the confirmation surface is NOT presented again and no new record is created. The
+     * live capability/policy checks still run: a revoked capability or a policy change
+     * stops the retry. If the policy no longer requires approval the carried proof goes
+     * unspent (it expires with its record; it is never consumed).
      */
     private fun policyStage(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
         ctx: DispatchContext,
+        carriedProof: ApprovalProof?,
     ): ApprovalProof? {
         val evaluation = capabilityCenter.evaluate(descriptor.requiredCapabilities)
         val policy =
@@ -204,7 +291,12 @@ class ToolDispatcher(
             }
 
             is PolicyDecision.RequiresApproval -> {
-                acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
+                if (carriedProof != null) {
+                    ctx.approvalAcquiredAt = clock.now().toEpochMilli()
+                    carriedProof
+                } else {
+                    acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
+                }
             }
         }
     }
@@ -396,42 +488,48 @@ class ToolDispatcher(
                 } ?: finishStop(request, startedAt, ctx)
             }
 
-            ToolExecutorResult.TimedOut -> {
-                finish(
-                    request,
-                    startedAt,
-                    ctx,
+            else -> {
+                finishExecutionFailure(request, startedAt, ctx, result)
+            }
+        }
+    }
+
+    /** The non-completed executor outcomes: stable codes, side-effect state as the executor confirms it. */
+    private fun finishExecutionFailure(
+        request: ToolDispatchRequest,
+        startedAt: Instant,
+        ctx: DispatchContext,
+        result: ToolExecutorResult,
+    ): ToolDispatchOutcome {
+        val failure =
+            when (result) {
+                ToolExecutorResult.TimedOut -> {
                     ToolDispatchOutcome.ExecutionFailed(
                         DispatchOutcomeCode.TIMEOUT,
                         "tool exceeded its deadline; the stable timeout error is the model-visible outcome",
-                    ),
-                    DecisionSource.FRAMEWORK,
-                )
-            }
+                    )
+                }
 
-            ToolExecutorResult.Cancelled -> {
-                finish(
-                    request,
-                    startedAt,
-                    ctx,
+                ToolExecutorResult.Cancelled -> {
                     ToolDispatchOutcome.ExecutionFailed(
                         DispatchOutcomeCode.CANCELLED_AFTER_START,
                         "cancellation fired after execution started; side-effect state is unknown",
-                    ),
-                    DecisionSource.FRAMEWORK,
-                )
-            }
+                    )
+                }
 
-            is ToolExecutorResult.Failed -> {
-                finish(
-                    request,
-                    startedAt,
-                    ctx,
-                    ToolDispatchOutcome.ExecutionFailed(DispatchOutcomeCode.TOOL_FAILED, result.detail),
-                    DecisionSource.FRAMEWORK,
-                )
+                is ToolExecutorResult.Failed -> {
+                    ToolDispatchOutcome.ExecutionFailed(
+                        DispatchOutcomeCode.TOOL_FAILED,
+                        result.detail,
+                        result.sideEffectFree,
+                    )
+                }
+
+                else -> {
+                    error("unhandled executor result: $result")
+                }
             }
-        }
+        return finish(request, startedAt, ctx, failure, DecisionSource.FRAMEWORK)
     }
 
     /** The executor-facing call: hard deadline = descriptor timeout; the request's cancel signal passes through. */
@@ -530,6 +628,7 @@ class ToolDispatcher(
                 sessionId = request.sessionId,
                 toolName = request.toolName.value,
                 toolVersion = request.toolVersion.value.toString(),
+                queuedAt = request.queuedAt,
                 startedAt = startedAt.toEpochMilli(),
                 policyDecidedAt = ctx.policyDecidedAt,
                 approvalAcquiredAt = ctx.approvalAcquiredAt,
@@ -542,6 +641,7 @@ class ToolDispatcher(
                 actionFingerprint = ctx.actionFingerprint,
                 outputHash = ctx.outputHash,
                 outputTruncated = ctx.outputTruncated,
+                attemptId = ctx.attemptId,
             ),
         )
         return outcome
@@ -647,6 +747,8 @@ class ToolDispatcher(
 
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */
     private class DispatchContext {
+        /** 1-based attempt number within this dispatch (doc 11 section 3.3 attemptId). */
+        var attemptId: Int = 1
         var policyDecidedAt: Long? = null
         var riskLevel: RiskLevel? = null
         var approvalAcquiredAt: Long? = null

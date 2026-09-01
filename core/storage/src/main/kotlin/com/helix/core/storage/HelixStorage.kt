@@ -12,6 +12,7 @@ import com.helix.core.storage.repository.ExecutionRepository
 import com.helix.core.storage.repository.ExecutionTargetRepository
 import com.helix.core.storage.repository.GoalRepository
 import com.helix.core.storage.repository.GoalRunRepository
+import com.helix.core.storage.repository.InteractionReceiptRepository
 import com.helix.core.storage.repository.McpCapabilityRepository
 import com.helix.core.storage.repository.McpServerRepository
 import com.helix.core.storage.repository.MessageRepository
@@ -47,6 +48,9 @@ class HelixStorage internal constructor(
     val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao()) }
     val toolResults: ToolResultRepository by lazy { ToolResultRepository(database.toolResultDao(), contentStore) }
     val approvals: ApprovalRepository by lazy { ApprovalRepository(database.approvalDao()) }
+    val interactionReceipts: InteractionReceiptRepository by lazy {
+        InteractionReceiptRepository(database.interactionReceiptDao())
+    }
     val executions: ExecutionRepository by lazy { ExecutionRepository(database.executionDao()) }
     val artifacts: ArtifactRepository by lazy { ArtifactRepository(database.artifactDao()) }
     val auditEvents: AuditEventRepository by lazy { AuditEventRepository(database.auditEventDao()) }

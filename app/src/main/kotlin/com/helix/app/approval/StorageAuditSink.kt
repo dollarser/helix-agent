@@ -50,7 +50,13 @@ class StorageAuditSink(
 
         const val ACTOR = "dispatcher"
 
-        /** The EXACT key set of a tool-dispatch redacted payload (allowlist). */
+        /**
+         * The EXACT key set of a tool-dispatch redacted payload (allowlist). HXA-037 adds
+         * `queuedAt` (scheduler enqueue time — the queue wait) and `attemptId` (the 1-based
+         * attempt within the dispatch, doc 11 section 3.2/3.3): both are mandated by the
+         * roadmap's queue/approval/execution/verification timing + attemptId durable audit,
+         * not a casual extension.
+         */
         val PAYLOAD_KEYS: Set<String> =
             setOf(
                 "turnId",
@@ -64,6 +70,8 @@ class StorageAuditSink(
                 "actionFingerprint",
                 "outputHash",
                 "outputTruncated",
+                "queuedAt",
+                "attemptId",
                 "startedAt",
                 "policyDecidedAt",
                 "approvalAcquiredAt",
@@ -90,6 +98,8 @@ class StorageAuditSink(
                 putNullable("actionFingerprint", event.actionFingerprint)
                 putNullable("outputHash", event.outputHash)
                 put("outputTruncated", event.outputTruncated)
+                putNullableLong("queuedAt", event.queuedAt)
+                put("attemptId", event.attemptId)
                 put("startedAt", event.startedAt)
                 putNullableLong("policyDecidedAt", event.policyDecidedAt)
                 putNullableLong("approvalAcquiredAt", event.approvalAcquiredAt)

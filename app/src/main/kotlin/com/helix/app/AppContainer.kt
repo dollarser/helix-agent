@@ -28,6 +28,7 @@ import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
+import com.helix.tools.framework.ToolScheduler
 
 /**
  * The app's manual DI container (M0 pattern; no framework). HXA-028 adds the
@@ -165,7 +166,18 @@ internal class DefaultAppContainer(
                     approvals = broker,
                     audit = auditSink,
                 )
-            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink)
+            // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
+            // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
+            // the constant default in this first version — low memory / background / thermal
+            // signals lower the allowance through this SAME seam in a later HXA (they can
+            // only lower it, never raise it, and never touch approvals or result order).
+            val scheduler =
+                ToolScheduler(
+                    clock = appClock,
+                    dispatcher = dispatcher,
+                    registry = toolRegistry,
+                )
+            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler)
         }
 
     override val auditLogService: AuditLogService = AuditLogService(storage)

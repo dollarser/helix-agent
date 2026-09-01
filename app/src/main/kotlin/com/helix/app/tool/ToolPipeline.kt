@@ -8,14 +8,17 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
+import com.helix.tools.framework.ToolScheduler
 
 /**
- * The app's tool pipeline bundle (roadmap HXA-036): the registered tool contracts +
- * implementations, the production [ToolDispatcher] (doc 11: Dispatcher 唯一入口) and the
- * storage-backed [StorageApprovalBroker]. AppContainer constructs it once per process
- * (doc 02 section 12: AppContainer creates the process-level Tool Registry and the
- * dispatcher stack); the chat service and the UI observe it through this façade — the UI
- * never touches the dispatcher, the broker or storage directly.
+ * The app's tool pipeline bundle (roadmap HXA-036/037): the registered tool contracts +
+ * implementations, the production [ToolDispatcher] (doc 11: Dispatcher 唯一入口), the
+ * deterministic [ToolScheduler] (bounded platform-decided parallelism, call-order
+ * back-fill) and the storage-backed [StorageApprovalBroker]. AppContainer constructs it
+ * once per process (doc 02 section 12: AppContainer creates the process-level Tool
+ * Registry and the dispatcher stack); the chat service and the UI observe it through this
+ * façade — the UI never touches the dispatcher, the scheduler, the broker or storage
+ * directly.
  *
  * The HXA-036 registered set is the first real tool, `time.now` (L0, no approval); the
  * mutating tools arrive with their own HXAs and register here.
@@ -26,6 +29,7 @@ class ToolPipeline(
     val dispatcher: ToolDispatcher,
     val broker: StorageApprovalBroker,
     val auditSink: AuditSink,
+    val scheduler: ToolScheduler,
 ) {
     /**
      * Resolves the newest registered version of [name] — null when the tool (or the name

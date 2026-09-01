@@ -117,6 +117,21 @@ class DispatchAuditPayloadTest {
     }
 
     @Test
+    fun queueAndAttemptMetadataAreMandatedPayloadKeys() {
+        // HXA-037 (roadmap: queue/approval/execution/verification timing + attemptId 持久审计):
+        // the scheduler stamps queuedAt, the dispatcher stamps attemptId per retry.
+        val event = fullEvent().copy(queuedAt = 950L)
+        assertEquals(1, event.attemptId)
+        val obj = Json.parseToJsonElement(StorageAuditSink.payload(event)).jsonObject
+        assertEquals(950L, (obj["queuedAt"] as kotlinx.serialization.json.JsonPrimitive).content.toLong())
+        assertEquals(1, (obj["attemptId"] as kotlinx.serialization.json.JsonPrimitive).content.toInt())
+        // Without a scheduler (direct dispatch) queuedAt is null in the payload —
+        // the key stays present, the shape is stable.
+        val bare = Json.parseToJsonElement(StorageAuditSink.payload(fullEvent())).jsonObject
+        assertTrue(bare["queuedAt"] is kotlinx.serialization.json.JsonNull)
+    }
+
+    @Test
     fun rowsThatAreNotToolDispatchAreHidden() {
         assertNull(StorageAuditSink.parseRow("r", "c", "model_call", "x", "{}", 0L))
         assertNull(StorageAuditSink.parseRow("r", "c", StorageAuditSink.TYPE, "x", "not-json", 0L))

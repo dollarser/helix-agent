@@ -188,6 +188,31 @@ data class ApprovalEntity(
 )
 
 /**
+ * doc 11 section 4 (roadmap HXA-037): `interaction_receipts` — structured user questions
+ * with one-time receipts. A question is bound to session/turn/requestId/version/expiry;
+ * the answer is consumed EXACTLY ONCE (state guard in SQL). A receipt is deliberately NOT
+ * an approval proof: there is no binding hash here, no mint path, and no receipt operation
+ * ever touches the `approvals` table — a user answer can never substitute an Approval
+ * Proof (type-level and table-level separation). [questionSummary] is a bounded redacted
+ * summary (<=512 chars, no sensitive body); [answerHash] stores the SHA-256 of the answer
+ * (the answer BODY is owned by the conversation message, not this table).
+ */
+@Entity(tableName = "interaction_receipts")
+data class InteractionReceiptEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String,
+    val turnId: String,
+    val requestId: String,
+    val version: Int,
+    val questionSummary: String,
+    val state: String,
+    val createdAt: Long,
+    val expiresAt: Long,
+    val answerHash: String?,
+    val answeredAt: Long?,
+)
+
+/**
  * architecture doc 9.1: `executions` — runtime, limits, exit code / signal. One row per tool
  * call (same per-call convention as `approvals`/`tool_results`): `byToolCall` returns a single
  * row, so duplicates are rejected at the schema level.

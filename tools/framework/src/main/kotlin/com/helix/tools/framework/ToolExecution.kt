@@ -63,9 +63,19 @@ sealed interface ToolExecutorResult {
         val output: JsonElement,
     ) : ToolExecutorResult
 
-    /** A terminal tool failure with a stable, model-visible message. */
+    /**
+     * A terminal tool failure with a stable, model-visible message.
+     *
+     * [sideEffectFree] is the platform executor's CONFIRMED report that this attempt
+     * produced no side effect (doc 11 section 3.3: 只允许确认零副作用、相同 envelope、
+     * 同/更强隔离的有界技术重试). Examples of true positives: the companion Runtime's
+     * Binder died before the Job was accepted, a connection failed before the request was
+     * sent. When in doubt this MUST stay false — an unconfirmed failure is terminal and
+     * the next run of the same action is a NEW ToolCall with a new approval.
+     */
     data class Failed(
         val detail: String,
+        val sideEffectFree: Boolean = false,
     ) : ToolExecutorResult
 
     /** The deadline was reached (or the implementation chose to stop at it). */

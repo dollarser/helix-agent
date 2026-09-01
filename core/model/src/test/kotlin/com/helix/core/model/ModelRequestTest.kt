@@ -288,4 +288,73 @@ class ModelRequestTest {
             ModelRequest(model = "a\u0001b", messages = listOf(user))
         }
     }
+
+    @Test
+    fun assistantToolCallStepAllowsTextlessMessage() {
+        val step =
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(ToolCallId("call_1"), ToolName("time.now"), "{}"),
+                    ),
+            )
+        val request = ModelRequest(model = "m", messages = listOf(user, step, user))
+        assertEquals(3, request.messages.size)
+        assertEquals(1, request.messages[1].toolCalls.size)
+        // A request must never END on the assistant step (the back-fill request ends on
+        // the tool results instead).
+        assertThrows<IllegalArgumentException>("request must not end on the assistant step") {
+            ModelRequest(model = "m", messages = listOf(user, step))
+        }
+    }
+
+    @Test
+    fun toolCallRolesAreExclusive() {
+        assertThrows<IllegalArgumentException>("non-assistant roles cannot carry toolCalls") {
+            ModelMessage(
+                role = ModelRole.USER,
+                text = "hi",
+                toolCalls = listOf(AssistantToolCall(ToolCallId("c"), ToolName("t"), "{}")),
+            )
+        }
+        assertThrows<IllegalArgumentException>("tool message cannot carry toolCalls") {
+            ModelMessage(
+                role = ModelRole.TOOL,
+                text = "r",
+                toolCallId = ToolCallId("c"),
+                toolName = ToolName("t"),
+                toolCalls = listOf(AssistantToolCall(ToolCallId("c"), ToolName("t"), "{}")),
+            )
+        }
+        assertThrows<IllegalArgumentException>("duplicate call ids must be rejected") {
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(ToolCallId("c"), ToolName("t"), "{}"),
+                        AssistantToolCall(ToolCallId("c"), ToolName("t"), "{}"),
+                    ),
+            )
+        }
+    }
+
+    @Test
+    fun assistantToolCallArgumentRulesAreEnforced() {
+        assertThrows<IllegalArgumentException>("blank arguments must be rejected") {
+            AssistantToolCall(ToolCallId("c"), ToolName("t"), "  ")
+        }
+        assertThrows<IllegalArgumentException>("non-object arguments must be rejected") {
+            AssistantToolCall(ToolCallId("c"), ToolName("t"), "[1,2]")
+        }
+        assertThrows<IllegalArgumentException>("NUL in arguments must be rejected") {
+            AssistantToolCall(ToolCallId("c"), ToolName("t"), "{\"a\":\"\u0000\"}")
+        }
+        assertEquals(
+            "{\"k\":\"v\"}",
+            AssistantToolCall(ToolCallId("c"), ToolName("t"), "{\"k\":\"v\"}").argumentsJson,
+        )
+    }
 }

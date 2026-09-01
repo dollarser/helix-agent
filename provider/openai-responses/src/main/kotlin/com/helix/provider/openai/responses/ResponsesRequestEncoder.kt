@@ -68,7 +68,9 @@ public class ResponsesRequestEncoder(
             buildJsonObject {
                 put("model", request.model)
                 put("stream", true)
-                putJsonArray("input") { request.messages.forEach { add(inputItem(it)) } }
+                putJsonArray("input") {
+                    request.messages.forEach { message -> inputItems(message).forEach { add(it) } }
+                }
                 if (request.tools.isNotEmpty()) {
                     putJsonArray("tools") {
                         request.tools.forEach { tool ->
@@ -97,6 +99,32 @@ public class ResponsesRequestEncoder(
             }
         // JsonElement.toString() renders the tree as compact, valid JSON.
         return root.toString()
+    }
+
+    /**
+     * One [ModelMessage] can become MULTIPLE wire items: an assistant tool-call step
+     * (HXA-037 back-fill) is a text `message` item (when it has text) followed by one
+     * `function_call` item per call, in the model's original order; the following
+     * `function_call_output` items answer them by call id.
+     */
+    private fun inputItems(message: ModelMessage): List<JsonElement> {
+        if (message.role == ModelRole.ASSISTANT && message.toolCalls.isNotEmpty()) {
+            val items = mutableListOf<JsonElement>()
+            if (message.text.isNotEmpty()) {
+                items += inputItem(message)
+            }
+            message.toolCalls.forEach { call ->
+                items +=
+                    buildJsonObject {
+                        put("type", "function_call")
+                        put("call_id", call.id.value)
+                        put("name", call.name.value)
+                        put("arguments", call.argumentsJson)
+                    }
+            }
+            return items
+        }
+        return listOf(inputItem(message))
     }
 
     private fun inputItem(message: ModelMessage): JsonElement =

@@ -64,6 +64,8 @@ data class DispatchAuditEvent(
     val sessionId: String,
     val toolName: String,
     val toolVersion: String,
+    /** When the ToolScheduler enqueued the call (null for a direct dispatch). */
+    val queuedAt: Long? = null,
     val startedAt: Long,
     val policyDecidedAt: Long?,
     val approvalAcquiredAt: Long?,
@@ -76,6 +78,8 @@ data class DispatchAuditEvent(
     val actionFingerprint: String?,
     val outputHash: String?,
     val outputTruncated: Boolean,
+    /** 1-based attempt number within the dispatch (doc 11 section 3.3). */
+    val attemptId: Int = 1,
 ) {
     init {
         require(correlationId.isNotBlank()) { "correlationId must not be blank" }
@@ -83,6 +87,8 @@ data class DispatchAuditEvent(
         require(sessionId.isNotBlank()) { "sessionId must not be blank" }
         require(toolName.isNotBlank()) { "toolName must not be blank" }
         require(finishedAt >= startedAt) { "finishedAt must not precede startedAt" }
+        require(queuedAt == null || startedAt >= queuedAt) { "startedAt must not precede queuedAt" }
+        require(attemptId >= 1) { "attemptId must be >= 1" }
         require(
             policyDecidedAt == null || policyDecidedAt >= startedAt,
         ) { "policyDecidedAt must not precede startedAt" }

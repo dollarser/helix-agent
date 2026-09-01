@@ -220,6 +220,20 @@ class StorageApprovalBroker(
         approvals.consume(proof, now, now)
     }
 
+    /**
+     * Bounded technical retry (roadmap HXA-037): refund the spent proof and re-mint from
+     * the SAME record — without presenting the confirmation surface again. Null when the
+     * record can no longer mint (window elapsed between the failure and the retry) or the
+     * refund guard failed; the dispatcher then ends the retry with the original failure.
+     */
+    override fun reMint(proof: ApprovalProof): ApprovalProof? {
+        if (!approvals.refund(proof)) return null
+        return when (val mint = approvals.mint(proof.approvalId, clock.now().toEpochMilli())) {
+            is ApprovalMintOutcome.Minted -> mint.proof
+            is ApprovalMintOutcome.Rejected -> null
+        }
+    }
+
     @Suppress("ReturnCount") // one return per terminal condition of the wait (cancel, expiry, decision, interrupt)
     private fun waitForDecision(
         approvalId: String,

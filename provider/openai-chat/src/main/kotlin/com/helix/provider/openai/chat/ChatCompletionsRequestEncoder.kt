@@ -8,12 +8,14 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 
 /**
  * Resolved form of an [ImageReference] for the Chat Completions request body
@@ -126,7 +128,9 @@ public class ChatCompletionsRequestEncoder(
             ModelRole.SYSTEM, ModelRole.USER, ModelRole.ASSISTANT -> {
                 val content =
                     if (message.images.isEmpty()) {
-                        JsonPrimitive(message.text)
+                        // An assistant tool-call step may be textless (its content IS the
+                        // calls): the wire accepts `content: null` then.
+                        if (message.text.isEmpty()) JsonNull else JsonPrimitive(message.text)
                     } else {
                         buildJsonArray {
                             add(
@@ -153,6 +157,24 @@ public class ChatCompletionsRequestEncoder(
                 buildJsonObject {
                     put("role", JsonPrimitive(message.role.name.lowercase()))
                     put("content", content)
+                    // HXA-037 back-fill: re-carry the assistant's tool calls in the model's
+                    // original order; the following tool messages key by these ids.
+                    if (message.toolCalls.isNotEmpty()) {
+                        putJsonArray("tool_calls") {
+                            message.toolCalls.forEach { call ->
+                                add(
+                                    buildJsonObject {
+                                        put("id", JsonPrimitive(call.id.value))
+                                        put("type", JsonPrimitive("function"))
+                                        putJsonObject("function") {
+                                            put("name", JsonPrimitive(call.name.value))
+                                            put("arguments", JsonPrimitive(call.argumentsJson))
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

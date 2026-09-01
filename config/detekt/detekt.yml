@@ -12,6 +12,11 @@ complexity:
     active: true
     functionThreshold: 8
     constructorThreshold: 10
+  # Test classes grow with the scenario list; production code stays bounded by the
+  # default threshold. (A scenario suite that shares one fixture harness is one class
+  # by design — splitting it only moves the size, not the coupling.)
+  LargeClass:
+    excludes: ['**/src/test/**', '**/src/androidTest/**']
 
 style:
   MagicNumber:

@@ -1,5 +1,6 @@
 package com.helix.provider.anthropic
 
+import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -8,6 +9,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.provider.api.RequestEncoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonArrayBuilder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -140,8 +142,6 @@ public class AnthropicRequestEncoder(
         return body.toString()
     }
 
-    private fun maxTokensOf(request: ModelRequest): Long = (request.maxOutputTokens ?: DEFAULT_MAX_TOKENS).toLong()
-
     private fun systemOf(request: ModelRequest): String? =
         request.messages
             .filter { it.role == ModelRole.SYSTEM }
@@ -240,51 +240,50 @@ public class AnthropicRequestEncoder(
                 ModelRole.ASSISTANT -> "assistant"
                 else -> error("system/tool handled by the run merge")
             }
-        if (message.images.isEmpty()) {
-            return buildJsonObject {
-                put("role", role)
-                put("content", message.text)
-            }
-        }
+        // Exactly one shape per message: plain text, the assistant's tool_use blocks, or
+        // the user's text+image blocks (a tool-call step never carries images).
+        val isPlain = message.images.isEmpty() && message.toolCalls.isEmpty()
         return buildJsonObject {
             put("role", role)
-            putJsonArray("content") {
-                add(
-                    buildJsonObject {
-                        put("type", "text")
-                        put("text", message.text)
-                    },
-                )
-                message.images.forEach { image ->
-                    add(
-                        buildJsonObject {
-                            put("type", "image")
-                            putJsonObject("source") {
-                                when (val payload = resolver.resolve(image)) {
-                                    is ImagePayload.Base64 -> {
-                                        put("type", "base64")
-                                        put("media_type", image.mediaType)
-                                        put("data", payload.value)
-                                    }
-
-                                    is ImagePayload.Url -> {
-                                        requireValidUrl(payload.value)
-                                        put("type", "url")
-                                        put("url", payload.value)
-                                    }
-                                }
-                            }
-                        },
-                    )
+            if (isPlain) {
+                put("content", message.text)
+            } else {
+                putJsonArray("content") {
+                    addTextBlock(message.text)
+                    message.toolCalls.forEach { call ->
+                        addToolUseBlock(call)
+                    }
+                    message.images.forEach { image ->
+                        addImageBlock(image, resolver)
+                    }
                 }
             }
         }
     }
 
-    private fun requireValidUrl(url: String) {
-        require(url.isNotBlank() && url.none { it.code in 0x00..0x1F || it.code == 0x7F }) {
-            "image url is blank or contains a control character"
-        }
+    /** A `text` content block (skipped when the text is empty). */
+    private fun JsonArrayBuilder.addTextBlock(text: String) {
+        if (text.isEmpty()) return
+        add(
+            buildJsonObject {
+                put("type", "text")
+                put("text", text)
+            },
+        )
+    }
+
+    /** A `tool_use` content block for one assistant tool call (HXA-037 back-fill). */
+    private fun JsonArrayBuilder.addToolUseBlock(call: AssistantToolCall) {
+        // HXA-037 back-fill: the assistant's tool calls become `tool_use` blocks in the
+        // model's original order; the merged tool-result run below answers them by id.
+        add(
+            buildJsonObject {
+                put("type", "tool_use")
+                put("id", call.id.value)
+                put("name", call.name.value)
+                put("input", Json.parseToJsonElement(call.argumentsJson))
+            },
+        )
     }
 
     private fun thinkingOf(request: ModelRequest): JsonObject? {
@@ -301,12 +300,6 @@ public class AnthropicRequestEncoder(
             put("type", "enabled")
             put("budget_tokens", budget)
         }
-    }
-
-    private fun parseSchema(schemaJson: String): JsonElement {
-        val element = Json.parseToJsonElement(schemaJson)
-        require(element is JsonObject) { "tool inputSchemaJson must be a JSON object" }
-        return element
     }
 
     /** One wire message: a single USER/ASSISTANT message or a merged TOOL run. */
@@ -341,3 +334,47 @@ public class AnthropicRequestEncoder(
             )
     }
 }
+
+/** The wire `max_tokens`: the request's bound, else the protocol default. */
+private fun maxTokensOf(request: ModelRequest): Long =
+    (request.maxOutputTokens ?: AnthropicRequestEncoder.DEFAULT_MAX_TOKENS).toLong()
+
+/** The tool's inputSchema as a JSON object (the wire requires an object, never a schema URL). */
+private fun parseSchema(schemaJson: String): JsonElement {
+    val element = Json.parseToJsonElement(schemaJson)
+    require(element is JsonObject) { "tool inputSchemaJson must be a JSON object" }
+    return element
+}
+
+/** An `image` content block (base64 or url source). */
+private fun JsonArrayBuilder.addImageBlock(
+    image: ImageReference,
+    resolver: ImageResolver,
+) {
+    add(
+        buildJsonObject {
+            put("type", "image")
+            putJsonObject("source") {
+                when (val payload = resolver.resolve(image)) {
+                    is ImagePayload.Base64 -> {
+                        put("type", "base64")
+                        put("media_type", image.mediaType)
+                        put("data", payload.value)
+                    }
+
+                    is ImagePayload.Url -> {
+                        requireValidUrl(payload.value)
+                        put("type", "url")
+                        put("url", payload.value)
+                    }
+                }
+            }
+        },
+    )
+}
+
+private fun requireValidUrl(url: String) {
+        require(url.isNotBlank() && url.none { it.code in 0x00..0x1F || it.code == 0x7F }) {
+            "image url is blank or contains a control character"
+        }
+    }

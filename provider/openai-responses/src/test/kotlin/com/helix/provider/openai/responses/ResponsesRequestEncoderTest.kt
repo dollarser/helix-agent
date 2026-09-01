@@ -1,6 +1,7 @@
 package com.helix.provider.openai.responses
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -281,5 +282,53 @@ class ResponsesRequestEncoderTest {
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             ResponsesRequestEncoder(badUrl).encode(request)
         }
+    }
+
+    @Test
+    fun assistantToolCallStepBecomesFunctionCallItems() {
+        val step =
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "checking",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(
+                            ToolCallId("call_a1"),
+                            ToolName("time.now"),
+                            "{\"tz\":\"UTC\"}",
+                        ),
+                    ),
+            )
+        val request =
+            ModelRequest(
+                model = "m",
+                messages =
+                    listOf(
+                        ModelMessage(ModelRole.USER, "now?"),
+                        step,
+                        ModelMessage(
+                            ModelRole.TOOL,
+                            "1700000000",
+                            emptyList(),
+                            ToolCallId("call_a1"),
+                            ToolName("time.now"),
+                        ),
+                    ),
+            )
+        val items = input(parsed(encoder.encode(request)))
+        // The assistant step expands to: message item + function_call items, then the
+        // function_call_output answering by call id.
+        assertEquals(4, items.size)
+        val assistantMsg = items[1].jsonObject
+        assertEquals("message", assistantMsg["type"]?.jsonPrimitive?.content)
+        assertEquals("assistant", assistantMsg["role"]?.jsonPrimitive?.content)
+        val fn = items[2].jsonObject
+        assertEquals("function_call", fn["type"]?.jsonPrimitive?.content)
+        assertEquals("call_a1", fn["call_id"]?.jsonPrimitive?.content)
+        assertEquals("time.now", fn["name"]?.jsonPrimitive?.content)
+        assertEquals("{\"tz\":\"UTC\"}", fn["arguments"]?.jsonPrimitive?.content)
+        val out = items[3].jsonObject
+        assertEquals("function_call_output", out["type"]?.jsonPrimitive?.content)
+        assertEquals("call_a1", out["call_id"]?.jsonPrimitive?.content)
     }
 }

@@ -34,8 +34,10 @@ import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.DispatchOutcomeCode
+import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
+import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +50,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.jvm.Volatile
 
 /**
@@ -474,30 +479,15 @@ class ChatService(
         providerId: String,
         retryTurnId: String?,
     ) {
-        val acc = StreamAccumulator()
+        var acc = StreamAccumulator()
+        var activeCallId = callId
         try {
-            val request = buildRequest(sessionId, retryTurnId)
-            val provider = providerService.modelProviderFor(providerId)
-            provider.stream(request).collect { event ->
-                applyEvent(event, acc, turnId)
-            }
-            // HXA-036: a CLEAN stream may end with tool calls — process them serially in
-            // model order (doc 02 section 5.3), each through the dispatcher (validation ->
-            // policy -> approval -> execution -> verification -> audit). Tool-result
-            // back-fill into a second model call is HXA-037; this turn terminalizes after
-            // the tools settle.
-            val decision =
-                if (turnCancels[turnId]?.isCancelled() == true) {
-                    TerminalOutcome(TurnState.CANCELLED, null, "已停止")
-                } else {
-                    terminalDecision(acc)
-                }
-            if (decision.state == TurnState.COMPLETED) {
-                processToolCalls(turnId, acc)
-            }
-            terminalize(turnId, callId, sessionId, acc, decision)
+            val result = runToolLoop(sessionId, turnId, providerId, retryTurnId, callId)
+            acc = result.acc
+            activeCallId = result.callId
+            terminalize(turnId, activeCallId, sessionId, acc, result.decision)
         } catch (e: CancellationException) {
-            terminalize(turnId, callId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, null))
+            terminalize(turnId, activeCallId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, null))
             throw e
         } catch (e: ApprovalCancelledException) {
             // The user stopped the turn while the approval card was pending: the turn
@@ -506,7 +496,7 @@ class ChatService(
             // cancellation was the user's own action, not a failure. (The exception
             // carries only the approval id — safe to log as metadata.)
             Log.i(TAG, "turn $turnId stopped while awaiting approval: ${e.message}")
-            terminalize(turnId, callId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, "已停止"))
+            terminalize(turnId, activeCallId, sessionId, acc, TerminalOutcome(TurnState.CANCELLED, null, "已停止"))
         } catch (e: Exception) {
             // An unexpected boundary failure (a guard reject, corrupt rows, a
             // provider row deleted mid-turn): the turn STILL reaches a
@@ -515,12 +505,120 @@ class ChatService(
             Log.e(TAG, "turn $turnId failed at the model boundary", e)
             terminalize(
                 turnId,
-                callId,
+                activeCallId,
                 sessionId,
                 acc,
                 TerminalOutcome(TurnState.FAILED, ErrorCode.INTERNAL.name, "请求失败，请重试"),
             )
         }
+    }
+
+    /** The tool loop's terminal state: the LAST model step's call id, its accumulator, the decision. */
+    private data class ToolLoopResult(
+        val callId: String,
+        val acc: StreamAccumulator,
+        val decision: TerminalOutcome,
+    )
+
+    /**
+     * The multi-step tool loop (roadmap HXA-037; doc 11 sections 3/5): model step →
+     * (bounded-parallel) tool round → results settled IN CALL SEQUENCE → persisted
+     * (`model-visible ⇔ persisted`) → back-filled into the next model request → repeat
+     * until the model stops calling tools, a step fails, the user stops, or the turn's
+     * tool-round budget is exhausted (fail closed).
+     *
+     * Every model step gets its own `model_calls` row; every tool call gets its durable
+     * outcome through the dispatcher (cancel/recovery invariants — doc 11 section 7).
+     */
+    @Suppress("ReturnCount") // one early return per terminal condition of the loop (cancel / non-completed / budget)
+    private suspend fun runToolLoop(
+        sessionId: String,
+        turnId: String,
+        providerId: String,
+        retryTurnId: String?,
+        firstCallId: String,
+    ): ToolLoopResult {
+        val provider = providerService.modelProviderFor(providerId)
+        val snapshot = providerSnapshot(providerId)
+        var callId = firstCallId
+        var request = buildRequest(sessionId, retryTurnId)
+        var toolRounds = 0
+        while (true) {
+            if (turnCancels[turnId]?.isCancelled() == true) {
+                return ToolLoopResult(callId, StreamAccumulator(), TerminalOutcome(TurnState.CANCELLED, null, "已停止"))
+            }
+            val acc = StreamAccumulator()
+            provider.stream(request).collect { event ->
+                applyEvent(event, acc, turnId)
+            }
+            val decision = terminalDecision(acc, turnId)
+            if (decision.state == TurnState.COMPLETED) {
+                val toolRound =
+                    runToolRound(
+                        sessionId,
+                        turnId,
+                        callId,
+                        acc,
+                        toolRounds,
+                        snapshot,
+                    )
+                if (toolRound is ToolRoundLimit) {
+                    // The turn's tool-round budget is exhausted: fail closed.
+                    return ToolLoopResult(callId, acc, TerminalOutcome(TurnState.FAILED, "TOOL_STEP_LIMIT", "工具步骤超过上限"))
+                }
+                if (toolRound is ToolRoundContinued) {
+                    toolRounds = toolRound.toolRounds
+                    callId = toolRound.nextCallId
+                    request = buildBackfillRequest(sessionId)
+                    continue
+                }
+            }
+            // The loop is terminal: the turn is cancelled or failed, or the model gave a
+            // final answer (no more tool calls). A continued round already advanced the
+            // loop state above.
+            return ToolLoopResult(callId, acc, decision)
+        }
+    }
+
+    /** The one tool round of [runToolLoop]: continued, budget-limited, or none (no finished calls). */
+    private sealed class ToolRoundResult
+
+    private class ToolRoundContinued(
+        val toolRounds: Int,
+        val nextCallId: String,
+    ) : ToolRoundResult()
+
+    private class ToolRoundLimit : ToolRoundResult()
+
+    /**
+     * Runs ONE tool round when the decision is COMPLETED with finished tool calls: closes
+     * the model step's row, persists the assistant's tool-call step, runs the batch
+     * (bounded parallel execution, deterministic call-order settlement), persists the
+     * results in the SAME call sequence, and opens the next model step's row.
+     * [ToolRoundLimit] when the turn's tool-round budget is exhausted (fail closed — the
+     * turn ends FAILED with the safe label rather than silently truncating the work);
+     * null when there is no finished call to run (the model's final answer).
+     */
+    @Suppress("ReturnCount") // one early return per guard (no finished call / budget limit)
+    private suspend fun runToolRound(
+        sessionId: String,
+        turnId: String,
+        callId: String,
+        acc: StreamAccumulator,
+        toolRounds: Int,
+        snapshot: String,
+    ): ToolRoundResult? {
+        val calls = acc.toolCalls.values.filter { it.finished }
+        if (calls.isEmpty()) return null
+        if (toolRounds >= MAX_TOOL_ROUNDS_PER_TURN) return ToolRoundLimit()
+        finishModelStep(callId, acc)
+        persistAssistantToolStep(sessionId, turnId, calls)
+        val turn = storage.turns.resolve(turnId)
+        val settled = runToolBatch(turn, turnId, calls)
+        settled.forEach { persistToolResult(sessionId, turnId, it) }
+        val nextCallId = idGenerator()
+        storage.modelCalls.append(nextCallId, turnId, snapshot, CALL_RUNNING)
+        return ToolRoundContinued(toolRounds + 1, nextCallId)
     }
 
     /** The stream collector's working set: the text buffer + the terminal-decision inputs. */
@@ -616,11 +714,26 @@ class ChatService(
      * FAILED with its safe label + code — never as COMPLETED; only a clean
      * stream completes the turn.
      */
-    private fun terminalDecision(acc: StreamAccumulator): TerminalOutcome =
+    private fun terminalDecision(
+        acc: StreamAccumulator,
+        turnId: String,
+    ): TerminalOutcome =
         when {
-            acc.refusalLabel != null -> TerminalOutcome(TurnState.FAILED, null, acc.refusalLabel)
-            acc.errorCode != null -> TerminalOutcome(TurnState.FAILED, acc.errorCode, acc.errorLabel)
-            else -> TerminalOutcome(TurnState.COMPLETED, null, null)
+            turnCancels[turnId]?.isCancelled() == true -> {
+                TerminalOutcome(TurnState.CANCELLED, null, "已停止")
+            }
+
+            acc.refusalLabel != null -> {
+                TerminalOutcome(TurnState.FAILED, null, acc.refusalLabel)
+            }
+
+            acc.errorCode != null -> {
+                TerminalOutcome(TurnState.FAILED, acc.errorCode, acc.errorLabel)
+            }
+
+            else -> {
+                TerminalOutcome(TurnState.COMPLETED, null, null)
+            }
         }
 
     /** A turn's terminal state: the persisted state, the persisted safe code, the user-visible label. */
@@ -695,17 +808,143 @@ class ChatService(
         sessionId: String,
         retryTurnId: String?,
     ): ModelRequest {
-        val rows =
-            storage.messages
-                .listBySession(sessionId)
-                .map { ChatHistoryBuilder.PersistedRow(it.turnId, it.role, storage.messages.readContent(it)) }
-        val history = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
-        val messages = ChatHistoryBuilder.toModelMessages(history)
-        require(messages.lastOrNull()?.role == ModelRole.USER) {
+        val history = persistedHistory(sessionId, retryTurnId)
+        require(history.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
-        return ModelRequest(model = config.model, messages = messages)
+        return ModelRequest(model = config.model, messages = history)
+    }
+
+    /**
+     * The next model request of a tool loop (roadmap HXA-037 back-fill): the FULL
+     * persisted history, which now ends with the just-settled TOOL result rows —
+     * `model-visible ⇔ persisted`: every message the model sees was persisted FIRST
+     * (doc 11 section 4: no model-visible input without a persisted event).
+     */
+    private suspend fun buildBackfillRequest(sessionId: String): ModelRequest {
+        val history = persistedHistory(sessionId, null)
+        require(history.lastOrNull()?.role == ModelRole.TOOL) {
+            "a back-fill request must end with the tool results"
+        }
+        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        return ModelRequest(model = config.model, messages = history)
+    }
+
+    /** The persisted rows → strict model messages (a malformed tool row fails the turn closed). */
+    private suspend fun persistedHistory(
+        sessionId: String,
+        retryTurnId: String?,
+    ): List<ModelMessage> {
+        val rows =
+            storage.messages
+                .listBySession(sessionId)
+                .map {
+                    ChatHistoryBuilder.PersistedRow(
+                        turnId = it.turnId,
+                        role = it.role,
+                        kind = it.kind,
+                        content = storage.messages.readContent(it),
+                    )
+                }
+        val historyRows = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
+        return ChatHistoryBuilder.toModelMessagesStrict(historyRows)
+    }
+
+    /** Closes a tool-loop model step's `model_calls` row (COMPLETED + its usage). */
+    private fun finishModelStep(
+        callId: String,
+        acc: StreamAccumulator,
+    ) {
+        storage.modelCalls.update(
+            storage.modelCalls.resolve(callId),
+            CALL_COMPLETED,
+            acc.usageJson,
+            null,
+        )
+    }
+
+    /**
+     * Persists the assistant's tool-call step (roadmap HXA-037): the model-visible content
+     * of the step is exactly the calls — `[{"id","name","arguments"}]` in the model's
+     * ORIGINAL order (`arguments` is the model's raw argument JSON object string, the same
+     * bytes the dispatcher canonicalizes and the approval binding hashes).
+     */
+    private fun persistAssistantToolStep(
+        sessionId: String,
+        turnId: String,
+        calls: List<ModelToolCall>,
+    ) {
+        val body =
+            buildJsonArray {
+                calls.forEach { call ->
+                    add(
+                        buildJsonObject {
+                            put("id", call.callId)
+                            put("name", call.name)
+                            put("arguments", call.args.toString())
+                        },
+                    )
+                }
+            }
+        storage.messages.append(
+            idGenerator(),
+            sessionId,
+            turnId,
+            ModelRole.ASSISTANT.name,
+            ChatHistoryBuilder.KIND_TOOL_CALLS,
+            body.toString(),
+        )
+    }
+
+    /**
+     * Persists ONE settled tool result as a TOOL message (called in CALL SEQUENCE — the
+     * back-fill order the next model request re-carries). The content is the bounded
+     * `{"id","tool","status","summary"}` — exactly the text the timeline shows.
+     */
+    private fun persistToolResult(
+        sessionId: String,
+        turnId: String,
+        settled: SettledCall,
+    ) {
+        val status: String
+        val summary: String
+        when (val o = settled.outcome) {
+            is ToolDispatchOutcome.Succeeded -> {
+                status = "SUCCEEDED"
+                summary = boundedSummary(o.result.payload)
+            }
+
+            is ToolDispatchOutcome.Denied -> {
+                status = o.code.name
+                summary = o.detail
+            }
+
+            is ToolDispatchOutcome.ExecutionFailed -> {
+                status = o.code.name
+                summary = o.detail
+            }
+
+            ToolDispatchOutcome.Cancelled -> {
+                status = "CANCELLED"
+                summary = "启动前取消（无副作用）"
+            }
+        }
+        val body =
+            buildJsonObject {
+                put("id", settled.callId)
+                put("tool", settled.toolName)
+                put("status", status)
+                put("summary", summary)
+            }
+        storage.messages.append(
+            idGenerator(),
+            sessionId,
+            turnId,
+            ModelRole.TOOL.name,
+            ChatHistoryBuilder.KIND_TOOL_RESULT,
+            body.toString(),
+        )
     }
 
     // --------------------------------------------------------------------------------
@@ -720,7 +959,7 @@ class ChatService(
      * B1: 切换 Profile 不改变待审批决定).
      */
     private data class DispatchFacts(
-        val descriptor: com.helix.tools.framework.ToolDescriptor?,
+        val descriptor: ToolDescriptor?,
         val args: JsonObject,
         val profile: SafetyProfile,
         val dataOrigin: DataOrigin,
@@ -743,83 +982,104 @@ class ChatService(
     }
 
     /**
-     * Processes a clean stream's tool calls SERIALLY in model order (doc 02 section 5.3:
-     * results later enter the model context in original call sequence — HXA-037). This runs
-     * on the work scope's IO thread, so the broker's blocking user-decision wait never
-     * touches the main thread.
+     * One model call's tool round (roadmap HXA-037; doc 11 section 3): prepares every
+     * finished tool call (persist the tool_call row with the CANONICAL argument bytes —
+     * doc 02 section 9.1/9.2: the stored argsJson is the same text the approval binding
+     * hashes; the row's primary key IS the model call id, the approvals table's foreign
+     * key targets tool_calls.id), then runs them through the [ToolScheduler] — bounded
+     * platform-decided parallelism, call-order deterministic settlement.
+     *
+     * Every call gets a DURABLE outcome (doc 11 section 7): a dispatcher abort (turn
+     * stop during an approval wait) settles the affected call CANCELLED and rethrows
+     * [ApprovalCancelledException] AFTER all settled calls are persisted.
+     *
+     * This runs on the work scope's IO thread — the scheduler and the broker's blocking
+     * user-decision wait never touch the main thread.
      */
-    private fun processToolCalls(
+    private fun runToolBatch(
+        turn: com.helix.core.storage.entity.TurnEntity,
         turnId: String,
-        acc: StreamAccumulator,
-    ) {
-        for ((_, call) in acc.toolCalls) {
-            if (!call.finished) {
-                // A stream that did not FINISH this call is not a complete tool call: the
-                // turn decision would not have been COMPLETED, so this is defensive — but
-                // fail closed: never dispatch a partial argument stream.
-                continue
+        calls: List<ModelToolCall>,
+    ): List<SettledCall> {
+        val prepareds =
+            calls.map { call ->
+                prepareToolCall(turn, call.callId, call.name, call.args.toString())
             }
-            dispatchToolCall(call.callId, turnId, call.name, call.args.toString())
+        val requests = prepareds.mapNotNull { it.request }
+        val batch =
+            if (requests.isEmpty()) {
+                ToolScheduler.BatchResult(emptyList(), null)
+            } else {
+                toolPipeline.scheduler.scheduleBatch(requests)
+            }
+        var slot = 0
+        val settled =
+            prepareds.map { p ->
+                if (p.preSettled != null) {
+                    // Malformed BEFORE the dispatcher (invalid name / non-object args):
+                    // persistRejectedToolCall already wrote row + result + audit.
+                    SettledCall(p.callId, p.toolNameRaw, p.preSettled)
+                } else {
+                    val outcome =
+                        batch.outcomes[slot++] ?: ToolDispatchOutcome.Cancelled
+                    settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome)
+                    SettledCall(p.callId, p.toolNameRaw, outcome)
+                }
+            }
+        batch.error?.let { error ->
+            if (error is ApprovalCancelledException) {
+                // The turn is over (doc 11: cancel leaves a durable outcome for every
+                // queued call — all slots above are settled); drop the signal and
+                // propagate the turn-level cancellation.
+                turnCancels.remove(turnId)
+            }
+            throw error
         }
+        return settled
     }
 
+    /** A settled tool call: the model call id, its name, the durable outcome (call order). */
+    private data class SettledCall(
+        val callId: String,
+        val toolName: String,
+        val outcome: ToolDispatchOutcome,
+    )
+
+    /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */
+    private class PreparedToolCall(
+        val callId: String,
+        val toolNameRaw: String,
+        val row: com.helix.core.storage.entity.ToolCallEntity?,
+        val request: ToolDispatchRequest?,
+        val preSettled: ToolDispatchOutcome.Denied?,
+    )
+
     /**
-     * The single per-call entry point of the tool pipeline (roadmap HXA-036; doc 11: the
+     * The per-call preparation of the tool pipeline (roadmap HXA-036/037; doc 11: the
      * Dispatcher is the only path between model-requested calls and implementations):
-     * persist the tool_call row with the CANONICAL argument bytes (doc 02 section 9.1/9.2
-     * — the stored argsJson is the same text the approval binding hashes; the row's
-     * primary key IS the model call id, the approvals table's foreign key targets
-     * tool_calls.id) → publish the timeline row → run the ToolDispatcher → settle the
-     * persisted state, the bounded result and the timeline/card.
-     *
-     * The stream path uses this per model tool call; direct (non-stream) callers may
-     * invoke it on their own worker thread — the dispatcher MAY BLOCK on the approval
-     * card's user-decision wait, so never call it from the main thread. The turn row must
-     * already be persisted (the tool_call foreign key targets turns.id); the session id is
-     * the turn's PERSISTED session (a trusted fact, never a caller-supplied one).
-     *
-     * The mode is [AgentMode.ACT]: the chat UI has no Plan/Goal tool surface yet (those
-     * come with their own milestones) — when one arrives it feeds this field, and the
-     * Policy Engine's Plan gate (READ_ONLY + L1 ceiling) applies from that request on.
-     *
-     * Malformed input that the dispatcher can never see (an invalid tool name, non-object
-     * arguments) is persisted + audited here and returned as a stable
-     * [ToolDispatchOutcome.Denied]. A turn stop during the approval wait settles the call
-     * as CANCELLED (doc 11: every queued call gets a durable outcome) and rethrows
-     * [ApprovalCancelledException] for the turn-level handler.
+     * validate the name/arguments, persist the tool_call row with the canonical bytes,
+     * publish the timeline row, build the trusted dispatch request and register the card
+     * facts. Malformed input the dispatcher can never see (an invalid tool name,
+     * non-object arguments) is persisted + audited HERE as a stable
+     * [ToolDispatchOutcome.Denied] (preSettled) — the dispatcher is never fed garbage.
      */
-    @Suppress("ReturnCount") // one fail-closed early return per malformed-input kind + the main return
-    fun dispatchToolCall(
+    private fun prepareToolCall(
+        turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
-        turnId: String,
         toolNameRaw: String,
         rawArgsJson: String,
-    ): ToolDispatchOutcome {
-        val turn = storage.turns.resolve(turnId)
-        val toolName: ToolName =
-            runCatching { ToolName(toolNameRaw) }.getOrNull()
-                ?: return persistRejectedToolCall(
-                    turn,
-                    toolCallId,
-                    toolNameRaw,
-                    rawArgsJson,
-                    "unknown",
-                    DispatchOutcomeCode.UNKNOWN_TOOL,
-                    "工具名不合法，已拒绝",
-                )
+    ): PreparedToolCall {
+        val turnId = turn.id
+        val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
         val descriptor = toolPipeline.resolveLatest(toolNameRaw)
-        val args: JsonObject =
-            parseJsonObjectOrNull(rawArgsJson)
-                ?: return persistRejectedToolCall(
-                    turn,
-                    toolCallId,
-                    toolNameRaw,
-                    rawArgsJson,
-                    descriptor?.version?.value?.toString() ?: "unknown",
-                    DispatchOutcomeCode.INVALID_ARGUMENTS,
-                    "参数不是有效的 JSON 对象，已拒绝",
-                )
-        val canonical = CanonicalArgs.canonicalize(args)
+        val args: JsonObject? = parseJsonObjectOrNull(rawArgsJson)
+        // Malformed input the dispatcher can never see (an invalid tool name, non-object
+        // arguments) is persisted + audited HERE as a stable Denied (preSettled).
+        val rejection = invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
+        rejection?.let { return it }
+        val validName = toolName!!
+        val validArgs = args!!
+        val canonical = CanonicalArgs.canonicalize(validArgs)
         val row =
             storage.toolCalls.append(
                 id = toolCallId,
@@ -835,23 +1095,99 @@ class ChatService(
         // facts, never the live store).
         val profile = profile.value
         publishToolRow(turnId, toolCallId, toolNameRaw, canonical, "处理中", null, null)
-        val request = buildDispatchRequest(turn, toolCallId, toolName, descriptor, args, profile)
+        val request = buildDispatchRequest(turn, toolCallId, validName, descriptor, validArgs, profile)
         dispatchFacts[toolCallId] =
-            DispatchFacts(descriptor, args, profile, DataOrigin.WORKSPACE, turnId, request.egress)
-        return try {
-            val outcome = toolPipeline.dispatcher.dispatch(request)
-            settleToolCall(row, toolCallId, toolNameRaw, outcome)
-            outcome
-        } catch (e: ApprovalCancelledException) {
-            // The user stopped the turn while the card was pending: the call never
-            // executed — settle its durable CANCELLED outcome (doc 11: cancel leaves a
-            // durable outcome for every queued call), drop the turn's cancel signal (the
-            // turn is over; the stream path's terminalize does the same), then propagate
-            // the turn-level cancellation so the turn terminalizes CANCELLED.
-            settleToolCall(row, toolCallId, toolNameRaw, ToolDispatchOutcome.Cancelled)
-            turnCancels.remove(turnId)
-            throw e
+            DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
+        return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
+    }
+
+    /** The pre-settled Denied for an invalid tool NAME or non-object ARGUMENTS; null when both are valid. */
+    @Suppress("LongParameterList") // one parameter per validated fact; splitting the pair would obscure the invariant
+    private fun invalidToolCallRejection(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        toolCallId: String,
+        toolNameRaw: String,
+        rawArgsJson: String,
+        toolName: ToolName?,
+        args: JsonObject?,
+        descriptor: ToolDescriptor?,
+    ): PreparedToolCall? =
+        when {
+            toolName == null -> {
+                PreparedToolCall(
+                    toolCallId,
+                    toolNameRaw,
+                    null,
+                    null,
+                    persistRejectedToolCall(
+                        turn,
+                        toolCallId,
+                        toolNameRaw,
+                        rawArgsJson,
+                        "unknown",
+                        DispatchOutcomeCode.UNKNOWN_TOOL,
+                        "工具名不合法，已拒绝",
+                    ),
+                )
+            }
+
+            args == null -> {
+                PreparedToolCall(
+                    toolCallId,
+                    toolNameRaw,
+                    null,
+                    null,
+                    persistRejectedToolCall(
+                        turn,
+                        toolCallId,
+                        toolNameRaw,
+                        rawArgsJson,
+                        descriptor?.version?.value?.toString() ?: "unknown",
+                        DispatchOutcomeCode.INVALID_ARGUMENTS,
+                        "参数不是有效的 JSON 对象，已拒绝",
+                    ),
+                )
+            }
+
+            else -> {
+                null
+            }
         }
+
+    /**
+     * The single per-call entry point of the tool pipeline (roadmap HXA-036; kept for the
+     * direct (non-stream) callers and the device tests): prepare → single-call scheduler
+     * batch → settle. The dispatcher MAY BLOCK on the approval card's user-decision wait,
+     * so never call this from the main thread. The turn row must already be persisted;
+     * the session id is the turn's PERSISTED session (a trusted fact). The mode is
+     * [AgentMode.ACT]: the chat UI has no Plan/Goal tool surface yet (those come with
+     * their own milestones) — when one arrives it feeds the request's mode field, and the
+     * Policy Engine's Plan gate (READ_ONLY + L1 ceiling) applies from that request on.
+     *
+     * A turn stop during the approval wait settles the call as CANCELLED (doc 11: every
+     * queued call gets a durable outcome) and rethrows [ApprovalCancelledException] for
+     * the turn-level handler.
+     */
+    fun dispatchToolCall(
+        toolCallId: String,
+        turnId: String,
+        toolNameRaw: String,
+        rawArgsJson: String,
+    ): ToolDispatchOutcome {
+        val turn = storage.turns.resolve(turnId)
+        val prepared = prepareToolCall(turn, toolCallId, toolNameRaw, rawArgsJson)
+        prepared.preSettled?.let { return it }
+        val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
+        val outcome =
+            batch.outcomes.singleOrNull() ?: ToolDispatchOutcome.Cancelled
+        settleToolCall(prepared.row!!, toolCallId, toolNameRaw, outcome)
+        batch.error?.let { error ->
+            if (error is ApprovalCancelledException) {
+                turnCancels.remove(turnId)
+            }
+            throw error
+        }
+        return outcome
     }
 
     /** A JSON object, or null for any malformed input (parse failures are swallowed — the
@@ -869,7 +1205,7 @@ class ChatService(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
         toolName: ToolName,
-        descriptor: com.helix.tools.framework.ToolDescriptor?,
+        descriptor: ToolDescriptor?,
         args: JsonObject,
         profile: SafetyProfile,
     ): ToolDispatchRequest =
@@ -1389,7 +1725,15 @@ class ChatService(
         const val TAG = "HelixChat"
         const val SUMMARY_CAP = 500
         const val TOOL_TIMELINE_CAP = 200
-        const val KIND_TEXT = "TEXT"
+        const val KIND_TEXT = ChatHistoryBuilder.KIND_TEXT
+
+        /**
+         * The turn's tool-round budget (roadmap HXA-037): a turn may run at most this many
+         * model→tools rounds before it ends FAILED (fail closed — an unbounded tool loop
+         * would burn the user's model budget; the full user-configurable TurnBudgets
+         * arrive with the budget UI, this is the hard product cap in the meantime).
+         */
+        const val MAX_TOOL_ROUNDS_PER_TURN = 8
         const val CALL_RUNNING = "RUNNING"
         const val CALL_COMPLETED = "COMPLETED"
         const val CALL_CANCELLED = "CANCELLED"

@@ -37,6 +37,20 @@ interface ApprovalBroker {
      * started (cancelled before start) leave the proof unconsumed.
      */
     fun consume(proof: ApprovalProof)
+
+    /**
+     * Bounded technical retry support (roadmap HXA-037; doc 11 section 3.3): after an
+     * attempt whose failure was CONFIRMED zero-side-effect, refund the spent [proof]
+     * (the record's consumption is annulled) and mint a fresh proof from the SAME typed
+     * APPROVED record — WITHOUT presenting the confirmation surface again and WITHOUT
+     * creating a new record.
+     *
+     * Returns the fresh proof, or null when the record can no longer mint (its window
+     * elapsed in the meantime) — the dispatcher then ends the retry with the original
+     * failure. This grants nothing new: it reuses the user's existing typed decision on
+     * the identical binding, and the storage guard makes the refund one-time.
+     */
+    fun reMint(proof: ApprovalProof): ApprovalProof?
 }
 
 /**

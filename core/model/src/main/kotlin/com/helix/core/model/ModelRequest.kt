@@ -47,15 +47,48 @@ data class ImageReference(
 }
 
 /**
+ * One tool call the ASSISTANT message made (roadmap HXA-037: tool results are back-filled
+ * into the model context, so the next request must re-carry the assistant's calls — the
+ * vendor protocols key the following tool-result messages by these ids).
+ *
+ * [argumentsJson] is the model's argument JSON exactly as produced (a JSON object in the
+ * strict subset — the same canonical form the request's tool schemas use); it is re-encoded
+ * verbatim by the adapters, never re-serialized from a parsed tree (no key-order drift).
+ */
+data class AssistantToolCall(
+    val id: ToolCallId,
+    val name: ToolName,
+    val argumentsJson: String,
+) {
+    init {
+        require(argumentsJson.isNotBlank()) { "tool call arguments must not be blank" }
+        require(argumentsJson.none { it == '\u0000' }) { "tool call arguments must not contain NUL" }
+        val parsed = parseJson(argumentsJson)
+        require(parsed is JsonNode.Obj) { "tool call arguments must be a JSON object" }
+        require(parsed.entries.size <= MAX_ARGUMENT_ENTRIES) {
+            "tool call arguments have too many entries (max $MAX_ARGUMENT_ENTRIES)"
+        }
+    }
+
+    internal companion object {
+        const val MAX_ARGUMENT_ENTRIES = 512
+    }
+}
+
+/**
  * One message of a model request. Role/content rules (enforced at construction):
  *
- * - [text] is non-blank for every role; NUL is rejected (other C0 characters such as newlines
- *   are legitimate text, e.g. code blocks);
+ * - [text] is non-blank for every role EXCEPT an assistant tool-call step: when
+ *   [toolCalls] is non-empty the assistant message may be textless (its content IS the
+ *   calls — the vendor protocols accept an assistant message without text); NUL is
+ *   rejected (other C0 characters such as newlines are legitimate text, e.g. code blocks);
  * - [images] are only allowed on [ModelRole.USER] (tool results and assistant/system turns
  *   carry no images in the first version);
  * - a [ModelRole.TOOL] message answers exactly one call: [toolCallId] and [toolName] are
  *   mandatory (the vendor APIs key tool results by the call id — doc 02 section 5.3);
- * - all other roles must leave [toolCallId]/[toolName] null.
+ * - all other roles must leave [toolCallId]/[toolName] null;
+ * - [toolCalls] is only allowed on [ModelRole.ASSISTANT] and carries the calls in the
+ *   model's original order (results back-fill in that same call sequence — doc 11 section 3.2).
  */
 data class ModelMessage(
     val role: ModelRole,
@@ -63,9 +96,11 @@ data class ModelMessage(
     val images: List<ImageReference> = emptyList(),
     val toolCallId: ToolCallId? = null,
     val toolName: ToolName? = null,
+    val toolCalls: List<AssistantToolCall> = emptyList(),
 ) {
     init {
-        require(text.isNotBlank()) { "message text must not be blank" }
+        val isToolCallStep = role == ModelRole.ASSISTANT && toolCalls.isNotEmpty()
+        require(text.isNotBlank() || isToolCallStep) { "message text must not be blank" }
         require(text.none { it == '\u0000' }) { "message text must not contain NUL" }
         require(text.length <= MAX_TEXT_LENGTH) { "message text exceeds $MAX_TEXT_LENGTH chars" }
         require(images.size <= MAX_IMAGES_PER_MESSAGE) {
@@ -83,6 +118,15 @@ data class ModelMessage(
                 }
             }
         }
+        if (role != ModelRole.ASSISTANT) {
+            require(toolCalls.isEmpty()) { "only assistant messages may carry toolCalls" }
+        }
+        require(toolCalls.size <= MAX_TOOL_CALLS_PER_MESSAGE) {
+            "at most $MAX_TOOL_CALLS_PER_MESSAGE tool calls per assistant message"
+        }
+        require(toolCalls.map { it.id.value }.toSet().size == toolCalls.size) {
+            "duplicate tool call ids in one assistant message"
+        }
         if (role != ModelRole.USER) {
             require(images.isEmpty()) { "only user messages may carry images" }
         }
@@ -91,6 +135,7 @@ data class ModelMessage(
     internal companion object {
         const val MAX_TEXT_LENGTH = 262_144
         const val MAX_IMAGES_PER_MESSAGE = 4
+        const val MAX_TOOL_CALLS_PER_MESSAGE = 32
     }
 }
 

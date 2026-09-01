@@ -1,6 +1,7 @@
 package com.helix.provider.anthropic
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -330,6 +331,55 @@ class AnthropicRequestEncoderTest {
             )
         val e = assertThrows(IllegalArgumentException::class.java) { encoder.encode(request) }
         assertTrue(e.message!!.contains("content store miss"))
+    }
+
+    @Test
+    fun assistantToolCallStepBecomesToolUseBlocks() {
+        val step =
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(
+                            ToolCallId("toolu_a"),
+                            ToolName("read"),
+                            "{\"path\":\"a.txt\",\"offset\":1}",
+                        ),
+                        AssistantToolCall(ToolCallId("toolu_b"), ToolName("write"), "{\"path\":\"b\"}"),
+                    ),
+            )
+        val request =
+            ModelRequest(
+                model = "claude-test",
+                messages =
+                    listOf(
+                        user("do it"),
+                        step,
+                        tool("toolu_a", "read", "content-a"),
+                        tool("toolu_b", "write", "written-b"),
+                    ),
+            )
+        val messages = arr(parsed(encoder.encode(request)), "messages")
+        // Wire: user, assistant(tool_use blocks), user(merged tool_results).
+        assertEquals(3, messages.size)
+        val assistant = messages[1].jsonObject
+        assertEquals("assistant", str(assistant, "role"))
+        val content = assistant["content"] as JsonArray
+        assertEquals(2, content.size)
+        assertEquals("tool_use", str(content[0].jsonObject, "type"))
+        assertEquals("toolu_a", str(content[0].jsonObject, "id"))
+        assertEquals("read", str(content[0].jsonObject, "name"))
+        assertEquals(
+            "{\"path\":\"a.txt\",\"offset\":1}",
+            content[0].jsonObject["input"]!!.toString(),
+        )
+        assertEquals("toolu_b", str(content[1].jsonObject, "id"))
+        // The merged tool-result run answers both by id.
+        val results = messages[2].jsonObject["content"] as JsonArray
+        assertEquals("tool_result", str(results[0].jsonObject, "type"))
+        assertEquals("toolu_a", str(results[0].jsonObject, "tool_use_id"))
+        assertEquals("toolu_b", str(results[1].jsonObject, "tool_use_id"))
     }
 
     @Test

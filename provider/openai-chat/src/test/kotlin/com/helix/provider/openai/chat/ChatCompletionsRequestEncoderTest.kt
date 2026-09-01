@@ -1,6 +1,7 @@
 package com.helix.provider.openai.chat
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.AssistantToolCall
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -278,5 +279,65 @@ class ChatCompletionsRequestEncoderTest {
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             ChatCompletionsRequestEncoder(badUrl).encode(request)
         }
+    }
+
+    @Test
+    fun assistantToolCallStepEncodesToolCallsAndTheToolResultKeysByCallId() {
+        val step =
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(
+                            ToolCallId("call_a1"),
+                            ToolName("time.now"),
+                            "{\"tz\":\"UTC\"}",
+                        ),
+                        AssistantToolCall(
+                            ToolCallId("call_b2"),
+                            ToolName("file.read"),
+                            "{\"path\":\"a.txt\"}",
+                        ),
+                    ),
+            )
+        val result =
+            ModelMessage(
+                role = ModelRole.TOOL,
+                text = "1700000000",
+                toolCallId = ToolCallId("call_a1"),
+                toolName = ToolName("time.now"),
+            )
+        val request =
+            ModelRequest(
+                model = "gpt-test",
+                messages =
+                    listOf(
+                        ModelMessage(ModelRole.USER, "now?"),
+                        step,
+                        result,
+                    ),
+            )
+        val msgs = messages(parsed(encoder.encode(request)))
+        val assistant = msgs[1].jsonObject
+        assertEquals("assistant", assistant["role"]?.jsonPrimitive?.content)
+        org.junit.Assert.assertTrue(
+            "a textless tool-call step encodes content:null",
+            assistant["content"] is kotlinx.serialization.json.JsonNull,
+        )
+        val calls = assistant["tool_calls"]?.jsonArray
+        org.junit.Assert.assertNotNull(calls)
+        assertEquals(2, calls?.size)
+        val first = calls?.get(0)!!.jsonObject
+        assertEquals("call_a1", first["id"]?.jsonPrimitive?.content)
+        assertEquals("function", first["type"]?.jsonPrimitive?.content)
+        val fn = first["function"]?.jsonObject
+        assertEquals("time.now", fn?.get("name")?.jsonPrimitive?.content)
+        assertEquals("{\"tz\":\"UTC\"}", fn?.get("arguments")?.jsonPrimitive?.content)
+        val second = calls?.get(1)!!.jsonObject
+        assertEquals("call_b2", second["id"]?.jsonPrimitive?.content)
+        val tool = msgs[2].jsonObject
+        assertEquals("tool", tool["role"]?.jsonPrimitive?.content)
+        assertEquals("call_a1", tool["tool_call_id"]?.jsonPrimitive?.content)
     }
 }

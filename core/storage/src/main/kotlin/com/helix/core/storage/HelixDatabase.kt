@@ -12,6 +12,7 @@ import com.helix.core.storage.dao.ExecutionDao
 import com.helix.core.storage.dao.ExecutionTargetDao
 import com.helix.core.storage.dao.GoalDao
 import com.helix.core.storage.dao.GoalRunDao
+import com.helix.core.storage.dao.InteractionReceiptDao
 import com.helix.core.storage.dao.McpCapabilityDao
 import com.helix.core.storage.dao.McpServerDao
 import com.helix.core.storage.dao.MessageDao
@@ -33,6 +34,7 @@ import com.helix.core.storage.entity.ExecutionEntity
 import com.helix.core.storage.entity.ExecutionTargetEntity
 import com.helix.core.storage.entity.GoalEntity
 import com.helix.core.storage.entity.GoalRunEntity
+import com.helix.core.storage.entity.InteractionReceiptEntity
 import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
 import com.helix.core.storage.entity.MessageEntity
@@ -49,8 +51,9 @@ import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
 
 /**
- * Helix local database (architecture doc 9). Schema version 2 (HXA-034) holds all base tables
- * plus the plan/goal tables of doc section 9.1 (v1, HXA-014):
+ * Helix local database (architecture doc 9). Schema version 3 (HXA-037) holds all base tables
+ * plus the plan/goal tables of doc section 9.1 (v1, HXA-014) and the structured-question
+ * receipt table (v3, doc 11 section 4):
  *
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
@@ -71,6 +74,7 @@ import com.helix.core.storage.entity.TurnEntity
             ToolCallEntity::class,
             ToolResultEntity::class,
             ApprovalEntity::class,
+            InteractionReceiptEntity::class,
             ExecutionEntity::class,
             ArtifactEntity::class,
             AuditEventEntity::class,
@@ -87,7 +91,7 @@ import com.helix.core.storage.entity.TurnEntity
             CapabilityGrantEntity::class,
             ExecutionTargetEntity::class,
         ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 22 doc 9.1 tables
@@ -105,6 +109,8 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun toolResultDao(): ToolResultDao
 
     abstract fun approvalDao(): ApprovalDao
+
+    abstract fun interactionReceiptDao(): InteractionReceiptDao
 
     abstract fun executionDao(): ExecutionDao
 
@@ -152,6 +158,34 @@ abstract class HelixDatabase : RoomDatabase() {
                 override fun migrate(db: SupportSQLiteDatabase) {
                     db.execSQL("ALTER TABLE approvals RENAME COLUMN argsHash TO bindingHash")
                     db.execSQL("ALTER TABLE approvals ADD COLUMN expiresAt INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
+        /**
+         * v2 -> v3 (HXA-037, structured user questions with one-time receipts, doc 11 section 4):
+         * adds the `interaction_receipts` table. No existing table changes; the table is
+         * additive and empty on upgrade. A receipt row is deliberately NOT foreign-keyed to
+         * `tool_calls` (a question is not a tool call) and carries no approval fields —
+         * answering it can never create or consume an Approval Proof.
+         */
+        val MIGRATION_2_3 =
+            object : Migration(2, 3) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `interaction_receipts` (" +
+                            "`id` TEXT NOT NULL, " +
+                            "`sessionId` TEXT NOT NULL, " +
+                            "`turnId` TEXT NOT NULL, " +
+                            "`requestId` TEXT NOT NULL, " +
+                            "`version` INTEGER NOT NULL, " +
+                            "`questionSummary` TEXT NOT NULL, " +
+                            "`state` TEXT NOT NULL, " +
+                            "`createdAt` INTEGER NOT NULL, " +
+                            "`expiresAt` INTEGER NOT NULL, " +
+                            "`answerHash` TEXT, " +
+                            "`answeredAt` INTEGER, " +
+                            "PRIMARY KEY(`id`))",
+                    )
                 }
             }
     }
