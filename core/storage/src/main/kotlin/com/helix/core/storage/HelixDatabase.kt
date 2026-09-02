@@ -149,15 +149,49 @@ abstract class HelixDatabase : RoomDatabase() {
          * - `approvals.argsHash` is renamed to `bindingHash`: from v2 it stores the full
          *   ApprovalBinding hash (tool/version/schema/scope/session/target/UI token/args),
          *   not just the argument digest;
-         * - `approvals.expiresAt` bounds the approval window; the NOT NULL default 0 marks
-         *   every migrated row already expired (fail closed: a v1 approval can never mint or
-         *   consume a proof after migration).
+         * - `approvals.expiresAt` bounds the approval window; every migrated row is written
+         *   with `0` (fail closed: a v1 approval can never mint or consume a proof after
+         *   migration).
+         *
+         * Renamed via copy-and-swap, NOT `ALTER TABLE ... RENAME COLUMN`: that statement
+         * needs SQLite >= 3.25, which Android only ships from API 30, and `minSdk` is 29 —
+         * on an API 29 (Android 10) device the column-rename form throws
+         * `near "COLUMN": syntax error` and the v1 -> v2 upgrade crashes on launch.
+         * The new table mirrors the canonical Room v2 DDL for [ApprovalEntity]
+         * (`bindingHash` + `expiresAt INTEGER NOT NULL`) so the result is byte-identical to
+         * a fresh v2 create; the `approvals` index is recreated after the rename.
          */
         val MIGRATION_1_2 =
             object : Migration(1, 2) {
                 override fun migrate(db: SupportSQLiteDatabase) {
-                    db.execSQL("ALTER TABLE approvals RENAME COLUMN argsHash TO bindingHash")
-                    db.execSQL("ALTER TABLE approvals ADD COLUMN expiresAt INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL(
+                        "CREATE TABLE `approvals_new` (" +
+                            "`id` TEXT NOT NULL, " +
+                            "`toolCallId` TEXT NOT NULL, " +
+                            "`bindingHash` TEXT NOT NULL, " +
+                            "`decision` TEXT, " +
+                            "`decidedAt` INTEGER, " +
+                            "`consumedAt` INTEGER, " +
+                            "`expiresAt` INTEGER NOT NULL, " +
+                            "PRIMARY KEY(`id`), " +
+                            "FOREIGN KEY(`toolCallId`) REFERENCES `tool_calls`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL(
+                        "INSERT INTO `approvals_new` " +
+                            "(`id`, `toolCallId`, `bindingHash`, `decision`, `decidedAt`, " +
+                            "`consumedAt`, `expiresAt`) " +
+                            "SELECT `id`, `toolCallId`, `argsHash`, `decision`, `decidedAt`, " +
+                            "`consumedAt`, 0 FROM `approvals`",
+                    )
+                    // Dropping the old table also drops its indexes.
+                    db.execSQL("DROP TABLE `approvals`")
+                    // Plain table rename (not column rename) is supported on every SQLite.
+                    db.execSQL("ALTER TABLE `approvals_new` RENAME TO `approvals`")
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX `index_approvals_toolCallId` " +
+                            "ON `approvals` (`toolCallId`)",
+                    )
                 }
             }
 
