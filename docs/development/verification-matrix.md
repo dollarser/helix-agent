@@ -79,6 +79,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-045 | `./gradlew :feature:files-allfiles:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；专用设备 |
 | HXA-046 | `./gradlew :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-047 | `./gradlew :tools:files:test` | Zip Slip/膨胀比 fixture |
+| HXA-048 | `./gradlew :core:workspace:test :tools:files:test :app:testConsumerDebugUnitTest spotlessCheck detekt` | `./gradlew :app:connectedConsumerDebugAndroidTest`；ChatService 单会话并发/取消、大目录 list/search 边界 |
 
 ### M5：QuickJS
 

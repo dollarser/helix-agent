@@ -238,6 +238,17 @@ validate → capability → policy → approval → timeout/cancel → execute �
 
 实现受限 zip/tar 创建与解压；防 Zip Slip、symlink/device、文件数、总大小和膨胀比。
 
+### HXA-048 全项目审查后续收敛
+
+M4 收尾的审查后续任务（非新功能、不扩大权限、不升级依赖）：收敛 2026-09 全项目审查发现、但刻意未在缺陷修复提交中改动的项，逐项补回归测试。
+
+- ChatService turn 模型：当前同时持有全局 `activeTurnJob`/`turnGate` 与按 turn 的 `turnCancels`，而 `turnGate` 的 KDoc 声称每会话只有一个 active turn。核实并发真相并统一为明确的每会话模型；补上目前缺失的 ChatService 单元测试骨架（当前只有仪器测试覆盖 turn 行为）。
+- `WorkspaceQuota.usageBytes` 每次文件操作都全量 walk scope 目录来报告当前用量；仅当目录规模成为实际瓶颈时改有界/增量统计，否则记录并维持现状。
+- 删除生产无引用的 `WorkspacePath`（连同 `WorkspacePathTest`、`FileScopePathTest` 中镜像它的 oracle 与 `PathSyntax` KDoc 引用），保留 `FileScopePath` 为唯一模型可见路径类型。
+- `files.listDir` 先物化并排序整个目录再分页，app 层 `list` 的 TIME/SIZE 排序只作用于按名截断的前缀；仅当大目录浏览成为实际场景时修正，否则记录并维持现状。
+
+明确不改动（审查判定为有意设计，不进入本任务范围，避免后续实现者误删）：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现的恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 空子项目是 M6 的占位模块。
+
 ## 9. M5：QuickJS
 
 ### HXA-050 Zipline Spike
