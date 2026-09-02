@@ -38,8 +38,10 @@ import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafImportPipeline
 import com.helix.provider.api.CredentialLookup
 import com.helix.tools.files.EditTool
+import com.helix.tools.files.FilesArchiveTool
 import com.helix.tools.files.FilesCopyTool
 import com.helix.tools.files.FilesDeleteTool
+import com.helix.tools.files.FilesExtractTool
 import com.helix.tools.files.FilesListTool
 import com.helix.tools.files.FilesMkdirTool
 import com.helix.tools.files.FilesMoveTool
@@ -271,6 +273,11 @@ internal class DefaultAppContainer(
         FilesCopyTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesMoveTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesDeleteTool.register(toolRegistry, toolImplementations, workspaceStore)
+        // HXA-047: restricted zip/tar create + extract. The format codec and the Zip Slip /
+        // expansion / entry-type defenses are shared; the tools only admit scope + region and
+        // route containment/quota through the store. Archive writes into work/ only.
+        FilesArchiveTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesExtractTool.register(toolRegistry, toolImplementations, workspaceStore)
     }
 
     /**
