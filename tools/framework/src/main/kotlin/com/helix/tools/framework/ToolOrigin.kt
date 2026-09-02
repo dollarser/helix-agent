@@ -9,6 +9,22 @@ package com.helix.tools.framework
  */
 sealed interface ToolOrigin {
     /**
+     * The origin's SECURITY-RELEVANT canonical form (ADR-0011, HXA-042): the stable string
+     * the [ToolDescriptor.contractHash] hashes over. For [McpOrigin] this is the server it is
+     * bound to and the negotiated protocol version (a server update that changes either
+     * invalidates prior approvals). [McpOrigin.serverProvidedHints] are EXCLUDED on purpose:
+     * they are untrusted, display-only server text that is never consumed for classification,
+     * risk or policy (see its KDoc) — folding untrusted display hints into the approval
+     * contract would let a server revoke an approval by editing a hint, which is not a
+     * security property.
+     */
+    fun canonicalOf(): String =
+        when (this) {
+            is BuiltInOrigin -> "built-in"
+            is McpOrigin -> "mcp:$serverId:$protocolVersion"
+        }
+
+    /**
      * A built-in tool: a fixed name registered in product code. Built-in
      * names can never be registered from model output or by an MCP server
      * (doc 02 section 7.1: 内置工具名不能由模型动态注册).

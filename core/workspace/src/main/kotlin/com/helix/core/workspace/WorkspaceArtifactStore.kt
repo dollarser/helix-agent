@@ -1,7 +1,10 @@
 package com.helix.core.workspace
 
+import java.io.FileNotFoundException
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
 import java.util.UUID
 
 /**
@@ -21,6 +24,7 @@ import java.util.UUID
  * boundary) — a model reference can never smuggle a path out of the scope, and the real path is
  * never handed back to the model.
  */
+@Suppress("TooManyFunctions") // one small method per file operation; the store is the HXA-041 facade
 class WorkspaceArtifactStore(
     private val rootResolver: ScopeRootResolver,
     private val quotaPolicy: WorkspaceQuotaPolicy = WorkspaceQuotaPolicy.default,
@@ -162,6 +166,28 @@ class WorkspaceArtifactStore(
     }
 
     /**
+     * Bounded, containment-enforced read of a window of [path] (HXA-042 `read`). Delegates the
+     * offset/maxBytes/encoding/EOF semantics to [ReadWindow.read] after proving the path stays
+     * inside the scope. A missing or non-regular file is a fail-closed [IOException]; an offset
+     * past the end is a stable terminal window (see [ReadWindow]).
+     * @throws ScopeNotAvailable when the scope cannot be resolved.
+     * @throws PathResolutionError on a forbidden symlink or escaping segment.
+     * @throws IOException when the target exists but is not a readable regular file.
+     */
+    fun readWindow(
+        path: FileScopePath,
+        offset: Long,
+        maxBytes: Long,
+    ): ReadWindow {
+        val root = resolve(path.scopeId)
+        val target = resolveContained(path, root)
+        if (!Files.exists(target) || !Files.isRegularFile(target)) {
+            throw java.io.FileNotFoundException("not a regular file: ${path.toModelReference()}")
+        }
+        return ReadWindow.read(target, offset, maxBytes)
+    }
+
+    /**
      * Probes [path] without reading the full file (bounded prefix). A missing path is reported,
      * not thrown.
      */
@@ -182,6 +208,122 @@ class WorkspaceArtifactStore(
      */
     fun reclaimTempFiles(scope: String): Int = AtomicFileWriter.cleanupRecursively(resolve(scope))
 
+    /**
+     * Stat metadata for [path] (HXA-042 `files.stat`). Bounded and existence-agnostic: a missing
+     * path is reported (exists=false, size -1), not thrown. The regular/symlink flags are read
+     * without following links ([LinkOption.NOFOLLOW_LINKS]) so a symlinked file is reported as a
+     * symlink, not as its target. Only containment is enforced here — reads are region-agnostic.
+     * @throws ScopeNotAvailable when the scope cannot be resolved.
+     * @throws PathResolutionError on a forbidden symlink or escaping segment.
+     */
+    fun stat(path: FileScopePath): StatInfo {
+        val root = resolve(path.scopeId)
+        val target = resolveContained(path, root)
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            return StatInfo(false, -1L, false, false, false)
+        }
+        val attrs: BasicFileAttributes =
+            Files.readAttributes(
+                target,
+                BasicFileAttributes::class.java,
+                LinkOption.NOFOLLOW_LINKS,
+            )
+        return StatInfo(true, attrs.size(), attrs.isDirectory(), attrs.isRegularFile(), attrs.isSymbolicLink())
+    }
+
+    /**
+     * Lists the immediate children of a directory referenced by [path] (HXA-042 `files.list`).
+     * The referenced path must be an existing directory. Returns at most [maxEntries] entries
+     * (the first [maxEntries] in filesystem order), reporting [truncated] when more remain — a
+     * bounded listing the model can page by name. Only containment is enforced here; the tool
+     * layer decides whether to hide `.helix/` internals.
+     * @throws FileNotFoundException when [path] does not exist or is not a directory.
+     * @throws ScopeNotAvailable when the scope cannot be resolved.
+     * @throws PathResolutionError on a forbidden symlink or escaping segment.
+     */
+    fun listDir(
+        path: FileScopePath,
+        maxEntries: Int,
+    ): ListResult {
+        val root = resolve(path.scopeId)
+        val dir = resolveContained(path, root)
+        if (!Files.exists(dir) || !Files.isDirectory(dir)) {
+            throw FileNotFoundException("not a directory: ${path.toModelReference()}")
+        }
+        val names =
+            Files.list(dir).use { stream ->
+                stream
+                    .sorted()
+                    .map { it.fileName.toString() }
+                    .toList()
+            }
+        val page = if (maxEntries >= names.size) names else names.subList(0, maxEntries)
+        return ListResult(page, names.size > maxEntries)
+    }
+
+    /**
+     * Searches the files under a directory referenced by [base] for those whose names contain
+     * [needle] as a case-insensitive substring (HXA-042 `files.search`). Returns matching
+     * [FileScopePath]s relative to [base], at most [maxResults]. The walk is depth-first and
+     * bounded by [maxScan] entries total and stops at the caps — a large tree is probed, not
+     * exhausted. Symlinked directories are never followed, so the walk cannot leave [base].
+     * @throws FileNotFoundException when [base] does not exist or is not a directory.
+     * @throws ScopeNotAvailable when the scope cannot be resolved.
+     * @throws PathResolutionError on a forbidden symlink or escaping segment (the [base] itself).
+     */
+    fun search(
+        base: FileScopePath,
+        needle: String,
+        maxResults: Int,
+        maxScan: Int,
+    ): SearchResult {
+        require(needle.isNotEmpty()) { "search needle must be non-empty" }
+        require(maxResults in 1..MAX_SEARCH_RESULTS) { "maxResults must be 1..$MAX_SEARCH_RESULTS (got $maxResults)" }
+        require(maxScan in 1..MAX_SEARCH_SCAN) { "maxScan must be 1..$MAX_SEARCH_SCAN (got $maxScan)" }
+        val root = resolve(base.scopeId)
+        val baseDir = resolveContained(base, root)
+        if (!Files.exists(baseDir) || !Files.isDirectory(baseDir)) {
+            throw FileNotFoundException("not a directory: ${base.toModelReference()}")
+        }
+        val needleLower = needle.lowercase()
+        // Relativize against baseDir (not the resolved root) so the result is correct even when
+        // the scope root is itself a symlink (macOS /var -> /private/var): baseDir and the walked
+        // paths come from the same starting object, so relativize is valid.
+        val baseRel = base.relativePath.removeSuffix("/")
+        val prefix = if (baseRel.isEmpty()) "" else "$baseRel/"
+        return Files.walk(baseDir).use { stream ->
+            boundedWalk(stream.iterator(), baseDir, base.scopeId, prefix, needleLower, maxResults, maxScan)
+        }
+    }
+
+    /**
+     * Creates a directory referenced by [path] (HXA-042 `files.mkdir`). Intermediate segments are
+     * created as needed. Fails closed when the target already exists (a file or a directory) so an
+     * accidental `mkdir` never clobbers content. [region], when non-null, must be a writable user
+     * region that the path stays inside (the tool layer enforces this; the store enforces
+     * containment regardless).
+     * @throws FileAlreadyExistsException when the target exists.
+     * @throws ScopeNotAvailable when the scope cannot be resolved.
+     * @throws PathResolutionError on a forbidden symlink or escaping segment.
+     */
+    fun mkdir(
+        path: FileScopePath,
+        region: String?,
+    ) {
+        if (region != null) {
+            require(WorkspaceLayout.isRegion(region)) { "region must be one of ${WorkspaceLayout.regions}" }
+            require(WorkspaceLayout.regionOf(path.relativePath) == region) {
+                "destination must stay inside the $region region"
+            }
+        }
+        val root = resolve(path.scopeId)
+        val target = resolveContained(path, root)
+        if (Files.exists(target)) {
+            throw java.nio.file.FileAlreadyExistsException(path.toModelReference())
+        }
+        Files.createDirectories(target)
+    }
+
     private fun resolve(scope: String): Path = rootResolver.resolveRoot(scope)
 
     private fun resolveContained(
@@ -190,7 +332,69 @@ class WorkspaceArtifactStore(
     ): Path = PathResolution.resolveWithinRoot(root, PathResolution.join(root, path.relativePath), linkPolicy)
 
     private fun newArtifactId(): String = "art_" + UUID.randomUUID().toString().replace("-", "")
+
+    companion object {
+        /** Hard ceiling on `files.search` matches returned in one call. */
+        const val MAX_SEARCH_RESULTS: Int = 512
+
+        /** Hard ceiling on total entries walked by one `files.search` call. */
+        const val MAX_SEARCH_SCAN: Int = 20_000
+    }
 }
+
+/**
+ * Bounded depth-first name walk used by [WorkspaceArtifactStore.search]: consumes [it] and stops
+ * after [maxScan] entries or [maxResults] matches, whichever comes first. Reports
+ * [SearchResult.truncated] when a cap stopped the walk while further entries (and possibly
+ * matches) remain. The walked paths are relativized against [baseDir] by the caller's prefix.
+ */
+private fun boundedWalk(
+    it: Iterator<Path>,
+    baseDir: Path,
+    scopeId: String,
+    prefix: String,
+    needleLower: String,
+    maxResults: Int,
+    maxScan: Int,
+): SearchResult {
+    val matches = mutableListOf<FileScopePath>()
+    var scanned = 0
+    var truncated = false
+    while (scanned < maxScan && it.hasNext()) {
+        val p = it.next()
+        scanned++
+        if (p != baseDir && p.fileName.toString().contains(needleLower, ignoreCase = true)) {
+            matches += FileScopePath(scopeId, prefix + baseDir.relativize(p).joinToString("/"))
+            if (matches.size >= maxResults) {
+                truncated = true
+                break
+            }
+        }
+    }
+    if (!truncated && it.hasNext()) truncated = true
+    return SearchResult(matches, truncated)
+}
+
+/** Outcome of [WorkspaceArtifactStore.stat] (HXA-042 `files.stat`). */
+data class StatInfo(
+    val exists: Boolean,
+    val sizeBytes: Long,
+    val isDirectory: Boolean,
+    val isRegularFile: Boolean,
+    val isSymlink: Boolean,
+)
+
+/** One bounded page of [WorkspaceArtifactStore.listDir] (HXA-042 `files.list`). */
+data class ListResult(
+    val entries: List<String>,
+    val truncated: Boolean,
+)
+
+/** Bounded matches from [WorkspaceArtifactStore.search] (HXA-042 `files.search`). */
+data class SearchResult(
+    val matches: List<FileScopePath>,
+    val truncated: Boolean,
+)
 
 /** Outcome of a successful [WorkspaceArtifactStore.writeArtifact]. */
 data class WriteOutcome(

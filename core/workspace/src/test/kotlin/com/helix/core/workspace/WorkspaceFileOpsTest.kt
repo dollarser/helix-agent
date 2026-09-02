@@ -3,6 +3,7 @@ package com.helix.core.workspace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
@@ -361,6 +362,109 @@ class WorkspaceFileOpsTest {
         val invalid = byteArrayOf(0xC2.toByte(), 'a'.code.toByte())
         val r = ContentProbe.probeBytes(invalid, invalid.size.toLong())
         assertEquals(ContentProbe.Encoding.BINARY, r.encoding)
+    }
+
+    // ── stat / list / search / mkdir (HXA-042 store seam) ──────────────────────────────
+
+    @Test
+    fun statReportsSizeAndKindAndMissingIsNotAnError() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        store(root).writeArtifact(ref("work/a.txt"), "12345".toByteArray(), WorkspaceLayout.WORK)
+        Files.createDirectories(target(root, "work/sub"))
+
+        val file = store(root).stat(ref("work/a.txt"))
+        assertTrue(file.exists)
+        assertEquals(5L, file.sizeBytes)
+        assertFalse(file.isDirectory)
+        assertFalse(file.isSymlink)
+
+        val dir = store(root).stat(ref("work/sub"))
+        assertTrue(dir.exists)
+        assertTrue(dir.isDirectory)
+
+        val missing = store(root).stat(ref("work/absent.txt"))
+        assertFalse(missing.exists)
+        assertEquals(-1L, missing.sizeBytes)
+    }
+
+    @Test
+    fun listDirReturnsBoundedSortedNamesAndFlagsTruncation() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val dir = target(root, "work")
+        listOf("b.txt", "a.txt", "c.txt").forEach { Files.write(dir.resolve(it), "x".toByteArray()) }
+
+        val all = store(root).listDir(ref("work"), 10)
+        assertEquals(listOf("a.txt", "b.txt", "c.txt"), all.entries)
+        assertFalse(all.truncated)
+
+        val page = store(root).listDir(ref("work"), 2)
+        assertEquals(listOf("a.txt", "b.txt"), page.entries)
+        assertTrue(page.truncated)
+    }
+
+    @Test
+    fun listDirOfMissingOrFileFailsClosed() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        store(root).writeArtifact(ref("work/a.txt"), "x".toByteArray(), WorkspaceLayout.WORK)
+        assertThrows(java.io.FileNotFoundException::class.java) { store(root).listDir(ref("work/absent"), 10) }
+        assertThrows(java.io.FileNotFoundException::class.java) { store(root).listDir(ref("work/a.txt"), 10) }
+    }
+
+    @Test
+    fun searchFindsCaseInsensitiveMatchesAndStopsAtCaps() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val dir = target(root, "work")
+        Files.write(dir.resolve("a.txt"), "x".toByteArray())
+        Files.createDirectories(dir.resolve("nested"))
+        Files.write(dir.resolve("nested").resolve("b.TXT"), "x".toByteArray())
+        Files.write(dir.resolve("unrelated.md"), "x".toByteArray())
+
+        val r = store(root).search(ref("work"), "txt", maxResults = 10, maxScan = 100)
+        assertEquals(2, r.matches.size)
+        assertFalse(r.truncated)
+        assertTrue(r.matches.any { it.name == "a.txt" })
+        assertTrue(r.matches.any { it.name == "b.TXT" })
+
+        // A tiny cap truncates and returns at most maxResults.
+        val capped = store(root).search(ref("work"), "t", maxResults = 1, maxScan = 100)
+        assertEquals(1, capped.matches.size)
+        assertTrue(capped.truncated)
+    }
+
+    @Test
+    fun searchWithEmptyNeedleIsRejected() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        assertThrows(IllegalArgumentException::class.java) {
+            store(root).search(ref("work"), "", maxResults = 10, maxScan = 100)
+        }
+    }
+
+    @Test
+    fun mkdirCreatesDirectoryAndRefusesExistingTarget() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        store(root).mkdir(ref("work/newdir"), region = WorkspaceLayout.WORK)
+        assertTrue(Files.isDirectory(target(root, "work/newdir")))
+        assertThrows(java.nio.file.FileAlreadyExistsException::class.java) {
+            store(root).mkdir(ref("work/newdir"), region = WorkspaceLayout.WORK)
+        }
+    }
+
+    @Test
+    fun mkdirRefusesWritingIntoHelixInternals() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        try {
+            store(root).mkdir(ref(WorkspaceLayout.TRASH + "/x"), region = WorkspaceLayout.INPUT)
+            fail("expected region rejection")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("region"))
+        }
     }
 
     // ── Scope leak (doc 10) ────────────────────────────────────────────────────────────

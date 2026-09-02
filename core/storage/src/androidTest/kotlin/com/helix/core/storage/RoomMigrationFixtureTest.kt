@@ -549,6 +549,7 @@ class RoomMigrationFixtureTest {
             toolName = "bash",
             toolVersion = "1",
             schemaHash = "a".repeat(64),
+            contractHash = "b".repeat(64),
             scopeRef = "workspace:test",
             sessionId = "session-mig",
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,

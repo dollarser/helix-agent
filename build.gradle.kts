@@ -149,7 +149,7 @@ val projectDependencies =
         ":tools:android" to listOf(":core:model", ":core:policy"),
         ":tools:automation" to listOf(":core:model", ":core:policy"),
         ":tools:browser" to listOf(":core:model", ":core:policy"),
-        ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
+        ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
         ":tools:root" to listOf(":core:model", ":core:policy"),
         ":testing" to listOf(":core:model"),
     )
@@ -231,6 +231,16 @@ subprojects {
             extensions.configure<JavaPluginExtension> {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
+            }
+
+            // HXA-042: the JVM `:tools:files` module and the Android `:feature:files` module both
+            // default to the coordinate `com.helix:files:0.1.0-SNAPSHOT`. `:app` depends on BOTH
+            // (`:feature:files` from before; `:tools:files` joins now), so Gradle conflict-resolves
+            // the two SNAPSHOT versions to a single artifact and silently drops the file TOOL
+            // classes from the classpath. A distinct group disambiguates the two WITHOUT touching
+            // the API, the artifact name, or any external lockfile (project deps are not locked).
+            if (path == ":tools:files") {
+                group = "com.helix.tools"
             }
 
             extensions.configure<KotlinJvmProjectExtension> {

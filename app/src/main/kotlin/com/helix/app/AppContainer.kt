@@ -23,12 +23,23 @@ import com.helix.core.model.SystemClock
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.ScopeNotAvailable
+import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.provider.api.CredentialLookup
+import com.helix.tools.files.EditTool
+import com.helix.tools.files.FilesListTool
+import com.helix.tools.files.FilesMkdirTool
+import com.helix.tools.files.FilesSearchTool
+import com.helix.tools.files.FilesStatTool
+import com.helix.tools.files.ReadTool
+import com.helix.tools.files.WriteTool
 import com.helix.tools.framework.TimeNowTool
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
+import java.nio.file.Path
 
 /**
  * The app's manual DI container (M0 pattern; no framework). HXA-028 adds the
@@ -127,9 +138,43 @@ internal class DefaultAppContainer(
 
     private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
 
+    /**
+     * The app's own workspace scope (HXA-042): a fixed scope id whose root is the app-private
+     * `workspaces/app` directory. SAF / all-files scopes are later HXAs (044/045); until then the
+     * file tools address ONLY this scope, so a model reference can never leave the app sandbox.
+     * The root is created lazily on first use and never handed to the model (doc 10).
+     */
+    private val workspaceStore: WorkspaceArtifactStore =
+        run {
+            val root: Path =
+                java.io.File(context.filesDir, "workspaces/app").toPath().also {
+                    java.nio.file.Files
+                        .createDirectories(it)
+                }
+            WorkspaceArtifactStore(
+                ScopeRootResolver { scopeId ->
+                    if (scopeId == APP_SCOPE_ID) {
+                        root
+                    } else {
+                        throw ScopeNotAvailable("unknown scope: $scopeId")
+                    }
+                },
+            ).also { it.ensureLayout(APP_SCOPE_ID) }
+        }
+
     init {
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        // HXA-042: the first non-time.now business tools enter the production tool table. The
+        // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a
+        // security-descriptor change invalidates any approval minted for the old contract.
+        ReadTool.register(toolRegistry, toolImplementations, workspaceStore)
+        WriteTool.register(toolRegistry, toolImplementations, workspaceStore)
+        EditTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesListTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesSearchTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesStatTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesMkdirTool.register(toolRegistry, toolImplementations, workspaceStore)
     }
 
     /**
@@ -197,5 +242,8 @@ internal class DefaultAppContainer(
 
     private companion object {
         const val PREFS_NAME = "helix-ui"
+
+        /** The app's own private workspace scope id (HXA-042); the only file scope wired yet. */
+        const val APP_SCOPE_ID = "app"
     }
 }

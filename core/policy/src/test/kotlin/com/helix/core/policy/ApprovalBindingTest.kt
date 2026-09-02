@@ -19,6 +19,7 @@ class ApprovalBindingTest {
             toolName = "bash",
             toolVersion = "1",
             schemaHash = "a".repeat(64),
+            contractHash = "f".repeat(64),
             scopeRef = "workspace:ws-1",
             sessionId = "session-1",
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -34,6 +35,7 @@ class ApprovalBindingTest {
                 toolName = "bash",
                 toolVersion = "1",
                 schemaHash = "a".repeat(64),
+                contractHash = "f".repeat(64),
                 scopeRef = "workspace:ws-1",
                 sessionId = "session-1",
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -54,6 +56,9 @@ class ApprovalBindingTest {
         assertDifferentHash(base.copy(toolName = "rm"), original)
         assertDifferentHash(base.copy(toolVersion = "2"), original)
         assertDifferentHash(base.copy(schemaHash = "c".repeat(64)), original)
+        // HXA-042 (ADR-0011): the full security-descriptor contract is bound, so a contract
+        // change (even one that keeps name/version/schema constant) is a different binding.
+        assertDifferentHash(base.copy(contractHash = "e".repeat(64)), original)
         assertDifferentHash(base.copy(scopeRef = "workspace:ws-2"), original)
         assertDifferentHash(base.copy(sessionId = "session-2"), original)
         assertDifferentHash(base.copy(executionTarget = ExecutionTargetType.LOCAL_QUICKJS), original)
@@ -64,11 +69,13 @@ class ApprovalBindingTest {
     @Test
     fun canonicalJsonUsesSortedKeysAndFullEscaping() {
         val schemaHash = "a".repeat(64)
+        val contractHash = "f".repeat(64)
         val argsHash = "b".repeat(64)
         val expected =
-            """{"argsHash":"$argsHash","executionTarget":"LOCAL_ANDROID","scopeRef":"workspace:ws-1","""" +
-                """schemaHash":"$schemaHash","sessionId":"session-1","""" +
-                """toolCallId":"toolcall-1","toolName":"bash","toolVersion":"1","uiToken":"ui:approval-page:tok-1"}"""
+            """{"argsHash":"$argsHash","contractHash":"$contractHash","executionTarget":"LOCAL_ANDROID","""" +
+                """scopeRef":"workspace:ws-1","schemaHash":"$schemaHash","""" +
+                """sessionId":"session-1","toolCallId":"toolcall-1","toolName":"bash","""" +
+                """toolVersion":"1","uiToken":"ui:approval-page:tok-1"}"""
         assertEquals(expected, base.canonicalJson)
 
         // quotes, backslashes and control characters must be escaped deterministically
@@ -88,6 +95,9 @@ class ApprovalBindingTest {
         assertIllegal { base.copy(schemaHash = "a".repeat(63)) }
         assertIllegal { base.copy(schemaHash = "A".repeat(64)) }
         assertIllegal { base.copy(schemaHash = "g".repeat(64)) }
+        assertIllegal { base.copy(contractHash = "f".repeat(63)) }
+        assertIllegal { base.copy(contractHash = "F".repeat(64)) }
+        assertIllegal { base.copy(contractHash = "g".repeat(64)) }
         assertIllegal { base.copy(scopeRef = "") }
         assertIllegal { base.copy(scopeRef = "x".repeat(ApprovalBinding.MAX_SCOPE_REF_LENGTH + 1)) }
         assertIllegal { base.copy(sessionId = "") }
@@ -121,13 +131,14 @@ class ApprovalBindingTest {
         }
     }
 
-    // Nine named fields: the helper mirrors the ApprovalBinding contract field-by-field.
+    // Ten named fields: the helper mirrors the ApprovalBinding contract field-by-field.
     @Suppress("LongParameterList")
     private fun binding(
         toolCallId: String,
         toolName: String,
         toolVersion: String,
         schemaHash: String,
+        contractHash: String,
         scopeRef: String,
         sessionId: String,
         executionTarget: ExecutionTargetType,
@@ -138,6 +149,7 @@ class ApprovalBindingTest {
         toolName = toolName,
         toolVersion = toolVersion,
         schemaHash = schemaHash,
+        contractHash = contractHash,
         scopeRef = scopeRef,
         sessionId = sessionId,
         executionTarget = executionTarget,

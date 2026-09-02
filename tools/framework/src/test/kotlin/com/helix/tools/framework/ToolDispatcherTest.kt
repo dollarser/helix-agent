@@ -523,6 +523,7 @@ class ToolDispatcherTest {
                 toolName = "fake",
                 toolVersion = "1",
                 schemaHash = "a".repeat(64),
+                contractHash = "f".repeat(64),
                 scopeRef = "unscoped",
                 sessionId = "session-1",
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -535,6 +536,34 @@ class ToolDispatcherTest {
         assertTrue(dispatcher.actionFingerprint(base) != dispatcher.actionFingerprint(differentArgs))
         val differentTarget = base.copy(executionTarget = ExecutionTargetType.LOCAL_QUICKJS)
         assertTrue(dispatcher.actionFingerprint(base) != dispatcher.actionFingerprint(differentTarget))
+    }
+
+    // ------------------------------------------------------------ HXA-042 contract gate
+
+    @Test
+    fun theDispatcherBindsTheLiveDescriptorsFullContractHash() {
+        // HXA-042 gate wiring: the binding presented to the broker carries the LIVE
+        // descriptor's contractHash (ADR-0011), so a later contract that changes only a
+        // security field (keeping name/version/schema) hashes to a DIFFERENT binding and a
+        // stale approval cannot authorize it. The audit bindingHash is the same live hash.
+        val d = descriptor()
+        registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        val binding = broker.acquireCalls.single().binding
+        assertEquals("the binding carries the schema contract", d.schemaHash.hex, binding.schemaHash)
+        assertEquals(
+            "the binding carries the FULL security-descriptor contract",
+            d.contractHash.hex,
+            binding.contractHash,
+        )
+        assertEquals(binding.hash, sink.events.single().bindingHash)
+        // A security-field-only variant (same name/version/schema) is a different binding:
+        // the schema hash is unchanged, the contract hash is not — so a stale approval
+        // minted for `d` hashes to a different binding than the variant's.
+        val variant = d.copy(baseRisk = RiskLevel.L3)
+        assertTrue("schema unchanged", variant.schemaHash.hex == d.schemaHash.hex)
+        assertTrue("contract changed", variant.contractHash.hex != d.contractHash.hex)
     }
 
     // ------------------------------------------------------------- time.now end-to-end

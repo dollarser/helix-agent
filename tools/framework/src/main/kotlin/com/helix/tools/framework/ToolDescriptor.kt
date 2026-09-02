@@ -106,6 +106,24 @@ data class ToolDescriptor(
      */
     val schemaHash: Sha256 = schemaHashOf(inputSchema, outputSchema)
 
+    /**
+     * The full security-descriptor contract hash (ADR-0011, HXA-042): SHA-256 over a
+     * canonical form of EVERY descriptor field — the identity [schemaHash] already carries,
+     * plus the security contract the schema hash cannot see (operation class, base risk,
+     * hard timeout, output cap, required capabilities, idempotency, execution target, and
+     * origin).
+     *
+     * [schemaHash] binds ONLY the schema; [contractHash] is the superset that also covers
+     * the security fields. Binding [contractHash] into [com.helix.core.policy.ApprovalBinding]
+     * is what makes a contract that keeps `(name, version, schemaHash)` constant but changes a
+     * security field (a longer timeout, a bigger output cap, a newly-required capability, a
+     * higher risk class) a DIFFERENT approval binding — so an approval minted for the old
+     * contract is rejected (roadmap HXA-042 gate). [schemaHash] stays on the descriptor (and
+     * on the binding) on its own: it names the schema contract for the model table and audit
+     * independently of the security set.
+     */
+    val contractHash: Sha256 = contractHashOf(this)
+
     companion object {
         /** The `mcp.` name prefix (doc 02 section 7.1, doc 10 section 4.3). */
         const val MCP_NAME_PREFIX = "mcp."
@@ -142,5 +160,42 @@ data class ToolDescriptor(
                 Hex.encode(MessageDigest.getInstance("SHA-256").digest(canonical.toByteArray(Charsets.UTF_8))),
             )
         }
+
+        /**
+         * The full security-descriptor contract (ADR-0011): SHA-256 over a canonical form of
+         * every descriptor field, in a FIXED field order, joined by a byte that cannot occur in
+         * the field values (a NUL — descriptions and hex digests are all above NUL). Every
+         * field is canonicalized to a stable string ([canonicalOf]), so equal descriptors hash
+         * identically and ANY field change (including a schema change, via [schemaHash])
+         * changes the digest. This is deliberately the superset of [schemaHash] — it is the
+         * value the approval binding hashes over (see [contractHash]).
+         */
+        fun contractHashOf(descriptor: ToolDescriptor): Sha256 =
+            Sha256(
+                Hex.encode(
+                    MessageDigest.getInstance("SHA-256").digest(
+                        descriptor.contractCanonicalForm().toByteArray(Charsets.UTF_8),
+                    ),
+                ),
+            )
+
+        /** NUL-joined canonical field list; see [contractHashOf] for why the order is fixed. */
+        private fun ToolDescriptor.contractCanonicalForm(): String =
+            listOf(
+                name.value,
+                version.value.toString(),
+                description,
+                schemaHash.hex,
+                operationClass.name,
+                baseRisk.name,
+                timeout.inWholeMilliseconds.toString(),
+                maxOutputBytes.toString(),
+                // ADR-0011: capabilities canonicalize BY NAME — a set's iteration order is not
+                // stable across equal constructions, and the digest must not depend on it.
+                requiredCapabilities.sortedBy { it.name }.joinToString(separator = ",") { it.name },
+                idempotency.name,
+                executionTarget.name,
+                origin.canonicalOf(),
+            ).joinToString(separator = SCHEMA_HASH_SEPARATOR)
     }
 }

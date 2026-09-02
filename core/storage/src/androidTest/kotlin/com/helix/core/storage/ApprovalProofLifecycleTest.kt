@@ -247,6 +247,7 @@ class ApprovalProofLifecycleTest {
         toolName = "bash",
         toolVersion = "1",
         schemaHash = "a".repeat(64),
+        contractHash = "f".repeat(64),
         scopeRef = scopeRef,
         sessionId = sessionId,
         executionTarget = ExecutionTargetType.LOCAL_ANDROID,

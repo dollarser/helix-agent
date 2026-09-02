@@ -70,6 +70,10 @@ dependencies {
     // storage-backed approval broker and audit sink; the approval card + audit page are
     // the UI of that pipeline (doc 02 section 5.3/7.1; doc 11 唯一入口).
     implementation(project(":tools:framework"))
+    // HXA-042: the first non-time.now business tools (read/write/edit/files.*) enter the
+    // production tool table; their store lives in core:workspace (atomic publish + quota).
+    implementation(project(":tools:files"))
+    implementation(project(":core:workspace"))
     // HXA-028: the chat/provider UI wires the M2 provider stack into the production app
     // (provider doc section 2; ADR-0005 profile switching; ADR-0006 single main app).
     // The okhttp→okhttp-jvm substitution below covers this production classpath as well

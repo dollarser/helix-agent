@@ -160,11 +160,16 @@ object ContentProbe {
     }
 
     /** True when every byte from [index]+1 up to [index]+[length) is a valid continuation. */
+    @Suppress("ReturnCount") // one return per distinct outcome: out-of-sample tail / bad continuation / all valid
     private fun continuationsValid(
         bytes: ByteArray,
         index: Int,
         length: Int,
     ): Boolean {
+        // A lead byte whose continuation bytes run past the sampled prefix (a bounded read window
+        // can end mid-sequence) is NOT valid UTF-8 over this sample: report false instead of
+        // reading past the end (HXA-042 exposed this via a `read` window straddling a boundary).
+        if (index + length > bytes.size) return false
         var j = index + 1
         while (j < index + length) {
             if ((bytes[j].toInt() and 0xC0) != 0x80) return false

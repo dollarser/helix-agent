@@ -767,6 +767,10 @@ class ToolDispatcher(
             toolName = descriptor.name.value,
             toolVersion = descriptor.version.value.toString(),
             schemaHash = descriptor.schemaHash.hex,
+            // ADR-0011 (HXA-042): the FULL security-descriptor contract is bound, so a contract
+            // that keeps (name, version, schema) constant but changes a security field yields a
+            // different binding — a stale approval can never authorize the changed contract.
+            contractHash = descriptor.contractHash.hex,
             scopeRef = request.scope?.toScopeRef() ?: UNSCOPED_SCOPE_REF,
             sessionId = request.sessionId,
             executionTarget = request.executionTarget,

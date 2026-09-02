@@ -1,15 +1,15 @@
 # Implementation Status
 
-更新时间：2026-09-01
+更新时间：2026-09-02
 
 ## Current summary
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～041 |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～042 |
 | 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、WorkspacePath/FileScopePath 路径 value object 与 scope 边界、Workspace 原子文件持久化（目录布局/hash/临时写+fsync+replace/前置 hash/配额/bounded MIME/Artifact 登记 seam） |
-| 尚无业务执行器 | Workspace/文件、Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-042 Pi 风格基础工具（read/write/edit 与 files.*） |
+| 尚无业务执行器 | Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
+| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-043 Copy/Move/Delete/Trash（冲突策略显式；删除进 Helix trash，恢复与物理清空分开） |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -22,7 +22,7 @@
 | M1 | HXA-010～016：领域状态、Plan/Goal、Room、恢复、Context Builder | [逐 HXA 索引](completion-records/README.md) |
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](completion-records/README.md) |
-| M4 | HXA-040～041：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam） | [逐 HXA 索引](completion-records/README.md) |
+| M4 | HXA-040～042：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam）；首批业务文件工具 `read`/`write`/`edit`/`files.stat`/`files.list`/`files.search`/`files.mkdir`（offset/maxBytes 分页、编码边界、稳定 EOF、10 MiB 分块、有界搜索、region 边界、真实路径不外泄）与覆盖完整安全 descriptor 的 contractHash 审批失效门槛（[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed） | [逐 HXA 索引](completion-records/README.md) |
 
 架构决定的状态与理由见 [ADR 目录](adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](documentation-review.md)。“有完成记录”仍不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +32,7 @@
 
 ## Next task
 
-- M4 / HXA-042 Pi 风格基础工具：实现 `read`、`write`、`edit` 与 `files.list/search/stat/mkdir`；`read` 必须有 `offset/maxBytes`、编码边界和稳定 EOF 语义（覆盖 10 MiB 分块）。这是首个非 `time.now` 业务工具进入生产工具表的门槛，注册前必须关闭 descriptor 变更的审批失效缺口（机械门禁/合同测试，或 proposed ADR + 完整 contract hash）。
+- M4 / HXA-043 Copy/Move/Delete/Trash：冲突策略显式；删除进 Helix trash，恢复与物理清空分开；跨 scope 和覆盖提升风险。
 
 ## Blocked
 
@@ -63,5 +63,5 @@
 - 架构层级债：HXA-039 已由 accepted [ADR-0010](adr/0010-batch-turn-coordinator.md)取代旧串行生产决定，并以唯一 `TurnCoordinator` 驱动聊天 Turn/ModelCall 生命周期、批量 checkpoint 和事务化模型回填；M1 `TurnReducer` 只保留历史测试/旧恢复兼容，不接入新生产 Turn。`ChatService` 仍承担 egress/send gate、ToolCall 准备/Timeline/Approval 投影和 UI facade，后续只按真实测试 seam 渐进提取；`ToolDispatcher` 继续保留单一公开入口，不按 LOC 机械拆散安全管线。
 - M0 空壳的中文 Compose 文本尚未资源化；简体中文/英文资源和硬编码扫描由 HXA-067 完成。
 - M3 收口代码审查的修复、验证矩阵和保留取舍已迁入[文档复核记录 §14](documentation-review.md#14-m3-收口代码审查与修复2026-09-01)，不再在唯一状态源重复维护。
-- 当前 ApprovalBinding 不直接覆盖 timeout、输出上限、Capability、风险、幂等性或 origin；这些 descriptor 字段变化必须提升 toolVersion。机械门禁/合同测试归首个业务工具 HXA-042，在完成前不得声称单独修改 timeout 已自动撤销旧审批。
+- ApprovalBinding 现含 `contractHash`（完整安全 descriptor 的 SHA-256，[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed）：timeout、输出上限、Capability、风险、幂等性或 origin 等安全字段变化会强制旧审批凭证失效（`ContractHashGateTest` 机械证明）；`serverProvidedHints`（不可信展示文本）刻意不进入契约，其变化不使审批失效。
 - ADR-0005 的 Advanced 高敏出网规则引擎与展示 seam 已有，但持久化、创建和撤销 UI 尚未实现，明确归 HXA-068；store 不可用时生产规则集保持空并回到逐次审批。

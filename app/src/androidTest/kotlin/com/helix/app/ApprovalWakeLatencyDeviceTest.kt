@@ -104,6 +104,7 @@ class ApprovalWakeLatencyDeviceTest {
             toolName = "probe",
             toolVersion = "1",
             schemaHash = digestOf("w"),
+            contractHash = digestOf("c"),
             scopeRef = "unscoped",
             sessionId = "s",
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,

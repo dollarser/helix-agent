@@ -204,6 +204,7 @@ class RoomGuardAndConfigTablesTest {
             toolName = "bash",
             toolVersion = "1",
             schemaHash = digestSeed + "0".repeat(63),
+            contractHash = digestSeed + "2".repeat(63),
             scopeRef = "workspace:test",
             sessionId = "session-guards",
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,

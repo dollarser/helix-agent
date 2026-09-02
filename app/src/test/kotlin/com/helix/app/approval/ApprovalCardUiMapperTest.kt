@@ -236,6 +236,7 @@ class ApprovalCardUiMapperTest {
                 toolName = "fs.write",
                 toolVersion = "2",
                 schemaHash = "b".repeat(64),
+                contractHash = "e".repeat(64),
                 scopeRef = "workspace:ws-9",
                 sessionId = "sess-1",
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -284,6 +285,7 @@ class ApprovalCardUiMapperTest {
         assertNull(card.terminalDetail)
     }
 
+    @Suppress("LongMethod") // same as the sibling buildCard test: a full mapping assertion, not to be fragmented
     @Test
     fun buildCardWithoutEgressShowsNoEgressAndMcpSource() {
         val descriptor =
@@ -314,6 +316,7 @@ class ApprovalCardUiMapperTest {
                 toolName = "mcp.tool",
                 toolVersion = "1",
                 schemaHash = "b".repeat(64),
+                contractHash = "e".repeat(64),
                 scopeRef = "unscoped",
                 sessionId = "s",
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
