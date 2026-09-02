@@ -46,7 +46,7 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | 审批后模型修改参数 | canonical args hash；一次性 consume |
 | 生成代码窃取密钥 | isolated process、无 Host Bridge、不传 secret、默认无网络 |
 | 无限循环/内存炸弹 | QuickJS interrupt、heap limit、watchdog、单并发 |
-| 路径穿越/符号链接逃逸 | WorkspacePath、real-path/root 检查、默认不跟随 symlink |
+| 路径穿越/符号链接逃逸 | FileScopePath/PathSyntax、real-path/root 检查、默认不跟随 symlink |
 | HTTP SSRF/DNS rebinding | 规范化 URL；校验全部 A/AAAA；仅连接本次已验证地址集合并复验 peer；逐跳重定向复验；拒绝越 scope/metadata；无模型自带 auth |
 | 高敏数据静默出网 | 按实际 endpoint 分类 residence；发送前计算数据类别；Standard 逐次确认，Advanced 仅精确/限时/可撤销规则；凭据始终拒绝 |
 | SSE 畸形流 OOM | incremental parser、单事件/总响应限制、超时和取消 |

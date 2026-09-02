@@ -14,8 +14,8 @@ package com.helix.core.workspace
  *     └── executions/
  * ```
  *
- * [WorkspacePath.value] addresses locations inside this layout; the tool layer never joins real
- * paths itself (doc 10: 工具层不得自行拼接真实路径).
+ * A canonical [FileScopePath.relativePath] addresses locations inside this layout; the tool layer
+ * never joins real paths itself (doc 10: 工具层不得自行拼接真实路径).
  */
 object WorkspaceLayout {
     const val INPUT = "input"

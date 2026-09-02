@@ -8,9 +8,9 @@ import java.nio.file.Path
  * architecture doc section 10).
  *
  * [scopeId] is the opaque scope identifier the model sees (doc 10: 模型只看到 scopeId);
- * [relativePath] is the canonical relative path inside that scope, validated exactly like a
- * [WorkspacePath] ([PathSyntax]). The pair is the only form in which a tool argument or model
- * context may reference a file: no adapter, log or error may hand a raw real path to the model.
+ * [relativePath] is the canonical relative path inside that scope, validated by [PathSyntax].
+ * The pair is the only form in which a tool argument or model context may reference a file: no
+ * adapter, log or error may hand a raw real path to the model.
  */
 class FileScopePath(
     scopeIdRaw: String,

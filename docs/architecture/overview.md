@@ -184,9 +184,9 @@ interface ApprovalRepository {
 }
 
 interface WorkspaceFileSystem {
-    suspend fun read(../path: WorkspacePath, limit: ByteCount): ReadResult
+    suspend fun read(../path: FileScopePath, limit: ByteCount): ReadResult
     suspend fun writeAtomic(../request: AtomicWriteRequest): WriteResult
-    suspend fun moveToTrash(../path: WorkspacePath, operationId: OperationId): TrashResult
+    suspend fun moveToTrash(../path: FileScopePath, operationId: OperationId): TrashResult
 }
 
 interface CodeExecutor {
@@ -515,7 +515,7 @@ files/
             └── executions/
 ```
 
-`WorkspacePath` 不是普通 String。构造时完成：NUL 检查、分隔符归一化、绝对路径拒绝、`.`/`..` 解析、根路径确认。工具层不得自行拼接真实路径。
+`FileScopePath` 不是普通 String。构造时（经 `PathSyntax`）完成：NUL 检查、分隔符归一化、绝对路径拒绝、`.`/`..` 解析、根路径确认。工具层不得自行拼接真实路径。
 
 SAF 默认工作流：读取 `content://` → 检查元数据和大小 → 用户确认 → 流式复制到 `input/` → 计算 SHA-256 → 登记 Artifact。用户可以显式创建长期 `DocumentTreeScope`，但 URI grant 保存在平台适配层，模型只看到 scopeId。
 

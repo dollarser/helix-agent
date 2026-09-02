@@ -1,8 +1,8 @@
 package com.helix.core.workspace
 
 /**
- * Structural rules shared by [WorkspacePath] and [FileScopePath]: what a segment may contain,
- * which separator variants are legal at the string level, and how dot segments are resolved.
+ * Structural rules for [FileScopePath]: what a segment may contain, which separator variants are
+ * legal at the string level, and how dot segments are resolved.
  *
  * The rules implement doc 10 (NUL 检查、分隔符归一化、绝对路径拒绝、`./..` 解析) at the string
  * layer; symlink and real-path containment (the filesystem layer) lives in [PathResolution].

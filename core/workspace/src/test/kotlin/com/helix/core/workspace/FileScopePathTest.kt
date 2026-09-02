@@ -104,7 +104,7 @@ class FileScopePathTest {
     }
 
     @Test
-    fun navigationHelpersMirrorWorkspacePath() {
+    fun navigationHelpersResolveParentAndName() {
         val path = FileScopePath("s", "a/b/c.txt")
         assertEquals(FileScopePath("s", "a/b"), path.parent)
         assertEquals("c.txt", path.name)

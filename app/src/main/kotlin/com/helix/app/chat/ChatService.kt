@@ -40,7 +40,6 @@ import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -102,7 +101,7 @@ class ChatService(
 
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = Any()
-    private var activeTurnJob: Job? = null
+    private val sessionTurnAdmission = SessionTurnAdmission()
 
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
     // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
@@ -295,15 +294,19 @@ class ChatService(
     }
 
     /**
-     * The stop button: cancels the in-flight turn (service-owned Job). A turn waiting on the
-     * approval card is cancelled through the broker (the pending record stays PENDING — the
-     * user never decided — and expires with its window); a tool executing sees the turn's
-     * cancel flag at the dispatcher's stage checks (CANCELLED_AFTER_START / BEFORE_START).
+     * The stop button: cancels the OPEN session's in-flight turn (its service-owned Job). A turn
+     * waiting on the approval card is cancelled through the broker (the pending record stays
+     * PENDING — the user never decided — and expires with its window); a tool executing sees the
+     * turn's cancel flag at the dispatcher's stage checks (CANCELLED_AFTER_START / BEFORE_START).
+     * Other sessions' in-flight turns keep running (the per-session model) and are stopped from
+     * their own screen.
      */
     fun stop() {
         activePendingApprovalId?.let { toolPipeline.broker.cancel(it) }
-        turnCancels.values.forEach { it.cancel() }
-        activeTurnJob?.cancel()
+        val sessionId = openSessionId ?: return
+        val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
+        turnCancels[active.turnId]?.cancel()
+        active.job.cancel()
     }
 
     /** The approval card's "本次批准" action (UI -> service -> broker, on the work scope). */
@@ -455,7 +458,9 @@ class ChatService(
                 return
             }
         synchronized(turnGate) {
-            if (activeTurnJob?.isActive == true) return
+            // Per-session admission: refuse only when THIS session already has an in-flight turn —
+            // a turn in another session must never make this send vanish.
+            if (sessionTurnAdmission.hasActive(sessionId)) return
             val turnId = idGenerator()
             val callId = idGenerator()
             val coordinator =
@@ -465,10 +470,11 @@ class ChatService(
                     idGenerator = idGenerator,
                     spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text),
                 )
-            activeTurnJob =
+            val job =
                 workScope.launch {
                     runTurn(sessionId, coordinator, providerId, retryTurnId)
                 }
+            sessionTurnAdmission.register(sessionId, job, turnId)
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
         }
     }

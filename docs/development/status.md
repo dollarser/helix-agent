@@ -6,10 +6,10 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～047 |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～048 |
 | 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、Workspace/文件工具（含受限 zip/tar Archive）、SAF 导入导出适配层与 developer All-files scope |
 | 尚无业务执行器 | Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-048 全项目审查后续收敛（统一 ChatService turn 模型为每会话并补单测骨架、删除 WorkspacePath 死代码、usageBytes/listDir 低优先收敛） |
+| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-049 会话附件导入、持久化与文本输入 |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -22,7 +22,7 @@
 | M1 | HXA-010～016：领域状态、Plan/Goal、Room、恢复、Context Builder | [逐 HXA 索引](../completion-records/README.md) |
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](../completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](../completion-records/README.md) |
-| M4 | HXA-040～047：Workspace/scope、原子文件存储、首批文件工具、copy/move/trash、SAF adapter 与 developer All-files scope、文件管理 UI（Workspace 恒可写、developer all-files 根只读、SAF 接线与导入导出 UI 显式推迟），以及受限 zip/tar archive/extract | [逐 HXA 索引](../completion-records/README.md)、[文件工具 Bug 修复记录](../bug-fixes/2026-09-02-file-tool-safety-boundaries.md) |
+| M4 | HXA-040～048：Workspace/scope、原子文件存储、首批文件工具、copy/move/trash、SAF adapter 与 developer All-files scope、文件管理 UI（Workspace 恒可写、developer all-files 根只读、SAF 接线与导入导出 UI 显式推迟）、受限 zip/tar archive/extract，以及全项目审查收敛（ChatService 每会话 turn 模型 + 单测骨架、删除 WorkspacePath 死代码） | [逐 HXA 索引](../completion-records/README.md)、[文件工具 Bug 修复记录](../bug-fixes/2026-09-02-file-tool-safety-boundaries.md) |
 
 架构决定的状态与理由见 [ADR 目录](../adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](../history/documentation-review.md)。“有完成记录”不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +32,7 @@
 
 ## Next task
 
-- M4 / HXA-048 全项目审查后续收敛：统一 ChatService 每会话 turn 模型，并按实测决定 Workspace quota 与大目录 list/search 是否需要优化；删除确认无生产引用的 `WorkspacePath` 镜像抽象。
+- M4 / HXA-049 会话附件导入、持久化与文本输入：按 ADR-0014 完成附件基础闭环（系统 picker / 待发送附件卡 / 复用 HXA-044 SafImportPipeline，单文件导入不要求 persisted SAF tree grant），首批仅 UTF-8 txt/md/csv/json 文本附件。
 
 ## Blocked
 
@@ -66,6 +66,5 @@
 - 文件能力仍有三项边界：mutation 工具统一 L2、trash 长路径可能触发 `NAME_MAX`、超时 abandon 可能留下计入 scope 配额的临时文件；age-based reclaim 与 SAF scope 接线归后续文件管理工作。
 - 文件管理 UI（HXA-046）当前边界：Workspace 恒可写；developer all-files 根本里程碑**只读**（区域守卫拒绝非 workspace 布局的变更，浏览/排序/预览/分享可用，重命名/复制/移动/trash 隐藏）；HXA-046 明确推迟的 persisted SAF tree scope 接线与用户导入/导出入口现已分别由 HXA-057/HXA-058 承接，仍未实现。
 - 聊天当前仍是纯文本：UI/`ChatService` 不生产附件，production image resolver 明确拒绝图片。底层 `ImageReference` 与三协议图片编码、HXA-044 SAF import pipeline 已存在，但不构成产品支持；UTF-8 文本附件基础规划为 HXA-049，图片 vision、系统分享草稿与端到端硬化规划为 HXA-055～056，并受 accepted [ADR-0014](../adr/0014-session-attachment-materialization.md)约束。UTF-16、PDF/PPT/DOC、音频、视频及其他二进制只规划统一类型分类与稳定 unsupported，不规划文档/媒体处理或 Provider upload。单文件 picker 导入不依赖 SAF tree；`read` 返回 base64 也不等于模型理解。
-- `ChatService` 的 turn 准入同时使用全局 `activeTurnJob`/`turnGate` 与按 turn 的 `turnCancels`，而 `turnGate` 的 KDoc 声称每会话只有一个 active turn；并发真相未固化，且缺少 ChatService 单元测试骨架（当前仅仪器测试覆盖 turn 行为）。统一为每会话模型并补测试归 HXA-048。
-- Workspace 文件层三项收敛归 HXA-048：`WorkspaceQuota.usageBytes` 每次文件操作全量 walk scope 目录报告当前用量（低优先，目录规模成实际瓶颈前可维持现状）；删除生产无引用的 `WorkspacePath` 死代码（连同其测试、`FileScopePathTest` 中镜像它的 oracle 与 `PathSyntax` KDoc 引用）；`files.listDir` 先物化排序整个目录再分页、app 层 TIME/SIZE 排序只作用于按名截断前缀（低优先）。
+- Workspace 文件层两项低优先特性经 HXA-048 评估后**维持现状**（目录规模 / 大目录成为实际瓶颈前不改）：`WorkspaceQuota.usageBytes` 每次文件操作全量 walk scope 目录报告当前用量；`files.listDir` 先物化排序整个目录再分页、app 层 TIME/SIZE 排序只作用于按名截断前缀。
 - 全项目审查判定为**有意设计、不改动**：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 空子项目是 M6 占位模块（验收矩阵与 roadmap M6 已规划其测试）。
