@@ -1,6 +1,7 @@
 package com.helix.core.workspace
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Assume
@@ -204,6 +205,22 @@ class PathResolutionTest {
             fail("expected SymlinkEscapesRoot")
         } catch (expected: SymlinkEscapesRoot) {
             assertEquals("path escapes the scope root", expected.message)
+        }
+    }
+
+    @Test
+    fun aVanishedScopeRootFailsClosedAsScopeNotAvailableWithoutLeakingTheRealPath() {
+        // A revoked scope (SAF tree removed, volume unmounted) reads as ScopeNotAvailable —
+        // never as a raw NIO exception carrying the absolute real path (doc 10).
+        val gone = base.resolve("never-created")
+        try {
+            PathResolution.resolveWithinRoot(gone, gone.resolve("work/a.txt"))
+            fail("expected ScopeNotAvailable")
+        } catch (expected: ScopeNotAvailable) {
+            val message = expected.message.orEmpty()
+            assertEquals("scope root is not available", message)
+            assertFalse("no real path may leak into the error", message.contains(base.toString()))
+            assertFalse("no real path may leak into the error", message.contains(gone.toString()))
         }
     }
 

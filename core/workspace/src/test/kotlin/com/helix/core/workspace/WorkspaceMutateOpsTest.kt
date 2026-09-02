@@ -12,6 +12,7 @@ import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.Arrays
 
 /**
  * HXA-043: the copy / move / trash store seams behind `files.copy` / `files.move` /
@@ -63,6 +64,17 @@ class WorkspaceMutateOpsTest {
         val p = target(root, rel)
         p.parent?.let { Files.createDirectories(it) }
         Files.write(p, content.toByteArray())
+        return p
+    }
+
+    private fun writeBytes(
+        root: Path,
+        rel: String,
+        bytes: ByteArray,
+    ): Path {
+        val p = target(root, rel)
+        p.parent?.let { Files.createDirectories(it) }
+        Files.write(p, bytes)
         return p
     }
 
@@ -169,6 +181,22 @@ class WorkspaceMutateOpsTest {
         assertTrue("the source is never touched by a refused copy", Files.exists(target(a, "work/big.txt")))
     }
 
+    @Test
+    fun aMultiChunkCopyStreamsInChunksAndMatchesTheSourceHash() {
+        val root = freshScope("c9")
+        val bytes = ByteArray(200 * 1024) { i -> (i % 251).toByte() }
+        val src = writeBytes(root, "work/big.bin", bytes)
+        val out = store(root).copyFile(ref("work/big.bin"), ref("output/big.bin"), WorkspaceLayout.OUTPUT, false)
+        assertTrue(
+            "the streamed copy matches the source byte-for-byte",
+            Arrays.equals(bytes, Files.readAllBytes(target(root, "output/big.bin"))),
+        )
+        assertEquals("the hash of a streamed copy covers the whole file", hex(bytes), out.sha256)
+        assertEquals(bytes.size.toLong(), out.sizeBytes)
+        assertTrue("the source survives a streaming copy", Files.exists(src))
+        assertEquals("no temp is left behind", 0, AtomicFileWriter.cleanup(target(root, "output")))
+    }
+
     // ── move ────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -192,6 +220,29 @@ class WorkspaceMutateOpsTest {
         assertEquals("cross", String(Files.readAllBytes(target(b, "output/c.txt"))))
         val srcPath = target(a, "work/a.txt")
         assertFalse("the source is deleted only after the destination is published", Files.exists(srcPath))
+    }
+
+    @Test
+    fun aMultiChunkCrossScopeMoveStreamsInChunksAndRemovesTheSource() {
+        val a = freshScope("m2ca")
+        val b = freshScope("m2cb")
+        val s = WorkspaceArtifactStore(twoScopeResolver(a, b))
+        val bytes = ByteArray(200 * 1024) { i -> (i % 251).toByte() }
+        val src = writeBytes(a, "work/big.bin", bytes)
+        val out =
+            s.moveFile(
+                ref("work/big.bin", scope = "ws"),
+                ref("output/big.bin", scope = "other"),
+                WorkspaceLayout.OUTPUT,
+                false,
+            )
+        assertTrue(
+            "the streamed move matches the source byte-for-byte",
+            Arrays.equals(bytes, Files.readAllBytes(target(b, "output/big.bin"))),
+        )
+        assertEquals("the hash of a streamed move covers the whole file", hex(bytes), out.sha256)
+        assertFalse("the source is removed after the streamed publish", Files.exists(src))
+        assertEquals("no temp is left behind", 0, AtomicFileWriter.cleanup(target(b, "output")))
     }
 
     @Test

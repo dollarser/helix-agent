@@ -16,9 +16,13 @@ import java.security.MessageDigest
  *
  * A file is only ever published by an atomic [java.nio.file.StandardCopyOption.ATOMIC_MOVE]
  * of a temp sibling into its final name, so a reader never observes a partial file and a crash
- * mid-write leaves the previous version (or nothing) intact. Before [publish] the temp file and
- * its containing directory are both fsync'ed (file data + the directory entry), which is what
- * actually makes the rename durable on a power loss.
+ * mid-write leaves the previous version (or nothing) intact. The durability order is: file data
+ * fsync, the atomic rename, THEN the directory fsync — the directory entry made durable is the
+ * TARGET's (a directory fsync before the rename would only pin the temp's entry, which the
+ * rename removes). The post-rename directory fsync is best-effort: by then the publish already
+ * happened, so its failure (some filesystems answer directory fsync with ENOSYS) degrades
+ * power-loss durability only — reporting it as a failure would claim "not performed" for a
+ * write that WAS performed.
  *
  * The temp file is created with a random, unique suffix in the *same* directory as the target
  * (a cross-directory move is not atomic). [cleanup] removes any temp a previous run abandoned.
@@ -61,14 +65,14 @@ object AtomicFileWriter {
         val temp = Files.createTempFile(directory, TEMP_PREFIX, null)
         try {
             writeAndFsync(temp, bytes)
-            val parent = temp.toRealPath().parent
-            directoryFsync(parent ?: directory)
+            val dirToSync = temp.toRealPath().parent ?: directory
             Files.move(
                 temp,
                 target,
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
+            bestEffortDirectoryFsync(dirToSync)
         } catch (e: IOException) {
             // Best-effort cleanup of the temp on any I/O failure; the real failure is rethrown.
             try {
@@ -83,8 +87,8 @@ object AtomicFileWriter {
 
     /**
      * Atomically publishes the stream that [sourceInto] writes into [target]: a temp sibling in
-     * the same directory, then file + directory fsync, then the atomic rename — the same
-     * durability story as [writeAtomic], but for content that must not sit in memory (SAF
+     * the same directory, then file fsync, the atomic rename, then the directory fsync — the
+     * same durability story as [writeAtomic], but for content that must not sit in memory (SAF
      * imports, HXA-044).
      *
      * [sourceInto] receives the open temp stream and copies into it in chunks, which is where a
@@ -113,14 +117,14 @@ object AtomicFileWriter {
                     sourceInto(Channels.newOutputStream(channel))
                     channel.force(true)
                 }
-            val parent = temp.toRealPath().parent
-            directoryFsync(parent ?: directory)
+            val dirToSync = temp.toRealPath().parent ?: directory
             Files.move(
                 temp,
                 target,
                 StandardCopyOption.ATOMIC_MOVE,
                 StandardCopyOption.REPLACE_EXISTING,
             )
+            bestEffortDirectoryFsync(dirToSync)
         } catch (e: AbandonedWrite) {
             // Best-effort cleanup of the temp; the caller's abandonment is rethrown as-is so
             // the pipeline can distinguish cancel from limit from I/O failure.
@@ -169,9 +173,11 @@ object AtomicFileWriter {
     fun cleanupRecursively(root: Path): Int {
         if (!Files.isDirectory(root) || Files.isSymbolicLink(root)) return 0
         var removed = cleanup(root)
-        for (entry in Files.newDirectoryStream(root)) {
-            if (Files.isDirectory(entry) && !Files.isSymbolicLink(entry)) {
-                removed += cleanupRecursively(entry)
+        Files.newDirectoryStream(root).use { entries ->
+            for (entry in entries) {
+                if (Files.isDirectory(entry) && !Files.isSymbolicLink(entry)) {
+                    removed += cleanupRecursively(entry)
+                }
             }
         }
         return removed
@@ -215,6 +221,20 @@ object AtomicFileWriter {
                 while (buffer.hasRemaining()) channel.write(buffer)
                 channel.force(true)
             }
+    }
+
+    /**
+     * fsyncs the directory AFTER the rename, best-effort: the publish already happened, so a
+     * failure degrades power-loss durability only and is swallowed (some filesystems answer
+     * directory fsync with ENOSYS) — rethrowing it would report a performed write as failed.
+     */
+    @Suppress("SwallowedException") // post-rename fsync failure: publish succeeded, durability degrades
+    private fun bestEffortDirectoryFsync(directory: Path) {
+        try {
+            directoryFsync(directory)
+        } catch (_: IOException) {
+            // non-fatal: the rename sits in the page cache; only crash durability is degraded
+        }
     }
 
     /** fsyncs a directory so a rename/new entry is durable. */

@@ -29,6 +29,13 @@ import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.Callable
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 /**
  * The trusted dispatch request (roadmap HXA-035): one model-requested tool call plus the
@@ -151,7 +158,9 @@ sealed interface ToolDispatchOutcome {
  *    facts only, check the same-turn denial set (below), acquire a typed [ApprovalProof]
  *    through the [ApprovalBroker] — a consumable credential, nothing else;
  * 5. **timeout/cancel** — a cancel signal set before start stops the dispatch with zero
- *    side effects; the deadline is the descriptor's hard timeout passed to the executor;
+ *    side effects; the deadline is the descriptor's hard timeout passed to the executor AND
+ *    enforced by the dispatcher: an executor that does not return by its deadline settles
+ *    as the stable TIMEOUT (its blocked thread is interrupted best-effort and abandoned);
  * 6. **execute** — the registered implementation; the approval proof, if any, is consumed
  *    exactly when execution STARTS (the authorization is spent the moment the effect
  *    begins; a cancelled-before-start call never spends it);
@@ -253,7 +262,9 @@ class ToolDispatcher(
                             } else {
                                 ToolDispatchOutcome.ExecutionFailed(
                                     DispatchOutcomeCode.TOOL_FAILED,
-                                    "unexpected dispatch failure: ${t::class.simpleName} — ${t.message}",
+                                    // Sanitized (doc 10): the raw message may carry real paths; the
+                                    // exception object itself still propagates for caller logging.
+                                    "unexpected dispatch failure: ${t::class.simpleName}",
                                 )
                             },
                             DecisionSource.FRAMEWORK,
@@ -559,7 +570,7 @@ class ToolDispatcher(
             approvals.consume(proof)
         }
         val call = buildCall(request, descriptor, execStart)
-        val result = executor.execute(call)
+        val result = executeWithinDeadline(executor, call)
         return when (result) {
             is ToolExecutorResult.Completed -> {
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
@@ -628,6 +639,71 @@ class ToolDispatcher(
             deadline = Instant.ofEpochMilli(execStart.toEpochMilli() + descriptor.timeout.inWholeMilliseconds),
             cancel = request.cancel,
         )
+
+    /**
+     * Enforces the [ToolExecutor] contract: the executor must return within [call.deadline],
+     * otherwise the dispatch settles as [ToolExecutorResult.TimedOut]. An implementation
+     * blocked in I/O ignores the deadline on its own; without this watchdog the dispatch —
+     * and, for a scheduled call, the whole batch — would hang until the kernel gives up.
+     *
+     * Each dispatch runs on its own daemon thread from a cached pool, so a stuck executor
+     * thread is isolated: it cannot block another dispatch from starting. The
+     * [Future.cancel] on timeout is best-effort (an interrupt the executor may ignore);
+     * the model-visible outcome is the stable TIMEOUT either way. When the executor
+     * throws BEFORE the deadline the original exception propagates unchanged — the
+     * attempt is settled by [dispatch] as unknown side-effect state, exactly as with a
+     * direct call.
+     */
+    @Suppress("SwallowedException") // the timeout settles as TimedOut, not an error to propagate
+    private fun executeWithinDeadline(
+        executor: ToolExecutor,
+        call: ExecutableToolCall,
+    ): ToolExecutorResult {
+        val remaining = call.deadline.toEpochMilli() - clock.now().toEpochMilli()
+        if (remaining <= 0) return ToolExecutorResult.TimedOut
+        val future: Future<ToolExecutorResult> =
+            EXECUTOR_SERVICE.submit(
+                Callable {
+                    try {
+                        executor.execute(call)
+                    } finally {
+                        // A timeout's cancel(true) may have flagged this pooled thread; clear the
+                        // sticky interrupt so the NEXT dispatch reusing it doesn't fail spuriously.
+                        Thread.interrupted()
+                    }
+                },
+            )
+        return try {
+            future.get(remaining, TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            // The deadline passed: interrupt is best-effort, the outcome is settled as TIMEOUT.
+            future.cancel(true)
+            ToolExecutorResult.TimedOut
+        } catch (e: ExecutionException) {
+            rethrowExecutorFailure(e.cause ?: e)
+        } catch (e: InterruptedException) {
+            // The dispatch itself was interrupted: keep the interrupt flag, propagate as-is.
+            Thread.currentThread().interrupt()
+            throw e
+        }
+    }
+
+    /**
+     * Unwraps the executor's own exception (thrown inside the submit pool) and rethrows it as if
+     * it had been thrown inline — the caller's catch-all settles the attempt from it. A
+     * contract-following Kotlin executor can only throw [RuntimeException]/[Error]; the fallback
+     * guards a non-Kotlin implementation and keeps the root cause.
+     */
+    @Suppress("TooGenericExceptionThrown") // the fallback preserves the root cause, never swallows it
+    private fun rethrowExecutorFailure(cause: Throwable): Nothing =
+        when (cause) {
+            is Error -> throw cause
+
+            is RuntimeException -> throw cause
+
+            // Fixed message: a checked cause's toString() may carry real paths (doc 10).
+            else -> throw RuntimeException("tool executor threw a checked exception", cause)
+        }
 
     /** Stage 7: output schema verification + canonical hash + byte-cap truncation. */
     private fun bindOutput(
@@ -828,6 +904,16 @@ class ToolDispatcher(
 
         /** Bounded memory for same-turn denial sets (least-recently-used eviction). */
         const val MAX_TRACKED_TURNS = 128
+
+        /**
+         * One daemon thread per in-flight tool execution (cached pool): a thread stuck past its
+         * deadline is abandoned, and it must not keep another dispatch from starting its own.
+         * Daemons so a stuck tool cannot hold the JVM open.
+         */
+        val EXECUTOR_SERVICE: ExecutorService =
+            Executors.newCachedThreadPool { r ->
+                Thread(r, "tool-executor").apply { isDaemon = true }
+            }
     }
 
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */

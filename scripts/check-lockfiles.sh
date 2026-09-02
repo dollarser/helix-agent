@@ -17,7 +17,9 @@ fi
 
 lock_snapshot() {
     # sha256sum (Linux/CI) or shasum (macOS); both produce "<hash>  <file>" lines.
-    find . -name gradle.lockfile -not -path '*/build/*' -print0 |
+    # .claude/ is excluded: local session worktrees (git worktree add under
+    # .claude/worktrees/) each carry their own lockfile copies, not project state.
+    find . -name gradle.lockfile -not -path '*/build/*' -not -path './.claude/*' -print0 |
         sort -z |
         if command -v sha256sum >/dev/null 2>&1; then
             xargs -0 sha256sum
@@ -27,7 +29,7 @@ lock_snapshot() {
 }
 
 readonly before="$(lock_snapshot)"
-readonly lock_count="$(find . -name gradle.lockfile -not -path '*/build/*' | wc -l | tr -d '[:space:]')"
+readonly lock_count="$(find . -name gradle.lockfile -not -path '*/build/*' -not -path './.claude/*' | wc -l | tr -d '[:space:]')"
 
 if [[ "$lock_count" != "29" ]]; then
     printf 'Expected 29 dependency lock files, found %s.\n' "$lock_count" >&2

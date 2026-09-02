@@ -1,5 +1,7 @@
 package com.helix.core.workspace
 
+import java.io.FileNotFoundException
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -59,6 +61,8 @@ class SymlinkInPath(
  * directory (catches `a.txt/b`); (6) require the canonical candidate path, with the final
  * segment not followed, to equal or be contained in the canonical real root. Every violation
  * fails closed with a [PathResolutionError] whose message never embeds raw filesystem details.
+ * A scope root that no longer resolves (revoked scope) is a [ScopeNotAvailable]; a raced delete
+ * of a non-root segment reads as `FileNotFoundException` — neither leaks a real path.
  */
 object PathResolution {
     /**
@@ -92,13 +96,13 @@ object PathResolution {
         val realRoot: Path
         val target: Path
         if (rootIsSymlink) {
-            realRoot = root.toRealPath()
+            realRoot = rootRealPath(root)
             // Re-base the candidate onto the real root so the final containment check compares
             // like with like (the textual root path is a symlink, not the real location).
             val inside = candidate.subpath(root.nameCount, candidate.nameCount)
             target = realRoot.resolve(inside)
         } else {
-            realRoot = root.toRealPath()
+            realRoot = rootRealPath(root)
             target = candidate
         }
 
@@ -125,12 +129,38 @@ object PathResolution {
             val up = deepest.parent ?: break
             deepest = up
         }
-        val resolved = deepest.toRealPath().resolve(deepest.relativize(target))
+        val resolved = existingRealPath(deepest).resolve(deepest.relativize(target))
         if (resolved != realRoot && !resolved.startsWith(realRoot)) {
             throw SymlinkEscapesRoot("path escapes the scope root")
         }
         return resolved
     }
+
+    /**
+     * Real path of the SCOPE ROOT, fail-closed: a root that no longer resolves (a revoked scope,
+     * a SAF tree the user removed) surfaces as a sanitized [ScopeNotAvailable] — a raw NIO
+     * exception would carry the absolute real path in its message (doc 10: real paths never
+     * reach model or UI text).
+     */
+    @Suppress("SwallowedException") // fail-closed: the raw I/O message would leak the real path
+    private fun rootRealPath(root: Path): Path =
+        try {
+            root.toRealPath()
+        } catch (e: IOException) {
+            throw ScopeNotAvailable("scope root is not available")
+        }
+
+    /**
+     * Real path of an existing NON-ROOT location, fail-closed: the only failure is a raced
+     * delete between the existence check and the real-path call, which reads as "not found".
+     */
+    @Suppress("SwallowedException") // fail-closed: a raced delete reads as "not found", sanitized
+    private fun existingRealPath(path: Path): Path =
+        try {
+            path.toRealPath()
+        } catch (e: IOException) {
+            throw FileNotFoundException("file not found")
+        }
 
     /** Joins canonical relative segments from [PathSyntax] onto absolute [root] verbatim. */
     fun join(

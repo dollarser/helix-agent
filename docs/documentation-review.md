@@ -167,3 +167,18 @@
 - Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
 - Provider-neutral 流边界新增累计文本、调用数、聚合参数和事件序列失败关闭；发送路径增加模型可见长度/NUL 检查，并在可配置预算 UI 落地前使用固定输出 token 上限。
 - API 36 arm64-v8a 模拟器通过完整 consumer instrumentation；第二 ModelCall 失败、部分文本、合法状态边和进程恢复均有设备 fixture。当前状态转入 M4/HXA-040，不把本次架构收口扩写成文件业务工具已经可用。
+
+## 17. M4 文件工具对抗性审查与复审（2026-09-02）
+
+本轮针对 HXA-040~044（workspace 文件工具与工具分发框架）处理一份外部对抗性审查：逐条确认属实后修复，并在 commit 前由独立 LLM 复审 agent 重审（逐条 P1 核对 + 检查修复是否引入新洞），复审发现并入同一 commit：
+
+- **P1-1 路径泄漏：属实，修复。** 十个文件工具的 catch 链末端全部具备 sanitized `IOException`（read 与 meta 四件套 stat/list/search/mkdir 本次补齐）；`PathResolution` 的两处裸 `toRealPath()` 改 fail-closed 助手（root → `ScopeNotAvailable("scope root is not available")`，中间段竞态删除 → `FileNotFoundException("file not found")`），新增测试断言错误消息不含真实路径。复审 agent 逐工具与 store 错误路径复核后确认 CLOSED。
+- **P1-2 工具 timeout 无执行方：属实，修复。** `ToolDispatcher` 新增看门狗：executor 在 daemon 线程池执行，`deadline`（execStart + descriptor.timeout，同一 clock）到期即结算为稳定 TIMEOUT（阻塞线程 best-effort 中断后放弃），新增 2 个测试（30s 睡眠按 400ms 超时结算且只结算一次；deadline 前异常按内联传播）。复审确认池的并发实际上被 ToolScheduler 硬顶 ≤4 限制，不会失控；approval proof 在执行 START 时消费、超时结算语义正确。
+- **P1-3 目录 fsync 顺序：属实，修复。** `writeAtomic` 与 `writeAtomicStream`（044 的流式路径同修）均改为 file data fsync → 原子 rename → 目录 fsync，持久化的目录项是 target 的。复审发现并补修派生问题：重排后 rename **之后**的目录 fsync 失败原会“报失败但文件已发布”（部分文件系统目录 fsync 恒返回 ENOSYS），与工具层“失败 = 未执行”的不变量冲突——已把 rename 后的目录 fsync 降级为 best-effort（失败仅掉电持久性降级，不报失败），KDoc 同步。
+- **P1-4 内存无界：属实，修复。** copy/跨 scope move 改 64 KiB 块流式复制 + 增量 SHA-256（新增多 chunk 测试：逐字节一致、hash 覆盖全文件、源保留、无 temp 残留）；edit 设 50 MiB 上限 + probe 门 + 整文件严格 UTF-8 解码，并按复审意见在 readAll 紧邻前补 size 复检（收窄 probe→readAll TOCTOU 的 OOM 维度窗口；`expectedSha256` 前置哈希在解码之后触发，只兜 clobber 不兜内存）；write 的 content 设 schema maxLength 4 MiB + `parseArgs` 防御复检（复检才是真边界）。
+- **P1-5 trash NAME_MAX：不修复，显式推迟。** trash entry 名为 24 字节前缀 + 转义原路径，转义后超 255 字节（约 226+ 字符相对路径）时 rename 失败——当前行为 fail-closed（稳定 sanitized 错误、原文件保留、无数据丢失）；长路径改名策略归 HXA-046 文件管理 UI，implementation-status.md 记为已知限制。
+- **P1-0 AbandonedWrite：无动作。** 审查指其“not open”；当前代码已是 `open class AbandonedWrite`（HXA-044 的 Cancelled/LimitExceeded 子类化依赖 open），`writeAtomicStream` 的 catch 路径删 temp 并原样重抛。
+- **复审补修（并入同一 commit）**：看门狗 Callable 的 `finally` 清粘滞中断标志（线程池复用不再让无辜的下一个 dispatch 虚假失败）；dispatch catch-all 的 model-visible detail 与 checked 异常包装只保留异常类名/固定消息（raw 消息可能含真实路径，doc 10 纵深防御；该 catch-all 在 MCP executor 落地前是 P1-1 保证的单点依赖）。另记录不修复项：executor 改在裸 daemon 线程执行后不再携带调用线程的 thread-local/协程上下文，MCP 接入时需迁移上下文（文档记录，非缺陷）。
+- **复审发现、不修复、显式推迟**：超时 abandon 会留下 `.helix-tmp-*` 孤儿，且唯一回收 API `reclaimTempFiles` 无生产调用点（temp 计入 scope 配额；触发需“不可中断 I/O 挂死 + 超时”，罕见且影响限于该 scope）。不在此 bolt-on：`reclaimTempFiles` 无 age 阈值，接入写路径会误删并发活写的 temp，需要 age-based reclaim 的 API 设计，归后续文件管理任务（与 HXA-046 同批）；implementation-status.md 记为已知限制。
+- **两个 drive-by 的复审判定**：`ApprovalFlowTest` 期望 key set 补 `contractHash` 与 `ApprovalBinding.canonicalJson`（HXA-042/ADR-0011 的 10 字段）1:1 一致——测试是 HXA-037 时代的过期断言，在 HEAD 即失败；`check-lockfiles.sh` 两处 find 排除 `.claude/` 正确且有效（本地 session worktree 携带自己的 29 份 lockfile 副本使计数 29→58；项目 lockfile 不可能位于 `.claude/` 下，不会放过真实回归）。
+- 验证（main checkout）：`:core:workspace`、`:tools:framework`、`:tools:files`、`:app`（consumer + developer 双变体）单元测试与全量 test 矩阵绿；Spotless、Detekt 与五个门禁脚本 exit 0。

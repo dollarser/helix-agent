@@ -43,6 +43,8 @@ import org.junit.Before
 import org.junit.Test
 import java.security.MessageDigest
 import java.time.Instant
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -388,6 +390,44 @@ class ToolDispatcherTest {
         assertEquals(clock.instant.plusSeconds(30), executor.calls.single().deadline)
         assertEquals("the proof is spent the moment execution starts", 1, broker.consumeCalls.size)
         assertEquals(DispatchOutcomeCode.TIMEOUT, sink.events.single().code)
+    }
+
+    @Test
+    fun anExecutorThatIgnoresItsDeadlineIsSettledAsTimeoutByTheDispatcher() {
+        // The executor contract says the implementation honors call.deadline — but a blocking
+        // I/O call cannot be interrupted from inside, so the DISPATCHER enforces the deadline
+        // itself: the dispatch settles as the stable TIMEOUT at the deadline, without waiting
+        // for (or hanging on) the stuck executor.
+        val proof = proofFor("call-1")
+        broker.script(ApprovalAcquisition.Approved(proof))
+        val executor =
+            CaptureExecutor {
+                Thread.sleep(30_000)
+                ToolExecutorResult.Completed(emptyObject())
+            }
+        registerTool(descriptor(timeout = 400.milliseconds), executor)
+        val startedAtMillis = System.currentTimeMillis()
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        val elapsedMillis = System.currentTimeMillis() - startedAtMillis
+        val failed = outcome as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.TIMEOUT, failed.code)
+        assertTrue(
+            "the watchdog settles at the deadline, not when the executor returns (took ${elapsedMillis}ms)",
+            elapsedMillis < 15_000,
+        )
+        assertEquals("the stuck executor was entered exactly once", 1, executor.calls.size)
+        assertEquals(DispatchOutcomeCode.TIMEOUT, sink.events.single().code)
+    }
+
+    @Test
+    fun anExecutorThrowingBeforeTheDeadlinePropagatesAsIfCalledInline() {
+        val proof = proofFor("call-1")
+        broker.script(ApprovalAcquisition.Approved(proof))
+        val boom = IllegalStateException("executor exploded")
+        registerTool(descriptor(), CaptureExecutor { throw boom })
+        assertThrows(IllegalStateException::class.java) {
+            dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        }
     }
 
     @Test
@@ -983,6 +1023,7 @@ class ToolDispatcherTest {
         outputSchema: JsonObject = json("""{"type":"object"}"""),
         requiredCapabilities: Set<Capability> = emptySet(),
         maxOutputBytes: Long = 1024L * 1024L,
+        timeout: Duration = 30.seconds,
     ): ToolDescriptor =
         ToolDescriptor(
             name = tool(name),
@@ -992,7 +1033,7 @@ class ToolDispatcherTest {
             outputSchema = outputSchema,
             operationClass = operationClass,
             baseRisk = baseRisk,
-            timeout = 30.seconds,
+            timeout = timeout,
             maxOutputBytes = maxOutputBytes,
             requiredCapabilities = requiredCapabilities,
             idempotency = Idempotency.IDEMPOTENT,

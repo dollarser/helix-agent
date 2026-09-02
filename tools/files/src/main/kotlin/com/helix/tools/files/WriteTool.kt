@@ -59,6 +59,14 @@ object WriteTool {
 
     private val SHA256_HEX = Regex("[0-9a-f]{64}")
 
+    /**
+     * The hard cap on `content` length (chars, so up to 4× that in UTF-8 bytes): `write` holds the
+     * whole payload in memory before the atomic publish, so an unbounded string would OOM the
+     * process. The schema declares it; [parseArgs] re-checks it defensively (schema validation is
+     * a contract, not a boundary).
+     */
+    const val MAX_CONTENT_LENGTH: Int = 1 shl 22
+
     /** The registered contract. Input: `path`, `content`, optional `overwrite`/`expectedSha256`. */
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(
@@ -94,7 +102,10 @@ object WriteTool {
                     )
                     put(
                         "content",
-                        stringSchema(maxLength = null, description = "The UTF-8 text content to write"),
+                        stringSchema(
+                            maxLength = MAX_CONTENT_LENGTH,
+                            description = "The UTF-8 text content to write",
+                        ),
                     )
                     put(
                         "overwrite",
@@ -255,7 +266,10 @@ object WriteTool {
         // The optional hash, when present, must be well-formed 64-hex or the whole call is invalid.
         val badHash = expected != null && !SHA256_HEX.matches(expected)
         val missing = ref == null || content == null || path == null
-        if (missing || badHash) return null
+        // Defensive cap: the schema already bounds `content`, but the executor must not depend
+        // on the caller validating it — an unbounded payload would be held whole in memory.
+        val oversized = content != null && content.length > MAX_CONTENT_LENGTH
+        if (missing || badHash || oversized) return null
         val overwrite = boolValue(args["overwrite"]) ?: false
         return Parsed(path, content, overwrite, expected)
     }

@@ -7,6 +7,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
+import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -336,7 +337,8 @@ class WorkspaceArtifactStore(
      *
      * Order (fail-closed): region check → source resolve/containment → destination
      * resolve/containment → conflict pre-check → destination-scope quota pre-check (no temp on
-     * rejection) → read → atomic publish. The source is never modified.
+     * rejection) → streaming copy + hash → atomic publish (the source is never held whole in
+     * memory — a quota-sized file would OOM a full read). The source is never modified.
      * @throws FileNotFoundException when [src] does not exist or is not a regular file.
      * @throws FileAlreadyExistsException when [dst] exists and [overwrite] is false, or [dst]
      *   is a directory.
@@ -363,7 +365,7 @@ class WorkspaceArtifactStore(
         val overwritten = Files.exists(target)
         val size = Files.size(source)
         WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
-        val sha = AtomicFileWriter.writeAtomic(target, Files.readAllBytes(source), null)
+        val sha = streamCopyAndHash(source, target)
         return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
     }
 
@@ -421,7 +423,7 @@ class WorkspaceArtifactStore(
         // Cross-scope: publish into the destination scope (quota-gated) before the source is
         // deleted, so the source can never be lost to an admission failure.
         WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
-        val sha = AtomicFileWriter.writeAtomic(target, Files.readAllBytes(source), null)
+        val sha = streamCopyAndHash(source, target)
         Files.delete(source)
         return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
     }
@@ -566,6 +568,32 @@ class WorkspaceArtifactStore(
         root: Path,
     ): Path = PathResolution.resolveWithinRoot(root, PathResolution.join(root, path.relativePath), linkPolicy)
 
+    /**
+     * Streams [source] into [target] through the writer's temp+fsync+rename path, hashing on the
+     * way, so a quota-sized file is never held whole in memory (a full `readAllBytes` of a
+     * 1 GiB file would OOM the process; the disk quota does not bound heap allocation).
+     * Any failure deletes the temp and publishes nothing.
+     * @return the SHA-256 (hex) of the bytes as written.
+     */
+    private fun streamCopyAndHash(
+        source: Path,
+        target: Path,
+    ): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        AtomicFileWriter.writeAtomicStream(target) { out ->
+            Files.newInputStream(source).use { input ->
+                val buffer = ByteArray(COPY_CHUNK_SIZE)
+                while (true) {
+                    val n = input.read(buffer)
+                    if (n < 0) break
+                    digest.update(buffer, 0, n)
+                    out.write(buffer, 0, n)
+                }
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
     private fun newArtifactId(): String = "art_" + UUID.randomUUID().toString().replace("-", "")
 
     companion object {
@@ -574,6 +602,9 @@ class WorkspaceArtifactStore(
 
         /** Hard ceiling on total entries walked by one `files.search` call. */
         const val MAX_SEARCH_SCAN: Int = 20_000
+
+        /** Copy chunk for [streamCopyAndHash] (a whole file never sits in memory at once). */
+        const val COPY_CHUNK_SIZE: Int = 64 * 1024
 
         /**
          * A trash entry name (HXA-043): `<13-digit epoch millis>-<8 hex>__<encoded original

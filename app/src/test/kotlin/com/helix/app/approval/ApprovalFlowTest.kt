@@ -176,14 +176,16 @@ class ApprovalFlowTest {
         val pendingBinding = broker.acquireCalls.single().binding
 
         // The binding is structurally profile-blind (HXA-034 / ADR-0005 / security doc
-        // section 7.3): the canonical binding JSON has exactly the nine trusted fact
-        // fields and NO profile field — switching the profile cannot change the pending
-        // decision, the pending record or the mint.
+        // section 7.3): the canonical binding JSON has exactly the ten trusted fact
+        // fields (HXA-042 added the full-descriptor contractHash, ADR-0011) and NO
+        // profile field — switching the profile cannot change the pending decision,
+        // the pending record or the mint.
         val bindingKeys =
             Json.parseToJsonElement(pendingBinding.canonicalJson).let { it as JsonObject }.keys
         assertEquals(
             setOf(
                 "argsHash",
+                "contractHash",
                 "executionTarget",
                 "scopeRef",
                 "schemaHash",

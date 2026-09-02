@@ -66,6 +66,13 @@ object EditTool {
     /** The input content cap; an edit payload never needs more than one 1 MiB window. */
     const val MAX_CONTENT_CHARS: Int = 1024 * 1024
 
+    /**
+     * The hard cap on editable file size: an edit decodes the WHOLE file into memory (plus the
+     * replaced copy), so an unbounded file would OOM the process — the 1 GiB quota is not an
+     * in-memory bound. Larger files are refused with a stable message, not decoded.
+     */
+    const val MAX_EDITABLE_BYTES: Long = 50L * 1024L * 1024L
+
     private val SHA256_HEX = Regex("[0-9a-f]{64}")
 
     /** Probe encodings acceptable for editing (EMPTY passes: the match check fails closed). */
@@ -198,19 +205,13 @@ object EditTool {
                         return ToolExecutorResult.Failed("destination must be inside input/, work/ or output/: $ref")
                     }
                     val probe = store.probe(parsed.path)
-                    if (probe.sizeBytes < 0) return ToolExecutorResult.Failed("file not found: $ref")
-                    // Edit is UTF-8-text-only: a file classified as UTF-16 or BINARY would be
-                    // mangled by a read/replace/re-encode round trip, so it is refused (an EMPTY
-                    // file passes — the match check below fails closed).
-                    if (probe.encoding !in TEXT_ENCODINGS) {
-                        return ToolExecutorResult.Failed("file is not UTF-8 text; use write to replace it whole: $ref")
-                    }
-                    // Strict full-content decode: the probe above saw only an 8 KiB prefix, so a bad
-                    // byte in the tail of a large file is refused here, not republished as U+FFFD.
-                    val current = decodeStrictUtf8Text(store.readAll(parsed.path))
-                    if (current == null) {
-                        return ToolExecutorResult.Failed("file is not UTF-8 text; use write to replace it whole: $ref")
-                    }
+                    probeRefusal(probe, ref)?.let { return it }
+                    val loaded = loadCurrentContent(store, parsed.path, ref)
+                    val current =
+                        when (loaded) {
+                            is CurrentContent.Refusal -> return loaded.result
+                            is CurrentContent.Ready -> loaded.text
+                        }
                     val count = countNonOverlapping(current, parsed.oldText)
                     if (parsed.replaceAll) {
                         if (count == 0) return ToolExecutorResult.Failed("oldText not found: $ref")
@@ -326,6 +327,36 @@ object EditTool {
     }
 
     /**
+     * The pre-decode probe gate, fail-closed: a missing file, a file too large to decode whole
+     * (the full-content decode holds it in memory — the quota is not an in-memory bound, so an
+     * oversized file is a stable refusal, not an OOM), and an encoding that cannot round-trip
+     * through read/replace/re-encode. An EMPTY file passes — the match check fails closed.
+     */
+    private fun probeRefusal(
+        probe: ContentProbe.Result,
+        ref: String,
+    ): ToolExecutorResult? =
+        when {
+            probe.sizeBytes < 0 -> {
+                ToolExecutorResult.Failed("file not found: $ref")
+            }
+
+            probe.sizeBytes > MAX_EDITABLE_BYTES -> {
+                ToolExecutorResult.Failed("file too large to edit: $ref")
+            }
+
+            probe.encoding !in TEXT_ENCODINGS -> {
+                ToolExecutorResult.Failed(
+                    "file is not UTF-8 text; use write to replace it whole: $ref",
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
+
+    /**
      * Strict whole-file UTF-8 gate. [ContentProbe] classifies only the leading 8 KiB, so a file
      * that is clean text in the prefix but carries an invalid sequence (or a NUL byte) in the
      * tail would otherwise pass the probe; decoding the FULL content with REPORT error action
@@ -345,6 +376,49 @@ object EditTool {
                 .toString()
         } catch (e: CharacterCodingException) {
             null
+        }
+    }
+
+    /** The post-probe outcome of loading a file's current content: ready text or a refusal. */
+    private sealed interface CurrentContent {
+        data class Ready(
+            val text: String,
+        ) : CurrentContent
+
+        data class Refusal(
+            val result: ToolExecutorResult,
+        ) : CurrentContent
+    }
+
+    /**
+     * Loads and strictly decodes the file's current content with the post-probe guards: a file
+     * that vanished or grew past the cap between the probe gate and the read is refused (the cap
+     * is an in-memory bound, not just a quota matter), and any non-UTF-8 content is refused
+     * strict — the probe saw only an 8 KiB prefix, so a bad tail byte is refused here, not
+     * republished as U+FFFD.
+     */
+    private fun loadCurrentContent(
+        store: WorkspaceArtifactStore,
+        path: FileScopePath,
+        ref: String,
+    ): CurrentContent {
+        val fresh = store.stat(path)
+        val sizeRefusal =
+            when {
+                fresh.sizeBytes < 0 -> "file not found: $ref"
+                fresh.sizeBytes > MAX_EDITABLE_BYTES -> "file too large to edit: $ref"
+                else -> null
+            }
+        if (sizeRefusal != null) {
+            return CurrentContent.Refusal(ToolExecutorResult.Failed(sizeRefusal))
+        }
+        val text = decodeStrictUtf8Text(store.readAll(path))
+        return if (text == null) {
+            CurrentContent.Refusal(
+                ToolExecutorResult.Failed("file is not UTF-8 text; use write to replace it whole: $ref"),
+            )
+        } else {
+            CurrentContent.Ready(text)
         }
     }
 

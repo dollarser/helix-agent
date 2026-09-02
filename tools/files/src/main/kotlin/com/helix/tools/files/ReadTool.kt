@@ -27,6 +27,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.io.FileNotFoundException
+import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -170,6 +171,11 @@ object ReadTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: IOException) {
+                    // Fallback: a raw NIO IOException (permissions, volume I/O error) would carry
+                    // the absolute real path in its message — report a sanitized failure instead
+                    // (doc 10: real paths never reach model or UI text).
+                    ToolExecutorResult.Failed("file read failed: ${parsed.path.toModelReference()}")
                 }
             }
         }

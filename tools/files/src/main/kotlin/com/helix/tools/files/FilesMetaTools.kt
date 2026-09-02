@@ -26,6 +26,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.FileNotFoundException
+import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 
 /*
@@ -107,7 +108,7 @@ object FilesStatTool {
 
     fun executor(store: WorkspaceArtifactStore): ToolExecutor =
         object : ToolExecutor {
-            @Suppress("ReturnCount") // cancel + invalid reference + the guarded result are distinct terminal outcomes
+            @Suppress("ReturnCount", "SwallowedException") // sanitized failure; outcomes are distinct
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val path = parsePath(call.args) ?: return ToolExecutorResult.Failed("invalid 'files.stat' arguments")
@@ -129,6 +130,10 @@ object FilesStatTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: IOException) {
+                    // A raw NIO IOException message may carry the absolute real path — a sanitized
+                    // failure keeps it away from the model (doc 10).
+                    ToolExecutorResult.Failed("stat failed: ${path.toModelReference()}")
                 }
             }
         }
@@ -231,6 +236,8 @@ object FilesListTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: IOException) {
+                    ToolExecutorResult.Failed("list failed: ${path.toModelReference()}")
                 }
             }
         }
@@ -333,6 +340,8 @@ object FilesSearchTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: IOException) {
+                    ToolExecutorResult.Failed("search failed: ${path.toModelReference()}")
                 }
             }
         }
@@ -431,6 +440,8 @@ object FilesMkdirTool {
                     ToolExecutorResult.Failed("path rejected: ${e.message}")
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
+                } catch (e: IOException) {
+                    ToolExecutorResult.Failed("directory creation failed: $ref")
                 }
             }
         }
