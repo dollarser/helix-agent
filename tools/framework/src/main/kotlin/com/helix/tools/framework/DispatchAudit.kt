@@ -1,6 +1,7 @@
 package com.helix.tools.framework
 
 import com.helix.core.model.RiskLevel
+import kotlinx.serialization.json.JsonObject
 
 /**
  * Stable per-dispatch audit codes (roadmap HXA-035 "audit"; doc 11 采纳矩阵:
@@ -57,6 +58,12 @@ enum class DecisionSource {
  * [riskLevel] is the Policy Engine's DYNAMIC risk for this dispatch (base risk plus the
  * egress/change factors) — the value the audit page (HXA-036) filters by. It is null when
  * the dispatch stopped before the policy stage ran (validation, unknown tool).
+ *
+ * [executionDetail] is the optional bounded, REDACTED executor metadata (HXA-053) — for an
+ * execution that has its own audit fields (QuickJS source/output SHA-256, input summary,
+ * applied limits, terminal JS status; doc 03 section 4.8). It carries hashes/sizes/limits only,
+ * NEVER a body, and is null for tools that report none. The storage sink allowlists it as one
+ * stable key so the payload shape stays detectable (an absent fact is a null, not a missing key).
  */
 data class DispatchAuditEvent(
     val correlationId: String,
@@ -80,6 +87,8 @@ data class DispatchAuditEvent(
     val outputTruncated: Boolean,
     /** 1-based attempt number within the dispatch (doc 11 section 3.3). */
     val attemptId: Int = 1,
+    /** Optional bounded redacted executor metadata (HXA-053); see the class KDoc. */
+    val executionDetail: JsonObject? = null,
 ) {
     init {
         require(correlationId.isNotBlank()) { "correlationId must not be blank" }

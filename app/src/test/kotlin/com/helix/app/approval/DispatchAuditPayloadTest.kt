@@ -5,7 +5,10 @@ import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.DispatchOutcomeCode
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -129,6 +132,40 @@ class DispatchAuditPayloadTest {
         // the key stays present, the shape is stable.
         val bare = Json.parseToJsonElement(StorageAuditSink.payload(fullEvent())).jsonObject
         assertTrue(bare["queuedAt"] is kotlinx.serialization.json.JsonNull)
+    }
+
+    @Test
+    fun executionDetailIsAnAllowlistedRedactedKey() {
+        // HXA-053: the QuickJS §4.8 executor metadata reaches the payload as ONE allowlisted
+        // key — a nested object of hashes/sizes/limits, never a body.
+        val detail =
+            buildJsonObject {
+                put("status", "SUCCESS")
+                put("sourceSha256", "a".repeat(64))
+                put("sourceBytes", 42L)
+                put("inputBytes", 6L)
+                put("inputSha256", "b".repeat(64))
+                put("outputBytes", 13L)
+                put("outputSha256", "c".repeat(64))
+                put(
+                    "limits",
+                    buildJsonObject {
+                        put("timeoutMs", 10_000L)
+                        put("memoryBytes", 64L * 1024 * 1024)
+                        put("maxOutputBytes", 256L * 1024)
+                    },
+                )
+                put("isolated", true)
+            }
+        val event = fullEvent().copy(executionDetail = detail)
+        val obj = Json.parseToJsonElement(StorageAuditSink.payload(event)).jsonObject
+        // The key is present and carries the exact redacted object.
+        assertEquals(detail, obj["executionDetail"]?.jsonObject)
+        // The allowlist still holds: top-level keys == PAYLOAD_KEYS (executionDetail is one key).
+        assertEquals(StorageAuditSink.PAYLOAD_KEYS, obj.keys)
+        // A tool that reports no execution detail emits a present-but-null key (stable shape).
+        val bare = Json.parseToJsonElement(StorageAuditSink.payload(fullEvent())).jsonObject
+        assertTrue("an absent executionDetail stays a present null key", bare["executionDetail"] is JsonNull)
     }
 
     @Test

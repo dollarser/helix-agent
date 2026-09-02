@@ -14,6 +14,7 @@ import com.helix.core.policy.DataSensitivity
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.WorkspaceScope
+import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchOutcomeCode
@@ -24,10 +25,13 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
 import kotlin.time.Duration.Companion.seconds
@@ -195,6 +199,161 @@ class ApprovalCardUiMapperTest {
             ),
         )
     }
+
+    // ------------------------------------------------------------------ code-execution card (HXA-053)
+
+    @Test
+    fun codeExecutionCardShowsFullCodeInputSummaryLimitsOfflineAndHash() {
+        val code = "return { doubled: input.n * 2 }"
+        val args =
+            buildJsonObject {
+                put("code", code)
+                put("input", buildJsonObject { put("n", 21) })
+            }
+        val ui = ApprovalUiMapper.codeExecutionUi(CodeJavascriptRunTool.descriptor(), args)
+        assertNotNull("a CODE_EXECUTION tool with a code arg must render the code section", ui)
+        val e = ui!!
+        // The FULL code is shown (copyable/searchable), not truncated.
+        assertEquals(code, e.code)
+        // The code SHA-256 short digest is the first 16 hex chars of the full code hash.
+        val expectedShort =
+            MessageDigest
+                .getInstance("SHA-256")
+                .digest(code.toByteArray(StandardCharsets.UTF_8))
+                .take(8)
+                .joinToString("") { "%02x".format(it) }
+        assertEquals(expectedShort, e.codeSha256Short)
+        // Input summary: inline JSON value + byte size — the body is not shown.
+        assertTrue(
+            "input summary must name the inline JSON source: ${e.inputSource}",
+            e.inputSource.startsWith("内联 JSON 值（"),
+        )
+        assertTrue(e.inputSource.contains("字节）"))
+        // The fixed §4.1 limits are displayed (the model cannot change them).
+        assertTrue(e.limits.contains("10 s"))
+        assertTrue(e.limits.contains("64 MiB"))
+        assertTrue(e.limits.contains("256 KiB"))
+        // 联网：否 (offline) — the QuickJS backend has no network.
+        assertFalse("QuickJS must render as offline", e.online)
+    }
+
+    @Test
+    fun codeExecutionCardIsAbsentForNonCodeToolsAndShowsNoInputWhenInputMissing() {
+        // A non-CODE_EXECUTION descriptor never gets the code-execution section.
+        val nonCode =
+            ToolDescriptor(
+                name = ToolName("fs.write"),
+                version = ToolVersion(2),
+                description = "写入文件",
+                inputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
+                outputSchema =
+                    Json.parseToJsonElement(
+                        """{"type":"object"}""",
+                    ) as kotlinx.serialization.json.JsonObject,
+                operationClass = ToolOperationClass.LOCAL_MUTATION,
+                baseRisk = RiskLevel.L2,
+                timeout = 30.seconds,
+                maxOutputBytes = 4096L,
+                requiredCapabilities = emptySet(),
+                idempotency = Idempotency.NON_IDEMPOTENT,
+                executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+                origin = ToolOrigin.BuiltInOrigin,
+            )
+        assertNull(
+            ApprovalUiMapper.codeExecutionUi(
+                nonCode,
+                buildJsonObject { put("code", "print(1)") },
+            ),
+        )
+        // A JS call with NO input renders the explicit "无输入" line (not an empty body).
+        val noInput =
+            ApprovalUiMapper.codeExecutionUi(
+                CodeJavascriptRunTool.descriptor(),
+                buildJsonObject { put("code", "return 1") },
+            )
+        assertEquals(ApprovalCardUi.NO_INPUT, noInput!!.inputSource)
+    }
+
+    @Test
+    fun buildCardAttachesTheCodeExecutionSectionForJs() {
+        val card =
+            ApprovalUiMapper.buildCard(
+                approvalId = "a-js",
+                binding = jsBinding(),
+                state = ApprovalCardState.PENDING,
+                descriptor = CodeJavascriptRunTool.descriptor(),
+                arguments =
+                    buildJsonObject {
+                        put("code", "return { x: 1 }")
+                        put("input", buildJsonObject { put("n", 2) })
+                    },
+                dynamicRisk = RiskLevel.L2,
+                profile = SafetyProfile.STANDARD,
+                dataOrigin = DataOrigin.WORKSPACE,
+                egressOrigin = null,
+                egressResidence = null,
+                egressCategory = null,
+                boundedRule = null,
+                confirmationDetail = "",
+                terminalDetail = null,
+            )
+        assertNotNull("buildCard must attach the code-execution section for the JS tool", card.codeExecution)
+        // No egress → the card renders the explicit 无出网 (联网：否 is covered by codeExecution.online=false).
+        assertNull(card.networkOrigin)
+    }
+
+    @Test
+    fun buildCardLeavesCodeExecutionNullForNonCodeTools() {
+        val card =
+            ApprovalUiMapper.buildCard(
+                approvalId = "a-plain",
+                binding = jsBinding().copy(toolName = "fs.write", executionTarget = ExecutionTargetType.LOCAL_ANDROID),
+                state = ApprovalCardState.PENDING,
+                descriptor = plainDescriptor(),
+                arguments = buildJsonObject { put("path", "/x") },
+                dynamicRisk = RiskLevel.L2,
+                profile = SafetyProfile.STANDARD,
+                dataOrigin = DataOrigin.WORKSPACE,
+                egressOrigin = null,
+                egressResidence = null,
+                egressCategory = null,
+                boundedRule = null,
+                confirmationDetail = "",
+                terminalDetail = null,
+            )
+        assertNull("a non-code tool must not get a code-execution section", card.codeExecution)
+    }
+
+    private fun jsBinding() =
+        ApprovalBinding(
+            toolCallId = "call-js",
+            toolName = "code.javascript.run",
+            toolVersion = "1",
+            schemaHash = "a".repeat(64),
+            contractHash = "b".repeat(64),
+            scopeRef = "unscoped",
+            sessionId = "sess-1",
+            executionTarget = ExecutionTargetType.LOCAL_QUICKJS,
+            uiToken = "chat:turn-1",
+            argsHash = "c".repeat(64),
+        )
+
+    private fun plainDescriptor() =
+        ToolDescriptor(
+            name = ToolName("fs.write"),
+            version = ToolVersion(2),
+            description = "写入文件",
+            inputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
+            outputSchema = Json.parseToJsonElement("""{"type":"object"}""") as kotlinx.serialization.json.JsonObject,
+            operationClass = ToolOperationClass.LOCAL_MUTATION,
+            baseRisk = RiskLevel.L2,
+            timeout = 30.seconds,
+            maxOutputBytes = 4096L,
+            requiredCapabilities = emptySet(),
+            idempotency = Idempotency.NON_IDEMPOTENT,
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            origin = ToolOrigin.BuiltInOrigin,
+        )
 
     // ------------------------------------------------------------------ buildCard (full mapping)
 

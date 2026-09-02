@@ -3,11 +3,13 @@ package com.helix.app.approval
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.policy.ApprovalBinding
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.DataSensitivity
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.HighSensitivityRule
+import com.helix.runtime.quickjs.JsExecutionLimits
 import com.helix.tools.framework.CanonicalArgs
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchOutcomeCode
@@ -15,6 +17,8 @@ import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -65,6 +69,23 @@ data class BoundedRuleUi(
 )
 
 /**
+ * The code-execution section of a code-execution tool's approval card (HXA-053; doc 03 §5).
+ * Renders the FULL code as a copyable/searchable block, the input SOURCE + size (never the
+ * sensitive body by default), the FIXED "联网：否" line, the applied limits, and the code's
+ * SHA-256 short digest. Present only for CODE_EXECUTION tools; null otherwise.
+ *
+ * The limits come from the fixed §4.1 defaults the backend enforces ([JsExecutionLimits]
+ * DEFAULTS) — never from model arguments (the model cannot raise them).
+ */
+data class CodeExecutionUi(
+    val code: String,
+    val codeSha256Short: String,
+    val inputSource: String,
+    val limits: String,
+    val online: Boolean,
+)
+
+/**
  * One approval card (roadmap HXA-036): the full authorization summary of one exact,
  * one-time action. Field list per the task text: 来源、目标、scope、参数、风险、Safety
  * Profile、Provider/MCP ID、网络 origin/residence、数据类别、规则有效期、代码/命令、
@@ -100,6 +121,8 @@ data class ApprovalCardUi(
     val dataCategory: String,
     val boundedRule: BoundedRuleUi?,
     val codeOrCommand: String?,
+    /** The code-execution section (full code block + input summary + limits + hash); HXA-053. */
+    val codeExecution: CodeExecutionUi? = null,
     val expectedImpact: String,
     val verifier: String,
     val confirmationDetail: String,
@@ -111,6 +134,9 @@ data class ApprovalCardUi(
 
         /** Rendered when the call carries no egress facts (explicit, not silent). */
         const val NO_EGRESS = "无出网"
+
+        /** The code-execution input-source line when the call passes no `input` value. */
+        const val NO_INPUT = "无输入"
     }
 }
 
@@ -221,6 +247,48 @@ object ApprovalUiMapper {
         return command.takeIf { !it.isNullOrBlank() }
     }
 
+    /**
+     * The code-execution section (doc 03 §5) for a CODE_EXECUTION tool: the FULL code, its
+     * SHA-256 short digest, the input SOURCE + size (not the body), the fixed "联网：否"
+     * flag, and the applied §4.1 limits. Null for every other operation class and when there
+     * is no `code` argument to show. Pure/JVM-testable like the rest of the mapper.
+     */
+    fun codeExecutionUi(
+        descriptor: ToolDescriptor,
+        arguments: JsonObject,
+    ): CodeExecutionUi? {
+        if (descriptor.operationClass != ToolOperationClass.CODE_EXECUTION) return null
+        return stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
+            CodeExecutionUi(
+                code = code,
+                codeSha256Short = sha256Short(code),
+                inputSource = inputSource(arguments["input"]),
+                limits = limitsLabel(),
+                online = false,
+            )
+        }
+    }
+
+    /** The input-source line: an explicit "无输入" when absent, else the inline JSON size (not body). */
+    private fun inputSource(input: kotlinx.serialization.json.JsonElement?): String =
+        if (input == null) {
+            ApprovalCardUi.NO_INPUT
+        } else {
+            "内联 JSON 值（${CanonicalArgs.canonicalize(input).toByteArray(StandardCharsets.UTF_8).size} 字节）"
+        }
+
+    /** The fixed §4.1 limits the QuickJS backend applies (the model cannot change them). */
+    fun limitsLabel(): String {
+        val l = JsExecutionLimits.DEFAULTS
+        return "超时 ${l.timeoutMs / 1000L} s · 内存 ${l.memoryBytes / (1024L * 1024L)} MiB · " +
+            "输出上限 ${l.maxOutputBytes / 1024L} KiB · 并发 1"
+    }
+
+    private fun sha256Short(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
+        return digest.take(8).joinToString("") { "%02x".format(it) }
+    }
+
     private fun stringArg(
         arguments: JsonObject,
         key: String,
@@ -325,6 +393,7 @@ object ApprovalUiMapper {
             dataCategory = categoryLabel(dataOrigin, egressCategory),
             boundedRule = boundedRule,
             codeOrCommand = codeOrCommand(arguments),
+            codeExecution = codeExecutionUi(descriptor, arguments),
             expectedImpact = expectedImpact(descriptor.description),
             verifier = VERIFIER_TEXT,
             confirmationDetail = confirmationDetail,

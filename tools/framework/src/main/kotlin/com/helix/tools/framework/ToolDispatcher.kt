@@ -571,6 +571,15 @@ class ToolDispatcher(
         }
         val call = buildCall(request, descriptor, execStart)
         val result = executeWithinDeadline(executor, call)
+        // HXA-053: capture the executor's optional redacted metadata (QuickJS doc 03 §4.8)
+        // for the audit event. TimedOut/Cancelled carry no executor metadata (they are
+        // data objects); only Completed and Failed may report one.
+        ctx.executionDetail =
+            when (result) {
+                is ToolExecutorResult.Completed -> result.auditDetail
+                is ToolExecutorResult.Failed -> result.auditDetail
+                else -> null
+            }
         return when (result) {
             is ToolExecutorResult.Completed -> {
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
@@ -809,6 +818,7 @@ class ToolDispatcher(
                 outputHash = ctx.outputHash,
                 outputTruncated = ctx.outputTruncated,
                 attemptId = ctx.attemptId,
+                executionDetail = ctx.executionDetail,
             ),
         )
         return outcome
@@ -938,6 +948,7 @@ class ToolDispatcher(
         var actionFingerprint: String? = null
         var outputHash: String? = null
         var outputTruncated: Boolean = false
+        var executionDetail: JsonObject? = null
         var stopped: StopResult? = null
         var descriptor: ToolDescriptor? = null
         var executor: ToolExecutor? = null

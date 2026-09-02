@@ -144,7 +144,10 @@ val projectDependencies =
         ":feature:browser" to listOf(":core:model", ":core:policy"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
-        ":runtime:quickjs" to listOf(":core:model"),
+        // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
+        // executor), a tools:framework contract; the app wires it into the pipeline. A JVM
+        // tool-framework dependency of an Android library mirrors :runtime:proot-client.
+        ":runtime:quickjs" to listOf(":core:model", ":tools:framework"),
         ":runtime:proot-client" to listOf(":core:model"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
