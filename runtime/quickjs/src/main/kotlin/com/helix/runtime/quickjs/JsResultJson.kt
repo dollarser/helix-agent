@@ -4,14 +4,15 @@ import java.nio.charset.StandardCharsets
 import java.util.Locale
 
 /**
- * HXA-051 result encoder: converts the JVM value that Zipline's
+ * HXA-052 result encoder: converts the JVM value that Zipline's
  * `QuickJs.evaluate` returns into the canonical JSON bytes of the execution result
  * (doc 03 §3.2/§4.6: results are JSON primitives/objects/arrays only).
  *
- * HXA-052 will make the wrapper return a JSON string literal, so in production the value
- * is usually already a `String` (passed through byte-for-byte). The encoder exists so
- * raw-evaluate results (numbers, booleans, null, Zipline-converted objects/arrays) also
- * produce a stable JSON result in this task's protocol.
+ * In production the wrapper's last expression is `JSON.stringify(...)`, so the evaluated
+ * value is a `String` — the JSON document text — passed through byte-for-byte (re-quoting
+ * would double-encode it). The remaining branches handle the degenerate wrapper escapes
+ * where user code returns from the IIFE itself (a top-level object degrades to null, an
+ * array to a Zipline-converted List) and still produce a stable JSON result.
  *
  * Pure JVM: unit-tested without Android. Circular containers and non-encodable values
  * fail with [EncodingFailure] — they never silently produce success.

@@ -8,8 +8,17 @@ package com.helix.runtime.quickjs
  * both consume these constants, so both sides of the protocol share one source of truth.
  */
 object JsProtocol {
-    /** Bump when the EXECUTE/INFO wire layout changes; the service rejects other versions. */
-    const val PROTOCOL_VERSION: Int = 1
+    /**
+     * Bump when the EXECUTE/INFO wire layout changes; the service rejects other
+     * versions.
+     *
+     * Version 2 = HXA-052 ABI: `sourceUtf8` carries the helixMain BODY (the service
+     * evaluates the §3.2 IIFE wrapper assembled from it, never the source verbatim)
+     * and a SUCCESS `outputUtf8` is the wrapper's `JSON.stringify(...)` text — exactly
+     * one JSON document. Version 1 (HXA-051) evaluated the source verbatim and passed
+     * any Zipline-converted value through.
+     */
+    const val PROTOCOL_VERSION: Int = 2
 
     // Transaction codes. `FIRST_CALL_TRANSACTION` mirrors the literal value of
     // `android.os.Binder.FIRST_CALL_TRANSACTION` (1) and is kept here so the closed code

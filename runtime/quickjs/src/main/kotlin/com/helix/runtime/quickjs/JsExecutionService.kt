@@ -17,9 +17,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * HXA-051 production QuickJS execution service (architecture doc local-code-execution
- * §2.2/§4). Replaces the HXA-050 `SpikeIsolatedService` (same manifest shape, production
- * protocol).
+ * HXA-052 production QuickJS execution service (architecture doc local-code-execution
+ * §2.2/§3/§4). HXA-051's raw-evaluate path evolved into the §3.2 IIFE wrapper ABI
+ * (assembled by [JsAbiAssembly]): the caller's source is the `helixMain` body, the
+ * input enters as a host-encoded string literal argument (never a global), and the
+ * result is always the `JSON.stringify(...)` text — a JSON document.
  *
  * Process model (doc 03 §2.2): `isolatedProcess=true`, `exported=false`,
  * `stopWithTask=false`, no permissions, no host bridge. Every execution binds a UNIQUE
@@ -29,8 +31,9 @@ import java.util.concurrent.atomic.AtomicReference
  *
  * Execution control (doc 03 §4): a brand-new `QuickJs` instance is created ON THE
  * DEDICATED EXECUTION THREAD (native stack 16 MiB) — the thread-baseline constraint
- * pinned by ADR-0015 — with `memoryLimit` and an `InterruptHandler` (monotonic deadline
- * + client interrupt flag) set before `evaluate`, and closed on the same thread.
+ * pinned by ADR-0015 — with `memoryLimit` (default 64 MiB) and an `InterruptHandler`
+ * (monotonic deadline + client interrupt flag) set before `evaluate`, and closed on
+ * the same thread.
  *
  * Normal control plane is exclusively: interrupt transaction, deadline-driven interrupt,
  * unbind + system reclamation. This service NEVER calls `killProcess`/`System.exit` as
@@ -165,6 +168,11 @@ class JsExecutionService : Service() {
                     )
                     return
                 }
+                val payloadError = validatePayload(sourceBytes, inputBytes)
+                if (payloadError != null) {
+                    replyWith(reply, JsExecutionStatus.REQUEST_REJECTED, payloadError, "", request)
+                    return
+                }
                 if ((envelope.flags and JsProtocol.FLAG_CRASH_INJECTION) != 0) {
                     startCrashSeam(envelope.crashAfterMs)
                 }
@@ -280,6 +288,25 @@ class JsExecutionService : Service() {
             return null
         }
 
+        /**
+         * HXA-052 payload contract checks on the MATERIALIZED bytes (the client
+         * enforces the same rules pre-bind; this is the defense-in-depth re-check for
+         * direct binder users that bypass the client): the source must decode as
+         * UTF-8, and a non-empty input must be exactly one valid JSON document — the
+         * wrapper's `JSON.parse` only ever sees host-validated input.
+         */
+        @Suppress("ReturnCount") // one return per distinct payload violation
+        private fun validatePayload(
+            sourceBytes: ByteArray,
+            inputBytes: ByteArray,
+        ): String? {
+            if (JsJsonDocument.decodeUtf8Strict(sourceBytes) == null) return "source is not valid UTF-8"
+            if (inputBytes.isNotEmpty() && !JsJsonDocument.isValidJson(inputBytes)) {
+                return "input is not a valid JSON document"
+            }
+            return null
+        }
+
         /** Reads exactly [totalBytes] bytes from a read-only PFD; fails on truncation. */
         private fun readBounded(
             pfd: ParcelFileDescriptor,
@@ -377,6 +404,7 @@ class JsExecutionService : Service() {
         }
 
         /** The QuickJS lifecycle itself; MUST run on the dedicated execution thread. */
+        @Suppress("ReturnCount") // one return per distinct assembly/delivery outcome
         private fun execute(
             request: JsExecutionRequest,
             sourceBytes: ByteArray,
@@ -384,6 +412,30 @@ class JsExecutionService : Service() {
             outputPfd: ParcelFileDescriptor?,
             interruptRequested: AtomicBoolean,
         ): JsExecutionResult {
+            // HXA-052 ABI: the caller's source is the helixMain body; the program that
+            // actually runs is the §3.2 wrapper (input as host-encoded literal argument,
+            // result as JSON.stringify text). The payload was validated just before
+            // (source UTF-8, input JSON), so the decodes below are total.
+            val program =
+                JsAbiAssembly.build(
+                    userSource = String(sourceBytes, StandardCharsets.UTF_8),
+                    inputLiteral = JsAbiAssembly.inputLiteral(inputBytes),
+                    maxOutputBytes = request.limits.maxOutputBytes,
+                )
+            // Bounded-after-assembly check: the §4.1 source/input limits must keep the
+            // WHOLE evaluated program under control, not just the user source.
+            if (program.toByteArray(StandardCharsets.UTF_8).size >
+                JsAbiAssembly.maxWrappedBytes(request.limits.maxSourceBytes, request.limits.maxInputBytes)
+            ) {
+                return JsExecutionResult.serviceFailure(
+                    executionId = request.executionId,
+                    status = JsExecutionStatus.REQUEST_REJECTED,
+                    detail = "assembled program exceeds the bounded size for the given limits",
+                    inputSha256Hex = JsHash.sha256Hex(inputBytes),
+                    servicePid = Process.myPid(),
+                    serviceUid = Process.myUid(),
+                )
+            }
             val js = QuickJs.create()
             try {
                 js.memoryLimit = request.limits.memoryBytes
@@ -391,7 +443,7 @@ class JsExecutionService : Service() {
                     InterruptHandler {
                         interruptRequested.get() || System.nanoTime() >= request.deadlineNanos
                     }
-                val value = js.evaluate(String(sourceBytes, StandardCharsets.UTF_8), JS_FILE_NAME)
+                val value = js.evaluate(program, JS_FILE_NAME)
                 return deliverResult(request, inputBytes, outputPfd, value)
             } catch (e: QuickJsException) {
                 return classifyEngineError(request, inputBytes, interruptRequested, e)
@@ -469,6 +521,11 @@ class JsExecutionService : Service() {
          * instant, so a deadline breach classifies as TIMEOUT even if the interrupt flag
          * is also set. Explicit cancels carry a distant deadline and therefore classify
          * as INTERRUPTED.
+         *
+         * HXA-052 wrapper markers: the wrapper throws the stable strings
+         * [JsAbiAssembly.OUTPUT_LIMIT_MARKER] (its conservative code-unit bound) and,
+         * for a cyclic result, the engine's [JsAbiAssembly.CIRCULAR_RESULT_MARKER]
+         * from the stringify step — both reclassify as OUTPUT_LIMIT, never JS_ERROR.
          */
         private fun classifyEngineError(
             request: JsExecutionRequest,
@@ -477,17 +534,20 @@ class JsExecutionService : Service() {
             error: QuickJsException,
         ): JsExecutionResult {
             val deadlinePassed = System.nanoTime() >= request.deadlineNanos
+            val message = error.message.orEmpty()
             val status =
                 when {
                     deadlinePassed -> JsExecutionStatus.TIMEOUT
                     interruptRequested.get() -> JsExecutionStatus.INTERRUPTED
                     isOutOfMemory(error) -> JsExecutionStatus.OOM
+                    message.contains(JsAbiAssembly.OUTPUT_LIMIT_MARKER) -> JsExecutionStatus.OUTPUT_LIMIT
+                    message.contains(JsAbiAssembly.CIRCULAR_RESULT_MARKER) -> JsExecutionStatus.OUTPUT_LIMIT
                     else -> JsExecutionStatus.JS_ERROR
                 }
             return JsExecutionResult.serviceFailure(
                 executionId = request.executionId,
                 status = status,
-                detail = error.message.orEmpty().ifBlank { "<empty message>" },
+                detail = message.ifBlank { "<empty message>" },
                 inputSha256Hex = JsHash.sha256Hex(inputBytes),
                 servicePid = Process.myPid(),
                 serviceUid = Process.myUid(),
@@ -502,10 +562,21 @@ class JsExecutionService : Service() {
          * The two forms are classified by message shape: the engine's `memoryUsage`
          * counter is NOT a usable discriminator — it reports current usage, which falls
          * back to baseline (~94 KiB observed on API 29) after the failed allocation.
-         * Known raw-mode ambiguity: a user `throw new Error()` with an empty message is
-         * indistinguishable at the Zipline API level and labels as OOM; HXA-052's
-         * wrapper guarantees non-blank error text, eliminating the ambiguity in
-         * production mode.
+         *
+         * HXA-052 wrapper semantics: user errors are rethrown by the wrapper as
+         * NON-BLANK strings (see [JsAbiAssembly]). An engine OOM caught by the
+         * wrapper's catch takes one of two paths depending on what the engine puts in
+         * the catch variable: normally an Error whose message contains "out of memory"
+         * (the wrapper prefixes it, the substring survives); but on API 29 a BULK
+         * allocation (e.g. a 256 MiB `Array.fill`) that exhausts the heap can fail to
+         * allocate the Error object itself and the catch variable is literal null —
+         * the wrapper rethrows it verbatim and the host receives the EMPTY-message
+         * form. Both hit this shape check. The HXA-051 raw-mode ambiguity (user
+         * `throw new Error()` = empty message = OOM label) no longer exists in
+         * production mode. The remaining indistinguishable cases are a user `throw ""`
+         * (stringifies to empty → verbatim rethrow) and a user `throw null` (the API
+         * 29 OOM surface form): both keep the OOM label — documented, accepted, and
+         * pinned by the attack suite.
          */
         private fun isOutOfMemory(error: QuickJsException): Boolean {
             val message = error.message.orEmpty()

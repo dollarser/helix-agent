@@ -34,11 +34,11 @@ class JsExecutionInstanceTest {
     fun eachExecutionUsesFreshIsolatedInstance() {
         val first =
             support.client.execute(
-                support.params(support.newExecutionId("fresh-1"), "1"),
+                support.params(support.newExecutionId("fresh-1"), "return 1"),
             )
         val second =
             support.client.execute(
-                support.params(support.newExecutionId("fresh-2"), "2"),
+                support.params(support.newExecutionId("fresh-2"), "return 2"),
             )
         assertEquals(JsExecutionStatus.SUCCESS, first.status)
         assertEquals(JsExecutionStatus.SUCCESS, second.status)
@@ -75,11 +75,11 @@ class JsExecutionInstanceTest {
         val name = support.newInstanceName("oneshot")
         val a = support.bindDirect(name)
         try {
-            val first = support.executeDirect(a.binder, support.newExecutionId("oneshot-exec"), "1 + 1")
+            val first = support.executeDirect(a.binder, support.newExecutionId("oneshot-exec"), "return 1 + 1")
             assertEquals(JsExecutionStatus.SUCCESS, first.status)
             // The instance slot is one-shot: a second execution on the same instance is
             // rejected (doc 03 §4.1: a fresh instance per task; no shared state).
-            val second = support.executeDirect(a.binder, support.newExecutionId("oneshot-exec-2"), "2 + 2")
+            val second = support.executeDirect(a.binder, support.newExecutionId("oneshot-exec-2"), "return 2 + 2")
             assertEquals(JsExecutionStatus.REQUEST_REJECTED, second.status)
             assertTrue(
                 "rejection must state the instance is used, got: ${second.detail}",
@@ -122,7 +122,7 @@ class JsExecutionInstanceTest {
     @Test
     fun sameNameAfterReclamationYieldsFreshInstance() {
         val executionId = support.newExecutionId("resame")
-        val first = support.client.execute(support.params(executionId, "1"))
+        val first = support.client.execute(support.params(executionId, "return 1"))
         assertEquals(JsExecutionStatus.SUCCESS, first.status)
         val firstPid = first.servicePid
         assertTrue(
@@ -131,9 +131,10 @@ class JsExecutionInstanceTest {
         )
         // Same executionId → same derived instance name, but the previous instance is
         // gone, so the bind creates a FRESH instance (new PID, fresh slot).
-        val second = support.client.execute(support.params(executionId, "2"))
+        val second = support.client.execute(support.params(executionId, "return 2"))
         assertEquals(JsExecutionStatus.SUCCESS, second.status)
         assertNotEquals("re-bind after reclamation must be a fresh instance", firstPid, second.servicePid)
+        // JSON number document `2` — numbers stay bare in the wrapper output contract.
         assertEquals("2", second.outputUtf8.toString(Charsets.UTF_8))
     }
 }

@@ -4,13 +4,17 @@ import android.os.Parcel
 import android.os.Parcelable
 
 /**
- * HXA-051 execution request (architecture doc local-code-execution §3.1 request type).
+ * HXA-052 execution request (architecture doc local-code-execution §3.1 request type).
+ *
+ * `sourceUtf8` carries the user source as the `helixMain` BODY of the §3.2 wrapper —
+ * the service assembles and evaluates the wrapper (see [JsAbiAssembly]); it never
+ * evaluates the source verbatim. `inputJsonUtf8` must be empty (no input → the wrapper
+ * argument literal is `null`) or exactly one valid JSON document (client- and
+ * service-validated).
  *
  * `sourceUtf8`/`inputJsonUtf8` carry the INLINE (≤ [JsProtocol.PARCEL_INLINE_MAX_BYTES])
  * payload; larger payloads travel through read-only `ParcelFileDescriptor`s handed over
- * in the EXECUTE transaction envelope ([JsExecutionWire.ExecuteEnvelope]) instead. An
- * empty `inputJsonUtf8` means "no input"; source is expected non-empty by the caller, and
- * the service evaluates an empty source to `undefined` (result `null`).
+ * in the EXECUTE transaction envelope ([JsExecutionWire.ExecuteEnvelope]) instead.
  *
  * [deadlineNanos] is the client's monotonic deadline (`send time + limits.timeoutMs`).
  * `System.nanoTime()` (CLOCK_MONOTONIC) is comparable across processes, so the service's

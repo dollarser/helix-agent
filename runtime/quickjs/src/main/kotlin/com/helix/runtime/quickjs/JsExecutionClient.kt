@@ -23,14 +23,20 @@ fun interface JsCancellation {
 }
 
 /**
- * HXA-051 execution parameters for [JsExecutionClient.execute].
+ * HXA-052 execution parameters for [JsExecutionClient.execute].
  *
- * [source] is evaluated verbatim in the isolated instance (input-injection wrapping is
- * HXA-052's concern; this task transports [inputJsonUtf8] per doc 03 §3.1 and the service
- * size-checks + hashes it). Payloads above [JsProtocol.PARCEL_INLINE_MAX_BYTES] are
- * transparently moved to read-only `ParcelFileDescriptor`s by the client. [outputFile],
- * when present, receives the full result bytes (write PFD); the client re-materializes
- * them into the returned [JsExecutionResult].
+ * [source] is the `helixMain` body of the §3.2 wrapper (the service assembles the full
+ * program with [JsAbiAssembly]; the client pre-checks that it fits [JsExecutionLimits]
+ * BEFORE assembly). [inputJsonUtf8] must be null/empty (no input → the wrapper argument
+ * literal is `null`) or exactly one valid JSON document — an invalid document is
+ * rejected pre-bind (REQUEST_REJECTED, no instance spawned). On [JsExecutionStatus.SUCCESS]
+ * the output is the wrapper's `JSON.stringify(...)` text: exactly one JSON document,
+ * re-validated by the client ([JsOutputContract]).
+ *
+ * Payloads above [JsProtocol.PARCEL_INLINE_MAX_BYTES] are transparently moved to
+ * read-only `ParcelFileDescriptor`s by the client. [outputFile], when present, receives
+ * the full result bytes (write PFD); the client re-materializes them into the returned
+ * [JsExecutionResult].
  *
  * [debugInjectCrash]/[debugCrashAfterMs] arm the test-only crash seam — they are inert
  * unless both this flag and `BuildConfig.DEBUG` are set, and only instrumented tests set
@@ -60,8 +66,11 @@ data class JsExecuteParams(
  * ([JsInstanceName] derived from the execution ID). The call blocks until a stable
  * [JsExecutionResult] with exactly one status:
  *
- * - pre-flight failures (limits, sizes, blank ID, pre-start cancel) are rejected
- *   BEFORE any bind, so no isolated process is spawned;
+ * - pre-flight failures (limits, sizes, non-JSON input, blank ID, pre-start cancel)
+ *   are rejected BEFORE any bind, so no isolated process is spawned;
+ * - a SUCCESS reply is re-validated against the output contract (exactly one JSON
+ *   document, ≤ `maxOutputBytes`): a violation degrades to [JsExecutionStatus.UNKNOWN]
+ *   — the client never truncates and never interprets the bytes as raw text/base64;
  * - bind failures → [JsExecutionStatus.BIND_FAILED];
  * - in-flight cancel → the client sends the interrupt transaction and reports the
  *   service's [JsExecutionStatus.INTERRUPTED] (never a blind retry);
@@ -226,6 +235,7 @@ class JsExecutionClient(
             } catch (e: IllegalArgumentException) {
                 "invalid limits: ${e.message}"
             }
+        val inputError = preflightInputReject(params.inputJsonUtf8)
         val sizeError = preflightSizeReject(params, params.limits)
         return when {
             cancellation?.isCancelled() == true -> {
@@ -238,6 +248,10 @@ class JsExecutionClient(
 
             limitsError != null -> {
                 rejection(params, JsExecutionStatus.REQUEST_REJECTED, limitsError, inputSha)
+            }
+
+            inputError != null -> {
+                rejection(params, JsExecutionStatus.REQUEST_REJECTED, inputError, inputSha)
             }
 
             sizeError != null -> {
@@ -256,6 +270,16 @@ class JsExecutionClient(
             else -> {
                 null
             }
+        }
+    }
+
+    /** HXA-052: a non-empty input must be exactly one valid JSON document (doc 03 §3.2). */
+    private fun preflightInputReject(inputJsonUtf8: ByteArray?): String? {
+        if (inputJsonUtf8 == null || inputJsonUtf8.isEmpty()) return null
+        return if (JsJsonDocument.isValidJson(inputJsonUtf8)) {
+            null
+        } else {
+            "input is not a valid JSON document"
         }
     }
 
@@ -551,33 +575,49 @@ class JsExecutionClient(
         inputSha: String,
     ): JsExecutionResult {
         if (result.status != JsExecutionStatus.SUCCESS) return result
-        return try {
-            val bytes =
-                if (params.outputFile != null) {
-                    readBounded(params.outputFile.absoluteFile, result.outputBytes)
-                } else {
-                    result.outputUtf8
+        val outcome: JsExecutionResult =
+            try {
+                val bytes =
+                    if (params.outputFile != null) {
+                        readBounded(params.outputFile.absoluteFile, result.outputBytes)
+                    } else {
+                        result.outputUtf8
+                    }
+                if (bytes.size.toLong() != result.outputBytes) {
+                    throw IOException("output size ${bytes.size} != declared ${result.outputBytes}")
                 }
-            if (bytes.size.toLong() != result.outputBytes) {
-                throw IOException("output size ${bytes.size} != declared ${result.outputBytes}")
+                if (JsHash.sha256Hex(bytes) != result.outputSha256Hex) {
+                    throw IOException("output SHA-256 mismatch")
+                }
+                // HXA-052 output contract: the service returned the wrapper's stringify
+                // text, so the bytes must be exactly one JSON document within
+                // maxOutputBytes. A violation degrades the SUCCESS to a stable UNKNOWN —
+                // no truncation and no raw-text/base64 fallback (doc 03 §4.6).
+                val contractError = JsOutputContract.validate(bytes, params.limits.maxOutputBytes)
+                if (contractError != null) {
+                    JsExecutionResult.clientFailure(
+                        result.executionId,
+                        JsExecutionStatus.UNKNOWN,
+                        "output contract violation: $contractError",
+                        inputSha,
+                    )
+                } else {
+                    JsExecutionResult(
+                        executionId = result.executionId,
+                        status = result.status,
+                        outputUtf8 = bytes,
+                        outputBytes = result.outputBytes,
+                        outputSha256Hex = result.outputSha256Hex,
+                        inputSha256Hex = result.inputSha256Hex,
+                        detail = result.detail,
+                        servicePid = result.servicePid,
+                        serviceUid = result.serviceUid,
+                    )
+                }
+            } catch (e: IOException) {
+                clientUnknown(result.executionId, inputSha, e)
             }
-            if (JsHash.sha256Hex(bytes) != result.outputSha256Hex) {
-                throw IOException("output SHA-256 mismatch")
-            }
-            JsExecutionResult(
-                executionId = result.executionId,
-                status = result.status,
-                outputUtf8 = bytes,
-                outputBytes = result.outputBytes,
-                outputSha256Hex = result.outputSha256Hex,
-                inputSha256Hex = result.inputSha256Hex,
-                detail = result.detail,
-                servicePid = result.servicePid,
-                serviceUid = result.serviceUid,
-            )
-        } catch (e: IOException) {
-            clientUnknown(result.executionId, inputSha, e)
-        }
+        return outcome
     }
 
     private fun materializeTemp(

@@ -56,7 +56,7 @@ class JsExecutionControlTest {
             elapsedMs < 10_000L,
         )
         // A later execution on a fresh instance works: the control plane never kills.
-        val next = support.client.execute(support.params(support.newExecutionId("interrupt-next"), "1 + 1"))
+        val next = support.client.execute(support.params(support.newExecutionId("interrupt-next"), "return 1 + 1"))
         assertEquals(JsExecutionStatus.SUCCESS, next.status)
     }
 
@@ -92,7 +92,7 @@ class JsExecutionControlTest {
     fun cancelBeforeStartIsCancelledWithoutInstance() {
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("cancelstart"), "1 + 1"),
+                support.params(support.newExecutionId("cancelstart"), "return 1 + 1"),
                 cancellation = JsCancellation { true },
             )
         assertEquals(JsExecutionStatus.CANCELLED, result.status)
@@ -127,8 +127,9 @@ class JsExecutionControlTest {
             "abandoned instance PID ${result.servicePid} must be reclaimed within 30 s",
             support.awaitProcessGone(result.servicePid, 30_000L),
         )
-        // The next execution (fresh instance) is unaffected.
-        val next = support.client.execute(support.params(support.newExecutionId("timeout-next"), "6 * 7"))
+        // The next execution (fresh instance) is unaffected. JSON.stringify(42) is the
+        // JSON number document `42` (numbers stay bare in the wrapper's output contract).
+        val next = support.client.execute(support.params(support.newExecutionId("timeout-next"), "return 6 * 7"))
         assertEquals(JsExecutionStatus.SUCCESS, next.status)
         assertEquals("42", next.outputUtf8.toString(Charsets.UTF_8))
     }
@@ -156,8 +157,9 @@ class JsExecutionControlTest {
             elapsedMs < 5_000L,
         )
         assertTrue("detail must state the outcome is unknown", result.detail.isNotBlank())
-        // Recovery: the next execution on a fresh instance name works normally.
-        val next = support.client.execute(support.params(support.newExecutionId("crash-next"), "1 + 1"))
+        // Recovery: the next execution on a fresh instance name works normally
+        // (JSON number document `2` — numbers stay bare in the output contract).
+        val next = support.client.execute(support.params(support.newExecutionId("crash-next"), "return 1 + 1"))
         assertEquals(JsExecutionStatus.SUCCESS, next.status)
         assertEquals("2", next.outputUtf8.toString(Charsets.UTF_8))
     }

@@ -10,9 +10,14 @@ import org.junit.rules.Timeout
 import java.nio.charset.StandardCharsets
 
 /**
- * HXA-051 execution protocol over the isolated service (doc 03 §3/§4): round trips,
- * limit rejections and the stable error classification — every execution through a fresh
- * unique instance, never retried.
+ * HXA-052 execution protocol over the isolated service (doc 03 §3/§4): round trips,
+ * limit rejections and the stable error classification — every execution through a
+ * fresh unique instance, never retried.
+ *
+ * HXA-052 ABI: the source is the helixMain BODY of the §3.2 wrapper; on SUCCESS the
+ * output is the wrapper's JSON.stringify text (a JSON document). The HXA-051
+ * raw-mode-specific assertions (top-level object → null, empty-message OOM form)
+ * are replaced by their wrapper semantics — see the individual tests.
  */
 class JsExecutionProtocolTest {
     @get:Rule
@@ -22,7 +27,7 @@ class JsExecutionProtocolTest {
 
     @Test
     fun smallParcelRoundTripSucceeds() {
-        val result = support.client.execute(support.params(support.newExecutionId("roundtrip"), "1 + 2 * 3"))
+        val result = support.client.execute(support.params(support.newExecutionId("roundtrip"), "return 1 + 2 * 3"))
         assertEquals(JsExecutionStatus.SUCCESS, result.status)
         assertEquals("7", result.outputUtf8.toString(StandardCharsets.UTF_8))
         assertEquals(JsHash.sha256Utf8("7"), result.outputSha256Hex)
@@ -33,20 +38,19 @@ class JsExecutionProtocolTest {
     fun unicodeStringRoundTripIsExact() {
         val text = "héllo 🚀 日本語"
         val result =
-            support.client.execute(support.params(support.newExecutionId("unicode"), "\"$text\""))
+            support.client.execute(support.params(support.newExecutionId("unicode"), """return "$text""""))
         assertEquals(JsExecutionStatus.SUCCESS, result.status)
-        // A top-level string result IS the JSON text: byte-for-byte pass-through.
-        assertEquals(text, result.outputUtf8.toString(StandardCharsets.UTF_8))
-        assertEquals(JsHash.sha256Utf8(text), result.outputSha256Hex)
+        // Wrapper result = JSON.stringify(text): the JSON string document, quoted.
+        val expected = """"$text""""
+        assertEquals(expected, result.outputUtf8.toString(StandardCharsets.UTF_8))
+        assertEquals(JsHash.sha256Utf8(expected), result.outputSha256Hex)
     }
 
     @Test
     fun arrayResultIsJsonEncoded() {
-        // Zipline converts a top-level JS array to a Kotlin List; the encoder then
-        // serializes it to canonical JSON.
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("array"), "[1, 2, 3]"),
+                support.params(support.newExecutionId("array"), "return [1, 2, 3]"),
             )
         assertEquals(JsExecutionStatus.SUCCESS, result.status)
         assertEquals("[1,2,3]", result.outputUtf8.toString(StandardCharsets.UTF_8))
@@ -54,33 +58,36 @@ class JsExecutionProtocolTest {
     }
 
     @Test
-    fun topLevelObjectResultSurfacesAsNullInRawMode() {
-        // Engine fact (HXA-051 raw-evaluate mode): Zipline's evaluate returns null for a
-        // top-level JS object, so the protocol result is the JSON text "null" (SUCCESS).
-        // This loss cannot happen in production mode: HXA-052's wrapper returns
-        // JSON.stringify(...) — a string — before the value crosses the protocol.
+    fun topLevelObjectResultIsStringifiedNotLost() {
+        // HXA-051 raw mode: a top-level JS object crossed the protocol as null (loss).
+        // HXA-052 wrapper: the object is JSON.stringify'd inside the wrapper BEFORE it
+        // crosses the protocol — the round trip is loss-free.
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("object"), "({ a: 1, b: [1, 2, 3], c: { d: true } })"),
+                support.params(
+                    support.newExecutionId("object"),
+                    "return { a: 1, b: [1, 2, 3], c: { d: true } }",
+                ),
             )
         assertEquals(JsExecutionStatus.SUCCESS, result.status)
-        assertEquals("null", result.outputUtf8.toString(StandardCharsets.UTF_8))
+        assertEquals("""{"a":1,"b":[1,2,3],"c":{"d":true}}""", result.outputUtf8.toString(StandardCharsets.UTF_8))
     }
 
     @Test
-    fun emptyMessageFailureIsThePinnedApi29OomForm() {
-        // HXA-050 pinned: a 64 MiB exhaustion on API 29 can surface the JS-level OOM
-        // with an EMPTY message (the Error object itself cannot be allocated). That
-        // message form classifies as OOM, not JS_ERROR — the contract is identical on
-        // both APIs, so it is pinned here via the explicit empty-message form.
+    fun emptyMessageThrowIsJsErrorWithNonBlankDetail() {
+        // HXA-051 raw mode: `throw new Error()` surfaced an EMPTY message and was
+        // classified by the pinned OOM form (an acknowledged ambiguity). HXA-052
+        // wrapper: user errors are rethrown as NON-BLANK prefixed strings — the
+        // ambiguity is eliminated and the case is a plain JS error.
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("oomform"), "throw new Error()"),
+                support.params(support.newExecutionId("emptythrow"), """throw new Error("")"""),
             )
-        assertEquals(
-            "empty-message failures label as the pinned OOM form, got ${result.status}",
-            JsExecutionStatus.OOM,
-            result.status,
+        assertEquals(JsExecutionStatus.JS_ERROR, result.status)
+        assertTrue("detail must be non-blank, got: '${result.detail}'", result.detail.isNotBlank())
+        assertTrue(
+            "detail must carry the wrapper prefix, got: ${result.detail}",
+            result.detail.startsWith(JsAbiAssembly.ERROR_PREFIX),
         )
     }
 
@@ -88,16 +95,18 @@ class JsExecutionProtocolTest {
     fun thrownErrorIsJsError() {
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("jserror"), "throw new Error(\"boom\")"),
+                support.params(support.newExecutionId("boom"), """throw new Error("boom")"""),
             )
         assertEquals(JsExecutionStatus.JS_ERROR, result.status)
-        assertTrue("detail must carry the JS error text, got: ${result.detail}", result.detail.contains("boom"))
-        assertIsolated(result)
+        assertTrue(
+            "detail must carry the wrapper prefix + the message, got: ${result.detail}",
+            result.detail.contains(JsAbiAssembly.ERROR_PREFIX) && result.detail.contains("boom"),
+        )
     }
 
     @Test
     fun syntaxErrorIsJsError() {
-        val result = support.client.execute(support.params(support.newExecutionId("syntax"), "1 +"))
+        val result = support.client.execute(support.params(support.newExecutionId("syntax"), "return 1 +"))
         assertEquals(JsExecutionStatus.JS_ERROR, result.status)
         assertTrue("detail must be non-empty for a syntax error", result.detail.isNotBlank())
     }
@@ -107,7 +116,7 @@ class JsExecutionProtocolTest {
         val id = support.newExecutionId("recursion")
         val result =
             support.client.execute(
-                support.params(id, "function r(n) { return r(n + 1); } r(0)"),
+                support.params(id, "function r(n) { return r(n + 1); } return r(0)"),
             )
         assertEquals(JsExecutionStatus.JS_ERROR, result.status)
         assertTrue(
@@ -116,15 +125,19 @@ class JsExecutionProtocolTest {
         )
         // The engine-level stack failure never crashes the instance lifecycle: a later
         // execution (fresh instance) succeeds.
-        val next = support.client.execute(support.params(support.newExecutionId("recursion-next"), "6 * 7"))
+        val next = support.client.execute(support.params(support.newExecutionId("recursion-next"), "return 6 * 7"))
         assertEquals(JsExecutionStatus.SUCCESS, next.status)
         assertEquals("42", next.outputUtf8.toString(StandardCharsets.UTF_8))
     }
 
     @Test
     fun oomAtDefaultHeapIsStable() {
-        // HXA-050-pinned: 64 MiB exhaustion is a JS-level OOM ("out of memory", or an
-        // EMPTY message when the Error object itself cannot be allocated on API 29).
+        // HXA-050-pinned: 64 MiB exhaustion is a JS-level OOM. The catch variable is
+        // either an Error whose message carries "out of memory" (API 36; the wrapper
+        // prefixes it and the substring survives) or, on API 29, literal null when the
+        // bulk allocation fails to allocate the Error object itself — the wrapper
+        // rethrows a caught null verbatim so the host-side empty-message OOM form
+        // survives (see JsAbiAssembly). Either path classifies OOM here.
         val result =
             support.client.execute(
                 support.params(
@@ -134,7 +147,7 @@ class JsExecutionProtocolTest {
             )
         assertEquals("expected OOM, got ${result.status}: ${result.detail}", JsExecutionStatus.OOM, result.status)
         assertIsolated(result)
-        val next = support.client.execute(support.params(support.newExecutionId("oom64-next"), "1 + 1"))
+        val next = support.client.execute(support.params(support.newExecutionId("oom64-next"), "return 1 + 1"))
         assertEquals(JsExecutionStatus.SUCCESS, next.status)
     }
 
@@ -154,28 +167,34 @@ class JsExecutionProtocolTest {
 
     @Test
     fun outputOverLimitIsRejected() {
+        // The wrapper's conservative code-unit check fires first (1 MiB+1 units > 256 KiB)
+        // and carries the stable marker.
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("outputlimit"), "\"a\".repeat(1024 * 1024 + 1)"),
+                support.params(support.newExecutionId("outputlimit"), """return "a".repeat(1024 * 1024 + 1)"""),
             )
         assertEquals(JsExecutionStatus.OUTPUT_LIMIT, result.status)
         assertTrue(result.outputUtf8.isEmpty())
+        assertTrue(
+            "detail must carry the wrapper marker, got: ${result.detail}",
+            result.detail.contains(JsAbiAssembly.OUTPUT_LIMIT_MARKER),
+        )
     }
 
     @Test
     fun outputAboveInlineCapWithoutOutputPfdIsRejected() {
         // 100 KiB output: within the 256 KiB limit but above the 64 KiB inline parcel cap,
-        // and no output PFD was provided → stable OUTPUT_LIMIT.
+        // and no output PFD was provided → stable OUTPUT_LIMIT (service-side check).
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("inlinecap"), "\"a\".repeat(100 * 1024)"),
+                support.params(support.newExecutionId("inlinecap"), """return "a".repeat(100 * 1024)"""),
             )
         assertEquals(JsExecutionStatus.OUTPUT_LIMIT, result.status)
     }
 
     @Test
     fun sourceOverLimitIsRejectedBeforeExecution() {
-        val source = "1 + 1 // " + "pad".repeat(110_000) // ~330 KiB > 256 KiB default
+        val source = "return 1 + 1 // " + "pad".repeat(110_000) // ~330 KiB > 256 KiB default
         val result = support.client.execute(support.params(support.newExecutionId("srclimit"), source))
         assertEquals(JsExecutionStatus.REQUEST_REJECTED, result.status)
         assertEquals(-1, result.servicePid) // rejected pre-bind: no instance spawned
@@ -186,7 +205,7 @@ class JsExecutionProtocolTest {
         val input = ByteArray(3 * 1024 * 1024) { ('a'.code + it % 26).toByte() }
         val result =
             support.client.execute(
-                support.params(support.newExecutionId("inputlimit"), "1 + 1", inputJsonUtf8 = input),
+                support.params(support.newExecutionId("inputlimit"), "return 1 + 1", inputJsonUtf8 = input),
             )
         assertEquals(JsExecutionStatus.REQUEST_REJECTED, result.status)
         assertEquals(-1, result.servicePid)
@@ -198,7 +217,7 @@ class JsExecutionProtocolTest {
             support.client.execute(
                 support.params(
                     support.newExecutionId("badlimits"),
-                    "1 + 1",
+                    "return 1 + 1",
                     limits = JsExecutionLimits(timeoutMs = 0),
                 ),
             )
@@ -208,20 +227,20 @@ class JsExecutionProtocolTest {
 
     @Test
     fun blankExecutionIdIsRejectedBeforeExecution() {
-        val result = support.client.execute(support.params("", "1 + 1"))
+        val result = support.client.execute(support.params("", "return 1 + 1"))
         assertEquals(JsExecutionStatus.REQUEST_REJECTED, result.status)
     }
 
     @Test
     fun dynamicCompilationRemainsBlockedByEngine() {
         // ADR-0015 regression anchor through the production path: all dynamic-compilation
-        // call paths throw the engine's `eval is not supported` (HXA-052 extends this
-        // into the full wrapper-escape attack suite).
+        // call paths throw the engine's `eval is not supported`. The wrapper prefixes the
+        // error but the engine block stays intact (the attack suite extends this).
         val sources =
             listOf(
-                "eval(\"1+1\")",
-                "new Function(\"return 1\")()",
-                "Object.constructor.constructor(\"return 1\")()",
+                """eval("1+1")""",
+                """new Function("return 1")()""",
+                """Object.constructor.constructor("return 1")()""",
             )
         sources.forEachIndexed { index, source ->
             val result =

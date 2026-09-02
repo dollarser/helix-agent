@@ -62,7 +62,9 @@ class JsProtocolContractTest {
 
     @Test
     fun wireConstantsAreBounded() {
-        assertEquals(1, JsProtocol.PROTOCOL_VERSION)
+        // Version 2 = HXA-052 ABI (source is the helixMain body; output is the wrapper's
+        // JSON.stringify text). The version is pinned so a silent ABI drift fails here.
+        assertEquals(2, JsProtocol.PROTOCOL_VERSION)
         assertEquals("inline parcel cap is 64 KiB", 64 * 1024, JsProtocol.PARCEL_INLINE_MAX_BYTES)
         assertTrue("detail cap must be positive", JsProtocol.MAX_DETAIL_CHARS > 0)
         assertTrue("detail cap must be bounded", JsProtocol.MAX_DETAIL_CHARS <= 8192)
