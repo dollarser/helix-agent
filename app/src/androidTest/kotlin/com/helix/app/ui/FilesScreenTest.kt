@@ -280,9 +280,24 @@ class FilesScreenTest {
             .getOrElse(SemanticsProperties.Text) { emptyList() }
             .joinToString("") { it.text }
 
+    companion object {
+        /**
+         * Budget for [waitTag]/[waitTagPrefix]. Each test cold-starts a fresh MainActivity
+         * (JUnit4 rule), so the first wait absorbs app cold start + first frame on the
+         * slowest supported emulator image (API 29). `waitUntil` returns as soon as the
+         * condition holds, so healthy runs pay nothing for the budget. (The API 29
+         * ComposeTimeoutExceptions first seen during HXA-048 were production defects —
+         * `java.*` stdlib calls missing from the API 29 platform (`Stream.toList()` in
+         * `WorkspaceArtifactStore.listDir`, API 31+; `InputStream.skipNBytes` in
+         * `ReadWindow`) — not a budget problem; see
+         * docs/bug-fixes/2026-09-03-jvm-stdlib-calls-missing-on-api29.md.)
+         */
+        private const val WAIT_TIMEOUT_MS = 30_000L
+    }
+
     private fun waitTag(
         tag: String,
-        timeoutMs: Long = 10_000,
+        timeoutMs: Long = WAIT_TIMEOUT_MS,
     ) {
         composeRule.waitUntil(timeoutMs) {
             composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
@@ -291,7 +306,7 @@ class FilesScreenTest {
 
     private fun waitTagPrefix(
         prefix: String,
-        timeoutMs: Long = 10_000,
+        timeoutMs: Long = WAIT_TIMEOUT_MS,
     ) {
         composeRule.waitUntil(timeoutMs) {
             composeRule.onAllNodes(tagPrefix(prefix), true).fetchSemanticsNodes().isNotEmpty()

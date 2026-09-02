@@ -1,5 +1,6 @@
 package com.helix.core.workspace
 
+import java.io.EOFException
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.Charset
@@ -60,7 +61,16 @@ data class ReadWindow(
             val length = minOf(size - offset, maxBytes).toInt()
             val window = ByteArray(length)
             Files.newInputStream(file).use { input ->
-                input.skipNBytes(offset)
+                // NOT InputStream.skipNBytes: that Java 11 method is missing from the API 29
+                // platform (NoSuchMethodError on device, minSdk 29). Draining through read()
+                // is exact on every level and cannot short-skip like skip() can.
+                var remaining = offset
+                val skipBuffer = ByteArray(8192)
+                while (remaining > 0) {
+                    val skipped = input.read(skipBuffer, 0, minOf(skipBuffer.size.toLong(), remaining).toInt())
+                    if (skipped < 0) throw EOFException("file truncated below offset $offset")
+                    remaining -= skipped
+                }
                 var total = 0
                 while (total < length) {
                     val n = input.read(window, total, length - total)

@@ -9,6 +9,7 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.security.MessageDigest
 import java.util.UUID
+import java.util.stream.Collectors
 
 /**
  * The single production facade for workspace file persistence (HXA-041).
@@ -262,10 +263,12 @@ class WorkspaceArtifactStore(
         }
         val names =
             Files.list(dir).use { stream ->
+                // Collectors.toList(), NOT Stream.toList(): that default method is Java 16 /
+                // Android API 31+ and throws NoSuchMethodError on API 29 devices (minSdk 29).
                 stream
                     .sorted()
                     .map { it.fileName.toString() }
-                    .toList()
+                    .collect(Collectors.toList())
             }
         val page = if (maxEntries >= names.size) names else names.subList(0, maxEntries)
         return ListResult(page, names.size > maxEntries)
