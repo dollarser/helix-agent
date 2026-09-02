@@ -1,11 +1,11 @@
 # ADR-0006: 直接分发只提供一个可升级到 Advanced 的主应用
 
-Status: accepted
+Status: superseded
 Date: 2026-08-31
 HXA: HXA-120, HXA-122, HXA-123
 Deciders: Project owner（明确要求唯一可获取主包同时支持普通与高级用户）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0013](0013-standard-store-capability-preserving-distribution.md)
 
 ## Context
 
@@ -71,6 +71,6 @@ Superseded by: none
 ## References
 
 - [ADR-0005：两级安全配置](0005-standard-advanced-safety-profiles.md)
-- [产品需求](../01-product-requirements.md)
-- [路线与发布任务](../04-roadmap-and-backlog.md)
-- [安全与发布门禁](../07-security-testing-release.md)
+- [产品需求](../product/requirements.md)
+- [路线与发布任务](../development/roadmap.md)
+- [安全与发布门禁](../security/testing-and-release.md)

@@ -53,6 +53,6 @@ HXA-012 已执行：
 
 ## References
 
-- [总体架构第 5.1 节](../02-architecture-design.md)
-- [Provider、MCP、Skills 与模式方案第 6.1 节](../10-provider-mcp-skills-modes.md)
+- [总体架构第 5.1 节](../architecture/overview.md)
+- [Provider、MCP、Skills 与模式方案第 6.1 节](../architecture/provider-mcp-skills-modes.md)
 - [HXA-012 完成记录](../completion-records/HXA-012.md)

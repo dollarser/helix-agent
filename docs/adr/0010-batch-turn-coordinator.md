@@ -56,7 +56,7 @@ HXA-039 验收要求：
 ## References
 
 - [ADR-0002](0002-turn-state-intra-response-edges.md)
-- [总体技术方案](../02-architecture-design.md)
-- [手机端 Tool 编排](../11-mobile-tool-orchestration.md)
-- [安全、测试与发布](../07-security-testing-release.md)
-- [HXA-039](../04-roadmap-and-backlog.md)
+- [总体技术方案](../architecture/overview.md)
+- [手机端 Tool 编排](../architecture/mobile-tool-orchestration.md)
+- [安全、测试与发布](../security/testing-and-release.md)
+- [HXA-039](../development/roadmap.md)

@@ -1,4 +1,4 @@
-# Helix 手机端 Tool 编排方案
+# Helix 手机端 Tool 编排架构
 
 文档状态：Baseline 1.3 补充规范
 基线日期：2026-08-31
@@ -7,7 +7,7 @@
 
 Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，但手机端的约束不同：内存、CPU、热量、电池、后台存活和网络费用都更紧，且 Android 权限、Accessibility、Root 与独立 Runtime 不能抽象成桌面 shell 的单一“sandbox level”。因此优先实现可证明的安全与恢复原语，而不是追求最大并发或 Agent 数量。
 
-本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 proposed [ADR-0009](adr/0009-bounded-local-orchestration.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
+本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
 
 ## 2. 采纳矩阵
 
@@ -62,7 +62,7 @@ data class EffectFootprint(
 - Scheduler 为每个调用保留独立 typed outcome 或异常原因；首个异常只用于 Turn 级传播，不能替其他槽位分类。无法证明未产生副作用的 contract throw 进入 `NEEDS_REVIEW`，同批或并发批次重复 `toolCallId` 在准入前失败关闭。
 - 内存压力、前后台切换或热限制可以降低并发到 1，但不能提高审批权限或改变结果顺序。
 
-生产聊天由 [ADR-0010](adr/0010-batch-turn-coordinator.md)的唯一 application `TurnCoordinator` 持有当前 ModelCall/stream checkpoint 和 batch aggregate phase。模型工具步骤、固定顺序回填、下一 ModelCall 与 Turn 回环使用明确事务边界；外部 Tool 副作用不进入 Room transaction，也不因持久化失败盲目重放。
+生产聊天由 [ADR-0010](../adr/0010-batch-turn-coordinator.md)的唯一 application `TurnCoordinator` 持有当前 ModelCall/stream checkpoint 和 batch aggregate phase。模型工具步骤、固定顺序回填、下一 ModelCall 与 Turn 回环使用明确事务边界；外部 Tool 副作用不进入 Room transaction，也不因持久化失败盲目重放。
 
 ### 3.3 Attempt 与重试
 
@@ -110,4 +110,4 @@ data class EffectFootprint(
 
 ## 8. 参考映射原则
 
-外部项目名称、源码位置和行为会变化，进入 HXA 时按 [开源参考 §5.11](06-open-source-references.md#511-主流-coding-agent--agent-harness-设计参考)重新核实。Helix 采纳的是可验证 invariant——确定性顺序、有界并发、单一安全管线、持久回放、预算与取消——不是复制其桌面权限、云端基础设施或插件模型。
+外部项目名称、源码位置和行为会变化，进入 HXA 时按 [开源参考 §5.11](../references/open-source-projects.md#511-主流-coding-agent--agent-harness-设计参考)重新核实。Helix 采纳的是可验证 invariant——确定性顺序、有界并发、单一安全管线、持久回放、预算与取消——不是复制其桌面权限、云端基础设施或插件模型。

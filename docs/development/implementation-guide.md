@@ -1,4 +1,4 @@
-# 使用较小编码模型实施 Helix
+# Helix 小模型实施指南
 
 本指南面向约 20B–30B 参数级的编码模型，包括用户计划使用的 Qwen 系列模型。具体模型 ID 由实际 Provider 决定，文档不假定“Qwen3.8-27B”一定是正式且可用的名称。
 
@@ -19,15 +19,15 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
 
 最小集合：
 
-1. 根 [README](../README.md)。
-2. 根 `AGENTS.md` 与[当前实施状态](implementation-status.md)。
-3. [总体技术方案](02-architecture-design.md) 中与任务相关章节。
-4. [技术路线](04-roadmap-and-backlog.md) 中当前任务及前置任务。
+1. 根 [README](../../README.md)。
+2. 根 `AGENTS.md` 与[当前实施状态](status.md)。
+3. [总体技术方案](../architecture/overview.md) 中与任务相关章节。
+4. [技术路线](roadmap.md) 中当前任务及前置任务。
 5. 当前模块的 README/API/测试。
 
-处理 Provider/MCP/Skill/Plan/Goal 时读取 [专项方案](10-provider-mcp-skills-modes.md)；处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](09-android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
+处理 Provider/MCP/Skill/Plan/Goal 时读取 [专项方案](../architecture/provider-mcp-skills-modes.md)；处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](../architecture/android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](../adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
 
-需要比较 Agent 设计时再读取[主流 Coding Agent / Harness 参考](06-open-source-references.md#511-主流-coding-agent--agent-harness-设计参考)，并遵守以下顺序：
+需要比较 Agent 设计时再读取[主流 Coding Agent / Harness 参考](../references/open-source-projects.md#511-主流-coding-agent--agent-harness-设计参考)，并遵守以下顺序：
 
 1. 先写清当前 HXA 的具体问题，例如“tool result 如何进入事件流”，不要泛泛地“研究 Claude Code”。
 2. 只选择 1～2 个能回答该问题且仍可核实的参考；优先官方仓库、协议、测试和安全说明。
@@ -58,11 +58,11 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
 
 ```text
 请实现 Helix 的 <HXA-ID>。先读取 AGENTS.md、README.md、
-docs/implementation-status.md、路线中的任务原文，以及与本任务直接相关的架构章节和现有代码。
+docs/development/status.md、路线中的任务原文，以及与本任务直接相关的架构章节和现有代码。
 
 在既定架构内自行选择简单、主流、可测试的实现。补齐正常、非法输入和任务原文要求的失败/恢复测试，运行 verification matrix 的真实命令，修复问题直到通过。不要用删除测试、伪造成功或提交 Secret 换取验收。
 
-完成后写 docs/completion-records/HXA-ID.md，并同步 implementation-status：列出实际修改、命令、exit code、未实现范围和 ADR 状态。如果发现必须改变既定架构、安全边界或关键依赖，先给出具体冲突和候选方案，再暂停请求审查；普通可逆实现选择直接推进。
+完成后写 `docs/completion-records/HXA-ID.md`，并同步 `docs/development/status.md`：列出实际修改、命令、exit code、未实现范围和 ADR 状态。如果发现必须改变既定架构、安全边界或关键依赖，先给出具体冲突和候选方案，再暂停请求审查；普通可逆实现选择直接推进。
 ```
 
 ## 5. 只读审查 Prompt
@@ -72,8 +72,8 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 
 依据：
 - 该任务需求和验收标准
-- docs/02-architecture-design.md
-- 如涉及执行/权限，docs/03-local-code-execution.md 和 docs/07-security-testing-release.md
+- docs/architecture/overview.md
+- 如涉及执行/权限，docs/architecture/local-code-execution.md 和 docs/security/testing-and-release.md
 
 按严重程度报告：
 1. 会造成越权、数据泄露、重复副作用或错误成功状态的问题；
@@ -156,10 +156,10 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 - 是否让官方 CLI token 进入主 App/Room/日志？
 - 是否把 All-files 系统授权等同于 Agent 可访问整个共享存储？
 - 是否在启动时触发 Root 请求，或把 `root.exec` 放进普通工具表？
-- 是否把 `consumer/developer` 构建变体和 `STANDARD/ADVANCED` Safety Profile 合成了一个布尔值？consumer 只能 Standard，developer 默认仍是 Standard。
+- 是否把 `consumer/developer` 构建变体、`STANDARD/ADVANCED` 运行配置和 Google Play/国内商店/官网渠道合成了一个布尔值？Standard 是完整商店产品；当前 flavor 只是实现机制。
 - 是否承诺 Standard 能从 Android 系统设置隐藏 developer 已声明的 All-files/Accessibility 组件？只能承诺默认关闭、不自动启用和无 Agent scope。
 - Advanced 高敏出网规则是否使用固定 1h/24h/7d/30d（默认 24h、最大 30d）、不滑动续期，并在到期或时钟回拨时 fail closed？
-- 是否把 consumer 和 developer 同时列为当前普通用户下载，或要求用户为 Advanced 更换 applicationId？直接分发只有 developer 构建的一个 Helix 主应用，consumer 仅为受限渠道。
+- 是否因为抽象安全偏好或未经核验的商店猜测裁剪 Standard？每个渠道差异必须指向提交时的政策原文或审核反馈，并保持同一产品身份、数据模型和核心任务矩阵；applicationId/渠道命名由 HXA-122 决定。
 - 是否把 PRoot/CLI companion 写成第二个主应用，或让它复制主 App 数据？companion 只通过受保护 IPC 接收有界 Job。
 - 是否要求用户先打开/常驻 Runtime，或把“进程当前存在”当成 Tool 可用条件？只有用户点击的零 Job 验证/修复/登录，或批准后的真实 Job，才能显式 `BIND_AUTO_CREATE` 冷绑定；应用启动、切换 Advanced 和被动 Registry 刷新不得启动 Runtime，空闲允许回收。
 - Binder death 后是否直接重提 argv/script？必须先按 jobId 查询并核对 input hash/terminal proof；未知结果停泊 `INTERRUPTED`，不得自动重放。
@@ -197,7 +197,7 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 
 - 是否把 PRoot 里存在 `git` 二进制误写为持久 Git 管理？`.git` 权威位置和原子交换在 ADR-0008 接受前未定，禁止提前做 Git UI、remote Git 或凭据流。
 - 是否提前实现 subagent、Agent graph 或 Workflow DSL？ADR-0009 仍 proposed；HXA-105 前保持单 Agent，不复制云端任务、自修改插件、递归/peer Agent 或可执行 JS/Starlark 编排。
-- 是否直接拼 `File(root, userPath)`？
+- 是否直接拼 `File(../root, userPath)`？
 - 是否跟随了越界 symlink？
 - 是否直接覆盖，没有临时文件/hash/conflict？
 - 是否信任 ContentProvider 的 MIME/size/display name？
@@ -236,9 +236,9 @@ docs/implementation-status.md、路线中的任务原文，以及与本任务直
 用户授权创建提交时，建议一个 HXA 任务一个 commit：
 
 ```text
-feat(agent): implement deterministic turn reducer [HXA-011]
-test(workspace): cover symlink escape and atomic conflicts [HXA-040]
-feat(runtime): add isolated QuickJS execution service [HXA-051]
+feat(../agent): implement deterministic turn reducer [HXA-011]
+test(../workspace): cover symlink escape and atomic conflicts [HXA-040]
+feat(../runtime): add isolated QuickJS execution service [HXA-051]
 ```
 
 无论是否提交，每个 HXA 完成时都输出：
@@ -257,7 +257,7 @@ ADR: <ADR-NNNN + status，或 N/A + 具体原因>
 ADR 记录“为什么决定”，不重复源码和规范，也不证明功能已经实现。小模型执行每个 HXA 时：
 
 1. 用机制、模块、协议和候选方案关键词检索 `docs/adr/`。
-2. 对照 [ADR 触发条件](adr/README.md#3-什么时候必须写-adr) 判断是否需要记录。
+2. 对照 [ADR 触发条件](../adr/README.md#3-什么时候必须写-adr) 判断是否需要记录。
 3. 契约内普通实现填写“不适用”及具体原因，不为凑数量创建 ADR。
 4. 新决定默认写 `proposed`；HXA 明确要求形成结论且证据已完成时，才提交给授权者确认 `accepted/rejected/superseded`。
 5. 如果实现与 `accepted` ADR 冲突，停止实现并报告；不得静默改旧决定。
@@ -282,39 +282,17 @@ ADR 记录“为什么决定”，不重复源码和规范，也不证明功能�
 
 ## 12. 当前推荐 Goal 与后续序列
 
-已完成范围、进行中任务和下一检查点只从 [implementation-status](implementation-status.md) 读取；本指南不再硬编码里程碑编号，避免交接文本落后于真实代码。已有完成记录的 HXA 不得重复实现。
+已完成范围、进行中任务和下一检查点只从[实施状态](status.md)读取；本指南不再硬编码里程碑编号，避免交接文本落后于真实代码。已有完成记录的 HXA 不得重复实现。
 
 只有用户明确要求建立持久 Goal 时才创建 Goal；Goal 覆盖用户授权的里程碑或范围，但任一时刻只允许一个 HXA checkpoint 处于进行中。当前 checkpoint 完成后，必须先写完成记录、更新唯一状态源并通过验收矩阵，再根据路线依赖进入下一项。
 
-实现顺序以[路线文档](04-roadmap-and-backlog.md)为准：先交付可测试的底层契约、安全边界和最小业务闭环，再接入依赖它们的 UI 或高权限能力。暂停条件以根 `AGENTS.md` 的任务纪律为准。
+实现顺序以[路线文档](roadmap.md)为准：先交付可测试的底层契约、安全边界和最小业务闭环，再接入依赖它们的 UI 或高权限能力。暂停条件以根 `AGENTS.md` 的任务纪律为准。
 
 ## 13. 阶段性上下文摘要
 
-`docs/implementation-status.md` 已存在。每完成一个 HXA 就最小更新它；不要重新生成并丢失之前的事实：
+`docs/development/status.md` 已存在，禁止按模板重新生成或改写为逐 HXA 日志。每完成一个 HXA 只做最小更新：推进 `Current summary`、`In progress` 与 `Next task`，在 `Current interfaces` 记录仍有效的跨模块事实，在 `Known limitations` 只保留当前会影响开发、验收或发布的缺口。字段级交付详情进入对应完成记录，Bug 根因进入 Bug 修复记录，跨阶段取舍进入历史文档。
 
-```markdown
-# Implementation Status
-
-## Completed
-- HXA-xxx: <verified result and command>
-
-## In progress
-- HXA-yyy: <current concrete state>
-
-## Next task
-- HXA-zzz: <only the next eligible checkpoint>
-
-## Blocked
-- <blocker and evidence>
-
-## Current interfaces
-- <only cross-module contracts>
-
-## Known limitations
-- <unimplemented capability, missing device evidence, or command + error summary>
-```
-
-小模型开始新任务时读这个短状态文件，而不是猜测之前完成了什么。状态必须根据代码和测试更新，不能把计划写成完成。
+小模型开始新任务时读取该状态文件，不从路线、旧交接或完成记录推测当前进度。状态必须由当前代码和测试支撑；计划、accepted ADR 和构建成功都不能单独写成完成。
 
 ## 14. 模型选择建议
 

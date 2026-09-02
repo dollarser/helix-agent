@@ -1,4 +1,4 @@
-# Helix 本地代码执行方案
+# Helix 本地代码执行架构
 
 ## 1. 目标与分层
 
@@ -27,7 +27,7 @@ Helix 需要允许 Agent 临时生成代码解决长尾任务，但不同代码�
 - 提供 Android 可用的 QuickJS 封装。
 - 有 `memoryLimit`。
 - 有可中断执行的 `InterruptHandler`。
-- 支持直接 `evaluate(source, fileName)`。
+- 支持直接 `evaluate(../source, fileName)`。
 - 已处理 Android 15 16 KiB page size 等兼容问题。
 
 重要限制：Zipline README 明确说明它不提供 sandbox 或进程隔离，不能单独作为不可信代码安全边界。因此 Helix 必须再加 Android `isolatedProcess`，并且不能给 JavaScript 注册有权限的 Host Bridge。
@@ -89,20 +89,20 @@ Binder 有事务大小限制。超过安全阈值的数据使用只读 `ParcelFi
 每段代码包裹为严格模式 IIFE。输入是 host 编码的参数/局部 `const`，不是可被生成代码覆盖的 global：
 
 ```javascript
-((__helixInputJson) => {
+(../(__helixInputJson) => {
   "use strict";
-  const input = JSON.parse(__helixInputJson);
+  const input = JSON.parse(../__helixInputJson);
 
-  function helixMain(input) {
+  function helixMain(../input) {
     // Agent 生成的代码只能读取 input 并返回 JSON 可序列化值。
     return { ok: true, value: input.value * 2 };
   }
 
-  return JSON.stringify(helixMain(input));
+  return JSON.stringify(../helixMain(input));
 })(/* host 生成的 JSON string literal */);
 ```
 
-第一版只允许 JSON 输入和 JSON 输出。文件内容由主进程的 Workspace Tool 在审批后通过 `read(offset, maxBytes)` 分块读取、做大小限制，再作为 JSON 字符串传入；JS 不直接获得路径和文件描述符。Workspace 10 MiB 单文件上限不等于 JS 可整块接收 10 MiB，超过 2 MiB input 必须由 Agent 分块/汇总或改用 PRoot。
+第一版只允许 JSON 输入和 JSON 输出。文件内容由主进程的 Workspace Tool 在审批后通过 `read(../offset, maxBytes)` 分块读取、做大小限制，再作为 JSON 字符串传入；JS 不直接获得路径和文件描述符。Workspace 10 MiB 单文件上限不等于 JS 可整块接收 10 MiB，超过 2 MiB input 必须由 Agent 分块/汇总或改用 PRoot。
 
 ### 3.3 不提供的全局对象
 
@@ -166,7 +166,7 @@ PRoot 模式用于必须依赖 Linux 用户态、Python/Node/Git/Shell 的任务
 - 每个 Job 通过 Binder/PFD 接收经过审批的输入快照，输出也以快照返回。
 - Linux 命令仍经过 Policy Engine，每次执行属于 L2。
 
-PRoot 离线是 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)接受的产品边界，不是等待实现者选择的临时默认。即使用户进入 Advanced、授权 LAN/All-files/Root，PRoot Runtime 仍不得声明或继承 `INTERNET`。未来联网 Shell 必须使用新的执行域并单独完成威胁模型、ADR 和发布门禁，不能在 HXA-084/085 中增加网络开关。
+PRoot 离线是 superseded [ADR-0005](../adr/0005-standard-advanced-safety-profiles.md)建立并由 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)保留的产品边界，不是等待实现者选择的临时默认。即使用户进入 Advanced、授权 LAN/All-files/Root，PRoot Runtime 仍不得声明或继承 `INTERNET`。未来联网 Shell 必须使用新的执行域并单独完成威胁模型、ADR 和发布门禁，不能在 HXA-084/085 中增加网络开关。
 
 ### 6.2 Termux 与 PRoot 对比及集成结论
 
@@ -305,7 +305,7 @@ Runtime APK 声明独立 `applicationId`，跨 App Service 必须 `exported=true
 
 主 App 使用同名 `uses-permission`，并以 explicit ComponentName 绑定。Service 再校验调用 UID 对应包签名，完成 `protocolVersion/runtimeVersion/ABI` 握手。
 
-跨 APK 不等于用户要先打开 Runtime。PRoot 不需要日常 launcher UI，但要提供 Helix 可在用户点击后打开的最小设置/修复入口；正常 Job 在安装且校验通过后，由主 App 使用 `BIND_AUTO_CREATE` 按需创建 Service 进程。不得把 `ActivityManager` 观察到进程、用户“打开过一次”或后台常驻作为 Tool 可用条件。CLI Runtime 也使用相同的冷绑定规则，只有首次登录、重新认证或退出需要可见 UI。完整契约见 [ADR-0007](adr/0007-companion-runtime-lifecycle.md)。
+跨 APK 不等于用户要先打开 Runtime。PRoot 不需要日常 launcher UI，但要提供 Helix 可在用户点击后打开的最小设置/修复入口；正常 Job 在安装且校验通过后，由主 App 使用 `BIND_AUTO_CREATE` 按需创建 Service 进程。不得把 `ActivityManager` 观察到进程、用户“打开过一次”或后台常驻作为 Tool 可用条件。CLI Runtime 也使用相同的冷绑定规则，只有首次登录、重新认证或退出需要可见 UI。完整契约见 [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)。
 
 Job 数据流：
 
@@ -335,7 +335,7 @@ Job 数据流：
 1. 主 App 先检查 package/启用状态/签名。用户点击“验证/修复/登录”可以冷绑定做零 Job 握手；真实执行则必须在批准和输入快照固定后冷绑定，并重新完成协议、版本、ABI 和 capability 握手。应用启动、切换 Advanced 和被动 Registry 刷新不绑定。
 2. 每个请求携带稳定 `executionId/jobId`、input manifest hash、deadline 和 output limit。Runtime 原子写入私有 Job journal 后才能回报 accepted；重复提交同一 jobId 只能返回已有状态，不能启动第二份进程树。
 3. Runtime 的 journal 至少能证明 `PENDING/RUNNING`、已有 `ExecutionState` 的 terminal outcome、input hash、结果 manifest/hash 和 terminal commit。它不保存 approval proof/Secret，也不能自行创建后续 Job。
-4. 主 App 监听 `ServiceConnection`、Binder death 和 `DeadObjectException`。断连后只允许重连并 `query(jobId)`；匹配的 terminal record 可继续结果校验，其他情况将执行停泊为 `INTERRUPTED`。禁止因 Binder 超时/断连直接重新提交 argv/script。
+4. 主 App 监听 `ServiceConnection`、Binder death 和 `DeadObjectException`。断连后只允许重连并 `query(../jobId)`；匹配的 terminal record 可继续结果校验，其他情况将执行停泊为 `INTERRUPTED`。禁止因 Binder 超时/断连直接重新提交 argv/script。
 5. 无活动 Job、结果传输或登录交互后解绑；Runtime 进程可被 Android 回收。下一 Job 重新冷启动，不能依赖进程内缓存恢复授权或 scope。
 6. 用户强制停止/禁用 Runtime、设备重启或 OEM 后台限制后，Helix 显示不可用/中断，不自动唤醒或重放。若平台要求用户显式恢复 stopped package，只有用户点击“修复 Runtime”后才能打开 companion 的最小设置/修复 Activity；恢复后重试产生新的 ToolCall/approval/jobId。
 
@@ -363,7 +363,7 @@ RootFS 中预装 `git` 的当前含义仅是：HXA-081 固定并审计二进制�
 - 第一版 Runtime 无 INTERNET，因此 `clone/fetch/pull/push`、远程凭据、credential helper 和 SSH agent 均不可用。
 - 不得把 Job 输出中的零散 `.git` 文件覆盖回 Workspace。对象库、index、refs 和工作树必须作为同一一致性边界处理，否则崩溃或部分导入会损坏仓库。
 - Git hooks、alias、外部 diff/merge、pager、filter、submodule、worktree 和仓库级 config 都是不可信执行/配置输入；在形成专门 Policy 和测试前不得由结构化 Git UI 隐式触发。
-- 普通用户优先获得不要求理解 Git 的 Helix 原生历史、diff、回收站和恢复；Advanced 的结构化离线 Git 是否以及如何出现，由 HXA-088 Spike 和 [ADR-0008](adr/0008-git-workspace-management.md) 决定。该 ADR 接受前，`git` 只能是每次已批准 `bash` Job 内的离线工具，不能声称持久仓库可用。
+- 普通用户优先获得不要求理解 Git 的 Helix 原生历史、diff、回收站和恢复；Advanced 的结构化离线 Git 是否以及如何出现，由 HXA-088 Spike 和 [ADR-0008](../adr/0008-git-workspace-management.md) 决定。该 ADR 接受前，`git` 只能是每次已批准 `bash` Job 内的离线工具，不能声称持久仓库可用。
 
 HXA-088 必须在“主 App Workspace 为权威”“Runtime 私有仓库为权威”“主 App 使用 Android Git 库”之间做设备实证比较，确定原子传输、崩溃恢复、大小限额、hooks/config 禁用和 UI 语义。远程 Git 需要新的联网执行域、凭据所有权和出网威胁模型，不属于 HXA-088 首版。
 
@@ -387,14 +387,14 @@ HXA-088 必须在“主 App Workspace 为权威”“Runtime 私有仓库为权�
 
 Android 官方安全指南建议避免从 APK 外动态加载代码；许多远程动态代码形式可能违反 Google Play 政策。因此构建两种变体：
 
-| 变体 | 内容 | 目标分发 |
+| 变体 | 内容 | 当前工程角色 |
 | --- | --- | --- |
-| `consumer` | 原生 Tools + APK 内 Zipline/QuickJS；不下载 native executable | 常规测试/应用商店评估 |
-| 主 App `developer` | 当前直接分发主版本；包含高级能力和 Runtime IPC client，不含 PRoot/RootFS/CLI binary | 内测、直接分发 |
+| `consumer` | 原生 Tools + APK 内 Zipline/QuickJS；不下载 native executable | 当前用于验证不含 companion client 的构建边界，不等同于商店产品定义 |
+| 主 App `developer` | 包含高级能力和 Runtime IPC client，不含 PRoot/RootFS/CLI binary | 当前用于完整能力开发与测试，不等同于最终官网渠道 |
 | `proot-runtime` APK | 独立 UID；内含固定 PRoot/RootFS；无 INTERNET | Advanced 用户按需安装的 companion；不进入默认主包下载 |
 | `cli-runtime` APK | 独立 UID；内含固定官方 CLI runtime；有 INTERNET，无 Android 高级权限 | P2 可选、直接分发 |
 
-JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁止把下载的 DEX/JAR/APK/SO 当更新机制。PRoot/CLI Runtime 通过正常签名 APK 更新，不在应用内部更新 executable。当前不以 Google Play 上架为目标；若未来上架，必须按当时渠道政策重新设计 build flavor 和权限，而不是假定直接分发版本可原样提交。
+JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁止把下载的 DEX/JAR/APK/SO 当更新机制。PRoot/CLI Runtime 通过正常签名 APK 更新，不在应用内部更新 executable。Standard 以 Google Play 和国内 Android 应用商店为目标；按 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)保留解释执行等允许能力，并仅对有明确政策或审核依据的渠道做最小 build/permission 差异。
 
 ## 9. 许可证义务
 
@@ -418,7 +418,7 @@ JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁�
 
 ### QuickJS
 
-- `while(true){}` 被中断。
+- `while(../true){}` 被中断。
 - 大数组触发内存限制，不杀主进程。
 - 尝试 `fetch`、`require`、`eval`、Java Bridge 均失败。
 - 构造超大输出被截断并标记。

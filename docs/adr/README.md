@@ -1,11 +1,11 @@
 # Helix 架构决策记录约定
 
-ADR（Architecture Decision Record）保存代码、测试和规范文档不适合承载的决策理由：为什么选择当前方向、比较过哪些替代方案、付出什么代价，以及什么证据出现后应重新讨论。ADR 不替代 HXA 任务、架构规范、测试或 `implementation-status.md`。
+ADR（Architecture Decision Record）保存代码、测试和规范文档不适合承载的决策理由：为什么选择当前方向、比较过哪些替代方案、付出什么代价，以及什么证据出现后应重新讨论。ADR 不替代 HXA 任务、架构规范、测试或 `docs/development/status.md`。
 
 ## 1. 权威性和状态
 
 - 当前行为以生产代码、测试以及 `docs/` 中明确声明的规范性章节为准。
-- ADR 记录决定及其理由，不是“功能已经实现”的证明。`accepted` 只表示决定被接受；实现状态和验收证据写入 HXA 完成记录及 `docs/implementation-status.md`。
+- ADR 记录决定及其理由，不是“功能已经实现”的证明。`accepted` 只表示决定被接受；实现状态和验收证据写入 HXA 完成记录及 `docs/development/status.md`。
 - ADR 与当前代码或规范冲突时，小模型必须停止并报告具体冲突，不得自行选择一边或静默改写 ADR。
 - 不使用生命周期目录移动文件。移动会破坏引用；所有记录保留稳定路径，状态写在文件头。
 
@@ -61,7 +61,7 @@ find docs/adr -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.md' | sort
 - 不改变行为的格式、拼写、链接或机械重命名；
 - 不改变测试策略的局部测试补充；
 - 不改变架构或外部契约的普通 bug 修复；
-- 只更新 `implementation-status.md` 中有命令证据支持的进度事实。
+- 只更新 `docs/development/status.md` 中有命令证据支持的进度事实。
 
 拿不准时，小模型应在完成记录中写明疑点并保持 `proposed`，不能为了省事写“无需 ADR”，也不能擅自接受架构决定。
 
@@ -113,7 +113,7 @@ Superseded by: none
 
 ## References
 
-- [相关规范](../02-architecture-design.md)
+- [相关规范](../architecture/overview.md)
 ```
 
 规则：

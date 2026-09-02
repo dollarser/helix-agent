@@ -9,7 +9,7 @@ Superseded by: [ADR-0010](0010-batch-turn-coordinator.md)
 
 ## Context
 
-架构文档 [02-architecture-design.md](../02-architecture-design.md) 第 5.2 节的 Turn 状态图最初只画了一条结果回边 `RECORDING_TOOL_RESULT → BUILDING_CONTEXT`，第 5.3 节伪代码则把 `contextBuilder.build()` 放在 `repeat` 循环体开头、把同一响应的多个工具调用放在一次上下文构建内的 `for` 循环中串行执行。两处读法存在张力：
+[总体架构](../architecture/overview.md)第 5.2 节的 Turn 状态图最初只画了一条结果回边 `RECORDING_TOOL_RESULT → BUILDING_CONTEXT`，第 5.3 节伪代码则把 `contextBuilder.build()` 放在 `repeat` 循环体开头、把同一响应的多个工具调用放在一次上下文构建内的 `for` 循环中串行执行。两处读法存在张力：
 
 - Provider 协议（OpenAI Responses / Chat Completions / Anthropic Messages）要求同一响应的每个工具调用在下次模型调用前都必须拿到结果，因此一个响应含 N>1 个调用时，记录完第 i 个结果后必须直接推进第 i+1 个调用，而不是每个调用都重新构建一次上下文；
 - 第 5.3 节的预算规则（"每次模型调用前计算剩余 step/token"）意味着预算门控失败发生在提交模型调用之前，即 `BUILDING_CONTEXT` 阶段，该阶段因此必须能直接进入 `FAILED`；
@@ -59,8 +59,8 @@ HXA-011 在 `core:model` 的 `TurnState` 中以**严格增量**方式（不改�
 
 ## References
 
-- [02-architecture-design.md 第 5.2/5.3 节（Turn 状态与 Agent Loop）](../02-architecture-design.md)
-- [07-security-testing-release.md（审批与不确定性副作用）](../07-security-testing-release.md)
+- [总体架构第 5.2/5.3 节（Turn 状态与 Agent Loop）](../architecture/overview.md)
+- [安全与发布门禁（审批与不确定性副作用）](../security/testing-and-release.md)
 - [HXA-011 完成记录](../completion-records/HXA-011.md)
 - 实现：`core/model/src/main/kotlin/com/helix/core/model/TurnState.kt`（KDoc 含规范状态图）
 - 测试：`core/model/src/test/kotlin/com/helix/core/model/StateMachinesTest.kt`、`core/agent/src/test/kotlin/com/helix/core/agent/TurnReducerInterruptionTest.kt`

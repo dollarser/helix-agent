@@ -1,11 +1,11 @@
 # ADR-0005: Standard 与 Advanced 两级安全配置
 
-Status: accepted
+Status: superseded
 Date: 2026-08-31
 HXA: HXA-020, HXA-028, HXA-033, HXA-066, HXA-093, HXA-094
 Deciders: Project owner（明确要求普通用户采用严格默认，高级用户显式开放受控能力）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0012](0012-capability-first-advanced-grants.md)
 
 ## Context
 
@@ -90,9 +90,9 @@ Helix 采用两个运行时安全配置：
 
 ## References
 
-- [产品需求](../01-product-requirements.md)
-- [总体架构](../02-architecture-design.md)
-- [安全、测试与发布门禁](../07-security-testing-release.md)
-- [Android 平台能力](../09-android-platform-capabilities.md)
-- [Provider、MCP、Skills 与模式方案](../10-provider-mcp-skills-modes.md)
+- [产品需求](../product/requirements.md)
+- [总体架构](../architecture/overview.md)
+- [安全、测试与发布门禁](../security/testing-and-release.md)
+- [Android 平台能力](../architecture/android-platform-capabilities.md)
+- [Provider、MCP、Skills 与模式方案](../architecture/provider-mcp-skills-modes.md)
 - [ADR-0006：单一直接分发主应用](0006-single-direct-main-package.md)

@@ -14,9 +14,9 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 - 编码必须是字节级确定的（同一值永远得到同一字符串），否则 Room 中的行无法被用于恢复判定、审计比对和未来的哈希绑定；
 - 解码必须严格：来自 Room 的字符串可能损坏或被手工编辑，解析失败必须产生可诊断的 `HelixError`（STORAGE/VALIDATION），而不是静默降级；
 - Room 行在调试、崩溃分析和审计时需要人类可读，团队用 `sqlite3`/Studio 直接查看；
-- `core:model` 是纯 JVM 模块（无 Android 依赖），且 AGENTS 规则禁止新增未经任务授权的重量级第三方组件。version catalog 与 [05-development-environment.md](../05-development-environment.md) 第 4 节基线已固定 `kotlinx-serialization-json` 1.9.0，但截至本 ADR 没有模块消费该依赖，Gradle 也没有应用 serialization 编译器插件；`core:model` 是否引入该库仍需单独决策（见 Alternatives 第 1 条）。
+- `core:model` 是纯 JVM 模块（无 Android 依赖），且 AGENTS 规则禁止新增未经任务授权的重量级第三方组件。version catalog 与[开发环境](../development/environment.md)第 4 节基线已固定 `kotlinx-serialization-json` 1.9.0，但截至本 ADR 没有模块消费该依赖，Gradle 也没有应用 serialization 编译器插件；`core:model` 是否引入该库仍需单独决策（见 Alternatives 第 1 条）。
 
-设计文档 [02-architecture-design.md](../02-architecture-design.md) 另外定义了工具**参数**的 canonical JSON 家族：HXA-031 在 `tools:framework` 落位 `CanonicalArgs`，HXA-034 使用 `argsHash` 与九个可信字段构造 `ApprovalBinding.canonicalJson`/`bindingHash`。它们服务 schema 化工具参数和精确审批，不属于本 ADR 的内部存储编码适用面，也不要求与本 ADR 共用 writer/decoder。
+[总体架构](../architecture/overview.md)另外定义了工具**参数**的 canonical JSON 家族：HXA-031 在 `tools:framework` 落位 `CanonicalArgs`，HXA-034 使用 `argsHash` 与九个可信字段构造 `ApprovalBinding.canonicalJson`/`bindingHash`。它们服务 schema 化工具参数和精确审批，不属于本 ADR 的内部存储编码适用面，也不要求与本 ADR 共用 writer/decoder。
 
 ## Decision
 
@@ -61,8 +61,8 @@ HXA-010 在 `core:model` 实现了多个必须持久化到 Room 的领域值（`
 
 ## References
 
-- [02-architecture-design.md（ToolDescriptor / 审批哈希 / argsJson）](../02-architecture-design.md)
-- [07-security-testing-release.md（canonical JSON 单元测试范围）](../07-security-testing-release.md)
-- [04-roadmap-and-backlog.md（HXA-010、HXA-014、HXA-031）](../04-roadmap-and-backlog.md)
+- [总体架构（ToolDescriptor / 审批哈希 / argsJson）](../architecture/overview.md)
+- [安全与发布门禁（canonical JSON 单元测试范围）](../security/testing-and-release.md)
+- [开发路线（HXA-010、HXA-014、HXA-031）](../development/roadmap.md)
 - 实现：`core/model/src/main/kotlin/com/helix/core/model/internal/Json.kt`
 - 测试：`core/model/src/test/kotlin/com/helix/core/model/internal/CanonicalJsonTest.kt`

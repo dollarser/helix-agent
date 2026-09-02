@@ -83,7 +83,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 Homebrew 安装 JDK 17 后，在 shell 配置中使用可移植路径，不写具体用户名：
 
 ```bash
-export JAVA_HOME="$(brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
+export JAVA_HOME="$(../brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
 export ANDROID_HOME="${HOME}/Library/Android/sdk"
 export ANDROID_SDK_ROOT="${ANDROID_HOME}"
 export PATH="${JAVA_HOME}/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${ANDROID_HOME}/cmdline-tools/latest/bin:${PATH}"
@@ -198,7 +198,7 @@ adb shell getprop ro.product.cpu.abi
 
 ### 5.5 真机安装、启动与日志闭环
 
-先确认目标设备与实际系统边界，再构建当前直接分发的 developer 主包。下列占位符不得替换后提交到仓库：
+先确认目标设备、目标渠道与实际系统边界，再构建当前 developer 测试主包；它尚不等于最终商店/官网 artifact。下列占位符不得替换后提交到仓库：
 
 ```bash
 export ANDROID_SERIAL="<adb-device-serial>"
@@ -346,8 +346,8 @@ libsu 目前使用 JitPack，因此 M9 允许唯一例外，并限制 group：
 
 ```kotlin
 exclusiveContent {
-    forRepository { maven("https://jitpack.io") }
-    filter { includeGroup("com.github.topjohnwu.libsu") }
+    forRepository { maven(../"https:/jitpack.io") }
+    filter { includeGroup(../"com.github.topjohnwu.libsu") }
 }
 ```
 
@@ -364,7 +364,7 @@ CLI Runtime APK：:runtime:cli-app:assembleDebug / assembleRelease
 
 主 App developer 包含高级能力和 Runtime IPC client，但不包含 PRoot/RootFS/CLI binary。`runtime:proot-app` 是无 INTERNET 的独立 APK/UID；`runtime:cli-app` 是有 INTERNET、无 All-files/Accessibility/Root 的独立 APK/UID。CI 分别验证权限和禁止内容。
 
-发布角色与 Gradle 名称分开：当前直接分发只把 developer 构建作为用户主应用，产品名仍为 Helix；consumer 只为未来受限渠道保留。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名迁移决定不得机械重命名。PRoot/CLI APK 是按需 companion，不得出现在“选择主应用版本”的 UI 中。
+发布角色与 Gradle 名称分开：Standard 是 Google Play、国内 Android 应用商店与官网的完整产品；当前 consumer/developer 只用于开发和边界测试，不预设哪个等于最终商店包。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名/channel 决定不得机械重命名。PRoot/CLI APK 是按需 companion，不得出现在“选择主应用版本”的 UI 中。
 
 applicationId 基线：`consumer=com.helix.agent`、`developer=com.helix.agent.developer`、`runtime:proot-app=com.helix.runtime.proot`、`runtime:cli-app=com.helix.runtime.cli`。变体使用 `developerImplementation` + `src/developer` 隔离 `feature:files-allfiles`、`tools:automation`、`tools:root`、`runtime:proot-client`、`runtime:cli-client`，不仅依赖运行时 feature flag 隐藏 consumer 入口。
 
@@ -391,7 +391,7 @@ HELIX_TEST_API_KEY
 
 ## 8. 推荐仓库目录
 
-下图是目标模块/目录布局，不是实时实现清单。目录存在、可参与 Gradle 构建或包含 marker 都不表示业务能力已落位；已实现范围、空骨架和唯一当前任务以[实施状态](implementation-status.md)为准。
+下图是目标模块/目录布局，不是实时实现清单。目录存在、可参与 Gradle 构建或包含 marker 都不表示业务能力已落位；已实现范围、空骨架和唯一当前任务以[实施状态](status.md)为准。
 
 ```text
 Helix/
@@ -421,9 +421,16 @@ Helix/
 │   └── root/
 ├── testing/
 ├── docs/
+│   ├── product/
+│   ├── architecture/
+│   ├── development/
+│   ├── security/
+│   ├── references/
 │   ├── adr/
 │   ├── completion-records/
-│   └── fixtures/
+│   ├── bug-fixes/
+│   ├── postmortems/
+│   └── history/
 ├── gradle/
 │   ├── libs.versions.toml
 │   └── wrapper/
@@ -450,14 +457,14 @@ Helix/
 ./gradlew connectedConsumerDebugAndroidTest connectedDeveloperDebugAndroidTest
 ```
 
-安装当前直接分发主应用的开发构建：
+安装当前功能最完整的 developer 测试构建：
 
 ```bash
 adb devices
 adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
 ```
 
-consumer 只用于受限渠道和裁剪门禁 smoke，需要验证时单独安装 `app-consumer-debug.apk`，不能把该命令写成当前普通用户安装路径。
+consumer 当前用于共享能力与编译边界 smoke，需要验证时单独安装 `app-consumer-debug.apk`；它不是已经确定的 Google Play/国内商店产品包，最终渠道 artifact 由 HXA-120～123 决定。
 
 PRoot/CLI 是可选 companion。需要测试时，先安装与主 App 同签名证书构建的所需 Runtime APK，再安装 developer 主 App；启动时执行协议、版本和签名握手。不测试高级 Runtime 时只安装主 App，不要求普通用户预装 companion。不要为调试关闭签名校验。
 
@@ -497,7 +504,7 @@ M8 开始前再启用：
 
 ## 11. 当前 CI 与后续扩展
 
-当前 [Android CI](../.github/workflows/ci.yml) 已实现：
+当前 [Android CI](../../.github/workflows/ci.yml) 已实现：
 
 ```text
 checkout
@@ -558,7 +565,7 @@ git diff --check
 
 若还需手工下载未记录文件、修改绝对路径或复制他人 `local.properties` 才能构建，则开发环境文档不合格。
 
-继续当前仓库开发时，任务状态只以 [implementation-status](implementation-status.md) 为准：`In progress` 非空则续接，否则使用 `Next task`；已有完成记录的 HXA 不重复实现。分支、commit、CI、SDK 和设备均以实时检查为准，不在长期文档中固化机器快照。
+继续当前仓库开发时，任务状态只以[实施状态](status.md)为准：`In progress` 非空则续接，否则使用 `Next task`；已有完成记录的 HXA 不重复实现。分支、commit、CI、SDK 和设备均以实时检查为准，不在长期文档中固化机器快照。
 
 ### 13.2 已验证参考工作站
 

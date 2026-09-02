@@ -1,26 +1,31 @@
-# Helix 移动端 Agent 竞品分析
+# Helix 移动端 Agent 竞品与定位
 
 文档状态：产品与架构调研
 
-核验日期：2026-09-01
+核验日期：2026-09-02
 
 适用范围：Helix 当前实现仍限 Android 单机；竞品观察覆盖 HarmonyOS/iOS，但不据此新增 HarmonyOS 客户端、远程 Worker、云端沙箱或桌面配对承诺
 
+本文侧重技术能力、执行位置和平台边界；目标用户、场景、分发与付费假设见[市场、用户与商业化分析](market-users-and-commercialization.md)。
+
 ## 1. 结论摘要
 
-“手机版 AI 客户端”和“手机 Agent”已经不能只按“会不会调用工具”二分。到 2026 年，市场形成了五条路线：
+“手机版 AI 客户端”和“手机 Agent”已经不能只按“会不会调用工具”二分。到 2026 年，市场形成了六条路线：
 
 1. **跨平台 AI 客户端**：Chatbox、Cherry Studio Mobile、NextChat。优势是多 Provider、BYOK 和聊天体验；工具通常依赖应用内能力、MCP 或服务端，未必能操作 Android 本机。
 2. **Agent 工作台/网关**：LobeHub、Msty Go。它们已经具备 Agent、工具或设备路由，但执行可能位于服务端、桌面端或另一个已注册运行时，不能仅凭手机 UI 判定为“手机本机执行”。
 3. **终端 Coding Agent 移植**：Termux/PRoot 中运行 Codex CLI、Claude Code、Gemini CLI、Aider、goose 等。它们能读写工作目录和执行命令，但 Android/Termux 通常不在厂商正式支持矩阵内，安装、升级、后台存活和权限边界由用户自行承担。
-4. **原生移动 Agent Runtime**：AndCode、ClawMobile，以及系统级 Gemini/Claude 移动能力。前两者已经能在 Android 上运行 Agent、shell/PRoot 或 Accessibility 工具；后两者拥有强分发和系统集成，但不是开放的 BYOK 通用本机 Agent Runtime。
-5. **系统原生 Agent 生态**：HarmonyOS 的小艺、HMAF、Intents Kit、Agent Framework Kit 与元服务，以及 Android AppFunctions、Apple App Intents。它们把 Agent-to-App 能力做成系统语义层；优势是入口、分发和系统能力，限制是平台专属、准入受控，且系统授权不等于逐调用审批。
+4. **原生移动 Agent Runtime**：Operit、AndCode、ClawMobile。它们已经在 Android 上组合 Agent、文件、浏览器、终端/PRoot、工作区或 Accessibility，直接抬高了“安装后就能干活”的能力基线。
+5. **传统 Android 自动化**：Tasker、Auto.js/AutoX.js、Hamibot、MacroDroid。它们没有完整 LLM Agent Loop 或 BYOK 工作台，但已经占据设备自动化、模板、定时触发和脚本分享的用户心智。
+6. **系统原生 Agent 生态**：Gemini/Claude Android、HarmonyOS 的小艺/HMAF/Intents Kit，以及 Android AppFunctions、Apple App Intents。它们把 Agent-to-App 能力做成系统语义层；优势是入口、分发和系统能力，限制是平台专属、准入受控。
 
-因此，Helix 的有效定位不是“第一个手机 Agent”，也不能只宣传“比聊天客户端更真”。更准确的定位是：
+因此，Helix 的有效定位不是“第一个手机 Agent”，也不能只宣传“比聊天客户端更安全”。更准确的定位是：
 
-> **Provider 中立、Android 原生、执行域分层，并把 schema、scope、实时 Capability、Policy、逐调用 Approval、Verification、Audit 和恢复作为同一条不可绕过安全管线的本机 Agent。**
+> **面向开发者与效率用户、Provider 中立、Android 原生的本机 AI 执行工作台：把文件、网页、代码和 Android 高级能力组合成真实任务；Advanced 面向知情用户，能力优先，用户对主动开启和确认的操作承担最终责任。**
 
-这条定位有差异化，但当前产品尚未完成通用文件、浏览器、QuickJS、PRoot、Accessibility 和 Root 业务工具。现阶段已完成的是 M2 Provider/聊天链路与 M3 Tool/Policy/Approval/Dispatcher/Scheduler 安全底座；不能把路线图能力写成已交付能力。
+Helix 仍负责真实展示能力状态、执行目标、scope、数据去向和最终结果，不允许模型替用户开启能力或批准操作。这是高级能力可用、可调试的最低可信底座，不再作为第一市场卖点。
+
+截至本报告核验日，Helix 已形成 Provider/聊天、Tool Loop 和首批 Workspace 文件能力，但尚未形成完整用户闭环。该句只是竞品判断所用的日期快照；当前已交付能力、检查点和限制一律以[实施状态](../development/status.md)为准，不能把路线图能力写成已交付能力。
 
 ## 2. 评估口径
 
@@ -97,7 +102,7 @@ Termux 路线的优势是能力上限高、现有 CLI 生态可直接利用；�
 
 Helix 的 E2C CLI Runtime 因而应定位为后期、独立 UID 的兼容实验，而不是产品主执行内核。官方 CLI 自持登录，主 App 只接收有界会话事件；任何 CLI 内置工具不能绕过 Helix Policy 成为主 App 的隐形万能工具。
 
-Termux 与 PRoot 也不能作为同类产品直接二选一：Termux 是原生 Android 命令行环境、终端和包生态，性能与社区规模占优；PRoot 是可嵌入独立 Runtime 的 Linux RootFS 兼容层，文件密集任务较慢且不提供安全隔离。对 Helix，外部 Termux 更适合研发 Spike/专家自带环境，正式 E2 路线仍采用固定资产、无网、独立 UID 的 PRoot companion；常用能力优先 E0 原生 Tool，避免为所有任务支付 PRoot 开销。完整功能、社区、用户量、性能、许可证和集成路径比较见[本地代码执行方案 §6.2](03-local-code-execution.md#62-termux-与-proot-对比及集成结论)。
+Termux 与 PRoot 也不能作为同类产品直接二选一：Termux 是原生 Android 命令行环境、终端和包生态，性能与社区规模占优；PRoot 是可嵌入独立 Runtime 的 Linux RootFS 兼容层，文件密集任务较慢且不提供安全隔离。对 Helix，外部 Termux 更适合研发 Spike/专家自带环境，正式 E2 路线仍采用固定资产、无网、独立 UID 的 PRoot companion；常用能力优先 E0 原生 Tool，避免为所有任务支付 PRoot 开销。完整功能、社区、用户量、性能、许可证和集成路径比较见[本地代码执行方案 §6.2](../architecture/local-code-execution.md#62-termux-与-proot-对比及集成结论)。
 
 ### 4.4 D 类：原生移动 Agent Runtime（直接竞品）
 
@@ -295,67 +300,79 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 | Termux + CLI | 视 CLI 而定 | 是 | 是，Termux/PRoot 域 | 需 Termux:API/额外桥接 | 由 CLI 决定，粒度不统一 | 由 CLI 决定 | 高级用户替代方案 |
 | AndCode | 是/自有账户 | 是 | 是，PRoot | 文件/默认助手；非通用 Accessibility 定位 | 危险工具批准；另有 bypass 模式 | 会话/定时任务/时间线 | **最直接竞品** |
 | ClawMobile | 是 | 是 | 可选 Termux Runtime | 是，Accessibility/ADB 等 | 渐进授权；精确调用证明未证实 | logs/traces/skills | **最直接竞品** |
+| Operit | 是，含云端/本地模型 | 是 | 是，Ubuntu 用户空间与终端 | 是，Browser/系统/UI 自动化 | 自动允许/询问/禁止 | 任务、工作区、工作流日志 | **能力密度直接竞品** |
+| Open-AutoGLM | 模型/部署可替换 | 是 | 否，执行焦点是 GUI | 是，视觉屏幕动作 | 依具体实现 | 依具体实现 | **GUI Agent 参照** |
+| Tasker/Auto.js/Hamibot | 不适用或外接 | 规则/脚本为主 | 脚本环境依产品 | 是，传统自动化强项 | 用户配置脚本/任务 | 运行日志依产品 | **用户与任务替代品** |
 | Gemini Android | 否（Google 体系） | 是 | 否 | 是 | Android 权限 + 按 App 屏幕自动化选择 | 平台闭源 | 系统助手参照 |
 | Claude Android | 否（Anthropic 体系） | 有限任务链 | 否 | 是，限定 App/Intent 能力 | 依系统权限/交互 | 平台闭源 | 系统助手参照 |
 | 小艺 / HarmonyOS | 否（华为/鸿蒙生态） | 是 | 否，非通用 shell Runtime | 是，Intents Kit、系统能力与 HMAF GUI 路径 | 平台权限/交互明确；参数级一次性批准未证实 | 平台闭源；垂域智能体有业务记录 | **系统原生 Agent 生态参照** |
-| **Helix 当前** | **是** | **Tool Loop 底座是** | **否，业务执行器未完成** | **否，能力 Resolver/Policy 已有但工具未完成** | **是，exact binding + 一次性消费** | **是，Turn/Goal/Tool/Audit 基础已实现** | 安全底座已形成，任务能力尚待交付 |
-| **Helix 目标** | **是** | **是** | **QuickJS + 独立 PRoot/CLI UID** | **受控 Browser/SAF/Accessibility/Root** | **每个精确 ToolCall；无全局 bypass** | **model-visible ⇔ persisted + unknown outcome 对账** | Provider 中立的安全型本机 Agent |
+| **Helix 当前** | **是** | **是** | **否；已有原生文件工具** | **SAF/All-files 适配已落位，UI/Browser/设备动作未完成** | **是，exact binding + 一次性消费** | **是，Turn/Goal/Tool/Audit 基础已实现** | 文件能力底座已有，用户闭环尚待交付 |
+| **Helix 目标** | **是** | **是** | **QuickJS + 独立 PRoot/CLI UID** | **Browser/SAF/All-files/Accessibility/Root** | **用户显式启用 Advanced 与具体能力；高影响动作保持真实可见** | **任务、产物、失败与恢复可观察** | Provider 中立、能力优先的本机执行工作台 |
 
 ## 7. Helix 的可守差异与短板
 
 ### 7.1 可守差异
 
-1. **授权与能力分离**：Android 权限、Accessibility 连接、Root grant、MCP annotation 和 Skill 指令都不能替代 ToolCall Approval。
-2. **执行域分层**：E0 原生 Tool、E1 isolated QuickJS、E2 无网 PRoot、E2C 有网 CLI Runtime 使用不同 UID/网络/数据入口，而不是把所有能力塞进一个 Termux home。
-3. **Provider 中立**：OpenAI Responses、OpenAI Chat Completions、Anthropic Messages 和自建 OpenAI-compatible endpoint 已有独立适配与能力探测。
-4. **确定性与恢复**：并发由平台 effect footprint 决定；结果按模型原 call sequence 回填；取消、重试和未知副作用具有持久结果。
-5. **高敏出网显式化**：Provider/MCP origin、数据类别与 scope 进入 Policy；模型不能通过描述文本把远程 endpoint 伪装成本地。
+1. **一个本机任务组合多类能力**：原生文件、Browser、QuickJS、PRoot/CLI 和 Android 高级能力共用同一 Agent 工作台，而不是把用户留在聊天客户端或零散脚本之间。
+2. **Provider 中立**：OpenAI Responses、OpenAI Chat Completions、Anthropic Messages 和自建 OpenAI-compatible endpoint 已有独立适配与能力探测，后续还可承接官方 CLI。
+3. **执行域分层**：E0 原生 Tool、E1 isolated QuickJS、E2 PRoot、E2C CLI Runtime 可以针对任务选择能力与成本，而不是所有任务都启动完整 Linux 环境。
+4. **Standard/Advanced 与渠道解耦**：Standard 是 Google Play、国内商店和官网的完整产品；All-files、Accessibility、解释脚本等能力优先通过核心用途声明和审核保留，只把明确禁止的差异限制在对应渠道。官网 artifact 可保留商店不允许的能力，Advanced 则在实际 artifact 能力范围内呈现 Root、PRoot/CLI 和 Agent UI 自动化等专家入口。
+5. **任务可观察和可继续**：用户可以看到工具过程、产物、失败与恢复状态；这既支持高级用户调试，也使手机碎片时间中的长任务可继续。
 
-### 7.2 当前短板
+### 7.2 核验日短板
 
-1. **“能干活”的用户证据不足**：目前真实 built-in Tool 主要用于打通框架；文件、浏览器和设备动作尚未交付。
-2. **与 AndCode 的能力差距已经客观存在**：AndCode 已有 PRoot、Git、diff、terminal 和 Agent 运行闭环；Helix 的 E2 仍在后续里程碑。
-3. **与 ClawMobile/系统助手的 Android 动作差距明显**：Helix Accessibility、Browser、通知、日历等业务工具仍未实现。
-4. **首次使用成本可能偏高**：安全信息多，但用户仍期待像 Chatbox 一样快速添加 Provider、选模型、开始任务。
-5. **安全差异尚需可视化**：exact binding、一次性 Proof、scope、execution target 和 egress 如果只存在内部类型中，用户感知不到价值。
+1. **文件工具尚未形成用户闭环**：底层 `read`/`write`/`edit`/`files.*`、SAF 和 All-files 适配已存在，但 HXA-046 的浏览、导入导出、trash 与 scope UI 尚未交付。
+2. **与 Operit 的能力密度差距最大**：Browser、终端、工作流、本地模型、语音和市场均已有公开形态；Helix 当前不能用架构完整性代替这些可见能力。
+3. **与 AndCode 的开发闭环差距存在**：PRoot、Git、diff、terminal 和 Agent Runtime 已可演示；Helix 的 E2/E2C 仍在后续里程碑。
+4. **与 ClawMobile/Open-AutoGLM 的 Android 动作差距明显**：Accessibility、视觉 GUI Agent、通知和日历尚未实现。
+5. **首次价值时间偏长**：Provider、Workspace、能力启用和审批信息较多，需要以模板、连接测试、能力中心和真实任务引导降低摩擦。
 
 ## 8. 产品与路线建议
 
-### P0：先证明“受控本机 Agent”闭环
+### P0：先证明文件工作台的用户闭环
 
-- 先完成 HXA-039 的批量语义 Turn Coordinator 收口，再按顺序完成 M4/HXA-040～047，优先形成 `read`、`write`、`edit` 的真实 Workspace 演示。
-- 用同一个验收场景展示：读取文件 → 生成 diff → 参数级审批 → 原子写入 → verifier → Timeline/Audit → 进程恢复后可重建。
-- 宣传口径保持“受控工作区 Agent”，在 PRoot/Accessibility 未完成前不宣传“万能手机 Agent”。
+- 优先完成[实施状态](../development/status.md)所列的下一项文件工作台检查点，形成目录浏览、导入导出、scope 选择与 trash 管理闭环。
+- 首个演示使用真实用户路径：配置 Provider → 选择目录 → 分析文件 → 预览变更 → 执行 → 查看结果与产物。
+- 宣传“Android 本机文件工作台”，Browser/PRoot/Accessibility 未完成前不把目标能力写成现状。
 
-### P1：把安全模型变成用户能看懂的产品能力
+### P1：把 Advanced 做成能力中心
 
-- 审批卡固定展示目标、scope、数据出向、execution target、风险原因、可撤销状态和验证结果。
-- 增加“为什么需要这次批准”和“为什么上次批准不能复用”的简短解释。
-- 做一条 AndCode 对照验收：没有 full-access/bypass；同一 CLI/工具的实质参数变化必须重新批准。
+- 每项能力统一展示用途、状态、安装/授权、验证、修复、暂停和清理。
+- 用户显式开启 Advanced 与具体能力后承担操作责任；Helix 负责不隐瞒目标、scope、数据去向和失败状态。
+- 减少重复说明和无意义确认，把信息集中在任务摘要、能力状态和高影响动作上；任何长期授权变化先按 ADR 决策。
 
 ### P1：缩短 BYOK 首次价值时间
 
 - 保持模板化 Provider、连接测试和动态模型清单，避免要求普通用户理解协议细节。
 - 将“只聊天”和“可执行任务”在首屏清晰分层；没有可用 Tool 时不要让 UI 暗示 Agent 已能操作手机。
-- 以 Chatbox 的跨平台易用性为下限，以 Helix 的 origin/residence/高敏出网提示形成差异。
+- 以 Chatbox 的 Provider 易用性为下限，以“配置后立即运行一个本机任务”形成差异。
 
-### P2：谨慎推进 PRoot/CLI 与 Android 自动化
+### P2：加快 PRoot/CLI 与 Android 自动化的可见能力
 
-- E2/HXA-080～088 先证明独立 Runtime、离线边界、固定资产、jobId 对账和资源上限，再开放 `bash`。
-- E2C 只接官方 CLI 登录与有界事件，不抽取订阅凭据，不让 CLI 自带 approval 取代 Helix Approval。
-- Accessibility/HXA-090～093 以目标包 allowlist、节点 token、敏感界面拒绝和可停止性优先，不追求 ClawMobile 式最大覆盖面。
+- E2/HXA-080～088 将 Runtime 安装、Workspace、Git、diff、terminal 和 `bash` 组织成一条移动开发闭环，而不是只交付后台 Runtime。
+- E2C 优先验证一到两个真正有人使用的官方 CLI，完成登录、模型选择、会话、工具过程与产物回填。
+- Accessibility/HXA-090～093 选择少量高传播力任务做真机演示，同时明确支持 App、版本、用户接管和失败边界。
+- Shizuku/无线 ADB 与 Tasker/Auto.js 兼容 Runtime 作为未排期未来候选，不进入当前 HXA；未来立项前先完成协议/许可证、独立执行域、OEM 真机矩阵和断连恢复验证。云端 Worker 和群控仍不进入当前范围。
+
+### P2：先做官方任务模板，再决定市场
+
+- 从文件、网页、代码和系统 Intent 中选择 5～10 个维护方模板，随版本做回归验证。
+- 记录模板复用率、修改成本和跨 ROM/Provider 成功率。
+- 在签名、审核、撤销、兼容性和退款责任清楚前，不开放无边界 UGC 技能/脚本市场。
 
 ## 9. 建议的对外定位
 
 推荐：
 
-> Helix 是运行在 Android 手机上的本机 Agent。它支持用户自己的模型服务，把文件、浏览器、代码和系统能力放进不同的执行边界；每个动作都经过实时权限检查、Policy、必要时的精确批准、结果验证和审计。
+> Helix 是面向开发者和效率用户的 Android 本机 AI 执行工作台。它连接用户自己的模型，把文件、网页、代码和 Android 高级能力组合成真实任务；Advanced 由知情用户主动开启，用户掌握能力和最终决定。
+
+第二层可信说明：Helix 如实展示任务目标、作用范围、数据去向、执行过程和结果。Trusted Workspace 与有界长期规则可以减少低风险重复确认，但模型不能替用户开启权限、创建授权或批准高影响操作。
 
 避免：
 
 - “首个/唯一真正的手机 Agent”；
 - “PRoot/QuickJS 是虚拟机级沙箱”；
-- “开启 Advanced/Root/Accessibility 后即可完全访问”；
+- “开启 Advanced 后无需再关心能力范围或操作后果”；
 - “有 MCP 就能安全执行任意任务”；
 - “支持 Claude Code/Codex CLI”——在 E2C Spike 和厂商条款/真机验收完成前只能写“计划评估”。
 
@@ -366,12 +383,17 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 | 指标 | 目标 |
 | --- | --- |
 | 首次 Provider 配置到首条回复 | 能与主流 BYOK 客户端同量级完成 |
+| 安装到首个本机任务完成 | 作为核心激活指标，记录步骤、失败和所需人工帮助 |
 | 首个本机文件任务完成率 | 以固定 fixture 衡量，不以“ToolCall 成功”替代任务成功 |
+| 7/30 日真实任务留存 | 只统计再次完成文件、网页、代码或 Android 工具任务的用户 |
+| Advanced 能力启用与修复 | 记录安装、授权、验证、失效和修复漏斗 |
 | 高风险误执行 | 0；无 Proof、过期 Proof、参数/scope/target 变化均不得执行 |
 | 恢复重复副作用 | 0；unknown outcome 必须先对账 |
 | 审批理解度 | 用户能从卡片辨认目标、影响、出网和验证方式 |
 | 手机资源 | 前台/后台分别记录耗时、内存、热状态、电量与被系统回收情况 |
-| 竞品状态 | 重点跟踪 AndCode、ClawMobile、Gemini/Galaxy AI、Apple Intelligence/App Intents、LobeHub mobile，以及 HMAF/Intents Kit/小艺智能体的执行域和授权变化 |
+| 竞品状态 | 重点跟踪 Operit、AndCode、ClawMobile、Open-AutoGLM、Tasker/Auto.js/Hamibot、Gemini/Galaxy AI、LobeHub mobile 与系统 Agent 生态 |
+
+用户、渠道、价格和商业指标详见[市场、用户与商业化分析](market-users-and-commercialization.md)。
 
 ## 11. 主要来源
 
@@ -386,8 +408,12 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 - Aider：[官方安装文档](https://aider.chat/docs/install.html)
 - goose：[官方 Termux 构建状态](https://github.com/aaif-goose/goose/blob/main/BUILDING_LINUX.md)
 - Termux：[官方仓库与 Android 12+ 进程限制说明](https://github.com/termux/termux-app)
+- Operit：[官方仓库与功能说明](https://github.com/AAswordman/Operit)
 - AndCode：[官方仓库、安全与 Runtime 说明](https://github.com/yuga-hashimoto/and-code)
 - ClawMobile：[官方仓库、架构与 preview 限制](https://github.com/ClawMobile/ClawMobile)
+- Open-AutoGLM：[官方仓库](https://github.com/zai-org/Open-AutoGLM)
+- Tasker：[官方站点](https://tasker.joaoapps.com/)
+- Hamibot：[官方定价与版本](https://www2.hamibot.cn/pricing)
 - Gemini Android：[设备辅助](https://support.google.com/gemini/answer/15235441?hl=en)、[Connected Apps](https://support.google.com/gemini/answer/13695044?co=GENIE.Platform%3DAndroid&hl=en)、[屏幕自动化](https://support.google.com/gemini/answer/16940971?hl=en)
 - Samsung Android Agent 生态：[Bixby 设备 Agent](https://news.samsung.com/us/samsung-introduces-new-bixby-one-ui-8-5)、[Galaxy AI 多 Agent 生态](https://www.samsung.com/ae/news/local/galaxy-ai-expands-multi-agent-ecosystem-to-give-users-more-choice-and-flexibility/)、[Bixby 开发平台](https://developer.samsung.com/bixby)
 - Claude Android：[Android App actions](https://support.claude.com/en/articles/11869629-use-claude-with-android-apps)
@@ -397,4 +423,4 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 - HarmonyOS Agent 生态：[HarmonyOS 7 与 HMAF 2.0](https://www.huawei.com/cn/news/2026/6/harmonyos7-hdc)、[HarmonyOS AI 能力与端/云 A2A](https://developer.huawei.com/consumer/cn/harmonyos-ai)、[Intents Kit](https://developer.huawei.com/consumer/cn/sdk/intents-kit)、[HarmonyOS 意图框架](https://developer.huawei.com/consumer/cn/huawei-hag/)、[HMAF 与小艺开放平台开发模式](https://developer.huawei.com/consumer/cn/activity/incentive/ai/)、[小艺开放平台精选案例](https://developer.huawei.com/consumer/cn/celia?ha_source=InfoQ&ha_sourceId=70000011)、[HarmonyOS 文档中心](https://developer.huawei.com/consumer/cn/doc/?catalogVersion=V2)、[元服务](https://developer.huawei.com/consumer/cn/fa)
 - 鸿蒙代表性智能体：[小艺 App 智能体](https://consumer.huawei.com/cn/support/content/zh-cn16076199/)、[小艺深度解题](https://consumer.huawei.com/cn/support/content/zh-cn16051425/)、[客服小艺](https://consumer.huawei.com/cn/support/content/zh-cn16101343/)
 
-本报告不替代各产品的许可证、隐私政策、商店地区可用性和服务条款审查。若某项能力进入 Helix 依赖、分发或登录方案，仍须按 [开源依赖与参考仓库](06-open-source-references.md) 和 [ADR 约定](adr/README.md)单独决策。
+本报告不替代各产品的许可证、隐私政策、商店地区可用性和服务条款审查。若某项能力进入 Helix 依赖、分发或登录方案，仍须按 [开源依赖与参考仓库](../references/open-source-projects.md) 和 [ADR 约定](../adr/README.md)单独决策。

@@ -9,13 +9,13 @@ Superseded by: none
 
 ## Context
 
-[HXA-013](../04-roadmap-and-backlog.md) 要求实现 Goal reducer：Goal 状态、验收条件、模型/工具/token/时长/重试预算、checkpoint、`INPUT_REQUIRED`；首版只有用户显式继续创建新 run；预算耗尽不得完成；只有 verifier evidence 可满足 criterion。
+[HXA-013](../development/roadmap.md) 要求实现 Goal reducer：Goal 状态、验收条件、模型/工具/token/时长/重试预算、checkpoint、`INPUT_REQUIRED`；首版只有用户显式继续创建新 run；预算耗尽不得完成；只有 verifier evidence 可满足 criterion。
 
 规范给出的是状态与约束，不是事件/运行模型：
 
-- [10 §6.2](../10-provider-mcp-skills-modes.md) 的 `GoalState` 图（HXA-010 已实现并有全矩阵测试；Goal 状态列表见 [02 §5.2](../02-architecture-design.md)）只有 `DRAFT → READY → RUNNING` 与 RUNNING 的五个出边（`INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLED`），**没有** RUNNING → RUNNING 边，也没有独立的“运行之间等待”状态。
-- [10 §6.1](../10-provider-mcp-skills-modes.md) 规定“首版只有用户显式继续才创建新 `goal_run`”，唤醒源只有 `USER_OPEN`/`NOTIFICATION_ACTION`；WorkManager 只发可延迟提醒，Doze/强制停止可延迟或取消提醒。
-- [10 §6.2](../10-provider-mcp-skills-modes.md) 规定“预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功”，两种归宿都被允许，但没指定取哪个。
+- [10 §6.2](../architecture/provider-mcp-skills-modes.md) 的 `GoalState` 图（HXA-010 已实现并有全矩阵测试；Goal 状态列表见 [02 §5.2](../architecture/overview.md)）只有 `DRAFT → READY → RUNNING` 与 RUNNING 的五个出边（`INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLED`），**没有** RUNNING → RUNNING 边，也没有独立的“运行之间等待”状态。
+- [10 §6.1](../architecture/provider-mcp-skills-modes.md) 规定“首版只有用户显式继续才创建新 `goal_run`”，唤醒源只有 `USER_OPEN`/`NOTIFICATION_ACTION`；WorkManager 只发可延迟提醒，Doze/强制停止可延迟或取消提醒。
+- [10 §6.2](../architecture/provider-mcp-skills-modes.md) 规定“预算耗尽是 `PAUSED` 或 `FAILED(BUDGET_EXCEEDED)`，不是成功”，两种归宿都被允许，但没指定取哪个。
 - `GoalBudgets` 同时含“运行时长”与“单次唤醒时长”两个上限，说明一次 run 内可以有多次唤醒（wake），否则两个上限重合。
 
 HXA-013 实现必须把“run / wake / 唤醒源 / 预算归属”落成 reducer 可判定的事件语义，且该语义将直接约束 HXA-014（Room `goals`/`goal_runs` 持久化哪些计数）与 HXA-015（恢复协调器如何消费 `GoalEffect`）。
@@ -47,7 +47,7 @@ HXA-013 实现必须把“run / wake / 唤醒源 / 预算归属”落成 reducer
 
 - 收益：状态机零新增边（全部复用 HXA-010 契约），run/wake 语义可测试且与“只有用户显式继续创建新 run”逐字一致；预算可恢复，`FAILED` 语义收窄为真正的 wake 失败；提醒/恢复决策纯函数化（`ReminderPlan`），HXA-015 协调器可直接消费 `GoalEffect`。
 - 代价：PAUSED 承担三种等待情形，UI 与审计必须读取持久化的 `GoalPauseReason`，不能只读 reducer 的最后 effect；`WakeUsageReported` 是“每 wake 一次聚合上报”的 reducer 契约，而执行协调器还需按第 5 条写 durable usage checkpoint，二者不得重复记账。现有 HXA-015 已把死亡 run 以 `INTERRUPTED` outcome + audit 原子关闭，但尚未证明计量窗口有界；该差距由 HXA-102 收口，ADR 接受本身不是实现完成证据。
-- 后续约束：HXA-014 持久化时 `goals` 行存 goal 级累计计数、`goal_runs` 行存每次 run 的 `wakeReason`/outcome（与 [02 §9.1](../02-architecture-design.md) 表一致）；HXA-015 恢复协调器必须把 `StartRun` 的剩余预算与 provider/用户限制取 `stricterWith`（[02 §5.3](../02-architecture-design.md)），且 `NOTIFICATION_ACTION` 唤醒必须先过 reducer 状态门控。
+- 后续约束：HXA-014 持久化时 `goals` 行存 goal 级累计计数、`goal_runs` 行存每次 run 的 `wakeReason`/outcome（与 [02 §9.1](../architecture/overview.md) 表一致）；HXA-015 恢复协调器必须把 `StartRun` 的剩余预算与 provider/用户限制取 `stricterWith`（[02 §5.3](../architecture/overview.md)），且 `NOTIFICATION_ACTION` 唤醒必须先过 reducer 状态门控。
 - 风险：`RunFinished → PAUSED` 意味着“一个长 Goal 的每次 run 结束都会 park”，用户必须显式继续下一次 run；这是文档首版语义（只有用户显式继续创建新 run）的直接结果，若产品体验过碎需要重新讨论（见 Reconsider when）。
 
 ## Verification
@@ -62,15 +62,15 @@ HXA-013 实现必须把“run / wake / 唤醒源 / 预算归属”落成 reducer
 
 ## Reconsider when
 
-- 产品要求“run 正常结束后自动开始下一次 wake”（无需用户显式继续）——与 [10 §6.1](../10-provider-mcp-skills-modes.md) 首版语义冲突，必须先改规范。
+- 产品要求“run 正常结束后自动开始下一次 wake”（无需用户显式继续）——与 [10 §6.1](../architecture/provider-mcp-skills-modes.md) 首版语义冲突，必须先改规范。
 - 产品要求预算耗尽即终局（`FAILED(BUDGET_EXCEEDED)`），或需要独立的“等待下一次唤醒”UI 状态。
 - HXA-015 恢复协调器发现 `WakeUsageReported` 的“每 wake 一次聚合上报”契约无法从真实 Turn 执行器满足（例如流式 usage 必须多次上报），需要 wake 边界事件。
 - `GoalState` 因其他 HXA 扩展枚举时，需同步复核本 ADR 第 2 条（PAUSED 三义）是否仍成立。
 
 ## References
 
-- [02-architecture-design.md 第 5.2/5.3 节与 §9.1（Goal 状态列表、预算、Room 表）](../02-architecture-design.md)
-- [10-provider-mcp-skills-modes.md 第 6.1/6.2 节（Goal 语义与状态）](../10-provider-mcp-skills-modes.md)
+- [总体架构第 5.2/5.3 节与 §9.1（Goal 状态列表、预算、Room 表）](../architecture/overview.md)
+- [Provider/MCP/Skills/模式第 6.1/6.2 节（Goal 语义与状态）](../architecture/provider-mcp-skills-modes.md)
 - [ADR-0002](0002-turn-state-intra-response-edges.md)（Turn 状态机增量边的先例）
 - [HXA-013 完成记录](../completion-records/HXA-013.md)
 - [Temporal Platform Documentation（durable execution 与崩溃恢复）](https://docs.temporal.io/)

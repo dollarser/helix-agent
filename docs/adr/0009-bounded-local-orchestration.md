@@ -64,10 +64,10 @@ Required before acceptance（HXA-105）：
 
 ## References
 
-- [手机端 Tool 编排方案](../11-mobile-tool-orchestration.md)
-- [总体技术方案](../02-architecture-design.md)
-- [Provider/MCP/Skills/模式](../10-provider-mcp-skills-modes.md)
-- [路线 HXA-037/HXA-105](../04-roadmap-and-backlog.md)
-- [安全测试与发布门禁](../07-security-testing-release.md)
+- [手机端 Tool 编排方案](../architecture/mobile-tool-orchestration.md)
+- [总体技术方案](../architecture/overview.md)
+- [Provider/MCP/Skills/模式](../architecture/provider-mcp-skills-modes.md)
+- [路线 HXA-037/HXA-105](../development/roadmap.md)
+- [安全测试与发布门禁](../security/testing-and-release.md)
 - [ADR-0004：Goal run/wake/budget](0004-goal-run-wake-budget-semantics.md)
 - [ADR-0005：Standard/Advanced](0005-standard-advanced-safety-profiles.md)

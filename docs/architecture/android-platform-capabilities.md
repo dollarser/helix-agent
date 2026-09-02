@@ -1,8 +1,8 @@
-# Helix Android 平台能力专项方案
+# Helix Android 平台能力架构
 
 文档状态：Baseline 1.3
 基线日期：2026-08-31
-适用范围：Android 直接分发版本；当前不以 Google Play 上架为约束
+适用范围：Google Play、国内 Android 应用商店与官网直接分发；按渠道真实政策保留最大能力
 
 ## 1. 目标和边界
 
@@ -12,7 +12,8 @@
 
 - Android 系统权限只说明 App 获得了能力，不说明某次 Agent 调用已获用户授权。
 - 用户不启用某项权限时，其余功能必须正常降级运行。
-- 当前采用 APK 直接分发，可以声明 `MANAGE_EXTERNAL_STORAGE` 和 Accessibility Service；这不消除 Android 平台限制、安全责任或未来渠道审核风险。
+- Standard 以应用商店上架为产品目标，但不预先删除 `MANAGE_EXTERNAL_STORAGE`、Accessibility 或解释脚本：优先按核心用途、显著披露、用户同意和权限审核保留，只在目标渠道明确禁止或真实审核拒绝时做该渠道的最小差异。
+- Google Play 当前允许文件/文档管理核心用途申请 All-files，但要求声明和审核；Accessibility 自动化必须是狭窄、用户可理解的确定性流程，不能由 Agent 自主发起、规划并执行。该 Play 限制不应扩展为其他合法渠道的永久产品限制。
 - Root 不是 Android runtime permission。只有实际请求 `su` 才能确认 Root 管理器是否授权。
 - 禁止把浏览器、辅助功能或 Root 变成绕过 Tool Policy 的“万能执行器”。
 
@@ -268,9 +269,29 @@ P2 高权限：ui.*, root.*
 
 每类能力必须在无权限、拒绝、撤销、进程重启、目标变化和输出超限条件下返回稳定错误。构建成功或一次演示不构成验收。
 
+### 8.1 未排期的自动化兼容候选
+
+这些候选只说明 Android 上存在可研究的实现路径；没有当前 HXA、代码或发布承诺：
+
+| 候选 | Android 实现路径 | 必须保留的边界 |
+| --- | --- | --- |
+| Tasker | 实现官方 Android automation plugin 的 action/event/state；允许 Tasker 调用 Helix 动作，或 Helix 触发用户命名 Task | 首阶段不导入完整 profile；插件输入仍经 schema/Policy/Approval，Tasker 不是授权主体 |
+| Auto.js/AutoJs6 | 独立 Runtime 应用/UID 提供特定版本的 JavaScript/Android API、Accessibility、屏幕捕获和可选 Root 适配，经 signature-protected IPC 返回有界结果 | 任意来源脚本可导入和诊断，但执行兼容按版本/API/权限/模块矩阵声明；不在主进程或 QuickJS 暴露 Java bridge，不复制许可证不兼容源码 |
+| Shizuku | 用户使用 Root 或 ADB 启动 Shizuku 服务，Helix 作为 client 绑定并跟踪 Binder 生命周期 | unavailable/denied/granted/lost 分开；服务状态不授予 ToolCall，断连不盲目重放 |
+| 无线 ADB | Android 11+ 由用户启用无线调试并通过配对码/二维码建立连接；本机 client 需要单独评估 native 依赖、密钥和前台生命周期 | 不自动打开开发者选项、不静默配对；按 Android 版本/OEM 实测，用户可撤销，配对不等于全局 Full Access |
+
+“兼容任意 Tasker/Auto.js 脚本”只能作为长期方向。可验收合同必须拆为导入、解析、API、权限、执行和行为六层；某脚本可导入不代表它能在当前 Runtime、ROM 与目标 App 上正确执行。授权边界遵循 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)。
+
 ## 9. 主要官方依据
 
 - [AndroidX WebKit](https://developer.android.com/jetpack/androidx/releases/webkit)
 - [Android WebView 指南](https://developer.android.com/develop/ui/views/layout/webapps/webview)
 - [管理所有文件](https://developer.android.com/training/data-storage/manage-all-files)
 - [Accessibility Service 指南](https://developer.android.com/guide/topics/ui/accessibility/service)
+- [Android Debug Bridge 与无线调试](https://developer.android.com/tools/adb)
+- [Tasker 插件开发](https://tasker.joaoapps.com/plugins.html)
+- [Shizuku 简介](https://shizuku.rikka.app/introduction/)
+- [AutoJs6 项目说明](https://github.com/SuperMonster003/AutoJs6/blob/master/.readme/README-en.md)
+- [Google Play：All files access](https://support.google.com/googleplay/android-developer/answer/10467955)
+- [Google Play：AccessibilityService API](https://support.google.com/googleplay/android-developer/answer/10964491)
+- [Google Play：Device and Network Abuse](https://support.google.com/googleplay/android-developer/answer/16559646)

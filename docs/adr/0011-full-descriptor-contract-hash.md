@@ -39,7 +39,7 @@ HXA-042 是首个非 `time.now` 业务工具（`read`/`write`/`edit`/`files.*`�
 
 ## Verification
 
-HXA-042 验收要求（`docs/verification-matrix.md` 行 HXA-042）：
+HXA-042 验收要求（`docs/development/verification-matrix.md` 行 HXA-042）：
 
 - `./gradlew :tools:files:test :tools:framework:test :core:workspace:test`
 - 门禁：`./gradlew :tools:files:test :tools:framework:test :core:workspace:test detekt spotlessCheck`
@@ -59,7 +59,7 @@ HXA-042 验收要求（`docs/verification-matrix.md` 行 HXA-042）：
 ## References
 
 - [ADR-0005](0005-standard-advanced-safety-profiles.md)
-- [总体技术方案](../02-architecture-design.md)
-- [安全、测试与发布](../07-security-testing-release.md)
-- [手机端 Tool 编排](../11-mobile-tool-orchestration.md)
-- [HXA-042](../04-roadmap-and-backlog.md)
+- [总体技术方案](../architecture/overview.md)
+- [安全、测试与发布](../security/testing-and-release.md)
+- [手机端 Tool 编排](../architecture/mobile-tool-orchestration.md)
+- [HXA-042](../development/roadmap.md)

@@ -1,11 +1,12 @@
 # HXA 完成记录
 
-M1 起，每个完成的 HXA 使用一个独立文件：`HXA-NNN.md`。内容采用[路线文档的完成记录模板](../04-roadmap-and-backlog.md#17-每任务完成记录)，写入实际命令、exit code、设备、产物、限制和 ADR 状态。
+M1 起，每个完成的 HXA 使用一个独立文件：`HXA-NNN.md`。内容采用[路线文档的完成记录模板](../development/roadmap.md#17-每任务完成记录)，写入实际命令、exit code、设备、产物、限制和 ADR 状态。
 
 规则：
 
 - 只有需求、测试和验收命令都完成后才创建“完成”记录。
 - 失败尝试只保留有诊断价值的根因，不把最终已修复的普通编译错误堆成长日志。
 - 记录引用真实文件或报告；不能用计划、代码存在或 CI 配置代替执行结果。
-- 每次完成后同步更新 `docs/implementation-status.md`，再开始下一 HXA。
-- M0 的 HXA-001～003 已合并记录在 [M0 完成记录](../m0-completion-record.md)，不重复拆分。
+- 每次完成后同步更新 `docs/development/status.md`，再开始下一 HXA。
+- HXA 完成后才发现的非平凡缺陷，按 [Bug 修复记录约定](../bug-fixes/README.md)单独建档并链回原 HXA；不把大段后续修复史追加到旧交付快照。
+- M0 的 HXA-001～003 已合并记录在 [M0 完成记录](M0.md)，不重复拆分。

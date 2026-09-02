@@ -8,8 +8,8 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 - 所有 Gradle 命令从仓库根目录执行，并且只使用 `./gradlew`。
 - JVM 行无需设备；Android 行需要 `adb devices` 中存在已授权设备或模拟器。
-- consumer 仪器测试验证受限渠道的共享功能与裁剪边界；修改共享逻辑、consumer route/manifest 或变体边界时必须运行对应 consumer task。
-- developer 是当前直接分发用户流程的主验收对象；涉及 developer 行为、Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。consumer 裁剪测试仍是发布阻断项，Runtime APK 只在对应 companion 场景安装。
+- consumer 仪器测试验证共享功能与当前编译边界；修改共享逻辑、consumer route/manifest 或变体边界时必须运行对应 consumer task，但 consumer 不预设为最终商店包。
+- developer 当前承载最完整能力，是开发阶段主要验收对象；涉及 Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。HXA-120～123 再把真实渠道要求映射为 artifact，不能从 flavor 名推导产品能力。
 - 真机/外部服务验收必须记录设备、API、ABI、服务版本和实际结果，不能用构建成功替代。
 - Release、APK 内容和许可证总门禁始终追加第 4 节命令。
 
@@ -164,14 +164,14 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-112 | `./gradlew :runtime:cli-app:testDebugUnitTest` | `./gradlew :runtime:cli-app:connectedDebugAndroidTest`；恶意工作区/工具拦截/进程死亡对账 |
 | HXA-113 | `./gradlew :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；jobId 查询/不重放；不合格则保持独立 CLI |
 
-### M12：直接分发
+### M12：商店与官网多渠道发布
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
-| HXA-120 | `./gradlew lintConsumerRelease lintDeveloperRelease test` | 第 4 节全部 release/供应链门禁；下载清单仅一个 developer-derived Helix 主包，consumer 无 Advanced 且不进默认下载，Runtime 标为 companion |
-| HXA-121 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | API 29/34+/36 真机；同一主应用 Standard/Advanced 组合、SBOM/notice/hash/权限/数据流/已知限制 |
-| HXA-122 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 最终主应用 applicationId 决策、离线签名、同 ID 升级/回滚、companion 安装顺序和签名握手；不同 ID 不冒充原地升级 |
-| HXA-123 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | 具体商店/企业渠道政策与 consumer 发布结论；未形成渠道决定时 consumer 不进用户下载 |
+| HXA-120 | `./gradlew lintConsumerRelease lintDeveloperRelease test` | 第 4 节全部 release/供应链门禁；Google Play/国内商店/官网逐渠道 capability/manifest/SDK/listing/降级矩阵，每项差异有明确政策或审核依据 |
+| HXA-121 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | API 29/34+/36 真机；各渠道 Standard 核心任务矩阵、Standard/Advanced 组合、SBOM/notice/hash/权限/数据流；Play Accessibility 仅确定性自动化且无外部 executable 下载 |
+| HXA-122 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 稳定产品 applicationId、flavor/channel 命名、离线签名、同 ID 升级/回滚、companion 签名握手；不同 ID 不冒充原地升级 |
+| HXA-123 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | Google Play 与首批国内商店提交包/声明/视频/隐私材料；分别记录准备、提交、审核、拒绝或通过证据，不以构建成功声称上架 |
 
 ## 4. 跨任务发布门禁
 

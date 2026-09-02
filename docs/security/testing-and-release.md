@@ -12,9 +12,9 @@ Helix 的核心风险不是“模型回答不够好”，而是模型、网页�
 
 ### 1.1 两级安全边界与不可变内核
 
-Helix 使用 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)定义的 `STANDARD`/`ADVANCED`。`STANDARD` 面向普通用户并作为所有变体默认值；`ADVANCED` 只在 developer 变体中显式出现，并按能力分别启用。Advanced 只能扩大明确 scope 内的能力或专家参数，不能关闭 schema/Policy/Approval、Secret 隔离、进程/UID 隔离、敏感目标拒绝、审计、取消、超时和变更后验证。
+Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义的 `STANDARD`/`ADVANCED`。`STANDARD` 面向普通用户并作为所有变体默认值；`ADVANCED` 只在 developer 变体中显式出现，并按能力分别启用。Advanced 可增加 Trusted Workspace、动态风险不高于 L1 的有界长期规则与精确批量批准，但不能关闭 schema/Policy/Approval、Secret 隔离、进程/UID 隔离、敏感目标拒绝、审计、取消、超时和变更后验证。
 
-安全配置、Android 系统授权和 Helix scope 是三个独立门：进入 Advanced 不自动获得 All-files/Accessibility/Root，不安装 PRoot，不连接 LAN，也不把相关工具放入 Registry。consumer APK 不包含 Advanced-only 模块，不能依靠隐藏入口或远程开关模拟 developer。
+安全配置、Android 系统授权和 Helix scope 是三个独立门：进入 Advanced 不自动获得 All-files/Accessibility/Root，不安装 PRoot，不连接 LAN，也不把相关工具放入 Registry。按 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)，Standard 是完整商店产品；渠道 artifact 只能因当前明确政策或真实审核做最小能力差异，不能把笼统“更安全”当作删除已允许核心能力的发布依据。
 
 ## 2. 信任边界
 
@@ -81,12 +81,12 @@ Helix 使用 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)定义的 
 - Runtime permission 用到时再请求，拒绝后功能降级。
 - Workspace/SAF 仍是默认；All-files 是文件管理核心能力的可选增强，不替代 scope/审批。
 - developer 首次启动仍为 `STANDARD`；进入 `ADVANCED` 和启用 All-files、Accessibility、PRoot、Root、LAN origin 是互相独立的用户动作。
-- 前台服务必须用户可感知并提供停止动作。基线只对用户主动发起的 Provider/MCP 传输或本地文件处理声明 `dataSync` 和 `FOREGROUND_SERVICE_DATA_SYNC`，等待审批/人工输入时停止；Android 15+ 实现 `Service.onTimeout()` 并测试 6 小时/24 小时共享限额。详见 [总体方案 §11](02-architecture-design.md#11-android-平台适配) 和 HXA-066。
-- Runtime 的任意 Shell/CLI 计算不能为保活冒充 `dataSync`。找不到合法前台服务类型时保持前台有界并在退后台暂停/取消；如确需 wake lock，只能在用户可见 Runtime FGS 的 RUNNING 窗口限时持有，且所有 terminal/cancel/timeout 路径释放。详见 [ADR-0007](adr/0007-companion-runtime-lifecycle.md)。
+- 前台服务必须用户可感知并提供停止动作。基线只对用户主动发起的 Provider/MCP 传输或本地文件处理声明 `dataSync` 和 `FOREGROUND_SERVICE_DATA_SYNC`，等待审批/人工输入时停止；Android 15+ 实现 `Service.onTimeout()` 并测试 6 小时/24 小时共享限额。详见 [总体方案 §11](../architecture/overview.md#11-android-平台适配) 和 HXA-066。
+- Runtime 的任意 Shell/CLI 计算不能为保活冒充 `dataSync`。找不到合法前台服务类型时保持前台有界并在退后台暂停/取消；如确需 wake lock，只能在用户可见 Runtime FGS 的 RUNNING 窗口限时持有，且所有 terminal/cancel/timeout 路径释放。详见 [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)。
 
 Android 官方说明动态加载 APK 外代码会显著增加风险，许多从远程来源动态加载代码的形式可能违反 Google Play 政策：[Dynamic Code Loading](https://developer.android.com/privacy-and-security/risks/dynamic-code-loading)。因此 consumer 变体不下载 DEX/JAR/APK/SO，developer PRoot 变体发布前单独审核。
 
-当前不以 Google Play 为发布目标，所以不以 Play policy 裁剪功能。但未来若上架，All-files、Accessibility、动态代码、Root 和 Runtime APK 必须重新评估并使用单独受限 flavor；不能把“直接分发”理解为可以忽略安全或用户知情。
+Standard 明确以 Google Play、国内 Android 应用商店和官网为发布目标。发布门禁按 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)执行：优先通过核心用途声明、披露、同意和审核保留能力；只有当前政策原文或真实审核反馈才能形成渠道差异，不能为了笼统“更安全”先把 Standard 裁成低能力版本。
 
 ## 5. Prompt Injection 防线
 
@@ -202,7 +202,7 @@ Android 官方说明动态加载 APK 外代码会显著增加风险，许多从�
 
 ### 7.5 QuickJS/PRoot
 
-详见 [本地代码执行方案](03-local-code-execution.md) 第 10 节，全部是发布阻断测试。
+详见 [本地代码执行方案](../architecture/local-code-execution.md) 第 10 节，全部是发布阻断测试。
 
 - developer 从 Standard 切换到 Advanced 不自动安装或启动 PRoot；安装和每个 Job 仍需独立用户动作/审批。
 - Advanced 下 PRoot Runtime 仍无 `INTERNET`；LAN scope、All-files 或 Root 授权不能传递给 Runtime。
@@ -243,7 +243,7 @@ Android 官方说明动态加载 APK 外代码会显著增加风险，许多从�
 
 ### 7.9 URL Policy 与 DNS rebinding
 
-- 只接受明确允许的 HTTP(S) scheme，先做 URL/host 规范化，拒绝 userinfo、混淆编码和不允许的端口。
+- 只接受明确允许的 HTTP(../S) scheme，先做 URL/host 规范化，拒绝 userinfo、混淆编码和不允许的端口。
 - 一次解析并检查全部 A/AAAA 候选地址，包括 IPv4-mapped IPv6；任一候选违反当前 `NetworkOriginScope` 时 fail closed。
 - HTTP transport 的 DNS 结果只能返回本次已验证地址集合；不得在校验后由另一条系统解析路径重新解析。连接建立后复验 peer address，同时 TLS Host/SNI/证书仍绑定原 hostname。
 - 每个 redirect 逐跳重新执行 scheme、origin、DNS/IP、Authorization 和 scope Policy；Authorization/Cookie 不跨 origin，redirect 不继承 LAN 例外到新 host。
@@ -342,50 +342,33 @@ PRoot 安装体积和活跃任务功耗必须实测后设预算，不能引用�
 
 ## 12. 发布门禁
 
-当前直接分发的用户主应用只有 developer 构建，用户侧统一称为 Helix；Standard 是首次启动默认，Advanced 在同一安装内显式进入。PRoot/CLI 是可选 companion Runtime。consumer 的构建和扫描继续作为受限渠道与编译期裁剪证据，但除非 HXA-123 为具体渠道形成结论，不进入当前普通用户下载清单。见 [ADR-0006](adr/0006-single-direct-main-package.md)。
+Standard 是 Google Play、国内 Android 应用商店和官网的完整产品形态，Advanced 在渠道允许时于同一产品身份内显式进入；PRoot/CLI 是可选 companion Runtime。consumer/developer 的构建和扫描继续作为当前编译边界证据，但不再预设哪个等于商店阉割版或官网完整版。最终 artifact、applicationId 与渠道能力矩阵由 HXA-120～123 验收。见 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)。
 
-### Consumer Alpha
+### 12.1 所有渠道的 Standard 共同门禁
 
-- 本节是受限渠道候选门禁，不是当前直接分发入口。
-- M0-M6 完成；此阶段 MCP/Skills route/Tool 关闭，不在 Alpha 功能清单中。完成 M7 后才在 Consumer Beta/Release 开启。
-- consumer 只存在 Standard，APK/UI/配置导入/远程开关均不能出现 Advanced-only 入口或模块。
-- 全量 unit/lint/consumer instrumentation 通过。
-- 20 条核心场景至少 80% 成功。
-- 未审批 L2/L3 为 0。
-- QuickJS 攻击测试通过。
-- 权限和隐私人工检查通过。
+- 对应发布范围的 HXA 已完成，40 条核心场景和确定性工具指标达到产品需求；未完成能力不进入 listing。
+- API 29、34/35、36 的适用真机矩阵、24 小时稳定性、恢复与副作用测试通过。
+- Standard 完成 Provider、Workspace/文件、Browser、解释执行、MCP/Skills 和 Android 基础工具中该版本声明的核心任务，不得退化为聊天壳。
+- unit/lint/instrumentation、SBOM、notice、签名、升级/回滚、权限、隐私、数据安全和诊断删除门禁通过。
+- 每个渠道差异都有政策原文版本或真实审核反馈；consumer/developer flavor 名不能充当删减理由。
 
-### Consumer Beta/Release
+### 12.2 Google Play 门禁
 
-- 只有 HXA-123 为具体商店/企业/合规渠道形成结论后才发布；不能作为当前直接分发的第二个用户主包。
-- M7 和 M10 完成，40 条场景达到 PRD 指标，确定性工具至少 95%。
-- API 29、34/35、36 矩阵通过。
-- Standard 高敏出网逐次确认、凭据始终拒绝、Provider/MCP origin/residence 可见；不存在永久允许。
-- 24 小时稳定性测试无未处理崩溃和资源泄漏。
-- SBOM、notice、权限说明、AI 内容和动态代码风险复核完成。
+- All-files 仅在文件/文档管理核心用途、SAF 不足证据、Permissions Declaration 和审核材料齐备时声明；否则使用 SAF/MediaStore 降级但保留文件工作台。
+- Accessibility 只暴露当前政策允许的确定性、用户定义自动化；不把 Agent 自主发起、规划和执行 UI 操作打入或宣传为 Play 能力。
+- 解释型脚本不得从 Play 外下载 DEX/JAR/`.so` 等 executable code，也不得借解释器绕过 Play 政策。
+- target API、Data safety、显著披露、演示视频和商店 listing 与真实 artifact 一致。构建成功或“准备提交”不能写成已上架。
 
-### Developer Alpha
+### 12.3 国内 Android 应用商店门禁
 
-- 这是当前唯一用户主应用的 Alpha 门禁；下载页和 UI 不展示“developer”工程名。
-- Consumer Release 中适用于共享代码和 Standard 的门禁通过；这不表示 consumer 已作为渠道产物发布。
-- M8 完成。
-- PRoot/RootFS hash、source、license、smoke、rollback、uninstall 通过。
-- developer 首次启动为 Standard；进入 Advanced 不自动授予权限、安装/启动 Runtime、请求 Root 或连接 LAN。
-- Runtime 独立 UID 无法读取主 App dataDir；输入输出只通过 manifest+PFD 快照交换。
-- 只直接分发或内测；应用商店上架需新的明确决策。
+- 对每个目标商店分别记录提交日期、官方规则版本、权限/SDK/备案/隐私要求、artifact hash 和审核状态；不套用 Google Play 或其他商店结论。
+- 能通过声明、披露、同意或审核保留的能力优先保留；拒审产生的差异只作用于该渠道，并记录替代路径。
 
-### Power-user Beta
+### 12.4 官网与 Advanced 门禁
 
-- 这是同一个直接分发主应用进入 Advanced 后的能力门禁，不是另一个 APK 或迁移流程。
-- Browser/MCP/Skills/All-files 完整门禁通过。
-- Accessibility/Root 专用测试设备攻击集通过，普通功能在权限拒绝时可降级。
-- developer APK 权限和 UI 说明一致，`root.exec` 默认不可被 Agent 调用。
-- Advanced 保存的高敏出网规则精确绑定 ID/origin/数据类别/scope/有效期并可撤销；不可变安全内核与 Standard 使用同一测试集。
-
-### CLI Runtime Experimental
-
-- 独立 UID、凭据隔离、logout/uninstall 和官方登录路径通过。
-- 若无法证明 CLI 工具受 Helix 审批控制，只能发布为隔离 CLI 会话，不标记为 Act/Goal Provider。
+- 官网 Standard 继续通过共同门禁；Advanced/Root/PRoot/CLI/Agent UI 自动化按对应专项测试发布，不因官网分发跳过签名、权限、许可证或真实结果要求。
+- PRoot/CLI Runtime 保持独立 UID；hash/source/license/smoke/rollback/uninstall 与 signature IPC 通过。
+- 若无法证明 CLI 内置工具受 Helix Policy/Approval 控制，只能标记为隔离 CLI 会话，不进入 Act/Goal Provider。
 
 ## 13. 发布证据模板
 

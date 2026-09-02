@@ -1,4 +1,4 @@
-# Helix Provider、MCP、Skills 与 Agent 模式专项方案
+# Helix Provider、MCP、Skills 与 Agent 模式架构
 
 文档状态：Baseline 1.3
 基线日期：2026-08-31
@@ -31,7 +31,7 @@ interface ModelProvider {
     val descriptor: ProviderDescriptor
     suspend fun listModels(): ModelCatalogResult
     suspend fun validateConfiguration(): ProviderCheckResult
-    fun stream(request: ModelRequest): Flow<ModelEvent>
+    fun stream(../request: ModelRequest): Flow<ModelEvent>
 }
 
 enum class ProviderProtocol {
@@ -115,7 +115,7 @@ Provider 请求在发送前形成用户可见、可审计的 `EgressSummary`，�
 | 高敏内容 | 联系人、通知正文、精确位置、文件正文、浏览器页面、Accessibility 内容 | 每次发送前确认，不提供永久允许 | 默认逐次确认；可保存绑定 Provider ID + origin + 类别 + scope 的可撤销规则，期限仅 1h/24h/7d/30d，默认 24h、最大 30d |
 | 禁止发送 | API key、OAuth token、Cookie、密码、验证码、认证字段、CLI credential | 拒绝 | 拒绝，不能通过专家设置放行 |
 
-自建/LAN/loopback Provider 仍按相同数据分类执行；用户对某个 LAN host 的网络授权不等于同意发送全部通知、文件或屏幕内容。Provider endpoint、residence、数据类别、scope 或规则有效期任一变化都要重新门控。规则不滑动续期；当前时间早于 `createdAt` 或不早于 `expiresAt` 时按已过期处理。Safety Profile 契约见 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)。
+自建/LAN/loopback Provider 仍按相同数据分类执行；用户对某个 LAN host 的网络授权不等于同意发送全部通知、文件或屏幕内容。Provider endpoint、residence、数据类别、scope 或规则有效期任一变化都要重新门控。规则不滑动续期；当前时间早于 `createdAt` 或不早于 `expiresAt` 时按已过期处理。Safety Profile 契约见 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)。
 
 ## 3. 订阅账号后端的诚实边界
 
@@ -131,7 +131,7 @@ ChatGPT Plus/Pro 与 Claude Pro/Max 不是普通 API Key 套餐。Helix 不提�
 ```text
 Helix main app
   └─ signature Binder/PFD
-       └─ cli-runtime APK (INTERNET, private app data, official CLIs)
+       └─ cli-runtime APK (../INTERNET, private app data, official CLIs)
             ├─ codex app-server
             └─ claude non-interactive/SDK process
 ```
@@ -293,7 +293,7 @@ data class Goal(
 
 首版只有用户显式继续才创建新 `goal_run`。WorkManager 可在 `nextCheckpoint` 附近发提醒通知，但不得在后台调用模型/工具，且调度可被 Doze、强制停止和系统限制延迟。`wakeReason` 记录 `USER_OPEN`、`NOTIFICATION_ACTION` 等真实来源。
 
-Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](11-mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。
+Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。
 
 ### 6.2 状态
 
@@ -306,17 +306,17 @@ DRAFT → READY → RUNNING
                  └─ CANCELLED
 ```
 
-恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见已接受的 [ADR-0004](adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。PAUSED 不扩枚举，但当前原因必须从稳定的 run outcome + audit 得到：`RUN_FINISHED`、`BUDGET_EXHAUSTED(limit)` 或 `PROCESS_INTERRUPTED`，不得只依赖进程内 effect。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽按 ADR-0004 进入可由用户扩预算后继续的 `PAUSED`，不是成功；若未来改为终态 `FAILED(BUDGET_EXCEEDED)`，必须以 superseding ADR 修改。
+恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见已接受的 [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。PAUSED 不扩枚举，但当前原因必须从稳定的 run outcome + audit 得到：`RUN_FINISHED`、`BUDGET_EXHAUSTED(../limit)` 或 `PROCESS_INTERRUPTED`，不得只依赖进程内 effect。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽按 ADR-0004 进入可由用户扩预算后继续的 `PAUSED`，不是成功；若未来改为终态 `FAILED(../BUDGET_EXCEEDED)`，必须以 superseding ADR 修改。
 
 ## 7. 数据模型扩展
 
-Room 表和规范性关键字段只在 [总体方案 §9.1](02-architecture-design.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason 和稳定 outcome（含 ADR-0004 的 pause reason），MCP/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/Skill 大型正文、资源和 schema 存文件并保存 hash。
+Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason 和稳定 outcome（含 ADR-0004 的 pause reason），MCP/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/Skill 大型正文、资源和 schema 存文件并保存 hash。
 
 ## 8. 未来远程执行扩展点
 
 当前领域枚举已定义 `LOCAL_ANDROID`、`LOCAL_QUICKJS`、`LOCAL_PROOT`、`LOCAL_CLI_RUNTIME` 四类本机目标，但生产工具执行路径目前只有 `LOCAL_ANDROID`（`time.now`）；其余三类仍分别等待 M5、M8、M11 的执行器和设备验收。目标定义不等于 Runtime 已实现。
 
-跨执行域目标端口只在[总体方案 §4](02-architecture-design.md#4-核心接口)维护；该处同时区分目标伪代码与当前 `tools:framework` 进程内 `ToolExecutor` 的同名不同形。Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。未来远程 Worker 必须通过新 transport 且仍进入同一 Dispatcher；当前不写 socket、配对、云端账号或空网络模块。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
+跨执行域目标端口只在[总体方案 §4](overview.md#4-核心接口)维护；该处同时区分目标伪代码与当前 `tools:framework` 进程内 `ToolExecutor` 的同名不同形。Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。未来远程 Worker 必须通过新 transport 且仍进入同一 Dispatcher；当前不写 socket、配对、云端账号或空网络模块。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
 
 ## 9. 完成标准
 

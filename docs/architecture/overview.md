@@ -1,4 +1,4 @@
-# Helix Android 单机版总体技术方案
+# Helix 总体架构（Android 单机版）
 
 文档状态：Baseline 1.3
 基线日期：2026-08-31
@@ -14,11 +14,11 @@
 7. 系统权限、MCP annotation、Skill 指令和 Root grant 都不能代替 Tool Policy。
 8. 当前单机实现不混入远程 Worker/HarmonyOS 传输代码，只保持执行目标接口可扩展。
 
-运行时安全配置遵循 [ADR-0005](adr/0005-standard-advanced-safety-profiles.md)：`STANDARD` 是所有安装默认，`ADVANCED` 只在 developer 变体显式可用。Gradle `consumer/developer` 决定代码是否进入 APK，Safety Profile 决定已编译能力在本次运行中是否可见；二者正交，均不能替代 Android 系统权限、Capability 实时状态、Tool Policy 或逐次审批。
+运行时安全配置遵循 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)：`STANDARD` 是所有安装默认，`ADVANCED` 只在 developer 变体显式可用。Gradle `consumer/developer` 决定代码是否进入 APK，Safety Profile 决定已编译能力在本次运行中是否可见；二者正交，均不能替代 Android 系统权限、Capability 实时状态或 Tool Policy。Trusted Workspace/有界规则只可自动执行动态风险不高于 L1 的匹配调用；通用 L2/L3 仍需精确用户批准。
 
-发布角色遵循 [ADR-0006](adr/0006-single-direct-main-package.md)：当前直接分发只提供 developer 变体生成的一个用户主应用，产品层不暴露 flavor 名；consumer 是未来受限渠道构建。PRoot/CLI Runtime 是独立 UID 的可选 companion，不是另一个主应用，也不能持有或迁移主应用数据库。
+发布角色遵循 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)：Standard 是 Google Play、国内 Android 应用商店和官网的完整产品形态；consumer/developer 只是当前工程打包机制。渠道只按明确政策或真实审核做最小 manifest/Capability 差异，不分叉 Agent Core、数据模型和 Workspace。PRoot/CLI Runtime 是独立 UID 的可选 companion，不是另一个主应用，也不能持有或迁移主应用数据库。
 
-Companion 生命周期遵循 [ADR-0007](adr/0007-companion-runtime-lifecycle.md)：用户只需安装匹配的 PRoot/CLI Runtime，不必预先打开或保持其进程；Helix 只在用户触发并通过 Policy/Approval 的 Job 上按需冷绑定，断连后查询/对账，未知结果停泊而不自动重放。
+Companion 生命周期遵循 [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)：用户只需安装匹配的 PRoot/CLI Runtime，不必预先打开或保持其进程；Helix 只在用户触发并通过 Policy/Approval 的 Job 上按需冷绑定，断连后查询/对账，未知结果停泊而不自动重放。
 
 ### 1.1 “本机执行”与隔离强度
 
@@ -149,75 +149,75 @@ interface ModelProvider {
     val descriptor: ProviderDescriptor
     suspend fun listModels(): ModelCatalogResult
     suspend fun validateConfiguration(): ProviderCheckResult
-    fun stream(request: ModelRequest): Flow<ModelEvent>
+    fun stream(../request: ModelRequest): Flow<ModelEvent>
 }
 
 interface AgentRuntime {
-    suspend fun submit(command: SubmitTurnCommand): TurnId
-    suspend fun resume(turnId: TurnId): ResumeResult
-    suspend fun cancel(turnId: TurnId): CancelResult
-    fun observe(turnId: TurnId): Flow<TurnSnapshot>
+    suspend fun submit(../command: SubmitTurnCommand): TurnId
+    suspend fun resume(../turnId: TurnId): ResumeResult
+    suspend fun cancel(../turnId: TurnId): CancelResult
+    fun observe(../turnId: TurnId): Flow<TurnSnapshot>
 }
 
 interface ContextBuilder {
-    suspend fun build(request: ContextBuildRequest): ContextBuildResult
+    suspend fun build(../request: ContextBuildRequest): ContextBuildResult
 }
 
 interface Tool {
     val descriptor: ToolDescriptor
-    suspend fun execute(context: ToolExecutionContext, input: JsonObject): ToolResult
+    suspend fun execute(../context: ToolExecutionContext, input: JsonObject): ToolResult
 }
 
 interface ToolRegistry {
     fun descriptors(): List<ToolDescriptor>
-    fun resolve(name: ToolName, version: ToolVersion): Tool?
+    fun resolve(../name: ToolName, version: ToolVersion): Tool?
 }
 
 interface PolicyEngine {
-    suspend fun evaluate(request: ToolExecutionRequest): PolicyDecision
+    suspend fun evaluate(../request: ToolExecutionRequest): PolicyDecision
 }
 
 interface ApprovalRepository {
-    suspend fun create(request: ApprovalRequest): ApprovalId
-    suspend fun decide(id: ApprovalId, decision: UserDecision): ApprovalRecord
-    suspend fun consume(proof: ApprovalProof): ConsumeResult
+    suspend fun create(../request: ApprovalRequest): ApprovalId
+    suspend fun decide(../id: ApprovalId, decision: UserDecision): ApprovalRecord
+    suspend fun consume(../proof: ApprovalProof): ConsumeResult
 }
 
 interface WorkspaceFileSystem {
-    suspend fun read(path: WorkspacePath, limit: ByteCount): ReadResult
-    suspend fun writeAtomic(request: AtomicWriteRequest): WriteResult
-    suspend fun moveToTrash(path: WorkspacePath, operationId: OperationId): TrashResult
+    suspend fun read(../path: WorkspacePath, limit: ByteCount): ReadResult
+    suspend fun writeAtomic(../request: AtomicWriteRequest): WriteResult
+    suspend fun moveToTrash(../path: WorkspacePath, operationId: OperationId): TrashResult
 }
 
 interface CodeExecutor {
-    suspend fun execute(request: CodeExecutionRequest): CodeExecutionResult
-    suspend fun cancel(executionId: ExecutionId): CancelResult
+    suspend fun execute(../request: CodeExecutionRequest): CodeExecutionResult
+    suspend fun cancel(../executionId: ExecutionId): CancelResult
 }
 
 interface BrowserController {
-    suspend fun snapshot(scope: BrowserTabScope): BrowserSnapshot
-    suspend fun perform(request: BrowserActionRequest): BrowserActionResult
+    suspend fun snapshot(../scope: BrowserTabScope): BrowserSnapshot
+    suspend fun perform(../request: BrowserActionRequest): BrowserActionResult
 }
 
 interface CapabilityResolver {
-    suspend fun resolve(required: Set<Capability>): CapabilitySnapshot
+    suspend fun resolve(../required: Set<Capability>): CapabilitySnapshot
 }
 
 interface McpClientFacade {
-    suspend fun connect(serverId: McpServerId): McpCapabilitySnapshot
-    suspend fun call(request: McpToolRequest): McpToolResult
-    suspend fun close(serverId: McpServerId)
+    suspend fun connect(../serverId: McpServerId): McpCapabilitySnapshot
+    suspend fun call(../request: McpToolRequest): McpToolResult
+    suspend fun close(../serverId: McpServerId)
 }
 
 interface SkillRepository {
-    suspend fun catalog(scope: SkillScope): List<SkillMetadata>
-    suspend fun load(id: SkillId, expectedHash: Sha256): SkillContent
+    suspend fun catalog(../scope: SkillScope): List<SkillMetadata>
+    suspend fun load(../id: SkillId, expectedHash: Sha256): SkillContent
 }
 
 interface ToolExecutor {
     val target: ExecutionTargetDescriptor
-    suspend fun execute(request: ToolExecutionEnvelope): ToolResultEnvelope
-    suspend fun cancel(executionId: ExecutionId): CancelResult
+    suspend fun execute(../request: ToolExecutionEnvelope): ToolResultEnvelope
+    suspend fun cancel(../executionId: ExecutionId): CancelResult
 }
 ```
 
@@ -276,7 +276,7 @@ RECORDING_TOOL_RESULT ─► WAITING_APPROVAL | RUNNING_TOOL      （同一响�
 INTERRUPTED ─► BUILDING_CONTEXT（恢复，先完成副作用审查）| CANCELLED（丢弃）
 ```
 
-以上状态图是 `core:model` `TurnState` 的规范性转移集合，完整矩阵由 `StateMachinesTest` 守卫。三条 HXA-011 增量边和 HXA-010 既有恢复/丢弃边的图面澄清由 [ADR-0002](adr/0002-turn-state-intra-response-edges.md)记录（accepted）；上下文每模型响应构建一次，不在每个工具调用之间重建。
+以上状态图是 `core:model` `TurnState` 的规范性转移集合，完整矩阵由 `StateMachinesTest` 守卫。三条 HXA-011 增量边和 HXA-010 既有恢复/丢弃边的图面澄清由 [ADR-0002](../adr/0002-turn-state-intra-response-edges.md)记录（accepted）；上下文每模型响应构建一次，不在每个工具调用之间重建。
 
 终态：`COMPLETED`、`FAILED`、`CANCELLED`。`INTERRUPTED` 可由用户恢复，但恢复前必须检查是否存在可能已产生外部效果的 ToolCall。
 
@@ -285,29 +285,29 @@ Goal 另有 `DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLE
 ### 5.3 Agent Loop 伪代码
 
 ```kotlin
-repeat(MAX_STEPS) {
+repeat(../MAX_STEPS) {
     ensureActive()
-    val context = contextBuilder.build(sessionId, turnId)
-    val response = provider.stream(context).persistAsItArrives()
+    val context = contextBuilder.build(../sessionId, turnId)
+    val response = provider.stream(../context).persistAsItArrives()
 
-    when (response.terminal) {
-        is FinalText -> return complete(response.terminal)
+    when (../response.terminal) {
+        is FinalText -> return complete(../response.terminal)
         is ToolCalls -> {
-            for (call in response.terminal.calls) {
-                val validated = toolValidator.validate(call)
-                val policy = policyEngine.evaluate(validated)
-                val result = when (policy) {
-                    Allow -> dispatcher.execute(validated)
-                    AskUser -> awaitAndConsumeApproval(validated, policy)
-                    Deny -> ToolResult.denied(policy.reason)
+            for (../call in response.terminal.calls) {
+                val validated = toolValidator.validate(../call)
+                val policy = policyEngine.evaluate(../validated)
+                val result = when (../policy) {
+                    Allow -> dispatcher.execute(../validated)
+                    AskUser -> awaitAndConsumeApproval(../validated, policy)
+                    Deny -> ToolResult.denied(../policy.reason)
                 }
-                persistToolResult(call, result)
+                persistToolResult(../call, result)
             }
         }
-        is ProtocolError -> return fail(response.terminal)
+        is ProtocolError -> return fail(../response.terminal)
     }
 }
-return fail(StepLimitExceeded)
+return fail(../StepLimitExceeded)
 ```
 
 规则：
@@ -322,7 +322,7 @@ return fail(StepLimitExceeded)
 
 `ContextBuilder` 属于 `core:agent`，输入是持久化的会话/Turn 快照和 Provider capability，输出是可审计的 `ContextBuildResult`。每个 item 至少包含 `sourceType`、`sourceId`、`trust`、`contentRef/contentHash` 和估算 token。
 
-裁剪顺序必须确定性且有测试：保留 system/mode/policy 契约、当前用户指令、未完成的 ToolCall 完整参数、审批上下文和对应 ToolResult；再按时间和相关性裁剪旧消息。不可将工具 JSON 或审批摘要截成语义不完整的文本。超限 ToolResult/文件转换为有界 summary + Artifact 引用/hash，后续通过 `read(offset, maxBytes)` 分块获取。Secret 永不进入 Context；Web/File/MCP/Skill/Notification/Accessibility 内容标记 `UNTRUSTED`。
+裁剪顺序必须确定性且有测试：保留 system/mode/policy 契约、当前用户指令、未完成的 ToolCall 完整参数、审批上下文和对应 ToolResult；再按时间和相关性裁剪旧消息。不可将工具 JSON 或审批摘要截成语义不完整的文本。超限 ToolResult/文件转换为有界 summary + Artifact 引用/hash，后续通过 `read(../offset, maxBytes)` 分块获取。Secret 永不进入 Context；Web/File/MCP/Skill/Notification/Accessibility 内容标记 `UNTRUSTED`。
 
 ## 6. 模型协议与 Provider
 
@@ -330,15 +330,15 @@ return fail(StepLimitExceeded)
 
 ```kotlin
 sealed interface ModelEvent {
-    data class TextDelta(val text: String) : ModelEvent
-    data class ReasoningDelta(val text: String) : ModelEvent
-    data class ToolCallStarted(val index: Int, val id: String, val name: String) : ModelEvent
-    data class ToolArgumentsDelta(val index: Int, val jsonFragment: String) : ModelEvent
-    data class ToolCallFinished(val index: Int) : ModelEvent
-    data class Usage(val inputTokens: Long?, val outputTokens: Long?) : ModelEvent
-    data class Refusal(val safeReason: String?) : ModelEvent
-    data class Error(val code: ModelErrorCode, val retryable: Boolean) : ModelEvent
-    data class Completed(val finishReason: String?) : ModelEvent
+    data class TextDelta(../val text: String) : ModelEvent
+    data class ReasoningDelta(../val text: String) : ModelEvent
+    data class ToolCallStarted(../val index: Int, val id: String, val name: String) : ModelEvent
+    data class ToolArgumentsDelta(../val index: Int, val jsonFragment: String) : ModelEvent
+    data class ToolCallFinished(../val index: Int) : ModelEvent
+    data class Usage(../val inputTokens: Long?, val outputTokens: Long?) : ModelEvent
+    data class Refusal(../val safeReason: String?) : ModelEvent
+    data class Error(../val code: ModelErrorCode, val retryable: Boolean) : ModelEvent
+    data class Completed(../val finishReason: String?) : ModelEvent
 }
 ```
 
@@ -352,9 +352,9 @@ sealed interface ModelEvent {
 - Provider 配置快照写入 Turn，但 secret 只保存 Keystore alias。
 - `OPENAI_RESPONSES`、`OPENAI_CHAT_COMPLETIONS`、`ANTHROPIC_MESSAGES` 是独立 adapter，不做失败后猜测式换协议。
 - Ollama/SGLang 等自建服务先做文本和 ToolCall 能力探测；兼容性结论记录到 snapshot。
-- ChatGPT/Claude 消费者订阅只允许通过官方 CLI 自己登录；token 不进入主 App。详见 [专项方案](10-provider-mcp-skills-modes.md)。
+- ChatGPT/Claude 消费者订阅只允许通过官方 CLI 自己登录；token 不进入主 App。详见 [专项方案](provider-mcp-skills-modes.md)。
 - Provider 数据去向根据规范化后的实际 endpoint 分类为 `ON_DEVICE_LOOPBACK`、`USER_AUTHORIZED_LAN`、`PUBLIC_CLOUD` 或 `CUSTOM_REMOTE_UNKNOWN`；模板名、自建标签和手工声明不能替代 endpoint 校验，也不代表端点可信。
-- Provider 请求在发送前携带可审计的数据类别清单。API key、OAuth token、Cookie、密码、验证码和认证字段始终拒绝进入请求；联系人、通知、位置、文件正文、浏览器或 Accessibility 内容按 ADR-0005 的 Safety Profile 门控。
+- Provider 请求在发送前携带可审计的数据类别清单。API key、OAuth token、Cookie、密码、验证码和认证字段始终拒绝进入请求；联系人、通知、位置、文件正文、浏览器或 Accessibility 内容按 ADR-0012 的 Safety Profile 门控。
 - `STANDARD` 的高敏数据每次发送都展示 Provider、规范 origin、数据类别和 scope；`ADVANCED` 只允许保存绑定 Provider ID + origin + 数据类别 + scope + 有效期的规则，新 origin/类别或规则过期时重新确认。
 
 ## 7. Tool 模型
@@ -401,13 +401,13 @@ data class ToolDescriptor(
 
 ### 7.2 手机端确定性调度
 
-详细且规范性契约只在[手机端 Tool 编排方案 §3](11-mobile-tool-orchestration.md#3-首版确定性-tool-scheduler)维护。本文只保留跨层不变式：并发性由平台生成的 effect footprint 决定，仅已证明不冲突的读取可并行；结果按原始 call sequence 回填；未启动取消持久为 `CANCELLED_BEFORE_START`，已启动项必须对账 terminal/unknown outcome；只有相同 envelope、确认零副作用且不降低隔离的技术失败可有界重试。
+详细且规范性契约只在[手机端 Tool 编排方案 §3](mobile-tool-orchestration.md#3-首版确定性-tool-scheduler)维护。本文只保留跨层不变式：并发性由平台生成的 effect footprint 决定，仅已证明不冲突的读取可并行；结果按原始 call sequence 回填；未启动取消持久为 `CANCELLED_BEFORE_START`，已启动项必须对账 terminal/unknown outcome；只有相同 envelope、确认零副作用且不降低隔离的技术失败可有界重试。
 
 必须维护 `model-visible ⇔ persisted` 不变量：所有进入下一次模型请求的 ToolResult、用户回答、委托结果和 compaction summary 都能从持久事件及 content hash/ref 重建。瞬时 telemetry 可以更详细，但不能成为恢复的唯一真相。
 
 ### 7.3 后期委托与 Workflow 边界
 
-当前产品仍是单 Agent Tool Loop。proposed [ADR-0009](adr/0009-bounded-local-orchestration.md)只允许 HXA-105 评估两项后期能力：
+当前产品仍是单 Agent Tool Loop。proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)只允许 HXA-105 评估两项后期能力：
 
 1. developer/Advanced 的深度 1 只读 child delegation；child 不持有 Approval Proof、Secret、Root/Automation session 或写工具，需要变更时只向父 Turn 返回 proposal。
 2. 有版本 JSON DAG 的声明式 Workflow 子集；所有节点编译回同一 Dispatcher，不执行模型生成的 JS/Starlark Policy/Workflow，也不允许自修改插件。
@@ -431,9 +431,9 @@ Goal 已提供持久目标、预算和恢复，不再另建 ralph/无限自治�
 审批绑定必须使用两步哈希，字段集与 `core:policy` 的 `ApprovalBinding` 一致：
 
 ```text
-argsHash = SHA-256(UTF-8(CanonicalArgs(arguments)))
+argsHash = SHA-256(../UTF-8(CanonicalArgs(arguments)))
 
-bindingHash = SHA-256(UTF-8(canonical JSON object {
+bindingHash = SHA-256(../UTF-8(canonical JSON object {
   argsHash, executionTarget, scopeRef, schemaHash, sessionId,
   toolCallId, toolName, toolVersion, uiToken
 }))
@@ -449,11 +449,11 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 
 ### 8.1 审批 UI 与授权模式
 
-- 当前通用 Tool 审批只有 `ASK_EACH_TIME`：L2/L3 每个 ToolCall 都展示规范化后的完整授权摘要，用户只能对该次摘要批准或拒绝；批准后修改参数、scope、origin、代码、target 或 transient token 必须重新询问。
+- 通用 L2/L3 使用 `ASK_EACH_TIME`：每个 ToolCall 都展示规范化后的完整授权摘要；一次用户操作可以批准界面中已披露的有限调用列表，但每个调用仍生成独立、一次性的精确 proof。批准后修改参数、scope、origin、代码、target 或 transient token 必须重新询问。
 - 模型、MCP、Skill、网页、通知或 Runtime 都不能代替用户按下批准，也不能请求系统生成“帮我批准”的决定。拒绝后同一 Turn 不得用相同动作骚扰式重试。
-- 产品不提供全局 `FULL_ACCESS`、`AUTO_APPROVE_MODEL` 或“Advanced = 全部批准”。Profile 切换、Android 权限、Root grant、Runtime 安装和审批是彼此独立的状态。
-- ADR-0005 的 Advanced 高敏出网规则是精确绑定 Provider/origin/数据类别/scope/期限的可撤销 Policy 规则，不是通用 Tool Approval Proof，不能授权文件修改、shell、Root、Accessibility 或新 origin。
-- 将来若要增加低风险会话规则，只能约束明确工具、operation class、scope、参数上限、次数/时间上限和撤销入口；任何会减少现有 L2/L3 逐次确认的设计都属于安全边界变更，必须先有 proposed ADR、攻击测试和所有者接受。
+- 产品不提供全局 `FULL_ACCESS`、`AUTO_APPROVE_MODEL` 或“Advanced = 全部批准”。`Full Workspace Access` 仅是用户选择的较宽文件 scope。Profile 切换、Android 权限、Root/Shizuku/ADB 状态、Runtime 安装和 Tool Approval 是彼此独立的状态。
+- ADR-0012 的 Advanced 高敏出网规则是精确绑定 Provider/origin/数据类别/scope/期限的可撤销 Policy 规则，不是通用 Tool Approval Proof；Trusted Workspace/有界工具规则必须固定 tool/version/contract/scope/target 等绑定，且动态风险不高于 L1。
+- 低风险长期规则必须具备期限、参数上限、撤销入口和 fail-closed 恢复测试。任何会减少通用 L2/L3 精确批准的设计仍属于安全边界变更，必须先有新 ADR、攻击测试和所有者接受。
 
 ## 9. 数据模型
 

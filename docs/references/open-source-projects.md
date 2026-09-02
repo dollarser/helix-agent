@@ -1,4 +1,4 @@
-# Helix 开源依赖与参考仓库清单
+# Helix 开源依赖与参考项目
 
 核实日期：2026-08-31。第三方仓库的活跃度、版本和许可证可能变化；纳入构建前必须重新核实 tag、commit、LICENSE、NOTICE、依赖树和发布渠道政策。
 
@@ -194,7 +194,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 
 ### 5.11 主流 Coding Agent / Agent Harness 设计参考
 
-移动端市场定位、产品能力对照和后续跟踪指标统一在[移动端 Agent 竞品分析](12-competitive-landscape.md)维护；本节只负责设计参考、依赖候选与许可证/禁止复制边界。
+移动端市场定位、产品能力对照和后续跟踪指标统一在[移动端 Agent 竞品分析](../product/competitive-landscape.md)维护；本节只负责设计参考、依赖候选与许可证/禁止复制边界。
 
 下列项目可用于回答“成熟 Agent 如何组织 provider、session、tool loop、上下文、审批、扩展、验证与 UI”等设计问题，但**不是 Helix 的依赖候选清单**。每次调研只选择与当前 HXA 最相关的 1～2 个项目，引用官方仓库中的具体协议、状态机、测试或安全说明；不得凭产品印象声称某个边界已经安全，也不得把桌面 unrestricted shell、全仓库文件权限、自动 Git commit 或插件权限原样搬到 Android。
 
@@ -229,7 +229,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 ### 5.12 面向 LLM 的设计方法参考
 
 - [warlockee/llm-oriented-design-patterns](https://github.com/warlockee/llm-oriented-design-patterns)：以一个 Python LLM 训练框架的重构案例提出 Context Management、Feedback Loop、Tooling 三组原则，以及小文件、calling spec、纯函数工具、平面分发、严格 Schema 和结构化反馈等模式。它适合作为“减少编码模型无关上下文、明确概率/确定性边界”的检查清单，不是 Android/Kotlin 标准，也没有提供跨项目独立验证。
-- Helix 采纳其中的小职责、显式契约、严格校验、薄编排和可操作反馈；不采纳固定 800 LOC 硬门、动态 import/弱类型字典分发、无界自动调参重试、反 OOP/SOLID 结论或“所有 Tool 必须纯且无副作用”。完整映射见[总体方案 §17](02-architecture-design.md#17-面向-llm-的工程设计)。
+- Helix 采纳其中的小职责、显式契约、严格校验、薄编排和可操作反馈；不采纳固定 800 LOC 硬门、动态 import/弱类型字典分发、无界自动调参重试、反 OOP/SOLID 结论或“所有 Tool 必须纯且无副作用”。完整映射见[总体方案 §17](../architecture/overview.md#17-面向-llm-的工程设计)。
 - 截至 2026-09-01，该仓库首页虽链接 `LICENSE`，仓库文件列表和链接目标未提供可读取的许可证文件；因此只引用思想与链接，不复制其正文、示例或代码。若未来要采用具体文本或实现，必须先核实许可证。
 
 ## 6. 不建议作为底座的仓库

@@ -71,9 +71,9 @@ PRoot/CLI Runtime 采用以下共同生命周期契约：
 
 ## References
 
-- [总体架构](../02-architecture-design.md)
-- [本地代码执行方案](../03-local-code-execution.md)
-- [安全、测试与发布门禁](../07-security-testing-release.md)
+- [总体架构](../architecture/overview.md)
+- [本地代码执行方案](../architecture/local-code-execution.md)
+- [安全、测试与发布门禁](../security/testing-and-release.md)
 - [ADR-0005：两级安全配置](0005-standard-advanced-safety-profiles.md)
 - [ADR-0006：单一直接分发主应用](0006-single-direct-main-package.md)
 - [Android bound services](https://developer.android.com/develop/background-work/services/bound-services)

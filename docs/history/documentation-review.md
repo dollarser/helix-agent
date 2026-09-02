@@ -1,6 +1,6 @@
-# Helix 文档复核记录
+# Helix 文档复核历史
 
-初始复核日期：2026-08-31。复核后文档版本：Baseline 1.3。本文是累积复核记录；唯一当前进度以 [implementation-status](implementation-status.md) 为准。
+初始复核日期：2026-08-31。复核后文档版本：Baseline 1.3。本文是累积复核记录；唯一当前进度以[实施状态](../development/status.md)为准。
 
 ## 1. 复核范围
 
@@ -39,16 +39,16 @@
 
 ## 5. 继续开发入口
 
-编码 Agent 从根 `AGENTS.md`、当前状态和当前 HXA 开始，人或更强模型在每个里程碑末按[安全与发布门禁](07-security-testing-release.md)和任务完成记录审查。当前不需要为普通实现细节增加更多 Prompt 限制；发现架构、安全、权限、许可证或关键依赖变化时，再针对具体证据升级审查。
+编码 Agent 从根 `AGENTS.md`、当前状态和当前 HXA 开始，人或更强模型在每个里程碑末按[安全与发布门禁](../security/testing-and-release.md)和任务完成记录审查。当前不需要为普通实现细节增加更多 Prompt 限制；发现架构、安全、权限、许可证或关键依赖变化时，再针对具体证据升级审查。
 
 ## 6. 收口审查（M1 进行中，2026-08-31）
 
 范围：ADR 体系、交接、完成记录、验收矩阵、门禁脚本，以及 HXA-010～012 完成后的全部规范文档；不涉及代码修改。
 
-- ADR-0001 的 Context 仓库事实更正：version catalog 与 [05 第 4 节](05-development-environment.md) 基线其实已固定 `kotlinx-serialization-json` 1.9.0，只是无模块消费且未应用 serialization 编译器插件；Alternatives 第 1 条的比较措辞随之调整。决定不变，仍为 `proposed`。
-- 新增 [ADR-0002](adr/0002-turn-state-intra-response-edges.md)（proposed）：把 HXA-011 的 3 条严格增量 Turn 状态边（预调用预算失败、同一响应内串行、`INTERRUPTED` 恢复/丢弃）从“契约解释”升级为正式决定；[02 第 5.2 节](02-architecture-design.md) 状态图同步补全（原图另漏 `RUNNING_TOOL→RECORDING_TOOL_RESULT`）。
-- Plan 双重门措辞规范化（[02 §5.1](02-architecture-design.md)、[10 §6.1](10-provider-mcp-skills-modes.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
-- [05 第 8 节](05-development-environment.md) 目录树补 `docs/completion-records/`、`config/` 与根 `LICENSE`/`THIRD_PARTY_NOTICES.md`。
+- ADR-0001 的 Context 仓库事实更正：version catalog 与 [05 第 4 节](../development/environment.md) 基线其实已固定 `kotlinx-serialization-json` 1.9.0，只是无模块消费且未应用 serialization 编译器插件；Alternatives 第 1 条的比较措辞随之调整。决定不变，仍为 `proposed`。
+- 新增 [ADR-0002](../adr/0002-turn-state-intra-response-edges.md)（proposed）：把 HXA-011 的 3 条严格增量 Turn 状态边（预调用预算失败、同一响应内串行、`INTERRUPTED` 恢复/丢弃）从“契约解释”升级为正式决定；[02 第 5.2 节](../architecture/overview.md) 状态图同步补全（原图另漏 `RUNNING_TOOL→RECORDING_TOOL_RESULT`）。
+- Plan 双重门措辞规范化（[02 §5.1](../architecture/overview.md)、[10 §6.1](../architecture/provider-mcp-skills-modes.md)）：operation class 为主判断，动态风险 ≤ L1 为上限，与 HXA-012 `ModePolicy` 实现一致。
+- [05 第 8 节](../development/environment.md) 目录树补 `docs/completion-records/`、`config/` 与根 `LICENSE`/`THIRD_PARTY_NOTICES.md`。
 - 历史 `small-model-handoff.md` 的当前事实曾更新到 HXA-013 入口；第 4/5 节标注为交接时快照。该快照已在 2026-09-01 完成信息迁移后删除。
 - HXA-011/012 完成记录的决策记录行补 ADR-0002 引用与文档同步事实。
 
@@ -60,10 +60,10 @@
 
 本轮决定和修正：
 
-- [ADR-0001](adr/0001-canonical-json-storage-encoding.md)设为 `accepted`，但只接受 `core:model` 少量固定 shape 的内部存储编码；明确不适用于 Provider/MCP wire DTO、导入导出或审批 canonical JSON。只有具备 decoder、已知向量、round-trip 和 malformed-input 测试的类型才能把 JSON 当恢复来源；`PlanArtifact` 当前只有 canonical writer 时必须从规范化 Room 列重建，或在 HXA-014 前补 decoder 与迁移测试。
-- [ADR-0002](adr/0002-turn-state-intra-response-edges.md)设为 `accepted`：接受 HXA-011 实际新增的三条边；`INTERRUPTED → BUILDING_CONTEXT/CANCELLED` 是 HXA-010 既有边，本轮只补规范图，不再把它们写成 HXA-011 新增实现。
-- 新增并接受 [ADR-0003](adr/0003-plan-read-only-risk-ceiling.md)：Plan 同时要求 `operationClass=READ_ONLY` 和动态风险 ≤ L1；该安全边界同步到路线、架构、专项方案、安全测试和 HXA-012 完成记录。
-- 历史 `small-model-handoff.md` 删除硬编码的“当前 HXA”和旧启动代码，改为始终读取 `implementation-status.md` 的当前唯一任务；其长期规则后来迁入 `AGENTS.md` 和小模型实施指南，文件本身已删除。
+- [ADR-0001](../adr/0001-canonical-json-storage-encoding.md)设为 `accepted`，但只接受 `core:model` 少量固定 shape 的内部存储编码；明确不适用于 Provider/MCP wire DTO、导入导出或审批 canonical JSON。只有具备 decoder、已知向量、round-trip 和 malformed-input 测试的类型才能把 JSON 当恢复来源；`PlanArtifact` 当前只有 canonical writer 时必须从规范化 Room 列重建，或在 HXA-014 前补 decoder 与迁移测试。
+- [ADR-0002](../adr/0002-turn-state-intra-response-edges.md)设为 `accepted`：接受 HXA-011 实际新增的三条边；`INTERRUPTED → BUILDING_CONTEXT/CANCELLED` 是 HXA-010 既有边，本轮只补规范图，不再把它们写成 HXA-011 新增实现。
+- 新增并接受 [ADR-0003](../adr/0003-plan-read-only-risk-ceiling.md)：Plan 同时要求 `operationClass=READ_ONLY` 和动态风险 ≤ L1；该安全边界同步到路线、架构、专项方案、安全测试和 HXA-012 完成记录。
+- 历史 `small-model-handoff.md` 删除硬编码的“当前 HXA”和旧启动代码，改为始终读取当前唯一状态源（现为 `docs/development/status.md`）；其长期规则后来迁入 `AGENTS.md` 和小模型实施指南，文件本身已删除。
 - 持续开发实况可能快于状态文档。本轮观察到 HXA-013 源码已开始写入但尚无完成记录，因此只记为 in progress，不把源码存在当完成证据。
 
 本轮没有调整 Kotlin/Compose、自研 reducer、Provider 分层、QuickJS isolated process、独立 PRoot/CLI Runtime、MCP/Skill 或 Android 权限方案；这些主路线仍然合理。仓库尚无首个 Git commit 仍是最高的过程风险，待持续开发到安全 checkpoint 且获得提交授权后应优先建立可回滚基线。（补记：2026-08-31 用户授权后基线已建立，见 §4 补记；本文其余结论在 M1 完成后仍然有效。）
@@ -114,7 +114,7 @@
 
 - 产品需求新增“当前产品阶段与近期闭环”，明确 M4 文件闭环是首次本地价值验证，不等于 Alpha 或正式版完成。
 - 当轮 README 与状态摘要曾更新到已验证 M3 / HXA-037、下一项 M4 / HXA-040；后续 HXA-038 架构收口已在第 12 节继续更新当前状态。
-- `implementation-status.md` 区分已落地框架和未落地业务执行器，并修正 M2/M3、Approval、Dispatcher/Scheduler 的历史措辞。
+- 当前状态源（现为 `docs/development/status.md`）区分已落地框架和未落地业务执行器，并修正 M2/M3、Approval、Dispatcher/Scheduler 的历史措辞。
 - 小模型实施指南移除硬编码 M1/M2 checkpoint、commit/机器快照，统一动态读取唯一状态源；原 `small-model-handoff.md` 的长期规则迁入 `AGENTS.md`、开发环境和实施指南后删除。文档门禁改为校验实施指南中的动态状态源、禁止重复实现和显式 Goal 授权契约。
 - HXA-037 完成记录补齐“决策记录”，恢复文档契约门禁。
 
@@ -147,7 +147,7 @@
 本轮是 HXA-030～037 完成后的跨层缺陷审查，不改变各 HXA 的原交付范围：
 
 - `core:storage` 将 provider 覆盖从会触发外键 `ON DELETE SET NULL` 的 `REPLACE` 改为原地 UPDATE；Keystore 临时文件改用唯一名称；Goal criteria 非字符串引用改为显式失败。迁移链 v1→v2→v3、审批一次性消费与并发守卫重新核验通过。
-- `tools:framework` 修正取消与真失败的审计分类，保留 audit sink 的原始 suppressed 异常；Scheduler 槽位改为全局 toolCallId、准入检查与占槽原子化，并按精确 `(name, version)` 解析 footprint。技术重试仍只接受逐 attempt 确认零副作用的结果。
+- `tools:framework` 修正取消与真失败的审计分类，保留 audit sink 的原始 suppressed 异常；Scheduler 槽位改为全局 toolCallId、准入检查与占槽原子化，并按精确 `(../name, version)` 解析 footprint。技术重试仍只接受逐 attempt 确认零副作用的结果。
 - `app` 将屏状态更新改为原子操作，保留跨会话待审批卡，清理取消槽和 Turn cancel 生命周期；工具参数 working set 设 1,048,576 UTF-16 code unit 上限，截断工具流 fail closed，空参数归一为 `{}`，审计页明确过滤只作用于已加载页。
 - 三个 Provider 解码器拒绝跨 index 重复 toolCallId；Responses 补齐孤儿/重复/未闭合工具流检查。`core:agent` 收紧 `CancelFinished` 的 uncertain call 归属。
 - 验证：JVM 全矩阵 747/0，设备 app 39/39 + storage 38/38（API 36 arm64 模拟器），app lint、Spotless、Detekt、五个门禁脚本和 `git diff --check` 通过。
@@ -155,7 +155,7 @@
 
 ## 15. 状态源与无主事项收口（2026-09-01）
 
-- `implementation-status.md` 从约 60 KiB 的逐 HXA 字段复述压缩为当前摘要、完成索引、唯一 Next task、接口和限制；实现字段、命令和测试数量只在 completion records 维护，历史复核只在本文维护。
+- 当前状态源（现为 `docs/development/status.md`）从约 60 KiB 的逐 HXA 字段复述压缩为当前摘要、完成索引、唯一 Next task、接口和限制；实现字段、命令和测试数量只在 completion records 维护，历史复核只在本文维护。
 - 修正执行目标措辞：领域枚举定义四类本机目标不等于四类执行器已实现；当前生产只有 `LOCAL_ANDROID/time.now`，QuickJS/PRoot/CLI 分别等待 M5/M8/M11。
 - 审批文档不再声称 timeout 单独变化已直接进入九字段 `ApprovalBinding`。安全 descriptor 字段属于不可运行期修改的契约；首个业务工具 HXA-042 必须机械证明变更会提升 toolVersion，或先以 ADR 决定完整 contract hash。
 - 新增 HXA-068，负责 Advanced 有界出网规则的持久化与创建/撤销 UI；新增 HXA-099，负责 Mode/TurnBudgets UI 与真实低内存/后台/热状态只降并发接线。路线与 verification matrix 同步到 90 个 HXA。
@@ -164,7 +164,7 @@
 
 - accepted ADR-0010 取代 ADR-0002 的同响应串行生产决定：HXA-037 的有界只读并发继续保留，生产聊天改由唯一 batch-safe `TurnCoordinator` 持有 Turn aggregate phase、当前 ModelCall/stream checkpoint 和事务化模型回填。M1 reducer 只保留历史测试与旧恢复数据兼容。
 - 修复第二轮以后异常仍引用首个 ModelCall 的状态错误；终局 assistant/Turn/ModelCall、工具步骤 close/assistant ToolCalls、按序结果回填/下一 ModelCall/Turn 回环分别形成原子 Room 边界。外部工具副作用始终在事务外，恢复只对账、不盲目重放。
-- Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
+- Scheduler 由“nullable outcome + 全批 first error”升级为每调用 `Outcome/Thrown(../cause)`，未知副作用进入 `NEEDS_REVIEW`，重复 ToolCall identity 在准入前拒绝；同时修复异常 future 先唤醒、slot 后释放造成的漏唤醒死等。
 - Provider-neutral 流边界新增累计文本、调用数、聚合参数和事件序列失败关闭；发送路径增加模型可见长度/NUL 检查，并在可配置预算 UI 落地前使用固定输出 token 上限。
 - API 36 arm64-v8a 模拟器通过完整 consumer instrumentation；第二 ModelCall 失败、部分文本、合法状态边和进程恢复均有设备 fixture。当前状态转入 M4/HXA-040，不把本次架构收口扩写成文件业务工具已经可用。
 
@@ -172,13 +172,54 @@
 
 本轮针对 HXA-040~044（workspace 文件工具与工具分发框架）处理一份外部对抗性审查：逐条确认属实后修复，并在 commit 前由独立 LLM 复审 agent 重审（逐条 P1 核对 + 检查修复是否引入新洞），复审发现并入同一 commit：
 
-- **P1-1 路径泄漏：属实，修复。** 十个文件工具的 catch 链末端全部具备 sanitized `IOException`（read 与 meta 四件套 stat/list/search/mkdir 本次补齐）；`PathResolution` 的两处裸 `toRealPath()` 改 fail-closed 助手（root → `ScopeNotAvailable("scope root is not available")`，中间段竞态删除 → `FileNotFoundException("file not found")`），新增测试断言错误消息不含真实路径。复审 agent 逐工具与 store 错误路径复核后确认 CLOSED。
+- **P1-1 路径泄漏：属实，修复。** 十个文件工具的 catch 链末端全部具备 sanitized `IOException`（read 与 meta 四件套 stat/list/search/mkdir 本次补齐）；`PathResolution` 的两处裸 `toRealPath()` 改 fail-closed 助手（root → `ScopeNotAvailable(../"scope root is not available")`，中间段竞态删除 → `FileNotFoundException(../"file not found")`），新增测试断言错误消息不含真实路径。复审 agent 逐工具与 store 错误路径复核后确认 CLOSED。
 - **P1-2 工具 timeout 无执行方：属实，修复。** `ToolDispatcher` 新增看门狗：executor 在 daemon 线程池执行，`deadline`（execStart + descriptor.timeout，同一 clock）到期即结算为稳定 TIMEOUT（阻塞线程 best-effort 中断后放弃），新增 2 个测试（30s 睡眠按 400ms 超时结算且只结算一次；deadline 前异常按内联传播）。复审确认池的并发实际上被 ToolScheduler 硬顶 ≤4 限制，不会失控；approval proof 在执行 START 时消费、超时结算语义正确。
 - **P1-3 目录 fsync 顺序：属实，修复。** `writeAtomic` 与 `writeAtomicStream`（044 的流式路径同修）均改为 file data fsync → 原子 rename → 目录 fsync，持久化的目录项是 target 的。复审发现并补修派生问题：重排后 rename **之后**的目录 fsync 失败原会“报失败但文件已发布”（部分文件系统目录 fsync 恒返回 ENOSYS），与工具层“失败 = 未执行”的不变量冲突——已把 rename 后的目录 fsync 降级为 best-effort（失败仅掉电持久性降级，不报失败），KDoc 同步。
 - **P1-4 内存无界：属实，修复。** copy/跨 scope move 改 64 KiB 块流式复制 + 增量 SHA-256（新增多 chunk 测试：逐字节一致、hash 覆盖全文件、源保留、无 temp 残留）；edit 设 50 MiB 上限 + probe 门 + 整文件严格 UTF-8 解码，并按复审意见在 readAll 紧邻前补 size 复检（收窄 probe→readAll TOCTOU 的 OOM 维度窗口；`expectedSha256` 前置哈希在解码之后触发，只兜 clobber 不兜内存）；write 的 content 设 schema maxLength 4 MiB + `parseArgs` 防御复检（复检才是真边界）。
-- **P1-5 trash NAME_MAX：不修复，显式推迟。** trash entry 名为 24 字节前缀 + 转义原路径，转义后超 255 字节（约 226+ 字符相对路径）时 rename 失败——当前行为 fail-closed（稳定 sanitized 错误、原文件保留、无数据丢失）；长路径改名策略归 HXA-046 文件管理 UI，implementation-status.md 记为已知限制。
+- **P1-5 trash NAME_MAX：不修复，显式推迟。** trash entry 名为 24 字节前缀 + 转义原路径，转义后超 255 字节（约 226+ 字符相对路径）时 rename 失败——当前行为 fail-closed（稳定 sanitized 错误、原文件保留、无数据丢失）；长路径改名策略归 HXA-046 文件管理 UI，`docs/development/status.md` 记为已知限制。
 - **P1-0 AbandonedWrite：无动作。** 审查指其“not open”；当前代码已是 `open class AbandonedWrite`（HXA-044 的 Cancelled/LimitExceeded 子类化依赖 open），`writeAtomicStream` 的 catch 路径删 temp 并原样重抛。
 - **复审补修（并入同一 commit）**：看门狗 Callable 的 `finally` 清粘滞中断标志（线程池复用不再让无辜的下一个 dispatch 虚假失败）；dispatch catch-all 的 model-visible detail 与 checked 异常包装只保留异常类名/固定消息（raw 消息可能含真实路径，doc 10 纵深防御；该 catch-all 在 MCP executor 落地前是 P1-1 保证的单点依赖）。另记录不修复项：executor 改在裸 daemon 线程执行后不再携带调用线程的 thread-local/协程上下文，MCP 接入时需迁移上下文（文档记录，非缺陷）。
-- **复审发现、不修复、显式推迟**：超时 abandon 会留下 `.helix-tmp-*` 孤儿，且唯一回收 API `reclaimTempFiles` 无生产调用点（temp 计入 scope 配额；触发需“不可中断 I/O 挂死 + 超时”，罕见且影响限于该 scope）。不在此 bolt-on：`reclaimTempFiles` 无 age 阈值，接入写路径会误删并发活写的 temp，需要 age-based reclaim 的 API 设计，归后续文件管理任务（与 HXA-046 同批）；implementation-status.md 记为已知限制。
+- **复审发现、不修复、显式推迟**：超时 abandon 会留下 `.helix-tmp-*` 孤儿，且唯一回收 API `reclaimTempFiles` 无生产调用点（temp 计入 scope 配额；触发需“不可中断 I/O 挂死 + 超时”，罕见且影响限于该 scope）。不在此 bolt-on：`reclaimTempFiles` 无 age 阈值，接入写路径会误删并发活写的 temp，需要 age-based reclaim 的 API 设计，归后续文件管理任务（与 HXA-046 同批）；`docs/development/status.md` 记为已知限制。
 - **两个 drive-by 的复审判定**：`ApprovalFlowTest` 期望 key set 补 `contractHash` 与 `ApprovalBinding.canonicalJson`（HXA-042/ADR-0011 的 10 字段）1:1 一致——测试是 HXA-037 时代的过期断言，在 HEAD 即失败；`check-lockfiles.sh` 两处 find 排除 `.claude/` 正确且有效（本地 session worktree 携带自己的 29 份 lockfile 副本使计数 29→58；项目 lockfile 不可能位于 `.claude/` 下，不会放过真实回归）。
 - 验证（main checkout）：`:core:workspace`、`:tools:framework`、`:tools:files`、`:app`（consumer + developer 双变体）单元测试与全量 test 矩阵绿；Spotless、Detekt 与五个门禁脚本 exit 0。
+
+## 18. 文档目录分层与命名收口（2026-09-02）
+
+- 12 份平铺编号文档按职责迁入 `product/`、`architecture/`、`development/`、`security/` 和 `references/`；目录已经表达阅读关系，因此移除文件名中的 `01`～`12` 顺序编号。
+- `docs/development/status.md` 继续作为唯一当前状态源；路线、验收矩阵、开发环境和实施指南集中在 `development/`。M0 证据并入 `completion-records/M0.md`，本文迁入 `history/`，两者只改变位置，不改变证据内容。
+- 新增 `docs/README.md`，按任务提供阅读入口并明确“状态、计划、决定、证据、历史”边界；根 README 只保留高频入口，避免维护第二份完整目录。
+- 对 12 份主文档、M0 记录和本文逐一检查独有职责。没有发现内容完全被替代且不含独有决定或验收证据的文件，因此本轮没有丢弃文档内容；旧路径由新路径取代。
+- `scripts/check-docs.sh` 同步新路径，并新增必需入口和“根 `docs/` 只允许 README”的结构门禁；全仓 Markdown 相对链接继续由同一脚本验证。
+
+## 19. 能力优先的市场与产品定位复评（2026-09-02）
+
+- 基于外部手机 Agent 竞品材料重新评估目标用户、自动化替代品、渠道和商业化。只吸收有产品价值的分析框架；Star、成功率、用户迁移比例、精确价格等二手或时点数字不进入长期结论。
+- 新增 `product/market-users-and-commercialization.md`，独立维护目标用户、Jobs to be done、能力包装、Advanced 责任模型、模板策略、分发、商业模式与验证指标；原竞品文档继续维护执行位置、平台协议和技术能力证据。
+- 产品第一目标由普通效率用户调整为开发者与高级用户；定位从“安全型本机 Agent”改为“能力优先的 Android 本机 AI 执行工作台”。Operit、Open-AutoGLM、Tasker/Auto.js/Hamibot 被加入直接能力、GUI Agent 与用户替代品观察。
+- 用户对主动开启 Advanced、具体能力、scope 和确认后的设备操作承担最终责任；Helix 仍承担真实展示、不越权和不伪造结果的产品责任。此次调整不修改 accepted ADR-0005 的执行规则；长期授权、自动批准或其他安全内核变化必须另行形成取代决定。
+- 竞品文档同步当前 HXA-045 事实：原生文件工具、SAF 与 All-files 适配已有交付，当前差距是 HXA-046 用户文件工作台，以及后续 Browser、QuickJS、PRoot/CLI 和 Android 自动化。
+
+## 20. 未来自动化兼容与 Advanced 授权变更（2026-09-02）
+
+- 项目所有者明确要求把“兼容任意 Tasker/Auto.js 脚本”和 Shizuku/ADB 写为可能支持、暂不实现的能力，并要求重新放宽 Advanced 的长期授权方向。
+- Android 可行性核验结论：Tasker 可走官方插件 action/event/state；Auto.js/AutoJs6 需要独立兼容 Runtime 和版本/API/权限/模块矩阵，当前证据不能支持“任意脚本零差异执行”；Shizuku 由用户通过 Root/ADB 启动服务；Android 11+ 提供无线调试配对。这些能力均未获得 HXA 或实现证据。
+- 按 ADR 约定没有改写 accepted ADR-0005 的历史正文，而是新增 accepted [ADR-0012](../adr/0012-capability-first-advanced-grants.md)完整取代，并把 ADR-0005 标为 superseded。新决定接受 Trusted Workspace、动态风险不高于 L1 的有界长期规则、精确批量批准和作为文件 scope 的 `Full Workspace Access`。
+- 所有者请求中的模型自授权、全局自动批准、全局 Full Access 和 L2/L3 长期 wildcard 放行没有进入 accepted 决定：它们违反项目不可变安全内核，也无法把真实手机上的高影响动作绑定到用户的精确授权。ADR-0012 将其作为被拒绝替代方案显式留档，而不是静默遗漏。
+- 产品需求新增 FUT-AUTO-001～003、FUT-SYS-001～002 和 §11 需求变更记录；Android 能力文档、路线、状态、市场与竞品分析同步“未排期候选/非实现证据”口径。
+
+## 21. Standard 商店产品边界调整（2026-09-02）
+
+- 项目所有者明确 Standard 应以 Google Play 和国内 Android 应用商店为目标渠道，同时保留尽可能完整的产品能力，不因抽象安全偏好或未经核验的准则预先裁剪。
+- 官方政策核验显示：Google Play 允许文件/文档管理核心用途申请 All-files，也允许非辅助工具在声明、显著披露和同意后使用 Accessibility；但明确禁止 Accessibility 驱动的 Agent 自主规划执行，只允许狭窄、用户可理解的确定性自动化，并禁止从 Play 外下载 DEX/JAR/native executable code。
+- 新增 accepted [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)取代 ADR-0006：Standard 改为商店/官网完整产品；渠道差异必须有当前政策原文或真实审核反馈，并局限于对应渠道。consumer/developer 降为当前工程机制，不再分别代表“商店阉割版/官网完整版”。
+- 同步产品需求、Android 能力、总体架构、安全门禁、M12 路线与验收矩阵、开发环境、实施指南、市场与竞品文档。本次没有提交商店、没有获得审核结果，也没有修改 flavor/applicationId 或能力实现代码。
+
+## 22. 全仓文档去重与权威层收口（2026-09-02）
+
+- 再次按产品需求、架构规范、开发治理、决定、交付证据和历史六类职责复核全仓文档。没有删除 superseded ADR、完成记录或既有 Bug 记录：它们保留独有的决定理由、验收命令或根因证据，不属于可丢弃重复内容。
+- 根 README 删除重复维护的 SDK、模块、applicationId、Runtime、Git 和 Tool 细节，只保留产品入口与稳定边界；详细规范统一链接产品、架构和有效 ADR。
+- `development/status.md` 删除 M4 字段级实现复述、历史 Git 基线、已修复细节和复核过程，只保留里程碑索引、当前接口、未完成能力与仍然成立的限制。完成细节继续由 completion records 和 Bug 记录承载。
+- 产品需求不再复制当前 HXA 与实现快照；竞品和市场文档将实现描述明确标为核验日快照，并链接唯一状态源。实施指南不再内嵌可覆盖状态文件的旧模板。
+- 发布门禁删除 consumer/developer 作为产品等级的旧分法，改为 Standard 共同门禁、Google Play、国内应用商店、官网与 Advanced 四组渠道证据；本地代码执行文档也明确 flavor 只是当前构建/测试机制。
+- 文档中心新增维护约束：产品和架构不复制实时任务状态，渠道、flavor 与运行时安全配置不得合并为单一“受限/完整”开关。
+- 验证：`./scripts/verify-adr.sh`、`./scripts/check-docs.sh` 与 `git diff --check` 均通过。本轮只修改文档与文档门禁，没有修改业务代码或生成发布证据。
