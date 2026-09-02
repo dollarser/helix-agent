@@ -141,7 +141,7 @@ val projectDependencies =
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         ":feature:browser" to listOf(":core:model", ":core:policy"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
-        ":feature:files-allfiles" to listOf(":feature:files"),
+        ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
         ":runtime:quickjs" to listOf(":core:model"),
         ":runtime:proot-client" to listOf(":core:model"),
         ":runtime:cli-client" to listOf(":core:model"),
@@ -231,6 +231,13 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            // HXA-045: the all-files roots store persists its registry with the same pinned
+            // kotlinx-serialization JsonElement API as :feature:files (implementation-scoped, so it
+            // is not visible transitively through the :feature:files project dependency).
+            if (path == ":feature:files-allfiles") {
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
         }
 

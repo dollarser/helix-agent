@@ -1,6 +1,7 @@
 package com.helix.app
 
 import android.content.Context
+import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.audit.AuditLogService
@@ -175,8 +176,8 @@ internal class DefaultAppContainer(
 
     /**
      * The app's own workspace scope (HXA-042): a fixed scope id whose root is the app-private
-     * `workspaces/app` directory. SAF / all-files scopes are later HXAs (044/045); until then the
-     * file tools address ONLY this scope, so a model reference can never leave the app sandbox.
+     * `workspaces/app` directory. The SAF import pipeline (HXA-044) also targets this scope's
+     * `input/` region. All-files scopes (`af-<root>`, HXA-045) resolve through [AllFilesModule].
      * The root is created lazily on first use and never handed to the model (doc 10).
      */
     private val appScopeRoot: Path =
@@ -190,7 +191,13 @@ internal class DefaultAppContainer(
             if (scopeId == APP_SCOPE_ID) {
                 appScopeRoot
             } else {
-                throw ScopeNotAvailable("unknown scope: $scopeId")
+                // HXA-045: an all-files scope (af-<root>) resolves ONLY in the developer flavor,
+                // and only while MANAGE_EXTERNAL_STORAGE is granted and the root enabled
+                // (AllFilesModule.resolveScopeRoot is the fail-closed seam; the consumer no-op
+                // always returns null). The resolved path never reaches the model (doc 10);
+                // containment stays enforced by resolveFileScopePath downstream.
+                AllFilesModule.resolveScopeRoot(scopeId)
+                    ?: throw ScopeNotAvailable("unknown scope: $scopeId")
             }
         }
 
@@ -225,6 +232,9 @@ internal class DefaultAppContainer(
         }
 
     init {
+        // HXA-045: initialize the all-files module (developer flavor builds the roots registry;
+        // consumer is a no-op). Runs before any tool can resolve an af- scope.
+        AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
         // HXA-042: the first non-time.now business tools enter the production tool table. The

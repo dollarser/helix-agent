@@ -37,6 +37,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
@@ -158,6 +159,16 @@ internal fun HelixApp(container: AppContainer) {
 
                                 ShellDestination.Audit -> {
                                     AuditScreenDestination(container)
+                                }
+
+                                // HXA-045: the all-files consent screen lives in the developer
+                                // flavor; the consumer build keeps the honest empty state.
+                                ShellDestination.Permissions -> {
+                                    if (AllFilesModule.AVAILABLE) {
+                                        AllFilesModule.render(container.profileStore)
+                                    } else {
+                                        EmptyDestination(destination, PaddingValues(24.dp))
+                                    }
                                 }
 
                                 else -> {
