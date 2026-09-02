@@ -357,6 +357,14 @@ sealed interface ModelEvent {
 - Provider 请求在发送前携带可审计的数据类别清单。API key、OAuth token、Cookie、密码、验证码和认证字段始终拒绝进入请求；联系人、通知、位置、文件正文、浏览器或 Accessibility 内容按 ADR-0012 的 Safety Profile 门控。
 - `STANDARD` 的高敏数据每次发送都展示 Provider、规范 origin、数据类别和 scope；`ADVANCED` 只允许保存绑定 Provider ID + origin + 数据类别 + scope + 有效期的规则，新 origin/类别或规则过期时重新确认。
 
+### 6.3 会话附件与多模态请求
+
+目标架构遵循 [ADR-0014（accepted）](../adr/0014-session-attachment-materialization.md)；路线图对应任务完成并留下验收证据前不得写成当前能力。系统文件选择器或 Photo Picker 返回的一次性 URI 先经受限导入 pipeline 复制为会话 Workspace 中的 app-private Artifact，再与用户消息绑定；这条单文件路径不依赖 persisted SAF tree grant，长期目录 scope 仍由独立 `DocumentTreeScope` 负责。
+
+请求物化第一阶段只有两个明确分支：经 MIME、扩展名和有界字节 probe 一致确认的 UTF-8 文本形成带 Artifact 来源、hash 和 `UNTRUSTED` 标记的有界 context item；图片由 app 层受限 resolver 解析为现有 `ImageReference`，三套 Provider adapter 只负责协议编码。UTF-16、PDF/PPT/DOC、音频、视频和未知二进制统一返回 `UNSUPPORTED_ATTACHMENT_TYPE`，以封闭 category 区分原因。不注册文档解析/渲染/OCR、媒体解码/抽帧/音轨/转码或 Provider file upload，也不把二进制 base64 放进模型 Context。文件管理器读取原始字节不代表模型理解对应媒体。
+
+附件在点击发送前不出网。每次请求都对绑定时 Artifact hash 重新核验，并由 egress Policy 展示和绑定 Provider ID、规范 origin、消息、附件类型/大小/数据类别/scope 与 hashes；任何内容、Provider 或 origin 变化都重新评估。vision 为未知/不支持时保留本地图片并返回可操作错误，不能静默丢弃。图片解码、归一化和总请求字节使用集中预算；具体上限由对应 HXA 的 API 29/36 与低内存真机证据固化。未支持文档类型在出网前终止，不创建模型请求。
+
 ## 7. Tool 模型
 
 ```kotlin
@@ -463,6 +471,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | --- | --- | --- |
 | `sessions` | id, title, providerId, modelId, createdAt, archivedAt | 会话元数据 |
 | `messages` | id, sessionId, turnId, role, kind, contentRef, sequence | 时间线内容 |
+| `message_attachments` | messageId, artifactId, ordinal, purpose, boundSha256 | 规划字段：消息到不可变 Artifact 快照的有序关系；ADR-0014 接受并完成 schema migration 后才可视为落位 |
 | `turns` | id, sessionId, state, stepCount, startedAt, endedAt, errorCode | Agent Turn |
 | `model_calls` | id, turnId, providerSnapshot, state, usage, requestId | 模型调用，不存 secret |
 | `tool_calls` | id, turnId, callId, name, version, argsJson, argsHash, state | 工具请求 |
@@ -509,6 +518,9 @@ files/
 `WorkspacePath` 不是普通 String。构造时完成：NUL 检查、分隔符归一化、绝对路径拒绝、`.`/`..` 解析、根路径确认。工具层不得自行拼接真实路径。
 
 SAF 默认工作流：读取 `content://` → 检查元数据和大小 → 用户确认 → 流式复制到 `input/` → 计算 SHA-256 → 登记 Artifact。用户可以显式创建长期 `DocumentTreeScope`，但 URI grant 保存在平台适配层，模型只看到 scopeId。
+
+会话附件是上述 SAF 默认工作流的受限特例：目标固定为
+`input/attachments/<attachment-id>/`，原始 URI 只在平台 adapter 的短生命周期内使用；导入后以 Artifact/hash 参与发送、重试和恢复，消息/Context/审计/诊断只保留净化来源元数据。源附件绑定消息后不可原地修改；图片归一化产生新的派生 Artifact，并在取消、失败或会话删除时按引用关系回收。PDF/PPT/DOC、音频和视频当前不产生任何解析、渲染、抽帧、音轨或转码派生 Artifact。
 
 All files access 通过系统设置授权后仍要求用户在 Helix 内选择 roots。Root 文件系统使用独立 `RootScope` 和高风险工具，不复用普通 scope 伪装成同一权限级别。
 

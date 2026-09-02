@@ -35,6 +35,7 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 15. 任务中断后的持久化恢复。
 16. 可选 PRoot + Alpine Linux 开发者模式。
 17. 确定性 Tool 编排：单一安全管线、有界读并发、写屏障、按模型 call sequence 回填、取消/恢复可回放和分阶段审计。
+18. 会话纯文本与图片附件：一次性导入到 Workspace、可预览/移除、消息绑定、图片 vision、精确出网披露以及系统分享草稿；选择或分享不自动发送。
 
 ### 2.2 明确不实现
 
@@ -70,6 +71,8 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | FUT-AUTO-003 | 独立脚本 Runtime | 脚本在独立应用/UID 中执行，经有界 IPC 调用 Helix；不复用主进程 QuickJS 的隔离边界，不复制许可证不兼容代码 |
 | FUT-SYS-001 | Shizuku 能力 Provider | 用户显式启动服务；处理 unavailable/denied/granted/lost、Binder death、撤销和 OEM 差异；Shizuku 状态不等于 ToolCall 批准 |
 | FUT-SYS-002 | 无线 ADB | Android 11+ 由用户启用开发者选项并配对；研究本机 client、密钥、前台生命周期与供应链；断连不盲目重放 |
+| FUT-MEDIA-001 | PDF、PPT/PPTX、DOC/DOCX 对话读取 | 当前仅识别为未支持附件；未来先比较平台/第三方解析、许可证、APK/内存、恶意文档和中文/表格质量，不承诺 OCR 或格式保真 |
+| FUT-MEDIA-002 | 视频附件理解 | 当前仅识别为未支持附件；未来分别评估端上有界抽帧与 Provider 原生上传，覆盖时长/帧数/像素/音轨/成本/数据保留和 Provider 可移植性 |
 
 “兼容任意脚本”在需求层表示任意输入可导入、可诊断并得到明确结果，不表示未经兼容矩阵验证即可成功执行。Shizuku/ADB 只有在未来单独形成路线、ADR、许可证/供应链审查和真机矩阵后才可进入实现范围。
 
@@ -109,12 +112,13 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 ### UJ-01：文件分析
 
 1. 用户通过系统文件选择器导入 CSV。
-2. Helix 把文件复制到会话 Workspace，并记录来源 URI 和哈希。
-3. Agent 先尝试内置文件工具；需要计算时生成 JavaScript。
-4. Helix 展示代码、输入文件、限制和预期产物。
-5. 用户批准后，隔离执行器运行代码。
-6. Agent 根据真实执行结果继续推理；如需生成文件，再单独调用 Workspace 写入工具。
-7. 用户审批写入并显式导出结果。
+2. Helix 把文件复制到会话 Workspace，并记录来源类别、净化显示名和哈希；原始 `content://` URI 只在导入适配层短暂使用，不进入模型、审计或诊断。
+3. 用户在发送前看到附件名称、类型、大小和目标 Provider；选择文件本身不自动出网，发送时按内容类别执行出网门控。
+4. Agent 获得带来源和哈希的有界文本上下文；完整内容通过内置 `read(offset,maxBytes)` 分块，需要计算时生成 JavaScript。
+5. Helix 展示代码、输入文件、限制和预期产物。
+6. 用户批准后，隔离执行器运行代码。
+7. Agent 根据真实执行结果继续推理；如需生成文件，再单独调用 Workspace 写入工具。
+8. 用户审批写入并显式导出结果。
 
 ### UJ-02：通知摘要
 
@@ -177,6 +181,9 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-CHAT-003 | P0 | 展示模型文本、工具请求、工具结果和审批卡片 | 四类消息可区分 |
 | FR-CHAT-004 | P1 | 系统分享文字/图片/文件进入指定或新会话 | 不自动发送给模型 |
 | FR-CHAT-005 | P1 | 语音转文字 | 优先使用系统识别，不后台常驻监听 |
+| FR-CHAT-006 | P0 | 会话内选择、预览、移除并发送纯文本/图片附件 | 先复制为带 hash 的 Workspace Artifact；重启可恢复；一次性导入不要求 SAF tree grant |
+| FR-CHAT-007 | P0 | 附件请求按媒体类型物化 | 纯文本为有界不可信上下文，图片走 vision part；二进制 base64 不冒充理解 |
+| FR-CHAT-008 | P0 | 附件出网披露与精确绑定 | 点击发送前展示 Provider/origin/类型/大小/数据类别；绑定消息与 Artifact hashes，内容或目标变化重新评估 |
 
 ### 5.2 模型 Provider
 
@@ -413,6 +420,11 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 34. 并行队列取消时，未启动调用留下 `CANCELLED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
 35. 调度失败不能回退到更低隔离 target、扩大 scope/权限或先联网后补审批。
 36. 若未来启用 child delegation，child 只读、深度 1、共享父预算且无 Approval Proof/Secret；写入 proposal 必须由父 Turn 重新审批。
+37. 选择或分享附件只导入本地会话，不自动发送；发送前能移除并看到目标 Provider 与数据类别。
+38. 文本附件在进程重启后仍绑定同一 hash；文件缺失或变化时旧发送/出网决定失效，不能读取替代字节。
+39. Provider 不支持或未确认 vision 时图片保留本地并给出可操作错误，不能静默丢图或把 base64 文本当作成功。
+40. 恶意图片、解码取消或低内存不得造成 OOM、越界读取、孤儿临时文件或正文/base64 日志泄露。
+41. UTF-16、PDF/PPT/DOC、音频、视频和未知二进制附件统一返回 `UNSUPPORTED_ATTACHMENT_TYPE` 与正确的封闭 category；不得启动解析、渲染/OCR、媒体解码/抽帧/音轨/转码、Provider upload、模型 context/base64 或派生 Artifact。
 
 ## 10. 成功定义
 
@@ -428,6 +440,12 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 - 纳入需求：Tasker 官方插件桥接、任意来源 Auto.js 脚本导入与兼容诊断、独立兼容 Runtime、Shizuku/无线 ADB 未来研究；Trusted Workspace、动态风险不高于 L1 的有界长期工具规则、精确批量批准和作为文件 scope 的 `Full Workspace Access`。
 - 未纳入：模型自授权、全局自动批准、全局 Full Access，以及 L2/L3 的永久 wildcard 放行。原因是这些方案无法把真实手机上的高影响调用绑定到用户的精确授权，并违反项目不可变安全内核；它们已在 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)作为被拒绝替代方案留档。
 - 实现状态：本次仅修改需求、架构和决定记录；没有新增 Runtime、Tasker/Auto.js/Shizuku/ADB 代码，也没有把候选能力分配给当前 HXA。
+
+### 2026-09-03：会话附件范围
+
+- 所有者决定先规划 UTF-8 文本与图片附件；PDF/PPT/DOC 和视频读取只保留未来方向，不实现解析、OCR、抽帧、音轨、转码或 Provider 原生上传。
+- 当前任务只要求未支持媒体统一分类并稳定拒绝，避免把二进制 base64、文件管理器导入成功或未来能力写成模型已理解。
+- 系统分享只创建可预览的本地草稿，不自动发送；原始 Android URI 不进入模型、审计和诊断。
 
 ### 2026-09-02：Standard 商店产品边界
 

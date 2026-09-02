@@ -249,6 +249,12 @@ M4 收尾的审查后续任务（非新功能、不扩大权限、不升级依�
 
 明确不改动（审查判定为有意设计，不进入本任务范围，避免后续实现者误删）：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现的恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 空子项目是 M6 的占位模块。
 
+### HXA-049 会话附件导入、持久化与文本输入
+
+按 [ADR-0014（accepted）](../adr/0014-session-attachment-materialization.md)完成附件基础闭环；ADR 接受只确定架构和范围，不是实现证据。聊天页增加系统文件选择器/Photo Picker、待发送附件卡片、移除、导入进度和失败恢复；复用 HXA-044 的 `SafImportPipeline` 把一次性 URI 复制到当前会话 app-private Workspace，单文件导入**不要求** persisted SAF tree grant。增加 Artifact 与消息附件关系、schema migration、hash 快照、重启恢复、取消和孤儿清理；每条用户消息最多四个附件，单文件仍受既有 10 MiB 上限约束。
+
+首批只把经 MIME、扩展名和有界字节 probe 一致确认的 UTF-8 txt/md/csv/json 作为文本附件，以带来源、`UNTRUSTED` 标记和哈希的有界 context item 进入模型请求；超限内容保留 Artifact 引用并由 `read(offset,maxBytes)` 分块。UTF-16、PDF、PPT/PPTX、DOC/DOCX、音频、视频及其他未支持类型统一返回 `UNSUPPORTED_ATTACHMENT_TYPE` + 封闭 category，不把二进制 base64 解释为文档、音频或视频理解，也不实现解析/渲染/OCR、媒体解码/抽帧/音轨/转码、Provider upload 或模型请求物化。原始 `content://` URI 只在 import adapter 内短暂使用，不进入消息、Context、审计或诊断。发送前扩展 egress disclosure/binding，绑定精确 Provider/origin/message/Artifact hashes；用户只选择附件或系统分享进入会话时不得自动发送。验收覆盖恶意 ContentProvider、MIME/扩展名/字节不一致、UTF-16、截断/超大流、同名冲突、进程死亡、hash 变化、无 Provider、unsupported 分类与发送取消。
+
 ## 9. M5：QuickJS
 
 ### HXA-050 Zipline Spike
@@ -270,6 +276,32 @@ JSON 输入输出、host 编码参数 + 局部 `const` input 的严格 IIFE wrap
 ### HXA-054 攻击和端到端测试
 
 无限循环、内存、输出洪泛、eval/fetch/require、进程崩溃、Binder 大输入、取消竞态和 verified artifact。
+
+## 9A. M5A：多模态附件闭环
+
+该增量在 HXA-049 的可恢复附件基础和 M5 的代码处理闭环之后执行。任务编号使用尚未分配的 HXA-055～056；执行顺序以本文档顺序为准，不改变既有 HXA-060 及后续编号。PDF、PPT/PPTX、DOC/DOCX、音频和视频读取没有分配实现任务，只有统一稳定 unsupported 边界。
+
+### HXA-055 图片输入与 Provider 视觉能力
+
+不要重写已存在的三协议 image encoder；实现 production `ArtifactImageResolver`，只解析与当前会话消息绑定、hash 复核通过的 app-private Artifact，并接通 `ModelRequest.ImageReference`。端上执行 bounds-only probe、MIME/签名一致性、解码像素与尺寸限制、方向修正、元数据剥离、归一化和总请求字节预算；任何解码失败、Artifact 变化或超限均失败关闭，不回退为裸 base64 文本。
+
+为 Provider 增加可审计的 vision probe/精确配置与 Turn capability snapshot；不支持或未知时允许本地保存/预览，但发送必须给出可操作错误，禁止静默丢图或猜测换协议。扩展历史重建、重试、取消和三协议集成测试；出网摘要必须显示图片数量、类型、归一化后大小和绑定 hashes。具体像素、边长与请求字节上限在 API 29/36 和低内存真机证据后固化为集中配置，并取 Helix 与 Provider 限制中更严者。
+
+### HXA-056 文本/图片附件端到端硬化与发布边界
+
+用固定 fixture 完成纯文本与图片附件消息的发送、流式回复、Tool Loop、历史恢复和诊断脱敏回归；接入 `ACTION_SEND`/`ACTION_SEND_MULTIPLE` 的文字/图片草稿，所有分享输入先本地导入/预览且绝不自动发送。覆盖 picker/share grant 立即失效、Artifact 缺失/篡改、重复发送、Provider/origin 切换、能力快照变化、请求过大、图片解压炸弹、取消与进程回收。UTF-16、PDF、PPT/PPTX、DOC/DOCX、音频、视频和未知二进制只验证统一稳定分类与拒绝，断言没有文档解析器、页面渲染、OCR、媒体解码/抽帧/音轨/转码、Provider file upload、模型 context/base64 或派生 Artifact。验证日志、Room、audit 和用户可见错误不泄露原始 URI、绝对路径、正文或 base64；三套 adapter 都通过 golden request，至少一个真实 vision endpoint 只作为明确记录环境的 smoke，不能替代另外两套协议 fixture。更新用户说明，区分文本上下文、图片 vision、未支持附件与长期 SAF tree scope，不把本地导入成功写成模型已理解。
+
+## 9B. M5B：文件工作台剩余闭环
+
+本增量承接 HXA-044 已落位、HXA-046 明确推迟但此前没有后续任务认领的 SAF tree scope 与文件管理导入/导出。它不改变附件媒体范围，也不把系统 URI、Android 权限或 Advanced 状态解释为 Tool Approval。
+
+### HXA-057 persisted SAF tree scope 接线
+
+把现有 `SafGrantStore`/persistable URI grant 接入统一 `FileScope` resolver 和文件管理来源列表：用户通过 `ACTION_OPEN_DOCUMENT_TREE` 明确选择 root，平台 adapter 保存 grant，模型和 Tool 只看到稳定 `scopeId` 与相对路径。每次使用实时复核 grant、provider identity、root document 与读写 mode；撤销、provider 消失、重启、只读 grant 和 URI 变化均 fail closed，并提供可见的重新授权/移除入口。所有 `read`/`write`/`edit`/`files.*` 仍走相同 Tool Registry、Policy、Approval、quota/output limit 和审计，禁止 UI/DAO 直接操作外部文件。测试恶意 ContentProvider、路径/文档 ID 欺骗、撤销竞态、跨 scope、进程死亡和 grant 泄漏；原始 URI 不进入模型或诊断。
+
+### HXA-058 文件管理器导入/导出入口
+
+在文件管理器接通 HXA-044 的受限 import/export pipeline：导入使用 `ACTION_OPEN_DOCUMENT`/`ACTION_OPEN_DOCUMENT_TREE` 的用户选择复制到 Workspace，导出使用 `ACTION_CREATE_DOCUMENT` 或用户已授权 tree，把 Workspace 快照流式写出。UI 必须展示来源、目标、名称、大小、冲突策略、进度、取消和最终结果；导入/导出是明确的文件管理动作，不自动创建聊天消息、不自动发给 Provider，也不扩大 Agent scope。覆盖同名冲突、部分流、大小谎报、磁盘满、目标撤销、取消、进程回收、原子性和临时文件回收；导出后重新读取/校验可得证据时才显示 verified，否则只报告平台确认的实际结果。
 
 ## 10. M6：浏览器与 Android 基础工具
 

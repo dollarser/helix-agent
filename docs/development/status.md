@@ -64,7 +64,8 @@
 - 全量 developer 设备套件仍有 4 个 HXA-036 审批/审计测试因 seed 竞态失败；HXA-045 自身 `AllFilesDeviceTest` 6 例通过。根因修复需单独跟进，不能把局部设备通过写成全量通过。
 - ADR-0012 的持久规则、Trusted Workspace 和精确批量批准尚未实现；生产规则集为空时回退逐次审批。Tasker/Auto.js、Shizuku/ADB 仅为未排期候选。
 - 文件能力仍有三项边界：mutation 工具统一 L2、trash 长路径可能触发 `NAME_MAX`、超时 abandon 可能留下计入 scope 配额的临时文件；age-based reclaim 与 SAF scope 接线归后续文件管理工作。
-- 文件管理 UI（HXA-046）当前边界：Workspace 恒可写；developer all-files 根本里程碑**只读**（区域守卫拒绝非 workspace 布局的变更，浏览/排序/预览/分享可用，重命名/复制/移动/trash 隐藏）；SAF scope 接线（persisted tree grant 进 scope 解析）与用户导入/导出 UI 入口在 HXA-046 中**显式推迟**、归后续跟进（roadmap 的 HXA-046 任务书不含 SAF；HXA-044/045 完成记录曾预期到 HXA-046）。
+- 文件管理 UI（HXA-046）当前边界：Workspace 恒可写；developer all-files 根本里程碑**只读**（区域守卫拒绝非 workspace 布局的变更，浏览/排序/预览/分享可用，重命名/复制/移动/trash 隐藏）；HXA-046 明确推迟的 persisted SAF tree scope 接线与用户导入/导出入口现已分别由 HXA-057/HXA-058 承接，仍未实现。
+- 聊天当前仍是纯文本：UI/`ChatService` 不生产附件，production image resolver 明确拒绝图片。底层 `ImageReference` 与三协议图片编码、HXA-044 SAF import pipeline 已存在，但不构成产品支持；UTF-8 文本附件基础规划为 HXA-049，图片 vision、系统分享草稿与端到端硬化规划为 HXA-055～056，并受 accepted [ADR-0014](../adr/0014-session-attachment-materialization.md)约束。UTF-16、PDF/PPT/DOC、音频、视频及其他二进制只规划统一类型分类与稳定 unsupported，不规划文档/媒体处理或 Provider upload。单文件 picker 导入不依赖 SAF tree；`read` 返回 base64 也不等于模型理解。
 - `ChatService` 的 turn 准入同时使用全局 `activeTurnJob`/`turnGate` 与按 turn 的 `turnCancels`，而 `turnGate` 的 KDoc 声称每会话只有一个 active turn；并发真相未固化，且缺少 ChatService 单元测试骨架（当前仅仪器测试覆盖 turn 行为）。统一为每会话模型并补测试归 HXA-048。
 - Workspace 文件层三项收敛归 HXA-048：`WorkspaceQuota.usageBytes` 每次文件操作全量 walk scope 目录报告当前用量（低优先，目录规模成实际瓶颈前可维持现状）；删除生产无引用的 `WorkspacePath` 死代码（连同其测试、`FileScopePathTest` 中镜像它的 oracle 与 `PathSyntax` KDoc 引用）；`files.listDir` 先物化排序整个目录再分页、app 层 TIME/SIZE 排序只作用于按名截断前缀（低优先）。
 - 全项目审查判定为**有意设计、不改动**：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 空子项目是 M6 占位模块（验收矩阵与 roadmap M6 已规划其测试）。

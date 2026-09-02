@@ -80,6 +80,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-046 | `./gradlew :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-047 | `./gradlew :tools:files:test` | Zip Slip/膨胀比 fixture |
 | HXA-048 | `./gradlew :core:workspace:test :tools:files:test :app:testConsumerDebugUnitTest spotlessCheck detekt` | `./gradlew :app:connectedConsumerDebugAndroidTest`；ChatService 单会话并发/取消、大目录 list/search 边界 |
+| HXA-049 | `./gradlew :core:model:test :core:agent:test :core:storage:testDebugUnitTest :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；Room migration、恶意 ContentProvider、picker/恢复/hash/egress binding |
 
 ### M5：QuickJS
 
@@ -90,6 +91,20 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-052 | `./gradlew :runtime:quickjs:testDebugUnitTest` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest` |
 | HXA-053 | `./gradlew :runtime:quickjs:testDebugUnitTest :tools:framework:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-054 | `./gradlew :runtime:quickjs:testDebugUnitTest` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest`；真机崩溃/内存/取消 |
+
+### M5A：多模态附件
+
+| 任务 | JVM/构建命令 | Android/外部验收 |
+| --- | --- | --- |
+| HXA-055 | `./gradlew :core:model:test :provider:openai-responses:test :provider:openai-chat:test :provider:anthropic:test :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；API 29/36 与低内存真机图片归一化、能力门控、取消/恢复 |
+| HXA-056 | `./gradlew :core:agent:test :core:storage:testDebugUnitTest :provider:openai-responses:test :provider:openai-chat:test :provider:anthropic:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest spotlessCheck detekt` | `./gradlew :app:connectedConsumerDebugAndroidTest`；文本/图片 picker+share E2E、进程回收、脱敏、UTF-16/文档/音频/视频统一拒绝；另记至少一个真实 vision endpoint smoke |
+
+### M5B：文件工作台剩余闭环
+
+| 任务 | JVM/构建命令 | Android/外部验收 |
+| --- | --- | --- |
+| HXA-057 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :tools:files:test :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；恶意 ContentProvider、persisted grant 重启/撤销/只读/跨 scope |
+| HXA-058 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；导入导出冲突、部分流、磁盘满、取消、进程回收与结果校验 |
 
 ### M6：浏览器与 Android 工具
 

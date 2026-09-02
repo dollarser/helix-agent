@@ -306,7 +306,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 | Gemini Android | 否（Google 体系） | 是 | 否 | 是 | Android 权限 + 按 App 屏幕自动化选择 | 平台闭源 | 系统助手参照 |
 | Claude Android | 否（Anthropic 体系） | 有限任务链 | 否 | 是，限定 App/Intent 能力 | 依系统权限/交互 | 平台闭源 | 系统助手参照 |
 | 小艺 / HarmonyOS | 否（华为/鸿蒙生态） | 是 | 否，非通用 shell Runtime | 是，Intents Kit、系统能力与 HMAF GUI 路径 | 平台权限/交互明确；参数级一次性批准未证实 | 平台闭源；垂域智能体有业务记录 | **系统原生 Agent 生态参照** |
-| **Helix 当前** | **是** | **是** | **否；已有原生文件工具** | **SAF/All-files 适配已落位，UI/Browser/设备动作未完成** | **是，exact binding + 一次性消费** | **是，Turn/Goal/Tool/Audit 基础已实现** | 文件能力底座已有，用户闭环尚待交付 |
+| **Helix 当前** | **是** | **是** | **否；已有原生文件工具** | **Workspace 文件管理 UI、SAF adapter 与 developer All-files 只读浏览已落位；长期 SAF tree scope、Browser/设备动作未完成** | **是，exact binding + 一次性消费** | **是，Turn/Goal/Tool/Audit 基础已实现** | 文件工作台已有浏览/预览/分享，导入导出、长期 scope 与聊天附件闭环仍待交付 |
 | **Helix 目标** | **是** | **是** | **QuickJS + 独立 PRoot/CLI UID** | **Browser/SAF/All-files/Accessibility/Root** | **用户显式启用 Advanced 与具体能力；高影响动作保持真实可见** | **任务、产物、失败与恢复可观察** | Provider 中立、能力优先的本机执行工作台 |
 
 ## 7. Helix 的可守差异与短板
@@ -321,7 +321,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 
 ### 7.2 核验日短板
 
-1. **文件工具尚未形成用户闭环**：底层 `read`/`write`/`edit`/`files.*`、SAF 和 All-files 适配已存在，但 HXA-046 的浏览、导入导出、trash 与 scope UI 尚未交付。
+1. **文件用户闭环仍不完整**：Workspace 浏览、排序、多选、预览、trash 和分享已经交付；但 SAF persisted tree grant 尚未接入 Tool scope，用户导入/导出入口和聊天附件仍未交付。最新边界以[实施状态](../development/status.md)为准。
 2. **与 Operit 的能力密度差距最大**：Browser、终端、工作流、本地模型、语音和市场均已有公开形态；Helix 当前不能用架构完整性代替这些可见能力。
 3. **与 AndCode 的开发闭环差距存在**：PRoot、Git、diff、terminal 和 Agent Runtime 已可演示；Helix 的 E2/E2C 仍在后续里程碑。
 4. **与 ClawMobile/Open-AutoGLM 的 Android 动作差距明显**：Accessibility、视觉 GUI Agent、通知和日历尚未实现。
@@ -331,7 +331,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 
 ### P0：先证明文件工作台的用户闭环
 
-- 优先完成[实施状态](../development/status.md)所列的下一项文件工作台检查点，形成目录浏览、导入导出、scope 选择与 trash 管理闭环。
+- 按[实施状态](../development/status.md)与[路线图](../development/roadmap.md)依次关闭文件工作台剩余缺口；目录浏览/trash 已完成，不再把它们重复列为待办，后续聚焦导入导出、长期 scope 和附件闭环。
 - 首个演示使用真实用户路径：配置 Provider → 选择目录 → 分析文件 → 预览变更 → 执行 → 查看结果与产物。
 - 宣传“Android 本机文件工作台”，Browser/PRoot/Accessibility 未完成前不把目标能力写成现状。
 
