@@ -1,5 +1,6 @@
 import com.android.build.api.dsl.LibraryExtension
 import com.diffplug.gradle.spotless.SpotlessExtension
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
@@ -97,6 +98,7 @@ val androidLibraries =
     )
 
 val jvmTestDependency = libs.junit4
+val ziplineDependency = libs.zipline
 val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
 val coroutinesCoreDependency = libs.kotlinx.coroutines.core
 val okhttpDependency = libs.okhttp.wire
@@ -238,6 +240,40 @@ subprojects {
             // is not visible transitively through the :feature:files project dependency).
             if (path == ":feature:files-allfiles") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-050: the QuickJS E1 backend uses the pinned Zipline 1.27.0 artifact
+            // (Android variant from the version catalog) as its QuickJS/JNI base. The
+            // spike instrumented tests run QuickJS in-process on device; the isolated
+            // service process itself is HXA-051.
+            if (path == ":runtime:quickjs") {
+                dependencies.add("implementation", ziplineDependency.get())
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+                // The 16 KiB-page ELF spike test (QuickJsNativeLibraryElfTest) parses the
+                // zipline-android AAR's .so files; resolve the artifact at configuration
+                // time and pass the path in (same pattern as :core:storage's
+                // `helix.schema.dir`). `implementation` is canBeResolved=false under AGP,
+                // and the variant classpaths only exist after AGP's own afterEvaluate, so
+                // resolve the resolvable debug runtime classpath in a later afterEvaluate.
+                afterEvaluate {
+                    val ziplineAarPath =
+                        configurations
+                            .getByName("debugRuntimeClasspath")
+                            .incoming
+                            .artifactView {
+                                lenient(true)
+                                componentFilter {
+                                    (it as? ModuleComponentIdentifier)?.module == "zipline-android"
+                                }
+                            }.files
+                            .first { it.name.endsWith(".aar") }
+                            .absolutePath
+                    tasks.withType<Test>().configureEach {
+                        systemProperty("helix.zipline.aar", ziplineAarPath)
+                    }
+                }
             }
         }
 

@@ -6,10 +6,10 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～047 |
-| 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、Workspace/文件工具（含受限 zip/tar Archive）、SAF 导入导出适配层与 developer All-files scope |
-| 尚无业务执行器 | Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-048 全项目审查后续收敛（统一 ChatService turn 模型为每会话并补单测骨架、删除 WorkspacePath 死代码、usageBytes/listDir 低优先收敛） |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～047；M5：HXA-050（Zipline/QuickJS spike，API 29/36 arm64-v8a；HXA-048 收敛项在本分支未执行） |
+| 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、Workspace/文件工具（含受限 zip/tar Archive）、SAF 导入导出适配层与 developer All-files scope、QuickJS spike 验证模块（`:runtime:quickjs`，ADR-0015 选定 Zipline 1.27.0） |
+| 尚无业务执行器 | Browser、MCP、Skill、QuickJS（仅 spike 验证，执行协议归 HXA-051）、PRoot/CLI、Accessibility、Root |
+| 当前检查点 | M5 / HXA-050 Zipline spike 完成（全部关键能力两台设备通过，ADR-0015 accepted）；下一项为 M5 / HXA-051 生产执行协议 |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -23,6 +23,7 @@
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](../completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](../completion-records/README.md) |
 | M4 | HXA-040～047：Workspace/scope、原子文件存储、首批文件工具、copy/move/trash、SAF adapter 与 developer All-files scope、文件管理 UI（Workspace 恒可写、developer all-files 根只读、SAF 接线与导入导出 UI 显式推迟），以及受限 zip/tar archive/extract | [逐 HXA 索引](../completion-records/README.md)、[文件工具 Bug 修复记录](../bug-fixes/2026-09-02-file-tool-safety-boundaries.md) |
+| M5 | HXA-050～050：Zipline 1.27.0 QuickJS spike——evaluate/memoryLimit/InterruptHandler/eval+Function 封堵/大于 6 MiB 调用线程栈/bindIsolatedService 唯一实例回收，API 29 + API 36 arm64-v8a 各 25 例 androidTest 全过；16 KiB page 以四 ABI ELF PT_LOAD 对齐 16 KiB 为替代证据；选型决定 ADR-0015（accepted） | [HXA-050 完成记录](../completion-records/HXA-050.md)、[ADR-0015](../adr/0015-zipline-quickjs-execution-base.md) |
 
 架构决定的状态与理由见 [ADR 目录](../adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](../history/documentation-review.md)。“有完成记录”不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +33,8 @@
 
 ## Next task
 
-- M4 / HXA-048 全项目审查后续收敛：统一 ChatService 每会话 turn 模型，并按实测决定 Workspace quota 与大目录 list/search 是否需要优化；删除确认无生产引用的 `WorkspacePath` 镜像抽象。
+- M5 / HXA-051 QuickJS 生产执行协议：isolated Service 执行通道（AIDL/Binder）、`js_` + 32-hex 实例命名与碰撞验证、执行线程生命周期（实例必须创建在执行线程，native 栈 > 6 MiB）、watchdog 与 Binder death signal 回收。输入见 [HXA-050 完成记录](../completion-records/HXA-050.md)「风险或后续任务」。
+- M4 / HXA-048 全项目审查后续收敛仍待执行（本分支按指令直接执行 HXA-050）：统一 ChatService 每会话 turn 模型，并按实测决定 Workspace quota 与大目录 list/search 是否需要优化；删除确认无生产引用的 `WorkspacePath` 镜像抽象。
 
 ## Blocked
 
@@ -51,6 +53,7 @@
 
 ## Known limitations
 
+- HXA-050 spike 的环境限制（替代证据已在完成记录）：无 API 34 系统镜像（API 29/36 覆盖 minSdk 与上界）、arm64 Mac 无 x86_64 模拟器镜像（x86_64 仅有 AAR 内 `.so` 存在性 + ELF 对齐证据，未声称设备运行）、设备均为 4 KiB page（16 KiB 以四 ABI PT_LOAD 对齐 16 KiB + 4 KiB 全能力运行为替代证据）。API 34、x86_64 设备与 16 KiB 真机运行验证归 HXA-051/054 与后续设备矩阵。
 - GitHub Actions 已有远端运行证据，但 workflow 不运行模拟器/真机测试；现有 artifact 是短期 debug 安装包，不是签名 release 或发布验收证据。
 - Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root 等用户可感知执行能力尚未实现。
 - M0 只在 API 36 arm64-v8a 模拟器完成设备验收；API 29、多 ABI 和真机矩阵仍待执行。

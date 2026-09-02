@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- HXA-050 spike: minimal non-exported isolated service. Its only job is to prove
+             on-device that ContextCompat.bindIsolatedService can create a per-instance
+             isolated process, report its own PID/UID, and let Android recycle the instance
+             after unbind. The production protocol (instance naming, Parcelable/PFD,
+             interrupt, death handling) belongs to HXA-051 and is intentionally absent here. -->
+        <service
+            android:name=".SpikeIsolatedService"
+            android:isolatedProcess="true"
+            android:exported="false" />
+    </application>
+</manifest>
