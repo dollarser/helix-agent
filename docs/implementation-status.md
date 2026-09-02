@@ -6,10 +6,10 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～042 |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～043 |
 | 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、WorkspacePath/FileScopePath 路径 value object 与 scope 边界、Workspace 原子文件持久化（目录布局/hash/临时写+fsync+replace/前置 hash/配额/bounded MIME/Artifact 登记 seam） |
 | 尚无业务执行器 | Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-043 Copy/Move/Delete/Trash（冲突策略显式；删除进 Helix trash，恢复与物理清空分开） |
+| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-044 SAF adapter（导入/导出、persisted tree grant、撤销检测、恶意 ContentProvider metadata 和大流取消） |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -22,7 +22,7 @@
 | M1 | HXA-010～016：领域状态、Plan/Goal、Room、恢复、Context Builder | [逐 HXA 索引](completion-records/README.md) |
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](completion-records/README.md) |
-| M4 | HXA-040～042：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam）；首批业务文件工具 `read`/`write`/`edit`/`files.stat`/`files.list`/`files.search`/`files.mkdir`（offset/maxBytes 分页、编码边界、稳定 EOF、10 MiB 分块、有界搜索、region 边界、真实路径不外泄）与覆盖完整安全 descriptor 的 contractHash 审批失效门槛（[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed） | [逐 HXA 索引](completion-records/README.md) |
+| M4 | HXA-040～043：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam）；首批业务文件工具 `read`/`write`/`edit`/`files.stat`/`files.list`/`files.search`/`files.mkdir`（offset/maxBytes 分页、编码边界、稳定 EOF、10 MiB 分块、有界搜索、region 边界、真实路径不外泄）与覆盖完整安全 descriptor 的 contractHash 审批失效门槛（[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed）；`files.copy`/`files.move`/`files.delete` 显式冲突策略（已存在目标未带 overwrite 拒绝、目录目标一律拒绝）与删除进 `.helix/trash` 回收站（entry 名自描述可逆、恢复与物理清空为独立 store seam、跨 scope move 先发布后删除不丢源） | [逐 HXA 索引](completion-records/README.md) |
 
 架构决定的状态与理由见 [ADR 目录](adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](documentation-review.md)。“有完成记录”仍不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +32,7 @@
 
 ## Next task
 
-- M4 / HXA-043 Copy/Move/Delete/Trash：冲突策略显式；删除进 Helix trash，恢复与物理清空分开；跨 scope 和覆盖提升风险。
+- M4 / HXA-044 SAF adapter：导入/导出、persisted tree grant、撤销检测、恶意 ContentProvider metadata 和大流取消。
 
 ## Blocked
 
@@ -52,7 +52,7 @@
 ## Known limitations
 
 - GitHub Actions 已有远端运行证据，但当前 workflow 不运行模拟器/真机测试；最新 artifact 是短期 debug 安装包，不是签名 release 或发布验收证据。
-- Provider 配置、三协议聊天与 M3 的 Tool Loop/安全管线已实现；但除 `time.now` 验证工具外，Workspace/文件、Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root 等用户可感知执行能力尚未实现。
+- Provider 配置、三协议聊天与 M3 的 Tool Loop/安全管线已实现；但除 `time.now` 验证工具和 HXA-042/043 的 Workspace/文件工具（`read`/`write`/`edit`/`files.*`）外，Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root 等用户可感知执行能力尚未实现。
 - M0 只在 API 36 arm64-v8a 模拟器完成设备验收；API 29、多 ABI 和真机矩阵由后续能力任务按验收矩阵执行。
 - 单一直接分发主包目前只是 ADR-0006 文档决定：developer APK 尚未以“Helix 主应用 + Standard 默认 + Advanced 切换”的完整产品流程完成设备验收，最终 applicationId/签名也未决定；不得把现有空壳 build 当作已发布主包。
 - developer 主包未来声明 `MANAGE_EXTERNAL_STORAGE` 或 Accessibility Service 后，即使 Standard UI 不提供启用入口，Android 系统设置仍可能列出 Helix。Standard 保证“默认关闭、不会自动申请/启用、Agent 无 scope”，不保证系统设置完全隐藏这些声明。
@@ -65,3 +65,4 @@
 - M3 收口代码审查的修复、验证矩阵和保留取舍已迁入[文档复核记录 §14](documentation-review.md#14-m3-收口代码审查与修复2026-09-01)，不再在唯一状态源重复维护。
 - ApprovalBinding 现含 `contractHash`（完整安全 descriptor 的 SHA-256，[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed）：timeout、输出上限、Capability、风险、幂等性或 origin 等安全字段变化会强制旧审批凭证失效（`ContractHashGateTest` 机械证明）；`serverProvidedHints`（不可信展示文本）刻意不进入契约，其变化不使审批失效。
 - ADR-0005 的 Advanced 高敏出网规则引擎与展示 seam 已有，但持久化、创建和撤销 UI 尚未实现，明确归 HXA-068；store 不可用时生产规则集保持空并回到逐次审批。
+- `files.copy`/`files.move`/`files.delete` 的 `baseRisk` 一律 L2（逐次审批）：policy 引擎无 per-call/per-argument 风险升级机制，PRD“跨 scope 或覆盖时提升风险”不可表达，fail-closed 取统一 L2；per-call L3 升级为已知限制（HXA-043 完成记录，决策记录第 1 条）。trash 的恢复/物理清空只是 store seam，无 model 工具、无 UI；trash 面由 HXA-046 文件管理 UI 实现。

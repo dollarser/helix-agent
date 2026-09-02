@@ -1,9 +1,11 @@
 package com.helix.core.workspace
 
 import java.io.FileNotFoundException
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.UUID
 
@@ -324,6 +326,239 @@ class WorkspaceArtifactStore(
         Files.createDirectories(target)
     }
 
+    /**
+     * Copies the regular file at [src] to [dst] (HXA-043 `files.copy`). [dst] must stay inside
+     * the user [region]; [src] is containment-enforced against its own scope root (the tool layer
+     * decides whether [src] may come from a user region). The conflict policy is explicit: an
+     * existing [dst] (file OR directory) is refused unless [overwrite] is set, and an
+     * [overwrite] into a directory is refused regardless. Cross-scope copies are supported —
+     * both scope roots are resolved independently.
+     *
+     * Order (fail-closed): region check → source resolve/containment → destination
+     * resolve/containment → conflict pre-check → destination-scope quota pre-check (no temp on
+     * rejection) → read → atomic publish. The source is never modified.
+     * @throws FileNotFoundException when [src] does not exist or is not a regular file.
+     * @throws FileAlreadyExistsException when [dst] exists and [overwrite] is false, or [dst]
+     *   is a directory.
+     * @throws WorkspaceQuota.QuotaExceeded when the destination scope cannot admit the bytes.
+     */
+    fun copyFile(
+        src: FileScopePath,
+        dst: FileScopePath,
+        region: String,
+        overwrite: Boolean,
+    ): CopyMoveOutcome {
+        require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
+        require(WorkspaceLayout.regionOf(dst.relativePath) == region) {
+            "destination must stay inside the $region region"
+        }
+        val srcRoot = resolve(src.scopeId)
+        val dstRoot = resolve(dst.scopeId)
+        val source = resolveContained(src, srcRoot)
+        if (!Files.exists(source) || !Files.isRegularFile(source)) {
+            throw FileNotFoundException("source not found: ${src.toModelReference()}")
+        }
+        val target = resolveContained(dst, dstRoot)
+        ensureWritableTarget(target, overwrite)
+        val overwritten = Files.exists(target)
+        val size = Files.size(source)
+        WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
+        val sha = AtomicFileWriter.writeAtomic(target, Files.readAllBytes(source), null)
+        return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+    }
+
+    /**
+     * Moves the regular file at [src] to [dst] (HXA-043 `files.move`). Same conflict and region
+     * rules as [copyFile]. A same-scope move is a single (preferred-atomic) rename — no quota
+     * check is needed because the scope's aggregate usage can only shrink. A cross-scope move is
+     * copy-then-delete and is NOT atomic: the destination is quota-checked and fully published
+     * before the source is deleted, so a failure in between leaves the source intact (a
+     * destination temp may remain, reclaimed by [reclaimTempFiles]).
+     * @throws FileNotFoundException when [src] does not exist or is not a regular file.
+     * @throws FileAlreadyExistsException when [dst] exists and [overwrite] is false, or [dst]
+     *   is a directory.
+     * @throws WorkspaceQuota.QuotaExceeded for a cross-scope move the destination scope cannot
+     *   admit (the source is left untouched).
+     */
+    @Suppress("SwallowedException") // same-scope fallback: non-atomic move on filesystems without ATOMIC_MOVE
+    fun moveFile(
+        src: FileScopePath,
+        dst: FileScopePath,
+        region: String,
+        overwrite: Boolean,
+    ): CopyMoveOutcome {
+        require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
+        require(WorkspaceLayout.regionOf(dst.relativePath) == region) {
+            "destination must stay inside the $region region"
+        }
+        val srcRoot = resolve(src.scopeId)
+        val dstRoot = resolve(dst.scopeId)
+        val source = resolveContained(src, srcRoot)
+        if (!Files.exists(source) || !Files.isRegularFile(source)) {
+            throw FileNotFoundException("source not found: ${src.toModelReference()}")
+        }
+        val target = resolveContained(dst, dstRoot)
+        ensureWritableTarget(target, overwrite)
+        val overwritten = Files.exists(target)
+        val size = Files.size(source)
+        if (srcRoot == dstRoot) {
+            val sha = AtomicFileWriter.sha256Hex(source)
+            if (overwritten) {
+                try {
+                    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+                } catch (e: AtomicMoveNotSupportedException) {
+                    Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+            } else {
+                try {
+                    Files.move(source, target, StandardCopyOption.ATOMIC_MOVE)
+                } catch (e: AtomicMoveNotSupportedException) {
+                    Files.move(source, target)
+                }
+            }
+            return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+        }
+        // Cross-scope: publish into the destination scope (quota-gated) before the source is
+        // deleted, so the source can never be lost to an admission failure.
+        WorkspaceQuota.ensureRoom(dstRoot, size, quotaPolicy.maxWorkspaceBytes)
+        val sha = AtomicFileWriter.writeAtomic(target, Files.readAllBytes(source), null)
+        Files.delete(source)
+        return CopyMoveOutcome(dst.relativePath, size, sha, WorkspaceQuota.usageBytes(dstRoot), overwritten)
+    }
+
+    /**
+     * Moves the regular file at [path] into the scope's `.helix/trash/` (HXA-043 `files.delete`)
+     * as a single rename: the file's bytes and size are unchanged, the scope's aggregate usage
+     * is unchanged (the trash lives inside the scope), and the original path is gone.
+     *
+     * The trash entry name is `<epochMillis>-<8-hex>__<encoded original relative path>`: the
+     * encoded path is reversible (only `%` and `/` are escaped), so [restoreFromTrash] can find
+     * the original location without any sidecar metadata, and the timestamp+id prefix makes a
+     * name collision effectively impossible — a collision is still re-drawn, never clobbered.
+     * @throws FileNotFoundException when [path] does not exist or is not a regular file.
+     */
+    fun moveToTrash(path: FileScopePath): TrashEntry {
+        val root = resolve(path.scopeId)
+        val source = resolveContained(path, root)
+        if (!Files.exists(source) || !Files.isRegularFile(source)) {
+            throw FileNotFoundException("not a regular file: ${path.toModelReference()}")
+        }
+        val size = Files.size(source)
+        val sha = AtomicFileWriter.sha256Hex(source)
+        val entryDir = PathResolution.join(root, WorkspaceLayout.TRASH)
+        val entryName = uniqueTrashEntryName(entryDir, path.relativePath)
+        Files.move(source, entryDir.resolve(entryName), StandardCopyOption.ATOMIC_MOVE)
+        return TrashEntry(path.relativePath, entryName, size, sha)
+    }
+
+    /**
+     * Restores a trash entry to its ORIGINAL relative path (HXA-043; the counterpart to
+     * [moveToTrash], deliberately a SEPARATE operation from [purgeTrashEntry]). Fails closed
+     * when the original path is currently occupied (the entry stays in the trash) or when the
+     * referenced path is not a well-formed trash entry.
+     * @throws FileNotFoundException when the trash entry does not exist.
+     * @throws FileAlreadyExistsException when the original path is occupied.
+     * @throws IllegalArgumentException when the reference is not a trash entry.
+     */
+    fun restoreFromTrash(trashRef: FileScopePath): TrashRestoreOutcome {
+        require(isTrashReference(trashRef.relativePath)) { "path is not a trash entry" }
+        val root = resolve(trashRef.scopeId)
+        val entry = resolveContained(trashRef, root)
+        if (!Files.exists(entry) || !Files.isRegularFile(entry)) {
+            throw FileNotFoundException("trash entry not found: ${trashRef.toModelReference()}")
+        }
+        val originalRel = decodeTrashEntryName(entry.fileName.toString())
+        val original = resolveContained(FileScopePath(trashRef.scopeId, originalRel), root)
+        if (Files.exists(original)) {
+            throw java.nio.file.FileAlreadyExistsException("original location is occupied: $originalRel")
+        }
+        original.parent?.let { Files.createDirectories(it) }
+        Files.move(entry, original, StandardCopyOption.ATOMIC_MOVE)
+        return TrashRestoreOutcome(originalRel, WorkspaceQuota.usageBytes(root))
+    }
+
+    /**
+     * Permanently deletes ONE trash entry (HXA-043) — the physical-empty half, deliberately
+     * separate from [restoreFromTrash]. Only well-formed trash entries under `.helix/trash/`
+     * are purgable; anything else is refused, so this can never reach a user-region file.
+     * @throws FileNotFoundException when the trash entry does not exist.
+     * @throws IllegalArgumentException when the reference is not a trash entry.
+     */
+    fun purgeTrashEntry(trashRef: FileScopePath): PurgeOutcome {
+        require(isTrashReference(trashRef.relativePath)) { "path is not a trash entry" }
+        val root = resolve(trashRef.scopeId)
+        val entry = resolveContained(trashRef, root)
+        if (!Files.exists(entry) || !Files.isRegularFile(entry)) {
+            throw FileNotFoundException("trash entry not found: ${trashRef.toModelReference()}")
+        }
+        Files.delete(entry)
+        return PurgeOutcome(trashRef.relativePath, WorkspaceQuota.usageBytes(root))
+    }
+
+    /** Fail-closed conflict pre-check for [copyFile]/[moveFile]: a directory is never a target. */
+    private fun ensureWritableTarget(
+        target: Path,
+        overwrite: Boolean,
+    ) {
+        if (Files.isDirectory(target)) {
+            throw java.nio.file.FileAlreadyExistsException("target is a directory")
+        }
+        if (Files.exists(target) && !overwrite) {
+            throw java.nio.file.FileAlreadyExistsException("target already exists")
+        }
+    }
+
+    private fun uniqueTrashEntryName(
+        entryDir: Path,
+        originalRelativePath: String,
+    ): String {
+        repeat(4) {
+            val name =
+                "${System.currentTimeMillis()}-${UUID.randomUUID().toString().replace("-", "").take(8)}__" +
+                    encodeTrashPath(originalRelativePath)
+            if (!Files.exists(entryDir.resolve(name))) return name
+        }
+        error("unable to allocate a unique trash entry name")
+    }
+
+    /** Reversible encoding for a trash entry name: escapes `%` then `/` (the layout separator). */
+    private fun encodeTrashPath(relativePath: String): String = relativePath.replace("%", "%25").replace("/", "%2F")
+
+    /** The exact inverse of [encodeTrashPath]; an unrecognized escape is a malformed entry. */
+    private fun decodeTrashPath(encoded: String): String {
+        val out = StringBuilder(encoded.length)
+        var i = 0
+        while (i < encoded.length) {
+            val c = encoded[i]
+            if (c == '%') {
+                require(i + 2 < encoded.length) { "malformed trash entry name" }
+                val escape = encoded.substring(i + 1, i + 3)
+                require(escape == "25" || escape == "2F") { "malformed trash entry name" }
+                out.append(if (escape == "25") '%' else '/')
+                i += 3
+            } else {
+                out.append(c)
+                i++
+            }
+        }
+        return out.toString()
+    }
+
+    /** Parses a trash entry name back to its original relative path. */
+    private fun decodeTrashEntryName(entryName: String): String {
+        val match =
+            TRASH_ENTRY_NAME.matchEntire(entryName)
+                ?: throw IllegalArgumentException("malformed trash entry name")
+        return decodeTrashPath(match.groupValues[3])
+    }
+
+    /** True for a path pointing directly at an entry inside `.helix/trash/`. */
+    private fun isTrashReference(relativePath: String): Boolean {
+        if (!relativePath.startsWith(WorkspaceLayout.TRASH + "/")) return false
+        val name = relativePath.removePrefix(WorkspaceLayout.TRASH + "/")
+        return name.isNotEmpty() && !name.contains('/') && TRASH_ENTRY_NAME.matches(name)
+    }
+
     private fun resolve(scope: String): Path = rootResolver.resolveRoot(scope)
 
     private fun resolveContained(
@@ -339,6 +574,13 @@ class WorkspaceArtifactStore(
 
         /** Hard ceiling on total entries walked by one `files.search` call. */
         const val MAX_SEARCH_SCAN: Int = 20_000
+
+        /**
+         * A trash entry name (HXA-043): `<13-digit epoch millis>-<8 hex>__<encoded original
+         * relative path>`. The prefix is allocation metadata; the encoded suffix is reversible
+         * ([decodeTrashPath]) so a restore needs no sidecar record.
+         */
+        val TRASH_ENTRY_NAME: Regex = Regex("""^(\d{13})-([0-9a-f]{8})__(.+)$""")
     }
 }
 
@@ -400,5 +642,34 @@ data class SearchResult(
 data class WriteOutcome(
     val record: WorkspaceArtifactStore.ArtifactRecord,
     val probe: ContentProbe.Result,
+    val usageBytesAfter: Long,
+)
+
+/** Outcome of [WorkspaceArtifactStore.copyFile] / [moveFile] (HXA-043). */
+data class CopyMoveOutcome(
+    val destinationRelativePath: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val usageBytesAfter: Long,
+    val overwritten: Boolean,
+)
+
+/** A file moved into Helix trash (HXA-043): the original location is restorable. */
+data class TrashEntry(
+    val originalRelativePath: String,
+    val trashName: String,
+    val sizeBytes: Long,
+    val sha256: String,
+)
+
+/** Outcome of [WorkspaceArtifactStore.restoreFromTrash] (HXA-043). */
+data class TrashRestoreOutcome(
+    val restoredRelativePath: String,
+    val usageBytesAfter: Long,
+)
+
+/** Outcome of [WorkspaceArtifactStore.purgeTrashEntry] (HXA-043). */
+data class PurgeOutcome(
+    val purgedRelativePath: String,
     val usageBytesAfter: Long,
 )

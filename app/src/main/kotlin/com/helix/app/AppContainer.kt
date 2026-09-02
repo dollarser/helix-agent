@@ -28,8 +28,11 @@ import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.provider.api.CredentialLookup
 import com.helix.tools.files.EditTool
+import com.helix.tools.files.FilesCopyTool
+import com.helix.tools.files.FilesDeleteTool
 import com.helix.tools.files.FilesListTool
 import com.helix.tools.files.FilesMkdirTool
+import com.helix.tools.files.FilesMoveTool
 import com.helix.tools.files.FilesSearchTool
 import com.helix.tools.files.FilesStatTool
 import com.helix.tools.files.ReadTool
@@ -175,6 +178,12 @@ internal class DefaultAppContainer(
         FilesSearchTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesStatTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesMkdirTool.register(toolRegistry, toolImplementations, workspaceStore)
+        // HXA-043: explicit conflict policy (copy/move refuse an existing destination without
+        // overwrite) and delete-into-trash; restore and purge stay store seams, not model
+        // tools.
+        FilesCopyTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesMoveTool.register(toolRegistry, toolImplementations, workspaceStore)
+        FilesDeleteTool.register(toolRegistry, toolImplementations, workspaceStore)
     }
 
     /**
