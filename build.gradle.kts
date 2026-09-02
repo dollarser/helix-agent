@@ -247,6 +247,13 @@ subprojects {
             // spike instrumented tests run QuickJS in-process on device; the isolated
             // service process itself is HXA-051.
             if (path == ":runtime:quickjs") {
+                // BuildConfig gates the DEBUG-only crash-injection seam in
+                // JsExecutionService (release builds compile the seam out).
+                extensions.configure<LibraryExtension> {
+                    buildFeatures {
+                        buildConfig = true
+                    }
+                }
                 dependencies.add("implementation", ziplineDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
