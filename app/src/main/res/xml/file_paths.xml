@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HXA-046 share action: the FileProvider roots the file manager may hand to another app.
+     Workspace files live under the app-private filesDir/workspaces/ (HXA-041 layout);
+     all-files roots (developer flavor) are public external-storage directories. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <files-path
+        name="workspaces"
+        path="workspaces/" />
+    <external-path
+        name="all-files"
+        path="." />
+</paths>

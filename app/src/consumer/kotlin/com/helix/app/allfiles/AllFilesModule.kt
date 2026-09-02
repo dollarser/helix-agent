@@ -31,6 +31,9 @@ internal object AllFilesModule {
     @Suppress("FunctionOnlyReturningConstant", "UnusedParameter")
     fun resolveScopeRoot(scopeId: String): Path? = null
 
+    /** No all-files roots to browse (HXA-046): the consumer build ships no all-files capability. */
+    fun allFilesSources(): List<AllFilesSource> = emptyList()
+
     /** Unreachable in the consumer build (`AVAILABLE == false` guards the navigation). */
     @Composable
     @SuppressLint("ComposableNaming")

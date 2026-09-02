@@ -40,6 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
 import kotlinx.coroutines.launch
@@ -159,6 +160,12 @@ internal fun HelixApp(container: AppContainer) {
 
                                 ShellDestination.Audit -> {
                                     AuditScreenDestination(container)
+                                }
+
+                                // HXA-046: the file-management screen over the always-available
+                                // sources (Workspace, always; developer all-files roots, read-only).
+                                ShellDestination.Files -> {
+                                    FilesScreen(container.fileManager)
                                 }
 
                                 // HXA-045: the all-files consent screen lives in the developer

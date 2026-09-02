@@ -114,6 +114,21 @@ internal object AllFilesModule {
         }
 
     /**
+     * The enabled all-files roots the file manager can browse (HXA-046). A root appears only while
+     * it is BOTH enabled AND the live `MANAGE_EXTERNAL_STORAGE` grant is present — a source whose
+     * grant was revoked or disabled never surfaces, so the file manager never offers a scope it
+     * cannot actually resolve.
+     */
+    fun allFilesSources(): List<AllFilesSource> =
+        if (!probe.isExternalStorageManager()) {
+            emptyList()
+        } else {
+            AllFilesRootCatalog.ROOTS
+                .filter { isEnabled(it.key) }
+                .map { AllFilesSource(AllFilesRootCatalog.scopeId(it.key), it.displayName) }
+        }
+
+    /**
      * The live `MANAGE_EXTERNAL_STORAGE` state, read from the SAME probe the scope resolver uses —
      * a plain system query, safe on the UI thread. This deliberately does NOT go through the
      * capability center: `CapabilityCenter.check` writes an execution-time `capability_grants`

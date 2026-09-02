@@ -223,7 +223,7 @@ class WorkspaceArtifactStore(
         val root = resolve(path.scopeId)
         val target = resolveContained(path, root)
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            return StatInfo(false, -1L, false, false, false)
+            return StatInfo(false, -1L, false, false, false, -1L)
         }
         val attrs: BasicFileAttributes =
             Files.readAttributes(
@@ -231,7 +231,14 @@ class WorkspaceArtifactStore(
                 BasicFileAttributes::class.java,
                 LinkOption.NOFOLLOW_LINKS,
             )
-        return StatInfo(true, attrs.size(), attrs.isDirectory(), attrs.isRegularFile(), attrs.isSymbolicLink())
+        return StatInfo(
+            true,
+            attrs.size(),
+            attrs.isDirectory(),
+            attrs.isRegularFile(),
+            attrs.isSymbolicLink(),
+            attrs.lastModifiedTime().toMillis(),
+        )
     }
 
     /**
@@ -648,13 +655,18 @@ private fun boundedWalk(
     return SearchResult(matches, truncated)
 }
 
-/** Outcome of [WorkspaceArtifactStore.stat] (HXA-042 `files.stat`). */
+/**
+ * Outcome of [WorkspaceArtifactStore.stat] (HXA-042 `files.stat`). [mtimeEpochMillis] is the
+ * last-modified time (epoch ms), or -1 when the path does not exist (HXA-046: the file manager's
+ * time sort and the doc 09 `files.stat` mtime field).
+ */
 data class StatInfo(
     val exists: Boolean,
     val sizeBytes: Long,
     val isDirectory: Boolean,
     val isRegularFile: Boolean,
     val isSymlink: Boolean,
+    val mtimeEpochMillis: Long,
 )
 
 /** One bounded page of [WorkspaceArtifactStore.listDir] (HXA-042 `files.list`). */

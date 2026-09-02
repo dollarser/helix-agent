@@ -6,10 +6,10 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～045 |
+| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～046 |
 | 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、WorkspacePath/FileScopePath 路径 value object 与 scope 边界、Workspace 原子文件持久化（目录布局/hash/临时写+fsync+replace/前置 hash/配额/bounded MIME/Artifact 登记 seam）、SAF 导入/导出适配层（fail-closed 管线、persisted tree grant 注册表、撤销检测、流式原子写 seam）、All files scope（封闭 Helix roots 目录 + persisted roots 注册表、实时 isExternalStorageManager 验证、per-variant developer/consumer seam、fail-closed scope 边界） |
 | 尚无业务执行器 | Browser、MCP、Skill、QuickJS、PRoot/CLI、Accessibility、Root |
-| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-046 文件管理 UI（SAF scope 接线、导入/导出 UI 入口、目录浏览器、trash 恢复/物理清空） |
+| 当前检查点 | 无进行中任务；下一项为 M4 / HXA-047 Archive 工具（受限 zip/tar 创建与解压、Zip Slip/symlink/膨胀比防御） |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -22,7 +22,7 @@
 | M1 | HXA-010～016：领域状态、Plan/Goal、Room、恢复、Context Builder | [逐 HXA 索引](completion-records/README.md) |
 | M2 | HXA-020～028：Secret/Provider、三协议、能力探测、模板、聊天 UI | [逐 HXA 索引](completion-records/README.md) |
 | M3 | HXA-030～039：Tool/Schema/Capability/Policy/Approval、Dispatcher/Scheduler、Tool Loop、模型流状态与 batch-safe Turn Coordinator | [逐 HXA 索引](completion-records/README.md) |
-| M4 | HXA-040～045：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam）；首批业务文件工具 `read`/`write`/`edit`/`files.stat`/`files.list`/`files.search`/`files.mkdir`（offset/maxBytes 分页、编码边界、稳定 EOF、10 MiB 分块、有界搜索、region 边界、真实路径不外泄）与覆盖完整安全 descriptor 的 contractHash 审批失效门槛（[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed）；`files.copy`/`files.move`/`files.delete` 显式冲突策略（已存在目标未带 overwrite 拒绝、目录目标一律拒绝）与删除进 `.helix/trash` 回收站（entry 名自描述可逆、恢复与物理清空为独立 store seam、跨 scope move 先发布后删除不丢源）；SAF 导入/导出适配层（对谎报 provider 全链路 fail-closed：admission/硬上限/EOF 复核三重 size 防御、MIME 重探、display name 消毒、流式原子写 seam `writeAtomicStream`+类型化 abandon、persisted tree grant 注册表（确定性 scopeId/损坏隔离/逐条防篡改）与 query 探测撤销 sweep、destination 写后大小复核，in-APK 恶意 ContentProvider 设备验证）；All files access（封闭 Helix roots 目录 + persisted roots 注册表、实时 isExternalStorageManager 验证、per-variant developer/consumer seam、同意屏与系统设置跳转、fail-closed scope 边界——即使系统授权 scope 外仍拒绝） | [逐 HXA 索引](completion-records/README.md) |
+| M4 | HXA-040～046：WorkspacePath 与 FileScopePath 路径 value object、规范化、越界/symlink 拒绝与 scope adapter 边界；Artifact、配额和原子文件操作（目录布局、hash、临时写+fsync+replace、前置 hash、配额、bounded MIME/encoding detection、Artifact 登记 seam）；首批业务文件工具 `read`/`write`/`edit`/`files.stat`/`files.list`/`files.search`/`files.mkdir`（offset/maxBytes 分页、编码边界、稳定 EOF、10 MiB 分块、有界搜索、region 边界、真实路径不外泄）与覆盖完整安全 descriptor 的 contractHash 审批失效门槛（[ADR-0011](adr/0011-full-descriptor-contract-hash.md)，proposed）；`files.copy`/`files.move`/`files.delete` 显式冲突策略（已存在目标未带 overwrite 拒绝、目录目标一律拒绝）与删除进 `.helix/trash` 回收站（entry 名自描述可逆、恢复与物理清空为独立 store seam、跨 scope move 先发布后删除不丢源）；SAF 导入/导出适配层（对谎报 provider 全链路 fail-closed：admission/硬上限/EOF 复核三重 size 防御、MIME 重探、display name 消毒、流式原子写 seam `writeAtomicStream`+类型化 abandon、persisted tree grant 注册表（确定性 scopeId/损坏隔离/逐条防篡改）与 query 探测撤销 sweep、destination 写后大小复核，in-APK 恶意 ContentProvider 设备验证）；All files access（封闭 Helix roots 目录 + persisted roots 注册表、实时 isExternalStorageManager 验证、per-variant developer/consumer seam、同意屏与系统设置跳转、fail-closed scope 边界——即使系统授权 scope 外仍拒绝）；文件管理 UI（用户文件门面 + Compose 屏：来源标识/面包屑/名称/时间/大小排序/列表/网格/多选/文本/图片预览/MIME/SHA-256 信息/显式冲突绝不默认覆盖/长操作进度与取消/trash 恢复/永久删除/清空/FileProvider 分享；Workspace 恒可写、developer all-files 根只读，SAF scope 接线与导入/导出 UI 显式推迟） | [逐 HXA 索引](completion-records/README.md) |
 
 架构决定的状态与理由见 [ADR 目录](adr/README.md)；跨里程碑复核、事实修正和历史取舍见[文档复核记录](documentation-review.md)。“有完成记录”仍不等于当前发布能力，当前可用边界只看本文件的摘要、接口和限制。
 
@@ -32,7 +32,7 @@
 
 ## Next task
 
-- M4 / HXA-046 文件管理 UI：SAF scope 接入（persisted tree grant 进 scope 解析）+ 导入/导出 UI 入口、目录浏览器（All-files 任意路径根）、trash 恢复/物理清空 UI。
+- M4 / HXA-047 Archive 工具：受限 zip/tar 创建与解压；防 Zip Slip、symlink/device、文件数、总大小和膨胀比。
 
 ## Blocked
 
@@ -71,3 +71,4 @@
 - 文件工具的内存与超时边界已落实（2026-09-02 对抗性审查修复）：`write` 的 `content` 上限 4 MiB UTF-16 字符（schema maxLength + executor 防御性复检）；`edit` 拒绝超过 50 MiB 的文件（替换前需整文件严格解码入内存，quota 不是内存边界），且整文件严格 UTF-8 解码（后段非法字节或 NUL 一律拒绝，不复发 U+FFFD）；`files.copy`/`files.move` 改为 64 KiB 块流式复制 + 增量 SHA-256，不再整文件持内存。工具 `timeout` 由 `ToolDispatcher` 看门狗实际执行：executor 到期未返回即结算为稳定 TIMEOUT（阻塞线程 best-effort 中断后放弃），契约字段从“仅文档”变为有执行方的事实。
 - 工具超时 abandon 可能留下 `.helix-tmp-*` temp 孤儿：唯一回收 API `reclaimTempFiles` 无生产调用点，且 temp 计入 1 GiB scope 配额——触发需“不可中断 I/O 挂死 + 超时 abandon”（罕见，影响限于该 scope）。`reclaimTempFiles` 无 age 阈值，接入写路径会误删并发活写的 temp；age-based reclaim 的 API 设计归后续文件管理任务，与 HXA-046 同批（2026-09-02 复审 agent 发现，显式推迟）。
 - SAF 导入/导出已实现为适配层（HXA-044，`AppContainer.featureFiles` 适配器束，恶意 provider 防御经 in-APK 恶意 ContentProvider 设备验证），但 persisted SAF tree grant 尚未接入文件工具的 scope 解析，也无用户导入/导出 UI 入口：SAF scope 接入归 HXA-046（HXA-044 完成记录，决策记录第 6 条）。All-files scope 已接线（HXA-045）：developer 变体下 `af-<root>` scope 经 `AppContainer` 的 `AllFilesModule.resolveScopeRoot` 解析（系统授权 + 用户启用根双门、fail-closed），consumer 变体无此能力；文件工具当前见 app 私有 scope（`app`）与 developer 的 All-files scope（`af-<root>`）。
+- 文件管理 UI（HXA-046）当前边界：Workspace 恒可写；developer all-files 根本里程碑**只读**（区域守卫拒绝非 workspace 布局的变更，浏览/排序/预览/分享可用，重命名/复制/移动/trash 隐藏）；SAF scope 接线（persisted tree grant 进 scope 解析）与用户导入/导出 UI 入口在 HXA-046 中**显式推迟**、归后续跟进（roadmap 的 HXA-046 任务书不含 SAF；HXA-044/045 完成记录曾预期到 HXA-046）。

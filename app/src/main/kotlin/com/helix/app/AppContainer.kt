@@ -8,6 +8,7 @@ import com.helix.app.audit.AuditLogService
 import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.ChatService
+import com.helix.app.files.FileManagerService
 import com.helix.app.internal.PrefsLineStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
@@ -94,6 +95,14 @@ interface AppContainer {
      * `content://` URI from it (doc 10).
      */
     val featureFiles: FeatureFiles
+
+    /**
+     * The file-manager facade (HXA-046): the user-facing browse / sort / preview / mutate / trash /
+     * share seam over the same [WorkspaceArtifactStore] the `files.*` tools use. The user drives it
+     * directly (their own files — not a model ToolCall, so no per-call approval gate); the model
+     * never sees it, and it resolves paths through the same containment-enforced scope boundary.
+     */
+    val fileManager: FileManagerService
 }
 
 /**
@@ -203,6 +212,15 @@ internal class DefaultAppContainer(
 
     private val workspaceStore: WorkspaceArtifactStore =
         WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
+
+    /**
+     * The file-manager facade (HXA-046): shares the tool pipeline's [workspaceStore] and the same
+     * [scopeRoots] scope boundary, so the user's file manager and the model's `files.*` tools
+     * address the identical, containment-enforced store. [APP_SCOPE_ID] is the always-present,
+     * mutable workspace; all-files roots (developer) are appended read-only by the service.
+     */
+    override val fileManager: FileManagerService =
+        FileManagerService(workspaceStore, scopeRoots, APP_SCOPE_ID)
 
     /**
      * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). The grant
