@@ -410,6 +410,22 @@ class ChatCompletionsStreamDecoderTest {
     }
 
     @Test
+    fun explicitNullChoicesFieldIsIgnored() {
+        // A deviating server may send an EXPLICIT null for `choices` (JsonNull is not a
+        // Kotlin null, so `?.jsonArray` used to crash on it and kill the whole stream):
+        // treat it like an absent/empty choices array, i.e. a usage-only chunk.
+        val stream =
+            chunk("{\"id\":\"c\",\"choices\":null}") +
+                contentChunk("ok") +
+                finishChunk("\"stop\"") +
+                DONE_SSE
+        assertEquals(
+            listOf<ModelEvent>(ModelEvent.TextDelta("ok"), ModelEvent.Completed("stop")),
+            decodeAll(stream),
+        )
+    }
+
+    @Test
     fun duplicateToolCallIdAcrossIndexesFails() {
         // The SAME id on a DIFFERENT index: downstream the app persists both rows
         // against the (turnId, callId) unique constraint and the strict history parser

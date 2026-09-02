@@ -106,7 +106,7 @@ public class CapabilityProbe(
         val events = collectBounded(provider.stream(toolRequest(provider)))
         if (events == null) {
             return ProbeOutcome.Failed(
-                3,
+                4,
                 ModelErrorCode.PROTOCOL,
                 "probe stream exceeded $MAX_PROBE_EVENTS events",
                 false,

@@ -94,6 +94,29 @@ class ProviderStoresTest {
     }
 
     @Test
+    fun cleartextBindingOnTheDefaultHttpPortRoundTrips() {
+        // Regression: encode() used to omit port 80 (a bare host line), which all() then
+        // dropped — so a confirmed authorization for an http endpoint on the default port
+        // was recorded yet never read back, and the send gate always blocked it.
+        val backing = InMemoryLineStore()
+        val store = CleartextBindingStore(backing)
+        val auth = CleartextAuthorization("192.168.1.50", 80)
+        store.authorize(auth)
+        assertEquals("the port-80 binding must survive the round trip", 1, store.all().size)
+        assertTrue(auth in store.all())
+        assertEquals(
+            CleartextAuthorization.isPermitted(
+                com.helix.core.model.NormalizedEndpoint
+                    .parse("http://192.168.1.50/v1"),
+                store.all(),
+            ),
+            true,
+        )
+        // A restart sees the same binding (the persisted line is re-read).
+        assertTrue(CleartextBindingStore(backing).all().contains(auth))
+    }
+
+    @Test
     fun pruneToRevokesUnreferencedBindings() {
         val backing = InMemoryLineStore()
         val store = CleartextBindingStore(backing)

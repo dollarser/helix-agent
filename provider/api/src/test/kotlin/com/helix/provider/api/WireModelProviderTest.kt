@@ -48,6 +48,26 @@ class WireModelProviderTest {
         }
     }
 
+    /** Delivers [chunks] then throws [failure] mid-stream (no clean EOF). */
+    private class FailingBody(
+        private val chunks: List<ByteArray>,
+        private val failure: IOException,
+        val closed: BooleanArray = BooleanArray(1),
+    ) : WireBody {
+        override suspend fun bytes(): ByteArray = ByteArray(0)
+
+        override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+            for (c in chunks) {
+                if (!onChunk(c)) break
+            }
+            throw failure
+        }
+
+        override fun close() {
+            closed[0] = true
+        }
+    }
+
     private class FakeWire(
         private val handler: suspend (WireRequest) -> WireResponse,
     ) : WireClient {
@@ -218,6 +238,43 @@ class WireModelProviderTest {
             val provider = TestProvider(config(), { "x" }, wire)
             val events = provider.stream(request()).toList()
             assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TIMEOUT, true)), events)
+        }
+
+    @Test
+    fun midStreamTimeoutBeforeTerminalMapsToTimeoutTerminal() =
+        runBlocking {
+            val closed = BooleanArray(1)
+            val wire =
+                FakeWire {
+                    WireResponse(
+                        200,
+                        emptyMap(),
+                        FailingBody(emptyList(), SocketTimeoutException("stalled"), closed),
+                    )
+                }
+            val provider = TestProvider(config(), { "x" }, wire)
+            val events = provider.stream(request()).toList()
+            assertEquals(listOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TIMEOUT, true)), events)
+            assertTrue(closed[0])
+        }
+
+    @Test
+    fun midStreamFailureAfterTerminalIsNotADoubleTerminal() =
+        runBlocking {
+            val wire =
+                FakeWire {
+                    WireResponse(
+                        200,
+                        emptyMap(),
+                        FailingBody(listOf("x".toByteArray()), SocketTimeoutException("stalled")),
+                    )
+                }
+            val provider = TestProvider(config(), { "x" }, wire)
+            val events = provider.stream(request()).toList()
+            assertEquals(
+                listOf<ModelEvent>(ModelEvent.TextDelta("ok"), ModelEvent.Completed("stop")),
+                events,
+            )
         }
 
     @Test

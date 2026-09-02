@@ -501,6 +501,45 @@ class ToolDispatcherTest {
         assertEquals(expected, sink.events.single().outputHash)
     }
 
+    // One 4-byte UTF-8 char (U+1F600 😀) — a Kotlin surrogate pair in UTF-16. Real
+    // length: 9-byte `{"data":"` prefix + 4-byte char + 2-byte `"}"` suffix = 15 bytes.
+    private fun surrogatePairPayload(): String = "{\"data\":\"" + "😀" + "\"}"
+
+    @Test
+    fun astralCharIsNotOverCountedWhenItExactlyFitsTheBudget() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val fullOutput = surrogatePairPayload() // 15 UTF-8 bytes
+        // The 4-byte char must count as 4, not two 3-byte surrogates (6). Counting it
+        // as 6 pushes the real 15-byte output over a 15-byte cap and truncates it.
+        val d = descriptor(maxOutputBytes = 15L)
+        registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(json(fullOutput)) })
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        val succeeded = outcome as ToolDispatchOutcome.Succeeded
+        val result = succeeded.result
+        assertFalse(result.truncated)
+        assertEquals(fullOutput, result.payload)
+    }
+
+    @Test
+    fun truncationNeverSplitsASurrogatePairIntoAnOrphanHighSurrogate() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val fullOutput = surrogatePairPayload() // 15 UTF-8 bytes
+        // A 12-byte cap admits the 9-byte `{"data":"` prefix but not the whole 4-byte
+        // char. The cut must land BEFORE the pair (clean ASCII), never in the middle:
+        // the pair is one atomic unit. Counting each surrogate as 3 bytes lets the
+        // high surrogate in (9+3=12 fits) but not the low one, ending the payload on
+        // an unpaired high surrogate.
+        val d = descriptor(maxOutputBytes = 12L)
+        registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(json(fullOutput)) })
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        val succeeded = outcome as ToolDispatchOutcome.Succeeded
+        val result = succeeded.result
+        assertTrue(result.truncated)
+        // The payload must be exactly the clean ASCII prefix — no orphan high surrogate.
+        assertEquals("{\"data\":\"", result.payload)
+        assertTrue(result.payload.toByteArray(Charsets.UTF_8).size <= 12)
+    }
+
     @Test
     fun successfulDispatchAuditsOneEventWithMonotonicStageTimestamps() {
         val proof = proofFor("call-1")

@@ -11,7 +11,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
 
@@ -154,9 +153,9 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             // protocol contract violation (non-2xx is the transport's job).
             throw ProtocolViolation("error object in stream chunk")
         }
-        val choices = chunk["choices"]?.jsonArray
+        val choices = chunk["choices"] as? JsonArray
         if (choices != null && choices.isNotEmpty()) {
-            val choice = choices[0].jsonObject
+            val choice = choices[0] as? JsonObject ?: throw ProtocolViolation("choice is not a json object")
             // We never request n > 1: a non-zero candidate index is unsupported.
             val index = (choice["index"] as? JsonPrimitive)?.longOrNull ?: 0L
             if (index != 0L) throw ProtocolViolation("unsupported parallel choice index")
@@ -181,7 +180,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
     }
 
     private fun hasChunkContent(chunk: JsonObject): Boolean {
-        val choices = chunk["choices"]?.jsonArray
+        val choices = chunk["choices"] as? JsonArray
         return choices != null && choices.isNotEmpty()
     }
 

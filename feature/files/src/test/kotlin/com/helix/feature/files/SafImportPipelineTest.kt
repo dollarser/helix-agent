@@ -268,6 +268,20 @@ class SafImportPipelineTest {
     }
 
     @Test
+    fun aSourceOpenerThrowingARuntimeExceptionIsRefusedNotCrashed() {
+        val root = inputDir()
+        // A hostile or broken provider may throw ANYTHING on open (not just SecurityException
+        // / IOException). Before the openSource guard a RuntimeException escaped importDocument
+        // uncaught; now it is a sanitized SOURCE_UNOPENABLE refusal — the same scoped guard the
+        // export pipeline applies to its destination opener.
+        val opener = SafSourceOpener { throw IllegalStateException("provider blew up") }
+        val pipeline = SafImportPipeline(resolver(root), opener)
+        val outcome = pipeline.importDocument("ws", "content://p/doc", honest("x".toByteArray()), null, never)
+        assertEquals(ImportStatus.REFUSED, outcome.status)
+        assertEquals(ImportRefusal.SOURCE_UNOPENABLE, outcome.refusal)
+    }
+
+    @Test
     fun aScopeWithoutAUsableRootIsRefusedWithoutRealPaths() {
         val root = inputDir()
         val broken = ScopeRootResolver { throw ScopeNotAvailable("gone") }

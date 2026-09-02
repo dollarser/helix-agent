@@ -241,4 +241,20 @@ class CapabilityProbeTest {
             assertEquals(ModelErrorCode.PROTOCOL, failed.code)
             assertEquals(false, failed.retryable)
         }
+
+    @Test
+    fun overlongToolStreamFailsPhaseFour() =
+        runBlocking {
+            val many =
+                List(CapabilityProbe.MAX_PROBE_EVENTS + 1) {
+                    ModelEvent.TextDelta("x")
+                } + listOf(ModelEvent.Completed("stop"))
+            val provider = FakeProvider(toolEvents = many)
+            val outcome = probe.probe(provider)
+            assertTrue(outcome is ProbeOutcome.Failed)
+            val failed = outcome as ProbeOutcome.Failed
+            assertEquals(4, failed.phase)
+            assertEquals(ModelErrorCode.PROTOCOL, failed.code)
+            assertEquals(false, failed.retryable)
+        }
 }

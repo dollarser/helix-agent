@@ -23,7 +23,8 @@ import java.io.File
  * - `evil-name`        — display name with path separators and a NUL control character;
  * - `infinite`         — no size, an endless byte stream (cancellation target);
  * - `denied`           — `openFile` throws SecurityException;
- * - `granted-tree` / `denied-tree` — query succeeds / throws (撤销检测 probe targets);
+ * - `granted-tree` / `empty-tree` / `denied-tree` — query succeeds (1 row) / succeeds (0 rows,
+ *   an empty-but-granted folder) / throws (撤销检测 probe targets);
  * - `export-sink`      — writable destination that HONESTLY reports its post-write size.
  */
 class LyingContentProvider : ContentProvider() {
@@ -46,7 +47,12 @@ class LyingContentProvider : ContentProvider() {
         if (case == "denied-tree") throw SecurityException("grant revoked")
         val columns = projection ?: arrayOf(OpenableColumns.SIZE, OpenableColumns.DISPLAY_NAME)
         val cursor = MatrixCursor(columns)
-        cursor.addRow(columns.map { valueFor(it, case) }.toTypedArray())
+        // empty-tree: a live grant over a folder with no children — the cursor exists but has
+        // zero rows (the revocation-probe regression case: row count must not be the liveness
+        // signal).
+        if (case != "empty-tree") {
+            cursor.addRow(columns.map { valueFor(it, case) }.toTypedArray())
+        }
         return cursor
     }
 

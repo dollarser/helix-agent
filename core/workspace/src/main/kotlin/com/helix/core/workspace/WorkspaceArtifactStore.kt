@@ -274,7 +274,9 @@ class WorkspaceArtifactStore(
     /**
      * Searches the files under a directory referenced by [base] for those whose names contain
      * [needle] as a case-insensitive substring (HXA-042 `files.search`). Returns matching
-     * [FileScopePath]s relative to [base], at most [maxResults]. The walk is depth-first and
+     * [FileScopePath]s relative to [base], at most [maxResults]. A match whose name cannot be a
+     * legal [FileScopePath] (a control character or an over-long reference) is skipped, so one
+     * such file never aborts the search. The walk is depth-first and
      * bounded by [maxScan] entries total and stops at the caps — a large tree is probed, not
      * exhausted. Symlinked directories are never followed, so the walk cannot leave [base].
      * @throws FileNotFoundException when [base] does not exist or is not a directory.
@@ -626,7 +628,8 @@ class WorkspaceArtifactStore(
  * Bounded depth-first name walk used by [WorkspaceArtifactStore.search]: consumes [it] and stops
  * after [maxScan] entries or [maxResults] matches, whichever comes first. Reports
  * [SearchResult.truncated] when a cap stopped the walk while further entries (and possibly
- * matches) remain. The walked paths are relativized against [baseDir] by the caller's prefix.
+ * matches) remain. The walked paths are relativized against [baseDir] by the caller's prefix; a
+ * match whose name is not a legal [FileScopePath] is skipped so the search never aborts on it.
  */
 private fun boundedWalk(
     it: Iterator<Path>,
@@ -643,8 +646,9 @@ private fun boundedWalk(
     while (scanned < maxScan && it.hasNext()) {
         val p = it.next()
         scanned++
-        if (p != baseDir && p.fileName.toString().contains(needleLower, ignoreCase = true)) {
-            matches += FileScopePath(scopeId, prefix + baseDir.relativize(p).joinToString("/"))
+        val ref = candidateRef(p, baseDir, scopeId, prefix, needleLower)
+        if (ref != null) {
+            matches += ref
             if (matches.size >= maxResults) {
                 truncated = true
                 break
@@ -653,6 +657,30 @@ private fun boundedWalk(
     }
     if (!truncated && it.hasNext()) truncated = true
     return SearchResult(matches, truncated)
+}
+
+/**
+ * The [FileScopePath] for [p] when its name is a case-insensitive match for [needleLower], else
+ * null. A match whose reference is not a legal [FileScopePath] (a C0/C1 control character in a
+ * segment, or over the canonical length bound) is unaddressable and also reports null: it is
+ * skipped so the remaining valid matches survive (fail-safe; the consumer scope never yields such
+ * names, so this guards only a hostile all-files scope).
+ */
+@Suppress("SwallowedException") // an unaddressable match is skipped, not a bug
+private fun candidateRef(
+    p: Path,
+    baseDir: Path,
+    scopeId: String,
+    prefix: String,
+    needleLower: String,
+): FileScopePath? {
+    val isMatch = p != baseDir && p.fileName.toString().contains(needleLower, ignoreCase = true)
+    if (!isMatch) return null
+    return try {
+        FileScopePath(scopeId, prefix + baseDir.relativize(p).joinToString("/"))
+    } catch (e: IllegalArgumentException) {
+        null
+    }
 }
 
 /**

@@ -15,9 +15,10 @@ import com.helix.provider.api.CleartextAuthorization
  * fed to [CleartextAuthorization.isPermitted] at send time; https endpoints
  * need no binding.
  *
- * Stored as normalized `host[:port]` lines (host lowercased; IPv6 as its
- * bracketed literal; default port 80 omitted) — exactly the form
- * [CleartextAuthorization] normalizes to, so equality is direct.
+ * Stored as normalized `host:port` lines (host lowercased; IPv6 as its bare literal).
+ * The port is ALWAYS present: a bare host line cannot be distinguished from an IPv6
+ * literal (which contains colons), so `all()` splits on the last colon — that split is
+ * only unambiguous when the port is written, which is why the port is never omitted.
  */
 class CleartextBindingStore(
     store: LineStore,
@@ -59,11 +60,9 @@ class CleartextBindingStore(
         backing.setLines(KEY, current)
     }
 
-    private fun encode(auth: CleartextAuthorization): String =
-        if (auth.port == DEFAULT_HTTP_PORT) auth.host else "${auth.host}:${auth.port}"
+    private fun encode(auth: CleartextAuthorization): String = "${auth.host}:${auth.port}"
 
     private companion object {
         const val KEY = "cleartext_bindings"
-        const val DEFAULT_HTTP_PORT = 80
     }
 }

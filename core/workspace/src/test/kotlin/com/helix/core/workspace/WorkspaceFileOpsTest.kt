@@ -436,6 +436,23 @@ class WorkspaceFileOpsTest {
     }
 
     @Test
+    fun searchSkipsAnUnaddressableFileNameInsteadOfAborting() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val dir = target(root, "work")
+        Files.write(dir.resolve("photo.txt"), "x".toByteArray())
+        // A legal-on-disk name that is NOT a legal FileScopePath segment (a C0 control
+        // character): before the fix the walk threw IllegalArgumentException on it and the
+        // whole search aborted (zero results); now it is skipped and the valid match survives.
+        Files.write(dir.resolve("photo.txt"), "y".toByteArray())
+
+        val r = store(root).search(ref("work"), "photo", maxResults = 10, maxScan = 100)
+        assertEquals("only the addressable file survives", 1, r.matches.size)
+        assertEquals("photo.txt", r.matches.single().name)
+        assertFalse(r.truncated)
+    }
+
+    @Test
     fun searchWithEmptyNeedleIsRejected() {
         val root = tmp.newFolder("ws").toPath()
         store(root).ensureLayout("ws")

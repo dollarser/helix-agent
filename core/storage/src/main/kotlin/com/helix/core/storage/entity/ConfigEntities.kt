@@ -17,7 +17,8 @@ data class AuditEventEntity(
 
 /**
  * architecture doc 9.1: `provider_configs` — the table stores `secretAlias` only; no plaintext
- * key or token column exists in the schema (architecture doc 9.1 / 07-security).
+ * key or token column exists in the schema (architecture/overview §9.1 and
+ * security/testing-and-release).
  */
 @Entity(tableName = "provider_configs")
 data class ProviderConfigEntity(

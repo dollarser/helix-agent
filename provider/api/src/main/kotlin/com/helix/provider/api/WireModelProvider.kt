@@ -112,6 +112,18 @@ public abstract class WireModelProvider(
                     emit(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
                     return@flow
                 }
+            var terminalEmitted = false
+            val feedEvents: suspend (List<ModelEvent>) -> Unit = { events ->
+                for (event in events) {
+                    emit(event)
+                    if (event is ModelEvent.Completed ||
+                        event is ModelEvent.Refusal ||
+                        event is ModelEvent.Error
+                    ) {
+                        terminalEmitted = true
+                    }
+                }
+            }
             try {
                 if (response.status !in 200..299) {
                     val (code, retryable) = mapHttpStatus(response.status)
@@ -119,16 +131,20 @@ public abstract class WireModelProvider(
                     return@flow
                 }
                 val decoder = newDecoder()
-                response.body.forEachChunk { chunk ->
-                    val events = decoder.feed(chunk)
-                    for (event in events) {
-                        emit(event)
+                try {
+                    response.body.forEachChunk { chunk ->
+                        feedEvents(decoder.feed(chunk))
+                        true
                     }
-                    true
-                }
-                val tail = decoder.finish()
-                for (event in tail) {
-                    emit(event)
+                    feedEvents(decoder.finish())
+                } catch (_: SocketTimeoutException) {
+                    if (!terminalEmitted) {
+                        emit(ModelEvent.Error(ModelErrorCode.TIMEOUT, retryable = true))
+                    }
+                } catch (_: IOException) {
+                    if (!terminalEmitted) {
+                        emit(ModelEvent.Error(ModelErrorCode.TRANSPORT, retryable = true))
+                    }
                 }
             } finally {
                 response.body.close()

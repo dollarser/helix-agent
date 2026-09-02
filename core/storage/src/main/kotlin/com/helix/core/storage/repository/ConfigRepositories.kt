@@ -27,7 +27,8 @@ import com.helix.core.storage.entity.SkillSnapshotEntity
  * closed [ProviderProtocol] enum; [endpoint] is a raw URL fully validated (and stored in
  * canonical normalized form); [headersJson] must pass the [ProviderHeaders] allowlist;
  * [secretAlias] must be a legal [SecretAlias] (the credential itself lives only in the
- * SecretStore — no plaintext column, doc 9.1 / 07-security).
+ * SecretStore — no plaintext column, architecture/overview §9.1 and
+ * security/testing-and-release).
  */
 data class ProviderConfigSpec(
     val id: String,
@@ -73,7 +74,8 @@ data class ProviderConfigSpec(
 
 /**
  * Provider configuration repository. The schema stores [ProviderConfigSpec.secretAlias]
- * only — there is no plaintext key or token column (doc 9.1, 07-security: API key/token 只保存
+ * only — there is no plaintext key or token column (architecture/overview §9.1 and
+ * security/testing-and-release: API key/token 只保存
  * alias). [save] rejects duplicates; [overwrite] is the explicit replace; [delete] removes
  * the row (referencing sessions keep their rows with a nulled providerId FK).
  */

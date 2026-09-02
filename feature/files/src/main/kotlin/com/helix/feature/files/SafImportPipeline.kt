@@ -138,7 +138,7 @@ class SafImportPipeline(
         try {
             val located = locateTarget(workspaceScopeId, targetNameOverride ?: reported.displayName)
             val hardLimit = admit(reported.sizeBytes, located.root)
-            val sourceStream = opener.openStream(sourceUri)
+            val sourceStream = openSource(sourceUri)
             val streamed = streamToTarget(sourceStream, located.targetPath, hardLimit, cancel)
             if (reported.sizeBytes >= 0 && streamed.bytesWritten != reported.sizeBytes) {
                 // The provider lied (or the stream was truncated): the bytes on disk do not
@@ -171,6 +171,20 @@ class SafImportPipeline(
             return refused(ImportRefusal.SOURCE_UNOPENABLE, "the source document cannot be opened")
         }
     }
+
+    /**
+     * Opens the source stream, fail-closed: a hostile or broken source provider may throw
+     * anything on open (not just SecurityException / IOException), so every open failure maps
+     * to one [ImportRefusal.SOURCE_UNOPENABLE] refusal — the same scoped guard the export
+     * pipeline applies to its destination opener (SafExportPipeline.copyAndVerify).
+     */
+    @Suppress("SwallowedException", "TooGenericExceptionCaught")
+    private fun openSource(sourceUri: String): InputStream =
+        try {
+            opener.openStream(sourceUri)
+        } catch (e: Exception) {
+            throw Refusal(ImportRefusal.SOURCE_UNOPENABLE, "the source document cannot be opened")
+        }
 
     /**
      * Chunked copy into a temp file with the atomic publish; per chunk: cancel check, then the

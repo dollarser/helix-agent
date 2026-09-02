@@ -162,6 +162,15 @@ class SafAdaptersInstrumentedTest {
     }
 
     @Test
+    fun anEmptyButGrantedTreeIsNotTreatedAsRevoked() {
+        val probe = ContentResolverSafGrantProbe(resolver)
+        assertTrue(
+            "a live grant returns a cursor even when the tree is empty",
+            probe.isStillGranted(uri("empty-tree")),
+        )
+    }
+
+    @Test
     fun theSweepRevokesOnlyTheTreeThatNoLongerAnswers() {
         val store = SafGrantStore(context.filesDir.toPath().resolve("saf-it-sweep/grants.json"))
         store.grant(uri("granted-tree"), "Alive")

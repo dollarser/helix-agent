@@ -728,10 +728,20 @@ class ToolDispatcher(
         val maxBytes = descriptor.maxOutputBytes.toInt()
         var used = 0
         var end = 0
-        while (end < canonical.length && used < maxBytes) {
-            used += charUtf8Length(canonical[end])
-            if (used > maxBytes) break
-            end++
+        while (end < canonical.length) {
+            // A surrogate pair is one 4-byte UTF-8 char: budget and truncate it as an
+            // atomic unit so the cut never splits a pair into an orphan surrogate, and a
+            // 4-byte char is not over-counted as two 3-byte chars (which would truncate
+            // early and end the payload on an unpaired high surrogate).
+            val c = canonical[end]
+            val isPair =
+                c.isHighSurrogate() &&
+                    end + 1 < canonical.length &&
+                    canonical[end + 1].isLowSurrogate()
+            val charBytes = if (isPair) 4 else charUtf8Length(c)
+            if (used + charBytes > maxBytes) break
+            used += charBytes
+            end += if (isPair) 2 else 1
         }
         val truncated = end < canonical.length
         val payload = canonical.substring(0, end)

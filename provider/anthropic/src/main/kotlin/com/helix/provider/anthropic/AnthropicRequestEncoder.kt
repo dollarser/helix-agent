@@ -288,7 +288,7 @@ public class AnthropicRequestEncoder(
     }
 
     private fun thinkingOf(request: ModelRequest): JsonObject? {
-        if (request.reasoning == ReasoningEffort.OFF || request.reasoning == null) return null
+        if (request.reasoning == ReasoningEffort.OFF) return null
         val maxTokens = maxTokensOf(request)
         val budget =
             PREFERRED_THINKING_BUDGET[request.reasoning]!!

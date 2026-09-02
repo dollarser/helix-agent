@@ -123,11 +123,12 @@ class ContentResolverSafGrantProbe(
     @Suppress("SwallowedException", "TooGenericExceptionCaught") // any query failure reads as revoked (fail closed)
     override fun isStillGranted(treeUri: String): Boolean =
         try {
-            val ok =
-                resolver.query(Uri.parse(treeUri), null, null, null, null)?.use { cursor ->
-                    cursor.moveToFirst()
-                }
-            ok == true
+            // A live grant returns a cursor over the tree — even an EMPTY one. Revocation,
+            // provider uninstall or a revoked grant surface as a query FAILURE (null cursor or
+            // exception), never as a successful-but-empty result. The liveness signal is the
+            // non-null cursor, NOT the row count: an empty-but-granted folder must not be
+            // swept away as revoked.
+            resolver.query(Uri.parse(treeUri), null, null, null, null)?.use { true } ?: false
         } catch (e: Exception) {
             false
         }
