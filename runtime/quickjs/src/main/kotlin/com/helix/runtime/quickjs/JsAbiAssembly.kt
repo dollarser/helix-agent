@@ -99,9 +99,16 @@ object JsAbiAssembly {
      * throws this TypeError at the wrapper's stringify step (outside the user-error
      * try/catch, so it is NOT prefixed). The service reclassifies it as
      * [JsExecutionStatus.OUTPUT_LIMIT], preserving the HXA-051 "result not
-     * JSON-encodable" semantics. Pinned against the QuickJS 2021-03-27 build.
+     * JSON-encodable" semantics.
+     *
+     * Device-pinned by HXA-054 against the Zipline 1.27.0 / QuickJS 2021-03-27
+     * build (both API 29 and API 36): the engine message is the bare `circular
+     * reference` — the V8 phrasing "Converting circular structure to JSON" does
+     * NOT exist in the QuickJS binary (verified by binary string inspection and by
+     * the instrumented circular-result test). HXA-052's V8-phrased constant was a
+     * never-device-verified assumption; this is the pinned fact.
      */
-    const val CIRCULAR_RESULT_MARKER: String = "Converting circular structure to JSON"
+    const val CIRCULAR_RESULT_MARKER: String = "circular reference"
 
     /**
      * The IIFE argument literal: the unquoted JS literal `null` when there is no

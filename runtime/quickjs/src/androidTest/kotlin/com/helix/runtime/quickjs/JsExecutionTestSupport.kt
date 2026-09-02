@@ -54,11 +54,26 @@ internal object JsExecutionTestSupport {
 
     @Suppress("DEPRECATION") // bounded reclamation observation; the primary signal is the death recipient.
     fun runningPids(): Set<Int> =
+        runningAppProcesses()
+            .mapNotNull { it.pid }
+            .toSet()
+
+    // This app's own processes (the platform restricts the list to the caller's app).
+    @Suppress("DEPRECATION") // the call only ever returns the caller app's own processes.
+    private fun runningAppProcesses(): List<ActivityManager.RunningAppProcessInfo> =
         (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager)
             .runningAppProcesses
-            ?.mapNotNull { it.pid }
-            ?.toSet()
-            ?: emptySet()
+            .orEmpty()
+
+    // Evidence-only observation (HXA-054 device evidence): the PIDs of THIS app's
+    // `:helix_js` isolated processes, for crash/timeout reclamation evidence in tests.
+    // This is a test observation channel — the process name is never a protocol ID or
+    // security boundary (doc 03 §2.2), and protocol assertions keep using PID/UID only.
+    fun isolatedPids(): Set<Int> =
+        runningAppProcesses()
+            .filter { it.processName.orEmpty().endsWith(ISOLATED_PROCESS_SUFFIX) }
+            .map { it.pid }
+            .toSet()
 
     /** Bounded wait for PID reclamation; returns true when the PID is gone. */
     fun awaitProcessGone(
@@ -129,12 +144,15 @@ internal object JsExecutionTestSupport {
 
     /**
      * A minimal inline EXECUTE transaction straight on a binder (used to probe instance
-     * slot semantics without the client).
+     * slot semantics and the service-side defense-in-depth checks without the client;
+     * the client always moves payloads above the inline parcel cap to PFDs, so the
+     * service-side inline-cap rejections are only reachable this way).
      */
     fun executeDirect(
         binder: IBinder,
         executionId: String,
         source: String,
+        inputJsonUtf8: ByteArray = ByteArray(0),
         limits: JsExecutionLimits = JsExecutionLimits.DEFAULTS,
     ): JsExecutionResult {
         val sourceBytes = source.toByteArray(Charsets.UTF_8)
@@ -142,7 +160,7 @@ internal object JsExecutionTestSupport {
             JsExecutionRequest(
                 executionId = executionId,
                 sourceUtf8 = sourceBytes,
-                inputJsonUtf8 = ByteArray(0),
+                inputJsonUtf8 = inputJsonUtf8,
                 limits = limits,
                 deadlineNanos = System.nanoTime() + limits.timeoutMs * 1_000_000L,
             )
@@ -152,7 +170,7 @@ internal object JsExecutionTestSupport {
                 inputPfd = null,
                 outputPfd = null,
                 sourceTotalBytes = sourceBytes.size,
-                inputTotalBytes = 0L,
+                inputTotalBytes = inputJsonUtf8.size.toLong(),
                 flags = 0,
                 crashAfterMs = 0,
             )
@@ -167,4 +185,6 @@ internal object JsExecutionTestSupport {
             reply.recycle()
         }
     }
+
+    private const val ISOLATED_PROCESS_SUFFIX: String = ":helix_js"
 }

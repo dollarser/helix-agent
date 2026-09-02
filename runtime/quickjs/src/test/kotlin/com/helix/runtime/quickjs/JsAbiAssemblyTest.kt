@@ -142,6 +142,9 @@ class JsAbiAssemblyTest {
     fun markersAreStable() {
         assertEquals("helixMain threw: ", JsAbiAssembly.ERROR_PREFIX)
         assertEquals("helix output limit exceeded: ", JsAbiAssembly.OUTPUT_LIMIT_MARKER)
-        assertEquals("Converting circular structure to JSON", JsAbiAssembly.CIRCULAR_RESULT_MARKER)
+        // HXA-054 device-pinned: the Zipline 1.27.0 / QuickJS 2021-03-27 engine says the
+        // bare `circular reference` for a cyclic stringify (the V8 phrasing does not
+        // exist in the QuickJS binary — see CIRCULAR_RESULT_MARKER KDoc).
+        assertEquals("circular reference", JsAbiAssembly.CIRCULAR_RESULT_MARKER)
     }
 }

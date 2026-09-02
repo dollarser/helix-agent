@@ -566,8 +566,9 @@ class JsExecutionClient(
     /**
      * Materializes the full output for the caller: when an [JsExecuteParams.outputFile]
      * was provided the service wrote the result through the PFD, so the client reads the
-     * file back and verifies size + SHA-256 before reporting SUCCESS (fail-closed to
-     * UNKNOWN on any mismatch).
+     * file back and verifies the verified artifact (size + independently recomputed
+     * SHA-256 + output contract, [JsOutputArtifact]) before reporting SUCCESS
+     * (fail-closed to UNKNOWN on any mismatch — never accepted, never truncated).
      */
     private fun finalizeResult(
         result: JsExecutionResult,
@@ -583,22 +584,22 @@ class JsExecutionClient(
                     } else {
                         result.outputUtf8
                     }
-                if (bytes.size.toLong() != result.outputBytes) {
-                    throw IOException("output size ${bytes.size} != declared ${result.outputBytes}")
-                }
-                if (JsHash.sha256Hex(bytes) != result.outputSha256Hex) {
-                    throw IOException("output SHA-256 mismatch")
-                }
-                // HXA-052 output contract: the service returned the wrapper's stringify
-                // text, so the bytes must be exactly one JSON document within
-                // maxOutputBytes. A violation degrades the SUCCESS to a stable UNKNOWN —
-                // no truncation and no raw-text/base64 fallback (doc 03 §4.6).
-                val contractError = JsOutputContract.validate(bytes, params.limits.maxOutputBytes)
-                if (contractError != null) {
+                // Verified artifact (doc 03 §4.6/§4.8): exact size + host-side
+                // SHA-256 recompute + the HXA-052 output contract (exactly one JSON
+                // document within maxOutputBytes). Any mismatch degrades the SUCCESS to
+                // a stable UNKNOWN — no truncation and no raw-text/base64 fallback.
+                val artifactError =
+                    JsOutputArtifact.verify(
+                        bytes,
+                        result.outputBytes,
+                        result.outputSha256Hex,
+                        params.limits.maxOutputBytes,
+                    )
+                if (artifactError != null) {
                     JsExecutionResult.clientFailure(
                         result.executionId,
                         JsExecutionStatus.UNKNOWN,
-                        "output contract violation: $contractError",
+                        artifactError,
                         inputSha,
                     )
                 } else {
