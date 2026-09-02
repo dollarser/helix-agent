@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -102,6 +103,12 @@ class GoalReminderTest {
 
     /** Grants POST_NOTIFICATIONS (API 33+) for the app under test via the test's UiAutomation. */
     private fun grantNotificationPermission(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            // Pre-API 33 notifications never require the runtime prompt, so there is nothing
+            // to grant; the grant call (and its checkSelfPermission assert) would throw
+            // "Unknown permission" on the minSdk (29) device.
+            return
+        }
         InstrumentationRegistry
             .getInstrumentation()
             .uiAutomation
