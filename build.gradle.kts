@@ -140,7 +140,7 @@ val projectDependencies =
         ":extensions:mcp" to listOf(":core:model", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         ":feature:browser" to listOf(":core:model", ":core:policy"),
-        ":feature:files" to listOf(":core:model", ":core:policy"),
+        ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files"),
         ":runtime:quickjs" to listOf(":core:model"),
         ":runtime:proot-client" to listOf(":core:model"),
@@ -221,6 +221,16 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
                 dependencies.add("androidTestImplementation", roomTestingDependency.get())
+            }
+
+            // HXA-044: the SAF adapter persists its tree-grant registry with the pinned
+            // kotlinx-serialization JsonElement API (no compiler plugin, same as the provider
+            // modules) and carries instrumented tests against a lying in-APK ContentProvider.
+            if (path == ":feature:files") {
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
         }
 

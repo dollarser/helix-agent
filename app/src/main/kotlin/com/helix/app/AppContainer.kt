@@ -26,6 +26,14 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.feature.files.ContentResolverSafDestinationOpener
+import com.helix.feature.files.ContentResolverSafDestinationVerifier
+import com.helix.feature.files.ContentResolverSafGrantProbe
+import com.helix.feature.files.ContentResolverSafMetadataReader
+import com.helix.feature.files.ContentResolverSafSourceOpener
+import com.helix.feature.files.SafExportPipeline
+import com.helix.feature.files.SafGrantStore
+import com.helix.feature.files.SafImportPipeline
 import com.helix.provider.api.CredentialLookup
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesCopyTool
@@ -78,7 +86,31 @@ interface AppContainer {
 
     /** The audit log page's service (bounded, redacted records only). */
     val auditLogService: AuditLogService
+
+    /**
+     * The SAF adapter bundle (HXA-044): persisted tree grants, the ContentResolver adapters and
+     * the fail-closed import/export pipelines. The UI drives it; the model never sees a
+     * `content://` URI from it (doc 10).
+     */
+    val featureFiles: FeatureFiles
 }
+
+/**
+ * SAF file import/export bundle (HXA-044, platform adapter layer). [SafGrantStore] holds the
+ * persisted tree grants whose `content://` URIs never reach the model (doc 10: 模型只看到
+ * scopeId); the ContentResolver adapters implement the pipeline seams; the pipelines are
+ * fail-closed against a lying provider (doc 07).
+ */
+class FeatureFiles(
+    val grantStore: SafGrantStore,
+    val metadataReader: ContentResolverSafMetadataReader,
+    val sourceOpener: ContentResolverSafSourceOpener,
+    val importPipeline: SafImportPipeline,
+    val exportPipeline: SafExportPipeline,
+    val destinationOpener: ContentResolverSafDestinationOpener,
+    val destinationVerifier: ContentResolverSafDestinationVerifier,
+    val grantProbe: ContentResolverSafGrantProbe,
+)
 
 internal class DefaultAppContainer(
     context: Context,
@@ -147,22 +179,49 @@ internal class DefaultAppContainer(
      * file tools address ONLY this scope, so a model reference can never leave the app sandbox.
      * The root is created lazily on first use and never handed to the model (doc 10).
      */
+    private val appScopeRoot: Path =
+        java.io.File(context.filesDir, "workspaces/app").toPath().also {
+            java.nio.file.Files
+                .createDirectories(it)
+        }
+
+    private val scopeRoots: ScopeRootResolver =
+        ScopeRootResolver { scopeId ->
+            if (scopeId == APP_SCOPE_ID) {
+                appScopeRoot
+            } else {
+                throw ScopeNotAvailable("unknown scope: $scopeId")
+            }
+        }
+
     private val workspaceStore: WorkspaceArtifactStore =
+        WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
+
+    /**
+     * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). The grant
+     * registry persists atomically under the app-private `workspaces/` directory; the import
+     * pipeline targets the app workspace `input/` region through the same [scopeRoots] the file
+     * tools use, and the export pipeline reads from that scope's user regions.
+     */
+    override val featureFiles: FeatureFiles =
         run {
-            val root: Path =
-                java.io.File(context.filesDir, "workspaces/app").toPath().also {
-                    java.nio.file.Files
-                        .createDirectories(it)
-                }
-            WorkspaceArtifactStore(
-                ScopeRootResolver { scopeId ->
-                    if (scopeId == APP_SCOPE_ID) {
-                        root
-                    } else {
-                        throw ScopeNotAvailable("unknown scope: $scopeId")
-                    }
-                },
-            ).also { it.ensureLayout(APP_SCOPE_ID) }
+            val resolver = context.contentResolver
+            val sourceOpener = ContentResolverSafSourceOpener(resolver)
+            val destinationOpener = ContentResolverSafDestinationOpener(resolver)
+            val destinationVerifier = ContentResolverSafDestinationVerifier(resolver)
+            FeatureFiles(
+                grantStore =
+                    SafGrantStore(
+                        java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath(),
+                    ),
+                metadataReader = ContentResolverSafMetadataReader(resolver),
+                sourceOpener = sourceOpener,
+                importPipeline = SafImportPipeline(scopeRoots, sourceOpener),
+                exportPipeline = SafExportPipeline(scopeRoots, destinationOpener, destinationVerifier),
+                destinationOpener = destinationOpener,
+                destinationVerifier = destinationVerifier,
+                grantProbe = ContentResolverSafGrantProbe(resolver),
+            )
         }
 
     init {

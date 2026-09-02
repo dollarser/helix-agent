@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- HXA-044: the in-APK LYING ContentProvider (doc 07: SAF provider 谎报
+             size/MIME/display name). Same APK as the tests, so no export/permission is
+             needed; the tests drive it through the REAL ContentResolver adapters. -->
+        <provider
+            android:name="com.helix.feature.files.test.LyingContentProvider"
+            android:authorities="com.helix.feature.files.test"
+            android:exported="false" />
+    </application>
+</manifest>

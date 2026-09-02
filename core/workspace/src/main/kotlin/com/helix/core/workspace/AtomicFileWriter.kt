@@ -1,7 +1,9 @@
 package com.helix.core.workspace
 
 import java.io.IOException
+import java.io.OutputStream
 import java.nio.ByteBuffer
+import java.nio.channels.Channels
 import java.nio.channels.FileChannel
 import java.nio.file.Files
 import java.nio.file.Path
@@ -77,6 +79,66 @@ object AtomicFileWriter {
             throw e
         }
         return hash
+    }
+
+    /**
+     * Atomically publishes the stream that [sourceInto] writes into [target]: a temp sibling in
+     * the same directory, then file + directory fsync, then the atomic rename — the same
+     * durability story as [writeAtomic], but for content that must not sit in memory (SAF
+     * imports, HXA-044).
+     *
+     * [sourceInto] receives the open temp stream and copies into it in chunks, which is where a
+     * caller enforces per-chunk cancel checks and a hard byte cap by throwing [AbandonedWrite].
+     * The stream is owned by this writer: [sourceInto] must write into it but NOT close it —
+     * the writer performs the fsync, close, and the atomic rename.
+     * On ANY failure — including an [AbandonedWrite] from [sourceInto] — the temp file is deleted
+     * and nothing is published; the failure is rethrown to the caller.
+     *
+     * @throws IOException on I/O failure.
+     * @throws AbandonedWrite when [sourceInto] abandoned the write.
+     */
+    fun writeAtomicStream(
+        target: Path,
+        sourceInto: (OutputStream) -> Unit,
+    ) {
+        val directory = target.parent
+        require(directory != null) { "target must have a parent directory" }
+        require(Files.isDirectory(directory)) { "target parent must be a directory" }
+
+        val temp = Files.createTempFile(directory, TEMP_PREFIX, null)
+        try {
+            FileChannel
+                .open(temp, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)
+                .use { channel ->
+                    sourceInto(Channels.newOutputStream(channel))
+                    channel.force(true)
+                }
+            val parent = temp.toRealPath().parent
+            directoryFsync(parent ?: directory)
+            Files.move(
+                temp,
+                target,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } catch (e: AbandonedWrite) {
+            // Best-effort cleanup of the temp; the caller's abandonment is rethrown as-is so
+            // the pipeline can distinguish cancel from limit from I/O failure.
+            try {
+                Files.deleteIfExists(temp)
+            } catch (_: IOException) {
+                // leave it; cleanup() reclaims orphaned temps later
+            }
+            throw e
+        } catch (e: IOException) {
+            // Best-effort cleanup of the temp on any I/O failure; the real failure is rethrown.
+            try {
+                Files.deleteIfExists(temp)
+            } catch (_: IOException) {
+                // leave it; cleanup() reclaims orphaned temps later
+            }
+            throw e
+        }
     }
 
     /**
@@ -181,6 +243,22 @@ class PreconditionHashMismatch(
     ),
     WorkspaceFileError {
     override fun toString(): String = "precondition hash mismatch (expected $expected, actual $actualSha256)"
+}
+
+/**
+ * A streaming write ([AtomicFileWriter.writeAtomicStream]) was abandoned mid-stream by caller
+ * policy — the temp file is deleted, nothing was published. It is a RuntimeException (the JVM
+ * `IOException` is final) that the writer's cleanup path treats explicitly, like any other
+ * failure: temp removed, failure rethrown.
+ */
+open class AbandonedWrite(
+    message: String,
+) : RuntimeException(message) {
+    /** The caller's cancel signal fired mid-stream. */
+    class Cancelled : AbandonedWrite("write abandoned: cancelled")
+
+    /** The hard byte cap was exceeded mid-stream (e.g. a provider under-reporting its size). */
+    class LimitExceeded : AbandonedWrite("write abandoned: byte limit exceeded")
 }
 
 /** Marker for the fail-closed workspace file errors this layer produces (doc 13: bounded output). */
