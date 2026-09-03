@@ -57,6 +57,10 @@ import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.android.AndroidSystemBridgeImpl
 import com.helix.tools.android.AndroidSystemTools
 import com.helix.tools.android.CalendarBridgeImpl
+import com.helix.tools.android.EgressPolicy
+import com.helix.tools.android.EgressPolicyProvider
+import com.helix.tools.android.HttpFetchBridgeImpl
+import com.helix.tools.android.HttpFetchTools
 import com.helix.tools.android.NotificationsBridgeImpl
 import com.helix.tools.android.NotificationsCalendarTools
 import com.helix.tools.browser.BrowserTools
@@ -436,6 +440,24 @@ internal class DefaultAppContainer(
             toolImplementations,
             NotificationsBridgeImpl(context),
             CalendarBridgeImpl(context),
+        )
+        // HXA-066: the http.fetch tool — a bounded GET/HEAD over the raw-socket transport
+        // (HttpFetchBridgeImpl) that enforces the connection-time SSRF / URL-Policy: it resolves
+        // every A/AAAA/IPv4-mapped candidate, connects only to the verified set, revalidates the
+        // actual peer, keeps the original hostname for TLS Host/SNI/cert, and re-runs the whole
+        // origin/DNS/IP/scope decision on every redirect hop. The egress decision (current
+        // SafetyProfile + the user's pre-created exact LAN/loopback scopes) is read from the APP's
+        // profileStore, NEVER the model (roadmap: "模型 URL 不能创建 scope"); until the HXA-068
+        // LAN-scopes store lands, scopes are empty, so under ADVANCED no LAN/loopback host is
+        // reachable — a policy refusal is a stable 'refused' reason code, not a fake success.
+        HttpFetchTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            HttpFetchBridgeImpl(
+                object : EgressPolicyProvider {
+                    override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, emptySet())
+                },
+            ),
         )
     }
 

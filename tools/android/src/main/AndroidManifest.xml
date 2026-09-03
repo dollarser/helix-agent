@@ -6,6 +6,11 @@
          the commit tool refuses with status 'permission-missing' (doc 09 §11). -->
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
+    <!-- HXA-066: the http.fetch transport (HttpFetchBridgeImpl) opens raw client sockets to perform a
+         bounded GET/HEAD. INTERNET is required to open ANY socket on Android; :app already declares it,
+         so the manifest merge dedupes — this documents that the library's http.fetch feature needs it. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application>
         <!-- HXA-065: the system NotificationListenerService that lets notifications.query read other
              apps' active notifications. It only runs once the user enables "Notification access" for
