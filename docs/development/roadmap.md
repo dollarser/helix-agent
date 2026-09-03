@@ -303,6 +303,10 @@ JSON 输入输出、host 编码参数 + 局部 `const` input 的严格 IIFE wrap
 
 在文件管理器接通 HXA-044 的受限 import/export pipeline：导入使用 `ACTION_OPEN_DOCUMENT`/`ACTION_OPEN_DOCUMENT_TREE` 的用户选择复制到 Workspace，导出使用 `ACTION_CREATE_DOCUMENT` 或用户已授权 tree，把 Workspace 快照流式写出。UI 必须展示来源、目标、名称、大小、冲突策略、进度、取消和最终结果；导入/导出是明确的文件管理动作，不自动创建聊天消息、不自动发给 Provider，也不扩大 Agent scope。覆盖同名冲突、部分流、大小谎报、磁盘满、目标撤销、取消、进程回收、原子性和临时文件回收；导出后重新读取/校验可得证据时才显示 verified，否则只报告平台确认的实际结果。
 
+### HXA-059 Provider 模型自动发现与选择
+
+把后端模型列表接入 Provider 连接流程：连接测试（HXA-025 探测）第 2 阶段已在用正确的 endpoint/key 调 `ModelProvider.listModels`（OpenAI-compatible `GET /v1/models`；SGLang/vLLM/Ollama/Generic OpenAI 模板直接命中），当前只用于 pass/fail、列表被丢弃（`ProbeOutcome.Ok.models` 字段预留但恒为 null）。本任务把列表**自动带出来**：测试通过且后端返回列表时，Provider 测试/详情面板展示「后端可用模型」（有界显示 + 过滤），点选把模型预填进编辑表单（手输仍允许；以手输覆盖列表值属正常用户输入，无需额外标记机制）；`Unsupported` → 显式「后端未提供模型列表，请手动输入」；第 2 阶段 `Failed` 时面板展示既有稳定错误文案、不显示列表。查询是只读 GET，不新增任何写路径；key 永不进入 UI 文本/日志/诊断；模型列表不入 logcat/Room 诊断字段；模板不写死模型名（HXA-026 边界不变）。测试：连接测试带列表/不带列表/第 2 阶段失败/损坏 JSON/超大列表（有界）；设备：真实 `ContentResolver` 无关的本地回环 fixture server（in-APK，纯 JVM/Java 类，app 进程内 127.0.0.1）驱动「测试通过 → 列表展示 → 点选预填编辑表单 → 保存」全链路 + `Unsupported`/`Failed` 两态；另以本地 SGLang 真环境 smoke（开发机 30008 端口，emulator 经 `10.0.2.2` 桥接；环境明确记录，不替代 fixture，先例 HXA-056）。
+
 ## 10. M6：浏览器与 Android 基础工具
 
 ### HXA-060 最小 WebView 浏览器

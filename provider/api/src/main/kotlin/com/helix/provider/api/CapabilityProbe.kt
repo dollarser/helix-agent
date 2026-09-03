@@ -19,7 +19,10 @@ import kotlinx.coroutines.flow.toList
  *
  * 1. transport/TLS/HTTP + authentication ([ModelProvider.validateConfiguration]);
  * 2. the model list ([ModelProvider.listModels] — [ModelCatalogResult.Unsupported]
- *    counts as a pass: not every service exposes a list);
+ *    counts as a pass: not every service exposes a list). Since HXA-059 the
+ *    phase-2 list is normalized ([normalizeModelIds]) and carried out in
+ *    [ProbeOutcome.Ok.models] so the app can surface it to the user; `null`
+ *    marks "the backend gave no list";
  * 3. a minimal text stream (one user message, tiny budget, must end in a
  *    legitimate terminal);
  * 4. a minimal tool call (one offered tool, must end with `tool_calls` after a
@@ -49,14 +52,20 @@ public class CapabilityProbe(
      * (conservative: an unsupported-image 400 and a transient 5xx both keep vision
      * unconfirmed, and the user can then declare it manually — the ADR's second source).
      */
+    @Suppress("ReturnCount") // fail-fast per phase: each failing phase is one early return, by design
     public suspend fun probe(provider: ModelProvider): ProbeOutcome {
+        val first = phase1(provider)
+        if (first != null) return first
+        val phaseTwo = phase2(provider)
+        if (phaseTwo is PhaseTwo.Stopped) return phaseTwo.outcome
+        val models = (phaseTwo as? PhaseTwo.Listed)?.models
         val phases: List<suspend (ModelProvider) -> ProbeOutcome?> =
-            listOf(::phase1, ::phase2, ::phase3, ::phase4, ::phase5)
+            listOf(::phase3, ::phase4, ::phase5)
         for (phase in phases) {
             val failure = phase(provider)
             if (failure != null) return failure
         }
-        return ProbeOutcome.Ok(capabilities = PROBED_CAPABILITIES.withVisionProved(), models = null)
+        return ProbeOutcome.Ok(capabilities = PROBED_CAPABILITIES.withVisionProved(), models = models)
     }
 
     /** Phase 1: transport/TLS/HTTP + authentication. */
@@ -71,15 +80,26 @@ public class CapabilityProbe(
             }
         }
 
-    /** Phase 2: model list (unsupported services count as a pass). */
-    private suspend fun phase2(provider: ModelProvider): ProbeOutcome? =
+    /**
+     * Phase 2: model list (unsupported services count as a pass). Since HXA-059 the
+     * passing phase carries its outcome: [PhaseTwo.Listed] with the normalized list
+     * (surfaced in [ProbeOutcome.Ok.models]), [PhaseTwo.NoList] for
+     * [ModelCatalogResult.Unsupported] (surfaced as `models = null`), and
+     * [PhaseTwo.Stopped] when the query failed (the probe stops at phase 2 with the
+     * existing failure semantics — unchanged by HXA-059).
+     */
+    private suspend fun phase2(provider: ModelProvider): PhaseTwo =
         when (val models = provider.listModels()) {
-            is ModelCatalogResult.Listed, is ModelCatalogResult.Unsupported -> {
-                null
+            is ModelCatalogResult.Listed -> {
+                PhaseTwo.Listed(normalizeModelIds(models.models))
+            }
+
+            is ModelCatalogResult.Unsupported -> {
+                PhaseTwo.NoList
             }
 
             is ModelCatalogResult.Failed -> {
-                ProbeOutcome.Failed(2, models.code, models.detail, models.retryable)
+                PhaseTwo.Stopped(ProbeOutcome.Failed(2, models.code, models.detail, models.retryable))
             }
         }
 
@@ -273,6 +293,25 @@ public class CapabilityProbe(
         const val MAX_PROBE_EVENTS = 10_000
 
         /**
+         * The hard bound on the model list carried in [ProbeOutcome.Ok] (HXA-059): the
+         * probe TRUNCATES a hostile/buggy provider's oversized list to this size so the
+         * list can never grow the persisted state line or the UI work without bound.
+         * The UI applies its own smaller display cap (200) on top.
+         */
+        const val MAX_MODELS_IN_OUTCOME = 1_000
+
+        /**
+         * Normalizes and bounds the model list carried in [ProbeOutcome.Ok] (HXA-059):
+         * drops blanks, de-duplicates preserving first-seen order, truncates to
+         * [MAX_MODELS_IN_OUTCOME]. Defensive even though [ModelCatalogResult.Listed]
+         * already validates its input: an adapter change or a custom [ModelProvider]
+         * that bypasses the typed result must not be able to push an unbounded or
+         * dirty list into the persisted store or the UI.
+         */
+        fun normalizeModelIds(ids: List<String>): List<String> =
+            ids.filter { it.isNotBlank() }.distinct().take(MAX_MODELS_IN_OUTCOME)
+
+        /**
          * The reserved ref of the built-in 1x1 probe image (HXA-055). The app's production
          * image source recognizes this ref and serves the built-in probe PNG — no session
          * artifact, no user data.
@@ -303,16 +342,35 @@ public class CapabilityProbe(
         /** [PROBED_CAPABILITIES] with vision proved by the passing phase 5. */
         private fun ProviderCapabilities.withVisionProved(): ProviderCapabilities = copy(vision = true)
     }
+
+    /** The outcome of the phase-2 model-list query (HXA-059: the list rides with the pass). */
+    private sealed interface PhaseTwo {
+        /** The backend listed models; [models] is the normalized (bounded) list. */
+        data class Listed(
+            val models: List<String>,
+        ) : PhaseTwo
+
+        /** The backend does not expose a list ([ModelCatalogResult.Unsupported]). */
+        data object NoList : PhaseTwo
+
+        /** The query failed; [outcome] stops the probe at phase 2. */
+        data class Stopped(
+            val outcome: ProbeOutcome,
+        ) : PhaseTwo
+    }
 }
 
 /**
- * Outcome of the four-phase connection test (HXA-025).
+ * Outcome of the five-phase connection test (HXA-025; HXA-055 added phase 5).
  */
 public sealed interface ProbeOutcome {
     /**
-     * All four phases passed; [capabilities] is the [CapabilitySource.PROBED]
+     * All five phases passed; [capabilities] is the [CapabilitySource.PROBED]
      * snapshot to persist (the app stores it as the strict JSON in
-     * `provider_configs.capability_snapshot`).
+     * `provider_configs.capability_snapshot`). [models] (HXA-059) is the
+     * normalized phase-2 model list, or `null` when the backend does not
+     * expose a list ([ModelCatalogResult.Unsupported]) — the app shows
+     * "enter the model manually" in that case.
      */
     public data class Ok(
         val capabilities: ProviderCapabilities,

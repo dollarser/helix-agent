@@ -61,6 +61,12 @@ class AuditScreenTest {
     @Before
     fun setUp() {
         container = (composeRule.activity.application as HelixApplication).appContainer
+        // Deterministic shell (HXA-059 arbitration: this class was the ONLY one without
+        // the helper — every instrumentation run installs the app FRESH, so a
+        // class-standalone rerun starts with the first-launch notice over the shell and
+        // `open-navigation` is absent. The helper dismisses it and closes any stale
+        // open session; the session is re-opened below AFTER the reset).
+        composeRule.resetDeterministicUiState()
         // Seed the session row BEFORE opening it (the turn is seeded per-test, but the
         // session must exist when it is opened), and open it: since HXA-048 the chat
         // timeline is scoped to the OPEN session, and a different session can be left

@@ -94,23 +94,7 @@ class ProviderService(
     }
 
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
-    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi {
-        val config = configFrom(entity)
-        val status = statusFor(entity.id)
-        return ProviderRowUi(
-            id = entity.id,
-            displayName = entity.displayName,
-            protocol = config.protocol,
-            origin = config.endpoint.origin,
-            residence = config.residence(),
-            model = entity.model,
-            hasKey = entity.secretAlias != ProviderFactory.NO_KEY_ALIAS,
-            isCleartext = config.endpoint.scheme == "http",
-            status = status,
-            capabilities = (status as? ConnectionTestStatus.Passed)?.capabilities,
-            templateNotes = emptyList(),
-        )
-    }
+    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi = providerRowUi(entity, statusFor(entity.id))
 
     /**
      * Persists a new provider from a composed [ProviderDraft].
@@ -236,10 +220,13 @@ class ProviderService(
     }
 
     /**
-     * Runs the four-phase connection test (HXA-025 [CapabilityProbe]) against
+     * Runs the five-phase connection test (HXA-025 [CapabilityProbe]) against
      * the persisted provider. On success the PROBED capability snapshot is
-     * persisted into the row (it becomes chat-selectable); on failure the
-     * phase + safe error class are recorded (the row stays non-selectable).
+     * persisted into the row (it becomes chat-selectable); since HXA-059 the
+     * backend model list (phase 2) rides with the PASSED status (null when the
+     * backend does not expose a list) so the UI can offer it for selection.
+     * On failure the phase + safe error class are recorded (the row stays
+     * non-selectable; no list is ever shown for a failed test).
      */
     suspend fun runConnectionTest(providerId: String): ProbeOutcome =
         withContext(workScope.coroutineContext) {
@@ -268,7 +255,12 @@ class ProviderService(
                         )
                     },
                 )
-                testStatus.recordPassed(providerId, clock.now().toEpochMilli(), outcome.capabilities)
+                testStatus.recordPassed(
+                    providerId,
+                    clock.now().toEpochMilli(),
+                    outcome.capabilities,
+                    outcome.models,
+                )
             }
 
             is ProbeOutcome.Failed -> {

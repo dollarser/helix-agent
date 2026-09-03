@@ -41,6 +41,7 @@ import com.helix.app.provider.ProviderService
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.ProviderConfig
 import com.helix.provider.catalog.ProviderTemplate
 import com.helix.provider.catalog.ProviderTemplateCatalog
 import kotlinx.coroutines.launch
@@ -120,21 +121,24 @@ fun ProviderManager(providerService: ProviderService) {
                         }
                     }
                 },
-                onEdit = {
+                onEdit = { modelOverride ->
                     // storedConfig is a Room read: it runs on the service's IO
-                    // scope, never on this (UI) thread.
+                    // scope, never on this (UI) thread. HXA-059: a backend model
+                    // id selected from the row's "后端可用模型" section prefills
+                    // the form's model field — the form opens for EDITING, it
+                    // is never auto-saved.
                     scope.launch {
                         try {
                             val config = providerService.storedConfig(row.id)
                             form =
                                 ProviderForm(
                                     providerId = row.id,
-                                    template = editTemplateFor(config.protocol, config.endpoint),
+                                    template = editTemplateFor(config, row.hasKey),
                                     fields =
                                         ProviderForm.FormFields(
                                             name = config.displayName,
                                             endpoint = config.endpoint.full,
-                                            model = config.model,
+                                            model = modelOverride ?: config.model,
                                             headerName = "",
                                             headerValue = "",
                                             apiKey = "",
@@ -443,7 +447,8 @@ private fun ProviderRow(
     row: ProviderRowUi,
     testing: Boolean,
     onTest: () -> Unit,
-    onEdit: () -> Unit,
+    /** HXA-059: opens the edit form; a non-null [modelOverride] prefills its model field. */
+    onEdit: (modelOverride: String?) -> Unit,
     onDelete: () -> Unit,
     visionEnabled: Boolean,
     onDeclareVision: (enabled: Boolean) -> Unit,
@@ -489,6 +494,26 @@ private fun ProviderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        // HXA-059: the backend model list, carried out of the LAST PASSED
+        // connection test only. A failed/untested row shows no section at all;
+        // a passed row without a list gets the explicit manual-entry hint.
+        // Selecting a chip PREFILLS the edit form (never auto-saves).
+        if (row.status is ConnectionTestStatus.Passed) {
+            val models = row.backendModels
+            if (models.isNullOrEmpty()) {
+                Text(
+                    "后端未提供模型列表，请手动输入",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("provider-models-unsupported"),
+                )
+            } else {
+                BackendModelsSection(
+                    models = models,
+                    onModelSelected = { id -> onEdit(id) },
+                )
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = onTest,
@@ -497,7 +522,7 @@ private fun ProviderRow(
             ) {
                 Text(if (testing) "测试中…" else "连接测试")
             }
-            TextButton(onClick = onEdit, modifier = Modifier.testTag("provider-edit")) {
+            TextButton(onClick = { onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
                 Text("编辑")
             }
             TextButton(
@@ -578,13 +603,23 @@ private fun statusDetail(row: ProviderRowUi): String? =
  * longer that vendor's.
  */
 private fun editTemplateFor(
-    protocol: ProviderProtocol,
-    endpoint: NormalizedEndpoint,
+    config: ProviderConfig,
+    hasStoredKey: Boolean,
 ): ProviderTemplate {
-    val candidates = ProviderTemplateCatalog.all.filter { it.protocol == protocol }
-    return candidates.firstOrNull { it.defaultEndpoint == endpoint }
-        ?: candidates.firstOrNull { it.defaultEndpoint == null }
-        ?: candidates.first()
+    val candidates = ProviderTemplateCatalog.all.filter { it.protocol == config.protocol }
+    val template =
+        candidates.firstOrNull { it.defaultEndpoint == config.endpoint }
+            ?: candidates.firstOrNull { it.defaultEndpoint == null }
+            ?: candidates.first()
+    // The edit template is a GUESS (endpoint match; a self-hosted provider on a
+    // non-default endpoint falls back to the generic one, whose credentialRequired
+    // is true). That guess must not invent a key requirement the persisted
+    // provider never had: a provider stored WITHOUT a key was created through a
+    // keyless form, so re-requiring a key on edit silently disables 保存
+    // (device-verified in the HXA-059 arbitration: chip-prefill → save dead on
+    // self-hosted providers). With a stored key the template stands (keyOk is
+    // true regardless of credentialRequired).
+    return if (hasStoredKey) template else template.copy(credentialRequired = false)
 }
 
 /**

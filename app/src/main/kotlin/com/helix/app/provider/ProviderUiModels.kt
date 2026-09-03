@@ -2,7 +2,9 @@ package com.helix.app.provider
 
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.provider.api.ProviderCapabilities
+import com.helix.provider.api.ProviderConfig
 
 /**
  * The provider row as the UI sees it (HXA-028): everything is derived from
@@ -23,6 +25,13 @@ data class ProviderRowUi(
     val status: ConnectionTestStatus,
     /** The PROBED capabilities when the test passed; null otherwise. */
     val capabilities: ProviderCapabilities?,
+    /**
+     * The backend model list carried out of the last PASSED connection test
+     * (HXA-059, from [ConnectionTestStatus.Passed.modelIds]); null when there
+     * is no list (untested/failed/unsupported). Display data only — the row's
+     * [model] stays the persisted (user-chosen) model.
+     */
+    val backendModels: List<String>?,
     val templateNotes: List<String>,
 ) {
     /**
@@ -58,3 +67,40 @@ data class ProviderBadgeUi(
     val residence: ProviderResidence,
     val chips: List<String>,
 )
+
+/**
+ * One persisted provider as its UI row (HXA-028; pure, unit-tested): a corrupt
+ * row throws IAE (fail closed — the caller hides the row and the provider
+ * stays non-selectable). Since HXA-059 the row also carries the backend model
+ * list when the test passed with one (null otherwise).
+ */
+internal fun providerRowUi(
+    entity: ProviderConfigEntity,
+    status: ConnectionTestStatus,
+): ProviderRowUi {
+    val config =
+        ProviderConfig.fromStorage(
+            entity.id,
+            entity.displayName,
+            entity.protocol,
+            entity.endpoint,
+            entity.model,
+            entity.headersJson,
+            entity.secretAlias,
+            entity.capabilitySnapshot,
+        )
+    return ProviderRowUi(
+        id = entity.id,
+        displayName = entity.displayName,
+        protocol = config.protocol,
+        origin = config.endpoint.origin,
+        residence = config.residence(),
+        model = entity.model,
+        hasKey = entity.secretAlias != ProviderFactory.NO_KEY_ALIAS,
+        isCleartext = config.endpoint.scheme == "http",
+        status = status,
+        capabilities = (status as? ConnectionTestStatus.Passed)?.capabilities,
+        backendModels = (status as? ConnectionTestStatus.Passed)?.modelIds,
+        templateNotes = emptyList(),
+    )
+}

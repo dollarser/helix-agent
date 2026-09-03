@@ -105,6 +105,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | --- | --- | --- |
 | HXA-057 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :tools:files:test :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；恶意 ContentProvider、persisted grant 重启/撤销/只读/跨 scope |
 | HXA-058 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；导入导出冲突、部分流、磁盘满、取消、进程回收与结果校验 |
+| HXA-059 | `./gradlew :provider:api:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；模型列表带出/点选预填/手输、`Unsupported`/`Failed` 两态、超大列表有界、本地 SGLang 真环境 smoke |
 
 ### M6：浏览器与 Android 工具
 

@@ -18,10 +18,18 @@ sealed interface ConnectionTestStatus {
     /** No completed test yet — the provider cannot be selected for chat. */
     data object Untested : ConnectionTestStatus
 
-    /** A completed probe; [capabilities] is the PROBED snapshot (source = PROBED). */
+    /**
+     * A completed probe; [capabilities] is the PROBED snapshot (source = PROBED).
+     * [modelIds] (HXA-059) is the backend's model list carried out of the phase-2
+     * query — `null` when the backend does not expose a list (the UI then shows
+     * "the backend gives no model list, enter it manually"). The list is display
+     * data only: it never enters logs/diagnostics and the model field stays
+     * user-editable (selecting an id prefills the edit form; it is NOT auto-saved).
+     */
     data class Passed(
         val atMillis: Long,
         val capabilities: ProviderCapabilities,
+        val modelIds: List<String>? = null,
     ) : ConnectionTestStatus
 
     /**

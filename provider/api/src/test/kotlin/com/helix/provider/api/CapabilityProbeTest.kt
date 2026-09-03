@@ -104,12 +104,69 @@ class CapabilityProbeTest {
                             maxContextTokens = null,
                             source = CapabilitySource.PROBED,
                         ),
-                    models = null,
+                    models = listOf("m1"), // HXA-059: the phase-2 list rides with the Ok
                 ),
                 outcome,
             )
             assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
         }
+
+    @Test
+    fun listedModelsAreCarriedIntoTheOkOutcome() =
+        runBlocking {
+            // HXA-059: every listed id reaches the outcome, in order — the app
+            // surfaces them so the user can prefill the model field.
+            val provider =
+                FakeProvider(
+                    models =
+                        ModelCatalogResult
+                            .Listed(
+                                listOf(
+                                    "fixture-model-a",
+                                    "long/path/model/b", // opaque ids may contain separators
+                                    "c-3",
+                                ),
+                            ),
+                )
+            val outcome = probe.probe(provider) as ProbeOutcome.Ok
+            assertEquals(
+                listOf("fixture-model-a", "long/path/model/b", "c-3"),
+                outcome.models,
+            )
+        }
+
+    @Test
+    fun anOversizedListedModelsListIsTruncatedToTheOutcomeBound() =
+        runBlocking {
+            // HXA-059 bound: the phase-2 list is capped at
+            // MAX_MODELS_IN_OUTCOME (defense against a hostile/buggy provider);
+            // the Listed type itself allows up to 1024 ids.
+            val ids = List(1_024) { "model-${"%04d".format(it)}" }
+            val provider = FakeProvider(models = ModelCatalogResult.Listed(ids))
+            val outcome = probe.probe(provider) as ProbeOutcome.Ok
+            assertEquals(CapabilityProbe.MAX_MODELS_IN_OUTCOME, outcome.models!!.size)
+            assertEquals(ids.take(CapabilityProbe.MAX_MODELS_IN_OUTCOME), outcome.models)
+        }
+
+    @Test
+    fun normalizeModelIdsDropsBlanksAndDuplicatesPreservingOrder() {
+        // HXA-059 normalization (defense in depth over the Listed validation):
+        // blanks dropped, duplicates removed, first-seen order kept.
+        assertEquals(
+            listOf("b", "a"),
+            CapabilityProbe.normalizeModelIds(
+                listOf("b", "a", "b", "  ", "", "a"),
+            ),
+        )
+    }
+
+    @Test
+    fun normalizeModelIdsTruncatesToTheOutcomeBound() {
+        val ids = (1..(CapabilityProbe.MAX_MODELS_IN_OUTCOME + 50)).map { "m$it" }
+        val normalized = CapabilityProbe.normalizeModelIds(ids)
+        assertEquals(CapabilityProbe.MAX_MODELS_IN_OUTCOME, normalized.size)
+        assertEquals(ids.take(CapabilityProbe.MAX_MODELS_IN_OUTCOME), normalized)
+    }
 
     @Test
     fun phaseOneFailureStopsTheProbe() =
@@ -156,7 +213,9 @@ class CapabilityProbeTest {
         runBlocking {
             val provider = FakeProvider(models = ModelCatalogResult.Unsupported)
             val outcome = probe.probe(provider)
-            assertEquals(ProbeOutcome.Ok::class, outcome::class)
+            // HXA-059: no list on an unsupported backend → models = null (the app
+            // shows "the backend gives no model list, enter it manually").
+            assertEquals(null, (outcome as ProbeOutcome.Ok).models)
             assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
         }
 

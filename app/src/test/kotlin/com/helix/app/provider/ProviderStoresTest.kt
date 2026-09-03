@@ -68,6 +68,133 @@ class ProviderStoresTest {
         assertEquals(ConnectionTestStatus.Untested, ProviderTestStatusStore(backing).statusFor("prov_1"))
     }
 
+    // --- HXA-059: the optional 8th field (backend model list) ---
+
+    @Test
+    fun passedWithModelListRoundTripsThroughTheEighthField() {
+        val backing = InMemoryLineStore()
+        val store = ProviderTestStatusStore(backing)
+        val ids = listOf("fixture-model-a", "path/with/separators-b", "c")
+        store.recordPassed("prov_1", 5_000L, capabilities, ids)
+        // The line carries 8 fields (the model list JSON array).
+        val line = backing.lines("provider_test_status").single()
+        assertEquals(8, line.split("|", limit = 8).size)
+        val status = store.statusFor("prov_1") as ConnectionTestStatus.Passed
+        assertEquals(ids, status.modelIds)
+        // Restart simulation: the same backing is re-read with the list intact.
+        val reloaded = ProviderTestStatusStore(backing).statusFor("prov_1") as ConnectionTestStatus.Passed
+        assertEquals(ids, reloaded.modelIds)
+    }
+
+    @Test
+    fun passedWithoutModelListWritesTheSevenFieldLine() {
+        val backing = InMemoryLineStore()
+        val store = ProviderTestStatusStore(backing)
+        store.recordPassed("prov_1", 5_000L, capabilities, null)
+        val line = backing.lines("provider_test_status").single()
+        // No 8th field: a pre-HXA-059 reader (split limit 7) sees a valid row.
+        assertEquals(7, line.split("|").size)
+        assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
+        store.recordPassed("prov_1", 5_000L, capabilities, emptyList())
+        assertEquals(
+            7,
+            backing
+                .lines("provider_test_status")
+                .single()
+                .split("|")
+                .size,
+        )
+        assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
+    }
+
+    @Test
+    fun aSevenFieldLegacyLineReadsBackAsNoList() {
+        // A row written before HXA-059 (no model list field) stays valid and
+        // reads back as PASSED with modelIds = null.
+        val backing = InMemoryLineStore()
+        backing.setLines(
+            "provider_test_status",
+            listOf(
+                "prov_1|PASSED|9000|0|-|false|" +
+                    com.helix.provider.api.ProviderCapabilities
+                        .toJsonString(capabilities),
+            ),
+        )
+        val status = ProviderTestStatusStore(backing).statusFor("prov_1") as ConnectionTestStatus.Passed
+        assertEquals(capabilities, status.capabilities)
+        assertEquals(null, status.modelIds)
+    }
+
+    @Test
+    fun aCorruptEighthFieldDegradesTheListOnlyKeepingPassed() {
+        val backing = InMemoryLineStore()
+        val validCaps =
+            com.helix.provider.api.ProviderCapabilities
+                .toJsonString(capabilities)
+        for (corrupt in listOf("not-json", "42", "{\"object\":true}", "[\"ok\", 5]", "[\"a\",")) {
+            backing.setLines(
+                "provider_test_status",
+                listOf("prov_1|PASSED|9000|0|-|false|$validCaps|$corrupt"),
+            )
+            val status = ProviderTestStatusStore(backing).statusFor("prov_1")
+            // The list is display data: losing it must NOT pretend the provider
+            // is untested — the PASSED status (and its capabilities) is kept.
+            assertEquals("corrupt field: $corrupt", ConnectionTestStatus.Passed::class, status::class)
+            assertEquals("corrupt field: $corrupt", capabilities, (status as ConnectionTestStatus.Passed).capabilities)
+            assertEquals("corrupt field: $corrupt", null, status.modelIds)
+        }
+    }
+
+    @Test
+    fun aModelIdWithAPipeSurvivesTheEighthField() {
+        // split("|", limit = 8) keeps the remainder in field 8: a `|` inside a
+        // model id does not corrupt the list.
+        val backing = InMemoryLineStore()
+        val store = ProviderTestStatusStore(backing)
+        val ids = listOf("model|with|pipe", "plain")
+        store.recordPassed("prov_1", 5_000L, capabilities, ids)
+        assertEquals(ids, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
+    }
+
+    @Test
+    fun aStoredModelListIsReboundedOnRead() {
+        // A hand-tampered file must not grow the UI list without bound: field 8
+        // is re-run through the probe's normalization (bound 1000) on read.
+        val backing = InMemoryLineStore()
+        val validCaps =
+            com.helix.provider.api.ProviderCapabilities
+                .toJsonString(capabilities)
+        val big = (1..1_500).joinToString(",", prefix = "[", postfix = "]") { "\"m$it\"" }
+        backing.setLines(
+            "provider_test_status",
+            listOf("prov_1|PASSED|9000|0|-|false|$validCaps|$big"),
+        )
+        val status = ProviderTestStatusStore(backing).statusFor("prov_1") as ConnectionTestStatus.Passed
+        assertEquals(1_000, status.modelIds!!.size)
+    }
+
+    @Test
+    fun recordFailedAndClearDropTheModelList() {
+        val backing = InMemoryLineStore()
+        val store = ProviderTestStatusStore(backing)
+        store.recordPassed("prov_1", 1L, capabilities, listOf("m1"))
+        store.recordFailed("prov_1", 2L, phase = 2, code = ModelErrorCode.AUTH, retryable = false)
+        assertEquals(ConnectionTestStatus.Failed::class, store.statusFor("prov_1")::class)
+        // The FAILED line never carries a list (7 fields).
+        assertEquals(
+            7,
+            backing
+                .lines("provider_test_status")
+                .single()
+                .split("|")
+                .size,
+        )
+        // clear removes the whole line (status + list).
+        store.clear("prov_1")
+        assertEquals(ConnectionTestStatus.Untested, store.statusFor("prov_1"))
+        assertTrue(backing.lines("provider_test_status").isEmpty())
+    }
+
     @Test
     fun cleartextBindingsAuthorizeTheExactHostPortOnly() {
         val backing = InMemoryLineStore()
