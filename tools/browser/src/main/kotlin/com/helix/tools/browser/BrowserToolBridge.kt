@@ -68,6 +68,17 @@ interface BrowserToolBridge {
 
     /** Captures [tabId]'s WebView to a PNG and saves it to the Workspace (doc 09 §3.3). */
     fun screenshot(tabId: String): ScreenshotOutcome
+
+    /**
+     * Downloads [url] (manual, per-hop re-validated redirects) into the Workspace (doc 09 §3.4).
+     * [suggestedName] is a fallback filename hint; the server's Content-Disposition and the URL
+     * path take precedence. The stream is capped at the policy's byte ceiling and only executable
+     * / installable types (APK/DEX/JAR/SO) or over-limit sizes are refused.
+     */
+    fun download(
+        url: String,
+        suggestedName: String,
+    ): DownloadOutcome
 }
 
 /** Outcome of [BrowserToolBridge.open]. [url] / [origin] describe the resulting tab. */
@@ -190,5 +201,26 @@ data class ScreenshotOutcome(
     val reference: String,
     val sizeBytes: Long,
     val sha256: String,
+    val reason: String,
+)
+
+enum class DownloadToolStatus { SAVED, REFUSED, TIMED_OUT, ERROR }
+
+/**
+ * Outcome of [BrowserToolBridge.download]. [fileName] / [reference] / [sizeBytes] / [sha256]
+ * are empty / zero when nothing was saved; [reason] carries the refusal category (`url` /
+ * `type` / `size` / `name` / `redirect` / `redirect-loop` / `redirect-limit` / `http-<code>` /
+ * `size-exceeded`) or an error note, and is "" for a saved file. [finalUrl] is the URL actually
+ * fetched after redirects ("" when refused before the network). [contentType] is the
+ * server-declared MIME ("" when absent).
+ */
+data class DownloadOutcome(
+    val status: DownloadToolStatus,
+    val fileName: String,
+    val finalUrl: String,
+    val reference: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val contentType: String,
     val reason: String,
 )

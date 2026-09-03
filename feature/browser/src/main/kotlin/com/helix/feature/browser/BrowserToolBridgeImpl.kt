@@ -15,6 +15,7 @@ import com.helix.tools.browser.ActionStatus
 import com.helix.tools.browser.BrowserFindMatch
 import com.helix.tools.browser.BrowserNodeView
 import com.helix.tools.browser.BrowserToolBridge
+import com.helix.tools.browser.DownloadOutcome
 import com.helix.tools.browser.FindOutcome
 import com.helix.tools.browser.HistStatus
 import com.helix.tools.browser.HistoryOutcome
@@ -63,6 +64,7 @@ class BrowserToolBridgeImpl(
     private val scopeId: String,
 ) : BrowserToolBridge {
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val downloader = BrowserDownloader(workspaceStore, scopeId)
 
     override fun open(url: String): OpenOutcome {
         val result = onMain(SYNC_TIMEOUT_MS) { controller.openTab(url) }
@@ -280,6 +282,16 @@ class BrowserToolBridgeImpl(
             ScreenshotOutcome(ScreenshotStatus.ERROR, "", 0L, "", "could not save screenshot")
         }
     }
+
+    /**
+     * Downloads [url] into the Workspace (doc 09 §3.4). Delegates to [downloader] — the pure-JVM
+     * executor (real redirect resolution + capped streaming write) that the JVM unit test drives
+     * end-to-end against a local server. No main-thread hop: it is pure HTTP + workspace I/O.
+     */
+    override fun download(
+        url: String,
+        suggestedName: String,
+    ): DownloadOutcome = downloader.download(url, suggestedName)
 
     // ---------------------------------------------------------------- mapping
 

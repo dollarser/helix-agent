@@ -61,6 +61,15 @@ private const val MAX_NODE_TEXT: Int = 200
 private const val MAX_NODES: Int = 400
 private const val MAX_SCROLL_PX: Int = 100_000
 
+/** Raw bound on `browser.download`'s optional suggested name (the policy caps it at 128 anyway). */
+private const val MAX_DL_SUGGESTED_NAME: Int = 256
+
+/** Post-sanitize file name is capped by the policy at 128 chars; this is the output bound. */
+private const val MAX_DL_FILE_NAME: Int = 128
+
+/** Bound on the server-declared MIME echoed back in a download result. */
+private const val MAX_DL_MIME: Int = 128
+
 /** Model-visible error detail is bounded well below any port message length. */
 private const val MAX_DETAIL_CHARS: Int = 512
 
@@ -77,6 +86,8 @@ private const val ST_ACT_REFUSED: String = "refused"
 private const val ST_ACT_STALE: String = "stale-token"
 private const val ST_SCROLLED: String = "scrolled"
 private const val ST_SAVED: String = "saved"
+private const val ST_DL_SAVED: String = "saved"
+private const val ST_DL_REFUSED: String = "refused"
 
 // ---------------------------------------------------------------------------
 // Small schema + argument helpers (file-private).
@@ -1328,11 +1339,180 @@ object BrowserScreenshotTool {
 }
 
 // ===========================================================================
+// browser.download
+// ===========================================================================
+object BrowserDownloadTool {
+    const val NAME: String = "browser.download"
+    const val VERSION: Int = 1
+
+    @Suppress("LongMethod") // 8-field output schema: the download surface is wider than the sibling browser tools
+    fun descriptor(): ToolDescriptor =
+        ToolDescriptor(
+            name = ToolName(NAME),
+            version = ToolVersion(VERSION),
+            description =
+                "Download an http/https resource into the Workspace and return its model-safe " +
+                    "reference, size and SHA-256. Redirects are followed only to absolute http(s) " +
+                    "URLs; executable / installable types (APK/DEX/JAR/SO) and files over the size " +
+                    "limit are refused. Nothing is ever opened or executed.",
+            inputSchema =
+                objectSchema(
+                    properties =
+                        buildJsonObject {
+                            put(
+                                "url",
+                                stringSchema(MAX_URL, "The absolute http/https URL to download."),
+                            )
+                            put(
+                                "suggestedName",
+                                stringSchema(
+                                    MAX_DL_SUGGESTED_NAME,
+                                    "Optional file-name hint; a server name or the URL path take precedence.",
+                                ),
+                            )
+                        },
+                    required = listOf("url"),
+                ),
+            outputSchema =
+                objectSchema(
+                    properties =
+                        buildJsonObject {
+                            put(
+                                "status",
+                                enumSchema(listOf(ST_DL_SAVED, ST_DL_REFUSED), "saved, or refused (policy)."),
+                            )
+                            put("fileName", stringSchema(MAX_DL_FILE_NAME, "The saved file name; empty when refused."))
+                            put(
+                                "finalUrl",
+                                stringSchema(
+                                    MAX_URL,
+                                    "The URL actually fetched after redirects; empty when refused before download.",
+                                ),
+                            )
+                            put(
+                                "reference",
+                                stringSchema(MAX_URL, "Model-safe Workspace reference (scope:<id>:<path>)."),
+                            )
+                            put("sizeBytes", integerSchema("The saved size in bytes.", 0, null))
+                            put("sha256", stringSchema(64, "The lowercase hex SHA-256 of the saved file."))
+                            put(
+                                "contentType",
+                                stringSchema(MAX_DL_MIME, "The server-declared MIME type; empty when absent."),
+                            )
+                            put(
+                                "reason",
+                                stringSchema(MAX_DETAIL_CHARS, "Refusal category or error note; empty on success."),
+                            )
+                        },
+                    required =
+                        listOf(
+                            "status",
+                            "fileName",
+                            "finalUrl",
+                            "reference",
+                            "sizeBytes",
+                            "sha256",
+                            "contentType",
+                            "reason",
+                        ),
+                ),
+            operationClass = ToolOperationClass.NETWORK,
+            baseRisk = RiskLevel.L2,
+            timeout = 120.seconds,
+            maxOutputBytes = 4096,
+            requiredCapabilities = emptySet(),
+            idempotency = Idempotency.NON_IDEMPOTENT,
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            origin = ToolOrigin.BuiltInOrigin,
+        )
+
+    fun executor(bridge: BrowserToolBridge): ToolExecutor =
+        object : ToolExecutor {
+            @Suppress("ReturnCount", "LongMethod") // 4 outcome branches over the 8-field download output
+            override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                val url =
+                    strArg(call.args, "url", MAX_URL)
+                        ?: return ToolExecutorResult.Failed(
+                            "invalid 'browser.download' arguments: 'url' must be a string",
+                        )
+                val suggestedName = strArg(call.args, "suggestedName", MAX_DL_SUGGESTED_NAME) ?: ""
+                val out = bridge.download(url, suggestedName)
+                return when (out.status) {
+                    DownloadToolStatus.SAVED -> {
+                        ToolExecutorResult.Completed(
+                            output =
+                                buildJsonObject {
+                                    put("status", JsonPrimitive(ST_DL_SAVED))
+                                    put("fileName", JsonPrimitive(out.fileName))
+                                    put("finalUrl", JsonPrimitive(out.finalUrl))
+                                    put("reference", JsonPrimitive(out.reference))
+                                    put("sizeBytes", JsonPrimitive(out.sizeBytes))
+                                    put("sha256", JsonPrimitive(out.sha256))
+                                    put("contentType", JsonPrimitive(out.contentType))
+                                    put("reason", JsonPrimitive(bounded(out.reason)))
+                                },
+                            auditDetail =
+                                buildJsonObject {
+                                    put("status", JsonPrimitive(ST_DL_SAVED))
+                                    put("reference", JsonPrimitive(out.reference))
+                                    put("sizeBytes", JsonPrimitive(out.sizeBytes))
+                                    put("sha256", JsonPrimitive(out.sha256))
+                                    put("finalUrl", JsonPrimitive(out.finalUrl))
+                                },
+                        )
+                    }
+
+                    DownloadToolStatus.REFUSED -> {
+                        ToolExecutorResult.Completed(
+                            output =
+                                buildJsonObject {
+                                    put("status", JsonPrimitive(ST_DL_REFUSED))
+                                    put("fileName", JsonPrimitive(""))
+                                    put("finalUrl", JsonPrimitive(out.finalUrl))
+                                    put("reference", JsonPrimitive(""))
+                                    put("sizeBytes", JsonPrimitive(0))
+                                    put("sha256", JsonPrimitive(""))
+                                    put("contentType", JsonPrimitive(""))
+                                    put("reason", JsonPrimitive(bounded(out.reason)))
+                                },
+                            auditDetail =
+                                buildJsonObject {
+                                    put("status", JsonPrimitive(ST_DL_REFUSED))
+                                    put("reason", JsonPrimitive(out.reason))
+                                    put("url", JsonPrimitive(url))
+                                },
+                        )
+                    }
+
+                    DownloadToolStatus.TIMED_OUT -> {
+                        ToolExecutorResult.TimedOut
+                    }
+
+                    DownloadToolStatus.ERROR -> {
+                        ToolExecutorResult.Failed(bounded(out.reason).ifEmpty { "download failed" })
+                    }
+                }
+            }
+        }
+
+    fun register(
+        registry: ToolRegistry,
+        implementations: ToolImplementationRegistry,
+        bridge: BrowserToolBridge,
+    ) {
+        val d = descriptor()
+        registry.register(d)
+        implementations.register(d, executor(bridge))
+    }
+}
+
+// ===========================================================================
 // Registration
 // ===========================================================================
 object BrowserTools {
     /**
-     * Registers all 11 `browser.*` contracts and implementations against the shared [bridge].
+     * Registers all 12 `browser.*` contracts and implementations against the shared [bridge].
      * Called once from the app container (which owns the production `BrowserToolBridgeImpl`);
      * tests build a [ToolRegistry] / [ToolImplementationRegistry] pair and a fake bridge.
      */
@@ -1352,5 +1532,6 @@ object BrowserTools {
         BrowserTypeTool.register(registry, implementations, bridge)
         BrowserScrollTool.register(registry, implementations, bridge)
         BrowserScreenshotTool.register(registry, implementations, bridge)
+        BrowserDownloadTool.register(registry, implementations, bridge)
     }
 }

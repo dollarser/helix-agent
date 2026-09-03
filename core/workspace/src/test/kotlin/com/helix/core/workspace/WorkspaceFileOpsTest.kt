@@ -484,6 +484,66 @@ class WorkspaceFileOpsTest {
         }
     }
 
+    // ── Streaming write (HXA-063 browser download seam) ───────────────────────────────
+
+    @Test
+    fun streamedWritePublishesWithExactBytesAndHash() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val payload = "streamed artifact payload".toByteArray()
+
+        val out =
+            store(root).writeArtifactStream(
+                ref("output/dl.bin"),
+                WorkspaceLayout.OUTPUT,
+                expectedBytes = payload.size.toLong(),
+                maxBytes = payload.size.toLong(),
+            ) { out -> out.write(payload) }
+
+        assertEquals(payload.size.toLong(), out.record.sizeBytes)
+        assertEquals(hex(payload), out.record.sha256)
+        assertEquals(payload.toList(), store(root).readAll(ref("output/dl.bin")).toList())
+        assertEquals(0, store(root).reclaimTempFiles("ws"))
+    }
+
+    @Test
+    fun streamedWritePastByteCapAbandonPublishesNothing() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val path = ref("output/dl.bin")
+        // The stream overshoots the 8-byte cap: the guard must throw the moment cumulative
+        // writes would exceed maxBytes, and the temp must be cleaned up.
+        assertThrows(AbandonedWrite.LimitExceeded::class.java) {
+            store(root).writeArtifactStream(
+                path,
+                WorkspaceLayout.OUTPUT,
+                expectedBytes = 16L,
+                maxBytes = 8L,
+            ) { out -> out.write(ByteArray(16)) }
+        }
+
+        assertFalse("an over-cap stream must not publish the target", Files.exists(target(root, "output/dl.bin")))
+        assertEquals("the temp must be deleted on cap abandonment", 0, store(root).reclaimTempFiles("ws"))
+    }
+
+    @Test
+    fun streamedWritePublishesActualSizeWhenDeclaredSizeIsOverstated() {
+        val root = tmp.newFolder("ws").toPath()
+        store(root).ensureLayout("ws")
+        val payload = "short".toByteArray()
+
+        val out =
+            store(root).writeArtifactStream(
+                ref("output/dl.bin"),
+                WorkspaceLayout.OUTPUT,
+                expectedBytes = 100L,
+                maxBytes = 100L,
+            ) { out -> out.write(payload) }
+
+        assertEquals("the record must reflect the ACTUAL written size", payload.size.toLong(), out.record.sizeBytes)
+        assertEquals(hex(payload), out.record.sha256)
+    }
+
     // ── Scope leak (doc 10) ────────────────────────────────────────────────────────────
 
     @Test

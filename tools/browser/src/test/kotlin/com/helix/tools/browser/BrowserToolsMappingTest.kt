@@ -417,6 +417,156 @@ class BrowserToolsMappingTest {
         assertTrue(f.sideEffectFree)
     }
 
+    // ── download ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun downloadSavedEmitsAllFieldsWithAnAuditReference() {
+        bridge.downloadResult =
+            DownloadOutcome(
+                DownloadToolStatus.SAVED,
+                "report.bin",
+                "https://a.example/files/report.bin",
+                "scope:app:output/report.bin",
+                4096L,
+                "ab12",
+                "application/octet-stream",
+                "",
+            )
+        val r =
+            run(
+                BrowserDownloadTool.NAME,
+                BrowserDownloadTool.executor(bridge),
+                buildJsonObject {
+                    put("url", JsonPrimitive("https://a.example/files/report.bin"))
+                    put("suggestedName", JsonPrimitive("hint.bin"))
+                },
+            )
+        val out = json(r)
+        assertEquals("saved", out.getValue("status").jsonPrimitive.content)
+        assertEquals("report.bin", out.getValue("fileName").jsonPrimitive.content)
+        assertEquals("https://a.example/files/report.bin", out.getValue("finalUrl").jsonPrimitive.content)
+        assertEquals("scope:app:output/report.bin", out.getValue("reference").jsonPrimitive.content)
+        assertEquals("4096", out.getValue("sizeBytes").jsonPrimitive.content)
+        assertEquals("ab12", out.getValue("sha256").jsonPrimitive.content)
+        assertEquals("application/octet-stream", out.getValue("contentType").jsonPrimitive.content)
+        assertEquals("", out.getValue("reason").jsonPrimitive.content)
+        val c = r as ToolExecutorResult.Completed
+        assertEquals(
+            "scope:app:output/report.bin",
+            c.auditDetail
+                ?.getValue("reference")
+                ?.jsonPrimitive
+                ?.content,
+        )
+    }
+
+    @Test
+    fun downloadRefusedEmitsTheReasonWithAnEmptyPayload() {
+        bridge.downloadResult =
+            DownloadOutcome(
+                DownloadToolStatus.REFUSED,
+                "",
+                "https://a.example/files/x.apk",
+                "",
+                0L,
+                "",
+                "",
+                "type",
+            )
+        val out =
+            json(
+                run(
+                    BrowserDownloadTool.NAME,
+                    BrowserDownloadTool.executor(bridge),
+                    buildJsonObject { put("url", JsonPrimitive("https://a.example/files/x.apk")) },
+                ),
+            )
+        assertEquals("refused", out.getValue("status").jsonPrimitive.content)
+        assertEquals("type", out.getValue("reason").jsonPrimitive.content)
+        assertEquals("", out.getValue("fileName").jsonPrimitive.content)
+        assertEquals("", out.getValue("reference").jsonPrimitive.content)
+        assertEquals("0", out.getValue("sizeBytes").jsonPrimitive.content)
+    }
+
+    @Test
+    fun downloadTimeoutIsATimedOutResult() {
+        bridge.downloadResult =
+            DownloadOutcome(DownloadToolStatus.TIMED_OUT, "", "", "", 0L, "", "", "timed-out")
+        val r =
+            run(
+                BrowserDownloadTool.NAME,
+                BrowserDownloadTool.executor(bridge),
+                buildJsonObject { put("url", JsonPrimitive("https://a.example/slow")) },
+            )
+        assertEquals(ToolExecutorResult.TimedOut, r)
+    }
+
+    @Test
+    fun downloadErrorIsAFailureCarryingTheReason() {
+        bridge.downloadResult = DownloadOutcome(DownloadToolStatus.ERROR, "", "", "", 0L, "", "", "boom")
+        val f =
+            failed(
+                run(
+                    BrowserDownloadTool.NAME,
+                    BrowserDownloadTool.executor(bridge),
+                    buildJsonObject { put("url", JsonPrimitive("https://a.example/x")) },
+                ),
+            )
+        assertEquals("boom", f.detail)
+    }
+
+    @Test
+    fun downloadErrorWithAnEmptyReasonFallsBackToAStableMessage() {
+        bridge.downloadResult = DownloadOutcome(DownloadToolStatus.ERROR, "", "", "", 0L, "", "", "")
+        val f =
+            failed(
+                run(
+                    BrowserDownloadTool.NAME,
+                    BrowserDownloadTool.executor(bridge),
+                    buildJsonObject { put("url", JsonPrimitive("https://a.example/x")) },
+                ),
+            )
+        assertEquals("download failed", f.detail)
+    }
+
+    @Test
+    fun downloadRequiresAStringUrl() {
+        val f =
+            failed(
+                run(
+                    BrowserDownloadTool.NAME,
+                    BrowserDownloadTool.executor(bridge),
+                    buildJsonObject { put("url", JsonPrimitive(42)) },
+                ),
+            )
+        assertTrue(f.detail.contains("'url' must be a string"))
+    }
+
+    @Test
+    fun downloadSuggestedNameIsOptional() {
+        bridge.downloadResult =
+            DownloadOutcome(
+                DownloadToolStatus.SAVED,
+                "report.bin",
+                "https://a.example/files/report.bin",
+                "scope:app:output/report.bin",
+                12L,
+                "ab12",
+                "",
+                "",
+            )
+        val out =
+            json(
+                run(
+                    BrowserDownloadTool.NAME,
+                    BrowserDownloadTool.executor(bridge),
+                    buildJsonObject { put("url", JsonPrimitive("https://a.example/files/report.bin")) },
+                ),
+            )
+        assertEquals("saved", out.getValue("status").jsonPrimitive.content)
+        assertEquals("report.bin", out.getValue("fileName").jsonPrimitive.content)
+    }
+
     /** Returns one canned outcome per port method; each test sets the field it exercises. */
     private class FakeBridge : BrowserToolBridge {
         var openResult: OpenOutcome = OpenOutcome("t1", "https://example.com/", "example.com")
@@ -446,6 +596,17 @@ class BrowserToolsMappingTest {
         var scrollResult: ScrollOutcome = ScrollOutcome(ScrollStatus.SCROLLED, 0, 100, "")
         var screenshotResult: ScreenshotOutcome =
             ScreenshotOutcome(ScreenshotStatus.SAVED, "scope:app:output/browser-x.png", 1L, "sha", "")
+        var downloadResult: DownloadOutcome =
+            DownloadOutcome(
+                DownloadToolStatus.SAVED,
+                "x.bin",
+                "https://a.example/file.bin",
+                "scope:app:output/x.bin",
+                1L,
+                "sha",
+                "application/octet-stream",
+                "",
+            )
 
         override fun open(url: String): OpenOutcome = openResult
 
@@ -485,5 +646,10 @@ class BrowserToolsMappingTest {
         ): ScrollOutcome = scrollResult
 
         override fun screenshot(tabId: String): ScreenshotOutcome = screenshotResult
+
+        override fun download(
+            url: String,
+            suggestedName: String,
+        ): DownloadOutcome = downloadResult
     }
 }
