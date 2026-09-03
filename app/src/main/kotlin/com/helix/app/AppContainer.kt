@@ -32,6 +32,7 @@ import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
 import com.helix.feature.browser.BrowserController
+import com.helix.feature.browser.BrowserToolBridgeImpl
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.ContentResolverSafDestinationOpener
 import com.helix.feature.files.ContentResolverSafDestinationVerifier
@@ -44,6 +45,7 @@ import com.helix.feature.files.SafImportPipeline
 import com.helix.provider.api.CredentialLookup
 import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
+import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesArchiveTool
 import com.helix.tools.files.FilesCopyTool
@@ -314,6 +316,16 @@ internal class DefaultAppContainer(
         CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
             jsExecutionClient.execute(params, cancel)
         }
+        // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
+        // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
+        // main-thread [browser] controller off the tool dispatcher's thread: node tokens are
+        // validated fail-closed against live state, and a click/type is PERFORMED only when BOTH
+        // the fixed script AND the host SensitiveFieldClassifier agree the field is normal.
+        BrowserTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
+        )
     }
 
     /**

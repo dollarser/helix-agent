@@ -67,6 +67,10 @@ dependencies {
     implementation(project(":feature:files"))
     // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
     implementation(project(":feature:browser"))
+    // HXA-062: the browser.* tool descriptors / executors live in :tools:browser; :app calls
+    // BrowserTools.registerAll directly (same direct-dep pattern as :tools:files). A distinct
+    // :tools:browser group (root build.gradle.kts) keeps it from colliding with :feature:browser.
+    implementation(project(":tools:browser"))
     // HXA-036: the chat flow routes model-requested tool calls through the framework
     // dispatcher (validate→capability→policy→approval→execute→verify→audit) with the
     // storage-backed approval broker and audit sink; the approval card + audit page are

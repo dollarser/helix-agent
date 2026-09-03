@@ -146,7 +146,10 @@ val projectDependencies =
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
         ":extensions:mcp" to listOf(":core:model", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
-        ":feature:browser" to listOf(":core:model", ":core:policy"),
+        // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
+        // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
+        // (:core:workspace).
+        ":feature:browser" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:browser"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
         // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
@@ -158,7 +161,11 @@ val projectDependencies =
         ":tools:framework" to listOf(":core:model", ":core:policy"),
         ":tools:android" to listOf(":core:model", ":core:policy"),
         ":tools:automation" to listOf(":core:model", ":core:policy"),
-        ":tools:browser" to listOf(":core:model", ":core:policy"),
+        // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
+        // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
+        // tools:framework's `api` scope, same as :tools:files). The BrowserToolBridge port
+        // they execute against is implemented by :feature:browser (which depends on this module).
+        ":tools:browser" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
         ":tools:root" to listOf(":core:model", ":core:policy"),
         ":testing" to listOf(":core:model"),
@@ -175,6 +182,16 @@ subprojects {
     when (path) {
         in androidLibraries -> {
             pluginManager.apply("com.android.library")
+
+            // HXA-062: :tools:browser and :feature:browser both default to the coordinate
+            // com.helix:browser:0.1.0-SNAPSHOT (project name "browser", default group
+            // "com.helix"). :app depends on both, so Gradle would conflict-resolve them to a
+            // single artifact and silently drop the tool classes — the same collision
+            // :tools:files resolved (HXA-042). A distinct group disambiguates the two without
+            // touching the artifact name or any external lockfile (project deps are not locked).
+            if (path == ":tools:browser") {
+                group = "com.helix.tools"
+            }
 
             // Uniform test baseline for every android library: a module adding its first
             // JVM test (or instrumented test) does not re-declare the platform dependency

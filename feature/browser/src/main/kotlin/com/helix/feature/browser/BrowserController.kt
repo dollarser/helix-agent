@@ -1,12 +1,15 @@
 package com.helix.feature.browser
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
 import com.helix.feature.browser.snapshot.BrowserOrigin
 import com.helix.feature.browser.snapshot.BrowserSnapshot
+import com.helix.feature.browser.snapshot.BrowserSnapshotScript
 import com.helix.feature.browser.snapshot.LiveTabState
 import com.helix.feature.browser.snapshot.SnapshotBinder
 import com.helix.feature.browser.snapshot.SnapshotFailure
@@ -17,6 +20,7 @@ import com.helix.feature.browser.webview.WebViewTabHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -96,41 +100,108 @@ class BrowserController(
         id: String,
         rawUrl: String,
     ) {
-        // A denial leaves the tab on its policy error page; the WebView is never asked to
-        // load a denied URL (doc 09 §3.4).
+        navigateOutcome(id, rawUrl)
+    }
+
+    /**
+     * The policy-choke-point navigation, returning a [BrowserNavResult] for the HXA-062 tool
+     * bridge. A denial leaves the tab on its policy error page and the WebView is never asked
+     * to load the denied URL (doc 09 §3.4); the denial reason is read back from the tab's
+     * [PolicyBlockedError].
+     */
+    @Suppress("ReturnCount")
+    fun navigateOutcome(
+        id: String,
+        rawUrl: String,
+    ): BrowserNavResult {
+        if (!isLive(id)) return BrowserNavResult.NoTab
         val command = tabs.navigate(id, BrowserTabController.normalizeInput(rawUrl))
-        if (command is BrowserTabController.TabCommand.Load) {
-            snapshots.remove(id)
-            host(id).load(command.url)
+        if (command !is BrowserTabController.TabCommand.Load) {
+            publish()
+            val reason =
+                (
+                    tabs
+                        .state()
+                        .tabs
+                        .first { it.id == id }
+                        .error as? PolicyBlockedError
+                )?.reason?.label
+            return BrowserNavResult.Denied(reason ?: "denied")
         }
+        snapshots.remove(id)
+        host(id).load(command.url)
         publish()
+        return BrowserNavResult.Started(command.url, BrowserOrigin.of(command.url).orEmpty())
+    }
+
+    /**
+     * Opens a new tab and, for an admitted [url], navigates it (HXA-062 `browser.open`). A blank
+     * [url] yields a blank tab; a denied [url] leaves the fresh tab on its policy error page and
+     * is reported as the blank document — the denied URL is never loaded.
+     */
+    fun openTab(url: String): BrowserOpenResult {
+        val id = newTab()
+        if (url.isBlank()) {
+            return BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
+        }
+        return when (val result = navigateOutcome(id, url)) {
+            is BrowserNavResult.Started -> BrowserOpenResult(id, result.url, result.origin)
+            else -> BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
+        }
     }
 
     fun goBack(id: String) {
+        goBackOutcome(id)
+    }
+
+    @Suppress("ReturnCount")
+    fun goBackOutcome(id: String): BrowserHistResult {
+        if (!isLive(id)) return BrowserHistResult.NoTab
         val command = tabs.goBack(id)
-        if (command is BrowserTabController.TabCommand.Back) {
-            snapshots.remove(id)
-            host(id).goBack()
+        if (command !is BrowserTabController.TabCommand.Back) {
+            publish()
+            return BrowserHistResult.NoChange("no earlier page to go back to")
         }
+        snapshots.remove(id)
+        host(id).goBack()
         publish()
+        return BrowserHistResult.Moved
     }
 
     fun goForward(id: String) {
+        goForwardOutcome(id)
+    }
+
+    @Suppress("ReturnCount")
+    fun goForwardOutcome(id: String): BrowserHistResult {
+        if (!isLive(id)) return BrowserHistResult.NoTab
         val command = tabs.goForward(id)
-        if (command is BrowserTabController.TabCommand.Forward) {
-            snapshots.remove(id)
-            host(id).goForward()
+        if (command !is BrowserTabController.TabCommand.Forward) {
+            publish()
+            return BrowserHistResult.NoChange("no later page to go forward to")
         }
+        snapshots.remove(id)
+        host(id).goForward()
         publish()
+        return BrowserHistResult.Moved
     }
 
     fun reload(id: String) {
+        reloadOutcome(id)
+    }
+
+    @Suppress("ReturnCount")
+    fun reloadOutcome(id: String): BrowserReloadResult {
+        if (!isLive(id)) return BrowserReloadResult.NoTab
         val command = tabs.reload(id)
-        if (command is BrowserTabController.TabCommand.Reload) {
-            snapshots.remove(id)
-            host(id).reload()
+        if (command !is BrowserTabController.TabCommand.Reload) {
+            publish()
+            return BrowserReloadResult.NoChange("nothing committed to reload")
         }
+        snapshots.remove(id)
+        host(id).reload()
         publish()
+        return BrowserReloadResult.Reloaded
     }
 
     fun stop(id: String) {
@@ -174,11 +245,11 @@ class BrowserController(
             onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
             return
         }
-        host.evaluateSnapshot { raw ->
+        host.evaluateFixed(BrowserSnapshotScript.EXTRACT) { raw ->
             // The tab may have closed / committed a newer page while the script ran: only
             // publish a result for a tab that still exists.
-            if (!isLive(id)) return@evaluateSnapshot
-            val liveTab = tabs.state().tabs.firstOrNull { it.id == id } ?: return@evaluateSnapshot
+            if (!isLive(id)) return@evaluateFixed
+            val liveTab = tabs.state().tabs.firstOrNull { it.id == id } ?: return@evaluateFixed
             val result = SnapshotBinder.bind(raw, liveTab, clockMillis())
             if (result is SnapshotResult.Success) snapshots[id] = result.snapshot else snapshots.remove(id)
             onResult(result)
@@ -187,6 +258,65 @@ class BrowserController(
 
     /** The last successful snapshot for [id], if any — the snapshot whose node tokens are live. */
     fun latestSnapshot(id: String): BrowserSnapshot? = snapshots[id]
+
+    /**
+     * The tab's live state, or null when unknown (HXA-062). Thread-safe: reads the published
+     * [StateFlow] value, so the tool bridge may call it off the main thread.
+     */
+    fun tab(id: String): BrowserTab? = state.value.tabs.firstOrNull { it.id == id }
+
+    /**
+     * Runs a FIXED, versioned action script on the tab's settled page and delivers the raw
+     * result via [onResult] on the main thread (HXA-062 `browser.click` / `type` / `scroll`;
+     * doc 09 §3.4: [script] is always a
+     * [com.helix.feature.browser.snapshot.BrowserActionScript] fragment — the model cannot
+     * submit a script). A tab without a settled page fails closed with
+     * [EvalFixedOutcome.NoPage]. Must be called on the main thread.
+     */
+    @Suppress("ComplexCondition")
+    fun evaluateFixed(
+        id: String,
+        script: String,
+        onResult: (EvalFixedOutcome) -> Unit,
+    ) {
+        val tab = tabs.state().tabs.firstOrNull { it.id == id }
+        val host = hosts[id]
+        if (tab == null || host == null || tab.isLoading || tab.error != null || tab.navigationGeneration < 1) {
+            onResult(EvalFixedOutcome.NoPage)
+            return
+        }
+        host.evaluateFixed(script) { raw ->
+            if (!isLive(id)) return@evaluateFixed
+            onResult(EvalFixedOutcome.Result(raw))
+        }
+    }
+
+    /**
+     * Captures the tab's WebView to PNG bytes (HXA-062 `browser.screenshot`; doc 09 §3.3:
+     * screenshot only the Helix WebView, save to the Workspace). Returns null when the tab has
+     * no settled, sized page. Must be called on the main thread (WebView draw).
+     */
+    @Suppress("ComplexCondition", "ReturnCount")
+    fun capturePagePng(id: String): ByteArray? {
+        val tab = tabs.state().tabs.firstOrNull { it.id == id }
+        val host = hosts[id]
+        if (tab == null || host == null || tab.isLoading || tab.error != null || tab.navigationGeneration < 1) {
+            return null
+        }
+        val view = host.webView
+        val width = view.width
+        val height = view.height
+        if (width <= 0 || height <= 0) return null
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        try {
+            view.draw(Canvas(bitmap))
+            val buffer = ByteArrayOutputStream()
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer)
+            return buffer.toByteArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     /**
      * Validates a node token against the tab's LIVE state (doc 09 §3.3: 导航、刷新、DOM 大变化

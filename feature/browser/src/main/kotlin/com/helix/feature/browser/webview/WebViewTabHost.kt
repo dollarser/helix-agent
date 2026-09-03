@@ -19,7 +19,6 @@ import com.helix.feature.browser.BrowserTabListener
 import com.helix.feature.browser.BrowserUrlDecision
 import com.helix.feature.browser.BrowserUrlPolicy
 import com.helix.feature.browser.DownloadRequest
-import com.helix.feature.browser.snapshot.BrowserSnapshotScript
 
 /**
  * One Helix tab's System WebView (HXA-060; doc 09 §3.4 WebView 安全约束). Constructed
@@ -52,8 +51,8 @@ internal class WebViewTabHost(
     /** Main-thread handler for the snapshot deadline; WebView callbacks are already main-thread. */
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    /** Bumped on every [evaluateSnapshot] and [destroy] to discard late results. */
-    private var snapshotRequestGeneration = 0
+    /** Bumped on every [evaluateFixed] and [destroy] to discard late results. */
+    private var fixedEvalGeneration = 0
 
     private val client =
         object : WebViewClient() {
@@ -185,11 +184,12 @@ internal class WebViewTabHost(
     }
 
     /**
-     * Evaluates the FIXED snapshot script ([BrowserSnapshotScript.EXTRACT] — the only JS this
-     * feature ever runs, doc 09 §3.4) and delivers the raw result string to [onResult] on the
-     * main thread. The result is the raw JSON text (or null on failure); the trusted
-     * [com.helix.feature.browser.snapshot.SnapshotBinder] is the only consumer and it
-     * re-validates everything fail-closed.
+     * Evaluates one FIXED, versioned script — always a [BrowserSnapshotScript.EXTRACT] or
+     * [com.helix.feature.browser.snapshot.BrowserActionScript] fragment (the only JS this
+     * feature ever runs, doc 09 §3.4) — and delivers the raw result string to [onResult] on
+     * the main thread. The result is the raw JSON text (or null on failure); the trusted host
+     * ([com.helix.feature.browser.snapshot.SnapshotBinder] for snapshots, the HXA-062 tool
+     * bridge for actions) is the only consumer and re-validates everything fail-closed.
      *
      * Two guards make a hostile / flaky page safe to evaluate:
      * - a [SNAPSHOT_TIMEOUT_MS] deadline synthesizes a null result if the script never
@@ -198,25 +198,28 @@ internal class WebViewTabHost(
      *   deadline already answered (or after the tab was destroyed), so a stale page result
      *   can never be attributed to a newer request.
      */
-    fun evaluateSnapshot(onResult: (String?) -> Unit) {
-        snapshotRequestGeneration += 1
-        val generation = snapshotRequestGeneration
+    fun evaluateFixed(
+        script: String,
+        onResult: (String?) -> Unit,
+    ) {
+        fixedEvalGeneration += 1
+        val generation = fixedEvalGeneration
         var answered = false
 
         val timeout =
             Runnable {
                 if (!answered) {
                     answered = true
-                    if (generation == snapshotRequestGeneration) onResult(null)
+                    if (generation == fixedEvalGeneration) onResult(null)
                 }
             }
         mainHandler.postDelayed(timeout, SNAPSHOT_TIMEOUT_MS)
 
-        webView.evaluateJavascript(BrowserSnapshotScript.EXTRACT) { raw ->
+        webView.evaluateJavascript(script) { raw ->
             if (answered) return@evaluateJavascript // deadline (or destroy) already settled this request
             answered = true
             mainHandler.removeCallbacks(timeout)
-            if (generation == snapshotRequestGeneration) onResult(raw)
+            if (generation == fixedEvalGeneration) onResult(raw)
         }
     }
 
@@ -236,9 +239,9 @@ internal class WebViewTabHost(
     fun clearCache() = webView.clearCache(true)
 
     fun destroy() {
-        // Invalidate any in-flight snapshot: a callback that was already enqueued must not
+        // Invalidate any in-flight fixed eval: a callback that was already enqueued must not
         // be delivered to a destroyed WebView's request slot.
-        snapshotRequestGeneration += 1
+        fixedEvalGeneration += 1
         webView.stopLoading()
         webView.loadUrl(ABOUT_BLANK)
         webView.destroy()
