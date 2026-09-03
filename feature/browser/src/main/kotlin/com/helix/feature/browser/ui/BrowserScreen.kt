@@ -73,7 +73,12 @@ fun BrowserScreen(controller: BrowserController) {
         modifier =
             Modifier
                 .fillMaxSize()
-                .testTag("browser-screen"),
+                // HXA-028 shell convention: every destination screen self-tags `screen-<route>`
+                // (ChatScreen=screen-sessions, SettingsScreen=screen-settings,
+                // FilesScreen=screen-files, EmptyDestination=screen-${route}). The browser
+                // route is "browser", so its root must be `screen-browser` for the app shell
+                // device test to reach it.
+                .testTag("screen-browser"),
     ) {
         TabStrip(state, controller)
         AddressBar(
