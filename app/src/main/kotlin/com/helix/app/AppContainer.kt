@@ -37,9 +37,13 @@ import com.helix.feature.files.ContentResolverSafDestinationVerifier
 import com.helix.feature.files.ContentResolverSafGrantProbe
 import com.helix.feature.files.ContentResolverSafMetadataReader
 import com.helix.feature.files.ContentResolverSafSourceOpener
+import com.helix.feature.files.ContentResolverSafTreeCheck
+import com.helix.feature.files.ContentResolverSafTreeReader
 import com.helix.feature.files.SafExportPipeline
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafImportPipeline
+import com.helix.feature.files.SafTreeScopeAccess
+import com.helix.feature.files.SafTreeScopeService
 import com.helix.provider.api.CredentialLookup
 import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
@@ -111,6 +115,14 @@ interface AppContainer {
      * never sees it, and it resolves paths through the same containment-enforced scope boundary.
      */
     val fileManager: FileManagerService
+
+    /**
+     * The SAF tree scope service (HXA-057): persisted tree grants (the SAME [SafGrantStore] the
+     * import/export bundle uses) + real-time re-verification (grant / provider identity / root
+     * document / read-write mode). The file manager browses these scopes read-only; the model and
+     * tools see only the model-opaque `scopeId` + relative path (doc 10: 模型只看到 scopeId).
+     */
+    val safTree: SafTreeScopeService
 }
 
 /**
@@ -231,19 +243,51 @@ internal class DefaultAppContainer(
     private val jsExecutionClient: JsExecutionClient = JsExecutionClient(context)
 
     /**
-     * The file-manager facade (HXA-046): shares the tool pipeline's [workspaceStore] and the same
-     * [scopeRoots] scope boundary, so the user's file manager and the model's `files.*` tools
-     * address the identical, containment-enforced store. [APP_SCOPE_ID] is the always-present,
-     * mutable workspace; all-files roots (developer) are appended read-only by the service.
+     * The persisted SAF tree grant registry (HXA-044/HXA-057): one shared [SafGrantStore] under the
+     * app-private `workspaces/` directory, used by BOTH the SAF import/export bundle and the SAF
+     * tree scope service. The `content://` URIs it holds never reach the model (doc 10: 模型只看到
+     * scopeId).
      */
-    override val fileManager: FileManagerService =
-        FileManagerService(workspaceStore, scopeRoots, APP_SCOPE_ID)
+    private val safGrantStore: SafGrantStore =
+        SafGrantStore(java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath())
 
     /**
-     * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). The grant
-     * registry persists atomically under the app-private `workspaces/` directory; the import
-     * pipeline targets the app workspace `input/` region through the same [scopeRoots] the file
-     * tools use, and the export pipeline reads from that scope's user regions.
+     * The SAF tree scope service (HXA-057: persisted SAF tree scope 接线). Re-verifies every grant
+     * in real time (grant / provider identity / root document / read-write mode) and fails closed on
+     * revocation, provider-gone, restart, read-only grant or URI change. The file manager consumes
+     * it read-only; the model and tools see only the model-opaque `scopeId` + relative path.
+     */
+    override val safTree: SafTreeScopeService =
+        SafTreeScopeService(safGrantStore, ContentResolverSafTreeCheck(context.contentResolver))
+
+    /**
+     * The SAF tree scope access the file manager consumes (HXA-057): the scope service + the
+     * read-only `DocumentsContract` browse backend + an app-private share-staging directory. SAF
+     * scopes are browse/preview/share-only in this milestone (the all-files precedent: mutations
+     * hidden; a read-only grant's write re-verification fails closed regardless).
+     */
+    private val safAccess: SafTreeScopeAccess =
+        SafTreeScopeAccess(
+            service = safTree,
+            reader = ContentResolverSafTreeReader(context.contentResolver, safGrantStore),
+            shareDir = java.io.File(context.filesDir, "workspaces/saf-share").toPath(),
+        )
+
+    /**
+     * The file-manager facade (HXA-046 + HXA-057): shares the tool pipeline's [workspaceStore] and
+     * the same [scopeRoots] scope boundary, so the user's file manager and the model's `files.*`
+     * tools address the identical, containment-enforced store. [APP_SCOPE_ID] is the always-present,
+     * mutable workspace; all-files roots (developer) are appended read-only, and SAF tree scopes
+     * (HXA-057) are appended read-only and re-verified on every browse.
+     */
+    override val fileManager: FileManagerService =
+        FileManagerService(workspaceStore, scopeRoots, APP_SCOPE_ID, safAccess)
+
+    /**
+     * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). Reuses the shared
+     * [safGrantStore] (HXA-057); the import pipeline targets the app workspace `input/` region
+     * through the same [scopeRoots] the file tools use, and the export pipeline reads from that
+     * scope's user regions.
      */
     override val featureFiles: FeatureFiles =
         run {
@@ -252,10 +296,7 @@ internal class DefaultAppContainer(
             val destinationOpener = ContentResolverSafDestinationOpener(resolver)
             val destinationVerifier = ContentResolverSafDestinationVerifier(resolver)
             FeatureFiles(
-                grantStore =
-                    SafGrantStore(
-                        java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath(),
-                    ),
+                grantStore = safGrantStore,
                 metadataReader = ContentResolverSafMetadataReader(resolver),
                 sourceOpener = sourceOpener,
                 importPipeline = SafImportPipeline(scopeRoots, sourceOpener),

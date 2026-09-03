@@ -2,6 +2,9 @@ package com.helix.app.ui
 
 import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -59,6 +62,8 @@ import com.helix.app.files.FileManagerService.FileOpResult
 import com.helix.app.files.FileManagerService.TrashEntryView
 import com.helix.app.files.FileSource
 import com.helix.app.files.SortKey
+import com.helix.feature.files.SafTreeScopeService
+import com.helix.feature.files.SafTreeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -96,11 +101,17 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooManyFunctions", "CyclomaticComplexMethod", "LongParameterList")
-fun FilesScreen(fileManager: FileManagerService) {
+fun FilesScreen(
+    fileManager: FileManagerService,
+    // HXA-057: the SAF tree scope service drives the add/re-authorize + remove entries.
+    safTree: SafTreeScopeService,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    val sources = remember { fileManager.sources() }
+    // The browsable sources (workspace + developer all-files + LIVE SAF scopes). Mutable so a
+    // grant/revoke re-verifies and refreshes the list (a revoked SAF grant disappears).
+    var sources by remember { mutableStateOf(fileManager.sources()) }
     var selectedScopeId by remember { mutableStateOf(sources.first().scopeId) }
     var currentPath by remember { mutableStateOf("") }
     var sortKey by remember { mutableStateOf(SortKey.NAME) }
@@ -112,6 +123,28 @@ fun FilesScreen(fileManager: FileManagerService) {
     var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
     var status by remember { mutableStateOf<String?>(null) }
     var batchFailures by remember { mutableStateOf<List<BatchItem>>(emptyList()) }
+
+    // HXA-057: the SAF management panel (重新授权 / 移除). SAF scopes are read-only here; the
+    // panel is the only place a grant is added or revoked, and both re-verify through the service.
+    // Declared after `status`/`sources` so the picker callback can set them.
+    var safPanelOpen by remember { mutableStateOf(false) }
+    var safSources by remember { mutableStateOf<List<SafTreeSource>>(emptyList()) }
+    val treePicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                scope.launch {
+                    // The picker's tree URI is stored model-opaquely (doc 10); the display name is a
+                    // best-effort root folder name, sanitized by the store. Never logged.
+                    val name =
+                        withContext(Dispatchers.IO) {
+                            val treeName = uri.lastPathSegment?.let { Uri.decode(it) } ?: "SAF 目录"
+                            safTree.grant(uri.toString(), treeName).displayName
+                        }
+                    sources = withContext(Dispatchers.IO) { fileManager.sources() }
+                    status = "已授权 SAF 来源：$name（只读）"
+                }
+            }
+        }
 
     var trashOpen by remember { mutableStateOf(false) }
     var trashEntries by remember { mutableStateOf<List<TrashEntryView>>(emptyList()) }
@@ -187,6 +220,13 @@ fun FilesScreen(fileManager: FileManagerService) {
         val target = conflictTarget ?: return@LaunchedEffect
         suggestedName =
             withContext(Dispatchers.IO) { fileManager.nextAvailableName(selectedScopeId, target.second) }
+    }
+
+    // HXA-057: when the SAF panel opens, re-verify the live grants (a revoked / dead grant is
+    // dropped) — the list never offers a scope the resolver cannot actually resolve.
+    LaunchedEffect(safPanelOpen) {
+        if (!safPanelOpen) return@LaunchedEffect
+        safSources = withContext(Dispatchers.IO) { runCatching { safTree.liveSources() }.getOrDefault(emptyList()) }
     }
 
     // ── Actions (each delegates to the service; no direct file or DAO access) ─────────────────
@@ -424,6 +464,10 @@ fun FilesScreen(fileManager: FileManagerService) {
                     TextButton(onClick = { newFolderOpen = true }, modifier = Modifier.testTag("files-newfolder")) {
                         Text("新建文件夹")
                     }
+                }
+                // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
+                TextButton(onClick = { safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
+                    Text("SAF 来源")
                 }
             }
         }
@@ -902,6 +946,79 @@ fun FilesScreen(fileManager: FileManagerService) {
                 }
             },
             modifier = Modifier.testTag("files-conflict-dialog"),
+        )
+    }
+
+    // HXA-057: the SAF tree scope management panel (可见的重新授权 / 移除入口). SAF scopes are
+    // read-only here; adding or revoking re-verifies through the service (a grant only appears if
+    // the resolver can actually resolve it right now).
+    if (safPanelOpen) {
+        AlertDialog(
+            onDismissRequest = { safPanelOpen = false },
+            title = { Text("SAF 来源（只读）") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "撤销或重新授权即时生效；模型与工具只看到 scopeId 与相对路径。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (safSources.isEmpty()) {
+                        Text(
+                            "暂无已授权 SAF 来源。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("files-saf-empty"),
+                        )
+                    }
+                    safSources.forEach { source ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth().testTag("files-saf-source-${source.scopeId}"),
+                        ) {
+                            Column {
+                                Text(source.displayName, style = MaterialTheme.typography.bodyLarge)
+                                Text(
+                                    source.scopeId,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            safTree.revoke(source.scopeId)
+                                            sources = fileManager.sources()
+                                        }
+                                        status = "已移除 SAF 来源：${source.displayName}"
+                                    }
+                                },
+                                modifier = Modifier.testTag("files-saf-remove-${source.scopeId}"),
+                            ) {
+                                Text("移除")
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { treePicker.launch(null) },
+                    modifier = Modifier.testTag("files-saf-add"),
+                ) {
+                    Text("添加 / 重新授权")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { safPanelOpen = false },
+                    modifier = Modifier.testTag("files-saf-close"),
+                ) {
+                    Text("关闭")
+                }
+            },
+            modifier = Modifier.testTag("files-saf-dialog"),
         )
     }
 }
