@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- HXA-051 production QuickJS execution service (doc 03 §2.2). Non-exported,
+             isolated-process, no permissions, no host bridge. Each execution binds a unique
+             `bindIsolatedService` instance (instance name `js_` + 32 hex, derived from the
+             execution ID); the process label is an OS detail and is never a protocol ID or
+             a security boundary — isolation is asserted via PID/UID and the isolated UID. -->
+        <service
+            android:name=".JsExecutionService"
+            android:process=":helix_js"
+            android:isolatedProcess="true"
+            android:exported="false"
+            android:stopWithTask="false" />
+    </application>
+</manifest>

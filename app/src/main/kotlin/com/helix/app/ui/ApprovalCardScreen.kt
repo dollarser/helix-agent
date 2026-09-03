@@ -89,6 +89,7 @@ private fun ApprovalCardFields(card: ApprovalCardUi) {
     card.codeOrCommand?.let { code ->
         FieldLine("代码/命令", code, tag = "approval-card-code")
     }
+    card.codeExecution?.let { CodeExecutionBlock(it) }
     FieldLine("预期影响", card.expectedImpact)
     FieldLine("校验器（verifier）", card.verifier)
     Text(
@@ -152,4 +153,25 @@ private fun FieldLine(
         style = MaterialTheme.typography.bodyMedium,
         modifier = tag?.let { Modifier.testTag(it) } ?: Modifier,
     )
+}
+
+/**
+ * The code-execution section of a code tool's approval card (HXA-053; doc 03 §5): the FULL
+ * code as a copyable/searchable monospace block, the input source + size (not the body), the
+ * fixed "联网：否" line, the applied limits, and the code SHA-256 short digest.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun CodeExecutionBlock(execution: com.helix.app.approval.CodeExecutionUi) {
+    Text(
+        execution.code,
+        style = MaterialTheme.typography.bodySmall,
+        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.testTag("approval-card-code-block"),
+    )
+    FieldLine("输入来源", execution.inputSource, tag = "approval-card-input-source")
+    FieldLine("联网", if (execution.online) "是" else "否", tag = "approval-card-online")
+    FieldLine("执行限制", execution.limits, tag = "approval-card-limits")
+    FieldLine("代码摘要 SHA-256", execution.codeSha256Short, tag = "approval-card-code-hash")
 }

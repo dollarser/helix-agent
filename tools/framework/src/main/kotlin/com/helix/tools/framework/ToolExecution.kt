@@ -56,11 +56,24 @@ data class ExecutableToolCall(
     val cancel: CancelSignal,
 )
 
-/** The executor's terminal report for one call; exactly one of the four. */
+/**
+ * The executor's terminal report for one call; exactly one of the four. [Completed] and [Failed]
+ * carry the optional bounded, REDACTED [Completed.auditDetail] (HXA-053) — executor-reported
+ * hashes, sizes and fixed limits, NEVER an argument or output body (doc 11: audit records no
+ * bodies). The dispatcher routes it onto the single per-dispatch audit event so an execution with
+ * its own audit fields (QuickJS source/output SHA-256, input summary, applied limits, terminal JS
+ * status — doc 03 section 4.8) reaches the audit chain through the SAME single-emitter pipeline as
+ * every other tool. Null for tools that report none.
+ */
 sealed interface ToolExecutorResult {
-    /** Finished within the deadline; [output] is the raw (unvalidated) tool output. */
+    /**
+     * Finished within the deadline; [output] is the raw (unvalidated) tool output.
+     * [auditDetail] is the optional redacted executor metadata — never model-visible (the model
+     * sees [output] only), routed to the audit event by the dispatcher.
+     */
     data class Completed(
         val output: JsonElement,
+        val auditDetail: JsonObject? = null,
     ) : ToolExecutorResult
 
     /**
@@ -72,10 +85,14 @@ sealed interface ToolExecutorResult {
      * Binder died before the Job was accepted, a connection failed before the request was
      * sent. When in doubt this MUST stay false — an unconfirmed failure is terminal and
      * the next run of the same action is a NEW ToolCall with a new approval.
+     *
+     * [auditDetail] is the optional redacted executor metadata routed to the audit event (the
+     * model sees [detail] only).
      */
     data class Failed(
         val detail: String,
         val sideEffectFree: Boolean = false,
+        val auditDetail: JsonObject? = null,
     ) : ToolExecutorResult
 
     /** The deadline was reached (or the implementation chose to stop at it). */

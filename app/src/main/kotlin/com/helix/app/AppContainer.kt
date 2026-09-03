@@ -41,6 +41,8 @@ import com.helix.feature.files.SafExportPipeline
 import com.helix.feature.files.SafGrantStore
 import com.helix.feature.files.SafImportPipeline
 import com.helix.provider.api.CredentialLookup
+import com.helix.runtime.quickjs.JsExecutionClient
+import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesArchiveTool
 import com.helix.tools.files.FilesCopyTool
@@ -220,6 +222,15 @@ internal class DefaultAppContainer(
         WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
 
     /**
+     * The main-process QuickJS execution client (HXA-053): a stateless Binder façade that binds
+     * the non-exported one-shot [com.helix.runtime.quickjs.JsExecutionService] per execution.
+     * Constructed once for the process; the Service manifest entry ships with :runtime:quickjs
+     * and merges into both variants. The QuickJS tool executes through it on the dispatcher's
+     * (never main) executor thread.
+     */
+    private val jsExecutionClient: JsExecutionClient = JsExecutionClient(context)
+
+    /**
      * The file-manager facade (HXA-046): shares the tool pipeline's [workspaceStore] and the same
      * [scopeRoots] scope boundary, so the user's file manager and the model's `files.*` tools
      * address the identical, containment-enforced store. [APP_SCOPE_ID] is the always-present,
@@ -282,6 +293,12 @@ internal class DefaultAppContainer(
         // route containment/quota through the store. Archive writes into work/ only.
         FilesArchiveTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesExtractTool.register(toolRegistry, toolImplementations, workspaceStore)
+        // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
+        // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
+        // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
+        CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
+            jsExecutionClient.execute(params, cancel)
+        }
     }
 
     /**

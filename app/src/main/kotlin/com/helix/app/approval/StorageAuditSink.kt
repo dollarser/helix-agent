@@ -77,6 +77,11 @@ class StorageAuditSink(
                 "approvalAcquiredAt",
                 "executionStartedAt",
                 "finishedAt",
+                // HXA-053: the optional bounded redacted executor metadata (QuickJS doc 03
+                // section 4.8) — a nested object of hashes/sizes/limits only, never a body.
+                // It is one allowlisted top-level key (the nested sub-keys are built by the
+                // executor, not passed through); null (JsonNull) when the tool reports none.
+                "executionDetail",
             )
 
         /**
@@ -105,6 +110,9 @@ class StorageAuditSink(
                 putNullableLong("approvalAcquiredAt", event.approvalAcquiredAt)
                 putNullableLong("executionStartedAt", event.executionStartedAt)
                 put("finishedAt", event.finishedAt)
+                // HXA-053: the nested redacted object is emitted as-is when present; a null
+                // fact stays a present-but-null key so the allowlist shape is stable.
+                put("executionDetail", event.executionDetail ?: JsonNull)
             }.toString()
 
         /**

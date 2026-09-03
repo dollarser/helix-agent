@@ -74,6 +74,13 @@ dependencies {
     // production tool table; their store lives in core:workspace (atomic publish + quota).
     implementation(project(":tools:files"))
     implementation(project(":core:workspace"))
+    // HXA-053: the isolated QuickJS backend (the non-exported one-shot Service + the
+    // main-process JsExecutionClient, ADR-0015) hosts the `code.javascript.run` tool. Shared
+    // (implementation) so BOTH consumer and developer register it: ADR-0013 Standard is the
+    // complete store-facing product and QuickJS (APK-embedded interpreter) is in scope for
+    // consumer (local-code-execution doc section 8). The Service manifest entry merges into
+    // both variants.
+    implementation(project(":runtime:quickjs"))
     // HXA-028: the chat/provider UI wires the M2 provider stack into the production app
     // (provider doc section 2; ADR-0005 profile switching; ADR-0006 single main app).
     // The okhttp→okhttp-jvm substitution below covers this production classpath as well
