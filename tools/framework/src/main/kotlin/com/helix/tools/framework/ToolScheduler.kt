@@ -4,6 +4,7 @@ import com.helix.core.model.Clock
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The deterministic Tool Scheduler (roadmap HXA-037; doc 11 section 3): runs a batch of
@@ -35,8 +36,13 @@ import java.util.concurrent.Executors
  * admission check AND the slot claim happen under ONE lock, and a pool rejection rolls
  * the slot back — so two batches running concurrently on the same scheduler instance
  * cannot double-book a slot, over-admit past [maxConcurrency], or see each other's
- * conflicting calls as absent. (The app today serializes turns, so batches never
- * actually overlap; this is the framework contract for when they do.)
+ * conflicting calls as absent. A batch blocked on admission waits on the
+ * scheduler-global SLOT-STATE SIGNAL (fired by every slot release, from any batch) in
+ * addition to its own futures: admission conflicts are cross-batch, so a batch must be
+ * woken by ANOTHER batch's releases too — a waiter observing only its own
+ * never-submitted futures would stall forever on another batch's held slot or
+ * exclusive lane. (The app today serializes turns, so batches never actually overlap;
+ * this is the framework contract for when they do.)
  */
 @Suppress("TooManyFunctions") // reservation, admission and settlement stay one scheduler invariant
 class ToolScheduler(
@@ -67,6 +73,18 @@ class ToolScheduler(
      * and one batch's completion would free the other's slot). Removing by value would
      * also be wrong: two calls can have value-equal footprints. */
     private val inFlight = mutableListOf<Pair<String, EffectFootprint>>()
+
+    /**
+     * The scheduler-global "slot state changed" prompt, fired by EVERY [releaseSlot]
+     * (any batch) so a batch blocked on another batch's in-flight footprints is woken.
+     * A waiter attaches to the instance it reads: if that instance is already complete
+     * the callback fires immediately (no missed wakeup), and a release between the read
+     * and the attach completes the read instance too (it is the current one until the
+     * release swaps it). Spurious wakeups are harmless — the loop re-checks [admitNext]
+     * under the lock. Starts uncompleted: with an empty [inFlight] nothing can be
+     * blocked, so no waiter ever sleeps on it before the first release.
+     */
+    private val slotStateSignal = AtomicReference(CompletableFuture<Void>())
 
     /** One call's terminal scheduler settlement. Every exceptional slot keeps its own cause. */
     sealed interface BatchSettlement {
@@ -142,13 +160,16 @@ class ToolScheduler(
             // Nothing new may start (full or all-conflicting): wait for the next
             // completion, then re-evaluate. (A completion can free a slot or a lane.)
             // The waiter completes on the FIRST terminal state of any pending future —
-            // success OR failure (a failed item settles, it never aborts the batch).
-            // A plain signal future: complete on the FIRST terminal state (success or
-            // failure) of any pending future; the loop re-evaluates after every step.
+            // success OR failure (a failed item settles, it never aborts the batch) —
+            // OR on ANY slot release from ANY batch: the admission conflicts come from
+            // the shared inFlight list, so a batch blocked by another batch's footprints
+            // must wake on that batch's releases too, not only on its own (possibly
+            // never-submitted) futures.
             val waiter = CompletableFuture<Void>()
             pending.forEach { future ->
                 future.whenComplete { _, _ -> waiter.complete(null) }
             }
+            slotStateSignal.get().whenComplete { _, _ -> waiter.complete(null) }
             waiter.join()
             // Drop exactly the futures that reached a terminal state.
             pending.removeAll { it.isDone }
@@ -283,6 +304,11 @@ class ToolScheduler(
     private fun releaseSlot(callId: String) {
         synchronized(inFlightLock) {
             inFlight.removeAll { it.first == callId }
+            // Fire the cross-batch wake-up under the lock, paired with the state
+            // change: every admission waiter (any batch) attached to the current
+            // signal instance wakes and re-checks [admitNext] against the freed slot.
+            val signal = slotStateSignal.getAndSet(CompletableFuture())
+            signal.complete(null)
         }
     }
 

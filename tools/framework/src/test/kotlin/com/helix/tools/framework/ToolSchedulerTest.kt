@@ -20,6 +20,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -511,6 +512,164 @@ class ToolSchedulerTest {
     private class FirstFailure : RuntimeException()
 
     private class SecondFailure : RuntimeException()
+
+    // ------------------------------------------------------------------ cross-batch liveness
+
+    @Test
+    fun aBatchBlockedOnTheOnlySlotIsWokenByAnotherBatchsRelease() {
+        val a1Started = CountDownLatch(1)
+        val bGo = CountDownLatch(1)
+        val hold = CountDownLatch(1)
+        val starts = mutableListOf<String>()
+        register(
+            "x.a",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    a1Started.countDown()
+                    hold.await(10, TimeUnit.SECONDS)
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "x.b",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
+        // Batch A takes the only slot and holds it; batch B starts only once a-1 is in
+        // flight, so B CANNOT admit before it enters the admission wait. Before the
+        // cross-batch wake-up, B's waiter observed only its own (never-submitted)
+        // future and stalled forever — the slot freed, but nothing woke B.
+        val aResult = CompletableFuture<ToolScheduler.BatchResult>()
+        val bResult = CompletableFuture<ToolScheduler.BatchResult>()
+        val a =
+            Thread(
+                { aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "x.a")))) },
+                "cross-batch-a",
+            ).apply {
+                isDaemon = true
+                start()
+            }
+        assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
+        val b =
+            Thread(
+                {
+                    bGo.await(10, TimeUnit.SECONDS)
+                    bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "x.b"))))
+                },
+                "cross-batch-b",
+            ).apply {
+                isDaemon = true
+                start()
+            }
+        bGo.countDown()
+        Thread.sleep(150) // let B reach the admission wait
+        synchronized(starts) {
+            assertTrue(
+                "a-1 must hold the slot while b-1 is blocked: $starts",
+                starts == listOf("a-1"),
+            )
+        }
+        hold.countDown()
+        a.join(10_000)
+        b.join(10_000)
+        assertFalse("batch A must terminate", a.isAlive)
+        assertFalse(
+            "batch B must be woken by A's release, not only by its own (never-submitted) futures",
+            b.isAlive,
+        )
+        assertTrue(aResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
+        assertTrue(bResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
+    }
+
+    @Test
+    fun aBatchBlockedOnAnExclusiveWriteIsWokenByAnotherBatchsRelease() {
+        val a1Started = CountDownLatch(1)
+        val bGo = CountDownLatch(1)
+        val hold = CountDownLatch(1)
+        val starts = mutableListOf<String>()
+        val recording =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    if (call.toolCallId == "a-1") {
+                        a1Started.countDown()
+                        hold.await(10, TimeUnit.SECONDS)
+                    }
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            }
+        register("w.x", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        register("w.y", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        register("w.z", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        broker.script(
+            ApprovalAcquisition.Approved(ApprovalProof("a-1", "1".repeat(64))),
+            ApprovalAcquisition.Approved(ApprovalProof("a-2", "2".repeat(64))),
+            ApprovalAcquisition.Approved(ApprovalProof("b-1", "3".repeat(64))),
+        )
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
+        // Writes are exclusive (full barrier): while A's first write holds the lane,
+        // NEITHER A's second write NOR B's write can admit — the conflict is purely
+        // cross-batch (capacity 2 is not the constraint, the lane is).
+        val aResult = CompletableFuture<ToolScheduler.BatchResult>()
+        val bResult = CompletableFuture<ToolScheduler.BatchResult>()
+        val a =
+            Thread(
+                {
+                    aResult.complete(
+                        scheduler.scheduleBatch(listOf(call("a-1", "w.x"), call("a-2", "w.y"))),
+                    )
+                },
+                "cross-lane-a",
+            ).apply {
+                isDaemon = true
+                start()
+            }
+        assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
+        val b =
+            Thread(
+                {
+                    bGo.await(10, TimeUnit.SECONDS)
+                    bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w.z"))))
+                },
+                "cross-lane-b",
+            ).apply {
+                isDaemon = true
+                start()
+            }
+        bGo.countDown()
+        Thread.sleep(150) // let B reach the admission wait
+        synchronized(starts) {
+            assertEquals("only a-1 may run while it holds the exclusive lane", listOf("a-1"), starts.toList())
+        }
+        hold.countDown()
+        a.join(10_000)
+        b.join(10_000)
+        assertFalse("batch A must terminate", a.isAlive)
+        assertFalse(
+            "batch B must be woken by A's release across the exclusive lane",
+            b.isAlive,
+        )
+        assertEquals(
+            "both of A's writes settle in call order",
+            2,
+            aResult.get().outcomes.count { it is ToolDispatchOutcome.Succeeded },
+        )
+        assertTrue(bResult.get().outcomes[0] is ToolDispatchOutcome.Succeeded)
+        synchronized(starts) {
+            assertEquals("every write runs exactly once", setOf("a-1", "a-2", "b-1"), starts.toSet())
+        }
+    }
 
     // ------------------------------------------------------------------ fixtures (mirrors ToolDispatcherTest)
 
