@@ -168,6 +168,14 @@ class ChatService(
     private var pendingAttachmentIds: List<String> = emptyList()
 
     /**
+     * HXA-056: the shared-in TEXT draft awaiting a one-shot composer pre-fill (set by
+     * [acceptShareDraft], cleared by [consumeShareDraftText] and whenever the open session
+     * changes — a draft belongs to the session it was opened for, never to a later one).
+     */
+    @Volatile
+    private var shareDraftText: String? = null
+
+    /**
      * HXA-049 (ADR-0014 §5): the open session's staged attachments — in memory, local until
      * an EXPLICIT send. Staging (pick/import) never reaches the model.
      * [StagedAttachmentEntry.file] is a REAL workspace path used ONLY for hashing /
@@ -303,6 +311,7 @@ class ChatService(
     fun openSession(id: String) {
         openSessionId = id
         clearStagedAttachments()
+        shareDraftText = null // a draft pre-fill belongs to the session it opened for (HXA-056)
         workScope.launch { refreshScreen() }
     }
 
@@ -314,6 +323,7 @@ class ChatService(
     fun closeSession() {
         openSessionId = null
         clearStagedAttachments()
+        shareDraftText = null
         workScope.launch { refreshScreen() }
     }
 
@@ -332,6 +342,92 @@ class ChatService(
     fun dismissBlocked() {
         _screen.update { it.copy(blockedReason = null) }
     }
+
+    // --------------------------------------------------------------------------------
+    // Share drafts (HXA-056, ACTION_SEND/SEND_MULTIPLE — local import, NEVER auto-sent)
+    // --------------------------------------------------------------------------------
+
+    /**
+     * Accepts a share draft from the system share sheet (HXA-056, ADR-0014 §5): creates a
+     * dedicated provider-free draft session, opens it, and lands the shared content LOCALLY
+     * — [text] becomes the one-shot composer pre-fill ([ChatScreenState.shareDraftText])
+     * and every [imageUris] reference goes through the EXISTING attachment pipeline
+     * (import → closed classification → normalize → stage). Nothing is ever sent: staging
+     * and pre-filling are local, and only an explicit [send] after the user's review reaches
+     * the model. An empty draft is a no-op. Each image fails closed individually: one bad
+     * share item blocks only itself (user-visible reason), the rest still stage.
+     *
+     * Runs on the work scope; the UI follows [screen] (the draft session opens and its
+     * staged attachments appear as they import). Called by the activity for launch intents
+     * and `onNewIntent` re-shares.
+     */
+    fun acceptShareDraft(
+        text: String?,
+        imageUris: List<String>,
+    ) {
+        if ((text?.isEmpty() ?: true) && imageUris.isEmpty()) return
+        workScope.launch {
+            // A share intent is an explicit user action aimed at this app: opening the draft
+            // session is the expected outcome (any open session's in-memory staging drops,
+            // exactly like a manual session switch — ADR-0014 §5).
+            if (openSessionId != null) {
+                openSessionId = null
+                clearStagedAttachments()
+                shareDraftText = null
+            }
+            val id = idGenerator()
+            storage.sessions.create(id, "分享草稿", null, null, clock.now().toEpochMilli())
+            refreshSessionsNow()
+            openSession(id)
+            imageUris.forEach { uri -> stageAttachmentNow(uri) }
+            shareDraftText = text
+            refreshScreen()
+        }
+    }
+
+    /** One-shot consume: the UI applied [ChatScreenState.shareDraftText] to the composer. */
+    fun consumeShareDraftText() {
+        shareDraftText = null
+        _screen.update { it.copy(shareDraftText = null) }
+    }
+
+    /**
+     * Binds a connection-tested provider to the OPEN session when it has none (HXA-056 draft
+     * sessions): the storage layer only allows the bind on provider-free rows (fail-closed —
+     * an already-bound session's egress target is never swapped through this path). A session
+     * with a non-terminal turn is not rebound mid-turn.
+     */
+    fun bindProviderToSession(
+        providerId: String,
+        modelId: String,
+    ) {
+        workScope.launch {
+            val sessionId = openSessionId ?: return@launch
+            if (providerService.chatSelectable(providerId).not()) {
+                setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
+                return@launch
+            }
+            if (turnGateHolds(sessionId)) return@launch // a turn in flight owns the session's target
+            try {
+                storage.sessions.bindProvider(sessionId, providerId, modelId)
+            } catch (_: IllegalArgumentException) {
+                // Swallowed deliberately: the IAE message carries the internal session id,
+                // and the user-visible label stays the one stable, path-free sentence
+                // (ADR-0014 §7: no raw internals in user-visible errors).
+                setBlocked("会话已绑定 Provider，不能更换绑定")
+                return@launch
+            }
+            refreshScreen()
+        }
+    }
+
+    /** True when the session's newest turn has not terminalized (the target must be stable). */
+    private fun turnGateHolds(sessionId: String): Boolean =
+        storage.turns
+            .listBySession(sessionId)
+            .lastOrNull()
+            ?.let { !TurnState.valueOf(it.state).isTerminal }
+            ?: false
 
     // --------------------------------------------------------------------------------
     // Attachment staging (HXA-049, ADR-0014 — pick / import / stage NEVER sends)
@@ -2416,6 +2512,7 @@ class ChatService(
                 blockedReason = previous.blockedReason,
                 retryTargetTurnId = retryTargetFor(sessionId),
                 pendingAttachments = stagedAttachmentsUi(),
+                shareDraftText = shareDraftText,
             )
     }
 

@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -49,7 +50,21 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as HelixApplication).appContainer
+        // HXA-056: a share intent (ACTION_SEND text/image, ACTION_SEND_MULTIPLE images)
+        // becomes a local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5).
+        // Re-runs when the user shares again into the running task (onNewIntent).
+        val draft = ShareIntentDraft.draftFrom(intent)
+        container.chatService.acceptShareDraft(draft.text, draft.imageUris)
         setContent { HelixApp(container) }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val draft = ShareIntentDraft.draftFrom(intent)
+        (application as HelixApplication).appContainer.chatService.acceptShareDraft(
+            draft.text,
+            draft.imageUris,
+        )
     }
 }
 
