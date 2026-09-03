@@ -271,6 +271,10 @@ subprojects {
                     add("implementation", composeUiDependency)
                     add("implementation", composeMaterial3Dependency.get())
                     add("implementation", webkitDependency.get())
+                    // HXA-061: the snapshot binder parses the fixed script's JSON result with
+                    // the pinned kotlinx-serialization JsonElement API (no compiler plugin,
+                    // same as :feature:files and the provider modules).
+                    add("implementation", kotlinxSerializationJsonDependency.get())
                     // BrowserController exposes its state as StateFlow; the UI's
                     // CreateDocument download launcher comes from activity-compose.
                     add("implementation", coroutinesCoreDependency.get())

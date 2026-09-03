@@ -5,6 +5,14 @@ import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
+import com.helix.feature.browser.snapshot.BrowserOrigin
+import com.helix.feature.browser.snapshot.BrowserSnapshot
+import com.helix.feature.browser.snapshot.LiveTabState
+import com.helix.feature.browser.snapshot.SnapshotBinder
+import com.helix.feature.browser.snapshot.SnapshotFailure
+import com.helix.feature.browser.snapshot.SnapshotResult
+import com.helix.feature.browser.snapshot.SnapshotToken
+import com.helix.feature.browser.snapshot.TokenVerdict
 import com.helix.feature.browser.webview.WebViewTabHost
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,11 +44,15 @@ import java.util.concurrent.Executors
 @Suppress("TooManyFunctions")
 class BrowserController(
     context: Context,
+    private val clockMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     private val appContext = context.applicationContext
 
     private val tabs = BrowserTabController()
     private val hosts = HashMap<String, WebViewTabHost>()
+
+    /** The last successful snapshot per tab (HXA-061); the node tokens the HXA-062 tools may use. */
+    private val snapshots = HashMap<String, BrowserSnapshot>()
     private val _state = MutableStateFlow(tabs.state())
     private val _downloads = MutableStateFlow<List<DownloadItem>>(emptyList())
 
@@ -66,6 +78,7 @@ class BrowserController(
     fun closeTab(id: String) {
         tabs.closeTab(id)
         hosts.remove(id)?.destroy()
+        snapshots.remove(id)
         publish()
     }
 
@@ -86,25 +99,37 @@ class BrowserController(
         // A denial leaves the tab on its policy error page; the WebView is never asked to
         // load a denied URL (doc 09 §3.4).
         val command = tabs.navigate(id, BrowserTabController.normalizeInput(rawUrl))
-        if (command is BrowserTabController.TabCommand.Load) host(id).load(command.url)
+        if (command is BrowserTabController.TabCommand.Load) {
+            snapshots.remove(id)
+            host(id).load(command.url)
+        }
         publish()
     }
 
     fun goBack(id: String) {
         val command = tabs.goBack(id)
-        if (command is BrowserTabController.TabCommand.Back) host(id).goBack()
+        if (command is BrowserTabController.TabCommand.Back) {
+            snapshots.remove(id)
+            host(id).goBack()
+        }
         publish()
     }
 
     fun goForward(id: String) {
         val command = tabs.goForward(id)
-        if (command is BrowserTabController.TabCommand.Forward) host(id).goForward()
+        if (command is BrowserTabController.TabCommand.Forward) {
+            snapshots.remove(id)
+            host(id).goForward()
+        }
         publish()
     }
 
     fun reload(id: String) {
         val command = tabs.reload(id)
-        if (command is BrowserTabController.TabCommand.Reload) host(id).reload()
+        if (command is BrowserTabController.TabCommand.Reload) {
+            snapshots.remove(id)
+            host(id).reload()
+        }
         publish()
     }
 
@@ -126,6 +151,67 @@ class BrowserController(
      * view in the UI never destroys the host — only [closeTab] / [clearHistory] do.
      */
     fun hostView(id: String): WebView? = hosts[id]?.webView
+
+    // ---------------------------------------------------------------- snapshot（HXA-061，doc 09 §3.3/§3.4）
+
+    /**
+     * Runs the fixed versioned DOM-extraction script on the tab's committed page and
+     * delivers a bounded [BrowserSnapshot] — or a fail-closed [SnapshotResult.Failed] — via
+     * [onResult] on the main thread (doc 09 §3.3 `browser.snapshot`; §3.4: only Helix's own
+     * versioned script fragment is ever evaluated, the model cannot submit a script).
+     *
+     * A tab without a settled page (still loading, on its error page, or never navigated so
+     * it has no WebView) fails closed with [SnapshotFailure.NO_PAGE].
+     */
+    @Suppress("ComplexCondition")
+    fun snapshot(
+        id: String,
+        onResult: (SnapshotResult) -> Unit,
+    ) {
+        val tab = tabs.state().tabs.firstOrNull { it.id == id }
+        val host = hosts[id]
+        if (tab == null || host == null || tab.isLoading || tab.error != null || tab.navigationGeneration < 1) {
+            onResult(SnapshotResult.Failed(SnapshotFailure.NO_PAGE))
+            return
+        }
+        host.evaluateSnapshot { raw ->
+            // The tab may have closed / committed a newer page while the script ran: only
+            // publish a result for a tab that still exists.
+            if (!isLive(id)) return@evaluateSnapshot
+            val liveTab = tabs.state().tabs.firstOrNull { it.id == id } ?: return@evaluateSnapshot
+            val result = SnapshotBinder.bind(raw, liveTab, clockMillis())
+            if (result is SnapshotResult.Success) snapshots[id] = result.snapshot else snapshots.remove(id)
+            onResult(result)
+        }
+    }
+
+    /** The last successful snapshot for [id], if any — the snapshot whose node tokens are live. */
+    fun latestSnapshot(id: String): BrowserSnapshot? = snapshots[id]
+
+    /**
+     * Validates a node token against the tab's LIVE state (doc 09 §3.3: 导航、刷新、DOM 大变化
+     * 或超时都会使 token 失效). The host is the sole minter and validator — a token is usable
+     * only while its tab, origin, navigation generation, snapshot fingerprint and TTL all
+     * still match the live browser; any drift is a fail-closed [TokenVerdict].
+     */
+    @Suppress("ReturnCount")
+    fun verifyNodeToken(
+        id: String,
+        token: String,
+        nowMillis: Long = clockMillis(),
+    ): TokenVerdict {
+        val parsed = SnapshotToken.parse(token) ?: return TokenVerdict.MalformedToken
+        val tab = tabs.state().tabs.firstOrNull { it.id == id } ?: return TokenVerdict.WrongTab
+        val origin = BrowserOrigin.of(tab.url) ?: return TokenVerdict.WrongTab
+        val live =
+            LiveTabState(
+                tabId = tab.id,
+                origin = origin,
+                navigationGeneration = tab.navigationGeneration,
+                lastSnapshotFingerprint = snapshots[id]?.fingerprint,
+            )
+        return SnapshotToken.validate(parsed, live, nowMillis)
+    }
 
     // ---------------------------------------------------------------- downloads
 
@@ -217,6 +303,7 @@ class BrowserController(
     fun clearHistory() {
         hosts.values.forEach { it.destroy() }
         hosts.clear()
+        snapshots.clear()
         while (tabs.state().tabs.isNotEmpty()) {
             tabs.closeTab(
                 tabs
@@ -246,6 +333,7 @@ class BrowserController(
     fun destroy() {
         hosts.values.forEach { it.destroy() }
         hosts.clear()
+        snapshots.clear()
     }
 
     // ---------------------------------------------------------------- internals

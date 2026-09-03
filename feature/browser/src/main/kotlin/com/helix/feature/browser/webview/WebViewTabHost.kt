@@ -3,6 +3,8 @@ package com.helix.feature.browser.webview
 import android.annotation.SuppressLint
 import android.content.Context
 import android.net.http.SslError
+import android.os.Handler
+import android.os.Looper
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
@@ -17,6 +19,7 @@ import com.helix.feature.browser.BrowserTabListener
 import com.helix.feature.browser.BrowserUrlDecision
 import com.helix.feature.browser.BrowserUrlPolicy
 import com.helix.feature.browser.DownloadRequest
+import com.helix.feature.browser.snapshot.BrowserSnapshotScript
 
 /**
  * One Helix tab's System WebView (HXA-060; doc 09 §3.4 WebView 安全约束). Constructed
@@ -36,6 +39,7 @@ import com.helix.feature.browser.DownloadRequest
  *   (this class deliberately does NOT override `onSafeBrowsingHit`); camera / mic /
  *   geolocation requests are denied.
  */
+@Suppress("TooManyFunctions")
 internal class WebViewTabHost(
     context: Context,
     private val listener: BrowserTabListener,
@@ -44,6 +48,12 @@ internal class WebViewTabHost(
 
     /** The URL the tab most recently started loading; the same-document check in the legacy error callback. */
     private var lastLoadUrl: String? = null
+
+    /** Main-thread handler for the snapshot deadline; WebView callbacks are already main-thread. */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Bumped on every [evaluateSnapshot] and [destroy] to discard late results. */
+    private var snapshotRequestGeneration = 0
 
     private val client =
         object : WebViewClient() {
@@ -174,6 +184,42 @@ internal class WebViewTabHost(
         webView.loadUrl(url)
     }
 
+    /**
+     * Evaluates the FIXED snapshot script ([BrowserSnapshotScript.EXTRACT] — the only JS this
+     * feature ever runs, doc 09 §3.4) and delivers the raw result string to [onResult] on the
+     * main thread. The result is the raw JSON text (or null on failure); the trusted
+     * [com.helix.feature.browser.snapshot.SnapshotBinder] is the only consumer and it
+     * re-validates everything fail-closed.
+     *
+     * Two guards make a hostile / flaky page safe to evaluate:
+     * - a [SNAPSHOT_TIMEOUT_MS] deadline synthesizes a null result if the script never
+     *   returns (a page can block its own main thread), so the caller is never hung;
+     * - a per-request generation counter discards a late callback that arrives after the
+     *   deadline already answered (or after the tab was destroyed), so a stale page result
+     *   can never be attributed to a newer request.
+     */
+    fun evaluateSnapshot(onResult: (String?) -> Unit) {
+        snapshotRequestGeneration += 1
+        val generation = snapshotRequestGeneration
+        var answered = false
+
+        val timeout =
+            Runnable {
+                if (!answered) {
+                    answered = true
+                    if (generation == snapshotRequestGeneration) onResult(null)
+                }
+            }
+        mainHandler.postDelayed(timeout, SNAPSHOT_TIMEOUT_MS)
+
+        webView.evaluateJavascript(BrowserSnapshotScript.EXTRACT) { raw ->
+            if (answered) return@evaluateJavascript // deadline (or destroy) already settled this request
+            answered = true
+            mainHandler.removeCallbacks(timeout)
+            if (generation == snapshotRequestGeneration) onResult(raw)
+        }
+    }
+
     fun goBack() = webView.goBack()
 
     fun goForward() = webView.goForward()
@@ -190,6 +236,9 @@ internal class WebViewTabHost(
     fun clearCache() = webView.clearCache(true)
 
     fun destroy() {
+        // Invalidate any in-flight snapshot: a callback that was already enqueued must not
+        // be delivered to a destroyed WebView's request slot.
+        snapshotRequestGeneration += 1
         webView.stopLoading()
         webView.loadUrl(ABOUT_BLANK)
         webView.destroy()
@@ -205,6 +254,9 @@ internal class WebViewTabHost(
 
     companion object {
         const val ABOUT_BLANK = "about:blank"
+
+        /** How long to wait for the fixed snapshot script before failing closed with a null result. */
+        const val SNAPSHOT_TIMEOUT_MS = 5_000L
 
         /**
          * Applies [spec] field-by-field to [settings]. [spec] must satisfy
