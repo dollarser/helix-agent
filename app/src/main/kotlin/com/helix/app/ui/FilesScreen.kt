@@ -1,3 +1,5 @@
+@file:Suppress("TooManyFunctions") // the import/export transfer actions live with the state they drive
+
 package com.helix.app.ui
 
 import android.content.Intent
@@ -52,7 +54,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.helix.app.FeatureFiles
 import com.helix.app.files.ConflictPolicy
+import com.helix.app.files.ExportTarget
 import com.helix.app.files.FileManagerService
 import com.helix.app.files.FileManagerService.BatchItem
 import com.helix.app.files.FileManagerService.BatchResult
@@ -61,7 +65,10 @@ import com.helix.app.files.FileManagerService.FileMeta
 import com.helix.app.files.FileManagerService.FileOpResult
 import com.helix.app.files.FileManagerService.TrashEntryView
 import com.helix.app.files.FileSource
+import com.helix.app.files.FileSourceKind
 import com.helix.app.files.SortKey
+import com.helix.app.files.TransferItemStatus
+import com.helix.app.files.TransferResult
 import com.helix.feature.files.SafTreeScopeService
 import com.helix.feature.files.SafTreeSource
 import kotlinx.coroutines.Dispatchers
@@ -94,10 +101,14 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - 分享: hands the file to another app via an unexported FileProvider `content://` URI — the real
  *   path is never rendered as text (doc 10).
  *
- * SAF import/export (doc 09 section 4.2) is the HXA-044 adapter layer's UI wiring and a documented
- * follow-up: the roadmap line for THIS milestone scopes the file-manager over the always-available
- * sources, and "无权限时可完整使用 Workspace" is the honesty contract (the consumer build, with no
- * all-files grant, still has the full Workspace here).
+ * 导入/导出 (HXA-058, doc 09 section 4.2): the file-manager entries over the HXA-044 restricted
+ * pipelines — 导入 copies a user-picked document (ACTION_OPEN_DOCUMENT) or folder
+ * (ACTION_OPEN_DOCUMENT_TREE) into the Workspace `input/`; 导出 streams a Workspace file to a
+ * user-created document (ACTION_CREATE_DOCUMENT) or an authorized SAF tree. The dialog shows
+ * 来源/目标/名称/大小/冲突策略/进度/取消/最终结果; an export is "verified" only when its bytes are
+ * re-read after the write. These are explicit file-management actions: no chat message, no
+ * Provider call, no Agent scope expansion. "无权限时可完整使用 Workspace" stays the honesty
+ * contract (the consumer build, with no all-files grant, still has the full Workspace here).
  */
 @Composable
 @Suppress("FunctionName", "LongMethod", "TooManyFunctions", "CyclomaticComplexMethod", "LongParameterList")
@@ -105,6 +116,8 @@ fun FilesScreen(
     fileManager: FileManagerService,
     // HXA-057: the SAF tree scope service drives the add/re-authorize + remove entries.
     safTree: SafTreeScopeService,
+    // HXA-058: the SAF adapter bundle (source metadata for the pre-copy display).
+    featureFiles: FeatureFiles,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -164,8 +177,143 @@ fun FilesScreen(
     var batchLabel by remember { mutableStateOf<String?>(null) }
     val cancelFlag = remember { AtomicBoolean(false) }
 
+    // ── HXA-058: 导入/导出 state (dialog + progress + result) ─────────────────────────────
+    // Import: one dialog covers 来源选择 (单个文件 / 文件夹) + 冲突策略 + 进度/取消 + 最终结果.
+    var importOpen by remember { mutableStateOf(false) }
+    var importMode by remember { mutableStateOf(ImportMode.FILE) }
+    var importPolicy by remember { mutableStateOf(ConflictPolicy.ASK) }
+    var importBusy by remember { mutableStateOf(false) }
+    var importLabel by remember { mutableStateOf<String?>(null) }
+    var importResult by remember { mutableStateOf<TransferResult?>(null) }
+    val importCancel = remember { AtomicBoolean(false) }
+    // Export: destination 新建文档 (ACTION_CREATE_DOCUMENT) or 已授权 SAF 目录 (HXA-057 tree).
+    var exportOpen by remember { mutableStateOf(false) }
+    var exportMode by remember { mutableStateOf(ExportMode.NEW_DOC) }
+    var exportScopeId by remember { mutableStateOf<String?>(null) }
+    var exportParent by remember { mutableStateOf("") }
+    var exportPolicy by remember { mutableStateOf(ConflictPolicy.ASK) }
+    var exportBusy by remember { mutableStateOf(false) }
+    var exportLabel by remember { mutableStateOf<String?>(null) }
+    var exportResult by remember { mutableStateOf<TransferResult?>(null) }
+    val exportCancel = remember { AtomicBoolean(false) }
+    var exportSources by remember { mutableStateOf<List<SafTreeSource>>(emptyList()) }
+
+    // The file the export dialog is about (set by the preview dialog's 导出 button).
+    var exportFile by remember { mutableStateOf<FileEntry?>(null) }
+
     val currentSource = sources.first { it.scopeId == selectedScopeId }
     val canMutate = currentSource.supportsMutation
+
+    fun runImportSingle(
+        uri: String,
+        policy: ConflictPolicy,
+    ) {
+        scope.launch {
+            importBusy = true
+            importResult = null
+            importCancel.set(false)
+            importLabel = "正在读取来源信息…"
+            val (name, size) =
+                withContext(Dispatchers.IO) {
+                    runCatching { featureFiles.metadataReader.metadata(uri) }
+                        .fold(
+                            onSuccess = { it.displayName to it.sizeBytes },
+                            onFailure = { null to -1L },
+                        )
+                }
+            importLabel =
+                if (name != null) {
+                    "导入中：$name（${formatSize(size)}）"
+                } else {
+                    "导入中…"
+                }
+            val result =
+                withContext(Dispatchers.IO) {
+                    fileManager.importSingleDocument(uri, policy, importCancel::get) { done, total ->
+                        if (total > 0) {
+                            importLabel = "导入中：${formatSize(done)} / ${formatSize(total)}"
+                        } else {
+                            importLabel = "导入中：${formatSize(done)}"
+                        }
+                    }
+                }
+            importBusy = false
+            importLabel = null
+            importResult = result
+            status = transferSummary("导入", result)
+            reloadTick++
+        }
+    }
+
+    fun runImportTree(
+        uri: String,
+        policy: ConflictPolicy,
+    ) {
+        scope.launch {
+            importBusy = true
+            importResult = null
+            importCancel.set(false)
+            importLabel = "正在枚举文件夹…"
+            val result =
+                withContext(Dispatchers.IO) {
+                    fileManager.importTree(uri, policy, importCancel::get) { done, total ->
+                        importLabel = "导入中：第 ${done + 1}/$total 个文件"
+                    }
+                }
+            importBusy = false
+            importLabel = null
+            importResult = result
+            status = transferSummary("导入", result)
+            reloadTick++
+        }
+    }
+
+    fun runExport(
+        fileRel: String,
+        target: ExportTarget,
+        policy: ConflictPolicy,
+    ) {
+        scope.launch {
+            exportBusy = true
+            exportResult = null
+            exportCancel.set(false)
+            exportLabel = "导出中…"
+            val result =
+                withContext(Dispatchers.IO) {
+                    fileManager.exportDocument(fileRel, target, policy, exportCancel::get) { done, total ->
+                        if (total > 0) {
+                            exportLabel = "导出中：${formatSize(done)} / ${formatSize(total)}"
+                        } else {
+                            exportLabel = "导出中：${formatSize(done)}"
+                        }
+                    }
+                }
+            exportBusy = false
+            exportLabel = null
+            exportResult = result
+            status = transferSummary("导出", result)
+        }
+    }
+
+    // HXA-058: the transfer pickers (one-shot grants; a null result = the user backed out — the
+    // dialog simply stays open, nothing is imported/exported).
+    val importFilePicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) runImportSingle(uri.toString(), importPolicy)
+        }
+    val importFolderPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) runImportTree(uri.toString(), importPolicy)
+        }
+    val exportDocPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument()) { uri ->
+            if (uri != null) {
+                exportFile?.let { file ->
+                    val label = uri.lastPathSegment ?: "新文档"
+                    runExport(file.relativePath, ExportTarget.Document(uri.toString(), label), exportPolicy)
+                }
+            }
+        }
 
     // ── Data loading (all file access is containment-enforced by the service; IO off the UI thread) ──
     LaunchedEffect(selectedScopeId, currentPath, sortKey, reloadTick, trashOpen) {
@@ -227,6 +375,15 @@ fun FilesScreen(
     LaunchedEffect(safPanelOpen) {
         if (!safPanelOpen) return@LaunchedEffect
         safSources = withContext(Dispatchers.IO) { runCatching { safTree.liveSources() }.getOrDefault(emptyList()) }
+    }
+
+    // HXA-058: when the export dialog opens — and each time the destination shape switches to
+    // the authorized-tree mode — re-verify the live SAF grants (the export-to-tree destination
+    // list never offers a scope the resolver cannot resolve; a WRITE re-verification still
+    // happens at export time, fail closed).
+    LaunchedEffect(exportOpen, exportMode) {
+        if (!exportOpen || exportMode != ExportMode.TREE) return@LaunchedEffect
+        exportSources = withContext(Dispatchers.IO) { runCatching { safTree.liveSources() }.getOrDefault(emptyList()) }
     }
 
     // ── Actions (each delegates to the service; no direct file or DAO access) ─────────────────
@@ -384,6 +541,54 @@ fun FilesScreen(
         }
     }
 
+    /** The transfer (导入/导出) final-result panel: per-item outcome + the temp-reclaim count. */
+    @Composable
+    fun TransferResultPanel(
+        result: TransferResult,
+        tag: String,
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+            modifier = Modifier.testTag(tag),
+        ) {
+            Text(
+                "成功 ${result.completed.size} 项，跳过/冲突/失败 ${result.problems.size} 项",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (result.reclaimedTempFiles > 0) {
+                Text(
+                    "已回收 ${result.reclaimedTempFiles} 个中断残留的临时文件",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            result.items.take(MAX_FAILURE_DETAIL_LINES).forEach { item ->
+                val mark =
+                    when (item.status) {
+                        TransferItemStatus.COMPLETED -> "成功"
+                        TransferItemStatus.CONFLICT -> "冲突"
+                        TransferItemStatus.SKIPPED -> "跳过"
+                        TransferItemStatus.CANCELLED -> "已取消"
+                        TransferItemStatus.FAILED -> "失败"
+                    }
+                Text(
+                    "· ${item.sourceLabel} → ${item.targetLabel}：$mark" +
+                        (item.detail?.let { "（$it）" } ?: "") +
+                        (if (item.verified) "（已校验）" else ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (result.items.size > MAX_FAILURE_DETAIL_LINES) {
+                Text(
+                    "… 等 ${result.items.size} 项",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+
     // ── Layout ───────────────────────────────────────────────────────────────────────
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp).testTag("screen-files"),
@@ -437,8 +642,10 @@ fun FilesScreen(
                         BreadcrumbCrumb(segment, isRoot = false, onClick = { currentPath = prefix })
                     }
             }
-            // Two rows: one sort row, then a view + actions row. A single row overflows the narrow
-            // phone toolbar and clips the trailing buttons (e.g. 新建文件夹) off-screen / zero-width.
+            // Three rows: sort / view toggles / actions. A single row overflows the narrow phone
+            // toolbar and clips the trailing buttons off-screen / zero-width (device-verified:
+            // with 视图+动作 on one row the 导入 button measured 0dp wide on the 1080px gate
+            // device and was unclickable); each row here fits with margin to spare.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -457,6 +664,11 @@ fun FilesScreen(
                 TextButton(onClick = { viewMode = ViewMode.GRID }, modifier = Modifier.testTag("files-view-grid")) {
                     Text("网格")
                 }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 TextButton(onClick = { trashOpen = true }, modifier = Modifier.testTag("files-trash-open")) {
                     Text("回收站")
                 }
@@ -468,6 +680,16 @@ fun FilesScreen(
                 // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
                 TextButton(onClick = { safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
                     Text("SAF 来源")
+                }
+                // HXA-058: the 导入 entry (a single document or a folder into the Workspace).
+                TextButton(
+                    onClick = {
+                        importResult = null
+                        importOpen = true
+                    },
+                    modifier = Modifier.testTag("files-import-open"),
+                ) {
+                    Text("导入")
                 }
             }
         }
@@ -689,28 +911,33 @@ fun FilesScreen(
                     }
                 },
                 confirmButton = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (canMutate) {
-                            TextButton(
-                                onClick = {
-                                    openFile = null
-                                    renameTarget = file
-                                },
-                                modifier = Modifier.testTag("files-action-rename"),
-                            ) {
-                                Text("重命名")
-                            }
-                            TextButton(
-                                onClick = { copyMove = CopyMoveTarget(move = false, listOf(file.relativePath)) },
-                                modifier = Modifier.testTag("files-action-copy"),
-                            ) {
-                                Text("复制")
-                            }
-                            TextButton(
-                                onClick = { copyMove = CopyMoveTarget(move = true, listOf(file.relativePath)) },
-                                modifier = Modifier.testTag("files-action-move"),
-                            ) {
-                                Text("移动")
+                    // Two rows: the AlertDialog confirmButton is a single narrow strip; one row
+                    // overflows it and clips the trailing buttons zero-width (device-verified:
+                    // 导出 measured 0dp wide on the 1080px gate device and was unclickable).
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (canMutate) {
+                                TextButton(
+                                    onClick = {
+                                        openFile = null
+                                        renameTarget = file
+                                    },
+                                    modifier = Modifier.testTag("files-action-rename"),
+                                ) {
+                                    Text("重命名")
+                                }
+                                TextButton(
+                                    onClick = { copyMove = CopyMoveTarget(move = false, listOf(file.relativePath)) },
+                                    modifier = Modifier.testTag("files-action-copy"),
+                                ) {
+                                    Text("复制")
+                                }
+                                TextButton(
+                                    onClick = { copyMove = CopyMoveTarget(move = true, listOf(file.relativePath)) },
+                                    modifier = Modifier.testTag("files-action-move"),
+                                ) {
+                                    Text("移动")
+                                }
                             }
                             TextButton(
                                 onClick = {
@@ -722,8 +949,24 @@ fun FilesScreen(
                                 Text("回收站")
                             }
                         }
-                        TextButton(onClick = { share(file) }, modifier = Modifier.testTag("files-action-share")) {
-                            Text("分享")
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = { share(file) }, modifier = Modifier.testTag("files-action-share")) {
+                                Text("分享")
+                            }
+                            // HXA-058: the 导出 entry — Workspace files only (the HXA-044 export region
+                            // gate: input/work/output; SAF/all-files sources are never export sources).
+                            if (currentSource.kind == FileSourceKind.WORKSPACE) {
+                                TextButton(
+                                    onClick = {
+                                        exportFile = file
+                                        exportResult = null
+                                        exportOpen = true
+                                    },
+                                    modifier = Modifier.testTag("files-action-export"),
+                                ) {
+                                    Text("导出")
+                                }
+                            }
                         }
                     }
                 },
@@ -946,6 +1189,301 @@ fun FilesScreen(
                 }
             },
             modifier = Modifier.testTag("files-conflict-dialog"),
+        )
+    }
+
+    // ── HXA-058: the 导入 dialog (来源 / 目标 / 冲突策略 / 进度 / 取消 / 最终结果) ──────────
+    if (importOpen) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!importBusy) importOpen = false
+            },
+            title = { Text("导入到 Workspace") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!importBusy && importResult == null) {
+                        Text(
+                            "来源：用户选择的文档 / 文件夹（复制进 Workspace input/，不创建聊天消息）",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = { importMode = ImportMode.FILE },
+                                modifier = Modifier.testTag("files-import-file"),
+                            ) {
+                                Text(if (importMode == ImportMode.FILE) "● 单个文件" else "单个文件")
+                            }
+                            TextButton(
+                                onClick = { importMode = ImportMode.FOLDER },
+                                modifier = Modifier.testTag("files-import-folder"),
+                            ) {
+                                Text(if (importMode == ImportMode.FOLDER) "● 文件夹" else "文件夹")
+                            }
+                        }
+                        Text(
+                            "目标：Workspace input/",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("files-import-target"),
+                        )
+                        Text(
+                            "冲突策略（默认询问，从不默认覆盖）",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            ConflictPolicy.entries.forEach { p ->
+                                TextButton(
+                                    onClick = { importPolicy = p },
+                                    modifier = Modifier.testTag("files-import-policy-${p.name}"),
+                                ) {
+                                    Text(policyLabel(p))
+                                }
+                            }
+                        }
+                    } else if (importBusy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().testTag("files-import-progress"))
+                        Text(
+                            importLabel ?: "导入中…",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("files-import-label"),
+                        )
+                    } else {
+                        importResult?.let { TransferResultPanel(it, "files-import-result") }
+                    }
+                }
+            },
+            confirmButton = {
+                when {
+                    importBusy -> {
+                        TextButton(
+                            onClick = { importCancel.set(true) },
+                            modifier = Modifier.testTag("files-import-cancel"),
+                        ) {
+                            Text("取消")
+                        }
+                    }
+
+                    importResult != null -> {
+                        TextButton(
+                            onClick = { importOpen = false },
+                            modifier = Modifier.testTag("files-import-close"),
+                        ) {
+                            Text("关闭")
+                        }
+                    }
+
+                    else -> {
+                        TextButton(
+                            onClick = {
+                                if (importMode == ImportMode.FILE) {
+                                    importFilePicker.launch(arrayOf("*/*"))
+                                } else {
+                                    importFolderPicker.launch(null)
+                                }
+                            },
+                            modifier = Modifier.testTag("files-import-confirm"),
+                        ) {
+                            Text("选择并导入")
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                if (!importBusy) {
+                    TextButton(onClick = { importOpen = false }, modifier = Modifier.testTag("files-import-dismiss")) {
+                        Text("关闭")
+                    }
+                }
+            },
+            modifier = Modifier.testTag("files-import-dialog"),
+        )
+    }
+
+    // ── HXA-058: the 导出 dialog (目标 / 冲突策略 / 进度 / 取消 / 最终结果 + verified) ───────
+    if (exportOpen) {
+        val exportFileEntry = exportFile
+        AlertDialog(
+            onDismissRequest = {
+                if (!exportBusy) {
+                    exportOpen = false
+                    exportFile = null
+                }
+            },
+            title = { Text("导出 ${exportFileEntry?.name ?: ""}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!exportBusy && exportResult == null) {
+                        Text(
+                            "来源：${exportFileEntry?.relativePath.orEmpty()}${
+                                fileInfo?.let { "（${formatSize(it.sizeBytes)}）" } ?: ""
+                            }",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("files-export-source"),
+                        )
+                        Text("目标：", style = MaterialTheme.typography.bodySmall)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(
+                                onClick = { exportMode = ExportMode.NEW_DOC },
+                                modifier = Modifier.testTag("files-export-newdoc"),
+                            ) {
+                                Text(if (exportMode == ExportMode.NEW_DOC) "● 新建文档" else "新建文档")
+                            }
+                            TextButton(
+                                onClick = { exportMode = ExportMode.TREE },
+                                modifier = Modifier.testTag("files-export-tree"),
+                            ) {
+                                Text(if (exportMode == ExportMode.TREE) "● 已授权 SAF 目录" else "已授权 SAF 目录")
+                            }
+                        }
+                        when (exportMode) {
+                            ExportMode.NEW_DOC -> {
+                                Text(
+                                    "通过系统“创建文档”对话框选择保存位置（文件名与冲突由系统对话框处理）",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+
+                            ExportMode.TREE -> {
+                                if (exportSources.isEmpty()) {
+                                    Text(
+                                        "暂无已授权 SAF 来源（在“SAF 来源”中授权；只读来源不可写，导出会 fail-closed）",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.testTag("files-export-sources-empty"),
+                                    )
+                                }
+                                exportSources.forEach { source ->
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier =
+                                            Modifier.fillMaxWidth().testTag(
+                                                "files-export-scope-${source.scopeId}",
+                                            ),
+                                    ) {
+                                        Text(
+                                            if (exportScopeId ==
+                                                source.scopeId
+                                            ) {
+                                                "● ${source.displayName}"
+                                            } else {
+                                                source.displayName
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                        )
+                                        TextButton(
+                                            onClick = { exportScopeId = source.scopeId },
+                                            modifier = Modifier.testTag("files-export-scope-pick-${source.scopeId}"),
+                                        ) {
+                                            Text("选择")
+                                        }
+                                    }
+                                }
+                                OutlinedTextField(
+                                    value = exportParent,
+                                    onValueChange = { exportParent = it },
+                                    label = { Text("子目录（相对路径，可为空 = 根目录）") },
+                                    singleLine = true,
+                                    modifier = Modifier.testTag("files-export-parent"),
+                                )
+                                Text(
+                                    "冲突策略（默认询问，从不默认覆盖）",
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    ConflictPolicy.entries.forEach { p ->
+                                        TextButton(
+                                            onClick = { exportPolicy = p },
+                                            modifier = Modifier.testTag("files-export-policy-${p.name}"),
+                                        ) {
+                                            Text(policyLabel(p))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (exportBusy) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth().testTag("files-export-progress"))
+                        Text(
+                            exportLabel ?: "导出中…",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.testTag("files-export-label"),
+                        )
+                    } else {
+                        exportResult?.let { TransferResultPanel(it, "files-export-result") }
+                    }
+                }
+            },
+            confirmButton = {
+                when {
+                    exportBusy -> {
+                        TextButton(
+                            onClick = { exportCancel.set(true) },
+                            modifier = Modifier.testTag("files-export-cancel"),
+                        ) {
+                            Text("取消")
+                        }
+                    }
+
+                    exportResult != null -> {
+                        TextButton(
+                            onClick = {
+                                exportOpen = false
+                                exportFile = null
+                            },
+                            modifier = Modifier.testTag("files-export-close"),
+                        ) {
+                            Text("关闭")
+                        }
+                    }
+
+                    else -> {
+                        TextButton(
+                            onClick = {
+                                when (exportMode) {
+                                    ExportMode.NEW_DOC -> {
+                                        val mime = fileInfo?.mimeType?.ifEmpty { null } ?: "application/octet-stream"
+                                        exportDocPicker.launch(mime)
+                                    }
+
+                                    ExportMode.TREE -> {
+                                        val scopeId = exportScopeId
+                                        val file = exportFile
+                                        if (scopeId == null) {
+                                            status = "请选择一个已授权 SAF 来源"
+                                            return@TextButton
+                                        }
+                                        if (file == null) {
+                                            exportOpen = false
+                                            return@TextButton
+                                        }
+                                        runExport(
+                                            file.relativePath,
+                                            ExportTarget.TreeDestination(scopeId, exportParent.trim()),
+                                            exportPolicy,
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.testTag("files-export-confirm"),
+                        ) {
+                            Text("选择并导出")
+                        }
+                    }
+                }
+            },
+            dismissButton = {
+                if (!exportBusy) {
+                    TextButton(
+                        onClick = {
+                            exportOpen = false
+                            exportFile = null
+                        },
+                        modifier = Modifier.testTag("files-export-dismiss"),
+                    ) {
+                        Text("关闭")
+                    }
+                }
+            },
+            modifier = Modifier.testTag("files-export-dialog"),
         )
     }
 
@@ -1214,4 +1752,27 @@ private fun BatchItem.outcomeLabel(): String =
         BatchItem.Outcome.RENAMED -> "已重命名"
         BatchItem.Outcome.SKIPPED -> "跳过"
         BatchItem.Outcome.FAILED -> "失败"
+    }
+
+/** HXA-058: the import source shape (the two picker actions). */
+private enum class ImportMode {
+    FILE,
+    FOLDER,
+}
+
+/** HXA-058: the export destination shape (picker document vs authorized SAF tree). */
+private enum class ExportMode {
+    NEW_DOC,
+    TREE,
+}
+
+/** HXA-058: the screen-level transfer status line ("导入/导出完成：…"). */
+private fun transferSummary(
+    verb: String,
+    result: TransferResult,
+): String =
+    if (result.problems.isEmpty()) {
+        "${verb}完成：成功 ${result.completed.size} 项"
+    } else {
+        "${verb}完成：成功 ${result.completed.size}，跳过/冲突/失败 ${result.problems.size}"
     }

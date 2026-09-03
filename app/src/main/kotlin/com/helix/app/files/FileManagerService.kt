@@ -9,7 +9,9 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.WorkspaceLayout
 import com.helix.core.workspace.resolveFileScopePath
 import com.helix.feature.files.SafAccessMode
+import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.SafGrantStore
+import com.helix.feature.files.SafImportExportAccess
 import com.helix.feature.files.SafTreeScopeAccess
 import java.io.File
 import java.io.FileNotFoundException
@@ -46,6 +48,10 @@ class FileManagerService(
     // HXA-057: the governed SAF tree scope access (browse/preview/share, read-only). Null only in
     // tests that do not exercise SAF scopes; a SAF scope id with a null access fails closed.
     private val saf: SafTreeScopeAccess? = null,
+    // HXA-058: the restricted HXA-044 import/export pipelines + platform seams (the file
+    // manager's 导入/导出 entries). Null only in tests that do not exercise transfers; a transfer
+    // call with a null access fails closed.
+    private val transfers: SafImportExportAccess? = null,
 ) {
     /** True when [scopeId] names a SAF tree scope (`saf-<12hex>`; the only model-safe form, doc 10). */
     private fun isSaf(scopeId: String): Boolean = scopeId.startsWith(SafGrantStore.SCOPE_ID_PREFIX)
@@ -62,6 +68,81 @@ class FileManagerService(
         requireSaf(scopeId).service.resolve(scopeId, mode)
         return requireSaf(scopeId)
     }
+
+    // --- 导入/导出 (HXA-058: 文件管理导入/导出入口) ---
+    //
+    // Explicit FILE-MANAGEMENT actions driven by the user's picker results: they reuse the
+    // HXA-044 restricted pipelines (fail-closed, lying-provider-proof) and NEVER create a chat
+    // message, call a Provider, or expand the Agent scope (no artifact registration, no session
+    // binding, no grant persistence on import). A null [transfers] access fails closed.
+
+    private val transferOps: FileManagerTransfers? =
+        transfers?.let { FileManagerTransfers(store, workspaceScopeId, saf, it) }
+
+    /**
+     * Imports ONE picked SAF document (the `ACTION_OPEN_DOCUMENT` result) into the workspace
+     * `input/` region under [policy] (never a default overwrite). The user-facing contract
+     * (source / target / name / size / policy / progress / cancel / final result) is surfaced
+     * through the returned [TransferResult] + [onProgress].
+     */
+    fun importSingleDocument(
+        sourceUri: String,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.importSingleDocument(sourceUri, policy, cancel, onProgress)
+            ?: TransferResult(
+                listOf(TransferItem("SAF 文档", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
+
+    /**
+     * Imports a WHOLE picked SAF folder (the `ACTION_OPEN_DOCUMENT_TREE` result) into the
+     * workspace `input/` (structure recreated under `input/`). Bounded enumeration + fail-closed
+     * name mapping; one [onFileProgress] tick (done, total) before each file; every skipped or
+     * failed file is reported in the result — nothing is silently omitted.
+     */
+    fun importTree(
+        treeUri: String,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onFileProgress: (
+            Int,
+            Int,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.importTree(treeUri, policy, cancel, onFileProgress)
+            ?: TransferResult(
+                listOf(TransferItem("SAF 文件夹", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
+
+    /**
+     * Exports ONE workspace file to [target] (an `ACTION_CREATE_DOCUMENT` document or an
+     * authorized SAF tree directory) under [policy]. An export to a tree re-verifies the grant in
+     * WRITE mode in real time (a read-only or revoked grant fails closed before any byte is
+     * written). The result reports the platform-confirmed facts, and "verified" only when the
+     * bytes are re-read after the write and are hash-equal.
+     */
+    fun exportDocument(
+        sourceRelativePath: String,
+        target: ExportTarget,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.exportDocument(sourceRelativePath, target, policy, cancel, onProgress)
+            ?: TransferResult(
+                listOf(TransferItem(sourceRelativePath, "SAF 目标", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
     // --- Sources (来源标识) ---
 
     /**

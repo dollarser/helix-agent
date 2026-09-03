@@ -20,10 +20,10 @@ import java.io.OutputStream
  */
 class ContentResolverSafMetadataReader(
     private val resolver: ContentResolver,
-) {
+) : SafSourceMetadataReader {
     // a hostile provider may throw anything; unknown metadata degrades to the hard-cap path
     @Suppress("SwallowedException", "TooGenericExceptionCaught")
-    fun metadata(uri: String): SafSourceMetadata =
+    override fun metadata(uri: String): SafSourceMetadata =
         try {
             val parsed = Uri.parse(uri)
             val mimeType = safeType(parsed)
@@ -108,6 +108,24 @@ class ContentResolverSafDestinationVerifier(
                 ?: -1L
         } catch (e: Exception) {
             -1L
+        }
+}
+
+/**
+ * Production [SafDestinationReReader] (HXA-058 导出后重新读取校验): re-opens the destination
+ * document for a read after an export. A destination that cannot be re-read (grant shape,
+ * provider refusal, I/O error) yields null — the export is then only platform-confirmed, never
+ * byte-verified (fail closed, not an error).
+ */
+class ContentResolverSafDestinationReReader(
+    private val resolver: ContentResolver,
+) : SafDestinationReReader {
+    @Suppress("SwallowedException", "TooGenericExceptionCaught") // an unreadable destination reads as "no evidence"
+    override fun openStream(uri: String): InputStream? =
+        try {
+            resolver.openInputStream(Uri.parse(uri))
+        } catch (e: Exception) {
+            null
         }
 }
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- HXA-058: the document fixtures for the file-manager import/export device tests.
+             exported=true is REQUIRED and safe here: the app module's instrumentation runs in
+             the APP process (com.helix.agent), while this provider belongs to the TEST package
+             (com.helix.agent.test) — a DIFFERENT uid, so an exported=false provider is
+             unreachable from the app process (device-verified: "Permission Denial ... not
+             exported from UID ..."). The test APK is never shipped (connectedAndroidTest
+             installs it only on dev machines), so exporting a dev-only synthetic-data provider
+             has no production surface. (In-process registration via
+             ContentResolver.registerContentProvider is not possible: the method is absent from
+             the SDK stubs — framework-internal only.) -->
+        <provider
+            android:name="com.helix.app.test.TransferTestDocumentsProvider"
+            android:authorities="com.helix.app.transfersink"
+            android:exported="true" />
+    </application>
+</manifest>

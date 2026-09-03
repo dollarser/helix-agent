@@ -34,14 +34,18 @@ import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.ContentResolverSafDestinationOpener
+import com.helix.feature.files.ContentResolverSafDestinationReReader
 import com.helix.feature.files.ContentResolverSafDestinationVerifier
 import com.helix.feature.files.ContentResolverSafGrantProbe
 import com.helix.feature.files.ContentResolverSafMetadataReader
 import com.helix.feature.files.ContentResolverSafSourceOpener
 import com.helix.feature.files.ContentResolverSafTreeCheck
+import com.helix.feature.files.ContentResolverSafTreeDestination
+import com.helix.feature.files.ContentResolverSafTreeLister
 import com.helix.feature.files.ContentResolverSafTreeReader
 import com.helix.feature.files.SafExportPipeline
 import com.helix.feature.files.SafGrantStore
+import com.helix.feature.files.SafImportExportAccess
 import com.helix.feature.files.SafImportPipeline
 import com.helix.feature.files.SafTreeScopeAccess
 import com.helix.feature.files.SafTreeScopeService
@@ -132,6 +136,7 @@ interface AppContainer {
  * scopeId); the ContentResolver adapters implement the pipeline seams; the pipelines are
  * fail-closed against a lying provider (doc 07).
  */
+@Suppress("LongParameterList") // each adapter is an independently injected pipeline seam
 class FeatureFiles(
     val grantStore: SafGrantStore,
     val metadataReader: ContentResolverSafMetadataReader,
@@ -141,6 +146,11 @@ class FeatureFiles(
     val destinationOpener: ContentResolverSafDestinationOpener,
     val destinationVerifier: ContentResolverSafDestinationVerifier,
     val grantProbe: ContentResolverSafGrantProbe,
+    // HXA-058: the file-manager transfer seams (folder enumeration, tree-destination creation,
+    // post-export re-read). Same ContentResolver, same fail-closed adapter layer.
+    val treeLister: ContentResolverSafTreeLister,
+    val treeDestination: ContentResolverSafTreeDestination,
+    val destinationReReader: ContentResolverSafDestinationReReader,
 )
 
 internal class DefaultAppContainer(
@@ -286,20 +296,11 @@ internal class DefaultAppContainer(
         )
 
     /**
-     * The file-manager facade (HXA-046 + HXA-057): shares the tool pipeline's [workspaceStore] and
-     * the same [scopeRoots] scope boundary, so the user's file manager and the model's `files.*`
-     * tools address the identical, containment-enforced store. [APP_SCOPE_ID] is the always-present,
-     * mutable workspace; all-files roots (developer) are appended read-only, and SAF tree scopes
-     * (HXA-057) are appended read-only and re-verified on every browse.
-     */
-    override val fileManager: FileManagerService =
-        FileManagerService(workspaceStore, scopeRoots, APP_SCOPE_ID, safAccess)
-
-    /**
-     * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). Reuses the shared
-     * [safGrantStore] (HXA-057); the import pipeline targets the app workspace `input/` region
-     * through the same [scopeRoots] the file tools use, and the export pipeline reads from that
-     * scope's user regions.
+     * SAF adapter bundle (HXA-044 + HXA-058; PRD: SAF scope 默认复制到应用私有目录处理). Reuses the
+     * shared [safGrantStore] (HXA-057); the import pipeline targets the app workspace `input/`
+     * region through the same [scopeRoots] the file tools use, and the export pipeline reads from
+     * that scope's user regions. The HXA-058 seams add folder enumeration (picker one-shot grant),
+     * tree-destination creation (persisted authorized tree) and the post-export re-read.
      */
     override val featureFiles: FeatureFiles =
         run {
@@ -316,8 +317,37 @@ internal class DefaultAppContainer(
                 destinationOpener = destinationOpener,
                 destinationVerifier = destinationVerifier,
                 grantProbe = ContentResolverSafGrantProbe(resolver),
+                treeLister = ContentResolverSafTreeLister(resolver),
+                treeDestination = ContentResolverSafTreeDestination(resolver, safGrantStore),
+                destinationReReader = ContentResolverSafDestinationReReader(resolver),
             )
         }
+
+    /**
+     * The file-manager facade (HXA-046 + HXA-057 + HXA-058): shares the tool pipeline's
+     * [workspaceStore] and the same [scopeRoots] scope boundary, so the user's file manager and
+     * the model's `files.*` tools address the identical, containment-enforced store. [APP_SCOPE_ID]
+     * is the always-present, mutable workspace; all-files roots (developer) are appended read-only,
+     * and SAF tree scopes (HXA-057) are appended read-only and re-verified on every browse.
+     * HXA-058 adds the 导入/导出 entries: the HXA-044 pipelines driven by the file manager's
+     * explicit user actions (pickers / authorized trees) — no chat message, no Provider call, no
+     * Agent scope expansion.
+     */
+    override val fileManager: FileManagerService =
+        FileManagerService(
+            workspaceStore,
+            scopeRoots,
+            APP_SCOPE_ID,
+            safAccess,
+            SafImportExportAccess(
+                importPipeline = featureFiles.importPipeline,
+                exportPipeline = featureFiles.exportPipeline,
+                sourceMetadata = featureFiles.metadataReader,
+                treeLister = featureFiles.treeLister,
+                treeDestination = featureFiles.treeDestination,
+                destinationReReader = featureFiles.destinationReReader,
+            ),
+        )
 
     init {
         // HXA-045: initialize the all-files module (developer flavor builds the roots registry;

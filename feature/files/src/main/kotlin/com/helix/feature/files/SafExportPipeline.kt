@@ -89,11 +89,18 @@ class SafExportPipeline(
         require(maxExportBytes > 0) { "maxExportBytes must be > 0" }
     }
 
-    @Suppress("ReturnCount") // every early exit is a distinct sanitized refusal outcome
+    @Suppress("ReturnCount", "LongParameterList") // every early exit is a distinct sanitized refusal outcome
     fun exportFile(
         source: FileScopePath,
         destinationUri: String,
         cancel: SafCancelToken,
+        // HXA-058: optional byte progress for the file-manager UI — (bytesWritten, sourceSize).
+        // Purely additive: it never changes the region gate / cancel / size-re-check behavior
+        // (the HXA-044 contract).
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit = { _, _ -> },
     ): SafExportOutcome {
         if (cancel.isCancelled()) return cancelled()
         if (!isUserRegion(source.relativePath)) {
@@ -107,7 +114,7 @@ class SafExportPipeline(
                 ?: return refused(ExportRefusal.SCOPE_UNAVAILABLE, "workspace scope is not available")
         val gate = gateSource(sourcePath)
         if (gate != null) return gate
-        return copyAndVerify(sourcePath, destinationUri, cancel)
+        return copyAndVerify(sourcePath, destinationUri, cancel, onProgress)
     }
 
     /** Only the user regions are exportable (`.helix/` internals are never addressable). */
@@ -153,6 +160,10 @@ class SafExportPipeline(
         sourcePath: Path,
         destinationUri: String,
         cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
     ): SafExportOutcome {
         val destination: OutputStream
         try {
@@ -163,12 +174,13 @@ class SafExportPipeline(
                 "the destination document cannot be opened",
             )
         }
+        val total = Files.size(sourcePath)
         val digest = MessageDigest.getInstance("SHA-256")
         var written = 0L
         try {
             destination.use { out ->
                 Files.newInputStream(sourcePath).use { input ->
-                    written = copyChunked(input, out, digest, cancel)
+                    written = copyChunked(input, out, digest, cancel, { done -> onProgress(done, total) })
                 }
             }
         } catch (e: AbandonedWriteCancelled) {
@@ -197,6 +209,7 @@ class SafExportPipeline(
         output: OutputStream,
         digest: MessageDigest,
         cancel: SafCancelToken,
+        onChunk: (Long) -> Unit,
     ): Long {
         val buffer = ByteArray(CHUNK_SIZE)
         var written = 0L
@@ -207,6 +220,7 @@ class SafExportPipeline(
             digest.update(buffer, 0, n)
             output.write(buffer, 0, n)
             written += n
+            onChunk(written)
         }
         return written
     }
