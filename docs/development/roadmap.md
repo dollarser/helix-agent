@@ -1,6 +1,6 @@
 # Helix 开发路线与可执行任务
 
-文档状态：Baseline 1.3
+文档状态：Baseline 1.5
 规则：一个 HXA 任务对应一个可审查的纵向切片；未通过本任务验收不得进入后续任务。
 
 ## 1. 路线总览
@@ -12,8 +12,8 @@ M0 工程基线
   → M3 Tool/Policy/Approval/Capability
   → M4 Workspace 与文件管理器
   → M5 QuickJS 本地代码执行
-  → M6 内置浏览器与 Android 基础工具
-  → M7 MCP Client 与 Agent Skills
+  → M6 内置浏览器、Android 基础工具与国际化
+  → M7 MCP Client、A2A Client 与 Agent Skills
   → M8 PRoot Linux Runtime
   → M9 Accessibility 与 Root
   → M10 单机 Alpha/Beta 硬化
@@ -21,7 +21,7 @@ M0 工程基线
   → M12 直接分发 Release
 ```
 
-远程 Worker、云端沙箱、桌面配对和 HarmonyOS 不属于当前路线。只在 M1 定义 `ExecutionTarget/ToolExecutor` 领域接口，不创建网络空模块。
+远程 Worker、云端沙箱、桌面配对和 HarmonyOS 不属于当前路线。M7 的 A2A Client 是用户配置的外部 Agent 连接器，不是远程 `ExecutionTarget`/Worker；只在 HXA-077 Spike 通过并形成协议决定后创建真实模块，不提前创建网络空模块。
 
 ## 2. 里程碑退出条件
 
@@ -33,8 +33,8 @@ M0 工程基线
 | M3 | 模型能提出工具并等待审批 | 参数/scope/schema 变化使审批失效；并发读取、排他屏障、取消与固定顺序回填可确定重放 |
 | M4 | 用户可管理和让 Agent 处理授权文件 | Workspace/SAF/All-files 攻击测试通过 |
 | M5 | Agent 可安全生成并运行 JS | isolated process、超时、内存测试通过 |
-| M6 | Agent 可研究网页并调用 Android 基础能力 | WebView token、权限拒绝和站点安全测试通过 |
-| M7 | 用户可连接 MCP、导入和运行 Skill | 动态 schema、恶意 Skill 和渐进加载测试通过 |
+| M6 | Agent 可研究网页并调用 Android 基础能力，用户可使用中英文 UI | WebView token、权限拒绝、站点安全与 API 29/36 语言切换/重启测试通过，用户可见字符串扫描无违规 |
+| M7 | 用户可连接 MCP/A2A、导入和运行 Skill | MCP 动态 schema、A2A Task 恢复、恶意远端内容/Skill 和渐进加载测试通过 |
 | M8 | `bash` 可在本地 Linux Job 副本执行 | PRoot 安装、IPC、smoke、回滚、许可证通过 |
 | M9 | 高级用户可开启跨 App 自动化、Android UI Skill 和 Root 只读工具 | 敏感界面、scope、停止、Skill 逐步复验和 Root 拒绝测试通过 |
 | M10 | 固定场景可重复完成 | 指标、安全、恢复、资源和隐私门禁达标；HXA-105 以接受或有证据拒绝的 ADR 收口，不留半实现编排入口 |
@@ -50,6 +50,7 @@ M0 工程基线
 - 每个系统权限都测试 unavailable、denied、granted、revoked。
 - 每个有副作用工具都测试取消、超时、恢复和“不明确结果不重试”。
 - 验收报告给出真实命令、exit code、设备和剩余限制。
+- HXA-069 验收后，所有新增用户可见文案必须使用资源键并同步补齐简体中文/英文；Tool 名、协议字段、审计类型和稳定错误码不翻译。
 - 开始前按 [ADR 约定](../adr/README.md) 检索同一机制的既有决定；触发 ADR 的任务必须在同一 HXA 中新增、更新或显式取代记录。普通契约内实现不强制制造 ADR。
 - 小模型默认只能起草 `proposed`；`accepted` 不代表已实现，改变既有决定时必须停止并等待授权。
 
@@ -303,7 +304,7 @@ JSON 输入输出、host 编码参数 + 局部 `const` input 的严格 IIFE wrap
 
 在文件管理器接通 HXA-044 的受限 import/export pipeline：导入使用 `ACTION_OPEN_DOCUMENT`/`ACTION_OPEN_DOCUMENT_TREE` 的用户选择复制到 Workspace，导出使用 `ACTION_CREATE_DOCUMENT` 或用户已授权 tree，把 Workspace 快照流式写出。UI 必须展示来源、目标、名称、大小、冲突策略、进度、取消和最终结果；导入/导出是明确的文件管理动作，不自动创建聊天消息、不自动发给 Provider，也不扩大 Agent scope。覆盖同名冲突、部分流、大小谎报、磁盘满、目标撤销、取消、进程回收、原子性和临时文件回收；导出后重新读取/校验可得证据时才显示 verified，否则只报告平台确认的实际结果。
 
-## 10. M6：浏览器与 Android 基础工具
+## 10. M6：浏览器、Android 基础工具与国际化
 
 ### HXA-060 最小 WebView 浏览器
 
@@ -333,15 +334,23 @@ URL/重定向/MIME/size/name/target policy，下载到 Workspace/SAF；不自动
 
 GET/HEAD、SSRF/redirect/size/timeout；URL Policy 检查全部 A/AAAA/IPv4-mapped IPv6，只把本次已验证地址集合交给 transport，保持原 hostname 的 TLS Host/SNI/证书验证并复验 peer，每跳重做 origin/DNS/IP/credential/scope 检查。测试 DNS rebinding、连接复用、编码地址、metadata 和 redirect 逃逸。Standard 仅公网；Advanced 只能使用用户预建的精确 LAN/loopback `NetworkOriginScope`，模型 URL 不能创建 scope。前台服务只覆盖用户主动发起的 Provider/MCP 传输或本地文件处理，声明 `dataSync` + `FOREGROUND_SERVICE_DATA_SYNC`，等待审批/输入时停止，实现 Android 15+ `onTimeout()` 和 6 小时/24 小时限额测试。通知提供停止；WorkManager 只做可延期维护/提醒。
 
-### HXA-067 语音输入与本地化
+### HXA-067 语音输入
 
-使用系统语音识别 Activity/Service 能力将用户主动录音转为可编辑草稿，不后台常驻监听、不自动发送给模型；覆盖 unavailable/denied/cancel/error 和前后台转换。UI 提供简体中文/英文资源并跟随系统，扫描用户可见硬编码字符串。
+使用系统语音识别 Activity/Service 能力将用户主动录音转为可编辑草稿，不后台常驻监听、不自动发送给模型；覆盖 unavailable/denied/cancel/error 和前后台转换。本任务先按系统 locale 启动识别，用户仍可在系统识别 UI 中修改；后续由 HXA-069 统一资源化，并把识别默认语言接到当前 App locale。
 
 ### HXA-068 Advanced 有界出网规则管理
 
 为 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)保留的高敏出网规则提供类型化持久化、列表、创建、到期和显式撤销 UI；仅 developer/Advanced 可创建，consumer/Standard 永远不提供入口。规则严格绑定 Provider/MCP ID、规范 origin、数据类别、scope 与固定期限（1h/24h/7d/30d），不能包含通配符、滑动续期、Tool Approval Proof 或“全部允许”。接入 Dispatcher 的 `ruleProvider`，覆盖进程重启、到期、时钟回拨、撤销、切回 Standard、Provider/MCP/schema/origin/scope 变化和并发读写；现有逐次审批在 store/UI 不可用时保持 fail closed。HXA-072 复用本任务的 store/UI，不另建 MCP 专用规则体系。
 
-## 11. M7：MCP 与 Skills
+### HXA-069 国际化与 App 语言切换
+
+将 `app` 及已接入的 `feature` UI 中所有用户可见文案、无障碍描述、通知和可操作错误迁移到 Android string/plurals 资源，提供完整 fallback、`values-en` 和 `values-zh-rCN`，不通过拼接可翻译句子组装 UI。仅资源化真正的用户文案；Tool/schema 名、Provider 模型 ID、URL、协议字段、审计类型、稳定错误码与 `Locale.ROOT` 规范化保持语言无关。
+
+在设置中增加“跟随系统 / 简体中文 / English”，使用 Android 官方 per-app language 机制或经 API 29/36 验证的 AndroidX 兼容层；选择在 Activity 重建、进程死亡、App 更新及 Standard/Advanced 切换后保持，“跟随系统”不留存旧的 App locale override。在 API 33+ 与系统“App languages”保持双向一致，API 29–32 使用等价持久化；consumer/developer 共用同一套文案和选择语义。
+
+新增可在 CI 执行的用户可见硬编码字符串扫描和缺失/多余翻译键检查，为现有 Compose UI 和后续 HXA 建立回归门禁。单元测试覆盖 locale 选择/清除与格式化；API 29/36 仪器测试覆盖系统默认、中英文即时切换、Activity/进程重建、通知与关键界面文案，并验证切换 locale 不改变 Provider 请求、Tool schema、持久化 enum/错误码或审计字段。本任务不翻译用户、模型、网页、MCP/A2A 或 Skill 提供的内容。
+
+## 11. M7：MCP、A2A 与 Skills
 
 ### HXA-070 MCP Kotlin SDK Android Spike
 
@@ -370,6 +379,20 @@ PRoot Runtime 启动锁定 server command，严格 stdout JSON-RPC、bounded std
 ### HXA-076 Skill 工具与首批内置 Skills
 
 实现 list/read/read_resource/enable/disable/remove；脚本只通过已有执行工具。加入文件整理预览、网页研究、数据转换、repo inspection、notification digest 五个小 Skill 和端到端测试；`notification-digest` 依赖已验收的 HXA-065。`android-ui-task` 不在 M7 提前实现，延后到 HXA-097。
+
+### HXA-077 A2A v1.0 Android Client Spike
+
+在 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md) 的产品、协议和信任边界内，验证官方 Java SDK client/Android HTTP adapter 在 API 29/36、R8、JSON-RPC/HTTP+JSON、SSE、取消、重连、大消息、Java record/serialization 和 APK/方法数上的可用性。若官方 SDK 不合格，验证稳定 `A2aClientFacade` 后用 OkHttp + kotlinx.serialization 实现最小 v1.0 Client 的成本；不实现业务 UI/Tool bridge。Spike 必须产出 SDK/transport/版本兼容与依赖许可证决定，更新验收矩阵为实际 Gradle task。在选出有证据的可行方案前，不得启动 HXA-078/079、新增 production A2A 依赖或声称兼容；候选均失败时必须按 ADR 约定重新评估。
+
+### HXA-078 A2A Agent 配置、发现与快照
+
+创建 `extensions:a2a`（仅在 HXA-077 接受方案后），实现 disabled-by-default endpoint、SecretStore auth alias、公开/扩展 Agent Card 获取、`supportedInterfaces`/版本协商、provider/capability/input-output mode/Skill 的有界展示与 content hash 快照。用户逐项启用远端 Skill；Agent Card、endpoint、binding、protocol version 或 Skill hash 变化后旧 Registry 条目、审批和长期规则失效。首版不实现 A2A Server、push notification webhook、OAuth/mTLS、gRPC、custom binding 或 v0.3 静默降级。
+
+### HXA-079 A2A Task Tool bridge 与恢复
+
+在 `tools:framework` 增加可信的 A2A `ToolSource`/origin 类型（不能冒充 MCP source），把已启用的远端 Skill 注册为 `a2a.<agent>.<skill>`，使用固定任务 schema，并经 Dispatcher 的 NETWORK/egress/approval/audit 管线执行 SendMessage/SendStreamingMessage、GetTask、CancelTask 与 SubscribeToTask。本地持久化 toolCallId ↔ taskId/contextId/snapshot/input hash/事件序号；断线、取消、进程死亡只对账原 Task，送达不明确时进入 `NEEDS_REVIEW`，不新建 Task 重发。首版支持有界 text、structured data 与 hash 复核后的 Workspace Artifact 副本；远端内容/Artifact 标记 `UNTRUSTED_A2A_CONTENT`，不能反向调用本机 Tool、继承 Capability/Approval/Secret 或直接满足本机 verifier。
+
+M7 的 Client-only 是依赖顺序，不是永久能力上限。后续若由项目所有者排期，优先单独验证 Advanced 前台局域网 Server，再验证用户自备 VPN/隧道/relay 的远程可达性；远端到本机先只生成结构化 Tool proposal。直接远端 Tool scope、手机 webhook、平台 relay 或递归/peer 编排分别需要新的 HXA/ADR，不并入 HXA-077～079，也不因 Client Spike 通过自动视为获批。
 
 ## 12. M8：PRoot Linux Runtime
 
@@ -451,15 +474,15 @@ status、file.read、package.info、process.list、bounded log.read；短时 Roo
 
 ### HXA-100 固定评测集
 
-至少 40 条：聊天/Plan/Goal、三 Provider 协议、文件、JS、浏览器、MCP、Skill、Accessibility、Root 拒绝路径。记录 provider/model/protocol/prompt hash/tool versions/device/date。
+至少 40 条：聊天/Plan/Goal、三 Provider 协议、文件、JS、浏览器、MCP、A2A、Skill、Accessibility、Root 拒绝路径。记录 provider/model/protocol/prompt hash/tool versions/device/date。
 
 ### HXA-101 Prompt injection
 
-网页、文件、MCP description/result、Skill、通知和文件名中的注入；验证不能扩大 scope、注册工具或绕过审批。
+网页、文件、MCP description/result、A2A Agent Card/Skill/message/Artifact、Skill、通知和文件名中的注入；验证不能扩大 scope、注册工具或绕过审批。
 
 ### HXA-102 恢复和副作用
 
-模型流、审批、文件写、浏览器动作、UI 动作、MCP call、PRoot 运行各阶段 kill/restart；不明确结果进入 `NEEDS_REVIEW`。按 ADR-0004 收口 Goal 恢复：PAUSED 原因以稳定 outcome + audit 原子持久化；模型/工具/副作用边界写入有界间隔的 durable usage checkpoint，确定并测试最大未记账窗口；反复 kill/restart、长时间离线和墙钟回拨均不得持续增加可用预算，也不得自动重放 open run 或不明确副作用。
+模型流、审批、文件写、浏览器动作、UI 动作、MCP call、A2A Task、PRoot 运行各阶段 kill/restart；不明确结果进入 `NEEDS_REVIEW`。按 ADR-0004 收口 Goal 恢复：PAUSED 原因以稳定 outcome + audit 原子持久化；模型/工具/副作用边界写入有界间隔的 durable usage checkpoint，确定并测试最大未记账窗口；反复 kill/restart、长时间离线和墙钟回拨均不得持续增加可用预算，也不得自动重放 open run 或不明确副作用。
 
 ### HXA-103 资源/稳定性
 
@@ -467,7 +490,7 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 
 ### HXA-104 隐私/诊断/删除
 
-日志脱敏、用户预览诊断包、删除会话/Provider/MCP/Skill/Goal/Workspace/Runtime/站点数据和 Root session。API 30+ 用 `ApplicationExitInfo`，所有版本保存脱敏最后状态/heartbeat，uncaught handler 写有界摘要后继续交给系统；24 小时证据同时保留 instrumentation、logcat/ANR 和退出原因，不声称 App watchdog 能完整捕获 ANR。
+日志脱敏、用户预览诊断包、删除会话/Provider/MCP/A2A/Skill/Goal/Workspace/Runtime/站点数据和 Root session。API 30+ 用 `ApplicationExitInfo`，所有版本保存脱敏最后状态/heartbeat，uncaught handler 写有界摘要后继续交给系统；24 小时证据同时保留 instrumentation、logcat/ANR 和退出原因，不声称 App watchdog 能完整捕获 ANR。
 
 ### HXA-105 有界只读委托与声明式 Workflow Spike
 

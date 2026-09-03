@@ -69,6 +69,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
+- A2A Java SDK 仅是 HXA-077 候选，不在当前依赖基线中；accepted ADR-0016 只固定 Client-only 边界。候选可在 Spike 隔离范围中验证，但在 Android/R8/体积/依赖/许可证结论形成前不得进入 production version catalog 基线。若官方 SDK 失败，优先验证复用现有 OkHttp + kotlinx.serialization 实现 facade 后的最小 v1.0 Client。
 - 不引入通用 shell/process 库；PRoot Runner 自己封装明确的 argv 和 lifecycle。
 - 不使用已 deprecated 的 `androidx.security:security-crypto` 作为新设计核心；使用 Android Keystore + 明确的加密存储封装。
 - Agent Skills 自行实现 Kotlin parser/loader；官方 `skills-ref` 只作规范 fixture，不作 Android production 依赖。
@@ -401,6 +402,7 @@ Helix/
 ├── provider/
 ├── extensions/
 │   ├── mcp/
+│   ├── a2a/                  # HXA-077 接受方案后创建
 │   └── skills/
 ├── feature/
 │   ├── browser/
@@ -519,7 +521,7 @@ checkout
 
 workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 GitHub：最早 1 次 Android CI 失败后，依赖验证/Action 版本修复带来 3 次连续成功；最新成功运行是 [33364284426](https://github.com/dollarser/helix-agent/actions/runs/33364284426)，并生成保留 1 天的 debug APK bundle。当前远端 workflow 仍不运行 emulator/真机；HXA-003 的 API 36 arm64-v8a instrumentation 证据来自本机，不能由远端构建替代。
 
-后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
+后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP/A2A fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider/A2A 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
 
 ## 12. 版本升级流程
 
@@ -530,7 +532,7 @@ workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 Git
 5. 跑全部 unit、lint、instrumentation、consumer/developer build。
 6. QuickJS/NDK 升级必须重跑隔离、16 KiB page 和真机攻击测试。
 7. PRoot/RootFS 升级必须生成新 runtime manifest、许可证和 rollback 测试。
-8. MCP SDK 升级必须重跑 Android/R8/transport Spike；Skill 规范升级必须重跑官方 fixture。
+8. MCP SDK 或 A2A SDK/spec 升级必须重跑 Android/R8/transport Spike；Skill 规范升级必须重跑官方 fixture。
 9. WebKit/libsu 升级必须重跑对应真机权限和攻击测试。
 
 ## 13. 新环境验收

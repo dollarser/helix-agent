@@ -1,22 +1,24 @@
-# Helix Provider、MCP、Skills 与 Agent 模式架构
+# Helix Provider、MCP、A2A、Skills 与 Agent 模式架构
 
-文档状态：Baseline 1.3
-基线日期：2026-08-31
+文档状态：Baseline 1.4
+基线日期：2026-09-03
 
 ## 1. 设计目标
 
-本方案解决五个相互关联但必须分层的问题：
+本方案解决六个相互关联但必须分层的问题：
 
 1. 用多种模型协议驱动同一个 Helix Agent Loop。
 2. 通过 MCP 发现外部工具、资源和 Prompt；首版只执行 tools，resources/prompts 只展示有界 metadata。
-3. 通过 Agent Skills 为模型提供可复用流程、脚本和资料。
-4. 提供 Chat、Plan、Act、Goal 四种运行模式。
-5. 为未来远程 Worker、云端沙箱和桌面配对保留稳定执行抽象，但当前不实现传输协议。
+3. 通过 A2A 发现用户配置的外部 Agent，并把有界远端任务映射为普通 Helix ToolCall。
+4. 通过 Agent Skills 为模型提供可复用流程、脚本和资料。
+5. 提供 Chat、Plan、Act、Goal 四种运行模式。
+6. 为未来远程 Worker、云端沙箱和桌面配对保留稳定执行抽象，但当前不实现传输协议。
 
-模型 Provider、MCP Server、Skill 和执行目标不是同一概念：
+模型 Provider、MCP Server、A2A Agent、Skill 和执行目标不是同一概念：
 
 - Provider 产生模型事件。
 - MCP Server 提供工具/资源/Prompt。
+- A2A Agent 接收任务并返回消息、状态和 Artifact；它是外部服务，不进入 Helix `ExecutionTarget`。
 - Skill 提供按需加载的操作知识及可选资源。
 - Execution Target 决定工具在哪里执行。
 
@@ -201,7 +203,7 @@ mcp.<serverSlug>.<toolName>
 - MCP 网络调用复用 Provider 的数据分类与 `EgressSummary` 语义；Advanced 规则绑定 MCP server ID + 规范 origin + 数据类别 + scope + 有效期，不能因 bearer 已配置而静默发送高敏内容。
 - 不采用单纯“每 N 次调用提醒”作为安全边界。会话维护有界调用/出网摘要；endpoint、tool schema hash 或敏感数据类别变化时强制检查点，结束时提供脱敏发送摘要。
 
-## 5. Agent Skills
+## 5. Agent Skills 与 A2A
 
 ### 5.1 格式
 
@@ -248,6 +250,55 @@ mcp.<serverSlug>.<toolName>
 - `data-transform`：优先 JS，失败后建议 PRoot。
 - `notification-digest`：M7/HXA-076，依赖 HXA-065；用户选择应用和时间窗后摘要。
 
+### 5.5 A2A Client
+
+#### 5.5.1 协议和 Android 落位
+
+A2A 与 MCP 互补：MCP 连接 Agent 与工具/数据，A2A 连接彼此不共享内部状态的独立 Agent。Helix 首版只实现 A2A v1.0 Client；不托管 Server，也不把远端 Agent 包装成 `ToolExecutor`/`ExecutionTarget`。
+
+正式接入前由 HXA-077 完成 Android Spike。优先评估官方 Java SDK 的 client、JSON-RPC/HTTP+JSON transport 和 Android HTTP adapter；若 API 29、R8、Java record/serialization、SSE 或依赖体积不合格，则在稳定 `A2aClientFacade` 后使用 OkHttp + kotlinx.serialization 实现所需的最小 v1.0 Client。SDK 类型、protobuf 类型和 transport DTO 均不得泄漏到 `core:*` 或 `tools:framework`。
+
+首版能力边界：
+
+- P0 transport 为 HTTPS 上的 JSON-RPC 2.0 或 HTTP+JSON/REST；根据 Agent Card 的 `supportedInterfaces` 与协议版本显式协商，不静默降级到 v0.3。
+- 支持获取公开/扩展 Agent Card、SendMessage、SendStreamingMessage、GetTask、CancelTask 和 SubscribeToTask；ListTasks、gRPC、custom binding 与 extension 按 Spike 结果后置。
+- Android 手机不适合充当稳定公网 webhook，首版不注册 push notification callback；长任务只在用户可见活动连接中订阅，或稍后用已保存 task ID 主动查询。
+- 认证首版复用 SecretStore 的手工 bearer/header alias；OAuth/OIDC discovery、mTLS 和设备授权流必须另行设计，不能把 Provider/MCP secret 复用给 A2A endpoint。
+
+#### 5.5.2 发现、动态工具和生命周期
+
+保存配置时默认 disabled。用户完成连接测试后，Helix 保存 Agent Card hash、AgentInterface（url/binding/protocolVersion）、provider、capabilities、input/output modes 与 Skills snapshot，并逐项启用远端 Skill。每个启用项转换为固定 schema 的动态工具：
+
+```text
+a2a.<agentSlug>.<skillSlug>
+```
+
+工具参数只包含用户任务、选择的本地 Artifact/context refs、期望输出模式和有界执行选项；Agent Card description、Skill description 和远端消息全部标记 `UNTRUSTED_A2A_CONTENT`。Agent Card、Skill、endpoint、binding 或协议版本变化会产生新 contract hash，并撤销旧工具注册、长期规则和审批。
+
+本地 `toolCallId` 必须与远端 `taskId/contextId`、Agent/Skill snapshot、input hash 和最后事件序号持久绑定。断线、取消、进程死亡或 App 重启后，只能 GetTask/SubscribeToTask 对账同一个远端 task；SendMessage 是否到达不明确时进入 `NEEDS_REVIEW`，禁止用新 task 重发。远端取消是 best effort，服务端拒绝取消或状态未知必须如实展示。
+
+#### 5.5.3 数据、Artifact 与授权边界
+
+- 首版允许 text、结构化 data，以及由用户选择且 hash 复核通过的 Workspace Artifact 副本；远端 file/URI 先按下载大小、MIME、重定向与 hash 门禁导入 app-private Artifact，不能把任意 URL 当作已验证文件。
+- 每次请求沿用网络 ToolCall 的 origin、数据类别、scope、预算、摘要和审计语义。可复用规则必须精确绑定 A2A agent ID、规范 origin、Agent Card/Skill contract hash、数据类别、scope 和期限。
+- A2A Agent 不继承 Helix 的 pending approval、Approval Proof、Android Capability、Workspace scope、Secret、UI token、Root/Automation session 或本机工具表。
+- 远端输出只能作为不可信 ToolResult/Artifact 回到父 Turn；若它建议写文件、操作 UI 或调用本机工具，Helix 必须创建新的本地 ToolCall，经同一 Dispatcher/Policy/Approval/Verification/Audit 管线处理。
+- A2A Agent 的 `completed` 只证明远端协议 Task 已完成，不证明本机目标或远端副作用真实完成；验收条件仍需要 Helix 可验证证据。
+
+本节是 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md) 的目标边界；该决定只接受 Client-only 产品、协议和信任边界。HXA-077 的 Android/SDK 证据与具体实现选型完成前，不得声称已选定 SDK、已实现或符合 A2A v1.0，也不得启动 HXA-078/079。
+
+#### 5.5.4 为什么 M7 先做 Client-only
+
+这是一条交付顺序，不是永久产品禁令：
+
+1. **先验证出站互操作。** Client 只需要 Android 主动建立 HTTPS/SSE 连接，能直接验证 Agent Card、Task、Artifact、取消和恢复，不要求手机具备稳定入站地址。
+2. **Server 先从局域网前台会话开始。** Android 可在用户主动开启、持续可见的前台会话中监听明确网络接口；但公网托管还需要处理 NAT/动态 IP、TLS/域名、Doze/进程回收和前台服务限制，因此不能把“能监听端口”写成“稳定公网可用”。
+3. **远程可达由用户选择基础设施。** Advanced 后续可以支持用户已有 VPN、反向隧道或自建 relay；Helix 不必为了首版双向协议先建设云控制面。直接公网暴露、平台云 relay 和第三方隧道应分别验收，不能共享模糊的“远程已开启”状态。
+4. **反向调用先返回 proposal。** 远端 Agent 可以通过 A2A Task 返回结构化本机动作建议，由 Helix 父 Turn 转换为普通 ToolCall；只有未来定义远端身份、工具/scope、期限、重放、锁屏/离线和撤销后，才考虑让远端直接持有有界调用权。
+5. **递归编排单独演进。** A2A 网络互操作不要求递归。父子/peer 图、预算传播、循环终止、级联取消和恢复由 HXA-105/ADR-0009 评估，避免协议连通性与多 Agent Runtime 相互阻塞。
+
+建议的能力梯度是：`M7 Client → Advanced 前台 LAN Server → 用户自备 VPN/隧道/relay → proposal 型反向调用 → 经新 ADR 的有界远端 Tool scope`。任何阶段都必须保留真实 Task 状态、取消和重复副作用边界；Advanced 用户承担启用网络入口和外部基础设施的选择责任。
+
 ## 6. Agent 模式
 
 ### 6.1 模式语义
@@ -293,7 +344,7 @@ data class Goal(
 
 首版只有用户显式继续才创建新 `goal_run`。WorkManager 可在 `nextCheckpoint` 附近发提醒通知，但不得在后台调用模型/工具，且调度可被 Doze、强制停止和系统限制延迟。`wakeReason` 记录 `USER_OPEN`、`NOTIFICATION_ACTION` 等真实来源。
 
-Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。
+Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。A2A Client 也不是第五种模式；它是父 Turn 发起的外部网络 ToolCall，不等于内部 child，也不取得本机执行权。
 
 ### 6.2 状态
 
@@ -310,26 +361,27 @@ DRAFT → READY → RUNNING
 
 ## 7. 数据模型扩展
 
-Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason 和稳定 outcome（含 ADR-0004 的 pause reason），MCP/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/Skill 大型正文、资源和 schema 存文件并保存 hash。
+Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-表) 定义。本专项不重复维护第二份 schema；语义上要求 `provider_configs` 保留 protocol/capability snapshot，`goal_runs` 保留真实 wake reason 和稳定 outcome（含 ADR-0004 的 pause reason），MCP/A2A/Skill 运行保留固定 schema/content hash。Secret 只保存 alias，MCP/A2A/Skill 大型正文、资源、schema 和 Agent Card 存文件并保存 hash。
 
 ## 8. 未来远程执行扩展点
 
 当前领域枚举已定义 `LOCAL_ANDROID`、`LOCAL_QUICKJS`、`LOCAL_PROOT`、`LOCAL_CLI_RUNTIME` 四类本机目标，但生产工具执行路径目前只有 `LOCAL_ANDROID`（`time.now`）；其余三类仍分别等待 M5、M8、M11 的执行器和设备验收。目标定义不等于 Runtime 已实现。
 
-跨执行域目标端口只在[总体方案 §4](overview.md#4-核心接口)维护；该处同时区分目标伪代码与当前 `tools:framework` 进程内 `ToolExecutor` 的同名不同形。Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。未来远程 Worker 必须通过新 transport 且仍进入同一 Dispatcher；当前不写 socket、配对、云端账号或空网络模块。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
+跨执行域目标端口只在[总体方案 §4](overview.md#4-核心接口)维护；该处同时区分目标伪代码与当前 `tools:framework` 进程内 `ToolExecutor` 的同名不同形。Envelope 包含协议版本、ToolDescriptor hash、输入 hash、限额、审批 proof 引用、correlation ID 和产物 manifest。A2A Client 不使用这些远程执行扩展点；未来远程 Worker 必须通过新 transport 且仍进入同一 Dispatcher。HarmonyOS 以后实现 Platform Capability Adapter，不复用 Android 权限代码。
 
 ## 9. 完成标准
 
 - OpenAI Responses、OpenAI Chat Completions、Anthropic Messages 分别有协议 fixture 和真实 smoke。
 - Ollama/SGLang 通过能力探测成功调用文本和 ToolCall；不支持的字段被明确降级。
 - MCP HTTP server 可 initialize/list/call/cancel，schema 变化使审批失效。
+- A2A v1.0 Android/R8/transport Spike 通过；Agent Card/Skill 快照、Task 对账、取消、流式事件和 Artifact 边界有固定 fixture。
 - Skill catalog 只预载 metadata，正文按需读取；恶意 zip 和越界 resource 被拒绝。
 - Plan 模式不能执行写入/代码/UI 动作。
 - Goal 可在进程重启后恢复，预算和验收证据一致，绝不自动重放不明确副作用。
 - 单 Turn 多 ToolCall 只并行平台证明无冲突的读取，取消/恢复有持久结果，模型回填顺序不随完成速度变化。
 - child delegation/JSON Workflow 在 ADR-0009 接受前不可用；即使以后启用也不是新模式，不能继承审批或扩大父 Goal 预算。
 - CLI 订阅后端只有在官方客户端持有凭据且 Helix 不接触 token 时才可启用；未完成安全 Spike 前不得列为正式 ModelProvider。
-- Provider/MCP 数据去向取自实际 endpoint；Standard/Advanced 的高敏出网门控和禁止发送类别均有 Policy/UI 测试。
+- Provider/MCP/A2A 数据去向取自实际 endpoint；Standard/Advanced 的高敏出网门控和禁止发送类别均有 Policy/UI 测试。
 
 ## 10. 主要依据
 
@@ -337,6 +389,8 @@ Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-
 - [Anthropic Claude Code 登录](https://docs.anthropic.com/en/docs/claude-code/getting-started)
 - [MCP Transport 规范](https://modelcontextprotocol.io/specification/draft/basic/transports)
 - [MCP Kotlin SDK](https://github.com/modelcontextprotocol/kotlin-sdk)
+- [A2A Protocol v1.0 specification](https://a2a-protocol.org/latest/specification/)
+- [A2A Java SDK](https://github.com/a2aproject/a2a-java)
 - [Agent Skills 规范](https://github.com/agentskills/agentskills/blob/main/docs/specification.mdx)
 - [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility)
 - [SGLang quickstart](https://github.com/sgl-project/sglang/blob/main/docs/docs/get-started/quickstart.mdx)

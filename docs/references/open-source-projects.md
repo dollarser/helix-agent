@@ -1,6 +1,6 @@
 # Helix 开源依赖与参考项目
 
-核实日期：2026-08-31。第三方仓库的活跃度、版本和许可证可能变化；纳入构建前必须重新核实 tag、commit、LICENSE、NOTICE、依赖树和发布渠道政策。
+基础清单核实日期：2026-08-31；A2A 候选补充核实日期：2026-09-03。第三方仓库的活跃度、版本和许可证可能变化；纳入构建前必须重新核实 tag、commit、LICENSE、NOTICE、依赖树和发布渠道政策。
 
 ## 1. 分类规则
 
@@ -57,6 +57,14 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - 用途：Root shell 状态和 Binder RootService。
 - 选择理由：Android Root 领域知名、API 边界清晰、包含 core/service/nio 设计。
 - 供应链：通过 JitPack 获取时只允许该 group 的 exclusive content，固定 tag 并记录 artifact checksum；M9 前不加入构建。
+
+### 2.6 A2A Java SDK（候选依赖）
+
+- 仓库：[a2aproject/a2a-java](https://github.com/a2aproject/a2a-java)
+- 协议基线：[A2A v1.0](https://a2a-protocol.org/latest/specification/)。
+- 许可证：Apache-2.0；正式引入前仍需核对所选 artifacts 的完整依赖树、NOTICE 和发布版本。
+- 候选用途：M7 的 A2A Client、Agent Card、JSON-RPC/HTTP+JSON transport、SSE 与 Task 生命周期。
+- 当前边界：尚未选为直接依赖。HXA-077 必须先验证 API 29/36、R8、Android HTTP adapter、Java record/serialization、体积和取消/恢复；若不合格，在稳定 facade 后比较最小 Kotlin Client。
 
 ## 3. 运行时组件
 
@@ -218,7 +226,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 | --- | --- |
 | core 与 UI/CLI 分离、结构化 event stream | `core:model`/`core:agent` 纯状态与 effect；UI 只订阅状态，不直接调用 Provider/DAO/Runtime |
 | provider adapter 与能力探测 | M2 HXA-020～027；三个协议独立 fixture，不做猜测式统一 adapter |
-| 小而稳定的工具集合、扩展协议 | M3 Tool Registry/Policy/Approval；M7 MCP/Skills；扩展描述永远不能授权 |
+| 小而稳定的工具集合、扩展协议 | M3 Tool Registry/Policy/Approval；M7 MCP/A2A/Skills；扩展描述、Agent Card 和远端结果永远不能授权 |
 | repo map、渐进上下文和可复现编辑 | HXA-016 Context Builder + M4 Workspace；确定性裁剪、ArtifactRef、scope 与原子写后验证 |
 | diff/审批/测试反馈闭环 | HXA-034～036 approval proof/timeline；Dispatcher 变更后 verifier；verification matrix 的真实命令 |
 | session checkpoint、恢复和去重 | Turn/Goal/Room + ADR-0004；不明确副作用停泊；PRoot/CLI 使用 ADR-0007 jobId journal |

@@ -2,9 +2,9 @@
 
 文档状态：产品与架构调研
 
-核验日期：2026-09-02
+核验日期：2026-09-03
 
-适用范围：Helix 当前实现仍限 Android 单机；竞品观察覆盖 HarmonyOS/iOS，但不据此新增 HarmonyOS 客户端、远程 Worker、云端沙箱或桌面配对承诺
+适用范围：Helix 当前实现仍限 Android 单机；竞品观察覆盖 HarmonyOS/iOS，并纳入通用 A2A v1.0 Client 作为 M7 规划，但不据此新增 HarmonyOS 客户端、远程 Worker、云端沙箱、A2A Server 或桌面配对承诺
 
 本文侧重技术能力、执行位置和平台边界；目标用户、场景、分发与付费假设见[市场、用户与商业化分析](market-users-and-commercialization.md)。
 
@@ -40,7 +40,7 @@ Helix 仍负责真实展示能力状态、执行目标、scope、数据去向和
 | Android 能力 | 是否能访问受授权文件、浏览器、系统应用、Accessibility、shell 或 Root？ |
 | 授权模型 | 是 Android 粗粒度权限、工具弹窗、每应用授权，还是参数级、一次性批准？ |
 | 可恢复与审计 | 崩溃/取消后是否有持久状态、去重、结果对账和用户可见审计？ |
-| 开放性 | 是否支持 BYOK、自建 endpoint、多 Provider、MCP/Skill 或可替换执行后端？ |
+| 开放性 | 是否支持 BYOK、自建 endpoint、多 Provider、MCP/A2A/Skill 或可替换执行后端？ |
 
 “有 MCP”只证明可以连接工具协议，不证明工具在手机执行，也不证明 MCP 描述能够安全授权。“有 Android 权限”同样不等于每个具体 ToolCall 已获批准。
 
@@ -207,11 +207,11 @@ HMAF 2.0 在 HarmonyOS 7 开发者 Beta 中提出“意图即服务”，并开�
 2. **把发现、编排和执行拆开**：小艺入口、HMAF 编排、Intents Kit 注册与应用/元服务执行是不同层。Helix 也不应因发现了 Tool/MCP 就默认它可执行或已获授权。
 3. **做垂域闭环，而不只做通用聊天**：客服小艺和深度解题的竞争力来自“输入—工具—业务结果—后续服务”的闭环。Helix 应先用受控文件工作区形成同样可演示、可验收的闭环。
 4. **保留逐调用安全差异**：系统权限、平台审核、HMAF/A2A 声明或 GUI 能力都不能替代 Helix 的 exact ToolCall Approval、Verification 与 Audit。
-5. **研究但不扩张实现范围**：鸿蒙多端、端云 A2A 和元服务是产品参照，不因此新增 HarmonyOS、云端 Agent、跨设备 Worker 或多 Agent HXA。
+5. **只吸收跨平台协议价值**：鸿蒙多端、元服务和系统级编排仍只是参照；Helix 只新增通用 A2A v1.0 Client，不新增 HarmonyOS、跨设备 Worker、A2A Server 或递归多 Agent。
 
 鸿蒙专项跟踪项：持续核验 HMAF 2.0 白皮书与通信协议的公开细节；比较 Intents Kit、Android AppFunctions 和 Apple App Intents 的 schema、发现、权限、取消及恢复语义；每季度抽查小艺智能体广场中可复现的垂域闭环。以上均为调研 TODO，不是已批准实现任务。
 
-## 5. 移动端 Agent 调 App 协议与系统级 MCP
+## 5. 移动端 MCP、A2A、Agent-to-App 与系统协议
 
 ### 5.1 MCP 不是手机上唯一的工具协议
 
@@ -261,6 +261,8 @@ iOS 对应方向是 [App Intents](https://developer.apple.com/documentation/appi
 
 手机上本地 MCP 较少的原因是 stdio 要求 Host 管理子进程，而普通 App 受 UID、沙箱和后台生命周期限制；loopback HTTP 还需要解决端口认证、恶意 App 访问、进程回收和前台服务。现实路径因此以远程 Streamable HTTP、独立 PRoot/CLI Runtime，以及 AppFunctions/App Intents 这类系统协议为主。
 
+A2A 补上的是另一层：它不把远端能力压平成单次 Tool API，而是通过 Agent Card 发现 Agent/Skill，并维护可流式、可取消、可恢复的 Task。官方 v1.0 已稳定并提供 Java SDK，因此值得进入 M7；但移动端仍应以 Client-only 为先，避免让手机承担公网入站 webhook/Server 生命周期。对 Helix 来说，A2A endpoint 是可选外部 Agent 服务，不是本机系统 MCP，也不是远程 Worker。
+
 ### 5.4 Helix 协议接入原则与 TODO
 
 Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继续经过同一条 Registry → schema validation → Capability → Policy → Approval → execution → Verification → Audit 管线：
@@ -271,6 +273,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
           ├── Android Intent/System API adapter
           ├── Android AppFunctions adapter（实验、条件满足后）
           ├── MCP Streamable HTTP adapter
+          ├── A2A v1.0 Agent/Task adapter
           ├── PRoot stdio MCP adapter
           └── Accessibility adapter（无结构化接口时的最后兜底）
 ```
@@ -280,11 +283,12 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 | 用结构化 Intent/System API 覆盖分享、打开 URI、剪贴板、通知和日历 | 已有 HXA-064/065；保持原任务顺序 | 目标/参数可预览；需要用户在目标 App 完成的步骤不冒充已执行；权限关闭返回稳定错误 |
 | 验证手机 MCP Client 与动态 Tool bridge | 已有 HXA-070～072 | API 29/36、Streamable HTTP、schema hash、origin/egress、取消、重连与恶意 Server 测试通过 |
 | 验证 PRoot stdio MCP | 已有 HXA-073，依赖 HXA-084 | 固定命令、环境 allowlist、stdout JSON-RPC、bounded stderr、取消和 Runtime 对账通过 |
+| 验证 A2A v1.0 Android Client | 已接受 ADR-0016 的 Client-only 边界并规划 HXA-077～079；仍由 Spike 决定 SDK/transport | API 29/36、R8、Agent Card/Skill snapshot、Send/stream/Get/Cancel/Subscribe、断线对账、Artifact 和恶意远端内容测试通过 |
 | 跟踪 AppFunctions GA、allowlist 与 Gemini/第三方 Agent 开放条件 | **调研 TODO，不是已批准 HXA**；Android 官方状态变化时复核 | 明确 Helix 是否能作为 caller/provider、支持设备/OEM、权限与用户开关、失败/取消/恢复语义 |
 | AppFunctions 真机 Spike | 仅在公开 caller 条件成立或 Helix 获测试资格后，由项目所有者授权新 HXA | API 36+ provider/caller fixture；函数枚举、启停、URI grant、敏感参数、取消、进程死亡和跨 App 审计均有证据；若改变安全边界则先走 ADR |
 | Accessibility 调 App 仅作最后兜底 | 已有 HXA-090～093 | 目标包 allowlist、窗口/节点 token、敏感界面拒绝、每步复验和用户可停止，不因 AppFunctions/MCP 失败自动降级 |
 
-结论：MCP 继续承担 Helix 的跨平台外部工具协议；Android AppFunctions 是最值得跟踪的本机 Agent-to-App 协议；现阶段可交付的系统 App 能力仍应优先使用结构化 Intent 和 Android API。协议自身的权限、annotation 或系统授权都不能成为 Helix Approval Proof。
+结论：MCP 承担跨平台外部工具协议，A2A 承担用户配置的外部 Agent 任务协议，Agent Skills 承担可移植流程知识；Android AppFunctions 是最值得跟踪的本机 Agent-to-App 协议。现阶段系统 App 能力仍优先使用结构化 Intent 和 Android API；任何协议声明、远端任务状态或系统授权都不能成为 Helix Approval Proof。
 
 ## 6. 横向对照
 
@@ -420,6 +424,7 @@ Helix 应把不同协议统一转换为内部 `ToolDescriptor`，所有调用继
 - Android Agent-to-App：[AppFunctions 概览](https://developer.android.com/ai/appfunctions?hl=en)、[`EXECUTE_APP_FUNCTIONS` 权限](https://developer.android.com/reference/android/Manifest.permission#EXECUTE_APP_FUNCTIONS)
 - Apple Agent-to-App：[App Intents](https://developer.apple.com/documentation/appintents)、[WWDC 2026 system orchestrator 与 app toolbox](https://developer.apple.com/videos/play/wwdc2026/112/)、[Foundation Models](https://developer.apple.com/documentation/FoundationModels)
 - 移动 MCP：[Claude Mobile Connectors](https://support.claude.com/en/articles/11176164-use-connectors-to-extend-claude-s-capabilities)、[Cherry Studio Mobile releases](https://github.com/CherryHQ/cherry-studio-app/releases)、[ChatGPT MCP Apps 移动端限制](https://help.openai.com/en/articles/12584461-developer-mode-apps-and-full-mcp-connectors-in-chatgpt-beta)
+- A2A：[A2A Protocol v1.0 specification](https://a2a-protocol.org/latest/specification/)、[v1.0 变化](https://a2a-protocol.org/latest/whats-new-v1/)、[官方 Java SDK](https://github.com/a2aproject/a2a-java)
 - HarmonyOS Agent 生态：[HarmonyOS 7 与 HMAF 2.0](https://www.huawei.com/cn/news/2026/6/harmonyos7-hdc)、[HarmonyOS AI 能力与端/云 A2A](https://developer.huawei.com/consumer/cn/harmonyos-ai)、[Intents Kit](https://developer.huawei.com/consumer/cn/sdk/intents-kit)、[HarmonyOS 意图框架](https://developer.huawei.com/consumer/cn/huawei-hag/)、[HMAF 与小艺开放平台开发模式](https://developer.huawei.com/consumer/cn/activity/incentive/ai/)、[小艺开放平台精选案例](https://developer.huawei.com/consumer/cn/celia?ha_source=InfoQ&ha_sourceId=70000011)、[HarmonyOS 文档中心](https://developer.huawei.com/consumer/cn/doc/?catalogVersion=V2)、[元服务](https://developer.huawei.com/consumer/cn/fa)
 - 鸿蒙代表性智能体：[小艺 App 智能体](https://consumer.huawei.com/cn/support/content/zh-cn16076199/)、[小艺深度解题](https://consumer.huawei.com/cn/support/content/zh-cn16051425/)、[客服小艺](https://consumer.huawei.com/cn/support/content/zh-cn16101343/)
 

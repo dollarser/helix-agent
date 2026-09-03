@@ -55,7 +55,7 @@
 - QuickJS 执行通道已落地并接 Tool：主 App 内 isolated 非导出 Service（每执行唯一 `js_` + 32-hex 实例）+ 主进程 `JsExecutionClient`（同步有界、不重试；wrapper JSON ABI：输入 = 恰一个合法 JSON 文档、输出 = ≤ maxOutputBytes 的单个 JSON 文档、11 状态闭合集、PROTOCOL_VERSION=2；API 见 [HXA-052 完成记录](../completion-records/HXA-052.md)），经 `code.javascript.run` 接生产 Tool 管线（模型仅见 code+input、limits 固定 §4.1 默认不入 schema、§4.8 脱敏审计经 dispatcher 单一 emitter；接线见 [HXA-053 完成记录](../completion-records/HXA-053.md)）；PRoot 规划使用同签名、独立 applicationId/UID 的 Runtime APK，并通过 signature-protected Binder/PFD IPC 连接。
 - accepted [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)将 Standard 定义为 Google Play、国内 Android 应用商店和官网的完整产品形态；consumer/developer 仍只是当前构建事实。HXA-122 尚未决定稳定主 applicationId、渠道命名与升级路径，也没有外部 release artifact。
 - CLI 订阅后端若实施，将使用另一个有 INTERNET 的独立 UID，凭据由官方 CLI 持有。
-- MCP 规划为 Client-only；Skill 规划按 `SKILL.md` 开放规范渐进加载，二者当前均未实现。
+- MCP 规划为 Client-only；A2A 的 Client-only 产品、协议和信任边界已由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)固定，但 HXA-077 尚未选定 SDK/transport，也没有 module、生产代码或设备验收；Skill 规划按 `SKILL.md` 开放规范渐进加载。MCP、A2A 与 Skill 当前均未实现。
 - `read`/`write`/`edit`/`files.*` 已实现；`bash` 仍只是规划中的稳定短工具名。所有工具继续受 scope、Policy、Approval 和执行域约束。
 
 ## Known limitations
