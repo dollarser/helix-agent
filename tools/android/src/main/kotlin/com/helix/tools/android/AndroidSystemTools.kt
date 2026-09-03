@@ -1,4 +1,4 @@
-@file:Suppress("TooManyFunctions") // the 4 android.*/clipboard.* tools share the private schema/arg helpers
+@file:Suppress("TooManyFunctions") // android.*/clipboard.* tools share the internal schema/arg helpers
 
 package com.helix.tools.android
 
@@ -40,9 +40,10 @@ private const val ST_WRITTEN: String = "written"
 private const val ST_SHARED: String = "shared"
 
 // ---------------------------------------------------------------------------
-// Small schema + argument helpers (file-private), mirroring the browser tools' conventions.
+// Small schema + argument helpers (internal, shared with the notifications/calendar tools),
+// mirroring the browser tools' conventions.
 // ---------------------------------------------------------------------------
-private fun stringSchema(
+internal fun stringSchema(
     maxLength: Int,
     description: String,
 ): JsonObject =
@@ -52,7 +53,7 @@ private fun stringSchema(
         put("description", JsonPrimitive(description))
     }
 
-private fun enumSchema(
+internal fun enumSchema(
     values: List<String>,
     description: String,
 ): JsonObject =
@@ -68,13 +69,13 @@ private fun booleanSchema(description: String): JsonObject =
         put("description", JsonPrimitive(description))
     }
 
-private fun integerSchema(description: String): JsonObject =
+internal fun integerSchema(description: String): JsonObject =
     buildJsonObject {
         put("type", JsonPrimitive("integer"))
         put("description", JsonPrimitive(description))
     }
 
-private fun objectSchema(
+internal fun objectSchema(
     properties: JsonObject,
     required: List<String>,
 ): JsonObject =
@@ -90,7 +91,7 @@ private fun objectSchema(
  * already input-schema-validated before the executor runs; this is a defensive re-read (a wrong shape
  * or a blank value is a stable `invalid arguments` failure, never a crash).
  */
-private fun strArg(
+internal fun strArg(
     args: JsonObject,
     key: String,
     maxLength: Int,
@@ -101,7 +102,7 @@ private fun strArg(
         ?.takeIf { it.isNotBlank() && it.length <= maxLength }
 
 /** Bounds a port error message for the model-visible `detail` (never the audit, which keeps it raw). */
-private fun bounded(detail: String): String {
+internal fun bounded(detail: String): String {
     val t = detail.trim()
     return if (t.length <= MAX_DETAIL) t else t.take(MAX_DETAIL) + "…"
 }

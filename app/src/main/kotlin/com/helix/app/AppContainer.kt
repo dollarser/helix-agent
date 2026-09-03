@@ -56,6 +56,9 @@ import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
 import com.helix.tools.android.AndroidSystemBridgeImpl
 import com.helix.tools.android.AndroidSystemTools
+import com.helix.tools.android.CalendarBridgeImpl
+import com.helix.tools.android.NotificationsBridgeImpl
+import com.helix.tools.android.NotificationsCalendarTools
 import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesArchiveTool
@@ -420,6 +423,19 @@ internal class DefaultAppContainer(
             toolRegistry,
             toolImplementations,
             AndroidSystemBridgeImpl(context),
+        )
+        // HXA-065: the notifications.query / calendar.prepare_event / calendar.commit_event tools.
+        // The production ports are Context-backed: NotificationsBridgeImpl reads the live snapshot
+        // held by the (manifest-declared) NotificationListenerService and gates the whole query on the
+        // user enabling "Notification access"; CalendarBridgeImpl holds in-memory drafts (prepare
+        // never writes) and writes the held draft to the Calendar Provider on commit, gated on
+        // WRITE_CALENDAR. Both return a stable 'permission-missing' (never a fake success) when the
+        // permission is off (doc 09 §11 / overview.md §11).
+        NotificationsCalendarTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            NotificationsBridgeImpl(context),
+            CalendarBridgeImpl(context),
         )
     }
 
