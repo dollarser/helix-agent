@@ -55,7 +55,7 @@ fun interface SafGrantProbe {
 class SafGrantStore(
     private val storePath: Path,
     private val clock: () -> Long = System::currentTimeMillis,
-) {
+) : SafTreeGrantRegistry {
     private val grants = LinkedHashMap<String, SafTreeGrant>()
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -96,10 +96,10 @@ class SafGrantStore(
     }
 
     /** The grant [scopeId] names, or null. */
-    fun find(scopeId: String): SafTreeGrant? = grants[scopeId]
+    override fun find(scopeId: String): SafTreeGrant? = grants[scopeId]
 
     /** All grants, oldest first. */
-    fun list(): List<SafTreeGrant> = grants.values.sortedBy { it.grantedAtMillis }
+    override fun list(): List<SafTreeGrant> = grants.values.sortedBy { it.grantedAtMillis }
 
     /**
      * 撤销检测 sweep: probes every stored tree and removes (persisting) the grants whose
@@ -120,13 +120,13 @@ class SafGrantStore(
      * opaque, and always a legal [com.helix.core.workspace.FileScopePath] scope id (letters,
      * digits and one hyphen run; no separators or control characters).
      */
-    fun deriveScopeId(treeUri: String): String {
+    override fun deriveScopeId(treeUri: String): String {
         val hex =
             MessageDigest
                 .getInstance("SHA-256")
                 .digest(treeUri.toByteArray())
                 .joinToString("") { "%02x".format(it) }
-        return "saf-" + hex.substring(0, 12)
+        return SCOPE_ID_PREFIX + hex.substring(0, 12)
     }
 
     private fun persist() {
@@ -209,7 +209,15 @@ class SafGrantStore(
         }
     }
 
-    private companion object {
-        const val FORMAT_VERSION = 1
+    companion object {
+        /**
+         * The SAF tree scope-id prefix (HXA-044/HXA-057): `saf-` + the first 12 hex chars of the
+         * SHA-256 of the tree URI. Centralized here so the resolver, the file-manager dispatch and
+         * the tests all key off one value (a SAF scope id is the only model-safe form of the grant,
+         * doc 10).
+         */
+        const val SCOPE_ID_PREFIX: String = "saf-"
+
+        private const val FORMAT_VERSION = 1
     }
 }

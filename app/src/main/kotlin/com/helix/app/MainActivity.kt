@@ -180,7 +180,7 @@ internal fun HelixApp(container: AppContainer) {
                                 // HXA-046: the file-management screen over the always-available
                                 // sources (Workspace, always; developer all-files roots, read-only).
                                 ShellDestination.Files -> {
-                                    FilesScreen(container.fileManager)
+                                    FilesScreen(container.fileManager, container.safTree)
                                 }
 
                                 // HXA-045: the all-files consent screen lives in the developer
