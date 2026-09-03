@@ -43,6 +43,7 @@ import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
+import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -50,6 +51,28 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val container = (application as HelixApplication).appContainer
         setContent { HelixApp(container) }
+    }
+
+    // HXA-060: while the app is in the background every tab's WebView stops its JS timers
+    // and compositor (doc 09 performance); they resume with the activity.
+    override fun onPause() {
+        super.onPause()
+        (application as HelixApplication).appContainer.browser.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as HelixApplication).appContainer.browser.resume()
+    }
+
+    /**
+     * The tab STATE (app-scoped [BrowserController]) survives activity recreation, but its
+     * WebViews are UI resources: destroy them with the activity. A tab whose host was just
+     * destroyed renders its placeholder until the next navigation rebuilds the host lazily.
+     */
+    override fun onDestroy() {
+        super.onDestroy()
+        (application as HelixApplication).appContainer.browser.destroy()
     }
 }
 
@@ -166,6 +189,11 @@ internal fun HelixApp(container: AppContainer) {
                                 // sources (Workspace, always; developer all-files roots, read-only).
                                 ShellDestination.Files -> {
                                     FilesScreen(container.fileManager)
+                                }
+
+                                // HXA-060: the minimal hardened WebView browser.
+                                ShellDestination.Browser -> {
+                                    BrowserScreen(container.browser)
                                 }
 
                                 // HXA-045: the all-files consent screen lives in the developer

@@ -553,24 +553,12 @@ class ToolSchedulerTest {
         val aResult = CompletableFuture<ToolScheduler.BatchResult>()
         val bResult = CompletableFuture<ToolScheduler.BatchResult>()
         val a =
-            Thread(
-                { aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "x.a")))) },
-                "cross-batch-a",
-            ).apply {
-                isDaemon = true
-                start()
-            }
+            batchThread("cross-batch-a") { aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "x.a")))) }
         assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
         val b =
-            Thread(
-                {
-                    bGo.await(10, TimeUnit.SECONDS)
-                    bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "x.b"))))
-                },
-                "cross-batch-b",
-            ).apply {
-                isDaemon = true
-                start()
+            batchThread("cross-batch-b") {
+                bGo.await(10, TimeUnit.SECONDS)
+                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "x.b"))))
             }
         bGo.countDown()
         Thread.sleep(150) // let B reach the admission wait
@@ -624,28 +612,14 @@ class ToolSchedulerTest {
         val aResult = CompletableFuture<ToolScheduler.BatchResult>()
         val bResult = CompletableFuture<ToolScheduler.BatchResult>()
         val a =
-            Thread(
-                {
-                    aResult.complete(
-                        scheduler.scheduleBatch(listOf(call("a-1", "w.x"), call("a-2", "w.y"))),
-                    )
-                },
-                "cross-lane-a",
-            ).apply {
-                isDaemon = true
-                start()
+            batchThread("cross-lane-a") {
+                aResult.complete(scheduler.scheduleBatch(listOf(call("a-1", "w.x"), call("a-2", "w.y"))))
             }
         assertTrue("a-1 must start", a1Started.await(5, TimeUnit.SECONDS))
         val b =
-            Thread(
-                {
-                    bGo.await(10, TimeUnit.SECONDS)
-                    bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w.z"))))
-                },
-                "cross-lane-b",
-            ).apply {
-                isDaemon = true
-                start()
+            batchThread("cross-lane-b") {
+                bGo.await(10, TimeUnit.SECONDS)
+                bResult.complete(scheduler.scheduleBatch(listOf(call("b-1", "w.z"))))
             }
         bGo.countDown()
         Thread.sleep(150) // let B reach the admission wait
@@ -672,6 +646,16 @@ class ToolSchedulerTest {
     }
 
     // ------------------------------------------------------------------ fixtures (mirrors ToolDispatcherTest)
+
+    /** The cross-batch tests schedule each batch on its own daemon thread; this is that scaffolding. */
+    private fun batchThread(
+        name: String,
+        body: () -> Unit,
+    ): Thread =
+        Thread(body, name).apply {
+            isDaemon = true
+            start()
+        }
 
     private class FakeClock(
         var instant: Instant,

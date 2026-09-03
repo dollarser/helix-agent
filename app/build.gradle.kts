@@ -65,6 +65,8 @@ dependencies {
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
     implementation(project(":core:storage"))
     implementation(project(":feature:files"))
+    // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
+    implementation(project(":feature:browser"))
     // HXA-036: the chat flow routes model-requested tool calls through the framework
     // dispatcher (validate→capability→policy→approval→execute→verify→audit) with the
     // storage-backed approval broker and audit sink; the approval card + audit page are

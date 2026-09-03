@@ -31,6 +31,7 @@ import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.feature.browser.BrowserController
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.ContentResolverSafDestinationOpener
 import com.helix.feature.files.ContentResolverSafDestinationVerifier
@@ -111,6 +112,13 @@ interface AppContainer {
      * never sees it, and it resolves paths through the same containment-enforced scope boundary.
      */
     val fileManager: FileManagerService
+
+    /**
+     * The browser facade (HXA-060): the hardened WebView tab state, the URL-policy choke
+     * point and the download queue. The UI binds to it; nothing else in the app touches
+     * the WebView (AGENTS: WebView is owned by the browser feature).
+     */
+    val browser: BrowserController
 }
 
 /**
@@ -238,6 +246,13 @@ internal class DefaultAppContainer(
      */
     override val fileManager: FileManagerService =
         FileManagerService(workspaceStore, scopeRoots, APP_SCOPE_ID)
+
+    /**
+     * The browser facade (HXA-060). App-scoped on purpose: the tab state machine outlives
+     * activity recreation; the (main-thread) WebViews it owns are destroyed by the activity's
+     * onDestroy and rebuilt lazily on the next navigation.
+     */
+    override val browser: BrowserController = BrowserController(context)
 
     /**
      * SAF adapter bundle (HXA-044; PRD: SAF scope 默认复制到应用私有目录处理). The grant

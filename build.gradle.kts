@@ -109,6 +109,11 @@ val roomTestingDependency = libs.room.testing
 val androidTestCoreKtxDependency = libs.androidx.test.core.ktx
 val androidTestRunnerDependency = libs.androidx.test.runner
 val androidTestJunitDependency = libs.androidx.test.junit
+val composeBomDependency = libs.compose.bom
+val composeUiDependency = libs.compose.ui
+val composeMaterial3Dependency = libs.compose.material3
+val webkitDependency = libs.androidx.webkit
+val activityComposeDependency = libs.activity.compose
 
 val jvmLibraries =
     setOf(
@@ -243,6 +248,37 @@ subprojects {
             // is not visible transitively through the :feature:files project dependency).
             if (path == ":feature:files-allfiles") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-060: the browser feature owns the System WebView (AGENTS: "WebView is owned
+            // by the browser feature"; doc 09 §3.2). The first UI-bearing android library:
+            // Compose is enabled module-locally (the app keeps its own wiring) and
+            // androidx-webkit provides the API surface above the System WebView. androidTest
+            // drives the hardened WebView on device (verification-matrix row HXA-060).
+            if (path == ":feature:browser") {
+                pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+                extensions.configure<LibraryExtension> {
+                    buildFeatures {
+                        compose = true
+                    }
+                }
+                // platform() needs the DependencyHandler receiver, hence the block form.
+                // libs.compose.ui is a nested accessor (DependencyNotationSupplier, not a
+                // Provider) because compose-ui-tooling nests under its path — pass it
+                // straight as notation instead of calling .get().
+                dependencies {
+                    add("implementation", platform(composeBomDependency.get()))
+                    add("implementation", composeUiDependency)
+                    add("implementation", composeMaterial3Dependency.get())
+                    add("implementation", webkitDependency.get())
+                    // BrowserController exposes its state as StateFlow; the UI's
+                    // CreateDocument download launcher comes from activity-compose.
+                    add("implementation", coroutinesCoreDependency.get())
+                    add("implementation", activityComposeDependency.get())
+                    add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                    add("androidTestImplementation", androidTestRunnerDependency.get())
+                    add("androidTestImplementation", androidTestJunitDependency.get())
+                }
             }
 
             // HXA-050: the QuickJS E1 backend uses the pinned Zipline 1.27.0 artifact
