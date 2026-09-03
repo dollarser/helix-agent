@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.approval.ApprovalUiMapper
+import com.helix.app.approval.CodeExecutionUi
 
 /**
  * The approval card (roadmap HXA-036): the full authorization summary of one exact,
@@ -162,7 +163,7 @@ private fun FieldLine(
  */
 @Composable
 @Suppress("FunctionName")
-private fun CodeExecutionBlock(execution: com.helix.app.approval.CodeExecutionUi) {
+private fun CodeExecutionBlock(execution: CodeExecutionUi) {
     Text(
         execution.code,
         style = MaterialTheme.typography.bodySmall,

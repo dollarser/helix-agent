@@ -262,13 +262,13 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
                 // The 16 KiB-page ELF spike test (QuickJsNativeLibraryElfTest) parses the
-                // zipline-android AAR's .so files; resolve the artifact at configuration
-                // time and pass the path in (same pattern as :core:storage's
-                // `helix.schema.dir`). `implementation` is canBeResolved=false under AGP,
-                // and the variant classpaths only exist after AGP's own afterEvaluate, so
-                // resolve the resolvable debug runtime classpath in a later afterEvaluate.
+                // zipline-android AAR's .so files; pass the AAR path in as a system property
+                // (same pattern as :core:storage's `helix.schema.dir`). The lookup runs at
+                // configuration time because configuration-cache is on and the path is a
+                // build input recorded in the cache. `implementation` is canBeResolved=false
+                // under AGP, so the resolvable debug runtime classpath is the lookup surface.
                 afterEvaluate {
-                    val ziplineAarPath =
+                    val ziplineAar =
                         configurations
                             .getByName("debugRuntimeClasspath")
                             .incoming
@@ -278,10 +278,14 @@ subprojects {
                                     (it as? ModuleComponentIdentifier)?.module == "zipline-android"
                                 }
                             }.files
-                            .first { it.name.endsWith(".aar") }
-                            .absolutePath
+                            .firstOrNull { it.name.endsWith(".aar") }
+                    requireNotNull(ziplineAar) {
+                        "zipline-android .aar not found on :runtime:quickjs " +
+                            "debugRuntimeClasspath; QuickJsNativeLibraryElfTest needs it. " +
+                            "Check the zipline pin in gradle/libs.versions.toml."
+                    }
                     tasks.withType<Test>().configureEach {
-                        systemProperty("helix.zipline.aar", ziplineAarPath)
+                        systemProperty("helix.zipline.aar", ziplineAar.absolutePath)
                     }
                 }
             }

@@ -627,7 +627,11 @@ class JsExecutionClient(
         bytes: ByteArray,
         tempFiles: MutableList<File>,
     ): File {
-        val tmp = File(context.cacheDir, "js-exec-${executionId.take(128)}-$tag.tmp")
+        // The execution ID is internal (the tool generates UUIDs), but keep only path-safe
+        // characters so an arbitrary caller-supplied ID cannot redirect the temp file
+        // outside the cache directory.
+        val safeId = executionId.take(128).replace(PATH_UNSAFE_CHARS, "_")
+        val tmp = File(context.cacheDir, "js-exec-$safeId-$tag.tmp")
         tmp.writeBytes(bytes)
         tempFiles += tmp
         return tmp
@@ -657,6 +661,9 @@ class JsExecutionClient(
         const val CANCEL_GRACE_MS: Long = 2_000L
 
         private const val POLL_MS: Long = 50L
+
+        /** Characters that could redirect a temp file name outside the cache directory. */
+        private val PATH_UNSAFE_CHARS = Regex("[^A-Za-z0-9._-]")
 
         private val UNSTARTED = Object()
     }
