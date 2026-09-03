@@ -11,11 +11,13 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.ArtifactRef
 import com.helix.core.model.AttachmentClassification
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -26,18 +28,24 @@ import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnState
+import com.helix.core.model.VisionLimits
 import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.core.workspace.AtomicFileWriter
+import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
 import com.helix.feature.files.AttachmentImportResult
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.AttachmentSendGate
+import com.helix.feature.files.ImageNormalizer
 import com.helix.feature.files.ImportRefusal
 import com.helix.feature.files.ImportStatus
+import com.helix.feature.files.NormalizationCode
+import com.helix.feature.files.NormalizationOutcome
 import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.StagedAttachment
 import com.helix.tools.framework.ApprovalRequest
@@ -103,6 +111,14 @@ class ChatService(
     private val idGenerator: () -> String,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     private val attachmentStaging: AttachmentStagingSupport,
+    /**
+     * HXA-055: binds the session for the in-flight turn build BEFORE the model stream — the
+     * protocol image resolver runs inside `provider.stream`, and the shared production image
+     * source (app-private artifacts, session-scoped, fail-closed) refuses to resolve without
+     * the bound session. Production passes the source's [bindSession]; a no-op keeps test
+     * services without image artifacts fail-closed on their own (their resolver throws).
+     */
+    private val visionSessionBinder: (String) -> Unit = {},
 ) {
     private val workScope = scope
 
@@ -183,6 +199,7 @@ class ChatService(
     private val credentialScan: (String) -> String? = ForbiddenContentGuard::reasonFor
 
     /** The in-memory facts of one staged attachment (internal; the UI sees [PendingAttachmentUi]). */
+    @Suppress("LongParameterList") // one distinct staged fact per parameter (raw + HXA-055 normalized facts)
     private class StagedAttachmentEntry(
         /** The session that staged this entry — an in-flight switch/close drops it (ADR-0014 §5). */
         val sessionId: String,
@@ -194,6 +211,21 @@ class ChatService(
         val relativePath: String,
         /** The real workspace path — hashing/probing only, never exposed. */
         val file: Path,
+        /** HXA-055 image facts (null/0 for text): the registered id of the NORMALIZED artifact. */
+        val normalizedArtifactId: String? = null,
+        /** The bound SHA-256 of the normalized artifact (re-verified at send, retry and restore). */
+        val normalizedSha256: String? = null,
+        /** The real path of the normalized artifact — hashing only, never exposed. */
+        val normalizedFile: Path? = null,
+        val normalizedWidth: Int = 0,
+        val normalizedHeight: Int = 0,
+        val normalizedMediaType: String? = null,
+        /**
+         * Set when the on-device normalization FAILED at staging (HXA-055, ADR-0014 §4): the raw
+         * artifact stays local (save/preview still possible) but the send is blocked with this
+         * actionable, user-visible reason — never a raw-base64 fallback.
+         */
+        val imageSendError: String? = null,
     )
 
     // --- HXA-036: the tool pipeline state (cards, dispatch facts, turn cancels) ---
@@ -373,16 +405,25 @@ class ChatService(
      * (`message_attachments.artifactId` is an FK to `artifacts`; the register re-verifies
      * the durable bytes — hash and size). The resolved real path stays service-internal.
      */
-    @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // one fail-closed return per step
+    @Suppress(
+        "ReturnCount",
+        "SwallowedException",
+        "TooGenericExceptionCaught",
+        "LongMethod",
+        "CyclomaticComplexMethod",
+    ) // one fail-closed return per staging step; the HXA-055 image branch adds its closed failure ladder
     private fun stageImportedAttachment(
         result: AttachmentImportResult,
         sessionId: String,
     ) {
         val fileName = result.fileName.orEmpty()
-        if (result.classification !is AttachmentClassification.TextAttachment) {
+        val classification = result.classification
+        if (classification !is AttachmentClassification.TextAttachment &&
+            classification !is AttachmentClassification.ImageAttachment
+        ) {
             // The classifier re-derived this from the durable bytes; unsupported types are
             // never parsed/decoded/rendered — the user is told and the file is not staged.
-            setBlocked("附件「$fileName」不是受支持的首批文本类型（txt / md / csv / json），已阻止暂存")
+            setBlocked("附件「$fileName」不是受支持的类型（文本：txt / md / csv / json；图片：png / jpeg / webp / gif），已阻止暂存")
             return
         }
         val sha = result.sha256
@@ -413,7 +454,11 @@ class ChatService(
                         id = "art_" + idGenerator(),
                         sessionId = sessionId,
                         relativePath = scopePath.relativePath,
-                        mediaType = result.mimeType ?: "text/plain",
+                        mediaType =
+                            when (classification) {
+                                is AttachmentClassification.ImageAttachment -> classification.mediaType
+                                else -> result.mimeType ?: "text/plain"
+                            },
                         size = result.sizeBytes,
                         sha256 = sha,
                         file = realPath.toFile(),
@@ -425,12 +470,139 @@ class ChatService(
                 setBlocked("附件登记失败（快照校验未通过），请重新选择该文件")
                 return
             }
+        // HXA-055 (ADR-0014 §4): a staged image is normalized ON-DEVICE right here —
+        // decode within VisionLimits, manual EXIF orientation, re-encode (the EXIF strip),
+        // and the size-budget ladder — so the send path only ever moves verified, bounded
+        // bytes. A normalization failure does NOT drop the attachment: the raw artifact stays
+        // local (save/preview possible) and the entry carries an actionable, user-visible
+        // send error (fail closed — never a raw-base64 fallback).
+        val normalized =
+            if (classification is AttachmentClassification.ImageAttachment) {
+                normalizeStagedImage(realPath, scopePath, sessionId, classification.mediaType)
+            } else {
+                null
+            }
         // In-lock admission (ADR-0014 §5): the pending list is local to the session that
         // staged it and the cap is re-checked inside — two concurrent stages cannot race past it.
-        if (admitStagedEntry(sessionId, fileName, result, sha, scopePath, realPath, artifactId)) {
+        if (
+            admitStagedEntry(
+                sessionId = sessionId,
+                fileName = fileName,
+                result = result,
+                sha = sha,
+                scopePath = scopePath,
+                realPath = realPath,
+                artifactId = artifactId,
+                normalizedArtifactId = normalized?.id,
+                normalizedSha256 = normalized?.sha256,
+                normalizedFile = normalized?.file,
+                normalizedWidth = normalized?.width ?: 0,
+                normalizedHeight = normalized?.height ?: 0,
+                normalizedMediaType = normalized?.mediaType,
+                imageSendError = normalized?.failureReason,
+            )
+        ) {
             refreshScreen()
         }
     }
+
+    /** The registered facts of one successfully normalized staged image (all nulls + a reason on failure). */
+    private class NormalizedStagedImage(
+        val id: String?,
+        val sha256: String?,
+        val file: Path?,
+        val width: Int,
+        val height: Int,
+        val mediaType: String?,
+        val failureReason: String?,
+    )
+
+    /**
+     * Normalizes one staged image and registers the result as a SECOND, app-private artifact
+     * in the same staging directory (`normalized.<ext>`). The raw artifact stays registered —
+     * it is the local save/preview source; only the normalized artifact is ever sendable.
+     */
+    @Suppress(
+        "ReturnCount",
+        "SwallowedException",
+        "TooGenericExceptionCaught",
+    ) // every failure step maps to the closed NormalizationCode path
+    private fun normalizeStagedImage(
+        rawFile: Path,
+        scopePath: FileScopePath,
+        sessionId: String,
+        rawMediaType: String,
+    ): NormalizedStagedImage {
+        val stagingDir = rawFile.parent ?: return failedStagedNormalization()
+        val outcome =
+            try {
+                ImageNormalizer.normalize(rawFile, rawMediaType, stagingDir)
+            } catch (e: Exception) {
+                // A crash in the decode path (not a caught OOM) is the same closed outcome:
+                // fail the normalization, keep the raw file, never crash the app.
+                NormalizationOutcome.Failed(NormalizationCode.DECODE_FAILED, "unexpected")
+            }
+        val ok = outcome as? NormalizationOutcome.Ok ?: return failedStagedNormalization()
+        val normalizedPath = ok.image.file
+        if (!Files.exists(normalizedPath) || !Files.isRegularFile(normalizedPath)) {
+            return failedStagedNormalization()
+        }
+        // The normalizer wrote `normalized.<ext>` into the RAW file's staging directory —
+        // derive the scope-relative path from the raw one (same dir, fixed file name).
+        val dirRel = scopePath.relativePath.substringBeforeLast('/')
+        val ext = normalizedPath.fileName?.toString()?.substringAfterLast('.', missingDelimiterValue = "") ?: ""
+        val normalizedRelative =
+            runCatching {
+                FileScopePath(scopePath.scopeId, "$dirRel/normalized.$ext")
+            }.getOrNull()
+        if (normalizedRelative == null || ext.isEmpty()) {
+            deleteQuietly(normalizedPath)
+            return failedStagedNormalization()
+        }
+        // Containment: the registered path must resolve to EXACTLY the file the normalizer
+        // wrote — never a stray file the scope would also accept (fail closed).
+        val resolved =
+            runCatching { attachmentStaging.resolveWorkspacePath(normalizedRelative) }.getOrNull()
+        if (resolved?.toFile()?.canonicalFile != normalizedPath.toFile().canonicalFile) {
+            deleteQuietly(normalizedPath)
+            return failedStagedNormalization()
+        }
+        val id =
+            try {
+                storage.artifacts
+                    .register(
+                        id = "art_" + idGenerator(),
+                        sessionId = sessionId,
+                        relativePath = normalizedRelative.relativePath,
+                        mediaType = ok.image.mediaType,
+                        size = ok.image.sizeBytes,
+                        sha256 = ok.image.sha256,
+                        file = normalizedPath.toFile(),
+                    ).id
+            } catch (e: IllegalArgumentException) {
+                // The register re-verifies the bytes; a mismatch deletes nothing (the row is
+                // absent) and the normalization is treated as failed (fail closed).
+                return failedStagedNormalization()
+            }
+        return NormalizedStagedImage(
+            id,
+            ok.image.sha256,
+            normalizedPath,
+            ok.image.width,
+            ok.image.height,
+            ok.image.mediaType,
+            null,
+        )
+    }
+
+    /** The closed, fail-closed staging outcome of a failed image normalization (HXA-055). */
+    private fun failedStagedNormalization() =
+        NormalizedStagedImage(null, null, null, 0, 0, null, imageNormalizationBlockText())
+
+    /** The fixed, user-visible (Chinese) send block for a failed image normalization (HXA-055). */
+    private fun imageNormalizationBlockText(): String =
+        "图片归一化失败（解码或尺寸/大小超出本机的受支持范围），文件已保留在本机；" +
+            "请更换较小的图片（长边不超过 ${VisionLimits.MAX_EDGE_PX} 像素、总像素不超过 1200 万）后重试"
 
     /**
      * The authoritative, in-lock append of one staged attachment: it appends only when the
@@ -438,6 +610,7 @@ class ChatService(
      * failure sets the blocked state and appends NOTHING (the durable artifact row stays, inert).
      * Returns true when the entry was appended.
      */
+    @Suppress("LongParameterList") // each parameter is one staged fact (raw + HXA-055 normalized image facts)
     private fun admitStagedEntry(
         sessionId: String,
         fileName: String,
@@ -446,6 +619,13 @@ class ChatService(
         scopePath: FileScopePath,
         realPath: Path,
         artifactId: String,
+        normalizedArtifactId: String? = null,
+        normalizedSha256: String? = null,
+        normalizedFile: Path? = null,
+        normalizedWidth: Int = 0,
+        normalizedHeight: Int = 0,
+        normalizedMediaType: String? = null,
+        imageSendError: String? = null,
     ): Boolean {
         var admitted = false
         synchronized(stagedLock) {
@@ -465,6 +645,13 @@ class ChatService(
                             boundSha256 = sha,
                             relativePath = scopePath.relativePath,
                             file = realPath,
+                            normalizedArtifactId = normalizedArtifactId,
+                            normalizedSha256 = normalizedSha256,
+                            normalizedFile = normalizedFile,
+                            normalizedWidth = normalizedWidth,
+                            normalizedHeight = normalizedHeight,
+                            normalizedMediaType = normalizedMediaType,
+                            imageSendError = imageSendError,
                         )
                     admitted = true
                 }
@@ -529,7 +716,7 @@ class ChatService(
         workScope.launch { sendNow(text) }
     }
 
-    @Suppress("ReturnCount") // one fail-closed early return per gate condition
+    @Suppress("ReturnCount", "CyclomaticComplexMethod") // one fail-closed early return per gate condition
     private suspend fun sendNow(text: String) {
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
             setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
@@ -558,11 +745,37 @@ class ChatService(
             return
         }
         val target = providerService.egressTargetFor(providerId)
+        // HXA-055, before the gate: a staged image whose on-device normalization failed at
+        // staging is local-only (save/preview) — block with the actionable reason, and no
+        // raw bytes may ever reach the wire as a fallback.
+        staged.firstNotNullOfOrNull { it.imageSendError }?.let { reason ->
+            setBlocked(reason)
+            return
+        }
+        // HXA-055 (ADR-0014 §4): an image leaves ONLY when the target provider's vision
+        // capability is CONFIRMED — a real probe (connection test phase 5) or a user-visible
+        // manual declaration. Unconfirmed vision blocks BEFORE the disclosure is shown.
+        if (staged.any { it.normalizedArtifactId != null }) {
+            // capabilitiesFor is fail-closed by contract (null on any stored-snapshot failure).
+            val visionConfirmed =
+                runCatching { providerService.capabilitiesFor(providerId) }
+                    .getOrNull()
+                    ?.vision
+                    ?: false
+            if (!visionConfirmed) {
+                setBlocked(
+                    "该 Provider 尚未确认视觉能力，图片不能发送：" +
+                        "请运行「连接测试」（包含图片能力探测），或在 Provider 设置中手动声明视觉能力",
+                )
+                return
+            }
+        }
         // The single admission choke point (ADR-0014 §5): the fail-closed attachment gate
-        // first (re-hash every staged file against its bound snapshot AND scan the FULL
-        // content for credential shapes — [credentialScan]), then the egress disclosure
-        // over the typed text plus one FileText per staged attachment. With an empty gate
-        // this reproduces today's pure-text decide call exactly (no regression).
+        // first (re-hash every staged file against its bound snapshot — for images the
+        // NORMALIZED artifact — AND scan the FULL content for credential shapes —
+        // [credentialScan]), then the egress disclosure over the typed text plus one source
+        // per staged attachment. With an empty gate this reproduces today's pure-text decide
+        // call exactly (no regression).
         val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
         val outcome = AttachmentSendAdmission.admit(gate, text, target)
         when (outcome) {
@@ -690,7 +903,7 @@ class ChatService(
      * scan), cleared (exactly the approved ids), and launched; both-empty (pure text) is the exact
      * pre-attachment path (no regression).
      */
-    @Suppress("ReturnCount") // one fail-closed early return per staged-set gate
+    @Suppress("ReturnCount", "LongMethod") // one fail-closed early return per staged-set gate
     private suspend fun confirmStagedSend(
         text: String,
         providerId: String,
@@ -713,22 +926,78 @@ class ChatService(
             launchTurn(text, providerId)
             return
         }
+        // HXA-055: a staged image whose on-device normalization failed at staging time is
+        // local-only (save/preview) — the send is blocked with the actionable reason, and no
+        // raw bytes may ever reach the wire as a fallback.
+        staged.firstNotNullOfOrNull { it.imageSendError }?.let { reason ->
+            setBlocked(reason)
+            return
+        }
         // RE-VERIFY before the user-approved egress goes out: re-hash every staged file
-        // against its bound snapshot AND re-scan the FULL content for credential shapes —
-        // fail closed if any file changed, vanished or carries a credential in the meantime.
+        // against its bound snapshot (images: the NORMALIZED artifact, the bytes that leave)
+        // AND re-scan the FULL content for credential shapes — fail closed if any file
+        // changed, vanished or carries a credential in the meantime.
         val materialized = reVerifyStagedForEgress(staged, text, liveTarget) ?: return
-        // Ready: the gate's attachments are in staged order — pair each with its
-        // scope-relative workspace path and build (a) the expanded model-visible user
-        // message (bounded UNTRUSTED blocks) and (b) the message_attachments bindings
-        // [TurnCoordinator.start] persists IN the turn's transaction.
+        // HXA-055 (ADR-0014 §4): an image leaves ONLY when the target provider's vision
+        // capability is CONFIRMED — a real probe (the connection test's phase 5) or a
+        // user-visible manual declaration. Unconfirmed vision blocks with an actionable
+        // error (re-run the test or declare it manually); the text parts stay sendable in a
+        // retry of the same message only if the user removes the image.
+        if (materialized.any { it is AttachmentMaterialization.Image }) {
+            // capabilitiesFor is fail-closed by contract (null on any stored-snapshot failure).
+            val visionConfirmed =
+                runCatching { providerService.capabilitiesFor(providerId) }
+                    .getOrNull()
+                    ?.vision
+                    ?: false
+            if (!visionConfirmed) {
+                setBlocked(
+                    "该 Provider 尚未确认视觉能力，图片不能发送：" +
+                        "请运行「连接测试」（包含图片能力探测），或在 Provider 设置中手动声明视觉能力",
+                )
+                return
+            }
+        }
+        // Ready: the gate's attachments are in staged order — pair each with its staged entry
+        // and build (a) the expanded model-visible user message (bounded UNTRUSTED blocks;
+        // image blocks describe the pixels that travel as the message's image parts) and
+        // (b) the message_attachments bindings [TurnCoordinator.start] persists IN the turn's
+        // transaction. An image BINDS THE NORMALIZED ARTIFACT (the bytes that leave) — the raw
+        // artifact stays registered but unbound (local save/preview source).
         val blocks =
-            materialized.mapIndexed { index, m -> AttachmentContextBlock(m, staged[index].relativePath) }
+            materialized.mapIndexed { index, m ->
+                when (m) {
+                    is AttachmentMaterialization.Text -> {
+                        AttachmentContextBlock.Text(m, staged[index].relativePath)
+                    }
+
+                    is AttachmentMaterialization.Image -> {
+                        AttachmentContextBlock.Image(
+                            fileName = m.fileName,
+                            mediaType = m.mediaType,
+                            sha256 = m.sha256,
+                            sizeBytes = m.sizeBytes,
+                            width = m.width,
+                            height = m.height,
+                        )
+                    }
+
+                    else -> {
+                        // Unreachable (the gate returns only Text/Image in Ready) — fail closed.
+                        error("non-materializable attachment reached the send path")
+                    }
+                }
+            }
         val bindings =
             staged.map { entry ->
                 MessageAttachmentRepository.Binding(
-                    artifactId = entry.artifactId,
+                    artifactId =
+                        entry.normalizedArtifactId
+                            ?: entry.artifactId,
                     purpose = AttachmentPurpose.REFERENCE,
-                    boundSha256 = entry.boundSha256,
+                    boundSha256 =
+                        entry.normalizedSha256
+                            ?: entry.boundSha256,
                 )
             }
         // Clear EXACTLY the approved set (not the whole live list): a file staged in the
@@ -746,9 +1015,18 @@ class ChatService(
         )
     }
 
-    /** A staged entry as the gate's input — the real path crosses into hashing/probing only. */
+    /** A staged entry as the gate's input — the real paths cross into hashing/probing only. */
     private fun StagedAttachmentEntry.toStagedAttachment() =
-        StagedAttachment(fileName = fileName, boundSha256 = boundSha256, file = file)
+        StagedAttachment(
+            fileName = fileName,
+            boundSha256 = boundSha256,
+            file = file,
+            normalizedFile = normalizedFile,
+            normalizedSha256 = normalizedSha256,
+            mediaType = normalizedMediaType,
+            normalizedWidth = normalizedWidth,
+            normalizedHeight = normalizedHeight,
+        )
 
     /**
      * The fail-closed re-verification that runs right before a user-approved egress goes out
@@ -762,7 +1040,7 @@ class ChatService(
         staged: List<StagedAttachmentEntry>,
         text: String,
         target: EgressDisclosure.EgressTarget,
-    ): List<AttachmentMaterialization.Text>? {
+    ): List<AttachmentMaterialization>? {
         val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
         if (gate is AttachmentSendDecision.Ready) return gate.attachments
         if (gate is AttachmentSendDecision.CredentialDetected) {
@@ -1002,10 +1280,22 @@ class ChatService(
                         val artifact = storage.artifacts.resolve(binding.artifactId)
                         val scopePath =
                             FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath)
+                        val file = attachmentStaging.resolveWorkspacePath(scopePath)
+                        // HXA-055: an image binding points at the NORMALIZED artifact (the
+                        // bytes that leave) — the retry re-verifies exactly that file, twice
+                        // (as `file` and as `normalizedFile`; the raw artifact is local-only
+                        // and no longer part of the binding). Dimensions are unknown at retry
+                        // (not persisted) and are 0 — the gate does not need them to re-verify.
+                        val isImage = artifact.mediaType in VisionLimits.NORMALIZED_MEDIA_TYPES
                         StagedAttachment(
                             fileName = scopePath.name,
                             boundSha256 = binding.boundSha256,
-                            file = attachmentStaging.resolveWorkspacePath(scopePath),
+                            file = file,
+                            normalizedFile = if (isImage) file else null,
+                            normalizedSha256 = if (isImage) binding.boundSha256 else null,
+                            mediaType = if (isImage) artifact.mediaType else null,
+                            normalizedWidth = 0,
+                            normalizedHeight = 0,
                         )
                     },
                 )
@@ -1252,6 +1542,7 @@ class ChatService(
             "the request must end with the user message"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
+        visionSessionBinder(sessionId)
         return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
     }
 
@@ -1267,10 +1558,22 @@ class ChatService(
             "a back-fill request must end with the tool results"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
+        visionSessionBinder(sessionId)
         return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
     }
 
-    /** The persisted rows → strict model messages (a malformed tool row fails the turn closed). */
+    /**
+     * The persisted rows → strict model messages (a malformed tool row fails the turn closed).
+     *
+     * HXA-055: every USER message's persisted `message_attachments` bindings whose artifact is
+     * an image become that message's [ModelMessage.images] — re-verified at EVERY request build
+     * (send, retry, tool-loop back-fill, restore): the artifact must still exist, its bytes must
+     * hash to the bound SHA-256, and its magic must agree with the registered type. Any miss
+     * fails the turn closed (ADR-0014 §4: 「发送、重试、恢复前重验 hash；变化或缺失即失败关闭」).
+     * The TOTAL base64 of all images in the request is bounded by
+     * [VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES] — the strictest provider request-size
+     * bound — and an over-budget conversation fails closed with an actionable error.
+     */
     private suspend fun persistedHistory(
         sessionId: String,
         retryTurnId: String?,
@@ -1284,10 +1587,110 @@ class ChatService(
                         role = it.role,
                         kind = it.kind,
                         content = storage.messages.readContent(it),
+                        messageId = it.id,
                     )
                 }
         val historyRows = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
-        return ChatHistoryBuilder.toModelMessagesStrict(historyRows)
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows)
+        // USER rows that produce a message: non-blank content (the builder's own rule) — the
+        // count must match the history's USER messages exactly, or the pairing would attach an
+        // image to the wrong message and we fail closed instead.
+        val userRows =
+            historyRows.filter { row ->
+                row.role == ModelRole.USER.name && row.messageId != null && !row.content.isNullOrBlank()
+            }
+        val userMessages = messages.filter { it.role == ModelRole.USER }
+        require(userRows.size == userMessages.size) {
+            "history USER rows and USER messages diverge — image binding refused"
+        }
+        var userRow = 0
+        return messages.map { message ->
+            if (message.role == ModelRole.USER) {
+                message.copy(images = imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
+            } else {
+                message
+            }
+        }
+    }
+
+    /**
+     * The verified [ImageReference]s bound to one persisted USER message (HXA-055): every
+     * binding whose artifact is an image (closed media type) is re-verified — artifact present,
+     * bytes hash to the bound SHA-256, magic agrees with the registered type — and the
+     * request-wide base64 budget is enforced. Any miss throws [IllegalArgumentException] and
+     * the turn fails closed; there is no silent drop and no raw fallback.
+     */
+    private suspend fun imageReferencesFor(messageId: String): List<ImageReference> {
+        val bindings = storage.messageAttachments.listByMessage(messageId)
+        if (bindings.isEmpty()) return emptyList()
+        var totalBase64 = 0L
+        val images = ArrayList<ImageReference>(bindings.size)
+        for (binding in bindings) {
+            val facts = verifiedImageBinding(binding) ?: continue // a text binding is not an image
+            totalBase64 += facts.base64Bytes
+            images += facts.reference
+        }
+        require(totalBase64 <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES) {
+            "the session's image data exceeds the per-request budget — start a new session to send more images"
+        }
+        return images
+    }
+
+    /**
+     * One persisted binding re-verified against its artifact (HXA-055): [null] when the binding
+     * is NOT an image (a text attachment), a verified [ImageReference] + its base64 size when it
+     * is, and an [IllegalArgumentException] (the turn fails closed) when the artifact changed or
+     * vanished — the ADR's re-verify-before-send/retry/restore rule.
+     */
+    private data class ImageBindingFacts(
+        val reference: ImageReference,
+        val base64Bytes: Long,
+    )
+
+    @Suppress("ThrowsCount") // one throw per closed re-verification failure (existence / path / hash / magic)
+    private suspend fun verifiedImageBinding(
+        binding: com.helix.core.storage.entity.MessageAttachmentEntity,
+    ): ImageBindingFacts? {
+        val artifact =
+            runCatching { storage.artifacts.resolve(binding.artifactId) }
+                .getOrNull()
+                ?: throw IllegalArgumentException("bound image artifact no longer exists — re-verify the session")
+        if (artifact.mediaType !in VisionLimits.NORMALIZED_MEDIA_TYPES) return null // text binding
+        require(artifact.size <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
+            "bound image exceeds the per-image wire budget"
+        }
+        val scopePath =
+            runCatching { FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath) }
+                .getOrNull()
+                ?: throw IllegalArgumentException("bound image artifact path is invalid — re-verify the session")
+        val file =
+            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
+                .getOrNull()
+                ?: throw IllegalArgumentException("bound image artifact path escapes the workspace")
+        require(Files.isRegularFile(file)) {
+            "bound image artifact is missing — the message can no longer be restored"
+        }
+        val actualHash =
+            try {
+                AtomicFileWriter.sha256Hex(file)
+            } catch (e: java.io.IOException) {
+                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
+            }
+        require(actualHash == binding.boundSha256) {
+            "bound image hash no longer matches the message binding"
+        }
+        val bytes =
+            try {
+                Files.readAllBytes(file)
+            } catch (e: java.io.IOException) {
+                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
+            }
+        val magic = ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
+        require(magic == artifact.mediaType) { "bound image bytes do not match their registered type" }
+        return ImageBindingFacts(
+            reference = ImageReference(ArtifactRef(artifact.id), artifact.mediaType),
+            base64Bytes = ((bytes.size + 2L) / 3L) * 4L,
+        )
     }
 
     /**
@@ -2192,6 +2595,16 @@ class ChatService(
         // three values are user-supplied (displayName especially may hold a
         // quote), so escape before interpolation — never build JSON by raw
         // string concatenation of untrusted text.
+        // HXA-055: the TURN's capability facts travel with the snapshot — the exact
+        // capability state (probe or manual declaration, incl. vision) that this model
+        // call ran under; an unparseable stored snapshot contributes nothing (fail
+        // closed: the column is informational, the send gate is the authority).
+        val capabilitiesJson =
+            runCatching {
+                com.helix.provider.api.ProviderCapabilities.parse(c.capabilitySnapshot).let { caps ->
+                    ",\"capabilities\":${com.helix.provider.api.ProviderCapabilities.toJsonString(caps)}"
+                }
+            }.getOrDefault("")
         return buildString {
             append("{\"displayName\":\"")
             append(jsonEscape(c.displayName))
@@ -2199,7 +2612,9 @@ class ChatService(
             append(jsonEscape(c.endpoint.full))
             append("\",\"model\":\"")
             append(jsonEscape(c.model))
-            append("\"}")
+            append("\"")
+            append(capabilitiesJson)
+            append("}")
         }
     }
 

@@ -412,6 +412,11 @@ class ChatServiceAttachmentRetryDeviceTest {
                             override suspend fun open(request: WireRequest): WireResponse =
                                 throw IOException("device test: the wire is disabled — no network")
                         },
+                    imageSource = {
+                        com.helix.app.provider.VisionImageSource {
+                            throw IllegalArgumentException("device test: image resolution is disabled — no artifacts")
+                        }
+                    },
                 ),
             bindings = CleartextBindingStore(lineStore),
             testStatus = statusStore,

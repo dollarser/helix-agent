@@ -77,11 +77,67 @@ class EgressDisclosureTest {
         assertTrue(summary.attachments.isEmpty())
     }
 
+    @Test
+    fun anImageRequiresConfirmationAndDisclosesTheNormalizedFacts() {
+        // HXA-055 (ADR-0014 §5): the image's disclosure row carries the NORMALIZED size and the
+        // BOUND (normalized) hash — the exact bytes that leave the device — plus type and
+        // normalized dimensions, under the image data category.
+        val decision =
+            EgressDisclosure.decide(
+                listOf(EgressDisclosure.OutgoingContent.UserText, image("photo.jpg", 123_456L)),
+                "看这张",
+                target,
+            ) as EgressDisclosure.Decision.Confirm
+        assertEquals(
+            listOf(EgressDisclosure.DataCategory.REGULAR, EgressDisclosure.DataCategory.HIGH_SENSITIVE_IMAGE),
+            decision.summary.categories,
+        )
+        assertEquals(
+            listOf(
+                EgressDisclosure.EgressAttachment(
+                    "photo.jpg",
+                    123_456L,
+                    SHA,
+                    "图片 · image/jpeg · 1024x768（归一化）",
+                ),
+            ),
+            decision.summary.attachments,
+        )
+    }
+
+    @Test
+    fun imageAndTextAttachmentsKeepContentOrderInTheDisclosure() {
+        val decision =
+            EgressDisclosure.decide(
+                listOf(
+                    image("a.jpg", 10L),
+                    fileText("b.md", 22L, "Markdown"),
+                ),
+                "",
+                target,
+            ) as EgressDisclosure.Decision.Confirm
+        assertEquals(2, decision.summary.attachments.size)
+        assertEquals("a.jpg", decision.summary.attachments[0].fileName)
+        assertEquals("b.md", decision.summary.attachments[1].fileName)
+        assertEquals(
+            listOf(
+                EgressDisclosure.DataCategory.HIGH_SENSITIVE_IMAGE,
+                EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT,
+            ),
+            decision.summary.categories,
+        )
+    }
+
     private fun fileText(
         label: String,
         sizeBytes: Long,
         kindLabel: String,
     ) = EgressDisclosure.OutgoingContent.FileText(label, sizeBytes, SHA, kindLabel)
+
+    private fun image(
+        label: String,
+        sizeBytes: Long,
+    ) = EgressDisclosure.OutgoingContent.Image(label, sizeBytes, SHA, "image/jpeg", 1024, 768)
 
     @Test
     fun mixedContentSurfacesEveryCategory() {

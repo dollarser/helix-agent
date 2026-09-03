@@ -14,6 +14,7 @@ import com.helix.app.internal.PrefsLineStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
+import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
@@ -161,10 +162,21 @@ internal class DefaultAppContainer(
             }
         }
 
+    /**
+     * The production image source for the protocol adapters (HXA-055): session-bound,
+     * hash-verified app-private artifacts + the reserved 1x1 vision-probe image. Lazy AND
+     * handed to the factory as a supplier: it depends on [workspaceStore], which is declared
+     * later in this container, so the source must never be materialized during container
+     * construction — only at stream time, when a message actually carries an image.
+     */
+    private val visionImageSource: ArtifactVisionImageSource by lazy {
+        ArtifactVisionImageSource(storage.artifacts, workspaceStore, APP_SCOPE_ID)
+    }
+
     override val providerService: ProviderService =
         ProviderService(
             storage = storage,
-            factory = ProviderFactory(credentials, ProviderFactory.defaultWire()),
+            factory = ProviderFactory(credentials, ProviderFactory.defaultWire()) { visionImageSource },
             bindings = CleartextBindingStore(lineStore),
             testStatus = ProviderTestStatusStore(lineStore),
             idGenerator = { idGenerator.next() },
@@ -375,6 +387,7 @@ internal class DefaultAppContainer(
             idGenerator = { idGenerator.next() },
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
+            visionSessionBinder = visionImageSource::bindSession,
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard

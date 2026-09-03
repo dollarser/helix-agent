@@ -18,6 +18,7 @@ import java.util.zip.CRC32
  * `application/octet-stream` rather than guessing, so a caller that needs certainty treats
  * non-text as opaque and fails closed on its own policy.
  */
+@Suppress("TooManyFunctions") // one small function per detection stage (magic / utf-8 / mime helpers)
 object ContentProbe {
     /** How many leading bytes are sampled for detection. 8 KiB covers every common magic. */
     const val SAMPLE_BYTES: Int = 8 * 1024
@@ -182,7 +183,11 @@ object ContentProbe {
      * Best-effort MIME from a data-driven magic table, then a small set of text heuristics;
      * octet-stream when nothing matches. Kept data-driven so adding a type is a table change.
      */
+    @Suppress("ReturnCount") // one return per detection stage: webp / magic table / text heuristic
     private fun detectMime(bytes: ByteArray): String {
+        // WebP is RIFF-based: "RIFF" at 0..3 AND "WEBP" at 8..11 (a plain prefix cannot
+        // express the second position, so it is checked before the magic table).
+        if (isWebpContainer(bytes)) return "image/webp"
         for ((magic, mime) in MIME_MAGICS) {
             if (bytes.size >= magic.size && magic.indices.all { bytes[it] == magic[it] }) {
                 return mime
@@ -195,6 +200,15 @@ object ContentProbe {
         } else {
             OCTET_STREAM
         }
+    }
+
+    /** The RIFF container signature: "RIFF" at 0..3 AND the "WEBP" fourcc at 8..11. */
+    private fun isWebpContainer(bytes: ByteArray): Boolean {
+        if (bytes.size < 12) return false
+        val riff = intArrayOf(0x52, 0x49, 0x46, 0x46) // "RIFF"
+        val webp = intArrayOf(0x57, 0x45, 0x42, 0x50) // "WEBP"
+        return riff.indices.all { bytes[it].toInt() and 0xFF == riff[it] } &&
+            (8 until 12).all { bytes[it].toInt() and 0xFF == webp[it - 8] }
     }
 
     private fun ByteArray.startsWithAscii(s: String): Boolean =

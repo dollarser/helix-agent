@@ -46,12 +46,14 @@ object AttachmentSendAdmission {
         ) : Outcome
 
         /**
-         * The gate is Ready; the egress [decision] governs. [attachments] is the gate's materialized
-         * text (in staged order) — the exact content the caller puts into the outgoing request.
+         * The gate is Ready; the egress [decision] governs. [attachments] is the gate's
+         * materialized attachments (text and images, in staged order) — the exact content the
+         * caller puts into the outgoing request (image bytes via the bound
+         * [com.helix.core.model.ImageReference], text via the bounded blocks).
          */
         data class Egress(
             val decision: EgressDisclosure.Decision,
-            val attachments: List<AttachmentMaterialization.Text>,
+            val attachments: List<AttachmentMaterialization>,
         ) : Outcome
     }
 
@@ -113,18 +115,40 @@ object AttachmentSendAdmission {
      */
     private fun outgoingContents(
         text: String,
-        attachments: List<AttachmentMaterialization.Text>,
+        attachments: List<AttachmentMaterialization>,
     ): List<EgressDisclosure.OutgoingContent> {
         val contents = mutableListOf<EgressDisclosure.OutgoingContent>()
         if (text.isNotBlank()) contents += EgressDisclosure.OutgoingContent.UserText
         for (a in attachments) {
             contents +=
-                EgressDisclosure.OutgoingContent.FileText(
-                    sourceLabel = a.fileName,
-                    sizeBytes = a.sizeBytes,
-                    sha256 = a.sha256,
-                    kindLabel = kindLabel(a.kind),
-                )
+                when (a) {
+                    is AttachmentMaterialization.Text -> {
+                        EgressDisclosure.OutgoingContent.FileText(
+                            sourceLabel = a.fileName,
+                            sizeBytes = a.sizeBytes,
+                            sha256 = a.sha256,
+                            kindLabel = kindLabel(a.kind),
+                        )
+                    }
+
+                    is AttachmentMaterialization.Image -> {
+                        // The normalized facts (the gate re-verified the normalized artifact):
+                        // sizeBytes/sha256 bind the re-encoded bytes that leave the device.
+                        EgressDisclosure.OutgoingContent.Image(
+                            sourceLabel = a.fileName,
+                            sizeBytes = a.sizeBytes,
+                            sha256 = a.sha256,
+                            mediaType = a.mediaType,
+                            width = a.width,
+                            height = a.height,
+                        )
+                    }
+
+                    else -> {
+                        // Unreachable (the gate only returns Text/Image in Ready) — fail closed.
+                        error("non-materializable attachment reached admission")
+                    }
+                }
         }
         return contents
     }
@@ -140,11 +164,11 @@ object AttachmentSendAdmission {
      */
     private fun guardText(
         text: String,
-        attachments: List<AttachmentMaterialization.Text>,
+        attachments: List<AttachmentMaterialization>,
     ): String =
         buildString {
             if (text.isNotBlank()) append(text)
-            for (a in attachments) {
+            for (a in attachments.filterIsInstance<AttachmentMaterialization.Text>()) {
                 if (isNotEmpty()) append('\n')
                 append(a.content)
             }

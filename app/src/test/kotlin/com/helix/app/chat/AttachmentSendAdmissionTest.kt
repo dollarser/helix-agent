@@ -188,6 +188,31 @@ class AttachmentSendAdmissionTest {
         assertEquals(listOf(first, second), egress.attachments)
     }
 
+    @Test
+    fun aReadyImageForcesPerSendConfirmWithTheImageCategory() {
+        // HXA-055: an image attachment is high-sensitivity (the PIXELS leave the device) — the
+        // send is held for per-send confirmation exactly like text, and the mixed materialization
+        // list rides out for the turn's bindings.
+        val image = imageAtt("photo.jpg")
+        val gate = AttachmentSendDecision.Ready(listOf(att("note.txt", "正文"), image))
+        val egress =
+            AttachmentSendAdmission.admit(gate, "看看", target) as AttachmentSendAdmission.Outcome.Egress
+        val confirm = egress.decision as EgressDisclosure.Decision.Confirm
+        assertTrue(confirm.summary.categories.contains(EgressDisclosure.DataCategory.HIGH_SENSITIVE_IMAGE))
+        assertTrue(confirm.summary.categories.contains(EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT))
+        assertEquals(listOf(att("note.txt", "正文"), image), egress.attachments)
+    }
+
+    private fun imageAtt(fileName: String) =
+        AttachmentMaterialization.Image(
+            fileName = fileName,
+            mediaType = "image/jpeg",
+            sha256 = SHA,
+            sizeBytes = 123_456L,
+            width = 1024,
+            height = 768,
+        )
+
     private companion object {
         // The admission never verifies the hash (the gate does); a fixed 64-hex value is enough.
         const val SHA = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

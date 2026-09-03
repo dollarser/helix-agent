@@ -5,6 +5,7 @@ import com.helix.core.model.AttachmentClassification
 import com.helix.core.model.TextAttachmentKind
 import com.helix.core.workspace.ContentProbe
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -63,11 +64,53 @@ class AttachmentClassifierTest {
     }
 
     @Test
-    fun binaryImagesAreUnsupportedOtherInThisMilestone() {
-        // Images are materialized by HXA-055; the closed set has no IMAGE category yet.
-        assertEquals(unsupported(AttachmentCategory.OTHER), binary("photo.png", "image/png"))
-        assertEquals(unsupported(AttachmentCategory.OTHER), binary("pic.jpg", "image/jpeg"))
+    fun binaryImagesAreImageAttachmentsWithTheMagicDerivedMediaType() {
+        // HXA-055 (ADR-0014 §4): a magic-confirmed image is the ImageAttachment branch; the
+        // media type comes from the BYTES (the probe's magic table), never from the name — a
+        // .png-named file whose bytes are JPEG is an image/jpeg attachment.
+        assertEquals(
+            AttachmentClassification.ImageAttachment("image/png"),
+            binary("photo.png", "image/png"),
+        )
+        assertEquals(
+            AttachmentClassification.ImageAttachment("image/jpeg"),
+            binary("pic.jpg", "image/jpeg"),
+        )
+        assertEquals(
+            AttachmentClassification.ImageAttachment("image/webp"),
+            binary("pic.webp", "image/webp"),
+        )
+        assertEquals(
+            AttachmentClassification.ImageAttachment("image/gif"),
+            binary("anim.gif", "image/gif"),
+        )
+        // The bytes win over the name: a .png extension with jpeg bytes is an image/jpeg.
+        assertEquals(
+            AttachmentClassification.ImageAttachment("image/jpeg"),
+            binary("renamed.png", "image/jpeg"),
+        )
+    }
+
+    @Test
+    fun aNonImageBinaryStaysUnsupportedOther() {
         assertEquals(unsupported(AttachmentCategory.OTHER), binary("archive.zip", "application/zip"))
+        assertEquals(
+            unsupported(AttachmentCategory.OTHER),
+            binary("mystery.bin", "application/octet-stream"),
+        )
+    }
+
+    @Test
+    fun aNonClosedImageMediaTypeIsRejectedInTheClassification() {
+        // The ImageAttachment media type is the closed ImageReference set — a synthetic probe
+        // result with an image mime outside it must be refused by the value itself.
+        var thrown: Throwable? = null
+        try {
+            AttachmentClassification.ImageAttachment("image/bmp")
+        } catch (e: Throwable) {
+            thrown = e
+        }
+        assertTrue("an out-of-set image mediaType must be refused", thrown is IllegalArgumentException)
     }
 
     @Test

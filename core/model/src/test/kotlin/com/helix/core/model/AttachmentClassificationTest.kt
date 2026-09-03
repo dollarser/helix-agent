@@ -1,6 +1,7 @@
 package com.helix.core.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -27,23 +28,42 @@ class AttachmentClassificationTest {
     }
 
     @Test
-    fun classificationIsExactlyTwoDataBranches() {
+    fun classificationIsExactlyTheClosedDataBranches() {
         val text: AttachmentClassification =
             AttachmentClassification.TextAttachment(TextAttachmentKind.CSV)
+        val image: AttachmentClassification =
+            AttachmentClassification.ImageAttachment("image/png")
         val unsupported: AttachmentClassification =
             AttachmentClassification.UnsupportedAttachment(AttachmentCategory.DOCUMENT)
-        // An exhaustive `when` (no `else`) only compiles when these are the two sealed branches.
+        // An exhaustive `when` (no `else`) only compiles when these are the sealed branches.
         val branch =
             when (text) {
                 is AttachmentClassification.TextAttachment -> "text"
+                is AttachmentClassification.ImageAttachment -> "image"
                 is AttachmentClassification.UnsupportedAttachment -> "unsupported"
             }
         assertEquals("text", branch)
         // The branches are data-carrying and value-equal.
         assertEquals(text, AttachmentClassification.TextAttachment(TextAttachmentKind.CSV))
+        assertEquals(image, AttachmentClassification.ImageAttachment("image/png"))
         assertEquals(
             unsupported,
             AttachmentClassification.UnsupportedAttachment(AttachmentCategory.DOCUMENT),
         )
+    }
+
+    @Test
+    fun theImageAttachmentMediaTypeIsClosedToTheImageReferenceSet() {
+        for (mediaType in ImageReference.MEDIA_TYPES) {
+            val image = AttachmentClassification.ImageAttachment(mediaType)
+            assertEquals(mediaType, (image as AttachmentClassification.ImageAttachment).mediaType)
+        }
+        var thrown: Throwable? = null
+        try {
+            AttachmentClassification.ImageAttachment("image/bmp")
+        } catch (e: Throwable) {
+            thrown = e
+        }
+        assertTrue("an out-of-set image mediaType must be refused", thrown is IllegalArgumentException)
     }
 }
