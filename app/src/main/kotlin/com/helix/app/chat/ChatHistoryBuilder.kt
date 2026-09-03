@@ -54,6 +54,12 @@ object ChatHistoryBuilder {
         val role: String,
         val kind: String?,
         val content: String?,
+        /**
+         * The persisted message row's id (HXA-055) — null for callers that do not need it.
+         * The chat service uses it to pair a USER message with its persisted image bindings
+         * without re-deriving message identity.
+         */
+        val messageId: String? = null,
     )
 
     fun toModelMessages(rows: List<PersistedRow>): List<ModelMessage> = toModelMessagesInternal(rows, strict = false)

@@ -8,5 +8,20 @@
             android:name="com.helix.feature.files.test.LyingContentProvider"
             android:authorities="com.helix.feature.files.test"
             android:exported="false" />
+
+        <!-- HXA-057: the in-APK FIXED SAF document tree (a small root/ tree) the tests drive the
+             REAL ContentResolverSafTreeReader against through the real ContentResolver. Same APK
+             as the tests, so no export/permission is needed. -->
+        <provider
+            android:name="com.helix.feature.files.test.TreeDocumentsProvider"
+            android:authorities="com.helix.feature.files.tree"
+            android:exported="false" />
+
+        <!-- HXA-058: the in-APK MUTABLE SAF document tree (the export destination side: the
+             create-document insert + read/write openFile). Same APK as the tests. -->
+        <provider
+            android:name="com.helix.feature.files.test.ExportSinkTreeProvider"
+            android:authorities="com.helix.feature.files.exportsink"
+            android:exported="false" />
     </application>
 </manifest>

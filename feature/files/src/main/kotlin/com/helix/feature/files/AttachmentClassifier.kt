@@ -29,10 +29,20 @@ object AttachmentClassifier {
     /** ADR-0014: at most 4 attachments per message. */
     const val MAX_ATTACHMENTS_PER_MESSAGE: Int = 4
 
+    /** The trusted, magic-derived image media types (HXA-055; the bytes win, the label never does). */
+    private val IMAGE_MEDIA_TYPES = setOf("image/png", "image/jpeg", "image/webp", "image/gif")
+
+    @Suppress("ReturnCount") // one return per closed branch: image / text / unsupported
     fun classify(
         probe: ContentProbe.Result,
         fileName: String?,
     ): AttachmentClassification {
+        // HXA-055 (ADR-0014 §2/§4): a magic-confirmed image is an ImageAttachment — the media
+        // type comes from the file's BYTES (ContentProbe's magic table), never from the
+        // provider-reported MIME or the extension.
+        if (probe.mimeType in IMAGE_MEDIA_TYPES) {
+            return AttachmentClassification.ImageAttachment(probe.mimeType)
+        }
         // The trusted, byte-derived encoding gate: only clean UTF-8 is a text attachment.
         // UTF-16 / binary / empty are never materialized as text here.
         if (probe.encoding != ContentProbe.Encoding.UTF8) {
@@ -61,8 +71,7 @@ object AttachmentClassifier {
 
             ext in DOCUMENT_EXTENSIONS || probe.mimeType == "application/pdf" -> AttachmentCategory.DOCUMENT
 
-            // Images (and every other unrecognized binary) are unsupported in this milestone:
-            // HXA-055 will materialize them, so no IMAGE category exists in the closed set yet.
+            // Every other unrecognized binary (archives, unknown formats, ...).
             else -> AttachmentCategory.OTHER
         }
     }

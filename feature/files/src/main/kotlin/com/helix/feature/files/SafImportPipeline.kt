@@ -137,13 +137,20 @@ class SafImportPipeline(
         sessionId: String? = null,
         targetRelativePath: String? = null,
         maxImportBytesOverride: Long? = null,
+        // HXA-058: optional byte progress for the file-manager UI — (bytesWritten, expectedTotal)
+        // where expectedTotal is -1 when the provider reported no size. Purely additive: it never
+        // changes the admission/cap/verification behavior (the HXA-044 contract).
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit = { _, _ -> },
     ): SafImportOutcome {
         if (cancel.isCancelled()) return cancelled()
         try {
             val located = locateTarget(workspaceScopeId, targetNameOverride ?: reported.displayName, targetRelativePath)
             val hardLimit = admit(reported.sizeBytes, located.root, maxImportBytesOverride)
             val sourceStream = openSource(sourceUri)
-            val streamed = streamToTarget(sourceStream, located.targetPath, hardLimit, cancel)
+            val streamed = streamToTarget(sourceStream, located.targetPath, hardLimit, reported, cancel, onProgress)
             if (reported.sizeBytes >= 0 && streamed.bytesWritten != reported.sizeBytes) {
                 // The provider lied (or the stream was truncated): the bytes on disk do not
                 // match what the user was told. Fail closed — the target did not exist before
@@ -200,17 +207,26 @@ class SafImportPipeline(
         source: InputStream,
         targetPath: Path,
         hardLimit: Long,
+        reported: SafSourceMetadata,
         cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
     ): Streamed {
         // A per-attachment sub-dir (input/attachments/<id>/) does not pre-exist: create the bounded
         // parent at copy time — after admission, so a refused import leaves nothing on disk.
         // writeAtomicStream requires the target's parent to already be a real directory.
         Files.createDirectories(targetPath.parent)
         val digest = MessageDigest.getInstance("SHA-256")
+        // The progress total is the (admitted) expected size: the reported size capped by the hard
+        // limit, or -1 (unknown) when the provider reported none. Informational only — the
+        // authoritative size is the delivered byte count verified at EOF.
+        val expectedTotal = if (reported.sizeBytes >= 0) minOf(reported.sizeBytes, hardLimit) else -1L
         var written = 0L
         source.use { input ->
             AtomicFileWriter.writeAtomicStream(targetPath) { out ->
-                written = copyInto(input, out, digest, hardLimit, cancel)
+                written = copyInto(input, out, digest, hardLimit, cancel, { done -> onProgress(done, expectedTotal) })
             }
         }
         return Streamed(written, digest.digest().joinToString("") { "%02x".format(it) })
@@ -223,6 +239,7 @@ class SafImportPipeline(
         digest: MessageDigest,
         hardLimit: Long,
         cancel: SafCancelToken,
+        onChunk: (Long) -> Unit,
     ): Long {
         val buffer = ByteArray(CHUNK_SIZE)
         var written = 0L
@@ -234,6 +251,7 @@ class SafImportPipeline(
             output.write(buffer, 0, n)
             written += n
             if (written > hardLimit) throw AbandonedWrite.LimitExceeded()
+            onChunk(written)
         }
         return written
     }

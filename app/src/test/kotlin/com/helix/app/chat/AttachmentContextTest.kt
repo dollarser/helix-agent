@@ -25,7 +25,7 @@ class AttachmentContextTest {
         truncated: Boolean,
         fileName: String = "notes.txt",
         kind: TextAttachmentKind = TextAttachmentKind.TXT,
-    ) = AttachmentContextBlock(
+    ) = AttachmentContextBlock.Text(
         fileName = fileName,
         kind = kind,
         content = content,
@@ -33,6 +33,21 @@ class AttachmentContextTest {
         truncated = truncated,
         sizeBytes = content.toByteArray().size.toLong(),
         relativePath = relativePath,
+    )
+
+    private fun imageBlock(
+        fileName: String = "photo.jpg",
+        mediaType: String = "image/jpeg",
+        width: Int = 1024,
+        height: Int = 768,
+        sizeBytes: Long = 123_456L,
+    ) = AttachmentContextBlock.Image(
+        fileName = fileName,
+        mediaType = mediaType,
+        sha256 = sha,
+        sizeBytes = sizeBytes,
+        width = width,
+        height = height,
     )
 
     @Test
@@ -80,6 +95,35 @@ class AttachmentContextTest {
         assertTrue(bytes <= AttachmentMaterializer.MAX_INLINE_TEXT_BYTES)
         assertEquals(AttachmentMaterializer.MAX_INLINE_TEXT_BYTES, bytes)
         assertTrue(bounded.length % 2 == 0)
+    }
+
+    @Test
+    fun anImageBlockIsLabelledHashBoundAndCarriesNoPath() {
+        // HXA-055: the image block is the stable model-visible description of the pixels that
+        // travel as the message's image part — name, type, normalized size + dimensions, the
+        // bound (normalized) hash, the UNTRUSTED marker — and NO path line (there is nothing
+        // to chunk-read; the bytes are the image part itself).
+        val out = AttachmentContext.buildUserMessageContent("看这张", listOf(imageBlock()))
+        assertTrue(out.startsWith("看这张"))
+        assertTrue(out.contains("photo.jpg"))
+        assertTrue(out.contains("image/jpeg"))
+        assertTrue(out.contains("1024x768"))
+        assertTrue(out.contains(sha))
+        assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
+        assertFalse(out.contains("完整内容路径"))
+        assertFalse(out.lineSequence().any { it.startsWith("/") })
+    }
+
+    @Test
+    fun textAndImageBlocksCoexistInStagedOrder() {
+        val out =
+            AttachmentContext.buildUserMessageContent(
+                "",
+                listOf(block("正文", truncated = false), imageBlock()),
+            )
+        assertTrue(out.indexOf("notes.txt") < out.indexOf("photo.jpg"))
+        assertTrue(out.contains("【附件 1/2"))
+        assertTrue(out.contains("【附件 2/2"))
     }
 
     /** Extracts the value after the final ':' on the '完整内容路径' line — the model's read target. */

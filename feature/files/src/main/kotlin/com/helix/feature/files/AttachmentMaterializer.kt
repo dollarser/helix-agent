@@ -86,6 +86,18 @@ object AttachmentMaterializer {
                     )
                 }
 
+                is AttachmentClassification.ImageAttachment -> {
+                    // The raw image verified against its bound snapshot; the caller (the send
+                    // gate) re-verifies the NORMALIZED artifact separately and binds it to the
+                    // message as an ImageReference (HXA-055, ADR-0014 §4).
+                    AttachmentMaterialization.Image(
+                        fileName = name,
+                        mediaType = classification.mediaType,
+                        sha256 = actual,
+                        sizeBytes = Files.size(file),
+                    )
+                }
+
                 is AttachmentClassification.UnsupportedAttachment -> {
                     AttachmentMaterialization.Unsupported(name, classification.category)
                 }
@@ -176,6 +188,22 @@ sealed interface AttachmentMaterialization {
         val fileName: String,
         val expectedSha256: String,
         val actualSha256: String,
+    ) : AttachmentMaterialization
+
+    /**
+     * A magic-confirmed image attachment (HXA-055). As returned by [materialize] the [sha256]
+     * binds the RAW file and [width]/[height] are 0 (unknown without the normalized artifact);
+     * the send gate re-verifies the NORMALIZED artifact (the bytes that actually leave) and
+     * rewrites [sha256]/[sizeBytes]/[width]/[height] to its facts before the send proceeds.
+     * The message binds the normalized artifact as an [com.helix.core.model.ImageReference].
+     */
+    data class Image(
+        val fileName: String,
+        val mediaType: String,
+        val sha256: String,
+        val sizeBytes: Long,
+        val width: Int = 0,
+        val height: Int = 0,
     ) : AttachmentMaterialization
 
     /** The file is missing or unreadable — fail closed; block the send. */

@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,6 +51,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as HelixApplication).appContainer
+        // HXA-056: a share intent (ACTION_SEND text/image, ACTION_SEND_MULTIPLE images)
+        // becomes a local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5).
+        // Re-runs when the user shares again into the running task (onNewIntent).
+        val draft = ShareIntentDraft.draftFrom(intent)
+        container.chatService.acceptShareDraft(draft.text, draft.imageUris)
         setContent { HelixApp(container) }
     }
 
@@ -63,6 +69,15 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         (application as HelixApplication).appContainer.browser.resume()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val draft = ShareIntentDraft.draftFrom(intent)
+        (application as HelixApplication).appContainer.chatService.acceptShareDraft(
+            draft.text,
+            draft.imageUris,
+        )
     }
 
     /**
@@ -186,9 +201,10 @@ internal fun HelixApp(container: AppContainer) {
                                 }
 
                                 // HXA-046: the file-management screen over the always-available
-                                // sources (Workspace, always; developer all-files roots, read-only).
+                                // sources (Workspace, always; developer all-files roots, read-only)
+                                // + HXA-058: the import/export entries over the HXA-044 pipelines.
                                 ShellDestination.Files -> {
-                                    FilesScreen(container.fileManager)
+                                    FilesScreen(container.fileManager, container.safTree, container.featureFiles)
                                 }
 
                                 // HXA-060: the minimal hardened WebView browser.

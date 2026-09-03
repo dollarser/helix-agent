@@ -327,6 +327,53 @@ class WorkspaceFileOpsTest {
     }
 
     @Test
+    fun probeDetectsWebpFromTheRiffContainerWithTheWebpFourcc() {
+        // HXA-055: WebP is RIFF-based — "RIFF" at 0..3 AND "WEBP" at 8..11. A plain RIFF file
+        // (AVI/WMV) must NOT be detected as image/webp.
+        val webp =
+            byteArrayOf(
+                0x52,
+                0x49,
+                0x46,
+                0x46, // RIFF
+                0x24,
+                0x00,
+                0x00,
+                0x00, // container size
+                0x57,
+                0x45,
+                0x42,
+                0x50, // WEBP
+                0x56,
+                0x50,
+                0x38,
+                0x20, // VP8 (lossy)
+            )
+        assertEquals("image/webp", ContentProbe.probeBytes(webp, webp.size.toLong()).mimeType)
+
+        val riffAvi =
+            byteArrayOf(
+                0x52,
+                0x49,
+                0x46,
+                0x46, // RIFF
+                0x24,
+                0x00,
+                0x00,
+                0x00,
+                0x41,
+                0x56,
+                0x49,
+                0x20, // AVI  — not a WebP container
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+            )
+        assertEquals("application/octet-stream", ContentProbe.probeBytes(riffAvi, riffAvi.size.toLong()).mimeType)
+    }
+
+    @Test
     fun probeIsBoundedAndFlagsTruncation() {
         // A file larger than the sampling window must be flagged truncated, and detection must
         // classify from the prefix alone (the probe reads only SAMPLE_BYTES, never the whole file).

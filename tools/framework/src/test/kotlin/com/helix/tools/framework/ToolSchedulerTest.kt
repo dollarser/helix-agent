@@ -521,30 +521,7 @@ class ToolSchedulerTest {
         val bGo = CountDownLatch(1)
         val hold = CountDownLatch(1)
         val starts = mutableListOf<String>()
-        register(
-            "x.a",
-            ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    synchronized(starts) { starts += call.toolCallId }
-                    a1Started.countDown()
-                    hold.await(10, TimeUnit.SECONDS)
-                    return ToolExecutorResult.Completed(json("{}"))
-                }
-            },
-        )
-        register(
-            "x.b",
-            ToolOperationClass.READ_ONLY,
-            RiskLevel.L0,
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    synchronized(starts) { starts += call.toolCallId }
-                    return ToolExecutorResult.Completed(json("{}"))
-                }
-            },
-        )
+        registerCrossBatchReadTools(a1Started, hold, starts)
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1)
         // Batch A takes the only slot and holds it; batch B starts only once a-1 is in
         // flight, so B CANNOT admit before it enters the admission wait. Before the
@@ -586,25 +563,7 @@ class ToolSchedulerTest {
         val bGo = CountDownLatch(1)
         val hold = CountDownLatch(1)
         val starts = mutableListOf<String>()
-        val recording =
-            object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    synchronized(starts) { starts += call.toolCallId }
-                    if (call.toolCallId == "a-1") {
-                        a1Started.countDown()
-                        hold.await(10, TimeUnit.SECONDS)
-                    }
-                    return ToolExecutorResult.Completed(json("{}"))
-                }
-            }
-        register("w.x", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
-        register("w.y", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
-        register("w.z", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
-        broker.script(
-            ApprovalAcquisition.Approved(ApprovalProof("a-1", "1".repeat(64))),
-            ApprovalAcquisition.Approved(ApprovalProof("a-2", "2".repeat(64))),
-            ApprovalAcquisition.Approved(ApprovalProof("b-1", "3".repeat(64))),
-        )
+        registerExclusiveWriteTools(a1Started, hold, starts)
         val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
         // Writes are exclusive (full barrier): while A's first write holds the lane,
         // NEITHER A's second write NOR B's write can admit — the conflict is purely
@@ -656,6 +615,65 @@ class ToolSchedulerTest {
             isDaemon = true
             start()
         }
+
+    /** Two non-exclusive read tools; `x.a`'s execution holds [hold] after signalling [a1Started]. */
+    private fun registerCrossBatchReadTools(
+        a1Started: CountDownLatch,
+        hold: CountDownLatch,
+        starts: MutableList<String>,
+    ) {
+        register(
+            "x.a",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    a1Started.countDown()
+                    hold.await(10, TimeUnit.SECONDS)
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "x.b",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+    }
+
+    /** Three exclusive write tools sharing one recording executor; `a-1`'s execution holds [hold]. */
+    private fun registerExclusiveWriteTools(
+        a1Started: CountDownLatch,
+        hold: CountDownLatch,
+        starts: MutableList<String>,
+    ) {
+        val recording =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    synchronized(starts) { starts += call.toolCallId }
+                    if (call.toolCallId == "a-1") {
+                        a1Started.countDown()
+                        hold.await(10, TimeUnit.SECONDS)
+                    }
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            }
+        register("w.x", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        register("w.y", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        register("w.z", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, recording)
+        broker.script(
+            ApprovalAcquisition.Approved(ApprovalProof("a-1", "1".repeat(64))),
+            ApprovalAcquisition.Approved(ApprovalProof("a-2", "2".repeat(64))),
+            ApprovalAcquisition.Approved(ApprovalProof("b-1", "3".repeat(64))),
+        )
+    }
 
     private class FakeClock(
         var instant: Instant,

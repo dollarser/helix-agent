@@ -27,6 +27,30 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- HXA-056 share drafts: receiving a share from another app lands a LOCAL DRAFT
+                 (text pre-filled / images imported + staged, never auto-sent — ADR-0014 §5).
+                 text/plain and image/* only; other share types do not list Helix. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="image/*" />
+            </intent-filter>
         </activity>
         <!-- HXA-046 share: hands a file (workspace or all-files root) to another app via a
              content:// URI. Unexported + grantUriPermissions: the receiving app gets a scoped,

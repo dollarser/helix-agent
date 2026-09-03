@@ -35,6 +35,11 @@ class CapabilityProbeTest {
                 ModelEvent.ToolCallFinished(0),
                 ModelEvent.Completed("tool_calls"),
             ),
+        private val visionEvents: List<ModelEvent> =
+            listOf(
+                ModelEvent.TextDelta("ok"),
+                ModelEvent.Completed("stop"),
+            ),
     ) : ModelProvider {
         val calls = ArrayList<String>()
 
@@ -57,10 +62,25 @@ class CapabilityProbeTest {
             return check
         }
 
+        @Suppress("ReturnCount") // one scripted response shape per request kind
         override fun stream(request: ModelRequest): Flow<ModelEvent> {
-            val events = if (request.tools.isEmpty()) textEvents else toolEvents
-            calls += if (request.tools.isEmpty()) "text" else "tool"
-            return flowOf(*events.toTypedArray())
+            val hasImages = request.messages.any { it.images.isNotEmpty() }
+            when {
+                hasImages -> {
+                    calls += "vision"
+                    return flowOf(*visionEvents.toTypedArray())
+                }
+
+                request.tools.isEmpty() -> {
+                    calls += "text"
+                    return flowOf(*textEvents.toTypedArray())
+                }
+
+                else -> {
+                    calls += "tool"
+                    return flowOf(*toolEvents.toTypedArray())
+                }
+            }
         }
     }
 
@@ -78,7 +98,7 @@ class CapabilityProbeTest {
                             streaming = true,
                             toolCalls = true,
                             parallelToolCalls = false,
-                            vision = false,
+                            vision = true, // proved by the passing phase 5
                             reasoning = false,
                             jsonSchemaOutput = false,
                             maxContextTokens = null,
@@ -88,7 +108,7 @@ class CapabilityProbeTest {
                 ),
                 outcome,
             )
-            assertEquals(listOf("check", "models", "text", "tool"), provider.calls)
+            assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
         }
 
     @Test
@@ -137,7 +157,7 @@ class CapabilityProbeTest {
             val provider = FakeProvider(models = ModelCatalogResult.Unsupported)
             val outcome = probe.probe(provider)
             assertEquals(ProbeOutcome.Ok::class, outcome::class)
-            assertEquals(listOf("check", "models", "text", "tool"), provider.calls)
+            assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
         }
 
     @Test
@@ -224,6 +244,47 @@ class CapabilityProbeTest {
                 ),
                 outcome,
             )
+        }
+
+    @Test
+    fun aVisionStreamErrorFailsPhaseFiveNotRetryableForHttpStatus() =
+        runBlocking {
+            // An image-rejecting endpoint (400) is a NON-retryable phase-5 failure: the probe
+            // only ever proves vision by seeing a successful image completion.
+            val provider =
+                FakeProvider(
+                    visionEvents = listOf(ModelEvent.Error(ModelErrorCode.HTTP_ERROR, false)),
+                )
+            val outcome = probe.probe(provider)
+            assertEquals(
+                ProbeOutcome.Failed(5, ModelErrorCode.HTTP_ERROR, "vision probe error: HTTP_ERROR", false),
+                outcome,
+            )
+            assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
+        }
+
+    @Test
+    fun aVisionStreamServerErrorFailsPhaseFiveRetryable() =
+        runBlocking {
+            val provider =
+                FakeProvider(
+                    visionEvents = listOf(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, true)),
+                )
+            val outcome = probe.probe(provider)
+            assertEquals(
+                ProbeOutcome.Failed(5, ModelErrorCode.SERVER_ERROR, "vision probe error: SERVER_ERROR", true),
+                outcome,
+            )
+        }
+
+    @Test
+    fun aVisionRefusalStillProvesImageAcceptance() =
+        runBlocking {
+            // A safety refusal to the 1x1 image means the request SHAPE was accepted — the
+            // probe's closed rule: Completed or Refusal both prove vision.
+            val provider = FakeProvider(visionEvents = listOf(ModelEvent.Refusal("policy")))
+            val outcome = probe.probe(provider)
+            assertTrue(outcome is ProbeOutcome.Ok)
         }
 
     @Test

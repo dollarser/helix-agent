@@ -147,13 +147,17 @@ class AttachmentMaterializerTest {
     }
 
     @Test
-    fun aBinaryImageIsUnsupportedOtherInThisMilestone() {
+    fun aBinaryImageMaterializesAsAnImageWithTheRawSnapshotBound() {
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
         val file = writeBytes(png, "photo.png")
         val result = AttachmentMaterializer.materialize(file, sha(png), "photo.png")
 
-        // No IMAGE category exists until HXA-055: images are unsupported in this milestone.
-        assertEquals(AttachmentMaterialization.Unsupported("photo.png", AttachmentCategory.OTHER), result)
+        // HXA-055: the verified raw image is the Image branch — the send gate rewrites the
+        // facts to the normalized artifact's; here (raw-only) dimensions are 0.
+        assertEquals(
+            AttachmentMaterialization.Image("photo.png", "image/png", sha(png), png.size.toLong(), 0, 0),
+            result,
+        )
     }
 
     @Test

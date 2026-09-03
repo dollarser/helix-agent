@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +69,16 @@ fun ChatScreen(
     var newSessionOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
 
+    // HXA-056: a shared-in text draft pre-fills the composer ONCE (one-shot consume — a later
+    // session switch or re-share re-arms it, never a stale text lands in a new conversation).
+    LaunchedEffect(screen.openSessionId, screen.shareDraftText) {
+        val draft = screen.shareDraftText
+        if (draft != null) {
+            input = draft
+            chatService.consumeShareDraftText()
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -86,6 +97,7 @@ fun ChatScreen(
                 profile = profile,
                 input = input,
                 onInput = { input = it },
+                bindableProviders = providerRows.filter { it.chatSelectable },
                 intents =
                     ConversationIntents(
                         onBack = { chatService.closeSession() },
@@ -100,6 +112,7 @@ fun ChatScreen(
                         onDenyApproval = { chatService.denyApproval(it) },
                         onStageAttachment = { chatService.stageAttachment(it) },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
+                        onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
                     ),
             )
         }
@@ -313,6 +326,8 @@ data class ConversationIntents(
     val onDenyApproval: (String) -> Unit,
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
+    /** HXA-056: bind a tested provider to the open (provider-free) draft session. */
+    val onBindProvider: (ProviderRowUi) -> Unit,
 )
 
 @Composable
@@ -322,6 +337,7 @@ private fun ConversationSection(
     profile: SafetyProfile,
     input: String,
     onInput: (String) -> Unit,
+    bindableProviders: List<ProviderRowUi>,
     intents: ConversationIntents,
 ) {
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
@@ -362,6 +378,30 @@ private fun ConversationSection(
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+            if (screen.badge == null) {
+                // HXA-056: the open session has NO provider (a share-draft session) — offer
+                // the explicit bind so the draft can be reviewed and sent; binding never
+                // swaps an already-bound session's target (storage fails closed).
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        "该会话未绑定 Provider",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("chat-unbound-provider"),
+                    )
+                    bindableProviders.forEach { row ->
+                        TextButton(
+                            onClick = { intents.onBindProvider(row) },
+                            modifier = Modifier.testTag("chat-bind-provider"),
+                        ) {
+                            Text("${row.displayName}（${row.model}）")
+                        }
                     }
                 }
             }

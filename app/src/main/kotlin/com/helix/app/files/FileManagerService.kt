@@ -1,11 +1,18 @@
 package com.helix.app.files
 
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.WorkspaceLayout
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.feature.files.SafAccessMode
+import com.helix.feature.files.SafCancelToken
+import com.helix.feature.files.SafGrantStore
+import com.helix.feature.files.SafImportExportAccess
+import com.helix.feature.files.SafTreeScopeAccess
 import java.io.File
 import java.io.FileNotFoundException
 import java.nio.file.FileAlreadyExistsException
@@ -38,10 +45,112 @@ class FileManagerService(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
     private val workspaceScopeId: String,
+    // HXA-057: the governed SAF tree scope access (browse/preview/share, read-only). Null only in
+    // tests that do not exercise SAF scopes; a SAF scope id with a null access fails closed.
+    private val saf: SafTreeScopeAccess? = null,
+    // HXA-058: the restricted HXA-044 import/export pipelines + platform seams (the file
+    // manager's 导入/导出 entries). Null only in tests that do not exercise transfers; a transfer
+    // call with a null access fails closed.
+    private val transfers: SafImportExportAccess? = null,
 ) {
+    /** True when [scopeId] names a SAF tree scope (`saf-<12hex>`; the only model-safe form, doc 10). */
+    private fun isSaf(scopeId: String): Boolean = scopeId.startsWith(SafGrantStore.SCOPE_ID_PREFIX)
+
+    /** The SAF access, fail-closed when the scope is SAF but the access is absent. */
+    private fun requireSaf(scopeId: String): SafTreeScopeAccess =
+        saf ?: throw ScopeNotAvailable("SAF tree scope not available: $scopeId")
+
+    /** Re-verifies a SAF grant in real time (fail closed) before any browse/read; returns the scope. */
+    private fun verifySaf(
+        scopeId: String,
+        mode: SafAccessMode,
+    ): SafTreeScopeAccess {
+        requireSaf(scopeId).service.resolve(scopeId, mode)
+        return requireSaf(scopeId)
+    }
+
+    // --- 导入/导出 (HXA-058: 文件管理导入/导出入口) ---
+    //
+    // Explicit FILE-MANAGEMENT actions driven by the user's picker results: they reuse the
+    // HXA-044 restricted pipelines (fail-closed, lying-provider-proof) and NEVER create a chat
+    // message, call a Provider, or expand the Agent scope (no artifact registration, no session
+    // binding, no grant persistence on import). A null [transfers] access fails closed.
+
+    private val transferOps: FileManagerTransfers? =
+        transfers?.let { FileManagerTransfers(store, workspaceScopeId, saf, it) }
+
+    /**
+     * Imports ONE picked SAF document (the `ACTION_OPEN_DOCUMENT` result) into the workspace
+     * `input/` region under [policy] (never a default overwrite). The user-facing contract
+     * (source / target / name / size / policy / progress / cancel / final result) is surfaced
+     * through the returned [TransferResult] + [onProgress].
+     */
+    fun importSingleDocument(
+        sourceUri: String,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.importSingleDocument(sourceUri, policy, cancel, onProgress)
+            ?: TransferResult(
+                listOf(TransferItem("SAF 文档", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
+
+    /**
+     * Imports a WHOLE picked SAF folder (the `ACTION_OPEN_DOCUMENT_TREE` result) into the
+     * workspace `input/` (structure recreated under `input/`). Bounded enumeration + fail-closed
+     * name mapping; one [onFileProgress] tick (done, total) before each file; every skipped or
+     * failed file is reported in the result — nothing is silently omitted.
+     */
+    fun importTree(
+        treeUri: String,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onFileProgress: (
+            Int,
+            Int,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.importTree(treeUri, policy, cancel, onFileProgress)
+            ?: TransferResult(
+                listOf(TransferItem("SAF 文件夹", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
+
+    /**
+     * Exports ONE workspace file to [target] (an `ACTION_CREATE_DOCUMENT` document or an
+     * authorized SAF tree directory) under [policy]. An export to a tree re-verifies the grant in
+     * WRITE mode in real time (a read-only or revoked grant fails closed before any byte is
+     * written). The result reports the platform-confirmed facts, and "verified" only when the
+     * bytes are re-read after the write and are hash-equal.
+     */
+    fun exportDocument(
+        sourceRelativePath: String,
+        target: ExportTarget,
+        policy: ConflictPolicy,
+        cancel: SafCancelToken,
+        onProgress: (
+            Long,
+            Long,
+        ) -> Unit,
+    ): TransferResult =
+        transferOps?.exportDocument(sourceRelativePath, target, policy, cancel, onProgress)
+            ?: TransferResult(
+                listOf(TransferItem(sourceRelativePath, "SAF 目标", TransferItemStatus.FAILED, "导入/导出未接线")),
+                0,
+            )
     // --- Sources (来源标识) ---
 
-    /** The browsable sources: the workspace (always, mutable) + any enabled all-files roots (developer, read-only). */
+    /**
+     * The browsable sources (HXA-046 + HXA-057): the workspace (always, mutable) + any enabled
+     * all-files roots (developer, read-only) + any SAF tree scopes STILL LIVE right now (read-only).
+     * A SAF grant whose provider no longer answers / whose root changed is re-verified here and
+     * omitted (fail closed: a source the resolver cannot resolve is never offered for browsing).
+     */
     fun sources(): List<FileSource> {
         val list =
             mutableListOf(
@@ -51,6 +160,9 @@ class FileManagerService(
             AllFilesModule.allFilesSources().forEach {
                 list.add(FileSource(it.scopeId, it.displayName, FileSourceKind.ALL_FILES, supportsMutation = false))
             }
+        }
+        saf?.service?.liveSources()?.forEach {
+            list.add(FileSource(it.scopeId, it.displayName, FileSourceKind.SAF, supportsMutation = false))
         }
         return list
     }
@@ -71,6 +183,7 @@ class FileManagerService(
         relativePath: String,
         sort: SortKey = SortKey.NAME,
     ): List<FileEntry> {
+        if (isSaf(scopeId)) return safList(scopeId, relativePath, sort)
         val names = store.listDir(FileScopePath(scopeId, relativePath), MAX_LIST_ENTRIES).entries
         val atWorkspaceRoot = scopeId == workspaceScopeId && relativePath.isEmpty()
         val visible = if (atWorkspaceRoot) names.filter { it != WorkspaceLayout.HELIX } else names
@@ -80,6 +193,27 @@ class FileManagerService(
                 val s = store.stat(FileScopePath(scopeId, rel))
                 FileEntry(name, rel, s.isDirectory, s.sizeBytes, s.mtimeEpochMillis)
             }
+        return entries.sortedWith(comparatorFor(sort))
+    }
+
+    /**
+     * SAF tree directory listing (HXA-057): the grant is re-verified in real time (fail closed),
+     * then the read-only backend enumerates the directory. The model/UI see only display names +
+     * bounded metadata — no document id, no `content://` URI (doc 10).
+     */
+    private fun safList(
+        scopeId: String,
+        relativePath: String,
+        sort: SortKey,
+    ): List<FileEntry> {
+        val access = verifySaf(scopeId, SafAccessMode.READ)
+        val entries =
+            access
+                .reader
+                .list(scopeId, relativePath)
+                .map { e ->
+                    FileEntry(e.name, joinPath(relativePath, e.name), e.isDirectory, e.sizeBytes, e.mtimeEpochMillis)
+                }
         return entries.sortedWith(comparatorFor(sort))
     }
 
@@ -110,12 +244,32 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = DEFAULT_PREVIEW_BYTES,
+    ): String? =
+        if (isSaf(scopeId)) {
+            safPreviewText(scopeId, relativePath, maxBytes)
+        } else {
+            val fsp = FileScopePath(scopeId, relativePath)
+            val probe = store.probe(fsp)
+            if (!probe.isText || probe.sizeBytes < 0) {
+                null
+            } else {
+                runCatching { store.readWindow(fsp, 0, maxBytes).text }.getOrNull()
+            }
+        }
+
+    /** SAF tree text preview (HXA-057): re-verified, bounded read, probed for text, then decoded. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed null
+    private fun safPreviewText(
+        scopeId: String,
+        relativePath: String,
+        maxBytes: Long,
     ): String? {
-        val fsp = FileScopePath(scopeId, relativePath)
-        val probe = store.probe(fsp)
-        if (!probe.isText || probe.sizeBytes < 0) return null
+        val access = verifySaf(scopeId, SafAccessMode.READ)
         return try {
-            store.readWindow(fsp, 0, maxBytes).text
+            val cap = minOf(maxBytes, SAF_READ_CAP)
+            val bytes = access.reader.read(scopeId, relativePath, 0, cap)
+            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).isText) return null
+            String(bytes, Charsets.UTF_8)
         } catch (e: Exception) {
             null
         }
@@ -131,14 +285,34 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = MAX_IMAGE_PREVIEW_BYTES,
-    ): ByteArray {
-        val fsp = FileScopePath(scopeId, relativePath)
-        val probe = store.probe(fsp)
-        if (!probe.mimeType.startsWith("image/") || probe.sizeBytes < 0 || probe.sizeBytes > maxBytes) {
-            return ByteArray(0)
+    ): ByteArray =
+        if (isSaf(scopeId)) {
+            safPreviewImageBytes(scopeId, relativePath, maxBytes)
+        } else {
+            val fsp = FileScopePath(scopeId, relativePath)
+            val probe = store.probe(fsp)
+            if (!probe.mimeType.startsWith("image/") || probe.sizeBytes < 0 || probe.sizeBytes > maxBytes) {
+                ByteArray(0)
+            } else {
+                runCatching { store.readAll(fsp) }.getOrDefault(ByteArray(0))
+            }
         }
+
+    /** SAF tree image preview (HXA-057): re-verified, bounded read, probed for an image mime. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed empty array
+    private fun safPreviewImageBytes(
+        scopeId: String,
+        relativePath: String,
+        maxBytes: Long,
+    ): ByteArray {
+        val access = verifySaf(scopeId, SafAccessMode.READ)
         return try {
-            store.readAll(fsp)
+            val cap = minOf(maxBytes, SAF_READ_CAP)
+            val bytes = access.reader.read(scopeId, relativePath, 0, cap)
+            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType.startsWith("image/")) {
+                return ByteArray(0)
+            }
+            bytes
         } catch (e: Exception) {
             ByteArray(0)
         }
@@ -151,7 +325,25 @@ class FileManagerService(
     fun mimeTypeFor(
         scopeId: String,
         relativePath: String,
-    ): String = store.probe(FileScopePath(scopeId, relativePath)).mimeType
+    ): String {
+        if (isSaf(scopeId)) return safMimeTypeFor(scopeId, relativePath)
+        return store.probe(FileScopePath(scopeId, relativePath)).mimeType
+    }
+
+    /** SAF tree best-effort MIME from a bounded prefix (HXA-057). A non-file/dir failure → octet. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed octet-stream
+    private fun safMimeTypeFor(
+        scopeId: String,
+        relativePath: String,
+    ): String {
+        val access = verifySaf(scopeId, SafAccessMode.READ)
+        return try {
+            val bytes = access.reader.read(scopeId, relativePath, 0, DEFAULT_PREVIEW_BYTES)
+            ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
+        } catch (e: Exception) {
+            "application/octet-stream"
+        }
+    }
 
     /** Bounded per-file metadata (HXA-046: MIME/大小/哈希信息). The hash is a real SHA-256, computed
      * on demand, omitted when the file exceeds [maxHashBytes]. */
@@ -161,6 +353,7 @@ class FileManagerService(
         relativePath: String,
         maxHashBytes: Long = MAX_HASH_BYTES,
     ): FileMeta {
+        if (isSaf(scopeId)) return safFileInfo(scopeId, relativePath, maxHashBytes)
         val fsp = FileScopePath(scopeId, relativePath)
         val s = store.stat(fsp)
         val probe = store.probe(fsp)
@@ -176,6 +369,54 @@ class FileManagerService(
             omitted = true
         }
         return FileMeta(s.sizeBytes, s.mtimeEpochMillis, probe.mimeType, probe.isText, sha, omitted)
+    }
+
+    /**
+     * SAF tree per-file metadata (HXA-057): re-verified, [SafTreeReader.stat] for size/mtime, a
+     * bounded prefix probe for mime/text, and a real SHA-256 when the file fits the hash cap AND
+     * the SAF read window (a larger SAF file omits the hash, exactly as a too-large workspace file).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure omits the hash rather than throwing
+    private fun safFileInfo(
+        scopeId: String,
+        relativePath: String,
+        maxHashBytes: Long,
+    ): FileMeta {
+        val access = verifySaf(scopeId, SafAccessMode.READ)
+        val stat = access.reader.stat(scopeId, relativePath)
+        if (!stat.exists || stat.isDirectory) {
+            return if (!stat.exists) {
+                FileMeta(-1L, -1L, "application/octet-stream", false, null, false)
+            } else {
+                FileMeta(stat.sizeBytes, stat.mtimeEpochMillis, "inode/directory", true, null, true)
+            }
+        }
+        val prefix = access.reader.read(scopeId, relativePath, 0, DEFAULT_PREVIEW_BYTES)
+        val probe =
+            try {
+                ContentProbe.probeBytes(prefix, stat.sizeBytes)
+            } catch (e: Exception) {
+                ContentProbe.probeBytes(ByteArray(0), stat.sizeBytes)
+            }
+        val hashCap = minOf(maxHashBytes, stat.sizeBytes)
+        var sha: String? = null
+        var omitted = false
+        if (stat.sizeBytes in 1..hashCap && hashCap <= SAF_READ_CAP) {
+            val all =
+                try {
+                    access.reader.read(scopeId, relativePath, 0, hashCap)
+                } catch (e: Exception) {
+                    null
+                }
+            if (all != null && all.size == hashCap.toInt()) {
+                sha = sha256Hex(all)
+            } else {
+                omitted = true
+            }
+        } else {
+            omitted = true
+        }
+        return FileMeta(stat.sizeBytes, stat.mtimeEpochMillis, probe.mimeType, probe.isText, sha, omitted)
     }
 
     data class FileMeta(
@@ -196,6 +437,7 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
     ): File {
+        if (isSaf(scopeId)) return safRealFileFor(scopeId, relativePath)
         val fsp = FileScopePath(scopeId, relativePath)
         val real = resolveFileScopePath(fsp, roots)
         if (!java.nio.file.Files
@@ -204,6 +446,26 @@ class FileManagerService(
             throw FileNotFoundException("not a regular file: ${fsp.toModelReference()}")
         }
         return real.toFile()
+    }
+
+    /**
+     * The app-private staged copy of a SAF tree document, for the share action only (HXA-057). A
+     * SAF document has no `java.io.File`; it is chunk-copied into the app-private [shareDir]
+     * (bounded by [SAF_SHARE_CAP]) and that file is handed to the FileProvider for a transient
+     * `content://` share URI — the real document id / `content://` URI is never rendered (doc 10).
+     * @throws FileNotFoundException when the document is missing or a directory.
+     * @throws SafTreeReadLimitExceeded when it exceeds [SAF_SHARE_CAP] (fail closed, not truncated).
+     */
+    private fun safRealFileFor(
+        scopeId: String,
+        relativePath: String,
+    ): File {
+        val access = verifySaf(scopeId, SafAccessMode.READ)
+        val staged = access.shareDir.resolve("share-${System.nanoTime()}.bin")
+        // copyToAppPrivate deletes its own partial target on the limit-exceeded failure; a missing
+        // document / revoked scope throws before any file is created, so no cleanup is needed here.
+        access.reader.copyToAppPrivate(scopeId, relativePath, staged, SAF_SHARE_CAP)
+        return staged.toFile()
     }
 
     // --- Mutations (rename / copy / move, explicit conflict, NO default overwrite) ---
@@ -261,13 +523,17 @@ class FileManagerService(
         overwrite: Boolean,
         move: Boolean,
     ): FileOpResult {
-        val region = WorkspaceLayout.regionOf(dstRel)
-        if (region == null || !WorkspaceLayout.isRegion(region)) {
-            return FileOpResult.Error("目标必须位于用户区域（input/work/output）内")
-        }
+        // HXA-057: SAF tree scopes are read-only in this milestone (the all-files precedent). The
+        // UI hides these actions for SAF sources; this guard is defense-in-depth so a direct call
+        // on a SAF scope fails closed rather than touching an external document (fail closed, never
+        // a false success).
+        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
         val src = FileScopePath(scopeId, srcRel)
         val dst = FileScopePath(scopeId, dstRel)
         return try {
+            val region =
+                requireNotNull(WorkspaceLayout.regionOf(dstRel)) { "目标必须位于用户区域（input/work/output）内" }
+            require(WorkspaceLayout.isRegion(region)) { "目标必须位于用户区域（input/work/output）内" }
             val out =
                 if (move) {
                     store.moveFile(
@@ -298,6 +564,7 @@ class FileManagerService(
         parentRel: String,
         name: String,
     ): FileOpResult {
+        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
         val rel = joinPath(parentRel, name)
         val region = WorkspaceLayout.regionOf(rel)
         return try {
@@ -339,6 +606,7 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
     ): FileOpResult {
+        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
         val fsp = FileScopePath(scopeId, relativePath)
         return try {
             store.moveToTrash(fsp)
@@ -629,6 +897,16 @@ class FileManagerService(
         const val DEFAULT_PREVIEW_BYTES = 64L * 1024
         const val MAX_IMAGE_PREVIEW_BYTES = 4L * 1024 * 1024
         const val MAX_HASH_BYTES = 64L * 1024 * 1024
+
+        // The SAF read backend's single-read cap (HXA-057): SAF documents are streamed in bounded
+        // windows, so previews/mime/hash read at most this many bytes (a larger SAF file is
+        // previewed as a prefix and its hash omitted, exactly as a too-large workspace file).
+        const val SAF_READ_CAP = 8L * 1024 * 1024
+
+        // App-private staging cap for the SAF share action (HXA-057): a SAF document larger than
+        // this is not share-staged (fail closed) — sharing an arbitrarily large external file to an
+        // app-private cache would be unbounded.
+        const val SAF_SHARE_CAP = 512L * 1024 * 1024
     }
 }
 
@@ -636,6 +914,7 @@ class FileManagerService(
 enum class FileSourceKind {
     WORKSPACE,
     ALL_FILES,
+    SAF,
 }
 
 /**

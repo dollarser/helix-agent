@@ -33,6 +33,18 @@ interface SessionDao {
         id: String,
         archivedAt: Long,
     ): Int
+
+    /**
+     * Binds a provider to a session that has NONE (HXA-056 share-draft sessions are created
+     * provider-free). Affected row count is 0 when the session is missing or ALREADY bound —
+     * a session that ever carried a provider is never re-bound by this query.
+     */
+    @Query("UPDATE sessions SET providerId = :providerId, modelId = :modelId WHERE id = :id AND providerId IS NULL")
+    fun bindProvider(
+        id: String,
+        providerId: String,
+        modelId: String,
+    ): Int
     // No delete query: sessions are archived, never deleted (doc 9.1). Deleting would cascade
     // the session's approval/execution audit rows, which must remain durable.
 }

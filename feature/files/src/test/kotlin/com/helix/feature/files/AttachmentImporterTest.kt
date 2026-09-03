@@ -107,15 +107,17 @@ class AttachmentImporterTest {
     }
 
     @Test
-    fun aBinaryImageIsUnsupportedOtherInThisMilestone() {
+    fun aBinaryImageIsAnImageAttachmentWithTheMagicDerivedType() {
         val root = inputDir()
-        // PNG magic: the probe detects image/png + BINARY; no IMAGE category exists until HXA-055.
+        // HXA-055: PNG magic → the probe detects image/png; the classification is the
+        // ImageAttachment branch with the BYTE-derived media type (the untrusted name
+        // claiming another type cannot change it).
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
         val result = attach(root, png, SafSourceMetadata(png.size.toLong(), null, "photo.png"))
 
         assertEquals(ImportStatus.COMPLETED, result.status)
         assertEquals(
-            AttachmentClassification.UnsupportedAttachment(AttachmentCategory.OTHER),
+            AttachmentClassification.ImageAttachment("image/png"),
             result.classification,
         )
     }

@@ -70,6 +70,21 @@ class SessionRepository(
         val updated = dao.archive(id, archivedAt)
         require(updated == 1) { "session not archivable: $id" }
     }
+
+    /**
+     * Binds a provider+model to a session created WITHOUT one (HXA-056 draft sessions).
+     * Fails closed (require) when the session is missing or already bound — an already-bound
+     * session's egress target is never swapped through this path.
+     */
+    fun bindProvider(
+        id: String,
+        providerId: String,
+        modelId: String,
+    ) {
+        require(providerId.isNotBlank() && modelId.isNotBlank()) { "provider and model must not be blank" }
+        val updated = dao.bindProvider(id, providerId, modelId)
+        require(updated == 1) { "session not bindable (missing or already bound): $id" }
+    }
     // No delete: sessions are archived, never deleted (doc 9.1 / entity contract). A hard
     // delete would cascade the session's approvals/executions audit rows, which must be
     // durable (AGENTS.md: every tool call goes through audit). A retention wipe, if ever

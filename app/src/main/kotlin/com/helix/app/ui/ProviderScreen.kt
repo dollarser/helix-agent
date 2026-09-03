@@ -96,6 +96,12 @@ fun ProviderManager(providerService: ProviderService) {
             ProviderRow(
                 row = row,
                 testing = testingId == row.id,
+                visionEnabled = row.capabilities?.vision == true,
+                onDeclareVision = { enabled ->
+                    // The user-visible manual declaration (ADR-0014): vision may come from a
+                    // real probe OR this explicit mark — the UI shows 「手动声明」 afterwards.
+                    scope.launch { providerService.declareVisionCapability(row.id, enabled) }
+                },
                 onTest = {
                     if (testingId == null) {
                         testingId = row.id
@@ -439,6 +445,8 @@ private fun ProviderRow(
     onTest: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    visionEnabled: Boolean,
+    onDeclareVision: (enabled: Boolean) -> Unit,
 ) {
     Column(
         modifier =
@@ -491,6 +499,12 @@ private fun ProviderRow(
             }
             TextButton(onClick = onEdit, modifier = Modifier.testTag("provider-edit")) {
                 Text("编辑")
+            }
+            TextButton(
+                onClick = { onDeclareVision(!visionEnabled) },
+                modifier = Modifier.testTag("provider-vision-declare"),
+            ) {
+                Text(if (visionEnabled) "取消视觉声明" else "声明视觉能力")
             }
             TextButton(
                 onClick = onDelete,

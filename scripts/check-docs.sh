@@ -105,9 +105,12 @@ for section in required_status_sections:
 # the status summary. Keep accepting the legacy per-HXA bullet form while old branches migrate.
 completed_match = re.search(r"^## Completed\n(.*?)(?=^## )", status, re.MULTILINE | re.DOTALL)
 completed_section = completed_match.group(1) if completed_match else ""
-completed_entries = re.findall(r"^\s*[-*]\s*M(\d+) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE)
+# M(\d+[A-Za-z]?) accepts lettered sub-milestones (M5A/M5B, roadmap §9A/§9B) in addition to the
+# plain numeric milestones; the letter suffix is cosmetic to the record contract (one record per
+# HXA either way).
+completed_entries = re.findall(r"^\s*[-*]\s*M(\d+[A-Za-z]?) / (HXA-\d{3}) 已完成", completed_section, re.MULTILINE)
 for milestone, start, end in re.findall(
-    r"^\|\s*M(\d+)\s*\|\s*HXA-(\d{3})～(?:HXA-)?(\d{3})\b",
+    r"^\|\s*M(\d+[A-Za-z]?)\s*\|\s*HXA-(\d{3})～(?:HXA-)?(\d{3})\b",
     completed_section,
     re.MULTILINE,
 ):

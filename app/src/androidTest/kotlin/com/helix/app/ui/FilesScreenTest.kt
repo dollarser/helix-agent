@@ -141,6 +141,10 @@ class FilesScreenTest {
         waitTag("files-preview-text")
 
         assertEquals("hello alpha", nodeText("files-preview-text"))
+        // The info panel (incl. the SHA-256 line) is assigned on the IO dispatcher AFTER the
+        // preview text (FilesScreen LaunchedEffect: previewText → fileInfo) — wait for it;
+        // reading the SHA row right after the text is a race (flake seen on loaded emulators).
+        waitTag("files-info-sha")
         // 哈希信息: a real SHA-256 (64 hex chars) is shown.
         val sha = nodeText("files-info-sha")
         assertTrue(

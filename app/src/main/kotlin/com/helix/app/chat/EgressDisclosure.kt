@@ -32,6 +32,7 @@ object EgressDisclosure {
         HIGH_SENSITIVE_NOTIFICATIONS("通知正文"),
         HIGH_SENSITIVE_LOCATION("精确位置"),
         HIGH_SENSITIVE_FILE_TEXT("文件正文"),
+        HIGH_SENSITIVE_IMAGE("图片内容"),
         HIGH_SENSITIVE_BROWSER("浏览器页面内容"),
         HIGH_SENSITIVE_ACCESSIBILITY("Accessibility 内容"),
     }
@@ -52,6 +53,20 @@ object EgressDisclosure {
             val sizeBytes: Long,
             val sha256: String,
             val kindLabel: String,
+        ) : OutgoingContent
+
+        /**
+         * An attached image (HXA-055): the NORMALIZED artifact facts — [sizeBytes] and [sha256]
+         * bind the re-encoded, EXIF-stripped bytes that leave the device; [mediaType] is the
+         * closed wire type; [width]x[height] the normalized dimensions.
+         */
+        data class Image(
+            val sourceLabel: String,
+            val sizeBytes: Long,
+            val sha256: String,
+            val mediaType: String,
+            val width: Int,
+            val height: Int,
         ) : OutgoingContent
     }
 
@@ -135,11 +150,38 @@ object EgressDisclosure {
                 scope = SCOPE_CURRENT_SESSION,
                 contentTruncated = false,
                 // ADR-0014 §5: the dialog shows every file's 名称/类型/大小 — in the same order
-                // the content sources list them (empty for a pure-text send).
+                // the content sources list them (empty for a pure-text send). HXA-055: images
+                // show their NORMALIZED size + bound hash (the bytes that leave the device).
                 attachments =
-                    contents
-                        .filterIsInstance<OutgoingContent.FileText>()
-                        .map { EgressAttachment(it.sourceLabel, it.sizeBytes, it.sha256, it.kindLabel) },
+                    contents.flatMap { content ->
+                        when (content) {
+                            is OutgoingContent.FileText -> {
+                                listOf(
+                                    EgressAttachment(
+                                        content.sourceLabel,
+                                        content.sizeBytes,
+                                        content.sha256,
+                                        content.kindLabel,
+                                    ),
+                                )
+                            }
+
+                            is OutgoingContent.Image -> {
+                                listOf(
+                                    EgressAttachment(
+                                        content.sourceLabel,
+                                        content.sizeBytes,
+                                        content.sha256,
+                                        "图片 · ${content.mediaType} · ${content.width}x${content.height}（归一化）",
+                                    ),
+                                )
+                            }
+
+                            else -> {
+                                emptyList()
+                            }
+                        }
+                    },
             )
         return if (summary.hasHighSensitive) Decision.Confirm(summary) else Decision.Proceed
     }
@@ -151,6 +193,7 @@ object EgressDisclosure {
             when (content) {
                 OutgoingContent.UserText -> set += DataCategory.REGULAR
                 is OutgoingContent.FileText -> set += DataCategory.HIGH_SENSITIVE_FILE_TEXT
+                is OutgoingContent.Image -> set += DataCategory.HIGH_SENSITIVE_IMAGE
             }
         }
         return if (set.isEmpty()) listOf(DataCategory.REGULAR) else set.toList()

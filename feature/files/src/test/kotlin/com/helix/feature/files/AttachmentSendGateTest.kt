@@ -61,20 +61,24 @@ class AttachmentSendGateTest {
         val decision =
             AttachmentSendGate.evaluate(listOf(staged("one", "a.txt"), staged("two", "b.md")), noCredentials)
         val ready = decision as AttachmentSendDecision.Ready
+        val texts = ready.attachments.filterIsInstance<AttachmentMaterialization.Text>()
         assertEquals(2, ready.attachments.size)
-        assertEquals("a.txt", ready.attachments[0].fileName)
-        assertEquals(TextAttachmentKind.TXT, ready.attachments[0].kind)
-        assertEquals("b.md", ready.attachments[1].fileName)
-        assertEquals(TextAttachmentKind.MARKDOWN, ready.attachments[1].kind)
+        assertEquals(2, texts.size)
+        assertEquals("a.txt", texts[0].fileName)
+        assertEquals(TextAttachmentKind.TXT, texts[0].kind)
+        assertEquals("b.md", texts[1].fileName)
+        assertEquals(TextAttachmentKind.MARKDOWN, texts[1].kind)
     }
 
     @Test
     fun anUnsupportedAttachmentBlocksTheSendWithItsClosedCategory() {
-        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+        // A ZIP-magic binary (a .docx is detected as zip) is the closed OTHER category — a
+        // magic-confirmed image is NOT unsupported anymore (it is the ImageAttachment branch).
+        val zip = byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x00, 0x00)
         val decision =
-            AttachmentSendGate.evaluate(listOf(staged("ok", "a.txt"), stagedBytes(png, "p.png")), noCredentials)
+            AttachmentSendGate.evaluate(listOf(staged("ok", "a.txt"), stagedBytes(zip, "p.zip")), noCredentials)
 
-        assertEquals(AttachmentSendDecision.UnsupportedType("p.png", AttachmentCategory.OTHER), decision)
+        assertEquals(AttachmentSendDecision.UnsupportedType("p.zip", AttachmentCategory.OTHER), decision)
     }
 
     @Test
@@ -133,19 +137,106 @@ class AttachmentSendGateTest {
         val decision = AttachmentSendGate.evaluate(listOf(staged(content, "big-clean.txt")), noCredentials)
 
         val ready = decision as AttachmentSendDecision.Ready
+        val text = ready.attachments.single() as AttachmentMaterialization.Text
         assertEquals(1, ready.attachments.size)
-        assertEquals("big-clean.txt", ready.attachments[0].fileName)
-        assertTrue(ready.attachments[0].truncated)
+        assertEquals("big-clean.txt", text.fileName)
+        assertTrue(text.truncated)
     }
 
     @Test
     fun theFirstProblemAttachmentInStagedOrderBlocks() {
-        // The image comes first, so even though a.txt is fine the block names the image.
+        // An image WITHOUT its normalized artifact (a staging normalization failure) comes
+        // first, so even though a.txt is fine the block names the image — fail closed.
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
         val decision =
             AttachmentSendGate.evaluate(listOf(stagedBytes(png, "img.png"), staged("ok", "a.txt")), noCredentials)
 
-        assertEquals(AttachmentSendDecision.UnsupportedType("img.png", AttachmentCategory.OTHER), decision)
+        assertEquals(AttachmentSendDecision.SnapshotBroken("img.png", SnapshotKind.MISSING), decision)
+    }
+
+    @Test
+    fun anImageWithItsVerifiedNormalizedArtifactIsReadyWithTheNormalizedFacts() {
+        // HXA-055: the raw PNG verifies against its bound snapshot AND the normalized JPEG
+        // verifies against ITS bound snapshot — the Ready branch carries the NORMALIZED
+        // facts (hash/size/dimensions), which is what the message binds and the wire carries.
+        val png = pngMagic()
+        val normalized = "normalized-jpeg-bytes".toByteArray()
+        val normalizedFile = tmp.root.toPath().resolve("normalized.jpg")
+        Files.write(normalizedFile, normalized)
+        val entry =
+            StagedAttachment(
+                fileName = "img.png",
+                boundSha256 = sha(png),
+                file = writeBytes(png, "raw.png"),
+                normalizedFile = normalizedFile,
+                normalizedSha256 = sha(normalized),
+                mediaType = "image/jpeg",
+                normalizedWidth = 512,
+                normalizedHeight = 384,
+            )
+        val decision = AttachmentSendGate.evaluate(listOf(entry), noCredentials)
+        val ready = decision as AttachmentSendDecision.Ready
+        val image = ready.attachments.single() as AttachmentMaterialization.Image
+        assertEquals("img.png", image.fileName)
+        assertEquals("image/jpeg", image.mediaType)
+        assertEquals(sha(normalized), image.sha256)
+        assertEquals(normalized.size.toLong(), image.sizeBytes)
+        assertEquals(512, image.width)
+        assertEquals(384, image.height)
+    }
+
+    @Test
+    fun aTamperedNormalizedArtifactFailsClosedAsSnapshotBroken() {
+        // The raw file is fine but the normalized bytes changed since staging: the bytes that
+        // would LEAVE the device no longer verify — block, exactly like a tampered text file.
+        val png = pngMagic()
+        val normalizedFile = tmp.root.toPath().resolve("normalized.jpg")
+        Files.write(normalizedFile, "normalized-v1".toByteArray())
+        val boundSha = sha("normalized-v1".toByteArray())
+        Files.write(normalizedFile, "normalized-v2-tampered".toByteArray())
+        val entry =
+            StagedAttachment(
+                fileName = "img.png",
+                boundSha256 = sha(png),
+                file = writeBytes(png, "raw.png"),
+                normalizedFile = normalizedFile,
+                normalizedSha256 = boundSha,
+                mediaType = "image/jpeg",
+                normalizedWidth = 1,
+                normalizedHeight = 1,
+            )
+        val decision = AttachmentSendGate.evaluate(listOf(entry), noCredentials)
+        assertEquals(AttachmentSendDecision.SnapshotBroken("img.png", SnapshotKind.TAMPERED), decision)
+    }
+
+    @Test
+    fun aMissingNormalizedArtifactFailsClosedAsSnapshotBroken() {
+        val png = pngMagic()
+        val entry =
+            StagedAttachment(
+                fileName = "img.png",
+                boundSha256 = sha(png),
+                file = writeBytes(png, "raw.png"),
+                normalizedFile = tmp.root.toPath().resolve("absent-normalized.jpg"),
+                normalizedSha256 = sha("x".toByteArray()),
+                mediaType = "image/jpeg",
+                normalizedWidth = 1,
+                normalizedHeight = 1,
+            )
+        val decision = AttachmentSendGate.evaluate(listOf(entry), noCredentials)
+        assertEquals(AttachmentSendDecision.SnapshotBroken("img.png", SnapshotKind.MISSING), decision)
+    }
+
+    /** The 8-byte PNG magic — enough for the probe's magic table to confirm image/png. */
+    private fun pngMagic() = byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+
+    private fun writeBytes(
+        bytes: ByteArray,
+        name: String,
+    ): java.nio.file.Path {
+        val file = tmp.root.toPath().resolve(name)
+        Files.write(file, bytes)
+        return file
     }
 
     @Test

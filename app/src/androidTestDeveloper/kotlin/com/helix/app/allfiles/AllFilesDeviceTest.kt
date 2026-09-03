@@ -1,9 +1,11 @@
 package com.helix.app.allfiles
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.core.app.ApplicationProvider
@@ -70,7 +72,13 @@ class AllFilesDeviceTest {
         // grant); resolution must then track the LIVE system grant exactly.
         AllFilesModule.enableRoot("download")
         val resolved = AllFilesModule.resolveScopeRoot(downloadScopeId())
-        if (Environment.isExternalStorageManager()) {
+        if (Build.VERSION.SDK_INT < 30) {
+            // `Environment.isExternalStorageManager` does not exist below API 30 (calling it
+            // throws NoSuchMethodError); MANAGE_EXTERNAL_FILES is structurally absent there,
+            // so the probe is false and NOTHING resolves — the same fail-closed contract as
+            // the un-granted case.
+            assertNull("API < 30: the grant cannot exist, so a recorded root must NOT resolve", resolved)
+        } else if (Environment.isExternalStorageManager()) {
             assertNotNull("granted: an enabled root must resolve to a real path", resolved)
             assertTrue(
                 "the resolved root must live under public storage",
@@ -118,9 +126,10 @@ class AllFilesDeviceTest {
     @Test
     fun anEnabledRootResolvesAndStaysContainedWithinTheGrant() {
         Assume.assumeTrue(
-            "the happy path needs the live grant (the run harness grants it via appops); " +
-                "fail-closed branches are proven unconditionally by the other tests",
-            Environment.isExternalStorageManager(),
+            "the happy path needs the API 30+ grant (the run harness grants it via appops); " +
+                "the SDK check guards the call itself — the method is absent below API 30 — " +
+                "and fail-closed branches are proven unconditionally by the other tests",
+            Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager(),
         )
         AllFilesModule.enableRoot("download")
         val root = AllFilesModule.resolveScopeRoot(downloadScopeId())
@@ -144,7 +153,18 @@ class AllFilesDeviceTest {
         // The honest explanation is always present — it never claims "the whole phone".
         composeRule.onNodeWithTag("allfiles-explanation").assertIsDisplayed()
         // The live system-state text mirrors the real platform (re-read from the capability center).
-        if (Environment.isExternalStorageManager()) {
+        if (Build.VERSION.SDK_INT < 30) {
+            // API < 30: the grant does not exist on the platform — the screen reports the
+            // state as unavailable and offers no settings jump (there is no settings screen
+            // for a permission the system does not have).
+            composeRule
+                .onNodeWithText("系统状态：此系统/版本不提供（API 低于 30）")
+                .assertIsDisplayed()
+            assertTrue(
+                "no settings jump below API 30 (there is no screen to jump to)",
+                composeRule.onAllNodesWithTag("allfiles-open-settings").fetchSemanticsNodes().isEmpty(),
+            )
+        } else if (Environment.isExternalStorageManager()) {
             composeRule.onNodeWithText("系统状态：已授权").assertIsDisplayed()
         } else {
             composeRule.onNodeWithText("系统状态：未授权").assertIsDisplayed()

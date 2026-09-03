@@ -371,6 +371,50 @@ class ProviderService(
         bindings.pruneTo(referenced)
     }
 
+    /**
+     * The parsed capability snapshot of one persisted provider (HXA-055): [ProviderCapabilities]
+     * or null when the stored snapshot is missing/corrupt — a NULL is read by the caller as
+     * "no confirmed capability" (fail closed: the send path blocks, the probe re-establishes).
+     */
+    @Suppress("SwallowedException") // an unparseable snapshot IS the null outcome (fail closed)
+    suspend fun capabilitiesFor(providerId: String): ProviderCapabilities? =
+        runCatching {
+            ProviderCapabilities.parse(
+                storage.providerConfigs.resolve(providerId).capabilitySnapshot,
+            )
+        }.getOrNull()
+
+    /**
+     * The user-visible manual vision declaration (HXA-0014 §4 / ADR-0014: vision "must come from
+     * a real probe or a user-visible manual configuration"): flips [enabled] on the stored
+     * snapshot and marks the source [CapabilitySource.MANUAL] so the UI shows 「手动声明」. A
+     * re-run connection test replaces the whole snapshot (the probe result wins over the
+     * manual mark — the probe is the stronger evidence).
+     */
+    suspend fun declareVisionCapability(
+        providerId: String,
+        enabled: Boolean,
+    ) {
+        val row = storage.providerConfigs.resolve(providerId)
+        val current =
+            runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()
+                ?: ProviderCapabilities.parse(UNTESTED_SNAPSHOT)
+        val declared = current.copy(vision = enabled).withManualSource()
+        storage.providerConfigs.overwrite(
+            ProviderConfigSpec(
+                id = row.id,
+                displayName = row.displayName,
+                protocol = ProviderProtocol.parse(row.protocol),
+                endpoint = row.endpoint,
+                model = row.model,
+                headersJson = row.headersJson,
+                secretAlias = row.secretAlias,
+                capabilitySnapshot = ProviderCapabilities.toJsonString(declared),
+            ),
+        )
+        refresh()
+    }
+
     private companion object {
         /**
          * The conservative all-false MANUAL snapshot stored for a provider that

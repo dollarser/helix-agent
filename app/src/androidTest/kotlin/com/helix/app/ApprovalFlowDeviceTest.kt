@@ -3,6 +3,8 @@ package com.helix.app
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.approval.ApprovalCancelledException
+import com.helix.app.chat.ToolTimelineRow
+import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
@@ -22,6 +24,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -67,6 +70,21 @@ class ApprovalFlowDeviceTest {
     fun setUp() {
         val app = ApplicationProvider.getApplicationContext<android.app.Application>()
         container = (app as HelixApplication).appContainer
+        // Seed the session row BEFORE opening it (the test seeds turns per-test, but the
+        // session itself must exist when it is opened), and open it: since HXA-048 the
+        // chat timeline is scoped to the OPEN session, and a different session can be
+        // left open by other test classes (the app process survives across test classes
+        // within one instrumentation run). Without this, the live pending-card rows are
+        // filtered out of every `screen.value.toolTimeline` read here — order-dependent
+        // and invisible in isolated runs.
+        val now = System.currentTimeMillis()
+        if (container.storage.sessions
+                .list()
+                .none { it.id == sessionId }
+        ) {
+            container.storage.sessions.create(sessionId, "flow session", null, null, now)
+        }
+        container.chatService.openSession(sessionId)
         if (container.toolPipeline.registry.resolveLatest(toolName) == null) {
             descriptor =
                 ToolDescriptor(
@@ -103,6 +121,38 @@ class ApprovalFlowDeviceTest {
             descriptor = container.toolPipeline.registry.resolveLatest(toolName)!!
         }
     }
+
+    @After
+    fun settleAbandonedApprovals() {
+        // Backstop: a test that died mid-approval (any assertion before its deny/approve)
+        // leaves its dispatch BLOCKED in the broker, holding an EXCLUSIVE scheduler slot
+        // (every non-read call is a full barrier) for the process lifetime — every later
+        // dispatch in this process would then wait on admission forever (no approval
+        // record, no card: the "no pending approval record" cascade seen in the full
+        // developer suite). Cancel any approval still pending on this class's seeded
+        // session and wait for its dispatch to settle (CANCELLED) so the slot is free
+        // before the next test starts.
+        pendingApprovalIdsOn(sessionId).forEach { container.toolPipeline.broker.cancel(it) }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
+            Thread.sleep(50)
+        }
+    }
+
+    /** The approval ids still pending (AWAITING_APPROVAL calls) on this class's seeded session. */
+    private fun pendingApprovalIdsOn(sessionId: String): List<String> =
+        container.storage.turns
+            .listBySession(sessionId)
+            .flatMap { turn ->
+                container.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .filter { it.state == ToolCallState.AWAITING_APPROVAL.name }
+                    .mapNotNull {
+                        container.storage.approvals
+                            .byToolCall(it.callId)
+                            ?.id
+                    }
+            }
 
     private fun args() = buildJsonObject { put("path", marker) }
 
@@ -179,47 +229,76 @@ class ApprovalFlowDeviceTest {
         }
     }
 
+    /**
+     * Polls the storage-backed approval record — the source of truth for the pending
+     * decision — until the broker has created it. The old UI-timeline probe read the
+     * card off `screen.value.toolTimeline`, which is scoped to the open session (HXA-048)
+     * and refreshed asynchronously: when another test class left a different session open,
+     * the card row was filtered out and this timed out (the order-dependent "no pending
+     * card" flake). The record exists the moment the broker starts waiting (before the
+     * card is even published) and is independent of UI state.
+     */
     private fun approvalIdOf(toolCallId: String): String {
+        val deadline = System.currentTimeMillis() + 15_000
+        while (System.currentTimeMillis() < deadline) {
+            container.storage.approvals
+                .byToolCall(toolCallId)
+                ?.let { return it.id }
+            Thread.sleep(50)
+        }
+        error("no pending approval record for $toolCallId")
+    }
+
+    /**
+     * The LIVE timeline row for [toolCallId], bounded-polling because `refreshScreen` runs
+     * on the chat service's work scope and the first refresh can lag a moment under
+     * full-suite load (the card attach itself is synchronous on the dispatch thread, but
+     * the screen STATE read here observes the refreshed copy).
+     */
+    private fun awaitTimelineRow(toolCallId: String): ToolTimelineRow {
         val deadline = System.currentTimeMillis() + 15_000
         while (System.currentTimeMillis() < deadline) {
             container.chatService.screen.value.toolTimeline
                 .firstOrNull { it.callId == toolCallId }
-                ?.card
-                ?.let { return it.approvalId }
-            Thread.sleep(100)
+                ?.let { return it }
+            Thread.sleep(50)
         }
-        error("no pending card for $toolCallId")
+        error("no timeline row for $toolCallId")
     }
 
     @Test
     fun profileSwitchDoesNotChangePendingDecisionOnDevice() {
-        // Dispatch under STANDARD (the consumer store is STANDARD-pinned); the real
-        // broker publishes the card + the PENDING record.
+        // Dispatch under the build's start profile; the real broker publishes the card +
+        // the PENDING record.
         val handle = dispatchOnThread("flow-call-1-$run", "flow-turn-1-$run")
         val approvalId = approvalIdOf("flow-call-1-$run")
         val pendingRecord = container.storage.approvals.resolve(approvalId)
         assertNull("the record must still be pending", pendingRecord.decision)
         val hashBefore = pendingRecord.bindingHash
 
-        // The consumer store refuses ADVANCED (HXA-028 / ADR-0005): the profile source
-        // cannot even move — and structurally the binding has no profile field, so the
-        // pending decision is invariant regardless.
-        assertThrows(IllegalArgumentException::class.java) {
+        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+            // Developer build: the switch SUCCEEDS — and must STILL not change the pending
+            // decision: the binding has no profile field and the card keeps the facts
+            // captured at request time (a later switch never rewrites a pending card).
             container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
+        } else {
+            // Consumer store refuses ADVANCED outright (HXA-028 / ADR-0005): the profile
+            // source cannot even move.
+            assertThrows(IllegalArgumentException::class.java) {
+                container.profileStore.switchTo(SafetyProfile.ADVANCED)
+            }
+            assertEquals(SafetyProfile.STANDARD, container.profileStore.profile)
         }
-        assertEquals(SafetyProfile.STANDARD, container.profileStore.profile)
 
-        // The pending record is untouched after the (refused) switch attempt: same hash,
-        // still pending.
+        // The pending record is untouched after the (refused or performed) switch:
+        // same hash, still pending.
         val recordAfter = container.storage.approvals.resolve(approvalId)
         assertEquals(hashBefore, recordAfter.bindingHash)
         assertNull(recordAfter.decision)
 
-        // The card on screen still shows the STANDARD facts captured at request time.
-        val card =
-            container.chatService.screen.value.toolTimeline
-                .first { it.callId == "flow-call-1-$run" }
-                .card
+        // The card on screen still shows the facts captured at request time.
+        val card = awaitTimelineRow("flow-call-1-$run").card
         assertNotNull("the card must be live (pending)", card)
 
         // Resolve with a denial: the decision lands on the exact record that was pending,
@@ -232,6 +311,12 @@ class ApprovalFlowDeviceTest {
         assertEquals(hashBefore, decided.bindingHash)
         val callRow = container.storage.toolCalls.resolve("flow-call-1-$run")
         assertEquals(ToolCallState.DENIED.name, callRow.state)
+
+        // A developer build now sits on ADVANCED: restore the default so later test
+        // classes in the same process see the same start state.
+        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE) {
+            container.profileStore.switchTo(SafetyProfile.STANDARD)
+        }
     }
 
     @Test

@@ -30,6 +30,14 @@ import com.helix.provider.openai.responses.ImageResolver as ResponsesImageResolv
 class ProviderFactory(
     private val credentials: CredentialLookup,
     private val wire: WireClient,
+    /**
+     * HXA-055: a SUPPLIER, not an eager instance — the production image source is built from
+     * container properties whose declaration order is not guaranteed to precede this factory
+     * (the workspace store resolves later in the container). The supplier is only invoked at
+     * stream time (when a message actually carries an image), long after the container is
+     * fully initialized.
+     */
+    private val imageSource: () -> VisionImageSource,
 ) {
     fun create(config: ProviderConfig): ModelProvider =
         when (config.protocol) {
@@ -38,30 +46,47 @@ class ProviderFactory(
             ProviderProtocol.ANTHROPIC_MESSAGES -> AnthropicProvider(config, credentials, wire, anthropicImages)
         }
 
+    // HXA-055: the three adapters keep their INDEPENDENT resolver types (no shared protocol
+    // code by design); they all delegate to the single app-side [imageSource], which resolves
+    // only session-message-bound, hash-verified artifacts and fails closed with a stable,
+    // path-free IAE — the encoders propagate it and the turn fails with an actionable error.
     private val chatImages =
-        ChatImageResolver {
-            unsupportedImage()
+        ChatImageResolver { image ->
+            val loaded = imageSource().load(image.ref)
+            ImagePayloads.chat(loaded)
         }
 
     private val responsesImages =
-        ResponsesImageResolver {
-            unsupportedImage()
+        ResponsesImageResolver { image ->
+            val loaded = imageSource().load(image.ref)
+            ImagePayloads.responses(loaded)
         }
 
     private val anthropicImages =
-        AnthropicImageResolver {
-            unsupportedImage()
+        AnthropicImageResolver { image ->
+            val loaded = imageSource().load(image.ref)
+            ImagePayloads.anthropic(loaded)
         }
 
     /**
-     * M2 chat input is text-only (file/image input arrives with a later
-     * milestone); the resolvers therefore fail fast and typed when — and only
-     * when — a request actually carries images, which the M2 send path cannot
-     * produce. This is a documented scope boundary, not a placeholder: the
-     * error names the missing capability.
+     * Adapts the shared [LoadedImage] to each protocol's independent payload type. Every
+     * encoder builds the vendor shape (data URL / `input_image` / `image` block) and takes the
+     * `media_type` from [com.helix.core.model.ImageReference.mediaType] — the payload is raw
+     * base64 only.
      */
-    private fun unsupportedImage(): Nothing =
-        error("images are not supported by the M2 chat UI; file/image input arrives with a later milestone")
+    private object ImagePayloads {
+        fun chat(loaded: LoadedImage) =
+            com.helix.provider.openai.chat.ImagePayload
+                .Base64(loaded.base64)
+
+        fun responses(loaded: LoadedImage) =
+            com.helix.provider.openai.responses.ImagePayload
+                .Base64(loaded.base64)
+
+        fun anthropic(loaded: LoadedImage) =
+            com.helix.provider.anthropic.ImagePayload
+                .Base64(loaded.base64)
+    }
 
     companion object {
         /**

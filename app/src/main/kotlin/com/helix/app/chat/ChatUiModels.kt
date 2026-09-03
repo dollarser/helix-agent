@@ -83,6 +83,12 @@ data class ChatScreenState(
     val retryTargetTurnId: String?,
     /** The open session's staged attachments (in-memory, local until an explicit send — ADR-0014 §5). */
     val pendingAttachments: List<PendingAttachmentUi> = emptyList(),
+    /**
+     * A shared-into-Helix TEXT draft to pre-fill the composer once (HXA-056, `ACTION_SEND`):
+     * set by [com.helix.app.chat.ChatService.acceptShareDraft], consumed one-shot by the UI
+     * after the text lands in the input box. Draft text is never sent automatically.
+     */
+    val shareDraftText: String? = null,
 ) {
     val isSending: Boolean
         get() = activeTurn?.let { !it.state.isTerminal } ?: false
