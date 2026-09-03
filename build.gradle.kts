@@ -159,7 +159,10 @@ val projectDependencies =
         ":runtime:proot-client" to listOf(":core:model"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
-        ":tools:android" to listOf(":core:model", ":core:policy"),
+        // HXA-064: the android. and clipboard. tools sit on the tools:framework contract, same
+        // as :tools:browser. The Context-backed port impl lives in this same module (there is no
+        // :feature:android), so the device tests drive the real ClipboardManager + intent build.
+        ":tools:android" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:automation" to listOf(":core:model", ":core:policy"),
         // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
         // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
@@ -255,6 +258,15 @@ subprojects {
             // modules) and carries instrumented tests against a lying in-APK ContentProvider.
             if (path == ":feature:files") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            // HXA-064: instrumented tests for the android.*/clipboard.* tools exercise the REAL
+            // Context-backed port (ClipboardManager round-trip, intent building, foreground
+            // gating) on device (verification-matrix row HXA-064).
+            if (path == ":tools:android") {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

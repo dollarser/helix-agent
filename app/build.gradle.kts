@@ -71,6 +71,10 @@ dependencies {
     // BrowserTools.registerAll directly (same direct-dep pattern as :tools:files). A distinct
     // :tools:browser group (root build.gradle.kts) keeps it from colliding with :feature:browser.
     implementation(project(":tools:browser"))
+    // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
+    // Their Context-backed port impl (AndroidSystemBridgeImpl) lives in this same module, so the
+    // app registers them against an instance built from the application Context.
+    implementation(project(":tools:android"))
     // HXA-036: the chat flow routes model-requested tool calls through the framework
     // dispatcher (validate→capability→policy→approval→execute→verify→audit) with the
     // storage-backed approval broker and audit sink; the approval card + audit page are

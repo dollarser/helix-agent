@@ -45,6 +45,8 @@ import com.helix.feature.files.SafImportPipeline
 import com.helix.provider.api.CredentialLookup
 import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
+import com.helix.tools.android.AndroidSystemBridgeImpl
+import com.helix.tools.android.AndroidSystemTools
 import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesArchiveTool
@@ -325,6 +327,16 @@ internal class DefaultAppContainer(
             toolRegistry,
             toolImplementations,
             BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
+        )
+        // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
+        // The production port (AndroidSystemBridgeImpl) is Context-backed: it builds the real
+        // Intent / ClipboardManager calls and gates clipboard read/write on visible-foreground.
+        // All four are L2 EXTERNAL_ACTION, so the L2 approval card previews the FULL arguments
+        // (e.g. the share text) before the user approves — that IS "分享输入先预览" (doc 02 §5.4).
+        AndroidSystemTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            AndroidSystemBridgeImpl(context),
         )
     }
 
