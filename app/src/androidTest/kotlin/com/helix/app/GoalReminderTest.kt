@@ -43,6 +43,18 @@ class GoalReminderTest {
         waitUntilWorkerProcessed(objective)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val expectedId = GoalReminderWorker.notificationIdFor("goal-reminder-test")
+        // The worker's evidence slot is set BEFORE it posts the notification (channel
+        // ensure + `notify` are NotificationManager service calls), so "processed" does
+        // not imply "posted yet": poll (bounded) instead of asserting immediately — under
+        // dual-simulator concurrent full-suite load the post landed late once and a plain
+        // assert caught exactly this window.
+        val postedDeadline = System.currentTimeMillis() + 15_000L
+        while (
+            !manager.activeNotifications.any { it.id == expectedId } &&
+            System.currentTimeMillis() < postedDeadline
+        ) {
+            Thread.sleep(100)
+        }
         assertTrue(
             "reminder notification expected after the worker ran",
             manager.activeNotifications.any { it.id == expectedId },
@@ -89,12 +101,17 @@ class GoalReminderTest {
         )
     }
 
-    /** Polls the worker evidence slot until it reports [expectedObjective] (up to 120s). */
+    /**
+     * Polls the worker evidence slot until it reports [expectedObjective]. The bound is 300s
+     * (was 120s): the worker runs INSIDE the app process, which is heavily loaded during the
+     * concurrent full device suite, and WorkManager startup was observed to exceed 120s once
+     * under dual-simulator full-load (one-off flake, green in isolated re-runs).
+     */
     private fun waitUntilWorkerProcessed(expectedObjective: String) {
-        val deadline = System.currentTimeMillis() + 120_000L
+        val deadline = System.currentTimeMillis() + 300_000L
         while (GoalReminderWorker.lastProcessedObjective.get() != expectedObjective) {
             assertTrue(
-                "reminder worker did not process '$expectedObjective' within 120s",
+                "reminder worker did not process '$expectedObjective' within 300s",
                 System.currentTimeMillis() < deadline,
             )
             Thread.sleep(1_000L)

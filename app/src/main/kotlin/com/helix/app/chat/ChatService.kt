@@ -1976,8 +1976,26 @@ class ChatService(
     // Screen state
     // --------------------------------------------------------------------------------
 
+    /**
+     * The open-session id this refresh should render, or null for the session list. The open
+     * id is IN-MEMORY (never persisted), so it can name a session row that does not exist at
+     * refresh time: opened by id before the row was persisted, or orphaned by a storage loss
+     * (sessions are archived, never deleted — a future retention wipe, if ever authorized,
+     * would orphan it too). Such a refresh must degrade to the session list, never throw on
+     * this work-scope coroutine — an uncaught exception there kills the whole app process.
+     */
+    private fun resolvableOpenSessionId(): String? {
+        val id = openSessionId ?: return null
+        return if (runCatching { storage.sessions.resolve(id) }.isSuccess) {
+            id
+        } else {
+            openSessionId = null
+            null
+        }
+    }
+
     private fun refreshScreen() {
-        val sessionId = openSessionId
+        val sessionId = resolvableOpenSessionId()
         val screen = _screen.value
         val messages = messagesFor(sessionId, screen)
         val badge = sessionId?.let { badgeFor(it) } ?: screen.badge

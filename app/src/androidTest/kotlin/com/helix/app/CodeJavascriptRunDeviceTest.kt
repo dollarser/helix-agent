@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -74,7 +75,53 @@ class CodeJavascriptRunDeviceTest {
             "code.javascript.run must be registered by AppContainer in the consumer build",
             container.toolPipeline.registry.resolveLatest(toolName),
         )
+        // Seed the session row BEFORE opening it (turns are seeded per-test, but the
+        // session must exist when it is opened), and open it: since HXA-048 the chat
+        // timeline is scoped to the OPEN session, and a different session can be left
+        // open by other test classes (the app process survives across test classes within
+        // one instrumentation run). Without this, the pending-card rows are filtered out
+        // of `screen.value.toolTimeline`.
+        val now = System.currentTimeMillis()
+        if (container.storage.sessions
+                .list()
+                .none { it.id == sessionId }
+        ) {
+            container.storage.sessions.create(sessionId, "js session", null, null, now)
+        }
+        container.chatService.openSession(sessionId)
     }
+
+    @After
+    fun settleAbandonedApprovals() {
+        // Backstop: a test that died mid-approval (any assertion before its approve/deny)
+        // leaves its dispatch BLOCKED in the broker, holding an EXCLUSIVE scheduler slot
+        // (every non-read call is a full barrier — `code.javascript.run` on lane:quickjs
+        // is exclusive too) for the process lifetime — every later dispatch in this
+        // process would then wait on admission forever (no approval record: the "no
+        // pending approval record" cascade seen in the full developer suite). Cancel any
+        // approval still pending on this class's seeded session and wait for its dispatch
+        // to settle (CANCELLED) so the slot is free before the next test starts.
+        pendingApprovalIdsOn(sessionId).forEach { container.toolPipeline.broker.cancel(it) }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
+            Thread.sleep(50)
+        }
+    }
+
+    /** The approval ids still pending (AWAITING_APPROVAL calls) on this class's seeded session. */
+    private fun pendingApprovalIdsOn(sessionId: String): List<String> =
+        container.storage.turns
+            .listBySession(sessionId)
+            .flatMap { turn ->
+                container.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .filter { it.state == ToolCallState.AWAITING_APPROVAL.name }
+                    .mapNotNull {
+                        container.storage.approvals
+                            .byToolCall(it.callId)
+                            ?.id
+                    }
+            }
 
     // ------------------------------------------------------------------ pipeline helpers
 
@@ -146,17 +193,24 @@ class CodeJavascriptRunDeviceTest {
         }
     }
 
-    /** Waits for the call's live approval card and returns its approval id. */
+    /**
+     * Waits for the call's approval record in storage (the source of truth for the pending
+     * decision) and returns its id. The old UI-timeline probe read the card off
+     * `screen.value.toolTimeline`, which is scoped to the open session (HXA-048) and
+     * refreshed asynchronously: when another test class left a different session open, the
+     * card row was filtered out and this timed out (the order-dependent "no pending card"
+     * flake). The record exists the moment the broker starts waiting and is independent of
+     * UI state.
+     */
     private fun approvalIdOf(toolCallId: String): String {
         val deadline = System.currentTimeMillis() + 60_000
         while (System.currentTimeMillis() < deadline) {
-            container.chatService.screen.value.toolTimeline
-                .firstOrNull { it.callId == toolCallId }
-                ?.card
-                ?.let { return it.approvalId }
-            Thread.sleep(100)
+            container.storage.approvals
+                .byToolCall(toolCallId)
+                ?.let { return it.id }
+            Thread.sleep(50)
         }
-        error("no pending card for $toolCallId")
+        error("no pending approval record for $toolCallId")
     }
 
     /** The single tool-dispatch audit row for a call (the dispatcher is the only emitter). */
