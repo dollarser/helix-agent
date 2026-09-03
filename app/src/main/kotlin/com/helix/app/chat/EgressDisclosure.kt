@@ -8,11 +8,12 @@ import com.helix.core.model.ProviderResidence
  *
  * Every outgoing provider request carries an auditable [EgressSummary]
  * (provider id, protocol, canonical origin, residence, data categories,
- * scope). M2 scope: the chat send path's content sources are user-typed text
- * only ([OutgoingContent.UserText]) — high-sensitivity sources (file bodies,
- * contacts, …) enter context in later milestones; the gate mechanism below is
- * complete and exercised by tests for the categories it must handle, and the
- * M2 input honestly produces only [DataCategory.REGULAR].
+ * scope). The chat send path's content sources are user-typed text
+ * ([OutgoingContent.UserText]) and — since HXA-049 (ADR-0014) — staged chat
+ * attachments ([OutgoingContent.FileText], which force high-sensitivity
+ * confirmation); the other high-sensitivity sources (contacts, …) enter
+ * context in later milestones. The gate mechanism below is complete and
+ * exercised by tests for the categories it must handle.
  *
  * What is NOT here (HXA-033, later milestone): stored Advanced rules with
  * 1h/24h/7d/30d expiry, clock-rewind fail-closed re-confirmation, and the
@@ -35,16 +36,35 @@ object EgressDisclosure {
         HIGH_SENSITIVE_ACCESSIBILITY("Accessibility 内容"),
     }
 
-    /** One piece of outgoing content. M2 input builds only [UserText]. */
+    /** One piece of outgoing content. */
     sealed interface OutgoingContent {
         /** Text typed by the user in the chat input. */
         data object UserText : OutgoingContent
 
-        /** A file's textual body (later milestone input source). */
+        /**
+         * A file's textual body (HXA-049: chat attachments). Carries the materialized file's
+         * display facts so the disclosure dialog can show 名称/类型/大小 (ADR-0014 §5): [sizeBytes]
+         * is the full file size, [sha256] the hash of the full content, [kindLabel] a short
+         * user-visible label of the first-batch text kind.
+         */
         data class FileText(
             val sourceLabel: String,
+            val sizeBytes: Long,
+            val sha256: String,
+            val kindLabel: String,
         ) : OutgoingContent
     }
+
+    /**
+     * One attachment's display facts in the [EgressSummary] (ADR-0014 §5: the dialog shows the
+     * attachment 名称 / 类型 / 大小, in the same order the content sources list the files).
+     */
+    data class EgressAttachment(
+        val fileName: String,
+        val sizeBytes: Long,
+        val sha256: String,
+        val kindLabel: String,
+    )
 
     /** The auditable summary shown in the disclosure dialog (doc 10 section 2.6). */
     data class EgressSummary(
@@ -56,6 +76,8 @@ object EgressDisclosure {
         val categories: List<DataCategory>,
         val scope: String,
         val contentTruncated: Boolean,
+        /** The send's attachments in content order (empty for a pure-text send). */
+        val attachments: List<EgressAttachment> = emptyList(),
     ) {
         val hasHighSensitive: Boolean
             get() = categories.any { it != DataCategory.REGULAR }
@@ -112,6 +134,12 @@ object EgressDisclosure {
                 categories = categories,
                 scope = SCOPE_CURRENT_SESSION,
                 contentTruncated = false,
+                // ADR-0014 §5: the dialog shows every file's 名称/类型/大小 — in the same order
+                // the content sources list them (empty for a pure-text send).
+                attachments =
+                    contents
+                        .filterIsInstance<OutgoingContent.FileText>()
+                        .map { EgressAttachment(it.sourceLabel, it.sizeBytes, it.sha256, it.kindLabel) },
             )
         return if (summary.hasHighSensitive) Decision.Confirm(summary) else Decision.Proceed
     }

@@ -15,6 +15,7 @@ import com.helix.core.storage.dao.GoalRunDao
 import com.helix.core.storage.dao.InteractionReceiptDao
 import com.helix.core.storage.dao.McpCapabilityDao
 import com.helix.core.storage.dao.McpServerDao
+import com.helix.core.storage.dao.MessageAttachmentDao
 import com.helix.core.storage.dao.MessageDao
 import com.helix.core.storage.dao.ModelCallDao
 import com.helix.core.storage.dao.PlanDao
@@ -37,6 +38,7 @@ import com.helix.core.storage.entity.GoalRunEntity
 import com.helix.core.storage.entity.InteractionReceiptEntity
 import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
+import com.helix.core.storage.entity.MessageAttachmentEntity
 import com.helix.core.storage.entity.MessageEntity
 import com.helix.core.storage.entity.ModelCallEntity
 import com.helix.core.storage.entity.PlanEntity
@@ -51,9 +53,9 @@ import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
 
 /**
- * Helix local database (architecture doc 9). Schema version 3 (HXA-037) holds all base tables
- * plus the plan/goal tables of doc section 9.1 (v1, HXA-014) and the structured-question
- * receipt table (v3, doc 11 section 4):
+ * Helix local database (architecture doc 9). Schema version 4 (HXA-049) holds all base tables
+ * plus the plan/goal tables of doc section 9.1 (v1, HXA-014), the structured-question receipt
+ * table (v3, doc 11 section 4), and the message-attachment relation (v4, ADR-0014):
  *
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
@@ -69,6 +71,7 @@ import com.helix.core.storage.entity.TurnEntity
         [
             SessionEntity::class,
             MessageEntity::class,
+            MessageAttachmentEntity::class,
             TurnEntity::class,
             ModelCallEntity::class,
             ToolCallEntity::class,
@@ -91,14 +94,16 @@ import com.helix.core.storage.entity.TurnEntity
             CapabilityGrantEntity::class,
             ExecutionTargetEntity::class,
         ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
-@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 22 doc 9.1 tables
+@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 23 doc 9.1 tables
 abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
     abstract fun messageDao(): MessageDao
+
+    abstract fun messageAttachmentDao(): MessageAttachmentDao
 
     abstract fun turnDao(): TurnDao
 
@@ -219,6 +224,41 @@ abstract class HelixDatabase : RoomDatabase() {
                             "`answerHash` TEXT, " +
                             "`answeredAt` INTEGER, " +
                             "PRIMARY KEY(`id`))",
+                    )
+                }
+            }
+
+        /**
+         * v3 -> v4 (HXA-049, ADR-0014: message-attachment relation):
+         * adds the `message_attachments` table — the ordered relation from a message to the
+         * immutable Artifact snapshot it was bound to (`boundSha256` for fail-closed re-verification
+         * on send, confirm and retry). Additive and empty on upgrade, mirroring the canonical Room v4 DDL
+         * for [MessageAttachmentEntity]; both FKs (message, artifact) cascade and the
+         * (messageId, ordinal) index is unique.
+         */
+        val MIGRATION_3_4 =
+            object : Migration(3, 4) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `message_attachments` (" +
+                            "`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`messageId` TEXT NOT NULL, " +
+                            "`artifactId` TEXT NOT NULL, " +
+                            "`ordinal` INTEGER NOT NULL, " +
+                            "`purpose` TEXT NOT NULL, " +
+                            "`boundSha256` TEXT NOT NULL, " +
+                            "FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                            "FOREIGN KEY(`artifactId`) REFERENCES `artifacts`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS `index_message_attachments_messageId_ordinal` " +
+                            "ON `message_attachments` (`messageId`, `ordinal`)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_message_attachments_artifactId` " +
+                            "ON `message_attachments` (`artifactId`)",
                     )
                 }
             }

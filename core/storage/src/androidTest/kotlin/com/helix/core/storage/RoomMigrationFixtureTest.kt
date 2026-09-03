@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v3ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v4ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -44,9 +44,10 @@ import java.io.File
  * (doc 9.2: migrations require a schema export and an instrumentation test). The v1 -> v2
  * migration (HXA-034: approvals gain `expiresAt`, `argsHash` becomes `bindingHash`) is
  * covered by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals], which now runs
- * through the FULL production chain (v1 -> v2 -> v3) because Room only opens a v1 file
+ * through the FULL production chain (v1 -> v2 -> v3 -> v4) because Room only opens a v1 file
  * when every step up to the live version is registered. The v2 -> v3 step (HXA-037: adds
- * `interaction_receipts`) is exercised by the same chain.
+ * `interaction_receipts`) and the v3 -> v4 step (HXA-049: adds `message_attachments`) are
+ * exercised by the same chain.
  */
 @RunWith(AndroidJUnit4::class)
 class RoomMigrationFixtureTest {
@@ -91,8 +92,17 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v3ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v3-export.db", 3)
+    fun v4ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v4 missing from assets: ${versions?.toList()}",
+            versions?.contains("4.json") == true,
+        )
+    }
+
+    @Test
+    fun v4ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v4-export.db", 4)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -100,7 +110,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v3 schema must match the exported v3 schema",
+                "code-built v4 schema must match the exported v4 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -141,8 +151,11 @@ class RoomMigrationFixtureTest {
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
-                .addMigrations(HelixDatabase.MIGRATION_1_2, HelixDatabase.MIGRATION_2_3)
-                .build()
+                .addMigrations(
+                    HelixDatabase.MIGRATION_1_2,
+                    HelixDatabase.MIGRATION_2_3,
+                    HelixDatabase.MIGRATION_3_4,
+                ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
             val columns =
@@ -180,6 +193,12 @@ class RoomMigrationFixtureTest {
             assertTrue(
                 "v3 upgrade must add interaction_receipts",
                 "interaction_receipts" in tables(sqlite),
+            )
+            // The 3 -> 4 step landed (HXA-049, ADR-0014): the live schema carries the
+            // message-attachment relation.
+            assertTrue(
+                "v4 upgrade must add message_attachments",
+                "message_attachments" in tables(sqlite),
             )
         } finally {
             roomDb.close()
@@ -667,6 +686,7 @@ class RoomMigrationFixtureTest {
             "capability_grants",
             "execution_targets",
             "interaction_receipts",
+            "message_attachments",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

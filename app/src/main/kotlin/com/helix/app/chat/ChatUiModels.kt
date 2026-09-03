@@ -51,6 +51,19 @@ data class TurnUi(
 )
 
 /**
+ * A staged (not-yet-sent) chat attachment's display facts only (ADR-0014 §5, HXA-049).
+ * [id] is the sanitized artifact id that addresses the staged entry for removal — it is
+ * never a filesystem path, and no real path ever appears in this type. Attachments stay
+ * local to the open session until an explicit send; staging never reaches the model.
+ */
+data class PendingAttachmentUi(
+    val id: String,
+    val fileName: String,
+    val sizeBytes: Long,
+    val isText: Boolean,
+)
+
+/**
  * The full observable chat screen (HXA-028). Everything here is either
  * persisted state (sessions/messages/turns) or a transient service fact
  * (the in-flight turn, a pending disclosure, a blocked reason) — never a
@@ -68,6 +81,8 @@ data class ChatScreenState(
     val blockedReason: String?,
     /** The newest FAILED turn of the open session — the retry button target (persisted state). */
     val retryTargetTurnId: String?,
+    /** The open session's staged attachments (in-memory, local until an explicit send — ADR-0014 §5). */
+    val pendingAttachments: List<PendingAttachmentUi> = emptyList(),
 ) {
     val isSending: Boolean
         get() = activeTurn?.let { !it.state.isTerminal } ?: false

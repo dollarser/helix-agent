@@ -18,6 +18,7 @@ import com.helix.core.policy.MintRejectionCode
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.mapping.StoredGoal
+import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -46,6 +47,52 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class RoomGuardAndConfigTablesTest {
     private lateinit var context: Context
+
+    @Test
+    fun v4MessageAttachmentsBindToMessageAndArtifactAndCascade() {
+        withStorage("msg-attach.db") { storage ->
+            val session = storage.sessions.create("session-attach", "attach session", null, null, 1L)
+            val body = "hello attachment\n"
+            val file = File(context.cacheDir, "attach-body.txt")
+            file.writeText(body)
+            val hash = FileContentStore.sha256Hex(body.toByteArray(Charsets.UTF_8))
+            val artifact =
+                storage.artifacts.register(
+                    "artifact-attach-1",
+                    session.id,
+                    "input/attachments/att-1/note.txt",
+                    "text/plain",
+                    file.length(),
+                    hash,
+                    file,
+                )
+            val message =
+                storage.messages.append("msg-attach-1", session.id, null, "USER", "TEXT", "see attachment")
+            storage.messageAttachments.bind(
+                message.id,
+                listOf(MessageAttachmentRepository.Binding(artifact.id, "REFERENCE", hash)),
+            )
+
+            val bound = storage.messageAttachments.listByMessage(message.id)
+            assertEquals(1, bound.size)
+            assertEquals(0, bound[0].ordinal)
+            assertEquals(artifact.id, bound[0].artifactId)
+            assertEquals("REFERENCE", bound[0].purpose)
+            assertEquals(hash, bound[0].boundSha256)
+
+            expectConstraintViolation("orphan message_attachments.artifactId must fail the FK") {
+                storage.messageAttachments.bind(
+                    message.id,
+                    listOf(MessageAttachmentRepository.Binding("artifact-does-not-exist", "REFERENCE", hash)),
+                )
+            }
+
+            // CASCADE: deleting the message removes its attachment bindings.
+            storage.database.openHelper.writableDatabase
+                .execSQL("DELETE FROM messages WHERE id = 'msg-attach-1'")
+            assertEquals(0, storage.messageAttachments.listByMessage(message.id).size)
+        }
+    }
 
     @Test
     fun v1OneTimeGuardsRejectRepeatedTransitions() {

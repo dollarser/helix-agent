@@ -20,6 +20,7 @@ import com.helix.core.storage.repository.GoalRunRepository
 import com.helix.core.storage.repository.InteractionReceiptRepository
 import com.helix.core.storage.repository.McpCapabilityRepository
 import com.helix.core.storage.repository.McpServerRepository
+import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.storage.repository.MessageRepository
 import com.helix.core.storage.repository.ModelCallRepository
 import com.helix.core.storage.repository.PlanRepository
@@ -48,6 +49,9 @@ class HelixStorage internal constructor(
 ) {
     val sessions: SessionRepository by lazy { SessionRepository(database.sessionDao()) }
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
+    val messageAttachments: MessageAttachmentRepository by lazy {
+        MessageAttachmentRepository(database.messageAttachmentDao())
+    }
     val turns: TurnRepository by lazy { TurnRepository(database.turnDao()) }
     val modelCalls: ModelCallRepository by lazy { ModelCallRepository(database.modelCallDao()) }
     val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao()) }
@@ -97,16 +101,17 @@ class HelixStorage internal constructor(
 
     companion object {
         /**
-         * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts).
-         * Both production entries register it: Room does NOT auto-discover migrations, so a
-         * missing registration is a startup crash on any device holding an older schema
-         * (`A migration from N to M is required`) — fresh installs never exercise it, which
-         * is exactly why this must be explicit and device-tested.
+         * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts,
+         * v3→v4 message attachments). Both production entries register it: Room does NOT
+         * auto-discover migrations, so a missing registration is a startup crash on any device
+         * holding an older schema (`A migration from N to M is required`) — fresh installs never
+         * exercise it, which is exactly why this must be explicit and device-tested.
          */
         private val ALL_MIGRATIONS: Array<Migration> =
             arrayOf(
                 HelixDatabase.MIGRATION_1_2,
                 HelixDatabase.MIGRATION_2_3,
+                HelixDatabase.MIGRATION_3_4,
             )
 
         fun create(context: Context): HelixStorage {

@@ -4,6 +4,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.MessageAttachmentRepository
 
 /** A bounded message that becomes model-visible only after its Room row commits. */
 internal data class TurnMessageDraft(
@@ -18,6 +19,7 @@ internal data class TurnStartSpec(
     val firstModelCallId: String,
     val providerSnapshot: String,
     val userText: String?,
+    val attachments: List<MessageAttachmentRepository.Binding> = emptyList(),
 )
 
 internal enum class BatchCallResolution {
@@ -265,15 +267,21 @@ internal class TurnCoordinator private constructor(
             storage.withTransaction {
                 var turn = storage.turns.start(spec.turnId, spec.sessionId, now)
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
-                if (spec.userText != null) {
-                    storage.messages.append(
-                        idGenerator(),
-                        spec.sessionId,
-                        spec.turnId,
-                        ModelRole.USER.name,
-                        ChatHistoryBuilder.KIND_TEXT,
-                        spec.userText,
-                    )
+                if (spec.userText != null || spec.attachments.isNotEmpty()) {
+                    val message =
+                        storage.messages.append(
+                            idGenerator(),
+                            spec.sessionId,
+                            spec.turnId,
+                            ModelRole.USER.name,
+                            ChatHistoryBuilder.KIND_TEXT,
+                            spec.userText.orEmpty(),
+                        )
+                    // An attachment-only send still needs a message row to own the bindings; the
+                    // bind pairs with the insert in this transaction (ADR-0014).
+                    if (spec.attachments.isNotEmpty()) {
+                        storage.messageAttachments.bind(message.id, spec.attachments)
+                    }
                 }
                 storage.modelCalls.append(
                     spec.firstModelCallId,

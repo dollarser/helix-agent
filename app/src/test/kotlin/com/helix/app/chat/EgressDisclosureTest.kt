@@ -26,18 +26,62 @@ class EgressDisclosureTest {
     @Test
     fun fileTextContentRequiresPerSendConfirmationWithFullSummary() {
         val decision =
-            EgressDisclosure.decide(
-                listOf(EgressDisclosure.OutgoingContent.FileText("note.txt")),
-                "看看这个文件",
-                target,
-            ) as EgressDisclosure.Decision.Confirm
+            EgressDisclosure.decide(listOf(fileText("note.txt", 12L, "纯文本")), "看看这个文件", target)
+                as EgressDisclosure.Decision.Confirm
         val summary = decision.summary
         assertEquals(listOf(EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT), summary.categories)
         assertEquals("prov_1", summary.providerId)
         assertEquals("https://api.openai.com", summary.origin)
         assertEquals(ProviderResidence.PUBLIC_CLOUD, summary.residence)
         assertEquals(EgressDisclosure.SCOPE_CURRENT_SESSION, summary.scope)
+        // ADR-0014 §5: the disclosure shows the file's 名称/类型/大小.
+        assertEquals(listOf(EgressDisclosure.EgressAttachment("note.txt", 12L, SHA, "纯文本")), summary.attachments)
     }
+
+    @Test
+    fun fileTextFactsAreCarriedIntoTheSummaryAttachmentsInContentOrder() {
+        val decision =
+            EgressDisclosure.decide(
+                listOf(
+                    EgressDisclosure.OutgoingContent.UserText,
+                    fileText("a.txt", 10L, "纯文本"),
+                    fileText("b.md", 2205L, "Markdown"),
+                ),
+                "看看",
+                target,
+            ) as EgressDisclosure.Decision.Confirm
+        assertEquals(
+            listOf(
+                EgressDisclosure.EgressAttachment("a.txt", 10L, SHA, "纯文本"),
+                EgressDisclosure.EgressAttachment("b.md", 2205L, SHA, "Markdown"),
+            ),
+            decision.summary.attachments,
+        )
+    }
+
+    @Test
+    fun aPureTextSendHasNoAttachmentsInTheSummary() {
+        // No regression: a send with no FileText source never carries attachment facts — the
+        // summary's attachments default to empty.
+        val summary =
+            EgressDisclosure.EgressSummary(
+                providerId = "prov_1",
+                providerName = "OpenAI",
+                protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                origin = "https://api.openai.com",
+                residence = ProviderResidence.PUBLIC_CLOUD,
+                categories = listOf(EgressDisclosure.DataCategory.REGULAR),
+                scope = EgressDisclosure.SCOPE_CURRENT_SESSION,
+                contentTruncated = false,
+            )
+        assertTrue(summary.attachments.isEmpty())
+    }
+
+    private fun fileText(
+        label: String,
+        sizeBytes: Long,
+        kindLabel: String,
+    ) = EgressDisclosure.OutgoingContent.FileText(label, sizeBytes, SHA, kindLabel)
 
     @Test
     fun mixedContentSurfacesEveryCategory() {
@@ -45,7 +89,7 @@ class EgressDisclosureTest {
             EgressDisclosure.categoriesFor(
                 listOf(
                     EgressDisclosure.OutgoingContent.UserText,
-                    EgressDisclosure.OutgoingContent.FileText("a"),
+                    fileText("a", 1L, "纯文本"),
                 ),
             )
         assertEquals(
@@ -105,6 +149,9 @@ class EgressDisclosureTest {
     }
 
     private companion object {
+        // The disclosure only displays the hash facts; a fixed 64-hex value is enough.
+        const val SHA = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
         /** "AKIA" + 16 uppercase alphanumerics; assembled from fragments (see the fixture comment above). */
         const val AKIA_FIXTURE = "AKIA" + "IOSFODNN7EXAMPLE"
 

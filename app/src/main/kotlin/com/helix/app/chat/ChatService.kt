@@ -11,6 +11,8 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
+import com.helix.core.model.AttachmentClassification
+import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.ExecutionTargetType
@@ -27,6 +29,17 @@ import com.helix.core.model.TurnState
 import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.core.workspace.FileScopePath
+import com.helix.feature.files.AttachmentClassifier
+import com.helix.feature.files.AttachmentImportResult
+import com.helix.feature.files.AttachmentMaterialization
+import com.helix.feature.files.AttachmentSendDecision
+import com.helix.feature.files.AttachmentSendGate
+import com.helix.feature.files.ImportRefusal
+import com.helix.feature.files.ImportStatus
+import com.helix.feature.files.SafCancelToken
+import com.helix.feature.files.StagedAttachment
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.CanonicalArgs
@@ -52,6 +65,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.jvm.Volatile
 
 /**
@@ -87,6 +102,7 @@ class ChatService(
     private val clock: Clock = SystemClock(),
     private val idGenerator: () -> String,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val attachmentStaging: AttachmentStagingSupport,
 ) {
     private val workScope = scope
 
@@ -111,6 +127,74 @@ class ChatService(
 
     @Volatile
     private var pendingSend: String? = null
+
+    /**
+     * ADR-0014 §5 (HXA-049): the egress TARGET the open [pendingSend]'s disclosure was
+     * approved against — the exact provider/origin the dialog showed. [confirmSendNow]
+     * re-derives the live target and REQUIRES the provider id and origin to be unchanged;
+     * a drifted target voids the old confirmation (blocked, re-send — the send must never
+     * leave through an origin the user did not approve). Cleared everywhere [pendingSend]
+     * is cleared.
+     */
+    @Volatile
+    private var pendingEgress: EgressDisclosure.EgressTarget? = null
+
+    /**
+     * ADR-0014 §5 (HXA-049): the EXACT set of staged attachments the open [pendingSend]'s
+     * disclosure enumerated — the ordered artifact ids of the staged snapshot the dialog was
+     * built from. [confirmSendNow] requires the CURRENT staged set to be IDENTICAL (same ids,
+     * same order) before it sends: a file staged after the dialog (even while it was up) or one
+     * removed since voids the old confirmation (blocked, re-send), so an attachment that was
+     * never shown in the dialog can never leave the device. Cleared everywhere [pendingEgress]
+     * is cleared.
+     */
+    @Volatile
+    private var pendingAttachmentIds: List<String> = emptyList()
+
+    /**
+     * HXA-049 (ADR-0014 §5): the open session's staged attachments — in memory, local until
+     * an EXPLICIT send. Staging (pick/import) never reaches the model.
+     * [StagedAttachmentEntry.file] is a REAL workspace path used ONLY for hashing /
+     * re-materialization inside this service — it never enters UI state, logs, audit or
+     * model context (the scope-relative [StagedAttachmentEntry.relativePath] is what does).
+     *
+     * Thread-safety: EVERY mutation is serialized on [stagedLock] (stage/remove/clear/send/
+     * confirm all run on the work-scope IO pool — a read-modify-write outside the lock could
+     * drop a concurrently staged file); the @Volatile keeps a single READ of the whole list
+     * atomic without the lock.
+     */
+    @Volatile
+    private var stagedAttachments: List<StagedAttachmentEntry> = emptyList()
+
+    /**
+     * Serializes every MUTATION of [stagedAttachments] (the staged-list writers race on the
+     * work-scope IO pool: stage append, remove, clear, the send/confirm clears). Single
+     * reads stay lock-free — [stagedAttachments] is @Volatile, so one read sees exactly one
+     * whole list.
+     */
+    private val stagedLock = Any()
+
+    /**
+     * ADR-0014 §5 「凭据类内容仍拒绝出网」: the credential-shape scanner the attachment
+     * gate injects — the same guard that scans the text typed in the box, applied at
+     * send/confirm/retry to the FULL content of every (re-)materialized attachment, not
+     * just the bounded inline view.
+     */
+    private val credentialScan: (String) -> String? = ForbiddenContentGuard::reasonFor
+
+    /** The in-memory facts of one staged attachment (internal; the UI sees [PendingAttachmentUi]). */
+    private class StagedAttachmentEntry(
+        /** The session that staged this entry — an in-flight switch/close drops it (ADR-0014 §5). */
+        val sessionId: String,
+        val artifactId: String,
+        val fileName: String,
+        val sizeBytes: Long,
+        val boundSha256: String,
+        /** The scope-relative workspace path the model chunk-reads the full content through. */
+        val relativePath: String,
+        /** The real workspace path — hashing/probing only, never exposed. */
+        val file: Path,
+    )
 
     // --- HXA-036: the tool pipeline state (cards, dispatch facts, turn cancels) ---
 
@@ -186,6 +270,7 @@ class ChatService(
     /** Opens a session: loads its persisted messages and the provider badge. */
     fun openSession(id: String) {
         openSessionId = id
+        clearStagedAttachments()
         workScope.launch { refreshScreen() }
     }
 
@@ -196,12 +281,226 @@ class ChatService(
      */
     fun closeSession() {
         openSessionId = null
+        clearStagedAttachments()
         workScope.launch { refreshScreen() }
+    }
+
+    /**
+     * The pending list belongs to the session that staged it (ADR-0014 §5: attachments stay
+     * local to that session until an explicit send) — switching or closing the session drops
+     * it. The imported files themselves remain durable in the workspace `input/` region.
+     */
+    private fun clearStagedAttachments() {
+        synchronized(stagedLock) {
+            stagedAttachments = emptyList()
+        }
     }
 
     /** Dismisses the current user-visible [ChatScreenState.blockedReason] banner. */
     fun dismissBlocked() {
         _screen.update { it.copy(blockedReason = null) }
+    }
+
+    // --------------------------------------------------------------------------------
+    // Attachment staging (HXA-049, ADR-0014 — pick / import / stage NEVER sends)
+    // --------------------------------------------------------------------------------
+
+    /**
+     * Stages one picked document as a chat attachment (ADR-0014 §5: no auto-send). Runs the
+     * EXISTING one-time private SAF import into the open session's workspace (`input/
+     * attachments/<id>/`), verifies the result is a first-batch UTF-8 text attachment,
+     * registers the artifact snapshot and adds it to the in-memory pending list. On ANY
+     * refusal / unsupported type / error the user sees a blocked reason and nothing is
+     * staged, nothing is sent. Runs on the work scope; the visible outcome arrives via
+     * [screen]. Staging is NOT a send: only [send]/[confirmSend] reach the model.
+     */
+    fun stageAttachment(uri: String) {
+        workScope.launch { stageAttachmentNow(uri) }
+    }
+
+    @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // one fail-closed return per stage
+    private suspend fun stageAttachmentNow(uri: String) {
+        val sessionId = openSessionId
+        if (sessionId == null) {
+            setBlocked("附件暂存失败：当前没有打开的会话")
+            return
+        }
+        // Fast-fail UX only: the AUTHORITATIVE cap check runs inside [stagedLock] in
+        // [stageImportedAttachment] — two concurrent stages can both pass this one.
+        if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
+            setBlocked(
+                "每条消息最多暂存 ${AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE} 个附件，请先删除部分附件",
+            )
+            return
+        }
+        val reported =
+            try {
+                attachmentStaging.sourceMetadata(uri)
+            } catch (e: Exception) {
+                // The production reader degrades internally; this guard keeps any adapter
+                // fail-closed. The uri is a content:// reference (never a real path), but
+                // the exception is not logged — only a fixed user-visible reason is shown.
+                setBlocked("无法读取文件信息，请重新选择文件")
+                return
+            }
+        // The one-time private copy through the existing pipeline: the file is pinned under
+        // input/attachments/<attachment-id>/ and hash-snapshotted; a refused import leaves
+        // nothing on disk. This is import ONLY — it never reaches the model.
+        val result =
+            attachmentStaging.importer.importAttachment(
+                workspaceScopeId = attachmentStaging.workspaceScopeId,
+                sourceUri = uri,
+                reported = reported,
+                cancel = SafCancelToken { false },
+                sink = null,
+                sessionId = sessionId,
+            )
+        if (result.status == ImportStatus.CANCELLED) {
+            setBlocked("附件导入已取消")
+            return
+        }
+        if (result.status == ImportStatus.REFUSED) {
+            setBlocked(importRefusalReason(result.refusal))
+            return
+        }
+        stageImportedAttachment(result, sessionId)
+    }
+
+    /**
+     * Completes staging for a COMPLETED import (fail closed at every step): the file must
+     * classify as a first-batch UTF-8 text attachment (unsupported types are surfaced and
+     * NOT staged), its snapshot must be complete, and the artifact row must register
+     * (`message_attachments.artifactId` is an FK to `artifacts`; the register re-verifies
+     * the durable bytes — hash and size). The resolved real path stays service-internal.
+     */
+    @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // one fail-closed return per step
+    private fun stageImportedAttachment(
+        result: AttachmentImportResult,
+        sessionId: String,
+    ) {
+        val fileName = result.fileName.orEmpty()
+        if (result.classification !is AttachmentClassification.TextAttachment) {
+            // The classifier re-derived this from the durable bytes; unsupported types are
+            // never parsed/decoded/rendered — the user is told and the file is not staged.
+            setBlocked("附件「$fileName」不是受支持的首批文本类型（txt / md / csv / json），已阻止暂存")
+            return
+        }
+        val sha = result.sha256
+        if (sha == null || result.sizeBytes < 0) {
+            setBlocked("附件快照不完整，无法暂存；请重新选择该文件")
+            return
+        }
+        val scopePath =
+            try {
+                FileScopePath.fromModelReference(result.modelRef.orEmpty())
+            } catch (e: IllegalArgumentException) {
+                setBlocked("附件路径校验失败，已阻止暂存")
+                return
+            }
+        val realPath =
+            try {
+                attachmentStaging.resolveWorkspacePath(scopePath)
+            } catch (e: RuntimeException) {
+                // The scope vanished or the path escaped containment: fail closed. The
+                // exception is not logged — it can carry a real path, which never may be.
+                setBlocked("附件工作区路径不可用，已阻止暂存")
+                return
+            }
+        val artifactId =
+            try {
+                storage.artifacts
+                    .register(
+                        id = "art_" + idGenerator(),
+                        sessionId = sessionId,
+                        relativePath = scopePath.relativePath,
+                        mediaType = result.mimeType ?: "text/plain",
+                        size = result.sizeBytes,
+                        sha256 = sha,
+                        file = realPath.toFile(),
+                    ).id
+            } catch (e: IllegalArgumentException) {
+                // A failed registration means the durable file no longer verifies against
+                // its snapshot — do not leave a reference the user could never send.
+                deleteQuietly(realPath)
+                setBlocked("附件登记失败（快照校验未通过），请重新选择该文件")
+                return
+            }
+        // In-lock admission (ADR-0014 §5): the pending list is local to the session that
+        // staged it and the cap is re-checked inside — two concurrent stages cannot race past it.
+        if (admitStagedEntry(sessionId, fileName, result, sha, scopePath, realPath, artifactId)) {
+            refreshScreen()
+        }
+    }
+
+    /**
+     * The authoritative, in-lock append of one staged attachment: it appends only when the
+     * session has NOT switched in flight and the per-message cap has not been exceeded — either
+     * failure sets the blocked state and appends NOTHING (the durable artifact row stays, inert).
+     * Returns true when the entry was appended.
+     */
+    private fun admitStagedEntry(
+        sessionId: String,
+        fileName: String,
+        result: AttachmentImportResult,
+        sha: String,
+        scopePath: FileScopePath,
+        realPath: Path,
+        artifactId: String,
+    ): Boolean {
+        var admitted = false
+        synchronized(stagedLock) {
+            if (openSessionId == sessionId) {
+                if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
+                    setBlocked(
+                        "每条消息最多暂存 ${AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE} 个附件，请先删除部分附件",
+                    )
+                } else {
+                    stagedAttachments =
+                        stagedAttachments +
+                        StagedAttachmentEntry(
+                            sessionId = sessionId,
+                            artifactId = artifactId,
+                            fileName = fileName,
+                            sizeBytes = result.sizeBytes,
+                            boundSha256 = sha,
+                            relativePath = scopePath.relativePath,
+                            file = realPath,
+                        )
+                    admitted = true
+                }
+            }
+        }
+        return admitted
+    }
+
+    /** Best-effort delete of a file whose staging failed (an unreferenced orphan otherwise). */
+    private fun deleteQuietly(path: Path) {
+        runCatching { Files.deleteIfExists(path) }
+    }
+
+    /** The fixed, user-visible (Chinese) reason for a refused attachment import — never the raw detail. */
+    private fun importRefusalReason(refusal: ImportRefusal?): String =
+        when (refusal) {
+            ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT -> "文件超过 10 MiB 附件上限，已阻止暂存"
+            ImportRefusal.STREAM_LIMIT_EXCEEDED -> "文件超过 10 MiB 附件上限，已阻止暂存"
+            ImportRefusal.QUOTA_EXCEEDED -> "工作区空间不足，已阻止暂存"
+            ImportRefusal.SOURCE_UNOPENABLE -> "无法打开所选文件，请重新选择"
+            ImportRefusal.STREAM_SIZE_MISMATCH -> "文件实际大小与声明不一致，已阻止暂存；请重新选择"
+            ImportRefusal.DESTINATION_EXISTS -> "工作区路径冲突，已阻止暂存；请重试"
+            ImportRefusal.SCOPE_UNAVAILABLE -> "工作区不可用或路径不合法，已阻止暂存"
+            ImportRefusal.INVALID_TARGET -> "工作区不可用或路径不合法，已阻止暂存"
+            ImportRefusal.IO_FAILURE -> "附件导入失败，请重试"
+            null -> "附件导入失败，请重试"
+        }
+
+    /** Removes one staged attachment addressed by its [PendingAttachmentUi.id] (the artifact id). */
+    fun removePendingAttachment(id: String) {
+        workScope.launch {
+            synchronized(stagedLock) {
+                stagedAttachments = stagedAttachments.filterNot { it.artifactId == id }
+            }
+            refreshScreen()
+        }
     }
 
     // --------------------------------------------------------------------------------
@@ -211,9 +510,16 @@ class ChatService(
     /**
      * The send intent. Order (fail-closed, user-visible):
      * 1. session has a provider; 2. the provider passed its connection test;
-     * 3. the cleartext host:port gate (doc 10 section 2.5); 4. the egress
-     *    disclosure gate (forbidden content rejected; high-sensitivity held
-     *    for per-send confirmation — [confirmSend]).
+     * 3. the cleartext host:port gate (doc 10 section 2.5); 4. the attachment send
+     *    gate (staged attachments re-verified against their bound snapshots — any
+     *    unsupported / tampered / missing attachment blocks before any egress);
+     * 5. the egress disclosure gate (forbidden content rejected; high-sensitivity
+     *    held for per-send confirmation — [confirmSend]; a staged attachment always
+     *    maps to high-sensitivity file text, so a send carrying one is NEVER
+     *    auto-passed).
+     *
+     * A send with no staged attachments reproduces the pre-attachment pure-text
+     * path exactly (the same egress decide over the typed text — no regression).
      *
      * The whole gate runs on this service's IO scope: the provider reads are
      * Room reads and must never run on the UI thread. The UI may call from
@@ -225,7 +531,15 @@ class ChatService(
 
     @Suppress("ReturnCount") // one fail-closed early return per gate condition
     private suspend fun sendNow(text: String) {
-        if (text.isBlank() || text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
+        if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
+            setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
+            return
+        }
+        val staged = stagedAttachments
+        // An attachment-only send is valid (ADR-0014 §5): blank text is admitted while
+        // staged attachments ride the send; blank text with nothing staged is still the
+        // empty-send block of today.
+        if (text.isBlank() && staged.isEmpty()) {
             setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
             return
         }
@@ -244,20 +558,70 @@ class ChatService(
             return
         }
         val target = providerService.egressTargetFor(providerId)
-        val decision =
-            EgressDisclosure.decide(listOf(EgressDisclosure.OutgoingContent.UserText), text, target)
+        // The single admission choke point (ADR-0014 §5): the fail-closed attachment gate
+        // first (re-hash every staged file against its bound snapshot AND scan the FULL
+        // content for credential shapes — [credentialScan]), then the egress disclosure
+        // over the typed text plus one FileText per staged attachment. With an empty gate
+        // this reproduces today's pure-text decide call exactly (no regression).
+        val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
+        val outcome = AttachmentSendAdmission.admit(gate, text, target)
+        when (outcome) {
+            is AttachmentSendAdmission.Outcome.Blocked -> {
+                // The staged attachments STAY pending: the user removes the problem file
+                // and re-sends — a gate block is never a silent drop.
+                setBlocked(outcome.reason)
+            }
+
+            is AttachmentSendAdmission.Outcome.Egress -> {
+                applyEgressDecision(outcome.decision, staged, text, providerId, target)
+            }
+        }
+    }
+
+    /**
+     * Applies the egress decision of an admitted send (ADR-0014 §5). Proceed is reachable ONLY
+     * with no staged attachment (a FileText source always forces Confirm) — otherwise it is a
+     * construction bug and fails closed. Confirm holds the send for per-send confirmation and
+     * BINDS the approval to the exact [target] shown in the dialog (the staged attachments
+     * STAY pending; the confirm path re-materializes them). Rejected blocks.
+     */
+    @Suppress("ReturnCount") // one fail-closed early return per decision
+    private suspend fun applyEgressDecision(
+        decision: EgressDisclosure.Decision,
+        staged: List<StagedAttachmentEntry>,
+        text: String,
+        providerId: String,
+        target: EgressDisclosure.EgressTarget,
+    ) {
         when (decision) {
-            is EgressDisclosure.Decision.Rejected -> {
-                setBlocked(decision.reason)
+            EgressDisclosure.Decision.Proceed -> {
+                if (staged.isNotEmpty()) {
+                    // Unreachable by construction; fail closed so a staged file is never
+                    // silently dropped from the outgoing request.
+                    setBlocked("附件出网策略无法确认，已阻止发送")
+                    return
+                }
+                // A pure-text Proceed carries NO attachments, so it clears none: the staged
+                // list is already empty (the snapshot above), and a file picked in the microsecond
+                // since that snapshot is the user's for the NEXT send — a send is never a silent
+                // drop. (The confirm path clears exactly the approved set, not the live list.)
+                launchTurn(text, providerId)
             }
 
             is EgressDisclosure.Decision.Confirm -> {
+                // Bind the pending confirmation to BOTH the exact target the dialog shows AND the
+                // exact attachment set it enumerated (ADR-0014 §5): confirmSendNow re-derives the
+                // live target (blocking on provider/origin drift) and requires the current staged
+                // set to be IDENTICAL to [staged] — an attachment never shown in the dialog can
+                // never leave the device; an old confirmation is never reusable.
                 pendingSend = text
+                pendingEgress = target
+                pendingAttachmentIds = staged.map { it.artifactId }
                 _screen.update { it.copy(pendingDisclosure = decision.summary, blockedReason = null) }
             }
 
-            EgressDisclosure.Decision.Proceed -> {
-                launchTurn(text, providerId)
+            is EgressDisclosure.Decision.Rejected -> {
+                setBlocked(decision.reason)
             }
         }
     }
@@ -267,12 +631,19 @@ class ChatService(
         workScope.launch { confirmSendNow() }
     }
 
-    @Suppress("ReturnCount") // one fail-closed early return per gate condition
+    @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // fail-closed gate checks
     private suspend fun confirmSendNow() {
         val text = pendingSend ?: return
+        // Capture the approved target AND attachment set BEFORE clearing the pending state: the
+        // binding checks below compare the LIVE target and the CURRENT staged set against exactly
+        // what the dialog showed.
+        val approvedTarget = pendingEgress
+        val approvedAttachmentIds = pendingAttachmentIds
         val session = currentSession() ?: return
         val providerId = session.providerId ?: return
         pendingSend = null
+        pendingEgress = null
+        pendingAttachmentIds = emptyList()
         _screen.update { it.copy(pendingDisclosure = null) }
         // Fail-closed re-check (the gate already ran when the disclosure was
         // shown): a provider re-test/revocation between the dialog and this
@@ -285,11 +656,137 @@ class ChatService(
             setBlocked("该 Provider 使用明文 HTTP：请在 Provider 设置中重新确认该 host:port 授权")
             return
         }
-        launchTurn(text, providerId)
+        // ADR-0014 §5: the approval bound a SPECIFIC egress target (provider + origin).
+        // A provider edit/re-test that moved the endpoint between the dialog and this
+        // tap voids the old confirmation — block and make the user re-send; the
+        // disclosure is NOT re-shown, and nothing may leave through a drifted origin.
+        val liveTarget =
+            try {
+                providerService.egressTargetFor(providerId)
+            } catch (e: Exception) {
+                // The provider row vanished between the dialog and this tap: fail closed.
+                setBlocked("出网目标已变化，请重新发送")
+                return
+            }
+        if (
+            approvedTarget == null ||
+            approvedTarget.providerId != liveTarget.providerId ||
+            approvedTarget.origin != liveTarget.origin
+        ) {
+            setBlocked("出网目标已变化，请重新发送")
+            return
+        }
+        // Delegate the staged-attachment handling (enumeration drift check + re-verify + launch);
+        // a pure-text pending (no staged) takes the exact pre-attachment path (no regression).
+        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget)
+    }
+
+    /**
+     * The confirmed, target-bound send of a pending send's staged attachments (ADR-0014 §5), run
+     * AFTER [confirmSendNow]'s provider/cleartext/target drift re-checks. The current staged set
+     * must EXACTLY match [approvedAttachmentIds] (the set the dialog enumerated) — any drift
+     * blocks with a re-send, so a file never shown in the dialog never leaves and a removed one is
+     * not silently turned into a pure-text send. A ready set is re-verified (re-hash + credential
+     * scan), cleared (exactly the approved ids), and launched; both-empty (pure text) is the exact
+     * pre-attachment path (no regression).
+     */
+    @Suppress("ReturnCount") // one fail-closed early return per staged-set gate
+    private suspend fun confirmStagedSend(
+        text: String,
+        providerId: String,
+        approvedAttachmentIds: List<String>,
+        liveTarget: EgressDisclosure.EgressTarget,
+    ) {
+        val staged = stagedAttachments
+        // ADR-0014 §5: the user approved a SPECIFIC enumerated set of attachments — the dialog
+        // listed exactly [approvedAttachmentIds]. If the staged set has since changed, a file
+        // staged while the dialog was up or one removed since — the approval no longer covers
+        // what is on the wire; block and make the user re-send. A file never shown in the dialog
+        // never leaves the device, and a removed one is not silently turned into a pure-text
+        // send. A pure-text pending has both empty, so this passes and the path below is
+        // byte-identical to pre-attachment (no regression). The staged attachments STAY pending.
+        if (staged.map { it.artifactId } != approvedAttachmentIds) {
+            setBlocked("附件列表已变化，请重新发送")
+            return
+        }
+        if (staged.isEmpty()) {
+            launchTurn(text, providerId)
+            return
+        }
+        // RE-VERIFY before the user-approved egress goes out: re-hash every staged file
+        // against its bound snapshot AND re-scan the FULL content for credential shapes —
+        // fail closed if any file changed, vanished or carries a credential in the meantime.
+        val materialized = reVerifyStagedForEgress(staged, text, liveTarget) ?: return
+        // Ready: the gate's attachments are in staged order — pair each with its
+        // scope-relative workspace path and build (a) the expanded model-visible user
+        // message (bounded UNTRUSTED blocks) and (b) the message_attachments bindings
+        // [TurnCoordinator.start] persists IN the turn's transaction.
+        val blocks =
+            materialized.mapIndexed { index, m -> AttachmentContextBlock(m, staged[index].relativePath) }
+        val bindings =
+            staged.map { entry ->
+                MessageAttachmentRepository.Binding(
+                    artifactId = entry.artifactId,
+                    purpose = AttachmentPurpose.REFERENCE,
+                    boundSha256 = entry.boundSha256,
+                )
+            }
+        // Clear EXACTLY the approved set (not the whole live list): a file staged in the
+        // microsecond between the drift check above and this lock survives for the user's next
+        // send — a send is never a silent drop (the KDoc contract of the lock).
+        synchronized(stagedLock) {
+            stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
+        }
+        // The sent chips clear from the screen now, not left dangling until the turn terminalizes.
+        refreshScreen()
+        launchTurn(
+            text = AttachmentContext.buildUserMessageContent(text, blocks),
+            providerId = providerId,
+            attachmentBindings = bindings,
+        )
+    }
+
+    /** A staged entry as the gate's input — the real path crosses into hashing/probing only. */
+    private fun StagedAttachmentEntry.toStagedAttachment() =
+        StagedAttachment(fileName = fileName, boundSha256 = boundSha256, file = file)
+
+    /**
+     * The fail-closed re-verification that runs right before a user-approved egress goes out
+     * (ADR-0014 §5): every staged file is re-hashed against its bound snapshot and its FULL
+     * content is re-scanned for credential shapes ([credentialScan]). Any changed, vanished or
+     * credentialed file sets the blocked state and returns null — the staged attachments STAY
+     * pending (a block is never a silent drop) and the disclosure is NOT re-shown. The
+     * materialized attachments (in staged order) are returned when the gate is Ready.
+     */
+    private fun reVerifyStagedForEgress(
+        staged: List<StagedAttachmentEntry>,
+        text: String,
+        target: EgressDisclosure.EgressTarget,
+    ): List<AttachmentMaterialization.Text>? {
+        val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
+        if (gate is AttachmentSendDecision.Ready) return gate.attachments
+        if (gate is AttachmentSendDecision.CredentialDetected) {
+            // A refusal (never Proceed/Confirm), the same outcome as a credential typed in the
+            // box; the guard reason is shown, the matched content never is.
+            setBlocked(gate.reason)
+        } else {
+            // Reuse the admission's user-visible blocked copy (one source for the reasons).
+            val outcome = AttachmentSendAdmission.admit(gate, text, target)
+            if (outcome is AttachmentSendAdmission.Outcome.Blocked) {
+                setBlocked(outcome.reason)
+            } else {
+                // UnsupportedType/SnapshotBroken can only block; fail closed if that
+                // invariant ever changes.
+                setBlocked("附件快照校验失败，已阻止发送；请重新选择该文件")
+            }
+        }
+        return null
     }
 
     fun cancelPendingSend() {
         pendingSend = null
+        pendingEgress = null
+        pendingAttachmentIds = emptyList()
         _screen.update { it.copy(pendingDisclosure = null) }
     }
 
@@ -416,6 +913,15 @@ class ChatService(
      * Retries the newest FAILED turn: a NEW turn re-sends the SAME user
      * message (already persisted) — an explicit user action, never an
      * automatic replay (doc 02 section 5.2; acceptance scenario #10).
+     *
+     * ADR-0014 §5 (HXA-049): when the retried turn carries bound attachments, its bound
+     * files are re-verified against their bound snapshots BEFORE any new turn starts — the
+     * persisted user message already carries the inlined snapshot and is re-sent verbatim,
+     * so what the retry re-proves is that the FULL file the message points at is still the
+     * bound, credential-clean bytes. A tampered/missing file (or an artifact row that no
+     * longer resolves) BLOCKS the retry fail-closed with a user-visible reason and NO new
+     * turn row is written. A retried turn WITHOUT bound attachments reproduces today's
+     * retry exactly (no regression).
      */
     fun retry() {
         workScope.launch {
@@ -426,9 +932,89 @@ class ChatService(
                 setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
                 return@launch
             }
+            when (val stagedCheck = retryStagedFor(session.id, turnId)) {
+                RetryStagedCheck.None -> {
+                    // No bound attachments: EXACTLY today's retry path (no regression).
+                }
+
+                RetryStagedCheck.Unavailable -> {
+                    setBlocked("附件快照复核未通过（文件可能已被修改或删除），已阻止重试")
+                    return@launch
+                }
+
+                is RetryStagedCheck.Staged -> {
+                    val gate = AttachmentSendGate.evaluate(stagedCheck.attachments, credentialScan)
+                    if (gate !is AttachmentSendDecision.Ready) {
+                        // Fail-closed, user-visible, NO new turn. A retry cannot re-pick
+                        // files, so the block is a fixed re-verification reason (or the
+                        // credential guard's reason — the matched content is never echoed).
+                        val reason =
+                            if (gate is AttachmentSendDecision.CredentialDetected) {
+                                gate.reason
+                            } else {
+                                "附件快照复核未通过（文件可能已被修改或删除），已阻止重试"
+                            }
+                        setBlocked(reason)
+                        return@launch
+                    }
+                }
+            }
             launchTurn(text = null, providerId = providerId, retryTurnId = turnId)
         }
     }
+
+    /**
+     * The retried turn's bound attachments, resolved for the gate's re-verification
+     * (ADR-0014 §5): [RetryStagedCheck.None] when the turn has NO bound attachment (the
+     * pure-text retry — launchTurn behaves exactly as before); [RetryStagedCheck.Staged]
+     * with the bound files in the message's binding (ordinal/staged) order;
+     * [RetryStagedCheck.Unavailable] when a bound artifact can no longer be resolved
+     * (row vanished, workspace path unresolvable) — the caller blocks fail-closed. The
+     * real paths cross out of this function NEVER (they exist for hashing/probing only).
+     */
+    private sealed interface RetryStagedCheck {
+        /** The retried turn has no bound attachments. */
+        data object None : RetryStagedCheck
+
+        /** The bound files, in the message's binding (ordinal/staged) order. */
+        data class Staged(
+            val attachments: List<StagedAttachment>,
+        ) : RetryStagedCheck
+
+        /** A bound artifact can no longer be resolved — the retry must be blocked. */
+        data object Unavailable : RetryStagedCheck
+    }
+
+    @Suppress("SwallowedException", "TooGenericExceptionCaught") // ANY resolution failure = Unavailable
+    private suspend fun retryStagedFor(sessionId: String, turnId: String): RetryStagedCheck =
+        try {
+            val messageId =
+                storage.messages
+                    .listBySession(sessionId)
+                    .firstOrNull { it.turnId == turnId && it.role == ModelRole.USER.name }
+                    ?.id
+            val bindings = messageId?.let { storage.messageAttachments.listByMessage(it) }
+            if (bindings.isNullOrEmpty()) {
+                RetryStagedCheck.None
+            } else {
+                RetryStagedCheck.Staged(
+                    bindings.map { binding ->
+                        val artifact = storage.artifacts.resolve(binding.artifactId)
+                        val scopePath =
+                            FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath)
+                        StagedAttachment(
+                            fileName = scopePath.name,
+                            boundSha256 = binding.boundSha256,
+                            file = attachmentStaging.resolveWorkspacePath(scopePath),
+                        )
+                    },
+                )
+            }
+        } catch (_: Exception) {
+            // The exception can carry a real path or a corrupt row — it is NOT logged;
+            // the caller blocks the retry fail-closed.
+            RetryStagedCheck.Unavailable
+        }
 
     // --------------------------------------------------------------------------------
     // Turn execution (service-owned; the UI only observes)
@@ -439,6 +1025,7 @@ class ChatService(
         text: String?,
         providerId: String,
         retryTurnId: String? = null,
+        attachmentBindings: List<MessageAttachmentRepository.Binding> = emptyList(),
     ) {
         val session = currentSession() ?: return
         val sessionId = session.id
@@ -468,7 +1055,7 @@ class ChatService(
                     storage = storage,
                     clock = clock,
                     idGenerator = idGenerator,
-                    spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text),
+                    spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings),
                 )
             val job =
                 workScope.launch {
@@ -1407,8 +1994,24 @@ class ChatService(
                 pendingDisclosure = previous.pendingDisclosure,
                 blockedReason = previous.blockedReason,
                 retryTargetTurnId = retryTargetFor(sessionId),
+                pendingAttachments = stagedAttachmentsUi(),
             )
     }
+
+    /**
+     * The staged attachments as UI facts (ADR-0014 §5): the sanitized artifact id (the
+     * removal address — never a filesystem path), the display name and the size. No real
+     * path, hash or workspace detail crosses into the observable state.
+     */
+    private fun stagedAttachmentsUi(): List<PendingAttachmentUi> =
+        stagedAttachments.map { entry ->
+            PendingAttachmentUi(
+                id = entry.artifactId,
+                fileName = entry.fileName,
+                sizeBytes = entry.sizeBytes,
+                isText = true,
+            )
+        }
 
     /**
      * The open session's tool timeline: the PERSISTED rows (tool_calls + tool_results,
@@ -1616,6 +2219,7 @@ class ChatService(
                 pendingDisclosure = null,
                 blockedReason = null,
                 retryTargetTurnId = null,
+                pendingAttachments = emptyList(),
             )
     }
 }

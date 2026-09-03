@@ -56,4 +56,32 @@ object UiLabels {
 
     /** Localized "MM-dd HH:mm" for session timestamps (device locale). */
     fun formatTime(millis: Long): String = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()).format(Date(millis))
+
+    /** Human-readable byte size for a staged attachment (B / KiB / MiB), no decimals at large units. */
+    fun formatBytes(bytes: Long): String {
+        val kib = 1024.0
+        val mib = kib * 1024.0
+        return when {
+            bytes < 0 -> {
+                "0 B"
+            }
+
+            bytes < 1024 -> {
+                "$bytes B"
+            }
+
+            bytes < mib -> {
+                "${(bytes / kib).toInt()} KiB"
+            }
+
+            else -> {
+                val value = bytes / mib
+                if (value == value.toLong().toDouble()) {
+                    "${value.toLong()} MiB"
+                } else {
+                    String.format(Locale.getDefault(), "%.1f MiB", value)
+                }
+            }
+        }
+    }
 }

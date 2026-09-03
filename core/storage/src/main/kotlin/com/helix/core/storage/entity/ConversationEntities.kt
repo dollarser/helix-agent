@@ -62,6 +62,44 @@ data class MessageEntity(
     val sequence: Long,
 )
 
+/**
+ * architecture doc 9.1 + ADR-0014 (HXA-049): `message_attachments` — the ordered relation from a
+ * message to the immutable Artifact snapshot it was bound to. `boundSha256` is the hash captured
+ * at bind time; the explicit send, its disclosure confirmation and a retry of the bound turn
+ * re-verify the artifact against it and fail closed on any change or a missing file (the persisted
+ * inlined snapshot is re-sent verbatim on retry; a plain session re-open does NOT re-verify). The
+ * body / binary stays in the file (via the artifact), never in Room. The
+ * closed classification is re-derived from the hash-verified bytes at materialization, so it is not
+ * a column here; `purpose` is the attachment's role in the message.
+ */
+@Entity(
+    tableName = "message_attachments",
+    foreignKeys =
+        [
+            ForeignKey(
+                entity = MessageEntity::class,
+                parentColumns = ["id"],
+                childColumns = ["messageId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
+            ForeignKey(
+                entity = ArtifactEntity::class,
+                parentColumns = ["id"],
+                childColumns = ["artifactId"],
+                onDelete = ForeignKey.CASCADE,
+            ),
+        ],
+    indices = [Index(value = ["messageId", "ordinal"], unique = true), Index("artifactId")],
+)
+data class MessageAttachmentEntity(
+    @PrimaryKey(autoGenerate = true) val rowId: Long,
+    val messageId: String,
+    val artifactId: String,
+    val ordinal: Int,
+    val purpose: String,
+    val boundSha256: String,
+)
+
 /** architecture doc 9.1: `turns` — one model/tool step chain. */
 @Entity(
     tableName = "turns",

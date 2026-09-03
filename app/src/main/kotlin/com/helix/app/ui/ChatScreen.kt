@@ -1,5 +1,7 @@
 package com.helix.app.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -96,6 +98,8 @@ fun ChatScreen(
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
+                        onStageAttachment = { chatService.stageAttachment(it) },
+                        onRemoveAttachment = { chatService.removePendingAttachment(it) },
                     ),
             )
         }
@@ -307,10 +311,12 @@ data class ConversationIntents(
     val onDismissBlocked: () -> Unit,
     val onApproveApproval: (String) -> Unit,
     val onDenyApproval: (String) -> Unit,
+    val onStageAttachment: (String) -> Unit,
+    val onRemoveAttachment: (String) -> Unit,
 )
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 private fun ConversationSection(
     screen: ChatScreenState,
     profile: SafetyProfile,
@@ -318,6 +324,13 @@ private fun ConversationSection(
     onInput: (String) -> Unit,
     intents: ConversationIntents,
 ) {
+    // The document picker (HXA-049): picking a document NEVER sends — it only stages the
+    // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
+    // (the user backed out) is ignored.
+    val attachmentPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) intents.onStageAttachment(uri.toString())
+        }
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier =
@@ -423,11 +436,55 @@ private fun ConversationSection(
                 }
             }
         }
+        if (screen.pendingAttachments.isNotEmpty()) {
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                        .testTag("chat-pending-attachments"),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                screen.pendingAttachments.forEach { attachment ->
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(attachment.fileName, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                UiLabels.formatBytes(attachment.sizeBytes),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(
+                            onClick = { intents.onRemoveAttachment(attachment.id) },
+                            modifier = Modifier.testTag("chat-pending-remove-${attachment.id}"),
+                        ) {
+                            Text("删除")
+                        }
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            TextButton(
+                onClick = { attachmentPicker.launch(arrayOf("*/*")) },
+                enabled = !screen.isSending,
+                modifier = Modifier.testTag("chat-attach"),
+            ) {
+                Text("附件")
+            }
             OutlinedTextField(
                 value = input,
                 onValueChange = onInput,
@@ -442,7 +499,7 @@ private fun ConversationSection(
             } else {
                 Button(
                     onClick = intents.onSend,
-                    enabled = input.isNotBlank(),
+                    enabled = input.isNotBlank() || screen.pendingAttachments.isNotEmpty(),
                     modifier = Modifier.testTag("chat-send"),
                 ) {
                     Text("发送")

@@ -8,6 +8,7 @@ import com.helix.core.storage.entity.ApprovalEntity
 import com.helix.core.storage.entity.ArtifactEntity
 import com.helix.core.storage.entity.ExecutionEntity
 import com.helix.core.storage.entity.InteractionReceiptEntity
+import com.helix.core.storage.entity.MessageAttachmentEntity
 import com.helix.core.storage.entity.MessageEntity
 import com.helix.core.storage.entity.ModelCallEntity
 import com.helix.core.storage.entity.SessionEntity
@@ -49,6 +50,18 @@ interface MessageDao {
 
     @Query("SELECT COALESCE(MAX(sequence), -1) FROM messages WHERE sessionId = :sessionId")
     fun maxSequence(sessionId: String): Long
+}
+
+@Dao
+interface MessageAttachmentDao {
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insert(attachment: MessageAttachmentEntity)
+
+    @Query("SELECT * FROM message_attachments WHERE messageId = :messageId ORDER BY ordinal ASC")
+    fun listByMessage(messageId: String): List<MessageAttachmentEntity>
+
+    @Query("DELETE FROM message_attachments WHERE messageId = :messageId")
+    fun deleteByMessage(messageId: String)
 }
 
 @Dao

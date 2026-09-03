@@ -7,6 +7,7 @@ import com.helix.app.approval.StorageAuditSink
 import com.helix.app.audit.AuditLogService
 import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
+import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
 import com.helix.app.internal.PrefsLineStore
@@ -25,9 +26,12 @@ import com.helix.core.model.SystemClock
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.resolveFileScopePath
+import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.ContentResolverSafDestinationOpener
 import com.helix.feature.files.ContentResolverSafDestinationVerifier
 import com.helix.feature.files.ContentResolverSafGrantProbe
@@ -330,6 +334,21 @@ internal class DefaultAppContainer(
 
     override val auditLogService: AuditLogService = AuditLogService(storage)
 
+    /**
+     * The chat-attachment staging seams (HXA-049, ADR-0014): the EXISTING one-time private SAF
+     * import over the shared [featureFiles] pipeline, the source-metadata reader, the app
+     * workspace scope the attachments pin into, and the containment-enforced scope-path resolver.
+     * [AttachmentStagingSupport.resolveWorkspacePath] returns a REAL path consumed ONLY inside
+     * the chat service for hashing / re-materialization — it never reaches UI, logs or the model.
+     */
+    private val attachmentStaging: AttachmentStagingSupport =
+        AttachmentStagingSupport(
+            importer = AttachmentImporter(featureFiles.importPipeline),
+            workspaceScopeId = APP_SCOPE_ID,
+            sourceMetadata = featureFiles.metadataReader::metadata,
+            resolveWorkspacePath = { scopePath -> resolveFileScopePath(scopePath, scopeRoots) },
+        )
+
     override val chatService: ChatService =
         ChatService(
             storage = storage,
@@ -338,6 +357,7 @@ internal class DefaultAppContainer(
             clock = appClock,
             idGenerator = { idGenerator.next() },
             toolPipeline = toolPipeline,
+            attachmentStaging = attachmentStaging,
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard

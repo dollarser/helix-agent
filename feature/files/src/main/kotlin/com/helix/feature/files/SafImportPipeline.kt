@@ -95,7 +95,9 @@ class SafImportOutcome(
     val sizeBytes: Long = -1L,
     val sha256: String? = null,
     val mimeType: String? = null,
+    val encoding: ContentProbe.Encoding? = null,
     val isText: Boolean = false,
+    val artifactId: String? = null,
     val artifactRegistered: Boolean = false,
 )
 
@@ -124,7 +126,7 @@ class SafImportPipeline(
     private val opener: SafSourceOpener,
     private val limits: SafImportLimits = SafImportLimits(),
 ) {
-    @Suppress("ReturnCount", "SwallowedException") // every exit is a distinct sanitized outcome
+    @Suppress("ReturnCount", "SwallowedException", "LongParameterList") // every exit is a distinct sanitized outcome
     fun importDocument(
         workspaceScopeId: String,
         sourceUri: String,
@@ -133,11 +135,13 @@ class SafImportPipeline(
         cancel: SafCancelToken,
         sink: WorkspaceArtifactStore.ArtifactSink? = null,
         sessionId: String? = null,
+        targetRelativePath: String? = null,
+        maxImportBytesOverride: Long? = null,
     ): SafImportOutcome {
         if (cancel.isCancelled()) return cancelled()
         try {
-            val located = locateTarget(workspaceScopeId, targetNameOverride ?: reported.displayName)
-            val hardLimit = admit(reported.sizeBytes, located.root)
+            val located = locateTarget(workspaceScopeId, targetNameOverride ?: reported.displayName, targetRelativePath)
+            val hardLimit = admit(reported.sizeBytes, located.root, maxImportBytesOverride)
             val sourceStream = openSource(sourceUri)
             val streamed = streamToTarget(sourceStream, located.targetPath, hardLimit, cancel)
             if (reported.sizeBytes >= 0 && streamed.bytesWritten != reported.sizeBytes) {
@@ -198,6 +202,10 @@ class SafImportPipeline(
         hardLimit: Long,
         cancel: SafCancelToken,
     ): Streamed {
+        // A per-attachment sub-dir (input/attachments/<id>/) does not pre-exist: create the bounded
+        // parent at copy time — after admission, so a refused import leaves nothing on disk.
+        // writeAtomicStream requires the target's parent to already be a real directory.
+        Files.createDirectories(targetPath.parent)
         val digest = MessageDigest.getInstance("SHA-256")
         var written = 0L
         source.use { input ->
@@ -241,13 +249,15 @@ class SafImportPipeline(
     private fun locateTarget(
         workspaceScopeId: String,
         rawName: String?,
+        targetRelativePath: String? = null,
     ): Located {
+        // A caller-supplied relative path (e.g. an attachment under `input/attachments/<id>/`) is
+        // already sanitized by the caller; otherwise derive the flat `input/<name>` target.
+        val relativePath =
+            targetRelativePath ?: (WorkspaceLayout.INPUT + "/" + SafNameSanitizer.sanitize(rawName))
         val target =
             try {
-                FileScopePath(
-                    workspaceScopeId,
-                    WorkspaceLayout.INPUT + "/" + SafNameSanitizer.sanitize(rawName),
-                )
+                FileScopePath(workspaceScopeId, relativePath)
             } catch (e: IllegalArgumentException) {
                 throw Refusal(
                     ImportRefusal.INVALID_TARGET,
@@ -266,7 +276,10 @@ class SafImportPipeline(
         } catch (e: SymlinkInPath) {
             throw Refusal(ImportRefusal.SCOPE_UNAVAILABLE, "workspace scope is not available")
         }
-        if (!Files.isDirectory(targetPath.parent)) {
+        // A per-attachment target is written into a fresh sub-dir (created at copy time in
+        // streamToTarget); only the default flat `input/<name>` target must already sit in an
+        // existing region. resolveFileScopePath above proved both stay in scope and cross no link.
+        if (targetRelativePath == null && !Files.isDirectory(targetPath.parent)) {
             throw Refusal(ImportRefusal.SCOPE_UNAVAILABLE, "the workspace layout is not available")
         }
         if (Files.exists(targetPath, LinkOption.NOFOLLOW_LINKS)) {
@@ -285,15 +298,17 @@ class SafImportPipeline(
     private fun admit(
         reportedSizeBytes: Long,
         root: Path,
+        maxImportBytesOverride: Long?,
     ): Long {
-        if (reportedSizeBytes > limits.maxImportBytes) {
+        val effectiveMax = maxImportBytesOverride ?: limits.maxImportBytes
+        if (reportedSizeBytes > effectiveMax) {
             throw Refusal(
                 ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT,
                 "reported size exceeds the import limit",
             )
         }
         val headroom = limits.quotaMaxBytes - WorkspaceQuota.usageBytes(root)
-        val hardLimit = minOf(limits.maxImportBytes, headroom)
+        val hardLimit = minOf(effectiveMax, headroom)
         if (headroom <= 0 || reportedSizeBytes > hardLimit) {
             throw Refusal(ImportRefusal.QUOTA_EXCEEDED, "workspace quota has no room for this file")
         }
@@ -312,18 +327,19 @@ class SafImportPipeline(
     ): SafImportOutcome {
         val probe = ContentProbe.probe(targetPath)
         var registered = false
+        var artifactId: String? = null
         if (sink != null && sessionId != null) {
-            try {
-                sink.register(
-                    sessionId,
-                    WorkspaceArtifactStore.ArtifactRecord(
-                        id = "art_" + UUID.randomUUID().toString().replace("-", ""),
-                        relativePath = target.relativePath,
-                        mediaType = probe.mimeType,
-                        sizeBytes = streamed.bytesWritten,
-                        sha256 = streamed.sha256,
-                    ),
+            val record =
+                WorkspaceArtifactStore.ArtifactRecord(
+                    id = "art_" + UUID.randomUUID().toString().replace("-", ""),
+                    relativePath = target.relativePath,
+                    mediaType = probe.mimeType,
+                    sizeBytes = streamed.bytesWritten,
+                    sha256 = streamed.sha256,
                 )
+            try {
+                sink.register(sessionId, record)
+                artifactId = record.id
                 registered = true
             } catch (e: Exception) {
                 // Contract (doc 02 §9.2): a failing sink leaves the file on disk; registration
@@ -337,7 +353,9 @@ class SafImportPipeline(
             sizeBytes = streamed.bytesWritten,
             sha256 = streamed.sha256,
             mimeType = probe.mimeType,
+            encoding = probe.encoding,
             isText = probe.isText,
+            artifactId = artifactId,
             artifactRegistered = registered,
         )
     }

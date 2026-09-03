@@ -13,7 +13,9 @@ import com.helix.app.chat.EgressDisclosure
 /**
  * The pre-send egress disclosure dialog (doc 10 section 2.6; ADR-0005): rendered
  * from the auditable [EgressDisclosure.EgressSummary] — provider, protocol,
- * canonical origin, residence, data categories, scope.
+ * canonical origin, residence, data categories, scope, and — since HXA-049
+ * (ADR-0014 §5) — every staged attachment's 名称 / 类型 / 大小, in the same order
+ * the content sources list the files.
  *
  * M2 honesty rule: NEITHER profile offers a permanent-allow option
  * ([EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2] is false); the dialog says
@@ -48,6 +50,8 @@ fun DisclosureDialog(
                     "数据类别：${summary.categories.joinToString("、") { it.label }}",
                     style = MaterialTheme.typography.bodyLarge,
                 )
+                // ADR-0014 §5: 出网文件逐条展示（名称/类型/大小，内容顺序；纯文本发送为空）。
+                AttachmentDisclosureLines(summary.attachments)
                 Text("范围：${summary.scope}", style = MaterialTheme.typography.bodyLarge)
             }
             if (!EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2) {
@@ -78,4 +82,21 @@ fun DisclosureDialog(
         },
         modifier = Modifier.testTag("egress-disclosure-dialog"),
     )
+}
+
+/**
+ * ADR-0014 §5: 逐条列出出网附件（名称/类型/大小，内容顺序）。纯文本发送的 summary 为空列表，
+ * 此块不渲染任何行。
+ */
+@Composable
+@Suppress("FunctionName")
+private fun AttachmentDisclosureLines(attachments: List<EgressDisclosure.EgressAttachment>) {
+    attachments.forEach { attachment ->
+        Text(
+            "附件：${attachment.fileName}（${attachment.kindLabel} · ${
+                UiLabels.formatBytes(attachment.sizeBytes)
+            }）",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+    }
 }
