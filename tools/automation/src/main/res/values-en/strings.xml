@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automation_service_label">Helix UI automation</string>
+    <string name="automation_service_description">Reads and acts only in allowlisted apps during an explicitly started, time-limited session. The notification can stop it immediately.</string>
+    <string name="automation_notification_channel">UI automation session</string>
+    <string name="automation_notification_title">Helix UI automation is running</string>
+    <string name="automation_notification_text">Target apps: %1$s</string>
+    <string name="automation_notification_stop">Stop now</string>
+</resources>

@@ -127,7 +127,7 @@ class SystemCapabilityResolver(
                 runCatching {
                     context.packageManager.getServiceInfo(
                         ComponentName(context.packageName, service.name),
-                        0,
+                        PackageManager.GET_META_DATA,
                     )
                 }.getOrNull()
             }.filter { it.metaData?.containsKey(A11Y_SERVICE_META) == true }

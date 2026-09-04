@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.helix.tools.automation.AutomationFixtureActivity"
+            android:exported="true"
+            android:label="Helix M9 fixture" />
+        <receiver
+            android:name="com.helix.tools.automation.AutomationTestControlReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

@@ -285,6 +285,14 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
 
+            // HXA-090: the Accessibility service lifecycle, system-enabled state, time-bounded
+            // session and notification stop path are verified on a dedicated automation device.
+            if (path == ":tools:automation") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
             // HXA-045: the all-files roots store persists its registry with the same pinned
             // kotlinx-serialization JsonElement API as :feature:files (implementation-scoped, so it
             // is not visible transitively through the :feature:files project dependency).
