@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="allfiles_advanced_required">Switch to Advanced before enabling roots (ADR-0005; under Standard, file tools only see the app-private scope).</string>
+    <string name="allfiles_description">Note: Android\'s All-files permission lets Helix access the public storage folders (Downloads, Documents, Pictures, etc.), but not other apps\' private directories or Android/data. Once you enable a root below, the agent can only reach the roots you explicitly select, and every file operation still goes through scope, Policy and per-call approval.</string>
+    <string name="allfiles_open_settings">Grant in system settings</string>
+    <string name="allfiles_roots_title">Helix roots</string>
+    <string name="allfiles_state_denied">System status: not granted</string>
+    <string name="allfiles_state_granted">System status: granted</string>
+    <string name="allfiles_state_lost">System status: expired</string>
+    <string name="allfiles_state_unavailable">System status: not available on this system/version (API below 30)</string>
+    <string name="allfiles_title">All-files access</string>
+</resources>

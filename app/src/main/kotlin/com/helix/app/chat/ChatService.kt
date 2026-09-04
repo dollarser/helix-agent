@@ -1,11 +1,11 @@
 package com.helix.app.chat
 
 import android.util.Log
+import com.helix.app.R
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.profile.SafetyProfileStore
-import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
 import com.helix.app.tool.ToolPipeline
@@ -59,6 +59,7 @@ import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -99,9 +100,12 @@ import kotlin.jvm.Volatile
  * the in-flight turn, the gates, the tool timeline) by design — splitting it
  * across several services would put the invariants (one active turn per
  * session, the gate→turn hand-off, the live-card overlay) across objects.
- * The class-level suppressions record that single-owner decision.
+ * The class-level suppressions record that single-owner decision; LongParameterList
+ * covers the primary constructor, whose parameters are each a distinct injected seam
+ * (HXA-069 added the pure-JVM `strings` locale resolver — ChatService has no Android
+ * Context to read string resources itself, so the resolver must be injected).
  */
-@Suppress("TooManyFunctions", "LargeClass")
+@Suppress("TooManyFunctions", "LargeClass", "LongParameterList")
 class ChatService(
     private val storage: HelixStorage,
     private val providerService: ProviderService,
@@ -119,8 +123,77 @@ class ChatService(
      * services without image artifacts fail-closed on their own (their resolver throws).
      */
     private val visionSessionBinder: (String) -> Unit = {},
+    /**
+     * HXA-069: resolves the string-resource IDs this service emits (approval codes, terminal
+     * labels, tool states, the egress blocks) to the current locale — ChatService is pure JVM
+     * (no [android.content.Context]), so the production container injects a locale-aware
+     * resolver. The default is a stable placeholder so JVM/device construction without a locale
+     * still compiles.
+     */
+    private val strings: (Int, Array<out Any>) -> String = { resId, _ -> "§$resId" },
 ) {
     private val workScope = scope
+
+    /** Resolves a string-resource id (+ optional format args) to the current locale (HXA-069). */
+    private fun str(
+        resId: Int,
+        vararg args: Any,
+    ): String = strings(resId, args)
+
+    /**
+     * The localized label for a terminal turn, or null when the terminal carries none (a clean
+     * COMPLETED). CANCELLED is the fixed stop label; FAILED resolves [errorCode] via
+     * [modelTerminalCodeRes].
+     */
+    private fun terminalLabel(
+        state: TurnState,
+        errorCode: String?,
+    ): String? =
+        when (state) {
+            TurnState.FAILED -> str(modelTerminalCodeRes(errorCode))
+            TurnState.CANCELLED -> str(R.string.turn_stopped)
+            else -> null
+        }
+
+    /** Maps a terminal turn's stable error code to its user-visible string-resource id. */
+    private fun modelTerminalCodeRes(errorCode: String?): Int =
+        when (errorCode) {
+            ModelStreamState.REFUSAL -> R.string.model_refused
+            ModelStreamState.TOOL_STREAM_TRUNCATED -> R.string.model_error_tool_stream_truncated
+            ModelStreamState.TOOL_STREAM_INVALID -> R.string.model_error_tool_stream_invalid
+            ModelStreamState.TOOL_ARGUMENTS_OVERFLOW -> R.string.model_error_tool_args_overflow
+            ModelStreamState.TOOL_CALL_COUNT_OVERFLOW -> R.string.model_error_tool_call_count_overflow
+            ModelStreamState.MODEL_TEXT_OVERFLOW -> R.string.model_error_model_text_overflow
+            "TOOL_STEP_LIMIT" -> R.string.model_error_tool_step_limit
+            null -> R.string.model_error_generic
+            else -> modelErrorCodeLabelRes(errorCode)
+        }
+
+    /** Maps a persisted provider [ModelErrorCode] name to its string-resource id (fail-closed). */
+    @Suppress("SwallowedException") // unknown code: the conservative generic label IS the handling
+    private fun modelErrorCodeLabelRes(code: String): Int =
+        try {
+            when (ModelErrorCode.valueOf(code)) {
+                ModelErrorCode.TRANSPORT -> R.string.conn_error_transport
+                ModelErrorCode.TIMEOUT -> R.string.conn_error_timeout
+                ModelErrorCode.AUTH -> R.string.conn_error_auth
+                ModelErrorCode.RATE_LIMITED -> R.string.conn_error_rate_limited
+                ModelErrorCode.SERVER_ERROR -> R.string.conn_error_server
+                ModelErrorCode.HTTP_ERROR -> R.string.conn_error_http
+                ModelErrorCode.PROTOCOL -> R.string.conn_error_protocol
+                ModelErrorCode.CONTENT_FILTER -> R.string.conn_error_content_filter
+            }
+        } catch (e: IllegalArgumentException) {
+            R.string.model_error_generic
+        }
+
+    /** The localized label for an egress rejection's stable code (never the matched content). */
+    private fun egressRejectedLabel(code: String): String =
+        if (code == ForbiddenContentGuard.CREDENTIAL_DETECTED) {
+            str(R.string.egress_credential_rejected)
+        } else {
+            str(R.string.model_error_generic)
+        }
 
     private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
@@ -376,7 +449,7 @@ class ChatService(
                 shareDraftText = null
             }
             val id = idGenerator()
-            storage.sessions.create(id, "分享草稿", null, null, clock.now().toEpochMilli())
+            storage.sessions.create(id, str(R.string.session_shared_draft), null, null, clock.now().toEpochMilli())
             refreshSessionsNow()
             openSession(id)
             imageUris.forEach { uri -> stageAttachmentNow(uri) }
@@ -404,7 +477,7 @@ class ChatService(
         workScope.launch {
             val sessionId = openSessionId ?: return@launch
             if (providerService.chatSelectable(providerId).not()) {
-                setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
+                setBlocked(str(R.string.chat_blocked_provider_untested))
                 return@launch
             }
             if (turnGateHolds(sessionId)) return@launch // a turn in flight owns the session's target
@@ -414,7 +487,7 @@ class ChatService(
                 // Swallowed deliberately: the IAE message carries the internal session id,
                 // and the user-visible label stays the one stable, path-free sentence
                 // (ADR-0014 §7: no raw internals in user-visible errors).
-                setBlocked("会话已绑定 Provider，不能更换绑定")
+                setBlocked(str(R.string.chat_blocked_session_bound))
                 return@launch
             }
             refreshScreen()
@@ -450,14 +523,14 @@ class ChatService(
     private suspend fun stageAttachmentNow(uri: String) {
         val sessionId = openSessionId
         if (sessionId == null) {
-            setBlocked("附件暂存失败：当前没有打开的会话")
+            setBlocked(str(R.string.chat_blocked_no_open_session))
             return
         }
         // Fast-fail UX only: the AUTHORITATIVE cap check runs inside [stagedLock] in
         // [stageImportedAttachment] — two concurrent stages can both pass this one.
         if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
             setBlocked(
-                "每条消息最多暂存 ${AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE} 个附件，请先删除部分附件",
+                str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE),
             )
             return
         }
@@ -468,7 +541,7 @@ class ChatService(
                 // The production reader degrades internally; this guard keeps any adapter
                 // fail-closed. The uri is a content:// reference (never a real path), but
                 // the exception is not logged — only a fixed user-visible reason is shown.
-                setBlocked("无法读取文件信息，请重新选择文件")
+                setBlocked(str(R.string.chat_blocked_cannot_read_file))
                 return
             }
         // The one-time private copy through the existing pipeline: the file is pinned under
@@ -484,7 +557,7 @@ class ChatService(
                 sessionId = sessionId,
             )
         if (result.status == ImportStatus.CANCELLED) {
-            setBlocked("附件导入已取消")
+            setBlocked(str(R.string.chat_blocked_import_cancelled))
             return
         }
         if (result.status == ImportStatus.REFUSED) {
@@ -519,19 +592,23 @@ class ChatService(
         ) {
             // The classifier re-derived this from the durable bytes; unsupported types are
             // never parsed/decoded/rendered — the user is told and the file is not staged.
-            setBlocked("附件「$fileName」不是受支持的类型（文本：txt / md / csv / json；图片：png / jpeg / webp / gif），已阻止暂存")
+            // Classification necessarily happens after the one-time private copy so it can
+            // trust the bytes rather than the provider label; discard that unregistered copy
+            // now so every unsupported attempt leaves neither an Artifact nor an orphan payload.
+            discardUnsupportedImport(result.modelRef)
+            setBlocked(str(R.string.chat_blocked_unsupported_type, fileName))
             return
         }
         val sha = result.sha256
         if (sha == null || result.sizeBytes < 0) {
-            setBlocked("附件快照不完整，无法暂存；请重新选择该文件")
+            setBlocked(str(R.string.chat_blocked_snapshot_incomplete))
             return
         }
         val scopePath =
             try {
                 FileScopePath.fromModelReference(result.modelRef.orEmpty())
             } catch (e: IllegalArgumentException) {
-                setBlocked("附件路径校验失败，已阻止暂存")
+                setBlocked(str(R.string.chat_blocked_path_check_failed))
                 return
             }
         val realPath =
@@ -540,7 +617,7 @@ class ChatService(
             } catch (e: RuntimeException) {
                 // The scope vanished or the path escaped containment: fail closed. The
                 // exception is not logged — it can carry a real path, which never may be.
-                setBlocked("附件工作区路径不可用，已阻止暂存")
+                setBlocked(str(R.string.chat_blocked_workspace_path_unavailable))
                 return
             }
         val artifactId =
@@ -563,7 +640,7 @@ class ChatService(
                 // A failed registration means the durable file no longer verifies against
                 // its snapshot — do not leave a reference the user could never send.
                 deleteQuietly(realPath)
-                setBlocked("附件登记失败（快照校验未通过），请重新选择该文件")
+                setBlocked(str(R.string.chat_blocked_register_failed))
                 return
             }
         // HXA-055 (ADR-0014 §4): a staged image is normalized ON-DEVICE right here —
@@ -697,8 +774,7 @@ class ChatService(
 
     /** The fixed, user-visible (Chinese) send block for a failed image normalization (HXA-055). */
     private fun imageNormalizationBlockText(): String =
-        "图片归一化失败（解码或尺寸/大小超出本机的受支持范围），文件已保留在本机；" +
-            "请更换较小的图片（长边不超过 ${VisionLimits.MAX_EDGE_PX} 像素、总像素不超过 1200 万）后重试"
+        str(R.string.chat_capability_image_normalization_failed, VisionLimits.MAX_EDGE_PX)
 
     /**
      * The authoritative, in-lock append of one staged attachment: it appends only when the
@@ -728,7 +804,7 @@ class ChatService(
             if (openSessionId == sessionId) {
                 if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
                     setBlocked(
-                        "每条消息最多暂存 ${AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE} 个附件，请先删除部分附件",
+                        str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE),
                     )
                 } else {
                     stagedAttachments =
@@ -761,19 +837,33 @@ class ChatService(
         runCatching { Files.deleteIfExists(path) }
     }
 
+    /** Removes an unsupported import's unregistered payload and its now-empty attachment-id dir. */
+    private fun discardUnsupportedImport(modelRef: String?) {
+        val scopePath =
+            runCatching { FileScopePath.fromModelReference(modelRef.orEmpty()) }
+                .getOrNull() ?: return
+        val path =
+            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
+                .getOrNull() ?: return
+        deleteQuietly(path)
+        // The per-import directory is unique and contains only this payload before staging.
+        // deleteIfExists fails harmlessly if deletion above failed or an unexpected entry exists.
+        runCatching { Files.deleteIfExists(path.parent) }
+    }
+
     /** The fixed, user-visible (Chinese) reason for a refused attachment import — never the raw detail. */
     private fun importRefusalReason(refusal: ImportRefusal?): String =
         when (refusal) {
-            ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT -> "文件超过 10 MiB 附件上限，已阻止暂存"
-            ImportRefusal.STREAM_LIMIT_EXCEEDED -> "文件超过 10 MiB 附件上限，已阻止暂存"
-            ImportRefusal.QUOTA_EXCEEDED -> "工作区空间不足，已阻止暂存"
-            ImportRefusal.SOURCE_UNOPENABLE -> "无法打开所选文件，请重新选择"
-            ImportRefusal.STREAM_SIZE_MISMATCH -> "文件实际大小与声明不一致，已阻止暂存；请重新选择"
-            ImportRefusal.DESTINATION_EXISTS -> "工作区路径冲突，已阻止暂存；请重试"
-            ImportRefusal.SCOPE_UNAVAILABLE -> "工作区不可用或路径不合法，已阻止暂存"
-            ImportRefusal.INVALID_TARGET -> "工作区不可用或路径不合法，已阻止暂存"
-            ImportRefusal.IO_FAILURE -> "附件导入失败，请重试"
-            null -> "附件导入失败，请重试"
+            ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT -> str(R.string.chat_import_size_exceeded)
+            ImportRefusal.STREAM_LIMIT_EXCEEDED -> str(R.string.chat_import_size_exceeded)
+            ImportRefusal.QUOTA_EXCEEDED -> str(R.string.chat_import_quota_exceeded)
+            ImportRefusal.SOURCE_UNOPENABLE -> str(R.string.chat_import_source_unopenable)
+            ImportRefusal.STREAM_SIZE_MISMATCH -> str(R.string.chat_import_size_mismatch)
+            ImportRefusal.DESTINATION_EXISTS -> str(R.string.chat_import_destination_exists)
+            ImportRefusal.SCOPE_UNAVAILABLE -> str(R.string.chat_import_scope_unavailable)
+            ImportRefusal.INVALID_TARGET -> str(R.string.chat_import_scope_unavailable)
+            ImportRefusal.IO_FAILURE -> str(R.string.chat_import_io_failure)
+            null -> str(R.string.chat_import_io_failure)
         }
 
     /** Removes one staged attachment addressed by its [PendingAttachmentUi.id] (the artifact id). */
@@ -815,7 +905,7 @@ class ChatService(
     @Suppress("ReturnCount", "CyclomaticComplexMethod") // one fail-closed early return per gate condition
     private suspend fun sendNow(text: String) {
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
-            setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
+            setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
             return
         }
         val staged = stagedAttachments
@@ -823,21 +913,21 @@ class ChatService(
         // staged attachments ride the send; blank text with nothing staged is still the
         // empty-send block of today.
         if (text.isBlank() && staged.isEmpty()) {
-            setBlocked("消息为空、包含无效字符或超过 ${MAX_MODEL_TEXT_CHARS} 字符上限")
+            setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
             return
         }
         val session = currentSession() ?: return
         val providerId =
             session.providerId ?: run {
-                setBlocked("该会话没有绑定 Provider")
+                setBlocked(str(R.string.chat_blocked_no_provider_bound))
                 return
             }
         if (!providerService.chatSelectable(providerId)) {
-            setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
+            setBlocked(str(R.string.chat_blocked_provider_untested))
             return
         }
         if (!providerService.isCleartextPermitted(providerId)) {
-            setBlocked("该 Provider 使用明文 HTTP：请在 Provider 设置中重新确认该 host:port 授权")
+            setBlocked(str(R.string.chat_blocked_cleartext_http))
             return
         }
         val target = providerService.egressTargetFor(providerId)
@@ -860,8 +950,7 @@ class ChatService(
                     ?: false
             if (!visionConfirmed) {
                 setBlocked(
-                    "该 Provider 尚未确认视觉能力，图片不能发送：" +
-                        "请运行「连接测试」（包含图片能力探测），或在 Provider 设置中手动声明视觉能力",
+                    str(R.string.chat_blocked_vision_unconfirmed),
                 )
                 return
             }
@@ -873,7 +962,7 @@ class ChatService(
         // per staged attachment. With an empty gate this reproduces today's pure-text decide
         // call exactly (no regression).
         val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
-        val outcome = AttachmentSendAdmission.admit(gate, text, target)
+        val outcome = AttachmentSendAdmission.admit(gate, text, target, strings)
         when (outcome) {
             is AttachmentSendAdmission.Outcome.Blocked -> {
                 // The staged attachments STAY pending: the user removes the problem file
@@ -907,7 +996,7 @@ class ChatService(
                 if (staged.isNotEmpty()) {
                     // Unreachable by construction; fail closed so a staged file is never
                     // silently dropped from the outgoing request.
-                    setBlocked("附件出网策略无法确认，已阻止发送")
+                    setBlocked(str(R.string.chat_blocked_egress_unconfirmed))
                     return
                 }
                 // A pure-text Proceed carries NO attachments, so it clears none: the staged
@@ -930,7 +1019,7 @@ class ChatService(
             }
 
             is EgressDisclosure.Decision.Rejected -> {
-                setBlocked(decision.reason)
+                setBlocked(egressRejectedLabel(decision.reason))
             }
         }
     }
@@ -958,11 +1047,11 @@ class ChatService(
         // shown): a provider re-test/revocation between the dialog and this
         // confirmation must not open a wire path the user has not approved.
         if (!providerService.chatSelectable(providerId)) {
-            setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
+            setBlocked(str(R.string.chat_blocked_provider_untested))
             return
         }
         if (!providerService.isCleartextPermitted(providerId)) {
-            setBlocked("该 Provider 使用明文 HTTP：请在 Provider 设置中重新确认该 host:port 授权")
+            setBlocked(str(R.string.chat_blocked_cleartext_http))
             return
         }
         // ADR-0014 §5: the approval bound a SPECIFIC egress target (provider + origin).
@@ -974,7 +1063,7 @@ class ChatService(
                 providerService.egressTargetFor(providerId)
             } catch (e: Exception) {
                 // The provider row vanished between the dialog and this tap: fail closed.
-                setBlocked("出网目标已变化，请重新发送")
+                setBlocked(str(R.string.chat_blocked_egress_target_changed))
                 return
             }
         if (
@@ -982,7 +1071,7 @@ class ChatService(
             approvedTarget.providerId != liveTarget.providerId ||
             approvedTarget.origin != liveTarget.origin
         ) {
-            setBlocked("出网目标已变化，请重新发送")
+            setBlocked(str(R.string.chat_blocked_egress_target_changed))
             return
         }
         // Delegate the staged-attachment handling (enumeration drift check + re-verify + launch);
@@ -1015,7 +1104,7 @@ class ChatService(
         // send. A pure-text pending has both empty, so this passes and the path below is
         // byte-identical to pre-attachment (no regression). The staged attachments STAY pending.
         if (staged.map { it.artifactId } != approvedAttachmentIds) {
-            setBlocked("附件列表已变化，请重新发送")
+            setBlocked(str(R.string.chat_blocked_attachments_changed))
             return
         }
         if (staged.isEmpty()) {
@@ -1048,8 +1137,7 @@ class ChatService(
                     ?: false
             if (!visionConfirmed) {
                 setBlocked(
-                    "该 Provider 尚未确认视觉能力，图片不能发送：" +
-                        "请运行「连接测试」（包含图片能力探测），或在 Provider 设置中手动声明视觉能力",
+                    str(R.string.chat_blocked_vision_unconfirmed),
                 )
                 return
             }
@@ -1142,16 +1230,16 @@ class ChatService(
         if (gate is AttachmentSendDecision.CredentialDetected) {
             // A refusal (never Proceed/Confirm), the same outcome as a credential typed in the
             // box; the guard reason is shown, the matched content never is.
-            setBlocked(gate.reason)
+            setBlocked(egressRejectedLabel(gate.reason))
         } else {
             // Reuse the admission's user-visible blocked copy (one source for the reasons).
-            val outcome = AttachmentSendAdmission.admit(gate, text, target)
+            val outcome = AttachmentSendAdmission.admit(gate, text, target, strings)
             if (outcome is AttachmentSendAdmission.Outcome.Blocked) {
                 setBlocked(outcome.reason)
             } else {
                 // UnsupportedType/SnapshotBroken can only block; fail closed if that
                 // invariant ever changes.
-                setBlocked("附件快照校验失败，已阻止发送；请重新选择该文件")
+                setBlocked(str(R.string.chat_blocked_snapshot_verify_failed))
             }
         }
         return null
@@ -1204,18 +1292,24 @@ class ChatService(
                 if (decision == ApprovalDecision.APPROVED) {
                     updateCard(approvalId) { it.copy(state = ApprovalCardState.APPROVED) }
                 } else {
-                    updateCard(
-                        approvalId,
-                    ) { it.copy(state = ApprovalCardState.DENIED, terminalDetail = "用户已拒绝本次动作") }
+                    updateCard(approvalId) {
+                        it.copy(
+                            state = ApprovalCardState.DENIED,
+                            terminalDetail = str(R.string.approval_terminal_user_denied),
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 // A stale card (the record was already decided or the id is unknown): the
                 // repository's one-time guard throws — surface a stable card error, never a
                 // crash, never a silent no-op (the user's tap must be visible as handled).
                 Log.e(TAG, "approval $approvalId could not be decided", e)
-                updateCard(
-                    approvalId,
-                ) { it.copy(state = ApprovalCardState.FAILED, terminalDetail = "审批操作失败：记录已不存在或已决定") }
+                updateCard(approvalId) {
+                    it.copy(
+                        state = ApprovalCardState.FAILED,
+                        terminalDetail = str(R.string.approval_terminal_op_failed),
+                    )
+                }
             }
         }
     }
@@ -1276,7 +1370,7 @@ class ChatService(
                 callId = callId,
                 toolName = request.binding.toolName,
                 requestSummary = CanonicalArgs.canonicalize(facts.args),
-                stateLabel = "待审批",
+                stateLabel = str(R.string.tool_state_awaiting_approval),
                 resultSummary = null,
                 card = card,
             )
@@ -1303,7 +1397,7 @@ class ChatService(
             val session = currentSession() ?: return@launch
             val providerId = session.providerId ?: return@launch
             if (!providerService.chatSelectable(providerId)) {
-                setBlocked("该 Provider 未完成连接测试（设置 → Provider → 连接测试）")
+                setBlocked(str(R.string.chat_blocked_provider_untested))
                 return@launch
             }
             when (val stagedCheck = retryStagedFor(session.id, turnId)) {
@@ -1312,7 +1406,7 @@ class ChatService(
                 }
 
                 RetryStagedCheck.Unavailable -> {
-                    setBlocked("附件快照复核未通过（文件可能已被修改或删除），已阻止重试")
+                    setBlocked(str(R.string.chat_blocked_snapshot_recheck_failed))
                     return@launch
                 }
 
@@ -1324,9 +1418,9 @@ class ChatService(
                         // credential guard's reason — the matched content is never echoed).
                         val reason =
                             if (gate is AttachmentSendDecision.CredentialDetected) {
-                                gate.reason
+                                egressRejectedLabel(gate.reason)
                             } else {
-                                "附件快照复核未通过（文件可能已被修改或删除），已阻止重试"
+                                str(R.string.chat_blocked_snapshot_recheck_failed)
                             }
                         setBlocked(reason)
                         return@launch
@@ -1427,7 +1521,7 @@ class ChatService(
                 // row has been written yet, so surface a blocked state — the
                 // send must never vanish.
                 Log.e(TAG, "could not snapshot provider $providerId", e)
-                setBlocked("消息未发送：Provider 状态已变化，请检查 Provider 设置后重试")
+                setBlocked(str(R.string.chat_blocked_provider_state_changed))
                 return
             }
         synchronized(turnGate) {
@@ -1443,12 +1537,17 @@ class ChatService(
                     idGenerator = idGenerator,
                     spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings),
                 )
+            // The worker waits behind this gate until its active-turn entry and initial UI are
+            // published. Without the gate, a fast scheduler can begin streaming before register;
+            // stop() in that window cannot find the job and silently fails to cancel the turn.
+            val startGate = CompletableDeferred<Unit>()
             val job =
                 workScope.launch {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId)
+                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+            startGate.complete(Unit)
         }
     }
 
@@ -1462,13 +1561,15 @@ class ChatService(
         coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
+        startGate: CompletableDeferred<Unit>,
     ) {
         val turnId = coordinator.id
         try {
+            startGate.await()
             val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId)
-            terminalize(coordinator, decision)
+            terminalize(sessionId, coordinator, decision)
         } catch (e: CancellationException) {
-            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null, null))
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
             throw e
         } catch (e: ApprovalCancelledException) {
             // The user stopped the turn while the approval card was pending: the turn
@@ -1477,7 +1578,7 @@ class ChatService(
             // cancellation was the user's own action, not a failure. (The exception
             // carries only the approval id — safe to log as metadata.)
             Log.i(TAG, "turn $turnId stopped while awaiting approval: ${e.message}")
-            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null, "已停止"))
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
         } catch (e: Exception) {
             // An unexpected boundary failure (a guard reject, corrupt rows, a
             // provider row deleted mid-turn): the turn STILL reaches a
@@ -1485,8 +1586,9 @@ class ChatService(
             // (doc 02 section 13: raw messages are never shown).
             Log.e(TAG, "turn $turnId failed at the model boundary", e)
             terminalize(
+                sessionId,
                 coordinator,
-                ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name, "请求失败，请重试"),
+                ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name),
             )
         }
     }
@@ -1514,7 +1616,7 @@ class ChatService(
         var toolRounds = 0
         while (true) {
             if (turnCancels[turnId]?.isCancelled() == true) {
-                return ModelStreamTerminal(TurnState.CANCELLED, null, "已停止")
+                return ModelStreamTerminal(TurnState.CANCELLED, null)
             }
             val acc = coordinator.beginModelStream()
             provider.stream(request).collect { event ->
@@ -1530,7 +1632,7 @@ class ChatService(
                     )
                 if (toolRound is ToolRoundLimit) {
                     // The turn's tool-round budget is exhausted: fail closed.
-                    return ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT", "工具步骤超过上限")
+                    return ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT")
                 }
                 if (toolRound is ToolRoundContinued) {
                     toolRounds = toolRound.toolRounds
@@ -1592,7 +1694,7 @@ class ChatService(
         acc: ModelStreamState,
         turnId: String,
     ) {
-        val update = acc.apply(event, ConnectionTestMapping::codeLabel)
+        val update = acc.apply(event)
         if (!update.textChanged) return
         publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.text, null, false))
     }
@@ -1603,6 +1705,7 @@ class ChatService(
      * completion, the stop path or the error path — always exactly once.
      */
     private fun terminalize(
+        sessionId: String,
         coordinator: TurnCoordinator,
         outcome: ModelStreamTerminal,
     ) {
@@ -1615,9 +1718,12 @@ class ChatService(
         turnCancels.remove(turnId)
         dispatchFacts.values.removeIf { it.turnId == turnId }
         activePendingApprovalId = null
-        if (outcome.displayLabel != null) {
+        // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
+        // user reacting immediately cannot hit the still-active coroutine's completion gap.
+        sessionTurnAdmission.complete(sessionId, turnId)
+        terminalLabel(outcome.state, outcome.errorCode)?.let { label ->
             publishTurn(
-                TurnUi(turnId, outcome.state, null, outcome.displayLabel, outcome.state == TurnState.FAILED),
+                TurnUi(turnId, outcome.state, null, label, outcome.state == TurnState.FAILED),
             )
         }
         refreshScreen()
@@ -1838,7 +1944,7 @@ class ChatService(
 
             ToolDispatchOutcome.Cancelled -> {
                 status = "CANCELLED"
-                summary = "启动前取消（无副作用）"
+                summary = str(R.string.tool_summary_cancelled_before_start)
             }
         }
         val body =
@@ -1932,7 +2038,12 @@ class ChatService(
                 } else {
                     val settlement = batch.settlements[slot++]
                     val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-                    val unknown = thrown != null && thrown !is ApprovalCancelledException
+                    val unknown =
+                        (thrown != null && thrown !is ApprovalCancelledException) ||
+                            (
+                                (settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
+                                    as? ToolDispatchOutcome.ExecutionFailed
+                            )?.requiresReview == true
                     val outcome =
                         when (settlement) {
                             is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
@@ -2019,7 +2130,7 @@ class ChatService(
         // a later switch must not change a pending card — the card renders these trusted
         // facts, never the live store).
         val profile = profile.value
-        publishToolRow(turnId, toolCallId, toolNameRaw, canonical, "处理中", null, null)
+        publishToolRow(turnId, toolCallId, toolNameRaw, canonical, str(R.string.tool_state_processing), null, null)
         val request = buildDispatchRequest(turn, toolCallId, validName, descriptor, validArgs, profile)
         dispatchFacts[toolCallId] =
             DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
@@ -2051,7 +2162,7 @@ class ChatService(
                         rawArgsJson,
                         "unknown",
                         DispatchOutcomeCode.UNKNOWN_TOOL,
-                        "工具名不合法，已拒绝",
+                        str(R.string.tool_rejected_bad_name),
                     ),
                 )
             }
@@ -2069,7 +2180,7 @@ class ChatService(
                         rawArgsJson,
                         descriptor?.version?.value?.toString() ?: "unknown",
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
-                        "参数不是有效的 JSON 对象，已拒绝",
+                        str(R.string.tool_rejected_bad_args),
                     ),
                 )
             }
@@ -2141,8 +2252,42 @@ class ChatService(
         descriptor: ToolDescriptor?,
         args: JsonObject,
         profile: SafetyProfile,
-    ): ToolDispatchRequest =
-        ToolDispatchRequest(
+    ): ToolDispatchRequest {
+        val mcpFacts =
+            descriptor?.let {
+                toolPipeline.mcpDispatchFacts(
+                    sessionId = turn.sessionId,
+                    toolCallId = toolCallId,
+                    descriptor = it,
+                    arguments = args,
+                    sensitivity = com.helix.core.policy.DataSensitivity.NORMAL,
+                )
+            }
+        val a2aFacts =
+            descriptor?.let {
+                toolPipeline.a2aDispatchFacts(
+                    sessionId = turn.sessionId,
+                    descriptor = it,
+                    arguments = args,
+                    sensitivity = com.helix.core.policy.DataSensitivity.NORMAL,
+                )
+            }
+        val egressFacts =
+            mcpFacts?.let {
+                Triple(
+                    it.egress,
+                    it.originSeenInSession,
+                    it.sourceBindingChanged || (it.checkpointRequired && it.originSeenInSession),
+                )
+            }
+                ?: a2aFacts?.let {
+                    Triple(
+                        it.egress,
+                        it.originSeenInSession,
+                        it.sourceBindingChanged || (it.checkpointRequired && it.originSeenInSession),
+                    )
+                }
+        return ToolDispatchRequest(
             toolCallId = toolCallId,
             turnId = turn.id,
             sessionId = turn.sessionId,
@@ -2155,14 +2300,15 @@ class ChatService(
             dataOrigin = DataOrigin.WORKSPACE,
             scope = null,
             uiToken = "chat:${turn.id}",
-            egress = null,
-            originSeenInSession = true,
+            egress = egressFacts?.first,
+            originSeenInSession = egressFacts?.second ?: true,
             lanScopes = emptySet(),
             overwritesExisting = false,
             codeOrCommandChanged = false,
-            sourceBindingChanged = false,
+            sourceBindingChanged = egressFacts?.third ?: false,
             cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal() },
         )
+    }
 
     /**
      * The durable settlement for a slot the dispatcher threw away instead of returning
@@ -2180,7 +2326,10 @@ class ChatService(
         } else {
             ToolDispatchOutcome.ExecutionFailed(
                 DispatchOutcomeCode.TOOL_FAILED,
-                "工具调用被编排层异常中断（${error?.javaClass?.simpleName ?: "未知"}），副作用状态未知",
+                str(
+                    R.string.tool_interrupted_by_orchestrator,
+                    error?.javaClass?.simpleName ?: str(R.string.common_unknown),
+                ),
             )
         }
 
@@ -2228,7 +2377,15 @@ class ChatService(
             )
         storage.toolResults.markVerified(result)
         setCardStateForCall(toolCallId, ApprovalCardState.SUCCEEDED, null)
-        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, "已执行成功", summary, null)
+        publishToolRow(
+            row.turnId,
+            toolCallId,
+            toolName,
+            row.argsJson,
+            str(R.string.tool_state_completed),
+            summary,
+            null,
+        )
     }
 
     private fun settleDenied(
@@ -2237,6 +2394,7 @@ class ChatService(
         toolName: String,
         outcome: ToolDispatchOutcome.Denied,
     ) {
+        val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
         storage.toolCalls.updateState(row, ToolCallState.DENIED)
         storage.toolResults.append(
             id = idGenerator(),
@@ -2248,7 +2406,7 @@ class ChatService(
         setCardStateForCall(
             toolCallId,
             ApprovalCardState.FAILED,
-            outcome.code.name + "：" + outcome.detail,
+            userDetail,
             keepDenied = true,
         )
         publishToolRow(
@@ -2256,8 +2414,8 @@ class ChatService(
             toolCallId,
             toolName,
             row.argsJson,
-            ApprovalUiMapper.codeLabel(outcome.code),
-            outcome.detail,
+            str(ApprovalUiMapper.codeLabel(outcome.code)),
+            userDetail,
             null,
         )
     }
@@ -2272,11 +2430,19 @@ class ChatService(
             id = idGenerator(),
             toolCallId = toolCallId,
             status = "CANCELLED",
-            summary = "启动前取消（无副作用）",
+            summary = str(R.string.tool_summary_cancelled_before_start),
             content = null,
         )
-        setCardStateForCall(toolCallId, ApprovalCardState.FAILED, "已停止")
-        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, "已取消", "启动前取消（无副作用）", null)
+        setCardStateForCall(toolCallId, ApprovalCardState.FAILED, str(R.string.turn_stopped))
+        publishToolRow(
+            row.turnId,
+            toolCallId,
+            toolName,
+            row.argsJson,
+            str(R.string.tool_state_cancelled),
+            str(R.string.tool_summary_cancelled_before_start),
+            null,
+        )
     }
 
     private fun settleExecutionFailed(
@@ -2287,6 +2453,13 @@ class ChatService(
         sideEffectUnknown: Boolean,
     ) {
         val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
+        val userDetail =
+            str(
+                ApprovalUiMapper.executionFailureLabel(
+                    dispatchFacts[toolCallId]?.descriptor?.origin,
+                    requiresReview = sideEffectUnknown,
+                ),
+            )
         storage.toolCalls.updateState(row, state)
         storage.toolResults.append(
             id = idGenerator(),
@@ -2298,10 +2471,15 @@ class ChatService(
         setCardStateForCall(
             toolCallId,
             ApprovalCardState.FAILED,
-            ApprovalUiMapper.codeLabel(outcome.code) + "：" + outcome.detail,
+            userDetail,
         )
-        val label = if (sideEffectUnknown) "副作用待确认" else "执行失败"
-        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, outcome.detail, null)
+        val label =
+            if (sideEffectUnknown) {
+                str(R.string.tool_state_side_effect_pending)
+            } else {
+                str(R.string.tool_state_failed)
+            }
+        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, userDetail, null)
     }
 
     /**
@@ -2360,7 +2538,7 @@ class ChatService(
                 finishedAt = finishedAt,
             ),
         )
-        publishToolRow(turn.id, toolCallId, toolNameRaw, rawArgs, "已拒绝", detail, null)
+        publishToolRow(turn.id, toolCallId, toolNameRaw, rawArgs, str(R.string.tool_state_denied), detail, null)
         return ToolDispatchOutcome.Denied(code, detail)
     }
 
@@ -2417,7 +2595,7 @@ class ChatService(
                 toolTimeline =
                     screen.toolTimeline.map { row ->
                         if (row.callId == callId) {
-                            row.copy(card = card, stateLabel = "待审批")
+                            row.copy(card = card, stateLabel = str(R.string.tool_state_awaiting_approval))
                         } else {
                             row
                         }
@@ -2495,25 +2673,25 @@ class ChatService(
 
     private fun refreshScreen() {
         val sessionId = resolvableOpenSessionId()
-        val screen = _screen.value
-        val messages = messagesFor(sessionId, screen)
-        val badge = sessionId?.let { badgeFor(it) } ?: screen.badge
         val lastTurn = sessionId?.let { id -> storage.turns.listBySession(id).lastOrNull() }
-        val previous = _screen.value
-        _screen.value =
+        // Refreshes race with targeted UI publications (for example an attachment refusal).
+        // Build from the value observed by StateFlow's atomic update so a refresh can never
+        // restore an older blocked/disclosure/streaming snapshot over a newer publication.
+        _screen.update { current ->
             ChatScreenState(
                 sessions = _sessions.value,
                 openSessionId = sessionId,
-                badge = badge,
-                messages = messages,
-                toolTimeline = toolTimelineFor(sessionId, previous.toolTimeline),
-                activeTurn = lastTurn?.let { turnUiFor(it, previous.activeTurn?.streamingText) },
-                pendingDisclosure = previous.pendingDisclosure,
-                blockedReason = previous.blockedReason,
+                badge = sessionId?.let { badgeFor(it) } ?: current.badge,
+                messages = messagesFor(sessionId, current),
+                toolTimeline = toolTimelineFor(sessionId, current.toolTimeline),
+                activeTurn = lastTurn?.let { turnUiFor(it, current.activeTurn?.streamingText) },
+                pendingDisclosure = current.pendingDisclosure,
+                blockedReason = current.blockedReason,
                 retryTargetTurnId = retryTargetFor(sessionId),
                 pendingAttachments = stagedAttachmentsUi(),
                 shareDraftText = shareDraftText,
             )
+        }
     }
 
     /**
@@ -2590,16 +2768,16 @@ class ChatService(
     /** A persisted tool_call state as its user label (corrupt values fail closed). */
     private fun persistedStateLabel(state: String): String =
         when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
-            ToolCallState.PENDING -> "处理中"
-            ToolCallState.AWAITING_APPROVAL -> "待审批"
-            ToolCallState.RUNNING -> "执行中"
-            ToolCallState.NEEDS_REVIEW -> "待复核"
-            ToolCallState.INTERRUPTED -> "已中断（待恢复）"
-            ToolCallState.COMPLETED -> "已执行成功"
-            ToolCallState.FAILED -> "执行失败"
-            ToolCallState.CANCELLED -> "已取消"
-            ToolCallState.DENIED -> "已拒绝"
-            null -> "未知状态"
+            ToolCallState.PENDING -> str(R.string.tool_state_processing)
+            ToolCallState.AWAITING_APPROVAL -> str(R.string.tool_state_awaiting_approval)
+            ToolCallState.RUNNING -> str(R.string.tool_state_running)
+            ToolCallState.NEEDS_REVIEW -> str(R.string.tool_state_needs_review)
+            ToolCallState.INTERRUPTED -> str(R.string.tool_state_interrupted)
+            ToolCallState.COMPLETED -> str(R.string.tool_state_completed)
+            ToolCallState.FAILED -> str(R.string.tool_state_failed)
+            ToolCallState.CANCELLED -> str(R.string.tool_state_cancelled)
+            ToolCallState.DENIED -> str(R.string.tool_state_denied)
+            null -> str(R.string.tool_state_unknown)
         }
 
     /** The open session's persisted messages as UI rows (blank assistant rows drop out). */
@@ -2640,14 +2818,7 @@ class ChatService(
             id = entity.id,
             state = state,
             streamingText = if (state.isTerminal) null else previousStreamingText,
-            errorLabel =
-                entity.errorCode?.let { code ->
-                    try {
-                        ConnectionTestMapping.codeLabel(ModelErrorCode.valueOf(code))
-                    } catch (e: IllegalArgumentException) {
-                        "请求失败"
-                    }
-                },
+            errorLabel = entity.errorCode?.let { code -> str(modelTerminalCodeRes(code)) },
             retryable = state == TurnState.FAILED,
         )
     }

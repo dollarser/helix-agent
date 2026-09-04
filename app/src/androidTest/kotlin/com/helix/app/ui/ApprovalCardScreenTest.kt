@@ -1,5 +1,7 @@
 package com.helix.app.ui
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -10,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.approval.BoundedRuleUi
@@ -39,7 +42,8 @@ class ApprovalCardScreenTest {
             categories = "contacts",
             scope = "workspace:ws-9",
             expiresAt = 1_900_000L,
-            display = "api.example.com / contacts / 有效期至 1900000",
+            displayRes = R.string.approval_bounded_rule_display,
+            displayArgs = listOf("https://api.example.com", "contacts", "workspace:ws-9", "1900000"),
         )
 
     private val card =
@@ -47,27 +51,31 @@ class ApprovalCardScreenTest {
             approvalId = "approval-1",
             bindingHash = "a".repeat(64),
             state = ApprovalCardState.PENDING,
-            source = "MCP 服务器：srv-7",
-            target = "本机（主应用进程）",
+            sourceRes = R.string.approval_source_mcp,
+            sourceArgs = listOf("srv-7"),
+            targetRes = R.string.approval_target_local_android,
             scope = "workspace:ws-9",
             arguments = """{"command":"git pull --ff-only"}""",
-            risk = "L1（低风险） → 动态 L2（需逐次批准）",
+            riskRes = R.string.approval_risk_dynamic_upgrade,
+            riskArgs = listOf(R.string.approval_risk_l1, R.string.approval_risk_l2),
             profile = SafetyProfile.STANDARD,
             providerMcpId = "srv-7",
             networkOrigin = "https://api.example.com:443",
             residence = "中国大陆",
-            dataCategory = "高敏内容（逐次确认）",
+            dataCategoryRes = R.string.approval_category_sensitive,
             boundedRule = rule,
             codeOrCommand = "git pull --ff-only",
             expectedImpact = "从远端更新 Workspace（可能失败）",
-            verifier = "输出必须通过注册的 outputSchema 校验；全量输出记录 SHA-256 哈希",
+            verifierRes = R.string.approval_verifier_text,
             confirmationDetail = "该动作将立即执行，无法撤销。",
             terminalDetail = null,
         )
 
     private fun render() {
         composeRule.setContent {
-            ApprovalCard(card, onApprove = {}, onDeny = {})
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(card, onApprove = {}, onDeny = {})
+            }
         }
         composeRule.waitForIdle()
     }
@@ -95,8 +103,10 @@ class ApprovalCardScreenTest {
         composeRule.onNodeWithText("数据类别：高敏内容（逐次确认）").assertIsDisplayed()
         // 有界 Policy 规则 — labeled as bounded, never a general credential
         composeRule
-            .onNodeWithText("有界 Policy 规则（非通用批准凭证）：api.example.com / contacts / 有效期至 1900000")
-            .assertIsDisplayed()
+            .onNodeWithText(
+                "有界 Policy 规则（非通用批准凭证）：origin https://api.example.com · contacts · " +
+                    "作用域 workspace:ws-9 · 有效期至 1900000（一次授权，非通用凭证）",
+            ).assertIsDisplayed()
         // 代码/命令
         composeRule.onNodeWithText("代码/命令：git pull --ff-only").assertIsDisplayed()
         // 预期影响
@@ -152,11 +162,13 @@ class ApprovalCardScreenTest {
     @Test
     fun terminalCardShowsStateInsteadOfButtons() {
         composeRule.setContent {
-            ApprovalCard(
-                card = card.copy(state = ApprovalCardState.DENIED, terminalDetail = "用户已拒绝本次动作"),
-                onApprove = {},
-                onDeny = {},
-            )
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(
+                    card = card.copy(state = ApprovalCardState.DENIED, terminalDetail = "用户已拒绝本次动作"),
+                    onApprove = {},
+                    onDeny = {},
+                )
+            }
         }
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("approval-card-state-approval-1").assertIsDisplayed()

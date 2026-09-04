@@ -69,6 +69,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
+- HXA-077 / accepted ADR-0018 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。API 29/36 运行与真实 App APK/SBOM 验收仍待补齐。
 - 不引入通用 shell/process 库；PRoot Runner 自己封装明确的 argv 和 lifecycle。
 - 不使用已 deprecated 的 `androidx.security:security-crypto` 作为新设计核心；使用 Android Keystore + 明确的加密存储封装。
 - Agent Skills 自行实现 Kotlin parser/loader；官方 `skills-ref` 只作规范 fixture，不作 Android production 依赖。
@@ -159,6 +160,24 @@ sdkmanager --list_installed
 
 QuickJS、WebView、PRoot、Accessibility、Root 和 CLI Runtime 不能只在模拟器验收。Root/Accessibility 自动化使用专用测试设备和自建 fixture App。
 
+### 5.2.1 设备占用与并行 worktree
+
+Android 设备是共享的外部状态，不受 Git worktree 隔离。开始 instrumentation 前必须先
+执行 `adb devices -l`，确认目标设备没有其他任务正在安装 APK、运行 instrumentation、修改
+权限/locale/网络转发或重启；无法确认空闲时，选择无人使用的设备或新建独立 AVD，不抢占
+未知所有者的会话。需要长期占用时在任务记录中声明设备/API/ABI/用途，不记录真实序列号。
+
+同一设备上的 consumer/developer、主 App/test APK/Runtime companion 安装默认串行。测试
+Provider authority 必须由 `${applicationId}` 派生或显式保证变体唯一；固定 authority、端口、
+applicationId、系统 locale、持久 grant 和已安装旧 APK 都可能跨 worktree 冲突。出现
+`INSTALL_FAILED_CONFLICTING_PROVIDER`、`ClassNotFoundException`、找不到测试类或行为与当前
+源码不符时，先核对实际安装的主包、test package、version/commit 对应产物和 companion，
+再重装正确的 app/test 配对；不得把被其他分支覆盖的 APK 当作当前实现或平台证据。
+
+设备资源不足或占用冲突属于测试调度问题，不授权降低产品要求、删除断言、跳过安全路径或
+把专项设备门禁改写成 JVM/in-process 替代证据。只有最小、与 Helix 实现无关的真实边界
+复现仍失败，才可以把问题升级为平台阻塞候选。
+
 ### 5.3 创建 Helix AVD
 
 安装与主机架构匹配的 Google APIs 镜像。Apple Silicon 使用 `arm64-v8a`；Linux x86-64 使用 `x86_64`，不能为了复用命令而安装错误 ABI：
@@ -176,6 +195,8 @@ printf 'no\n' | avdmanager create avd \
   --name Helix_API_36 \
   --package "system-images;android-36;google_apis;${helix_host_abi}"
 ```
+
+创建后必须把显示设为手机级分辨率 **1080×2400 @ 420dpi**（与参考 `Helix_API_36` 一致）。`avdmanager create avd` 不带 `--device` profile 时默认落在 320×640 @ 160；该尺寸下 provider 行下半部分（状态明细、`provider-test`/`provider-delete` 按钮）会落到可视区之外或被输入法遮挡，令 `ProviderModelDiscoveryUiTest`、`ProviderFlowTest` 等 provider 行 UI 测试确定性失败，高度被 clamp（如 1080×1920）时带模型分区的行仍会失败——需要完整 2400 高度。分辨率是创建期配置，改法是在该 AVD 的 `config.ini`（本机 AVD 目录内，不进仓库）写入 `hw.lcd.width=1080`、`hw.lcd.height=2400`、`hw.lcd.density=420` 后重启 AVD。若此前用 `adb shell wm size`/`wm density` 临时改过，须先 `wm size reset` 与 `wm density reset` 清掉持久在 `/data` 的覆盖，否则冷启动仍被 clamp。
 
 若同名 AVD 已存在，不要用 `--force` 覆盖；先通过 Android Studio Device Manager 检查其 API、ABI、磁盘和快照状态。普通开发从 Device Manager 启动即可；命令行冷启动参考：
 
@@ -331,6 +352,13 @@ dependencyLocking {
 
 提交 `gradle.lockfile`/各模块 lock file。升级时禁止无关锁文件大面积漂移。
 
+依赖替换必须放在实际解析该依赖的 producer 模块，并覆盖 lint、unit、Android/R8 等相关
+configuration；只在 `app` 做 substitution 不能修复 extension/library 自己解析到的不兼容
+variant。每次替换后检查 producer 模块的 dependency insight 与 lock diff，并运行会解析该
+variant 的 lint/build。若 Android artifact 要求高于项目基线的 compileSdk，先判断是否存在
+同版本、同 API 契约的 JVM artifact 或可隔离 adapter；普通功能任务不得为通过解析临时升级
+compile/target SDK，也不得在未验证的配置中全局强制版本。
+
 ### 6.3 Repository
 
 默认只允许：
@@ -401,6 +429,7 @@ Helix/
 ├── provider/
 ├── extensions/
 │   ├── mcp/
+│   ├── a2a/                  # HXA-077 接受方案后创建
 │   └── skills/
 ├── feature/
 │   ├── browser/
@@ -519,7 +548,7 @@ checkout
 
 workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 GitHub：最早 1 次 Android CI 失败后，依赖验证/Action 版本修复带来 3 次连续成功；最新成功运行是 [33364284426](https://github.com/dollarser/helix-agent/actions/runs/33364284426)，并生成保留 1 天的 debug APK bundle。当前远端 workflow 仍不运行 emulator/真机；HXA-003 的 API 36 arm64-v8a instrumentation 证据来自本机，不能由远端构建替代。
 
-后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
+后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP/A2A fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider/A2A 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
 
 ## 12. 版本升级流程
 
@@ -530,7 +559,7 @@ workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 Git
 5. 跑全部 unit、lint、instrumentation、consumer/developer build。
 6. QuickJS/NDK 升级必须重跑隔离、16 KiB page 和真机攻击测试。
 7. PRoot/RootFS 升级必须生成新 runtime manifest、许可证和 rollback 测试。
-8. MCP SDK 升级必须重跑 Android/R8/transport Spike；Skill 规范升级必须重跑官方 fixture。
+8. MCP SDK 或 A2A SDK/spec 升级必须重跑 Android/R8/transport Spike；Skill 规范升级必须重跑官方 fixture。
 9. WebKit/libsu 升级必须重跑对应真机权限和攻击测试。
 
 ## 13. 新环境验收
@@ -582,7 +611,9 @@ git diff --check
 | 缺少 Platform/Build Tools/NDK/CMake | 对照第 4.2 节重新运行 `sdkmanager`，再用 `--list_installed` 验证；不要随意把项目版本改成机器碰巧已有的版本。 |
 | `adb` 显示 `unauthorized`/`offline` | 解锁设备并确认调试指纹，重新插拔或冷启动 AVD；仍失败时先停止测试，不用 `pm grant` 或关闭安全检查规避。 |
 | 有多个设备，测试跑错目标 | 用 `adb devices -l` 确认目标，在当前终端临时设置 `ANDROID_SERIAL` 后再运行 connected test。 |
+| 共享模拟器上安装失败或测试类突然不存在 | 停止继续覆盖安装，确认设备是否被其他任务占用，并核对主包、test APK、companion、applicationId 和 provider authority；无法确认空闲时改用独立 AVD。 |
 | AVD 无法启动或极慢 | 核对镜像 ABI 与主机架构，优先冷启动并检查可用磁盘/虚拟化；不要把 x86_64 结果记录成 arm64 证据。 |
 | 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；当前基线保持 compileSdk 36，不在普通功能任务中升级 SDK。 |
 | Gradle 输出 Kotlin 2.3.20，但 catalog 是 2.3.21 | 前者是 Gradle 自带 Kotlin，后者才是项目 Kotlin plugin；以 catalog 和 resolved dependency 为准。 |
 | Unit test 通过但功能仍异常 | 查看当前 HXA 的 verification matrix；涉及 Android/Room/WebView/权限/Runtime 时补跑指定设备测试和真实边界 fixture。 |
+| instrumentation 报 `Failed to inject touch input` | `androidx.compose.ui.test` 的误导包装，真实原因在紧跟的 `Reason:` 行，多为 `could not find any node`（目标不在组合树里）而非输入注入失败；按 `Reason` 定位，最常见是 AVD 分辨率太小把 provider 行内容压出可视区（见 5.3），先修正分辨率再重跑，不要当输入注入 bug 排查。 |

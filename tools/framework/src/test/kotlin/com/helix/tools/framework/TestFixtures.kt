@@ -57,6 +57,28 @@ internal object TestFixtures {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            sourceSchemaHash = "a".repeat(64),
             serverProvidedHints = hints,
+        )
+
+    fun a2aSpec(
+        skillId: String = "echo-skill",
+        skillSlug: String = "echo-skill_deadbeef0000",
+        cardHash: String = "b".repeat(64),
+        skillHash: String = "c".repeat(64),
+    ): A2aToolSpec =
+        A2aToolSpec(
+            skillId = skillId,
+            skillSlug = skillSlug,
+            description = "UNTRUSTED_A2A_CONTENT test Skill",
+            cardHash = cardHash,
+            skillHash = skillHash,
+            interfaceOrigin = "https://agent.example:443",
+            binding = "JSONRPC",
+            protocolVersion = "1.0",
+            inputSchema = json("""{"type":"object"}"""),
+            outputSchema = json("""{"type":"object"}"""),
+            timeout = 30.seconds,
+            maxOutputBytes = 1024 * 1024,
         )
 }

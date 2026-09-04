@@ -44,7 +44,7 @@ docs/
 - [总体架构](architecture/overview.md)：模块、状态机、核心接口、存储和安全不变式。
 - [本地代码执行](architecture/local-code-execution.md)：QuickJS、PRoot 与执行域边界。
 - [Android 平台能力](architecture/android-platform-capabilities.md)：Browser、Files、Accessibility、Root 与 Android 工具。
-- [Provider、MCP、Skills 与模式](architecture/provider-mcp-skills-modes.md)：Provider、扩展协议、Plan/Goal 和订阅边界。
+- [Provider、MCP、A2A、Skills 与模式](architecture/provider-mcp-skills-modes.md)：Provider、外部工具/Agent 协议、Plan/Goal 和订阅边界。
 - [手机端 Tool 编排](architecture/mobile-tool-orchestration.md)：确定性调度、取消、恢复与受限委托。
 
 ## 开发治理

@@ -1,7 +1,7 @@
 # Helix 产品需求（Android 单机版）
 
-文档状态：Baseline 1.3
-基线日期：2026-08-31
+文档状态：Baseline 1.5
+基线日期：2026-09-03
 目标读者：产品负责人、Android 开发者、测试人员、编码 Agent
 
 ## 1. 产品定义
@@ -31,24 +31,27 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 11. Android 原生 Intent、分享导入、通知读取和日历草稿能力。
 12. MCP Client：Streamable HTTP 和可选 PRoot stdio transport。
 13. Agent Skills：发现、按需加载、用户导入、启停和受控脚本执行。
-14. 用户主动开启的 Accessibility 自动化与可选 Root 高级能力。
-15. 任务中断后的持久化恢复。
-16. 可选 PRoot + Alpine Linux 开发者模式。
-17. 确定性 Tool 编排：单一安全管线、有界读并发、写屏障、按模型 call sequence 回填、取消/恢复可回放和分阶段审计。
-18. 会话纯文本与图片附件：一次性导入到 Workspace、可预览/移除、消息绑定、图片 vision、精确出网披露以及系统分享草稿；选择或分享不自动发送。
+14. A2A Client：发现并连接用户配置的外部 Agent，把已启用的远端 Skill 作为受控 ToolCall 委托任务，并持久化远端 Task 状态、流式事件和 Artifact。
+15. 用户主动开启的 Accessibility 自动化与可选 Root 高级能力。
+16. 任务中断后的持久化恢复。
+17. 可选 PRoot + Alpine Linux 开发者模式。
+18. 确定性 Tool 编排：单一安全管线、有界读并发、写屏障、按模型 call sequence 回填、取消/恢复可回放和分阶段审计。
+19. 会话纯文本与图片附件：一次性导入到 Workspace、可预览/移除、消息绑定、图片 vision、精确出网披露以及系统分享草稿；选择或分享不自动发送。
+20. 国际化：提供简体中文和英文 UI，默认跟随系统，用户可在 App 内选择“跟随系统 / 简体中文 / English”。
 
 ### 2.2 明确不实现
 
-- 远程 Worker、云端沙箱或桌面配对。
+- 远程 Worker、云端沙箱或桌面配对；M7 的 A2A Client 只调用用户配置的外部 Agent 服务，不把远端 Agent 注册为 Helix `ExecutionTarget`，也不把基础任务迁移为云端执行。
 - HarmonyOS 客户端。
 - 当前路线不实现 ADB、Shizuku 和无线调试桥接；仅作为未排期未来研究候选，不构成当前功能或营销承诺。
 - 自动付款、转账、下单。
 - 未经确认自动发送消息、邮件或公开内容。
 - 从模型响应中下载并加载 DEX/APK/native library。
 - 手机端完整 Android SDK/Gradle 构建环境。
-- 多 Agent 群体/递归编排、Agent 间任意 peer 通信；后期只允许 HXA-105/ADR-0009 评估 Advanced 的深度 1 只读委托。
+- 多 Agent 群体/递归编排、Agent 间任意 peer 通信；M7 只允许 Helix 作为单一 Client 向用户启用的 A2A Agent 发起有界任务，后期内部 child delegation 仍只允许 HXA-105/ADR-0009 评估 Advanced 的深度 1 只读方案。
 - 云端任务舰队、远程 diff apply、可执行 Workflow/Policy DSL、Agent 自修改或自行挂载插件。
 - MCP Server 托管。
+- 当前 M7 不实现 A2A Server 托管、手机 webhook/push callback、远端 Agent 直接调用 Helix Tool，以及远端 Agent 获得本机 Capability/Approval/Secret；FUT-A2A-001～003 可在独立路线/ADR 后逐步提升。
 - Skill 在线市场、自动下载依赖或未经检查的远程 Skill 安装。
 - 提取浏览器 Cookie、复用其他 App token 或调用模型厂商未公开的订阅接口。
 
@@ -57,7 +60,7 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 本节定义产品闭环，不复制当前 HXA、已完成范围或实现快照；这些易变化事实只在[实施状态](../development/status.md)维护。
 
 - 第一个可感知的本地执行闭环是“选择或导入目录 → Agent 读取并提出变更 → 用户查看任务摘要/diff → 执行 → 展示产物与失败状态”。它用于验证 Helix 相比纯 API 客户端的核心价值，但不等于 Alpha 或正式版完成。
-- QuickJS、Browser、MCP/Skill、PRoot/CLI、Accessibility、Root 按路线依赖和风险逐级接入。未完成的高权限能力不得出现在默认营销承诺、首屏引导或可调用工具表中。
+- QuickJS、Browser、MCP/A2A/Skill、PRoot/CLI、Accessibility、Root 按路线依赖和风险逐级接入。未完成的能力不得出现在默认营销承诺、首屏引导或可调用工具表中。
 - 对外产品定位统一为“面向开发者与效率用户、Provider-neutral、能力优先的 Android 本机 AI 执行工作台”；市场与商业假设见[市场、用户与商业化分析](market-users-and-commercialization.md)。HarmonyOS 和系统 Agent 生态只作为竞品参照，不进入当前实现范围。
 
 ### 2.4 未排期未来能力候选
@@ -73,8 +76,11 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 | FUT-SYS-002 | 无线 ADB | Android 11+ 由用户启用开发者选项并配对；研究本机 client、密钥、前台生命周期与供应链；断连不盲目重放 |
 | FUT-MEDIA-001 | PDF、PPT/PPTX、DOC/DOCX 对话读取 | 当前仅识别为未支持附件；未来先比较平台/第三方解析、许可证、APK/内存、恶意文档和中文/表格质量，不承诺 OCR 或格式保真 |
 | FUT-MEDIA-002 | 视频附件理解 | 当前仅识别为未支持附件；未来分别评估端上有界抽帧与 Provider 原生上传，覆盖时长/帧数/像素/音轨/成本/数据保留和 Provider 可移植性 |
+| FUT-A2A-001 | Advanced 前台局域网 A2A Server | 用户主动开启并持续显示前台状态；绑定明确接口/端口，验证配对、TLS/局域网身份、网络切换、Doze、进程回收、停止和重启后默认关闭 |
+| FUT-A2A-002 | 用户自备远程可达通道 | 研究 VPN、反向隧道或自建 relay；Helix 不默认建设云控制面，不把中继在线冒充手机 Agent 在线，并分别记录通道身份、断连和费用 |
+| FUT-A2A-003 | 远端到本机的双向任务 | 第一阶段只接受结构化 Tool proposal，由父 Turn 创建正常 ToolCall；未来直接调用必须绑定远端身份、工具/scope、期限和会话，并覆盖重放、撤销、锁屏/离线和不明确副作用 |
 
-“兼容任意脚本”在需求层表示任意输入可导入、可诊断并得到明确结果，不表示未经兼容矩阵验证即可成功执行。Shizuku/ADB 只有在未来单独形成路线、ADR、许可证/供应链审查和真机矩阵后才可进入实现范围。
+“兼容任意脚本”在需求层表示任意输入可导入、可诊断并得到明确结果，不表示未经兼容矩阵验证即可成功执行。Shizuku/ADB 只有在未来单独形成路线、ADR、许可证/供应链审查和真机矩阵后才可进入实现范围。FUT-A2A-001～003 说明双向 A2A 在 Android 上是有条件可行的后续能力，不属于 M7/HXA-077～079，也不等于已经承诺日期、云 relay 或递归 Agent。
 
 ## 3. 目标用户
 
@@ -168,6 +174,14 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 4. Agent 只预载 Skill 名称/描述，匹配任务后再按需读取正文。
 5. MCP annotation 和 Skill 指令不能绕过 Helix 的 Policy、Approval 或执行限制。
 
+### UJ-08：委托给 A2A Agent
+
+1. 用户添加 A2A endpoint，Helix 获取 Agent Card，展示 provider、origin、协议版本、输入/输出模式和 Skill 列表。
+2. 用户连接测试并启用需要的远端 Skill；只有固定 Agent Card/Skill snapshot 才进入 Tool Registry，命名为 `a2a.<agent>.<skill>`。
+3. Agent 提议委托任务时，Helix 展示远端 Agent、origin、发送的数据类别/Artifact、目标 Skill 和可取消性，再按普通网络 ToolCall 执行。
+4. Helix 保存本地 call ID 与远端 task/context ID 的映射；同步或 SSE 事件有界回填，断线后只查询同一远端 Task，不盲目重发。
+5. 远端文本、状态和 Artifact 均标记为不可信；它们不能产生 Approval Proof、直接调用本机工具或充当本机副作用的验证证据。需要本机后续动作时，由 Helix 创建新的 ToolCall。
+
 ## 5. 功能需求
 
 需求优先级：P0 为首次可用版本不可缺失；P1 为单机正式版；P2 为后续增强。
@@ -219,7 +233,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 每个工具必须包含：稳定名称、版本、描述、输入 Schema、输出 Schema、操作类别（是否只读）、风险等级、超时、最大输出、权限声明、幂等性说明和实现者。Plan 只看操作类别是否为 `READ_ONLY`，不使用风险等级猜测。
 
-同一模型响应包含多个 ToolCall 时，由平台根据规范化参数生成 effect footprint。只读且资源不冲突的调用可在手机有界并行；写入、代码、Root、Accessibility、同一页面/Runtime lane 或未知效应默认串行。实际完成顺序不改变模型历史：结果按原始 call sequence 回填，真实 timing 单独审计。模型、MCP 和 Skill 不能声明自己“并发安全”。
+同一模型响应包含多个 ToolCall 时，由平台根据规范化参数生成 effect footprint。只读且资源不冲突的调用可在手机有界并行；写入、代码、Root、Accessibility、同一页面/A2A Task/Runtime lane 或未知效应默认串行。实际完成顺序不改变模型历史：结果按原始 call sequence 回填，真实 timing 单独审计。模型、MCP、A2A 和 Skill 不能声明自己“并发安全”。
 
 下表是产品级首批核心工具；完整名称、风险和实施顺序以 [Android 平台能力 §7](../architecture/android-platform-capabilities.md#7-android-基础工具最小集合) 及 backlog 为准。短工具名采用 Pi Agent 已验证的模型交互习惯，但执行实现必须符合 Android scope：
 
@@ -243,6 +257,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | `browser.click` / `browser.type` | P1 | L2 | node token 绑定页面代次；敏感字段拒绝 |
 | `skills.list` / `skills.read` | P1 | L0/L1 | Skill 渐进加载 |
 | `mcp.<server>.<tool>` | P1 | 动态 | MCP annotation 不能降低 Helix 风险 |
+| `a2a.<agent>.<skill>` | P1 | 动态/NETWORK | 固定 Agent Card/Skill snapshot；远端输出不授权本机动作 |
 | `ui.snapshot` | P2 | L1 | 限时 Accessibility Session |
 | `ui.click` / `ui.set_text` | P2 | L2 | 目标包 allowlist；敏感界面拒绝 |
 | `root.status` | P2 | L0 | 用户主动请求 Root 后报告真实状态 |
@@ -264,7 +279,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 审批决定只对“工具名/版本/schema hash + 参数摘要 + scope + 会话 + 执行目标 + 短期页面/UI token + 一次执行”有效。MVP 不提供永久允许生成代码。
 
-只有明确的用户批准决定能生成并消费 `ApprovalProof`。拒绝决定可以记录为已处理，但不能被消费为执行授权；并发消费最多一个批准凭证成功。Advanced 可按 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)保存精确数据发送规则、Trusted Workspace 和动态风险不高于 L1 的有界工具规则；通用 L2/L3、生成代码、Shell/Root 命令、删除覆盖和敏感 UI 操作不能永久放行。模型、MCP、Skill、网页和脚本均不能自授权。
+只有明确的用户批准决定能生成并消费 `ApprovalProof`。拒绝决定可以记录为已处理，但不能被消费为执行授权；并发消费最多一个批准凭证成功。Advanced 可按 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)保存精确数据发送规则、Trusted Workspace 和动态风险不高于 L1 的有界工具规则；通用 L2/L3、生成代码、Shell/Root 命令、删除覆盖和敏感 UI 操作不能永久放行。模型、MCP、A2A、Skill、网页和脚本均不能自授权。
 
 ### 5.6 Workspace
 
@@ -296,7 +311,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-WEB-004 | P1 | 下载到 Workspace/授权目录 | 重定向、大小、MIME、文件名和冲突策略受控 |
 | FR-WEB-005 | P1 | 敏感网页动作拒绝 | 密码、验证码、支付、授权和账号恢复不自动操作 |
 
-### 5.9 MCP 与 Skills
+### 5.9 MCP、A2A 与 Skills
 
 | ID | 优先级 | 需求 | 验收摘要 |
 | --- | --- | --- | --- |
@@ -305,6 +320,11 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-MCP-003 | P1 | MCP 动态工具安全 | namespace + schema hash；annotation 不能降低风险 |
 | FR-MCP-004 | P2 | PRoot stdio MCP | 固定 server command、严格 stdout、bounded stderr |
 | FR-MCP-005 | P1 | Resource/Prompt 发现 | 首版只展示有界 metadata；不读取正文、不注册 Prompt 为指令 |
+| FR-A2A-001 | P1 | A2A v1.0 Client 与 Agent Card 发现 | Android API 29/36 完成 HTTPS、JSON-RPC 或 HTTP+JSON、SSE、取消、版本协商与 R8 Spike；SDK 类型不泄漏 core |
+| FR-A2A-002 | P1 | A2A Agent/Skill 启用与快照 | endpoint 默认 disabled；用户连接测试并启用 Skill；Agent Card、接口和 Skill hash 变化后旧 Tool/审批失效 |
+| FR-A2A-003 | P1 | A2A Task 生命周期 | SendMessage/stream、GetTask、CancelTask 和 SubscribeToTask 映射为持久状态；断线/重启查询原 task ID，不自动重发不明确请求 |
+| FR-A2A-004 | P1 | A2A 内容与 Artifact 桥接 | 首版支持有界 text、structured data 和 Workspace Artifact 副本；输入/输出 mode 不匹配明确失败，远端内容标记不可信 |
+| FR-A2A-005 | P1 | A2A 授权与数据去向 | auth 只从 SecretStore 注入；Policy 绑定 agent ID、规范 origin、Agent Card/Skill snapshot、数据类别和 scope；远端不能调用本机 Tool 或生成 Approval Proof |
 | FR-SKILL-001 | P1 | Agent Skills 规范兼容 | `SKILL.md` frontmatter 和目录校验通过官方 fixture |
 | FR-SKILL-002 | P1 | 渐进加载 | 启动只载 name/description，激活后载正文，资源按需读取 |
 | FR-SKILL-003 | P1 | 本地导入和管理 | zip/目录校验、内容 hash、启停、移除、版本快照 |
@@ -325,13 +345,13 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 ### 5.11 商店、官网分发与能力降级
 
 - Google Play、选定国内 Android 应用商店和官网都是正式目标渠道；所有渠道的默认用户体验称为 Helix Standard，不向用户暴露 consumer/developer 工程名。
-- Standard 必须保留 Provider/BYOK、Goal、Workspace/SAF、文件工作台、Browser、QuickJS、MCP/Skills、Android 基础工具、模板、恢复和审计，不得退化为聊天壳。
+- Standard 必须保留 Provider/BYOK、Goal、Workspace/SAF、文件工作台、Browser、QuickJS、MCP/A2A/Skills、Android 基础工具、模板、恢复和审计，不得退化为聊天壳。
 - All-files、Accessibility、解释脚本、Tasker 等能力优先通过核心用途声明、显著披露、用户同意和渠道审核保留；只有明确政策条款或真实审核结果要求时，才对受影响渠道做最小替换或移除。
 - Google Play 当前不允许使用 Accessibility 自主发起、规划并执行 UI 动作；Play artifact 只提供审核允许的确定性、用户可理解自动化。该限制不扩展为官网或其他合法渠道的永久 Standard 限制。
 - Google Play 若以文件/文档管理核心用途申报 All-files，产品首页、商店描述和真实功能必须一致；未获批准时回退 SAF/MediaStore，但保留完整文件工作台。
 - PRoot/CLI binary 仍位于独立 APK/UID。某商店不接受 companion 或 Root 不可用时，只让对应 Capability 不可用，不删除其他 Standard 能力。
 - 当前 consumer/developer flavor 和 applicationId 保持工程事实；HXA-122 决定稳定主 ID、渠道命名与升级路径，不能仅靠文档宣称跨 ID 原地升级。
-- 未安装 Runtime、未 Root、未开启 All-files/Accessibility 或未配置 MCP 时，相关工具不进入模型工具表，其余能力正常运行。
+- 未安装 Runtime、未 Root、未开启 All-files/Accessibility、未配置 MCP 或未连接并启用 A2A Agent 时，相关工具不进入模型工具表，其余能力正常运行。
 - “以上架为目标”不等于保证第三方审核通过；只有真实提交、审核通过和可下载证据才能标记为已上架。每个国内目标商店在提交时单独核验，不套用 Google Play 或其他商店结论。
 
 ## 6. 非功能需求
@@ -365,12 +385,12 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 9. 审计日志：按会话、工具、风险、日期过滤。
 10. 内置浏览器：地址栏、标签、站点权限、下载和 Agent 动作指示。
 11. 文件管理器：Workspace/SAF/All-files/Root 来源标识、冲突和长任务进度。
-12. MCP 与 Skills：Server 连接、动态能力启停、Skill 导入/校验/快照。
-13. 运行配置：渠道允许时展示 Standard/Advanced、分能力启用状态、scope/规则期限和一键撤销；Standard 本身必须是完整可用产品。
+12. MCP、A2A 与 Skills：MCP Server/A2A Agent 连接、动态能力启停、A2A Task 恢复、Skill 导入/校验/快照。
+13. 运行配置：语言可选跟随系统/简体中文/English；渠道允许时展示 Standard/Advanced、分能力启用状态、scope/规则期限和一键撤销；Standard 本身必须是完整可用产品。
 14. Agent 模式与 Goal：模式切换、Plan、验收条件、预算和检查点。
 15. 高级能力：Accessibility、Root、Linux/CLI Runtime 的独立风险页和停止/卸载入口。
 
-首版 UI 跟随系统语言，提供简体中文和英文资源；用户可见字符串不得硬编码在 Kotlin/Compose 中。
+首版 UI 默认跟随系统语言，提供简体中文和英文资源，并允许用户在 App 内覆盖为简体中文或 English；用户可见字符串不得硬编码在 Kotlin/Compose 中。Tool 名、schema/协议字段、稳定错误码、审计类型和持久化 enum 不随 UI 语言翻译或改变。
 
 ## 8. 数据保留与删除
 
@@ -411,28 +431,45 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 25. Root 管理器拒绝授权时返回 `Denied`，不以存在 `su` 冒充成功。
 26. MCP Server 修改 tool schema 后旧审批失效。
 27. 恶意 Skill zip 路径穿越和压缩炸弹被拒绝。
-28. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
-29. Goal 预算耗尽进入暂停/失败而非完成，重启后不重复副作用。
-30. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
-31. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
-32. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。
-33. 两个无冲突只读 Tool 可有界并行，但模型收到结果顺序与原始 call sequence 一致；重跑 fixture 结果确定。
-34. 并行队列取消时，未启动调用留下 `CANCELLED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
-35. 调度失败不能回退到更低隔离 target、扩大 scope/权限或先联网后补审批。
-36. 若未来启用 child delegation，child 只读、深度 1、共享父预算且无 Approval Proof/Secret；写入 proposal 必须由父 Turn 重新审批。
-37. 选择或分享附件只导入本地会话，不自动发送；发送前能移除并看到目标 Provider 与数据类别。
-38. 文本附件在进程重启后仍绑定同一 hash；文件缺失或变化时旧发送/出网决定失效，不能读取替代字节。
-39. Provider 不支持或未确认 vision 时图片保留本地并给出可操作错误，不能静默丢图或把 base64 文本当作成功。
-40. 恶意图片、解码取消或低内存不得造成 OOM、越界读取、孤儿临时文件或正文/base64 日志泄露。
-41. UTF-16、PDF/PPT/DOC、音频、视频和未知二进制附件统一返回 `UNSUPPORTED_ATTACHMENT_TYPE` 与正确的封闭 category；不得启动解析、渲染/OCR、媒体解码/抽帧/音轨/转码、Provider upload、模型 context/base64 或派生 Artifact。
+28. A2A Agent Card/Skill 或 endpoint 变化后旧工具与审批失效；SSE 断线、取消或重启只对账原 task ID，远端结果不能触发本机未审批动作。
+29. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
+30. Goal 预算耗尽进入暂停/失败而非完成，重启后不重复副作用。
+31. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
+32. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
+33. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。
+34. 两个无冲突只读 Tool 可有界并行，但模型收到结果顺序与原始 call sequence 一致；重跑 fixture 结果确定。
+35. 并行队列取消时，未启动调用留下 `CANCELLED_BEFORE_START`，已启动调用有 terminal/unknown outcome，重启不自动重放。
+36. 调度失败不能回退到更低隔离 target、扩大 scope/权限或先联网后补审批。
+37. 若未来启用 child delegation，child 只读、深度 1、共享父预算且无 Approval Proof/Secret；写入 proposal 必须由父 Turn 重新审批。
+38. 选择或分享附件只导入本地会话，不自动发送；发送前能移除并看到目标 Provider 与数据类别。
+39. 文本附件在进程重启后仍绑定同一 hash；文件缺失或变化时旧发送/出网决定失效，不能读取替代字节。
+40. Provider 不支持或未确认 vision 时图片保留本地并给出可操作错误，不能静默丢图或把 base64 文本当作成功。
+41. 恶意图片、解码取消或低内存不得造成 OOM、越界读取、孤儿临时文件或正文/base64 日志泄露。
+42. UTF-16、PDF/PPT/DOC、音频、视频和未知二进制附件统一返回 `UNSUPPORTED_ATTACHMENT_TYPE` 与正确的封闭 category；不得启动解析、渲染/OCR、媒体解码/抽帧/音轨/转码、Provider upload、模型 context/base64 或派生 Artifact。
+43. 用户在 API 29/36 选择“跟随系统 / 简体中文 / English”后 UI 立即更新且重启仍保持；切换语言不改变 Provider 请求、Tool schema、稳定错误码、审计字段或用户/外部 Agent 内容。
 
 ## 10. 成功定义
 
-首次单机正式版完成的标志不是“可以聊天”，而是：用户能给出一个涉及网页、文件或手机 UI 的目标，Helix 能选择 Provider、加载所需 Skill/MCP 能力、生成计划、请求必要审批、在正确的本地执行域中运行工具或代码、基于真实输出验证产物，并留下完整可审计记录；全过程不依赖电脑或远程 Worker。
+首次单机正式版完成的标志不是“可以聊天”，而是：用户能给出一个涉及网页、文件或手机 UI 的目标，Helix 能选择 Provider、加载所需 Skill/MCP/A2A 能力、生成计划、请求必要审批、在正确的本地执行域中运行工具或代码、基于真实输出验证产物，并留下完整可审计记录；基础任务全过程不依赖电脑或远程 Worker，A2A 只是用户显式配置的可选外部 Agent 服务。
 
 可持续跟踪的产品指标见[竞品分析 §10](competitive-landscape.md#10-后续跟踪指标)；该表是里程碑/季度跟踪框架，不替代[安全、测试与发布门禁](../security/testing-and-release.md)的硬性验收。
 
 ## 11. 需求变更记录
+
+### 2026-09-03：国际化与 App 语言切换拆分为独立 HXA
+
+- 所有者请求：为当前 App 安排独立国际化 HXA，不再把全局资源化附属在语音输入任务中。
+- 纳入需求：HXA-069 负责完整 fallback/English/简体中文资源、“跟随系统 / 简体中文 / English”App 内切换与持久化、API 29/36 兼容、用户可见硬编码/翻译键 CI 门禁和 locale 不影响机器契约的回归测试。
+- 任务调整：HXA-067 仅保留语音输入并先跟随系统 locale；HXA-069 后续负责资源化，并将语音识别默认语言接到当前 App locale。
+- 实现状态：本次只安排需求、路线和验收门禁；当前仍只有 `app_name` 资源，没有 App 语言切换或中英文验收证据。
+
+### 2026-09-03：M7 增加 A2A Client
+
+- 所有者请求：在 M7 的 MCP 与 Skills 之外加入已成为主流互操作协议的 A2A。
+- 纳入需求：A2A v1.0 Client、Agent Card/Skill 发现与启用、`a2a.<agent>.<skill>` Tool bridge、持久 Task/Artifact/流式事件、断线对账和 Android API 29/36/R8 Spike；规划为 HXA-077～079。
+- 产品边界：A2A 与 MCP 互补而非替代；Helix 仍是本机父 Agent，A2A endpoint 是用户配置的外部服务，不是 `ExecutionTarget`/远程 Worker。M7 不托管 A2A Server/webhook，不开放远端直接 ToolCall、任意 peer 通信、递归多 Agent 或凭据/批准继承；这是首阶段边界而非永久否定。后续可按“前台 LAN Server → 用户自备 VPN/隧道/relay → proposal 型反向调用 → 单独决定有界远端 scope”演进。
+- 阶段理由：普通手机的公网入站受 NAT/动态网络和 Android 后台生命周期约束；递归编排还需要预算、循环、级联取消和恢复合同。Advanced 用户可以承担网络入口与外部基础设施的选择责任，但不能替代可达性、任务状态和重复副作用语义。
+- 决定状态：项目所有者于 2026-09-04 接受 ADR-0016 的 Client-only 产品、协议和信任边界。实现仍未开始：尚无 A2A module、SDK/transport 决定、生产代码或设备验收；HXA-077 必须先产出可行实现证据。
 
 ### 2026-09-02：未来自动化兼容与 Advanced 授权
 

@@ -85,16 +85,17 @@ data class ToolDescriptor(
         // Namespace separation (doc 02 section 7.1): MCP names come from MCP
         // origins only, built-in names from built-in origins only.
         val isMcpName = name.value.startsWith(MCP_NAME_PREFIX)
-        require((origin is ToolOrigin.McpOrigin) == isMcpName) {
+        val isA2aName = name.value.startsWith(A2A_NAME_PREFIX)
+        require((origin is ToolOrigin.McpOrigin) == isMcpName && (origin is ToolOrigin.A2aOrigin) == isA2aName) {
             "origin/name mismatch: ${name.value} has origin ${origin::class.simpleName}"
         }
-        if (origin is ToolOrigin.McpOrigin) {
+        if (origin is ToolOrigin.McpOrigin || origin is ToolOrigin.A2aOrigin) {
             // MCP tools call OUT to a server: from the device's point of view
             // the effect is at least NETWORK. A server-provided readOnlyHint
             // can never classify (or reclassify) a tool as READ_ONLY
             // (doc 02 section 7 / doc 10 section 4.4).
             require(operationClass != ToolOperationClass.READ_ONLY) {
-                "MCP tool ${name.value} can never be classified READ_ONLY (server hints are not classification)"
+                "remote tool ${name.value} can never be classified READ_ONLY"
             }
         }
     }
@@ -127,6 +128,9 @@ data class ToolDescriptor(
     companion object {
         /** The `mcp.` name prefix (doc 02 section 7.1, doc 10 section 4.3). */
         const val MCP_NAME_PREFIX = "mcp."
+
+        /** The `a2a.` namespace is reserved for user-enabled remote Agent Skills. */
+        const val A2A_NAME_PREFIX = "a2a."
 
         const val MAX_DESCRIPTION_LENGTH = 1024
 

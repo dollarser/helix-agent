@@ -36,7 +36,10 @@ data class NormalizedEndpoint(
 
     /** Canonical origin without path (the egress-summary origin field, provider doc section 2.6). */
     val origin: String
-        get() = "$scheme://$host:$port"
+        get() {
+            val authorityHost = if (':' in host) "[$host]" else host
+            return "$scheme://$authorityHost:$port"
+        }
 
     /** Canonical full endpoint. */
     val full: String

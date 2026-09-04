@@ -25,7 +25,7 @@ Helix 同时涉及 Android 生命周期、模型流协议、文件系统、动�
 4. [技术路线](roadmap.md) 中当前任务及前置任务。
 5. 当前模块的 README/API/测试。
 
-处理 Provider/MCP/Skill/Plan/Goal 时读取 [专项方案](../architecture/provider-mcp-skills-modes.md)；处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](../architecture/android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](../adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
+处理 Provider/MCP/A2A/Skill/Plan/Goal 时读取 [专项方案](../architecture/provider-mcp-skills-modes.md)；处理 A2A 时还要读取 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)。ADR 接受不等于 SDK 或实现通过：必须先执行 HXA-077 Spike 并选出有证据的可行实现，才能开始 HXA-078/079 生产 bridge。处理浏览器、文件、Accessibility、Root 时读取 [Android 平台能力](../architecture/android-platform-capabilities.md)；处理 QuickJS/PRoot/CLI Runtime 时读取本地执行方案。任务触发架构决定或改变既有决定时，再读取 [ADR 约定](../adr/README.md) 和相关 ADR。不要每次把所有文档塞进上下文。
 
 需要比较 Agent 设计时再读取[主流 Coding Agent / Harness 参考](../references/open-source-projects.md#511-主流-coding-agent--agent-harness-设计参考)，并遵守以下顺序：
 
@@ -139,7 +139,7 @@ docs/development/status.md、路线中的任务原文，以及与本任务直接
 - 是否没有 step/output/context 上限？
 - 是否把 Plan 当作普通文本，没有保存 artifact/hash？
 - 是否把 Goal 预算耗尽或无证据状态标成 completed？
-- 是否让模型/MCP/Skill 自报“并发安全”？并发必须由规范化参数的 effect footprint 决定，未知/写/代码/UI/Root 默认排他。
+- 是否让模型/MCP/A2A/Skill 自报“并发安全”？并发必须由规范化参数的 effect footprint 决定，未知/写/代码/UI/Root 默认排他。
 - 并发结果是否按完成速度而不是原始 call sequence 回填模型？取消后未启动项是否从持久状态消失？两者都不允许。
 - Tool 失败后是否自动扩大 scope/权限、切换低隔离 target、请求 Root/LAN，或先联网再补审批？必须 fail closed 或创建新的明确审批。
 
@@ -181,11 +181,13 @@ docs/development/status.md、路线中的任务原文，以及与本任务直接
 - 目标 App 或窗口变化时是否暂停？
 - 是否拒绝支付、认证、系统授权、安装器和 Root 管理界面？
 
-### MCP/Skills/Provider
+### MCP/A2A/Skills/Provider
 
 - 是否把 Responses、Chat Completions 和 Anthropic Messages 混成猜测式 adapter？
 - 是否只测文本，没有测分片 ToolCall？
 - MCP schema hash 变化后旧审批是否仍有效？
+- A2A Agent Card/Skill/endpoint/interface/version 变化后旧 Tool、规则和审批是否失效？断线是否只对账原 task ID，而不是重发？
+- A2A 远端输出是否保持不可信，且无法获得本机 Capability/Approval/Secret 或反向调用 Tool？
 - Skill 是否在 discovery 阶段把全部正文/资源塞入 context？
 - Skill 脚本是否绕过了正常的 code/bash Tool？
 - 是否把 ChatGPT/Claude 订阅当作可直接使用的 API key？
@@ -209,6 +211,10 @@ docs/development/status.md、路线中的任务原文，以及与本任务直接
 - 是否为通过测试增加 sleep？
 - 是否把异常 catch 后返回成功？
 - 是否在没有 HXA-122/迁移 ADR 和代码证据时重命名 flavor、交换 applicationId，或声称不同 applicationId 可以原地升级？
+- 单类 instrumentation 是否能从 fresh install/first launch 独立运行，而不是依赖另一个测试留下的会话、授权、Provider、文件或全局 singleton？
+- 测试单独通过、全量或换顺序失败时，是否先检查共享存储、打开会话、后台 Job、系统服务和测试夹具身份，而不是放宽断言、增加无界 timeout 或标记 flaky？
+- 是否等待并断言真正的最终副作用（持久行、wire call、文件、通知、terminal state），而不是只观察它之前的进程内标志或 Compose 节点？`fetchSemanticsNodes().isEmpty()` 等布尔表达式必须进入 assertion，不能裸调用后静默通过。
+- 平台阻塞结论是否来自匹配 worktree、正确 APK/test APK/companion 身份和真实跨进程边界？in-process fake、构建成功、进程存活或一次 timeout 都不足以证明平台阻塞。
 
 ## 9. 测试反馈策略
 
@@ -252,7 +258,27 @@ Risks: <remaining manual checks>
 ADR: <ADR-NNNN + status，或 N/A + 具体原因>
 ```
 
-### 10.1 ADR 决策边界
+### 10.1 并行 worktree 与合并收口
+
+worktree 只隔离源码和 Git 索引，不隔离 Android 设备、已安装 package/provider authority、
+端口、Gradle daemon/缓存或公共契约。允许并行开发时仍须把以下步骤视为主线交付的一部分：
+
+1. 从当前 clean base 创建 worktree；每个 lane 内保持 HXA 串行，公共 contract、Room、
+   `ChatService`、`AppContainer`、状态文档和集成测试在合并点串行处理。
+2. 合并前逐分支跑最窄门禁；合并后在 `main` 重新跑受影响模块、consumer/developer、lint、
+   lockfile、i18n、文档与设备矩阵。分支内绿色不能替代合并后的集成证据。
+3. 检查新增 sealed subtype/origin/error source 是否进入既有穷举映射，新增稳定协议/审计字段
+   是否被错误显示到 UI，新增依赖替换是否应用在真正解析该依赖的 producer 模块和配置。
+4. 设备测试先完成占用仲裁并核对实际安装的主包、test APK、companion 和 authority；同一设备
+   上的 flavor 测试默认串行，除非已证明 package/authority/端口完全不冲突。
+5. 环境或合并失败不得通过删除测试、降低拒绝条件、跳过安全门禁、升级 compile/target SDK、
+   改错误为成功或扩大 timeout 到无界来换绿。先做隔离重跑和主线基线复现，再判断实现缺陷、
+   测试缺陷、资源争用或平台阻塞。
+6. 自动文本修改后必须断言替换确实命中并重新搜索；格式化工具运行后重新读取目标。shell 在
+   `set -euo pipefail` 下对“预期无匹配”的 grep 显式处理，所有包含反引号、`$()`、URI 或
+   glob 的搜索参数都要安全引用。
+
+### 10.2 ADR 决策边界
 
 ADR 记录“为什么决定”，不重复源码和规范，也不证明功能已经实现。小模型执行每个 HXA 时：
 

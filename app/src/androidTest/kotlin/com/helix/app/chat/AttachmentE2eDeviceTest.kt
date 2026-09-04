@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.provider.CleartextBindingStore
@@ -560,6 +562,12 @@ class AttachmentE2eDeviceTest {
                     fixture.service.screen.value.pendingAttachments
                         .isEmpty(),
                 )
+                assertEquals("$name must not reach the Provider wire", 0, fixture.wire.callCount)
+                val attachmentRoot = File(fixture.workspaceRoot, "input/attachments")
+                assertTrue(
+                    "$name must leave no imported payload or orphan attachment-id directory",
+                    !attachmentRoot.exists() || attachmentRoot.listFiles().orEmpty().isEmpty(),
+                )
             } finally {
                 settleAndClose(fixture)
             }
@@ -756,6 +764,11 @@ class AttachmentE2eDeviceTest {
     ): ChatService {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val app = context.applicationContext as HelixApplication
+        val zh =
+            AppLanguageStore.wrapForLocale(
+                context.applicationContext,
+                AppLanguageStore.localeListFor(AppLanguage.ZH_CN),
+            )
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
         val workspaceStore = WorkspaceArtifactStore(ScopeRootResolver { _ -> workspaceRoot.toPath() })
@@ -783,6 +796,7 @@ class AttachmentE2eDeviceTest {
             scope = serviceScope,
             attachmentStaging = stagingFor(workspaceRoot),
             visionSessionBinder = imageSource::bindSession,
+            strings = { resId, args -> zh.getString(resId, *args) },
         )
     }
 

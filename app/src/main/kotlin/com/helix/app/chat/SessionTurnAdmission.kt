@@ -41,6 +41,20 @@ internal class SessionTurnAdmission {
     /** [sessionId]'s in-flight turn (its [Job] to cancel and turn id to find the cancel signal). */
     fun activeTurn(sessionId: String): ActiveTurn? = activeBySession[sessionId]?.takeIf { it.job.isActive }
 
+    /**
+     * Releases [sessionId] once [turnId]'s durable terminal state has been written, before the
+     * terminal UI state is published. The coroutine can still be active for a few instructions at
+     * that point; keeping the slot until invokeOnCompletion would make an immediate next send
+     * disappear. The turn-id guard preserves a newer registration from stale cleanup.
+     */
+    fun complete(
+        sessionId: String,
+        turnId: String,
+    ) {
+        val active = activeBySession[sessionId] ?: return
+        if (active.turnId == turnId) activeBySession.remove(sessionId, active)
+    }
+
     /** A session's in-flight turn: the [Job] to cancel and the turn id to index its cancel signal. */
     internal class ActiveTurn(
         val job: Job,

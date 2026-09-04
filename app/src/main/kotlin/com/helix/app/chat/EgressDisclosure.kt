@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.R
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 
@@ -15,6 +16,12 @@ import com.helix.core.model.ProviderResidence
  * context in later milestones. The gate mechanism below is complete and
  * exercised by tests for the categories it must handle.
  *
+ * HXA-069: the user-visible category labels, the current-session scope and the
+ * attachment kind labels are emitted as STABLE string-resource IDs ([DataCategory.labelRes],
+ * [EgressSummary.scope], [EgressAttachment.kindRes]) — never as locale text — so this pure,
+ * plain-JUnit-tested object holds no [android.content.Context]. The Android UI (the disclosure
+ * dialog) resolves them to the current locale via `stringResource`.
+ *
  * What is NOT here (HXA-033, later milestone): stored Advanced rules with
  * 1h/24h/7d/30d expiry, clock-rewind fail-closed re-confirmation, and the
  * generic Policy engine. In M2 BOTH profiles confirm per send for
@@ -23,18 +30,21 @@ import com.helix.core.model.ProviderResidence
  * "gated" state).
  */
 object EgressDisclosure {
-    /** Data categories (ADR-0005 / doc 10 section 2.6). [label] is the user-visible Chinese name. */
+    /**
+     * Data categories (ADR-0005 / doc 10 section 2.6). [labelRes] is the string-resource id of the
+     * user-visible name (HXA-069).
+     */
     enum class DataCategory(
-        val label: String,
+        val labelRes: Int,
     ) {
-        REGULAR("普通内容"),
-        HIGH_SENSITIVE_CONTACTS("联系人"),
-        HIGH_SENSITIVE_NOTIFICATIONS("通知正文"),
-        HIGH_SENSITIVE_LOCATION("精确位置"),
-        HIGH_SENSITIVE_FILE_TEXT("文件正文"),
-        HIGH_SENSITIVE_IMAGE("图片内容"),
-        HIGH_SENSITIVE_BROWSER("浏览器页面内容"),
-        HIGH_SENSITIVE_ACCESSIBILITY("Accessibility 内容"),
+        REGULAR(R.string.data_category_regular),
+        HIGH_SENSITIVE_CONTACTS(R.string.data_category_contacts),
+        HIGH_SENSITIVE_NOTIFICATIONS(R.string.data_category_notifications),
+        HIGH_SENSITIVE_LOCATION(R.string.data_category_location),
+        HIGH_SENSITIVE_FILE_TEXT(R.string.data_category_file_text),
+        HIGH_SENSITIVE_IMAGE(R.string.data_category_image),
+        HIGH_SENSITIVE_BROWSER(R.string.data_category_browser),
+        HIGH_SENSITIVE_ACCESSIBILITY(R.string.data_category_accessibility),
     }
 
     /** One piece of outgoing content. */
@@ -44,15 +54,17 @@ object EgressDisclosure {
 
         /**
          * A file's textual body (HXA-049: chat attachments). Carries the materialized file's
-         * display facts so the disclosure dialog can show 名称/类型/大小 (ADR-0014 §5): [sizeBytes]
-         * is the full file size, [sha256] the hash of the full content, [kindLabel] a short
-         * user-visible label of the first-batch text kind.
+         * display facts so the disclosure dialog can show name / type / size (ADR-0014 §5):
+         * [sizeBytes] is the full file size, [sha256] the hash of the full content, [kindRes]/
+         * [kindArgs] a short localized label of the first-batch text kind (resolved by the UI,
+         * HXA-069).
          */
         data class FileText(
             val sourceLabel: String,
             val sizeBytes: Long,
             val sha256: String,
-            val kindLabel: String,
+            val kindRes: Int,
+            val kindArgs: List<String> = emptyList(),
         ) : OutgoingContent
 
         /**
@@ -72,16 +84,21 @@ object EgressDisclosure {
 
     /**
      * One attachment's display facts in the [EgressSummary] (ADR-0014 §5: the dialog shows the
-     * attachment 名称 / 类型 / 大小, in the same order the content sources list the files).
+     * attachment name / type / size, in the same order the content sources list the files).
+     * [kindRes]/[kindArgs] are the localized kind label (resolved by the UI, HXA-069).
      */
     data class EgressAttachment(
         val fileName: String,
         val sizeBytes: Long,
         val sha256: String,
-        val kindLabel: String,
+        val kindRes: Int,
+        val kindArgs: List<String> = emptyList(),
     )
 
-    /** The auditable summary shown in the disclosure dialog (doc 10 section 2.6). */
+    /**
+     * The auditable summary shown in the disclosure dialog (doc 10 section 2.6). [scope] is a
+     * string-resource id (HXA-069), resolved by the dialog to the current locale.
+     */
     data class EgressSummary(
         val providerId: String,
         val providerName: String,
@@ -89,7 +106,7 @@ object EgressDisclosure {
         val origin: String,
         val residence: ProviderResidence,
         val categories: List<DataCategory>,
-        val scope: String,
+        val scope: Int,
         val contentTruncated: Boolean,
         /** The send's attachments in content order (empty for a pure-text send). */
         val attachments: List<EgressAttachment> = emptyList(),
@@ -117,7 +134,11 @@ object EgressDisclosure {
             val summary: EgressSummary,
         ) : Decision
 
-        /** Forbidden content (credential shapes): rejected in BOTH profiles (ADR-0005). */
+        /**
+         * Forbidden content (credential shapes): rejected in BOTH profiles (ADR-0005). [reason] is
+         * a STABLE code (never locale text — resolved to a localized label by the Android caller,
+         * HXA-069).
+         */
         data class Rejected(
             val reason: String,
         ) : Decision
@@ -149,7 +170,7 @@ object EgressDisclosure {
                 categories = categories,
                 scope = SCOPE_CURRENT_SESSION,
                 contentTruncated = false,
-                // ADR-0014 §5: the dialog shows every file's 名称/类型/大小 — in the same order
+                // ADR-0014 §5: the dialog shows every file's name/type/size — in the same order
                 // the content sources list them (empty for a pure-text send). HXA-055: images
                 // show their NORMALIZED size + bound hash (the bytes that leave the device).
                 attachments =
@@ -161,7 +182,8 @@ object EgressDisclosure {
                                         content.sourceLabel,
                                         content.sizeBytes,
                                         content.sha256,
-                                        content.kindLabel,
+                                        content.kindRes,
+                                        content.kindArgs,
                                     ),
                                 )
                             }
@@ -172,7 +194,8 @@ object EgressDisclosure {
                                         content.sourceLabel,
                                         content.sizeBytes,
                                         content.sha256,
-                                        "图片 · ${content.mediaType} · ${content.width}x${content.height}（归一化）",
+                                        R.string.kind_image,
+                                        listOf(content.mediaType, "${content.width}x${content.height}"),
                                     ),
                                 )
                             }
@@ -199,12 +222,12 @@ object EgressDisclosure {
         return if (set.isEmpty()) listOf(DataCategory.REGULAR) else set.toList()
     }
 
-    /** The M2 scope label: chat content is scoped to the current session. */
-    const val SCOPE_CURRENT_SESSION: String = "当前会话"
+    /** The M2 scope (a string-resource id): chat content is scoped to the current session (HXA-069). */
+    val SCOPE_CURRENT_SESSION: Int = R.string.scope_current_session
 
     /**
      * M2: NEITHER profile offers a permanent-allow option in the disclosure
-     * dialog. STANDARD is bound by ADR-0005 permanently ("不提供永久允许");
+     * dialog. STANDARD is bound by ADR-0005 permanently;
      * ADVANCED gains its bounded, revocable rules (1h/24h/7d/30d) together
      * with the HXA-033 rule engine — until that milestone, M2 Advanced also
      * confirms per send, and the dialog says so explicitly instead of faking a
@@ -215,20 +238,25 @@ object EgressDisclosure {
 }
 
 /**
- * Credential-shaped content detection (ADR-0005: "禁止发送内容包括 API key、OAuth
- * token、Cookie、密码、验证码、认证字段和其他凭据；两个配置都拒绝发送").
+ * Credential-shaped content detection (ADR-0005: forbidden content — API key,
+ * OAuth token, Cookie, password, verification code, auth fields and other
+ * credentials; BOTH safety profiles refuse to send it).
  *
  * The patterns are deliberately CONSERVATIVE and fixed: a hit blocks the send
- * with a user-visible reason (the matched content is never echoed). A false
- * positive is harmless (the user removes the secret and re-sends); a false
- * negative here is the dangerous direction, so new patterns are only added
- * with tests.
+ * with a STABLE code (never locale text — HXA-069: the code is resolved to the
+ * current locale by the Android-side caller) and the matched content is never
+ * echoed. A false positive is harmless (the user removes the secret and
+ * re-sends); a false negative here is the dangerous direction, so new patterns
+ * are only added with tests.
  */
 object ForbiddenContentGuard {
-    /** Returns the user-visible rejection reason, or null when the text is sendable. */
+    /** The stable rejection code [reasonFor] returns on a hit (resolved to a localized label by the caller). */
+    const val CREDENTIAL_DETECTED = "CREDENTIAL_DETECTED"
+
+    /** Returns the stable rejection code, or null when the text is sendable. */
     fun reasonFor(text: String): String? {
         for (pattern in PATTERNS) {
-            if (pattern.containsMatchIn(text)) return REJECTION_REASON
+            if (pattern.containsMatchIn(text)) return CREDENTIAL_DETECTED
         }
         return null
     }
@@ -250,7 +278,4 @@ object ForbiddenContentGuard {
             // JSON/YAML-style password fields with a non-placeholder value.
             Regex("(?i)\\bpassword\\b\\s*[:=]\\s*[\"']?[A-Za-z0-9!@#$%^&*()_+]{6,}"),
         )
-
-    private const val REJECTION_REASON =
-        "检测到凭据形态内容（API key / token / 密码 / 私钥），已拒绝发送；请移除后重试"
 }

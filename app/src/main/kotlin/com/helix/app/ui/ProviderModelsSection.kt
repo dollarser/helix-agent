@@ -16,8 +16,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.helix.app.R
 
 /**
  * The "后端可用模型" section of a passed provider row (HXA-059): the model list
@@ -48,19 +50,19 @@ internal fun BackendModelsSection(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            "后端可用模型 (${models.size})",
+            stringResource(R.string.provider_models_available_count, models.size),
             style = MaterialTheme.typography.labelMedium,
         )
         OutlinedTextField(
             value = filter,
             onValueChange = { filter = it },
-            label = { Text("过滤模型") },
+            label = { Text(stringResource(R.string.provider_models_filter_label)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth().testTag("provider-models-filter"),
         )
         if (visible.isEmpty()) {
             Text(
-                "无匹配模型",
+                stringResource(R.string.provider_models_no_match),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -87,7 +89,7 @@ internal fun BackendModelsSection(
         }
         if (filtered.size > MODELS_DISPLAY_CAP) {
             Text(
-                "共 ${filtered.size} 个，显示前 $MODELS_DISPLAY_CAP",
+                stringResource(R.string.provider_models_shown_summary, filtered.size, MODELS_DISPLAY_CAP),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -1,6 +1,8 @@
 package com.helix.core.workspace
 
 import java.io.FileNotFoundException
+import java.io.FilterOutputStream
+import java.io.OutputStream
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -140,6 +142,75 @@ class WorkspaceArtifactStore(
         // class KDoc); it is the figure the UI shows and the next pre-check re-reads. It is
         // reported, not asserted, because a cross-session concurrent writer can only push it over
         // the cap (reverted would discard this successful write).
+        val usageAfter = WorkspaceQuota.usageBytes(root)
+        val probe = ContentProbe.probe(target)
+        val record =
+            ArtifactRecord(
+                id = newArtifactId(),
+                relativePath = path.relativePath,
+                mediaType = probe.mimeType,
+                sizeBytes = probe.sizeBytes,
+                sha256 = writtenHash,
+            )
+        if (sink != null && sessionId != null) {
+            sink.register(sessionId, record)
+        }
+        return WriteOutcome(record, probe, usageAfter)
+    }
+
+    /**
+     * Streams a file into [path] atomically under the scope quota, without ever holding it whole
+     * in memory (the streaming counterpart to [writeArtifact] for sources whose full bytes would
+     * OOM a read — e.g. a network download up to the size policy).
+     *
+     * [sourceInto] receives an open, cap-and-digest-wrapped stream and copies into it in chunks;
+     * it must write but NOT close it (the writer performs the fsync, close and atomic rename). The
+     * wrapping stream throws [AbandonedWrite.LimitExceeded] the moment cumulative bytes would
+     * exceed [maxBytes], so a server under-reporting its size can still not blow the cap — on that
+     * (or any) failure the temp is deleted and nothing is published. The SHA-256 is accumulated on
+     * the way, so the published file is hashed exactly once.
+     *
+     * Order (fail-closed, as [writeArtifact]): scope resolve → path containment → region check →
+     * quota pre-admission (no temp on rejection) → temp write + fsync + atomic replace → probe →
+     * [sink].register. The quota is pre-admitted for [expectedBytes] when it is positive, else for
+     * the [maxBytes] worst case (an undeclared length).
+     *
+     * @param path the model reference (scope:...) of the destination.
+     * @param region one of [WorkspaceLayout.regions]; the destination must stay inside it.
+     * @param expectedBytes the caller's declared byte count, or -1 when undeclared (quota input).
+     * @param maxBytes the hard streaming cap; a write past it is abandoned, never published.
+     * @param sessionId owning session for the artifact row (may be null to register as orphan).
+     * @throws QuotaExceeded when the scope cannot admit the bytes.
+     * @throws AbandonedWrite when [sourceInto] abandoned the write (cancel or cap).
+     */
+    @Suppress("LongParameterList") // each parameter is a distinct, documented safety input
+    fun writeArtifactStream(
+        path: FileScopePath,
+        region: String,
+        expectedBytes: Long,
+        maxBytes: Long,
+        sessionId: String? = null,
+        sink: ArtifactSink? = null,
+        sourceInto: (OutputStream) -> Unit,
+    ): WriteOutcome {
+        require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
+        require(WorkspaceLayout.regionOf(path.relativePath) == region) {
+            "destination must stay inside the $region region"
+        }
+        require(maxBytes > 0) { "maxBytes must be positive" }
+        val root = resolve(path.scopeId)
+        val target = resolveContained(path, root)
+
+        // Quota admission before touching the disk (fail-closed; no temp is created on rejection).
+        val preAdmit = if (expectedBytes > 0) expectedBytes else maxBytes
+        WorkspaceQuota.ensureRoom(root, preAdmit, quotaPolicy.maxWorkspaceBytes)
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        AtomicFileWriter.writeAtomicStream(
+            target,
+        ) { out -> sourceInto(CappedDigestOutputStream(out, digest, maxBytes)) }
+        val writtenHash = digest.digest().joinToString("") { "%02x".format(it) }
+
         val usageAfter = WorkspaceQuota.usageBytes(root)
         val probe = ContentProbe.probe(target)
         val record =
@@ -604,6 +675,44 @@ class WorkspaceArtifactStore(
             }
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * A streaming guard used by [writeArtifactStream]: forwards bytes to [delegate] while updating
+     * [digest], and throws [AbandonedWrite.LimitExceeded] the instant cumulative writes would pass
+     * [maxBytes]. The cap is enforced on every write (single byte or chunk), so it can never be
+     * undershot by a chunk boundary. The underlying stream is closed by the atomic writer, not here.
+     */
+    private class CappedDigestOutputStream(
+        delegate: OutputStream,
+        private val digest: MessageDigest,
+        private val maxBytes: Long,
+    ) : FilterOutputStream(delegate) {
+        private var written: Long = 0
+
+        override fun write(b: Int) {
+            checkUnderCap(1L)
+            out.write(b)
+            digest.update(b.toByte())
+            written++
+        }
+
+        override fun write(
+            b: ByteArray,
+            off: Int,
+            len: Int,
+        ) {
+            checkUnderCap(len.toLong())
+            out.write(b, off, len)
+            digest.update(b, off, len)
+            written += len
+        }
+
+        private fun checkUnderCap(additional: Long) {
+            if (written + additional > maxBytes) {
+                throw AbandonedWrite.LimitExceeded()
+            }
+        }
     }
 
     private fun newArtifactId(): String = "art_" + UUID.randomUUID().toString().replace("-", "")

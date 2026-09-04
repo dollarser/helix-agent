@@ -12,7 +12,4 @@ package com.helix.app.profile
  */
 internal object AdvancedProfileAvailability {
     const val ADVANCED_AVAILABLE: Boolean = false
-
-    /** Unused in the consumer build (the entry is compiled out of the UI). */
-    const val ADVANCED_RISK_SUMMARY: String = ""
 }

@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
@@ -365,6 +367,15 @@ class ChatServiceAttachmentRetryDeviceTest {
         val providerService = providerService(storage, lineStore, statusStore, suffix)
         val providerSpec = seedProvider(storage, statusStore)
         val app = context.applicationContext as HelixApplication
+        // HXA-069: ChatService is pure JVM and resolves its emitted string-resource IDs through the
+        // injected `strings` seam (production wires it to the app context). Inject a zh-CN resolver
+        // so the canonical Chinese copy the assertions below check for is produced deterministically,
+        // independent of the run's app-context locale.
+        val zh =
+            AppLanguageStore.wrapForLocale(
+                context.applicationContext,
+                AppLanguageStore.localeListFor(AppLanguage.ZH_CN),
+            )
         val service =
             ChatService(
                 storage = storage,
@@ -373,6 +384,7 @@ class ChatServiceAttachmentRetryDeviceTest {
                 toolPipeline = app.appContainer.toolPipeline,
                 idGenerator = { "id-${UUID.randomUUID()}" },
                 attachmentStaging = staging,
+                strings = { resId, args -> zh.getString(resId, *args) },
             )
         return Fixture(storage, service, providerSpec, workspaceRoot)
     }

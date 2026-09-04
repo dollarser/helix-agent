@@ -16,8 +16,8 @@ class ModelStreamStateTest {
     fun textDeltasExposeOneReceivingTransitionAndAccumulatedText() {
         val state = ModelStreamState()
 
-        val first = state.apply(ModelEvent.TextDelta("你"), ::label)
-        val second = state.apply(ModelEvent.TextDelta("好"), ::label)
+        val first = state.apply(ModelEvent.TextDelta("你"))
+        val second = state.apply(ModelEvent.TextDelta("好"))
 
         assertTrue(first.textChanged)
         assertTrue(first.receivingStarted)
@@ -31,24 +31,24 @@ class ModelStreamStateTest {
     fun nullableUsageNeverInventsZero() {
         val state = ModelStreamState()
 
-        state.apply(ModelEvent.Usage(null, null), ::label)
+        state.apply(ModelEvent.Usage(null, null))
         assertNull(state.usageJson)
-        state.apply(ModelEvent.Usage(12, null), ::label)
+        state.apply(ModelEvent.Usage(12, null))
         assertEquals("{\"inputTokens\":12}", state.usageJson)
-        state.apply(ModelEvent.Usage(null, 7), ::label)
+        state.apply(ModelEvent.Usage(null, 7))
         assertEquals("{\"outputTokens\":7}", state.usageJson)
     }
 
     @Test
     fun finishedToolCallsUseProviderIndexOrderAndKeepRawArgumentFragments() {
         val state = ModelStreamState()
-        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-b"), "b"), ::label)
-        state.apply(ModelEvent.ToolArgumentsDelta(1, "{\"b\":"), ::label)
-        state.apply(ModelEvent.ToolArgumentsDelta(1, "2}"), ::label)
-        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-a"), "a"), ::label)
-        state.apply(ModelEvent.ToolArgumentsDelta(0, "{}"), ::label)
-        state.apply(ModelEvent.ToolCallFinished(1), ::label)
-        state.apply(ModelEvent.ToolCallFinished(0), ::label)
+        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-b"), "b"))
+        state.apply(ModelEvent.ToolArgumentsDelta(1, "{\"b\":"))
+        state.apply(ModelEvent.ToolArgumentsDelta(1, "2}"))
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-a"), "a"))
+        state.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
+        state.apply(ModelEvent.ToolCallFinished(1))
+        state.apply(ModelEvent.ToolCallFinished(0))
 
         assertEquals(listOf("call-a", "call-b"), state.finishedToolCalls.map { it.callId })
         assertEquals("{\"b\":2}", state.finishedToolCalls.last().arguments)
@@ -59,8 +59,8 @@ class ModelStreamStateTest {
     fun orphanArgumentAndFinishEventsFailClosed() {
         val state = ModelStreamState()
 
-        state.apply(ModelEvent.ToolArgumentsDelta(3, "{}"), ::label)
-        state.apply(ModelEvent.ToolCallFinished(3), ::label)
+        state.apply(ModelEvent.ToolArgumentsDelta(3, "{}"))
+        state.apply(ModelEvent.ToolCallFinished(3))
 
         assertTrue(state.finishedToolCalls.isEmpty())
         assertEquals(TurnState.FAILED, state.terminal(cancelled = false).state)
@@ -70,23 +70,22 @@ class ModelStreamStateTest {
     @Test
     fun totalToolArgumentsOverflowFailsClosedBeforeDispatch() {
         val state = ModelStreamState(maxToolArgumentsChars = 4)
-        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "time.now"), ::label)
-        state.apply(ModelEvent.ToolArgumentsDelta(0, "1234"), ::label)
-        state.apply(ModelEvent.ToolArgumentsDelta(0, "5"), ::label)
-        state.apply(ModelEvent.ToolCallFinished(0), ::label)
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "time.now"))
+        state.apply(ModelEvent.ToolArgumentsDelta(0, "1234"))
+        state.apply(ModelEvent.ToolArgumentsDelta(0, "5"))
+        state.apply(ModelEvent.ToolCallFinished(0))
 
         val terminal = state.terminal(cancelled = false)
         assertEquals(TurnState.FAILED, terminal.state)
         assertEquals("TOOL_ARGS_OVERFLOW", terminal.errorCode)
-        assertEquals("工具参数超出上限", terminal.displayLabel)
     }
 
     @Test
     fun unfinishedSiblingFailsWholeStreamBeforeAnyToolCanRun() {
         val state = ModelStreamState()
-        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"), ::label)
-        state.apply(ModelEvent.ToolCallFinished(0), ::label)
-        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"), ::label)
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"))
+        state.apply(ModelEvent.ToolCallFinished(0))
+        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"))
 
         val terminal = state.terminal(cancelled = false)
         assertEquals(TurnState.FAILED, terminal.state)
@@ -97,35 +96,32 @@ class ModelStreamStateTest {
     @Test
     fun refusalTakesPrecedenceOverProviderError() {
         val state = ModelStreamState()
-        state.apply(ModelEvent.Error(ModelErrorCode.AUTH, retryable = false), ::label)
-        state.apply(ModelEvent.Refusal(), ::label)
+        state.apply(ModelEvent.Error(ModelErrorCode.AUTH, retryable = false))
+        state.apply(ModelEvent.Refusal())
 
         val terminal = state.terminal(cancelled = false)
         assertEquals(TurnState.FAILED, terminal.state)
-        assertNull(terminal.errorCode)
-        assertEquals("模型拒绝（安全/策略）", terminal.displayLabel)
+        assertEquals(ModelStreamState.REFUSAL, terminal.errorCode)
     }
 
     @Test
     fun providerErrorKeepsStableCodeAndSafeMappedLabel() {
         val state = ModelStreamState()
-        state.apply(ModelEvent.Error(ModelErrorCode.RATE_LIMITED, retryable = true), ::label)
+        state.apply(ModelEvent.Error(ModelErrorCode.RATE_LIMITED, retryable = true))
 
         val terminal = state.terminal(cancelled = false)
         assertEquals(TurnState.FAILED, terminal.state)
         assertEquals("RATE_LIMITED", terminal.errorCode)
-        assertEquals("safe-RATE_LIMITED", terminal.displayLabel)
     }
 
     @Test
     fun cancellationHasHighestTerminalPrecedence() {
         val state = ModelStreamState()
-        state.apply(ModelEvent.Refusal(), ::label)
+        state.apply(ModelEvent.Refusal())
 
         val terminal = state.terminal(cancelled = true)
         assertEquals(TurnState.CANCELLED, terminal.state)
         assertNull(terminal.errorCode)
-        assertEquals("已停止", terminal.displayLabel)
     }
 
     @Test
@@ -136,21 +132,21 @@ class ModelStreamStateTest {
     @Test
     fun duplicateIndexAndCallIdFailClosed() {
         val duplicateIndex = ModelStreamState()
-        duplicateIndex.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"), ::label)
-        duplicateIndex.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-2"), "b"), ::label)
+        duplicateIndex.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"))
+        duplicateIndex.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-2"), "b"))
         assertEquals("TOOL_STREAM_INVALID", duplicateIndex.terminal(false).errorCode)
 
         val duplicateId = ModelStreamState()
-        duplicateId.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"), ::label)
-        duplicateId.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-1"), "b"), ::label)
+        duplicateId.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"))
+        duplicateId.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-1"), "b"))
         assertEquals("TOOL_STREAM_INVALID", duplicateId.terminal(false).errorCode)
     }
 
     @Test
     fun textAndAggregateToolBudgetsFailClosed() {
         val text = ModelStreamState(maxTextChars = 2)
-        text.apply(ModelEvent.TextDelta("ab"), ::label)
-        text.apply(ModelEvent.TextDelta("c"), ::label)
+        text.apply(ModelEvent.TextDelta("ab"))
+        text.apply(ModelEvent.TextDelta("c"))
         assertEquals("MODEL_TEXT_OVERFLOW", text.terminal(false).errorCode)
         assertEquals("ab", text.text)
 
@@ -159,20 +155,18 @@ class ModelStreamStateTest {
                 maxToolArgumentsChars = 4,
                 maxAggregateToolArgumentsChars = 5,
             )
-        aggregate.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"), ::label)
-        aggregate.apply(ModelEvent.ToolArgumentsDelta(0, "123"), ::label)
-        aggregate.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"), ::label)
-        aggregate.apply(ModelEvent.ToolArgumentsDelta(1, "456"), ::label)
+        aggregate.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"))
+        aggregate.apply(ModelEvent.ToolArgumentsDelta(0, "123"))
+        aggregate.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"))
+        aggregate.apply(ModelEvent.ToolArgumentsDelta(1, "456"))
         assertEquals("TOOL_ARGS_OVERFLOW", aggregate.terminal(false).errorCode)
     }
 
     @Test
     fun tooManyToolCallsFailClosed() {
         val state = ModelStreamState(maxToolCalls = 1)
-        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"), ::label)
-        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"), ::label)
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-1"), "a"))
+        state.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-2"), "b"))
         assertEquals("TOOL_CALL_COUNT_OVERFLOW", state.terminal(false).errorCode)
     }
-
-    private fun label(code: ModelErrorCode) = "safe-${code.name}"
 }

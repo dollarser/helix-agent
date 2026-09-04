@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -128,9 +129,7 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onNodeWithText("模型：fixture-model-b", substring = true).assertIsDisplayed()
 
         // --- cleanup ---
-        composeRule.onNodeWithTag("provider-delete").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(name).assertIsNotDisplayed()
+        deleteProviderAndAwait(name)
     }
 
     @Test
@@ -156,9 +155,7 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onNodeWithText("后端未提供模型列表，请手动输入").assertIsDisplayed()
         composeRule.onAllNodesWithTag("provider-models-section").fetchSemanticsNodes().isEmpty()
 
-        composeRule.onNodeWithTag("provider-delete").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(name).assertIsNotDisplayed()
+        deleteProviderAndAwait(name)
     }
 
     @Test
@@ -179,9 +176,7 @@ class ProviderModelDiscoveryUiTest {
         composeRule.onAllNodesWithTag("provider-models-section").fetchSemanticsNodes().isEmpty()
         composeRule.onAllNodesWithTag("provider-models-unsupported").fetchSemanticsNodes().isEmpty()
 
-        composeRule.onNodeWithTag("provider-delete").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(name).assertIsNotDisplayed()
+        deleteProviderAndAwait(name)
     }
 
     @Test
@@ -221,12 +216,19 @@ class ProviderModelDiscoveryUiTest {
             composeRule.onAllNodesWithText("共 300 个，显示前 200").fetchSemanticsNodes().isEmpty(),
         )
 
-        composeRule.onNodeWithTag("provider-delete").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(name).assertIsNotDisplayed()
+        deleteProviderAndAwait(name)
     }
 
     // --- helpers -------------------------------------------------------------
+
+    /** The long catalog can leave this action off-screen; deletion then finishes off Compose. */
+    private fun deleteProviderAndAwait(name: String) {
+        composeRule.onNodeWithTag("provider-delete").performScrollTo().performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithText(name).fetchSemanticsNodes().isEmpty()
+        }
+        composeRule.onNodeWithText(name).assertIsNotDisplayed()
+    }
 
     private fun startServer(mode: LoopbackModelServer.Mode): Int {
         val s = LoopbackModelServer(mode)

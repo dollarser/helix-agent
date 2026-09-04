@@ -3,12 +3,16 @@ package com.helix.app.tool
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
+import com.helix.core.policy.DataSensitivity
+import com.helix.extensions.a2a.A2aToolDispatchFacts
+import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.tools.framework.AuditSink
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
+import kotlinx.serialization.json.JsonObject
 
 /**
  * The app's tool pipeline bundle (roadmap HXA-036/037): the registered tool contracts +
@@ -31,6 +35,40 @@ class ToolPipeline(
     val auditSink: AuditSink,
     val scheduler: ToolScheduler,
 ) {
+    private var mcpFactsProvider:
+        ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null
+    private var a2aFactsProvider:
+        ((String, ToolDescriptor, JsonObject, DataSensitivity) -> A2aToolDispatchFacts?)? = null
+
+    fun installMcpFactsProvider(
+        provider: (String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?,
+    ) {
+        check(mcpFactsProvider == null) { "MCP dispatch facts provider is already installed" }
+        mcpFactsProvider = provider
+    }
+
+    fun mcpDispatchFacts(
+        sessionId: String,
+        toolCallId: String,
+        descriptor: ToolDescriptor,
+        arguments: JsonObject,
+        sensitivity: DataSensitivity,
+    ): McpToolDispatchFacts? = mcpFactsProvider?.invoke(sessionId, toolCallId, descriptor, arguments, sensitivity)
+
+    fun installA2aFactsProvider(
+        provider: (String, ToolDescriptor, JsonObject, DataSensitivity) -> A2aToolDispatchFacts?,
+    ) {
+        check(a2aFactsProvider == null) { "A2A dispatch facts provider is already installed" }
+        a2aFactsProvider = provider
+    }
+
+    fun a2aDispatchFacts(
+        sessionId: String,
+        descriptor: ToolDescriptor,
+        arguments: JsonObject,
+        sensitivity: DataSensitivity,
+    ): A2aToolDispatchFacts? = a2aFactsProvider?.invoke(sessionId, descriptor, arguments, sensitivity)
+
     /**
      * Resolves the newest registered version of [name] — null when the tool (or the name
      * itself, which must be a valid [ToolName]) is not registered. Model-requested tool

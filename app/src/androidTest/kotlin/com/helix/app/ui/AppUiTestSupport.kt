@@ -1,11 +1,15 @@
 package com.helix.app.ui
 
+import android.content.Context
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
 import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.runBlocking
 
@@ -77,3 +81,17 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     onNodeWithTag("navigation-$route").performClick()
     waitForIdle()
 }
+
+/**
+ * HXA-069: a zh-CN [Context] for the locale-deterministic UI fixtures. The headless
+ * `createComposeRule()` composes in the app context's locale — en-US on an English-locale
+ * emulator, because [HelixApplication] is instantiated before the runner's ZH_CN pin takes
+ * effect. These fixtures assert the app's canonical Chinese-first copy, so they compose inside
+ * a zh-CN `LocalContext` (the same createConfigurationContext primitive the app applies via
+ * AppLanguageStore.wrapForLocale) to stay independent of the device locale.
+ */
+fun canonicalZhContext(): Context =
+    AppLanguageStore.wrapForLocale(
+        InstrumentationRegistry.getInstrumentation().targetContext.applicationContext,
+        AppLanguageStore.localeListFor(AppLanguage.ZH_CN),
+    )

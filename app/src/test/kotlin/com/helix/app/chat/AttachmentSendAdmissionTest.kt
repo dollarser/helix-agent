@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
@@ -30,6 +31,10 @@ class AttachmentSendAdmissionTest {
             residence = ProviderResidence.PUBLIC_CLOUD,
         )
 
+    private val strings: (Int, Array<out Any>) -> String = { id, args ->
+        "<$id" + (if (args.isEmpty()) "" else args.joinToString(prefix = "(", postfix = ")")) + ">"
+    }
+
     private fun att(
         fileName: String,
         content: String,
@@ -46,7 +51,7 @@ class AttachmentSendAdmissionTest {
     @Test
     fun pureTextSendProceedsUnchanged() {
         // No attachments: the admission reproduces today's pure-text egress exactly — no regression.
-        val outcome = AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(emptyList()), "你好", target)
+        val outcome = AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(emptyList()), "你好", target, strings)
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         assertTrue(egress.decision is EgressDisclosure.Decision.Proceed)
         assertEquals(0, egress.attachments.size)
@@ -59,6 +64,7 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.Ready(emptyList()),
                 "key is sk-abcdefghijklmnopq",
                 target,
+                strings,
             )
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         assertTrue(egress.decision is EgressDisclosure.Decision.Rejected)
@@ -67,7 +73,7 @@ class AttachmentSendAdmissionTest {
     @Test
     fun aReadyTextAttachmentForcesPerSendConfirmNeverAutoPass() {
         val gate = AttachmentSendDecision.Ready(listOf(att("note.txt", "正文")))
-        val outcome = AttachmentSendAdmission.admit(gate, "看看", target)
+        val outcome = AttachmentSendAdmission.admit(gate, "看看", target, strings)
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         val confirm = egress.decision as EgressDisclosure.Decision.Confirm
         // A FileText source is high-sensitivity: the send is HELD for per-send confirmation — it
@@ -80,7 +86,7 @@ class AttachmentSendAdmissionTest {
         // An explicit send carrying ONLY an attachment (no typed text) is valid and still held for
         // confirmation — it is not an empty send and not auto-passed.
         val gate = AttachmentSendDecision.Ready(listOf(att("note.txt", "正文")))
-        val outcome = AttachmentSendAdmission.admit(gate, "", target)
+        val outcome = AttachmentSendAdmission.admit(gate, "", target, strings)
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         assertTrue(egress.decision is EgressDisclosure.Decision.Confirm)
     }
@@ -94,6 +100,7 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.Ready(listOf(att("creds.txt", "key is sk-abcdefghijklmnopq"))),
                 "帮我总结",
                 target,
+                strings,
             )
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         assertTrue(egress.decision is EgressDisclosure.Decision.Rejected)
@@ -103,8 +110,12 @@ class AttachmentSendAdmissionTest {
     fun rejectionNeverEchoesTheMatchedAttachmentContent() {
         val secret = "sk-abcdefghijklmnopq"
         val egress =
-            AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(listOf(att("creds.txt", secret))), "hi", target)
-                as AttachmentSendAdmission.Outcome.Egress
+            AttachmentSendAdmission.admit(
+                AttachmentSendDecision.Ready(listOf(att("creds.txt", secret))),
+                "hi",
+                target,
+                strings,
+            ) as AttachmentSendAdmission.Outcome.Egress
         val rejected = egress.decision as EgressDisclosure.Decision.Rejected
         assertTrue(secret !in rejected.reason)
     }
@@ -116,7 +127,7 @@ class AttachmentSendAdmissionTest {
         // Confirm, the guard reason is carried, and no attachment materialization rides out.
         val gate =
             AttachmentSendDecision.CredentialDetected("creds.txt", "检测到凭据形态内容（API key / token / 密码 / 私钥），已拒绝发送；请移除后重试")
-        val outcome = AttachmentSendAdmission.admit(gate, "帮我总结", target)
+        val outcome = AttachmentSendAdmission.admit(gate, "帮我总结", target, strings)
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         val rejected = egress.decision as EgressDisclosure.Decision.Rejected
         assertEquals(gate.reason, rejected.reason)
@@ -130,9 +141,10 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.UnsupportedType("photo.png", AttachmentCategory.OTHER),
                 "hi",
                 target,
+                strings,
             ) as AttachmentSendAdmission.Outcome.Blocked
         assertTrue(blocked.reason.contains("photo.png"))
-        assertTrue(blocked.reason.contains("不支持"))
+        assertTrue(blocked.reason.contains("<${R.string.admission_unsupported}"))
     }
 
     @Test
@@ -142,8 +154,9 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.UnsupportedType("notes.txt", AttachmentCategory.TEXT_ENCODING),
                 "hi",
                 target,
+                strings,
             ) as AttachmentSendAdmission.Outcome.Blocked
-        assertTrue(blocked.reason.contains("非 UTF-8 文本编码"))
+        assertTrue(blocked.reason.contains("<${R.string.category_text_encoding}"))
     }
 
     @Test
@@ -153,8 +166,9 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.SnapshotBroken("a.txt", SnapshotKind.TAMPERED),
                 "hi",
                 target,
+                strings,
             ) as AttachmentSendAdmission.Outcome.Blocked
-        assertTrue(blocked.reason.contains("不一致"))
+        assertTrue(blocked.reason.contains("<${R.string.admission_snapshot_tampered}"))
     }
 
     @Test
@@ -164,8 +178,9 @@ class AttachmentSendAdmissionTest {
                 AttachmentSendDecision.SnapshotBroken("a.txt", SnapshotKind.MISSING),
                 "hi",
                 target,
+                strings,
             ) as AttachmentSendAdmission.Outcome.Blocked
-        assertTrue(blocked.reason.contains("无法读取"))
+        assertTrue(blocked.reason.contains("<${R.string.admission_snapshot_missing}"))
     }
 
     @Test
@@ -173,9 +188,9 @@ class AttachmentSendAdmissionTest {
         // No typed text AND no Ready attachment: an empty send can never reach the model, even if a
         // caller forgets its own blank-text guard.
         val blocked =
-            AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(emptyList()), "", target)
+            AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(emptyList()), "", target, strings)
                 as AttachmentSendAdmission.Outcome.Blocked
-        assertTrue(blocked.reason.contains("消息为空"))
+        assertTrue(blocked.reason.contains("<${R.string.admission_empty_message}"))
     }
 
     @Test
@@ -183,7 +198,7 @@ class AttachmentSendAdmissionTest {
         val first = att("a.txt", "one")
         val second = att("b.md", "two", kind = TextAttachmentKind.MARKDOWN)
         val egress =
-            AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(listOf(first, second)), "hi", target)
+            AttachmentSendAdmission.admit(AttachmentSendDecision.Ready(listOf(first, second)), "hi", target, strings)
                 as AttachmentSendAdmission.Outcome.Egress
         assertEquals(listOf(first, second), egress.attachments)
     }
@@ -196,7 +211,7 @@ class AttachmentSendAdmissionTest {
         val image = imageAtt("photo.jpg")
         val gate = AttachmentSendDecision.Ready(listOf(att("note.txt", "正文"), image))
         val egress =
-            AttachmentSendAdmission.admit(gate, "看看", target) as AttachmentSendAdmission.Outcome.Egress
+            AttachmentSendAdmission.admit(gate, "看看", target, strings) as AttachmentSendAdmission.Outcome.Egress
         val confirm = egress.decision as EgressDisclosure.Decision.Confirm
         assertTrue(confirm.summary.categories.contains(EgressDisclosure.DataCategory.HIGH_SENSITIVE_IMAGE))
         assertTrue(confirm.summary.categories.contains(EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT))

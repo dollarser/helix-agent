@@ -13,7 +13,7 @@
              the SDK stubs — framework-internal only.) -->
         <provider
             android:name="com.helix.app.test.TransferTestDocumentsProvider"
-            android:authorities="com.helix.app.transfersink"
+            android:authorities="${applicationId}.transfersink"
             android:exported="true" />
     </application>
 </manifest>

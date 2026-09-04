@@ -1,5 +1,6 @@
 package com.helix.app.provider
 
+import com.helix.app.R
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderProtocol
@@ -52,9 +53,10 @@ data class ProviderDraft(
 }
 
 /**
- * Compose outcome. [Rejected.reason] is a USER-VISIBLE Chinese sentence
- * (doc 02 section 13: exception messages are never shown raw); the UI shows it
- * as-is and takes no further action.
+ * Compose outcome. [Rejected.reasonRes] is a STABLE string-resource id + args — never locale
+ * text (HXA-069: this pure object holds no [android.content.Context]; the form dialog resolves
+ * the id via `stringResource`). The reason is always user-safe (doc 02 section 13: exception
+ * messages are never shown raw); the UI shows it and takes no further action.
  */
 sealed interface ComposeOutcome {
     data class Ok(
@@ -62,22 +64,23 @@ sealed interface ComposeOutcome {
     ) : ComposeOutcome
 
     data class Rejected(
-        val reason: String,
+        val reasonRes: Int,
+        val reasonArgs: List<String> = emptyList(),
     ) : ComposeOutcome
 }
 
 /**
  * Pure composition of a [ProviderDraft] from a catalog template + form input.
  * All validation is fail-closed and returns [ComposeOutcome.Rejected] with a
- * user-visible reason instead of throwing (the form re-renders the reason).
+ * stable string-resource id + args instead of throwing (the form re-renders the reason).
  */
 object ProviderComposer {
     /**
      * Composes a [ProviderDraft] from a template + form input. Single
      * fail-closed result: the FIRST violation wins (form -> endpoint ->
-     * header merge -> header allowlist); [ComposeOutcome.Rejected.reason] is
-     * always a user-visible Chinese sentence (doc 02 section 13: raw
-     * exception messages are never shown).
+     * header merge -> header allowlist); [ComposeOutcome.Rejected.reasonRes] is a
+     * STABLE string-resource id + args, never locale text (HXA-069; doc 02 section 13:
+     * raw exception messages are never shown).
      *
      * [extraHeaders] are the user's custom headers; they are merged over the
      * template's [ProviderTemplate.defaultHeaders] case-insensitively (a
@@ -92,7 +95,7 @@ object ProviderComposer {
         extraHeaders: Map<String, String>,
     ): ComposeOutcome {
         val error = firstRejection(template, displayName, rawEndpoint, model, extraHeaders)
-        if (error != null) return ComposeOutcome.Rejected(error)
+        if (error != null) return ComposeOutcome.Rejected(error.res, error.args)
         val endpoint = parseEndpoint(rawEndpoint)
         val headersJson = headersJsonFor(template.defaultHeaders, extraHeaders)
         return ComposeOutcome.Ok(
@@ -112,8 +115,8 @@ object ProviderComposer {
 
     /**
      * The first validation failure in fixed order (form -> endpoint -> header
-     * merge -> header allowlist), as a user-visible Chinese reason; null when
-     * the form composes. Each step is independent and fail-closed.
+     * merge -> header allowlist), as a STABLE string-resource id + args (HXA-069: never locale
+     * text); null when the form composes. Each step is independent and fail-closed.
      */
     private fun firstRejection(
         template: ProviderTemplate,
@@ -121,42 +124,54 @@ object ProviderComposer {
         rawEndpoint: String,
         model: String,
         extraHeaders: Map<String, String>,
-    ): String? =
+    ): Rejection? =
         listOf(
             {
                 if (displayName.isBlank() ||
                     displayName.length > MAX_DISPLAY_NAME
                 ) {
-                    "名称需为 1–$MAX_DISPLAY_NAME 个字符"
+                    Rejection(R.string.provider_compose_name_invalid, listOf(MAX_DISPLAY_NAME.toString()))
                 } else {
                     null
                 }
             },
             {
                 if (model.isBlank() || model.length > MAX_MODEL || model.any { it.isISOControl() }) {
-                    "模型 ID 需为 1–$MAX_MODEL 个字符且不含控制字符"
+                    Rejection(R.string.provider_compose_model_invalid, listOf(MAX_MODEL.toString()))
                 } else {
                     null
                 }
             },
-            { if (parseEndpoint(rawEndpoint) == null) "Endpoint 需为 http/https 地址（不含用户名/密码、query 或片段）" else null },
+            {
+                if (parseEndpoint(rawEndpoint) == null) {
+                    Rejection(R.string.provider_compose_endpoint_invalid)
+                } else {
+                    null
+                }
+            },
             {
                 if (mergeHeaders(template.defaultHeaders, extraHeaders) ==
                     null
                 ) {
-                    "自定义 header 与模板 header 冲突（同名不同值）"
+                    Rejection(R.string.provider_compose_header_conflict)
                 } else {
                     null
                 }
             },
             {
                 if (headersJsonFor(template.defaultHeaders, extraHeaders) == null) {
-                    "header 不允许：凭据样名称（auth/cookie/token/key 等）与传输保留名被拒绝"
+                    Rejection(R.string.provider_compose_header_disallowed)
                 } else {
                     null
                 }
             },
         ).firstNotNullOfOrNull { it() }
+
+    /** One rejection as a stable string-resource id + args (HXA-069: no locale text in this pure object). */
+    private data class Rejection(
+        val res: Int,
+        val args: List<String> = emptyList(),
+    )
 
     /**
      * The parse failures below are INTENTIONALLY converted into a null marker:

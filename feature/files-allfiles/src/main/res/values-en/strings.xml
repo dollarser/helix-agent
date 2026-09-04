@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="allfiles_root_download">Downloads</string>
+    <string name="allfiles_root_documents">Documents</string>
+    <string name="allfiles_root_pictures">Pictures</string>
+    <string name="allfiles_root_music">Music</string>
+    <string name="allfiles_root_movies">Movies</string>
+    <string name="allfiles_root_podcasts">Podcasts</string>
+    <string name="allfiles_root_dcim">Camera</string>
+</resources>

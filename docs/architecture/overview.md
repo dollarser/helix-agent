@@ -1,7 +1,7 @@
 # Helix 总体架构（Android 单机版）
 
-文档状态：Baseline 1.3
-基线日期：2026-08-31
+文档状态：Baseline 1.4
+基线日期：2026-09-03
 
 ## 1. 设计原则
 
@@ -11,7 +11,7 @@
 4. 先提供强类型原生工具，再用代码补足长尾计算。
 5. 会话、Turn、ToolCall、Approval、Execution 分开建模，禁止用一张消息表代替运行状态。
 6. UI 只展示状态和收集意图，不直接构造 DAO、HTTP Client 或 Runtime。
-7. 系统权限、MCP annotation、Skill 指令和 Root grant 都不能代替 Tool Policy。
+7. 系统权限、MCP/A2A 声明、Skill 指令和 Root grant 都不能代替 Tool Policy。
 8. 当前单机实现不混入远程 Worker/HarmonyOS 传输代码，只保持执行目标接口可扩展。
 
 运行时安全配置遵循 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)：`STANDARD` 是所有安装默认，`ADVANCED` 只在 developer 变体显式可用。Gradle `consumer/developer` 决定代码是否进入 APK，Safety Profile 决定已编译能力在本次运行中是否可见；二者正交，均不能替代 Android 系统权限、Capability 实时状态或 Tool Policy。Trusted Workspace/有界规则只可自动执行动态风险不高于 L1 的匹配调用；通用 L2/L3 仍需精确用户批准。
@@ -51,6 +51,7 @@ Companion 生命周期遵循 [ADR-0007](../adr/0007-companion-runtime-lifecycle.
 │      │                 │         ├─ Android/File Tools  │
 │      │                 │         ├─ Browser/UI Tools    │
 │      │                 │         ├─ MCP Dynamic Tools   │
+│      │                 │         ├─ A2A Agent Tools     │
 │      │                 │         └─ Skill Loader        │
 │      │                 │                                │
 │      │                 └─ Binder ─► isolatedProcess     │
@@ -94,6 +95,7 @@ Helix/
 │   └── catalog/               # 厂商/自建模板，不含 secret
 ├── extensions/
 │   ├── mcp/                   # 官方 Kotlin SDK Client + facade
+│   ├── a2a/                   # HXA-077 决定后的 A2A v1.0 Client + facade
 │   └── skills/                # SKILL.md catalog、loader、validator
 ├── feature/
 │   ├── browser/               # WebView engine、tabs、agent controller
@@ -138,7 +140,7 @@ app
 - QuickJS 执行器持有主进程 Context 或 Provider 密钥。
 - PRoot 在主 App 的普通 `android:process` 中执行；进程名不是权限边界。
 - Agent Core 直接依赖 MCP SDK、Ktor、WebView、AccessibilityService 或 libsu。
-- Skill/MCP 直接调用执行器绕过 Tool Dispatcher。
+- Skill/MCP/A2A 直接调用执行器绕过 Tool Dispatcher。
 
 ## 4. 核心领域接口
 
@@ -209,6 +211,13 @@ interface McpClientFacade {
     suspend fun close(../serverId: McpServerId)
 }
 
+interface A2aClientFacade {
+    suspend fun discover(../agentId: A2aAgentId): A2aCapabilitySnapshot
+    fun send(../request: A2aTaskRequest): Flow<A2aTaskEvent>
+    suspend fun getTask(../agentId: A2aAgentId, taskId: A2aTaskId): A2aTaskSnapshot
+    suspend fun cancel(../agentId: A2aAgentId, taskId: A2aTaskId): CancelResult
+}
+
 interface SkillRepository {
     suspend fun catalog(../scope: SkillScope): List<SkillMetadata>
     suspend fun load(../id: SkillId, expectedHash: Sha256): SkillContent
@@ -232,7 +241,7 @@ interface ToolExecutor {
 | `PolicyEngine` | `core:policy/.../PolicyEngine.kt` 的具体类 | 已落位；动态风险与封闭结果以源码为准 |
 | `ApprovalRepository` | `core:storage/.../ConversationRepositories.kt` 的具体类 | 已落位；只有类型化 `APPROVED` 可铸造/消费 Proof |
 | `CapabilityResolver` | `core:policy/.../CapabilityResolver.kt` | 已落位 interface |
-| `WorkspaceFileSystem` / `CodeExecutor` / `BrowserController` / `McpClientFacade` | 无同名生产端口 | 分别待 M4 / M5+M8 / M6 / M7 落位 |
+| `WorkspaceFileSystem` / `CodeExecutor` / `BrowserController` / `McpClientFacade` / `A2aClientFacade` | 无同名生产端口 | 分别待 M4 / M5+M8 / M6 / M7 / M7-HXA-077～079 落位；A2A 产品/信任边界由 accepted ADR-0016 固定，端口 DTO 与具体 transport 仍以 HXA-077 Spike 为准 |
 | `SkillRepository` | `core:storage` 已有同名元数据 repository；本节的 content/hash 加载端口尚未落位 | 不得将同名存储类误当成 M7 Skill 运行时 |
 | `ToolExecutor` | `tools:framework/.../ToolExecution.kt` 已使用该简名表示进程内单调用执行者 | 本节带 `target/execute/cancel` 的跨执行域形状仍是目标端口；后续落位时必须避免同包同名和旁路 Dispatcher |
 
@@ -322,7 +331,7 @@ return fail(../StepLimitExceeded)
 
 `ContextBuilder` 属于 `core:agent`，输入是持久化的会话/Turn 快照和 Provider capability，输出是可审计的 `ContextBuildResult`。每个 item 至少包含 `sourceType`、`sourceId`、`trust`、`contentRef/contentHash` 和估算 token。
 
-裁剪顺序必须确定性且有测试：保留 system/mode/policy 契约、当前用户指令、未完成的 ToolCall 完整参数、审批上下文和对应 ToolResult；再按时间和相关性裁剪旧消息。不可将工具 JSON 或审批摘要截成语义不完整的文本。超限 ToolResult/文件转换为有界 summary + Artifact 引用/hash，后续通过 `read(../offset, maxBytes)` 分块获取。Secret 永不进入 Context；Web/File/MCP/Skill/Notification/Accessibility 内容标记 `UNTRUSTED`。
+裁剪顺序必须确定性且有测试：保留 system/mode/policy 契约、当前用户指令、未完成的 ToolCall 完整参数、审批上下文和对应 ToolResult；再按时间和相关性裁剪旧消息。不可将工具 JSON 或审批摘要截成语义不完整的文本。超限 ToolResult/文件转换为有界 summary + Artifact 引用/hash，后续通过 `read(../offset, maxBytes)` 分块获取。Secret 永不进入 Context；Web/File/MCP/A2A/Skill/Notification/Accessibility 内容标记 `UNTRUSTED`。
 
 ## 6. 模型协议与 Provider
 
@@ -383,7 +392,7 @@ data class ToolDescriptor(
 )
 ```
 
-`ToolOperationClass` 至少包含 `READ_ONLY`、`LOCAL_MUTATION`、`NETWORK`、`EXTERNAL_ACTION`、`CODE_EXECUTION`、`PRIVILEGED`。它描述操作效应，与动态风险等级正交；MCP annotation 不能将工具降为 `READ_ONLY`。
+`ToolOperationClass` 至少包含 `READ_ONLY`、`LOCAL_MUTATION`、`NETWORK`、`EXTERNAL_ACTION`、`CODE_EXECUTION`、`PRIVILEGED`。它描述操作效应，与动态风险等级正交；MCP annotation、A2A Agent Card/Skill 或远端状态不能将工具降为 `READ_ONLY`。
 
 ### 7.1 执行管线
 
@@ -403,7 +412,7 @@ data class ToolDescriptor(
   → 审计与模型回填
 ```
 
-内置工具名不能由模型动态注册。MCP 工具只能由已连接、用户启用的 Server 动态注册，并强制命名为 `mcp.<server>.<tool>`；schema hash 变化会撤销旧审批。代码执行也只是固定工具 `code.javascript.run` 或 `bash`，源码/命令属于参数。
+内置工具名不能由模型动态注册。MCP 工具只能由已连接、用户启用的 Server 动态注册，并强制命名为 `mcp.<server>.<tool>`；schema hash 变化会撤销旧审批。A2A 工具只能由用户连接且逐项启用的 Agent Card/Skill snapshot 注册为 `a2a.<agent>.<skill>`；endpoint/interface/version/Card/Skill contract 变化同样撤销旧注册与审批。A2A 需要在 HXA-079 以新的可信 `ToolSource`/origin 类型落位，不能冒充 MCP source。代码执行也只是固定工具 `code.javascript.run` 或 `bash`，源码/命令属于参数。
 
 `read`、`write`、`edit`、`bash` 是面向模型的稳定短名称；namespaced 文件工具是扩展集合，两者必须委托给同一实现和 Policy，不能复制逻辑。
 
@@ -486,6 +495,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `plans` / `plan_steps` | objective, version, hash, state, evidenceRef | 版本化计划 |
 | `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
+| `a2a_agents` / `a2a_capabilities` / `a2a_tasks` | endpointRef, authAlias, enabled, cardHash / agentId, interface, protocolVersion, skillId, skillHash, inputModes, outputModes, enabled / toolCallId, agentId, taskId, contextId, snapshotHash, inputHash, state, lastEventSequence | A2A Agent Card/Skill 快照与远端 Task 对账；HXA-077 接受方案后才可落 schema |
 | `skills` / `skill_snapshots` | name, source, version, rootRef, contentHash, enabled / runId, skillId, contentHash, catalogEntry | Skill 渐进加载和固定版本 |
 | `capability_grants` | type, systemState, userScopeRef, checkedAt | 权限状态缓存，不代替实时检查 |
 | `execution_targets` | type, descriptor, capabilitySnapshot | 当前只含本机目标 |
@@ -585,7 +595,7 @@ sessionId → turnId → modelCallId/toolCallId → approvalId/executionId
 
 ## 15. 未来扩展点
 
-远程 Worker、云端沙箱或桌面配对以后可以实现新的 `ToolExecutor/ExecutionTarget` transport，HarmonyOS 以后实现自己的 Platform Capability Adapter。当前只定义 envelope 和领域接口，不添加不可测试的网络空实现。PRoot/CLI companion 虽然通过 IPC 调用，但仍是同一手机上的本地执行器，不属于远程 Worker。
+远程 Worker、云端沙箱或桌面配对以后可以实现新的 `ToolExecutor/ExecutionTarget` transport，HarmonyOS 以后实现自己的 Platform Capability Adapter。当前只定义 envelope 和领域接口，不添加不可测试的网络空实现。PRoot/CLI companion 虽然通过 IPC 调用，但仍是同一手机上的本地执行器，不属于远程 Worker。A2A Client 是由普通 NETWORK ToolCall 调用的外部 Agent 服务；它不进入 `ExecutionTarget`，不能接收本机 Approval/Capability，也不构成远程 Worker 的提前实现。
 
 ## 16. 架构验收
 
@@ -604,6 +614,7 @@ sessionId → turnId → modelCallId/toolCallId → approvalId/executionId
 - Plan 模式无法注册或执行 mutating tool；Goal 恢复不重放不明确副作用。
 - WebView、Accessibility 和 Root 的动作都能追溯到同一个 ToolCall/Approval correlation chain。
 - MCP schema 或 Skill content hash 变化后，正在运行的 snapshot 不被静默替换。
+- A2A Agent Card/Skill/endpoint/interface/version 变化后旧工具和审批失效；远端 Task 断线恢复只对账原 task ID，不能盲目重发。
 
 ## 17. 面向 LLM 的工程设计
 

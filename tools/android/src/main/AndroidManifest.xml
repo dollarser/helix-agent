@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- HXA-065: the calendar.commit_event tool writes to the system Calendar Provider. WRITE_CALENDAR
+         is a runtime (dangerous) permission the user grants from the system dialog; until it is granted
+         the commit tool refuses with status 'permission-missing' (doc 09 §11). -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
+    <!-- HXA-066: the http.fetch transport (HttpFetchBridgeImpl) opens raw client sockets to perform a
+         bounded GET/HEAD. INTERNET is required to open ANY socket on Android; :app already declares it,
+         so the manifest merge dedupes — this documents that the library's http.fetch feature needs it. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application>
+        <!-- HXA-065: the system NotificationListenerService that lets notifications.query read other
+             apps' active notifications. It only runs once the user enables "Notification access" for
+             Helix in system settings (doc 09 §11); BIND_NOTIFICATION_LISTENER_SERVICE restricts binding
+             to the system only. -->
+        <service
+            android:name="com.helix.tools.android.HelixNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

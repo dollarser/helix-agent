@@ -48,13 +48,16 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.helix.app.FeatureFiles
+import com.helix.app.R
 import com.helix.app.files.ConflictPolicy
 import com.helix.app.files.ExportTarget
 import com.helix.app.files.FileManagerService
@@ -122,6 +125,28 @@ fun FilesScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // HXA-069: the local event-handler functions below are non-@Composable (coroutines and
+    // onClick callbacks), so they resolve labels through this helper. `resources` is the
+    // composition-captured Resources (LocalResources — NOT LocalContext.getString, which would go
+    // stale across a Configuration/locale change, lint: LocalContextGetResourceValueCall); it is
+    // read once per composition and reused by the non-@Composable handlers. The composable UI in
+    // this same body uses the same helper for uniformity.
+    val resources = LocalResources.current
+
+    fun str(
+        resId: Int,
+        vararg args: Any,
+    ): String = resources.getString(resId, *args)
+
+    // HXA-069: array overload for the transfer-summary results (a pre-built arg array from
+    // [transferSummary]); the single spread lives here (detekt SpreadOperator), not at the 3 call
+    // sites. Kotlin prefers this direct match over the vararg overload, so `str(id, arr)` is unambiguous.
+    @Suppress("SpreadOperator") // discrete transfer-summary resolve; getString's vararg API has no array overload
+    fun str(
+        resId: Int,
+        args: Array<out Any>,
+    ): String = resources.getString(resId, *args)
+
     // The browsable sources (workspace + developer all-files + LIVE SAF scopes). Mutable so a
     // grant/revoke re-verifies and refreshes the list (a revoked SAF grant disappears).
     var sources by remember { mutableStateOf(fileManager.sources()) }
@@ -150,11 +175,12 @@ fun FilesScreen(
                     // best-effort root folder name, sanitized by the store. Never logged.
                     val name =
                         withContext(Dispatchers.IO) {
-                            val treeName = uri.lastPathSegment?.let { Uri.decode(it) } ?: "SAF 目录"
+                            val lastSegment = uri.lastPathSegment?.let { Uri.decode(it) }
+                            val treeName = lastSegment ?: str(R.string.files_saf_directory_fallback)
                             safTree.grant(uri.toString(), treeName).displayName
                         }
                     sources = withContext(Dispatchers.IO) { fileManager.sources() }
-                    status = "已授权 SAF 来源：$name（只读）"
+                    status = str(R.string.files_saf_granted, name)
                 }
             }
         }
@@ -212,7 +238,7 @@ fun FilesScreen(
             importBusy = true
             importResult = null
             importCancel.set(false)
-            importLabel = "正在读取来源信息…"
+            importLabel = str(R.string.files_importing_metadata)
             val (name, size) =
                 withContext(Dispatchers.IO) {
                     runCatching { featureFiles.metadataReader.metadata(uri) }
@@ -223,24 +249,25 @@ fun FilesScreen(
                 }
             importLabel =
                 if (name != null) {
-                    "导入中：$name（${formatSize(size)}）"
+                    str(R.string.files_importing_named, name, formatSize(size))
                 } else {
-                    "导入中…"
+                    str(R.string.files_importing_plain)
                 }
             val result =
                 withContext(Dispatchers.IO) {
                     fileManager.importSingleDocument(uri, policy, importCancel::get) { done, total ->
                         if (total > 0) {
-                            importLabel = "导入中：${formatSize(done)} / ${formatSize(total)}"
+                            importLabel = str(R.string.files_importing_progress, formatSize(done), formatSize(total))
                         } else {
-                            importLabel = "导入中：${formatSize(done)}"
+                            importLabel = str(R.string.files_importing_done, formatSize(done))
                         }
                     }
                 }
             importBusy = false
             importLabel = null
             importResult = result
-            status = transferSummary("导入", result)
+            val (summaryRes, summaryArgs) = transferSummary(str(R.string.files_verb_import), result)
+            status = str(summaryRes, summaryArgs)
             reloadTick++
         }
     }
@@ -253,17 +280,18 @@ fun FilesScreen(
             importBusy = true
             importResult = null
             importCancel.set(false)
-            importLabel = "正在枚举文件夹…"
+            importLabel = str(R.string.files_enumerating_folder)
             val result =
                 withContext(Dispatchers.IO) {
                     fileManager.importTree(uri, policy, importCancel::get) { done, total ->
-                        importLabel = "导入中：第 ${done + 1}/$total 个文件"
+                        importLabel = str(R.string.files_importing_file_number, done + 1, total)
                     }
                 }
             importBusy = false
             importLabel = null
             importResult = result
-            status = transferSummary("导入", result)
+            val (summaryRes, summaryArgs) = transferSummary(str(R.string.files_verb_import), result)
+            status = str(summaryRes, summaryArgs)
             reloadTick++
         }
     }
@@ -277,21 +305,22 @@ fun FilesScreen(
             exportBusy = true
             exportResult = null
             exportCancel.set(false)
-            exportLabel = "导出中…"
+            exportLabel = str(R.string.files_exporting_plain)
             val result =
                 withContext(Dispatchers.IO) {
                     fileManager.exportDocument(fileRel, target, policy, exportCancel::get) { done, total ->
                         if (total > 0) {
-                            exportLabel = "导出中：${formatSize(done)} / ${formatSize(total)}"
+                            exportLabel = str(R.string.files_exporting_progress, formatSize(done), formatSize(total))
                         } else {
-                            exportLabel = "导出中：${formatSize(done)}"
+                            exportLabel = str(R.string.files_exporting_done, formatSize(done))
                         }
                     }
                 }
             exportBusy = false
             exportLabel = null
             exportResult = result
-            status = transferSummary("导出", result)
+            val (summaryRes, summaryArgs) = transferSummary(str(R.string.files_verb_export), result)
+            status = str(summaryRes, summaryArgs)
         }
     }
 
@@ -309,7 +338,7 @@ fun FilesScreen(
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument()) { uri ->
             if (uri != null) {
                 exportFile?.let { file ->
-                    val label = uri.lastPathSegment ?: "新文档"
+                    val label = uri.lastPathSegment ?: str(R.string.files_new_document_fallback)
                     runExport(file.relativePath, ExportTarget.Document(uri.toString(), label), exportPolicy)
                 }
             }
@@ -328,7 +357,7 @@ fun FilesScreen(
                 entries = it
                 selected = emptySet()
             },
-            onFailure = { loadError = it.message ?: "无法读取目录" },
+            onFailure = { loadError = it.message ?: str(R.string.files_read_directory_error) },
         )
     }
 
@@ -413,7 +442,7 @@ fun FilesScreen(
             val result = withContext(Dispatchers.IO) { fileManager.rename(selectedScopeId, srcRel, dstRel, overwrite) }
             when (result) {
                 is FileOpResult.Ok -> {
-                    status = "已重命名"
+                    status = str(R.string.files_renamed_status)
                     openFile = null
                     reloadTick++
                 }
@@ -443,18 +472,23 @@ fun FilesScreen(
         scope.launch {
             batchBusy = true
             cancelFlag.set(false)
-            batchLabel = "处理中 0/$total"
+            batchLabel = str(R.string.files_batch_progress_zero, total)
             batchFailures = emptyList()
             val result =
                 withContext(Dispatchers.IO) {
                     work(
-                        { done, t -> batchLabel = "处理中 $done/$t" },
+                        { done, t -> batchLabel = str(R.string.files_batch_progress, done, t) },
                         { cancelFlag.get() },
                     )
                 }
             batchLabel = null
             batchBusy = false
-            status = "完成：成功 ${result.succeeded.size}，跳过/失败 ${result.failures.size}"
+            status =
+                str(
+                    R.string.files_batch_complete,
+                    result.succeeded.size,
+                    result.failures.size,
+                )
             batchFailures = result.failures
             selected = emptySet()
             reloadTick++
@@ -468,7 +502,7 @@ fun FilesScreen(
         move: Boolean,
     ) {
         if (destDir.isBlank()) {
-            status = "目标目录不能为空"
+            status = str(R.string.files_dest_dir_required)
             return
         }
         startBatch(sourceRels.size) { progress, cancel ->
@@ -478,7 +512,7 @@ fun FilesScreen(
 
     fun startTrash(sourceRels: List<String>) {
         if (!canMutate) {
-            status = "此来源为只读"
+            status = str(R.string.files_source_read_only)
             return
         }
         startBatch(sourceRels.size) { progress, cancel ->
@@ -490,8 +524,8 @@ fun FilesScreen(
         scope.launch {
             val result = withContext(Dispatchers.IO) { fileManager.restore(selectedScopeId, entry.entryName) }
             when (result) {
-                is FileOpResult.Ok -> status = "已恢复"
-                FileOpResult.Conflict -> status = "恢复失败：原路径已被占用"
+                is FileOpResult.Ok -> status = str(R.string.files_restored_status)
+                FileOpResult.Conflict -> status = str(R.string.files_restore_conflict)
                 is FileOpResult.NotFound -> status = result.message
                 is FileOpResult.Error -> status = result.message
             }
@@ -503,10 +537,10 @@ fun FilesScreen(
         scope.launch {
             val result = withContext(Dispatchers.IO) { fileManager.purge(selectedScopeId, entry.entryName) }
             when (result) {
-                is FileOpResult.Ok -> status = "已永久删除"
+                is FileOpResult.Ok -> status = str(R.string.files_purged_status)
                 is FileOpResult.NotFound -> status = result.message
                 is FileOpResult.Error -> status = result.message
-                FileOpResult.Conflict -> status = "无法删除"
+                FileOpResult.Conflict -> status = str(R.string.files_purge_unavailable)
             }
             reloadTick++
         }
@@ -515,7 +549,7 @@ fun FilesScreen(
     fun emptyTrashPanel() {
         scope.launch {
             val count = withContext(Dispatchers.IO) { fileManager.emptyTrash(selectedScopeId) }
-            status = "已清空回收站（$count 项）"
+            status = str(R.string.files_trash_emptied, count)
             reloadTick++
         }
     }
@@ -534,9 +568,9 @@ fun FilesScreen(
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                context.startActivity(Intent.createChooser(send, "分享"))
+                context.startActivity(Intent.createChooser(send, str(R.string.files_share_chooser_title)))
             } catch (e: Exception) {
-                status = "无法分享：${e.message}"
+                status = str(R.string.files_share_failed, e.message.orEmpty())
             }
         }
     }
@@ -552,12 +586,16 @@ fun FilesScreen(
             modifier = Modifier.testTag(tag),
         ) {
             Text(
-                "成功 ${result.completed.size} 项，跳过/冲突/失败 ${result.problems.size} 项",
+                str(
+                    R.string.files_transfer_summary,
+                    result.completed.size,
+                    result.problems.size,
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (result.reclaimedTempFiles > 0) {
                 Text(
-                    "已回收 ${result.reclaimedTempFiles} 个中断残留的临时文件",
+                    str(R.string.files_temp_reclaimed, result.reclaimedTempFiles),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -565,23 +603,31 @@ fun FilesScreen(
             result.items.take(MAX_FAILURE_DETAIL_LINES).forEach { item ->
                 val mark =
                     when (item.status) {
-                        TransferItemStatus.COMPLETED -> "成功"
-                        TransferItemStatus.CONFLICT -> "冲突"
-                        TransferItemStatus.SKIPPED -> "跳过"
-                        TransferItemStatus.CANCELLED -> "已取消"
-                        TransferItemStatus.FAILED -> "失败"
+                        TransferItemStatus.COMPLETED -> str(R.string.files_transfer_item_completed)
+                        TransferItemStatus.CONFLICT -> str(R.string.files_transfer_item_conflict)
+                        TransferItemStatus.SKIPPED -> str(R.string.files_transfer_item_skipped)
+                        TransferItemStatus.CANCELLED -> str(R.string.files_transfer_item_cancelled)
+                        TransferItemStatus.FAILED -> str(R.string.files_transfer_item_failed)
                     }
+                val detail =
+                    item.detail?.let { str(R.string.files_transfer_item_detail, it) } ?: ""
+                val verified = if (item.verified) str(R.string.files_transfer_item_verified) else ""
                 Text(
-                    "· ${item.sourceLabel} → ${item.targetLabel}：$mark" +
-                        (item.detail?.let { "（$it）" } ?: "") +
-                        (if (item.verified) "（已校验）" else ""),
+                    str(
+                        R.string.files_transfer_item_line,
+                        mark,
+                        item.sourceLabel,
+                        item.targetLabel,
+                        detail,
+                        verified,
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (result.items.size > MAX_FAILURE_DETAIL_LINES) {
                 Text(
-                    "… 等 ${result.items.size} 项",
+                    str(R.string.files_items_overflow, result.items.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -615,7 +661,8 @@ fun FilesScreen(
             }
         }
         Text(
-            "当前来源：${currentSource.displayName}" + if (canMutate) "" else "（只读）",
+            str(R.string.files_current_source, currentSource.displayName) +
+                if (canMutate) "" else str(R.string.files_read_only_suffix),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("files-source-current"),
@@ -628,7 +675,7 @@ fun FilesScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.testTag("files-breadcrumb"),
             ) {
-                BreadcrumbCrumb("根目录", isRoot = true, onClick = { currentPath = "" })
+                BreadcrumbCrumb(str(R.string.files_root_directory), isRoot = true, onClick = { currentPath = "" })
                 currentPath
                     .split("/")
                     .filter { it.isNotEmpty() }
@@ -650,19 +697,19 @@ fun FilesScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SortButton("名称", SortKey.NAME, sortKey, onPick = { sortKey = it })
-                SortButton("时间", SortKey.TIME, sortKey, onPick = { sortKey = it })
-                SortButton("大小", SortKey.SIZE, sortKey, onPick = { sortKey = it })
+                SortButton(str(R.string.files_sort_name), SortKey.NAME, sortKey, onPick = { sortKey = it })
+                SortButton(str(R.string.files_sort_time), SortKey.TIME, sortKey, onPick = { sortKey = it })
+                SortButton(str(R.string.files_sort_size), SortKey.SIZE, sortKey, onPick = { sortKey = it })
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 TextButton(onClick = { viewMode = ViewMode.LIST }, modifier = Modifier.testTag("files-view-list")) {
-                    Text("列表")
+                    Text(str(R.string.files_view_list))
                 }
                 TextButton(onClick = { viewMode = ViewMode.GRID }, modifier = Modifier.testTag("files-view-grid")) {
-                    Text("网格")
+                    Text(str(R.string.files_view_grid))
                 }
             }
             Row(
@@ -670,16 +717,16 @@ fun FilesScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 TextButton(onClick = { trashOpen = true }, modifier = Modifier.testTag("files-trash-open")) {
-                    Text("回收站")
+                    Text(str(R.string.files_trash_button))
                 }
                 if (canMutate) {
                     TextButton(onClick = { newFolderOpen = true }, modifier = Modifier.testTag("files-newfolder")) {
-                        Text("新建文件夹")
+                        Text(str(R.string.files_new_folder_button))
                     }
                 }
                 // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
                 TextButton(onClick = { safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
-                    Text("SAF 来源")
+                    Text(str(R.string.files_saf_button))
                 }
                 // HXA-058: the 导入 entry (a single document or a folder into the Workspace).
                 TextButton(
@@ -689,7 +736,7 @@ fun FilesScreen(
                     },
                     modifier = Modifier.testTag("files-import-open"),
                 ) {
-                    Text("导入")
+                    Text(str(R.string.files_import_button))
                 }
             }
         }
@@ -699,12 +746,12 @@ fun FilesScreen(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Text(
-                    batchLabel ?: "处理中…",
+                    batchLabel ?: str(R.string.files_batch_in_progress),
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("files-batch-progress"),
                 )
                 TextButton(onClick = { cancelFlag.set(true) }, modifier = Modifier.testTag("files-batch-cancel")) {
-                    Text("取消")
+                    Text(str(R.string.common_cancel))
                 }
             }
         }
@@ -719,14 +766,14 @@ fun FilesScreen(
                 batchFailures.take(MAX_FAILURE_DETAIL_LINES).forEach { item ->
                     val detail = item.detail.ifBlank { "-" }
                     Text(
-                        "· ${item.sourceRelativePath} — ${item.outcomeLabel()}：$detail",
+                        "· ${item.sourceRelativePath} — ${str(item.outcomeLabel())}：$detail",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (batchFailures.size > MAX_FAILURE_DETAIL_LINES) {
                     Text(
-                        "… 等 ${batchFailures.size} 项",
+                        str(R.string.files_items_overflow, batchFailures.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -747,22 +794,22 @@ fun FilesScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text("回收站", style = MaterialTheme.typography.titleMedium)
+                        Text(str(R.string.files_trash_title), style = MaterialTheme.typography.titleMedium)
                         TextButton(onClick = { trashOpen = false }, modifier = Modifier.testTag("files-trash-back")) {
-                            Text("返回")
+                            Text(str(R.string.files_back))
                         }
                         if (canMutate) {
                             TextButton(
                                 onClick = { emptyTrashPanel() },
                                 modifier = Modifier.testTag("files-trash-empty"),
                             ) {
-                                Text("清空")
+                                Text(str(R.string.files_empty_trash))
                             }
                         }
                     }
                     if (trashEntries.isEmpty()) {
                         Text(
-                            "回收站为空",
+                            str(R.string.files_trash_empty_state),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.testTag("files-trash-empty-state"),
                         )
@@ -784,7 +831,7 @@ fun FilesScreen(
                 )
             } else if (entries.isEmpty()) {
                 Text(
-                    "（空目录）",
+                    str(R.string.files_empty_directory),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.testTag("files-empty"),
                 )
@@ -824,25 +871,25 @@ fun FilesScreen(
         // 多选 action bar.
         if (selected.isNotEmpty() && !trashOpen && canMutate) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("已选 ${selected.size}", style = MaterialTheme.typography.bodyMedium)
+                Text(str(R.string.files_selected_count, selected.size), style = MaterialTheme.typography.bodyMedium)
                 val selectedRels = selected.toList()
                 TextButton(
                     onClick = { copyMove = CopyMoveTarget(move = false, selectedRels) },
                     modifier = Modifier.testTag("files-batch-copy"),
                 ) {
-                    Text("复制")
+                    Text(str(R.string.files_copy))
                 }
                 TextButton(
                     onClick = { copyMove = CopyMoveTarget(move = true, selectedRels) },
                     modifier = Modifier.testTag("files-batch-move"),
                 ) {
-                    Text("移动")
+                    Text(str(R.string.files_move))
                 }
                 TextButton(onClick = { startTrash(selectedRels) }, modifier = Modifier.testTag("files-batch-trash")) {
-                    Text("删除")
+                    Text(str(R.string.files_delete))
                 }
                 TextButton(onClick = { selected = emptySet() }, modifier = Modifier.testTag("files-batch-clear")) {
-                    Text("取消选择")
+                    Text(str(R.string.files_deselect))
                 }
             }
         }
@@ -884,7 +931,7 @@ fun FilesScreen(
 
                             else -> {
                                 Text(
-                                    "（无预览）",
+                                    str(R.string.files_no_preview),
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.testTag("files-preview-none"),
                                 )
@@ -893,16 +940,22 @@ fun FilesScreen(
                         fileInfo?.let { meta ->
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    "大小：${formatSize(meta.sizeBytes)}",
+                                    str(R.string.files_info_size, formatSize(meta.sizeBytes)),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 Text(
-                                    "修改时间：${formatTime(meta.mtimeEpochMillis)}",
+                                    str(R.string.files_info_modified, formatTime(meta.mtimeEpochMillis)),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                                Text("类型：${meta.mimeType}", style = MaterialTheme.typography.bodySmall)
                                 Text(
-                                    "SHA-256：${meta.sha256 ?: "（文件过大，已省略）"}",
+                                    str(R.string.files_info_type, meta.mimeType),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                Text(
+                                    str(
+                                        R.string.files_info_sha256,
+                                        meta.sha256 ?: str(R.string.files_sha_omitted),
+                                    ),
                                     style = MaterialTheme.typography.bodySmall,
                                     modifier = Modifier.testTag("files-info-sha"),
                                 )
@@ -924,19 +977,19 @@ fun FilesScreen(
                                     },
                                     modifier = Modifier.testTag("files-action-rename"),
                                 ) {
-                                    Text("重命名")
+                                    Text(str(R.string.files_rename))
                                 }
                                 TextButton(
                                     onClick = { copyMove = CopyMoveTarget(move = false, listOf(file.relativePath)) },
                                     modifier = Modifier.testTag("files-action-copy"),
                                 ) {
-                                    Text("复制")
+                                    Text(str(R.string.files_copy))
                                 }
                                 TextButton(
                                     onClick = { copyMove = CopyMoveTarget(move = true, listOf(file.relativePath)) },
                                     modifier = Modifier.testTag("files-action-move"),
                                 ) {
-                                    Text("移动")
+                                    Text(str(R.string.files_move))
                                 }
                             }
                             TextButton(
@@ -946,12 +999,12 @@ fun FilesScreen(
                                 },
                                 modifier = Modifier.testTag("files-action-trash"),
                             ) {
-                                Text("回收站")
+                                Text(str(R.string.files_trash_action))
                             }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick = { share(file) }, modifier = Modifier.testTag("files-action-share")) {
-                                Text("分享")
+                                Text(str(R.string.files_share))
                             }
                             // HXA-058: the 导出 entry — Workspace files only (the HXA-044 export region
                             // gate: input/work/output; SAF/all-files sources are never export sources).
@@ -964,7 +1017,7 @@ fun FilesScreen(
                                     },
                                     modifier = Modifier.testTag("files-action-export"),
                                 ) {
-                                    Text("导出")
+                                    Text(str(R.string.files_export))
                                 }
                             }
                         }
@@ -972,7 +1025,7 @@ fun FilesScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { openFile = null }, modifier = Modifier.testTag("files-preview-close")) {
-                        Text("关闭")
+                        Text(str(R.string.files_close))
                     }
                 },
                 modifier = Modifier.testTag("files-preview-dialog"),
@@ -988,12 +1041,12 @@ fun FilesScreen(
         LaunchedEffect(Unit) { renameFocus.requestFocus() }
         AlertDialog(
             onDismissRequest = { renameTarget = null },
-            title = { Text("重命名") },
+            title = { Text(str(R.string.files_rename)) },
             text = {
                 OutlinedTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    label = { Text("新名称") },
+                    label = { Text(str(R.string.files_new_name)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier.focusRequester(renameFocus).testTag("files-rename-field"),
@@ -1004,7 +1057,7 @@ fun FilesScreen(
                     onClick = {
                         val chosen = newName.trim()
                         if (chosen.isEmpty()) {
-                            status = "名称不能为空"
+                            status = str(R.string.files_name_required)
                             renameTarget = null
                         } else {
                             val dir = target.relativePath.substringBeforeLast('/')
@@ -1016,12 +1069,12 @@ fun FilesScreen(
                     },
                     modifier = Modifier.testTag("files-rename-confirm"),
                 ) {
-                    Text("确定")
+                    Text(str(R.string.files_confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renameTarget = null }, modifier = Modifier.testTag("files-rename-cancel")) {
-                    Text("取消")
+                    Text(str(R.string.common_cancel))
                 }
             },
             modifier = Modifier.testTag("files-rename-dialog"),
@@ -1033,18 +1086,18 @@ fun FilesScreen(
         var policy by remember { mutableStateOf(ConflictPolicy.ASK) }
         AlertDialog(
             onDismissRequest = { copyMove = null },
-            title = { Text(if (cm.move) "移动所选" else "复制所选") },
+            title = { Text(if (cm.move) str(R.string.files_move_selected) else str(R.string.files_copy_selected)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = destDir,
                         onValueChange = { destDir = it },
-                        label = { Text("目标目录（相对路径）") },
+                        label = { Text(str(R.string.files_dest_field)) },
                         singleLine = true,
                         modifier = Modifier.testTag("files-dest-field"),
                     )
                     Text(
-                        "冲突策略（默认询问，从不默认覆盖）",
+                        str(R.string.files_conflict_policy),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1053,7 +1106,7 @@ fun FilesScreen(
                                 onClick = { policy = p },
                                 modifier = Modifier.testTag("files-policy-${p.name}"),
                             ) {
-                                Text(policyLabel(p))
+                                Text(str(policyLabel(p)))
                             }
                         }
                     }
@@ -1068,12 +1121,12 @@ fun FilesScreen(
                     },
                     modifier = Modifier.testTag("files-dest-confirm"),
                 ) {
-                    Text("确定")
+                    Text(str(R.string.files_confirm))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { copyMove = null }, modifier = Modifier.testTag("files-dest-cancel")) {
-                    Text("取消")
+                    Text(str(R.string.common_cancel))
                 }
             },
             modifier = Modifier.testTag("files-dest-dialog"),
@@ -1086,12 +1139,12 @@ fun FilesScreen(
         LaunchedEffect(Unit) { newFolderFocus.requestFocus() }
         AlertDialog(
             onDismissRequest = { newFolderOpen = false },
-            title = { Text("新建文件夹") },
+            title = { Text(str(R.string.files_new_folder_title)) },
             text = {
                 OutlinedTextField(
                     value = folderName,
                     onValueChange = { folderName = it },
-                    label = { Text("文件夹名称") },
+                    label = { Text(str(R.string.files_folder_name_field)) },
                     singleLine = true,
                     modifier = Modifier.focusRequester(newFolderFocus).testTag("files-newfolder-field"),
                 )
@@ -1102,7 +1155,7 @@ fun FilesScreen(
                         val name = folderName.trim()
                         newFolderOpen = false
                         if (name.isEmpty()) {
-                            status = "名称不能为空"
+                            status = str(R.string.files_name_required)
                             return@TextButton
                         }
                         scope.launch {
@@ -1112,12 +1165,12 @@ fun FilesScreen(
                                 }
                             when (result) {
                                 is FileOpResult.Ok -> {
-                                    status = "已创建文件夹"
+                                    status = str(R.string.files_folder_created_status)
                                     reloadTick++
                                 }
 
                                 FileOpResult.Conflict -> {
-                                    status = "同名文件夹已存在"
+                                    status = str(R.string.files_folder_exists_status)
                                 }
 
                                 is FileOpResult.NotFound -> {
@@ -1132,12 +1185,12 @@ fun FilesScreen(
                     },
                     modifier = Modifier.testTag("files-newfolder-confirm"),
                 ) {
-                    Text("创建")
+                    Text(str(R.string.files_create))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { newFolderOpen = false }, modifier = Modifier.testTag("files-newfolder-cancel")) {
-                    Text("取消")
+                    Text(str(R.string.common_cancel))
                 }
             },
             modifier = Modifier.testTag("files-newfolder-dialog"),
@@ -1147,10 +1200,13 @@ fun FilesScreen(
     conflictTarget?.let { (srcRel, dstRel) ->
         AlertDialog(
             onDismissRequest = { conflictTarget = null },
-            title = { Text("目标已存在") },
+            title = { Text(str(R.string.files_conflict_title)) },
             text = {
                 Text(
-                    "“${dstRel.substringAfterLast('/')}” 已存在。请选择处理方式（默认不覆盖）：",
+                    str(
+                        R.string.files_conflict_message,
+                        dstRel.substringAfterLast('/'),
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             },
@@ -1163,7 +1219,7 @@ fun FilesScreen(
                     },
                     modifier = Modifier.testTag("files-conflict-rename"),
                 ) {
-                    Text("重命名")
+                    Text(str(R.string.files_rename))
                 }
             },
             dismissButton = {
@@ -1175,16 +1231,16 @@ fun FilesScreen(
                         },
                         modifier = Modifier.testTag("files-conflict-overwrite"),
                     ) {
-                        Text("覆盖")
+                        Text(str(R.string.files_overwrite))
                     }
                     TextButton(
                         onClick = {
                             conflictTarget = null
-                            status = "已跳过（未覆盖）"
+                            status = str(R.string.files_skipped_status)
                         },
                         modifier = Modifier.testTag("files-conflict-skip"),
                     ) {
-                        Text("跳过")
+                        Text(str(R.string.files_skip))
                     }
                 }
             },
@@ -1198,12 +1254,12 @@ fun FilesScreen(
             onDismissRequest = {
                 if (!importBusy) importOpen = false
             },
-            title = { Text("导入到 Workspace") },
+            title = { Text(str(R.string.files_import_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!importBusy && importResult == null) {
                         Text(
-                            "来源：用户选择的文档 / 文件夹（复制进 Workspace input/，不创建聊天消息）",
+                            str(R.string.files_import_source_desc),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1211,22 +1267,34 @@ fun FilesScreen(
                                 onClick = { importMode = ImportMode.FILE },
                                 modifier = Modifier.testTag("files-import-file"),
                             ) {
-                                Text(if (importMode == ImportMode.FILE) "● 单个文件" else "单个文件")
+                                Text(
+                                    if (importMode == ImportMode.FILE) {
+                                        str(R.string.files_import_single_selected)
+                                    } else {
+                                        str(R.string.files_import_single)
+                                    },
+                                )
                             }
                             TextButton(
                                 onClick = { importMode = ImportMode.FOLDER },
                                 modifier = Modifier.testTag("files-import-folder"),
                             ) {
-                                Text(if (importMode == ImportMode.FOLDER) "● 文件夹" else "文件夹")
+                                Text(
+                                    if (importMode == ImportMode.FOLDER) {
+                                        str(R.string.files_import_folder_selected)
+                                    } else {
+                                        str(R.string.files_import_folder)
+                                    },
+                                )
                             }
                         }
                         Text(
-                            "目标：Workspace input/",
+                            str(R.string.files_import_target),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.testTag("files-import-target"),
                         )
                         Text(
-                            "冲突策略（默认询问，从不默认覆盖）",
+                            str(R.string.files_conflict_policy),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1235,14 +1303,14 @@ fun FilesScreen(
                                     onClick = { importPolicy = p },
                                     modifier = Modifier.testTag("files-import-policy-${p.name}"),
                                 ) {
-                                    Text(policyLabel(p))
+                                    Text(str(policyLabel(p)))
                                 }
                             }
                         }
                     } else if (importBusy) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth().testTag("files-import-progress"))
                         Text(
-                            importLabel ?: "导入中…",
+                            importLabel ?: str(R.string.files_importing_plain),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.testTag("files-import-label"),
                         )
@@ -1258,7 +1326,7 @@ fun FilesScreen(
                             onClick = { importCancel.set(true) },
                             modifier = Modifier.testTag("files-import-cancel"),
                         ) {
-                            Text("取消")
+                            Text(str(R.string.common_cancel))
                         }
                     }
 
@@ -1267,7 +1335,7 @@ fun FilesScreen(
                             onClick = { importOpen = false },
                             modifier = Modifier.testTag("files-import-close"),
                         ) {
-                            Text("关闭")
+                            Text(str(R.string.files_close))
                         }
                     }
 
@@ -1282,7 +1350,7 @@ fun FilesScreen(
                             },
                             modifier = Modifier.testTag("files-import-confirm"),
                         ) {
-                            Text("选择并导入")
+                            Text(str(R.string.files_import_choose_and_import))
                         }
                     }
                 }
@@ -1290,7 +1358,7 @@ fun FilesScreen(
             dismissButton = {
                 if (!importBusy) {
                     TextButton(onClick = { importOpen = false }, modifier = Modifier.testTag("files-import-dismiss")) {
-                        Text("关闭")
+                        Text(str(R.string.files_close))
                     }
                 }
             },
@@ -1308,36 +1376,51 @@ fun FilesScreen(
                     exportFile = null
                 }
             },
-            title = { Text("导出 ${exportFileEntry?.name ?: ""}") },
+            title = { Text(str(R.string.files_export_title, exportFileEntry?.name ?: "")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (!exportBusy && exportResult == null) {
                         Text(
-                            "来源：${exportFileEntry?.relativePath.orEmpty()}${
-                                fileInfo?.let { "（${formatSize(it.sizeBytes)}）" } ?: ""
-                            }",
+                            str(
+                                R.string.files_export_source_line,
+                                exportFileEntry?.relativePath.orEmpty(),
+                                fileInfo?.let { str(R.string.files_export_source_size, formatSize(it.sizeBytes)) }
+                                    ?: "",
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.testTag("files-export-source"),
                         )
-                        Text("目标：", style = MaterialTheme.typography.bodySmall)
+                        Text(str(R.string.files_export_source_label), style = MaterialTheme.typography.bodySmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(
                                 onClick = { exportMode = ExportMode.NEW_DOC },
                                 modifier = Modifier.testTag("files-export-newdoc"),
                             ) {
-                                Text(if (exportMode == ExportMode.NEW_DOC) "● 新建文档" else "新建文档")
+                                Text(
+                                    if (exportMode == ExportMode.NEW_DOC) {
+                                        str(R.string.files_export_newdoc_selected)
+                                    } else {
+                                        str(R.string.files_export_newdoc)
+                                    },
+                                )
                             }
                             TextButton(
                                 onClick = { exportMode = ExportMode.TREE },
                                 modifier = Modifier.testTag("files-export-tree"),
                             ) {
-                                Text(if (exportMode == ExportMode.TREE) "● 已授权 SAF 目录" else "已授权 SAF 目录")
+                                Text(
+                                    if (exportMode == ExportMode.TREE) {
+                                        str(R.string.files_export_tree_selected)
+                                    } else {
+                                        str(R.string.files_export_tree)
+                                    },
+                                )
                             }
                         }
                         when (exportMode) {
                             ExportMode.NEW_DOC -> {
                                 Text(
-                                    "通过系统“创建文档”对话框选择保存位置（文件名与冲突由系统对话框处理）",
+                                    str(R.string.files_export_newdoc_hint),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                             }
@@ -1345,7 +1428,7 @@ fun FilesScreen(
                             ExportMode.TREE -> {
                                 if (exportSources.isEmpty()) {
                                     Text(
-                                        "暂无已授权 SAF 来源（在“SAF 来源”中授权；只读来源不可写，导出会 fail-closed）",
+                                        str(R.string.files_export_sources_empty_hint),
                                         style = MaterialTheme.typography.bodySmall,
                                         modifier = Modifier.testTag("files-export-sources-empty"),
                                     )
@@ -1373,19 +1456,19 @@ fun FilesScreen(
                                             onClick = { exportScopeId = source.scopeId },
                                             modifier = Modifier.testTag("files-export-scope-pick-${source.scopeId}"),
                                         ) {
-                                            Text("选择")
+                                            Text(str(R.string.files_select))
                                         }
                                     }
                                 }
                                 OutlinedTextField(
                                     value = exportParent,
                                     onValueChange = { exportParent = it },
-                                    label = { Text("子目录（相对路径，可为空 = 根目录）") },
+                                    label = { Text(str(R.string.files_export_parent_field)) },
                                     singleLine = true,
                                     modifier = Modifier.testTag("files-export-parent"),
                                 )
                                 Text(
-                                    "冲突策略（默认询问，从不默认覆盖）",
+                                    str(R.string.files_conflict_policy),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1394,7 +1477,7 @@ fun FilesScreen(
                                             onClick = { exportPolicy = p },
                                             modifier = Modifier.testTag("files-export-policy-${p.name}"),
                                         ) {
-                                            Text(policyLabel(p))
+                                            Text(str(policyLabel(p)))
                                         }
                                     }
                                 }
@@ -1403,7 +1486,7 @@ fun FilesScreen(
                     } else if (exportBusy) {
                         LinearProgressIndicator(modifier = Modifier.fillMaxWidth().testTag("files-export-progress"))
                         Text(
-                            exportLabel ?: "导出中…",
+                            exportLabel ?: str(R.string.files_exporting_plain),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.testTag("files-export-label"),
                         )
@@ -1419,7 +1502,7 @@ fun FilesScreen(
                             onClick = { exportCancel.set(true) },
                             modifier = Modifier.testTag("files-export-cancel"),
                         ) {
-                            Text("取消")
+                            Text(str(R.string.common_cancel))
                         }
                     }
 
@@ -1431,7 +1514,7 @@ fun FilesScreen(
                             },
                             modifier = Modifier.testTag("files-export-close"),
                         ) {
-                            Text("关闭")
+                            Text(str(R.string.files_close))
                         }
                     }
 
@@ -1448,7 +1531,7 @@ fun FilesScreen(
                                         val scopeId = exportScopeId
                                         val file = exportFile
                                         if (scopeId == null) {
-                                            status = "请选择一个已授权 SAF 来源"
+                                            status = str(R.string.files_export_scope_required)
                                             return@TextButton
                                         }
                                         if (file == null) {
@@ -1465,7 +1548,7 @@ fun FilesScreen(
                             },
                             modifier = Modifier.testTag("files-export-confirm"),
                         ) {
-                            Text("选择并导出")
+                            Text(str(R.string.files_export_choose_and_export))
                         }
                     }
                 }
@@ -1479,7 +1562,7 @@ fun FilesScreen(
                         },
                         modifier = Modifier.testTag("files-export-dismiss"),
                     ) {
-                        Text("关闭")
+                        Text(str(R.string.files_close))
                     }
                 }
             },
@@ -1493,17 +1576,17 @@ fun FilesScreen(
     if (safPanelOpen) {
         AlertDialog(
             onDismissRequest = { safPanelOpen = false },
-            title = { Text("SAF 来源（只读）") },
+            title = { Text(str(R.string.files_saf_panel_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "撤销或重新授权即时生效；模型与工具只看到 scopeId 与相对路径。",
+                        str(R.string.files_saf_panel_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (safSources.isEmpty()) {
                         Text(
-                            "暂无已授权 SAF 来源。",
+                            str(R.string.files_saf_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.testTag("files-saf-empty"),
                         )
@@ -1529,12 +1612,12 @@ fun FilesScreen(
                                             safTree.revoke(source.scopeId)
                                             sources = fileManager.sources()
                                         }
-                                        status = "已移除 SAF 来源：${source.displayName}"
+                                        status = str(R.string.files_saf_removed, source.displayName)
                                     }
                                 },
                                 modifier = Modifier.testTag("files-saf-remove-${source.scopeId}"),
                             ) {
-                                Text("移除")
+                                Text(str(R.string.files_remove))
                             }
                         }
                     }
@@ -1545,7 +1628,7 @@ fun FilesScreen(
                     onClick = { treePicker.launch(null) },
                     modifier = Modifier.testTag("files-saf-add"),
                 ) {
-                    Text("添加 / 重新授权")
+                    Text(str(R.string.files_add_reauthorize))
                 }
             },
             dismissButton = {
@@ -1553,7 +1636,7 @@ fun FilesScreen(
                     onClick = { safPanelOpen = false },
                     modifier = Modifier.testTag("files-saf-close"),
                 ) {
-                    Text("关闭")
+                    Text(str(R.string.files_close))
                 }
             },
             modifier = Modifier.testTag("files-saf-dialog"),
@@ -1642,7 +1725,12 @@ private fun FileRow(
         Text(if (entry.isDirectory) "📁 " else "📄 ", style = MaterialTheme.typography.bodyLarge)
         Column(modifier = Modifier.weight(1f)) {
             Text(entry.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sizeOrType = if (entry.isDirectory) "文件夹" else formatSize(entry.sizeBytes)
+            val sizeOrType =
+                if (entry.isDirectory) {
+                    stringResource(R.string.files_folder_type)
+                } else {
+                    formatSize(entry.sizeBytes)
+                }
             val metaLabel = "$sizeOrType  ·  ${formatTime(entry.mtimeEpochMillis)}"
             Text(
                 metaLabel,
@@ -1710,13 +1798,13 @@ private fun TrashRow(
                 onClick = { onRestore(entry) },
                 modifier = Modifier.testTag("files-trash-restore-${entry.entryName}"),
             ) {
-                Text("恢复")
+                Text(stringResource(R.string.files_restore))
             }
             TextButton(
                 onClick = { onPurge(entry) },
                 modifier = Modifier.testTag("files-trash-purge-${entry.entryName}"),
             ) {
-                Text("删除")
+                Text(stringResource(R.string.files_purge_button))
             }
         }
     }
@@ -1738,20 +1826,22 @@ private fun formatSize(bytes: Long): String =
         else -> "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
     }
 
-private fun policyLabel(policy: ConflictPolicy): String =
+/** HXA-069: the conflict-policy option label as a STABLE string-resource id (resolved by the UI). */
+private fun policyLabel(policy: ConflictPolicy): Int =
     when (policy) {
-        ConflictPolicy.ASK -> "询问"
-        ConflictPolicy.SKIP -> "跳过"
-        ConflictPolicy.RENAME -> "重命名"
-        ConflictPolicy.OVERWRITE -> "覆盖"
+        ConflictPolicy.ASK -> R.string.files_ask
+        ConflictPolicy.SKIP -> R.string.files_skip
+        ConflictPolicy.RENAME -> R.string.files_rename
+        ConflictPolicy.OVERWRITE -> R.string.files_overwrite
     }
 
-private fun BatchItem.outcomeLabel(): String =
+/** HXA-069: one batched item's outcome as a STABLE string-resource id (resolved by the UI). */
+private fun BatchItem.outcomeLabel(): Int =
     when (outcome) {
-        BatchItem.Outcome.SUCCEEDED -> "成功"
-        BatchItem.Outcome.RENAMED -> "已重命名"
-        BatchItem.Outcome.SKIPPED -> "跳过"
-        BatchItem.Outcome.FAILED -> "失败"
+        BatchItem.Outcome.SUCCEEDED -> R.string.files_batch_succeeded
+        BatchItem.Outcome.RENAMED -> R.string.files_batch_renamed
+        BatchItem.Outcome.SKIPPED -> R.string.files_batch_skipped
+        BatchItem.Outcome.FAILED -> R.string.files_batch_failed
     }
 
 /** HXA-058: the import source shape (the two picker actions). */
@@ -1766,13 +1856,16 @@ private enum class ExportMode {
     TREE,
 }
 
-/** HXA-058: the screen-level transfer status line ("导入/导出完成：…"). */
+/**
+ * HXA-058: the screen-level transfer status line, as a STABLE string-resource id + its positional
+ * args (HXA-069: never locale text outside composables — the UI resolves it via stringResource).
+ */
 private fun transferSummary(
     verb: String,
     result: TransferResult,
-): String =
+): Pair<Int, Array<Any>> =
     if (result.problems.isEmpty()) {
-        "${verb}完成：成功 ${result.completed.size} 项"
+        R.string.files_transfer_complete_all to arrayOf(verb, result.completed.size)
     } else {
-        "${verb}完成：成功 ${result.completed.size}，跳过/冲突/失败 ${result.problems.size}"
+        R.string.files_transfer_complete_partial to arrayOf(verb, result.completed.size, result.problems.size)
     }

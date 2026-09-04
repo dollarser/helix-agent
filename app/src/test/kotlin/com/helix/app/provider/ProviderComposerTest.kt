@@ -105,11 +105,11 @@ class ProviderComposerTest {
         val name =
             ProviderComposer.compose(openai, "  ", "https://api.openai.com/v1", "m", emptyMap())
                 as ComposeOutcome.Rejected
-        assertTrue(name.reason.isNotBlank())
+        assertTrue(name.reasonRes != 0)
         val model =
             ProviderComposer.compose(openai, "x", "https://api.openai.com/v1", "bad\u0000model", emptyMap())
                 as ComposeOutcome.Rejected
-        assertTrue(model.reason.isNotBlank())
+        assertTrue(model.reasonRes != 0)
     }
 
     @Test

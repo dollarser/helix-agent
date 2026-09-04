@@ -18,6 +18,9 @@ enum class ToolSourceKind {
 
     /** Tools exposed by a connected, user-enabled MCP server. */
     MCP,
+
+    /** Remote Skills exposed by a user-enabled A2A Agent Card snapshot. */
+    A2A,
 }
 
 /**
@@ -86,6 +89,7 @@ data class McpToolSpec(
     val requiredCapabilities: Set<Capability>,
     val idempotency: Idempotency = Idempotency.NON_IDEMPOTENT,
     val executionTarget: ExecutionTargetType,
+    val sourceSchemaHash: String,
     val serverProvidedHints: Map<String, Boolean> = emptyMap(),
 )
 
@@ -104,7 +108,7 @@ data class McpToolSpec(
  */
 class McpToolSource(
     private val serverId: String,
-    private val protocolVersion: Int,
+    private val protocolVersion: String,
     private val specs: List<McpToolSpec>,
 ) : ToolSource {
     override val kind: ToolSourceKind = ToolSourceKind.MCP
@@ -144,7 +148,7 @@ class McpToolSource(
             requiredCapabilities = requiredCapabilities,
             idempotency = idempotency,
             executionTarget = executionTarget,
-            origin = ToolOrigin.McpOrigin(serverId, protocolVersion, serverProvidedHints),
+            origin = ToolOrigin.McpOrigin(serverId, protocolVersion, sourceSchemaHash, serverProvidedHints),
         )
     }
 
@@ -165,6 +169,90 @@ class McpToolSource(
 
     private companion object {
         const val MAX_NAME_SEGMENT_LENGTH = 64
+    }
+}
+
+/**
+ * One enabled A2A Skill projected into Helix's fixed task schema. Remote descriptions and
+ * protocol payloads never define the schema or the effect class.
+ */
+@Suppress("LongParameterList")
+data class A2aToolSpec(
+    val skillId: String,
+    val skillSlug: String,
+    val description: String,
+    val cardHash: String,
+    val skillHash: String,
+    val interfaceOrigin: String,
+    val binding: String,
+    val protocolVersion: String,
+    val inputSchema: JsonObject,
+    val outputSchema: JsonObject,
+    val timeout: Duration,
+    val maxOutputBytes: Long,
+)
+
+/**
+ * Source for the enabled Skill snapshot of one A2A Agent. Its namespace and provenance are
+ * deliberately distinct from MCP; an A2A Agent cannot register an `mcp.*` tool or a built-in.
+ */
+class A2aToolSource(
+    private val agentId: String,
+    private val specs: List<A2aToolSpec>,
+) : ToolSource {
+    override val kind: ToolSourceKind = ToolSourceKind.A2A
+
+    private val descriptors = specs.map { it.toDescriptor() }
+
+    init {
+        requireSingleA2aSegment(agentId, "A2A agent id")
+        requireNoDuplicates(descriptors)
+        require(specs.map { it.skillId }.toSet().size == specs.size) { "duplicate A2A Skill id" }
+        require(specs.map { it.skillSlug }.toSet().size == specs.size) { "duplicate A2A Skill slug" }
+    }
+
+    override fun load(): List<ToolDescriptor> = descriptors
+
+    private fun A2aToolSpec.toDescriptor(): ToolDescriptor {
+        require(skillId.isNotBlank() && skillId.length <= 256) { "A2A Skill id is invalid" }
+        requireSingleA2aSegment(skillSlug, "A2A Skill slug")
+        return ToolDescriptor(
+            name = ToolName("${ToolDescriptor.A2A_NAME_PREFIX}$agentId.$skillSlug"),
+            version = ToolVersion(1),
+            description = description,
+            inputSchema = inputSchema,
+            outputSchema = outputSchema,
+            operationClass = ToolOperationClass.NETWORK,
+            baseRisk = RiskLevel.L1,
+            timeout = timeout,
+            maxOutputBytes = maxOutputBytes,
+            requiredCapabilities = emptySet(),
+            idempotency = Idempotency.NON_IDEMPOTENT,
+            executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+            origin =
+                ToolOrigin.A2aOrigin(
+                    agentId = agentId,
+                    skillId = skillId,
+                    interfaceOrigin = interfaceOrigin,
+                    binding = binding,
+                    protocolVersion = protocolVersion,
+                    cardHash = cardHash,
+                    skillHash = skillHash,
+                ),
+        )
+    }
+}
+
+private fun requireSingleA2aSegment(
+    value: String,
+    label: String,
+) {
+    require(value.length in 1..64) { "$label must be 1..64 characters" }
+    require(value.first().let { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }) {
+        "$label must start with an ASCII letter or digit"
+    }
+    require(value.all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '-' }) {
+        "$label contains invalid characters"
     }
 }
 

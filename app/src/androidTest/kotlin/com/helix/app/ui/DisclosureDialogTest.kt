@@ -1,7 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -21,34 +21,47 @@ import org.junit.runner.RunWith
  * on the rendered text and on the [EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2]
  * constant the dialog renders from (a future flip cannot go unnoticed).
  *
+ * HXA-069: the dialog is hosted by [LocalizedComposeActivity] (debug build type only). A
+ * Material3 AlertDialog composes its content in the HOST activity's window — a
+ * `CompositionLocalProvider(LocalContext provides ...)` override does NOT reach that window —
+ * so the fixture gives it an activity that re-applies the pinned zh-CN language in
+ * attachBaseContext. That keeps the assertion on the app's canonical Chinese-first copy
+ * independent of the device locale on EVERY API level (API 33+ would inherit zh-CN from the
+ * system per-app locale the runner pushes, but API 29 has no per-app locale).
+ *
  * Note: the compose v2 API's `onNodeWithText` matches EXACT node text by
  * default; partial assertions pass `substring = true` explicitly.
  */
 @RunWith(AndroidJUnit4::class)
 class DisclosureDialogTest {
+    private val summary =
+        EgressDisclosure.EgressSummary(
+            providerId = "p1",
+            providerName = "示例 Provider",
+            protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+            origin = "https://api.example.com:443",
+            residence = ProviderResidence.PUBLIC_CLOUD,
+            categories =
+                listOf(
+                    EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT,
+                    EgressDisclosure.DataCategory.REGULAR,
+                ),
+            scope = EgressDisclosure.SCOPE_CURRENT_SESSION,
+            contentTruncated = false,
+        )
+
+    // The composable is supplied before the rule launches [LocalizedComposeActivity] (field
+    // initializers run before the rule's apply), so the activity's onCreate composes this dialog.
     @get:Rule
-    val composeRule = createComposeRule()
+    val composeRule =
+        createAndroidComposeRule<LocalizedComposeActivity>().also {
+            LocalizedComposeActivity.content = {
+                DisclosureDialog(summary, onConfirm = {}, onDismiss = {})
+            }
+        }
 
     @Test
     fun dialogShowsSummaryAndNoPermanentAllowInM2() {
-        val summary =
-            EgressDisclosure.EgressSummary(
-                providerId = "p1",
-                providerName = "示例 Provider",
-                protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                origin = "https://api.example.com:443",
-                residence = ProviderResidence.PUBLIC_CLOUD,
-                categories =
-                    listOf(
-                        EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT,
-                        EgressDisclosure.DataCategory.REGULAR,
-                    ),
-                scope = EgressDisclosure.SCOPE_CURRENT_SESSION,
-                contentTruncated = false,
-            )
-        composeRule.setContent {
-            DisclosureDialog(summary, onConfirm = {}, onDismiss = {})
-        }
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("egress-disclosure-dialog").assertIsDisplayed()

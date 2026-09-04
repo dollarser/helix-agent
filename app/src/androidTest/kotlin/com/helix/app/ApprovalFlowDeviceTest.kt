@@ -137,6 +137,13 @@ class ApprovalFlowDeviceTest {
         while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
             Thread.sleep(50)
         }
+        // A failed assertion after the developer-only switch must not leak ADVANCED into
+        // the next test instance and change its policy path.
+        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE &&
+            container.profileStore.profile != SafetyProfile.STANDARD
+        ) {
+            container.profileStore.switchTo(SafetyProfile.STANDARD)
+        }
     }
 
     /** The approval ids still pending (AWAITING_APPROVAL calls) on this class's seeded session. */
@@ -250,20 +257,19 @@ class ApprovalFlowDeviceTest {
     }
 
     /**
-     * The LIVE timeline row for [toolCallId], bounded-polling because `refreshScreen` runs
-     * on the chat service's work scope and the first refresh can lag a moment under
-     * full-suite load (the card attach itself is synchronous on the dispatch thread, but
-     * the screen STATE read here observes the refreshed copy).
+     * The LIVE approval-card row for [toolCallId]. A durable call row can become visible
+     * before the broker attaches its card, so wait for both facts instead of returning the
+     * first matching timeline row and racing the card publication under full-suite load.
      */
     private fun awaitTimelineRow(toolCallId: String): ToolTimelineRow {
         val deadline = System.currentTimeMillis() + 15_000
         while (System.currentTimeMillis() < deadline) {
             container.chatService.screen.value.toolTimeline
-                .firstOrNull { it.callId == toolCallId }
+                .firstOrNull { it.callId == toolCallId && it.card != null }
                 ?.let { return it }
             Thread.sleep(50)
         }
-        error("no timeline row for $toolCallId")
+        error("no live approval-card row for $toolCallId")
     }
 
     @Test

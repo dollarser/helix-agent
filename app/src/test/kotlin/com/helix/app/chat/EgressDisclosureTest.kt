@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.R
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import org.junit.Assert.assertEquals
@@ -26,7 +27,7 @@ class EgressDisclosureTest {
     @Test
     fun fileTextContentRequiresPerSendConfirmationWithFullSummary() {
         val decision =
-            EgressDisclosure.decide(listOf(fileText("note.txt", 12L, "纯文本")), "看看这个文件", target)
+            EgressDisclosure.decide(listOf(fileText("note.txt", 12L, R.string.kind_txt)), "看看这个文件", target)
                 as EgressDisclosure.Decision.Confirm
         val summary = decision.summary
         assertEquals(listOf(EgressDisclosure.DataCategory.HIGH_SENSITIVE_FILE_TEXT), summary.categories)
@@ -35,7 +36,10 @@ class EgressDisclosureTest {
         assertEquals(ProviderResidence.PUBLIC_CLOUD, summary.residence)
         assertEquals(EgressDisclosure.SCOPE_CURRENT_SESSION, summary.scope)
         // ADR-0014 §5: the disclosure shows the file's 名称/类型/大小.
-        assertEquals(listOf(EgressDisclosure.EgressAttachment("note.txt", 12L, SHA, "纯文本")), summary.attachments)
+        assertEquals(
+            listOf(EgressDisclosure.EgressAttachment("note.txt", 12L, SHA, R.string.kind_txt)),
+            summary.attachments,
+        )
     }
 
     @Test
@@ -44,16 +48,16 @@ class EgressDisclosureTest {
             EgressDisclosure.decide(
                 listOf(
                     EgressDisclosure.OutgoingContent.UserText,
-                    fileText("a.txt", 10L, "纯文本"),
-                    fileText("b.md", 2205L, "Markdown"),
+                    fileText("a.txt", 10L, R.string.kind_txt),
+                    fileText("b.md", 2205L, R.string.kind_markdown),
                 ),
                 "看看",
                 target,
             ) as EgressDisclosure.Decision.Confirm
         assertEquals(
             listOf(
-                EgressDisclosure.EgressAttachment("a.txt", 10L, SHA, "纯文本"),
-                EgressDisclosure.EgressAttachment("b.md", 2205L, SHA, "Markdown"),
+                EgressDisclosure.EgressAttachment("a.txt", 10L, SHA, R.string.kind_txt),
+                EgressDisclosure.EgressAttachment("b.md", 2205L, SHA, R.string.kind_markdown),
             ),
             decision.summary.attachments,
         )
@@ -98,7 +102,8 @@ class EgressDisclosureTest {
                     "photo.jpg",
                     123_456L,
                     SHA,
-                    "图片 · image/jpeg · 1024x768（归一化）",
+                    R.string.kind_image,
+                    listOf("image/jpeg", "1024x768"),
                 ),
             ),
             decision.summary.attachments,
@@ -111,7 +116,7 @@ class EgressDisclosureTest {
             EgressDisclosure.decide(
                 listOf(
                     image("a.jpg", 10L),
-                    fileText("b.md", 22L, "Markdown"),
+                    fileText("b.md", 22L, R.string.kind_markdown),
                 ),
                 "",
                 target,
@@ -131,8 +136,8 @@ class EgressDisclosureTest {
     private fun fileText(
         label: String,
         sizeBytes: Long,
-        kindLabel: String,
-    ) = EgressDisclosure.OutgoingContent.FileText(label, sizeBytes, SHA, kindLabel)
+        kindRes: Int,
+    ) = EgressDisclosure.OutgoingContent.FileText(label, sizeBytes, SHA, kindRes)
 
     private fun image(
         label: String,
@@ -145,7 +150,7 @@ class EgressDisclosureTest {
             EgressDisclosure.categoriesFor(
                 listOf(
                     EgressDisclosure.OutgoingContent.UserText,
-                    fileText("a", 1L, "纯文本"),
+                    fileText("a", 1L, R.string.kind_txt),
                 ),
             )
         assertEquals(

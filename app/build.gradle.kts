@@ -13,7 +13,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
     }
 
     flavorDimensions += "distribution"
@@ -56,6 +56,15 @@ android {
     packaging {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
     }
+
+    bundle {
+        // HXA-069: in-app language switching (AppLanguageStore) ships all locales in the base APK;
+        // disable the per-locale bundle split or a runtime locale change would need the Play App
+        // Language library to download the locale (lint: AppBundleLocaleChanges).
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 dependencies {
@@ -65,6 +74,16 @@ dependencies {
     // HXA-015: the recovery coordinator pairs core:agent decisions with storage writes.
     implementation(project(":core:storage"))
     implementation(project(":feature:files"))
+    // HXA-060: the minimal hardened WebView browser (tabs / URL policy / downloads UI).
+    implementation(project(":feature:browser"))
+    // HXA-062: the browser.* tool descriptors / executors live in :tools:browser; :app calls
+    // BrowserTools.registerAll directly (same direct-dep pattern as :tools:files). A distinct
+    // :tools:browser group (root build.gradle.kts) keeps it from colliding with :feature:browser.
+    implementation(project(":tools:browser"))
+    // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
+    // Their Context-backed port impl (AndroidSystemBridgeImpl) lives in this same module, so the
+    // app registers them against an instance built from the application Context.
+    implementation(project(":tools:android"))
     // HXA-036: the chat flow routes model-requested tool calls through the framework
     // dispatcher (validate→capability→policy→approval→execute→verify→audit) with the
     // storage-backed approval broker and audit sink; the approval card + audit page are
@@ -74,6 +93,15 @@ dependencies {
     // production tool table; their store lives in core:workspace (atomic publish + quota).
     implementation(project(":tools:files"))
     implementation(project(":core:workspace"))
+    // HXA-071: client-only MCP configuration/handshake and the storage bridge. SDK/Ktor
+    // types remain behind :extensions:mcp's Helix-owned facade.
+    implementation(project(":extensions:mcp"))
+    // HXA-078: client-only A2A configuration and Agent Card discovery/snapshot. The transport
+    // remains behind :extensions:a2a's Helix-owned facade; dynamic tools arrive in HXA-079.
+    implementation(project(":extensions:a2a"))
+    // HXA-074..076: Agent Skills validation, immutable imports/snapshots, built-in catalog,
+    // and the skills.* tools. Skill instructions never bypass the normal tool pipeline.
+    implementation(project(":extensions:skills"))
     // HXA-053: the isolated QuickJS backend (the non-exported one-shot Service + the
     // main-process JsExecutionClient, ADR-0015) hosts the `code.javascript.run` tool. Shared
     // (implementation) so BOTH consumer and developer register it: ADR-0013 Standard is the
@@ -108,6 +136,9 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    // HXA-069: in-app language switching (AppLanguageStore) drives the API 33+ system "App
+    // languages" two-way sync through the framework android.app.LocaleManager service, so it
+    // needs no extra dependency (a plain ComponentActivity is enough — no appcompat required).
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.navigation.compose)
     implementation(libs.work.runtime.ktx)

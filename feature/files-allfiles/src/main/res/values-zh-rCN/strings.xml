@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="allfiles_root_download">下载</string>
+    <string name="allfiles_root_documents">文档</string>
+    <string name="allfiles_root_pictures">图片</string>
+    <string name="allfiles_root_music">音乐</string>
+    <string name="allfiles_root_movies">视频</string>
+    <string name="allfiles_root_podcasts">播客</string>
+    <string name="allfiles_root_dcim">相机</string>
+</resources>

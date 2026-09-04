@@ -1,5 +1,6 @@
 package com.helix.app.files
 
+import com.helix.app.R
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
@@ -40,7 +41,7 @@ import java.security.MessageDigest
  * a workspace region (`input/`/`work/`/`output/`), so the store's region-gated mutations refuse
  * them (see [moveOrCopy]); browse / sort / preview / share all work.
  */
-@Suppress("TooManyFunctions") // one cohesive facade over the single store: browse/sort/preview/mutate/trash/batch
+@Suppress("TooManyFunctions", "LargeClass") // one cohesive store facade: splitting moves size, not coupling
 class FileManagerService(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
@@ -52,7 +53,18 @@ class FileManagerService(
     // manager's 导入/导出 entries). Null only in tests that do not exercise transfers; a transfer
     // call with a null access fails closed.
     private val transfers: SafImportExportAccess? = null,
+    // HXA-069: localizes the STABLE string-resource ids this facade emits (user-visible
+    // status/detail texts) to the CURRENT locale at emit time; the production site passes the
+    // app Context's getString. The JVM default (no Context in unit tests) resolves the id itself,
+    // keeping the pure-JVM seam testable without an Android runtime.
+    private val strings: (Int, Array<out Any>) -> String = { id, _ -> id.toString() },
 ) {
+    /** Localizes a stable string-resource id (+ positional args) to the current locale (HXA-069). */
+    private fun loc(
+        id: Int,
+        vararg args: Any,
+    ): String = strings(id, args)
+
     /** True when [scopeId] names a SAF tree scope (`saf-<12hex>`; the only model-safe form, doc 10). */
     private fun isSaf(scopeId: String): Boolean = scopeId.startsWith(SafGrantStore.SCOPE_ID_PREFIX)
 
@@ -77,7 +89,7 @@ class FileManagerService(
     // binding, no grant persistence on import). A null [transfers] access fails closed.
 
     private val transferOps: FileManagerTransfers? =
-        transfers?.let { FileManagerTransfers(store, workspaceScopeId, saf, it) }
+        transfers?.let { FileManagerTransfers(store, workspaceScopeId, saf, it, strings) }
 
     /**
      * Imports ONE picked SAF document (the `ACTION_OPEN_DOCUMENT` result) into the workspace
@@ -96,7 +108,14 @@ class FileManagerService(
     ): TransferResult =
         transferOps?.importSingleDocument(sourceUri, policy, cancel, onProgress)
             ?: TransferResult(
-                listOf(TransferItem("SAF 文档", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                listOf(
+                    TransferItem(
+                        loc(R.string.files_source_saf_document),
+                        "Workspace input/",
+                        TransferItemStatus.FAILED,
+                        loc(R.string.files_transfer_not_wired),
+                    ),
+                ),
                 0,
             )
 
@@ -117,7 +136,14 @@ class FileManagerService(
     ): TransferResult =
         transferOps?.importTree(treeUri, policy, cancel, onFileProgress)
             ?: TransferResult(
-                listOf(TransferItem("SAF 文件夹", "Workspace input/", TransferItemStatus.FAILED, "导入/导出未接线")),
+                listOf(
+                    TransferItem(
+                        loc(R.string.files_source_saf_folder),
+                        "Workspace input/",
+                        TransferItemStatus.FAILED,
+                        loc(R.string.files_transfer_not_wired),
+                    ),
+                ),
                 0,
             )
 
@@ -140,7 +166,14 @@ class FileManagerService(
     ): TransferResult =
         transferOps?.exportDocument(sourceRelativePath, target, policy, cancel, onProgress)
             ?: TransferResult(
-                listOf(TransferItem(sourceRelativePath, "SAF 目标", TransferItemStatus.FAILED, "导入/导出未接线")),
+                listOf(
+                    TransferItem(
+                        sourceRelativePath,
+                        loc(R.string.files_source_saf_target),
+                        TransferItemStatus.FAILED,
+                        loc(R.string.files_transfer_not_wired),
+                    ),
+                ),
                 0,
             )
     // --- Sources (来源标识) ---
@@ -527,13 +560,13 @@ class FileManagerService(
         // UI hides these actions for SAF sources; this guard is defense-in-depth so a direct call
         // on a SAF scope fails closed rather than touching an external document (fail closed, never
         // a false success).
-        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
+        if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val src = FileScopePath(scopeId, srcRel)
         val dst = FileScopePath(scopeId, dstRel)
         return try {
             val region =
-                requireNotNull(WorkspaceLayout.regionOf(dstRel)) { "目标必须位于用户区域（input/work/output）内" }
-            require(WorkspaceLayout.isRegion(region)) { "目标必须位于用户区域（input/work/output）内" }
+                requireNotNull(WorkspaceLayout.regionOf(dstRel)) { loc(R.string.files_error_region_required) }
+            require(WorkspaceLayout.isRegion(region)) { loc(R.string.files_error_region_required) }
             val out =
                 if (move) {
                     store.moveFile(
@@ -549,11 +582,11 @@ class FileManagerService(
         } catch (e: FileAlreadyExistsException) {
             FileOpResult.Conflict
         } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound("源文件不存在")
+            FileOpResult.NotFound(loc(R.string.files_error_source_missing))
         } catch (e: IllegalArgumentException) {
-            FileOpResult.Error(e.message ?: "无效的操作")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_invalid_operation))
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: "操作失败")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_operation_failed))
         }
     }
 
@@ -564,7 +597,7 @@ class FileManagerService(
         parentRel: String,
         name: String,
     ): FileOpResult {
-        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
+        if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val rel = joinPath(parentRel, name)
         val region = WorkspaceLayout.regionOf(rel)
         return try {
@@ -573,7 +606,7 @@ class FileManagerService(
         } catch (e: FileAlreadyExistsException) {
             FileOpResult.Conflict
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: "创建目录失败")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_mkdir_failed))
         }
     }
 
@@ -606,15 +639,15 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
     ): FileOpResult {
-        if (isSaf(scopeId)) return FileOpResult.Error("SAF 来源为只读")
+        if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val fsp = FileScopePath(scopeId, relativePath)
         return try {
             store.moveToTrash(fsp)
             FileOpResult.Ok(relativePath, overwritten = false)
         } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound("文件不存在")
+            FileOpResult.NotFound(loc(R.string.files_error_file_missing))
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: "删除到回收站失败")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_trash_failed))
         }
     }
 
@@ -659,9 +692,9 @@ class FileManagerService(
         } catch (e: FileAlreadyExistsException) {
             FileOpResult.Conflict
         } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound("回收站条目不存在")
+            FileOpResult.NotFound(loc(R.string.files_error_trash_entry_missing))
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: "恢复失败")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_restore_failed))
         }
     }
 
@@ -676,9 +709,9 @@ class FileManagerService(
             val out = store.purgeTrashEntry(ref)
             FileOpResult.Ok(out.purgedRelativePath, overwritten = false)
         } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound("回收站条目不存在")
+            FileOpResult.NotFound(loc(R.string.files_error_trash_entry_missing))
         } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: "永久删除失败")
+            FileOpResult.Error(e.message ?: loc(R.string.files_error_purge_failed))
         }
     }
 
@@ -718,7 +751,7 @@ class FileManagerService(
             sources.mapIndexed { index, srcRel ->
                 val item =
                     if (shouldCancel()) {
-                        BatchItem(srcRel, BatchItem.Outcome.SKIPPED, "已取消")
+                        BatchItem(srcRel, BatchItem.Outcome.SKIPPED, loc(R.string.files_detail_cancelled))
                     } else {
                         processBatchItem(scopeId, srcRel, destinationDir, policy, move)
                     }
@@ -804,7 +837,7 @@ class FileManagerService(
                 BatchItem(
                     srcRel,
                     if (conflictIsSkipped) BatchItem.Outcome.SKIPPED else BatchItem.Outcome.FAILED,
-                    "目标已存在",
+                    loc(R.string.files_error_destination_exists),
                 )
             }
 
@@ -836,7 +869,7 @@ class FileManagerService(
             relativePaths.mapIndexed { index, rel ->
                 val item =
                     if (shouldCancel()) {
-                        BatchItem(rel, BatchItem.Outcome.SKIPPED, "已取消")
+                        BatchItem(rel, BatchItem.Outcome.SKIPPED, loc(R.string.files_detail_cancelled))
                     } else {
                         mapItem(rel, trash(scopeId, rel))
                     }

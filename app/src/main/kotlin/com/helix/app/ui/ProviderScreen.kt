@@ -29,9 +29,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
 import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ConnectionTestStatus
@@ -78,17 +80,17 @@ fun ProviderManager(providerService: ProviderService) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Provider 配置", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.provider_screen_title), style = MaterialTheme.typography.titleMedium)
             OutlinedButton(
                 onClick = { templatePickerOpen = true },
                 modifier = Modifier.testTag("provider-add"),
             ) {
-                Text("添加 Provider")
+                Text(stringResource(R.string.provider_add))
             }
         }
         if (rows.isEmpty()) {
             Text(
-                "尚无 Provider。从模板添加一个，并通过连接测试后才能用于会话。",
+                stringResource(R.string.provider_empty),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -218,7 +220,7 @@ fun ProviderManager(providerService: ProviderService) {
                             form =
                                 when (result) {
                                     SaveResult.Saved -> null
-                                    is SaveResult.Rejected -> target.copy(error = result.reason)
+                                    is SaveResult.Rejected -> target.copy(error = result)
                                 }
                         }
                     } finally {
@@ -237,7 +239,7 @@ private data class ProviderForm(
     val fields: FormFields,
     val hasStoredKey: Boolean,
     val cleartextConfirmed: Boolean,
-    val error: String?,
+    val error: SaveResult.Rejected?,
 ) {
     data class FormFields(
         val name: String,
@@ -249,12 +251,17 @@ private data class ProviderForm(
     )
 }
 
-/** The outcome of a save attempt; [SaveResult.Rejected.reason] is user-visible Chinese. */
+/**
+ * The outcome of a save attempt. [SaveResult.Rejected] carries a STABLE string-resource id +
+ * args, never locale text (HXA-069: the non-composable save path holds no Context — the dialog
+ * resolves the id via `stringResource`).
+ */
 private sealed interface SaveResult {
     data object Saved : SaveResult
 
     data class Rejected(
-        val reason: String,
+        val res: Int,
+        val args: List<String> = emptyList(),
     ) : SaveResult
 }
 
@@ -266,7 +273,7 @@ private fun TemplatePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("选择 Provider 模板") },
+        title = { Text(stringResource(R.string.provider_template_picker_title)) },
         text = {
             Column(
                 modifier =
@@ -286,9 +293,14 @@ private fun TemplatePickerDialog(
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(template.displayName, style = MaterialTheme.typography.bodyLarge)
+                            val credentialNote =
+                                if (template.credentialRequired) {
+                                    stringResource(R.string.provider_template_requires_key)
+                                } else {
+                                    stringResource(R.string.provider_template_key_optional)
+                                }
                             Text(
-                                "${UiLabels.protocolLabel(template.protocol)} · " +
-                                    (if (template.credentialRequired) "需要 API Key" else "Key 可选"),
+                                "${UiLabels.protocolLabel(template.protocol)} · $credentialNote",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -299,7 +311,7 @@ private fun TemplatePickerDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         },
         modifier = Modifier.testTag("provider-template-picker"),
     )
@@ -330,13 +342,19 @@ private fun ProviderFormDialog(
         !saving && form.error == null && (cleartext == null || form.cleartextConfirmed) && keyOk
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (form.providerId == null) "添加 Provider" else "编辑 Provider") },
+        title = {
+            Text(
+                stringResource(
+                    if (form.providerId == null) R.string.provider_add else R.string.provider_edit,
+                ),
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (form.providerId == null) {
                     form.template.notes.forEach { note ->
                         Text(
-                            "模板说明：$note",
+                            stringResource(R.string.provider_template_note, note),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -345,21 +363,21 @@ private fun ProviderFormDialog(
                 OutlinedTextField(
                     value = form.fields.name,
                     onValueChange = { onField(form.copy(fields = form.fields.copy(name = it))) },
-                    label = { Text("名称") },
+                    label = { Text(stringResource(R.string.provider_form_name)) },
                     singleLine = true,
                     modifier = Modifier.testTag("provider-form-name"),
                 )
                 OutlinedTextField(
                     value = form.fields.endpoint,
                     onValueChange = { onField(form.copy(fields = form.fields.copy(endpoint = it))) },
-                    label = { Text("Endpoint（http/https 根地址）") },
+                    label = { Text(stringResource(R.string.provider_form_endpoint_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("provider-form-endpoint"),
                 )
                 OutlinedTextField(
                     value = form.fields.model,
                     onValueChange = { onField(form.copy(fields = form.fields.copy(model = it))) },
-                    label = { Text("模型 ID") },
+                    label = { Text(stringResource(R.string.provider_form_model_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("provider-form-model"),
                 )
@@ -368,7 +386,7 @@ private fun ProviderFormDialog(
                     onValueChange = {
                         onField(form.copy(fields = form.fields.copy(headerName = it)))
                     },
-                    label = { Text("自定义 header 名称（可选）") },
+                    label = { Text(stringResource(R.string.provider_form_header_name_label)) },
                     singleLine = true,
                 )
                 OutlinedTextField(
@@ -376,7 +394,7 @@ private fun ProviderFormDialog(
                     onValueChange = {
                         onField(form.copy(fields = form.fields.copy(headerValue = it)))
                     },
-                    label = { Text("自定义 header 值（可选）") },
+                    label = { Text(stringResource(R.string.provider_form_header_value_label)) },
                     singleLine = true,
                 )
                 if (form.template.credentialRequired) {
@@ -386,7 +404,13 @@ private fun ProviderFormDialog(
                             onField(form.copy(fields = form.fields.copy(apiKey = it)))
                         },
                         label = {
-                            Text(if (form.hasStoredKey) "API Key（留空保持现有）" else "API Key")
+                            Text(
+                                if (form.hasStoredKey) {
+                                    stringResource(R.string.provider_form_api_key_keep)
+                                } else {
+                                    "API Key"
+                                },
+                            )
                         },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -395,7 +419,11 @@ private fun ProviderFormDialog(
                 }
                 if (cleartext != null) {
                     Text(
-                        "明文 HTTP：请求将不加密发往 ${cleartext.host}:${cleartext.port}",
+                        stringResource(
+                            R.string.provider_cleartext_warning,
+                            cleartext.host,
+                            cleartext.port,
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -406,14 +434,14 @@ private fun ProviderFormDialog(
                             modifier = Modifier.testTag("provider-cleartext-confirm"),
                         )
                         Text(
-                            "我已了解该 host:port 的明文传输风险并确认授权",
+                            stringResource(R.string.provider_cleartext_confirm),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
                 }
                 form.error?.let { error ->
                     Text(
-                        error,
+                        localizedString(error.res, error.args),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -426,7 +454,11 @@ private fun ProviderFormDialog(
                 enabled = saveEnabled,
                 modifier = Modifier.testTag("provider-form-save"),
             ) {
-                Text(if (saving) "保存中…" else "保存")
+                Text(
+                    stringResource(
+                        if (saving) R.string.provider_save_saving else R.string.provider_save,
+                    ),
+                )
             }
         },
         dismissButton = {
@@ -434,7 +466,7 @@ private fun ProviderFormDialog(
                 onClick = onDismiss,
                 modifier = Modifier.testTag("provider-form-cancel"),
             ) {
-                Text("取消")
+                Text(stringResource(R.string.common_cancel))
             }
         },
         modifier = Modifier.testTag("provider-form-dialog"),
@@ -473,15 +505,21 @@ private fun ProviderRow(
             StatusChip(row.status)
         }
         Text(
-            "${UiLabels.displayOrigin(row.origin)} · ${UiLabels.residenceLabel(row.residence)}",
+            "${UiLabels.displayOrigin(row.origin)} · ${stringResource(UiLabels.residenceLabelRes(row.residence))}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
             buildString {
-                append("模型：${row.model} · ${UiLabels.protocolLabel(row.protocol)}")
-                if (row.hasKey) append(" · 已配置 Key")
-                if (row.isCleartext) append(" · 明文 HTTP")
+                append(
+                    stringResource(
+                        R.string.provider_row_model,
+                        row.model,
+                        UiLabels.protocolLabel(row.protocol),
+                    ),
+                )
+                if (row.hasKey) append(stringResource(R.string.provider_row_has_key))
+                if (row.isCleartext) append(stringResource(R.string.provider_row_cleartext))
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -502,7 +540,7 @@ private fun ProviderRow(
             val models = row.backendModels
             if (models.isNullOrEmpty()) {
                 Text(
-                    "后端未提供模型列表，请手动输入",
+                    stringResource(R.string.provider_models_unsupported_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("provider-models-unsupported"),
@@ -520,23 +558,35 @@ private fun ProviderRow(
                 enabled = !testing,
                 modifier = Modifier.testTag("provider-test"),
             ) {
-                Text(if (testing) "测试中…" else "连接测试")
+                Text(
+                    stringResource(
+                        if (testing) R.string.provider_testing else R.string.provider_connection_test,
+                    ),
+                )
             }
             TextButton(onClick = { onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
-                Text("编辑")
+                Text(stringResource(R.string.provider_edit_button))
             }
             TextButton(
                 onClick = { onDeclareVision(!visionEnabled) },
                 modifier = Modifier.testTag("provider-vision-declare"),
             ) {
-                Text(if (visionEnabled) "取消视觉声明" else "声明视觉能力")
+                Text(
+                    stringResource(
+                        if (visionEnabled) {
+                            R.string.provider_vision_declare_off
+                        } else {
+                            R.string.provider_vision_declare_on
+                        },
+                    ),
+                )
             }
             TextButton(
                 onClick = onDelete,
                 modifier = Modifier.testTag("provider-delete"),
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) {
-                Text("删除")
+                Text(stringResource(R.string.provider_delete))
             }
         }
     }
@@ -559,37 +609,72 @@ private fun StatusChip(status: ConnectionTestStatus) {
                 MaterialTheme.colorScheme.errorContainer to "provider-status-failed"
             }
         }
+    val label =
+        when (status) {
+            ConnectionTestStatus.Untested -> {
+                stringResource(R.string.conn_untested)
+            }
+
+            is ConnectionTestStatus.Passed -> {
+                stringResource(R.string.conn_passed)
+            }
+
+            is ConnectionTestStatus.Failed -> {
+                stringResource(
+                    R.string.conn_failed_phase,
+                    stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
+                )
+            }
+        }
     Surface(
         shape = MaterialTheme.shapes.small,
         color = color,
         modifier = Modifier.testTag(tag),
     ) {
         Text(
-            status.chipText(),
+            label,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
     }
 }
 
-/** The status detail line under a provider row (safe labels only). */
+/**
+ * The status detail line under a provider row (safe labels only). Composable because it resolves
+ * the stable resource ids to the current locale (HXA-069); the phase/code labels are SAFE mapper
+ * output, never raw exception text (doc 02 section 13).
+ */
+@Composable
 private fun statusDetail(row: ProviderRowUi): String? =
     when (val status = row.status) {
         ConnectionTestStatus.Untested -> {
-            "尚未通过连接测试，暂不能用于会话"
+            stringResource(R.string.provider_untested_detail)
         }
 
         is ConnectionTestStatus.Passed -> {
             if (row.capabilityChips.isEmpty()) {
                 null
             } else {
-                "能力：${row.capabilityChips.joinToString("  ")}"
+                // Compose: resolve each capability chip in a `for` loop (composable scope); a
+                // `joinToString` transform lambda is not composable and would not compile.
+                val chips = mutableListOf<String>()
+                for (chip in row.capabilityChips) {
+                    chips.add(localizedString(chip.res, chip.args))
+                }
+                stringResource(
+                    R.string.provider_capability_detail,
+                    chips.joinToString("  "),
+                )
             }
         }
 
         is ConnectionTestStatus.Failed -> {
-            "失败阶段：${ConnectionTestMapping.phaseLabel(status.phase)} — ${status.codeLabel}" +
-                (if (status.retryable) "（可重试）" else "")
+            stringResource(
+                R.string.provider_failed_detail,
+                stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
+                stringResource(ConnectionTestMapping.codeLabel(status.code)),
+                if (status.retryable) stringResource(R.string.provider_retryable) else "",
+            )
         }
     }
 
@@ -649,7 +734,7 @@ private suspend fun attemptSave(
     try {
         applySave(form, providerService)
     } catch (e: IllegalArgumentException) {
-        SaveResult.Rejected("保存失败：请检查输入后重试")
+        SaveResult.Rejected(R.string.provider_save_failed)
     }
 
 /**
@@ -676,39 +761,37 @@ private suspend fun applySave(
             form.fields.model.trim(),
             headers,
         )
-    val failure =
-        when (outcome) {
-            is ComposeOutcome.Rejected -> {
-                outcome.reason
-            }
+    return when (outcome) {
+        is ComposeOutcome.Rejected -> {
+            SaveResult.Rejected(outcome.reasonRes, outcome.reasonArgs)
+        }
 
-            is ComposeOutcome.Ok -> {
-                val draft = outcome.draft
-                val key =
-                    form.fields.apiKey
-                        .trim()
-                        .takeIf { it.isNotEmpty() }
-                when {
-                    draft.credentialRequired && key == null && !form.hasStoredKey -> {
-                        "该 Provider 需要 API Key"
-                    }
+        is ComposeOutcome.Ok -> {
+            val draft = outcome.draft
+            val key =
+                form.fields.apiKey
+                    .trim()
+                    .takeIf { it.isNotEmpty() }
+            when {
+                draft.credentialRequired && key == null && !form.hasStoredKey -> {
+                    SaveResult.Rejected(R.string.provider_requires_api_key)
+                }
 
-                    draft.isCleartext && !form.cleartextConfirmed -> {
-                        "请先确认该 host:port 的明文传输风险"
-                    }
+                draft.isCleartext && !form.cleartextConfirmed -> {
+                    SaveResult.Rejected(R.string.provider_cleartext_confirm_required)
+                }
 
-                    else -> {
-                        if (form.providerId == null) {
-                            providerService.create(draft, key, form.cleartextConfirmed)
-                        } else {
-                            providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
-                        }
-                        null
+                else -> {
+                    if (form.providerId == null) {
+                        providerService.create(draft, key, form.cleartextConfirmed)
+                    } else {
+                        providerService.update(form.providerId, draft, key, form.cleartextConfirmed)
                     }
+                    SaveResult.Saved
                 }
             }
         }
-    return if (failure == null) SaveResult.Saved else SaveResult.Rejected(failure)
+    }
 }
 
 private const val TAG = "HelixProviderUi"

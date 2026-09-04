@@ -8,6 +8,11 @@
          HXA-027 needs it for the developer instrumented smoke; HXA-028 wires the same
          permission into the production provider UI for both variants. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- HXA-066 dataSync foreground service: FOREGROUND_SERVICE gates startForeground on
+         API 29-33; FOREGROUND_SERVICE_DATA_SYNC is the type-specific grant required on API 34+.
+         Declaring both keeps the service launchable across the whole minSdk..targetSdk range. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".HelixApplication"
@@ -64,5 +69,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <!-- HXA-066: user-initiated Provider/MCP transport + local file processing run as a
+             stoppable dataSync foreground service; it stops the moment a turn waits for the user
+             and Android 15's onTimeout bounds it to 6 h. -->
+        <service
+            android:name=".foreground.DataSyncForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

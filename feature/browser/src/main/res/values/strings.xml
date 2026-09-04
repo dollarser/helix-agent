@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_open_new_tab">打开一个新标签页</string>
+    <string name="browser_enter_address">输入地址开始浏览</string>
+    <string name="browser_url_placeholder">输入网址</string>
+    <string name="browser_stop">停止</string>
+    <string name="browser_go">前往</string>
+    <string name="browser_retry">重试</string>
+    <string name="browser_new_tab">新标签页</string>
+    <string name="browser_downloads_title">下载</string>
+    <string name="browser_choose_location">选择位置</string>
+    <string name="browser_dismiss">关闭</string>
+    <string name="browser_clear_cookies">清除Cookie</string>
+    <string name="browser_clear_cache">清除缓存</string>
+    <string name="browser_clear_history">清除历史</string>
+    <string name="browser_download_pending">待选择保存位置</string>
+    <string name="browser_download_saving">保存中…</string>
+    <string name="browser_download_saved">已保存</string>
+    <string name="browser_download_failed">失败：%1$s</string>
+    <string name="browser_download_denied">已拒绝：%1$s</string>
+    <string name="browser_unknown_reason">未知原因</string>
+    <string name="browser_download_cannot_open">无法打开所选位置</string>
+    <string name="browser_download_failed_generic">下载失败</string>
+    <string name="browser_download_over_cap">超出 100 MiB 上限</string>
+    <string name="browser_denial_url">该 URL 不可下载</string>
+    <string name="browser_denial_type">禁止的文件类型</string>
+    <string name="browser_denial_size">超过 100 MiB 上限</string>
+    <string name="browser_denial_name">文件名无效</string>
+    <string name="browser_error_policy_blocked">该地址不被 Helix 浏览器支持（%1$s）</string>
+    <string name="browser_error_host_lookup">找不到该服务器</string>
+    <string name="browser_error_connection">无法连接到服务器</string>
+    <string name="browser_error_timeout">连接超时</string>
+    <string name="browser_error_ssl">安全连接（TLS/证书）校验失败，已阻止加载</string>
+    <string name="browser_error_unknown">页面加载失败</string>
+    <string name="browser_error_host_suffix">（%1$s）</string>
+    <string name="browser_denial_reason_empty">地址为空</string>
+    <string name="browser_denial_reason_invalid">地址无法解析</string>
+    <string name="browser_denial_reason_scheme">不支持的地址协议</string>
+    <string name="browser_denial_reason_host">地址缺少主机名</string>
+</resources>

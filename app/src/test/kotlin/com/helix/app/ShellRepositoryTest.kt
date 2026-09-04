@@ -18,8 +18,8 @@ class ShellRepositoryTest {
                 .size,
         )
         assertEquals(
-            listOf("会话", "文件", "浏览器", "扩展", "权限", "设置", "审计"),
-            repository.destinations.map(ShellDestination::title),
+            listOf("sessions", "files", "browser", "extensions", "permissions", "settings", "audit"),
+            repository.destinations.map(ShellDestination::route),
         )
     }
 

@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v4ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v6ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -101,8 +101,35 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v4ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v4-export.db", 4)
+    fun v5ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v5 missing from assets: ${versions?.toList()}",
+            versions?.contains("5.json") == true,
+        )
+    }
+
+    @Test
+    fun v6ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v6 missing from assets: ${versions?.toList()}",
+            versions?.contains("6.json") == true,
+        )
+    }
+
+    @Test
+    fun v7ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v7 missing from assets: ${versions?.toList()}",
+            versions?.contains("7.json") == true,
+        )
+    }
+
+    @Test
+    fun v7ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v7-export.db", 7)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -110,7 +137,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v4 schema must match the exported v4 schema",
+                "code-built v7 schema must match the exported v7 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -144,10 +171,13 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> 2 -> 3) — the
-        // exact production path (HelixStorage registers the same set; including the
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 7) —
+        // the exact production path (HelixStorage registers the same set; including the
         // room_master_table identity update). The assertions below verify the 1 -> 2 step
-        // specifically; the chain also proves 2 -> 3 (interaction_receipts) applied.
+        // specifically; the chain also proves 2 -> 3 (interaction_receipts), 3 -> 4
+        // (message_attachments), 4 -> 5 (high_sensitivity_rules), 5 -> 6 (A2A snapshots),
+        // and 6 -> 7 (A2A Task correlation)
+        // all applied.
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
@@ -155,6 +185,9 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_1_2,
                     HelixDatabase.MIGRATION_2_3,
                     HelixDatabase.MIGRATION_3_4,
+                    HelixDatabase.MIGRATION_4_5,
+                    HelixDatabase.MIGRATION_5_6,
+                    HelixDatabase.MIGRATION_6_7,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -200,6 +233,15 @@ class RoomMigrationFixtureTest {
                 "v4 upgrade must add message_attachments",
                 "message_attachments" in tables(sqlite),
             )
+            // The 4 -> 5 step landed (HXA-068, ADR-0005): the live schema carries the
+            // high-sensitivity egress-rule table.
+            assertTrue(
+                "v5 upgrade must add high_sensitivity_rules",
+                "high_sensitivity_rules" in tables(sqlite),
+            )
+            assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
+            assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
+            assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
         } finally {
             roomDb.close()
         }
@@ -687,6 +729,10 @@ class RoomMigrationFixtureTest {
             "execution_targets",
             "interaction_receipts",
             "message_attachments",
+            "high_sensitivity_rules",
+            "a2a_agents",
+            "a2a_capabilities",
+            "a2a_tasks",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

@@ -98,6 +98,9 @@ class NormalizedEndpointTest {
         val bare = NormalizedEndpoint.parse("https://example.org")
         assertEquals("https://example.org:443", bare.origin)
         assertEquals("https://example.org:443", bare.full)
+        val ipv6 = NormalizedEndpoint.parse("http://[::1]:8080/mcp")
+        assertEquals("http://[::1]:8080", ipv6.origin)
+        assertEquals("http://[::1]:8080/mcp", ipv6.full)
     }
 
     @Test

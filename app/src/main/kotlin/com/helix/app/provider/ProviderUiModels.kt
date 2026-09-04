@@ -1,5 +1,6 @@
 package com.helix.app.provider
 
+import com.helix.app.R
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.core.storage.entity.ProviderConfigEntity
@@ -41,23 +42,40 @@ data class ProviderRowUi(
     val chatSelectable: Boolean
         get() = status is ConnectionTestStatus.Passed
 
-    /** Capability chips for the UI (doc 10 section 2.4: rely on capability tests). */
-    val capabilityChips: List<String> =
+    /**
+     * Capability chips for the UI (doc 10 section 2.4: rely on capability tests). HXA-069: each
+     * chip is a STABLE string-resource id + args (this mapper is not a composable and must hold
+     * no locale text) — the @Composable that renders the chips resolves them via `stringResource`.
+     */
+    val capabilityChips: List<CapabilityChip> =
         capabilities
             ?.let { caps ->
                 buildList {
-                    add("流式${mark(caps.streaming)}")
-                    add("工具调用${mark(caps.toolCalls)}")
-                    add("视觉${mark(caps.vision)}")
-                    add("推理${mark(caps.reasoning)}")
-                    add("JSON${mark(caps.jsonSchemaOutput)}")
-                    caps.maxContextTokens?.let { add("上下文 ${it / 1000}K") }
-                    if (caps.source == com.helix.provider.api.CapabilitySource.MANUAL) add("手动声明")
+                    add(CapabilityChip(R.string.provider_capability_streaming, listOf(mark(caps.streaming))))
+                    add(CapabilityChip(R.string.provider_capability_tool_calls, listOf(mark(caps.toolCalls))))
+                    add(CapabilityChip(R.string.provider_capability_vision, listOf(mark(caps.vision))))
+                    add(CapabilityChip(R.string.provider_capability_reasoning, listOf(mark(caps.reasoning))))
+                    add(CapabilityChip(R.string.provider_capability_json, listOf(mark(caps.jsonSchemaOutput))))
+                    caps.maxContextTokens?.let { tokens ->
+                        add(CapabilityChip(R.string.provider_capability_context, listOf((tokens / 1000).toString())))
+                    }
+                    if (caps.source == com.helix.provider.api.CapabilitySource.MANUAL) {
+                        add(CapabilityChip(R.string.provider_capability_manual))
+                    }
                 }
             }.orEmpty()
 
     private fun mark(value: Boolean): String = if (value) " ✓" else " ✗"
 }
+
+/**
+ * One capability chip as a stable string-resource id + args (HXA-069: emitted by the pure
+ * mapper, resolved to the current locale by the @Composable that renders it).
+ */
+data class CapabilityChip(
+    val res: Int,
+    val args: List<String> = emptyList(),
+)
 
 /** A capability chip set for the chat header (from the session's provider). */
 data class ProviderBadgeUi(
@@ -65,7 +83,7 @@ data class ProviderBadgeUi(
     val model: String,
     val origin: String,
     val residence: ProviderResidence,
-    val chips: List<String>,
+    val chips: List<CapabilityChip>,
 )
 
 /**

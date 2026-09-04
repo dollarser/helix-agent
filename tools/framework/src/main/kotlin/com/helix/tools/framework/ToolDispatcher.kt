@@ -1,5 +1,6 @@
 package com.helix.tools.framework
 
+import com.helix.core.model.A2aAgentId
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
@@ -139,7 +140,14 @@ sealed interface ToolDispatchOutcome {
         val code: DispatchOutcomeCode,
         val detail: String,
         val sideEffectFree: Boolean = false,
-    ) : ToolDispatchOutcome
+        val requiresReview: Boolean = false,
+    ) : ToolDispatchOutcome {
+        init {
+            require(!sideEffectFree || !requiresReview) {
+                "a confirmed side-effect-free failure cannot require side-effect review"
+            }
+        }
+    }
 }
 
 /**
@@ -623,6 +631,7 @@ class ToolDispatcher(
                         DispatchOutcomeCode.TOOL_FAILED,
                         result.detail,
                         result.sideEffectFree,
+                        result.requiresReview,
                     )
                 }
 
@@ -647,6 +656,8 @@ class ToolDispatcher(
             executionTarget = request.executionTarget,
             deadline = Instant.ofEpochMilli(execStart.toEpochMilli() + descriptor.timeout.inWholeMilliseconds),
             cancel = request.cancel,
+            sessionId = request.sessionId,
+            turnId = request.turnId,
         )
 
     /**
@@ -850,7 +861,8 @@ class ToolDispatcher(
     private fun toolCallSourceOf(descriptor: ToolDescriptor): ToolCallSource =
         when (val origin = descriptor.origin) {
             ToolOrigin.BuiltInOrigin -> ToolCallSource.BuiltIn
-            is ToolOrigin.McpOrigin -> ToolCallSource.Mcp(McpServerId(origin.serverId), descriptor.schemaHash.hex)
+            is ToolOrigin.McpOrigin -> ToolCallSource.Mcp(McpServerId(origin.serverId), origin.sourceSchemaHash)
+            is ToolOrigin.A2aOrigin -> ToolCallSource.A2a(A2aAgentId(origin.agentId), origin.cardHash, origin.skillHash)
         }
 
     /** The approval binding: registry contract facts + trusted request facts; args hashed canonically. */

@@ -2,6 +2,8 @@
 
 package com.helix.app.proot
 
+import com.helix.app.R
+import com.helix.app.approval.ApprovalCardUi
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
@@ -217,10 +219,13 @@ class LinuxRunToolTest {
         // Offline: the Runtime has no INTERNET permission.
         assertFalse(e.online)
         // The limits line names the fixed deadline + the offline boundary.
-        assertTrue(e.limits.contains("联网：否"))
+        // (HXA-069 localization merge: the card fields are string-resource IDs +
+        // args resolved by the UI; the JVM test asserts the resource wiring.)
+        assertEquals(R.string.approval_limits_proot, e.limitsRes)
+        assertEquals(listOf("60"), e.limitsArgs)
         // The input source names the COPIED snapshot (references, never bodies).
-        assertTrue(e.inputSource.contains("scope:app:work/a.txt"))
-        assertTrue(e.inputSource.contains("2 个文件"))
+        assertEquals(R.string.approval_input_proot_files, e.inputSourceRes)
+        assertEquals(listOf("2"), e.inputSourceArgs)
     }
 
     @Test
@@ -243,7 +248,7 @@ class LinuxRunToolTest {
         assertTrue(ui != null)
         assertEquals("python3 -c print(1)", ui!!.code)
         assertFalse(ui.online)
-        assertTrue(ui.inputSource.contains("无输入"))
+        assertEquals(ApprovalCardUi.NO_INPUT, ui.inputSourceRes)
     }
 
     // ------------------------------------------------------------------ helpers
