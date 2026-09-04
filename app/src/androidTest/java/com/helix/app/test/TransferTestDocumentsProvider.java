@@ -141,8 +141,39 @@ public class TransferTestDocumentsProvider extends ContentProvider {
         return true;
     }
 
+    /**
+     * Self-heal across a surviving test process: the host may clear
+     * {@code files/transfersink} while this process is still alive from a previous
+     * instrumentation run (emulator test processes outlive {@code am instrument}; a reused
+     * process would otherwise accumulate the inserted {@code d*} rows and report phantom
+     * same-name conflicts). A missing backing marker means the directory was cleared:
+     * rebuild the whole fixture state from the seed. The old generation's rows are cleared
+     * FIRST, unconditionally, so a failed reseed degrades to an honest empty fixture
+     * (FileNotFoundException on every id) instead of serving a mix of dead in-memory rows
+     * and missing backing files. Within one run the marker always exists, so this is a
+     * no-op and single-run semantics are unchanged.
+     */
+    private synchronized void reseedIfTheHostClearedTheBackings() {
+        if (backingFile("tnote").exists()) {
+            return;
+        }
+        docs.clear();
+        children.clear();
+        nextId = 0;
+        // The directory was deleted out from under the process: recreate it exactly the way
+        // `onCreate` does (mkdirs BEFORE `seed` — `seed`'s file writes do not create parents).
+        try {
+            sinkDir().mkdirs();
+            seed();
+        } catch (Exception e) {
+            // The directory cannot be recreated right now: keep serving an empty fixture
+            // (an honest FileNotFoundException per id) instead of stale rows.
+        }
+    }
+
     @Override
     public String getType(Uri uri) {
+        reseedIfTheHostClearedTheBackings();
         String id = docIdOf(uri);
         if (id == null) {
             return null;
@@ -161,6 +192,7 @@ public class TransferTestDocumentsProvider extends ContentProvider {
         String[] selectionArgs,
         String sortOrder
     ) {
+        reseedIfTheHostClearedTheBackings();
         List<String> segments = uri.getPathSegments();
         if (
             segments.size() == 3 &&
@@ -200,6 +232,7 @@ public class TransferTestDocumentsProvider extends ContentProvider {
      */
     @Override
     public Uri insert(Uri uri, ContentValues values) {
+        reseedIfTheHostClearedTheBackings();
         List<String> segments = uri.getPathSegments();
         if (segments.size() != 4 || !"tree".equals(segments.get(0)) || !"document".equals(segments.get(2))) {
             return null;
@@ -244,6 +277,7 @@ public class TransferTestDocumentsProvider extends ContentProvider {
 
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
+        reseedIfTheHostClearedTheBackings();
         String id = docIdOf(uri);
         if (id == null) {
             throw new FileNotFoundException("no such document");

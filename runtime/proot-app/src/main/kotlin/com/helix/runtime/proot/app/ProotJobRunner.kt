@@ -349,6 +349,9 @@ class ProotJobRunner private constructor(
                         ),
                 )
             liveJobs[spec.jobId] = live
+            // The 通知停止 surface (HXA-086): a plain (non-FGS) notification with a
+            // stop action for the lifetime of the RUNNING state.
+            ProotJobNotification.postRunning(context, spec.jobId)
 
             // 5) Wait (bounded: the watchdog's group kill is the primary deadline
             //    enforcement; the +30s margin covers a stuck kill).
@@ -413,6 +416,7 @@ class ProotJobRunner private constructor(
         outputPfd: ParcelFileDescriptor,
     ) {
         outputPfd.close()
+        ProotJobNotification.cancel(context, pending.jobId)
         store.deletePayload(pending.jobId)
         store.put(
             pending.copy(
@@ -430,6 +434,7 @@ class ProotJobRunner private constructor(
         exitCode: Int?,
     ) {
         outputPfd.close()
+        ProotJobNotification.cancel(context, pending.jobId)
         store.put(
             pending.copy(
                 state = ProotJobState.CANCELLED,
@@ -448,6 +453,7 @@ class ProotJobRunner private constructor(
         note: String,
     ) {
         outputPfd.close()
+        ProotJobNotification.cancel(context, pending.jobId)
         store.put(
             pending.copy(
                 state = ProotJobState.FAILED,
@@ -524,6 +530,7 @@ class ProotJobRunner private constructor(
         } catch (e: Exception) {
             // already closed by AutoCloseOutputStream
         }
+        ProotJobNotification.cancel(context, pending.jobId)
         store.put(
             pending.copy(
                 state = finalState,

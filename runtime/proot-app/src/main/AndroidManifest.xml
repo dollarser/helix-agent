@@ -30,6 +30,14 @@
         android:name="com.helix.permission.BIND_PROOT_RUNTIME"
         android:protectionLevel="signature" />
 
+    <!--
+        HXA-086: the running-job notification (通知停止). POST_NOTIFICATIONS is a
+        runtime permission on API 33+; when not granted the post is silently
+        dropped and the job runs unchanged — the notification is a convenience
+        surface, never a liveness or correctness dependency.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -39,6 +47,14 @@
         android:supportsRtl="true">
         <service
             android:name="com.helix.runtime.proot.app.ProotRuntimeService"
+            android:exported="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+        <!-- HXA-086 通知停止: the stop action of the running-job notification.
+             exported (PendingIntent resolution requires it) + the same
+             SIGNATURE permission: only the same signed set can trigger a
+             cancel; the effect is a job cancel only (no submission, no reads). -->
+        <receiver
+            android:name="com.helix.runtime.proot.app.ProotJobStopReceiver"
             android:exported="true"
             android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
         <activity

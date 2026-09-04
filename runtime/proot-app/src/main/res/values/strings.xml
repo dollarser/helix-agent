@@ -4,4 +4,8 @@
     <string name="proot_repair_title">Helix PRoot Runtime</string>
     <string name="proot_repair_install">安装 / 修复 Runtime</string>
     <string name="proot_repair_done">完成</string>
+    <!-- HXA-086: the running-job notification (通知停止). -->
+    <string name="proot_job_channel_name">Runtime 任务</string>
+    <string name="proot_job_running_title">Linux 运行时任务正在执行</string>
+    <string name="proot_job_stop">停止</string>
 </resources>
