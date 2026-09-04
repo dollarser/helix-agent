@@ -1,5 +1,6 @@
 package com.helix.app.approval
 
+import com.helix.app.R
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
@@ -52,12 +53,24 @@ enum class ApprovalCardState {
 }
 
 /**
+ * A stable user-visible label produced by [ApprovalUiMapper] (HXA-069): a string-resource
+ * ID plus its positional string arguments — NEVER locale text, so this pure, plain-JUnit-
+ * tested mapper holds no [android.content.Context]. The Android UI resolves a label via
+ * `stringResource(label.res, *label.args.toTypedArray())`.
+ */
+data class ApprovalLabel(
+    val res: Int,
+    val args: List<String> = emptyList(),
+)
+
+/**
  * The display of an ACTIVE bounded Policy rule (ADR-0005) that satisfied the egress this
  * card is about — roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则.
  *
- * [display] always carries the "有界 Policy 规则" label and the expiry — a bounded rule is
- * NEVER shown as a general approval credential (it cannot authorize file changes, shell,
- * Root, Accessibility or a new origin — doc 02 section 8.1).
+ * [displayRes]/[displayArgs] always carry the "有界 Policy 规则" line and the expiry — a
+ * bounded rule is NEVER shown as a general approval credential (it cannot authorize file
+ * changes, shell, Root, Accessibility or a new origin — doc 02 section 8.1). The label is
+ * a string-resource ID + args resolved by the UI (HXA-069).
  */
 data class BoundedRuleUi(
     val targetId: String,
@@ -65,7 +78,8 @@ data class BoundedRuleUi(
     val categories: String,
     val scope: String,
     val expiresAt: Long,
-    val display: String,
+    val displayRes: Int,
+    val displayArgs: List<String> = emptyList(),
 )
 
 /**
@@ -75,13 +89,17 @@ data class BoundedRuleUi(
  * SHA-256 short digest. Present only for CODE_EXECUTION tools; null otherwise.
  *
  * The limits come from the fixed §4.1 defaults the backend enforces ([JsExecutionLimits]
- * DEFAULTS) — never from model arguments (the model cannot raise them).
+ * DEFAULTS) — never from model arguments (the model cannot raise them). The user-visible
+ * lines ([inputSourceRes], [limitsRes]) are string-resource IDs + args resolved by the UI
+ * (HXA-069).
  */
 data class CodeExecutionUi(
     val code: String,
     val codeSha256Short: String,
-    val inputSource: String,
-    val limits: String,
+    val inputSourceRes: Int,
+    val inputSourceArgs: List<String> = emptyList(),
+    val limitsRes: Int,
+    val limitsArgs: List<String> = emptyList(),
     val online: Boolean,
 )
 
@@ -104,39 +122,54 @@ data class CodeExecutionUi(
  *   canonical text the approval hash was computed over.
  * - Network fields are null when the call carries no egress facts; the UI renders an
  *   explicit "无出网" line — absence is displayed, never omitted silently.
+ * - User-visible label fields ([sourceRes], [targetRes], [riskRes], [dataCategoryRes],
+ *   [verifierRes]) are STABLE string-resource IDs (+ args), never locale text (HXA-069):
+ *   the UI resolves them to the current locale. [scope] keeps the STABLE scope ref; the
+ *   UI localizes the "unscoped" ref.
  */
 data class ApprovalCardUi(
     val approvalId: String,
     val bindingHash: String,
     val state: ApprovalCardState,
-    val source: String,
-    val target: String,
+    val sourceRes: Int,
+    val sourceArgs: List<String> = emptyList(),
+    val targetRes: Int,
     val scope: String,
     val arguments: String,
-    val risk: String,
+    /** The risk line template; when the dynamic risk differs from the base, [riskArgs] holds the
+     * string-resource IDs of the two level labels the template interpolates (empty otherwise).
+     */
+    val riskRes: Int,
+    val riskArgs: List<Int> = emptyList(),
     val profile: SafetyProfile,
     val providerMcpId: String?,
     val networkOrigin: String?,
     val residence: String?,
-    val dataCategory: String,
+    val dataCategoryRes: Int,
     val boundedRule: BoundedRuleUi?,
     val codeOrCommand: String?,
     /** The code-execution section (full code block + input summary + limits + hash); HXA-053. */
     val codeExecution: CodeExecutionUi? = null,
     val expectedImpact: String,
-    val verifier: String,
+    val verifierRes: Int,
     val confirmationDetail: String,
     val terminalDetail: String?,
 ) {
     companion object {
-        /** The ONLY actions a generic L2/L3 approval card may offer (roadmap HXA-036). */
-        val ACTIONS: List<String> = listOf("本次批准", "拒绝")
+        /** The ONLY actions a generic L2/L3 approval card may offer (roadmap HXA-036) —
+         * string-resource IDs (HXA-069).
+         */
+        val ACTIONS: List<Int> = listOf(R.string.approval_action_approve_once, R.string.approval_action_deny)
 
-        /** Rendered when the call carries no egress facts (explicit, not silent). */
-        const val NO_EGRESS = "无出网"
+        /** Rendered when the call carries no egress facts (explicit, not silent) — string-resource
+         * ID (HXA-069).
+         */
+        val NO_EGRESS: Int = R.string.approval_no_egress
 
-        /** The code-execution input-source line when the call passes no `input` value. */
-        const val NO_INPUT = "无输入"
+        /** The code-execution input-source line when the call passes no `input` value — string-
+         * resource ID (HXA-069).
+         */
+        val NO_INPUT: Int = R.string.approval_no_input
     }
 }
 
@@ -145,94 +178,123 @@ data class ApprovalCardUi(
  * JVM-testable: every label rule (risk, target, source, category, state) lives here so the
  * rendered card and the tests share one implementation. One object on purpose: the
  * display mapping is a single surface — splitting it would fragment the card's contract.
+ *
+ * HXA-069: every user-visible label is emitted as a STABLE string-resource ID (+ args) —
+ * never locale text — so this object holds no [android.content.Context]; the Android UI
+ * resolves the IDs via `stringResource`.
  */
 @Suppress("TooManyFunctions")
 object ApprovalUiMapper {
-    /** The verifier line: what the pipeline checks after execution (doc 02 section 7.1 变更后验证). */
-    const val VERIFIER_TEXT = "输出必须通过注册的 outputSchema 校验；全量输出记录 SHA-256 哈希"
+    /** The verifier line: what the pipeline checks after execution (doc 02 section 7.1 变更后验证)
+     * — a string-resource ID (HXA-069), resolved by the UI.
+     */
+    val VERIFIER_TEXT: Int = R.string.approval_verifier_text
 
-    /** 预期影响: the registered contract's description — what the tool says it does. */
+    /** 预期影响: the registered contract's description — what the tool says it does (a stable,
+     * developer-registered contract text — pass-through, not localized here).
+     */
     fun expectedImpact(description: String): String = description
 
+    /** 来源: the MCP server id (localized template + arg) or the built-in label. */
     fun sourceLabel(
         isMcp: Boolean,
         serverId: String?,
-    ): String = if (isMcp) "MCP 服务器：${serverId ?: "unknown"}" else "内置工具"
+    ): ApprovalLabel =
+        if (isMcp) {
+            ApprovalLabel(R.string.approval_source_mcp, listOf(serverId ?: "unknown"))
+        } else {
+            ApprovalLabel(R.string.approval_source_builtin)
+        }
 
     fun providerMcpIdLabel(
         isMcp: Boolean,
         serverId: String?,
     ): String? = if (isMcp) serverId else null
 
-    fun targetLabel(target: ExecutionTargetType): String =
+    /** 目标: the isolation boundary the tool runs in — a string-resource ID (HXA-069). */
+    fun targetLabel(target: ExecutionTargetType): Int =
         when (target) {
-            ExecutionTargetType.LOCAL_ANDROID -> "本机（主应用进程）"
-            ExecutionTargetType.LOCAL_QUICKJS -> "本机（隔离 QuickJS 进程）"
-            ExecutionTargetType.LOCAL_PROOT -> "本机（PRoot Runtime 应用）"
-            ExecutionTargetType.LOCAL_CLI_RUNTIME -> "本机（CLI Runtime 应用）"
+            ExecutionTargetType.LOCAL_ANDROID -> R.string.approval_target_local_android
+            ExecutionTargetType.LOCAL_QUICKJS -> R.string.approval_target_local_quickjs
+            ExecutionTargetType.LOCAL_PROOT -> R.string.approval_target_local_proot
+            ExecutionTargetType.LOCAL_CLI_RUNTIME -> R.string.approval_target_local_cli
         }
 
     /**
      * The risk line: the Policy Engine's DYNAMIC risk (what it actually decided with),
      * with the descriptor's base risk shown when they differ so the user sees the uplift.
+     * Returns the template string-resource ID; when the dynamic risk differs from the
+     * base, the second element holds the string-resource IDs of the two level labels the
+     * template interpolates (HXA-069 — the UI resolves them and passes them as format
+     * args).
      */
     fun riskLabel(
         base: RiskLevel,
         dynamic: RiskLevel,
-    ): String = if (base == dynamic) riskLabel(dynamic) else "${riskLabel(base)} → 动态 ${riskLabel(dynamic)}"
+    ): Pair<Int, List<Int>> =
+        if (base == dynamic) {
+            riskLabel(dynamic) to emptyList()
+        } else {
+            R.string.approval_risk_dynamic_upgrade to listOf(riskLabel(base), riskLabel(dynamic))
+        }
 
-    fun riskLabel(level: RiskLevel): String =
+    /** 风险等级: a string-resource ID (HXA-069). */
+    fun riskLabel(level: RiskLevel): Int =
         when (level) {
-            RiskLevel.L0 -> "L0（无风险）"
-            RiskLevel.L1 -> "L1（低风险）"
-            RiskLevel.L2 -> "L2（需逐次批准）"
-            RiskLevel.L3 -> "L3（高风险）"
+            RiskLevel.L0 -> R.string.approval_risk_l0
+            RiskLevel.L1 -> R.string.approval_risk_l1
+            RiskLevel.L2 -> R.string.approval_risk_l2
+            RiskLevel.L3 -> R.string.approval_risk_l3
         }
 
-    fun profileLabel(profile: SafetyProfile): String =
+    /** Safety Profile label — a string-resource ID (HXA-069). */
+    fun profileLabel(profile: SafetyProfile): Int =
         when (profile) {
-            SafetyProfile.STANDARD -> "Standard（默认）"
-            SafetyProfile.ADVANCED -> "Advanced（增强，非完全访问）"
+            SafetyProfile.STANDARD -> R.string.approval_profile_standard
+            SafetyProfile.ADVANCED -> R.string.approval_profile_advanced
         }
 
-    fun stateLabel(state: ApprovalCardState): String =
+    /** Card state label — a string-resource ID (HXA-069). */
+    fun stateLabel(state: ApprovalCardState): Int =
         when (state) {
-            ApprovalCardState.PENDING -> "等待批准"
-            ApprovalCardState.APPROVED -> "已批准，执行中"
-            ApprovalCardState.DENIED -> "已拒绝"
-            ApprovalCardState.SUCCEEDED -> "已执行成功"
-            ApprovalCardState.FAILED -> "执行失败"
+            ApprovalCardState.PENDING -> R.string.approval_state_pending
+            ApprovalCardState.APPROVED -> R.string.approval_state_approved
+            ApprovalCardState.DENIED -> R.string.approval_state_denied
+            ApprovalCardState.SUCCEEDED -> R.string.approval_state_succeeded
+            ApprovalCardState.FAILED -> R.string.approval_state_failed
         }
 
-    /** Stable user-visible labels for the 15 dispatch outcome codes (audit page + card).
+    /** Stable user-visible labels for the dispatch outcome codes (audit page + card) —
+     * string-resource IDs (HXA-069).
      * The complexity is the exhaustive label table for the closed enum — one branch per
      * code, no logic (a new code without a label is a compile error). */
     @Suppress("CyclomaticComplexMethod")
-    fun codeLabel(code: DispatchOutcomeCode): String =
+    fun codeLabel(code: DispatchOutcomeCode): Int =
         when (code) {
-            DispatchOutcomeCode.UNKNOWN_TOOL -> "未注册工具"
-            DispatchOutcomeCode.NO_IMPLEMENTATION -> "无已注册实现"
-            DispatchOutcomeCode.INVALID_ARGUMENTS -> "参数不符合注册 Schema"
-            DispatchOutcomeCode.POLICY_DENIED -> "策略拒绝"
-            DispatchOutcomeCode.SAME_TURN_DENIED -> "本回合已拒绝该动作"
-            DispatchOutcomeCode.APPROVAL_PENDING -> "审批仍待决定"
-            DispatchOutcomeCode.APPROVAL_DENIED -> "用户拒绝审批"
-            DispatchOutcomeCode.APPROVAL_EXPIRED -> "审批已过期"
-            DispatchOutcomeCode.APPROVAL_CONSUMED -> "审批凭证已消费"
-            DispatchOutcomeCode.APPROVAL_NOT_FOUND -> "审批记录不存在"
-            DispatchOutcomeCode.CANCELLED_BEFORE_START -> "启动前已取消"
-            DispatchOutcomeCode.SUCCESS -> "成功"
-            DispatchOutcomeCode.TIMEOUT -> "执行超时"
-            DispatchOutcomeCode.CANCELLED_AFTER_START -> "执行中取消（副作用未知）"
-            DispatchOutcomeCode.TOOL_FAILED -> "工具执行失败"
-            DispatchOutcomeCode.INVALID_OUTPUT -> "输出不符合注册 Schema"
+            DispatchOutcomeCode.UNKNOWN_TOOL -> R.string.approval_code_unknown_tool
+            DispatchOutcomeCode.NO_IMPLEMENTATION -> R.string.approval_code_no_implementation
+            DispatchOutcomeCode.INVALID_ARGUMENTS -> R.string.approval_code_invalid_arguments
+            DispatchOutcomeCode.POLICY_DENIED -> R.string.approval_code_policy_denied
+            DispatchOutcomeCode.SAME_TURN_DENIED -> R.string.approval_code_same_turn_denied
+            DispatchOutcomeCode.APPROVAL_PENDING -> R.string.approval_code_approval_pending
+            DispatchOutcomeCode.APPROVAL_DENIED -> R.string.approval_code_approval_denied
+            DispatchOutcomeCode.APPROVAL_EXPIRED -> R.string.approval_code_approval_expired
+            DispatchOutcomeCode.APPROVAL_CONSUMED -> R.string.approval_code_approval_consumed
+            DispatchOutcomeCode.APPROVAL_NOT_FOUND -> R.string.approval_code_approval_not_found
+            DispatchOutcomeCode.CANCELLED_BEFORE_START -> R.string.approval_code_cancelled_before_start
+            DispatchOutcomeCode.SUCCESS -> R.string.approval_code_success
+            DispatchOutcomeCode.TIMEOUT -> R.string.approval_code_timeout
+            DispatchOutcomeCode.CANCELLED_AFTER_START -> R.string.approval_code_cancelled_after_start
+            DispatchOutcomeCode.TOOL_FAILED -> R.string.approval_code_tool_failed
+            DispatchOutcomeCode.INVALID_OUTPUT -> R.string.approval_code_invalid_output
         }
 
-    fun sourceLabel(source: DecisionSource): String =
+    /** 决策来源: a string-resource ID (HXA-069). */
+    fun sourceLabel(source: DecisionSource): Int =
         when (source) {
-            DecisionSource.POLICY -> "策略引擎"
-            DecisionSource.USER -> "用户"
-            DecisionSource.FRAMEWORK -> "框架"
+            DecisionSource.POLICY -> R.string.approval_decision_source_policy
+            DecisionSource.USER -> R.string.approval_decision_source_user
+            DecisionSource.FRAMEWORK -> R.string.approval_decision_source_framework
         }
 
     /**
@@ -259,29 +321,52 @@ object ApprovalUiMapper {
     ): CodeExecutionUi? {
         if (descriptor.operationClass != ToolOperationClass.CODE_EXECUTION) return null
         return stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
+            val input = inputSource(arguments["input"])
+            val limits = limitsLabel()
             CodeExecutionUi(
                 code = code,
                 codeSha256Short = sha256Short(code),
-                inputSource = inputSource(arguments["input"]),
-                limits = limitsLabel(),
+                inputSourceRes = input.res,
+                inputSourceArgs = input.args,
+                limitsRes = limits.res,
+                limitsArgs = limits.args,
                 online = false,
             )
         }
     }
 
-    /** The input-source line: an explicit "无输入" when absent, else the inline JSON size (not body). */
-    private fun inputSource(input: kotlinx.serialization.json.JsonElement?): String =
+    /** The input-source line: an explicit "无输入" when absent, else the inline JSON size (not
+     * body) — a string-resource ID + arg (HXA-069).
+     */
+    private fun inputSource(input: kotlinx.serialization.json.JsonElement?): ApprovalLabel =
         if (input == null) {
-            ApprovalCardUi.NO_INPUT
+            ApprovalLabel(ApprovalCardUi.NO_INPUT)
         } else {
-            "内联 JSON 值（${CanonicalArgs.canonicalize(input).toByteArray(StandardCharsets.UTF_8).size} 字节）"
+            ApprovalLabel(
+                R.string.approval_input_inline_json,
+                listOf(
+                    CanonicalArgs
+                        .canonicalize(input)
+                        .toByteArray(StandardCharsets.UTF_8)
+                        .size
+                        .toString(),
+                ),
+            )
         }
 
-    /** The fixed §4.1 limits the QuickJS backend applies (the model cannot change them). */
-    fun limitsLabel(): String {
+    /** The fixed §4.1 limits the QuickJS backend applies (the model cannot change them) — a
+     * string-resource ID + args (HXA-069).
+     */
+    fun limitsLabel(): ApprovalLabel {
         val l = JsExecutionLimits.DEFAULTS
-        return "超时 ${l.timeoutMs / 1000L} s · 内存 ${l.memoryBytes / (1024L * 1024L)} MiB · " +
-            "输出上限 ${l.maxOutputBytes / 1024L} KiB · 并发 1"
+        return ApprovalLabel(
+            R.string.approval_limits_value,
+            listOf(
+                (l.timeoutMs / 1000L).toString(),
+                (l.memoryBytes / (1024L * 1024L)).toString(),
+                (l.maxOutputBytes / 1024L).toString(),
+            ),
+        )
     }
 
     private fun sha256Short(text: String): String {
@@ -294,38 +379,39 @@ object ApprovalUiMapper {
         key: String,
     ): String? = (arguments[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
-    /** 数据类别: the egress sensitivity when the call egresses, else the source-origin category. */
+    /** 数据类别: the egress sensitivity when the call egresses, else the source-origin category
+     * — a string-resource ID (HXA-069).
+     */
     fun categoryLabel(
         dataOrigin: DataOrigin,
         egressCategory: DataSensitivity?,
-    ): String =
+    ): Int =
         if (egressCategory != null) {
             when (egressCategory) {
-                DataSensitivity.NORMAL -> "普通内容"
-                DataSensitivity.SENSITIVE -> "高敏内容（逐次确认）"
-                DataSensitivity.FORBIDDEN -> "禁止类内容（不可发送）"
+                DataSensitivity.NORMAL -> R.string.approval_category_normal
+                DataSensitivity.SENSITIVE -> R.string.approval_category_sensitive
+                DataSensitivity.FORBIDDEN -> R.string.approval_category_forbidden
             }
         } else {
             when (dataOrigin) {
-                DataOrigin.WORKSPACE -> "Workspace 数据"
-                DataOrigin.SAF -> "SAF 文档树"
-                DataOrigin.ALL_FILES -> "全文件数据"
-                DataOrigin.BROWSER -> "浏览器页面内容"
-                DataOrigin.ACCESSIBILITY -> "无障碍内容"
-                DataOrigin.MCP -> "MCP 数据（默认不可信）"
-                DataOrigin.ROOT -> "Root 数据"
-                DataOrigin.LOCAL -> "本机数据"
-                DataOrigin.NETWORK -> "网络数据"
+                DataOrigin.WORKSPACE -> R.string.approval_category_workspace
+                DataOrigin.SAF -> R.string.approval_category_saf
+                DataOrigin.ALL_FILES -> R.string.approval_category_all_files
+                DataOrigin.BROWSER -> R.string.approval_category_browser
+                DataOrigin.ACCESSIBILITY -> R.string.approval_category_accessibility
+                DataOrigin.MCP -> R.string.approval_category_mcp
+                DataOrigin.ROOT -> R.string.approval_category_root
+                DataOrigin.LOCAL -> R.string.approval_category_local
+                DataOrigin.NETWORK -> R.string.approval_category_network
             }
         }
-
-    fun scopeLabel(scopeRef: String): String = if (scopeRef == "unscoped") "无作用域（unscoped）" else scopeRef
 
     /**
      * 高敏出网规则的卡片行 (roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则): the
      * live rule that already satisfies the card's egress is shown as a BOUNDED rule — its
      * exact binding (target / origin / category / scope) and validity window — never as a
      * general approval credential (ADR-0005). Null when the call has no covered rule.
+     * The display line is a string-resource ID + stable binding args (HXA-069).
      */
     fun boundedRuleUi(rule: HighSensitivityRule?): BoundedRuleUi? {
         if (rule == null) return null
@@ -339,16 +425,14 @@ object ApprovalUiMapper {
             rule.expiresAt
                 .atZone(ZoneId.systemDefault())
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-        val display =
-            "origin ${rule.origin.origin} · ${rule.dataCategory.name} · " +
-                "作用域 ${rule.scope.toScopeRef()} · 有效期至 $windowEnd（一次授权，非通用凭证）"
         return BoundedRuleUi(
             targetId = targetId,
             origin = rule.origin.origin,
             categories = rule.dataCategory.name,
             scope = rule.scope.toScopeRef(),
             expiresAt = rule.expiresAt.toEpochMilli(),
-            display = display,
+            displayRes = R.string.approval_bounded_rule_display,
+            displayArgs = listOf(rule.origin.origin, rule.dataCategory.name, rule.scope.toScopeRef(), windowEnd),
         )
     }
 
@@ -356,7 +440,9 @@ object ApprovalUiMapper {
      * Builds the display card from the execution-path facts. The [arguments] are rendered
      * through [CanonicalArgs] — the SAME encoder the approval hash was computed over — so
      * what the user approves is byte-identical to what the binding hashes (doc 02
-     * section 5.4: the full arguments, not truncated).
+     * section 5.4: the full arguments, not truncated). Label fields are emitted as
+     * string-resource IDs (+ args) for the UI to resolve (HXA-069); [scope] keeps the
+     * STABLE scope ref (the UI localizes the "unscoped" ref).
      */
     @Suppress("LongParameterList") // one parameter per mandated display fact (roadmap HXA-036 field list)
     fun buildCard(
@@ -376,26 +462,30 @@ object ApprovalUiMapper {
         terminalDetail: String?,
     ): ApprovalCardUi {
         val origin = descriptor.origin
+        val source = sourceLabel(origin is ToolOrigin.McpOrigin, (origin as? ToolOrigin.McpOrigin)?.serverId)
+        val (riskRes, riskArgs) = riskLabel(descriptor.baseRisk, dynamicRisk)
         return ApprovalCardUi(
             approvalId = approvalId,
             bindingHash = binding.hash,
             state = state,
-            source = sourceLabel(origin is ToolOrigin.McpOrigin, (origin as? ToolOrigin.McpOrigin)?.serverId),
-            target = targetLabel(descriptor.executionTarget),
-            scope = scopeLabel(binding.scopeRef),
+            sourceRes = source.res,
+            sourceArgs = source.args,
+            targetRes = targetLabel(descriptor.executionTarget),
+            scope = binding.scopeRef,
             arguments = CanonicalArgs.canonicalize(arguments),
-            risk = riskLabel(descriptor.baseRisk, dynamicRisk),
+            riskRes = riskRes,
+            riskArgs = riskArgs,
             profile = profile,
             providerMcpId =
                 providerMcpIdLabel(origin is ToolOrigin.McpOrigin, (origin as? ToolOrigin.McpOrigin)?.serverId),
             networkOrigin = egressOrigin,
             residence = egressResidence,
-            dataCategory = categoryLabel(dataOrigin, egressCategory),
+            dataCategoryRes = categoryLabel(dataOrigin, egressCategory),
             boundedRule = boundedRule,
             codeOrCommand = codeOrCommand(arguments),
             codeExecution = codeExecutionUi(descriptor, arguments),
             expectedImpact = expectedImpact(descriptor.description),
-            verifier = VERIFIER_TEXT,
+            verifierRes = VERIFIER_TEXT,
             confirmationDetail = confirmationDetail,
             terminalDetail = terminalDetail,
         )

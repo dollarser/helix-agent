@@ -1,6 +1,6 @@
 # Helix 验收命令矩阵
 
-基线日期：2026-08-31。命令来自 Gradle 9.5.0 / AGP 9.3.2 工程的真实
+基线日期：2026-09-03。命令来自 Gradle 9.5.0 / AGP 9.3.2 工程的真实
 `projects` 与 `tasks --all` 输出。每个 HXA 开始前必须确认对应命令仍存在；若模块、
 variant 或 source set 改名，先更新本矩阵，再实现功能。
 
@@ -107,7 +107,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-058 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；导入导出冲突、部分流、磁盘满、取消、进程回收与结果校验 |
 | HXA-059 | `./gradlew :provider:api:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；模型列表带出/点选预填/手输、`Unsupported`/`Failed` 两态、超大列表有界、本地 SGLang 真环境 smoke |
 
-### M6：浏览器与 Android 工具
+### M6：浏览器、Android 工具与国际化
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
@@ -118,20 +118,24 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-064 | `./gradlew :tools:android:testDebugUnitTest` | `./gradlew :tools:android:connectedDebugAndroidTest` |
 | HXA-065 | `./gradlew :tools:android:testDebugUnitTest` | `./gradlew :tools:android:connectedDebugAndroidTest` |
 | HXA-066 | `./gradlew :tools:android:testDebugUnitTest :core:policy:test` | `./gradlew :tools:android:connectedDebugAndroidTest`；DNS rebinding/redirect/peer/scope 与 Standard/Advanced 网络边界 |
-| HXA-067 | `./gradlew :app:testConsumerDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
+| HXA-067 | `./gradlew :app:testConsumerDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；语音识别 unavailable/denied/cancel/error、草稿不自动发送 |
 | HXA-068 | `./gradlew :app:testDeveloperDebugUnitTest :core:policy:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；规则创建/撤销/到期/重启/时钟回拨/切回 Standard，consumer 无入口 |
+| HXA-069 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest lintConsumerDebug lintDeveloperDebug` + `scripts/check-i18n.sh`（生产源码 CJK 字符串字面量硬编码扫描 + base/`values-en`/`values-zh-rCN` 翻译键一致性门禁；注释与测试排除） | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；API 29/36 跟随系统/简体中文/English、Activity/进程重建、API 33+ App languages 同步、通知与关键界面；验证 Provider/Tool/审计稳定字段不受 locale 影响 |
 
-### M7：MCP 与 Skills
+### M7：MCP、A2A 与 Skills
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
 | HXA-070 | `./gradlew :extensions:mcp:test` | 本地 Streamable HTTP fixture |
 | HXA-071 | `./gradlew :extensions:mcp:test` | 恶意 schema/result fixture |
 | HXA-072 | `./gradlew :extensions:mcp:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-073 | `./gradlew :extensions:skills:test` | 恶意归档/路径 fixture |
+| HXA-073 | HXA-084 完成后先按真实 PRoot/MCP task 更新本行 | PRoot stdio JSON-RPC、严格 stdout/bounded stderr、取消与 Job 对账 fixture |
 | HXA-074 | `./gradlew :extensions:skills:test` | 无 |
 | HXA-075 | `./gradlew :extensions:skills:test :tools:framework:test` | 无 |
 | HXA-076 | `./gradlew :app:testConsumerDebugUnitTest :extensions:mcp:test :extensions:skills:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
+| HXA-077 | 开始 Spike 时先创建/确认实际 module task，再按 `./gradlew tasks` 更新本行；本需求阶段不伪造命令 | API 29/36、R8、JSON-RPC/HTTP+JSON、SSE、取消、重连、大消息、序列化、APK/方法数与许可证报告 |
+| HXA-078 | HXA-077 决定 module/task 后更新；不得在依赖选择前猜命令 | Agent Card/版本/接口/Skill snapshot fixture；恶意/超大 Card、认证错误、hash 变化 |
+| HXA-079 | HXA-077 决定 module/task 后更新；不得在依赖选择前猜命令 | API 29/36 连接本地 A2A fixture：stream/cancel/restart/GetTask/Artifact/不明确送达/远端反向调用拒绝 |
 
 ### M8：PRoot Runtime
 

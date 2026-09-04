@@ -17,6 +17,7 @@ import com.helix.core.storage.repository.ExecutionRepository
 import com.helix.core.storage.repository.ExecutionTargetRepository
 import com.helix.core.storage.repository.GoalRepository
 import com.helix.core.storage.repository.GoalRunRepository
+import com.helix.core.storage.repository.HighSensitivityRuleRepository
 import com.helix.core.storage.repository.InteractionReceiptRepository
 import com.helix.core.storage.repository.McpCapabilityRepository
 import com.helix.core.storage.repository.McpServerRepository
@@ -90,6 +91,10 @@ class HelixStorage internal constructor(
     val skills: SkillRepository by lazy { SkillRepository(database.skillDao()) }
     val skillSnapshots: SkillSnapshotRepository by lazy { SkillSnapshotRepository(database.skillSnapshotDao()) }
 
+    val highSensitivityRules: HighSensitivityRuleRepository by lazy {
+        HighSensitivityRuleRepository(database.highSensitivityRuleDao())
+    }
+
     fun withTransaction(block: () -> Unit) {
         database.runInTransaction(Runnable { block() })
     }
@@ -102,16 +107,18 @@ class HelixStorage internal constructor(
     companion object {
         /**
          * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts,
-         * v3→v4 message attachments). Both production entries register it: Room does NOT
-         * auto-discover migrations, so a missing registration is a startup crash on any device
-         * holding an older schema (`A migration from N to M is required`) — fresh installs never
-         * exercise it, which is exactly why this must be explicit and device-tested.
+         * v3→v4 message attachments, v4→v5 high-sensitivity egress rules). Both production
+         * entries register it: Room does NOT auto-discover migrations, so a missing registration
+         * is a startup crash on any device holding an older schema (`A migration from N to M is
+         * required`) — fresh installs never exercise it, which is exactly why this must be
+         * explicit and device-tested.
          */
         private val ALL_MIGRATIONS: Array<Migration> =
             arrayOf(
                 HelixDatabase.MIGRATION_1_2,
                 HelixDatabase.MIGRATION_2_3,
                 HelixDatabase.MIGRATION_3_4,
+                HelixDatabase.MIGRATION_4_5,
             )
 
         fun create(context: Context): HelixStorage {

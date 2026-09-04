@@ -109,6 +109,11 @@ val roomTestingDependency = libs.room.testing
 val androidTestCoreKtxDependency = libs.androidx.test.core.ktx
 val androidTestRunnerDependency = libs.androidx.test.runner
 val androidTestJunitDependency = libs.androidx.test.junit
+val composeBomDependency = libs.compose.bom
+val composeUiDependency = libs.compose.ui
+val composeMaterial3Dependency = libs.compose.material3
+val webkitDependency = libs.androidx.webkit
+val activityComposeDependency = libs.activity.compose
 
 val jvmLibraries =
     setOf(
@@ -141,7 +146,10 @@ val projectDependencies =
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
         ":extensions:mcp" to listOf(":core:model", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
-        ":feature:browser" to listOf(":core:model", ":core:policy"),
+        // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
+        // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
+        // (:core:workspace).
+        ":feature:browser" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:browser"),
         ":feature:files" to listOf(":core:model", ":core:policy", ":core:workspace"),
         ":feature:files-allfiles" to listOf(":feature:files", ":core:workspace"),
         // HXA-053: the QuickJS module hosts the `code.javascript.run` tool (descriptor +
@@ -151,9 +159,16 @@ val projectDependencies =
         ":runtime:proot-client" to listOf(":core:model"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
-        ":tools:android" to listOf(":core:model", ":core:policy"),
+        // HXA-064: the android. and clipboard. tools sit on the tools:framework contract, same
+        // as :tools:browser. The Context-backed port impl lives in this same module (there is no
+        // :feature:android), so the device tests drive the real ClipboardManager + intent build.
+        ":tools:android" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:automation" to listOf(":core:model", ":core:policy"),
-        ":tools:browser" to listOf(":core:model", ":core:policy"),
+        // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
+        // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
+        // tools:framework's `api` scope, same as :tools:files). The BrowserToolBridge port
+        // they execute against is implemented by :feature:browser (which depends on this module).
+        ":tools:browser" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
         ":tools:root" to listOf(":core:model", ":core:policy"),
         ":testing" to listOf(":core:model"),
@@ -170,6 +185,16 @@ subprojects {
     when (path) {
         in androidLibraries -> {
             pluginManager.apply("com.android.library")
+
+            // HXA-062: :tools:browser and :feature:browser both default to the coordinate
+            // com.helix:browser:0.1.0-SNAPSHOT (project name "browser", default group
+            // "com.helix"). :app depends on both, so Gradle would conflict-resolve them to a
+            // single artifact and silently drop the tool classes — the same collision
+            // :tools:files resolved (HXA-042). A distinct group disambiguates the two without
+            // touching the artifact name or any external lockfile (project deps are not locked).
+            if (path == ":tools:browser") {
+                group = "com.helix.tools"
+            }
 
             // Uniform test baseline for every android library: a module adding its first
             // JVM test (or instrumented test) does not re-declare the platform dependency
@@ -238,11 +263,55 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
 
+            // HXA-064: instrumented tests for the android.*/clipboard.* tools exercise the REAL
+            // Context-backed port (ClipboardManager round-trip, intent building, foreground
+            // gating) on device (verification-matrix row HXA-064).
+            if (path == ":tools:android") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
             // HXA-045: the all-files roots store persists its registry with the same pinned
             // kotlinx-serialization JsonElement API as :feature:files (implementation-scoped, so it
             // is not visible transitively through the :feature:files project dependency).
             if (path == ":feature:files-allfiles") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-060: the browser feature owns the System WebView (AGENTS: "WebView is owned
+            // by the browser feature"; doc 09 §3.2). The first UI-bearing android library:
+            // Compose is enabled module-locally (the app keeps its own wiring) and
+            // androidx-webkit provides the API surface above the System WebView. androidTest
+            // drives the hardened WebView on device (verification-matrix row HXA-060).
+            if (path == ":feature:browser") {
+                pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
+                extensions.configure<LibraryExtension> {
+                    buildFeatures {
+                        compose = true
+                    }
+                }
+                // platform() needs the DependencyHandler receiver, hence the block form.
+                // libs.compose.ui is a nested accessor (DependencyNotationSupplier, not a
+                // Provider) because compose-ui-tooling nests under its path — pass it
+                // straight as notation instead of calling .get().
+                dependencies {
+                    add("implementation", platform(composeBomDependency.get()))
+                    add("implementation", composeUiDependency)
+                    add("implementation", composeMaterial3Dependency.get())
+                    add("implementation", webkitDependency.get())
+                    // HXA-061: the snapshot binder parses the fixed script's JSON result with
+                    // the pinned kotlinx-serialization JsonElement API (no compiler plugin,
+                    // same as :feature:files and the provider modules).
+                    add("implementation", kotlinxSerializationJsonDependency.get())
+                    // BrowserController exposes its state as StateFlow; the UI's
+                    // CreateDocument download launcher comes from activity-compose.
+                    add("implementation", coroutinesCoreDependency.get())
+                    add("implementation", activityComposeDependency.get())
+                    add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                    add("androidTestImplementation", androidTestRunnerDependency.get())
+                    add("androidTestImplementation", androidTestJunitDependency.get())
+                }
             }
 
             // HXA-050: the QuickJS E1 backend uses the pinned Zipline 1.27.0 artifact

@@ -11,7 +11,7 @@ Superseded by: none
 
 Helix 当前产品和已实现 M1 领域模型采用单 Agent Turn/Goal。外部 Agent Harness 已证明子 Agent、并行工具、Workflow DSL、云端任务和 Agent 间通信可以提高复杂任务吞吐，但其桌面/云端假设不能直接套到 Android：手机有更严格的内存、热量、电池、后台和网络成本，Helix 还必须维持 Standard/Advanced、Android scope、逐次审批、独立 Runtime 与不重放边界。
 
-核心 Tool 并发、确定性回填、持久事件和取消属于单 Agent Dispatcher 的基础能力，已由 HXA-037 规划，不依赖本 ADR。本记录只决定是否在基础能力稳定后增加 child delegation 和声明式 Workflow。
+核心 Tool 并发、确定性回填、持久事件和取消属于单 Agent Dispatcher 的基础能力，已由 HXA-037 规划，不依赖本 ADR。本记录只决定是否在基础能力稳定后增加 Helix 内部 child delegation 和声明式 Workflow。M7 的外部 A2A Client 由 [ADR-0016](0016-a2a-client-interoperability.md)另行定义：它是父 Turn 的网络 ToolCall，不是本 ADR 的 child/peer runtime。
 
 ## Decision
 

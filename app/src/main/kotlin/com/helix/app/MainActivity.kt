@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -39,14 +41,28 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
+import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    /**
+     * HXA-069: apply the app UI language to this activity's context (and every Composable
+     * resource it reads) at attach time, via the platform [Context.createConfigurationContext]
+     * (see [AppLanguageStore.wrapForLocale]). [AppLanguageStore.effectiveLocaleList] is
+     * fail-closed — a read error degrades to the system default, never to an empty/invalid locale.
+     */
+    override fun attachBaseContext(base: Context) {
+        val localeList = AppLanguageStore.effectiveLocaleList(base)
+        val wrapped = AppLanguageStore.wrapForLocale(base, localeList)
+        super.attachBaseContext(wrapped)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as HelixApplication).appContainer
@@ -58,6 +74,18 @@ class MainActivity : ComponentActivity() {
         setContent { HelixApp(container) }
     }
 
+    // HXA-060: while the app is in the background every tab's WebView stops its JS timers
+    // and compositor (doc 09 performance); they resume with the activity.
+    override fun onPause() {
+        super.onPause()
+        (application as HelixApplication).appContainer.browser.pause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        (application as HelixApplication).appContainer.browser.resume()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         val draft = ShareIntentDraft.draftFrom(intent)
@@ -65,6 +93,16 @@ class MainActivity : ComponentActivity() {
             draft.text,
             draft.imageUris,
         )
+    }
+
+    /**
+     * The tab STATE (app-scoped [BrowserController]) survives activity recreation, but its
+     * WebViews are UI resources: destroy them with the activity. A tab whose host was just
+     * destroyed renders its placeholder until the next navigation rebuilds the host lazily.
+     */
+    override fun onDestroy() {
+        super.onDestroy()
+        (application as HelixApplication).appContainer.browser.destroy()
     }
 }
 
@@ -117,7 +155,7 @@ internal fun HelixApp(container: AppContainer) {
                     )
                     repository.destinations.forEach { destination ->
                         NavigationDrawerItem(
-                            label = { Text(destination.title) },
+                            label = { Text(stringResource(destination.titleRes)) },
                             selected = destination.route == currentRoute,
                             onClick = {
                                 navController.navigate(destination.route) {
@@ -138,7 +176,7 @@ internal fun HelixApp(container: AppContainer) {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(currentDestination.title) },
+                        title = { Text(stringResource(currentDestination.titleRes)) },
                         navigationIcon = {
                             IconButton(
                                 onClick = { scope.launch { drawerState.open() } },
@@ -170,7 +208,11 @@ internal fun HelixApp(container: AppContainer) {
                                 }
 
                                 ShellDestination.Settings -> {
-                                    SettingsScreen(container.profileStore, container.providerService)
+                                    SettingsScreen(
+                                        container.profileStore,
+                                        container.providerService,
+                                        container.storage.highSensitivityRules,
+                                    )
                                 }
 
                                 ShellDestination.Audit -> {
@@ -182,6 +224,11 @@ internal fun HelixApp(container: AppContainer) {
                                 // + HXA-058: the import/export entries over the HXA-044 pipelines.
                                 ShellDestination.Files -> {
                                     FilesScreen(container.fileManager, container.safTree, container.featureFiles)
+                                }
+
+                                // HXA-060: the minimal hardened WebView browser.
+                                ShellDestination.Browser -> {
+                                    BrowserScreen(container.browser)
                                 }
 
                                 // HXA-045: the all-files consent screen lives in the developer
@@ -236,12 +283,12 @@ private fun EmptyDestination(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "${destination.title}功能尚未启用",
+                text = stringResource(R.string.empty_not_enabled, stringResource(destination.titleRes)),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = destination.emptyState,
+                text = stringResource(destination.emptyStateRes),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="allfiles_advanced_required">切换 Advanced 后才可启用根目录（ADR-0005；Standard 下文件工具仅见 app 私有 scope）。</string>
+    <string name="allfiles_description">说明：Android 的 All files 权限允许 Helix 访问公共存储目录（下载、文档、图片等），但它不覆盖其他应用的私有目录与 Android/data。启用某个根目录后，Agent 也只能访问你在下方明确选择的根目录内，且每次文件操作仍要经过 scope、Policy 与逐次审批。</string>
+    <string name="allfiles_open_settings">去系统设置授权</string>
+    <string name="allfiles_roots_title">Helix 根目录</string>
+    <string name="allfiles_state_denied">系统状态：未授权</string>
+    <string name="allfiles_state_granted">系统状态：已授权</string>
+    <string name="allfiles_state_lost">系统状态：已失效</string>
+    <string name="allfiles_state_unavailable">系统状态：此系统/版本不提供（API 低于 30）</string>
+    <string name="allfiles_title">All files 访问</string>
+</resources>

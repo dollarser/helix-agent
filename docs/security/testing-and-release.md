@@ -32,6 +32,7 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | PRoot Runtime APK | 有限信任 | 同签名代码，但使用独立 UID、私有 Job 副本和最小权限 |
 | WebView 页面/DOM/Cookie | 不信任 | 页面可注入、跳转、伪造控件或包含敏感会话 |
 | MCP Server/tool/resource | 不信任 | 动态 schema、description 和结果都可能恶意 |
+| A2A Agent/Card/Skill/Task/Artifact | 不信任 | 外部 Agent 可变且不透明；协议完成不等于本机目标或远端副作用已验证 |
 | Skill 指令/脚本/资源 | 不信任 | 用户导入内容，不能授予权限 |
 | Accessibility 节点树 | 不信任 | 窗口会变化、节点可过期、敏感 App 可伪装 |
 | RootService | 极高风险 | 有设备级读取/修改能力，不是沙箱 |
@@ -62,6 +63,8 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | Accessibility 误操作 | 包 allowlist、限时 session、步骤预算、敏感包/语义拒绝、即时停止 |
 | Root 任意命令 | 高层参数化工具优先；RootSession；`root.exec` 默认不进 Agent Registry |
 | 恶意 MCP schema/result | namespace、schema hash、结果限制、annotation 不降风险、更新撤销审批 |
+| 恶意 A2A Card/消息/Artifact | 固定 endpoint/interface/version/Card+Skill hash；内容/事件/文件有界；远端不能继承本机权限、批准或反向调用 Tool |
+| A2A Task 重复提交 | 持久 toolCallId ↔ taskId/contextId/input hash；断线只查询/订阅原 Task，送达不明确进入 `NEEDS_REVIEW` |
 | 恶意 Skill zip/script | 防 traversal/zip bomb、内容 hash、渐进加载、脚本仍走正常 Tool |
 | 订阅 token 泄露 | 只由官方 CLI 在独立 UID 持有；主 App 不读取 credential files |
 
@@ -99,10 +102,10 @@ Standard 明确以 Google Play、国内 Android 应用商店和官网为发布�
 - Tool Registry 由 App 固定，文本不能注册工具。
 - Policy 不读取模型的“风险自评”作为授权依据。
 - Secret 永不进入模型 Context。
-- HTTP/WebView/MCP/Skill 内容不能自动触发下一个 L2 工具。
+- HTTP/WebView/MCP/A2A/Skill 内容不能自动触发下一个 L2 工具。
 - 外部内容要求扩大范围时必须生成新的审批。
 
-测试语料至少包括：隐藏 HTML、Markdown 注释、Unicode 混淆、Base64 指令、文件名指令、MCP tool description/result、Skill 指令、伪造 system/tool 标签、通知发送者冒充 Helix。
+测试语料至少包括：隐藏 HTML、Markdown 注释、Unicode 混淆、Base64 指令、文件名指令、MCP tool description/result、A2A Agent Card/Skill/message/Artifact、Skill 指令、伪造 system/tool 标签、通知发送者冒充 Helix。
 
 ## 6. 测试分层
 
@@ -181,10 +184,10 @@ Standard 明确以 Google Play、国内 Android 应用商店和官网为发布�
 - `DENIED`/过期决定不能生成或消费 Approval Proof，不能仅凭非空 decision/consumedAt 放行。
 - 存储仓库 API 只接受封闭 `APPROVED`/`DENIED`；pending 和 denied 在 DAO 原子条件层均不可写入 `consumedAt`，不能只依赖 UI/Dispatcher 预检。
 - 切换 Standard/Advanced、授予 Android 权限、安装 Runtime 或获得 Root grant 都不会改变既有 approval decision，也不会产生通用批准凭证。
-- 产品和测试夹具中不存在 `FULL_ACCESS`、`AUTO_APPROVE_MODEL` 或由模型/MCP/Skill 触发用户批准的路径；Advanced 高敏出网规则只能授权精确出网绑定，不能被 Dispatcher 当作任意 Tool Approval Proof。
+- 产品和测试夹具中不存在 `FULL_ACCESS`、`AUTO_APPROVE_MODEL` 或由模型/MCP/A2A/Skill 触发用户批准的路径；Advanced 高敏出网规则只能授权精确出网绑定，不能被 Dispatcher 当作任意 Tool Approval Proof。
 - Tool timeout 返回稳定错误。
 - Tool result 超限截断并保留 hash/Artifact 引用。
-- 并发安全只由规范化参数生成的 effect footprint 决定；伪造的模型/MCP/Skill `isConcurrencySafe` 不生效。无冲突读取可并行，未知/写/代码/Root/UI/同 target lane 必须形成屏障。
+- 并发安全只由规范化参数生成的 effect footprint 决定；伪造的模型/MCP/A2A/Skill `isConcurrencySafe` 不生效。无冲突读取可并行，未知/写/代码/Root/UI/同 target lane 必须形成屏障。
 - 并行调用以不同完成顺序重复运行，进入模型的结果仍按原始 call sequence 完全一致；真实 timing 只进入审计。
 - cancel/kill 时未启动项持久 `CANCELLED_BEFORE_START`，已启动项有 terminal 或 unknown outcome；任何项都不消失、不盲重放。
 - sandbox/target/网络失败不触发权限升级、scope 扩大、Root/All-files/Accessibility/LAN 请求或主进程 fallback。技术重试必须证明前一 attempt 零副作用且 envelope 不变。
@@ -223,13 +226,16 @@ Standard 明确以 Google Play、国内 Android 应用商店和官网为发布�
 - `root.exec` 不出现在普通 Agent 工具表。
 - Accessibility 检查点结合动作数、经过时间、目标 package/window 和敏感语义变化；连续快速批准不能升级为自动允许。Advanced 可在硬上限内调整预算，但不能关闭敏感界面拒绝。
 
-### 7.7 MCP/Skills/Plan/Goal
+### 7.7 MCP/A2A/Skills/Plan/Goal
 
 - MCP server 名称碰撞、超大 schema/result、协议降级、schema hash 变化和恶意 annotation。
 - Skill frontmatter、路径、symlink、zip bomb、超大 reference、脚本要求绕过审批。
 - Plan mode 同时要求 `operationClass=READ_ONLY` 和动态风险 ≤ L1；L1 新建文件、HTTP 和页面动作仍因 operation class 被拒绝，READ_ONLY/L2 也被拒绝。
 - Goal 预算、检查点、进程恢复、Skill snapshot 和副作用不明确处理。Doze/强制停止可延迟提醒，但不会在用户继续前自动调用模型/工具。
 - MCP 使用会话级出网预算和数据类别摘要；endpoint、schema 或敏感数据类别变化时强制检查点，不能仅以固定“每 N 次”提示代替边界变化检查。
+- A2A Agent Card 覆盖超大/畸形字段、endpoint/interface/version 替换、Skill hash 变化、认证错误和恶意 description；旧动态工具、审批和规则全部失效。
+- A2A Send/stream/GetTask/Cancel/Subscribe 覆盖任意 SSE/JSON byte 边界、乱序/重复事件、断线、取消竞态、进程死亡和远端拒绝取消；恢复只能对账同一 task ID，未知送达不重发。
+- A2A text/data/file Artifact 有单块、总响应、文件数、MIME、重定向、hash 和 Workspace 配额；远端输出标记 `UNTRUSTED_A2A_CONTENT`，不能生成 Approval Proof、调用本机 Tool 或直接满足本机副作用 verifier。
 
 ### 7.8 编排、委托与 Workflow
 
@@ -239,7 +245,7 @@ Standard 明确以 Google Play、国内 Android 应用商店和官网为发布�
 - child 不继承 pending approval、Approval Proof、Secret、Root/Automation session、UI token 或可写 capability；L2/L3/写请求只能形成 proposal，父 Turn 必须重建 ToolCall 并逐次审批。
 - parent/child graph、状态、取消和 completion result 持久化；child 完成自述不能直接作为 verifier evidence，必须带真实 ToolResult/Artifact ref。
 - JSON Workflow 拒绝未知 node、无界 fan-out/循环、动态插件/Policy、脚本节点和未注册工具。每个合法节点仍经过 Dispatcher、预算、审批、取消、验证和审计。
-- 云端任务、remote diff apply、peer-to-peer Agent 消息、自修改插件和 JS/Starlark Workflow/Policy 不出现在 APK、Tool Registry 或恢复状态中。
+- 云端任务、remote diff apply、任意 peer-to-peer Agent 消息、自修改插件和 JS/Starlark Workflow/Policy 不出现在 APK、Tool Registry 或恢复状态中。M7 的 `a2a.<agent>.<skill>` 只是父 Turn 发起的用户配置网络 ToolCall，不视为内部 child/peer 编排。
 
 ### 7.9 URL Policy 与 DNS rebinding
 
@@ -348,7 +354,7 @@ Standard 是 Google Play、国内 Android 应用商店和官网的完整产品�
 
 - 对应发布范围的 HXA 已完成，40 条核心场景和确定性工具指标达到产品需求；未完成能力不进入 listing。
 - API 29、34/35、36 的适用真机矩阵、24 小时稳定性、恢复与副作用测试通过。
-- Standard 完成 Provider、Workspace/文件、Browser、解释执行、MCP/Skills 和 Android 基础工具中该版本声明的核心任务，不得退化为聊天壳。
+- Standard 完成 Provider、Workspace/文件、Browser、解释执行、MCP/A2A/Skills 和 Android 基础工具中该版本声明的核心任务，不得退化为聊天壳。
 - unit/lint/instrumentation、SBOM、notice、签名、升级/回滚、权限、隐私、数据安全和诊断删除门禁通过。
 - 每个渠道差异都有政策原文版本或真实审核反馈；consumer/developer flavor 名不能充当删减理由。
 

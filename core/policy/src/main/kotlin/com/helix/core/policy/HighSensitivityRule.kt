@@ -89,5 +89,33 @@ data class HighSensitivityRule(
                 createdAt = createdAt,
                 expiresAt = createdAt.plus(RuleDuration.DEFAULT.duration),
             )
+
+        /**
+         * Creates a rule for an explicit fixed [duration] (one of [RuleDuration]: 1h/24h/7d/30d)
+         * from a raw [originFull] (the developer/Advanced rule-management UI entry, HXA-068).
+         *
+         * Fail-closed at the two seams the value types do NOT already cover:
+         * - [originFull] is re-parsed (fail-closed on any non-http/https, userinfo, query,
+         *   fragment, or control-character corruption);
+         * - a wildcard / blank target is unrepresentable, because [target] already carries
+         *   [com.helix.core.model.ProviderId]/[com.helix.core.model.McpServerId] value classes
+         *   that reject them at construction (ADR-0005: no wildcards, no blanket grants).
+         * The SENSITIVE + fixed-TTL invariants are then re-enforced by the constructor.
+         */
+        fun withDuration(
+            target: EgressTarget,
+            originFull: String,
+            scope: UserScope,
+            duration: RuleDuration,
+            createdAt: Instant,
+        ): HighSensitivityRule =
+            HighSensitivityRule(
+                target = target,
+                origin = NormalizedEndpoint.parse(originFull),
+                dataCategory = DataSensitivity.SENSITIVE,
+                scope = scope,
+                createdAt = createdAt,
+                expiresAt = createdAt.plus(duration.duration),
+            )
     }
 }

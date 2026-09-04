@@ -23,8 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.approval.AuditLogFilter
 import com.helix.app.audit.AuditLogService
@@ -114,21 +116,21 @@ fun AuditScreen(
 
 /** The page count with the bounded-page caveat: "no records" must not read as "the whole
  * audit history is empty" — the filters act on the loaded newest page only. */
+@Composable
 private fun auditCountText(size: Int): String =
     if (size == 0) {
-        "最近 ${AuditLogService.PAGE_LIMIT} 条内、当前过滤条件下没有审计记录。"
+        stringResource(R.string.audit_count_empty, AuditLogService.PAGE_LIMIT)
     } else {
-        "共 $size 条（仅作用于已加载的最近 ${AuditLogService.PAGE_LIMIT} 条）"
+        stringResource(R.string.audit_count_total, size, AuditLogService.PAGE_LIMIT)
     }
 
 /** The page title + the redaction note (what this page may and may not show). */
 @Composable
 @Suppress("FunctionName")
 private fun AuditLogHeader() {
-    Text("审计日志（脱敏记录）", style = MaterialTheme.typography.titleLarge)
+    Text(stringResource(R.string.audit_title), style = MaterialTheme.typography.titleLarge)
     Text(
-        "只显示脱敏的有界摘要：工具、结果码、风险、决策来源与阶段时间；" +
-            "不包含参数或输出正文。",
+        stringResource(R.string.audit_redaction_note),
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
@@ -139,7 +141,7 @@ private fun AuditLogHeader() {
 @Suppress("FunctionName")
 private fun AuditClearFiltersButton(onClear: () -> Unit) {
     OutlinedButton(onClick = onClear, modifier = Modifier.testTag("audit-clear-filters")) {
-        Text("清除过滤")
+        Text(stringResource(R.string.audit_clear_filters))
     }
 }
 
@@ -159,27 +161,27 @@ private fun AuditSessionToolRiskFilters(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         FilterSelect(
             tag = "audit-filter-session",
-            label = "会话",
-            placeholder = "全部会话",
+            label = stringResource(R.string.audit_filter_session),
+            placeholder = stringResource(R.string.audit_all_sessions),
             options = sessions.map { it.id to it.title },
             selected = sessionId,
             onSelect = onSession,
         )
         FilterSelect(
             tag = "audit-filter-tool",
-            label = "工具",
-            placeholder = "全部工具",
+            label = stringResource(R.string.audit_filter_tool),
+            placeholder = stringResource(R.string.audit_all_tools),
             options = tools.map { it to it },
             selected = toolName,
             onSelect = onTool,
         )
         FilterSelect(
             tag = "audit-filter-risk",
-            label = "风险",
-            placeholder = "全部风险",
+            label = stringResource(R.string.approval_risk),
+            placeholder = stringResource(R.string.audit_all_risks),
             options =
                 RiskLevel.entries.map {
-                    it.name to ApprovalUiMapper.riskLabel(it)
+                    it.name to stringResource(ApprovalUiMapper.riskLabel(it))
                 },
             selected = risk?.name,
             onSelect = { onRisk(it?.let { name -> RiskLevel.valueOf(name) }) },
@@ -201,14 +203,14 @@ private fun AuditDateFilters(
             value = fromDay,
             onValueChange = onFromDay,
             modifier = Modifier.weight(1f).testTag("audit-filter-from"),
-            label = { Text("起始日期") },
+            label = { Text(stringResource(R.string.audit_from_date)) },
             singleLine = true,
         )
         OutlinedTextField(
             value = toDay,
             onValueChange = onToDay,
             modifier = Modifier.weight(1f).testTag("audit-filter-to"),
-            label = { Text("结束日期") },
+            label = { Text(stringResource(R.string.audit_to_date)) },
             singleLine = true,
         )
     }
@@ -257,20 +259,43 @@ private fun FilterSelect(
 @Composable
 @Suppress("FunctionName")
 private fun AuditRow(record: com.helix.app.approval.DispatchAuditRecord) {
+    val codeLabel =
+        record.code?.let { stringResource(ApprovalUiMapper.codeLabel(it)) }
+            ?: stringResource(R.string.audit_unknown_code)
+    val riskLabel =
+        record.risk?.let { stringResource(ApprovalUiMapper.riskLabel(it)) }
+            ?: stringResource(R.string.audit_unknown)
+    val sourceLabel =
+        record.decisionSource?.let { stringResource(ApprovalUiMapper.sourceLabel(it)) }
+            ?: stringResource(R.string.audit_unknown)
     val lines =
         buildList {
             add(
-                "${record.code?.let { ApprovalUiMapper.codeLabel(it) } ?: "未知码"} · " +
-                    "工具 ${record.toolName} v${record.toolVersion ?: "?"} · " +
-                    "风险 ${record.risk?.let { ApprovalUiMapper.riskLabel(it) } ?: "未知"}",
+                stringResource(
+                    R.string.audit_row_summary,
+                    codeLabel,
+                    record.toolName ?: "?",
+                    record.toolVersion ?: "?",
+                    riskLabel,
+                ),
             )
-            add("会话 ${record.sessionId ?: "?"} / 回合 ${record.turnId ?: "?"}")
             add(
-                "决策来源 ${record.decisionSource?.let { ApprovalUiMapper.sourceLabel(it) } ?: "未知"}" +
-                    " · 开始 ${record.startedAt} · 结束 ${record.finishedAt}",
+                stringResource(
+                    R.string.audit_row_session_turn,
+                    record.sessionId ?: "?",
+                    record.turnId ?: "?",
+                ),
+            )
+            add(
+                stringResource(
+                    R.string.audit_row_decision_times,
+                    sourceLabel,
+                    record.startedAt,
+                    record.finishedAt,
+                ),
             )
             if (record.correlationId.isNotBlank()) {
-                add("关联 ${record.correlationId}")
+                add(stringResource(R.string.audit_row_correlation, record.correlationId))
             }
         }
     Column(

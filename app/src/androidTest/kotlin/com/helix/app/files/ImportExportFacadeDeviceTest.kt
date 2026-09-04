@@ -3,6 +3,8 @@ package com.helix.app.files
 import android.content.Context
 import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.test.TransferTestDocumentsProvider
 import com.helix.core.workspace.AtomicFileWriter
 import com.helix.core.workspace.ScopeRootResolver
@@ -92,6 +94,7 @@ class ImportExportFacadeDeviceTest {
      * [exportToATreeWithoutAWritePermissionFailsClosed] (the REAL check, no override).
      */
     private fun buildService(writableTree: Boolean): FileManagerService {
+        val zh = AppLanguageStore.wrapForLocale(context, AppLanguageStore.localeListFor(AppLanguage.ZH_CN))
         val treeService =
             SafTreeScopeService(
                 grantStore,
@@ -135,6 +138,7 @@ class ImportExportFacadeDeviceTest {
             scopeId,
             treeAccess,
             transferAccess,
+            strings = { resId, args -> zh.getString(resId, *args) },
         )
     }
 

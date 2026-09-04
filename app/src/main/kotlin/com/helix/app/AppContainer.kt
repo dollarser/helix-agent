@@ -10,7 +10,10 @@ import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
+import com.helix.app.foreground.AndroidForegroundServiceLauncher
+import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.internal.PrefsLineStore
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
@@ -25,6 +28,7 @@ import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
 import com.helix.core.policy.CapabilityCenter
+import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.FileScopePath
@@ -32,6 +36,8 @@ import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.feature.browser.BrowserController
+import com.helix.feature.browser.BrowserToolBridgeImpl
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.ContentResolverSafDestinationOpener
 import com.helix.feature.files.ContentResolverSafDestinationReReader
@@ -52,6 +58,16 @@ import com.helix.feature.files.SafTreeScopeService
 import com.helix.provider.api.CredentialLookup
 import com.helix.runtime.quickjs.JsExecutionClient
 import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
+import com.helix.tools.android.AndroidSystemBridgeImpl
+import com.helix.tools.android.AndroidSystemTools
+import com.helix.tools.android.CalendarBridgeImpl
+import com.helix.tools.android.EgressPolicy
+import com.helix.tools.android.EgressPolicyProvider
+import com.helix.tools.android.HttpFetchBridgeImpl
+import com.helix.tools.android.HttpFetchTools
+import com.helix.tools.android.NotificationsBridgeImpl
+import com.helix.tools.android.NotificationsCalendarTools
+import com.helix.tools.browser.BrowserTools
 import com.helix.tools.files.EditTool
 import com.helix.tools.files.FilesArchiveTool
 import com.helix.tools.files.FilesCopyTool
@@ -69,7 +85,19 @@ import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import java.nio.file.Path
+
+/**
+ * The app's own private workspace scope id (HXA-042); the only file scope wired yet. Internal
+ * (not a companion constant) so the HXA-068 Advanced egress-rule UI — which must bind new rules
+ * to the SAME scope the app's tools address — can reference it without duplicating the literal.
+ */
+internal const val APP_SCOPE_ID = "app"
 
 /**
  * The app's manual DI container (M0 pattern; no framework). HXA-028 adds the
@@ -122,6 +150,13 @@ interface AppContainer {
     val fileManager: FileManagerService
 
     /**
+     * The browser facade (HXA-060): the hardened WebView tab state, the URL-policy choke
+     * point and the download queue. The UI binds to it; nothing else in the app touches
+     * the WebView (AGENTS: WebView is owned by the browser feature).
+     */
+    val browser: BrowserController
+
+    /**
      * The SAF tree scope service (HXA-057): persisted tree grants (the SAME [SafGrantStore] the
      * import/export bundle uses) + real-time re-verification (grant / provider identity / root
      * document / read-write mode). The file manager browses these scopes read-only; the model and
@@ -156,6 +191,8 @@ class FeatureFiles(
 internal class DefaultAppContainer(
     context: Context,
 ) : AppContainer {
+    private val appContext: Context = context.applicationContext
+
     override val shellRepository: ShellRepository = FakeShellRepository()
 
     override val storage: HelixStorage = HelixStorage.create(context)
@@ -221,6 +258,15 @@ internal class DefaultAppContainer(
     /** One process clock shared by the chat service, the policy engine, the broker and the sink. */
     private val appClock: SystemClock = SystemClock()
 
+    // --- HXA-066: dataSync foreground service for user-initiated transport / file processing ---
+
+    /** App-lifetime scope that observes the chat screen to drive the dataSync foreground service. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val dataSyncLauncher = AndroidForegroundServiceLauncher(context.applicationContext)
+
+    private val dataSyncController = DataSyncForegroundController(dataSyncLauncher)
+
     private val toolRegistry: ToolRegistry = ToolRegistry()
 
     private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
@@ -272,6 +318,13 @@ internal class DefaultAppContainer(
      */
     private val safGrantStore: SafGrantStore =
         SafGrantStore(java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath())
+
+    /**
+     * The browser facade (HXA-060). App-scoped on purpose: the tab state machine outlives
+     * activity recreation; the (main-thread) WebViews it owns are destroyed by the activity's
+     * onDestroy and rebuilt lazily on the next navigation.
+     */
+    override val browser: BrowserController = BrowserController(context)
 
     /**
      * The SAF tree scope service (HXA-057: persisted SAF tree scope 接线). Re-verifies every grant
@@ -347,6 +400,9 @@ internal class DefaultAppContainer(
                 treeDestination = featureFiles.treeDestination,
                 destinationReReader = featureFiles.destinationReReader,
             ),
+            // HXA-069: the facade's user-visible status/detail texts are stable string-resource
+            // ids, localized against the CHOSEN app language at emit time (see [resolveLocalized]).
+            strings = { id, args -> resolveLocalized(id, args) },
         )
 
     init {
@@ -382,6 +438,57 @@ internal class DefaultAppContainer(
         CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
             jsExecutionClient.execute(params, cancel)
         }
+        // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
+        // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
+        // main-thread [browser] controller off the tool dispatcher's thread: node tokens are
+        // validated fail-closed against live state, and a click/type is PERFORMED only when BOTH
+        // the fixed script AND the host SensitiveFieldClassifier agree the field is normal.
+        BrowserTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
+        )
+        // HXA-064: the android.open_uri / clipboard.read / clipboard.write / android.share tools.
+        // The production port (AndroidSystemBridgeImpl) is Context-backed: it builds the real
+        // Intent / ClipboardManager calls and gates clipboard read/write on visible-foreground.
+        // All four are L2 EXTERNAL_ACTION, so the L2 approval card previews the FULL arguments
+        // (e.g. the share text) before the user approves — that IS "分享输入先预览" (doc 02 §5.4).
+        AndroidSystemTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            AndroidSystemBridgeImpl(context),
+        )
+        // HXA-065: the notifications.query / calendar.prepare_event / calendar.commit_event tools.
+        // The production ports are Context-backed: NotificationsBridgeImpl reads the live snapshot
+        // held by the (manifest-declared) NotificationListenerService and gates the whole query on the
+        // user enabling "Notification access"; CalendarBridgeImpl holds in-memory drafts (prepare
+        // never writes) and writes the held draft to the Calendar Provider on commit, gated on
+        // WRITE_CALENDAR. Both return a stable 'permission-missing' (never a fake success) when the
+        // permission is off (doc 09 §11 / overview.md §11).
+        NotificationsCalendarTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            NotificationsBridgeImpl(context),
+            CalendarBridgeImpl(context),
+        )
+        // HXA-066: the http.fetch tool — a bounded GET/HEAD over the raw-socket transport
+        // (HttpFetchBridgeImpl) that enforces the connection-time SSRF / URL-Policy: it resolves
+        // every A/AAAA/IPv4-mapped candidate, connects only to the verified set, revalidates the
+        // actual peer, keeps the original hostname for TLS Host/SNI/cert, and re-runs the whole
+        // origin/DNS/IP/scope decision on every redirect hop. The egress decision (current
+        // SafetyProfile + the user's pre-created exact LAN/loopback scopes) is read from the APP's
+        // profileStore, NEVER the model (roadmap: "模型 URL 不能创建 scope"); until the HXA-068
+        // LAN-scopes store lands, scopes are empty, so under ADVANCED no LAN/loopback host is
+        // reachable — a policy refusal is a stable 'refused' reason code, not a fake success.
+        HttpFetchTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            HttpFetchBridgeImpl(
+                object : EgressPolicyProvider {
+                    override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, emptySet())
+                },
+            ),
+        )
     }
 
     /**
@@ -417,6 +524,18 @@ internal class DefaultAppContainer(
                     policyEngine = PolicyEngine(appClock),
                     approvals = broker,
                     audit = auditSink,
+                    // ADVANCED high-sensitivity egress rules (HXA-068, ADR-0005/0012): rehydrated
+                    // from Room on every evaluation. [LiveEgressRules.current] is the single
+                    // fail-closed gate — it hands the engine the full bound set ONLY while the
+                    // current profile is ADVANCED (a Standard profile, or a consumer build which
+                    // can never be ADVANCED, yields nothing), and yields NOTHING when the store
+                    // cannot be read or holds a corrupt row, so neither a profile switch nor
+                    // storage corruption ever auto-approves a possibly-wrong rule.
+                    ruleProvider = {
+                        LiveEgressRules.current(profileStore.profile) {
+                            storage.highSensitivityRules.all().map { it.rule }
+                        }
+                    },
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
@@ -459,15 +578,36 @@ internal class DefaultAppContainer(
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
+            // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
+            strings = { resId, args -> resolveLocalized(resId, args) },
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard
+            // HXA-066: keep the dataSync foreground service up only while a turn is actively
+            // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
+            appScope.launch {
+                it.screen.collect { screen -> dataSyncController.onTurnState(screen.activeTurn?.state) }
+            }
         }
+
+    /**
+     * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the
+     * CHOSEN app language at emit time. The app-level [appContext] does not carry the chosen
+     * language (only the activity's wrapped context does), so a context is wrapped per emit from
+     * the stored choice. Emits are discrete (chat blocks/terminals/tool states, file ops), never
+     * per token — so the one-shot array spread is not a hot path.
+     */
+    @Suppress("SpreadOperator") // discrete string resolve; getString's vararg API has no array overload
+    private fun resolveLocalized(resId: Int, args: Array<out Any>): String {
+        val base = appContext
+        return AppLanguageStore
+            .wrapForLocale(
+                base,
+                AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
+            ).getString(resId, *args)
+    }
 
     private companion object {
         const val PREFS_NAME = "helix-ui"
-
-        /** The app's own private workspace scope id (HXA-042); the only file scope wired yet. */
-        const val APP_SCOPE_ID = "app"
     }
 }
