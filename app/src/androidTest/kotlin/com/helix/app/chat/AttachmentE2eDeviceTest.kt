@@ -562,6 +562,12 @@ class AttachmentE2eDeviceTest {
                     fixture.service.screen.value.pendingAttachments
                         .isEmpty(),
                 )
+                assertEquals("$name must not reach the Provider wire", 0, fixture.wire.callCount)
+                val attachmentRoot = File(fixture.workspaceRoot, "input/attachments")
+                assertTrue(
+                    "$name must leave no imported payload or orphan attachment-id directory",
+                    !attachmentRoot.exists() || attachmentRoot.listFiles().orEmpty().isEmpty(),
+                )
             } finally {
                 settleAndClose(fixture)
             }

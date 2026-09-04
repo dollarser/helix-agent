@@ -592,6 +592,10 @@ class ChatService(
         ) {
             // The classifier re-derived this from the durable bytes; unsupported types are
             // never parsed/decoded/rendered — the user is told and the file is not staged.
+            // Classification necessarily happens after the one-time private copy so it can
+            // trust the bytes rather than the provider label; discard that unregistered copy
+            // now so every unsupported attempt leaves neither an Artifact nor an orphan payload.
+            discardUnsupportedImport(result.modelRef)
             setBlocked(str(R.string.chat_blocked_unsupported_type, fileName))
             return
         }
@@ -831,6 +835,20 @@ class ChatService(
     /** Best-effort delete of a file whose staging failed (an unreferenced orphan otherwise). */
     private fun deleteQuietly(path: Path) {
         runCatching { Files.deleteIfExists(path) }
+    }
+
+    /** Removes an unsupported import's unregistered payload and its now-empty attachment-id dir. */
+    private fun discardUnsupportedImport(modelRef: String?) {
+        val scopePath =
+            runCatching { FileScopePath.fromModelReference(modelRef.orEmpty()) }
+                .getOrNull() ?: return
+        val path =
+            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
+                .getOrNull() ?: return
+        deleteQuietly(path)
+        // The per-import directory is unique and contains only this payload before staging.
+        // deleteIfExists fails harmlessly if deletion above failed or an unexpected entry exists.
+        runCatching { Files.deleteIfExists(path.parent) }
     }
 
     /** The fixed, user-visible (Chinese) reason for a refused attachment import — never the raw detail. */
