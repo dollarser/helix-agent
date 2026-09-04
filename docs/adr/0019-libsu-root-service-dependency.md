@@ -111,7 +111,10 @@ JitPack 是按 Git ref 构建并托管 artifact 的额外供应链节点，且 6
 
 HXA-094 完成前仍 required：在专用 rooted arm64/API 34+ 实机上分别执行用户 grant、deny、
 grant 后撤权，以及杀死真实 RootService 进程；确认状态为 `GRANTED`/`DENIED`/`LOST`、无自动
-重绑或调用重放，并记录 Root 管理器、版本、设备/API 与完整测试结果。
+重绑或调用重放，并记录 Root 管理器、版本、设备/API 与完整测试结果。设备接入后使用
+`tools/root/scripts/run-hxa094-rooted-matrix.sh <serial> denied '<manager/version>'` 和对应的
+`granted` phase；脚本会拒绝 emulator、非 arm64-v8a 和 API 34 以下设备。`granted` phase 会
+杀死刚绑定的真实 RootService 进程并要求 controller 收敛到 `LOST`。
 
 ## Reconsider when
 

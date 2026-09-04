@@ -45,7 +45,7 @@
 ## In progress
 
 - 并行 worktree `codex/m7-mcp`：M7 HXA-070～079 非设备收口；HXA-073 因显式依赖 HXA-084 暂缓。当前不写 HXA 完成记录，也不把 JVM/standalone R8 结果表述为设备验收。
-- 独立 worktree `codex/m9-accessibility-root`：HXA-090～093 已完成并在 M9 专用 API 29/36 AVD 验收；当前唯一检查点 HXA-094 已完成 libsu 6.0.0 `core`/`service`、JitPack exclusive content、lock/checksum/notice、rootless 状态机与双 AVD Spike，并形成 accepted [ADR-0019](../adr/0019-libsu-root-service-dependency.md)。专用 rooted 实机仍缺失，因此 grant/deny/revoke/RootService crash 门禁未通过，HXA-094 不得写完成记录且 HXA-095 尚未开始；不读取或修改 M8 worktree。
+- 独立 worktree `codex/m9-accessibility-root`：HXA-090～093 已完成并在 M9 专用 API 29/36 AVD 验收；当前唯一检查点 HXA-094 已完成 libsu 6.0.0 `core`/`service`、JitPack exclusive content、lock/checksum/notice、rootless 状态机与双 AVD Spike，并形成 accepted [ADR-0019](../adr/0019-libsu-root-service-dependency.md)。专用 rooted 实机仍缺失；仓库已提供会拒绝 emulator/非 arm64/API<34 的 grant/deny/crash 验收脚本，但 grant/deny/revoke/RootService crash 门禁仍未通过，HXA-094 不得写完成记录且 HXA-095 尚未开始；不读取或修改 M8 worktree。
 
 ## Next task
 
