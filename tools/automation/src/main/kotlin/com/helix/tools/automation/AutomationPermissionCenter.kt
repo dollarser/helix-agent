@@ -56,6 +56,9 @@ class AutomationPermissionCenter(
 
     fun activeSession(): ActiveAutomationSession? = AutomationServiceController.activeSession()
 
+    /** Internal HXA-091 debug/fixture entry; this is not registered as an Agent Tool. */
+    fun snapshot(): AutomationSnapshotResult = AutomationServiceController.snapshot()
+
     private fun isSystemEnabled(): Boolean {
         val manager = appContext.getSystemService(AccessibilityManager::class.java)
         return manager

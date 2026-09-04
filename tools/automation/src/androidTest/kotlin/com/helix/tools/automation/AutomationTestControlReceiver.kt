@@ -10,11 +10,13 @@ import android.content.Intent
  * test would observe a second instance rather than the one used by [HelixAccessibilityService].
  */
 class AutomationTestControlReceiver : BroadcastReceiver() {
+    @Suppress("LongMethod")
     override fun onReceive(
         context: Context,
         intent: Intent,
     ) {
         val center = AutomationPermissionCenter(context)
+        val snapshotResult = if (intent.action == ACTION_SNAPSHOT) center.snapshot() else null
         val result =
             when (intent.action) {
                 ACTION_PROBE -> {
@@ -37,6 +39,10 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                     RESULT_OK
                 }
 
+                ACTION_SNAPSHOT -> {
+                    checkNotNull(snapshotResult).status.name
+                }
+
                 ACTION_DISABLE_SERVICE -> {
                     center.disableService()
                     RESULT_OK
@@ -47,6 +53,7 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 }
             }
         val active = center.activeSession()
+        val snapshot = snapshotResult?.snapshot
         check(
             context
                 .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -54,7 +61,28 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 .putLong(KEY_NONCE, intent.getLongExtra(EXTRA_NONCE, -1))
                 .putString(KEY_RESULT, result)
                 .putBoolean(KEY_ACTIVE, active != null)
-                .commit(),
+                .putString(KEY_SNAPSHOT_PACKAGE, snapshot?.packageName)
+                .putInt(KEY_SNAPSHOT_WINDOW, snapshot?.windowId ?: -1)
+                .putLong(KEY_SNAPSHOT_GENERATION, snapshot?.generation ?: -1L)
+                .putInt(KEY_SNAPSHOT_NODE_COUNT, snapshot?.nodes?.size ?: 0)
+                .putString(KEY_SNAPSHOT_FIRST_TOKEN, snapshot?.nodes?.firstOrNull()?.token)
+                .putBoolean(KEY_SNAPSHOT_TRUNCATED, snapshot?.truncated ?: false)
+                .putString(
+                    KEY_SNAPSHOT_SUMMARY,
+                    snapshot
+                        ?.nodes
+                        ?.joinToString(" | ") { node ->
+                            listOf(
+                                node.className,
+                                node.text,
+                                node.contentDescription,
+                                node.viewId,
+                                node.clickable,
+                                node.editable,
+                                node.scrollable,
+                            ).joinToString(";")
+                        },
+                ).commit(),
         ) {
             "failed to persist the automation device-test bridge result"
         }
@@ -65,6 +93,7 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val ACTION_REPLACE_ALLOWLIST = "com.helix.tools.automation.test.REPLACE_ALLOWLIST"
         const val ACTION_START = "com.helix.tools.automation.test.START"
         const val ACTION_STOP = "com.helix.tools.automation.test.STOP"
+        const val ACTION_SNAPSHOT = "com.helix.tools.automation.test.SNAPSHOT"
         const val ACTION_DISABLE_SERVICE = "com.helix.tools.automation.test.DISABLE_SERVICE"
         const val EXTRA_NONCE = "nonce"
         const val EXTRA_PACKAGES = "packages"
@@ -72,6 +101,13 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val KEY_NONCE = "nonce"
         const val KEY_RESULT = "result"
         const val KEY_ACTIVE = "active"
+        const val KEY_SNAPSHOT_PACKAGE = "snapshot_package"
+        const val KEY_SNAPSHOT_WINDOW = "snapshot_window"
+        const val KEY_SNAPSHOT_GENERATION = "snapshot_generation"
+        const val KEY_SNAPSHOT_NODE_COUNT = "snapshot_node_count"
+        const val KEY_SNAPSHOT_FIRST_TOKEN = "snapshot_first_token"
+        const val KEY_SNAPSHOT_TRUNCATED = "snapshot_truncated"
+        const val KEY_SNAPSHOT_SUMMARY = "snapshot_summary"
         private const val RESULT_OK = "OK"
         private const val RESULT_UNKNOWN_ACTION = "UNKNOWN_ACTION"
     }

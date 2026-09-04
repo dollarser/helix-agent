@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_DISABLE_SERVICE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_PROBE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_REPLACE_ALLOWLIST
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_SNAPSHOT
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_START
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,7 +22,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 /**
- * Dedicated-device acceptance for HXA-090. UiAutomation uses
+ * Dedicated-device acceptance for HXA-090/091. UiAutomation uses
  * [UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES], otherwise instrumentation itself
  * prevents the real service from binding. Cleanup uses the service's user-revocation path
  * (`disableSelf`) and preserves other enabled services.
@@ -87,14 +88,37 @@ class AutomationServiceDeviceTest {
     }
 
     private fun assertFixtureSessionAndImmediateStop() {
-        instrumentation.startActivitySync(
-            Intent(testContext, AutomationFixtureActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
         val fixturePackage = testContext.packageName
         assertEquals("OK", bridge(ACTION_REPLACE_ALLOWLIST, setOf(fixturePackage)).result)
         val started = bridge(ACTION_START, setOf(fixturePackage))
         assertEquals(AutomationSessionStartStatus.STARTED.name, started.result)
         assertTrue(started.active)
+
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        waitUntil { bridge(ACTION_SNAPSHOT).result == AutomationSnapshotStatus.SUCCESS.name }
+        val snapshot = bridge(ACTION_SNAPSHOT)
+        assertEquals(fixturePackage, snapshot.snapshotPackage)
+        assertTrue(snapshot.snapshotWindow >= 0)
+        assertTrue(snapshot.snapshotGeneration > 0)
+        assertTrue(snapshot.snapshotNodeCount >= 2)
+        assertEquals(32, snapshot.snapshotFirstToken.length)
+        assertFalse(snapshot.snapshotTruncated)
+
+        launchFixture(AutomationFixtureActivity.MODE_SENSITIVE)
+        var latestSensitive = bridge(ACTION_SNAPSHOT)
+        waitUntil(failureMessage = { "latest sensitive snapshot=$latestSensitive" }) {
+            bridge(ACTION_SNAPSHOT)
+                .also { latestSensitive = it }
+                .result == AutomationSnapshotStatus.SENSITIVE_UI.name
+        }
+
+        launchFixture(AutomationFixtureActivity.MODE_SECURE_CUSTOM)
+        var latestSecureCustom = bridge(ACTION_SNAPSHOT)
+        waitUntil(failureMessage = { "latest secure/custom snapshot=$latestSecureCustom" }) {
+            bridge(ACTION_SNAPSHOT)
+                .also { latestSecureCustom = it }
+                .result == AutomationSnapshotStatus.UNSUPPORTED_UI.name
+        }
 
         targetContext.sendBroadcast(
             Intent(targetContext, AutomationStopReceiver::class.java).setAction(
@@ -103,6 +127,19 @@ class AutomationServiceDeviceTest {
         )
         waitUntil { !bridge(ACTION_PROBE).active }
         assertFalse(bridge(ACTION_PROBE).active)
+    }
+
+    private fun launchFixture(mode: String) {
+        targetContext.startActivity(
+            Intent(testContext, AutomationFixtureActivity::class.java)
+                .putExtra(AutomationFixtureActivity.EXTRA_MODE, mode)
+                .addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP,
+                ),
+        )
+        instrumentation.waitForIdleSync()
     }
 
     private fun assertServiceDisableStopsLiveSession(originalComponents: Set<String>) {
@@ -156,6 +193,22 @@ class AutomationServiceDeviceTest {
         return BridgeResult(
             result = preferences.getString(AutomationTestControlReceiver.KEY_RESULT, null).orEmpty(),
             active = preferences.getBoolean(AutomationTestControlReceiver.KEY_ACTIVE, false),
+            snapshotPackage =
+                preferences.getString(AutomationTestControlReceiver.KEY_SNAPSHOT_PACKAGE, null),
+            snapshotWindow =
+                preferences.getInt(AutomationTestControlReceiver.KEY_SNAPSHOT_WINDOW, -1),
+            snapshotGeneration =
+                preferences.getLong(AutomationTestControlReceiver.KEY_SNAPSHOT_GENERATION, -1L),
+            snapshotNodeCount =
+                preferences.getInt(AutomationTestControlReceiver.KEY_SNAPSHOT_NODE_COUNT, 0),
+            snapshotFirstToken =
+                preferences
+                    .getString(AutomationTestControlReceiver.KEY_SNAPSHOT_FIRST_TOKEN, null)
+                    .orEmpty(),
+            snapshotTruncated =
+                preferences.getBoolean(AutomationTestControlReceiver.KEY_SNAPSHOT_TRUNCATED, false),
+            snapshotSummary =
+                preferences.getString(AutomationTestControlReceiver.KEY_SNAPSHOT_SUMMARY, null).orEmpty(),
         )
     }
 
@@ -168,17 +221,25 @@ class AutomationServiceDeviceTest {
 
     private fun waitUntil(
         timeoutMillis: Long = 10_000,
+        failureMessage: () -> String = { "condition was not met" },
         condition: () -> Boolean,
     ) {
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (!condition() && System.currentTimeMillis() < deadline) {
             Thread.sleep(50)
         }
-        assertTrue("condition was not met within ${timeoutMillis}ms", condition())
+        assertTrue("${failureMessage()} within ${timeoutMillis}ms", condition())
     }
 }
 
 private data class BridgeResult(
     val result: String,
     val active: Boolean,
+    val snapshotPackage: String? = null,
+    val snapshotWindow: Int = -1,
+    val snapshotGeneration: Long = -1L,
+    val snapshotNodeCount: Int = 0,
+    val snapshotFirstToken: String = "",
+    val snapshotTruncated: Boolean = false,
+    val snapshotSummary: String = "",
 )

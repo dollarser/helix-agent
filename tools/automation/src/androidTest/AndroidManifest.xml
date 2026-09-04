@@ -4,7 +4,9 @@
         <activity
             android:name="com.helix.tools.automation.AutomationFixtureActivity"
             android:exported="true"
-            android:label="Helix M9 fixture" />
+            android:launchMode="singleTop"
+            android:label="Helix M9 fixture"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
         <receiver
             android:name="com.helix.tools.automation.AutomationTestControlReceiver"
             android:exported="false" />

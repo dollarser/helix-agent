@@ -4,10 +4,8 @@ import android.content.Context
 import com.helix.core.model.SystemClock
 import java.time.Duration
 
-/**
- * The only process-level bridge to the live Accessibility service. It owns no node/action API:
- * HXA-090 deliberately stops before Agent Tool integration.
- */
+/** The only process-level bridge to the live Accessibility service. */
+@Suppress("TooManyFunctions")
 object AutomationServiceController {
     private val sessionManager = AutomationSessionManager(SystemClock())
     private var service: HelixAccessibilityService? = null
@@ -24,6 +22,7 @@ object AutomationServiceController {
     ) {
         if (service !== instance) return
         sessionManager.stop(reason)
+        instance.invalidateSnapshotTokens()
         service = null
     }
 
@@ -41,6 +40,7 @@ object AutomationServiceController {
         val stored = SharedPreferencesAutomationAllowlistStore(context).replace(packages)
         if (sessionManager.reconcileAllowlist(stored)) {
             service?.leaveSessionForeground()
+            service?.invalidateSnapshotTokens()
         }
         return stored
     }
@@ -67,8 +67,23 @@ object AutomationServiceController {
     @Synchronized
     fun stop(reason: AutomationStopReason = AutomationStopReason.USER_STOP): Boolean {
         val stopped = sessionManager.stop(reason)
-        if (stopped) service?.leaveSessionForeground()
+        if (stopped) {
+            service?.leaveSessionForeground()
+            service?.invalidateSnapshotTokens()
+        }
         return stopped
+    }
+
+    @Synchronized
+    @Suppress("ReturnCount")
+    fun snapshot(): AutomationSnapshotResult {
+        val connectedService =
+            service
+                ?: return AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
+        val session =
+            sessionManager.current()
+                ?: return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+        return connectedService.captureSnapshot(session)
     }
 
     /** User-triggered capability revocation; Android removes this service from the enabled list. */

@@ -14,13 +14,14 @@ import android.view.accessibility.AccessibilityEvent
 import java.time.Duration
 import java.time.Instant
 
-/**
- * User-enabled Accessibility service for HXA-090. It only exposes connection/session lifecycle;
- * node snapshots and actions do not exist until HXA-091/092 and no Agent Tool references it.
- */
+/** User-enabled service. HXA-091 adds bounded snapshots; Agent actions remain absent. */
+@Suppress("TooManyFunctions")
 class HelixAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private val expiryStop = Runnable { AutomationServiceController.stop(AutomationStopReason.EXPIRED) }
+    private val generationTracker = AccessibilityGenerationTracker()
+    private val tokenRegistry = NodeTokenRegistry()
+    private val snapshotEngine = AutomationSnapshotEngine(tokenRegistry)
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -28,7 +29,11 @@ class HelixAccessibilityService : AccessibilityService() {
         AutomationServiceController.connected(this)
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+        generationTracker.contentChanged()
+        tokenRegistry.invalidate()
+    }
 
     override fun onInterrupt() {
         AutomationServiceController.stop(AutomationStopReason.SERVICE_INTERRUPTED)
@@ -66,6 +71,20 @@ class HelixAccessibilityService : AccessibilityService() {
     internal fun leaveSessionForeground() {
         handler.removeCallbacks(expiryStop)
         stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
+    internal fun captureSnapshot(session: ActiveAutomationSession): AutomationSnapshotResult {
+        val root =
+            try {
+                rootInActiveWindow?.let(::AndroidSnapshotNode)
+            } catch (_: RuntimeException) {
+                null
+            }
+        return snapshotEngine.capture(root, session, generationTracker.current())
+    }
+
+    internal fun invalidateSnapshotTokens() {
+        tokenRegistry.invalidate()
     }
 
     private fun buildNotification(session: ActiveAutomationSession): Notification {
