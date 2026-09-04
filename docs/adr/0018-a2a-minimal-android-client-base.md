@@ -31,9 +31,11 @@ kotlinx.serialization JSON `1.9.0`，在 Helix 自有 `A2aClientFacade` 后验�
 - SSE 事件、取消后 callback 抑制、由调用方携带 `Last-Event-ID` 的同 Task 重连；
 - 1 MiB payload、无 `Content-Length` 时的流式上限和超限 fail-closed。
 
-该最小组合的严格 R8 输出为 11 个 program JAR/AAR、16,064-byte DEX、169 method IDs、
-37 classes。它证明 Android bytecode/依赖成本可行，不等于已完成 API 29/36 设备运行、
-后台生命周期、TLS/auth 互操作或最终 App APK 增量验收。
+将 Android variant 明确替换为工程生产侧已经采用的 `okhttp-jvm` 后，该最小组合的严格
+R8 输出为 8 个 program JAR、15,544-byte DEX、169 method IDs、36 classes。API 29/36
+设备 fixture 已进一步证明 JSON-RPC、HTTP+JSON、SSE、取消、同 Task 重连、1 MiB 消息、
+Bearer、HTTP 401、TLS failure 与 cleartext 门禁。它证明 Android bytecode/依赖成本可行，
+但不把模拟器证据冒充物理真机、后台进程回收或真实外部 Agent 互操作。
 
 ## Decision
 
@@ -55,9 +57,8 @@ OkHttp `5.5.0`、`okhttp-sse` `5.5.0` 与 kotlinx.serialization JSON `1.9.0` 实
    task ID、context ID 和事件游标；SendMessage 送达不明确时不得新建 Task 重发。
 5. R8 对 missing platform/protocol class 保持 hard failure；只允许对 OkHttp 明确记录的
    可选 JVM TLS provider 使用定点 `-dontwarn`。
-6. 设备验收仍是 M7 完成条件。当前用户要求不运行模拟器或真机测试，因此 API 29/36
-   前后台、TLS/auth、取消/重连与真实 App APK 增量必须在发布验收前补齐，不能由本 ADR
-   或 standalone R8 结果替代。
+6. API 29/36 专项模拟器验收是 M7 完成条件；物理真机、真实外部 Agent、签名产物和完整
+   发布 SBOM/notice 仍按 M12 发布门禁执行，不能由本 ADR 或 standalone R8 替代。
 
 ## Alternatives considered
 
@@ -74,14 +75,18 @@ OkHttp `5.5.0`、`okhttp-sse` `5.5.0` 与 kotlinx.serialization JSON `1.9.0` 实
 
 ## Consequences
 
-- `extensions:a2a` 不新增 HTTP/JSON 技术栈，依赖版本与现有 Provider 路径一致；最终 App
-  仍需按实际解析结果更新 lockfile、verification metadata 与许可证清单。
+- `extensions:a2a` 不新增 HTTP/JSON 技术栈，依赖版本与现有 Provider 路径一致；生产
+  runtime closure 已由 lockfile 固定，直接与传递依赖均为 Apache-2.0。完整发布
+  SBOM/notice 仍由 M12 对最终 APK 统一生成和对账。
 - Helix 需要自行维护 A2A v1 DTO、方法编码、SSE 解码、错误映射和协议 fixture；稳定
   facade 降低未来切回官方 SDK 或替换 transport 的跨模块成本。
 - 官方 SDK 的 Spike module 与锁文件只保留为可重复决策证据，生产模块不得依赖它。
-- standalone DEX 数字不能直接解释为 App 增量；HXA-078/079 接线后必须对 consumer 与
-  developer 的真实 release/R8 产物重新测量。
-- 当前没有 API 29/36 运行证据，因此不能声称 M7 A2A 已设备验收或可发布。
+- standalone DEX 数字不能直接解释为 App 增量；HXA-078/079 接线后的 consumer 与
+  developer unsigned release/R8 产物已分别测得 39,710,490 / 40,014,278 bytes，方法引用
+  总数分别为 190,228 / 191,675。由于生产依赖与既有 Provider 共享，不能把 App 总量伪称
+  为 A2A 独占增量；候选自身增量以隔离 R8 的 15,544-byte DEX / 169 method IDs 为准。
+- API 29/36 专项模拟器 fixture 已通过；仍不能据此声称物理真机、后台进程回收、真实外部
+  Agent 互操作或发布签名/SBOM 已验收。
 
 ## Verification
 
@@ -91,20 +96,26 @@ OkHttp `5.5.0`、`okhttp-sse` `5.5.0` 与 kotlinx.serialization JSON `1.9.0` 实
 ./gradlew :spikes:a2a-sdk:testDebugUnitTest :spikes:a2a-minimal:testDebugUnitTest --no-configuration-cache
 ./scripts/check-a2a-sdk-android-spike.sh
 ./scripts/check-a2a-minimal-android-spike.sh
+ANDROID_SERIAL=emulator-5554 ./gradlew :spikes:a2a-minimal:connectedDebugAndroidTest --no-configuration-cache
+ANDROID_SERIAL=emulator-5556 ./gradlew :spikes:a2a-minimal:connectedDebugAndroidTest --no-configuration-cache
 ./gradlew :spikes:a2a-sdk:dependencies --configuration debugRuntimeClasspath \
   :spikes:a2a-minimal:dependencies --configuration debugRuntimeClasspath --no-configuration-cache
+./gradlew :extensions:a2a:dependencies --configuration releaseRuntimeClasspath \
+  :app:assembleConsumerRelease :app:assembleDeveloperRelease --no-configuration-cache
 ```
 
 结果：官方 SDK JVM fixture 通过，严格 R8 以固定的
-`missing-java.net.http.HttpClient` 原因被预期拒绝；最小 facade 的 3 个 transport/boundary
-fixture 通过，严格 R8 生成 `minApi=29 programJars=11 dexBytes=16064 methodIds=169
-classDefs=37`。
+`missing-java.net.http.HttpClient` 原因被预期拒绝；最小 facade 的 3 个 JVM
+transport/boundary fixture 与 API 29/36 各 3 个设备 fixture 均通过，严格 R8 生成
+`minApi=29 programJars=8 dexBytes=15544 methodIds=169 classDefs=36`。consumer/developer
+unsigned release/R8 均构建成功，尺寸与方法引用总量见 Consequences。生产 runtime closure
+为 Kotlin stdlib、OkHttp/OkHttp SSE、Okio、kotlinx serialization/coroutines 与 JetBrains
+annotations；锁定版本的 POM 均声明 Apache-2.0。
 
-当前按用户要求未执行，且在 M7/发布验收前仍必需：
+发布前仍需执行、且本 Spike 不冒充完成：
 
-- API 29/36 上的 Agent Card、JSON-RPC/HTTP+JSON、SSE、取消、同 Task 重连、大消息、
-  TLS/auth error 与前后台生命周期；
-- consumer/developer 真实 release/R8 构建的 APK/方法数增量和 SBOM/notice 对账；
+- 物理真机上的前后台/进程回收、真实 CA TLS 与真实外部 Agent 互操作；
+- consumer/developer 签名发布产物的完整 SBOM/notice 对账（M12）；
 - HXA-078/079 的恶意 Card、Task 恢复、不明确送达、Artifact 与远端反向调用拒绝设备链路。
 
 ## Reconsider when

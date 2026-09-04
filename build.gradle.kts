@@ -397,9 +397,21 @@ subprojects {
                 dependencies.add("implementation", a2aHttpAndroidDependency.get())
             }
             if (path == ":spikes:a2a-minimal") {
+                // Match the production :extensions:a2a resolution below: compileSdk 36 cannot
+                // consume OkHttp 5.5's Android AAR (which declares compileSdk 37), while the
+                // JVM artifact is the Android-compatible API surface Helix already verifies.
+                configurations.configureEach {
+                    resolutionStrategy.dependencySubstitution {
+                        substitute(module("com.squareup.okhttp3:okhttp"))
+                            .using(module("com.squareup.okhttp3:okhttp-jvm:$okhttpVersion"))
+                    }
+                }
                 dependencies.add("implementation", okhttpDependency.get())
                 dependencies.add("implementation", okhttpSseDependency.get())
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
             if (path == ":extensions:a2a") {
                 // OkHttp's Android platform selector publishes an AAR requiring compileSdk 37.
