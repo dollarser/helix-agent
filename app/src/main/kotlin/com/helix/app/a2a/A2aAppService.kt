@@ -36,7 +36,14 @@ class A2aAppService(
     ): A2aAgentConfig = storage.registerDisabled(id, cardEndpoint, authAlias)
 
     suspend fun testConnection(id: String): A2aAgentCardSnapshot =
-        discovery.discover(storage.load(id)).also(storage::persistSnapshot)
+        discovery.discover(storage.load(id)).also { snapshot ->
+            storage.persistSnapshot(snapshot)
+            if (storage.load(id).enabled) {
+                registerEnabledAgent(id)
+            } else {
+                unregisterAgent(id)
+            }
+        }
 
     /** User action after reviewing the bounded Card and selecting exact remote Skills. */
     fun enable(
@@ -53,6 +60,10 @@ class A2aAppService(
 
     fun disable(agentId: String) {
         storage.disable(agentId)
+        unregisterAgent(agentId)
+    }
+
+    private fun unregisterAgent(agentId: String) {
         registry.replaceA2aAgent(agentId, emptyList())
         implementations.replaceA2aAgent(agentId, emptyList())
         activeBridges.remove(agentId)

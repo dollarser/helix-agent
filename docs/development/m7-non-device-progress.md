@@ -14,7 +14,7 @@
 | 075 | **完成**；Skills 30 个 + framework 141 个 JVM 测试全绿 | 目录/zip 导入、traversal/symlink/特殊文件/zip bomb 防护、精确压缩比、流式有界 entry 枚举、内容寻址快照与更新预览；详见 [完成记录](../completion-records/HXA-075.md) |
 | 076 | **完成**；App 262、MCP 35、Skills 31 个 JVM 测试及 API 29/36 consumer 118/117 个设备测试全绿 | Skill 分页 list/read/read_resource/enable/disable/remove 与五个内置 Skill；脚本不获得新执行器；设备期修复 `skills.list` 无界输出及纯 JVM 模块的 API 29 Java 新方法缺陷，详见 [完成记录](../completion-records/HXA-076.md) |
 | 077 | **完成**；JVM/R8、API 29/36 专项 fixture、双 flavor unsigned release/R8 与 runtime license closure 已验收 | 官方 SDK 1.3.1.Final 因 Android 缺失 `java.net.http.HttpClient` 被严格拒绝且仅作隔离证据；production 选择最小 A2A v1.0 Client；物理真机、签名产物与完整发布 SBOM/notice 归 M12，详见 [完成记录](../completion-records/HXA-077.md) |
-| 078 | 已实现并通过 JVM/App 单测 | disabled-by-default Agent、Secret alias、Card/extended Card、接口与版本协商、有界 Skill snapshot、逐 Skill 启用与 hash 失效 |
+| 078 | **完成**；JVM/App 单测与 API 29/36 production discovery fixture 各 2/2 | disabled-by-default Agent、Secret alias、Card/extended Card、接口与版本协商、有界 Skill snapshot、逐 Skill 启用与 hash 失效；设备期修复 Card 变化后旧内存 Registry 未同步撤销，详见 [完成记录](../completion-records/HXA-078.md) |
 | 079 | 已实现并通过 JVM/App 单测 | 独立 A2A Tool origin、固定 schema、Dispatcher/Policy/Approval/Audit 接线、Send/stream/Get/Cancel/Subscribe、持久 Task 对账、SSE `Last-Event-ID`、不明确送达 `NEEDS_REVIEW`、不可信结果与 Workspace Artifact 副本 |
 
 HXA-079 的恢复不变量是：一个本地 `toolCallId` 最多绑定一个远端 Task；已有 Task 只允许 `GetTask`、`SubscribeToTask` 或 `CancelTask` 对账，绝不以新 Message 重发。远端结构化 `toolCall` 只保留为 `UNTRUSTED_A2A_CONTENT` 数据，不能直接调用本机 Tool，也不能继承本机 Capability、Approval、Secret 或 verifier 权限。
