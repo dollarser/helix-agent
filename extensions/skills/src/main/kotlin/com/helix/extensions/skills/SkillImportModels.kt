@@ -4,6 +4,7 @@ import java.nio.file.Path
 
 data class SkillImportLimits(
     val maxFiles: Int = 256,
+    val maxArchiveEntries: Int = 1_024,
     val maxSingleFileBytes: Long = 4L * 1024 * 1024,
     val maxTotalBytes: Long = 16L * 1024 * 1024,
     val maxArchiveBytes: Long = 32L * 1024 * 1024,

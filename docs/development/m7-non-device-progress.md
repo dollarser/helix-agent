@@ -11,7 +11,7 @@
 | 072 | **完成**；JVM fixture、API 29/36 consumer 全量验收 | `mcp.<server>.<tool>` 动态注册、schema/contract hash、结果边界、egress/checkpoint |
 | 073 | **完成**；HXA-084 真实 PRoot、JVM 与 API 29/36 专项验收 | 锁定 argv/指纹、严格 stdout JSON-RPC、独立 bounded stderr、环境 allowlist、进程组取消与 Job 对账；没有主 App shell 或占位 stdio 回退 |
 | 074 | **完成**；29 个 JVM fixture（含固定官方 fixture 3 个） | Agent Skills Unicode/NFKC frontmatter validator；catalog 仅 name/description/source/hash；production 不依赖 `skills-ref` |
-| 075 | 已实现并通过 JVM fixture | 目录/zip 导入、traversal/symlink/zip bomb 防护、不可变内容快照与更新预览 |
+| 075 | **完成**；Skills 30 个 + framework 141 个 JVM 测试全绿 | 目录/zip 导入、traversal/symlink/特殊文件/zip bomb 防护、精确压缩比、流式有界 entry 枚举、内容寻址快照与更新预览；详见 [完成记录](../completion-records/HXA-075.md) |
 | 076 | 已实现并通过 JVM/App 单测 | Skill list/read/read_resource/enable/disable/remove 与五个内置 Skill；脚本不获得新执行器 |
 | 077 | 已完成可执行 Spike 与 ADR 选型 | 官方 SDK 1.3.1.Final 仅作隔离证据；production 选择最小 A2A v1.0 Client；API 29/36 和真实 APK/SBOM 待验收 |
 | 078 | 已实现并通过 JVM/App 单测 | disabled-by-default Agent、Secret alias、Card/extended Card、接口与版本协商、有界 Skill snapshot、逐 Skill 启用与 hash 失效 |

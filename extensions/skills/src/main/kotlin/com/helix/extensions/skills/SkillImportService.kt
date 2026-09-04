@@ -19,6 +19,15 @@ class SkillImportService(
     private val inspector = SkillSnapshotInspector(limits, skillLoader)
 
     init {
+        require(limits.maxFiles > 0) { "Skill file limit must be positive" }
+        require(limits.maxArchiveEntries > 0) { "Skill archive entry limit must be positive" }
+        require(limits.maxSingleFileBytes > 0) { "Skill single-file limit must be positive" }
+        require(limits.maxTotalBytes >= limits.maxSingleFileBytes) {
+            "Skill total size limit must cover the single-file limit"
+        }
+        require(limits.maxArchiveBytes > 0) { "Skill archive size limit must be positive" }
+        require(limits.maxCompressionRatio > 0) { "Skill compression-ratio limit must be positive" }
+        require(limits.maxRelativePathLength > 0) { "Skill relative-path limit must be positive" }
         Files.createDirectories(stagingRoot)
         require(Files.isDirectory(stagingRoot) && !Files.isSymbolicLink(stagingRoot)) {
             "Skill staging root must be a regular, non-symlink directory"
@@ -118,7 +127,12 @@ class SkillImportService(
         destination: Path,
     ) {
         ZipFile.builder().setPath(zipPath).get().use { zip ->
-            val entries = zip.entries.asSequence().toList()
+            val entries = mutableListOf<ZipArchiveEntry>()
+            val enumeration = zip.entries
+            while (enumeration.hasMoreElements()) {
+                if (entries.size >= limits.maxArchiveEntries) invalid("ZIP contains too many entries")
+                entries += enumeration.nextElement()
+            }
             extractEntries(zip, planEntries(entries), destination)
         }
     }
@@ -234,7 +248,13 @@ class SkillImportService(
         size: Long,
         compressedSize: Long,
     ) {
-        if (size > 0 && compressedSize >= 0 && size / maxOf(1, compressedSize) > limits.maxCompressionRatio) {
+        if (size <= 0 || compressedSize < 0) return
+        if (compressedSize == 0L) invalid("ZIP entry exceeds the compression-ratio limit")
+        val quotient = size / compressedSize
+        val exceedsLimit =
+            quotient > limits.maxCompressionRatio ||
+                (quotient == limits.maxCompressionRatio && size % compressedSize != 0L)
+        if (exceedsLimit) {
             invalid("ZIP entry exceeds the compression-ratio limit")
         }
     }

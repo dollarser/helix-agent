@@ -3,6 +3,7 @@ package com.helix.extensions.skills
 import org.apache.commons.compress.archivers.zip.UnixStat
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream
+import org.apache.commons.compress.archivers.zip.ZipFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -198,6 +199,49 @@ class SkillImportServiceTest {
                 SkillImportLimits(maxSingleFileBytes = 30_000, maxTotalBytes = 40_000, maxCompressionRatio = 5),
             )
         assertThrows(InvalidSkillImportException::class.java) { ratioService.stageZip(bombArchive) }
+    }
+
+    @Test
+    fun `zip import rejects directory entry floods and fractional compression ratio overflow`() {
+        val roots = roots()
+        val directoryFlood = roots.source.resolve("directories.zip")
+        ZipArchiveOutputStream(directoryFlood).use { output ->
+            addEntry(output, "SKILL.md", manifest("directories"))
+            repeat(4) { index ->
+                output.putArchiveEntry(ZipArchiveEntry("empty-$index/"))
+                output.closeArchiveEntry()
+            }
+        }
+        val entryLimited =
+            SkillImportService(
+                roots.staging.resolve("entries"),
+                SkillImportLimits(maxArchiveEntries = 4),
+            )
+        assertThrows(InvalidSkillImportException::class.java) { entryLimited.stageZip(directoryFlood) }
+
+        val compressed = "0".repeat(20_003)
+        val fractionalArchive =
+            zip(
+                roots.source.resolve("fractional-ratio.zip"),
+                mapOf("SKILL.md" to manifest("fractional-ratio"), "payload" to compressed),
+            )
+        val compressedSize =
+            ZipFile.builder().setPath(fractionalArchive).get().use { archive ->
+                archive.getEntry("payload").compressedSize
+            }
+        assertTrue(compressedSize > 0)
+        assertTrue(compressed.length.toLong() % compressedSize != 0L)
+        val exactFloorLimit = compressed.length.toLong() / compressedSize
+        val ratioLimited =
+            SkillImportService(
+                roots.staging.resolve("fractional"),
+                SkillImportLimits(
+                    maxSingleFileBytes = 30_000,
+                    maxTotalBytes = 40_000,
+                    maxCompressionRatio = exactFloorLimit,
+                ),
+            )
+        assertThrows(InvalidSkillImportException::class.java) { ratioLimited.stageZip(fractionalArchive) }
     }
 
     @Test
