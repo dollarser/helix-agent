@@ -295,6 +295,7 @@ object ApprovalUiMapper {
     ): String? = (arguments[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 
     /** 数据类别: the egress sensitivity when the call egresses, else the source-origin category. */
+    @Suppress("CyclomaticComplexMethod") // exhaustive labels for two closed policy enums
     fun categoryLabel(
         dataOrigin: DataOrigin,
         egressCategory: DataSensitivity?,
@@ -313,6 +314,7 @@ object ApprovalUiMapper {
                 DataOrigin.BROWSER -> "浏览器页面内容"
                 DataOrigin.ACCESSIBILITY -> "无障碍内容"
                 DataOrigin.MCP -> "MCP 数据（默认不可信）"
+                DataOrigin.A2A -> "A2A 数据（默认不可信）"
                 DataOrigin.ROOT -> "Root 数据"
                 DataOrigin.LOCAL -> "本机数据"
                 DataOrigin.NETWORK -> "网络数据"
@@ -334,6 +336,7 @@ object ApprovalUiMapper {
             when (target) {
                 is EgressTarget.Provider -> "provider:${target.id.value}"
                 is EgressTarget.Mcp -> "mcp:${target.id.value}"
+                is EgressTarget.A2a -> "a2a:${target.id.value}"
             }
         val windowEnd =
             rule.expiresAt

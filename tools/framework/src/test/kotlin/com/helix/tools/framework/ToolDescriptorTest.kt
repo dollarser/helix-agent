@@ -34,7 +34,7 @@ class ToolDescriptorTest {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.McpOrigin(serverId, 1),
+            origin = ToolOrigin.McpOrigin(serverId, "2025-03-26", "a".repeat(64)),
         )
 
     @Test
@@ -83,7 +83,7 @@ class ToolDescriptorTest {
     fun originAndNameNamespaceMustAgree() {
         // built-in name with an MCP origin
         assertThrows(IllegalArgumentException::class.java) {
-            builtIn(name = "read").copy(origin = ToolOrigin.McpOrigin("srv", 1))
+            builtIn(name = "read").copy(origin = ToolOrigin.McpOrigin("srv", "1", "a".repeat(64)))
         }
         // an mcp.* name with a built-in origin
         assertThrows(IllegalArgumentException::class.java) {
@@ -103,11 +103,12 @@ class ToolDescriptorTest {
 
     @Test
     fun mcpOriginBindsServerFactsAndRejectsBadProtocolVersion() {
-        val origin = ToolOrigin.McpOrigin("srv", 1, mapOf("readOnlyHint" to true))
+        val origin = ToolOrigin.McpOrigin("srv", "2025-03-26", "a".repeat(64), mapOf("readOnlyHint" to true))
         assertEquals("srv", origin.serverId)
-        assertEquals(1, origin.protocolVersion)
+        assertEquals("2025-03-26", origin.protocolVersion)
         assertEquals(mapOf("readOnlyHint" to true), origin.serverProvidedHints)
-        assertThrows(IllegalArgumentException::class.java) { ToolOrigin.McpOrigin("srv", 0) }
+        assertThrows(IllegalArgumentException::class.java) { ToolOrigin.McpOrigin("srv", "", "a".repeat(64)) }
+        assertThrows(IllegalArgumentException::class.java) { ToolOrigin.McpOrigin("srv", "1", "not-a-hash") }
     }
 
     @Test

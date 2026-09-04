@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
 import com.helix.core.storage.entity.SkillEntity
@@ -33,8 +34,23 @@ interface McpCapabilityDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(capability: McpCapabilityEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertAll(capabilities: List<McpCapabilityEntity>): List<Long>
+
     @Query("SELECT * FROM mcp_capabilities WHERE serverId = :serverId ORDER BY rowid ASC")
     fun listByServer(serverId: String): List<McpCapabilityEntity>
+
+    @Query("DELETE FROM mcp_capabilities WHERE serverId = :serverId")
+    fun deleteByServer(serverId: String)
+
+    @Transaction
+    fun replaceForServer(
+        serverId: String,
+        capabilities: List<McpCapabilityEntity>,
+    ) {
+        deleteByServer(serverId)
+        insertAll(capabilities)
+    }
 
     @Query("UPDATE mcp_capabilities SET enabled = :enabled WHERE rowId = :rowId")
     fun setEnabled(

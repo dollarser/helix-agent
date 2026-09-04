@@ -1,5 +1,6 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.A2aAgentId
 import com.helix.core.model.McpServerId
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
@@ -80,6 +81,7 @@ class HighSensitivityRuleRepository(
             when (targetKind) {
                 TARGET_KIND_PROVIDER -> EgressTarget.Provider(ProviderId(targetId))
                 TARGET_KIND_MCP -> EgressTarget.Mcp(McpServerId(targetId))
+                TARGET_KIND_A2A -> EgressTarget.A2a(A2aAgentId(targetId))
                 else -> error("corrupt egress rule $id: unknown target kind '$targetKind'")
             }
         // parse is fail-closed (throws on any non-canonical / wrong-scheme / control-corrupt string).
@@ -105,6 +107,7 @@ class HighSensitivityRuleRepository(
     private companion object {
         const val TARGET_KIND_PROVIDER = "provider"
         const val TARGET_KIND_MCP = "mcp"
+        const val TARGET_KIND_A2A = "a2a"
     }
 }
 
@@ -113,6 +116,7 @@ private fun EgressTarget.kind(): String =
     when (this) {
         is EgressTarget.Provider -> "provider"
         is EgressTarget.Mcp -> "mcp"
+        is EgressTarget.A2a -> "a2a"
     }
 
 /** The stable id of an [EgressTarget] for storage. */
@@ -120,4 +124,5 @@ private fun EgressTarget.id(): String =
     when (this) {
         is EgressTarget.Provider -> id.value
         is EgressTarget.Mcp -> id.value
+        is EgressTarget.A2a -> id.value
     }

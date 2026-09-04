@@ -54,6 +54,9 @@ data class ExecutableToolCall(
     val executionTarget: ExecutionTargetType,
     val deadline: Instant,
     val cancel: CancelSignal,
+    /** Trusted local ownership context; never supplied by model arguments. */
+    val sessionId: String? = null,
+    val turnId: String? = null,
 )
 
 /**
@@ -92,8 +95,16 @@ sealed interface ToolExecutorResult {
     data class Failed(
         val detail: String,
         val sideEffectFree: Boolean = false,
+        /** True only when an external call may have been accepted but cannot yet be reconciled. */
+        val requiresReview: Boolean = false,
         val auditDetail: JsonObject? = null,
-    ) : ToolExecutorResult
+    ) : ToolExecutorResult {
+        init {
+            require(!sideEffectFree || !requiresReview) {
+                "a confirmed side-effect-free failure cannot require side-effect review"
+            }
+        }
+    }
 
     /** The deadline was reached (or the implementation chose to stop at it). */
     data object TimedOut : ToolExecutorResult
@@ -125,6 +136,48 @@ class ToolImplementationRegistry {
             byNameVersion[key] = executor
             executor
         }
+
+    /** Replaces implementations for the exact descriptor set of one MCP server snapshot. */
+    fun replaceMcpServer(
+        serverId: String,
+        entries: List<Pair<ToolDescriptor, ToolExecutor>>,
+    ) {
+        synchronized(lock) {
+            require(
+                entries.all { (descriptor, _) ->
+                    (descriptor.origin as? ToolOrigin.McpOrigin)?.serverId == serverId
+                },
+            ) { "replacement implementations must all belong to MCP server $serverId" }
+            val keys = entries.map { (descriptor, _) -> descriptor.name to descriptor.version }
+            require(keys.toSet().size == keys.size) { "duplicate MCP implementation in replacement snapshot" }
+            byNameVersion.keys.removeAll { (name, _) -> name.value.startsWith("mcp.$serverId.") }
+            entries.forEach { (descriptor, executor) ->
+                byNameVersion[descriptor.name to descriptor.version] = executor
+            }
+        }
+    }
+
+    /** Replaces implementations for the exact enabled Skill snapshot of one A2A Agent. */
+    fun replaceA2aAgent(
+        agentId: String,
+        entries: List<Pair<ToolDescriptor, ToolExecutor>>,
+    ) {
+        synchronized(lock) {
+            require(
+                entries.all { (descriptor, _) ->
+                    (descriptor.origin as? ToolOrigin.A2aOrigin)?.agentId == agentId
+                },
+            ) {
+                "replacement implementations must all belong to A2A Agent $agentId"
+            }
+            val keys = entries.map { (descriptor, _) -> descriptor.name to descriptor.version }
+            require(keys.toSet().size == keys.size) { "duplicate A2A implementation in replacement snapshot" }
+            byNameVersion.keys.removeAll { (name, _) -> name.value.startsWith("a2a.$agentId.") }
+            entries.forEach { (descriptor, executor) ->
+                byNameVersion[descriptor.name to descriptor.version] = executor
+            }
+        }
+    }
 
     /** The implementation for the exact (name, version) contract; fails when absent. */
     fun resolve(

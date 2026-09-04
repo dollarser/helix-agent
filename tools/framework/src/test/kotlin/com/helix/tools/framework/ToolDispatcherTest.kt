@@ -464,6 +464,26 @@ class ToolDispatcherTest {
         assertEquals("disk full", failed.detail)
     }
 
+    @Test
+    fun ambiguousExternalDeliveryPropagatesTheNeedsReviewSignal() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        registerTool(
+            descriptor(),
+            CaptureExecutor { ToolExecutorResult.Failed("delivery ambiguous", requiresReview = true) },
+        )
+
+        val failed =
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), emptyArgs()),
+            ) as ToolDispatchOutcome.ExecutionFailed
+
+        assertTrue(failed.requiresReview)
+        assertFalse(failed.sideEffectFree)
+        assertThrows(IllegalArgumentException::class.java) {
+            ToolExecutorResult.Failed("invalid", sideEffectFree = true, requiresReview = true)
+        }
+    }
+
     // ----------------------------------------------------------- bound result/verify
 
     @Test

@@ -20,8 +20,17 @@ sealed interface ToolOrigin {
      */
     fun canonicalOf(): String =
         when (this) {
-            is BuiltInOrigin -> "built-in"
-            is McpOrigin -> "mcp:$serverId:$protocolVersion"
+            is BuiltInOrigin -> {
+                "built-in"
+            }
+
+            is McpOrigin -> {
+                "mcp:$serverId:$protocolVersion:$sourceSchemaHash"
+            }
+
+            is A2aOrigin -> {
+                "a2a:$agentId:$skillId:$interfaceOrigin:$binding:$protocolVersion:$cardHash:$skillHash"
+            }
         }
 
     /**
@@ -47,11 +56,48 @@ sealed interface ToolOrigin {
      */
     data class McpOrigin(
         val serverId: String,
-        val protocolVersion: Int,
+        val protocolVersion: String,
+        val sourceSchemaHash: String,
         val serverProvidedHints: Map<String, Boolean> = emptyMap(),
     ) : ToolOrigin {
         init {
-            require(protocolVersion >= 1) { "MCP protocol version must be >= 1" }
+            require(protocolVersion.length in 1..32 && protocolVersion.all { it.code in 0x21..0x7e }) {
+                "MCP protocol version must be 1..32 visible ASCII characters"
+            }
+            require(sourceSchemaHash.length == 64 && sourceSchemaHash.all { it in '0'..'9' || it in 'a'..'f' }) {
+                "MCP source schema hash must be lowercase SHA-256"
+            }
+        }
+    }
+
+    /** Exact remote Agent/Skill snapshot provenance; all fields participate in contractHash. */
+    @Suppress("LongParameterList")
+    data class A2aOrigin(
+        val agentId: String,
+        val skillId: String,
+        val interfaceOrigin: String,
+        val binding: String,
+        val protocolVersion: String,
+        val cardHash: String,
+        val skillHash: String,
+    ) : ToolOrigin {
+        init {
+            require(agentId.isNotBlank() && agentId.length <= 64) { "A2A agent id is invalid" }
+            require(skillId.isNotBlank() && skillId.length <= 256) { "A2A Skill id is invalid" }
+            require(interfaceOrigin.isNotBlank() && interfaceOrigin.length <= 2_048) { "A2A origin is invalid" }
+            require(binding == "JSONRPC" || binding == "HTTP+JSON") { "A2A binding is unsupported" }
+            require(protocolVersion == "1.0") { "A2A protocol version is unsupported" }
+            requireSha256(cardHash, "A2A Agent Card hash")
+            requireSha256(skillHash, "A2A Skill hash")
+        }
+
+        private fun requireSha256(
+            value: String,
+            label: String,
+        ) {
+            require(value.length == 64 && value.all { it in '0'..'9' || it in 'a'..'f' }) {
+                "$label must be lowercase SHA-256"
+            }
         }
     }
 }

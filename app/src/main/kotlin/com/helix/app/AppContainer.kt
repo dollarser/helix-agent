@@ -1,6 +1,9 @@
 package com.helix.app
 
 import android.content.Context
+import com.helix.app.a2a.A2aAppService
+import com.helix.app.a2a.A2aStorageBridge
+import com.helix.app.a2a.A2aTaskRunner
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
@@ -13,6 +16,8 @@ import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
 import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.internal.PrefsLineStore
+import com.helix.app.mcp.McpAppService
+import com.helix.app.mcp.McpStorageBridge
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
@@ -35,6 +40,10 @@ import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.resolveFileScopePath
+import com.helix.extensions.a2a.A2aClients
+import com.helix.extensions.skills.SkillImportService
+import com.helix.extensions.skills.SkillRepository
+import com.helix.extensions.skills.SkillTools
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserToolBridgeImpl
 import com.helix.feature.files.AttachmentImporter
@@ -129,6 +138,14 @@ interface AppContainer {
      * directly (AGENTS: UI never touches the execution layer).
      */
     val toolPipeline: ToolPipeline
+
+    val mcpService: McpAppService
+
+    val a2aService: A2aAppService
+
+    val skillImportService: SkillImportService
+
+    val skillRepository: SkillRepository
 
     /** The audit log page's service (bounded, redacted records only). */
     val auditLogService: AuditLogService
@@ -268,6 +285,18 @@ internal class DefaultAppContainer(
 
     private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
 
+    private val skillsRoot: Path = java.io.File(context.filesDir, "skills").toPath()
+
+    override val skillImportService: SkillImportService =
+        SkillImportService(skillsRoot.resolve("staging"))
+
+    override val skillRepository: SkillRepository =
+        SkillRepository(
+            snapshotsRoot = skillsRoot.resolve("snapshots"),
+            stateFile = skillsRoot.resolve("enablement.txt"),
+            trashRoot = skillsRoot.resolve("trash"),
+        )
+
     /**
      * The app's own workspace scope (HXA-042): a fixed scope id whose root is the app-private
      * `workspaces/app` directory. The SAF import pipeline (HXA-044) also targets this scope's
@@ -405,6 +434,10 @@ internal class DefaultAppContainer(
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        // HXA-076: Skill discovery/activation/resource/enablement/removal run through the same
+        // Dispatcher/Policy/Approval/Audit pipeline. The five built-ins are instruction-only;
+        // their text cannot register tools or grant authority, and android-ui-task remains M9.
+        SkillTools.registerAll(toolRegistry, toolImplementations, skillRepository)
         // HXA-042: the first non-time.now business tools enter the production tool table. The
         // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a
         // security-descriptor change invalidates any approval minted for the old contract.
@@ -546,6 +579,33 @@ internal class DefaultAppContainer(
         }
 
     override val auditLogService: AuditLogService = AuditLogService(storage)
+
+    override val mcpService: McpAppService =
+        McpAppService(
+            storage = McpStorageBridge(storage),
+            profile = { profileStore.profile },
+            registry = toolRegistry,
+            implementations = toolImplementations,
+        ).also { service ->
+            toolPipeline.installMcpFactsProvider(service::dispatchFacts)
+        }
+
+    override val a2aService: A2aAppService =
+        A2aAppService(
+            storage = A2aStorageBridge(storage),
+            registry = toolRegistry,
+            implementations = toolImplementations,
+            runner =
+                A2aTaskRunner(
+                    storage = storage,
+                    workspace = workspaceStore,
+                    workspaceScopeId = APP_SCOPE_ID,
+                    resolveWorkspaceFile = { path -> resolveFileScopePath(path, scopeRoots).toFile() },
+                    client = A2aClients.task(),
+                ),
+        ).also { service ->
+            toolPipeline.installA2aFactsProvider(service::dispatchFacts)
+        }
 
     /**
      * The chat-attachment staging seams (HXA-049, ADR-0014): the EXISTING one-time private SAF

@@ -1,5 +1,6 @@
 package com.helix.core.policy
 
+import com.helix.core.model.A2aAgentId
 import com.helix.core.model.McpServerId
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
@@ -18,6 +19,11 @@ sealed interface EgressTarget {
     /** A configured MCP server (McpServer.id). */
     data class Mcp(
         val id: McpServerId,
+    ) : EgressTarget
+
+    /** A user-configured external A2A Agent; never an MCP server or execution target. */
+    data class A2a(
+        val id: A2aAgentId,
     ) : EgressTarget
 }
 
