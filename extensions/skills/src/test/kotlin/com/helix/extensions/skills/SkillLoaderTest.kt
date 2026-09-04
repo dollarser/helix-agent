@@ -63,7 +63,7 @@ class SkillLoaderTest {
             loader.load(skill(validName, validDocument(validName)), SkillSource.BUILT_IN)
         }
 
-        listOf("Uppercase", "-leading", "trailing-", "two--hyphens", "has space", "技能", "a".repeat(65))
+        listOf("Uppercase", "-leading", "trailing-", "two--hyphens", "has space", "a".repeat(65))
             .forEach { invalidName ->
                 assertThrows(InvalidSkillException::class.java) {
                     loader.load(skill(invalidName, validDocument(invalidName)), SkillSource.BUILT_IN)

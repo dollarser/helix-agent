@@ -65,8 +65,7 @@ class SkillLoader {
         }
         val sections = splitFrontmatter(content)
         val frontmatter = parseFrontmatter(sections.frontmatter)
-        val name = requiredString(frontmatter, "name")
-        validateName(name, directoryName, requireDirectoryNameMatch)
+        val name = validateName(requiredString(frontmatter, "name"), directoryName, requireDirectoryNameMatch)
         val description = requiredString(frontmatter, "description")
         if (description.isBlank() || description.length > MAX_DESCRIPTION_LENGTH) {
             invalid("description must contain 1..$MAX_DESCRIPTION_LENGTH characters")
@@ -268,18 +267,21 @@ class SkillLoader {
         name: String,
         directoryName: String,
         requireDirectoryNameMatch: Boolean,
-    ) {
+    ): String {
         val normalizedName = Normalizer.normalize(name, Normalizer.Form.NFKC)
         val normalizedDirectory = Normalizer.normalize(directoryName, Normalizer.Form.NFKC)
-        if (name != normalizedName || !NAME_PATTERN.matches(name) || "--" in name) {
-            invalid(
-                "name must be 1..$MAX_NAME_LENGTH ASCII lowercase letters, digits, or single hyphens",
-            )
-        }
+        if (normalizedName.isEmpty() || normalizedName.length > MAX_NAME_LENGTH) invalidName()
+        if (normalizedName != normalizedName.lowercase()) invalidName()
+        if (!normalizedName.all { it.isLetterOrDigit() || it == '-' }) invalidName()
+        if (normalizedName.startsWith('-') || normalizedName.endsWith('-') || "--" in normalizedName) invalidName()
         if (requireDirectoryNameMatch && normalizedName != normalizedDirectory) {
             invalid("name must match the parent directory name")
         }
+        return normalizedName
     }
+
+    private fun invalidName(): Nothing =
+        invalid("name must be 1..$MAX_NAME_LENGTH Unicode lowercase letters, digits, or single hyphens")
 
     private fun invalid(
         message: String,
@@ -307,6 +309,5 @@ class SkillLoader {
         private const val MAX_COLLECTION_ENTRIES = 256
         private const val MAX_FIELD_KEY_LENGTH = 256
         private const val MAX_VALUE_DEPTH = 8
-        private val NAME_PATTERN = Regex("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
     }
 }
