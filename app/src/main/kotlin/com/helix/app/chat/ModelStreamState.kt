@@ -1,6 +1,5 @@
 package com.helix.app.chat
 
-import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.TurnState
 
@@ -8,8 +7,10 @@ import com.helix.core.model.TurnState
  * Pure working state for one provider stream.
  *
  * Input is the provider-neutral [ModelEvent] contract. The class only accumulates bounded
- * stream facts and decides a terminal outcome; it never writes Room, publishes UI state,
- * dispatches tools, or grants authority. [ChatService] owns those effects.
+ * stream facts and decides a terminal outcome as a STABLE code — it never produces a
+ * user-visible string (HXA-069: the label is resolved to the current locale by the
+ * Android-side caller, [ChatService]). It never writes Room, publishes UI state, dispatches
+ * tools, or grants authority.
  */
 internal class ModelStreamState(
     private val maxToolArgumentsChars: Int = MAX_TOOL_ARGUMENTS_CHARS,
@@ -19,8 +20,7 @@ internal class ModelStreamState(
 ) {
     private val textBuffer = StringBuilder()
     private val calls = LinkedHashMap<Int, MutableToolCall>()
-    private var refusalLabel: String? = null
-    private var errorLabel: String? = null
+    private var refused = false
     private var errorCode: String? = null
 
     var usageJson: String? = null
@@ -55,17 +55,14 @@ internal class ModelStreamState(
      * caller needs to perform for an incremental event.
      */
     @Suppress("CyclomaticComplexMethod", "LongMethod") // exhaustive closed ModelEvent protocol gate
-    fun apply(
-        event: ModelEvent,
-        errorLabelFor: (ModelErrorCode) -> String,
-    ): ModelStreamUpdate {
+    fun apply(event: ModelEvent): ModelStreamUpdate {
         var update = ModelStreamUpdate.NONE
         when (event) {
             is ModelEvent.TextDelta -> {
                 val startedReceiving = !receiving
                 receiving = true
                 if (textBuffer.length + event.text.length > maxTextChars) {
-                    protocolFailure(MODEL_TEXT_OVERFLOW, MODEL_TEXT_OVERFLOW_LABEL)
+                    protocolFailure(MODEL_TEXT_OVERFLOW)
                 } else {
                     textBuffer.append(event.text)
                     update = ModelStreamUpdate(textChanged = true, receivingStarted = startedReceiving)
@@ -77,26 +74,25 @@ internal class ModelStreamState(
             }
 
             is ModelEvent.Refusal -> {
-                refusalLabel = REFUSAL_LABEL
+                refused = true
             }
 
             is ModelEvent.Error -> {
                 errorCode = event.code.name
-                errorLabel = errorLabelFor(event.code)
             }
 
             is ModelEvent.ToolCallStarted -> {
                 when {
                     calls.containsKey(event.index) -> {
-                        protocolFailure(TOOL_STREAM_INVALID, TOOL_STREAM_INVALID_LABEL)
+                        protocolFailure(TOOL_STREAM_INVALID)
                     }
 
                     calls.size >= maxToolCalls -> {
-                        protocolFailure(TOOL_CALL_COUNT_OVERFLOW, TOOL_CALL_COUNT_OVERFLOW_LABEL)
+                        protocolFailure(TOOL_CALL_COUNT_OVERFLOW)
                     }
 
                     calls.values.any { it.callId == event.id.value } -> {
-                        protocolFailure(TOOL_STREAM_INVALID, TOOL_STREAM_INVALID_LABEL)
+                        protocolFailure(TOOL_STREAM_INVALID)
                     }
 
                     else -> {
@@ -109,13 +105,12 @@ internal class ModelStreamState(
                 val call = calls[event.index]
                 when {
                     call == null || call.finished -> {
-                        protocolFailure(TOOL_STREAM_INVALID, TOOL_STREAM_INVALID_LABEL)
+                        protocolFailure(TOOL_STREAM_INVALID)
                     }
 
                     call.arguments.length + event.jsonFragment.length > maxToolArgumentsChars ||
                         aggregateArgumentsLength() + event.jsonFragment.length > maxAggregateToolArgumentsChars -> {
                         errorCode = TOOL_ARGUMENTS_OVERFLOW
-                        errorLabel = TOOL_ARGUMENTS_OVERFLOW_LABEL
                     }
 
                     else -> {
@@ -127,7 +122,7 @@ internal class ModelStreamState(
             is ModelEvent.ToolCallFinished -> {
                 val call = calls[event.index]
                 if (call == null || call.finished) {
-                    protocolFailure(TOOL_STREAM_INVALID, TOOL_STREAM_INVALID_LABEL)
+                    protocolFailure(TOOL_STREAM_INVALID)
                 } else {
                     call.finished = true
                 }
@@ -144,40 +139,38 @@ internal class ModelStreamState(
 
     private fun aggregateArgumentsLength(): Int = calls.values.sumOf { it.arguments.length }
 
-    private fun protocolFailure(
-        code: String,
-        label: String,
-    ) {
+    private fun protocolFailure(code: String) {
         if (errorCode == null) {
             errorCode = code
-            errorLabel = label
         }
     }
 
     /**
      * Decides the terminal state without side effects. Precedence is intentional: user
      * cancellation, refusal, provider/protocol error, truncated tool stream, clean completion.
+     * [ModelStreamTerminal.errorCode] is a STABLE code (a provider `ModelErrorCode` name, or one
+     * of this class's codes); the Android-side caller resolves it to a localized label.
      */
     fun terminal(cancelled: Boolean): ModelStreamTerminal =
         when {
             cancelled -> {
-                ModelStreamTerminal(TurnState.CANCELLED, null, "已停止")
+                ModelStreamTerminal(TurnState.CANCELLED, null)
             }
 
-            refusalLabel != null -> {
-                ModelStreamTerminal(TurnState.FAILED, null, refusalLabel)
+            refused -> {
+                ModelStreamTerminal(TurnState.FAILED, REFUSAL)
             }
 
             errorCode != null -> {
-                ModelStreamTerminal(TurnState.FAILED, errorCode, errorLabel)
+                ModelStreamTerminal(TurnState.FAILED, errorCode)
             }
 
             calls.values.any { !it.finished } -> {
-                ModelStreamTerminal(TurnState.FAILED, TOOL_STREAM_TRUNCATED, "工具调用流不完整，请重试")
+                ModelStreamTerminal(TurnState.FAILED, TOOL_STREAM_TRUNCATED)
             }
 
             else -> {
-                ModelStreamTerminal(TurnState.COMPLETED, null, null)
+                ModelStreamTerminal(TurnState.COMPLETED, null)
             }
         }
 
@@ -191,17 +184,13 @@ internal class ModelStreamState(
         fun snapshot() = BufferedModelToolCall(callId, name, arguments.toString())
     }
 
-    private companion object {
-        const val REFUSAL_LABEL = "模型拒绝（安全/策略）"
+    companion object {
+        const val REFUSAL = "REFUSAL"
         const val TOOL_ARGUMENTS_OVERFLOW = "TOOL_ARGS_OVERFLOW"
-        const val TOOL_ARGUMENTS_OVERFLOW_LABEL = "工具参数超出上限"
         const val TOOL_CALL_COUNT_OVERFLOW = "TOOL_CALL_COUNT_OVERFLOW"
-        const val TOOL_CALL_COUNT_OVERFLOW_LABEL = "工具调用数量超出上限"
         const val TOOL_STREAM_INVALID = "TOOL_STREAM_INVALID"
-        const val TOOL_STREAM_INVALID_LABEL = "工具调用流协议无效，请重试"
         const val TOOL_STREAM_TRUNCATED = "TOOL_STREAM_TRUNCATED"
         const val MODEL_TEXT_OVERFLOW = "MODEL_TEXT_OVERFLOW"
-        const val MODEL_TEXT_OVERFLOW_LABEL = "模型输出超出上限"
     }
 }
 
@@ -222,11 +211,13 @@ internal data class BufferedModelToolCall(
     val arguments: String,
 )
 
-/** A stream terminal decision; persistence and display remain application effects. */
+/**
+ * A stream terminal decision; the caller resolves [errorCode] to a localized label and owns
+ * persistence and display (application effects).
+ */
 internal data class ModelStreamTerminal(
     val state: TurnState,
     val errorCode: String?,
-    val displayLabel: String?,
 )
 
 /** Per-call total accumulated argument budget in UTF-16 code units (bounded working memory). */

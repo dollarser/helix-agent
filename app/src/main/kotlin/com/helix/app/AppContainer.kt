@@ -13,6 +13,7 @@ import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
 import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.internal.PrefsLineStore
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
@@ -190,6 +191,8 @@ class FeatureFiles(
 internal class DefaultAppContainer(
     context: Context,
 ) : AppContainer {
+    private val appContext: Context = context.applicationContext
+
     override val shellRepository: ShellRepository = FakeShellRepository()
 
     override val storage: HelixStorage = HelixStorage.create(context)
@@ -397,6 +400,9 @@ internal class DefaultAppContainer(
                 treeDestination = featureFiles.treeDestination,
                 destinationReReader = featureFiles.destinationReReader,
             ),
+            // HXA-069: the facade's user-visible status/detail texts are stable string-resource
+            // ids, localized against the CHOSEN app language at emit time (see [resolveLocalized]).
+            strings = { id, args -> resolveLocalized(id, args) },
         )
 
     init {
@@ -572,6 +578,8 @@ internal class DefaultAppContainer(
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
+            // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
+            strings = { resId, args -> resolveLocalized(resId, args) },
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard
@@ -581,6 +589,23 @@ internal class DefaultAppContainer(
                 it.screen.collect { screen -> dataSyncController.onTurnState(screen.activeTurn?.state) }
             }
         }
+
+    /**
+     * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the
+     * CHOSEN app language at emit time. The app-level [appContext] does not carry the chosen
+     * language (only the activity's wrapped context does), so a context is wrapped per emit from
+     * the stored choice. Emits are discrete (chat blocks/terminals/tool states, file ops), never
+     * per token — so the one-shot array spread is not a hot path.
+     */
+    @Suppress("SpreadOperator") // discrete string resolve; getString's vararg API has no array overload
+    private fun resolveLocalized(resId: Int, args: Array<out Any>): String {
+        val base = appContext
+        return AppLanguageStore
+            .wrapForLocale(
+                base,
+                AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
+            ).getString(resId, *args)
+    }
 
     private companion object {
         const val PREFS_NAME = "helix-ui"

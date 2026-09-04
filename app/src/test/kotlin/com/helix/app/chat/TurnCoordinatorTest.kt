@@ -12,7 +12,6 @@ class TurnCoordinatorTest {
         runtime.beginModelStream().apply(
             com.helix.core.model.ModelEvent
                 .TextDelta("first"),
-            ::label,
         )
         runtime.beginBatch(listOf("tool-1"))
         runtime.markModelCallClosed()
@@ -23,7 +22,6 @@ class TurnCoordinatorTest {
         second.apply(
             com.helix.core.model.ModelEvent
                 .TextDelta("partial-second"),
-            ::label,
         )
 
         assertEquals("model-2", runtime.snapshot().modelCallId)
@@ -79,6 +77,4 @@ class TurnCoordinatorTest {
         assertEquals("model-2", runtime.snapshot().modelCallId)
         assertEquals(TurnState.FAILED, runtime.snapshot().phase)
     }
-
-    private fun label(code: com.helix.core.model.ModelErrorCode) = code.name
 }

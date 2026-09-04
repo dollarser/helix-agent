@@ -13,7 +13,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.helix.app.HelixAndroidJUnitRunner"
     }
 
     flavorDimensions += "distribution"
@@ -55,6 +55,15 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
+    }
+
+    bundle {
+        // HXA-069: in-app language switching (AppLanguageStore) ships all locales in the base APK;
+        // disable the per-locale bundle split or a runtime locale change would need the Play App
+        // Language library to download the locale (lint: AppBundleLocaleChanges).
+        language {
+            enableSplit = false
+        }
     }
 }
 
@@ -112,6 +121,9 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    // HXA-069: in-app language switching (AppLanguageStore) drives the API 33+ system "App
+    // languages" two-way sync through the framework android.app.LocaleManager service, so it
+    // needs no extra dependency (a plain ComponentActivity is enough — no appcompat required).
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.navigation.compose)
     implementation(libs.work.runtime.ktx)

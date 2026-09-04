@@ -1,12 +1,26 @@
 package com.helix.app
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
     val appContainer: AppContainer by lazy { DefaultAppContainer(this) }
+
+    /**
+     * HXA-069: apply the app UI language to the application context (and thus every service and
+     * resource built from it) before any resource is read. [AppLanguageStore.effectiveLocaleList]
+     * is fail-closed — a read error degrades to the system default, never to an empty/invalid
+     * locale.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(
+            AppLanguageStore.wrapForLocale(base, AppLanguageStore.effectiveLocaleList(base)),
+        )
+    }
 
     /**
      * Process-restart recovery (HXA-015). The storage-backed coordinator marks leftover active

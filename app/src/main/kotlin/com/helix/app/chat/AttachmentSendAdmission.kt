@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
 import com.helix.feature.files.AttachmentMaterialization
@@ -76,11 +77,12 @@ object AttachmentSendAdmission {
         gate: AttachmentSendDecision,
         text: String,
         target: EgressDisclosure.EgressTarget,
+        strings: (Int, Array<out Any>) -> String,
     ): Outcome {
         return when (gate) {
             is AttachmentSendDecision.Ready -> {
                 if (text.isBlank() && gate.attachments.isEmpty()) {
-                    return Outcome.Blocked("消息为空：请输入内容或至少选择一个可发送的附件")
+                    return Outcome.Blocked(strings(R.string.admission_empty_message, emptyArray()))
                 }
                 val contents = outgoingContents(text, gate.attachments)
                 Outcome.Egress(
@@ -90,11 +92,11 @@ object AttachmentSendAdmission {
             }
 
             is AttachmentSendDecision.UnsupportedType -> {
-                Outcome.Blocked(unsupportedReason(gate.fileName, gate.category))
+                Outcome.Blocked(unsupportedReason(strings, gate.fileName, gate.category))
             }
 
             is AttachmentSendDecision.SnapshotBroken -> {
-                Outcome.Blocked(snapshotBrokenReason(gate.fileName, gate.kind))
+                Outcome.Blocked(snapshotBrokenReason(strings, gate.fileName, gate.kind))
             }
 
             is AttachmentSendDecision.CredentialDetected -> {
@@ -127,7 +129,7 @@ object AttachmentSendAdmission {
                             sourceLabel = a.fileName,
                             sizeBytes = a.sizeBytes,
                             sha256 = a.sha256,
-                            kindLabel = kindLabel(a.kind),
+                            kindRes = kindRes(a.kind),
                         )
                     }
 
@@ -174,37 +176,44 @@ object AttachmentSendAdmission {
             }
         }
 
-    /** The short Chinese display label of a first-batch [TextAttachmentKind] (ADR-0014 §5). */
-    private fun kindLabel(kind: TextAttachmentKind): String =
+    /** The string-resource id of the first-batch [TextAttachmentKind] label (ADR-0014 §5; HXA-069). */
+    private fun kindRes(kind: TextAttachmentKind): Int =
         when (kind) {
-            TextAttachmentKind.TXT -> "纯文本"
-            TextAttachmentKind.MARKDOWN -> "Markdown"
-            TextAttachmentKind.CSV -> "CSV 表格"
-            TextAttachmentKind.JSON -> "JSON"
+            TextAttachmentKind.TXT -> R.string.kind_txt
+            TextAttachmentKind.MARKDOWN -> R.string.kind_markdown
+            TextAttachmentKind.CSV -> R.string.kind_csv
+            TextAttachmentKind.JSON -> R.string.kind_json
         }
 
     private fun unsupportedReason(
+        strings: (Int, Array<out Any>) -> String,
         fileName: String,
         category: AttachmentCategory,
-    ): String = "附件「$fileName」（${categoryLabel(category)}）暂不支持作为聊天输入，已阻止发送"
+    ): String = strings(R.string.admission_unsupported, arrayOf(fileName, categoryLabel(strings, category)))
 
     private fun snapshotBrokenReason(
+        strings: (Int, Array<out Any>) -> String,
         fileName: String,
         kind: SnapshotKind,
     ): String =
         if (kind == SnapshotKind.TAMPERED) {
-            "附件「$fileName」内容与导入时的快照不一致（可能已被修改），已阻止发送；请重新选择该文件"
+            strings(R.string.admission_snapshot_tampered, arrayOf(fileName))
         } else {
-            "附件「$fileName」已不存在或无法读取，已阻止发送；请重新选择该文件"
+            strings(R.string.admission_snapshot_missing, arrayOf(fileName))
         }
 
-    /** The user-visible Chinese label of a closed unsupported [AttachmentCategory]. */
-    private fun categoryLabel(category: AttachmentCategory): String =
+    /** The string-resource id of a closed unsupported [AttachmentCategory] label (HXA-069). */
+    private fun categoryRes(category: AttachmentCategory): Int =
         when (category) {
-            AttachmentCategory.TEXT_ENCODING -> "非 UTF-8 文本编码"
-            AttachmentCategory.DOCUMENT -> "文档"
-            AttachmentCategory.AUDIO -> "音频"
-            AttachmentCategory.VIDEO -> "视频"
-            AttachmentCategory.OTHER -> "其他类型"
+            AttachmentCategory.TEXT_ENCODING -> R.string.category_text_encoding
+            AttachmentCategory.DOCUMENT -> R.string.category_document
+            AttachmentCategory.AUDIO -> R.string.category_audio
+            AttachmentCategory.VIDEO -> R.string.category_video
+            AttachmentCategory.OTHER -> R.string.category_other
         }
+
+    private fun categoryLabel(
+        strings: (Int, Array<out Any>) -> String,
+        category: AttachmentCategory,
+    ): String = strings(categoryRes(category), emptyArray())
 }

@@ -1,5 +1,6 @@
 package com.helix.app.files
 
+import com.helix.app.R
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -124,7 +125,17 @@ class FileManagerTransfers(
     private val workspaceScopeId: String,
     private val saf: SafTreeScopeAccess?,
     private val transfers: SafImportExportAccess,
+    // HXA-069: localizes the STABLE string-resource ids the transfer results carry (user-visible
+    // status/detail texts) to the CURRENT locale at emit time (threaded through from
+    // [FileManagerService], which owns the app Context's getString in production).
+    private val strings: (Int, Array<out Any>) -> String,
 ) {
+    /** Localizes a stable string-resource id (+ positional args) to the current locale (HXA-069). */
+    private fun loc(
+        id: Int,
+        vararg args: Any,
+    ): String = strings(id, args)
+
     /**
      * Imports ONE picked SAF document into the workspace `input/` region.
      *
@@ -148,7 +159,14 @@ class FileManagerTransfers(
                 transfers.sourceMetadata.metadata(sourceUri)
             } catch (e: Exception) {
                 return TransferResult(
-                    listOf(TransferItem("SAF 文档", "Workspace input/", TransferItemStatus.FAILED, "无法读取来源文件信息")),
+                    listOf(
+                        TransferItem(
+                            loc(R.string.files_source_saf_document),
+                            "Workspace input/",
+                            TransferItemStatus.FAILED,
+                            loc(R.string.files_import_detail_source_metadata_failed),
+                        ),
+                    ),
                     reclaimed,
                 )
             }
@@ -164,7 +182,7 @@ class FileManagerTransfers(
                                 metadata.displayName.orEmpty(),
                                 targetRel,
                                 TransferItemStatus.FAILED,
-                                "无法把同名文件移入回收站",
+                                loc(R.string.files_import_detail_trash_failed),
                             )
                         return TransferResult(listOf(item), reclaimed)
                     }
@@ -213,10 +231,10 @@ class FileManagerTransfers(
             } catch (e: Exception) {
                 val item =
                     TransferItem(
-                        "SAF 文件夹",
+                        loc(R.string.files_source_saf_folder),
                         "Workspace input/",
                         TransferItemStatus.FAILED,
-                        "无法枚举文件夹（授权可能已撤销或不存在）",
+                        loc(R.string.files_import_detail_tree_enum_failed),
                     )
                 return TransferResult(listOf(item), reclaimed)
             }
@@ -225,7 +243,12 @@ class FileManagerTransfers(
         plan.planned.forEachIndexed { index, planned ->
             if (cancel.isCancelled()) {
                 val item =
-                    TransferItem(planned.sourceLabel, planned.targetRelativePath, TransferItemStatus.CANCELLED, "已取消")
+                    TransferItem(
+                        planned.sourceLabel,
+                        planned.targetRelativePath,
+                        TransferItemStatus.CANCELLED,
+                        loc(R.string.files_detail_cancelled),
+                    )
                 items.add(item)
                 return@forEachIndexed
             }
@@ -239,9 +262,17 @@ class FileManagerTransfers(
                     "—",
                     TransferItemStatus.SKIPPED,
                     when (skipped.reason) {
-                        SafTreeImportPlanner.ImportSkipReason.AMBIGUOUS_NAME -> "名称冲突，无法确定目标位置（未猜测）"
-                        SafTreeImportPlanner.ImportSkipReason.TOO_DEEP -> "目录层级超过上限"
-                        SafTreeImportPlanner.ImportSkipReason.TOO_MANY_FILES -> "超出单次导入文件数上限"
+                        SafTreeImportPlanner.ImportSkipReason.AMBIGUOUS_NAME -> {
+                            loc(R.string.files_import_skip_ambiguous_name)
+                        }
+
+                        SafTreeImportPlanner.ImportSkipReason.TOO_DEEP -> {
+                            loc(R.string.files_import_skip_too_deep)
+                        }
+
+                        SafTreeImportPlanner.ImportSkipReason.TOO_MANY_FILES -> {
+                            loc(R.string.files_import_skip_too_many)
+                        }
                     },
                 ),
             )
@@ -259,7 +290,12 @@ class FileManagerTransfers(
      * The result reports the platform-confirmed facts, and "verified" ONLY when the bytes were
      * re-read after the write and are hash-equal.
      */
-    @Suppress("ReturnCount", "TooGenericExceptionCaught", "SwallowedException") // one fail-closed exit per fault path
+    @Suppress(
+        "ReturnCount",
+        "LongMethod",
+        "TooGenericExceptionCaught",
+        "SwallowedException",
+    ) // one fail-closed exit per fault path; HXA-069 i18n wraps pushed the body past 60
     fun exportDocument(
         sourceRelativePath: String,
         target: ExportTarget,
@@ -286,17 +322,17 @@ class FileManagerTransfers(
                                 listOf(
                                     TransferItem(
                                         sourceRelativePath,
-                                        "SAF 来源 ${target.scopeId}",
+                                        loc(R.string.files_transfer_saf_source, target.scopeId),
                                         TransferItemStatus.FAILED,
-                                        "SAF 来源不可用或没有写权限（只读来源）",
+                                        loc(R.string.files_export_detail_saf_not_writable),
                                     ),
                                 ),
                                 0,
                             )
                         }
-                    val destDir = target.parentPath.ifEmpty { "根目录" }
+                    val destDir = target.parentPath.ifEmpty { loc(R.string.files_transfer_root_dir) }
                     val scopeName = access.service.source(target.scopeId)?.displayName ?: target.scopeId
-                    val label = "SAF 来源 $scopeName/$destDir"
+                    val label = loc(R.string.files_transfer_saf_source, "$scopeName/$destDir")
                     val name = sourceRelativePath.substringAfterLast('/')
                     val mime =
                         try {
@@ -305,10 +341,21 @@ class FileManagerTransfers(
                             "application/octet-stream"
                         }
                     when (val r = resolveTreeDestination(transfers, access, target, name, mime, policy)) {
-                        is TreeDestinationResolved -> ExportDestinationResolved(r.uri, "$label/${r.finalName}")
-                        is TreeDestinationConflict -> ExportDestinationConflict("$label", "SAF 来源中已存在同名文件（未覆盖）")
-                        is TreeDestinationSkipped -> ExportDestinationSkipped("$label", "SAF 来源中已存在同名文件（已跳过）")
-                        is TreeDestinationFailure -> ExportDestinationFailed(label, r.detail)
+                        is TreeDestinationResolved -> {
+                            ExportDestinationResolved(r.uri, "$label/${r.finalName}")
+                        }
+
+                        is TreeDestinationConflict -> {
+                            ExportDestinationConflict(label, loc(R.string.files_export_detail_saf_exists_conflict))
+                        }
+
+                        is TreeDestinationSkipped -> {
+                            ExportDestinationSkipped(label, loc(R.string.files_export_detail_saf_exists_skipped))
+                        }
+
+                        is TreeDestinationFailure -> {
+                            ExportDestinationFailed(label, r.detail)
+                        }
                     }
                 }
             }
@@ -381,7 +428,12 @@ class FileManagerTransfers(
             when (policy) {
                 ConflictPolicy.OVERWRITE -> {
                     if (!trashExisting(targetRel)) {
-                        return TransferItem(planned.sourceLabel, targetRel, TransferItemStatus.FAILED, "无法把同名文件移入回收站")
+                        return TransferItem(
+                            planned.sourceLabel,
+                            targetRel,
+                            TransferItemStatus.FAILED,
+                            loc(R.string.files_import_detail_trash_failed),
+                        )
                     }
                 }
 
@@ -394,7 +446,7 @@ class FileManagerTransfers(
                         planned.sourceLabel,
                         targetRel,
                         TransferItemStatus.CONFLICT,
-                        "Workspace 已存在同名文件（未覆盖）",
+                        loc(R.string.files_import_detail_workspace_exists_conflict),
                     )
                 }
 
@@ -403,7 +455,7 @@ class FileManagerTransfers(
                         planned.sourceLabel,
                         targetRel,
                         TransferItemStatus.SKIPPED,
-                        "Workspace 已存在同名文件（已跳过）",
+                        loc(R.string.files_import_detail_workspace_exists_skipped),
                     )
                 }
             }
@@ -463,15 +515,15 @@ class FileManagerTransfers(
                     }
 
                     is GiveUp -> {
-                        return TreeDestinationFailure("找不到可用的目标文件名")
+                        return TreeDestinationFailure(loc(R.string.files_export_detail_no_free_name))
                     }
                 }
             } catch (e: FileNotFoundException) {
-                return TreeDestinationFailure("SAF 来源中找不到目标目录（或名称歧义）")
+                return TreeDestinationFailure(loc(R.string.files_export_detail_saf_dir_missing))
             } catch (e: ScopeNotAvailable) {
-                return TreeDestinationFailure("SAF 来源不可用（授权可能已撤销）")
+                return TreeDestinationFailure(loc(R.string.files_export_detail_saf_unavailable))
             } catch (e: IOException) {
-                return TreeDestinationFailure("无法在 SAF 来源中创建目标文档")
+                return TreeDestinationFailure(loc(R.string.files_export_detail_saf_create_failed))
             }
         }
     }
@@ -648,22 +700,37 @@ class FileManagerTransfers(
                     sourceLabel.orEmpty(),
                     label,
                     TransferItemStatus.COMPLETED,
-                    "已导入",
+                    loc(R.string.files_transfer_imported),
                     outcome.sizeBytes,
                     outcome.sha256,
                 )
             }
 
             ImportStatus.CANCELLED -> {
-                TransferItem(sourceLabel.orEmpty(), targetRel, TransferItemStatus.CANCELLED, "已取消，未写入任何文件")
+                TransferItem(
+                    sourceLabel.orEmpty(),
+                    targetRel,
+                    TransferItemStatus.CANCELLED,
+                    loc(R.string.files_import_cancelled_nothing_written),
+                )
             }
 
             ImportStatus.REFUSED -> {
                 if (outcome.refusal == ImportRefusal.DESTINATION_EXISTS) {
                     if (policy == ConflictPolicy.SKIP) {
-                        TransferItem(sourceLabel.orEmpty(), targetRel, TransferItemStatus.SKIPPED, "已存在同名文件（已跳过，未覆盖）")
+                        TransferItem(
+                            sourceLabel.orEmpty(),
+                            targetRel,
+                            TransferItemStatus.SKIPPED,
+                            loc(R.string.files_import_detail_exists_skipped),
+                        )
                     } else {
-                        TransferItem(sourceLabel.orEmpty(), targetRel, TransferItemStatus.CONFLICT, "已存在同名文件（未覆盖）")
+                        TransferItem(
+                            sourceLabel.orEmpty(),
+                            targetRel,
+                            TransferItemStatus.CONFLICT,
+                            loc(R.string.files_import_detail_exists_conflict),
+                        )
                     }
                 } else {
                     TransferItem(
@@ -699,11 +766,11 @@ class FileManagerTransfers(
                     destLabel,
                     TransferItemStatus.COMPLETED,
                     if (verified) {
-                        "导出完成，重新读取校验一致"
+                        loc(R.string.files_export_detail_verified)
                     } else if (outcome.sizeVerified) {
-                        "导出完成（平台大小复核一致；重新读取校验不可得）"
+                        loc(R.string.files_export_detail_size_checked)
                     } else {
-                        "导出完成（仅平台确认）"
+                        loc(R.string.files_export_detail_platform_only)
                     },
                     outcome.sizeBytes,
                     outcome.sha256,
@@ -717,7 +784,7 @@ class FileManagerTransfers(
                     sourceRelativePath,
                     destLabel,
                     TransferItemStatus.CANCELLED,
-                    "已取消，目标可能保留部分文档",
+                    loc(R.string.files_export_cancelled_partial),
                 )
             }
 
@@ -733,29 +800,29 @@ class FileManagerTransfers(
 
     private fun importDetail(refusal: ImportRefusal?): String =
         when (refusal) {
-            ImportRefusal.INVALID_TARGET -> "目标路径无效"
-            ImportRefusal.SCOPE_UNAVAILABLE -> "Workspace 不可用"
-            ImportRefusal.DESTINATION_EXISTS -> "已存在同名文件（未覆盖）"
-            ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT -> "文件超过导入大小上限"
-            ImportRefusal.QUOTA_EXCEEDED -> "Workspace 配额已满"
-            ImportRefusal.SOURCE_UNOPENABLE -> "无法打开来源文档（授权可能已撤销）"
-            ImportRefusal.STREAM_SIZE_MISMATCH -> "实际字节数与声明大小不符（已中止，未写入）"
-            ImportRefusal.STREAM_LIMIT_EXCEEDED -> "文件超过导入大小上限"
-            ImportRefusal.IO_FAILURE -> "读取或写入失败（磁盘满或流中断）"
-            null -> "导入失败"
+            ImportRefusal.INVALID_TARGET -> loc(R.string.files_import_refusal_invalid_target)
+            ImportRefusal.SCOPE_UNAVAILABLE -> loc(R.string.files_workspace_unavailable)
+            ImportRefusal.DESTINATION_EXISTS -> loc(R.string.files_import_detail_exists_conflict)
+            ImportRefusal.REPORTED_SIZE_EXCEEDS_LIMIT -> loc(R.string.files_import_refusal_too_large)
+            ImportRefusal.QUOTA_EXCEEDED -> loc(R.string.files_import_refusal_quota)
+            ImportRefusal.SOURCE_UNOPENABLE -> loc(R.string.files_import_refusal_source_unopenable)
+            ImportRefusal.STREAM_SIZE_MISMATCH -> loc(R.string.files_import_refusal_size_mismatch)
+            ImportRefusal.STREAM_LIMIT_EXCEEDED -> loc(R.string.files_import_refusal_too_large)
+            ImportRefusal.IO_FAILURE -> loc(R.string.files_import_refusal_io)
+            null -> loc(R.string.files_import_failed)
         }
 
     private fun exportDetail(refusal: ExportRefusal?): String =
         when (refusal) {
-            ExportRefusal.OUTSIDE_USER_REGIONS -> "只能导出 input/work/output 内的文件"
-            ExportRefusal.SCOPE_UNAVAILABLE -> "Workspace 不可用"
-            ExportRefusal.SOURCE_NOT_FOUND -> "源文件不存在"
-            ExportRefusal.NOT_A_FILE -> "源不是普通文件"
-            ExportRefusal.SOURCE_EXCEEDS_LIMIT -> "文件超过导出大小上限"
-            ExportRefusal.DESTINATION_UNOPENABLE -> "无法打开目标文档（授权可能已撤销）"
-            ExportRefusal.IO_FAILURE -> "写入失败（磁盘满或流中断）"
-            ExportRefusal.SIZE_VERIFICATION_MISMATCH -> "目标写后大小复核不符（目标不可信）"
-            null -> "导出失败"
+            ExportRefusal.OUTSIDE_USER_REGIONS -> loc(R.string.files_export_refusal_outside_regions)
+            ExportRefusal.SCOPE_UNAVAILABLE -> loc(R.string.files_workspace_unavailable)
+            ExportRefusal.SOURCE_NOT_FOUND -> loc(R.string.files_error_source_missing)
+            ExportRefusal.NOT_A_FILE -> loc(R.string.files_export_refusal_not_a_file)
+            ExportRefusal.SOURCE_EXCEEDS_LIMIT -> loc(R.string.files_export_refusal_too_large)
+            ExportRefusal.DESTINATION_UNOPENABLE -> loc(R.string.files_export_refusal_dest_unopenable)
+            ExportRefusal.IO_FAILURE -> loc(R.string.files_export_refusal_io)
+            ExportRefusal.SIZE_VERIFICATION_MISMATCH -> loc(R.string.files_export_refusal_size_mismatch)
+            null -> loc(R.string.files_export_failed)
         }
 
     private companion object {

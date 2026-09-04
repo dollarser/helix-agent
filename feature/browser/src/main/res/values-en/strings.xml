@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="browser_open_new_tab">Open a new tab</string>
+    <string name="browser_enter_address">Enter an address to browse</string>
+    <string name="browser_url_placeholder">Enter a URL</string>
+    <string name="browser_stop">Stop</string>
+    <string name="browser_go">Go</string>
+    <string name="browser_retry">Retry</string>
+    <string name="browser_new_tab">New tab</string>
+    <string name="browser_downloads_title">Downloads</string>
+    <string name="browser_choose_location">Choose location</string>
+    <string name="browser_dismiss">Close</string>
+    <string name="browser_clear_cookies">Clear cookies</string>
+    <string name="browser_clear_cache">Clear cache</string>
+    <string name="browser_clear_history">Clear history</string>
+    <string name="browser_download_pending">Awaiting save location</string>
+    <string name="browser_download_saving">Saving…</string>
+    <string name="browser_download_saved">Saved</string>
+    <string name="browser_download_failed">Failed: %1$s</string>
+    <string name="browser_download_denied">Denied: %1$s</string>
+    <string name="browser_unknown_reason">Unknown reason</string>
+    <string name="browser_download_cannot_open">Cannot open the selected location</string>
+    <string name="browser_download_failed_generic">Download failed</string>
+    <string name="browser_download_over_cap">Exceeds the 100 MiB limit</string>
+    <string name="browser_denial_url">This URL cannot be downloaded</string>
+    <string name="browser_denial_type">File type is not allowed</string>
+    <string name="browser_denial_size">Exceeds the 100 MiB limit</string>
+    <string name="browser_denial_name">Invalid file name</string>
+    <string name="browser_error_policy_blocked">This address is not supported by the Helix browser (%1$s)</string>
+    <string name="browser_error_host_lookup">The server cannot be found</string>
+    <string name="browser_error_connection">Cannot connect to the server</string>
+    <string name="browser_error_timeout">The connection timed out</string>
+    <string name="browser_error_ssl">The secure connection (TLS/certificate) check failed; the load was blocked</string>
+    <string name="browser_error_unknown">The page failed to load</string>
+    <string name="browser_error_host_suffix"> (%1$s)</string>
+    <string name="browser_denial_reason_empty">The address is empty</string>
+    <string name="browser_denial_reason_invalid">The address cannot be parsed</string>
+    <string name="browser_denial_reason_scheme">The address protocol is not supported</string>
+    <string name="browser_denial_reason_host">The address is missing a host name</string>
+</resources>

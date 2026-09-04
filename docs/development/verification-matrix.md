@@ -119,7 +119,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-066 | `./gradlew :tools:android:testDebugUnitTest :core:policy:test` | `./gradlew :tools:android:connectedDebugAndroidTest`；DNS rebinding/redirect/peer/scope 与 Standard/Advanced 网络边界 |
 | HXA-067 | `./gradlew :app:testConsumerDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；语音识别 unavailable/denied/cancel/error、草稿不自动发送 |
 | HXA-068 | `./gradlew :app:testDeveloperDebugUnitTest :core:policy:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；规则创建/撤销/到期/重启/时钟回拨/切回 Standard，consumer 无入口 |
-| HXA-069 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest lintConsumerDebug lintDeveloperDebug`；开始任务时先实现硬编码/翻译键门禁并按实际 task 或 script 更新本行，当前不伪造尚不存在的命令 | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；API 29/36 跟随系统/简体中文/English、Activity/进程重建、API 33+ App languages 同步、通知与关键界面；验证 Provider/Tool/审计稳定字段不受 locale 影响 |
+| HXA-069 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest lintConsumerDebug lintDeveloperDebug` + `scripts/check-i18n.sh`（生产源码 CJK 字符串字面量硬编码扫描 + base/`values-en`/`values-zh-rCN` 翻译键一致性门禁；注释与测试排除） | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；API 29/36 跟随系统/简体中文/English、Activity/进程重建、API 33+ App languages 同步、通知与关键界面；验证 Provider/Tool/审计稳定字段不受 locale 影响 |
 
 ### M7：MCP、A2A 与 Skills
 

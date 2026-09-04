@@ -1,18 +1,14 @@
 package com.helix.feature.browser
 
 /**
- * A stable, user-facing reason a Helix tab shows its error view (HXA-060).
- *
- * [userMessage] is the ONLY string the UI may render from this type: the failing URL is
- * UNTRUSTED web content (doc 09 §3.4), so at most a sanitized host reaches text, and the
- * raw Chromium/WebView codes never do. Messages are hardcoded Chinese for now — resource
- * extraction is HXA-067.
+ * A stable, user-facing reason a Helix tab shows its error view (HXA-060). [kind] is the stable,
+ * locale-independent identity. The UI renders the message from [kind] via resources (HXA-069, see
+ * `BrowserError.userMessage` in `com.helix.feature.browser.ui`): the failing URL is UNTRUSTED web
+ * content (doc 09 §3.4), so at most a sanitized host reaches text, and the raw Chromium/WebView
+ * codes never do.
  */
 sealed interface BrowserError {
     val kind: BrowserErrorKind
-
-    /** The one-line message for the error view (and the a11y label). */
-    val userMessage: String
 }
 
 enum class BrowserErrorKind {
@@ -40,10 +36,7 @@ data class LoadError(
     override val kind: BrowserErrorKind,
     val failingUrl: String?,
     val rawCode: Int?,
-) : BrowserError {
-    override val userMessage: String
-        get() = loadErrorMessage(kind, failingUrl)
-}
+) : BrowserError
 
 /** A URL [BrowserUrlPolicy] refused; the WebView never saw it. */
 data class PolicyBlockedError(
@@ -52,24 +45,6 @@ data class PolicyBlockedError(
 ) : BrowserError {
     override val kind: BrowserErrorKind
         get() = BrowserErrorKind.POLICY_BLOCKED
-
-    override val userMessage: String
-        get() = "该地址不被 Helix 浏览器支持（${reason.label}）"
-}
-
-internal fun loadErrorMessage(
-    kind: BrowserErrorKind,
-    url: String?,
-): String {
-    val target = urlDisplayHost(url)?.let { "（$it）" }.orEmpty()
-    return when (kind) {
-        BrowserErrorKind.HOST_LOOKUP_FAILED -> "找不到该服务器" + target
-        BrowserErrorKind.CONNECTION_FAILED -> "无法连接到服务器" + target
-        BrowserErrorKind.TIMEOUT -> "连接超时" + target
-        BrowserErrorKind.SSL -> "安全连接（TLS/证书）校验失败，已阻止加载" + target
-        BrowserErrorKind.POLICY_BLOCKED -> "该地址不被 Helix 浏览器支持"
-        BrowserErrorKind.UNKNOWN -> "页面加载失败" + target
-    }
 }
 
 /**

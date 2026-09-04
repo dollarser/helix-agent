@@ -21,8 +21,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.APP_SCOPE_ID
+import com.helix.app.R
 import com.helix.core.model.McpServerId
 import com.helix.core.model.ProviderId
 import com.helix.core.policy.EgressTarget
@@ -137,11 +139,15 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            "高敏出网规则",
+            stringResource(R.string.egress_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.testTag("egress-section-title"),
         )
-        Text(RULE_HELP, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.egress_rule_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -154,7 +160,7 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
             OutlinedTextField(
                 value = targetId,
                 onValueChange = { targetId = it },
-                label = { Text("Provider / MCP ID（无通配符）") },
+                label = { Text(stringResource(R.string.egress_target_id_label)) },
                 singleLine = true,
                 modifier =
                     Modifier
@@ -164,17 +170,19 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
             OutlinedTextField(
                 value = originUrl,
                 onValueChange = { originUrl = it },
-                label = { Text("规范 origin（http/https，含 path）") },
+                label = { Text(stringResource(R.string.egress_origin_label)) },
                 singleLine = true,
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .testTag("egress-origin"),
             )
-            Text("有效期（一次授权，非滑动续期）", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.egress_ttl_hint), style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for (duration in RuleDuration.entries) {
-                    ChoiceButton(ttl == duration, "egress-ttl-${duration.name}", ttlLabel(duration)) { ttl = duration }
+                    ChoiceButton(ttl == duration, "egress-ttl-${duration.name}", stringResource(ttlRes(duration))) {
+                        ttl = duration
+                    }
                 }
             }
             formError?.let {
@@ -188,16 +196,17 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
             OutlinedButton(
                 onClick = { create() },
                 modifier = Modifier.testTag("egress-create-button"),
-            ) { Text("创建规则") }
+            ) { Text(stringResource(R.string.egress_create_rule)) }
         }
 
         HorizontalDivider()
 
         val current = rows
+        val currentError = loadError
         when {
-            loadError != null -> {
+            currentError != null -> {
                 Text(
-                    "规则加载失败：$loadError（逐次审批保持生效）",
+                    stringResource(R.string.egress_load_failed, currentError),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.testTag("egress-load-error"),
@@ -205,12 +214,16 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
             }
 
             current == null -> {
-                Text("加载中…", style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("egress-loading"))
+                Text(
+                    stringResource(R.string.egress_loading),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("egress-loading"),
+                )
             }
 
             current.isEmpty() -> {
                 Text(
-                    "暂无规则。",
+                    stringResource(R.string.egress_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("egress-empty"),
@@ -260,8 +273,14 @@ private fun RuleRow(
                 modifier = Modifier.testTag("egress-rule-target"),
             )
             Text(
-                "origin ${rule.origin.origin} · ${rule.dataCategory.name} · " +
-                    "作用域 ${rule.scope.toScopeRef()} · 有效期至 $windowEnd${if (expired) "（已到期）" else ""}",
+                stringResource(
+                    R.string.egress_rule_detail,
+                    rule.origin.origin,
+                    rule.dataCategory.name,
+                    rule.scope.toScopeRef(),
+                    windowEnd,
+                    if (expired) stringResource(R.string.egress_rule_expired) else "",
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("egress-rule-detail"),
@@ -270,7 +289,7 @@ private fun RuleRow(
         TextButton(
             onClick = onRevoke,
             modifier = Modifier.testTag("egress-rule-revoke"),
-        ) { Text("撤销") }
+        ) { Text(stringResource(R.string.egress_revoke)) }
     }
 }
 
@@ -293,14 +312,11 @@ private fun ChoiceButton(
     }
 }
 
-private fun ttlLabel(duration: RuleDuration): String =
+/** The TTL options as STABLE string-resource ids (HXA-069: resolved by the caller's composable). */
+private fun ttlRes(duration: RuleDuration): Int =
     when (duration) {
-        RuleDuration.HOURS_1 -> "1 小时"
-        RuleDuration.HOURS_24 -> "24 小时"
-        RuleDuration.DAYS_7 -> "7 天"
-        RuleDuration.DAYS_30 -> "30 天"
+        RuleDuration.HOURS_1 -> R.string.egress_ttl_hours_1
+        RuleDuration.HOURS_24 -> R.string.egress_ttl_hours_24
+        RuleDuration.DAYS_7 -> R.string.egress_ttl_days_7
+        RuleDuration.DAYS_30 -> R.string.egress_ttl_days_30
     }
-
-private const val RULE_HELP =
-    "为高敏数据出网建立的有界规则：严格绑定具体 Provider/MCP、规范 origin 与 scope，仅在有效期内自动放行；" +
-        "期满、撤销、切回 Standard 或任一绑定字段变化后立即失效，逐次审批保持不变。"

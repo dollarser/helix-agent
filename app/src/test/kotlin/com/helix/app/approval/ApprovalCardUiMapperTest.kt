@@ -1,5 +1,6 @@
 package com.helix.app.approval
 
+import com.helix.app.R
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
@@ -47,43 +48,48 @@ class ApprovalCardUiMapperTest {
 
     @Test
     fun actionsAreExactlyThisCallApproveAndDeny() {
-        assertEquals(listOf("本次批准", "拒绝"), ApprovalCardUi.ACTIONS)
-        assertEquals("无出网", ApprovalCardUi.NO_EGRESS)
+        assertEquals(
+            listOf(R.string.approval_action_approve_once, R.string.approval_action_deny),
+            ApprovalCardUi.ACTIONS,
+        )
+        assertEquals(R.string.approval_no_egress, ApprovalCardUi.NO_EGRESS)
     }
 
     // ------------------------------------------------------------------ risk / profile / state
 
     @Test
     fun riskLabelShowsDynamicUplift() {
-        assertEquals("L1（低风险）", ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L1))
-        assertEquals(
-            "L1（低风险） → 动态 L2（需逐次批准）",
-            ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L2),
-        )
-        assertEquals("L2（需逐次批准）", ApprovalUiMapper.riskLabel(RiskLevel.L2, RiskLevel.L2))
+        assertEquals(R.string.approval_risk_l1, ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L1).first)
+        val (upliftRes, upliftArgs) = ApprovalUiMapper.riskLabel(RiskLevel.L1, RiskLevel.L2)
+        assertEquals(R.string.approval_risk_dynamic_upgrade, upliftRes)
+        assertEquals(listOf(R.string.approval_risk_l1, R.string.approval_risk_l2), upliftArgs)
+        assertEquals(R.string.approval_risk_l2, ApprovalUiMapper.riskLabel(RiskLevel.L2, RiskLevel.L2).first)
     }
 
     @Test
     fun riskLabelSingleLevel() {
-        assertEquals("L0（无风险）", ApprovalUiMapper.riskLabel(RiskLevel.L0))
-        assertEquals("L1（低风险）", ApprovalUiMapper.riskLabel(RiskLevel.L1))
-        assertEquals("L2（需逐次批准）", ApprovalUiMapper.riskLabel(RiskLevel.L2))
-        assertEquals("L3（高风险）", ApprovalUiMapper.riskLabel(RiskLevel.L3))
+        assertEquals(R.string.approval_risk_l0, ApprovalUiMapper.riskLabel(RiskLevel.L0))
+        assertEquals(R.string.approval_risk_l1, ApprovalUiMapper.riskLabel(RiskLevel.L1))
+        assertEquals(R.string.approval_risk_l2, ApprovalUiMapper.riskLabel(RiskLevel.L2))
+        assertEquals(R.string.approval_risk_l3, ApprovalUiMapper.riskLabel(RiskLevel.L3))
     }
 
     @Test
     fun profileLabelNeverClaimsFullAccess() {
-        assertEquals("Standard（默认）", ApprovalUiMapper.profileLabel(SafetyProfile.STANDARD))
-        assertEquals("Advanced（增强，非完全访问）", ApprovalUiMapper.profileLabel(SafetyProfile.ADVANCED))
+        assertEquals(R.string.approval_profile_standard, ApprovalUiMapper.profileLabel(SafetyProfile.STANDARD))
+        assertEquals(
+            R.string.approval_profile_advanced,
+            ApprovalUiMapper.profileLabel(SafetyProfile.ADVANCED),
+        )
     }
 
     @Test
     fun stateLabelsAreStableChinese() {
-        assertEquals("等待批准", ApprovalUiMapper.stateLabel(ApprovalCardState.PENDING))
-        assertEquals("已批准，执行中", ApprovalUiMapper.stateLabel(ApprovalCardState.APPROVED))
-        assertEquals("已拒绝", ApprovalUiMapper.stateLabel(ApprovalCardState.DENIED))
-        assertEquals("已执行成功", ApprovalUiMapper.stateLabel(ApprovalCardState.SUCCEEDED))
-        assertEquals("执行失败", ApprovalUiMapper.stateLabel(ApprovalCardState.FAILED))
+        assertEquals(R.string.approval_state_pending, ApprovalUiMapper.stateLabel(ApprovalCardState.PENDING))
+        assertEquals(R.string.approval_state_approved, ApprovalUiMapper.stateLabel(ApprovalCardState.APPROVED))
+        assertEquals(R.string.approval_state_denied, ApprovalUiMapper.stateLabel(ApprovalCardState.DENIED))
+        assertEquals(R.string.approval_state_succeeded, ApprovalUiMapper.stateLabel(ApprovalCardState.SUCCEEDED))
+        assertEquals(R.string.approval_state_failed, ApprovalUiMapper.stateLabel(ApprovalCardState.FAILED))
     }
 
     // ------------------------------------------------------------------ outcome codes + source
@@ -91,32 +97,51 @@ class ApprovalCardUiMapperTest {
     @Test
     fun codeLabelCoversEveryDispatchOutcomeCode() {
         DispatchOutcomeCode.entries.forEach { code ->
-            val label = ApprovalUiMapper.codeLabel(code)
-            org.junit.Assert.assertTrue("label for $code must be non-blank", label.isNotBlank())
+            // HXA-069: the label is a stable string-resource ID (0 = no such resource).
+            org.junit.Assert.assertTrue(
+                "label for $code must be a res id",
+                ApprovalUiMapper.codeLabel(code) != 0,
+            )
         }
-        assertEquals("成功", ApprovalUiMapper.codeLabel(DispatchOutcomeCode.SUCCESS))
-        assertEquals("用户拒绝审批", ApprovalUiMapper.codeLabel(DispatchOutcomeCode.APPROVAL_DENIED))
-        assertEquals("本回合已拒绝该动作", ApprovalUiMapper.codeLabel(DispatchOutcomeCode.SAME_TURN_DENIED))
-        assertEquals("审批已过期", ApprovalUiMapper.codeLabel(DispatchOutcomeCode.APPROVAL_EXPIRED))
+        assertEquals(R.string.approval_code_success, ApprovalUiMapper.codeLabel(DispatchOutcomeCode.SUCCESS))
         assertEquals(
-            "启动前已取消",
+            R.string.approval_code_approval_denied,
+            ApprovalUiMapper.codeLabel(DispatchOutcomeCode.APPROVAL_DENIED),
+        )
+        assertEquals(
+            R.string.approval_code_same_turn_denied,
+            ApprovalUiMapper.codeLabel(DispatchOutcomeCode.SAME_TURN_DENIED),
+        )
+        assertEquals(
+            R.string.approval_code_approval_expired,
+            ApprovalUiMapper.codeLabel(DispatchOutcomeCode.APPROVAL_EXPIRED),
+        )
+        assertEquals(
+            R.string.approval_code_cancelled_before_start,
             ApprovalUiMapper.codeLabel(DispatchOutcomeCode.CANCELLED_BEFORE_START),
         )
     }
 
     @Test
     fun sourceLabel() {
-        assertEquals("策略引擎", ApprovalUiMapper.sourceLabel(DecisionSource.POLICY))
-        assertEquals("用户", ApprovalUiMapper.sourceLabel(DecisionSource.USER))
-        assertEquals("框架", ApprovalUiMapper.sourceLabel(DecisionSource.FRAMEWORK))
+        assertEquals(R.string.approval_decision_source_policy, ApprovalUiMapper.sourceLabel(DecisionSource.POLICY))
+        assertEquals(R.string.approval_decision_source_user, ApprovalUiMapper.sourceLabel(DecisionSource.USER))
+        assertEquals(
+            R.string.approval_decision_source_framework,
+            ApprovalUiMapper.sourceLabel(DecisionSource.FRAMEWORK),
+        )
     }
 
     // ------------------------------------------------------------------ source / target / provider
 
     @Test
     fun sourceAndProviderLabels() {
-        assertEquals("内置工具", ApprovalUiMapper.sourceLabel(isMcp = false, serverId = null))
-        assertEquals("MCP 服务器：srv-1", ApprovalUiMapper.sourceLabel(isMcp = true, serverId = "srv-1"))
+        val builtin = ApprovalUiMapper.sourceLabel(isMcp = false, serverId = null)
+        assertEquals(R.string.approval_source_builtin, builtin.res)
+        assertTrue(builtin.args.isEmpty())
+        val mcp = ApprovalUiMapper.sourceLabel(isMcp = true, serverId = "srv-1")
+        assertEquals(R.string.approval_source_mcp, mcp.res)
+        assertEquals(listOf("srv-1"), mcp.args)
         // The provider/MCP id is the raw server id for MCP tools and null for built-ins —
         // the UI renders the "内置（无 Provider/MCP）" placeholder from that null.
         assertNull(ApprovalUiMapper.providerMcpIdLabel(false, null))
@@ -125,14 +150,20 @@ class ApprovalCardUiMapperTest {
 
     @Test
     fun targetLabelsNameTheIsolationBoundary() {
-        assertEquals("本机（主应用进程）", ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_ANDROID))
         assertEquals(
-            "本机（隔离 QuickJS 进程）",
+            R.string.approval_target_local_android,
+            ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_ANDROID),
+        )
+        assertEquals(
+            R.string.approval_target_local_quickjs,
             ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_QUICKJS),
         )
-        assertEquals("本机（PRoot Runtime 应用）", ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_PROOT))
         assertEquals(
-            "本机（CLI Runtime 应用）",
+            R.string.approval_target_local_proot,
+            ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_PROOT),
+        )
+        assertEquals(
+            R.string.approval_target_local_cli,
             ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_CLI_RUNTIME),
         )
     }
@@ -142,36 +173,56 @@ class ApprovalCardUiMapperTest {
     @Test
     fun categoryLabelUsesEgressSensitivityWhenPresent() {
         assertEquals(
-            "高敏内容（逐次确认）",
+            R.string.approval_category_sensitive,
             ApprovalUiMapper.categoryLabel(DataOrigin.WORKSPACE, DataSensitivity.SENSITIVE),
         )
         assertEquals(
-            "普通内容",
+            R.string.approval_category_normal,
             ApprovalUiMapper.categoryLabel(DataOrigin.BROWSER, DataSensitivity.NORMAL),
         )
         assertEquals(
-            "禁止类内容（不可发送）",
+            R.string.approval_category_forbidden,
             ApprovalUiMapper.categoryLabel(DataOrigin.WORKSPACE, DataSensitivity.FORBIDDEN),
         )
     }
 
     @Test
     fun categoryLabelFallsBackToOrigin() {
-        assertEquals("Workspace 数据", ApprovalUiMapper.categoryLabel(DataOrigin.WORKSPACE, null))
-        assertEquals("SAF 文档树", ApprovalUiMapper.categoryLabel(DataOrigin.SAF, null))
-        assertEquals("全文件数据", ApprovalUiMapper.categoryLabel(DataOrigin.ALL_FILES, null))
-        assertEquals("浏览器页面内容", ApprovalUiMapper.categoryLabel(DataOrigin.BROWSER, null))
-        assertEquals("无障碍内容", ApprovalUiMapper.categoryLabel(DataOrigin.ACCESSIBILITY, null))
-        assertEquals("MCP 数据（默认不可信）", ApprovalUiMapper.categoryLabel(DataOrigin.MCP, null))
-        assertEquals("Root 数据", ApprovalUiMapper.categoryLabel(DataOrigin.ROOT, null))
-        assertEquals("本机数据", ApprovalUiMapper.categoryLabel(DataOrigin.LOCAL, null))
-        assertEquals("网络数据", ApprovalUiMapper.categoryLabel(DataOrigin.NETWORK, null))
+        assertEquals(R.string.approval_category_workspace, ApprovalUiMapper.categoryLabel(DataOrigin.WORKSPACE, null))
+        assertEquals(R.string.approval_category_saf, ApprovalUiMapper.categoryLabel(DataOrigin.SAF, null))
+        assertEquals(R.string.approval_category_all_files, ApprovalUiMapper.categoryLabel(DataOrigin.ALL_FILES, null))
+        assertEquals(R.string.approval_category_browser, ApprovalUiMapper.categoryLabel(DataOrigin.BROWSER, null))
+        assertEquals(
+            R.string.approval_category_accessibility,
+            ApprovalUiMapper.categoryLabel(DataOrigin.ACCESSIBILITY, null),
+        )
+        assertEquals(R.string.approval_category_mcp, ApprovalUiMapper.categoryLabel(DataOrigin.MCP, null))
+        assertEquals(R.string.approval_category_root, ApprovalUiMapper.categoryLabel(DataOrigin.ROOT, null))
+        assertEquals(R.string.approval_category_local, ApprovalUiMapper.categoryLabel(DataOrigin.LOCAL, null))
+        assertEquals(R.string.approval_category_network, ApprovalUiMapper.categoryLabel(DataOrigin.NETWORK, null))
     }
 
     @Test
-    fun scopeLabel() {
-        assertEquals("无作用域（unscoped）", ApprovalUiMapper.scopeLabel("unscoped"))
-        assertEquals("workspace:ws-9", ApprovalUiMapper.scopeLabel("workspace:ws-9"))
+    fun cardScopeKeepsTheStableScopeRef() {
+        // HXA-069: the card carries the STABLE scope ref; the UI localizes the "unscoped" ref.
+        val card =
+            ApprovalUiMapper.buildCard(
+                approvalId = "a-scope",
+                binding = jsBinding(),
+                state = ApprovalCardState.PENDING,
+                descriptor = CodeJavascriptRunTool.descriptor(),
+                arguments = buildJsonObject { put("code", "return 1") },
+                dynamicRisk = RiskLevel.L2,
+                profile = SafetyProfile.STANDARD,
+                dataOrigin = DataOrigin.WORKSPACE,
+                egressOrigin = null,
+                egressResidence = null,
+                egressCategory = null,
+                boundedRule = null,
+                confirmationDetail = "",
+                terminalDetail = null,
+            )
+        assertEquals("unscoped", card.scope)
     }
 
     @Test
@@ -223,16 +274,15 @@ class ApprovalCardUiMapperTest {
                 .take(8)
                 .joinToString("") { "%02x".format(it) }
         assertEquals(expectedShort, e.codeSha256Short)
-        // Input summary: inline JSON value + byte size — the body is not shown.
+        // Input summary: inline JSON value + byte size — the body is not shown (HXA-069: res id + arg).
+        assertEquals(R.string.approval_input_inline_json, e.inputSourceRes)
         assertTrue(
-            "input summary must name the inline JSON source: ${e.inputSource}",
-            e.inputSource.startsWith("内联 JSON 值（"),
+            "input summary must carry the byte size: ${e.inputSourceArgs}",
+            e.inputSourceArgs.size == 1 && e.inputSourceArgs[0].toIntOrNull() != null,
         )
-        assertTrue(e.inputSource.contains("字节）"))
-        // The fixed §4.1 limits are displayed (the model cannot change them).
-        assertTrue(e.limits.contains("10 s"))
-        assertTrue(e.limits.contains("64 MiB"))
-        assertTrue(e.limits.contains("256 KiB"))
+        // The fixed §4.1 limits are displayed (the model cannot change them; HXA-069: res id + args).
+        assertEquals(R.string.approval_limits_value, e.limitsRes)
+        assertEquals(listOf("10", "64", "256"), e.limitsArgs)
         // 联网：否 (offline) — the QuickJS backend has no network.
         assertFalse("QuickJS must render as offline", e.online)
     }
@@ -271,7 +321,8 @@ class ApprovalCardUiMapperTest {
                 CodeJavascriptRunTool.descriptor(),
                 buildJsonObject { put("code", "return 1") },
             )
-        assertEquals(ApprovalCardUi.NO_INPUT, noInput!!.inputSource)
+        assertEquals(R.string.approval_no_input, noInput!!.inputSourceRes)
+        assertTrue(noInput.inputSourceArgs.isEmpty())
     }
 
     @Test
@@ -402,7 +453,16 @@ class ApprovalCardUiMapperTest {
                 uiToken = "chat:turn-1",
                 argsHash = "c".repeat(64),
             )
-        val rule = BoundedRuleUi("rule-1", "example.com", "contacts", "workspace:ws-9", 1_900_000L, "rule text")
+        val rule =
+            BoundedRuleUi(
+                targetId = "rule-1",
+                origin = "example.com",
+                categories = "contacts",
+                scope = "workspace:ws-9",
+                expiresAt = 1_900_000L,
+                displayRes = R.string.approval_bounded_rule_display,
+                displayArgs = listOf("example.com", "contacts", "workspace:ws-9", "2000-01-01 00:00"),
+            )
 
         val card =
             ApprovalUiMapper.buildCard(
@@ -425,21 +485,23 @@ class ApprovalCardUiMapperTest {
         assertEquals("approval-1", card.approvalId)
         assertEquals(binding.hash, card.bindingHash)
         assertEquals(ApprovalCardState.PENDING, card.state)
-        assertEquals("内置工具", card.source)
-        assertEquals("本机（主应用进程）", card.target)
+        assertEquals(R.string.approval_source_builtin, card.sourceRes)
+        assertTrue(card.sourceArgs.isEmpty())
+        assertEquals(R.string.approval_target_local_android, card.targetRes)
         assertEquals("workspace:ws-9", card.scope)
         // 参数 = the SAME canonical bytes the binding hashes (doc 02 section 5.4).
         assertEquals(CanonicalArgs.canonicalize(args), card.arguments)
-        assertEquals("L1（低风险） → 动态 L2（需逐次批准）", card.risk)
+        assertEquals(R.string.approval_risk_dynamic_upgrade, card.riskRes)
+        assertEquals(listOf(R.string.approval_risk_l1, R.string.approval_risk_l2), card.riskArgs)
         assertEquals(SafetyProfile.STANDARD, card.profile)
         assertNull(card.providerMcpId)
         assertEquals("https://example.com/api", card.networkOrigin)
         assertEquals("US", card.residence)
-        assertEquals("高敏内容（逐次确认）", card.dataCategory)
-        assertEquals("rule text", card.boundedRule?.display)
+        assertEquals(R.string.approval_category_sensitive, card.dataCategoryRes)
+        assertEquals(R.string.approval_bounded_rule_display, card.boundedRule?.displayRes)
         assertNull(card.codeOrCommand)
         assertEquals("向 Workspace 写入一个文件（可覆盖已有文件）", card.expectedImpact)
-        assertEquals(ApprovalUiMapper.VERIFIER_TEXT, card.verifier)
+        assertEquals(ApprovalUiMapper.VERIFIER_TEXT, card.verifierRes)
         assertEquals("detail text", card.confirmationDetail)
         assertNull(card.terminalDetail)
     }
@@ -499,13 +561,14 @@ class ApprovalCardUiMapperTest {
                 confirmationDetail = "d",
                 terminalDetail = null,
             )
-        assertEquals("MCP 服务器：srv-7", card.source)
+        assertEquals(R.string.approval_source_mcp, card.sourceRes)
+        assertEquals(listOf("srv-7"), card.sourceArgs)
         assertEquals("srv-7", card.providerMcpId)
-        assertEquals("无作用域（unscoped）", card.scope)
+        assertEquals("unscoped", card.scope)
         // No egress facts -> null (the UI renders the explicit 无出网).
         assertNull(card.networkOrigin)
         assertNull(card.residence)
-        assertEquals("MCP 数据（默认不可信）", card.dataCategory)
+        assertEquals(R.string.approval_category_mcp, card.dataCategoryRes)
     }
 
     // ------------------------------------------------------------------ bounded egress rule
@@ -531,9 +594,12 @@ class ApprovalCardUiMapperTest {
         assertEquals("SENSITIVE", ui.categories)
         assertEquals("workspace:ws-9", ui.scope)
         assertEquals(created.plus(Duration.ofHours(24)).toEpochMilli(), ui.expiresAt)
-        // The display line always carries the bounded-rule label and the window.
-        assertTrue("display must mark a bounded rule: ${ui.display}", ui.display.contains("非通用凭证"))
-        assertTrue("display must carry the origin", ui.display.contains("api.example.com"))
+        // The display line (HXA-069: res id + the rule's stable binding args) carries origin + window.
+        assertEquals(R.string.approval_bounded_rule_display, ui.displayRes)
+        assertTrue("display must carry the origin", ui.displayArgs.first() == "https://api.example.com:443")
+        assertEquals("SENSITIVE", ui.displayArgs[1])
+        assertEquals("workspace:ws-9", ui.displayArgs[2])
+        assertTrue("display must carry the window", ui.displayArgs.size == 4 && ui.displayArgs[3].isNotEmpty())
     }
 
     @Test

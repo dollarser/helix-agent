@@ -32,8 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
@@ -163,19 +165,19 @@ private fun SessionListSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("会话", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.chat_session_header), style = MaterialTheme.typography.titleMedium)
                 OutlinedButton(
                     onClick = onNew,
                     modifier = Modifier.testTag("chat-new-session"),
                 ) {
-                    Text("新建会话")
+                    Text(stringResource(R.string.chat_new_session))
                 }
             }
         }
         if (sessions.isEmpty()) {
             item(key = "empty") {
                 Text(
-                    "暂无会话。新建会话前，请先在 设置 → Provider 中添加 Provider 并通过连接测试。",
+                    stringResource(R.string.chat_empty_sessions_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -201,11 +203,13 @@ private fun SessionListSection(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    val noProvider = stringResource(R.string.chat_no_provider)
+                    val archivedSuffix = stringResource(R.string.chat_archived_suffix)
                     Text(
                         buildString {
-                            append(session.providerName ?: "无 Provider")
+                            append(session.providerName ?: noProvider)
                             if (session.model != null) append(" · ${session.model}")
-                            if (session.isArchived) append(" · 已归档")
+                            if (session.isArchived) append(archivedSuffix)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -216,7 +220,7 @@ private fun SessionListSection(
                             enabled = !session.isArchived,
                             modifier = Modifier.testTag("chat-archive"),
                         ) {
-                            Text("归档")
+                            Text(stringResource(R.string.chat_archive))
                         }
                     }
                 }
@@ -240,22 +244,23 @@ private fun NewSessionDialog(
     var title by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    val createFailed = stringResource(R.string.chat_create_failed_provider_unavailable)
     val canCreate = title.isNotBlank() && selected != null && providers.isNotEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建会话") },
+        title = { Text(stringResource(R.string.chat_new_session)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("会话标题") },
+                    label = { Text(stringResource(R.string.chat_session_title_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("chat-new-session-title"),
                 )
                 if (providers.isEmpty()) {
                     Text(
-                        "没有可用 Provider：请先在 设置 → Provider 中添加并完成连接测试。",
+                        stringResource(R.string.chat_no_provider_available),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -274,7 +279,7 @@ private fun NewSessionDialog(
                                 onClick = { selected = row.id },
                             )
                             Text(
-                                "${row.displayName}（${row.model}）",
+                                stringResource(R.string.chat_provider_option, row.displayName, row.model),
                                 style = MaterialTheme.typography.bodyLarge,
                             )
                         }
@@ -300,18 +305,18 @@ private fun NewSessionDialog(
                             // (the provider became untested between render and
                             // click); the internal English message is never
                             // shown raw (doc 02 section 13).
-                            error = "创建失败：该 Provider 当前不可用（请确认其连接测试状态）"
+                            error = createFailed
                         }
                     }
                 },
                 modifier = Modifier.testTag("chat-new-session-confirm"),
             ) {
-                Text("创建")
+                Text(stringResource(R.string.chat_create))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.testTag("chat-new-session-cancel")) {
-                Text("取消")
+                Text(stringResource(R.string.common_cancel))
             }
         },
         modifier = Modifier.testTag("chat-new-session-dialog"),
@@ -361,6 +366,7 @@ private fun ConversationSection(
     val speech = remember { SpeechRecognitionLauncher() }
     var voiceDraft by remember { mutableStateOf<String?>(null) }
     var voiceNotice by remember { mutableStateOf<String?>(null) }
+    val voiceUnavailable = stringResource(R.string.chat_voice_unavailable)
     val voiceLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             when (val outcome = speech.mapResult(result.resultCode, result.data)) {
@@ -390,7 +396,7 @@ private fun ConversationSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
-                Text("会话列表")
+                Text(stringResource(R.string.chat_back_to_sessions))
             }
             screen.badge?.let { badge ->
                 Column(
@@ -402,13 +408,20 @@ private fun ConversationSection(
                         style = MaterialTheme.typography.titleSmall,
                     )
                     Text(
-                        "${UiLabels.displayOrigin(badge.origin)} · ${UiLabels.residenceLabel(badge.residence)}",
+                        "${UiLabels.displayOrigin(badge.origin)} · " +
+                            stringResource(UiLabels.residenceLabelRes(badge.residence)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (badge.chips.isNotEmpty()) {
+                        // Compose: resolve each chip label in a `for` loop (composable scope); a
+                        // `joinToString` transform lambda is not composable and would not compile.
+                        val chipLabels = mutableListOf<String>()
+                        for (chip in badge.chips) {
+                            chipLabels.add(localizedString(chip.res, chip.args))
+                        }
                         Text(
-                            badge.chips.joinToString("  "),
+                            chipLabels.joinToString("  "),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -424,7 +437,7 @@ private fun ConversationSection(
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(
-                        "该会话未绑定 Provider",
+                        stringResource(R.string.chat_unbound_provider),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("chat-unbound-provider"),
@@ -434,13 +447,17 @@ private fun ConversationSection(
                             onClick = { intents.onBindProvider(row) },
                             modifier = Modifier.testTag("chat-bind-provider"),
                         ) {
-                            Text("${row.displayName}（${row.model}）")
+                            Text(stringResource(R.string.chat_provider_option, row.displayName, row.model))
                         }
                     }
                 }
             }
             Text(
-                if (profile == SafetyProfile.ADVANCED) "配置：Advanced" else "配置：Standard",
+                if (profile == SafetyProfile.ADVANCED) {
+                    stringResource(R.string.chat_profile_advanced)
+                } else {
+                    stringResource(R.string.chat_profile_standard)
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("chat-profile"),
@@ -461,7 +478,7 @@ private fun ConversationSection(
                     color = MaterialTheme.colorScheme.onErrorContainer,
                     modifier = Modifier.weight(1f).testTag("chat-blocked-reason"),
                 )
-                TextButton(onClick = intents.onDismissBlocked) { Text("知道了") }
+                TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
         LazyColumn(
@@ -483,7 +500,7 @@ private fun ConversationSection(
                 item(key = "streaming") {
                     if (turn.streamingText.isNullOrBlank()) {
                         Text(
-                            "正在等待模型响应…",
+                            stringResource(R.string.chat_waiting_model),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -496,14 +513,14 @@ private fun ConversationSection(
                 item(key = "turn-error") {
                     Column {
                         Text(
-                            "本次请求未成功：${turn.errorLabel}",
+                            stringResource(R.string.chat_turn_failed, turn.errorLabel),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error"),
                         )
                         if (screen.retryTargetTurnId != null) {
                             TextButton(onClick = intents.onRetry, modifier = Modifier.testTag("chat-retry")) {
-                                Text("重试")
+                                Text(stringResource(R.string.chat_retry))
                             }
                         }
                     }
@@ -541,7 +558,7 @@ private fun ConversationSection(
                             onClick = { intents.onRemoveAttachment(attachment.id) },
                             modifier = Modifier.testTag("chat-pending-remove-${attachment.id}"),
                         ) {
-                            Text("删除")
+                            Text(stringResource(R.string.chat_delete_attachment))
                         }
                     }
                 }
@@ -568,7 +585,7 @@ private fun ConversationSection(
                 enabled = !screen.isSending,
                 modifier = Modifier.testTag("chat-attach"),
             ) {
-                Text("附件")
+                Text(stringResource(R.string.chat_attachment_button))
             }
             TextButton(
                 onClick = {
@@ -579,25 +596,25 @@ private fun ConversationSection(
                         }
 
                         else -> {
-                            voiceNotice = "语音识别不可用"
+                            voiceNotice = voiceUnavailable
                         }
                     }
                 },
                 enabled = !screen.isSending,
                 modifier = Modifier.testTag("chat-voice"),
             ) {
-                Text("语音")
+                Text(stringResource(R.string.chat_voice_button))
             }
             OutlinedTextField(
                 value = input,
                 onValueChange = onInput,
                 modifier = Modifier.weight(1f).testTag("chat-input"),
-                placeholder = { Text("输入消息…") },
+                placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
                 enabled = !screen.isSending,
             )
             if (screen.isSending) {
                 Button(onClick = intents.onStop, modifier = Modifier.testTag("chat-stop")) {
-                    Text("停止")
+                    Text(stringResource(R.string.chat_stop))
                 }
             } else {
                 Button(
@@ -605,7 +622,7 @@ private fun ConversationSection(
                     enabled = input.isNotBlank() || screen.pendingAttachments.isNotEmpty(),
                     modifier = Modifier.testTag("chat-send"),
                 ) {
-                    Text("发送")
+                    Text(stringResource(R.string.common_send))
                 }
             }
         }
@@ -636,7 +653,7 @@ private fun ToolTimelineItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "工具：${row.toolName}",
+                stringResource(R.string.chat_tool_row, row.toolName),
                 style = MaterialTheme.typography.labelMedium,
             )
             Text(
@@ -647,13 +664,13 @@ private fun ToolTimelineItem(
             )
         }
         Text(
-            "请求参数：${row.requestSummary}",
+            stringResource(R.string.chat_tool_request, row.requestSummary),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.testTag("tool-row-args-${row.callId}"),
         )
         row.resultSummary?.let { summary ->
             Text(
-                "结果：$summary",
+                stringResource(R.string.chat_tool_result, summary),
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.testTag("tool-row-result-${row.callId}"),
             )

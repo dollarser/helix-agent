@@ -5,6 +5,9 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -33,6 +36,14 @@ class SpeechRecognitionDeviceTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val speech = SpeechRecognitionLauncher()
 
+    @After
+    fun restorePinnedLanguage() {
+        // Restore the run's deterministic zh-CN pin (HelixAndroidJUnitRunner forces ZH_CN for the
+        // run) so any UI test class running after this one renders the canonical Chinese copy
+        // regardless of the device system locale.
+        AppLanguageStore.applyChoice(context, AppLanguage.ZH_CN)
+    }
+
     @Test
     fun thePreCheckReflectsTheRealSystemAvailabilityQuery() {
         // Consistency, not a fixed value: on the recognizer-less API 29 image this asserts the real
@@ -50,6 +61,10 @@ class SpeechRecognitionDeviceTest {
 
     @Test
     fun theLaunchIntentTargetsTheSystemRecognizerInSystemLocale() {
+        // HXA-069: the recognizer language now follows the app UI-language choice, so pin each
+        // choice explicitly for a deterministic assertion (independent of the run's global pin).
+        // "Follow system" is the ONLY choice that leaves the recognizer on the device locale.
+        AppLanguageStore.applyChoice(context, AppLanguage.SYSTEM)
         val intent = speech.buildIntent(context)
         assertEquals(RecognizerIntent.ACTION_RECOGNIZE_SPEECH, intent.action)
         assertEquals(context.packageName, intent.getStringExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE))
@@ -57,12 +72,29 @@ class SpeechRecognitionDeviceTest {
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
             intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL),
         )
-        // HXA-067: start recognition in the SYSTEM locale — no explicit language is set.
+        // HXA-067 + HXA-069: "follow system" => no explicit language, the device default applies.
         assertNull(
             "the recognizer must be started with the system locale (no EXTRA_LANGUAGE)",
             intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE),
         )
         assertNull(intent.getStringExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE))
+    }
+
+    @Test
+    fun aFixedUiLanguageSetsTheRecognizerLanguage() {
+        // HXA-069: a fixed in-app language is passed as EXTRA_LANGUAGE so recognition defaults to
+        // what the user reads Helix in (the pure choice->tag map is unit-tested in
+        // SpeechRecognitionLauncherTest; here the real intent carries it).
+        AppLanguageStore.applyChoice(context, AppLanguage.ZH_CN)
+        assertEquals(
+            "zh-CN",
+            speech.buildIntent(context).getStringExtra(RecognizerIntent.EXTRA_LANGUAGE),
+        )
+        AppLanguageStore.applyChoice(context, AppLanguage.EN)
+        assertEquals(
+            "en",
+            speech.buildIntent(context).getStringExtra(RecognizerIntent.EXTRA_LANGUAGE),
+        )
     }
 
     @Test

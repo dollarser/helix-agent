@@ -27,10 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.core.model.SafetyProfile
 import com.helix.core.policy.GrantState
@@ -78,8 +80,13 @@ internal object AllFilesModule {
 
     private var rootsStore: AllFilesRootsStore? = null
 
+    // HXA-069: the catalog carries stable string-resource ids for the root names; this object is
+    // the seam that resolves them to the current locale (Application context — no lifecycle leak).
+    private var appContext: Context? = null
+
     /** Builds the roots registry against the app-private `workspaces/` dir (idempotent). */
     fun init(context: Context) {
+        appContext = context.applicationContext
         rootsStore ?: run {
             rootsStore =
                 AllFilesRootsStore(File(context.filesDir, "workspaces/all-files-roots.json").toPath())
@@ -125,7 +132,14 @@ internal object AllFilesModule {
         } else {
             AllFilesRootCatalog.ROOTS
                 .filter { isEnabled(it.key) }
-                .map { AllFilesSource(AllFilesRootCatalog.scopeId(it.key), it.displayName) }
+                .map { root ->
+                    // HXA-069: the catalog holds a stable res id; resolve it here. A root only
+                    // appears while enabled, which requires init() — so appContext is set.
+                    AllFilesSource(
+                        AllFilesRootCatalog.scopeId(root.key),
+                        appContext?.getString(root.labelRes) ?: root.key,
+                    )
+                }
         }
 
     /**
@@ -181,21 +195,18 @@ internal object AllFilesModule {
                     .testTag("screen-permissions-allfiles"),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("All files 访问", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.allfiles_title), style = MaterialTheme.typography.titleLarge)
             Text(
-                "说明：Android 的 All files 权限允许 Helix 访问公共存储目录（下载、文档、图片等），" +
-                    "但它不覆盖其他应用的私有目录与 Android/data。" +
-                    "启用某个根目录后，Agent 也只能访问你在下方明确选择的根目录内，" +
-                    "且每次文件操作仍要经过 scope、Policy 与逐次审批。",
+                stringResource(R.string.allfiles_description),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.testTag("allfiles-explanation"),
             )
             Text(
                 when (state) {
-                    GrantState.GRANTED -> "系统状态：已授权"
-                    GrantState.DENIED -> "系统状态：未授权"
-                    GrantState.UNAVAILABLE -> "系统状态：此系统/版本不提供（API 低于 30）"
-                    GrantState.LOST -> "系统状态：已失效"
+                    GrantState.GRANTED -> stringResource(R.string.allfiles_state_granted)
+                    GrantState.DENIED -> stringResource(R.string.allfiles_state_denied)
+                    GrantState.UNAVAILABLE -> stringResource(R.string.allfiles_state_unavailable)
+                    GrantState.LOST -> stringResource(R.string.allfiles_state_lost)
                 },
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.testTag("allfiles-grant-state"),
@@ -214,19 +225,19 @@ internal object AllFilesModule {
                     },
                     modifier = Modifier.testTag("allfiles-open-settings"),
                 ) {
-                    Text("去系统设置授权")
+                    Text(stringResource(R.string.allfiles_open_settings))
                 }
             }
             if (profile != SafetyProfile.ADVANCED) {
                 Text(
-                    "切换 Advanced 后才可启用根目录（ADR-0005；Standard 下文件工具仅见 app 私有 scope）。",
+                    stringResource(R.string.allfiles_advanced_required),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("allfiles-advanced-required"),
                 )
             }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Helix 根目录", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.allfiles_roots_title), style = MaterialTheme.typography.titleMedium)
                 AllFilesRootCatalog.ROOTS.forEach { root ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -245,7 +256,7 @@ internal object AllFilesModule {
                             },
                             modifier = Modifier.testTag("allfiles-root-toggle-${root.key}"),
                         )
-                        Text(root.displayName, style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(root.labelRes), style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }

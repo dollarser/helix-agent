@@ -1,5 +1,6 @@
 package com.helix.app.files
 
+import com.helix.app.R
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -207,7 +208,7 @@ class FileManagerServiceSafTest {
     fun mutationsOnASafScopeFailClosed() {
         safGrantStore.grant(tree, "Docs")
         val service = makeService(liveCheck(tree), FakeReader(emptyMap(), emptySet()))
-        val expected = "SAF 来源为只读"
+        val expected = R.string.files_saf_read_only.toString() // HXA-069: facade now emits the stable resource id
         assertEquals(FileManagerService.FileOpResult.Error(expected), service.rename(safScope, "a", "b", false))
         assertEquals(FileManagerService.FileOpResult.Error(expected), service.copy(safScope, "a", "b", false))
         assertEquals(FileManagerService.FileOpResult.Error(expected), service.trash(safScope, "a"))

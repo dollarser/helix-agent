@@ -13,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.approval.ApprovalUiMapper
@@ -50,7 +52,11 @@ fun ApprovalCard(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                "工具审批：${card.source} / ${card.target}",
+                stringResource(
+                    R.string.approval_title,
+                    localizedString(card.sourceRes, card.sourceArgs),
+                    stringResource(card.targetRes),
+                ),
                 style = MaterialTheme.typography.titleMedium,
             )
             ApprovalCardFields(card)
@@ -63,36 +69,52 @@ fun ApprovalCard(
 @Composable
 @Suppress("FunctionName")
 private fun ApprovalCardFields(card: ApprovalCardUi) {
-    FieldLine("来源", card.source)
-    FieldLine("目标", card.target)
-    FieldLine("作用域", card.scope)
-    FieldLine("参数", card.arguments, tag = "approval-card-args")
-    FieldLine("风险", card.risk, tag = "approval-card-risk")
-    FieldLine("Safety Profile", ApprovalUiMapper.profileLabel(card.profile))
+    FieldLine(stringResource(R.string.approval_source), localizedString(card.sourceRes, card.sourceArgs))
+    FieldLine(stringResource(R.string.approval_target), stringResource(card.targetRes))
+    FieldLine(
+        stringResource(R.string.approval_scope),
+        // [ApprovalCardUi.scope] is the STABLE scope ref; the UI localizes the "unscoped" ref (HXA-069).
+        if (card.scope == "unscoped") stringResource(R.string.approval_scope_unscoped) else card.scope,
+    )
+    FieldLine(
+        stringResource(R.string.approval_arguments),
+        card.arguments,
+        tag = "approval-card-args",
+    )
+    FieldLine(
+        stringResource(R.string.approval_risk),
+        // The uplift template interpolates the two level labels (string-resource IDs, HXA-069).
+        localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
+        tag = "approval-card-risk",
+    )
+    FieldLine("Safety Profile", stringResource(ApprovalUiMapper.profileLabel(card.profile)))
     FieldLine(
         "Provider/MCP",
-        card.providerMcpId ?: "内置（无 Provider/MCP）",
+        card.providerMcpId ?: stringResource(R.string.approval_builtin_no_provider_mcp),
     )
     FieldLine(
-        "网络 origin",
-        card.networkOrigin ?: ApprovalCardUi.NO_EGRESS,
+        stringResource(R.string.approval_network_origin),
+        card.networkOrigin ?: stringResource(ApprovalCardUi.NO_EGRESS),
     )
-    FieldLine("数据驻留", card.residence ?: ApprovalCardUi.NO_EGRESS)
-    FieldLine("数据类别", card.dataCategory)
+    FieldLine(
+        stringResource(R.string.approval_data_residence),
+        card.residence ?: stringResource(ApprovalCardUi.NO_EGRESS),
+    )
+    FieldLine(stringResource(R.string.approval_data_category), stringResource(card.dataCategoryRes))
     card.boundedRule?.let { rule ->
         Text(
-            "有界 Policy 规则（非通用批准凭证）：${rule.display}",
+            stringResource(R.string.approval_bounded_rule, localizedString(rule.displayRes, rule.displayArgs)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.testTag("approval-card-rule"),
         )
     }
     card.codeOrCommand?.let { code ->
-        FieldLine("代码/命令", code, tag = "approval-card-code")
+        FieldLine(stringResource(R.string.approval_code_command), code, tag = "approval-card-code")
     }
     card.codeExecution?.let { CodeExecutionBlock(it) }
-    FieldLine("预期影响", card.expectedImpact)
-    FieldLine("校验器（verifier）", card.verifier)
+    FieldLine(stringResource(R.string.approval_expected_impact), card.expectedImpact)
+    FieldLine(stringResource(R.string.approval_verifier), stringResource(card.verifierRes))
     Text(
         card.confirmationDetail,
         style = MaterialTheme.typography.bodySmall,
@@ -117,14 +139,14 @@ private fun ApprovalCardActions(
                 Button(
                     onClick = onApprove,
                     modifier = Modifier.testTag("approval-approve-${card.approvalId}"),
-                ) { Text(ApprovalCardUi.ACTIONS[0]) }
+                ) { Text(stringResource(ApprovalCardUi.ACTIONS[0])) }
                 OutlinedButton(
                     onClick = onDeny,
                     modifier = Modifier.testTag("approval-deny-${card.approvalId}"),
-                ) { Text(ApprovalCardUi.ACTIONS[1]) }
+                ) { Text(stringResource(ApprovalCardUi.ACTIONS[1])) }
             }
             Text(
-                "仅对本次动作生效。本版本不提供“模型帮我批准”或“此后全部允许”。",
+                stringResource(R.string.approval_no_permanent_allow),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("approval-card-no-permanent-allow"),
@@ -132,9 +154,11 @@ private fun ApprovalCardActions(
         }
 
         else -> {
+            val stateLabel = stringResource(ApprovalUiMapper.stateLabel(card.state))
             Text(
-                "${ApprovalUiMapper.stateLabel(card.state)}" +
-                    (card.terminalDetail?.let { "：$it" } ?: ""),
+                card.terminalDetail?.let { detail ->
+                    stringResource(R.string.approval_state_with_detail, stateLabel, detail)
+                } ?: stateLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.testTag("approval-card-state-${card.approvalId}"),
             )
@@ -150,7 +174,7 @@ private fun FieldLine(
     tag: String? = null,
 ) {
     Text(
-        "$label：$value",
+        stringResource(R.string.approval_field_line, label, value),
         style = MaterialTheme.typography.bodyMedium,
         modifier = tag?.let { Modifier.testTag(it) } ?: Modifier,
     )
@@ -171,8 +195,28 @@ private fun CodeExecutionBlock(execution: CodeExecutionUi) {
         color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.testTag("approval-card-code-block"),
     )
-    FieldLine("输入来源", execution.inputSource, tag = "approval-card-input-source")
-    FieldLine("联网", if (execution.online) "是" else "否", tag = "approval-card-online")
-    FieldLine("执行限制", execution.limits, tag = "approval-card-limits")
-    FieldLine("代码摘要 SHA-256", execution.codeSha256Short, tag = "approval-card-code-hash")
+    FieldLine(
+        stringResource(R.string.approval_input_source),
+        localizedString(execution.inputSourceRes, execution.inputSourceArgs),
+        tag = "approval-card-input-source",
+    )
+    FieldLine(
+        stringResource(R.string.approval_online),
+        if (execution.online) {
+            stringResource(R.string.approval_yes)
+        } else {
+            stringResource(R.string.approval_no)
+        },
+        tag = "approval-card-online",
+    )
+    FieldLine(
+        stringResource(R.string.approval_execution_limits),
+        localizedString(execution.limitsRes, execution.limitsArgs),
+        tag = "approval-card-limits",
+    )
+    FieldLine(
+        stringResource(R.string.approval_code_sha256),
+        execution.codeSha256Short,
+        tag = "approval-card-code-hash",
+    )
 }

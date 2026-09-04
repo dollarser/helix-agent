@@ -29,20 +29,26 @@ sealed interface BrowserUrlDecision {
     ) : BrowserUrlDecision
 }
 
+/**
+ * A URL-denial reason. [code] is the STABLE, locale-independent token this reason maps to in the
+ * HXA-062 `browser.navigate` tool outcome — it must be byte-stable across UI languages, so it is
+ * never user-facing wording. The user-facing wording is resolved from resources at the UI
+ * boundary (HXA-069, see `DenialReason.userLabel` in `com.helix.feature.browser.ui`).
+ */
 enum class DenialReason(
-    val label: String,
+    val code: String,
 ) {
     /** Empty or whitespace-only input. */
-    EMPTY("地址为空"),
+    EMPTY("empty-url"),
 
     /** Not parseable as an absolute URI, or contains control characters. */
-    INVALID("地址无法解析"),
+    INVALID("invalid-url"),
 
     /** Parseable, but the scheme (or `about`/`data` sub-form) is not loadable in a Helix tab. */
-    UNSUPPORTED_SCHEME("不支持的地址协议"),
+    UNSUPPORTED_SCHEME("unsupported-scheme"),
 
     /** `http(s)` without a non-empty host. */
-    MISSING_HOST("地址缺少主机名"),
+    MISSING_HOST("missing-host"),
 }
 
 object BrowserUrlPolicy {

@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -39,6 +41,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FilesScreen
@@ -48,6 +51,18 @@ import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    /**
+     * HXA-069: apply the app UI language to this activity's context (and every Composable
+     * resource it reads) at attach time, via the platform [Context.createConfigurationContext]
+     * (see [AppLanguageStore.wrapForLocale]). [AppLanguageStore.effectiveLocaleList] is
+     * fail-closed — a read error degrades to the system default, never to an empty/invalid locale.
+     */
+    override fun attachBaseContext(base: Context) {
+        val localeList = AppLanguageStore.effectiveLocaleList(base)
+        val wrapped = AppLanguageStore.wrapForLocale(base, localeList)
+        super.attachBaseContext(wrapped)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as HelixApplication).appContainer
@@ -140,7 +155,7 @@ internal fun HelixApp(container: AppContainer) {
                     )
                     repository.destinations.forEach { destination ->
                         NavigationDrawerItem(
-                            label = { Text(destination.title) },
+                            label = { Text(stringResource(destination.titleRes)) },
                             selected = destination.route == currentRoute,
                             onClick = {
                                 navController.navigate(destination.route) {
@@ -161,7 +176,7 @@ internal fun HelixApp(container: AppContainer) {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(currentDestination.title) },
+                        title = { Text(stringResource(currentDestination.titleRes)) },
                         navigationIcon = {
                             IconButton(
                                 onClick = { scope.launch { drawerState.open() } },
@@ -268,12 +283,12 @@ private fun EmptyDestination(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "${destination.title}功能尚未启用",
+                text = stringResource(R.string.empty_not_enabled, stringResource(destination.titleRes)),
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = destination.emptyState,
+                text = stringResource(destination.emptyStateRes),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

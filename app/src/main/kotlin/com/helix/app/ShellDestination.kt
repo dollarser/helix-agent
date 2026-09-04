@@ -1,43 +1,50 @@
 package com.helix.app
 
+import androidx.annotation.StringRes
+
+/**
+ * The seven shell destinations (HXA-028). [route] is the stable, locale-independent nav key;
+ * [titleRes] / [emptyStateRes] are the user-visible string ids resolved at the UI boundary
+ * (HXA-069) so the drawer and top bar follow the active app language.
+ */
 enum class ShellDestination(
     val route: String,
-    val title: String,
-    val emptyState: String,
+    @StringRes val titleRes: Int,
+    @StringRes val emptyStateRes: Int,
 ) {
     Sessions(
         route = "sessions",
-        title = "会话",
-        emptyState = "会话列表与模型对话（M2）。",
+        titleRes = R.string.nav_sessions,
+        emptyStateRes = R.string.empty_sessions,
     ),
     Files(
         route = "files",
-        title = "文件",
-        emptyState = "Workspace、SAF 与文件管理器将在 M4 实现。",
+        titleRes = R.string.nav_files,
+        emptyStateRes = R.string.empty_files,
     ),
     Browser(
         route = "browser",
-        title = "浏览器",
-        emptyState = "受控 WebView 浏览器与 Browser Tools 将在 M6 实现。",
+        titleRes = R.string.nav_browser,
+        emptyStateRes = R.string.empty_browser,
     ),
     Extensions(
         route = "extensions",
-        title = "扩展",
-        emptyState = "MCP Client 与 Agent Skills 将在 M7 实现。",
+        titleRes = R.string.nav_extensions,
+        emptyStateRes = R.string.empty_extensions,
     ),
     Permissions(
         route = "permissions",
-        title = "权限",
-        emptyState = "系统能力、审批与高级权限入口将在对应里程碑实现。",
+        titleRes = R.string.nav_permissions,
+        emptyStateRes = R.string.empty_permissions,
     ),
     Settings(
         route = "settings",
-        title = "设置",
-        emptyState = "模型 Provider 和本地配置将在 M2 实现。",
+        titleRes = R.string.nav_settings,
+        emptyStateRes = R.string.empty_settings,
     ),
     Audit(
         route = "audit",
-        title = "审计",
-        emptyState = "工具执行审计记录将在 M3 实现。",
+        titleRes = R.string.nav_audit,
+        emptyStateRes = R.string.empty_audit,
     ),
 }

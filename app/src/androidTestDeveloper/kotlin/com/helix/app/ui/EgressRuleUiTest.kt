@@ -130,8 +130,16 @@ class EgressRuleUiTest {
         )
 
         // --- back to Standard: the section hides, but the rule is NOT deleted ---
+        // The exit button lives in the profile section at the TOP of the scrollable settings list,
+        // but the test just scrolled down to the egress section (below); scroll it back into view
+        // first (as every other click in this test does). An off-screen performClick delivers no
+        // hit, so without this the switch silently no-ops and the section never leaves.
+        composeRule.onNodeWithTag("settings-advanced-exit").performScrollTo()
         composeRule.onNodeWithTag("settings-advanced-exit").performClick()
-        composeRule.waitForIdle()
+        // switchTo(STANDARD) is synchronous, but the section-removal recomposition is driven by the
+        // profile StateFlow collector, which a single waitForIdle can return before it lands - poll
+        // the node's removal (a real switch regression would time out loudly here).
+        waitForNodeAbsent("egress-section")
         assertTrue(
             "egress section must be absent after switching back to Standard",
             composeRule.onAllNodesWithTag("egress-section").fetchSemanticsNodes().isEmpty(),
@@ -153,6 +161,22 @@ class EgressRuleUiTest {
         val deadline = System.currentTimeMillis() + 10_000
         while (composeRule.onAllNodesWithTag(testTag).fetchSemanticsNodes().isEmpty()) {
             check(System.currentTimeMillis() < deadline) { "timed out waiting for node '$testTag'" }
+            Thread.sleep(100)
+        }
+    }
+
+    /**
+     * Polls until NO semantics node with [testTag] remains (up to ~10s) — the inverse of
+     * [waitForNode]. Used for the negative case (the section hiding after switching back to
+     * Standard): the profile change flips the section gate, but the removal recomposition is driven
+     * by the profile StateFlow collector, which a single [waitForIdle] can return before it lands —
+     * so polling the node's absence is the race-free gate. A real profile-switch regression would
+     * time out loudly here rather than pass.
+     */
+    private fun waitForNodeAbsent(testTag: String) {
+        val deadline = System.currentTimeMillis() + 10_000
+        while (composeRule.onAllNodesWithTag(testTag).fetchSemanticsNodes().isNotEmpty()) {
+            check(System.currentTimeMillis() < deadline) { "timed out waiting for node '$testTag' to be removed" }
             Thread.sleep(100)
         }
     }

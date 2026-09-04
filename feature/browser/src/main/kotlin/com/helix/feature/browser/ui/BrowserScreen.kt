@@ -29,7 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -38,10 +40,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserTab
 import com.helix.feature.browser.BrowserTabController
-import com.helix.feature.browser.DownloadDenial
 import com.helix.feature.browser.DownloadItem
 import com.helix.feature.browser.DownloadStatus
 import com.helix.feature.browser.LoadError
+import com.helix.feature.browser.R
 
 /**
  * The browser feature's Compose surface (HXA-060). Binds to the
@@ -51,8 +53,8 @@ import com.helix.feature.browser.LoadError
  * [AndroidView].
  *
  * Every interactive element carries a `browser-*` test tag; the on-device tests and the
- * UI tests drive the screen through them. Text is hardcoded Chinese — resource extraction
- * is HXA-067.
+ * UI tests drive the screen through them. Every user-visible string is a resource key (HXA-069);
+ * the identity → text resolvers live in [BrowserMessages] (this package).
  */
 @Composable
 @Suppress("FunctionName")
@@ -90,7 +92,7 @@ fun BrowserScreen(controller: BrowserController) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when {
                 selected == null -> {
-                    Text("打开一个新标签页", Modifier.padding(16.dp))
+                    Text(stringResource(R.string.browser_open_new_tab), Modifier.padding(16.dp))
                 }
 
                 selected.error != null -> {
@@ -115,7 +117,7 @@ fun BrowserScreen(controller: BrowserController) {
                 }
 
                 else -> {
-                    Text("输入地址开始浏览", Modifier.padding(16.dp))
+                    Text(stringResource(R.string.browser_enter_address), Modifier.padding(16.dp))
                 }
             }
         }
@@ -177,7 +179,7 @@ private fun TabStrip(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        tab.label,
+                        tab.label ?: stringResource(R.string.browser_new_tab),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontSize = 12.sp,
@@ -235,7 +237,7 @@ private fun AddressBar(
                     .weight(1f)
                     .testTag("browser-url-field"),
             singleLine = true,
-            placeholder = { Text("输入网址") },
+            placeholder = { Text(stringResource(R.string.browser_url_placeholder)) },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
             keyboardActions =
                 KeyboardActions(
@@ -248,7 +250,7 @@ private fun AddressBar(
                 onClick = { selected?.let { controller.stop(it.id) } },
                 modifier = Modifier.testTag("browser-stop"),
             ) {
-                Text("停止")
+                Text(stringResource(R.string.browser_stop))
             }
         } else {
             TextButton(
@@ -256,7 +258,7 @@ private fun AddressBar(
                 enabled = selected != null,
                 modifier = Modifier.testTag("browser-go"),
             ) {
-                Text("前往")
+                Text(stringResource(R.string.browser_go))
             }
         }
     }
@@ -268,6 +270,7 @@ private fun ErrorPage(
     tab: BrowserTab,
     controller: BrowserController,
 ) {
+    val context = LocalContext.current
     val error = tab.error ?: return
     Column(
         modifier =
@@ -278,7 +281,7 @@ private fun ErrorPage(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(error.userMessage)
+        Text(error.userMessage(context))
         // Retry only for loads the WebView attempted and failed; a policy denial of the
         // same URL is a stable outcome and retrying would just re-denied it.
         if (error is LoadError) {
@@ -289,7 +292,7 @@ private fun ErrorPage(
                         .padding(top = 12.dp)
                         .testTag("browser-retry"),
             ) {
-                Text("重试")
+                Text(stringResource(R.string.browser_retry))
             }
         }
     }
@@ -302,13 +305,14 @@ private fun DownloadsPanel(
     controller: BrowserController,
     onSaveClick: (DownloadItem) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp),
     ) {
-        Text("下载", style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.browser_downloads_title), style = MaterialTheme.typography.labelLarge)
         downloads.forEach { item ->
             Row(
                 modifier =
@@ -321,7 +325,7 @@ private fun DownloadsPanel(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.fileName, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        downloadStatusText(item),
+                        downloadStatusText(context, item),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -332,7 +336,7 @@ private fun DownloadsPanel(
                             onClick = { onSaveClick(item) },
                             modifier = Modifier.testTag("browser-download-save-${item.id}"),
                         ) {
-                            Text("选择位置")
+                            Text(stringResource(R.string.browser_choose_location))
                         }
                     }
 
@@ -341,7 +345,7 @@ private fun DownloadsPanel(
                             onClick = { controller.dismissDownload(item.id) },
                             modifier = Modifier.testTag("browser-download-dismiss-${item.id}"),
                         ) {
-                            Text("关闭")
+                            Text(stringResource(R.string.browser_dismiss))
                         }
                     }
 
@@ -362,37 +366,19 @@ private fun ClearRow(controller: BrowserController) {
             onClick = { controller.clearCookies() },
             modifier = Modifier.testTag("browser-clear-cookies"),
         ) {
-            Text("清除Cookie")
+            Text(stringResource(R.string.browser_clear_cookies))
         }
         TextButton(
             onClick = { controller.clearCache() },
             modifier = Modifier.testTag("browser-clear-cache"),
         ) {
-            Text("清除缓存")
+            Text(stringResource(R.string.browser_clear_cache))
         }
         TextButton(
             onClick = { controller.clearHistory() },
             modifier = Modifier.testTag("browser-clear-history"),
         ) {
-            Text("清除历史")
+            Text(stringResource(R.string.browser_clear_history))
         }
     }
 }
-
-private fun downloadStatusText(item: DownloadItem): String =
-    when (item.status) {
-        DownloadStatus.PENDING_CHOICE -> "待选择保存位置"
-        DownloadStatus.SAVING -> "保存中…"
-        DownloadStatus.SAVED -> "已保存"
-        DownloadStatus.FAILED -> "失败：${item.detail ?: "未知原因"}"
-        DownloadStatus.DENIED -> "已拒绝：${denialText(item.denial)}"
-    }
-
-private fun denialText(denial: DownloadDenial?): String =
-    when (denial) {
-        DownloadDenial.URL -> "该 URL 不可下载"
-        DownloadDenial.UNSAFE_TYPE -> "禁止的文件类型"
-        DownloadDenial.SIZE -> "超过 100 MiB 上限"
-        DownloadDenial.NAME -> "文件名无效"
-        null -> "未知原因"
-    }

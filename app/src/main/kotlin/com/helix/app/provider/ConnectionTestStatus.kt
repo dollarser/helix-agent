@@ -1,5 +1,6 @@
 package com.helix.app.provider
 
+import com.helix.app.R
 import com.helix.core.model.ModelErrorCode
 import com.helix.provider.api.ProviderCapabilities
 
@@ -13,6 +14,10 @@ import com.helix.provider.api.ProviderCapabilities
  * phase that failed so the UI can show WHERE the test stopped (FR-LLM-004:
  * distinguish network/TLS/auth, model list, text stream and tool call) with a
  * SAFE label — never a raw exception message (doc 02 section 13).
+ *
+ * HXA-069: [Failed.code] holds the STABLE [ModelErrorCode] (never locale text) and the chip
+ * labels are string-resource IDs emitted by [ConnectionTestMapping] — the Compose UI resolves
+ * them to the current locale, so this model stays pure-JVM-testable with no Context.
  */
 sealed interface ConnectionTestStatus {
     /** No completed test yet — the provider cannot be selected for chat. */
@@ -26,51 +31,48 @@ sealed interface ConnectionTestStatus {
 
     /**
      * The probe stopped at [phase] (1 = transport/auth, 2 = model list,
-     * 3 = minimal text stream, 4 = minimal tool call). [codeLabel] is the
-     * safe Chinese label of the [ModelErrorCode]; [retryable] mirrors the
-     * probe's own classification (network-class failures are retryable).
+     * 3 = minimal text stream, 4 = minimal tool call). [code] is the STABLE
+     * [ModelErrorCode] (resolved to a safe localized label by the UI — never a
+     * raw exception message); [retryable] mirrors the probe's own
+     * classification (network-class failures are retryable).
      */
     data class Failed(
         val atMillis: Long,
         val phase: Int,
-        val codeLabel: String,
+        val code: ModelErrorCode,
         val retryable: Boolean,
     ) : ConnectionTestStatus
-
-    /** The status chip text shown on the provider row. */
-    fun chipText(): String =
-        when (this) {
-            Untested -> "未测试"
-            is Passed -> "已通过 · 能力已探测"
-            is Failed -> "测试未通过（${ConnectionTestMapping.phaseLabel(phase)}）"
-        }
 }
 
 /** Maps a probe outcome to [ConnectionTestStatus] (pure; unit-tested). */
 object ConnectionTestMapping {
     /**
-     * [code] is the [ModelErrorCode] the probe reported; it is converted to a
-     * SAFE user-visible label (doc 02 section 13: no raw exception text).
+     * The string-resource id of the SAFE user-visible label for [code]
+     * (doc 02 section 13: no raw exception text; resolved to the current
+     * locale by the UI, HXA-069).
      */
-    fun codeLabel(code: ModelErrorCode): String =
+    fun codeLabel(code: ModelErrorCode): Int =
         when (code) {
-            ModelErrorCode.TRANSPORT -> "网络/TLS 连接失败"
-            ModelErrorCode.TIMEOUT -> "连接或响应超时"
-            ModelErrorCode.AUTH -> "认证失败（key 缺失或无效）"
-            ModelErrorCode.RATE_LIMITED -> "服务限流（稍后重试）"
-            ModelErrorCode.SERVER_ERROR -> "服务端错误"
-            ModelErrorCode.HTTP_ERROR -> "HTTP 错误（端点或协议不匹配）"
-            ModelErrorCode.PROTOCOL -> "协议响应不符合预期"
-            ModelErrorCode.CONTENT_FILTER -> "被服务端内容过滤拒绝"
+            ModelErrorCode.TRANSPORT -> R.string.conn_error_transport
+            ModelErrorCode.TIMEOUT -> R.string.conn_error_timeout
+            ModelErrorCode.AUTH -> R.string.conn_error_auth
+            ModelErrorCode.RATE_LIMITED -> R.string.conn_error_rate_limited
+            ModelErrorCode.SERVER_ERROR -> R.string.conn_error_server
+            ModelErrorCode.HTTP_ERROR -> R.string.conn_error_http
+            ModelErrorCode.PROTOCOL -> R.string.conn_error_protocol
+            ModelErrorCode.CONTENT_FILTER -> R.string.conn_error_content_filter
         }
 
-    /** The four probe phases (HXA-025 CapabilityProbe, FR-LLM-004 display order). */
-    fun phaseLabel(phase: Int): String =
+    /**
+     * The string-resource id of the four probe phases (HXA-025 CapabilityProbe,
+     * FR-LLM-004 display order; resolved to the current locale by the UI).
+     */
+    fun phaseLabel(phase: Int): Int =
         when (phase) {
-            1 -> "网络与认证"
-            2 -> "模型列表"
-            3 -> "最小文本流"
-            4 -> "最小工具调用"
-            else -> "未知阶段"
+            1 -> R.string.conn_phase_1
+            2 -> R.string.conn_phase_2
+            3 -> R.string.conn_phase_3
+            4 -> R.string.conn_phase_4
+            else -> R.string.conn_phase_unknown
         }
 }

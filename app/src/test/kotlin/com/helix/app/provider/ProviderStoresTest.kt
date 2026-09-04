@@ -47,9 +47,8 @@ class ProviderStoresTest {
         store.recordFailed("prov_1", 2_000L, phase = 1, code = ModelErrorCode.AUTH, retryable = false)
         val status = store.statusFor("prov_1") as ConnectionTestStatus.Failed
         assertEquals(1, status.phase)
-        assertEquals(ConnectionTestMapping.codeLabel(ModelErrorCode.AUTH), status.codeLabel)
+        assertEquals(ModelErrorCode.AUTH, status.code)
         assertEquals(false, status.retryable)
-        assertTrue(status.chipText().contains("网络与认证"))
     }
 
     @Test

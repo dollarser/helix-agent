@@ -13,6 +13,7 @@ import android.os.IBinder
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.helix.app.MainActivity
+import com.helix.app.R
 
 /**
  * The `dataSync` foreground service for user-initiated Provider/MCP transport or local file
@@ -87,7 +88,7 @@ class DataSyncForegroundService : Service() {
             NotificationCompat.Action
                 .Builder(
                     0,
-                    "停止",
+                    getString(R.string.data_sync_action_stop),
                     PendingIntent.getService(
                         this,
                         1,
@@ -105,8 +106,8 @@ class DataSyncForegroundService : Service() {
         return NotificationCompat
             .Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("Helix 正在处理")
-            .setContentText("正在为你处理请求；点“停止”可中断。")
+            .setContentTitle(getString(R.string.data_sync_notification_title))
+            .setContentText(getString(R.string.data_sync_notification_text))
             .setOngoing(true)
             .setContentIntent(contentIntent)
             .addAction(stopAction)
@@ -152,10 +153,10 @@ internal fun ensureDataSyncChannel(context: Context) {
         val channel =
             NotificationChannel(
                 DataSyncForegroundService.CHANNEL_ID,
-                "数据同步",
+                context.getString(R.string.data_sync_channel_name),
                 NotificationManager.IMPORTANCE_LOW,
             )
-        channel.description = "用户主动发起的请求处理中（可停止）"
+        channel.description = context.getString(R.string.data_sync_channel_description)
         manager.createNotificationChannel(channel)
     }
 }

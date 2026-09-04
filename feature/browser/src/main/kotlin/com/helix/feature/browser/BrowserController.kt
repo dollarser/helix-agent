@@ -125,7 +125,7 @@ class BrowserController(
                         .tabs
                         .first { it.id == id }
                         .error as? PolicyBlockedError
-                )?.reason?.label
+                )?.reason?.code
             return BrowserNavResult.Denied(reason ?: "denied")
         }
         snapshots.remove(id)
@@ -546,10 +546,10 @@ class BrowserController(
             if (responseCode !in 200..299) return DownloadStatus.FAILED to "HTTP $responseCode"
             val out =
                 appContext.contentResolver.openOutputStream(documentUri)
-                    ?: return DownloadStatus.FAILED to "无法打开所选位置"
+                    ?: return DownloadStatus.FAILED to appContext.getString(R.string.browser_download_cannot_open)
             out.use { output -> copyWithCap(connection.inputStream, output) ?: DownloadStatus.SAVED to null }
         } catch (e: IOException) {
-            DownloadStatus.FAILED to (e.message ?: "下载失败")
+            DownloadStatus.FAILED to (e.message ?: appContext.getString(R.string.browser_download_failed_generic))
         } finally {
             connection?.disconnect()
         }
@@ -570,7 +570,9 @@ class BrowserController(
             val read = input.read(buffer)
             if (read < 0) return null
             written += read
-            if (written > BrowserDownloadPolicy.MAX_DOWNLOAD_BYTES) return DownloadStatus.FAILED to "超出 100 MiB 上限"
+            if (written > BrowserDownloadPolicy.MAX_DOWNLOAD_BYTES) {
+                return DownloadStatus.FAILED to appContext.getString(R.string.browser_download_over_cap)
+            }
             output.write(buffer, 0, read)
         }
     }

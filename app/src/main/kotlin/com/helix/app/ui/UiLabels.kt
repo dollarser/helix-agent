@@ -1,5 +1,7 @@
 package com.helix.app.ui
 
+import androidx.annotation.StringRes
+import com.helix.app.R
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import java.text.SimpleDateFormat
@@ -7,9 +9,10 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Display helpers for the HXA-028 chat UI (Chinese hardcoded; i18n is HXA-067).
- * Everything here is a pure display conversion of already-validated, persisted
- * facts — no parsing of user input (the composer normalized that), no secrets,
+ * Display helpers for the chat UI (HXA-028). Origin/time/byte/protocol forms are
+ * locale-independent ASCII; the data-residence wording is a [StringRes] resolved at the UI
+ * boundary (HXA-069). Everything here is a pure display conversion of already-validated,
+ * persisted facts — no parsing of user input (the composer normalized that), no secrets,
  * no network.
  */
 object UiLabels {
@@ -37,13 +40,17 @@ object UiLabels {
         return if (port != null && port == default) "$scheme://${rest.substring(0, colon)}" else origin
     }
 
-    /** User-visible data-residence label (doc 02 section 9.1 / ADR-0005). */
-    fun residenceLabel(residence: ProviderResidence): String =
+    /**
+     * The data-residence label id (doc 02 section 9.1 / ADR-0005). Returns a [StringRes] so the
+     * user-visible wording lives in resources (HXA-069); callers wrap it in `stringResource(...)`.
+     */
+    @StringRes
+    fun residenceLabelRes(residence: ProviderResidence): Int =
         when (residence) {
-            ProviderResidence.ON_DEVICE_LOOPBACK -> "本机回环（数据不出设备）"
-            ProviderResidence.USER_AUTHORIZED_LAN -> "局域网（已按 host:port 授权）"
-            ProviderResidence.PUBLIC_CLOUD -> "公共云"
-            ProviderResidence.CUSTOM_REMOTE_UNKNOWN -> "未知远程目的地"
+            ProviderResidence.ON_DEVICE_LOOPBACK -> R.string.ui_residence_on_device_loopback
+            ProviderResidence.USER_AUTHORIZED_LAN -> R.string.ui_residence_user_authorized_lan
+            ProviderResidence.PUBLIC_CLOUD -> R.string.ui_residence_public_cloud
+            ProviderResidence.CUSTOM_REMOTE_UNKNOWN -> R.string.ui_residence_custom_remote_unknown
         }
 
     /** User-visible protocol label. */

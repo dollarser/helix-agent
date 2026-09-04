@@ -53,7 +53,7 @@ class ProviderTestStatusStore(
                     ConnectionTestStatus.Failed(
                         atMillis = fields[2].toLong(),
                         phase = fields[3].toInt(),
-                        codeLabel = ConnectionTestMapping.codeLabel(ModelErrorCode.valueOf(fields[4])),
+                        code = ModelErrorCode.valueOf(fields[4]),
                         retryable = fields[5].toBoolean(),
                     )
                 }

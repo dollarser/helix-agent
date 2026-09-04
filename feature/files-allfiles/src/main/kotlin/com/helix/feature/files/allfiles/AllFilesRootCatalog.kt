@@ -5,8 +5,10 @@ package com.helix.feature.files.allfiles
  * picks one or more roots the agent may use — never "all phone files").
  *
  * [key] is a stable, opaque slug; the all-files scope id is `af-<key>` (a legal
- * [com.helix.core.workspace.FileScopePath] scope id — the model only ever sees that). [directoryType]
- * is the `android.os.Environment` public-directory type the root resolves to (a plain string here
+ * [com.helix.core.workspace.FileScopePath] scope id — the model only ever sees that). [labelRes] is the
+ * string-resource id of the user-visible root name (HXA-069: this pure JVM catalog emits a stable
+ * res id, never locale text — the Android UI resolves it via `stringResource`). [directoryType] is the
+ * `android.os.Environment` public-directory type the root resolves to (a plain string here
  * so this catalog stays pure JVM; the app layer resolves it to a real path via
  * `Environment.getExternalStoragePublicDirectory`).
  *
@@ -17,7 +19,7 @@ package com.helix.feature.files.allfiles
  */
 data class AllFilesRoot(
     val key: String,
-    val displayName: String,
+    val labelRes: Int,
     val directoryType: String,
 )
 
@@ -33,13 +35,13 @@ object AllFilesRootCatalog {
     /** The bounded, closed set of roots the user may enable. */
     val ROOTS: List<AllFilesRoot> =
         listOf(
-            AllFilesRoot("download", "下载", "Download"),
-            AllFilesRoot("documents", "文档", "Documents"),
-            AllFilesRoot("pictures", "图片", "Pictures"),
-            AllFilesRoot("music", "音乐", "Music"),
-            AllFilesRoot("movies", "视频", "Movies"),
-            AllFilesRoot("podcasts", "播客", "Podcasts"),
-            AllFilesRoot("dcim", "相机", "DCIM"),
+            AllFilesRoot("download", R.string.allfiles_root_download, "Download"),
+            AllFilesRoot("documents", R.string.allfiles_root_documents, "Documents"),
+            AllFilesRoot("pictures", R.string.allfiles_root_pictures, "Pictures"),
+            AllFilesRoot("music", R.string.allfiles_root_music, "Music"),
+            AllFilesRoot("movies", R.string.allfiles_root_movies, "Movies"),
+            AllFilesRoot("podcasts", R.string.allfiles_root_podcasts, "Podcasts"),
+            AllFilesRoot("dcim", R.string.allfiles_root_dcim, "DCIM"),
         )
 
     /** The catalog root for [key], or null when [key] is not in the catalog (fail closed). */

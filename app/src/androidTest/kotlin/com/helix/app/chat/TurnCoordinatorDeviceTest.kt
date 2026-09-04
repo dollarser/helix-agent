@@ -54,9 +54,9 @@ class TurnCoordinatorDeviceTest {
                 )
 
             val first = coordinator.beginModelStream()
-            first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time.now"), ::label)
-            first.apply(ModelEvent.ToolArgumentsDelta(0, "{}"), ::label)
-            first.apply(ModelEvent.ToolCallFinished(0), ::label)
+            first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time.now"))
+            first.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
+            first.apply(ModelEvent.ToolCallFinished(0))
             coordinator.beginToolBatch(listOf("tool-1"))
             coordinator.commitModelToolStep("""[{"id":"tool-1","name":"time.now","arguments":"{}"}]""")
             coordinator.settleBatchCall("tool-1", sideEffectUnknown = false)
@@ -66,8 +66,8 @@ class TurnCoordinatorDeviceTest {
             )
 
             val second = coordinator.beginModelStream()
-            second.apply(ModelEvent.TextDelta("partial-second"), ::label)
-            coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "INTERNAL", "failed"))
+            second.apply(ModelEvent.TextDelta("partial-second"))
+            coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "INTERNAL"))
 
             assertEquals(TurnState.FAILED.name, storage.turns.resolve("turn-1").state)
             assertEquals("COMPLETED", storage.modelCalls.resolve("model-1").state)
@@ -146,8 +146,6 @@ class TurnCoordinatorDeviceTest {
         val suffix = UUID.randomUUID().toString()
         return HelixStorage.open(context, "turn-coordinator-$suffix.db", File(context.filesDir, "turn-$suffix"))
     }
-
-    private fun label(code: com.helix.core.model.ModelErrorCode): String = code.name
 
     private companion object {
         const val TOOL_RESULT = """{"id":"tool-1","tool":"time.now","status":"SUCCEEDED","summary":"ok"}"""

@@ -1,5 +1,8 @@
 package com.helix.app.ui
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,10 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
 import com.helix.app.egress.EgressRuleSection
+import com.helix.app.language.AppLanguage
+import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
@@ -40,7 +49,7 @@ import com.helix.core.storage.repository.HighSensitivityRuleRepository
  *   consumer channel never offers a path from Standard into Advanced) and its
  *   store refuses any switch to ADVANCED (fail-closed);
  * - the DEVELOPER build offers the explicit switch, guarded by the in-app risk
- *   explanation (ADVANCED_RISK_SUMMARY) that states the ADR guarantees;
+ *   explanation (the profile_advanced_risk_summary resource) that states the ADR guarantees;
  * - the switch is a PURE state transition — M2 enables no capability from it
  *   (NFR-011: zero permission/Root/Runtime/network side effects), and the
  *   screen says so honestly instead of faking gated capabilities.
@@ -68,16 +77,16 @@ fun SettingsScreen(
                 .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text("设置", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("安全配置", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.settings_safety_section), style = MaterialTheme.typography.titleMedium)
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(
                     if (profile == SafetyProfile.ADVANCED) {
-                        "当前：Advanced"
+                        stringResource(R.string.settings_current_advanced)
                     } else {
-                        "当前：Standard（默认）"
+                        stringResource(R.string.settings_current_standard)
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.testTag("settings-profile-current"),
@@ -89,31 +98,35 @@ fun SettingsScreen(
                         onClick = { riskDialogOpen = true },
                         modifier = Modifier.testTag("settings-advanced-switch"),
                     ) {
-                        Text("切换到 Advanced")
+                        Text(stringResource(R.string.settings_switch_to_advanced))
                     }
                 } else {
                     OutlinedButton(
                         onClick = { profileStore.switchTo(SafetyProfile.STANDARD) },
                         modifier = Modifier.testTag("settings-advanced-exit"),
                     ) {
-                        Text("切换回 Standard")
+                        Text(stringResource(R.string.settings_switch_back_standard))
                     }
                 }
                 Text(
-                    ADVANCED_M2_NOTE,
+                    stringResource(R.string.settings_advanced_m2_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("settings-advanced-note"),
                 )
             } else {
                 Text(
-                    "本版本仅提供 Standard 配置，不提供 Advanced 入口（消费者渠道无 Standard → Advanced 路径，ADR-0005/0006）。",
+                    stringResource(R.string.settings_consumer_standard_only),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.testTag("settings-advanced-absent"),
                 )
             }
         }
+
+        HorizontalDivider()
+
+        LanguageSection()
 
         HorizontalDivider()
 
@@ -128,9 +141,9 @@ fun SettingsScreen(
     if (riskDialogOpen) {
         AlertDialog(
             onDismissRequest = { riskDialogOpen = false },
-            title = { Text("切换到 Advanced — 风险说明") },
+            title = { Text(stringResource(R.string.settings_advanced_confirm_title)) },
             text = {
-                Text(AdvancedProfileAvailability.ADVANCED_RISK_SUMMARY)
+                Text(stringResource(R.string.profile_advanced_risk_summary))
             },
             confirmButton = {
                 TextButton(
@@ -140,7 +153,7 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("settings-risk-confirm"),
                 ) {
-                    Text("我已了解，确认切换")
+                    Text(stringResource(R.string.settings_advanced_confirm_ok))
                 }
             },
             dismissButton = {
@@ -148,7 +161,7 @@ fun SettingsScreen(
                     onClick = { riskDialogOpen = false },
                     modifier = Modifier.testTag("settings-risk-cancel"),
                 ) {
-                    Text("取消")
+                    Text(stringResource(R.string.common_cancel))
                 }
             },
             modifier = Modifier.testTag("settings-risk-dialog"),
@@ -156,6 +169,59 @@ fun SettingsScreen(
     }
 }
 
-private const val ADVANCED_M2_NOTE =
-    "M2 说明：切换 Advanced 不启用任何新能力——零系统权限申请、零 Runtime 安装、" +
-        "零 Root 会话、零新网络端点。每项高级能力将由后续里程碑单独启用、限定 scope 且可立即撤销。"
+/**
+ * HXA-069: the app UI language selector (跟随系统 / 简体中文 / English). The choice is persisted
+ * by [AppLanguageStore] and applied immediately: [AppLanguageStore.applyChoice] records it (and,
+ * on API 33+, pushes it to the system per-app-locale store for two-way sync), then the host
+ * activity is recreated so its `attachBaseContext` re-applies the locale via
+ * [AppLanguageStore.wrapForLocale]. The option labels are endonyms (identical in every locale).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun LanguageSection() {
+    val context = LocalContext.current
+    val activity = findActivity(context)
+    var current by remember { mutableStateOf(AppLanguageStore.stored(context)) }
+    val options =
+        listOf(
+            AppLanguage.SYSTEM to stringResource(R.string.language_system),
+            AppLanguage.ZH_CN to stringResource(R.string.language_zh_cn),
+            AppLanguage.EN to stringResource(R.string.language_en),
+        )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.settings_language_title),
+            style = MaterialTheme.typography.titleMedium,
+        )
+        options.forEach { (choice, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(
+                    selected = choice == current,
+                    onClick = {
+                        if (choice != current) {
+                            current = choice
+                            AppLanguageStore.applyChoice(context, choice)
+                            activity?.recreate()
+                        }
+                    },
+                    modifier = Modifier.testTag("settings-language-${choice.name}"),
+                )
+                Text(label, style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+}
+
+/**
+ * The host [Activity] for [android.app.Activity.recreate], unwrapping the [ContextWrapper] chain:
+ * the activity's context is itself wrapped by [AppLanguageStore.wrapForLocale]
+ * (`createConfigurationContext`), so a plain cast of [LocalContext] would miss it.
+ */
+private fun findActivity(context: Context): Activity? {
+    var current: Context? = context
+    while (current != null) {
+        if (current is Activity) return current
+        current = (current as? ContextWrapper)?.baseContext
+    }
+    return null
+}

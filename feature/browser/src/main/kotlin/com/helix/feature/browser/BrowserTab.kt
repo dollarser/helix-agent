@@ -29,12 +29,15 @@ data class BrowserTab(
     val canGoForward: Boolean = false,
     val navigationGeneration: Long = 0,
 ) {
-    /** The short label for the tab strip: the title when the page set one, else the host. */
-    val label: String
+    /**
+     * The short label for the tab strip: the title when the page set one, else the host; null for
+     * a blank tab, which the UI renders as the localized "new tab" placeholder (HXA-069).
+     */
+    val label: String?
         get() =
             title?.takeIf { it.isNotBlank() }
                 ?: urlDisplayHost(url)
-                ?: (if (url == BrowserTabController.ABOUT_BLANK) "新标签页" else url)
+                ?: (if (url == BrowserTabController.ABOUT_BLANK) null else url)
 }
 
 /**
