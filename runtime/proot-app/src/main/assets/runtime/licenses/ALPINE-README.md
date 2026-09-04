@@ -1,6 +1,6 @@
 # Alpine Linux RootFS — 许可证与来源说明
 
-本文件是嵌入 RootFS 存档（`runtime/rootfs/alpine-minirootfs-3.22.5-aarch64.tar.gz`）的
+本文件是嵌入 RootFS 存档（`runtime/rootfs/alpine-minirootfs-3.22.5-aarch64.tar`）的
 许可证再分发说明（`runtime-lock.json` 中 `alpine-rootfs` 组件的 `license.textRef`）。
 PRoot 侧组件（proot/loader/libtalloc/libandroid-shmem）的许可证文本在各自引用的
 `licenses/*.txt` 文件中，不在本文件范围。
@@ -20,8 +20,13 @@ PRoot 侧组件（proot/loader/libtalloc/libandroid-shmem）的许可证文本�
 - **包版本**：下表 53 个包的版本全部固定（pinned）在 `runtime-lock.json` 的
   `packages[]` 中；构建时 `apk add name=version` 精确安装，任何上游新版本都不会静默进入。
 - **最终存档**：构建产物经 `scripts/deterministic_tar.py` 重打包（条目按路径排序、
-  uid/gid=0、固定 mtime=2026-01-01 UTC、GNU 格式、gzip -9 mtime=0），字节级可复现；
-  其 SHA-256 与大小记录于 `runtime-lock.json`，设备端安装器（HXA-082）安装前重算比对。
+  uid/gid=0、固定 mtime=2026-01-01 UTC、GNU 格式），得到一个字节级可复现的 **原始
+  tar**（`alpine-minirootfs-3.22.5-aarch64.tar`）。**锁定对象是这个原始 tar**：它的
+  SHA-256 与大小记录于 `runtime-lock.json`，设备端安装器（HXA-082）安装前对实际读到的
+  字节重算比对。之所以锁定原始 tar 而非 gzip 包，是因为 Android Gradle 在打包 APK 时
+  自动展开 `.gz` 资源，设备从 APK 资产读到的正是原始 tar 字节；锁定"设备真正读到的
+  字节"才能保证校验闭环。gzip -9 mtime=0 的 `.tar.gz` 仍作为可复现构建产物生成，其
+  SHA-256 仅记录于构建日志，不是锁定值。
 - 存档内含 `/lib/apk/db/installed`（apk 数据库，含每包签名校验和），供离线审计。
 
 ## 已安装包清单（53 个，版本 + 许可证）

@@ -17,7 +17,8 @@
 #   5. Deterministically repack the rootfs (scripts/deterministic_tar.py) → stable bytes.
 #   6. Run the Kotlin asset gate (./gradlew :runtime:proot-core:assetGate) over EVERY ELF:
 #      16 KiB PT_LOAD alignment + aarch64 ABI (the same checker the installer reuses).
-#   7. Verify the final archive hash against the lock (or write it in --generate-lock mode).
+#   7. Verify the final RAW tar hash against the lock (or write it in --generate-lock
+#      mode); the .tar.gz is a reproducible build artifact whose hash is only logged.
 #   8. Place assets into runtime/proot-app/src/main/assets/runtime/ (proot/, rootfs/).
 #
 # Requirements: curl, bsdtar (macOS `tar`), python3, docker (Linux daemon), JDK 17
@@ -221,7 +222,7 @@ run_asset_gate() {
     local rootfs_tree="$workdir/rootfs-tree"
     rm -rf "$rootfs_tree"
     mkdir -p "$rootfs_tree"
-    tar -xzf "$workdir/alpine-rootfs.tar.gz" -C "$rootfs_tree"
+    tar -xf "$workdir/alpine-rootfs.tar" -C "$rootfs_tree"
     local paths="$workdir/proot-assets/proot $workdir/proot-assets/loader $workdir/proot-assets/lib $rootfs_tree"
     "$project_root/gradlew" :runtime:proot-core:assetGate \
         -PassetGateArgs="--min-align $min_align --expect-machine $machine $paths" \
@@ -236,8 +237,12 @@ place_assets() {
     cp "$workdir/proot-assets/loader" "$assets_dir/proot/loader"
     cp "$workdir/proot-assets/lib/libtalloc.so.2" "$assets_dir/proot/lib/libtalloc.so.2"
     cp "$workdir/proot-assets/lib/libandroid-shmem.so" "$assets_dir/proot/lib/libandroid-shmem.so"
-    cp "$workdir/alpine-rootfs.tar.gz" \
-        "$assets_dir/rootfs/$(basename "$(component_field alpine-rootfs url)")"
+    # Place the RAW tar under the embedded name (lock URL basename minus the ".gz"
+    # suffix — the same rule the on-device installer uses to locate the archive).
+    local embedded_name
+    embedded_name="$(basename "$(component_field alpine-rootfs url)")"
+    embedded_name="${embedded_name%.gz}"
+    cp "$workdir/alpine-rootfs.tar" "$assets_dir/rootfs/$embedded_name"
     printf 'assets placed under %s\n' "$assets_dir"
 }
 
@@ -275,23 +280,29 @@ print(' '.join(c['id'] for c in lock['components']))
     cp "$pfx/lib/libandroid-shmem.so" "$workdir/proot-assets/lib/libandroid-shmem.so"
 
     build_rootfs
+    # The RAW deterministic tar is the authoritative embedded archive (what the lock
+    # pins and what AGP stores in the APK); the gz is a reproducible build artifact.
     python3 "$project_root/scripts/deterministic_tar.py" \
-        "$workdir/rootfs-out/rootfs-raw.tar" "$workdir/alpine-rootfs.tar.gz"
+        "$workdir/rootfs-out/rootfs-raw.tar" "$workdir/alpine-rootfs.tar.gz" "$workdir/alpine-rootfs.tar"
 
     if [[ "$mode" == "generate" ]]; then
         write_lock
     fi
 
-    # Final archive integrity against the (possibly just written) lock.
+    # Final archive integrity against the (possibly just written) lock. The lock pins
+    # the RAW tar — the exact bytes the device reads from the APK. The gz hash is a
+    # build-artifact log line, not a lock value.
     local expected actual
     expected="$(component_field alpine-rootfs sha256)"
-    actual="$(sha256_of "$workdir/alpine-rootfs.tar.gz")"
+    actual="$(sha256_of "$workdir/alpine-rootfs.tar")"
     if [[ "$actual" != "$expected" ]]; then
         printf 'rootfs archive hash mismatch: actual=%s expected=%s\n' "$actual" "$expected" >&2
         printf 're-run with --generate-lock to publish the measured values, or restore the lock\n' >&2
         exit 1
     fi
-    printf 'rootfs archive verified: sha256=%s size=%s\n' "$actual" "$(size_of "$workdir/alpine-rootfs.tar.gz")"
+    printf 'rootfs archive verified: sha256=%s size=%s\n' "$actual" "$(size_of "$workdir/alpine-rootfs.tar")"
+    printf 'gz build artifact: sha256=%s size=%s\n' \
+        "$(sha256_of "$workdir/alpine-rootfs.tar.gz")" "$(size_of "$workdir/alpine-rootfs.tar.gz")"
 
     run_asset_gate
     place_assets
@@ -304,9 +315,11 @@ print(' '.join(c['id'] for c in lock['components']))
 # --- lock generation (first run only) ------------------------------------------
 
 write_lock() {
+    # The lock pins the RAW deterministic tar (the bytes AGP stores in the APK);
+    # the gz hash stays a logged build artifact only.
     local rootfs_sha rootfs_size
-    rootfs_sha="$(sha256_of "$workdir/alpine-rootfs.tar.gz")"
-    rootfs_size="$(size_of "$workdir/alpine-rootfs.tar.gz")"
+    rootfs_sha="$(sha256_of "$workdir/alpine-rootfs.tar")"
+    rootfs_size="$(size_of "$workdir/alpine-rootfs.tar")"
     python3 - "$workdir" "$rootfs_sha" "$rootfs_size" "$lock_path" <<'PY'
 import json, os, sys
 

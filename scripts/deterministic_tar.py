@@ -17,10 +17,15 @@ form:
   * GNU format (long names via the GNU mechanism, no PAX headers),
   * gzip level 9 with mtime=0.
 
-Usage: deterministic_tar.py INPUT.tar OUTPUT.tar.gz
+Usage: deterministic_tar.py INPUT.tar OUTPUT.tar.gz OUTPUT_RAW.tar
 Exit 0 on success. The output is a function of the input's (path, mode,
 type, target, content) tuples only — re-running on the same tree yields
 identical bytes, so the lockfile hash stays valid across rebuilds.
+
+The RAW (uncompressed) tar is the authoritative embedded archive: AGP
+auto-expands .gz assets inside the APK, so the device holds exactly the
+raw bytes, and runtime-lock.json pins the RAW tar's SHA-256/size (HXA-082).
+The .tar.gz remains a reproducible build artifact for asset placement.
 """
 
 import gzip
@@ -45,11 +50,11 @@ def normalize(name: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        print(f"usage: {sys.argv[0]} INPUT.tar OUTPUT.tar.gz", file=sys.stderr)
+    if len(sys.argv) != 4:
+        print(f"usage: {sys.argv[0]} INPUT.tar OUTPUT.tar.gz OUTPUT_RAW.tar", file=sys.stderr)
         return 2
 
-    src_path, dst_path = sys.argv[1], sys.argv[2]
+    src_path, dst_path, raw_path = sys.argv[1], sys.argv[2], sys.argv[3]
 
     entries = []
     with tarfile.open(src_path, "r|*") as src:
@@ -110,9 +115,16 @@ def main() -> int:
             info.mtime = DEFAULT_MTIME
             dst.addfile(info, io.BytesIO(data) if kind == "reg" else None)
 
+    raw_bytes = buf.getvalue()
+    # The raw tar is the authoritative embedded archive (the lock pins these
+    # bytes; AGP stores exactly these bytes in the APK, DEFLATE-compressed).
+    with open(raw_path, "wb") as f:
+        f.write(raw_bytes)
+    # The gz remains a reproducible build artifact (gzip -9, mtime=0) whose hash
+    # is logged, not locked.
     with open(dst_path, "wb") as out:
         with gzip.GzipFile(filename="", mode="wb", fileobj=out, compresslevel=9, mtime=0) as gz:
-            gz.write(buf.getvalue())
+            gz.write(raw_bytes)
     return 0
 
 
