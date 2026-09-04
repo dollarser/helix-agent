@@ -193,7 +193,11 @@ internal fun HelixApp(container: AppContainer) {
                                 }
 
                                 ShellDestination.Settings -> {
-                                    SettingsScreen(container.profileStore, container.providerService)
+                                    SettingsScreen(
+                                        container.profileStore,
+                                        container.providerService,
+                                        container.storage.highSensitivityRules,
+                                    )
                                 }
 
                                 ShellDestination.Audit -> {

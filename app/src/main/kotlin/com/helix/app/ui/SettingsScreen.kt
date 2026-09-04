@@ -24,10 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.egress.EgressRuleSection
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.SafetyProfile
+import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
 /**
  * The settings screen (HXA-028): the safety-profile section (ADR-0005/0006)
@@ -42,12 +44,17 @@ import com.helix.core.model.SafetyProfile
  * - the switch is a PURE state transition — M2 enables no capability from it
  *   (NFR-011: zero permission/Root/Runtime/network side effects), and the
  *   screen says so honestly instead of faking gated capabilities.
+ *
+ * HXA-068 adds the ADVANCED bounded high-sensitivity egress-rule section
+ * ([EgressRuleSection]), shown ONLY when the profile is ADVANCED (and the
+ * developer build offers Advanced); consumer/Standard never render it.
  */
 @Composable
 @Suppress("FunctionName", "LongMethod")
 fun SettingsScreen(
     profileStore: SafetyProfileStore,
     providerService: ProviderService,
+    egressRules: HighSensitivityRuleRepository,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -111,6 +118,11 @@ fun SettingsScreen(
         HorizontalDivider()
 
         ProviderManager(providerService)
+
+        if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
+            HorizontalDivider()
+            EgressRuleSection(egressRules)
+        }
     }
 
     if (riskDialogOpen) {

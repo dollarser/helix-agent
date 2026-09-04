@@ -27,6 +27,7 @@ import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
 import com.helix.core.policy.CapabilityCenter
+import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.FileScopePath
@@ -89,6 +90,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.nio.file.Path
+
+/**
+ * The app's own private workspace scope id (HXA-042); the only file scope wired yet. Internal
+ * (not a companion constant) so the HXA-068 Advanced egress-rule UI — which must bind new rules
+ * to the SAME scope the app's tools address — can reference it without duplicating the literal.
+ */
+internal const val APP_SCOPE_ID = "app"
 
 /**
  * The app's manual DI container (M0 pattern; no framework). HXA-028 adds the
@@ -510,6 +518,18 @@ internal class DefaultAppContainer(
                     policyEngine = PolicyEngine(appClock),
                     approvals = broker,
                     audit = auditSink,
+                    // ADVANCED high-sensitivity egress rules (HXA-068, ADR-0005/0012): rehydrated
+                    // from Room on every evaluation. [LiveEgressRules.current] is the single
+                    // fail-closed gate — it hands the engine the full bound set ONLY while the
+                    // current profile is ADVANCED (a Standard profile, or a consumer build which
+                    // can never be ADVANCED, yields nothing), and yields NOTHING when the store
+                    // cannot be read or holds a corrupt row, so neither a profile switch nor
+                    // storage corruption ever auto-approves a possibly-wrong rule.
+                    ruleProvider = {
+                        LiveEgressRules.current(profileStore.profile) {
+                            storage.highSensitivityRules.all().map { it.rule }
+                        }
+                    },
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
@@ -564,8 +584,5 @@ internal class DefaultAppContainer(
 
     private companion object {
         const val PREFS_NAME = "helix-ui"
-
-        /** The app's own private workspace scope id (HXA-042); the only file scope wired yet. */
-        const val APP_SCOPE_ID = "app"
     }
 }

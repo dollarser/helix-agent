@@ -69,6 +69,78 @@ class HighSensitivityRuleTest {
         assertEquals(Duration.ofHours(24), Duration.between(a.createdAt, a.expiresAt))
     }
 
+    @Test
+    fun withDurationAppliesEachOfTheFourFixedTtls() {
+        // The developer/Advanced create-form entry (HXA-068): each of the four fixed TTLs must
+        // land on exactly createdAt + TTL and round-trip through [RuleDuration].
+        for (duration in RuleDuration.entries) {
+            val rule =
+                HighSensitivityRule.withDuration(
+                    target,
+                    "https://api.example.com/v1",
+                    scope,
+                    duration,
+                    createdAt,
+                )
+            assertEquals(duration, rule.duration)
+            assertEquals(createdAt.plus(duration.duration), rule.expiresAt)
+            assertEquals(createdAt, rule.createdAt)
+            assertEquals(target, rule.target)
+            assertEquals(origin, rule.origin)
+            assertEquals(scope, rule.scope)
+            assertEquals(DataSensitivity.SENSITIVE, rule.dataCategory)
+        }
+    }
+
+    @Test
+    fun withDurationPreservesEveryBoundFacetFromRawStrings() {
+        val mcp = EgressTarget.Mcp(McpServerId("mcp-server-1"))
+        val rule =
+            HighSensitivityRule.withDuration(
+                mcp,
+                "https://mcp.example.com:8443/rpc",
+                WorkspaceScope("ws-9"),
+                RuleDuration.DAYS_30,
+                createdAt,
+            )
+        assertEquals(mcp, rule.target)
+        assertEquals(NormalizedEndpoint.parse("https://mcp.example.com:8443/rpc"), rule.origin)
+        assertEquals(WorkspaceScope("ws-9"), rule.scope)
+        assertEquals(RuleDuration.DAYS_30, rule.duration)
+    }
+
+    @Test
+    fun withDurationFailsClosedOnANonCanonicalOrigin() {
+        // The raw-string factory re-parses the origin fail-closed (same rules as NormalizedEndpoint.parse).
+        val badOrigins =
+            listOf(
+                "ftp://api.example.com",
+                "https://user:pass@api.example.com",
+                "https://api.example.com/?q=1",
+                "not-a-url",
+            )
+        for (badOrigin in badOrigins) {
+            assertIllegal {
+                HighSensitivityRule.withDuration(
+                    target,
+                    badOrigin,
+                    scope,
+                    RuleDuration.HOURS_1,
+                    createdAt,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun withDurationCannotRepresentAWildcardOrBlankTarget() {
+        // A wildcard/blank target is unrepresentable: ProviderId/McpServerId reject it at
+        // construction, so no blanket grant is buildable through this factory (ADR-0005).
+        assertIllegal { EgressTarget.Provider(ProviderId("provider-*")) }
+        assertIllegal { EgressTarget.Provider(ProviderId("")) }
+        assertIllegal { EgressTarget.Mcp(McpServerId("mcp/*")) }
+    }
+
     private fun rule(category: DataSensitivity): HighSensitivityRule =
         HighSensitivityRule(target, origin, category, scope, createdAt, createdAt.plus(Duration.ofHours(24)))
 

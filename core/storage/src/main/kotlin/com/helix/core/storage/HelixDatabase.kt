@@ -12,6 +12,7 @@ import com.helix.core.storage.dao.ExecutionDao
 import com.helix.core.storage.dao.ExecutionTargetDao
 import com.helix.core.storage.dao.GoalDao
 import com.helix.core.storage.dao.GoalRunDao
+import com.helix.core.storage.dao.HighSensitivityRuleDao
 import com.helix.core.storage.dao.InteractionReceiptDao
 import com.helix.core.storage.dao.McpCapabilityDao
 import com.helix.core.storage.dao.McpServerDao
@@ -35,6 +36,7 @@ import com.helix.core.storage.entity.ExecutionEntity
 import com.helix.core.storage.entity.ExecutionTargetEntity
 import com.helix.core.storage.entity.GoalEntity
 import com.helix.core.storage.entity.GoalRunEntity
+import com.helix.core.storage.entity.HighSensitivityRuleEntity
 import com.helix.core.storage.entity.InteractionReceiptEntity
 import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
@@ -53,9 +55,10 @@ import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
 
 /**
- * Helix local database (architecture doc 9). Schema version 4 (HXA-049) holds all base tables
+ * Helix local database (architecture doc 9). Schema version 5 (HXA-068) holds all base tables
  * plus the plan/goal tables of doc section 9.1 (v1, HXA-014), the structured-question receipt
- * table (v3, doc 11 section 4), and the message-attachment relation (v4, ADR-0014):
+ * table (v3, doc 11 section 4), the message-attachment relation (v4, ADR-0014), and the
+ * ADVANCED high-sensitivity egress-rule table (v5, ADR-0005):
  *
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
@@ -93,11 +96,12 @@ import com.helix.core.storage.entity.TurnEntity
             SkillSnapshotEntity::class,
             CapabilityGrantEntity::class,
             ExecutionTargetEntity::class,
+            HighSensitivityRuleEntity::class,
         ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
-@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 23 doc 9.1 tables
+@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
 abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
@@ -144,6 +148,8 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun skillDao(): SkillDao
 
     abstract fun skillSnapshotDao(): SkillSnapshotDao
+
+    abstract fun highSensitivityRuleDao(): HighSensitivityRuleDao
 
     companion object {
         const val DATABASE_NAME = "helix.db"
@@ -259,6 +265,32 @@ abstract class HelixDatabase : RoomDatabase() {
                     db.execSQL(
                         "CREATE INDEX IF NOT EXISTS `index_message_attachments_artifactId` " +
                             "ON `message_attachments` (`artifactId`)",
+                    )
+                }
+            }
+
+        /**
+         * v4 -> v5 (HXA-068, ADR-0005: persistent ADVANCED high-sensitivity egress rules):
+         * adds the `high_sensitivity_rules` table — one row per exactly-bound, time-boxed,
+         * revocable rule (stable Provider/MCP id + normalized origin + lossless user scope +
+         * validity window). Additive and empty on upgrade, mirroring the canonical Room v5 DDL
+         * for [HighSensitivityRuleEntity]; the table has no foreign keys (a rule is a standing
+         * policy grant, not a relation to a session/turn/tool-call) and no data-category column
+         * (a stored rule is always SENSITIVE — the invariant the rule's constructor enforces).
+         */
+        val MIGRATION_4_5 =
+            object : Migration(4, 5) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `high_sensitivity_rules` (" +
+                            "`id` TEXT NOT NULL, " +
+                            "`targetKind` TEXT NOT NULL, " +
+                            "`targetId` TEXT NOT NULL, " +
+                            "`originFull` TEXT NOT NULL, " +
+                            "`scopeEncoded` TEXT NOT NULL, " +
+                            "`createdAtEpoch` INTEGER NOT NULL, " +
+                            "`expiresAtEpoch` INTEGER NOT NULL, " +
+                            "PRIMARY KEY(`id`))",
                     )
                 }
             }
