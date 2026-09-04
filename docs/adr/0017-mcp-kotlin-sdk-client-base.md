@@ -1,9 +1,9 @@
 # ADR-0017: MCP Kotlin SDK Client 与 Android HTTP 底座
 
-Status: proposed
+Status: accepted
 Date: 2026-09-04
 HXA: HXA-070
-Deciders: pending
+Deciders: Project owner（2026-09-05 明确接受 SDK 0.15.0 + Ktor OkHttp 底座）
 Supersedes: none
 Superseded by: none
 
@@ -34,11 +34,12 @@ schema、Policy、Approval、执行、验证和审计管线。具体 SDK 类型�
   artifact 为 Apache-2.0，SLF4J 为 MIT；发布 notice 仍须与最终 APK/SBOM 对账。
 
 离线 JVM 和 R8 证据不能替代 API 29/36 设备上的前后台、TLS、取消、重连和大消息运行。
-用户已要求当前阶段不运行模拟器，因此本 ADR 保持 `proposed`，HXA-070 也保持未完成。
+当前已补齐路线要求的模拟器、后台和 transport 证据；项目所有者已接受本决定，最终签名、
+全 App SBOM/notice 和真机发布矩阵按 M12 门禁执行，不能倒灌成 HXA-070 的伪前置条件。
 
 ## Decision
 
-提议在 HXA-070 的剩余 Android 设备门禁通过后，采用以下 MCP Client 底座：
+基于已通过的 HXA-070 Android 设备门禁，MCP Client 采用以下底座：
 
 1. 只依赖 `io.modelcontextprotocol:kotlin-sdk-client:0.15.0`，不依赖 umbrella/server
    artifact；HTTP transport 固定为 Ktor 3.5.2 OkHttp engine，并解析到项目既有的
@@ -80,10 +81,12 @@ schema、Policy、Approval、执行、验证和审计管线。具体 SDK 类型�
   7,593 method IDs、1,585 classes。HXA-071 接入 `:core:model`、`:core:policy`、SSRF
   endpoint gate 与握手 metadata 后，同一脚本为 30 个 program JAR、1,181,968-byte DEX、
   7,637 method IDs、1,594 classes。HXA-072 再接入 `:tools:framework`、动态 Tool bridge 与
-  有界结果映射后为 31 个 program JAR、1,193,852-byte DEX、7,690 method IDs、1,610
+  有界结果映射、wire/event ceiling 和 initialize wire guard 后为 31 个 program JAR、
+  1,198,764-byte DEX、7,726 method IDs、1,617
   classes；这些都是 standalone 数据，不是 APK 增量。
-- SDK 仍会在 `:extensions:mcp` 内解析 Kotlin 2.4 与 kotlinx 1.11 runtime；合入 App 后必须
-  检查它们是否改变其他模块的解析结果、APK 体积或 R8 行为。
+- SDK 仍会在 `:extensions:mcp` 内解析 Kotlin 2.4 与 kotlinx 1.11 runtime；已通过
+  App 双 flavor release/R8 与独立增量基线检查它们对 APK 的影响，后续 SDK 升级仍必须
+  重跑同一口径。
 - 协商版本装饰器依赖 SDK 0.15.0 的 `Transport`/JSON-RPC DTO 形态，但保持 module-internal；
   SDK 升级时必须重跑固定 fixture。`InitializeResult.protocolVersion` 在 SDK schema 中有
   默认值，因此装饰器看到的是 SDK 解码后的协商结果，不能区分服务端显式返回与 SDK 对
@@ -109,15 +112,50 @@ schema、Policy、Approval、执行、验证和审计管线。具体 SDK 类型�
 SSE 断线 + `Last-Event-ID` 重连、重新建连、1 MiB 响应和公共签名无 SDK/Ktor 泄漏。
 initialize/ping fixture 还验证协商版本进入 Helix 快照，并用于后续请求 header。
 `check-mcp-android-spike.sh` 使用 AGP 9.3.2 内置 R8 9.3.16、android-36 library 和
-`minApi=29`，输出单 DEX；它不启动模拟器。
+`minApi=29`，输出单 DEX；同时固定 SDK/Ktor/OkHttp 坐标并拒绝 runtime classpath 重新带入
+Ktor Server、Typesafe Config 或 `kotlin-reflect`。它不启动模拟器。
 
-转为 accepted 前仍必须执行：
+2026-09-05 新增 `McpAndroidSpikeDeviceTest`，并在 API 29/36 arm64-v8a 模拟器各执行
+12/12 通过：真实 Android 网络栈上的 initialize/ping、协商版本 header、in-flight ping
+取消后同会话复用、SSE 断线后携带 `Last-Event-ID` 重连、1 MiB 未知 initialize 字段
+不越过 Helix facade、HTTP 401 不产生已连接会话、TLS handshake 中断 fail-closed，以及
+bearer 只经带精确 loopback scope 和固定 DNS 地址的握手链路发送且不进入返回快照。
+非 SSE HTTP 响应另由 OkHttp network interceptor 在 Ktor/SDK 解码前执行 16 MiB wire
+ceiling；JVM 与 Android fixture 均覆盖无 `Content-Length` 的 chunked initialize 响应并在
+17 MiB 处 fail-closed。真实 `MainActivity` 从 `RESUMED` 进入 `CREATED`（onPause/onStop）
+期间 session 仍可 ping，回到 `RESUMED` 后继续可用。SSE 不使用累计连接上限，而是在
+OkHttp source 上逐事件执行同一 16 MiB ceiling；JVM 与 Android fixture 均验证 17 MiB
+未完成事件在进入 SDK 解析前关闭。另由 OkHttp initialize guard 在 SDK 解码前扫描有界
+64 KiB 原始 UTF-8 前缀，并按 JSON 对象深度要求非空 `result.protocolVersion`；嵌套 decoy、
+字段缺失或被推迟到前缀之外均 fail-closed，不接受 SDK 默认补齐。API 29/36 均已覆盖；
+关闭旧 session 后创建全新 facade 的重新 initialize 也在两端通过。2026-09-05
+项目所有者明确接受本底座；签名 artifact 和全 App SBOM/notice 是 M12 发布门禁。
 
-- API 29/36 上连接本地 Streamable HTTP fixture，覆盖 JSON-only/SSE、取消、断线重连、
-  大消息、TLS/auth error；
-- 前台、后台切换和进程生命周期测试；
-- consumer/developer 的真实 release/R8 构建、APK/方法数增量和许可证/SBOM 对账；
-- 协商版本 header、SDK 默认补齐和不合规 Server 的设备互操作行为。
+同日执行 `:app:assembleConsumerRelease :app:assembleDeveloperRelease`，两种 unsigned release
+均通过 R8 与 lintVital：consumer 为 39,648,694 bytes、190,076 method references，developer
+为 39,690,294 bytes、190,205 method references。以 M7 合入前 `f2757ec` 同口径重建，二者
+分别为 32,571,386 bytes/147,150 references 与 32,612,982 bytes/147,256 references；因此
+当前可确认的是整个 M7 合入带来约 7.08 MB、约 42.9k references 的上界，不得把它冒充
+HXA-070/MCP 的独立增量。
+
+为分离直接 MCP 开销，又以 `acc85400ee79` 建立临时基线，并与包含本 ADR
+所列未提交 MCP 硬化改动的当前工作树对比：基线仅移除 `:extensions:mcp` App 依赖、
+`McpAppService`/`McpStorageBridge` 及其 App/ToolPipeline/ChatService 接线，保留 A2A、Skills、
+共享 Room MCP schema 与其他 M7 实现。该基线 consumer 为 35,567,924 bytes/169,008
+references，developer 为 35,609,524 bytes/169,177 references，同样通过 release/R8/lintVital。
+因此当前直接 MCP runtime 与集成层增量在两个 flavor 均为 4,080,770 bytes
+（约 3.89 MiB），method references 分别增加 21,068 与 21,028。由于基线刻意保留了
+共享 MCP Room schema，这是可直接删除的 runtime/集成层下界，不是全部 MCP 功能总量；
+上述约 7.08 MB/42.9k references 仍只是整个 M7 的上界。
+
+`runtimeClasspath` 锁定闭包已与 Gradle lock/verification metadata 核对：MCP SDK 0.15.0
+为 MIT；Kotlin/Kotlinx、Ktor 3.5.2、OkHttp 5.5.0/Okio 3.18.1、kotlin-logging 8.0.4
+与 JetBrains annotations 为 Apache-2.0；SLF4J 2.0.18 缓存 JAR 内 `META-INF/LICENSE.txt`
+为 MIT。这完成了 HXA-070 依赖许可证据闭包；签名发布 artifact 和最终全 App
+SBOM/notice 仍按 M12 与实际打包内容对账。
+
+签名 release、全 App SBOM/notice、真机发布矩阵仍由 M12 统一执行；它们不是接受 client
+底座方向所需的 HXA-070 前置证据，也不能因 ADR 接受而视为已完成发布验收。
 
 ## Reconsider when
 

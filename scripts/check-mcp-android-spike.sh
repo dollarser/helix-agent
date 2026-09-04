@@ -27,6 +27,26 @@ readonly gradle_module_root="$gradle_user_root/caches/modules-2/files-2.1"
 
 ./gradlew :extensions:mcp:jar :extensions:mcp:dependencies --no-configuration-cache >/dev/null
 
+readonly mcp_runtime_coordinates="$(
+    awk -F= '$2 ~ /(^|,)runtimeClasspath(,|$)/ {print $1}' extensions/mcp/gradle.lockfile
+)"
+readonly forbidden_runtime_pattern='^(io\.ktor:ktor-server-|com\.typesafe:config:|org\.jetbrains\.kotlin:kotlin-reflect:)'
+if grep -Eq "$forbidden_runtime_pattern" <<<"$mcp_runtime_coordinates"; then
+    printf 'MCP client runtime unexpectedly contains server/reflection/config artifacts:\n' >&2
+    grep -E "$forbidden_runtime_pattern" <<<"$mcp_runtime_coordinates" >&2
+    exit 1
+fi
+
+for required_coordinate in \
+    'io.modelcontextprotocol:kotlin-sdk-client:0.15.0' \
+    'io.ktor:ktor-client-okhttp:3.5.2' \
+    'com.squareup.okhttp3:okhttp:5.5.0'; do
+    if ! grep -Fxq "$required_coordinate" <<<"$mcp_runtime_coordinates"; then
+        printf 'Pinned MCP runtime coordinate is missing: %s\n' "$required_coordinate" >&2
+        exit 1
+    fi
+done
+
 readonly agp_builder_jar="$(
     find "$gradle_module_root/com.android.tools.build/builder/$agp_version" \
         -type f -name "builder-$agp_version.jar" -print -quit
@@ -57,7 +77,7 @@ while IFS=: read -r module_group module_name module_version; do
     if [[ -n "$module_jar" ]]; then
         program_jars+=("$module_jar")
     fi
-done < <(awk -F= '$2 ~ /(^|,)runtimeClasspath(,|$)/ {print $1}' extensions/mcp/gradle.lockfile)
+done <<<"$mcp_runtime_coordinates"
 
 readonly spike_tmp="$(mktemp -d "${TMPDIR:-/tmp}/helix-mcp-r8.XXXXXX")"
 cleanup() {

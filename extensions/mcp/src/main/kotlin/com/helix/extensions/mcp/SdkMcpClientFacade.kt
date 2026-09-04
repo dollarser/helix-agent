@@ -67,10 +67,8 @@ internal class SdkMcpClientFacade(
         try {
             sdkClient.connect(transport)
             val serverVersion = checkNotNull(sdkClient.serverVersion) { "MCP server identity missing after initialize" }
-            val protocolVersion =
-                checkNotNull(transport.negotiatedProtocolVersion) {
-                    "MCP protocol version missing after initialize"
-                }
+            val protocolVersion = transport.negotiatedProtocolVersion
+            check(!protocolVersion.isNullOrBlank()) { "MCP protocol version missing after initialize" }
             val session =
                 SdkMcpClientSession(
                     sdkClient = sdkClient,
@@ -371,6 +369,8 @@ private fun newOkHttpClient(
             // transport does not expose that decision point, so reject rather than risk
             // forwarding a bearer credential to a different origin.
             config {
+                addNetworkInterceptor(McpInitializeResponseGuard)
+                addNetworkInterceptor(McpOkHttpResponseLimit)
                 followRedirects(false)
                 followSslRedirects(false)
                 if (networkPermit != null) {

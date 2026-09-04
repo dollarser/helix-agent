@@ -126,7 +126,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
-| HXA-070 | `./gradlew :extensions:mcp:test` | 本地 Streamable HTTP fixture |
+| HXA-070 | `./gradlew :extensions:mcp:test`<br>`./scripts/check-mcp-android-spike.sh`<br>`./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease --no-configuration-cache` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :app:connectedDeveloperDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.mcp.McpAndroidSpikeDeviceTest --no-configuration-cache`；API 29/36 本地 fixture，initialize/ping、协商版本 header、缺失 wire `protocolVersion` fail-closed、取消后会话复用、关闭后全新 facade 重连、SSE 断线 + `Last-Event-ID` 重连、1 MiB 响应、HTTP 401、TLS handshake 中断、bearer + 精确 loopback/DNS pinning、非 SSE JSON 及 SSE 单事件 16 MiB wire ceiling，以及 `MainActivity` onStop/onStart 前后台切换期间 session 可用性；release 命令当前产出 unsigned artifact，签名/SBOM/notice 按 M12 发布矩阵执行 |
 | HXA-071 | `./gradlew :extensions:mcp:test` | 恶意 schema/result fixture |
 | HXA-072 | `./gradlew :extensions:mcp:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-073 | HXA-084 完成后先按真实 PRoot/MCP task 更新本行 | PRoot stdio JSON-RPC、严格 stdout/bounded stderr、取消与 Job 对账 fixture |

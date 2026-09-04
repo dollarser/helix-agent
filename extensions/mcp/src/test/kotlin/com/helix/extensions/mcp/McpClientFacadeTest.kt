@@ -7,6 +7,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okio.Buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -21,6 +24,35 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 class McpClientFacadeTest {
+    @Test
+    fun oversizedSseEventIsRejected() {
+        OversizedSseFixture().use { fixture ->
+            val client = OkHttpClient.Builder().addNetworkInterceptor(McpOkHttpResponseLimit).build()
+            val failure =
+                client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
+                    runCatching { response.body.source().readAll(Buffer()) }.exceptionOrNull()
+                }
+
+            assertTrue("oversized SSE event unexpectedly reached EOF", failure != null)
+            assertTrue(
+                "SSE event limit failure was not preserved: $failure",
+                generateSequence(failure) { it.cause }.any { "MCP SSE event exceeds" in it.message.orEmpty() },
+            )
+        }
+    }
+
+    @Test
+    fun healthySseEventsMayCumulativelyExceedPerEventLimit() {
+        OversizedSseFixture(eventCount = 17, dataBytesPerEvent = 1024 * 1024).use { fixture ->
+            val client = OkHttpClient.Builder().addNetworkInterceptor(McpOkHttpResponseLimit).build()
+            client.newCall(Request.Builder().url(fixture.endpoint).build()).execute().use { response ->
+                val sink = Buffer()
+                val source = response.body.source()
+                while (source.read(sink, 8 * 1024) >= 0) sink.clear()
+            }
+        }
+    }
+
     @Test
     fun streamableHttpInitializesAndPingsThroughOkHttpEngine() =
         runBlocking {
@@ -41,6 +73,44 @@ class McpClientFacadeTest {
                 } finally {
                     session.close()
                 }
+            }
+        }
+
+    @Test
+    fun initializeWithoutWireProtocolVersionFailsClosedBeforeSdkDefaulting() =
+        runBlocking {
+            McpFixture(omitInitializeProtocolVersion = true).use { fixture ->
+                val failure =
+                    runCatching {
+                        McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                    }.exceptionOrNull()
+
+                assertTrue("non-compliant initialize unexpectedly connected", failure != null)
+                assertTrue(
+                    "missing wire version failure was not preserved: $failure",
+                    generateSequence(failure) { it.cause }.any {
+                        "initialize protocolVersion missing" in it.message.orEmpty()
+                    },
+                )
+            }
+        }
+
+    @Test
+    fun initializeProtocolVersionAfterBoundedPrefixFailsClosed() =
+        runBlocking {
+            McpFixture(initializePrefixPaddingBytes = 65 * 1024).use { fixture ->
+                val failure =
+                    runCatching {
+                        McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                    }.exceptionOrNull()
+
+                assertTrue("late protocolVersion unexpectedly connected", failure != null)
+                assertTrue(
+                    "bounded-prefix failure was not preserved: $failure",
+                    generateSequence(failure) { it.cause }.any {
+                        "initialize protocolVersion missing" in it.message.orEmpty()
+                    },
+                )
             }
         }
 
@@ -117,6 +187,28 @@ class McpClientFacadeTest {
                 } finally {
                     session.close()
                 }
+            }
+        }
+
+    @Test
+    fun chunkedInitializeResponseOverWireLimitIsRejectedBeforeSdkDecode() =
+        runBlocking {
+            McpFixture(
+                extraInitializeFieldBytes = 17 * 1024 * 1024,
+                chunkedInitializeResponse = true,
+            ).use { fixture ->
+                val failure =
+                    runCatching {
+                        withTimeout(5_000) {
+                            McpClients.sdk("helix-test", "1").connect(fixture.endpoint)
+                        }
+                    }.exceptionOrNull()
+
+                assertTrue("oversized chunked response unexpectedly connected", failure != null)
+                assertTrue(
+                    "wire-limit failure was not preserved: $failure",
+                    generateSequence(failure) { it.cause }.any { "MCP HTTP response exceeds" in it.message.orEmpty() },
+                )
             }
         }
 
@@ -215,12 +307,51 @@ class McpClientFacadeTest {
     }
 }
 
+private class OversizedSseFixture(
+    private val eventCount: Int = 1,
+    private val dataBytesPerEvent: Int = 17 * 1024 * 1024,
+) : AutoCloseable {
+    private val executor = Executors.newSingleThreadExecutor()
+    private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+    val endpoint: String
+
+    init {
+        server.executor = executor
+        server.createContext("/sse") { exchange ->
+            exchange.responseHeaders.add("Content-Type", "text/event-stream")
+            exchange.sendResponseHeaders(200, 0)
+            try {
+                exchange.responseBody.use { body ->
+                    val chunk = ByteArray(8 * 1024) { 'x'.code.toByte() }
+                    repeat(eventCount) {
+                        body.write("data: ".toByteArray(StandardCharsets.UTF_8))
+                        repeat(dataBytesPerEvent / chunk.size) { body.write(chunk) }
+                        body.write("\n\n".toByteArray(StandardCharsets.UTF_8))
+                    }
+                }
+            } catch (_: java.io.IOException) {
+                // Expected when the client closes as soon as the per-event ceiling is crossed.
+            }
+        }
+        server.start()
+        endpoint = "http://127.0.0.1:${server.address.port}/sse"
+    }
+
+    override fun close() {
+        server.stop(0)
+        executor.shutdownNow()
+    }
+}
+
 private class McpFixture(
     private val initializeDelayMillis: Long = 0,
     private val extraInitializeFieldBytes: Int = 0,
     private val firstPingDelayMillis: Long = 0,
     private val enableSseReconnect: Boolean = false,
     private val toolResultText: String = "answer",
+    private val chunkedInitializeResponse: Boolean = false,
+    private val omitInitializeProtocolVersion: Boolean = false,
+    private val initializePrefixPaddingBytes: Int = 0,
 ) : AutoCloseable {
     private val executor = Executors.newCachedThreadPool()
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
@@ -242,6 +373,7 @@ private class McpFixture(
         endpoint = "http://127.0.0.1:${server.address.port}/mcp"
     }
 
+    @Suppress("LongMethod") // One request dispatcher keeps the wire fixture response matrix together.
     private fun handle(exchange: HttpExchange) {
         exchange.use {
             if (exchange.requestMethod == "GET") {
@@ -266,10 +398,19 @@ private class McpFixture(
                         exchange,
                         200,
                         buildString {
-                            append("""{"jsonrpc":"2.0","id":$id,"result":{"protocolVersion":"2025-03-26",""")
+                            append("""{"jsonrpc":"2.0","id":$id,"result":{""")
+                            if (initializePrefixPaddingBytes > 0) {
+                                append(""""_leading":"${"x".repeat(initializePrefixPaddingBytes)}",""")
+                            }
+                            if (!omitInitializeProtocolVersion) {
+                                append(""""protocolVersion":"2025-03-26",""")
+                            } else {
+                                append(""""_decoy":{"protocolVersion":"fake"},""")
+                            }
                             append(""""capabilities":{"tools":{}},"serverInfo":{"name":"fixture","version":"1.0"},""")
                             append(""""_padding":"$padding"}}""")
                         },
+                        chunked = chunkedInitializeResponse,
                     )
                 }
 
@@ -335,10 +476,11 @@ private class McpFixture(
         exchange: HttpExchange,
         status: Int,
         body: String,
+        chunked: Boolean = false,
     ) {
         val bytes = body.toByteArray(StandardCharsets.UTF_8)
         exchange.responseHeaders.add("Content-Type", "application/json")
-        exchange.sendResponseHeaders(status, bytes.size.toLong())
+        exchange.sendResponseHeaders(status, if (chunked) 0 else bytes.size.toLong())
         exchange.responseBody.use { it.write(bytes) }
     }
 

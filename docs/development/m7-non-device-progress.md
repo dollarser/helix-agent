@@ -6,7 +6,7 @@
 
 | HXA | 非设备状态 | 当前边界 |
 | --- | --- | --- |
-| 070 | 已实现并通过 JVM、standalone R8 Spike | MCP Kotlin SDK client + Ktor OkHttp engine；API 29/36 运行、真实 App 体积/后台行为待验收 |
+| 070 | **完成**；JVM、standalone R8、API 29/36 专项 fixture 各 12/12、双 flavor unsigned release/R8/lintVital 全部通过；ADR-0017 accepted | MCP Kotlin SDK client + Ktor OkHttp engine；Android 已覆盖 initialize/ping、真实版本 header、缺失版本 fail-closed、取消后复用、关闭后全新 facade 重连、SSE 断线 + `Last-Event-ID` 重连、1 MiB 响应、HTTP 401、TLS handshake 中断、bearer + 精确 loopback/DNS pinning、JSON/SSE 逐消息 16 MiB ceiling，以及 Activity 前后台切换期间 session 可用性；直接 MCP runtime/集成层增量约 3.89 MiB、21.0k method references，runtime 依赖许可证闭包已核对；签名/SBOM/notice 属于 M12 发布门禁 |
 | 071 | 已实现并通过 JVM fixture | disabled-by-default 配置、Secret alias、握手、规范 endpoint/residence、有界 capability/tool/resource/prompt snapshot |
 | 072 | 已实现并通过 JVM/App 单测 | `mcp.<server>.<tool>` 动态注册、schema/contract hash、结果边界、egress/checkpoint；设备链路待验收 |
 | 073 | 未启动 | 任务书明确依赖 HXA-084 PRoot runner；不能用主 App shell 或占位 stdio 绕过 |
@@ -21,4 +21,4 @@ HXA-079 的恢复不变量是：一个本地 `toolCallId` 最多绑定一个远�
 
 合并后 App 回归命令为 `:app:connectedConsumerDebugAndroidTest` 与 `:app:connectedDeveloperDebugAndroidTest`：API 29 分别完成 117/136 项、API 36 分别完成 116/135 项，均 0 失败；skip 均为 SDK/外部服务条件门控。验证中修复了测试 Provider authority 的 flavor 冲突、turn 启动/终态竞态、整屏刷新覆盖瞬时 UI 状态，以及三处异步 UI 测试等待/清理问题。
 
-当前专项验证命令仍以 [verification-matrix.md](verification-matrix.md) 的 M7 表为准。HXA-070/077 的专项 API 29/36 Spike 运行、HXA-072/076/078/079 的功能级设备链路、HXA-073、真机、真实 APK 增量和发布 SBOM/notice 仍是明确保留项；不能用上述 App 全量回归代替。
+当前专项验证命令仍以 [verification-matrix.md](verification-matrix.md) 的 M7 表为准。HXA-077 的专项 API 29/36 Spike，HXA-072/076/078/079 的功能级设备链路、HXA-073，以及 M12 的真机/签名/SBOM/notice 仍是明确保留项；不能用上述 App 全量回归代替。
