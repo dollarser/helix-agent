@@ -10,6 +10,8 @@ import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
+import com.helix.app.foreground.AndroidForegroundServiceLauncher
+import com.helix.app.foreground.DataSyncForegroundController
 import com.helix.app.internal.PrefsLineStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
@@ -81,6 +83,11 @@ import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import com.helix.tools.framework.ToolScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import java.nio.file.Path
 
 /**
@@ -239,6 +246,15 @@ internal class DefaultAppContainer(
 
     /** One process clock shared by the chat service, the policy engine, the broker and the sink. */
     private val appClock: SystemClock = SystemClock()
+
+    // --- HXA-066: dataSync foreground service for user-initiated transport / file processing ---
+
+    /** App-lifetime scope that observes the chat screen to drive the dataSync foreground service. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val dataSyncLauncher = AndroidForegroundServiceLauncher(context.applicationContext)
+
+    private val dataSyncController = DataSyncForegroundController(dataSyncLauncher)
 
     private val toolRegistry: ToolRegistry = ToolRegistry()
 
@@ -539,6 +555,11 @@ internal class DefaultAppContainer(
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard
+            // HXA-066: keep the dataSync foreground service up only while a turn is actively
+            // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
+            appScope.launch {
+                it.screen.collect { screen -> dataSyncController.onTurnState(screen.activeTurn?.state) }
+            }
         }
 
     private companion object {
