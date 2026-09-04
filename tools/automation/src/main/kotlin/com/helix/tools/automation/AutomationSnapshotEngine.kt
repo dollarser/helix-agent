@@ -2,6 +2,7 @@ package com.helix.tools.automation
 
 import android.graphics.Rect
 import android.os.Build
+import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import com.helix.core.model.Clock
 import com.helix.core.model.SystemClock
@@ -25,6 +26,11 @@ internal interface SnapshotNode {
     val childCount: Int
 
     fun childAt(index: Int): SnapshotNode?
+
+    fun performAction(
+        action: Int,
+        arguments: Bundle? = null,
+    ): Boolean
 
     fun recycle()
 }
@@ -69,6 +75,11 @@ internal class AndroidSnapshotNode(
 
     override fun childAt(index: Int): SnapshotNode? = node.getChild(index)?.let(::AndroidSnapshotNode)
 
+    override fun performAction(
+        action: Int,
+        arguments: Bundle?,
+    ): Boolean = node.performAction(action, arguments)
+
     @Suppress("DEPRECATION")
     override fun recycle() {
         node.recycle()
@@ -82,6 +93,67 @@ internal class AccessibilityGenerationTracker {
 
     fun contentChanged(): Long = generation.incrementAndGet()
 }
+
+internal data class ObservedSnapshotNode(
+    val packageName: String?,
+    val windowId: Int,
+    val className: String?,
+    val text: String?,
+    val contentDescription: String?,
+    val viewId: String?,
+    val bounds: AutomationNodeBounds,
+    val clickable: Boolean,
+    val longClickable: Boolean,
+    val editable: Boolean,
+    val scrollable: Boolean,
+    val enabled: Boolean,
+    val password: Boolean,
+    val accessibilityDataSensitive: Boolean,
+    val childCount: Int,
+)
+
+internal fun SnapshotNode.observe(): ObservedSnapshotNode =
+    ObservedSnapshotNode(
+        packageName = packageName,
+        windowId = windowId,
+        className = className?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+        text = text?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+        contentDescription =
+            contentDescription?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+        viewId = viewId?.take(AutomationSnapshotEngine.MAX_FIELD_CHARACTERS),
+        bounds = bounds,
+        clickable = clickable,
+        longClickable = longClickable,
+        editable = editable,
+        scrollable = scrollable,
+        enabled = enabled,
+        password = password,
+        accessibilityDataSensitive = accessibilityDataSensitive,
+        childCount = childCount,
+    )
+
+internal fun ObservedSnapshotNode.fingerprint(
+    expectedPackage: String,
+    expectedWindowId: Int,
+    path: List<Int>,
+): String =
+    nodeFingerprint(
+        listOf(
+            expectedPackage,
+            expectedWindowId.toString(),
+            path.joinToString("."),
+            className,
+            text,
+            contentDescription,
+            viewId,
+            bounds.toString(),
+            clickable.toString(),
+            longClickable.toString(),
+            editable.toString(),
+            scrollable.toString(),
+            enabled.toString(),
+        ),
+    )
 
 internal class AutomationSnapshotEngine(
     private val tokenRegistry: NodeTokenRegistry,
@@ -167,45 +239,24 @@ internal class AutomationSnapshotEngine(
                 return
             }
 
-            val nodePackage = node.packageName
-            val nodeWindowId = node.windowId
-            if ((nodePackage != null && nodePackage != state.packageName) || nodeWindowId != state.windowId) {
+            val observed = node.observe()
+            if (
+                (observed.packageName != null && observed.packageName != state.packageName) ||
+                observed.windowId != state.windowId
+            ) {
                 state.abortStatus = AutomationSnapshotStatus.TARGET_CHANGED
                 return
             }
 
-            val className = state.bound(node.className)
-            val text = state.bound(node.text)
-            val description = state.bound(node.contentDescription)
-            val viewId = state.bound(node.viewId)
-            val bounds = node.bounds
-            val clickable = node.clickable
-            val longClickable = node.longClickable
-            val editable = node.editable
-            val scrollable = node.scrollable
-            val enabled = node.enabled
-            if (node.password || node.accessibilityDataSensitive) {
+            val className = state.bound(observed.className)
+            val text = state.bound(observed.text)
+            val description = state.bound(observed.contentDescription)
+            val viewId = state.bound(observed.viewId)
+            if (observed.password || observed.accessibilityDataSensitive) {
                 state.abortStatus = AutomationSnapshotStatus.SENSITIVE_UI
                 return
             }
-            val fingerprint =
-                nodeFingerprint(
-                    listOf(
-                        state.packageName,
-                        state.windowId.toString(),
-                        path.joinToString("."),
-                        className,
-                        text,
-                        description,
-                        viewId,
-                        bounds.toString(),
-                        clickable.toString(),
-                        longClickable.toString(),
-                        editable.toString(),
-                        scrollable.toString(),
-                        enabled.toString(),
-                    ),
-                )
+            val fingerprint = observed.fingerprint(state.packageName, state.windowId, path)
             val token =
                 tokenRegistry.issue(
                     NodeTokenBinding(
@@ -225,23 +276,23 @@ internal class AutomationSnapshotEngine(
                     text = text,
                     contentDescription = description,
                     viewId = viewId,
-                    bounds = bounds,
-                    clickable = clickable,
-                    longClickable = longClickable,
-                    editable = editable,
-                    scrollable = scrollable,
-                    enabled = enabled,
+                    bounds = observed.bounds,
+                    clickable = observed.clickable,
+                    longClickable = observed.longClickable,
+                    editable = observed.editable,
+                    scrollable = observed.scrollable,
+                    enabled = observed.enabled,
                 )
             state.hasUsefulSemantics =
                 state.hasUsefulSemantics ||
                 !text.isNullOrBlank() ||
                 !description.isNullOrBlank() ||
-                clickable ||
-                longClickable ||
-                editable ||
-                scrollable
+                observed.clickable ||
+                observed.longClickable ||
+                observed.editable ||
+                observed.scrollable
 
-            val childCount = node.childCount
+            val childCount = observed.childCount
             if (depth == MAX_DEPTH && childCount > 0) {
                 state.truncated = true
                 return

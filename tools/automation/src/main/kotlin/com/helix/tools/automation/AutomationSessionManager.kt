@@ -17,6 +17,10 @@ enum class AutomationStopReason {
     FOREGROUND_START_FAILED,
 }
 
+enum class AutomationPauseReason {
+    TARGET_CHANGED,
+}
+
 /** Stable start outcomes used by the permission center; none of them starts an Agent Tool. */
 enum class AutomationSessionStartStatus {
     STARTED,
@@ -53,6 +57,10 @@ class AutomationSessionManager(
 
     @Volatile
     var lastStopReason: AutomationStopReason? = null
+        private set
+
+    @Volatile
+    var pauseReason: AutomationPauseReason? = null
         private set
 
     @Synchronized
@@ -105,6 +113,7 @@ class AutomationSessionManager(
             )
         active = session
         lastStopReason = null
+        pauseReason = null
         return AutomationSessionStartResult(AutomationSessionStartStatus.STARTED, session)
     }
 
@@ -119,6 +128,24 @@ class AutomationSessionManager(
         if (active == null) return false
         active = null
         lastStopReason = reason
+        pauseReason = null
+        return true
+    }
+
+    @Synchronized
+    fun pause(reason: AutomationPauseReason): Boolean {
+        if (current() == null) return false
+        pauseReason = reason
+        return true
+    }
+
+    @Synchronized
+    fun isPaused(): Boolean = current() != null && pauseReason != null
+
+    @Synchronized
+    fun resumeAfterUserConfirmation(): Boolean {
+        if (current() == null || pauseReason == null) return false
+        pauseReason = null
         return true
     }
 

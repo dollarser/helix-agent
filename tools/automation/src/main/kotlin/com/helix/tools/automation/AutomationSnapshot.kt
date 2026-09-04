@@ -77,6 +77,17 @@ internal data class NodeTokenResolution(
     val binding: NodeTokenBinding? = null,
 )
 
+internal enum class NodeTokenLookupStatus {
+    VALID,
+    UNKNOWN,
+    EXPIRED,
+}
+
+internal data class NodeTokenLookup(
+    val status: NodeTokenLookupStatus,
+    val binding: NodeTokenBinding? = null,
+)
+
 /**
  * Opaque, process-local node tokens. The registry never retains AccessibilityNodeInfo instances;
  * actions must reacquire the root and re-walk [NodeTokenBinding.path] before trusting a token.
@@ -106,6 +117,17 @@ internal class NodeTokenRegistry(
         check(token.length == TOKEN_BYTES * 2 && token !in entries) { "invalid or duplicate token" }
         entries[token] = Entry(binding, clock.now().plus(TOKEN_TTL))
         return token
+    }
+
+    @Synchronized
+    fun lookup(token: String): NodeTokenLookup {
+        val entry = entries[token] ?: return NodeTokenLookup(NodeTokenLookupStatus.UNKNOWN)
+        return if (!clock.now().isBefore(entry.expiresAt)) {
+            entries.remove(token)
+            NodeTokenLookup(NodeTokenLookupStatus.EXPIRED)
+        } else {
+            NodeTokenLookup(NodeTokenLookupStatus.VALID, entry.binding)
+        }
     }
 
     @Synchronized

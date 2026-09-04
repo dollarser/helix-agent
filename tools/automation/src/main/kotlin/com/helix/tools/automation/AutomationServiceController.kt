@@ -5,7 +5,7 @@ import com.helix.core.model.SystemClock
 import java.time.Duration
 
 /** The only process-level bridge to the live Accessibility service. */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "ReturnCount")
 object AutomationServiceController {
     private val sessionManager = AutomationSessionManager(SystemClock())
     private var service: HelixAccessibilityService? = null
@@ -31,6 +31,9 @@ object AutomationServiceController {
 
     @Synchronized
     fun activeSession(): ActiveAutomationSession? = sessionManager.current()
+
+    @Synchronized
+    fun pauseReason(): AutomationPauseReason? = sessionManager.pauseReason
 
     @Synchronized
     fun replaceAllowlist(
@@ -86,6 +89,67 @@ object AutomationServiceController {
         return connectedService.captureSnapshot(session)
     }
 
+    @Synchronized
+    fun performNodeAction(request: AutomationNodeActionRequest): AutomationActionResult {
+        val connectedService =
+            service
+                ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
+        val session =
+            sessionManager.current()
+                ?: return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        if (sessionManager.isPaused()) {
+            return AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
+        }
+        val result = connectedService.performNodeAction(session, request)
+        if (result.status == AutomationActionStatus.TARGET_CHANGED) {
+            pauseForTargetChange(connectedService)
+        }
+        return result
+    }
+
+    @Synchronized
+    fun performGlobalAction(action: AutomationGlobalAction): AutomationActionResult {
+        val connectedService =
+            service
+                ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
+        val session =
+            sessionManager.current()
+                ?: return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
+        if (sessionManager.isPaused()) {
+            return AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
+        }
+        val result = connectedService.performGlobalAction(session, action)
+        if (result.status == AutomationActionStatus.TARGET_CHANGED) {
+            pauseForTargetChange(connectedService)
+        }
+        return result
+    }
+
+    @Synchronized
+    fun resumeAfterUserConfirmation(expectedPackage: String): AutomationResumeStatus {
+        val connectedService = service ?: return AutomationResumeStatus.SERVICE_NOT_CONNECTED
+        val session = sessionManager.current() ?: return AutomationResumeStatus.NO_ACTIVE_SESSION
+        if (!sessionManager.isPaused()) return AutomationResumeStatus.NOT_PAUSED
+        if (expectedPackage !in session.scope.allowedPackages) {
+            return AutomationResumeStatus.TARGET_NOT_ALLOWLISTED
+        }
+        val snapshot =
+            connectedService.captureSnapshot(session).snapshot
+                ?: return AutomationResumeStatus.SNAPSHOT_REFUSED
+        if (snapshot.packageName != expectedPackage) return AutomationResumeStatus.TARGET_MISMATCH
+        check(sessionManager.resumeAfterUserConfirmation()) { "paused session disappeared during resume" }
+        return AutomationResumeStatus.RESUMED
+    }
+
+    @Synchronized
+    internal fun targetObserved(packageName: String) {
+        val connectedService = service ?: return
+        val session = sessionManager.current() ?: return
+        if (packageName !in session.scope.allowedPackages) {
+            pauseForTargetChange(connectedService)
+        }
+    }
+
     /** User-triggered capability revocation; Android removes this service from the enabled list. */
     @Synchronized
     fun disableSystemService(): Boolean {
@@ -117,5 +181,10 @@ object AutomationServiceController {
 
     private fun rollbackForegroundFailure() {
         sessionManager.stop(AutomationStopReason.FOREGROUND_START_FAILED)
+    }
+
+    private fun pauseForTargetChange(connectedService: HelixAccessibilityService) {
+        sessionManager.pause(AutomationPauseReason.TARGET_CHANGED)
+        connectedService.invalidateSnapshotTokens()
     }
 }

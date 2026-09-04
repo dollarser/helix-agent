@@ -18,6 +18,7 @@ enum class AutomationServiceState {
  * Backend for the user-facing Accessibility permission center. It returns the system Settings
  * intent instead of launching it, so only an explicit UI action can open the grant screen.
  */
+@Suppress("TooManyFunctions")
 class AutomationPermissionCenter(
     context: Context,
 ) {
@@ -56,8 +57,20 @@ class AutomationPermissionCenter(
 
     fun activeSession(): ActiveAutomationSession? = AutomationServiceController.activeSession()
 
-    /** Internal HXA-091 debug/fixture entry; this is not registered as an Agent Tool. */
+    /** Module API used by the acceptance fixture; this is not registered as an Agent Tool. */
     fun snapshot(): AutomationSnapshotResult = AutomationServiceController.snapshot()
+
+    fun performNodeAction(request: AutomationNodeActionRequest): AutomationActionResult =
+        AutomationServiceController.performNodeAction(request)
+
+    fun performGlobalAction(action: AutomationGlobalAction): AutomationActionResult =
+        AutomationServiceController.performGlobalAction(action)
+
+    fun pauseReason(): AutomationPauseReason? = AutomationServiceController.pauseReason()
+
+    /** Only an explicit user confirmation on the currently visible allowlisted package resumes. */
+    fun resumeAfterUserConfirmation(expectedPackage: String): AutomationResumeStatus =
+        AutomationServiceController.resumeAfterUserConfirmation(expectedPackage)
 
     private fun isSystemEnabled(): Boolean {
         val manager = appContext.getSystemService(AccessibilityManager::class.java)

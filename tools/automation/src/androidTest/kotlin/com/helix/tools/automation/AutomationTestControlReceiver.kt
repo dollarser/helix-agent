@@ -10,13 +10,14 @@ import android.content.Intent
  * test would observe a second instance rather than the one used by [HelixAccessibilityService].
  */
 class AutomationTestControlReceiver : BroadcastReceiver() {
-    @Suppress("LongMethod")
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     override fun onReceive(
         context: Context,
         intent: Intent,
     ) {
         val center = AutomationPermissionCenter(context)
-        val snapshotResult = if (intent.action == ACTION_SNAPSHOT) center.snapshot() else null
+        var snapshot: AutomationSnapshot? = null
+        var actionToken: String? = null
         val result =
             when (intent.action) {
                 ACTION_PROBE -> {
@@ -40,7 +41,79 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 }
 
                 ACTION_SNAPSHOT -> {
-                    checkNotNull(snapshotResult).status.name
+                    center
+                        .snapshot()
+                        .also { snapshot = it.snapshot }
+                        .status.name
+                }
+
+                ACTION_FIND -> {
+                    val captured = center.snapshot()
+                    snapshot = captured.snapshot
+                    if (captured.status != AutomationSnapshotStatus.SUCCESS || snapshot == null) {
+                        captured.status.name
+                    } else {
+                        AutomationFinder
+                            .find(
+                                checkNotNull(snapshot),
+                                AutomationFindQuery(
+                                    text = intent.getStringExtra(EXTRA_QUERY_TEXT),
+                                    contentDescription =
+                                        intent.getStringExtra(EXTRA_QUERY_DESCRIPTION),
+                                    className = intent.getStringExtra(EXTRA_QUERY_CLASS),
+                                    clickable =
+                                        intent
+                                            .takeIf { it.hasExtra(EXTRA_QUERY_CLICKABLE) }
+                                            ?.getBooleanExtra(EXTRA_QUERY_CLICKABLE, false),
+                                ),
+                            ).also { actionToken = it.nodes.firstOrNull()?.token }
+                            .status.name
+                    }
+                }
+
+                ACTION_NODE -> {
+                    val action =
+                        runCatching {
+                            AutomationNodeAction.valueOf(
+                                intent.getStringExtra(EXTRA_NODE_ACTION).orEmpty(),
+                            )
+                        }.getOrNull()
+                    if (action == null) {
+                        AutomationActionStatus.INVALID_ARGUMENT.name
+                    } else {
+                        center
+                            .performNodeAction(
+                                AutomationNodeActionRequest(
+                                    action = action,
+                                    token = intent.getStringExtra(EXTRA_TOKEN).orEmpty(),
+                                    text = intent.getStringExtra(EXTRA_TEXT),
+                                ),
+                            ).status.name
+                    }
+                }
+
+                ACTION_GLOBAL -> {
+                    val action =
+                        runCatching {
+                            AutomationGlobalAction.valueOf(
+                                intent.getStringExtra(EXTRA_GLOBAL_ACTION).orEmpty(),
+                            )
+                        }.getOrNull()
+                    action
+                        ?.let(center::performGlobalAction)
+                        ?.status
+                        ?.name
+                        ?: AutomationActionStatus.INVALID_ARGUMENT.name
+                }
+
+                ACTION_PAUSE_PROBE -> {
+                    center.pauseReason()?.name ?: RESULT_NONE
+                }
+
+                ACTION_RESUME -> {
+                    center
+                        .resumeAfterUserConfirmation(intent.getStringExtra(EXTRA_EXPECTED_PACKAGE).orEmpty())
+                        .name
                 }
 
                 ACTION_DISABLE_SERVICE -> {
@@ -53,7 +126,6 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 }
             }
         val active = center.activeSession()
-        val snapshot = snapshotResult?.snapshot
         check(
             context
                 .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -66,6 +138,7 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 .putLong(KEY_SNAPSHOT_GENERATION, snapshot?.generation ?: -1L)
                 .putInt(KEY_SNAPSHOT_NODE_COUNT, snapshot?.nodes?.size ?: 0)
                 .putString(KEY_SNAPSHOT_FIRST_TOKEN, snapshot?.nodes?.firstOrNull()?.token)
+                .putString(KEY_ACTION_TOKEN, actionToken)
                 .putBoolean(KEY_SNAPSHOT_TRUNCATED, snapshot?.truncated ?: false)
                 .putString(
                     KEY_SNAPSHOT_SUMMARY,
@@ -94,9 +167,23 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val ACTION_START = "com.helix.tools.automation.test.START"
         const val ACTION_STOP = "com.helix.tools.automation.test.STOP"
         const val ACTION_SNAPSHOT = "com.helix.tools.automation.test.SNAPSHOT"
+        const val ACTION_FIND = "com.helix.tools.automation.test.FIND"
+        const val ACTION_NODE = "com.helix.tools.automation.test.NODE_ACTION"
+        const val ACTION_GLOBAL = "com.helix.tools.automation.test.GLOBAL_ACTION"
+        const val ACTION_PAUSE_PROBE = "com.helix.tools.automation.test.PAUSE_PROBE"
+        const val ACTION_RESUME = "com.helix.tools.automation.test.RESUME"
         const val ACTION_DISABLE_SERVICE = "com.helix.tools.automation.test.DISABLE_SERVICE"
         const val EXTRA_NONCE = "nonce"
         const val EXTRA_PACKAGES = "packages"
+        const val EXTRA_QUERY_TEXT = "query_text"
+        const val EXTRA_QUERY_DESCRIPTION = "query_description"
+        const val EXTRA_QUERY_CLASS = "query_class"
+        const val EXTRA_QUERY_CLICKABLE = "query_clickable"
+        const val EXTRA_NODE_ACTION = "node_action"
+        const val EXTRA_GLOBAL_ACTION = "global_action"
+        const val EXTRA_TOKEN = "token"
+        const val EXTRA_TEXT = "text"
+        const val EXTRA_EXPECTED_PACKAGE = "expected_package"
         const val PREFERENCES_NAME = "automation_test_control"
         const val KEY_NONCE = "nonce"
         const val KEY_RESULT = "result"
@@ -108,7 +195,9 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val KEY_SNAPSHOT_FIRST_TOKEN = "snapshot_first_token"
         const val KEY_SNAPSHOT_TRUNCATED = "snapshot_truncated"
         const val KEY_SNAPSHOT_SUMMARY = "snapshot_summary"
+        const val KEY_ACTION_TOKEN = "action_token"
         private const val RESULT_OK = "OK"
+        private const val RESULT_NONE = "NONE"
         private const val RESULT_UNKNOWN_ACTION = "UNKNOWN_ACTION"
     }
 }

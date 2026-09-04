@@ -318,6 +318,11 @@ private class FakeSnapshotNode(
         return children[index]
     }
 
+    override fun performAction(
+        action: Int,
+        arguments: android.os.Bundle?,
+    ): Boolean = false
+
     override fun recycle() {
         recycleCount += 1
     }

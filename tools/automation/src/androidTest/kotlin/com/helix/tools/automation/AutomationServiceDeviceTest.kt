@@ -10,8 +10,13 @@ import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_DISABLE_SERVICE
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_FIND
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_GLOBAL
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_NODE
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_PAUSE_PROBE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_PROBE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_REPLACE_ALLOWLIST
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_RESUME
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_SNAPSHOT
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_START
 import org.junit.Assert.assertEquals
@@ -104,6 +109,8 @@ class AutomationServiceDeviceTest {
         assertEquals(32, snapshot.snapshotFirstToken.length)
         assertFalse(snapshot.snapshotTruncated)
 
+        assertNodeAndGlobalActions(fixturePackage)
+
         launchFixture(AutomationFixtureActivity.MODE_SENSITIVE)
         var latestSensitive = bridge(ACTION_SNAPSHOT)
         waitUntil(failureMessage = { "latest sensitive snapshot=$latestSensitive" }) {
@@ -127,6 +134,133 @@ class AutomationServiceDeviceTest {
         )
         waitUntil { !bridge(ACTION_PROBE).active }
         assertFalse(bridge(ACTION_PROBE).active)
+        assertEquals(
+            AutomationActionStatus.NO_ACTIVE_SESSION.name,
+            bridge(
+                ACTION_NODE,
+                nodeAction = AutomationNodeAction.CLICK,
+                token = snapshot.snapshotFirstToken,
+            ).result,
+        )
+    }
+
+    @Suppress("LongMethod")
+    private fun assertNodeAndGlobalActions(fixturePackage: String) {
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            performFreshNodeAction(
+                action = AutomationNodeAction.CLICK,
+                description = "Fixture action",
+            ).result,
+        )
+        waitUntil { bridge(ACTION_FIND, queryText = "clicked").result == AutomationFindStatus.FOUND.name }
+
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            performFreshNodeAction(
+                action = AutomationNodeAction.LONG_CLICK,
+                description = "Fixture action",
+            ).result,
+        )
+        waitUntil { bridge(ACTION_FIND, queryText = "long_clicked").result == AutomationFindStatus.FOUND.name }
+
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            performFreshNodeAction(
+                action = AutomationNodeAction.SET_TEXT,
+                description = "Text target",
+                text = "device text",
+            ).result,
+        )
+        waitUntil { bridge(ACTION_FIND, queryText = "device text").result == AutomationFindStatus.FOUND.name }
+
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            performFreshNodeAction(
+                action = AutomationNodeAction.SCROLL_FORWARD,
+                description = "Scroll target",
+            ).result,
+        )
+
+        var token = findToken(description = "Fixture action")
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        assertEquals(
+            AutomationActionStatus.STALE_TOKEN.name,
+            bridge(ACTION_NODE, nodeAction = AutomationNodeAction.CLICK, token = token).result,
+        )
+
+        token = findToken(description = "Fixture action")
+        Thread.sleep(NodeTokenRegistry.TOKEN_TTL.toMillis() + 250)
+        assertEquals(
+            AutomationActionStatus.TOKEN_EXPIRED.name,
+            bridge(ACTION_NODE, nodeAction = AutomationNodeAction.CLICK, token = token).result,
+        )
+
+        targetContext.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        waitUntil { bridge(ACTION_PAUSE_PROBE).result == AutomationPauseReason.TARGET_CHANGED.name }
+        assertEquals(
+            AutomationActionStatus.SESSION_PAUSED.name,
+            bridge(ACTION_NODE, nodeAction = AutomationNodeAction.CLICK, token = token).result,
+        )
+        resumeFixture(fixturePackage)
+
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            bridge(ACTION_GLOBAL, globalAction = AutomationGlobalAction.BACK).result,
+        )
+        waitUntil { bridge(ACTION_PAUSE_PROBE).result == AutomationPauseReason.TARGET_CHANGED.name }
+        resumeFixture(fixturePackage)
+
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            bridge(ACTION_GLOBAL, globalAction = AutomationGlobalAction.HOME).result,
+        )
+        waitUntil { bridge(ACTION_PAUSE_PROBE).result == AutomationPauseReason.TARGET_CHANGED.name }
+        resumeFixture(fixturePackage)
+    }
+
+    private fun resumeFixture(fixturePackage: String) {
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        waitUntil { bridge(ACTION_SNAPSHOT).result == AutomationSnapshotStatus.SUCCESS.name }
+        var resume = BridgeResult(result = "not attempted", active = true)
+        waitUntil(failureMessage = { "latest resume=$resume" }) {
+            bridge(ACTION_RESUME, expectedPackage = fixturePackage)
+                .also { resume = it }
+                .result == AutomationResumeStatus.RESUMED.name
+        }
+    }
+
+    private fun performFreshNodeAction(
+        action: AutomationNodeAction,
+        text: String? = null,
+        description: String,
+    ): BridgeResult {
+        var result = BridgeResult(result = AutomationActionStatus.STALE_TOKEN.name, active = true)
+        repeat(20) {
+            result =
+                bridge(
+                    ACTION_NODE,
+                    nodeAction = action,
+                    token = findToken(description = description),
+                    text = text,
+                )
+            if (result.result != AutomationActionStatus.STALE_TOKEN.name) return result
+            Thread.sleep(25)
+        }
+        return result
+    }
+
+    private fun findToken(
+        text: String? = null,
+        description: String? = null,
+    ): String {
+        var found = bridge(ACTION_FIND, queryText = text, queryDescription = description)
+        waitUntil(failureMessage = { "latest find=$found" }) {
+            bridge(ACTION_FIND, queryText = text, queryDescription = description)
+                .also { found = it }
+                .result == AutomationFindStatus.FOUND.name
+        }
+        return found.actionToken.also { assertEquals(32, it.length) }
     }
 
     private fun launchFixture(mode: String) {
@@ -173,16 +307,41 @@ class AutomationServiceDeviceTest {
             .split(':')
             .filterTo(mutableSetOf()) { it.isNotBlank() }
 
+    @Suppress("LongParameterList")
     private fun bridge(
         action: String,
         packages: Set<String> = emptySet(),
+        queryText: String? = null,
+        queryDescription: String? = null,
+        nodeAction: AutomationNodeAction? = null,
+        globalAction: AutomationGlobalAction? = null,
+        token: String? = null,
+        text: String? = null,
+        expectedPackage: String? = null,
     ): BridgeResult {
         val nonce = ++nextNonce
         targetContext.sendBroadcast(
             Intent(targetContext, AutomationTestControlReceiver::class.java)
                 .setAction(action)
                 .putExtra(AutomationTestControlReceiver.EXTRA_NONCE, nonce)
-                .putExtra(AutomationTestControlReceiver.EXTRA_PACKAGES, packages.toTypedArray()),
+                .putExtra(AutomationTestControlReceiver.EXTRA_PACKAGES, packages.toTypedArray())
+                .apply {
+                    queryText?.let { putExtra(AutomationTestControlReceiver.EXTRA_QUERY_TEXT, it) }
+                    queryDescription?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_QUERY_DESCRIPTION, it)
+                    }
+                    nodeAction?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_NODE_ACTION, it.name)
+                    }
+                    globalAction?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_GLOBAL_ACTION, it.name)
+                    }
+                    token?.let { putExtra(AutomationTestControlReceiver.EXTRA_TOKEN, it) }
+                    text?.let { putExtra(AutomationTestControlReceiver.EXTRA_TEXT, it) }
+                    expectedPackage?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_EXPECTED_PACKAGE, it)
+                    }
+                },
         )
         val preferences =
             targetContext.getSharedPreferences(
@@ -209,6 +368,8 @@ class AutomationServiceDeviceTest {
                 preferences.getBoolean(AutomationTestControlReceiver.KEY_SNAPSHOT_TRUNCATED, false),
             snapshotSummary =
                 preferences.getString(AutomationTestControlReceiver.KEY_SNAPSHOT_SUMMARY, null).orEmpty(),
+            actionToken =
+                preferences.getString(AutomationTestControlReceiver.KEY_ACTION_TOKEN, null).orEmpty(),
         )
     }
 
@@ -225,10 +386,12 @@ class AutomationServiceDeviceTest {
         condition: () -> Boolean,
     ) {
         val deadline = System.currentTimeMillis() + timeoutMillis
-        while (!condition() && System.currentTimeMillis() < deadline) {
+        var met = condition()
+        while (!met && System.currentTimeMillis() < deadline) {
             Thread.sleep(50)
+            met = condition()
         }
-        assertTrue("${failureMessage()} within ${timeoutMillis}ms", condition())
+        assertTrue("${failureMessage()} within ${timeoutMillis}ms", met)
     }
 }
 
@@ -242,4 +405,5 @@ private data class BridgeResult(
     val snapshotFirstToken: String = "",
     val snapshotTruncated: Boolean = false,
     val snapshotSummary: String = "",
+    val actionToken: String = "",
 )

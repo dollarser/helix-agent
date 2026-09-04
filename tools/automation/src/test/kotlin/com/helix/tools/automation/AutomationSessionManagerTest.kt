@@ -113,6 +113,21 @@ class AutomationSessionManagerTest {
         assertFalse(manager.stop(AutomationStopReason.SERVICE_DISCONNECTED))
         assertEquals(AutomationStopReason.USER_STOP, manager.lastStopReason)
     }
+
+    @Test
+    fun targetChangePausesUntilExplicitUserConfirmationAndStopClearsPause() {
+        manager.start(setOf("com.example.fixture"), allowed)
+
+        assertTrue(manager.pause(AutomationPauseReason.TARGET_CHANGED))
+        assertTrue(manager.isPaused())
+        assertEquals(AutomationPauseReason.TARGET_CHANGED, manager.pauseReason)
+        assertTrue(manager.resumeAfterUserConfirmation())
+        assertFalse(manager.isPaused())
+
+        manager.pause(AutomationPauseReason.TARGET_CHANGED)
+        manager.stop(AutomationStopReason.USER_STOP)
+        assertNull(manager.pauseReason)
+    }
 }
 
 private class MutableClock(

@@ -9,6 +9,7 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /** Self-built target surfaces; no external app or another worktree is touched by device tests. */
@@ -34,15 +35,45 @@ class AutomationFixtureActivity : Activity() {
 
     private fun renderNormal() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        val result = TextView(this).apply { text = "idle" }
         setContentView(
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(TextView(context).apply { text = "Helix M9 automation fixture" })
                 addView(
                     Button(context).apply {
-                        text = "Fixture button"
+                        text = "Tap target"
                         contentDescription = "Fixture action"
+                        setOnClickListener { result.text = "clicked" }
+                        setOnLongClickListener {
+                            result.text = "long_clicked"
+                            true
+                        }
                     },
+                )
+                addView(
+                    EditText(context).apply {
+                        hint = "Editable fixture"
+                        contentDescription = "Text target"
+                    },
+                )
+                addView(result)
+                addView(
+                    ScrollView(context).apply {
+                        contentDescription = "Scroll target"
+                        addView(
+                            LinearLayout(context).apply {
+                                orientation = LinearLayout.VERTICAL
+                                repeat(40) { index ->
+                                    addView(TextView(context).apply { text = "scroll row $index" })
+                                }
+                            },
+                        )
+                    },
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        500,
+                    ),
                 )
             },
         )
