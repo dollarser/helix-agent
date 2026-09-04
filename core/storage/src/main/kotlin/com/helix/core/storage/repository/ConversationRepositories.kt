@@ -756,6 +756,11 @@ class ArtifactRepository(
     }
 
     fun listBySession(sessionId: String): List<ArtifactEntity> = dao.listBySession(sessionId)
+
+    fun findBySessionAndPath(
+        sessionId: String,
+        relativePath: String,
+    ): ArtifactEntity? = dao.bySessionAndPath(sessionId, relativePath)
 }
 
 class AuditEventRepository(

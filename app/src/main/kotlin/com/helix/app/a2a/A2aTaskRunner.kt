@@ -420,34 +420,10 @@ class A2aTaskRunner(
         val imported =
             rawParts.mapIndexed { partIndex, part ->
                 val bytes = decodeBounded(part.base64)
-                val filename = "$index-$partIndex-${safeFilename(part.filename ?: "artifact.bin")}"
+                val filename =
+                    "$index-$partIndex-${safeFilename(part.filename ?: "artifact.bin")}"
                 val path = FileScopePath(workspaceScopeId, "${WorkspaceLayout.OUTPUT}/a2a/$toolCallId/$filename")
-                val outcome =
-                    workspace.writeArtifact(
-                        path = path,
-                        bytes = bytes,
-                        region = WorkspaceLayout.OUTPUT,
-                        sessionId = sessionId,
-                        sink =
-                            WorkspaceArtifactStore.ArtifactSink { owner, record ->
-                                storage.artifacts.register(
-                                    record.id,
-                                    owner,
-                                    record.relativePath,
-                                    record.mediaType,
-                                    record.sizeBytes,
-                                    record.sha256,
-                                    resolveWorkspaceFile(FileScopePath(workspaceScopeId, record.relativePath)),
-                                )
-                            },
-                    )
-                buildJsonObject {
-                    put("artifactRef", outcome.record.id)
-                    put("sha256", outcome.record.sha256)
-                    put("size", outcome.record.sizeBytes)
-                    put("mediaType", outcome.record.mediaType)
-                    put("trust", UNTRUSTED_MARKER)
-                }
+                importRawArtifact(path, bytes, sessionId)
             }
         return buildJsonObject {
             put("remoteArtifactId", artifact.artifactId)
@@ -461,6 +437,79 @@ class A2aTaskRunner(
             put("trust", UNTRUSTED_MARKER)
         }
     }
+
+    /**
+     * A completed remote Task can be reconciled more than once, including after process death.
+     * Reuse the exact previously registered artifact only after re-verifying its durable bytes;
+     * never overwrite a changed file or create a second reference for the same remote part.
+     */
+    private fun importRawArtifact(
+        path: FileScopePath,
+        bytes: ByteArray,
+        sessionId: String,
+    ): JsonObject =
+        synchronized(ARTIFACT_IMPORT_LOCK) {
+            val expectedHash = FileContentStore.sha256Hex(bytes)
+            storage.artifacts.findBySessionAndPath(sessionId, path.relativePath)?.let { existing ->
+                val file = resolveWorkspaceFile(path)
+                require(
+                    existing.size == bytes.size.toLong() &&
+                        existing.sha256 == expectedHash &&
+                        file.isFile &&
+                        file.length() == existing.size &&
+                        FileContentStore.sha256Hex(file.readBytes()) == existing.sha256,
+                ) { "saved A2A Artifact no longer matches the remote Task snapshot" }
+                return@synchronized artifactReference(
+                    existing.id,
+                    existing.sha256,
+                    existing.size,
+                    existing.mediaType,
+                )
+            }
+            val parent = requireNotNull(resolveWorkspaceFile(path).parentFile) { "A2A Artifact path has no parent" }
+            require((parent.isDirectory || parent.mkdirs()) && parent.isDirectory) {
+                "A2A Artifact output directory is unavailable"
+            }
+            val outcome =
+                workspace.writeArtifact(
+                    path = path,
+                    bytes = bytes,
+                    region = WorkspaceLayout.OUTPUT,
+                    sessionId = sessionId,
+                    sink =
+                        WorkspaceArtifactStore.ArtifactSink { owner, record ->
+                            storage.artifacts.register(
+                                record.id,
+                                owner,
+                                record.relativePath,
+                                record.mediaType,
+                                record.sizeBytes,
+                                record.sha256,
+                                resolveWorkspaceFile(FileScopePath(workspaceScopeId, record.relativePath)),
+                            )
+                        },
+                )
+            artifactReference(
+                outcome.record.id,
+                outcome.record.sha256,
+                outcome.record.sizeBytes,
+                outcome.record.mediaType,
+            )
+        }
+
+    private fun artifactReference(
+        artifactId: String,
+        sha256: String,
+        size: Long,
+        mediaType: String,
+    ): JsonObject =
+        buildJsonObject {
+            put("artifactRef", artifactId)
+            put("sha256", sha256)
+            put("size", size)
+            put("mediaType", mediaType)
+            put("trust", UNTRUSTED_MARKER)
+        }
 
     private fun decodeBounded(base64: String): ByteArray {
         require(
@@ -552,6 +601,7 @@ class A2aTaskRunner(
         const val MAX_ARTIFACT_BYTES = 1024L * 1024
         const val MAX_BASE64_CHARS = 1_500_000
         const val POLL_MILLIS = 50L
+        val ARTIFACT_IMPORT_LOCK = Any()
         val BASE64_PATTERN = Regex("[A-Za-z0-9+/]*={0,2}")
         val INTERRUPTED_STATES = setOf(A2aRemoteTaskState.INPUT_REQUIRED, A2aRemoteTaskState.AUTH_REQUIRED)
     }

@@ -5,6 +5,8 @@ import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
+import com.helix.core.policy.DataSensitivity
+import com.helix.core.policy.EgressTarget
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
@@ -13,11 +15,51 @@ import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
 class A2aDynamicToolBridgeTest {
+    @Test
+    fun dispatchFactsBindA2aEgressContractAndSessionCheckpoint() {
+        val agentId = A2aAgentId("research")
+        val skill =
+            A2aEnabledSkill(
+                agentId = agentId,
+                skillId = "web/research",
+                interfaceSnapshot =
+                    A2aInterfaceSnapshot(
+                        endpoint = NormalizedEndpoint.parse("https://agent.example/a2a"),
+                        binding = A2aBinding.JSON_RPC,
+                        protocolVersion = "1.0",
+                        tenant = null,
+                    ),
+                cardHash = "a".repeat(64),
+                skillHash = "b".repeat(64),
+                inputModes = listOf("text/plain", "application/json"),
+                outputModes = listOf("text/plain", "application/json"),
+            )
+        val bridge = A2aDynamicToolBridge(agentId, listOf(skill)) { _, _ -> error("not executed") }
+        val descriptor = bridge.descriptors().single()
+        val args = buildJsonObject { put("task", "summarize") }
+        val tracker = A2aSessionCheckpointTracker()
+
+        val first = bridge.dispatchFacts(descriptor, args, DataSensitivity.NORMAL, tracker)
+        assertEquals(EgressTarget.A2a(agentId), first.egress.target)
+        assertEquals("https://agent.example:443", first.sendSummary.origin)
+        assertEquals(descriptor.contractHash.hex, first.sendSummary.contractHash)
+        assertTrue(first.checkpointRequired)
+
+        val repeated = bridge.dispatchFacts(descriptor, args, DataSensitivity.NORMAL, tracker)
+        assertTrue(repeated.originSeenInSession)
+        assertFalse(repeated.checkpointRequired)
+
+        val sensitive = bridge.dispatchFacts(descriptor, args, DataSensitivity.SENSITIVE, tracker)
+        assertTrue(sensitive.checkpointRequired)
+        assertEquals(DataSensitivity.SENSITIVE, sensitive.egress.dataSensitivity)
+    }
+
     @Test
     fun fixedSchemaRegistersAndAmbiguousDeliveryRequiresReview() {
         val agentId = A2aAgentId("research")

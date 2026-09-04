@@ -44,6 +44,14 @@ class ArtifactVisionImageSourceTest {
 
             override fun listBySession(sessionId: String): List<ArtifactEntity> =
                 rows.values.filter { it.sessionId == sessionId }
+
+            override fun bySessionAndPath(
+                sessionId: String,
+                relativePath: String,
+            ): ArtifactEntity? =
+                rows.values.singleOrNull {
+                    it.sessionId == sessionId && it.relativePath == relativePath
+                }
         }
 
     private lateinit var source: ArtifactVisionImageSource

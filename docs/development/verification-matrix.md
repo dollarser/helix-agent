@@ -135,7 +135,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-076 | `./gradlew :app:testConsumerDebugUnitTest :extensions:mcp:test :extensions:skills:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
 | HXA-077 | `./gradlew :spikes:a2a-sdk:testDebugUnitTest :spikes:a2a-minimal:testDebugUnitTest` + `./scripts/check-a2a-sdk-android-spike.sh` + `./scripts/check-a2a-minimal-android-spike.sh` + `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :spikes:a2a-minimal:connectedDebugAndroidTest`；两端各 3/3：JSON-RPC/HTTP+JSON/SSE/取消/同 Task 重连/1 MiB/Bearer/HTTP 401/TLS failure/cleartext 与解析边界；物理真机、签名产物及完整 SBOM/notice 归 M12 |
 | HXA-078 | `./gradlew :extensions:a2a:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :app:connectedConsumerDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.a2a.A2aDiscoveryDeviceTest`；两端各 2/2：真实 public/extended Card、Secret alias、版本/接口/Skill snapshot、401/非 JSON/超大 Card、hash 变化后 Room + Registry 同步撤销 |
-| HXA-079 | `./gradlew :extensions:a2a:test :tools:framework:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | 本地 A2A fixture 覆盖 stream/cancel/restart/GetTask/Artifact/不明确送达/远端反向调用拒绝；API 29/36 运行按用户要求暂缓 |
+| HXA-079 | `./gradlew :extensions:a2a:test :tools:framework:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `A2aTaskRunnerDeviceTest` 在专用 API 29/36 arm64-v8a 模拟器各 2/2；本地 fixture 覆盖 stream/cancel/restart/GetTask/Artifact 幂等复用与篡改拒绝/不明确送达不重发/远端反向调用拒绝 |
 
 ### M8：PRoot Runtime
 

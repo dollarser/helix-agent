@@ -313,4 +313,10 @@ interface ArtifactDao {
 
     @Query("SELECT * FROM artifacts WHERE sessionId = :sessionId ORDER BY rowid ASC")
     fun listBySession(sessionId: String): List<ArtifactEntity>
+
+    @Query("SELECT * FROM artifacts WHERE sessionId = :sessionId AND relativePath = :relativePath LIMIT 1")
+    fun bySessionAndPath(
+        sessionId: String,
+        relativePath: String,
+    ): ArtifactEntity?
 }
