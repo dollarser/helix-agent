@@ -178,6 +178,8 @@ printf 'no\n' | avdmanager create avd \
   --package "system-images;android-36;google_apis;${helix_host_abi}"
 ```
 
+创建后必须把显示设为手机级分辨率 **1080×2400 @ 420dpi**（与参考 `Helix_API_36` 一致）。`avdmanager create avd` 不带 `--device` profile 时默认落在 320×640 @ 160；该尺寸下 provider 行下半部分（状态明细、`provider-test`/`provider-delete` 按钮）会落到可视区之外或被输入法遮挡，令 `ProviderModelDiscoveryUiTest`、`ProviderFlowTest` 等 provider 行 UI 测试确定性失败，高度被 clamp（如 1080×1920）时带模型分区的行仍会失败——需要完整 2400 高度。分辨率是创建期配置，改法是在该 AVD 的 `config.ini`（本机 AVD 目录内，不进仓库）写入 `hw.lcd.width=1080`、`hw.lcd.height=2400`、`hw.lcd.density=420` 后重启 AVD。若此前用 `adb shell wm size`/`wm density` 临时改过，须先 `wm size reset` 与 `wm density reset` 清掉持久在 `/data` 的覆盖，否则冷启动仍被 clamp。
+
 若同名 AVD 已存在，不要用 `--force` 覆盖；先通过 Android Studio Device Manager 检查其 API、ABI、磁盘和快照状态。普通开发从 Device Manager 启动即可；命令行冷启动参考：
 
 ```bash
@@ -588,3 +590,4 @@ git diff --check
 | 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；当前基线保持 compileSdk 36，不在普通功能任务中升级 SDK。 |
 | Gradle 输出 Kotlin 2.3.20，但 catalog 是 2.3.21 | 前者是 Gradle 自带 Kotlin，后者才是项目 Kotlin plugin；以 catalog 和 resolved dependency 为准。 |
 | Unit test 通过但功能仍异常 | 查看当前 HXA 的 verification matrix；涉及 Android/Room/WebView/权限/Runtime 时补跑指定设备测试和真实边界 fixture。 |
+| instrumentation 报 `Failed to inject touch input` | `androidx.compose.ui.test` 的误导包装，真实原因在紧跟的 `Reason:` 行，多为 `could not find any node`（目标不在组合树里）而非输入注入失败；按 `Reason` 定位，最常见是 AVD 分辨率太小把 provider 行内容压出可视区（见 5.3），先修正分辨率再重跑，不要当输入注入 bug 排查。 |
