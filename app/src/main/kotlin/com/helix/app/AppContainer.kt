@@ -22,6 +22,7 @@ import com.helix.app.mcp.McpStorageBridge
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
+import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
@@ -471,6 +472,17 @@ internal class DefaultAppContainer(
         CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
             jsExecutionClient.execute(params, cancel)
         }
+        // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
+        // no-op registers nothing). Registration does NO bind and starts NO process
+        // (ADR-0007): the availability gate runs per execution, and the only bind paths
+        // are the user-click zero-Job verification and the approved job's own cold bind.
+        ProotToolModule.registerTools(
+            context,
+            toolRegistry,
+            toolImplementations,
+            workspaceStore,
+            storage,
+        )
         // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
         // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
         // main-thread [browser] controller off the tool dispatcher's thread: node tokens are

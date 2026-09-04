@@ -1,9 +1,9 @@
 # ADR-0008: Git Workspace 持久化与离线执行域
 
-Status: proposed
+Status: accepted
 Date: 2026-08-31
 HXA: HXA-088
-Deciders: pending
+Deciders: 项目所有者（2026-09-05 明确接受；HXA-088 Spike 证据见 Verification 节，2026-09-04）
 Supersedes: none
 Superseded by: none
 
@@ -56,7 +56,39 @@ Required before acceptance（HXA-088）：
 - 为候选结构化命令给出 Tool schema、动态风险、scope、Approval 和审计示例；证明 Standard 不需要 Git 配置。
 - 对任何候选第三方 Git 库记录版本、来源、许可证、ABI/体积、依赖验证与替代方案。
 
-当前已验证事实仅是文档边界；尚未执行 HXA-088 Spike，也未接受持久 Git 方案。
+### HXA-088 Spike 结果（2026-09-04，Status 仍为 proposed，待所有者决定）
+
+设备证据（`ProotGitSpikeDeviceTest`，6 例 × 两台：emulator-5554 API 36 / emulator-5556 API 29，均 arm64-v8a 4 KiB 模拟器 = ADR 允许的代表性设备；**本环境无 arm64 真机**，4/16 KiB 真机与最低设备集证据沿用 HXA-086 真机缺口记录）：
+
+- **规模/耗时（真实 084 Job 管线：JobZipWriter 输入 → guest git 操作 `/workspace` 快照 → JobZipWriter 输出）**：
+  - 小仓库（64 文件 × 8 KiB ≈ 552 KiB 工作树）：输入归档 31,056 B / 13–46 ms；guest `git init+status` ≈ 251–255 ms；输出归档 44,876 B / 83 文件。guest 侧 `.git`（init 后）17 文件 / 108–212 KiB。
+  - 中仓库（512 文件 × 32 KiB ≈ 16 MiB 工作树；guest `init+add+commit+gc`）：输入归档 312,373 B / 13–46 ms（fixture 载荷高压缩比；不可压缩载荷时归档 ≈ 原始 ≈ 16.8 MiB，仍在 084 限额内：单归档 ≤128 MiB / 单文件 ≤64 MiB / ≤4,096 文件）；guest 全链 ≈ 1.3–1.5 s；输出归档 336,608 B / 542 文件；`git gc` 后 `.git` = 28 文件 / 204–364 KiB（pack 化后对象 DB 相对工作树很小——**首版仓库预算应按 pack 后形态表达**）。
+- **进程死亡/对账**：job id 对同一终态记录幂等（查询稳定、无重放）；输出是整归档边界（SUCCEEDED 必有完整可解包归档，不存在半解包树）。配合 086 生命周期（宿主 kill 期间 → ORPHANED 稳定终态 + 孤儿清扫），"静默半仓库" 无落点。
+- **损坏恢复**：损坏 loose tree 对象后 `git fsck --full` 报告 `bad sha1 file: .git/objects/62/…`——**从不静默判净**。记录的平台事实：`git fsck` 在报告损坏时**可以退出码 0**——结构化执行器必须解析 fsck 输出文本，不能只看退出码。
+- **攻击面证据（快照内携带恶意仓库内容，首版命令集 status/diff/log/init/add/commit）**：
+  - 无防护时：`post-commit` hook 在 commit 时**被执行**（写 `/workspace/HOOK-RAN` 成功）；`.gitattributes` 的 `filter=evil` clean 命令在 `add` 时**被执行**（写标记 + **清空文件内容** = 静默篡改通道进入快照）；alias（`status = !sh -c …`）**不展开**（结构化子命令不走 alias 表）；submodule 配置不引发递归/克隆（离线 + 无 submodule 命令）；credential helper 不触发（首版无远程命令）。
+  - 有防护时（每次调用 `-c core.hooksPath=/dev/null`）：hook 被抑制（HOOK_INERT），首版命令集全成功；**但 filter 仍被执行**——hooksPath 防护不能中和 attribute filter。
+- **guest 平台事实**：Alpine 3.22.5 rootfs 的 `/bin/sh`（BusyBox ash）**不支持 `$(...)` 命令替换**（backtick 可用）——结构化执行器的命令模板必须按此约束书写；git 2.49.1 工作正常。
+
+**三路径比较（Spike 结论，供所有者决定）**：
+
+1. **主 App Workspace 持有权威仓库（每操作一次完整原子事务）**：全部组件已在现有管线内设备验证（归档/限额/对账/损坏/攻击面）；中仓库每操作往返 ≈ 0.3–17 MiB 归档 + 秒级 guest 时间（模拟器）。首版预算内（pack 后 `.git` 小；工作树受 084 归档限额约束，超预算仓库应 fail-closed 拒绝并提示）。**不引入新 IPC/新挂载面/新依赖。**
+2. **Runtime 私有目录持有权威仓库**：guest git 操作成本与路径 1 相同（已测量），节省的只是每操作 zip 往返；但需要**新的 bind 面 + 新的跨 uid 仓库事务协议**（084 Job 模型中 guest 只能看到 job 快照——设备实证：私有目录对 guest 不可达），且把仓库放进 companion 的卸载/更新/删除语义（087）里。成本显著高于收益，首版不推荐（保留为后续选项）。
+3. **主 App 引入 Android Git 库**（候选调查，**未引入任何依赖**）：
+   - **JGit**（Eclipse，纯 Java，EPL-2.0 OR GPL-2.0-with-classpath-exception；Maven Central 最新 7.7.1.202607240634-r）：无 native ABI 负担，但引入一个新的供应链依赖 + 体积 + 与 guest git 的**双实现语义分叉**（同一仓库两种 git 语义）；需要单独的 Android 性能/体积证据。
+   - **libgit2**（v1.9.7，2026-08，GPL-2.0-or-later OR MIT 双许可；C 库需 arm64-v8a NDK 构建 + JNI 绑定层）：native ABI/许可证/构建链负担最大。
+   - 两条都需要独立供应链评估；且**不解决**路径 1 已设备验证的原子性（仓库仍在主 App 侧）。首版不推荐（保留为后续选项）。
+
+**推荐（供所有者决定，非授权）**：首版采用**路径 1**（主 App Workspace 权威仓库 + 每操作完整原子事务，复用 084/085 管线）+ 结构化 Advanced 命令集 `status/diff/log/init/add/commit`（**`reset --hard`/`clean` 不进入首版**），配套强制策略：
+- 每次调用 env：`GIT_CONFIG_GLOBAL=/dev/null`、`GIT_CONFIG_SYSTEM=/dev/null`、`GIT_TERMINAL_PROMPT=0`、`GIT_PAGER=cat` + `-c core.hooksPath=/dev/null`；
+- **宿主侧仓库预扫描（拒绝 fail-closed）**：`.git/config`/`.gitattributes` 含 `filter`/`diff`/`merge` 命令配置、或存在指向可执行内容的 hooks 时，拒绝 `add`/`commit`（filter 是 hooksPath 防护无法中和的静默篡改通道——设备实证）；
+- 命令模板只用白名单子命令 + `--` 路径守卫；shell 模板避开 `$(...)`（guest ash 约束——设备实证）；
+- 仓库完整性以 fsck **输出文本**为准（退出码不可信——设备实证）；
+- 超 084 归档限额（128 MiB/4,096 文件/单文件 64 MiB）的仓库 fail-closed 拒绝；
+- `clone/fetch/pull/push`/凭据/credential helper/SSH agent 全部不在首版（无 INTERNET 权限结构上排除联网 Git；远程 Git = 未来新的联网执行域 ADR）。
+- **Tool schema/风险/审批示例（候选，非授权）**：`code.git.run`（Advanced-only，CODE_EXECUTION 同类，动态风险 L2：`status/diff/log` = L1 只读候选 / `init/add/commit` = L2 写仓库候选；scope = 选定 Workspace 根；审批 = 与 `code.linux.run` 相同的每次/规则/批量语义；审计记录 = 子命令 + 仓库根 + 输入快照 sha + 输出 diff 摘要）。Standard 不暴露任何 Git 配置（Helix 原生历史/diff/回收站不变）。
+
+在 ADR 被接受前，Job-local Git 维持"单次离线 Job 内的 git 工具"定位，**不得描述为持久仓库管理**。
 
 ## Reconsider when
 

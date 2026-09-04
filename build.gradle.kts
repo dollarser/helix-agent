@@ -1,6 +1,7 @@
 import com.android.build.api.dsl.LibraryExtension
 import com.diffplug.gradle.spotless.SpotlessExtension
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.tasks.JavaExec
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
@@ -89,6 +90,7 @@ val androidLibraries =
         ":feature:files" to "com.helix.feature.files",
         ":feature:files-allfiles" to "com.helix.feature.files.allfiles",
         ":runtime:quickjs" to "com.helix.runtime.quickjs",
+        ":runtime:proot-ipc" to "com.helix.runtime.proot.ipc",
         ":runtime:proot-client" to "com.helix.runtime.proot.client",
         ":runtime:cli-client" to "com.helix.runtime.cli.client",
         ":extensions:a2a" to "com.helix.extensions.a2a",
@@ -142,6 +144,7 @@ val jvmLibraries =
         ":extensions:skills",
         ":tools:framework",
         ":tools:files",
+        ":runtime:proot-core",
         ":testing",
     )
 
@@ -169,7 +172,14 @@ val projectDependencies =
         // executor), a tools:framework contract; the app wires it into the pipeline. A JVM
         // tool-framework dependency of an Android library mirrors :runtime:proot-client.
         ":runtime:quickjs" to listOf(":core:model", ":tools:framework"),
-        ":runtime:proot-client" to listOf(":core:model"),
+        // HXA-080: proot-core is the standalone schema module (no Helix project deps; its
+        // kotlinx-serialization-json `api` dependency is added in the jvmLibraries block).
+        ":runtime:proot-core" to emptyList(),
+        // HXA-083: proot-ipc is the shared cross-APK Binder protocol (hand-rolled onTransact,
+        // handshake descriptor codec, bounded PFD manifest channel); proot-client (main app) and
+        // proot-app (companion) both bundle it.
+        ":runtime:proot-ipc" to listOf(":runtime:proot-core"),
+        ":runtime:proot-client" to listOf(":core:model", ":runtime:proot-ipc"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
         // HXA-064: the android. and clipboard. tools sit on the tools:framework contract, same
@@ -269,6 +279,13 @@ subprojects {
             // HXA-044: the SAF adapter persists its tree-grant registry with the pinned
             // kotlinx-serialization JsonElement API (no compiler plugin, same as the provider
             // modules) and carries instrumented tests against a lying in-APK ContentProvider.
+            // HXA-083: the cross-APK handshake manifest and the main app's verified-anchor
+            // store use the same strict, fail-closed kotlinx-serialization codec style as
+            // :runtime:proot-core (pinned, no plugin).
+            if (path == ":runtime:proot-ipc" || path == ":runtime:proot-client") {
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
             if (path == ":feature:files") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
@@ -451,6 +468,30 @@ subprojects {
             // pinned catalog artifact (1.9.0) as the provider modules — no new version.
             if (path == ":tools:framework") {
                 dependencies.add("api", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-080: the PRoot runtime-lock / manifest / license schemas (the 唯一版本真相 of
+            // architecture doc local-code-execution section 6.3) live in a plain JVM module so
+            // the build-time asset gate (HXA-081), the Runtime APK installer (HXA-082), the
+            // main-app client handshake (HXA-083) and the license page (HXA-087) all parse the
+            // SAME schema code. JsonElement API without the serialization compiler plugin, like
+            // :feature:files. `api` scope: both the proot-app installer and the proot-client
+            // handshake consume the parsed types.
+            if (path == ":runtime:proot-core") {
+                dependencies.add("api", kotlinxSerializationJsonDependency.get())
+                // HXA-081: the build-time asset gate (scripts/build-proot-assets.sh) runs the
+                // SAME ElfLoaderAlignChecker the on-device installer (HXA-082) and the 16 KiB
+                // compat decision (HXA-086) use, as a JavaExec over the module's runtime
+                // classpath. Args come from -PassetGateArgs (configuration-time read, so the
+                // configuration cache stays usable).
+                tasks.register<JavaExec>("assetGate") {
+                    group = "verification"
+                    description = "Build-time PRoot runtime asset gate: ELF LOAD alignment, ABI and SHA-256."
+                    mainClass.set("com.helix.runtime.proot.core.tools.AssetGateMainKt")
+                    classpath = files(tasks.named("jar"), configurations.named("runtimeClasspath"))
+                    val gateArgs = project.findProperty("assetGateArgs")
+                    if (gateArgs != null) args(gateArgs.toString().split(" "))
+                }
             }
 
             // HXA-025: provider:api owns the ModelProvider contract (suspend/Flow),

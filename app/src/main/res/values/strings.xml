@@ -109,6 +109,8 @@
     <string name="approval_input_inline_json">内联 JSON 值（%1$s 字节）</string>
     <string name="approval_input_source">输入来源</string>
     <string name="approval_limits_value">超时 %1$s s · 内存 %2$s MiB · 输出上限 %3$s KiB · 并发 1</string>
+    <string name="approval_limits_proot">超时 %1$s s（进程组 kill）· 输出上限 8 MiB · 联网：否（Runtime 无 INTERNET 权限）</string>
+    <string name="approval_input_proot_files">%1$s 个文件（快照复制，不挂载真实 Workspace）</string>
     <string name="approval_network_origin">网络 origin</string>
     <string name="approval_no">否</string>
     <string name="approval_no_egress">无出网</string>
@@ -545,4 +547,25 @@
     <string name="provider_models_no_match">无匹配模型</string>
     <string name="provider_models_shown_summary">共 %1$d 个，显示前 %2$d</string>
     <string name="provider_models_unsupported_hint">后端未提供模型列表，请手动输入</string>
+    <string name="settings_proot_title">PRoot Runtime</string>
+    <string name="settings_proot_status">状态：%1$s（离线执行域，无 INTERNET；只随同签名 Runtime APK 更新，无应用内自更新；Advanced/LAN scope 均不能为其联网）</string>
+    <string name="settings_proot_verify">验证 Runtime</string>
+    <string name="settings_proot_repair">修复 Runtime</string>
+    <string name="settings_proot_legal">许可证与来源</string>
+    <string name="settings_proot_remove">删除 Runtime</string>
+    <string name="settings_proot_rebaseline">重定基线（我已知晓基线变更）</string>
+    <string name="settings_proot_remove_title">删除 PRoot Runtime？</string>
+    <string name="settings_proot_remove_body">将完整删除 Runtime 状态（RootFS、Job 记录、激活指针）。不会删除任何 Workspace 数据。删除后“bash”Tool 需重新安装/验证才可用。</string>
+    <string name="settings_proot_remove_confirm">删除</string>
+    <string name="settings_proot_verify_success">验证通过（基线一致）</string>
+    <string name="settings_proot_verify_mismatch">需更新：Runtime 基线与已验证锚点不匹配（Runtime APK 已更新？）。请在“修复 Runtime”中更新，再点“重定基线”并重新验证。</string>
+    <string name="settings_proot_verify_failure">验证失败：%1$s</string>
+    <string name="settings_proot_remove_opened">已清除本应用锚点；请在弹出的 Runtime 页面点“删除 Runtime”完成。</string>
+    <string name="settings_proot_remove_unavailable">无法打开 Runtime（%1$s）</string>
+    <string name="settings_proot_rebaseline_success">基线已重置（原锚点已删除）。请点“验证 Runtime”对新的内嵌基线重新验证。</string>
+    <string name="settings_proot_rebaseline_empty">无已验证锚点可重置。</string>
+    <string name="settings_proot_verified">已验证</string>
+    <string name="settings_proot_not_installed">未安装</string>
+    <string name="settings_proot_not_verified">未验证</string>
+    <string name="settings_proot_disabled">被禁用/强制停止</string>
 </resources>

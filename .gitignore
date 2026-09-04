@@ -12,5 +12,10 @@ externalNativeBuild/
 .cxx/
 runtime-lock.local.json
 local-rootfs/
+# HXA-081: build-time-generated runtime assets (fetched PRoot binaries + RootFS archive)
+# are never committed (downloaded RootFS content is forbidden in the repo). The text
+# runtime-lock.json is the committed source of truth and re-verifies these bytes.
+runtime/proot-app/src/main/assets/runtime/proot/
+runtime/proot-app/src/main/assets/runtime/rootfs/
 .kotlin/
 .codegraph/

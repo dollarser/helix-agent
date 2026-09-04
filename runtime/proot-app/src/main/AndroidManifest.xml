@@ -1,10 +1,75 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    HXA-083: the companion is an on-demand runtime, not a second main app (ADR-0007).
+    - No launcher activity: PRoot has no daily UI. The ONLY entry is the minimal
+      user-gated repair activity, opened by an explicit intent from the main app
+      after a user click.
+    - The bound-only service is exported=true (cross-APK binds require it) but
+      guarded by a SIGNATURE-level permission: only an APK of the same signed set
+      can even attempt a bind; the service re-checks the caller certificate
+      (architecture doc local-code-execution section 6.6).
+    - No INTERNET, no other permissions: the baseline runtime cannot reach the
+      network and inherits no main-app capability (section 6.6 始终不共享).
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        API 30+ package visibility: the per-transaction caller re-verification
+        (ProotCallerVerifier) resolves the CALLER's package + signing certificates
+        from the companion's side. Without these <queries> the AppsFilter blocks
+        the cross-package lookups (main app -> companion direction is unaffected,
+        companion -> main app is), the verifier would fail-closed and no
+        legitimate bind could ever complete on API 30+.
+    -->
+    <queries>
+        <package android:name="com.helix.agent" />
+        <package android:name="com.helix.agent.developer" />
+    </queries>
+
+    <permission
+        android:name="com.helix.permission.BIND_PROOT_RUNTIME"
+        android:protectionLevel="signature" />
+
+    <!--
+        HXA-086: the running-job notification (通知停止). POST_NOTIFICATIONS is a
+        runtime permission on API 33+; when not granted the post is silently
+        dropped and the job runs unchanged — the notification is a convenience
+        surface, never a liveness or correctness dependency.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false"
         android:icon="@drawable/ic_helix"
         android:label="Helix PRoot Runtime"
-        android:supportsRtl="true" />
+        android:supportsRtl="true">
+        <service
+            android:name="com.helix.runtime.proot.app.ProotRuntimeService"
+            android:exported="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+        <!-- HXA-086 通知停止: the stop action of the running-job notification.
+             exported (PendingIntent resolution requires it) + the same
+             SIGNATURE permission: only the same signed set can trigger a
+             cancel; the effect is a job cancel only (no submission, no reads). -->
+        <receiver
+            android:name="com.helix.runtime.proot.app.ProotJobStopReceiver"
+            android:exported="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+        <activity
+            android:name="com.helix.runtime.proot.app.ProotRepairActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+        <!-- HXA-087 法律页: the offline license/build-manifest page. Same user-gated
+             shape as the repair entry: exported (explicit-intent resolution) + the
+             SIGNATURE permission; the only caller is the main app's user-click
+             "许可证与来源" button. -->
+        <activity
+            android:name="com.helix.runtime.proot.app.ProotLegalActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+    </application>
 </manifest>

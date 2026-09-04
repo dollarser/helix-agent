@@ -16,8 +16,11 @@ import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZoneId
@@ -330,15 +333,17 @@ object ApprovalUiMapper {
      * flag, and the applied §4.1 limits. Null for every other operation class and when there
      * is no `code` argument to show. Pure/JVM-testable like the rest of the mapper.
      */
+    @Suppress("ReturnCount") // one early-exit per source shape (QuickJS / PRoot-script / PRoot-argv)
     fun codeExecutionUi(
         descriptor: ToolDescriptor,
         arguments: JsonObject,
     ): CodeExecutionUi? {
         if (descriptor.operationClass != ToolOperationClass.CODE_EXECUTION) return null
-        return stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
+        // QuickJS (doc 03 §5): the FULL code + its hash + input source + fixed §4.1 limits.
+        stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
             val input = inputSource(arguments["input"])
             val limits = limitsLabel()
-            CodeExecutionUi(
+            return CodeExecutionUi(
                 code = code,
                 codeSha256Short = sha256Short(code),
                 inputSourceRes = input.res,
@@ -348,6 +353,60 @@ object ApprovalUiMapper {
                 online = false,
             )
         }
+        // PRoot (HXA-085, doc local-code-execution §6.5): the FULL explicit script
+        // (审批 UI 必须展示完整 script) or the argv line, the deadline, and the fixed
+        // offline boundary (no network switch exists for this target).
+        val script = stringArg(arguments, "script")?.takeIf { it.isNotBlank() }
+        val argv = (arguments["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
+        return when {
+            script != null -> {
+                CodeExecutionUi(
+                    code = script,
+                    codeSha256Short = sha256Short(script),
+                    inputSourceRes = filesSource(arguments["files"]).res,
+                    inputSourceArgs = filesSource(arguments["files"]).args,
+                    limitsRes = prootLimitsLabel(arguments).res,
+                    limitsArgs = prootLimitsLabel(arguments).args,
+                    online = false,
+                )
+            }
+
+            argv != null -> {
+                CodeExecutionUi(
+                    code = argv.joinToString(" "),
+                    codeSha256Short = sha256Short(argv.joinToString(" ")),
+                    inputSourceRes = filesSource(arguments["files"]).res,
+                    inputSourceArgs = filesSource(arguments["files"]).args,
+                    limitsRes = prootLimitsLabel(arguments).res,
+                    limitsArgs = prootLimitsLabel(arguments).args,
+                    online = false,
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    /** The PRoot input-source line: the workspace REFERENCES copied in as the bounded
+     * snapshot (no bodies) — a string-resource ID + arg (ADR-0008 first-version card).
+     */
+    private fun filesSource(files: JsonElement?): ApprovalLabel {
+        val refs = (files as? JsonArray)?.map { (it as JsonPrimitive).content } ?: emptyList()
+        return if (refs.isEmpty()) {
+            ApprovalLabel(ApprovalCardUi.NO_INPUT)
+        } else {
+            ApprovalLabel(R.string.approval_input_proot_files, listOf(refs.size.toString()))
+        }
+    }
+
+    /** The fixed PRoot limits line: the per-call deadline (default 60 s) + the output cap +
+     * the structural offline boundary — a string-resource ID + arg.
+     */
+    private fun prootLimitsLabel(arguments: JsonObject): ApprovalLabel {
+        val deadline = (arguments["timeoutSeconds"] as? JsonPrimitive)?.longOrNull ?: 60L
+        return ApprovalLabel(R.string.approval_limits_proot, listOf(deadline.toString()))
     }
 
     /** The input-source line: an explicit "无输入" when absent, else the inline JSON size (not

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proot_repair_title">Helix PRoot Runtime</string>
+    <string name="proot_repair_install">Install / repair Runtime</string>
+    <string name="proot_repair_done">Done</string>
+    <string name="proot_job_channel_name">Runtime jobs</string>
+    <string name="proot_job_running_title">Linux Runtime job is running</string>
+    <string name="proot_job_stop">Stop</string>
+    <string name="proot_repair_update">Update Runtime (newer version embedded in APK)</string>
+    <string name="proot_repair_rollback">Roll back to previous version</string>
+    <string name="proot_repair_remove">Remove Runtime completely (Workspace unaffected)</string>
+    <string name="proot_legal_title">PRoot Runtime licenses and sources</string>
+    <string name="proot_legal_done">Done</string>
+    <string name="proot_embedded_lock_valid">Embedded lock: baseline passed (%1$s, fingerprint %2$s…)</string>
+    <string name="proot_embedded_lock_invalid">Embedded lock: baseline validation failed (%1$s)</string>
+    <string name="proot_install_state_none">Install state: not installed</string>
+    <string name="proot_install_state_active">Install state: active version %1$s</string>
+    <string name="proot_install_state_rollback">Rollback version: %1$s</string>
+    <string name="proot_embedded_state_install">Embedded version: not installed (first install)</string>
+    <string name="proot_embedded_state_update">Embedded version: update required (newer APK version)</string>
+    <string name="proot_embedded_state_match">Embedded version: matches</string>
+    <string name="proot_action_update">updating</string>
+    <string name="proot_action_install_repair">installing / repairing</string>
+    <string name="proot_install_progress">Currently %1$s (extracting about 131 MiB; this may take several minutes)…</string>
+    <string name="proot_rollback_progress">Rolling back (atomically swapping active pointers)…</string>
+    <string name="proot_unknown_error">Unknown error</string>
+    <string name="proot_rollback_success">Rollback succeeded: active version %1$s (rollback slot %2$s)</string>
+    <string name="proot_rollback_no_active">No active version to roll back</string>
+    <string name="proot_rollback_no_saved">No saved rollback version</string>
+    <string name="proot_rollback_failure">Rollback failed: %1$s</string>
+    <string name="proot_remove_progress">Removing the complete Runtime state directory…</string>
+    <string name="proot_remove_success">Runtime removed completely (previous active version: %1$s)</string>
+    <string name="proot_none">none</string>
+    <string name="proot_remove_failure">Removal incomplete (some files remain and state is inconsistent; reinstall Runtime)</string>
+    <string name="proot_install_failure">Installation failed: %1$s</string>
+    <string name="proot_install_success">Installation succeeded: %1$s (member count: %2$d; byte count: %3$d)</string>
+    <string name="proot_install_stage_failure">Installation failed (%1$s): %2$s</string>
+    <string name="proot_legal_unavailable">Legal content unavailable (failed to read embedded assets): %1$s</string>
+    <string name="proot_legal_page_title">PRoot Runtime — Licenses and sources</string>
+    <string name="proot_legal_page_subtitle">(Offline page; all content comes from assets embedded in the APK)</string>
+    <string-array name="proot_legal_offline_notice">
+        <item>Offline notice:</item>
+        <item>· PRoot Runtime has no network permission (the companion does not declare INTERNET).</item>
+        <item>  It does not access the network or download content while running.</item>
+        <item>· Runtime is updated only with the same-signature Runtime APK using build-pinned assets.</item>
+        <item>  No executable, RootFS, or package is downloaded on the device.</item>
+        <item>· This page is fully readable offline from assets embedded in the APK.</item>
+        <item>  Source URLs below are build provenance only and are never accessed at runtime.</item>
+    </string-array>
+    <string name="proot_legal_manifest_title">Build manifest (runtime-lock.json):</string>
+    <string name="proot_legal_fingerprint">· Canonical lock fingerprint (SHA-256): %1$s</string>
+    <string name="proot_legal_component">Component %1$s (%2$s):</string>
+    <string name="proot_legal_license">· License: %1$s [%2$s]</string>
+    <string name="proot_legal_source_url">· Source URL: %1$s</string>
+    <string name="proot_legal_source">· Source: %1$s @ %2$s</string>
+    <string name="proot_legal_size">· Size in bytes: %1$d</string>
+    <string name="proot_legal_patches">· Patches: %1$d (%2$s)</string>
+    <string name="proot_legal_packages">· Included packages (%1$d):</string>
+    <string name="proot_legal_license_section">—— Full license text: %1$s (line count: %2$d; embedded offline) ——</string>
+</resources>

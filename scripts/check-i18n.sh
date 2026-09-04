@@ -177,6 +177,7 @@ def scan_files() -> list[Path]:
         "app/src/*/kotlin/**/*.kt",
         "feature/*/src/*/kotlin/**/*.kt",
         "extensions/*/src/main/kotlin/**/*.kt",
+        "runtime/*/src/main/kotlin/**/*.kt",
     ):
         files.extend(root.glob(pattern))
     seen: set[Path] = set()

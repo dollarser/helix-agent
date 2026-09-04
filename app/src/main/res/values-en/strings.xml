@@ -108,6 +108,8 @@
     <string name="approval_input_inline_json">Inline JSON value (%1$s bytes)</string>
     <string name="approval_input_source">Input source</string>
     <string name="approval_limits_value">Timeout %1$s s · memory %2$s MiB · output limit %3$s KiB · concurrency 1</string>
+    <string name="approval_limits_proot">Timeout %1$s s (process-group kill) · output limit 8 MiB · network: no (runtime has no INTERNET permission)</string>
+    <string name="approval_input_proot_files">%1$s files (snapshot copy, real Workspace never mounted)</string>
     <string name="approval_network_origin">Network origin</string>
     <string name="approval_no">No</string>
     <string name="approval_no_egress">No egress</string>
@@ -544,4 +546,25 @@
     <string name="provider_models_no_match">No matching models</string>
     <string name="provider_models_shown_summary">Showing first %2$d of %1$d</string>
     <string name="provider_models_unsupported_hint">Backend did not provide a model list; enter one manually</string>
+    <string name="settings_proot_title">PRoot Runtime</string>
+    <string name="settings_proot_status">Status: %1$s (offline execution domain, no INTERNET; updated only with a same-signature Runtime APK; no in-app self-update; neither Advanced nor a LAN scope can give it network access)</string>
+    <string name="settings_proot_verify">Verify Runtime</string>
+    <string name="settings_proot_repair">Repair Runtime</string>
+    <string name="settings_proot_legal">Licenses and sources</string>
+    <string name="settings_proot_remove">Remove Runtime</string>
+    <string name="settings_proot_rebaseline">Reset baseline (I acknowledge the change)</string>
+    <string name="settings_proot_remove_title">Remove PRoot Runtime?</string>
+    <string name="settings_proot_remove_body">This completely removes Runtime state (RootFS, job records, and active pointers). No Workspace data is deleted. The “bash” tool must be installed and verified again afterward.</string>
+    <string name="settings_proot_remove_confirm">Remove</string>
+    <string name="settings_proot_verify_success">Verification passed (baseline matches)</string>
+    <string name="settings_proot_verify_mismatch">Update required: the Runtime baseline does not match the verified anchor (was the Runtime APK updated?). Update it under “Repair Runtime”, then select “Reset baseline” and verify again.</string>
+    <string name="settings_proot_verify_failure">Verification failed: %1$s</string>
+    <string name="settings_proot_remove_opened">This app’s anchor was cleared. Select “Remove Runtime” on the Runtime screen to finish.</string>
+    <string name="settings_proot_remove_unavailable">Could not open Runtime (%1$s)</string>
+    <string name="settings_proot_rebaseline_success">The baseline was reset (the previous anchor was removed). Select “Verify Runtime” to verify the new embedded baseline.</string>
+    <string name="settings_proot_rebaseline_empty">There is no verified anchor to reset.</string>
+    <string name="settings_proot_verified">Verified</string>
+    <string name="settings_proot_not_installed">Not installed</string>
+    <string name="settings_proot_not_verified">Not verified</string>
+    <string name="settings_proot_disabled">Disabled/force-stopped</string>
 </resources>

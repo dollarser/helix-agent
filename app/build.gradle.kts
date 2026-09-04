@@ -123,6 +123,12 @@ dependencies {
     add("developerImplementation", project(":tools:automation"))
     add("developerImplementation", project(":tools:root"))
     add("developerImplementation", project(":runtime:proot-client"))
+    // HXA-083: the supervisor's public API exposes the shared cross-APK protocol types
+    // (availability, cause, connection results); the developer flavor declares the
+    // protocol module directly, same convention as :provider:api.
+    add("developerImplementation", project(":runtime:proot-ipc"))
+    // HXA-084: the job E2E packs the input archive with the shared core codec.
+    add("developerImplementation", project(":runtime:proot-core"))
     add("developerImplementation", project(":runtime:cli-client"))
 
     implementation(platform(libs.compose.bom))

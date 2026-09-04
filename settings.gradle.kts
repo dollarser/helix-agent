@@ -35,6 +35,8 @@ include(
     ":feature:files",
     ":feature:files-allfiles",
     ":runtime:quickjs",
+    ":runtime:proot-core",
+    ":runtime:proot-ipc",
     ":runtime:proot-client",
     ":runtime:proot-app",
     ":runtime:cli-client",

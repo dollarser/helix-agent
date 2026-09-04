@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proot_repair_title">Helix PRoot Runtime</string>
+    <string name="proot_repair_install">安装 / 修复 Runtime</string>
+    <string name="proot_repair_done">完成</string>
+    <string name="proot_job_channel_name">Runtime 任务</string>
+    <string name="proot_job_running_title">Linux 运行时任务正在执行</string>
+    <string name="proot_job_stop">停止</string>
+    <string name="proot_repair_update">更新 Runtime（APK 内嵌版本较新）</string>
+    <string name="proot_repair_rollback">回滚到上一版本</string>
+    <string name="proot_repair_remove">删除 Runtime（完整删除，不影响 Workspace）</string>
+    <string name="proot_legal_title">PRoot Runtime 许可证与来源</string>
+    <string name="proot_legal_done">完成</string>
+    <string name="proot_embedded_lock_valid">内嵌 lock：基线通过（%1$s，指纹 %2$s…）</string>
+    <string name="proot_embedded_lock_invalid">内嵌 lock：基线校验失败（%1$s）</string>
+    <string name="proot_install_state_none">安装状态：未安装</string>
+    <string name="proot_install_state_active">安装状态：活动版本 %1$s</string>
+    <string name="proot_install_state_rollback">回滚版本：%1$s</string>
+    <string name="proot_embedded_state_install">与内嵌版本：未安装（首次安装）</string>
+    <string name="proot_embedded_state_update">与内嵌版本：需更新（APK 内嵌版本较新）</string>
+    <string name="proot_embedded_state_match">与内嵌版本：一致</string>
+    <string name="proot_action_update">更新</string>
+    <string name="proot_action_install_repair">安装 / 修复</string>
+    <string name="proot_install_progress">正在%1$s（解压约 131 MiB，需要数分钟）…</string>
+    <string name="proot_rollback_progress">正在回滚（原子交换激活指针，秒级）…</string>
+    <string name="proot_unknown_error">未知错误</string>
+    <string name="proot_rollback_success">回滚成功：活动版本 %1$s（回滚位 %2$s）</string>
+    <string name="proot_rollback_no_active">无活动版本可回滚</string>
+    <string name="proot_rollback_no_saved">无保留的回滚版本</string>
+    <string name="proot_rollback_failure">回滚失败：%1$s</string>
+    <string name="proot_remove_progress">正在完整删除 Runtime 状态目录…</string>
+    <string name="proot_remove_success">已完整删除（原活动版本：%1$s）</string>
+    <string name="proot_none">无</string>
+    <string name="proot_remove_failure">删除未完成（部分文件仍残留，状态已不一致，请重装）</string>
+    <string name="proot_install_failure">安装失败：%1$s</string>
+    <string name="proot_install_success">安装成功：%1$s（%2$d 成员，%3$d 字节）</string>
+    <string name="proot_install_stage_failure">安装失败（%1$s）：%2$s</string>
+    <string name="proot_legal_unavailable">法律页内容不可用（内嵌资产读取失败）：%1$s</string>
+    <string name="proot_legal_page_title">PRoot Runtime — 许可证与来源</string>
+    <string name="proot_legal_page_subtitle">（离线页面；内容全部来自 APK 内嵌资产）</string>
+    <string-array name="proot_legal_offline_notice">
+        <item>离线声明：</item>
+        <item>· PRoot Runtime 无任何网络权限（companion 包不声明 INTERNET），</item>
+        <item>  执行期间不联网、不下载任何内容。</item>
+        <item>· Runtime 只随同签名的 Runtime APK 更新（构建期固定资产，</item>
+        <item>  设备上不在线下载 executable / RootFS / 包）。</item>
+        <item>· 本页内容全部来自 APK 内嵌资产，离线可读；以下来源 URL</item>
+        <item>  仅为构建期来源记录，运行时永不访问。</item>
+    </string-array>
+    <string name="proot_legal_manifest_title">构建清单（runtime-lock.json）：</string>
+    <string name="proot_legal_fingerprint">· 规范 lock 指纹 (SHA-256): %1$s</string>
+    <string name="proot_legal_component">组件 %1$s（%2$s）：</string>
+    <string name="proot_legal_license">· 许可证: %1$s [%2$s]</string>
+    <string name="proot_legal_source_url">· 来源 URL: %1$s</string>
+    <string name="proot_legal_source">· 源码: %1$s @ %2$s</string>
+    <string name="proot_legal_size">· 大小: %1$d 字节</string>
+    <string name="proot_legal_patches">· 补丁: %1$d 个（%2$s）</string>
+    <string name="proot_legal_packages">· 预装包 (%1$d):</string>
+    <string name="proot_legal_license_section">—— 许可证全文: %1$s（%2$d 行，离线内嵌）——</string>
+</resources>
