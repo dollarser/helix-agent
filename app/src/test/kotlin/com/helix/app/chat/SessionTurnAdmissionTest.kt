@@ -52,6 +52,30 @@ class SessionTurnAdmissionTest {
     }
 
     @Test
+    fun aDurablyTerminalTurnFreesItsSlotBeforeTheJobCompletes() {
+        val admission = SessionTurnAdmission()
+        val job = Job()
+        admission.register("s", job, "t1")
+
+        admission.complete("s", "t1")
+
+        assertTrue("the coroutine is intentionally still completing", job.isActive)
+        assertFalse(admission.hasActive("s"))
+        assertNull(admission.activeTurn("s"))
+    }
+
+    @Test
+    fun staleTerminalCleanupDoesNotDropANewerTurn() {
+        val admission = SessionTurnAdmission()
+        admission.register("s", Job(), "t2")
+
+        admission.complete("s", "t1")
+
+        assertTrue(admission.hasActive("s"))
+        assertEquals("t2", admission.activeTurn("s")?.turnId)
+    }
+
+    @Test
     fun activeTurnExposesTheJobAndTurnIdForTheStopPath() {
         val admission = SessionTurnAdmission()
         val job = Job()

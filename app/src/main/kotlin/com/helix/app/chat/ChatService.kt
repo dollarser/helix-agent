@@ -59,6 +59,7 @@ import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -1518,12 +1519,17 @@ class ChatService(
                     idGenerator = idGenerator,
                     spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings),
                 )
+            // The worker waits behind this gate until its active-turn entry and initial UI are
+            // published. Without the gate, a fast scheduler can begin streaming before register;
+            // stop() in that window cannot find the job and silently fails to cancel the turn.
+            val startGate = CompletableDeferred<Unit>()
             val job =
                 workScope.launch {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId)
+                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+            startGate.complete(Unit)
         }
     }
 
@@ -1537,13 +1543,15 @@ class ChatService(
         coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
+        startGate: CompletableDeferred<Unit>,
     ) {
         val turnId = coordinator.id
         try {
+            startGate.await()
             val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId)
-            terminalize(coordinator, decision)
+            terminalize(sessionId, coordinator, decision)
         } catch (e: CancellationException) {
-            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
             throw e
         } catch (e: ApprovalCancelledException) {
             // The user stopped the turn while the approval card was pending: the turn
@@ -1552,7 +1560,7 @@ class ChatService(
             // cancellation was the user's own action, not a failure. (The exception
             // carries only the approval id — safe to log as metadata.)
             Log.i(TAG, "turn $turnId stopped while awaiting approval: ${e.message}")
-            terminalize(coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
         } catch (e: Exception) {
             // An unexpected boundary failure (a guard reject, corrupt rows, a
             // provider row deleted mid-turn): the turn STILL reaches a
@@ -1560,6 +1568,7 @@ class ChatService(
             // (doc 02 section 13: raw messages are never shown).
             Log.e(TAG, "turn $turnId failed at the model boundary", e)
             terminalize(
+                sessionId,
                 coordinator,
                 ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name),
             )
@@ -1678,6 +1687,7 @@ class ChatService(
      * completion, the stop path or the error path — always exactly once.
      */
     private fun terminalize(
+        sessionId: String,
         coordinator: TurnCoordinator,
         outcome: ModelStreamTerminal,
     ) {
@@ -1690,6 +1700,9 @@ class ChatService(
         turnCancels.remove(turnId)
         dispatchFacts.values.removeIf { it.turnId == turnId }
         activePendingApprovalId = null
+        // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
+        // user reacting immediately cannot hit the still-active coroutine's completion gap.
+        sessionTurnAdmission.complete(sessionId, turnId)
         terminalLabel(outcome.state, outcome.errorCode)?.let { label ->
             publishTurn(
                 TurnUi(turnId, outcome.state, null, label, outcome.state == TurnState.FAILED),
@@ -2634,25 +2647,25 @@ class ChatService(
 
     private fun refreshScreen() {
         val sessionId = resolvableOpenSessionId()
-        val screen = _screen.value
-        val messages = messagesFor(sessionId, screen)
-        val badge = sessionId?.let { badgeFor(it) } ?: screen.badge
         val lastTurn = sessionId?.let { id -> storage.turns.listBySession(id).lastOrNull() }
-        val previous = _screen.value
-        _screen.value =
+        // Refreshes race with targeted UI publications (for example an attachment refusal).
+        // Build from the value observed by StateFlow's atomic update so a refresh can never
+        // restore an older blocked/disclosure/streaming snapshot over a newer publication.
+        _screen.update { current ->
             ChatScreenState(
                 sessions = _sessions.value,
                 openSessionId = sessionId,
-                badge = badge,
-                messages = messages,
-                toolTimeline = toolTimelineFor(sessionId, previous.toolTimeline),
-                activeTurn = lastTurn?.let { turnUiFor(it, previous.activeTurn?.streamingText) },
-                pendingDisclosure = previous.pendingDisclosure,
-                blockedReason = previous.blockedReason,
+                badge = sessionId?.let { badgeFor(it) } ?: current.badge,
+                messages = messagesFor(sessionId, current),
+                toolTimeline = toolTimelineFor(sessionId, current.toolTimeline),
+                activeTurn = lastTurn?.let { turnUiFor(it, current.activeTurn?.streamingText) },
+                pendingDisclosure = current.pendingDisclosure,
+                blockedReason = current.blockedReason,
                 retryTargetTurnId = retryTargetFor(sessionId),
                 pendingAttachments = stagedAttachmentsUi(),
                 shareDraftText = shareDraftText,
             )
+        }
     }
 
     /**

@@ -154,7 +154,7 @@ class ImportExportFacadeDeviceTest {
         override fun verify(treeUri: String): SafTreeGrantFacts? = real.verify(treeUri)?.copy(writable = true)
     }
 
-    private fun docUri(id: String): String = "content://${TransferTestDocumentsProvider.AUTHORITY}/document/$id"
+    private fun docUri(id: String): String = "content://${TransferTestDocumentsProvider.authority()}/document/$id"
 
     private fun seed(
         relative: String,
@@ -213,7 +213,7 @@ class ImportExportFacadeDeviceTest {
 
     @Test
     fun importTreeCopiesFilesAndSkipsAmbiguousNames() {
-        val result = service.importTree(TransferTestDocumentsProvider.TREE_URI, ConflictPolicy.ASK, never) { _, _ -> }
+        val result = service.importTree(TransferTestDocumentsProvider.treeUri(), ConflictPolicy.ASK, never) { _, _ -> }
 
         val bySource = result.items.associateBy { it.sourceLabel }
         assertEquals(TransferItemStatus.COMPLETED, bySource["note.txt"]!!.status)
@@ -304,7 +304,7 @@ class ImportExportFacadeDeviceTest {
     @Test
     fun exportToATreeUnderAWriteGrantCreatesAndVerifies() {
         service = buildService(writableTree = true)
-        val scope = grantStore.grant(TransferTestDocumentsProvider.TREE_URI, "Transfer Tree").scopeId
+        val scope = grantStore.grant(TransferTestDocumentsProvider.treeUri(), "Transfer Tree").scopeId
         seed("input/fresh.txt", "fresh export")
 
         val result =
@@ -326,7 +326,7 @@ class ImportExportFacadeDeviceTest {
     @Test
     fun exportToATreeWithASameNameUnderAskReportsConflict() {
         service = buildService(writableTree = true)
-        val scope = grantStore.grant(TransferTestDocumentsProvider.TREE_URI, "Transfer Tree").scopeId
+        val scope = grantStore.grant(TransferTestDocumentsProvider.treeUri(), "Transfer Tree").scopeId
         seed("input/note.txt", "would clobber")
 
         val result =
@@ -342,7 +342,7 @@ class ImportExportFacadeDeviceTest {
         val resolver2 = context.contentResolver
         resolver2
             .openInputStream(
-                Uri.parse("content://${TransferTestDocumentsProvider.AUTHORITY}/document/tnote"),
+                Uri.parse("content://${TransferTestDocumentsProvider.authority()}/document/tnote"),
             )!!
             .use {
                 assertEquals("v1", String(it.readBytes()))
@@ -353,7 +353,7 @@ class ImportExportFacadeDeviceTest {
     // written (HXA-057's re-verification, unchanged).
     @Test
     fun exportToATreeWithoutAWritePermissionFailsClosed() {
-        val scope = grantStore.grant(TransferTestDocumentsProvider.TREE_URI, "Read Only Tree").scopeId
+        val scope = grantStore.grant(TransferTestDocumentsProvider.treeUri(), "Read Only Tree").scopeId
         seed("input/readonly.txt", "x")
 
         val result =

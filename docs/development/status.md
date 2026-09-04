@@ -1,6 +1,6 @@
 # Helix 实施状态
 
-更新时间：2026-09-04
+更新时间：2026-09-05
 
 ## Current summary
 
@@ -9,8 +9,8 @@
 | 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～049；**M5 完成**：HXA-050（Zipline/QuickJS spike）、HXA-051（生产执行协议 isolated Service/Binder）、HXA-052（IIFE wrapper/JSON ABI/限制，API 29/36 arm64-v8a）、HXA-053（QuickJS 执行接 Tool/Policy/审计：`code.javascript.run` 全链路 + 11 状态回填 + §4.8 脱敏审计 + 完整代码审批，API 29/36 arm64-v8a）、HXA-054（攻击与端到端测试：8 项攻击点全链路 E2E + 设备证据，75 例 androidTest/设备 × 两台 + 84 例 JVM）；**M5A 完成**：HXA-055（图片输入与 Provider 视觉能力：production 图片源（会话绑定 + hash/magic 重验、fail-closed）+ 端上归一化（字节门/bounds 探针/采样/EXIF 手动旋转/重编码剥离）+ `VisionLimits` 集中预算（API 29/36 测量 + Provider 上限取更严者）+ 连接测试第 5 阶段视觉探测（Completed/Refusal 证明 vision）/用户可见手动声明 + 绑定归一化 artifact 的发送/重试/恢复重验 + 出网披露图片行，API 29/36 arm64-v8a）、HXA-056（文本/图片附件端到端硬化与发布边界：fixture E2E 发送/流式/Tool Loop/历史恢复/脱敏 + `ACTION_SEND`/`SEND_MULTIPLE` 本地草稿（provider-free 会话 + 显式单发绑定，绝不自动发送）+ 失败矩阵（grant 失效/篡改/重复发送/绑定不可换/能力快照变化/过大/解压炸弹/取消/进程回收）+ 统一稳定拒绝（UTF-16/PDF/PPT/DOC/音频/视频/未知二进制）+ 泄露断言（无 URI/绝对路径/正文/base64 入持久化与用户可见错误）+ 三 adapter golden + 1 真实 vision endpoint smoke（本地 SGLang，环境明确记录），API 29/36 arm64-v8a））、HXA-057（persisted SAF tree scope 接线：每次使用 7 步实时复核 + fail-closed + 模型不透明 + `DocumentsContract` 只读浏览后端，API 29/36 arm64-v8a）、HXA-058（文件管理器导入/导出入口：HXA-044 受限管线接入文件管理器——picker 导入到 `input/` + 有界枚举/歧义 fail-closed 规划 + 导出到 `CreateDocument`/已授权树（WRITE 实时复核）+ 字节级重读校验 verified 语义，API 29/36 arm64-v8a）、HXA-059（Provider 模型自动发现与选择：连接测试 phase 2 `listModels` 列表接入 UI——「后端可用模型」（probe 界 1000 + UI 显示 200 + 过滤）+ 点选预填编辑表单（不自动保存）+ `Unsupported` 显式手动提示 + phase 2 `Failed` 无列表；真实 SGLang endpoint smoke 全链通过，API 29/36 arm64-v8a） |
 | 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、Workspace/文件工具（含受限 zip/tar Archive）、SAF 导入导出适配层与 developer All-files scope、会话附件导入/持久化与 UTF-8 文本物化（ADR-0014 首批）、QuickJS 生产执行模块（`:runtime:quickjs`，ADR-0015 选定 Zipline 1.27.0：isolated Service/Binder 通道 + §3.2 IIFE wrapper JSON ABI）+ `code.javascript.run` 工具（consumer/developer 双变体接线） |
 | 尚无业务执行器 | PRoot/CLI、Accessibility、Root；M7 的 MCP/Skill/A2A 已合入非设备实现，但尚未形成带设备证据的完成记录 |
-| M7 进展 | HXA-070～072、074～079 已完成 JVM/构建范围；HXA-073 按任务书等待 HXA-084；API 29/36、模拟器和真机门禁保持待验收，详见 [M7 非设备进展](m7-non-device-progress.md) |
-| 当前检查点 | **M5、M5A、M5B、M6 已完成**（HXA-050～069 均见下方 Completed 表及完成记录）；**M7 非设备实现已合入 main，设备验收未执行**，下一设备检查点为 HXA-070，HXA-073 继续等待 HXA-084 |
+| M7 进展 | HXA-070～072、074～079 已完成 JVM/构建范围；HXA-073 按任务书等待 HXA-084；合并后 App 双 flavor 全量回归已在独占 API 29/36 arm64-v8a 模拟器通过，M7 各 HXA 专项设备链路和真机门禁仍待验收，详见 [M7 合并与验证进展](m7-non-device-progress.md) |
+| 当前检查点 | **M5、M5A、M5B、M6 已完成**（HXA-050～069 均见下方 Completed 表及完成记录）；**M7 实现已合入 main，合并后 App 模拟器回归已通过，但专项设备/真机验收未完成**，下一专项设备检查点为 HXA-070，HXA-073 继续等待 HXA-084 |
 | 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
 
 ## Completed
@@ -57,7 +57,7 @@
 - QuickJS 执行通道已落地并接 Tool：主 App 内 isolated 非导出 Service（每执行唯一 `js_` + 32-hex 实例）+ 主进程 `JsExecutionClient`（同步有界、不重试；wrapper JSON ABI：输入 = 恰一个合法 JSON 文档、输出 = ≤ maxOutputBytes 的单个 JSON 文档、11 状态闭合集、PROTOCOL_VERSION=2；API 见 [HXA-052 完成记录](../completion-records/HXA-052.md)），经 `code.javascript.run` 接生产 Tool 管线（模型仅见 code+input、limits 固定 §4.1 默认不入 schema、§4.8 脱敏审计经 dispatcher 单一 emitter；接线见 [HXA-053 完成记录](../completion-records/HXA-053.md)）；PRoot 规划使用同签名、独立 applicationId/UID 的 Runtime APK，并通过 signature-protected Binder/PFD IPC 连接。
 - accepted [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)将 Standard 定义为 Google Play、国内 Android 应用商店和官网的完整产品形态；consumer/developer 仍只是当前构建事实。HXA-122 尚未决定稳定主 applicationId、渠道命名与升级路径，也没有外部 release artifact。
 - CLI 订阅后端若实施，将使用另一个有 INTERNET 的独立 UID，凭据由官方 CLI 持有。
-- MCP Streamable HTTP、Skill loader/import/tools 和 A2A Client-only 已在并行 M7 worktree 实现非设备路径。A2A 由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)固定产品/信任边界，由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md)选择最小 OkHttp + kotlinx.serialization Client；MCP 底座由 accepted [ADR-0017](../adr/0017-mcp-kotlin-sdk-client-base.md)固定。以上仍缺 API 29/36 与真实设备证据，不构成里程碑完成或发布验收。
+- MCP Streamable HTTP、Skill loader/import/tools 和 A2A Client-only 已从并行 M7 worktree 合入 `main`。A2A 由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)固定产品/信任边界，由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md)选择最小 OkHttp + kotlinx.serialization Client；MCP 底座由 accepted [ADR-0017](../adr/0017-mcp-kotlin-sdk-client-base.md)固定。合并后 App 双 flavor 已在 API 29/36 arm64-v8a 模拟器全量回归，但专项 HXA 设备链路与真实设备证据仍缺，不构成里程碑完成或发布验收。
 - `read`/`write`/`edit`/`files.*` 已实现；`bash` 仍只是规划中的稳定短工具名。所有工具继续受 scope、Policy、Approval 和执行域约束。
 
 ## Known limitations
@@ -69,7 +69,7 @@
 - **API 29 生产迁移缺陷（HXA-053 设备验收复核发现，已在 main 修复）**：`MIGRATION_1_2` 使用 `ALTER TABLE approvals RENAME COLUMN`（HXA-034），API 29 的 SQLite（<3.25）不支持该语法，API 29 设备首次 V1→V2 升级会 `SQLiteException: syntax error`。已改用 copy-and-swap 修复并复测 API 29/36 47/47 无回归（见 [Bug 修复记录](../bug-fixes/2026-09-03-room-migration-sqlite-rename-column.md)）；HXA-053 复核时 API 29 的另 8 例失败（`FilesScreenTest` ×6、`GoalReminderTest` ×2）亦已随 main 的 API 29 修复一并解决，详见下方设备矩阵条目。
 - **`ToolScheduler` 跨批 waiter 潜伏死锁（HXA-053 发现，已修复）**：原实现中等待准入的批次只监听本批 future，而准入冲突来自跨批共享的 inFlight 足迹——两个并发且互斥（容量占满或排他 lane）的独立 `scheduleBatch` 会互相等待、永不唤醒。修复：准入等待循环在监听本批 future 之外追加监听调度器全局“槽位状态变化”信号（每次 `releaseSlot` 触发，任何批次），任何批次释放槽位都会唤醒全部准入等待者；信号实例的读-挂接顺序保证不漏唤醒（挂到已完成实例立即回调，漏窗口内的释放必然完成所读实例）。`ToolSchedulerTest` 增加 2 例跨批存活回归（容量阻塞 + 排他写 lane 阻塞，均先证明被阻塞方确实卡在准入等待再释放）——修复前实测复现（释放槽位后另一批 `join` 超时）。生产不变量（turn 串行、批不重叠、Act 一次一调用）下该缺陷原本潜伏；此修复是框架契约的一部分。
 - GitHub Actions 已有远端运行证据，但 workflow 不运行模拟器/真机测试；现有 artifact 是短期 debug 安装包，不是签名 release 或发布验收证据。
-- M7 的 MCP/Skill/A2A 已完成当前 worktree 的 JVM/构建实现，但按用户要求未运行模拟器或真机测试；HXA-073 还受 HXA-084 的 PRoot runner 前置依赖阻塞。因此 M7 仍不是带设备证据的完成里程碑，不能视为发布能力。PRoot/CLI、Accessibility、Root 仍未实现。
+- M7 的 MCP/Skill/A2A 已合入 `main`，合并后 App 双 flavor 已在独占 API 29/36 arm64-v8a 模拟器完成全量回归；该结果不是 HXA-070/077 专项 Spike 或 HXA-072/076/078/079 功能级设备验收，真机亦未执行。HXA-073 还受 HXA-084 的 PRoot runner 前置依赖阻塞。因此 M7 仍不是带完整设备证据的完成里程碑，不能视为发布能力。PRoot/CLI、Accessibility、Root 仍未实现。
 - 设备矩阵：consumer 变体在 API 36 arm64-v8a 模拟器全绿（HXA-048 实测 47/47；迁移修复后复测仍 47/47 无回归）。API 29 已实测，HXA-048 发现的已知失败均已修复：`ProductionMigrationDeviceTest` ×2（`MIGRATION_1_2` 使用 `RENAME COLUMN`，需 SQLite ≥3.25/API 30+，Android 10 上 v1→v2 迁移会崩，既有产品缺陷）已改用 copy-and-swap 修复（见 [Bug 修复记录](../bug-fixes/2026-09-03-room-migration-sqlite-rename-column.md)）；`GoalReminderTest` ×2（POST_NOTIFICATIONS 授予 helper 未对 SDK<33 设防）已修复（helper 在 API<33 时 no-op）；`FilesScreenTest` ×6 的根因**不是**“API 29 模拟器慢 / 超时抖动”，而是两处生产代码调用了 API 29 平台缺失的 `java.*` 方法（`WorkspaceArtifactStore.listDir` 的 `Stream.toList()`（API 31+）与 `ReadWindow.read` 的 `InputStream.skipNBytes`），已修复并复测：API 29 47/47、API 36 47/47 无回归（见 [Bug 修复记录](../bug-fixes/2026-09-03-jvm-stdlib-calls-missing-on-api29.md)）。以上均不再是已知失败；`GoalReminderTest` 在双模拟器并发全量负载下的一次性通知时序 flake 已根因修复（worker 证据槽先于通知张贴的合法窗口改为有界重轮询 + worker 启动边界 120 s → 300 s，见 [Bug 修复记录](../bug-fixes/2026-09-03-goal-reminder-evidence-slot-precedes-post.md)）。多 ABI 与真机矩阵仍待执行。
 - 多渠道能力保留分发目前只是 ADR-0013 的产品决定；核心任务矩阵、权限申报、listing、最终 applicationId/签名与真实商店审核均未完成。
 - 当前 developer manifest 包含 Advanced 能力声明；即使默认关闭，Android 系统设置仍可能列出相关服务或权限。最终各渠道 manifest 由 HXA-122 按实测和审核证据收口。

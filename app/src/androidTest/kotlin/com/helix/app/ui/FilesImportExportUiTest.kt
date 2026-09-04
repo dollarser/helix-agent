@@ -116,7 +116,7 @@ class FilesImportExportUiTest {
         composeRule.onNodeWithTag("files-export-tree").assertExists()
 
         // 已授权 SAF 目录: the LIVE HXA-057 grants (re-verified when the tree mode opens).
-        val scope = container.safTree.grant(TransferTestDocumentsProvider.TREE_URI, "UI Tree").scopeId
+        val scope = container.safTree.grant(TransferTestDocumentsProvider.treeUri(), "UI Tree").scopeId
         composeRule.onNodeWithTag("files-export-tree").performClick()
         waitTag("files-export-scope-$scope")
         composeRule.onNodeWithTag("files-export-scope-pick-$scope").performClick()
@@ -148,7 +148,7 @@ class FilesImportExportUiTest {
     fun exportToAnAuthorizedReadonlyTreeThroughTheUiIsRefusedBeforeAnyWrite() {
         val resolver = composeRule.activity.contentResolver
         // The grant exists BEFORE the dialog opens (the live list is re-verified per open/mode).
-        val scope = container.safTree.grant(TransferTestDocumentsProvider.TREE_URI, "UI Tree").scopeId
+        val scope = container.safTree.grant(TransferTestDocumentsProvider.treeUri(), "UI Tree").scopeId
 
         seed("work/fresh-ui.txt", "fresh ui export")
         composeRule.navigateTo("files")
@@ -186,7 +186,7 @@ class FilesImportExportUiTest {
         var found = false
         resolver
             .query(
-                Uri.parse("content://${TransferTestDocumentsProvider.AUTHORITY}/document/tr/children"),
+                Uri.parse("content://${TransferTestDocumentsProvider.authority()}/document/tr/children"),
                 null,
                 null,
                 null,

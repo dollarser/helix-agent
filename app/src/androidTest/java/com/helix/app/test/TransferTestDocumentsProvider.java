@@ -11,6 +11,8 @@ import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.OpenableColumns;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.charset.StandardCharsets;
@@ -61,9 +63,15 @@ import java.util.Map;
  */
 public class TransferTestDocumentsProvider extends ContentProvider {
 
-    public static final String AUTHORITY = "com.helix.app.transfersink";
+    /** Matches the flavor-specific test APK authority expanded from ${applicationId}. */
+    public static String authority() {
+        return InstrumentationRegistry.getInstrumentation().getContext().getPackageName()
+                + ".transfersink";
+    }
 
-    public static final String TREE_URI = "content://" + AUTHORITY + "/tree/tr";
+    public static String treeUri() {
+        return "content://" + authority() + "/tree/tr";
+    }
 
     /** The document rows carry the column NAMES the OpenableColumns readers look up. */
     /**
@@ -239,7 +247,7 @@ public class TransferTestDocumentsProvider extends ContentProvider {
             children.put(segments.get(3), siblings);
         }
         siblings.add(id);
-        return Uri.parse("content://" + AUTHORITY + "/document/" + id);
+        return Uri.parse("content://" + uri.getAuthority() + "/document/" + id);
     }
 
     @Override
