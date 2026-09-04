@@ -24,6 +24,7 @@ import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.mapping.StoredGoal
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,6 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.time.Instant
+import java.util.UUID
 import com.helix.core.agent.TurnState as RuntimeTurnState
 import com.helix.core.model.TurnState as Phase
 
@@ -48,6 +50,25 @@ import com.helix.core.model.TurnState as Phase
  */
 @RunWith(AndroidJUnit4::class)
 class ProcessRecoveryTest {
+    /** A fresh persisted process-death fixture per JUnit instance and invocation. */
+    private val runId = UUID.randomUUID().toString()
+    private val openedStorages = mutableListOf<HelixStorage>()
+
+    @After
+    fun removeFixtureState() {
+        openedStorages.asReversed().forEach { runCatching { it.close() } }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context
+            .databaseList()
+            .filter { it.startsWith("recovery-test-") && it.contains(runId) }
+            .forEach(context::deleteDatabase)
+        context.filesDir
+            .listFiles()
+            .orEmpty()
+            .filter { it.name.startsWith("helix-content-recovery-") && it.name.contains(runId) }
+            .forEach { it.deleteRecursively() }
+    }
+
     @Test
     fun processDeathParksInterruptedTurnAndRunningGoal() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -407,11 +428,12 @@ class ProcessRecoveryTest {
         context: Context,
         suffix: String,
     ): HelixStorage =
-        HelixStorage.open(
-            context,
-            "recovery-test-$suffix.db",
-            File(context.filesDir, "helix-content-recovery-$suffix"),
-        )
+        HelixStorage
+            .open(
+                context,
+                "recovery-test-$suffix-$runId.db",
+                File(context.filesDir, "helix-content-recovery-$suffix-$runId"),
+            ).also(openedStorages::add)
 }
 
 private class FixedClock(

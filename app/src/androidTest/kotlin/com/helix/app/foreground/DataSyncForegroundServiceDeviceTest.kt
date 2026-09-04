@@ -11,8 +11,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.TurnState
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -27,6 +29,16 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class DataSyncForegroundServiceDeviceTest {
+    @Before
+    fun stopAnyPreviousFixtureService() {
+        stopFixtureService()
+    }
+
+    @After
+    fun stopFixtureServiceAfterTest() {
+        stopFixtureService()
+    }
+
     @Test
     fun dataSyncForegroundStartsPostsAStoppableNotificationAndStops() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -80,8 +92,9 @@ class DataSyncForegroundServiceDeviceTest {
         grantNotificationPermission(context)
         val manager = notifications(context)
         context.startForegroundService(DataSyncForegroundService.intent(context))
-        waitFor("the service instance to be bound") {
-            DataSyncForegroundService.runningInstance.get() != null
+        waitFor("the new service instance to enter the foreground") {
+            DataSyncForegroundService.runningInstance.get() != null &&
+                manager.activeNotifications.any { it.id == DataSyncForegroundService.NOTIFICATION_ID }
         }
         val running = DataSyncForegroundService.runningInstance.get() ?: return
         DataSyncForegroundService::class.java
@@ -95,6 +108,19 @@ class DataSyncForegroundServiceDeviceTest {
 
     private fun notifications(context: Context): NotificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+    private fun stopFixtureService() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.stopService(DataSyncForegroundService.intent(context))
+        val deadline = System.currentTimeMillis() + 5_000
+        while (DataSyncForegroundService.runningInstance.get() != null && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50)
+        }
+        assertTrue(
+            "a previous dataSync fixture service did not stop",
+            DataSyncForegroundService.runningInstance.get() == null,
+        )
+    }
 
     private fun waitFor(
         what: String,
