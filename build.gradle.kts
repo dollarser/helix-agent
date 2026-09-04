@@ -1,6 +1,7 @@
 import com.android.build.api.dsl.LibraryExtension
 import com.diffplug.gradle.spotless.SpotlessExtension
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.tasks.JavaExec
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
@@ -352,6 +353,19 @@ subprojects {
             // handshake consume the parsed types.
             if (path == ":runtime:proot-core") {
                 dependencies.add("api", kotlinxSerializationJsonDependency.get())
+                // HXA-081: the build-time asset gate (scripts/build-proot-assets.sh) runs the
+                // SAME ElfLoaderAlignChecker the on-device installer (HXA-082) and the 16 KiB
+                // compat decision (HXA-086) use, as a JavaExec over the module's runtime
+                // classpath. Args come from -PassetGateArgs (configuration-time read, so the
+                // configuration cache stays usable).
+                tasks.register<JavaExec>("assetGate") {
+                    group = "verification"
+                    description = "Build-time PRoot runtime asset gate: ELF LOAD alignment, ABI and SHA-256."
+                    mainClass.set("com.helix.runtime.proot.core.tools.AssetGateMainKt")
+                    classpath = files(tasks.named("jar"), configurations.named("runtimeClasspath"))
+                    val gateArgs = project.findProperty("assetGateArgs")
+                    if (gateArgs != null) args(gateArgs.toString().split(" "))
+                }
             }
 
             // HXA-025: provider:api owns the ModelProvider contract (suspend/Flow),
