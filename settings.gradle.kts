@@ -11,6 +11,17 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        exclusiveContent {
+            forRepository {
+                maven {
+                    name = "JitPackLibsu"
+                    url = uri("https://jitpack.io")
+                }
+            }
+            filter {
+                includeGroup("com.github.topjohnwu.libsu")
+            }
+        }
     }
 }
 

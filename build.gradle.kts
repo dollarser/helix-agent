@@ -114,6 +114,8 @@ val commonsCompressDependency = libs.commons.compress
 val a2aClientDependency = libs.a2a.client
 val a2aClientRestDependency = libs.a2a.client.rest
 val a2aHttpAndroidDependency = libs.a2a.http.android
+val libsuCoreDependency = libs.libsu.core
+val libsuServiceDependency = libs.libsu.service
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
@@ -288,6 +290,16 @@ subprojects {
             // HXA-090: the Accessibility service lifecycle, system-enabled state, time-bounded
             // session and notification stop path are verified on a dedicated automation device.
             if (path == ":tools:automation") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            // HXA-094: libsu is resolved only by the developer-only Root module. JitPack is
+            // separately restricted to the exact upstream group in settings.gradle.kts.
+            if (path == ":tools:root") {
+                dependencies.add("implementation", libsuCoreDependency.get())
+                dependencies.add("implementation", libsuServiceDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

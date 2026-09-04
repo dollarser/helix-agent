@@ -45,7 +45,7 @@
 ## In progress
 
 - 并行 worktree `codex/m7-mcp`：M7 HXA-070～079 非设备收口；HXA-073 因显式依赖 HXA-084 暂缓。当前不写 HXA 完成记录，也不把 JVM/standalone R8 结果表述为设备验收。
-- 独立 worktree `codex/m9-accessibility-root`：HXA-090～093 已完成并在 M9 专用 API 29/36 AVD 验收；当前唯一检查点为 HXA-094，固定 libsu 6.0.0/JitPack exclusive content/checksum/notice 并形成依赖 ADR。无 rooted 专用实机时只能报告 Spike，不能宣布 Root grant/loss/crash 验收通过；不读取或修改 M8 worktree。
+- 独立 worktree `codex/m9-accessibility-root`：HXA-090～093 已完成并在 M9 专用 API 29/36 AVD 验收；当前唯一检查点 HXA-094 已完成 libsu 6.0.0 `core`/`service`、JitPack exclusive content、lock/checksum/notice、rootless 状态机与双 AVD Spike，并形成 accepted [ADR-0019](../adr/0019-libsu-root-service-dependency.md)。专用 rooted 实机仍缺失，因此 grant/deny/revoke/RootService crash 门禁未通过，HXA-094 不得写完成记录且 HXA-095 尚未开始；不读取或修改 M8 worktree。
 
 ## Next task
 
@@ -79,7 +79,7 @@
 - 设备矩阵：consumer 变体在 API 36 arm64-v8a 模拟器全绿（HXA-048 实测 47/47；迁移修复后复测仍 47/47 无回归）。API 29 已实测，HXA-048 发现的已知失败均已修复：`ProductionMigrationDeviceTest` ×2（`MIGRATION_1_2` 使用 `RENAME COLUMN`，需 SQLite ≥3.25/API 30+，Android 10 上 v1→v2 迁移会崩，既有产品缺陷）已改用 copy-and-swap 修复（见 [Bug 修复记录](../bug-fixes/2026-09-03-room-migration-sqlite-rename-column.md)）；`GoalReminderTest` ×2（POST_NOTIFICATIONS 授予 helper 未对 SDK<33 设防）已修复（helper 在 API<33 时 no-op）；`FilesScreenTest` ×6 的根因**不是**“API 29 模拟器慢 / 超时抖动”，而是两处生产代码调用了 API 29 平台缺失的 `java.*` 方法（`WorkspaceArtifactStore.listDir` 的 `Stream.toList()`（API 31+）与 `ReadWindow.read` 的 `InputStream.skipNBytes`），已修复并复测：API 29 47/47、API 36 47/47 无回归（见 [Bug 修复记录](../bug-fixes/2026-09-03-jvm-stdlib-calls-missing-on-api29.md)）。以上均不再是已知失败；`GoalReminderTest` 在双模拟器并发全量负载下的一次性通知时序 flake 已根因修复（worker 证据槽先于通知张贴的合法窗口改为有界重轮询 + worker 启动边界 120 s → 300 s，见 [Bug 修复记录](../bug-fixes/2026-09-03-goal-reminder-evidence-slot-precedes-post.md)）。多 ABI 与真机矩阵仍待执行。
 - 多渠道能力保留分发目前只是 ADR-0013 的产品决定；核心任务矩阵、权限申报、listing、最终 applicationId/签名与真实商店审核均未完成。
 - 当前 developer manifest 包含 Advanced 能力声明；即使默认关闭，Android 系统设置仍可能列出相关服务或权限。最终各渠道 manifest 由 HXA-122 按实测和审核证据收口。
-- libsu/JitPack 仍是 HXA-094 的未来供应链决策点；当前仓库没有加入相关依赖。
+- libsu/JitPack 供应链路径已由 HXA-094 Spike 与 accepted ADR-0019 固定，且仅进入 developer-only `:tools:root`；当前仅有 rootless API 29/36 证据，缺少专用 rooted 实机，不能把依赖/构建通过表述为 Root grant/loss/crash 或产品验收。
 - PRoot/CLI、结构化 Git UI 和持久 Git Workspace 尚未实现；ADR-0008 accepted 前不存在跨 Job `.git` 一致性、remote Git 或凭据能力。
 - 低内存/后台/热限制实信号、可配置 TurnBudgets UI 和 Plan/Goal 工具入口归 HXA-099；child Agent、Agent graph 与 Workflow 未实现，ADR-0009 仍是 proposed。
 - `TurnCoordinator` 是当前生产 Turn/ModelCall 协调器，旧 `TurnReducer` 仅保留兼容；`ChatService` 仍聚合 send gate、ToolCall 准备、Timeline/Approval 投影和 UI facade，后续按真实测试 seam 渐进提取。
