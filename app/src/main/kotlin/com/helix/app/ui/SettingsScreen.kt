@@ -15,19 +15,26 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
+import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.SafetyProfile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The settings screen (HXA-028): the safety-profile section (ADR-0005/0006)
@@ -108,6 +115,10 @@ fun SettingsScreen(
             }
         }
 
+        if (profile == SafetyProfile.ADVANCED && ProotToolModule.AVAILABLE) {
+            ProotRuntimeSection()
+        }
+
         HorizontalDivider()
 
         ProviderManager(providerService)
@@ -141,6 +152,63 @@ fun SettingsScreen(
             },
             modifier = Modifier.testTag("settings-risk-dialog"),
         )
+    }
+}
+
+/**
+ * The PRoot Runtime section (HXA-085, developer + Advanced only): the stable
+ * availability states the roadmap mandates (未安装 / 未验证 / 被禁用或强制停止 / 已验证)
+ * + the two USER-CLICK actions — "验证 Runtime" (the only zero-Job bind; the process
+ * is NOT a condition for tool availability) and "修复 Runtime" (the only repair-
+ * activity path). No passive re-verification, no bind on entry.
+ */
+@Composable
+@Suppress("FunctionName", "LongMethod")
+private fun ProotRuntimeSection() {
+    val scope = rememberCoroutineScope()
+    var statusText by remember { mutableStateOf("…") }
+    var busy by remember { mutableStateOf(false) }
+
+    fun refresh() {
+        statusText = ProotToolModule.verifyStatusLabel()
+    }
+
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) { refresh() }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("PRoot Runtime", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "状态：$statusText（离线执行域，无 INTERNET；Advanced/LAN scope 均不能为其联网）",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("settings-proot-status"),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    if (busy) return@OutlinedButton
+                    busy = true
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            ProotToolModule.verifyNow()
+                            refresh()
+                        }
+                        busy = false
+                    }
+                },
+                modifier = Modifier.testTag("settings-proot-verify"),
+            ) {
+                Text("验证 Runtime")
+            }
+            OutlinedButton(
+                onClick = { ProotToolModule.openRepair() },
+                modifier = Modifier.testTag("settings-proot-repair"),
+            ) {
+                Text("修复 Runtime")
+            }
+        }
     }
 }
 

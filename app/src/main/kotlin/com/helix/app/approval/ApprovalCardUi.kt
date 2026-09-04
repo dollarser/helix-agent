@@ -15,8 +15,11 @@ import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZoneId
@@ -253,13 +256,15 @@ object ApprovalUiMapper {
      * flag, and the applied §4.1 limits. Null for every other operation class and when there
      * is no `code` argument to show. Pure/JVM-testable like the rest of the mapper.
      */
+    @Suppress("ReturnCount") // one early-exit per source shape (QuickJS / PRoot-script / PRoot-argv)
     fun codeExecutionUi(
         descriptor: ToolDescriptor,
         arguments: JsonObject,
     ): CodeExecutionUi? {
         if (descriptor.operationClass != ToolOperationClass.CODE_EXECUTION) return null
-        return stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
-            CodeExecutionUi(
+        // QuickJS (doc 03 §5): the FULL code + its hash + input source + fixed §4.1 limits.
+        stringArg(arguments, "code")?.takeIf { it.isNotBlank() }?.let { code ->
+            return CodeExecutionUi(
                 code = code,
                 codeSha256Short = sha256Short(code),
                 inputSource = inputSource(arguments["input"]),
@@ -267,6 +272,52 @@ object ApprovalUiMapper {
                 online = false,
             )
         }
+        // PRoot (HXA-085, doc local-code-execution §6.5): the FULL explicit script
+        // (审批 UI 必须展示完整 script) or the argv line, the deadline, and the fixed
+        // offline boundary (no network switch exists for this target).
+        val script = stringArg(arguments, "script")?.takeIf { it.isNotBlank() }
+        val argv = (arguments["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
+        return when {
+            script != null -> {
+                CodeExecutionUi(
+                    code = script,
+                    codeSha256Short = sha256Short(script),
+                    inputSource = filesSource(arguments["files"]),
+                    limits = prootLimitsLabel(arguments),
+                    online = false,
+                )
+            }
+
+            argv != null -> {
+                CodeExecutionUi(
+                    code = argv.joinToString(" "),
+                    codeSha256Short = sha256Short(argv.joinToString(" ")),
+                    inputSource = filesSource(arguments["files"]),
+                    limits = prootLimitsLabel(arguments),
+                    online = false,
+                )
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    /** The PRoot input-source line: the workspace REFERENCES copied in as the bounded snapshot (no bodies). */
+    private fun filesSource(files: JsonElement?): String {
+        val refs = (files as? JsonArray)?.map { (it as JsonPrimitive).content } ?: emptyList()
+        return if (refs.isEmpty()) {
+            ApprovalCardUi.NO_INPUT
+        } else {
+            refs.joinToString("、") { it } + "（" + refs.size + " 个文件，快照复制，不挂载真实 Workspace）"
+        }
+    }
+
+    /** The fixed PRoot limits line: the per-call deadline (default 60 s) + the output cap. */
+    private fun prootLimitsLabel(arguments: JsonObject): String {
+        val deadline = (arguments["timeoutSeconds"] as? JsonPrimitive)?.longOrNull ?: 60L
+        return "超时 $deadline s（进程组 kill）· 输出上限 8 MiB · 联网：否（Runtime 无 INTERNET 权限）"
     }
 
     /** The input-source line: an explicit "无输入" when absent, else the inline JSON size (not body). */

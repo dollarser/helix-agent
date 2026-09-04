@@ -51,6 +51,15 @@ class ProotRuntimeSupervisor(
     fun checkLocalState(): UnavailableCause? = localState.check()
 
     /**
+     * Whether the user has EVER completed the zero-Job verification (the persisted
+     * anchor exists). NO bind, NO process start: the anchor file is written by [verify]
+     * after a successful handshake. HXA-085 gates the `code.linux.run` tool table on
+     * this (安装 + 启用 + 用户完成过零 Job 验证 = 工具表准入条件); it never replaces the
+     * per-execution re-handshake that [verify] / the job client perform after approval.
+     */
+    fun anchorPresent(): Boolean = store.load() != null
+
+    /**
      * Cold-binds the companion with a deadline. On success the binding stays open
      * until [closeConnection]; on refusal no process is left running. Never throws:
      * every failure path is a stable [ProotConnection.Refused] cause.
