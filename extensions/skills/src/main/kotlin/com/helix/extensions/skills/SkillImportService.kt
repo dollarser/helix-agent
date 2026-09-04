@@ -9,6 +9,7 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
+import java.util.stream.Collectors
 
 @Suppress("TooManyFunctions")
 class SkillImportService(
@@ -279,7 +280,7 @@ class SkillImportService(
 
     private fun locateManifestRoot(provisional: Path): Path {
         if (Files.isRegularFile(provisional.resolve(SkillLoader.SKILL_FILE_NAME))) return provisional
-        val children = Files.list(provisional).use { it.toList() }
+        val children = Files.list(provisional).use { it.collect(Collectors.toList()) }
         if (children.size != 1 ||
             !Files.isDirectory(children.single())
         ) {

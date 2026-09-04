@@ -66,6 +66,8 @@ class SkillToolsTest {
         val listOutput = execute(registry, implementations, SkillTools.LIST, "{}")
         val entries = listOutput["entries"]!!.jsonArray
         assertEquals(5, entries.size)
+        assertEquals("5", listOutput.getValue("nextOffset").jsonPrimitive.content)
+        assertEquals("true", listOutput.getValue("eof").jsonPrimitive.content)
         assertTrue(entries.all { it.jsonObject["enabled"]!!.jsonPrimitive.content == "true" })
         val selected = entries.first().jsonObject
         val source = selected.getValue("source").jsonPrimitive.content
@@ -87,6 +89,30 @@ class SkillToolsTest {
         // Skill content and allowed-tools never register an executor or expand the tool table.
         assertEquals(6, registry.all().size)
         assertFalse(registry.all().any { it.name.value == "bash" || it.name.value == "root" })
+    }
+
+    @Test
+    fun `list output is bounded and exposes a deterministic continuation offset`() {
+        val root = Files.createTempDirectory("skill-tools-page")
+        val repository =
+            SkillRepository(
+                root.resolve("snapshots"),
+                root.resolve("state/enablement.txt"),
+                root.resolve("trash"),
+            )
+        val registry = ToolRegistry()
+        val implementations = ToolImplementationRegistry()
+        SkillTools.registerAll(registry, implementations, repository)
+
+        val first = execute(registry, implementations, SkillTools.LIST, "{\"limit\":2}")
+        assertEquals(2, first.getValue("entries").jsonArray.size)
+        assertEquals("2", first.getValue("nextOffset").jsonPrimitive.content)
+        assertEquals("false", first.getValue("eof").jsonPrimitive.content)
+
+        val second = execute(registry, implementations, SkillTools.LIST, "{\"offset\":2,\"limit\":256}")
+        assertEquals(3, second.getValue("entries").jsonArray.size)
+        assertEquals("5", second.getValue("nextOffset").jsonPrimitive.content)
+        assertEquals("true", second.getValue("eof").jsonPrimitive.content)
     }
 
     private fun execute(

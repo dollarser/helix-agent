@@ -251,7 +251,11 @@ class SkillRepository(
                         key.snapshotHash,
                     ).joinToString("|")
                 }
-        Files.writeString(temporary, content, StandardOpenOption.TRUNCATE_EXISTING)
+        Files.write(
+            temporary,
+            content.toByteArray(StandardCharsets.UTF_8),
+            StandardOpenOption.TRUNCATE_EXISTING,
+        )
         move(temporary, stateFile, replace = true)
     }
 

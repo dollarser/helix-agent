@@ -2,6 +2,7 @@ package com.helix.extensions.skills
 
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.stream.Collectors
 
 class SkillCatalogLoader(
     private val skillLoader: SkillLoader = SkillLoader(),
@@ -18,7 +19,7 @@ class SkillCatalogLoader(
                 paths
                     .filter { Files.isDirectory(it) && !Files.isSymbolicLink(it) }
                     .sorted(compareBy { it.fileName.toString() })
-                    .toList()
+                    .collect(Collectors.toList())
             }
         val entries = mutableListOf<SkillCatalogEntry>()
         val diagnostics = mutableListOf<SkillCatalogDiagnostic>()

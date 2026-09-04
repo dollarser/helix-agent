@@ -133,8 +133,12 @@ object SkillTools {
         call: ExecutableToolCall,
     ): JsonObject {
         val sessionId = call.args.optionalString("sessionId")
+        val offset = call.args.optionalInt("offset") ?: 0
+        val limit = call.args.optionalInt("limit") ?: DEFAULT_LIST_LIMIT
+        val allItems = repository.list(sessionId)
+        val items = allItems.drop(offset).take(limit)
         val entries =
-            repository.list(sessionId).map { item ->
+            items.map { item ->
                 buildJsonObject {
                     put("source", JsonPrimitive(item.key.source.name))
                     put("name", JsonPrimitive(item.key.name))
@@ -143,7 +147,12 @@ object SkillTools {
                     put("enabled", JsonPrimitive(item.enabled))
                 }
             }
-        return buildJsonObject { put("entries", JsonArray(entries)) }
+        val nextOffset = offset + entries.size
+        return buildJsonObject {
+            put("entries", JsonArray(entries))
+            put("nextOffset", JsonPrimitive(nextOffset))
+            put("eof", JsonPrimitive(nextOffset >= allItems.size))
+        }
     }
 
     private fun read(
@@ -225,6 +234,8 @@ object SkillTools {
 
     private fun JsonObject.optionalString(key: String): String? = get(key)?.jsonPrimitive?.content
 
+    private fun JsonObject.optionalInt(key: String): Int? = get(key)?.jsonPrimitive?.content?.toInt()
+
     private fun SkillRepository?.required(): SkillRepository =
         requireNotNull(this) { "A repository is required to execute Skill tools" }
 
@@ -260,11 +271,16 @@ object SkillTools {
 
     private const val MAX_INSTRUCTION_BYTES = 512 * 1024
     private const val MAX_TOOL_OUTPUT_BYTES = 2L * 1024 * 1024
+    private const val DEFAULT_LIST_LIMIT = 100
 
     private const val LIST_INPUT =
         """{
           "type":"object",
-          "properties":{"sessionId":{"type":"string","minLength":1,"maxLength":128}},
+          "properties":{
+            "sessionId":{"type":"string","minLength":1,"maxLength":128},
+            "offset":{"type":"integer","minimum":0,"maximum":1000000},
+            "limit":{"type":"integer","minimum":1,"maximum":256}
+          },
           "additionalProperties":false
         }"""
     private const val KEY_PROPERTIES =
@@ -299,13 +315,16 @@ object SkillTools {
 
     private const val LIST_OUTPUT =
         """{
-          "type":"object","properties":{"entries":{"type":"array","maxItems":256,"items":{
-            "type":"object","properties":{
-              "source":{"type":"string"},"name":{"type":"string"},"snapshotHash":{"type":"string"},
-              "description":{"type":"string"},"enabled":{"type":"boolean"}
-            },"required":["source","name","snapshotHash","description","enabled"],
-            "additionalProperties":false
-          }}},"required":["entries"],"additionalProperties":false
+          "type":"object","properties":{
+            "entries":{"type":"array","maxItems":256,"items":{
+              "type":"object","properties":{
+                "source":{"type":"string"},"name":{"type":"string"},"snapshotHash":{"type":"string"},
+                "description":{"type":"string"},"enabled":{"type":"boolean"}
+              },"required":["source","name","snapshotHash","description","enabled"],
+              "additionalProperties":false
+            }},
+            "nextOffset":{"type":"integer","minimum":0},"eof":{"type":"boolean"}
+          },"required":["entries","nextOffset","eof"],"additionalProperties":false
         }"""
     private const val READ_OUTPUT =
         """{
