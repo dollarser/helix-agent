@@ -8,4 +8,10 @@
     <string name="proot_job_channel_name">Runtime 任务</string>
     <string name="proot_job_running_title">Linux 运行时任务正在执行</string>
     <string name="proot_job_stop">停止</string>
+    <!-- HXA-087: update / rollback / removal / legal page. -->
+    <string name="proot_repair_update">更新 Runtime（APK 内嵌版本较新）</string>
+    <string name="proot_repair_rollback">回滚到上一版本</string>
+    <string name="proot_repair_remove">删除 Runtime（完整删除，不影响 Workspace）</string>
+    <string name="proot_legal_title">PRoot Runtime 许可证与来源</string>
+    <string name="proot_legal_done">完成</string>
 </resources>

@@ -167,7 +167,12 @@ fun SettingsScreen(
 private fun ProotRuntimeSection() {
     val scope = rememberCoroutineScope()
     var statusText by remember { mutableStateOf("…") }
+    // The last user-click verification result (HXA-087 需更新 detection): the gate
+    // label is bind-free and cannot see a moved lock; only the explicit
+    // "验证 Runtime" click reveals a LOCK_MISMATCH and offers the re-baseline.
+    var verifyNote by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var showRemoveConfirm by remember { mutableStateOf(false) }
 
     fun refresh() {
         statusText = ProotToolModule.verifyStatusLabel()
@@ -180,11 +185,20 @@ private fun ProotRuntimeSection() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("PRoot Runtime", style = MaterialTheme.typography.titleMedium)
         Text(
-            "状态：$statusText（离线执行域，无 INTERNET；Advanced/LAN scope 均不能为其联网）",
+            "状态：$statusText（离线执行域，无 INTERNET；只随同签名 Runtime APK 更新，" +
+                "无应用内自更新；Advanced/LAN scope 均不能为其联网）",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.testTag("settings-proot-status"),
         )
+        verifyNote?.let { note ->
+            Text(
+                note,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("settings-proot-verify-note"),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = {
@@ -192,7 +206,7 @@ private fun ProotRuntimeSection() {
                     busy = true
                     scope.launch {
                         withContext(Dispatchers.IO) {
-                            ProotToolModule.verifyNow()
+                            verifyNote = ProotToolModule.verifyNowNote()
                             refresh()
                         }
                         busy = false
@@ -208,7 +222,67 @@ private fun ProotRuntimeSection() {
             ) {
                 Text("修复 Runtime")
             }
+            OutlinedButton(
+                onClick = { ProotToolModule.openLegalPage() },
+                modifier = Modifier.testTag("settings-proot-legal"),
+            ) {
+                Text("许可证与来源")
+            }
+            OutlinedButton(
+                onClick = { showRemoveConfirm = true },
+                modifier = Modifier.testTag("settings-proot-remove"),
+            ) {
+                Text("删除 Runtime")
+            }
         }
+        if (verifyNote?.contains("需更新") == true) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            val existed = ProotToolModule.rebaseline()
+                            verifyNote =
+                                if (existed) {
+                                    "基线已重置（原锚点已删除）。请点「验证 Runtime」对新的内嵌基线重新验证。"
+                                } else {
+                                    "无已验证锚点可重置。"
+                                }
+                            refresh()
+                        }
+                    },
+                    modifier = Modifier.testTag("settings-proot-rebaseline"),
+                ) {
+                    Text("重定基线（我已知晓基线变更）")
+                }
+            }
+        }
+    }
+
+    if (showRemoveConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRemoveConfirm = false },
+            title = { Text("删除 PRoot Runtime？") },
+            text = {
+                Text(
+                    "将完整删除 Runtime 状态（RootFS、Job 记录、激活指针）。" +
+                        "不会删除任何 Workspace 数据。删除后「bash」Tool 需重新安装/验证才可用。",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRemoveConfirm = false
+                        scope.launch(Dispatchers.IO) {
+                            verifyNote = ProotToolModule.removeRuntimeNote()
+                            refresh()
+                        }
+                    },
+                ) { Text("删除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRemoveConfirm = false }) { Text("取消") }
+            },
+        )
     }
 }
 

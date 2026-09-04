@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
  * - All methods block with a deadline; callers must invoke them off the main
  *   thread. A single active binding at a time (jobs are serialized in HXA-084).
  */
+@Suppress("TooManyFunctions") // HXA-083 bind/verify/repair + HXA-087 legal/removal/re-baseline
 class ProotRuntimeSupervisor(
     private val context: Context,
     private val probe: ProotRuntimeProbe = PackageManagerProotRuntimeProbe(context),
@@ -209,26 +210,69 @@ class ProotRuntimeSupervisor(
     }
 
     /**
-     * Starts the companion's minimal repair Activity via an explicit intent.
-     * This method is only ever invoked from a user click (the main app wires no
-     * automatic caller); it also lifts a force-stopped state, which is by design
-     * the ONLY recovery path for that state (section 6.7.6).
-     *
-     * Launch failures are mapped to stable typed results: a missing activity is
-     * NOT_INSTALLED (the package vanished mid-gesture) and a SecurityException is
-     * SIGNATURE_MISMATCH (the permission no longer grants — the app must never
-     * crash on a click).
+     * The user-click "修复 Runtime" action. [removeRuntime] carries the main app's
+     * user consent for a COMPLETE REMOVAL (HXA-087 完整删除) across the uid boundary
+     * as the repair-activity extra; the companion still requires its own in-surface
+     * button click. This method is only ever invoked from a user click — the main
+     * app wires no automatic caller — and it also lifts a force-stopped state
+     * (the ONLY recovery path for that state, section 6.7.6).
      */
     @Suppress("SwallowedException")
-    fun openRepairActivity(): RepairEntryResult {
+    fun openRepairActivity(removeRuntime: Boolean = false): RepairEntryResult =
+        openCompanionActivity(
+            ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS,
+            ProotRuntimeProtocol.EXTRA_REMOVE_RUNTIME,
+            removeRuntime,
+        )
+
+    /**
+     * The user-click "许可证与来源" action (HXA-087 法律页): opens the companion's
+     * offline legal/build-manifest page. Same user-gated shape and stable refusal
+     * mapping as the repair entry; no extras — the page reads its own assets.
+     */
+    @Suppress("SwallowedException")
+    fun openLegalActivity(): RepairEntryResult = openCompanionActivity(ProotRuntimeProtocol.LEGAL_ACTIVITY_CLASS)
+
+    /**
+     * The explicit RE-BASELINE action (HXA-087 更新): the user saw the stable
+     * "需更新（基线不匹配）" state after a companion APK update and, in a SECOND
+     * explicit click, accepts re-verification against the NEW embedded lock.
+     * Deletes the persisted anchor (the "user completed verification" claim is void
+     * once the runtime baseline moved); the NEXT user-click "验证 Runtime"
+     * re-establishes it against the new lock. Returns true when an anchor existed.
+     * Never throws; never binds. A failed anchor clear leaves the OLD anchor in
+     * place (conservative: the user simply repeats the explicit action) — hence
+     * the suppressed swallow.
+     */
+    @Suppress("SwallowedException")
+    fun clearAnchorForRebaseline(): Boolean {
+        if (store.load() == null) {
+            return false
+        }
+        runCatching { store.clear() }
+        return store.load() == null
+    }
+
+    // @Suppress("SwallowedException") — launch failures are MAPPED to stable typed
+    // refusal results (the HXA-083 contract: a user click must never crash); the
+    // exception itself carries no user-safe detail.
+    @Suppress("SwallowedException")
+    private fun openCompanionActivity(
+        activityClass: String,
+        extraName: String? = null,
+        extraValue: Boolean = false,
+    ): RepairEntryResult {
         if (!probe.isInstalled()) {
             return RepairEntryResult.Unavailable(UnavailableCause.NOT_INSTALLED)
         }
         val intent =
             Intent()
                 .setComponent(
-                    ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS),
+                    ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, activityClass),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (extraName != null && extraValue) {
+            intent.putExtra(extraName, true)
+        }
         return try {
             context.startActivity(intent)
             RepairEntryResult.Opened

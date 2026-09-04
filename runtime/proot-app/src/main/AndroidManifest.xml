@@ -62,5 +62,14 @@
             android:exported="true"
             android:excludeFromRecents="true"
             android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
+        <!-- HXA-087 法律页: the offline license/build-manifest page. Same user-gated
+             shape as the repair entry: exported (explicit-intent resolution) + the
+             SIGNATURE permission; the only caller is the main app's user-click
+             "许可证与来源" button. -->
+        <activity
+            android:name="com.helix.runtime.proot.app.ProotLegalActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:permission="com.helix.permission.BIND_PROOT_RUNTIME" />
     </application>
 </manifest>

@@ -17,6 +17,7 @@ import com.helix.tools.framework.ToolRegistry
  * client, no `code.linux.run` tool and no repair entry). [registerTools] is a no-op;
  * [AVAILABLE] is false so any shared routing stays variant-neutral.
  */
+@Suppress("TooManyFunctions") // flavor-seam parity with the developer module (HXA-085/087 surfaces)
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = false
 
@@ -43,6 +44,21 @@ internal object ProotToolModule {
 
     /** Unreachable in the consumer build. */
     fun openRepair(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
+
+    /** Unreachable in the consumer build. */
+    fun verifyNowNote(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
+
+    /** Unreachable in the consumer build. */
+    fun removeRuntimeNote(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
+
+    /** Unreachable in the consumer build. */
+    fun openLegalPage(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
+
+    /** Unreachable in the consumer build. */
+    fun removeRuntime(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
+
+    /** Unreachable in the consumer build. */
+    fun rebaseline(): Nothing = error("ProotToolModule is not available in the consumer build (ADR-0005/0013)")
 
     /** Unreachable in the consumer build. */
     @Suppress("FunctionOnlyReturningConstant")

@@ -10,6 +10,7 @@ import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
+import com.helix.runtime.proot.ipc.UnavailableCause
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import java.io.File
@@ -34,6 +35,7 @@ import java.io.File
  *   click) is the ONLY repair-activity path. After either, a retry creates a NEW
  *   ToolCall/approval/jobId (nothing is replayed).
  */
+@Suppress("TooManyFunctions") // HXA-085 wiring + HXA-087 legal/removal/re-baseline surfaces
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = true
 
@@ -47,6 +49,19 @@ internal object ProotToolModule {
             .AtomicLong(0)
 
     /**
+     * Standalone supervisor wiring (HXA-087): the user-click surfaces
+     * ([openLegalPage]/[removeRuntime]/[rebaseline]/[verifyNow]) only need the
+     * supervisor. The container's init path uses [registerTools] (full tool
+     * wiring); the instrumented E2E process — which has no container init — uses
+     * this to exercise the SAME module surfaces a user click would reach.
+     */
+    fun wireForTest(context: Context) {
+        if (this::supervisor.isInitialized) return
+        supervisor = ProotRuntimeSupervisor(context)
+        jobClient = ProotJobClient(supervisor)
+    }
+
+    /**
      * Wires the tool (called once from the container's init, developer flavor only).
      * NO bind, NO process start, NO availability probe: the gate runs per execution.
      */
@@ -57,8 +72,7 @@ internal object ProotToolModule {
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
     ) {
-        supervisor = ProotRuntimeSupervisor(context)
-        jobClient = ProotJobClient(supervisor)
+        wireForTest(context)
         idGenerator = RandomIdGenerator()
         store = workspaceStore
         // The screening snapshot: the CURRENT secret VALUES of this installation, read
@@ -134,6 +148,80 @@ internal object ProotToolModule {
 
     /** The user-click "修复 Runtime" action (the ONLY repair-activity path). Never throws. */
     fun openRepair(): RepairEntryResult = supervisor.openRepairActivity()
+
+    /**
+     * The user-click "验证 Runtime" result note (HXA-087 需更新 detection): runs the
+     * zero-Job verification and maps the result to the user-visible note. The
+     * `LOCK_MISMATCH` cause is the stable "需更新" state — the companion APK's
+     * embedded lock moved away from the persisted anchor (a companion update
+     * happened); the UI then offers the explicit "重定基线" action. Blocking —
+     * call off the main thread.
+     */
+    fun verifyNowNote(): String =
+        when (val availability = verifyNow()) {
+            is ProotRuntimeAvailability.Verified -> {
+                "验证通过（基线一致）"
+            }
+
+            is ProotRuntimeAvailability.Unavailable -> {
+                when (availability.cause) {
+                    UnavailableCause.LOCK_MISMATCH -> {
+                        "需更新：Runtime 基线与已验证锚点不匹配（Runtime APK 已更新？）。" +
+                            "请在「修复 Runtime」中更新，再点「重定基线」并重新验证。"
+                    }
+
+                    else -> {
+                        "验证失败：${availability.cause}"
+                    }
+                }
+            }
+        }
+
+    /**
+     * The user-click "删除 Runtime" action (HXA-087 完整删除): clears THIS app's
+     * persisted anchor (its own file — the verification claim is void once the
+     * runtime is being removed) and opens the companion repair activity carrying
+     * the removal consent extra; the companion then shows its own explicit remove
+     * button (the in-surface confirmation). The Workspace is in this package's
+     * other directories and is never touched — the companion's removal is scoped
+     * to its `filesDir/runtime` (ProotRuntimeRemoval). Never throws.
+     */
+    fun removeRuntime(): RepairEntryResult {
+        supervisor.clearAnchorForRebaseline()
+        return supervisor.openRepairActivity(removeRuntime = true)
+    }
+
+    /**
+     * The user-click "删除 Runtime" result note (the [removeRuntime] outcome as
+     * user-visible text; the UI never touches the typed result — flavor-neutral
+     * settings screen). Blocking — call off the main thread.
+     */
+    fun removeRuntimeNote(): String =
+        when (val result = removeRuntime()) {
+            RepairEntryResult.Opened -> {
+                "已清除本应用锚点；请在弹出的 Runtime 页面点「删除 Runtime」完成。"
+            }
+
+            is RepairEntryResult.Unavailable -> {
+                "无法打开 Runtime（${result.cause}）"
+            }
+        }
+
+    /**
+     * The user-click "许可证与来源" action (HXA-087 法律页): opens the companion's
+     * offline legal/build-manifest page. User-gated, never throws.
+     */
+    fun openLegalPage(): RepairEntryResult = supervisor.openLegalActivity()
+
+    /**
+     * The EXPLICIT re-baseline action (HXA-087 更新): only reachable from the UI
+     * AFTER it has shown the stable "需更新（基线不匹配）" state (a companion APK
+     * update moved the embedded lock away from the verified anchor). Clears the
+     * anchor so the NEXT user-click "验证 Runtime" re-establishes it against the
+     * new lock. Two explicit user actions, never automatic — the anchor's
+     * "no silent acceptance of a moved baseline" property is preserved.
+     */
+    fun rebaseline(): Boolean = supervisor.clearAnchorForRebaseline()
 
     /** The wire-validated job id: `job_` + 12 lowercase hex (nanoTime + sequence + random mix). */
     private fun nextJobId(): String {

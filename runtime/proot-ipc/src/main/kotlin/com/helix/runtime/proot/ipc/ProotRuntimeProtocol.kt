@@ -40,6 +40,17 @@ object ProotRuntimeProtocol {
     /** Minimal user-gated settings/repair entry (ADR-0007 decision 1). */
     const val REPAIR_ACTIVITY_CLASS = "com.helix.runtime.proot.app.ProotRepairActivity"
 
+    /** Offline legal/build-manifest page (HXA-087 法律页; user-click only). */
+    const val LEGAL_ACTIVITY_CLASS = "com.helix.runtime.proot.app.ProotLegalActivity"
+
+    /**
+     * Repair-activity intent extra (HXA-087 完整删除): the main app's user-click
+     * "删除 Runtime" passes this. It carries the user's consent across the uid
+     * boundary; the companion still shows its own explicit remove button (the click
+     * is the second, in-surface confirmation). Never sent without a user click.
+     */
+    const val EXTRA_REMOVE_RUNTIME = "com.helix.runtime.proot.extra.REMOVE_RUNTIME"
+
     /** Main-app packages of the signed set that may bind (consumer + developer flavors). */
     val MAIN_APP_PACKAGES: Set<String> = setOf("com.helix.agent", "com.helix.agent.developer")
 
