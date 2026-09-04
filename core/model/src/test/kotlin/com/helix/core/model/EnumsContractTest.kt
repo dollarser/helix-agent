@@ -62,7 +62,7 @@ class EnumsContractTest {
     @Test
     fun executionTargetTypeMatchesDocumentedLocalSet() {
         assertEquals(
-            listOf("LOCAL_ANDROID", "LOCAL_QUICKJS", "LOCAL_PROOT", "LOCAL_CLI_RUNTIME"),
+            listOf("LOCAL_ANDROID", "LOCAL_QUICKJS", "LOCAL_PROOT", "LOCAL_CLI_RUNTIME", "LOCAL_ROOT"),
             ExecutionTargetType.entries.map { it.name },
         )
     }

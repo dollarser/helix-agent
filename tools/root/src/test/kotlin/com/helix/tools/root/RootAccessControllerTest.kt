@@ -158,6 +158,9 @@ private class FakeRootDriver(
         disconnectCount += 1
     }
 
+    override fun execute(request: RootOperationRequest): RootOperationResult =
+        RootOperationResult.Failed("NOT_CONFIGURED")
+
     fun completeRequest(outcome: RootRequestOutcome) {
         requestCallback?.invoke(outcome)
     }

@@ -37,6 +37,8 @@ class ProfileConsumerFixedTest {
         composeRule.onNodeWithTag("settings-advanced-switch").assertIsNotDisplayed()
         composeRule.onNodeWithTag("settings-advanced-exit").assertIsNotDisplayed()
         composeRule.onNodeWithTag("settings-advanced-absent").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-root-section").assertIsNotDisplayed()
+        composeRule.onNodeWithTag("settings-automation-section").assertIsNotDisplayed()
 
         // Store-level fail-closed: even a direct switch to ADVANCED is refused,
         // and the profile stays STANDARD.

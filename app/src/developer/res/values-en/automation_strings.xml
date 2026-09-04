@@ -1,0 +1,9 @@
+<resources>
+    <string name="automation_title">Accessibility automation (developer capability)</string>
+    <string name="automation_warning">Explicitly enable the service in system settings, then enter allowed target packages. Sessions are time/action bounded and stop immediately.</string>
+    <string name="automation_state">Service: %1$s · session: %2$s</string>
+    <string name="automation_packages">Allowed package names (comma-separated)</string>
+    <string name="automation_open_settings">Open Accessibility settings</string>
+    <string name="automation_start">Start session</string>
+    <string name="automation_stop">Stop now</string>
+</resources>

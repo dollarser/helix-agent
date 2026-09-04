@@ -189,6 +189,10 @@ class ApprovalCardUiMapperTest {
             R.string.approval_target_local_cli,
             ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_CLI_RUNTIME),
         )
+        assertEquals(
+            R.string.approval_target_local_root,
+            ApprovalUiMapper.targetLabel(ExecutionTargetType.LOCAL_ROOT),
+        )
     }
 
     // ------------------------------------------------------------------ category / scope / code

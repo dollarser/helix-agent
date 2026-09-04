@@ -31,12 +31,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.automation.AutomationModule
 import com.helix.app.egress.EgressRuleSection
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
+import com.helix.app.root.RootModule
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
@@ -125,6 +127,10 @@ fun SettingsScreen(
         }
 
         HorizontalDivider()
+
+        RootModule.Section(profile)
+
+        AutomationModule.Section(profile)
 
         LanguageSection()
 

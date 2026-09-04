@@ -65,7 +65,7 @@ class SkillToolsTest {
 
         val listOutput = execute(registry, implementations, SkillTools.LIST, "{}")
         val entries = listOutput["entries"]!!.jsonArray
-        assertEquals(5, entries.size)
+        assertEquals(6, entries.size)
         assertTrue(entries.all { it.jsonObject["enabled"]!!.jsonPrimitive.content == "true" })
         val selected = entries.first().jsonObject
         val source = selected.getValue("source").jsonPrimitive.content

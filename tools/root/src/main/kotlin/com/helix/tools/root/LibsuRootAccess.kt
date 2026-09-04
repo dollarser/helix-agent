@@ -16,10 +16,12 @@ import java.util.concurrent.atomic.AtomicInteger
 /** Production libsu adapter. Merely constructing it does not inspect or request Root. */
 class LibsuRootAccess(
     context: Context,
-) {
+) : RootOperationPort {
     private val controller = RootAccessController(LibsuRootAccessDriver(context.applicationContext))
 
-    fun status(): RootAccessStatus = controller.status()
+    override fun status(): RootAccessStatus = controller.status()
+
+    override fun execute(request: RootOperationRequest): RootOperationResult = controller.execute(request)
 
     fun onProfileChanged(isAdvanced: Boolean): RootAccessStatus = controller.onProfileChanged(isAdvanced)
 
@@ -31,6 +33,7 @@ class LibsuRootAccess(
     internal fun rootServiceProcessIdForTest(): Int? = controller.rootServiceProcessIdForTest()
 }
 
+@Suppress("TooManyFunctions") // one adapter owns the complete libsu/Binder lifecycle
 private class LibsuRootAccessDriver(
     private val context: Context,
 ) : RootAccessDriver {
@@ -103,6 +106,16 @@ private class LibsuRootAccessDriver(
         mainHandler.post {
             clearConnection()
             closeCachedShellAsync()
+        }
+    }
+
+    override fun execute(request: RootOperationRequest): RootOperationResult {
+        val binder = serviceBinder ?: return RootOperationResult.Failed("ROOT_NOT_CONNECTED")
+        return try {
+            RootServiceCodec.transact(binder, request)
+        } catch (_: Exception) {
+            notifyLost()
+            RootOperationResult.Failed("ROOT_SERVICE_LOST")
         }
     }
 

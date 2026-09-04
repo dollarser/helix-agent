@@ -138,12 +138,13 @@ class EffectFootprintTest {
     // ------------------------------------------------------------------ lanes and keys
 
     @Test
-    fun quickJsPRootAndCliTargetsAreExclusiveLanes() {
+    fun quickJsPRootCliAndRootTargetsAreExclusiveLanes() {
         val targets =
             listOf(
                 ExecutionTargetType.LOCAL_QUICKJS to "lane:quickjs",
                 ExecutionTargetType.LOCAL_PROOT to "lane:proot",
                 ExecutionTargetType.LOCAL_CLI_RUNTIME to "lane:cli",
+                ExecutionTargetType.LOCAL_ROOT to "lane:root",
             )
         for ((target, lane) in targets) {
             val fp =

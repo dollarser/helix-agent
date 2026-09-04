@@ -1,0 +1,9 @@
+<resources>
+    <string name="root_title">Root (developer capability)</string>
+    <string name="root_warning">Root is requested only after this button is pressed. RootSession expires after 10 idle minutes; high-level reads still pass Policy and applicable approval resolution.</string>
+    <string name="root_state">Grant: %1$s · service: %2$s · session: %3$s</string>
+    <string name="root_scope_system_etc">Allow /system/etc for this session (the model sees only system-etc)</string>
+    <string name="root_request">Request Root</string>
+    <string name="root_session_start">Start session</string>
+    <string name="root_stop">Disconnect now</string>
+</resources>

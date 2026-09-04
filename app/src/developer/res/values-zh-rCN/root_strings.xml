@@ -1,0 +1,9 @@
+<resources>
+    <string name="root_title">Root（开发者能力）</string>
+    <string name="root_warning">仅在点击请求后向 Root 管理器申请授权。RootSession 默认 10 分钟无操作失效；高层只读工具仍经过 Policy 和适用的审批解析。</string>
+    <string name="root_state">授权：%1$s · 服务：%2$s · 会话：%3$s</string>
+    <string name="root_scope_system_etc">本次会话允许读取 /system/etc（模型只看到 system-etc）</string>
+    <string name="root_request">请求 Root</string>
+    <string name="root_session_start">开始会话</string>
+    <string name="root_stop">立即断开</string>
+</resources>

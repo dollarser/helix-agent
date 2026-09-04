@@ -178,14 +178,14 @@ val projectDependencies =
         // as :tools:browser. The Context-backed port impl lives in this same module (there is no
         // :feature:android), so the device tests drive the real ClipboardManager + intent build.
         ":tools:android" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":tools:automation" to listOf(":core:model", ":core:policy"),
+        ":tools:automation" to listOf(":core:model", ":core:policy", ":tools:framework"),
         // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
         // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
         // tools:framework's `api` scope, same as :tools:files). The BrowserToolBridge port
         // they execute against is implemented by :feature:browser (which depends on this module).
         ":tools:browser" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
-        ":tools:root" to listOf(":core:model", ":core:policy"),
+        ":tools:root" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":testing" to listOf(":core:model"),
     )
 

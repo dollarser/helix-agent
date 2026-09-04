@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 import android.webkit.WebView
+import com.helix.app.root.RootModule
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.SystemClock
@@ -22,11 +23,11 @@ import com.helix.core.policy.GrantState
  * presence. Nothing is cached; the `capability_grants` rows written through the recorder are
  * audit only (architecture doc 9.1: 权限状态缓存，不代替实时检查).
  *
- * Honest unavailable (doc 9 section 6.2: never use "detected su" as a grant): Root reports
- * [GrantState.UNAVAILABLE] until the libsu integration lands behind the HXA-094 gate, and
- * Accessibility reports [GrantState.UNAVAILABLE] while this build ships no accessibility service
- * component. [CapabilityGrant.userScope] is null at capability level: the per-call scope binding
- * (which tree, which tab, which session) is decided by the dispatcher at execution time.
+ * Honest unavailable (doc 9 section 6.2: never use "detected su" as a grant): the developer
+ * flavor delegates Root to the live libsu grant state and consumer always reports unavailable.
+ * Accessibility requires both a declared component and the live enabled-service list.
+ * [CapabilityGrant.userScope] is null at capability level: the per-call scope binding is decided
+ * by the dispatcher at execution time.
  */
 class SystemCapabilityResolver(
     private val context: Context,
@@ -67,9 +68,8 @@ class SystemCapabilityResolver(
                 accessibilityState()
             }
 
-            // libsu is gated behind the HXA-094 dependency ADR; no root integration in this build.
             Capability.ROOT_SHELL -> {
-                GrantState.UNAVAILABLE
+                RootModule.capabilityState()
             }
 
             Capability.NOTIFICATION_READ -> {

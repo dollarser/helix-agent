@@ -53,7 +53,7 @@
     <string name="settings_consumer_standard_only">This build offers only the Standard profile; there is no Advanced entry (the consumer channel has no Standard → Advanced path, ADR-0005/0006).</string>
     <string name="settings_advanced_confirm_title">Switch to Advanced — risk notice</string>
     <string name="settings_advanced_confirm_ok">I understand, confirm switch</string>
-    <string name="profile_advanced_risk_summary">Switching to Advanced itself grants no capability: it requests no system permission, installs no Runtime, requests no Root, connects to no new network endpoint, and widens no available tools.\n\nAdvanced opens controlled advanced capabilities (All-files, Accessibility, offline PRoot, Root, precise LAN origin, and so on). Each capability still must be enabled individually, scoped, and can be revoked immediately; no advanced capability is enabled in the current version.\n\nThe shared security core is unchanged: the model cannot self-authorize; schema validation, Policy, per-use approval, audit and revocation rules are never disabled or downgraded under Advanced.</string>
+    <string name="profile_advanced_risk_summary">Switching to Advanced itself grants no capability: it requests no system permission, installs no Runtime, requests no Root, connects to no new network endpoint, and widens no available tools.\n\nAdvanced opens controlled advanced capabilities (All-files, Accessibility, offline PRoot, Root, precise LAN origin, and so on). Each capability remains off by default, must be enabled and scoped by the user, and can be revoked immediately.\n\nThe shared security core is unchanged: the model cannot self-authorize; schema validation, Policy, per-use approval, audit and revocation rules are never disabled or downgraded under Advanced.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
@@ -139,6 +139,7 @@
     <string name="approval_target_local_cli">This device (CLI Runtime app)</string>
     <string name="approval_target_local_proot">This device (PRoot Runtime app)</string>
     <string name="approval_target_local_quickjs">This device (isolated QuickJS process)</string>
+    <string name="approval_target_local_root">This device (short-lived RootService process)</string>
     <string name="approval_terminal_op_failed">Approval operation failed: the record no longer exists or is already decided.</string>
     <string name="approval_terminal_user_denied">The user denied this action.</string>
     <string name="approval_title">Tool approval: %1$s / %2$s</string>

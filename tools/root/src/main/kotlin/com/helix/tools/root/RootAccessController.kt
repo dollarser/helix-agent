@@ -43,6 +43,8 @@ internal interface RootAccessDriver {
     )
 
     fun disconnect()
+
+    fun execute(request: RootOperationRequest): RootOperationResult
 }
 
 /**
@@ -63,6 +65,15 @@ class RootAccessController internal constructor(
             markLost()
         }
         return RootAccessStatus(grant, service)
+    }
+
+    @Synchronized
+    fun execute(request: RootOperationRequest): RootOperationResult {
+        status()
+        if (grant != RootGrantState.GRANTED || service != RootServiceState.CONNECTED) {
+            return RootOperationResult.Failed("ROOT_NOT_CONNECTED")
+        }
+        return driver.execute(request)
     }
 
     /** Runtime profile changes are not authorization and must not call requestRoot. */
