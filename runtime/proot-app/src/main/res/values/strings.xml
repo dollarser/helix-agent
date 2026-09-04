@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HXA-083: the minimal repair activity's user-visible strings (SetTextI18n). -->
+<resources>
+    <string name="proot_repair_title">Helix PRoot Runtime</string>
+    <string name="proot_repair_install">安装 / 修复 Runtime</string>
+    <string name="proot_repair_done">完成</string>
+</resources>

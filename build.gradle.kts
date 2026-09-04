@@ -90,6 +90,7 @@ val androidLibraries =
         ":feature:files" to "com.helix.feature.files",
         ":feature:files-allfiles" to "com.helix.feature.files.allfiles",
         ":runtime:quickjs" to "com.helix.runtime.quickjs",
+        ":runtime:proot-ipc" to "com.helix.runtime.proot.ipc",
         ":runtime:proot-client" to "com.helix.runtime.proot.client",
         ":runtime:cli-client" to "com.helix.runtime.cli.client",
         ":tools:android" to "com.helix.tools.android",
@@ -153,7 +154,11 @@ val projectDependencies =
         // HXA-080: proot-core is the standalone schema module (no Helix project deps; its
         // kotlinx-serialization-json `api` dependency is added in the jvmLibraries block).
         ":runtime:proot-core" to emptyList(),
-        ":runtime:proot-client" to listOf(":core:model"),
+        // HXA-083: proot-ipc is the shared cross-APK Binder protocol (hand-rolled onTransact,
+        // handshake descriptor codec, bounded PFD manifest channel); proot-client (main app) and
+        // proot-app (companion) both bundle it.
+        ":runtime:proot-ipc" to listOf(":runtime:proot-core"),
+        ":runtime:proot-client" to listOf(":core:model", ":runtime:proot-ipc"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
         ":tools:android" to listOf(":core:model", ":core:policy"),
@@ -236,6 +241,13 @@ subprojects {
             // HXA-044: the SAF adapter persists its tree-grant registry with the pinned
             // kotlinx-serialization JsonElement API (no compiler plugin, same as the provider
             // modules) and carries instrumented tests against a lying in-APK ContentProvider.
+            // HXA-083: the cross-APK handshake manifest and the main app's verified-anchor
+            // store use the same strict, fail-closed kotlinx-serialization codec style as
+            // :runtime:proot-core (pinned, no plugin).
+            if (path == ":runtime:proot-ipc" || path == ":runtime:proot-client") {
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+
             if (path == ":feature:files") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())

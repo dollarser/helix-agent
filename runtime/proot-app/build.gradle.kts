@@ -15,6 +15,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // HXA-083: the handshake descriptor reports the companion's versionName; AGP 8
+    // disables BuildConfig by default.
+    buildFeatures {
+        buildConfig = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -36,6 +42,10 @@ dependencies {
     // (HXA-082) and the license page (HXA-087) parse it with the shared :runtime:proot-core
     // codec. The androidTest below proves the codec runs on the Android runtime (API 29/36).
     implementation(project(":runtime:proot-core"))
+    // HXA-083: the cross-APK hand-rolled protocol (handshake, PFD manifest channel)
+    // is shared with the main app's :runtime:proot-client — both bundle the same
+    // wire constants so the protocol cannot drift.
+    implementation(project(":runtime:proot-ipc"))
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
