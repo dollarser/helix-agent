@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.RollbackOutcome
 import com.helix.runtime.proot.core.RootFsInstaller
+import com.helix.runtime.proot.core.RuntimeInstallQueries
 import com.helix.runtime.proot.core.RuntimeLockCodec
 import com.helix.runtime.proot.core.RuntimeUpdateState
 import com.helix.runtime.proot.core.updateStateFor
@@ -190,7 +191,7 @@ class ProotUpdateLifecycleDeviceTest {
         val embeddedSha = RuntimeLockCodec.sha256Hex(ProotRuntimeInstaller.loadEmbeddedLock(context))
         assertEquals(
             RuntimeUpdateState.REPAIR,
-            updateStateFor(embeddedSha, RootFsInstaller.activeLockSha256(runtimeRoot)),
+            updateStateFor(embeddedSha, RuntimeInstallQueries.activeLockSha256(runtimeRoot)),
         )
         // Rollback: pointers swap, no files move, the FIRST version is active again:
         val outcome =
