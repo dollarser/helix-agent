@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# HXA-069 (roadmap §10): the CI-runnable internationalization gate. Two independent checks:
+# HXA-069 (roadmap §10): the CI-runnable internationalization gate. Three independent checks:
 #
 #   1. Translation-key parity — the base fallback (values/strings.xml) and the two locale
 #      resources (values-en/strings.xml, values-zh-rCN/strings.xml) must define the EXACT same
@@ -16,6 +16,10 @@ set -euo pipefail
 #      tests are excluded (fixture text is not shipped UI). After the HXA-069 migration every
 #      user-visible string is a stringResource(R.string.*) reference (no CJK literal), so this
 #      check passes and then guards against any NEW hardcoded CJK regressing in.
+#
+#   3. No raw executor diagnostic may flow into the chat's Compose-facing approval/timeline
+#      sinks. Tool details are stable locale-independent protocol/audit data; the app boundary
+#      must map them to a localized resource before calling setCardStateForCall/publishToolRow.
 #
 # Content that must NEVER be translated (Tool/schema names, Provider model IDs, URLs, protocol
 # fields, audit types, stable error codes, Locale.ROOT normalization) is ASCII by construction
@@ -172,6 +176,7 @@ def scan_files() -> list[Path]:
     for pattern in (
         "app/src/*/kotlin/**/*.kt",
         "feature/*/src/*/kotlin/**/*.kt",
+        "extensions/*/src/main/kotlin/**/*.kt",
     ):
         files.extend(root.glob(pattern))
     seen: set[Path] = set()
@@ -201,6 +206,19 @@ for path in scanned:
                 excerpt = excerpt[:48] + "…"
             errors.append(f"i18n: hardcoded CJK string literal {rel}:{start_line}: {excerpt!r}")
             violations += 1
+
+# ── Check 3: locale-independent executor details never cross into visible chat UI ─────
+chat_service = root / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt"
+chat_text = chat_service.read_text(encoding="utf-8")
+for sink in ("setCardStateForCall", "publishToolRow"):
+    # Each sink call is deliberately small. A bounded DOTALL window catches direct interpolation
+    # even when ktfmt lays the arguments over several lines, without confusing the persistence
+    # assignments that intentionally retain outcome.detail for audit/model handling.
+    pattern = re.compile(rf"{sink}\([\s\S]{{0,600}}?outcome\.detail")
+    if pattern.search(chat_text):
+        errors.append(
+            f"i18n: raw outcome.detail reaches user-visible {sink}; map it to a string resource first"
+        )
 
 if errors:
     print("Internationalization verification failed:", file=sys.stderr)

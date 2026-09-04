@@ -2394,6 +2394,7 @@ class ChatService(
         toolName: String,
         outcome: ToolDispatchOutcome.Denied,
     ) {
+        val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
         storage.toolCalls.updateState(row, ToolCallState.DENIED)
         storage.toolResults.append(
             id = idGenerator(),
@@ -2405,7 +2406,7 @@ class ChatService(
         setCardStateForCall(
             toolCallId,
             ApprovalCardState.FAILED,
-            outcome.code.name + "：" + outcome.detail,
+            userDetail,
             keepDenied = true,
         )
         publishToolRow(
@@ -2414,7 +2415,7 @@ class ChatService(
             toolName,
             row.argsJson,
             str(ApprovalUiMapper.codeLabel(outcome.code)),
-            outcome.detail,
+            userDetail,
             null,
         )
     }
@@ -2452,6 +2453,13 @@ class ChatService(
         sideEffectUnknown: Boolean,
     ) {
         val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
+        val userDetail =
+            str(
+                ApprovalUiMapper.executionFailureLabel(
+                    dispatchFacts[toolCallId]?.descriptor?.origin,
+                    requiresReview = sideEffectUnknown,
+                ),
+            )
         storage.toolCalls.updateState(row, state)
         storage.toolResults.append(
             id = idGenerator(),
@@ -2463,7 +2471,7 @@ class ChatService(
         setCardStateForCall(
             toolCallId,
             ApprovalCardState.FAILED,
-            str(ApprovalUiMapper.codeLabel(outcome.code)) + "：" + outcome.detail,
+            userDetail,
         )
         val label =
             if (sideEffectUnknown) {
@@ -2471,7 +2479,7 @@ class ChatService(
             } else {
                 str(R.string.tool_state_failed)
             }
-        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, outcome.detail, null)
+        publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, userDetail, null)
     }
 
     /**

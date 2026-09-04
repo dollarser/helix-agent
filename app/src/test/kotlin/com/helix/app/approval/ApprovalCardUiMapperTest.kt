@@ -136,16 +136,39 @@ class ApprovalCardUiMapperTest {
 
     @Test
     fun sourceAndProviderLabels() {
-        val builtin = ApprovalUiMapper.sourceLabel(isMcp = false, serverId = null)
+        val builtin = ApprovalUiMapper.sourceLabel(ToolOrigin.BuiltInOrigin)
         assertEquals(R.string.approval_source_builtin, builtin.res)
         assertTrue(builtin.args.isEmpty())
-        val mcp = ApprovalUiMapper.sourceLabel(isMcp = true, serverId = "srv-1")
+        val mcp = ApprovalUiMapper.sourceLabel(mcpOrigin("srv-1"))
         assertEquals(R.string.approval_source_mcp, mcp.res)
         assertEquals(listOf("srv-1"), mcp.args)
+        val a2a = ApprovalUiMapper.sourceLabel(a2aOrigin("agent-1"))
+        assertEquals(R.string.approval_source_a2a, a2a.res)
+        assertEquals(listOf("agent-1"), a2a.args)
         // The provider/MCP id is the raw server id for MCP tools and null for built-ins —
         // the UI renders the "内置（无 Provider/MCP）" placeholder from that null.
         assertNull(ApprovalUiMapper.providerMcpIdLabel(false, null))
         assertEquals("srv-1", ApprovalUiMapper.providerMcpIdLabel(true, "srv-1"))
+    }
+
+    @Test
+    fun executionFailureLabelsNeverExposeExecutorDetail() {
+        assertEquals(
+            R.string.tool_failure_generic,
+            ApprovalUiMapper.executionFailureLabel(ToolOrigin.BuiltInOrigin, requiresReview = false),
+        )
+        assertEquals(
+            R.string.tool_failure_mcp,
+            ApprovalUiMapper.executionFailureLabel(mcpOrigin("srv-1"), requiresReview = false),
+        )
+        assertEquals(
+            R.string.tool_failure_a2a,
+            ApprovalUiMapper.executionFailureLabel(a2aOrigin("agent-1"), requiresReview = false),
+        )
+        assertEquals(
+            R.string.tool_failure_requires_review,
+            ApprovalUiMapper.executionFailureLabel(a2aOrigin("agent-1"), requiresReview = true),
+        )
     }
 
     @Test
@@ -611,4 +634,22 @@ class ApprovalCardUiMapperTest {
     fun boundedRuleUiIsNullWhenNoRuleCoversTheCall() {
         assertNull(ApprovalUiMapper.boundedRuleUi(null))
     }
+
+    private fun mcpOrigin(serverId: String): ToolOrigin.McpOrigin =
+        ToolOrigin.McpOrigin(
+            serverId = serverId,
+            protocolVersion = "2025-03-26",
+            sourceSchemaHash = "a".repeat(64),
+        )
+
+    private fun a2aOrigin(agentId: String): ToolOrigin.A2aOrigin =
+        ToolOrigin.A2aOrigin(
+            agentId = agentId,
+            skillId = "skill-1",
+            interfaceOrigin = "https://agent.example.com",
+            binding = "JSONRPC",
+            protocolVersion = "1.0",
+            cardHash = "b".repeat(64),
+            skillHash = "c".repeat(64),
+        )
 }

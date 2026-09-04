@@ -195,15 +195,30 @@ object ApprovalUiMapper {
      */
     fun expectedImpact(description: String): String = description
 
-    /** 来源: the MCP server id (localized template + arg) or the built-in label. */
-    fun sourceLabel(
-        isMcp: Boolean,
-        serverId: String?,
-    ): ApprovalLabel =
-        if (isMcp) {
-            ApprovalLabel(R.string.approval_source_mcp, listOf(serverId ?: "unknown"))
+    /** 来源: an exhaustive localized label for every registered [ToolOrigin]. */
+    fun sourceLabel(origin: ToolOrigin): ApprovalLabel =
+        when (origin) {
+            ToolOrigin.BuiltInOrigin -> ApprovalLabel(R.string.approval_source_builtin)
+            is ToolOrigin.McpOrigin -> ApprovalLabel(R.string.approval_source_mcp, listOf(origin.serverId))
+            is ToolOrigin.A2aOrigin -> ApprovalLabel(R.string.approval_source_a2a, listOf(origin.agentId))
+        }
+
+    /**
+     * User-facing execution failure summary. Raw executor details remain locale-independent for
+     * persistence, audit, and model/tool result handling; they must not cross into Compose UI.
+     */
+    fun executionFailureLabel(
+        origin: ToolOrigin?,
+        requiresReview: Boolean,
+    ): Int =
+        if (requiresReview) {
+            R.string.tool_failure_requires_review
         } else {
-            ApprovalLabel(R.string.approval_source_builtin)
+            when (origin) {
+                is ToolOrigin.McpOrigin -> R.string.tool_failure_mcp
+                is ToolOrigin.A2aOrigin -> R.string.tool_failure_a2a
+                ToolOrigin.BuiltInOrigin, null -> R.string.tool_failure_generic
+            }
         }
 
     fun providerMcpIdLabel(
@@ -465,7 +480,7 @@ object ApprovalUiMapper {
         terminalDetail: String?,
     ): ApprovalCardUi {
         val origin = descriptor.origin
-        val source = sourceLabel(origin is ToolOrigin.McpOrigin, (origin as? ToolOrigin.McpOrigin)?.serverId)
+        val source = sourceLabel(origin)
         val (riskRes, riskArgs) = riskLabel(descriptor.baseRisk, dynamicRisk)
         return ApprovalCardUi(
             approvalId = approvalId,

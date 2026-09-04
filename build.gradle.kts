@@ -106,6 +106,7 @@ val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
 val coroutinesCoreDependency = libs.kotlinx.coroutines.core
 val okhttpDependency = libs.okhttp.wire
 val okhttpSseDependency = libs.okhttp.sse
+val okhttpVersion = libs.versions.okhttp.get()
 val mcpClientDependency = libs.mcp.client
 val ktorClientOkhttpDependency = libs.ktor.client.okhttp
 val snakeYamlEngineDependency = libs.snakeyaml.engine
@@ -384,6 +385,19 @@ subprojects {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
             if (path == ":extensions:a2a") {
+                // OkHttp's Android platform selector publishes an AAR requiring compileSdk 37.
+                // Helix is pinned to compileSdk 36 and uses only the JVM-compatible OkHttp API,
+                // matching the production app's established HXA-027 substitution.
+                configurations.configureEach {
+                    resolutionStrategy.dependencySubstitution {
+                        substitute(module("com.squareup.okhttp3:okhttp"))
+                            .using(
+                                module(
+                                    "com.squareup.okhttp3:okhttp-jvm:$okhttpVersion",
+                                ),
+                            )
+                    }
+                }
                 dependencies.add("implementation", okhttpDependency.get())
                 dependencies.add("implementation", okhttpSseDependency.get())
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())

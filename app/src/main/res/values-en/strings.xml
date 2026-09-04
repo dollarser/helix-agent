@@ -127,6 +127,7 @@
     <string name="approval_source">Source</string>
     <string name="approval_source_builtin">Built-in tool</string>
     <string name="approval_source_mcp">MCP server: %1$s</string>
+    <string name="approval_source_a2a">A2A Agent: %1$s</string>
     <string name="approval_state_approved">Approved, executing</string>
     <string name="approval_state_denied">Denied</string>
     <string name="approval_state_failed">Execution failed</string>
@@ -526,6 +527,10 @@
     <string name="tool_state_completed">Completed</string>
     <string name="tool_state_denied">Denied</string>
     <string name="tool_state_failed">Failed</string>
+    <string name="tool_failure_generic">Tool execution failed</string>
+    <string name="tool_failure_mcp">MCP tool execution failed</string>
+    <string name="tool_failure_a2a">A2A task execution failed</string>
+    <string name="tool_failure_requires_review">The execution outcome is uncertain; review its status before retrying</string>
     <string name="tool_state_interrupted">Interrupted (to resume)</string>
     <string name="tool_state_needs_review">Needs review</string>
     <string name="tool_state_processing">Processing</string>
