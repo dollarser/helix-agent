@@ -125,6 +125,7 @@ val jvmLibraries =
         ":extensions:skills",
         ":tools:framework",
         ":tools:files",
+        ":runtime:proot-core",
         ":testing",
     )
 
@@ -148,6 +149,9 @@ val projectDependencies =
         // executor), a tools:framework contract; the app wires it into the pipeline. A JVM
         // tool-framework dependency of an Android library mirrors :runtime:proot-client.
         ":runtime:quickjs" to listOf(":core:model", ":tools:framework"),
+        // HXA-080: proot-core is the standalone schema module (no Helix project deps; its
+        // kotlinx-serialization-json `api` dependency is added in the jvmLibraries block).
+        ":runtime:proot-core" to emptyList(),
         ":runtime:proot-client" to listOf(":core:model"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
@@ -336,6 +340,17 @@ subprojects {
             // part of the public ToolDescriptor contract, so consumers must see it. Same
             // pinned catalog artifact (1.9.0) as the provider modules — no new version.
             if (path == ":tools:framework") {
+                dependencies.add("api", kotlinxSerializationJsonDependency.get())
+            }
+
+            // HXA-080: the PRoot runtime-lock / manifest / license schemas (the 唯一版本真相 of
+            // architecture doc local-code-execution section 6.3) live in a plain JVM module so
+            // the build-time asset gate (HXA-081), the Runtime APK installer (HXA-082), the
+            // main-app client handshake (HXA-083) and the license page (HXA-087) all parse the
+            // SAME schema code. JsonElement API without the serialization compiler plugin, like
+            // :feature:files. `api` scope: both the proot-app installer and the proot-client
+            // handshake consume the parsed types.
+            if (path == ":runtime:proot-core") {
                 dependencies.add("api", kotlinxSerializationJsonDependency.get())
             }
 
