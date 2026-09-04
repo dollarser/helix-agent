@@ -28,6 +28,7 @@ class AutomationFixtureActivity : Activity() {
     private fun render(intent: Intent) {
         when (intent.getStringExtra(EXTRA_MODE) ?: MODE_NORMAL) {
             MODE_SENSITIVE -> renderSensitive()
+            MODE_ATTACK -> renderAttack()
             MODE_SECURE_CUSTOM -> renderSecureCustom()
             else -> renderNormal()
         }
@@ -89,6 +90,39 @@ class AutomationFixtureActivity : Activity() {
         )
     }
 
+    private fun renderAttack() {
+        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        setContentView(
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(
+                    Button(context).apply {
+                        text = "Pay now"
+                        contentDescription = "Payment confirmation"
+                    },
+                )
+                addView(
+                    Button(context).apply {
+                        text = "Authorize transfer"
+                        contentDescription = "Bank transfer authorization"
+                    },
+                )
+                addView(
+                    EditText(context).apply {
+                        hint = "Verification code"
+                        contentDescription = "OTP authentication code"
+                    },
+                )
+                addView(
+                    Button(context).apply {
+                        text = "Display options"
+                        contentDescription = "Non-sensitive false-positive control"
+                    },
+                )
+            },
+        )
+    }
+
     private fun renderSecureCustom() {
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         setContentView(
@@ -102,6 +136,7 @@ class AutomationFixtureActivity : Activity() {
         const val EXTRA_MODE = "fixture_mode"
         const val MODE_NORMAL = "normal"
         const val MODE_SENSITIVE = "sensitive"
+        const val MODE_ATTACK = "attack"
         const val MODE_SECURE_CUSTOM = "secure_custom"
     }
 }

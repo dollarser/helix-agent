@@ -108,6 +108,8 @@ enum class AutomationActionStatus {
     SERVICE_NOT_CONNECTED,
     NO_ACTIVE_SESSION,
     SESSION_PAUSED,
+    CHECKPOINT_REQUIRED,
+    ACTION_BUDGET_EXHAUSTED,
     TOKEN_UNKNOWN,
     TOKEN_EXPIRED,
     STALE_TOKEN,
@@ -137,6 +139,8 @@ enum class AutomationResumeStatus {
 internal class AutomationNodeActionExecutor(
     private val tokenRegistry: NodeTokenRegistry,
     private val sensitiveTargetPolicy: SensitiveAutomationTargetPolicy = SensitiveAutomationTargetPolicy,
+    private val sensitiveSemanticPolicy: SensitiveAutomationSemanticPolicy =
+        SensitiveAutomationSemanticPolicy,
 ) {
     @Suppress("ReturnCount")
     fun execute(
@@ -224,6 +228,9 @@ internal class AutomationNodeActionExecutor(
         ) {
             return result(AutomationActionStatus.INVALID_ARGUMENT)
         }
+        if (sensitiveSemanticPolicy.isDenied(observed, request.action)) {
+            return result(AutomationActionStatus.SENSITIVE_UI)
+        }
         val actionAndArguments =
             actionAndArguments(observed, request)
                 ?: return result(AutomationActionStatus.ACTION_NOT_SUPPORTED)
@@ -306,6 +313,101 @@ internal class AutomationNodeActionExecutor(
     companion object {
         private const val TOKEN_HEX_LENGTH = 32
         private const val MAX_SET_TEXT = 2_000
+    }
+}
+
+internal fun interface SensitiveAutomationSemanticPolicy {
+    fun isDenied(
+        node: ObservedSnapshotNode,
+        action: AutomationNodeAction?,
+    ): Boolean
+
+    companion object : SensitiveAutomationSemanticPolicy {
+        private val clickTerms =
+            setOf(
+                "pay",
+                "payment",
+                "transfer",
+                "purchase",
+                "buy now",
+                "send",
+                "publish",
+                "delete account",
+                "authorize",
+                "authorization",
+                "grant permission",
+                "allow install",
+                "enable root",
+                "支付",
+                "转账",
+                "购买",
+                "发送",
+                "发布",
+                "删除账号",
+                "删除账户",
+                "授权",
+                "允许安装",
+                "开启root",
+            )
+        private val textInputTerms =
+            setOf(
+                "password",
+                "passwd",
+                "passcode",
+                "pin",
+                "otp",
+                "cvv",
+                "verification code",
+                "authentication code",
+                "account number",
+                "card number",
+                "payment",
+                "transfer",
+                "密码",
+                "口令",
+                "验证码",
+                "认证码",
+                "银行卡",
+                "卡号",
+                "支付",
+                "转账",
+            )
+
+        override fun isDenied(
+            node: ObservedSnapshotNode,
+            action: AutomationNodeAction?,
+        ): Boolean {
+            val semantics =
+                listOf(node.text, node.contentDescription, node.viewId, node.className)
+                    .filterNotNull()
+                    .joinToString(" ")
+                    .lowercase()
+            return when (action) {
+                AutomationNodeAction.CLICK,
+                AutomationNodeAction.LONG_CLICK,
+                -> semantics.matchesSensitiveTerms(clickTerms)
+
+                AutomationNodeAction.SET_TEXT -> semantics.matchesSensitiveTerms(textInputTerms)
+
+                AutomationNodeAction.SCROLL_FORWARD,
+                AutomationNodeAction.SCROLL_BACKWARD,
+                -> false
+
+                null -> node.password || node.accessibilityDataSensitive
+            }
+        }
+
+        private fun String.matchesSensitiveTerms(terms: Set<String>): Boolean {
+            val asciiTokens = Regex("[a-z0-9]+").findAll(this).map { it.value }.toSet()
+            val normalizedPhrase = replace(Regex("[^a-z0-9\\p{IsHan}]+"), " ").trim()
+            return terms.any { term ->
+                when {
+                    term.any { it.code > 127 } -> contains(term)
+                    ' ' in term -> normalizedPhrase.contains(term)
+                    else -> term in asciiTokens
+                }
+            }
+        }
     }
 }
 

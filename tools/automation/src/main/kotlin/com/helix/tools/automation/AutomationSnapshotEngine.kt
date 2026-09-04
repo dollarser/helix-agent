@@ -375,6 +375,21 @@ internal fun interface SensitiveAutomationTargetPolicy {
                 "com.kernelsu",
             )
 
-        override fun isDeniedPackage(packageName: String): Boolean = packageName in deniedPackages
+        private val deniedPackageMarkers =
+            setOf(
+                "bank",
+                "wallet",
+                "payment",
+                "password",
+                "authenticator",
+                "biometric",
+            )
+
+        override fun isDeniedPackage(packageName: String): Boolean =
+            packageName in deniedPackages ||
+                packageName
+                    .lowercase()
+                    .split('.', '_', '-')
+                    .any { segment -> deniedPackageMarkers.any(segment::contains) }
     }
 }

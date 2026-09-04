@@ -155,25 +155,35 @@ class AutomationSnapshotEngineTest {
     }
 
     @Test
-    fun refusesDeniedPackageBeforeReadingChildren() {
-        val child = FakeSnapshotNode(packageName = "com.android.settings", windowId = 5, text = "Setting")
-        val root =
-            FakeSnapshotNode(
-                packageName = "com.android.settings",
-                windowId = 5,
-                children = listOf(child),
-            )
+    fun refusesFixedAndCategoricallySensitivePackagesBeforeReadingChildren() {
+        for (
+        packageName in
+        listOf(
+            "com.android.settings",
+            "com.example.mobile.banking",
+            "com.example.passwordmanager",
+            "com.example.authenticator",
+        )
+        ) {
+            val child = FakeSnapshotNode(packageName = packageName, windowId = 5, text = "Setting")
+            val root =
+                FakeSnapshotNode(
+                    packageName = packageName,
+                    windowId = 5,
+                    children = listOf(child),
+                )
 
-        val result =
-            engine.capture(
-                root,
-                activeSession(setOf("com.android.settings")),
-                generation = 3,
-            )
+            val result =
+                engine.capture(
+                    root,
+                    activeSession(setOf(packageName)),
+                    generation = 3,
+                )
 
-        assertEquals(AutomationSnapshotStatus.SENSITIVE_UI, result.status)
-        assertEquals(1, root.recycleCount)
-        assertEquals(0, child.recycleCount)
+            assertEquals(packageName, AutomationSnapshotStatus.SENSITIVE_UI, result.status)
+            assertEquals(packageName, 1, root.recycleCount)
+            assertEquals(packageName, 0, child.recycleCount)
+        }
     }
 
     @Test

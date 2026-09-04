@@ -61,6 +61,22 @@ class AutomationSessionManagerTest {
     }
 
     @Test
+    fun actionBudgetCannotBeZeroOrExceedTheThirtyActionHardMaximum() {
+        for (maxActions in listOf(0, AutomationSessionManager.MAX_ACTIONS + 1)) {
+            assertEquals(
+                AutomationSessionStartStatus.INVALID_ACTION_BUDGET,
+                manager
+                    .start(
+                        setOf("com.example.fixture"),
+                        allowed,
+                        maxActions = maxActions,
+                    ).status,
+            )
+        }
+        assertNull(manager.current())
+    }
+
+    @Test
     fun aSecondSessionCannotReplaceTheLiveSession() {
         val first = manager.start(setOf("com.example.fixture"), allowed).session
         val second = manager.start(setOf("org.example.second"), allowed)
@@ -127,6 +143,45 @@ class AutomationSessionManagerTest {
         manager.pause(AutomationPauseReason.TARGET_CHANGED)
         manager.stop(AutomationStopReason.USER_STOP)
         assertNull(manager.pauseReason)
+    }
+
+    @Test
+    fun everyTenAttemptsRequiresANewConfirmationThatCannotBeBanked() {
+        manager.start(setOf("com.example.fixture"), allowed)
+
+        repeat(9) {
+            assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+            assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
+        }
+        assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+        assertEquals(AutomationActionCompletion.CHECKPOINT_REQUIRED, manager.completeAction())
+        assertEquals(AutomationPauseReason.CHECKPOINT, manager.pauseReason)
+        assertEquals(AutomationActionAdmission.SESSION_PAUSED, manager.admitAction())
+
+        assertTrue(manager.resumeAfterUserConfirmation())
+        assertFalse(manager.resumeAfterUserConfirmation())
+        repeat(9) {
+            assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+            assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
+        }
+        assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+        assertEquals(AutomationActionCompletion.CHECKPOINT_REQUIRED, manager.completeAction())
+        assertEquals(AutomationPauseReason.CHECKPOINT, manager.pauseReason)
+    }
+
+    @Test
+    fun configuredBudgetStopsTheSessionImmediatelyAfterItsFinalAttempt() {
+        manager.start(setOf("com.example.fixture"), allowed, maxActions = 3)
+
+        repeat(2) {
+            assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+            assertEquals(AutomationActionCompletion.CONTINUE, manager.completeAction())
+        }
+        assertEquals(AutomationActionAdmission.ADMITTED, manager.admitAction())
+        assertEquals(AutomationActionCompletion.BUDGET_EXHAUSTED, manager.completeAction())
+        assertNull(manager.current())
+        assertEquals(AutomationStopReason.ACTION_BUDGET_EXHAUSTED, manager.lastStopReason)
+        assertEquals(AutomationActionAdmission.NO_ACTIVE_SESSION, manager.admitAction())
     }
 }
 

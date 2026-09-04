@@ -1,11 +1,15 @@
 package com.helix.tools.automation
 
 import android.accessibilityservice.AccessibilityService
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Handler
@@ -23,6 +27,29 @@ class HelixAccessibilityService : AccessibilityService() {
     private val tokenRegistry = NodeTokenRegistry()
     private val snapshotEngine = AutomationSnapshotEngine(tokenRegistry)
     private val actionExecutor = AutomationNodeActionExecutor(tokenRegistry)
+    private var screenReceiverRegistered = false
+    private val screenOffReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                    AutomationServiceController.stop(AutomationStopReason.DEVICE_LOCKED)
+                }
+            }
+        }
+
+    override fun onCreate() {
+        super.onCreate()
+        val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(screenOffReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(screenOffReceiver, filter)
+        }
+        screenReceiverRegistered = true
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -32,6 +59,10 @@ class HelixAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        if (deviceLocked()) {
+            AutomationServiceController.stop(AutomationStopReason.DEVICE_LOCKED)
+            return
+        }
         generationTracker.contentChanged()
         observeActiveTarget()
     }
@@ -49,6 +80,10 @@ class HelixAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         AutomationServiceController.disconnected(this, AutomationStopReason.SERVICE_DISCONNECTED)
         leaveSessionForeground()
+        if (screenReceiverRegistered) {
+            unregisterReceiver(screenOffReceiver)
+            screenReceiverRegistered = false
+        }
         super.onDestroy()
     }
 
@@ -80,6 +115,10 @@ class HelixAccessibilityService : AccessibilityService() {
     internal fun invalidateSnapshotTokens() {
         tokenRegistry.invalidate()
     }
+
+    internal fun currentGeneration(): Long = generationTracker.current()
+
+    internal fun deviceLocked(): Boolean = getSystemService(KeyguardManager::class.java).isDeviceLocked
 
     internal fun performNodeAction(
         session: ActiveAutomationSession,

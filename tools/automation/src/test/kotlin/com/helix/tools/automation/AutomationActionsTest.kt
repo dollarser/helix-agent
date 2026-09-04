@@ -221,7 +221,11 @@ class AutomationNodeActionExecutorTest {
         )
 
         token = issue(ordinary, emptyList(), generation = 6)
-        val deniedExecutor = AutomationNodeActionExecutor(registry) { it == PACKAGE }
+        val deniedExecutor =
+            AutomationNodeActionExecutor(
+                registry,
+                sensitiveTargetPolicy = { it == PACKAGE },
+            )
         assertEquals(
             AutomationActionStatus.SENSITIVE_UI,
             deniedExecutor
@@ -230,6 +234,35 @@ class AutomationNodeActionExecutorTest {
                     session,
                     6,
                     AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
+                ).status,
+        )
+    }
+
+    @Test
+    fun paymentClicksAndAuthenticationTextFieldsAreDeniedByTargetSemantics() {
+        var original = ActionFakeNode(text = "Pay now", clickable = true)
+        var token = issue(original, emptyList(), generation = 6)
+        assertEquals(
+            AutomationActionStatus.SENSITIVE_UI,
+            executor
+                .execute(
+                    ActionFakeNode(text = "Pay now", clickable = true),
+                    session,
+                    6,
+                    AutomationNodeActionRequest(AutomationNodeAction.CLICK, token),
+                ).status,
+        )
+
+        original = ActionFakeNode(contentDescription = "OTP verification code", editable = true)
+        token = issue(original, emptyList(), generation = 6)
+        assertEquals(
+            AutomationActionStatus.SENSITIVE_UI,
+            executor
+                .execute(
+                    ActionFakeNode(contentDescription = "OTP verification code", editable = true),
+                    session,
+                    6,
+                    AutomationNodeActionRequest(AutomationNodeAction.SET_TEXT, token, "123456"),
                 ).status,
         )
     }

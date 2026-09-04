@@ -27,6 +27,14 @@ object AutomationServiceController {
     }
 
     @Synchronized
+    internal fun systemGrantRevoked() {
+        sessionManager.stop(AutomationStopReason.SERVICE_DISCONNECTED)
+        service?.leaveSessionForeground()
+        service?.invalidateSnapshotTokens()
+        service = null
+    }
+
+    @Synchronized
     fun isConnected(): Boolean = service != null
 
     @Synchronized
@@ -34,6 +42,12 @@ object AutomationServiceController {
 
     @Synchronized
     fun pauseReason(): AutomationPauseReason? = sessionManager.pauseReason
+
+    @Synchronized
+    fun lastStopReason(): AutomationStopReason? = sessionManager.lastStopReason
+
+    @Synchronized
+    internal fun currentGeneration(): Long? = service?.currentGeneration()
 
     @Synchronized
     fun replaceAllowlist(
@@ -53,13 +67,14 @@ object AutomationServiceController {
         context: Context,
         requestedPackages: Set<String>,
         ttl: Duration = AutomationSessionManager.DEFAULT_TTL,
+        maxActions: Int = AutomationSessionManager.DEFAULT_MAX_ACTIONS,
     ): AutomationSessionStartResult {
         val connectedService = service
         return if (connectedService == null) {
             AutomationSessionStartResult(AutomationSessionStartStatus.SERVICE_NOT_CONNECTED)
         } else {
             val allowlist = SharedPreferencesAutomationAllowlistStore(context).packages()
-            val result = sessionManager.start(requestedPackages, allowlist, ttl)
+            val result = sessionManager.start(requestedPackages, allowlist, ttl, maxActions)
             result.session?.let { session ->
                 enterForegroundOrRollback(connectedService, session)
             }
@@ -83,6 +98,9 @@ object AutomationServiceController {
         val connectedService =
             service
                 ?: return AutomationSnapshotResult(AutomationSnapshotStatus.SERVICE_NOT_CONNECTED)
+        if (stopIfDeviceLocked(connectedService)) {
+            return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
+        }
         val session =
             sessionManager.current()
                 ?: return AutomationSnapshotResult(AutomationSnapshotStatus.NO_ACTIVE_SESSION)
@@ -94,17 +112,16 @@ object AutomationServiceController {
         val connectedService =
             service
                 ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
+        if (stopIfDeviceLocked(connectedService)) return noActiveActionResult()
         val session =
             sessionManager.current()
-                ?: return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
-        if (sessionManager.isPaused()) {
-            return AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
+                ?: return noActiveActionResult()
+        pausedActionResult()?.let { return it }
+        if (sessionManager.admitAction() != AutomationActionAdmission.ADMITTED) {
+            return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
         }
         val result = connectedService.performNodeAction(session, request)
-        if (result.status == AutomationActionStatus.TARGET_CHANGED) {
-            pauseForTargetChange(connectedService)
-        }
-        return result
+        return completeAction(connectedService, result)
     }
 
     @Synchronized
@@ -112,22 +129,22 @@ object AutomationServiceController {
         val connectedService =
             service
                 ?: return AutomationActionResult(AutomationActionStatus.SERVICE_NOT_CONNECTED)
+        if (stopIfDeviceLocked(connectedService)) return noActiveActionResult()
         val session =
             sessionManager.current()
-                ?: return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
-        if (sessionManager.isPaused()) {
-            return AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
+                ?: return noActiveActionResult()
+        pausedActionResult()?.let { return it }
+        if (sessionManager.admitAction() != AutomationActionAdmission.ADMITTED) {
+            return AutomationActionResult(AutomationActionStatus.NO_ACTIVE_SESSION)
         }
         val result = connectedService.performGlobalAction(session, action)
-        if (result.status == AutomationActionStatus.TARGET_CHANGED) {
-            pauseForTargetChange(connectedService)
-        }
-        return result
+        return completeAction(connectedService, result)
     }
 
     @Synchronized
     fun resumeAfterUserConfirmation(expectedPackage: String): AutomationResumeStatus {
         val connectedService = service ?: return AutomationResumeStatus.SERVICE_NOT_CONNECTED
+        if (stopIfDeviceLocked(connectedService)) return AutomationResumeStatus.NO_ACTIVE_SESSION
         val session = sessionManager.current() ?: return AutomationResumeStatus.NO_ACTIVE_SESSION
         if (!sessionManager.isPaused()) return AutomationResumeStatus.NOT_PAUSED
         if (expectedPackage !in session.scope.allowedPackages) {
@@ -186,5 +203,58 @@ object AutomationServiceController {
     private fun pauseForTargetChange(connectedService: HelixAccessibilityService) {
         sessionManager.pause(AutomationPauseReason.TARGET_CHANGED)
         connectedService.invalidateSnapshotTokens()
+    }
+
+    private fun pausedActionResult(): AutomationActionResult? =
+        when (sessionManager.pauseReason) {
+            AutomationPauseReason.CHECKPOINT -> {
+                AutomationActionResult(AutomationActionStatus.CHECKPOINT_REQUIRED)
+            }
+
+            AutomationPauseReason.TARGET_CHANGED -> {
+                AutomationActionResult(AutomationActionStatus.SESSION_PAUSED)
+            }
+
+            null -> {
+                null
+            }
+        }
+
+    private fun noActiveActionResult(): AutomationActionResult =
+        AutomationActionResult(
+            if (sessionManager.lastStopReason == AutomationStopReason.ACTION_BUDGET_EXHAUSTED) {
+                AutomationActionStatus.ACTION_BUDGET_EXHAUSTED
+            } else {
+                AutomationActionStatus.NO_ACTIVE_SESSION
+            },
+        )
+
+    private fun completeAction(
+        connectedService: HelixAccessibilityService,
+        result: AutomationActionResult,
+    ): AutomationActionResult {
+        when (sessionManager.completeAction()) {
+            AutomationActionCompletion.BUDGET_EXHAUSTED -> {
+                connectedService.leaveSessionForeground()
+                connectedService.invalidateSnapshotTokens()
+            }
+
+            AutomationActionCompletion.CHECKPOINT_REQUIRED,
+            AutomationActionCompletion.CONTINUE,
+            AutomationActionCompletion.NO_ACTIVE_SESSION,
+            -> {
+                Unit
+            }
+        }
+        if (result.status == AutomationActionStatus.TARGET_CHANGED && sessionManager.current() != null) {
+            pauseForTargetChange(connectedService)
+        }
+        return result
+    }
+
+    private fun stopIfDeviceLocked(connectedService: HelixAccessibilityService): Boolean {
+        if (!connectedService.deviceLocked()) return false
+        stop(AutomationStopReason.DEVICE_LOCKED)
+        return true
     }
 }

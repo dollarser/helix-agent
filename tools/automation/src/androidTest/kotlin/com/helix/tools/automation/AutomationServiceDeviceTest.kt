@@ -9,8 +9,9 @@ import android.os.Build
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_DISABLE_SERVICE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_FIND
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_FIND_AND_NODE
+import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_GENERATION_PROBE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_GLOBAL
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_NODE
 import com.helix.tools.automation.AutomationTestControlReceiver.Companion.ACTION_PAUSE_PROBE
@@ -27,7 +28,7 @@ import org.junit.runner.RunWith
 import java.io.FileInputStream
 
 /**
- * Dedicated-device acceptance for HXA-090/091. UiAutomation uses
+ * Dedicated-device acceptance for HXA-090 through HXA-093. UiAutomation uses
  * [UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES], otherwise instrumentation itself
  * prevents the real service from binding. Cleanup uses the service's user-revocation path
  * (`disableSelf`) and preserves other enabled services.
@@ -41,6 +42,7 @@ class AutomationServiceDeviceTest {
     private val testContext: Context = instrumentation.context.applicationContext
     private val component = ComponentName(targetContext.packageName, HelixAccessibilityService::class.java.name)
     private var nextNonce = 0L
+    private var systemGrantDeliberatelyRevoked = false
 
     @Test
     fun serviceAllowlistSessionAndImmediateStopWorkEndToEnd() {
@@ -59,11 +61,9 @@ class AutomationServiceDeviceTest {
             assertPermissionCenterContract()
             assertNonAllowlistedTargetRefused()
             assertFixtureSessionAndImmediateStop()
-            assertServiceDisableStopsLiveSession(originalComponents)
+            assertAttackAndRecoveryMatrix(originalComponents)
         } finally {
-            if (bridge(ACTION_PROBE).result == AutomationServiceState.CONNECTED.name) {
-                bridge(ACTION_DISABLE_SERVICE)
-            }
+            if (!systemGrantDeliberatelyRevoked) setEnabledComponents(originalComponents)
         }
     }
 
@@ -95,11 +95,11 @@ class AutomationServiceDeviceTest {
     private fun assertFixtureSessionAndImmediateStop() {
         val fixturePackage = testContext.packageName
         assertEquals("OK", bridge(ACTION_REPLACE_ALLOWLIST, setOf(fixturePackage)).result)
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
         val started = bridge(ACTION_START, setOf(fixturePackage))
         assertEquals(AutomationSessionStartStatus.STARTED.name, started.result)
         assertTrue(started.active)
 
-        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
         waitUntil { bridge(ACTION_SNAPSHOT).result == AutomationSnapshotStatus.SUCCESS.name }
         val snapshot = bridge(ACTION_SNAPSHOT)
         assertEquals(fixturePackage, snapshot.snapshotPackage)
@@ -183,7 +183,9 @@ class AutomationServiceDeviceTest {
         )
 
         var token = findToken(description = "Fixture action")
+        val generationBeforeRebuild = bridge(ACTION_GENERATION_PROBE).result.toLong()
         launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        waitUntil { bridge(ACTION_GENERATION_PROBE).result.toLong() > generationBeforeRebuild }
         assertEquals(
             AutomationActionStatus.STALE_TOKEN.name,
             bridge(ACTION_NODE, nodeAction = AutomationNodeAction.CLICK, token = token).result,
@@ -274,28 +276,203 @@ class AutomationServiceDeviceTest {
                 ),
         )
         instrumentation.waitForIdleSync()
+        waitUntil { activeWindowPackage() == testContext.packageName }
     }
 
-    private fun assertServiceDisableStopsLiveSession(originalComponents: Set<String>) {
-        bridge(ACTION_REPLACE_ALLOWLIST, setOf(testContext.packageName))
+    @Suppress("DEPRECATION")
+    private fun activeWindowPackage(): String? {
+        val root = uiAutomation.rootInActiveWindow ?: return null
+        return try {
+            root.packageName?.toString()
+        } finally {
+            root.recycle()
+        }
+    }
+
+    @Suppress("LongMethod")
+    private fun assertAttackAndRecoveryMatrix(originalComponents: Set<String>) {
+        assertSystemAndSensitiveTargetsRefused()
+        assertTimeAndActionBudgetsCannotBeBypassed()
+        assertScreenOffAndServiceDisconnectStopImmediately(originalComponents)
+    }
+
+    @Suppress("LongMethod")
+    private fun assertSystemAndSensitiveTargetsRefused() {
+        val settingsPackage = "com.android.settings"
+        targetContext.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        instrumentation.waitForIdleSync()
+        bridge(ACTION_REPLACE_ALLOWLIST, setOf(settingsPackage))
         assertEquals(
             AutomationSessionStartStatus.STARTED.name,
-            bridge(ACTION_START, setOf(testContext.packageName)).result,
+            bridge(ACTION_START, setOf(settingsPackage)).result,
+        )
+        waitUntil {
+            bridge(ACTION_SNAPSHOT).result == AutomationSnapshotStatus.SENSITIVE_UI.name
+        }
+        bridge(AutomationTestControlReceiver.ACTION_STOP)
+
+        for (
+        deniedPackage in
+        listOf(
+            "com.android.permissioncontroller",
+            "com.android.packageinstaller",
+            "com.topjohnwu.magisk",
+            "com.example.mobile.banking",
+            "com.example.passwordmanager",
+            "com.example.authenticator",
+        )
+        ) {
+            assertTrue(deniedPackage, SensitiveAutomationTargetPolicy.isDeniedPackage(deniedPackage))
+        }
+
+        val fixturePackage = testContext.packageName
+        launchFixture(AutomationFixtureActivity.MODE_ATTACK)
+        bridge(ACTION_REPLACE_ALLOWLIST, setOf(fixturePackage))
+        assertEquals(
+            AutomationSessionStartStatus.STARTED.name,
+            bridge(ACTION_START, setOf(fixturePackage)).result,
+        )
+        assertEquals(
+            AutomationActionStatus.SENSITIVE_UI.name,
+            bridge(
+                ACTION_FIND_AND_NODE,
+                queryDescription = "Payment confirmation",
+                nodeAction = AutomationNodeAction.CLICK,
+            ).result,
+        )
+        assertEquals(
+            AutomationActionStatus.SENSITIVE_UI.name,
+            bridge(
+                ACTION_FIND_AND_NODE,
+                queryDescription = "OTP authentication code",
+                nodeAction = AutomationNodeAction.SET_TEXT,
+                text = "123456",
+            ).result,
+        )
+        assertEquals(
+            AutomationActionStatus.SUCCEEDED.name,
+            bridge(
+                ACTION_FIND_AND_NODE,
+                queryDescription = "Non-sensitive false-positive control",
+                nodeAction = AutomationNodeAction.CLICK,
+            ).result,
+        )
+        bridge(AutomationTestControlReceiver.ACTION_STOP)
+    }
+
+    @Suppress("LongMethod")
+    private fun assertTimeAndActionBudgetsCannotBeBypassed() {
+        val fixturePackage = testContext.packageName
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        bridge(ACTION_REPLACE_ALLOWLIST, setOf(fixturePackage))
+        assertEquals(
+            AutomationSessionStartStatus.STARTED.name,
+            bridge(ACTION_START, setOf(fixturePackage), ttlMillis = 250L).result,
+        )
+        waitUntil { !bridge(ACTION_PROBE).active }
+        assertEquals(AutomationStopReason.EXPIRED.name, bridge(ACTION_PROBE).lastStopReason)
+
+        assertEquals(
+            AutomationSessionStartStatus.STARTED.name,
+            bridge(
+                ACTION_START,
+                setOf(fixturePackage),
+                maxActions = AutomationSessionManager.MAX_ACTIONS,
+            ).result,
+        )
+        repeat(AutomationSessionManager.CHECKPOINT_INTERVAL) {
+            assertEquals(AutomationActionStatus.TOKEN_UNKNOWN.name, performBudgetAttackAttempt().result)
+        }
+        assertCheckpointRequiresOneCurrentConfirmation(fixturePackage)
+
+        repeat(AutomationSessionManager.CHECKPOINT_INTERVAL) {
+            assertEquals(AutomationActionStatus.TOKEN_UNKNOWN.name, performBudgetAttackAttempt().result)
+        }
+        assertCheckpointRequiresOneCurrentConfirmation(fixturePackage)
+
+        repeat(AutomationSessionManager.CHECKPOINT_INTERVAL) {
+            assertEquals(AutomationActionStatus.TOKEN_UNKNOWN.name, performBudgetAttackAttempt().result)
+        }
+        val exhausted = bridge(ACTION_PROBE)
+        assertFalse(exhausted.active)
+        assertEquals(AutomationStopReason.ACTION_BUDGET_EXHAUSTED.name, exhausted.lastStopReason)
+        assertEquals(
+            AutomationActionStatus.ACTION_BUDGET_EXHAUSTED.name,
+            bridge(
+                ACTION_NODE,
+                nodeAction = AutomationNodeAction.CLICK,
+                token = "0".repeat(32),
+            ).result,
+        )
+    }
+
+    private fun assertCheckpointRequiresOneCurrentConfirmation(fixturePackage: String) {
+        assertEquals(
+            AutomationPauseReason.CHECKPOINT.name,
+            bridge(ACTION_PAUSE_PROBE).result,
+        )
+        assertEquals(
+            AutomationActionStatus.CHECKPOINT_REQUIRED.name,
+            performBudgetAttackAttempt().result,
+        )
+        assertEquals(
+            AutomationResumeStatus.RESUMED.name,
+            bridge(ACTION_RESUME, expectedPackage = fixturePackage).result,
+        )
+        assertEquals(
+            AutomationResumeStatus.NOT_PAUSED.name,
+            bridge(ACTION_RESUME, expectedPackage = fixturePackage).result,
+        )
+    }
+
+    private fun performBudgetAttackAttempt(): BridgeResult =
+        bridge(
+            ACTION_NODE,
+            nodeAction = AutomationNodeAction.CLICK,
+            token = "invalid",
         )
 
-        assertEquals("OK", bridge(ACTION_DISABLE_SERVICE).result)
-        waitUntil {
-            enabledComponents() == originalComponents &&
-                bridge(ACTION_PROBE).result != AutomationServiceState.CONNECTED.name
+    private fun assertScreenOffAndServiceDisconnectStopImmediately(originalComponents: Set<String>) {
+        val fixturePackage = testContext.packageName
+        launchFixture(AutomationFixtureActivity.MODE_NORMAL)
+        bridge(ACTION_REPLACE_ALLOWLIST, setOf(fixturePackage))
+        assertEquals(
+            AutomationSessionStartStatus.STARTED.name,
+            bridge(ACTION_START, setOf(fixturePackage)).result,
+        )
+        shell("input keyevent 223")
+        Thread.sleep(250)
+        shell("input keyevent 224")
+        shell("wm dismiss-keyguard")
+        waitUntil { !bridge(ACTION_PROBE).active }
+        assertEquals(AutomationStopReason.DEVICE_LOCKED.name, bridge(ACTION_PROBE).lastStopReason)
+
+        assertEquals(
+            AutomationSessionStartStatus.STARTED.name,
+            bridge(ACTION_START, setOf(fixturePackage)).result,
+        )
+        systemGrantDeliberatelyRevoked = true
+        setEnabledComponents(originalComponents)
+        var revoked = BridgeResult(result = AutomationServiceState.CONNECTED.name, active = true)
+        waitUntil(failureMessage = { "latest revoked state=$revoked" }) {
+            bridge(ACTION_PROBE).also { revoked = it }.let { probe ->
+                probe.result != AutomationServiceState.CONNECTED.name && !probe.active
+            }
         }
-        assertEquals(originalComponents, enabledComponents())
-        assertFalse(bridge(ACTION_PROBE).active)
+        assertEquals(
+            AutomationStopReason.SERVICE_DISCONNECTED.name,
+            revoked.lastStopReason,
+        )
     }
 
     private fun enableTestService(originalComponents: Set<String>) {
-        val enabled = (originalComponents + component.flattenToString()).joinToString(":")
+        setEnabledComponents(originalComponents + component.flattenToString())
+    }
+
+    private fun setEnabledComponents(components: Set<String>) {
+        val enabled = components.joinToString(":")
         shell("settings put secure enabled_accessibility_services $enabled")
-        shell("settings put secure accessibility_enabled 1")
+        shell("settings put secure accessibility_enabled ${if (components.isEmpty()) 0 else 1}")
     }
 
     private fun enabledComponents(): Set<String> =
@@ -307,7 +484,7 @@ class AutomationServiceDeviceTest {
             .split(':')
             .filterTo(mutableSetOf()) { it.isNotBlank() }
 
-    @Suppress("LongParameterList")
+    @Suppress("LongParameterList", "LongMethod")
     private fun bridge(
         action: String,
         packages: Set<String> = emptySet(),
@@ -318,6 +495,8 @@ class AutomationServiceDeviceTest {
         token: String? = null,
         text: String? = null,
         expectedPackage: String? = null,
+        ttlMillis: Long? = null,
+        maxActions: Int? = null,
     ): BridgeResult {
         val nonce = ++nextNonce
         targetContext.sendBroadcast(
@@ -340,6 +519,12 @@ class AutomationServiceDeviceTest {
                     text?.let { putExtra(AutomationTestControlReceiver.EXTRA_TEXT, it) }
                     expectedPackage?.let {
                         putExtra(AutomationTestControlReceiver.EXTRA_EXPECTED_PACKAGE, it)
+                    }
+                    ttlMillis?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_TTL_MILLIS, it)
+                    }
+                    maxActions?.let {
+                        putExtra(AutomationTestControlReceiver.EXTRA_MAX_ACTIONS, it)
                     }
                 },
         )
@@ -370,6 +555,11 @@ class AutomationServiceDeviceTest {
                 preferences.getString(AutomationTestControlReceiver.KEY_SNAPSHOT_SUMMARY, null).orEmpty(),
             actionToken =
                 preferences.getString(AutomationTestControlReceiver.KEY_ACTION_TOKEN, null).orEmpty(),
+            actionsAttempted =
+                preferences.getInt(AutomationTestControlReceiver.KEY_ACTIONS_ATTEMPTED, -1),
+            maxActions = preferences.getInt(AutomationTestControlReceiver.KEY_MAX_ACTIONS, -1),
+            lastStopReason =
+                preferences.getString(AutomationTestControlReceiver.KEY_LAST_STOP_REASON, null),
         )
     }
 
@@ -406,4 +596,7 @@ private data class BridgeResult(
     val snapshotTruncated: Boolean = false,
     val snapshotSummary: String = "",
     val actionToken: String = "",
+    val actionsAttempted: Int = -1,
+    val maxActions: Int = -1,
+    val lastStopReason: String? = null,
 )

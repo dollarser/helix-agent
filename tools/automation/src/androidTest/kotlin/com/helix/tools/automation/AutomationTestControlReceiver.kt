@@ -3,6 +3,7 @@ package com.helix.tools.automation
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import java.time.Duration
 
 /**
  * Test-only bridge that executes in the application component classloader. Android library
@@ -30,9 +31,23 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 }
 
                 ACTION_START -> {
+                    val ttl =
+                        if (intent.hasExtra(EXTRA_TTL_MILLIS)) {
+                            Duration.ofMillis(intent.getLongExtra(EXTRA_TTL_MILLIS, 0L))
+                        } else {
+                            AutomationSessionManager.DEFAULT_TTL
+                        }
+                    val maxActions =
+                        intent.getIntExtra(
+                            EXTRA_MAX_ACTIONS,
+                            AutomationSessionManager.DEFAULT_MAX_ACTIONS,
+                        )
                     center
-                        .startSession(intent.getStringArrayExtra(EXTRA_PACKAGES).orEmpty().toSet())
-                        .status.name
+                        .startSession(
+                            intent.getStringArrayExtra(EXTRA_PACKAGES).orEmpty().toSet(),
+                            ttl,
+                            maxActions,
+                        ).status.name
                 }
 
                 ACTION_STOP -> {
@@ -92,6 +107,55 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                     }
                 }
 
+                ACTION_FIND_AND_NODE -> {
+                    val action =
+                        runCatching {
+                            AutomationNodeAction.valueOf(
+                                intent.getStringExtra(EXTRA_NODE_ACTION).orEmpty(),
+                            )
+                        }.getOrNull()
+                    val captured = center.snapshot()
+                    snapshot = captured.snapshot
+                    val token =
+                        snapshot
+                            ?.let { current ->
+                                AutomationFinder.find(
+                                    current,
+                                    AutomationFindQuery(
+                                        text = intent.getStringExtra(EXTRA_QUERY_TEXT),
+                                        contentDescription =
+                                            intent.getStringExtra(EXTRA_QUERY_DESCRIPTION),
+                                    ),
+                                )
+                            }?.nodes
+                            ?.firstOrNull()
+                            ?.token
+                    when {
+                        action == null -> {
+                            AutomationActionStatus.INVALID_ARGUMENT.name
+                        }
+
+                        captured.status != AutomationSnapshotStatus.SUCCESS -> {
+                            captured.status.name
+                        }
+
+                        token == null -> {
+                            AutomationFindStatus.NOT_FOUND.name
+                        }
+
+                        else -> {
+                            center
+                                .performNodeAction(
+                                    AutomationNodeActionRequest(
+                                        action,
+                                        token,
+                                        intent.getStringExtra(EXTRA_TEXT),
+                                    ),
+                                ).status.name
+                        }
+                    }
+                }
+
                 ACTION_GLOBAL -> {
                     val action =
                         runCatching {
@@ -108,6 +172,10 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
 
                 ACTION_PAUSE_PROBE -> {
                     center.pauseReason()?.name ?: RESULT_NONE
+                }
+
+                ACTION_GENERATION_PROBE -> {
+                    AutomationServiceController.currentGeneration()?.toString() ?: RESULT_NONE
                 }
 
                 ACTION_RESUME -> {
@@ -139,6 +207,9 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
                 .putInt(KEY_SNAPSHOT_NODE_COUNT, snapshot?.nodes?.size ?: 0)
                 .putString(KEY_SNAPSHOT_FIRST_TOKEN, snapshot?.nodes?.firstOrNull()?.token)
                 .putString(KEY_ACTION_TOKEN, actionToken)
+                .putInt(KEY_ACTIONS_ATTEMPTED, active?.attemptedActions ?: -1)
+                .putInt(KEY_MAX_ACTIONS, active?.scope?.maxActions ?: -1)
+                .putString(KEY_LAST_STOP_REASON, center.lastStopReason()?.name)
                 .putBoolean(KEY_SNAPSHOT_TRUNCATED, snapshot?.truncated ?: false)
                 .putString(
                     KEY_SNAPSHOT_SUMMARY,
@@ -169,8 +240,10 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val ACTION_SNAPSHOT = "com.helix.tools.automation.test.SNAPSHOT"
         const val ACTION_FIND = "com.helix.tools.automation.test.FIND"
         const val ACTION_NODE = "com.helix.tools.automation.test.NODE_ACTION"
+        const val ACTION_FIND_AND_NODE = "com.helix.tools.automation.test.FIND_AND_NODE_ACTION"
         const val ACTION_GLOBAL = "com.helix.tools.automation.test.GLOBAL_ACTION"
         const val ACTION_PAUSE_PROBE = "com.helix.tools.automation.test.PAUSE_PROBE"
+        const val ACTION_GENERATION_PROBE = "com.helix.tools.automation.test.GENERATION_PROBE"
         const val ACTION_RESUME = "com.helix.tools.automation.test.RESUME"
         const val ACTION_DISABLE_SERVICE = "com.helix.tools.automation.test.DISABLE_SERVICE"
         const val EXTRA_NONCE = "nonce"
@@ -184,6 +257,8 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val EXTRA_TOKEN = "token"
         const val EXTRA_TEXT = "text"
         const val EXTRA_EXPECTED_PACKAGE = "expected_package"
+        const val EXTRA_TTL_MILLIS = "ttl_millis"
+        const val EXTRA_MAX_ACTIONS = "max_actions"
         const val PREFERENCES_NAME = "automation_test_control"
         const val KEY_NONCE = "nonce"
         const val KEY_RESULT = "result"
@@ -196,6 +271,9 @@ class AutomationTestControlReceiver : BroadcastReceiver() {
         const val KEY_SNAPSHOT_TRUNCATED = "snapshot_truncated"
         const val KEY_SNAPSHOT_SUMMARY = "snapshot_summary"
         const val KEY_ACTION_TOKEN = "action_token"
+        const val KEY_ACTIONS_ATTEMPTED = "actions_attempted"
+        const val KEY_MAX_ACTIONS = "max_actions"
+        const val KEY_LAST_STOP_REASON = "last_stop_reason"
         private const val RESULT_OK = "OK"
         private const val RESULT_NONE = "NONE"
         private const val RESULT_UNKNOWN_ACTION = "UNKNOWN_ACTION"

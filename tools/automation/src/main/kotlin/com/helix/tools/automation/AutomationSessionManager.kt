@@ -15,10 +15,13 @@ enum class AutomationStopReason {
     SERVICE_DISCONNECTED,
     ALLOWLIST_CHANGED,
     FOREGROUND_START_FAILED,
+    ACTION_BUDGET_EXHAUSTED,
+    DEVICE_LOCKED,
 }
 
 enum class AutomationPauseReason {
     TARGET_CHANGED,
+    CHECKPOINT,
 }
 
 /** Stable start outcomes used by the permission center; none of them starts an Agent Tool. */
@@ -30,13 +33,28 @@ enum class AutomationSessionStartStatus {
     INVALID_PACKAGE,
     TARGET_NOT_ALLOWLISTED,
     INVALID_TTL,
+    INVALID_ACTION_BUDGET,
 }
 
 data class ActiveAutomationSession(
     val id: String,
     val startedAt: Instant,
     val scope: AutomationSessionScope,
+    val attemptedActions: Int = 0,
 )
+
+internal enum class AutomationActionAdmission {
+    ADMITTED,
+    NO_ACTIVE_SESSION,
+    SESSION_PAUSED,
+}
+
+internal enum class AutomationActionCompletion {
+    CONTINUE,
+    CHECKPOINT_REQUIRED,
+    BUDGET_EXHAUSTED,
+    NO_ACTIVE_SESSION,
+}
 
 data class AutomationSessionStartResult(
     val status: AutomationSessionStartStatus,
@@ -44,11 +62,13 @@ data class AutomationSessionStartResult(
 )
 
 /**
- * Process-local, single-session lifecycle for HXA-090. The default and current hard maximum are
- * five minutes and 30 actions. HXA-093 may add Advanced budget choices inside a release hard cap;
- * until then callers cannot widen either value. A clock rollback, expiry, allowlist reduction, or
- * service loss closes the session rather than preserving a stale grant.
+ * Process-local, single-session lifecycle. Five minutes and 30 actions remain both the defaults
+ * and release hard maxima; callers may only choose a smaller positive budget. Every ten attempts
+ * requires a fresh user confirmation, including failed or refused attempts, and confirmations
+ * cannot be banked. Clock rollback, expiry, budget exhaustion, allowlist reduction, screen lock,
+ * or service loss closes the session rather than preserving a stale grant.
  */
+@Suppress("TooManyFunctions")
 class AutomationSessionManager(
     private val clock: Clock,
     private val idFactory: () -> String = { UUID.randomUUID().toString() },
@@ -68,6 +88,7 @@ class AutomationSessionManager(
         requestedPackages: Set<String>,
         persistedAllowlist: Set<String>,
         ttl: Duration = DEFAULT_TTL,
+        maxActions: Int = DEFAULT_MAX_ACTIONS,
     ): AutomationSessionStartResult {
         expireIfNeeded(clock.now())
         val refusal =
@@ -92,6 +113,10 @@ class AutomationSessionManager(
                     AutomationSessionStartStatus.INVALID_TTL
                 }
 
+                maxActions !in 1..MAX_ACTIONS -> {
+                    AutomationSessionStartStatus.INVALID_ACTION_BUDGET
+                }
+
                 else -> {
                     null
                 }
@@ -107,7 +132,7 @@ class AutomationSessionManager(
                     AutomationSessionScope(
                         allowedPackages = requestedPackages.toSet(),
                         deniedPackages = emptySet(),
-                        maxActions = DEFAULT_MAX_ACTIONS,
+                        maxActions = maxActions,
                         expiresAt = now.plus(ttl),
                     ),
             )
@@ -150,6 +175,38 @@ class AutomationSessionManager(
     }
 
     @Synchronized
+    @Suppress("ReturnCount")
+    internal fun admitAction(): AutomationActionAdmission {
+        val session = current() ?: return AutomationActionAdmission.NO_ACTIVE_SESSION
+        if (pauseReason != null) return AutomationActionAdmission.SESSION_PAUSED
+        check(session.attemptedActions < session.scope.maxActions) {
+            "active automation session exceeded its action budget"
+        }
+        active = session.copy(attemptedActions = session.attemptedActions + 1)
+        return AutomationActionAdmission.ADMITTED
+    }
+
+    @Synchronized
+    internal fun completeAction(): AutomationActionCompletion {
+        val session = current() ?: return AutomationActionCompletion.NO_ACTIVE_SESSION
+        return when {
+            session.attemptedActions >= session.scope.maxActions -> {
+                check(stop(AutomationStopReason.ACTION_BUDGET_EXHAUSTED))
+                AutomationActionCompletion.BUDGET_EXHAUSTED
+            }
+
+            session.attemptedActions % CHECKPOINT_INTERVAL == 0 -> {
+                check(pause(AutomationPauseReason.CHECKPOINT))
+                AutomationActionCompletion.CHECKPOINT_REQUIRED
+            }
+
+            else -> {
+                AutomationActionCompletion.CONTINUE
+            }
+        }
+    }
+
+    @Synchronized
     fun reconcileAllowlist(persistedAllowlist: Set<String>): Boolean {
         val session = current()
         val mustStop =
@@ -171,5 +228,7 @@ class AutomationSessionManager(
         val DEFAULT_TTL: Duration = Duration.ofMinutes(5)
         val MAX_TTL: Duration = DEFAULT_TTL
         const val DEFAULT_MAX_ACTIONS: Int = 30
+        const val MAX_ACTIONS: Int = DEFAULT_MAX_ACTIONS
+        const val CHECKPOINT_INTERVAL: Int = 10
     }
 }
