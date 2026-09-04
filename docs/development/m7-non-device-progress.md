@@ -7,9 +7,9 @@
 | HXA | 非设备状态 | 当前边界 |
 | --- | --- | --- |
 | 070 | **完成**；JVM、standalone R8、API 29/36 专项 fixture 各 12/12、双 flavor unsigned release/R8/lintVital 全部通过；ADR-0017 accepted | MCP Kotlin SDK client + Ktor OkHttp engine；Android 已覆盖 initialize/ping、真实版本 header、缺失版本 fail-closed、取消后复用、关闭后全新 facade 重连、SSE 断线 + `Last-Event-ID` 重连、1 MiB 响应、HTTP 401、TLS handshake 中断、bearer + 精确 loopback/DNS pinning、JSON/SSE 逐消息 16 MiB ceiling，以及 Activity 前后台切换期间 session 可用性；直接 MCP runtime/集成层增量约 3.89 MiB、21.0k method references，runtime 依赖许可证闭包已核对；签名/SBOM/notice 属于 M12 发布门禁 |
-| 071 | 已实现并通过 JVM fixture | disabled-by-default 配置、Secret alias、握手、规范 endpoint/residence、有界 capability/tool/resource/prompt snapshot |
-| 072 | 已实现并通过 JVM/App 单测 | `mcp.<server>.<tool>` 动态注册、schema/contract hash、结果边界、egress/checkpoint；设备链路待验收 |
-| 073 | 未启动 | 任务书明确依赖 HXA-084 PRoot runner；不能用主 App shell 或占位 stdio 绕过 |
+| 071 | **完成**；JVM fixture、API 29/36 consumer 全量验收 | disabled-by-default 配置、Secret alias、握手、规范 endpoint/residence、有界 capability/tool/resource/prompt snapshot |
+| 072 | **完成**；JVM fixture、API 29/36 consumer 全量验收 | `mcp.<server>.<tool>` 动态注册、schema/contract hash、结果边界、egress/checkpoint |
+| 073 | **完成**；HXA-084 真实 PRoot、JVM 与 API 29/36 专项验收 | 锁定 argv/指纹、严格 stdout JSON-RPC、独立 bounded stderr、环境 allowlist、进程组取消与 Job 对账；没有主 App shell 或占位 stdio 回退 |
 | 074 | 已实现并通过 JVM fixture | Agent Skills frontmatter validator/catalog；production 不依赖 `skills-ref` |
 | 075 | 已实现并通过 JVM fixture | 目录/zip 导入、traversal/symlink/zip bomb 防护、不可变内容快照与更新预览 |
 | 076 | 已实现并通过 JVM/App 单测 | Skill list/read/read_resource/enable/disable/remove 与五个内置 Skill；脚本不获得新执行器 |
@@ -21,4 +21,4 @@ HXA-079 的恢复不变量是：一个本地 `toolCallId` 最多绑定一个远�
 
 合并后 App 回归命令为 `:app:connectedConsumerDebugAndroidTest` 与 `:app:connectedDeveloperDebugAndroidTest`：API 29 分别完成 117/136 项、API 36 分别完成 116/135 项，均 0 失败；skip 均为 SDK/外部服务条件门控。验证中修复了测试 Provider authority 的 flavor 冲突、turn 启动/终态竞态、整屏刷新覆盖瞬时 UI 状态，以及三处异步 UI 测试等待/清理问题。
 
-当前专项验证命令仍以 [verification-matrix.md](verification-matrix.md) 的 M7 表为准。HXA-077 的专项 API 29/36 Spike，HXA-072/076/078/079 的功能级设备链路、HXA-073，以及 M12 的真机/签名/SBOM/notice 仍是明确保留项；不能用上述 App 全量回归代替。
+当前专项验证命令仍以 [verification-matrix.md](verification-matrix.md) 的 M7 表为准。HXA-076/077/078/079 的功能级设备链路，以及 M12 的真机/签名/SBOM/notice 仍是明确保留项；不能用上述 App 全量回归代替。

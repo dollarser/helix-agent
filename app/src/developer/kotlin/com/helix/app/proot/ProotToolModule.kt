@@ -1,5 +1,6 @@
 package com.helix.app.proot
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.helix.app.R
 import com.helix.core.model.IdGenerator
@@ -40,6 +41,9 @@ import java.io.File
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = true
 
+    // The supervisor normalizes its Context to applicationContext in its constructor;
+    // this process-lifetime module cannot retain an Activity/Service instance.
+    @SuppressLint("StaticFieldLeak")
     private lateinit var supervisor: ProotRuntimeSupervisor
     private lateinit var jobClient: ProotJobClient
     private lateinit var idGenerator: IdGenerator
@@ -59,7 +63,7 @@ internal object ProotToolModule {
     fun wireForTest(context: Context) {
         appContext = context.applicationContext
         if (this::supervisor.isInitialized) return
-        supervisor = ProotRuntimeSupervisor(context)
+        supervisor = ProotRuntimeSupervisor(appContext)
         jobClient = ProotJobClient(supervisor)
     }
 

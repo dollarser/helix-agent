@@ -16,11 +16,11 @@ import android.os.IBinder
 object ProotRuntimeProtocol {
     /**
      * Current protocol revision; the client rejects anything it cannot consume.
-     * v2 (HXA-084) adds the job transactions and the "jobs" capability; v1 was
-     * handshake-only. Both APKs of the signed set ship the same revision, and a
+     * v3 (HXA-073) adds bounded stdin-file redirection and a separate stderr cap;
+     * v2 added job transactions and v1 was handshake-only. Both APKs of the signed set ship the same revision, and a
      * mismatch is a stable PROTOCOL_MISMATCH, never a partial job.
      */
-    const val PROTOCOL_VERSION = 2
+    const val PROTOCOL_VERSION = 3
 
     /** Interface token written by the client and enforced by the server. */
     const val INTERFACE_DESCRIPTOR = "com.helix.runtime.proot.IRuntimeService/1"

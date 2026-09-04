@@ -84,7 +84,7 @@
       "abi": "arm64-v8a",
       "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/releases/aarch64/alpine-minirootfs-3.22.5-aarch64.tar.gz",
       "size": 137287680,
-      "sha256": "f15c9434391618b45dba514df013c2dcf3d1393603f5e95fd42eed7f47afd636",
+      "sha256": "674aa3ac68200bfe67b01964573fce2c6780c726fe23ca640e998337cf47f509",
       "license": {
         "spdx": "NOASSERTION",
         "name": "Alpine Linux rootfs (mixed per-package licenses; see licenses/ALPINE-README.md)",

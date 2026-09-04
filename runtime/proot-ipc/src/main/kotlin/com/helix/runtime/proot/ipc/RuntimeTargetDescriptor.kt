@@ -56,8 +56,8 @@ object RuntimeTargetDescriptorCodec {
     /** Closed ABI set of the PRoot Runtime (schema supports both; assets ship arm64-v8a). */
     val ABIS: Set<String> = setOf("arm64-v8a", "x86_64")
 
-    /** Closed capability set; "jobs" (HXA-084) is the job submission surface. */
-    val CAPABILITIES: Set<String> = setOf("handshake", "jobs")
+    /** Closed capability set; "stdio" (HXA-073) is stdin-backed bounded PRoot jobs. */
+    val CAPABILITIES: Set<String> = setOf("handshake", "jobs", "stdio")
 
     private const val WHAT = "runtime target descriptor"
 

@@ -11,6 +11,9 @@ import android.content.pm.PackageManager
 import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.mcp.McpStdioJobBridge
+import com.helix.extensions.mcp.McpStdioLimits
+import com.helix.extensions.mcp.McpStdioServerCommand
 import com.helix.runtime.proot.client.ProotEnvScreen
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
@@ -25,6 +28,8 @@ import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobRefusal
 import com.helix.runtime.proot.ipc.ProotJobSpec
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -218,6 +223,121 @@ class ProotJobE2eDeviceTest {
         assertEquals(mapOf("HOME" to "/root"), approved)
     }
 
+    // ------------------------------------------------------------------ HXA-073 stdio
+
+    @Test
+    fun mcpStdioUsesLockedArgvStrictJsonRpcAndReconcilesTheJob() {
+        runOnWorker(timeoutMs = 180_000L) {
+            val jobId = nextJobId()
+            val bridge = stdioBridge(jobId)
+            val command =
+                McpStdioServerCommand.locked(
+                    listOf(
+                        "/bin/sh",
+                        "-c",
+                        "IFS= read -r init; IFS= read -r ready; IFS= read -r list; " +
+                            "case \"\$init\" in *initialize*) ;; *) exit 21;; esac; " +
+                            "case \"\$ready\" in *notifications/initialized*) ;; *) exit 22;; esac; " +
+                            "case \"\$list\" in *tools/list*) ;; *) exit 23;; esac; " +
+                            "printf '%s\\n' " +
+                            "'{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":\"2025-03-26\"}}' " +
+                            "'{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[]}}'; " +
+                            "printf 'fixture diagnostic\\n' >&2",
+                    ),
+                )
+            val outcome =
+                bridge.exchange(
+                    command,
+                    listOf(
+                        request(1, "initialize"),
+                        notification("notifications/initialized"),
+                        request(2, "tools/list"),
+                    ),
+                    environment = mapOf("PATH" to "/usr/bin:/bin"),
+                ) as McpStdioJobBridge.Outcome.Completed
+
+            assertEquals(2, outcome.output.messages.size)
+            assertEquals("fixture diagnostic\n", outcome.output.stderr)
+            assertEquals(command.fingerprintSha256, McpStdioServerCommand.locked(command.arguments).fingerprintSha256)
+            assertNotNull("the verified stdio job must be reconciled", outcome.record.reconciledAtEpochMs)
+            assertEquals(jobId, outcome.record.jobId)
+            Unit
+        }
+    }
+
+    @Test
+    fun mcpStdioCancellationKillsAndReconcilesTheRuntimeJob() {
+        runOnWorker(timeoutMs = 180_000L) {
+            val jobId = nextJobId()
+            val startedAt = System.currentTimeMillis()
+            val outcome =
+                stdioBridge(jobId).exchange(
+                    McpStdioServerCommand.locked(listOf("/bin/sh", "-c", "IFS= read -r line; sleep 60")),
+                    listOf(request(1, "initialize")),
+                    environment = emptyMap(),
+                    shouldContinue = { System.currentTimeMillis() - startedAt < 2_000L },
+                ) as McpStdioJobBridge.Outcome.Cancelled
+
+            assertEquals(com.helix.runtime.proot.ipc.ProotJobState.CANCELLED, outcome.record?.state)
+            assertNotNull("cancelled stdio job must be reconciled", outcome.record?.reconciledAtEpochMs)
+            Unit
+        }
+    }
+
+    @Test
+    fun mcpStdioRejectsServerLogNoiseOnStdout() {
+        runOnWorker(timeoutMs = 180_000L) {
+            val outcome =
+                stdioBridge(nextJobId()).exchange(
+                    McpStdioServerCommand.locked(
+                        listOf(
+                            "/bin/sh",
+                            "-c",
+                            "IFS= read -r line; printf 'server started\\n'; " +
+                                "printf '{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\\n'",
+                        ),
+                    ),
+                    listOf(request(1, "initialize")),
+                    environment = emptyMap(),
+                ) as McpStdioJobBridge.Outcome.Failed
+
+            assertEquals("PROTOCOL_INVALID", outcome.code)
+            assertEquals(com.helix.runtime.proot.ipc.ProotJobState.SUCCEEDED, outcome.record?.state)
+            assertEquals(null, outcome.record?.reconciledAtEpochMs)
+            Unit
+        }
+    }
+
+    @Test
+    fun mcpStdioStderrFloodIsKilledAtItsOwnCap() {
+        runOnWorker(timeoutMs = 180_000L) {
+            val startedAt = System.currentTimeMillis()
+            val outcome =
+                stdioBridge(nextJobId()).exchange(
+                    McpStdioServerCommand.locked(
+                        listOf("/bin/sh", "-c", "IFS= read -r line; yes diagnostic | head -c 4096 >&2; sleep 60"),
+                    ),
+                    listOf(request(1, "initialize")),
+                    environment = emptyMap(),
+                    limits =
+                        McpStdioLimits(
+                            maxLineBytes = 256,
+                            maxStdoutBytes = 256,
+                            maxStderrBytes = 1024,
+                        ),
+                ) as McpStdioJobBridge.Outcome.Failed
+
+            assertEquals("JOB_OUTPUT_LIMIT_EXCEEDED", outcome.code)
+            assertEquals(com.helix.runtime.proot.ipc.ProotJobState.OUTPUT_LIMIT_EXCEEDED, outcome.record?.state)
+            assertTrue("stderr must stay at its configured cap", outcome.record?.stderrBytes in 1L..1024L)
+            assertTrue(
+                "stderr cap must kill the long-lived server promptly",
+                System.currentTimeMillis() - startedAt < 15_000L,
+            )
+            Unit
+        }
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private fun screenOrThrow(environment: Map<String, String>): Map<String, String> {
@@ -227,6 +347,29 @@ class ProotJobE2eDeviceTest {
                 ?: error("environment must pass the screen: $verdict")
         return approved.environment
     }
+
+    private fun stdioBridge(jobId: String): McpStdioJobBridge =
+        McpStdioJobBridge(
+            client = client,
+            scratchRoot = scratchDir("mcp-stdio"),
+            jobIdProvider = { jobId },
+            knownSecretValues = { emptySet() },
+        )
+
+    private fun request(
+        id: Int,
+        method: String,
+    ) = buildJsonObject {
+        put("jsonrpc", "2.0")
+        put("id", id)
+        put("method", method)
+    }
+
+    private fun notification(method: String) =
+        buildJsonObject {
+            put("jsonrpc", "2.0")
+            put("method", method)
+        }
 
     private fun scratchDir(name: String): File =
         File(context.cacheDir, "jobe2e-$name-${nextJobId()}").apply {

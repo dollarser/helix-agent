@@ -32,15 +32,16 @@ import java.util.concurrent.atomic.AtomicReference
  */
 @Suppress("TooManyFunctions") // HXA-083 bind/verify/repair + HXA-087 legal/removal/re-baseline
 class ProotRuntimeSupervisor(
-    private val context: Context,
-    private val probe: ProotRuntimeProbe = PackageManagerProotRuntimeProbe(context),
-    private val store: VerifiedRuntimeStore = VerifiedRuntimeStore(context),
+    context: Context,
+    private val probe: ProotRuntimeProbe = PackageManagerProotRuntimeProbe(context.applicationContext),
+    private val store: VerifiedRuntimeStore = VerifiedRuntimeStore(context.applicationContext),
 ) {
     companion object {
         /** The baseline asset ABI; the companion ships arm64-v8a only (the schema allows x86_64 later). */
         const val EXPECTED_RUNTIME_ABI = "arm64-v8a"
     }
 
+    private val context = context.applicationContext
     private val localState = ProotLocalStateCheck(probe)
     private var activeConnection: ServiceConnection? = null
 

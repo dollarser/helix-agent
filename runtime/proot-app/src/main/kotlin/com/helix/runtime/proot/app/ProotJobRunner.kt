@@ -207,6 +207,11 @@ class ProotJobRunner private constructor(
                 terminalInputInvalid(pending, outputPfd)
                 return
             }
+            val stdinFile = spec.stdinRelativePath?.let { File(workspace, it) }
+            if (stdinFile != null && !stdinFile.isFile) {
+                terminalInputInvalid(pending, outputPfd)
+                return
+            }
             inputArchive.delete()
 
             if (cancelRequested.get()) {
@@ -271,6 +276,7 @@ class ProotJobRunner private constructor(
             val builder =
                 ProcessBuilder(listOf("/system/bin/setsid", "/system/bin/linker64") + prootArgs)
                     .directory(jobDir)
+            if (stdinFile != null) builder.redirectInput(stdinFile)
             builder.environment().clear()
             builder.environment().putAll(spec.environment)
             // Device-verified mandatory environment (HXA-084 probe): this Termux
@@ -303,6 +309,7 @@ class ProotJobRunner private constructor(
             val deadline = pending.createdAtEpochMs + spec.deadlineMs
             val deadlineHit = AtomicBoolean(false)
             val outputBudget = OutputBudget(spec.maxOutputBytes)
+            val stderrBudget = StreamOutputBudget(outputBudget, spec.maxStderrBytes)
             val process =
                 try {
                     builder.start()
@@ -310,8 +317,17 @@ class ProotJobRunner private constructor(
                     terminalFailed(pending, outputPfd, null, "launch failed: ${e.message?.take(120)}")
                     return
                 }
-            val stdout = BoundedCapture(outputBudget)
-            val stderr = BoundedCapture(outputBudget)
+            // Resolve the host pid before starting the stream pumps: an output cap
+            // must be able to kill the process group immediately, including for a
+            // long-lived stdio server that would otherwise block forever on a full pipe.
+            val childPid = childPid(process)
+            if (childPid == null) {
+                process.destroyForcibly()
+                terminalFailed(pending, outputPfd, null, "cannot identify the child pid")
+                return
+            }
+            val stdout = BoundedCapture(outputBudget) { killProcessGroup(childPid) }
+            val stderr = BoundedCapture(stderrBudget) { killProcessGroup(childPid) }
             val stdoutReader = Thread { process.inputStream.use { stdout.drain(it) } }
             val stderrReader = Thread { process.errorStream.use { stderr.drain(it) } }
             stdoutReader.start()
@@ -319,12 +335,6 @@ class ProotJobRunner private constructor(
 
             // 4) The process identity is persisted for the orphan sweep (the
             //    starttime guard makes pid reuse harmless).
-            val childPid = childPid(process)
-            if (childPid == null) {
-                process.destroyForcibly()
-                terminalFailed(pending, outputPfd, null, "cannot identify the child pid")
-                return
-            }
             persistProcessMeta(spec.jobId, childPid)
 
             live =
@@ -790,15 +800,21 @@ class ProotJobRunner private constructor(
     }
 }
 
+private interface CaptureBudget {
+    val hitLimit: AtomicBoolean
+
+    fun take(want: Int): Int
+}
+
 /** Shared stdout+stderr budget (the spec's maxOutputBytes caps the COMBINED streams). */
 private class OutputBudget(
     limitBytes: Long,
-) {
+) : CaptureBudget {
     private val remaining = AtomicLong(limitBytes)
-    val hitLimit = AtomicBoolean(false)
+    override val hitLimit = AtomicBoolean(false)
 
     /** Takes up to [want] bytes; returns the allowed amount (0 once the budget is spent). */
-    fun take(want: Int): Int {
+    override fun take(want: Int): Int {
         while (true) {
             val cur = remaining.get()
             if (cur <= 0) {
@@ -811,13 +827,40 @@ private class OutputBudget(
     }
 }
 
+/** A stream-local cap layered over the shared combined-output cap. */
+private class StreamOutputBudget(
+    private val shared: OutputBudget,
+    limitBytes: Long,
+) : CaptureBudget {
+    private val remaining = AtomicLong(limitBytes)
+    override val hitLimit: AtomicBoolean
+        get() = shared.hitLimit
+
+    override fun take(want: Int): Int {
+        while (true) {
+            val current = remaining.get()
+            if (current <= 0) {
+                hitLimit.set(true)
+                return 0
+            }
+            val streamAllowed = minOf(current, want.toLong()).toInt()
+            if (remaining.compareAndSet(current, current - streamAllowed)) {
+                val allowed = shared.take(streamAllowed)
+                if (allowed < want) hitLimit.set(true)
+                return allowed
+            }
+        }
+    }
+}
+
 /**
  * Capped stream capture sharing one [OutputBudget]: reads until EOF or the
  * budget is spent (flagging it so the watchdog kills the group — a job that
  * streams past its cap never runs on).
  */
 private class BoundedCapture(
-    private val budget: OutputBudget,
+    private val budget: CaptureBudget,
+    private val onLimit: () -> Unit = {},
 ) {
     private val buffer = java.io.ByteArrayOutputStream()
 
@@ -837,7 +880,11 @@ private class BoundedCapture(
             while (n >= 0) {
                 val allow = budget.take(n)
                 if (allow > 0) buffer.write(chunk, 0, allow)
-                if (allow < n) break
+                if (allow < n) {
+                    budget.hitLimit.set(true)
+                    onLimit()
+                    break
+                }
                 n = input.read(chunk)
             }
         } catch (e: Exception) {

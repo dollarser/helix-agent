@@ -171,6 +171,11 @@ fi
 apk update > /out/apk-update.log 2>&1
 apk add --no-cache '"$pin_spec"' > /out/apk-install.log 2>&1
 apk info -v > /out/installed-packages.txt
+# A mirror is only a transport optimization. Restore the pinned image default before
+# archiving so ALPINE_MIRROR cannot change the embedded RootFS bytes or provenance.
+if [ -n "$HELIX_ALPINE_MIRROR" ]; then
+  printf "https://dl-cdn.alpinelinux.org/alpine/v%s/main\nhttps://dl-cdn.alpinelinux.org/alpine/v%s/community\n" "$HELIX_ALPINE_BRANCH" "$HELIX_ALPINE_BRANCH" > /etc/apk/repositories
+fi
 # /etc/{resolv.conf,hostname,hosts} are Docker bind mounts (EBUSY on unlink):
 # truncate them instead of deleting (an offline RootFS needs no DNS/hostname).
 : > /etc/resolv.conf

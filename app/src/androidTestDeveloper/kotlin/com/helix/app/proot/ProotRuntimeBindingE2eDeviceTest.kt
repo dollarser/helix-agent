@@ -90,7 +90,7 @@ class ProotRuntimeBindingE2eDeviceTest {
         val descriptor = availability.descriptor
         assertEquals(ProotRuntimeProtocol.PROTOCOL_VERSION, descriptor.protocolVersion)
         assertEquals("arm64-v8a", descriptor.abi)
-        assertEquals(listOf("handshake", "jobs"), descriptor.capabilities)
+        assertEquals(listOf("handshake", "jobs", "stdio"), descriptor.capabilities)
         assertEquals(EXPECTED_LOCK_SHA256, descriptor.lockSha256)
         val versionName =
             context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0).versionName

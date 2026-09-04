@@ -122,5 +122,27 @@ class ProotJobSpecTest {
             fail("sub-kilobyte output cap accepted")
         } catch (e: IllegalArgumentException) {
         }
+        try {
+            base.copy(maxStderrBytes = 1023L)
+            fail("sub-kilobyte stderr cap accepted")
+        } catch (e: IllegalArgumentException) {
+        }
+        try {
+            base.copy(maxStderrBytes = base.maxOutputBytes + 1)
+            fail("stderr cap larger than the total output cap accepted")
+        } catch (e: IllegalArgumentException) {
+        }
+    }
+
+    @Test
+    fun stdinPathIsStrictlyRelative() {
+        base.copy(stdinRelativePath = "mcp/input.jsonl")
+        for (bad in listOf("", "/input", "../input", "mcp//input", "mcp\\input", "mcp/input name")) {
+            try {
+                base.copy(stdinRelativePath = bad)
+                fail("accepted stdin path: $bad")
+            } catch (e: IllegalArgumentException) {
+            }
+        }
     }
 }

@@ -38,6 +38,10 @@ data class ProotJobSpec(
     val maxOutputBytes: Long,
     /** The hash the main app will hold the Runtime to (input archive manifest). */
     val inputManifestSha256: String,
+    /** Optional regular file in the extracted workspace connected to process stdin. */
+    val stdinRelativePath: String? = null,
+    /** Per-stream stderr cap; the combined [maxOutputBytes] cap still applies. */
+    val maxStderrBytes: Long = maxOutputBytes,
 ) {
     init {
         ProotJobRecordCodec.checkExecutionId(executionId)
@@ -65,6 +69,20 @@ data class ProotJobSpec(
         }
         require(deadlineMs in 1_000L..3_600_000L) { "deadlineMs out of bounds" }
         require(maxOutputBytes in 1_024L..(64L * 1024L * 1024L)) { "maxOutputBytes out of bounds" }
+        require(maxStderrBytes in 1_024L..maxOutputBytes) { "maxStderrBytes out of bounds" }
+        stdinRelativePath?.let { path ->
+            require(path.length in 1..256) { "stdinRelativePath too long" }
+            require(path.none { it == '\\' }) { "stdinRelativePath must use forward slashes" }
+            require(
+                path.split('/').all { segment ->
+                    segment.isNotEmpty() && segment != "." && segment != ".." &&
+                        segment.all { char ->
+                            char in 'a'..'z' || char in 'A'..'Z' || char in '0'..'9' ||
+                                char == '_' || char == '-' || char == '.'
+                        }
+                },
+            ) { "stdinRelativePath must be a strict relative path" }
+        }
         when (command) {
             is ProotJobCommand.Argv -> {
                 require(command.arguments.size in 1..256) { "argv out of bounds" }
@@ -75,7 +93,7 @@ data class ProotJobSpec(
             }
         }
         require(
-            (command as ProotJobCommand).let {
+            command.let {
                 if (it is ProotJobCommand.Argv) {
                     it.arguments.all { a -> a.length in 1..8192 }
                 } else {
@@ -121,7 +139,9 @@ object ProotJobWire {
         parcel.writeString(spec.inputManifestSha256)
         parcel.writeLong(spec.deadlineMs)
         parcel.writeLong(spec.maxOutputBytes)
+        parcel.writeLong(spec.maxStderrBytes)
         parcel.writeString(spec.relativeWorkingDirectory)
+        parcel.writeString(spec.stdinRelativePath)
         parcel.writeInt(spec.environment.size)
         spec.environment.toSortedMap().forEach { (name, value) ->
             parcel.writeString(name)
@@ -163,7 +183,9 @@ object ProotJobWire {
         val inputManifestSha256 = string()
         val deadlineMs = parcel.readLong()
         val maxOutputBytes = parcel.readLong()
+        val maxStderrBytes = parcel.readLong()
         val relativeWorkingDirectory = string()
+        val stdinRelativePath = parcel.readString()
         val envCount = parcel.readInt()
         if (envCount !in 0..64) throw ProotIpcException("job spec env count out of bounds")
         val environment = LinkedHashMap<String, String>()
@@ -201,6 +223,8 @@ object ProotJobWire {
                 deadlineMs,
                 maxOutputBytes,
                 inputManifestSha256,
+                stdinRelativePath,
+                maxStderrBytes,
             )
         // The constructor re-validates every bound; a violation is INVALID_SPEC.
         return spec

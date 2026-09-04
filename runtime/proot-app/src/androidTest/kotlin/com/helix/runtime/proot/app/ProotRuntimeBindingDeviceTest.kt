@@ -115,7 +115,7 @@ class ProotRuntimeBindingDeviceTest {
         assertEquals(RuntimeLockCodec.sha256Hex(lock), descriptor.lockSha256)
         assertEquals("arm64-v8a", descriptor.abi)
         assertEquals(ProotRuntimeProtocol.PROTOCOL_VERSION, descriptor.protocolVersion)
-        assertEquals(listOf("handshake", "jobs"), descriptor.capabilities)
+        assertEquals(listOf("handshake", "jobs", "stdio"), descriptor.capabilities)
         val versionName = targetContext.packageManager.getPackageInfo(targetContext.packageName, 0).versionName
         assertEquals(versionName, descriptor.runtimeVersion)
     }

@@ -190,8 +190,9 @@ fun SettingsScreen(
 @Composable
 @Suppress("FunctionName", "LongMethod")
 private fun ProotRuntimeSection() {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val rebaselineSuccess = stringResource(R.string.settings_proot_rebaseline_success)
+    val rebaselineEmpty = stringResource(R.string.settings_proot_rebaseline_empty)
     var statusText by remember { mutableStateOf("…") }
     // The last user-click verification result (HXA-087 需更新 detection): the gate
     // label is bind-free and cannot see a moved lock; only the explicit
@@ -268,13 +269,9 @@ private fun ProotRuntimeSection() {
                             val existed = ProotToolModule.rebaseline()
                             verifyNote =
                                 if (existed) {
-                                    ProotVerificationNote(
-                                        context.getString(R.string.settings_proot_rebaseline_success),
-                                    )
+                                    ProotVerificationNote(rebaselineSuccess)
                                 } else {
-                                    ProotVerificationNote(
-                                        context.getString(R.string.settings_proot_rebaseline_empty),
-                                    )
+                                    ProotVerificationNote(rebaselineEmpty)
                                 }
                             refresh()
                         }
