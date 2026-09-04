@@ -160,6 +160,24 @@ sdkmanager --list_installed
 
 QuickJS、WebView、PRoot、Accessibility、Root 和 CLI Runtime 不能只在模拟器验收。Root/Accessibility 自动化使用专用测试设备和自建 fixture App。
 
+### 5.2.1 设备占用与并行 worktree
+
+Android 设备是共享的外部状态，不受 Git worktree 隔离。开始 instrumentation 前必须先
+执行 `adb devices -l`，确认目标设备没有其他任务正在安装 APK、运行 instrumentation、修改
+权限/locale/网络转发或重启；无法确认空闲时，选择无人使用的设备或新建独立 AVD，不抢占
+未知所有者的会话。需要长期占用时在任务记录中声明设备/API/ABI/用途，不记录真实序列号。
+
+同一设备上的 consumer/developer、主 App/test APK/Runtime companion 安装默认串行。测试
+Provider authority 必须由 `${applicationId}` 派生或显式保证变体唯一；固定 authority、端口、
+applicationId、系统 locale、持久 grant 和已安装旧 APK 都可能跨 worktree 冲突。出现
+`INSTALL_FAILED_CONFLICTING_PROVIDER`、`ClassNotFoundException`、找不到测试类或行为与当前
+源码不符时，先核对实际安装的主包、test package、version/commit 对应产物和 companion，
+再重装正确的 app/test 配对；不得把被其他分支覆盖的 APK 当作当前实现或平台证据。
+
+设备资源不足或占用冲突属于测试调度问题，不授权降低产品要求、删除断言、跳过安全路径或
+把专项设备门禁改写成 JVM/in-process 替代证据。只有最小、与 Helix 实现无关的真实边界
+复现仍失败，才可以把问题升级为平台阻塞候选。
+
 ### 5.3 创建 Helix AVD
 
 安装与主机架构匹配的 Google APIs 镜像。Apple Silicon 使用 `arm64-v8a`；Linux x86-64 使用 `x86_64`，不能为了复用命令而安装错误 ABI：
@@ -333,6 +351,13 @@ dependencyLocking {
 ```
 
 提交 `gradle.lockfile`/各模块 lock file。升级时禁止无关锁文件大面积漂移。
+
+依赖替换必须放在实际解析该依赖的 producer 模块，并覆盖 lint、unit、Android/R8 等相关
+configuration；只在 `app` 做 substitution 不能修复 extension/library 自己解析到的不兼容
+variant。每次替换后检查 producer 模块的 dependency insight 与 lock diff，并运行会解析该
+variant 的 lint/build。若 Android artifact 要求高于项目基线的 compileSdk，先判断是否存在
+同版本、同 API 契约的 JVM artifact 或可隔离 adapter；普通功能任务不得为通过解析临时升级
+compile/target SDK，也不得在未验证的配置中全局强制版本。
 
 ### 6.3 Repository
 
@@ -586,6 +611,7 @@ git diff --check
 | 缺少 Platform/Build Tools/NDK/CMake | 对照第 4.2 节重新运行 `sdkmanager`，再用 `--list_installed` 验证；不要随意把项目版本改成机器碰巧已有的版本。 |
 | `adb` 显示 `unauthorized`/`offline` | 解锁设备并确认调试指纹，重新插拔或冷启动 AVD；仍失败时先停止测试，不用 `pm grant` 或关闭安全检查规避。 |
 | 有多个设备，测试跑错目标 | 用 `adb devices -l` 确认目标，在当前终端临时设置 `ANDROID_SERIAL` 后再运行 connected test。 |
+| 共享模拟器上安装失败或测试类突然不存在 | 停止继续覆盖安装，确认设备是否被其他任务占用，并核对主包、test APK、companion、applicationId 和 provider authority；无法确认空闲时改用独立 AVD。 |
 | AVD 无法启动或极慢 | 核对镜像 ABI 与主机架构，优先冷启动并检查可用磁盘/虚拟化；不要把 x86_64 结果记录成 arm64 证据。 |
 | 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；当前基线保持 compileSdk 36，不在普通功能任务中升级 SDK。 |
 | Gradle 输出 Kotlin 2.3.20，但 catalog 是 2.3.21 | 前者是 Gradle 自带 Kotlin，后者才是项目 Kotlin plugin；以 catalog 和 resolved dependency 为准。 |

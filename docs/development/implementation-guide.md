@@ -211,6 +211,10 @@ docs/development/status.md、路线中的任务原文，以及与本任务直接
 - 是否为通过测试增加 sleep？
 - 是否把异常 catch 后返回成功？
 - 是否在没有 HXA-122/迁移 ADR 和代码证据时重命名 flavor、交换 applicationId，或声称不同 applicationId 可以原地升级？
+- 单类 instrumentation 是否能从 fresh install/first launch 独立运行，而不是依赖另一个测试留下的会话、授权、Provider、文件或全局 singleton？
+- 测试单独通过、全量或换顺序失败时，是否先检查共享存储、打开会话、后台 Job、系统服务和测试夹具身份，而不是放宽断言、增加无界 timeout 或标记 flaky？
+- 是否等待并断言真正的最终副作用（持久行、wire call、文件、通知、terminal state），而不是只观察它之前的进程内标志或 Compose 节点？`fetchSemanticsNodes().isEmpty()` 等布尔表达式必须进入 assertion，不能裸调用后静默通过。
+- 平台阻塞结论是否来自匹配 worktree、正确 APK/test APK/companion 身份和真实跨进程边界？in-process fake、构建成功、进程存活或一次 timeout 都不足以证明平台阻塞。
 
 ## 9. 测试反馈策略
 
@@ -254,7 +258,27 @@ Risks: <remaining manual checks>
 ADR: <ADR-NNNN + status，或 N/A + 具体原因>
 ```
 
-### 10.1 ADR 决策边界
+### 10.1 并行 worktree 与合并收口
+
+worktree 只隔离源码和 Git 索引，不隔离 Android 设备、已安装 package/provider authority、
+端口、Gradle daemon/缓存或公共契约。允许并行开发时仍须把以下步骤视为主线交付的一部分：
+
+1. 从当前 clean base 创建 worktree；每个 lane 内保持 HXA 串行，公共 contract、Room、
+   `ChatService`、`AppContainer`、状态文档和集成测试在合并点串行处理。
+2. 合并前逐分支跑最窄门禁；合并后在 `main` 重新跑受影响模块、consumer/developer、lint、
+   lockfile、i18n、文档与设备矩阵。分支内绿色不能替代合并后的集成证据。
+3. 检查新增 sealed subtype/origin/error source 是否进入既有穷举映射，新增稳定协议/审计字段
+   是否被错误显示到 UI，新增依赖替换是否应用在真正解析该依赖的 producer 模块和配置。
+4. 设备测试先完成占用仲裁并核对实际安装的主包、test APK、companion 和 authority；同一设备
+   上的 flavor 测试默认串行，除非已证明 package/authority/端口完全不冲突。
+5. 环境或合并失败不得通过删除测试、降低拒绝条件、跳过安全门禁、升级 compile/target SDK、
+   改错误为成功或扩大 timeout 到无界来换绿。先做隔离重跑和主线基线复现，再判断实现缺陷、
+   测试缺陷、资源争用或平台阻塞。
+6. 自动文本修改后必须断言替换确实命中并重新搜索；格式化工具运行后重新读取目标。shell 在
+   `set -euo pipefail` 下对“预期无匹配”的 grep 显式处理，所有包含反引号、`$()`、URI 或
+   glob 的搜索参数都要安全引用。
+
+### 10.2 ADR 决策边界
 
 ADR 记录“为什么决定”，不重复源码和规范，也不证明功能已经实现。小模型执行每个 HXA 时：
 
