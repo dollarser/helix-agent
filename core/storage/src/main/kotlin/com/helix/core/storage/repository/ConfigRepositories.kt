@@ -1,9 +1,11 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.McpServerId
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderHeaders
 import com.helix.core.model.ProviderId
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ProviderResidence
 import com.helix.core.model.SecretAlias
 import com.helix.core.storage.dao.CapabilityGrantDao
 import com.helix.core.storage.dao.ExecutionTargetDao
@@ -218,6 +220,12 @@ class CapabilityGrantRepository(
 class McpServerRepository(
     private val dao: McpServerDao,
 ) {
+    fun registerHttp(spec: McpHttpServerSpec): McpServerEntity {
+        val entity = spec.toEntity()
+        dao.insert(entity)
+        return entity
+    }
+
     /**
      * [authAlias] is an alias only; credentials never enter the schema (doc 9.1). Servers are
      * registered disabled by default (roadmap HXA-071: disabled-by-default MCP config) and can
@@ -262,6 +270,38 @@ class McpServerRepository(
 class McpCapabilityRepository(
     private val dao: McpCapabilityDao,
 ) {
+    /**
+     * Atomically replaces one server's handshake snapshot. Exact unchanged tools retain the
+     * user's enabled bit; a protocol/hash change and every new entry start disabled.
+     */
+    fun replaceSnapshot(
+        serverId: String,
+        capabilities: List<McpCapabilitySpec>,
+    ): List<McpCapabilityEntity> {
+        McpServerId(serverId)
+        require(capabilities.size <= MAX_MCP_CAPABILITIES) {
+            "MCP capability snapshot exceeds $MAX_MCP_CAPABILITIES entries"
+        }
+        require(capabilities.map { it.kind to it.name }.toSet().size == capabilities.size) {
+            "MCP capability snapshot contains duplicate kind/name entries"
+        }
+        val previous = dao.listByServer(serverId).associateBy { it.kind to it.name }
+        val replacements =
+            capabilities.map { spec ->
+                val old = previous[spec.kind.storageValue to spec.name]
+                val unchanged =
+                    old != null &&
+                        old.protocolVersion == spec.protocolVersion &&
+                        old.schemaHash == spec.contentHash
+                spec.toEntity(
+                    serverId = serverId,
+                    enabled = unchanged && old.enabled && spec.kind == McpCapabilityKind.TOOL,
+                )
+            }
+        dao.replaceForServer(serverId, replacements)
+        return dao.listByServer(serverId)
+    }
+
     fun register(
         serverId: String,
         protocolVersion: String,
@@ -294,6 +334,79 @@ class McpCapabilityRepository(
         dao.setEnabled(rowId, enabled)
     }
 }
+
+data class McpHttpServerSpec(
+    val id: String,
+    val endpoint: String,
+    val authAlias: String?,
+) {
+    internal fun toEntity(): McpServerEntity {
+        McpServerId(id)
+        val normalized = NormalizedEndpoint.parse(endpoint)
+        val residence = normalized.residence()
+        require(
+            normalized.scheme == "https" ||
+                residence == ProviderResidence.ON_DEVICE_LOOPBACK ||
+                residence == ProviderResidence.USER_AUTHORIZED_LAN,
+        ) {
+            "cleartext MCP is limited to loopback or LAN endpoints"
+        }
+        authAlias?.let(::SecretAlias)
+        return McpServerEntity(
+            id = id,
+            transport = MCP_STREAMABLE_HTTP,
+            endpointRef = normalized.full,
+            commandRef = null,
+            authAlias = authAlias,
+            enabled = false,
+            trustState = MCP_UNTRUSTED,
+        )
+    }
+}
+
+data class McpCapabilitySpec(
+    val protocolVersion: String,
+    val kind: McpCapabilityKind,
+    val name: String,
+    val contentHash: String,
+) {
+    init {
+        require(protocolVersion.isNotBlank() && protocolVersion.length <= 64) {
+            "protocolVersion must be 1..64 non-blank characters"
+        }
+        require(name.isNotBlank() && name.length <= 4_096) { "name must be 1..4096 non-blank characters" }
+        require(contentHash.length == 64 && contentHash.all { it in '0'..'9' || it in 'a'..'f' }) {
+            "contentHash must be lowercase sha256 hex"
+        }
+    }
+
+    internal fun toEntity(
+        serverId: String,
+        enabled: Boolean,
+    ): McpCapabilityEntity =
+        McpCapabilityEntity(
+            rowId = 0,
+            serverId = serverId,
+            protocolVersion = protocolVersion,
+            kind = kind.storageValue,
+            name = name,
+            schemaHash = contentHash,
+            enabled = enabled,
+        )
+}
+
+enum class McpCapabilityKind(
+    internal val storageValue: String,
+) {
+    CAPABILITY("capability"),
+    TOOL("tool"),
+    RESOURCE("resource"),
+    PROMPT("prompt"),
+}
+
+private const val MCP_STREAMABLE_HTTP = "streamable-http"
+private const val MCP_UNTRUSTED = "UNTRUSTED"
+private const val MAX_MCP_CAPABILITIES = 3_072
 
 class SkillRepository(
     private val dao: SkillDao,

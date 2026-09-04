@@ -133,9 +133,9 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-074 | `./gradlew :extensions:skills:test` | 无 |
 | HXA-075 | `./gradlew :extensions:skills:test :tools:framework:test` | 无 |
 | HXA-076 | `./gradlew :app:testConsumerDebugUnitTest :extensions:mcp:test :extensions:skills:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-077 | 开始 Spike 时先创建/确认实际 module task，再按 `./gradlew tasks` 更新本行；本需求阶段不伪造命令 | API 29/36、R8、JSON-RPC/HTTP+JSON、SSE、取消、重连、大消息、序列化、APK/方法数与许可证报告 |
-| HXA-078 | HXA-077 决定 module/task 后更新；不得在依赖选择前猜命令 | Agent Card/版本/接口/Skill snapshot fixture；恶意/超大 Card、认证错误、hash 变化 |
-| HXA-079 | HXA-077 决定 module/task 后更新；不得在依赖选择前猜命令 | API 29/36 连接本地 A2A fixture：stream/cancel/restart/GetTask/Artifact/不明确送达/远端反向调用拒绝 |
+| HXA-077 | `./gradlew :spikes:a2a-sdk:testDebugUnitTest :spikes:a2a-minimal:testDebugUnitTest` + `./scripts/check-a2a-sdk-android-spike.sh` + `./scripts/check-a2a-minimal-android-spike.sh` | standalone R8/minApi 29/JSON-RPC/HTTP+JSON/SSE/取消/重连/1 MiB/record fixture 已执行；API 29/36 运行、真实 APK 增量与 SBOM/notice 按用户要求暂缓，发布前必补 |
+| HXA-078 | `./gradlew :extensions:a2a:test` | Agent Card/版本/接口/Skill snapshot fixture；恶意/超大 Card、认证错误、hash 变化；API 29/36 运行按用户要求暂缓 |
+| HXA-079 | `./gradlew :extensions:a2a:test :tools:framework:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | 本地 A2A fixture 覆盖 stream/cancel/restart/GetTask/Artifact/不明确送达/远端反向调用拒绝；API 29/36 运行按用户要求暂缓 |
 
 ### M8：PRoot Runtime
 

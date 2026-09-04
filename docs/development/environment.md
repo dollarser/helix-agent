@@ -69,7 +69,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
-- A2A Java SDK 仅是 HXA-077 候选，不在当前依赖基线中；accepted ADR-0016 只固定 Client-only 边界。候选可在 Spike 隔离范围中验证，但在 Android/R8/体积/依赖/许可证结论形成前不得进入 production version catalog 基线。若官方 SDK 失败，优先验证复用现有 OkHttp + kotlinx.serialization 实现 facade 后的最小 v1.0 Client。
+- HXA-077 / accepted ADR-0018 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。API 29/36 运行与真实 App APK/SBOM 验收仍待补齐。
 - 不引入通用 shell/process 库；PRoot Runner 自己封装明确的 argv 和 lifecycle。
 - 不使用已 deprecated 的 `androidx.security:security-crypto` 作为新设计核心；使用 Android Keystore + 明确的加密存储封装。
 - Agent Skills 自行实现 Kotlin parser/loader；官方 `skills-ref` 只作规范 fixture，不作 Android production 依赖。

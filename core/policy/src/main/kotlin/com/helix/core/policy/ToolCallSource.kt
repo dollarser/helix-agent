@@ -1,5 +1,6 @@
 package com.helix.core.policy
 
+import com.helix.core.model.A2aAgentId
 import com.helix.core.model.McpServerId
 import com.helix.core.model.SkillId
 
@@ -21,6 +22,13 @@ sealed interface ToolCallSource {
     data class Mcp(
         val serverId: McpServerId,
         val toolSchemaHash: String,
+    ) : ToolCallSource
+
+    /** An A2A Skill bound to the exact Agent Card and Skill content hashes. */
+    data class A2a(
+        val agentId: A2aAgentId,
+        val cardHash: String,
+        val skillHash: String,
     ) : ToolCallSource
 
     /** A Skill-backed tool; the snapshot hash binds the exact reviewed SKILL.md content. */

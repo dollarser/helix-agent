@@ -52,6 +52,56 @@ class ToolRegistry(
             descriptor
         }
 
+    /** Atomically replaces every dynamic descriptor owned by one MCP server snapshot. */
+    fun replaceMcpServer(
+        serverId: String,
+        descriptors: List<ToolDescriptor>,
+    ): List<ToolDescriptor> =
+        synchronized(lock) {
+            require(descriptors.all { (it.origin as? ToolOrigin.McpOrigin)?.serverId == serverId }) {
+                "replacement descriptors must all belong to MCP server $serverId"
+            }
+            requireNoDuplicates(descriptors)
+            val retained =
+                byNameVersion.filterValues { descriptor ->
+                    (descriptor.origin as? ToolOrigin.McpOrigin)?.serverId != serverId
+                }
+            descriptors.forEach { descriptor ->
+                require(retained[descriptor.name to descriptor.version] == null) {
+                    "MCP replacement collides with existing tool ${descriptor.name.value} v${descriptor.version.value}"
+                }
+            }
+            byNameVersion.clear()
+            byNameVersion.putAll(retained)
+            descriptors.forEach { descriptor -> byNameVersion[descriptor.name to descriptor.version] = descriptor }
+            descriptors.toList()
+        }
+
+    /** Atomically replaces every dynamic descriptor owned by one A2A Agent snapshot. */
+    fun replaceA2aAgent(
+        agentId: String,
+        descriptors: List<ToolDescriptor>,
+    ): List<ToolDescriptor> =
+        synchronized(lock) {
+            require(descriptors.all { (it.origin as? ToolOrigin.A2aOrigin)?.agentId == agentId }) {
+                "replacement descriptors must all belong to A2A Agent $agentId"
+            }
+            requireNoDuplicates(descriptors)
+            val retained =
+                byNameVersion.filterValues { descriptor ->
+                    (descriptor.origin as? ToolOrigin.A2aOrigin)?.agentId != agentId
+                }
+            descriptors.forEach { descriptor ->
+                require(retained[descriptor.name to descriptor.version] == null) {
+                    "A2A replacement collides with existing tool ${descriptor.name.value} v${descriptor.version.value}"
+                }
+            }
+            byNameVersion.clear()
+            byNameVersion.putAll(retained)
+            descriptors.forEach { descriptor -> byNameVersion[descriptor.name to descriptor.version] = descriptor }
+            descriptors.toList()
+        }
+
     /** The exact (name, version) contract; fails when unknown. */
     fun resolve(
         name: ToolName,

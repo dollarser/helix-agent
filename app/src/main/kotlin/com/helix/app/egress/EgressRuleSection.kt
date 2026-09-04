@@ -249,6 +249,7 @@ private fun RuleRow(
         when (target) {
             is EgressTarget.Provider -> "provider:${target.id.value}"
             is EgressTarget.Mcp -> "mcp:${target.id.value}"
+            is EgressTarget.A2a -> "a2a:${target.id.value}"
         }
     val windowEnd =
         rule.expiresAt

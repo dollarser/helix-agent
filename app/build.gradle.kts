@@ -93,6 +93,15 @@ dependencies {
     // production tool table; their store lives in core:workspace (atomic publish + quota).
     implementation(project(":tools:files"))
     implementation(project(":core:workspace"))
+    // HXA-071: client-only MCP configuration/handshake and the storage bridge. SDK/Ktor
+    // types remain behind :extensions:mcp's Helix-owned facade.
+    implementation(project(":extensions:mcp"))
+    // HXA-078: client-only A2A configuration and Agent Card discovery/snapshot. The transport
+    // remains behind :extensions:a2a's Helix-owned facade; dynamic tools arrive in HXA-079.
+    implementation(project(":extensions:a2a"))
+    // HXA-074..076: Agent Skills validation, immutable imports/snapshots, built-in catalog,
+    // and the skills.* tools. Skill instructions never bypass the normal tool pipeline.
+    implementation(project(":extensions:skills"))
     // HXA-053: the isolated QuickJS backend (the non-exported one-shot Service + the
     // main-process JsExecutionClient, ADR-0015) hosts the `code.javascript.run` tool. Shared
     // (implementation) so BOTH consumer and developer register it: ADR-0013 Standard is the

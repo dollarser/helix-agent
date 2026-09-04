@@ -72,6 +72,7 @@
     <string name="approval_category_forbidden">Forbidden content (cannot be sent)</string>
     <string name="approval_category_local">Local device data</string>
     <string name="approval_category_mcp">MCP data (untrusted by default)</string>
+    <string name="approval_category_a2a">A2A data (untrusted by default)</string>
     <string name="approval_category_network">Network data</string>
     <string name="approval_category_normal">Regular content</string>
     <string name="approval_category_root">Root data</string>

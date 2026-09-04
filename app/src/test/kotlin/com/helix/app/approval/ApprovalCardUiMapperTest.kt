@@ -529,7 +529,12 @@ class ApprovalCardUiMapperTest {
                 requiredCapabilities = emptySet(),
                 idempotency = Idempotency.IDEMPOTENT,
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-                origin = ToolOrigin.McpOrigin(serverId = "srv-7", protocolVersion = 1),
+                origin =
+                    ToolOrigin.McpOrigin(
+                        serverId = "srv-7",
+                        protocolVersion = "2025-03-26",
+                        sourceSchemaHash = "a".repeat(64),
+                    ),
             )
         val binding =
             ApprovalBinding(

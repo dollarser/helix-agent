@@ -65,9 +65,11 @@ class ContractHashGateTest {
     fun changingOnlyAnMcpOriginFieldKeepsSchemaHashButChangesContractHash() {
         // Built-in names are always BuiltInOrigin (constructor-enforced), so origin is varied
         // through an MCP tool: same name/version/schema, different bound server/protocol.
-        val base = mcpDescriptor(serverId = "srv", protocolVersion = 1)
-        val newerProtocol = base.copy(origin = ToolOrigin.McpOrigin(serverId = "srv", protocolVersion = 2))
-        val otherServer = base.copy(origin = ToolOrigin.McpOrigin(serverId = "srv-2", protocolVersion = 1))
+        val base = mcpDescriptor(serverId = "srv", protocolVersion = "2025-03-26")
+        val newerProtocol =
+            base.copy(origin = ToolOrigin.McpOrigin("srv", "2025-06-18", "a".repeat(64)))
+        val otherServer =
+            base.copy(origin = ToolOrigin.McpOrigin("srv-2", "2025-03-26", "a".repeat(64)))
         listOf("protocolVersion" to newerProtocol, "serverId" to otherServer).forEach { (label, variant) ->
             assertEquals(
                 "an MCP $label change must not alter the schema contract",
@@ -87,13 +89,14 @@ class ContractHashGateTest {
         // serverProvidedHints are untrusted, display-only: folding them into the approval
         // contract would let a server revoke an approval by editing a hint. The gate is the
         // OPPOSITE — hints must not change the contract hash (nor the schema hash).
-        val base = mcpDescriptor(serverId = "srv", protocolVersion = 1)
+        val base = mcpDescriptor(serverId = "srv", protocolVersion = "2025-03-26")
         val hinted =
             base.copy(
                 origin =
                     ToolOrigin.McpOrigin(
                         serverId = "srv",
-                        protocolVersion = 1,
+                        protocolVersion = "2025-03-26",
+                        sourceSchemaHash = "a".repeat(64),
                         serverProvidedHints =
                             mapOf("readOnlyHint" to true),
                     ),
@@ -206,7 +209,7 @@ class ContractHashGateTest {
 
     private fun mcpDescriptor(
         serverId: String,
-        protocolVersion: Int,
+        protocolVersion: String,
     ): ToolDescriptor =
         ToolDescriptor(
             name = ToolName("mcp.$serverId.tool"),
@@ -221,7 +224,12 @@ class ContractHashGateTest {
             requiredCapabilities = emptySet(),
             idempotency = Idempotency.NON_IDEMPOTENT,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
-            origin = ToolOrigin.McpOrigin(serverId = serverId, protocolVersion = protocolVersion),
+            origin =
+                ToolOrigin.McpOrigin(
+                    serverId = serverId,
+                    protocolVersion = protocolVersion,
+                    sourceSchemaHash = "a".repeat(64),
+                ),
         )
 
     private fun bindingFor(d: ToolDescriptor): ApprovalBinding =

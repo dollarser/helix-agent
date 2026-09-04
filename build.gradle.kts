@@ -91,6 +91,9 @@ val androidLibraries =
         ":runtime:quickjs" to "com.helix.runtime.quickjs",
         ":runtime:proot-client" to "com.helix.runtime.proot.client",
         ":runtime:cli-client" to "com.helix.runtime.cli.client",
+        ":extensions:a2a" to "com.helix.extensions.a2a",
+        ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
+        ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
         ":tools:android" to "com.helix.tools.android",
         ":tools:automation" to "com.helix.tools.automation",
         ":tools:browser" to "com.helix.tools.browser",
@@ -102,6 +105,14 @@ val ziplineDependency = libs.zipline
 val kotlinxSerializationJsonDependency = libs.kotlinx.serialization.json
 val coroutinesCoreDependency = libs.kotlinx.coroutines.core
 val okhttpDependency = libs.okhttp.wire
+val okhttpSseDependency = libs.okhttp.sse
+val mcpClientDependency = libs.mcp.client
+val ktorClientOkhttpDependency = libs.ktor.client.okhttp
+val snakeYamlEngineDependency = libs.snakeyaml.engine
+val commonsCompressDependency = libs.commons.compress
+val a2aClientDependency = libs.a2a.client
+val a2aClientRestDependency = libs.a2a.client.rest
+val a2aHttpAndroidDependency = libs.a2a.http.android
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
@@ -144,7 +155,8 @@ val projectDependencies =
         ":provider:openai-chat" to listOf(":provider:api", ":core:model"),
         ":provider:anthropic" to listOf(":provider:api", ":core:model"),
         ":provider:catalog" to listOf(":provider:api", ":core:model"),
-        ":extensions:mcp" to listOf(":core:model", ":tools:framework"),
+        ":extensions:mcp" to listOf(":core:model", ":core:policy", ":tools:framework"),
+        ":extensions:a2a" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":extensions:skills" to listOf(":core:model", ":tools:framework"),
         // HXA-062: :feature:browser implements the browser tools' port (BrowserToolBridge,
         // declared in :tools:browser) and saves browser.screenshot into the shared Workspace
@@ -358,6 +370,25 @@ subprojects {
                     }
                 }
             }
+
+            // HXA-077 only: isolate the official A2A Java SDK evaluation from production.
+            // HXA-078 may create :extensions:a2a only after this spike records a viable choice.
+            if (path == ":spikes:a2a-sdk") {
+                dependencies.add("implementation", a2aClientDependency)
+                dependencies.add("implementation", a2aClientRestDependency.get())
+                dependencies.add("implementation", a2aHttpAndroidDependency.get())
+            }
+            if (path == ":spikes:a2a-minimal") {
+                dependencies.add("implementation", okhttpDependency.get())
+                dependencies.add("implementation", okhttpSseDependency.get())
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+            }
+            if (path == ":extensions:a2a") {
+                dependencies.add("implementation", okhttpDependency.get())
+                dependencies.add("implementation", okhttpSseDependency.get())
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+                dependencies.add("implementation", coroutinesCoreDependency.get())
+            }
         }
 
         in jvmLibraries -> {
@@ -416,6 +447,31 @@ subprojects {
             if (path == ":provider:api") {
                 dependencies.add("api", coroutinesCoreDependency.get())
                 dependencies.add("implementation", okhttpDependency.get())
+            }
+
+            // HXA-070: keep the official MCP Kotlin SDK and Ktor/OkHttp transport entirely
+            // behind :extensions:mcp's Helix-owned facade. The module is a JVM library so the
+            // local Streamable HTTP fixture can run without an Android device; Android API/R8
+            // evidence is a separate, still-required Spike gate.
+            if (path == ":extensions:mcp") {
+                // kotlin-sdk-core uses only io.ktor.websocket.* here, already supplied by
+                // ktor-client-core -> ktor-websockets. Its server-websockets dependency also
+                // drags server-core, kotlin-reflect, and Typesafe Config into an Android
+                // client; exclude that server-only path and keep this covered by the
+                // Streamable HTTP/reconnect tests plus the minApi 29 R8 spike.
+                configurations.configureEach {
+                    exclude(group = "io.ktor", module = "ktor-server-websockets")
+                }
+                dependencies.add("implementation", mcpClientDependency.get())
+                dependencies.add("implementation", ktorClientOkhttpDependency.get())
+                dependencies.add("implementation", coroutinesCoreDependency.get())
+                // Ktor 3.5.2 requests OkHttp 5.3.2; Helix already pins/verifies 5.5.0.
+                // Resolve the MCP lane to that single project-wide wire version.
+                dependencies.add("implementation", okhttpDependency.get())
+            }
+            if (path == ":extensions:skills") {
+                dependencies.add("implementation", snakeYamlEngineDependency.get())
+                dependencies.add("implementation", commonsCompressDependency.get())
             }
         }
     }

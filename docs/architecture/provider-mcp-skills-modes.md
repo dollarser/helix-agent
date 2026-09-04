@@ -254,9 +254,9 @@ mcp.<serverSlug>.<toolName>
 
 #### 5.5.1 协议和 Android 落位
 
-A2A 与 MCP 互补：MCP 连接 Agent 与工具/数据，A2A 连接彼此不共享内部状态的独立 Agent。Helix 首版只实现 A2A v1.0 Client；不托管 Server，也不把远端 Agent 包装成 `ToolExecutor`/`ExecutionTarget`。
+A2A 与 MCP 互补：MCP 连接 Agent 与工具/数据，A2A 连接彼此不共享内部状态的独立 Agent。Helix 首版只实现 A2A v1.0 Client；不托管 Server，也不把远端 Agent 当作 Helix `ExecutionTarget` 或拥有本机权限的执行器。`a2a.*` 的本地 `ToolExecutor` 只是一层普通网络 ToolCall 适配器，仍完整经过 Dispatcher/Policy/Approval/Audit。
 
-正式接入前由 HXA-077 完成 Android Spike。优先评估官方 Java SDK 的 client、JSON-RPC/HTTP+JSON transport 和 Android HTTP adapter；若 API 29、R8、Java record/serialization、SSE 或依赖体积不合格，则在稳定 `A2aClientFacade` 后使用 OkHttp + kotlinx.serialization 实现所需的最小 v1.0 Client。SDK 类型、protobuf 类型和 transport DTO 均不得泄漏到 `core:*` 或 `tools:framework`。
+HXA-077 Android Spike 已由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md) 选定稳定 `A2aClientFacade` 后的 OkHttp + kotlinx.serialization 最小 v1.0 Client；官方 Java SDK 1.3.1.Final 的 JVM record/Client 构造通过，但真实 Client 路径在严格 Android R8 下引用 `java.net.http` 且带入无关 gRPC/protobuf/CDI 图，因此只保留为 Spike 证据。SDK 类型、protobuf 类型和 transport DTO 均不得泄漏到 `core:*` 或 `tools:framework`。API 29/36 运行和真实 App APK/SBOM 仍是发布前门禁，不能由 standalone R8 代替。
 
 首版能力边界：
 
@@ -275,17 +275,17 @@ a2a.<agentSlug>.<skillSlug>
 
 工具参数只包含用户任务、选择的本地 Artifact/context refs、期望输出模式和有界执行选项；Agent Card description、Skill description 和远端消息全部标记 `UNTRUSTED_A2A_CONTENT`。Agent Card、Skill、endpoint、binding 或协议版本变化会产生新 contract hash，并撤销旧工具注册、长期规则和审批。
 
-本地 `toolCallId` 必须与远端 `taskId/contextId`、Agent/Skill snapshot、input hash 和最后事件序号持久绑定。断线、取消、进程死亡或 App 重启后，只能 GetTask/SubscribeToTask 对账同一个远端 task；SendMessage 是否到达不明确时进入 `NEEDS_REVIEW`，禁止用新 task 重发。远端取消是 best effort，服务端拒绝取消或状态未知必须如实展示。
+本地 `toolCallId` 必须与远端 `taskId/contextId`、Agent/Skill/interface snapshot、input hash、最后事件序号和不透明 SSE event ID 持久绑定。断线、取消、进程死亡或 App 重启后，只能 GetTask/SubscribeToTask（带已保存的 `Last-Event-ID`）对账同一个远端 task；SendMessage 是否到达不明确时进入 `NEEDS_REVIEW`，禁止用新 task 重发。远端取消是 best effort，服务端拒绝取消或状态未知必须如实展示。
 
 #### 5.5.3 数据、Artifact 与授权边界
 
-- 首版允许 text、结构化 data，以及由用户选择且 hash 复核通过的 Workspace Artifact 副本；远端 file/URI 先按下载大小、MIME、重定向与 hash 门禁导入 app-private Artifact，不能把任意 URL 当作已验证文件。
+- 首版允许 text、结构化 data，以及由用户选择且 hash 复核通过的 Workspace Artifact 副本；内联 raw Artifact 在有界 base64 解码后由 Workspace 原子写入并重新计算 size/SHA-256。远端 file/URI 在独立的下载大小、MIME、重定向与 hash 门禁接入前一律拒绝，不能把任意 URL 当作已验证文件。
 - 每次请求沿用网络 ToolCall 的 origin、数据类别、scope、预算、摘要和审计语义。可复用规则必须精确绑定 A2A agent ID、规范 origin、Agent Card/Skill contract hash、数据类别、scope 和期限。
 - A2A Agent 不继承 Helix 的 pending approval、Approval Proof、Android Capability、Workspace scope、Secret、UI token、Root/Automation session 或本机工具表。
 - 远端输出只能作为不可信 ToolResult/Artifact 回到父 Turn；若它建议写文件、操作 UI 或调用本机工具，Helix 必须创建新的本地 ToolCall，经同一 Dispatcher/Policy/Approval/Verification/Audit 管线处理。
 - A2A Agent 的 `completed` 只证明远端协议 Task 已完成，不证明本机目标或远端副作用真实完成；验收条件仍需要 Helix 可验证证据。
 
-本节是 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md) 的目标边界；该决定只接受 Client-only 产品、协议和信任边界。HXA-077 的 Android/SDK 证据与具体实现选型完成前，不得声称已选定 SDK、已实现或符合 A2A v1.0，也不得启动 HXA-078/079。
+本节是 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md) 的目标边界；具体 Client 底座由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md) 固定。HXA-078/079 只能实现该最小 Client 边界；在 API 29/36 运行和完整互操作门禁补齐前，不得声称 M7 已设备验收或可发布。
 
 #### 5.5.4 为什么 M7 先做 Client-only
 

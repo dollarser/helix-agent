@@ -189,6 +189,17 @@ value class McpServerId(
 }
 
 @JvmInline
+value class A2aAgentId(
+    val value: String,
+) {
+    init {
+        Identifier.requireValid("a2aAgentId", value)
+    }
+
+    override fun toString(): String = value
+}
+
+@JvmInline
 value class SkillId(
     val value: String,
 ) {

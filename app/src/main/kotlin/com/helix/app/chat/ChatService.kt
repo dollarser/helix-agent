@@ -2007,7 +2007,12 @@ class ChatService(
                 } else {
                     val settlement = batch.settlements[slot++]
                     val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-                    val unknown = thrown != null && thrown !is ApprovalCancelledException
+                    val unknown =
+                        (thrown != null && thrown !is ApprovalCancelledException) ||
+                            (
+                                (settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
+                                    as? ToolDispatchOutcome.ExecutionFailed
+                            )?.requiresReview == true
                     val outcome =
                         when (settlement) {
                             is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
@@ -2216,8 +2221,42 @@ class ChatService(
         descriptor: ToolDescriptor?,
         args: JsonObject,
         profile: SafetyProfile,
-    ): ToolDispatchRequest =
-        ToolDispatchRequest(
+    ): ToolDispatchRequest {
+        val mcpFacts =
+            descriptor?.let {
+                toolPipeline.mcpDispatchFacts(
+                    sessionId = turn.sessionId,
+                    toolCallId = toolCallId,
+                    descriptor = it,
+                    arguments = args,
+                    sensitivity = com.helix.core.policy.DataSensitivity.NORMAL,
+                )
+            }
+        val a2aFacts =
+            descriptor?.let {
+                toolPipeline.a2aDispatchFacts(
+                    sessionId = turn.sessionId,
+                    descriptor = it,
+                    arguments = args,
+                    sensitivity = com.helix.core.policy.DataSensitivity.NORMAL,
+                )
+            }
+        val egressFacts =
+            mcpFacts?.let {
+                Triple(
+                    it.egress,
+                    it.originSeenInSession,
+                    it.sourceBindingChanged || (it.checkpointRequired && it.originSeenInSession),
+                )
+            }
+                ?: a2aFacts?.let {
+                    Triple(
+                        it.egress,
+                        it.originSeenInSession,
+                        it.sourceBindingChanged || (it.checkpointRequired && it.originSeenInSession),
+                    )
+                }
+        return ToolDispatchRequest(
             toolCallId = toolCallId,
             turnId = turn.id,
             sessionId = turn.sessionId,
@@ -2230,14 +2269,15 @@ class ChatService(
             dataOrigin = DataOrigin.WORKSPACE,
             scope = null,
             uiToken = "chat:${turn.id}",
-            egress = null,
-            originSeenInSession = true,
+            egress = egressFacts?.first,
+            originSeenInSession = egressFacts?.second ?: true,
             lanScopes = emptySet(),
             overwritesExisting = false,
             codeOrCommandChanged = false,
-            sourceBindingChanged = false,
+            sourceBindingChanged = egressFacts?.third ?: false,
             cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal() },
         )
+    }
 
     /**
      * The durable settlement for a slot the dispatcher threw away instead of returning

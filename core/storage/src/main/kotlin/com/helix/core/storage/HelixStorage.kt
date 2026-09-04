@@ -1,5 +1,5 @@
-// [Migration].addMigrations(vararg) is Room's only migration-registration API: the
-// spread of the 2-element const array is the idiom, not a hot path.
+// [Migration].addMigrations(vararg) is Room's only migration-registration API: spreading the
+// fixed migration array is the idiom, not a hot path.
 @file:Suppress("SpreadOperator")
 
 package com.helix.core.storage
@@ -9,6 +9,9 @@ import androidx.room.Room
 import androidx.room.migration.Migration
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.repository.A2aAgentRepository
+import com.helix.core.storage.repository.A2aCapabilityRepository
+import com.helix.core.storage.repository.A2aTaskRepository
 import com.helix.core.storage.repository.ApprovalRepository
 import com.helix.core.storage.repository.ArtifactRepository
 import com.helix.core.storage.repository.AuditEventRepository
@@ -95,6 +98,12 @@ class HelixStorage internal constructor(
         HighSensitivityRuleRepository(database.highSensitivityRuleDao())
     }
 
+    val a2aAgents: A2aAgentRepository by lazy { A2aAgentRepository(database.a2aAgentDao()) }
+    val a2aCapabilities: A2aCapabilityRepository by lazy {
+        A2aCapabilityRepository(database.a2aAgentDao(), database.a2aCapabilityDao())
+    }
+    val a2aTasks: A2aTaskRepository by lazy { A2aTaskRepository(database.a2aTaskDao()) }
+
     fun withTransaction(block: () -> Unit) {
         database.runInTransaction(Runnable { block() })
     }
@@ -107,7 +116,9 @@ class HelixStorage internal constructor(
     companion object {
         /**
          * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts,
-         * v3→v4 message attachments, v4→v5 high-sensitivity egress rules). Both production
+         * v3→v4 message attachments, v4→v5 high-sensitivity egress rules, v5→v6 A2A snapshots,
+         * v6→v7 A2A task correlation).
+         * Both production
          * entries register it: Room does NOT auto-discover migrations, so a missing registration
          * is a startup crash on any device holding an older schema (`A migration from N to M is
          * required`) — fresh installs never exercise it, which is exactly why this must be
@@ -119,6 +130,8 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_2_3,
                 HelixDatabase.MIGRATION_3_4,
                 HelixDatabase.MIGRATION_4_5,
+                HelixDatabase.MIGRATION_5_6,
+                HelixDatabase.MIGRATION_6_7,
             )
 
         fun create(context: Context): HelixStorage {

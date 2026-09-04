@@ -4,6 +4,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.helix.core.storage.dao.A2aAgentDao
+import com.helix.core.storage.dao.A2aCapabilityDao
+import com.helix.core.storage.dao.A2aTaskDao
 import com.helix.core.storage.dao.ApprovalDao
 import com.helix.core.storage.dao.ArtifactDao
 import com.helix.core.storage.dao.AuditEventDao
@@ -28,6 +31,9 @@ import com.helix.core.storage.dao.SkillSnapshotDao
 import com.helix.core.storage.dao.ToolCallDao
 import com.helix.core.storage.dao.ToolResultDao
 import com.helix.core.storage.dao.TurnDao
+import com.helix.core.storage.entity.A2aAgentEntity
+import com.helix.core.storage.entity.A2aCapabilityEntity
+import com.helix.core.storage.entity.A2aTaskEntity
 import com.helix.core.storage.entity.ApprovalEntity
 import com.helix.core.storage.entity.ArtifactEntity
 import com.helix.core.storage.entity.AuditEventEntity
@@ -58,7 +64,8 @@ import com.helix.core.storage.entity.TurnEntity
  * Helix local database (architecture doc 9). Schema version 5 (HXA-068) holds all base tables
  * plus the plan/goal tables of doc section 9.1 (v1, HXA-014), the structured-question receipt
  * table (v3, doc 11 section 4), the message-attachment relation (v4, ADR-0014), and the
- * ADVANCED high-sensitivity egress-rule table (v5, ADR-0005):
+ * ADVANCED high-sensitivity egress-rule table (v5, ADR-0005), and A2A Agent/Card snapshot
+ * tables (v6, HXA-078), and durable A2A task correlation (v7, HXA-079):
  *
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
@@ -97,8 +104,11 @@ import com.helix.core.storage.entity.TurnEntity
             CapabilityGrantEntity::class,
             ExecutionTargetEntity::class,
             HighSensitivityRuleEntity::class,
+            A2aAgentEntity::class,
+            A2aCapabilityEntity::class,
+            A2aTaskEntity::class,
         ],
-    version = 5,
+    version = 7,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
@@ -150,6 +160,12 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun skillSnapshotDao(): SkillSnapshotDao
 
     abstract fun highSensitivityRuleDao(): HighSensitivityRuleDao
+
+    abstract fun a2aAgentDao(): A2aAgentDao
+
+    abstract fun a2aCapabilityDao(): A2aCapabilityDao
+
+    abstract fun a2aTaskDao(): A2aTaskDao
 
     companion object {
         const val DATABASE_NAME = "helix.db"
@@ -292,6 +308,74 @@ abstract class HelixDatabase : RoomDatabase() {
                             "`expiresAtEpoch` INTEGER NOT NULL, " +
                             "PRIMARY KEY(`id`))",
                     )
+                }
+            }
+
+        /** v5 -> v6 (HXA-078): disabled A2A config plus bounded Agent Card/Skill snapshots. */
+        val MIGRATION_5_6 =
+            object : Migration(5, 6) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `a2a_agents` (" +
+                            "`id` TEXT NOT NULL, " +
+                            "`endpointRef` TEXT NOT NULL, " +
+                            "`authAlias` TEXT, " +
+                            "`enabled` INTEGER NOT NULL, " +
+                            "`cardHash` TEXT, " +
+                            "PRIMARY KEY(`id`))",
+                    )
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `a2a_capabilities` (" +
+                            "`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`agentId` TEXT NOT NULL, " +
+                            "`interfaceUrl` TEXT NOT NULL, " +
+                            "`binding` TEXT NOT NULL, " +
+                            "`protocolVersion` TEXT NOT NULL, " +
+                            "`skillId` TEXT NOT NULL, " +
+                            "`skillHash` TEXT NOT NULL, " +
+                            "`inputModes` TEXT NOT NULL, " +
+                            "`outputModes` TEXT NOT NULL, " +
+                            "`enabled` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`agentId`) REFERENCES `a2a_agents`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS `index_a2a_capabilities_agentId_skillId` " +
+                            "ON `a2a_capabilities` (`agentId`, `skillId`)",
+                    )
+                }
+            }
+
+        /** v6 -> v7 (HXA-079): durable one-local-call-to-one-remote-Task reconciliation. */
+        val MIGRATION_6_7 =
+            object : Migration(6, 7) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `a2a_capabilities` ADD COLUMN `tenant` TEXT")
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `a2a_tasks` (" +
+                            "`toolCallId` TEXT NOT NULL, " +
+                            "`agentId` TEXT NOT NULL, " +
+                            "`skillId` TEXT NOT NULL, " +
+                            "`cardHash` TEXT NOT NULL, " +
+                            "`skillHash` TEXT NOT NULL, " +
+                            "`inputHash` TEXT NOT NULL, " +
+                            "`interfaceUrl` TEXT NOT NULL, " +
+                            "`binding` TEXT NOT NULL, " +
+                            "`protocolVersion` TEXT NOT NULL, " +
+                            "`tenant` TEXT, " +
+                            "`taskId` TEXT, " +
+                            "`contextId` TEXT, " +
+                            "`lastEventSequence` INTEGER NOT NULL, " +
+                            "`lastEventId` TEXT, " +
+                            "`state` TEXT NOT NULL, " +
+                            "`deliveryState` TEXT NOT NULL, " +
+                            "`updatedAtEpochMillis` INTEGER NOT NULL, " +
+                            "PRIMARY KEY(`toolCallId`), " +
+                            "FOREIGN KEY(`toolCallId`) REFERENCES `tool_calls`(`id`) " +
+                            "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_a2a_tasks_taskId` ON `a2a_tasks` (`taskId`)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_a2a_tasks_state` ON `a2a_tasks` (`state`)")
                 }
             }
     }

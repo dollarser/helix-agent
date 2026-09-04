@@ -382,6 +382,7 @@ object ApprovalUiMapper {
     /** 数据类别: the egress sensitivity when the call egresses, else the source-origin category
      * — a string-resource ID (HXA-069).
      */
+    @Suppress("CyclomaticComplexMethod") // exhaustive labels for two closed policy enums
     fun categoryLabel(
         dataOrigin: DataOrigin,
         egressCategory: DataSensitivity?,
@@ -400,6 +401,7 @@ object ApprovalUiMapper {
                 DataOrigin.BROWSER -> R.string.approval_category_browser
                 DataOrigin.ACCESSIBILITY -> R.string.approval_category_accessibility
                 DataOrigin.MCP -> R.string.approval_category_mcp
+                DataOrigin.A2A -> R.string.approval_category_a2a
                 DataOrigin.ROOT -> R.string.approval_category_root
                 DataOrigin.LOCAL -> R.string.approval_category_local
                 DataOrigin.NETWORK -> R.string.approval_category_network
@@ -420,6 +422,7 @@ object ApprovalUiMapper {
             when (target) {
                 is EgressTarget.Provider -> "provider:${target.id.value}"
                 is EgressTarget.Mcp -> "mcp:${target.id.value}"
+                is EgressTarget.A2a -> "a2a:${target.id.value}"
             }
         val windowEnd =
             rule.expiresAt

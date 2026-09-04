@@ -73,6 +73,7 @@
     <string name="approval_category_forbidden">禁止类内容（不可发送）</string>
     <string name="approval_category_local">本机数据</string>
     <string name="approval_category_mcp">MCP 数据（默认不可信）</string>
+    <string name="approval_category_a2a">A2A 数据（默认不可信）</string>
     <string name="approval_category_network">网络数据</string>
     <string name="approval_category_normal">普通内容</string>
     <string name="approval_category_root">Root 数据</string>

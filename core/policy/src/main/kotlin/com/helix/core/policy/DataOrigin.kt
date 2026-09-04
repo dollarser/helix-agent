@@ -28,6 +28,9 @@ enum class DataOrigin {
     /** Data originating from an MCP server (untrusted by default). */
     MCP,
 
+    /** Data returned by an external A2A Agent (untrusted by default). */
+    A2A,
+
     /** Data originating under Root. */
     ROOT,
 

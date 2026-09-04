@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
  * primitive so Room needs no type converters; the two value facets that are NOT primitive are
  * folded to their canonical storage strings:
  *
- * - [targetKind] is the closed "provider"/"mcp" discriminator of [com.helix.core.policy.EgressTarget]
+ * - [targetKind] is the closed "provider"/"mcp"/"a2a" discriminator of [com.helix.core.policy.EgressTarget]
  *   and [targetId] its stable id — template/product/display names never gate anything (ADR-0005);
  * - [originFull] is the [com.helix.core.model.NormalizedEndpoint.full] form (scheme-pinned, host
  *   lowercased, default port filled in), so a rehydrated rule equals the live request endpoint;

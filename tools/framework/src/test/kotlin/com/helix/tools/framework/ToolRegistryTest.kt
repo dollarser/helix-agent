@@ -25,7 +25,7 @@ class ToolRegistryTest {
                             builtIn(name = "write", operationClass = ToolOperationClass.LOCAL_MUTATION),
                         ),
                     ),
-                    McpToolSource("wikipedia", 1, listOf(mcpSpec("search"))),
+                    McpToolSource("wikipedia", "2025-03-26", listOf(mcpSpec("search"))),
                 ),
             )
         assertEquals(3, registry.all().size)
