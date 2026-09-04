@@ -187,8 +187,18 @@ object RootFsInstaller {
             if (target.exists()) throw IOException("binary destination already exists: $destPath")
             target.parentFile?.mkdirs()
             writeBinaryCapped(target, asset.stream, destPath)
+            // Device-verified (HXA-084): the asset streams carry no exec bit and the
+            // app-private umask leaves the files 0600 — proot/loader must be owner
+            // executable or nothing can ever run. The smoke re-checks this.
+            if (destPath in EXECUTABLE_ASSETS) {
+                if (!target.setReadable(true, false) || !target.setExecutable(true, false)) {
+                    throw IOException("cannot set exec mode on: $destPath")
+                }
+            }
         }
     }
+
+    private val EXECUTABLE_ASSETS = setOf("proot", "loader")
 
     private fun writeManifest(
         staging: File,

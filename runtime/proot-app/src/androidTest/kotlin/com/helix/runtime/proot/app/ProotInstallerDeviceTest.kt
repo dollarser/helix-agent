@@ -42,11 +42,8 @@ class ProotInstallerDeviceTest {
     private val context: Context
         get() = InstrumentationRegistry.getInstrumentation().targetContext
 
-    /** The device's page size (4096 on the current arm64 emulators). */
-    private fun pageSizeBytes(): Long =
-        System.getProperty("page.size")?.toLongOrNull()
-            ?: System.getProperty("page_size")?.toLongOrNull()
-            ?: 4096L
+    /** The device's page size via the HXA-084 native seam (no more 4096 fallback). */
+    private fun pageSizeBytes(): Long = ProotNative.pageSizeBytes()
 
     private fun installedLock(): RuntimeLock {
         val lock = ProotRuntimeInstaller.loadEmbeddedLock(context)

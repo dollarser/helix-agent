@@ -99,6 +99,8 @@ dependencies {
     // (availability, cause, connection results); the developer flavor declares the
     // protocol module directly, same convention as :provider:api.
     add("developerImplementation", project(":runtime:proot-ipc"))
+    // HXA-084: the job E2E packs the input archive with the shared core codec.
+    add("developerImplementation", project(":runtime:proot-core"))
     add("developerImplementation", project(":runtime:cli-client"))
 
     implementation(platform(libs.compose.bom))

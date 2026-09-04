@@ -23,13 +23,6 @@ import com.helix.runtime.proot.core.RuntimeLockCodec
  * on a worker thread; the activity is a progress surface, not a second app.
  */
 class ProotRepairActivity : Activity() {
-    // The installer's ELF pre-check page size. 083 has no native getpagesize seam
-    // (HXA-084 owns it); 4 KiB is the conservative baseline and the shipped assets
-    // are build-gated at 16 KiB alignment, so this cannot admit a 16 KiB-incompatible ELF.
-    private companion object {
-        const val INSTALL_PAGE_SIZE_BYTES = 4096L
-    }
-
     private lateinit var statusView: TextView
     private lateinit var installButton: Button
     private var busy = false
@@ -113,7 +106,7 @@ class ProotRepairActivity : Activity() {
                         ProotRuntimeInstaller.buildInstallRequest(
                             this,
                             lock,
-                            INSTALL_PAGE_SIZE_BYTES,
+                            ProotNative.pageSizeBytes(),
                             System.currentTimeMillis(),
                         )
                     RootFsInstaller.install(request)

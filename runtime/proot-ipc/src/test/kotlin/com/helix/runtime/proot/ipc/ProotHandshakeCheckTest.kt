@@ -16,29 +16,54 @@ class ProotHandshakeCheckTest {
 
     @Test
     fun `first verification passes without an anchor`() {
-        assertNull(ProotHandshakeClient.check(descriptor(), 1, "arm64-v8a", null))
+        assertNull(ProotHandshakeClient.check(descriptor(), ProotRuntimeProtocol.PROTOCOL_VERSION, "arm64-v8a", null))
     }
 
     @Test
     fun `matching anchor passes`() {
-        assertNull(ProotHandshakeClient.check(descriptor(lockSha256 = anchor), 1, "arm64-v8a", anchor))
+        assertNull(
+            ProotHandshakeClient.check(
+                descriptor(lockSha256 = anchor),
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
+                "arm64-v8a",
+                anchor,
+            ),
+        )
     }
 
     @Test
     fun `protocol mismatch wins`() {
-        val cause = ProotHandshakeClient.check(descriptor(protocolVersion = 2), 1, "arm64-v8a", anchor)
+        val cause =
+            ProotHandshakeClient.check(
+                descriptor(protocolVersion = ProotRuntimeProtocol.PROTOCOL_VERSION - 1),
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
+                "arm64-v8a",
+                anchor,
+            )
         assertEquals(UnavailableCause.PROTOCOL_MISMATCH, cause)
     }
 
     @Test
     fun `protocol wins over abi`() {
-        val cause = ProotHandshakeClient.check(descriptor(protocolVersion = 2, abi = "x86_64"), 1, "arm64-v8a", anchor)
+        val cause =
+            ProotHandshakeClient.check(
+                descriptor(protocolVersion = ProotRuntimeProtocol.PROTOCOL_VERSION + 1, abi = "x86_64"),
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
+                "arm64-v8a",
+                anchor,
+            )
         assertEquals(UnavailableCause.PROTOCOL_MISMATCH, cause)
     }
 
     @Test
     fun `abi mismatch is reported`() {
-        val cause = ProotHandshakeClient.check(descriptor(abi = "x86_64"), 1, "arm64-v8a", anchor)
+        val cause =
+            ProotHandshakeClient.check(
+                descriptor(abi = "x86_64"),
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
+                "arm64-v8a",
+                anchor,
+            )
         assertEquals(UnavailableCause.ABI_MISMATCH, cause)
     }
 
@@ -47,7 +72,7 @@ class ProotHandshakeCheckTest {
         val cause =
             ProotHandshakeClient.check(
                 descriptor(abi = "x86_64", lockSha256 = "e".repeat(64)),
-                1,
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
                 "arm64-v8a",
                 anchor,
             )
@@ -56,7 +81,13 @@ class ProotHandshakeCheckTest {
 
     @Test
     fun `changed lock fingerprint is a lock mismatch`() {
-        val cause = ProotHandshakeClient.check(descriptor(lockSha256 = "e".repeat(64)), 1, "arm64-v8a", anchor)
+        val cause =
+            ProotHandshakeClient.check(
+                descriptor(lockSha256 = "e".repeat(64)),
+                ProotRuntimeProtocol.PROTOCOL_VERSION,
+                "arm64-v8a",
+                anchor,
+            )
         assertEquals(UnavailableCause.LOCK_MISMATCH, cause)
     }
 }

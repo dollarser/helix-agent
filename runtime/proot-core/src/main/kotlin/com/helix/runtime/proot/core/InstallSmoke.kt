@@ -27,6 +27,7 @@ class InstallSmoke(
     fun run(installDir: File): RuntimeSmokeResult {
         val failures = mutableListOf<String>()
         checkRequiredRootfsPaths(installDir, failures)
+        checkExecBits(installDir, failures)
         checkElfs(installDir, failures)
         checkLockFingerprint(failures)
         return RuntimeSmokeResult(
@@ -48,6 +49,23 @@ class InstallSmoke(
             // "the link resolves on the host".
             if (!Files.exists(File(installDir, "rootfs/$path").toPath(), LinkOption.NOFOLLOW_LINKS)) {
                 failures += "missing rootfs path: $path"
+            }
+        }
+    }
+
+    /**
+     * The PRoot pair must be owner-executable: without it the install is
+     * structurally dead (device-verified in HXA-084 — the asset streams carry no
+     * mode and the installer's umask produced 0600 files that cannot exec).
+     */
+    private fun checkExecBits(
+        installDir: File,
+        failures: MutableList<String>,
+    ) {
+        for (name in listOf("proot", "loader")) {
+            val bin = File(installDir, "bin/$name")
+            if (!bin.isFile || !bin.canExecute()) {
+                failures += "bin/$name missing or not executable"
             }
         }
     }

@@ -13,6 +13,21 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // HXA-084: the native getpagesize() seam (src/main/cpp).
+        externalNativeBuild {
+            cmake {
+                abiFilters("arm64-v8a", "x86_64")
+            }
+        }
+    }
+
+    ndkVersion = "28.2.13676358"
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.31.6"
+        }
     }
 
     // HXA-083: the handshake descriptor reports the companion's versionName; AGP 8
@@ -30,6 +45,17 @@ android {
         abortOnError = true
         warningsAsErrors = true
         lintConfig = rootProject.file("config/lint/lint.xml")
+    }
+
+    // HXA-084: the job's exec hook (libexec_hook.so) must be EXECUTABLE by the
+    // system linker at runtime; with on-demand extraction (the AGP default) it is
+    // never materialized as a file. Extracting at install places it in the APK
+    // install dir (apk_data_file: execute + execute_no_trans are granted to
+    // appdomain), which is exactly where it is needed.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 

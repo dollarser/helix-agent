@@ -36,7 +36,7 @@ object ProotHandshakeManifest {
                         ?: error("companion versionName missing"),
                 abi = lock.abi.wire,
                 lockSha256 = RuntimeLockCodec.sha256Hex(lock),
-                capabilities = listOf("handshake"),
+                capabilities = listOf("handshake", "jobs"),
             )
         return RuntimeTargetDescriptorCodec.encode(descriptor).encodeToByteArray()
     }

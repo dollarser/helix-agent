@@ -28,6 +28,7 @@ class ProotRuntimeServiceBinder(
     private val manifestProvider: () -> ByteArray,
     private val callerVerifier: (Int) -> Boolean,
     private val debugSelfKill: Boolean = false,
+    private val jobHandler: ProotJobHandler? = null,
 ) : Binder() {
     // @Suppress("ReturnCount") — one return per distinct protocol outcome;
     // @Suppress("SwallowedException") — the reply channel carries status bytes
@@ -55,6 +56,10 @@ class ProotRuntimeServiceBinder(
         // VERIFIED caller may fire it.
         if (debugSelfKill && code == ProotRuntimeProtocol.TX_DEBUG_SELF_KILL) {
             android.os.Process.killProcess(android.os.Process.myPid())
+            return true
+        }
+        if (code in JOB_TRANSACTIONS) {
+            handleJobTransaction(code, data, reply)
             return true
         }
         if (code != ProotRuntimeProtocol.TX_HANDSHAKE) {
@@ -97,5 +102,142 @@ class ProotRuntimeServiceBinder(
         reply.writeByte(ProotRuntimeProtocol.REPLY_OK)
         reply.writeParcelable(readEnd, 0)
         return true
+    }
+
+    companion object {
+        private val JOB_TRANSACTIONS =
+            setOf(
+                ProotRuntimeProtocol.TX_JOB_SUBMIT,
+                ProotRuntimeProtocol.TX_JOB_QUERY,
+                ProotRuntimeProtocol.TX_JOB_CANCEL,
+                ProotRuntimeProtocol.TX_JOB_RECONCILE,
+            )
+    }
+
+    /**
+     * Job transactions (protocol v2, HXA-084). The caller was already re-verified
+     * above. Any structural anomaly in the request is a stable REPLY_JOB_REJECTED
+     * (INVALID_SPEC) — no exception crosses the boundary, and PFDs the server
+     * already took are closed.
+     */
+    @Suppress(
+        "TooGenericExceptionCaught",
+        "SwallowedException",
+        "LongMethod", // one handler per job transaction; every anomaly maps to a stable reply
+    )
+    private fun handleJobTransaction(
+        code: Int,
+        data: Parcel,
+        reply: Parcel,
+    ) {
+        val handler = jobHandler
+        if (handler == null) {
+            ProotJobWire.writeJobReply(reply, ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE, null)
+            return
+        }
+        try {
+            data.enforceInterface(ProotRuntimeProtocol.INTERFACE_DESCRIPTOR)
+            when (code) {
+                ProotRuntimeProtocol.TX_JOB_SUBMIT -> {
+                    jobSubmit(handler, data, reply)
+                }
+
+                ProotRuntimeProtocol.TX_JOB_QUERY -> {
+                    val jobId = readJobId(data)
+                    val record = handler.query(jobId)
+                    writeRecordOrNotFound(reply, record)
+                }
+
+                ProotRuntimeProtocol.TX_JOB_CANCEL -> {
+                    val jobId = readJobId(data)
+                    val record = handler.cancel(jobId)
+                    writeRecordOrNotFound(reply, record)
+                }
+
+                ProotRuntimeProtocol.TX_JOB_RECONCILE -> {
+                    val jobId = readJobId(data)
+                    val now = System.currentTimeMillis()
+                    val record = handler.reconcile(jobId, now)
+                    writeRecordOrNotFound(reply, record)
+                }
+
+                else -> {
+                    ProotJobWire.writeJobReply(
+                        reply,
+                        ProotRuntimeProtocol.REPLY_JOB_REJECTED,
+                        ProotJobRefusal.INVALID_SPEC.wire,
+                    )
+                }
+            }
+        } catch (e: ProotIpcException) {
+            ProotJobWire.writeJobReply(
+                reply,
+                ProotRuntimeProtocol.REPLY_JOB_REJECTED,
+                ProotJobRefusal.INVALID_SPEC.wire,
+            )
+        } catch (e: Exception) {
+            ProotJobWire.writeJobReply(
+                reply,
+                ProotRuntimeProtocol.REPLY_JOB_REJECTED,
+                ProotJobRefusal.INVALID_SPEC.wire,
+            )
+        }
+    }
+
+    /**
+     * The submit arm, extracted to keep [handleJobTransaction] a flat dispatcher.
+     * The PFDs are handed to the handler; it owns them in every outcome.
+     */
+    private fun jobSubmit(
+        handler: ProotJobHandler,
+        data: Parcel,
+        reply: Parcel,
+    ) {
+        val spec = ProotJobWire.readSpec(data)
+        val (input, output) = ProotJobWire.readPfds(data)
+        when (val result = handler.submit(spec, input, output)) {
+            is ProotJobSubmitResult.Accepted -> {
+                ProotJobWire.writeJobReply(
+                    reply,
+                    ProotRuntimeProtocol.REPLY_JOB_ACCEPTED,
+                    ProotJobRecordCodec.encode(result.record),
+                )
+            }
+
+            is ProotJobSubmitResult.Duplicate -> {
+                ProotJobWire.writeJobReply(
+                    reply,
+                    ProotRuntimeProtocol.REPLY_JOB_DUPLICATE,
+                    ProotJobRecordCodec.encode(result.record),
+                )
+            }
+
+            is ProotJobSubmitResult.Rejected -> {
+                ProotJobWire.writeJobReply(
+                    reply,
+                    ProotRuntimeProtocol.REPLY_JOB_REJECTED,
+                    result.refusal.wire,
+                )
+            }
+        }
+    }
+
+    private fun readJobId(data: Parcel): String {
+        val jobId =
+            data.readString()
+                ?: throw ProotIpcException("job id is null")
+        ProotJobRecordCodec.checkJobId(jobId)
+        return jobId
+    }
+
+    private fun writeRecordOrNotFound(
+        reply: Parcel,
+        record: ProotJobRecord?,
+    ) {
+        if (record == null) {
+            ProotJobWire.writeJobReply(reply, ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND, null)
+        } else {
+            ProotJobWire.writeJobReply(reply, ProotRuntimeProtocol.REPLY_JOB_STATE, ProotJobRecordCodec.encode(record))
+        }
     }
 }

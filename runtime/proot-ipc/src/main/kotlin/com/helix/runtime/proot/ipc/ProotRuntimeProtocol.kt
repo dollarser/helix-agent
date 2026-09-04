@@ -14,8 +14,13 @@ import android.os.IBinder
  * manifest over a pipe [android.os.ParcelFileDescriptor].
  */
 object ProotRuntimeProtocol {
-    /** Current protocol revision; the client rejects anything it cannot consume. */
-    const val PROTOCOL_VERSION = 1
+    /**
+     * Current protocol revision; the client rejects anything it cannot consume.
+     * v2 (HXA-084) adds the job transactions and the "jobs" capability; v1 was
+     * handshake-only. Both APKs of the signed set ship the same revision, and a
+     * mismatch is a stable PROTOCOL_MISMATCH, never a partial job.
+     */
+    const val PROTOCOL_VERSION = 2
 
     /** Interface token written by the client and enforced by the server. */
     const val INTERFACE_DESCRIPTOR = "com.helix.runtime.proot.IRuntimeService/1"
@@ -79,6 +84,42 @@ object ProotRuntimeProtocol {
      * Release builds never serve it.
      */
     const val TX_DEBUG_SELF_KILL = IBinder.FIRST_CALL_TRANSACTION + 1
+
+    // ------------------------------------------------------------------
+    // Job transactions (HXA-084, protocol v2). Every one of them carries the
+    // live cross-APK caller identity and is verified per-transaction by the
+    // service binder, exactly like the handshake.
+    // ------------------------------------------------------------------
+
+    /** Submit a job: the request carries the spec + an input read PFD + an output write PFD. */
+    const val TX_JOB_SUBMIT = IBinder.FIRST_CALL_TRANSACTION + 2
+
+    /** Query a job by id (the ONLY operation allowed after a Binder disconnect). */
+    const val TX_JOB_QUERY = IBinder.FIRST_CALL_TRANSACTION + 3
+
+    /** Cancel a job: kill its process group; terminal state CANCELLED. */
+    const val TX_JOB_CANCEL = IBinder.FIRST_CALL_TRANSACTION + 4
+
+    /** Reconcile a terminal job: the main app verified the proof; the payload is deleted. */
+    const val TX_JOB_RECONCILE = IBinder.FIRST_CALL_TRANSACTION + 5
+
+    /** Job reply: the record was accepted and starts (or already started). */
+    const val REPLY_JOB_ACCEPTED: Byte = 4
+
+    /** The jobId was already known: the existing record is returned, no second start. */
+    const val REPLY_JOB_DUPLICATE: Byte = 5
+
+    /** The job was refused up front; the payload is a closed-set refusal wire string. */
+    const val REPLY_JOB_REJECTED: Byte = 6
+
+    /** No job with this id exists (query/cancel/reconcile). */
+    const val REPLY_JOB_NOT_FOUND: Byte = 7
+
+    /** The job state was read (query) or changed (cancel/reconcile): the record follows. */
+    const val REPLY_JOB_STATE: Byte = 8
+
+    /** The server has no job handler (misconfiguration; production always has one). */
+    const val REPLY_JOB_UNAVAILABLE: Byte = 9
 
     /**
      * DEBUG-BUILD-ONLY intent extra (companion service): when set, the debug

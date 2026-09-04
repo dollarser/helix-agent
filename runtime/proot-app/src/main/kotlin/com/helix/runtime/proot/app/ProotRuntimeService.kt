@@ -41,6 +41,7 @@ class ProotRuntimeService : Service() {
             manifestProvider = { ProotHandshakeManifest.build(this) },
             callerVerifier = { uid -> ProotCallerVerifier.verify(this, uid) },
             debugSelfKill = BuildConfig.DEBUG,
+            jobHandler = ProotJobRunner.get(this),
         )
     }
 
