@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +40,8 @@ import com.helix.app.chat.MessageUi
 import com.helix.app.chat.SessionRowUi
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.voice.SpeechRecognitionLauncher
+import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
@@ -347,6 +350,37 @@ private fun ConversationSection(
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) intents.onStageAttachment(uri.toString())
         }
+
+    // HXA-067 voice input: the system recognizer (ACTION_RECOGNIZE_SPEECH) transcribes a
+    // USER-INITIATED recording into an EDITABLE composer draft. It never auto-sends (the text only
+    // lands in `input`; send is the explicit button) and never listens in the background (the
+    // system UI records; we only receive the transcript on return). A cancel, no-match or failed
+    // result is a benign no-draft (the system UI already surfaced it); a device with no recognizer
+    // is gated pre-launch and shows a transient, path-free notice.
+    val context = LocalContext.current
+    val speech = remember { SpeechRecognitionLauncher() }
+    var voiceDraft by remember { mutableStateOf<String?>(null) }
+    var voiceNotice by remember { mutableStateOf<String?>(null) }
+    val voiceLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            when (val outcome = speech.mapResult(result.resultCode, result.data)) {
+                is VoiceInputMapper.Outcome.Draft -> voiceDraft = outcome.text
+
+                // Cancelled: the user cancelled or the recognizer returned no transcript — a
+                // benign no-draft (the system UI already showed the cancel/error); never a send.
+                else -> Unit
+            }
+        }
+
+    // Apply a recognised draft to the composer ONCE, appended to whatever is already there
+    // (reading the current `input` from this composition, never a stale closure).
+    LaunchedEffect(voiceDraft) {
+        val draft = voiceDraft
+        if (draft != null) {
+            onInput(if (input.isEmpty()) draft else "$input $draft")
+            voiceDraft = null
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         Row(
             modifier =
@@ -513,6 +547,17 @@ private fun ConversationSection(
                 }
             }
         }
+        voiceNotice?.let { notice ->
+            Text(
+                notice,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier =
+                    Modifier
+                        .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 2.dp)
+                        .testTag("chat-voice-notice"),
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -524,6 +569,24 @@ private fun ConversationSection(
                 modifier = Modifier.testTag("chat-attach"),
             ) {
                 Text("附件")
+            }
+            TextButton(
+                onClick = {
+                    when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
+                        VoiceInputMapper.Outcome.Available -> {
+                            voiceNotice = null
+                            voiceLauncher.launch(speech.buildIntent(context))
+                        }
+
+                        else -> {
+                            voiceNotice = "语音识别不可用"
+                        }
+                    }
+                },
+                enabled = !screen.isSending,
+                modifier = Modifier.testTag("chat-voice"),
+            ) {
+                Text("语音")
             }
             OutlinedTextField(
                 value = input,
