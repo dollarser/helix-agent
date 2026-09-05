@@ -12,6 +12,11 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -30,4 +35,8 @@ android {
 // instrumented/JVM test does not need to re-declare the platform dependency.
 dependencies {
     testImplementation(libs.junit4)
+    implementation(libs.kotlinx.serialization.json)
+    androidTestImplementation(libs.androidx.test.core.ktx)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.junit)
 }

@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <package android:name="com.helix.agent" />
+        <package android:name="com.helix.agent.developer" />
+    </queries>
+
+    <permission
+        android:name="com.helix.permission.BIND_CLI_RUNTIME"
+        android:protectionLevel="signature" />
+
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -8,5 +17,10 @@
         android:fullBackupContent="false"
         android:icon="@drawable/ic_helix"
         android:label="Helix CLI Runtime"
-        android:supportsRtl="true" />
+        android:supportsRtl="true">
+        <service
+            android:name="com.helix.runtime.cli.app.CliRuntimeService"
+            android:exported="true"
+            android:permission="com.helix.permission.BIND_CLI_RUNTIME" />
+    </application>
 </manifest>
