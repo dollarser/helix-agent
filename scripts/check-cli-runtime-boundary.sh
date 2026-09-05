@@ -74,4 +74,19 @@ app_manifest="$repo_root/app/src/developer/AndroidManifest.xml"
 rg -F '<package android:name="com.helix.runtime.cli" />' "$app_manifest" >/dev/null
 rg -F '<uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />' "$app_manifest" >/dev/null
 
-echo "HXA-134 subscription model boundary: bounded ModelRequest/ModelEvent PFD transport, durable hash proof, reconcile deletion, and no credential import"
+developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/CodexSubscriptionProvider.kt"
+developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
+consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
+rg -F 'CodexSubscriptionProvider(context, config)' "$developer_module" >/dev/null
+rg -F 'toolCalls = false' "$developer_module" >/dev/null
+rg -F 'vision = false' "$developer_module" >/dev/null
+rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
+rg -F 'fun create(context: Context, config: ProviderConfig): ModelProvider? = null' "$consumer_module" >/dev/null
+consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
+test -f "$consumer_apk"
+if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|runtime/cli/client|subscription-codex'; then
+    echo "consumer APK contains subscription implementation" >&2
+    exit 1
+fi
+
+echo "HXA-135 developer subscription Provider boundary: normal chat path, experimental disclosure, consumer exclusion, and no Tool capability claim"

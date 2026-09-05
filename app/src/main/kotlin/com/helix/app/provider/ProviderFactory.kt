@@ -38,9 +38,10 @@ class ProviderFactory(
      * fully initialized.
      */
     private val imageSource: () -> VisionImageSource,
+    private val additionalFactory: (ProviderConfig) -> ModelProvider? = { null },
 ) {
     fun create(config: ProviderConfig): ModelProvider =
-        when (config.protocol) {
+        additionalFactory(config) ?: when (config.protocol) {
             ProviderProtocol.OPENAI_RESPONSES -> OpenAiResponsesProvider(config, credentials, wire, responsesImages)
             ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> OpenAiChatProvider(config, credentials, wire, chatImages)
             ProviderProtocol.ANTHROPIC_MESSAGES -> AnthropicProvider(config, credentials, wire, anthropicImages)

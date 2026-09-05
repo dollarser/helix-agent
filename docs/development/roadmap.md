@@ -710,6 +710,17 @@ record 与 reconciliation 时间。取消必须胜过迟到结果，进程/Bindi
 arm64-v8a 验证 PFD 成功路径、旧控制面回归、删除与空闲解绑。本任务不注册 Provider，不接对话 UI、
 Dispatcher 或 Audit；这些属于下一独立 HXA。
 
+### HXA-135 Developer 对话 Provider 接入
+
+仅在 developer flavor 注册一个受管理、显式标注非官方实验的 Codex Subscription `ModelProvider`。其配置行
+使用既有 Provider/Session 外键和选择 UI；连接测试、模型请求、统一事件、Turn/model-call/message 持久化、
+egress disclosure、取消与恢复必须沿用 `ProviderService`/`ChatService`，不得新增订阅专用对话旁路。
+
+连接测试执行一次小型真实文本调用；首版只声明已验证的 streaming，`toolCalls=false`、`vision=false`，因此
+订阅模型不会产生绕过 Dispatcher/Policy/Approval/Audit 的工具调用。配置由渠道模块管理，用户不能把它改指
+任意 endpoint 或手工抬高能力。consumer flavor 的同名 seam 必须 no-op，consumer APK 不得包含 cli-client 或
+订阅 Provider 实现。API 29/36 arm64-v8a 验证注册、连接测试、对话持久链路和空闲解绑。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

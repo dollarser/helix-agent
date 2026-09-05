@@ -29,6 +29,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.provider.SubscriptionProviderModule
 import com.helix.app.root.RootModule
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
@@ -253,13 +254,23 @@ internal class DefaultAppContainer(
     }
 
     override val providerService: ProviderService =
-        ProviderService(
-            storage = storage,
-            factory = ProviderFactory(credentials, ProviderFactory.defaultWire()) { visionImageSource },
-            bindings = CleartextBindingStore(lineStore),
-            testStatus = ProviderTestStatusStore(lineStore),
-            idGenerator = { idGenerator.next() },
-        ).also { it.refresh() }
+        run {
+            SubscriptionProviderModule.ensureRegistered(storage)
+            ProviderService(
+                storage = storage,
+                factory = ProviderFactory(
+                    credentials,
+                    ProviderFactory.defaultWire(),
+                    { visionImageSource },
+                    { config -> SubscriptionProviderModule.create(appContext, config) },
+                ),
+                bindings = CleartextBindingStore(lineStore),
+                testStatus = ProviderTestStatusStore(lineStore),
+                idGenerator = { idGenerator.next() },
+                managedProvider = SubscriptionProviderModule::isManaged,
+                probeOverride = SubscriptionProviderModule::probe,
+            ).also { it.refresh() }
+        }
 
     /**
      * Capability Center (HXA-032, doc 9 section 2): [SystemCapabilityResolver] queries the real

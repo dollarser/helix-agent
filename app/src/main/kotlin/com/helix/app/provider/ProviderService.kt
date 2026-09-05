@@ -54,6 +54,8 @@ class ProviderService(
     private val probe: CapabilityProbe = CapabilityProbe(),
     private val clock: Clock = SystemClock(),
     private val idGenerator: () -> String,
+    private val managedProvider: (String) -> Boolean = { false },
+    private val probeOverride: suspend (ProviderConfig, ModelProvider) -> ProbeOutcome? = { _, _ -> null },
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private val workScope = scope
@@ -94,7 +96,8 @@ class ProviderService(
     }
 
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
-    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi = providerRowUi(entity, statusFor(entity.id))
+    private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi =
+        providerRowUi(entity, statusFor(entity.id)).copy(managedExternally = managedProvider(entity.id))
 
     /**
      * Persists a new provider from a composed [ProviderDraft].
@@ -161,6 +164,7 @@ class ProviderService(
         cleartextConfirmed: Boolean,
     ) {
         withContext(workScope.coroutineContext) {
+            require(!managedProvider(providerId)) { "managed provider cannot be edited" }
             require(draft.cleartext == null || cleartextConfirmed) {
                 "cleartext http to ${draft.endpoint.origin} requires the explicit per-host:port confirmation"
             }
@@ -208,6 +212,7 @@ class ProviderService(
     /** Deletes the provider (sessions keep their rows, providerId nulled by the FK). */
     suspend fun delete(providerId: String) {
         withContext(workScope.coroutineContext) {
+            require(!managedProvider(providerId)) { "managed provider cannot be deleted" }
             val entity = storage.providerConfigs.resolve(providerId)
             if (entity.secretAlias != ProviderFactory.NO_KEY_ALIAS) {
                 storage.secrets.delete(SecretAlias(entity.secretAlias))
@@ -238,7 +243,7 @@ class ProviderService(
         val config = storedConfig(providerId)
         val provider = factory.create(config)
         _networkOperations.value += 1
-        val outcome = probe.probe(provider)
+        val outcome = probeOverride(config, provider) ?: probe.probe(provider)
         when (outcome) {
             is ProbeOutcome.Ok -> {
                 storage.providerConfigs.overwrite(
@@ -387,6 +392,7 @@ class ProviderService(
         providerId: String,
         enabled: Boolean,
     ) {
+        require(!managedProvider(providerId)) { "managed provider capabilities cannot be overridden" }
         val row = storage.providerConfigs.resolve(providerId)
         val current =
             runCatching { ProviderCapabilities.parse(row.capabilitySnapshot) }.getOrNull()

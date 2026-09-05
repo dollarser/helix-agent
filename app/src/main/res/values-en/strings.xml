@@ -568,4 +568,5 @@
     <string name="settings_proot_not_installed">Not installed</string>
     <string name="settings_proot_not_verified">Not verified</string>
     <string name="settings_proot_disabled">Disabled/force-stopped</string>
+    <string name="provider_subscription_experimental_notice">Unofficial developer experiment. Account access may break or be restricted when the provider protocol changes.</string>
 </resources>

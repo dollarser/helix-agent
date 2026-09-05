@@ -34,6 +34,7 @@ data class ProviderRowUi(
      */
     val backendModels: List<String>?,
     val templateNotes: List<String>,
+    val managedExternally: Boolean = false,
 ) {
     /**
      * Selectable for a new session only when the connection test COMPLETED

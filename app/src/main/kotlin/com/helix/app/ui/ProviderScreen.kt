@@ -532,11 +532,19 @@ private fun ProviderRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        if (row.managedExternally) {
+            Text(
+                stringResource(R.string.provider_subscription_experimental_notice),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("provider-subscription-notice"),
+            )
+        }
         // HXA-059: the backend model list, carried out of the LAST PASSED
         // connection test only. A failed/untested row shows no section at all;
         // a passed row without a list gets the explicit manual-entry hint.
         // Selecting a chip PREFILLS the edit form (never auto-saves).
-        if (row.status is ConnectionTestStatus.Passed) {
+        if (row.status is ConnectionTestStatus.Passed && !row.managedExternally) {
             val models = row.backendModels
             if (models.isNullOrEmpty()) {
                 Text(
@@ -564,29 +572,31 @@ private fun ProviderRow(
                     ),
                 )
             }
-            TextButton(onClick = { onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
-                Text(stringResource(R.string.provider_edit_button))
-            }
-            TextButton(
-                onClick = { onDeclareVision(!visionEnabled) },
-                modifier = Modifier.testTag("provider-vision-declare"),
-            ) {
-                Text(
-                    stringResource(
-                        if (visionEnabled) {
-                            R.string.provider_vision_declare_off
-                        } else {
-                            R.string.provider_vision_declare_on
-                        },
-                    ),
-                )
-            }
-            TextButton(
-                onClick = onDelete,
-                modifier = Modifier.testTag("provider-delete"),
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-            ) {
-                Text(stringResource(R.string.provider_delete))
+            if (!row.managedExternally) {
+                TextButton(onClick = { onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
+                    Text(stringResource(R.string.provider_edit_button))
+                }
+                TextButton(
+                    onClick = { onDeclareVision(!visionEnabled) },
+                    modifier = Modifier.testTag("provider-vision-declare"),
+                ) {
+                    Text(
+                        stringResource(
+                            if (visionEnabled) {
+                                R.string.provider_vision_declare_off
+                            } else {
+                                R.string.provider_vision_declare_on
+                            },
+                        ),
+                    )
+                }
+                TextButton(
+                    onClick = onDelete,
+                    modifier = Modifier.testTag("provider-delete"),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) {
+                    Text(stringResource(R.string.provider_delete))
+                }
             }
         }
     }

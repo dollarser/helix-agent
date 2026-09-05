@@ -1,6 +1,6 @@
 # Helix 实施状态
 
-更新时间：2026-09-06（M7、M8、M9 已实现范围、M11 HXA-110～113 与 M11A HXA-114～119、HXA-124～134 已完成；M9 rooted 真机门禁仍未完成）
+更新时间：2026-09-06（M7、M8、M9 已实现范围、M11 HXA-110～113 与 M11A HXA-114～119、HXA-124～135 已完成；M9 rooted 真机门禁仍未完成）
 
 ## Current summary
 
@@ -67,6 +67,7 @@
 - M11A / HXA-132 已完成：developer App 增加 Runtime 精确可见性与 signature permission，共享 client 实现安装/启用/force-stop/签名检查、显式冷绑定、有界 status 握手和 `finally` 空闲解绑。API 29/36 arm64-v8a 均验证未安装、正常、禁用、force-stop 四态，正常后无活动 binding，启动主 App 不会被动拉起 Runtime。模型 Job/Provider/token 通道仍未新增（详见 [HXA-132 完成记录](../completion-records/HXA-132.md)）。
 - M11A / HXA-133 已完成：HXA-128 固定 Codex smoke Job 通过共享签名 Binder 提供 submit/query/cancel/reconcile；前台 Job 保持同一冷绑定、终态解绑，断连后仅按原 jobId 对账。API 29/36 arm64-v8a 证明无凭据失败终态持久、重复不重跑、未知 query/cancel、debug Binder death 恢复与 redacted journal。任意 prompt/响应正文、PFD/ModelEvent 和 Provider 尚未实现（详见 [HXA-133 完成记录](../completion-records/HXA-133.md)）。
 - M11A / HXA-134 已完成：跨 APK模型 Job 支持严格版本化、有界的 `ModelRequest`/`ModelEvent` PFD 传输，请求/结果先原子持久化并以 SHA-256 对锁，成功结果对账后删除正文并只保留 redacted record。API 29/36 arm64-v8a 均通过通用 fixture、HXA-133 回归、删除和空闲解绑验证。凭据仍由独立 Runtime UID 持有；Provider/对话/Dispatcher/Audit 尚未接入（详见 [HXA-134 完成记录](../completion-records/HXA-134.md)）。
+- M11A / HXA-135 已完成：Codex Subscription 作为 developer-only、受管理且显式非官方实验的普通 `ModelProvider` 注册，进入现有 Provider 选择、Session、egress、ChatService、统一事件与 Turn/model-call/message 持久链路；首版 capability 保守为 streaming=true、toolCalls/vision=false。API 29/36 arm64-v8a 对话 E2E 通过，consumer APK 不含实现。真实订阅模型调用沿用 HXA-127/128 的 Runtime 证据，本 HXA 未重复消耗真实额度（详见 [HXA-135 完成记录](../completion-records/HXA-135.md)）。
 - M9 / HXA-090 已完成：Accessibility Service、权限中心、allowlist 与限时 AutomationSession（详见 [HXA-090 完成记录](../completion-records/HXA-090.md)）。
 - M9 / HXA-091 已完成：有界 Accessibility snapshot 与绑定 package/window/generation/fingerprint 的 opaque token（详见 [HXA-091 完成记录](../completion-records/HXA-091.md)）。
 - M9 / HXA-092 已完成：只消费 snapshot token 的 UI actions，目标变化、过期和敏感界面均 fail closed（详见 [HXA-092 完成记录](../completion-records/HXA-092.md)）。
@@ -88,7 +89,7 @@
 
 ## Next task
 
-- M11A 有界跨 APK模型 payload 与对账删除已完成；下一步独立接入 developer 对话 Provider、Dispatcher/Verification/Audit，并在对话中与 API-key Provider 使用同一选择入口。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- M11A Codex developer 对话 Provider 已接入；下一步补充真实账号从 Helix 对话入口的小额度验收，并按独立 HXA 评估模型目录、登录/重新认证入口及 Claude/Grok/Copilot 在已有资格证据下的 Provider 扩展。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
 
 ## Blocked
 

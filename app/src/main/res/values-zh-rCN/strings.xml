@@ -566,4 +566,5 @@
     <string name="settings_proot_not_installed">未安装</string>
     <string name="settings_proot_not_verified">未验证</string>
     <string name="settings_proot_disabled">被禁用/强制停止</string>
+    <string name="provider_subscription_experimental_notice">非官方开发者实验。供应商协议变化可能导致账号访问中断或受限。</string>
 </resources>
