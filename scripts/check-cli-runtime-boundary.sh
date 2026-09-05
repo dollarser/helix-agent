@@ -17,6 +17,7 @@ manifest="$($build_tools/aapt2 dump xmltree "$apk" --file AndroidManifest.xml)"
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CodexLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CopilotLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivity' >/dev/null
+printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
 if rg -n 'chatgpt\.com/backend-api|api\.anthropic\.com/v1/messages|api\.x\.ai|api\.githubcopilot\.com' \
@@ -32,5 +33,6 @@ fi
 
 rg -F 'Iv1.b507a08c87ecfe98' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotDeviceOAuth.kt" >/dev/null
 rg -F 'https://api.github.com/copilot_internal/v2/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotDeviceOAuth.kt" >/dev/null
+rg -F 'https://auth.x.ai/oauth2/device/code' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/GrokDeviceOAuth.kt" >/dev/null
 
-echo "CLI Runtime HXA-124 boundary: auth/eligibility-only, fixed sideload identities, network-only, no model endpoint or credential import"
+echo "CLI Runtime HXA-125 boundary: auth/eligibility-only, fixed sideload identities, network-only, no model endpoint or credential import"

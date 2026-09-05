@@ -46,6 +46,14 @@ class CliRuntimeManifestDeviceTest {
         assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
     }
 
+    @Test fun grokDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        val attempt = OkHttpGrokDeviceTransport().use { it.requestDeviceCode() }
+        assertTrue(attempt.userCode.isNotBlank())
+        assertTrue(attempt.verificationUri.startsWith("https://"))
+        assertTrue(attempt.intervalMillis >= 5_000)
+        assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
+    }
+
     @Test fun embeddedLockIsStrictAndContainsNoBundledExecutable() {
         val lock = CliEmbeddedBaseline.lock(context)
         assertEquals(
@@ -246,6 +254,11 @@ class CliRuntimeManifestDeviceTest {
 
     @Test fun claudeLoginIsAnExplicitVisibleActivity() {
         val info = context.packageManager.getActivityInfo(ComponentName(context, ClaudeLoginActivity::class.java), 0)
+        assertTrue(info.exported)
+    }
+
+    @Test fun grokLoginIsAnExplicitVisibleActivity() {
+        val info = context.packageManager.getActivityInfo(ComponentName(context, GrokLoginActivity::class.java), 0)
         assertTrue(info.exported)
     }
 

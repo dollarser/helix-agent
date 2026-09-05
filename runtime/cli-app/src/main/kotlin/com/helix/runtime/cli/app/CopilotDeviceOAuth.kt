@@ -204,13 +204,15 @@ internal class OkHttpCopilotDeviceTransport(
         }
 }
 
-internal class CopilotLoginCancellation {
+internal class DeviceLoginCancellation {
     private val cancelled = AtomicBoolean(false)
 
     fun cancel() = cancelled.set(true)
 
     fun check() = check(!cancelled.get()) { "login cancelled" }
 }
+
+internal typealias CopilotLoginCancellation = DeviceLoginCancellation
 
 internal class CopilotLoginController(
     private val vault: CliSubscriptionCredentialVault,

@@ -590,6 +590,19 @@ OAuth identity、profile endpoint 和消费订阅复用均缺少 Anthropic 对 H
 developer/Advanced 个人侧载实验，不能宣称官方支持或进入商店 artifact。HXA-120～123 已分配给
 M12，因此本任务使用下一个空闲编号 HXA-124。
 
+### HXA-125 Grok Free 官方 Device Code 登录与套餐门禁
+
+依据官方 `xai-org/grok-build` 当前公开的 RFC 8628 Device Code 流，在 CLI Runtime 独立 UID
+中固定 issuer、公开 Grok Build client id、最小核心 scope，实现 code/verification URL、
+`interval`/`slow_down`、取消/过期/拒绝、refresh/logout。只允许 `auth.x.ai` token endpoint；
+不伪造 Grok Build 版本，不读取 `~/.grok/auth.json`，不把参考插件或官方 CLI 打入 APK。
+
+资格只解析由 HTTPS token endpoint 返回的 access JWT 数字 `tier`，Free(0)、X Basic(2)、缺失
+和未知值均 fail closed 且不得保存 token；仅已知付费 tier 可进入 Runtime vault。JWT claim 只用于
+本地资格门禁，不作为身份签名证明。本 HXA 不调用 `/responses`、models、billing 或 CLI chat proxy，
+不注册 Provider/Tool/Job。公开 client id 不等于 xAI 授权 Helix 使用，只允许 ADR-0021 下的
+developer/Advanced 个人侧载实验；商店与正式集成仍需项目自有或服务商明确授权。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

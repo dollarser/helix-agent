@@ -51,4 +51,21 @@
     <string name="claude_login_http_error">Claude OAuth endpoint 拒绝请求（HTTP %1$d）；未保存凭据。</string>
     <string name="claude_login_network_error">Claude 登录或资格查询网络失败；未保存凭据。</string>
     <string name="claude_login_protocol_error">Claude 响应不符合严格协议；未保存凭据。</string>
+    <string name="grok_login_title">Grok 订阅登录</string>
+    <string name="grok_login_warning">第三方个人侧载实验。使用官方 Grok Build 的公开 Device Code identity，但不代表 xAI 授权 Helix。Free/X Basic/未知套餐不会保存凭据；凭据只保存在 Runtime UID。</string>
+    <string name="grok_login_action">生成 Grok Device Code</string>
+    <string name="grok_open_browser">打开 Grok 验证页面</string>
+    <string name="grok_cancel">取消当前登录</string>
+    <string name="grok_logout">删除 Grok 登录凭据</string>
+    <string name="grok_logged_in">已登录且付费 Grok 资格验证成功；主应用无法读取 token。</string>
+    <string name="grok_logged_out">未登录 Grok。</string>
+    <string name="grok_preparing">正在向 xAI 请求 Device Code。</string>
+    <string name="grok_user_code">Device Code：%1$s\n访问：%2$s</string>
+    <string name="grok_success">登录及 Grok 资格验证成功（tier %1$d），凭据已保存到 Runtime vault。</string>
+    <string name="grok_cancelled">登录已取消；未保存新凭据。</string>
+    <string name="grok_failed">登录被拒绝、过期或套餐不具备资格；未保存凭据。</string>
+    <string name="grok_http_error">xAI OAuth endpoint 拒绝请求（HTTP %1$d）；未保存凭据。</string>
+    <string name="grok_network_error">xAI OAuth 网络请求失败；未保存凭据。</string>
+    <string name="grok_protocol_error">xAI OAuth 响应不符合严格协议；未保存凭据。</string>
+    <string name="grok_browser_error">无法打开验证页面；请使用界面显示的网址。</string>
 </resources>
