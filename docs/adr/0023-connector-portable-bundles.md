@@ -1,9 +1,9 @@
 # ADR-0023: Connector 可迁移能力包
 
-Status: proposed
+Status: accepted
 Date: 2026-09-05
 HXA: HXA-124
-Deciders: pending
+Deciders: project owner (2026-09-05)
 Supersedes: none
 Superseded by: none
 
@@ -13,9 +13,9 @@ Superseded by: none
 
 ## Decision
 
-提议把 connector 作为多个 MCP endpoint 与 Skill snapshot 的产品组合，通过数据格式适配复用既有执行层。HXA-124 在当前信任边界内实现本地 ZIP/JSON 导入与组件管理，不更改已接受的授权/Runtime 决定。持久化只含源格式标识、内容 hash、端点和 Skill 引用；用户独立配置 SecretStore bearer。新 config 禁用，用户测试和选择后注册工具。core storage 仅增加现有 authAlias 的更新操作（同时禁用），无 Room schema 变化。
+把 connector 作为多个 MCP endpoint 与 Skill snapshot 的产品组合，通过数据格式适配复用既有执行层。HXA-124 在当前信任边界内实现本地 ZIP/JSON 导入与组件管理，不更改已接受的授权/Runtime 决定。持久化只含源格式标识、内容 hash、端点和 Skill 引用；用户独立配置 SecretStore bearer。新 config 禁用，用户测试和选择后注册工具。core storage 仅增加现有 authAlias 的更新操作（同时禁用），无 Room schema 变化。
 
-本 ADR 尚为 proposed，未来 OAuth、CLI 网络底座、统一会话 enablement、市场都未获得本记录的接受或实现证明。HXA-124 的可运行代码不等于平台全兼容。
+所有者于 2026-09-05 明确要求“接受 adr-0023 并开始后续工作”，接受本首版设计。未来 OAuth、CLI 网络底座、统一会话 enablement、市场都未获得本记录的接受或实现证明。HXA-124 的可运行代码不等于平台全兼容。
 
 ## Alternatives considered
 
@@ -29,7 +29,7 @@ Superseded by: none
 
 ## Verification
 
-HXA-124 的 JVM、双 flavor debug 构建与 API 29/36 专项设备验证已通过，详见 [HXA-124 完成记录](../completion-records/HXA-124.md)。required before acceptance：所有者设计评审；未来 OAuth/CLI/市场需各自的实现与真实服务证据。官方格式与用户观察的证据等级见调研文档。
+HXA-124 的 JVM、双 flavor debug 构建与 API 29/36 专项设备验证已通过，详见 [HXA-124 完成记录](../completion-records/HXA-124.md)。所有者设计评审已于 2026-09-05 明确接受；未来 OAuth/CLI/市场需各自的实现与真实服务证据。官方格式与用户观察的证据等级见调研文档。
 
 ## Reconsider when
 

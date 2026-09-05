@@ -68,7 +68,7 @@
 
 ## In progress
 
-- 无。
+- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader 与匿名真实 SDK 专项 2/2 通过；独立账号、Android 真实连接与撤销矩阵待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task
 
@@ -117,4 +117,4 @@
 
 ## Connector 扩展线收尾
 
-M13 首版 HXA-124 已验证；HXA-125～130 均 planned，M13 未整体完成。Connector 下一项为 HXA-125 真实服务/来源格式验收，需独立测试账号与真实导出样本。ADR-0023 保持 proposed，待所有者结论。当前分支仅本地提交，不合入 main、不推送；全局 Next task 不因本扩展线调整。
+M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 下一项为 HXA-125 真实服务/来源格式验收，需独立测试账号与真实导出样本。ADR-0023 已于 2026-09-05 获所有者明确接受。当前分支仅本地提交，不合入 main、不推送；全局 Next task 不因本扩展线调整。

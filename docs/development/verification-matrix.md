@@ -199,6 +199,12 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
 | HXA-124 | `./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug --no-configuration-cache`；`python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py` | `./gradlew :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-124-connectors.sh <serial>`；API 29/36（显式选定设备；含跨进程两阶段恢复）；真实第三方服务需独立测试账号 |
+| HXA-125 | `python3 scripts/fetch-hxa-125-samples.py`；`HELIX_CONNECTOR_ACCEPTANCE_DIR="$PWD/app/build/outputs/hxa-125-samples" ./gradlew :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorExternalAcceptanceTest" --rerun --no-configuration-cache`；公开来源 hash、生产 reader 解析及真实 SDK 匿名只读调用 | JVM 协议探测不等于 Android/Dispatcher 验收；Android 真实服务、bearer 拒绝/撤销/重启需账号和专项命令，补齐前不宣布完成 |
+| HXA-126 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector OAuth 登录层需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-127 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；大 catalog 渐进工具发现需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-128 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；CLI/stdio Connector 可移植性 Spike需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-129 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 完整生命周期需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-130 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 市场设计与来源验证需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
 
 ## 4. 跨任务发布门禁
 
@@ -223,9 +229,3 @@ app/build/outputs/apk/developer/debug/app-developer-debug.apk
 runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
 runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 ```
-| HXA-125 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；真实服务与来源格式验收需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
-| HXA-126 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector OAuth 登录层需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
-| HXA-127 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；大 catalog 渐进工具发现需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
-| HXA-128 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；CLI/stdio Connector 可移植性 Spike需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
-| HXA-129 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 完整生命周期需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
-| HXA-130 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 市场设计与来源验证需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |

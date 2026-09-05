@@ -1,6 +1,6 @@
 # Connector 能力包与迁移设计
 
-日期：2026-09-05。里程碑：M13。任务：[HXA-124](../development/roadmap.md)。决策：[ADR-0023](../adr/0023-connector-portable-bundles.md)（proposed）。本页区分公开格式、用户调研观察、当前实现与后续产品方向；不把第三方平台登录态、许可证或服务权益当作可导出资产。
+日期：2026-09-05。里程碑：M13。任务：[HXA-124](../development/roadmap.md)。决策：[ADR-0023](../adr/0023-connector-portable-bundles.md)（accepted）。本页区分公开格式、用户调研观察、当前实现与后续产品方向；不把第三方平台登录态、许可证或服务权益当作可导出资产。
 
 ## 1. 设计结论
 
@@ -64,7 +64,7 @@ MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userin
 
 ## 5. 后续分期
 
-M13 尚未完成；以下均为 planned。下一项 HXA-125 先取得真实导出样本和独立服务账号，补齐真实服务验收。具体范围见 roadmap §18。
+M13 尚未完成；HXA-125 已开始，公开来源与匿名 SDK 验证见[进展记录](../development/hxa-125-progress.md)。以下 HXA-126～130 均为 planned。具体范围见 roadmap §18。
 
 1. **HXA-126 OAuth 登录层**：另立 ADR，定义独立 Android public client、浏览器回调、state/PKCE、issuer/resource 绑定、refresh/revoke、进程死亡恢复；不复制 Codex/Claude/QwenWork/WorkBuddy 凭据。需至少两家真实 MCP server 测试账号。
 2. **HXA-127 大 catalog 渐进发现**：catalog/搜索 → 当前轮加载有限 schema → Dispatcher。风险与并发仍由平台计算，defer_loading 仅为提示；tool schema 更新撤销旧批准。
