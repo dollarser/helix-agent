@@ -37,6 +37,14 @@ class CliRuntimeManifestDeviceTest {
         }
     }
 
+    @Test fun copilotDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        val attempt = OkHttpCopilotDeviceTransport().use { it.requestDeviceCode() }
+        assertTrue(attempt.userCode.isNotBlank())
+        assertEquals("https://github.com/login/device", attempt.verificationUri)
+        assertTrue(attempt.intervalMillis >= 5_000)
+        assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
+    }
+
     @Test fun embeddedLockIsStrictAndContainsNoBundledExecutable() {
         val lock = CliEmbeddedBaseline.lock(context)
         assertEquals(
@@ -182,6 +190,11 @@ class CliRuntimeManifestDeviceTest {
         assertTrue(info.exported)
         assertEquals(CliRuntimeProtocol.PERMISSION, info.permission)
         assertNotNull(context.packageManager.getPermissionInfo(CliRuntimeProtocol.PERMISSION, 0))
+    }
+
+    @Test fun copilotLoginIsAnExplicitVisibleActivity() {
+        val info = context.packageManager.getActivityInfo(ComponentName(context, CopilotLoginActivity::class.java), 0)
+        assertTrue(info.exported)
     }
 
     @Test fun permissionSurfaceIsNetworkOnly() {

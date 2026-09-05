@@ -17,4 +17,21 @@
     <string name="codex_login_http_error">Token endpoint 拒绝请求（HTTP %1$d，%2$s）；未保存凭据。</string>
     <string name="codex_login_network_error">Token exchange 网络失败（%1$s）；未保存凭据。</string>
     <string name="codex_login_protocol_error">Token 响应未满足严格协议；未保存凭据。</string>
+    <string name="copilot_login_title">GitHub Copilot 登录</string>
+    <string name="copilot_login_warning">第三方、非官方个人侧载实验。此固定 client id 不代表 GitHub、Microsoft 或其注册者授权 Helix；使用可能触发账号限制或随时停止。凭据只保存在本 Runtime UID。</string>
+    <string name="copilot_login_action">生成 Device Code</string>
+    <string name="copilot_open_browser">打开 GitHub 验证页面</string>
+    <string name="copilot_cancel">取消当前登录</string>
+    <string name="copilot_logout">删除 Copilot 登录凭据</string>
+    <string name="copilot_logged_in">已登录且 Copilot 资格验证成功；主应用无法读取 token。</string>
+    <string name="copilot_logged_out">未登录 Copilot。</string>
+    <string name="copilot_preparing">正在向 GitHub 请求 Device Code。</string>
+    <string name="copilot_user_code">Device Code：%1$s\n访问：%2$s</string>
+    <string name="copilot_success">登录及 Copilot 资格验证成功，凭据已保存到 Runtime vault。</string>
+    <string name="copilot_cancelled">登录已取消；未保存新凭据。</string>
+    <string name="copilot_failed">登录被拒绝、过期或已取消；未保存凭据。</string>
+    <string name="copilot_http_error">GitHub/Copilot endpoint 拒绝请求（HTTP %1$d）；账号可能没有 Copilot 资格，未保存凭据。</string>
+    <string name="copilot_network_error">GitHub/Copilot 网络请求失败；未保存凭据。</string>
+    <string name="copilot_protocol_error">GitHub/Copilot 响应不符合严格协议；未保存凭据。</string>
+    <string name="copilot_browser_error">无法打开系统浏览器；可手动访问 https://github.com/login/device。</string>
 </resources>

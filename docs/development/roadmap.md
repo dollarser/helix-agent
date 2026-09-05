@@ -568,11 +568,12 @@ identity 的公开授权，只能侧载验证，不能进入商店 artifact 或�
 
 ### HXA-119 GitHub Copilot Free 第三方侧载 Device Code 登录生命周期
 
-先以项目自有 GitHub OAuth App 为正式路线；在 client registration 尚未完成前，只允许明确标注
-非官方的 developer/Advanced 侧载验证，不得复用参考插件的 VS Code Copilot client id 作为 Helix
-身份。实现 device code 请求、用户码/verification URL、轮询 interval/slow_down、取消/超时/拒绝，
-并将 GitHub/Copilot token 仅保存到 CLI Runtime vault。免费账号可验证登录及 entitlement 拒绝；
-Copilot Free 账号可验证登录资格。本 HXA 不调用模型、不注册 Provider/Tool/Job。
+依 [ADR-0023](../adr/0023-copilot-third-party-device-flow-identity.md) 固定复用参考插件 client id，
+仅作为明确标注非官方的 developer/Advanced 个人侧载实验；不得宣称该身份注册者、GitHub 或
+Microsoft 授权 Helix。实现 device code 请求、用户码/verification URL、轮询 interval/slow_down、
+取消/超时/拒绝、Copilot entitlement/token exchange，并将 GitHub/Copilot token 仅保存到 CLI
+Runtime vault。免费账号可验证授权及 entitlement 拒绝；Copilot Free 账号可验证登录资格。
+本 HXA 不调用模型、不注册 Provider/Tool/Job，商店/官方发行仍要求项目自有身份与服务商授权。
 
 ## 16. M12：商店与官网多渠道发布
 

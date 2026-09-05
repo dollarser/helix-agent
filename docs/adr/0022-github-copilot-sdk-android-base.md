@@ -37,7 +37,8 @@ HXA-117 只锁定 `bundled=false` 的供应链证据。不得把 Linux 构件改
 2. 在独立 PRoot/RootFS 中运行官方 SDK：技术上可能，但不是直接 Android 支持，且扩大运行时、
    网络和工具攻击面；留待独立架构决定。
 3. 移植 `dsh-plugin-subscriptions` 的 Copilot 路线：使用非官方固定 CLI identity/internal endpoint，
-   不等价于官方 SDK/OAuth App；不选。
+   不等价于官方 SDK/OAuth App；本 ADR 不选择为官方底座。项目所有者随后通过
+   [ADR-0023](0023-copilot-third-party-device-flow-identity.md) 仅接受其个人侧载登录实验。
 4. 继续使用现有 API key/self-hosted Provider：不消费 Copilot subscription，但当前已受支持。
 
 ## Consequences
@@ -69,6 +70,7 @@ HXA-117 只锁定 `bundled=false` 的供应链证据。不得把 Linux 构件改
 
 - [Companion Runtime 生命周期](0007-companion-runtime-lifecycle.md)
 - [第三方订阅 adapter 边界](0021-third-party-subscription-protocol-adapter.md)
+- [Copilot 第三方 Device Flow 身份侧载例外](0023-copilot-third-party-device-flow-identity.md)
 - [GitHub Copilot SDK authentication](https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate)
 - [GitHub Copilot SDK OAuth setup](https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/github-oauth)
 - [GitHub Copilot SDK getting started](https://docs.github.com/en/copilot/how-tos/copilot-sdk/getting-started)

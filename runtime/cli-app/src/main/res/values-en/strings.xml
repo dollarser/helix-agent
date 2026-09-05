@@ -17,4 +17,21 @@
     <string name="codex_login_http_error">Token endpoint rejected the request (HTTP %1$d, %2$s); no credentials were saved.</string>
     <string name="codex_login_network_error">Token exchange network failure (%1$s); no credentials were saved.</string>
     <string name="codex_login_protocol_error">Token response failed strict protocol validation; no credentials were saved.</string>
+    <string name="copilot_login_title">GitHub Copilot login</string>
+    <string name="copilot_login_warning">Third-party, unofficial personal sideload experiment. This fixed client ID does not mean GitHub, Microsoft, or its registrant authorized Helix. Use may restrict the account or stop working. Credentials stay in this Runtime UID.</string>
+    <string name="copilot_login_action">Generate device code</string>
+    <string name="copilot_open_browser">Open GitHub verification page</string>
+    <string name="copilot_cancel">Cancel current login</string>
+    <string name="copilot_logout">Delete Copilot login credentials</string>
+    <string name="copilot_logged_in">Signed in and Copilot entitlement verified; the main app cannot read the token.</string>
+    <string name="copilot_logged_out">Signed out of Copilot.</string>
+    <string name="copilot_preparing">Requesting a device code from GitHub.</string>
+    <string name="copilot_user_code">Device Code: %1$s\nOpen: %2$s</string>
+    <string name="copilot_success">Login and Copilot entitlement verified; credentials are stored in the Runtime vault.</string>
+    <string name="copilot_cancelled">Login cancelled; no new credentials were saved.</string>
+    <string name="copilot_failed">Login was rejected, expired, or cancelled; no credentials were saved.</string>
+    <string name="copilot_http_error">GitHub/Copilot endpoint rejected the request (HTTP %1$d); the account may lack Copilot entitlement. No credentials were saved.</string>
+    <string name="copilot_network_error">GitHub/Copilot network request failed; no credentials were saved.</string>
+    <string name="copilot_protocol_error">GitHub/Copilot response failed strict protocol validation; no credentials were saved.</string>
+    <string name="copilot_browser_error">Unable to open the system browser. You can visit https://github.com/login/device manually.</string>
 </resources>
