@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.app.Application
 import android.content.Context
 import com.helix.app.a2a.A2aAppService
 import com.helix.app.a2a.A2aStorageBridge
@@ -30,6 +31,10 @@ import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.root.RootModule
+import com.helix.app.runcontrol.AndroidResourceGate
+import com.helix.app.runcontrol.PersistedRunControlStore
+import com.helix.app.runcontrol.PlatformDeviceResourceProbe
+import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.IdGenerator
@@ -127,6 +132,8 @@ interface AppContainer {
 
     val profileStore: SafetyProfileStore
 
+    val runControlStore: RunControlStore
+
     val firstLaunch: FirstLaunchStore
 
     val providerService: ProviderService
@@ -221,6 +228,11 @@ internal class DefaultAppContainer(
 
     override val profileStore: SafetyProfileStore =
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
+
+    override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
+
+    private val resourceGate =
+        AndroidResourceGate(PlatformDeviceResourceProbe(context.applicationContext as Application))
 
     override val firstLaunch: FirstLaunchStore = FirstLaunchStore(lineStore)
 
@@ -600,6 +612,7 @@ internal class DefaultAppContainer(
                     clock = appClock,
                     dispatcher = dispatcher,
                     registry = toolRegistry,
+                    resourceGate = resourceGate::allowance,
                 )
             ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler)
         }
@@ -653,6 +666,7 @@ internal class DefaultAppContainer(
             storage = storage,
             providerService = providerService,
             profileStore = profileStore,
+            runControlStore = runControlStore,
             clock = appClock,
             idGenerator = { idGenerator.next() },
             toolPipeline = toolPipeline,

@@ -212,6 +212,7 @@ internal fun HelixApp(container: AppContainer) {
                                         container.profileStore,
                                         container.providerService,
                                         container.storage.highSensitivityRules,
+                                        container.runControlStore,
                                     )
                                 }
 

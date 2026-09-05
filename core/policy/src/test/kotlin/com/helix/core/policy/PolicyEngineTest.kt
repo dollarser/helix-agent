@@ -47,6 +47,7 @@ class PolicyEngineTest {
         baseRisk: RiskLevel = RiskLevel.L1,
         operationClass: ToolOperationClass = ToolOperationClass.NETWORK,
         mode: AgentMode = AgentMode.ACT,
+        chatToolsEnabled: Boolean = false,
         profile: SafetyProfile = SafetyProfile.STANDARD,
         source: ToolCallSource = ToolCallSource.BuiltIn,
         executionTarget: ExecutionTargetType = ExecutionTargetType.LOCAL_ANDROID,
@@ -63,6 +64,7 @@ class PolicyEngineTest {
         baseRisk = baseRisk,
         operationClass = operationClass,
         mode = mode,
+        chatToolsEnabled = chatToolsEnabled,
         profile = profile,
         source = source,
         executionTarget = executionTarget,
@@ -185,6 +187,55 @@ class PolicyEngineTest {
                 input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
             )
         assertEquals(PolicyDecision.Allow, evaluation.decision)
+    }
+
+    @Test
+    fun chatRequiresExplicitOptInAndStillAllowsOnlyReadOnlyL0() {
+        val disabled =
+            engine.evaluate(
+                input(mode = AgentMode.CHAT, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            )
+        assertEquals(PolicyDenialCode.CHAT_TOOLS_DISABLED, denialOf(disabled).code)
+
+        val allowed =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    baseRisk = RiskLevel.L0,
+                ),
+            )
+        assertEquals(PolicyDecision.Allow, allowed.decision)
+
+        val mutation =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                ),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(mutation).code)
+        val sensitiveRead =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.READ_ONLY,
+                    baseRisk = RiskLevel.L1,
+                ),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(sensitiveRead).code)
+    }
+
+    @Test
+    fun planDynamicRiskCeilingCannotBeApprovedThrough() {
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L2),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
     }
 
     @Test
