@@ -146,6 +146,10 @@ Helix main app
 - `cli-runtime` 与离线 `proot-runtime`、主 App 使用不同 UID。
 - 登录 URL 交给 Helix 浏览器或系统浏览器打开；token 不返回主 App。
 - adapter 版本、来源、hash、许可证和服务条款必须锁定；不得把它描述为官方 CLI/SDK。
+- Runtime vault 的候选集合为 Codex、Claude、Grok 与 GitHub Copilot；进入 vault 只表示可隔离
+  保存其未来 OAuth grant，不表示登录、endpoint 或 Provider 已获准或实现。
+- GitHub Copilot 优先采用官方 Copilot SDK + 项目自有 GitHub OAuth App 路线；不得复用参考
+  插件固定的 CLI client identity/internal token endpoint。Grok CLI/proxy 路线只保留侧载研究。
 - CLI 的 Android/Linux arm64 可执行形态和底座（原生或独立 PRoot/RootFS）由 HXA-111/112 Spike 验证并记录 ADR，此图不预先假定 RootFS。
 - 默认不给 CLI 真实手机文件、Android 权限或主 App secret，只给 Job snapshot。
 - adapter 只转换模型流；不得注册其自带工具。模型产生的工具请求必须转换为普通 Helix ToolCall。

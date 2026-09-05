@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-05
-HXA: HXA-114, HXA-115
+HXA: HXA-114, HXA-115, HXA-116
 Deciders: Project owner（2026-09-05 明确要求修改“官方 CLI 持有凭据”边界并采用 HXA-114 方案）
 Supersedes: none
 Superseded by: none
@@ -15,9 +15,10 @@ access/refresh token 写入 DSH 私有 `auth.json`，随后直接调用 ChatGPT 
 Anthropic Messages subscription endpoint。Claude 路线还可读取并写回 Claude Code credential
 store。插件自身声明 MIT，但代码许可证不构成服务端、OAuth client 或消费订阅接口授权。
 
-本地已安装版本为 `0.6.0`；2026-09-05 查询 npm registry 的 latest 为 `0.7.0`，说明协议与
-实现仍会变化。上游 README 明确把 approval policy 交给另一个 DSH 插件，并且该适配器没有
-Android Binder、持久 job journal 或按 `jobId` 对账契约。
+HXA-114 审计时本地版本为 `0.6.0`；HXA-116 已将本地更新为 npm latest `0.7.0`，并与 registry
+tarball 逐文件比对无差异。`0.7.0` 覆盖 Codex、Claude、Grok 与 GitHub Copilot，也增加多账号、
+图片/视频和 X search 等能力；这些能力不是 Helix Tool Approval。该适配器仍没有 Android
+Binder、持久 job journal 或按 `jobId` 对账契约。
 
 OpenAI 当前官方资料描述由 Codex CLI 完成 ChatGPT 登录并在本地保存其凭据；Anthropic 官方
 资料描述由 Claude Code 登录并安全保存凭据。尚未找到允许任意第三方产品复用这些 CLI client
@@ -53,6 +54,10 @@ jobId 查询、不明确结果停泊和绝不重放。
 - 即使 ADR 被接受，服务商授权、依赖许可证闭包、Android Node/DSH 可运行性、撤销/删除、
   限额和账号封禁风险仍需独立证据。
 - 本地 `0.6.0` 与 latest `0.7.0` 的漂移要求任何后续 Spike 固定 tarball integrity 和源码 commit。
+- GitHub 已公开 Copilot SDK 的 GitHub OAuth App 认证路线；Copilot 后续优先验证官方 SDK，
+  不复用插件固定的 Copilot CLI client identity 或 internal token endpoint。
+- Grok consumer subscription 与 xAI developer API 是不同边界；缺少第三方消费订阅集成授权时，
+  插件的 Grok CLI identity/proxy 路线不得升级为商店能力。
 
 ## Verification
 
@@ -85,3 +90,6 @@ arm64-v8a 设备测试。服务商对第三方消费订阅客户端的可核验�
 - [OpenAI Terms of Use](https://openai.com/policies/terms-of-use/)
 - [Claude Code authentication](https://docs.anthropic.com/en/docs/claude-code/getting-started)
 - [Anthropic legal center](https://www.anthropic.com/legal)
+- [GitHub Copilot SDK authentication](https://docs.github.com/en/copilot/how-tos/copilot-sdk/auth/authenticate)
+- [GitHub Copilot SDK OAuth setup](https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/github-oauth)
+- [xAI consumer terms](https://x.ai/legal/terms-of-service)

@@ -27,9 +27,11 @@ object CliEmbeddedBaseline {
                 put("abi", lock.abi)
                 put("lockSha256", CliRuntimeLockCodec.sha256(lock))
                 put("bundledArtifactCount", lock.artifacts.count { it.bundled })
-                put("credentialState", "AVAILABLE_THIRD_PARTY_ADAPTER")
+                put("credentialState", "VAULT_READY_ADAPTERS_NOT_REGISTERED")
                 put("codexLoginState", credentialStates.getValue("codex"))
                 put("claudeLoginState", credentialStates.getValue("claude"))
+                put("grokLoginState", credentialStates.getValue("grok"))
+                put("copilotLoginState", credentialStates.getValue("copilot"))
                 put("agentBackendState", "NOT_REGISTERED")
             },
         )

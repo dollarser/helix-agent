@@ -15,7 +15,15 @@ class CliSubscriptionCredentialVaultTest {
         vault.save(CliSubscriptionProvider.CODEX, session("access-two", "refresh-two", 200))
 
         assertEquals(session("access-two", "refresh-two", 200), vault.load(CliSubscriptionProvider.CODEX))
-        assertEquals(mapOf("codex" to "LOGGED_IN", "claude" to "LOGGED_OUT"), vault.publicStates())
+        assertEquals(
+            mapOf(
+                "codex" to "LOGGED_IN",
+                "claude" to "LOGGED_OUT",
+                "grok" to "LOGGED_OUT",
+                "copilot" to "LOGGED_OUT",
+            ),
+            vault.publicStates(),
+        )
         assertFalse(vault.publicStates().toString().contains("access-two"))
         assertFalse(vault.publicStates().toString().contains("refresh-two"))
     }
@@ -50,7 +58,10 @@ class CliSubscriptionCredentialVaultTest {
     }
 
     @Test fun providerSetIsClosedAndOversizedCredentialIsRejectedBeforeStorage() {
-        assertEquals(setOf("codex", "claude"), CliSubscriptionProvider.entries.map { it.wireId }.toSet())
+        assertEquals(
+            setOf("codex", "claude", "grok", "copilot"),
+            CliSubscriptionProvider.entries.map { it.wireId }.toSet(),
+        )
         assertThrows(IllegalArgumentException::class.java) {
             vault.save(CliSubscriptionProvider.CODEX, session("a".repeat(17 * 1024), "refresh", 1))
         }

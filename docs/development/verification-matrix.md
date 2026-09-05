@@ -191,6 +191,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | --- | --- | --- |
 | HXA-114 | `./scripts/audit-dsh-subscriptions-spike.sh <installed-plugin-dir>`<br>`./scripts/check-lockfiles.sh`<br>`./scripts/check-secrets.sh`<br>`./scripts/check-docs.sh`<br>`./scripts/verify-adr.sh` | 只读源码/metadata 与官方文档核验；禁止读取真实 auth store、登录或模型请求。记录插件版本/hash、访问日期、token owner、官方 CLI 身份、Android/job 协议缺口与 ADR 状态 |
 | HXA-115 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-lock.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 Runtime UID 私有 Keystore vault round-trip/覆盖/logout/篡改 fail closed，Binder status 只有登录布尔状态且不含 token |
+| HXA-116 | `./scripts/audit-dsh-subscriptions-spike.sh <installed-plugin-dir>`<br>`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache` | 本地 `0.7.0` 与 npm tarball/integrity 无差异；核验四 provider 与官方文档；API 29/36 arm64-v8a 验证四 provider vault 隔离和 redacted status，且 `agentBackendState=NOT_REGISTERED` |
 
 ### M12：商店与官网多渠道发布
 

@@ -539,6 +539,14 @@ refresh token，或厂商未公开授权第三方客户端使用相应消费订�
 logout 删除和状态不泄漏；不得读取浏览器、Claude Code、DSH 或主 App credential。此任务不
 实现 OAuth endpoint、模型请求、Provider 注册或 Job。
 
+### HXA-116 订阅平台目录与 0.7.0 供应链重基线
+
+将本地 `dsh-plugin-subscriptions@0.7.0` 与 npm tarball/integrity 精确比对，审计 Codex、Claude、
+Grok 和 GitHub Copilot 的认证、endpoint、工具及凭据行为，并按当前官方资料分别判定后续路线。
+CLI Runtime vault 的封闭 provider 集扩展为这四项，状态仍只返回 redacted login state，并明确
+报告 adapter 未注册。本任务不复制插件、不登录、不调用模型、不注册 Provider/Tool；Copilot
+优先评估官方 SDK/OAuth App 路线，Grok 在缺少第三方消费订阅集成授权时保持非官方侧载候选。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

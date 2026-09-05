@@ -12,6 +12,8 @@ readonly auth_store="$plugin_dir/lib/auth/store.js"
 readonly claude_creds="$plugin_dir/lib/auth/claude-code-creds.js"
 readonly codex_provider="$plugin_dir/lib/providers/codex.js"
 readonly claude_provider="$plugin_dir/lib/providers/claude.js"
+readonly grok_provider="$plugin_dir/lib/providers/grok.js"
+readonly copilot_provider="$plugin_dir/lib/providers/copilot.js"
 
 for required in \
   "$package_json" \
@@ -19,7 +21,9 @@ for required in \
   "$auth_store" \
   "$claude_creds" \
   "$codex_provider" \
-  "$claude_provider"; do
+  "$claude_provider" \
+  "$grok_provider" \
+  "$copilot_provider"; do
   [[ -f "$required" ]] || { echo "missing required plugin file: $required" >&2; exit 1; }
 done
 
@@ -44,9 +48,15 @@ rg -q "CODEX_CLIENT_ID" "$codex_provider"
 rg -q "api\.anthropic\.com/v1/messages" "$claude_provider"
 rg -q "CLAUDE_CLIENT_ID" "$claude_provider"
 rg -q "claude-cli/" "$claude_provider"
+rg -q "api\.x\.ai/v1/responses" "$grok_provider"
+rg -q "GROK_CLIENT_ID" "$grok_provider"
+rg -q "cli-chat-proxy\.grok\.com" "$grok_provider"
+rg -q "api\.githubcopilot\.com" "$copilot_provider"
+rg -q "COPILOT_CLIENT_ID" "$copilot_provider"
+rg -q "github\.com/login/device/code" "$copilot_provider"
 
 if rg -q "jobId|executionId|Binder|DeadObjectException" \
-  "$plugin_dir/lib/auth" "$codex_provider" "$claude_provider"; then
+  "$plugin_dir/lib/auth" "$codex_provider" "$claude_provider" "$grok_provider" "$copilot_provider"; then
   echo "unexpected Helix-style durable job/Android IPC signal found; review required" >&2
   exit 1
 fi

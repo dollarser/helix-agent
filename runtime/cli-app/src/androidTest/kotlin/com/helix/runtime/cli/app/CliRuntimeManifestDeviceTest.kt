@@ -31,13 +31,14 @@ class CliRuntimeManifestDeviceTest {
 
     @Test fun runtimeExposesOnlyRedactedCredentialStateAndNoAgentBackend() {
         CliSubscriptionCredentialVault(context).apply {
-            logout(CliSubscriptionProvider.CODEX)
-            logout(CliSubscriptionProvider.CLAUDE)
+            CliSubscriptionProvider.entries.forEach(::logout)
         }
         val status = JSONObject(CliEmbeddedBaseline.status(context))
-        assertEquals("AVAILABLE_THIRD_PARTY_ADAPTER", status.getString("credentialState"))
+        assertEquals("VAULT_READY_ADAPTERS_NOT_REGISTERED", status.getString("credentialState"))
         assertEquals("LOGGED_OUT", status.getString("codexLoginState"))
         assertEquals("LOGGED_OUT", status.getString("claudeLoginState"))
+        assertEquals("LOGGED_OUT", status.getString("grokLoginState"))
+        assertEquals("LOGGED_OUT", status.getString("copilotLoginState"))
         assertEquals("NOT_REGISTERED", status.getString("agentBackendState"))
     }
 
