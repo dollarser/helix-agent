@@ -11,8 +11,8 @@ import java.security.MessageDigest
 /**
  * Where a context item's content comes from (architecture doc 5.4).
  *
- * The six content sources listed in the security doc (Web/File/MCP/Skill/Notification/
- * Accessibility) are the untrusted ones: their content is model-visible but must be marked
+ * External content sources listed in the security doc (Web/File/MCP/A2A/Skill/Notification/
+ * Accessibility) are untrusted: their content is model-visible but must be marked
  * `UNTRUSTED` and can never grant permission by itself.
  */
 enum class ContextSourceType {
@@ -26,6 +26,7 @@ enum class ContextSourceType {
     WEB,
     FILE,
     MCP,
+    A2A,
     SKILL,
     NOTIFICATION,
     ACCESSIBILITY,
@@ -41,7 +42,7 @@ enum class ContextSourceType {
     companion object {
         /** Content sources whose text must always be marked [ContextTrust.UNTRUSTED] (doc 07). */
         val UNTRUSTED_SOURCES: Set<ContextSourceType> =
-            setOf(WEB, FILE, MCP, SKILL, NOTIFICATION, ACCESSIBILITY)
+            setOf(WEB, FILE, MCP, A2A, SKILL, NOTIFICATION, ACCESSIBILITY)
 
         /** App-owned contracts: always [ContextTrust.TRUSTED] and never trimmed by the builder. */
         val CONTRACT_SOURCES: Set<ContextSourceType> = setOf(SYSTEM, MODE_POLICY)

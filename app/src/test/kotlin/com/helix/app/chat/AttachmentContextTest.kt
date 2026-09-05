@@ -63,6 +63,7 @@ class AttachmentContextTest {
         assertTrue(out.contains(sha))
         assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
         assertTrue(out.contains("notes.txt"))
+        assertTrue(out.indexOf(AttachmentContext.UNTRUSTED_MARKER) < out.indexOf("notes.txt"))
         assertEquals(relativePath, pathValueOf(out))
     }
 
@@ -110,6 +111,7 @@ class AttachmentContextTest {
         assertTrue(out.contains("1024x768"))
         assertTrue(out.contains(sha))
         assertTrue(out.contains(AttachmentContext.UNTRUSTED_MARKER))
+        assertTrue(out.indexOf(AttachmentContext.UNTRUSTED_MARKER) < out.indexOf("photo.jpg"))
         assertFalse(out.contains("完整内容路径"))
         assertFalse(out.lineSequence().any { it.startsWith("/") })
     }

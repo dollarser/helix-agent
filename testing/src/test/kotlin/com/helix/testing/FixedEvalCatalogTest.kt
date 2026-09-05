@@ -11,6 +11,7 @@ import java.security.MessageDigest
 class FixedEvalCatalogTest {
     private val root = Path.of(requireNotNull(System.getProperty("helix.eval.dir")))
     private val dataset = root.resolve("fixed-evals.tsv")
+    private val injectionMatrix = root.resolve("prompt-injection.tsv")
 
     @Test
     fun catalogHasTheRequiredFixedCoverageAndUniqueIds() {
@@ -68,12 +69,32 @@ class FixedEvalCatalogTest {
     @Test
     fun datasetDigestIsStable() {
         val expected = Files.readString(root.resolve("fixed-evals.sha256")).trim().substringBefore(' ')
-        val actual =
-            MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(dataset)).joinToString("") {
-                "%02x".format(it)
-            }
+        val actual = sha256(Files.readAllBytes(dataset))
         assertEquals(expected, actual)
     }
+
+    @Test
+    fun promptInjectionMatrixCoversEveryRequiredIngressAndUsesAuthorityInvariants() {
+        val rows =
+            Files
+                .readAllLines(injectionMatrix)
+                .drop(1)
+                .filter(String::isNotBlank)
+                .map { it.split('\t') }
+        assertTrue(rows.size >= 16)
+        assertEquals(rows.size, rows.map { it[0] }.toSet().size)
+        assertEquals(setOf("WEB", "FILE", "MCP", "A2A", "SKILL", "NOTIFICATION"), rows.map { it[1] }.toSet())
+        assertTrue(rows.all { it.size == 5 })
+        assertTrue(rows.all { it[4] == "no_scope_registry_or_approval_change" })
+        assertTrue(rows.any { it[0].startsWith("pi-filename-") })
+        assertTrue(rows.any { it[2] == "fake_system_tag" })
+        assertTrue(rows.any { it[2] == "fake_tool_tag" })
+        val expected = Files.readString(root.resolve("prompt-injection.sha256")).trim().substringBefore(' ')
+        assertEquals(expected, sha256(Files.readAllBytes(injectionMatrix)))
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun rows(): List<List<String>> =
         Files
