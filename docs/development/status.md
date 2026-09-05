@@ -63,6 +63,13 @@
 - M7 / HXA-077 已完成：官方 Java SDK `1.3.1.Final` 的 JVM fixture 通过，但严格 Android R8 因缺失 `java.net.http.HttpClient` 按预期拒绝且未用 warning suppression 降级；production 固定最小 `A2aClientFacade` + OkHttp/kotlinx.serialization。最小方案严格 R8 为 15,544-byte DEX / 169 method IDs，API 29/36 专项 fixture 各 3/3，双 flavor unsigned release/R8 与 Apache-2.0 runtime license closure 已验收；物理真机、签名产物与最终完整 SBOM/notice 归 M12（详见 [HXA-077 完成记录](../completion-records/HXA-077.md)）。
 - M7 / HXA-078 已完成：默认禁用 Agent、SecretStore alias、公开/扩展 Agent Card、v1.0 JSONRPC/HTTP+JSON interface 选择、有界 provider/capability/mode/Skill snapshot、逐 Skill 启用与 canonical hash 失效均通过 JVM/Room 和 API 29/36 production fixture；设备期发现并修复 Card 变化只禁用 Room、旧内存 Registry 仍可见的失效窗口，现在 snapshot 持久化后同步清除 descriptor/executor/bridge（详见 [HXA-078 完成记录](../completion-records/HXA-078.md)）。
 - M7 / HXA-079 已完成：独立 A2A Tool origin、固定 schema 与 Dispatcher/Policy/Approval/Audit 接线，Send/stream/Get/Cancel/Subscribe、Task/input/snapshot/event 持久关联与 `Last-Event-ID` 对账已验收；API 29/36 production recovery fixture 各 2/2，证明进程重建只查询原 Task、不明确送达停在 `NEEDS_REVIEW` 且不重发、远端 proposal/URL 不取得本机执行权，以及 Workspace Artifact 幂等复用与磁盘 hash 篡改拒绝（详见 [HXA-079 完成记录](../completion-records/HXA-079.md)）。
+- M10 / HXA-099 已完成：模式/预算/resourceGate 已实现；M10 尚未完成的 release evidence 是 24 小时连续稳定性、真实 Doze/secure keyguard/OEM 热限制与低内存 kill、物理设备和 16 KiB page-size、真实 crash/ANR `ApplicationExitInfo` 联合证据、缺失 RootFS 下的 PRoot lifecycle，以及多 Provider/模型逐 case 评测和 HXA-105 30 分钟真机收益/资源对照；这些均不得用短时 emulator 或 skip 计作绿色（详见 [HXA-099 完成记录](../completion-records/HXA-099.md)）。
+- M10 / HXA-100 已完成：45 条固定评测及可复现实验元数据（详见 [HXA-100 完成记录](../completion-records/HXA-100.md)）。
+- M10 / HXA-101 已完成：Prompt Injection 固定矩阵与结构性 authority gate（详见 [HXA-101 完成记录](../completion-records/HXA-101.md)）。
+- M10 / HXA-102 已完成：恢复、副作用、`NEEDS_REVIEW` 与 durable Goal accounting（详见 [HXA-102 完成记录](../completion-records/HXA-102.md)）。
+- M10 / HXA-103 已完成：API 29/34/35/36 短时资源与生命周期门禁；外部长稳项仍按上项保留（详见 [HXA-103 完成记录](../completion-records/HXA-103.md)）。
+- M10 / HXA-104 已完成：隐私、脱敏诊断、`ApplicationExitInfo` 与显式删除边界（详见 [HXA-104 完成记录](../completion-records/HXA-104.md)）。
+- M10 / HXA-105 已完成：隔离的有界只读编排 Spike；未进入生产 Tool Registry，ADR-0009 保持 `proposed`，产品继续单 Agent（详见 [HXA-105 完成记录](../completion-records/HXA-105.md)）。
 
 ## In progress
 
