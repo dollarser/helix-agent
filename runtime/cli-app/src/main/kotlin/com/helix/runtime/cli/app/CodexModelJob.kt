@@ -1,56 +1,16 @@
 package com.helix.runtime.cli.app
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
-import kotlinx.serialization.json.put
+import com.helix.runtime.cli.client.CliModelJobRecord
+import com.helix.runtime.cli.client.CliModelJobRecordCodec
+import com.helix.runtime.cli.client.CliModelJobState
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-internal enum class CodexModelJobState {
-    PENDING,
-    RUNNING,
-    SUCCEEDED,
-    FAILED,
-    CANCELLED,
-    INTERRUPTED,
-    ;
-
-    val terminal: Boolean get() = this !in setOf(PENDING, RUNNING)
-}
-
-internal data class CodexModelJobRecord(
-    val jobId: String,
-    val requestSha256: String,
-    val state: CodexModelJobState,
-    val createdAtEpochMillis: Long,
-    val terminalAtEpochMillis: Long? = null,
-    val model: String? = null,
-    val outputSha256: String? = null,
-) {
-    init {
-        require(JOB_ID.matches(jobId)) { "invalid jobId" }
-        require(SHA256.matches(requestSha256)) { "invalid request hash" }
-        require(state.terminal == (terminalAtEpochMillis != null)) { "terminal timestamp mismatch" }
-        require(model == null || model.length in 1..128) { "invalid model" }
-        require(outputSha256 == null || SHA256.matches(outputSha256)) { "invalid output hash" }
-        if (state == CodexModelJobState.SUCCEEDED) {
-            require(model != null && outputSha256 != null) { "success requires output proof" }
-        } else {
-            require(outputSha256 == null) { "non-success carries output proof" }
-        }
-    }
-
-    companion object {
-        private val JOB_ID = Regex("job_[0-9a-f]{12}")
-        private val SHA256 = Regex("[0-9a-f]{64}")
-    }
-}
+internal typealias CodexModelJobState = CliModelJobState
+internal typealias CodexModelJobRecord = CliModelJobRecord
 
 internal class CodexModelJobStore(private val root: File) {
     private val jobs = File(root, "codex-model-jobs")
@@ -58,7 +18,7 @@ internal class CodexModelJobStore(private val root: File) {
     fun load(jobId: String): CodexModelJobRecord? {
         val file = recordFile(jobId)
         if (!file.isFile) return null
-        return decode(file.readText())
+        return CliModelJobRecordCodec.decode(file.readText())
     }
 
     fun put(record: CodexModelJobRecord) {
@@ -66,7 +26,7 @@ internal class CodexModelJobStore(private val root: File) {
         require(file.parentFile?.mkdirs() == true || file.parentFile?.isDirectory == true)
         val tmp = File(file.parentFile, "record.json.tmp")
         FileOutputStream(tmp).use { out ->
-            out.write(encode(record).encodeToByteArray())
+            out.write(CliModelJobRecordCodec.encode(record).encodeToByteArray())
             out.flush()
             out.fd.sync()
         }
@@ -92,40 +52,8 @@ internal class CodexModelJobStore(private val root: File) {
 
     private fun recordFile(jobId: String) = File(File(jobs, jobId), "record.json")
 
-    private fun encode(record: CodexModelJobRecord): String =
-        buildJsonObject {
-            put("version", 1)
-            put("jobId", record.jobId)
-            put("requestSha256", record.requestSha256)
-            put("state", record.state.name)
-            put("createdAtEpochMillis", record.createdAtEpochMillis)
-            record.terminalAtEpochMillis?.let { put("terminalAtEpochMillis", it) }
-            record.model?.let { put("model", it) }
-            record.outputSha256?.let { put("outputSha256", it) }
-        }.toString()
-
-    private fun decode(document: String): CodexModelJobRecord {
-        require(document.encodeToByteArray().size <= MAX_RECORD_BYTES) { "record too large" }
-        val obj = Json.parseToJsonElement(document).jsonObject
-        val required = setOf("version", "jobId", "requestSha256", "state", "createdAtEpochMillis")
-        val optional = setOf("terminalAtEpochMillis", "model", "outputSha256")
-        require(obj.keys.containsAll(required) && obj.keys.all { it in required || it in optional }) {
-            "record schema mismatch"
-        }
-        require(obj.getValue("version").jsonPrimitive.long == 1L) { "unsupported record version" }
-        return CodexModelJobRecord(
-            obj.getValue("jobId").jsonPrimitive.content,
-            obj.getValue("requestSha256").jsonPrimitive.content,
-            CodexModelJobState.valueOf(obj.getValue("state").jsonPrimitive.content),
-            obj.getValue("createdAtEpochMillis").jsonPrimitive.long,
-            obj["terminalAtEpochMillis"]?.jsonPrimitive?.long,
-            obj["model"]?.jsonPrimitive?.content,
-            obj["outputSha256"]?.jsonPrimitive?.content,
-        )
-    }
-
     internal companion object {
-        const val MAX_RECORD_BYTES = 8 * 1024
+        const val MAX_RECORD_BYTES = CliModelJobRecordCodec.MAX_RECORD_BYTES
         const val MAX_ENTRIES = 128
         const val MAX_TOTAL_BYTES = 1024L * 1024L
     }
@@ -178,6 +106,8 @@ internal class CodexModelJobRunner(
         }
         terminal(current, CodexModelJobState.CANCELLED)
     }
+
+    fun reconcile(jobId: String): CodexModelJobRecord? = query(jobId)
 
     override fun close() {
         synchronized(lock) {

@@ -685,6 +685,19 @@ API 29 与 API 36 arm64-v8a 必须分别验证未安装、正常握手、禁用�
 Service binding；另验证启动主 App 不会被动启动 force-stopped Runtime。本任务仍不新增模型 Job transaction、
 任意 prompt、Provider 或 token 通道；下一 HXA 才能实现按 jobId 对账的 Codex 跨 APK模型 Job。
 
+### HXA-133 固定 Codex 跨 APK 持久 Job 控制面
+
+把 HXA-128 Runtime 私有固定 smoke Job 通过 HXA-131/132 的共享签名 Binder 暴露为有界
+submit/query/cancel/reconcile 控制面。首次提交和轮询在同一前台 cold binding 内完成，终态后立即解绑；
+Binder death 后只允许按原 jobId 冷绑定 query/reconcile，不自动重新 submit。相同 jobId + 固定 request hash
+返回原记录，不同 hash 拒绝；未知 jobId、journal 满额、busy、非法字段均返回封闭状态。每个事务在 Runtime
+侧重新验证 caller。
+
+本任务仍只执行 HXA-127 的固定、无工具、`store=false` smoke，不传用户 prompt 或响应正文；跨 APK只返回
+状态、模型 ID 和输出 hash，不含 token、account id 或原始错误。API 29/36 arm64-v8a 必须证明失败终态
+持久化、重复提交不重跑、未知查询/取消、debug Binder death 后原 jobId 对账和空闲解绑。任意模型请求、
+PFD/`ModelEvent` 与 Provider 注册属于后续独立 HXA。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

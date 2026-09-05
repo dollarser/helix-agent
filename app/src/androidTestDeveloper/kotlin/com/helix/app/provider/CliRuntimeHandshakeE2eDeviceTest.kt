@@ -7,6 +7,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.runtime.cli.client.CliRuntimeProtocol
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
 import com.helix.runtime.cli.client.CliRuntimeVerification
+import com.helix.runtime.cli.client.CliModelJobClient
+import com.helix.runtime.cli.client.CliModelJobState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,5 +31,22 @@ class CliRuntimeHandshakeE2eDeviceTest {
         assertEquals(CliRuntimeProtocol.VERSION, status.protocolVersion)
         assertEquals("arm64-v8a", status.abi)
         assertEquals("NOT_REGISTERED", status.agentBackendState)
+    }
+
+    @Test fun fixedModelJobIsDurableAndNeverBlindlyResubmitted() {
+        val client = CliModelJobClient(CliRuntimeSupervisor(context))
+        val jobId = "job_132000000001"
+        val awaited = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        assertTrue(awaited is CliModelJobClient.AwaitOutcome.Terminal)
+        val record = (awaited as CliModelJobClient.AwaitOutcome.Terminal).record
+        assertEquals(CliModelJobState.FAILED, record.state)
+        val duplicate = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        assertEquals(record, (duplicate as CliModelJobClient.AwaitOutcome.Terminal).record)
+        assertEquals(record, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record)
+        client.debugKillRuntime()
+        Thread.sleep(200)
+        assertEquals(record, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
+        assertTrue(client.query("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
+        assertTrue(client.cancel("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
     }
 }

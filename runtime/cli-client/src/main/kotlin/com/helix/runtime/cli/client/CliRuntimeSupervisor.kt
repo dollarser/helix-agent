@@ -19,11 +19,35 @@ sealed interface CliRuntimeVerification {
     enum class Cause { NOT_INSTALLED, DISABLED, FORCE_STOPPED, SIGNATURE_MISMATCH, BIND_REFUSED, TIMEOUT, HANDSHAKE_FAILED }
 }
 
+sealed interface CliRuntimeConnection {
+    class Opened internal constructor(
+        val binder: IBinder,
+        internal val connection: ServiceConnection,
+    ) : CliRuntimeConnection
+    data class Refused(val cause: CliRuntimeVerification.Cause) : CliRuntimeConnection
+}
+
 class CliRuntimeSupervisor(context: Context) {
     private val context = context.applicationContext
 
     fun verify(): CliRuntimeVerification {
-        localCause()?.let { return CliRuntimeVerification.Unavailable(it) }
+        val opened = openConnection()
+        if (opened is CliRuntimeConnection.Refused) return CliRuntimeVerification.Unavailable(opened.cause)
+        opened as CliRuntimeConnection.Opened
+        return try {
+            when (val outcome = CliStatusHandshakeClient.transact(opened.binder)) {
+                is CliStatusHandshakeClient.Outcome.Ok -> CliRuntimeVerification.Verified(outcome.status)
+                CliStatusHandshakeClient.Outcome.CallerMismatch ->
+                    CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
+                else -> CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
+            }
+        } finally {
+            closeConnection(opened)
+        }
+    }
+
+    fun openConnection(): CliRuntimeConnection {
+        localCause()?.let { return CliRuntimeConnection.Refused(it) }
         val latch = CountDownLatch(1)
         var binder: IBinder? = null
         val connection =
@@ -41,32 +65,29 @@ class CliRuntimeSupervisor(context: Context) {
             try {
                 context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
             } catch (_: SecurityException) {
-                return CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
+                return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
             } catch (_: RuntimeException) {
-                return CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.BIND_REFUSED)
+                return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.BIND_REFUSED)
             }
-        if (!bound) return CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.BIND_REFUSED)
-        return try {
-            val connected =
-                try {
-                    latch.await(CliRuntimeProtocol.BIND_DEADLINE_MS, TimeUnit.MILLISECONDS)
-                } catch (_: InterruptedException) {
-                    Thread.currentThread().interrupt()
-                    false
-                }
-            if (!connected) {
-                CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.TIMEOUT)
-            } else {
-                when (val outcome = binder?.let(CliStatusHandshakeClient::transact)) {
-                    is CliStatusHandshakeClient.Outcome.Ok -> CliRuntimeVerification.Verified(outcome.status)
-                    CliStatusHandshakeClient.Outcome.CallerMismatch ->
-                        CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
-                    else -> CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
-                }
-            }
-        } finally {
-            runCatching { context.unbindService(connection) }
+        if (!bound) return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.BIND_REFUSED)
+        val connected = try {
+            latch.await(CliRuntimeProtocol.BIND_DEADLINE_MS, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            false
         }
+        val liveBinder = binder
+        if (!connected || liveBinder == null) {
+            runCatching { context.unbindService(connection) }
+            return CliRuntimeConnection.Refused(
+                if (!connected) CliRuntimeVerification.Cause.TIMEOUT else CliRuntimeVerification.Cause.HANDSHAKE_FAILED,
+            )
+        }
+        return CliRuntimeConnection.Opened(liveBinder, connection)
+    }
+
+    fun closeConnection(connection: CliRuntimeConnection.Opened) {
+        runCatching { context.unbindService(connection.connection) }
     }
 
     private fun localCause(): CliRuntimeVerification.Cause? {

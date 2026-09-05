@@ -47,8 +47,15 @@ rg -F 'vendorAuthorizesHelixDistribution' "$repo_root/runtime/cli-client/src/mai
 rg -F 'DISTRIBUTION_AUTHORIZATION_UNPROVEN' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
 rg -F 'CliProviderChannel.CONSUMER_STORE' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
 rg -F 'DEVELOPER_ADVANCED' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
-if rg -n 'TRANSACTION_.*JOB|TX_.*JOB' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeProtocol.kt"; then
-    echo "subscription adapter exposed a cross-APK model job transaction" >&2
+protocol="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeProtocol.kt"
+test "$(rg -c 'TRANSACTION_JOB_(SUBMIT|QUERY|CANCEL|RECONCILE)' "$protocol")" = 4
+rg -F 'FIXED_CODEX_SMOKE_SHA256' "$protocol" >/dev/null
+client="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobClient.kt"
+rg -F 'submitAndAwaitFixed' "$client" >/dev/null
+rg -F 'TRANSACTION_JOB_QUERY' "$client" >/dev/null
+rg -F 'TRANSACTION_JOB_RECONCILE' "$client" >/dev/null
+if rg -n 'prompt|input_text|response text|accessToken|refreshToken' "$client"; then
+    echo "credential or arbitrary model payload escaped into the main-app client" >&2
     exit 1
 fi
 supervisor="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeSupervisor.kt"
@@ -60,4 +67,4 @@ app_manifest="$repo_root/app/src/developer/AndroidManifest.xml"
 rg -F '<package android:name="com.helix.runtime.cli" />' "$app_manifest" >/dev/null
 rg -F '<uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />' "$app_manifest" >/dev/null
 
-echo "HXA-132 cold CLI handshake boundary: explicit component, stopped/signature checks, bounded status, idle unbind; no arbitrary prompt, cross-APK model Job, other model endpoint, or credential import yet"
+echo "HXA-133 fixed CLI job boundary: cold-bound submit/query/cancel/reconcile with durable redacted proof; no arbitrary prompt, model output, other model endpoint, or credential import yet"
