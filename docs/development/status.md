@@ -68,7 +68,7 @@
 
 ## In progress
 
-- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。独立账号、服务端凭据撤销与国内真实样本仍待补齐，见 [进展记录](hxa-125-progress.md)。
+- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户提供国内参考包已在 API 29/36 测试，发现 MCP 封装配置遗漏与嵌套 metadata 拒绝；来源标注差异、兼容修复及独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task
 
