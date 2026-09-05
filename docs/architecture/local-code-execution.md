@@ -9,7 +9,7 @@ Helix 需要允许 Agent 临时生成代码解决长尾任务，但不同代码�
 | E0 | 原生 Tool | 稳定手机能力和常见文件操作 | P0 |
 | E1 | QuickJS isolated process | JSON/CSV/文本/算法/格式转换 | P0 |
 | E2 | PRoot + Alpine | Python/Node/Git/Shell/stdio MCP | P1，独立 Runtime APK |
-| E2C | CLI Runtime | 官方 Codex/Claude CLI 订阅会话 | P2 实验，独立网络 Runtime APK |
+| E2C | 第三方订阅协议适配器实验 | developer/Advanced 的可见登录与固定 smoke | 独立网络 Runtime APK；不注册执行后端 |
 | E3 | Remote Worker | 重型编译、远程浏览器、长任务 | 当前不实现 |
 
 路由原则：能用 E0 就不用代码；能用 E1 就不用 Linux；只有依赖完整 CLI/包生态或 stdio MCP 时才使用 E2。内置浏览器属于 E0 平台工具，不属于远程浏览器。
@@ -367,19 +367,27 @@ RootFS 中预装 `git` 的当前含义仅是：HXA-081 固定并审计二进制�
 
 HXA-088 必须在“主 App Workspace 为权威”“Runtime 私有仓库为权威”“主 App 使用 Android Git 库”之间做设备实证比较，确定原子传输、崩溃恢复、大小限额、hooks/config 禁用和 UI 语义。远程 Git 需要新的联网执行域、凭据所有权和出网威胁模型，不属于 HXA-088 首版。
 
-### 7.4 CLI Runtime（P2 实验）
+### 7.4 第三方订阅协议适配器（developer/Advanced 实验）
 
-`cli-runtime` 用于隔离实验性的官方 CLI/SDK 或明确标注的第三方订阅 adapter。它不是普通 PRoot 执行器，也不是远程 Worker：
+历史命名的 `cli-runtime` 当前只隔离明确标注的第三方订阅 adapter 实验。它不是官方 CLI、普通
+PRoot 执行器、ModelProvider 或远程 Worker：
 
 - 独立 applicationId/UID，声明 `INTERNET`，不共享离线 PRoot Runtime 的 home、RootFS 和 Job。
-- 凭据只能由 Runtime 内的官方 CLI/SDK 或显式第三方 adapter 完成用户主动 OAuth 后保存和刷新；主 App 只接收 redacted 登录状态与有界会话事件，不接收 token。
-- 登录完成后的普通会话由 Helix 按需冷绑定，不要求用户保持 CLI Runtime Activity 或进程在前台；进程回收不删除 Runtime 私有凭据。强制停止/禁用/认证失效时显示不可用或重新登录，不自动重放会话命令。
+- 凭据只能由显式第三方 adapter 在用户主动 OAuth 后保存和刷新；主 App 只接收 redacted 登录状态，
+  不接收 token、account id 或模型事件。
+- 当前没有“登录后的普通 CLI 会话”或主 App 模型调用。只有用户主动打开 Runtime 可见界面执行登录、
+  退出和固定 smoke；进程回收不删除 Runtime 私有凭据。HXA-128 journal 仅服务固定 smoke，不构成跨 APK
+  Job。官方 CLI/SDK Android/bionic 打包路线已停止，供应商分发授权缺失时不得继续 Provider 接入。
 - 主 App 不读取 Runtime 凭据文件，不接收或复制 Cookie/token；第三方 adapter 的未公开服务接口仍受 ADR-0021 的授权与侧载限制。
-- 输入是经过 Context Builder 和 Policy 的 Job snapshot；默认不给 CLI All-files、Accessibility、Root、Android Intent 或主 Workspace。
-- CLI/Node/runtime 版本、来源、SHA-256、许可证和更新方式进入独立 `cli-runtime-lock.json`。
-- `private RootFS` 不是已选定的执行底座。HXA-111/112 Spike 必须分别证明官方 CLI 是否存在可在 Android/Linux arm64 运行的受支持形态，并在“原生 Android 可执行文件”与“独立 PRoot/RootFS”之间产出 ADR。未验证 ABI、libc、Node/runtime 和官方发布支持前，不打包 CLI binary，也不声称可用。
+- 固定 smoke 不接受 Context Builder、用户 prompt、Workspace 或 Tool 输入；Runtime 没有 All-files、
+  Accessibility、Root、Android Intent 或主 Workspace 能力。
+- adapter metadata、OAuth endpoint/client identity、来源证据、许可证与条款 URL 进入独立
+  `cli-runtime-lock.json`；没有 CLI/Node executable artifact。
+- HXA-111/112 的官方 CLI Android/Linux arm64 Spike 已完成并停止打包路线；不再选择 private RootFS、
+  原生 binary 或 Node 底座。
 - HXA-117 同样证明 GitHub Copilot SDK `1.0.13` 当前只有 glibc/musl arm64 runtime、无 Android/bionic artifact，当前打包路线依 proposed ADR-0022 停止。
-- 官方 CLI 往往自带 Agent 和工具。只有 Spike 证明其工具可以禁用或由 Helix 审批代理后，才可适配为 `ModelProvider`；否则仅作为隔离的 CLI 会话后端。
+- 当前 adapter 不得适配为 `ModelProvider`。未来重开必须同时具备供应商可核验授权、受支持执行底座、
+  工具控制、Dispatcher/Approval/Verification/Audit 和 jobId 对账证据。
 - 登录、服务条款、账号类型和可用额度会变化，运行时必须展示厂商返回的真实状态，不把订阅描述写死。
 
 网络隔离粒度是 Android UID。`cli-runtime` 获得 `INTERNET` 后无法仅靠 Android permission 对单个进程做 host allowlist，因此它只能访问自身私有 Job 数据，不能同时承担通用文件/Root/Accessibility 执行。
@@ -393,7 +401,7 @@ Android 官方安全指南建议避免从 APK 外动态加载代码；许多远�
 | `consumer` | 原生 Tools + APK 内 Zipline/QuickJS；不下载 native executable | 当前用于验证不含 companion client 的构建边界，不等同于商店产品定义 |
 | 主 App `developer` | 包含高级能力和 Runtime IPC client，不含 PRoot/RootFS/CLI binary | 当前用于完整能力开发与测试，不等同于最终官网渠道 |
 | `proot-runtime` APK | 独立 UID；内含固定 PRoot/RootFS；无 INTERNET | Advanced 用户按需安装的 companion；不进入默认主包下载 |
-| `cli-runtime` APK | 独立 UID；内含固定官方 CLI runtime；有 INTERNET，无 Android 高级权限 | P2 可选、直接分发 |
+| `cli-runtime` APK | 历史命名；独立 UID 的第三方订阅实验；有 INTERNET，无 CLI binary/Android 高级权限 | developer/Advanced 个人侧载，不进入商店 artifact |
 
 JavaScript 源码是当前任务的数据，由 APK 内置解释器处理；禁止把下载的 DEX/JAR/APK/SO 当更新机制。PRoot/CLI Runtime 通过正常签名 APK 更新，不在应用内部更新 executable。Standard 以 Google Play 和国内 Android 应用商店为目标；按 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)保留解释执行等允许能力，并仅对有明确政策或审核依据的渠道做最小 build/permission 差异。
 
@@ -458,4 +466,6 @@ E1 完成：在真实 Android 设备上，用户批准一段 Agent 生成的 Jav
 
 E2 完成：同签名的独立 Runtime APK 可从 embedded manifest 安装并验证 Alpine/PRoot，在自己的 Job 输入副本上运行 `python3`/`node`/`git` smoke test；主 App 私有数据不可见，输出经 manifest/hash 验证后才导入，更新失败可回滚，所有第三方许可证和源码信息可离线查看。Runtime 无需用户手动打开即可冷绑定，空闲回收后可重启，进程死亡按 jobId 对账且未知结果不重放；后台、锁屏、Doze、停止通知和可选 wake lock 均有真机证据。
 
-E2C 完成：受支持的官方 CLI/SDK 或明确标注且满足授权门禁的第三方 adapter 在独立网络 UID 中完成用户主动登录，凭据不离开 Runtime；主 App 可在 companion UI 不常驻时冷绑定、创建和取消有界会话，断连后只查询/对账。只有在工具拦截、审批和副作用测试全部通过后，才能把它标记为 Helix Agent 可用后端，否则 UI 必须明确显示“隔离订阅会话”。当前尚未完成。
+E2C 当前以实验停止线收口：第三方 adapter 在独立网络 UID 中完成用户主动登录，凭据不离开 Runtime；
+只提供可见登录/退出与固定 smoke，不向主 App 提供会话。官方 CLI 打包和跨 APK Provider 路线均已停止，
+不得把真实登录、模型 smoke 或私有 journal 描述为 Helix Agent 后端。

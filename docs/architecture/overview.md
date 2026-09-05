@@ -27,7 +27,7 @@ Companion 生命周期遵循 [ADR-0007](../adr/0007-companion-runtime-lifecycle.
 | E0 原生 Tool | 手机、主 App UID | schema + scope + Policy + Approval + Android 权限 | 通用代码沙箱 |
 | E1 QuickJS | 手机、系统分配的 isolated UID | 非导出 isolated Service、无权限、无 Host Bridge、输入输出有界 | Zipline/QuickJS 自身提供沙箱或 VM |
 | E2 PRoot | 手机、独立 companion APK/UID | 签名 IPC、Job 快照、无 INTERNET、进程与资源限制 | PRoot 提供内核/虚拟机级隔离，或直接挂载真实 Workspace |
-| E2C CLI Runtime | 手机、独立有网 companion APK/UID | 私有 Job、Runtime-owned 凭据、签名 IPC；是否接入 Agent 取决于 Spike | 远程 Worker，或默认继承主 App 文件/权限 |
+| E2C 订阅协议实验 | 手机、独立有网 APK/UID | Runtime-owned 凭据、可见登录/退出、固定 smoke；不接入 Agent | 远程 Worker，或默认继承主 App 文件/权限 |
 | LLM Provider | 设备或网络 endpoint | Context Builder + egress Policy；只收到明确选择的上下文 | 在手机上执行 Tool，或直接拥有 Android 权限 |
 
 当前没有 E3 Remote Worker。以后即使新增远程执行，也必须使用新的执行目标、数据出境提示和威胁模型，不能把 Provider API 静默升级为远程 shell。Root 与 Accessibility 是高权限平台执行域，不是沙箱；它们依靠结构化工具、限时 scope、实时权限检查、逐次 Policy/Approval 和拒绝清单收口。
@@ -69,7 +69,7 @@ Companion 生命周期遵循 [ADR-0007](../adr/0007-companion-runtime-lifecycle.
 └─────────────────────────────────────────────────────────┘
 
 ┌──── 独立 APK / 独立 Android UID（P2 可选）─────────────┐
-│  CLI Runtime ─► official Codex/Claude CLI ─► Internet   │
+│  Subscription adapter experiment (developer) ─► Internet│
 │  凭据只在该 UID；未完成安全 Spike 前不驱动 Helix Act    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -106,7 +106,7 @@ Helix/
 │   ├── proot-client/          # developer 变体的 IPC client
 │   ├── proot-app/             # 独立 applicationId/UID 的 Runtime APK
 │   ├── cli-client/            # developer-only、P2 IPC client
-│   └── cli-app/               # P2 官方 CLI 订阅后端独立 APK
+│   └── cli-app/               # 历史命名：developer-only 第三方订阅协议实验 APK
 ├── tools/
 │   ├── framework/             # Tool、Schema、Registry、Dispatcher
 │   ├── android/               # consumer 可用 Intent、日历、通知、剪贴板
@@ -603,7 +603,8 @@ sessionId → turnId → modelCallId/toolCallId → approvalId/executionId
 - QuickJS Service 被声明为 `isolatedProcess=true`、`exported=false`。
 - QuickJS 超时实例的回收有 PID/Binder death 证据，后续执行使用新 instance name 和新进程。
 - PRoot Runtime 使用独立 applicationId/UID；跨 App Service 只允许同签名客户端绑定，并执行协议版本握手。
-- PRoot/CLI Runtime 未运行且未手动打开时可按需冷绑定；空闲解绑后可被回收，下次 Job 可重新冷启动。
+- PRoot Runtime 未运行且未手动打开时可按需冷绑定；空闲解绑后可被回收，下次 Job 可重新冷启动。
+  订阅协议适配器当前仅有用户可见登录/退出和固定 smoke，不存在主 App 可绑定的模型 Job。
 - Runtime Binder 断连后按 jobId 查询/对账；没有匹配 input hash 的 terminal proof 时停泊为 `INTERRUPTED`，不会自动重放。
 - 需要后台继续的 Runtime Job 使用与真实用途匹配的用户可见前台服务；任意计算不冒充 `dataSync`，所有可选 wake lock 都有硬超时和释放证据。
 - 主进程崩溃重启后，活动 Turn 不会静默标记完成。

@@ -17,7 +17,7 @@ M0 工程基线
   → M8 PRoot Linux Runtime
   → M9 Accessibility 与 Root
   → M10 单机 Alpha/Beta 硬化
-  → M11 官方 CLI 订阅后端实验
+  → M11 官方 CLI/第三方订阅协议实验
   → M12 直接分发 Release
 ```
 
@@ -500,7 +500,7 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 
 根据 [11 手机端编排方案](../architecture/mobile-tool-orchestration.md)产出并由所有者决定 proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)。只评估 developer/Advanced：child 深度 1、并发 2、每父 Turn 总数 4，模型/token/Tool/墙钟全部计入父预算；child 只得到最小 snapshot，只注册 `READ_ONLY` 且动态风险 ≤ L1 的工具，不继承 pending approval、Secret、UI token、Root/Automation session 或可写 scope。通信只允许 parent→child task/cancel 与 child→parent structured result，Agent graph/状态/预算/completion 持久化；写入需求只返回 proposal，由父 Turn 新建 ToolCall 并审批。并行收益、费用、温升、内存、取消、恢复和 prompt-injection 证据不达标则保持单 Agent。可选 Workflow 只做版本化 JSON DAG（封闭 node type、静态上限、无循环或有硬界），节点全部编译回 Dispatcher；不执行 JS/Starlark 编排、不自挂插件、不增加云端任务/Remote Worker。ADR 未 accepted 前不进入产品工具表。
 
-## 15. M11：官方 CLI 订阅后端实验
+## 15. M11：官方 CLI/第三方订阅协议实验
 
 ### HXA-110 CLI Runtime manifest 与独立 UID
 
@@ -639,7 +639,20 @@ hash 不同则拒绝。取消必须形成 `CANCELLED` 且迟到成功不得覆�
 
 终态只保存模型 ID 和固定响应的 SHA-256，不保存 prompt、响应正文、token、account id 或原始错误。
 本任务继续只由 Runtime 可见 UI 主动触发，不新增跨 APK transaction，不注册 Provider/Tool，也不进入
-Chat/Act/Goal；Binder/PFD、主 App client、统一 ModelEvent 和 Dispatcher/Audit 留给后续独立 HXA。
+Chat/Act/Goal。任务完成时曾把 Binder/PFD、主 App client、统一 ModelEvent 和 Dispatcher/Audit 保留为
+后续候选；HXA-129/ADR-0024 已据当前授权证据停止该候选，不能再按此句启动实现。
+
+### HXA-129 订阅协议实验停止线与注册门禁
+
+依 accepted [ADR-0024](../adr/0024-subscription-adapter-production-stop-line.md)，正式停止官方 CLI/SDK Android/bionic 打包路线，也不把 HXA-127/128 的第三方订阅协议 smoke/私有
+journal 延伸成跨 APK 模型 Provider。`CliAgentBackendEligibility` 除 Android 执行底座、内置工具控制和
+jobId 对账外，必须要求供应商对 Helix 分发及消费订阅接口的可核验授权；任一缺失均不得注册
+Chat/Act/Goal。协议可调用、公开 client id、真实订阅成功和 Runtime 私有 Job 都不能替代该授权。
+
+现有 APK 沿用历史 applicationId/module 名以避免无必要迁移，但产品与文档统一称“第三方订阅协议
+适配器实验”；只允许 developer/Advanced 个人侧载、用户可见登录/退出和固定 smoke。不得新增跨 APK
+模型 transaction、任意 prompt、Provider/Tool、主 App token 通道或商店 artifact。Claude/Grok 付费
+资格继续标记未核实；未来只有供应商公开支持或项目所有者基于新证据另立 HXA/ADR 才能重开生产接入。
 
 ## 16. M12：商店与官网多渠道发布
 

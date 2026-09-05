@@ -17,6 +17,7 @@ class CliAgentBackendRegistrationTest {
                     vendorSupportedAndroidRuntime = false,
                     builtInToolsDisabledOrProxied = false,
                     jobIdReconciliationWithoutReplay = false,
+                    vendorAuthorizesHelixDistribution = false,
                 ),
             )
 

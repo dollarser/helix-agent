@@ -4,9 +4,10 @@ package com.helix.runtime.cli.client
  * Closed HXA-113 gate between an official CLI companion and Helix Act/Goal providers.
  *
  * A runnable CLI is not sufficient: its built-in effects must be disabled or represented as
- * ordinary Helix ToolCalls, and an interrupted job must be queryable by its original jobId
- * without replay. The caller supplies independently verified evidence for each gate; absence is
- * a rejection, never a best-effort fallback.
+ * ordinary Helix ToolCalls, an interrupted job must be queryable by its original jobId without
+ * replay, and the vendor must verifiably authorize Helix distribution. Protocol compatibility,
+ * a public client id, or a successful personal smoke cannot substitute for that authorization.
+ * The caller supplies independently verified evidence for each gate; absence is a rejection.
  */
 object CliAgentBackendEligibility {
     fun assess(evidence: CliAgentBackendEvidence): CliAgentBackendDecision =
@@ -27,6 +28,9 @@ object CliAgentBackendEligibility {
                         if (!evidence.jobIdReconciliationWithoutReplay) {
                             add(CliBackendBlocker.JOB_RECONCILIATION_UNPROVEN)
                         }
+                        if (!evidence.vendorAuthorizesHelixDistribution) {
+                            add(CliBackendBlocker.DISTRIBUTION_AUTHORIZATION_UNPROVEN)
+                        }
                     }
                 CliAgentBackendDecision(
                     disposition =
@@ -45,6 +49,7 @@ data class CliAgentBackendEvidence(
     val vendorSupportedAndroidRuntime: Boolean,
     val builtInToolsDisabledOrProxied: Boolean,
     val jobIdReconciliationWithoutReplay: Boolean,
+    val vendorAuthorizesHelixDistribution: Boolean,
 )
 
 data class CliAgentBackendDecision(
@@ -65,4 +70,5 @@ enum class CliBackendBlocker {
     UNSUPPORTED_ANDROID_RUNTIME,
     BUILT_IN_TOOL_CONTROL_UNPROVEN,
     JOB_RECONCILIATION_UNPROVEN,
+    DISTRIBUTION_AUTHORIZATION_UNPROVEN,
 }

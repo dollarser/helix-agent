@@ -15,7 +15,9 @@
 - Bash、`ripgrep`、`unzip`、`strings`，以及 `sha256sum` 或 `shasum`；仓库门禁会直接调用它们。
 - Android 真机至少一台 arm64。
 
-M0-M7 不要求 Docker、Node.js、Python 或 Rust。M8 构建 PRoot assets 需要 Python 3.11+；M11 构建 CLI Runtime 需要 Node.js/CLI 对应工具链。脚本必须显式检查，不能依赖开发机偶然已有版本。
+M0-M7 不要求 Docker、Node.js、Python 或 Rust。M8 构建 PRoot assets 需要 Python 3.11+。M11 的官方
+CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器 APK 是 Kotlin/Android 实现，不要求 Node.js
+或官方 CLI 工具链。脚本必须显式检查，不能依赖开发机偶然已有版本。
 
 ## 2. 固定 Android 工具链
 

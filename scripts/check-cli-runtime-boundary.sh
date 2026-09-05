@@ -43,5 +43,11 @@ rg -F 'https://auth.x.ai/oauth2/device/code' "$repo_root/runtime/cli-app/src/mai
 rg -F 'https://auth.openai.com/api/accounts/deviceauth/usercode' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 rg -F 'https://auth.openai.com/api/accounts/deviceauth/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 rg -F 'https://auth.openai.com/codex/device' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
+rg -F 'vendorAuthorizesHelixDistribution' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
+rg -F 'DISTRIBUTION_AUTHORIZATION_UNPROVEN' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
+if rg -n 'TRANSACTION_.*JOB|TX_.*JOB' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CliRuntimeProtocol.kt"; then
+    echo "subscription adapter exposed a cross-APK model job transaction" >&2
+    exit 1
+fi
 
-echo "CLI Runtime HXA-128 boundary: fixed user-triggered Codex smoke with a Runtime-private journal; no arbitrary prompt, cross-APK Provider/Job, other model endpoint, or credential import"
+echo "HXA-129 subscription experiment boundary: developer-visible fixed smoke only; vendor authorization gate present; no arbitrary prompt, cross-APK Provider/Job, other model endpoint, or credential import"

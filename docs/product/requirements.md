@@ -210,7 +210,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-LLM-005 | P1 | 多 Provider 切换 | 会话记录协议、Provider/Model 和能力快照 |
 | FR-LLM-006 | P1 | 常用厂商模板与自建服务 | SGLang/Ollama 真机连接；不硬编码模型名 |
 | FR-LLM-007 | P1 | 上下文裁剪 | 永不截断待执行工具参数和审批上下文 |
-| FR-LLM-008 | P2 | Codex/Claude 官方 CLI 订阅后端 | CLI 持有凭据；安全 Spike 前不冒充纯 ModelProvider |
+| FR-LLM-008 | P2 | 第三方订阅协议侧载实验 | 官方 CLI Android 路线已停止；独立 UID 可见登录/固定 smoke，不注册 ModelProvider |
 | FR-LLM-009 | P0 | Provider 数据去向分类 | 按实际 endpoint 标记本机、已授权局域网、公有云或未知远端；不按 Ollama/SGLang 等模板名猜测 |
 | FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝 |
 
@@ -397,7 +397,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 - 用户可以删除单会话及其 Workspace、审计和产物。
 - Provider API Key 单独删除，不随会话导出。
 - 日志默认保留 30 天，可由用户调整或立即清除。
-- PRoot RootFS 可独立卸载；CLI Runtime 可单独 logout/清除或卸载，卸载会删除其中由官方 CLI 管理的凭据。
+- PRoot RootFS 可独立卸载；订阅协议实验 Runtime 可单独 logout/清除或卸载，卸载会删除其 adapter vault 凭据。
 - 导出诊断包必须先脱敏，并允许用户预览文件列表。
 
 ## 9. 产品验收场景

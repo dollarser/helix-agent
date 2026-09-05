@@ -36,7 +36,7 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | Skill 指令/脚本/资源 | 不信任 | 用户导入内容，不能授予权限 |
 | Accessibility 节点树 | 不信任 | 窗口会变化、节点可过期、敏感 App 可伪装 |
 | RootService | 极高风险 | 有设备级读取/修改能力，不是沙箱 |
-| CLI Runtime | 有限信任 | 官方 CLI 或明确标注的第三方订阅 adapter；有网络和 Runtime-owned 账号凭据，独立 UID/Job |
+| 订阅实验 Runtime（历史名 CLI Runtime） | 有限信任 | developer-only 第三方 adapter；有网络和 Runtime-owned 账号凭据，独立 UID；无跨 APK 模型 Job |
 
 ## 3. 主要威胁与控制
 
@@ -310,7 +310,8 @@ git diff --check
 
 - applicationId/UID 与主 App/PRoot Runtime 不同。
 - 只有 INTERNET 等实际必需权限；无存储、Accessibility、Root、通知读取、联系人、日历、麦克风、相机和位置权限。
-- official CLI/Node 与 `cli-runtime-lock.json`、notice、source/binary URL 对账。
+- `cli-runtime-lock.json` 中 adapter metadata、OAuth identity/endpoint、notice、source/terms URL 对账；
+  APK 不得包含已停止路线的 official CLI/Node executable。
 
 ## 10. 性能与资源预算
 
