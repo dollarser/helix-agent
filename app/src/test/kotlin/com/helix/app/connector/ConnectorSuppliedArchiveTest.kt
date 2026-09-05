@@ -3,7 +3,6 @@ package com.helix.app.connector
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.connector.ConnectorPackageReader
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.nio.file.Files
@@ -24,12 +23,12 @@ class ConnectorSuppliedArchiveTest {
                     it.directory
                 }.toSet(),
         )
-        assertEquals(0, bundle.endpoints.size)
+        assertEquals(2, bundle.endpoints.size)
         println(
             "sample: skills=${bundle.skills.size}, endpoints=${bundle.endpoints.size}, " +
                 "diagnostics=${bundle.diagnostics}",
         )
-        assertMcpEnvelopeRejected(requireNotNull(source))
+        assertMcpEnvelopeImported(requireNotNull(source))
         val outcomes = mutableMapOf<String, String>()
         val root = Files.createTempDirectory("connector-sample-")
         try {
@@ -55,8 +54,8 @@ class ConnectorSuppliedArchiveTest {
             }
             assertEquals(
                 mapOf(
-                    "dingtalk-doc" to "metadata values must be strings",
-                    "dingtalk-shared" to "metadata values must be strings",
+                    "dingtalk-doc" to "accepted",
+                    "dingtalk-shared" to "accepted",
                     "mcp-installer" to "accepted",
                     "wecom-unified" to "accepted",
                 ),
@@ -67,7 +66,7 @@ class ConnectorSuppliedArchiveTest {
         }
     }
 
-    private fun assertMcpEnvelopeRejected(source: String) {
+    private fun assertMcpEnvelopeImported(source: String) {
         ZipFile(source).use { zip ->
             val entry =
                 zip.entries().asSequence().single {
@@ -75,9 +74,9 @@ class ConnectorSuppliedArchiveTest {
                         it.name.endsWith(".json")
                 }
             val rawConfig = zip.getInputStream(entry).use { it.readBytes() }
-            val failure =
-                assertThrows(IllegalArgumentException::class.java) { ConnectorPackageReader().readJson(rawConfig) }
-            assertEquals("CONNECTOR_INVALID_SERVER", failure.message)
+            val bundle = ConnectorPackageReader().readJson(rawConfig)
+            assertEquals(2, bundle.endpoints.size)
+            org.junit.Assert.assertTrue(bundle.endpoints.all { it.needsCredential })
         }
     }
 }

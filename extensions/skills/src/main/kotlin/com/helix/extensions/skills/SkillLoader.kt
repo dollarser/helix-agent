@@ -48,6 +48,13 @@ class SkillLoader {
         return parse(bytes, skillDirectory.fileName.toString(), source, requireDirectoryNameMatch)
     }
 
+    /** Bounded data parsing for connector import adapters; does not grant capability or weaken load validation. */
+    internal fun importFrontmatter(bytes: ByteArray): Pair<Map<String, Any?>, String> {
+        if (bytes.size > MAX_SKILL_BYTES) invalid("SKILL.md exceeds the byte limit")
+        val sections = splitFrontmatter(decodeUtf8(bytes))
+        return parseFrontmatter(sections.frontmatter) to sections.body
+    }
+
     internal fun loadBuiltIn(
         content: String,
         name: String,

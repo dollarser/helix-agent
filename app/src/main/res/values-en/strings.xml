@@ -589,4 +589,8 @@
     <string name="connector_diag_endpoint">Reimport with a directly usable HTTPS endpoint: %1$s</string>
     <string name="connector_diag_toml">Use the repository export script to convert Codex TOML to MCP JSON first: %1$s</string>
     <string name="connector_diag_unsupported">This component or option was not migrated: %1$s</string>
+    <string name="connector_diag_metadata">Extended metadata converted to strings; original SKILL.md preserved at references/helix-import/original-SKILL.md.txt: %1$s</string>
+    <string name="connector_diag_dependency">This Skill declares a runtime dependency; import does not install or execute it: %1$s</string>
+    <string name="connector_diag_snapshot">Importing QwenWork endpoints as a snapshot; source authorization, replacement and conflict policies are not inherited: %1$s</string>
+    <string name="connector_diag_config">Unrecognized MCP configuration found; review migration preview: %1$s</string>
 </resources>

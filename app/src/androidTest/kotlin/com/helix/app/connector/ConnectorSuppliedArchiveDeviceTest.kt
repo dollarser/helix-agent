@@ -5,10 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
-import com.helix.extensions.skills.connector.ConnectorPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -20,7 +18,7 @@ import java.security.MessageDigest
 @RunWith(AndroidJUnit4::class)
 class ConnectorSuppliedArchiveDeviceTest {
     @Test
-    fun actualArchiveReportsWholeBundleFailureAndValidIndividualSkills() {
+    fun actualArchiveImportsAllComponentsWithoutExecutingDependencies() {
         assumeTrue(InstrumentationRegistry.getArguments().getString("connectorSample") == "true")
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val service = app.appContainer.connectorService
@@ -38,17 +36,22 @@ class ConnectorSuppliedArchiveDeviceTest {
             val uri = FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", file.toFile())
             val bundle = service.preview(uri)
             assertEquals(4, bundle.skills.size)
-            assertEquals(0, bundle.endpoints.size)
+            assertEquals(2, bundle.endpoints.size)
+            assertTrue(bundle.endpoints.all { it.needsCredential })
             val before = service.list()
-            val failure = assertThrows(IllegalArgumentException::class.java) { service.install(bundle) }
-            assertEquals("metadata values must be strings", failure.message)
-            assertEquals(before, service.list())
-            for (name in listOf("mcp-installer", "wecom-unified")) {
-                val skill = bundle.skills.single { it.directory == name }
-                val single = ConnectorPackageReader().parse(skill.files.mapKeys { "$name/${it.key}" })
-                val installed = service.install(single)
-                try {
-                    val key = installed.skills.single()
+            val serversBefore =
+                app.appContainer.storage.mcpServers
+                    .list()
+            val installed = service.install(bundle)
+            try {
+                assertEquals(4, installed.skills.size)
+                assertEquals(
+                    serversBefore,
+                    app.appContainer.storage.mcpServers
+                        .list(),
+                )
+                assertTrue(installed.endpoints.none { service.enabled(it) })
+                for (key in installed.skills) {
                     assertFalse(service.skillEnabled(key))
                     service.setSkillEnabled(key, true)
                     assertTrue(
@@ -57,16 +60,37 @@ class ConnectorSuppliedArchiveDeviceTest {
                             .body
                             .isNotBlank(),
                     )
+                    assertOriginalPreserved(app, bundle, key)
                     service.setSkillEnabled(key, false)
-                    assertFalse(service.skillEnabled(key))
-                } finally {
-                    service.remove(installed)
                 }
+                assertTrue(installed.diagnostics.any { it.startsWith("SKILL_METADATA_NORMALIZED:dingtalk-doc") })
+                assertTrue(installed.diagnostics.any { it.startsWith("SKILL_REQUIRES_BINARY:dingtalk-doc:dws") })
+            } finally {
+                service.remove(installed)
             }
             assertEquals(before, service.list())
         } finally {
             Files.delete(file)
             Files.delete(incoming)
+        }
+    }
+
+    private fun assertOriginalPreserved(
+        app: HelixApplication,
+        bundle: com.helix.extensions.skills.connector.ConnectorPackage,
+        key: com.helix.extensions.skills.SkillKey,
+    ) {
+        if (key.name.startsWith("dingtalk-")) {
+            val original =
+                app.appContainer.skillRepository.readResource(
+                    key,
+                    "references/helix-import/original-SKILL.md.txt",
+                )
+            val expected =
+                bundle.skills.single { it.directory == key.name }.files.getValue(
+                    "references/helix-import/original-SKILL.md.txt",
+                )
+            assertEquals(expected.toString(Charsets.UTF_8), original.content)
         }
     }
 }

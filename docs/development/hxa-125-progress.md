@@ -84,7 +84,9 @@ HXA-125 两阶段测试明确传入 `connectorExternal=true`：第一阶段从 C
 
 样本 SHA-256：`5832c88558e00a616af438b1f3d73badf3c2c09edc85f4c54ff9833b789ca476`。147 个文件，解压内容合计 1,448,815 bytes，4 个 Skill，11 个 scripts 文件（含模板）。用户于 2026-09-05 明确更正来源为 QwenWork，与包内 README 的 QwenWork 沙箱导出标注一致，来源确认项已关闭。企微 Skill 保留 MuleRun 宿主契约，这是样本内容中的依赖信息。本次证据覆盖此 QwenWork 参考包，不代表所有 QwenWork 插件或 WorkBuddy 兼容。包内指令作为数据，没有执行脚本、安装依赖或使用认证字段。
 
-| 测试对象 | 生产代码实际结果 |
+以下为首次测试的历史结果；当前行为见后续修复记录。
+
+| 测试对象 | 修复前实际结果 |
 | --- | --- |
 | 原始 ZIP 预览 | 4 个 Skill、0 个端点，diagnostics 为空；当前遗漏 MCP 样例，不能视为完整预览 |
 | 原始 ZIP 安装 | 两台设备均因 `metadata values must be strings` 失败；安装记录列表保持不变 |
@@ -105,14 +107,48 @@ HELIX_CONNECTOR_SAMPLE_ZIP="<sample.zip>" ./gradlew :app:testConsumerDebugUnitTe
 
 JVM 检查 1/1，API 29/36 arm64-v8a 各 1/1，命令 exit 0。这里的测试通过表示成功复现并断言上述限制与局部能力，**不是原始包完整导入通过**。设备测试校验原始 ZIP hash，然后使用真实 ContentResolver/ConnectorService/SkillRepository；单 Skill 测试由生产 reader 从该 Skill 原始文件重组计算内容 hash。未修改产品代码或放宽 metadata 校验，也没有把原始包/第三方脚本纳入 Git。原始设备日志位于 `app/build/outputs/hxa-125-supplied/`；JVM XML 为 `app/build/test-results/testConsumerDebugUnitTest/TEST-com.helix.app.connector.ConnectorSuppliedArchiveTest.xml`。
 
-待修复的明确兼容项：识别并诊断 QwenWork 封装配置（源 policy 不转为 Helix 授权）、为非字符串 metadata 设计保真导入适配而不丢失 CLI 依赖提示。CLI/网络 Runtime 的执行兼容仍属于 HXA-128，不能把 Skill 能读取当作业务能力已实现。此轮专用模拟器完成后清理，其他 worktree 设备未操作。
+首次测试确认的兼容缺口为 QwenWork 封装配置和非字符串 metadata；随后已按下述记录修复。CLI/网络 Runtime 的执行兼容仍属于 HXA-128，不能把 Skill 能读取当作业务能力已实现。此轮专用模拟器完成后清理，其他 worktree 设备未操作。
+
+## QwenWork 样本兼容修复（2026-09-05）
+
+所有者明确要求修复上述问题。本轮保持既有内部 Skill 契约和 accepted ADR-0023，在导入适配层进行转换，无新依赖、权限、认证行为或 CLI 执行能力。
+
+- `qwenwork-mcp.json` 与根目录 `qwenwork-mcp-*.json` 可识别；ZIP 与直接 JSON 均支持 `schemaVersion=qwenwork.mcp/v1` 的 `dynamic.servers`。端点沿用 HTTPS、凭据剥离、重复冲突检查及数量上限。只导入端点快照，不继承 `policy`、动态替换/冲突策略或启用状态；未知 schemaVersion 给出诊断而不猜测字段。根目录其他含 mcp 的 JSON 文件若未被配置引用，提示未识别配置，避免静默遗漏。
+- Connector metadata 适配复用 SkillLoader 的有界 YAML 解析。字符串值不变；map/list/number/bool/null 转为 JSON 字符串，生成标准字符串 metadata 的 SKILL.md。原始 SKILL.md 字节保存在同一快照的 `references/helix-import/original-SKILL.md.txt`，已有同名备份时拒绝覆盖。正文和其他字段继续保留，普通 SkillLoader 仍拒绝非字符串 metadata。
+- 内容追溯分开：Connector package hash 仍绑定原始输入；Skill snapshot hash 覆盖转换后的文件和原文备份。模板/脚本不会运行。`requires.bins` 以诊断展示（本样本为 `dws`），不能变成安装或执行授权。四类新增提示均同步中英文资源。
+
+原始样本 hash 不变。JVM 生产 reader + importer 实测 **4 Skill / 2 MCP endpoints**，四个 Skill 全部 staging/生成快照成功；两端点均标记需独立配置认证，样本凭据不进入端点模型。原有企微和安装器 Skill 快照 hash 保持不变；两个钉钉快照分别为 `b991edeaacd8fa7fed4c8d3077632b975d566ff97f03dd9d8f97d4b36096821f`、`599878d3ff49701c31cf49a5902eb5f5d78751e7b80aa84b664c2965017152d7`。
+
+复跑命令：
+
+```bash
+HELIX_CONNECTOR_SAMPLE_ZIP="<sample.zip>" ./gradlew :extensions:skills:test :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorSuppliedArchiveTest" --rerun :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest --no-configuration-cache
+./gradlew :extensions:skills:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug --no-configuration-cache
+./gradlew spotlessCheck detekt --no-configuration-cache
+./scripts/accept-hxa-125-sample.sh emulator-5580 "<sample.zip>"
+./scripts/accept-hxa-125-sample.sh emulator-5582 "<sample.zip>"
+./scripts/accept-hxa-124-connectors.sh emulator-5580
+./scripts/accept-hxa-124-connectors.sh emulator-5582
+```
+
+JVM 回归：Skills 40/40；consumer 267 项中 264 通过、3 个本机输入/联网 opt-in 项预期跳过；developer 274 项中 271 通过、3 个同类项预期跳过。原始样本专项单独带环境变量执行 1/1，未跳过。新单元回归覆盖真实封装字段、凭据剥离、未知版本、重复冲突、未知文件诊断、依赖展示、原文保留、标准 Skill 校验保持严格及备份路径冲突。
+
+Android 样本测试现在断言整包成功安装，而非旧的失败行为；通过真实 ContentResolver、ConnectorService、SkillRepository 验证 4 个 Skill 默认禁用、逐个启停/读取、两个钉钉原文备份与输入字节一致、移除，以及导入时未注册或连接 MCP。设备日志沿用 `app/build/outputs/hxa-125-supplied/`（最新结果）；旧失败结论保留在本页历史段，不再代表当前行为。
+
+
+最终验证：以上命令均 exit 0；API 29/36 各 1/1 原包安装测试，HXA-124 各 6/6 + 1/1 + 1/1 回归通过；spotless/detekt、docs/ADR/i18n/lockfiles/secrets 与 diff 门禁通过。仅两台专用 AVD 用于测试，完成后关闭删除，未影响其他 worktree 的设备。
+
+| 修复后 APK | SHA-256 |
+| --- | --- |
+| consumer debug | `b378a340cbaa7faeee27bc2361b8dc048b82b6a24629ad9c82488886a25dd8aa` |
+| developer debug | `eb38b29906b8bad6b23c1429c33409a3bed2d298c36204872c2bccca93cceaa3` |
 
 ## 剩余门禁
 
 | 项目 | 状态 / 下一步 |
 | --- | --- |
 | Codex/Claude 来源格式 | 上述真实 MCP/manifest 子集通过；完整插件、Skill 工具名和脚本依赖仍需具体样本 |
-| QwenWork | 用户已确认样本来源；真实参考包已测，配置遗漏与 metadata 拒绝待修复 |
+| QwenWork | 此参考包的 4 Skill / 2 endpoint 导入适配已修复并验证；不等于 CLI 和账号业务可运行 |
 | WorkBuddy | 尚无该平台真实样本，不能复用 QwenWork 结果作为其验收 |
 | 受保护服务 | 等待独立测试账号/服务选择；token 只在 Helix SecretStore 中配置，不通过聊天或 fixture 保存 |
 | Android 真实服务 | API 29/36 专用模拟器已执行匿名服务真实链路；不代表受保护服务登录或 OEM 后台验收 |

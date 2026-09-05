@@ -587,4 +587,8 @@
     <string name="connector_diag_endpoint">端点需改为可直接连接的 HTTPS 地址后重新导入：%1$s</string>
     <string name="connector_diag_toml">请先用仓库导出脚本将 Codex TOML 转为 MCP JSON：%1$s</string>
     <string name="connector_diag_unsupported">此组件或选项尚未迁移：%1$s</string>
+    <string name="connector_diag_metadata">已转换扩展元数据为字符串，原始 SKILL.md 保存在 references/helix-import/original-SKILL.md.txt：%1$s</string>
+    <string name="connector_diag_dependency">此 Skill 声明了运行依赖，导入不会安装或执行依赖：%1$s</string>
+    <string name="connector_diag_snapshot">按快照导入 QwenWork 端点；不继承源配置的授权、替换或冲突策略：%1$s</string>
+    <string name="connector_diag_config">发现未识别的 MCP 配置，请检查迁移预览：%1$s</string>
 </resources>

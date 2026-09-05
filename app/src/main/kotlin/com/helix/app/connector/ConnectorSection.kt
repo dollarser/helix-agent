@@ -271,6 +271,10 @@ private fun EndpointRow(
 private fun diagnosticText(code: String): String {
     val resource =
         when {
+            code.startsWith("SKILL_METADATA_") -> R.string.connector_diag_metadata
+            code.startsWith("SKILL_REQUIRES_") -> R.string.connector_diag_dependency
+            code.startsWith("QWENWORK_") -> R.string.connector_diag_snapshot
+            code.startsWith("UNRECOGNIZED_MCP_") -> R.string.connector_diag_config
             code.startsWith("AUTH_") -> R.string.connector_diag_auth
             code.startsWith("STDIO_") -> R.string.connector_diag_stdio
             code.startsWith("HOST_APP_") -> R.string.connector_diag_host

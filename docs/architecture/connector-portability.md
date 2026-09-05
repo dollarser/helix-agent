@@ -40,7 +40,7 @@ flowchart TD
 | MCP JSON | direct server map、`mcpServers`、`mcp_servers`；一个包最多 32 endpoints | `config.toml` 解析；不偷偷按正则解析完整 TOML |
 | WorkBuddy/QwenWork 导出 | 用户提供的 `mcp.json` / `qwenwork-mcp.json` + 包内多个 `SKILL.md`；`.codebuddy-plugin/plugin.json` 作为样本格式适配 | 平台私有导出格式、官方市场、付费授权通用兼容 |
 | HTTPS Streamable HTTP | 保存端点；用户单独配置 bearer、测试连接、选择工具 | OAuth 自动登录、legacy SSE 自动转换 |
-| Skill 正文、references、assets、scripts | 固定原始快照，沿用 Skill validator；脚本仅保存，不能在安装时执行 | macOS/Windows 脚本和 Linux 二进制自动适配 Android |
+| Skill 正文、references、assets、scripts | 固定快照，沿用 Skill validator；复杂 metadata 在 Connector 导入时转为 JSON 字符串并保存原文备份；脚本不在安装时执行 | macOS/Windows 脚本和 Linux 二进制自动适配 Android |
 | Codex `.app.json` / 平台 app ID | 诊断“需新连接” | 用平台 app ID 找到通用服务 URL、复制平台凭据 |
 | stdio / CLI | 显式诊断需要 Android Runtime 适配 | 把带网络/凭据的 CLI 放到离线 PRoot；任意 npm 安装 |
 | headers、OAuth、env bearer | 不拷贝值，只记录需要配置认证 | 迁移源账号 token、Cookie 或订阅权益 |
@@ -61,6 +61,8 @@ MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userin
 停用移除动态工具且使旧 executor 引用在调用前拒绝执行。已经送达远端的调用可以完成，不能声称远端撤销；断线不自动重放。App 进程重启后 package 和 Skill 状态保留，MCP 显示未激活，要求重新测试，不在启动时连接第三方。停用、移除本地连接、厂商撤销 consent 是三种不同动作。
 
 移除只删除连接器记录和该连接本地 Secret，保留 disabled MCP 配置行作为既有记录，保留 Skill snapshot。无其他 connector 引用的 Skill 会停用；共用 Skill 保持原状态。更新并行安装，旧版由用户显式移除。安装中断可能留下未启用的 Skill 快照，它不会产生新授权，重复导入按内容 hash 复用；这不是横跨 Room/文件系统的全局原子事务。
+
+QwenWork 用户参考包已支持 `qwenwork.mcp/v1 → dynamic.servers`；新增元数据适配保留 `references/helix-import/original-SKILL.md.txt`，普通 Skill metadata 字符串约定不变。源 policy 不转为本地授权，CLI 依赖只展示。
 
 HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../development/hxa-125-progress.md)。
 

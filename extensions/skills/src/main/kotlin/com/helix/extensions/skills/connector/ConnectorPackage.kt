@@ -71,7 +71,7 @@ class ConnectorPackageReader {
         return parse(mapOf("mcp.json" to bytes))
     }
 
-    @Suppress("CyclomaticComplexMethod") // explicit foreign-format branches, each independently diagnosed
+    @Suppress("CyclomaticComplexMethod", "LongMethod") // explicit foreign-format branches, each independently diagnosed
     fun parse(files: Map<String, ByteArray>): ConnectorPackage {
         require(files.size <= 1024 && files.values.sumOf { it.size.toLong() } <= MAX_BYTES) { "CONNECTOR_TOO_LARGE" }
         files.forEach { (path, bytes) ->
@@ -94,7 +94,11 @@ class ConnectorPackageReader {
         if (".app.json" in files || "apps" in manifest) diagnostics += "HOST_APP_REQUIRES_NEW_CONNECTION"
         if (files.keys.any { it.endsWith(".toml") }) diagnostics += "TOML_REQUIRES_MCP_JSON_EXPORT"
         val configs = linkedMapOf<String, JsonObject>()
-        val defaults = listOf(".mcp.json", "mcp.json", "qwenwork-mcp.json").filter { it in files }
+        val defaults =
+            files.keys.filter {
+                it in setOf(".mcp.json", "mcp.json", "qwenwork-mcp.json") ||
+                    ('/' !in it && it.startsWith("qwenwork-mcp-") && it.endsWith(".json"))
+            }
         defaults.forEach { configs[it] = json(files.getValue(it)) }
         when (val reference = manifest["mcpServers"]) {
             is JsonObject -> {
@@ -114,9 +118,12 @@ class ConnectorPackageReader {
                 diagnostics.add("UNSUPPORTED_MCP_CONFIG_REFERENCE")
             }
         }
+        files.keys.filter { '/' !in it && it.endsWith(".json") && "mcp" in it.lowercase() && it !in configs }.forEach {
+            diagnostics += "UNRECOGNIZED_MCP_CONFIG:$it"
+        }
         val servers = linkedMapOf<String, JsonObject>()
         configs.values.forEach { config ->
-            val wrapped = config["mcpServers"] ?: config["mcp_servers"] ?: config
+            val wrapped = serverMap(config, diagnostics)
             require(wrapped is JsonObject) { "CONNECTOR_INVALID_MCP_CONFIG" }
             wrapped.forEach { (id, value) ->
                 require(NAME.matches(id) && value is JsonObject) { "CONNECTOR_INVALID_SERVER" }
@@ -174,14 +181,33 @@ class ConnectorPackageReader {
         require(skillRoots.size <= 64) { "CONNECTOR_TOO_MANY_SKILLS" }
         return skillRoots.map { root ->
             require(skillRoots.none { it != root && it.startsWith("$root/") }) { "CONNECTOR_NESTED_SKILL" }
-            ConnectorSkill(
-                root.substringAfterLast('/'),
+            val name = root.substringAfterLast('/')
+            val content =
                 files
                     .filterKeys { it.startsWith("$root/") }
                     .mapKeys { (path, _) -> path.removePrefix("$root/") }
-                    .mapValues { it.value.copyOf() },
-            )
+                    .mapValues { it.value.copyOf() }
+            ConnectorSkill(name, ConnectorSkillMetadataAdapter.adapt(content, diagnostics, name))
         }
+    }
+
+    @Suppress("ReturnCount") // unknown versions and known envelopes have distinct import outcomes
+    private fun serverMap(
+        config: JsonObject,
+        diagnostics: MutableList<String>,
+    ): JsonObject {
+        if ("schemaVersion" in config) {
+            if (config.string("schemaVersion") != "qwenwork.mcp/v1") {
+                diagnostics += "UNSUPPORTED_MCP_SCHEMA"
+                return JsonObject(emptyMap())
+            }
+            val dynamic = config["dynamic"] as? JsonObject
+            require(dynamic != null) { "CONNECTOR_INVALID_QWENWORK_CONFIG" }
+            diagnostics += "QWENWORK_CONFIG_SNAPSHOT"
+            return dynamic["servers"] as? JsonObject ?: error("CONNECTOR_INVALID_QWENWORK_SERVERS")
+        }
+        return (config["mcpServers"] ?: config["mcp_servers"] ?: config) as? JsonObject
+            ?: error("CONNECTOR_INVALID_MCP_CONFIG")
     }
 
     private fun portableUrl(value: String): Boolean =
