@@ -12,6 +12,8 @@ class CliRuntimeLockCodecTest {
         64,
     )}","license":"Apache-2.0","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"},{"id":"claude-code-npm","version":"1","kind":"official-cli","bundled":false,"url":"https://example.com/claude","size":1,"sha256":"${"c".repeat(
         64,
+    )}","license":"LicenseRef","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"},{"id":"claude-code-linux-arm64-musl","version":"1","kind":"official-cli","bundled":false,"url":"https://example.com/claude-native","size":1,"sha256":"${"d".repeat(
+        64,
     )}","license":"LicenseRef","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"}]}"""
 
     @Test fun parsesCanonicalFixedMetadata() {
@@ -33,7 +35,7 @@ class CliRuntimeLockCodecTest {
         }
     }
 
-    @Test fun rejectsBundledExecutableBeforeSpikes() {
+    @Test fun rejectsBundledExecutableWhenNoCandidatePassesAndroidGate() {
         assertThrows(CliRuntimeLockException::class.java) {
             CliRuntimeLockCodec.parse(valid.replaceFirst("\"bundled\":false", "\"bundled\":true"))
         }

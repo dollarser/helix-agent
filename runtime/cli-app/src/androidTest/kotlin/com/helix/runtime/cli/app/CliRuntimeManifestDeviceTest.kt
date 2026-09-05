@@ -18,7 +18,10 @@ class CliRuntimeManifestDeviceTest {
 
     @Test fun embeddedLockIsStrictAndContainsNoBundledExecutable() {
         val lock = CliEmbeddedBaseline.lock(context)
-        assertEquals(setOf("node", "codex-app-server", "claude-code-npm"), lock.artifacts.map { it.id }.toSet())
+        assertEquals(
+            setOf("node", "codex-app-server", "claude-code-npm", "claude-code-linux-arm64-musl"),
+            lock.artifacts.map { it.id }.toSet(),
+        )
         assertTrue(lock.artifacts.none { it.bundled })
         assertEquals(64, CliRuntimeLockCodec.sha256(lock).length)
     }

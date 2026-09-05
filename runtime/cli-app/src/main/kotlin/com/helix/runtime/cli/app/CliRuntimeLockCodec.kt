@@ -48,9 +48,14 @@ object CliRuntimeLockCodec {
         if (array.isEmpty()) fail("cli-runtime-lock.artifacts must not be empty")
         val artifacts = array.mapIndexed { index, element -> parseArtifact(element.jsonObject, index) }
         if (artifacts.map { it.id }.toSet().size != artifacts.size) fail("duplicate artifact id")
-        val required = setOf("node", "codex-app-server", "claude-code-npm")
+        val required = setOf("node", "codex-app-server", "claude-code-npm", "claude-code-linux-arm64-musl")
         if (!artifacts.map { it.id }.containsAll(required)) fail("required official CLI metadata is missing")
-        if (artifacts.any { it.bundled }) fail("HXA-110 metadata lock must not bundle executables before HXA-111/112")
+        if (artifacts.any {
+                it.bundled
+            }
+        ) {
+            fail("CLI metadata lock cannot bundle candidates that failed the Android support gate")
+        }
         return CliRuntimeLock(version, abi, artifacts)
     }
 

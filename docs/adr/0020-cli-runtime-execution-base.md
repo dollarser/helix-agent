@@ -15,11 +15,13 @@ OpenAI 当前安装文档只提供 macOS/Linux 与 Windows 路径，没有声明
 
 官方 app-server 协议公开 `chatgptDeviceCode`、登录取消、logout、account/plan type 与 rate-limit 查询；这些接口说明满足平台门禁后不必由主 App 接触 token。但平台门禁先失败，故未进行真实账号登录，也未创建或复制凭据。
 
+HXA-112 随后核验 Claude Code `2.1.260`。Anthropic 官方 npm metadata 提供 `linux-arm64-musl` native package，但 package 明确约束 `os=linux`、`cpu=arm64`、`libc=musl`，ELF interpreter 为 `/lib/ld-musl-aarch64.so.1`。API 29/36 Android 不提供该 loader，直接执行均以 `No such file or directory` 失败；官方支持矩阵列 macOS、Windows、Ubuntu、Debian 和 Alpine，没有 Android/Termux。公开 `stream-json`、取消和输出参数不能越过该平台门禁。
+
 ## Decision
 
 提议将“厂商明确支持 Android arm64”作为官方 CLI 生产打包的必要条件，而不是把一次 Linux ELF 兼容探针升级为支持承诺。当前 Codex 路线保持 `UNSUPPORTED_ANDROID_PLATFORM`，不得把 `codex-app-server` 打入生产 CLI APK，不实现登录 Activity、凭据持久化或 Agent backend。
 
-HXA-112 仍应独立验证 Claude Code；Codex 的失败不自动否决 Claude。若未来任一官方 CLI 满足 Android 支持门禁，再比较原生静态 executable 与 CLI Runtime 私有 PRoot/RootFS，且继续受 ADR-0007 的独立 UID、冷绑定和对账约束。
+Codex 与 Claude Code 两条候选生产打包路线均保持关闭。以后若任一官方 CLI 满足 Android 支持门禁，再比较原生 executable 与 CLI Runtime 私有 PRoot/RootFS，且继续受 ADR-0007 的独立 UID、冷绑定和对账约束。
 
 ## Alternatives considered
 
@@ -31,9 +33,10 @@ HXA-112 仍应独立验证 Claude Code；Codex 的失败不自动否决 Claude�
 ## Consequences
 
 - CLI Runtime 仍只包含 HXA-110 metadata，Codex artifact 的 `bundled` 保持 `false`。
+- Claude Code 的通用 npm 与真实 `linux-arm64-musl` artifact metadata 均固定，但 `bundled` 保持 `false`。
 - 不产生 ChatGPT token、cookie 或浏览器凭据；主 App 没有新 IPC、数据表或登录 UI。
 - HXA-111 的登录/退出/限额场景因前置门禁失败而不执行，不能声称通过。
-- HXA-112 可继续独立 Spike；本 ADR 在所有者接受前保持 `proposed`，不能作为既定架构。
+- HXA-112 已独立完成失败 Spike；本 ADR 在所有者接受前保持 `proposed`，不能作为既定架构。
 
 ## Verification
 
@@ -41,6 +44,7 @@ HXA-112 仍应独立验证 Claude Code；Codex 的失败不自动否决 Claude�
 
 - GitHub release API 与锁文件确认 `rust-v0.153.3` 官方 app-server，archive size `71499996`，SHA-256 `149e20ca79f76eee578e402146910f78647881b33cf0bf146b23ab363e57a281`。
 - `ANDROID_SERIAL=emulator-5580 ./scripts/verify-codex-android-spike.sh` 与 `ANDROID_SERIAL=emulator-5582 ...`：API 29/36 arm64-v8a；ELF 静态 AArch64、`--version` 和 JSONL `initialize` 通过，server 自报 `platformOs=linux`。
+- `ANDROID_SERIAL=emulator-5580 ./scripts/verify-claude-android-spike.sh` 与 API 36 `emulator-5582`：固定 `linux-arm64-musl` tgz size/hash/内容与 ELF interpreter；两台均证明 Android 缺少官方 musl loader，未安装兼容层。
 - `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-app:testDebugUnitTest`：fail-closed eligibility 与既有 lock 测试。
 
 Required before acceptance：项目所有者审查“厂商支持为必要门禁”的提议，并结合 HXA-112 证据决定是否接受或修订共同执行底座。
@@ -59,3 +63,6 @@ Required before acceptance：项目所有者审查“厂商支持为必要门禁
 - [Codex authentication](https://learn.chatgpt.com/docs/auth)
 - [Codex app-server](https://learn.chatgpt.com/docs/app-server)
 - [Codex 0.153.3 release](https://github.com/openai/codex/releases/tag/rust-v0.153.3)
+- [Claude Code setup](https://code.claude.com/docs/en/getting-started)
+- [Claude Code CLI reference](https://code.claude.com/docs/en/cli-usage)
+- [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance)
