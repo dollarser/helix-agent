@@ -80,9 +80,9 @@ HXA-125 两阶段测试明确传入 `connectorExternal=true`：第一阶段从 C
 
 公开服务 endpoint 依据 [Cloudflare 官方 MCP 服务列表](https://developers.cloudflare.com/agents/model-context-protocol/cloudflare/servers-for-cloudflare/)；配置结构参照 [Claude 插件规范](https://code.claude.com/docs/en/plugins-reference)。来源配置解析与公共文档服务连接是两个独立验收维度，不能相互替代。
 
-## 用户提供的国内平台参考包（2026-09-05）
+## 用户提供的 QwenWork 参考包（2026-09-05）
 
-样本 SHA-256：`5832c88558e00a616af438b1f3d73badf3c2c09edc85f4c54ff9833b789ca476`。147 个文件，解压内容合计 1,448,815 bytes，4 个 Skill，11 个 scripts 文件（含模板）。用户描述来源为 WorkBuddy；包内 README 标注 QwenWork 沙箱导出，企微 Skill 又含 MuleRun 宿主契约。这里记录为“用户提供、内部来源标注混合的真实参考包”，不能据此认证 WorkBuddy 或 QwenWork 的官方导出兼容性。包内指令作为数据，没有执行脚本、安装依赖或使用认证字段。
+样本 SHA-256：`5832c88558e00a616af438b1f3d73badf3c2c09edc85f4c54ff9833b789ca476`。147 个文件，解压内容合计 1,448,815 bytes，4 个 Skill，11 个 scripts 文件（含模板）。用户于 2026-09-05 明确更正来源为 QwenWork，与包内 README 的 QwenWork 沙箱导出标注一致，来源确认项已关闭。企微 Skill 保留 MuleRun 宿主契约，这是样本内容中的依赖信息。本次证据覆盖此 QwenWork 参考包，不代表所有 QwenWork 插件或 WorkBuddy 兼容。包内指令作为数据，没有执行脚本、安装依赖或使用认证字段。
 
 | 测试对象 | 生产代码实际结果 |
 | --- | --- |
@@ -112,7 +112,8 @@ JVM 检查 1/1，API 29/36 arm64-v8a 各 1/1，命令 exit 0。这里的测试�
 | 项目 | 状态 / 下一步 |
 | --- | --- |
 | Codex/Claude 来源格式 | 上述真实 MCP/manifest 子集通过；完整插件、Skill 工具名和脚本依赖仍需具体样本 |
-| WorkBuddy/QwenWork | 已测试上述用户提供参考包，复现配置遗漏与 metadata 拒绝；来源标注差异待确认，兼容缺口待修复 |
+| QwenWork | 用户已确认样本来源；真实参考包已测，配置遗漏与 metadata 拒绝待修复 |
+| WorkBuddy | 尚无该平台真实样本，不能复用 QwenWork 结果作为其验收 |
 | 受保护服务 | 等待独立测试账号/服务选择；token 只在 Helix SecretStore 中配置，不通过聊天或 fixture 保存 |
 | Android 真实服务 | API 29/36 专用模拟器已执行匿名服务真实链路；不代表受保护服务登录或 OEM 后台验收 |
 | 拒绝/撤销 | 待真实服务的无效凭据、权限拒绝、厂商撤销、重新连接结果；不得用匿名服务推导 bearer 通过 |
