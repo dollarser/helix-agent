@@ -27,7 +27,7 @@ Companion 生命周期遵循 [ADR-0007](../adr/0007-companion-runtime-lifecycle.
 | E0 原生 Tool | 手机、主 App UID | schema + scope + Policy + Approval + Android 权限 | 通用代码沙箱 |
 | E1 QuickJS | 手机、系统分配的 isolated UID | 非导出 isolated Service、无权限、无 Host Bridge、输入输出有界 | Zipline/QuickJS 自身提供沙箱或 VM |
 | E2 PRoot | 手机、独立 companion APK/UID | 签名 IPC、Job 快照、无 INTERNET、进程与资源限制 | PRoot 提供内核/虚拟机级隔离，或直接挂载真实 Workspace |
-| E2C CLI Runtime | 手机、独立有网 companion APK/UID | 私有 Job、官方 CLI 自持凭据、签名 IPC；是否接入 Agent 取决于 Spike | 远程 Worker，或默认继承主 App 文件/权限 |
+| E2C CLI Runtime | 手机、独立有网 companion APK/UID | 私有 Job、Runtime-owned 凭据、签名 IPC；是否接入 Agent 取决于 Spike | 远程 Worker，或默认继承主 App 文件/权限 |
 | LLM Provider | 设备或网络 endpoint | Context Builder + egress Policy；只收到明确选择的上下文 | 在手机上执行 Tool，或直接拥有 Android 权限 |
 
 当前没有 E3 Remote Worker。以后即使新增远程执行，也必须使用新的执行目标、数据出境提示和威胁模型，不能把 Provider API 静默升级为远程 shell。Root 与 Accessibility 是高权限平台执行域，不是沙箱；它们依靠结构化工具、限时 scope、实时权限检查、逐次 Policy/Approval 和拒绝清单收口。
@@ -361,7 +361,7 @@ sealed interface ModelEvent {
 - Provider 配置快照写入 Turn，但 secret 只保存 Keystore alias。
 - `OPENAI_RESPONSES`、`OPENAI_CHAT_COMPLETIONS`、`ANTHROPIC_MESSAGES` 是独立 adapter，不做失败后猜测式换协议。
 - Ollama/SGLang 等自建服务先做文本和 ToolCall 能力探测；兼容性结论记录到 snapshot。
-- ChatGPT/Claude 消费者订阅只允许通过官方 CLI 自己登录；token 不进入主 App。详见 [专项方案](provider-mcp-skills-modes.md)。
+- 消费者订阅凭据只允许在独立 CLI Runtime 内由受支持的官方 CLI/SDK，或符合 ADR-0021 的显式第三方 adapter 经用户主动登录后持有；token 不进入主 App。当前没有可用订阅 Provider。详见 [专项方案](provider-mcp-skills-modes.md)。
 - Provider 数据去向根据规范化后的实际 endpoint 分类为 `ON_DEVICE_LOOPBACK`、`USER_AUTHORIZED_LAN`、`PUBLIC_CLOUD` 或 `CUSTOM_REMOTE_UNKNOWN`；模板名、自建标签和手工声明不能替代 endpoint 校验，也不代表端点可信。
 - Provider 请求在发送前携带可审计的数据类别清单。API key、OAuth token、Cookie、密码、验证码和认证字段始终拒绝进入请求；联系人、通知、位置、文件正文、浏览器或 Accessibility 内容按 ADR-0012 的 Safety Profile 门控。
 - `STANDARD` 的高敏数据每次发送都展示 Provider、规范 origin、数据类别和 scope；`ADVANCED` 只允许保存绑定 Provider ID + origin + 数据类别 + scope + 有效期的规则，新 origin/类别或规则过期时重新确认。

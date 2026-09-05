@@ -369,15 +369,16 @@ HXA-088 必须在“主 App Workspace 为权威”“Runtime 私有仓库为权�
 
 ### 7.4 CLI Runtime（P2 实验）
 
-`cli-runtime` 用于运行厂商官方 Codex CLI/app-server 或 Claude Code CLI。它不是普通 PRoot 执行器，也不是远程 Worker：
+`cli-runtime` 用于隔离实验性的官方 CLI/SDK 或明确标注的第三方订阅 adapter。它不是普通 PRoot 执行器，也不是远程 Worker：
 
 - 独立 applicationId/UID，声明 `INTERNET`，不共享离线 PRoot Runtime 的 home、RootFS 和 Job。
-- 官方 CLI 自己完成 OAuth/device-code 登录、token 保存和刷新；主 App 只接收登录状态、登录 URL/验证码及有界会话事件。
+- 凭据只能由 Runtime 内的官方 CLI/SDK 或显式第三方 adapter 完成用户主动 OAuth 后保存和刷新；主 App 只接收 redacted 登录状态与有界会话事件，不接收 token。
 - 登录完成后的普通会话由 Helix 按需冷绑定，不要求用户保持 CLI Runtime Activity 或进程在前台；进程回收不删除 Runtime 私有凭据。强制停止/禁用/认证失效时显示不可用或重新登录，不自动重放会话命令。
-- 主 App 不读取 CLI 凭据文件，不把 Cookie/token 复制进 Keystore，也不调用未公开服务接口。
+- 主 App 不读取 Runtime 凭据文件，不接收或复制 Cookie/token；第三方 adapter 的未公开服务接口仍受 ADR-0021 的授权与侧载限制。
 - 输入是经过 Context Builder 和 Policy 的 Job snapshot；默认不给 CLI All-files、Accessibility、Root、Android Intent 或主 Workspace。
 - CLI/Node/runtime 版本、来源、SHA-256、许可证和更新方式进入独立 `cli-runtime-lock.json`。
 - `private RootFS` 不是已选定的执行底座。HXA-111/112 Spike 必须分别证明官方 CLI 是否存在可在 Android/Linux arm64 运行的受支持形态，并在“原生 Android 可执行文件”与“独立 PRoot/RootFS”之间产出 ADR。未验证 ABI、libc、Node/runtime 和官方发布支持前，不打包 CLI binary，也不声称可用。
+- HXA-117 同样证明 GitHub Copilot SDK `1.0.13` 当前只有 glibc/musl arm64 runtime、无 Android/bionic artifact，当前打包路线依 proposed ADR-0022 停止。
 - 官方 CLI 往往自带 Agent 和工具。只有 Spike 证明其工具可以禁用或由 Helix 审批代理后，才可适配为 `ModelProvider`；否则仅作为隔离的 CLI 会话后端。
 - 登录、服务条款、账号类型和可用额度会变化，运行时必须展示厂商返回的真实状态，不把订阅描述写死。
 
@@ -457,4 +458,4 @@ E1 完成：在真实 Android 设备上，用户批准一段 Agent 生成的 Jav
 
 E2 完成：同签名的独立 Runtime APK 可从 embedded manifest 安装并验证 Alpine/PRoot，在自己的 Job 输入副本上运行 `python3`/`node`/`git` smoke test；主 App 私有数据不可见，输出经 manifest/hash 验证后才导入，更新失败可回滚，所有第三方许可证和源码信息可离线查看。Runtime 无需用户手动打开即可冷绑定，空闲回收后可重启，进程死亡按 jobId 对账且未知结果不重放；后台、锁屏、Doze、停止通知和可选 wake lock 均有真机证据。
 
-E2C 完成：官方 CLI 在独立网络 UID 中完成官方登录，凭据不离开 Runtime；主 App 可在 companion UI 不常驻时冷绑定、创建和取消有界 CLI 会话，断连后只查询/对账。只有在工具拦截、审批和副作用测试全部通过后，才能把它标记为 Helix Agent 可用后端，否则 UI 必须明确显示“隔离 CLI 会话”。
+E2C 完成：受支持的官方 CLI/SDK 或明确标注且满足授权门禁的第三方 adapter 在独立网络 UID 中完成用户主动登录，凭据不离开 Runtime；主 App 可在 companion UI 不常驻时冷绑定、创建和取消有界会话，断连后只查询/对账。只有在工具拦截、审批和副作用测试全部通过后，才能把它标记为 Helix Agent 可用后端，否则 UI 必须明确显示“隔离订阅会话”。当前尚未完成。

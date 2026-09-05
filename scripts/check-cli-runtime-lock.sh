@@ -9,7 +9,7 @@ trap 'find "$verify_dir" -type f -delete; rmdir "$verify_dir"' EXIT
 
 jq -e '
   .lockVersion == 1 and .abi == "arm64-v8a" and
-  ([.artifacts[].id] | sort) == (["claude-code-linux-arm64-musl", "claude-code-npm", "codex-app-server", "node"] | sort) and
+  ([.artifacts[].id] | sort) == (["claude-code-linux-arm64-musl", "claude-code-npm", "codex-app-server", "github-copilot-sdk-linux-arm64", "github-copilot-sdk-linuxmusl-arm64", "github-copilot-sdk-npm", "node"] | sort) and
   all(.artifacts[]; .bundled == false and (.sha256 | test("^[0-9a-f]{64}$")) and
       (.url | startswith("https://")) and (.licenseUrl | startswith("https://")) and
       (.termsUrl | startswith("https://")))

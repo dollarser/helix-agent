@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-05
-HXA: HXA-114, HXA-115, HXA-116
+HXA: HXA-114, HXA-115, HXA-116, HXA-117
 Deciders: Project owner（2026-09-05 明确要求修改“官方 CLI 持有凭据”边界并采用 HXA-114 方案）
 Supersedes: none
 Superseded by: none
@@ -54,8 +54,10 @@ jobId 查询、不明确结果停泊和绝不重放。
 - 即使 ADR 被接受，服务商授权、依赖许可证闭包、Android Node/DSH 可运行性、撤销/删除、
   限额和账号封禁风险仍需独立证据。
 - 本地 `0.6.0` 与 latest `0.7.0` 的漂移要求任何后续 Spike 固定 tarball integrity 和源码 commit。
-- GitHub 已公开 Copilot SDK 的 GitHub OAuth App 认证路线；Copilot 后续优先验证官方 SDK，
-  不复用插件固定的 Copilot CLI client identity 或 internal token endpoint。
+- GitHub 已公开 Copilot SDK 的 GitHub OAuth App 认证路线，但 HXA-117 证明当前官方 runtime
+  只发布 glibc/musl arm64 构件，不能直接在 Android/bionic 加载；当前打包路线依
+  [ADR-0022](0022-github-copilot-sdk-android-base.md) 停止，仍不得复用插件固定的 Copilot CLI
+  client identity 或 internal token endpoint。
 - Grok consumer subscription 与 xAI developer API 是不同边界；缺少第三方消费订阅集成授权时，
   插件的 Grok CLI identity/proxy 路线不得升级为商店能力。
 
@@ -85,6 +87,7 @@ arm64-v8a 设备测试。服务商对第三方消费订阅客户端的可核验�
 - [Provider 与订阅账号边界](../architecture/provider-mcp-skills-modes.md)
 - [Companion Runtime 生命周期](0007-companion-runtime-lifecycle.md)
 - [CLI Runtime 执行底座候选](0020-cli-runtime-execution-base.md)
+- [GitHub Copilot SDK Android 底座](0022-github-copilot-sdk-android-base.md)
 - [dsh-plugin-subscriptions](https://github.com/V1ki/dsh-plugin-subscriptions)
 - [OpenAI Codex authentication](https://help.openai.com/en/articles/11381614-api-codex-cli-and-sign-in-with-chatgpt)
 - [OpenAI Terms of Use](https://openai.com/policies/terms-of-use/)

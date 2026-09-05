@@ -547,6 +547,15 @@ CLI Runtime vault 的封闭 provider 集扩展为这四项，状态仍只返回 
 报告 adapter 未注册。本任务不复制插件、不登录、不调用模型、不注册 Provider/Tool；Copilot
 优先评估官方 SDK/OAuth App 路线，Grok 在缺少第三方消费订阅集成授权时保持非官方侧载候选。
 
+### HXA-117 GitHub Copilot 官方 SDK/OAuth App Android Spike
+
+固定并核验官方 `@github/copilot-sdk`、Linux glibc arm64 与 Linux musl arm64 发布物、hash、
+许可证、Node/CLI runtime 绑定及 OAuth App 认证接口。先在 API 29/36 arm64-v8a 验证官方
+runtime 的 Android/bionic loader 门禁；若官方发布物只面向 glibc/musl 且不能直接执行，立即
+停止打包路线，并以 proposed ADR 记录证据、替代方案和重新考虑条件。不得用 PRoot、兼容层、
+参考插件的 CLI identity 或 internal endpoint 伪造本 HXA 成功；平台门禁失败后不继续登录、
+模型调用、内置工具代理或 jobId 恢复测试。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

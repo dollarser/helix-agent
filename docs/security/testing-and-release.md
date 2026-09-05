@@ -36,7 +36,7 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | Skill 指令/脚本/资源 | 不信任 | 用户导入内容，不能授予权限 |
 | Accessibility 节点树 | 不信任 | 窗口会变化、节点可过期、敏感 App 可伪装 |
 | RootService | 极高风险 | 有设备级读取/修改能力，不是沙箱 |
-| CLI Runtime | 有限信任 | 官方 CLI 但有网络和账号凭据，独立 UID/Job |
+| CLI Runtime | 有限信任 | 官方 CLI 或明确标注的第三方订阅 adapter；有网络和 Runtime-owned 账号凭据，独立 UID/Job |
 
 ## 3. 主要威胁与控制
 
@@ -66,7 +66,7 @@ Helix 使用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义�
 | 恶意 A2A Card/消息/Artifact | 固定 endpoint/interface/version/Card+Skill hash；内容/事件/文件有界；远端不能继承本机权限、批准或反向调用 Tool |
 | A2A Task 重复提交 | 持久 toolCallId ↔ taskId/contextId/input hash；断线只查询/订阅原 Task，送达不明确进入 `NEEDS_REVIEW` |
 | 恶意 Skill zip/script | 防 traversal/zip bomb、内容 hash、渐进加载、脚本仍走正常 Tool |
-| 订阅 token 泄露 | 只由官方 CLI 在独立 UID 持有；主 App 不读取 credential files |
+| 订阅 token 泄露 | 只由独立 CLI Runtime 内的官方 CLI 或显式第三方 adapter 持有；主 App 不读取 credential files 或 token |
 
 ## 4. Android 平台要求
 

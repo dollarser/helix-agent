@@ -148,8 +148,10 @@ Helix main app
 - adapter 版本、来源、hash、许可证和服务条款必须锁定；不得把它描述为官方 CLI/SDK。
 - Runtime vault 的候选集合为 Codex、Claude、Grok 与 GitHub Copilot；进入 vault 只表示可隔离
   保存其未来 OAuth grant，不表示登录、endpoint 或 Provider 已获准或实现。
-- GitHub Copilot 优先采用官方 Copilot SDK + 项目自有 GitHub OAuth App 路线；不得复用参考
-  插件固定的 CLI client identity/internal token endpoint。Grok CLI/proxy 路线只保留侧载研究。
+- GitHub Copilot 官方 SDK 支持项目自有 GitHub OAuth App，但 HXA-117 验证的当前官方 runtime
+  只有 glibc/musl arm64 发布物，不能直接在 Android/bionic 加载，因此当前打包路线已停止；
+  不得复用参考插件固定的 CLI client identity/internal token endpoint。Grok CLI/proxy 路线只
+  保留侧载研究。
 - CLI 的 Android/Linux arm64 可执行形态和底座（原生或独立 PRoot/RootFS）由 HXA-111/112 Spike 验证并记录 ADR，此图不预先假定 RootFS。
 - 默认不给 CLI 真实手机文件、Android 权限或主 App secret，只给 Job snapshot。
 - adapter 只转换模型流；不得注册其自带工具。模型产生的工具请求必须转换为普通 Helix ToolCall。

@@ -14,7 +14,9 @@ class CliRuntimeLockCodecTest {
         64,
     )}","license":"LicenseRef","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"},{"id":"claude-code-linux-arm64-musl","version":"1","kind":"official-cli","bundled":false,"url":"https://example.com/claude-native","size":1,"sha256":"${"d".repeat(
         64,
-    )}","license":"LicenseRef","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"}]}"""
+    )}","license":"LicenseRef","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"},{"id":"github-copilot-sdk-npm","version":"1","kind":"official-sdk","bundled":false,"url":"https://example.com/copilot-sdk","size":1,"sha256":"${"e".repeat(
+        64,
+    )}","license":"MIT","licenseUrl":"https://example.com/license","termsUrl":"https://example.com/terms"}]}"""
 
     @Test fun parsesCanonicalFixedMetadata() {
         val lock = CliRuntimeLockCodec.parse(valid)
@@ -32,6 +34,12 @@ class CliRuntimeLockCodecTest {
     @Test fun rejectsMutableVersion() {
         assertThrows(CliRuntimeLockException::class.java) {
             CliRuntimeLockCodec.parse(valid.replace("\"version\":\"1\"", "\"version\":\"latest\""))
+        }
+    }
+
+    @Test fun rejectsUnknownArtifactKind() {
+        assertThrows(CliRuntimeLockException::class.java) {
+            CliRuntimeLockCodec.parse(valid.replace("\"kind\":\"official-sdk\"", "\"kind\":\"plugin\""))
         }
     }
 

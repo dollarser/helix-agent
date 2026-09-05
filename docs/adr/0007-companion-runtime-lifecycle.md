@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-08-31
-HXA: HXA-083, HXA-084, HXA-085, HXA-086, HXA-103, HXA-110, HXA-111, HXA-112, HXA-113
+HXA: HXA-083, HXA-084, HXA-085, HXA-086, HXA-103, HXA-110, HXA-111, HXA-112, HXA-113, HXA-117
 Deciders: Project owner（要求主应用可直接调用独立 Runtime，并在后台限制或进程回收后保持可解释、可恢复）
 Supersedes: none
 Superseded by: none

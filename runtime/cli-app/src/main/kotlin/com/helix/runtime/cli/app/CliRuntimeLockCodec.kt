@@ -107,7 +107,7 @@ object CliRuntimeLockCodec {
             )
         if (!idPattern.matches(artifact.id)) fail("$where.id is invalid")
         if (artifact.version.isBlank() || artifact.version.equals("latest", true)) fail("$where.version is not fixed")
-        if (artifact.kind !in setOf("runtime", "official-cli")) fail("$where.kind is invalid")
+        if (artifact.kind !in setOf("runtime", "official-cli", "official-sdk")) fail("$where.kind is invalid")
         if (artifact.size !in 1..1_073_741_824L) fail("$where.size is outside bounds")
         if (!sha256Pattern.matches(artifact.sha256)) fail("$where.sha256 is invalid")
         listOf(artifact.url, artifact.licenseUrl, artifact.termsUrl).forEach { requireHttps(it, where) }
