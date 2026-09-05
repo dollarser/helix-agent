@@ -25,6 +25,9 @@ interface A2aAgentDao {
         id: String,
         enabled: Boolean,
     ): Int
+
+    @Query("DELETE FROM a2a_agents WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao
@@ -87,6 +90,9 @@ interface A2aTaskDao {
         "SELECT * FROM a2a_tasks WHERE state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') ORDER BY updatedAtEpochMillis",
     )
     fun listUnsettled(): List<A2aTaskEntity>
+
+    @Query("DELETE FROM a2a_tasks WHERE agentId = :agentId")
+    fun deleteByAgent(agentId: String): Int
 
     @Query(
         "UPDATE a2a_tasks SET taskId = :taskId, contextId = :contextId, " +

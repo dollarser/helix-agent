@@ -45,6 +45,9 @@ class ArtifactVisionImageSourceTest {
             override fun listBySession(sessionId: String): List<ArtifactEntity> =
                 rows.values.filter { it.sessionId == sessionId }
 
+            override fun countByRelativePath(relativePath: String): Int =
+                rows.values.count { it.relativePath == relativePath }
+
             override fun bySessionAndPath(
                 sessionId: String,
                 relativePath: String,

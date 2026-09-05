@@ -3,12 +3,15 @@ package com.helix.app
 import android.app.Application
 import android.content.Context
 import android.util.Log
+import com.helix.app.diagnostics.ProcessDiagnostics
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
     val appContainer: AppContainer by lazy { DefaultAppContainer(this) }
+
+    private lateinit var processDiagnostics: ProcessDiagnostics
 
     /**
      * HXA-069: apply the app UI language to the application context (and thus every service and
@@ -42,6 +45,7 @@ class HelixApplication : Application() {
     @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         super.onCreate()
+        processDiagnostics = ProcessDiagnostics.install(this)
         Thread(
             {
                 try {

@@ -55,6 +55,10 @@ class PlanRepository(
         enumByName(state, PlanLifecycleState::class.java, "plan state")
         dao.updateState(id, state, evidenceRef)
     }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "plan not found or still referenced: $id" }
+    }
 }
 
 /** Plan lifecycle states persisted in `plans.state` (doc 9.1: `state`). */
@@ -93,6 +97,12 @@ class GoalRepository(
     fun list(): List<GoalEntity> = dao.list()
 
     fun listByState(state: String): List<GoalEntity> = dao.listByState(state)
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "goal not found: $id" }
+    }
+
+    fun countByPlan(planId: String): Int = dao.countByPlan(planId)
 
     /**
      * Whole-row goal update used by the recovery coordinator (HXA-015); [goal] carries the

@@ -435,6 +435,16 @@ class ChatService(
         workScope.launch { refreshScreen() }
     }
 
+    /** Fail closed before an irreversible privacy erase; active work must be stopped first. */
+    fun preparePermanentDeletion(sessionId: String) {
+        check(sessionTurnAdmission.activeTurn(sessionId) == null) { "SESSION_ACTIVE_STOP_REQUIRED" }
+        if (openSessionId == sessionId) {
+            openSessionId = null
+            clearStagedAttachments()
+            shareDraftText = null
+        }
+    }
+
     /**
      * The pending list belongs to the session that staged it (ADR-0014 §5: attachments stay
      * local to that session until an explicit send) — switching or closing the session drops

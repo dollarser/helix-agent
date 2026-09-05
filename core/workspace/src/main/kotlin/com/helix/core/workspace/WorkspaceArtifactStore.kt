@@ -580,6 +580,40 @@ class WorkspaceArtifactStore(
         return PurgeOutcome(trashRef.relativePath, WorkspaceQuota.usageBytes(root))
     }
 
+    /**
+     * Irreversible user-confirmed privacy deletion. This is intentionally not a model Tool path:
+     * it accepts the same contained [FileScopePath], rejects directories, and removes exactly one
+     * file whose artifact rows have already been erased by the caller.
+     */
+    fun deletePermanentlyForPrivacy(path: FileScopePath): Boolean {
+        val root = resolve(path.scopeId)
+        val target = resolveContained(path, root)
+        require(WorkspaceLayout.regionOf(path.relativePath) in WorkspaceLayout.regions) {
+            "privacy deletion is limited to workspace data regions"
+        }
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
+        require(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) { "privacy deletion target must be a file" }
+        Files.delete(target)
+        return true
+    }
+
+    /** Clears every fixed workspace region after an explicit user confirmation. */
+    fun clearForPrivacy(scope: String) {
+        val root = resolve(scope)
+        listOf(WorkspaceLayout.INPUT, WorkspaceLayout.WORK, WorkspaceLayout.OUTPUT, WorkspaceLayout.HELIX)
+            .forEach { region ->
+                val directory = PathResolution.join(root, region)
+                if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) deleteTreeForPrivacy(directory)
+            }
+        ensureLayout(scope)
+    }
+
+    private fun deleteTreeForPrivacy(root: Path) {
+        Files.walk(root).use { paths ->
+            paths.sorted(Comparator.reverseOrder()).forEach(Files::delete)
+        }
+    }
+
     /** Fail-closed conflict pre-check for [copyFile]/[moveFile]: a directory is never a target. */
     private fun ensureWritableTarget(
         target: Path,

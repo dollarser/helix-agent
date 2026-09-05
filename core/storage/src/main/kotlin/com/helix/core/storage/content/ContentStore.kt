@@ -17,6 +17,9 @@ interface ContentStore {
     fun read(ref: ContentRef): String
 
     fun exists(ref: ContentRef): Boolean
+
+    /** Deletes one content-addressed body; idempotent and containment checked by [ContentRef]. */
+    fun delete(ref: ContentRef): Boolean = false
 }
 
 /**
@@ -70,6 +73,14 @@ class FileContentStore(
     }
 
     override fun exists(ref: ContentRef): Boolean = fileFor(ref).isFile
+
+    override fun delete(ref: ContentRef): Boolean {
+        val file = fileFor(ref)
+        if (!file.exists()) return false
+        check(file.delete()) { "cannot delete content file: ${ref.relativePath}" }
+        file.parentFile?.takeIf { it.list()?.isEmpty() == true }?.delete()
+        return true
+    }
 
     private fun readHashOrNull(file: File): String? =
         if (file.isFile) {

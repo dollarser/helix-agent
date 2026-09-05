@@ -265,6 +265,10 @@ class McpServerRepository(
         require(trustState.isNotBlank()) { "trustState must not be blank" }
         dao.update(server.id, enabled, trustState)
     }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "mcp server not found: $id" }
+    }
 }
 
 class McpCapabilityRepository(
@@ -442,6 +446,10 @@ class SkillRepository(
         enabled: Boolean,
     ) {
         dao.setEnabled(id, enabled)
+    }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "skill not found: $id" }
     }
 }
 

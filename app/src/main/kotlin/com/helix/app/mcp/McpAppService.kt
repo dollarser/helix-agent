@@ -85,6 +85,14 @@ class McpAppService(
         activeBridges.remove(serverId)
     }
 
+    fun delete(serverId: String) {
+        disable(serverId)
+        trackers.keys.removeIf { it.endsWith(":$serverId") }
+        pendingSummaries.clear()
+        sentBySession.clear()
+        storage.delete(serverId)
+    }
+
     @Suppress("ReturnCount") // non-MCP and inactive-server exits are distinct fail-closed boundaries
     fun dispatchFacts(
         sessionId: String,

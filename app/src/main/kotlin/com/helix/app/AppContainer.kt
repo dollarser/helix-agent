@@ -14,6 +14,7 @@ import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
+import com.helix.app.diagnostics.ProcessEvidenceStore
 import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
 import com.helix.app.foreground.DataSyncForegroundController
@@ -21,6 +22,7 @@ import com.helix.app.internal.PrefsLineStore
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.mcp.McpAppService
 import com.helix.app.mcp.McpStorageBridge
+import com.helix.app.privacy.PrivacyDeletionService
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
@@ -161,6 +163,9 @@ interface AppContainer {
     /** The audit log page's service (bounded, redacted records only). */
     val auditLogService: AuditLogService
 
+    /** Explicit user-action privacy deletion; never exposed to the model Tool Registry. */
+    val privacyDeletionService: PrivacyDeletionService
+
     /**
      * The SAF adapter bundle (HXA-044): persisted tree grants, the ContentResolver adapters and
      * the fail-closed import/export pipelines. The UI drives it; the model never sees a
@@ -219,6 +224,7 @@ internal class DefaultAppContainer(
     context: Context,
 ) : AppContainer {
     private val appContext: Context = context.applicationContext
+    private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
 
     override val shellRepository: ShellRepository = FakeShellRepository()
 
@@ -680,9 +686,26 @@ internal class DefaultAppContainer(
             // HXA-066: keep the dataSync foreground service up only while a turn is actively
             // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
             appScope.launch {
-                it.screen.collect { screen -> dataSyncController.onTurnState(screen.activeTurn?.state) }
+                it.screen.collect { screen ->
+                    dataSyncController.onTurnState(screen.activeTurn?.state)
+                    val turn = screen.activeTurn
+                    processEvidenceStore.checkpointTurn(turn?.id, turn?.id, turn?.state?.name)
+                }
             }
         }
+
+    override val privacyDeletionService: PrivacyDeletionService by lazy {
+        PrivacyDeletionService(
+            storage = storage,
+            workspace = workspaceStore,
+            browser = browser,
+            providers = providerService,
+            mcp = mcpService,
+            a2a = a2aService,
+            skills = skillRepository,
+            chat = chatService,
+        )
+    }
 
     /**
      * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the

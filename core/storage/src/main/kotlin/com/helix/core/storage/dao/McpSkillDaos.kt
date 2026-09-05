@@ -27,6 +27,9 @@ interface McpServerDao {
         enabled: Boolean,
         trustState: String,
     )
+
+    @Query("DELETE FROM mcp_servers WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao
@@ -75,6 +78,9 @@ interface SkillDao {
         id: String,
         enabled: Boolean,
     )
+
+    @Query("DELETE FROM skills WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao

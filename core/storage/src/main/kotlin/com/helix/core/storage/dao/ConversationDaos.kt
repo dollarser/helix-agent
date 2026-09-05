@@ -45,8 +45,10 @@ interface SessionDao {
         providerId: String,
         modelId: String,
     ): Int
-    // No delete query: sessions are archived, never deleted (doc 9.1). Deleting would cascade
-    // the session's approval/execution audit rows, which must remain durable.
+
+    /** Explicit privacy erase; normal UI removal continues to use [archive]. */
+    @Query("DELETE FROM sessions WHERE id = :id")
+    fun deletePermanently(id: String): Int
 }
 
 @Dao
@@ -62,6 +64,12 @@ interface MessageDao {
 
     @Query("SELECT COALESCE(MAX(sequence), -1) FROM messages WHERE sessionId = :sessionId")
     fun maxSequence(sessionId: String): Long
+
+    @Query("SELECT contentRef FROM messages WHERE sessionId = :sessionId AND contentRef IS NOT NULL")
+    fun contentRefsBySession(sessionId: String): List<String>
+
+    @Query("SELECT COUNT(*) FROM messages WHERE contentRef = :contentRef")
+    fun countByContentRef(contentRef: String): Int
 }
 
 @Dao
@@ -162,6 +170,17 @@ interface ToolResultDao {
     @Query("SELECT * FROM tool_results WHERE toolCallId = :toolCallId")
     fun byToolCall(toolCallId: String): ToolResultEntity?
 
+    @Query(
+        "SELECT tool_results.contentRef FROM tool_results " +
+            "JOIN tool_calls ON tool_results.toolCallId = tool_calls.id " +
+            "JOIN turns ON tool_calls.turnId = turns.id " +
+            "WHERE turns.sessionId = :sessionId AND tool_results.contentRef IS NOT NULL",
+    )
+    fun contentRefsBySession(sessionId: String): List<String>
+
+    @Query("SELECT COUNT(*) FROM tool_results WHERE contentRef = :contentRef")
+    fun countByContentRef(contentRef: String): Int
+
     /** Affected row count is 0 once the result is already verified. */
     @Query("UPDATE tool_results SET verified = 1 WHERE id = :id AND verified = 0")
     fun markVerified(id: String): Int
@@ -257,6 +276,9 @@ interface InteractionReceiptDao {
         limit: Int,
     ): List<InteractionReceiptEntity>
 
+    @Query("DELETE FROM interaction_receipts WHERE sessionId = :sessionId")
+    fun deleteBySession(sessionId: String): Int
+
     /** One-time answer: PENDING and unexpired at [now]. */
     @Query(
         "UPDATE interaction_receipts SET state = 'ANSWERED', answerHash = :answerHash, " +
@@ -319,4 +341,7 @@ interface ArtifactDao {
         sessionId: String,
         relativePath: String,
     ): ArtifactEntity?
+
+    @Query("SELECT COUNT(*) FROM artifacts WHERE relativePath = :relativePath")
+    fun countByRelativePath(relativePath: String): Int
 }

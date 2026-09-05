@@ -502,6 +502,8 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 
 本节是 Room schema 的唯一规范性字段清单；专项文档只能引用它或说明语义，不得重复定义另一套字段。大型正文和二进制存文件，Room 只保存引用、哈希和元数据。
 
+会话列表的普通移除语义是归档，可恢复且不擦除证据。永久删除是独立、不可逆的用户隐私动作：它先拒绝仍有活动 Turn 的会话，再在一个 Room 事务内删除该会话拥有的消息、Turn、模型/工具调用、执行、Artifact、interaction receipt 与相关 audit；content-addressed 正文和 Workspace 文件仅在无存活引用时物理删除。Provider、MCP、A2A 删除同时删除各自 Secret alias；Skill 删除清理私有 trash；Goal 删除其 run、关联 audit 与不再被引用的 Plan。上述动作不注册为 Tool，模型、网页、MCP、A2A 或 Skill 均不能触发。任何一步失败必须向用户报告失败，不能用 catch-all 声称成功。
+
 ### 9.2 数据一致性
 
 - Room foreign key 全部启用。

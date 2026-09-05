@@ -791,6 +791,9 @@ class AuditEventRepository(
 
     fun listByCorrelation(correlationId: String): List<AuditEventEntity> = dao.listByCorrelation(correlationId)
 
+    fun deleteByCorrelations(correlationIds: List<String>): Int =
+        if (correlationIds.isEmpty()) 0 else dao.deleteByCorrelations(correlationIds.distinct())
+
     /**
      * The newest [limit] audit rows, newest first — the audit log page's bounded load
      * (roadmap HXA-036; the page filters these in memory and never loads the whole table).

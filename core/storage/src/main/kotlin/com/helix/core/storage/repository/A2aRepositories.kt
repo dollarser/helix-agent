@@ -89,6 +89,10 @@ class A2aAgentRepository(
         require(!enabled || current.cardHash != null) { "A2A agent has no tested Agent Card snapshot" }
         require(dao.setEnabled(id, enabled) == 1) { "A2A agent not found: $id" }
     }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "A2A agent not found: $id" }
+    }
 }
 
 class A2aCapabilityRepository(

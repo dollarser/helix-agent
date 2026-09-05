@@ -166,6 +166,14 @@ class SkillRepository(
             trashed
         }
 
+    /** Removes the imported snapshot and immediately purges its private trash copy. */
+    fun removePermanentlyForPrivacy(key: SkillKey) {
+        val trashed = remove(key)
+        Files.walk(trashed).use { paths ->
+            paths.sorted(Comparator.reverseOrder()).forEach(Files::delete)
+        }
+    }
+
     private fun scanSnapshots() {
         Files.list(snapshotsRoot).use { names ->
             names
