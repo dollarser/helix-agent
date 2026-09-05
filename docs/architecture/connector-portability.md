@@ -46,7 +46,7 @@ flowchart TD
 | headers、OAuth、env bearer | 不拷贝值，只记录需要配置认证 | 迁移源账号 token、Cookie 或订阅权益 |
 | hooks / rules / agents / commands | 报告不支持，不执行、不作为特权指令注入 | 等价复刻源 host 的策略和角色体系 |
 
-WorkBuddy 官方[连接器入口](https://open.workbuddy.cn/docs/connector)的检索结果区分 MCP 与 CLI+Skill；本次页面正文读取失败，因此未据其断言私有配置格式。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。两者兼容性测试采用用户文档描述的结构化 fixture，不称为官方认证。
+2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 当前只有公开规范衍生的结构化 fixture，QwenWork 另有用户提供的真实参考包；均不称为官方认证。
 
 ## 4. 当前实现契约
 

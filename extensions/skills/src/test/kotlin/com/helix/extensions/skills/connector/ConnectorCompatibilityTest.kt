@@ -42,6 +42,37 @@ class ConnectorCompatibilityTest {
         assertTrue(unknown.diagnostics.contains("UNRECOGNIZED_MCP_CONFIG:custom-mcp.json"))
     }
 
+    /** Official format regression, not a captured WorkBuddy export or live service acceptance. */
+    @Test
+    fun workBuddyHttpAliasAndStaticHeadersKeepIndependentCredentialBoundary() {
+        val reader = ConnectorPackageReader()
+        val config = """{"mcpServers":{"sample":{"type":"streamableHttp",
+            "url":"https://example.com/mcp","staticHeaders":{"Authorization":"fixture-secret"},
+            "disabledTools":["write"],"enabled":true}}}"""
+        val bundle = reader.readJson(config.toByteArray())
+        assertEquals("https://example.com/mcp", bundle.endpoints.single().url)
+        assertTrue(bundle.endpoints.single().needsCredential)
+        assertTrue(bundle.diagnostics.contains("AUTH_REQUIRES_CONFIGURATION:sample"))
+        assertTrue(bundle.diagnostics.contains("UNSUPPORTED_SERVER_OPTIONS:sample"))
+        assertFalse(bundle.toString().contains("fixture-secret"))
+        for (alias in listOf("http", "streamable-http", "streamable_http")) {
+            assertEquals(
+                bundle.endpoints,
+                reader.readJson(config.replace("streamableHttp", alias).toByteArray()).endpoints,
+            )
+        }
+        for (unsupported in listOf("sse", "StreamableHttp", "future")) {
+            val result = reader.readJson(config.replace("streamableHttp", unsupported).toByteArray())
+            assertTrue(result.endpoints.isEmpty())
+            assertTrue(result.diagnostics.contains("UNSUPPORTED_TRANSPORT:sample"))
+        }
+        val anonymous =
+            reader.readJson(
+                """{"sample":{"type":"streamableHttp","url":"https://example.com/mcp"}}""".toByteArray(),
+            )
+        assertFalse(anonymous.endpoints.single().needsCredential)
+    }
+
     @Test
     fun metadataProjectionPreservesOriginalAndStrictStandaloneContract() {
         val raw =

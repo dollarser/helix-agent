@@ -149,7 +149,7 @@ class ConnectorPackageReader {
             diagnostics += "STDIO_REQUIRES_ANDROID_RUNTIME:$id"
             return null
         }
-        if (transport != null && transport !in setOf("http", "streamable-http", "streamable_http")) {
+        if (transport != null && transport !in setOf("http", "streamable-http", "streamable_http", "streamableHttp")) {
             diagnostics += "UNSUPPORTED_TRANSPORT:$id"
             return null
         }
@@ -285,7 +285,15 @@ class ConnectorPackageReader {
         private val NAME = Regex("[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}")
         private val UNSUPPORTED = listOf("hooks", "agents", "commands", "rules", "workflows", "mcp", "dependencies")
         private val AUTH_FIELDS =
-            setOf("headers", "http_headers", "env_http_headers", "bearer_token_env_var", "oauth", "auth")
+            setOf(
+                "headers",
+                "staticHeaders",
+                "http_headers",
+                "env_http_headers",
+                "bearer_token_env_var",
+                "oauth",
+                "auth",
+            )
         private val SERVER_FIELDS =
             AUTH_FIELDS + setOf("url", "type", "transport", "disabled", "enabled", "timeout", "defer_loading")
 

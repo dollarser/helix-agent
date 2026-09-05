@@ -143,13 +143,23 @@ Android 样本测试现在断言整包成功安装，而非旧的失败行为；
 | consumer debug | `b378a340cbaa7faeee27bc2361b8dc048b82b6a24629ad9c82488886a25dd8aa` |
 | developer debug | `eb38b29906b8bad6b23c1429c33409a3bed2d298c36204872c2bccca93cceaa3` |
 
+## WorkBuddy 公开规范适配（2026-09-05）
+
+继续 HXA-125，未切换到后续 HXA。此次已成功读取 [WorkBuddy 官方连接器规范](https://open.workbuddy.cn/docs/connector)全文，更新此前正文不可读的证据状态。公开规范声明 `mcp.json` 使用 `streamableHttp`，并支持 `staticHeaders`；本轮发现前者被现有 reader 误判为未知传输，后者只报不支持选项而未标记需重新配置认证。
+
+导入适配新增精确的 `streamableHttp` 别名，将 `staticHeaders` 与其他源 headers 一样仅转换为 `needsCredential` 和提示，不复制任何值。已有 HTTP 拼写保持兼容，SSE、大小写不同或未知传输仍明确不支持；无 headers 的匿名配置仍不要求凭据。`disabledTools` 等 host 字段仍提示不支持，不能继承源启用或授权选择。没有新增网络、认证流程或执行能力。
+
+测试 `ConnectorCompatibilityTest.workBuddyHttpAliasAndStaticHeadersKeepIndependentCredentialBoundary` 使用自己编写的规范衍生 fixture 和 example.com 占位地址，未发请求；它不是官方发布包、真实导出或服务验收。官方页面示例 URL 本身含空格，因此不把该占位文本当可用服务地址。仍需要真实 WorkBuddy 样本及独立账号。
+
+验证命令：`./gradlew :extensions:skills:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest spotlessCheck detekt --no-configuration-cache`，以及 docs/ADR/i18n/lockfiles/secrets 和 diff 门禁。实际全部 exit 0：Skills 41 项、consumer 267 项（3 项预期跳过）、developer 274 项（3 项预期跳过），无失败或错误；质量和文档门禁通过。本轮没有运行模拟器，设备运行管线未改动，不把既有 API 29/36 结果记为此次新增验证。
+
 ## 剩余门禁
 
 | 项目 | 状态 / 下一步 |
 | --- | --- |
 | Codex/Claude 来源格式 | 上述真实 MCP/manifest 子集通过；完整插件、Skill 工具名和脚本依赖仍需具体样本 |
 | QwenWork | 此参考包的 4 Skill / 2 endpoint 导入适配已修复并验证；不等于 CLI 和账号业务可运行 |
-| WorkBuddy | 尚无该平台真实样本，不能复用 QwenWork 结果作为其验收 |
+| WorkBuddy | 官方规范已读取，HTTP 别名/静态 headers 格式回归已补齐；尚无该平台真实样本，不能复用 QwenWork 结果作为其验收 |
 | 受保护服务 | 等待独立测试账号/服务选择；token 只在 Helix SecretStore 中配置，不通过聊天或 fixture 保存 |
 | Android 真实服务 | API 29/36 专用模拟器已执行匿名服务真实链路；不代表受保护服务登录或 OEM 后台验收 |
 | 拒绝/撤销 | 待真实服务的无效凭据、权限拒绝、厂商撤销、重新连接结果；不得用匿名服务推导 bearer 通过 |
