@@ -30,6 +30,10 @@
     <string name="codex_login_http_error">Token endpoint rejected the request (HTTP %1$d, %2$s); no credentials were saved.</string>
     <string name="codex_login_network_error">Token exchange network failure (%1$s); no credentials were saved.</string>
     <string name="codex_login_protocol_error">Token response failed strict protocol validation; no credentials were saved.</string>
+    <string name="codex_smoke_action">Run tiny Codex subscription model test</string>
+    <string name="codex_smoke_running">Running a fixed prompt with no tools and a strict client-side output bound inside the Runtime UID.</string>
+    <string name="codex_smoke_success">Subscription model test passed. Model: %1$s; fixed response: %2$s. This does not mean a Provider or Job is registered.</string>
+    <string name="codex_smoke_failed">Subscription model test failed (stage %1$s, HTTP %2$s). No credential was returned to the main app.</string>
     <string name="copilot_login_title">GitHub Copilot login</string>
     <string name="copilot_login_warning">Third-party, unofficial personal sideload experiment. This fixed client ID does not mean GitHub, Microsoft, or its registrant authorized Helix. Use may restrict the account or stop working. Credentials stay in this Runtime UID.</string>
     <string name="copilot_login_action">Generate device code</string>

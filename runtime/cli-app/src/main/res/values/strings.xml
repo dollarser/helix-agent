@@ -30,6 +30,10 @@
     <string name="codex_login_http_error">Token endpoint 拒绝请求（HTTP %1$d，%2$s）；未保存凭据。</string>
     <string name="codex_login_network_error">Token exchange 网络失败（%1$s）；未保存凭据。</string>
     <string name="codex_login_protocol_error">Token 响应未满足严格协议；未保存凭据。</string>
+    <string name="codex_smoke_action">运行极小 Codex 订阅模型测试</string>
+    <string name="codex_smoke_running">正在 Runtime UID 内执行固定提示、无工具、客户端严格限制输出的模型测试。</string>
+    <string name="codex_smoke_success">订阅模型测试成功。模型：%1$s；固定响应：%2$s。此结果不表示 Provider/Job 已注册。</string>
+    <string name="codex_smoke_failed">订阅模型测试失败（阶段 %1$s，HTTP %2$s）。未向主应用返回凭据。</string>
     <string name="copilot_login_title">GitHub Copilot 登录</string>
     <string name="copilot_login_warning">第三方、非官方个人侧载实验。此固定 client id 不代表 GitHub、Microsoft 或其注册者授权 Helix；使用可能触发账号限制或随时停止。凭据只保存在本 Runtime UID。</string>
     <string name="copilot_login_action">生成 Device Code</string>

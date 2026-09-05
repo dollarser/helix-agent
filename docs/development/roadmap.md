@@ -617,6 +617,19 @@ code 与 URL 分别可复制；成功 token 仍只写 Runtime UID Keystore vault
 app-server，不调用模型 endpoint，不注册 Provider/Tool/Job，也不把官方协议存在误报为 OpenAI 授权
 Helix 分发。
 
+### HXA-127 Codex 订阅最小模型 Smoke 与实验边界收口
+
+仅在 developer/Advanced 的 CLI Runtime 可见界面增加用户主动触发的 Codex 订阅模型可行性测试：
+凭据由 Runtime UID 从 Keystore vault 读取，先查询实时模型目录，再以固定无敏感提示、无工具、
+`store=false`、严格客户端输出/流上限执行一次极小 Responses 流。不得接收任意用户 prompt，不得将
+token、account id 或服务端原始错误返回主 App；401 只允许一次 refresh 后重试只读模型目录。
+
+本任务只回答真实订阅额度能否完成最小模型调用，不注册 Provider/Tool/Job，不实现 Binder job，
+也不进入 Chat/Act/Goal。后续生产 adapter 仍必须单独实现 Dispatcher 数据发送门控、统一模型事件、
+持久 jobId 查询/取消/断连对账、Verification 与 Audit。Claude/Grok 因无付费账号暂按“未核实”收口；
+官方 SDK/CLI Android/bionic 打包路线按已有 Spike 证据以低可行性停止。缺少供应商对 Helix 第三方
+OAuth identity/消费订阅接口的公开分发授权时，此能力只能存在于 developer/Advanced 个人侧载版。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

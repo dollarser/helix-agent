@@ -64,6 +64,19 @@ class CliRuntimeManifestDeviceTest {
         assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
     }
 
+    @Test fun codexSubscriptionSmokeIsFixedToollessAndBounded() {
+        val body = JSONObject(CodexSubscriptionSmoke.encodeRequest("device-test-model"))
+        assertEquals("device-test-model", body.getString("model"))
+        assertFalse(body.has("tools"))
+        assertFalse(body.has("tool_choice"))
+        assertFalse(body.has("reasoning"))
+        assertFalse(body.has("max_output_tokens"))
+        assertFalse(body.getBoolean("store"))
+        assertTrue(body.getBoolean("stream"))
+        assertEquals(64, CodexSubscriptionSmoke.MAX_TEXT_CHARS)
+        assertEquals(256L * 1024L, CodexSubscriptionSmoke.MAX_STREAM_BYTES)
+    }
+
     @Test fun deviceCodeClipboardCopiesOnlyTheSelectedValue() {
         ActivityScenario.launch(CodexLoginActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->

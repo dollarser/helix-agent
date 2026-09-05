@@ -21,10 +21,16 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
 if rg -n 'chatgpt\.com/backend-api|api\.anthropic\.com/v1/messages|api\.x\.ai|api\.githubcopilot\.com' \
-    "$repo_root/runtime/cli-app/src/main"; then
-    echo "model subscription endpoint entered HXA-118 login-only scope" >&2
+    "$repo_root/runtime/cli-app/src/main" --glob '!**/CodexSubscriptionSmoke.kt'; then
+    echo "model subscription endpoint escaped the HXA-127 bounded Codex smoke" >&2
     exit 1
 fi
+smoke="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionSmoke.kt"
+test "$(rg -F 'https://chatgpt.com/backend-api/codex/models' "$smoke" | wc -l | tr -d ' ')" = 1
+test "$(rg -F 'https://chatgpt.com/backend-api/codex/responses' "$smoke" | wc -l | tr -d ' ')" = 1
+rg -F 'Reply exactly HELIX_OK' "$smoke" >/dev/null
+rg -F 'const val MAX_TEXT_CHARS = 64' "$smoke" >/dev/null
+rg -F 'const val MAX_STREAM_BYTES = 256L * 1024L' "$smoke" >/dev/null
 test "$(rg -F 'https://api.anthropic.com/api/oauth/profile' "$repo_root/runtime/cli-app/src/main" | wc -l | tr -d ' ')" = 1
 if rg -n 'CookieManager|content://|\.codex/auth|[/"]\.claude([/" ]|$)' "$repo_root/runtime/cli-app/src/main/kotlin"; then
     echo "external credential import signal entered CLI Runtime" >&2
@@ -38,4 +44,4 @@ rg -F 'https://auth.openai.com/api/accounts/deviceauth/usercode' "$repo_root/run
 rg -F 'https://auth.openai.com/api/accounts/deviceauth/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 rg -F 'https://auth.openai.com/codex/device' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 
-echo "CLI Runtime HXA-126 boundary: auth/eligibility-only, fixed sideload identities, network-only, no model endpoint or credential import"
+echo "CLI Runtime HXA-127 boundary: fixed user-triggered Codex smoke only; no arbitrary prompt, Provider/Job, other model endpoint, or credential import"

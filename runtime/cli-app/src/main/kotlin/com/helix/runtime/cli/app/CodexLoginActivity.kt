@@ -28,12 +28,14 @@ class CodexLoginActivity : Activity() {
     private lateinit var copyDeviceCode: Button
     private lateinit var copyDeviceUrl: Button
     private lateinit var logout: Button
+    private lateinit var smokeButton: Button
     private lateinit var cancel: Button
     private val worker = Executors.newSingleThreadExecutor()
 
     @Volatile private var loopback: CodexLoopbackServer? = null
 
     @Volatile private var deviceCancellation: DeviceLoginCancellation? = null
+    @Volatile private var activeSmoke: CodexSubscriptionSmoke? = null
     private var deviceUserCode: String? = null
     private var deviceVerificationUrl: String? = null
 
@@ -54,6 +56,7 @@ class CodexLoginActivity : Activity() {
         loopback = null
         active?.close()
         deviceCancellation?.cancel()
+        activeSmoke?.close()
         transport.close()
         deviceTransport.close()
         worker.shutdownNow()
@@ -110,6 +113,12 @@ class CodexLoginActivity : Activity() {
                     }
                     addView(it)
                 }
+            smokeButton =
+                Button(context).also {
+                    it.setText(R.string.codex_smoke_action)
+                    it.setOnClickListener { runSubscriptionSmoke() }
+                    addView(it)
+                }
             cancel =
                 Button(context).also {
                     it.setText(R.string.codex_login_cancel_action)
@@ -118,6 +127,8 @@ class CodexLoginActivity : Activity() {
                         loopback = null
                         deviceCancellation?.cancel()
                         deviceCancellation = null
+                        activeSmoke?.close()
+                        activeSmoke = null
                         deviceUserCode = null
                         deviceVerificationUrl = null
                         status.setText(R.string.codex_login_cancelled)
@@ -294,13 +305,14 @@ class CodexLoginActivity : Activity() {
 
     private fun renderButtons() {
         val loggedIn = vault.contains(CliSubscriptionProvider.CODEX)
-        val busy = loopback != null || deviceCancellation != null
+        val busy = loopback != null || deviceCancellation != null || activeSmoke != null
         login.isEnabled = !loggedIn && !busy
         deviceLogin.isEnabled = !loggedIn && !busy
         openDeviceBrowser.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
         copyDeviceCode.isEnabled = deviceCancellation != null && deviceUserCode != null
         copyDeviceUrl.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
         logout.isEnabled = loggedIn && !busy
+        smokeButton.isEnabled = loggedIn && !busy
         cancel.isEnabled = busy
     }
 
@@ -311,6 +323,36 @@ class CodexLoginActivity : Activity() {
         copyDeviceCode.isEnabled = false
         copyDeviceUrl.isEnabled = false
         logout.isEnabled = !busy
+        smokeButton.isEnabled = !busy && vault.contains(CliSubscriptionProvider.CODEX)
         cancel.isEnabled = busy
+    }
+
+    private fun runSubscriptionSmoke() {
+        if (!vault.contains(CliSubscriptionProvider.CODEX) ||
+            loopback != null || deviceCancellation != null || activeSmoke != null
+        ) return
+        setBusy(true)
+        status.setText(R.string.codex_smoke_running)
+        val smoke = CodexSubscriptionSmoke(vault, controller).also { activeSmoke = it }
+        worker.execute {
+            val result = runCatching {
+                smoke.run()
+            }
+            smoke.close()
+            if (activeSmoke !== smoke) return@execute
+            activeSmoke = null
+            finishAttempt(
+                result.fold(
+                    onSuccess = { getString(R.string.codex_smoke_success, it.model, it.text) },
+                    onFailure = {
+                        if (it is CodexSmokeException) {
+                            getString(R.string.codex_smoke_failed, it.stage, it.httpCode?.toString() ?: "none")
+                        } else {
+                            safeFailureMessage(it)
+                        }
+                    },
+                ),
+            )
+        }
     }
 }
