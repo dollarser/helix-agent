@@ -230,7 +230,14 @@ internal class CopilotLoginController(
             check(clock() < attempt.expiresAtEpochMillis) { "login expired" }
             sleep(interval)
             cancellation.check()
-            when (val result = transport.poll(attempt, interval)) {
+            val result =
+                try {
+                    transport.poll(attempt, interval)
+                } catch (_: IOException) {
+                    // Preserve this user-visible authorization attempt across transient network loss.
+                    continue
+                }
+            when (result) {
                 is CopilotDevicePoll.Authorized -> {
                     cancellation.check()
                     val session = exchangeWithRetry(result.githubToken, cancellation)
@@ -255,13 +262,13 @@ internal class CopilotLoginController(
         cancellation: CopilotLoginCancellation,
     ): CliSubscriptionSession {
         var lastFailure: IOException? = null
-        repeat(3) { attempt ->
+        repeat(5) { attempt ->
             cancellation.check()
             try {
                 return transport.exchange(githubToken)
             } catch (error: IOException) {
                 lastFailure = error
-                if (attempt < 2) sleep((attempt + 1) * 2_000L)
+                if (attempt < 4) sleep((attempt + 1) * 2_000L)
             }
         }
         throw requireNotNull(lastFailure)

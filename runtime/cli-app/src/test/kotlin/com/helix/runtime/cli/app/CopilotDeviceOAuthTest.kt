@@ -192,6 +192,39 @@ class CopilotDeviceOAuthTest {
         assertTrue(vault.contains(CliSubscriptionProvider.COPILOT))
     }
 
+    @Test fun transientPollingFailurePreservesTheSameDeviceAuthorizationAttempt() {
+        val store = MemoryStore()
+        var polls = 0
+        var exchanges = 0
+        var now = 0L
+        val transport =
+            object : CopilotDeviceTransport {
+                override fun requestDeviceCode() = attempt()
+
+                override fun poll(
+                    attempt: CopilotDeviceAttempt,
+                    intervalMillis: Long,
+                ): CopilotDevicePoll {
+                    if (polls++ == 0) throw IOException("transient")
+                    return CopilotDevicePoll.Authorized("github")
+                }
+
+                override fun exchange(githubToken: String): CliSubscriptionSession {
+                    exchanges += 1
+                    return CliSubscriptionSession("copilot", githubToken, null, 20_000)
+                }
+            }
+        val vault = CliSubscriptionCredentialVault(store)
+        val controller = CopilotLoginController(vault, transport, { now }, { now += it })
+
+        val started = controller.start()
+        controller.finish(started, CopilotLoginCancellation())
+
+        assertEquals(2, polls)
+        assertEquals(1, exchanges)
+        assertTrue(vault.contains(CliSubscriptionProvider.COPILOT))
+    }
+
     private fun attempt(expiresAt: Long = 60_000) =
         CopilotDeviceAttempt("device", "code", "https://github.com/login/device", expiresAt, 5_000)
 

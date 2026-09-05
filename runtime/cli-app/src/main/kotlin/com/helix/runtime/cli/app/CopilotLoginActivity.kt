@@ -42,11 +42,24 @@ class CopilotLoginActivity : Activity() {
         super.onDestroy()
     }
 
+    @Suppress("DEPRECATION") // minSdk 29 WindowInsets accessor keeps the disclosure clear of system chrome.
     private fun buildContent(): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = (24 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding, padding, padding)
+            val attributes = theme.obtainStyledAttributes(intArrayOf(android.R.attr.actionBarSize))
+            val actionBarHeight = attributes.getDimensionPixelSize(0, 0)
+            attributes.recycle()
+            setOnApplyWindowInsetsListener { view, insets ->
+                view.setPadding(
+                    padding,
+                    padding + actionBarHeight + insets.systemWindowInsetTop,
+                    padding,
+                    padding + insets.systemWindowInsetBottom,
+                )
+                insets
+            }
+            requestApplyInsets()
             addView(TextView(context).apply { setText(R.string.copilot_login_warning) })
             status =
                 TextView(context).also {
@@ -94,7 +107,6 @@ class CopilotLoginActivity : Activity() {
                     verificationUri = attempt.verificationUri
                     status.text = getString(R.string.copilot_user_code, attempt.userCode, attempt.verificationUri)
                     openBrowser.isEnabled = true
-                    openVerification()
                 }
                 controller.finish(attempt, active)
             }.fold(
