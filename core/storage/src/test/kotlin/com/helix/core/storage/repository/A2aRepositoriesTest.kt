@@ -135,6 +135,8 @@ private class FakeA2aAgentDao : A2aAgentDao {
 
     override fun list(): List<A2aAgentEntity> = rows.values.toList()
 
+    override fun delete(id: String): Int = if (rows.remove(id) != null) 1 else 0
+
     override fun setEnabled(
         id: String,
         enabled: Boolean,

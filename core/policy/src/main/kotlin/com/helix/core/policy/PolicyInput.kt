@@ -26,6 +26,8 @@ data class PolicyInput(
     val operationClass: ToolOperationClass,
     /** The agent mode of the current turn. */
     val mode: AgentMode,
+    /** User-owned opt-in; meaningful only for CHAT and never sourced from model content. */
+    val chatToolsEnabled: Boolean = false,
     /** The runtime safety profile of this installation (user state, never a call parameter). */
     val profile: SafetyProfile,
     /** The registered source of the tool (built-in / MCP / Skill + binding hashes). */

@@ -43,6 +43,9 @@ interface PlanDao {
         state: String,
         evidenceRef: String?,
     )
+
+    @Query("DELETE FROM plans WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao
@@ -58,6 +61,12 @@ interface GoalDao {
 
     @Query("SELECT * FROM goals ORDER BY rowid DESC")
     fun list(): List<GoalEntity>
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    fun delete(id: String): Int
+
+    @Query("SELECT COUNT(*) FROM goals WHERE planId = :planId")
+    fun countByPlan(planId: String): Int
 
     // The parameter list mirrors the normative goal recovery fields (doc 9.1 + ADR-0004);
     // Room @Query bindings require one parameter per column.
@@ -103,6 +112,19 @@ interface GoalRunDao {
             "ORDER BY startedAt ASC, rowid ASC",
     )
     fun listOpenByGoal(goalId: String): List<GoalRunEntity>
+
+    @Query(
+        "UPDATE goal_runs SET modelCalls = :modelCalls, toolCalls = :toolCalls, " +
+            "tokens = :tokens, wakeDurationMillis = :wakeDurationMillis " +
+            "WHERE id = :id AND endedAt IS NULL",
+    )
+    fun checkpointUsage(
+        id: String,
+        modelCalls: Int,
+        toolCalls: Int,
+        tokens: Long,
+        wakeDurationMillis: Long,
+    ): Int
 
     /**
      * One-time finish: affected row count is 0 when the run already has an `endedAt`. All

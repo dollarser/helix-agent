@@ -24,6 +24,8 @@ internal object RootModule {
 
     fun scopeFor(toolName: String?): UserScope? = null
 
+    fun closeSession() = Unit
+
     @Composable
     @Suppress("FunctionName")
     fun Section(profile: SafetyProfile) = Unit

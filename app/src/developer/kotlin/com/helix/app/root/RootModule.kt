@@ -74,6 +74,12 @@ internal object RootModule {
             null
         }
 
+    @Synchronized
+    fun closeSession() {
+        sessions?.close()
+        access?.disconnect()
+    }
+
     @Composable
     @Suppress("FunctionName", "LongMethod", "ReturnCount")
     fun Section(profile: SafetyProfile) {

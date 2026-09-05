@@ -594,4 +594,22 @@
     <string name="connector_diag_dependency">此 Skill 声明了运行依赖，导入不会安装或执行依赖：%1$s</string>
     <string name="connector_diag_snapshot">按快照导入 QwenWork 端点；不继承源配置的授权、替换或冲突策略：%1$s</string>
     <string name="connector_diag_config">发现未识别的 MCP 配置，请检查迁移预览：%1$s</string>
+    <string name="common_save">保存</string>
+    <string name="chat_mode_chat_explanation">Chat：默认不提供工具；显式开启后也只提供 L0 只读工具。</string>
+    <string name="chat_mode_plan_explanation">Plan：只读调研；仅提供动态风险不高于 L1 的 READ_ONLY 工具。</string>
+    <string name="chat_mode_act_explanation">Act：完成当前交互任务；所有工具仍经过 Policy、Approval、预算和审计。</string>
+    <string name="chat_mode_goal_explanation">Goal：本 Turn 使用 Goal 限制；持久 Goal 运行仍单独受 Goal 预算记账约束。</string>
+    <string name="chat_tools_enable">为 Chat 显式开启 L0 只读工具</string>
+    <string name="chat_tools_disable">关闭 Chat 工具</string>
+    <string name="chat_budget_summary">本 Turn 上限 — 步数：%1$d，模型调用：%2$d，输出 token：%3$d，总 token：%4$d</string>
+    <string name="settings_turn_budgets_title">Turn 预算</string>
+    <string name="settings_turn_budgets_note">适用于所有配置和模式；Provider 上限会在请求时取更严值，Advanced 不能突破这些硬上限。</string>
+    <string name="settings_budget_steps">最大工具步骤（1–32）</string>
+    <string name="settings_budget_calls">最大模型调用（1–16）</string>
+    <string name="settings_budget_input">单次最大输入 token（1–1000000）</string>
+    <string name="settings_budget_output">单次最大输出 token（1–128000）</string>
+    <string name="settings_budget_total">Turn 最大总 token（1–1000000）</string>
+    <string name="settings_turn_budgets_invalid">预算无效或超过硬上限；输出上限也不得超过总上限。</string>
+    <string name="model_error_model_call_limit">已达到本 Turn 的模型调用上限</string>
+    <string name="model_error_token_budget_limit">已达到本 Turn 的 token 预算上限</string>
 </resources>

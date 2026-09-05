@@ -111,4 +111,17 @@ class A2aStorageBridge(
         }
         storage.a2aAgents.setEnabled(agentId, false)
     }
+
+    fun delete(agentId: String) {
+        val alias =
+            storage.a2aAgents
+                .resolve(agentId)
+                .authAlias
+                ?.let(::SecretAlias)
+        storage.withTransaction {
+            storage.a2aTasks.deleteByAgent(agentId)
+            storage.a2aAgents.delete(agentId)
+        }
+        alias?.let(storage.secrets::delete)
+    }
 }

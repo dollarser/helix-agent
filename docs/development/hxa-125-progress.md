@@ -1,6 +1,6 @@
 # HXA-125 真实来源与服务验收进展
 
-日期：2026-09-05。M13 / HXA-125：in progress，未完成。独立分支 `codex/connector-portability`，不合入 main、不推送。
+日期：2026-09-05。M13 / HXA-125：in progress，未完成。开发分支 `codex/connector-portability`；所有者于 2026-09-05 后续授权本地合入 main，未推送，外部验收缺口不因合并关闭。
 
 ## 决定与范围
 
@@ -165,3 +165,16 @@ Android 样本测试现在断言整包成功安装，而非旧的失败行为；
 | 拒绝/撤销 | 待真实服务的无效凭据、权限拒绝、厂商撤销、重新连接结果；不得用匿名服务推导 bearer 通过 |
 
 HXA-125 保持 in progress，不创建完成记录、不推进依赖它的 HXA-126。HXA-127～130 尚未开始。
+
+## 本地 main 集成验证（2026-09-05）
+
+所有者授权在无当前可直接解决缺陷时合入 main。以 main `b480b25` 集成 Connector `7710918`，保留 M10 的 Turn 预算设置和全部文案，并补齐 main 新增 `FakeMcpServerDao` 对凭据别名更新接口的实现。HXA-125 外部验收仍未完成，HXA-126～130 仍为 planned。
+
+合并树验证命令：
+
+```bash
+./gradlew :extensions:skills:test :extensions:mcp:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --no-configuration-cache
+python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py
+```
+
+最终全部 exit 0；docs、ADR、i18n、lockfiles、secrets 与 diff 门禁通过。双 flavor debug APK 和 consumer AndroidTest APK 均完成构建。本次没有重新执行设备测试，既有模拟器证据保留其原始测试版本边界。仅本地合并，未推送。

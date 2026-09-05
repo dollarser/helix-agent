@@ -16,11 +16,13 @@ class McpStorageBridge(
     private val servers: McpServerRepository,
     private val capabilities: McpCapabilityRepository,
     private val credentialLookup: McpCredentialLookup,
+    private val credentialDelete: (SecretAlias) -> Unit,
 ) {
     constructor(storage: HelixStorage) : this(
         servers = storage.mcpServers,
         capabilities = storage.mcpCapabilities,
         credentialLookup = McpCredentialLookup { alias -> storage.secrets.get(alias) },
+        credentialDelete = storage.secrets::delete,
     )
 
     fun registerDisabled(
@@ -51,6 +53,12 @@ class McpStorageBridge(
     }
 
     fun credentials(): McpCredentialLookup = credentialLookup
+
+    fun delete(id: String) {
+        val alias = servers.resolve(id).authAlias?.let(::SecretAlias)
+        servers.delete(id)
+        alias?.let(credentialDelete)
+    }
 
     fun setServerEnabled(
         id: String,

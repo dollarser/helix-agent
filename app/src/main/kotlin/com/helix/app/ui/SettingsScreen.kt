@@ -43,6 +43,7 @@ import com.helix.app.proot.ProotToolModule
 import com.helix.app.proot.ProotVerificationNote
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
+import com.helix.app.runcontrol.RunControlStore
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 import kotlinx.coroutines.Dispatchers
@@ -73,6 +74,7 @@ fun SettingsScreen(
     profileStore: SafetyProfileStore,
     providerService: ProviderService,
     egressRules: HighSensitivityRuleRepository,
+    runControlStore: RunControlStore,
     connectorService: com.helix.app.connector.ConnectorService? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
@@ -146,9 +148,11 @@ fun SettingsScreen(
 
         LanguageSection()
 
+        ProviderManager(providerService)
+
         HorizontalDivider()
 
-        ProviderManager(providerService)
+        RunControlSettingsSection(runControlStore)
 
         connectorService?.let {
             com.helix.app.connector

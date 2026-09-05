@@ -63,6 +63,12 @@ class A2aAppService(
         unregisterAgent(agentId)
     }
 
+    fun delete(agentId: String) {
+        unregisterAgent(agentId)
+        trackers.keys.removeIf { it.endsWith(":$agentId") }
+        storage.delete(agentId)
+    }
+
     private fun unregisterAgent(agentId: String) {
         registry.replaceA2aAgent(agentId, emptyList())
         implementations.replaceA2aAgent(agentId, emptyList())

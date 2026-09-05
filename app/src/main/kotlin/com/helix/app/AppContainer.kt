@@ -1,5 +1,6 @@
 package com.helix.app
 
+import android.app.Application
 import android.content.Context
 import com.helix.app.a2a.A2aAppService
 import com.helix.app.a2a.A2aStorageBridge
@@ -13,6 +14,7 @@ import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
 import com.helix.app.chat.ChatService
+import com.helix.app.diagnostics.ProcessEvidenceStore
 import com.helix.app.files.FileManagerService
 import com.helix.app.foreground.AndroidForegroundServiceLauncher
 import com.helix.app.foreground.DataSyncForegroundController
@@ -20,6 +22,7 @@ import com.helix.app.internal.PrefsLineStore
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.mcp.McpAppService
 import com.helix.app.mcp.McpStorageBridge
+import com.helix.app.privacy.PrivacyDeletionService
 import com.helix.app.profile.AdvancedProfileAvailability
 import com.helix.app.profile.PersistedSafetyProfileStore
 import com.helix.app.profile.SafetyProfileStore
@@ -30,6 +33,10 @@ import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.root.RootModule
+import com.helix.app.runcontrol.AndroidResourceGate
+import com.helix.app.runcontrol.PersistedRunControlStore
+import com.helix.app.runcontrol.PlatformDeviceResourceProbe
+import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.IdGenerator
@@ -127,6 +134,8 @@ interface AppContainer {
 
     val profileStore: SafetyProfileStore
 
+    val runControlStore: RunControlStore
+
     val firstLaunch: FirstLaunchStore
 
     val providerService: ProviderService
@@ -156,6 +165,9 @@ interface AppContainer {
 
     /** The audit log page's service (bounded, redacted records only). */
     val auditLogService: AuditLogService
+
+    /** Explicit user-action privacy deletion; never exposed to the model Tool Registry. */
+    val privacyDeletionService: PrivacyDeletionService
 
     /**
      * The SAF adapter bundle (HXA-044): persisted tree grants, the ContentResolver adapters and
@@ -215,6 +227,7 @@ internal class DefaultAppContainer(
     context: Context,
 ) : AppContainer {
     private val appContext: Context = context.applicationContext
+    private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
 
     override val shellRepository: ShellRepository = FakeShellRepository()
 
@@ -224,6 +237,11 @@ internal class DefaultAppContainer(
 
     override val profileStore: SafetyProfileStore =
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
+
+    override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
+
+    private val resourceGate =
+        AndroidResourceGate(PlatformDeviceResourceProbe(context.applicationContext as Application))
 
     override val firstLaunch: FirstLaunchStore = FirstLaunchStore(lineStore)
 
@@ -603,6 +621,7 @@ internal class DefaultAppContainer(
                     clock = appClock,
                     dispatcher = dispatcher,
                     registry = toolRegistry,
+                    resourceGate = resourceGate::allowance,
                 )
             ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler)
         }
@@ -661,6 +680,7 @@ internal class DefaultAppContainer(
             storage = storage,
             providerService = providerService,
             profileStore = profileStore,
+            runControlStore = runControlStore,
             clock = appClock,
             idGenerator = { idGenerator.next() },
             toolPipeline = toolPipeline,
@@ -674,9 +694,26 @@ internal class DefaultAppContainer(
             // HXA-066: keep the dataSync foreground service up only while a turn is actively
             // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
             appScope.launch {
-                it.screen.collect { screen -> dataSyncController.onTurnState(screen.activeTurn?.state) }
+                it.screen.collect { screen ->
+                    dataSyncController.onTurnState(screen.activeTurn?.state)
+                    val turn = screen.activeTurn
+                    processEvidenceStore.checkpointTurn(turn?.id, turn?.id, turn?.state?.name)
+                }
             }
         }
+
+    override val privacyDeletionService: PrivacyDeletionService by lazy {
+        PrivacyDeletionService(
+            storage = storage,
+            workspace = workspaceStore,
+            browser = browser,
+            providers = providerService,
+            mcp = mcpService,
+            a2a = a2aService,
+            skills = skillRepository,
+            chat = chatService,
+        )
+    }
 
     /**
      * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the

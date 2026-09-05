@@ -16,7 +16,7 @@
 
 ## Completed
 
-- M13 / HXA-124 已完成：Connector 开放格式迁移首版在独立 connector 分支完成；ZIP/JSON 导入、MCP/Skill 组件管理与 Codex TOML 导出，604 JVM + 2 Python、双 flavor debug 构建与 API 29/36 每台 6 + 2 阶段专项测试通过。未合入 main，不代表平台私有连接器/OAuth/CLI 全兼容，见 [完成记录](../completion-records/HXA-124.md)。
+- M13 / HXA-124 已完成：Connector 开放格式迁移首版在独立 connector 分支完成；ZIP/JSON 导入、MCP/Skill 组件管理与 Codex TOML 导出，604 JVM + 2 Python、双 flavor debug 构建与 API 29/36 每台 6 + 2 阶段专项测试通过。本次经所有者授权合入 main；不代表平台私有连接器/OAuth/CLI 全兼容，见 [完成记录](../completion-records/HXA-124.md)。
 
 已完成任务的详细实现、命令、exit code、设备和限制只在 [HXA 完成记录](../completion-records/README.md) 与各记录中维护；本文件不复制字段级历史。
 
@@ -65,6 +65,13 @@
 - M7 / HXA-077 已完成：官方 Java SDK `1.3.1.Final` 的 JVM fixture 通过，但严格 Android R8 因缺失 `java.net.http.HttpClient` 按预期拒绝且未用 warning suppression 降级；production 固定最小 `A2aClientFacade` + OkHttp/kotlinx.serialization。最小方案严格 R8 为 15,544-byte DEX / 169 method IDs，API 29/36 专项 fixture 各 3/3，双 flavor unsigned release/R8 与 Apache-2.0 runtime license closure 已验收；物理真机、签名产物与最终完整 SBOM/notice 归 M12（详见 [HXA-077 完成记录](../completion-records/HXA-077.md)）。
 - M7 / HXA-078 已完成：默认禁用 Agent、SecretStore alias、公开/扩展 Agent Card、v1.0 JSONRPC/HTTP+JSON interface 选择、有界 provider/capability/mode/Skill snapshot、逐 Skill 启用与 canonical hash 失效均通过 JVM/Room 和 API 29/36 production fixture；设备期发现并修复 Card 变化只禁用 Room、旧内存 Registry 仍可见的失效窗口，现在 snapshot 持久化后同步清除 descriptor/executor/bridge（详见 [HXA-078 完成记录](../completion-records/HXA-078.md)）。
 - M7 / HXA-079 已完成：独立 A2A Tool origin、固定 schema 与 Dispatcher/Policy/Approval/Audit 接线，Send/stream/Get/Cancel/Subscribe、Task/input/snapshot/event 持久关联与 `Last-Event-ID` 对账已验收；API 29/36 production recovery fixture 各 2/2，证明进程重建只查询原 Task、不明确送达停在 `NEEDS_REVIEW` 且不重发、远端 proposal/URL 不取得本机执行权，以及 Workspace Artifact 幂等复用与磁盘 hash 篡改拒绝（详见 [HXA-079 完成记录](../completion-records/HXA-079.md)）。
+- M10 / HXA-099 已完成：模式/预算/resourceGate 已实现；M10 尚未完成的 release evidence 是 24 小时连续稳定性、真实 Doze/secure keyguard/OEM 热限制与低内存 kill、物理设备和 16 KiB page-size、真实 crash/ANR `ApplicationExitInfo` 联合证据、缺失 RootFS 下的 PRoot lifecycle，以及多 Provider/模型逐 case 评测和 HXA-105 30 分钟真机收益/资源对照；这些均不得用短时 emulator 或 skip 计作绿色（详见 [HXA-099 完成记录](../completion-records/HXA-099.md)）。
+- M10 / HXA-100 已完成：45 条固定评测及可复现实验元数据（详见 [HXA-100 完成记录](../completion-records/HXA-100.md)）。
+- M10 / HXA-101 已完成：Prompt Injection 固定矩阵与结构性 authority gate（详见 [HXA-101 完成记录](../completion-records/HXA-101.md)）。
+- M10 / HXA-102 已完成：恢复、副作用、`NEEDS_REVIEW` 与 durable Goal accounting（详见 [HXA-102 完成记录](../completion-records/HXA-102.md)）。
+- M10 / HXA-103 已完成：API 29/34/35/36 短时资源与生命周期门禁；外部长稳项仍按上项保留（详见 [HXA-103 完成记录](../completion-records/HXA-103.md)）。
+- M10 / HXA-104 已完成：隐私、脱敏诊断、`ApplicationExitInfo` 与显式删除边界（详见 [HXA-104 完成记录](../completion-records/HXA-104.md)）。
+- M10 / HXA-105 已完成：隔离的有界只读编排 Spike；未进入生产 Tool Registry，ADR-0009 保持 `proposed`，产品继续单 Agent（详见 [HXA-105 完成记录](../completion-records/HXA-105.md)）。
 
 ## In progress
 
@@ -117,4 +124,4 @@
 
 ## Connector 扩展线收尾
 
-M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，仍需独立测试账号与真实 WorkBuddy 导出样本。ADR-0023 已于 2026-09-05 获所有者明确接受。当前分支仅本地提交，不合入 main、不推送；全局 Next task 不因本扩展线调整。
+M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，仍需独立测试账号与真实 WorkBuddy 导出样本。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；本次为本地合并，未推送。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。

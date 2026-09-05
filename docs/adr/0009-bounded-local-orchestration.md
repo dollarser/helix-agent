@@ -45,6 +45,8 @@ Helix 当前产品和已实现 M1 领域模型采用单 Agent Turn/Goal。外部
 
 Required before acceptance（HXA-105）：
 
+HXA-105 已建立隔离的 `:spikes:bounded-orchestration` falsification harness；它不依赖 `:app`、生产 Dispatcher 或 Tool Registry。2026-09-05 执行 6 个 JVM 测试与 API 29/36 各 2 个 instrumentation 测试，证明 depth/concurrency/total、父预算跨重建、只读 ≤ L1 工具面、取消/恢复不重放、source/trust/hash/evidence refs 和确定性 call-sequence merge，以及 DAG 的未知依赖、环和节点上限拒绝。该证据只证明边界模型可实现，不证明质量/资源收益，因此 ADR 保持 `proposed`，产品继续单 Agent。
+
 - 用固定研究/repo inspection/verifier 场景比较单 Agent 与 1～2 个 child 的正确率、模型调用、token、墙钟、网络字节、峰值内存、热量与电量；没有明显收益则拒绝。
 - 证明 depth=1、concurrent=2、total-per-turn=4 和父预算在并发/恢复/时钟回拨下 fail closed。
 - prompt-injection fixture 证明 child 不能获得写工具、Approval Proof、Secret、Root/Automation session、UI token 或扩大 context/scope。
@@ -53,7 +55,7 @@ Required before acceptance（HXA-105）：
 - JSON DAG 覆盖未知 node、循环/无界 fan-out、超预算、取消、依赖失败、写节点审批和恢复；脚本/插件/Policy 节点拒绝。
 - API 29/36 与代表性真机测 30 分钟并发任务，无不可接受温升、内存压力或后台误运行。
 
-当前只完成文档分析；未执行 HXA-105，也未实现 child、Agent graph 或 Workflow。
+当前完成 HXA-105 隔离 Spike，但未实现生产 child、Agent graph 或 Workflow，也未接入普通 Agent 工具表。30 分钟真机资源/收益对照与真实 Room kill-point 持久化仍未完成，故不满足 acceptance。
 
 ## Reconsider when
 

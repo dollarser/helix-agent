@@ -109,7 +109,16 @@ private class FakeMcpServerDao : McpServerDao {
 
     override fun byId(id: String): McpServerEntity? = rows[id]
 
+    override fun replaceAuthAlias(
+        id: String,
+        alias: String?,
+    ) {
+        rows[id] = checkNotNull(rows[id]).copy(authAlias = alias, enabled = false)
+    }
+
     override fun list(): List<McpServerEntity> = rows.values.toList()
+
+    override fun delete(id: String): Int = if (rows.remove(id) != null) 1 else 0
 
     override fun update(
         id: String,

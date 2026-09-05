@@ -7,6 +7,7 @@ package com.helix.core.storage
 import android.content.Context
 import androidx.room.Room
 import androidx.room.migration.Migration
+import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.A2aAgentRepository
@@ -113,6 +114,35 @@ class HelixStorage internal constructor(
         database.close()
     }
 
+    /**
+     * Irreversible, user-confirmed privacy erase. Normal conversation removal remains archive.
+     * Room rows and unbound interaction/audit rows commit atomically; content-addressed bodies
+     * are removed afterwards only when no surviving row references the same hash. Workspace paths
+     * are returned to the app layer, which owns the scoped filesystem and deletes only paths no
+     * surviving artifact row references.
+     */
+    fun deleteSessionPermanently(sessionId: String): SessionDeletionManifest {
+        require(sessionId.isNotBlank()) { "sessionId must not be blank" }
+        val messageRefs = database.messageDao().contentRefsBySession(sessionId)
+        val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
+        val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
+        database.runInTransaction {
+            require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
+            database.interactionReceiptDao().deleteBySession(sessionId)
+            database.auditEventDao().deleteForSession(sessionId)
+            check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
+        }
+        val deletedBodies =
+            (messageRefs + resultRefs).distinct().mapNotNull { encoded ->
+                val stillReferenced =
+                    database.messageDao().countByContentRef(encoded) > 0 ||
+                        database.toolResultDao().countByContentRef(encoded) > 0
+                if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
+            }
+        val unreferencedPaths = artifactPaths.distinct().filter { database.artifactDao().countByRelativePath(it) == 0 }
+        return SessionDeletionManifest(sessionId, deletedBodies.size, unreferencedPaths)
+    }
+
     companion object {
         /**
          * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts,
@@ -164,3 +194,9 @@ class HelixStorage internal constructor(
         private const val CONTENT_DIR = "helix-content"
     }
 }
+
+data class SessionDeletionManifest(
+    val sessionId: String,
+    val deletedContentBodies: Int,
+    val unreferencedWorkspacePaths: List<String>,
+)

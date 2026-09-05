@@ -6,11 +6,17 @@ import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.automation.AutomationModule
+import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
+import com.helix.app.runcontrol.PersistedRunControlStore
+import com.helix.app.runcontrol.RunControlConfig
+import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.ModePolicy
+import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ArtifactRef
@@ -24,6 +30,7 @@ import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolCallState
@@ -112,6 +119,8 @@ class ChatService(
     private val storage: HelixStorage,
     private val providerService: ProviderService,
     profileStore: SafetyProfileStore,
+    private val runControlStore: RunControlStore =
+        PersistedRunControlStore(InMemoryLineStore()).also { it.setMode(AgentMode.ACT) },
     private val toolPipeline: ToolPipeline,
     private val clock: Clock = SystemClock(),
     private val idGenerator: () -> String,
@@ -167,6 +176,8 @@ class ChatService(
             ModelStreamState.TOOL_CALL_COUNT_OVERFLOW -> R.string.model_error_tool_call_count_overflow
             ModelStreamState.MODEL_TEXT_OVERFLOW -> R.string.model_error_model_text_overflow
             "TOOL_STEP_LIMIT" -> R.string.model_error_tool_step_limit
+            "MODEL_CALL_LIMIT" -> R.string.model_error_model_call_limit
+            "TOKEN_BUDGET_LIMIT" -> R.string.model_error_token_budget_limit
             null -> R.string.model_error_generic
             else -> modelErrorCodeLabelRes(errorCode)
         }
@@ -205,6 +216,28 @@ class ChatService(
 
     /** The runtime safety profile for the chat header (ADR-0005 display). */
     val profile: StateFlow<SafetyProfile> = profileStore.flow
+
+    /** Explainable user-selected mode/budgets. A Turn snapshots this value before persistence. */
+    val runControl: StateFlow<RunControlConfig> = runControlStore.flow
+
+    fun setMode(mode: AgentMode) {
+        require(sessionTurnAdmission.activeTurn(openSessionId.orEmpty()) == null) { "cannot switch mode during a turn" }
+        runControlStore.setMode(mode)
+    }
+
+    fun setChatToolsEnabled(enabled: Boolean) {
+        require(
+            sessionTurnAdmission.activeTurn(openSessionId.orEmpty()) == null,
+        ) { "cannot change tools during a turn" }
+        runControlStore.setChatToolsEnabled(enabled)
+    }
+
+    fun setTurnBudgets(budgets: com.helix.core.model.TurnBudgets) {
+        require(
+            sessionTurnAdmission.activeTurn(openSessionId.orEmpty()) == null,
+        ) { "cannot change budgets during a turn" }
+        runControlStore.setBudgets(budgets)
+    }
 
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = Any()
@@ -400,6 +433,16 @@ class ChatService(
         clearStagedAttachments()
         shareDraftText = null
         workScope.launch { refreshScreen() }
+    }
+
+    /** Fail closed before an irreversible privacy erase; active work must be stopped first. */
+    fun preparePermanentDeletion(sessionId: String) {
+        check(sessionTurnAdmission.activeTurn(sessionId) == null) { "SESSION_ACTIVE_STOP_REQUIRED" }
+        if (openSessionId == sessionId) {
+            openSessionId = null
+            clearStagedAttachments()
+            shareDraftText = null
+        }
     }
 
     /**
@@ -1511,6 +1554,9 @@ class ChatService(
     ) {
         val session = currentSession() ?: return
         val sessionId = session.id
+        // Snapshot before creating the durable Turn: later UI/profile changes cannot alter this
+        // Turn's mode, tool table, dispatcher mode, or limits.
+        val control = runControlStore.current
         // The Room read runs OUTSIDE the gate: a suspend point must never be
         // reached while holding the monitor (the gate only serializes the
         // turn-start writes below).
@@ -1545,7 +1591,7 @@ class ChatService(
             val startGate = CompletableDeferred<Unit>()
             val job =
                 workScope.launch {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate)
+                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, control)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
@@ -1564,11 +1610,12 @@ class ChatService(
         providerId: String,
         retryTurnId: String?,
         startGate: CompletableDeferred<Unit>,
+        control: RunControlConfig,
     ) {
         val turnId = coordinator.id
         try {
             startGate.await()
-            val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId)
+            val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
             terminalize(sessionId, coordinator, decision)
         } catch (e: CancellationException) {
             terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
@@ -1611,26 +1658,45 @@ class ChatService(
         coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
+        control: RunControlConfig,
     ): ModelStreamTerminal {
         val turnId = coordinator.id
         val provider = providerService.modelProviderFor(providerId)
-        var request = buildRequest(sessionId, retryTurnId)
+        var request = buildRequest(sessionId, retryTurnId, control)
         var toolRounds = 0
+        val budgetTracker = TurnBudgetTracker(control.budgets)
         while (true) {
             if (turnCancels[turnId]?.isCancelled() == true) {
                 return ModelStreamTerminal(TurnState.CANCELLED, null)
+            }
+            when (budgetTracker.beginCall(request)) {
+                TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT -> {
+                    return ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT")
+                }
+
+                TurnBudgetTracker.BeginDecision.TOKEN_LIMIT -> {
+                    return ModelStreamTerminal(TurnState.FAILED, "TOKEN_BUDGET_LIMIT")
+                }
+
+                TurnBudgetTracker.BeginDecision.ALLOWED -> {
+                    Unit
+                }
             }
             val acc = coordinator.beginModelStream()
             provider.stream(request).collect { event ->
                 applyEvent(event, acc, turnId)
             }
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
+            if (!budgetTracker.finishCall(coordinator.snapshot().modelCallId, request, acc)) {
+                return ModelStreamTerminal(TurnState.FAILED, "TOKEN_BUDGET_LIMIT")
+            }
             if (decision.state == TurnState.COMPLETED) {
                 val toolRound =
                     runToolRound(
                         coordinator,
                         acc,
                         toolRounds,
+                        control,
                     )
                 if (toolRound is ToolRoundLimit) {
                     // The turn's tool-round budget is exhausted: fail closed.
@@ -1638,7 +1704,7 @@ class ChatService(
                 }
                 if (toolRound is ToolRoundContinued) {
                     toolRounds = toolRound.toolRounds
-                    request = buildBackfillRequest(sessionId)
+                    request = buildBackfillRequest(sessionId, control)
                     continue
                 }
             }
@@ -1672,15 +1738,16 @@ class ChatService(
         coordinator: TurnCoordinator,
         acc: ModelStreamState,
         toolRounds: Int,
+        control: RunControlConfig,
     ): ToolRoundResult? {
         val turnId = coordinator.id
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
-        if (toolRounds >= MAX_TOOL_ROUNDS_PER_TURN) return ToolRoundLimit()
+        if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
         coordinator.beginToolBatch(calls.map { it.callId })
         coordinator.commitModelToolStep(assistantToolStepJson(calls))
         val turn = storage.turns.resolve(turnId)
-        val settled = runToolBatch(turn, turnId, calls, coordinator)
+        val settled = runToolBatch(turn, turnId, calls, coordinator, control)
         val nextCallId = idGenerator()
         coordinator.openNextModelCall(settled.map(::toolResultDraft), nextCallId)
         return ToolRoundContinued(toolRounds + 1)
@@ -1740,6 +1807,7 @@ class ChatService(
     private suspend fun buildRequest(
         sessionId: String,
         retryTurnId: String?,
+        control: RunControlConfig,
     ): ModelRequest {
         val history = persistedHistory(sessionId, retryTurnId)
         require(history.lastOrNull()?.role == ModelRole.USER) {
@@ -1747,7 +1815,12 @@ class ChatService(
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
-        return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
+        return ModelRequest(
+            model = config.model,
+            messages = history,
+            tools = modelTools(control),
+            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+        )
     }
 
     /**
@@ -1756,14 +1829,35 @@ class ChatService(
      * `model-visible ⇔ persisted`: every message the model sees was persisted FIRST
      * (doc 11 section 4: no model-visible input without a persisted event).
      */
-    private suspend fun buildBackfillRequest(sessionId: String): ModelRequest {
+    private suspend fun buildBackfillRequest(
+        sessionId: String,
+        control: RunControlConfig,
+    ): ModelRequest {
         val history = persistedHistory(sessionId, null)
         require(history.lastOrNull()?.role == ModelRole.TOOL) {
             "a back-fill request must end with the tool results"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
-        return ModelRequest(model = config.model, messages = history, maxOutputTokens = DEFAULT_MAX_OUTPUT_TOKENS)
+        return ModelRequest(
+            model = config.model,
+            messages = history,
+            tools = modelTools(control),
+            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+        )
+    }
+
+    /** Latest registered contracts admitted by the selected mode. This is exposure only. */
+    private fun modelTools(control: RunControlConfig): List<ModelToolSchema> {
+        val latest =
+            toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
+                versions.maxBy { it.version.value }
+            }
+        return ModePolicy
+            .filterTools(control.mode, latest, control.chatToolsEnabled) {
+                ToolModeProfile(it.operationClass, it.baseRisk)
+            }.take(ModelRequest.MAX_TOOLS)
+            .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
     }
 
     /**
@@ -2017,10 +2111,11 @@ class ChatService(
         turnId: String,
         calls: List<BufferedModelToolCall>,
         coordinator: TurnCoordinator,
+        control: RunControlConfig,
     ): List<SettledCall> {
         val prepareds =
             calls.map { call ->
-                prepareToolCall(turn, call.callId, call.name, call.arguments)
+                prepareToolCall(turn, call.callId, call.name, call.arguments, control.mode, control.chatToolsEnabled)
             }
         val requests = prepareds.mapNotNull { it.request }
         val batch =
@@ -2098,6 +2193,8 @@ class ChatService(
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
+        mode: AgentMode,
+        chatToolsEnabled: Boolean,
     ): PreparedToolCall {
         val turnId = turn.id
         val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
@@ -2133,7 +2230,17 @@ class ChatService(
         // facts, never the live store).
         val profile = profile.value
         publishToolRow(turnId, toolCallId, toolNameRaw, canonical, str(R.string.tool_state_processing), null, null)
-        val request = buildDispatchRequest(turn, toolCallId, validName, descriptor, validArgs, profile)
+        val request =
+            buildDispatchRequest(
+                turn,
+                toolCallId,
+                validName,
+                descriptor,
+                validArgs,
+                profile,
+                mode,
+                chatToolsEnabled,
+            )
         dispatchFacts[toolCallId] =
             DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
@@ -2211,9 +2318,11 @@ class ChatService(
         turnId: String,
         toolNameRaw: String,
         rawArgsJson: String,
+        mode: AgentMode = AgentMode.ACT,
+        chatToolsEnabled: Boolean = false,
     ): ToolDispatchOutcome {
         val turn = storage.turns.resolve(turnId)
-        val prepared = prepareToolCall(turn, toolCallId, toolNameRaw, rawArgsJson)
+        val prepared = prepareToolCall(turn, toolCallId, toolNameRaw, rawArgsJson, mode, chatToolsEnabled)
         prepared.preSettled?.let { return it }
         val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
         val settlement = batch.settlements.single()
@@ -2255,6 +2364,8 @@ class ChatService(
         descriptor: ToolDescriptor?,
         args: JsonObject,
         profile: SafetyProfile,
+        mode: AgentMode,
+        chatToolsEnabled: Boolean,
     ): ToolDispatchRequest {
         val mcpFacts =
             descriptor?.let {
@@ -2297,7 +2408,8 @@ class ChatService(
             toolName = toolName,
             toolVersion = descriptor?.version ?: ToolVersion(0),
             args = args,
-            mode = AgentMode.ACT,
+            mode = mode,
+            chatToolsEnabled = chatToolsEnabled,
             profile = profile,
             executionTarget = descriptor?.executionTarget ?: ExecutionTargetType.LOCAL_ANDROID,
             dataOrigin =
@@ -2908,13 +3020,6 @@ class ChatService(
         const val TOOL_TIMELINE_CAP = 200
         const val KIND_TEXT = ChatHistoryBuilder.KIND_TEXT
 
-        /**
-         * The turn's tool-round budget (roadmap HXA-037): a turn may run at most this many
-         * model→tools rounds before it ends FAILED (fail closed — an unbounded tool loop
-         * would burn the user's model budget; the full user-configurable TurnBudgets
-         * arrive with the budget UI, this is the hard product cap in the meantime).
-         */
-        const val MAX_TOOL_ROUNDS_PER_TURN = 8
         const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
 
         val EMPTY_SCREEN =

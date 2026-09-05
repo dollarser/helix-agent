@@ -42,8 +42,10 @@ import com.helix.app.chat.MessageUi
 import com.helix.app.chat.SessionRowUi
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.voice.SpeechRecognitionLauncher
 import com.helix.app.voice.VoiceInputMapper
+import com.helix.core.model.AgentMode
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.launch
@@ -70,6 +72,7 @@ fun ChatScreen(
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
     val profile by chatService.profile.collectAsStateWithLifecycle()
+    val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     var newSessionOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
@@ -100,6 +103,7 @@ fun ChatScreen(
             ConversationSection(
                 screen = screen,
                 profile = profile,
+                runControl = runControl,
                 input = input,
                 onInput = { input = it },
                 bindableProviders = providerRows.filter { it.chatSelectable },
@@ -118,6 +122,8 @@ fun ChatScreen(
                         onStageAttachment = { chatService.stageAttachment(it) },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
                         onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
+                        onSetMode = chatService::setMode,
+                        onSetChatTools = chatService::setChatToolsEnabled,
                     ),
             )
         }
@@ -336,6 +342,8 @@ data class ConversationIntents(
     val onRemoveAttachment: (String) -> Unit,
     /** HXA-056: bind a tested provider to the open (provider-free) draft session. */
     val onBindProvider: (ProviderRowUi) -> Unit,
+    val onSetMode: (AgentMode) -> Unit,
+    val onSetChatTools: (Boolean) -> Unit,
 )
 
 @Composable
@@ -343,6 +351,7 @@ data class ConversationIntents(
 private fun ConversationSection(
     screen: ChatScreenState,
     profile: SafetyProfile,
+    runControl: RunControlConfig,
     input: String,
     onInput: (String) -> Unit,
     bindableProviders: List<ProviderRowUi>,
@@ -388,6 +397,7 @@ private fun ConversationSection(
         }
     }
     Column(Modifier.fillMaxSize()) {
+        ModeControlSection(runControl, screen.isSending, intents)
         Row(
             modifier =
                 Modifier
@@ -628,6 +638,68 @@ private fun ConversationSection(
         }
     }
 }
+
+@Composable
+@Suppress("FunctionName")
+internal fun ModeControlSection(
+    config: RunControlConfig,
+    turnActive: Boolean,
+    intents: ConversationIntents,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).testTag("chat-mode-control"),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            AgentMode.entries.forEach { mode ->
+                OutlinedButton(
+                    onClick = { intents.onSetMode(mode) },
+                    enabled = !turnActive && config.mode != mode,
+                    modifier = Modifier.testTag("chat-mode-${mode.name.lowercase()}"),
+                ) { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) }
+            }
+        }
+        Text(
+            stringResource(modeExplanation(config.mode)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("chat-mode-explanation"),
+        )
+        if (config.mode == AgentMode.CHAT) {
+            TextButton(
+                onClick = { intents.onSetChatTools(!config.chatToolsEnabled) },
+                enabled = !turnActive,
+                modifier = Modifier.testTag("chat-tools-toggle"),
+            ) {
+                Text(
+                    stringResource(
+                        if (config.chatToolsEnabled) R.string.chat_tools_disable else R.string.chat_tools_enable,
+                    ),
+                )
+            }
+        }
+        Text(
+            stringResource(
+                R.string.chat_budget_summary,
+                config.budgets.maxSteps,
+                config.budgets.maxModelCalls,
+                config.budgets.maxOutputTokens,
+                config.budgets.maxTotalTokens,
+            ),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("chat-budget-summary"),
+        )
+    }
+}
+
+private fun modeExplanation(mode: AgentMode): Int =
+    when (mode) {
+        AgentMode.CHAT -> R.string.chat_mode_chat_explanation
+        AgentMode.PLAN -> R.string.chat_mode_plan_explanation
+        AgentMode.ACT -> R.string.chat_mode_act_explanation
+        AgentMode.GOAL -> R.string.chat_mode_goal_explanation
+    }
 
 /**
  * One tool-timeline row (roadmap HXA-036): the tool REQUEST + RESULT, and — while the
