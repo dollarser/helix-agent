@@ -19,6 +19,7 @@ data class CliModelJobRecord(
     val terminalAtEpochMillis: Long? = null,
     val model: String? = null,
     val outputSha256: String? = null,
+    val reconciledAtEpochMillis: Long? = null,
 ) {
     init {
         checkJobId(jobId)
@@ -28,6 +29,7 @@ data class CliModelJobRecord(
         require(outputSha256 == null || SHA256.matches(outputSha256))
         require(state != CliModelJobState.SUCCEEDED || (model != null && outputSha256 != null))
         require(state == CliModelJobState.SUCCEEDED || outputSha256 == null)
+        require(reconciledAtEpochMillis == null || state.terminal)
     }
 
     companion object {
@@ -49,13 +51,14 @@ object CliModelJobRecordCodec {
         record.terminalAtEpochMillis?.let { put("terminalAtEpochMillis", it) }
         record.model?.let { put("model", it) }
         record.outputSha256?.let { put("outputSha256", it) }
+        record.reconciledAtEpochMillis?.let { put("reconciledAtEpochMillis", it) }
     }.toString().also { require(it.encodeToByteArray().size <= MAX_RECORD_BYTES) }
 
     fun decode(document: String): CliModelJobRecord {
         require(document.encodeToByteArray().size <= MAX_RECORD_BYTES)
         val obj = Json.parseToJsonElement(document).jsonObject
         val required = setOf("version", "jobId", "requestSha256", "state", "createdAtEpochMillis")
-        val optional = setOf("terminalAtEpochMillis", "model", "outputSha256")
+        val optional = setOf("terminalAtEpochMillis", "model", "outputSha256", "reconciledAtEpochMillis")
         require(obj.keys.containsAll(required) && obj.keys.all { it in required || it in optional })
         require(obj.getValue("version").jsonPrimitive.long == 1L)
         return CliModelJobRecord(
@@ -66,6 +69,7 @@ object CliModelJobRecordCodec {
             obj["terminalAtEpochMillis"]?.jsonPrimitive?.long,
             obj["model"]?.jsonPrimitive?.content,
             obj["outputSha256"]?.jsonPrimitive?.content,
+            obj["reconciledAtEpochMillis"]?.jsonPrimitive?.long,
         )
     }
 }

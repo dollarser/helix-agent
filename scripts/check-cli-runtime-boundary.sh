@@ -20,9 +20,9 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivi
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
-if rg -n 'chatgpt\.com/backend-api|api\.anthropic\.com/v1/messages|api\.x\.ai|api\.githubcopilot\.com' \
-    "$repo_root/runtime/cli-app/src/main" --glob '!**/CodexSubscriptionSmoke.kt'; then
-    echo "model subscription endpoint escaped the HXA-127 bounded Codex smoke" >&2
+if rg -n 'api\.anthropic\.com/v1/messages|api\.x\.ai|api\.githubcopilot\.com' \
+    "$repo_root/runtime/cli-app/src/main"; then
+    echo "an unsupported subscription model endpoint entered the Runtime" >&2
     exit 1
 fi
 smoke="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionSmoke.kt"
@@ -49,13 +49,20 @@ rg -F 'CliProviderChannel.CONSUMER_STORE' "$repo_root/runtime/cli-client/src/mai
 rg -F 'DEVELOPER_ADVANCED' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
 protocol="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeProtocol.kt"
 test "$(rg -c 'TRANSACTION_JOB_(SUBMIT|QUERY|CANCEL|RECONCILE)' "$protocol")" = 4
-rg -F 'FIXED_CODEX_SMOKE_SHA256' "$protocol" >/dev/null
 client="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobClient.kt"
+payload_codec="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelPayloadCodec.kt"
 rg -F 'submitAndAwaitFixed' "$client" >/dev/null
+rg -F 'submitAndAwait(' "$client" >/dev/null
 rg -F 'TRANSACTION_JOB_QUERY' "$client" >/dev/null
 rg -F 'TRANSACTION_JOB_RECONCILE' "$client" >/dev/null
-if rg -n 'prompt|input_text|response text|accessToken|refreshToken' "$client"; then
-    echo "credential or arbitrary model payload escaped into the main-app client" >&2
+rg -F 'const val MAX_BYTES = 512 * 1024' "$payload_codec" >/dev/null
+rg -F 'const val MAX_BYTES = 1024 * 1024' "$payload_codec" >/dev/null
+rg -F 'const val MAX_EVENTS = 2048' "$payload_codec" >/dev/null
+rg -F 'CliPfdChannel' "$client" >/dev/null
+rg -F 'reconciledAtEpochMillis' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobRecord.kt" >/dev/null
+rg -F 'put("store", false)' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionModel.kt" >/dev/null
+if rg -n 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_codec"; then
+    echo "credential material escaped into the main-app model IPC" >&2
     exit 1
 fi
 supervisor="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeSupervisor.kt"
@@ -67,4 +74,4 @@ app_manifest="$repo_root/app/src/developer/AndroidManifest.xml"
 rg -F '<package android:name="com.helix.runtime.cli" />' "$app_manifest" >/dev/null
 rg -F '<uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />' "$app_manifest" >/dev/null
 
-echo "HXA-133 fixed CLI job boundary: cold-bound submit/query/cancel/reconcile with durable redacted proof; no arbitrary prompt, model output, other model endpoint, or credential import yet"
+echo "HXA-134 subscription model boundary: bounded ModelRequest/ModelEvent PFD transport, durable hash proof, reconcile deletion, and no credential import"

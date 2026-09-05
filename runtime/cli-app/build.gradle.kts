@@ -35,6 +35,9 @@ android {
 // instrumented/JVM test does not need to re-declare the platform dependency.
 dependencies {
     implementation(project(":runtime:cli-client"))
+    implementation(project(":core:model"))
+    implementation(project(":provider:api"))
+    implementation(project(":provider:openai-responses"))
     testImplementation(libs.junit4)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.wire)

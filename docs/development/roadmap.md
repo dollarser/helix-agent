@@ -698,6 +698,18 @@ Binder death 后只允许按原 jobId 冷绑定 query/reconcile，不自动重�
 持久化、重复提交不重跑、未知查询/取消、debug Binder death 后原 jobId 对账和空闲解绑。任意模型请求、
 PFD/`ModelEvent` 与 Provider 注册属于后续独立 HXA。
 
+### HXA-134 有界模型载荷与对账删除
+
+在 HXA-133 控制面上增加严格、版本化的通用 `ModelRequest`/`ModelEvent` codec，并只通过 PFD 传输正文。
+请求上限 512 KiB，不接受跨 UID 无法重验的图片引用；结果上限 1 MiB/2048 events，必须恰有一个位于末尾的
+terminal event。Runtime 使用既有 Responses encoder/stream decoder，强制 `store=false`，凭据和 account id
+继续只在 Runtime UID 内使用。
+
+请求和结果先原子持久化并绑定 SHA-256；成功结果必须在 reconcile 读取并校验后删除正文，只保留 redacted
+record 与 reconciliation 时间。取消必须胜过迟到结果，进程/Binding 断连仍只按原 jobId 对账。API 29/36
+arm64-v8a 验证 PFD 成功路径、旧控制面回归、删除与空闲解绑。本任务不注册 Provider，不接对话 UI、
+Dispatcher 或 Audit；这些属于下一独立 HXA。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

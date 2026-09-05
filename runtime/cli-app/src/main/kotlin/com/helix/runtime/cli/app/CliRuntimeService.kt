@@ -3,29 +3,38 @@ package com.helix.runtime.cli.app
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import com.helix.core.model.ModelEvent
+import java.io.Closeable
 import java.util.concurrent.atomic.AtomicReference
 
 class CliRuntimeService : Service() {
-    private lateinit var runner: CodexModelJobRunner
+    private lateinit var runner: CodexPayloadJobRunner
     private lateinit var oauthTransport: OkHttpCodexOAuthTransport
-    private val activeSmoke = AtomicReference<CodexSubscriptionSmoke?>()
+    private val activeModel = AtomicReference<Closeable?>()
 
     override fun onCreate() {
         super.onCreate()
         val vault = CliSubscriptionCredentialVault(this)
         oauthTransport = OkHttpCodexOAuthTransport()
         val oauth = CodexLoginController(vault, oauthTransport)
-        runner = CodexModelJobRunner(
-            store = CodexModelJobStore(filesDir),
-            execute = {
-                val smoke = CodexSubscriptionSmoke(vault, oauth).also(activeSmoke::set)
+        runner = CodexPayloadJobRunner(
+            store = CodexPayloadJobStore(filesDir),
+            execute = { bytes ->
+                val request = com.helix.runtime.cli.client.CliModelRequestCodec.decode(bytes)
+                if (BuildConfig.DEBUG && request.model == "helix-fixture") {
+                    return@CodexPayloadJobRunner CodexModelExecution(
+                        request.model,
+                        listOf(ModelEvent.TextDelta("HELIX_OK"), ModelEvent.Usage(2, 1), ModelEvent.Completed("stop")),
+                    )
+                }
+                val model = CodexSubscriptionModel(vault, oauth).also(activeModel::set)
                 try {
-                    smoke.use { it.run() }
+                    model.use { it.run(request) }
                 } finally {
-                    activeSmoke.compareAndSet(smoke, null)
+                    activeModel.compareAndSet(model, null)
                 }
             },
-            cancelExecution = { activeSmoke.getAndSet(null)?.close() },
+            cancelExecution = { activeModel.getAndSet(null)?.close() },
         )
     }
 
@@ -39,7 +48,7 @@ class CliRuntimeService : Service() {
 
     override fun onDestroy() {
         runner.close()
-        activeSmoke.getAndSet(null)?.close()
+        activeModel.getAndSet(null)?.close()
         oauthTransport.close()
         super.onDestroy()
     }

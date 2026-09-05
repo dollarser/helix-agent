@@ -9,6 +9,10 @@ import com.helix.runtime.cli.client.CliRuntimeSupervisor
 import com.helix.runtime.cli.client.CliRuntimeVerification
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobState
+import com.helix.core.model.ModelEvent
+import com.helix.core.model.ModelMessage
+import com.helix.core.model.ModelRequest
+import com.helix.core.model.ModelRole
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -48,5 +52,30 @@ class CliRuntimeHandshakeE2eDeviceTest {
         assertEquals(record, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
         assertTrue(client.query("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
         assertTrue(client.cancel("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
+    }
+
+    @Test fun modelPayloadUsesPfdAndIsDeletedAfterReconcile() {
+        val client = CliModelJobClient(CliRuntimeSupervisor(context))
+        val result = client.submitAndAwait(
+            "job_134000000001",
+            ModelRequest("helix-fixture", listOf(ModelMessage(ModelRole.USER, "bounded payload"))),
+            timeoutMs = 2_000,
+            pollIntervalMs = 20,
+        )
+        assertTrue(result is CliModelJobClient.AwaitOutcome.Terminal)
+        result as CliModelJobClient.AwaitOutcome.Terminal
+        assertEquals(CliModelJobState.SUCCEEDED, result.record.state)
+        assertEquals(
+            listOf<ModelEvent>(ModelEvent.TextDelta("HELIX_OK"), ModelEvent.Usage(2, 1), ModelEvent.Completed("stop")),
+            result.events,
+        )
+        repeat(50) {
+            val record = (client.query("job_134000000001") as CliModelJobClient.StateOutcome.Ok).record
+            if (record.reconciledAtEpochMillis != null) return@repeat
+            Thread.sleep(20)
+        }
+        val second = client.reconcile("job_134000000001") as CliModelJobClient.StateOutcome.Ok
+        assertTrue(second.record.reconciledAtEpochMillis != null)
+        assertEquals(null, second.events)
     }
 }
