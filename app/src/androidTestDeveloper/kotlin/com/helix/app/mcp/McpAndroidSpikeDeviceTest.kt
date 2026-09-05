@@ -283,10 +283,19 @@ private class AndroidMcpFixture(
         while (!server.isClosed) {
             try {
                 val socket = server.accept()
-                clients.execute { handle(socket) }
+                dispatch(socket)
             } catch (_: java.net.SocketException) {
                 if (!server.isClosed) throw AssertionError("MCP fixture accept failed")
             }
+        }
+    }
+
+    private fun dispatch(socket: Socket) {
+        try {
+            clients.execute { handle(socket) }
+        } catch (_: java.util.concurrent.RejectedExecutionException) {
+            socket.close()
+            if (!server.isClosed) throw AssertionError("MCP fixture worker rejected a live connection")
         }
     }
 
@@ -602,8 +611,8 @@ private class AndroidMcpFixture(
 
     override fun close() {
         server.close()
-        clients.shutdownNow()
         acceptor.join(1_000)
+        clients.shutdownNow()
     }
 
     private data class Request(

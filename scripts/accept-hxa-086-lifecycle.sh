@@ -46,8 +46,9 @@ fi
 ADB="adb -s $SERIAL"
 echo "device: $SERIAL"
 
-RUNNER="com.helix.agent.developer.test/androidx.test.runner.AndroidJUnitRunner"
+RUNNER="com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner"
 COMPANION_RUNNER="com.helix.runtime.proot.test/androidx.test.runner.AndroidJUnitRunner"
+HOST_SETUP_CLASS="com.helix.runtime.proot.app.ProotLifecycleHostSetupDeviceTest#activeRuntimeIsInstalledForHostPhases"
 LIFECYCLE_CLASS="com.helix.app.proot.ProotLifecycleE2eDeviceTest"
 ISOLATION_CLASS="com.helix.app.proot.ProotRuntimeIsolationE2eDeviceTest"
 COMPANION="com.helix.runtime.proot"
@@ -104,9 +105,9 @@ run_phase() {
   warm_main_app
   local out
   if [[ ${#instr_args[@]} -gt 0 ]]; then
-    out=$($ADB shell am instrument -w -r "${instr_args[@]}" -e class "$LIFECYCLE_CLASS#$method" "$RUNNER" 2>&1) || true
+    out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 "${instr_args[@]}" -e class "$LIFECYCLE_CLASS#$method" "$RUNNER" 2>&1) || true
   else
-    out=$($ADB shell am instrument -w -r -e class "$LIFECYCLE_CLASS#$method" "$RUNNER" 2>&1) || true
+    out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 -e class "$LIFECYCLE_CLASS#$method" "$RUNNER" 2>&1) || true
   fi
   echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
   if echo "$out" | grep -q "FAILURES!!!"; then
@@ -120,19 +121,30 @@ run_phase() {
 }
 
 run_companion_phase() {
-  echo "==> companion phase: $*"
+  local class="$1"; shift
+  local -a instr_args=("$@")
+  echo "==> companion phase: $class"
   local out
-  out=$($ADB shell am instrument -w -r -e class "$1" "$COMPANION_RUNNER" 2>&1) || true
+  if [[ ${#instr_args[@]} -gt 0 ]]; then
+    out=$($ADB shell am instrument -w -r "${instr_args[@]}" -e class "$class" "$COMPANION_RUNNER" 2>&1) || true
+  else
+    out=$($ADB shell am instrument -w -r -e class "$class" "$COMPANION_RUNNER" 2>&1) || true
+  fi
   echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
   if echo "$out" | grep -q "FAILURES!!!"; then
-    echo "COMPANION PHASE $1 FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1
+    echo "COMPANION PHASE $class FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1
   fi
   if echo "$out" | grep -qE "Skipped: [1-9]"; then
-    echo "COMPANION PHASE $1 SKIPPED — see the test's assume message"; exit 1
+    echo "COMPANION PHASE $class SKIPPED — see the test's assume message"; exit 1
   fi
-  echo "$out" | grep -q "OK (" || { echo "COMPANION PHASE $1 produced no clean result"; exit 1; }
+  echo "$out" | grep -q "OK (" || { echo "COMPANION PHASE $class produced no clean result"; exit 1; }
   echo "companion phase PASSED"
 }
+
+# APK installation and lifting force-stop do not install the embedded RootFS.
+# Establish the real active-runtime precondition once; lifecycle phases below
+# then vary only package/process state and execute through the cross-APK path.
+run_companion_phase "$HOST_SETUP_CLASS" -e hxa086_host_setup 1
 
 # Read the LIFECYCLE-JOB-ID marker the long-job phases write into the app's
 # filesDir (same uid as the companion — host-readable).
@@ -140,10 +152,10 @@ job_id_of() {
   $ADB shell run-as "$MAIN_APP" cat files/LIFECYCLE-JOB-ID 2>/dev/null | tr -d $'\r'
 }
 
-# =============== phase 0: fresh-install companion (force-stopped) ===============
-# A fresh `install -r` of the companion leaves it force-stopped (the Android
-# first-launch state): the refusal must be stable, and only the user-gated
-# repair entry may lift it.
+# =============== phase 0: installed companion package (force-stopped) ===========
+# A force-stopped companion must be refused stably; only the user-gated repair
+# entry may lift the stopped-package state. Runtime installation above is an
+# independent prerequisite and must not be confused with process/package state.
 $ADB shell su 0 am force-stop "$COMPANION"
 run_phase phaseForceStoppedCompanionIsStablyRefusedForJobs
 
@@ -183,6 +195,7 @@ run_phase phaseFirstJobAfterCleanStateRunsByColdBind
 warm_companion
 warm_main_app
 LONG_OUT=$($ADB shell am instrument -w -r \
+  -e hxa086_host_phase 1 \
   -e class "$LIFECYCLE_CLASS#phaseLongJobThenReturnWithJobId" "$RUNNER" 2>&1) || true
 echo "$LONG_OUT" | { grep -E "OK \(|FAILURES|Skipped" || true; } | tail -2
 echo "$LONG_OUT" | grep -q "OK (1 test)" || { echo "LONG JOB PHASE produced no clean result"; exit 1; }
@@ -193,7 +206,7 @@ sleep 5
 # The companion is re-warmed through the user-gated repair entry; the next
 # service start sweeps the orphan (pid+starttime double check).
 warm_companion
-out=$($ADB shell am instrument -w -r -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
+out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
   -e job_id "$ORPHAN_JOB" "$RUNNER" 2>&1) || true
 echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
 echo "$out" | grep -q "OK (1 test)" || { echo "ORPHAN QUERY FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
@@ -205,6 +218,7 @@ warm_main_app
 ( sleep 6; kill_companion ) &
 KILL_PID=$!
 out=$($ADB shell am instrument -w -r \
+  -e hxa086_host_phase 1 \
   -e companion_kill 1 \
   -e class "$LIFECYCLE_CLASS#phaseAwaitJobWhileTheHostKillsTheCompanion" "$RUNNER" 2>&1) || true
 wait "$KILL_PID" 2>/dev/null || true
@@ -214,7 +228,7 @@ KILLED_JOB=$(job_id_of)
 [[ -n "$KILLED_JOB" ]] || { echo "no LIFECYCLE-JOB-ID marker after the await-kill phase"; exit 1; }
 echo "killed mid-job: $KILLED_JOB (client settled stable non-success: DEAD_OBJECT or ORPHANED)"
 warm_companion
-out=$($ADB shell am instrument -w -r -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
+out=$($ADB shell am instrument -w -r -e hxa086_host_phase 1 -e class "$LIFECYCLE_CLASS#phaseQueryTheOrphanedJobByJobId" \
   -e job_id "$KILLED_JOB" "$RUNNER" 2>&1) || true
 echo "$out" | { grep -E "Tests run|OK \(|FAILURES|Skipped" || true; } | tail -3
 echo "$out" | grep -q "OK (1 test)" || { echo "KILLED-JOB ORPHAN QUERY FAILED"; echo "$out" | grep -E "stack=|AssertionError" | head -5; exit 1; }
