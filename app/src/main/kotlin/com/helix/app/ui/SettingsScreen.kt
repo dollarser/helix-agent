@@ -73,6 +73,7 @@ fun SettingsScreen(
     profileStore: SafetyProfileStore,
     providerService: ProviderService,
     egressRules: HighSensitivityRuleRepository,
+    connectorService: com.helix.app.connector.ConnectorService? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -148,6 +149,11 @@ fun SettingsScreen(
         HorizontalDivider()
 
         ProviderManager(providerService)
+
+        connectorService?.let {
+            com.helix.app.connector
+                .ConnectorSection(it)
+        }
 
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
             HorizontalDivider()

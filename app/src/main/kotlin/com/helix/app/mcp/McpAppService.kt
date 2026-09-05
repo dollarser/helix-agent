@@ -53,6 +53,7 @@ class McpAppService(
         lateinit var bridge: McpDynamicToolBridge
         val baseCaller =
             runtime.caller(enabledConfig) { call ->
+                check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
                 pendingSummaries.remove(call.toolCallId)?.let { pending ->
                     recordSent(pending.sessionId, pending.summary)
                 }
@@ -62,7 +63,11 @@ class McpAppService(
                 config = enabledConfig,
                 identity = snapshot.identity,
                 metadata = selected,
-                caller = baseCaller,
+                caller =
+                    com.helix.extensions.mcp.McpToolCaller { call, name ->
+                        check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+                        baseCaller.call(call, name)
+                    },
             )
         storage.persistHandshake(snapshot)
         storage.setEnabledTools(snapshot.serverId.value, toolNames)
@@ -77,12 +82,14 @@ class McpAppService(
         }
     }
 
+    fun isActive(serverId: String): Boolean = activeBridges.containsKey(serverId)
+
     fun disable(serverId: String) {
+        activeBridges.remove(serverId)
         storage.setServerEnabled(serverId, false)
         storage.setEnabledTools(serverId, emptySet())
         registry.replaceMcpServer(serverId, emptyList())
         implementations.replaceMcpServer(serverId, emptyList())
-        activeBridges.remove(serverId)
     }
 
     @Suppress("ReturnCount") // non-MCP and inactive-server exits are distinct fail-closed boundaries

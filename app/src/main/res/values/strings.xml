@@ -569,4 +569,25 @@
     <string name="settings_proot_not_installed">未安装</string>
     <string name="settings_proot_not_verified">未验证</string>
     <string name="settings_proot_disabled">被禁用/强制停止</string>
+    <string name="connector_title">连接器</string>
+    <string name="connector_intro">导入插件 ZIP 或 MCP JSON，组合外部工具与 Skills。安装后按组件启用；每次工具调用遵循现有授权。</string>
+    <string name="connector_import">导入连接器</string>
+    <string name="connector_install">安装可迁移部分</string>
+    <string name="connector_failed">导入或保存失败。请检查 JSON、Skill 格式、包大小及存储空间。</string>
+    <string name="connector_skill_review">Skill 含原始指令和配套文件，脚本不会在安装时执行。启用前请审阅源文件；平台专有工具名可能需要适配。</string>
+    <string name="connector_remove_note">移除会停用连接并删除本机连接凭据。Skill 快照保留；其他连接器共用的 Skill 保持原状态。厂商授权需在厂商侧撤销。</string>
+    <string name="connector_remove">移除连接器</string>
+    <string name="connector_active">工具已启用</string>
+    <string name="connector_inactive">工具未激活，请测试连接并选择工具</string>
+    <string name="connector_bearer">Bearer token（已有凭据可留空）</string>
+    <string name="connector_test">测试连接</string>
+    <string name="connector_enable">启用所选工具</string>
+    <string name="connector_disable">停用工具</string>
+    <string name="connector_connection_failed">连接操作失败。检查网络、独立授权及服务协议；平台代持的登录态不能迁移。</string>
+    <string name="connector_diag_auth">请在 Helix 重新配置认证：%1$s</string>
+    <string name="connector_diag_stdio">本地命令需要 Android Runtime 适配：%1$s</string>
+    <string name="connector_diag_host">平台专有应用需要独立连接：%1$s</string>
+    <string name="connector_diag_endpoint">端点需改为可直接连接的 HTTPS 地址后重新导入：%1$s</string>
+    <string name="connector_diag_toml">请先用仓库导出脚本将 Codex TOML 转为 MCP JSON：%1$s</string>
+    <string name="connector_diag_unsupported">此组件或选项尚未迁移：%1$s</string>
 </resources>

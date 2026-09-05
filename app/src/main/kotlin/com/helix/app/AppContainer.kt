@@ -143,6 +143,9 @@ interface AppContainer {
      */
     val toolPipeline: ToolPipeline
 
+    val connectorService: com.helix.app.connector.ConnectorService
+        get() = error("Connector service is unavailable in this container")
+
     val mcpService: McpAppService
 
     val a2aService: A2aAppService
@@ -615,6 +618,11 @@ internal class DefaultAppContainer(
         ).also { service ->
             toolPipeline.installMcpFactsProvider(service::dispatchFacts)
         }
+
+    override val connectorService by lazy {
+        com.helix.app.connector
+            .ConnectorService(context, storage, mcpService, skillImportService, skillRepository)
+    }
 
     override val a2aService: A2aAppService =
         A2aAppService(

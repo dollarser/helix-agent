@@ -194,6 +194,12 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-122 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 稳定产品 applicationId、flavor/channel 命名、离线签名、同 ID 升级/回滚、companion 签名握手；不同 ID 不冒充原地升级 |
 | HXA-123 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | Google Play 与首批国内商店提交包/声明/视频/隐私材料；分别记录准备、提交、审核、拒绝或通过证据，不以构建成功声称上架 |
 
+### M13 Connector 可迁移能力包
+
+| 任务 | JVM/构建命令 | Android/外部验收 |
+| --- | --- | --- |
+| HXA-124 | `./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug --no-configuration-cache`；`python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py` | `./gradlew :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-124-connectors.sh <serial>`；API 29/36（显式选定设备；含跨进程两阶段恢复）；真实第三方服务需独立测试账号 |
+
 ## 4. 跨任务发布门禁
 
 ```bash
@@ -217,3 +223,9 @@ app/build/outputs/apk/developer/debug/app-developer-debug.apk
 runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
 runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 ```
+| HXA-125 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；真实服务与来源格式验收需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-126 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector OAuth 登录层需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-127 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；大 catalog 渐进工具发现需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-128 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；CLI/stdio Connector 可移植性 Spike需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-129 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 完整生命周期需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-130 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 市场设计与来源验证需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |

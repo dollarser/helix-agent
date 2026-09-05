@@ -33,6 +33,8 @@ docs/
 └── history/             不再充当当前规范、但仍有追溯价值的记录
 ```
 
+- [Connector 能力包与迁移](architecture/connector-portability.md)：格式兼容矩阵、导入管理与认证/Runtime 分期。
+
 ## 产品
 
 - [产品需求](product/requirements.md)：用户、场景、能力边界和产品验收指标。

@@ -16,6 +16,8 @@
 
 ## Completed
 
+- M13 / HXA-124 已完成：Connector 开放格式迁移首版在独立 connector 分支完成；ZIP/JSON 导入、MCP/Skill 组件管理与 Codex TOML 导出，604 JVM + 2 Python、双 flavor debug 构建与 API 29/36 每台 6 + 2 阶段专项测试通过。未合入 main，不代表平台私有连接器/OAuth/CLI 全兼容，见 [完成记录](../completion-records/HXA-124.md)。
+
 已完成任务的详细实现、命令、exit code、设备和限制只在 [HXA 完成记录](../completion-records/README.md) 与各记录中维护；本文件不复制字段级历史。
 
 | 里程碑 | 已完成范围 | 权威证据 |
@@ -112,3 +114,7 @@
 - 聊天附件（HXA-049 首批）现为**有界 UTF-8 文本**：UI/`ChatService` 可暂存并经系统 picker 导入单文件到当前会话 app-private Workspace（复用 HXA-044 `SafImportPipeline`，单文件导入不依赖 SAF tree grant），发送/重试前对 `message_attachments` 绑定的 SHA-256 快照 fail-closed 再校验，egress disclosure 同时绑定精确 Provider/origin 与被枚举的附件集合；只有经 probe 确认的 UTF-8 txt/md/csv/json 进入模型上下文，且以带来源、`UNTRUSTED` 标记与整文件哈希的有界（≤8 KiB 内联视图）context item 呈现，超限经 `read(offset,maxBytes)` 分块，绝不 base64 进上下文。**图片（HXA-055 已支持）**：magic 确认的 png/jpeg/webp/gif 经端上归一化（字节门/bounds 探针/采样/EXIF 手动旋转/重编码剥离/预算）发送，`message_attachments` 绑定**归一化 artifact** 并在发送/重试/恢复每次重验；视觉能力需连接测试第 5 阶段探测通过或用户手动声明，未确认时图片可本地保存/预览但发送阻塞（可操作错误，无裸 base64 回退、无静默丢图）；**系统分享（HXA-056 已支持）**：`ACTION_SEND`/`ACTION_SEND_MULTIPLE` 的文字/图片以「分享草稿」会话先本地导入/预览（provider-free 会话，发送前必须显式绑定 Provider；文字预填输入框、图片进暂存预览），**绝不自动发送**（ADR-0014 §5：预览后由用户显式发送）。**端到端硬化与发布边界（HXA-056 已回归）**：发送/流式回复/Tool Loop/历史恢复/脱敏、grant 失效、Artifact 缺失/篡改（重试 fail-closed）、重复发送、绑定后 Provider 不可再换（单会话单 egress）、能力快照变化立即撤销图片视觉、请求过大、图片解压炸弹（伪造 SOF fail-closed）、取消与进程回收（持久化幸存、暂存丢弃）；UTF-16、PDF/PPT/DOC、音频、视频及其他二进制只归入 ADR-0014 的封闭 category 并稳定返回 unsupported，不做文档/媒体解析、渲染、OCR 或 Provider upload；日志/Room/audit/用户可见错误不泄露原始 URI、绝对路径、正文或 base64（有设备回归断言）；三 adapter golden request + ≥1 真实 vision endpoint smoke（本地 SGLang 服务、环境明确记录，不替代协议 fixture）。**导入成功不等于模型已理解**：导入只保证文件在端上落盘并可发送，模型是否理解取决于其能力。以上均受 accepted [ADR-0014](../adr/0014-session-attachment-materialization.md)约束。
 - Workspace 文件层两项低优先特性经 HXA-048 评估后**维持现状**（目录规模 / 大目录成为实际瓶颈前不改）：`WorkspaceQuota.usageBytes` 每次文件操作全量 walk scope 目录报告当前用量；`files.listDir` 先物化排序整个目录再分页、app 层 TIME/SIZE 排序只作用于按名截断前缀。
 - 全项目审查判定为**有意设计、不改动**：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 空子项目是 M6 占位模块（验收矩阵与 roadmap M6 已规划其测试）。
+
+## Connector 扩展线收尾
+
+M13 首版 HXA-124 已验证；HXA-125～130 均 planned，M13 未整体完成。Connector 下一项为 HXA-125 真实服务/来源格式验收，需独立测试账号与真实导出样本。ADR-0023 保持 proposed，待所有者结论。当前分支仅本地提交，不合入 main、不推送；全局 Next task 不因本扩展线调整。

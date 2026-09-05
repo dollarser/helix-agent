@@ -19,6 +19,7 @@ M0 工程基线
   → M10 单机 Alpha/Beta 硬化
   → M11 官方 CLI 订阅后端实验
   → M12 直接分发 Release
+M13 Connector 可迁移能力包（扩展线，按 M7/M11 实际依赖推进）
 ```
 
 远程 Worker、云端沙箱、桌面配对和 HarmonyOS 不属于当前路线。M7 的 A2A Client 是用户配置的外部 Agent 连接器，不是远程 `ExecutionTarget`/Worker；只在 HXA-077 Spike 通过并形成协议决定后创建真实模块，不提前创建网络空模块。
@@ -40,6 +41,8 @@ M0 工程基线
 | M10 | 固定场景可重复完成 | 指标、安全、恢复、资源和隐私门禁达标；HXA-105 以接受或有证据拒绝的 ADR 收口，不留半实现编排入口 |
 | M11 | 可选官方 CLI 隔离会话 | 凭据隔离和工具拦截结论有证据；不合格则保持独立 CLI 模式 |
 | M12 | Android 直接分发包可发布 | 全部门禁、SBOM、notice、权限说明和真机证据齐全 |
+
+| M13 | 可迁移、管理并验证 MCP + Skill Connector | HXA-124 首版完成；后续 HXA-125～130 按依赖分别验收，M13 尚未整体完成 |
 
 ## 3. 所有任务的共同规则
 
@@ -562,3 +565,49 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 ```
 
 “代码已写”“能够编译”“单次演示成功”都不等于完成。
+
+## 18. M13：Connector 可迁移能力包（所有者 2026-09-05 新增范围）
+
+M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用已落地 M7；后续范围仍为计划，不因编号分配而获得新的认证或 Runtime 架构授权。
+
+### HXA-124 Connector 调研、插件导入与管理
+
+在独立 worktree 实现 Codex/Claude Code 插件与 WorkBuddy/QwenWork 可导出 MCP + Skill 子集的迁移。允许模块：`extensions/skills`、`app`、`core/storage`（既有 MCP auth alias 更新，无 schema migration）、相关 docs、导出/验收 scripts 与测试 fixture；复用已有 MCP/Skill/SecretStore/Dispatcher，不改 core 执行或授权协议、不升级依赖。交付 ZIP/JSON 导入预览、来源/内容 hash、不兼容项诊断、禁用安装、连接测试后工具选择、Skill 按需读取、停用与卸载。原始凭据不随 MCP 配置导入；用户在 Helix 独立配置 bearer。CLI/stdio、OAuth、专有平台 app ID、hooks、agents/rules 的完整兼容分期研究，不自动执行外来组件。
+
+验证：`./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug --no-configuration-cache`；`./gradlew spotlessCheck detekt --no-configuration-cache`；`./scripts/check-docs.sh`、`./scripts/verify-adr.sh`、`./scripts/check-i18n.sh`、`./scripts/check-lockfiles.sh`、`./scripts/check-secrets.sh`、`git diff --check`。`python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py`；`./gradlew :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-124-connectors.sh <serial>`：API 29/36 对导入、跨进程恢复、启停做专项设备验证；真实第三方授权/调用只在有测试账号时另行验收。
+
+### HXA-125 真实服务与来源格式验收
+
+状态：planned，未开始。取得独立测试账号及可公开或脱敏的真实导出样本，验证匿名/bearer 握手、工具调用、拒绝、撤销与重启。分别记录四个平台已验证子集和未知项，不用合成 fixture 代替服务验收。依赖 HXA-124；无账号时记录外部依赖。允许 app 测试、导入适配器与相关 docs/scripts。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+### HXA-126 Connector OAuth 登录层
+
+状态：planned，未开始。依赖 HXA-125 的真实服务选择，先形成独立 ADR；定义 Android public client、浏览器回调、PKCE/state、issuer/resource 绑定、刷新/撤销与进程恢复。至少两家真实服务验收，不导入第三方 host 登录态。实现模块与精确验收命令须在 ADR 审查后补齐，之前不启动功能实现。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+### HXA-127 大 catalog 渐进工具发现
+
+状态：planned，未开始。依赖 HXA-124；研究搜索、按轮有限 schema 加载及 schema 更新失效。复用 Dispatcher/Policy，不能由远端声明并发或审批权限。允许 extensions/mcp、app 及相关测试/docs；任何 core 契约变更先审查 ADR。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+### HXA-128 CLI/stdio Connector 可移植性 Spike
+
+状态：planned，未开始。依赖 M11 实际完成的 Runtime/认证/拦截证据与 HXA-073 边界；先逐项记录 CLI 版本、ABI、许可证、网络及凭据依赖，再决定可支持集合。允许 docs/scripts 与现有 Runtime 测试；本 Spike 不授权新增联网执行域或绕过 CLI 隔离。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+### HXA-129 Connector 完整生命周期
+
+状态：planned，未开始。依赖 HXA-124；先设计共享 Skill 所有权、会话 scope、更新 diff、安装 journal、原子视图和 rollback，审查持久化契约后实施。允许 app、extensions/skills 与测试/docs；若需 core/storage schema 变化，先明确 migration 和设备恢复矩阵。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+### HXA-130 Connector 市场设计与来源验证
+
+状态：planned，未开始。依赖 HXA-129；先形成签名索引、固定版本、来源及许可证审查设计。市场不扩展 ToolCall 权限；网络安装和更新的实施范围及发布条件经独立审查后确定。当前仅允许 docs 和离线索引 fixture，不提前实现市场运行时。
+
+验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。

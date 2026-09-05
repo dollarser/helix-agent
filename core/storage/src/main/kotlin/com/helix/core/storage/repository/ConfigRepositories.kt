@@ -257,6 +257,19 @@ class McpServerRepository(
 
     fun list(): List<McpServerEntity> = dao.list()
 
+    /** User credential replacement invalidates enablement; the value is an alias only. */
+    fun replaceAuthAlias(
+        id: String,
+        alias: String?,
+    ) {
+        resolve(id)
+        alias?.let {
+            com.helix.core.model
+                .SecretAlias(it)
+        }
+        dao.replaceAuthAlias(id, alias)
+    }
+
     fun update(
         server: McpServerEntity,
         enabled: Boolean,

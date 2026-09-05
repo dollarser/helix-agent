@@ -568,4 +568,25 @@
     <string name="settings_proot_not_installed">Not installed</string>
     <string name="settings_proot_not_verified">Not verified</string>
     <string name="settings_proot_disabled">Disabled/force-stopped</string>
+    <string name="connector_title">Connectors</string>
+    <string name="connector_intro">Import a plugin ZIP or MCP JSON to combine external tools and skills. Enable components after installation; existing tool authorization applies.</string>
+    <string name="connector_import">Import connector</string>
+    <string name="connector_install">Install portable components</string>
+    <string name="connector_failed">Import or save failed. Check JSON, skill format, package size, and storage space.</string>
+    <string name="connector_skill_review">Skills retain original instructions and files. Scripts do not run on installation. Review the source before enabling; host-specific tool names may need adaptation.</string>
+    <string name="connector_remove_note">Removal disables connections and deletes local connection credentials. Skill snapshots remain; skills shared by other connectors keep their state. Revoke provider consent at the provider.</string>
+    <string name="connector_remove">Remove connector</string>
+    <string name="connector_active">Tools enabled</string>
+    <string name="connector_inactive">Tools inactive. Test the connection and select tools.</string>
+    <string name="connector_bearer">Bearer token (leave blank to reuse)</string>
+    <string name="connector_test">Test connection</string>
+    <string name="connector_enable">Enable selected tools</string>
+    <string name="connector_disable">Disable tools</string>
+    <string name="connector_connection_failed">Connection operation failed. Check network, independent credentials, and server protocol; host-managed login state cannot be migrated.</string>
+    <string name="connector_diag_auth">Configure credentials independently in Helix: %1$s</string>
+    <string name="connector_diag_stdio">Local commands need Android Runtime adaptation: %1$s</string>
+    <string name="connector_diag_host">Host-managed apps need an independent connection: %1$s</string>
+    <string name="connector_diag_endpoint">Reimport with a directly usable HTTPS endpoint: %1$s</string>
+    <string name="connector_diag_toml">Use the repository export script to convert Codex TOML to MCP JSON first: %1$s</string>
+    <string name="connector_diag_unsupported">This component or option was not migrated: %1$s</string>
 </resources>
