@@ -104,6 +104,19 @@ interface GoalRunDao {
     )
     fun listOpenByGoal(goalId: String): List<GoalRunEntity>
 
+    @Query(
+        "UPDATE goal_runs SET modelCalls = :modelCalls, toolCalls = :toolCalls, " +
+            "tokens = :tokens, wakeDurationMillis = :wakeDurationMillis " +
+            "WHERE id = :id AND endedAt IS NULL",
+    )
+    fun checkpointUsage(
+        id: String,
+        modelCalls: Int,
+        toolCalls: Int,
+        tokens: Long,
+        wakeDurationMillis: Long,
+    ): Int
+
     /**
      * One-time finish: affected row count is 0 when the run already has an `endedAt`. All
      * terminal fields are non-nullable here so the guard cannot be defeated by passing a

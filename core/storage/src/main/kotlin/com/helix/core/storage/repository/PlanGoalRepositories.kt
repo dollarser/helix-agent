@@ -145,6 +145,23 @@ class GoalRunRepository(
     /** Runs still open (no `endedAt`) — recovery closes them when their goal parks (HXA-015). */
     fun listOpenByGoal(goalId: String): List<GoalRunEntity> = dao.listOpenByGoal(goalId)
 
+    /** Replaces cumulative usage on an open run; callers pair this with the goal and audit in one transaction. */
+    fun checkpointUsage(
+        run: GoalRunEntity,
+        modelCalls: Int,
+        toolCalls: Int,
+        tokens: Long,
+        wakeDurationMillis: Long,
+    ): GoalRunEntity {
+        require(modelCalls >= run.modelCalls && toolCalls >= run.toolCalls) { "run call usage must be monotonic" }
+        require(tokens >= run.tokens) { "run token usage must be monotonic" }
+        require(wakeDurationMillis >= (run.wakeDurationMillis ?: 0L)) { "run duration must be monotonic" }
+        require(dao.checkpointUsage(run.id, modelCalls, toolCalls, tokens, wakeDurationMillis) == 1) {
+            "goal run is not open: ${run.id}"
+        }
+        return resolve(run.id)
+    }
+
     fun finish(
         run: GoalRunEntity,
         outcome: String,
