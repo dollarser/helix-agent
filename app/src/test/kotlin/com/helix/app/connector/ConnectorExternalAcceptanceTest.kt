@@ -69,6 +69,10 @@ class ConnectorExternalAcceptanceTest {
                 try {
                     val metadata = session.snapshotMetadata()
                     val tool = metadata.tools.single { it.name == "search_cloudflare_documentation" }
+                    val adapted =
+                        com.helix.app.mcp.McpToolSchemaAdapter
+                            .adapt(tool)
+                    assertEquals(tool.schemaHash, adapted.schemaHash)
                     val result =
                         session.callTool(
                             tool.name,

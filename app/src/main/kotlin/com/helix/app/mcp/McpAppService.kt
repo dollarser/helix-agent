@@ -49,7 +49,7 @@ class McpAppService(
         require(toolNames.isNotEmpty()) { "at least one MCP tool must be selected" }
         require(toolNames.all { it in available }) { "MCP tool selection contains an unknown tool" }
         val enabledConfig = storage.load(snapshot.serverId.value).copy(enabled = true)
-        val selected = toolNames.sorted().map { available.getValue(it) }
+        val selected = toolNames.sorted().map { McpToolSchemaAdapter.adapt(available.getValue(it)) }
         lateinit var bridge: McpDynamicToolBridge
         val baseCaller =
             runtime.caller(enabledConfig) { call ->

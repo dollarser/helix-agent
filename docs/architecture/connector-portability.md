@@ -62,6 +62,8 @@ MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userin
 
 移除只删除连接器记录和该连接本地 Secret，保留 disabled MCP 配置行作为既有记录，保留 Skill snapshot。无其他 connector 引用的 Skill 会停用；共用 Skill 保持原状态。更新并行安装，旧版由用户显式移除。安装中断可能留下未启用的 Skill 快照，它不会产生新授权，重复导入按内容 hash 复用；这不是横跨 Room/文件系统的全局原子事务。
 
+HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../development/hxa-125-progress.md)。
+
 ## 5. 后续分期
 
 M13 尚未完成；HXA-125 已开始，公开来源与匿名 SDK 验证见[进展记录](../development/hxa-125-progress.md)。以下 HXA-126～130 均为 planned。具体范围见 roadmap §18。
