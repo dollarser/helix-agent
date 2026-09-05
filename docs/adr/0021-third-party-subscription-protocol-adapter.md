@@ -1,9 +1,9 @@
 # ADR-0021: 第三方订阅协议适配器候选边界
 
-Status: proposed
+Status: accepted
 Date: 2026-09-05
-HXA: HXA-114
-Deciders: pending
+HXA: HXA-114, HXA-115
+Deciders: Project owner（2026-09-05 明确要求修改“官方 CLI 持有凭据”边界并采用 HXA-114 方案）
 Supersedes: none
 Superseded by: none
 
@@ -26,15 +26,16 @@ identity、消费订阅 endpoint 并代表其他用户分发的官方文档。�
 
 ## Decision
 
-提议把该项目限定为参考实现与研究 fixture，不直接成为 Helix 生产依赖，也不复制其 OAuth
-client identity、CLI impersonation header、token import/write-back 或私有 endpoint 调用。
+采用第三方订阅协议 adapter 路线，替代当前无法实现的 Android 官方 CLI 路线。adapter 必须
+明确标注为非官方，只能在独立 CLI Runtime UID 内通过用户主动 OAuth 获得并持有自己的 token；
+主 App 永不接收 token。禁止读取或写回浏览器、Claude Code 或其他 App/CLI 的 credential。
 
-若继续研究生产路线，必须新建后续 HXA，并在实现前同时取得：供应商可核验的第三方客户端
-授权或公开支持文档；项目所有者接受对现行凭据边界的明确变更；独立 companion UID 内的
-Android Keystore token ownership；不向主 App 返回 token；完整 Dispatcher/Policy/Approval/
-Verification/Audit 转换；以及 ADR-0007 的持久 jobId 查询、不明确结果停泊和绝不重放。
+生产接入分 HXA 实施：独立 companion UID 内的 Android Keystore token ownership；不向主 App
+返回 token；完整 Dispatcher/Policy/Approval/Verification/Audit 转换；以及 ADR-0007 的持久
+jobId 查询、不明确结果停泊和绝不重放。
 
-在这些前置条件成立前，M11A 不注册 Provider、不进行真实登录、不请求 subscription endpoint。
+供应商可核验授权或公开支持文档仍是商店发布门禁。缺失时只允许 developer/Advanced 侧载实验，
+不得宣称官方支持；真实登录必须由后续 HXA 的可见 UI、撤销和设备测试门禁后开放。
 
 ## Alternatives considered
 
@@ -48,7 +49,7 @@ Verification/Audit 转换；以及 ADR-0007 的持久 jobId 查询、不明确�
 ## Consequences
 
 - HXA-114 可复现地记录第三方实现事实，但不处理或生成用户凭据。
-- 本提议不修改 accepted ADR-0007，也不推翻当前 Provider 架构；未经所有者接受不产生生产代码。
+- 本决定不修改 accepted ADR-0007；HXA-115 只实现独立 Runtime vault，尚未注册生产 Provider。
 - 即使 ADR 被接受，服务商授权、依赖许可证闭包、Android Node/DSH 可运行性、撤销/删除、
   限额和账号封禁风险仍需独立证据。
 - 本地 `0.6.0` 与 latest `0.7.0` 的漂移要求任何后续 Spike 固定 tarball integrity 和源码 commit。
@@ -64,9 +65,9 @@ Verification/Audit 转换；以及 ADR-0007 的持久 jobId 查询、不明确�
   并验证 plugin-owned token store、Claude credential 双向访问、直接 endpoint/client identity、
   CLI identity header，以及缺失 Helix Android job/IPC 信号。
 
-Required before acceptance：服务商对第三方消费订阅客户端的可核验授权；完整依赖许可证清单；
-不含真实 token 的 Android arm64 Node/DSH 启动 Spike；独立 UID/Keystore/删除威胁模型；项目
-所有者明确接受凭据边界变化。
+HXA-115 acceptance：独立 UID/Keystore vault、删除与篡改 fail-closed 威胁模型，以及 API 29/36
+arm64-v8a 设备测试。服务商对第三方消费订阅客户端的可核验授权、完整依赖许可证清单和不含
+真实 token 的 Android adapter 启动 Spike 仍是后续 OAuth/模型调用与分发门禁。
 
 ## Reconsider when
 

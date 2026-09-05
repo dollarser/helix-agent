@@ -121,34 +121,39 @@ Provider 请求在发送前形成用户可见、可审计的 `EgressSummary`，�
 
 ## 3. 订阅账号后端的诚实边界
 
-ChatGPT Plus/Pro 与 Claude Pro/Max 不是普通 API Key 套餐。Helix 不提取浏览器 Cookie、不复制其他 App token、不反向调用未公开接口。
+ChatGPT Plus/Pro 与 Claude Pro/Max 不是普通 API Key 套餐。官方 CLI Android 路线已由
+HXA-111/112 证明当前不可生产实现。经 accepted [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md)，
+后续改为研究显式标注为“第三方、非官方”的订阅协议 adapter。Helix 不提取浏览器 Cookie、
+不复制其他 App/CLI token；adapter 只能在独立 Runtime UID 内通过用户主动 OAuth 获得自己的 grant。
 
-允许的实现只有官方客户端拥有凭据的方式：
+允许的凭据所有权方式为：
 
-- Codex：运行官方开源 Codex CLI/app-server，由其执行 ChatGPT OAuth/device-code 登录、保存和刷新凭据。
-- Claude：运行官方 Claude Code CLI，使用其公开的登录与 stream-json/SDK 接口；凭据由 Claude Code 管理。
+- 首选但当前不可行：官方 Codex/Claude CLI 在独立 Runtime 内登录并持有凭据。
+- 新实验路线：第三方 adapter 在独立 Runtime 内完成用户主动 OAuth，自行持有和刷新凭据；
+  主 App 只看 provider/login state，不接收 access/refresh/id token。
 
 二者放入可选的 `cli-runtime` 独立 APK/UID：
 
 ```text
 Helix main app
   └─ signature Binder/PFD
-       └─ cli-runtime APK (../INTERNET, private app data, official CLIs)
-            ├─ codex app-server
-            └─ claude non-interactive/SDK process
+       └─ cli-runtime APK (../INTERNET, private app data)
+            └─ explicitly third-party subscription protocol adapters
 ```
 
 约束：
 
 - `cli-runtime` 与离线 `proot-runtime`、主 App 使用不同 UID。
 - 登录 URL 交给 Helix 浏览器或系统浏览器打开；token 不返回主 App。
-- CLI 版本、来源、hash、许可证和服务条款必须锁定。
+- adapter 版本、来源、hash、许可证和服务条款必须锁定；不得把它描述为官方 CLI/SDK。
 - CLI 的 Android/Linux arm64 可执行形态和底座（原生或独立 PRoot/RootFS）由 HXA-111/112 Spike 验证并记录 ADR，此图不预先假定 RootFS。
 - 默认不给 CLI 真实手机文件、Android 权限或主 App secret，只给 Job snapshot。
-- 官方 CLI 通常是完整 Agent，不一定等价于“纯模型流 API”。因此在 Spike 证明能禁用/代理内置工具、保留 Helix 审批语义之前，只作为独立的“CLI 会话后端”，不能冒充 `ModelProvider`。
-- 若不能可靠拦截 CLI 的工具和副作用，就不得让它驱动 Helix Act/Goal，只允许在隔离 Job 内使用。
+- adapter 只转换模型流；不得注册其自带工具。模型产生的工具请求必须转换为普通 Helix ToolCall。
+- 供应商未明确支持第三方消费订阅客户端是发布与稳定性风险；没有可核验授权时只能作为
+  developer/Advanced 侧载实验，不得进入商店 artifact 或宣称官方支持。
 
-首版正式支持 API key 和自建服务器；Codex/Claude 订阅列为 P2 实验能力。这样既提供可行路线，又不承诺不存在的通用订阅 API。
+首版正式支持 API key 和自建服务器；第三方订阅 adapter 仍是 P2 实验能力，不承诺不存在的
+官方通用订阅 API。
 
 ## 4. MCP Client
 

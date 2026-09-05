@@ -531,6 +531,14 @@ refresh token，或厂商未公开授权第三方客户端使用相应消费订�
 后续生产 HXA 必须同时以项目所有者接受的凭据边界 ADR、厂商可核验授权、Android 独立 UID
 原型和 ADR-0007 job 对账为前置；不能用 MIT 许可证替代服务条款授权。
 
+### HXA-115 独立 Runtime 凭据 vault
+
+落实 accepted ADR-0021 的新凭据边界：订阅 access/refresh/id token 只能以严格 schema 保存在
+`com.helix.runtime.cli` UID 自己的 Android Keystore 加密 vault，主 App/Binder status 只得到
+每个 adapter 的 `LOGGED_OUT`/`LOGGED_IN` 状态。覆盖篡改、超限、非法 provider、覆盖刷新、
+logout 删除和状态不泄漏；不得读取浏览器、Claude Code、DSH 或主 App credential。此任务不
+实现 OAuth endpoint、模型请求、Provider 注册或 Job。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

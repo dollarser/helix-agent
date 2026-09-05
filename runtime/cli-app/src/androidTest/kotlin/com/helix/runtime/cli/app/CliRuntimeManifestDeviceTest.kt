@@ -3,6 +3,7 @@ package com.helix.runtime.cli.app
 import android.Manifest
 import android.content.ComponentName
 import android.content.pm.PackageManager
+import android.system.Os
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.json.JSONObject
@@ -12,6 +13,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class CliRuntimeManifestDeviceTest {
@@ -27,11 +29,73 @@ class CliRuntimeManifestDeviceTest {
         assertEquals(64, CliRuntimeLockCodec.sha256(lock).length)
     }
 
-    @Test fun unsupportedRuntimeExposesNoCredentialOrAgentBackend() {
+    @Test fun runtimeExposesOnlyRedactedCredentialStateAndNoAgentBackend() {
+        CliSubscriptionCredentialVault(context).apply {
+            logout(CliSubscriptionProvider.CODEX)
+            logout(CliSubscriptionProvider.CLAUDE)
+        }
         val status = JSONObject(CliEmbeddedBaseline.status(context))
-        assertEquals("UNAVAILABLE_UNSUPPORTED_ANDROID_PLATFORM", status.getString("credentialState"))
+        assertEquals("AVAILABLE_THIRD_PARTY_ADAPTER", status.getString("credentialState"))
+        assertEquals("LOGGED_OUT", status.getString("codexLoginState"))
+        assertEquals("LOGGED_OUT", status.getString("claudeLoginState"))
         assertEquals("NOT_REGISTERED", status.getString("agentBackendState"))
     }
+
+    @Test fun credentialVaultUsesRuntimePrivateKeystoreAndLogoutDeletesSession() {
+        val vault = CliSubscriptionCredentialVault(context)
+        val marker = "device-secret-${System.nanoTime()}"
+        try {
+            vault.save(
+                CliSubscriptionProvider.CODEX,
+                CliSubscriptionSession(marker, "refresh-$marker", null, System.currentTimeMillis() + 60_000),
+            )
+            vault.save(
+                CliSubscriptionProvider.CODEX,
+                CliSubscriptionSession(
+                    "updated-$marker",
+                    "updated-refresh-$marker",
+                    null,
+                    System.currentTimeMillis() + 120_000,
+                ),
+            )
+            assertEquals("updated-$marker", vault.load(CliSubscriptionProvider.CODEX).accessToken)
+            val credentialFile = credentialFile(CliSubscriptionProvider.CODEX)
+            assertEquals(0x180, Os.stat(credentialFile.path).st_mode and 0x1ff)
+            val status = CliEmbeddedBaseline.status(context)
+            assertTrue(status.contains("\"codexLoginState\":\"LOGGED_IN\""))
+            assertFalse(status.contains(marker))
+        } finally {
+            vault.logout(CliSubscriptionProvider.CODEX)
+        }
+        assertFalse(vault.contains(CliSubscriptionProvider.CODEX))
+    }
+
+    @Test fun credentialVaultRejectsTamperingAndReportsOnlyRedactedError() {
+        val vault = CliSubscriptionCredentialVault(context)
+        val marker = "tamper-${System.nanoTime()}"
+        try {
+            vault.save(
+                CliSubscriptionProvider.CODEX,
+                CliSubscriptionSession(marker, "refresh-$marker", null, System.currentTimeMillis() + 60_000),
+            )
+            val credentialFile = credentialFile(CliSubscriptionProvider.CODEX)
+            val bytes = credentialFile.readBytes()
+            bytes[bytes.lastIndex] = (bytes.last().toInt() xor 1).toByte()
+            credentialFile.writeBytes(bytes)
+
+            org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+                vault.load(CliSubscriptionProvider.CODEX)
+            }
+            val status = CliEmbeddedBaseline.status(context)
+            assertTrue(status.contains("\"codexLoginState\":\"CREDENTIAL_ERROR\""))
+            assertFalse(status.contains(marker))
+        } finally {
+            vault.logout(CliSubscriptionProvider.CODEX)
+        }
+    }
+
+    private fun credentialFile(provider: CliSubscriptionProvider) =
+        File(context.filesDir, "subscription-secrets/subscription-${provider.wireId}.enc")
 
     @Test fun serviceIsExportedAndSignatureProtected() {
         val info =

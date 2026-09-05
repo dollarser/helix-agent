@@ -17,6 +17,7 @@ object CliEmbeddedBaseline {
 
     fun status(context: Context): String {
         val lock = lock(context)
+        val credentialStates = CliSubscriptionCredentialVault(context).publicStates()
         return json.encodeToString(
             kotlinx.serialization.json.JsonObject
                 .serializer(),
@@ -26,7 +27,9 @@ object CliEmbeddedBaseline {
                 put("abi", lock.abi)
                 put("lockSha256", CliRuntimeLockCodec.sha256(lock))
                 put("bundledArtifactCount", lock.artifacts.count { it.bundled })
-                put("credentialState", "UNAVAILABLE_UNSUPPORTED_ANDROID_PLATFORM")
+                put("credentialState", "AVAILABLE_THIRD_PARTY_ADAPTER")
+                put("codexLoginState", credentialStates.getValue("codex"))
+                put("claudeLoginState", credentialStates.getValue("claude"))
                 put("agentBackendState", "NOT_REGISTERED")
             },
         )
