@@ -575,6 +575,21 @@ Microsoft 授权 Helix。实现 device code 请求、用户码/verification URL�
 Runtime vault。免费账号可验证授权及 entitlement 拒绝；Copilot Free 账号可验证登录资格。
 本 HXA 不调用模型、不注册 Provider/Tool/Job，商店/官方发行仍要求项目自有身份与服务商授权。
 
+### HXA-124 Claude Free 身份登录与 Claude Code 订阅资格门禁
+
+复用 accepted [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 的个人侧载边界和
+参考 adapter 已固定的 Claude Code OAuth identity，仅在 CLI Runtime 独立 UID 中实现可见浏览器
+PKCE/state、随机 localhost callback、JSON token exchange、refresh/logout 与最小套餐查询。官方
+资料将 Claude Code 的 Claude App 登录资格限定在 Pro/Max 等付费方案；因此 Free 账号只验证
+登录入口和升级门禁，可能在 authorization code 前被拒；若仍返回 `free`、缺失或未知套餐则必须
+fail closed、不得保存 token 或报告已登录。
+
+只允许读取资格判断所需的 `subscriptionType`，不得保存/返回 email 或其他 profile PII，不得导入
+Claude Code/browser credential。本 HXA 不调用 Messages/model endpoint，不注册 Provider/Tool/Job；
+OAuth identity、profile endpoint 和消费订阅复用均缺少 Anthropic 对 Helix 的公开授权，只能用于
+developer/Advanced 个人侧载实验，不能宣称官方支持或进入商店 artifact。HXA-120～123 已分配给
+M12，因此本任务使用下一个空闲编号 HXA-124。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

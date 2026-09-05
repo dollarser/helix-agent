@@ -13,6 +13,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -178,6 +179,52 @@ class CliRuntimeManifestDeviceTest {
         assertFalse(CliSubscriptionCredentialVault(context).contains(CliSubscriptionProvider.CODEX))
     }
 
+    @Test fun claudeEphemeralLoopbackAcceptsExactCallbackAndState() {
+        val server = CodexLoopbackServer.bindEphemeral()
+        val attempt = ClaudeOAuthProtocol.createAttempt(server.port)
+        val latch = CountDownLatch(1)
+        var result: CodexCallbackResult? = null
+        server.await(attempt.state, ClaudeOAuthProtocol::parseCallback) {
+            result = it
+            latch.countDown()
+        }
+        Socket("127.0.0.1", server.port).use { socket ->
+            socket.getOutputStream().write(
+                "GET /callback?code=claude-code&state=${attempt.state} HTTP/1.1\r\nHost: localhost\r\n\r\n"
+                    .encodeToByteArray(),
+            )
+            socket.getInputStream().readBytes()
+        }
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        assertEquals(CodexCallbackResult.Code("claude-code"), result)
+    }
+
+    @Test fun claudeFreeEligibilityNeverCreatesCredential() {
+        val vault = CliSubscriptionCredentialVault(context)
+        vault.logout(CliSubscriptionProvider.CLAUDE)
+        val session =
+            CliSubscriptionSession(
+                "device-access",
+                "device-refresh",
+                null,
+                System.currentTimeMillis() + 60_000,
+            )
+        val transport =
+            object : ClaudeOAuthTransport {
+                override fun exchange(
+                    attempt: ClaudeOAuthAttempt,
+                    code: String,
+                ) = ClaudeExchangeResult(session, "free")
+
+                override fun refresh(session: CliSubscriptionSession) = session
+            }
+        assertThrows(ClaudeEligibilityException::class.java) {
+            ClaudeLoginController(vault, transport).complete(ClaudeOAuthProtocol.createAttempt(12345), "code")
+        }
+        assertFalse(vault.contains(CliSubscriptionProvider.CLAUDE))
+        assertTrue(CliEmbeddedBaseline.status(context).contains("\"claudeLoginState\":\"LOGGED_OUT\""))
+    }
+
     private fun credentialFile(provider: CliSubscriptionProvider) =
         File(context.filesDir, "subscription-secrets/subscription-${provider.wireId}.enc")
 
@@ -194,6 +241,11 @@ class CliRuntimeManifestDeviceTest {
 
     @Test fun copilotLoginIsAnExplicitVisibleActivity() {
         val info = context.packageManager.getActivityInfo(ComponentName(context, CopilotLoginActivity::class.java), 0)
+        assertTrue(info.exported)
+    }
+
+    @Test fun claudeLoginIsAnExplicitVisibleActivity() {
+        val info = context.packageManager.getActivityInfo(ComponentName(context, ClaudeLoginActivity::class.java), 0)
         assertTrue(info.exported)
     }
 

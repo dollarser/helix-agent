@@ -1,6 +1,6 @@
 # Helix 实施状态
 
-更新时间：2026-09-05（M7、M8、M9 已实现范围、M11 HXA-110～113 与 M11A HXA-114～119 已完成；M9 rooted 真机门禁仍未完成）
+更新时间：2026-09-05（M7、M8、M9 已实现范围、M11 HXA-110～113 与 M11A HXA-114～119、HXA-124 已完成；M9 rooted 真机门禁仍未完成）
 
 ## Current summary
 
@@ -56,6 +56,7 @@
 - M11A / HXA-117 已完成（负向平台结论）：固定 GitHub Copilot SDK `1.0.13` 及 glibc/musl arm64 runtime，确认官方 OAuth App/订阅认证接口存在，但官方发布物没有 Android/bionic，两个 runtime 在 API 29/36 arm64-v8a 均因缺失 ELF loader 按预期拒绝。当前停止打包，OAuth/模型/工具/jobId 测试未执行；[ADR-0022](../adr/0022-github-copilot-sdk-android-base.md) 保持 proposed（详见 [HXA-117 完成记录](../completion-records/HXA-117.md)）。
 - M11A / HXA-118 已完成代码与自动化设备验收：Codex 第三方侧载 PKCE/loopback/token exchange/Runtime-owned vault 生命周期已实现，JVM 18/18，API 29/36 arm64-v8a 各 10/10；真实账号多次到达 callback 但尚无 `LOGGED_IN` 证据，adapter 保持 `NOT_REGISTERED`，不表示订阅后端可用（详见 [HXA-118 完成记录](../completion-records/HXA-118.md)）。
 - M11A / HXA-119 已完成：依 accepted ADR-0023 固定第三方 client id，实现 GitHub Device Flow、`interval`/`slow_down`、瞬时 poll/exchange 网络恢复、取消/过期/拒绝、Copilot entitlement exchange、Runtime-only vault/logout，以及同时显示 code/URL 后由用户打开浏览器的 UI；JVM 26/26，API 29/36 arm64-v8a 各 12/12。独占 API 36 arm64-v8a 模拟器真人授权最终显示 entitlement verified，0600 vault 文件落盘；adapter 仍保持 `NOT_REGISTERED`（详见 [HXA-119 完成记录](../completion-records/HXA-119.md)）。
+- M11A / HXA-124 已完成：在 Runtime UID 内实现 Claude 随机 localhost + PKCE/state OAuth、严格 token/refresh/logout 与最小套餐资格查询；`free`/未知资格 fail closed 且不落盘。JVM 32/32，API 29/36 arm64-v8a 各 15/15；真实 Claude Free 账号在 authorize 页面直接显示 “Upgrade to Max or Pro”，未返回 authorization code，取消后确认 Claude vault 文件不存在。未调用模型、未注册 backend（详见 [HXA-124 完成记录](../completion-records/HXA-124.md)）。
 - M9 / HXA-090 已完成：Accessibility Service、权限中心、allowlist 与限时 AutomationSession（详见 [HXA-090 完成记录](../completion-records/HXA-090.md)）。
 - M9 / HXA-091 已完成：有界 Accessibility snapshot 与绑定 package/window/generation/fingerprint 的 opaque token（详见 [HXA-091 完成记录](../completion-records/HXA-091.md)）。
 - M9 / HXA-092 已完成：只消费 snapshot token 的 UI actions，目标变化、过期和敏感界面均 fail closed（详见 [HXA-092 完成记录](../completion-records/HXA-092.md)）。
@@ -77,7 +78,7 @@
 
 ## Next task
 
-- M11A：先为 Claude Free 与 Grok Free 登录/资格拒绝分别定义独立 HXA、验证当前官方事实和 ADR 边界，再逐项实施。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- 单独定义 Grok Free 登录/资格拒绝 HXA；不得把 HXA-124 的 Claude 结论直接外推。M9 / HXA-094～095 仍等待 rooted 物理设备。
 
 ## Blocked
 

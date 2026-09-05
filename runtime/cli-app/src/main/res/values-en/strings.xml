@@ -34,4 +34,21 @@
     <string name="copilot_network_error">GitHub/Copilot network request failed; no credentials were saved.</string>
     <string name="copilot_protocol_error">GitHub/Copilot response failed strict protocol validation; no credentials were saved.</string>
     <string name="copilot_browser_error">Unable to open the system browser. You can visit https://github.com/login/device manually.</string>
+    <string name="claude_login_title">Claude subscription login</string>
+    <string name="claude_login_warning">Third-party, unofficial personal sideload experiment. Anthropic has not publicly authorized this OAuth identity or consumer subscription interface for Helix. Credentials stay in the Runtime UID. Claude Free can test the login entry, but authorization may require upgrading to Pro/Max and does not establish Claude Code entitlement.</string>
+    <string name="claude_login_action">Sign in to Claude in browser</string>
+    <string name="claude_login_cancel">Cancel current login</string>
+    <string name="claude_logout_action">Delete Claude login credentials</string>
+    <string name="claude_login_logged_in">Signed in and Claude Code subscription entitlement verified; the main app cannot read the token.</string>
+    <string name="claude_login_logged_out">Signed out of Claude.</string>
+    <string name="claude_login_waiting">Waiting for browser authorization; expires in three minutes.</string>
+    <string name="claude_login_success">Login and Claude Code subscription entitlement verified (%1$s); credentials are stored in the Runtime vault.</string>
+    <string name="claude_login_ineligible">Claude identity authorization succeeded, but plan type is %1$s and Claude Code subscription entitlement was not verified; no credentials were saved.</string>
+    <string name="claude_login_failed">Login failed, timed out, or was denied; no new credentials were saved.</string>
+    <string name="claude_login_cancelled">Login cancelled; no new credentials were saved.</string>
+    <string name="claude_login_port_error">Unable to create a local callback port.</string>
+    <string name="claude_login_browser_error">Unable to open the system browser.</string>
+    <string name="claude_login_http_error">Claude OAuth endpoint rejected the request (HTTP %1$d); no credentials were saved.</string>
+    <string name="claude_login_network_error">Claude login or entitlement lookup failed on the network; no credentials were saved.</string>
+    <string name="claude_login_protocol_error">Claude response failed strict protocol validation; no credentials were saved.</string>
 </resources>

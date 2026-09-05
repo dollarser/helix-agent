@@ -18,6 +18,7 @@ internal class CodexLoopbackServer private constructor(
 
     fun await(
         expectedState: String,
+        parseCallback: (String, String) -> CodexCallbackResult = CodexOAuthProtocol::parseCallback,
         callback: (CodexCallbackResult) -> Unit,
     ) {
         executor.execute {
@@ -28,9 +29,7 @@ internal class CodexLoopbackServer private constructor(
                     while (!closed.get() && parsed is CodexCallbackResult.Ignored) {
                         socket.accept().use { client ->
                             parsed =
-                                readTarget(client.getInputStream().buffered()).let {
-                                    CodexOAuthProtocol.parseCallback(it, expectedState)
-                                }
+                                parseCallback(readTarget(client.getInputStream().buffered()), expectedState)
                             respond(client, parsed)
                         }
                     }
@@ -110,6 +109,11 @@ internal class CodexLoopbackServer private constructor(
                 }
             }
             throw IllegalStateException("Codex callback ports 1455 and 1457 are unavailable", last)
+        }
+
+        fun bindEphemeral(timeoutMillis: Int = TIMEOUT_MILLIS): CodexLoopbackServer {
+            require(timeoutMillis in 1..TIMEOUT_MILLIS)
+            return CodexLoopbackServer(ServerSocket(0, 4), timeoutMillis)
         }
     }
 }

@@ -34,4 +34,21 @@
     <string name="copilot_network_error">GitHub/Copilot 网络请求失败；未保存凭据。</string>
     <string name="copilot_protocol_error">GitHub/Copilot 响应不符合严格协议；未保存凭据。</string>
     <string name="copilot_browser_error">无法打开系统浏览器；可手动访问 https://github.com/login/device。</string>
+    <string name="claude_login_title">Claude 订阅登录</string>
+    <string name="claude_login_warning">第三方、非官方个人侧载实验。此 OAuth identity 和消费订阅接口未获 Anthropic 公开授权给 Helix；凭据只保存在 Runtime UID。Claude Free 可验证登录入口，但授权页可能直接要求升级 Pro/Max，且不等于具备 Claude Code 订阅资格。</string>
+    <string name="claude_login_action">在浏览器登录 Claude</string>
+    <string name="claude_login_cancel">取消当前登录</string>
+    <string name="claude_logout_action">删除 Claude 登录凭据</string>
+    <string name="claude_login_logged_in">已登录且 Claude Code 订阅资格验证成功；主应用无法读取 token。</string>
+    <string name="claude_login_logged_out">未登录 Claude。</string>
+    <string name="claude_login_waiting">等待浏览器授权，三分钟后超时。</string>
+    <string name="claude_login_success">登录及 Claude Code 订阅资格验证成功（%1$s），凭据已保存到 Runtime vault。</string>
+    <string name="claude_login_ineligible">Claude 身份授权成功，但套餐类型为 %1$s，未验证到 Claude Code 订阅资格；未保存凭据。</string>
+    <string name="claude_login_failed">登录失败、超时或已拒绝；未保存新凭据。</string>
+    <string name="claude_login_cancelled">登录已取消；未保存新凭据。</string>
+    <string name="claude_login_port_error">无法创建本机回调端口。</string>
+    <string name="claude_login_browser_error">无法打开系统浏览器。</string>
+    <string name="claude_login_http_error">Claude OAuth endpoint 拒绝请求（HTTP %1$d）；未保存凭据。</string>
+    <string name="claude_login_network_error">Claude 登录或资格查询网络失败；未保存凭据。</string>
+    <string name="claude_login_protocol_error">Claude 响应不符合严格协议；未保存凭据。</string>
 </resources>
