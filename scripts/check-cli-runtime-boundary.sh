@@ -44,4 +44,4 @@ rg -F 'https://auth.openai.com/api/accounts/deviceauth/usercode' "$repo_root/run
 rg -F 'https://auth.openai.com/api/accounts/deviceauth/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 rg -F 'https://auth.openai.com/codex/device' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 
-echo "CLI Runtime HXA-127 boundary: fixed user-triggered Codex smoke only; no arbitrary prompt, Provider/Job, other model endpoint, or credential import"
+echo "CLI Runtime HXA-128 boundary: fixed user-triggered Codex smoke with a Runtime-private journal; no arbitrary prompt, cross-APK Provider/Job, other model endpoint, or credential import"

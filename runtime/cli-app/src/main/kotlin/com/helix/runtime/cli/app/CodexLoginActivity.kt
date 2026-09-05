@@ -12,6 +12,8 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.security.MessageDigest
+import java.util.UUID
 import java.util.concurrent.Executors
 import javax.net.ssl.SSLException
 
@@ -36,6 +38,7 @@ class CodexLoginActivity : Activity() {
 
     @Volatile private var deviceCancellation: DeviceLoginCancellation? = null
     @Volatile private var activeSmoke: CodexSubscriptionSmoke? = null
+    @Volatile private var activeSmokeJob: CodexModelJobRunner? = null
     private var deviceUserCode: String? = null
     private var deviceVerificationUrl: String? = null
 
@@ -57,6 +60,7 @@ class CodexLoginActivity : Activity() {
         active?.close()
         deviceCancellation?.cancel()
         activeSmoke?.close()
+        activeSmokeJob?.close()
         transport.close()
         deviceTransport.close()
         worker.shutdownNow()
@@ -129,6 +133,8 @@ class CodexLoginActivity : Activity() {
                         deviceCancellation = null
                         activeSmoke?.close()
                         activeSmoke = null
+                        activeSmokeJob?.close()
+                        activeSmokeJob = null
                         deviceUserCode = null
                         deviceVerificationUrl = null
                         status.setText(R.string.codex_login_cancelled)
@@ -305,7 +311,7 @@ class CodexLoginActivity : Activity() {
 
     private fun renderButtons() {
         val loggedIn = vault.contains(CliSubscriptionProvider.CODEX)
-        val busy = loopback != null || deviceCancellation != null || activeSmoke != null
+        val busy = loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
         login.isEnabled = !loggedIn && !busy
         deviceLogin.isEnabled = !loggedIn && !busy
         openDeviceBrowser.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
@@ -329,21 +335,41 @@ class CodexLoginActivity : Activity() {
 
     private fun runSubscriptionSmoke() {
         if (!vault.contains(CliSubscriptionProvider.CODEX) ||
-            loopback != null || deviceCancellation != null || activeSmoke != null
+            loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
         ) return
         setBusy(true)
         status.setText(R.string.codex_smoke_running)
         val smoke = CodexSubscriptionSmoke(vault, controller).also { activeSmoke = it }
+        val jobId = "job_${UUID.randomUUID().toString().replace("-", "").take(12)}"
+        val requestHash = MessageDigest.getInstance("SHA-256").digest("codex-fixed-smoke-v1".encodeToByteArray())
+            .joinToString("") { byte -> "%02x".format(byte) }
+        val runner = CodexModelJobRunner(CodexModelJobStore(filesDir), smoke::run, smoke::close)
+            .also { activeSmokeJob = it }
         worker.execute {
             val result = runCatching {
-                smoke.run()
+                when (runner.submit(jobId, requestHash)) {
+                    is CodexModelJobSubmit.Accepted,
+                    is CodexModelJobSubmit.Duplicate,
+                    -> awaitSmokeJob(runner, jobId)
+                    CodexModelJobSubmit.Busy -> throw CodexSmokeException("job-busy")
+                    CodexModelJobSubmit.JournalFull -> throw CodexSmokeException("job-journal-full")
+                    CodexModelJobSubmit.RequestMismatch -> throw CodexSmokeException("job-request-mismatch")
+                }
             }
             smoke.close()
+            runner.close()
             if (activeSmoke !== smoke) return@execute
             activeSmoke = null
+            activeSmokeJob = null
             finishAttempt(
                 result.fold(
-                    onSuccess = { getString(R.string.codex_smoke_success, it.model, it.text) },
+                    onSuccess = {
+                        if (it.state == CodexModelJobState.SUCCEEDED) {
+                            getString(R.string.codex_smoke_success, it.model, CodexSubscriptionSmoke.EXPECTED_TEXT)
+                        } else {
+                            getString(R.string.codex_smoke_failed, "job-${it.state.name.lowercase()}", "none")
+                        }
+                    },
                     onFailure = {
                         if (it is CodexSmokeException) {
                             getString(R.string.codex_smoke_failed, it.stage, it.httpCode?.toString() ?: "none")
@@ -354,5 +380,14 @@ class CodexLoginActivity : Activity() {
                 ),
             )
         }
+    }
+
+    private fun awaitSmokeJob(runner: CodexModelJobRunner, jobId: String): CodexModelJobRecord {
+        repeat(480) {
+            runner.query(jobId)?.takeIf { it.state.terminal }?.let { return it }
+            Thread.sleep(250)
+        }
+        runner.cancel(jobId)
+        return runner.query(jobId) ?: throw CodexSmokeException("job-missing")
     }
 }

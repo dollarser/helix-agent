@@ -630,6 +630,17 @@ token、account id 或服务端原始错误返回主 App；401 只允许一次 r
 官方 SDK/CLI Android/bionic 打包路线按已有 Spike 证据以低可行性停止。缺少供应商对 Helix 第三方
 OAuth identity/消费订阅接口的公开分发授权时，此能力只能存在于 developer/Advanced 个人侧载版。
 
+### HXA-128 Runtime 持久 Codex 模型 Job 内核
+
+把 HXA-127 的可见模型 smoke 纳入 CLI Runtime 自有的持久 jobId journal：提交前原子写入，状态严格
+经过 `PENDING`/`RUNNING` 到封闭终态；同 jobId + 同 request hash 只返回已有记录，不执行第二次，
+hash 不同则拒绝。取消必须形成 `CANCELLED` 且迟到成功不得覆盖；Runtime 重建时所有非终态记录
+一律停泊为 `INTERRUPTED`，绝不自动重放。journal 限 128 条/1 MiB，满额拒绝而不删除未对账证据。
+
+终态只保存模型 ID 和固定响应的 SHA-256，不保存 prompt、响应正文、token、account id 或原始错误。
+本任务继续只由 Runtime 可见 UI 主动触发，不新增跨 APK transaction，不注册 Provider/Tool，也不进入
+Chat/Act/Goal；Binder/PFD、主 App client、统一 ModelEvent 和 Dispatcher/Audit 留给后续独立 HXA。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计
