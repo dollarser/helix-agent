@@ -1,6 +1,7 @@
 package com.helix.runtime.cli.app
 
 import android.content.Context
+import com.helix.runtime.cli.client.CliRuntimeProtocol
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put

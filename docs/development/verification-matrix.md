@@ -202,6 +202,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-128 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | JVM 覆盖成功、失败、journal 边界、取消迟到结果、同 jobId 重复/请求 hash 冲突与进程恢复 `INTERRUPTED` 不重放；API 29/36 继续执行 CLI Runtime 全量设备套件。真实 Codex 账号从可见 UI 执行一次，确认私有 journal 只有模型 ID/输出 hash，无 token/account id/正文。跨 APK Provider/Job 仍不得注册 |
 | HXA-129 | `./gradlew :runtime:cli-client:test :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | 证明供应商分发授权是独立 fail-closed 注册门禁；即使 Android/工具控制/jobId 三项均为真，授权缺失仍不得注册。确认 consumer 不依赖 `cli-client`、Provider catalog 无 CLI/订阅 adapter，CLI APK 仍无任意 prompt 或跨 APK模型 Job transaction |
 | HXA-130 | `./gradlew :runtime:cli-client:test :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | 同一完整技术 evidence 在 `DEVELOPER_ADVANCED` 可忽略供应商授权，在 `CONSUMER_STORE` 缺授权必须拒绝；当前不完整 evidence 仍不可注册。consumer 不依赖 `cli-client`，本 HXA 不新增 Provider 或模型 transaction |
+| HXA-131 | `./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | client/runtime 共用唯一 protocol/permission/ComponentName/status 上限和 deadline；companion status binder 继续编译并使用共享契约；不得出现第二份协议或模型 Job transaction |
 
 ### M12：商店与官网多渠道发布
 

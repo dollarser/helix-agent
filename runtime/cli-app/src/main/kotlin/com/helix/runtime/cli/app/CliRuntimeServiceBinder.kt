@@ -2,6 +2,7 @@ package com.helix.runtime.cli.app
 
 import android.os.Binder
 import android.os.Parcel
+import com.helix.runtime.cli.client.CliRuntimeProtocol
 
 class CliRuntimeServiceBinder(
     private val statusProvider: () -> String,

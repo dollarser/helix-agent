@@ -34,6 +34,7 @@ android {
 // Test baseline (matches the root build's android-library convention): the first M9
 // instrumented/JVM test does not need to re-declare the platform dependency.
 dependencies {
+    implementation(project(":runtime:cli-client"))
     testImplementation(libs.junit4)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.wire)

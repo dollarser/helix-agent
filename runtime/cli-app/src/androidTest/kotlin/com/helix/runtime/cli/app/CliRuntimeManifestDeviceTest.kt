@@ -1,5 +1,7 @@
 package com.helix.runtime.cli.app
 
+import com.helix.runtime.cli.client.CliRuntimeProtocol
+
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.ComponentName

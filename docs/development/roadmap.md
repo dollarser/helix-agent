@@ -664,6 +664,16 @@ fail closed。`CliAgentBackendEligibility` 必须显式接收渠道，不能靠�
 本任务只修正决策与注册资格契约，不提前注册 Provider 或新增跨 APK transaction。当前 evidence 仍因
 模型 Job IPC、Dispatcher/ModelEvent/Verification/Audit 未完成而保持未注册；后续 HXA 按顺序实现。
 
+### HXA-131 CLI Runtime 共享握手契约
+
+在增加模型 Job transaction 前，先消除 status Binder 常量只由 companion package 私有定义的漂移风险。
+把 protocol version、descriptor、permission、显式 Runtime `ComponentName`、status transaction、wire
+上限和 bind deadline 迁移到两端共同依赖的 `runtime:cli-client`；现有 Runtime status binder 必须改用
+同一契约，`cli-app` 不再保留第二份协议常量。
+
+本任务不新增模型 Job、prompt、Provider 或 token 通道。它只完成后续冷绑定客户端必需的稳定共享契约；
+HXA-132 才能在该契约上增加握手客户端和跨 APK设备 E2E，模型 Job 使用再后续独立 HXA。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计
