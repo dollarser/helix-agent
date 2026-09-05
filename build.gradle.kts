@@ -480,6 +480,17 @@ subprojects {
 
             dependencies.add("testImplementation", jvmTestDependency)
 
+            if (path == ":testing") {
+                tasks.withType<Test>().configureEach {
+                    systemProperty(
+                        "helix.eval.dir",
+                        rootProject.layout.projectDirectory
+                            .dir("evals/m10")
+                            .asFile.absolutePath,
+                    )
+                }
+            }
+
             // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,
             // HXA-024 Anthropic Messages) encode request bodies and decode vendor
             // SSE payloads with the pinned kotlinx-serialization JsonElement API
