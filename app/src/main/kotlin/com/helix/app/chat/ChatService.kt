@@ -70,6 +70,7 @@ import com.helix.tools.framework.ToolScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -1590,7 +1591,7 @@ class ChatService(
             // stop() in that window cannot find the job and silently fails to cancel the turn.
             val startGate = CompletableDeferred<Unit>()
             val job =
-                workScope.launch {
+                workScope.launch(start = CoroutineStart.UNDISPATCHED) {
                     runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, control)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)

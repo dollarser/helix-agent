@@ -42,6 +42,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.language.AppLanguageStore
+import com.helix.app.root.RootModule
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FilesScreen
@@ -79,6 +80,14 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         (application as HelixApplication).appContainer.browser.pause()
+    }
+
+    override fun onStop() {
+        // A Root manager may revoke policy without killing an existing libsu shell. Never retain
+        // developer Root authority after the app leaves the foreground; REQUESTING is preserved
+        // so the manager's grant dialog can complete normally.
+        RootModule.onAppBackgrounded()
+        super.onStop()
     }
 
     override fun onResume() {

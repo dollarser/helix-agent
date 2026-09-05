@@ -57,7 +57,11 @@ class LibsuRootAccessDeviceTest {
             }
 
             "granted" -> {
-                verifyGrantedRootServiceAndCrash(rootAccess)
+                verifyGrantedRootServiceAndLoss(rootAccess, killService = true)
+            }
+
+            "revoked" -> {
+                verifyGrantedRootServiceAndLoss(rootAccess, killService = false)
             }
 
             else -> {
@@ -79,15 +83,20 @@ class LibsuRootAccessDeviceTest {
         awaitCachedShellClosed()
     }
 
-    private fun verifyGrantedRootServiceAndCrash(rootAccess: LibsuRootAccess) {
+    private fun verifyGrantedRootServiceAndLoss(
+        rootAccess: LibsuRootAccess,
+        killService: Boolean,
+    ) {
         val granted = awaitStatus(rootAccess) { it.service == RootServiceState.CONNECTED }
         assertEquals(RootGrantState.GRANTED, granted.grant)
         val rootProcessId = requireNotNull(rootAccess.rootServiceProcessIdForTest())
         assertTrue(rootProcessId > 0)
         assertTrue(Shell.getCachedShell()?.isRoot == true)
 
-        val kill = Shell.cmd("kill -9 $rootProcessId").exec()
-        assertTrue(kill.isSuccess)
+        if (killService) {
+            val kill = Shell.cmd("kill -9 $rootProcessId").exec()
+            assertTrue(kill.isSuccess)
+        }
         val lost = awaitStatus(rootAccess) { it.grant == RootGrantState.LOST }
         assertEquals(RootServiceState.DISCONNECTED, lost.service)
         assertNull(rootAccess.rootServiceProcessIdForTest())
