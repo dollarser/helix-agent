@@ -556,6 +556,24 @@ runtime 的 Android/bionic loader 门禁；若官方发布物只面向 glibc/mus
 参考插件的 CLI identity 或 internal endpoint 伪造本 HXA 成功；平台门禁失败后不继续登录、
 模型调用、内置工具代理或 jobId 恢复测试。
 
+### HXA-118 Codex 第三方侧载 OAuth 登录生命周期
+
+仅为 developer/Advanced 侧载实验实现明确标注“第三方、非官方”的 Codex 登录 UI。由 CLI
+Runtime 自己生成 PKCE/state、监听固定 loopback callback、交换授权码并把 token 与 account id
+写入本 UID 的 Keystore vault；主 App 和 Binder 不接收 token、授权码、PKCE verifier、email 或
+account id。覆盖重复启动、state mismatch、取消、超时、网络/协议失败、刷新 token 轮换、永久
+失效与 logout 删除。只允许 `auth.openai.com` 固定 origin，禁止 Cookie/其他 App credential 导入。
+本 HXA 不调用模型、不注册 Provider/Tool/Job；由于没有服务商对第三方复用 Codex CLI OAuth
+identity 的公开授权，只能侧载验证，不能进入商店 artifact 或宣称官方支持。
+
+### HXA-119 GitHub Copilot Free 第三方侧载 Device Code 登录生命周期
+
+先以项目自有 GitHub OAuth App 为正式路线；在 client registration 尚未完成前，只允许明确标注
+非官方的 developer/Advanced 侧载验证，不得复用参考插件的 VS Code Copilot client id 作为 Helix
+身份。实现 device code 请求、用户码/verification URL、轮询 interval/slow_down、取消/超时/拒绝，
+并将 GitHub/Copilot token 仅保存到 CLI Runtime vault。免费账号可验证登录及 entitlement 拒绝；
+Copilot Free 账号可验证登录资格。本 HXA 不调用模型、不注册 Provider/Tool/Job。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

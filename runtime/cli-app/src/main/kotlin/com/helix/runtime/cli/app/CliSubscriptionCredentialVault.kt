@@ -35,6 +35,7 @@ internal data class CliSubscriptionSession(
     val refreshToken: String,
     val idToken: String?,
     val expiresAtEpochMillis: Long,
+    val accountId: String? = null,
 ) {
     init {
         require(accessToken.isNotBlank() && refreshToken.isNotBlank()) { "subscription tokens must not be blank" }
@@ -98,25 +99,28 @@ internal class CliSubscriptionCredentialVault(
 
     private fun encode(session: CliSubscriptionSession): String =
         buildJsonObject {
-            put("version", 1)
+            put("version", 2)
             put("accessToken", session.accessToken)
             put("refreshToken", session.refreshToken)
             session.idToken?.let { put("idToken", it) }
             put("expiresAtEpochMillis", session.expiresAtEpochMillis)
+            session.accountId?.let { put("accountId", it) }
         }.toString()
 
     private fun decode(encoded: String): CliSubscriptionSession {
         val value = Json.parseToJsonElement(encoded).jsonObject
         val required = setOf("version", "accessToken", "refreshToken", "expiresAtEpochMillis")
+        val optional = setOf("idToken", "accountId")
         require(
-            value.keys == required || value.keys == required + "idToken",
+            value.keys.containsAll(required) && value.keys.all { it in required || it in optional },
         ) { "subscription credential schema mismatch" }
-        require(value.getValue("version").jsonPrimitive.long == 1L) { "unsupported credential version" }
+        require(value.getValue("version").jsonPrimitive.long in 1L..2L) { "unsupported credential version" }
         return CliSubscriptionSession(
             value.getValue("accessToken").jsonPrimitive.content,
             value.getValue("refreshToken").jsonPrimitive.content,
             value["idToken"]?.jsonPrimitive?.content,
             value.getValue("expiresAtEpochMillis").jsonPrimitive.long,
+            value["accountId"]?.jsonPrimitive?.content,
         )
     }
 

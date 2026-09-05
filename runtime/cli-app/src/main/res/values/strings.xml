@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="codex_login_title">Codex 订阅登录</string>
+    <string name="codex_login_warning">第三方、非官方侧载实验。登录会复用 Codex CLI OAuth 身份；OpenAI 尚未公开授权 Helix 使用该身份。凭据只保存在本 Runtime UID。继续可能有账号或服务中断风险。</string>
+    <string name="codex_login_action">在浏览器登录 Codex</string>
+    <string name="codex_logout_action">删除本机登录凭据</string>
+    <string name="codex_login_cancel_action">取消当前登录</string>
+    <string name="codex_login_logged_in">已登录；Helix 主应用无法读取 token。</string>
+    <string name="codex_login_logged_out">未登录。</string>
+    <string name="codex_login_waiting">等待浏览器授权，三分钟后超时。</string>
+    <string name="codex_login_preparing">正在验证 OpenAI 登录网络。</string>
+    <string name="codex_login_success">登录完成，凭据已保存到 Runtime 私有 vault。</string>
+    <string name="codex_login_failed">登录失败或已取消；未保存新凭据。</string>
+    <string name="codex_login_port_error">登录端口 1455/1457 均不可用。</string>
+    <string name="codex_login_browser_error">无法打开系统浏览器。</string>
+    <string name="codex_login_cancelled">登录已取消；未保存新凭据。</string>
+    <string name="codex_login_http_error">Token endpoint 拒绝请求（HTTP %1$d，%2$s）；未保存凭据。</string>
+    <string name="codex_login_network_error">Token exchange 网络失败（%1$s）；未保存凭据。</string>
+    <string name="codex_login_protocol_error">Token 响应未满足严格协议；未保存凭据。</string>
+</resources>

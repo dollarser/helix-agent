@@ -6,6 +6,9 @@ import android.content.pm.PackageManager
 import android.system.Os
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import okhttp3.FormBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -14,10 +17,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.net.Socket
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class CliRuntimeManifestDeviceTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    @Test fun codexTokenEndpointIsReachableWithoutCredentials() {
+        val request =
+            Request
+                .Builder()
+                .url(CodexOAuthProtocol.TOKEN_URL)
+                .post(FormBody.Builder().add("grant_type", "invalid-probe").build())
+                .build()
+        OkHttpClient().newCall(request).execute().use { response ->
+            assertTrue(response.code in 400..499)
+        }
+    }
 
     @Test fun embeddedLockIsStrictAndContainsNoBundledExecutable() {
         val lock = CliEmbeddedBaseline.lock(context)
@@ -101,6 +119,55 @@ class CliRuntimeManifestDeviceTest {
         } finally {
             vault.logout(CliSubscriptionProvider.CODEX)
         }
+    }
+
+    @Test fun codexAccountIdStaysInsideEncryptedRuntimeVault() {
+        val vault = CliSubscriptionCredentialVault(context)
+        val marker = "account-${System.nanoTime()}"
+        try {
+            vault.save(
+                CliSubscriptionProvider.CODEX,
+                CliSubscriptionSession("access-$marker", "refresh-$marker", "id-$marker", 123_456, marker),
+            )
+            assertEquals(marker, vault.load(CliSubscriptionProvider.CODEX).accountId)
+            assertFalse(CliEmbeddedBaseline.status(context).contains(marker))
+            assertFalse(String(credentialFile(CliSubscriptionProvider.CODEX).readBytes()).contains(marker))
+        } finally {
+            vault.logout(CliSubscriptionProvider.CODEX)
+        }
+    }
+
+    @Test fun loopbackAcceptsExactStateAndClosesAfterCode() {
+        val server = CodexLoopbackServer.bind()
+        val attempt = CodexOAuthProtocol.createAttempt(server.port)
+        val latch = CountDownLatch(1)
+        var result: CodexCallbackResult? = null
+        server.await(attempt.state) {
+            result = it
+            latch.countDown()
+        }
+        Socket("127.0.0.1", server.port).use { socket ->
+            socket.getOutputStream().write(
+                "GET /auth/callback?code=device-code&state=${attempt.state} HTTP/1.1\r\nHost: localhost\r\n\r\n"
+                    .encodeToByteArray(),
+            )
+            socket.getInputStream().readBytes()
+        }
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        assertEquals(CodexCallbackResult.Code("device-code"), result)
+    }
+
+    @Test fun loopbackTimeoutSettlesWithoutCredential() {
+        val server = CodexLoopbackServer.bind(timeoutMillis = 100)
+        val latch = CountDownLatch(1)
+        var result: CodexCallbackResult? = null
+        server.await("unused-state") {
+            result = it
+            latch.countDown()
+        }
+        assertTrue(latch.await(5, TimeUnit.SECONDS))
+        assertEquals(CodexCallbackResult.Rejected("login timed out"), result)
+        assertFalse(CliSubscriptionCredentialVault(context).contains(CliSubscriptionProvider.CODEX))
     }
 
     private fun credentialFile(provider: CliSubscriptionProvider) =

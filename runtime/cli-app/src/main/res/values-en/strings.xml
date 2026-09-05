@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="codex_login_title">Codex subscription login</string>
+    <string name="codex_login_warning">Third-party, unofficial sideload experiment. Login reuses the Codex CLI OAuth identity; OpenAI has not publicly authorized Helix to use it. Credentials stay in this Runtime UID. Continuing may risk the account or service continuity.</string>
+    <string name="codex_login_action">Sign in to Codex in browser</string>
+    <string name="codex_logout_action">Delete local login credentials</string>
+    <string name="codex_login_cancel_action">Cancel current login</string>
+    <string name="codex_login_logged_in">Signed in; the Helix main app cannot read the token.</string>
+    <string name="codex_login_logged_out">Signed out.</string>
+    <string name="codex_login_waiting">Waiting for browser authorization; expires in three minutes.</string>
+    <string name="codex_login_preparing">Checking the OpenAI login connection.</string>
+    <string name="codex_login_success">Login complete; credentials are stored in the private Runtime vault.</string>
+    <string name="codex_login_failed">Login failed or was cancelled; no new credentials were saved.</string>
+    <string name="codex_login_port_error">Login ports 1455 and 1457 are unavailable.</string>
+    <string name="codex_login_browser_error">Unable to open the system browser.</string>
+    <string name="codex_login_cancelled">Login cancelled; no new credentials were saved.</string>
+    <string name="codex_login_http_error">Token endpoint rejected the request (HTTP %1$d, %2$s); no credentials were saved.</string>
+    <string name="codex_login_network_error">Token exchange network failure (%1$s); no credentials were saved.</string>
+    <string name="codex_login_protocol_error">Token response failed strict protocol validation; no credentials were saved.</string>
+</resources>

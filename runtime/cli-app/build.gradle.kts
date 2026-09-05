@@ -36,7 +36,17 @@ android {
 dependencies {
     testImplementation(libs.junit4)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp.wire)
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)
+}
+
+// OkHttp 5.5's Android selector requires compileSdk 37, while Helix remains on 36.
+// The JVM artifact supplies the same API used by this bounded HTTPS OAuth client.
+configurations.all {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module("com.squareup.okhttp3:okhttp"))
+            .using(module("com.squareup.okhttp3:okhttp-jvm:${libs.versions.okhttp.get()}"))
+    }
 }

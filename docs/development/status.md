@@ -54,6 +54,7 @@
 - M11A / HXA-115 已完成：项目所有者接受 [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 后，`com.helix.runtime.cli` 独立 UID 内新增 Android Keystore AES-256-GCM subscription vault；严格 per-provider schema、16 KiB 上限、原子覆盖、0600 文件、篡改 fail-closed 和登出删除均通过 JVM 与 API 29/36 arm64-v8a 设备测试。Binder status 只暴露 `LOGGED_IN`/`LOGGED_OUT`/`CREDENTIAL_ERROR`，无 token；OAuth、模型请求、Provider/Job 尚未实现（详见 [HXA-115 完成记录](../completion-records/HXA-115.md)）。
 - M11A / HXA-116 已完成：本地插件已与 npm `0.7.0` tarball/integrity 精确一致，审计范围扩到 Codex/Claude/Grok/Copilot；Runtime vault/status 封闭集合同步扩展为四项，但明确报告 adapter/Agent backend 未注册。GitHub Copilot 后续优先走官方 SDK + 项目自有 OAuth App；Grok CLI/proxy 仍只作非官方侧载候选。JVM 5/5，API 29/36 arm64-v8a 各 6/6（详见 [HXA-116 完成记录](../completion-records/HXA-116.md)）。
 - M11A / HXA-117 已完成（负向平台结论）：固定 GitHub Copilot SDK `1.0.13` 及 glibc/musl arm64 runtime，确认官方 OAuth App/订阅认证接口存在，但官方发布物没有 Android/bionic，两个 runtime 在 API 29/36 arm64-v8a 均因缺失 ELF loader 按预期拒绝。当前停止打包，OAuth/模型/工具/jobId 测试未执行；[ADR-0022](../adr/0022-github-copilot-sdk-android-base.md) 保持 proposed（详见 [HXA-117 完成记录](../completion-records/HXA-117.md)）。
+- M11A / HXA-118 已完成代码与自动化设备验收：Codex 第三方侧载 PKCE/loopback/token exchange/Runtime-owned vault 生命周期已实现，JVM 18/18，API 29/36 arm64-v8a 各 10/10；真实账号多次到达 callback 但尚无 `LOGGED_IN` 证据，adapter 保持 `NOT_REGISTERED`，不表示订阅后端可用（详见 [HXA-118 完成记录](../completion-records/HXA-118.md)）。
 - M9 / HXA-090 已完成：Accessibility Service、权限中心、allowlist 与限时 AutomationSession（详见 [HXA-090 完成记录](../completion-records/HXA-090.md)）。
 - M9 / HXA-091 已完成：有界 Accessibility snapshot 与绑定 package/window/generation/fingerprint 的 opaque token（详见 [HXA-091 完成记录](../completion-records/HXA-091.md)）。
 - M9 / HXA-092 已完成：只消费 snapshot token 的 UI actions，目标变化、过期和敏感界面均 fail closed（详见 [HXA-092 完成记录](../completion-records/HXA-092.md)）。
@@ -75,7 +76,7 @@
 
 ## Next task
 
-- M11A 下一步需由项目所有者选择：等待 GitHub 官方 Android/bionic artifact，或单独评审有网 PRoot/RootFS 执行底座；在此之前不得继续 Copilot 打包。其他订阅平台仍须逐项完成供应商授权与 Android 可运行性 Spike。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- M11A / HXA-119：GitHub Copilot Free 第三方侧载 Device Code 登录生命周期；使用项目自有 OAuth App 前只可做明确非官方的开发验证，不调用模型或注册 Provider。随后逐项定义 Claude Free 与 Grok Free 登录/资格拒绝任务。M9 / HXA-094～095 仍等待 rooted 物理设备。
 
 ## Blocked
 
