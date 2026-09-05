@@ -51,5 +51,13 @@ if rg -n 'TRANSACTION_.*JOB|TX_.*JOB' "$repo_root/runtime/cli-client/src/main/ko
     echo "subscription adapter exposed a cross-APK model job transaction" >&2
     exit 1
 fi
+supervisor="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeSupervisor.kt"
+rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS)' "$supervisor" >/dev/null
+rg -F 'Context.BIND_AUTO_CREATE' "$supervisor" >/dev/null
+rg -F 'context.unbindService(connection)' "$supervisor" >/dev/null
+rg -F 'ApplicationInfo.FLAG_STOPPED' "$supervisor" >/dev/null
+app_manifest="$repo_root/app/src/developer/AndroidManifest.xml"
+rg -F '<package android:name="com.helix.runtime.cli" />' "$app_manifest" >/dev/null
+rg -F '<uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />' "$app_manifest" >/dev/null
 
-echo "HXA-131 shared CLI handshake boundary: one client/runtime protocol contract; no arbitrary prompt, cross-APK model Job, other model endpoint, or credential import yet"
+echo "HXA-132 cold CLI handshake boundary: explicit component, stopped/signature checks, bounded status, idle unbind; no arbitrary prompt, cross-APK model Job, other model endpoint, or credential import yet"

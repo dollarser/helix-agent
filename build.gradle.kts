@@ -284,7 +284,7 @@ subprojects {
             // HXA-083: the cross-APK handshake manifest and the main app's verified-anchor
             // store use the same strict, fail-closed kotlinx-serialization codec style as
             // :runtime:proot-core (pinned, no plugin).
-            if (path == ":runtime:proot-ipc" || path == ":runtime:proot-client") {
+            if (path == ":runtime:proot-ipc" || path == ":runtime:proot-client" || path == ":runtime:cli-client") {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
 

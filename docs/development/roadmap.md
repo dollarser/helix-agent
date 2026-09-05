@@ -674,6 +674,17 @@ fail closed。`CliAgentBackendEligibility` 必须显式接收渠道，不能靠�
 本任务不新增模型 Job、prompt、Provider 或 token 通道。它只完成后续冷绑定客户端必需的稳定共享契约；
 HXA-132 才能在该契约上增加握手客户端和跨 APK设备 E2E，模型 Job 使用再后续独立 HXA。
 
+### HXA-132 主 App 冷绑定与状态握手
+
+在 developer App 增加 CLI Runtime 精确 package visibility 和 signature permission，并在共享 client 模块
+实现安装、启用、force-stop、签名集合检查。只有调用方主动执行验证时，才使用共享的显式
+`ComponentName` 冷绑定；20 秒内完成有界 status handshake，并无条件解绑。空绑定、断连、协议/字段/签名
+不匹配均 fail closed，不能启动登录 UI或读取凭据。
+
+API 29 与 API 36 arm64-v8a 必须分别验证未安装、正常握手、禁用、force-stop，且正常握手后没有持续
+Service binding；另验证启动主 App 不会被动启动 force-stopped Runtime。本任务仍不新增模型 Job transaction、
+任意 prompt、Provider 或 token 通道；下一 HXA 才能实现按 jobId 对账的 Codex 跨 APK模型 Job。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计
