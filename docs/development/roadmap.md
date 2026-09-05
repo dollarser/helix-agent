@@ -518,6 +518,19 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 
 证明能禁用或代理 CLI 内置工具且不会绕过 Helix Policy，才实现 Agent backend adapter；同时证明断连后可按 jobId 查询/对账，未知状态不会重放 CLI 命令。否则明确保留“隔离 CLI 会话”，不进入 Act/Goal Provider 列表。
 
+## 15A. M11A：第三方订阅协议适配器研究
+
+### HXA-114 DSH subscription adapter 来源、凭据与条款 Spike
+
+审计 `dsh-plugin-subscriptions` 的固定 npm/GitHub 来源、许可证、依赖、OAuth client 身份、
+token 存储、Claude Code credential 导入/写回、直接 subscription endpoint 和工具注册行为；
+对照当前 OpenAI/Anthropic 官方认证文档与条款。只产出可复现的静态证据和 proposed ADR，
+不读取真实 token、不登录账号、不发模型请求、不把插件装入 APK。若插件而非官方 CLI 持有
+refresh token，或厂商未公开授权第三方客户端使用相应消费订阅接口，则不得进入生产实现。
+
+后续生产 HXA 必须同时以项目所有者接受的凭据边界 ADR、厂商可核验授权、Android 独立 UID
+原型和 ADR-0007 job 对账为前置；不能用 MIT 许可证替代服务条款授权。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

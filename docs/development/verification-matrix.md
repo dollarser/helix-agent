@@ -185,6 +185,12 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-112 | `./gradlew :runtime:cli-app:testDebugUnitTest`<br>`./scripts/check-cli-runtime-lock.sh`<br>`./scripts/verify-claude-android-spike.sh` | `ANDROID_SERIAL=<api29-or-36> ./scripts/verify-claude-android-spike.sh`；先判定官方 Android 支持与 loader 门禁；失败时停止打包并明确列出未执行的登录/取消/输出限制/恶意工作区/工具拦截/进程死亡对账证据 |
 | HXA-113 | `./gradlew :runtime:cli-client:testDebugUnitTest :app:testDeveloperDebugUnitTest :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-lock.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 Runtime 明确报告 unsupported/未注册且 APK 仍无 executable；因 HXA-111/112 平台门禁失败，不存在可执行 Job，`jobId` 查询/不重放与内置工具代理明确为未执行证据，Act/Goal Provider 注册必须 fail closed |
 
+### M11A：第三方订阅协议适配器研究
+
+| 任务 | JVM/构建命令 | Android/外部验收 |
+| --- | --- | --- |
+| HXA-114 | `./scripts/audit-dsh-subscriptions-spike.sh <installed-plugin-dir>`<br>`./scripts/check-lockfiles.sh`<br>`./scripts/check-secrets.sh`<br>`./scripts/check-docs.sh`<br>`./scripts/verify-adr.sh` | 只读源码/metadata 与官方文档核验；禁止读取真实 auth store、登录或模型请求。记录插件版本/hash、访问日期、token owner、官方 CLI 身份、Android/job 协议缺口与 ADR 状态 |
+
 ### M12：商店与官网多渠道发布
 
 | 任务 | JVM/构建命令 | Android/外部验收 |
