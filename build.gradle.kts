@@ -96,6 +96,7 @@ val androidLibraries =
         ":extensions:a2a" to "com.helix.extensions.a2a",
         ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
+        ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
         ":tools:android" to "com.helix.tools.android",
         ":tools:automation" to "com.helix.tools.automation",
         ":tools:browser" to "com.helix.tools.browser",
@@ -429,6 +430,11 @@ subprojects {
                 dependencies.add("implementation", okhttpDependency.get())
                 dependencies.add("implementation", okhttpSseDependency.get())
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+            if (path == ":spikes:bounded-orchestration") {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
