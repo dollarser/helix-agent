@@ -125,3 +125,5 @@
 ## Connector 扩展线收尾
 
 M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，仍需独立测试账号与真实 WorkBuddy 导出样本。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；本次为本地合并，未推送。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
+
+Connector 后续任务与未入 Git 的本地验收材料已交接到 main worktree，见 [Connector 工作交接](connector-handoff.md)。
