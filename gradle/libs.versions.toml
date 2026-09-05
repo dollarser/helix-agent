@@ -18,6 +18,7 @@ ktor = "3.5.2"
 snakeyaml-engine = "3.1.1"
 commons-compress = "1.28.0"
 a2a-java = "1.3.1.Final"
+libsu = "6.0.0"
 junit4 = "4.13.2"
 androidx-test = "1.7.0"
 androidx-test-junit = "1.3.0"
@@ -58,6 +59,8 @@ commons-compress = { module = "org.apache.commons:commons-compress", version.ref
 a2a-client = { module = "org.a2aproject.sdk:a2a-java-sdk-client", version.ref = "a2a-java" }
 a2a-client-rest = { module = "org.a2aproject.sdk:a2a-java-sdk-client-transport-rest", version.ref = "a2a-java" }
 a2a-http-android = { module = "org.a2aproject.sdk:a2a-java-sdk-http-client-android", version.ref = "a2a-java" }
+libsu-core = { module = "com.github.topjohnwu.libsu:core", version.ref = "libsu" }
+libsu-service = { module = "com.github.topjohnwu.libsu:service", version.ref = "libsu" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
 androidx-test-core-ktx = { module = "androidx.test:core-ktx", version.ref = "androidx-test" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }

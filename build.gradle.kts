@@ -116,6 +116,8 @@ val commonsCompressDependency = libs.commons.compress
 val a2aClientDependency = libs.a2a.client
 val a2aClientRestDependency = libs.a2a.client.rest
 val a2aHttpAndroidDependency = libs.a2a.http.android
+val libsuCoreDependency = libs.libsu.core
+val libsuServiceDependency = libs.libsu.service
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
@@ -186,14 +188,14 @@ val projectDependencies =
         // as :tools:browser. The Context-backed port impl lives in this same module (there is no
         // :feature:android), so the device tests drive the real ClipboardManager + intent build.
         ":tools:android" to listOf(":core:model", ":core:policy", ":tools:framework"),
-        ":tools:automation" to listOf(":core:model", ":core:policy"),
+        ":tools:automation" to listOf(":core:model", ":core:policy", ":tools:framework"),
         // HXA-062: the browser tools sit on the tools:framework contract (ToolDescriptor /
         // ToolExecutor) and the kotlinx-serialization JsonElement API (transitively via
         // tools:framework's `api` scope, same as :tools:files). The BrowserToolBridge port
         // they execute against is implemented by :feature:browser (which depends on this module).
         ":tools:browser" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":tools:files" to listOf(":core:model", ":core:policy", ":core:workspace", ":tools:framework"),
-        ":tools:root" to listOf(":core:model", ":core:policy"),
+        ":tools:root" to listOf(":core:model", ":core:policy", ":tools:framework"),
         ":testing" to listOf(":core:model"),
     )
 
@@ -297,6 +299,24 @@ subprojects {
             // Context-backed port (ClipboardManager round-trip, intent building, foreground
             // gating) on device (verification-matrix row HXA-064).
             if (path == ":tools:android") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            // HXA-090: the Accessibility service lifecycle, system-enabled state, time-bounded
+            // session and notification stop path are verified on a dedicated automation device.
+            if (path == ":tools:automation") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
+            // HXA-094: libsu is resolved only by the developer-only Root module. JitPack is
+            // separately restricted to the exact upstream group in settings.gradle.kts.
+            if (path == ":tools:root") {
+                dependencies.add("implementation", libsuCoreDependency.get())
+                dependencies.add("implementation", libsuServiceDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

@@ -5,9 +5,11 @@ import com.helix.app.R
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
+import com.helix.app.automation.AutomationModule
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
+import com.helix.app.root.RootModule
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
@@ -2242,9 +2244,10 @@ class ChatService(
 
     /**
      * The trusted dispatch request (doc 11: the dispatcher receives the contract target —
-     * the app cannot lower a tool's isolation; scope/egress are null for the HXA-036 tool
-     * set: no SAF scope, no egress tools yet).
+     * the app cannot lower a tool's isolation. Root and Accessibility tools bind their current
+     * short-lived user scope and data origin here; dynamic MCP/A2A egress stays separately bound.
      */
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     private fun buildDispatchRequest(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
@@ -2297,8 +2300,13 @@ class ChatService(
             mode = AgentMode.ACT,
             profile = profile,
             executionTarget = descriptor?.executionTarget ?: ExecutionTargetType.LOCAL_ANDROID,
-            dataOrigin = DataOrigin.WORKSPACE,
-            scope = null,
+            dataOrigin =
+                when {
+                    descriptor?.name?.value?.startsWith("ui.") == true -> DataOrigin.ACCESSIBILITY
+                    descriptor?.name?.value?.startsWith("root.") == true -> DataOrigin.ROOT
+                    else -> DataOrigin.WORKSPACE
+                },
+            scope = RootModule.scopeFor(descriptor?.name?.value) ?: AutomationModule.scopeFor(descriptor?.name?.value),
             uiToken = "chat:${turn.id}",
             egress = egressFacts?.first,
             originSeenInSession = egressFacts?.second ?: true,

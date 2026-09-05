@@ -8,6 +8,7 @@ import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.audit.AuditLogService
+import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
 import com.helix.app.capability.SystemCapabilityResolver
 import com.helix.app.chat.AttachmentStagingSupport
@@ -28,6 +29,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.root.RootModule
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.IdGenerator
@@ -441,9 +443,15 @@ internal class DefaultAppContainer(
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
-        // HXA-076: Skill discovery/activation/resource/enablement/removal run through the same
-        // Dispatcher/Policy/Approval/Audit pipeline. The five built-ins are instruction-only;
-        // their text cannot register tools or grant authority, and android-ui-task remains M9.
+        // HXA-095: developer registers only the five high-level Root reads; consumer is a
+        // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
+        RootModule.register(context, appClock, toolRegistry, toolImplementations)
+        // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
+        // remains a flavor-local no-op with no Accessibility tool descriptors.
+        AutomationModule.register(context, toolRegistry, toolImplementations)
+        // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
+        // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
+        // and allowed-tools hints cannot register tools or grant authority.
         SkillTools.registerAll(toolRegistry, toolImplementations, skillRepository)
         // HXA-042: the first non-time.now business tools enter the production tool table. The
         // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a

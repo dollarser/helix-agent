@@ -394,7 +394,11 @@ class PolicyEngine(
     companion object {
         /** PRoot and CLI runtimes are Advanced-only (ADR-0005). QuickJS is a P0 tool and profile-independent. */
         private val ADVANCED_ONLY_TARGETS =
-            setOf(ExecutionTargetType.LOCAL_PROOT, ExecutionTargetType.LOCAL_CLI_RUNTIME)
+            setOf(
+                ExecutionTargetType.LOCAL_PROOT,
+                ExecutionTargetType.LOCAL_CLI_RUNTIME,
+                ExecutionTargetType.LOCAL_ROOT,
+            )
 
         /**
          * Cloud metadata and platform-reserved endpoints (SSRF policy). The full connection-time

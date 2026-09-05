@@ -77,6 +77,13 @@ for marker in "${developer_markers[@]}"; do
     fi
 done
 
+# HXA-096: the developer APK may expose the five high-level Root reads, but arbitrary
+# root.exec is intentionally not implemented and must not silently enter the model registry.
+if grep -Fq 'root.exec' <<<"$developer_strings"; then
+    printf 'Developer APK unexpectedly contains root.exec\n' >&2
+    exit 1
+fi
+
 consumer_dependencies="$("$project_root/gradlew" -q :app:dependencies --configuration consumerDebugRuntimeClasspath)"
 developer_dependencies="$("$project_root/gradlew" -q :app:dependencies --configuration developerDebugRuntimeClasspath)"
 

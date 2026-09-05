@@ -1,0 +1,9 @@
+<resources>
+    <string name="automation_title">无障碍自动化（开发者能力）</string>
+    <string name="automation_warning">先在系统中显式启用服务，再填写允许的目标包。会话限时、限动作，并可立即停止。</string>
+    <string name="automation_state">服务：%1$s · 会话：%2$s</string>
+    <string name="automation_packages">允许的包名（逗号分隔）</string>
+    <string name="automation_open_settings">打开无障碍设置</string>
+    <string name="automation_start">开始会话</string>
+    <string name="automation_stop">立即停止</string>
+</resources>

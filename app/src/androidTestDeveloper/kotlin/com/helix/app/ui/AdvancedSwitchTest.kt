@@ -40,12 +40,14 @@ class AdvancedSwitchTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("settings-risk-dialog").assertIsDisplayed()
         composeRule.onNodeWithText("切换为 Advanced 本身不授予任何能力", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("当前版本尚无高级能力被启用", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("每项能力默认关闭", substring = true).assertIsDisplayed()
         composeRule.onNodeWithTag("settings-risk-confirm").performClick()
         composeRule.waitForIdle()
 
         // --- switched: the UI shows Advanced and the store persisted it ---
         composeRule.onNodeWithText("当前：Advanced").assertIsDisplayed()
+        composeRule.onNodeWithTag("settings-root-section").assertExists()
+        composeRule.onNodeWithTag("settings-automation-section").assertExists()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
 
         // --- NFR-011: zero side effects across the switch ---

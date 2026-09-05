@@ -195,6 +195,9 @@ class PolicyEngineTest {
 
         val cli = engine.evaluate(input(executionTarget = ExecutionTargetType.LOCAL_CLI_RUNTIME))
         assertEquals(PolicyDenialCode.ISOLATED_RUNTIME_REQUIRES_ADVANCED, denialOf(cli).code)
+
+        val root = engine.evaluate(input(executionTarget = ExecutionTargetType.LOCAL_ROOT))
+        assertEquals(PolicyDenialCode.ISOLATED_RUNTIME_REQUIRES_ADVANCED, denialOf(root).code)
     }
 
     @Test

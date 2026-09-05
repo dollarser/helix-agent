@@ -28,6 +28,9 @@ enum class ExecutionTargetType {
 
     /** Official CLI subscription backend Runtime APK with its own UID. */
     LOCAL_CLI_RUNTIME,
+
+    /** libsu RootService in a short-lived, explicitly user-enabled privileged process. */
+    LOCAL_ROOT,
 }
 
 /**

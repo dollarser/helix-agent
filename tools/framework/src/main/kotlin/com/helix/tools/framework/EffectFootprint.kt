@@ -87,6 +87,7 @@ object EffectFootprintBuilder {
             ExecutionTargetType.LOCAL_QUICKJS to "lane:quickjs",
             ExecutionTargetType.LOCAL_PROOT to "lane:proot",
             ExecutionTargetType.LOCAL_CLI_RUNTIME to "lane:cli",
+            ExecutionTargetType.LOCAL_ROOT to "lane:root",
         )
     private val EXCLUSIVE_CAPABILITIES =
         setOf(Capability.ROOT_SHELL, Capability.ACCESSIBILITY_AUTOMATION)

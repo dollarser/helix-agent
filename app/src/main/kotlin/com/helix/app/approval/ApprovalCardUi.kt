@@ -236,6 +236,7 @@ object ApprovalUiMapper {
             ExecutionTargetType.LOCAL_QUICKJS -> R.string.approval_target_local_quickjs
             ExecutionTargetType.LOCAL_PROOT -> R.string.approval_target_local_proot
             ExecutionTargetType.LOCAL_CLI_RUNTIME -> R.string.approval_target_local_cli
+            ExecutionTargetType.LOCAL_ROOT -> R.string.approval_target_local_root
         }
 
     /**

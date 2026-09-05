@@ -1,10 +1,12 @@
 package com.helix.app.capability
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
+import android.provider.Settings
 import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -23,7 +25,8 @@ import java.time.Instant
 /**
  * Device acceptance for the Capability Center (verification matrix HXA-032,
  * `:app:connectedConsumerDebugAndroidTest`): the production resolver must mirror the real system
- * state (doc 9 section 2), report honestly-unavailable Root/Accessibility (doc 9 section 6.2),
+ * state (doc 9 section 2), report honestly-unavailable Root and the manifest-dependent live
+ * Accessibility state (doc 9 sections 5/6.2),
  * and the center must re-check on every call — revoking a permission mid-test is visible
  * immediately, the recorded GRANTED rows never substitute for the execution-time check
  * (缓存不代替执行时检查).
@@ -142,10 +145,39 @@ class SystemCapabilityResolverTest {
     }
 
     @Test
-    fun rootAndAccessibilityAreHonestlyUnavailableInThisBuild() {
-        // no libsu integration until the HXA-094 gate; no accessibility service component yet
+    fun rootIsUnavailableAndAccessibilityMatchesTheCurrentVariantAndSystemState() {
+        // No libsu integration until the HXA-094 gate.
         assertEquals(GrantState.UNAVAILABLE, resolver.resolve(Capability.ROOT_SHELL).state)
-        assertEquals(GrantState.UNAVAILABLE, resolver.resolve(Capability.ACCESSIBILITY_AUTOMATION).state)
+
+        // HXA-090: consumer has no :tools:automation component, while developer merges it. A
+        // declared but user-disabled service is DENIED; only the live enabled component is GRANTED.
+        val services =
+            context.packageManager
+                .getPackageInfo(
+                    context.packageName,
+                    PackageManager.GET_SERVICES or PackageManager.GET_META_DATA,
+                ).services
+                .orEmpty()
+        val automationComponents =
+            services
+                .filter { it.metaData?.containsKey("android.accessibilityservice") == true }
+                .map { ComponentName(context.packageName, it.name).flattenToString() }
+                .toSet()
+        val enabled =
+            Settings.Secure
+                .getString(
+                    context.contentResolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                ).orEmpty()
+                .split(':')
+                .toSet()
+        val expected =
+            when {
+                automationComponents.isEmpty() -> GrantState.UNAVAILABLE
+                automationComponents.any(enabled::contains) -> GrantState.GRANTED
+                else -> GrantState.DENIED
+            }
+        assertEquals(expected, resolver.resolve(Capability.ACCESSIBILITY_AUTOMATION).state)
     }
 
     @Test

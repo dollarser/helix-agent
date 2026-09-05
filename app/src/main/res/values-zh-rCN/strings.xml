@@ -51,7 +51,7 @@
     <string name="settings_consumer_standard_only">本版本仅提供 Standard 配置，不提供 Advanced 入口（消费者渠道无 Standard → Advanced 路径，ADR-0005/0006）。</string>
     <string name="settings_advanced_confirm_title">切换到 Advanced — 风险说明</string>
     <string name="settings_advanced_confirm_ok">我已了解，确认切换</string>
-    <string name="profile_advanced_risk_summary">切换为 Advanced 本身不授予任何能力：不会自动申请系统权限、不会安装 Runtime、不会请求 Root、不会连接新的网络端点，也不会扩大可用工具。\n\nAdvanced 开放的是受控的高级能力（All-files、Accessibility、离线 PRoot、Root、精确局域网 origin 等）。每项能力仍需单独启用、限定 scope、可立即撤销；当前版本尚无高级能力被启用。\n\n两个配置共用的安全内核不变：模型不能自我授权；schema 验证、Policy、逐次审批、审计与撤销规则在 Advanced 下不被关闭或降级。</string>
+    <string name="profile_advanced_risk_summary">切换为 Advanced 本身不授予任何能力：不会自动申请系统权限、不会安装 Runtime、不会请求 Root、不会连接新的网络端点，也不会扩大可用工具。\n\nAdvanced 开放的是受控的高级能力（All-files、Accessibility、离线 PRoot、Root、精确局域网 origin 等）。每项能力默认关闭，仍需由用户单独启用、限定 scope，并可立即撤销。\n\n两个配置共用的安全内核不变：模型不能自我授权；schema 验证、Policy、逐次审批、审计与撤销规则在 Advanced 下不被关闭或降级。</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">消息为空：请输入内容或至少选择一个可发送的附件</string>
@@ -139,6 +139,7 @@
     <string name="approval_target_local_cli">本机（CLI Runtime 应用）</string>
     <string name="approval_target_local_proot">本机（PRoot Runtime 应用）</string>
     <string name="approval_target_local_quickjs">本机（隔离 QuickJS 进程）</string>
+    <string name="approval_target_local_root">本机（限时 RootService 进程）</string>
     <string name="approval_terminal_op_failed">审批操作失败：记录已不存在或已决定</string>
     <string name="approval_terminal_user_denied">用户已拒绝本次动作</string>
     <string name="approval_title">工具审批：%1$s / %2$s</string>
