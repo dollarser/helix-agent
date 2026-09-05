@@ -210,7 +210,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-LLM-005 | P1 | 多 Provider 切换 | 会话记录协议、Provider/Model 和能力快照 |
 | FR-LLM-006 | P1 | 常用厂商模板与自建服务 | SGLang/Ollama 真机连接；不硬编码模型名 |
 | FR-LLM-007 | P1 | 上下文裁剪 | 永不截断待执行工具参数和审批上下文 |
-| FR-LLM-008 | P2 | 第三方订阅协议侧载实验 | 官方 CLI Android 路线已停止；独立 UID 可见登录/固定 smoke，不注册 ModelProvider |
+| FR-LLM-008 | P2 | 第三方订阅协议 Provider | 官方 CLI 路线停止；独立 UID 持有 token，developer/Advanced 与 API Key Provider 统一选择，consumer 关闭 |
 | FR-LLM-009 | P0 | Provider 数据去向分类 | 按实际 endpoint 标记本机、已授权局域网、公有云或未知远端；不按 Ollama/SGLang 等模板名猜测 |
 | FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝 |
 

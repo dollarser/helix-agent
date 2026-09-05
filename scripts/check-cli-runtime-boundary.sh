@@ -45,9 +45,11 @@ rg -F 'https://auth.openai.com/api/accounts/deviceauth/token' "$repo_root/runtim
 rg -F 'https://auth.openai.com/codex/device' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 rg -F 'vendorAuthorizesHelixDistribution' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
 rg -F 'DISTRIBUTION_AUTHORIZATION_UNPROVEN' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
+rg -F 'CliProviderChannel.CONSUMER_STORE' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
+rg -F 'DEVELOPER_ADVANCED' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliAgentBackendEligibility.kt" >/dev/null
 if rg -n 'TRANSACTION_.*JOB|TX_.*JOB' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CliRuntimeProtocol.kt"; then
     echo "subscription adapter exposed a cross-APK model job transaction" >&2
     exit 1
 fi
 
-echo "HXA-129 subscription experiment boundary: developer-visible fixed smoke only; vendor authorization gate present; no arbitrary prompt, cross-APK Provider/Job, other model endpoint, or credential import"
+echo "HXA-130 subscription boundary: developer Provider permitted without vendor authorization; consumer/store remains gated; no arbitrary prompt, cross-APK Provider/Job, other model endpoint, or credential import yet"

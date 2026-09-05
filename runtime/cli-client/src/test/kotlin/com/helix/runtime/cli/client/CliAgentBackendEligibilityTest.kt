@@ -31,7 +31,14 @@ class CliAgentBackendEligibilityTest {
     }
 
     @Test fun allMissingCompatibilityEvidenceIsReportedTogether() {
-        val decision = assess(android = true, tools = false, reconciliation = false, authorized = false)
+        val decision =
+            assess(
+                android = true,
+                tools = false,
+                reconciliation = false,
+                authorized = false,
+                channel = CliProviderChannel.CONSUMER_STORE,
+            )
 
         assertEquals(
             setOf(
@@ -52,12 +59,26 @@ class CliAgentBackendEligibilityTest {
         assertTrue(decision.mayRegisterForActOrGoal)
     }
 
-    @Test fun protocolCompatibilityCannotSubstituteForVendorDistributionAuthorization() {
-        val decision = assess(android = true, tools = true, reconciliation = true, authorized = false)
+    @Test fun storeRegistrationRequiresVendorDistributionAuthorization() {
+        val decision =
+            assess(
+                android = true,
+                tools = true,
+                reconciliation = true,
+                authorized = false,
+                channel = CliProviderChannel.CONSUMER_STORE,
+            )
 
         assertEquals(CliBackendDisposition.ISOLATED_CLI_SESSION_ONLY, decision.disposition)
         assertEquals(setOf(CliBackendBlocker.DISTRIBUTION_AUTHORIZATION_UNPROVEN), decision.blockers)
         assertFalse(decision.mayRegisterForActOrGoal)
+    }
+    @Test fun developerAdvancedRegistrationDoesNotRequireVendorDistributionAuthorization() {
+        val decision = assess(android = true, tools = true, reconciliation = true, authorized = false)
+
+        assertEquals(CliBackendDisposition.AGENT_BACKEND_ELIGIBLE, decision.disposition)
+        assertTrue(decision.blockers.isEmpty())
+        assertTrue(decision.mayRegisterForActOrGoal)
     }
 
     private fun assess(
@@ -65,6 +86,7 @@ class CliAgentBackendEligibilityTest {
         tools: Boolean,
         reconciliation: Boolean,
         authorized: Boolean,
+        channel: CliProviderChannel = CliProviderChannel.DEVELOPER_ADVANCED,
     ): CliAgentBackendDecision =
         CliAgentBackendEligibility.assess(
             CliAgentBackendEvidence(
@@ -73,5 +95,6 @@ class CliAgentBackendEligibilityTest {
                 jobIdReconciliationWithoutReplay = reconciliation,
                 vendorAuthorizesHelixDistribution = authorized,
             ),
+            channel,
         )
 }

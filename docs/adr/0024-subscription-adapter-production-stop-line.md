@@ -1,11 +1,11 @@
 # ADR-0024: 订阅协议适配器生产接入停止线
 
-Status: accepted
+Status: superseded
 Date: 2026-09-06
 HXA: HXA-129
 Deciders: Project owner（明确指出 CLI 路线已废弃，并要求按当前证据完成剩余收口）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0025](0025-developer-subscription-provider-channel.md)
 
 ## Context
 

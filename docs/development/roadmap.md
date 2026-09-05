@@ -654,6 +654,16 @@ Chat/Act/Goal。协议可调用、公开 client id、真实订阅成功和 Runti
 模型 transaction、任意 prompt、Provider/Tool、主 App token 通道或商店 artifact。Claude/Grok 付费
 资格继续标记未核实；未来只有供应商公开支持或项目所有者基于新证据另立 HXA/ADR 才能重开生产接入。
 
+### HXA-130 Developer 订阅 Provider 渠道门禁修正
+
+依 accepted [ADR-0025](../adr/0025-developer-subscription-provider-channel.md) 取代 HXA-129/ADR-0024 的
+全渠道停止结论：废弃的仅是官方 CLI 认证/执行路线；已跑通的第三方订阅认证允许进入
+developer/Advanced Provider，供应商公开授权不是个人侧载渠道前置，但 consumer/store 仍必须
+fail closed。`CliAgentBackendEligibility` 必须显式接收渠道，不能靠调用方遗漏授权字段来绕过商店门禁。
+
+本任务只修正决策与注册资格契约，不提前注册 Provider 或新增跨 APK transaction。当前 evidence 仍因
+模型 Job IPC、Dispatcher/ModelEvent/Verification/Audit 未完成而保持未注册；后续 HXA 按顺序实现。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

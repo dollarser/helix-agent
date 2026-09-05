@@ -5,6 +5,7 @@ import com.helix.provider.catalog.ProviderTemplateCatalog
 import com.helix.runtime.cli.client.CliAgentBackendEligibility
 import com.helix.runtime.cli.client.CliAgentBackendEvidence
 import com.helix.runtime.cli.client.CliBackendDisposition
+import com.helix.runtime.cli.client.CliProviderChannel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -19,6 +20,7 @@ class CliAgentBackendRegistrationTest {
                     jobIdReconciliationWithoutReplay = false,
                     vendorAuthorizesHelixDistribution = false,
                 ),
+                CliProviderChannel.DEVELOPER_ADVANCED,
             )
 
         assertEquals(CliBackendDisposition.METADATA_ONLY_UNSUPPORTED, decision.disposition)
