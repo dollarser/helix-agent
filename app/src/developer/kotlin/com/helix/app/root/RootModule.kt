@@ -67,6 +67,10 @@ internal object RootModule {
             RootGrantState.UNAVAILABLE, RootGrantState.REQUESTING, null -> GrantState.UNAVAILABLE
         }
 
+    fun onAppBackgrounded() {
+        access?.onAppBackgrounded()
+    }
+
     fun scopeFor(toolName: String?): UserScope? =
         if (toolName?.startsWith("root.") == true && toolName != RootTools.STATUS) {
             sessions?.status()?.scope

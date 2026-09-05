@@ -22,6 +22,8 @@ internal object RootModule {
 
     fun capabilityState(): GrantState = GrantState.UNAVAILABLE
 
+    fun onAppBackgrounded() = Unit
+
     fun scopeFor(toolName: String?): UserScope? = null
 
     @Composable

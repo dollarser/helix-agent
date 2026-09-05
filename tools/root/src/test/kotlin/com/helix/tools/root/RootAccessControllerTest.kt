@@ -107,6 +107,37 @@ class RootAccessControllerTest {
     }
 
     @Test
+    fun backgroundingAnEstablishedGrantFailsClosedWithoutASecondRootRequest() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        val controller = RootAccessController(driver)
+
+        controller.requestRoot()
+        driver.completeRequest(RootRequestOutcome.GRANTED)
+        driver.connectService(processId = 7654)
+
+        assertEquals(lost(), controller.onAppBackgrounded())
+        assertEquals(1, driver.requestCount)
+        assertEquals(1, driver.bindCount)
+        assertEquals(1, driver.disconnectCount)
+    }
+
+    @Test
+    fun backgroundingDuringTheManagerPromptDoesNotCancelTheRequest() {
+        val driver = FakeRootDriver(cachedGrant = true)
+        val controller = RootAccessController(driver)
+
+        controller.requestRoot()
+        assertEquals(requesting(), controller.onAppBackgrounded())
+        driver.completeRequest(RootRequestOutcome.GRANTED)
+
+        assertEquals(
+            RootAccessStatus(RootGrantState.GRANTED, RootServiceState.CONNECTING),
+            controller.status(),
+        )
+        assertEquals(0, driver.disconnectCount)
+    }
+
+    @Test
     fun userDisconnectDoesNotBecomeLostAndLateCallbackIsIgnored() {
         val driver = FakeRootDriver()
         val controller = RootAccessController(driver)
