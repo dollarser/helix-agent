@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -24,6 +25,12 @@ class CliRuntimeManifestDeviceTest {
         )
         assertTrue(lock.artifacts.none { it.bundled })
         assertEquals(64, CliRuntimeLockCodec.sha256(lock).length)
+    }
+
+    @Test fun unsupportedRuntimeExposesNoCredentialOrAgentBackend() {
+        val status = JSONObject(CliEmbeddedBaseline.status(context))
+        assertEquals("UNAVAILABLE_UNSUPPORTED_ANDROID_PLATFORM", status.getString("credentialState"))
+        assertEquals("NOT_REGISTERED", status.getString("agentBackendState"))
     }
 
     @Test fun serviceIsExportedAndSignatureProtected() {

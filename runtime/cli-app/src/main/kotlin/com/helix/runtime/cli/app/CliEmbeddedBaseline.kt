@@ -26,7 +26,8 @@ object CliEmbeddedBaseline {
                 put("abi", lock.abi)
                 put("lockSha256", CliRuntimeLockCodec.sha256(lock))
                 put("bundledArtifactCount", lock.artifacts.count { it.bundled })
-                put("credentialState", "UNAVAILABLE_BEFORE_HXA_111")
+                put("credentialState", "UNAVAILABLE_UNSUPPORTED_ANDROID_PLATFORM")
+                put("agentBackendState", "NOT_REGISTERED")
             },
         )
     }

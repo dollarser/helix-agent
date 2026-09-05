@@ -2,7 +2,7 @@
 
 Status: proposed
 Date: 2026-09-05
-HXA: HXA-111, HXA-112
+HXA: HXA-111, HXA-112, HXA-113
 Deciders: pending
 Supersedes: none
 Superseded by: none
@@ -37,6 +37,11 @@ Codex 与 Claude Code 两条候选生产打包路线均保持关闭。以后若�
 - 不产生 ChatGPT token、cookie 或浏览器凭据；主 App 没有新 IPC、数据表或登录 UI。
 - HXA-111 的登录/退出/限额场景因前置门禁失败而不执行，不能声称通过。
 - HXA-112 已独立完成失败 Spike；本 ADR 在所有者接受前保持 `proposed`，不能作为既定架构。
+- HXA-113 不创建 Agent backend adapter。当前 Runtime 只暴露 metadata 状态，主 App 的
+  Act/Goal Provider catalog 不注册 Codex、Claude Code 或通用 CLI。
+- 即使未来获得受支持的 Android Runtime，仍须分别证明内置工具已禁用或被代理为普通
+  Helix ToolCall，以及 Binder 断连后可按原 `jobId` 查询、不对未知结果重放，三项证据全部
+  成立才可注册 Agent backend；否则最多保留与 Act/Goal 隔离的 CLI 会话。
 
 ## Verification
 
