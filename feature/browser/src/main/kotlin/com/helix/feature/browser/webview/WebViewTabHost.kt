@@ -54,6 +54,15 @@ internal class WebViewTabHost(
     /** Bumped on every [evaluateFixed] and [destroy] to discard late results. */
     private var fixedEvalGeneration = 0
 
+    /**
+     * Deadline callbacks retain their result closures until removed. Keep the (normally single)
+     * pending callback explicit so replacing an evaluation or destroying a tab releases that
+     * closure immediately instead of waiting for [SNAPSHOT_TIMEOUT_MS].
+     */
+    private val pendingEvalTimeouts = mutableSetOf<Runnable>()
+
+    private var destroyed = false
+
     private val client =
         object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
@@ -202,23 +211,32 @@ internal class WebViewTabHost(
         script: String,
         onResult: (String?) -> Unit,
     ) {
+        if (destroyed) {
+            onResult(null)
+            return
+        }
+        cancelPendingEvaluationTimeouts()
         fixedEvalGeneration += 1
         val generation = fixedEvalGeneration
         var answered = false
 
-        val timeout =
+        lateinit var timeout: Runnable
+        timeout =
             Runnable {
+                pendingEvalTimeouts.remove(timeout)
                 if (!answered) {
                     answered = true
                     if (generation == fixedEvalGeneration) onResult(null)
                 }
             }
+        pendingEvalTimeouts += timeout
         mainHandler.postDelayed(timeout, SNAPSHOT_TIMEOUT_MS)
 
         webView.evaluateJavascript(script) { raw ->
             if (answered) return@evaluateJavascript // deadline (or destroy) already settled this request
             answered = true
             mainHandler.removeCallbacks(timeout)
+            pendingEvalTimeouts.remove(timeout)
             if (generation == fixedEvalGeneration) onResult(raw)
         }
     }
@@ -242,9 +260,22 @@ internal class WebViewTabHost(
         // Invalidate any in-flight fixed eval: a callback that was already enqueued must not
         // be delivered to a destroyed WebView's request slot.
         fixedEvalGeneration += 1
+        destroyed = true
+        cancelPendingEvaluationTimeouts()
         webView.stopLoading()
+        webView.onPause()
         webView.loadUrl(ABOUT_BLANK)
+        webView.webChromeClient = null
+        webView.webViewClient = WebViewClient()
+        webView.setDownloadListener(null)
         webView.destroy()
+    }
+
+    internal fun pendingEvaluationCountForTest(): Int = pendingEvalTimeouts.size
+
+    private fun cancelPendingEvaluationTimeouts() {
+        pendingEvalTimeouts.forEach(mainHandler::removeCallbacks)
+        pendingEvalTimeouts.clear()
     }
 
     private fun isSameDocument(
