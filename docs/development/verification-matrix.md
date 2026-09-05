@@ -181,7 +181,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | 任务 | JVM/构建命令 | Android/外部验收 |
 | --- | --- | --- |
 | HXA-110 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug`<br>`./scripts/check-cli-runtime-lock.sh`<br>`$ANDROID_HOME/build-tools/36.0.0/aapt2 dump permissions runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 arm64-v8a 固定 artifact 来源/hash/license/terms/版本、独立 UID、仅 INTERNET、signature-protected 冷绑定 Service manifest；HXA-110 只锁 metadata，不打包或运行 CLI executable |
-| HXA-111 | `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-app:testDebugUnitTest` | `./gradlew :runtime:cli-app:connectedDebugAndroidTest`；登录/退出/跨 UID/Activity 退出后冷绑定 |
+| HXA-111 | `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-app:testDebugUnitTest`<br>`./scripts/verify-codex-android-spike.sh` | `ANDROID_SERIAL=<api29-or-36> ./scripts/verify-codex-android-spike.sh`；先判定官方 Android 支持门禁；门禁失败时停止打包并明确列出未执行的登录/退出/跨 UID/Activity 冷绑定证据 |
 | HXA-112 | `./gradlew :runtime:cli-app:testDebugUnitTest` | `./gradlew :runtime:cli-app:connectedDebugAndroidTest`；恶意工作区/工具拦截/进程死亡对账 |
 | HXA-113 | `./gradlew :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；jobId 查询/不重放；不合格则保持独立 CLI |
 
