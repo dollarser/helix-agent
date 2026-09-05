@@ -1,9 +1,11 @@
 package com.helix.runtime.cli.app
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.system.Os
+import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import okhttp3.FormBody
@@ -52,6 +54,38 @@ class CliRuntimeManifestDeviceTest {
         assertTrue(attempt.verificationUri.startsWith("https://"))
         assertTrue(attempt.intervalMillis >= 5_000)
         assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
+    }
+
+    @Test fun codexDeviceEndpointIssuesBoundedAnonymousAttempt() {
+        val attempt = OkHttpCodexDeviceTransport().use { it.requestDeviceCode() }
+        assertTrue(attempt.userCode.isNotBlank())
+        assertEquals("https://auth.openai.com/codex/device", attempt.verificationUrl)
+        assertTrue(attempt.intervalMillis in 1_000..60_000)
+        assertTrue(attempt.expiresAtEpochMillis > System.currentTimeMillis())
+    }
+
+    @Test fun deviceCodeClipboardCopiesOnlyTheSelectedValue() {
+        ActivityScenario.launch(CodexLoginActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val clipboard = activity.getSystemService(ClipboardManager::class.java)
+                DeviceCodeClipboard.copy(activity, "Device code", "ABCD-1234")
+                assertEquals(
+                    "ABCD-1234",
+                    clipboard.primaryClip
+                        ?.getItemAt(0)
+                        ?.text
+                        ?.toString(),
+                )
+                DeviceCodeClipboard.copy(activity, "Verification URL", "https://auth.openai.com/codex/device")
+                assertEquals(
+                    "https://auth.openai.com/codex/device",
+                    clipboard.primaryClip
+                        ?.getItemAt(0)
+                        ?.text
+                        ?.toString(),
+                )
+            }
+        }
     }
 
     @Test fun embeddedLockIsStrictAndContainsNoBundledExecutable() {

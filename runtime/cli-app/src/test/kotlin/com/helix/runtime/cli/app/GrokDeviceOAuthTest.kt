@@ -73,9 +73,11 @@ class GrokDeviceOAuthTest {
                 override fun refresh(session: CliSubscriptionSession) = session
             }
         val controller = GrokLoginController(CliSubscriptionCredentialVault(store), transport, { now }, { now += it })
-        assertThrows(
-            IllegalStateException::class.java,
-        ) { controller.finish(controller.start(), DeviceLoginCancellation()) }
+        val failure =
+            assertThrows(
+                GrokDeviceLoginException::class.java,
+            ) { controller.finish(controller.start(), DeviceLoginCancellation()) }
+        assertEquals("ineligible_tier", failure.reason)
         assertEquals(2, polls)
         assertFalse(CliSubscriptionCredentialVault(store).contains(CliSubscriptionProvider.GROK))
     }

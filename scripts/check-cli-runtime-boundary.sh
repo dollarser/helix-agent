@@ -34,5 +34,8 @@ fi
 rg -F 'Iv1.b507a08c87ecfe98' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotDeviceOAuth.kt" >/dev/null
 rg -F 'https://api.github.com/copilot_internal/v2/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotDeviceOAuth.kt" >/dev/null
 rg -F 'https://auth.x.ai/oauth2/device/code' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/GrokDeviceOAuth.kt" >/dev/null
+rg -F 'https://auth.openai.com/api/accounts/deviceauth/usercode' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
+rg -F 'https://auth.openai.com/api/accounts/deviceauth/token' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
+rg -F 'https://auth.openai.com/codex/device' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexDeviceOAuth.kt" >/dev/null
 
-echo "CLI Runtime HXA-125 boundary: auth/eligibility-only, fixed sideload identities, network-only, no model endpoint or credential import"
+echo "CLI Runtime HXA-126 boundary: auth/eligibility-only, fixed sideload identities, network-only, no model endpoint or credential import"

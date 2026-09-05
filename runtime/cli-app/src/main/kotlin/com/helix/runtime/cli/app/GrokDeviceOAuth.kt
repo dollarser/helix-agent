@@ -37,6 +37,10 @@ internal sealed interface GrokDevicePoll {
     ) : GrokDevicePoll
 }
 
+internal class GrokDeviceLoginException(
+    val reason: String,
+) : IllegalStateException("Grok device authorization stopped: $reason")
+
 internal object GrokDeviceProtocol {
     const val CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828"
     const val DEVICE_CODE_URL = "https://auth.x.ai/oauth2/device/code"
@@ -288,7 +292,7 @@ internal class GrokLoginController(
         var interval = attempt.intervalMillis
         while (true) {
             cancellation.check()
-            check(clock() < attempt.expiresAtEpochMillis) { "login expired" }
+            if (clock() >= attempt.expiresAtEpochMillis) throw GrokDeviceLoginException("expired_token")
             sleep(interval)
             cancellation.check()
             val result =
@@ -309,7 +313,7 @@ internal class GrokLoginController(
                 }
 
                 is GrokDevicePoll.Rejected -> {
-                    error("device authorization rejected: ${result.code}")
+                    throw GrokDeviceLoginException(result.code)
                 }
             }
         }

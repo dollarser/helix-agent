@@ -603,6 +603,20 @@ M12，因此本任务使用下一个空闲编号 HXA-124。
 不注册 Provider/Tool/Job。公开 client id 不等于 xAI 授权 Helix 使用，只允许 ADR-0021 下的
 developer/Advanced 个人侧载实验；商店与正式集成仍需项目自有或服务商明确授权。
 
+### HXA-126 Device Code 可用性、诊断与 Codex 官方兼容流
+
+在 accepted ADR-0021 的个人侧载边界内补齐 Device Code UX：Grok code 与 verification URL 可分别
+复制，Android 13+ 将剪贴板内容标记为敏感；Grok 的拒绝、过期、未知套餐、不合格套餐及协议错误
+必须以稳定且不含 token 的原因分别显示。不得把 access/refresh token 放入剪贴板、UI、日志或 Binder。
+
+依据当前 OpenAI 官方 Codex 源码与 app-server 协议新增可选 `chatgptDeviceCode` 登录，同时保留
+HXA-118 loopback flow。固定官方公开 client id、`auth.openai.com/api/accounts/deviceauth/*`、
+`auth.openai.com/codex/device` 与官方 PKCE token exchange；严格验证 server-returned verifier/challenge，
+15 分钟总期限内可重试只读 poll 的瞬时网络失败，但不得盲目重放结果不明确的 token exchange。
+code 与 URL 分别可复制；成功 token 仍只写 Runtime UID Keystore vault。本 HXA 不运行或打包 Codex
+app-server，不调用模型 endpoint，不注册 Provider/Tool/Job，也不把官方协议存在误报为 OpenAI 授权
+Helix 分发。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

@@ -18,20 +18,32 @@ import javax.net.ssl.SSLException
 class CodexLoginActivity : Activity() {
     private lateinit var vault: CliSubscriptionCredentialVault
     private lateinit var transport: OkHttpCodexOAuthTransport
+    private lateinit var deviceTransport: OkHttpCodexDeviceTransport
     private lateinit var controller: CodexLoginController
+    private lateinit var deviceController: CodexDeviceLoginController
     private lateinit var status: TextView
     private lateinit var login: Button
+    private lateinit var deviceLogin: Button
+    private lateinit var openDeviceBrowser: Button
+    private lateinit var copyDeviceCode: Button
+    private lateinit var copyDeviceUrl: Button
     private lateinit var logout: Button
     private lateinit var cancel: Button
     private val worker = Executors.newSingleThreadExecutor()
 
     @Volatile private var loopback: CodexLoopbackServer? = null
 
+    @Volatile private var deviceCancellation: DeviceLoginCancellation? = null
+    private var deviceUserCode: String? = null
+    private var deviceVerificationUrl: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpCodexOAuthTransport()
+        deviceTransport = OkHttpCodexDeviceTransport()
         controller = CodexLoginController(vault, transport)
+        deviceController = CodexDeviceLoginController(vault, deviceTransport)
         title = getString(R.string.codex_login_title)
         setContentView(buildContent())
         renderState()
@@ -41,7 +53,9 @@ class CodexLoginActivity : Activity() {
         val active = loopback
         loopback = null
         active?.close()
+        deviceCancellation?.cancel()
         transport.close()
+        deviceTransport.close()
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -63,6 +77,30 @@ class CodexLoginActivity : Activity() {
                     it.setOnClickListener { startLogin() }
                     addView(it)
                 }
+            deviceLogin =
+                Button(context).also {
+                    it.setText(R.string.codex_device_login_action)
+                    it.setOnClickListener { startDeviceLogin() }
+                    addView(it)
+                }
+            openDeviceBrowser =
+                Button(context).also {
+                    it.setText(R.string.codex_device_open_browser)
+                    it.setOnClickListener { openDeviceVerification() }
+                    addView(it)
+                }
+            copyDeviceCode =
+                Button(context).also {
+                    it.setText(R.string.codex_device_copy_code)
+                    it.setOnClickListener { copyDeviceCode() }
+                    addView(it)
+                }
+            copyDeviceUrl =
+                Button(context).also {
+                    it.setText(R.string.codex_device_copy_url)
+                    it.setOnClickListener { copyDeviceUrl() }
+                    addView(it)
+                }
             logout =
                 Button(context).also {
                     it.setText(R.string.codex_logout_action)
@@ -78,6 +116,10 @@ class CodexLoginActivity : Activity() {
                     it.setOnClickListener {
                         loopback?.close()
                         loopback = null
+                        deviceCancellation?.cancel()
+                        deviceCancellation = null
+                        deviceUserCode = null
+                        deviceVerificationUrl = null
                         status.setText(R.string.codex_login_cancelled)
                         renderButtons()
                     }
@@ -86,7 +128,7 @@ class CodexLoginActivity : Activity() {
         }
 
     private fun startLogin() {
-        if (loopback != null) return
+        if (loopback != null || deviceCancellation != null) return
         setBusy(true)
         status.setText(R.string.codex_login_preparing)
         worker.execute {
@@ -95,6 +137,46 @@ class CodexLoginActivity : Activity() {
                 onFailure = { finishAttempt(safeFailureMessage(it)) },
             )
         }
+    }
+
+    private fun startDeviceLogin() {
+        if (loopback != null || deviceCancellation != null) return
+        setBusy(true)
+        status.setText(R.string.codex_device_preparing)
+        val active = DeviceLoginCancellation().also { deviceCancellation = it }
+        worker.execute {
+            runCatching {
+                val attempt = deviceController.start()
+                runOnUiThread {
+                    deviceUserCode = attempt.userCode
+                    deviceVerificationUrl = attempt.verificationUrl
+                    status.text = getString(R.string.codex_device_user_code, attempt.userCode, attempt.verificationUrl)
+                    renderButtons()
+                }
+                deviceController.finish(attempt, active)
+            }.fold(
+                onSuccess = { finishAttempt(getString(R.string.codex_login_success)) },
+                onFailure = { finishAttempt(safeFailureMessage(it)) },
+            )
+        }
+    }
+
+    private fun openDeviceVerification() {
+        val url = deviceVerificationUrl ?: return
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            .onFailure { status.setText(R.string.codex_login_browser_error) }
+    }
+
+    private fun copyDeviceCode() {
+        val code = deviceUserCode ?: return
+        DeviceCodeClipboard.copy(this, getString(R.string.codex_device_clip_code_label), code)
+        status.text = getString(R.string.codex_device_copied_code, code, deviceVerificationUrl)
+    }
+
+    private fun copyDeviceUrl() {
+        val url = deviceVerificationUrl ?: return
+        DeviceCodeClipboard.copy(this, getString(R.string.codex_device_clip_url_label), url)
+        status.text = getString(R.string.codex_device_copied_url, deviceUserCode, url)
     }
 
     private fun startLoginAfterPreflight() {
@@ -150,6 +232,18 @@ class CodexLoginActivity : Activity() {
                 getString(R.string.codex_login_http_error, error.httpCode, code)
             }
 
+            is CodexDeviceEndpointException -> {
+                getString(R.string.codex_device_http_error, error.stage, error.httpCode)
+            }
+
+            is CodexDeviceLoginException -> {
+                getString(R.string.codex_device_failed, error.reason)
+            }
+
+            is CodexDeviceNetworkException -> {
+                getString(R.string.codex_device_network_error, error.stage, error.safeNetworkCategory())
+            }
+
             is IOException -> {
                 getString(R.string.codex_login_network_error, error.safeNetworkCategory())
             }
@@ -178,6 +272,9 @@ class CodexLoginActivity : Activity() {
     private fun finishAttempt(message: String) {
         runOnUiThread {
             loopback = null
+            deviceCancellation = null
+            deviceUserCode = null
+            deviceVerificationUrl = null
             setBusy(false)
             status.text = message
             renderButtons()
@@ -197,13 +294,22 @@ class CodexLoginActivity : Activity() {
 
     private fun renderButtons() {
         val loggedIn = vault.contains(CliSubscriptionProvider.CODEX)
-        login.isEnabled = !loggedIn && loopback == null
-        logout.isEnabled = loggedIn && loopback == null
-        cancel.isEnabled = loopback != null
+        val busy = loopback != null || deviceCancellation != null
+        login.isEnabled = !loggedIn && !busy
+        deviceLogin.isEnabled = !loggedIn && !busy
+        openDeviceBrowser.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
+        copyDeviceCode.isEnabled = deviceCancellation != null && deviceUserCode != null
+        copyDeviceUrl.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
+        logout.isEnabled = loggedIn && !busy
+        cancel.isEnabled = busy
     }
 
     private fun setBusy(busy: Boolean) {
         login.isEnabled = !busy
+        deviceLogin.isEnabled = !busy
+        openDeviceBrowser.isEnabled = false
+        copyDeviceCode.isEnabled = false
+        copyDeviceUrl.isEnabled = false
         logout.isEnabled = !busy
         cancel.isEnabled = busy
     }
