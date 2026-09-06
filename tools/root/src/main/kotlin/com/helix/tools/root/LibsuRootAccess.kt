@@ -25,6 +25,8 @@ class LibsuRootAccess(
 
     fun onProfileChanged(isAdvanced: Boolean): RootAccessStatus = controller.onProfileChanged(isAdvanced)
 
+    fun onAppBackgrounded(): RootAccessStatus = controller.onAppBackgrounded()
+
     /** Must only be called from the explicit user-facing "Request Root" action. */
     fun requestRoot(): RootRequestStatus = controller.requestRoot()
 

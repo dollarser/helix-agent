@@ -22,7 +22,11 @@ internal object RootModule {
 
     fun capabilityState(): GrantState = GrantState.UNAVAILABLE
 
+    fun onAppBackgrounded() = Unit
+
     fun scopeFor(toolName: String?): UserScope? = null
+
+    fun closeSession() = Unit
 
     @Composable
     @Suppress("FunctionName")

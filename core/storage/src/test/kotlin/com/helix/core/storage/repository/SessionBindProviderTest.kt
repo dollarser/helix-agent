@@ -76,6 +76,8 @@ class SessionBindProviderTest {
 
         override fun list(): List<SessionEntity> = rows.values.sortedByDescending { it.createdAt }
 
+        override fun deletePermanently(id: String): Int = if (rows.remove(id) != null) 1 else 0
+
         override fun archive(
             id: String,
             archivedAt: Long,

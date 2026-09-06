@@ -28,6 +28,21 @@ interface AuditEventDao {
      */
     @Query("SELECT * FROM audit_events ORDER BY timestamp DESC, rowid DESC LIMIT :limit")
     fun recent(limit: Int): List<AuditEventEntity>
+
+    @Query("DELETE FROM audit_events WHERE correlationId IN (:correlationIds)")
+    fun deleteByCorrelations(correlationIds: List<String>): Int
+
+    @Query(
+        "DELETE FROM audit_events WHERE correlationId = :sessionId " +
+            "OR correlationId IN (SELECT id FROM turns WHERE sessionId = :sessionId) " +
+            "OR correlationId IN (SELECT id FROM model_calls WHERE turnId IN " +
+            "(SELECT id FROM turns WHERE sessionId = :sessionId)) " +
+            "OR correlationId IN (SELECT id FROM tool_calls WHERE turnId IN " +
+            "(SELECT id FROM turns WHERE sessionId = :sessionId)) " +
+            "OR correlationId IN (SELECT callId FROM tool_calls WHERE turnId IN " +
+            "(SELECT id FROM turns WHERE sessionId = :sessionId))",
+    )
+    fun deleteForSession(sessionId: String): Int
 }
 
 @Dao

@@ -30,6 +30,12 @@ enum class PolicyDenialCode {
     /** Plan mode is read-only; an operation-class denial no risk level can substitute. */
     PLAN_MODE_NOT_READ_ONLY,
 
+    /** Chat has no tools unless the user explicitly opts in for this Turn. */
+    CHAT_TOOLS_DISABLED,
+
+    /** Chat only admits READ_ONLY/L0 and Plan only admits READ_ONLY/L0-L1 after dynamic risk. */
+    MODE_RISK_CEILING,
+
     /** PRoot/CLI runtimes are ADVANCED-only (ADR-0005). */
     ISOLATED_RUNTIME_REQUIRES_ADVANCED,
 }
@@ -121,30 +127,51 @@ class PolicyEngine(
                 gate.matchedRule,
             )
         }
-        val decision =
-            when {
-                defaultDenial != null -> {
-                    defaultDenial
-                }
-
-                gate.denial != null -> {
-                    gate.denial
-                }
-
-                gate.approvalDetail != null -> {
-                    PolicyDecision.RequiresApproval(gate.approvalDetail)
-                }
-
-                risk.requiresApproval -> {
-                    PolicyDecision.RequiresApproval("dynamic risk $risk requires per-call approval")
-                }
-
-                else -> {
-                    PolicyDecision.Allow
-                }
-            }
+        val modeDenial = if (defaultDenial == null && gate.denial == null) modeDenial(input, risk) else null
+        val decision = resolveDecision(defaultDenial, gate, modeDenial, risk)
         return PolicyEvaluation(risk, decision, factors, gate.category, gate.matchedRule)
     }
+
+    private fun resolveDecision(
+        defaultDenial: PolicyDecision.Deny?,
+        gate: EgressGate,
+        modeDenial: PolicyDecision.Deny?,
+        risk: RiskLevel,
+    ): PolicyDecision =
+        when {
+            defaultDenial != null -> defaultDenial
+            gate.denial != null -> gate.denial
+            modeDenial != null -> modeDenial
+            gate.approvalDetail != null -> PolicyDecision.RequiresApproval(gate.approvalDetail)
+            risk.requiresApproval -> PolicyDecision.RequiresApproval("dynamic risk $risk requires per-call approval")
+            else -> PolicyDecision.Allow
+        }
+
+    private fun modeDenial(
+        input: PolicyInput,
+        risk: RiskLevel,
+    ): PolicyDecision.Deny? =
+        when {
+            input.mode == AgentMode.CHAT && !input.chatToolsEnabled -> {
+                deny(PolicyDenialCode.CHAT_TOOLS_DISABLED, "Chat tools were not enabled by the user")
+            }
+
+            input.mode == AgentMode.CHAT && input.operationClass != ToolOperationClass.READ_ONLY -> {
+                deny(PolicyDenialCode.MODE_RISK_CEILING, "Chat mode allows only READ_ONLY tools")
+            }
+
+            input.mode == AgentMode.CHAT && risk != RiskLevel.L0 -> {
+                deny(PolicyDenialCode.MODE_RISK_CEILING, "Chat mode allows only dynamic risk L0")
+            }
+
+            input.mode == AgentMode.PLAN && risk > RiskLevel.L1 -> {
+                deny(PolicyDenialCode.MODE_RISK_CEILING, "Plan mode allows dynamic risk up to L1")
+            }
+
+            else -> {
+                null
+            }
+        }
 
     /** Default denials checked before any risk arithmetic (roadmap HXA-033). */
     private fun checkDefaultDenials(input: PolicyInput): PolicyDecision.Deny? =

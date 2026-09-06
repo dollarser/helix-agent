@@ -257,6 +257,19 @@ class McpServerRepository(
 
     fun list(): List<McpServerEntity> = dao.list()
 
+    /** User credential replacement invalidates enablement; the value is an alias only. */
+    fun replaceAuthAlias(
+        id: String,
+        alias: String?,
+    ) {
+        resolve(id)
+        alias?.let {
+            com.helix.core.model
+                .SecretAlias(it)
+        }
+        dao.replaceAuthAlias(id, alias)
+    }
+
     fun update(
         server: McpServerEntity,
         enabled: Boolean,
@@ -264,6 +277,10 @@ class McpServerRepository(
     ) {
         require(trustState.isNotBlank()) { "trustState must not be blank" }
         dao.update(server.id, enabled, trustState)
+    }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "mcp server not found: $id" }
     }
 }
 
@@ -442,6 +459,10 @@ class SkillRepository(
         enabled: Boolean,
     ) {
         dao.setEnabled(id, enabled)
+    }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "skill not found: $id" }
     }
 }
 

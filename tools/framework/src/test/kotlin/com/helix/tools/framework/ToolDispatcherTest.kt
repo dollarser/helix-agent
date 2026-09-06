@@ -188,6 +188,38 @@ class ToolDispatcherTest {
         assertEquals(DispatchOutcomeCode.POLICY_DENIED, denied.code)
     }
 
+    @Test
+    fun chatAndPlanModeCeilingsAreRecheckedInsideTheDispatcher() {
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L2),
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+        )
+        val chatDisabled = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.CHAT))
+        assertEquals(DispatchOutcomeCode.POLICY_DENIED, (chatDisabled as ToolDispatchOutcome.Denied).code)
+        val chatTooRisky =
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.CHAT, chatToolsEnabled = true),
+            )
+        assertEquals(DispatchOutcomeCode.POLICY_DENIED, (chatTooRisky as ToolDispatchOutcome.Denied).code)
+        val planTooRisky = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.PLAN))
+        assertEquals(DispatchOutcomeCode.POLICY_DENIED, (planTooRisky as ToolDispatchOutcome.Denied).code)
+        assertEquals(0, broker.acquireCalls.size)
+    }
+
+    @Test
+    fun goalUsesTheSameDispatcherPolicyAndApprovalPipelineAsAct() {
+        val proof = proofFor("call-1")
+        broker.script(ApprovalAcquisition.Approved(proof))
+        registerTool(descriptor(), CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
+        assertTrue(
+            dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), mode = AgentMode.GOAL))
+                is ToolDispatchOutcome.Succeeded,
+        )
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals(1, broker.consumeCalls.size)
+        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
+    }
+
     // ---------------------------------------------------------------- approval stage
 
     @Test
@@ -1115,6 +1147,7 @@ class ToolDispatcherTest {
         version: ToolVersion,
         args: JsonObject,
         mode: AgentMode = AgentMode.ACT,
+        chatToolsEnabled: Boolean = false,
         profile: SafetyProfile = SafetyProfile.STANDARD,
         scope: UserScope? = null,
         turnId: String = "turn-1",
@@ -1129,6 +1162,7 @@ class ToolDispatcherTest {
             toolVersion = version,
             args = args,
             mode = mode,
+            chatToolsEnabled = chatToolsEnabled,
             profile = profile,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             dataOrigin = DataOrigin.WORKSPACE,

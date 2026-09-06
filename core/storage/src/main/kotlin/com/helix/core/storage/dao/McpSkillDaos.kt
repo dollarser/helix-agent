@@ -18,6 +18,12 @@ interface McpServerDao {
     @Query("SELECT * FROM mcp_servers WHERE id = :id")
     fun byId(id: String): McpServerEntity?
 
+    @Query("UPDATE mcp_servers SET authAlias = :alias, enabled = 0 WHERE id = :id")
+    fun replaceAuthAlias(
+        id: String,
+        alias: String?,
+    )
+
     @Query("SELECT * FROM mcp_servers ORDER BY rowid ASC")
     fun list(): List<McpServerEntity>
 
@@ -27,6 +33,9 @@ interface McpServerDao {
         enabled: Boolean,
         trustState: String,
     )
+
+    @Query("DELETE FROM mcp_servers WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao
@@ -75,6 +84,9 @@ interface SkillDao {
         id: String,
         enabled: Boolean,
     )
+
+    @Query("DELETE FROM skills WHERE id = :id")
+    fun delete(id: String): Int
 }
 
 @Dao

@@ -28,6 +28,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -291,7 +292,9 @@ class ProcessRecoveryTest {
         val run1 = storage.goalRuns.resolve("run-1")
         assertEquals("INTERRUPTED", run1.outcome)
         assertEquals(2_000L, run1.endedAt)
-        assertEquals(700L, run1.wakeDurationMillis)
+        // No durable usage checkpoint was committed before death; elapsed offline wall time
+        // must not be invented as execution usage.
+        assertEquals(0L, run1.wakeDurationMillis)
         assertEquals(0, run1.modelCalls)
         assertEquals(0, run1.toolCalls)
         assertEquals(0L, run1.tokens)
@@ -341,6 +344,98 @@ class ProcessRecoveryTest {
         storage.goals.save(goal("goal-1", GoalState.RUNNING.name, nextCheckpoint = 9_999L, currentWakeMillis = 1_300L))
         storage.goalRuns.open("run-1", "goal-1", GoalWakeReason.USER_OPEN.name, 1_300L)
         storage.goals.save(goal("goal-2", GoalState.PAUSED.name))
+    }
+
+    @Test
+    fun durableUsageCheckpointSurvivesRestartAndRecoveryDoesNotMintBudget() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dying = isolatedStorage(context, "usage-checkpoint")
+        dying.goals.save(goal("goal-usage", GoalState.RUNNING.name))
+        dying.goalRuns.open("run-usage", "goal-usage", GoalWakeReason.USER_OPEN.name, 1_000L)
+        val ledger = GoalDurableUsageLedger(dying)
+        ledger.checkpoint(
+            "goal-usage",
+            "run-usage",
+            GoalDurableUsageLedger.Boundary.MODEL,
+            GoalDurableUsageLedger.Delta(modelCalls = 1, tokens = 80, durationMillis = 4_000),
+            5_000L,
+        )
+        ledger.checkpoint(
+            "goal-usage",
+            "run-usage",
+            GoalDurableUsageLedger.Boundary.TOOL,
+            GoalDurableUsageLedger.Delta(toolCalls = 1, durationMillis = 1_000),
+            6_000L,
+        )
+        dying.close()
+
+        val recovered = isolatedStorage(context, "usage-checkpoint")
+        RecoveryCoordinatorApp(recovered, FixedClock(7_000L)).recover()
+        val goal = recovered.goals.resolve("goal-usage")
+        assertEquals(1, goal.modelCalls)
+        assertEquals(1, goal.toolCalls)
+        assertEquals(80L, goal.totalTokens)
+        assertEquals(5_000L, goal.runTimeMillis)
+        assertEquals(0L, goal.currentWakeMillis)
+        val run = recovered.goalRuns.resolve("run-usage")
+        assertEquals(1, run.modelCalls)
+        assertEquals(1, run.toolCalls)
+        assertEquals(80L, run.tokens)
+        assertEquals(5_000L, run.wakeDurationMillis)
+        assertEquals("INTERRUPTED", run.outcome)
+    }
+
+    @Test
+    fun budgetBoundaryParksAtomicallyWithTheUsageAudit() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storage = isolatedStorage(context, "usage-budget")
+        storage.goals.save(
+            goal("goal-budget", GoalState.RUNNING.name).copy(
+                budgets = goal("unused", GoalState.RUNNING.name).budgets.copy(maxModelCalls = 1),
+            ),
+        )
+        storage.goalRuns.open("run-budget", "goal-budget", GoalWakeReason.USER_OPEN.name, 1_000L)
+        GoalDurableUsageLedger(storage).checkpoint(
+            "goal-budget",
+            "run-budget",
+            GoalDurableUsageLedger.Boundary.MODEL,
+            GoalDurableUsageLedger.Delta(modelCalls = 1, tokens = 10, durationMillis = 100),
+            1_100L,
+        )
+        val goal = storage.goals.resolve("goal-budget")
+        assertEquals(GoalState.PAUSED.name, goal.state)
+        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", goal.finishReason)
+        assertEquals(1, storage.goalRuns.resolve("run-budget").modelCalls)
+        val audit = storage.auditEvents.listByCorrelation(goal.correlationId).single()
+        assertTrue(audit.redactedPayload.contains("\"exhausted\":\"maxModelCalls\""))
+    }
+
+    @Test
+    fun checkpointRejectsOversizedIntervalsAndClosedRuns() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storage = isolatedStorage(context, "usage-guards")
+        storage.goals.save(goal("goal-guards", GoalState.RUNNING.name))
+        val run = storage.goalRuns.open("run-guards", "goal-guards", GoalWakeReason.USER_OPEN.name, 1_000L)
+        val ledger = GoalDurableUsageLedger(storage)
+        assertThrows(IllegalArgumentException::class.java) {
+            ledger.checkpoint(
+                "goal-guards",
+                "run-guards",
+                GoalDurableUsageLedger.Boundary.HEARTBEAT,
+                GoalDurableUsageLedger.Delta(durationMillis = GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS + 1),
+                2_000L,
+            )
+        }
+        storage.goalRuns.finish(run, "INTERRUPTED", 2_000L, 0, 0, 0, 0)
+        assertThrows(IllegalArgumentException::class.java) {
+            ledger.checkpoint(
+                "goal-guards",
+                "run-guards",
+                GoalDurableUsageLedger.Boundary.HEARTBEAT,
+                GoalDurableUsageLedger.Delta(durationMillis = 1),
+                2_001L,
+            )
+        }
     }
 
     /** Builds recovery fixtures through the same legal Turn edges production must use. */

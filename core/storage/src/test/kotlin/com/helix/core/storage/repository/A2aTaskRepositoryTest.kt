@@ -107,6 +107,12 @@ private class FakeA2aTaskDao : A2aTaskDao {
     override fun listUnsettled(): List<A2aTaskEntity> =
         rows.values.filter { it.state !in setOf("COMPLETED", "FAILED", "CANCELLED") }
 
+    override fun deleteByAgent(agentId: String): Int {
+        val before = rows.size
+        rows.entries.removeAll { it.value.agentId == agentId }
+        return before - rows.size
+    }
+
     override fun updateRemoteState(
         toolCallId: String,
         taskId: String?,

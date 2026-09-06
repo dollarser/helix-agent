@@ -367,7 +367,11 @@ class AttachmentE2eDeviceTest {
                     fixture.storage.turns
                         .listBySession(SESSION_ID)
                         .lastOrNull()
-                t != null && !TurnState.valueOf(t.state).isTerminal
+                t != null &&
+                    !TurnState.valueOf(t.state).isTerminal &&
+                    fixture.wire.callCount == 1 &&
+                    fixture.service.screen.value.activeTurn
+                        ?.streamingText == "半"
             }
 
             fixture.service.stop()

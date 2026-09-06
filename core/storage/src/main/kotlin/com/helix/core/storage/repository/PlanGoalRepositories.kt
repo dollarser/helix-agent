@@ -55,6 +55,10 @@ class PlanRepository(
         enumByName(state, PlanLifecycleState::class.java, "plan state")
         dao.updateState(id, state, evidenceRef)
     }
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "plan not found or still referenced: $id" }
+    }
 }
 
 /** Plan lifecycle states persisted in `plans.state` (doc 9.1: `state`). */
@@ -93,6 +97,12 @@ class GoalRepository(
     fun list(): List<GoalEntity> = dao.list()
 
     fun listByState(state: String): List<GoalEntity> = dao.listByState(state)
+
+    fun delete(id: String) {
+        require(dao.delete(id) == 1) { "goal not found: $id" }
+    }
+
+    fun countByPlan(planId: String): Int = dao.countByPlan(planId)
 
     /**
      * Whole-row goal update used by the recovery coordinator (HXA-015); [goal] carries the
@@ -144,6 +154,23 @@ class GoalRunRepository(
 
     /** Runs still open (no `endedAt`) — recovery closes them when their goal parks (HXA-015). */
     fun listOpenByGoal(goalId: String): List<GoalRunEntity> = dao.listOpenByGoal(goalId)
+
+    /** Replaces cumulative usage on an open run; callers pair this with the goal and audit in one transaction. */
+    fun checkpointUsage(
+        run: GoalRunEntity,
+        modelCalls: Int,
+        toolCalls: Int,
+        tokens: Long,
+        wakeDurationMillis: Long,
+    ): GoalRunEntity {
+        require(modelCalls >= run.modelCalls && toolCalls >= run.toolCalls) { "run call usage must be monotonic" }
+        require(tokens >= run.tokens) { "run token usage must be monotonic" }
+        require(wakeDurationMillis >= (run.wakeDurationMillis ?: 0L)) { "run duration must be monotonic" }
+        require(dao.checkpointUsage(run.id, modelCalls, toolCalls, tokens, wakeDurationMillis) == 1) {
+            "goal run is not open: ${run.id}"
+        }
+        return resolve(run.id)
+    }
 
     fun finish(
         run: GoalRunEntity,

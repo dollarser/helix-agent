@@ -49,10 +49,11 @@ class McpAppService(
         require(toolNames.isNotEmpty()) { "at least one MCP tool must be selected" }
         require(toolNames.all { it in available }) { "MCP tool selection contains an unknown tool" }
         val enabledConfig = storage.load(snapshot.serverId.value).copy(enabled = true)
-        val selected = toolNames.sorted().map { available.getValue(it) }
+        val selected = toolNames.sorted().map { McpToolSchemaAdapter.adapt(available.getValue(it)) }
         lateinit var bridge: McpDynamicToolBridge
         val baseCaller =
             runtime.caller(enabledConfig) { call ->
+                check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
                 pendingSummaries.remove(call.toolCallId)?.let { pending ->
                     recordSent(pending.sessionId, pending.summary)
                 }
@@ -62,7 +63,11 @@ class McpAppService(
                 config = enabledConfig,
                 identity = snapshot.identity,
                 metadata = selected,
-                caller = baseCaller,
+                caller =
+                    com.helix.extensions.mcp.McpToolCaller { call, name ->
+                        check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+                        baseCaller.call(call, name)
+                    },
             )
         storage.persistHandshake(snapshot)
         storage.setEnabledTools(snapshot.serverId.value, toolNames)
@@ -77,12 +82,22 @@ class McpAppService(
         }
     }
 
+    fun isActive(serverId: String): Boolean = activeBridges.containsKey(serverId)
+
     fun disable(serverId: String) {
+        activeBridges.remove(serverId)
         storage.setServerEnabled(serverId, false)
         storage.setEnabledTools(serverId, emptySet())
         registry.replaceMcpServer(serverId, emptyList())
         implementations.replaceMcpServer(serverId, emptyList())
-        activeBridges.remove(serverId)
+    }
+
+    fun delete(serverId: String) {
+        disable(serverId)
+        trackers.keys.removeIf { it.endsWith(":$serverId") }
+        pendingSummaries.clear()
+        sentBySession.clear()
+        storage.delete(serverId)
     }
 
     @Suppress("ReturnCount") // non-MCP and inactive-server exits are distinct fail-closed boundaries

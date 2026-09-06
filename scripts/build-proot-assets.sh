@@ -35,6 +35,12 @@ readonly lock_path="$assets_dir/runtime-lock.json"
 # Pinned base-image digest for alpine:3.22.5 (Docker Hub). Bumping the Alpine version in
 # runtime-lock.json requires updating this digest and re-running the asset gate.
 readonly ALPINE_IMAGE_DIGEST="sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce"
+# HXA-073 published the current rootfs lock from this repository snapshot. Exact package
+# versions are not sufficient to reproduce bytes after another mutable mirror advances, as the
+# official CDN demonstrated in the verification-gap run. Keep the transport origin explicit and
+# stable by default; callers may override it only for diagnosis, and Alpine signatures plus the
+# final raw-tar hash still fail closed.
+readonly CANONICAL_ALPINE_MIRROR="https://mirrors.aliyun.com/alpine"
 
 if [[ -z "${JAVA_HOME:-}" && -x /opt/homebrew/opt/openjdk@17/bin/java ]]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
@@ -148,11 +154,10 @@ for c in lock['components']:
 
     rm -rf "$workdir/rootfs-out"
     mkdir -p "$workdir/rootfs-out"
-    # ALPINE_MIRROR (optional) overrides the package index base URL for speed on slow
-    # networks; the official CDN is the default. Package integrity is independent of the
-    # mirror: every .apk is signature-verified by the image's alpine-keys, and the final
-    # archive hash (recorded in the lock) pins the exact bytes either way.
-    local mirror="${ALPINE_MIRROR:-}"
+    # The current content lock was built from the canonical mirror snapshot below. A caller may
+    # override ALPINE_MIRROR for diagnosis, but mutable repositories can serve different signed
+    # package bytes for the same versions; the final archive hash remains the authority.
+    local mirror="${ALPINE_MIRROR:-$CANONICAL_ALPINE_MIRROR}"
     local branch
     branch="$(apk_branch_version | cut -d. -f1,2)"
     # The built tar is STREAMED to the container's stdout and written by the host:

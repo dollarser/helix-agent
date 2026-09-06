@@ -96,6 +96,7 @@ val androidLibraries =
         ":extensions:a2a" to "com.helix.extensions.a2a",
         ":spikes:a2a-sdk" to "com.helix.spikes.a2a.sdk",
         ":spikes:a2a-minimal" to "com.helix.spikes.a2a.minimal",
+        ":spikes:bounded-orchestration" to "com.helix.spikes.orchestration",
         ":tools:android" to "com.helix.tools.android",
         ":tools:automation" to "com.helix.tools.automation",
         ":tools:browser" to "com.helix.tools.browser",
@@ -433,6 +434,11 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
+            if (path == ":spikes:bounded-orchestration") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
             if (path == ":extensions:a2a") {
                 // OkHttp's Android platform selector publishes an AAR requiring compileSdk 37.
                 // Helix is pinned to compileSdk 36 and uses only the JVM-compatible OkHttp API,
@@ -479,6 +485,17 @@ subprojects {
             }
 
             dependencies.add("testImplementation", jvmTestDependency)
+
+            if (path == ":testing") {
+                tasks.withType<Test>().configureEach {
+                    systemProperty(
+                        "helix.eval.dir",
+                        rootProject.layout.projectDirectory
+                            .dir("evals/m10")
+                            .asFile.absolutePath,
+                    )
+                }
+            }
 
             // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,
             // HXA-024 Anthropic Messages) encode request bodies and decode vendor

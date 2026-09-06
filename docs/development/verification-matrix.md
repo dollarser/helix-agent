@@ -218,6 +218,18 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 | HXA-122 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 稳定产品 applicationId、flavor/channel 命名、离线签名、同 ID 升级/回滚、companion 签名握手；不同 ID 不冒充原地升级 |
 | HXA-123 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | Google Play 与首批国内商店提交包/声明/视频/隐私材料；分别记录准备、提交、审核、拒绝或通过证据，不以构建成功声称上架 |
 
+### M13 Connector 可迁移能力包
+
+| 任务 | JVM/构建命令 | Android/外部验收 |
+| --- | --- | --- |
+| HXA-124 | `./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug --no-configuration-cache`；`python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py` | `./gradlew :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-124-connectors.sh <serial>`；API 29/36（显式选定设备；含跨进程两阶段恢复）；真实第三方服务需独立测试账号 |
+| HXA-125 | `python3 scripts/fetch-hxa-125-samples.py`；`HELIX_CONNECTOR_ACCEPTANCE_DIR="$PWD/app/build/outputs/hxa-125-samples" ./gradlew :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorExternalAcceptanceTest" --rerun --no-configuration-cache`；公开来源 hash、生产 reader 解析及真实 SDK 匿名只读调用；用户样本：`HELIX_CONNECTOR_SAMPLE_ZIP="<sample.zip>" ./gradlew :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorSuppliedArchiveTest" --rerun --no-configuration-cache` | `./gradlew :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-125-connectors.sh <dedicated-serial>`；API 29/36 匿名服务真实 App/Dispatcher 与跨进程恢复；用户参考包：`./scripts/accept-hxa-125-sample.sh <dedicated-serial> <sample.zip>`，断言原包 4 Skill / 2 endpoints 安装、原文保留及禁用默认；不等于 CLI 业务兼容；bearer 服务拒绝/厂商撤销仍需账号，不以本测试替代 |
+| HXA-126 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector OAuth 登录层需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-127 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；大 catalog 渐进工具发现需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-128 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；CLI/stdio Connector 可移植性 Spike需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-129 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 完整生命周期需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+| HXA-130 | planned；通用文档门禁 `./scripts/check-docs.sh`、`./scripts/verify-adr.sh`；专项命令在任务启动前依据实际模块补齐 | 未验收；Connector 市场设计与来源验证需对应真实服务、fixture 或设备证据；不得以 HXA-124 结果替代 |
+
 ## 4. 跨任务发布门禁
 
 ```bash

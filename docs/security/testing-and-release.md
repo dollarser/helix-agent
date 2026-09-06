@@ -345,6 +345,8 @@ PRoot 安装体积和活跃任务功耗必须实测后设预算，不能引用�
 - CLI Runtime 中的凭据存储、logout 和卸载删除方式明确。
 - 没有默认开启的第三方 analytics；如未来引入需单独同意和数据声明。
 
+普通会话移除只做 archive；永久删除必须是单独的用户动作，并级联该对象拥有的配置、执行和审计证据。共享 content hash 或 Workspace path 在仍被其他记录引用时不得物理删除。PRoot Runtime 继续使用 companion 内的用户确认删除流程，CLI Runtime 的凭据仍由其可见 logout/卸载流程拥有；主 App 不跨 UID 假装擦除成功。Root 删除动作只关闭当前 Root session，不等价于撤销系统 Root grant。
+
 无第三方 analytics 时，稳定性证据来自本地、脱敏且用户可预览的诊断记录：API 30+ 读取 `ApplicationExitInfo` 的 reason/timestamp，所有版本保留最后 Turn/correlation/state 与 heartbeat，异常处理器只写有界结构化摘要并继续交给系统 handler。不保存模型/通知/文件正文，不声称仅靠 App 内 watchdog 能完整捕获 ANR；24 小时验收同时保留 instrumentation、logcat/ANR 和退出原因证据。
 
 ## 12. 发布门禁

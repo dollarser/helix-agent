@@ -125,9 +125,9 @@ object AttachmentContext {
             } else {
                 "内容（全文内联）："
             }
+        append("$UNTRUSTED_MARKER\n")
         append("【附件 $index/$total · ${block.fileName}】\n")
         append("SHA-256（完整内容）：${block.sha256}\n")
-        append("$UNTRUSTED_MARKER\n")
         append("$bodyLabel\n")
         append(boundedPrefix(block.content))
         append("\n完整内容路径（工作区相对路径，可分块读取）：${block.relativePath}")
@@ -144,11 +144,11 @@ object AttachmentContext {
         total: Int,
         block: AttachmentContextBlock.Image,
     ) {
+        append("$UNTRUSTED_MARKER\n")
         append("【附件 $index/$total · ${block.fileName}】\n")
         append("类型：图片（${block.mediaType}）\n")
         append("归一化尺寸：${block.width}x${block.height} · ${block.sizeBytes} 字节\n")
         append("SHA-256（归一化内容）：${block.sha256}\n")
-        append("$UNTRUSTED_MARKER\n")
         append("图片像素作为本条消息的图片输入随文发送（端上已归一化并剥离 EXIF 元数据）。")
     }
 

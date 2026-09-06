@@ -80,6 +80,18 @@ class RootAccessController internal constructor(
     @Suppress("UNUSED_PARAMETER")
     fun onProfileChanged(isAdvanced: Boolean): RootAccessStatus = status()
 
+    /**
+     * A Root manager can revoke future grants without killing an already-open libsu shell or
+     * RootService. There is no manager-neutral passive revocation signal, so retaining either
+     * across an app background transition would leave stale authority usable. Fail closed when
+     * an established grant leaves the foreground; an in-flight manager prompt remains intact.
+     */
+    @Synchronized
+    fun onAppBackgrounded(): RootAccessStatus {
+        if (grant == RootGrantState.GRANTED) markLost()
+        return RootAccessStatus(grant, service)
+    }
+
     @Synchronized
     fun requestRoot(): RootRequestStatus =
         when (grant) {

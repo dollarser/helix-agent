@@ -171,7 +171,10 @@ class RecoveryCoordinatorApp(
                     run,
                     OUTCOME_INTERRUPTED,
                     endedAt,
-                    (endedAt - run.startedAt).coerceAtLeast(0L),
+                    // Offline wall time after the last durable checkpoint is not execution
+                    // usage. Keeping the persisted monotonic counter prevents a long offline
+                    // interval or wall-clock change from minting/consuming Goal budget.
+                    run.wakeDurationMillis ?: 0L,
                     run.modelCalls,
                     run.toolCalls,
                     run.tokens,

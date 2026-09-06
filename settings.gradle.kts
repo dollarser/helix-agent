@@ -54,6 +54,7 @@ include(
     ":runtime:cli-app",
     ":spikes:a2a-sdk",
     ":spikes:a2a-minimal",
+    ":spikes:bounded-orchestration",
     ":tools:framework",
     ":tools:android",
     ":tools:automation",

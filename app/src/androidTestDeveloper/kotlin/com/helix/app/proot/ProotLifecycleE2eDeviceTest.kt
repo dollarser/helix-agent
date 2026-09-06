@@ -55,6 +55,12 @@ class ProotLifecycleE2eDeviceTest {
     @Before
     fun warm() {
         org.junit.Assume.assumeTrue(
+            "host-bracketed lifecycle class: run via scripts/accept-hxa-086-lifecycle.sh",
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString("hxa086_host_phase") == "1",
+        )
+        org.junit.Assume.assumeTrue(
             "companion not installed — install runtime/proot-app/.../proot-app-debug.apk",
             companionInstalled(context),
         )
@@ -102,9 +108,8 @@ class ProotLifecycleE2eDeviceTest {
                     )
                     put("timeoutSeconds", JsonPrimitive(60))
                 }
-            val completed =
-                LinuxRunTool.executor(productionExecutor(store)).execute(linuxCall("tc-lc-cold-", args))
-                    as ToolExecutorResult.Completed
+            val result = LinuxRunTool.executor(productionExecutor(store)).execute(linuxCall("tc-lc-cold-", args))
+            val completed = result as? ToolExecutorResult.Completed ?: error("cold-bind job failed: $result")
             assertEquals(
                 "SUCCEEDED",
                 completed.output.jsonObject["state"]!!

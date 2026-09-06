@@ -25,6 +25,10 @@ internal class ModelStreamState(
 
     var usageJson: String? = null
         private set
+    var inputTokens: Long? = null
+        private set
+    var outputTokens: Long? = null
+        private set
 
     var receiving: Boolean = false
         private set
@@ -70,6 +74,8 @@ internal class ModelStreamState(
             }
 
             is ModelEvent.Usage -> {
+                inputTokens = event.inputTokens
+                outputTokens = event.outputTokens
                 usageJson = usageToJson(event)
             }
 

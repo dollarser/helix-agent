@@ -25,6 +25,11 @@ enum class A2aPersistedTaskState {
 class A2aTaskRepository(
     private val dao: A2aTaskDao,
 ) {
+    fun deleteByAgent(agentId: String): Int {
+        require(agentId.isNotBlank()) { "agentId must not be blank" }
+        return dao.deleteByAgent(agentId)
+    }
+
     fun begin(
         toolCallId: String,
         agentId: String,

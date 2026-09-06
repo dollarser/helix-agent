@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "dataset": "fixed-evals.tsv",
+  "datasetSha256": "REQUIRED_SHA256",
+  "provider": "REQUIRED_PROVIDER_ID",
+  "model": "REQUIRED_MODEL_ID",
+  "providerReportedVersion": "UNAVAILABLE_OR_VERSION",
+  "protocol": "OPENAI_RESPONSES_OR_OPENAI_CHAT_COMPLETIONS_OR_ANTHROPIC_MESSAGES",
+  "temperature": 0,
+  "promptSha256": "REQUIRED_PER_CASE_SHA256",
+  "toolVersions": {"REQUIRED_TOOL_NAME": 1},
+  "device": {"model": "REQUIRED", "api": 0, "abi": "REQUIRED", "pageSizeBytes": 0},
+  "dateUtc": "YYYY-MM-DD",
+  "gitCommit": "REQUIRED_FULL_COMMIT",
+  "result": "PASS_OR_FAIL",
+  "evidence": "REQUIRED_RELATIVE_PATH"
+}
