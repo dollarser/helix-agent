@@ -9,7 +9,7 @@ Superseded by: none
 
 ## Context
 
-官方 CLI/SDK Android/bionic 打包路线已经停止，但 HXA-118/119/124～128 实现的第三方订阅协议认证
+官方 CLI/SDK Android/bionic 打包路线已经停止，但 HXA-118、HXA-119、HXA-137～141 实现的第三方订阅协议认证
 并不运行官方 CLI：OAuth grant 和模型请求位于独立 Runtime APK/UID。ADR-0024 错误地把缺少供应商公开
 授权提升为所有 Provider 注册的硬门禁，并停止了 developer Provider 路线。
 

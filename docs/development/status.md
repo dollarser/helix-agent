@@ -97,6 +97,8 @@
 
 ## In progress
 
+- M11A / HXA-144：Claude Provider 的平台路由设计审查；[ADR-0027](../adr/0027-subscription-provider-job-routing.md) 为 proposed，等待所有者接受具体封套兼容方案。生产仍为 Codex-only，本任务尚未实现或验收；与下述 M13 并行工作区分开。
+
 - M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实样本及独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task

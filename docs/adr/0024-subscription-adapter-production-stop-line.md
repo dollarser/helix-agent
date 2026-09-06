@@ -14,7 +14,7 @@ Android/bionic 生产打包路线。[ADR-0021](0021-third-party-subscription-pro
 标注非官方的第三方订阅协议 adapter 在独立 Runtime UID 中获得并持有自己的 OAuth grant，但把完整
 Dispatcher/Policy/Approval/Verification/Audit 与 jobId 对账列作未来生产接入工作。
 
-HXA-118/119/124～128 已证明部分登录生命周期、Codex 真实极小订阅调用和 Runtime 私有 journal；这些
+HXA-118、HXA-119、HXA-137～141 已证明部分登录生命周期、Codex 真实极小订阅调用和 Runtime 私有 journal；这些
 是个人侧载可行性证据，不是服务商授权。当前没有 OpenAI、Anthropic、xAI 或 GitHub/Microsoft 对 Helix
 复用对应消费订阅 OAuth identity、私有/内部 endpoint 并向用户分发该能力的可核验授权。继续实现跨 APK
 模型 Job 会扩大对未公开协议的产品依赖，并容易把“技术上成功”误报为“可发布后端”。

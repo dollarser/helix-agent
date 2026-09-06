@@ -734,6 +734,14 @@ Codex Subscription 受管理 Provider 行增加用户触发的“管理订阅登
 发送固定小型文本，验证真实 Codex 订阅返回 `HELIX_OK`，并持久化 `COMPLETED` Turn 与单一 model-call。
 记录设备/API/ABI、模型、prompt hash、结果和 Runtime 空闲解绑，不记录 token、account id 或用户账号。
 
+### HXA-144 Claude 订阅 Provider 与显式平台 Job 路由
+
+状态：设计审查中，生产实现未开始。前置为 HXA-136 与 proposed [ADR-0027](../adr/0027-subscription-provider-job-routing.md) 的所有者接受。复用共享模型请求、签名 Binder/PFD、job journal、取消/断连对账和普通 Provider/ChatService；本 HXA 只实现 Claude 路由，Grok/Copilot 保留后续独立任务。允许 `runtime:cli-client`、`runtime:cli-app`、`app` 的 developer Provider/测试与必要 consumer seam、既有 `provider:anthropic` 编解码复用及相关文档；不改 Room schema、Policy/Approval 或其他执行器。
+
+Claude 必须具备受管理 Provider 注册、平台专用凭据/刷新、文本请求与统一事件、稳定脱敏错误、取消/断连恢复及固定账号入口。Claude/Grok 无真实付费账号时，明确记录真实模型调用未核实；不得把 fixture 成功当成实际订阅可用。实施前查询当日官方协议文档与参考插件元数据，记录准确链接、访问日期、许可证和任何未确认字段。
+
+验证：`./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug --no-configuration-cache`；复用边界脚本与通用门禁。新平台专项设备测试、R8/APK 命令在生产实现开始前补齐为真实存在的任务，不以此设计审查作为完成记录。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计
