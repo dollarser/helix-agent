@@ -376,7 +376,7 @@ PRoot 执行器、ModelProvider 或远程 Worker：
 - 凭据只能由显式第三方 adapter 在用户主动 OAuth 后保存和刷新；主 App 只接收 redacted 登录状态，
   不接收 token、account id 或模型事件。
 - 当前没有“登录后的普通 CLI 会话”或主 App 模型调用。只有用户主动打开 Runtime 可见界面执行登录、
-  退出和固定 smoke；进程回收不删除 Runtime 私有凭据。HXA-128 journal 仅服务固定 smoke，不构成跨 APK
+  退出和固定 smoke；进程回收不删除 Runtime 私有凭据。HXA-141 journal 仅服务固定 smoke，不构成跨 APK
   Job。官方 CLI/SDK Android/bionic 打包路线已停止；developer Provider 可按 ADR-0025 继续实现。
 - 主 App 不读取 Runtime 凭据文件，不接收或复制 Cookie/token；第三方 adapter 的未公开服务接口仍受 ADR-0021 的授权与侧载限制。
 - 固定 smoke 不接受 Context Builder、用户 prompt、Workspace 或 Tool 输入；Runtime 没有 All-files、

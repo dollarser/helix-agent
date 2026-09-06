@@ -568,14 +568,14 @@ identity 的公开授权，只能侧载验证，不能进入商店 artifact 或�
 
 ### HXA-119 GitHub Copilot Free 第三方侧载 Device Code 登录生命周期
 
-依 [ADR-0023](../adr/0023-copilot-third-party-device-flow-identity.md) 固定复用参考插件 client id，
+依 [ADR-0026](../adr/0026-copilot-third-party-device-flow-identity.md) 固定复用参考插件 client id，
 仅作为明确标注非官方的 developer/Advanced 个人侧载实验；不得宣称该身份注册者、GitHub 或
 Microsoft 授权 Helix。实现 device code 请求、用户码/verification URL、轮询 interval/slow_down、
 取消/超时/拒绝、Copilot entitlement/token exchange，并将 GitHub/Copilot token 仅保存到 CLI
 Runtime vault。免费账号可验证授权及 entitlement 拒绝；Copilot Free 账号可验证登录资格。
 本 HXA 不调用模型、不注册 Provider/Tool/Job，商店/官方发行仍要求项目自有身份与服务商授权。
 
-### HXA-124 Claude Free 身份登录与 Claude Code 订阅资格门禁
+### HXA-137 Claude Free 身份登录与 Claude Code 订阅资格门禁
 
 复用 accepted [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 的个人侧载边界和
 参考 adapter 已固定的 Claude Code OAuth identity，仅在 CLI Runtime 独立 UID 中实现可见浏览器
@@ -588,9 +588,9 @@ fail closed、不得保存 token 或报告已登录。
 Claude Code/browser credential。本 HXA 不调用 Messages/model endpoint，不注册 Provider/Tool/Job；
 OAuth identity、profile endpoint 和消费订阅复用均缺少 Anthropic 对 Helix 的公开授权，只能用于
 developer/Advanced 个人侧载实验，不能宣称官方支持或进入商店 artifact。HXA-120～123 已分配给
-M12，因此本任务使用下一个空闲编号 HXA-124。
+M12，因此本任务使用下一个空闲编号 HXA-137。
 
-### HXA-125 Grok Free 官方 Device Code 登录与套餐门禁
+### HXA-138 Grok Free 官方 Device Code 登录与套餐门禁
 
 依据官方 `xai-org/grok-build` 当前公开的 RFC 8628 Device Code 流，在 CLI Runtime 独立 UID
 中固定 issuer、公开 Grok Build client id、最小核心 scope，实现 code/verification URL、
@@ -603,7 +603,7 @@ M12，因此本任务使用下一个空闲编号 HXA-124。
 不注册 Provider/Tool/Job。公开 client id 不等于 xAI 授权 Helix 使用，只允许 ADR-0021 下的
 developer/Advanced 个人侧载实验；商店与正式集成仍需项目自有或服务商明确授权。
 
-### HXA-126 Device Code 可用性、诊断与 Codex 官方兼容流
+### HXA-139 Device Code 可用性、诊断与 Codex 官方兼容流
 
 在 accepted ADR-0021 的个人侧载边界内补齐 Device Code UX：Grok code 与 verification URL 可分别
 复制，Android 13+ 将剪贴板内容标记为敏感；Grok 的拒绝、过期、未知套餐、不合格套餐及协议错误
@@ -617,7 +617,7 @@ code 与 URL 分别可复制；成功 token 仍只写 Runtime UID Keystore vault
 app-server，不调用模型 endpoint，不注册 Provider/Tool/Job，也不把官方协议存在误报为 OpenAI 授权
 Helix 分发。
 
-### HXA-127 Codex 订阅最小模型 Smoke 与实验边界收口
+### HXA-140 Codex 订阅最小模型 Smoke 与实验边界收口
 
 仅在 developer/Advanced 的 CLI Runtime 可见界面增加用户主动触发的 Codex 订阅模型可行性测试：
 凭据由 Runtime UID 从 Keystore vault 读取，先查询实时模型目录，再以固定无敏感提示、无工具、
@@ -630,9 +630,9 @@ token、account id 或服务端原始错误返回主 App；401 只允许一次 r
 官方 SDK/CLI Android/bionic 打包路线按已有 Spike 证据以低可行性停止。缺少供应商对 Helix 第三方
 OAuth identity/消费订阅接口的公开分发授权时，此能力只能存在于 developer/Advanced 个人侧载版。
 
-### HXA-128 Runtime 持久 Codex 模型 Job 内核
+### HXA-141 Runtime 持久 Codex 模型 Job 内核
 
-把 HXA-127 的可见模型 smoke 纳入 CLI Runtime 自有的持久 jobId journal：提交前原子写入，状态严格
+把 HXA-140 的可见模型 smoke 纳入 CLI Runtime 自有的持久 jobId journal：提交前原子写入，状态严格
 经过 `PENDING`/`RUNNING` 到封闭终态；同 jobId + 同 request hash 只返回已有记录，不执行第二次，
 hash 不同则拒绝。取消必须形成 `CANCELLED` 且迟到成功不得覆盖；Runtime 重建时所有非终态记录
 一律停泊为 `INTERRUPTED`，绝不自动重放。journal 限 128 条/1 MiB，满额拒绝而不删除未对账证据。
@@ -640,11 +640,11 @@ hash 不同则拒绝。取消必须形成 `CANCELLED` 且迟到成功不得覆�
 终态只保存模型 ID 和固定响应的 SHA-256，不保存 prompt、响应正文、token、account id 或原始错误。
 本任务继续只由 Runtime 可见 UI 主动触发，不新增跨 APK transaction，不注册 Provider/Tool，也不进入
 Chat/Act/Goal。任务完成时曾把 Binder/PFD、主 App client、统一 ModelEvent 和 Dispatcher/Audit 保留为
-后续候选；HXA-129/ADR-0024 已据当前授权证据停止该候选，不能再按此句启动实现。
+后续候选；HXA-142/ADR-0024 已据当前授权证据停止该候选，不能再按此句启动实现。
 
-### HXA-129 订阅协议实验停止线与注册门禁
+### HXA-142 订阅协议实验停止线与注册门禁
 
-依 accepted [ADR-0024](../adr/0024-subscription-adapter-production-stop-line.md)，正式停止官方 CLI/SDK Android/bionic 打包路线，也不把 HXA-127/128 的第三方订阅协议 smoke/私有
+依 accepted [ADR-0024](../adr/0024-subscription-adapter-production-stop-line.md)，正式停止官方 CLI/SDK Android/bionic 打包路线，也不把 HXA-140/141 的第三方订阅协议 smoke/私有
 journal 延伸成跨 APK 模型 Provider。`CliAgentBackendEligibility` 除 Android 执行底座、内置工具控制和
 jobId 对账外，必须要求供应商对 Helix 分发及消费订阅接口的可核验授权；任一缺失均不得注册
 Chat/Act/Goal。协议可调用、公开 client id、真实订阅成功和 Runtime 私有 Job 都不能替代该授权。
@@ -654,9 +654,9 @@ Chat/Act/Goal。协议可调用、公开 client id、真实订阅成功和 Runti
 模型 transaction、任意 prompt、Provider/Tool、主 App token 通道或商店 artifact。Claude/Grok 付费
 资格继续标记未核实；未来只有供应商公开支持或项目所有者基于新证据另立 HXA/ADR 才能重开生产接入。
 
-### HXA-130 Developer 订阅 Provider 渠道门禁修正
+### HXA-143 Developer 订阅 Provider 渠道门禁修正
 
-依 accepted [ADR-0025](../adr/0025-developer-subscription-provider-channel.md) 取代 HXA-129/ADR-0024 的
+依 accepted [ADR-0025](../adr/0025-developer-subscription-provider-channel.md) 取代 HXA-142/ADR-0024 的
 全渠道停止结论：废弃的仅是官方 CLI 认证/执行路线；已跑通的第三方订阅认证允许进入
 developer/Advanced Provider，供应商公开授权不是个人侧载渠道前置，但 consumer/store 仍必须
 fail closed。`CliAgentBackendEligibility` 必须显式接收渠道，不能靠调用方遗漏授权字段来绕过商店门禁。
@@ -687,13 +687,13 @@ Service binding；另验证启动主 App 不会被动启动 force-stopped Runtim
 
 ### HXA-133 固定 Codex 跨 APK 持久 Job 控制面
 
-把 HXA-128 Runtime 私有固定 smoke Job 通过 HXA-131/132 的共享签名 Binder 暴露为有界
+把 HXA-141 Runtime 私有固定 smoke Job 通过 HXA-131/132 的共享签名 Binder 暴露为有界
 submit/query/cancel/reconcile 控制面。首次提交和轮询在同一前台 cold binding 内完成，终态后立即解绑；
 Binder death 后只允许按原 jobId 冷绑定 query/reconcile，不自动重新 submit。相同 jobId + 固定 request hash
 返回原记录，不同 hash 拒绝；未知 jobId、journal 满额、busy、非法字段均返回封闭状态。每个事务在 Runtime
 侧重新验证 caller。
 
-本任务仍只执行 HXA-127 的固定、无工具、`store=false` smoke，不传用户 prompt 或响应正文；跨 APK只返回
+本任务仍只执行 HXA-140 的固定、无工具、`store=false` smoke，不传用户 prompt 或响应正文；跨 APK只返回
 状态、模型 ID 和输出 hash，不含 token、account id 或原始错误。API 29/36 arm64-v8a 必须证明失败终态
 持久化、重复提交不重跑、未知查询/取消、debug Binder death 后原 jobId 对账和空闲解绑。任意模型请求、
 PFD/`ModelEvent` 与 Provider 注册属于后续独立 HXA。

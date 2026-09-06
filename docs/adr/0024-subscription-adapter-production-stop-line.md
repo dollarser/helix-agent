@@ -2,7 +2,7 @@
 
 Status: superseded
 Date: 2026-09-06
-HXA: HXA-129
+HXA: HXA-142
 Deciders: Project owner（明确指出 CLI 路线已废弃，并要求按当前证据完成剩余收口）
 Supersedes: none
 Superseded by: [ADR-0025](0025-developer-subscription-provider-channel.md)
@@ -41,7 +41,7 @@ Runtime 私有 vault；产品语义统一为 developer/Advanced 个人侧载的�
    面和账号/协议风险，未选择。
 2. 删除整个实验 APK 和 vault：边界最简单，但会丢失用户已完成的个人实验登录，也抹去可复现研究入口；
    当前没有必要执行破坏性迁移，未选择。
-3. 保留“待实现 Provider”的模糊状态：改动最少，但会持续把 HXA-128 journal 误解为产品接线前置，未选择。
+3. 保留“待实现 Provider”的模糊状态：改动最少，但会持续把 HXA-141 journal 误解为产品接线前置，未选择。
 4. 使用项目自有 API key Provider：仓库已有受支持的 Provider 路线，不消费 ChatGPT/Claude 等消费者订阅；
    这是当前正式模型接入方式，但不是本实验的替代实现。
 
@@ -49,7 +49,7 @@ Runtime 私有 vault；产品语义统一为 developer/Advanced 个人侧载的�
 
 - M11A 以有界 developer 实验收口，而不是以订阅 Provider 交付收口。
 - `agentBackendState` 必须保持 `NOT_REGISTERED`；consumer artifact 不依赖 `runtime:cli-client`。
-- HXA-128 journal 继续仅为固定 smoke 提供取消、恢复和不重放证据，不新增跨 APK transaction。
+- HXA-141 journal 继续仅为固定 smoke 提供取消、恢复和不重放证据，不新增跨 APK transaction。
 - 历史 CLI 命名仍存在于 module/applicationId，可能造成理解成本；规范和 UI 必须避免宣称官方 CLI。
 - Claude/Grok 付费资格未核实不再阻塞收口，也不能被写成正向支持。
 
@@ -60,7 +60,7 @@ Runtime 私有 vault；产品语义统一为 developer/Advanced 个人侧载的�
 - developer App 测试证明当前 evidence 不可注册，Provider protocol/catalog 没有 CLI template。
 - consumer dependency graph 不含 `runtime:cli-client`。
 - `check-cli-runtime-boundary.sh` 证明 CLI Runtime wire 没有模型 Job transaction，且固定 smoke 仍无任意 prompt。
-- HXA-127/128 的真实 Codex smoke 和 journal 证据只支持个人实验可行性，不被提升为授权证据。
+- HXA-140/141 的真实 Codex smoke 和 journal 证据只支持个人实验可行性，不被提升为授权证据。
 
 ## Reconsider when
 
@@ -74,4 +74,4 @@ Runtime 私有 vault；产品语义统一为 developer/Advanced 个人侧载的�
 - [ADR-0020 CLI Runtime 执行底座候选](0020-cli-runtime-execution-base.md)
 - [ADR-0021 第三方订阅协议适配器候选边界](0021-third-party-subscription-protocol-adapter.md)
 - [Provider 与订阅账号边界](../architecture/provider-mcp-skills-modes.md)
-- [HXA-129 完成记录](../completion-records/HXA-129.md)
+- [HXA-142 完成记录](../completion-records/HXA-142.md)

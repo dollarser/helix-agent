@@ -1,4 +1,4 @@
-# ADR-0023: Copilot 第三方 Device Flow 身份侧载例外
+# ADR-0026: Copilot 第三方 Device Flow 身份侧载例外
 
 Status: accepted
 Date: 2026-09-05

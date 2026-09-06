@@ -57,7 +57,7 @@ jobId 查询、不明确结果停泊和绝不重放。
 - GitHub 已公开 Copilot SDK 的 GitHub OAuth App 认证路线，但 HXA-117 证明当前官方 runtime
   只发布 glibc/musl arm64 构件，不能直接在 Android/bionic 加载；当前打包路线依
   [ADR-0022](0022-github-copilot-sdk-android-base.md) 停止。项目所有者随后在
-  [ADR-0023](0023-copilot-third-party-device-flow-identity.md) 接受仅限个人侧载实验的固定 Copilot
+  [ADR-0026](0026-copilot-third-party-device-flow-identity.md) 接受仅限个人侧载实验的固定 Copilot
   client identity/internal token endpoint 例外；商店与官方发行限制不变。
 - Grok consumer subscription 与 xAI developer API 是不同边界；缺少第三方消费订阅集成授权时，
   插件的 Grok CLI identity/proxy 路线不得升级为商店能力。
@@ -89,7 +89,7 @@ arm64-v8a 设备测试。服务商对第三方消费订阅客户端的可核验�
 - [Companion Runtime 生命周期](0007-companion-runtime-lifecycle.md)
 - [CLI Runtime 执行底座候选](0020-cli-runtime-execution-base.md)
 - [GitHub Copilot SDK Android 底座](0022-github-copilot-sdk-android-base.md)
-- [Copilot 第三方 Device Flow 身份侧载例外](0023-copilot-third-party-device-flow-identity.md)
+- [Copilot 第三方 Device Flow 身份侧载例外](0026-copilot-third-party-device-flow-identity.md)
 - [dsh-plugin-subscriptions](https://github.com/V1ki/dsh-plugin-subscriptions)
 - [OpenAI Codex authentication](https://help.openai.com/en/articles/11381614-api-codex-cli-and-sign-in-with-chatgpt)
 - [OpenAI Terms of Use](https://openai.com/policies/terms-of-use/)

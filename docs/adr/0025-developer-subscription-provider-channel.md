@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-06
-HXA: HXA-130
+HXA: HXA-143
 Deciders: Project owner（明确接受已跑通的认证方式进入 developer Provider，且无需供应商授权）
 Supersedes: [ADR-0024](0024-subscription-adapter-production-stop-line.md)
 Superseded by: none
@@ -43,7 +43,7 @@ APK/UID；主 App 不接收 token。保留独立 APK 不应要求用户日常打
 - developer/Advanced 可以实现 Codex 等订阅 Provider；这不表示官方支持或商店可发布。
 - consumer 继续不依赖订阅 adapter client，也不展示这些 Provider。
 - 独立 Runtime APK 仍是安装依赖，但对话选择、模型事件和日常使用全部整合在 Helix UI。
-- 当前 HXA-130 只修正门禁；跨 APK模型协议与实际 Provider 注册必须由后续 HXA 独立实现并验收。
+- 当前 HXA-143 只修正门禁；跨 APK模型协议与实际 Provider 注册必须由后续 HXA 独立实现并验收。
 
 ## Verification
 

@@ -35,7 +35,7 @@ internal sealed interface CopilotDevicePoll {
 }
 
 internal object CopilotDeviceProtocol {
-    // Public identifier accepted by ADR-0023 for personal sideload experiments only.
+    // Public identifier accepted by ADR-0026 for personal sideload experiments only.
     const val CLIENT_ID = "Iv1.b507a08c87ecfe98"
     const val DEVICE_CODE_URL = "https://github.com/login/device/code"
     const val DEVICE_TOKEN_URL = "https://github.com/login/oauth/access_token"
