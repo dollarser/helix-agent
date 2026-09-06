@@ -47,6 +47,7 @@ dependencies {
     implementation(project(":provider:api"))
     implementation(project(":provider:openai-responses"))
     implementation(project(":provider:anthropic"))
+    implementation(project(":provider:openai-chat"))
     testImplementation(libs.junit4)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.wire)

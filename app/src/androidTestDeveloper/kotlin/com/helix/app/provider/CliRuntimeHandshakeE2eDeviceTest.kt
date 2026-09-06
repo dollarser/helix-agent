@@ -34,6 +34,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
 
     @Test fun claudeRunningCancelAndDeathNeverReplay() = verifyRunning(com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
     @Test fun grokRunningCancelAndDeathNeverReplay() = verifyRunning(com.helix.runtime.cli.client.CliModelProvider.GROK)
+    @Test fun copilotRunningCancelAndDeathNeverReplay() = verifyRunning(com.helix.runtime.cli.client.CliModelProvider.COPILOT)
     private fun verifyRunning(platform: com.helix.runtime.cli.client.CliModelProvider) {
         for (kill in listOf(false, true)) {
             val client = CliModelJobClient(CliRuntimeSupervisor(context))
@@ -104,6 +105,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
 
     @Test fun claudePayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
     @Test fun grokPayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.GROK)
+    @Test fun copilotPayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.COPILOT)
 
     private fun verifyPayload(platform: com.helix.runtime.cli.client.CliModelProvider) {
         val client = CliModelJobClient(CliRuntimeSupervisor(context))

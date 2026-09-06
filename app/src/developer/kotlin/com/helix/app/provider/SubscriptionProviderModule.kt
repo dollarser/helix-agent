@@ -22,6 +22,7 @@ internal object SubscriptionProviderModule {
     const val CODEX_ID = "subscription-codex"
     const val CLAUDE_ID = "subscription-claude"
     const val GROK_ID = "subscription-grok"
+    const val COPILOT_ID = "subscription-copilot"
     private val capabilities = ProviderCapabilities(
         streaming = true,
         toolCalls = false,
@@ -34,6 +35,17 @@ internal object SubscriptionProviderModule {
     )
 
     fun ensureRegistered(storage: HelixStorage) {
+        val existingCopilot = runCatching { storage.providerConfigs.resolve(COPILOT_ID) }.getOrNull()
+        if (existingCopilot == null || existingCopilot.model == "auto") {
+            val spec = ProviderConfigSpec(
+                id = COPILOT_ID, displayName = "Copilot Subscription (experimental)",
+                protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS, endpoint = "https://api.githubcopilot.com", model = "claude-haiku-4.5",
+                headersJson = "{}", secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
+            )
+            // Replace only the invalid pre-release default; preserve every other configured model.
+            if (existingCopilot == null) storage.providerConfigs.save(spec) else storage.providerConfigs.overwrite(spec)
+        }
         if (runCatching { storage.providerConfigs.resolve(GROK_ID) }.isFailure) {
             storage.providerConfigs.save(ProviderConfigSpec(
                 id = GROK_ID, displayName = "Grok Subscription (experimental)",
@@ -74,10 +86,11 @@ internal object SubscriptionProviderModule {
             CODEX_ID -> CodexSubscriptionProvider(context, config)
             CLAUDE_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.CLAUDE)
             GROK_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.GROK)
+            COPILOT_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.COPILOT)
             else -> null
         }
 
-    fun isManaged(providerId: String): Boolean = providerId in setOf(CODEX_ID, CLAUDE_ID, GROK_ID)
+    fun isManaged(providerId: String): Boolean = providerId in setOf(CODEX_ID, CLAUDE_ID, GROK_ID, COPILOT_ID)
 
     suspend fun probe(config: ProviderConfig, provider: ModelProvider): ProbeOutcome? {
         if (!isManaged(config.id)) return null
@@ -93,6 +106,7 @@ internal object SubscriptionProviderModule {
                 CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY
                 CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"
                 GROK_ID -> "com.helix.runtime.cli.app.GrokLoginActivity"
+                COPILOT_ID -> "com.helix.runtime.cli.app.CopilotLoginActivity"
                 else -> error("unsupported subscription provider")
             }),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

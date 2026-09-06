@@ -4,7 +4,6 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import com.helix.core.model.ModelEvent
-import com.helix.core.model.ModelErrorCode
 import com.helix.runtime.cli.client.CliModelProvider
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicReference
@@ -14,6 +13,7 @@ class CliRuntimeService : Service() {
     private lateinit var oauthTransport: OkHttpCodexOAuthTransport
     private lateinit var claudeTransport: OkHttpClaudeOAuthTransport
     private lateinit var grokTransport: OkHttpGrokDeviceTransport
+    private lateinit var copilotTransport: OkHttpCopilotDeviceTransport
     private val activeModel = AtomicReference<Closeable?>()
 
     override fun onCreate() {
@@ -25,14 +25,13 @@ class CliRuntimeService : Service() {
         val claudeOauth = ClaudeLoginController(vault, claudeTransport)
         grokTransport = OkHttpGrokDeviceTransport()
         val grokOauth = GrokLoginController(vault, grokTransport)
+        copilotTransport = OkHttpCopilotDeviceTransport()
+        val copilotOauth = CopilotLoginController(vault, copilotTransport)
         runner = CodexPayloadJobRunner(
             store = CodexPayloadJobStore(filesDir),
             execute = { bytes ->
                 val envelope = com.helix.runtime.cli.client.CliModelRequestCodec.decodeEnvelope(bytes)
                 val request = envelope.request
-                if (envelope.provider !in setOf(CliModelProvider.CODEX, CliModelProvider.CLAUDE, CliModelProvider.GROK)) {
-                    return@CodexPayloadJobRunner CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)))
-                }
                 if (BuildConfig.DEBUG && request.model == "helix-fixture") {
                     return@CodexPayloadJobRunner CodexModelExecution(
                         request.model,
@@ -62,6 +61,10 @@ class CliRuntimeService : Service() {
                     val model = GrokSubscriptionModel(vault, grokOauth::refresh).also(activeModel::set)
                     return@CodexPayloadJobRunner try { model.use { it.run(request) } } finally { activeModel.compareAndSet(model, null) }
                 }
+                if (envelope.provider == CliModelProvider.COPILOT) {
+                    val model = CopilotSubscriptionModel(vault, copilotOauth::refresh).also(activeModel::set)
+                    return@CodexPayloadJobRunner try { model.use { it.run(request) } } finally { activeModel.compareAndSet(model, null) }
+                }
                 val model = CodexSubscriptionModel(vault, oauth).also(activeModel::set)
                 try {
                     model.use { it.run(request) }
@@ -87,6 +90,7 @@ class CliRuntimeService : Service() {
         oauthTransport.close()
         claudeTransport.close()
         grokTransport.close()
+        copilotTransport.close()
         super.onDestroy()
     }
 }

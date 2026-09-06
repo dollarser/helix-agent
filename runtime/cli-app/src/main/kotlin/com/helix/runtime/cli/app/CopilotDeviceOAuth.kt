@@ -276,5 +276,11 @@ internal class CopilotLoginController(
         throw requireNotNull(lastFailure)
     }
 
+    fun refresh() {
+        val previous = vault.load(CliSubscriptionProvider.COPILOT)
+        val renewed = transport.exchange(previous.refreshToken)
+        vault.save(CliSubscriptionProvider.COPILOT, renewed)
+    }
+
     fun logout() = vault.logout(CliSubscriptionProvider.COPILOT)
 }

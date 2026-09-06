@@ -97,4 +97,6 @@
     <string name="grok_network_error">xAI OAuth network request failed; no credentials were saved.</string>
     <string name="grok_protocol_error">xAI OAuth response failed strict protocol validation; no credentials were saved.</string>
     <string name="grok_browser_error">Unable to open the verification page; use the URL shown in this screen.</string>
+    <string name="copilot_copy_code">Copy Copilot device code</string>
+    <string name="copilot_copy_url">Copy Copilot verification URL</string>
 </resources>

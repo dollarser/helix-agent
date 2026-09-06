@@ -18,12 +18,15 @@ class CopilotLoginActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var login: Button
     private lateinit var openBrowser: Button
+    private lateinit var copyCode: Button
+    private lateinit var copyUrl: Button
     private lateinit var cancel: Button
     private lateinit var logout: Button
     private val worker = Executors.newSingleThreadExecutor()
 
     @Volatile private var cancellation: CopilotLoginCancellation? = null
     private var verificationUri: String? = null
+    private var userCode: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +67,7 @@ class CopilotLoginActivity : Activity() {
             status =
                 TextView(context).also {
                     it.setPadding(0, padding, 0, padding)
+                    it.setTextIsSelectable(true)
                     addView(it)
                 }
             login =
@@ -72,6 +76,20 @@ class CopilotLoginActivity : Activity() {
                     it.setOnClickListener { startLogin() }
                     addView(it)
                 }
+            copyCode = Button(context).also {
+                it.setText(R.string.copilot_copy_code)
+                it.setOnClickListener {
+                    userCode?.let { code -> DeviceCodeClipboard.copy(this@CopilotLoginActivity, getString(R.string.copilot_copy_code), code) }
+                }
+                addView(it)
+            }
+            copyUrl = Button(context).also {
+                it.setText(R.string.copilot_copy_url)
+                it.setOnClickListener {
+                    verificationUri?.let { url -> DeviceCodeClipboard.copy(this@CopilotLoginActivity, getString(R.string.copilot_copy_url), url) }
+                }
+                addView(it)
+            }
             openBrowser =
                 Button(context).also {
                     it.setText(R.string.copilot_open_browser)
@@ -105,8 +123,9 @@ class CopilotLoginActivity : Activity() {
                 val attempt = controller.start()
                 runOnUiThread {
                     verificationUri = attempt.verificationUri
+                    userCode = attempt.userCode
                     status.text = getString(R.string.copilot_user_code, attempt.userCode, attempt.verificationUri)
-                    openBrowser.isEnabled = true
+                    renderButtons()
                 }
                 controller.finish(attempt, active)
             }.fold(
@@ -139,6 +158,7 @@ class CopilotLoginActivity : Activity() {
         runOnUiThread {
             cancellation = null
             verificationUri = null
+            userCode = null
             status.text = message
             renderButtons()
         }
@@ -162,6 +182,8 @@ class CopilotLoginActivity : Activity() {
         val loggedIn = vault.contains(CliSubscriptionProvider.COPILOT)
         login.isEnabled = !busy && !loggedIn
         openBrowser.isEnabled = busy && verificationUri != null
+        copyCode.isEnabled = busy && userCode != null
+        copyUrl.isEnabled = busy && verificationUri != null
         cancel.isEnabled = busy
         logout.isEnabled = !busy && loggedIn
     }
@@ -169,6 +191,8 @@ class CopilotLoginActivity : Activity() {
     private fun setBusy(busy: Boolean) {
         login.isEnabled = !busy
         openBrowser.isEnabled = false
+        copyCode.isEnabled = false
+        copyUrl.isEnabled = false
         cancel.isEnabled = busy
         logout.isEnabled = !busy
     }

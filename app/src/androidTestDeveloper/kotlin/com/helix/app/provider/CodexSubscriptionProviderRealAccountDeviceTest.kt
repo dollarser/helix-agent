@@ -20,7 +20,11 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
         assumeTrue(InstrumentationRegistry.getArguments().getString("realSubscription") == "true")
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer
-        val providerId = SubscriptionProviderModule.CODEX_ID
+        val providerId = when (InstrumentationRegistry.getArguments().getString("realProvider")) {
+            null, "codex" -> SubscriptionProviderModule.CODEX_ID
+            "copilot" -> SubscriptionProviderModule.COPILOT_ID
+            else -> error("unsupported real-account smoke provider")
+        }
         val probe = container.providerService.runConnectionTest(providerId)
         assertTrue("subscription probe failed safely: $probe", probe is ProbeOutcome.Ok)
         val row = container.providerService.rows.value.single { it.id == providerId }

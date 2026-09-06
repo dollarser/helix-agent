@@ -97,4 +97,6 @@
     <string name="grok_network_error">xAI OAuth 网络请求失败；未保存凭据。</string>
     <string name="grok_protocol_error">xAI OAuth 响应不符合严格协议；未保存凭据。</string>
     <string name="grok_browser_error">无法打开验证页面；请使用界面显示的网址。</string>
+    <string name="copilot_copy_code">复制 Copilot Device Code</string>
+    <string name="copilot_copy_url">复制 Copilot 验证网址</string>
 </resources>

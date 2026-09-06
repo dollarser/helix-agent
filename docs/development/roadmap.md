@@ -748,6 +748,12 @@ Claude 必须具备受管理 Provider 注册、平台专用凭据/刷新、文�
 
 验收：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-client:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:assembleConsumerDebug --no-configuration-cache`；Runtime R8 `./gradlew :runtime:cli-app:assembleRelease -Phelix.cli.r8=true --no-configuration-cache`；API 29/36 运行 `CodexSubscriptionProviderE2eDeviceTest#grokProviderUsesTheNormalModelContract` 及既有 Claude/Codex 回归；Grok 的运行中取消/断连/PFD/账号入口复用参数化设备测试。通用文档/ADR/lock/secrets、APK 边界与 diff 门禁全部执行。
 
+### HXA-146 Copilot 订阅 Provider
+
+状态：已完成，见 [完成记录](../completion-records/HXA-146.md)。依赖 HXA-145；在 accepted ADR-0025/0026/0027 内接入 Copilot 文本 Provider、固定账号入口和短期 token 刷新，复用共享 HTTP、Chat Completions codec、PFD/journal 与普通对话链路。允许 cli-app、developer Provider、对应测试与文档；不改 Room/Policy，不复制插件代码，不扩大 consumer 渠道。真实账号已独立验收，不以登录或 fixture 替代，也不推导所有免费账号/模型可用。
+
+验收：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-client:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:assembleConsumerDebug --no-configuration-cache`；`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true`；通用脚本与 APK 边界门禁；API 29/36 Copilot 普通 Provider、账号入口、取消/断连/PFD 测试及其他订阅回归。真实账号只发少量文本，不记录凭据。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

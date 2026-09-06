@@ -3,15 +3,13 @@ package com.helix.runtime.cli.app
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
-import com.helix.provider.anthropic.AnthropicRequestEncoder
-import com.helix.provider.anthropic.AnthropicStreamDecoder
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.Closeable
 import java.util.concurrent.TimeUnit
 
-/** OAuth and network stay in this UID; the ordinary Anthropic wire codec is shared. */
+/** OAuth and network stay in this UID; ordinary Provider wire codecs are shared. */
 internal class SubscriptionHttpModel(
     private val vault: CliSubscriptionCredentialVault,
     private val refresh: () -> Unit,

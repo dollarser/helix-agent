@@ -20,11 +20,9 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivi
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
-if rg -n 'api\.githubcopilot\.com' \
-    "$repo_root/runtime/cli-app/src/main"; then
-    echo "an unsupported subscription model endpoint entered the Runtime" >&2
-    exit 1
-fi
+copilot="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotSubscriptionModel.kt"
+test "$(rg -F 'https://api.githubcopilot.com/chat/completions' "$copilot" | wc -l | tr -d ' ')" = 1
+rg -F 'CliSubscriptionProvider.COPILOT' "$copilot" >/dev/null
 claude="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/ClaudeSubscriptionModel.kt"
 test "$(rg -F 'https://api.anthropic.com/v1/messages?beta=true' "$claude" | wc -l | tr -d ' ')" = 1
 rg -F 'CliSubscriptionProvider.CLAUDE' "$claude" >/dev/null
@@ -92,7 +90,7 @@ rg -F 'fun create(context: Context, config: ProviderConfig): ModelProvider? = nu
 rg -F 'ManagedProviderAccountResult.NOT_SUPPORTED' "$consumer_module" >/dev/null
 consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 test -f "$consumer_apk"
-if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|runtime/cli/client|subscription-codex'; then
+if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|runtime/cli/client|subscription-(codex|claude|grok|copilot)'; then
     echo "consumer APK contains subscription implementation" >&2
     exit 1
 fi

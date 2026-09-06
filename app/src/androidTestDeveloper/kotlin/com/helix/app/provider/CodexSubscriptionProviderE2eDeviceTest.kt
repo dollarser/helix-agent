@@ -46,6 +46,13 @@ class CodexSubscriptionProviderE2eDeviceTest {
 
     @Test fun claudeProviderUsesTheNormalModelContract() = verifyProvider(SubscriptionProviderModule.CLAUDE_ID)
     @Test fun grokProviderUsesTheNormalModelContract() = verifyProvider(SubscriptionProviderModule.GROK_ID)
+    @Test fun copilotProviderUsesTheNormalModelContract() = verifyProvider(SubscriptionProviderModule.COPILOT_ID)
+
+    @Test fun copilotAccountUsesItsOwnExplicitActivity() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        assertEquals("com.helix.runtime.cli.app.CopilotLoginActivity", SubscriptionProviderModule.accountIntent(SubscriptionProviderModule.COPILOT_ID).component?.className)
+        assertEquals(ManagedProviderAccountResult.OPENED, app.appContainer.providerService.openManagedAccount(SubscriptionProviderModule.COPILOT_ID))
+    }
 
     @Test fun grokAccountUsesItsOwnExplicitActivity() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
