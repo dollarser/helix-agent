@@ -2,6 +2,7 @@ package com.helix.app.provider
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.internal.PrefsLineStore
 import com.helix.core.model.ModelEvent
@@ -22,6 +23,18 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CodexSubscriptionProviderE2eDeviceTest {
+    @Test fun managedAccountOpensTheExplicitRuntimeUi() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val expected =
+            InstrumentationRegistry.getArguments().getString("managedAccountExpected")
+                ?.let(ManagedProviderAccountResult::valueOf)
+                ?: ManagedProviderAccountResult.OPENED
+        assertEquals(
+            expected,
+            app.appContainer.providerService.openManagedAccount(SubscriptionProviderModule.CODEX_ID),
+        )
+    }
+
     @Test fun developerProviderUsesTheNormalModelContract() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer

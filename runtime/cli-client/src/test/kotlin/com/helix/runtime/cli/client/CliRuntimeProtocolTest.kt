@@ -8,6 +8,7 @@ class CliRuntimeProtocolTest {
     @Test fun sharedHandshakeContractIsBoundedAndExplicit() {
         assertEquals("com.helix.runtime.cli", CliRuntimeProtocol.RUNTIME_PACKAGE)
         assertEquals("com.helix.runtime.cli.app.CliRuntimeService", CliRuntimeProtocol.SERVICE_CLASS)
+        assertEquals("com.helix.runtime.cli.app.CodexLoginActivity", CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY)
         assertEquals("com.helix.permission.BIND_CLI_RUNTIME", CliRuntimeProtocol.PERMISSION)
         assertTrue(CliRuntimeProtocol.MAX_STATUS_BYTES in 1..64 * 1024)
         assertTrue(CliRuntimeProtocol.BIND_DEADLINE_MS in 1..30_000)

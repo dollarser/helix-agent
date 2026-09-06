@@ -1,6 +1,8 @@
 package com.helix.app.provider
 
 import android.content.Context
+import android.content.ComponentName
+import android.content.Intent
 import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.HelixStorage
@@ -11,6 +13,8 @@ import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.ProviderConfig
+import com.helix.runtime.cli.client.CliRuntimeProtocol
+import com.helix.runtime.cli.client.CliRuntimeSupervisor
 
 /** Developer-only registration seam for the non-official Codex subscription adapter. */
 internal object SubscriptionProviderModule {
@@ -52,6 +56,24 @@ internal object SubscriptionProviderModule {
         return when (val result = provider.validateConfiguration()) {
             ProviderCheckResult.Ok -> ProbeOutcome.Ok(capabilities, listOf(config.model))
             is ProviderCheckResult.Failed -> ProbeOutcome.Failed(1, result.code, result.detail, result.retryable)
+        }
+    }
+
+    fun accountIntent(): Intent =
+        Intent().setComponent(
+            ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    suspend fun openAccount(context: Context, providerId: String): ManagedProviderAccountResult {
+        if (providerId != CODEX_ID) return ManagedProviderAccountResult.NOT_SUPPORTED
+        if (CliRuntimeSupervisor(context).visibleUiCause() != null) {
+            return ManagedProviderAccountResult.RUNTIME_UNAVAILABLE
+        }
+        return try {
+            context.startActivity(accountIntent())
+            ManagedProviderAccountResult.OPENED
+        } catch (_: RuntimeException) {
+            ManagedProviderAccountResult.RUNTIME_UNAVAILABLE
         }
     }
 }

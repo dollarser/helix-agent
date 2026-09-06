@@ -56,6 +56,9 @@ class ProviderService(
     private val idGenerator: () -> String,
     private val managedProvider: (String) -> Boolean = { false },
     private val probeOverride: suspend (ProviderConfig, ModelProvider) -> ProbeOutcome? = { _, _ -> null },
+    private val manageAccount: suspend (String) -> ManagedProviderAccountResult = {
+        ManagedProviderAccountResult.NOT_SUPPORTED
+    },
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
     private val workScope = scope
@@ -289,6 +292,15 @@ class ProviderService(
     suspend fun storedConfig(providerId: String): ProviderConfig =
         withContext(workScope.coroutineContext) {
             configFrom(storage.providerConfigs.resolve(providerId))
+        }
+
+    suspend fun openManagedAccount(providerId: String): ManagedProviderAccountResult =
+        withContext(workScope.coroutineContext) {
+            if (!managedProvider(providerId)) {
+                ManagedProviderAccountResult.NOT_SUPPORTED
+            } else {
+                manageAccount(providerId)
+            }
         }
 
     /** Decodes one persisted row into its typed config (throws IAE on corruption). */

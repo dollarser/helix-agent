@@ -569,4 +569,6 @@
     <string name="settings_proot_not_verified">Not verified</string>
     <string name="settings_proot_disabled">Disabled/force-stopped</string>
     <string name="provider_subscription_experimental_notice">Unofficial developer experiment. Account access may break or be restricted when the provider protocol changes.</string>
+    <string name="provider_subscription_manage_account">Manage subscription login</string>
+    <string name="provider_subscription_runtime_unavailable">CLI Runtime is unavailable, disabled, or signed by a different key.</string>
 </resources>

@@ -67,6 +67,7 @@ if rg -n 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_
 fi
 supervisor="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeSupervisor.kt"
 rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS)' "$supervisor" >/dev/null
+rg -F 'fun visibleUiCause(): CliRuntimeVerification.Cause? = localCause(checkStopped = false)' "$supervisor" >/dev/null
 rg -F 'Context.BIND_AUTO_CREATE' "$supervisor" >/dev/null
 rg -F 'context.unbindService(connection)' "$supervisor" >/dev/null
 rg -F 'ApplicationInfo.FLAG_STOPPED' "$supervisor" >/dev/null
@@ -78,10 +79,12 @@ developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/C
 developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 rg -F 'CodexSubscriptionProvider(context, config)' "$developer_module" >/dev/null
+rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY)' "$developer_module" >/dev/null
 rg -F 'toolCalls = false' "$developer_module" >/dev/null
 rg -F 'vision = false' "$developer_module" >/dev/null
 rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
 rg -F 'fun create(context: Context, config: ProviderConfig): ModelProvider? = null' "$consumer_module" >/dev/null
+rg -F 'ManagedProviderAccountResult.NOT_SUPPORTED' "$consumer_module" >/dev/null
 consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 test -f "$consumer_apk"
 if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProvider|runtime/cli/client|subscription-codex'; then
@@ -89,4 +92,4 @@ if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProv
     exit 1
 fi
 
-echo "HXA-135 developer subscription Provider boundary: normal chat path, experimental disclosure, consumer exclusion, and no Tool capability claim"
+echo "HXA-136 managed account entry, Runtime boundary, consumer exclusion, and normal chat path checks passed"

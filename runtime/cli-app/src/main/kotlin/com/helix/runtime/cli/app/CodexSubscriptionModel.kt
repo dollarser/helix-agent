@@ -70,7 +70,7 @@ internal class CodexSubscriptionModel(
 
     private fun execute(request: ModelRequest, session: CliSubscriptionSession): okhttp3.Response {
         val accountId = session.accountId ?: throw CodexSmokeException("credential")
-        val base = Json.parseToJsonElement(encoder.encode(request)).jsonObject
+        val base = Json.parseToJsonElement(encodeSubscriptionRequest(request, encoder)).jsonObject
         val body = buildJsonObject {
             base.forEach { (key, value) -> put(key, value) }
             put("store", false)
@@ -94,5 +94,13 @@ internal class CodexSubscriptionModel(
         const val MAX_STREAM_BYTES = 2L * 1024L * 1024L
         const val MAX_EVENTS = 2048
         val JSON = "application/json".toMediaType()
+
+        /** The consumer-subscription endpoint rejects the public API output-token field. */
+        fun encodeSubscriptionRequest(
+            request: ModelRequest,
+            encoder: ResponsesRequestEncoder = ResponsesRequestEncoder {
+                error("image references are rejected by the IPC codec")
+            },
+        ): String = encoder.encode(request.copy(maxOutputTokens = null))
     }
 }

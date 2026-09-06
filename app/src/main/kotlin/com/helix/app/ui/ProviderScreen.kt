@@ -37,6 +37,7 @@ import com.helix.app.R
 import com.helix.app.provider.ComposeOutcome
 import com.helix.app.provider.ConnectionTestMapping
 import com.helix.app.provider.ConnectionTestStatus
+import com.helix.app.provider.ManagedProviderAccountResult
 import com.helix.app.provider.ProviderComposer
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
@@ -73,6 +74,7 @@ fun ProviderManager(providerService: ProviderService) {
     var form by remember { mutableStateOf<ProviderForm?>(null) }
     var testingId by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var accountFailureId by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxWidth()) {
         Row(
@@ -166,6 +168,17 @@ fun ProviderManager(providerService: ProviderService) {
                         }
                     }
                 },
+                onManageAccount = {
+                    scope.launch {
+                        accountFailureId =
+                            if (providerService.openManagedAccount(row.id) == ManagedProviderAccountResult.OPENED) {
+                                null
+                            } else {
+                                row.id
+                            }
+                    }
+                },
+                accountUnavailable = accountFailureId == row.id,
             )
         }
     }
@@ -484,6 +497,8 @@ private fun ProviderRow(
     onDelete: () -> Unit,
     visionEnabled: Boolean,
     onDeclareVision: (enabled: Boolean) -> Unit,
+    onManageAccount: () -> Unit,
+    accountUnavailable: Boolean,
 ) {
     Column(
         modifier =
@@ -539,6 +554,14 @@ private fun ProviderRow(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.testTag("provider-subscription-notice"),
             )
+            if (accountUnavailable) {
+                Text(
+                    stringResource(R.string.provider_subscription_runtime_unavailable),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("provider-subscription-runtime-unavailable"),
+                )
+            }
         }
         // HXA-059: the backend model list, carried out of the LAST PASSED
         // connection test only. A failed/untested row shows no section at all;
@@ -596,6 +619,13 @@ private fun ProviderRow(
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
                     Text(stringResource(R.string.provider_delete))
+                }
+            } else {
+                TextButton(
+                    onClick = onManageAccount,
+                    modifier = Modifier.testTag("provider-manage-account"),
+                ) {
+                    Text(stringResource(R.string.provider_subscription_manage_account))
                 }
             }
         }

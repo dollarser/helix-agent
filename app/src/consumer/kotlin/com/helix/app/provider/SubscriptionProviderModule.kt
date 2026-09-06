@@ -12,4 +12,6 @@ internal object SubscriptionProviderModule {
     fun create(context: Context, config: ProviderConfig): ModelProvider? = null
     fun isManaged(providerId: String): Boolean = false
     suspend fun probe(config: ProviderConfig, provider: ModelProvider): ProbeOutcome? = null
+    suspend fun openAccount(context: Context, providerId: String): ManagedProviderAccountResult =
+        ManagedProviderAccountResult.NOT_SUPPORTED
 }

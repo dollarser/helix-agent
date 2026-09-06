@@ -7,6 +7,7 @@ object CliRuntimeProtocol {
     const val PERMISSION = "com.helix.permission.BIND_CLI_RUNTIME"
     const val RUNTIME_PACKAGE = "com.helix.runtime.cli"
     const val SERVICE_CLASS = "com.helix.runtime.cli.app.CliRuntimeService"
+    const val CODEX_LOGIN_ACTIVITY = "com.helix.runtime.cli.app.CodexLoginActivity"
     const val TRANSACTION_STATUS = 1
     const val TRANSACTION_JOB_SUBMIT = 2
     const val TRANSACTION_JOB_QUERY = 3

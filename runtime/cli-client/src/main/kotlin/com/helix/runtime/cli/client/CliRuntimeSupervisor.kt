@@ -46,6 +46,9 @@ class CliRuntimeSupervisor(context: Context) {
         }
     }
 
+    /** Checks whether a user-triggered visible Runtime UI may be opened without binding it. */
+    fun visibleUiCause(): CliRuntimeVerification.Cause? = localCause(checkStopped = false)
+
     fun openConnection(): CliRuntimeConnection {
         localCause()?.let { return CliRuntimeConnection.Refused(it) }
         val latch = CountDownLatch(1)
@@ -90,12 +93,14 @@ class CliRuntimeSupervisor(context: Context) {
         runCatching { context.unbindService(connection.connection) }
     }
 
-    private fun localCause(): CliRuntimeVerification.Cause? {
+    private fun localCause(checkStopped: Boolean = true): CliRuntimeVerification.Cause? {
         val info = packageInfo(CliRuntimeProtocol.RUNTIME_PACKAGE)
             ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
         val app = info.applicationInfo ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
         if (!app.enabled) return CliRuntimeVerification.Cause.DISABLED
-        if (app.flags and ApplicationInfo.FLAG_STOPPED != 0) return CliRuntimeVerification.Cause.FORCE_STOPPED
+        if (checkStopped && app.flags and ApplicationInfo.FLAG_STOPPED != 0) {
+            return CliRuntimeVerification.Cause.FORCE_STOPPED
+        }
         val own = signingDigests(packageInfo(context.packageName))
         val peer = signingDigests(info)
         if (own.isEmpty() || peer.none(own::contains)) return CliRuntimeVerification.Cause.SIGNATURE_MISMATCH

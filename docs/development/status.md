@@ -68,6 +68,7 @@
 - M11A / HXA-133 已完成：HXA-128 固定 Codex smoke Job 通过共享签名 Binder 提供 submit/query/cancel/reconcile；前台 Job 保持同一冷绑定、终态解绑，断连后仅按原 jobId 对账。API 29/36 arm64-v8a 证明无凭据失败终态持久、重复不重跑、未知 query/cancel、debug Binder death 恢复与 redacted journal。任意 prompt/响应正文、PFD/ModelEvent 和 Provider 尚未实现（详见 [HXA-133 完成记录](../completion-records/HXA-133.md)）。
 - M11A / HXA-134 已完成：跨 APK模型 Job 支持严格版本化、有界的 `ModelRequest`/`ModelEvent` PFD 传输，请求/结果先原子持久化并以 SHA-256 对锁，成功结果对账后删除正文并只保留 redacted record。API 29/36 arm64-v8a 均通过通用 fixture、HXA-133 回归、删除和空闲解绑验证。凭据仍由独立 Runtime UID 持有；Provider/对话/Dispatcher/Audit 尚未接入（详见 [HXA-134 完成记录](../completion-records/HXA-134.md)）。
 - M11A / HXA-135 已完成：Codex Subscription 作为 developer-only、受管理且显式非官方实验的普通 `ModelProvider` 注册，进入现有 Provider 选择、Session、egress、ChatService、统一事件与 Turn/model-call/message 持久链路；首版 capability 保守为 streaming=true、toolCalls/vision=false。API 29/36 arm64-v8a 对话 E2E 通过，consumer APK 不含实现。真实订阅模型调用沿用 HXA-127/128 的 Runtime 证据，本 HXA 未重复消耗真实额度（详见 [HXA-135 完成记录](../completion-records/HXA-135.md)）。
+- M11A / HXA-136 已完成：developer 受管理 Provider 可从 Helix 以固定显式 Component 打开 Runtime 登录/重新认证/退出 UI，安装、启用、同签名校验及 force-stop 恢复均保持在用户动作边界；API 29/36 arm64-v8a 入口通过，API 36 真实 Codex 订阅经普通 `ChatService` 返回 `HELIX_OK` 并持久化完成 Turn/model-call，consumer/store 不含入口（详见 [HXA-136 完成记录](../completion-records/HXA-136.md)）。
 - M9 / HXA-090 已完成：Accessibility Service、权限中心、allowlist 与限时 AutomationSession（详见 [HXA-090 完成记录](../completion-records/HXA-090.md)）。
 - M9 / HXA-091 已完成：有界 Accessibility snapshot 与绑定 package/window/generation/fingerprint 的 opaque token（详见 [HXA-091 完成记录](../completion-records/HXA-091.md)）。
 - M9 / HXA-092 已完成：只消费 snapshot token 的 UI actions，目标变化、过期和敏感界面均 fail closed（详见 [HXA-092 完成记录](../completion-records/HXA-092.md)）。
@@ -89,7 +90,7 @@
 
 ## Next task
 
-- M11A Codex developer 对话 Provider 已接入；下一步补充真实账号从 Helix 对话入口的小额度验收，并按独立 HXA 评估模型目录、登录/重新认证入口及 Claude/Grok/Copilot 在已有资格证据下的 Provider 扩展。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- M11A 下一步按独立 HXA 评估动态模型目录，以及 Claude/Grok/Copilot 在已有资格与付费证据下的 Provider 扩展；Claude/Grok 无付费订阅时不得宣称模型调用已核实，Copilot 也不得只凭登录成功宣称对话后端完成。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
 
 ## Blocked
 
@@ -102,7 +103,7 @@
 - 生产 Tool Registry 已包含 `time.now`、Workspace 文件工具 `read`/`write`/`edit`/`files.*`（含受限 `files.archive`/`files.extract`）与 QuickJS 代码执行工具 `code.javascript.run`（CODE_EXECUTION/L2/LOCAL_QUICKJS 单并发 lane；consumer + developer 双变体接线，HXA-053）；文件工具当前 scope 为 app-private 与 developer All-files，SAF tree 尚未接入工具 scope resolver。
 - QuickJS 执行通道已落地并接 Tool：主 App 内 isolated 非导出 Service（每执行唯一 `js_` + 32-hex 实例）+ 主进程 `JsExecutionClient`（同步有界、不重试；wrapper JSON ABI：输入 = 恰一个合法 JSON 文档、输出 = ≤ maxOutputBytes 的单个 JSON 文档、11 状态闭合集、PROTOCOL_VERSION=2；API 见 [HXA-052 完成记录](../completion-records/HXA-052.md)），经 `code.javascript.run` 接生产 Tool 管线（模型仅见 code+input、limits 固定 §4.1 默认不入 schema、§4.8 脱敏审计经 dispatcher 单一 emitter；接线见 [HXA-053 完成记录](../completion-records/HXA-053.md)）；PRoot 规划使用同签名、独立 applicationId/UID 的 Runtime APK，并通过 signature-protected Binder/PFD IPC 连接。
 - accepted [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)将 Standard 定义为 Google Play、国内 Android 应用商店和官网的完整产品形态；consumer/developer 仍只是当前构建事实。HXA-122 尚未决定稳定主 applicationId、渠道命名与升级路径，也没有外部 release artifact。
-- 订阅协议实验尚未成为 Helix Provider。Codex 与 Copilot 均有真实登录/vault 正向证据，Codex 另有固定极小模型调用和 Runtime 私有 journal；这些不构成官方支持。Claude/Grok 因无付费订阅暂未核实。官方 SDK/CLI Android/bionic 路线停止；第三方 adapter 允许继续实现 developer/Advanced Provider且无需供应商授权，consumer/store 仍关闭。
+- Codex 订阅协议实验已成为 developer/Advanced 的普通受管理 `ModelProvider`，可由 Provider 行进入 Runtime 登录 UI，并经普通 Chat 对话；凭据仍只在独立 Runtime UID。它不构成官方支持，tool/vision 保持关闭。Copilot 仅有真实登录/vault 证据，Claude/Grok 因无付费订阅暂未核实。官方 SDK/CLI Android/bionic 路线停止；第三方 adapter 可继续作为 developer/Advanced Provider，consumer/store 仍关闭。
 - MCP Streamable HTTP、Skill loader/import/tools 和 A2A Client-only 已从并行 M7 worktree 合入 `main` 并完成 HXA-070～079 专项验收。A2A 由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)固定产品/信任边界，由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md)选择最小 OkHttp + kotlinx.serialization Client；MCP 底座由 accepted [ADR-0017](../adr/0017-mcp-kotlin-sdk-client-base.md)固定。API 29/36 模拟器证据构成当前 M7 任务验收，不替代 M12 的物理真机、真实外部服务/网络与签名发布验收。
 - `read`/`write`/`edit`/`files.*`/`bash`（M8 `code.linux.run`，developer/Advanced-only）已实现。所有工具继续受 scope、Policy、Approval 和执行域约束。
 

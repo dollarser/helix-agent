@@ -721,6 +721,16 @@ egress disclosure、取消与恢复必须沿用 `ProviderService`/`ChatService`�
 任意 endpoint 或手工抬高能力。consumer flavor 的同名 seam 必须 no-op，consumer APK 不得包含 cli-client 或
 订阅 Provider 实现。API 29/36 arm64-v8a 验证注册、连接测试、对话持久链路和空闲解绑。
 
+### HXA-136 订阅登录入口与真实对话验收
+
+Codex Subscription 受管理 Provider 行增加用户触发的“管理订阅登录”入口。developer 必须先验证 Runtime
+已安装、启用且与主 App 同签名，再以固定显式 `ComponentName` 打开 Runtime 的 Codex 登录/重新认证/退出
+可见 UI；该动作允许恢复 force-stop，但不得提交模型 Job、读取登录态或让 Runtime 常驻。consumer 不展示入口。
+
+增加默认跳过、只有验收命令显式传入参数才执行的真实账号 smoke：连接测试后从普通 `ChatService` Session
+发送固定小型文本，验证真实 Codex 订阅返回 `HELIX_OK`，并持久化 `COMPLETED` Turn 与单一 model-call。
+记录设备/API/ABI、模型、prompt hash、结果和 Runtime 空闲解绑，不记录 token、account id 或用户账号。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

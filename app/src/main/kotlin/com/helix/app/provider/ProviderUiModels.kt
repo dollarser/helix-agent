@@ -69,6 +69,12 @@ data class ProviderRowUi(
     private fun mark(value: Boolean): String = if (value) " ✓" else " ✗"
 }
 
+enum class ManagedProviderAccountResult {
+    OPENED,
+    RUNTIME_UNAVAILABLE,
+    NOT_SUPPORTED,
+}
+
 /**
  * One capability chip as a stable string-resource id + args (HXA-069: emitted by the pure
  * mapper, resolved to the current locale by the @Composable that renders it).

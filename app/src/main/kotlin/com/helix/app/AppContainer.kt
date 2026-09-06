@@ -269,6 +269,9 @@ internal class DefaultAppContainer(
                 idGenerator = { idGenerator.next() },
                 managedProvider = SubscriptionProviderModule::isManaged,
                 probeOverride = SubscriptionProviderModule::probe,
+                manageAccount = { providerId ->
+                    SubscriptionProviderModule.openAccount(appContext, providerId)
+                },
             ).also { it.refresh() }
         }
 

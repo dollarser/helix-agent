@@ -200,6 +200,12 @@ printf 'no\n' | avdmanager create avd \
 
 创建后必须把显示设为手机级分辨率 **1080×2400 @ 420dpi**（与参考 `Helix_API_36` 一致）。`avdmanager create avd` 不带 `--device` profile 时默认落在 320×640 @ 160；该尺寸下 provider 行下半部分（状态明细、`provider-test`/`provider-delete` 按钮）会落到可视区之外或被输入法遮挡，令 `ProviderModelDiscoveryUiTest`、`ProviderFlowTest` 等 provider 行 UI 测试确定性失败，高度被 clamp（如 1080×1920）时带模型分区的行仍会失败——需要完整 2400 高度。分辨率是创建期配置，改法是在该 AVD 的 `config.ini`（本机 AVD 目录内，不进仓库）写入 `hw.lcd.width=1080`、`hw.lcd.height=2400`、`hw.lcd.density=420` 后重启 AVD。若此前用 `adb shell wm size`/`wm density` 临时改过，须先 `wm size reset` 与 `wm density reset` 清掉持久在 `/data` 的覆盖，否则冷启动仍被 clamp。
 
+需要在浏览器完成 OAuth、输入 Device Code 或执行其他人工键盘验收的 AVD，还必须在同一 `config.ini`
+设置 `hw.keyboard=yes`，并以 `-no-snapshot-load` 或 `-no-snapshot` 冷启动。`-no-snapshot-save` 只禁止保存，
+仍可能加载旧快照，不能修复创建时的 `hw.keyboard=no`。启动后可用 `hardware-qemu.ini` 中实际生效的
+`hw.keyboard = true` 复核；若希望连接宿主硬件键盘时仍显示软键盘，再显式设置
+`adb shell settings put secure show_ime_with_hard_keyboard 1`。
+
 若同名 AVD 已存在，不要用 `--force` 覆盖；先通过 Android Studio Device Manager 检查其 API、ABI、磁盘和快照状态。普通开发从 Device Manager 启动即可；命令行冷启动参考：
 
 ```bash
