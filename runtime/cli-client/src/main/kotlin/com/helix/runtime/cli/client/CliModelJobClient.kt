@@ -38,8 +38,9 @@ class CliModelJobClient(private val supervisor: CliRuntimeSupervisor) {
         request: ModelRequest,
         timeoutMs: Long = 120_000L,
         pollIntervalMs: Long = 100L,
+        provider: CliModelProvider = CliModelProvider.CODEX,
     ): AwaitOutcome {
-        val payload = CliModelRequestCodec.encode(request)
+        val payload = CliModelRequestCodec.encode(request, provider)
         val requestSha256 = sha256(payload)
         val connection = supervisor.openConnection()
         if (connection is CliRuntimeConnection.Refused) return AwaitOutcome.Unavailable(connection.cause)

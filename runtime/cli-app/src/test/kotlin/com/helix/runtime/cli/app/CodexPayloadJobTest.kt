@@ -19,8 +19,20 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class CodexPayloadJobTest {
+    @Test fun identicalModelAcrossPlatformsCannotReuseAJob() {
+        val root = Files.createTempDirectory("subscription-platform").toFile()
+        val model = ModelRequest("shared", listOf(ModelMessage(ModelRole.USER, "hello")))
+        val claude = CliModelRequestCodec.encode(model, com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+        val copilot = CliModelRequestCodec.encode(model, com.helix.runtime.cli.client.CliModelProvider.COPILOT)
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), { CodexModelExecution("shared", listOf(ModelEvent.Completed("stop"))) }, {}).use {
+            assertTrue(it.submit("job_144000000001", sha256(claude), claude) is CodexPayloadSubmit.Accepted)
+            assertEquals(CodexPayloadSubmit.RequestMismatch, it.submit("job_144000000001", sha256(copilot), copilot))
+        }
+    }
+
     private val request = CliModelRequestCodec.encode(
         ModelRequest("model", listOf(ModelMessage(ModelRole.USER, "hello"))),
+        com.helix.runtime.cli.client.CliModelProvider.CLAUDE,
     )
     private val hash = sha256(request)
 

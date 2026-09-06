@@ -22,6 +22,50 @@ import org.junit.runner.RunWith
 class CliRuntimeHandshakeE2eDeviceTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun oldRuntimeRejectsClaudeEnvelopeWithoutCreatingJob() {
+        org.junit.Assume.assumeTrue(InstrumentationRegistry.getArguments().getString("oldRuntime") == "true")
+        val client = CliModelJobClient(CliRuntimeSupervisor(context))
+        val jobId = nextJobId()
+        val result = client.submitAndAwait(jobId, fixture(), provider = com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+        assertTrue(result is CliModelJobClient.AwaitOutcome.Unavailable)
+        assertTrue(client.query(jobId) is CliModelJobClient.StateOutcome.Unknown)
+        assertTrue(client.submitAndAwait(nextJobId(), fixture()) is CliModelJobClient.AwaitOutcome.Terminal)
+    }
+
+    @Test fun claudeRunningCancelAndDeathNeverReplay() {
+        for (kill in listOf(false, true)) {
+            val client = CliModelJobClient(CliRuntimeSupervisor(context))
+            val jobId = nextJobId()
+            val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
+            try {
+                val running = worker.submit<CliModelJobClient.AwaitOutcome> {
+                    client.submitAndAwait(jobId, fixture("helix-fixture-wait"), provider = com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+                }
+                var state: CliModelJobState? = null
+                for (attempt in 0 until 100) {
+                    state = (client.query(jobId) as? CliModelJobClient.StateOutcome.Ok)?.record?.state
+                    if (state == CliModelJobState.RUNNING) break
+                    Thread.sleep(20)
+                }
+                assertEquals(CliModelJobState.RUNNING, state)
+                // RUNNING is durable before the model body starts; allow the debug wait seam to install.
+                Thread.sleep(100)
+                if (kill) client.debugKillRuntime() else client.cancel(jobId)
+                running.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                Thread.sleep(200)
+                val record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
+                assertEquals(if (kill) CliModelJobState.INTERRUPTED else CliModelJobState.CANCELLED, record.state)
+                assertEquals(record, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
+                assertEquals(null, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).events)
+            } finally {
+                worker.shutdownNow()
+            }
+        }
+    }
+
+    private fun nextJobId() = "job_" + java.util.UUID.randomUUID().toString().replace("-", "").take(12)
+    private fun fixture(model: String = "helix-fixture") = ModelRequest(model, listOf(ModelMessage(ModelRole.USER, "fixture")))
+
     @Test fun explicitColdBindOrExpectedLocalRefusalIsStable() {
         val result = CliRuntimeSupervisor(context).verify()
         val expectedCause = InstrumentationRegistry.getArguments().getString("cliRuntimeExpectedCause")
@@ -54,13 +98,19 @@ class CliRuntimeHandshakeE2eDeviceTest {
         assertTrue(client.cancel("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
     }
 
-    @Test fun modelPayloadUsesPfdAndIsDeletedAfterReconcile() {
+    @Test fun modelPayloadUsesPfdAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.CODEX)
+
+    @Test fun claudePayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+
+    private fun verifyPayload(platform: com.helix.runtime.cli.client.CliModelProvider) {
         val client = CliModelJobClient(CliRuntimeSupervisor(context))
+        val jobId = "job_" + java.util.UUID.randomUUID().toString().replace("-", "").take(12)
         val result = client.submitAndAwait(
-            "job_134000000001",
+            jobId,
             ModelRequest("helix-fixture", listOf(ModelMessage(ModelRole.USER, "bounded payload"))),
             timeoutMs = 2_000,
             pollIntervalMs = 20,
+            provider = platform,
         )
         assertTrue(result is CliModelJobClient.AwaitOutcome.Terminal)
         result as CliModelJobClient.AwaitOutcome.Terminal
@@ -70,11 +120,13 @@ class CliRuntimeHandshakeE2eDeviceTest {
             result.events,
         )
         repeat(50) {
-            val record = (client.query("job_134000000001") as CliModelJobClient.StateOutcome.Ok).record
+            val record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
             if (record.reconciledAtEpochMillis != null) return@repeat
             Thread.sleep(20)
         }
-        val second = client.reconcile("job_134000000001") as CliModelJobClient.StateOutcome.Ok
+        client.debugKillRuntime()
+        Thread.sleep(200)
+        val second = client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok
         assertTrue(second.record.reconciledAtEpochMillis != null)
         assertEquals(null, second.events)
     }

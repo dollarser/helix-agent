@@ -19,6 +19,14 @@ android {
         buildConfig = true
     }
 
+    buildTypes {
+        getByName("release") {
+            // Opt-in acceptance artifact; ordinary release packaging retains its current behavior.
+            isMinifyEnabled = providers.gradleProperty("helix.cli.r8").orNull == "true"
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -38,6 +46,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":provider:api"))
     implementation(project(":provider:openai-responses"))
+    implementation(project(":provider:anthropic"))
     testImplementation(libs.junit4)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.okhttp.wire)

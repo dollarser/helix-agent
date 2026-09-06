@@ -5,6 +5,7 @@ import android.app.Application
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.edit
 import java.security.MessageDigest
 
 /** Bounded, content-free process evidence used by the user-previewed diagnostic bundle. */
@@ -38,21 +39,20 @@ class ProcessEvidenceStore internal constructor(
 
     fun heartbeat(state: String) {
         require(state in ALLOWED_STATES) { "diagnostic state is not allowlisted" }
-        preferences
-            .edit()
-            .putString(KEY_STATE, state)
-            .putLong(KEY_HEARTBEAT, nowMillis())
-            .apply()
+        preferences.edit {
+            putString(KEY_STATE, state)
+            putLong(KEY_HEARTBEAT, nowMillis())
+        }
     }
 
     fun recordCrash(throwable: Throwable) {
         val type = throwable.javaClass.name.take(MAX_TYPE_LENGTH)
         val canonical = throwable.stackTrace.take(MAX_STACK_FRAMES).joinToString("\n") { it.toString() }
-        preferences
-            .edit()
-            .putString(KEY_CRASH_TYPE, type)
-            .putString(KEY_CRASH_FINGERPRINT, sha256(canonical))
-            .apply()
+        // The process is about to die; apply() can lose this bounded record before disk flush.
+        preferences.edit(commit = true) {
+            putString(KEY_CRASH_TYPE, type)
+            putString(KEY_CRASH_FINGERPRINT, sha256(canonical))
+        }
     }
 
     /** Records opaque identifiers and an enum name only; no prompt or Tool payload is accepted. */
@@ -66,13 +66,12 @@ class ProcessEvidenceStore internal constructor(
             "correlationId is not a bounded opaque identifier"
         }
         require(state == null || state in ALLOWED_TURN_STATES) { "turn state is not allowlisted" }
-        preferences
-            .edit()
-            .putString(KEY_LAST_TURN_ID, turnId)
-            .putString(KEY_LAST_CORRELATION_ID, correlationId)
-            .putString(KEY_LAST_TURN_STATE, state)
-            .putLong(KEY_HEARTBEAT, nowMillis())
-            .apply()
+        preferences.edit {
+            putString(KEY_LAST_TURN_ID, turnId)
+            putString(KEY_LAST_CORRELATION_ID, correlationId)
+            putString(KEY_LAST_TURN_STATE, state)
+            putLong(KEY_HEARTBEAT, nowMillis())
+        }
     }
 
     fun read(): ProcessEvidence =
@@ -155,8 +154,11 @@ class ProcessDiagnostics private constructor(
         store.heartbeat(ProcessEvidenceStore.STATE_STARTING)
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            store.recordCrash(throwable)
-            previous?.uncaughtException(thread, throwable)
+            try {
+                store.recordCrash(throwable)
+            } finally {
+                previous?.uncaughtException(thread, throwable)
+            }
         }
         handler.post(heartbeat)
     }

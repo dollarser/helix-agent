@@ -24,13 +24,20 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
+enum class CliModelProvider(val wireId: String) {
+    CODEX("codex"), CLAUDE("claude"), GROK("grok"), COPILOT("copilot"),
+}
+
+data class CliModelEnvelope(val provider: CliModelProvider, val request: ModelRequest)
+
 object CliModelRequestCodec {
     const val MAX_BYTES = 512 * 1024
 
-    fun encode(request: ModelRequest): ByteArray {
+    fun encode(request: ModelRequest, provider: CliModelProvider = CliModelProvider.CODEX): ByteArray {
         require(request.messages.none { it.images.isNotEmpty() }) { "subscription IPC does not accept image references" }
         val bytes = buildJsonObject {
-            put("version", 1)
+            put("version", if (provider == CliModelProvider.CODEX) 1 else 2)
+            if (provider != CliModelProvider.CODEX) put("providerId", provider.wireId)
             put("model", request.model)
             put("messages", buildJsonArray { request.messages.forEach { add(encodeMessage(it)) } })
             put("tools", buildJsonArray { request.tools.forEach { add(encodeTool(it)) } })
@@ -44,11 +51,20 @@ object CliModelRequestCodec {
         return bytes
     }
 
-    fun decode(bytes: ByteArray): ModelRequest {
+    fun decode(bytes: ByteArray): ModelRequest = decodeEnvelope(bytes).request
+
+    fun decodeEnvelope(bytes: ByteArray): CliModelEnvelope {
         require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES)
-        val root = Json.parseToJsonElement(bytes.decodeToString()).strictObject(REQUEST_KEYS)
-        require(root.getValue("version").jsonPrimitive.long == 1L)
-        return ModelRequest(
+        val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
+        val version = root.getValue("version").jsonPrimitive.long
+        require(version == 1L || version == 2L)
+        root.strictObject(if (version == 1L) REQUEST_KEYS else REQUEST_KEYS + "providerId")
+        val provider = if (version == 1L) CliModelProvider.CODEX else {
+            val id = root.getValue("providerId").jsonPrimitive
+            require(id.isString)
+            CliModelProvider.entries.single { it.wireId == id.content }
+        }
+        val request = ModelRequest(
             model = root.getValue("model").jsonPrimitive.content,
             messages = root.getValue("messages").jsonArray.map(::decodeMessage),
             tools = root.getValue("tools").jsonArray.map(::decodeTool),
@@ -58,6 +74,7 @@ object CliModelRequestCodec {
             stopSequences = root.getValue("stopSequences").jsonArray.map { it.jsonPrimitive.content },
             reasoning = ReasoningEffort.valueOf(root.getValue("reasoning").jsonPrimitive.content),
         )
+        return CliModelEnvelope(provider, request)
     }
 
     private fun encodeMessage(message: ModelMessage): JsonObject = buildJsonObject {

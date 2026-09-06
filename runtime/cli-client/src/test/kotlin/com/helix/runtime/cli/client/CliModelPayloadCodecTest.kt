@@ -12,6 +12,29 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class CliModelPayloadCodecTest {
+    @Test fun providerEnvelopeSeparatesIdenticalModelsAndPreservesLegacyCodex() {
+        val request = ModelRequest("shared-model", listOf(ModelMessage(ModelRole.USER, "hello")))
+        val codex = CliModelRequestCodec.encode(request)
+        assertEquals(CliModelProvider.CODEX, CliModelRequestCodec.decodeEnvelope(codex).provider)
+        org.junit.Assert.assertFalse(codex.decodeToString().contains("providerId"))
+        CliModelProvider.entries.filter { it != CliModelProvider.CODEX }.forEach { provider ->
+            val bytes = CliModelRequestCodec.encode(request, provider)
+            assertEquals(CliModelEnvelope(provider, request), CliModelRequestCodec.decodeEnvelope(bytes))
+            org.junit.Assert.assertFalse(bytes.contentEquals(codex))
+        }
+        org.junit.Assert.assertFalse(CliModelRequestCodec.encode(request, CliModelProvider.CLAUDE)
+            .contentEquals(CliModelRequestCodec.encode(request, CliModelProvider.COPILOT)))
+    }
+
+    @Test fun unknownPlatformVersionAndLegacyInjectedPlatformAreRejected() {
+        val request = ModelRequest("m", listOf(ModelMessage(ModelRole.USER, "hello")))
+        val valid = CliModelRequestCodec.encode(request, CliModelProvider.CLAUDE).decodeToString()
+        listOf(valid.replace("claude", "unknown"), valid.replace("\"version\":2", "\"version\":3"),
+            valid.replace("\"version\":2", "\"version\":1")).forEach { forged ->
+            assertThrows(RuntimeException::class.java) { CliModelRequestCodec.decodeEnvelope(forged.encodeToByteArray()) }
+        }
+    }
+
     @Test fun requestWithToolsRoundTrips() {
         val request = ModelRequest(
             model = "gpt-test",

@@ -23,6 +23,13 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class CodexSubscriptionProviderE2eDeviceTest {
+    @Test fun claudeAccountUsesItsOwnExplicitActivity() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<HelixApplication>()
+        val intent = SubscriptionProviderModule.accountIntent(SubscriptionProviderModule.CLAUDE_ID)
+        assertEquals("com.helix.runtime.cli.app.ClaudeLoginActivity", intent.component?.className)
+        assertEquals("com.helix.runtime.cli", intent.component?.packageName)
+        assertEquals(ManagedProviderAccountResult.OPENED, app.appContainer.providerService.openManagedAccount(SubscriptionProviderModule.CLAUDE_ID))
+    }
     @Test fun managedAccountOpensTheExplicitRuntimeUi() = runBlocking {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val expected =
@@ -35,11 +42,15 @@ class CodexSubscriptionProviderE2eDeviceTest {
         )
     }
 
-    @Test fun developerProviderUsesTheNormalModelContract() = runBlocking {
+    @Test fun developerProviderUsesTheNormalModelContract() = verifyProvider(SubscriptionProviderModule.CODEX_ID)
+
+    @Test fun claudeProviderUsesTheNormalModelContract() = verifyProvider(SubscriptionProviderModule.CLAUDE_ID)
+
+    private fun verifyProvider(providerId: String) = runBlocking {
         val app = ApplicationProvider.getApplicationContext<HelixApplication>()
         val container = app.appContainer
         val repository = container.storage.providerConfigs
-        val original = repository.resolve(SubscriptionProviderModule.CODEX_ID)
+        val original = repository.resolve(providerId)
         try {
             repository.overwrite(
                 ProviderConfigSpec(
@@ -53,9 +64,9 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     capabilitySnapshot = original.capabilitySnapshot,
                 ),
             )
-            val probe = container.providerService.runConnectionTest(SubscriptionProviderModule.CODEX_ID)
+            val probe = container.providerService.runConnectionTest(providerId)
             assertTrue(probe is ProbeOutcome.Ok)
-            val row = container.providerService.rows.value.single { it.id == SubscriptionProviderModule.CODEX_ID }
+            val row = container.providerService.rows.value.single { it.id == providerId }
             assertTrue(row.chatSelectable)
             assertTrue(row.managedExternally)
             val capabilities = requireNotNull(row.capabilities)
@@ -96,7 +107,7 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     original.capabilitySnapshot,
                 ),
             )
-            ProviderTestStatusStore(PrefsLineStore(app, "helix-ui")).clear(SubscriptionProviderModule.CODEX_ID)
+            ProviderTestStatusStore(PrefsLineStore(app, "helix-ui")).clear(providerId)
             container.providerService.refresh()
         }
     }

@@ -41,28 +41,7 @@ internal class CodexSubscriptionModel(
             response = execute(request, session)
         }
         response.use { http ->
-            if (!http.isSuccessful) return CodexModelExecution(request.model, listOf(errorFor(http.code)))
-            val decoder = ResponsesStreamDecoder()
-            val events = ArrayList<ModelEvent>()
-            val source = http.body.source()
-            val buffer = Buffer()
-            var total = 0L
-            while (true) {
-                val count = source.read(buffer, 16 * 1024L)
-                if (count < 0) break
-                total += count
-                if (total > MAX_STREAM_BYTES) return CodexModelExecution(
-                    request.model,
-                    listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)),
-                )
-                events += decoder.feed(buffer.readByteArray())
-                if (events.size > MAX_EVENTS) return CodexModelExecution(
-                    request.model,
-                    listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)),
-                )
-            }
-            events += decoder.finish()
-            return CodexModelExecution(request.model, events)
+            return CodexModelExecution(request.model, readSubscriptionEvents(http, ResponsesStreamDecoder()))
         }
     }
 
@@ -81,13 +60,6 @@ internal class CodexSubscriptionModel(
             .header("session-id", UUID.randomUUID().toString()).header("Accept", "text/event-stream")
             .post(body.toRequestBody(JSON)).build()
         return client.newCall(call).execute()
-    }
-
-    private fun errorFor(code: Int): ModelEvent.Error = when (code) {
-        401, 403 -> ModelEvent.Error(ModelErrorCode.AUTH, false)
-        429 -> ModelEvent.Error(ModelErrorCode.RATE_LIMITED, true)
-        in 500..599 -> ModelEvent.Error(ModelErrorCode.SERVER_ERROR, true)
-        else -> ModelEvent.Error(ModelErrorCode.HTTP_ERROR, false)
     }
 
     internal companion object {

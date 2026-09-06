@@ -20,11 +20,14 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivi
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
-if rg -n 'api\.anthropic\.com/v1/messages|api\.x\.ai|api\.githubcopilot\.com' \
+if rg -n 'api\.x\.ai|api\.githubcopilot\.com' \
     "$repo_root/runtime/cli-app/src/main"; then
     echo "an unsupported subscription model endpoint entered the Runtime" >&2
     exit 1
 fi
+claude="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/ClaudeSubscriptionModel.kt"
+test "$(rg -F 'https://api.anthropic.com/v1/messages?beta=true' "$claude" | wc -l | tr -d ' ')" = 1
+rg -F 'CliSubscriptionProvider.CLAUDE' "$claude" >/dev/null
 smoke="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionSmoke.kt"
 test "$(rg -F 'https://chatgpt.com/backend-api/codex/models' "$smoke" | wc -l | tr -d ' ')" = 1
 test "$(rg -F 'https://chatgpt.com/backend-api/codex/responses' "$smoke" | wc -l | tr -d ' ')" = 1
@@ -79,7 +82,9 @@ developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/C
 developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 rg -F 'CodexSubscriptionProvider(context, config)' "$developer_module" >/dev/null
-rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY)' "$developer_module" >/dev/null
+rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, when (providerId)' "$developer_module" >/dev/null
+rg -F 'CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY' "$developer_module" >/dev/null
+rg -F 'CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"' "$developer_module" >/dev/null
 rg -F 'toolCalls = false' "$developer_module" >/dev/null
 rg -F 'vision = false' "$developer_module" >/dev/null
 rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
@@ -92,4 +97,4 @@ if unzip -p "$consumer_apk" 'classes*.dex' | strings | rg 'CodexSubscriptionProv
     exit 1
 fi
 
-echo "HXA-136 managed account entry, Runtime boundary, consumer exclusion, and normal chat path checks passed"
+echo "Subscription managed account entry, Runtime boundary, consumer exclusion, and normal chat path checks passed"

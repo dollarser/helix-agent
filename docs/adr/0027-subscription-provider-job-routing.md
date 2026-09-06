@@ -1,9 +1,9 @@
 # ADR-0027: 订阅模型 Job 显式平台路由
 
-Status: proposed
+Status: accepted
 Date: 2026-09-06
 HXA: HXA-144
-Deciders: pending
+Deciders: Project owner（2026-09-06 明确“接受继续”）
 Supersedes: none
 Superseded by: none
 
@@ -13,7 +13,7 @@ Superseded by: none
 
 当前 `CliModelRequestCodec` 的 version 1 只编码 `ModelRequest`，没有平台标识；`CliRuntimeService` 解码后固定创建 `CodexSubscriptionModel`。主 App 的 `SubscriptionProviderModule` 只注册 Codex。模型名不能唯一标识平台：相同模型可能通过原供应商与 Copilot 提供。
 
-本提案只补充多平台 IPC 路由，不重新决定官方 CLI 路线、渠道或凭据所有权。未获所有者明确接受前保持 proposed，不启动依赖本决定的生产路由。
+本决定只补充多平台 IPC 路由，不重新决定官方 CLI 路线、渠道或凭据所有权。所有者于 2026-09-06 明确接受该方案；接受不表示生产实现或验收已完成。
 
 ## Decision
 

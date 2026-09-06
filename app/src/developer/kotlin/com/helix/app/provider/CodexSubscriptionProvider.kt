@@ -12,6 +12,7 @@ import com.helix.provider.api.ProviderCheckResult
 import com.helix.provider.api.ProviderConfig
 import com.helix.provider.api.ProviderDescriptor
 import com.helix.runtime.cli.client.CliModelJobClient
+import com.helix.runtime.cli.client.CliModelProvider
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
 import kotlinx.coroutines.Dispatchers
@@ -25,9 +26,9 @@ internal class CodexSubscriptionProvider(
     private val config: ProviderConfig,
     private val jobs: SubscriptionJobExecutor,
 ) : ModelProvider {
-    constructor(context: Context, config: ProviderConfig) : this(
+    constructor(context: Context, config: ProviderConfig, platform: CliModelProvider = CliModelProvider.CODEX) : this(
         config,
-        RuntimeSubscriptionJobExecutor(context.applicationContext),
+        RuntimeSubscriptionJobExecutor(context.applicationContext, platform),
     )
     override val descriptor = ProviderDescriptor(
         config.id, config.displayName, config.protocol, config.model, config.endpoint,
@@ -86,11 +87,11 @@ internal fun interface SubscriptionJobExecutor {
     suspend fun execute(request: ModelRequest): CliModelJobClient.AwaitOutcome
 }
 
-private class RuntimeSubscriptionJobExecutor(context: Context) : SubscriptionJobExecutor {
+private class RuntimeSubscriptionJobExecutor(context: Context, private val platform: CliModelProvider) : SubscriptionJobExecutor {
     private val client = CliModelJobClient(CliRuntimeSupervisor(context))
 
     override suspend fun execute(request: ModelRequest): CliModelJobClient.AwaitOutcome =
-        runInterruptible(Dispatchers.IO) { client.submitAndAwait(nextJobId(), request) }
+        runInterruptible(Dispatchers.IO) { client.submitAndAwait(nextJobId(), request, provider = platform) }
 
     private fun nextJobId(): String =
         "job_" + ByteArray(6).also(random::nextBytes).joinToString("") { "%02x".format(it) }
