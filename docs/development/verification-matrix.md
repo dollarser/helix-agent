@@ -211,6 +211,8 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 | HXA-144 | `./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug --no-configuration-cache`；`./scripts/check-cli-runtime-boundary.sh` 与通用门禁。已通过；Runtime R8：`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true` | API 29/36 执行 `CodexSubscriptionProviderE2eDeviceTest#claudeProviderUsesTheNormalModelContract`、`#developerProviderUsesTheNormalModelContract` 和 `CliRuntimeHandshakeE2eDeviceTest#claudePayloadSurvivesDisconnectAndIsDeletedAfterReconcile`、`#modelPayloadUsesPfdAndIsDeletedAfterReconcile`；另通过混合版本、运行中取消/断连及账号入口；完整命令和 hash 见 [完成记录](../completion-records/HXA-144.md)。Claude 真实付费调用未核实 |
 
+| HXA-145 | roadmap 的 cli-app/cli-client/app JVM、双变体构建与 lint；`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true`；通用门禁与 `check-cli-runtime-boundary.sh` | API 29/36 `CodexSubscriptionProviderE2eDeviceTest#grokProviderUsesTheNormalModelContract`、Grok 账号入口/运行中取消与断连/PFD 回归；真实付费调用未核实 |
+
 ### M12：商店与官网多渠道发布
 
 | 任务 | JVM/构建命令 | Android/外部验收 |

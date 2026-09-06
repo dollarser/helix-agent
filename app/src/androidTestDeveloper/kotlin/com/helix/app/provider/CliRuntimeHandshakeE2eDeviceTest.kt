@@ -32,14 +32,16 @@ class CliRuntimeHandshakeE2eDeviceTest {
         assertTrue(client.submitAndAwait(nextJobId(), fixture()) is CliModelJobClient.AwaitOutcome.Terminal)
     }
 
-    @Test fun claudeRunningCancelAndDeathNeverReplay() {
+    @Test fun claudeRunningCancelAndDeathNeverReplay() = verifyRunning(com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+    @Test fun grokRunningCancelAndDeathNeverReplay() = verifyRunning(com.helix.runtime.cli.client.CliModelProvider.GROK)
+    private fun verifyRunning(platform: com.helix.runtime.cli.client.CliModelProvider) {
         for (kill in listOf(false, true)) {
             val client = CliModelJobClient(CliRuntimeSupervisor(context))
             val jobId = nextJobId()
             val worker = java.util.concurrent.Executors.newSingleThreadExecutor()
             try {
                 val running = worker.submit<CliModelJobClient.AwaitOutcome> {
-                    client.submitAndAwait(jobId, fixture("helix-fixture-wait"), provider = com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+                    client.submitAndAwait(jobId, fixture("helix-fixture-wait"), provider = platform)
                 }
                 var state: CliModelJobState? = null
                 for (attempt in 0 until 100) {
@@ -101,6 +103,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
     @Test fun modelPayloadUsesPfdAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.CODEX)
 
     @Test fun claudePayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.CLAUDE)
+    @Test fun grokPayloadSurvivesDisconnectAndIsDeletedAfterReconcile() = verifyPayload(com.helix.runtime.cli.client.CliModelProvider.GROK)
 
     private fun verifyPayload(platform: com.helix.runtime.cli.client.CliModelProvider) {
         val client = CliModelJobClient(CliRuntimeSupervisor(context))

@@ -742,6 +742,12 @@ Claude 必须具备受管理 Provider 注册、平台专用凭据/刷新、文�
 
 验证：`./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug --no-configuration-cache`；复用边界脚本与通用门禁。新平台专项设备测试、R8/APK 命令在生产实现开始前补齐为真实存在的任务，不以此设计审查作为完成记录。
 
+### HXA-145 Grok 订阅 Provider
+
+状态：已完成，见 [完成记录](../completion-records/HXA-145.md)。依赖已完成 HXA-144，在 accepted ADR-0027/0025 内增加 Grok 受管理 Provider、固定账号入口与 Runtime Responses adapter，复用已有 Grok vault/刷新/套餐门禁；仅文本，不增加服务端工具、图片或账号迁移。允许 cli-app、developer Provider、相关测试/文档与边界脚本；共享网络限额和取消逻辑保持单实现。真实付费调用未核实。
+
+验收：`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-client:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:assembleConsumerDebug --no-configuration-cache`；Runtime R8 `./gradlew :runtime:cli-app:assembleRelease -Phelix.cli.r8=true --no-configuration-cache`；API 29/36 运行 `CodexSubscriptionProviderE2eDeviceTest#grokProviderUsesTheNormalModelContract` 及既有 Claude/Codex 回归；Grok 的运行中取消/断连/PFD/账号入口复用参数化设备测试。通用文档/ADR/lock/secrets、APK 边界与 diff 门禁全部执行。
+
 ## 16. M12：商店与官网多渠道发布
 
 ### HXA-120 变体和 APK 审计

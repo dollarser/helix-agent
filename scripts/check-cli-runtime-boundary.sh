@@ -20,7 +20,7 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivi
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
 
-if rg -n 'api\.x\.ai|api\.githubcopilot\.com' \
+if rg -n 'api\.githubcopilot\.com' \
     "$repo_root/runtime/cli-app/src/main"; then
     echo "an unsupported subscription model endpoint entered the Runtime" >&2
     exit 1

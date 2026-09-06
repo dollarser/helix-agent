@@ -13,6 +13,7 @@ class CliRuntimeService : Service() {
     private lateinit var runner: CodexPayloadJobRunner
     private lateinit var oauthTransport: OkHttpCodexOAuthTransport
     private lateinit var claudeTransport: OkHttpClaudeOAuthTransport
+    private lateinit var grokTransport: OkHttpGrokDeviceTransport
     private val activeModel = AtomicReference<Closeable?>()
 
     override fun onCreate() {
@@ -22,12 +23,14 @@ class CliRuntimeService : Service() {
         val oauth = CodexLoginController(vault, oauthTransport)
         claudeTransport = OkHttpClaudeOAuthTransport()
         val claudeOauth = ClaudeLoginController(vault, claudeTransport)
+        grokTransport = OkHttpGrokDeviceTransport()
+        val grokOauth = GrokLoginController(vault, grokTransport)
         runner = CodexPayloadJobRunner(
             store = CodexPayloadJobStore(filesDir),
             execute = { bytes ->
                 val envelope = com.helix.runtime.cli.client.CliModelRequestCodec.decodeEnvelope(bytes)
                 val request = envelope.request
-                if (envelope.provider !in setOf(CliModelProvider.CODEX, CliModelProvider.CLAUDE)) {
+                if (envelope.provider !in setOf(CliModelProvider.CODEX, CliModelProvider.CLAUDE, CliModelProvider.GROK)) {
                     return@CodexPayloadJobRunner CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)))
                 }
                 if (BuildConfig.DEBUG && request.model == "helix-fixture") {
@@ -55,6 +58,10 @@ class CliRuntimeService : Service() {
                         activeModel.compareAndSet(model, null)
                     }
                 }
+                if (envelope.provider == CliModelProvider.GROK) {
+                    val model = GrokSubscriptionModel(vault, grokOauth::refresh).also(activeModel::set)
+                    return@CodexPayloadJobRunner try { model.use { it.run(request) } } finally { activeModel.compareAndSet(model, null) }
+                }
                 val model = CodexSubscriptionModel(vault, oauth).also(activeModel::set)
                 try {
                     model.use { it.run(request) }
@@ -79,6 +86,7 @@ class CliRuntimeService : Service() {
         activeModel.getAndSet(null)?.close()
         oauthTransport.close()
         claudeTransport.close()
+        grokTransport.close()
         super.onDestroy()
     }
 }

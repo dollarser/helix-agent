@@ -21,6 +21,7 @@ import com.helix.runtime.cli.client.CliRuntimeSupervisor
 internal object SubscriptionProviderModule {
     const val CODEX_ID = "subscription-codex"
     const val CLAUDE_ID = "subscription-claude"
+    const val GROK_ID = "subscription-grok"
     private val capabilities = ProviderCapabilities(
         streaming = true,
         toolCalls = false,
@@ -33,6 +34,14 @@ internal object SubscriptionProviderModule {
     )
 
     fun ensureRegistered(storage: HelixStorage) {
+        if (runCatching { storage.providerConfigs.resolve(GROK_ID) }.isFailure) {
+            storage.providerConfigs.save(ProviderConfigSpec(
+                id = GROK_ID, displayName = "Grok Subscription (experimental)",
+                protocol = ProviderProtocol.OPENAI_RESPONSES, endpoint = "https://api.x.ai/v1", model = "grok-4",
+                headersJson = "{}", secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                capabilitySnapshot = ProviderCapabilities.toJsonString(capabilities.copy(streaming = false)),
+            ))
+        }
         if (runCatching { storage.providerConfigs.resolve(CLAUDE_ID) }.isFailure) {
             storage.providerConfigs.save(ProviderConfigSpec(
                 id = CLAUDE_ID,
@@ -64,10 +73,11 @@ internal object SubscriptionProviderModule {
         when (config.id) {
             CODEX_ID -> CodexSubscriptionProvider(context, config)
             CLAUDE_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.CLAUDE)
+            GROK_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.GROK)
             else -> null
         }
 
-    fun isManaged(providerId: String): Boolean = providerId == CODEX_ID || providerId == CLAUDE_ID
+    fun isManaged(providerId: String): Boolean = providerId in setOf(CODEX_ID, CLAUDE_ID, GROK_ID)
 
     suspend fun probe(config: ProviderConfig, provider: ModelProvider): ProbeOutcome? {
         if (!isManaged(config.id)) return null
@@ -82,6 +92,7 @@ internal object SubscriptionProviderModule {
             ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, when (providerId) {
                 CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY
                 CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"
+                GROK_ID -> "com.helix.runtime.cli.app.GrokLoginActivity"
                 else -> error("unsupported subscription provider")
             }),
         ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
