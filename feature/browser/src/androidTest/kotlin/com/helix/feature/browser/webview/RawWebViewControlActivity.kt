@@ -30,6 +30,7 @@ class RawWebViewControlActivity : Activity() {
     }
 
     private fun createNext() {
+        if (created == 0) Log.i("HelixReferenceTrace", "BEGIN reference control")
         val context = if (intent.getBooleanExtra("activityContext", false)) this else applicationContext
         if (autofillOnly) {
             val manager = requireNotNull(context.getSystemService(AutofillManager::class.java))
@@ -51,6 +52,7 @@ class RawWebViewControlActivity : Activity() {
                             if (completed) return
                             completed = true
                             handler.removeCallbacks(timeout)
+                            (view.parent as? ViewGroup)?.removeView(view)
                             view.destroy()
                             completedIteration()
                         }

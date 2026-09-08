@@ -276,3 +276,5 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-153 | 已完成 [引用配对与释放路径追踪](native-reference-release-trace.md)：API29/36 各 400 轮双对照、1000 轮 Binder 干预；独立 NDK 编译通过。生产缺陷仍 open，GC 干预不计稳定性验收 |
 
 共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。
+
+| HXA-154 | [生产路径核实](browser-controller-reference-verification.md) 完成：API29/36 六路径各 400 轮目标引用零残留；JVM 116、设备安全各 9 项及构建/lint/静态检查通过；原生正对照仍检出残留，不等于原生问题关闭 |

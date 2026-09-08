@@ -3,5 +3,8 @@
         <activity
             android:name="com.helix.feature.browser.webview.RawWebViewControlActivity"
             android:exported="true" />
+        <activity
+            android:name="com.helix.feature.browser.webview.ControllerReferenceControlActivity"
+            android:exported="true" />
     </application>
 </manifest>

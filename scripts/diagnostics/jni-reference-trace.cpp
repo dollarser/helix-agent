@@ -97,6 +97,7 @@ void dump() {
     for (const auto& item : classes) {
         __android_log_print(ANDROID_LOG_INFO, "HelixJniTrace", "CLASS new=%zu delete=%zu live=%zu %s", item.second.created, item.second.deleted, item.second.created-item.second.deleted, item.first.c_str());
     }
+    __android_log_print(ANDROID_LOG_INFO, "HelixJniTrace", "END reference dump");
 }
 }
 extern "C" JNIEXPORT jint JNICALL Agent_OnAttach(JavaVM* vm, char*, void*) {

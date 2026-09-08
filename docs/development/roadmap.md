@@ -897,3 +897,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed（有界追踪完成，生产缺陷仍 open），见 [完成记录](../completion-records/HXA-153.md)。所有者于 2026-09-08 要求追踪 native 弱引用创建/删除及系统 Binder 代理释放路径。允许测试 APK 延迟/采样控制、独立宿主诊断 agent 和 scripts、docs；JVMTI 诊断仅附加专用模拟器的测试进程，不打包进产品、不改生产运行时或依赖。基于实际配对引用与版本源码缩小所有者，Binder 分支区分客户端 GC 和系统代理清理；长稳仍后置。
 
 验证：独立 NDK 编译诊断 agent；`./gradlew :feature:browser:assembleDebugAndroidTest spotlessCheck detekt --max-workers=1`；API29/36 有界原生对照和追踪，记录 agent/APK hash、版本、创建/删除配对及残留组；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。诊断失败、观测干扰与未确认归因独立记录，不把调查完成当作生产修复。
+
+### HXA-154 浏览器生产路径引用核实
+
+状态：completed（有界核实完成），见 [完成记录](../completion-records/HXA-154.md)。所有者于 2026-09-08 授权继续核实优化。使用生产 BrowserController 验证空标签、拒绝、立即关闭、停止后关闭、加载完成关闭及清理历史的实际引用配对；修正诊断夹具与证据校验缺口。允许 feature/browser 的 androidTest、scripts/diagnostics 和 docs；生产代码仅允许已有契约内且有复现的生命周期修复，不更换 WebView、不引入强制 GC/导航或架构补丁。长稳仍后置。
+
+验证：`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；NDK agent 严格编译；API29/36 各路径 400 轮有界引用追踪与 BrowserSecurityDeviceTest，保留失败和观察干扰；Python/shell 语法、文档/ADR 门禁及 diff 检查。只有实际生产修复经回归才能称缺陷关闭。

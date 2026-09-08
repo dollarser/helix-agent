@@ -209,7 +209,7 @@
 
 ## 第三阶段：后期长稳（当前不启动）
 
-- [ ] 验证浏览器 JNI 双映射清理与系统 Binder 代理累积的修复方案（[HXA-153 释放路径](native-reference-release-trace.md) 已完成配对与因果干预；生产缺陷仍 open。HXA-152 已补齐 API29/36 原生 WebView 与无 WebView 的 Autofill 对照，四组 FAIL，见 [调查记录](webview-native-reference-investigation.md)），复用五组原生对照失败证据；有针对性修复后再重跑对照，不以强制 GC 或放宽门限掩盖。
+- [ ] 验证浏览器 JNI 双映射清理与系统 Binder 代理累积的修复方案（[HXA-153 释放路径](native-reference-release-trace.md) 已完成配对与因果干预；[HXA-154](browser-controller-reference-verification.md) 的六条生产本地路径未复现目标残留，优先核实真实网络/后台窗口；原生问题仍 open。HXA-152 已补齐 API29/36 原生 WebView 与无 WebView 的 Autofill 对照，四组 FAIL，见 [调查记录](webview-native-reference-investigation.md)），复用五组原生对照失败证据；有针对性修复后再重跑对照，不以强制 GC 或放宽门限掩盖。
 - [ ] 最新构建 API 29 浏览器连续 24 小时长稳。
 - [ ] 最新构建 API 36 应用连续 24 小时长稳。
 - [ ] 长稳前核实宿主休眠、模拟器存活、采样与进程生命周期；记录 APK hash、系统/WebView 版本和原始日志，不拼接失败轮次时长。

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Bounded test-APK-only JNI observation; raw logs are evidence, not a soak pass."""
 import argparse
+import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -11,14 +13,17 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("serial")
 parser.add_argument("--count", type=int, default=400)
 parser.add_argument("--navigate", action="store_true")
+parser.add_argument("--scenario", choices=["empty", "denied", "early-close", "stop-close", "settled-close", "clear-history"])
 args = parser.parse_args()
 if not args.serial.startswith("emulator-") or not 1 <= args.count <= 2000:
     parser.error("requires a dedicated emulator and count in 1..2000")
+if args.scenario and args.navigate:
+    parser.error("--scenario and --navigate are independent controls")
 root = Path(__file__).resolve().parents[2]
 adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
 package = "com.helix.feature.browser.test"
 agent = f"/data/data/{package}/code_cache/helix-jni-trace.so"
-output = root / "build/reference-trace" / f"{args.serial}-{'navigate' if args.navigate else 'bare'}-{args.count}"
+output = root / "build/reference-trace" / f"{args.serial}-{args.scenario or ('navigate' if args.navigate else 'bare')}-{args.count}"
 output.mkdir(parents=True, exist_ok=True)
 
 def run(*parts):
@@ -29,6 +34,9 @@ run("install", "-r", str(root / "feature/browser/build/outputs/apk/androidTest/d
 run("push", str(root / "build/reference-trace/libjni-reference-trace.so"), "/data/local/tmp/helix-jni-trace.so")
 run("shell", "run-as", package, "cp", "/data/local/tmp/helix-jni-trace.so", "code_cache/helix-jni-trace.so")
 start = ["shell", "am", "start", "-W", "-n", f"{package}/com.helix.feature.browser.webview.RawWebViewControlActivity", "--ei", "iterations", str(args.count), "--el", "startDelayMs", "10000", "--el", "holdMs", "30000"]
+if args.scenario:
+    start[5] = f"{package}/com.helix.feature.browser.webview.ControllerReferenceControlActivity"
+    start += ["--es", "scenario", args.scenario]
 if args.navigate:
     start += ["--ez", "navigateBeforeDestroy", "true"]
 (output / "start.log").write_text(run(*start))
@@ -45,7 +53,7 @@ def logs():
 text = ""
 for _ in range(120):
     text = logs()
-    if "FATAL EXCEPTION" in text or "Fatal signal" in text:
+    if "FATAL EXCEPTION" in text or "Fatal signal" in text or "OVERFLOW observation invalid" in text:
         raise RuntimeError("diagnostic process failed; see logcat")
     if f"PASS created={args.count}" in text:
         break
@@ -54,14 +62,25 @@ else:
     raise RuntimeError("bounded control timeout; do not count as a pass")
 if "ATTACH result=0" not in text:
     raise RuntimeError("agent did not attach; control result is not trace evidence")
+if "BEGIN reference control" not in text or text.index("ATTACH result=0") > text.index("BEGIN reference control"):
+    raise RuntimeError("control started before observer attachment; evidence invalid")
 run("shell", "am", "attach-agent", package, agent)
 for _ in range(10):
     text = logs()
-    if "SUMMARY live=" in text and "CLASS new=" in text:
+    if "END reference dump" in text:
         break
     time.sleep(1)
 else:
     raise RuntimeError("missing reference dump")
 summary = [line for line in text.splitlines() if "HelixJniTrace" in line and re.search(r"SUMMARY|CLASS.*(LG8;|LWV/T6;)", line)]
 (output / "summary.log").write_text("\n".join(summary) + "\n")
+metadata = {
+    "serial": args.serial, "pid": pid, "count": args.count,
+    "scenario": args.scenario or ("navigate" if args.navigate else "bare"),
+    "fingerprint": run("shell", "getprop", "ro.build.fingerprint").strip(),
+    "webview": run("shell", "dumpsys", "webviewupdate"),
+    "agent_sha256": hashlib.sha256((root / "build/reference-trace/libjni-reference-trace.so").read_bytes()).hexdigest(),
+    "apk_sha256": hashlib.sha256((root / "feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk").read_bytes()).hexdigest(),
+}
+(output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 print(output.name, *summary, sep="\n", flush=True)

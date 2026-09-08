@@ -82,3 +82,7 @@ python3 scripts/diagnostics/trace-binder-release.py emulator-5598
 - 安装更新 APK 会清空 agent 的 code_cache 副本；早期一次运行只有对照、没有 agent。最终脚本每次安装后复制，并要求附加成功及引用 dump，只有上述最终配对结果计入结论。
 
 目前交付的是可复核的定位证据及测试工具。生产修复、修补版对照、真机和长稳仍未完成。
+
+## 后续生产影响核实
+
+[HXA-154](browser-controller-reference-verification.md) 已验证生产控制器本地导航后立即关闭也能配对释放，无须等到页面加载完成。HXA-153 的导航对照是充分条件，不是生产等待的必要条件。HXA-154 还修正了原导航夹具 destroy 前未移除父 View 的问题并复跑对照；生产代码已有 detach，无对应改动。
