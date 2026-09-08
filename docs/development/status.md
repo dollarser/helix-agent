@@ -149,7 +149,11 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M10 / HXA-158 已完成：未使用 WebView 分配修复及原生问题折中验证，见 [完成记录](../completion-records/HXA-158.md)。
 
+- M10 / HXA-159 已完成：大文件职责重构、双 flavor 静态/JVM 门禁与双 API 各 74 项回归，见 [完成记录](../completion-records/HXA-159.md)；[Context 替代分析](browser-context-options.md) 保留为未实施方案。
+
 ## In progress
+
+HXA-159 已完成，当前无活动实现检查点；新功能继续暂停。首次 API36 预览超时根因未定，最终构建后单例连续 5 次及双 API 完整 74 项回归通过，详细失败与重验记录保留在完成记录。
 
 HXA-158 应用规避已完成，当前无活动实现检查点。系统 JNI/Binder 问题仍开放，未宣称底层修复。
 

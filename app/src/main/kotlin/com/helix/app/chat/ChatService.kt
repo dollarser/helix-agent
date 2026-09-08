@@ -8,29 +8,21 @@ import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.automation.AutomationModule
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.SafetyProfileStore
-import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.PersistedRunControlStore
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
-import com.helix.core.agent.ModePolicy
-import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ApprovalDecision
-import com.helix.core.model.ArtifactRef
-import com.helix.core.model.AttachmentClassification
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.ExecutionTargetType
-import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelErrorCode
-import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
-import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SystemClock
 import com.helix.core.model.ToolCallState
@@ -42,19 +34,14 @@ import com.helix.core.policy.DataOrigin
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
-import com.helix.core.workspace.AtomicFileWriter
-import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
 import com.helix.feature.files.AttachmentImportResult
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.AttachmentSendGate
-import com.helix.feature.files.ImageNormalizer
 import com.helix.feature.files.ImportRefusal
 import com.helix.feature.files.ImportStatus
-import com.helix.feature.files.NormalizationCode
-import com.helix.feature.files.NormalizationOutcome
 import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.StagedAttachment
 import com.helix.tools.framework.ApprovalRequest
@@ -84,8 +71,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.jvm.Volatile
 
 /**
@@ -106,11 +91,12 @@ import kotlin.jvm.Volatile
  *   [TurnUi.streamingText] and survives only as committed content from the
  *   terminal on — an interrupted process parks the turn, no blind replay).
  *
- * One class owns every chat-screen fact (sessions, the open conversation,
+ * ChatService owns every live chat-screen fact (sessions, the open conversation,
  * the in-flight turn, the gates, the tool timeline) by design — splitting it
  * across several services would put the invariants (one active turn per
  * session, the gate→turn hand-off, the live-card overlay) across objects.
- * The class-level suppressions record that single-owner decision; LongParameterList
+ * Request assembly, attachment preparation and repository projections are delegated without
+ * transferring ownership of mutable session state. The remaining suppressions cover orchestration; LongParameterList
  * covers the primary constructor, whose parameters are each a distinct injected seam
  * (HXA-069 added the pure-JVM `strings` locale resolver — ChatService has no Android
  * Context to read string resources itself, so the resolver must be injected).
@@ -156,6 +142,10 @@ class ChatService(
     private val goalEvidenceWorkspace: java.io.File? = null,
     private val goalEvidenceFileStore: com.helix.core.workspace.WorkspaceArtifactStore? = null,
 ) {
+    private val requestAssembler =
+        ChatRequestAssembler(storage, providerService, toolPipeline, attachmentStaging, visionSessionBinder)
+    private val projection = ChatScreenProjection(storage, providerService, strings, ::modelTerminalCodeRes)
+    private val stagingProcessor = StagedAttachmentProcessor(storage, attachmentStaging, idGenerator, strings)
     private val workScope = scope
 
     /** Resolves a string-resource id (+ optional format args) to the current locale (HXA-069). */
@@ -345,36 +335,6 @@ class ChatService(
      * just the bounded inline view.
      */
     private val credentialScan: (String) -> String? = ForbiddenContentGuard::reasonFor
-
-    /** The in-memory facts of one staged attachment (internal; the UI sees [PendingAttachmentUi]). */
-    @Suppress("LongParameterList") // one distinct staged fact per parameter (raw + HXA-055 normalized facts)
-    private class StagedAttachmentEntry(
-        /** The session that staged this entry — an in-flight switch/close drops it (ADR-0014 §5). */
-        val sessionId: String,
-        val artifactId: String,
-        val fileName: String,
-        val sizeBytes: Long,
-        val boundSha256: String,
-        /** The scope-relative workspace path the model chunk-reads the full content through. */
-        val relativePath: String,
-        /** The real workspace path — hashing/probing only, never exposed. */
-        val file: Path,
-        /** HXA-055 image facts (null/0 for text): the registered id of the NORMALIZED artifact. */
-        val normalizedArtifactId: String? = null,
-        /** The bound SHA-256 of the normalized artifact (re-verified at send, retry and restore). */
-        val normalizedSha256: String? = null,
-        /** The real path of the normalized artifact — hashing only, never exposed. */
-        val normalizedFile: Path? = null,
-        val normalizedWidth: Int = 0,
-        val normalizedHeight: Int = 0,
-        val normalizedMediaType: String? = null,
-        /**
-         * Set when the on-device normalization FAILED at staging (HXA-055, ADR-0014 §4): the raw
-         * artifact stays local (save/preview still possible) but the send is blocked with this
-         * actionable, user-visible reason — never a raw-base64 fallback.
-         */
-        val imageSendError: String? = null,
-    )
 
     // --- HXA-036: the tool pipeline state (cards, dispatch facts, turn cancels) ---
 
@@ -655,214 +615,20 @@ class ChatService(
         stageImportedAttachment(result, sessionId)
     }
 
-    /**
-     * Completes staging for a COMPLETED import (fail closed at every step): the file must
-     * classify as a first-batch UTF-8 text attachment (unsupported types are surfaced and
-     * NOT staged), its snapshot must be complete, and the artifact row must register
-     * (`message_attachments.artifactId` is an FK to `artifacts`; the register re-verifies
-     * the durable bytes — hash and size). The resolved real path stays service-internal.
-     */
-    @Suppress(
-        "ReturnCount",
-        "SwallowedException",
-        "TooGenericExceptionCaught",
-        "LongMethod",
-        "CyclomaticComplexMethod",
-    ) // one fail-closed return per staging step; the HXA-055 image branch adds its closed failure ladder
     private fun stageImportedAttachment(
         result: AttachmentImportResult,
         sessionId: String,
     ) {
-        val fileName = result.fileName.orEmpty()
-        val classification = result.classification
-        if (classification !is AttachmentClassification.TextAttachment &&
-            classification !is AttachmentClassification.ImageAttachment
-        ) {
-            // The classifier re-derived this from the durable bytes; unsupported types are
-            // never parsed/decoded/rendered — the user is told and the file is not staged.
-            // Classification necessarily happens after the one-time private copy so it can
-            // trust the bytes rather than the provider label; discard that unregistered copy
-            // now so every unsupported attempt leaves neither an Artifact nor an orphan payload.
-            discardUnsupportedImport(result.modelRef)
-            setBlocked(str(R.string.chat_blocked_unsupported_type, fileName))
-            return
-        }
-        val sha = result.sha256
-        if (sha == null || result.sizeBytes < 0) {
-            setBlocked(str(R.string.chat_blocked_snapshot_incomplete))
-            return
-        }
-        val scopePath =
-            try {
-                FileScopePath.fromModelReference(result.modelRef.orEmpty())
-            } catch (e: IllegalArgumentException) {
-                setBlocked(str(R.string.chat_blocked_path_check_failed))
-                return
+        when (val prepared = stagingProcessor.prepare(result, sessionId)) {
+            is StagedAttachmentProcessor.Preparation.Rejected -> {
+                setBlocked(prepared.reason)
             }
-        val realPath =
-            try {
-                attachmentStaging.resolveWorkspacePath(scopePath)
-            } catch (e: RuntimeException) {
-                // The scope vanished or the path escaped containment: fail closed. The
-                // exception is not logged — it can carry a real path, which never may be.
-                setBlocked(str(R.string.chat_blocked_workspace_path_unavailable))
-                return
+
+            is StagedAttachmentProcessor.Preparation.Ready -> {
+                if (admitStagedEntry(prepared.entry)) refreshScreen()
             }
-        val artifactId =
-            try {
-                storage.artifacts
-                    .register(
-                        id = "art_" + idGenerator(),
-                        sessionId = sessionId,
-                        relativePath = scopePath.relativePath,
-                        mediaType =
-                            when (classification) {
-                                is AttachmentClassification.ImageAttachment -> classification.mediaType
-                                else -> result.mimeType ?: "text/plain"
-                            },
-                        size = result.sizeBytes,
-                        sha256 = sha,
-                        file = realPath.toFile(),
-                    ).id
-            } catch (e: IllegalArgumentException) {
-                // A failed registration means the durable file no longer verifies against
-                // its snapshot — do not leave a reference the user could never send.
-                deleteQuietly(realPath)
-                setBlocked(str(R.string.chat_blocked_register_failed))
-                return
-            }
-        // HXA-055 (ADR-0014 §4): a staged image is normalized ON-DEVICE right here —
-        // decode within VisionLimits, manual EXIF orientation, re-encode (the EXIF strip),
-        // and the size-budget ladder — so the send path only ever moves verified, bounded
-        // bytes. A normalization failure does NOT drop the attachment: the raw artifact stays
-        // local (save/preview possible) and the entry carries an actionable, user-visible
-        // send error (fail closed — never a raw-base64 fallback).
-        val normalized =
-            if (classification is AttachmentClassification.ImageAttachment) {
-                normalizeStagedImage(realPath, scopePath, sessionId, classification.mediaType)
-            } else {
-                null
-            }
-        // In-lock admission (ADR-0014 §5): the pending list is local to the session that
-        // staged it and the cap is re-checked inside — two concurrent stages cannot race past it.
-        if (
-            admitStagedEntry(
-                sessionId = sessionId,
-                fileName = fileName,
-                result = result,
-                sha = sha,
-                scopePath = scopePath,
-                realPath = realPath,
-                artifactId = artifactId,
-                normalizedArtifactId = normalized?.id,
-                normalizedSha256 = normalized?.sha256,
-                normalizedFile = normalized?.file,
-                normalizedWidth = normalized?.width ?: 0,
-                normalizedHeight = normalized?.height ?: 0,
-                normalizedMediaType = normalized?.mediaType,
-                imageSendError = normalized?.failureReason,
-            )
-        ) {
-            refreshScreen()
         }
     }
-
-    /** The registered facts of one successfully normalized staged image (all nulls + a reason on failure). */
-    private class NormalizedStagedImage(
-        val id: String?,
-        val sha256: String?,
-        val file: Path?,
-        val width: Int,
-        val height: Int,
-        val mediaType: String?,
-        val failureReason: String?,
-    )
-
-    /**
-     * Normalizes one staged image and registers the result as a SECOND, app-private artifact
-     * in the same staging directory (`normalized.<ext>`). The raw artifact stays registered —
-     * it is the local save/preview source; only the normalized artifact is ever sendable.
-     */
-    @Suppress(
-        "ReturnCount",
-        "SwallowedException",
-        "TooGenericExceptionCaught",
-    ) // every failure step maps to the closed NormalizationCode path
-    private fun normalizeStagedImage(
-        rawFile: Path,
-        scopePath: FileScopePath,
-        sessionId: String,
-        rawMediaType: String,
-    ): NormalizedStagedImage {
-        val stagingDir = rawFile.parent ?: return failedStagedNormalization()
-        val outcome =
-            try {
-                ImageNormalizer.normalize(rawFile, rawMediaType, stagingDir)
-            } catch (e: Exception) {
-                // A crash in the decode path (not a caught OOM) is the same closed outcome:
-                // fail the normalization, keep the raw file, never crash the app.
-                NormalizationOutcome.Failed(NormalizationCode.DECODE_FAILED, "unexpected")
-            }
-        val ok = outcome as? NormalizationOutcome.Ok ?: return failedStagedNormalization()
-        val normalizedPath = ok.image.file
-        if (!Files.exists(normalizedPath) || !Files.isRegularFile(normalizedPath)) {
-            return failedStagedNormalization()
-        }
-        // The normalizer wrote `normalized.<ext>` into the RAW file's staging directory —
-        // derive the scope-relative path from the raw one (same dir, fixed file name).
-        val dirRel = scopePath.relativePath.substringBeforeLast('/')
-        val ext = normalizedPath.fileName?.toString()?.substringAfterLast('.', missingDelimiterValue = "") ?: ""
-        val normalizedRelative =
-            runCatching {
-                FileScopePath(scopePath.scopeId, "$dirRel/normalized.$ext")
-            }.getOrNull()
-        if (normalizedRelative == null || ext.isEmpty()) {
-            deleteQuietly(normalizedPath)
-            return failedStagedNormalization()
-        }
-        // Containment: the registered path must resolve to EXACTLY the file the normalizer
-        // wrote — never a stray file the scope would also accept (fail closed).
-        val resolved =
-            runCatching { attachmentStaging.resolveWorkspacePath(normalizedRelative) }.getOrNull()
-        if (resolved?.toFile()?.canonicalFile != normalizedPath.toFile().canonicalFile) {
-            deleteQuietly(normalizedPath)
-            return failedStagedNormalization()
-        }
-        val id =
-            try {
-                storage.artifacts
-                    .register(
-                        id = "art_" + idGenerator(),
-                        sessionId = sessionId,
-                        relativePath = normalizedRelative.relativePath,
-                        mediaType = ok.image.mediaType,
-                        size = ok.image.sizeBytes,
-                        sha256 = ok.image.sha256,
-                        file = normalizedPath.toFile(),
-                    ).id
-            } catch (e: IllegalArgumentException) {
-                // The register re-verifies the bytes; a mismatch deletes nothing (the row is
-                // absent) and the normalization is treated as failed (fail closed).
-                return failedStagedNormalization()
-            }
-        return NormalizedStagedImage(
-            id,
-            ok.image.sha256,
-            normalizedPath,
-            ok.image.width,
-            ok.image.height,
-            ok.image.mediaType,
-            null,
-        )
-    }
-
-    /** The closed, fail-closed staging outcome of a failed image normalization (HXA-055). */
-    private fun failedStagedNormalization() =
-        NormalizedStagedImage(null, null, null, 0, 0, null, imageNormalizationBlockText())
-
-    /** The fixed, user-visible (Chinese) send block for a failed image normalization (HXA-055). */
-    private fun imageNormalizationBlockText(): String =
-        str(R.string.chat_capability_image_normalization_failed, VisionLimits.MAX_EDGE_PX)
 
     /**
      * The authoritative, in-lock append of one staged attachment: it appends only when the
@@ -870,73 +636,21 @@ class ChatService(
      * failure sets the blocked state and appends NOTHING (the durable artifact row stays, inert).
      * Returns true when the entry was appended.
      */
-    @Suppress("LongParameterList") // each parameter is one staged fact (raw + HXA-055 normalized image facts)
-    private fun admitStagedEntry(
-        sessionId: String,
-        fileName: String,
-        result: AttachmentImportResult,
-        sha: String,
-        scopePath: FileScopePath,
-        realPath: Path,
-        artifactId: String,
-        normalizedArtifactId: String? = null,
-        normalizedSha256: String? = null,
-        normalizedFile: Path? = null,
-        normalizedWidth: Int = 0,
-        normalizedHeight: Int = 0,
-        normalizedMediaType: String? = null,
-        imageSendError: String? = null,
-    ): Boolean {
+    private fun admitStagedEntry(entry: StagedAttachmentEntry): Boolean {
         var admitted = false
         synchronized(stagedLock) {
-            if (openSessionId == sessionId) {
+            if (openSessionId == entry.sessionId) {
                 if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
                     setBlocked(
                         str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE),
                     )
                 } else {
-                    stagedAttachments =
-                        stagedAttachments +
-                        StagedAttachmentEntry(
-                            sessionId = sessionId,
-                            artifactId = artifactId,
-                            fileName = fileName,
-                            sizeBytes = result.sizeBytes,
-                            boundSha256 = sha,
-                            relativePath = scopePath.relativePath,
-                            file = realPath,
-                            normalizedArtifactId = normalizedArtifactId,
-                            normalizedSha256 = normalizedSha256,
-                            normalizedFile = normalizedFile,
-                            normalizedWidth = normalizedWidth,
-                            normalizedHeight = normalizedHeight,
-                            normalizedMediaType = normalizedMediaType,
-                            imageSendError = imageSendError,
-                        )
+                    stagedAttachments = stagedAttachments + entry
                     admitted = true
                 }
             }
         }
         return admitted
-    }
-
-    /** Best-effort delete of a file whose staging failed (an unreferenced orphan otherwise). */
-    private fun deleteQuietly(path: Path) {
-        runCatching { Files.deleteIfExists(path) }
-    }
-
-    /** Removes an unsupported import's unregistered payload and its now-empty attachment-id dir. */
-    private fun discardUnsupportedImport(modelRef: String?) {
-        val scopePath =
-            runCatching { FileScopePath.fromModelReference(modelRef.orEmpty()) }
-                .getOrNull() ?: return
-        val path =
-            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
-                .getOrNull() ?: return
-        deleteQuietly(path)
-        // The per-import directory is unique and contains only this payload before staging.
-        // deleteIfExists fails harmlessly if deletion above failed or an unexpected entry exists.
-        runCatching { Files.deleteIfExists(path.parent) }
     }
 
     /** The fixed, user-visible (Chinese) reason for a refused attachment import — never the raw detail. */
@@ -2072,7 +1786,7 @@ class ChatService(
     ): ModelStreamTerminal {
         val turnId = coordinator.id
         val provider = providerService.modelProviderFor(providerId)
-        var request = buildRequest(sessionId, retryTurnId, control)
+        var request = requestAssembler.buildRequest(sessionId, retryTurnId, control)
         var toolRounds = 0
         val budgetTracker = TurnBudgetTracker(control.budgets)
         val goalBudget = GoalModelCallBudget(storage, clock)
@@ -2121,7 +1835,7 @@ class ChatService(
                 }
                 if (toolRound is ToolRoundContinued) {
                     toolRounds = toolRound.toolRounds
-                    request = buildBackfillRequest(sessionId, control)
+                    request = requestAssembler.buildBackfillRequest(sessionId, control)
                     continue
                 }
             }
@@ -2261,206 +1975,6 @@ class ChatService(
             Log.e(TAG, "Goal reminder sync failed after durable turn settlement", error)
             setBlocked(str(R.string.goal_reminder_sync_failed))
         }
-    }
-
-    /**
-     * Builds the model request from PERSISTED rows: the session's
-     * user/assistant history (ChatHistoryBuilder) — for a retry, the retried
-     * turn's own assistant rows are excluded but its user message is kept, so
-     * the request ends with the same USER message the user is retrying.
-     */
-    private suspend fun buildRequest(
-        sessionId: String,
-        retryTurnId: String?,
-        control: RunControlConfig,
-    ): ModelRequest {
-        val history = persistedHistory(sessionId, retryTurnId)
-        require(history.lastOrNull()?.role == ModelRole.USER) {
-            "the request must end with the user message"
-        }
-        val config = providerService.storedConfig(sessionProviderId(sessionId))
-        visionSessionBinder(sessionId)
-        return ModelRequest(
-            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
-            messages = history,
-            tools = modelTools(sessionId, control),
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
-        )
-    }
-
-    /**
-     * The next model request of a tool loop (roadmap HXA-037 back-fill): the FULL
-     * persisted history, which now ends with the just-settled TOOL result rows —
-     * `model-visible ⇔ persisted`: every message the model sees was persisted FIRST
-     * (doc 11 section 4: no model-visible input without a persisted event).
-     */
-    private suspend fun buildBackfillRequest(
-        sessionId: String,
-        control: RunControlConfig,
-    ): ModelRequest {
-        val history = persistedHistory(sessionId, null)
-        require(history.lastOrNull()?.role == ModelRole.TOOL) {
-            "a back-fill request must end with the tool results"
-        }
-        val config = providerService.storedConfig(sessionProviderId(sessionId))
-        visionSessionBinder(sessionId)
-        return ModelRequest(
-            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
-            messages = history,
-            tools = modelTools(sessionId, control),
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
-        )
-    }
-
-    /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun modelTools(
-        sessionId: String,
-        control: RunControlConfig,
-    ): List<ModelToolSchema> {
-        val latest =
-            toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
-                versions.maxBy { it.version.value }
-            }
-        val admitted =
-            ModePolicy
-                .filterTools(control.mode, latest, control.chatToolsEnabled) {
-                    ToolModeProfile(it.operationClass, it.baseRisk)
-                }
-        return toolPipeline.mcpDiscovery
-            .visible(sessionId, admitted)
-            .take(ModelRequest.MAX_TOOLS)
-            .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
-    }
-
-    /**
-     * The persisted rows → strict model messages (a malformed tool row fails the turn closed).
-     *
-     * HXA-055: every USER message's persisted `message_attachments` bindings whose artifact is
-     * an image become that message's [ModelMessage.images] — re-verified at EVERY request build
-     * (send, retry, tool-loop back-fill, restore): the artifact must still exist, its bytes must
-     * hash to the bound SHA-256, and its magic must agree with the registered type. Any miss
-     * fails the turn closed (ADR-0014 §4: 「发送、重试、恢复前重验 hash；变化或缺失即失败关闭」).
-     * The TOTAL base64 of all images in the request is bounded by
-     * [VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES] — the strictest provider request-size
-     * bound — and an over-budget conversation fails closed with an actionable error.
-     */
-    private suspend fun persistedHistory(
-        sessionId: String,
-        retryTurnId: String?,
-    ): List<ModelMessage> {
-        val rows =
-            storage.messages
-                .listBySession(sessionId)
-                .map {
-                    ChatHistoryBuilder.PersistedRow(
-                        turnId = it.turnId,
-                        role = it.role,
-                        kind = it.kind,
-                        content = storage.messages.readContent(it),
-                        messageId = it.id,
-                    )
-                }
-        val historyRows = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
-        val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows)
-        // USER rows that produce a message: non-blank content (the builder's own rule) — the
-        // count must match the history's USER messages exactly, or the pairing would attach an
-        // image to the wrong message and we fail closed instead.
-        val userRows =
-            historyRows.filter { row ->
-                row.role == ModelRole.USER.name && row.messageId != null && !row.content.isNullOrBlank()
-            }
-        val userMessages = messages.filter { it.role == ModelRole.USER }
-        require(userRows.size == userMessages.size) {
-            "history USER rows and USER messages diverge — image binding refused"
-        }
-        var userRow = 0
-        return messages.map { message ->
-            if (message.role == ModelRole.USER) {
-                message.copy(images = imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
-            } else {
-                message
-            }
-        }
-    }
-
-    /**
-     * The verified [ImageReference]s bound to one persisted USER message (HXA-055): every
-     * binding whose artifact is an image (closed media type) is re-verified — artifact present,
-     * bytes hash to the bound SHA-256, magic agrees with the registered type — and the
-     * request-wide base64 budget is enforced. Any miss throws [IllegalArgumentException] and
-     * the turn fails closed; there is no silent drop and no raw fallback.
-     */
-    private suspend fun imageReferencesFor(messageId: String): List<ImageReference> {
-        val bindings = storage.messageAttachments.listByMessage(messageId)
-        if (bindings.isEmpty()) return emptyList()
-        var totalBase64 = 0L
-        val images = ArrayList<ImageReference>(bindings.size)
-        for (binding in bindings) {
-            val facts = verifiedImageBinding(binding) ?: continue // a text binding is not an image
-            totalBase64 += facts.base64Bytes
-            images += facts.reference
-        }
-        require(totalBase64 <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES) {
-            "the session's image data exceeds the per-request budget — start a new session to send more images"
-        }
-        return images
-    }
-
-    /**
-     * One persisted binding re-verified against its artifact (HXA-055): [null] when the binding
-     * is NOT an image (a text attachment), a verified [ImageReference] + its base64 size when it
-     * is, and an [IllegalArgumentException] (the turn fails closed) when the artifact changed or
-     * vanished — the ADR's re-verify-before-send/retry/restore rule.
-     */
-    private data class ImageBindingFacts(
-        val reference: ImageReference,
-        val base64Bytes: Long,
-    )
-
-    @Suppress("ThrowsCount") // one throw per closed re-verification failure (existence / path / hash / magic)
-    private suspend fun verifiedImageBinding(
-        binding: com.helix.core.storage.entity.MessageAttachmentEntity,
-    ): ImageBindingFacts? {
-        val artifact =
-            runCatching { storage.artifacts.resolve(binding.artifactId) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact no longer exists — re-verify the session")
-        if (artifact.mediaType !in VisionLimits.NORMALIZED_MEDIA_TYPES) return null // text binding
-        require(artifact.size <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
-            "bound image exceeds the per-image wire budget"
-        }
-        val scopePath =
-            runCatching { FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact path is invalid — re-verify the session")
-        val file =
-            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact path escapes the workspace")
-        require(Files.isRegularFile(file)) {
-            "bound image artifact is missing — the message can no longer be restored"
-        }
-        val actualHash =
-            try {
-                AtomicFileWriter.sha256Hex(file)
-            } catch (e: java.io.IOException) {
-                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
-            }
-        require(actualHash == binding.boundSha256) {
-            "bound image hash no longer matches the message binding"
-        }
-        val bytes =
-            try {
-                Files.readAllBytes(file)
-            } catch (e: java.io.IOException) {
-                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
-            }
-        val magic = ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
-        require(magic == artifact.mediaType) { "bound image bytes do not match their registered type" }
-        return ImageBindingFacts(
-            reference = ImageReference(ArtifactRef(artifact.id), artifact.mediaType),
-            base64Bytes = ((bytes.size + 2L) / 3L) * 4L,
-        )
     }
 
     /**
@@ -3323,14 +2837,14 @@ class ChatService(
                 sessions = _sessions.value,
                 openSessionId = sessionId,
                 // A null badge is authoritative for an unbound session, not a missing refresh.
-                badge = sessionId?.let { badgeFor(it) },
-                messages = messagesFor(sessionId, current),
-                toolTimeline = toolTimelineFor(sessionId, current.toolTimeline),
+                badge = sessionId?.let { projection.badgeFor(it) },
+                messages = projection.messagesFor(sessionId, current),
+                toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
                 subscriptionRecoveries = subscriptionRecoveriesFor(storage, sessionId, current.subscriptionRecoveries),
-                activeTurn = lastTurn?.let { turnUiFor(it, current.activeTurn?.streamingText) },
+                activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
                 pendingDisclosure = current.pendingDisclosure,
                 blockedReason = current.blockedReason,
-                retryTargetTurnId = retryTargetFor(sessionId),
+                retryTargetTurnId = projection.retryTargetFor(sessionId),
                 pendingAttachments = stagedAttachmentsUi(),
                 shareDraftText = shareDraftText,
             )
@@ -3352,166 +2866,6 @@ class ChatService(
             )
         }
 
-    /**
-     * The open session's tool timeline: the PERSISTED rows (tool_calls + tool_results,
-     * every turn, newest session order) with the LIVE in-memory rows overlaid (the approval
-     * card is a live display; its persisted identity is the approvals row). Bounded to the
-     * newest [TOOL_TIMELINE_CAP] rows (doc 07 section 10: no unbounded list loads).
-     */
-    private fun toolTimelineFor(
-        sessionId: String?,
-        liveRows: List<ToolTimelineRow>,
-    ): List<ToolTimelineRow> {
-        // No open session: KEEP the live rows as-is. A pending approval card lives ONLY
-        // here (the dispatcher is still blocked in the broker while the user navigates
-        // away); dropping it on close would leave the call "待审批" with no card to tap —
-        // the turn un-approvable until stop or the 24h window expiry. The session-list
-        // screen does not render the timeline, so this is invisible there and the overlay
-        // is restored verbatim when the session reopens.
-        if (sessionId == null) return liveRows
-        val sessionTurns = storage.turns.listBySession(sessionId)
-        val persisted =
-            sessionTurns
-                .flatMap { turn ->
-                    storage.toolCalls
-                        .listByTurn(turn.id)
-                        .map { call ->
-                            val result = storage.toolResults.byToolCall(call.callId)
-                            val interruptedProot =
-                                com.helix.app.proot
-                                    .prootRecoveryEligible(turn.state, call.state) &&
-                                    call.name in setOf("bash", "code.linux.run")
-                            ToolTimelineRow(
-                                turnId = turn.id,
-                                callId = call.callId,
-                                toolName = call.name,
-                                requestSummary = call.argsJson,
-                                stateLabel =
-                                    persistedStateLabel(
-                                        if (turn.state == TurnState.INTERRUPTED.name &&
-                                            call.state == ToolCallState.AWAITING_APPROVAL.name
-                                        ) {
-                                            ToolCallState.INTERRUPTED.name
-                                        } else {
-                                            call.state
-                                        },
-                                    ),
-                                resultSummary = result?.summary,
-                                card = null,
-                                prootRecoveryAvailable =
-                                    com.helix.app.proot.ProotToolModule.AVAILABLE &&
-                                        interruptedProot,
-                            )
-                        }
-                }.takeLast(TOOL_TIMELINE_CAP)
-        // Scope the overlay to THIS session's turns: a live row from another session
-        // (e.g. a pending card left open when the user switched) must not appear here.
-        val turnsInSession = sessionTurns.map { it.id }.toSet()
-        val scoped = liveRows.filter { it.turnId in turnsInSession }
-        return if (scoped.isEmpty()) {
-            persisted
-        } else {
-            val liveByCall = scoped.associateBy { it.callId }
-            persisted
-                .map { row ->
-                    val live = liveByCall[row.callId] ?: return@map row
-                    row.copy(
-                        card = live.card,
-                        prootRecoveryBusy = live.prootRecoveryBusy,
-                        prootRecoveryReport = live.prootRecoveryReport,
-                        prootRecoveredOutput = live.prootRecoveredOutput,
-                        prootResultUnavailable = live.prootResultUnavailable,
-                        stateLabel = live.stateLabel,
-                        resultSummary = live.resultSummary ?: row.resultSummary,
-                    )
-                }.plus(scoped.filter { live -> persisted.none { it.callId == live.callId } })
-        }
-    }
-
-    /** A persisted tool_call state as its user label (corrupt values fail closed). */
-    private fun persistedStateLabel(state: String): String =
-        when (runCatching { ToolCallState.valueOf(state) }.getOrNull()) {
-            ToolCallState.PENDING -> str(R.string.tool_state_processing)
-            ToolCallState.AWAITING_APPROVAL -> str(R.string.tool_state_awaiting_approval)
-            ToolCallState.RUNNING -> str(R.string.tool_state_running)
-            ToolCallState.NEEDS_REVIEW -> str(R.string.tool_state_needs_review)
-            ToolCallState.INTERRUPTED -> str(R.string.tool_state_interrupted)
-            ToolCallState.COMPLETED -> str(R.string.tool_state_completed)
-            ToolCallState.FAILED -> str(R.string.tool_state_failed)
-            ToolCallState.CANCELLED -> str(R.string.tool_state_cancelled)
-            ToolCallState.DENIED -> str(R.string.tool_state_denied)
-            null -> str(R.string.tool_state_unknown)
-        }
-
-    /** The open session's persisted messages as UI rows (blank assistant rows drop out). */
-    private fun messagesFor(
-        sessionId: String?,
-        screen: ChatScreenState,
-    ): List<MessageUi> {
-        if (sessionId == null) return screen.messages
-        return storage.messages
-            .listBySession(sessionId)
-            .mapNotNull { entity ->
-                val content = storage.messages.readContent(entity)
-                if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
-                    null
-                } else {
-                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty())
-                }
-            }
-    }
-
-    /**
-     * The persisted last turn as the active-turn UI state. Corrupt enum
-     * values fail closed to the conservative reading (FAILED / 请求失败) —
-     * a stored row must never be shown as a healthy in-flight turn.
-     */
-    @Suppress("SwallowedException") // corrupt stored enum: the conservative fallback IS the handling
-    private fun turnUiFor(
-        entity: TurnEntity,
-        previousStreamingText: String?,
-    ): TurnUi {
-        val state =
-            try {
-                TurnState.valueOf(entity.state)
-            } catch (e: IllegalArgumentException) {
-                TurnState.FAILED
-            }
-        return TurnUi(
-            id = entity.id,
-            state = state,
-            streamingText = if (state.isTerminal) null else previousStreamingText,
-            errorLabel = entity.errorCode?.let { code -> str(modelTerminalCodeRes(code)) },
-            retryable = state == TurnState.FAILED,
-        )
-    }
-
-    /** Latest failed turn, shown as retryable only when its bound Goal permits an explicit continuation. */
-    private fun retryTargetFor(sessionId: String?): String? =
-        sessionId
-            ?.let { id ->
-                storage.turns
-                    .listBySession(id)
-                    .lastOrNull { it.state == TurnState.FAILED.name }
-                    ?.takeIf { turn ->
-                        val binding = storage.goalTurnBindings.byTurn(turn.id)
-                        if (binding == null) {
-                            true
-                        } else {
-                            val goalId = storage.goalRuns.resolve(binding.runId).goalId
-                            GoalSummaryQuery(storage).forSession(id).any { it.id == goalId && it.canContinue }
-                        }
-                    }?.id
-            }
-
-    private fun badgeFor(sessionId: String): ProviderBadgeUi? {
-        val session = storage.sessions.resolve(sessionId)
-        val row = session.providerId?.let { pid -> providerService.rows.value.firstOrNull { it.id == pid } }
-        return row?.let {
-            ProviderBadgeUi(it.displayName, it.model, it.origin, it.residence, it.capabilityChips)
-        }
-    }
-
     private fun publishTurn(turn: TurnUi) {
         _screen.update { it.copy(activeTurn = turn) }
     }
@@ -3521,12 +2875,6 @@ class ChatService(
     }
 
     private fun currentSession() = openSessionId?.let { storage.sessions.resolve(it) }
-
-    private fun sessionProviderId(sessionId: String): String {
-        val id = storage.sessions.resolve(sessionId).providerId
-        require(id != null) { "session has no provider" }
-        return id
-    }
 
     private suspend fun providerSnapshot(providerId: String): String {
         val c = providerService.storedConfig(providerId)
@@ -3568,10 +2916,7 @@ class ChatService(
     private companion object {
         const val TAG = "HelixChat"
         const val SUMMARY_CAP = 500
-        const val TOOL_TIMELINE_CAP = 200
         const val KIND_TEXT = ChatHistoryBuilder.KIND_TEXT
-
-        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
 
         val EMPTY_SCREEN =
             ChatScreenState(

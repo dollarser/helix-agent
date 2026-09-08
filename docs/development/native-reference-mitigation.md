@@ -63,3 +63,5 @@ Binder 按 UID 计数并可 killUid 的依据见 [AOSP ActivityManagerService �
 资源 FD 测试在延迟分配后显式执行正常 about:blank 加载再关闭，保持真实 WebView 资源覆盖；新增未使用宿主生命周期/销毁后不得复活测试。独立 rawPlatformWebViewLifecycleControl 保留。此测试工作负载调整不是对历史长稳结果的改写；24h 和真机均未重跑。
 
 精确构建/设备命令与结果见 [HXA-158 完成记录](../completion-records/HXA-158.md)。底层释放证据见 [HXA-153](native-reference-release-trace.md)。
+
+Application Context 的功能限制、Activity 级宿主建议、包装器/自定义对话框折中及迁移验收见 [HXA-159 Context 分析](browser-context-options.md)。该分析未改变本报告的已测实现或系统缺陷状态。

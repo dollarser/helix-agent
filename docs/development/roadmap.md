@@ -923,3 +923,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed（应用规避与有界评估），见 [完成记录](../completion-records/HXA-158.md)。所有者要求修复 JNI/Binder，必要时评估替代方案。先直接复现未导航 WebViewTabHost 的 JNI 分配，再将延迟分配落实到宿主内部，验证未使用、JS、生产导航/取消及 Binder 计数。允许 feature/browser、诊断脚本/docs；不 fork Chromium、不隐藏 API、不强制 GC、不关闭 Autofill、不重启掩盖故障。系统根因与应用规避分别记录，24h/真机仍后置。
 
 验证：API29/36 同一 JVMTI 观察器下旧/新 host 对照与裸 WebView 正对照，生产导航 Binder 计数、浏览器设备回归；`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；NDK 严格编译、Python/docs/ADR/secrets/diff 门禁。
+
+### HXA-159 大文件职责重构与浏览器 Context 评估
+
+状态：completed，见 [完成记录](../completion-records/HXA-159.md)。所有者授权优化 FilesScreen、ChatService、BrowserTools、AppContainer 的职责组织，并保留 Application Context 替代分析。允许 app、tools/browser、相关测试和 docs；保持单一会话/审批状态所有者、既有接口/权限/持久化/运行时，不新增功能。ToolDispatcher 核心管线暂不拆散。
+
+验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :tools:browser:test :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 文件页、附件/恢复/审批/工具发现相关设备回归；文档/ADR/i18n/secrets/diff 门禁。Context 先依据实际生命周期和 Android 官方接口分析，不用 Application Context 测试冒充 Autofill 验收。
