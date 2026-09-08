@@ -69,7 +69,7 @@ import kotlinx.coroutines.withContext
  * developer build offers Advanced); consumer/Standard never render it.
  */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "LongParameterList") // Optional feature facades preserve preview/test hosts.
 fun SettingsScreen(
     profileStore: SafetyProfileStore,
     providerService: ProviderService,
@@ -77,6 +77,8 @@ fun SettingsScreen(
     runControlStore: RunControlStore,
     connectorService: com.helix.app.connector.ConnectorService? = null,
     lanScopeStore: com.helix.app.network.LanScopeStore? = null,
+    skillAuthoringService: com.helix.app.skills.SkillAuthoringService? = null,
+    skillInstallationService: com.helix.app.skills.SkillInstallationService? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -155,6 +157,15 @@ fun SettingsScreen(
 
         RunControlSettingsSection(runControlStore)
 
+        skillAuthoringService?.let {
+            com.helix.app.skills
+                .SkillAuthoringSection(it)
+        }
+
+        if (skillAuthoringService != null && skillInstallationService != null) {
+            com.helix.app.skills
+                .SkillInstallationSection(skillAuthoringService, skillInstallationService)
+        }
         connectorService?.let {
             com.helix.app.connector
                 .ConnectorSection(it)

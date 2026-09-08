@@ -856,3 +856,26 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 允许模块：app 的 UI/呈现状态、三语言资源及测试，feature/browser 的 UI 布局与对应测试，docs。浏览器布局纳入所有者已授权的统一界面优化，以跨页面验收确认的入口遮挡为依据；不扩展浏览器执行或权限。必要的新 UI 辅助函数可放 app；不新增依赖或改动核心 Tool/Policy/Runtime 权限。研究只参考设计，不复制有许可证限制的实现。
 
 验证命令：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --max-workers=1`；`./gradlew spotlessCheck detekt lintDebug lintRelease --max-workers=1`；`bash scripts/check-i18n.sh`、`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。Android 使用显式选择的 API29/36，构建后以 `adb -s <serial> shell am instrument -w -r -e class <precise-class-list> <package>.test/com.helix.app.HelixAndroidJUnitRunner` 验证实际修改对应的 UI、聊天与恢复用例，并保存类列表、安装 hash、截图和结果。补充滚动/阅读位置、小屏、大字体、可访问性、中英文与关键任务端到端验收；所有 opt-in 真实模型/宿主测试单独显式执行，不用跳过充当通过。
+
+
+## 20. 内置 Skill 创作与安装助手
+
+所有者于 2026-09-08 授权参考 Codex/QwenWork/WorkBuddy 实现三项能力。HXA-125 外部账号验收继续保持未完成、等待外部条件；新的本地能力不依赖其账号结果，一次只推进以下一个检查点。共同工具契约见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)（accepted，所有者于 2026-09-08 明确接受）。
+
+### HXA-148 Skill Creator 与草稿校验
+
+状态：completed，见 [完成记录](../completion-records/HXA-148.md)。增加内置 skill-creator、Workspace 草稿预览工具及原生创建/编辑/校验入口；复用现有模型会话、scoped write/edit、SkillImportService，不安装依赖或修改已安装快照。允许 app、extensions/skills、对应 tests/docs；不改 core 授权、Runtime 或 Room schema。交付需真实模型生成可通过校验的 Skill，且无安装前自动启用。
+
+验证：`./gradlew :extensions:skills:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --no-configuration-cache`；`./gradlew spotlessCheck detekt lintDebug lintRelease --no-configuration-cache`；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`bash scripts/check-i18n.sh`、`bash scripts/check-secrets.sh`、`git diff --check`。实现时先建立 `scripts/accept-hxa-148-skill-creator.sh <dedicated-serial>`，API29/36 核对草稿创建、非法 frontmatter、路径/大小限制、取消与重启后重新校验、中英文小屏大字体；脚本已执行，分项证据见完成记录。
+
+### HXA-149 Skill Installer 与精确内容安装
+
+状态：completed，见 [完成记录](../completion-records/HXA-149.md)。依赖 HXA-148；实现内置 skill-installer、skills.install 和统一安装预览/结果入口，绑定 source/hash 的 L2 审批，内容变化拒绝，复用禁用默认与快照版本；目录/ZIP/Workspace 草稿为首版输入。允许 app、extensions/skills 及 tests/docs，沿用既有 Policy 与审计，任何无法复用的核心契约先回到 ADR 审查。
+
+验证：沿用 HXA-148 的 Gradle 和文档门禁；实现时先建立 `scripts/accept-hxa-149-skill-installer.sh <dedicated-serial>`，API29/36 验证真实安装/启用/读取、批准后篡改、重复请求、取消/中断恢复、Plan 禁写和失败不激活；复跑 QwenWork/WorkBuddy 本地真实样本。脚本已执行，分项证据见完成记录。
+
+### HXA-150 MCP Installer 与 Connector 导入接线
+
+状态：completed，见 [完成记录](../completion-records/HXA-150.md)。依赖 HXA-149；实现内置 mcp-installer、connectors.preview/install、本地 JSON/ZIP 和粘贴配置入口、安装后独立凭据/连接/工具选择流程。允许 app、extensions/skills、extensions/mcp 及 tests/docs。不扩大 OAuth、stdio/联网 CLI、远程市场或凭据流。
+
+验证：HXA-148 的 Gradle 门禁另加 `:extensions:mcp:test`；实现时先建立 `scripts/accept-hxa-150-mcp-installer.sh <dedicated-serial>`，API29/36 验证 JSON/ZIP 安装、认证字段剥离、Plan 禁写、hash 变化、默认禁用、真实 loopback MCP 连接/选择/拒绝/断线，控制服务与真实第三方账号证据分开。脚本已执行，分项证据见完成记录。

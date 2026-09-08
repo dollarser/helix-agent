@@ -253,6 +253,8 @@ internal fun HelixApp(container: AppContainer) {
                                         container.runControlStore,
                                         container.connectorService,
                                         container.lanScopeStore,
+                                        container.skillAuthoringService,
+                                        container.skillInstallationService,
                                     )
                                 }
 

@@ -162,6 +162,15 @@ interface AppContainer {
 
     val a2aService: A2aAppService
 
+    val connectorInstallationService: com.helix.app.connector.ConnectorInstallationService?
+        get() = null
+
+    val skillInstallationService: com.helix.app.skills.SkillInstallationService?
+        get() = null
+
+    val skillAuthoringService: com.helix.app.skills.SkillAuthoringService?
+        get() = null
+
     val skillImportService: SkillImportService
 
     val skillRepository: SkillRepository
@@ -379,6 +388,28 @@ internal class DefaultAppContainer(
     private val workspaceStore: WorkspaceArtifactStore =
         WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
 
+    override val skillAuthoringService =
+        com.helix.app.skills.SkillAuthoringService(
+            workspaceStore,
+            skillImportService,
+            java.io.File(context.cacheDir, "skill-authoring").toPath(),
+        )
+
+    override val skillInstallationService =
+        com.helix.app.skills.SkillInstallationService(
+            skillAuthoringService,
+            skillImportService,
+            skillRepository,
+            java.io.File(context.filesDir, "skills/snapshots").toPath(),
+        )
+
+    override val connectorInstallationService =
+        com.helix.app.connector.ConnectorInstallationService(
+            workspaceStore,
+            java.io.File(context.cacheDir, "connector-installation").toPath(),
+            { connectorService },
+        )
+
     /**
      * The main-process QuickJS execution client (HXA-053): a stateless Binder façade that binds
      * the non-exported one-shot [com.helix.runtime.quickjs.JsExecutionService] per execution.
@@ -499,6 +530,18 @@ internal class DefaultAppContainer(
         // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
         // and allowed-tools hints cannot register tools or grant authority.
         SkillTools.registerAll(toolRegistry, toolImplementations, skillRepository)
+        com.helix.app.skills.SkillAuthoringTools
+            .register(toolRegistry, toolImplementations, skillAuthoringService)
+        com.helix.app.skills.SkillInstallationTools.register(
+            toolRegistry,
+            toolImplementations,
+            skillInstallationService,
+        )
+        com.helix.app.connector.ConnectorInstallationTools.register(
+            toolRegistry,
+            toolImplementations,
+            connectorInstallationService,
+        )
         // HXA-042: the first non-time.now business tools enter the production tool table. The
         // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a
         // security-descriptor change invalidates any approval minted for the old contract.

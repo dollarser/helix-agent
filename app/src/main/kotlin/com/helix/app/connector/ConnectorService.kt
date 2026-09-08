@@ -41,6 +41,8 @@ class ConnectorService(
     private val snapshots = context.filesDir.toPath().resolve("skills/snapshots")
     private val reader = ConnectorPackageReader()
 
+    fun previewJson(text: String): ConnectorPackage = reader.readJson(text.toByteArray(Charsets.UTF_8))
+
     fun preview(uri: Uri): ConnectorPackage {
         val bytes =
             context.contentResolver.openInputStream(uri).use { input ->

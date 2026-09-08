@@ -4,9 +4,11 @@
 
 ## Current summary
 
+2026-09-08：ADR-0029 已接受，M14 HXA-148～150 内置 Skill Creator、Skill Installer、MCP Installer 已完成；2734 JVM、质量门禁、API29/36安装/界面/传输与公开MCP恢复、真实模型Skill创建至读取链路通过，见 [完成记录](../completion-records/HXA-150.md)。
+
 2026-09-08：所有者已接受 [ADR-0028](../adr/0028-goal-criterion-verification-bindings.md)，Goal 完成证据生产接线、write/edit/PRoot 真实模型完成、复核 UI 与证据读取取消/强杀已获得分项验收；后端中断恢复与 M11 完整 Chat 边界已补齐专项。最新私有产物删除修复后，完整 JVM 2713、根 Debug/Release Lint及构建、受影响设备30项通过；API35短时资源及双API真实低内存门控已补验，HXA-147统一交互/UI验收亦已完成，累计Git审核与暂存收口已完成，见 [当前待办](main-optimization-todo.md)。
 
-最新执行优先级：M0～M11 本轮功能与非长稳测试、统一交互/UI 已完成，当前无活动开发 Goal。继续 HXA-125 的真实来源/受保护服务验收；WorkBuddy 真实样本已收到并推进导入验收，受保护服务验收仍依赖独立测试账号。长稳按 [优化待办](main-optimization-todo.md) 后置，历史失败轮次不自动重启。
+最新执行优先级：M0～M11 本轮功能与非长稳测试、统一交互/UI 已完成，当前无活动开发 Goal。HXA-148～150 已完成；HXA-125 真实来源包验收已补齐，受保护服务验收仍依赖独立测试账号。长稳按 [优化待办](main-optimization-todo.md) 后置，历史失败轮次不自动重启。
 
 所有者已要求本轮收尾覆盖 M0～M11：先完成功能与合并后非真机验收，再统一优化交互/UI；执行顺序与最新长稳失败校正见 [收尾跟进](m10-closure-followup.md#m11-合入后的范围扩展与长稳状态校正)，M11 接管边界见 [交接](m11-handoff.md)。
 
@@ -117,12 +119,22 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 本轮M0～M11功能、非真机/非长稳及统一交互验收和暂存收口已完成，最终范围/证据/排除项见 [收尾审计](main-closure-audit.md)。交付提交 `8369043` 已推送并通过远端 SHA 核对，不扩写为商店发布验收。
 
+- M14 / HXA-148 已完成：Skill Creator、完整草稿编辑和只读校验，API29/36原生与中英文大字体、真实模型ACT调用通过，见 [完成记录](../completion-records/HXA-148.md)。
+
+- M14 / HXA-149 已完成：精确 hash 安装、原生 ZIP 选择与预览/启用、API29/36审批及 UI、真实模型完整链路通过，见 [完成记录](../completion-records/HXA-149.md)。
+
+- M14 / HXA-150 已完成：MCP配置预览/精确安装、JSON粘贴、凭据与连接分离及设备回归通过，见 [完成记录](../completion-records/HXA-150.md)。
+
 ## In progress
 
+本轮 HXA-148～150 已完成，无活动实现检查点。
 
-- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
+
+- M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task
+
+- 所有者于 2026-09-08 授权实现内置 Skill Creator、Skill Installer 和 MCP Installer；已形成 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)（accepted）及 HXA-148～150。HXA-148～150 已完成；后续扩展须选择独立 roadmap 检查点。HXA-125 外部账号验收继续单列，不以新任务替代其证据。
 
 - M11A 四平台文本 Provider 已接入，下一步可按独立 HXA 评估动态模型目录与更多模型协议；Claude/Grok 账号目前无法获取，按所有者 2026-09-08 决定暂时搁置真实调用验收，Copilot 也不得只凭登录成功宣称对话后端完成。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
 

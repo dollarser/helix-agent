@@ -65,8 +65,8 @@ class SkillToolsTest {
 
         val listOutput = execute(registry, implementations, SkillTools.LIST, "{}")
         val entries = listOutput["entries"]!!.jsonArray
-        assertEquals(6, entries.size)
-        assertEquals("6", listOutput.getValue("nextOffset").jsonPrimitive.content)
+        assertEquals(9, entries.size)
+        assertEquals("9", listOutput.getValue("nextOffset").jsonPrimitive.content)
         assertEquals("true", listOutput.getValue("eof").jsonPrimitive.content)
         assertTrue(entries.all { it.jsonObject["enabled"]!!.jsonPrimitive.content == "true" })
         val selected = entries.first().jsonObject
@@ -110,8 +110,8 @@ class SkillToolsTest {
         assertEquals("false", first.getValue("eof").jsonPrimitive.content)
 
         val second = execute(registry, implementations, SkillTools.LIST, "{\"offset\":2,\"limit\":256}")
-        assertEquals(4, second.getValue("entries").jsonArray.size)
-        assertEquals("6", second.getValue("nextOffset").jsonPrimitive.content)
+        assertEquals(7, second.getValue("entries").jsonArray.size)
+        assertEquals("9", second.getValue("nextOffset").jsonPrimitive.content)
         assertEquals("true", second.getValue("eof").jsonPrimitive.content)
     }
 

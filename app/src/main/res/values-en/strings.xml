@@ -738,4 +738,24 @@
     <string name="provider_note_openrouter">Capabilities such as tool calling depend on the routed upstream model. Check them with the connection test.</string>
     <string name="provider_note_vllm">Enter the vLLM server address and port, typically port 8000 with /v1 as the path. An API key is optional.</string>
     <string name="provider_note_lmstudio">The default address is 127.0.0.1:1234/v1 on this device. For LM Studio on your LAN, enter that device’s address; HTTP requires allowing a cleartext connection to that host.</string>
+    <string name="skill_creator_title">Create and validate a Skill</string>
+    <string name="skill_creator_intro">Save a Workspace draft, or ask the agent to create one in chat. Validation does not install or enable it.</string>
+    <string name="skill_creator_name">Name (lowercase and hyphens)</string>
+    <string name="skill_creator_description">Purpose and when to use</string>
+    <string name="skill_creator_body">Instructions</string>
+    <string name="skill_creator_save">Save draft</string>
+    <string name="skill_creator_path">Scope path to draft directory or ZIP</string>
+    <string name="skill_creator_preview">Validate and preview</string>
+    <string name="skill_creator_failed">Could not save or validate. Check name, required content, path and size. Load existing drafts before editing; reload after a content change.</string>
+    <string name="skill_creator_load">Load draft for editing</string>
+    <string name="skill_installer_title">Skill Installer</string>
+    <string name="skill_installer_intro">Review a Workspace Skill directory or ZIP. Import external files into Workspace first. Installation creates a disabled snapshot.</string>
+    <string name="skill_installer_install">Install reviewed content</string>
+    <string name="skill_installer_enable">Enable this Skill</string>
+    <string name="skill_installer_disabled">Installed · disabled</string>
+    <string name="skill_installer_enabled">Installed · enabled</string>
+    <string name="skill_installer_failed">Installation not confirmed. Check the Skill list for this hash and refresh the preview before retrying.</string>
+    <string name="skill_installer_archive">Choose Skill ZIP</string>
+    <string name="connector_paste">Paste MCP JSON</string>
+    <string name="connector_paste_hint">Paste MCP configuration without credentials. Review and install, then configure credentials, test the connection and select tools.</string>
 </resources>

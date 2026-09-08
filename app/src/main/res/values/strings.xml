@@ -739,4 +739,24 @@
     <string name="provider_note_openrouter">工具调用等能力取决于路由到的上游模型，请通过连接测试确认。</string>
     <string name="provider_note_vllm">填写 vLLM 服务地址和端口，通常使用端口 8000 和路径 /v1。API 密钥可选。</string>
     <string name="provider_note_lmstudio">默认地址为本设备的 127.0.0.1:1234/v1。连接局域网中的 LM Studio 时，请填写其设备地址；使用 HTTP 需要允许该主机的明文连接。</string>
+    <string name="skill_creator_title">Create and validate a Skill</string>
+    <string name="skill_creator_intro">Save a Workspace draft, or ask the agent to create one in chat. Validation does not install or enable it.</string>
+    <string name="skill_creator_name">Name (lowercase and hyphens)</string>
+    <string name="skill_creator_description">Purpose and when to use</string>
+    <string name="skill_creator_body">Instructions</string>
+    <string name="skill_creator_save">Save draft</string>
+    <string name="skill_creator_path">Scope path to draft directory or ZIP</string>
+    <string name="skill_creator_preview">Validate and preview</string>
+    <string name="skill_creator_failed">Could not save or validate. Check name, required content, path and size. Load existing drafts before editing; reload after a content change.</string>
+    <string name="skill_creator_load">Load draft for editing</string>
+    <string name="skill_installer_title">Skill Installer</string>
+    <string name="skill_installer_intro">Review a Workspace Skill directory or ZIP. Import external files into Workspace first. Installation creates a disabled snapshot.</string>
+    <string name="skill_installer_install">Install reviewed content</string>
+    <string name="skill_installer_enable">Enable this Skill</string>
+    <string name="skill_installer_disabled">Installed · disabled</string>
+    <string name="skill_installer_enabled">Installed · enabled</string>
+    <string name="skill_installer_failed">Installation not confirmed. Check the Skill list for this hash and refresh the preview before retrying.</string>
+    <string name="skill_installer_archive">Choose Skill ZIP</string>
+    <string name="connector_paste">Paste MCP JSON</string>
+    <string name="connector_paste_hint">Paste MCP configuration without credentials. Review and install, then configure credentials, test the connection and select tools.</string>
 </resources>

@@ -15,9 +15,12 @@ class BuiltInSkillsTest {
             listOf(
                 "android-ui-task",
                 "data-transform",
+                "mcp-installer",
                 "notification-digest",
                 "organize-files-preview",
                 "repo-inspection",
+                "skill-creator",
+                "skill-installer",
                 "web-research",
             ),
             documents.map { it.catalogEntry.name },

@@ -25,7 +25,8 @@ class ConnectorSuppliedArchiveDeviceTest {
         val incoming = app.getExternalFilesDir(null)!!.toPath().resolve("hxa125-sample.zip")
         val bytes = Files.readAllBytes(incoming)
         assertEquals(
-            "5832c88558e00a616af438b1f3d73badf3c2c09edc85f4c54ff9833b789ca476",
+            InstrumentationRegistry.getArguments().getString("connectorSampleSha256")
+                ?: "5832c88558e00a616af438b1f3d73badf3c2c09edc85f4c54ff9833b789ca476",
             MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) },
         )
         val root = app.filesDir.toPath().resolve("workspaces")

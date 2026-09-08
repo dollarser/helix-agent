@@ -736,4 +736,24 @@
     <string name="provider_note_openrouter">工具调用等能力取决于路由到的上游模型，请通过连接测试确认。</string>
     <string name="provider_note_vllm">填写 vLLM 服务地址和端口，通常使用端口 8000 和路径 /v1。API 密钥可选。</string>
     <string name="provider_note_lmstudio">默认地址为本设备的 127.0.0.1:1234/v1。连接局域网中的 LM Studio 时，请填写其设备地址；使用 HTTP 需要允许该主机的明文连接。</string>
+    <string name="skill_creator_title">创建与校验 Skill</string>
+    <string name="skill_creator_intro">在工作区保存草稿，或在聊天中让 Agent 创建；校验不会安装或启用。</string>
+    <string name="skill_creator_name">名称（小写英文与短横线）</string>
+    <string name="skill_creator_description">用途与触发条件</string>
+    <string name="skill_creator_body">操作说明</string>
+    <string name="skill_creator_save">保存草稿</string>
+    <string name="skill_creator_path">草稿目录或 ZIP 的 scope 路径</string>
+    <string name="skill_creator_preview">校验并预览</string>
+    <string name="skill_creator_failed">无法保存或校验。检查名称、必填内容、路径和大小；编辑已有草稿时请先加载，内容变化后重新加载。</string>
+    <string name="skill_creator_load">读取草稿并编辑</string>
+    <string name="skill_installer_title">Skill 安装器</string>
+    <string name="skill_installer_intro">预览工作区中的 Skill 目录或 ZIP。外部文件请先导入工作区。安装后新快照默认禁用。</string>
+    <string name="skill_installer_install">安装已预览内容</string>
+    <string name="skill_installer_enable">启用此 Skill</string>
+    <string name="skill_installer_disabled">已安装 · 未启用</string>
+    <string name="skill_installer_enabled">已安装 · 已启用</string>
+    <string name="skill_installer_failed">未确认安装完成。请按 hash 检查 Skill 列表，并刷新预览后重试。</string>
+    <string name="skill_installer_archive">选择 Skill ZIP</string>
+    <string name="connector_paste">粘贴 MCP JSON</string>
+    <string name="connector_paste_hint">粘贴不含凭据的 MCP 配置。预览并安装后，在连接表单填写凭据，再测试连接并选择工具。</string>
 </resources>

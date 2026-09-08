@@ -36,6 +36,8 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
 fun ConnectorSection(service: ConnectorService) {
     val scope = rememberCoroutineScope()
+    var jsonDraft by remember { mutableStateOf("") }
+    var showPaste by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<ConnectorPackage?>(null) }
     var records by remember { mutableStateOf<List<InstalledConnector>>(emptyList()) }
     var busy by remember { mutableStateOf(false) }
@@ -79,6 +81,46 @@ fun ConnectorSection(service: ConnectorService) {
         ) {
             Text(stringResource(R.string.connector_import))
         }
+        OutlinedButton(
+            enabled = !busy,
+            modifier = Modifier.testTag("connector-paste"),
+            onClick = { showPaste = !showPaste },
+        ) { Text(stringResource(R.string.connector_paste)) }
+        if (showPaste) {
+            Text(stringResource(R.string.connector_paste_hint))
+            OutlinedTextField(
+                jsonDraft,
+                {
+                    jsonDraft = it
+                    preview = null
+                },
+                enabled = !busy,
+                minLines = 4,
+                modifier = Modifier.testTag("connector-json"),
+                label = { Text("MCP JSON") },
+            )
+            OutlinedButton(
+                enabled = !busy && jsonDraft.isNotBlank(),
+                modifier = Modifier.testTag("connector-json-preview"),
+                onClick = {
+                    scope.launch {
+                        busy = true
+                        failed = false
+                        try {
+                            preview = withContext(Dispatchers.IO) { service.previewJson(jsonDraft) }
+                        } catch (
+                            cancel: CancellationException,
+                        ) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            failed = true
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+            ) { Text(stringResource(R.string.skill_creator_preview)) }
+        }
         if (failed) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
         preview?.let { bundle ->
             Text("${bundle.name} · ${bundle.source}")
@@ -111,6 +153,8 @@ fun ConnectorSection(service: ConnectorService) {
                     try {
                         withContext(Dispatchers.IO) { service.install(bundle) }
                         preview = null
+                        jsonDraft = ""
+                        showPaste = false
                         revision++
                     } catch (cancel: CancellationException) {
                         throw cancel

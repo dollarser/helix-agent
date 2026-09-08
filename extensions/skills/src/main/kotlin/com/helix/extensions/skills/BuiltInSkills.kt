@@ -8,6 +8,58 @@ object BuiltInSkills {
 
     private val CONTENTS =
         linkedMapOf(
+            "mcp-installer" to
+                skill(
+                    "mcp-installer",
+                    "Install local MCP JSON or Connector ZIP, then configure connection and tools.",
+                    """
+                # MCP Installer
+                Identify the service's documented HTTPS MCP endpoint and transport. Do not invent a server URL.
+                Prepare credential-free MCP JSON with scoped write, or use an existing local Connector ZIP.
+                Call connectors.preview with the exact Workspace path; inspect endpoints, Skills and diagnostics.
+                Unsupported stdio or host-specific setup is a compatibility result, not a reason to run bash.
+                Call connectors.install with path and expectedHash through the normal exact approval flow.
+                Installation does not connect or enable the server. Record the actual returned id and hash.
+                Direct the user to Settings > Connectors to enter credentials, test connection and select tools.
+                Do not request secrets in chat or put credentials into JSON, model arguments, or generated scripts.
+                After an uncertain outcome, check installed Connectors by hash before retrying.
+                """,
+                ),
+            "skill-installer" to
+                skill(
+                    "skill-installer",
+                    "Install a local Skill directory or ZIP, or update a Skill from a reviewed Workspace draft.",
+                    """
+                # Skill Installer
+                Use an existing app Workspace source. External archives must first be imported using the file picker.
+                Call skills.preview, inspect all files, compatibility and declared tools, and explain the source and hash.
+                Call skills.install with the exact path and expectedHash. Normal host approval decides the effect.
+                If content changed, preview again; do not substitute a new hash into an old approval.
+                Record source, name and snapshotHash from the actual installed result. New snapshots are disabled.
+                Offer explicit enablement using skills.enable and its actual SkillKey, then skills.read to verify use.
+                For an interrupted result, query skills.list for the exact hash before proposing any retry.
+                Do not download silently, run bundled scripts, import credentials, or change installed snapshot files.
+                """,
+                ),
+            "skill-creator" to
+                skill(
+                    "skill-creator",
+                    "Create or revise a reusable Helix Skill, then validate its Workspace draft before installation.",
+                    """
+                # Skill Creator
+
+                Clarify the outcome, trigger examples, inputs and available tools. Keep the description precise.
+                Use scoped write/edit to create work/skills/<name>/SKILL.md in the current Workspace.
+                The frontmatter needs name and description; the directory name must match name.
+                Keep actionable instructions in SKILL.md. Add references/assets/scripts only when useful.
+                Source scripts are data until executed through an available tool and its normal approval.
+                Use skills.preview with the exact scope path. Resolve validation errors and inspect the file manifest.
+                Preserve the returned hash for the installation review. Preview success does not mean installed.
+                Existing snapshots are immutable: create a new draft and compare before proposing an update.
+                Test representative inputs and failure cases; report any scripts or external services not tested.
+                Never copy credentials, source-host enablement or grants into the draft.
+                """,
+                ),
             "organize-files-preview" to
                 skill(
                     "organize-files-preview",
