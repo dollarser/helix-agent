@@ -158,6 +158,23 @@ class BrowserTabController(
         return TabCommand.Stop(id)
     }
 
+    /** Retire page-only facts without replaying navigation or discarding logical tabs. */
+    fun releasePages() {
+        state =
+            state.copy(
+                tabs =
+                    state.tabs.map {
+                        it.copy(
+                            isLoading = false,
+                            canGoBack = false,
+                            canGoForward = false,
+                            navigationGeneration = it.navigationGeneration + 1,
+                            stopped = true,
+                        )
+                    },
+            )
+    }
+
     // ---------------------------------------------------------------- WebView callbacks
 
     fun onPageStarted(

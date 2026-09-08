@@ -78,6 +78,18 @@ class BrowserToolsMappingTest {
         assertEquals("example.com", out.getValue("origin").jsonPrimitive.content)
     }
 
+    @Test
+    fun missingBrowserHostIsAFailureInsteadOfASuccessfulBlankTab() {
+        bridge.openResult = OpenOutcome("", "", "", "browser-host-unavailable")
+        val result =
+            run(
+                BrowserOpenTool.NAME,
+                BrowserOpenTool.executor(bridge),
+                buildJsonObject { put("url", JsonPrimitive("https://example.com/")) },
+            )
+        assertTrue(result is ToolExecutorResult.Failed)
+    }
+
     // ── navigate: the policy / unknown-tab / timeout outcomes ──────────────────────────
 
     @Test

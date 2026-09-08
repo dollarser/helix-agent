@@ -7,6 +7,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.GeolocationPermissions
+import android.webkit.JsPromptResult
+import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
@@ -44,14 +46,20 @@ import com.helix.feature.browser.DownloadRequest
 internal class WebViewTabHost(
     context: Context,
     private val listener: BrowserTabListener,
+    canShowDialogs: () -> Boolean = { false },
 ) {
     // Creating an unused platform WebView can leak native frame-map weak references
     // on affected providers. Lifecycle-only hosts must never allocate that WebView.
-    private val viewHolder = lazy(LazyThreadSafetyMode.NONE) { createView(context) }
+    private var creationContext: Context? = context
+    private var viewHolder: WebView? = null
+    private val dialogs = BrowserJsDialogs(canShowDialogs)
     val webView: WebView
         get() {
             check(!destroyed) { "WebView host is destroyed" }
-            return viewHolder.value
+            return viewHolder ?: createView(checkNotNull(creationContext)).also {
+                viewHolder = it
+                creationContext = null
+            }
         }
 
     /** The URL the tab most recently started loading; the same-document check in the legacy error callback. */
@@ -160,6 +168,7 @@ internal class WebViewTabHost(
             url: String,
             favicon: android.graphics.Bitmap?,
         ) {
+            dialogs.cancel()
             lastLoadUrl = url
             listener.onPageStarted(url)
         }
@@ -174,6 +183,35 @@ internal class WebViewTabHost(
 
     private val chromeClient =
         object : WebChromeClient() {
+            override fun onJsAlert(
+                view: WebView,
+                url: String,
+                message: String,
+                result: JsResult,
+            ): Boolean = dialogs.show(view.context, message, result)
+
+            override fun onJsConfirm(
+                view: WebView,
+                url: String,
+                message: String,
+                result: JsResult,
+            ): Boolean = dialogs.show(view.context, message, result, confirm = true)
+
+            override fun onJsPrompt(
+                view: WebView,
+                url: String,
+                message: String,
+                defaultValue: String?,
+                result: JsPromptResult,
+            ): Boolean = dialogs.show(view.context, message, result, promptDefault = defaultValue)
+
+            override fun onJsBeforeUnload(
+                view: WebView,
+                url: String,
+                message: String,
+                result: JsResult,
+            ): Boolean = dialogs.show(view.context, message, result, confirm = true)
+
             override fun onGeolocationPermissionsShowPrompt(
                 origin: String,
                 callback: GeolocationPermissions.Callback,
@@ -210,6 +248,7 @@ internal class WebViewTabHost(
 
     /** The ONLY loadUrl entry point in this class. */
     fun load(url: String) {
+        dialogs.cancel()
         lastLoadUrl = url
         webView.loadUrl(url)
     }
@@ -248,7 +287,10 @@ internal class WebViewTabHost(
                 pendingEvalTimeouts.remove(timeout)
                 if (!answered) {
                     answered = true
-                    if (generation == fixedEvalGeneration) onResult(null)
+                    if (generation == fixedEvalGeneration) {
+                        dialogs.cancel()
+                        onResult(null)
+                    }
                 }
             }
         pendingEvalTimeouts += timeout
@@ -263,16 +305,24 @@ internal class WebViewTabHost(
         }
     }
 
-    fun goBack() = withCreatedView { goBack() }
+    fun goBack() = navigateCreatedView { goBack() }
 
-    fun goForward() = withCreatedView { goForward() }
+    fun goForward() = navigateCreatedView { goForward() }
 
-    fun reload() = withCreatedView { reload() }
+    fun reload() = navigateCreatedView { reload() }
 
-    fun stop() = withCreatedView { stopLoading() }
+    fun stop() {
+        dialogs.cancel()
+        withCreatedView { stopLoading() }
+    }
 
-    /** Stops JS timers / the compositor while the app is paused (doc 09 performance). */
-    fun pause() = withCreatedView { onPause() }
+    /** Best-effort view pause; this does not stop JavaScript globally. */
+    fun pause() {
+        dialogs.cancel()
+        withCreatedView { onPause() }
+    }
+
+    fun cancelDialogs() = dialogs.cancel()
 
     fun resume() = withCreatedView { onResume() }
 
@@ -293,9 +343,13 @@ internal class WebViewTabHost(
         // be delivered to a destroyed WebView's request slot.
         fixedEvalGeneration += 1
         destroyed = true
+        dialogs.cancel()
         cancelPendingEvaluationTimeouts()
-        if (viewHolder.isInitialized()) {
-            val view = viewHolder.value
+        val retired = viewHolder
+        viewHolder = null
+        creationContext = null
+        if (retired != null) {
+            val view = retired
             (view.parent as? ViewGroup)?.removeView(view)
             view.webChromeClient = null
             view.setDownloadListener(null)
@@ -303,11 +357,16 @@ internal class WebViewTabHost(
         }
     }
 
-    private inline fun withCreatedView(action: WebView.() -> Unit) {
-        if (!destroyed && viewHolder.isInitialized()) viewHolder.value.action()
+    private inline fun navigateCreatedView(action: WebView.() -> Unit) {
+        dialogs.cancel()
+        withCreatedView(action)
     }
 
-    internal fun hasCreatedViewForTest(): Boolean = viewHolder.isInitialized()
+    private inline fun withCreatedView(action: WebView.() -> Unit) {
+        if (!destroyed) viewHolder?.action()
+    }
+
+    internal fun hasCreatedViewForTest(): Boolean = viewHolder != null
 
     internal fun pendingEvaluationCountForTest(): Int = pendingEvalTimeouts.size
 

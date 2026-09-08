@@ -48,6 +48,7 @@ import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
+import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
 
@@ -66,10 +67,14 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(wrapped)
     }
 
+    private lateinit var browserOwner: BrowserViewOwner
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         consumedReminderId = savedInstanceState?.getString("consumed_goal_reminder")
         val container = (application as HelixApplication).appContainer
+        browserOwner = BrowserViewOwner(this)
+        container.browser.attach(browserOwner)
         // HXA-056: a share intent (ACTION_SEND text/image, ACTION_SEND_MULTIPLE images)
         // becomes a local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5).
         // Re-runs when the user shares again into the running task (onNewIntent).
@@ -79,11 +84,10 @@ class MainActivity : ComponentActivity() {
         setContent { HelixApp(container) }
     }
 
-    // HXA-060: while the app is in the background every tab's WebView stops its JS timers
-    // and compositor (doc 09 performance); they resume with the activity.
+    // Best-effort WebView pause on background; onPause does not pause JavaScript globally.
     override fun onPause() {
         super.onPause()
-        (application as HelixApplication).appContainer.browser.pause()
+        (application as HelixApplication).appContainer.browser.pause(browserOwner)
     }
 
     override fun onStop() {
@@ -96,7 +100,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        (application as HelixApplication).appContainer.browser.resume()
+        (application as HelixApplication).appContainer.browser.resume(browserOwner)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -134,7 +138,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onDestroy() {
         super.onDestroy()
-        (application as HelixApplication).appContainer.browser.destroy()
+        (application as HelixApplication).appContainer.browser.detach(browserOwner)
     }
 }
 

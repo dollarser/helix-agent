@@ -19,6 +19,7 @@ import com.helix.feature.browser.BrowserController
 class ControllerReferenceControlActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var controller: BrowserController
+    private lateinit var owner: com.helix.feature.browser.BrowserViewOwner
     private lateinit var scenario: String
     private var requested = 0
     private var completed = 0
@@ -60,6 +61,10 @@ class ControllerReferenceControlActivity : Activity() {
         requested = intent.getIntExtra("iterations", 0)
         require(requested in 1..2000)
         controller = BrowserController(this)
+        owner =
+            com.helix.feature.browser
+                .BrowserViewOwner(this)
+        controller.attach(owner)
         ContextCompat.registerReceiver(
             this,
             requestReceiver,
@@ -171,13 +176,13 @@ class ControllerReferenceControlActivity : Activity() {
     }
 
     override fun onPause() {
-        controller.pause()
+        controller.pause(owner)
         super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
-        controller.resume()
+        controller.resume(owner)
         resumeTab?.let { id ->
             resumeTab = null
             close(id)
@@ -197,7 +202,7 @@ class ControllerReferenceControlActivity : Activity() {
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
         unregisterReceiver(requestReceiver)
-        if (::controller.isInitialized) controller.destroy()
+        if (::controller.isInitialized) controller.detach(owner)
         super.onDestroy()
     }
 }

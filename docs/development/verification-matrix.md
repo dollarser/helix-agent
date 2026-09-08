@@ -290,3 +290,4 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-157 | 双 flavor app JVM、assembleDebug、spotlessCheck、detekt、lintDebug；精确命令见 [完成记录](../completion-records/HXA-157.md) | 旧代码 2 项回归失败，修复后专项 8 项通过；consumer 336 / developer 360 项，失败/错误 0，各 4 项既有外部测试跳过；未重跑设备或长稳 |
 | HXA-158 | 浏览器 JVM/测试 APK、双 flavor app 构建、spotless/detekt/browser lint、双 API JNI/设备回归；精确命令见 [完成记录](../completion-records/HXA-158.md) | 未使用宿主引用残留 480→0；116 JVM；每台设备 27 通过/2 opt-in skip；系统缺陷、24h/真机仍开放 |
 | HXA-159 | 双 flavor app JVM/构建、browser tools JVM、consumer 测试 APK、spotless/detekt/lintDebug；API29/36 文件/附件/恢复/审批/发现回归；精确命令见 [完成记录](../completion-records/HXA-159.md) | 职责重构；Context 迁移仅分析，未作为 Autofill 验收；设备最终结果与首次预览超时分开记录 |
+| HXA-160 | Activity owner/旧回调/JS 结果、真实 AutofillService 填写保存/重建/撤销；双 API 浏览器/MainActivity 与 JNI/Binder 有界对照；双 flavor JVM/build、完整 lint/静态与文档门禁 | ADR-0033；保留惰性分配，系统根因、长稳、真机分别记录 |

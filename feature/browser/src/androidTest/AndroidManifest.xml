@@ -1,11 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:usesCleartextTraffic="true">
+        <activity android:name="com.helix.feature.browser.BrowserTestActivity" android:exported="true" />
         <activity
             android:name="com.helix.feature.browser.webview.RawWebViewControlActivity"
             android:exported="true" />
         <activity
             android:name="com.helix.feature.browser.webview.ControllerReferenceControlActivity"
             android:exported="true" />
+        <service android:name="com.helix.feature.browser.FixtureAutofillService"
+            android:label="Helix Autofill fixture" android:permission="android.permission.BIND_AUTOFILL_SERVICE" android:exported="true">
+            <intent-filter><action android:name="android.service.autofill.AutofillService" /></intent-filter>
+            <meta-data android:name="android.autofill" android:resource="@xml/fixture_autofill" />
+        </service>
     </application>
 </manifest>

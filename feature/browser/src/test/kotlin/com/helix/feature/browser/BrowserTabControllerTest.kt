@@ -9,6 +9,25 @@ import org.junit.Test
 
 class BrowserTabControllerTest {
     @Test
+    fun releasingPagesRetiresHistoryAndTokensButPreservesLogicalTabs() {
+        val controller = BrowserTabController()
+        val id = controller.newTab()
+        controller.navigate(id, "https://example.com/")
+        controller.onPageFinished(id, "https://example.com/", "Example", canGoBack = true, canGoForward = true)
+        val before = controller.state().tabs.single()
+        controller.releasePages()
+        val released = controller.state().tabs.single()
+        assertEquals(id, controller.state().selectedId)
+        assertEquals(before.url, released.url)
+        assertEquals(before.title, released.title)
+        assertFalse(released.isLoading)
+        assertFalse(released.canGoBack)
+        assertFalse(released.canGoForward)
+        assertTrue(released.stopped)
+        assertTrue(released.navigationGeneration > before.navigationGeneration)
+    }
+
+    @Test
     fun newTabStartsBlankSelectedAndAtGenerationZero() {
         val c = BrowserTabController()
         val id = c.newTab()

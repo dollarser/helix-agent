@@ -544,7 +544,7 @@ All files access 通过系统设置授权后仍要求用户在 Helix 内选择 r
 - Calendar：优先使用系统 Intent 生成用户可见草稿；直接 Provider 写入属于 L2。
 - 文件：Workspace 为默认；支持 SAF 和用户主动开启的 `MANAGE_EXTERNAL_STORAGE`，但 Tool 仅能访问 Helix scope。
 - 后台：WorkManager 用于可延期维护和 Goal 提醒，不用于精确唤醒或未经用户继续的 Agent 执行。前台服务只覆盖用户主动发起、正在执行且符合平台用途的 Provider/MCP 传输或本地文件处理，基线声明 `foregroundServiceType="dataSync"`、`FOREGROUND_SERVICE` 和 `FOREGROUND_SERVICE_DATA_SYNC`。等待审批/人工输入时停止服务；实现 `Service.onTimeout()` 并在 Android 15+ 共享的 6 小时/24 小时限额前结束。不得用前台服务把 Goal 变成无人值守循环。强制停止后无法自恢复。
-- 浏览器：System WebView + AndroidX WebKit；不可信页面无永久 privileged JS bridge。
+- 浏览器：System WebView + AndroidX WebKit；不可信页面无永久 privileged JS bridge。按 [ADR-0033](../adr/0033-activity-owned-browser-views.md)，Activity 持有惰性 WebView owner，应用控制器仅弱绑定并保留逻辑标签；后台保留 View，真正销毁后显式导航，旧 owner 不得释放新 View。
 - Accessibility：用户从系统设置开启，目标包 allowlist、限时 session、节点 token 和停止入口；敏感系统/支付/认证界面拒绝。
 - Root：用户明确触发 libsu Root 请求；高层只读工具优先，`root.exec` 默认不对 Agent 开放。
 - Network Security Config：公网 release 禁止 cleartext；用户可为明确的局域网模型/MCP host 开启受限 HTTP 配置。

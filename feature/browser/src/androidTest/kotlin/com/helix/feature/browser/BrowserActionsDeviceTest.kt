@@ -45,14 +45,15 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class BrowserActionsDeviceTest {
     private lateinit var controller: BrowserController
+    private lateinit var fixture: BrowserActivityFixture
     private lateinit var bridge: BrowserToolBridge
 
     @Before
     fun setUp() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        var created: BrowserController? = null
-        onMain { created = BrowserController(context) }
-        controller = created!!
+        fixture = BrowserActivityFixture()
+
+        controller = fixture.controller
         // A real store over a temp dir so the bridge is fully constructed. The NO_PAGE screenshot
         // path never writes to it; the SAVED path is exercised by the JVM mapping test instead.
         val screenshotDir = File(context.cacheDir, "hxa062-browser-screenshot").apply { mkdirs() }
@@ -66,6 +67,7 @@ class BrowserActionsDeviceTest {
 
     @After
     fun tearDown() {
+        fixture.close()
         onMain { controller.destroy() }
     }
 

@@ -149,13 +149,17 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M10 / HXA-158 已完成：未使用 WebView 分配修复及原生问题折中验证，见 [完成记录](../completion-records/HXA-158.md)。
 
-- M10 / HXA-159 已完成：大文件职责重构、双 flavor 静态/JVM 门禁与双 API 各 74 项回归，见 [完成记录](../completion-records/HXA-159.md)；[Context 替代分析](browser-context-options.md) 保留为未实施方案。
+- M10 / HXA-159 已完成：大文件职责重构、双 flavor 静态/JVM 门禁与双 API 各 74 项回归，见 [完成记录](../completion-records/HXA-159.md)；[Context 替代分析](browser-context-options.md) 保留研究过程，后续迁移见 HXA-160。
+
+- M10 / HXA-160 已完成：Activity 级浏览器宿主、旧回调隔离、JS 对话框与真实 AutofillService；双 API 各 36 项浏览器用例执行通过、2 项既有 opt-in 未启用，MainActivity 各 2 项通过，见 [完成记录](../completion-records/HXA-160.md)。
 
 ## In progress
 
-HXA-159 已完成，当前无活动实现检查点；新功能继续暂停。首次 API36 预览超时根因未定，最终构建后单例连续 5 次及双 API 完整 74 项回归通过，详细失败与重验记录保留在完成记录。
+当前无活动实现检查点。HXA-160 已完成；系统 JNI/Binder 根因与长稳、真机仍单独保留。
 
-HXA-158 应用规避已完成，当前无活动实现检查点。系统 JNI/Binder 问题仍开放，未宣称底层修复。
+HXA-159 已完成；新功能继续暂停。首次 API36 预览超时根因未定，最终构建后单例连续 5 次及双 API 完整 74 项回归通过，详细失败与重验记录保留在完成记录。
+
+HXA-158 应用规避已完成。系统 JNI/Binder 问题仍开放，未宣称底层修复。
 
 HXA-157 已完成：修复既有工具发现被模型 64 项上限截断的问题；双 flavor JVM、构建、Lint 与静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。HXA-158 也已完成应用规避。所有者已要求暂停新需求；ADR-0030/0031/0032 保持 proposed，不启动实现。
 
@@ -217,6 +221,6 @@ HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失
 
 ## Connector 扩展线收尾
 
-M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-127/128 已完成，HXA-126/129/130 尚未完成，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，2026-09-08 已补齐 GitHub/可灵真实 WorkBuddy 市场样本，修复声明名与目录名不一致的导入问题；仍需独立测试账号。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；历史本地合并阶段已结束；相关修改已进入 main 并在后续批次推送，当前提交状态以 Git 为准。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
+M13 首版 HXA-124 已验证；HXA-125 外部验收后置，HXA-127/128 已完成，HXA-126/129/130 尚未完成，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，2026-09-08 已补齐 GitHub/可灵真实 WorkBuddy 市场样本，修复声明名与目录名不一致的导入问题；仍需独立测试账号。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；历史本地合并阶段已结束；相关修改已进入 main 并在后续批次推送，当前提交状态以 Git 为准。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
 
 Connector 后续任务与未入 Git 的本地验收材料已交接到 main worktree，见 [Connector 工作交接](connector-handoff.md)。

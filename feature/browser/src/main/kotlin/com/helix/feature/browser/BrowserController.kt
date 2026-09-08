@@ -25,6 +25,7 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.ref.WeakReference
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
@@ -33,8 +34,8 @@ import java.util.concurrent.Executors
 
 /**
  * The browser feature's Android facade (HXA-060): owns the pure [BrowserTabController]
- * (tab state machine + the URL policy choke point), one lazily-created [WebViewTabHost]
- * per tab that navigated, and the download queue. The Compose UI binds to [state] /
+ * (tab state machine + the URL policy choke point) and download queue. Activity-owned
+ * [BrowserViewOwner] instances hold the lazily-created [WebViewTabHost] resources. The Compose UI binds to [state] /
  * [downloads] and calls the command methods — it never touches WebView, DAOs or HTTP
  * (AGENTS.md).
  *
@@ -54,7 +55,8 @@ class BrowserController(
     private val appContext = context.applicationContext
 
     private val tabs = BrowserTabController()
-    private val hosts = HashMap<String, WebViewTabHost>()
+    private var ownerBinding = WeakReference<BrowserViewOwner>(null)
+    private val hosts: Map<String, WebViewTabHost> get() = ownerBinding.get()?.hosts.orEmpty()
 
     /** The last successful snapshot per tab (HXA-061); the node tokens the HXA-062 tools may use. */
     private val snapshots = HashMap<String, BrowserSnapshot>()
@@ -76,18 +78,24 @@ class BrowserController(
 
     fun newTab(): String {
         val id = tabs.newTab()
+        hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
     }
 
     fun closeTab(id: String) {
         tabs.closeTab(id)
-        hosts.remove(id)?.destroy()
+        ownerBinding
+            .get()
+            ?.hosts
+            ?.remove(id)
+            ?.destroy()
         snapshots.remove(id)
         publish()
     }
 
     fun select(id: String) {
+        hosts.values.forEach { it.cancelDialogs() }
         tabs.select(id)
         publish()
     }
@@ -116,6 +124,7 @@ class BrowserController(
         rawUrl: String,
     ): BrowserNavResult {
         if (!isLive(id)) return BrowserNavResult.NoTab
+        if (ownerBinding.get()?.available != true) return BrowserNavResult.Denied("browser-host-unavailable")
         val command = tabs.navigate(id, BrowserTabController.normalizeInput(rawUrl))
         if (command !is BrowserTabController.TabCommand.Load) {
             publish()
@@ -141,11 +150,11 @@ class BrowserController(
      * is reported as the blank document — the denied URL is never loaded.
      */
     fun openTab(url: String): BrowserOpenResult {
-        val id = newTab()
-        if (url.isBlank()) {
-            return BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
+        if (url.isNotBlank() && ownerBinding.get()?.available != true) {
+            return BrowserOpenResult("", "", "", "browser-host-unavailable")
         }
-        return when (val result = navigateOutcome(id, url)) {
+        val id = newTab()
+        return when (val result = if (url.isBlank()) null else navigateOutcome(id, url)) {
             is BrowserNavResult.Started -> BrowserOpenResult(id, result.url, result.origin)
             else -> BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
         }
@@ -158,6 +167,7 @@ class BrowserController(
     @Suppress("ReturnCount")
     fun goBackOutcome(id: String): BrowserHistResult {
         if (!isLive(id)) return BrowserHistResult.NoTab
+        if (hosts[id] == null) return BrowserHistResult.NoChange("page-requires-navigation")
         val command = tabs.goBack(id)
         if (command !is BrowserTabController.TabCommand.Back) {
             publish()
@@ -176,6 +186,7 @@ class BrowserController(
     @Suppress("ReturnCount")
     fun goForwardOutcome(id: String): BrowserHistResult {
         if (!isLive(id)) return BrowserHistResult.NoTab
+        if (hosts[id] == null) return BrowserHistResult.NoChange("page-requires-navigation")
         val command = tabs.goForward(id)
         if (command !is BrowserTabController.TabCommand.Forward) {
             publish()
@@ -194,6 +205,7 @@ class BrowserController(
     @Suppress("ReturnCount")
     fun reloadOutcome(id: String): BrowserReloadResult {
         if (!isLive(id)) return BrowserReloadResult.NoTab
+        if (hosts[id] == null) return BrowserReloadResult.NoChange("page-requires-navigation")
         val command = tabs.reload(id)
         if (command !is BrowserTabController.TabCommand.Reload) {
             publish()
@@ -207,7 +219,8 @@ class BrowserController(
 
     fun stop(id: String) {
         val command = tabs.stop(id)
-        if (command is BrowserTabController.TabCommand.Stop) host(id).stop()
+        hosts[id]?.cancelDialogs()
+        if (command is BrowserTabController.TabCommand.Stop) hosts[id]?.stop()
         publish()
     }
 
@@ -432,8 +445,7 @@ class BrowserController(
 
     /** Per-tab history lives inside each WebView: drop every host and start from one blank tab. */
     fun clearHistory() {
-        hosts.values.forEach { it.destroy() }
-        hosts.clear()
+        ownerBinding.get()?.clear()
         snapshots.clear()
         while (tabs.state().tabs.isNotEmpty()) {
             tabs.closeTab(
@@ -450,88 +462,126 @@ class BrowserController(
 
     // ---------------------------------------------------------------- lifecycle
 
-    /** From the activity's onPause: stop JS timers / the compositor of every tab. */
-    fun pause() {
-        hosts.values.forEach { it.pause() }
+    /** Bind before UI/tool use; replacement invalidates old callbacks before releasing Views. */
+    fun attach(owner: BrowserViewOwner) {
+        check(owner.available) { "browser owner is destroyed" }
+        val previous = ownerBinding.get()
+        if (previous === owner) return
+        ownerBinding = WeakReference(owner)
+        previous?.destroy()
+        invalidatePages()
     }
 
-    /** From the activity's onResume. */
-    fun resume() {
-        hosts.values.forEach { it.resume() }
+    /** A late callback from an old Activity cannot detach the new Activity's owner. */
+    fun detach(owner: BrowserViewOwner) {
+        if (ownerBinding.get() !== owner) {
+            owner.destroy()
+            return
+        }
+        ownerBinding.clear()
+        owner.destroy()
+        invalidatePages()
     }
 
-    /** Tears down every WebView (activity onDestroy). */
+    /** Best-effort per-view pause; it does not globally suspend JavaScript timers. */
+    fun pause(owner: BrowserViewOwner? = ownerBinding.get()) {
+        if (owner === ownerBinding.get()) owner?.pause()
+    }
+
+    fun resume(owner: BrowserViewOwner? = ownerBinding.get()) {
+        if (owner === ownerBinding.get()) owner?.resume()
+    }
+
+    /** Clear page resources while keeping the current live Activity binding usable. */
     fun destroy() {
-        hosts.values.forEach { it.destroy() }
-        hosts.clear()
+        ownerBinding.get()?.clear()
+        invalidatePages()
+    }
+
+    private fun invalidatePages() {
         snapshots.clear()
+        tabs.releasePages()
+        publish()
     }
 
     // ---------------------------------------------------------------- internals
 
-    private fun host(id: String): WebViewTabHost =
-        hosts.getOrPut(id) {
-            WebViewTabHost(
-                appContext,
-                object : BrowserTabListener {
-                    override fun onPageStarted(url: String) {
-                        if (isLive(id)) tabs.onPageStarted(id, url)
-                        publish()
-                    }
+    private fun host(id: String): WebViewTabHost {
+        val owner = checkNotNull(ownerBinding.get()) { "browser-host-unavailable" }
+        return owner.hosts.getOrPut(id) {
+            lateinit var created: WebViewTabHost
 
-                    override fun onPageFinished(
-                        url: String,
-                        title: String?,
-                        canGoBack: Boolean,
-                        canGoForward: Boolean,
-                    ) {
-                        if (isLive(id)) tabs.onPageFinished(id, url, title, canGoBack, canGoForward)
-                        publish()
-                    }
-
-                    override fun onMainFrameError(
-                        netError: Int,
-                        clientError: Int,
-                        failingUrl: String?,
-                    ) {
-                        if (isLive(id)) tabs.onMainFrameError(id, netError, clientError, failingUrl)
-                        publish()
-                    }
-
-                    override fun onMainFrameUnknownError(failingUrl: String?) {
-                        if (isLive(id)) tabs.onMainFrameUnknownError(id, failingUrl)
-                        publish()
-                    }
-
-                    override fun onRendererGone(failingUrl: String?) {
-                        hosts.remove(id)
-                        snapshots.remove(id)
-                        if (isLive(id)) {
-                            tabs.onMainFrameError(id, 0, android.webkit.WebViewClient.ERROR_UNKNOWN, failingUrl)
+            fun live(): Boolean = ownerBinding.get() === owner && owner.hosts[id] === created && isLive(id)
+            created =
+                owner.create(
+                    object : BrowserTabListener {
+                        override fun onPageStarted(url: String) {
+                            if (!live()) return
+                            tabs.onPageStarted(id, url)
+                            publish()
                         }
-                        publish()
-                    }
 
-                    override fun onSslError(failingUrl: String) {
-                        if (isLive(id)) tabs.onSslError(id, failingUrl)
-                        publish()
-                    }
+                        override fun onPageFinished(
+                            url: String,
+                            title: String?,
+                            canGoBack: Boolean,
+                            canGoForward: Boolean,
+                        ) {
+                            if (!live()) return
+                            tabs.onPageFinished(id, url, title, canGoBack, canGoForward)
+                            publish()
+                        }
 
-                    override fun onNavigationAttempt(url: String) {
-                        if (!isLive(id)) return
-                        // The re-admission path: page-initiated navigations are admitted by the
-                        // SAME choke point as user-typed URLs.
-                        val command = tabs.navigate(id, BrowserTabController.normalizeInput(url))
-                        if (command is BrowserTabController.TabCommand.Load) host(id).load(command.url)
-                        publish()
-                    }
+                        override fun onMainFrameError(
+                            netError: Int,
+                            clientError: Int,
+                            failingUrl: String?,
+                        ) {
+                            if (!live()) return
+                            tabs.onMainFrameError(id, netError, clientError, failingUrl)
+                            publish()
+                        }
 
-                    override fun onDownloadRequest(request: DownloadRequest) {
-                        requestDownload(request)
-                    }
-                },
-            )
+                        override fun onMainFrameUnknownError(failingUrl: String?) {
+                            if (!live()) return
+                            tabs.onMainFrameUnknownError(id, failingUrl)
+                            publish()
+                        }
+
+                        override fun onRendererGone(failingUrl: String?) {
+                            if (!live()) return
+                            owner.hosts.remove(id)
+                            snapshots.remove(id)
+                            tabs.onMainFrameError(id, 0, android.webkit.WebViewClient.ERROR_UNKNOWN, failingUrl)
+                            publish()
+                        }
+
+                        override fun onSslError(failingUrl: String) {
+                            if (!live()) return
+                            tabs.onSslError(id, failingUrl)
+                            publish()
+                        }
+
+                        override fun onNavigationAttempt(url: String) {
+                            if (!live()) return
+                            // The re-admission path: page-initiated navigations are admitted by the
+                            // SAME choke point as user-typed URLs.
+                            val command = tabs.navigate(id, BrowserTabController.normalizeInput(url))
+                            if (command is BrowserTabController.TabCommand.Load) host(id).load(command.url)
+                            publish()
+                        }
+
+                        override fun onDownloadRequest(request: DownloadRequest) {
+                            if (!live()) return
+                            requestDownload(request)
+                        }
+                    },
+                    canShowDialogs = { live() && owner.resumed && owner.available && state.value.selectedId == id },
+                )
+            if (!owner.resumed) created.pause()
+            created
         }
+    }
 
     private fun isLive(id: String): Boolean = tabs.state().tabs.any { it.id == id }
 

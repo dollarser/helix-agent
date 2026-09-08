@@ -86,6 +86,7 @@ data class OpenOutcome(
     val tabId: String,
     val url: String,
     val origin: String,
+    val failureReason: String? = null,
 )
 
 enum class NavStatus { STARTED, DENIED, NO_TAB, TIMED_OUT }

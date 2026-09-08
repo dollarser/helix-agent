@@ -72,6 +72,7 @@ object BrowserOpenTool {
                     strArg(call.args, "url", MAX_URL)
                         ?: return ToolExecutorResult.Failed("invalid 'browser.open' arguments: 'url' must be a string")
                 val out = bridge.open(url)
+                out.failureReason?.let { return ToolExecutorResult.Failed(it) }
                 return ToolExecutorResult.Completed(
                     buildJsonObject {
                         put("tabId", JsonPrimitive(out.tabId))

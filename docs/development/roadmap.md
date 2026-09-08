@@ -929,3 +929,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed，见 [完成记录](../completion-records/HXA-159.md)。所有者授权优化 FilesScreen、ChatService、BrowserTools、AppContainer 的职责组织，并保留 Application Context 替代分析。允许 app、tools/browser、相关测试和 docs；保持单一会话/审批状态所有者、既有接口/权限/持久化/运行时，不新增功能。ToolDispatcher 核心管线暂不拆散。
 
 验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :tools:browser:test :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 文件页、附件/恢复/审批/工具发现相关设备回归；文档/ADR/i18n/secrets/diff 门禁。Context 先依据实际生命周期和 Android 官方接口分析，不用 Application Context 测试冒充 Autofill 验收。
+
+### HXA-160 Activity 级浏览器宿主与 Context 功能验证
+
+状态：completed，见 [完成记录](../completion-records/HXA-160.md)。所有者授权按竞品对照方案优化。允许 feature/browser、app 接线、tools/browser 的宿主不可用结果、设备/单元测试、相关诊断脚本和 docs。Activity 持有真实 Context 的惰性宿主，应用仅保留逻辑标签和有效绑定；身份校验解绑，后台不销毁，JS 对话框终结，Autofill 保留。无 Activity 时不启动隐藏 Activity、不回退 Application Context、不重放工具；历史快照、池化、换内核与长稳不在本次范围。决策见 ADR-0033。
+
+验证：`./gradlew :feature:browser:testDebugUnitTest :tools:browser:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :feature:browser:assembleDebugAndroidTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 宿主/回调/对话框/真实 AutofillService fixture、既有浏览器与 MainActivity 重建回归、有界生产 JNI/Binder 对照；docs/ADR/i18n/secrets/diff 门禁。

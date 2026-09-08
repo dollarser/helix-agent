@@ -38,23 +38,23 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class BrowserSecurityDeviceTest {
     private lateinit var controller: BrowserController
+    private lateinit var fixture: BrowserActivityFixture
 
     @Before
     fun setUp() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        var created: BrowserController? = null
+        fixture = BrowserActivityFixture()
         onMain {
             CookieManager.getInstance().apply {
                 removeAllCookies(null)
                 flush()
             }
-            created = BrowserController(context)
         }
-        controller = created!!
+        controller = fixture.controller
     }
 
     @After
     fun tearDown() {
+        fixture.close()
         val cookieManager = CookieManager.getInstance()
         onMain {
             controller.destroy()

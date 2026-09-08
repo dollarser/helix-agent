@@ -38,7 +38,7 @@ BrowserController 已在首次允许的 Load 才创建宿主，空标签/拒绝�
 
 本轮 1000 次生产导航/关闭中，按每 100 轮采样，API29 应用 local Binder 在 43～168、proxy 在 34～54；API36 local 在 180～729、proxy 在 61～79。两台同一测试 PID 均完成全部轮次，计数多次下降，没有人为 GC 或进程重启。它支持本轮生产路径没有复现独立 Autofill 高频查询的持续线性累积，不证明 system_server 已修复或未来不会到达阈值。未重新执行历史 system_server GC 干预实验。
 
-当前 BrowserController 使用 Application Context，未直接轮询 AutofillManager；[Android 官方文档](https://developer.android.com/reference/android/webkit/WebView#WebView(android.content.Context)) 明确此 Context 会限制 Autofill 和 JavaScript 对话框。因此不能把现有 Context 当作没有功能代价的修复，也不能用当前测试证明 Activity Context 下的 Autofill 完整性。本轮未新增禁用设置，亦未修改 Context。若后续修复此已有 Context 限制，应另以 Activity Context 与真实 Autofill 服务验证，不能用 Application Context 对照替代。
+HXA-158 验证时 BrowserController 使用 Application Context，未直接轮询 AutofillManager；[Android 官方文档](https://developer.android.com/reference/android/webkit/WebView#WebView(android.content.Context)) 明确此 Context 会限制 Autofill 和 JavaScript 对话框。因此不能把现有 Context 当作没有功能代价的修复，也不能用当前测试证明 Activity Context 下的 Autofill 完整性。本轮未新增禁用设置，亦未修改 Context。若后续修复此已有 Context 限制，应另以 Activity Context 与真实 Autofill 服务验证，不能用 Application Context 对照替代。
 
 ## 替代方案的取舍
 
@@ -65,3 +65,7 @@ Binder 按 UID 计数并可 killUid 的依据见 [AOSP ActivityManagerService �
 精确构建/设备命令与结果见 [HXA-158 完成记录](../completion-records/HXA-158.md)。底层释放证据见 [HXA-153](native-reference-release-trace.md)。
 
 Application Context 的功能限制、Activity 级宿主建议、包装器/自定义对话框折中及迁移验收见 [HXA-159 Context 分析](browser-context-options.md)。该分析未改变本报告的已测实现或系统缺陷状态。
+
+## HXA-160 Context 后续落地
+
+Activity owner、JS 对话框与真实 AutofillService 回归已另行实施，见 [完成记录](../completion-records/HXA-160.md)。该记录保留同观察器改前/改后 JNI 配对与 Binder 原始采样；不覆盖本报告的历史失败，也不把 Activity Context 迁移宣称为系统 Binder 修复。

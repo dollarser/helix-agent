@@ -41,17 +41,18 @@ import java.util.concurrent.TimeUnit
 @RunWith(AndroidJUnit4::class)
 class BrowserSnapshotDeviceTest {
     private lateinit var controller: BrowserController
+    private lateinit var fixture: BrowserActivityFixture
 
     @Before
     fun setUp() {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
-        var created: BrowserController? = null
-        onMain { created = BrowserController(context) }
-        controller = created!!
+        fixture = BrowserActivityFixture()
+
+        controller = fixture.controller
     }
 
     @After
     fun tearDown() {
+        fixture.close()
         onMain { controller.destroy() }
     }
 

@@ -101,7 +101,7 @@ fun BrowserScreen(controller: BrowserController) {
                 }
 
                 controller.hostView(selected.id) != null -> {
-                    key(selected.id) {
+                    key(selected.id, controller.hostView(selected.id)) {
                         AndroidView(
                             modifier =
                                 Modifier

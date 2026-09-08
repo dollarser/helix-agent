@@ -1,8 +1,10 @@
 # 浏览器 Context 与生命周期优化分析
 
-日期：2026-09-08。HXA-159 的分析交付；不是已实施的 Context 迁移，也不代表 Autofill 已验收。
+> HXA-160 已按所有者授权实施下述 Activity owner 方案（ADR-0033）；当前实现与验收以文末落地记录及 HXA-160 完成记录为准。HXA-159 与竞品研究部分保留当时的分析边界。
 
-## 当前事实
+日期：2026-09-08。前文保留 HXA-159 当时的分析交付，后续实现见文末 HXA-160。
+
+## HXA-159 时的事实
 
 - `HelixApplication` 持有进程级 `AppContainer`，后者持有 `BrowserController`；控制器将传入 Context 转成 `applicationContext`，`WebViewTabHost` 用它构建 WebView。
 - `MainActivity.onDestroy()` 调用全局控制器的 `destroy()`。当前逻辑标签与宿主生命周期通过这个入口关联，不能只把构造参数换成 Activity 就宣称完成改造。
@@ -99,3 +101,11 @@
 验收除前述 API29/36 清单外，必须有旧 Activity 销毁发生在新 owner attach 之后的顺序测试、后台标签不重建测试、JS 对话框结果终结测试，以及同版 System WebView 下改前/改后的生产 JNI/Binder 对照。Autofill 需真实服务填写/保存，不能只检查 `importantForAutofill`。
 
 只有功能和引用生命周期均验证后，才能决定将 Activity owner 接入生产。它改变 browser/app 的生命周期协作以及无 Activity 时的恢复契约，应先形成拟议 ADR；本节是供决策的推荐方案，不是新 ADR 已接受或底层系统问题已修复。
+
+## HXA-160 落地
+
+`MainActivity` 持有 `BrowserViewOwner`，应用级 `BrowserController` 仅弱绑定 owner 并保留逻辑标签。WebView 使用真实 Activity Context 惰性创建；下载仍使用 Application Context 的 ContentResolver。attach/detach 与旧页回调校验身份，旧 Activity 不能释放新 owner。后台切换保留 View；真正销毁清理 View/待处理 JS 对话框和 DOM token，保留 URL/标题供显式导航，不重放页面或工具。
+
+仅选中的、已 resumed 且窗口可用的标签显示 JS alert/confirm/prompt/beforeunload；后台、导航、停止、关闭和解绑取消待处理结果。没有 owner 时非空 browser.open 明确失败、不增加标签；navigate 返回 browser-host-unavailable，缺少真实页面的历史/重载不伪造成功。
+
+Autofill 使用系统绑定的测试服务完成真实填写、保存、Activity 重建和撤销。API36/WebView133 的夹具先定位真实输入框并通过 WebView 的公开 InputConnection 提交字符触发服务；选择填充和编辑后等待 DOM 反映结果再保存，避免把输入事件入队误当作页面已处理。详情、失败过程与 JNI/Binder 证据见 [HXA-160](../completion-records/HXA-160.md)。这不是对所有密码管理器、OEM 或真机的兼容承诺，也不消除系统 JNI/Binder 问题。

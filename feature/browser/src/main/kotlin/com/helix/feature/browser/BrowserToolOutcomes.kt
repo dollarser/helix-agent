@@ -15,6 +15,7 @@ data class BrowserOpenResult(
     val tabId: String,
     val url: String,
     val origin: String,
+    val failureReason: String? = null,
 )
 
 /** The outcome of a navigation attempt through the URL policy choke point. */

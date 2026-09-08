@@ -68,7 +68,7 @@ class BrowserToolBridgeImpl(
 
     override fun open(url: String): OpenOutcome {
         val result = onMain(SYNC_TIMEOUT_MS) { controller.openTab(url) }
-        return OpenOutcome(result.tabId, result.url, result.origin)
+        return OpenOutcome(result.tabId, result.url, result.origin, result.failureReason)
     }
 
     @Suppress("SwallowedException")

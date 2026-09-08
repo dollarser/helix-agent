@@ -37,8 +37,13 @@ output.mkdir(parents=True, exist_ok=True)
 def run(*parts):
     return subprocess.check_output([adb, "-s", args.serial, *parts], text=True, timeout=30)
 
+# Keep installation and its recorded identity tied to the same immutable bytes even
+# when an independent build replaces the Gradle output while this trace is running.
+installed_apk = output / "installed-test.apk"
+installed_apk.write_bytes((root / "feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk").read_bytes())
+installed_apk_sha256 = hashlib.sha256(installed_apk.read_bytes()).hexdigest()
 run("shell", "am", "force-stop", package)
-run("install", "-r", str(root / "feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk"))
+run("install", "-r", str(installed_apk))
 run("push", str(root / "build/reference-trace/libjni-reference-trace.so"), "/data/local/tmp/helix-jni-trace.so")
 run("shell", "run-as", package, "cp", "/data/local/tmp/helix-jni-trace.so", "code_cache/helix-jni-trace.so")
 start = ["shell", "am", "start", "-W", "-n", f"{package}/com.helix.feature.browser.webview.RawWebViewControlActivity", "--ei", "iterations", str(args.count), "--el", "startDelayMs", "10000", "--el", "holdMs", "30000"]
@@ -127,7 +132,7 @@ metadata = {
     "fingerprint": run("shell", "getprop", "ro.build.fingerprint").strip(),
     "webview": run("shell", "dumpsys", "webviewupdate"),
     "agent_sha256": hashlib.sha256((root / "build/reference-trace/libjni-reference-trace.so").read_bytes()).hexdigest(),
-    "apk_sha256": hashlib.sha256((root / "feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk").read_bytes()).hexdigest(),
+    "apk_sha256": installed_apk_sha256,
 }
 (output / "meminfo.txt").write_text(run("shell", "dumpsys", "meminfo", package))
 (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
