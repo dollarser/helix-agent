@@ -45,7 +45,14 @@ internal class WebViewTabHost(
     context: Context,
     private val listener: BrowserTabListener,
 ) {
+    // Creating an unused platform WebView can leak native frame-map weak references
+    // on affected providers. Lifecycle-only hosts must never allocate that WebView.
+    private val viewHolder = lazy(LazyThreadSafetyMode.NONE) { createView(context) }
     val webView: WebView
+        get() {
+            check(!destroyed) { "WebView host is destroyed" }
+            return viewHolder.value
+        }
 
     /** The URL the tab most recently started loading; the same-document check in the legacy error callback. */
     private var lastLoadUrl: String? = null
@@ -179,29 +186,27 @@ internal class WebViewTabHost(
             }
         }
 
-    init {
-        webView =
-            WebView(context).also { view ->
-                applyHardenedSettings(view.settings)
-                view.settings.setSupportMultipleWindows(false) // 不允许页面弹出新窗口（doc 09 §3.2）
-                view.webViewClient = client
-                view.webChromeClient = chromeClient
-                // The platform download seam (the only one remaining in androidx.webkit 1.17):
-                // the WebView's own download UI never appears: the controller queues the item and
-                // the user explicitly picks the destination (SAF CreateDocument) before any bytes
-                // are written.
-                view.setDownloadListener { url, _, contentDisposition, mimeType, contentLength ->
-                    listener.onDownloadRequest(
-                        DownloadRequest(
-                            url = url,
-                            suggestedName = suggestedNameFrom(contentDisposition, url),
-                            mimeType = mimeType,
-                            contentLength = if (contentLength < 0) -1L else contentLength,
-                        ),
-                    )
-                }
+    private fun createView(context: Context): WebView =
+        WebView(context).also { view ->
+            applyHardenedSettings(view.settings)
+            view.settings.setSupportMultipleWindows(false) // 不允许页面弹出新窗口（doc 09 §3.2）
+            view.webViewClient = client
+            view.webChromeClient = chromeClient
+            // The platform download seam (the only one remaining in androidx.webkit 1.17):
+            // the WebView's own download UI never appears: the controller queues the item and
+            // the user explicitly picks the destination (SAF CreateDocument) before any bytes
+            // are written.
+            view.setDownloadListener { url, _, contentDisposition, mimeType, contentLength ->
+                listener.onDownloadRequest(
+                    DownloadRequest(
+                        url = url,
+                        suggestedName = suggestedNameFrom(contentDisposition, url),
+                        mimeType = mimeType,
+                        contentLength = if (contentLength < 0) -1L else contentLength,
+                    ),
+                )
             }
-    }
+        }
 
     /** The ONLY loadUrl entry point in this class. */
     fun load(url: String) {
@@ -258,25 +263,27 @@ internal class WebViewTabHost(
         }
     }
 
-    fun goBack() = webView.goBack()
+    fun goBack() = withCreatedView { goBack() }
 
-    fun goForward() = webView.goForward()
+    fun goForward() = withCreatedView { goForward() }
 
-    fun reload() = webView.reload()
+    fun reload() = withCreatedView { reload() }
 
-    fun stop() = webView.stopLoading()
+    fun stop() = withCreatedView { stopLoading() }
 
     /** Stops JS timers / the compositor while the app is paused (doc 09 performance). */
-    fun pause() = webView.onPause()
+    fun pause() = withCreatedView { onPause() }
 
-    fun resume() = webView.onResume()
+    fun resume() = withCreatedView { onResume() }
 
-    fun clearCache() = webView.clearCache(true)
+    fun clearCache() = withCreatedView { clearCache(true) }
 
     fun destroy() {
         if (destroyed) return
-        webView.stopLoading()
-        webView.onPause()
+        withCreatedView {
+            stopLoading()
+            onPause()
+        }
         disposeView()
     }
 
@@ -287,11 +294,20 @@ internal class WebViewTabHost(
         fixedEvalGeneration += 1
         destroyed = true
         cancelPendingEvaluationTimeouts()
-        (webView.parent as? ViewGroup)?.removeView(webView)
-        webView.webChromeClient = null
-        webView.setDownloadListener(null)
-        webView.destroy()
+        if (viewHolder.isInitialized()) {
+            val view = viewHolder.value
+            (view.parent as? ViewGroup)?.removeView(view)
+            view.webChromeClient = null
+            view.setDownloadListener(null)
+            view.destroy()
+        }
     }
+
+    private inline fun withCreatedView(action: WebView.() -> Unit) {
+        if (!destroyed && viewHolder.isInitialized()) viewHolder.value.action()
+    }
+
+    internal fun hasCreatedViewForTest(): Boolean = viewHolder.isInitialized()
 
     internal fun pendingEvaluationCountForTest(): Int = pendingEvalTimeouts.size
 

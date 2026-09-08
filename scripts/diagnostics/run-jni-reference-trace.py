@@ -15,17 +15,23 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("serial")
 parser.add_argument("--count", type=int, default=400)
 parser.add_argument("--navigate", action="store_true")
+parser.add_argument("--host-only", action="store_true")
+parser.add_argument("--evaluate-host", action="store_true")
 parser.add_argument("--scenario", choices=["empty", "denied", "early-close", "stop-close", "settled-close", "clear-history", "network-close", "network-stop", "network-background", "network-recreate"])
 args = parser.parse_args()
 if not args.serial.startswith("emulator-") or not 1 <= args.count <= 2000:
     parser.error("requires a dedicated emulator and count in 1..2000")
+if args.evaluate_host and not args.host_only:
+    parser.error("--evaluate-host requires --host-only")
+if args.host_only and (args.scenario or args.navigate):
+    parser.error("--host-only is an independent control")
 if args.scenario and args.navigate:
     parser.error("--scenario and --navigate are independent controls")
 root = Path(__file__).resolve().parents[2]
 adb = str(Path(os.environ["ANDROID_HOME"]) / "platform-tools/adb")
 package = "com.helix.feature.browser.test"
 agent = f"/data/data/{package}/code_cache/helix-jni-trace.so"
-output = root / "build/reference-trace" / f"{args.serial}-{args.scenario or ('navigate' if args.navigate else 'bare')}-{args.count}"
+output = root / "build/reference-trace" / f"{args.serial}-{args.scenario or ('host-evaluate' if args.evaluate_host else 'host-unused' if args.host_only else 'navigate' if args.navigate else 'bare')}-{args.count}"
 output.mkdir(parents=True, exist_ok=True)
 
 def run(*parts):
@@ -57,6 +63,8 @@ if args.scenario and args.scenario.startswith("network-"):
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SlowResponse)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     start += ["--es", "networkUrl", f"http://10.0.2.2:{server.server_port}/slow"]
+if args.host_only:
+    start += ["--ez", "hostOnly", "true", "--ez", "evaluateHost", str(args.evaluate_host).lower()]
 if args.navigate:
     start += ["--ez", "navigateBeforeDestroy", "true"]
 (output / "start.log").write_text(run(*start))
@@ -115,11 +123,12 @@ if args.scenario and args.scenario.startswith("network-"):
         raise RuntimeError("not every iteration reached the HTTP server")
 metadata = {
     "serial": args.serial, "pid": pid, "count": args.count,
-    "scenario": args.scenario or ("navigate" if args.navigate else "bare"),
+    "scenario": args.scenario or ("host-evaluate" if args.evaluate_host else "host-unused" if args.host_only else "navigate" if args.navigate else "bare"),
     "fingerprint": run("shell", "getprop", "ro.build.fingerprint").strip(),
     "webview": run("shell", "dumpsys", "webviewupdate"),
     "agent_sha256": hashlib.sha256((root / "build/reference-trace/libjni-reference-trace.so").read_bytes()).hexdigest(),
     "apk_sha256": hashlib.sha256((root / "feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk").read_bytes()).hexdigest(),
 }
+(output / "meminfo.txt").write_text(run("shell", "dumpsys", "meminfo", package))
 (output / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
 print(output.name, *summary, sep="\n", flush=True)

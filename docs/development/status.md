@@ -4,6 +4,8 @@
 
 ## Current summary
 
+2026-09-08：HXA-158 已修复未使用 WebView 宿主的提前分配；旧/新 JNI 对照残留 480→0，生产导航/HTTP 取消配对与双 API 功能回归通过。系统 JNI/Binder 根因仍开放，应用规避、Context 限制和方案取舍见 [规避报告](native-reference-mitigation.md)。新需求继续暂停。
+
 2026-09-08：HXA-151 原生 Skill/MCP 操作状态收敛已完成；HXA-152 短时对照已交付，JNI/Binder 两分支均有独立复现，缺陷仍 open，HXA-153 已进一步完成 [释放路径追踪](native-reference-release-trace.md)，HXA-154 的 [生产路径核实](browser-controller-reference-verification.md) 未复现同样残留；原生缺陷与未覆盖路径仍待验证。
 
 2026-09-08：ADR-0029 已接受，M14 HXA-148～150 内置 Skill Creator、Skill Installer、MCP Installer 已完成；2734 JVM、质量门禁、API29/36安装/界面/传输与公开MCP恢复、真实模型Skill创建至读取链路通过，见 [完成记录](../completion-records/HXA-150.md)。
@@ -145,9 +147,13 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M13 / HXA-157 已完成：工具发现 64 项截断修复；双 flavor JVM、构建和静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。
 
+- M10 / HXA-158 已完成：未使用 WebView 分配修复及原生问题折中验证，见 [完成记录](../completion-records/HXA-158.md)。
+
 ## In progress
 
-HXA-157 已完成：修复既有工具发现被模型 64 项上限截断的问题；双 flavor JVM、构建、Lint 与静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。当前无活动实现检查点。所有者已要求暂停新需求；ADR-0030/0031/0032 保持 proposed，不启动实现。
+HXA-158 应用规避已完成，当前无活动实现检查点。系统 JNI/Binder 问题仍开放，未宣称底层修复。
+
+HXA-157 已完成：修复既有工具发现被模型 64 项上限截断的问题；双 flavor JVM、构建、Lint 与静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。HXA-158 也已完成应用规避。所有者已要求暂停新需求；ADR-0030/0031/0032 保持 proposed，不启动实现。
 
 HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，HXA-155 网络/后台/重建核实已完成；HXA-156 文档收口已完成，HXA-127 工具渐进发现已完成，HXA-128 可移植性 Spike 已完成，ADR-0030/0031/0032 已起草，分别待审查 OAuth、完整生命周期与离线签名索引；HXA-157 修复已完成；24h 长稳保持后置。
 

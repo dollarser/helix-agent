@@ -36,6 +36,10 @@ class RawWebViewControlActivity : Activity() {
             val manager = requireNotNull(context.getSystemService(AutofillManager::class.java))
             manager.isAutofillSupported
             manager.autofillServiceComponentName
+        } else if (intent.getBooleanExtra("hostOnly", false)) {
+            val host = WebViewTabHost(context, WebViewResourceLifecycleDeviceTest.NoOpListener)
+            if (intent.getBooleanExtra("evaluateHost", false)) host.evaluateFixed("1 + 1") { }
+            host.destroy()
         } else {
             val view = WebView(context)
             if (intent.getBooleanExtra("navigateBeforeDestroy", false)) {

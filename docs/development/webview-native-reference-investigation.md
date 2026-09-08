@@ -84,3 +84,7 @@ adb -s "$serial" logcat -d -v threadtime
 ## 2026-09-08：HXA-153 释放路径追踪
 
 [后续追踪记录](native-reference-release-trace.md) 已记录实际弱引用创建/删除配对、AwContentsIoThreadClient 类身份与 RFH 映射清理机制，以及 system_server 代理回收释放客户端 Binder 的因果干预。调查检查点已完成，生产缺陷仍 open；不覆盖本文的历史失败结果。
+
+## HXA-158 应用规避
+
+[未使用宿主延迟分配与方案评估](native-reference-mitigation.md) 已完成应用层修复：旧/新宿主 240 轮目标引用残留 480→0，生产路径与设备回归通过；裸平台正对照仍复现。系统问题和历史长稳 FAIL 保留，不能将应用规避写成平台补丁。

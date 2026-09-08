@@ -288,3 +288,4 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA | 验证命令 | 实际结果与边界 |
 | --- | --- | --- |
 | HXA-157 | 双 flavor app JVM、assembleDebug、spotlessCheck、detekt、lintDebug；精确命令见 [完成记录](../completion-records/HXA-157.md) | 旧代码 2 项回归失败，修复后专项 8 项通过；consumer 336 / developer 360 项，失败/错误 0，各 4 项既有外部测试跳过；未重跑设备或长稳 |
+| HXA-158 | 浏览器 JVM/测试 APK、双 flavor app 构建、spotless/detekt/browser lint、双 API JNI/设备回归；精确命令见 [完成记录](../completion-records/HXA-158.md) | 未使用宿主引用残留 480→0；116 JVM；每台设备 27 通过/2 opt-in skip；系统缺陷、24h/真机仍开放 |

@@ -917,3 +917,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed，见 [完成记录](../completion-records/HXA-157.md)。所有者要求只修 bug、暂停新需求。修复既有 tools.search 与已发现 MCP schema 在 64 项模型上限下被截断的问题；允许 app/mcp、对应 JVM 测试和 docs。保持既有 mode 准入、Dispatcher/Policy 与窗口上限，不新增功能或 ADR。
 
 验证：先以未修复代码运行 McpToolDiscoveryTest 复现失败，再运行 `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug spotlessCheck detekt lintDebug --max-workers=1`；docs/ADR/secrets/diff 门禁。
+
+### HXA-158 未使用 WebView 宿主延迟分配与原生问题折中验证
+
+状态：completed（应用规避与有界评估），见 [完成记录](../completion-records/HXA-158.md)。所有者要求修复 JNI/Binder，必要时评估替代方案。先直接复现未导航 WebViewTabHost 的 JNI 分配，再将延迟分配落实到宿主内部，验证未使用、JS、生产导航/取消及 Binder 计数。允许 feature/browser、诊断脚本/docs；不 fork Chromium、不隐藏 API、不强制 GC、不关闭 Autofill、不重启掩盖故障。系统根因与应用规避分别记录，24h/真机仍后置。
+
+验证：API29/36 同一 JVMTI 观察器下旧/新 host 对照与裸 WebView 正对照，生产导航 Binder 计数、浏览器设备回归；`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；NDK 严格编译、Python/docs/ADR/secrets/diff 门禁。

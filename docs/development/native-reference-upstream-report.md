@@ -25,3 +25,7 @@ JVMTI 配对：400 轮中 AwContentsIoThreadClient 子类 new=1600 / delete=800 
 全部精确命令、版本源码链接、安装 hash、计数、无效观测与局限见 [JNI/Binder 追踪](native-reference-release-trace.md)、[生产本地路径](browser-controller-reference-verification.md)、[网络及后台路径](browser-network-reference-verification.md)。原始日志留在忽略的 build/reference-trace 与 build/webview-diagnostic，发布前单独审核附件，不能夹带其他运行日志、账号或机器数据。
 
 Helix 架构要求系统 WebView，不 fork Chromium；当前没有符合既有边界且经实测的应用内 native 修复。这里交付可审查的上游材料，不宣称平台缺陷已修复，也不未经所有者明确授权对外发 issue。
+
+## HXA-158 应用规避
+
+[未使用宿主延迟分配与方案评估](native-reference-mitigation.md) 已完成应用层修复：旧/新宿主 240 轮目标引用残留 480→0，生产路径与设备回归通过；裸平台正对照仍复现。系统问题和历史长稳 FAIL 保留，不能将应用规避写成平台补丁。

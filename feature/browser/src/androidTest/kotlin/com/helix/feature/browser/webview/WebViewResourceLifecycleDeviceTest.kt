@@ -11,6 +11,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.feature.browser.BrowserTabListener
 import com.helix.feature.browser.DownloadRequest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -22,6 +24,43 @@ import java.util.concurrent.TimeUnit
 /** HXA-103 device gates for WebView callback and file-descriptor lifecycle. */
 @RunWith(AndroidJUnit4::class)
 class WebViewResourceLifecycleDeviceTest {
+    @Test
+    fun unusedHostLifecycleNeverAllocatesOrResurrectsAWebView() {
+        onMain {
+            val host = newHost()
+            host.pause()
+            host.resume()
+            host.stop()
+            host.clearCache()
+            host.goBack()
+            host.goForward()
+            host.reload()
+            assertFalse(host.hasCreatedViewForTest())
+            host.destroy()
+            host.destroy()
+            assertFalse(host.hasCreatedViewForTest())
+            assertThrows(IllegalStateException::class.java) { host.load("about:blank") }
+            assertFalse(host.hasCreatedViewForTest())
+        }
+    }
+
+    @Test
+    fun firstUseAllocatesOnceAndDestroyDropsLateEvaluation() {
+        onMain {
+            val host = newHost()
+            assertFalse(host.hasCreatedViewForTest())
+            val view = host.webView
+            assertTrue(host.hasCreatedViewForTest())
+            assertTrue(view === host.webView)
+            host.load("about:blank")
+            host.destroy()
+            var answered = false
+            host.evaluateFixed("1 + 1") { answered = true }
+            assertTrue(answered)
+            assertEquals(0, host.pendingEvaluationCountForTest())
+        }
+    }
+
     @Test
     fun destroyRemovesPendingEvaluationDeadlinesAndDropsLateResults() {
         var host: WebViewTabHost? = null
@@ -102,7 +141,14 @@ class WebViewResourceLifecycleDeviceTest {
         }
     }
 
-    private fun createAndDestroy() = onMain { newHost().destroy() }
+    private fun createAndDestroy() =
+        onMain {
+            val host = newHost()
+            // Keep the FD gate exercising a real renderer after allocation became lazy.
+            // Unused-host and raw-platform controls remain separate tests.
+            host.load("about:blank")
+            host.destroy()
+        }
 
     private fun newHost(): WebViewTabHost =
         WebViewTabHost(
@@ -136,7 +182,7 @@ class WebViewResourceLifecycleDeviceTest {
         failure?.let { throw it }
     }
 
-    private object NoOpListener : BrowserTabListener {
+    internal object NoOpListener : BrowserTabListener {
         override fun onPageStarted(url: String) = Unit
 
         override fun onPageFinished(

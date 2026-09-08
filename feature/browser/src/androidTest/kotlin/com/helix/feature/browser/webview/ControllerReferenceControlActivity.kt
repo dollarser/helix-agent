@@ -6,8 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.os.Debug
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -134,7 +136,12 @@ class ControllerReferenceControlActivity : Activity() {
         )
         completed += 1
         if (completed % 100 == 0 || completed == requested) {
-            Log.i("HelixControllerTrace", "scenario=$scenario completed=$completed")
+            Log.i(
+                "HelixControllerTrace",
+                "scenario=$scenario completed=$completed pid=${Process.myPid()} " +
+                    "binderLocal=${Debug.getBinderLocalObjectCount()} " +
+                    "binderProxy=${Debug.getBinderProxyObjectCount()}",
+            )
         }
         if (completed < requested) {
             handler.postDelayed(::next, 5L)
