@@ -209,6 +209,10 @@
 
 ## 第三阶段：后期长稳（当前不启动）
 
+当前全部待模拟器验证的设计与目标见[总计划](emulator-verification-master-plan.md)。该计划区分已完成短测与新增证据缺口，含应用24小时、组合任务、网络/生命周期、平台与外部条件；设计不等于已运行或重新打开已完成HXA。
+
+浏览器/Autofill 专项已形成[小模型长稳执行方案](browser-autofill-soak-plan.md)：夹具缺口、配对预检、双 API 单进程24小时、资源趋势与失败取证分别定义；目前仅设计，尚未启动，不替代以下全 App 门禁。
+
 - [ ] 验证浏览器 JNI 双映射清理与系统 Binder 代理累积的修复方案（[HXA-153 释放路径](native-reference-release-trace.md) 已完成配对与因果干预；[HXA-154](browser-controller-reference-verification.md) 的六条生产本地路径未复现目标残留，优先核实真实网络/后台窗口；原生问题仍 open。HXA-152 已补齐 API29/36 原生 WebView 与无 WebView 的 Autofill 对照，四组 FAIL，见 [调查记录](webview-native-reference-investigation.md)），复用五组原生对照失败证据；有针对性修复后再重跑对照，不以强制 GC 或放宽门限掩盖。
 - [ ] 最新构建 API 29 浏览器连续 24 小时长稳。
 - [ ] 最新构建 API 36 应用连续 24 小时长稳。

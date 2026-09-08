@@ -69,3 +69,37 @@ Application Context 的功能限制、Activity 级宿主建议、包装器/自�
 ## HXA-160 Context 后续落地
 
 Activity owner、JS 对话框与真实 AutofillService 回归已另行实施，见 [完成记录](../completion-records/HXA-160.md)。该记录保留同观察器改前/改后 JNI 配对与 Binder 原始采样；不覆盖本报告的历史失败，也不把 Activity Context 迁移宣称为系统 Binder 修复。
+
+## 系统问题的竞品与上游源码复核（2026-09-09）
+
+所有者要求继续参考竞品分析原因。本节仅补充研究，不修改生产代码、不重开已完成 HXA，也未运行新设备测试。重新读取下列固定版本源码，并与 HXA-153/158/160 的已有实验对照。竞品未做同负载设备对照，因此不宣称其无泄漏或已修复本问题。
+
+### 两条独立的资源链
+
+**JNI：强烈支持 native 映射清理遗漏，尚缺修补版验证。** Chromium 133 的 `ClientMapEntryUpdater` 在存在 primary main frame 时就登记 client；`RfhToIoThreadClientMap::Set` 分别向 frame-tree-node 与 RFH token 映射复制弱引用。删除依赖 `RenderFrameDeleted`，但 `RenderFrameHostImpl` 只有在 renderer frame 曾创建时才发送该通知。`WebContentsDestroyed` 清理的是另一张 WebContents 映射，没有兜底删除前述两个映射中的记录。这与每次裸创建/销毁残留两个目标句柄、导航后配对归零相符。清除 Java 对象或 Activity 引用不能自动释放 native 映射占据的 JNI 槽位。
+
+本次重新核对的源码：[IoThreadClient](https://chromium.googlesource.com/chromium/src/+/133.0.6943.137/android_webview/browser/aw_contents_io_thread_client.cc)、[RenderFrameHostImpl](https://chromium.googlesource.com/chromium/src/+/133.0.6943.137/content/browser/renderer_host/render_frame_host_impl.cc)。最终源码级定因仍需符号化或修补版前后对照；不能凭源码形似断言某个未测试发行版本已修复。
+
+**Binder：已证实系统代理回收可解除累积，更准确地说是回收滞后／分配速率问题。** Android 16 的 `isAutofillSupported()` 与 `hasEnabledAutofillServices()` 每次查询都构造 `SyncResultReceiver`。服务端 BinderProxy 使用弱引用表和 native allocation 清理；回收 native 数据后释放 Binder 引用并 flush，客户端 JavaBBinder 才有机会解除对 Java 回调的强全局引用。HXA-153 的系统 GC 干预可使约 2000 个引用回落，而应用 GC 无效，支持这条跨进程所有权链。它不是“对象永远无法回收”，也不能据此将所有 Binder 增长归因于 Autofill。
+
+本次重新核对的源码：[AutofillManager](https://android.googlesource.com/platform/frameworks/base/+/android-16.0.0_r1/core/java/android/view/autofill/AutofillManager.java)、[BinderProxy](https://android.googlesource.com/platform/frameworks/base/+/android-16.0.0_r1/core/java/android/os/BinderProxy.java)、[native Binder 清理](https://android.googlesource.com/platform/frameworks/base/+/android-16.0.0_r1/core/jni/android_util_Binder.cpp)。尤其注意：`hasEnabledAutofillServices()` 判断的是调用应用提供的服务是否启用，不是通用的“用户是否启用了任意密码管理器”。独立查询压力测试不是实际表单使用频率的等价模型。
+
+### 竞品实际做了什么
+
+| 固定源码 | 已读路径的做法 | 对本问题的意义 |
+| --- | --- | --- |
+| [EinkBro TabManager](https://github.com/plateaukao/einkbro/blob/1ab77ff50e1ad7e699c0cec436326b868dab84c0/app/src/main/java/info/plateaukao/einkbro/activity/delegates/TabManager.kt) | 恢复后台标签时只保留元数据；切换到已有 View 时优先保留挂载，仅改变可见性；另有预热 WebView 和直接销毁预热实例的路径 | 惰性恢复和减少无意义 attach/detach 值得参考；预热后未使用就销毁可能接近 JNI 触发条件，不能照搬，也未据此认定竞品已复现 |
+| [Fulguris WebViewEx](https://github.com/Slion/Fulguris/blob/fb8208ffda50b6864f56f8d31c6414aa4a0a9104/app/src/main/java/fulguris/view/WebViewEx.kt) | stop、pause、清理历史/子 View 后 destroy；有父 View 时为动画推迟销毁 | 属于 View 生命周期管理；清历史、绘图缓存或延迟销毁不能证明补齐 native 映射删除，更不能控制 system_server GC |
+| [DuckDuckGo BrowserTabFragment](https://github.com/duckduckgo/Android/blob/80557a80cf1aadbbbc67d628a3347570003cf68d/app/src/main/java/com/duckduckgo/app/browser/BrowserTabFragment.kt) | 取消协程和界面任务，移除自身 Autofill JS 接口；销毁路径移除容器子 View、移除系统 Autofill callback、destroy 并置空 WebView | 说明需要清理应用自己注册的监听和任务；取消 callback 不等于释放已完成同步查询留在系统端的 IResultReceiver，也不支持 Helix 增加特权 JS bridge |
+
+上述三个路径都没有提供直接删除 Chromium native 映射或强制释放 system_server 代理的应用层实现。这个结论仅限已读源码，不能扩展为全仓库审计。桌面 Agent 的浏览器进程管理无法直接验证 Android 这两条链；也不应以换引擎后绕开一条 WebView 路径来推断 Android Binder 问题同时消失。
+
+### 对 Helix 的处理建议
+
+1. 保留 HXA-158/160 的惰性分配、Activity 所有权与确定性解绑；当前 `feature/browser/src/main`、`app/src/main` 检索未发现直接调用上述两个 Autofill 查询，也没有应用级 AutofillManager 轮询可删除。系统 WebView 内部行为仍需另行追踪。
+2. 不新增禁用 Autofill、Application Context 回退、强制 GC、预热池或每次销毁前导航。已测生产目标 JNI 引用可配对释放，不支持为裸平台失败破坏真实表单功能。Activity Context 是功能和生命周期修复，不能称为 Binder 根治。
+3. 下一个有价值的短时诊断是同版 WebView 下固定真实表单工作量，对比无服务与真实 Autofill 服务，按轮次采样应用 local/proxy Binder、system_server 对该 UID 的代理和 IResultReceiver 类型，同时记录实际查询数量、耗时、自然 GC 与 PID。先判断生产是否持续增长，再考虑有证据的调用去重；不能只比两次测试的结束计数。该诊断尚未执行，长稳仍后置。
+4. JNI 上游候选修复应围绕登记记录的确定性所有权：使从未创建 renderer 的 RFH 也能释放属于它的两个映射条目，并保持共享 frame-tree-node 记录的引用集合语义。需覆盖首次请求拦截、子 frame、导航替换、prerender、renderer crash 和重复清理；不要简单跳过登记或清空全局表。此为待验证修复方向，不是已编译补丁。
+5. Binder 上游候选调查应围绕每查询分配回调与系统 native allocation/清理调度。应用无法安全代替系统释放仍被引用的代理；共享一个回调也必须解决并发、超时和迟到结果串线，不能直接替换。需要同工作量下的系统修补版对照才能称根治。
+
+本次结论：现有证据支持继续使用系统 WebView；竞品参考没有给出足以推翻 ADR-0033 的依据。JNI 保留“系统清理缺口的强证据”，Binder 保留“已复现回收滞后，生产持续累积待验证”，分别跟踪，避免把二者合并成一个笼统内存泄漏。
