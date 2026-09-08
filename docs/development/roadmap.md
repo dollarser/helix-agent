@@ -885,3 +885,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed，见 [完成记录](../completion-records/HXA-151.md)。所有者于 2026-09-08 授权实现收敛审查。复用现有导入、安装服务与工具契约，合并创建/安装页面重复的异步忙碌、失败、取消处理；修复失败后旧预览残留，防止同一入口重复操作。允许 app UI 辅助代码、Skill/Connector 页面及相关测试/docs；不扩展安装功能，不改授权、存储或 Runtime。浏览器调查在本检查点完成后独立推进。
 
 验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 执行 `SkillAuthoringUiTest`、`SkillInstallationUiTest`、`ConnectorInstallationUiTest`；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。
+
+### HXA-152 浏览器原生引用短时归因
+
+状态：completed（有界调查完成，缺陷仍 open），见 [完成记录](../completion-records/HXA-152.md)。所有者于 2026-09-08 授权继续浏览器短时复现与定位，24h 长稳仍后置。复核历史 JNI 表与系统 Binder descriptor 证据；在测试 APK 增加 Autofill 独立对照及 GC/Binder 采样，区分 WebView 与平台服务调用的必要条件。允许 feature/browser 的 androidTest 与 docs；不改生产生命周期、禁用产品能力或放宽原门限。
+
+验证：`./gradlew :feature:browser:assembleDebugAndroidTest spotlessCheck detekt --max-workers=1`；API29/36 显式 `am start` 运行最多 30000 次独立对照，保存版本、APK hash、logcat、进程退出与实际轮次；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。对照完成只代表归因检查点完成，不代表浏览器缺陷或长稳已通过。

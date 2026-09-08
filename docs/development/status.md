@@ -4,6 +4,8 @@
 
 ## Current summary
 
+2026-09-08：HXA-151 原生 Skill/MCP 操作状态收敛已完成；HXA-152 短时对照已交付，JNI/Binder 两分支均有独立复现，缺陷仍 open，详见 [调查记录](webview-native-reference-investigation.md)。
+
 2026-09-08：ADR-0029 已接受，M14 HXA-148～150 内置 Skill Creator、Skill Installer、MCP Installer 已完成；2734 JVM、质量门禁、API29/36安装/界面/传输与公开MCP恢复、真实模型Skill创建至读取链路通过，见 [完成记录](../completion-records/HXA-150.md)。
 
 2026-09-08：所有者已接受 [ADR-0028](../adr/0028-goal-criterion-verification-bindings.md)，Goal 完成证据生产接线、write/edit/PRoot 真实模型完成、复核 UI 与证据读取取消/强杀已获得分项验收；后端中断恢复与 M11 完整 Chat 边界已补齐专项。最新私有产物删除修复后，完整 JVM 2713、根 Debug/Release Lint及构建、受影响设备30项通过；API35短时资源及双API真实低内存门控已补验，HXA-147统一交互/UI验收亦已完成，累计Git审核与暂存收口已完成，见 [当前待办](main-optimization-todo.md)。
@@ -127,9 +129,11 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M14 / HXA-151 已完成：Skill/MCP 原生操作状态收敛，双 flavor JVM 与 API29/36 各 6 项 UI 回归通过，见 [完成记录](../completion-records/HXA-151.md)。
 
+- M10 / HXA-152 已完成：有界原生对照与归因记录；API29/36 WebView JNI 溢出及无 WebView 的 Autofill/Binder 终止均复现。缺陷仍未修复，见 [完成记录](../completion-records/HXA-152.md)。
+
 ## In progress
 
-HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。当前无活动实现检查点。
+HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，当前无活动实现检查点，24h 长稳保持后置。
 
 
 - M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。

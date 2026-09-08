@@ -271,4 +271,6 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 
 | HXA-151 | 原生操作状态收敛：重复点击、失败重试、取消与旧预览失效；双 flavor JVM、构建/质量门禁及 API29/36 三个安装/创建页面测试 |
 
+| HXA-152 | 测试 APK 的 WebView/Autofill 独立对照、GC/Binder 采样与 API29/36 短时证据；不替代生产修复或长稳验收 |
+
 共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。
