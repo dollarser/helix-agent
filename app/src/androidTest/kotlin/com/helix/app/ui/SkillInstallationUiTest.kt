@@ -67,6 +67,20 @@ class SkillInstallationUiTest {
             compose.waitUntil(10000) {
                 compose.onAllNodesWithTag("skill-installer-install").fetchSemanticsNodes().isNotEmpty()
             }
+            val manifest = app.filesDir.toPath().resolve("workspaces/app/work/skills/$name/SKILL.md")
+            val original = Files.readAllBytes(manifest)
+            Files.write(manifest, "invalid frontmatter".toByteArray())
+            compose.onNodeWithTag("skill-installer-preview").performScrollTo().performClick()
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithTag("skill-installer-failed").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("skill-installer-install").assertDoesNotExist()
+            Files.write(manifest, original)
+            compose.onNodeWithTag("skill-installer-preview").performScrollTo().performClick()
+            compose.waitUntil(10000) {
+                compose.onAllNodesWithTag("skill-installer-install").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithTag("skill-installer-failed").assertDoesNotExist()
             compose
                 .onNodeWithTag("skill-installer-install")
                 .performScrollTo()

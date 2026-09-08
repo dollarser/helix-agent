@@ -125,9 +125,11 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M14 / HXA-150 已完成：MCP配置预览/精确安装、JSON粘贴、凭据与连接分离及设备回归通过，见 [完成记录](../completion-records/HXA-150.md)。
 
+- M14 / HXA-151 已完成：Skill/MCP 原生操作状态收敛，双 flavor JVM 与 API29/36 各 6 项 UI 回归通过，见 [完成记录](../completion-records/HXA-151.md)。
+
 ## In progress
 
-本轮 HXA-148～150 已完成，无活动实现检查点。
+HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。当前无活动实现检查点。
 
 
 - M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。

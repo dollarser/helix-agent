@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.skills.connector.ConnectorPackage
 import kotlinx.coroutines.CancellationException
@@ -32,42 +33,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-// Independent UI event callbacks preserve cancellation.
+// Shared import action state preserves cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
 fun ConnectorSection(service: ConnectorService) {
-    val scope = rememberCoroutineScope()
+    val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
     var showPaste by remember { mutableStateOf(false) }
     var preview by remember { mutableStateOf<ConnectorPackage?>(null) }
     var records by remember { mutableStateOf<List<InstalledConnector>>(emptyList()) }
-    var busy by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
+    var loadFailed by remember { mutableStateOf(false) }
     var revision by remember { mutableStateOf(0) }
     LaunchedEffect(revision) {
+        loadFailed = false
         try {
             records = withContext(Dispatchers.IO) { service.list() }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (_: Exception) {
-            failed = true
+            loadFailed = true
         }
     }
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
-                scope.launch {
-                    busy = true
-                    failed = false
+                action.launch {
                     preview = null
-                    try {
-                        preview = withContext(Dispatchers.IO) { service.preview(uri) }
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (_: Exception) {
-                        failed = true
-                    } finally {
-                        busy = false
-                    }
+                    preview = withContext(Dispatchers.IO) { service.preview(uri) }
                 }
             }
         }
@@ -76,13 +67,13 @@ fun ConnectorSection(service: ConnectorService) {
         Text(stringResource(R.string.connector_intro))
         OutlinedButton(
             onClick = { picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream")) },
-            enabled = !busy,
+            enabled = !action.busy,
             modifier = Modifier.testTag("connector-import"),
         ) {
             Text(stringResource(R.string.connector_import))
         }
         OutlinedButton(
-            enabled = !busy,
+            enabled = !action.busy,
             modifier = Modifier.testTag("connector-paste"),
             onClick = { showPaste = !showPaste },
         ) { Text(stringResource(R.string.connector_paste)) }
@@ -94,34 +85,24 @@ fun ConnectorSection(service: ConnectorService) {
                     jsonDraft = it
                     preview = null
                 },
-                enabled = !busy,
+                enabled = !action.busy,
                 minLines = 4,
                 modifier = Modifier.testTag("connector-json"),
                 label = { Text("MCP JSON") },
             )
             OutlinedButton(
-                enabled = !busy && jsonDraft.isNotBlank(),
+                enabled = !action.busy && jsonDraft.isNotBlank(),
                 modifier = Modifier.testTag("connector-json-preview"),
                 onClick = {
-                    scope.launch {
-                        busy = true
-                        failed = false
-                        try {
-                            preview = withContext(Dispatchers.IO) { service.previewJson(jsonDraft) }
-                        } catch (
-                            cancel: CancellationException,
-                        ) {
-                            throw cancel
-                        } catch (_: Exception) {
-                            failed = true
-                        } finally {
-                            busy = false
-                        }
+                    action.launch {
+                        preview = withContext(Dispatchers.IO) { service.previewJson(jsonDraft) }
                     }
                 },
             ) { Text(stringResource(R.string.skill_creator_preview)) }
         }
-        if (failed) Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+        if (loadFailed || action.failed) {
+            Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
+        }
         preview?.let { bundle ->
             Text("${bundle.name} · ${bundle.source}")
             Text(bundle.contentHash, style = MaterialTheme.typography.bodySmall)
@@ -146,28 +127,22 @@ fun ConnectorSection(service: ConnectorService) {
             }
             if (bundle.skills.isNotEmpty()) Text(stringResource(R.string.connector_skill_review))
             bundle.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
-            OutlinedButton(enabled = !busy && (bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()), onClick = {
-                scope.launch {
-                    busy = true
-                    failed = false
-                    try {
+            OutlinedButton(
+                enabled = !action.busy && (bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()),
+                onClick = {
+                    action.launch {
                         withContext(Dispatchers.IO) { service.install(bundle) }
                         preview = null
                         jsonDraft = ""
                         showPaste = false
                         revision++
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (_: Exception) {
-                        failed = true
-                    } finally {
-                        busy = false
                     }
-                }
-            }, modifier = Modifier.testTag("connector-install")) { Text(stringResource(R.string.connector_install)) }
+                },
+                modifier = Modifier.testTag("connector-install"),
+            ) { Text(stringResource(R.string.connector_install)) }
             OutlinedButton(
                 onClick = { preview = null },
-                enabled = !busy,
+                enabled = !action.busy,
             ) { Text(stringResource(R.string.common_cancel)) }
         }
         records.forEach { record ->
@@ -179,35 +154,20 @@ fun ConnectorSection(service: ConnectorService) {
             record.skills.forEach { key ->
                 var enabled by remember(key, revision) { mutableStateOf(service.skillEnabled(key)) }
                 Row {
-                    Checkbox(checked = enabled, onCheckedChange = { value ->
-                        scope.launch {
-                            try {
-                                withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
-                                enabled = value
-                            } catch (cancel: CancellationException) {
-                                throw cancel
-                            } catch (_: Exception) {
-                                failed = true
-                            }
+                    Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
+                        action.launch {
+                            withContext(Dispatchers.IO) { service.setSkillEnabled(key, value) }
+                            enabled = value
                         }
                     })
                     Text("Skill: ${key.name}")
                 }
             }
             Text(stringResource(R.string.connector_remove_note), style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(enabled = !busy, onClick = {
-                scope.launch {
-                    busy = true
-                    try {
-                        withContext(Dispatchers.IO) { service.remove(record) }
-                        revision++
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (_: Exception) {
-                        failed = true
-                    } finally {
-                        busy = false
-                    }
+            OutlinedButton(enabled = !action.busy, onClick = {
+                action.launch {
+                    withContext(Dispatchers.IO) { service.remove(record) }
+                    revision++
                 }
             }) { Text(stringResource(R.string.connector_remove)) }
         }

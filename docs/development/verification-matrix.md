@@ -269,4 +269,6 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-149 | Skill Installer：hash绑定审批、篡改拒绝、禁用默认、重复安装/中断恢复、Plan禁写及真实样本；已通过，见 [完成记录](../completion-records/HXA-149.md) |
 | HXA-150 | MCP Installer：配置预览/安装、凭据隔离、禁用默认、连接选择与断连，真实账号另列；已通过，见 [完成记录](../completion-records/HXA-150.md) |
 
+| HXA-151 | 原生操作状态收敛：重复点击、失败重试、取消与旧预览失效；双 flavor JVM、构建/质量门禁及 API29/36 三个安装/创建页面测试 |
+
 共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。

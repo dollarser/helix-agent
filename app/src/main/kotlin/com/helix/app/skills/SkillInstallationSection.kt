@@ -10,18 +10,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.helix.app.R
+import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.skills.SkillImportPreview
 import com.helix.extensions.skills.SkillKey
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -34,32 +32,14 @@ fun SkillInstallationSection(
     var preview by remember { mutableStateOf<SkillImportPreview?>(null) }
     var installed by remember { mutableStateOf<SkillKey?>(null) }
     var enabled by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var failed by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    fun action(block: suspend () -> Unit) {
-        scope.launch {
-            busy = true
-            failed = false
-            try {
-                block()
-            } catch (
-                cancel: CancellationException,
-            ) {
-                throw cancel
-            } catch (_: Exception) {
-                failed = true
-            } finally {
-                busy = false
-            }
-        }
-    }
+    val action = rememberImportActionState()
     val context = LocalContext.current
     val picker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
-                action {
+                action.launch {
+                    preview = null
+                    installed = null
                     val imported =
                         withContext(Dispatchers.IO) {
                             context.contentResolver.openInputStream(uri).use { input ->
@@ -75,7 +55,7 @@ fun SkillInstallationSection(
     Column {
         Text(stringResource(R.string.skill_installer_title))
         Text(stringResource(R.string.skill_installer_intro))
-        OutlinedButton(enabled = !busy, onClick = {
+        OutlinedButton(enabled = !action.busy, onClick = {
             picker.launch(arrayOf("application/zip", "application/octet-stream"))
         }) { Text(stringResource(R.string.skill_installer_archive)) }
         OutlinedTextField(
@@ -85,17 +65,18 @@ fun SkillInstallationSection(
                 preview = null
                 installed = null
             },
-            enabled = !busy,
+            enabled = !action.busy,
             label = { Text(stringResource(R.string.skill_creator_path)) },
             modifier = Modifier.testTag("skill-installer-path"),
         )
         OutlinedButton(
-            enabled = !busy && path.isNotBlank(),
+            enabled = !action.busy && path.isNotBlank(),
             modifier = Modifier.testTag("skill-installer-preview"),
             onClick = {
-                action {
-                    preview = withContext(Dispatchers.IO) { authoring.preview(path) }
+                action.launch {
+                    preview = null
                     installed = null
+                    preview = withContext(Dispatchers.IO) { authoring.preview(path) }
                 }
             },
         ) {
@@ -105,8 +86,8 @@ fun SkillInstallationSection(
             Text("${reviewed.name}\n${reviewed.description}\n${reviewed.snapshotHash}")
             Text(listOfNotNull(reviewed.compatibility, reviewed.declaredAllowedTools).joinToString("\n"))
             Text(reviewed.files.joinToString("\n") { "${it.relativePath} · ${it.sizeBytes} B" })
-            OutlinedButton(enabled = !busy, modifier = Modifier.testTag("skill-installer-install"), onClick = {
-                action {
+            OutlinedButton(enabled = !action.busy, modifier = Modifier.testTag("skill-installer-install"), onClick = {
+                action.launch {
                     val key = withContext(Dispatchers.IO) { service.install(path, reviewed.snapshotHash) }
                     installed = key
                     enabled = service.isEnabled(key)
@@ -122,9 +103,9 @@ fun SkillInstallationSection(
             Text(stringResource(if (enabled) R.string.skill_installer_enabled else R.string.skill_installer_disabled))
             if (!enabled) {
                 OutlinedButton(
-                    enabled = !busy,
+                    enabled = !action.busy,
                     onClick = {
-                        action {
+                        action.launch {
                             withContext(Dispatchers.IO) { service.enable(key) }
                             enabled = service.isEnabled(key)
                         }
@@ -136,6 +117,11 @@ fun SkillInstallationSection(
                 ) { Text(stringResource(R.string.skill_installer_enable)) }
             }
         }
-        if (failed) Text(stringResource(R.string.skill_installer_failed))
+        if (action.failed) {
+            Text(
+                stringResource(R.string.skill_installer_failed),
+                modifier = Modifier.testTag("skill-installer-failed"),
+            )
+        }
     }
 }

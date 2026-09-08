@@ -879,3 +879,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed，见 [完成记录](../completion-records/HXA-150.md)。依赖 HXA-149；实现内置 mcp-installer、connectors.preview/install、本地 JSON/ZIP 和粘贴配置入口、安装后独立凭据/连接/工具选择流程。允许 app、extensions/skills、extensions/mcp 及 tests/docs。不扩大 OAuth、stdio/联网 CLI、远程市场或凭据流。
 
 验证：HXA-148 的 Gradle 门禁另加 `:extensions:mcp:test`；实现时先建立 `scripts/accept-hxa-150-mcp-installer.sh <dedicated-serial>`，API29/36 验证 JSON/ZIP 安装、认证字段剥离、Plan 禁写、hash 变化、默认禁用、真实 loopback MCP 连接/选择/拒绝/断线，控制服务与真实第三方账号证据分开。脚本已执行，分项证据见完成记录。
+
+### HXA-151 Skill/MCP 原生操作状态收敛
+
+状态：completed，见 [完成记录](../completion-records/HXA-151.md)。所有者于 2026-09-08 授权实现收敛审查。复用现有导入、安装服务与工具契约，合并创建/安装页面重复的异步忙碌、失败、取消处理；修复失败后旧预览残留，防止同一入口重复操作。允许 app UI 辅助代码、Skill/Connector 页面及相关测试/docs；不扩展安装功能，不改授权、存储或 Runtime。浏览器调查在本检查点完成后独立推进。
+
+验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 执行 `SkillAuthoringUiTest`、`SkillInstallationUiTest`、`ConnectorInstallationUiTest`；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。

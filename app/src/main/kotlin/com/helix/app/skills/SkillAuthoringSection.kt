@@ -9,16 +9,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import kotlinx.coroutines.CancellationException
+import com.helix.app.ui.rememberImportActionState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -32,30 +30,16 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
     var expectedHash by remember { mutableStateOf<String?>(null) }
     var path by remember { mutableStateOf("") }
     var result by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
     var diagnostic by remember { mutableStateOf<String?>(null) }
-    var failed by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val actions = rememberImportActionState()
 
     fun action(block: suspend () -> Unit) {
-        scope.launch {
-            busy = true
-            failed = false
+        actions.launch(onFailure = { failure ->
+            diagnostic = (failure as? com.helix.extensions.skills.InvalidSkillException)?.message?.take(512)
+        }) {
             diagnostic = null
-            try {
-                block()
-            } catch (
-                cancel: CancellationException,
-            ) {
-                throw cancel
-            } catch (failure: com.helix.extensions.skills.InvalidSkillException) {
-                diagnostic = failure.message?.take(512)
-                failed = true
-            } catch (_: Exception) {
-                failed = true
-            } finally {
-                busy = false
-            }
+            result = ""
+            block()
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -73,21 +57,21 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                     },
                     label = { Text(stringResource(R.string.skill_creator_name)) },
                     modifier = Modifier.testTag("skill-creator-name"),
-                    enabled = !busy,
+                    enabled = !actions.busy,
                 )
                 OutlinedTextField(
                     description,
                     { description = it },
                     label = { Text(stringResource(R.string.skill_creator_description)) },
                     modifier = Modifier.testTag("skill-creator-description"),
-                    enabled = !busy,
+                    enabled = !actions.busy,
                 )
                 OutlinedTextField(
                     body,
                     { body = it },
                     label = { Text(stringResource(R.string.skill_creator_body)) },
                     modifier = Modifier.testTag("skill-creator-body"),
-                    enabled = !busy,
+                    enabled = !actions.busy,
                     minLines = 3,
                 )
             } else {
@@ -95,12 +79,12 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                     manifest.orEmpty(),
                     { manifest = it },
                     label = { Text("SKILL.md") },
-                    enabled = !busy,
+                    enabled = !actions.busy,
                     minLines = 6,
                     modifier = Modifier.testTag("skill-creator-manifest"),
                 )
             }
-            OutlinedButton(modifier = Modifier.testTag("skill-creator-save"), enabled = !busy, onClick = {
+            OutlinedButton(modifier = Modifier.testTag("skill-creator-save"), enabled = !actions.busy, onClick = {
                 action {
                     path =
                         withContext(Dispatchers.IO) {
@@ -125,9 +109,9 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                     expectedHash = null
                 },
                 label = { Text(stringResource(R.string.skill_creator_path)) },
-                enabled = !busy,
+                enabled = !actions.busy,
             )
-            OutlinedButton(enabled = !busy && path.startsWith("scope:app:work/skills/"), onClick = {
+            OutlinedButton(enabled = !actions.busy && path.startsWith("scope:app:work/skills/"), onClick = {
                 action {
                     val draft = withContext(Dispatchers.IO) { service.loadDraft(path) }
                     name = draft.name
@@ -138,7 +122,7 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                 }
             }) { Text(stringResource(R.string.skill_creator_load)) }
             OutlinedButton(
-                enabled = !busy && path.isNotBlank(),
+                enabled = !actions.busy && path.isNotBlank(),
                 onClick = {
                     action {
                         val preview = withContext(Dispatchers.IO) { service.preview(path) }
@@ -155,7 +139,7 @@ fun SkillAuthoringSection(service: SkillAuthoringService) {
                         "skill-creator-preview",
                     ),
             ) { Text(stringResource(R.string.skill_creator_preview)) }
-            if (failed) {
+            if (actions.failed) {
                 Text(stringResource(R.string.skill_creator_failed))
                 diagnostic?.let { Text("SKILL.md: $it") }
             }
