@@ -278,3 +278,5 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。
 
 | HXA-154 | [生产路径核实](browser-controller-reference-verification.md) 完成：API29/36 六路径各 400 轮目标引用零残留；JVM 116、设备安全各 9 项及构建/lint/静态检查通过；原生正对照仍检出残留，不等于原生问题关闭 |
+
+| HXA-155 | API29/36 真实 HTTP 慢响应取消、后台恢复与 Activity 重建；各 100 轮 JNI 追踪、请求计数和浏览器 JVM/构建/lint 门禁 |

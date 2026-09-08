@@ -135,9 +135,11 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M10 / HXA-154 已完成：生产控制器六路径 API29/36 各 400 轮，目标弱引用残留为 0；原生裸创建仍有残留，未修改生产回收策略，见 [完成记录](../completion-records/HXA-154.md)。
 
+- M10 / HXA-155 已完成：API29/36 网络关闭/停止/后台/重建共 800 轮目标引用零残留；上游材料已准备，原生问题仍 open，见 [完成记录](../completion-records/HXA-155.md)。
+
 ## In progress
 
-HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，当前无活动本地检查点，24h 长稳保持后置。
+HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，HXA-155 网络/后台/重建核实已完成；下一检查点为文档收口，24h 长稳保持后置。
 
 
 - M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。

@@ -3,6 +3,8 @@
 import argparse
 import hashlib
 import json
+import http.server
+import threading
 import os
 from pathlib import Path
 import re
@@ -13,7 +15,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("serial")
 parser.add_argument("--count", type=int, default=400)
 parser.add_argument("--navigate", action="store_true")
-parser.add_argument("--scenario", choices=["empty", "denied", "early-close", "stop-close", "settled-close", "clear-history"])
+parser.add_argument("--scenario", choices=["empty", "denied", "early-close", "stop-close", "settled-close", "clear-history", "network-close", "network-stop", "network-background", "network-recreate"])
 args = parser.parse_args()
 if not args.serial.startswith("emulator-") or not 1 <= args.count <= 2000:
     parser.error("requires a dedicated emulator and count in 1..2000")
@@ -37,6 +39,24 @@ start = ["shell", "am", "start", "-W", "-n", f"{package}/com.helix.feature.brows
 if args.scenario:
     start[5] = f"{package}/com.helix.feature.browser.webview.ControllerReferenceControlActivity"
     start += ["--es", "scenario", args.scenario]
+requests_seen = []
+if args.scenario and args.scenario.startswith("network-"):
+    class SlowResponse(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests_seen.append(self.path)
+            time.sleep(3)
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"<title>network control</title>")
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # Expected cancelled socket; count records request arrival, not completion.
+        def log_message(self, *args):
+            pass
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SlowResponse)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    start += ["--es", "networkUrl", f"http://10.0.2.2:{server.server_port}/slow"]
 if args.navigate:
     start += ["--ez", "navigateBeforeDestroy", "true"]
 (output / "start.log").write_text(run(*start))
@@ -51,13 +71,28 @@ def logs():
     return result
 
 text = ""
-for _ in range(120):
+resumed = set()
+acknowledged = set()
+for _ in range(4000 if args.scenario and args.scenario.startswith("network-") else 120):
     text = logs()
     if "FATAL EXCEPTION" in text or "Fatal signal" in text or "OVERFLOW observation invalid" in text:
         raise RuntimeError("diagnostic process failed; see logcat")
     if f"PASS created={args.count}" in text:
         break
-    time.sleep(1)
+    if args.scenario and args.scenario.startswith("network-"):
+        for request in list(requests_seen):
+            iteration = request.split("iteration=")[-1]
+            if iteration.isdecimal() and iteration not in acknowledged:
+                acknowledged.add(iteration)
+                run("shell", "am", "broadcast", "-a", "com.helix.feature.browser.test.REQUEST_RECEIVED", "-p", package, "--ei", "iteration", iteration)
+    if args.scenario == "network-background":
+        markers = re.findall(r"BACKGROUND iteration=(\d+)", text)
+        if markers and markers[-1] not in resumed:
+            resumed.add(markers[-1])
+            run("shell", "am", "start", "-W", "-f", "0x00020000", "-n", start[5])
+        time.sleep(0.05)
+    else:
+        time.sleep(0.05 if args.scenario and args.scenario.startswith("network-") else 1)
 else:
     raise RuntimeError("bounded control timeout; do not count as a pass")
 if "ATTACH result=0" not in text:
@@ -74,6 +109,10 @@ else:
     raise RuntimeError("missing reference dump")
 summary = [line for line in text.splitlines() if "HelixJniTrace" in line and re.search(r"SUMMARY|CLASS.*(LG8;|LWV/T6;)", line)]
 (output / "summary.log").write_text("\n".join(summary) + "\n")
+if args.scenario and args.scenario.startswith("network-"):
+    (output / "server-requests.json").write_text(json.dumps(requests_seen, indent=2))
+    if len(set(requests_seen)) < args.count:
+        raise RuntimeError("not every iteration reached the HTTP server")
 metadata = {
     "serial": args.serial, "pid": pid, "count": args.count,
     "scenario": args.scenario or ("navigate" if args.navigate else "bare"),

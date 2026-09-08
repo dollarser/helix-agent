@@ -903,3 +903,7 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed（有界核实完成），见 [完成记录](../completion-records/HXA-154.md)。所有者于 2026-09-08 授权继续核实优化。使用生产 BrowserController 验证空标签、拒绝、立即关闭、停止后关闭、加载完成关闭及清理历史的实际引用配对；修正诊断夹具与证据校验缺口。允许 feature/browser 的 androidTest、scripts/diagnostics 和 docs；生产代码仅允许已有契约内且有复现的生命周期修复，不更换 WebView、不引入强制 GC/导航或架构补丁。长稳仍后置。
 
 验证：`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；NDK agent 严格编译；API29/36 各路径 400 轮有界引用追踪与 BrowserSecurityDeviceTest，保留失败和观察干扰；Python/shell 语法、文档/ADR 门禁及 diff 检查。只有实际生产修复经回归才能称缺陷关闭。
+
+### HXA-155 浏览器网络取消与 Activity 生命周期
+
+状态：completed，见 [完成记录](../completion-records/HXA-155.md)。所有者授权完成剩余前四项；本检查点先覆盖真实 HTTP 慢响应期间关闭、停止、后台恢复与 Activity 重建。允许 feature/browser androidTest、诊断脚本/docs 和经复现的既有契约内生产修复；不把诊断 GC、导航或 native hook 打包进产品。验证：API29/36 四路径各 100 轮 JNI 配对、服务端请求证据；`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；文档/ADR/secrets/diff 门禁。长稳与真机后置。
