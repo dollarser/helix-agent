@@ -829,9 +829,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-128 CLI/stdio Connector 可移植性 Spike
 
-状态：planned，未开始。依赖 M11 实际完成的 Runtime/认证/拦截证据与 HXA-073 边界；先逐项记录 CLI 版本、ABI、许可证、网络及凭据依赖，再决定可支持集合。允许 docs/scripts 与现有 Runtime 测试；本 Spike 不授权新增联网执行域或绕过 CLI 隔离。
+状态：completed（有界可移植性评估），见 [完成记录](../completion-records/HXA-128.md)。依赖 M11 实际完成的 Runtime/认证/拦截证据与 HXA-073 边界；先逐项记录 CLI 版本、ABI、许可证、网络及凭据依赖，再决定可支持集合。允许 docs/scripts 与现有 Runtime 测试；本 Spike 不授权新增联网执行域或绕过 CLI 隔离。
 
-验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+验证：提供脚本对所有者样本做不执行代码的清单/版本资产检查；`./gradlew :extensions:mcp:test :app:assembleDeveloperDebugAndroidTest --max-workers=1`；API29/36 精确执行 ProotJobE2eDeviceTest 的四条 mcpStdio 方法，要求无跳过；docs/ADR/secrets/diff 门禁。没有 ABI/许可证/版本资产的第三方 CLI 保持未验证，不因协议 fixture 通过宣称兼容。
 
 ### HXA-129 Connector 完整生命周期
 
