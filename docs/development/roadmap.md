@@ -849,7 +849,7 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-147 任务交互与移动界面统一
 
-状态：done。实现与非真机、非长稳验收见 [HXA-147完成记录](../completion-records/HXA-147.md)。沿用所有者授权的优化Goal，累计Git审核/暂存亦已完成，提交与推送未执行；既有Connector并行工作保持其自身状态。
+状态：done。实现与非真机、非长稳验收见 [HXA-147完成记录](../completion-records/HXA-147.md)。沿用所有者授权的优化Goal，累计修改已提交并推送；历史暂存阶段已结束；既有Connector并行工作保持其自身状态。
 
 范围：调研主流 Agent 的官方任务流程并记录来源和移动端适用点；统一会话/任务导航、模式和 Provider 设置、工具过程及结果、审批/停止/重试/暂停恢复/空状态/加载反馈。修复最新回复完整可见性，用户上翻时保持阅读位置并提供回到底部入口；压缩长 Goal、Provider 与模型标识；按 ADR-0012 修订旧首次使用文案，移除面向用户的内部 ADR 编号。保持现有授权、执行、恢复与预算语义，发现需要改变这些契约时按 ADR 约定另行处理。
 
@@ -907,3 +907,7 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 ### HXA-155 浏览器网络取消与 Activity 生命周期
 
 状态：completed，见 [完成记录](../completion-records/HXA-155.md)。所有者授权完成剩余前四项；本检查点先覆盖真实 HTTP 慢响应期间关闭、停止、后台恢复与 Activity 重建。允许 feature/browser androidTest、诊断脚本/docs 和经复现的既有契约内生产修复；不把诊断 GC、导航或 native hook 打包进产品。验证：API29/36 四路径各 100 轮 JNI 配对、服务端请求证据；`./gradlew :feature:browser:testDebugUnitTest :feature:browser:assembleDebugAndroidTest spotlessCheck detekt :feature:browser:lintDebug --max-workers=1`；文档/ADR/secrets/diff 门禁。长稳与真机后置。
+
+### HXA-156 状态与产品研究文档收口
+
+状态：completed，见 [完成记录](../completion-records/HXA-156.md)。所有者授权收口当前未提交产品研究与历史状态表述。允许 docs；保留来源批次、未实测/研究假设边界，修复入口/内部链接和历史 Git 状态漂移，不把竞品文档变成新开发授权。验证：docs/ADR/secrets/diff 门禁，审核指定路径与 Git 提交历史；不以文档审核替代竞品 APK 横评或重新查询全部外部来源。

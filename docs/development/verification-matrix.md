@@ -280,3 +280,5 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-154 | [生产路径核实](browser-controller-reference-verification.md) 完成：API29/36 六路径各 400 轮目标引用零残留；JVM 116、设备安全各 9 项及构建/lint/静态检查通过；原生正对照仍检出残留，不等于原生问题关闭 |
 
 | HXA-155 | API29/36 真实 HTTP 慢响应取消、后台恢复与 Activity 重建；各 100 轮 JNI 追踪、请求计数和浏览器 JVM/构建/lint 门禁 |
+
+| HXA-156 | 状态/产品研究文档指定路径审核、来源批次与研究边界、内部链接、docs/ADR/secrets/diff 门禁；不声称竞品实测 |

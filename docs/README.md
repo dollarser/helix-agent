@@ -38,7 +38,12 @@ docs/
 ## 产品
 
 - [产品需求](product/requirements.md)：用户、场景、能力边界和产品验收指标。
-- [移动端 Agent 竞品与定位](product/competitive-landscape.md)：竞品快照、差异化定位和后续跟踪指标。
+- [竞品分析：决策总览](product/competitive-landscape.md)：竞争格局、Helix 优缺点与产品应对。
+- [直接竞品档案](product/competitive-direct-agents.md)：本机工作台、Coding Agent、DSH/OpenClaw 交付路线。
+- [替代方案与技术参照](product/competitive-alternatives.md)：客户端、远程/云端、GUI、离线与规则自动化。
+- [系统生态与移动协议](product/competitive-platform-ecosystems.md)：HarmonyOS、Android、iOS、OEM 助手与 App 调用机制。
+- [竞品评估与横评计划](product/competitive-evaluation.md)：证据等级、固定任务、指标和结果模板。
+- [竞品证据与材料校正](product/competitive-evidence.md)：来源批次、历史纠错与维护口径。
 - [市场、用户与商业化](product/market-users-and-commercialization.md)：目标用户、购买理由、能力包装、分发与商业化假设。
 
 ## 架构
