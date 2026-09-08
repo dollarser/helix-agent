@@ -159,7 +159,7 @@ Android 样本测试现在断言整包成功安装，而非旧的失败行为；
 | --- | --- |
 | Codex/Claude 来源格式 | 上述真实 MCP/manifest 子集通过；完整插件、Skill 工具名和脚本依赖仍需具体样本 |
 | QwenWork | 此参考包的 4 Skill / 2 endpoint 导入适配已修复并验证；不等于 CLI 和账号业务可运行 |
-| WorkBuddy | 官方规范已读取，HTTP 别名/静态 headers 格式回归已补齐；尚无该平台真实样本，不能复用 QwenWork 结果作为其验收 |
+| WorkBuddy | 2026-09-08 已补齐 GitHub/可灵真实市场包导入验收，详见本文最新记录；账号及业务兼容仍单列 |
 | 受保护服务 | 等待独立测试账号/服务选择；token 只在 Helix SecretStore 中配置，不通过聊天或 fixture 保存 |
 | Android 真实服务 | API 29/36 专用模拟器已执行匿名服务真实链路；不代表受保护服务登录或 OEM 后台验收 |
 | 拒绝/撤销 | 待真实服务的无效凭据、权限拒绝、厂商撤销、重新连接结果；不得用匿名服务推导 bearer 通过 |
@@ -178,3 +178,35 @@ python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py
 ```
 
 最终全部 exit 0；docs、ADR、i18n、lockfiles、secrets 与 diff 门禁通过。双 flavor debug APK 和 consumer AndroidTest APK 均完成构建。本次没有重新执行设备测试，既有模拟器证据保留其原始测试版本边界。仅本地合并，未推送。
+
+
+## WorkBuddy 用户真实导出验收（2026-09-08）
+
+用户提供 2026-09-07 的 WorkBuddy 导出目录及《Agent 连接器体系技术解析》。此处以导出文件为样本证据，技术解析中的服务工具数和宿主内部机制不当作 Helix 的运行证据。原始材料不纳入仓库，未读取其他应用密钥或迁移登录态；Claude/Grok 订阅账号调用按用户决定暂时搁置，与 Connector bearer 服务验收分开。
+
+导出包含市场缓存、账号级运行时配置、已安装 Skill 副本和便于阅读的合并 Markdown。验收按两个原始市场目录分别打包，保持所有相对路径与文件字节；不把含重复副本的整个导出根目录当成单个连接器。打包脚本仅选取 `02-marketplace/connectors-marketplace/connectors/{github,kling-ai-plugin}`，固定 ZIP 时间戳并输出逐文件 SHA-256 清单；未包含账号目录、状态文件或技术解析全文。
+
+| 原始市场包 | 可识别组件 | 确定性 ZIP SHA-256 |
+| --- | --- | --- |
+| GitHub | 1 MCP endpoint、1 Skill、1 Skill 文件 | `38432941152707cee393eb54a1e437b1fc1ee4beb119244eac20c980f02cbcec` |
+| 可灵 | 1 MCP endpoint、3 Skills、12 Skill 文件（含9个引用文件） | `851247253981d1edec38dca3d99134f614c300c07b1d0fabc388b76771abacb2` |
+
+首轮真实 JVM 测试失败：`name must match the parent directory name`。GitHub 的目录 `skill` 声明 `name: github`，可灵总纲目录 `kling-ai-plugin` 声明 `name: kling-ai`。Connector 导入适配层现使用原文声明的名称建立内部目录，不改 SKILL.md/引用文件，不放宽普通 SkillLoader 校验。声明名必须是安全单层路径，同包重复声明名拒绝，避免静默覆盖；名称规范、正文和 metadata 仍由既有安装校验执行。增加声明名保真、重复名及路径穿越回归。
+
+验证命令（先准备本地样本，再构建和运行；输入路径仅通过参数提供）：
+
+```bash
+python3 scripts/prepare-workbuddy-samples.py <export-directory> build/main-verification/workbuddy-sample
+HELIX_WORKBUDDY_SAMPLE_DIR="$PWD/build/main-verification/workbuddy-sample" ./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt --no-configuration-cache
+bash scripts/accept-hxa-125-workbuddy.sh <dedicated-api29-serial> build/main-verification/workbuddy-sample
+bash scripts/accept-hxa-125-workbuddy.sh <dedicated-api36-serial> build/main-verification/workbuddy-sample
+```
+
+真实样本 JVM 测试覆盖四个 Skill staging/commit 后的全部文件字节一致性。Android 专项走真实 ContentResolver/ConnectorService/SkillRepository，校验 ZIP hash、默认禁用、显式启用/读取正文及全部 references、停用和移除；导入前后 MCP 注册列表不变，不连接真实服务。每个 API 的单个测试方法遍历两个包和全部四个 Skill，不能把方法数写成服务调用数。
+
+原始日志位于本地忽略目录 `build/main-verification/workbuddy-sample/`，首轮功能失败保留为 `initial-failure.xml`，格式和静态检查的中间失败亦保留；最新结果单独记录。真实样本测试在无输入环境下仍为显式 opt-in，不能把默认跳过当成功。
+
+剩余边界：这两个市场包的导入验收补齐 WorkBuddy 真实样本缺口；账号级配置中的其他端点仅作结构检查，没有证明其握手、认证或业务兼容。市场包没有认证字段，`needsCredential=false` 只说明配置未声明凭据，不能推断服务可匿名调用。Skill 中宿主名称/工具名仍原样保留，不承诺原文可在 Helix 自动完成 GitHub/可灵任务。独立 bearer 服务的无效凭据、拒绝、厂商撤销与重连仍待账号；HXA-125 保持 in progress，不提前启动 HXA-126。
+
+
+最终结果：上述 Gradle 命令 exit 0（`final-regression.log`）；Skills 42/42、MCP 37/37；consumer 316 项中313通过、3个其他样本/联网 opt-in 跳过，developer 340项中337通过、3个同类跳过，均无失败/错误。WorkBuddy 真实样本在双 flavor 各1/1，未跳过。API29/36 最终测试 APK 各1/1，状态码0且无失败/假设跳过；两次每次覆盖两个包、4个Skill、全部9个引用文件。两项已有导出脚本测试、样本打包重现 hash、Shell/Python 语法及 docs/ADR/i18n/lockfiles/secrets/Runtime边界检查通过。生产 APK 与测试 APK 指纹及原始 XML 汇总见同目录 `result.json`；不把此受影响回归称为全项目全量重跑。

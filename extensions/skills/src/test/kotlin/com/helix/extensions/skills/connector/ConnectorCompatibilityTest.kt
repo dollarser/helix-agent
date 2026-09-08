@@ -14,6 +14,32 @@ import java.nio.file.Files
 
 class ConnectorCompatibilityTest {
     @Test
+    fun foreignDirectoryUsesDeclaredNameWithoutChangingSourceBytes() {
+        val bytes = "---\nname: github\ndescription: Example\n---\nOriginal body".toByteArray()
+        val reader = ConnectorPackageReader()
+        val bundle = reader.parse(mapOf("skill/SKILL.md" to bytes))
+        assertEquals("github", bundle.skills.single().directory)
+        assertTrue(
+            bytes.contentEquals(
+                bundle.skills
+                    .single()
+                    .files
+                    .getValue("SKILL.md"),
+            ),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            reader.parse(mapOf("one/SKILL.md" to bytes, "two/SKILL.md" to bytes))
+        }
+        for (invalid in listOf("../outside", "nested/name", "/absolute", ".", "..")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                reader.parse(
+                    mapOf("skill/SKILL.md" to bytes.toString(Charsets.UTF_8).replace("github", invalid).toByteArray()),
+                )
+            }
+        }
+    }
+
+    @Test
     fun qwenEnvelopeAndFilenameImportEndpointsWithoutSourcePolicyOrCredentials() {
         val config = """{"schemaVersion":"qwenwork.mcp/v1","dynamic":{"mode":"replace","servers":{
             "ext:docs":{"url":"https://example.com/mcp","headers":{"Authorization":"fixture-secret"}}

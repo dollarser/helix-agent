@@ -46,13 +46,13 @@ flowchart TD
 | headers、OAuth、env bearer | 不拷贝值，只记录需要配置认证 | 迁移源账号 token、Cookie 或订阅权益 |
 | hooks / rules / agents / commands | 报告不支持，不执行、不作为特权指令注入 | 等价复刻源 host 的策略和角色体系 |
 
-2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 当前只有公开规范衍生的结构化 fixture，QwenWork 另有用户提供的真实参考包；均不称为官方认证。
+2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 于 2026-09-08 补充用户提供的 GitHub/可灵真实市场包，QwenWork 另有用户提供的真实参考包；样本验收见 [HXA-125 进展](../development/hxa-125-progress.md)，均不称为官方认证。
 
 ## 4. 当前实现契约
 
 设置页提供 ZIP/JSON picker，内容只进本地导入流程，不作为聊天附件发给模型。ZIP 可直接装插件目录内容，也可有单一外层目录。解析不落地任意外来路径；拒绝 traversal、symlink/special Unix entry、重名路径、过深/过大配置与解压炸弹。上限：压缩输入与总内容 16 MiB、单文件 4 MiB、配置 256 KiB、1024 entries、64 Skills、32 MCP endpoints。完整包 hash 包括未执行的文件，更新产生新安装版本，不替换旧快照。
 
-MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userinfo/query/fragment/变量占位的 HTTPS URL；不符合的端点给出需配置诊断，用户可修正导出内容后重导。query 经常混有 token，后续可在类型化编辑器明确区分参数与凭据后支持。源 `enabled/disabled` 不授予 Helix 能力；新 Skill 默认禁用，已存在同 hash 的共享 Skill 保持既有用户选择。
+MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userinfo/query/fragment/变量占位的 HTTPS URL；不符合的端点给出需配置诊断，用户可修正导出内容后重导。query 经常混有 token，后续可在类型化编辑器明确区分参数与凭据后支持。Connector 内部 Skill 目录按原文声明名归一，文件字节保留；拒绝非单层路径及同包重名，普通 Skill 名称和内容校验不变。源 `enabled/disabled` 不授予 Helix 能力；新 Skill 默认禁用，已存在同 hash 的共享 Skill 保持既有用户选择。
 
 安装只产生 package 记录与 Skill snapshot；测试连接时才懒注册 MCP，因此导入不联网、不激活任何服务。相同 package hash 的重复安装返回既有记录。MCP 用每次安装专属 UUID 命名空间，避免与用户已有 server 冲突。模型工具名仍为 `mcp.<serverId>.<toolName>`，不静默改写 Skill 中的源平台工具名；迁移后需要检查真实工具列表，必要时修改源 Skill 并重导。
 

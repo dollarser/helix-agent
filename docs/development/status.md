@@ -6,7 +6,7 @@
 
 2026-09-08：所有者已接受 [ADR-0028](../adr/0028-goal-criterion-verification-bindings.md)，Goal 完成证据生产接线、write/edit/PRoot 真实模型完成、复核 UI 与证据读取取消/强杀已获得分项验收；后端中断恢复与 M11 完整 Chat 边界已补齐专项。最新私有产物删除修复后，完整 JVM 2713、根 Debug/Release Lint及构建、受影响设备30项通过；API35短时资源及双API真实低内存门控已补验，HXA-147统一交互/UI验收亦已完成，累计Git审核与暂存收口已完成，见 [当前待办](main-optimization-todo.md)。
 
-最新执行优先级：M0～M11 本轮功能与非长稳测试、统一交互/UI 已完成，当前无活动开发 Goal。继续 HXA-125 的真实来源/受保护服务验收；该项依赖真实 WorkBuddy 样本及独立测试账号。长稳按 [优化待办](main-optimization-todo.md) 后置，历史失败轮次不自动重启。
+最新执行优先级：M0～M11 本轮功能与非长稳测试、统一交互/UI 已完成，当前无活动开发 Goal。继续 HXA-125 的真实来源/受保护服务验收；WorkBuddy 真实样本已收到并推进导入验收，受保护服务验收仍依赖独立测试账号。长稳按 [优化待办](main-optimization-todo.md) 后置，历史失败轮次不自动重启。
 
 所有者已要求本轮收尾覆盖 M0～M11：先完成功能与合并后非真机验收，再统一优化交互/UI；执行顺序与最新长稳失败校正见 [收尾跟进](m10-closure-followup.md#m11-合入后的范围扩展与长稳状态校正)，M11 接管边界见 [交接](m11-handoff.md)。
 
@@ -120,15 +120,15 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 ## In progress
 
 
-- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实样本及独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
+- M13 / HXA-125：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task
 
-- M11A 四平台文本 Provider 已接入，下一步可按独立 HXA 评估动态模型目录与更多模型协议；Claude/Grok 无付费订阅时不得宣称模型调用已核实，Copilot 也不得只凭登录成功宣称对话后端完成。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- M11A 四平台文本 Provider 已接入，下一步可按独立 HXA 评估动态模型目录与更多模型协议；Claude/Grok 账号目前无法获取，按所有者 2026-09-08 决定暂时搁置真实调用验收，Copilot 也不得只凭登录成功宣称对话后端完成。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
 
 ## Blocked
 
-- HXA-125 外部验收：缺真实 WorkBuddy 导出样本和独立受保护服务测试账号，尚不能完成凭据无效、权限拒绝、厂商撤销及重连验收；已有匿名服务/合成 fixture 不替代这些证据。其余本轮本地修复与交互验收已收口。
+- HXA-125 外部验收：WorkBuddy 样本已补齐，仍缺独立受保护服务测试账号，尚不能完成凭据无效、权限拒绝、厂商撤销及重连验收；已有匿名服务/合成 fixture 不替代这些证据。其余本轮本地修复与交互验收已收口。
 
 ## Current interfaces
 
@@ -169,6 +169,6 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 ## Connector 扩展线收尾
 
-M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，仍需独立测试账号与真实 WorkBuddy 导出样本。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；本次为本地合并，未推送。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
+M13 首版 HXA-124 已验证；HXA-125 in progress，HXA-126～130 均 planned，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，2026-09-08 已补齐 GitHub/可灵真实 WorkBuddy 市场样本，修复声明名与目录名不一致的导入问题；仍需独立测试账号。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；本次为本地合并，未推送。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
 
 Connector 后续任务与未入 Git 的本地验收材料已交接到 main worktree，见 [Connector 工作交接](connector-handoff.md)。

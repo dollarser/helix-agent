@@ -179,6 +179,7 @@ class ConnectorPackageReader {
                 .map { it.removeSuffix("/SKILL.md") }
                 .filter { path -> roots.any { path == it || path.startsWith("$it/") } || manifest.isEmpty() }
         require(skillRoots.size <= 64) { "CONNECTOR_TOO_MANY_SKILLS" }
+        val names = mutableSetOf<String>()
         return skillRoots.map { root ->
             require(skillRoots.none { it != root && it.startsWith("$root/") }) { "CONNECTOR_NESTED_SKILL" }
             val name = root.substringAfterLast('/')
@@ -187,7 +188,16 @@ class ConnectorPackageReader {
                     .filterKeys { it.startsWith("$root/") }
                     .mapKeys { (path, _) -> path.removePrefix("$root/") }
                     .mapValues { it.value.copyOf() }
-            ConnectorSkill(name, ConnectorSkillMetadataAdapter.adapt(content, diagnostics, name))
+            val adapted = ConnectorSkillMetadataAdapter.adapt(content, diagnostics, name)
+            val declaredName =
+                com.helix.extensions.skills
+                    .SkillLoader()
+                    .importFrontmatter(adapted.getValue("SKILL.md"))
+                    .first["name"] as? String
+            val directory = declaredName ?: name
+            require('/' !in safePath(directory)) { "CONNECTOR_INVALID_SKILL_NAME" }
+            require(names.add(directory)) { "CONNECTOR_DUPLICATE_SKILL_NAME" }
+            return@map ConnectorSkill(directory, adapted)
         }
     }
 
