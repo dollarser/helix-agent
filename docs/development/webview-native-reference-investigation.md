@@ -80,3 +80,7 @@ adb -s "$serial" logcat -d -v threadtime
 生产代码未因此禁用 Autofill、替换 Context、强制 GC、周期重启或放宽门限。JNI 槽位创建/删除的具体 native 所有者及系统代理回收路径仍需分别定位；原有长稳 FAIL 和后置安排保留。
 
 原生 WebView 两台均在多次 GC 后复现 JNI 溢出，而本地 Binder 未出现 Autofill 查询对照的每轮线性累积；因此本轮未把两种终止合并为单一根因。API36/WebView133 的失败补齐了较新系统上的独立复现证据。四组均为 FAIL，不是 30000 轮通过，更不是 24h 长稳通过。下一步应使用可符号化 WebView/ART 调试构建记录 JNI weak-global 创建/删除归属；Binder 分支另查 Autofill 查询回调与 system_server 代理的持有和释放，不使用隐藏 API 或产品能力降级掩盖。
+
+## 2026-09-08：HXA-153 释放路径追踪
+
+[后续追踪记录](native-reference-release-trace.md) 已记录实际弱引用创建/删除配对、AwContentsIoThreadClient 类身份与 RFH 映射清理机制，以及 system_server 代理回收释放客户端 Binder 的因果干预。调查检查点已完成，生产缺陷仍 open；不覆盖本文的历史失败结果。

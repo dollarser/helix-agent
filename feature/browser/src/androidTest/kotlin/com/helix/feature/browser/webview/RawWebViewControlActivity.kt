@@ -7,8 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.os.Process
 import android.util.Log
+import android.view.ViewGroup
 import android.view.autofill.AutofillManager
 import android.webkit.WebView
+import android.webkit.WebViewClient
 
 /** Test-APK-only control launched by am start, without an instrumentation runner. */
 class RawWebViewControlActivity : Activity() {
@@ -22,7 +24,9 @@ class RawWebViewControlActivity : Activity() {
         autofillOnly = intent.getBooleanExtra("autofillOnly", false)
         requested = intent.getIntExtra("iterations", 0)
         require(requested in 1..40_000)
-        handler.post(::createNext)
+        val startDelayMs = intent.getLongExtra("startDelayMs", 0L)
+        require(startDelayMs in 0L..10_000L)
+        handler.postDelayed(::createNext, startDelayMs)
     }
 
     private fun createNext() {
@@ -32,8 +36,35 @@ class RawWebViewControlActivity : Activity() {
             manager.isAutofillSupported
             manager.autofillServiceComponentName
         } else {
-            WebView(context).destroy()
+            val view = WebView(context)
+            if (intent.getBooleanExtra("navigateBeforeDestroy", false)) {
+                setContentView(view)
+                val timeout = Runnable { error("navigation control timed out") }
+                view.webViewClient =
+                    object : WebViewClient() {
+                        private var completed = false
+
+                        override fun onPageFinished(
+                            view: WebView,
+                            url: String,
+                        ) {
+                            if (completed) return
+                            completed = true
+                            handler.removeCallbacks(timeout)
+                            view.destroy()
+                            completedIteration()
+                        }
+                    }
+                handler.postDelayed(timeout, 10_000L)
+                view.loadUrl("about:blank")
+                return
+            }
+            view.destroy()
         }
+        completedIteration()
+    }
+
+    private fun completedIteration() {
         created += 1
         if (created % 100 == 0 || created == requested) {
             Log.i(
@@ -48,7 +79,9 @@ class RawWebViewControlActivity : Activity() {
             handler.postDelayed(::createNext, 5)
         } else {
             Log.i("HelixRawActivity", "PASS created=$created")
-            finish()
+            val holdMs = intent.getLongExtra("holdMs", 0L)
+            require(holdMs in 0L..30_000L)
+            handler.postDelayed({ finish() }, holdMs)
         }
     }
 

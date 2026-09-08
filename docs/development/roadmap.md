@@ -891,3 +891,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed（有界调查完成，缺陷仍 open），见 [完成记录](../completion-records/HXA-152.md)。所有者于 2026-09-08 授权继续浏览器短时复现与定位，24h 长稳仍后置。复核历史 JNI 表与系统 Binder descriptor 证据；在测试 APK 增加 Autofill 独立对照及 GC/Binder 采样，区分 WebView 与平台服务调用的必要条件。允许 feature/browser 的 androidTest 与 docs；不改生产生命周期、禁用产品能力或放宽原门限。
 
 验证：`./gradlew :feature:browser:assembleDebugAndroidTest spotlessCheck detekt --max-workers=1`；API29/36 显式 `am start` 运行最多 30000 次独立对照，保存版本、APK hash、logcat、进程退出与实际轮次；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。对照完成只代表归因检查点完成，不代表浏览器缺陷或长稳已通过。
+
+### HXA-153 JNI 引用与 Binder 代理释放追踪
+
+状态：completed（有界追踪完成，生产缺陷仍 open），见 [完成记录](../completion-records/HXA-153.md)。所有者于 2026-09-08 要求追踪 native 弱引用创建/删除及系统 Binder 代理释放路径。允许测试 APK 延迟/采样控制、独立宿主诊断 agent 和 scripts、docs；JVMTI 诊断仅附加专用模拟器的测试进程，不打包进产品、不改生产运行时或依赖。基于实际配对引用与版本源码缩小所有者，Binder 分支区分客户端 GC 和系统代理清理；长稳仍后置。
+
+验证：独立 NDK 编译诊断 agent；`./gradlew :feature:browser:assembleDebugAndroidTest spotlessCheck detekt --max-workers=1`；API29/36 有界原生对照和追踪，记录 agent/APK hash、版本、创建/删除配对及残留组；`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。诊断失败、观测干扰与未确认归因独立记录，不把调查完成当作生产修复。

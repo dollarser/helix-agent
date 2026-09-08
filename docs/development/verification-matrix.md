@@ -273,4 +273,6 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 
 | HXA-152 | 测试 APK 的 WebView/Autofill 独立对照、GC/Binder 采样与 API29/36 短时证据；不替代生产修复或长稳验收 |
 
+| HXA-153 | 已完成 [引用配对与释放路径追踪](native-reference-release-trace.md)：API29/36 各 400 轮双对照、1000 轮 Binder 干预；独立 NDK 编译通过。生产缺陷仍 open，GC 干预不计稳定性验收 |
+
 共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。
