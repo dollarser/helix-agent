@@ -126,6 +126,12 @@ interface ModelCallDao {
     @Query("SELECT * FROM model_calls WHERE turnId = :turnId ORDER BY rowid ASC")
     fun listByTurn(turnId: String): List<ModelCallEntity>
 
+    @Query(
+        "UPDATE model_calls SET state = 'INTERRUPTED' WHERE state = 'RUNNING' " +
+            "AND turnId IN (SELECT id FROM turns WHERE state = 'INTERRUPTED')",
+    )
+    fun interruptForInterruptedTurns(): Int
+
     @Query("UPDATE model_calls SET state = :state, usage = :usage, requestId = :requestId WHERE id = :id")
     fun update(
         id: String,

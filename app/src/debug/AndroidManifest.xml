@@ -9,5 +9,9 @@
             android:name="com.helix.app.ui.LocalizedComposeActivity"
             android:exported="false"
             android:theme="@style/Theme.Helix" />
+        <activity
+            android:name="com.helix.app.diagnostics.DiagnosticFailureActivity"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 </manifest>

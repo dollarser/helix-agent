@@ -31,7 +31,11 @@ data class ParentBudget(
     val maxTokens: Long,
     val maxToolCalls: Int,
     val maxWallMillis: Long,
-)
+) {
+    init {
+        require(maxModelCalls >= 0 && maxTokens >= 0 && maxToolCalls >= 0 && maxWallMillis >= 0)
+    }
+}
 
 data class BudgetUsage(
     val modelCalls: Int = 0,
@@ -39,12 +43,16 @@ data class BudgetUsage(
     val toolCalls: Int = 0,
     val wallMillis: Long = 0,
 ) {
+    init {
+        require(modelCalls >= 0 && tokens >= 0 && toolCalls >= 0 && wallMillis >= 0)
+    }
+
     operator fun plus(other: BudgetUsage) =
         BudgetUsage(
-            modelCalls + other.modelCalls,
-            tokens + other.tokens,
-            toolCalls + other.toolCalls,
-            wallMillis + other.wallMillis,
+            Math.addExact(modelCalls, other.modelCalls),
+            Math.addExact(tokens, other.tokens),
+            Math.addExact(toolCalls, other.toolCalls),
+            Math.addExact(wallMillis, other.wallMillis),
         )
 }
 
@@ -107,67 +115,75 @@ class BoundedChildCoordinator(
         depth: Int,
         task: String,
         snapshot: ByteArray,
-    ): ChildRecord {
-        require(depth == SpikeLimits.MAX_DEPTH) { "child depth must be exactly 1" }
-        require(snapshot.size <= SpikeLimits.MAX_SNAPSHOT_BYTES) { "snapshot too large" }
-        val current = journal.load(parentId)
-        require(current.none { it.childId == childId }) { "duplicate child id" }
-        require(current.size < SpikeLimits.MAX_CHILDREN_PER_PARENT) { "parent child limit reached" }
-        require(
-            current.count { it.state == ChildState.RUNNING || it.state == ChildState.SPAWNED } <
-                SpikeLimits.MAX_CONCURRENT,
-        ) {
-            "child concurrency limit reached"
+    ): ChildRecord =
+        synchronized(journal) {
+            require(depth == SpikeLimits.MAX_DEPTH) { "child depth must be exactly 1" }
+            require(snapshot.size <= SpikeLimits.MAX_SNAPSHOT_BYTES) { "snapshot too large" }
+            val current = journal.load(parentId)
+            require(current.none { it.childId == childId }) { "duplicate child id" }
+            require(current.size < SpikeLimits.MAX_CHILDREN_PER_PARENT) { "parent child limit reached" }
+            require(
+                current.count { it.state == ChildState.RUNNING || it.state == ChildState.SPAWNED } <
+                    SpikeLimits.MAX_CONCURRENT,
+            ) {
+                "child concurrency limit reached"
+            }
+            val used = current.fold(BudgetUsage()) { acc, record -> acc + record.usage }
+            requireWithinBudget(used)
+            require(
+                used.modelCalls < budget.maxModelCalls &&
+                    used.tokens < budget.maxTokens &&
+                    used.toolCalls < budget.maxToolCalls &&
+                    used.wallMillis < budget.maxWallMillis,
+            ) { "parent budget exhausted" }
+            return ChildRecord(childId, current.size, depth, sha256(task), sha256(snapshot), ChildState.SPAWNED).also {
+                journal.replace(parentId, it)
+            }
         }
-        val used = current.fold(BudgetUsage()) { acc, record -> acc + record.usage }
-        requireWithinBudget(used)
-        require(
-            used.modelCalls < budget.maxModelCalls &&
-                used.tokens < budget.maxTokens &&
-                used.toolCalls < budget.maxToolCalls &&
-                used.wallMillis < budget.maxWallMillis,
-        ) { "parent budget exhausted" }
-        return ChildRecord(childId, current.size, depth, sha256(task), sha256(snapshot), ChildState.SPAWNED).also {
-            journal.replace(parentId, it)
-        }
-    }
 
     fun start(childId: String): ChildRecord = transition(childId, ChildState.SPAWNED, ChildState.RUNNING)
 
-    fun complete(completion: ChildCompletion): ChildRecord {
-        require(completion.summary.toByteArray().size <= SpikeLimits.MAX_RESULT_BYTES) { "result too large" }
-        val record = requireRecord(completion.childId)
-        require(record.state == ChildState.RUNNING) { "only a running child can complete" }
-        require(record.sequence == completion.sequence) { "completion sequence mismatch" }
-        val total =
-            journal.load(parentId).filterNot { it.childId == record.childId }.fold(completion.usage) { acc, item ->
-                acc +
-                    item.usage
+    fun complete(completion: ChildCompletion): ChildRecord =
+        synchronized(journal) {
+            require(completion.trust == "untrusted") { "child completion cannot promote its trust" }
+            require(completion.summary.toByteArray().size <= SpikeLimits.MAX_RESULT_BYTES) { "result too large" }
+            val record = requireRecord(completion.childId)
+            require(record.state == ChildState.RUNNING) { "only a running child can complete" }
+            require(record.sequence == completion.sequence) { "completion sequence mismatch" }
+            val total =
+                journal.load(parentId).filterNot { it.childId == record.childId }.fold(completion.usage) { acc, item ->
+                    acc +
+                        item.usage
+                }
+            requireWithinBudget(total)
+            return record.copy(state = ChildState.COMPLETED, usage = completion.usage, completion = completion).also {
+                journal.replace(parentId, it)
             }
-        requireWithinBudget(total)
-        return record.copy(state = ChildState.COMPLETED, usage = completion.usage, completion = completion).also {
-            journal.replace(parentId, it)
         }
-    }
 
-    fun cancel(childId: String): ChildRecord {
-        val record = requireRecord(childId)
-        require(record.state == ChildState.SPAWNED || record.state == ChildState.RUNNING) { "child is terminal" }
-        return record.copy(state = ChildState.CANCELLED).also { journal.replace(parentId, it) }
-    }
+    fun cancel(childId: String): ChildRecord =
+        synchronized(journal) {
+            val record = requireRecord(childId)
+            require(record.state == ChildState.SPAWNED || record.state == ChildState.RUNNING) { "child is terminal" }
+            return record.copy(state = ChildState.CANCELLED).also { journal.replace(parentId, it) }
+        }
 
     /** A process restart never re-spawns; unresolved running work becomes reviewable. */
     fun recover(): List<ChildRecord> =
-        journal.load(parentId).map { record ->
-            if (record.state == ChildState.RUNNING) {
-                record.copy(state = ChildState.NEEDS_REVIEW).also { journal.replace(parentId, it) }
-            } else {
-                record
+        synchronized(journal) {
+            journal.load(parentId).map { record ->
+                if (record.state == ChildState.RUNNING) {
+                    record.copy(state = ChildState.NEEDS_REVIEW).also { journal.replace(parentId, it) }
+                } else {
+                    record
+                }
             }
         }
 
     fun mergeCompleted(): List<ChildCompletion> =
-        journal.load(parentId).sortedBy { it.sequence }.mapNotNull { it.completion }
+        synchronized(journal) {
+            journal.load(parentId).sortedBy { it.sequence }.mapNotNull { it.completion }
+        }
 
     fun admitTools(tools: List<ReadOnlyTool>): List<ReadOnlyTool> =
         tools.onEach {
@@ -180,11 +196,12 @@ class BoundedChildCoordinator(
         childId: String,
         from: ChildState,
         to: ChildState,
-    ): ChildRecord {
-        val record = requireRecord(childId)
-        require(record.state == from) { "illegal child transition" }
-        return record.copy(state = to).also { journal.replace(parentId, it) }
-    }
+    ): ChildRecord =
+        synchronized(journal) {
+            val record = requireRecord(childId)
+            require(record.state == from) { "illegal child transition" }
+            return record.copy(state = to).also { journal.replace(parentId, it) }
+        }
 
     private fun requireRecord(childId: String): ChildRecord =
         requireNotNull(journal.load(parentId).singleOrNull { it.childId == childId }) { "unknown child" }

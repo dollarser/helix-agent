@@ -1,10 +1,15 @@
 package com.helix.app.ui
 
 import android.content.Context
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
@@ -56,23 +61,33 @@ fun AndroidComposeTestRule<*, *>.resetDeterministicUiState() {
 /** Dismisses the first-launch notice when it is on screen (idempotent). */
 fun AndroidComposeTestRule<*, *>.dismissFirstLaunchIfNeeded() {
     if (onAllNodesWithTag("first-launch-continue").fetchSemanticsNodes().isNotEmpty()) {
-        onNodeWithTag("first-launch-continue").performClick()
+        onNodeWithTag("first-launch-continue").performScrollTo().performClick()
         waitForIdle()
     }
 }
 
 /**
- * Deletes every persisted provider (secrets + test statuses + bindings prune
- * with it). [ProviderService.delete] is a suspend Room/Keystore operation: the
- * test thread blocks (via runBlocking) until every row is actually gone, so
- * subsequent assertions see the final state.
+ * Deletes editable provider configurations while retaining Runtime-managed rows.
+ * [ProviderService.delete] also prunes their secrets, statuses and bindings; the
+ * test thread waits for each suspend Room/Keystore operation to finish.
  */
-fun deleteAllProviders(container: AppContainer) {
+fun deleteEditableProviders(container: AppContainer) {
     runBlocking {
         container.providerService.rows.value
+            .filterNot { it.managedExternally }
             .forEach { row -> container.providerService.delete(row.id) }
     }
 }
+
+/** Selects a control in the editable fixture row, excluding retained subscription rows. */
+fun editableProviderTag(tag: String) = hasTestTag(tag) and editableProviderRow()
+
+fun editableProviderText(text: String) = hasText(text, substring = true) and editableProviderRow()
+
+private fun editableProviderRow() =
+    hasAnyAncestor(
+        hasTestTag("provider-row") and hasAnyDescendant(hasTestTag("provider-edit")),
+    )
 
 /** Opens the navigation drawer and navigates to the given route tag (e.g. "settings"). */
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {

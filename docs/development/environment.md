@@ -58,6 +58,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 | HTTP/SSE | `com.squareup.okhttp3:okhttp`, `okhttp-sse` | `5.5.0` |
 | JSON | `org.jetbrains.kotlinx:kotlinx-serialization-json` | `1.9.0` |
 | QuickJS | `app.cash.zipline:zipline` | `1.27.0` |
+| 图片 EXIF | `androidx.exifinterface:exifinterface` | `1.4.2`（全量回归修复平台 EXIF Lint，保留 ADR-0014 边界） |
 | WebView compat | `androidx.webkit:webkit` | `1.17.0` |
 | MCP Client | `io.modelcontextprotocol:kotlin-sdk-client` | `0.15.0` |
 | MCP HTTP engine | `io.ktor:ktor-client-okhttp`, `ktor-client-sse` | `3.5.2` |

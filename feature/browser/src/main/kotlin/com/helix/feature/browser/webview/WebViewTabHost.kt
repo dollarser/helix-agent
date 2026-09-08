@@ -5,8 +5,10 @@ import android.content.Context
 import android.net.http.SslError
 import android.os.Handler
 import android.os.Looper
+import android.view.ViewGroup
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -63,90 +65,105 @@ internal class WebViewTabHost(
 
     private var destroyed = false
 
-    private val client =
-        object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(
-                view: WebView,
-                request: WebResourceRequest,
-            ): Boolean {
-                // Consume the navigation and re-admit it through the controller's policy choke
-                // point: allowed → a fresh Load command reaches [load]; denied → the tab shows
-                // its policy error page and the WebView is never asked to load the URL.
-                listener.onNavigationAttempt(request.url.toString())
-                return true
-            }
+    private val client = TabWebViewClient()
 
-            override fun doUpdateVisitedHistory(
-                view: WebView,
-                url: String,
-                isReload: Boolean,
-            ) {
-                // Server redirects and `location` changes do NOT pass through
-                // shouldOverrideUrlLoading; fail closed on the committed URL too.
-                if (BrowserUrlPolicy.evaluate(url) is BrowserUrlDecision.Denied) {
-                    view.stopLoading()
-                    listener.onNavigationAttempt(url)
-                }
+    // WebKit 1.17's constructor visitor flags even this super call unconditionally.
+    // The override below is exercised by a real renderer-termination device test.
+    @SuppressLint("MissingOnRenderProcessGone")
+    private inner class TabWebViewClient : WebViewClient() {
+        override fun onRenderProcessGone(
+            view: WebView,
+            detail: RenderProcessGoneDetail,
+        ): Boolean {
+            if (!destroyed) {
+                disposeView()
+                listener.onRendererGone(lastLoadUrl)
             }
+            return true
+        }
 
-            @SuppressLint("SetJavaScriptEnabled")
-            @Deprecated("Legacy main-frame error callback: WebResourceError exposes no numeric code.")
-            override fun onReceivedError(
-                view: WebView,
-                errorCode: Int,
-                description: String?,
-                failingUrl: String?,
-            ) {
-                // The legacy callback also reports sub-resource (image/script) failures; the
-                // same-document check keeps only failures of the tab's own document.
-                if (failingUrl == null || isSameDocument(failingUrl, lastLoadUrl)) {
-                    listener.onMainFrameError(0, errorCode, failingUrl)
-                }
-            }
+        override fun shouldOverrideUrlLoading(
+            view: WebView,
+            request: WebResourceRequest,
+        ): Boolean {
+            // Consume the navigation and re-admit it through the controller's policy choke
+            // point: allowed → a fresh Load command reaches [load]; denied → the tab shows
+            // its policy error page and the WebView is never asked to load the URL.
+            listener.onNavigationAttempt(request.url.toString())
+            return true
+        }
 
-            override fun onReceivedError(
-                view: WebView,
-                request: WebResourceRequest,
-                error: WebResourceError,
-            ) {
-                // The callback the current System WebView actually fires for a main-frame
-                // failure — but `WebResourceError` carries no numeric ERR_* code, so this is
-                // the codeless path: the state machine maps it to an UNKNOWN error page, only
-                // while the tab is still loading and no typed legacy error has landed. The
-                // same-document check also drops ERR_ABORTED-style noise from loads that a
-                // newer navigation already replaced.
-                if (!request.isForMainFrame()) return
-                val url = request.url.toString()
-                if (!isSameDocument(url, lastLoadUrl)) return
-                listener.onMainFrameUnknownError(url)
-            }
-
-            override fun onReceivedSslError(
-                view: WebView,
-                handler: SslErrorHandler,
-                error: SslError,
-            ) {
-                // doc 09 §3.4: a TLS failure is never proceeded past.
-                handler.cancel()
-                listener.onSslError(error.url)
-            }
-
-            override fun onPageStarted(
-                view: WebView,
-                url: String,
-                favicon: android.graphics.Bitmap?,
-            ) {
-                lastLoadUrl = url
-                listener.onPageStarted(url)
-            }
-
-            override fun onPageFinished(
-                view: WebView,
-                url: String,
-            ) {
-                listener.onPageFinished(url, view.title, view.canGoBack(), view.canGoForward())
+        override fun doUpdateVisitedHistory(
+            view: WebView,
+            url: String,
+            isReload: Boolean,
+        ) {
+            // Server redirects and `location` changes do NOT pass through
+            // shouldOverrideUrlLoading; fail closed on the committed URL too.
+            if (BrowserUrlPolicy.evaluate(url) is BrowserUrlDecision.Denied) {
+                view.stopLoading()
+                listener.onNavigationAttempt(url)
             }
         }
+
+        @SuppressLint("SetJavaScriptEnabled")
+        @Deprecated("Legacy main-frame error callback: WebResourceError exposes no numeric code.")
+        override fun onReceivedError(
+            view: WebView,
+            errorCode: Int,
+            description: String?,
+            failingUrl: String?,
+        ) {
+            // The legacy callback also reports sub-resource (image/script) failures; the
+            // same-document check keeps only failures of the tab's own document.
+            if (failingUrl == null || isSameDocument(failingUrl, lastLoadUrl)) {
+                listener.onMainFrameError(0, errorCode, failingUrl)
+            }
+        }
+
+        override fun onReceivedError(
+            view: WebView,
+            request: WebResourceRequest,
+            error: WebResourceError,
+        ) {
+            // The callback the current System WebView actually fires for a main-frame
+            // failure — but `WebResourceError` carries no numeric ERR_* code, so this is
+            // the codeless path: the state machine maps it to an UNKNOWN error page, only
+            // while the tab is still loading and no typed legacy error has landed. The
+            // same-document check also drops ERR_ABORTED-style noise from loads that a
+            // newer navigation already replaced.
+            if (!request.isForMainFrame()) return
+            val url = request.url.toString()
+            if (!isSameDocument(url, lastLoadUrl)) return
+            listener.onMainFrameUnknownError(url)
+        }
+
+        override fun onReceivedSslError(
+            view: WebView,
+            handler: SslErrorHandler,
+            error: SslError,
+        ) {
+            // doc 09 §3.4: a TLS failure is never proceeded past.
+            handler.cancel()
+            listener.onSslError(error.url)
+        }
+
+        override fun onPageStarted(
+            view: WebView,
+            url: String,
+            favicon: android.graphics.Bitmap?,
+        ) {
+            lastLoadUrl = url
+            listener.onPageStarted(url)
+        }
+
+        override fun onPageFinished(
+            view: WebView,
+            url: String,
+        ) {
+            listener.onPageFinished(url, view.title, view.canGoBack(), view.canGoForward())
+        }
+    }
 
     private val chromeClient =
         object : WebChromeClient() {
@@ -257,16 +274,21 @@ internal class WebViewTabHost(
     fun clearCache() = webView.clearCache(true)
 
     fun destroy() {
+        if (destroyed) return
+        webView.stopLoading()
+        webView.onPause()
+        disposeView()
+    }
+
+    /** A terminated renderer must never be loaded or reused, even during cleanup. */
+    private fun disposeView() {
         // Invalidate any in-flight fixed eval: a callback that was already enqueued must not
         // be delivered to a destroyed WebView's request slot.
         fixedEvalGeneration += 1
         destroyed = true
         cancelPendingEvaluationTimeouts()
-        webView.stopLoading()
-        webView.onPause()
-        webView.loadUrl(ABOUT_BLANK)
+        (webView.parent as? ViewGroup)?.removeView(webView)
         webView.webChromeClient = null
-        webView.webViewClient = WebViewClient()
         webView.setDownloadListener(null)
         webView.destroy()
     }

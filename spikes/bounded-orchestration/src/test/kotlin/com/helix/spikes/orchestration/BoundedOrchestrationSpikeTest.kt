@@ -79,6 +79,54 @@ class BoundedOrchestrationSpikeTest {
         assertTrue(c.mergeCompleted().all { it.hash.length == 64 && it.trust == "untrusted" })
     }
 
+    @Test fun simultaneousCoordinatorsShareTheAdmissionTransaction() {
+        val journal = InMemoryChildJournal()
+        val start = java.util.concurrent.CountDownLatch(1)
+        val admitted =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        val errors = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+        val threads =
+            (0 until 20).map { index ->
+                Thread {
+                    start.await()
+                    try {
+                        coordinator(journal).spawn("child-$index", 1, "task", byteArrayOf())
+                        admitted.incrementAndGet()
+                    } catch (_: IllegalArgumentException) {
+                        // Expected admission denial after the two shared slots have been occupied.
+                    } catch (failure: Throwable) {
+                        errors.add(failure)
+                    }
+                }.also { it.start() }
+            }
+        start.countDown()
+        threads.forEach { it.join(5_000) }
+        assertTrue(threads.none { it.isAlive })
+        assertTrue(errors.isEmpty())
+        assertEquals(2, admitted.get())
+        assertEquals(2, journal.load("parent").size)
+    }
+
+    @Test fun negativeAndOverflowingUsageCannotCreateBudgetCredit() {
+        assertThrows(IllegalArgumentException::class.java) { BudgetUsage(tokens = -1) }
+        assertThrows(IllegalArgumentException::class.java) { ParentBudget(-1, 100, 1, 100) }
+        assertThrows(ArithmeticException::class.java) { BudgetUsage(tokens = Long.MAX_VALUE) + BudgetUsage(tokens = 1) }
+        assertThrows(ArithmeticException::class.java) {
+            BudgetUsage(modelCalls = Int.MAX_VALUE) +
+                BudgetUsage(modelCalls = 1)
+        }
+    }
+
+    @Test fun completionsCannotPromoteTheirTrust() {
+        val c = coordinator()
+        c.spawn("a", 1, "task", byteArrayOf())
+        c.start("a")
+        assertThrows(IllegalArgumentException::class.java) {
+            c.complete(ChildCompletion("a", 0, "provider", "trusted", "result", emptyList(), BudgetUsage()))
+        }
+    }
+
     @Test fun workflowRejectsUnknownDependencyCycleAndUnboundedGraph() {
         assertThrows(IllegalArgumentException::class.java) {
             WorkflowValidator.validate(listOf(WorkflowNode("a", WorkflowNodeType.TOOL, listOf("missing"))))

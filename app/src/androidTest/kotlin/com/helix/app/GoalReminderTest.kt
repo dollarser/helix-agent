@@ -32,6 +32,48 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class GoalReminderTest {
     @Test
+    fun collidingGoalHashesKeepSeparateNotificationsAndPendingIntents() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantNotificationPermission(context)
+        val scheduler = GoalReminderScheduler.create(context)
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val first = "goal-hash-Aa"
+        val second = "goal-hash-BB"
+        assertEquals(GoalReminderWorker.notificationIdFor(first), GoalReminderWorker.notificationIdFor(second))
+        try {
+            listOf(first, second).forEach { id ->
+                val now = System.currentTimeMillis()
+                scheduler.scheduleReminder(id, id, Checkpoint(now), now)
+                waitUntilWorkerProcessed(id)
+                awaitNotification(manager, id, true)
+            }
+            val notifications = manager.activeNotifications.associateBy { it.tag }
+            assertNotEquals(
+                notifications.getValue(first).notification.contentIntent,
+                notifications.getValue(second).notification.contentIntent,
+            )
+            scheduler.cancelReminder(first)
+            awaitNotification(manager, first, false)
+            assertTrue(manager.activeNotifications.any { it.tag == second })
+        } finally {
+            scheduler.cancelReminder(first)
+            scheduler.cancelReminder(second)
+        }
+    }
+
+    private fun awaitNotification(
+        manager: NotificationManager,
+        tag: String,
+        expected: Boolean,
+    ) {
+        val deadline = android.os.SystemClock.elapsedRealtime() + 15_000
+        while (manager.activeNotifications.any { it.tag == tag } != expected) {
+            assertTrue("notification state did not settle", android.os.SystemClock.elapsedRealtime() < deadline)
+            Thread.sleep(100)
+        }
+    }
+
+    @Test
     fun deferrableReminderPostsNotificationWithoutModelOrToolWork() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         grantNotificationPermission(context)

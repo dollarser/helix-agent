@@ -40,3 +40,12 @@ the release notice inventory will be generated and verified before M12.
   `a1ca5a8adb9ab11c42b71fc2d2a61b5a95cb4cdd06df0eb8c204c06813c2bb5b`;
   `service` =
   `528bbcc3f057e8b5ea6f69a2deea1e0ff536880602e99e98763d7b74cf1d0659`.
+
+## AndroidX ExifInterface 1.4.2
+
+- Component: `androidx.exifinterface:exifinterface:1.4.2` (Google Maven).
+- Source and release: <https://developer.android.com/jetpack/androidx/releases/exifinterface#1.4.2>.
+- Copyright: The Android Open Source Project; Apache License 2.0.
+- Unmodified library used only for local image EXIF orientation parsing; replaces
+  the platform implementation flagged by Android Lint. Metadata is still stripped
+  by bitmap re-encoding, under the existing ADR-0014 bounds.

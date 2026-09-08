@@ -8,10 +8,10 @@ import java.util.UUID
 /**
  * Atomic, monotonic Goal usage accounting required by ADR-0004.
  *
- * Callers checkpoint immediately after every model/tool boundary and at least every
- * [MAX_UNACCOUNTED_MILLIS] while work is active. A crash can therefore lose wall-clock usage only
- * inside that interval; completed calls/tokens have no unaccounted window. The run row, goal
- * lifetime counters and redacted audit event commit in one Room transaction.
+ * The run row, goal lifetime counters and redacted audit event commit in one Room transaction.
+ * Each supplied duration delta is bounded by [MAX_UNACCOUNTED_MILLIS]. This validation alone
+ * does not prove a bounded crash window: production callers must persist admission before
+ * execution and reconcile outstanding usage. Post-call checkpoints can be lost before commit.
  */
 class GoalDurableUsageLedger(
     private val storage: HelixStorage,
@@ -72,7 +72,9 @@ class GoalDurableUsageLedger(
         require(run.goalId == goalId) { "run does not belong to goal" }
         require(goal.state == GoalState.RUNNING.name) { "goal is not RUNNING" }
         val next = add(goal, delta)
-        val exhausted = firstExhausted(next)
+        // Other admitted work must settle before closing the run; admission still includes every
+        // outstanding reservation, so deferring closure cannot mint extra capacity.
+        val exhausted = if (storage.goalUsageReservations.pendingForRun(runId).isEmpty()) firstExhausted(next) else null
         storage.goals.updateGoal(
             next.copy(
                 state = if (exhausted == null) next.state else GoalState.PAUSED.name,
@@ -80,13 +82,25 @@ class GoalDurableUsageLedger(
                 finishReason = exhausted?.let { "BUDGET_EXHAUSTED($it)" } ?: next.finishReason,
             ),
         )
-        storage.goalRuns.checkpointUsage(
-            run,
-            Math.addExact(run.modelCalls, delta.modelCalls),
-            Math.addExact(run.toolCalls, delta.toolCalls),
-            Math.addExact(run.tokens, delta.tokens),
-            Math.addExact(run.wakeDurationMillis ?: 0L, delta.durationMillis),
-        )
+        val updatedRun =
+            storage.goalRuns.checkpointUsage(
+                run,
+                Math.addExact(run.modelCalls, delta.modelCalls),
+                Math.addExact(run.toolCalls, delta.toolCalls),
+                Math.addExact(run.tokens, delta.tokens),
+                Math.addExact(run.wakeDurationMillis ?: 0L, delta.durationMillis),
+            )
+        if (exhausted != null) {
+            storage.goalRuns.finish(
+                updatedRun,
+                "BUDGET_EXHAUSTED($exhausted)",
+                atMillis.coerceAtLeast(run.startedAt),
+                requireNotNull(updatedRun.wakeDurationMillis),
+                updatedRun.modelCalls,
+                updatedRun.toolCalls,
+                updatedRun.tokens,
+            )
+        }
         appendAudit(goal, goalId, runId, boundary, delta, exhausted, atMillis)
     }
 
@@ -107,8 +121,8 @@ class GoalDurableUsageLedger(
             goal.modelCalls >= goal.budgets.maxModelCalls -> "maxModelCalls"
             goal.toolCalls >= goal.budgets.maxToolCalls -> "maxToolCalls"
             goal.totalTokens >= goal.budgets.maxTotalTokens -> "maxTotalTokens"
-            goal.runTimeMillis >= goal.budgets.maxDurationMillis -> "maxDurationMillis"
             goal.currentWakeMillis >= goal.budgets.maxWakeDurationMillis -> "maxWakeDurationMillis"
+            goal.runTimeMillis >= goal.budgets.maxDurationMillis -> "maxDurationMillis"
             else -> null
         }
 

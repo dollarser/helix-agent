@@ -56,6 +56,8 @@ docs/
 - [验收矩阵](development/verification-matrix.md)：每个 HXA 的真实命令、设备与证据。
 - [开发环境](development/environment.md)：JDK、Android SDK、AVD、真机和依赖基线。
 - [小模型实施指南](development/implementation-guide.md)：受限上下文下的任务读取、实现与交接规则。
+- [全仓优化改进审查 2026-09-06](development/improvement-review-2026-09-06.md)：M0～M10 阶段性完成后的全仓代码/文档快照审查（安全/缺陷/架构/工程/文档问题清单 + 未决事项 + 优先级路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
+- [全仓优化改进审查 2026-09-07](development/improvement-review-2026-09-07.md)：M11/HXA-102 大波开发后的第二轮全仓审查（上轮问题逐条回归核对 + Goal 硬化/M11/core/runtime/app 新代码问题 + 文档治理 + 更新版 P0～P5 路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
 
 ## 安全与外部参考
 

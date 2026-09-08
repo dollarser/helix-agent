@@ -79,16 +79,43 @@ internal object GrokDeviceProtocol {
     ): GrokDevicePoll {
         val value = decodeObject(bytes)
         value["access_token"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank)?.let { access ->
-            val tier = decodeTier(access) ?: return GrokDevicePoll.Rejected("unknown_tier")
-            if (tier !in setOf(1, 3, 4, 5, 6, 7)) return GrokDevicePoll.Rejected("ineligible_tier")
-            val refresh =
-                value["refresh_token"]
-                    ?.jsonPrimitive
-                    ?.content
-                    ?.takeIf(String::isNotBlank) ?: return GrokDevicePoll.Rejected("missing_refresh_token")
-            val expiresIn = value["expires_in"]?.jsonPrimitive?.longOrNull
-            if (expiresIn == null || expiresIn <= 0) return GrokDevicePoll.Rejected("invalid_expiry")
-            return GrokDevicePoll.Authorized(
+            return decodeAuthorization(value, access, nowEpochMillis)
+        }
+        return when (val code = requiredString(value, "error")) {
+            "authorization_pending" -> GrokDevicePoll.Pending(currentIntervalMillis)
+            "slow_down" -> GrokDevicePoll.Pending(Math.addExact(currentIntervalMillis, 5_000L))
+            "access_denied", "expired_token" -> GrokDevicePoll.Rejected(code)
+            else -> GrokDevicePoll.Rejected("protocol_error")
+        }
+    }
+
+    private fun decodeAuthorization(
+        value: kotlinx.serialization.json.JsonObject,
+        access: String,
+        nowEpochMillis: Long,
+    ): GrokDevicePoll {
+        val tier = decodeTier(access)
+        return when {
+            tier == null -> GrokDevicePoll.Rejected("unknown_tier")
+            tier !in setOf(1, 3, 4, 5, 6, 7) -> GrokDevicePoll.Rejected("ineligible_tier")
+            else -> decodeAuthorizedSession(value, access, tier, nowEpochMillis)
+        }
+    }
+
+    private fun decodeAuthorizedSession(
+        value: kotlinx.serialization.json.JsonObject,
+        access: String,
+        tier: Int,
+        nowEpochMillis: Long,
+    ): GrokDevicePoll {
+        val refresh =
+            value["refresh_token"]?.jsonPrimitive?.content?.takeIf(String::isNotBlank)
+                ?: return GrokDevicePoll.Rejected("missing_refresh_token")
+        val expiresIn = value["expires_in"]?.jsonPrimitive?.longOrNull
+        return if (expiresIn == null || expiresIn <= 0) {
+            GrokDevicePoll.Rejected("invalid_expiry")
+        } else {
+            GrokDevicePoll.Authorized(
                 CliSubscriptionSession(
                     access,
                     refresh,
@@ -97,12 +124,6 @@ internal object GrokDeviceProtocol {
                 ),
                 tier,
             )
-        }
-        return when (val code = requiredString(value, "error")) {
-            "authorization_pending" -> GrokDevicePoll.Pending(currentIntervalMillis)
-            "slow_down" -> GrokDevicePoll.Pending(Math.addExact(currentIntervalMillis, 5_000L))
-            "access_denied", "expired_token" -> GrokDevicePoll.Rejected(code)
-            else -> GrokDevicePoll.Rejected("protocol_error")
         }
     }
 

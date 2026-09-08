@@ -53,6 +53,12 @@ internal class LoopbackModelServer(
 
     private val running = AtomicBoolean(true)
     private val modelsCalls = AtomicInteger(0)
+    val heldSocket =
+        java.util.concurrent.atomic
+            .AtomicReference<Socket>()
+    val holdChatStreams = AtomicBoolean(false)
+    val heldStreams = AtomicInteger(0)
+    val heldStreamDisconnected = AtomicBoolean(false)
     private val thread: Thread =
         Thread(
             {
@@ -126,7 +132,28 @@ internal class LoopbackModelServer(
             } else {
                 ByteArray(0)
             }
-        respond(output, path, String(body, StandardCharsets.UTF_8))
+        if (holdChatStreams.get() && path == "/v1/chat/completions") {
+            holdChatStream(socket)
+        } else {
+            respond(output, path, String(body, StandardCharsets.UTF_8))
+        }
+    }
+
+    private fun holdChatStream(socket: Socket) {
+        socket.soTimeout = 15_000
+        val output = socket.getOutputStream()
+        output.write(
+            (
+                "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n" +
+                    "data: {\"id\":\"held\",\"choices\":[{\"index\":0," +
+                    "\"delta\":{\"content\":\"partial\"},\"finish_reason\":null}]}\n\n"
+            ).toByteArray(StandardCharsets.UTF_8),
+        )
+        output.flush()
+        heldSocket.set(socket)
+        heldStreams.incrementAndGet()
+        // A real client cancellation must close the outstanding socket before the fixture timeout.
+        heldStreamDisconnected.set(socket.getInputStream().read() == -1)
     }
 
     private fun respond(

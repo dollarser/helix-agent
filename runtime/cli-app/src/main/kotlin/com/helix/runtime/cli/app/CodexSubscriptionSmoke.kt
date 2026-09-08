@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -14,7 +13,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.Closeable
-import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -40,7 +38,8 @@ internal class CodexSubscriptionSmoke(
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
 ) : Closeable {
     private val client =
-        client.newBuilder()
+        client
+            .newBuilder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
@@ -50,24 +49,23 @@ internal class CodexSubscriptionSmoke(
 
     fun run(): CodexSmokeResult {
         var session = vault.load(CliSubscriptionProvider.CODEX)
-        var modelResult = discoverModel(session.accessToken, session.accountId ?: throw CodexSmokeException("credential"))
+        var modelResult =
+            discoverModel(
+                session.accessToken,
+                accountId(session),
+            )
         if (modelResult.httpCode == 401) {
-            try {
-                oauth.refresh()
-            } catch (error: Exception) {
-                when (error) {
-                    is CodexOAuthEndpointException, is IOException -> throw error
-                    else -> throw CodexSmokeException("refresh-${safeProtocolReason(error.message)}")
-                }
-            }
+            oauth.refresh()
             session = vault.load(CliSubscriptionProvider.CODEX)
-            modelResult = discoverModel(session.accessToken, session.accountId ?: throw CodexSmokeException("credential"))
+            modelResult =
+                discoverModel(session.accessToken, accountId(session))
         }
         val model = modelResult.model ?: throw CodexSmokeException("models", modelResult.httpCode)
-        val accountId = session.accountId ?: throw CodexSmokeException("credential")
+        val accountId = accountId(session)
         val requestBody = encodeRequest(model)
         val request =
-            Request.Builder()
+            Request
+                .Builder()
                 .url(RESPONSES_URL)
                 .header("Authorization", "Bearer ${session.accessToken}")
                 .header("chatgpt-account-id", accountId)
@@ -78,41 +76,16 @@ internal class CodexSubscriptionSmoke(
                 .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorCode = runCatching {
-                    val bytes = response.body.source().readBoundedByteArray(64 * 1024L)
-                    val error = Json.parseToJsonElement(bytes.decodeToString()).jsonObject["error"]?.jsonObject
-                    error?.get("code")?.jsonPrimitive?.contentOrNull
-                        ?: error?.get("type")?.jsonPrimitive?.contentOrNull
-                }.getOrNull()?.takeIf { it.matches(Regex("[a-zA-Z0-9_.-]{1,64}")) }
+                val errorCode =
+                    runCatching {
+                        val bytes = response.body.source().readBoundedByteArray(64 * 1024L)
+                        val error = Json.parseToJsonElement(bytes.decodeToString()).jsonObject["error"]?.jsonObject
+                        error?.get("code")?.jsonPrimitive?.contentOrNull
+                            ?: error?.get("type")?.jsonPrimitive?.contentOrNull
+                    }.getOrNull()?.takeIf { it.matches(Regex("[a-zA-Z0-9_.-]{1,64}")) }
                 throw CodexSmokeException("response-${errorCode ?: "rejected"}", response.code)
             }
-            val source = response.body.source()
-            var total = 0L
-            val text = StringBuilder()
-            while (!source.exhausted()) {
-                val line = source.readUtf8Line() ?: break
-                total += line.encodeToByteArray().size + 1
-                if (total > MAX_STREAM_BYTES) throw CodexSmokeException("response-too-large")
-                if (!line.startsWith("data:")) continue
-                val data = line.removePrefix("data:").trim()
-                if (data == "[DONE]" || data.isEmpty()) continue
-                val event = runCatching { Json.parseToJsonElement(data).jsonObject }.getOrNull()
-                    ?: throw CodexSmokeException("response-protocol")
-                when (event["type"]?.jsonPrimitive?.contentOrNull) {
-                    "response.output_text.delta" -> {
-                        val delta = event["delta"]?.jsonPrimitive?.contentOrNull
-                            ?: throw CodexSmokeException("response-protocol")
-                        text.append(delta)
-                        if (text.length > MAX_TEXT_CHARS) throw CodexSmokeException("output-too-large")
-                    }
-                    "response.failed", "response.incomplete", "error" -> {
-                        throw CodexSmokeException("response-terminal")
-                    }
-                }
-            }
-            val normalized = text.toString().trim()
-            if (normalized != EXPECTED_TEXT) throw CodexSmokeException("unexpected-output")
-            return CodexSmokeResult(model, normalized)
+            return CodexSmokeResult(model, CodexSmokeStream.read(response.body.source()))
         }
     }
 
@@ -120,9 +93,16 @@ internal class CodexSubscriptionSmoke(
         client.dispatcher.cancelAll()
     }
 
-    private fun discoverModel(accessToken: String, accountId: String): ModelDiscovery {
+    private fun accountId(session: CliSubscriptionSession): String =
+        session.accountId ?: throw CodexSmokeException("credential")
+
+    private fun discoverModel(
+        accessToken: String,
+        accountId: String,
+    ): ModelDiscovery {
         val request =
-            Request.Builder()
+            Request
+                .Builder()
                 .url("$MODELS_URL?client_version=$CLIENT_VERSION")
                 .header("Authorization", "Bearer $accessToken")
                 .header("chatgpt-account-id", accountId)
@@ -131,36 +111,15 @@ internal class CodexSubscriptionSmoke(
                 .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) return ModelDiscovery(null, response.code)
-            val bytes = try {
-                response.body.source().readBoundedByteArray(MAX_CATALOG_BYTES)
-            } catch (_: IllegalArgumentException) {
-                throw CodexSmokeException("models-too-large")
-            }
-            val models = runCatching {
-                Json.parseToJsonElement(bytes.decodeToString()).jsonObject.getValue("models").jsonArray
-            }.getOrElse { throw CodexSmokeException("models-protocol") }
-            val model = models.firstNotNullOfOrNull { item ->
-                val row = item.jsonObject
-                val visibility = row["visibility"]?.jsonPrimitive?.contentOrNull
-                row["slug"]?.jsonPrimitive?.contentOrNull
-                    ?.takeIf { it.isNotBlank() && it.length <= 128 && visibility !in setOf("hide", "none") }
-            } ?: throw CodexSmokeException("models-empty")
+            val model = CodexSmokeCatalog.read(response.body.source())
             return ModelDiscovery(model, response.code)
         }
     }
 
-    private data class ModelDiscovery(val model: String?, val httpCode: Int)
-
-    private fun safeProtocolReason(message: String?): String =
-        when {
-            message?.contains("access_token") == true -> "missing-access"
-            message?.contains("refresh token") == true -> "missing-refresh"
-            message?.contains("expiry") == true -> "missing-expiry"
-            message?.contains("account id") == true -> "missing-account"
-            message?.contains("JWT") == true -> "invalid-jwt"
-            message?.contains("credential") == true -> "credential"
-            else -> "protocol"
-        }
+    private data class ModelDiscovery(
+        val model: String?,
+        val httpCode: Int,
+    )
 
     internal companion object {
         const val MODELS_URL = "https://chatgpt.com/backend-api/codex/models"
@@ -185,7 +144,12 @@ internal class CodexSubscriptionSmoke(
                                 put(
                                     "content",
                                     buildJsonArray {
-                                        add(buildJsonObject { put("type", "input_text"); put("text", "Reply exactly HELIX_OK") })
+                                        add(
+                                            buildJsonObject {
+                                                put("type", "input_text")
+                                                put("text", "Reply exactly HELIX_OK")
+                                            },
+                                        )
                                     },
                                 )
                             },

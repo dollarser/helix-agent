@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     runs-on: macos-15
-    # Headroom for the per-module lintDebug tasks (warningsAsErrors) on a cold runner.
+    # Headroom for the per-module Debug/Release lint tasks (warningsAsErrors) on a cold runner.
     timeout-minutes: 60
 
     steps:
@@ -47,9 +47,8 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
 
       - name: Static checks and tests
-        # :core:storage:lintDebug covers the Room module the app lints do not reach
-        # (lintConsumerDebug only lints :app and its consumers' views of it).
-        run: ./gradlew spotlessCheck detekt test :core:storage:lintDebug lintConsumerDebug lintDeveloperDebug
+        # Include every Android library in both variants; app flavor lint alone misses library defects.
+        run: ./gradlew spotlessCheck detekt test lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
 
       - name: Build all M0 applications
         run: >-

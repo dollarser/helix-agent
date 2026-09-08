@@ -288,8 +288,11 @@ public class CapabilityProbe(
     }
 
     public companion object {
-        const val TEXT_MAX_OUTPUT_TOKENS = 16L
-        const val TOOL_MAX_OUTPUT_TOKENS = 64L
+        // Text and vision replies can spend tokens on reasoning before emitting one word.
+        const val TEXT_MAX_OUTPUT_TOKENS = 256L
+
+        // Reasoning tokens share this limit: 64 can truncate a valid echo call before closure.
+        const val TOOL_MAX_OUTPUT_TOKENS = 256L
         const val MAX_PROBE_EVENTS = 10_000
 
         /**

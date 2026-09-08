@@ -7,7 +7,16 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
-enum class CliModelJobState { PENDING, RUNNING, SUCCEEDED, FAILED, CANCELLED, INTERRUPTED;
+enum class CliModelJobState {
+    PENDING,
+    RUNNING,
+    SUCCEEDED,
+    FAILED,
+    CANCELLED,
+    INTERRUPTED,
+    EVIDENCE_EXPIRED,
+    ;
+
     val terminal: Boolean get() = this !in setOf(PENDING, RUNNING)
 }
 
@@ -30,29 +39,34 @@ data class CliModelJobRecord(
         require(state != CliModelJobState.SUCCEEDED || (model != null && outputSha256 != null))
         require(state == CliModelJobState.SUCCEEDED || outputSha256 == null)
         require(reconciledAtEpochMillis == null || state.terminal)
+        require(state != CliModelJobState.EVIDENCE_EXPIRED || (model == null && reconciledAtEpochMillis == null))
     }
 
     companion object {
         internal val JOB_ID = Regex("job_[0-9a-f]{12}")
         internal val SHA256 = Regex("[0-9a-f]{64}")
-        fun checkJobId(value: String) { require(JOB_ID.matches(value)) }
+
+        fun checkJobId(value: String) {
+            require(JOB_ID.matches(value))
+        }
     }
 }
 
 object CliModelJobRecordCodec {
     const val MAX_RECORD_BYTES = 8 * 1024
 
-    fun encode(record: CliModelJobRecord): String = buildJsonObject {
-        put("version", 1)
-        put("jobId", record.jobId)
-        put("requestSha256", record.requestSha256)
-        put("state", record.state.name)
-        put("createdAtEpochMillis", record.createdAtEpochMillis)
-        record.terminalAtEpochMillis?.let { put("terminalAtEpochMillis", it) }
-        record.model?.let { put("model", it) }
-        record.outputSha256?.let { put("outputSha256", it) }
-        record.reconciledAtEpochMillis?.let { put("reconciledAtEpochMillis", it) }
-    }.toString().also { require(it.encodeToByteArray().size <= MAX_RECORD_BYTES) }
+    fun encode(record: CliModelJobRecord): String =
+        buildJsonObject {
+            put("version", 1)
+            put("jobId", record.jobId)
+            put("requestSha256", record.requestSha256)
+            put("state", record.state.name)
+            put("createdAtEpochMillis", record.createdAtEpochMillis)
+            record.terminalAtEpochMillis?.let { put("terminalAtEpochMillis", it) }
+            record.model?.let { put("model", it) }
+            record.outputSha256?.let { put("outputSha256", it) }
+            record.reconciledAtEpochMillis?.let { put("reconciledAtEpochMillis", it) }
+        }.toString().also { require(it.encodeToByteArray().size <= MAX_RECORD_BYTES) }
 
     fun decode(document: String): CliModelJobRecord {
         require(document.encodeToByteArray().size <= MAX_RECORD_BYTES)

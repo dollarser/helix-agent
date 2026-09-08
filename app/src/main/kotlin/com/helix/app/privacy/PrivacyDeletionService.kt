@@ -3,6 +3,7 @@ package com.helix.app.privacy
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.a2a.A2aAppService
 import com.helix.app.chat.ChatService
+import com.helix.app.goal.GoalDeletionCoordinator
 import com.helix.app.mcp.McpAppService
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
@@ -28,6 +29,7 @@ class PrivacyDeletionService(
     private val a2a: A2aAppService,
     private val skills: SkillRepository,
     private val chat: ChatService,
+    private val cancelGoalReminder: (String) -> Unit,
 ) {
     fun deleteSession(sessionId: String): DeletionResult {
         chat.preparePermanentDeletion(sessionId)
@@ -59,12 +61,8 @@ class PrivacyDeletionService(
     }
 
     fun deleteGoal(goalId: String): DeletionResult {
-        val goal = storage.goals.resolveEntity(goalId)
-        storage.withTransaction {
-            storage.auditEvents.deleteByCorrelations(listOf(goal.correlationId, goal.id))
-            storage.goals.delete(goalId)
-            goal.planId?.takeIf { storage.goals.countByPlan(it) == 0 }?.let(storage.plans::delete)
-        }
+        GoalDeletionCoordinator(storage, cancelGoalReminder).delete(goalId)
+        if (chat.reminderGoal.value == goalId) chat.dismissGoalReminder()
         return DeletionResult("goal:$goalId", 1)
     }
 

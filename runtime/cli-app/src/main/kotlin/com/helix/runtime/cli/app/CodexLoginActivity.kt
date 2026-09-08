@@ -4,18 +4,9 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
-import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.Executors
-import javax.net.ssl.SSLException
 
 class CodexLoginActivity : Activity() {
     private lateinit var vault: CliSubscriptionCredentialVault
@@ -23,24 +14,21 @@ class CodexLoginActivity : Activity() {
     private lateinit var deviceTransport: OkHttpCodexDeviceTransport
     private lateinit var controller: CodexLoginController
     private lateinit var deviceController: CodexDeviceLoginController
-    private lateinit var status: TextView
-    private lateinit var login: Button
-    private lateinit var deviceLogin: Button
-    private lateinit var openDeviceBrowser: Button
-    private lateinit var copyDeviceCode: Button
-    private lateinit var copyDeviceUrl: Button
-    private lateinit var logout: Button
-    private lateinit var smokeButton: Button
-    private lateinit var cancel: Button
+    private lateinit var content: CodexLoginContent
     private val worker = Executors.newSingleThreadExecutor()
 
     @Volatile private var loopback: CodexLoopbackServer? = null
 
     @Volatile private var deviceCancellation: DeviceLoginCancellation? = null
+
     @Volatile private var activeSmoke: CodexSubscriptionSmoke? = null
+
     @Volatile private var activeSmokeJob: CodexModelJobRunner? = null
     private var deviceUserCode: String? = null
     private var deviceVerificationUrl: String? = null
+
+    private val busy: Boolean
+        get() = loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +38,30 @@ class CodexLoginActivity : Activity() {
         controller = CodexLoginController(vault, transport)
         deviceController = CodexDeviceLoginController(vault, deviceTransport)
         title = getString(R.string.codex_login_title)
-        setContentView(buildContent())
-        renderState()
+        content =
+            CodexLoginContent(
+                this,
+                ::startLogin,
+                ::startDeviceLogin,
+                {
+                    controller.logout()
+                    content.renderState(
+                        vault.contains(CliSubscriptionProvider.CODEX),
+                        busy,
+                        deviceCancellation != null,
+                    )
+                },
+                ::runSubscriptionSmoke,
+                ::cancelCurrentAttempt,
+                { deviceUserCode },
+                { deviceVerificationUrl },
+            )
+        setContentView(content.root)
+        content.renderState(
+            vault.contains(CliSubscriptionProvider.CODEX),
+            busy,
+            deviceCancellation != null,
+        )
     }
 
     override fun onDestroy() {
@@ -67,99 +77,41 @@ class CodexLoginActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun buildContent(): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (24 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding, padding, padding)
-            addView(TextView(context).apply { setText(R.string.codex_login_warning) })
-            status =
-                TextView(context).also {
-                    it.setPadding(0, padding, 0, padding)
-                    addView(it)
-                }
-            login =
-                Button(context).also {
-                    it.setText(R.string.codex_login_action)
-                    it.setOnClickListener { startLogin() }
-                    addView(it)
-                }
-            deviceLogin =
-                Button(context).also {
-                    it.setText(R.string.codex_device_login_action)
-                    it.setOnClickListener { startDeviceLogin() }
-                    addView(it)
-                }
-            openDeviceBrowser =
-                Button(context).also {
-                    it.setText(R.string.codex_device_open_browser)
-                    it.setOnClickListener { openDeviceVerification() }
-                    addView(it)
-                }
-            copyDeviceCode =
-                Button(context).also {
-                    it.setText(R.string.codex_device_copy_code)
-                    it.setOnClickListener { copyDeviceCode() }
-                    addView(it)
-                }
-            copyDeviceUrl =
-                Button(context).also {
-                    it.setText(R.string.codex_device_copy_url)
-                    it.setOnClickListener { copyDeviceUrl() }
-                    addView(it)
-                }
-            logout =
-                Button(context).also {
-                    it.setText(R.string.codex_logout_action)
-                    it.setOnClickListener {
-                        controller.logout()
-                        renderState()
-                    }
-                    addView(it)
-                }
-            smokeButton =
-                Button(context).also {
-                    it.setText(R.string.codex_smoke_action)
-                    it.setOnClickListener { runSubscriptionSmoke() }
-                    addView(it)
-                }
-            cancel =
-                Button(context).also {
-                    it.setText(R.string.codex_login_cancel_action)
-                    it.setOnClickListener {
-                        loopback?.close()
-                        loopback = null
-                        deviceCancellation?.cancel()
-                        deviceCancellation = null
-                        activeSmoke?.close()
-                        activeSmoke = null
-                        activeSmokeJob?.close()
-                        activeSmokeJob = null
-                        deviceUserCode = null
-                        deviceVerificationUrl = null
-                        status.setText(R.string.codex_login_cancelled)
-                        renderButtons()
-                    }
-                    addView(it)
-                }
-        }
+    private fun cancelCurrentAttempt() {
+        loopback?.close()
+        loopback = null
+        deviceCancellation?.cancel()
+        deviceCancellation = null
+        activeSmoke?.close()
+        activeSmoke = null
+        activeSmokeJob?.close()
+        activeSmokeJob = null
+        deviceUserCode = null
+        deviceVerificationUrl = null
+        content.status.setText(R.string.codex_login_cancelled)
+        content.renderButtons(
+            vault.contains(CliSubscriptionProvider.CODEX),
+            busy,
+            deviceCancellation != null,
+        )
+    }
 
     private fun startLogin() {
         if (loopback != null || deviceCancellation != null) return
-        setBusy(true)
-        status.setText(R.string.codex_login_preparing)
+        content.setBusy(true, vault.contains(CliSubscriptionProvider.CODEX))
+        content.status.setText(R.string.codex_login_preparing)
         worker.execute {
             runCatching(transport::preflight).fold(
                 onSuccess = { runOnUiThread(::startLoginAfterPreflight) },
-                onFailure = { finishAttempt(safeFailureMessage(it)) },
+                onFailure = { finishAttempt(CodexLoginFailure.message(this, it)) },
             )
         }
     }
 
     private fun startDeviceLogin() {
         if (loopback != null || deviceCancellation != null) return
-        setBusy(true)
-        status.setText(R.string.codex_device_preparing)
+        content.setBusy(true, vault.contains(CliSubscriptionProvider.CODEX))
+        content.status.setText(R.string.codex_device_preparing)
         val active = DeviceLoginCancellation().also { deviceCancellation = it }
         worker.execute {
             runCatching {
@@ -167,33 +119,20 @@ class CodexLoginActivity : Activity() {
                 runOnUiThread {
                     deviceUserCode = attempt.userCode
                     deviceVerificationUrl = attempt.verificationUrl
-                    status.text = getString(R.string.codex_device_user_code, attempt.userCode, attempt.verificationUrl)
-                    renderButtons()
+                    content.status.text =
+                        getString(R.string.codex_device_user_code, attempt.userCode, attempt.verificationUrl)
+                    content.renderButtons(
+                        vault.contains(CliSubscriptionProvider.CODEX),
+                        busy,
+                        deviceCancellation != null,
+                    )
                 }
                 deviceController.finish(attempt, active)
             }.fold(
                 onSuccess = { finishAttempt(getString(R.string.codex_login_success)) },
-                onFailure = { finishAttempt(safeFailureMessage(it)) },
+                onFailure = { finishAttempt(CodexLoginFailure.message(this, it)) },
             )
         }
-    }
-
-    private fun openDeviceVerification() {
-        val url = deviceVerificationUrl ?: return
-        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-            .onFailure { status.setText(R.string.codex_login_browser_error) }
-    }
-
-    private fun copyDeviceCode() {
-        val code = deviceUserCode ?: return
-        DeviceCodeClipboard.copy(this, getString(R.string.codex_device_clip_code_label), code)
-        status.text = getString(R.string.codex_device_copied_code, code, deviceVerificationUrl)
-    }
-
-    private fun copyDeviceUrl() {
-        val url = deviceVerificationUrl ?: return
-        DeviceCodeClipboard.copy(this, getString(R.string.codex_device_clip_url_label), url)
-        status.text = getString(R.string.codex_device_copied_url, deviceUserCode, url)
     }
 
     private fun startLoginAfterPreflight() {
@@ -201,13 +140,13 @@ class CodexLoginActivity : Activity() {
             try {
                 CodexLoopbackServer.bind()
             } catch (_: IllegalStateException) {
-                status.setText(R.string.codex_login_port_error)
-                setBusy(false)
+                content.status.setText(R.string.codex_login_port_error)
+                content.setBusy(false, vault.contains(CliSubscriptionProvider.CODEX))
                 return
             }
         val attempt = CodexOAuthProtocol.createAttempt(server.port)
         loopback = server
-        status.setText(R.string.codex_login_waiting)
+        content.status.setText(R.string.codex_login_waiting)
         server.await(attempt.state) { result ->
             if (loopback !== server) return@await
             when (result) {
@@ -236,53 +175,9 @@ class CodexLoginActivity : Activity() {
             finishAttempt(
                 result.fold(
                     onSuccess = { getString(R.string.codex_login_success) },
-                    onFailure = ::safeFailureMessage,
+                    onFailure = { CodexLoginFailure.message(this, it) },
                 ),
             )
-        }
-    }
-
-    private fun safeFailureMessage(error: Throwable): String =
-        when (error) {
-            is CodexOAuthEndpointException -> {
-                val code = error.oauthCode?.takeIf { it.matches(Regex("[a-z0-9_]{1,64}")) } ?: "unspecified"
-                getString(R.string.codex_login_http_error, error.httpCode, code)
-            }
-
-            is CodexDeviceEndpointException -> {
-                getString(R.string.codex_device_http_error, error.stage, error.httpCode)
-            }
-
-            is CodexDeviceLoginException -> {
-                getString(R.string.codex_device_failed, error.reason)
-            }
-
-            is CodexDeviceNetworkException -> {
-                getString(R.string.codex_device_network_error, error.stage, error.safeNetworkCategory())
-            }
-
-            is IOException -> {
-                getString(R.string.codex_login_network_error, error.safeNetworkCategory())
-            }
-
-            is IllegalArgumentException -> {
-                getString(R.string.codex_login_protocol_error)
-            }
-
-            else -> {
-                getString(R.string.codex_login_failed)
-            }
-        }
-
-    private fun IOException.safeNetworkCategory(): String {
-        val causes = generateSequence<Throwable>(this) { it.cause }.take(8).toList()
-        return when {
-            causes.any { it is UnknownHostException } -> "dns"
-            causes.any { it is SSLException } -> "tls"
-            causes.any { it is SocketTimeoutException } -> "timeout"
-            causes.any { it is ConnectException } -> "connect"
-            causes.any { it is java.io.EOFException } -> "response-read"
-            else -> "io"
         }
     }
 
@@ -292,102 +187,45 @@ class CodexLoginActivity : Activity() {
             deviceCancellation = null
             deviceUserCode = null
             deviceVerificationUrl = null
-            setBusy(false)
-            status.text = message
-            renderButtons()
+            content.setBusy(false, vault.contains(CliSubscriptionProvider.CODEX))
+            content.status.text = message
+            content.renderButtons(
+                vault.contains(CliSubscriptionProvider.CODEX),
+                busy,
+                deviceCancellation != null,
+            )
         }
     }
 
-    private fun renderState() {
-        status.setText(
-            if (vault.contains(CliSubscriptionProvider.CODEX)) {
-                R.string.codex_login_logged_in
-            } else {
-                R.string.codex_login_logged_out
-            },
-        )
-        renderButtons()
-    }
-
-    private fun renderButtons() {
-        val loggedIn = vault.contains(CliSubscriptionProvider.CODEX)
-        val busy = loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
-        login.isEnabled = !loggedIn && !busy
-        deviceLogin.isEnabled = !loggedIn && !busy
-        openDeviceBrowser.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
-        copyDeviceCode.isEnabled = deviceCancellation != null && deviceUserCode != null
-        copyDeviceUrl.isEnabled = deviceCancellation != null && deviceVerificationUrl != null
-        logout.isEnabled = loggedIn && !busy
-        smokeButton.isEnabled = loggedIn && !busy
-        cancel.isEnabled = busy
-    }
-
-    private fun setBusy(busy: Boolean) {
-        login.isEnabled = !busy
-        deviceLogin.isEnabled = !busy
-        openDeviceBrowser.isEnabled = false
-        copyDeviceCode.isEnabled = false
-        copyDeviceUrl.isEnabled = false
-        logout.isEnabled = !busy
-        smokeButton.isEnabled = !busy && vault.contains(CliSubscriptionProvider.CODEX)
-        cancel.isEnabled = busy
-    }
-
     private fun runSubscriptionSmoke() {
-        if (!vault.contains(CliSubscriptionProvider.CODEX) ||
-            loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
-        ) return
-        setBusy(true)
-        status.setText(R.string.codex_smoke_running)
+        if (!vault.contains(CliSubscriptionProvider.CODEX) || busy) {
+            return
+        }
+        content.setBusy(true, vault.contains(CliSubscriptionProvider.CODEX))
+        content.status.setText(R.string.codex_smoke_running)
         val smoke = CodexSubscriptionSmoke(vault, controller).also { activeSmoke = it }
         val jobId = "job_${UUID.randomUUID().toString().replace("-", "").take(12)}"
-        val requestHash = MessageDigest.getInstance("SHA-256").digest("codex-fixed-smoke-v1".encodeToByteArray())
-            .joinToString("") { byte -> "%02x".format(byte) }
-        val runner = CodexModelJobRunner(CodexModelJobStore(filesDir), smoke::run, smoke::close)
-            .also { activeSmokeJob = it }
+        val requestHash =
+            MessageDigest
+                .getInstance("SHA-256")
+                .digest("codex-fixed-smoke-v1".encodeToByteArray())
+                .joinToString("") { byte -> "%02x".format(byte) }
+        val runner =
+            CodexModelJobRunner(CodexModelJobStore(filesDir), smoke::run, smoke::close)
+                .also { activeSmokeJob = it }
         worker.execute {
-            val result = runCatching {
-                when (runner.submit(jobId, requestHash)) {
-                    is CodexModelJobSubmit.Accepted,
-                    is CodexModelJobSubmit.Duplicate,
-                    -> awaitSmokeJob(runner, jobId)
-                    CodexModelJobSubmit.Busy -> throw CodexSmokeException("job-busy")
-                    CodexModelJobSubmit.JournalFull -> throw CodexSmokeException("job-journal-full")
-                    CodexModelJobSubmit.RequestMismatch -> throw CodexSmokeException("job-request-mismatch")
+            val result =
+                runCatching {
+                    CodexSmokeJobProbe.run(runner, jobId, requestHash)
                 }
-            }
             smoke.close()
             runner.close()
             if (activeSmoke !== smoke) return@execute
             activeSmoke = null
             activeSmokeJob = null
             finishAttempt(
-                result.fold(
-                    onSuccess = {
-                        if (it.state == CodexModelJobState.SUCCEEDED) {
-                            getString(R.string.codex_smoke_success, it.model, CodexSubscriptionSmoke.EXPECTED_TEXT)
-                        } else {
-                            getString(R.string.codex_smoke_failed, "job-${it.state.name.lowercase()}", "none")
-                        }
-                    },
-                    onFailure = {
-                        if (it is CodexSmokeException) {
-                            getString(R.string.codex_smoke_failed, it.stage, it.httpCode?.toString() ?: "none")
-                        } else {
-                            safeFailureMessage(it)
-                        }
-                    },
-                ),
+                CodexLoginFailure.smokeResult(this, result),
             )
         }
-    }
-
-    private fun awaitSmokeJob(runner: CodexModelJobRunner, jobId: String): CodexModelJobRecord {
-        repeat(480) {
-            runner.query(jobId)?.takeIf { it.state.terminal }?.let { return it }
-            Thread.sleep(250)
-        }
-        runner.cancel(jobId)
-        return runner.query(jobId) ?: throw CodexSmokeException("job-missing")
     }
 }

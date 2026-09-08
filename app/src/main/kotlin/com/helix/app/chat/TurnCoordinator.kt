@@ -20,6 +20,7 @@ internal data class TurnStartSpec(
     val providerSnapshot: String,
     val userText: String?,
     val attachments: List<MessageAttachmentRepository.Binding> = emptyList(),
+    val goalRunId: String? = null,
 )
 
 internal enum class BatchCallResolution {
@@ -212,7 +213,10 @@ internal class TurnCoordinator private constructor(
     }
 
     /** Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal. */
-    fun terminalize(outcome: ModelStreamTerminal) {
+    fun terminalize(
+        outcome: ModelStreamTerminal,
+        verifyGoal: ((com.helix.core.agent.Goal, String) -> com.helix.core.agent.Goal)? = null,
+    ) {
         val current = runtime.snapshot()
         val stream = runtime.currentStream()
         val endedAt = clock.now().toEpochMilli()
@@ -240,6 +244,7 @@ internal class TurnCoordinator private constructor(
                     null,
                 )
             }
+            GoalRunSettlement(storage, clock, idGenerator).settle(turnId, verifyGoal)
         }
         runtime.terminalize(outcome.state)
     }
@@ -266,6 +271,7 @@ internal class TurnCoordinator private constructor(
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
                 var turn = storage.turns.start(spec.turnId, spec.sessionId, now)
+                spec.goalRunId?.let { storage.goalTurnBindings.bind(spec.turnId, it) }
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
                 if (spec.userText != null || spec.attachments.isNotEmpty()) {
                     val message =

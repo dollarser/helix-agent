@@ -1,7 +1,5 @@
 package com.helix.runtime.cli.app
 
-import com.helix.runtime.cli.client.CliRuntimeProtocol
-
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.ComponentName
@@ -10,6 +8,7 @@ import android.system.Os
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.runtime.cli.client.CliRuntimeProtocol
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request

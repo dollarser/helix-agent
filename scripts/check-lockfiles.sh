@@ -31,8 +31,8 @@ lock_snapshot() {
 readonly before="$(lock_snapshot)"
 readonly lock_count="$(find . -name gradle.lockfile -not -path '*/build/*' -not -path './.claude/*' | wc -l | tr -d '[:space:]')"
 
-if [[ "$lock_count" != "34" ]]; then
-    printf 'Expected 34 dependency lock files, found %s.\n' "$lock_count" >&2
+if [[ "$lock_count" != "35" ]]; then
+    printf 'Expected 35 dependency lock files, found %s.\n' "$lock_count" >&2
     exit 1
 fi
 
@@ -42,7 +42,7 @@ readonly projects=(
     extensions:mcp extensions:skills extensions:a2a feature:browser feature:files feature:files-allfiles
     runtime:quickjs runtime:proot-core runtime:proot-ipc runtime:proot-client runtime:proot-app runtime:cli-client runtime:cli-app
     tools:framework tools:android tools:automation tools:browser tools:files tools:root testing
-    spikes:a2a-sdk spikes:a2a-minimal
+    spikes:a2a-sdk spikes:a2a-minimal spikes:bounded-orchestration
 )
 
 tasks=(dependencies)

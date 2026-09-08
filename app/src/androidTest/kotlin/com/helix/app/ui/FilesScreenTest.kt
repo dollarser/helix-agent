@@ -3,12 +3,14 @@ package com.helix.app.ui
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
@@ -146,11 +148,26 @@ class FilesScreenTest {
         // reading the SHA row right after the text is a race (flake seen on loaded emulators).
         waitTag("files-info-sha")
         // 哈希信息: a real SHA-256 (64 hex chars) is shown.
+        composeRule.onNodeWithTag("files-info-sha").performScrollTo().assertIsDisplayed()
         val sha = nodeText("files-info-sha")
         assertTrue(
             "hash line must be a SHA-256: $sha",
             sha.startsWith("SHA-256：") && sha.length >= "SHA-256：".length + 64,
         )
+    }
+
+    @Test
+    fun longTextPreviewKeepsTheMetadataReachable() {
+        seed("work/long.txt", (1..100).joinToString("\n") { "preview line $it" })
+        composeRule.navigateTo("files")
+        waitTag("files-entry-work")
+        composeRule.onNodeWithTag("files-entry-work").performClick()
+        waitTag("files-entry-long.txt")
+        composeRule.onNodeWithTag("files-entry-long.txt").performClick()
+        waitTag("files-preview-text")
+        waitTag("files-info-sha")
+        composeRule.onNodeWithTag("files-info-sha").performScrollTo().assertIsDisplayed()
+        assertTrue(nodeText("files-info-sha").startsWith("SHA-256："))
     }
 
     // ── 冲突: 重命名 onto an existing file → 询问, 跳过 never overwrites ─────────────────

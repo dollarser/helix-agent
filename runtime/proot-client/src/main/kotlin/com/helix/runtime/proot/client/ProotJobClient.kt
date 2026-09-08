@@ -34,6 +34,10 @@ import com.helix.runtime.proot.ipc.UnavailableCause
 class ProotJobClient(
     private val supervisor: ProotRuntimeSupervisor,
 ) {
+    private companion object {
+        val processOwner = android.os.Binder()
+    }
+
     /** A stable query/cancel/reconcile outcome. */
     sealed interface JobStateOutcome {
         data class Ok(
@@ -122,8 +126,9 @@ class ProotJobClient(
             val reply = Parcel.obtain()
             try {
                 data.writeInterfaceToken(ProotRuntimeProtocol.INTERFACE_DESCRIPTOR)
+                data.writeStrongBinder(processOwner)
                 ProotJobWire.writeSpec(data, spec, inputPfd, outputPfd)
-                binder.transact(ProotRuntimeProtocol.TX_JOB_SUBMIT, data, reply, 0)
+                binder.transact(ProotRuntimeProtocol.TX_JOB_SUBMIT_OWNED, data, reply, 0)
                 val (status, payload) = ProotJobWire.readJobReply(reply)
                 when (status) {
                     ProotRuntimeProtocol.REPLY_JOB_ACCEPTED -> {

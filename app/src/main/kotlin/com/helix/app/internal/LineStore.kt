@@ -2,7 +2,6 @@ package com.helix.app.internal
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.core.content.edit
 
 /**
  * Minimal line-oriented persistence for app-level UI state (safety profile, cleartext
@@ -28,6 +27,7 @@ interface LineStore {
 class PrefsLineStore(
     context: Context,
     name: String,
+    private val synchronous: Boolean = false,
 ) : LineStore {
     private val prefs: SharedPreferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
 
@@ -37,15 +37,13 @@ class PrefsLineStore(
         key: String,
         lines: List<String>,
     ) {
-        // core-ktx edit{} (apply() semantics): core-ktx is already on the locked
-        // app classpath (transitive of activity-compose); no new dependency.
-        prefs.edit {
-            if (lines.isEmpty()) {
-                remove(key)
-            } else {
-                putString(key, lines.joinToString(LINE_SEPARATOR))
-            }
+        val editor = prefs.edit()
+        if (lines.isEmpty()) {
+            editor.remove(key)
+        } else {
+            editor.putString(key, lines.joinToString(LINE_SEPARATOR))
         }
+        if (synchronous) check(editor.commit()) { "Could not persist settings" } else editor.apply()
     }
 
     private companion object {

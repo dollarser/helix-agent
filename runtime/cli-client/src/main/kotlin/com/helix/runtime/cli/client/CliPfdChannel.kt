@@ -4,7 +4,10 @@ import android.os.ParcelFileDescriptor
 import java.io.ByteArrayOutputStream
 
 object CliPfdChannel {
-    fun read(readEnd: ParcelFileDescriptor, limit: Int): ByteArray {
+    fun read(
+        readEnd: ParcelFileDescriptor,
+        limit: Int,
+    ): ByteArray {
         val out = ByteArrayOutputStream()
         ParcelFileDescriptor.AutoCloseInputStream(readEnd).use { input ->
             val buffer = ByteArray(16 * 1024)
@@ -18,7 +21,11 @@ object CliPfdChannel {
         return out.toByteArray()
     }
 
-    fun write(writeEnd: ParcelFileDescriptor, bytes: ByteArray, limit: Int) {
+    fun write(
+        writeEnd: ParcelFileDescriptor,
+        bytes: ByteArray,
+        limit: Int,
+    ) {
         require(bytes.size <= limit)
         ParcelFileDescriptor.AutoCloseOutputStream(writeEnd).use { it.write(bytes) }
     }

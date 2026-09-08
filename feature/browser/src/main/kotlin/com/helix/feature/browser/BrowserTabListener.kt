@@ -41,6 +41,9 @@ internal interface BrowserTabListener {
      */
     fun onMainFrameUnknownError(failingUrl: String?)
 
+    /** The renderer exited; the host has already detached and destroyed its WebView. */
+    fun onRendererGone(failingUrl: String?) = onMainFrameUnknownError(failingUrl)
+
     /** TLS failure: the host already cancelled the error handler (it never proceeds). */
     fun onSslError(failingUrl: String)
 

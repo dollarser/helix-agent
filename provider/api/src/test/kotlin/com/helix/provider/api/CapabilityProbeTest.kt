@@ -16,6 +16,8 @@ class CapabilityProbeTest {
     /** A scripted ModelProvider: records which methods ran and returns canned results. */
     private class FakeProvider(
         private val check: ProviderCheckResult = ProviderCheckResult.Ok,
+        private val minimumToolTokens: Long = 0,
+        private val minimumTextTokens: Long = 0,
         private val models: ModelCatalogResult =
             ModelCatalogResult.Listed(listOf("m1")),
         private val textEvents: List<ModelEvent> =
@@ -73,11 +75,17 @@ class CapabilityProbeTest {
 
                 request.tools.isEmpty() -> {
                     calls += "text"
+                    if ((request.maxOutputTokens ?: 0) < minimumTextTokens) {
+                        return flowOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
+                    }
                     return flowOf(*textEvents.toTypedArray())
                 }
 
                 else -> {
                     calls += "tool"
+                    if ((request.maxOutputTokens ?: 0) < minimumToolTokens) {
+                        return flowOf(*(toolEvents.take(2) + ModelEvent.Completed("length")).toTypedArray())
+                    }
                     return flowOf(*toolEvents.toTypedArray())
                 }
             }
@@ -85,6 +93,14 @@ class CapabilityProbeTest {
     }
 
     private val probe = CapabilityProbe()
+
+    @Test
+    fun reasoningTextProbeNeedsBudgetAndStillRejectsAnIncompleteResponse() =
+        runBlocking {
+            val provider = FakeProvider(minimumTextTokens = 128)
+            assertTrue(CapabilityProbe(textMaxOutputTokens = 16).probe(provider) is ProbeOutcome.Failed)
+            assertTrue(probe.probe(provider) is ProbeOutcome.Ok)
+        }
 
     @Test
     fun happyPathDerivesProbedCapabilities() =
@@ -109,6 +125,15 @@ class CapabilityProbeTest {
                 outcome,
             )
             assertEquals(listOf("check", "models", "text", "tool", "vision"), provider.calls)
+        }
+
+    @Test
+    fun boundedReasoningCanFinishAToolProbeButTruncatedCallsStillFail() =
+        runBlocking {
+            val short = CapabilityProbe(toolMaxOutputTokens = 64).probe(FakeProvider(minimumToolTokens = 96))
+            assertEquals(4, (short as ProbeOutcome.Failed).phase)
+            val sufficient = probe.probe(FakeProvider(minimumToolTokens = 96))
+            org.junit.Assert.assertTrue(sufficient is ProbeOutcome.Ok)
         }
 
     @Test

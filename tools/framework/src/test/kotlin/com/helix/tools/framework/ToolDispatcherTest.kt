@@ -425,6 +425,78 @@ class ToolDispatcherTest {
     }
 
     @Test
+    fun runtimeBudgetIsSampledAfterApprovalAndPersistenceBeforeReachingTheExecutor() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val executor = CaptureExecutor { ToolExecutorResult.TimedOut }
+        registerTool(descriptor(), executor)
+        var remaining = 20_000L
+        val call =
+            request(tool("fake"), version(1), emptyArgs()).copy(
+                onExecutionStarting = { remaining = 250L },
+                remainingExecutionMillis = { remaining },
+            )
+        dispatcher.dispatch(call)
+        assertEquals(clock.instant.plusMillis(250), executor.calls.single().deadline)
+        assertEquals(1, broker.consumeCalls.size)
+    }
+
+    @Test
+    fun runtimeBudgetCannotWidenTheDescriptorDeadline() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val executor = CaptureExecutor { ToolExecutorResult.TimedOut }
+        registerTool(descriptor(), executor)
+        dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()).copy(remainingExecutionMillis = { 60_000L }))
+        assertEquals(clock.instant.plusSeconds(30), executor.calls.single().deadline)
+    }
+
+    @Test
+    fun exhaustedRuntimeBudgetDoesNotEnterTheExecutor() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(descriptor(), executor)
+        val outcome =
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), emptyArgs()).copy(remainingExecutionMillis = { -1L }),
+            ) as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.TIMEOUT, outcome.code)
+        assertTrue(executor.calls.isEmpty())
+        assertTrue(outcome.sideEffectFree)
+        assertFalse(outcome.requiresReview)
+    }
+
+    @Test
+    fun cancellationDuringBlockedExecutionSettlesBeforeTheDescriptorDeadline() {
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val interrupted = java.util.concurrent.CountDownLatch(1)
+        val executor =
+            CaptureExecutor {
+                entered.countDown()
+                try {
+                    Thread.sleep(30_000)
+                    ToolExecutorResult.Completed(emptyObject())
+                } finally {
+                    interrupted.countDown()
+                }
+            }
+        registerTool(descriptor(), executor)
+        val cancel =
+            object : CancelSignal {
+                override fun isCancelled(): Boolean = entered.count == 0L
+            }
+        val started = System.nanoTime()
+        val outcome =
+            dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), cancel = cancel))
+                as ToolDispatchOutcome.ExecutionFailed
+        assertEquals(DispatchOutcomeCode.CANCELLED_AFTER_START, outcome.code)
+        assertTrue(outcome.requiresReview)
+        assertFalse(outcome.sideEffectFree)
+        assertTrue((System.nanoTime() - started) / 1_000_000 < 5_000)
+        assertTrue(interrupted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        assertEquals(1, executor.calls.size)
+    }
+
+    @Test
     fun anExecutorThatIgnoresItsDeadlineIsSettledAsTimeoutByTheDispatcher() {
         // The executor contract says the implementation honors call.deadline — but a blocking
         // I/O call cannot be interrupted from inside, so the DISPATCHER enforces the deadline
@@ -443,6 +515,8 @@ class ToolDispatcherTest {
         val elapsedMillis = System.currentTimeMillis() - startedAtMillis
         val failed = outcome as ToolDispatchOutcome.ExecutionFailed
         assertEquals(DispatchOutcomeCode.TIMEOUT, failed.code)
+        assertTrue(failed.requiresReview)
+        assertFalse(failed.sideEffectFree)
         assertTrue(
             "the watchdog settles at the deadline, not when the executor returns (took ${elapsedMillis}ms)",
             elapsedMillis < 15_000,
@@ -484,6 +558,8 @@ class ToolDispatcherTest {
         val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
         val failed = outcome as ToolDispatchOutcome.ExecutionFailed
         assertEquals(DispatchOutcomeCode.CANCELLED_AFTER_START, failed.code)
+        assertTrue(failed.requiresReview)
+        assertFalse(failed.sideEffectFree)
     }
 
     @Test
@@ -529,10 +605,22 @@ class ToolDispatcherTest {
                             """ "additionalProperties":false}""",
                     ),
             )
-        registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(json("""{"unexpected":1}""")) })
+        val effects =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        registerTool(
+            d,
+            CaptureExecutor {
+                effects.incrementAndGet()
+                ToolExecutorResult.Completed(json("""{"unexpected":1}"""))
+            },
+        )
         val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
         val failed = outcome as ToolDispatchOutcome.ExecutionFailed
         assertEquals(DispatchOutcomeCode.INVALID_OUTPUT, failed.code)
+        assertEquals(1, effects.get())
+        assertTrue(failed.requiresReview)
+        assertFalse(failed.sideEffectFree)
         assertEquals(null, sink.events.single().outputHash)
     }
 
@@ -1087,6 +1175,65 @@ class ToolDispatcherTest {
         val event = sink.events.single()
         assertEquals(queuedAt, event.queuedAt)
         assertTrue(event.queuedAt != null && event.startedAt >= event.queuedAt!!)
+    }
+
+    @Test
+    fun executionPersistenceRunsAfterProofConsumptionAndBeforeExecutor() {
+        val proof = proofFor("call-1")
+        broker.script(ApprovalAcquisition.Approved(proof))
+        val order = mutableListOf<String>()
+        registerTool(
+            descriptor(),
+            CaptureExecutor {
+                assertEquals(listOf("persist"), order)
+                order += "execute"
+                ToolExecutorResult.Completed(emptyObject())
+            },
+        )
+        val outcome =
+            dispatcher.dispatch(
+                request(tool("fake"), version(1), emptyArgs()).copy(
+                    onExecutionStarting = {
+                        assertEquals(listOf(proof), broker.consumeCalls)
+                        order += "persist"
+                    },
+                ),
+            )
+        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
+        assertEquals(listOf("persist", "execute"), order)
+    }
+
+    @Test
+    fun rejectedAndCancelledCallsNeverPublishExecutionStarted() {
+        var starts = 0
+        val req = request(tool("fake"), version(1), emptyArgs()).copy(onExecutionStarting = { starts++ })
+        assertTrue(dispatcher.dispatch(req) is ToolDispatchOutcome.Denied)
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            CaptureExecutor { error("cancelled call must not execute") },
+        )
+        val cancelled =
+            req.copy(
+                cancel =
+                    object : CancelSignal {
+                        override fun isCancelled(): Boolean = true
+                    },
+            )
+        assertTrue(dispatcher.dispatch(cancelled) is ToolDispatchOutcome.Cancelled)
+        assertEquals(0, starts)
+    }
+
+    @Test
+    fun executionPersistenceFailurePreventsEffectsAndIsAudited() {
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0), executor)
+        val req =
+            request(tool("fake"), version(1), emptyArgs()).copy(
+                onExecutionStarting = { error("storage unavailable") },
+            )
+        assertThrows(IllegalStateException::class.java) { dispatcher.dispatch(req) }
+        assertEquals(0, executor.invocations)
+        assertEquals(DispatchOutcomeCode.TOOL_FAILED, sink.events.single().code)
     }
 
     // ---------------------------------------------------------------------- helpers

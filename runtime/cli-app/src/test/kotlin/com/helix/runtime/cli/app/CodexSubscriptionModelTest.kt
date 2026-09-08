@@ -11,15 +11,18 @@ import org.junit.Test
 
 class CodexSubscriptionModelTest {
     @Test fun subscriptionWireRequestOmitsUnsupportedOutputTokenLimit() {
-        val request = ModelRequest(
-            model = "gpt-test",
-            messages = listOf(ModelMessage(ModelRole.USER, "hello")),
-            maxOutputTokens = 8,
-        )
+        val request =
+            ModelRequest(
+                model = "gpt-test",
+                messages = listOf(ModelMessage(ModelRole.USER, "hello")),
+                maxOutputTokens = 8,
+            )
 
-        val body = Json.parseToJsonElement(
-            CodexSubscriptionModel.encodeSubscriptionRequest(request),
-        ).jsonObject
+        val body =
+            Json
+                .parseToJsonElement(
+                    CodexSubscriptionModel.encodeSubscriptionRequest(request),
+                ).jsonObject
 
         assertEquals("gpt-test", body.getValue("model").toString().trim('"'))
         assertFalse("max_output_tokens" in body)

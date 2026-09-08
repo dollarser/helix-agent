@@ -1,5 +1,3 @@
-@file:Suppress("ktlint:standard:max-line-length")
-
 package com.helix.runtime.cli.app
 
 import org.junit.Assert.assertEquals
@@ -15,8 +13,12 @@ class GrokDeviceOAuthTest {
         assertEquals("b1a00492-073a-47ea-816f-4c329264a828", GrokDeviceProtocol.CLIENT_ID)
         val attempt =
             GrokDeviceProtocol.decodeAttempt(
-                """{"device_code":"device","user_code":"ABCD-1234","verification_uri":"https://accounts.x.ai/device","verification_uri_complete":"https://accounts.x.ai/device?code=ABCD-1234","expires_in":600,"interval":2}"""
-                    .encodeToByteArray(),
+                (
+                    "{\"device_code\":\"device\",\"user_code\":\"ABCD-1234\",\"verification_uri" +
+                        "\":\"https://accounts.x.ai/device\",\"verification_uri_complete\":\"htt" +
+                        "ps://accounts.x.ai/device?code=ABCD-1234\",\"expires_in\":600,\"inter" +
+                        "val\":2}"
+                ).encodeToByteArray(),
                 1_000,
             )
         assertEquals(5_000, attempt.intervalMillis)

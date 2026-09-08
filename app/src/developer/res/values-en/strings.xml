@@ -9,4 +9,19 @@
     <string name="allfiles_state_lost">System status: expired</string>
     <string name="allfiles_state_unavailable">System status: not available on this system/version (API below 30)</string>
     <string name="allfiles_title">All-files access</string>
+    <string name="settings_proot_verify_success">Verification passed (baseline matches)</string>
+    <string name="settings_proot_verify_mismatch">Update required: the Runtime baseline does not match the verified anchor (was the Runtime APK updated?). Update it under “Repair Runtime”, then select “Reset baseline” and verify again.</string>
+    <string name="settings_proot_verify_failure">Verification failed: %1$s</string>
+    <string name="settings_proot_remove_opened">This app’s anchor was cleared. Select “Remove Runtime” on the Runtime screen to finish.</string>
+    <string name="settings_proot_remove_unavailable">Could not open Runtime (%1$s)</string>
+    <string name="settings_proot_verified">Verified</string>
+    <string name="settings_proot_not_installed">Not installed</string>
+    <string name="settings_proot_not_verified">Not verified</string>
+    <string name="settings_proot_disabled">Disabled/force-stopped</string>
+    <string name="proot_recovery_running">The original job is still running.</string>
+    <string name="proot_recovery_succeeded">The original job completed; its result has not been imported or verified.</string>
+    <string name="proot_recovery_stopped">The original job was stopped.</string>
+    <string name="proot_recovery_ended">The original job ended without confirmed success.</string>
+    <string name="proot_recovery_stop_requested">Stop requested for the original job. Query again to confirm.</string>
+    <string name="proot_recovery_expired">The original Linux task result has expired. The interrupted task will not be replayed.</string>
 </resources>

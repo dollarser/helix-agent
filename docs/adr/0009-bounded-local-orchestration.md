@@ -1,9 +1,9 @@
 # ADR-0009: 手机端有界委托与声明式 Workflow
 
-Status: proposed
+Status: accepted
 Date: 2026-08-31
 HXA: HXA-105
-Deciders: pending
+Deciders: Project owner（2026-09-06 授权审查，合理时接受；接受架构约束，不将未完成验证记为通过）
 Supersedes: none
 Superseded by: none
 
@@ -15,7 +15,9 @@ Helix 当前产品和已实现 M1 领域模型采用单 Agent Turn/Goal。外部
 
 ## Decision
 
-提议 HXA-105 只评估以下有界能力，证据通过并由项目所有者接受后才进入产品：
+2026-09-06 接受以下有界架构约束。HXA-105 的隔离 Spike 不进入产品；后续生产实现
+必须单独明确 HXA 范围，并通过下文全部启用门禁。接受设计不授权以当前 Spike 替代生产
+Dispatcher、持久化或授权实现，也不声明已证明模型收益：
 
 1. **只读 child delegation**：仅 developer/Advanced 实验入口；最大深度 1、并发 2、每父 Turn 最多 4 个 child。child 的模型调用、token、Tool 次数和墙钟全部计入父 Turn/Goal 预算。
 2. **最小上下文与无授权继承**：child 接收自包含任务和最小只读 snapshot，或父会话已完成轮次的确定性截断；不继承 pending approval、Approval Proof、Secret、UI token、Root/Automation session 或可写 capability。
@@ -43,9 +45,12 @@ Helix 当前产品和已实现 M1 领域模型采用单 Agent Turn/Goal。外部
 
 ## Verification
 
-Required before acceptance（HXA-105）：
+已执行的隔离 Spike 证据（HXA-105）：
 
-HXA-105 已建立隔离的 `:spikes:bounded-orchestration` falsification harness；它不依赖 `:app`、生产 Dispatcher 或 Tool Registry。2026-09-05 执行 6 个 JVM 测试与 API 29/36 各 2 个 instrumentation 测试，证明 depth/concurrency/total、父预算跨重建、只读 ≤ L1 工具面、取消/恢复不重放、source/trust/hash/evidence refs 和确定性 call-sequence merge，以及 DAG 的未知依赖、环和节点上限拒绝。该证据只证明边界模型可实现，不证明质量/资源收益，因此 ADR 保持 `proposed`，产品继续单 Agent。
+HXA-105 已建立隔离的 `:spikes:bounded-orchestration` falsification harness；它不依赖 `:app`、生产 Dispatcher 或 Tool Registry。2026-09-05 执行 6 个 JVM 测试与 API 29/36 各 2 个 instrumentation 测试，证明 depth/concurrency/total、父预算跨重建、只读 ≤ L1 工具面、取消/恢复不重放、source/trust/hash/evidence refs 和确定性 call-sequence merge，以及 DAG 的未知依赖、环和节点上限拒绝。该证据只证明部分边界模型可实现，不证明质量/资源收益；2026-09-05 的结论因此保持 `proposed`。
+2026-09-06 的架构接受决定见下节；产品仍继续单 Agent。
+
+Required before production enablement（以下未执行项仍是阻断门禁）：
 
 - 用固定研究/repo inspection/verifier 场景比较单 Agent 与 1～2 个 child 的正确率、模型调用、token、墙钟、网络字节、峰值内存、热量与电量；没有明显收益则拒绝。
 - 证明 depth=1、concurrent=2、total-per-turn=4 和父预算在并发/恢复/时钟回拨下 fail closed。
@@ -55,7 +60,26 @@ HXA-105 已建立隔离的 `:spikes:bounded-orchestration` falsification harness
 - JSON DAG 覆盖未知 node、循环/无界 fan-out、超预算、取消、依赖失败、写节点审批和恢复；脚本/插件/Policy 节点拒绝。
 - API 29/36 与代表性真机测 30 分钟并发任务，无不可接受温升、内存压力或后台误运行。
 
-当前完成 HXA-105 隔离 Spike，但未实现生产 child、Agent graph 或 Workflow，也未接入普通 Agent 工具表。30 分钟真机资源/收益对照与真实 Room kill-point 持久化仍未完成，故不满足 acceptance。
+当前完成 HXA-105 隔离 Spike，但未实现生产 child、Agent graph 或 Workflow，也未接入普通 Agent 工具表。30 分钟真机资源/收益对照与真实 Room kill-point 持久化仍未完成，故不满足生产启用条件。
+
+## 2026-09-06 授权收尾审查
+
+项目所有者授权“如果合理就接受”。本次审查发现原 Spike 的负数 usage、累计整数溢出、
+completion 自报 trusted，以及跨 coordinator 非原子准入缺少反例保护。现已补充测试并修复：
+usage/budget 非负、累计 checked arithmetic、completion trust 固定 untrusted、共享 journal
+上的准入/状态事务互斥。20 个同时请求者共用两个槽位的回归也已通过。
+这些是隔离 Spike 的边界修复，不能反向改写 2026-09-05 的完成记录。
+
+接受理由：共享父预算、只读低风险工具面、不继承授权、结果保留来源且不能自授信任，
+与既有单 Agent Dispatcher 和 ADR-0004 的边界兼容；封闭且有界的 DAG 可以复用这些契约，
+无需新增可执行编排语言。相比直接移植桌面递归 Agent，状态空间与权限传播可受控。
+
+本次所有者授权下的决定范围是**架构约束接受**，不是**生产化收益验收**。
+明确将旧提案混合在 “before acceptance” 下的模型收益、Room kill-point 与真机门禁
+保留为 “before production enablement”；这是一项显式阶段划分，不是声称旧门禁已通过。
+当前仍没有运行期间预算预留/持久 checkpoint、真实 Room graph、模型收益或物理热量/电量证明。
+这些必须在后续生产实现前逐项补齐；若无明显收益，保持单 Agent 并重新评审本决定。
+本轮不新增生产 child、Agent graph、Workflow 入口，不新增自动唤醒或授权继承。
 
 ## Reconsider when
 

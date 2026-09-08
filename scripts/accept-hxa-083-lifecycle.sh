@@ -38,7 +38,7 @@ fi
 ADB="adb -s $SERIAL"
 echo "device: $SERIAL"
 
-RUNNER="com.helix.agent.developer.test/androidx.test.runner.AndroidJUnitRunner"
+RUNNER="com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner"
 CLASS="com.helix.app.proot.ProotRuntimeBindingE2eDeviceTest"
 COMPANION="com.helix.runtime.proot"
 MAIN_APP="com.helix.agent.developer"
@@ -97,6 +97,9 @@ warm_companion() {
   $ADB shell su 0 am force-stop "$COMPANION"
   $ADB shell su 0 am start -n "$COMPANION/.app.ProotRepairActivity" >/dev/null
   sleep 3
+  # Background the repair Activity before killing: API 36 otherwise restores its top Activity.
+  $ADB shell input keyevent KEYCODE_HOME
+  sleep 1
   kill_companion
   [[ -z "$(companion_pidof)" ]] || { echo "companion process still alive after kill"; exit 1; }
 }

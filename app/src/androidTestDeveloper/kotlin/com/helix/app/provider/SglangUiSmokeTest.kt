@@ -13,7 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.ui.container
-import com.helix.app.ui.deleteAllProviders
+import com.helix.app.ui.deleteEditableProviders
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import org.junit.After
@@ -60,7 +60,7 @@ class SglangUiSmokeTest {
     @Before
     fun setUp() {
         composeRule.resetDeterministicUiState()
-        deleteAllProviders(composeRule.container())
+        deleteEditableProviders(composeRule.container())
     }
 
     @After
@@ -122,9 +122,7 @@ class SglangUiSmokeTest {
         // --- the five-phase connection test PASSES against the real server (generous
         // budget: real 27B text/tool/vision generations, not a loopback fixture) ---
         composeRule.onNodeWithTag("provider-test").performClick()
-        composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty()
-        }
+        awaitPassingProbe()
         composeRule.onNodeWithTag("provider-status-passed").assertIsDisplayed()
         Log.d(TAG, "sglang UI smoke: five-phase connection test PASSED against $endpoint")
 
@@ -151,6 +149,20 @@ class SglangUiSmokeTest {
     // --- helpers (mirror SelfHostedSmokeTest's guard/fetch pattern) -------------------------
 
     /** Plain-HTTP GET (pre-check only); null when unreachable or non-2xx. */
+    private fun awaitPassingProbe() {
+        composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
+            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithTag("provider-status-failed").fetchSemanticsNodes().isNotEmpty()
+        }
+        val status =
+            composeRule
+                .container()
+                .providerService.rows.value
+                .single { it.displayName == NAME }
+                .status
+        assertTrue("connection test must pass: $status", status is ConnectionTestStatus.Passed)
+    }
+
     private fun fetchText(url: String): String? =
         try {
             val connection =

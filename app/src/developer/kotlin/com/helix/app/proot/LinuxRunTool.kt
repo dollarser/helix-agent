@@ -347,6 +347,8 @@ object LinuxRunTool {
      * production executor screens it before the wire; tests verify the screen call.
      */
     data class ParsedLinuxCall(
+        val toolCallId: String,
+        val turnId: String?,
         val command: ProotJobCommand,
         val cwd: String,
         val environment: Map<String, String>,
@@ -467,6 +469,8 @@ object LinuxRunTool {
             call.deadline.toEpochMilli().coerceAtMost(System.currentTimeMillis() + perCallMs)
         return ParsedResult.Ok(
             ParsedLinuxCall(
+                toolCallId = call.toolCallId,
+                turnId = call.turnId,
                 command = command,
                 cwd = cwd,
                 environment = environment,
@@ -484,10 +488,13 @@ object LinuxRunTool {
     private fun failed(
         detail: String,
         code: String,
+        sideEffectFree: Boolean = true,
+        requiresReview: Boolean = false,
     ): ToolExecutorResult.Failed =
         ToolExecutorResult.Failed(
             detail,
-            sideEffectFree = true,
+            sideEffectFree = sideEffectFree,
+            requiresReview = requiresReview,
             auditDetail =
                 buildJsonObject {
                     put("code", JsonPrimitive(code))
@@ -522,6 +529,8 @@ object LinuxRunTool {
         private val scratchRoot: File,
         private val jobIdProvider: () -> String,
         private val knownSecretValues: () -> Set<String>,
+        private val beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
+        private val persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
     ) : LinuxExecutor {
         @Suppress("TooGenericExceptionCaught", "SwallowedException", "ReturnCount")
         override fun execute(
@@ -570,6 +579,22 @@ object LinuxRunTool {
                         " — repair it from the in-app Runtime entry; nothing was submitted."
                 }
             }
+
+        private fun submissionFailure(cause: com.helix.runtime.proot.ipc.UnavailableCause): ToolExecutorResult.Failed {
+            val uncertain =
+                cause == com.helix.runtime.proot.ipc.UnavailableCause.DEAD_OBJECT ||
+                    cause == com.helix.runtime.proot.ipc.UnavailableCause.PROTOCOL_MISMATCH
+            return failed(
+                if (uncertain) {
+                    "the Runtime submission result is unknown — reconcile the original job; nothing was replayed."
+                } else {
+                    unavailableDetail(cause)
+                },
+                unavailableCode(cause),
+                sideEffectFree = !uncertain,
+                requiresReview = uncertain,
+            )
+        }
 
         /** The stable audit code: NEEDS_UPDATE is the 需更新 split of the connection failure. */
         private fun unavailableCode(cause: com.helix.runtime.proot.ipc.UnavailableCause): String =
@@ -647,6 +672,8 @@ object LinuxRunTool {
                     maxOutputBytes = 8L * 1024L * 1024L,
                     inputManifestSha256 = inputSha,
                 )
+            // Persist identity before any submit transaction; failure here prevents submission.
+            beforeSubmit(call, spec)
             // 4) Submit: PFDs handed to the client; it owns them in EVERY outcome.
             val outputZip = File(scratch, "output.zip")
             val inputPfd =
@@ -662,10 +689,7 @@ object LinuxRunTool {
                 )
             when (val submit = client.submit(spec, inputPfd, outputPfd)) {
                 is ProotJobClient.SubmitOutcome.Unavailable -> {
-                    return failed(
-                        unavailableDetail(submit.cause),
-                        unavailableCode(submit.cause),
-                    )
+                    return submissionFailure(submit.cause)
                 }
 
                 is ProotJobClient.SubmitOutcome.Rejected -> {
@@ -696,6 +720,8 @@ object LinuxRunTool {
                         "the job did not settle within the wait window (interrupted; it may still be " +
                             "running in the Runtime) — reconcile by job id; nothing was replayed.",
                         "INTERRUPTED_TIMEOUT",
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 }
 
@@ -704,6 +730,8 @@ object LinuxRunTool {
                         "the Runtime became unreachable while waiting (interrupted): " + outcome.cause.name +
                             " — reconcile by job id; nothing was replayed.",
                         "INTERRUPTED_" + outcome.cause.name,
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 }
 
@@ -711,6 +739,8 @@ object LinuxRunTool {
                     return failed(
                         "the Runtime no longer knows this job id (journal evicted); parked INTERRUPTED.",
                         "INTERRUPTED_UNKNOWN",
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 }
 
@@ -718,6 +748,8 @@ object LinuxRunTool {
                     return failed(
                         "the job's evidence expired before reconciliation (30-day retention); parked INTERRUPTED.",
                         "INTERRUPTED_EVIDENCE_EXPIRED",
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 }
 
@@ -729,14 +761,25 @@ object LinuxRunTool {
                 return failed(
                     "the job ended " + record.state.wire + (record.exitCode?.let { " (exit code $it)" }.orEmpty()),
                     "JOB_" + record.state.wire,
+                    sideEffectFree = false,
                 )
             }
             if (!outputZip.isFile || outputZip.length() == 0L) {
-                return failed("the output archive was not delivered (empty output PFD).", "OUTPUT_MISSING")
+                return failed(
+                    "the output archive was not delivered (empty output PFD).",
+                    "OUTPUT_MISSING",
+                    sideEffectFree = false,
+                    requiresReview = true,
+                )
             }
             val expectedManifestSha =
                 record.outputManifestSha256
-                    ?: return failed("the terminal record carries no output manifest hash.", "OUTPUT_MANIFEST_MISSING")
+                    ?: return failed(
+                        "the terminal record carries no output manifest hash.",
+                        "OUTPUT_MANIFEST_MISSING",
+                        sideEffectFree = false,
+                        requiresReview = true,
+                    )
             val extraction =
                 try {
                     ZipJobExtractor.extract(outputZip, File(scratch, "extracted"))
@@ -744,6 +787,8 @@ object LinuxRunTool {
                     return failed(
                         "the output archive failed verification: ${e.message?.take(120)}",
                         "OUTPUT_VERIFY_FAILED",
+                        sideEffectFree = false,
+                        requiresReview = true,
                     )
                 }
             // The extraction's manifest hash is the CANONICAL manifest-document hash — it is
@@ -753,6 +798,18 @@ object LinuxRunTool {
                 return failed(
                     "the output archive hash does not match the verified terminal record.",
                     "OUTPUT_HASH_MISMATCH",
+                    sideEffectFree = false,
+                    requiresReview = true,
+                )
+            }
+            try {
+                persistVerifiedResult(call, record, outputZip)
+            } catch (e: Exception) {
+                return failed(
+                    "the verified result could not be saved; recover the original job.",
+                    "OUTPUT_PERSIST_FAILED",
+                    sideEffectFree = false,
+                    requiresReview = true,
                 )
             }
             var outputImported = false
@@ -770,6 +827,7 @@ object LinuxRunTool {
                         return failed(
                             "the result could not be imported into the Workspace: ${e.message?.take(120)}",
                             "OUTPUT_IMPORT_FAILED",
+                            sideEffectFree = false,
                         )
                     }
                     outputImported = true

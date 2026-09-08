@@ -76,6 +76,7 @@ fun SettingsScreen(
     egressRules: HighSensitivityRuleRepository,
     runControlStore: RunControlStore,
     connectorService: com.helix.app.connector.ConnectorService? = null,
+    lanScopeStore: com.helix.app.network.LanScopeStore? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -161,6 +162,7 @@ fun SettingsScreen(
 
         if (AdvancedProfileAvailability.ADVANCED_AVAILABLE && profile == SafetyProfile.ADVANCED) {
             HorizontalDivider()
+            lanScopeStore?.let { LanScopeSettingsSection(it) }
             EgressRuleSection(egressRules)
         }
     }

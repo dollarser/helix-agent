@@ -29,6 +29,7 @@ class JsJsonDocumentTest {
             "[]",
             "{}",
             "[1,2,3]",
+            """{"a":[{}, {"b":[]}, 3], "c":[false]}""",
             """{"a":1}""",
             "  [ 1 , { \"b\" : null } ]  ",
             "\"\"",
@@ -56,6 +57,9 @@ class JsJsonDocumentTest {
             """{"a":1,""}""",
             """{"a":1,}""",
             "[1,]",
+            "[{}, ]",
+            """{"a":[], }""",
+            "[{]}",
             "[1 2]",
             "tru",
             "nullx",
@@ -95,6 +99,9 @@ class JsJsonDocumentTest {
         assertTrue(JsJsonDocument.isValidJson(deepValid.toUtf8()))
         assertFalse(JsJsonDocument.isValidJson(deepInvalid.toUtf8()))
         assertTrue(JsJsonDocument.isValidJson(objectDeepValid.toUtf8()))
+        val objectAtCap = """{"a":""".repeat(512) + "1" + "}".repeat(512)
+        assertTrue(JsJsonDocument.isValidJson(objectAtCap.toUtf8()))
+        assertFalse(JsJsonDocument.isValidJson(("[$objectAtCap]").toUtf8()))
         assertEquals(512, JsJsonDocument.MAX_DEPTH)
     }
 

@@ -95,7 +95,7 @@ sealed interface ToolExecutorResult {
     data class Failed(
         val detail: String,
         val sideEffectFree: Boolean = false,
-        /** True only when an external call may have been accepted but cannot yet be reconciled. */
+        /** True when execution may have produced effects that cannot yet be verified. */
         val requiresReview: Boolean = false,
         val auditDetail: JsonObject? = null,
     ) : ToolExecutorResult {

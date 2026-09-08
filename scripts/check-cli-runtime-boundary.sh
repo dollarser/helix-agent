@@ -59,10 +59,18 @@ rg -F 'TRANSACTION_JOB_RECONCILE' "$client" >/dev/null
 rg -F 'const val MAX_BYTES = 512 * 1024' "$payload_codec" >/dev/null
 rg -F 'const val MAX_BYTES = 1024 * 1024' "$payload_codec" >/dev/null
 rg -F 'const val MAX_EVENTS = 2048' "$payload_codec" >/dev/null
-rg -F 'CliPfdChannel' "$client" >/dev/null
+wire="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobWire.kt"
+request_pipe="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRequestPipe.kt"
+awaiter="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobAwaiter.kt"
+rg -F 'CliModelJobWire.transact' "$client" >/dev/null
+rg -F 'CliModelJobAwaiter' "$client" >/dev/null
+rg -F 'CliPfdChannel.read' "$wire" >/dev/null
+rg -F 'CliRequestPipe(payload, jobId)' "$wire" >/dev/null
+rg -F 'CliPfdChannel.write' "$request_pipe" >/dev/null
+rg -F 'TRANSACTION_JOB_CANCEL' "$awaiter" >/dev/null
 rg -F 'reconciledAtEpochMillis' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobRecord.kt" >/dev/null
 rg -F 'put("store", false)' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionModel.kt" >/dev/null
-if rg -n 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_codec"; then
+if rg -l 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_codec" "$wire" "$request_pipe" "$awaiter"; then
     echo "credential material escaped into the main-app model IPC" >&2
     exit 1
 fi
@@ -80,13 +88,13 @@ developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/C
 developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 rg -F 'CodexSubscriptionProvider(context, config)' "$developer_module" >/dev/null
-rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, when (providerId)' "$developer_module" >/dev/null
+rg -U 'ComponentName\(\s*CliRuntimeProtocol\.RUNTIME_PACKAGE,\s*when\s*\(providerId\)' "$developer_module" >/dev/null
 rg -F 'CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY' "$developer_module" >/dev/null
 rg -F 'CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"' "$developer_module" >/dev/null
 rg -F 'toolCalls = false' "$developer_module" >/dev/null
 rg -F 'vision = false' "$developer_module" >/dev/null
 rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
-rg -F 'fun create(context: Context, config: ProviderConfig): ModelProvider? = null' "$consumer_module" >/dev/null
+rg -U 'override fun create\(\s*context: Context,\s*config: ProviderConfig,?\s*\): ModelProvider\? = null' "$consumer_module" >/dev/null
 rg -F 'ManagedProviderAccountResult.NOT_SUPPORTED' "$consumer_module" >/dev/null
 consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 test -f "$consumer_apk"

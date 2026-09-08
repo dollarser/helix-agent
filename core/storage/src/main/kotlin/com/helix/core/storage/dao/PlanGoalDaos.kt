@@ -72,7 +72,8 @@ interface GoalDao {
     // Room @Query bindings require one parameter per column.
     @Suppress("LongParameterList")
     @Query(
-        "UPDATE goals SET state = :state, nextCheckpoint = :nextCheckpoint, runCount = :runCount, " +
+        "UPDATE goals SET state = :state, budgets = :budgets, criteria = :criteria, " +
+            "planId = :planId, planHash = :planHash, nextCheckpoint = :nextCheckpoint, runCount = :runCount, " +
             "modelCalls = :modelCalls, toolCalls = :toolCalls, totalTokens = :totalTokens, " +
             "runTimeMillis = :runTimeMillis, currentWakeMillis = :currentWakeMillis, " +
             "retries = :retries, lastWakeReason = :lastWakeReason, error = :error, " +
@@ -80,6 +81,10 @@ interface GoalDao {
     )
     fun updateGoal(
         id: String,
+        budgets: String,
+        criteria: String,
+        planId: String?,
+        planHash: String?,
         state: String,
         nextCheckpoint: Long?,
         runCount: Int,
@@ -116,7 +121,9 @@ interface GoalRunDao {
     @Query(
         "UPDATE goal_runs SET modelCalls = :modelCalls, toolCalls = :toolCalls, " +
             "tokens = :tokens, wakeDurationMillis = :wakeDurationMillis " +
-            "WHERE id = :id AND endedAt IS NULL",
+            "WHERE id = :id AND endedAt IS NULL " +
+            "AND modelCalls <= :modelCalls AND toolCalls <= :toolCalls AND tokens <= :tokens " +
+            "AND COALESCE(wakeDurationMillis, 0) <= :wakeDurationMillis",
     )
     fun checkpointUsage(
         id: String,
@@ -134,7 +141,9 @@ interface GoalRunDao {
     @Query(
         "UPDATE goal_runs SET outcome = :outcome, endedAt = :endedAt, wakeDurationMillis = :wakeDurationMillis, " +
             "modelCalls = :modelCalls, toolCalls = :toolCalls, tokens = :tokens " +
-            "WHERE id = :id AND endedAt IS NULL",
+            "WHERE id = :id AND endedAt IS NULL " +
+            "AND modelCalls <= :modelCalls AND toolCalls <= :toolCalls AND tokens <= :tokens " +
+            "AND COALESCE(wakeDurationMillis, 0) <= :wakeDurationMillis",
     )
     fun updateOutcome(
         id: String,

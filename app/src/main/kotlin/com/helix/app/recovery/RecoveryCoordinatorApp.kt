@@ -82,6 +82,10 @@ class RecoveryCoordinatorApp(
             plan.parkedGoals.forEach { park ->
                 appliedGoals += applyGoalPark(park, now)
             }
+            val interruptedModels = storage.modelCalls.interruptForInterruptedTurns()
+            if (interruptedModels > 0) {
+                audit("process-recovery", "recovery.model_calls_interrupted", """{"count":$interruptedModels}""", now)
+            }
         }
         return Report(
             interruptedTurns = appliedTurns.associate { applied -> applied.turnId to applied.uncertainToolCall },
@@ -161,6 +165,8 @@ class RecoveryCoordinatorApp(
         park: GoalRecovery.Park,
         now: Long,
     ): GoalApplied {
+        val recoveringRuns = storage.goalRuns.listOpenByGoal(park.goalId.value)
+        recoveringRuns.forEach { GoalUsageReservations(storage).recoverRun(it.id, now) }
         val goal = storage.goals.resolve(park.goalId.value)
         storage.goals.updateGoal(goal.copy(state = GoalState.PAUSED.name, currentWakeMillis = 0L))
         val closedRuns =
@@ -194,7 +200,7 @@ class RecoveryCoordinatorApp(
             payload = """{"goal":"${goal.id}"}""",
             at = now,
         )
-        return GoalApplied(goal.id, closedRuns)
+        return GoalApplied(goal.id, (closedRuns + recoveringRuns.map { it.id }).distinct())
     }
 
     private fun toolCallState(name: String): ToolCallState {

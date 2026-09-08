@@ -129,6 +129,27 @@ class FileContentStoreTest {
         assertEquals(expected, FileContentStore.sha256Hex("hello".toByteArray()))
     }
 
+    @Test
+    fun `file hashing handles empty partial and multiple buffers`() {
+        withTempRoot { root ->
+            val file = File(root, "artifact.zip")
+            for (size in listOf(0, 1, 8191, 8192, 8193, 65537)) {
+                val bytes = ByteArray(size) { (it % 251).toByte() }
+                file.writeBytes(bytes)
+                assertEquals(FileContentStore.sha256Hex(bytes), FileContentStore.sha256Hex(file))
+            }
+        }
+    }
+
+    @Test
+    fun `file hashing propagates missing file instead of returning a digest`() {
+        withTempRoot { root ->
+            org.junit.Assert.assertThrows(java.io.FileNotFoundException::class.java) {
+                FileContentStore.sha256Hex(File(root, "missing.zip"))
+            }
+        }
+    }
+
     private inline fun withTempRoot(block: (File) -> Unit) {
         val root = File.createTempFile("helix-content-store", "test")
         assertTrue(root.delete())

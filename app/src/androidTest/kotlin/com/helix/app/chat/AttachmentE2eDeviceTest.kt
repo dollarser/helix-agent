@@ -39,6 +39,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,6 +77,410 @@ class AttachmentE2eDeviceTest {
 
     /** The fake SAF uri -> the local file it serves (the uri is never a real path). */
     private val sourceFiles = HashMap<String, File>()
+
+    @Test
+    fun goalContinueUsesTheRealModelBoundaryAndPersistsLifetimeUsage() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId = fixtureGoal(fixture)
+            fixture.wire.script(sseResponse(textAnswerStream("first")), sseResponse(textAnswerStream("second")))
+            fixture.service.continueGoal(goalId, "First check")
+            await(fixture, "first Goal run settles") { turnIsTerminal(fixture) }
+            assertEquals(
+                1,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+            assertEquals(
+                14L,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .totalTokens,
+            )
+            assertEquals(
+                "PAUSED",
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .state,
+            )
+            fixture.service.continueGoal(goalId, "Continue check")
+            await(fixture, "second Goal run settles") { fixture.wire.callCount == 2 && turnIsTerminal(fixture) }
+            assertEquals(
+                2,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+            assertEquals(
+                28L,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .totalTokens,
+            )
+            assertEquals(
+                2,
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .size,
+            )
+            fixture.service.continueGoal(goalId, "No remaining calls")
+            await(fixture, "exhausted Goal refuses Continue") { fixture.service.screen.value.blockedReason != null }
+            assertEquals(2, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun stoppedGoalStreamRetainsItsPreTransportReservation() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId = fixtureGoal(fixture)
+            fixture.wire.script(
+                stalledResponse(
+                    "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"partial\"}," +
+                        "\"finish_reason\":null}]}\n\n",
+                ),
+            )
+            fixture.service.continueGoal(goalId, "Check slowly")
+            await(fixture, "Goal stream reaches transport") { fixture.wire.callCount == 1 }
+            val run =
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .single()
+            val held =
+                fixture.storage.goalUsageReservations
+                    .pendingForRun(run.id)
+                    .single { it.kind == "MODEL" }
+            assertTrue(held.reservedTokens > 0)
+            fixture.service.stop()
+            await(fixture, "cancelled Goal settles") { turnIsTerminal(fixture) }
+            assertEquals(
+                "INTERRUPTED",
+                fixture.storage.goalUsageReservations
+                    .byId(held.id)
+                    ?.state,
+            )
+            assertEquals(
+                held.reservedTokens,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .totalTokens,
+            )
+            assertEquals(
+                1,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+            assertEquals(1, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun goalAttachmentConfirmationKeepsItsGoalBinding() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId = fixtureGoal(fixture)
+            stageTextAttachment(fixture, "Synthetic Goal input")
+            fixture.wire.script(sseResponse(textAnswerStream("checked")))
+            fixture.service.continueGoal(goalId, "Check attachment")
+            await(fixture, "Goal attachment disclosure") { fixture.service.screen.value.pendingDisclosure != null }
+            assertTrue(
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .isEmpty(),
+            )
+            assertEquals(0, fixture.wire.callCount)
+            fixture.service.confirmSend()
+            await(fixture, "confirmed Goal completes") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            val binding = requireNotNull(fixture.storage.goalTurnBindings.byTurn(turn.id))
+            assertEquals(
+                goalId,
+                fixture.storage.goalRuns
+                    .resolve(binding.runId)
+                    .goalId,
+            )
+            assertEquals(
+                1,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun cancellingGoalDisclosureDoesNotBindTheNextOrdinarySend() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId = fixtureGoal(fixture)
+            stageTextAttachment(fixture, "Synthetic Goal input")
+            fixture.service.continueGoal(goalId, "Check attachment")
+            await(fixture, "Goal disclosure appears") { fixture.service.screen.value.pendingDisclosure != null }
+            fixture.service.cancelPendingSend()
+            fixture.wire.script(sseResponse(textAnswerStream("ordinary")))
+            fixture.service.send("Ordinary message")
+            await(fixture, "ordinary disclosure appears") { fixture.service.screen.value.pendingDisclosure != null }
+            fixture.service.confirmSend()
+            await(fixture, "ordinary turn completes") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            assertNull(fixture.storage.goalTurnBindings.byTurn(turn.id))
+            assertTrue(
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .isEmpty(),
+            )
+            assertEquals(
+                0,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    private fun fixtureGoal(fixture: Fixture): String =
+        kotlinx.coroutines.runBlocking {
+            fixture.service.createGoal(
+                "Check synthetic output",
+                listOf("Verified output"),
+                com.helix.core.model
+                    .GoalBudgets(2, 4, 100_000, 60_000, 10_000, 0),
+            )
+        }
+
+    @Test
+    fun goalModelCallExhaustionStopsBeforeExecutingReturnedTools() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId =
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.createGoal(
+                        "One call",
+                        listOf("Checked"),
+                        com.helix.core.model
+                            .GoalBudgets(1, 4, 100_000, 60_000, 10_000, 0),
+                    )
+                }
+            fixture.wire.script(sseResponse(toolCallStream("not-executed", "\"time.now\"", "{}")))
+            fixture.service.continueGoal(goalId, "Check time")
+            await(fixture, "Goal model budget stops the turn") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
+            assertTrue(
+                fixture.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .isEmpty(),
+            )
+            assertEquals(
+                1,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .modelCalls,
+            )
+            assertEquals(1, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun unavailableGoalReportsABlockWithoutCreatingATurnOrCallingTheModel() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            fixture.service.continueGoal("missing-goal", "Continue")
+            await(fixture, "missing Goal is visible") { fixture.service.screen.value.blockedReason != null }
+            assertTrue(
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .isEmpty(),
+            )
+            assertEquals(0, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun goalToolBudgetSettlesEverySlotAndExecutesOnlyTheAdmittedCall() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId =
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.createGoal(
+                        "Bound tools",
+                        listOf("Checked"),
+                        com.helix.core.model
+                            .GoalBudgets(3, 1, 100_000, 60_000, 10_000, 0),
+                    )
+                }
+            val extra =
+                "{\"id\":\"two\",\"index\":1,\"type\":\"function\"," +
+                    "\"function\":{\"name\":\"time.now\",\"arguments\":\"{}\"}},"
+            val stream =
+                toolCallStream("one", "\"time.now\"", "{}").replace(
+                    "\"tool_calls\":[",
+                    "\"tool_calls\":[" + extra,
+                )
+            fixture.wire.script(sseResponse(stream))
+            fixture.service.continueGoal(goalId, "Check twice")
+            await(fixture, "tool budget settles the batch") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            val calls =
+                fixture.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .associateBy { it.callId }
+            assertEquals(2, calls.size)
+            val aliases = persistedToolAliases(fixture)
+            assertEquals("COMPLETED", calls.getValue(aliases.getValue("one")).state)
+            assertEquals("FAILED", calls.getValue(aliases.getValue("two")).state)
+            calls.values.forEach { assertNotNull(fixture.storage.toolResults.byToolCall(it.id)) }
+            assertEquals(
+                1,
+                fixture.storage.goals
+                    .resolve(goalId)
+                    .toolCalls,
+            )
+            assertEquals(
+                "BUDGET_EXHAUSTED(maxToolCalls)",
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .single()
+                    .outcome,
+            )
+            assertEquals(1, fixture.wire.callCount)
+            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun goalWakeTimeBudgetStopsAStalledModelAndParksInsteadOfCancellingTheGoal() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            val goalId =
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.createGoal(
+                        "Bound duration",
+                        listOf("Checked"),
+                        com.helix.core.model
+                            .GoalBudgets(3, 4, 100_000, 60_000, 2_000, 0),
+                    )
+                }
+            fixture.wire.script(
+                stalledResponse("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"waiting\"}}]}\n\n"),
+            )
+            fixture.service.continueGoal(goalId, "Wait for a result")
+            await(fixture, "Goal duration stops the stalled flow") { turnIsTerminal(fixture) }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            val goal = fixture.storage.goals.resolve(goalId)
+            assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
+            assertEquals("PAUSED", goal.state)
+            assertTrue(goal.runTimeMillis >= 2_000)
+            assertEquals(1, goal.modelCalls)
+            assertEquals(1, fixture.wire.callCount)
+            val run =
+                fixture.storage.goalRuns
+                    .listByGoal(goalId)
+                    .single()
+            assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", run.outcome)
+            assertTrue(
+                fixture.storage.goalUsageReservations
+                    .pendingForRun(run.id)
+                    .isEmpty(),
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun remainingTokenBudgetBoundsTheActualWireRequest() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            fixture.service.setMode(com.helix.core.model.AgentMode.CHAT)
+            fixture.service.setChatToolsEnabled(false)
+            fixture.service.setTurnBudgets(
+                com.helix.core.model
+                    .TurnBudgets(2, 1, 100, 20, 20),
+            )
+            fixture.wire.script(sseResponse(textAnswerStream("done")))
+            fixture.service.send("1234")
+            await(fixture, "bounded request completes") { turnIsTerminal(fixture) }
+            assertEquals(1, fixture.wire.callCount)
+            val body = org.json.JSONObject(fixture.wire.lastRequestBody)
+            assertEquals(19L, body.getLong("max_tokens"))
+            assertEquals(
+                TurnState.COMPLETED.name,
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .state,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun missingOutputHeadroomPreventsTheWireCall() {
+        val fixture = newFixture(vision = false)
+        try {
+            await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
+            fixture.service.setMode(com.helix.core.model.AgentMode.CHAT)
+            fixture.service.setChatToolsEnabled(false)
+            fixture.service.setTurnBudgets(
+                com.helix.core.model
+                    .TurnBudgets(2, 1, 100, 1, 1),
+            )
+            fixture.service.send("1234")
+            await(fixture, "budget rejection terminalizes") { turnIsTerminal(fixture) }
+            assertEquals(0, fixture.wire.callCount)
+            assertEquals(
+                TurnState.FAILED.name,
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+                    .state,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
 
     @Test
     fun textAttachmentSendsStreamsRepliesAndHistoryCarriesTheBlock() {
@@ -307,6 +712,133 @@ class AttachmentE2eDeviceTest {
                     .size,
             )
             assertEquals("nothing may reach the wire", callsBefore, fixture.wire.callCount)
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun toolBackfillKeepsContentBeyondTheTimelinePreview() {
+        val fixture = newFixture(vision = false)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "backfill-${UUID.randomUUID()}.txt"
+        val file = File(context.filesDir, "workspaces/app/input/$name")
+        val tail = "VERIFIED_PAYLOAD_TAIL"
+        try {
+            file.parentFile!!.mkdirs()
+            file.writeText("synthetic prefix ".repeat(100) + tail)
+            stageTextAttachment(fixture, "Read the selected fixture file.\n")
+            fixture.wire.script(
+                sseResponse(toolCallStream("call-long-result", "\"read\"", """{"path":"scope:app:input/$name"}""")),
+                sseResponse(textAnswerStream("Fixture read completed.")),
+            )
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "full tool payload is backfilled") {
+                fixture.wire.callCount == 2 && turnIsTerminal(fixture)
+            }
+            assertTrue("model must receive the tail beyond 512 characters", fixture.wire.lastRequestBody.contains(tail))
+            val toolMessage =
+                fixture.storage.messages
+                    .listBySession(SESSION_ID)
+                    .single { it.kind == ChatHistoryBuilder.KIND_TOOL_RESULT }
+            assertTrue(
+                "full payload must survive history reload",
+                fixture.storage.messages
+                    .readContent(toolMessage)!!
+                    .contains(tail),
+            )
+        } finally {
+            settleAndClose(fixture)
+            file.delete()
+        }
+    }
+
+    private fun persistedToolAliases(fixture: Fixture): Map<String, String> {
+        val row =
+            fixture.storage.messages
+                .listBySession(SESSION_ID)
+                .single { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS }
+        val calls =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requireNotNull(fixture.storage.messages.readContent(row)),
+            ) as kotlinx.serialization.json.JsonArray
+        return calls.associate {
+            val call = it as kotlinx.serialization.json.JsonObject
+            val wire = call.getValue("id") as kotlinx.serialization.json.JsonPrimitive
+            val local = call.getValue("localId") as kotlinx.serialization.json.JsonPrimitive
+            wire.content to local.content
+        }
+    }
+
+    @Test
+    fun repeatedWireIdAcrossSuccessfulRoundsKeepsIndependentLocalResults() {
+        verifyRepeatedWireId("\"time.now\"", "COMPLETED")
+    }
+
+    @Test
+    fun repeatedWireIdAcrossRejectedRoundsKeepsIndependentLocalResults() {
+        verifyRepeatedWireId("\"fixture.unregistered\"", "DENIED")
+    }
+
+    @Test
+    fun selectedSessionModelIsUsedForInitialAndBackfillRequests() {
+        verifyRepeatedWireId("\"time.now\"", "COMPLETED", sessionModel = "session-selected-model")
+    }
+
+    @Test
+    fun legacySessionWithoutModelUsesProviderDefaultForEveryRound() {
+        verifyRepeatedWireId("\"time.now\"", "COMPLETED", sessionModel = null)
+    }
+
+    private fun verifyRepeatedWireId(
+        nameJson: String,
+        expectedState: String,
+        argsJson: String = "{}",
+        sessionModel: String? = "model-e2e",
+    ) {
+        val fixture = newFixture(vision = false, sessionModel = sessionModel)
+        try {
+            stageTextAttachment(fixture, "synthetic repeated tool id fixture")
+            fixture.wire.script(
+                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
+                sseResponse(toolCallStream("same-wire-id", nameJson, argsJson)),
+                sseResponse(textAnswerStream("Repeated calls handled.")),
+            )
+            sendToDisclosure(fixture)
+            fixture.service.confirmSend()
+            await(fixture, "two repeated-ID rounds complete") {
+                fixture.wire.callCount == 3 && turnIsTerminal(fixture)
+            }
+            fixture.wire.requests.forEach {
+                assertEquals(sessionModel ?: "model-e2e", org.json.JSONObject(it.body).getString("model"))
+            }
+            val turn =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            assertEquals(TurnState.COMPLETED.name, turn.state)
+            val calls = fixture.storage.toolCalls.listByTurn(turn.id)
+            assertEquals(2, calls.size)
+            assertEquals(2, calls.map { it.id }.toSet().size)
+            calls.forEach { call ->
+                assertTrue(call.callId != "same-wire-id")
+                assertEquals(expectedState, call.state)
+                assertNotNull(fixture.storage.toolResults.byToolCall(call.callId))
+                assertTrue(!fixture.wire.lastRequestBody.contains(call.callId))
+            }
+            val messages =
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(fixture.wire.lastRequestBody)
+                    .let { it as kotlinx.serialization.json.JsonObject }
+                    .getValue("messages")
+                    as kotlinx.serialization.json.JsonArray
+            val results =
+                messages
+                    .map { it as kotlinx.serialization.json.JsonObject }
+                    .filter { it["role"].toString() == "\"tool\"" }
+            assertEquals(2, results.size)
+            results.forEach { assertEquals("\"same-wire-id\"", it["tool_call_id"].toString()) }
         } finally {
             settleAndClose(fixture)
         }
@@ -731,7 +1263,10 @@ class AttachmentE2eDeviceTest {
         val visionFlag: Boolean,
     )
 
-    private fun newFixture(vision: Boolean): Fixture {
+    private fun newFixture(
+        vision: Boolean,
+        sessionModel: String? = "model-e2e",
+    ): Fixture {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val suffix = UUID.randomUUID().toString()
         val dataDir = File(context.filesDir, "attach-e2e-$suffix").apply { mkdirs() }
@@ -752,7 +1287,7 @@ class AttachmentE2eDeviceTest {
         val service = buildService(wire, workspaceRoot, suffix, vision, storage, serviceScope)
         // One provider-bound session, opened — staging requires an open session (ADR-0014 §4:
         // attachments are always session-scoped).
-        storage.sessions.create(SESSION_ID, "e2e session", PROVIDER_ID, "model-e2e", System.currentTimeMillis())
+        storage.sessions.create(SESSION_ID, "e2e session", PROVIDER_ID, sessionModel, System.currentTimeMillis())
         service.openSession(SESSION_ID)
         return Fixture(storage, service, wire, workspaceRoot, dbName, dataDir, serviceScope, suffix, vision)
     }

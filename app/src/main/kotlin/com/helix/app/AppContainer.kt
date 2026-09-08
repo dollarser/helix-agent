@@ -29,6 +29,7 @@ import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ArtifactVisionImageSource
 import com.helix.app.provider.CleartextBindingStore
+import com.helix.app.provider.ManagedProviderHooks
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
@@ -134,6 +135,7 @@ interface AppContainer {
     val storage: HelixStorage
 
     val profileStore: SafetyProfileStore
+    val lanScopeStore: com.helix.app.network.LanScopeStore
 
     val runControlStore: RunControlStore
 
@@ -240,6 +242,11 @@ internal class DefaultAppContainer(
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
 
     override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
+    override val lanScopeStore =
+        com.helix.app.network.LanScopeStore(
+            PrefsLineStore(context, "helix-lan-scopes", synchronous = true),
+            { profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED },
+        )
 
     private val resourceGate =
         AndroidResourceGate(PlatformDeviceResourceProbe(context.applicationContext as Application))
@@ -279,20 +286,24 @@ internal class DefaultAppContainer(
             SubscriptionProviderModule.ensureRegistered(storage)
             ProviderService(
                 storage = storage,
-                factory = ProviderFactory(
-                    credentials,
-                    ProviderFactory.defaultWire(),
-                    { visionImageSource },
-                    { config -> SubscriptionProviderModule.create(appContext, config) },
-                ),
+                factory =
+                    ProviderFactory(
+                        credentials,
+                        ProviderFactory.defaultWire(),
+                        { visionImageSource },
+                        { config -> SubscriptionProviderModule.create(appContext, config) },
+                    ),
                 bindings = CleartextBindingStore(lineStore),
                 testStatus = ProviderTestStatusStore(lineStore),
                 idGenerator = { idGenerator.next() },
-                managedProvider = SubscriptionProviderModule::isManaged,
-                probeOverride = SubscriptionProviderModule::probe,
-                manageAccount = { providerId ->
-                    SubscriptionProviderModule.openAccount(appContext, providerId)
-                },
+                managed =
+                    ManagedProviderHooks(
+                        isManaged = SubscriptionProviderModule::isManaged,
+                        probe = SubscriptionProviderModule::probe,
+                        openAccount = { providerId ->
+                            SubscriptionProviderModule.openAccount(appContext, providerId)
+                        },
+                    ),
             ).also { it.refresh() }
         }
 
@@ -565,15 +576,14 @@ internal class DefaultAppContainer(
         // actual peer, keeps the original hostname for TLS Host/SNI/cert, and re-runs the whole
         // origin/DNS/IP/scope decision on every redirect hop. The egress decision (current
         // SafetyProfile + the user's pre-created exact LAN/loopback scopes) is read from the APP's
-        // profileStore, NEVER the model (roadmap: "模型 URL 不能创建 scope"); until the HXA-068
-        // LAN-scopes store lands, scopes are empty, so under ADVANCED no LAN/loopback host is
-        // reachable — a policy refusal is a stable 'refused' reason code, not a fake success.
+        // profileStore and explicit user-created scopes, NEVER the model. Scopes are reread
+        // at every connection/redirect; Advanced alone never creates one.
         HttpFetchTools.registerAll(
             toolRegistry,
             toolImplementations,
             HttpFetchBridgeImpl(
                 object : EgressPolicyProvider {
-                    override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, emptySet())
+                    override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, lanScopeStore.current())
                 },
             ),
         )
@@ -646,6 +656,7 @@ internal class DefaultAppContainer(
         McpAppService(
             storage = McpStorageBridge(storage),
             profile = { profileStore.profile },
+            lanScopes = lanScopeStore::current,
             registry = toolRegistry,
             implementations = toolImplementations,
         ).also { service ->
@@ -695,13 +706,33 @@ internal class DefaultAppContainer(
             providerService = providerService,
             profileStore = profileStore,
             runControlStore = runControlStore,
+            lanScopes = lanScopeStore::current,
             clock = appClock,
             idGenerator = { idGenerator.next() },
             toolPipeline = toolPipeline,
+            goalEvidenceWorkspace = appScopeRoot.toFile(),
+            goalEvidenceFileStore = workspaceStore,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
             // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
             strings = { resId, args -> resolveLocalized(resId, args) },
+            subscriptionResultRecovery = { turnId, modelCallId, localOnly ->
+                com.helix.app.provider.SubscriptionProviderModule
+                    .recoverInterruptedResult(context, storage, turnId, modelCallId, localOnly)
+            },
+            subscriptionRecovery = { turnId, modelCallId, stop ->
+                com.helix.app.provider.SubscriptionProviderModule
+                    .inspectInterruptedJob(context, storage, turnId, modelCallId, stop)
+            },
+            goalReminderSync = { goalId ->
+                com.helix.app.goal
+                    .GoalReminderReconciler(
+                        storage,
+                        com.helix.app.goal.GoalReminderScheduler
+                            .create(context),
+                        appClock,
+                    ).reconcile(goalId)
+            },
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard
@@ -726,6 +757,11 @@ internal class DefaultAppContainer(
             a2a = a2aService,
             skills = skillRepository,
             chat = chatService,
+            cancelGoalReminder = { goalId ->
+                com.helix.app.goal.GoalReminderScheduler
+                    .create(context)
+                    .cancelReminder(goalId)
+            },
         )
     }
 

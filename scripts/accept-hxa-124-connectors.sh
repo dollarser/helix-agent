@@ -29,7 +29,11 @@ for connector_phase in seedPersistedConnector recoverInNewProcess; do
   "$connector_adb" -s "$connector_serial" shell am force-stop com.helix.agent
   connector_phase_log="$connector_output/device-${connector_serial//[^a-zA-Z0-9_-]/_}-$connector_phase.log"
   "$connector_adb" -s "$connector_serial" shell am instrument -w -r \
+    -e connectorRecoveryPhase "$connector_phase" \
     -e class "com.helix.app.connector.ConnectorProcessRecoveryDeviceTest#$connector_phase" \
     com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner | tee "$connector_phase_log"
   rg '^OK \(1 test\)' "$connector_phase_log"
+  if rg 'FAILURES!!!|INSTRUMENTATION_FAILED|Process crashed|INSTRUMENTATION_STATUS_CODE: -3|INSTRUMENTATION_STATUS_CODE: -4' "$connector_phase_log"; then
+    exit 1
+  fi
 done

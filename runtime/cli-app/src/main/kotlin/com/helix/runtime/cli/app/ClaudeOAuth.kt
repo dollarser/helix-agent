@@ -74,18 +74,36 @@ internal object ClaudeOAuthProtocol {
         expectedState: String,
     ): CodexCallbackResult {
         if (rawTarget.length !in 1..8 * 1024) return CodexCallbackResult.Rejected("callback too large")
-        val url =
-            "http://localhost$rawTarget".toHttpUrlOrNull()
-                ?: return CodexCallbackResult.Rejected("invalid callback")
-        if (url.encodedPath != CALLBACK_PATH) return CodexCallbackResult.Ignored
-        url.queryParameter("error_description")?.let { return CodexCallbackResult.Rejected(it.take(256)) }
-        url.queryParameter("error")?.let { return CodexCallbackResult.Rejected(it.take(256)) }
-        if (url.queryParameter("state") != expectedState) return CodexCallbackResult.Ignored
-        val code = url.queryParameter("code")
-        return if (code.isNullOrBlank() || code.length > 4096) {
-            CodexCallbackResult.Rejected("missing or invalid authorization code")
-        } else {
-            CodexCallbackResult.Code(code)
+        val url = "http://localhost$rawTarget".toHttpUrlOrNull()
+        return when {
+            url == null -> CodexCallbackResult.Rejected("invalid callback")
+            url.encodedPath != CALLBACK_PATH -> CodexCallbackResult.Ignored
+            else -> decodeCallbackParameters(url, expectedState)
+        }
+    }
+
+    private fun decodeCallbackParameters(
+        url: okhttp3.HttpUrl,
+        expectedState: String,
+    ): CodexCallbackResult {
+        val error = url.queryParameter("error_description") ?: url.queryParameter("error")
+        return when {
+            error != null -> {
+                CodexCallbackResult.Rejected(error.take(256))
+            }
+
+            url.queryParameter("state") != expectedState -> {
+                CodexCallbackResult.Ignored
+            }
+
+            else -> {
+                val code = url.queryParameter("code")
+                if (code.isNullOrBlank() || code.length > 4096) {
+                    CodexCallbackResult.Rejected("missing or invalid authorization code")
+                } else {
+                    CodexCallbackResult.Code(code)
+                }
+            }
         }
     }
 

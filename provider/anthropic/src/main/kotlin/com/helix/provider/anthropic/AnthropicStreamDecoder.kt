@@ -23,7 +23,7 @@ import kotlinx.serialization.json.longOrNull
  * Agent Loop never sees vendor JSON.
  *
  * Event semantics (vendor-documented shapes):
- * - `message_start` → the `message.usage.input_tokens` are remembered for the
+ * - `message_start` → the complete `message.usage` input token sum is remembered for the
  *   final [ModelEvent.Usage] (emitted with the terminal, like the sibling
  *   adapters);
  * - `content_block_start`: a `tool_use` block (with `id` + `name`) emits
@@ -187,7 +187,7 @@ public class AnthropicStreamDecoder : StreamDecoder {
             obj["message"] as? JsonObject
                 ?: throw ProtocolViolation("message_start: missing message object")
         val usage = message["usage"] as? JsonObject ?: return
-        inputTokens = (usage["input_tokens"] as? JsonPrimitive)?.longOrNull
+        inputTokens = AnthropicUsage.inputTokens(usage)
         // Nothing is emitted: the Usage event travels with the terminal chunk.
     }
 

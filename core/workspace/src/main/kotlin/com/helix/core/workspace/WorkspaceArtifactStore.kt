@@ -588,8 +588,11 @@ class WorkspaceArtifactStore(
     fun deletePermanentlyForPrivacy(path: FileScopePath): Boolean {
         val root = resolve(path.scopeId)
         val target = resolveContained(path, root)
-        require(WorkspaceLayout.regionOf(path.relativePath) in WorkspaceLayout.regions) {
-            "privacy deletion is limited to workspace data regions"
+        val privateArtifact =
+            path.relativePath.startsWith(".helix/subscription-results/") ||
+                path.relativePath.startsWith(".helix/goal-evidence/")
+        require(WorkspaceLayout.regionOf(path.relativePath) in WorkspaceLayout.regions || privateArtifact) {
+            "privacy deletion is limited to workspace data regions and owned artifact directories"
         }
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
         require(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) { "privacy deletion target must be a file" }

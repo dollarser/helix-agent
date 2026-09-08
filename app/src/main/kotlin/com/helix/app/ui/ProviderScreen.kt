@@ -101,83 +101,73 @@ fun ProviderManager(providerService: ProviderService) {
             ProviderRow(
                 row = row,
                 testing = testingId == row.id,
-                visionEnabled = row.capabilities?.vision == true,
-                onDeclareVision = { enabled ->
-                    // The user-visible manual declaration (ADR-0014): vision may come from a
-                    // real probe OR this explicit mark — the UI shows 「手动声明」 afterwards.
-                    scope.launch { providerService.declareVisionCapability(row.id, enabled) }
-                },
-                onTest = {
-                    if (testingId == null) {
-                        testingId = row.id
-                        scope.launch {
-                            try {
-                                providerService.runConnectionTest(row.id)
-                            } catch (e: Exception) {
-                                // A row that cannot even be resolved (corruption) fails
-                                // closed: the status stays 未测试, the row stays
-                                // non-selectable, and the exception is logged — never
-                                // rendered raw (doc 02 section 13).
-                                Log.w(TAG, "connection test for ${row.id} did not run", e)
-                            } finally {
-                                testingId = null
+                actions =
+                    ProviderRowActions(
+                        onDeclareVision = { enabled ->
+                            // The user-visible manual declaration (ADR-0014): vision may come from a
+                            // real probe OR this explicit mark — the UI shows 「手动声明」 afterwards.
+                            scope.launch { providerService.declareVisionCapability(row.id, enabled) }
+                        },
+                        onTest = {
+                            if (testingId == null) {
+                                testingId = row.id
+                                scope.launch {
+                                    try {
+                                        providerService.runConnectionTest(row.id)
+                                    } catch (e: Exception) {
+                                        // A row that cannot even be resolved (corruption) fails
+                                        // closed: the status stays 未测试, the row stays
+                                        // non-selectable, and the exception is logged — never
+                                        // rendered raw (doc 02 section 13).
+                                        Log.w(TAG, "connection test for ${row.id} did not run", e)
+                                    } finally {
+                                        testingId = null
+                                    }
+                                }
                             }
-                        }
-                    }
-                },
-                onEdit = { modelOverride ->
-                    // storedConfig is a Room read: it runs on the service's IO
-                    // scope, never on this (UI) thread. HXA-059: a backend model
-                    // id selected from the row's "后端可用模型" section prefills
-                    // the form's model field — the form opens for EDITING, it
-                    // is never auto-saved.
-                    scope.launch {
-                        try {
-                            val config = providerService.storedConfig(row.id)
-                            form =
-                                ProviderForm(
-                                    providerId = row.id,
-                                    template = editTemplateFor(config, row.hasKey),
-                                    fields =
-                                        ProviderForm.FormFields(
-                                            name = config.displayName,
-                                            endpoint = config.endpoint.full,
-                                            model = modelOverride ?: config.model,
-                                            headerName = "",
-                                            headerValue = "",
-                                            apiKey = "",
-                                        ),
-                                    hasStoredKey = row.hasKey,
-                                    cleartextConfirmed = false,
-                                    error = null,
-                                )
-                        } catch (e: Exception) {
-                            // A row that cannot be resolved (corruption) fails
-                            // closed: the edit is not opened and the exception
-                            // is logged — never rendered raw (doc 02 section 13).
-                            Log.w(TAG, "could not load provider ${row.id} for edit", e)
-                        }
-                    }
-                },
-                onDelete = {
-                    scope.launch {
-                        try {
-                            providerService.delete(row.id)
-                        } catch (e: Exception) {
-                            Log.w(TAG, "could not delete provider ${row.id}", e)
-                        }
-                    }
-                },
-                onManageAccount = {
-                    scope.launch {
-                        accountFailureId =
-                            if (providerService.openManagedAccount(row.id) == ManagedProviderAccountResult.OPENED) {
-                                null
-                            } else {
-                                row.id
+                        },
+                        onEdit = { modelOverride ->
+                            // storedConfig is a Room read: it runs on the service's IO
+                            // scope, never on this (UI) thread. HXA-059: a backend model
+                            // id selected from the row's "后端可用模型" section prefills
+                            // the form's model field — the form opens for EDITING, it
+                            // is never auto-saved.
+                            scope.launch {
+                                try {
+                                    val config = providerService.storedConfig(row.id)
+                                    form =
+                                        editingProviderForm(row, config, modelOverride)
+                                } catch (e: Exception) {
+                                    // A row that cannot be resolved (corruption) fails
+                                    // closed: the edit is not opened and the exception
+                                    // is logged — never rendered raw (doc 02 section 13).
+                                    Log.w(TAG, "could not load provider ${row.id} for edit", e)
+                                }
                             }
-                    }
-                },
+                        },
+                        onDelete = {
+                            scope.launch {
+                                try {
+                                    providerService.delete(row.id)
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "could not delete provider ${row.id}", e)
+                                }
+                            }
+                        },
+                        onManageAccount = {
+                            scope.launch {
+                                accountFailureId =
+                                    if (
+                                        providerService.openManagedAccount(row.id) ==
+                                        ManagedProviderAccountResult.OPENED
+                                    ) {
+                                        null
+                                    } else {
+                                        row.id
+                                    }
+                            }
+                        },
+                    ),
                 accountUnavailable = accountFailureId == row.id,
             )
         }
@@ -291,8 +281,8 @@ private fun TemplatePickerDialog(
             Column(
                 modifier =
                     Modifier
-                        .verticalScroll(rememberScrollState())
-                        .heightIn(max = 400.dp),
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState()),
             ) {
                 ProviderTemplateCatalog.all.forEach { template ->
                     Row(
@@ -363,11 +353,15 @@ private fun ProviderFormDialog(
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 if (form.providerId == null) {
-                    form.template.notes.forEach { note ->
+                    localizedProviderNotes(form.template).forEach { note ->
                         Text(
                             stringResource(R.string.provider_template_note, note),
+                            modifier = Modifier.testTag("provider-template-guidance"),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -486,20 +480,44 @@ private fun ProviderFormDialog(
     )
 }
 
+private data class ProviderRowActions(
+    val onTest: () -> Unit,
+    val onEdit: (modelOverride: String?) -> Unit,
+    val onDelete: () -> Unit,
+    val onDeclareVision: (enabled: Boolean) -> Unit,
+    val onManageAccount: () -> Unit,
+)
+
+private fun editingProviderForm(
+    row: ProviderRowUi,
+    config: ProviderConfig,
+    modelOverride: String?,
+) = ProviderForm(
+    providerId = row.id,
+    template = editTemplateFor(config, row.hasKey),
+    fields =
+        ProviderForm.FormFields(
+            name = config.displayName,
+            endpoint = config.endpoint.full,
+            model = modelOverride ?: config.model,
+            headerName = "",
+            headerValue = "",
+            apiKey = "",
+        ),
+    hasStoredKey = row.hasKey,
+    cleartextConfirmed = false,
+    error = null,
+)
+
 @Composable
 @Suppress("FunctionName", "LongMethod")
 private fun ProviderRow(
     row: ProviderRowUi,
     testing: Boolean,
-    onTest: () -> Unit,
-    /** HXA-059: opens the edit form; a non-null [modelOverride] prefills its model field. */
-    onEdit: (modelOverride: String?) -> Unit,
-    onDelete: () -> Unit,
-    visionEnabled: Boolean,
-    onDeclareVision: (enabled: Boolean) -> Unit,
-    onManageAccount: () -> Unit,
+    actions: ProviderRowActions,
     accountUnavailable: Boolean,
 ) {
+    val visionEnabled = row.capabilities?.vision == true
     Column(
         modifier =
             Modifier
@@ -579,13 +597,13 @@ private fun ProviderRow(
             } else {
                 BackendModelsSection(
                     models = models,
-                    onModelSelected = { id -> onEdit(id) },
+                    onModelSelected = { id -> actions.onEdit(id) },
                 )
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = onTest,
+                onClick = actions.onTest,
                 enabled = !testing,
                 modifier = Modifier.testTag("provider-test"),
             ) {
@@ -596,11 +614,11 @@ private fun ProviderRow(
                 )
             }
             if (!row.managedExternally) {
-                TextButton(onClick = { onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
+                TextButton(onClick = { actions.onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
                     Text(stringResource(R.string.provider_edit_button))
                 }
                 TextButton(
-                    onClick = { onDeclareVision(!visionEnabled) },
+                    onClick = { actions.onDeclareVision(!visionEnabled) },
                     modifier = Modifier.testTag("provider-vision-declare"),
                 ) {
                     Text(
@@ -614,7 +632,7 @@ private fun ProviderRow(
                     )
                 }
                 TextButton(
-                    onClick = onDelete,
+                    onClick = actions.onDelete,
                     modifier = Modifier.testTag("provider-delete"),
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) {
@@ -622,7 +640,7 @@ private fun ProviderRow(
                 }
             } else {
                 TextButton(
-                    onClick = onManageAccount,
+                    onClick = actions.onManageAccount,
                     modifier = Modifier.testTag("provider-manage-account"),
                 ) {
                     Text(stringResource(R.string.provider_subscription_manage_account))
@@ -717,35 +735,6 @@ private fun statusDetail(row: ProviderRowUi): String? =
             )
         }
     }
-
-/**
- * The template an edit dialog composes against. The persisted row does not
- * store the template id, so the template is re-resolved from the protocol: an
- * exact endpoint match (same template family) wins, then the generic (no
- * default endpoint) template of the protocol, then any template of the
- * protocol. For a re-pointed endpoint the generic template's headers replace
- * the old attribution headers — the honest outcome, since the endpoint is no
- * longer that vendor's.
- */
-private fun editTemplateFor(
-    config: ProviderConfig,
-    hasStoredKey: Boolean,
-): ProviderTemplate {
-    val candidates = ProviderTemplateCatalog.all.filter { it.protocol == config.protocol }
-    val template =
-        candidates.firstOrNull { it.defaultEndpoint == config.endpoint }
-            ?: candidates.firstOrNull { it.defaultEndpoint == null }
-            ?: candidates.first()
-    // The edit template is a GUESS (endpoint match; a self-hosted provider on a
-    // non-default endpoint falls back to the generic one, whose credentialRequired
-    // is true). That guess must not invent a key requirement the persisted
-    // provider never had: a provider stored WITHOUT a key was created through a
-    // keyless form, so re-requiring a key on edit silently disables 保存
-    // (device-verified in the HXA-059 arbitration: chip-prefill → save dead on
-    // self-hosted providers). With a stored key the template stands (keyOk is
-    // true regardless of credentialRequired).
-    return if (hasStoredKey) template else template.copy(credentialRequired = false)
-}
 
 /**
  * The parse failure is INTENTIONALLY converted to null: the form only needs a

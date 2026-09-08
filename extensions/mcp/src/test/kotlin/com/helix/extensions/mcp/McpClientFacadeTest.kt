@@ -343,7 +343,8 @@ private class OversizedSseFixture(
     }
 }
 
-private class McpFixture(
+internal class McpFixture(
+    private val holdToolStream: Boolean = false,
     private val initializeDelayMillis: Long = 0,
     private val extraInitializeFieldBytes: Int = 0,
     private val firstPingDelayMillis: Long = 0,
@@ -357,6 +358,8 @@ private class McpFixture(
     private val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
     val methods = CopyOnWriteArrayList<String>()
     val initializeCount = AtomicInteger(0)
+    val toolStarted = CountDownLatch(1)
+    val toolDisconnected = CountDownLatch(1)
     val pingCount = AtomicInteger(0)
     val sseGetCount = AtomicInteger(0)
     val lastEventIds = CopyOnWriteArrayList<String?>()
@@ -426,20 +429,47 @@ private class McpFixture(
                 }
 
                 "tools/call" -> {
-                    toolRequestBodies += requestBody
-                    respondJson(
-                        exchange,
-                        200,
-                        """{"jsonrpc":"2.0","id":$id,"result":{"content":[""" +
-                            """{"type":"text","text":"$toolResultText"}],""" +
-                            """"structuredContent":{"count":1},"isError":false}}""",
-                    )
+                    handleToolCall(exchange, requestBody, id)
                 }
 
                 else -> {
                     exchange.sendResponseHeaders(404, -1)
                 }
             }
+        }
+    }
+
+    private fun handleToolCall(
+        exchange: HttpExchange,
+        requestBody: String,
+        id: String?,
+    ) {
+        toolRequestBodies += requestBody
+        if (holdToolStream) {
+            holdToolResponse(exchange)
+            return
+        }
+        respondJson(
+            exchange,
+            200,
+            """{"jsonrpc":"2.0","id":$id,"result":{"content":[""" +
+                """{"type":"text","text":"$toolResultText"}],""" +
+                """"structuredContent":{"count":1},"isError":false}}""",
+        )
+    }
+
+    private fun holdToolResponse(exchange: HttpExchange) {
+        exchange.responseHeaders.add("Content-Type", "text/event-stream")
+        exchange.sendResponseHeaders(200, 0)
+        toolStarted.countDown()
+        try {
+            repeat(200) {
+                exchange.responseBody.write(": heartbeat\n\n".toByteArray(StandardCharsets.UTF_8))
+                exchange.responseBody.flush()
+                Thread.sleep(50)
+            }
+        } catch (_: java.io.IOException) {
+            toolDisconnected.countDown()
         }
     }
 

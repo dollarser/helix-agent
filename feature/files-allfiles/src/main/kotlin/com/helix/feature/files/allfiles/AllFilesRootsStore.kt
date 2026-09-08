@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
 /**
@@ -95,7 +96,7 @@ class AllFilesRootsStore(
     fun list(): List<AllFilesRootGrant> = roots.values.sortedBy { it.enabledAtMillis }
 
     /** The real root path for a scope id, or null when that root is not enabled. */
-    fun resolveScopeRoot(scopeId: String): Path? = find(scopeId)?.realPath?.let { Path.of(it) }
+    fun resolveScopeRoot(scopeId: String): Path? = find(scopeId)?.realPath?.let { Paths.get(it) }
 
     private fun persist() {
         val document =

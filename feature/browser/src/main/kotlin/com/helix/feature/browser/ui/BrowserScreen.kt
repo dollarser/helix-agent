@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -361,7 +362,7 @@ private fun DownloadsPanel(
 @Composable
 @Suppress("FunctionName")
 private fun ClearRow(controller: BrowserController) {
-    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+    FlowRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
         TextButton(
             onClick = { controller.clearCookies() },
             modifier = Modifier.testTag("browser-clear-cookies"),

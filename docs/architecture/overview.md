@@ -424,7 +424,7 @@ data class ToolDescriptor(
 
 ### 7.3 后期委托与 Workflow 边界
 
-当前产品仍是单 Agent Tool Loop。proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)只允许 HXA-105 评估两项后期能力：
+当前产品仍是单 Agent Tool Loop。accepted [ADR-0009](../adr/0009-bounded-local-orchestration.md)只允许 HXA-105 评估两项后期能力：
 
 1. developer/Advanced 的深度 1 只读 child delegation；child 不持有 Approval Proof、Secret、Root/Automation session 或写工具，需要变更时只向父 Turn 返回 proposal。
 2. 有版本 JSON DAG 的声明式 Workflow 子集；所有节点编译回同一 Dispatcher，不执行模型生成的 JS/Starlark Policy/Workflow，也不允许自修改插件。
@@ -494,6 +494,8 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `runtime_installs` | id, type, version, state, manifestHash, installedAt | PRoot/RootFS |
 | `plans` / `plan_steps` | objective, version, hash, state, evidenceRef | 版本化计划 |
 | `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
+| `goal_turn_bindings` | turnId（主键，外键到 turns）, runId（索引，外键到 goal_runs） | ADR-0004 run/wake 的持久关联；一个 run 可含多个 Turn，一个 Turn 仅属于一个 run。创建 Turn 时同事务绑定，仅开放的 RUNNING Goal run 可接受绑定，同一 Goal 不跨会话；旧 Turn 不猜测回填。删除 Turn/run 级联删除关联 |
+| `goal_usage_reservations` | id（主键）, runId（索引，外键到 goal_runs）, kind, reservedTokens, reservedMillis, state, chargedTokens, chargedMillis | HXA-102 执行前预算预留；PENDING 占用可用额度，SETTLED 保存已知结算，INTERRUPTED 保存恢复时计入的预留值。仅保存计数，不存请求正文或凭据；run 删除时级联删除。预留准入、用量结算与恢复分别在事务中执行，不授权副作用或重放 |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
 | `a2a_agents` / `a2a_capabilities` / `a2a_tasks` | endpointRef, authAlias, enabled, cardHash / agentId, interface, protocolVersion, skillId, skillHash, inputModes, outputModes, enabled / toolCallId, agentId, taskId, contextId, snapshotHash, inputHash, state, lastEventSequence | A2A Agent Card/Skill 快照与远端 Task 对账；HXA-077 接受方案后才可落 schema |
 | `skills` / `skill_snapshots` | name, source, version, rootRef, contentHash, enabled / runId, skillId, contentHash, catalogEntry | Skill 渐进加载和固定版本 |

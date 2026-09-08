@@ -96,6 +96,9 @@ sealed interface GoalEvent {
         val checkpoint: Checkpoint,
     ) : GoalEvent
 
+    /** User removed a checkpoint reminder; this never cancels or resumes the Goal itself. */
+    data object CheckpointCleared : GoalEvent
+
     /**
      * The goal needs the user: permission revoked, target package changed or side effects
      * unclear (modes doc section 6.1). The active run stops; resume is explicit.

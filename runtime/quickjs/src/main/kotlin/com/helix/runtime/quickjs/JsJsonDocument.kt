@@ -23,7 +23,7 @@ import java.nio.charset.StandardCharsets
  * digits. It never returns partial success and never throws on bad input.
  *
  * Nesting depth is bounded by [MAX_DEPTH]: documents deeper than that are rejected as
- * invalid. The bound protects the host validator's own call stack, keeps pathologically
+ * invalid. An explicit container stack avoids host call-stack growth and keeps pathologically
  * deep (and useless-to-JS) documents out of the engine, and still covers any real
  * document (the instrumented suite pins depth-300 round trips; the §10 "deep JSON"
  * attack scenario is handled by rejection, which is the stable, bounded behavior).
@@ -59,31 +59,41 @@ object JsJsonDocument {
             null
         }
 
-    /** Recursive-descent structural validator; depth is hard-capped at [MAX_DEPTH]. */
+    /** Iterative structural validator; the explicit container stack is capped at [MAX_DEPTH]. */
     private class Parser(
         private val s: String,
     ) {
         private var i = 0
+        private val containers = ArrayDeque<Container>()
+
+        private class Container(
+            val isObject: Boolean,
+            val close: Char,
+            var allowEmpty: Boolean = true,
+            var awaitingEntry: Boolean = true,
+        )
 
         fun parseDocument(): Boolean {
             skipWs()
-            if (!parseValue(1)) return false
+            var valid = parseValue()
+            while (valid && containers.isNotEmpty()) {
+                skipWs()
+                valid = advanceContainer(containers.last())
+            }
             skipWs()
-            return i == s.length
+            return valid && i == s.length
         }
 
         @Suppress("ReturnCount") // one return per distinct value grammar
-        private fun parseValue(depth: Int): Boolean {
+        private fun parseValue(): Boolean {
             if (i >= s.length) return false
             return when (val c = s[i]) {
                 '{' -> {
-                    if (depth > MAX_DEPTH) return false
-                    parseContainer(depth, isKey = true, close = '}')
+                    openContainer(isObject = true, close = '}')
                 }
 
                 '[' -> {
-                    if (depth > MAX_DEPTH) return false
-                    parseContainer(depth, isKey = false, close = ']')
+                    openContainer(isObject = false, close = ']')
                 }
 
                 '"' -> {
@@ -115,58 +125,46 @@ object JsJsonDocument {
             }
         }
 
-        /**
-         * Container entry, called with `i` on the opening `{`/`[` (already matched by
-         * the caller): consumes it, handles the empty-container shortcut, then runs
-         * the shared entry loop.
-         */
-        private fun parseContainer(
-            depth: Int,
-            isKey: Boolean,
+        private fun openContainer(
+            isObject: Boolean,
             close: Char,
         ): Boolean {
-            i++ // '{' or '['
-            skipWs()
-            if (i < s.length && s[i] == close) {
-                i++
-                return true
-            }
-            return parseEntries(depth, isKey, close)
+            if (containers.size >= MAX_DEPTH) return false
+            i++
+            containers.addLast(Container(isObject, close))
+            return true
         }
 
-        /**
-         * Shared container loop, called after the opening `{`/`[` was consumed and the
-         * empty-container check done: parses comma-separated entries until [close]. An
-         * entry is an optional `"key":` prefix (objects only, [isKey]) followed by a
-         * value. Returns true with `i` past [close]; false on any grammar violation
-         * (including a trailing comma before [close]).
-         */
-        @Suppress("ReturnCount") // one return per distinct grammar failure
-        private fun parseEntries(depth: Int, isKey: Boolean, close: Char): Boolean {
-            while (true) {
-                skipWs()
-                if (isKey && !parseKey()) return false
-                if (!parseValue(depth + 1)) return false
-                skipWs()
-                if (i >= s.length) return false
-                when (s[i]) {
-                    ',' -> {
-                        i++
-                        // Trailing comma is not JSON.
-                        if (i < s.length && s[i] == close) return false
+        private fun advanceContainer(current: Container): Boolean =
+            if (current.awaitingEntry) {
+                if (current.allowEmpty && i < s.length && s[i] == current.close) {
+                    i++
+                    containers.removeLast()
+                    true
+                } else {
+                    current.awaitingEntry = false
+                    (!current.isObject || parseKey()) && parseValue()
+                }
+            } else if (i >= s.length) {
+                false
+            } else {
+                when (s[i++]) {
+                    current.close -> {
+                        containers.removeLast()
+                        true
                     }
 
-                    close -> {
-                        i++
-                        return true
+                    ',' -> {
+                        current.allowEmpty = false
+                        current.awaitingEntry = true
+                        true
                     }
 
                     else -> {
-                        return false
+                        false
                     }
                 }
             }
-        }
 
         /** Object entry prefix: `"key"` + `:` with optional whitespace around it. */
         @Suppress("ReturnCount") // one return per distinct key-prefix failure

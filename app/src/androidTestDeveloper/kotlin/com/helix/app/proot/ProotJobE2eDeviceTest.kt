@@ -145,6 +145,8 @@ class ProotJobE2eDeviceTest {
             assertEquals("artifact\n", File(extractedDir, "out.txt").readText())
             assertEquals("MAIN_APP_OUT\n", File(extractedDir, "stdout.txt").readText())
 
+            verifyProotDurableRecovery(context, record)
+
             // Reconcile: the payload is deleted immediately; the proof remains.
             val reconciled = client.reconcile(jobId) as ProotJobClient.JobStateOutcome.Ok
             assertNotNull(reconciled.record.reconciledAtEpochMs)

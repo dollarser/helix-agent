@@ -198,7 +198,7 @@ docs/development/status.md、路线中的任务原文，以及与本任务直接
 ### 文件
 
 - 是否把 PRoot 里存在 `git` 二进制误写为持久 Git 管理？`.git` 权威位置和原子交换在 ADR-0008 接受前未定，禁止提前做 Git UI、remote Git 或凭据流。
-- 是否提前实现 subagent、Agent graph 或 Workflow DSL？ADR-0009 仍 proposed；HXA-105 前保持单 Agent，不复制云端任务、自修改插件、递归/peer Agent 或可执行 JS/Starlark 编排。
+- 是否提前实现 subagent、Agent graph 或 Workflow DSL？ADR-0009 已接受架构约束；生产启用门禁通过前保持单 Agent，不复制云端任务、自修改插件、递归/peer Agent 或可执行 JS/Starlark 编排。
 - 是否直接拼 `File(../root, userPath)`？
 - 是否跟随了越界 symlink？
 - 是否直接覆盖，没有临时文件/hash/conflict？

@@ -1,7 +1,5 @@
 package com.helix.app.chat
 
-import com.helix.core.agent.CallTokenAccount
-import com.helix.core.model.ModelCallId
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.TurnBudgets
 
@@ -12,22 +10,35 @@ internal class TurnBudgetTracker(
     private var modelCalls = 0
     private var totalTokens = 0L
 
-    fun beginCall(request: ModelRequest): BeginDecision {
+    data class CallAdmission(
+        val decision: BeginDecision,
+        val request: ModelRequest? = null,
+    )
+
+    /** Bind the transport request before spending a call; no positive output headroom means no request. */
+    fun prepareCall(request: ModelRequest): CallAdmission {
         val estimatedInput =
             com.helix.core.agent.TokenEstimator
                 .estimateTokens(requestSizeBytes(request))
+        val remaining = budgets.maxTotalTokens - totalTokens
+        val output =
+            minOf(
+                request.maxOutputTokens ?: Long.MAX_VALUE,
+                budgets.maxOutputTokens,
+                remaining - estimatedInput,
+            )
         return when {
             modelCalls >= budgets.maxModelCalls -> {
-                BeginDecision.MODEL_CALL_LIMIT
+                CallAdmission(BeginDecision.MODEL_CALL_LIMIT)
             }
 
-            estimatedInput > budgets.maxInputTokens || estimatedInput > budgets.maxTotalTokens - totalTokens -> {
-                BeginDecision.TOKEN_LIMIT
+            estimatedInput > budgets.maxInputTokens || output < 1 -> {
+                CallAdmission(BeginDecision.TOKEN_LIMIT)
             }
 
             else -> {
                 modelCalls += 1
-                BeginDecision.ALLOWED
+                CallAdmission(BeginDecision.ALLOWED, request.copy(maxOutputTokens = output))
             }
         }
     }
@@ -37,28 +48,13 @@ internal class TurnBudgetTracker(
         request: ModelRequest,
         stream: ModelStreamState,
     ): Boolean {
-        val account =
-            CallTokenAccount(
-                callId = ModelCallId(callId),
-                requestBytes = requestSizeBytes(request),
-                responseBytes =
-                    stream.text
-                        .toByteArray(Charsets.UTF_8)
-                        .size
-                        .toLong(),
-                inputTokens = stream.inputTokens,
-                outputTokens = stream.outputTokens,
-            )
-        val callTotal =
-            if (account.effectiveInput > Long.MAX_VALUE - account.effectiveOutput) {
-                Long.MAX_VALUE
-            } else {
-                account.effectiveInput + account.effectiveOutput
-            }
+        val account = ModelCallUsage.account(callId, request, stream)
+        val callTotal = ModelCallUsage.total(account)
         val remaining = budgets.maxTotalTokens - totalTokens
         if (callTotal > remaining) return false
         totalTokens += callTotal
-        return account.effectiveInput <= budgets.maxInputTokens && account.effectiveOutput <= budgets.maxOutputTokens
+        return account.effectiveInput <= budgets.maxInputTokens &&
+            account.effectiveOutput <= minOf(budgets.maxOutputTokens, request.maxOutputTokens ?: Long.MAX_VALUE)
     }
 
     enum class BeginDecision { ALLOWED, MODEL_CALL_LIMIT, TOKEN_LIMIT }

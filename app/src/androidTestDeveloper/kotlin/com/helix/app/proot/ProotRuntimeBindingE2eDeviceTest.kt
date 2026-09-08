@@ -14,6 +14,7 @@ import com.helix.runtime.proot.client.ProotConnection
 import com.helix.runtime.proot.client.ProotRuntimeSupervisor
 import com.helix.runtime.proot.client.RepairEntryResult
 import com.helix.runtime.proot.client.VerifiedRuntimeStore
+import com.helix.runtime.proot.core.RuntimeLockCodec
 import com.helix.runtime.proot.ipc.ProotHandshakeClient
 import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
@@ -56,12 +57,6 @@ import java.util.concurrent.TimeUnit
  */
 @RunWith(AndroidJUnit4::class)
 class ProotRuntimeBindingE2eDeviceTest {
-    companion object {
-        /** The HXA-082 canonical lock fingerprint the companion must report. */
-        const val EXPECTED_LOCK_SHA256 =
-            "461485053b4211c0a25bb6ebef1e7d744508c67c0a3760cc4b93050946c352e5"
-    }
-
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
     private val supervisor = ProotRuntimeSupervisor(context)
 
@@ -91,7 +86,14 @@ class ProotRuntimeBindingE2eDeviceTest {
         assertEquals(ProotRuntimeProtocol.PROTOCOL_VERSION, descriptor.protocolVersion)
         assertEquals("arm64-v8a", descriptor.abi)
         assertEquals(listOf("handshake", "jobs", "stdio"), descriptor.capabilities)
-        assertEquals(EXPECTED_LOCK_SHA256, descriptor.lockSha256)
+        // Independently read the installed APK's pinned asset, not a pre-MCP-stdio
+        // historical digest or the handshake's own manifest response.
+        val companionContext = context.createPackageContext(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0)
+        val embeddedLock =
+            companionContext.assets.open("runtime/runtime-lock.json").bufferedReader().use {
+                RuntimeLockCodec.parse(it.readText())
+            }
+        assertEquals(RuntimeLockCodec.sha256Hex(embeddedLock), descriptor.lockSha256)
         val versionName =
             context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0).versionName
         assertEquals(versionName, descriptor.runtimeVersion)

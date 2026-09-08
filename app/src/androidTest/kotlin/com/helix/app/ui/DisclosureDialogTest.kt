@@ -71,7 +71,7 @@ class DisclosureDialogTest {
         composeRule.onNodeWithText("数据类别：文件正文、普通内容").assertIsDisplayed()
         composeRule.onNodeWithText("范围：当前会话").assertIsDisplayed()
         composeRule.onNodeWithText("Provider：示例 Provider", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("本版本不提供“永久允许”选项", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("本次确认仅对本次发送生效", substring = true).assertIsDisplayed()
 
         // The dialog renders from this constant; pin M2's value in the same test.
         assertFalse(EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2)

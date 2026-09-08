@@ -20,7 +20,9 @@ import com.helix.feature.files.SafImportPipeline
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -36,6 +38,8 @@ class SafAdaptersInstrumentedTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val resolver = context.contentResolver
 
+    @get:Rule val temporary = TemporaryFolder(context.cacheDir)
+
     private val never = SafCancelToken { false }
 
     private fun uri(case: String) = "content://${LyingContentProvider.AUTHORITY}/$case"
@@ -45,7 +49,7 @@ class SafAdaptersInstrumentedTest {
 
     /** A fresh scope root with an `input/` region; unique per test. */
     private fun scopeRoot(tag: String): Path {
-        val root = context.filesDir.toPath().resolve("saf-it-$tag")
+        val root = temporary.newFolder("saf-it-$tag").toPath()
         Files.createDirectories(root.resolve("input"))
         return root
     }

@@ -6,7 +6,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.work.CoroutineWorker
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.helix.app.MainActivity
 import java.util.concurrent.atomic.AtomicInteger
@@ -34,36 +36,21 @@ class GoalReminderWorker(
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle("Helix goal checkpoint")
                 .setContentText(GoalReminderPayload.text(objective))
-                .setContentIntent(contentIntent(applicationContext, goalId))
+                .setContentIntent(goalReminderContentIntent(applicationContext, goalId))
                 .setAutoCancel(true)
                 .build()
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(notificationIdFor(goalId), notification)
+        GoalReminderPublication.publishIfRunning(WorkManager.getInstance(applicationContext), id) {
+            manager.notify(goalId, notificationIdFor(goalId), notification)
+        }
         return Result.success()
-    }
-
-    private fun contentIntent(
-        context: Context,
-        goalId: String,
-    ): PendingIntent {
-        val intent =
-            Intent(context, MainActivity::class.java).apply {
-                putExtra(GoalReminderPayload.KEY_GOAL_ID, goalId)
-            }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
     }
 
     companion object {
         /**
-         * Stable notification ID per goal: each goal's reminder occupies its own slot so that
-         * reminders for several pending goals coexist instead of overwriting each other
-         * (`notify` with a shared ID replaces the earlier notification). `String.hashCode`
-         * is spec-stable across runs, so the same goal always maps to the same ID.
+         * Stable numeric component of the notification identity. The full goal ID is also
+         * passed as the notification tag, so different goals with colliding hash codes
+         * still occupy independent notification slots.
          */
         fun notificationIdFor(goalId: String): Int = goalId.hashCode() and 0x7fffffff
 
@@ -99,4 +86,28 @@ internal fun ensureReminderChannel(context: Context) {
         channel.description = "Deferrable checkpoint reminders for persistent goals"
         manager.createNotificationChannel(channel)
     }
+}
+
+internal fun goalReminderContentIntent(
+    context: Context,
+    goalId: String,
+): PendingIntent {
+    val intent =
+        Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            data =
+                Uri
+                    .Builder()
+                    .scheme("helix")
+                    .authority("goal")
+                    .appendPath(goalId)
+                    .build()
+            putExtra(GoalReminderPayload.KEY_GOAL_ID, goalId)
+        }
+    return PendingIntent.getActivity(
+        context,
+        0,
+        intent,
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
 }

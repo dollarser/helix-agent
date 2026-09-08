@@ -181,8 +181,16 @@ class LinuxRunToolE2eDeviceTest {
                             override fun isCancelled(): Boolean = false
                         },
                 )
-            val executor = LinuxRunTool.executor(productionExecutor(store))
-            val result = executor.execute(call)
+            val result =
+                NormalProotResultFixture(context).use { persistence ->
+                    val runner =
+                        productionExecutor(
+                            store,
+                            beforeSubmit = persistence::bind,
+                            persistVerifiedResult = persistence::persist,
+                        )
+                    LinuxRunTool.executor(runner).execute(call).also { persistence.verify() }
+                }
 
             // 3) SUCCEEDED with the captured streams + the imported result.
             val completed =
@@ -258,7 +266,7 @@ class LinuxRunToolE2eDeviceTest {
                         buildJsonArray {
                             add(JsonPrimitive("/bin/sh"))
                             add(JsonPrimitive("-c"))
-                            add(JsonPrimitive("exit 3"))
+                            add(JsonPrimitive("echo executed > /workspace/before-failure.txt; exit 3"))
                         },
                     )
                     put("timeoutSeconds", JsonPrimitive(60))
@@ -282,7 +290,118 @@ class LinuxRunToolE2eDeviceTest {
                 "a non-zero exit must settle as a stable JOB_FAILED failure: $failed",
                 failed.detail.contains("FAILED"),
             )
+            assertTrue("An accepted, executed Job cannot claim zero effects", !failed.sideEffectFree)
+            assertTrue("A known failed terminal is not an unknown remote outcome", !failed.requiresReview)
             Unit
+        }
+    }
+
+    @Test
+    fun aBindingPersistenceFailurePreventsSubmission() {
+        runOnWorker(timeoutMs = 120_000L) {
+            val store = e2eWorkspaceStore()
+            val args =
+                buildJsonObject {
+                    put(
+                        "argv",
+                        buildJsonArray {
+                            add(JsonPrimitive("/bin/sh"))
+                            add(JsonPrimitive("-c"))
+                            add(JsonPrimitive("echo executed > /workspace/before-failure.txt; exit 3"))
+                        },
+                    )
+                    put("timeoutSeconds", JsonPrimitive(60))
+                }
+            val call =
+                ExecutableToolCall(
+                    toolCallId = "tc-linux-fail-" + nextId(),
+                    toolName = LinuxRunTool.NAME,
+                    toolVersion = "1",
+                    args = args,
+                    executionTarget = ExecutionTargetType.LOCAL_PROOT,
+                    deadline = Instant.now().plusSeconds(110),
+                    cancel =
+                        object : CancelSignal {
+                            override fun isCancelled(): Boolean = false
+                        },
+                )
+            var preparedJob: String? = null
+            val executor =
+                LinuxRunTool.executor(
+                    productionExecutor(store, beforeSubmit = { _, spec ->
+                        preparedJob = spec.jobId
+                        error("fixture binding persistence failure")
+                    }),
+                )
+            val failure = runCatching { executor.execute(call) }.exceptionOrNull()
+            assertEquals("fixture binding persistence failure", failure?.message)
+            assertTrue(jobClient.query(requireNotNull(preparedJob)) is ProotJobClient.JobStateOutcome.Unknown)
+            Unit
+        }
+    }
+
+    @Test
+    fun damagedInitialOutputRequiresReviewAndRecoversTheOriginalJob() {
+        runOnWorker(timeoutMs = 180_000L) {
+            for (damage in listOf("empty", "invalid")) {
+                NormalProotResultFixture(context).use { persistence ->
+                    var jobId: String? = null
+                    var damaged = false
+                    var submits = 0
+                    val executor =
+                        productionExecutor(
+                            e2eWorkspaceStore(),
+                            beforeSubmit = { parsed, spec ->
+                                persistence.bind(parsed, spec)
+                                jobId = spec.jobId
+                                submits++
+                            },
+                            persistVerifiedResult = { _, _, _ -> error("Invalid initial bytes must not be persisted") },
+                        )
+                    val call =
+                        ExecutableToolCall(
+                            toolCallId = "tc-output-failure-" + nextId(),
+                            toolName = LinuxRunTool.NAME,
+                            toolVersion = "1",
+                            args =
+                                buildJsonObject {
+                                    put(
+                                        "argv",
+                                        buildJsonArray {
+                                            add(JsonPrimitive("/bin/sh"))
+                                            add(JsonPrimitive("-c"))
+                                            add(JsonPrimitive("echo TOOL_OUT"))
+                                        },
+                                    )
+                                    put("timeoutSeconds", JsonPrimitive(60))
+                                },
+                            executionTarget = ExecutionTargetType.LOCAL_PROOT,
+                            deadline = Instant.now().plusSeconds(80),
+                            cancel =
+                                object : CancelSignal {
+                                    override fun isCancelled(): Boolean {
+                                        val id = jobId
+                                        if (id != null && !damaged) {
+                                            assertTrue(
+                                                jobClient.awaitTerminal(id, timeoutMs = 60_000L) is
+                                                    ProotJobClient.AwaitOutcome.Terminal,
+                                            )
+                                            val output = scratch.last().walkTopDown().single { it.name == "output.zip" }
+                                            output.writeText(if (damage == "empty") "" else "invalid archive")
+                                            damaged = true
+                                        }
+                                        return false
+                                    }
+                                },
+                        )
+                    val result = LinuxRunTool.executor(executor).execute(call) as ToolExecutorResult.Failed
+                    assertTrue(damaged)
+                    assertTrue("$damage must require review: $result", result.requiresReview)
+                    assertTrue(!result.sideEffectFree)
+                    persistence.recover(call.toolCallId, requireNotNull(jobId))
+                    assertEquals(1, submits)
+                }
+            }
         }
     }
 
@@ -295,6 +414,12 @@ class LinuxRunToolE2eDeviceTest {
     private fun productionExecutor(
         store: WorkspaceArtifactStore,
         knownSecretValues: Set<String> = emptySet(),
+        beforeSubmit: (LinuxRunTool.ParsedLinuxCall, com.helix.runtime.proot.ipc.ProotJobSpec) -> Unit = { _, _ -> },
+        persistVerifiedResult: (
+            LinuxRunTool.ParsedLinuxCall,
+            com.helix.runtime.proot.ipc.ProotJobRecord,
+            File,
+        ) -> Unit = { _, _, _ -> },
     ): LinuxRunTool.LinuxExecutor {
         val scratchRoot = File(context.filesDir, "proot-jobs-e2e-" + nextId())
         scratch += scratchRoot
@@ -319,6 +444,8 @@ class LinuxRunToolE2eDeviceTest {
                         .lowercase()
             },
             knownSecretValues = { knownSecretValues },
+            persistVerifiedResult = persistVerifiedResult,
+            beforeSubmit = beforeSubmit,
         )
     }
 

@@ -101,6 +101,15 @@ class GoalReducerBudgetTest {
     }
 
     @Test
+    fun continuedRejectsExhaustedLifetimeAndZeroWakeDuration() {
+        val paused = reduceGoal(runningGoal(), GoalEvent.RunFinished).state
+        val exhausted = paused.copy(runTimeMillis = paused.budgets.maxDurationMillis)
+        assertTrue(GoalReducer.reduce(exhausted, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).ignored)
+        val zeroWake = paused.copy(budgets = paused.budgets.copy(maxWakeDurationMillis = 0))
+        assertTrue(GoalReducer.reduce(zeroWake, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).ignored)
+    }
+
+    @Test
     fun continuedIsIgnoredWhenNoModelCallsRemain() {
         // The single model call of the goal was used in the run; the goal parks in PAUSED and
         // an explicit continue must be IGNORED (stay parked), not start a run the coordinator

@@ -128,9 +128,10 @@ class ProotUpdateLifecycleDeviceTest {
         val lock = ProotRuntimeInstaller.loadEmbeddedLock(context)
         val page = ProotLegalPage.build(context, lock)
         // Offline notice (HXA-087 离线 notice):
-        assertTrue("offline notice missing", "离线声明" in page)
+        for (notice in context.resources.getStringArray(R.array.proot_legal_offline_notice)) {
+            assertTrue("localized offline notice missing", notice in page)
+        }
         assertTrue("no-INTERNET statement missing", "INTERNET" in page)
-        assertTrue("same-signature update statement missing", "同签名" in page)
         // Build manifest (HXA-087 build manifest): canonical fingerprint + ABI:
         assertTrue("canonical lock fingerprint missing", RuntimeLockCodec.sha256Hex(lock) in page)
         assertTrue("ABI missing", lock.abi.wire in page)

@@ -214,6 +214,26 @@ class CodeJavascriptRunToolTest {
     }
 
     @Test
+    fun interruptedAfterUserCancellationSettlesAsCancelled() {
+        val cancelled =
+            java.util.concurrent.atomic
+                .AtomicBoolean(false)
+        val runner =
+            JsExecutor { _, _ ->
+                cancelled.set(true)
+                jsResult(JsExecutionStatus.INTERRUPTED, isolated = true)
+            }
+        val request =
+            call(successArgs()).copy(
+                cancel =
+                    object : com.helix.tools.framework.CancelSignal {
+                        override fun isCancelled(): Boolean = cancelled.get()
+                    },
+            )
+        assertTrue(CodeJavascriptRunTool.executor(runner).execute(request) is ToolExecutorResult.Cancelled)
+    }
+
+    @Test
     fun inFlightCancelSignalIsForwardedToTheBackend() {
         val runner = CapturingExecutor(jsResult(JsExecutionStatus.INTERRUPTED))
         val executor = CodeJavascriptRunTool.executor(runner)

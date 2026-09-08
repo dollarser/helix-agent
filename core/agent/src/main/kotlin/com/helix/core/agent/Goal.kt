@@ -75,7 +75,13 @@ data class Goal(
         get() = state.isTerminal
 
     val unsatisfiedCriteria: List<Criterion>
-        get() = criteria.filterNot { it.isSatisfied }
+        get() =
+            criteria.filterNot {
+                it.isSatisfied && it.evidence
+                    ?.verification
+                    ?.source
+                    ?.goalId == id
+            }
 
     fun remainingModelCalls(): Int = budgets.maxModelCalls - modelCalls
 

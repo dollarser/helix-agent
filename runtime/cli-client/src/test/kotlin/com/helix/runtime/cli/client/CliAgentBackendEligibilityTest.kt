@@ -73,6 +73,7 @@ class CliAgentBackendEligibilityTest {
         assertEquals(setOf(CliBackendBlocker.DISTRIBUTION_AUTHORIZATION_UNPROVEN), decision.blockers)
         assertFalse(decision.mayRegisterForActOrGoal)
     }
+
     @Test fun developerAdvancedRegistrationDoesNotRequireVendorDistributionAuthorization() {
         val decision = assess(android = true, tools = true, reconciliation = true, authorized = false)
 

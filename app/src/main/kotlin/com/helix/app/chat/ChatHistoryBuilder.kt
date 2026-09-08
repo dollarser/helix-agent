@@ -202,8 +202,8 @@ private fun parseToolResult(
         val tool = obj.requiredField("tool")
         val status = (obj["status"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: "UNKNOWN"
         val summary = (obj["summary"] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
-        // The model sees the settled outcome: status + bounded summary (exactly the
-        // text the timeline shows — model-visible ⇔ persisted).
+        // The persisted envelope carries the settled outcome. New successful rows retain
+        // the Dispatcher-bounded payload; legacy rows may contain only the short preview.
         val text = "[$status] $summary".trim()
         require(text.isNotBlank()) { "a tool result row needs a status or summary" }
         ModelMessage(

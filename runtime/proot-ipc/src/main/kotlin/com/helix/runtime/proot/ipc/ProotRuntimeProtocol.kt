@@ -114,6 +114,14 @@ object ProotRuntimeProtocol {
     /** Reconcile a terminal job: the main app verified the proof; the payload is deleted. */
     const val TX_JOB_RECONCILE = IBinder.FIRST_CALL_TRANSACTION + 5
 
+    /** Non-destructive read-only result descriptor; never acknowledges receipt. */
+    const val TX_JOB_FETCH_RESULT = IBinder.FIRST_CALL_TRANSACTION + 6
+    const val TX_JOB_ACK_RESULT = IBinder.FIRST_CALL_TRANSACTION + 7
+
+    /** Submit with a process death token; unsupported peers must not receive a legacy retry. */
+    const val TX_JOB_SUBMIT_OWNED = IBinder.FIRST_CALL_TRANSACTION + 8
+    const val MAX_RESULT_ARCHIVE_BYTES = 136L * 1024L * 1024L
+
     /** Job reply: the record was accepted and starts (or already started). */
     const val REPLY_JOB_ACCEPTED: Byte = 4
 

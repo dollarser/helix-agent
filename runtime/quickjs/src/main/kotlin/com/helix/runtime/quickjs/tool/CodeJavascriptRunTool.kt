@@ -228,7 +228,13 @@ object CodeJavascriptRunTool {
                 limits = limits,
             )
         val result = runner.execute(params, JsCancellation { call.cancel.isCancelled() })
-        return mapResult(result, code, inputBytes, limits)
+        // The isolated engine acknowledges an in-flight interrupt as INTERRUPTED. Only the
+        // live caller cancellation signal authorizes interpreting that acknowledgement as Stop.
+        return if (result.status == JsExecutionStatus.INTERRUPTED && call.cancel.isCancelled()) {
+            ToolExecutorResult.Cancelled
+        } else {
+            mapResult(result, code, inputBytes, limits)
+        }
     }
 
     /** Registers both the contract and the implementation in the given registries. */

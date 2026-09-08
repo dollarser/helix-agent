@@ -1,6 +1,9 @@
 package com.helix.core.storage.criteria
 
 import com.helix.core.model.ArtifactRef
+import com.helix.core.model.CriterionPendingReview
+import com.helix.core.model.CriterionVerificationBinding
+import com.helix.core.model.CriterionVerificationRecord
 import com.helix.core.model.ToolCallId
 import com.helix.core.storage.internal.Value
 import com.helix.core.storage.internal.asBool
@@ -18,6 +21,7 @@ data class StoredEvidence(
     val verifier: String,
     val artifactRef: ArtifactRef?,
     val toolCallId: ToolCallId?,
+    val verification: CriterionVerificationRecord? = null,
 ) {
     init {
         require(verifier.isNotBlank() && verifier.length <= MAX_VERIFIER_LENGTH) {
@@ -37,8 +41,12 @@ data class StoredCriterion(
     val id: String,
     val description: String,
     val evidence: StoredEvidence?,
+    val binding: CriterionVerificationBinding? = null,
+    val pendingReview: CriterionPendingReview? = null,
 ) {
     init {
+        require(pendingReview == null || pendingReview.matches(binding, id, description))
+        require(pendingReview == null || evidence == null)
         require(id.length in 1..MAX_ID_LENGTH && id.all { it in ID_CHARS }) {
             "criterion id must be 1..$MAX_ID_LENGTH chars of [A-Za-z0-9_-]"
         }
@@ -47,6 +55,7 @@ data class StoredCriterion(
         }
     }
 
+    /** Legacy wire flag records evidence presence; only the domain binding check establishes verification. */
     val satisfied: Boolean
         get() = evidence != null
 
@@ -63,7 +72,8 @@ data class StoredCriterion(
  * Canonical storage encoding of the criteria list: a JSON array of objects with fixed field
  * order `id, description, satisfied, evidence` (evidence: `verifier, artifactRef, toolCallId`;
  * absent references are `null`), same strict rules as the ADR-0001 subset. `satisfied` is
- * derived: true iff evidence is present.
+ * derived: true iff evidence is present, including legacy historical evidence. Optional versioned
+ * binding/verification fields never upgrade a legacy reference into a validated receipt.
  */
 object CriteriaCodec {
     fun encode(criteria: List<StoredCriterion>): String {
@@ -83,12 +93,30 @@ object CriteriaCodec {
                             "\"verifier\":\"${escape(evidence.verifier)}\"," +
                             "\"artifactRef\":${encodeRef(evidence.artifactRef?.value)}," +
                             "\"toolCallId\":${encodeRef(evidence.toolCallId?.value)}" +
+                            (
+                                evidence.verification?.let {
+                                    ",\"verification\":" +
+                                        CriterionVerificationCodec.encode(
+                                            it,
+                                        )
+                                }
+                                    ?: ""
+                            ) +
                             "}"
                     }
                 "{\"id\":\"${escape(c.id)}\"," +
                     "\"description\":\"${escape(c.description)}\"," +
                     "\"satisfied\":${c.satisfied}," +
                     evidencePart +
+                    (c.binding?.let { ",\"binding\":" + CriterionVerificationCodec.encodeBinding(it) } ?: "") +
+                    (
+                        c.pendingReview?.let {
+                            ",\"pendingReview\":" +
+                                CriterionVerificationCodec.encodeReview(
+                                    it,
+                                )
+                        } ?: ""
+                    ) +
                     "}"
             }
     }
@@ -108,7 +136,10 @@ object CriteriaCodec {
 
     private fun parseCriterion(item: Value): StoredCriterion {
         val entries = (item as? Value.Obj)?.entries ?: requireNotNull(null) { "criterion must be an object" }
-        require(entries.keys.toList() == listOf("id", "description", "satisfied", "evidence")) {
+        val fields = listOf("id", "description", "satisfied", "evidence")
+        require(
+            entries.keys.toList() in listOf(fields, fields + "binding", fields + listOf("binding", "pendingReview")),
+        ) {
             "criterion requires id, description, satisfied, evidence in that order"
         }
         val id = entries.getValue("id").asString("id")
@@ -120,19 +151,23 @@ object CriteriaCodec {
                 is Value.Obj -> parseEvidence(evidenceValue.entries)
                 else -> requireNotNull(null) { "evidence must be an object or null" }
             }
-        val criterion = StoredCriterion(id, description, evidence)
+        val binding = entries["binding"]?.let(CriterionVerificationCodec::decodeBinding)
+        val review = entries["pendingReview"]?.let(CriterionVerificationCodec::decodeReview)
+        val criterion = StoredCriterion(id, description, evidence, binding, review)
         require(criterion.satisfied == satisfied) { "criterion '$id' satisfied flag disagrees with evidence" }
         return criterion
     }
 
     private fun parseEvidence(entries: LinkedHashMap<String, Value>): StoredEvidence {
-        require(entries.keys.toList() == listOf("verifier", "artifactRef", "toolCallId")) {
+        val fields = listOf("verifier", "artifactRef", "toolCallId")
+        require(entries.keys.toList() == fields || entries.keys.toList() == fields + "verification") {
             "evidence requires verifier, artifactRef, toolCallId in that order"
         }
         return StoredEvidence(
             verifier = entries.getValue("verifier").asString("verifier"),
             artifactRef = parseRef(entries.getValue("artifactRef"), "artifactRef")?.let { ArtifactRef(it) },
             toolCallId = parseRef(entries.getValue("toolCallId"), "toolCallId")?.let { ToolCallId(it) },
+            verification = entries["verification"]?.let(CriterionVerificationCodec::decode),
         )
     }
 
@@ -165,7 +200,7 @@ object CriteriaCodec {
 
     private fun encodeRef(value: String?): String = if (value == null) "null" else "\"${escape(value)}\""
 
-    private fun escape(value: String): String =
+    internal fun escape(value: String): String =
         value
             .map { char ->
                 when (char) {

@@ -3,12 +3,14 @@ package com.helix.app.connector
 import android.os.Process
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.extensions.skills.connector.ConnectorPackageReader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.nio.file.Files
@@ -22,6 +24,9 @@ class ConnectorProcessRecoveryDeviceTest {
 
     @Test
     fun seedPersistedConnector() {
+        assumeTrue(
+            InstrumentationRegistry.getArguments().getString("connectorRecoveryPhase") == "seedPersistedConnector",
+        )
         val name = "recovery-${UUID.randomUUID()}"
         val bundle =
             ConnectorPackageReader().parse(
@@ -41,6 +46,7 @@ class ConnectorProcessRecoveryDeviceTest {
 
     @Test
     fun recoverInNewProcess() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("connectorRecoveryPhase") == "recoverInNewProcess")
         val lines = Files.readAllLines(marker)
         assertNotEquals(lines[1].toInt(), Process.myPid())
         val service = app.appContainer.connectorService

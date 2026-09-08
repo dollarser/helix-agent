@@ -15,15 +15,36 @@ class CodexSubscriptionSmokeTest {
         assertEquals("gpt-test", body.getValue("model").jsonPrimitive.content)
         assertEquals(
             "Reply exactly HELIX_OK",
-            body.getValue("input").jsonArray.single().jsonObject
-                .getValue("content").jsonArray.single().jsonObject.getValue("text").jsonPrimitive.content,
+            body
+                .getValue("input")
+                .jsonArray
+                .single()
+                .jsonObject
+                .getValue("content")
+                .jsonArray
+                .single()
+                .jsonObject
+                .getValue("text")
+                .jsonPrimitive.content,
         )
         assertFalse("tools" in body)
         assertFalse("tool_choice" in body)
         assertFalse("max_output_tokens" in body)
         assertFalse("reasoning" in body)
-        assertEquals(false, body.getValue("store").jsonPrimitive.content.toBoolean())
-        assertEquals(true, body.getValue("stream").jsonPrimitive.content.toBoolean())
+        assertEquals(
+            false,
+            body
+                .getValue("store")
+                .jsonPrimitive.content
+                .toBoolean(),
+        )
+        assertEquals(
+            true,
+            body
+                .getValue("stream")
+                .jsonPrimitive.content
+                .toBoolean(),
+        )
     }
 
     @Test fun endpointAndClientVersionArePinned() {

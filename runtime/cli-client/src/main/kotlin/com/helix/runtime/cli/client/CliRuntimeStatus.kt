@@ -1,9 +1,9 @@
 package com.helix.runtime.cli.client
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.int
 
 data class CliRuntimeStatus(
     val protocolVersion: Int,

@@ -405,9 +405,66 @@ class ProcessRecoveryTest {
         val goal = storage.goals.resolve("goal-budget")
         assertEquals(GoalState.PAUSED.name, goal.state)
         assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", goal.finishReason)
-        assertEquals(1, storage.goalRuns.resolve("run-budget").modelCalls)
+        val run = storage.goalRuns.resolve("run-budget")
+        assertEquals(1, run.modelCalls)
+        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", run.outcome)
+        assertEquals(1_100L, run.endedAt)
+        assertTrue(storage.goalRuns.listOpenByGoal(goal.id).isEmpty())
         val audit = storage.auditEvents.listByCorrelation(goal.correlationId).single()
         assertTrue(audit.redactedPayload.contains("\"exhausted\":\"maxModelCalls\""))
+    }
+
+    @Test
+    fun exhaustedRunSurvivesReopenWithoutRecoveryRewritingItsOutcome() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storage = isolatedStorage(context, "exhausted-reopen")
+        val seeded = goal("exhausted", GoalState.RUNNING.name)
+        storage.goals.save(seeded.copy(budgets = seeded.budgets.copy(maxModelCalls = 1)))
+        storage.goalRuns.open("exhausted-run", seeded.id, GoalWakeReason.USER_OPEN.name, 1_000L)
+        GoalDurableUsageLedger(storage).checkpoint(
+            seeded.id,
+            "exhausted-run",
+            GoalDurableUsageLedger.Boundary.MODEL,
+            GoalDurableUsageLedger.Delta(modelCalls = 1, tokens = 7, durationMillis = 100),
+            500L, // Wall-clock rollback does not erase usage or reverse the run timestamps.
+        )
+        storage.close()
+        val reopened = isolatedStorage(context, "exhausted-reopen")
+        val before = reopened.goalRuns.resolve("exhausted-run")
+        val auditCount = reopened.auditEvents.listByCorrelation(seeded.correlationId).size
+        repeat(2) {
+            val report = RecoveryCoordinatorApp(reopened, FixedClock(999_999L)).recover()
+            assertTrue(report.closedRuns.isEmpty())
+            assertTrue(report.parkedGoals.isEmpty())
+        }
+        assertEquals(before, reopened.goalRuns.resolve("exhausted-run"))
+        assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", before.outcome)
+        assertEquals(1_000L, before.endedAt)
+        assertEquals(100L, before.wakeDurationMillis)
+        assertEquals(7L, before.tokens)
+        assertEquals(auditCount, reopened.auditEvents.listByCorrelation(seeded.correlationId).size)
+        assertEquals(GoalState.PAUSED.name, reopened.goals.resolve(seeded.id).state)
+    }
+
+    @Test
+    fun simultaneousDurationLimitsUseAdrWakeBeforeLifetimeOrder() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val storage = isolatedStorage(context, "duration-priority")
+        val seeded = goal("duration", GoalState.RUNNING.name)
+        storage.goals.save(
+            seeded.copy(budgets = seeded.budgets.copy(maxDurationMillis = 100, maxWakeDurationMillis = 100)),
+        )
+        storage.goalRuns.open("duration-run", seeded.id, GoalWakeReason.USER_OPEN.name, 1_000L)
+        GoalDurableUsageLedger(storage).checkpoint(
+            seeded.id,
+            "duration-run",
+            GoalDurableUsageLedger.Boundary.HEARTBEAT,
+            GoalDurableUsageLedger.Delta(durationMillis = 100),
+            1_100L,
+        )
+        assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", storage.goalRuns.resolve("duration-run").outcome)
+        assertEquals("BUDGET_EXHAUSTED(maxWakeDurationMillis)", storage.goals.resolve(seeded.id).finishReason)
+        assertEquals(100L, storage.goals.resolve(seeded.id).runTimeMillis)
     }
 
     @Test

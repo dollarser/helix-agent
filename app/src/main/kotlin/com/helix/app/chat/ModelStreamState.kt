@@ -134,9 +134,11 @@ internal class ModelStreamState(
                 }
             }
 
-            is ModelEvent.ReasoningDelta,
-            is ModelEvent.Completed,
-            -> {
+            is ModelEvent.Completed -> {
+                if (event.finishReason == "length") protocolFailure("TOKEN_BUDGET_LIMIT")
+            }
+
+            is ModelEvent.ReasoningDelta -> {
                 Unit
             }
         }

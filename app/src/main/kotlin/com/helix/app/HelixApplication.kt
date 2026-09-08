@@ -2,6 +2,7 @@ package com.helix.app
 
 import android.app.Application
 import android.content.Context
+import android.os.Process
 import android.util.Log
 import com.helix.app.diagnostics.ProcessDiagnostics
 import com.helix.app.language.AppLanguageStore
@@ -20,6 +21,10 @@ class HelixApplication : Application() {
      * locale.
      */
     override fun attachBaseContext(base: Context) {
+        if (Process.isIsolated()) {
+            super.attachBaseContext(base)
+            return
+        }
         super.attachBaseContext(
             AppLanguageStore.wrapForLocale(base, AppLanguageStore.effectiveLocaleList(base)),
         )
@@ -45,11 +50,22 @@ class HelixApplication : Application() {
     @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         super.onCreate()
+        // Android also creates this Application in QuickJS's isolated UID. It must not
+        // read host preferences/Room or start host diagnostics and recovery there.
+        if (Process.isIsolated()) return
         processDiagnostics = ProcessDiagnostics.install(this)
         Thread(
             {
                 try {
                     recoveryCoordinator.recover()
+                    appContainer.chatService.onRecoveryCompleted()
+                    com.helix.app.goal
+                        .GoalReminderReconciler(
+                            appContainer.storage,
+                            com.helix.app.goal.GoalReminderScheduler
+                                .create(this),
+                            SystemClock(),
+                        ).reconcileAll()
                 } catch (t: Exception) {
                     Log.e(TAG, "process recovery failed; will retry at next start", t)
                 }

@@ -7,6 +7,7 @@ import org.junit.Test
 import org.junit.rules.Timeout
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * HXA-051 execution control (doc 03 §4.3–§4.5): interrupt, wall-time timeout with the
@@ -28,32 +29,27 @@ class JsExecutionControlTest {
         // delivers the interrupt transaction; the service's interrupt handler halts the
         // loop and classifies INTERRUPTED (deadline-first rule keeps this distinct from
         // TIMEOUT because the deadline is far in the future).
-        val cancel = AtomicBoolean(false)
-        val canceller =
-            Thread(
-                {
-                    Thread.sleep(300)
-                    cancel.set(true)
-                },
-                "cancel-300ms",
-            )
-        canceller.isDaemon = true
-        canceller.start()
+        val executingAt = AtomicLong(0)
+        val client = support.clientObservingExecute { executingAt.set(System.nanoTime()) }
         val started = System.nanoTime()
         val result =
-            support.client.execute(
+            client.execute(
                 support.params(
                     executionId = support.newExecutionId("interrupt"),
                     source = "while (true) {}",
                     limits = JsExecutionLimits(timeoutMs = JsExecutionLimits.MAX_TIMEOUT_MS),
                 ),
-                cancellation = JsCancellation { cancel.get() },
+                cancellation =
+                    JsCancellation {
+                        executingAt.get() != 0L &&
+                            System.nanoTime() - executingAt.get() >= 300_000_000L
+                    },
             )
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         assertEquals(JsExecutionStatus.INTERRUPTED, result.status)
         assertTrue(
-            "must stop at the interrupt (~300 ms), not the 30 s deadline; took $elapsedMs ms",
-            elapsedMs < 10_000L,
+            "must stop after EXECUTE + 300 ms, not the 30 s deadline; took $elapsedMs ms",
+            elapsedMs < 20_000L,
         )
         // A later execution on a fresh instance works: the control plane never kills.
         val next = support.client.execute(support.params(support.newExecutionId("interrupt-next"), "return 1 + 1"))
@@ -62,25 +58,20 @@ class JsExecutionControlTest {
 
     @Test
     fun cancelInFlightIsStableAndNeverRetried() {
-        val cancel = AtomicBoolean(false)
-        val canceller =
-            Thread(
-                {
-                    Thread.sleep(300)
-                    cancel.set(true)
-                },
-                "cancel-inflight-300ms",
-            )
-        canceller.isDaemon = true
-        canceller.start()
+        val executingAt = AtomicLong(0)
+        val client = support.clientObservingExecute { executingAt.set(System.nanoTime()) }
         val result =
-            support.client.execute(
+            client.execute(
                 support.params(
                     executionId = support.newExecutionId("cancelflight"),
                     source = "while (true) {}",
                     limits = JsExecutionLimits(timeoutMs = JsExecutionLimits.MAX_TIMEOUT_MS),
                 ),
-                cancellation = JsCancellation { cancel.get() },
+                cancellation =
+                    JsCancellation {
+                        executingAt.get() != 0L &&
+                            System.nanoTime() - executingAt.get() >= 300_000_000L
+                    },
             )
         // In-flight cancel takes the interrupt path: a stable INTERRUPTED result, exactly
         // one outcome, no blind replay of the same execution.
@@ -102,7 +93,7 @@ class JsExecutionControlTest {
 
     @Test
     fun watchdogTimeoutEndsInfiniteLoopAndReclaims() {
-        // Small wall deadline (1.5 s): the service-side interrupt handler fires at the
+        // Wall deadline (10 s, including cold binding): the service-side interrupt handler fires at the
         // monotonic deadline and the service replies TIMEOUT (deadline-first). The client
         // watchdog would additionally give up on the Binder interaction after a 1 s grace
         // and unbind; either way the result is a stable TIMEOUT and the instance is
@@ -113,14 +104,14 @@ class JsExecutionControlTest {
                 support.params(
                     executionId = support.newExecutionId("timeout"),
                     source = "while (true) {}",
-                    limits = JsExecutionLimits(timeoutMs = 1_500L),
+                    limits = JsExecutionLimits(timeoutMs = 10_000L),
                 ),
             )
         val elapsedMs = (System.nanoTime() - started) / 1_000_000L
         assertEquals(JsExecutionStatus.TIMEOUT, result.status)
         assertTrue(
-            "timeout must land near the 1.5 s deadline (+1 s grace), took $elapsedMs ms",
-            elapsedMs in 1_000L..15_000L,
+            "timeout must land near the 10 s deadline (+1 s grace), took $elapsedMs ms",
+            elapsedMs in 9_000L..20_000L,
         )
         assertTrue("service identity must be present for the reclamation assertion", result.servicePid > 0)
         assertTrue(

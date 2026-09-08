@@ -46,7 +46,7 @@ fi
 ADB="adb -s $SERIAL"
 echo "device: $SERIAL"
 
-RUNNER="com.helix.agent.developer.test/androidx.test.runner.AndroidJUnitRunner"
+RUNNER="com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner"
 COMPANION_RUNNER="com.helix.runtime.proot.test/androidx.test.runner.AndroidJUnitRunner"
 UPDATE_CLASS="com.helix.app.proot.ProotUpdateLegalE2eDeviceTest"
 COMPANION="com.helix.runtime.proot"

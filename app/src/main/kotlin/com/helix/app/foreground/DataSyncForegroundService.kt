@@ -9,7 +9,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.helix.app.MainActivity
@@ -28,14 +30,19 @@ import com.helix.app.R
  * stoppable while the system is allowed to let it run.
  */
 class DataSyncForegroundService : Service() {
+    private var latestStartId = 0
+
     override fun onCreate() {
         super.onCreate()
-        runningInstance.set(this)
         ensureDataSyncChannel(this)
+        // A short turn can stop the service before onStartCommand is dispatched.
+        // Satisfy startForegroundService immediately, including that cold-start race.
+        startAsForeground()
+        runningInstance.set(this)
     }
 
     override fun onDestroy() {
-        runningInstance.set(null)
+        runningInstance.compareAndSet(this, null)
         super.onDestroy()
     }
 
@@ -44,11 +51,10 @@ class DataSyncForegroundService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopDataSync()
-            return START_NOT_STICKY
-        }
+        latestStartId = startId
         startAsForeground()
+        if (intent?.action == ACTION_STOP) transportRequested.set(false)
+        if (!transportRequested.get()) stopLatestStart()
         return START_NOT_STICKY
     }
 
@@ -77,7 +83,21 @@ class DataSyncForegroundService : Service() {
         )
     }
 
+    internal fun requestTransportStop() {
+        Handler(Looper.getMainLooper()).post {
+            if (!transportRequested.get() && runningInstance.get() === this && latestStartId > 0) {
+                stopLatestStart()
+            }
+        }
+    }
+
+    private fun stopLatestStart() {
+        // Never cancel a newer start still waiting for onStartCommand / foreground promotion.
+        if (stopSelfResult(latestStartId)) stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+
     private fun stopDataSync() {
+        transportRequested.set(false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -116,6 +136,10 @@ class DataSyncForegroundService : Service() {
     }
 
     companion object {
+        internal val transportRequested =
+            java.util.concurrent.atomic
+                .AtomicBoolean(false)
+
         const val CHANNEL_ID = "data_sync"
         const val NOTIFICATION_ID = 4865
         const val ACTION_STOP = "com.helix.app.foreground.DATA_SYNC_STOP"
@@ -133,16 +157,20 @@ class DataSyncForegroundService : Service() {
     }
 }
 
-/** The production [ForegroundServiceLauncher]: real `startForegroundService` / `stopService`. */
+/** The production launcher: real foreground start, then startId-aware stop after promotion. */
 class AndroidForegroundServiceLauncher(
     private val context: Context,
 ) : ForegroundServiceLauncher {
     override fun start() {
+        DataSyncForegroundService.transportRequested.set(true)
         context.startForegroundService(DataSyncForegroundService.intent(context))
     }
 
     override fun stop() {
-        context.stopService(DataSyncForegroundService.intent(context))
+        DataSyncForegroundService.transportRequested.set(false)
+        // A cold start has an outstanding Android promotion obligation. Let onStartCommand
+        // acknowledge it before stopping; stopService here can cancel that callback and crash.
+        DataSyncForegroundService.runningInstance.get()?.requestTransportStop()
     }
 }
 

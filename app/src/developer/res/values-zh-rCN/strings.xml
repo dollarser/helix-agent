@@ -9,4 +9,19 @@
     <string name="allfiles_state_lost">系统状态：已失效</string>
     <string name="allfiles_state_unavailable">系统状态：此系统/版本不提供（API 低于 30）</string>
     <string name="allfiles_title">All files 访问</string>
+    <string name="settings_proot_verify_success">验证通过（基线一致）</string>
+    <string name="settings_proot_verify_mismatch">需更新：Runtime 基线与已验证锚点不匹配（Runtime APK 已更新？）。请在“修复 Runtime”中更新，再点“重定基线”并重新验证。</string>
+    <string name="settings_proot_verify_failure">验证失败：%1$s</string>
+    <string name="settings_proot_remove_opened">已清除本应用锚点；请在弹出的 Runtime 页面点“删除 Runtime”完成。</string>
+    <string name="settings_proot_remove_unavailable">无法打开 Runtime（%1$s）</string>
+    <string name="settings_proot_verified">已验证</string>
+    <string name="settings_proot_not_installed">未安装</string>
+    <string name="settings_proot_not_verified">未验证</string>
+    <string name="settings_proot_disabled">被禁用/强制停止</string>
+    <string name="proot_recovery_running">原作业仍在运行。</string>
+    <string name="proot_recovery_succeeded">原作业已完成；结果尚未导入或验证。</string>
+    <string name="proot_recovery_stopped">原作业已停止。</string>
+    <string name="proot_recovery_ended">原作业已结束，未确认成功。</string>
+    <string name="proot_recovery_stop_requested">已请求停止原作业，请重新查询状态。</string>
+    <string name="proot_recovery_expired">原 Linux 任务的结果已过期。任务保持中断，不会自动重新执行。</string>
 </resources>

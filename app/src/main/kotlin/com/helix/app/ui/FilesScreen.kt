@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -377,19 +378,22 @@ fun FilesScreen(
         previewImage = null
         fileInfo = null
         if (file.isDirectory) return@LaunchedEffect
-        withContext(Dispatchers.IO) {
-            val text = fileManager.previewText(selectedScopeId, file.relativePath)
-            if (text != null) {
-                previewText = text
-            } else {
-                val bytes = fileManager.previewImageBytes(selectedScopeId, file.relativePath)
-                if (bytes.isNotEmpty()) {
-                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                    if (bitmap != null) previewImage = bitmap.asImageBitmap()
-                }
+        val loaded =
+            withContext(Dispatchers.IO) {
+                val text = fileManager.previewText(selectedScopeId, file.relativePath)
+                val image =
+                    if (text == null) {
+                        val bytes = fileManager.previewImageBytes(selectedScopeId, file.relativePath)
+                        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                    } else {
+                        null
+                    }
+                Triple(text, image, fileManager.fileInfo(selectedScopeId, file.relativePath))
             }
-            fileInfo = fileManager.fileInfo(selectedScopeId, file.relativePath)
-        }
+        // Publish the completed preview and metadata together on the composition dispatcher.
+        previewText = loaded.first
+        previewImage = loaded.second
+        fileInfo = loaded.third
     }
 
     // The conflict dialog's suggested "重命名" target (the next non-colliding sibling).
@@ -640,103 +644,100 @@ fun FilesScreen(
         modifier = Modifier.fillMaxSize().padding(16.dp).testTag("screen-files"),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 来源标识: switchable source chips + the always-shown current source.
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
+        AdaptiveFileControls(
+            location = "${currentSource.displayName} · /$currentPath",
         ) {
-            sources.forEach { source ->
-                TextButton(
-                    onClick = {
-                        if (source.scopeId != selectedScopeId) {
-                            selectedScopeId = source.scopeId
-                            currentPath = ""
-                            trashOpen = false
-                        }
-                    },
-                    modifier = Modifier.testTag("files-source-${source.scopeId}"),
-                ) {
-                    Text(source.displayName)
+            // 来源标识: switchable source chips + the always-shown current source.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+            ) {
+                sources.forEach { source ->
+                    TextButton(
+                        onClick = {
+                            if (source.scopeId != selectedScopeId) {
+                                selectedScopeId = source.scopeId
+                                currentPath = ""
+                                trashOpen = false
+                            }
+                        },
+                        modifier = Modifier.testTag("files-source-${source.scopeId}"),
+                    ) {
+                        Text(source.displayName)
+                    }
                 }
             }
-        }
-        Text(
-            str(R.string.files_current_source, currentSource.displayName) +
-                if (canMutate) "" else str(R.string.files_read_only_suffix),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.testTag("files-source-current"),
-        )
+            Text(
+                str(R.string.files_current_source, currentSource.displayName) +
+                    if (canMutate) "" else str(R.string.files_read_only_suffix),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("files-source-current"),
+            )
 
-        // 路径面包屑 + 排序 + 视图 + 工具按钮.
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.testTag("files-breadcrumb"),
-            ) {
-                BreadcrumbCrumb(str(R.string.files_root_directory), isRoot = true, onClick = { currentPath = "" })
-                currentPath
-                    .split("/")
-                    .filter { it.isNotEmpty() }
-                    .mapIndexed { index, segment ->
-                        val prefix =
-                            currentPath
-                                .split("/")
-                                .filter { it.isNotEmpty() }
-                                .take(index + 1)
-                                .joinToString("/")
-                        BreadcrumbCrumb(segment, isRoot = false, onClick = { currentPath = prefix })
-                    }
-            }
-            // Three rows: sort / view toggles / actions. A single row overflows the narrow phone
-            // toolbar and clips the trailing buttons off-screen / zero-width (device-verified:
-            // with 视图+动作 on one row the 导入 button measured 0dp wide on the 1080px gate
-            // device and was unclickable); each row here fits with margin to spare.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SortButton(str(R.string.files_sort_name), SortKey.NAME, sortKey, onPick = { sortKey = it })
-                SortButton(str(R.string.files_sort_time), SortKey.TIME, sortKey, onPick = { sortKey = it })
-                SortButton(str(R.string.files_sort_size), SortKey.SIZE, sortKey, onPick = { sortKey = it })
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(onClick = { viewMode = ViewMode.LIST }, modifier = Modifier.testTag("files-view-list")) {
-                    Text(str(R.string.files_view_list))
-                }
-                TextButton(onClick = { viewMode = ViewMode.GRID }, modifier = Modifier.testTag("files-view-grid")) {
-                    Text(str(R.string.files_view_grid))
-                }
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(onClick = { trashOpen = true }, modifier = Modifier.testTag("files-trash-open")) {
-                    Text(str(R.string.files_trash_button))
-                }
-                if (canMutate) {
-                    TextButton(onClick = { newFolderOpen = true }, modifier = Modifier.testTag("files-newfolder")) {
-                        Text(str(R.string.files_new_folder_button))
-                    }
-                }
-                // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
-                TextButton(onClick = { safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
-                    Text(str(R.string.files_saf_button))
-                }
-                // HXA-058: the 导入 entry (a single document or a folder into the Workspace).
-                TextButton(
-                    onClick = {
-                        importResult = null
-                        importOpen = true
-                    },
-                    modifier = Modifier.testTag("files-import-open"),
+            // 路径面包屑 + 排序 + 视图 + 工具按钮.
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("files-breadcrumb"),
                 ) {
-                    Text(str(R.string.files_import_button))
+                    BreadcrumbCrumb(str(R.string.files_root_directory), isRoot = true, onClick = { currentPath = "" })
+                    currentPath
+                        .split("/")
+                        .filter { it.isNotEmpty() }
+                        .mapIndexed { index, segment ->
+                            val prefix =
+                                currentPath
+                                    .split("/")
+                                    .filter { it.isNotEmpty() }
+                                    .take(index + 1)
+                                    .joinToString("/")
+                            BreadcrumbCrumb(segment, isRoot = false, onClick = { currentPath = prefix })
+                        }
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SortButton(str(R.string.files_sort_name), SortKey.NAME, sortKey, onPick = { sortKey = it })
+                    SortButton(str(R.string.files_sort_time), SortKey.TIME, sortKey, onPick = { sortKey = it })
+                    SortButton(str(R.string.files_sort_size), SortKey.SIZE, sortKey, onPick = { sortKey = it })
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(onClick = { viewMode = ViewMode.LIST }, modifier = Modifier.testTag("files-view-list")) {
+                        Text(str(R.string.files_view_list))
+                    }
+                    TextButton(onClick = { viewMode = ViewMode.GRID }, modifier = Modifier.testTag("files-view-grid")) {
+                        Text(str(R.string.files_view_grid))
+                    }
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    TextButton(onClick = { trashOpen = true }, modifier = Modifier.testTag("files-trash-open")) {
+                        Text(str(R.string.files_trash_button))
+                    }
+                    if (canMutate) {
+                        TextButton(onClick = { newFolderOpen = true }, modifier = Modifier.testTag("files-newfolder")) {
+                            Text(str(R.string.files_new_folder_button))
+                        }
+                    }
+                    // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
+                    TextButton(onClick = { safPanelOpen = true }, modifier = Modifier.testTag("files-saf-open")) {
+                        Text(str(R.string.files_saf_button))
+                    }
+                    // HXA-058: the 导入 entry (a single document or a folder into the Workspace).
+                    TextButton(
+                        onClick = {
+                            importResult = null
+                            importOpen = true
+                        },
+                        modifier = Modifier.testTag("files-import-open"),
+                    ) {
+                        Text(str(R.string.files_import_button))
+                    }
                 }
             }
         }
@@ -902,7 +903,10 @@ fun FilesScreen(
                 onDismissRequest = { openFile = null },
                 title = { Text(file.name) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         when {
                             previewImage != null -> {
                                 Image(
@@ -924,7 +928,6 @@ fun FilesScreen(
                                     modifier =
                                         Modifier
                                             .testTag("files-preview-text")
-                                            .verticalScroll(rememberScrollState())
                                             .padding(4.dp),
                                 )
                             }

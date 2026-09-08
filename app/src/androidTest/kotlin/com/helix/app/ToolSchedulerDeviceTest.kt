@@ -227,6 +227,50 @@ class ToolSchedulerDeviceTest {
         }
     }
 
+    @Test
+    fun runningExecutorHasADurableRunningToolCallBeforeItReturns() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val name = "scheduler.running.$run"
+        val callId = "running-$run"
+        register(
+            name,
+            ToolOperationClass.READ_ONLY,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    entered.countDown()
+                    check(release.await(10, TimeUnit.SECONDS)) { "fixture release timed out" }
+                    return ToolExecutorResult.Completed(buildJsonObject { put("done", true) })
+                }
+            },
+        )
+        val future =
+            java.util.concurrent.FutureTask {
+                kotlinx.coroutines.runBlocking { container.chatService.dispatchToolCall(callId, turnId, name, "{}") }
+            }
+        val worker = Thread(future)
+        worker.start()
+        try {
+            assertTrue("executor did not start", entered.await(5, TimeUnit.SECONDS))
+            assertEquals(
+                "RUNNING",
+                container.storage.toolCalls
+                    .byTurnAndCallId(turnId, callId)
+                    ?.state,
+            )
+        } finally {
+            release.countDown()
+            worker.join(5_000)
+        }
+        assertTrue(future.get(1, TimeUnit.SECONDS) is ToolDispatchOutcome.Succeeded)
+        assertEquals(
+            "COMPLETED",
+            container.storage.toolCalls
+                .byTurnAndCallId(turnId, callId)
+                ?.state,
+        )
+    }
+
     // ------------------------------------------------------------- fixed back-fill order
 
     @Test

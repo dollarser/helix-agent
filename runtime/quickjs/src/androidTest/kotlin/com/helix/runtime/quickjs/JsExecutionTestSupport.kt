@@ -3,6 +3,7 @@ package com.helix.runtime.quickjs
 import android.app.ActivityManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
@@ -11,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -27,6 +29,53 @@ internal object JsExecutionTestSupport {
 
     val client: JsExecutionClient
         get() = JsExecutionClient(context)
+
+    /** Observe the real EXECUTE transaction, so in-flight cancellation cannot race cold binding. */
+    fun clientObservingExecute(onExecute: () -> Unit): JsExecutionClient =
+        JsExecutionClient(
+            object : ContextWrapper(context) {
+                private var original: ServiceConnection? = null
+                private var wrapped: ServiceConnection? = null
+
+                override fun bindIsolatedService(
+                    service: Intent,
+                    flags: Int,
+                    instanceName: String,
+                    executor: Executor,
+                    connection: ServiceConnection,
+                ): Boolean {
+                    val observer =
+                        object : ServiceConnection by connection {
+                            override fun onServiceConnected(
+                                name: ComponentName,
+                                service: IBinder,
+                            ) {
+                                connection.onServiceConnected(
+                                    name,
+                                    object : IBinder by service {
+                                        override fun transact(
+                                            code: Int,
+                                            data: Parcel,
+                                            reply: Parcel?,
+                                            flags: Int,
+                                        ): Boolean {
+                                            if (code == JsProtocol.CODE_EXECUTE) onExecute()
+                                            return service.transact(code, data, reply, flags)
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    original = connection
+                    wrapped = observer
+                    return super.bindIsolatedService(service, flags, instanceName, executor, observer)
+                }
+
+                override fun unbindService(connection: ServiceConnection) {
+                    super.unbindService(if (connection === original) requireNotNull(wrapped) else connection)
+                }
+            },
+        )
 
     fun newExecutionId(tag: String): String = "$tag-${UUID.randomUUID()}"
 

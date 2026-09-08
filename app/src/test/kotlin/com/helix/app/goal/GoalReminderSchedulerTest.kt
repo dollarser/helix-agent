@@ -27,6 +27,7 @@ class GoalReminderSchedulerTest {
             delayMillis: Long,
             goalId: String,
             objective: String,
+            checkpointEpochMillis: Long,
         ) {
             enqueues.add(Enqueue(workName, delayMillis, goalId, objective))
         }

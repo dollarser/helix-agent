@@ -52,6 +52,8 @@ import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var consumedReminderId: String? = null
+
     /**
      * HXA-069: apply the app UI language to this activity's context (and every Composable
      * resource it reads) at attach time, via the platform [Context.createConfigurationContext]
@@ -66,12 +68,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        consumedReminderId = savedInstanceState?.getString("consumed_goal_reminder")
         val container = (application as HelixApplication).appContainer
         // HXA-056: a share intent (ACTION_SEND text/image, ACTION_SEND_MULTIPLE images)
         // becomes a local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5).
         // Re-runs when the user shares again into the running task (onNewIntent).
         val draft = ShareIntentDraft.draftFrom(intent)
         container.chatService.acceptShareDraft(draft.text, draft.imageUris)
+        acceptGoalReminder(intent)
         setContent { HelixApp(container) }
     }
 
@@ -97,11 +101,30 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
+        consumedReminderId = null
+        acceptGoalReminder(intent)
         val draft = ShareIntentDraft.draftFrom(intent)
         (application as HelixApplication).appContainer.chatService.acceptShareDraft(
             draft.text,
             draft.imageUris,
         )
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("consumed_goal_reminder", consumedReminderId)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun acceptGoalReminder(intent: Intent) {
+        val goalId =
+            com.helix.app.goal
+                .goalReminderId(intent) ?: return
+        // Persist consumption without changing the Activity launch identity.
+        if (goalId != consumedReminderId) {
+            consumedReminderId = goalId
+            (application as HelixApplication).appContainer.chatService.openGoalReminder(goalId)
+        }
     }
 
     /**
@@ -144,6 +167,8 @@ internal fun HelixApp(container: AppContainer) {
 
     val repository = container.shellRepository
     val navController = rememberNavController()
+    com.helix.app.goal
+        .GoalReminderNavigation(container.chatService, navController)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val currentEntry by navController.currentBackStackEntryAsState()
@@ -213,7 +238,11 @@ internal fun HelixApp(container: AppContainer) {
                         composable(destination.route) {
                             when (destination) {
                                 ShellDestination.Sessions -> {
-                                    ChatScreen(container.chatService, container.providerService)
+                                    ChatScreen(
+                                        container.chatService,
+                                        container.providerService,
+                                        container.privacyDeletionService,
+                                    )
                                 }
 
                                 ShellDestination.Settings -> {
@@ -223,6 +252,7 @@ internal fun HelixApp(container: AppContainer) {
                                         container.storage.highSensitivityRules,
                                         container.runControlStore,
                                         container.connectorService,
+                                        container.lanScopeStore,
                                     )
                                 }
 

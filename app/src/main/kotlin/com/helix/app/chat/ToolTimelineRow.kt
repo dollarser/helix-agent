@@ -21,4 +21,9 @@ data class ToolTimelineRow(
     val stateLabel: String,
     val resultSummary: String?,
     val card: ApprovalCardUi?,
+    val prootRecoveryAvailable: Boolean = false,
+    val prootRecoveryBusy: Boolean = false,
+    val prootRecoveredOutput: com.helix.app.proot.ProotRecoveredOutput? = null,
+    val prootResultUnavailable: Boolean = false,
+    val prootRecoveryReport: com.helix.app.proot.ProotRecoveryReport? = null,
 )

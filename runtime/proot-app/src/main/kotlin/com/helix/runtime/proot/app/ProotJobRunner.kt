@@ -62,7 +62,9 @@ import java.util.concurrent.atomic.AtomicReference
 @Suppress("TooManyFunctions")
 class ProotJobRunner private constructor(
     private val context: Context,
-) : ProotJobHandler {
+) : ProotJobHandler,
+    com.helix.runtime.proot.ipc.ProotJobResultHandler,
+    com.helix.runtime.proot.ipc.ProotOwnedJobHandler {
     companion object {
         private val holder = AtomicReference<ProotJobRunner>()
 
@@ -93,6 +95,8 @@ class ProotJobRunner private constructor(
 
     /** jobId -> the live process handle of a RUNNING job of THIS process. */
     private val liveJobs = ConcurrentHashMap<String, LiveJob>()
+    private val cancellationFlags = ConcurrentHashMap<String, AtomicBoolean>()
+    private val owners = ProotJobOwners()
 
     private class LiveJob(
         val pid: Int,
@@ -124,12 +128,19 @@ class ProotJobRunner private constructor(
      * record is written and the lifecycle runs on the job thread. The PFDs are
      * owned by the runner from this point (closed in every outcome).
      */
-    @Suppress("ReturnCount") // one return per distinct submit verdict
-
     override fun submit(
         spec: ProotJobSpec,
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
+    ): ProotJobSubmitResult = submitWithOwner(spec, inputPfd, outputPfd, null)
+
+    @Synchronized
+    @Suppress("ReturnCount") // one return per distinct submit verdict
+    private fun submitWithOwner(
+        spec: ProotJobSpec,
+        inputPfd: ParcelFileDescriptor,
+        outputPfd: ParcelFileDescriptor,
+        owner: android.os.IBinder?,
     ): ProotJobSubmitResult {
         val now = System.currentTimeMillis()
         val entries = store.entries()
@@ -161,9 +172,18 @@ class ProotJobRunner private constructor(
                 createdAtEpochMs = now,
             )
         store.put(pending)
+        cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
+        if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
         jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd) }
         return ProotJobSubmitResult.Accepted(pending)
     }
+
+    override fun submitOwned(
+        owner: android.os.IBinder,
+        spec: ProotJobSpec,
+        input: ParcelFileDescriptor,
+        output: ParcelFileDescriptor,
+    ): ProotJobSubmitResult = submitWithOwner(spec, input, output, owner)
 
     // ------------------------------------------------------------------ lifecycle
 
@@ -183,7 +203,7 @@ class ProotJobRunner private constructor(
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
     ) {
-        val cancelRequested = AtomicBoolean(false)
+        val cancelRequested = cancellationFlags.getValue(spec.jobId)
         var live: LiveJob? = null
         try {
             // 1) Extract + re-verify the input archive (untrusted bytes: central
@@ -359,6 +379,7 @@ class ProotJobRunner private constructor(
                         ),
                 )
             liveJobs[spec.jobId] = live
+            if (cancelRequested.get()) killProcessGroup(childPid)
             // The 通知停止 surface (HXA-086): a plain (non-FGS) notification with a
             // stop action for the lifetime of the RUNNING state.
             ProotJobNotification.postRunning(context, spec.jobId)
@@ -416,6 +437,8 @@ class ProotJobRunner private constructor(
         } finally {
             live?.watchdog?.cancel(false)
             liveJobs.remove(spec.jobId)
+            cancellationFlags.remove(spec.jobId, cancelRequested)
+            owners.release(spec.jobId)
         }
     }
 
@@ -495,21 +518,23 @@ class ProotJobRunner private constructor(
         var outputManifest: String? = null
         var finalState = state
 
-        // An undeliverable output is demoted to FAILED with the failure note;
-        // it is a terminal STATE, never a crash.
+        // Archive construction/persistence failure demotes success to FAILED.
+        // A failed initial transfer preserves the durable result for explicit recovery.
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         val manifestDocument =
             try {
                 val stdoutFile = File(jobDir, "_stdout.txt").apply { writeBytes(stdout.bytes) }
                 val stderrFile = File(jobDir, "_stderr.txt").apply { writeBytes(stderr.bytes) }
-                buildOutputArchive(
-                    outputPfd,
-                    File(jobDir, "workspace"),
-                    "stdout.txt" to stdoutFile,
-                    "stderr.txt" to stderrFile,
-                )
-                // No manifest document: the job still ran, but the output is
-                // undeliverable (demoted to FAILED) — the failure note keeps why.
+                ProotOutputDelivery
+                    .persistAndDeliver(store.outputFile(pending.jobId), outputPfd) { archive ->
+                        buildOutputArchive(
+                            archive,
+                            File(jobDir, "workspace"),
+                            "stdout.txt" to stdoutFile,
+                            "stderr.txt" to stderrFile,
+                        )
+                    }.manifestDocument
+                // No durable archive: the failure note records missing output evidence.
             } catch (e: Exception) {
                 null
             }
@@ -556,13 +581,13 @@ class ProotJobRunner private constructor(
 
     /**
      * Writes the output archive (manifest entry first, then every artifact in
-     * manifest order) into [outputPfd]; returns the canonical manifest document
+     * manifest order) into [archive]; returns the canonical manifest document
      * whose SHA-256 is the record's `outputManifestSha256`. Caps come from
      * [JobArchiveLimits].
      */
     @Suppress("ThrowsCount") // one throw per distinct output failure
     private fun buildOutputArchive(
-        outputPfd: ParcelFileDescriptor,
+        archive: File,
         workspace: File,
         vararg extra: Pair<String, File>,
     ): String {
@@ -589,7 +614,7 @@ class ProotJobRunner private constructor(
             throw JobArchiveException("output exceeds the total cap")
         }
         val manifestDocument = JobManifestCodec.encode(JobManifest(entries))
-        JobZipWriter(ParcelFileDescriptor.AutoCloseOutputStream(outputPfd)).use { writer ->
+        JobZipWriter(archive.outputStream()).use { writer ->
             writer.writeManifest(manifestDocument)
             entries.forEach { entry -> writer.writeEntry(entry.path, files.getValue(entry.path)) }
             // close() re-checks written == manifest and flushes the PFD
@@ -599,12 +624,21 @@ class ProotJobRunner private constructor(
 
     // ------------------------------------------------------------------ control
 
+    override fun acknowledgeResult(
+        jobId: String,
+        terminalCommit: String,
+        now: Long,
+    ) = store.acknowledge(jobId, terminalCommit, now)
+
+    override fun fetchResult(jobId: String) = ProotResultArchiveStore(store).open(jobId)
+
     override fun query(jobId: String): ProotJobRecord? = store.load(jobId)
 
     @Suppress("ReturnCount")
     override fun cancel(jobId: String): ProotJobRecord? {
         val record = store.load(jobId) ?: return null
         if (record.state.isTerminal) return record
+        cancellationFlags.computeIfAbsent(jobId) { AtomicBoolean(false) }.set(true)
         val live = liveJobs[jobId]
         if (live != null) {
             live.cancelRequested.set(true)

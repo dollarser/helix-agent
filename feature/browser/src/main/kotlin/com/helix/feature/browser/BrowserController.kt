@@ -7,6 +7,7 @@ import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
+import androidx.core.graphics.createBitmap
 import com.helix.feature.browser.snapshot.BrowserOrigin
 import com.helix.feature.browser.snapshot.BrowserSnapshot
 import com.helix.feature.browser.snapshot.BrowserSnapshotScript
@@ -307,7 +308,7 @@ class BrowserController(
         val width = view.width
         val height = view.height
         if (width <= 0 || height <= 0) return null
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(width, height)
         try {
             view.draw(Canvas(bitmap))
             val buffer = ByteArrayOutputStream()
@@ -499,6 +500,15 @@ class BrowserController(
 
                     override fun onMainFrameUnknownError(failingUrl: String?) {
                         if (isLive(id)) tabs.onMainFrameUnknownError(id, failingUrl)
+                        publish()
+                    }
+
+                    override fun onRendererGone(failingUrl: String?) {
+                        hosts.remove(id)
+                        snapshots.remove(id)
+                        if (isLive(id)) {
+                            tabs.onMainFrameError(id, 0, android.webkit.WebViewClient.ERROR_UNKNOWN, failingUrl)
+                        }
                         publish()
                     }
 

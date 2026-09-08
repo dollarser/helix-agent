@@ -128,8 +128,45 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v7ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v7-export.db", 7)
+    fun v7ToV8PreservesSessionsAndDoesNotInventGoalBindings() {
+        val name = "goal-binding-upgrade.db"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 7).use { old ->
+            old.execSQL("INSERT INTO sessions (id, title, createdAt) VALUES ('legacy', 'Existing session', 1000)")
+        }
+        helper.runMigrationsAndValidate(name, 8, true, HelixDatabase.MIGRATION_7_8).use { upgraded ->
+            upgraded.query("SELECT title FROM sessions WHERE id = 'legacy'").use { rows ->
+                assertTrue(rows.moveToFirst())
+                assertEquals("Existing session", rows.getString(0))
+            }
+            upgraded.query("SELECT COUNT(*) FROM goal_turn_bindings").use { rows ->
+                assertTrue(rows.moveToFirst())
+                assertEquals(0, rows.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun v8ToV9PreservesSessionsAndStartsWithNoReservations() {
+        val name = "v8-to-v9.db"
+        helper.createDatabase(name, 8).use {
+            it.execSQL("INSERT INTO sessions (id, title, createdAt) VALUES ('legacy', 'Existing session', 1000)")
+        }
+        helper.runMigrationsAndValidate(name, 9, true, HelixDatabase.MIGRATION_8_9).use { upgraded ->
+            upgraded.query("SELECT title FROM sessions WHERE id = 'legacy'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("Existing session", it.getString(0))
+            }
+            upgraded.query("SELECT COUNT(*) FROM goal_usage_reservations").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+    }
+
+    @Test
+    fun v9ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v9-export.db", 9)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -137,7 +174,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v7 schema must match the exported v7 schema",
+                "code-built v9 schema must match the exported v9 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -188,6 +225,8 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_4_5,
                     HelixDatabase.MIGRATION_5_6,
                     HelixDatabase.MIGRATION_6_7,
+                    HelixDatabase.MIGRATION_7_8,
+                    HelixDatabase.MIGRATION_8_9,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -721,6 +760,8 @@ class RoomMigrationFixtureTest {
             "plan_steps",
             "goals",
             "goal_runs",
+            "goal_turn_bindings",
+            "goal_usage_reservations",
             "mcp_servers",
             "mcp_capabilities",
             "skills",

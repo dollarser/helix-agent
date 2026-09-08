@@ -4,7 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class CliRuntimeStatusTest {
-    private val valid = """{"protocolVersion":1,"runtimeVersion":"0.1.0","abi":"arm64-v8a","lockSha256":"${"a".repeat(64)}","agentBackendState":"NOT_REGISTERED"}"""
+    private val valid = """{"protocolVersion":1,"runtimeVersion":"0.1.0","abi":"arm64-v8a","lockSha256":"${"a".repeat(
+        64,
+    )}","agentBackendState":"NOT_REGISTERED"}"""
 
     @Test fun validStatusDecodes() {
         assertEquals("0.1.0", CliRuntimeStatusCodec.decode(valid).runtimeVersion)

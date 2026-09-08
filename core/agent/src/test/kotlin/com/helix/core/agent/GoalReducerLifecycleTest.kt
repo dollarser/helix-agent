@@ -1,6 +1,5 @@
 package com.helix.core.agent
 
-import com.helix.core.model.ArtifactRef
 import com.helix.core.model.GoalState
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
@@ -185,11 +184,39 @@ class GoalReducerLifecycleTest {
         assertTrue(GoalReducer.reduce(ready, GoalEvent.RunFinished).ignored)
     }
 
+    @Test
+    fun pausedReminderUpdatesDoNotStartRunOrChangeUsage() {
+        val paused = reduceGoal(runningGoal(), GoalEvent.RunFinished).state
+        val checkpoint = Checkpoint(99_000L)
+        val scheduled = reduceGoal(paused, GoalEvent.CheckpointScheduled(checkpoint))
+        assertEquals(paused.copy(nextCheckpoint = checkpoint), scheduled.state)
+        assertEquals(listOf(GoalEffect.ScheduleCheckpointReminder(checkpoint)), scheduled.effects)
+        val cleared = reduceGoal(scheduled.state, GoalEvent.CheckpointCleared)
+        assertEquals(paused, cleared.state)
+        assertEquals(listOf(GoalEffect.ReminderCancelled), cleared.effects)
+    }
+
+    @Test
+    fun reminderUpdatesAreIgnoredOutsideRunningAndPaused() {
+        val running = runningGoal()
+        val states =
+            listOf(
+                GoalFixtures.newGoal(),
+                reduceGoal(GoalFixtures.newGoal(), GoalEvent.Ready(null, null)).state,
+                reduceGoal(running, GoalEvent.InputRequired("review")).state,
+                reduceGoal(running, GoalEvent.Cancelled).state,
+            )
+        for (state in states) {
+            assertTrue(GoalReducer.reduce(state, GoalEvent.CheckpointScheduled(Checkpoint(99_000L))).ignored)
+            assertTrue(GoalReducer.reduce(state, GoalEvent.CheckpointCleared).ignored)
+        }
+    }
+
     /** A RUNNING goal whose single criterion already carries verifier evidence. */
     private fun fullySatisfiedRunningGoal(): Goal {
         val goal = runningGoal()
         val evidence =
-            CriterionEvidence(verifier = "login-verifier", artifactRef = ArtifactRef("artifact-1"), toolCallId = null)
+            GoalFixtures.evidence()
         return reduceGoal(goal, GoalEvent.CriterionSatisfied("c1", evidence)).state
     }
 }

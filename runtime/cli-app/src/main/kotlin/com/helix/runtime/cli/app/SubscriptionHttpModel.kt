@@ -20,30 +20,58 @@ internal class SubscriptionHttpModel(
     private val headers: Map<String, String> = emptyMap(),
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
 ) : Closeable {
-    private val client = client.newBuilder()
-        .connectTimeout(20, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS).callTimeout(120, TimeUnit.SECONDS)
-        .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
+    private val client =
+        client
+            .newBuilder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .followSslRedirects(false)
+            .retryOnConnectionFailure(false)
+            .build()
 
-    fun run(request: ModelRequest): CodexModelExecution {
-        if (request.tools.isNotEmpty() || request.messages.any { it.images.isNotEmpty() || it.toolCalls.isNotEmpty() || it.toolCallId != null }) {
-            return CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)))
+    fun run(request: ModelRequest): CodexModelExecution =
+        when {
+            !supportsRequest(request) -> {
+                CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)))
+            }
+
+            !vault.contains(platform) -> {
+                CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.AUTH, false)))
+            }
+
+            else -> {
+                send(request)
+            }
         }
-        if (!vault.contains(platform)) {
-            return CodexModelExecution(request.model, listOf(ModelEvent.Error(ModelErrorCode.AUTH, false)))
-        }
+
+    private fun supportsRequest(request: ModelRequest): Boolean =
+        request.tools.isEmpty() &&
+            request.messages.none { message ->
+                message.images.isNotEmpty() || message.toolCalls.isNotEmpty() || message.toolCallId != null
+            }
+
+    private fun send(request: ModelRequest): CodexModelExecution {
         // Refresh before sending a model request; an ambiguous POST is never replayed.
         if (vault.load(platform).expiresAtEpochMillis <= System.currentTimeMillis() + 30_000) refresh()
         val session = vault.load(platform)
-        val httpRequest = Request.Builder().url(url).apply { headers.forEach { (name, value) -> header(name, value) } }
-            .header("Authorization", "Bearer ${session.accessToken}")
-            .header("Accept", "text/event-stream")
-            .post(encode(request).toRequestBody(CodexSubscriptionModel.JSON)).build()
+        val httpRequest =
+            Request
+                .Builder()
+                .url(url)
+                .apply { headers.forEach { (name, value) -> header(name, value) } }
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .header("Accept", "text/event-stream")
+                .post(encode(request).toRequestBody(CodexSubscriptionModel.JSON))
+                .build()
         return client.newCall(httpRequest).execute().use { response ->
             CodexModelExecution(request.model, readSubscriptionEvents(response, decoder()))
         }
     }
 
-    override fun close() { client.dispatcher.cancelAll() }
-
+    override fun close() {
+        client.dispatcher.cancelAll()
+    }
 }

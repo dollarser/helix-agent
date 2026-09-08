@@ -275,6 +275,9 @@ class ModelCallRepository(
 
     fun listByTurn(turnId: String): List<ModelCallEntity> = dao.listByTurn(turnId)
 
+    /** Reconcile abandoned calls, including rows left by older recovery versions; keep known metadata. */
+    fun interruptForInterruptedTurns(): Int = dao.interruptForInterruptedTurns()
+
     fun update(
         call: ModelCallEntity,
         state: String,
@@ -741,7 +744,7 @@ class ArtifactRepository(
         require(sha256.length == 64) { "sha256 must be a hex string" }
         require(file.isFile) { "artifact file not found: $relativePath" }
         require(file.length() == size) { "artifact file size mismatch for $relativePath" }
-        require(FileContentStore.sha256Hex(file.readBytes()) == sha256) {
+        require(FileContentStore.sha256Hex(file) == sha256) {
             "artifact file hash mismatch for $relativePath"
         }
         val entity = ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256)

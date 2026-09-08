@@ -93,18 +93,39 @@ class ProotJobStore(
         }
     }
 
-    /** Reconciliation: the payload is deleted NOW; only the tombstone record survives. */
+    /** Exact terminal identity; no receipt exists until all payload removal succeeds. */
+    @Synchronized
+    fun acknowledge(
+        jobId: String,
+        terminalCommit: String,
+        now: Long,
+    ): ProotJobRecord? {
+        val current = load(jobId) ?: return null
+        return if (current.state.isTerminal && !current.evidenceExpired && current.terminalCommit == terminalCommit) {
+            reconcile(jobId, now)
+            load(jobId)
+        } else {
+            null
+        }
+    }
+
+    /** Reconciliation: payload deletion must finish before the receipt is committed. */
+    @Synchronized
     fun reconcile(
         jobId: String,
         reconciledAtEpochMs: Long,
     ) {
         val current = load(jobId) ?: return
-        put(current.copy(reconciledAtEpochMs = reconciledAtEpochMs))
-        // Delete the payload but keep record.json:
-        jobDir(jobId)
-            .listFiles()
-            ?.filter { it.name != RECORD_FILE }
-            ?.forEach { it.deleteRecursively() }
+        if (current.reconciledAtEpochMs == null && !current.evidenceExpired) {
+            require(current.state.isTerminal)
+            val files = requireNotNull(jobDir(jobId).listFiles())
+            files.filter { it.name != RECORD_FILE }.forEach {
+                check(
+                    it.deleteRecursively(),
+                ) { "payload cleanup failed" }
+            }
+            put(current.copy(reconciledAtEpochMs = reconciledAtEpochMs))
+        }
     }
 
     /** Deletes a payload (input-invalid / superseded); the record stays as the terminal proof. */

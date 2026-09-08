@@ -130,6 +130,7 @@ val composeBomDependency = libs.compose.bom
 val composeUiDependency = libs.compose.ui
 val composeMaterial3Dependency = libs.compose.material3
 val webkitDependency = libs.androidx.webkit
+val exifInterfaceDependency = libs.androidx.exifinterface
 val activityComposeDependency = libs.activity.compose
 
 val jvmLibraries =
@@ -289,7 +290,14 @@ subprojects {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
 
+            if (path == ":runtime:cli-client") {
+                dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
+                dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
+                dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
+            }
+
             if (path == ":feature:files") {
+                dependencies.add("implementation", exifInterfaceDependency.get())
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())

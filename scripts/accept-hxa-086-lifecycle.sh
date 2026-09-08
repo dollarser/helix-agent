@@ -5,16 +5,14 @@
 # Companion-side suites (smoke python/node/git/ripgrep, isolation, 通知停止)
 # run as ordinary instrumented classes. The lifecycle phases need host-side
 # states an app process cannot create (fresh-install force-stop, idle-kill,
-# screen-off, low-memory kill, main-app death mid-job, companion death
+# screen-off, controlled background kill, main-app death mid-job, companion death
 # mid-job, wake-lock sampling); this script creates those states on the
 # target device and drives each phase.
 #
-# Real-device gaps (NO real arm64 devices in this environment — recorded in
-# docs/completion-records/HXA-086.md, never faked): Doze (no `device_idle`
-# service on this emulator), secure keyguard/锁屏, 热限 (thermal), and the
-# 4 KiB/16 KiB REAL-device smoke matrix (this script is the 4 KiB-emulator
-# half; 16 KiB compatibility is structurally gated by the HXA-081 alignment
-# gate + the installer's per-page-size pre-check that blocks distribution).
+# This script does not establish real low-memory pressure, forced Doze,
+# secure keyguard, thermal throttling, or physical-device acceptance.
+# Android's idle controller is named `deviceidle`; its presence must be
+# checked on the target before a separate forced-Doze test.
 #
 # Usage:  scripts/accept-hxa-086-lifecycle.sh [serial]
 # Needs:  JAVA_HOME (or java on PATH), ANDROID_HOME (or adb on PATH).
@@ -86,6 +84,9 @@ warm_companion() {
   $ADB shell su 0 am force-stop "$COMPANION"
   $ADB shell su 0 am start -n "$COMPANION/.app.ProotRepairActivity" >/dev/null
   sleep 3
+  # Background the repair Activity before killing: API 36 otherwise restores its top Activity.
+  $ADB shell input keyevent KEYCODE_HOME
+  sleep 1
   kill_companion
   [[ -z "$(companion_pidof)" ]] || { echo "companion process still alive after kill"; exit 1; }
 }
@@ -93,6 +94,29 @@ warm_companion() {
 warm_main_app() {
   $ADB shell am start -n "$MAIN_APP/com.helix.app.MainActivity" >/dev/null
   sleep 3
+}
+
+main_app_pidof() {
+  $ADB shell ps -A | awk -v target="$MAIN_APP" '$NF == target {print $2}' | tr -d $'\r'
+}
+
+kill_background_main_app() {
+  local before
+  before=$(main_app_pidof)
+  [[ -n "$before" ]] || { echo "main app was not running before background kill"; exit 1; }
+  $ADB shell input keyevent KEYCODE_HOME
+  sleep 2
+  $ADB shell am kill "$MAIN_APP" >/dev/null
+  local i
+  for i in 1 2 3 4 5 6; do
+    if [[ -z "$(main_app_pidof)" ]]; then
+      echo "controlled background kill confirmed: main app pid $before exited"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "main app still alive after am kill; background-kill precondition failed"
+  exit 1
 }
 
 # Run one app-side phase method. The method name comes FIRST; extra
@@ -179,16 +203,13 @@ run_phase phaseFirstJobAfterCleanStateRunsByColdBind
 $ADB shell input keyevent 26
 sleep 2
 
-# NOTE: Doze (device_idle) and the secure keyguard (锁屏) are NOT reachable on
-# this emulator (no `device_idle` service; no secure lock setup). They are
-# real-device matrix items — recorded as the HXA-086 real-device gap, never
-# faked here.
+# Forced Doze and secure keyguard are separate acceptance scenarios.
 
-# =============== phase 4: low-memory (main app background-killed) ===============
+# =============== phase 4: controlled background process kill ===============
+# `am kill` is not an observed low-memory event. It ignores foreground apps,
+# so explicitly background the app and require proof that its process exited.
 warm_main_app
-sleep 2
-$ADB shell am kill "$MAIN_APP" >/dev/null
-sleep 2
+kill_background_main_app
 run_phase phaseFirstJobAfterCleanStateRunsByColdBind
 
 # =============== phase 5: main-app death MID JOB (unbind → orphan) ============

@@ -6,14 +6,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -36,6 +39,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
@@ -68,6 +72,7 @@ import kotlinx.coroutines.launch
 fun ChatScreen(
     chatService: ChatService,
     providerService: ProviderService,
+    privacyDeletionService: com.helix.app.privacy.PrivacyDeletionService,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -76,6 +81,9 @@ fun ChatScreen(
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     var newSessionOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
+    val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
+    var goalsOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(screen.openSessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
     // HXA-056: a shared-in text draft pre-fills the composer ONCE (one-shot consume — a later
     // session switch or re-share re-arms it, never a stale text lands in a new conversation).
@@ -100,6 +108,15 @@ fun ChatScreen(
                 onArchive = { chatService.archiveSession(it) },
             )
         } else {
+            if (runControl.mode == AgentMode.GOAL) {
+                TextButton(
+                    enabled = true,
+                    onClick = { goalsOpen = true },
+                    modifier = Modifier.testTag("goal-manage"),
+                ) {
+                    Text(stringResource(R.string.goal_manage))
+                }
+            }
             ConversationSection(
                 screen = screen,
                 profile = profile,
@@ -111,8 +128,12 @@ fun ChatScreen(
                     ConversationIntents(
                         onBack = { chatService.closeSession() },
                         onSend = {
-                            chatService.send(input.trim())
-                            input = ""
+                            if (runControl.mode == AgentMode.GOAL) {
+                                goalsOpen = true
+                            } else {
+                                chatService.send(input.trim())
+                                input = ""
+                            }
                         },
                         onStop = { chatService.stop() },
                         onRetry = { chatService.retry() },
@@ -124,9 +145,33 @@ fun ChatScreen(
                         onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
                         onSetMode = chatService::setMode,
                         onSetChatTools = chatService::setChatToolsEnabled,
+                        onInspectProot = chatService::inspectInterruptedProot,
+                        onRecoverProot = chatService::recoverInterruptedProot,
+                        onRetryProotAck = chatService::retryProotAcknowledgement,
+                        onInspectSubscription = chatService::inspectInterruptedSubscription,
+                        onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
                     ),
             )
         }
+    }
+
+    if (goalsOpen && screen.openSessionId != null) {
+        GoalDialog(
+            chatService,
+            input.trim(),
+            onDismiss = {
+                goalsOpen = false
+                chatService.dismissGoalReminder()
+            },
+            onContinued = { input = "" },
+            busy = screen.isSending,
+            selectedGoalId = reminderGoal,
+            onDeleteGoal = { id ->
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    privacyDeletionService.deleteGoal(id)
+                }
+            },
+        )
     }
 
     if (newSessionOpen) {
@@ -344,6 +389,11 @@ data class ConversationIntents(
     val onBindProvider: (ProviderRowUi) -> Unit,
     val onSetMode: (AgentMode) -> Unit,
     val onSetChatTools: (Boolean) -> Unit,
+    val onRecoverSubscriptionResult: (String, String) -> Unit = { _, _ -> },
+    val onInspectSubscription: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    val onRecoverProot: (String, String) -> Unit = { _, _ -> },
+    val onRetryProotAck: (String, String) -> Unit = { _, _ -> },
+    val onInspectProot: (String, String, Boolean) -> Unit = { _, _, _ -> },
 )
 
 @Composable
@@ -397,81 +447,83 @@ private fun ConversationSection(
         }
     }
     Column(Modifier.fillMaxSize()) {
-        ModeControlSection(runControl, screen.isSending, intents)
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        AdaptiveConversationHeader(
+            summary = "${runControl.mode} · ${screen.badge?.model.orEmpty()}",
+            onBack = intents.onBack,
         ) {
-            TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
-                Text(stringResource(R.string.chat_back_to_sessions))
-            }
-            screen.badge?.let { badge ->
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
+            ModeControlSection(runControl, screen.isSending, intents)
+            Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
+                        Text(stringResource(R.string.chat_back_to_sessions))
+                    }
                     Text(
-                        "${badge.displayName} · ${badge.model}",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        "${UiLabels.displayOrigin(badge.origin)} · " +
-                            stringResource(UiLabels.residenceLabelRes(badge.residence)),
-                        style = MaterialTheme.typography.bodySmall,
+                        if (profile == SafetyProfile.ADVANCED) {
+                            stringResource(R.string.chat_profile_advanced)
+                        } else {
+                            stringResource(R.string.chat_profile_standard)
+                        },
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("chat-profile"),
                     )
-                    if (badge.chips.isNotEmpty()) {
-                        // Compose: resolve each chip label in a `for` loop (composable scope); a
-                        // `joinToString` transform lambda is not composable and would not compile.
-                        val chipLabels = mutableListOf<String>()
-                        for (chip in badge.chips) {
-                            chipLabels.add(localizedString(chip.res, chip.args))
-                        }
+                }
+                screen.badge?.let { badge ->
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        ExpandableSummary(
+                            "${badge.model} · ${badge.displayName}",
+                            style = MaterialTheme.typography.titleSmall,
+                            tag = "chat-provider-summary",
+                        )
                         Text(
-                            chipLabels.joinToString("  "),
-                            style = MaterialTheme.typography.labelSmall,
+                            "${UiLabels.displayOrigin(badge.origin)} · " +
+                                stringResource(UiLabels.residenceLabelRes(badge.residence)),
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        if (badge.chips.isNotEmpty()) {
+                            // Compose: resolve each chip label in a `for` loop (composable scope); a
+                            // `joinToString` transform lambda is not composable and would not compile.
+                            val chipLabels = mutableListOf<String>()
+                            for (chip in badge.chips) {
+                                chipLabels.add(localizedString(chip.res, chip.args))
+                            }
+                            Text(
+                                chipLabels.joinToString("  "),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
-            }
-            if (screen.badge == null) {
-                // HXA-056: the open session has NO provider (a share-draft session) — offer
-                // the explicit bind so the draft can be reviewed and sent; binding never
-                // swaps an already-bound session's target (storage fails closed).
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        stringResource(R.string.chat_unbound_provider),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("chat-unbound-provider"),
-                    )
-                    bindableProviders.forEach { row ->
-                        TextButton(
-                            onClick = { intents.onBindProvider(row) },
-                            modifier = Modifier.testTag("chat-bind-provider"),
-                        ) {
-                            Text(stringResource(R.string.chat_provider_option, row.displayName, row.model))
+                if (screen.badge == null) {
+                    // HXA-056: the open session has NO provider (a share-draft session) — offer
+                    // the explicit bind so the draft can be reviewed and sent; binding never
+                    // swaps an already-bound session's target (storage fails closed).
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            stringResource(R.string.chat_unbound_provider),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("chat-unbound-provider"),
+                        )
+                        bindableProviders.forEach { row ->
+                            TextButton(
+                                onClick = { intents.onBindProvider(row) },
+                                modifier = Modifier.testTag("chat-bind-provider"),
+                            ) {
+                                Text(stringResource(R.string.chat_provider_option, row.displayName, row.model))
+                            }
                         }
                     }
                 }
             }
-            Text(
-                if (profile == SafetyProfile.ADVANCED) {
-                    stringResource(R.string.chat_profile_advanced)
-                } else {
-                    stringResource(R.string.chat_profile_standard)
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("chat-profile"),
-            )
         }
         screen.blockedReason?.let { reason ->
             Row(
@@ -491,31 +543,49 @@ private fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
-        LazyColumn(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        val emptyConversation =
+            screen.activeTurn == null &&
+                listOf(screen.messages, screen.toolTimeline, screen.subscriptionRecoveries).all { it.isEmpty() }
+        ConversationTimeline(
+            sessionId = screen.openSessionId,
+            followContent = !emptyConversation,
+            contentVersion =
+                listOf(
+                    screen.messages,
+                    screen.subscriptionRecoveries,
+                    screen.toolTimeline,
+                    screen.activeTurn,
+                ),
+            modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
+            if (emptyConversation) {
+                item(key = "empty-conversation") {
+                    EmptyConversationHint(runControl.mode == AgentMode.GOAL, screen.badge != null)
+                }
+            }
             items(screen.messages, key = { it.id }) { message ->
                 MessageRow(message)
+            }
+            items(screen.subscriptionRecoveries, key = { "subscription-${it.modelCallId}" }) { row ->
+                SubscriptionRecoveryActions(row, intents.onInspectSubscription, intents.onRecoverSubscriptionResult)
             }
             items(screen.toolTimeline, key = { "tool-${it.turnId}-${it.callId}" }) { row ->
                 ToolTimelineItem(row, intents)
             }
             val turn = screen.activeTurn
-            if (turn != null && !turn.state.isTerminal) {
+            if (turn != null && (!turn.state.isTerminal || turn.state == TurnState.CANCELLED)) {
                 item(key = "streaming") {
-                    if (turn.streamingText.isNullOrBlank()) {
-                        Text(
-                            stringResource(R.string.chat_waiting_model),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (!turn.state.isTerminal && !turn.streamingText.isNullOrBlank()) {
+                            MessageRow(MessageUi("streaming", "assistant", turn.streamingText.orEmpty()))
+                        }
+                        TurnProgressLabel(
+                            turn.state,
+                            awaitingApproval =
+                                screen.toolTimeline.any {
+                                    it.turnId == turn.id && it.card?.state == ApprovalCardState.PENDING
+                                },
                         )
-                    } else {
-                        MessageRow(MessageUi("streaming", "assistant", turn.streamingText.orEmpty()))
                     }
                 }
             }
@@ -585,57 +655,31 @@ private fun ConversationSection(
                         .testTag("chat-voice-notice"),
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            TextButton(
-                onClick = { attachmentPicker.launch(arrayOf("*/*")) },
-                enabled = !screen.isSending,
-                modifier = Modifier.testTag("chat-attach"),
-            ) {
-                Text(stringResource(R.string.chat_attachment_button))
-            }
-            TextButton(
-                onClick = {
-                    when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
-                        VoiceInputMapper.Outcome.Available -> {
-                            voiceNotice = null
-                            voiceLauncher.launch(speech.buildIntent(context))
-                        }
+        ConversationComposer(
+            input = input,
+            onInput = onInput,
+            isSending = screen.isSending,
+            hasAttachments = screen.pendingAttachments.isNotEmpty(),
+            goalMode = runControl.mode == AgentMode.GOAL,
+            actions =
+                ComposerActions(
+                    onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
+                    onVoice = {
+                        when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
+                            VoiceInputMapper.Outcome.Available -> {
+                                voiceNotice = null
+                                voiceLauncher.launch(speech.buildIntent(context))
+                            }
 
-                        else -> {
-                            voiceNotice = voiceUnavailable
+                            else -> {
+                                voiceNotice = voiceUnavailable
+                            }
                         }
-                    }
-                },
-                enabled = !screen.isSending,
-                modifier = Modifier.testTag("chat-voice"),
-            ) {
-                Text(stringResource(R.string.chat_voice_button))
-            }
-            OutlinedTextField(
-                value = input,
-                onValueChange = onInput,
-                modifier = Modifier.weight(1f).testTag("chat-input"),
-                placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = !screen.isSending,
-            )
-            if (screen.isSending) {
-                Button(onClick = intents.onStop, modifier = Modifier.testTag("chat-stop")) {
-                    Text(stringResource(R.string.chat_stop))
-                }
-            } else {
-                Button(
-                    onClick = intents.onSend,
-                    enabled = input.isNotBlank() || screen.pendingAttachments.isNotEmpty(),
-                    modifier = Modifier.testTag("chat-send"),
-                ) {
-                    Text(stringResource(R.string.common_send))
-                }
-            }
-        }
+                    },
+                    onSend = intents.onSend,
+                    onStop = intents.onStop,
+                ),
+        )
     }
 }
 
@@ -650,13 +694,15 @@ internal fun ModeControlSection(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).testTag("chat-mode-control"),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             AgentMode.entries.forEach { mode ->
-                OutlinedButton(
-                    onClick = { intents.onSetMode(mode) },
-                    enabled = !turnActive && config.mode != mode,
-                    modifier = Modifier.testTag("chat-mode-${mode.name.lowercase()}"),
-                ) { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) }
+                FilterChip(
+                    selected = config.mode == mode,
+                    onClick = { if (config.mode != mode) intents.onSetMode(mode) },
+                    enabled = !turnActive,
+                    modifier = Modifier.heightIn(min = 48.dp).testTag("chat-mode-${mode.name.lowercase()}"),
+                    label = { Text(mode.name.lowercase().replaceFirstChar(Char::uppercase)) },
+                )
             }
         }
         Text(
@@ -709,7 +755,7 @@ private fun modeExplanation(mode: AgentMode): Int =
  */
 @Composable
 @Suppress("FunctionName")
-private fun ToolTimelineItem(
+internal fun ToolTimelineItem(
     row: com.helix.app.chat.ToolTimelineRow,
     intents: ConversationIntents,
 ) {
@@ -720,10 +766,7 @@ private fun ToolTimelineItem(
                 .padding(horizontal = 4.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 stringResource(R.string.chat_tool_row, row.toolName),
                 style = MaterialTheme.typography.labelMedium,
@@ -735,17 +778,22 @@ private fun ToolTimelineItem(
                 modifier = Modifier.testTag("tool-row-state-${row.callId}"),
             )
         }
-        Text(
+        ExpandableSummary(
             stringResource(R.string.chat_tool_request, row.requestSummary),
             style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.testTag("tool-row-args-${row.callId}"),
+            tag = "tool-row-args-${row.callId}",
+            collapsedLines = 3,
         )
         row.resultSummary?.let { summary ->
-            Text(
+            ExpandableSummary(
                 stringResource(R.string.chat_tool_result, summary),
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag("tool-row-result-${row.callId}"),
+                tag = "tool-row-result-${row.callId}",
+                collapsedLines = 5,
             )
+        }
+        if (row.prootRecoveryAvailable) {
+            ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
         }
         row.card?.let { card ->
             ApprovalCard(
@@ -782,5 +830,38 @@ private fun MessageRow(message: MessageUi) {
                 modifier = Modifier.padding(12.dp),
             )
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+internal fun ProotRecoveryActions(
+    row: com.helix.app.chat.ToolTimelineRow,
+    action: (String, String, Boolean) -> Unit,
+    recover: (String, String) -> Unit = { _, _ -> },
+    retryAcknowledgement: (String, String) -> Unit = { _, _ -> },
+) {
+    if (row.prootRecoveredOutput == null) row.prootRecoveryReport?.let { Text(stringResource(it.labelRes)) }
+    TextButton(
+        enabled = !row.prootRecoveryBusy,
+        onClick = { recover(row.turnId, row.callId) },
+        modifier = Modifier.testTag("proot-result-${row.callId}"),
+    ) { Text(stringResource(R.string.proot_recovery_view)) }
+    if (row.prootResultUnavailable) Text(stringResource(R.string.proot_recovery_result_unavailable))
+    row.prootRecoveredOutput?.let {
+        ProotResultPanel(it, row.callId)
+        ProotAcknowledgementActions(row, it.acknowledged, retryAcknowledgement)
+    }
+    TextButton(
+        enabled = !row.prootRecoveryBusy,
+        onClick = { action(row.turnId, row.callId, false) },
+        modifier = Modifier.testTag("proot-query-${row.callId}"),
+    ) { Text(stringResource(R.string.proot_recovery_query)) }
+    if (row.prootRecoveryReport?.canStop == true) {
+        TextButton(
+            enabled = !row.prootRecoveryBusy,
+            onClick = { action(row.turnId, row.callId, true) },
+            modifier = Modifier.testTag("proot-stop-${row.callId}"),
+        ) { Text(stringResource(R.string.proot_recovery_stop)) }
     }
 }

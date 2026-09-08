@@ -1,21 +1,21 @@
 package com.helix.provider.api.wire
 
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 /**
  * The OkHttp-backed [WireClient] (HXA-025). Implementation-scoped behind the seam:
  * none of the OkHttp types appear in the public provider API.
  *
  * Semantics:
- * - the exchange is opened with a blocking OkHttp call on [Dispatchers.IO] (the
- *   suspending [WireClient.open] is a coroutine-friendly wrapper; the read
- *   timeout bounds a stuck peer);
+ * - the exchange uses an asynchronous OkHttp call; coroutine cancellation cancels
+ *   that call while awaiting headers or reading the body;
  * - [WireBody.forEachChunk] performs its blocking reads on the CALLING thread
  *   (the caller must be on a non-UI dispatcher — [com.helix.provider.api.WireModelProvider]
  *   guarantees this with `flowOn(Dispatchers.IO)`); no inner dispatcher hop: the
@@ -31,10 +31,8 @@ import java.util.concurrent.TimeUnit
  *   content, and headers may carry credentials (doc 02 section 6.2: zero secrets
  *   in logs).
  *
- * Cancellation note: a collector cancelling a model event flow stops consuming
- * chunks; the underlying read continues until the next chunk boundary where the
- * consumer stops, after which the body is closed. The read timeout remains the
- * hard bound.
+ * Cancellation closes the active call even while a body read is blocked. Chunk
+ * callbacks stay in the collecting coroutine, preserving Flow context invariants.
  */
 public class OkHttpWireClient(
     connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
@@ -48,19 +46,33 @@ public class OkHttpWireClient(
             .build(),
 ) : WireClient {
     override suspend fun open(request: WireRequest): WireResponse =
-        withContext(Dispatchers.IO) {
-            val okRequest =
-                Request0Builder.build(request, JSON_MEDIA_TYPE)
-            val response = client.newCall(okRequest).execute()
-            val headers = HashMap<String, List<String>>()
-            for (name in response.headers.names()) {
-                headers[name] = response.headers.values(name)
-            }
-            WireResponse(response.code, headers, OkHttpBody(response, maxBodyBytes))
+        suspendCancellableCoroutine { continuation ->
+            val call = client.newCall(Request0Builder.build(request, JSON_MEDIA_TYPE))
+            continuation.invokeOnCancellation { call.cancel() }
+            call.enqueue(
+                object : okhttp3.Callback {
+                    override fun onFailure(
+                        call: okhttp3.Call,
+                        error: IOException,
+                    ) {
+                        continuation.resumeWithException(error)
+                    }
+
+                    override fun onResponse(
+                        call: okhttp3.Call,
+                        response: okhttp3.Response,
+                    ) {
+                        val headers = response.headers.names().associateWith { response.headers.values(it) }
+                        val result = WireResponse(response.code, headers, OkHttpBody(call, response, maxBodyBytes))
+                        continuation.resume(result) { _, abandoned, _ -> abandoned.body.close() }
+                    }
+                },
+            )
         }
 
     /** The body of one OkHttp response; owns the connection until [close]. */
     private class OkHttpBody(
+        private val call: okhttp3.Call,
         private val response: okhttp3.Response,
         private val maxBodyBytes: Long,
     ) : WireBody {
@@ -96,7 +108,7 @@ public class OkHttpWireClient(
             // rejects (HXA-027 device smoke caught exactly that).
             val source = response.body.source()
             val buffer = okio.Buffer()
-            var read = source.read(buffer, CHUNK_SIZE)
+            var read = readChunk(source, buffer)
             while (read >= 0) {
                 consumed += read
                 if (consumed > maxBodyBytes) {
@@ -104,9 +116,22 @@ public class OkHttpWireClient(
                     throw IOException("response body exceeds $maxBodyBytes bytes")
                 }
                 if (!onChunk(buffer.readByteArray())) return
-                read = source.read(buffer, CHUNK_SIZE)
+                read = readChunk(source, buffer)
             }
         }
+
+        private suspend fun readChunk(
+            source: okio.BufferedSource,
+            buffer: okio.Buffer,
+        ): Long =
+            suspendCancellableCoroutine { continuation ->
+                continuation.invokeOnCancellation { call.cancel() }
+                try {
+                    continuation.resume(source.read(buffer, CHUNK_SIZE))
+                } catch (error: IOException) {
+                    continuation.resumeWithException(error)
+                }
+            }
 
         override fun close() {
             if (closed) return

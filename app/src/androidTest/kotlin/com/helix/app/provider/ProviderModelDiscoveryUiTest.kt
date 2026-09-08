@@ -15,7 +15,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
 import com.helix.app.ui.container
-import com.helix.app.ui.deleteAllProviders
+import com.helix.app.ui.deleteEditableProviders
+import com.helix.app.ui.editableProviderTag
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import org.junit.After
@@ -60,7 +61,7 @@ class ProviderModelDiscoveryUiTest {
     @Before
     fun setUp() {
         composeRule.resetDeterministicUiState()
-        deleteAllProviders(composeRule.container())
+        deleteEditableProviders(composeRule.container())
     }
 
     @After
@@ -76,32 +77,32 @@ class ProviderModelDiscoveryUiTest {
         createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
 
         // --- the connection test PASSES and carries the 3-model list out ---
-        composeRule.onNodeWithTag("provider-test").performClick()
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-status-passed").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-status-passed")).performScrollTo().assertIsDisplayed()
 
         // --- the section shows the list with a filter ---
-        composeRule.onNodeWithTag("provider-models-section").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("后端可用模型 (3)").assertIsDisplayed()
         composeRule.onNodeWithText("fixture-model-a").assertExists()
         composeRule.onNodeWithText("fixture-model-b").assertExists()
         composeRule.onNodeWithText("fixture-model-c").assertExists()
-        composeRule.onAllNodesWithTag("provider-models-unsupported").fetchSemanticsNodes().isEmpty()
+        composeRule.onAllNodes(editableProviderTag("provider-models-unsupported")).fetchSemanticsNodes().isEmpty()
 
         // --- the filter narrows the displayed chips (index-based tags) ---
-        composeRule.onNodeWithTag("provider-models-filter").performTextInput("b")
-        composeRule.onNodeWithTag("provider-model-chip-0").assertExists()
+        composeRule.onNode(editableProviderTag("provider-models-filter")).performScrollTo().performTextInput("b")
+        composeRule.onNode(editableProviderTag("provider-model-chip-0")).assertExists()
         assertTrue(chipTextOf("provider-model-chip-0") == "fixture-model-b")
         assertTrue(
             "filter must narrow to a single chip",
-            composeRule.onAllNodesWithTag("provider-model-chip-1").fetchSemanticsNodes().isEmpty(),
+            composeRule.onAllNodes(editableProviderTag("provider-model-chip-1")).fetchSemanticsNodes().isEmpty(),
         )
 
         // --- selecting the chip OPENS the edit form (never auto-saved) ---
-        composeRule.onNodeWithTag("provider-models-filter").performTextClearance()
-        composeRule.onNodeWithTag("provider-model-chip-1").performClick()
+        composeRule.onNode(editableProviderTag("provider-models-filter")).performScrollTo().performTextClearance()
+        composeRule.onNode(editableProviderTag("provider-model-chip-1")).performScrollTo().performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
         }
@@ -115,7 +116,7 @@ class ProviderModelDiscoveryUiTest {
         // --- the prefill is verified end to end: select → SAVE → the persisted row model ---
         // (the form's OutlinedTextField merged semantics carry only the label, never the typed
         // value, on this Compose version — the persisted value is the authoritative read).
-        composeRule.onNodeWithTag("provider-model-chip-1").performClick()
+        composeRule.onNode(editableProviderTag("provider-model-chip-1")).performScrollTo().performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
         }
@@ -146,14 +147,14 @@ class ProviderModelDiscoveryUiTest {
 
         // The Anthropic backend has no model list: phase 1 validates by stream,
         // phase 2 is Unsupported (no HTTP call) and the probe still passes.
-        composeRule.onNodeWithTag("provider-test").performClick()
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-status-passed").assertIsDisplayed()
-        composeRule.onNodeWithTag("provider-models-unsupported").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-status-passed")).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-models-unsupported")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("后端未提供模型列表，请手动输入").assertIsDisplayed()
-        composeRule.onAllNodesWithTag("provider-models-section").fetchSemanticsNodes().isEmpty()
+        composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty()
 
         deleteProviderAndAwait(name)
     }
@@ -166,15 +167,15 @@ class ProviderModelDiscoveryUiTest {
 
         // Phase 1 (the first models call) passes; phase 2 (the second call)
         // gets a 401 → the probe stops at phase 2 with the safe AUTH label.
-        composeRule.onNodeWithTag("provider-test").performClick()
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
-            composeRule.onAllNodesWithTag("provider-status-failed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-status-failed").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("失败阶段：模型列表", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("认证失败（key 缺失或无效）", substring = true).assertIsDisplayed()
-        composeRule.onAllNodesWithTag("provider-models-section").fetchSemanticsNodes().isEmpty()
-        composeRule.onAllNodesWithTag("provider-models-unsupported").fetchSemanticsNodes().isEmpty()
+        composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty()
+        composeRule.onAllNodes(editableProviderTag("provider-models-unsupported")).fetchSemanticsNodes().isEmpty()
 
         deleteProviderAndAwait(name)
     }
@@ -185,18 +186,18 @@ class ProviderModelDiscoveryUiTest {
         val name = "Large List ${System.currentTimeMillis()}"
         createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
 
-        composeRule.onNodeWithTag("provider-test").performClick()
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-models-section").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("后端可用模型 (300)").assertIsDisplayed()
 
         // Display cap: 200 chips (index 0..199), then the truncation hint.
-        composeRule.onNodeWithTag("provider-model-chip-199").assertExists()
+        composeRule.onNode(editableProviderTag("provider-model-chip-199")).assertExists()
         assertTrue(
             "the display cap is 200 chips",
-            composeRule.onAllNodesWithTag("provider-model-chip-200").fetchSemanticsNodes().isEmpty(),
+            composeRule.onAllNodes(editableProviderTag("provider-model-chip-200")).fetchSemanticsNodes().isEmpty(),
         )
         // assertExists, not assertIsDisplayed: after 200 chips the hint sits below the fold
         // of the scrollable row list (off-screen nodes still exist in the semantics tree).
@@ -205,11 +206,15 @@ class ProviderModelDiscoveryUiTest {
         // The filter narrows below the cap and the hint goes away.
         // ids are zero-padded (%03d), so "fixture-model-299" is the UNIQUE match — "fixture-model-29"
         // would match eleven ids (290-299) and leave multiple chips.
-        composeRule.onNodeWithTag("provider-models-filter").performTextInput("fixture-model-299")
+        composeRule
+            .onNode(
+                editableProviderTag("provider-models-filter"),
+            ).performScrollTo()
+            .performTextInput("fixture-model-299")
         assertTrue(chipTextOf("provider-model-chip-0") == "fixture-model-299")
         assertTrue(
             "the filter must narrow to a single chip",
-            composeRule.onAllNodesWithTag("provider-model-chip-1").fetchSemanticsNodes().isEmpty(),
+            composeRule.onAllNodes(editableProviderTag("provider-model-chip-1")).fetchSemanticsNodes().isEmpty(),
         )
         assertTrue(
             "below the cap the hint must disappear",
@@ -223,7 +228,7 @@ class ProviderModelDiscoveryUiTest {
 
     /** The long catalog can leave this action off-screen; deletion then finishes off Compose. */
     private fun deleteProviderAndAwait(name: String) {
-        composeRule.onNodeWithTag("provider-delete").performScrollTo().performClick()
+        composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithText(name).fetchSemanticsNodes().isEmpty()
         }
@@ -264,14 +269,17 @@ class ProviderModelDiscoveryUiTest {
         // confirmation (ProviderFlowTest precedent; tag from the form dialog).
         composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
         composeRule.onNodeWithTag("provider-form-save").performClick()
-        composeRule.waitForIdle()
+        // Compose idle does not wait for the Room/Keystore work on the IO dispatcher.
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
-        composeRule.onNodeWithText(name).assertIsDisplayed()
+        composeRule.onNodeWithText(name).performScrollTo().assertIsDisplayed()
     }
 
     /** The display text of a chip (matched by text — the id never rides in the tag). */
     private fun chipTextOf(tag: String): String {
-        val texts = composeRule.onNodeWithTag(tag).fetchSemanticsNode().config[SemanticsProperties.Text]
+        val texts = composeRule.onNode(editableProviderTag(tag)).fetchSemanticsNode().config[SemanticsProperties.Text]
         return (texts as? List<*>)?.firstOrNull()?.toString() ?: error("chip $tag has no text")
     }
 }

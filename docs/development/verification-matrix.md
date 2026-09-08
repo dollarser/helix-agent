@@ -213,6 +213,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 | HXA-145 | roadmap 的 cli-app/cli-client/app JVM、双变体构建与 lint；`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true`；通用门禁与 `check-cli-runtime-boundary.sh` | API 29/36 `CodexSubscriptionProviderE2eDeviceTest#grokProviderUsesTheNormalModelContract`、Grok 账号入口/运行中取消与断连/PFD 回归；真实付费调用未核实 |
 | HXA-146 | roadmap 的 JVM/双变体构建/lint，Runtime R8；通用脚本与 APK 边界全通过 | API 29/36 Copilot 普通 Provider/账号入口/运行中取消与断连/PFD，以及 Codex/Claude/Grok 回归每台 7/7；API 36 当前真实账号 Claude Haiku 4.5 普通 probe/Chat 1/1，见 [完成记录](../completion-records/HXA-146.md) |
+| HXA-147 | roadmap 所列 App 双变体 JVM/主测试包、根 lintDebug/lintRelease、Spotless/Detekt、i18n/docs/ADR/diff 检查 | API29/36 精确 UI 类列表与安装 hash；新回复滚动与上翻保持、长文本、小屏/大字体/可访问性、中英文、审批停止恢复和真实模型关键流程；研究来源和适用差异入 docs；已按 [HXA-147](../completion-records/HXA-147.md) 分项验收，快照与排除边界独立记录 |
 
 ### M12：商店与官网多渠道发布
 

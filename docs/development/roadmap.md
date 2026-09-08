@@ -501,7 +501,7 @@ API 29/34/35/36、低内存、断网、Doze、锁屏、旋转、24 小时；WebV
 
 ### HXA-105 有界只读委托与声明式 Workflow Spike
 
-根据 [11 手机端编排方案](../architecture/mobile-tool-orchestration.md)产出并由所有者决定 proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)。只评估 developer/Advanced：child 深度 1、并发 2、每父 Turn 总数 4，模型/token/Tool/墙钟全部计入父预算；child 只得到最小 snapshot，只注册 `READ_ONLY` 且动态风险 ≤ L1 的工具，不继承 pending approval、Secret、UI token、Root/Automation session 或可写 scope。通信只允许 parent→child task/cancel 与 child→parent structured result，Agent graph/状态/预算/completion 持久化；写入需求只返回 proposal，由父 Turn 新建 ToolCall 并审批。并行收益、费用、温升、内存、取消、恢复和 prompt-injection 证据不达标则保持单 Agent。可选 Workflow 只做版本化 JSON DAG（封闭 node type、静态上限、无循环或有硬界），节点全部编译回 Dispatcher；不执行 JS/Starlark 编排、不自挂插件、不增加云端任务/Remote Worker。ADR 未 accepted 前不进入产品工具表。
+根据 [11 手机端编排方案](../architecture/mobile-tool-orchestration.md)产出并由所有者决定 accepted [ADR-0009](../adr/0009-bounded-local-orchestration.md)。只评估 developer/Advanced：child 深度 1、并发 2、每父 Turn 总数 4，模型/token/Tool/墙钟全部计入父预算；child 只得到最小 snapshot，只注册 `READ_ONLY` 且动态风险 ≤ L1 的工具，不继承 pending approval、Secret、UI token、Root/Automation session 或可写 scope。通信只允许 parent→child task/cancel 与 child→parent structured result，Agent graph/状态/预算/completion 持久化；写入需求只返回 proposal，由父 Turn 新建 ToolCall 并审批。并行收益、费用、温升、内存、取消、恢复和 prompt-injection 证据不达标则保持单 Agent。可选 Workflow 只做版本化 JSON DAG（封闭 node type、静态上限、无循环或有硬界），节点全部编译回 Dispatcher；不执行 JS/Starlark 编排、不自挂插件、不增加云端任务/Remote Worker。ADR 已接受架构约束；明确独立实施范围并通过全部生产启用门禁前，不进入产品工具表。
 
 ## 15. M11：官方 CLI/第三方订阅协议实验
 
@@ -844,3 +844,15 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：planned，未开始。依赖 HXA-129；先形成签名索引、固定版本、来源及许可证审查设计。市场不扩展 ToolCall 权限；网络安装和更新的实施范围及发布条件经独立审查后确定。当前仅允许 docs 和离线索引 fixture，不提前实现市场运行时。
 
 验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+
+## 19. M0～M11 合并后的统一交互与界面
+
+### HXA-147 任务交互与移动界面统一
+
+状态：done。实现与非真机、非长稳验收见 [HXA-147完成记录](../completion-records/HXA-147.md)。沿用所有者授权的优化Goal，累计Git审核/暂存亦已完成，提交与推送未执行；既有Connector并行工作保持其自身状态。
+
+范围：调研主流 Agent 的官方任务流程并记录来源和移动端适用点；统一会话/任务导航、模式和 Provider 设置、工具过程及结果、审批/停止/重试/暂停恢复/空状态/加载反馈。修复最新回复完整可见性，用户上翻时保持阅读位置并提供回到底部入口；压缩长 Goal、Provider 与模型标识；按 ADR-0012 修订旧首次使用文案，移除面向用户的内部 ADR 编号。保持现有授权、执行、恢复与预算语义，发现需要改变这些契约时按 ADR 约定另行处理。
+
+允许模块：app 的 UI/呈现状态、三语言资源及测试，feature/browser 的 UI 布局与对应测试，docs。浏览器布局纳入所有者已授权的统一界面优化，以跨页面验收确认的入口遮挡为依据；不扩展浏览器执行或权限。必要的新 UI 辅助函数可放 app；不新增依赖或改动核心 Tool/Policy/Runtime 权限。研究只参考设计，不复制有许可证限制的实现。
+
+验证命令：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest --max-workers=1`；`./gradlew spotlessCheck detekt lintDebug lintRelease --max-workers=1`；`bash scripts/check-i18n.sh`、`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。Android 使用显式选择的 API29/36，构建后以 `adb -s <serial> shell am instrument -w -r -e class <precise-class-list> <package>.test/com.helix.app.HelixAndroidJUnitRunner` 验证实际修改对应的 UI、聊天与恢复用例，并保存类列表、安装 hash、截图和结果。补充滚动/阅读位置、小屏、大字体、可访问性、中英文与关键任务端到端验收；所有 opt-in 真实模型/宿主测试单独显式执行，不用跳过充当通过。

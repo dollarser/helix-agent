@@ -15,14 +15,32 @@ internal class GrokSubscriptionModel(
     refresh: () -> Unit,
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
 ) : Closeable {
-    private val http = SubscriptionHttpModel(vault, refresh, CliSubscriptionProvider.GROK, URL,
-        ::encodeRequest, ::ResponsesStreamDecoder, client = client)
+    private val http =
+        SubscriptionHttpModel(
+            vault,
+            refresh,
+            CliSubscriptionProvider.GROK,
+            URL,
+            ::encodeRequest,
+            ::ResponsesStreamDecoder,
+            client = client,
+        )
+
     fun run(request: ModelRequest) = http.run(request)
+
     override fun close() = http.close()
+
     companion object {
         const val URL = "https://api.x.ai/v1/responses"
+
         fun encodeRequest(request: ModelRequest): String {
-            val base = Json.parseToJsonElement(ResponsesRequestEncoder { error("subscription images unsupported") }.encode(request)).jsonObject
+            val base =
+                Json
+                    .parseToJsonElement(
+                        ResponsesRequestEncoder {
+                            error("subscription images unsupported")
+                        }.encode(request),
+                    ).jsonObject
             return buildJsonObject {
                 base.forEach { (key, value) -> put(key, value) }
                 put("store", false)

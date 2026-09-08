@@ -15,7 +15,10 @@ class CodexModelJobTest {
     @Test fun successIsDurableAndDuplicateNeverExecutesTwice() {
         val root = Files.createTempDirectory("codex-job").toFile()
         var calls = 0
-        CodexModelJobRunner(CodexModelJobStore(root), { calls++; CodexSmokeResult("model", "HELIX_OK") }, {}).use { runner ->
+        CodexModelJobRunner(CodexModelJobStore(root), {
+            calls++
+            CodexSmokeResult("model", "HELIX_OK")
+        }, {}).use { runner ->
             assertTrue(runner.submit("job_000000000001", hash) is CodexModelJobSubmit.Accepted)
             val terminal = await(runner, "job_000000000001")
             assertEquals(CodexModelJobState.SUCCEEDED, terminal.state)
@@ -41,8 +44,15 @@ class CodexModelJobTest {
         val cancelled = AtomicBoolean()
         CodexModelJobRunner(
             CodexModelJobStore(root),
-            { entered.countDown(); release.await(); CodexSmokeResult("model", "HELIX_OK") },
-            { cancelled.set(true); release.countDown() },
+            {
+                entered.countDown()
+                release.await()
+                CodexSmokeResult("model", "HELIX_OK")
+            },
+            {
+                cancelled.set(true)
+                release.countDown()
+            },
         ).use { runner ->
             runner.submit("job_000000000003", hash)
             assertTrue(entered.await(2, TimeUnit.SECONDS))
@@ -58,7 +68,10 @@ class CodexModelJobTest {
         val store = CodexModelJobStore(root)
         store.put(CodexModelJobRecord("job_000000000004", hash, CodexModelJobState.RUNNING, 10))
         var calls = 0
-        CodexModelJobRunner(store, { calls++; CodexSmokeResult("model", "HELIX_OK") }, {}, { 20 }).use { runner ->
+        CodexModelJobRunner(store, {
+            calls++
+            CodexSmokeResult("model", "HELIX_OK")
+        }, {}, { 20 }).use { runner ->
             val recovered = runner.query("job_000000000004")
             assertEquals(CodexModelJobState.INTERRUPTED, recovered?.state)
             assertEquals(0, calls)
@@ -80,7 +93,11 @@ class CodexModelJobTest {
         val release = CountDownLatch(1)
         CodexModelJobRunner(
             CodexModelJobStore(root),
-            { entered.countDown(); release.await(); CodexSmokeResult("model", "HELIX_OK") },
+            {
+                entered.countDown()
+                release.await()
+                CodexSmokeResult("model", "HELIX_OK")
+            },
             {},
         ).use { runner ->
             runner.submit("job_000000000006", hash)
@@ -120,7 +137,10 @@ class CodexModelJobTest {
         assertEquals(CodexModelJobStore.MAX_ENTRIES, root.walkTopDown().count { it.name == "record.json" })
     }
 
-    private fun await(runner: CodexModelJobRunner, jobId: String): CodexModelJobRecord {
+    private fun await(
+        runner: CodexModelJobRunner,
+        jobId: String,
+    ): CodexModelJobRecord {
         repeat(100) {
             runner.query(jobId)?.takeIf { it.state.terminal }?.let { return it }
             Thread.sleep(10)

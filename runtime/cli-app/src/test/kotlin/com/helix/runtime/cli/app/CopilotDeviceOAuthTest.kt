@@ -14,15 +14,21 @@ class CopilotDeviceOAuthTest {
         val vault = CliSubscriptionCredentialVault(MemoryStore())
         vault.save(CliSubscriptionProvider.COPILOT, CliSubscriptionSession("old", "github", null, 1))
         var fail = false
-        val transport = object : CopilotDeviceTransport {
-            override fun requestDeviceCode(): CopilotDeviceAttempt = error("must not login")
-            override fun poll(attempt: CopilotDeviceAttempt, intervalMillis: Long): CopilotDevicePoll = error("must not poll")
-            override fun exchange(githubToken: String): CliSubscriptionSession {
-                assertEquals("github", githubToken)
-                if (fail) throw CopilotOAuthEndpointException(403)
-                return CliSubscriptionSession("new", githubToken, null, 100_000)
+        val transport =
+            object : CopilotDeviceTransport {
+                override fun requestDeviceCode(): CopilotDeviceAttempt = error("must not login")
+
+                override fun poll(
+                    attempt: CopilotDeviceAttempt,
+                    intervalMillis: Long,
+                ): CopilotDevicePoll = error("must not poll")
+
+                override fun exchange(githubToken: String): CliSubscriptionSession {
+                    assertEquals("github", githubToken)
+                    if (fail) throw CopilotOAuthEndpointException(403)
+                    return CliSubscriptionSession("new", githubToken, null, 100_000)
+                }
             }
-        }
         val controller = CopilotLoginController(vault, transport)
         controller.refresh()
         assertEquals("new", vault.load(CliSubscriptionProvider.COPILOT).accessToken)

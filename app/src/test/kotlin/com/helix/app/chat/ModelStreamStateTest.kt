@@ -13,6 +13,29 @@ import org.junit.Test
 
 class ModelStreamStateTest {
     @Test
+    fun outputTokenLimitNeverCompletesAnEmptyOrPartialAnswer() {
+        listOf("", "partial answer").forEach { partial ->
+            val state = ModelStreamState()
+            if (partial.isNotEmpty()) state.apply(ModelEvent.TextDelta(partial))
+            state.apply(ModelEvent.Completed("length"))
+            assertEquals(TurnState.FAILED, state.terminal(cancelled = false).state)
+            assertEquals("TOKEN_BUDGET_LIMIT", state.terminal(cancelled = false).errorCode)
+            assertEquals(partial, state.text)
+        }
+    }
+
+    @Test
+    fun outputTokenLimitCannotAuthorizeAnOtherwiseClosedToolCall() {
+        val state = ModelStreamState()
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("truncated"), "write"))
+        state.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
+        state.apply(ModelEvent.ToolCallFinished(0))
+        state.apply(ModelEvent.Completed("length"))
+        assertEquals(TurnState.FAILED, state.terminal(cancelled = false).state)
+        assertEquals(TurnState.CANCELLED, state.terminal(cancelled = true).state)
+    }
+
+    @Test
     fun textDeltasExposeOneReceivingTransitionAndAccumulatedText() {
         val state = ModelStreamState()
 

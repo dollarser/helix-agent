@@ -7,7 +7,7 @@
 
 Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，但手机端的约束不同：内存、CPU、热量、电池、后台存活和网络费用都更紧，且 Android 权限、Accessibility、Root 与独立 Runtime 不能抽象成桌面 shell 的单一“sandbox level”。因此优先实现可证明的安全与恢复原语，而不是追求最大并发或 Agent 数量。
 
-本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 proposed [ADR-0009](../adr/0009-bounded-local-orchestration.md)决定。M7 的 A2A Client 是普通外部网络 ToolCall，不是内部 child/peer 编排；其边界由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
+本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 accepted [ADR-0009](../adr/0009-bounded-local-orchestration.md)决定。M7 的 A2A Client 是普通外部网络 ToolCall，不是内部 child/peer 编排；其边界由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
 
 ## 2. 采纳矩阵
 
@@ -89,7 +89,7 @@ data class EffectFootprint(
 - 首版只有 parent → child 任务、parent → child cancel 和 child → parent structured result；不提供 peer-to-peer 消息、递归派生或后台无限续话。
 - Agent graph、状态、父子关系、预算占用和 completion result 持久化。完成消息带 source/trust/hash/evidence refs，不能把 child 自述当 verifier 证据。
 
-这部分必须经过 HXA-105 与 ADR-0009 接受后才实现；不得因为参考工具已有 subagent API 就提前加入普通 Agent 工具表。
+ADR-0009 已接受架构约束；这部分生产实现须先明确独立 HXA 范围，并通过 ADR 的生产启用门禁；不得因为参考工具已有 subagent API 就提前加入普通 Agent 工具表。
 
 ## 6. 声明式 Workflow（后期候选）
 

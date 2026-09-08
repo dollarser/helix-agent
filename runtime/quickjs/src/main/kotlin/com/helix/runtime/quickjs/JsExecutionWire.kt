@@ -114,7 +114,9 @@ internal object JsExecutionWire {
     }
 
     fun readInfo(reply: Parcel): Pair<Int, Int> {
-        val bundle = reply.readBundle(null) ?: throw ProtocolException("missing INFO bundle")
+        val bundle =
+            reply.readBundle(android.os.Bundle::class.java.classLoader)
+                ?: throw ProtocolException("missing INFO bundle")
         return bundle.getInt(KEY_PID) to bundle.getInt(KEY_UID)
     }
 

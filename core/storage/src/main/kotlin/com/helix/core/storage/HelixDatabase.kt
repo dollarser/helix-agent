@@ -15,6 +15,8 @@ import com.helix.core.storage.dao.ExecutionDao
 import com.helix.core.storage.dao.ExecutionTargetDao
 import com.helix.core.storage.dao.GoalDao
 import com.helix.core.storage.dao.GoalRunDao
+import com.helix.core.storage.dao.GoalTurnBindingDao
+import com.helix.core.storage.dao.GoalUsageReservationDao
 import com.helix.core.storage.dao.HighSensitivityRuleDao
 import com.helix.core.storage.dao.InteractionReceiptDao
 import com.helix.core.storage.dao.McpCapabilityDao
@@ -42,6 +44,8 @@ import com.helix.core.storage.entity.ExecutionEntity
 import com.helix.core.storage.entity.ExecutionTargetEntity
 import com.helix.core.storage.entity.GoalEntity
 import com.helix.core.storage.entity.GoalRunEntity
+import com.helix.core.storage.entity.GoalTurnBindingEntity
+import com.helix.core.storage.entity.GoalUsageReservationEntity
 import com.helix.core.storage.entity.HighSensitivityRuleEntity
 import com.helix.core.storage.entity.InteractionReceiptEntity
 import com.helix.core.storage.entity.McpCapabilityEntity
@@ -65,7 +69,8 @@ import com.helix.core.storage.entity.TurnEntity
  * plus the plan/goal tables of doc section 9.1 (v1, HXA-014), the structured-question receipt
  * table (v3, doc 11 section 4), the message-attachment relation (v4, ADR-0014), and the
  * ADVANCED high-sensitivity egress-rule table (v5, ADR-0005), and A2A Agent/Card snapshot
- * tables (v6, HXA-078), and durable A2A task correlation (v7, HXA-079):
+ * tables (v6, HXA-078), durable A2A task correlation (v7, HXA-079), Goal/Turn associations (v8, HXA-102),
+ * and usage reservations (v9, HXA-102):
  *
  * - foreign keys are declared on every relation and enforced (Room enables
  *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
@@ -97,6 +102,8 @@ import com.helix.core.storage.entity.TurnEntity
             PlanStepEntity::class,
             GoalEntity::class,
             GoalRunEntity::class,
+            GoalTurnBindingEntity::class,
+            GoalUsageReservationEntity::class,
             McpServerEntity::class,
             McpCapabilityEntity::class,
             SkillEntity::class,
@@ -108,7 +115,7 @@ import com.helix.core.storage.entity.TurnEntity
             A2aCapabilityEntity::class,
             A2aTaskEntity::class,
         ],
-    version = 7,
+    version = 9,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
@@ -151,6 +158,10 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun goalRunDao(): GoalRunDao
 
+    abstract fun goalUsageReservationDao(): GoalUsageReservationDao
+
+    abstract fun goalTurnBindingDao(): GoalTurnBindingDao
+
     abstract fun mcpServerDao(): McpServerDao
 
     abstract fun mcpCapabilityDao(): McpCapabilityDao
@@ -169,6 +180,41 @@ abstract class HelixDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "helix.db"
+
+        /** v8 -> v9: durable usage reservations, including unknown outcomes after process death. */
+        val MIGRATION_8_9 =
+            object : Migration(8, 9) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `goal_usage_reservations` (" +
+                            "`id` TEXT NOT NULL, `runId` TEXT NOT NULL, `kind` TEXT NOT NULL, " +
+                            "`reservedTokens` INTEGER NOT NULL, `reservedMillis` INTEGER NOT NULL, " +
+                            "`state` TEXT NOT NULL, `chargedTokens` INTEGER, `chargedMillis` INTEGER, " +
+                            "PRIMARY KEY(`id`), " +
+                            "FOREIGN KEY(`runId`) REFERENCES `goal_runs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_goal_usage_reservations_runId` " +
+                            "ON `goal_usage_reservations` (`runId`)",
+                    )
+                }
+            }
+
+        /** v7 -> v8: explicit Goal run/Turn association; existing Turns are never guessed into Goals. */
+        val MIGRATION_7_8 =
+            object : Migration(7, 8) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `goal_turn_bindings` (" +
+                            "`turnId` TEXT NOT NULL, `runId` TEXT NOT NULL, PRIMARY KEY(`turnId`), " +
+                            "FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE, " +
+                            "FOREIGN KEY(`runId`) REFERENCES `goal_runs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE)",
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_goal_turn_bindings_runId` ON `goal_turn_bindings` (`runId`)",
+                    )
+                }
+            }
 
         /**
          * v1 -> v2 (HXA-034, approval hash and one-time consumption):

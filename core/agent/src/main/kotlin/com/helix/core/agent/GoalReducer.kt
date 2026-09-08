@@ -52,6 +52,7 @@ object GoalReducer {
             GoalEvent.RunFinished -> onRunFinished(state)
             is GoalEvent.CriterionSatisfied -> onCriterionSatisfied(state, event)
             is GoalEvent.CheckpointScheduled -> onCheckpointScheduled(state, event)
+            GoalEvent.CheckpointCleared -> onCheckpointCleared(state)
             is GoalEvent.InputRequired -> onInputRequired(state, event)
             is GoalEvent.BudgetsUpdated -> onBudgetsUpdated(state, event)
             GoalEvent.CompleteRequested -> onCompleteRequested(state)
@@ -170,7 +171,11 @@ object GoalReducer {
         event: GoalEvent.CriterionSatisfied,
     ): GoalStep {
         val criterion = state.criteria.firstOrNull { it.id == event.criterionId }
-        val satisfiable = state.state == GoalState.RUNNING && criterion != null && !criterion.isSatisfied
+        val satisfiable =
+            state.state == GoalState.RUNNING && criterion != null && !criterion.isSatisfied &&
+                criterion.acceptsEvidence(event.evidence) && event.evidence.verification
+                    ?.source
+                    ?.goalId == state.id
         if (!satisfiable) return GoalStep.unchanged(state)
         val next =
             state.copy(
@@ -184,9 +189,14 @@ object GoalReducer {
         state: Goal,
         event: GoalEvent.CheckpointScheduled,
     ): GoalStep {
-        if (state.state != GoalState.RUNNING) return GoalStep.unchanged(state)
+        if (state.state !in setOf(GoalState.RUNNING, GoalState.PAUSED)) return GoalStep.unchanged(state)
         val next = state.copy(nextCheckpoint = event.checkpoint)
         return step(state, next, listOf(GoalEffect.ScheduleCheckpointReminder(event.checkpoint)))
+    }
+
+    private fun onCheckpointCleared(state: Goal): GoalStep {
+        if (state.state !in setOf(GoalState.RUNNING, GoalState.PAUSED)) return GoalStep.unchanged(state)
+        return step(state, state.copy(nextCheckpoint = null), listOf(GoalEffect.ReminderCancelled))
     }
 
     private fun onInputRequired(
@@ -220,7 +230,14 @@ object GoalReducer {
     }
 
     private fun onCompleteRequested(state: Goal): GoalStep {
-        val completable = state.state == GoalState.RUNNING && state.unsatisfiedCriteria.isEmpty()
+        val completable =
+            state.state == GoalState.RUNNING && state.unsatisfiedCriteria.isEmpty() &&
+                state.criteria.all {
+                    it.evidence
+                        ?.verification
+                        ?.source
+                        ?.goalId == state.id
+                }
         if (!completable) return GoalStep.unchanged(state)
         val next =
             state.copy(
@@ -250,7 +267,8 @@ object GoalReducer {
      * least one model call, one tool call and one token of headroom per run.
      */
     private fun Goal.canStartRun(): Boolean =
-        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1
+        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1 &&
+            runTimeMillis < budgets.maxDurationMillis && budgets.maxWakeDurationMillis > 0
 
     /** First goal-lifetime budget that `goal` exceeds, in a fixed check order, or null. */
     private fun firstExhaustedLimit(goal: Goal): String? =

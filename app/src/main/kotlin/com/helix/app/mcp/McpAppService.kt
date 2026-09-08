@@ -22,8 +22,9 @@ class McpAppService(
     private val profile: () -> SafetyProfile,
     private val registry: ToolRegistry,
     private val implementations: ToolImplementationRegistry,
+    lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
 ) {
-    private val endpointGate = McpSsrfEndpointGate(profile, { emptySet() })
+    private val endpointGate = McpSsrfEndpointGate(profile, lanScopes)
     private val handshake = McpHandshakeService(storage.credentials(), endpointGate, "Helix", "1")
     private val runtime = McpToolRuntime(storage.credentials(), endpointGate, "Helix", "1")
     private val activeBridges = ConcurrentHashMap<String, McpDynamicToolBridge>()

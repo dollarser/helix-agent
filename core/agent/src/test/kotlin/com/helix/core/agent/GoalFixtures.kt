@@ -1,10 +1,19 @@
 package com.helix.core.agent
 
+import com.helix.core.model.ArtifactRef
 import com.helix.core.model.CorrelationId
+import com.helix.core.model.CriterionEvidenceSource
+import com.helix.core.model.CriterionVerificationBinding
+import com.helix.core.model.CriterionVerificationMethod
+import com.helix.core.model.CriterionVerificationRecord
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalId
+import com.helix.core.model.GoalRunId
 import com.helix.core.model.HelixError
+import com.helix.core.model.SessionId
+import com.helix.core.model.Sha256
+import com.helix.core.model.TurnId
 import org.junit.Assert.fail
 
 internal object GoalFixtures {
@@ -31,7 +40,26 @@ internal object GoalFixtures {
     fun criterion(
         id: String = "c1",
         description: String = "Login works",
-    ): Criterion = Criterion(id, description)
+    ): Criterion =
+        Criterion(
+            id,
+            description,
+            binding = CriterionVerificationBinding(CriterionVerificationMethod.MANUAL_REVIEW, ""),
+        )
+
+    fun evidence(criterion: Criterion = criterion()): CriterionEvidence =
+        CriterionEvidence(
+            CriterionEvidence.HOST_VERIFIER,
+            ArtifactRef("artifact-1"),
+            null,
+            CriterionVerificationRecord(
+                requireNotNull(criterion.binding).method,
+                requireNotNull(criterion.binding).hash(criterion.id, criterion.description),
+                CriterionEvidenceSource(goal, GoalRunId("run-1"), SessionId("session-1"), TurnId("turn-1")),
+                Sha256("a".repeat(64)),
+                100,
+            ),
+        )
 
     fun newGoal(budgets: GoalBudgets = budgets()): Goal =
         Goal.initial(goal, "Investigate the login flow", listOf(criterion()), budgets, correlation)

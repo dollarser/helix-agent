@@ -21,6 +21,14 @@ import com.helix.tools.framework.ToolRegistry
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = false
 
+    val inspectInterruptedJob: (HelixStorage, String, String, Boolean) -> ProotRecoveryReport = { _, _, _, _ ->
+        error("PRoot recovery is unavailable in this distribution")
+    }
+
+    val recoverInterruptedResult: (HelixStorage, String, String, Boolean) -> ProotRecoveredOutput? = { _, _, _, _ ->
+        error("PRoot recovery is unavailable in this distribution")
+    }
+
     /** No-op seam: the consumer build ships no PRoot capability. */
     @Suppress("UnusedParameter")
     fun registerTools(

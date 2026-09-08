@@ -1,10 +1,10 @@
 package com.helix.runtime.cli.app
 
 import android.content.Context
-import com.helix.runtime.cli.client.CliRuntimeProtocol
 import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
+import com.helix.runtime.cli.client.CliRuntimeProtocol
 import java.security.MessageDigest
 
 object CliCallerVerifier {

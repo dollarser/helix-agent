@@ -63,8 +63,12 @@ class HelixAccessibilityService : AccessibilityService() {
             AutomationServiceController.stop(AutomationStopReason.DEVICE_LOCKED)
             return
         }
-        generationTracker.contentChanged()
-        observeActiveTarget()
+        val activeWindow = observeActiveTarget()
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+            generationTracker.contentChangedInWindow(event.windowId, activeWindow)
+        } else {
+            generationTracker.contentChanged()
+        }
     }
 
     override fun onInterrupt() {
@@ -160,17 +164,19 @@ class HelixAccessibilityService : AccessibilityService() {
             null
         }
 
-    private fun observeActiveTarget() {
+    private fun observeActiveTarget(): Int? {
         val root =
             try {
                 rootInActiveWindow
             } catch (_: RuntimeException) {
                 null
-            } ?: return
-        try {
+            } ?: return null
+        return try {
             root.packageName?.toString()?.let(AutomationServiceController::targetObserved)
+            root.windowId
         } catch (_: RuntimeException) {
             // A recycled or disappearing window is not evidence of a stable target change.
+            null
         } finally {
             @Suppress("DEPRECATION")
             root.recycle()

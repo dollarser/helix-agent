@@ -3,12 +3,12 @@ package com.helix.app.foreground
 import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.core.model.TurnState
 import org.junit.After
@@ -43,7 +43,7 @@ class DataSyncForegroundServiceDeviceTest {
     fun dataSyncForegroundStartsPostsAStoppableNotificationAndStops() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         grantNotificationPermission(context)
-        context.startForegroundService(DataSyncForegroundService.intent(context))
+        AndroidForegroundServiceLauncher(context).start()
         val manager = notifications(context)
         waitFor("the foreground notification to be posted") {
             manager.activeNotifications.any { it.id == DataSyncForegroundService.NOTIFICATION_ID }
@@ -55,13 +55,31 @@ class DataSyncForegroundServiceDeviceTest {
             "the notification must expose a stop action",
             (posted.notification.actions?.size ?: 0) >= 1,
         )
-        // Fire the stop action through the service (the PendingIntent targets ACTION_STOP).
-        context.startService(
-            Intent(context, DataSyncForegroundService::class.java)
-                .setAction(DataSyncForegroundService.ACTION_STOP),
-        )
+        // Exercise the actual action attached to the posted notification.
+        posted.notification.actions
+            .first()
+            .actionIntent
+            .send()
         waitFor("the stop action to tear the service down") {
             manager.activeNotifications.none { it.id == DataSyncForegroundService.NOTIFICATION_ID }
+        }
+    }
+
+    @Test
+    fun rapidStartAndStopDoesNotLeaveAPendingForegroundPromotionOrNotification() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        grantNotificationPermission(context)
+        val launcher = AndroidForegroundServiceLauncher(context)
+        repeat(20) {
+            launcher.start()
+            Thread.sleep(10)
+            launcher.stop()
+        }
+        // Android reports a missed promotion asynchronously after the short turn has ended.
+        Thread.sleep(12_000)
+        waitFor("rapid transports to leave no running service or notification") {
+            DataSyncForegroundService.runningInstance.get() == null &&
+                notifications(context).activeNotifications.none { it.id == DataSyncForegroundService.NOTIFICATION_ID }
         }
     }
 
@@ -82,21 +100,17 @@ class DataSyncForegroundServiceDeviceTest {
     }
 
     @Test
+    @SdkSuppress(minSdkVersion = 35)
     fun dataSyncForegroundStopsOnTheApi35TimeoutCallback() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
-            // onTimeout is an API 35 callback; on the API 29 device that path does not exist
-            // (start / stop / the stop action are covered by the other two tests).
-            return
-        }
         val context = ApplicationProvider.getApplicationContext<Context>()
         grantNotificationPermission(context)
         val manager = notifications(context)
-        context.startForegroundService(DataSyncForegroundService.intent(context))
+        AndroidForegroundServiceLauncher(context).start()
         waitFor("the new service instance to enter the foreground") {
             DataSyncForegroundService.runningInstance.get() != null &&
                 manager.activeNotifications.any { it.id == DataSyncForegroundService.NOTIFICATION_ID }
         }
-        val running = DataSyncForegroundService.runningInstance.get() ?: return
+        val running = requireNotNull(DataSyncForegroundService.runningInstance.get())
         DataSyncForegroundService::class.java
             .getMethod("onTimeout", java.lang.Integer.TYPE, java.lang.Integer.TYPE)
             .invoke(running, 0, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)

@@ -5,6 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -44,6 +46,13 @@ class AutomationForceStopSetupDeviceTest {
         harness.waitUntil {
             harness.activeNotificationDump().contains(ForceStopHarness.NOTIFICATION_KEY_FRAGMENT)
         }
+        // Returning would let instrumentation kill this process before the host's force-stop.
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            1,
+            Bundle().apply { putString("hxa093ReadyForHostKill", "1") },
+        )
+        SystemClock.sleep(HOST_KILL_TIMEOUT_MS)
+        error("host did not force-stop the live session within the acceptance window")
     }
 }
 
@@ -82,6 +91,7 @@ private fun forceStopPhase(): String? = InstrumentationRegistry.getArguments().g
 private const val FORCE_STOP_PHASE_ARGUMENT = "hxa093ForceStopPhase"
 private const val PHASE_SETUP = "setup"
 private const val PHASE_RECOVERY = "recovery"
+private const val HOST_KILL_TIMEOUT_MS = 60_000L
 
 private data class ForceStopBridgeResult(
     val result: String,
@@ -199,8 +209,13 @@ private class ForceStopHarness {
             .filterTo(mutableSetOf()) { it.isNotBlank() }
 
     private fun setEnabledComponents(components: Set<String>) {
-        shell("settings put secure enabled_accessibility_services ${components.joinToString(":")}")
+        if (components.isEmpty()) {
+            shell("settings delete secure enabled_accessibility_services")
+        } else {
+            shell("settings put secure enabled_accessibility_services ${components.joinToString(":")}")
+        }
         shell("settings put secure accessibility_enabled ${if (components.isEmpty()) 0 else 1}")
+        assertEquals(components, enabledComponents())
     }
 
     private fun shell(command: String): String {

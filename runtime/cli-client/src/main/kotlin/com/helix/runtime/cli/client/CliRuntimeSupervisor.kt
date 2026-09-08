@@ -13,10 +13,23 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 sealed interface CliRuntimeVerification {
-    data class Verified(val status: CliRuntimeStatus) : CliRuntimeVerification
-    data class Unavailable(val cause: Cause) : CliRuntimeVerification
+    data class Verified(
+        val status: CliRuntimeStatus,
+    ) : CliRuntimeVerification
 
-    enum class Cause { NOT_INSTALLED, DISABLED, FORCE_STOPPED, SIGNATURE_MISMATCH, BIND_REFUSED, TIMEOUT, HANDSHAKE_FAILED }
+    data class Unavailable(
+        val cause: Cause,
+    ) : CliRuntimeVerification
+
+    enum class Cause {
+        NOT_INSTALLED,
+        DISABLED,
+        FORCE_STOPPED,
+        SIGNATURE_MISMATCH,
+        BIND_REFUSED,
+        TIMEOUT,
+        HANDSHAKE_FAILED,
+    }
 }
 
 sealed interface CliRuntimeConnection {
@@ -24,10 +37,15 @@ sealed interface CliRuntimeConnection {
         val binder: IBinder,
         internal val connection: ServiceConnection,
     ) : CliRuntimeConnection
-    data class Refused(val cause: CliRuntimeVerification.Cause) : CliRuntimeConnection
+
+    data class Refused(
+        val cause: CliRuntimeVerification.Cause,
+    ) : CliRuntimeConnection
 }
 
-class CliRuntimeSupervisor(context: Context) {
+class CliRuntimeSupervisor(
+    context: Context,
+) {
     private val context = context.applicationContext
 
     fun verify(): CliRuntimeVerification {
@@ -36,10 +54,17 @@ class CliRuntimeSupervisor(context: Context) {
         opened as CliRuntimeConnection.Opened
         return try {
             when (val outcome = CliStatusHandshakeClient.transact(opened.binder)) {
-                is CliStatusHandshakeClient.Outcome.Ok -> CliRuntimeVerification.Verified(outcome.status)
-                CliStatusHandshakeClient.Outcome.CallerMismatch ->
+                is CliStatusHandshakeClient.Outcome.Ok -> {
+                    CliRuntimeVerification.Verified(outcome.status)
+                }
+
+                CliStatusHandshakeClient.Outcome.CallerMismatch -> {
                     CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
-                else -> CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
+                }
+
+                else -> {
+                    CliRuntimeVerification.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
+                }
             }
         } finally {
             closeConnection(opened)
@@ -50,61 +75,106 @@ class CliRuntimeSupervisor(context: Context) {
     fun visibleUiCause(): CliRuntimeVerification.Cause? = localCause(checkStopped = false)
 
     fun openConnection(): CliRuntimeConnection {
-        localCause()?.let { return CliRuntimeConnection.Refused(it) }
+        val cause = localCause()
+        return if (cause != null) CliRuntimeConnection.Refused(cause) else bindConnection()
+    }
+
+    private fun bindConnection(): CliRuntimeConnection {
         val latch = CountDownLatch(1)
         var binder: IBinder? = null
         val connection =
             object : ServiceConnection {
-                override fun onServiceConnected(name: ComponentName, service: IBinder) {
+                override fun onServiceConnected(
+                    name: ComponentName,
+                    service: IBinder,
+                ) {
                     binder = service
                     latch.countDown()
                 }
-                override fun onServiceDisconnected(name: ComponentName) { latch.countDown() }
-                override fun onNullBinding(name: ComponentName) { latch.countDown() }
-                override fun onBindingDied(name: ComponentName) { latch.countDown() }
+
+                override fun onServiceDisconnected(name: ComponentName) {
+                    latch.countDown()
+                }
+
+                override fun onNullBinding(name: ComponentName) {
+                    latch.countDown()
+                }
+
+                override fun onBindingDied(name: ComponentName) {
+                    latch.countDown()
+                }
             }
-        val intent = Intent().setComponent(ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS))
-        val bound =
+        val intent =
+            Intent().setComponent(
+                ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS),
+            )
+        bindCause(intent, connection)?.let { return CliRuntimeConnection.Refused(it) }
+        val connected =
             try {
-                context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            } catch (_: SecurityException) {
-                return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.SIGNATURE_MISMATCH)
-            } catch (_: RuntimeException) {
-                return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.BIND_REFUSED)
+                latch.await(CliRuntimeProtocol.BIND_DEADLINE_MS, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
             }
-        if (!bound) return CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.BIND_REFUSED)
-        val connected = try {
-            latch.await(CliRuntimeProtocol.BIND_DEADLINE_MS, TimeUnit.MILLISECONDS)
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-            false
-        }
         val liveBinder = binder
-        if (!connected || liveBinder == null) {
+        return if (!connected || liveBinder == null) {
             runCatching { context.unbindService(connection) }
-            return CliRuntimeConnection.Refused(
+            CliRuntimeConnection.Refused(
                 if (!connected) CliRuntimeVerification.Cause.TIMEOUT else CliRuntimeVerification.Cause.HANDSHAKE_FAILED,
             )
+        } else {
+            CliRuntimeConnection.Opened(liveBinder, connection)
         }
-        return CliRuntimeConnection.Opened(liveBinder, connection)
     }
+
+    private fun bindCause(
+        intent: Intent,
+        connection: ServiceConnection,
+    ): CliRuntimeVerification.Cause? =
+        try {
+            if (context.bindService(intent, connection, Context.BIND_AUTO_CREATE)) {
+                null
+            } else {
+                CliRuntimeVerification.Cause.BIND_REFUSED
+            }
+        } catch (_: SecurityException) {
+            CliRuntimeVerification.Cause.SIGNATURE_MISMATCH
+        } catch (_: RuntimeException) {
+            CliRuntimeVerification.Cause.BIND_REFUSED
+        }
 
     fun closeConnection(connection: CliRuntimeConnection.Opened) {
         runCatching { context.unbindService(connection.connection) }
     }
 
     private fun localCause(checkStopped: Boolean = true): CliRuntimeVerification.Cause? {
-        val info = packageInfo(CliRuntimeProtocol.RUNTIME_PACKAGE)
-            ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
-        val app = info.applicationInfo ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
-        if (!app.enabled) return CliRuntimeVerification.Cause.DISABLED
-        if (checkStopped && app.flags and ApplicationInfo.FLAG_STOPPED != 0) {
-            return CliRuntimeVerification.Cause.FORCE_STOPPED
+        val info =
+            packageInfo(CliRuntimeProtocol.RUNTIME_PACKAGE)
+                ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
+        val app = info.applicationInfo
+        return when {
+            app == null -> {
+                CliRuntimeVerification.Cause.NOT_INSTALLED
+            }
+
+            !app.enabled -> {
+                CliRuntimeVerification.Cause.DISABLED
+            }
+
+            checkStopped && app.flags and ApplicationInfo.FLAG_STOPPED != 0 -> {
+                CliRuntimeVerification.Cause.FORCE_STOPPED
+            }
+
+            else -> {
+                val own = signingDigests(packageInfo(context.packageName))
+                val peer = signingDigests(info)
+                if (own.isEmpty() || peer.none(own::contains)) {
+                    CliRuntimeVerification.Cause.SIGNATURE_MISMATCH
+                } else {
+                    null
+                }
+            }
         }
-        val own = signingDigests(packageInfo(context.packageName))
-        val peer = signingDigests(info)
-        if (own.isEmpty() || peer.none(own::contains)) return CliRuntimeVerification.Cause.SIGNATURE_MISMATCH
-        return null
     }
 
     private fun packageInfo(packageName: String) =
@@ -123,9 +193,13 @@ class CliRuntimeSupervisor(context: Context) {
         }
 
     private fun signingDigests(info: android.content.pm.PackageInfo?): Set<String> =
-        info?.signingInfo?.apkContentsSigners.orEmpty().map { signature ->
-            MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()).joinToString("") { byte ->
-                "%02x".format(byte)
-            }
-        }.toSet()
+        info
+            ?.signingInfo
+            ?.apkContentsSigners
+            .orEmpty()
+            .map { signature ->
+                MessageDigest.getInstance("SHA-256").digest(signature.toByteArray()).joinToString("") { byte ->
+                    "%02x".format(byte)
+                }
+            }.toSet()
 }

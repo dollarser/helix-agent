@@ -1,6 +1,9 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -9,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.EgressDisclosure
 
@@ -19,10 +23,8 @@ import com.helix.app.chat.EgressDisclosure
  * (ADR-0014 §5) — every staged attachment's 名称 / 类型 / 大小, in the same order
  * the content sources list the files.
  *
- * M2 honesty rule: NEITHER profile offers a permanent-allow option
- * ([EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2] is false); the dialog says
- * so explicitly instead of faking a “已门控” state (the Advanced bounded,
- * revocable rules arrive with the HXA-033 rule engine).
+ * This dialog confirms only the disclosed send; it does not create or modify reusable rules.
+ * Details share one scroll container, while confirm/cancel remain separate actions.
  */
 @Composable
 @Suppress("FunctionName", "LongMethod")
@@ -42,7 +44,10 @@ fun DisclosureDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.disclosure_title)) },
         text = {
-            Column {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()).testTag("egress-disclosure-details"),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Text(
                     stringResource(
                         R.string.disclosure_provider,
@@ -75,13 +80,13 @@ fun DisclosureDialog(
                     stringResource(R.string.disclosure_scope, stringResource(summary.scope)),
                     style = MaterialTheme.typography.bodyLarge,
                 )
-            }
-            if (!EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2) {
-                Text(
-                    text = stringResource(R.string.disclosure_no_permanent),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (!EgressDisclosure.PERMANENT_ALLOW_OFFERED_IN_M2) {
+                    Text(
+                        text = stringResource(R.string.disclosure_no_permanent),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = {

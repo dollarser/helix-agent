@@ -3,13 +3,13 @@ package com.helix.feature.files
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
-import android.media.ExifInterface
+import androidx.exifinterface.media.ExifInterface
 import com.helix.core.model.VisionLimits
 import com.helix.core.workspace.AtomicFileWriter
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Path
-import kotlin.math.min
+import kotlin.math.max
 
 /**
  * The closed failure codes of the on-device image normalization pass (HXA-055, ADR-0014 §4:
@@ -141,7 +141,7 @@ object ImageNormalizer {
                 encodeWithinBudget(oriented, rawMediaType, targetDir.toFile())
             } finally {
                 if (oriented !== bitmap) oriented.recycle()
-                if (oriented !== bitmap) bitmap.recycle() else bitmap.recycle()
+                bitmap.recycle()
             }
         return final
     }
@@ -229,40 +229,44 @@ object ImageNormalizer {
         val (format, ext) = formatOf(rawMediaType)
         val scales =
             generateSequence(1.0) {
-                (it * 0.75).takeIf { s -> s * min(bitmap.width, bitmap.height) >= MIN_LONG_EDGE_PX }
+                (it * 0.75).takeIf { s -> s * max(bitmap.width, bitmap.height) >= MIN_LONG_EDGE_PX }
             }
-        outer@ for (scale in scales) {
-            for (quality in QUALITY_LADDER) {
-                val out = File(targetDir, "normalized.$ext")
-                val written =
-                    try {
-                        FileOutputStream(out).use { sink -> current.compress(format, quality, sink) }
-                    } catch (e: Exception) {
-                        out.delete()
-                        break
-                    }
-                if (written && out.length() <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
-                    val sha = AtomicFileWriter.sha256Hex(out.toPath())
-                    return NormalizationOutcome.Ok(
-                        NormalizedImage(
-                            file = out.toPath(),
-                            mediaType = mimeTypeOf(format),
-                            sizeBytes = out.length(),
-                            sha256 = sha,
-                            width = current.width,
-                            height = current.height,
-                        ),
-                    )
+        try {
+            for (scale in scales) {
+                val w = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                val h = (bitmap.height * scale).toInt().coerceAtLeast(1)
+                if (w != current.width || h != current.height) {
+                    val next = Bitmap.createScaledBitmap(bitmap, w, h, true)
+                    if (current !== bitmap) current.recycle()
+                    current = next
                 }
-                out.delete()
+                for (quality in QUALITY_LADDER) {
+                    val out = File(targetDir, "normalized.$ext")
+                    val written =
+                        try {
+                            FileOutputStream(out).use { sink -> current.compress(format, quality, sink) }
+                        } catch (e: Exception) {
+                            out.delete()
+                            break
+                        }
+                    if (written && out.length() <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
+                        val sha = AtomicFileWriter.sha256Hex(out.toPath())
+                        return NormalizationOutcome.Ok(
+                            NormalizedImage(
+                                file = out.toPath(),
+                                mediaType = mimeTypeOf(format),
+                                sizeBytes = out.length(),
+                                sha256 = sha,
+                                width = current.width,
+                                height = current.height,
+                            ),
+                        )
+                    }
+                    out.delete()
+                }
             }
-            // The quality ladder did not fit at this scale: downscale once and retry.
-            val w = (current.width * scale).toInt().coerceAtLeast(MIN_LONG_EDGE_PX)
-            val h = (current.height * scale).toInt().coerceAtLeast(MIN_LONG_EDGE_PX)
-            if (w == current.width && h == current.height) break@outer
-            val next = Bitmap.createScaledBitmap(current, w, h, true)
-            if (next !== current) current.recycle()
-            current = next
+        } finally {
+            if (current !== bitmap) current.recycle()
         }
         return NormalizationOutcome.Failed(
             NormalizationCode.BUDGET_EXCEEDED,
@@ -270,11 +274,12 @@ object ImageNormalizer {
         )
     }
 
+    @Suppress("DEPRECATION") // WEBP with quality < 100 preserves lossy output on API 29 too.
     private fun formatOf(rawMediaType: String): Pair<Bitmap.CompressFormat, String> =
         when (rawMediaType) {
             "image/png" -> Bitmap.CompressFormat.PNG to "png"
 
-            "image/webp" -> Bitmap.CompressFormat.WEBP_LOSSY to "webp"
+            "image/webp" -> Bitmap.CompressFormat.WEBP to "webp"
 
             "image/gif" -> Bitmap.CompressFormat.PNG to "png"
 
@@ -282,10 +287,11 @@ object ImageNormalizer {
             else -> Bitmap.CompressFormat.JPEG to "jpg"
         }
 
+    @Suppress("DEPRECATION") // Matches the API 29-compatible format selected above.
     private fun mimeTypeOf(format: Bitmap.CompressFormat): String =
         when (format) {
             Bitmap.CompressFormat.PNG -> "image/png"
-            Bitmap.CompressFormat.WEBP_LOSSY, Bitmap.CompressFormat.WEBP_LOSSLESS -> "image/webp"
+            Bitmap.CompressFormat.WEBP -> "image/webp"
             else -> "image/jpeg"
         }
 }

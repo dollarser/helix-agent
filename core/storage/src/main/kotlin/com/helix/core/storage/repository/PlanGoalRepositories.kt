@@ -85,6 +85,8 @@ class GoalRepository(
         return resolveEntity(goal.id)
     }
 
+    fun find(id: String): StoredGoal? = dao.byId(id)?.toStoredGoal()
+
     fun resolve(id: String): StoredGoal {
         val entity = dao.byId(id) ?: throw IllegalArgumentException("goal not found: $id")
         return entity.toStoredGoal()
@@ -112,6 +114,12 @@ class GoalRepository(
         enumByName(goal.state, GoalState::class.java, "goal state")
         dao.updateGoal(
             id = goal.id,
+            budgets = goal.budgets.toStorageString(),
+            criteria =
+                com.helix.core.storage.criteria.CriteriaCodec
+                    .encode(goal.criteria),
+            planId = goal.planId,
+            planHash = goal.planHash,
             state = goal.state,
             nextCheckpoint = goal.nextCheckpoint,
             runCount = goal.runCount,
@@ -167,7 +175,7 @@ class GoalRunRepository(
         require(tokens >= run.tokens) { "run token usage must be monotonic" }
         require(wakeDurationMillis >= (run.wakeDurationMillis ?: 0L)) { "run duration must be monotonic" }
         require(dao.checkpointUsage(run.id, modelCalls, toolCalls, tokens, wakeDurationMillis) == 1) {
-            "goal run is not open: ${run.id}"
+            "goal run is closed or usage would decrease: ${run.id}"
         }
         return resolve(run.id)
     }
@@ -186,7 +194,7 @@ class GoalRunRepository(
         require(wakeDurationMillis >= 0) { "wakeDurationMillis must be >= 0" }
         require(modelCalls >= 0 && toolCalls >= 0 && tokens >= 0) { "run usage must be >= 0" }
         require(dao.updateOutcome(run.id, outcome, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens) == 1) {
-            "goal run already finished: ${run.id}"
+            "goal run is closed or final usage would decrease: ${run.id}"
         }
     }
 }

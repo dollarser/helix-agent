@@ -1,5 +1,6 @@
 package com.helix.app.goal
 
+import android.app.NotificationManager
 import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -15,9 +16,8 @@ import java.util.concurrent.TimeUnit
  * Doze, force-stop and system scheduling may delay or drop the work; the Goal reducer treats
  * the reminder as an optional wake source, never as a timer.
  *
- * The agent runtime consumes `GoalEffect.ScheduleCheckpointReminder`/`ReminderCancelled`
- * through this facade; that wiring lands with the GoalFlow (M2+ agent runtime — HXA-015
- * delivered the recovery coordinator, not the wake/run loop that emits these effects).
+ * GoalReminderReconciler consumes durable checkpoint/state facts after user updates,
+ * Turn settlement and application recovery. These queue operations never start a Goal run.
  *
  * The scheduling decision (work name, delay, payload) is a pure composition over
  * [ReminderPlan] and [GoalReminderPayload.uniqueWorkName], handed to a [ReminderEnqueuer]
@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit
  */
 class GoalReminderScheduler(
     private val enqueuer: ReminderEnqueuer,
+    private val cancelPosted: (String) -> Unit = {},
 ) {
     /**
      * Schedules (or replaces) the reminder for [goalId] near [checkpoint]. [nowEpochMillis] is
@@ -45,17 +46,31 @@ class GoalReminderScheduler(
             delayMillis = plan.delayMillis,
             goalId = goalId,
             objective = objective,
+            checkpointEpochMillis = requireNotNull(checkpoint).atEpochMillis,
         )
     }
+
+    fun wasDelivered(
+        goalId: String,
+        checkpointEpochMillis: Long,
+    ): Boolean = enqueuer.wasDelivered(goalId, checkpointEpochMillis)
 
     /** Cancels the pending reminder for [goalId] (goal completed/failed/cancelled/input-required). */
     fun cancelReminder(goalId: String) {
         enqueuer.cancel(GoalReminderPayload.uniqueWorkName(goalId))
+        cancelPosted(goalId)
     }
 
     companion object {
         fun create(context: Context): GoalReminderScheduler =
-            GoalReminderScheduler(WorkManagerReminderEnqueuer(WorkManager.getInstance(context)))
+            GoalReminderScheduler(
+                WorkManagerReminderEnqueuer(WorkManager.getInstance(context)) { goalId ->
+                    val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                    manager.cancel(goalId, GoalReminderWorker.notificationIdFor(goalId))
+                    // Retire a pre-tag notification left by an older build as well.
+                    manager.cancel(GoalReminderWorker.notificationIdFor(goalId))
+                },
+            )
     }
 }
 
@@ -66,25 +81,33 @@ class GoalReminderScheduler(
  * stacking (HXA-013 invariant).
  */
 interface ReminderEnqueuer {
+    fun wasDelivered(
+        goalId: String,
+        checkpointEpochMillis: Long,
+    ): Boolean = false
+
     fun enqueueOrReplace(
         workName: String,
         delayMillis: Long,
         goalId: String,
         objective: String,
+        checkpointEpochMillis: Long,
     )
 
     fun cancel(workName: String)
 }
 
-/** The production [ReminderEnqueuer]: a unique-work enqueue that always replaces. */
+/** Keeps matching checkpoint work; a changed checkpoint replaces the prior unique work. */
 class WorkManagerReminderEnqueuer(
     private val workManager: WorkManager,
+    private val cancelPosted: (String) -> Unit = {},
 ) : ReminderEnqueuer {
     override fun enqueueOrReplace(
         workName: String,
         delayMillis: Long,
         goalId: String,
         objective: String,
+        checkpointEpochMillis: Long,
     ) {
         val request =
             OneTimeWorkRequestBuilder<GoalReminderWorker>()
@@ -93,12 +116,45 @@ class WorkManagerReminderEnqueuer(
                         GoalReminderPayload.KEY_GOAL_ID to goalId,
                         GoalReminderPayload.KEY_OBJECTIVE to objective,
                     ),
-                ).setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+                ).addTag(checkpointTag(checkpointEpochMillis))
+                .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
                 .build()
-        workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request)
+        GoalReminderPublication.serialized {
+            val existing = GoalReminderPublication.await(workManager.getWorkInfosForUniqueWork(workName))
+            if (existing.any {
+                    checkpointTag(checkpointEpochMillis) in it.tags &&
+                        (!it.state.isFinished || it.state == androidx.work.WorkInfo.State.SUCCEEDED)
+                }
+            ) {
+                return@serialized
+            }
+            GoalReminderPublication.await(
+                workManager.enqueueUniqueWork(workName, ExistingWorkPolicy.REPLACE, request).result,
+            )
+            cancelPosted(goalId)
+        }
     }
 
+    override fun wasDelivered(
+        goalId: String,
+        checkpointEpochMillis: Long,
+    ): Boolean =
+        GoalReminderPublication.serialized {
+            GoalReminderPublication
+                .await(
+                    workManager.getWorkInfosForUniqueWork(GoalReminderPayload.uniqueWorkName(goalId)),
+                ).any {
+                    checkpointTag(checkpointEpochMillis) in it.tags &&
+                        it.state == androidx.work.WorkInfo.State.SUCCEEDED
+                }
+        }
+
+    private fun checkpointTag(epochMillis: Long): String = "goal-checkpoint:$epochMillis"
+
     override fun cancel(workName: String) {
-        workManager.cancelUniqueWork(workName)
+        GoalReminderPublication.serialized {
+            GoalReminderPublication.await(workManager.cancelUniqueWork(workName).result)
+            cancelPosted(workName.removePrefix(GoalReminderPayload.UNIQUE_WORK_PREFIX))
+        }
     }
 }

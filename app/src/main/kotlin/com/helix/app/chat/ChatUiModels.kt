@@ -79,7 +79,7 @@ data class ChatScreenState(
     val activeTurn: TurnUi?,
     val pendingDisclosure: EgressDisclosure.EgressSummary?,
     val blockedReason: String?,
-    /** The newest FAILED turn of the open session — the retry button target (persisted state). */
+    /** The latest FAILED turn eligible for retry; a bound Goal must permit explicit continuation. */
     val retryTargetTurnId: String?,
     /** The open session's staged attachments (in-memory, local until an explicit send — ADR-0014 §5). */
     val pendingAttachments: List<PendingAttachmentUi> = emptyList(),
@@ -89,7 +89,8 @@ data class ChatScreenState(
      * after the text lands in the input box. Draft text is never sent automatically.
      */
     val shareDraftText: String? = null,
+    val subscriptionRecoveries: List<SubscriptionRecoveryUi> = emptyList(),
 ) {
     val isSending: Boolean
-        get() = activeTurn?.let { !it.state.isTerminal } ?: false
+        get() = activeTurn?.let { !it.state.isTerminal && it.state != TurnState.INTERRUPTED } ?: false
 }

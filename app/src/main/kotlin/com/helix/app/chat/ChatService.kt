@@ -143,6 +143,18 @@ class ChatService(
      * still compiles.
      */
     private val strings: (Int, Array<out Any>) -> String = { resId, _ -> "§$resId" },
+    private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
+    private val subscriptionResultRecovery: (
+        String,
+        String,
+        Boolean,
+    ) -> com.helix.app.provider.SubscriptionRecoveredOutput? =
+        { _, _, _ -> null },
+    private val subscriptionRecovery: (String, String, Boolean) -> com.helix.app.provider.SubscriptionRecoveryStatus =
+        { _, _, _ -> com.helix.app.provider.SubscriptionRecoveryStatus.UNKNOWN },
+    private val goalReminderSync: (String) -> Unit = {},
+    private val goalEvidenceWorkspace: java.io.File? = null,
+    private val goalEvidenceFileStore: com.helix.core.workspace.WorkspaceArtifactStore? = null,
 ) {
     private val workScope = scope
 
@@ -179,6 +191,8 @@ class ChatService(
             "TOOL_STEP_LIMIT" -> R.string.model_error_tool_step_limit
             "MODEL_CALL_LIMIT" -> R.string.model_error_model_call_limit
             "TOKEN_BUDGET_LIMIT" -> R.string.model_error_token_budget_limit
+            "GOAL_BUDGET_LIMIT" -> R.string.model_error_goal_budget_limit
+            "GOAL_TIME_WINDOW_EXPIRED" -> R.string.goal_time_window_expired
             null -> R.string.model_error_generic
             else -> modelErrorCodeLabelRes(errorCode)
         }
@@ -211,6 +225,23 @@ class ChatService(
 
     private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
+
+    private val reminderGoalState = MutableStateFlow<String?>(null)
+    internal val reminderGoal: StateFlow<String?> = reminderGoalState.asStateFlow()
+
+    /** A notification is a navigation request, never a Continued event or approval. */
+    internal fun openGoalReminder(goalId: String) {
+        workScope.launch {
+            val sessionId = storage.goalTurnBindings.sessionForGoal(goalId) ?: return@launch
+            openSession(sessionId)
+            refreshScreen()
+            reminderGoalState.value = goalId
+        }
+    }
+
+    internal fun dismissGoalReminder() {
+        reminderGoalState.value = null
+    }
 
     val sessions: StateFlow<List<SessionRowUi>> = _sessions.asStateFlow()
     val screen: StateFlow<ChatScreenState> = _screen.asStateFlow()
@@ -351,6 +382,7 @@ class ChatService(
     private val dispatchFacts = java.util.concurrent.ConcurrentHashMap<String, DispatchFacts>()
 
     /** Per-turn cancel signals handed to the dispatcher (the stop button sets them). */
+    private val goalTimes = java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>()
     private val turnCancels = java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>()
 
     /** The approval card currently waiting for the user's decision (the stop button cancels it). */
@@ -364,6 +396,14 @@ class ChatService(
     // --------------------------------------------------------------------------------
     // Session intents
     // --------------------------------------------------------------------------------
+
+    /** Startup recovery commits before this notification; refresh any already-open conversation. */
+    fun onRecoveryCompleted() {
+        workScope.launch {
+            refreshSessionsNow()
+            refreshScreen()
+        }
+    }
 
     /**
      * Thread-safe (Room read on the service's IO scope). The UI and the
@@ -418,6 +458,7 @@ class ChatService(
 
     /** Opens a session: loads its persisted messages and the provider badge. */
     fun openSession(id: String) {
+        dismissGoalReminder()
         openSessionId = id
         clearStagedAttachments()
         shareDraftText = null // a draft pre-fill belongs to the session it opened for (HXA-056)
@@ -430,6 +471,7 @@ class ChatService(
      * network Job); its persisted state is shown when the session reopens.
      */
     fun closeSession() {
+        dismissGoalReminder()
         openSessionId = null
         clearStagedAttachments()
         shareDraftText = null
@@ -926,6 +968,150 @@ class ChatService(
     // Send path
     // --------------------------------------------------------------------------------
 
+    /** User-action service entry; UI integration follows the complete execution-budget wiring. */
+    internal suspend fun createGoal(
+        objective: String,
+        criteria: List<String>,
+        budgets: com.helix.core.model.GoalBudgets,
+    ): String =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            GoalRunCoordinator(storage, clock, idGenerator).create(objective, criteria, budgets)
+        }
+
+    internal suspend fun goalSummaries(): List<GoalSummaryUi> =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            resolvableOpenSessionId()?.let { GoalSummaryQuery(storage).forSession(it) } ?: emptyList()
+        }
+
+    internal suspend fun goalCriteria(goalId: String): com.helix.app.goal.GoalCriteriaSnapshot =
+        withContext(Dispatchers.IO) {
+            criterionAccess().snapshot(goalId, requireNotNull(resolvableOpenSessionId()))
+        }
+
+    internal suspend fun bindGoalCriterion(
+        goalId: String,
+        expected: com.helix.core.agent.Criterion,
+        description: String,
+        binding: com.helix.core.model.CriterionVerificationBinding?,
+    ) = withContext(Dispatchers.IO) {
+        criterionAccess().bind(goalId, requireNotNull(resolvableOpenSessionId()), expected, description, binding)
+    }
+
+    internal suspend fun goalEvidenceCandidates(goalId: String) =
+        com.helix.app.goal.readGoalEvidence {
+            criterionAccess().candidates(goalId, requireNotNull(resolvableOpenSessionId()))
+        }
+
+    internal suspend fun goalEvidencePreview(
+        goalId: String,
+        criterionId: String,
+        callId: String,
+        written: Boolean = false,
+        archivePath: String? = null,
+    ) = com.helix.app.goal.readGoalEvidence {
+        criterionAccess().preview(
+            goalId,
+            requireNotNull(resolvableOpenSessionId()),
+            criterionId,
+            callId,
+            written,
+            archivePath,
+        )
+    }
+
+    internal suspend fun reviewGoalEvidence(
+        goalId: String,
+        criterionId: String,
+        selection: com.helix.app.goal.GoalEvidenceReview,
+    ) = withContext(Dispatchers.IO) {
+        criterionAccess().review(goalId, requireNotNull(resolvableOpenSessionId()), criterionId, selection)
+    }
+
+    internal suspend fun clearGoalEvidenceReview(
+        goalId: String,
+        criterionId: String,
+    ) = withContext(Dispatchers.IO) {
+        criterionAccess().clearReview(goalId, requireNotNull(resolvableOpenSessionId()), criterionId)
+    }
+
+    private fun criterionAccess() =
+        com.helix.app.goal.GoalCriterionAccess(
+            storage,
+            toolPipeline.registry,
+            requireNotNull(goalEvidenceWorkspace),
+            clock,
+            idGenerator,
+            goalEvidenceFileStore?.let {
+                com.helix.app.goal
+                    .ScopedEditedArtifactReader(it)
+            },
+        )
+
+    internal suspend fun setGoalReminder(
+        goalId: String,
+        delayMillis: Long?,
+    ): Boolean =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            val checkpoint =
+                delayMillis?.let {
+                    require(it >= 0)
+                    com.helix.core.agent
+                        .Checkpoint(Math.addExact(clock.now().toEpochMilli(), it))
+                }
+            val changed = GoalRunCoordinator(storage, clock, idGenerator).setCheckpoint(goalId, checkpoint)
+            if (changed) goalReminderSync(goalId)
+            changed
+        }
+
+    internal suspend fun updateGoalBudgets(
+        goalId: String,
+        budgets: com.helix.core.model.GoalBudgets,
+    ): Boolean =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            GoalRunCoordinator(storage, clock, idGenerator).updateBudgets(goalId, budgets)
+        }
+
+    @Suppress("SwallowedException") // Rejected stored Goal/session state becomes a localized UI block; no raw details.
+    internal fun continueGoal(
+        goalId: String,
+        text: String,
+    ) {
+        workScope.launch {
+            try {
+                if (!completeGoalFromEvidence(goalId)) sendNow(text, goalId)
+            } catch (e: IllegalArgumentException) {
+                setBlocked(str(R.string.goal_continue_unavailable))
+            }
+        }
+    }
+
+    internal suspend fun completeGoalFromEvidence(goalId: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val session = requireNotNull(resolvableOpenSessionId())
+            val finished =
+                goalEvidenceWorkspace?.let { workspace ->
+                    val verifier =
+                        com.helix.app.goal.GoalCompletionVerifier(
+                            storage,
+                            toolPipeline.registry,
+                            workspace,
+                            clock,
+                            idGenerator,
+                            goalEvidenceFileStore?.let {
+                                com.helix.app.goal
+                                    .ScopedEditedArtifactReader(it)
+                            },
+                        )
+                    com.helix.app.goal
+                        .GoalEvidenceContinue(storage, verifier, clock, idGenerator)
+                        .tryComplete(goalId, session)
+                } == true
+            if (finished) goalReminderSync(goalId)
+            finished
+        }
+
+    private var pendingGoalId: String? = null
+
     /**
      * The send intent. Order (fail-closed, user-visible):
      * 1. session has a provider; 2. the provider passed its connection test;
@@ -949,7 +1135,7 @@ class ChatService(
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod") // one fail-closed early return per gate condition
-    private suspend fun sendNow(text: String) {
+    private suspend fun sendNow(text: String, goalId: String? = null) {
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
             setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
             return
@@ -1017,7 +1203,7 @@ class ChatService(
             }
 
             is AttachmentSendAdmission.Outcome.Egress -> {
-                applyEgressDecision(outcome.decision, staged, text, providerId, target)
+                applyEgressDecision(outcome.decision, staged, text, providerId, target, goalId)
             }
         }
     }
@@ -1036,6 +1222,7 @@ class ChatService(
         text: String,
         providerId: String,
         target: EgressDisclosure.EgressTarget,
+        goalId: String?,
     ) {
         when (decision) {
             EgressDisclosure.Decision.Proceed -> {
@@ -1049,7 +1236,7 @@ class ChatService(
                 // list is already empty (the snapshot above), and a file picked in the microsecond
                 // since that snapshot is the user's for the NEXT send — a send is never a silent
                 // drop. (The confirm path clears exactly the approved set, not the live list.)
-                launchTurn(text, providerId)
+                launchTurn(text, providerId, goalId = goalId)
             }
 
             is EgressDisclosure.Decision.Confirm -> {
@@ -1058,6 +1245,7 @@ class ChatService(
                 // live target (blocking on provider/origin drift) and requires the current staged
                 // set to be IDENTICAL to [staged] — an attachment never shown in the dialog can
                 // never leave the device; an old confirmation is never reusable.
+                pendingGoalId = goalId
                 pendingSend = text
                 pendingEgress = target
                 pendingAttachmentIds = staged.map { it.artifactId }
@@ -1078,6 +1266,7 @@ class ChatService(
     @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // fail-closed gate checks
     private suspend fun confirmSendNow() {
         val text = pendingSend ?: return
+        val goalId = pendingGoalId
         // Capture the approved target AND attachment set BEFORE clearing the pending state: the
         // binding checks below compare the LIVE target and the CURRENT staged set against exactly
         // what the dialog showed.
@@ -1085,6 +1274,7 @@ class ChatService(
         val approvedAttachmentIds = pendingAttachmentIds
         val session = currentSession() ?: return
         val providerId = session.providerId ?: return
+        pendingGoalId = null
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
@@ -1122,7 +1312,7 @@ class ChatService(
         }
         // Delegate the staged-attachment handling (enumeration drift check + re-verify + launch);
         // a pure-text pending (no staged) takes the exact pre-attachment path (no regression).
-        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget)
+        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget, goalId)
     }
 
     /**
@@ -1140,6 +1330,7 @@ class ChatService(
         providerId: String,
         approvedAttachmentIds: List<String>,
         liveTarget: EgressDisclosure.EgressTarget,
+        goalId: String?,
     ) {
         val staged = stagedAttachments
         // ADR-0014 §5: the user approved a SPECIFIC enumerated set of attachments — the dialog
@@ -1154,7 +1345,7 @@ class ChatService(
             return
         }
         if (staged.isEmpty()) {
-            launchTurn(text, providerId)
+            launchTurn(text, providerId, goalId = goalId)
             return
         }
         // HXA-055: a staged image whose on-device normalization failed at staging time is
@@ -1242,6 +1433,7 @@ class ChatService(
             text = AttachmentContext.buildUserMessageContent(text, blocks),
             providerId = providerId,
             attachmentBindings = bindings,
+            goalId = goalId,
         )
     }
 
@@ -1292,6 +1484,7 @@ class ChatService(
     }
 
     fun cancelPendingSend() {
+        pendingGoalId = null
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
@@ -1312,6 +1505,184 @@ class ChatService(
         val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
         turnCancels[active.turnId]?.cancel()
         active.job.cancel()
+    }
+
+    private val subscriptionRecoveryMutex = kotlinx.coroutines.sync.Mutex()
+
+    fun inspectInterruptedSubscription(
+        turnId: String,
+        modelCallId: String,
+        stop: Boolean,
+    ) {
+        workScope.launch {
+            subscriptionRecoveryMutex.lock()
+            try {
+                val row =
+                    screen.value.subscriptionRecoveries
+                        .singleOrNull { it.turnId == turnId && it.modelCallId == modelCallId } ?: return@launch
+                if (row.busy) return@launch
+                updateSubscriptionRecovery(row.copy(busy = true))
+                val status =
+                    try {
+                        subscriptionRecovery(turnId, modelCallId, stop)
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        updateSubscriptionRecovery(row.copy(busy = false))
+                        throw cancelled
+                    } catch (_: Exception) {
+                        com.helix.app.provider.SubscriptionRecoveryStatus.UNKNOWN
+                    }
+                updateSubscriptionRecovery(row.copy(status = status))
+            } finally {
+                subscriptionRecoveryMutex.unlock()
+            }
+        }
+    }
+
+    fun recoverInterruptedSubscriptionResult(
+        turnId: String,
+        modelCallId: String,
+    ) {
+        workScope.launch {
+            subscriptionRecoveryMutex.lock()
+            try {
+                val row =
+                    screen.value.subscriptionRecoveries
+                        .singleOrNull { it.turnId == turnId && it.modelCallId == modelCallId } ?: return@launch
+                if (row.busy) return@launch
+                updateSubscriptionRecovery(row.copy(busy = true, outputUnavailable = false))
+                val output =
+                    try {
+                        subscriptionResultRecovery(
+                            turnId,
+                            modelCallId,
+                            row.localResultAvailable &&
+                                row.status != com.helix.app.provider.SubscriptionRecoveryStatus.SUCCEEDED_UNVERIFIED,
+                        )
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        updateSubscriptionRecovery(row.copy(busy = false))
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                updateSubscriptionRecovery(
+                    row.copy(
+                        output = output,
+                        outputUnavailable = output == null,
+                        localResultAvailable =
+                            output != null,
+                    ),
+                )
+            } finally {
+                subscriptionRecoveryMutex.unlock()
+            }
+        }
+    }
+
+    private fun updateSubscriptionRecovery(row: SubscriptionRecoveryUi) {
+        _screen.update { current ->
+            current.copy(
+                subscriptionRecoveries =
+                    current.subscriptionRecoveries.map {
+                        if (it.modelCallId == row.modelCallId) row else it
+                    },
+            )
+        }
+    }
+
+    fun inspectInterruptedProot(
+        turnId: String,
+        callId: String,
+        stop: Boolean,
+    ) {
+        workScope.launch {
+            if (!com.helix.app.proot.ProotToolModule.AVAILABLE) return@launch
+            val row =
+                screen.value.toolTimeline.singleOrNull { it.turnId == turnId && it.callId == callId }
+                    ?: return@launch
+            if (!row.prootRecoveryAvailable || row.prootRecoveryBusy) return@launch
+            updateProotRecovery(callId, true, row.prootRecoveryReport)
+            val report =
+                try {
+                    com.helix.app.proot.ProotToolModule
+                        .inspectInterruptedJob(storage, turnId, callId, stop)
+                } catch (_: Exception) {
+                    com.helix.app.proot.ProotRecoveryReport.Unknown
+                }
+            updateProotRecovery(callId, false, report)
+        }
+    }
+
+    fun recoverInterruptedProot(
+        turnId: String,
+        callId: String,
+    ) = recoverProotResult(turnId, callId, false)
+
+    fun retryProotAcknowledgement(
+        turnId: String,
+        callId: String,
+    ) = recoverProotResult(turnId, callId, true)
+
+    private fun recoverProotResult(
+        turnId: String,
+        callId: String,
+        retryAcknowledgement: Boolean,
+    ) {
+        workScope.launch {
+            if (!com.helix.app.proot.ProotToolModule.AVAILABLE) return@launch
+            val row =
+                screen.value.toolTimeline.singleOrNull { it.turnId == turnId && it.callId == callId }
+                    ?: return@launch
+            if (!row.prootRecoveryAvailable || row.prootRecoveryBusy) return@launch
+            updateProotRecovery(callId, true, row.prootRecoveryReport)
+            val output =
+                try {
+                    if (retryAcknowledgement) {
+                        com.helix.app.proot.ProotToolModule
+                            .recoverInterruptedResult(storage, turnId, callId, false)
+                    } else {
+                        com.helix.app.proot.ProotToolModule
+                            .recoverInterruptedResult(storage, turnId, callId, true)
+                            ?: com.helix.app.proot.ProotToolModule
+                                .recoverInterruptedResult(storage, turnId, callId, false)
+                    }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    updateProotRecovery(callId, false, row.prootRecoveryReport)
+                    throw cancelled
+                } catch (_: Exception) {
+                    row.prootRecoveredOutput?.copy(acknowledged = false)
+                }
+            _screen.update { current ->
+                current.copy(
+                    toolTimeline =
+                        current.toolTimeline.map {
+                            if (it.callId == callId && it.turnId == turnId) {
+                                it.copy(
+                                    prootRecoveryBusy = false,
+                                    prootRecoveredOutput = output,
+                                    prootResultUnavailable = output == null,
+                                )
+                            } else {
+                                it
+                            }
+                        },
+                )
+            }
+        }
+    }
+
+    private fun updateProotRecovery(
+        callId: String,
+        busy: Boolean,
+        report: com.helix.app.proot.ProotRecoveryReport?,
+    ) {
+        _screen.update { current ->
+            current.copy(
+                toolTimeline =
+                    current.toolTimeline.map {
+                        if (it.callId == callId) it.copy(prootRecoveryBusy = busy, prootRecoveryReport = report) else it
+                    },
+            )
+        }
     }
 
     /** The approval card's "本次批准" action (UI -> service -> broker, on the work scope). */
@@ -1473,7 +1844,8 @@ class ChatService(
                     }
                 }
             }
-            launchTurn(text = null, providerId = providerId, retryTurnId = turnId)
+            val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
+            launchTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
         }
     }
 
@@ -1552,6 +1924,7 @@ class ChatService(
         providerId: String,
         retryTurnId: String? = null,
         attachmentBindings: List<MessageAttachmentRepository.Binding> = emptyList(),
+        goalId: String? = null,
     ) {
         val session = currentSession() ?: return
         val sessionId = session.id
@@ -1579,20 +1952,27 @@ class ChatService(
             if (sessionTurnAdmission.hasActive(sessionId)) return
             val turnId = idGenerator()
             val callId = idGenerator()
-            val coordinator =
-                TurnCoordinator.start(
-                    storage = storage,
-                    clock = clock,
-                    idGenerator = idGenerator,
-                    spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings),
-                )
+            val spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings)
+            val goalStart =
+                goalId?.let {
+                    GoalRunCoordinator(storage, clock, idGenerator).start(
+                        GoalTurnStart(it, com.helix.core.agent.GoalWakeReason.USER_OPEN, spec, control.budgets),
+                    )
+                }
+            if (goalId != null && goalStart == null) {
+                setBlocked(str(R.string.goal_continue_unavailable))
+                return
+            }
+            val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
+            val effectiveControl =
+                goalStart?.let { control.copy(mode = AgentMode.GOAL, budgets = it.budgets) } ?: control
             // The worker waits behind this gate until its active-turn entry and initial UI are
             // published. Without the gate, a fast scheduler can begin streaming before register;
             // stop() in that window cannot find the job and silently fails to cancel the turn.
             val startGate = CompletableDeferred<Unit>()
             val job =
                 workScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, control)
+                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
             publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
@@ -1616,8 +1996,14 @@ class ChatService(
         val turnId = coordinator.id
         try {
             startGate.await()
-            val decision = runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
+            val decision =
+                runWithGoalTime(coordinator.id) {
+                    runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
+                }
             terminalize(sessionId, coordinator, decision)
+        } catch (e: GoalTimeLimitException) {
+            turnCancels[turnId]?.cancel()
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.FAILED, e.code))
         } catch (e: CancellationException) {
             terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
             throw e
@@ -1640,6 +2026,29 @@ class ChatService(
                 coordinator,
                 ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name),
             )
+        }
+    }
+
+    private suspend fun runWithGoalTime(
+        turnId: String,
+        block: suspend () -> ModelStreamTerminal,
+    ): ModelStreamTerminal {
+        val binding = storage.goalTurnBindings.byTurn(turnId) ?: return block()
+        val timer = GoalTimeBudget(storage, clock, binding.runId)
+        goalTimes[turnId] = timer
+        try {
+            return timer.run(
+                onExpiry = {
+                    turnCancels
+                        .getOrPut(
+                            turnId,
+                        ) { TurnCancelSignal { timer.expiredCode() != null } }
+                        .cancel()
+                },
+                block = block,
+            )
+        } finally {
+            goalTimes.remove(turnId)
         }
     }
 
@@ -1666,11 +2075,14 @@ class ChatService(
         var request = buildRequest(sessionId, retryTurnId, control)
         var toolRounds = 0
         val budgetTracker = TurnBudgetTracker(control.budgets)
+        val goalBudget = GoalModelCallBudget(storage, clock)
         while (true) {
+            goalTimes[turnId]?.checkActive()
             if (turnCancels[turnId]?.isCancelled() == true) {
                 return ModelStreamTerminal(TurnState.CANCELLED, null)
             }
-            when (budgetTracker.beginCall(request)) {
+            val admission = budgetTracker.prepareCall(request)
+            when (admission.decision) {
                 TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT -> {
                     return ModelStreamTerminal(TurnState.FAILED, "MODEL_CALL_LIMIT")
                 }
@@ -1680,14 +2092,18 @@ class ChatService(
                 }
 
                 TurnBudgetTracker.BeginDecision.ALLOWED -> {
-                    Unit
+                    request = requireNotNull(admission.request)
                 }
             }
-            val acc = coordinator.beginModelStream()
-            provider.stream(request).collect { event ->
-                applyEvent(event, acc, turnId)
-            }
+            val callId = coordinator.snapshot().modelCallId
+            request = goalBudget.prepare(turnId, callId, request)
+                ?: return ModelStreamTerminal(TurnState.FAILED, "GOAL_BUDGET_LIMIT")
+            val acc = collectModelStream(coordinator, provider, request)
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
+            goalBudget.finish(turnId, callId, request, acc)
+            if (acc.finishedToolCalls.isNotEmpty() && !goalBudget.canContinue(turnId)) {
+                return ModelStreamTerminal(TurnState.FAILED, "GOAL_BUDGET_LIMIT")
+            }
             if (!budgetTracker.finishCall(coordinator.snapshot().modelCallId, request, acc)) {
                 return ModelStreamTerminal(TurnState.FAILED, "TOKEN_BUDGET_LIMIT")
             }
@@ -1714,6 +2130,22 @@ class ChatService(
             // loop state above.
             return decision
         }
+    }
+
+    private suspend fun collectModelStream(
+        coordinator: TurnCoordinator,
+        provider: com.helix.provider.api.ModelProvider,
+        request: ModelRequest,
+    ): ModelStreamState {
+        val acc = coordinator.beginModelStream()
+        goalTimes[coordinator.id]?.checkActive()
+        kotlinx.coroutines.withContext(
+            com.helix.app.provider
+                .LocalModelCallContext(coordinator.id, coordinator.snapshot().modelCallId),
+        ) {
+            provider.stream(request).collect { applyEvent(it, acc, coordinator.id) }
+        }
+        return acc
     }
 
     /** The one tool round of [runToolLoop]: continued, budget-limited, or none (no finished calls). */
@@ -1745,12 +2177,16 @@ class ChatService(
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
         if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
-        coordinator.beginToolBatch(calls.map { it.callId })
-        coordinator.commitModelToolStep(assistantToolStepJson(calls))
+        val localBatch = LocalToolCallBatch(calls, idGenerator)
+        coordinator.beginToolBatch(localBatch.calls.map { it.callId })
+        coordinator.commitModelToolStep(assistantToolStepJson(localBatch))
         val turn = storage.turns.resolve(turnId)
-        val settled = runToolBatch(turn, turnId, calls, coordinator, control)
+        val settled = runToolBatch(turn, turnId, localBatch.calls, coordinator, control)
         val nextCallId = idGenerator()
-        coordinator.openNextModelCall(settled.map(::toolResultDraft), nextCallId)
+        coordinator.openNextModelCall(
+            settled.map { toolResultDraft(it.copy(callId = localBatch.wireId(it.callId))) },
+            nextCallId,
+        )
         return ToolRoundContinued(toolRounds + 1)
     }
 
@@ -1764,6 +2200,7 @@ class ChatService(
         acc: ModelStreamState,
         turnId: String,
     ) {
+        goalTimes[turnId]?.checkActive()
         val update = acc.apply(event)
         if (!update.textChanged) return
         publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.text, null, false))
@@ -1780,7 +2217,22 @@ class ChatService(
         outcome: ModelStreamTerminal,
     ) {
         val turnId = coordinator.id
-        coordinator.terminalize(outcome)
+        val verification =
+            goalEvidenceWorkspace?.let {
+                com.helix.app.goal
+                    .GoalCompletionVerifier(
+                        storage,
+                        toolPipeline.registry,
+                        it,
+                        clock,
+                        idGenerator,
+                        goalEvidenceFileStore?.let { store ->
+                            com.helix.app.goal
+                                .ScopedEditedArtifactReader(store)
+                        },
+                    )
+            }
+        coordinator.terminalize(outcome, verification?.let { it::refresh })
         // HXA-036: the turn is over — clear the dispatcher's same-turn denial set for it
         // (a later turn may re-request a previously denied action and get a fresh card)
         // and drop this turn's pipeline state.
@@ -1797,6 +2249,18 @@ class ChatService(
             )
         }
         refreshScreen()
+        syncGoalReminderForTurn(turnId)
+    }
+
+    private fun syncGoalReminderForTurn(turnId: String) {
+        val binding = storage.goalTurnBindings.byTurn(turnId) ?: return
+        val goalId = storage.goalRuns.resolve(binding.runId).goalId
+        try {
+            goalReminderSync(goalId)
+        } catch (error: IllegalStateException) {
+            Log.e(TAG, "Goal reminder sync failed after durable turn settlement", error)
+            setBlocked(str(R.string.goal_reminder_sync_failed))
+        }
     }
 
     /**
@@ -1817,7 +2281,7 @@ class ChatService(
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
         return ModelRequest(
-            model = config.model,
+            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
@@ -1841,7 +2305,7 @@ class ChatService(
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
         return ModelRequest(
-            model = config.model,
+            model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
@@ -2002,12 +2466,13 @@ class ChatService(
      * original text while the binding hashes its canonical form (same source, two
      * representations).
      */
-    private fun assistantToolStepJson(calls: List<BufferedModelToolCall>): String =
+    private fun assistantToolStepJson(batch: LocalToolCallBatch): String =
         buildJsonArray {
-            calls.forEach { call ->
+            batch.calls.forEach { call ->
                 add(
                     buildJsonObject {
-                        put("id", call.callId)
+                        put("id", batch.wireId(call.callId))
+                        put("localId", call.callId)
                         put("name", call.name)
                         put("arguments", call.arguments)
                     },
@@ -2018,7 +2483,9 @@ class ChatService(
     /**
      * Persists ONE settled tool result as a TOOL message (called in CALL SEQUENCE — the
      * back-fill order the next model request re-carries). The content is the bounded
-     * `{"id","tool","status","summary"}` — exactly the text the timeline shows.
+     * `{"id","tool","status","summary"}` envelope. Successful content retains the
+     * Dispatcher's size-bounded payload; the timeline's shorter preview must not truncate
+     * structured fields or node tokens needed by the next model call.
      */
     private fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
         val status: String
@@ -2026,7 +2493,7 @@ class ChatService(
         when (val o = settled.outcome) {
             is ToolDispatchOutcome.Succeeded -> {
                 status = "SUCCEEDED"
-                summary = boundedSummary(o.result.payload)
+                summary = o.result.payload
             }
 
             is ToolDispatchOutcome.Denied -> {
@@ -2081,7 +2548,9 @@ class ChatService(
     )
 
     /** The turn's [CancelSignal]: the stop button flips it; the dispatcher checks it at its stage checks. */
-    private class TurnCancelSignal : CancelSignal {
+    private class TurnCancelSignal(
+        private val deadlineExpired: () -> Boolean = { false },
+    ) : CancelSignal {
         @Volatile
         private var cancelled = false
 
@@ -2089,14 +2558,14 @@ class ChatService(
             cancelled = true
         }
 
-        override fun isCancelled(): Boolean = cancelled
+        override fun isCancelled(): Boolean = cancelled || deadlineExpired()
     }
 
     /**
      * One model call's tool round (roadmap HXA-037; doc 11 section 3): prepares every
      * finished tool call (persist the tool_call row with the CANONICAL argument bytes —
      * doc 02 section 9.1/9.2: the stored argsJson is the same text the approval binding
-     * hashes; the row's primary key IS the model call id, the approvals table's foreign
+     * hashes; the row's primary key is an app-generated local id, the approvals table's foreign
      * key targets tool_calls.id), then runs them through the [ToolScheduler] — bounded
      * platform-decided parallelism, call-order deterministic settlement.
      *
@@ -2196,6 +2665,34 @@ class ChatService(
         rawArgsJson: String,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
+    ): PreparedToolCall =
+        if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
+            prepareAdmittedToolCall(turn, toolCallId, toolNameRaw, rawArgsJson, mode, chatToolsEnabled)
+        } else {
+            PreparedToolCall(
+                toolCallId,
+                toolNameRaw,
+                null,
+                null,
+                persistRejectedToolCall(
+                    turn,
+                    toolCallId,
+                    toolNameRaw,
+                    rawArgsJson,
+                    "unknown",
+                    DispatchOutcomeCode.BUDGET_EXHAUSTED,
+                    str(R.string.model_error_goal_budget_limit),
+                ),
+            )
+        }
+
+    private fun prepareAdmittedToolCall(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        toolCallId: String,
+        toolNameRaw: String,
+        rawArgsJson: String,
+        mode: AgentMode,
+        chatToolsEnabled: Boolean,
     ): PreparedToolCall {
         val turnId = turn.id
         val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
@@ -2241,7 +2738,18 @@ class ChatService(
                 profile,
                 mode,
                 chatToolsEnabled,
-            )
+            ).copy(onExecutionStarting = {
+                storage.toolCalls.updateState(row, ToolCallState.RUNNING)
+                publishToolRow(
+                    turnId,
+                    toolCallId,
+                    toolNameRaw,
+                    canonical,
+                    str(R.string.tool_state_running),
+                    null,
+                    null,
+                )
+            })
         dispatchFacts[toolCallId] =
             DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
@@ -2423,11 +2931,14 @@ class ChatService(
             uiToken = "chat:${turn.id}",
             egress = egressFacts?.first,
             originSeenInSession = egressFacts?.second ?: true,
-            lanScopes = emptySet(),
+            lanScopes = lanScopes(),
             overwritesExisting = false,
             codeOrCommandChanged = false,
             sourceBindingChanged = egressFacts?.third ?: false,
-            cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal() },
+            cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal { goalTimes[turn.id]?.expiredCode() != null } },
+            remainingExecutionMillis =
+                goalTimes[turn.id]?.let { timer -> { timer.remainingExecutionMillis() } }
+                    ?: { Long.MAX_VALUE },
         )
     }
 
@@ -2478,6 +2989,7 @@ class ChatService(
                 settleExecutionFailed(row, toolCallId, toolName, outcome, sideEffectUnknown)
             }
         }
+        GoalToolCallBudget(storage, clock).finish(toolCallId)
     }
 
     private fun settleSucceeded(
@@ -2660,6 +3172,7 @@ class ChatService(
             ),
         )
         publishToolRow(turn.id, toolCallId, toolNameRaw, rawArgs, str(R.string.tool_state_denied), detail, null)
+        GoalToolCallBudget(storage, clock).finish(toolCallId)
         return ToolDispatchOutcome.Denied(code, detail)
     }
 
@@ -2802,9 +3315,11 @@ class ChatService(
             ChatScreenState(
                 sessions = _sessions.value,
                 openSessionId = sessionId,
-                badge = sessionId?.let { badgeFor(it) } ?: current.badge,
+                // A null badge is authoritative for an unbound session, not a missing refresh.
+                badge = sessionId?.let { badgeFor(it) },
                 messages = messagesFor(sessionId, current),
                 toolTimeline = toolTimelineFor(sessionId, current.toolTimeline),
+                subscriptionRecoveries = subscriptionRecoveriesFor(storage, sessionId, current.subscriptionRecoveries),
                 activeTurn = lastTurn?.let { turnUiFor(it, current.activeTurn?.streamingText) },
                 pendingDisclosure = current.pendingDisclosure,
                 blockedReason = current.blockedReason,
@@ -2855,14 +3370,30 @@ class ChatService(
                         .listByTurn(turn.id)
                         .map { call ->
                             val result = storage.toolResults.byToolCall(call.callId)
+                            val interruptedProot =
+                                com.helix.app.proot
+                                    .prootRecoveryEligible(turn.state, call.state) &&
+                                    call.name in setOf("bash", "code.linux.run")
                             ToolTimelineRow(
                                 turnId = turn.id,
                                 callId = call.callId,
                                 toolName = call.name,
                                 requestSummary = call.argsJson,
-                                stateLabel = persistedStateLabel(call.state),
+                                stateLabel =
+                                    persistedStateLabel(
+                                        if (turn.state == TurnState.INTERRUPTED.name &&
+                                            call.state == ToolCallState.AWAITING_APPROVAL.name
+                                        ) {
+                                            ToolCallState.INTERRUPTED.name
+                                        } else {
+                                            call.state
+                                        },
+                                    ),
                                 resultSummary = result?.summary,
                                 card = null,
+                                prootRecoveryAvailable =
+                                    com.helix.app.proot.ProotToolModule.AVAILABLE &&
+                                        interruptedProot,
                             )
                         }
                 }.takeLast(TOOL_TIMELINE_CAP)
@@ -2879,6 +3410,10 @@ class ChatService(
                     val live = liveByCall[row.callId] ?: return@map row
                     row.copy(
                         card = live.card,
+                        prootRecoveryBusy = live.prootRecoveryBusy,
+                        prootRecoveryReport = live.prootRecoveryReport,
+                        prootRecoveredOutput = live.prootRecoveredOutput,
+                        prootResultUnavailable = live.prootResultUnavailable,
                         stateLabel = live.stateLabel,
                         resultSummary = live.resultSummary ?: row.resultSummary,
                     )
@@ -2944,14 +3479,22 @@ class ChatService(
         )
     }
 
-    /** The newest FAILED turn of the open session — the retry button's target (persisted state). */
+    /** Latest failed turn, shown as retryable only when its bound Goal permits an explicit continuation. */
     private fun retryTargetFor(sessionId: String?): String? =
         sessionId
             ?.let { id ->
                 storage.turns
                     .listBySession(id)
                     .lastOrNull { it.state == TurnState.FAILED.name }
-                    ?.id
+                    ?.takeIf { turn ->
+                        val binding = storage.goalTurnBindings.byTurn(turn.id)
+                        if (binding == null) {
+                            true
+                        } else {
+                            val goalId = storage.goalRuns.resolve(binding.runId).goalId
+                            GoalSummaryQuery(storage).forSession(id).any { it.id == goalId && it.canContinue }
+                        }
+                    }?.id
             }
 
     private fun badgeFor(sessionId: String): ProviderBadgeUi? {

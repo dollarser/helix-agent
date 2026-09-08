@@ -164,6 +164,14 @@ object WriteTool {
 
     /** The implementation bound to [descriptor]. */
     fun executor(store: WorkspaceArtifactStore): ToolExecutor =
+        executorWithPublisher(store) { path, bytes, region, expected ->
+            store.writeArtifact(path, bytes, region, expected)
+        }
+
+    internal fun executorWithPublisher(
+        store: WorkspaceArtifactStore,
+        publish: (FileScopePath, ByteArray, String, String?) -> WriteOutcome,
+    ): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
@@ -205,11 +213,11 @@ object WriteTool {
                     }
                     val expected = if (exists && parsed.expectedSha256 != null) parsed.expectedSha256 else null
                     val outcome =
-                        store.writeArtifact(
-                            path = parsed.path,
-                            bytes = parsed.content.toByteArray(Charsets.UTF_8),
-                            region = region,
-                            expectedPreviousSha256 = expected,
+                        publish(
+                            parsed.path,
+                            parsed.content.toByteArray(Charsets.UTF_8),
+                            region,
+                            expected,
                         )
                     ToolExecutorResult.Completed(output(parsed.path, outcome, exists))
                 } catch (e: PreconditionHashMismatch) {
@@ -226,9 +234,12 @@ object WriteTool {
                 } catch (e: ScopeNotAvailable) {
                     ToolExecutorResult.Failed("scope not available: ${e.message}")
                 } catch (e: IOException) {
-                    // I/O failure inside the atomic publish (disk error, unsupported atomic move):
-                    // sanitized — the raw message may carry real paths (doc 10).
-                    ToolExecutorResult.Failed("workspace I/O failure; the write was not performed")
+                    // The target may already have been published when metadata/probing fails.
+                    // Do not claim zero effects or disclose the raw filesystem exception.
+                    ToolExecutorResult.Failed(
+                        "workspace I/O failure; verify the target file before retrying",
+                        requiresReview = true,
+                    )
                 }
             }
         }

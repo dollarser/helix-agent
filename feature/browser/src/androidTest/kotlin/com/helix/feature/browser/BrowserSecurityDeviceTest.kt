@@ -93,6 +93,20 @@ class BrowserSecurityDeviceTest {
     }
 
     @Test
+    fun rendererExitDropsTheDeadViewAndRetryCreatesAFreshPage() {
+        val tabId = onMain { controller.newTab() }
+        navigateToLoadedPage(tabId, "data:text/html,<h1>renderer</h1>")
+        val oldView = onMain { requireNotNull(controller.hostView(tabId)) }
+        onMain { assertTrue(requireNotNull(oldView.webViewRenderProcess).terminate()) }
+        awaitState("renderer error") { currentTab(tabId)?.takeIf { it.error is LoadError } }
+        assertNull(onMain { controller.hostView(tabId) })
+        assertNull(onMain { controller.latestSnapshot(tabId) })
+        onMain { controller.retry(tabId) }
+        awaitState("retry loaded") { currentTab(tabId)?.takeIf { !it.isLoading && it.error == null } }
+        assertTrue(onMain { requireNotNull(controller.hostView(tabId)) !== oldView })
+    }
+
+    @Test
     fun aFileUrlIsDeniedBeforeAnyWebViewIsCreated() {
         val tabId = onMain { controller.newTab() }
         onMain { controller.navigate(tabId, "file:///etc/passwd") }

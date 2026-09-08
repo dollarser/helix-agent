@@ -18,17 +18,25 @@ import java.io.Closeable
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-internal data class CodexModelExecution(val model: String, val events: List<ModelEvent>)
+internal data class CodexModelExecution(
+    val model: String,
+    val events: List<ModelEvent>,
+)
 
 internal class CodexSubscriptionModel(
     private val vault: CliSubscriptionCredentialVault,
     private val oauth: CodexLoginController,
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
 ) : Closeable {
-    private val client = client.newBuilder()
-        .connectTimeout(20, TimeUnit.SECONDS).readTimeout(90, TimeUnit.SECONDS)
-        .writeTimeout(20, TimeUnit.SECONDS).callTimeout(120, TimeUnit.SECONDS)
-        .followRedirects(false).build()
+    private val client =
+        client
+            .newBuilder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
+            .writeTimeout(20, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .followRedirects(false)
+            .build()
     private val encoder = ResponsesRequestEncoder { error("image references are rejected by the IPC codec") }
 
     fun run(request: ModelRequest): CodexModelExecution {
@@ -45,20 +53,32 @@ internal class CodexSubscriptionModel(
         }
     }
 
-    override fun close() { client.dispatcher.cancelAll() }
+    override fun close() {
+        client.dispatcher.cancelAll()
+    }
 
-    private fun execute(request: ModelRequest, session: CliSubscriptionSession): okhttp3.Response {
+    private fun execute(
+        request: ModelRequest,
+        session: CliSubscriptionSession,
+    ): okhttp3.Response {
         val accountId = session.accountId ?: throw CodexSmokeException("credential")
         val base = Json.parseToJsonElement(encodeSubscriptionRequest(request, encoder)).jsonObject
-        val body = buildJsonObject {
-            base.forEach { (key, value) -> put(key, value) }
-            put("store", false)
-        }.toString()
-        val call = Request.Builder().url(CodexSubscriptionSmoke.RESPONSES_URL)
-            .header("Authorization", "Bearer ${session.accessToken}")
-            .header("chatgpt-account-id", accountId).header("originator", "codex_cli_rs")
-            .header("session-id", UUID.randomUUID().toString()).header("Accept", "text/event-stream")
-            .post(body.toRequestBody(JSON)).build()
+        val body =
+            buildJsonObject {
+                base.forEach { (key, value) -> put(key, value) }
+                put("store", false)
+            }.toString()
+        val call =
+            Request
+                .Builder()
+                .url(CodexSubscriptionSmoke.RESPONSES_URL)
+                .header("Authorization", "Bearer ${session.accessToken}")
+                .header("chatgpt-account-id", accountId)
+                .header("originator", "codex_cli_rs")
+                .header("session-id", UUID.randomUUID().toString())
+                .header("Accept", "text/event-stream")
+                .post(body.toRequestBody(JSON))
+                .build()
         return client.newCall(call).execute()
     }
 
@@ -70,9 +90,10 @@ internal class CodexSubscriptionModel(
         /** The consumer-subscription endpoint rejects the public API output-token field. */
         fun encodeSubscriptionRequest(
             request: ModelRequest,
-            encoder: ResponsesRequestEncoder = ResponsesRequestEncoder {
-                error("image references are rejected by the IPC codec")
-            },
+            encoder: ResponsesRequestEncoder =
+                ResponsesRequestEncoder {
+                    error("image references are rejected by the IPC codec")
+                },
         ): String = encoder.encode(request.copy(maxOutputTokens = null))
     }
 }

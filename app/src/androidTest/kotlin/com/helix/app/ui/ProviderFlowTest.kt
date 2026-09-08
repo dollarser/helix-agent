@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -37,7 +38,7 @@ class ProviderFlowTest {
     @Before
     fun setUp() {
         composeRule.resetDeterministicUiState()
-        deleteAllProviders(composeRule.container())
+        deleteEditableProviders(composeRule.container())
     }
 
     @Test
@@ -62,9 +63,9 @@ class ProviderFlowTest {
         // --- created: the dialog closed (save succeeded) and the row is 未测试 ---
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
-        composeRule.onNodeWithText(providerName).assertIsDisplayed()
-        composeRule.onNodeWithTag("provider-status-untested").assertIsDisplayed()
-        composeRule.onNodeWithText("尚未通过连接测试", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText(providerName).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-status-untested")).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(editableProviderText("尚未通过连接测试")).performScrollTo().assertIsDisplayed()
 
         // --- an untested provider must NOT appear in the new-session picker ---
         composeRule.navigateTo("sessions")
@@ -76,11 +77,11 @@ class ProviderFlowTest {
 
         // --- connection test against the unreachable endpoint: phase-1 failure ---
         composeRule.navigateTo("settings")
-        composeRule.onNodeWithTag("provider-test").performClick()
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
-            composeRule.onAllNodesWithTag("provider-status-failed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-status-failed").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("失败阶段：网络与认证", substring = true).assertIsDisplayed()
         // The safe code label is shown (doc 02 section 13: never raw exceptions).
         composeRule.onNodeWithText("网络/TLS 连接失败", substring = true).assertIsDisplayed()
@@ -94,7 +95,7 @@ class ProviderFlowTest {
 
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
         composeRule.navigateTo("settings")
-        composeRule.onNodeWithTag("provider-delete").performClick()
+        composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
         val rows =

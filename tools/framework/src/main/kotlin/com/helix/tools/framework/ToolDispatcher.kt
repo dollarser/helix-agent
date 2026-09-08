@@ -86,6 +86,10 @@ data class ToolDispatchRequest(
      * a new approval, never a retry.
      */
     val maxAttempts: Int = 1,
+    /** Trusted caller persistence hook, after approval consumption and before each executor attempt. */
+    val onExecutionStarting: () -> Unit = {},
+    /** Trusted runtime budget, sampled after approval and persistence; never supplied by tool arguments. */
+    val remainingExecutionMillis: () -> Long = { Long.MAX_VALUE },
 ) {
     init {
         require(maxAttempts in 1..MAX_ATTEMPTS_HARD_CAP) {
@@ -578,6 +582,7 @@ class ToolDispatcher(
         if (proof != null) {
             approvals.consume(proof)
         }
+        request.onExecutionStarting()
         val call = buildCall(request, descriptor, execStart)
         val result = executeWithinDeadline(executor, call)
         // HXA-053: capture the executor's optional redacted metadata (QuickJS doc 03 §4.8)
@@ -590,6 +595,20 @@ class ToolDispatcher(
                 else -> null
             }
         return when (result) {
+            null -> {
+                finish(
+                    request,
+                    startedAt,
+                    ctx,
+                    ToolDispatchOutcome.ExecutionFailed(
+                        DispatchOutcomeCode.TIMEOUT,
+                        "tool deadline expired before executor submission; no effects were produced",
+                        sideEffectFree = true,
+                    ),
+                    DecisionSource.FRAMEWORK,
+                )
+            }
+
             is ToolExecutorResult.Completed -> {
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
                     ctx.outputHash = bound.outputHash.hex
@@ -616,7 +635,8 @@ class ToolDispatcher(
                 ToolExecutorResult.TimedOut -> {
                     ToolDispatchOutcome.ExecutionFailed(
                         DispatchOutcomeCode.TIMEOUT,
-                        "tool exceeded its deadline; the stable timeout error is the model-visible outcome",
+                        "tool exceeded its deadline; verify possible effects before retrying",
+                        requiresReview = true,
                     )
                 }
 
@@ -624,6 +644,7 @@ class ToolDispatcher(
                     ToolDispatchOutcome.ExecutionFailed(
                         DispatchOutcomeCode.CANCELLED_AFTER_START,
                         "cancellation fired after execution started; side-effect state is unknown",
+                        requiresReview = true,
                     )
                 }
 
@@ -643,7 +664,7 @@ class ToolDispatcher(
         return finish(request, startedAt, ctx, failure, DecisionSource.FRAMEWORK)
     }
 
-    /** The executor-facing call: hard deadline = descriptor timeout; the request's cancel signal passes through. */
+    /** The executor deadline takes the stricter descriptor timeout and current runtime budget. */
     private fun buildCall(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
@@ -655,7 +676,10 @@ class ToolDispatcher(
             toolVersion = request.toolVersion.value.toString(),
             args = request.args,
             executionTarget = request.executionTarget,
-            deadline = Instant.ofEpochMilli(execStart.toEpochMilli() + descriptor.timeout.inWholeMilliseconds),
+            deadline =
+                execStart.plusMillis(
+                    minOf(descriptor.timeout.inWholeMilliseconds, request.remainingExecutionMillis().coerceAtLeast(0)),
+                ),
             cancel = request.cancel,
             sessionId = request.sessionId,
             turnId = request.turnId,
@@ -679,9 +703,10 @@ class ToolDispatcher(
     private fun executeWithinDeadline(
         executor: ToolExecutor,
         call: ExecutableToolCall,
-    ): ToolExecutorResult {
+    ): ToolExecutorResult? {
         val remaining = call.deadline.toEpochMilli() - clock.now().toEpochMilli()
-        if (remaining <= 0) return ToolExecutorResult.TimedOut
+        // null proves the executor was never submitted; submitted timeouts remain uncertain.
+        if (remaining <= 0) return null
         val future: Future<ToolExecutorResult> =
             EXECUTOR_SERVICE.submit(
                 Callable {
@@ -695,7 +720,7 @@ class ToolDispatcher(
                 },
             )
         return try {
-            future.get(remaining, TimeUnit.MILLISECONDS)
+            awaitExecution(future, call.cancel, remaining)
         } catch (e: TimeoutException) {
             // The deadline passed: interrupt is best-effort, the outcome is settled as TIMEOUT.
             future.cancel(true)
@@ -704,8 +729,36 @@ class ToolDispatcher(
             rethrowExecutorFailure(e.cause ?: e)
         } catch (e: InterruptedException) {
             // The dispatch itself was interrupted: keep the interrupt flag, propagate as-is.
+            future.cancel(true)
             Thread.currentThread().interrupt()
             throw e
+        }
+    }
+
+    @Suppress("SwallowedException") // polling timeout continues only while the monotonic deadline remains live
+    private fun awaitExecution(
+        future: Future<ToolExecutorResult>,
+        cancel: CancelSignal,
+        remainingMillis: Long,
+    ): ToolExecutorResult {
+        val started = System.nanoTime()
+        val budget = TimeUnit.MILLISECONDS.toNanos(remainingMillis)
+        while (true) {
+            if (future.isDone || cancel.isCancelled()) {
+                return if (future.isDone) {
+                    future.get()
+                } else {
+                    future.cancel(true)
+                    ToolExecutorResult.Cancelled
+                }
+            }
+            val remaining = budget - (System.nanoTime() - started)
+            if (remaining <= 0) throw TimeoutException()
+            try {
+                return future.get(minOf(remaining, TimeUnit.MILLISECONDS.toNanos(100)), TimeUnit.NANOSECONDS)
+            } catch (e: TimeoutException) {
+                if (System.nanoTime() - started >= budget) throw e
+            }
         }
     }
 
@@ -740,6 +793,7 @@ class ToolDispatcher(
                 ToolDispatchOutcome.ExecutionFailed(
                     DispatchOutcomeCode.INVALID_OUTPUT,
                     "tool output violates the registered output schema: ${validation.reasons.joinToString("; ")}",
+                    requiresReview = true,
                 ),
                 DecisionSource.FRAMEWORK,
             )

@@ -470,9 +470,13 @@ class AutomationServiceDeviceTest {
     }
 
     private fun setEnabledComponents(components: Set<String>) {
-        val enabled = components.joinToString(":")
-        shell("settings put secure enabled_accessibility_services $enabled")
+        if (components.isEmpty()) {
+            shell("settings delete secure enabled_accessibility_services")
+        } else {
+            shell("settings put secure enabled_accessibility_services ${components.joinToString(":")}")
+        }
         shell("settings put secure accessibility_enabled ${if (components.isEmpty()) 0 else 1}")
+        assertEquals(components, enabledComponents())
     }
 
     private fun enabledComponents(): Set<String> =

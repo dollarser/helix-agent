@@ -4,10 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.TextView
 import java.io.IOException
 import java.util.concurrent.Executors
 
@@ -15,13 +11,7 @@ class CopilotLoginActivity : Activity() {
     private lateinit var vault: CliSubscriptionCredentialVault
     private lateinit var transport: OkHttpCopilotDeviceTransport
     private lateinit var controller: CopilotLoginController
-    private lateinit var status: TextView
-    private lateinit var login: Button
-    private lateinit var openBrowser: Button
-    private lateinit var copyCode: Button
-    private lateinit var copyUrl: Button
-    private lateinit var cancel: Button
-    private lateinit var logout: Button
+    private lateinit var content: CopilotLoginContent
     private val worker = Executors.newSingleThreadExecutor()
 
     @Volatile private var cancellation: CopilotLoginCancellation? = null
@@ -34,7 +24,20 @@ class CopilotLoginActivity : Activity() {
         transport = OkHttpCopilotDeviceTransport()
         controller = CopilotLoginController(vault, transport)
         title = getString(R.string.copilot_login_title)
-        setContentView(buildContent())
+        content =
+            CopilotLoginContent(
+                this,
+                ::startLogin,
+                ::openVerification,
+                ::cancelLogin,
+                {
+                    controller.logout()
+                    renderState()
+                },
+                { userCode?.let { DeviceCodeClipboard.copy(this, getString(R.string.copilot_copy_code), it) } },
+                { verificationUri?.let { DeviceCodeClipboard.copy(this, getString(R.string.copilot_copy_url), it) } },
+            )
+        setContentView(content.root)
         renderState()
     }
 
@@ -45,78 +48,10 @@ class CopilotLoginActivity : Activity() {
         super.onDestroy()
     }
 
-    @Suppress("DEPRECATION") // minSdk 29 WindowInsets accessor keeps the disclosure clear of system chrome.
-    private fun buildContent(): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (24 * resources.displayMetrics.density).toInt()
-            val attributes = theme.obtainStyledAttributes(intArrayOf(android.R.attr.actionBarSize))
-            val actionBarHeight = attributes.getDimensionPixelSize(0, 0)
-            attributes.recycle()
-            setOnApplyWindowInsetsListener { view, insets ->
-                view.setPadding(
-                    padding,
-                    padding + actionBarHeight + insets.systemWindowInsetTop,
-                    padding,
-                    padding + insets.systemWindowInsetBottom,
-                )
-                insets
-            }
-            requestApplyInsets()
-            addView(TextView(context).apply { setText(R.string.copilot_login_warning) })
-            status =
-                TextView(context).also {
-                    it.setPadding(0, padding, 0, padding)
-                    it.setTextIsSelectable(true)
-                    addView(it)
-                }
-            login =
-                Button(context).also {
-                    it.setText(R.string.copilot_login_action)
-                    it.setOnClickListener { startLogin() }
-                    addView(it)
-                }
-            copyCode = Button(context).also {
-                it.setText(R.string.copilot_copy_code)
-                it.setOnClickListener {
-                    userCode?.let { code -> DeviceCodeClipboard.copy(this@CopilotLoginActivity, getString(R.string.copilot_copy_code), code) }
-                }
-                addView(it)
-            }
-            copyUrl = Button(context).also {
-                it.setText(R.string.copilot_copy_url)
-                it.setOnClickListener {
-                    verificationUri?.let { url -> DeviceCodeClipboard.copy(this@CopilotLoginActivity, getString(R.string.copilot_copy_url), url) }
-                }
-                addView(it)
-            }
-            openBrowser =
-                Button(context).also {
-                    it.setText(R.string.copilot_open_browser)
-                    it.setOnClickListener { openVerification() }
-                    addView(it)
-                }
-            cancel =
-                Button(context).also {
-                    it.setText(R.string.copilot_cancel)
-                    it.setOnClickListener { cancelLogin() }
-                    addView(it)
-                }
-            logout =
-                Button(context).also {
-                    it.setText(R.string.copilot_logout)
-                    it.setOnClickListener {
-                        controller.logout()
-                        renderState()
-                    }
-                    addView(it)
-                }
-        }
-
     private fun startLogin() {
         if (cancellation != null) return
         setBusy(true)
-        status.setText(R.string.copilot_preparing)
+        content.status.setText(R.string.copilot_preparing)
         val active = CopilotLoginCancellation().also { cancellation = it }
         worker.execute {
             runCatching {
@@ -124,7 +59,8 @@ class CopilotLoginActivity : Activity() {
                 runOnUiThread {
                     verificationUri = attempt.verificationUri
                     userCode = attempt.userCode
-                    status.text = getString(R.string.copilot_user_code, attempt.userCode, attempt.verificationUri)
+                    content.status.text =
+                        getString(R.string.copilot_user_code, attempt.userCode, attempt.verificationUri)
                     renderButtons()
                 }
                 controller.finish(attempt, active)
@@ -138,7 +74,7 @@ class CopilotLoginActivity : Activity() {
     private fun openVerification() {
         val uri = verificationUri ?: return
         runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) }
-            .onFailure { status.setText(R.string.copilot_browser_error) }
+            .onFailure { content.status.setText(R.string.copilot_browser_error) }
     }
 
     private fun cancelLogin() {
@@ -159,12 +95,12 @@ class CopilotLoginActivity : Activity() {
             cancellation = null
             verificationUri = null
             userCode = null
-            status.text = message
+            content.status.text = message
             renderButtons()
         }
 
     private fun renderState() {
-        status.setText(
+        content.status.setText(
             if (vault.contains(
                     CliSubscriptionProvider.COPILOT,
                 )
@@ -180,20 +116,20 @@ class CopilotLoginActivity : Activity() {
     private fun renderButtons() {
         val busy = cancellation != null
         val loggedIn = vault.contains(CliSubscriptionProvider.COPILOT)
-        login.isEnabled = !busy && !loggedIn
-        openBrowser.isEnabled = busy && verificationUri != null
-        copyCode.isEnabled = busy && userCode != null
-        copyUrl.isEnabled = busy && verificationUri != null
-        cancel.isEnabled = busy
-        logout.isEnabled = !busy && loggedIn
+        content.login.isEnabled = !busy && !loggedIn
+        content.openBrowser.isEnabled = busy && verificationUri != null
+        content.copyCode.isEnabled = busy && userCode != null
+        content.copyUrl.isEnabled = busy && verificationUri != null
+        content.cancel.isEnabled = busy
+        content.logout.isEnabled = !busy && loggedIn
     }
 
     private fun setBusy(busy: Boolean) {
-        login.isEnabled = !busy
-        openBrowser.isEnabled = false
-        copyCode.isEnabled = false
-        copyUrl.isEnabled = false
-        cancel.isEnabled = busy
-        logout.isEnabled = !busy
+        content.login.isEnabled = !busy
+        content.openBrowser.isEnabled = false
+        content.copyCode.isEnabled = false
+        content.copyUrl.isEnabled = false
+        content.cancel.isEnabled = busy
+        content.logout.isEnabled = !busy
     }
 }

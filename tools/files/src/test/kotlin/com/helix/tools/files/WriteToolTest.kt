@@ -41,6 +41,28 @@ class WriteToolTest {
     @get:Rule
     val tmp = TemporaryFolder()
 
+    @Test
+    fun failureAfterPublicationRequiresReviewAndKeepsThePublishedBytes() {
+        val root = root()
+        val store = store(root)
+        val executor =
+            WriteTool.executorWithPublisher(store) { path, bytes, region, expected ->
+                store.writeArtifact(path, bytes, region, expected)
+                throw java.io.IOException("private fixture path must not escape")
+            }
+        val args =
+            buildJsonObject {
+                put("path", JsonPrimitive("scope:ws:output/published.txt"))
+                put("content", JsonPrimitive("published before metadata failure"))
+            }
+        val outcome = executor.execute(call(args)) as ToolExecutorResult.Failed
+        assertEquals("published before metadata failure", Files.readString(root.resolve("output/published.txt")))
+        assertFalse(outcome.sideEffectFree)
+        assertTrue(outcome.requiresReview)
+        assertFalse(outcome.detail.contains("not performed"))
+        assertFalse(outcome.detail.contains("private fixture"))
+    }
+
     private fun sha(b: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 

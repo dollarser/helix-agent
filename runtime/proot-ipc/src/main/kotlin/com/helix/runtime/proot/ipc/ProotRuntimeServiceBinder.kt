@@ -1,6 +1,7 @@
 package com.helix.runtime.proot.ipc
 
 import android.os.Binder
+import android.os.IBinder
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
 
@@ -108,9 +109,12 @@ class ProotRuntimeServiceBinder(
         private val JOB_TRANSACTIONS =
             setOf(
                 ProotRuntimeProtocol.TX_JOB_SUBMIT,
+                ProotRuntimeProtocol.TX_JOB_SUBMIT_OWNED,
                 ProotRuntimeProtocol.TX_JOB_QUERY,
                 ProotRuntimeProtocol.TX_JOB_CANCEL,
                 ProotRuntimeProtocol.TX_JOB_RECONCILE,
+                ProotRuntimeProtocol.TX_JOB_FETCH_RESULT,
+                ProotRuntimeProtocol.TX_JOB_ACK_RESULT,
             )
     }
 
@@ -140,6 +144,31 @@ class ProotRuntimeServiceBinder(
             when (code) {
                 ProotRuntimeProtocol.TX_JOB_SUBMIT -> {
                     jobSubmit(handler, data, reply)
+                }
+
+                ProotRuntimeProtocol.TX_JOB_SUBMIT_OWNED -> {
+                    if (handler is ProotOwnedJobHandler) {
+                        jobSubmit(handler, data, reply, requireNotNull(data.readStrongBinder()))
+                    } else {
+                        ProotJobWire.writeJobReply(reply, ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE, null)
+                    }
+                }
+
+                ProotRuntimeProtocol.TX_JOB_ACK_RESULT -> {
+                    val jobId = readJobId(data)
+                    val commit = requireNotNull(data.readString())
+                    require(commit.matches(Regex("[0-9a-f]{64}")))
+                    val record =
+                        (handler as? ProotJobResultHandler)?.acknowledgeResult(
+                            jobId,
+                            commit,
+                            System.currentTimeMillis(),
+                        )
+                    writeRecordOrNotFound(reply, record)
+                }
+
+                ProotRuntimeProtocol.TX_JOB_FETCH_RESULT -> {
+                    writeResultArchive(handler, readJobId(data), reply)
                 }
 
                 ProotRuntimeProtocol.TX_JOB_QUERY -> {
@@ -184,6 +213,26 @@ class ProotRuntimeServiceBinder(
         }
     }
 
+    private fun writeResultArchive(
+        handler: ProotJobHandler,
+        jobId: String,
+        reply: Parcel,
+    ) {
+        val archive = (handler as? ProotJobResultHandler)?.fetchResult(jobId)
+        if (archive == null) {
+            ProotJobWire.writeJobReply(reply, ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE, null)
+        } else {
+            archive.use {
+                ProotJobWire.writeJobReply(
+                    reply,
+                    ProotRuntimeProtocol.REPLY_JOB_STATE,
+                    ProotJobRecordCodec.encode(it.record),
+                )
+                reply.writeParcelable(it.descriptor, 0)
+            }
+        }
+    }
+
     /**
      * The submit arm, extracted to keep [handleJobTransaction] a flat dispatcher.
      * The PFDs are handed to the handler; it owns them in every outcome.
@@ -192,10 +241,17 @@ class ProotRuntimeServiceBinder(
         handler: ProotJobHandler,
         data: Parcel,
         reply: Parcel,
+        owner: IBinder? = null,
     ) {
         val spec = ProotJobWire.readSpec(data)
         val (input, output) = ProotJobWire.readPfds(data)
-        when (val result = handler.submit(spec, input, output)) {
+        val submitted =
+            if (owner == null) {
+                handler.submit(spec, input, output)
+            } else {
+                (handler as ProotOwnedJobHandler).submitOwned(owner, spec, input, output)
+            }
+        when (val result = submitted) {
             is ProotJobSubmitResult.Accepted -> {
                 ProotJobWire.writeJobReply(
                     reply,

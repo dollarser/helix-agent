@@ -100,6 +100,21 @@ internal object ProotToolModule {
                 scratchRoot = File(context.filesDir, "proot-jobs"),
                 jobIdProvider = { nextJobId() },
                 knownSecretValues = secretValues,
+                beforeSubmit = ProotJobBindingStore(storage)::record,
+                persistVerifiedResult = { call, record, archive ->
+                    val results =
+                        ProotResultStore(
+                            storage,
+                            File(context.filesDir, "workspaces/app"),
+                            File(context.cacheDir, "proot-results"),
+                        )
+                    val client =
+                        com.helix.runtime.proot.client
+                            .ProotResultClient(supervisor)
+                    ProotResultCommitter(storage, results, client::acknowledge)
+                        .commit(requireNotNull(call.turnId), call.toolCallId, record, archive)
+                    Unit
+                },
             )
         LinuxRunTool.register(registry, implementations) { call, isCancelled ->
             executor.execute(call, isCancelled)
@@ -112,6 +127,25 @@ internal object ProotToolModule {
      * read; NO bind. `READY` additionally requires the persisted anchor (the user has
      * completed the zero-Job verification at least once).
      */
+    fun inspectInterruptedJob(
+        storage: HelixStorage,
+        turnId: String,
+        callId: String,
+        stop: Boolean,
+    ): ProotRecoveryReport = ProotJobRecovery(storage, jobClient).inspect(turnId, callId, stop)
+
+    fun recoverInterruptedResult(
+        storage: HelixStorage,
+        turnId: String,
+        callId: String,
+        localOnly: Boolean,
+    ): ProotRecoveredOutput? {
+        val archive = ProotResultRecovery.create(appContext, storage).recover(turnId, callId, localOnly) ?: return null
+        return ProotResultPreview
+            .read(archive.file, File(appContext.cacheDir, "proot-preview"))
+            .copy(acknowledged = if (localOnly) null else archive.acknowledged)
+    }
+
     fun availabilityGate(): LinuxRuntimeGate {
         val cause = supervisor.checkLocalState()
         return when {

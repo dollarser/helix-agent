@@ -86,7 +86,7 @@ class SelfHostedSmokeTest {
         val modelsBody = requireNotNull(models)
         val first = firstModelId(modelsBody)
         assumeTrue("Ollama has no pulled model — smoke skipped (ollama pull <model>)", first != null)
-        serverModel = requireNotNull(first)
+        serverModel = InstrumentationRegistry.getArguments().getString("helix.smoke.model") ?: requireNotNull(first)
         Log.d(TAG, "smoke model: $serverModel (model list: $modelsBody)")
 
         // the app-layer LAN gate: exact host:port binding, fail closed otherwise

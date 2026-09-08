@@ -4,6 +4,8 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.UUID
 
+private const val CONTENT_BUFFER_SIZE = 8192
+
 /**
  * File-backed store for large content bodies (architecture doc 9.2: 大型正文和二进制存文件,
  * Room stores references, hashes and metadata only). Content is addressed by its SHA-256 so
@@ -15,6 +17,12 @@ interface ContentStore {
 
     /** Reads and hash-verifies the referenced content. */
     fun read(ref: ContentRef): String
+
+    /** Reads the complete body with an allocation bound; never accepts a truncated prefix. */
+    fun readBounded(
+        ref: ContentRef,
+        maxBytes: Int,
+    ): String
 
     fun exists(ref: ContentRef): Boolean
 
@@ -63,10 +71,29 @@ class FileContentStore(
         return ref
     }
 
-    override fun read(ref: ContentRef): String {
+    override fun read(ref: ContentRef): String = readBounded(ref, Int.MAX_VALUE - 1)
+
+    override fun readBounded(
+        ref: ContentRef,
+        maxBytes: Int,
+    ): String {
+        require(maxBytes in 0 until Int.MAX_VALUE)
+        require(ref.size <= maxBytes) { "content exceeds byte limit" }
         val file = fileFor(ref)
         require(file.isFile) { "content not found: ${ref.relativePath}" }
-        val bytes = file.readBytes()
+        require(file.length() == ref.size) { "content size mismatch for ${ref.relativePath}" }
+        val bytes =
+            file.inputStream().use { input ->
+                val output = java.io.ByteArrayOutputStream(minOf(maxBytes, CONTENT_BUFFER_SIZE))
+                val buffer = ByteArray(CONTENT_BUFFER_SIZE)
+                var count = input.read(buffer)
+                while (count != -1) {
+                    require(count <= maxBytes - output.size()) { "content exceeds byte limit" }
+                    output.write(buffer, 0, count)
+                    count = input.read(buffer)
+                }
+                output.toByteArray()
+            }
         require(bytes.size.toLong() == ref.size) { "content size mismatch for ${ref.relativePath}" }
         require(sha256Hex(bytes) == ref.sha256) { "content hash mismatch for ${ref.relativePath}" }
         return bytes.toString(Charsets.UTF_8)
@@ -101,6 +128,20 @@ class FileContentStore(
     }
 
     companion object {
+        /** Hashes large artifacts without allocating a byte array proportional to file size. */
+        fun sha256Hex(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var count = input.read(buffer)
+                while (count != -1) {
+                    digest.update(buffer, 0, count)
+                    count = input.read(buffer)
+                }
+            }
+            return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+        }
+
         fun sha256Hex(bytes: ByteArray): String =
             MessageDigest
                 .getInstance("SHA-256")

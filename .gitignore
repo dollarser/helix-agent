@@ -19,3 +19,6 @@ runtime/proot-app/src/main/assets/runtime/proot/
 runtime/proot-app/src/main/assets/runtime/rootfs/
 .kotlin/
 .codegraph/
+# Python verification runners generate local bytecode caches.
+__pycache__/
+*.py[cod]

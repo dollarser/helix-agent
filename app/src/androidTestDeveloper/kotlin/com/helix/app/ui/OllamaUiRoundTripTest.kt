@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.core.model.ModelRole
 import kotlinx.coroutines.runBlocking
@@ -67,11 +68,12 @@ class OllamaUiRoundTripTest {
         assumeTrue("Ollama /v1/models returned nothing — UI round-trip skipped", models != null)
         val first = firstModelId(requireNotNull(models))
         assumeTrue("Ollama has no pulled model — UI round-trip skipped (ollama pull <model>)", first != null)
-        serverModel = requireNotNull(first)
+        serverModel =
+            InstrumentationRegistry.getArguments().getString("helix.smoke.ollamaUiModel") ?: requireNotNull(first)
         Log.d(TAG, "UI round-trip model: $serverModel")
 
         composeRule.resetDeterministicUiState()
-        deleteAllProviders(composeRule.container())
+        deleteEditableProviders(composeRule.container())
     }
 
     // The step order (create → test → session → send → terminal → evidence →
@@ -92,6 +94,7 @@ class OllamaUiRoundTripTest {
         composeRule.onNodeWithTag("provider-form-name").performTextInput(providerName)
         composeRule.onNodeWithTag("provider-form-endpoint").performTextClearance()
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput("http://$HOST:$PORT/v1")
+        composeRule.onNodeWithTag("provider-form-model").performTextClearance()
         composeRule.onNodeWithTag("provider-form-model").performTextInput(serverModel)
         // The cleartext http endpoint shows the exact host:port risk display…
         composeRule.onNodeWithText("明文 HTTP：请求将不加密发往 $HOST:$PORT").assertIsDisplayed()
@@ -100,7 +103,10 @@ class OllamaUiRoundTripTest {
         composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
         composeRule.onNodeWithTag("provider-form-save").assertIsEnabled()
         composeRule.onNodeWithTag("provider-form-save").performClick()
-        composeRule.waitForIdle()
+        // Compose idle does not wait for the Room/Keystore work on the IO dispatcher.
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
+        }
         composeRule.onNodeWithTag("provider-form-dialog").assertIsNotDisplayed()
         composeRule.onNodeWithText(providerName).assertIsDisplayed()
         composeRule.onNodeWithTag("provider-status-untested").assertIsDisplayed()
@@ -108,8 +114,14 @@ class OllamaUiRoundTripTest {
         // --- 2. the four-phase connection test passes against real Ollama ---
         composeRule.onNodeWithTag("provider-test").performClick()
         composeRule.waitUntil(180_000) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithTag("provider-status-failed").fetchSemanticsNodes().isNotEmpty()
         }
+        val status =
+            container.providerService.rows.value
+                .single { it.displayName == providerName }
+                .status
+        assertTrue("connection test must pass: $status", status is com.helix.app.provider.ConnectionTestStatus.Passed)
         composeRule.onNodeWithTag("provider-status-passed").assertIsDisplayed()
         composeRule.onNodeWithText("已通过 · 能力已探测").assertIsDisplayed()
 

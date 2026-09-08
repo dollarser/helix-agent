@@ -21,6 +21,8 @@ import com.helix.core.storage.repository.ExecutionRepository
 import com.helix.core.storage.repository.ExecutionTargetRepository
 import com.helix.core.storage.repository.GoalRepository
 import com.helix.core.storage.repository.GoalRunRepository
+import com.helix.core.storage.repository.GoalTurnBindingRepository
+import com.helix.core.storage.repository.GoalUsageReservationRepository
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 import com.helix.core.storage.repository.InteractionReceiptRepository
 import com.helix.core.storage.repository.McpCapabilityRepository
@@ -86,6 +88,10 @@ class HelixStorage internal constructor(
 
     val plans: PlanRepository by lazy { PlanRepository(database.planDao()) }
     val goals: GoalRepository by lazy { GoalRepository(database.goalDao()) }
+    val goalTurnBindings: GoalTurnBindingRepository by lazy { GoalTurnBindingRepository(database.goalTurnBindingDao()) }
+    val goalUsageReservations: GoalUsageReservationRepository by lazy {
+        GoalUsageReservationRepository(database.goalUsageReservationDao())
+    }
     val goalRuns: GoalRunRepository by lazy { GoalRunRepository(database.goalRunDao()) }
     val mcpServers: McpServerRepository by lazy { McpServerRepository(database.mcpServerDao()) }
     val mcpCapabilities: McpCapabilityRepository by lazy {
@@ -147,7 +153,7 @@ class HelixStorage internal constructor(
         /**
          * The complete committed migration chain (v1→v2 approval binding, v2→v3 receipts,
          * v3→v4 message attachments, v4→v5 high-sensitivity egress rules, v5→v6 A2A snapshots,
-         * v6→v7 A2A task correlation).
+         * v6→v7 A2A task correlation, v7→v8 Goal/Turn associations, v8→v9 usage reservations).
          * Both production
          * entries register it: Room does NOT auto-discover migrations, so a missing registration
          * is a startup crash on any device holding an older schema (`A migration from N to M is
@@ -162,6 +168,8 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_4_5,
                 HelixDatabase.MIGRATION_5_6,
                 HelixDatabase.MIGRATION_6_7,
+                HelixDatabase.MIGRATION_7_8,
+                HelixDatabase.MIGRATION_8_9,
             )
 
         fun create(context: Context): HelixStorage {

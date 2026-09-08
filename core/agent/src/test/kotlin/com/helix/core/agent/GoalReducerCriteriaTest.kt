@@ -1,6 +1,5 @@
 package com.helix.core.agent
 
-import com.helix.core.model.ArtifactRef
 import com.helix.core.model.GoalState
 import com.helix.core.model.PlanId
 import com.helix.core.model.Sha256
@@ -10,19 +9,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GoalReducerCriteriaTest {
-    private fun evidence(): CriterionEvidence =
-        CriterionEvidence(
-            verifier = "login-verifier",
-            artifactRef = ArtifactRef("artifact-1"),
-            toolCallId = null,
-        )
+    private fun evidence(): CriterionEvidence = GoalFixtures.evidence()
 
     @Test
     fun criterionSatisfiedOnlyDuringRunning() {
         val goal = runningGoal()
         val step = reduceGoal(goal, GoalEvent.CriterionSatisfied("c1", evidence()))
         assertEquals(
-            "login-verifier",
+            CriterionEvidence.HOST_VERIFIER,
             step.state.criteria
                 .single()
                 .evidence
@@ -73,17 +67,19 @@ class GoalReducerCriteriaTest {
             Goal.initial(
                 GoalFixtures.goal,
                 "Two-part objective",
-                listOf(Criterion("c1", "First part"), Criterion("c2", "Second part")),
+                listOf(GoalFixtures.criterion("c1", "First part"), GoalFixtures.criterion("c2", "Second part")),
                 GoalFixtures.budgets(),
                 GoalFixtures.correlation,
             )
         val ready = reduceGoal(twoCriteria, GoalEvent.Ready(null, null)).state
         var running = reduceGoal(ready, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state
-        running = reduceGoal(running, GoalEvent.CriterionSatisfied("c1", evidence())).state
+        running =
+            reduceGoal(running, GoalEvent.CriterionSatisfied("c1", GoalFixtures.evidence(running.criteria[0]))).state
         val premature = GoalReducer.reduce(running, GoalEvent.CompleteRequested)
         assertTrue("complete with 1 of 2 criteria satisfied must be ignored", premature.ignored)
         assertEquals(GoalState.RUNNING, premature.state.state)
-        running = reduceGoal(running, GoalEvent.CriterionSatisfied("c2", evidence())).state
+        running =
+            reduceGoal(running, GoalEvent.CriterionSatisfied("c2", GoalFixtures.evidence(running.criteria[1]))).state
         val completed = reduceGoal(running, GoalEvent.CompleteRequested)
         assertEquals(GoalState.COMPLETED, completed.state.state)
         assertTrue(completed.state.unsatisfiedCriteria.isEmpty())

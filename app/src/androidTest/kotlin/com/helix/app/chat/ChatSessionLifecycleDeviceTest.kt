@@ -3,6 +3,10 @@ package com.helix.app.chat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.provider.ProviderDraft
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderProtocol
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -65,6 +69,66 @@ class ChatSessionLifecycleDeviceTest {
         val actual = container.chatService.screen.value.openSessionId
         assertNull("a refresh of an unknown session id must degrade to the session list, was: $actual", actual)
     }
+
+    @Test
+    fun providerFreeSessionAndShareDraftNeverRetainThePreviousProviderBadge() {
+        val providerId = createBadgeProvider()
+        val bound = "lifecycle-bound-$run"
+        val unbound = "lifecycle-unbound-$run"
+        try {
+            container.storage.sessions.create(bound, "bound", providerId, "fixture", System.currentTimeMillis())
+            container.storage.sessions.create(unbound, "unbound", null, null, System.currentTimeMillis())
+            container.chatService.openSession(bound)
+            awaitOpenSession(bound)
+            assertEquals(
+                "badge-$run",
+                container.chatService.screen.value.badge
+                    ?.displayName,
+            )
+            container.chatService.openSession(unbound)
+            awaitOpenSession(unbound)
+            assertNull("unbound session must not inherit a previous badge", container.chatService.screen.value.badge)
+            container.chatService.openSession(bound)
+            awaitOpenSession(bound)
+            container.chatService.acceptShareDraft("share-$run", emptyList())
+            val deadline = System.currentTimeMillis() + 10_000
+            while (container.chatService.screen.value.shareDraftText != "share-$run" &&
+                System.currentTimeMillis() < deadline
+            ) {
+                Thread.sleep(50)
+            }
+            val draft = container.chatService.screen.value
+            assertEquals("share-$run", draft.shareDraftText)
+            assertNull("share draft must offer explicit provider binding", draft.badge)
+            assertNull(
+                container.storage.sessions
+                    .resolve(requireNotNull(draft.openSessionId))
+                    .providerId,
+            )
+        } finally {
+            container.chatService.closeSession()
+            runBlocking { container.providerService.delete(providerId) }
+        }
+    }
+
+    private fun createBadgeProvider(): String =
+        runBlocking {
+            container.providerService.create(
+                ProviderDraft(
+                    templateId = null,
+                    displayName = "badge-$run",
+                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    endpoint = NormalizedEndpoint.parse("https://badge.invalid/v1"),
+                    model = "fixture",
+                    headersJson = "{}",
+                    credentialRequired = false,
+                    cleartext = null,
+                    templateNotes = emptyList(),
+                ),
+                apiKey = null,
+                cleartextConfirmed = false,
+            )
+        }
 
     /** Bounded poll until [expected] is the open session (the refresh is asynchronous). */
     private fun awaitOpenSession(expected: String) {
