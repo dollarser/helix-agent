@@ -817,7 +817,7 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-126 Connector OAuth 登录层
 
-状态：planned，未开始。依赖 HXA-125 的真实服务选择，先形成独立 ADR；定义 Android public client、浏览器回调、PKCE/state、issuer/resource 绑定、刷新/撤销与进程恢复。至少两家真实服务验收，不导入第三方 host 登录态。实现模块与精确验收命令须在 ADR 审查后补齐，之前不启动功能实现。
+状态：等待设计审查与真实服务条件，生产实现未开始。已形成 proposed [ADR-0030](../adr/0030-connector-public-client-oauth.md)，候选 Notion/Atlassian 尚缺独立测试账号和 redirect 准入证据；依赖 HXA-125 的真实服务选择；定义 Android public client、浏览器回调、PKCE/state、issuer/resource 绑定、刷新/撤销与进程恢复。至少两家真实服务验收，不导入第三方 host 登录态。实现模块与精确验收命令须在 ADR 审查后补齐，之前不启动功能实现。
 
 验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
 
@@ -835,13 +835,13 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-129 Connector 完整生命周期
 
-状态：planned，未开始。依赖 HXA-124；先设计共享 Skill 所有权、会话 scope、更新 diff、安装 journal、原子视图和 rollback，审查持久化契约后实施。允许 app、extensions/skills 与测试/docs；若需 core/storage schema 变化，先明确 migration 和设备恢复矩阵。
+状态：等待 proposed [ADR-0031](../adr/0031-connector-version-ownership-journal.md) 审查，生产实现未开始。依赖 HXA-124；设计共享 Skill 所有权、会话 scope、更新 diff、安装 journal、原子视图和 rollback，审查持久化契约后实施。允许 app、extensions/skills 与测试/docs；若需 core/storage schema 变化，先明确 migration 和设备恢复矩阵。
 
 验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
 
 ### HXA-130 Connector 市场设计与来源验证
 
-状态：planned，未开始。依赖 HXA-129；先形成签名索引、固定版本、来源及许可证审查设计。市场不扩展 ToolCall 权限；网络安装和更新的实施范围及发布条件经独立审查后确定。当前仅允许 docs 和离线索引 fixture，不提前实现市场运行时。
+状态：设计提案已形成，见 proposed [ADR-0032](../adr/0032-connector-offline-signed-index.md)；依赖 HXA-129，尚未开始离线 fixture 或市场运行时。签名索引、固定版本、来源及许可证审查设计。市场不扩展 ToolCall 权限；网络安装和更新的实施范围及发布条件经独立审查后确定。当前仅允许 docs 和离线索引 fixture，不提前实现市场运行时。
 
 验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
 

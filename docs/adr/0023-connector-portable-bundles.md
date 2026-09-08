@@ -41,3 +41,5 @@ HXA-124 的 JVM、双 flavor debug 构建与 API 29/36 专项设备验证已通�
 - [当前 MCP 与 Skill 契约](../architecture/provider-mcp-skills-modes.md)
 - [能力优先授权](0012-capability-first-advanced-grants.md)
 - [Runtime 生命周期](0007-companion-runtime-lifecycle.md)
+
+后续提案（尚未接受）：[OAuth ADR-0030](0030-connector-public-client-oauth.md)、[完整生命周期 ADR-0031](0031-connector-version-ownership-journal.md)、[离线签名索引 ADR-0032](0032-connector-offline-signed-index.md)。首版事实与授权不因提案改变。
