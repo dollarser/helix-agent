@@ -35,6 +35,10 @@ class ToolPipeline(
     val auditSink: AuditSink,
     val scheduler: ToolScheduler,
 ) {
+    internal val mcpDiscovery =
+        com.helix.app.mcp
+            .McpToolDiscovery(registry)
+
     private var mcpFactsProvider:
         ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null
     private var a2aFactsProvider:

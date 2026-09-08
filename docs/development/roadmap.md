@@ -823,9 +823,9 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-127 大 catalog 渐进工具发现
 
-状态：planned，未开始。依赖 HXA-124；研究搜索、按轮有限 schema 加载及 schema 更新失效。复用 Dispatcher/Policy，不能由远端声明并发或审批权限。允许 extensions/mcp、app 及相关测试/docs；任何 core 契约变更先审查 ADR。
+状态：completed，见 [完成记录](../completion-records/HXA-127.md)。依赖 HXA-124；实现已由用户启用的 MCP catalog 搜索、每次模型请求有限 schema 加载及 schema 更新失效。复用 Dispatcher/Policy，不能由远端声明并发或审批权限。允许 extensions/mcp、app 及相关测试/docs；任何 core 契约变更先审查 ADR。
 
-验证：见 verification-matrix 对应行；启动前补齐专项 fixture/设备命令与预期产物，不以通用门禁代替功能验收。
+验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；500 工具 catalog 的搜索/按会话加载、schema 替换与停用失效、取消和模型请求装配回归；API29/36 专项发现与既有 MCP 安装 UI 回归。docs/ADR/i18n/secrets/diff 门禁。
 
 ### HXA-128 CLI/stdio Connector 可移植性 Spike
 

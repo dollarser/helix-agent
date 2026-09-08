@@ -2283,7 +2283,7 @@ class ChatService(
         return ModelRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(control),
+            tools = modelTools(sessionId, control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
         )
     }
@@ -2307,21 +2307,28 @@ class ChatService(
         return ModelRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(control),
+            tools = modelTools(sessionId, control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
         )
     }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
-    private fun modelTools(control: RunControlConfig): List<ModelToolSchema> {
+    private fun modelTools(
+        sessionId: String,
+        control: RunControlConfig,
+    ): List<ModelToolSchema> {
         val latest =
             toolPipeline.registry.all().groupBy { it.name }.values.map { versions ->
                 versions.maxBy { it.version.value }
             }
-        return ModePolicy
-            .filterTools(control.mode, latest, control.chatToolsEnabled) {
-                ToolModeProfile(it.operationClass, it.baseRisk)
-            }.take(ModelRequest.MAX_TOOLS)
+        val admitted =
+            ModePolicy
+                .filterTools(control.mode, latest, control.chatToolsEnabled) {
+                    ToolModeProfile(it.operationClass, it.baseRisk)
+                }
+        return toolPipeline.mcpDiscovery
+            .visible(sessionId, admitted)
+            .take(ModelRequest.MAX_TOOLS)
             .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
     }
 

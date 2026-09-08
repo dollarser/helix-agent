@@ -23,7 +23,7 @@ flowchart TD
 
 ## 2. 调研材料中需要修正的结论
 
-- **MCP 不要求全量 schema 永久常驻。** `tools/list` 发现与模型上下文装配是不同接口。可先给 catalog、再搜索和加载工具；把 MCP 全部转成 bash 不是节省上下文的必要条件。当前 Helix 首版沿用用户选择工具后的已有注册方式；大 catalog 的动态 tool search 是独立后续任务。
+- **MCP 不要求全量 schema 永久常驻。** `tools/list` 发现与模型上下文装配是不同接口。可先给 catalog、再搜索和加载工具；把 MCP 全部转成 bash 不是节省上下文的必要条件。Helix 仍使用用户选择工具后的注册方式；HXA-127 已实现 tools.search，只从当前启用 registry 搜索并向下一次模型请求加载最多 16 个 MCP schema，不扩大执行权限。
 - **远程 MCP OAuth 不要求平台后端代持。** MCP 授权支持 public client，以及预注册、client metadata 等注册路径。Android 可设计浏览器授权、PKCE 与本机 SecretStore；特定厂商是否接受 Helix client 要逐家验证。当前 HXA-071 明确只实现 bearer，本任务不越过此边界。
 - **把 schema 编译成 CLI 不会自动消除 MCP 运行时依赖。** 如果 wrapper 最终仍调用 MCP server，就仍依赖协议与会话。只有重新实现业务 HTTP API 才可能不再走 MCP，那属于新的 adapter。
 - **模型能加 `--yes` 时，CLI flag 本身不证明用户批准。** 同样，隐藏工具列表不等于撤销已经排队的调用。宿主必须在执行边界检查当前 enablement；已发出的远端副作用不能靠关开关撤回。

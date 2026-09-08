@@ -690,7 +690,9 @@ internal class DefaultAppContainer(
                     registry = toolRegistry,
                     resourceGate = resourceGate::allowance,
                 )
-            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler)
+            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler).also {
+                it.mcpDiscovery.register(toolImplementations)
+            }
         }
 
     override val auditLogService: AuditLogService = AuditLogService(storage)
