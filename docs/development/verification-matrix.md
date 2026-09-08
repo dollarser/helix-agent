@@ -282,3 +282,9 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-155 | API29/36 真实 HTTP 慢响应取消、后台恢复与 Activity 重建；各 100 轮 JNI 追踪、请求计数和浏览器 JVM/构建/lint 门禁 |
 
 | HXA-156 | 状态/产品研究文档指定路径审核、来源批次与研究边界、内部链接、docs/ADR/secrets/diff 门禁；不声称竞品实测 |
+
+## 后续 bug 修复
+
+| HXA | 验证命令 | 实际结果与边界 |
+| --- | --- | --- |
+| HXA-157 | 双 flavor app JVM、assembleDebug、spotlessCheck、detekt、lintDebug；精确命令见 [完成记录](../completion-records/HXA-157.md) | 旧代码 2 项回归失败，修复后专项 8 项通过；consumer 336 / developer 360 项，失败/错误 0，各 4 项既有外部测试跳过；未重跑设备或长稳 |

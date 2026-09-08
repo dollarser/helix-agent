@@ -60,8 +60,12 @@ internal class McpToolDiscovery(
         val selected = loaded[sessionId].orEmpty().filter { it in admitted }
         loaded[sessionId]?.let { loaded[sessionId] = selected }
         val mcp = admitted.filter { it.origin is ToolOrigin.McpOrigin }
-        return admitted.filter { it.origin !is ToolOrigin.McpOrigin } +
-            if (mcp.size <= WINDOW) mcp else selected
+        val local = admitted.filter { it.origin !is ToolOrigin.McpOrigin }
+        val discovery = local.filter { it.name.value == "tools.search" }
+        // ChatService truncates this list to the model limit. Keep discovery and its
+        // current results reachable even when other admitted tools fill that budget.
+        return (discovery + selected + local + if (mcp.size <= WINDOW) mcp else emptyList())
+            .distinctBy { it.name }
     }
 
     private fun latest(): List<ToolDescriptor> =

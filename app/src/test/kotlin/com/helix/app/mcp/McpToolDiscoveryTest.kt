@@ -1,6 +1,7 @@
 package com.helix.app.mcp
 
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.ModelRequest
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -45,6 +46,28 @@ class McpToolDiscoveryTest {
         assertEquals(listOf("mcp.catalog.tool_499"), found.map { it.name.value })
         assertEquals(listOf(search) + found, discovery.visible("session", registry.all()))
         assertEquals(listOf(search), discovery.visible("other", registry.all()))
+    }
+
+    @Test
+    fun discoveryAndLoadedWindowSurviveTheModelToolLimit() {
+        catalog()
+        val other = (0 until ModelRequest.MAX_TOOLS).map { search.copy(name = ToolName("local.tool_$it")) }
+        val admitted = other + registry.all()
+        assertTrue(search in discovery.visible("session", admitted).take(ModelRequest.MAX_TOOLS))
+        val found = discovery.search("session", "catalog", McpToolDiscovery.WINDOW)
+        val exposed = discovery.visible("session", admitted).take(ModelRequest.MAX_TOOLS)
+        assertTrue(search in exposed)
+        assertTrue(exposed.containsAll(found))
+        assertEquals(exposed.size, exposed.distinctBy { it.name }.size)
+    }
+
+    @Test
+    fun searchedSmallCatalogToolAlsoSurvivesTheModelToolLimit() {
+        catalog(3)
+        val other = (0 until ModelRequest.MAX_TOOLS).map { search.copy(name = ToolName("local.tool_$it")) }
+        val found = discovery.search("session", "tool_2", 1).single()
+        assertTrue(found in discovery.visible("session", other + registry.all()).take(ModelRequest.MAX_TOOLS))
+        assertFalse(found in discovery.visible("session", other + listOf(search)))
     }
 
     @Test

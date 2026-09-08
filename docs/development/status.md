@@ -143,14 +143,20 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M13 / HXA-128 已完成：样本 CLI/依赖清单及既有 stdio 跨 UID 回归各 4/4，未新增业务 CLI 执行支持，见 [完成记录](../completion-records/HXA-128.md)。
 
+- M13 / HXA-157 已完成：工具发现 64 项截断修复；双 flavor JVM、构建和静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。
+
 ## In progress
 
-HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，HXA-155 网络/后台/重建核实已完成；HXA-156 文档收口已完成，HXA-127 工具渐进发现已完成，HXA-128 可移植性 Spike 已完成，ADR-0030/0031/0032 已起草，分别待审查 OAuth、完整生命周期与离线签名索引；当前无活动实现检查点，24h 长稳保持后置。
+HXA-157 已完成：修复既有工具发现被模型 64 项上限截断的问题；双 flavor JVM、构建、Lint 与静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。当前无活动实现检查点。所有者已要求暂停新需求；ADR-0030/0031/0032 保持 proposed，不启动实现。
+
+HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，HXA-155 网络/后台/重建核实已完成；HXA-156 文档收口已完成，HXA-127 工具渐进发现已完成，HXA-128 可移植性 Spike 已完成，ADR-0030/0031/0032 已起草，分别待审查 OAuth、完整生命周期与离线签名索引；HXA-157 修复已完成；24h 长稳保持后置。
 
 
 - M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
 
 ## Next task
+
+当前仅处理可复现 bug 与回归；以下新功能候选暂缓，不自动启动。
 
 - 所有者于 2026-09-08 授权实现内置 Skill Creator、Skill Installer 和 MCP Installer；已形成 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)（accepted）及 HXA-148～150。HXA-148～150 已完成；后续扩展须选择独立 roadmap 检查点。HXA-125 外部账号验收继续单列，不以新任务替代其证据。
 
