@@ -1,0 +1,54 @@
+from pathlib import Path
+base=Path('<HELIX_CHECKOUT>');ui=base/'app/src/main/kotlin/com/helix/app/ui'
+p=ui/'FilesScreenState.kt';s=p.read_text().replace('    var sources by','    var homeOpen by mutableStateOf(true)\n    var searchOpen by mutableStateOf(false)\n    var searchQuery by mutableStateOf("")\n    var controlsOpen by mutableStateOf(false)\n    var sourcesOpen by mutableStateOf(false)\n\n    var sources by');s=s.replace('    val currentSource:', '''    fun openLocation(scopeId: String, path: String = "") {
+        selectedScopeId = scopeId
+        currentPath = path
+        selected = emptySet()
+        searchQuery = ""
+        searchOpen = false
+        trashOpen = false
+        homeOpen = false
+        sourcesOpen = false
+    }
+
+    fun goBack() {
+        when {
+            selected.isNotEmpty() -> selected = emptySet()
+            searchOpen -> { searchOpen = false; searchQuery = "" }
+            trashOpen -> trashOpen = false
+            currentPath.isNotEmpty() -> currentPath = currentPath.substringBeforeLast('/', "")
+            else -> homeOpen = true
+        }
+    }
+
+    val visibleEntries: List<FileEntry> get() = entries.filter { it.name.contains(searchQuery, ignoreCase = true) }
+    val currentSource:''');p.write_text(s)
+p=ui/'FilesScreen.kt';s=p.read_text().replace('import androidx.activity.compose.rememberLauncher','import androidx.activity.compose.BackHandler\nimport androidx.activity.compose.rememberLauncher');s=s.replace('    featureFiles: FeatureFiles,','    featureFiles: FeatureFiles,\n    onPermissions: () -> Unit = {},');s=s.replace('    with(actions) {','    BackHandler(enabled = !state.homeOpen) { state.goBack() }\n    with(actions) {',1).replace('FilesScreenLayout(state, actions)','FilesScreenLayout(state, actions, onPermissions)');p.write_text(s)
+p=ui/'FilesScreenLayout.kt';s=p.read_text();start=s.index('                AdaptiveFileControls(');end=s.index('                // 长操作进度',start);s=s[:start]+'''                FilesLocationBar(state, actions)
+
+'''+s[end:];s=s.replace('    actions: FilesScreenActions,','    actions: FilesScreenActions,\n    onPermissions: () -> Unit,');s=s.replace('    with(actions) {','''    if (state.homeOpen) {
+        FilesHome(state, actions, onPermissions)
+        return
+    }
+    with(actions) {''',1);s=s.replace('with(state) {\n            Column','with(state) {\n            val visible = visibleEntries\n            Column');s=s.replace('fillMaxSize().padding(16.dp)','fillMaxSize().padding(horizontal = 12.dp)').replace('Arrangement.spacedBy(12.dp)','Arrangement.spacedBy(4.dp)',1)
+s=s.replace('else if (entries.isEmpty())','else if (visible.isEmpty())').replace('str(R.string.files_empty_directory)','str(if (searchQuery.isBlank()) R.string.files_empty_directory else R.string.files_search_empty)').replace('entries.forEach { entry ->','visible.forEach { entry ->').replace('items(entries) { entry ->','items(visible) { entry ->').replace('                                    selected.contains(entry.relativePath),','                                    selected.contains(entry.relativePath),\n                                    selectionMode = selected.isNotEmpty(),').replace('onClick = { onEntry(entry) }','onClick = { if (selected.isEmpty()) onEntry(entry) else toggleSelect(entry) }')
+# compact and horizontally scrollable selection actions
+s=s.replace('if (selected.isNotEmpty() && !trashOpen && canMutate)', 'if (selected.isNotEmpty() && !trashOpen && canMutate)')
+s=s.replace('''                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            str(R.string.files_selected_count''','''                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            str(R.string.files_selected_count''')
+s=s.replace('import androidx.compose.foundation.layout.FlowRow\n','').replace('import com.helix.app.files.SortKey\n','');p.write_text(s)
+p=ui/'FilesScreenActions.kt';s=p.read_text().replace('                currentPath = entry.relativePath','                currentPath = entry.relativePath\n                searchQuery = ""');p.write_text(s)
+p=ui/'FilesScreenEffects.kt';s=p.read_text().replace('                loadError = null','                loadError = null\n                entries = emptyList()\n                selected = emptySet()\n                searchQuery = ""',1);p.write_text(s)
+p=base/'app/src/main/kotlin/com/helix/app/MainActivity.kt';s=p.read_text().replace('FilesScreen(container.fileManager, container.safTree, container.featureFiles)','''FilesScreen(container.fileManager, container.safTree, container.featureFiles) {
+                                        navController.navigate(ShellDestination.Permissions.route) { launchSingleTop = true }
+                                    }''');p.write_text(s)

@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path('core/agent/src/main/kotlin/com/helix/core/agent/Goal.kt');s=p.read_text().replace('PAUSED (never COMPLETED); a wake failure', 'BLOCKED (never COMPLETED); a wake failure');p.write_text(s)
+p=Path('core/agent/src/main/kotlin/com/helix/core/agent/GoalEvent.kt');s=p.read_text().replace('parks the goal in PAUSED\n     * when any budget', 'parks the goal in BLOCKED\n     * when any budget').replace('The goal parks in PAUSED - the same durable state as budget exhaustion - where an', 'The goal parks in PAUSED when budget remains; exhausted budget yields BLOCKED. An').replace('explicit Continue', 'explicit Continue').replace('(PAUSED/INPUT_REQUIRED)', '(PAUSED/BLOCKED/INPUT_REQUIRED)');p.write_text(s)
+p=Path('docs/architecture/overview.md');s=p.read_text().replace('PAUSED 原因使用稳定 outcome','PAUSED/BLOCKED 原因使用稳定 outcome');p.write_text(s)

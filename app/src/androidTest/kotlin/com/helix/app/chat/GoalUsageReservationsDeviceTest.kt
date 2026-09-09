@@ -44,7 +44,7 @@ class GoalUsageReservationsDeviceTest {
             assertTrue(paused.canDelete)
             assertEquals("PAUSED", paused.status.state)
             assertEquals("RUN_FINISHED", paused.status.outcome)
-            assertEquals(0, paused.satisfiedCriteria)
+            assertTrue(paused.criteria.isNotEmpty())
             f.storage.sessions.create("other", "Other", null, null, 1_000)
             assertTrue(query.forSession("other").isEmpty())
             val ready =
@@ -83,7 +83,7 @@ class GoalUsageReservationsDeviceTest {
             val goal = f.storage.goals.resolve(f.goalId)
             assertEquals(2, goal.modelCalls)
             assertEquals(300L, goal.totalTokens)
-            assertEquals("PAUSED", goal.state)
+            assertEquals("BLOCKED", goal.state)
             assertEquals(
                 "BUDGET_EXHAUSTED(maxModelCalls)",
                 f.storage.goalRuns
@@ -375,6 +375,21 @@ class GoalUsageReservationsDeviceTest {
                     listOf("Verified output exists"),
                     GoalBudgets(2, 4, 1_000, 60_000, 10_000, 0),
                 )
+            val stored = storage.goals.resolve(goalId)
+            storage.goals.updateGoal(
+                stored.copy(
+                    criteria =
+                        stored.criteria.map {
+                            it.copy(
+                                binding =
+                                    com.helix.core.model.CriterionVerificationBinding(
+                                        com.helix.core.model.CriterionVerificationMethod.LOCAL_TOOL_SUCCESS,
+                                        "read",
+                                    ),
+                            )
+                        },
+                ),
+            )
             started = requireNotNull(coordinator().start(request("first")))
         }
 

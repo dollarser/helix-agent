@@ -78,3 +78,7 @@ HXA-013 实现必须把“run / wake / 唤醒源 / 预算归属”落成 reducer
 - [LangGraph Interrupts（持久化暂停、恢复与副作用幂等）](https://docs.langchain.com/oss/python/langgraph/interrupts)
 - [LangGraph Functional API（任务结果持久化、幂等键与避免重复副作用）](https://docs.langchain.com/oss/python/langgraph/functional-api)
 - 实现：`core/agent/src/main/kotlin/com/helix/core/agent/GoalReducer.kt`、`GoalEvent.kt`、`GoalEffect.kt`、`ReminderPlan.kt`、`app/src/main/kotlin/com/helix/app/goal/GoalReminderScheduler.kt`
+
+2026-09-09：[ADR-0039](0039-background-results-and-goal-blockers.md) 部分替代等待语义，新增 BLOCKED 和用户暂停；其余预算、证据与显式唤醒约束保留。
+
+完成与绑定部分由 [ADR-0040](0040-model-judged-goal-completion.md) 替代；其余执行/预算/恢复机制保留。

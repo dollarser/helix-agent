@@ -1,0 +1,23 @@
+import subprocess,json,re,hashlib
+from pathlib import Path
+adb='<ANDROID_SDK>/platform-tools/adb';root=Path('build/main-verification');rows=[]
+suites=[('browser','com.helix.feature.browser.test','feature/browser/build/outputs/apk/androidTest/debug/browser-debug-androidTest.apk',27),('files','com.helix.feature.files.test','feature/files/build/outputs/apk/androidTest/debug/files-debug-androidTest.apk',38),('quickjs','com.helix.runtime.quickjs.test','runtime/quickjs/build/outputs/apk/androidTest/debug/quickjs-debug-androidTest.apk',75),('android','com.helix.tools.android.test','tools/android/build/outputs/apk/androidTest/debug/android-debug-androidTest.apk',30)]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ for name,pkg,apk,count in suites:
+  subprocess.run([adb,'-s',serial,'install','-r','-t',apk],check=True,capture_output=True)
+  base=subprocess.check_output([adb,'-s',serial,'shell','pm','path',pkg],text=True).strip().removeprefix('package:')
+  sha=hashlib.sha256(Path(apk).read_bytes()).hexdigest()
+  assert subprocess.check_output([adb,'-s',serial,'shell','sha256sum',base],text=True).split()[0]==sha
+  cmd=[adb,'-s',serial,'shell','am','instrument','-w','-r']
+  if name=='browser':
+   cls='com.helix.feature.browser.webview.WebViewResourceLifecycleDeviceTest'
+   cmd+=['-e','notClass',cls+'#continuousResourceSoak,'+cls+'#rawPlatformWebViewLifecycleControl']
+  cmd+=[pkg+'/androidx.test.runner.AndroidJUnitRunner']
+  with (root/f'post-evidence-platform-{name}-api{api}.log').open('w') as log:
+   p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=300)
+  text=(root/f'post-evidence-platform-{name}-api{api}.log').read_text()
+  codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M)
+  ok=p.returncode==0 and codes.count('0')==count and all(c in ['0','1'] for c in codes) and f'OK ({count} tests)' in text
+  rows.append({'api':api,'suite':name,'expected':count,'passed':codes.count('0'),'ok':ok,'apkSha256':sha,'command':cmd})
+  (root/'post-evidence-platform-result.json').write_text(json.dumps(rows,indent=2)+'\n')
+  print(api,name,codes.count('0'),ok,flush=True);assert ok

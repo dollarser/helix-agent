@@ -1,0 +1,34 @@
+import concurrent.futures, os, pathlib, shutil, subprocess
+root = pathlib.Path.cwd()
+out = root / 'build/main-verification'
+adb = str(pathlib.Path.home() / 'Library/Android/sdk/platform-tools/adb')
+def setup(serial):
+    commands = [
+        [adb,'-s',serial,'install','-r','-t','runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk'],
+        [adb,'-s',serial,'install','-r','-t','runtime/proot-app/build/outputs/apk/androidTest/debug/proot-app-debug-androidTest.apk'],
+        [adb,'-s',serial,'shell','am','instrument','-w','-r','-e','hxa086_host_setup','1','-e','class','com.helix.runtime.proot.app.ProotLifecycleHostSetupDeviceTest','com.helix.runtime.proot.test/androidx.test.runner.AndroidJUnitRunner'],
+        [adb,'-s',serial,'shell','su','0','am','start','-n','com.helix.runtime.proot/.app.ProotRepairActivity'],
+        [adb,'-s',serial,'shell','input','keyevent','KEYCODE_WAKEUP'],
+        [adb,'-s',serial,'shell','wm','dismiss-keyguard'],
+    ]
+    with (out/f'setup-{serial}.log').open('w') as f:
+        for cmd in commands:
+            p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+            f.write(p.stdout);f.flush()
+            if p.returncode or ('instrument' in cmd and 'OK (1 test)' not in p.stdout):
+                raise RuntimeError(f'setup failed {serial}: {cmd}')
+def run(serial,api,variant):
+    name=f'app-{variant.lower()}-api{api}'
+    env=os.environ.copy();env['ANDROID_SERIAL']=serial
+    cmd=['./gradlew',f':app:connected{variant}DebugAndroidTest','--no-parallel','--max-workers=2','--no-configuration-cache']
+    print('START',name,flush=True)
+    with (out/f'{name}.log').open('w') as f:
+        result=subprocess.run(cmd,env=env,stdout=f,stderr=subprocess.STDOUT)
+    source=root/f'app/build/outputs/androidTest-results/connected/{variant.lower()}Debug'
+    if source.exists():shutil.copytree(source,out/f'{name}-results',dirs_exist_ok=True)
+    (out/f'{name}.exit').write_text(str(result.returncode))
+    print('END',name,result.returncode,flush=True)
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    for f in [pool.submit(setup,s) for s in ['<OWNED_EMULATOR_SERIAL>','<OWNED_EMULATOR_SERIAL>']]:f.result()
+    for batch in [[('<OWNED_EMULATOR_SERIAL>',29,'Consumer'),('<OWNED_EMULATOR_SERIAL>',36,'Developer')],[('<OWNED_EMULATOR_SERIAL>',29,'Developer'),('<OWNED_EMULATOR_SERIAL>',36,'Consumer')]]:
+        for f in [pool.submit(run,*args) for args in batch]:f.result()

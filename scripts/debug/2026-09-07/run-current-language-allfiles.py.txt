@@ -1,0 +1,33 @@
+import subprocess,json,pathlib,re,concurrent.futures
+P=pathlib.Path;root=P('build/main-verification/current-language-allfiles');root.mkdir(exist_ok=True)
+def run(api,serial):
+ folder=root/f'api{api}';folder.mkdir(exist_ok=True);rows=[]
+ def adb(*args,timeout=90):
+  p=subprocess.run(['adb','-s',serial,*args],capture_output=True,text=True,timeout=timeout);p.check_returncode();return p.stdout
+ def suite(name,pkg,cls,expected_skip):
+  cmd=['adb','-s',serial,'shell','am','instrument','-w','-r','-e','class',cls,pkg+'.test/com.helix.app.HelixAndroidJUnitRunner']
+  with (folder/f'{name}.log').open('w') as out:code=subprocess.run(cmd,stdout=out,stderr=subprocess.STDOUT,timeout=420).returncode
+  output=(folder/f'{name}.log').read_text();events=[];state={}
+  for line in output.splitlines():
+   m=re.match(r'INSTRUMENTATION_STATUS: (class|test)=(.*)',line)
+   if m:state[m[1]]=m[2]
+   m=re.match(r'INSTRUMENTATION_STATUS_CODE: (-?\d+)',line)
+   if m and int(m[1])!=1:events.append(dict(state,code=int(m[1])));state={}
+  passed=[e for e in events if e['code']==0];skipped=[e for e in events if e['code'] in [-3,-4]]
+  ok=code==0 and len(events)==6 and len(passed)==6-len(expected_skip) and {e.get('test') for e in skipped}==set(expected_skip) and not [e for e in events if e['code'] not in [0,-3,-4]] and 'OK (6 tests)' in output
+  row=dict(name=name,command=cmd,exitCode=code,passedTests=len(passed),platformOrGrantAssumptions=skipped,expectedAssumptions=expected_skip,acceptedExpectedCoverage=ok);rows.append(row);(folder/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(api,name,ok,len(passed),len(skipped),flush=True)
+ for flavor,pkg in [('consumer','com.helix.agent'),('developer','com.helix.agent.developer')]:
+  suite('language-'+flavor,pkg,'com.helix.app.language.AppLanguageDeviceTest',['api33SyncsTheChoiceBothDirections'] if api<33 else [])
+ cls='com.helix.app.allfiles.AllFilesDeviceTest';pkg='com.helix.agent.developer';happy='anEnabledRootResolvesAndStaysContainedWithinTheGrant'
+ if api<30:suite('allfiles-unavailable',pkg,cls,[happy])
+ else:
+  original=adb('shell','appops','get',pkg,'MANAGE_EXTERNAL_STORAGE');(folder/'allfiles-original-appop.txt').write_text(original)
+  match=re.search(r'MANAGE_EXTERNAL_STORAGE: (\w+)',original);mode=match[1] if match else 'default'
+  try:
+   adb('shell','appops','set',pkg,'MANAGE_EXTERNAL_STORAGE','deny');suite('allfiles-denied',pkg,cls,[happy])
+   adb('shell','appops','set',pkg,'MANAGE_EXTERNAL_STORAGE','allow');suite('allfiles-granted',pkg,cls,[])
+  finally:
+   adb('shell','appops','set',pkg,'MANAGE_EXTERNAL_STORAGE',mode);(folder/'allfiles-restored-appop.txt').write_text(adb('shell','appops','get',pkg,'MANAGE_EXTERNAL_STORAGE'))
+ return rows
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda pair:run(*pair),[(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]))
+(root/'result.json').write_text(json.dumps(results,indent=2)+'\n')

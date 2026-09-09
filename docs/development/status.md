@@ -1,36 +1,63 @@
 # Helix 实施状态
 
-更新时间：2026-09-08（M0～M11 本轮功能、非真机/非长稳测试与统一交互收口已提交并推送；物理设备与发布门禁仍单列）
+更新时间：2026-09-10。适用工作树：`codex/phone-chat-polish`；本轮修改未提交、推送或合并 main。
 
 ## Current summary
 
-2026-09-08：HXA-158 已修复未使用 WebView 宿主的提前分配；旧/新 JNI 对照残留 480→0，生产导航/HTTP 取消配对与双 API 功能回归通过。系统 JNI/Binder 根因仍开放，应用规避、Context 限制和方案取舍见 [规避报告](native-reference-mitigation.md)。新需求继续暂停。
+当前授权的实现与重构已完成至 [HXA-184](../completion-records/HXA-184.md)，没有正在执行的开发任务。完成记录代表各自工作树和制品的验收范围，不代表 main 已包含本分支修改，也不等于整个产品已完成发布验收。
 
-2026-09-08：HXA-151 原生 Skill/MCP 操作状态收敛已完成；HXA-152 短时对照已交付，JNI/Binder 两分支均有独立复现，缺陷仍 open，HXA-153 已进一步完成 [释放路径追踪](native-reference-release-trace.md)，HXA-154 的 [生产路径核实](browser-controller-reference-verification.md) 未复现同样残留；原生缺陷与未覆盖路径仍待验证。
-
-2026-09-08：ADR-0029 已接受，M14 HXA-148～150 内置 Skill Creator、Skill Installer、MCP Installer 已完成；2734 JVM、质量门禁、API29/36安装/界面/传输与公开MCP恢复、真实模型Skill创建至读取链路通过，见 [完成记录](../completion-records/HXA-150.md)。
-
-2026-09-08：所有者已接受 [ADR-0028](../adr/0028-goal-criterion-verification-bindings.md)，Goal 完成证据生产接线、write/edit/PRoot 真实模型完成、复核 UI 与证据读取取消/强杀已获得分项验收；后端中断恢复与 M11 完整 Chat 边界已补齐专项。最新私有产物删除修复后，完整 JVM 2713、根 Debug/Release Lint及构建、受影响设备30项通过；API35短时资源及双API真实低内存门控已补验，HXA-147统一交互/UI验收亦已完成，累计修改已提交并推送，后续提交以 Git 为准，见 [当前待办](main-optimization-todo.md)。
-
-最新执行优先级：M0～M11 本轮功能与非长稳测试、统一交互/UI 已完成，当前无活动开发 Goal。HXA-148～150 已完成；HXA-125 真实来源包验收已补齐，受保护服务验收仍依赖独立测试账号。长稳按 [优化待办](main-optimization-todo.md) 后置，历史失败轮次不自动重启。
-
-所有者已要求本轮收尾覆盖 M0～M11：先完成功能与合并后非真机验收，再统一优化交互/UI；执行顺序与最新长稳失败校正见 [收尾跟进](m10-closure-followup.md#m11-合入后的范围扩展与长稳状态校正)，M11 接管边界见 [交接](m11-handoff.md)。
-
-后续 24 小时长稳、真实 crash/ANR、固定评测和 ADR-0009 审查进度见 [M10 收尾跟进](m10-closure-followup.md)。
-
-本轮合并后验证、回归修复、实际命令与剩余边界见 [main 全量验证报告](main-merged-verification.md)。
-PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103 缺失资产的阻塞不再是当前状态。
-
-| 维度 | 当前事实 |
+| 最近交付 | 当前状态与证据 |
 | --- | --- |
-| 已验证范围 | M0～M4：HXA-001～003、010～016、020～028、030～049；**M5 完成**：HXA-050（Zipline/QuickJS spike）、HXA-051（生产执行协议 isolated Service/Binder）、HXA-052（IIFE wrapper/JSON ABI/限制，API 29/36 arm64-v8a）、HXA-053（QuickJS 执行接 Tool/Policy/审计：`code.javascript.run` 全链路 + 11 状态回填 + §4.8 脱敏审计 + 完整代码审批，API 29/36 arm64-v8a）、HXA-054（攻击与端到端测试：8 项攻击点全链路 E2E + 设备证据，75 例 androidTest/设备 × 两台 + 84 例 JVM）；**M5A 完成**：HXA-055（图片输入与 Provider 视觉能力：production 图片源（会话绑定 + hash/magic 重验、fail-closed）+ 端上归一化（字节门/bounds 探针/采样/EXIF 手动旋转/重编码剥离）+ `VisionLimits` 集中预算（API 29/36 测量 + Provider 上限取更严者）+ 连接测试第 5 阶段视觉探测（Completed/Refusal 证明 vision）/用户可见手动声明 + 绑定归一化 artifact 的发送/重试/恢复重验 + 出网披露图片行，API 29/36 arm64-v8a）、HXA-056（文本/图片附件端到端硬化与发布边界：fixture E2E 发送/流式/Tool Loop/历史恢复/脱敏 + `ACTION_SEND`/`SEND_MULTIPLE` 本地草稿（provider-free 会话 + 显式单发绑定，绝不自动发送）+ 失败矩阵（grant 失效/篡改/重复发送/绑定不可换/能力快照变化/过大/解压炸弹/取消/进程回收）+ 统一稳定拒绝（UTF-16/PDF/PPT/DOC/音频/视频/未知二进制）+ 泄露断言（无 URI/绝对路径/正文/base64 入持久化与用户可见错误）+ 三 adapter golden + 1 真实 vision endpoint smoke（本地 SGLang，环境明确记录），API 29/36 arm64-v8a））、HXA-057（persisted SAF tree scope 接线：每次使用 7 步实时复核 + fail-closed + 模型不透明 + `DocumentsContract` 只读浏览后端，API 29/36 arm64-v8a）、HXA-058（文件管理器导入/导出入口：HXA-044 受限管线接入文件管理器——picker 导入到 `input/` + 有界枚举/歧义 fail-closed 规划 + 导出到 `CreateDocument`/已授权树（WRITE 实时复核）+ 字节级重读校验 verified 语义，API 29/36 arm64-v8a）、HXA-059（Provider 模型自动发现与选择：连接测试 phase 2 `listModels` 列表接入 UI——「后端可用模型」（probe 界 1000 + UI 显示 200 + 过滤）+ 点选预填编辑表单（不自动保存）+ `Unsupported` 显式手动提示 + phase 2 `Failed` 无列表；真实 SGLang endpoint smoke 全链通过，API 29/36 arm64-v8a）；**M8 完成**：HXA-080（PRoot Runtime manifest/许可证 schema：`:runtime:proot-core` 纯 JVM 模块 = runtime-lock.json/manifest/activation 唯一版本真相——严格 fail-closed codec + canonical 编码指纹 + `RuntimeBaseline` 基线单点强制，API 29/36 arm64-v8a 设备验证 codec 一致性）、HXA-081（构建期固定资产：PRoot 5.1.107.92/Alpine 3.22.5 + bash/git/python3/nodejs/ripgrep 53 包 apk 精确锁定 + 真实 runtime-lock.json + 许可证文本入 APK + 全量 ELF `PT_LOAD` 对齐门禁（360/360 ≥16 KiB），API 29/36 arm64-v8a）、HXA-082（RootFS installer：纯 JVM 流式 tar 读取器 + 词法 Zip Slip 防护 + `.partial` 单遍流式安装 + 结构 smoke（必需路径 NOFOLLOW + 按页大小 ELF 对齐预检）+ manifest/promote/原子激活（active→rollback→最后删旧 rollback 目录）+ 一版 rollback 交换 + 孤儿清扫 + 排他状态锁全程持有；lock 锁定对象修正为设备实际读取的 raw tar，API 29/36 arm64-v8a）、HXA-083（独立 Runtime APK/IPC：`:runtime:proot-ipc` 共享协议模块（状态字节零跨 APK 异常 + PFD manifest 通道 + 严格 descriptor codec）+ companion signature permission 双守卫 + `onBind` 调用方签名集重验（fail-closed）+ 显式 ComponentName `BIND_AUTO_CREATE` 冷绑定 supervisor（本地检查→绑定→握手→锚点比对，拒绝即解绑绝不留进程）+ 最小用户门控修复 Activity + 事务侧逐事务调用方校验 + `<queries>` 可见性 + 客户端 `onNullBinding` 立即拒绝映射 + debug null-onBind seam；API 29/36 arm64-v8a 全绿）、HXA-084（PRoot runner：Job 协议/record codec + 有界 journal（128 条/1 MiB，额度满拒绝、对账 payload 即删、30 天 evidence-expired）+ companion 单例 runner（argv/显式 script、env allowlist 筛选在主进程 secret 名/已知值/认证形状三重拒绝、deadline watchdog + 进程组取消、bounded 双流捕获、输出归档 + hash 证明、孤儿 starttime 双证清扫）+ **PRoot 首次设备真实执行**（SELinux `execute_no_trans` 平台事实：app_data 不可 exec、loader 经 `apk_data_file` 可执行副本 + 每次哈希对锁、`LD_PRELOAD` 对在途 execve 改写不可达之实证）+ 客户端 `ProotJobClient` 冷绑定 submit/query/cancel/reconcile/awaitTerminal（`Interrupted` 停泊点、断连只查询对账绝不重放、零 FGS 零 wake lock）+ 跨 APK Job E2E；API 29/36 arm64-v8a 全绿，真机部分归 HXA-086/088）、HXA-085（`bash` Tool = `code.linux.run`：CODE_EXECUTION/L2/LOCAL_PROOT 每次审批（STANDARD 由真实 PolicyEngine `ISOLATED_RUNTIME_REQUIRES_ADVANCED` Deny）+ developer-only 注册 + 每执行四态 gate（READY/未安装/被禁用或强制停止/未验证，用户完成过零 Job 验证 = 持久化 anchor；进程预活/手动修复都不是条件；被动 Registry 刷新绝不重绑）+ 批准后每执行重新握手（084 冷绑定）+ 输入快照复制（经 store，绝不挂载真实 Workspace、单文件 ≤1 MiB、≤64 个）+ 主进程 env 三重筛选（Runtime 零 SecretStore）+ wire deadline = 剩余审批窗口（companion watchdog 恰在审批 deadline 杀进程组）+ 输出归档双重哈希重验 + 只导入验证后的 `result.txt` 进引用自身 region（缺失 = SUCCEEDED 无导入）+ 审批卡完整命令/sha/快照来源/离线声明 + Settings Advanced-only 验证/修复入口（修复仅用户点击，重试 = 新 ToolCall/approval/jobId）；API 29/36 arm64-v8a 全绿，真机归 HXA-086/088））、HXA-086（真机 smoke 与隔离（模拟器可验证范围）：companion 通知停止（普通通知非 FGS + 签名权限 STOP 广播 receiver + 四终态撤通知）+ smoke 套件（python3/node/git/ripgrep 真实 Job + 随机 token 新鲜度契约）+ companion 隔离（guest 不可读 companion dataDir/共享存储/联网 + 结构性零 INTERNET/存储权限）+ 主 App 侧隔离 E2E（真实 `code.linux.run` 全链 guest 不可读写主 App dataDir）+ 生命周期矩阵（冷绑定/空闲回收/锁屏/低内存/强制停止/主 App 死亡 ORPHANED/companion 死亡 DEAD_OBJECT∪ORPHANED 稳定结算/wake lock 零采样）+ 同 jobId 不重复执行 + `scripts/accept-hxa-086-lifecycle.sh` 11 阶段；companion 43 例 + `:app` 137 例 × 两台全绿；真机 4/16 KiB smoke、Doze/安全锁屏/热限、最低设备集真机证据 = 真机缺口，详见 [HXA-086 完成记录](../completion-records/HXA-086.md)）、HXA-087（更新/卸载/法律页：同签名 APK 更新"需更新"检测（锚点 lock 指纹漂移 → 用户点击验证稳定 `LOCK_MISMATCH`）+ 显式重定基线（两次用户动作，移动基线绝不静默接受）+ 修复页更新态按钮（活动安装 manifest 内嵌 lock 指纹比对，更新失败旧 runtime 保持可用）+ 用户门控 rollback 入口（082 原子指针交换，回滚后真实 Job 可用）+ 完整删除（双端各清自己状态 + 面内二次确认，只删 `filesDir/runtime` 绝不误删 Workspace）+ 离线法律页（companion `ProotLegalActivity`：离线声明/source URL 展示不访问/build manifest 规范指纹/每组件版本+SPDX+预装包/许可证全文内嵌，零 INTERNET 离线可读）；companion 50 例 + `:app` 141 例 × 两台全绿 + 086 生命周期回归 × 两台）、HXA-088（Git Workspace 语义 Spike + ADR-0008：三路径比较（主 App 权威仓库每操作完整原子事务 / Runtime 私有目录需新 bind 面+新协议 / Android Git 库 JGit 7.7.1 纯 Java EPL/GPL-CPE·libgit2 1.9.7 GPL/MIT 双实现分叉）+ 真实 084 Job 管线设备测量（小/中仓库归档体积·耗时·guest git 操作·gc 后 `.git` 28 文件/pack 化）+ 损坏 fsck 报告（退出码可 0——必须解析输出文本）+ job id 对账幂等 + 攻击面证据（hook/filter 无防护时执行、hooksPath 防护无法中和 filter→强制宿主侧预扫描、alias/submodule/credential 结构性不触发）+ guest ash 无 `$(...)` 平台事实；**零产品代码、零新依赖；ADR-0008 已由所有者接受（2026-09-05）：路径 1 主 App 权威仓库每操作完整原子事务 + 首版命令集 status/diff/log/init/add/commit + 强制预扫描/防护策略（实现由后续 HXA 按 ADR 执行）**；companion 56 例 + `:app` 141 例 × 两台全绿） |
-| 已落地骨架 | Provider 配置与三协议适配、聊天流、Capability/Policy/Approval、Dispatcher/Scheduler、batch-safe Turn Coordinator、多步 Tool Loop 与持久审计、Workspace/文件工具（含受限 zip/tar Archive）、SAF 导入导出适配层与 developer All-files scope、会话附件导入/持久化与 UTF-8 文本物化（ADR-0014 首批）、QuickJS 生产执行模块（`:runtime:quickjs`，ADR-0015 选定 Zipline 1.27.0：isolated Service/Binder 通道 + §3.2 IIFE wrapper JSON ABI）+ `code.javascript.run` 工具（consumer/developer 双变体接线） |
-| Advanced 执行器 | PRoot/`bash`、MCP、Skill、A2A Client 与 Accessibility `ui.*` 已实现；五个高层 Root 只读工具已接 developer，但 HXA-094/095 缺 rooted 物理设备验收，不能声明 Root 或 M9 整体完成 |
-| M7 进展 | **HXA-070～079 完成**：MCP、Skill 全链与 A2A Android Client、Agent Card discovery、Task Tool bridge/恢复均已按各自矩阵验收；HXA-079 在 API 29/36 验证进程重建只对账原 Task、不明确送达不重发、Artifact 幂等复用与 hash 篡改拒绝。真机/真实外部服务/签名发布门禁另行保留，详见 [M7 合并与验证进展](m7-non-device-progress.md) |
-| M8 | **全部 HXA 完成（HXA-080～088）**：HXA-080 —— Runtime manifest/许可证 schema（`:runtime:proot-core` 纯 JVM 模块：runtime-lock.json/manifest.json/activation 唯一版本真相 schema + 严格 fail-closed codec + canonical 编码指纹 + `RuntimeBaseline` 基线单点强制；JVM 35 例 + 设备 3 例 × 两台（API 29/36 arm64-v8a））；HXA-081 —— 构建期固定资产（真实 `runtime-lock.json` 5 组件锁定：proot 5.1.107.92 termux deb + Alpine 3.22.5 + 53 包 apk 精确 pin（bash/git/python3/nodejs/ripgrep 齐备）；构建管线 digest 锁定 + 确定性重打包 + SHA-256/size 全量校验（generate/verify 双模式）；ELF `PT_LOAD` 对齐/ABI 检查器 360/360 ≥16 KiB；许可证文本入 APK；体积记录 APK 61,772,291 B / 临时峰值 ≈181.6 MiB；JVM 47 例 + 设备 6 例 × 两台；不在设备下载 executable）；HXA-082 —— RootFS installer（纯 Kotlin 流式 tar 读取器 + 词法 Zip Slip 防护 + `.partial` 单遍流式安装 + 结构 smoke + manifest/promote/原子激活 + 一版 rollback 交换 + 孤儿清扫 + 排他状态锁；lock 锁定对象修正为设备实际读取的 raw tar；JVM 83 例 + 设备 12 例 × 两台；API 29/36 arm64-v8a）；HXA-083 —— 独立 Runtime APK/IPC（`:runtime:proot-ipc` 状态字节协议 + PFD manifest + 严格 descriptor codec + debug 崩溃注入 seam；companion signature permission 双守卫 + `onBind` 调用方签名集重验 + 每次 bind 现算 manifest；客户端冷绑定 supervisor（本地检查→绑定→握手→锚点）+ 最小用户门控修复 Activity；落实 ADR-0007 冷绑定/零常驻/无回退；JVM 42 例 + companion 设备 20 例 × 两台 + `:app` 跨 APK E2E 8/8 × 两台（脚本编排））；HXA-084 —— PRoot runner（job 协议/record codec + 有界 journal（128 条/1 MiB，active/未对账不静默删除、满额拒绝新 Job、对账 payload 即删、30 天 evidence-expired）+ companion runner（argv/显式 script、env allowlist + 主进程 secret 名/已知值/认证形状三重拒绝、deadline watchdog + 进程组取消、bounded 双流捕获、输出归档 + hash、孤儿双证清扫）+ **PRoot 首次设备真实执行**（SELinux `execute_no_trans` 平台事实 + loader `apk_data_file` 可执行副本哈希对锁 + 在途 execve 改写致 `LD_PRELOAD` hook 不可达之实证）+ 客户端 `ProotJobClient`（冷绑定、`Interrupted` 停泊点、断连只查询/对账、零 FGS/零 wake lock）+ 跨 APK Job E2E；JVM 29 例 + companion 设备 32 例 × 两台 + `:app` E2E 4 例 × 两台；真机归 HXA-086/088）；HXA-085 —— `bash` Tool（`code.linux.run`：CODE_EXECUTION/L2/LOCAL_PROOT 每次审批 + STANDARD 真实 Policy Deny + developer-only + 每执行四态 gate（anchor = 用户完成过零 Job 验证；进程预活/手动修复都不是条件）+ 每执行重新握手 + 有界快照输入（经 store，不挂载真实 Workspace）+ 主进程 env 三重筛选 + wire deadline = 剩余审批窗口 + 输出归档双重哈希 + 只导入验证后 `result.txt` 进自身 region（缺失 = SUCCEEDED 无导入）+ 审批卡完整命令/离线声明 + Settings 验证/修复入口（仅用户点击）；JVM 7 例 + 设备 E2E 5 例 × 两台 + `:app` 全量 129 例 × 两台 + companion 32 例 × 两台；真机归 HXA-086/088）；HXA-086 —— 真机 smoke 与隔离（模拟器可验证范围）：companion 通知停止（普通通知非 FGS + 签名权限 STOP receiver + 真实 cancel 断言）+ smoke 4 工具真实 Job（token 新鲜度契约）+ companion 隔离 4 例 + 主 App 侧隔离 E2E 2 例（真实 tool 全链 guest 不可读写主 App dataDir）+ 生命周期 6 相（冷绑定/空闲回收/锁屏/低内存/主 App 死亡 ORPHANED/companion 死亡 DEAD_OBJECT∪ORPHANED + wake lock 零采样）+ 同 jobId 不重复执行 + 11 阶段验收脚本 × 两台；companion 43 例 + `:app` 137 例 × 两台；真机 4/16 KiB smoke、Doze/锁屏/热限、最低设备集真机证据 = 真机缺口（无真机如实停下）；HXA-087 —— 更新/卸载/法律页（模拟器全验证）：同签名 APK 更新"需更新"检测（`LOCK_MISMATCH` 稳定揭示）+ 显式重定基线（两次用户动作）+ 修复页更新态按钮 + 用户门控 rollback（回滚后 Job 可用）+ 完整删除（只删 runtime 树不误删 Workspace，双端各清自己 + 面内二次确认）+ 离线法律页（source URL/build manifest/许可证全文离线可读，零 INTERNET）；companion 50 例 + `:app` 141 例 × 两台 + 086 回归 × 两台；HXA-088 —— Git Workspace 语义 Spike + ADR-0008（零产品代码/零新依赖）：三路径比较（推荐路径 1 主 App 权威仓库每操作完整原子事务；路径 2 需新 bind 面+新协议；路径 3 JGit/libgit2 双实现分叉）+ 真实 084 管线设备测量（小/中仓库归档·耗时·gc 后 `.git`）+ 损坏 fsck 报告（退出码可 0）+ 攻击面证据（filter 强制宿主预扫描）+ guest ash `$(...)` 缺失事实；**ADR-0008 已由所有者接受（2026-09-05）**；companion 56 例 + `:app` 141 例 × 两台 | [HXA-080 完成记录](../completion-records/HXA-080.md)、[HXA-081 完成记录](../completion-records/HXA-081.md)、[HXA-082 完成记录](../completion-records/HXA-082.md)、[HXA-083 完成记录](../completion-records/HXA-083.md)、[HXA-084 完成记录](../completion-records/HXA-084.md)、[HXA-085 完成记录](../completion-records/HXA-085.md)、[HXA-086 完成记录](../completion-records/HXA-086.md)、[HXA-087 完成记录](../completion-records/HXA-087.md)、[HXA-088 完成记录](../completion-records/HXA-088.md) |
-| 当前检查点 | **M5、M5A、M5B、M6、M7、M8、M11 已完成**；M11A HXA-114～119、HXA-137～143、HXA-131～136 已完成，Codex/Copilot 侧载登录有真实正向证据，Codex 已接入普通 Provider/ChatService 并完成真实对话验收；Claude 对话 Provider 已通过 fixture/设备验收，Grok Provider 已完成夹具验收，Copilot Provider 已完成 API 36 当前真实账号普通对话验收，Claude/Grok 付费调用未核实；官方 CLI 路线停止；M9 HXA-090～093、096、097 已完成，HXA-094/095 等待 rooted 物理设备门禁 |
-| 并行 M10 检查点 | HXA-099～105 代码范围已实现，长稳/物理设备/完整评测发布证据仍待补齐；本次 M11 合并不替代这些门禁 |
-| 发布状态 | 仅开发/测试产物；尚无完成签名与发布验收的稳定版本 |
+| 会话、文件界面与上下文 | HXA-161～178 已交付；支持会话管理、模型/推理选择、上下文显示与压缩、非阻塞后台工具任务及结果回收 |
+| Goal 完成机制 | [ADR-0040](../adr/0040-model-judged-goal-completion.md)：模型提交结构化完成报告，Harness 校验报告有效性并处理运行状态和结算；已取代 ADR-0028 的强制条件绑定与独立 verifier |
+| 独立文件管理 | [HXA-180](../completion-records/HXA-180.md)：Workspace、共享存储和可写 SAF 的手动变更；[HXA-182](../completion-records/HXA-182.md)：复制/移动中断后的持久记录与显式恢复 |
+| 职责整理 | HXA-179～181 已收口；[HXA-183](../completion-records/HXA-183.md) 完成七项优先拆分，[HXA-184](../completion-records/HXA-184.md) 完成 B11/C15 提取与装配整理 |
+| 最新回归 | HXA-184：主机 2788 通过、8 项外部条件跳过；API29 consumer / API36 developer 各 394 通过、2 项浏览器长稳/诊断条件跳过；自建模拟器均已关闭 |
+
+系统 JNI/Binder 根因、长稳、完整真机矩阵与商店发布仍未关闭。历史主线验证见 [main 验证报告](main-merged-verification.md)，后置测试见 [优化待办](main-optimization-todo.md)。
+
+## In progress
+
+无。当前仅整理本状态文档，不新增产品功能或重新开启已完成 HXA。
+
+## Next task
+
+等待所有者选择提交范围或下一项任务。当前工作树需审查并分批提交；不自动推送或合并 main。长稳按所有者要求后置，未因短回归通过而启动。
+
+## Blocked
+
+| 项目 | 缺少条件 / 决策 |
+| --- | --- |
+| HXA-125 受保护 Connector 服务验收 | WorkBuddy 来源样本已补齐；仍需独立测试账号验证凭据无效、权限拒绝、厂商撤销和重连；匿名服务与 fixture 不替代这些证据 |
+| HXA-126 / HXA-129 | [ADR-0030](../adr/0030-connector-public-client-oauth.md) / [ADR-0031](../adr/0031-connector-version-ownership-journal.md) 待审查；HXA-126 还需两家独立服务账号与 redirect 条件 |
+| HXA-130 | [ADR-0032](../adr/0032-connector-offline-signed-index.md) 已准备；离线 fixture 依赖 HXA-129，市场运行时不在当前批次范围 |
+| Claude / Grok 真实付费调用 | 账号不可用，按所有者决定暂缓；本地与设备夹具通过不代表真实账号验收 |
+| Root 与发布验收 | HXA-094/095 仍需 rooted 物理设备；HXA-122 尚待稳定 applicationId、渠道命名、升级路径与签名发行决策 |
+
+## Current interfaces
+
+- **聊天与装配**：`ChatService` 保留应用入口及运行协调，草稿、请求组装、附件重试、界面投影、工具调用与结算已有独立组件；`AppContainer` 接口与 `DefaultAppContainer` 组合根分离。资源与可变状态仍由原所有者管理，拆文件不产生第二套状态源。详见 HXA-179/183/184。
+- **Goal 与后台任务**：Goal 采用 ADR-0040；暂停可由用户继续，blocked 表示不能主动继续。后台能力是有界工具任务及结果回收，生产子 Agent、Agent graph 和声明式 Workflow 尚未实现；ADR-0009 的只读 Spike 不等于产品启用。
+- **手动文件管理与 Agent 工具**：两者范围分离。手动界面支持 Workspace、共享存储和可写 SAF 的新建、改名、同来源复制/移动与删除；跨来源继续使用导入/导出。手动授权不扩大 Agent resolver，不能把手动共享根视为 Agent 已获授权的文件范围。边界以 HXA-180/182 与对应 ADR 为准。
+- **执行与工具**：QuickJS 使用非导出的 isolated Service；PRoot/CLI 使用独立 APK/UID 与签名保护的 Binder/PFD。`read`、`write`、`edit`、`files.*`、`bash` 继续经过既有 scope、Policy、审批、限制、验证和审计路径；PRoot/CLI 按需冷绑定，不因被动刷新启动。
+- **扩展与 Provider**：MCP、Skill、A2A Client 已按 M7 矩阵验收；A2A 是用户配置的外部服务，不是本地子 Agent。订阅适配器凭据保留在独立 CLI Runtime UID，developer/Advanced 接线不代表 consumer/store 开放或厂商官方支持。
+- **浏览器**：WebView 由浏览器功能持有并绑定 Activity owner；下载队列和结果映射已分离。真实 AutofillService 的 fill/save 回归通过，不能据此关闭系统 JNI/Binder 累积问题。
+
+## Known limitations
+
+这里只列仍有效的范围限制和验收缺口；已修复缺陷、旧测试数量和机制演进保留在完成记录，不再列为当前故障。
+
+- **系统与长稳**：应用侧释放路径和短回归已有证据；系统 JNI/Binder 根因仍 open，24 小时长稳尚未完成。见 [释放路径调查](native-reference-release-trace.md)、[浏览器引用验证](browser-controller-reference-verification.md) 与 [优化待办](main-optimization-todo.md)。
+- **设备覆盖**：API29/36 模拟器及历史 API34/35、16 KiB 模拟器证据不替代物理低内存、OEM、热压力、Doze、安全锁屏和 Root grant/revoke/loss 验收；x86_64 静态制品证据也不等于实际运行。
+- **文件恢复**：HXA-182 实现显式对账恢复，不承诺字节偏移续传、断电事务、自动后台队列或跨 Provider 原子事务；既有 picker 导入/导出及旧版无日志暂存不在该恢复管线内。目标/备份变化时保留人工核查，云盘厂商与全部中断阶段仍需外部设备验收。
+- **模型与附件**：导入成功不等于模型理解。图片受实际模型视觉能力与端上预算约束；既有文本/图片管线不代表任意文档、音视频解析或 OCR 已实现。真实服务可用性与连接参数需要按服务当前状态验证。
+- **后续功能**：持久 Git Workspace、结构化 Git UI、remote Git/凭据，以及生产子 Agent/Workflow 不在当前实现范围；接受 ADR 不构成实现证据。Connector OAuth、版本管理与市场扩展也不因本轮整理自动启动。
+- **发行**：Standard 完整产品形态是 ADR-0013 的决定；当前 consumer/developer 构建与 CI debug APK 不是签名 release、完整渠道权限申报或商店审核证据。
+- **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
+
+## Connector 扩展线收尾
+
+M13 首版 HXA-124、HXA-127/128 已验证；HXA-125 的受保护服务验收后置，HXA-126/129/130 未完成，不能宣布 M13 整体完成。来源样本与历史移交见 [Connector 工作交接](connector-handoff.md)。旧批次的 main 合并/推送记录不适用于当前未提交分支；当前 Git 状态以实际工作树为准。
 
 ## Completed
 
@@ -153,74 +180,57 @@ PRoot RootFS 已校验并通过 API 29/36 完整宿主生命周期；旧 HXA-103
 
 - M10 / HXA-160 已完成：Activity 级浏览器宿主、旧回调隔离、JS 对话框与真实 AutofillService；双 API 各 36 项浏览器用例执行通过、2 项既有 opt-in 未启用，MainActivity 各 2 项通过，见 [完成记录](../completion-records/HXA-160.md)。
 
-## In progress
+- M10 / HXA-161 已完成：真机输入区布局与推理接线，见 [完成记录](../completion-records/HXA-161.md)。API36 的 8 项专项和 API34 真机中/高请求通过；独立分支验收，尚未合入 main。
 
-当前无活动实现检查点。HXA-160 已完成；系统 JNI/Binder 根因与长稳、真机仍单独保留。
+- M10 / HXA-162 已完成：按轮次展示执行记录、全文复制和选词入口，见 [完成记录](../completion-records/HXA-162.md)。
 
-HXA-159 已完成；新功能继续暂停。首次 API36 预览超时根因未定，最终构建后单例连续 5 次及双 API 完整 74 项回归通过，详细失败与重验记录保留在完成记录。
+- M10 / HXA-163 已完成：草稿首次发送落库、自动标题/改名与目录归属；API36 UI 9 项及迁移 22 项通过，真机安装与交互核实，见 [完成记录](../completion-records/HXA-163.md)。尚未提交/合入 main/推送。
 
-HXA-158 应用规避已完成。系统 JNI/Binder 问题仍开放，未宣称底层修复。
+- M10 / HXA-164 已完成：模型开始前发布用户消息、原生 Markdown 渲染与原文复制；API36 共 10 个不同设备用例通过，真机已更新并核实显示，见 [完成记录](../completion-records/HXA-164.md)。尚未提交/合入 main/推送。
 
-HXA-157 已完成：修复既有工具发现被模型 64 项上限截断的问题；双 flavor JVM、构建、Lint 与静态门禁通过，见 [完成记录](../completion-records/HXA-157.md)。HXA-158 也已完成应用规避。所有者已要求暂停新需求；ADR-0030/0031/0032 保持 proposed，不启动实现。
+- M10 / HXA-165 已完成：参考移动端截图整理导航、消息正文及圆角输入区，附件改为框内加号；API36 11 项通过，真机安装/键盘/附件选择器已核实，见 [完成记录](../completion-records/HXA-165.md)。尚未提交/合入 main/推送。
 
-HXA-151 已完成：原生操作状态复用、重复请求保护与旧预览失效修复，双 flavor JVM、质量门禁及 API29/36 各 6 项 UI 测试通过，见 [完成记录](../completion-records/HXA-151.md)。HXA-152 有界调查已完成；JNI/Binder 缺陷仍 open，HXA-153 释放路径追踪已完成，HXA-154 生产路径核实已完成，HXA-155 网络/后台/重建核实已完成；HXA-156 文档收口已完成，HXA-127 工具渐进发现已完成，HXA-128 可移植性 Spike 已完成，ADR-0030/0031/0032 已起草，分别待审查 OAuth、完整生命周期与离线签名索引；HXA-157 修复已完成；24h 长稳保持后置。
+- M10 / HXA-166 已完成：会话内模型下拉、跨 Provider 保留历史切换、推理重置；API36 9 项通过，真机菜单核实，见 [完成记录](../completion-records/HXA-166.md)。尚未提交/合入 main/推送。
 
+- M10 / HXA-167 已完成：输入选项统一单行横向滚动，复制及后续扩展复用同一行；API36 8 个不同用例通过，真机已安装核实，见 [完成记录](../completion-records/HXA-167.md)。尚未提交/合入 main/推送。
 
-- M13 / HXA-125（外部验收后置，无活动实现）：真实来源格式与服务验收；公开来源 reader/匿名 SDK 与 API 29/36 真实 App 调用、拒绝/批准、停用、跨进程恢复均通过；修复已知 schema dialect 注册适配。用户已确认参考包来源为 QwenWork，MCP 封装识别与嵌套 metadata 保真适配已修复，原包识别 4 Skill / 2 endpoints 并通过整包导入测试；WorkBuddy 真实市场包已补齐并修复 Skill 目录名兼容；独立账号/凭据撤销仍待补齐，见 [进展记录](hxa-125-progress.md)。
+- M10 / HXA-168 已完成：椭圆选项、去重顶部标题并保留应用导航入口；API36 10 项通过，真机已更新核实，见 [完成记录](../completion-records/HXA-168.md)。尚未提交/合入 main/推送。
 
-## Next task
+- M10 / HXA-169 已完成：独立顶部主菜单、点击标题改名、草稿手动标题保留；API36 12 项通过，真机安装与入口核实，见 [完成记录](../completion-records/HXA-169.md)。尚未提交/合入 main/推送。
 
-当前仅处理可复现 bug 与回归；以下新功能候选暂缓，不自动启动。
+- M10 / HXA-170 已完成：统一非会话顶栏、扩展页接已有 Skill/Connector 管理、已归档状态与 SAF 说明；API36 14 项通过，真机入口与布局核实，见 [完成记录](../completion-records/HXA-170.md)。尚未提交/合入 main/推送。
 
-- 所有者于 2026-09-08 授权实现内置 Skill Creator、Skill Installer 和 MCP Installer；已形成 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)（accepted）及 HXA-148～150。HXA-148～150 已完成；后续扩展须选择独立 roadmap 检查点。HXA-125 外部账号验收继续单列，不以新任务替代其证据。
+- M10 / HXA-171 已完成：参考图归档、独立文件首页/目录页、搜索/长按/返回；API36 17 项和 1.8 倍字体 3 项通过，真机布局核实，见 [完成记录](../completion-records/HXA-171.md)。尚未提交/合入 main/推送。
 
-- M11A 四平台文本 Provider 已接入，下一步可按独立 HXA 评估动态模型目录与更多模型协议；Claude/Grok 账号目前无法获取，按所有者 2026-09-08 决定暂时搁置真实调用验收，Copilot 也不得只凭登录成功宣称对话后端完成。consumer/store 保持关闭。M9 / HXA-094～095 仍等待 rooted 物理设备。
+- M10 / HXA-172 已完成：归档会话单列、共享存储入口、真实上下文输入快照圆环；API36 23/23，双 app JVM/构建/lint 与真机界面核实通过，见 [完成记录](../completion-records/HXA-172.md)。当时未接窗口设置/自动压缩，后续见 HXA-174；两渠道共享根目录写入仍不在本批；未提交/合入 main/推送。
 
-## Blocked
+- M10 / HXA-173 已完成：归档恢复、两 flavor 手动共享根目录及授权返回、模型与圆环同胶囊；双版本设备专项和真机入口通过，见 [完成记录](../completion-records/HXA-173.md)。
 
-- HXA-126/129：新增凭据回调、持久化/启用契约待 [ADR-0030](../adr/0030-connector-public-client-oauth.md) / [ADR-0031](../adr/0031-connector-version-ownership-journal.md) 审查；HXA-126 还缺两家独立真实服务测试账号/redirect 条件。HXA-130 的 [ADR-0032](../adr/0032-connector-offline-signed-index.md) 已准备，离线 fixture 依赖 HXA-129，市场运行时不在本批范围。
+- M10 / HXA-174 已完成：窗口默认 200k/服务端发现、比例设置、自动/手动摘要与预算/恢复；主机 1046 项（8 个既有外部 skip）、双 flavor 设备专项和真实 SGLang 通过，见 [完成记录](../completion-records/HXA-174.md)。
 
-- HXA-125 外部验收：WorkBuddy 样本已补齐，仍缺独立受保护服务测试账号，尚不能完成凭据无效、权限拒绝、厂商撤销及重连验收；已有匿名服务/合成 fixture 不替代这些证据。其余本轮本地修复与交互验收已收口。
+- M10 / HXA-175 已完成：140 份临时脚本按日期留存、独占模拟器、紧凑圆环/复制及系统状态栏避让。双 app JVM/构建/lint、API36 32/32 与 API34 真机安装/截图核实通过，见 [完成记录](../completion-records/HXA-175.md)。
 
-## Current interfaces
+- M10 / HXA-176 已完成：长 Turn 和新轮首请求的步骤压缩、用量校准、收益与重试上限、Goal 容量暂停；双 app 主机、API36 85/85（含真实模型三轮摘要与问答）通过，见 [完成记录](../completion-records/HXA-176.md)。本轮真机未连接，未安装新包。
 
-- `AppContainer` 已组合 Provider、ChatService、Capability/Policy/Approval 与 Tool Pipeline/Scheduler；`ShellRepository` fake 只服务早期壳层 route。
-- 导航 route 只承诺稳定入口；会话与 Provider 已有实现，其余页面是否可用以对应 HXA 完成记录为准。
-- 生产 Tool Registry 已包含 `time.now`、Workspace 文件工具 `read`/`write`/`edit`/`files.*`（含受限 `files.archive`/`files.extract`）与 QuickJS 代码执行工具 `code.javascript.run`（CODE_EXECUTION/L2/LOCAL_QUICKJS 单并发 lane；consumer + developer 双变体接线，HXA-053）；文件工具当前 scope 为 app-private 与 developer All-files，SAF tree 尚未接入工具 scope resolver。
-- QuickJS 执行通道已落地并接 Tool：主 App 内 isolated 非导出 Service（每执行唯一 `js_` + 32-hex 实例）+ 主进程 `JsExecutionClient`（同步有界、不重试；wrapper JSON ABI：输入 = 恰一个合法 JSON 文档、输出 = ≤ maxOutputBytes 的单个 JSON 文档、11 状态闭合集、PROTOCOL_VERSION=2；API 见 [HXA-052 完成记录](../completion-records/HXA-052.md)），经 `code.javascript.run` 接生产 Tool 管线（模型仅见 code+input、limits 固定 §4.1 默认不入 schema、§4.8 脱敏审计经 dispatcher 单一 emitter；接线见 [HXA-053 完成记录](../completion-records/HXA-053.md)）；PRoot 已使用同签名、独立 applicationId/UID 的 Runtime APK，通过 signature-protected Binder/PFD IPC 连接。
-- accepted [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)将 Standard 定义为 Google Play、国内 Android 应用商店和官网的完整产品形态；consumer/developer 仍只是当前构建事实。HXA-122 尚未决定稳定主 applicationId、渠道命名与升级路径，也没有外部 release artifact。
-- Codex 订阅协议实验已成为 developer/Advanced 的普通受管理 `ModelProvider`，可由 Provider 行进入 Runtime 登录 UI，并经普通 Chat 对话；凭据仍只在独立 Runtime UID。它不构成官方支持，tool/vision 保持关闭。Claude Provider 已完成本地与设备夹具验收；Copilot 已有真实登录和普通对话证据（当前账号、Claude Haiku 4.5），Claude/Grok 真实付费调用暂未核实。官方 SDK/CLI Android/bionic 路线停止；第三方 adapter 可继续作为 developer/Advanced Provider，consumer/store 仍关闭。
-- MCP Streamable HTTP、Skill loader/import/tools 和 A2A Client-only 已从并行 M7 worktree 合入 `main` 并完成 HXA-070～079 专项验收。A2A 由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)固定产品/信任边界，由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md)选择最小 OkHttp + kotlinx.serialization Client；MCP 底座由 accepted [ADR-0017](../adr/0017-mcp-kotlin-sdk-client-base.md)固定。API 29/36 模拟器证据构成当前 M7 任务验收，不替代 M12 的物理真机、真实外部服务/网络与签名发布验收。
-- `read`/`write`/`edit`/`files.*`/`bash`（M8 `code.linux.run`，developer/Advanced-only）已实现。所有工具继续受 scope、Policy、Approval 和执行域约束。
+- M10 / HXA-177 已完成：非阻塞跨会话任务、持久结果回收、全局前台服务、Goal BLOCKED/PAUSED 与阻塞复查；受影响 JVM 1140 项（8 个既有 skip）、设备与迁移 160/160 通过，见 [完成记录](../completion-records/HXA-177.md)。参考 Goal 指南的取舍见 ADR-0039；未增加自动续跑或生产子 Agent。
 
-## Known limitations
+- M10 / HXA-178 已完成：以模型结构化报告替代强制 Goal 绑定验证，支持仅目标创建；主机门禁、双 API 各79、迁移各24及真实模型/最终复核3项通过，见 [完成记录](../completion-records/HXA-178.md)。
 
-- HXA-050～054 的早期环境限制已部分补齐：当前具备 API 34/35 镜像，main 本轮在 API 34/35 复测资源门禁，并在 API 35／16 KiB arm64 模拟器通过全部 75 项 QuickJS 与 27 项浏览器测试。x86_64 仍只有 AAR/ELF 静态证据，未声称实际运行；物理 16 KiB、低内存及 OEM 矩阵仍待验收。见 [main 验证报告](main-merged-verification.md)。
-- **图片视觉的平台事实与环境限制（HXA-055 Phase 1 两台设备固定）**：Bitmap 像素在 **native 内存**而非 JVM heap（API 29 模拟器 48 MiB heap 仍成功解码 32 MP/≈128 MiB bitmap；native threshold 216 MiB）——解码包络必须按 native 内存定界（`VisionLimits.MAX_TOTAL_PIXELS=12 MP` 对 216 MiB 阈值留实测余量，且 32 MP 解码成功**不是**许可）；**SOF 头可伪造且 `inJustDecodeBounds` 信任它**（30000² 可见，65535² 被平台在 bounds 阶段拒绝）但完整解码返回 null（安全）——头尺寸永不入内存数学，字节预算门先于解码；`BitmapFactory` **不自动应用 EXIF 方向**、`Bitmap.compress` 重编码**剥离全部 EXIF**（隐私剥离 = 重编码本身）。环境限制与 HXA-050~054 同口径：API 29/36 arm64-v8a 模拟器 + 4 KiB page，**无物理低内存真机**——`VisionLimits` 取模拟器证据与 Provider 上限的更严者并留余量，低内存真机矩阵归后续设备工作（32 MP 在模拟器可解码的事实不得作为放宽包络的依据）。
-- QuickJS 引擎事实（HXA-051/052 设备测试与进程内探针固定）：顶层数组结果 → List、`memoryUsage` 在失败分配后回落基线、跨线程 evaluate 为 ASLR 布局相关 UB（服务永远只在其执行线程上 create/evaluate/close）；**wrapper 模式 OOM 表面形态（HXA-052 固定）**：API 29 64 MiB 堆批量耗尽时 catch 到字面 `null`（引擎无法分配 Error 对象，wrapper 原样重抛 → 宿主空消息 → OOM；用户 `throw null` 同形态不可区分、已接受），API 36 为 Error `"out of memory"`（wrapper 前缀后子串存活）；API 29 1600 万元素循环耗尽 64 MiB → 引擎原生 SIGSEGV（SEGV_ACCERR，永不作测试源）；HXA-051 的 raw 顶层对象 → `null` 事实自 HXA-052 起作废（wrapper 的 `JSON.stringify` 消除）；**环引用 stringify 真实消息为 `circular reference`（HXA-054 两台设备固定）**——V8 措辞 `Converting circular structure to JSON` 不存在于 QuickJS 2021-03-27 二进制（strings 佐证），HXA-052 的 `CIRCULAR_RESULT_MARKER` 是未经设备验证的假设常量，已按固定事实修正（service 环引用 → OUTPUT_LIMIT 重分类因此恢复可达）。Zipline 升级时须复核以上全部事实。
-- QuickJS 执行控制面不含 `killProcess`/`System.exit`：超时/取消走 interrupt + 有界宽限 + 解绑，实例回收完全交给系统（Binder death 为主观察信号）；crash 注入 seam 仅 `BuildConfig.DEBUG` + 显式测试标志双门，release 编译移除。
-- **API 29 生产迁移缺陷（HXA-053 设备验收复核发现，已在 main 修复）**：`MIGRATION_1_2` 使用 `ALTER TABLE approvals RENAME COLUMN`（HXA-034），API 29 的 SQLite（<3.25）不支持该语法，API 29 设备首次 V1→V2 升级会 `SQLiteException: syntax error`。已改用 copy-and-swap 修复并复测 API 29/36 47/47 无回归（见 [Bug 修复记录](../bug-fixes/2026-09-03-room-migration-sqlite-rename-column.md)）；HXA-053 复核时 API 29 的另 8 例失败（`FilesScreenTest` ×6、`GoalReminderTest` ×2）亦已随 main 的 API 29 修复一并解决，详见下方设备矩阵条目。
-- **`ToolScheduler` 跨批 waiter 潜伏死锁（HXA-053 发现，已修复）**：原实现中等待准入的批次只监听本批 future，而准入冲突来自跨批共享的 inFlight 足迹——两个并发且互斥（容量占满或排他 lane）的独立 `scheduleBatch` 会互相等待、永不唤醒。修复：准入等待循环在监听本批 future 之外追加监听调度器全局“槽位状态变化”信号（每次 `releaseSlot` 触发，任何批次），任何批次释放槽位都会唤醒全部准入等待者；信号实例的读-挂接顺序保证不漏唤醒（挂到已完成实例立即回调，漏窗口内的释放必然完成所读实例）。`ToolSchedulerTest` 增加 2 例跨批存活回归（容量阻塞 + 排他写 lane 阻塞，均先证明被阻塞方确实卡在准入等待再释放）——修复前实测复现（释放槽位后另一批 `join` 超时）。生产不变量（turn 串行、批不重叠、Act 一次一调用）下该缺陷原本潜伏；此修复是框架契约的一部分。
-- GitHub Actions 已有远端运行证据，但 workflow 不运行模拟器/真机测试；现有 artifact 是短期 debug 安装包，不是签名 release 或发布验收证据。
-- M7 的 MCP/Skill/A2A 已合入 `main`，HXA-070～079 的专项 JVM/构建与 API 29/36 arm64-v8a 模拟器证据已完成，M7 里程碑在当前任务矩阵范围内完成。物理真机、真实第三方服务/代理网络和签名发布仍未执行，归 M12 门禁；PRoot/`bash` 和 Accessibility 已实现；Root 五个高层只读工具已接 developer，但 HXA-094/095 仍缺 rooted 物理设备验收。
-- 设备矩阵：consumer 变体在 API 36 arm64-v8a 模拟器全绿（HXA-048 实测 47/47；迁移修复后复测仍 47/47 无回归）。API 29 已实测，HXA-048 发现的已知失败均已修复：`ProductionMigrationDeviceTest` ×2（`MIGRATION_1_2` 使用 `RENAME COLUMN`，需 SQLite ≥3.25/API 30+，Android 10 上 v1→v2 迁移会崩，既有产品缺陷）已改用 copy-and-swap 修复（见 [Bug 修复记录](../bug-fixes/2026-09-03-room-migration-sqlite-rename-column.md)）；`GoalReminderTest` ×2（POST_NOTIFICATIONS 授予 helper 未对 SDK<33 设防）已修复（helper 在 API<33 时 no-op）；`FilesScreenTest` ×6 的根因**不是**“API 29 模拟器慢 / 超时抖动”，而是两处生产代码调用了 API 29 平台缺失的 `java.*` 方法（`WorkspaceArtifactStore.listDir` 的 `Stream.toList()`（API 31+）与 `ReadWindow.read` 的 `InputStream.skipNBytes`），已修复并复测：API 29 47/47、API 36 47/47 无回归（见 [Bug 修复记录](../bug-fixes/2026-09-03-jvm-stdlib-calls-missing-on-api29.md)）。以上均不再是已知失败；`GoalReminderTest` 在双模拟器并发全量负载下的一次性通知时序 flake 已根因修复（worker 证据槽先于通知张贴的合法窗口改为有界重轮询 + worker 启动边界 120 s → 300 s，见 [Bug 修复记录](../bug-fixes/2026-09-03-goal-reminder-evidence-slot-precedes-post.md)）。多 ABI 与真机矩阵仍待执行。
-- 多渠道能力保留分发目前只是 ADR-0013 的产品决定；核心任务矩阵、权限申报、listing、最终 applicationId/签名与真实商店审核均未完成。
-- 当前 developer manifest 包含 Advanced 能力声明；即使默认关闭，Android 系统设置仍可能列出相关服务或权限。最终各渠道 manifest 由 HXA-122 按实测和审核证据收口。
-- libsu/JitPack 供应链选择已由 accepted ADR-0019 固定并进入 developer 依赖；HXA-094/095 仍缺 rooted 物理设备的 grant/revoke/loss、RootService crash 与真实高阶读取验收。
-- PRoot 与 `bash` 已实现；结构化 Git UI、持久 Git Workspace、remote Git 和凭据能力仍未实现。ADR-0008 已接受的是后续实现边界，不是这些能力的现有实现证据。
-- HXA-099 已接入低内存/后台/热状态采样、可配置 TurnBudgets UI 和 Plan/Goal 模式入口；真实热压力、低内存回收和长稳仍属于设备门禁。生产 child Agent、Agent graph 与 Workflow 未实现；HXA-105 仅有隔离只读 Spike，ADR-0009 已 accepted，但生产实现与启用证据未完成。
-- `TurnCoordinator` 是当前生产 Turn/ModelCall 协调器，旧 `TurnReducer` 仅保留兼容；`ChatService` 仍聚合 send gate、ToolCall 准备、Timeline/Approval 投影和 UI facade，后续按真实测试 seam 渐进提取。
-- **（已由 HXA-069 解决）** M0 壳层中文 Compose 文本资源化的历史限制已消除：全部用户可见文案进入 `values`（简体中文 base）+ `values-en` + `values-zh-rCN`（三套键 parity + 生产源码无硬编码 CJK 门禁 `check-i18n.sh`）；per-app 语言切换（跟随系统/简体中文/English、API 33+ 与系统 App 语言双向同步、Activity/进程重建保持）已落地；HXA-067 语音按钮硬编码「语音」/「语音识别不可用」同批资源化。
-- 全量 developer 设备套件已全绿（2026-09-03 双设备复测：developer 73/73 ×2 零失败、consumer 60/60 ×2 零失败；skip 均为按设计的假设/环境门控）。此前 developer 全量的失败已全部根因修复：① 3 个测试类共 9 例审批/审计测试的顺序相关 flake（探针读 HXA-048 之后按打开会话 scoping 的时间线，跨测试类残留打开会话使 live 卡片行被过滤）——探针改读存储事实源 + 测试自建会话上下文，另补 `@After` 兜底：测试中途夭折遗留的待审批分派会永久占用独占调度槽（每个非读调用都是全屏障），每类结束前 cancel 本类会话遗留 pending 审批并等待结算（见 [Bug 修复记录](../bug-fixes/2026-09-03-approval-device-tests-session-scoped-probe.md)）；② 该修复暴露一个生产缺陷：`ChatService` 刷新遇到不存在的 open session id 会在 IO 协程抛异常**杀死 App 进程**，现降级到会话列表自愈，回归测试 `ChatSessionLifecycleDeviceTest` ×2（见 [Bug 修复记录](../bug-fixes/2026-09-03-stale-open-session-kills-app-process.md)）；③ `AllFilesDeviceTest` 3 例在 API 29 直调 API 30+ 的 `Environment.isExternalStorageManager()` 致 `NoSuchMethodError`——测试补 SDK 门控并断言 API<30 的结构性 UNAVAILABLE 契约（生产侧本已门控，无生产影响；见 [Bug 修复记录](../bug-fixes/2026-09-03-api29-allfiles-device-test-missing-guard.md)）。
-- ADR-0012 的**高敏出网持久规则已由 HXA-068 落地**（Room v5 `high_sensitivity_rules` 类型化持久化 + ADVANCED-only 列表/创建/撤销 UI + `LiveEgressRules` 单一 fail-closed 闸门 + 引擎 `isLiveFor` 窗口/时钟回拨判定 + `AppContainer` `ruleProvider` 接线；规则严格绑定 Provider/MCP ID + 规范 origin + scope + 四固定 TTL，无通配符/滑动续期/"全部允许"）；**Trusted Workspace 和精确批量批准仍待实现**；无匹配规则/窗口失效时回退逐次审批。Tasker/Auto.js、Shizuku/ADB 仅为未排期候选。
-- 文件能力仍有三项边界：mutation 工具统一 L2、trash 长路径可能触发 `NAME_MAX`、超时 abandon 可能留下计入 scope 配额的临时文件；age-based reclaim 与 SAF scope 接线归后续文件管理工作。
-- 文件管理 UI 当前边界：Workspace 恒可写；developer all-files 根本里程碑**只读**（区域守卫拒绝非 workspace 布局的变更，浏览/排序/预览/分享可用，重命名/复制/移动/trash 隐藏）；**M5B / HXA-057 已接入 persisted SAF tree scope（只读浏览后端，设备已验证）**：模型/Tool 只见 `scope:<saf-…>:<相对路径>` + 显示名（`content://` URI 永不进入模型/Room/audit/用户可见错误），每次使用实时 7 步复核 + fail-closed（撤销/provider 消失/重启/只读 grant/URI 变化均 fail closed），SAF 来源在文件管理器只读、变更入口 fail-closed（`SAF 来源为只读`）；设备验收 13 例 × 两台全过（in-APK 文档树 fixture 驱动真 `ContentResolver`），设备期发现并修复 1 处生产 walk 缺陷（根级文件恒 not-found）；**HXA-058 已实现并完成设备验收用户导入/导出入口**（导入 picker → `input/`、导出 `CreateDocument`/已授权树（WRITE 实时复核）+ 字节重读校验 verified 语义；设备 94+107 例 × 两台全绿，设备期修复生产缺陷 3 处[空游标 fail-open×2、工具栏/预览零宽溢出]与夹具/测试架构问题 5 项）。**仍未实现**：SAF **写**后端（浏览树内的通用变更外部文档，无桩/无 TODO——导出到授权树是 HXA-058 任务书要求的受限写路径，不扩大浏览只读边界）。
-- 聊天附件（HXA-049 首批）现为**有界 UTF-8 文本**：UI/`ChatService` 可暂存并经系统 picker 导入单文件到当前会话 app-private Workspace（复用 HXA-044 `SafImportPipeline`，单文件导入不依赖 SAF tree grant），发送/重试前对 `message_attachments` 绑定的 SHA-256 快照 fail-closed 再校验，egress disclosure 同时绑定精确 Provider/origin 与被枚举的附件集合；只有经 probe 确认的 UTF-8 txt/md/csv/json 进入模型上下文，且以带来源、`UNTRUSTED` 标记与整文件哈希的有界（≤8 KiB 内联视图）context item 呈现，超限经 `read(offset,maxBytes)` 分块，绝不 base64 进上下文。**图片（HXA-055 已支持）**：magic 确认的 png/jpeg/webp/gif 经端上归一化（字节门/bounds 探针/采样/EXIF 手动旋转/重编码剥离/预算）发送，`message_attachments` 绑定**归一化 artifact** 并在发送/重试/恢复每次重验；视觉能力需连接测试第 5 阶段探测通过或用户手动声明，未确认时图片可本地保存/预览但发送阻塞（可操作错误，无裸 base64 回退、无静默丢图）；**系统分享（HXA-056 已支持）**：`ACTION_SEND`/`ACTION_SEND_MULTIPLE` 的文字/图片以「分享草稿」会话先本地导入/预览（provider-free 会话，发送前必须显式绑定 Provider；文字预填输入框、图片进暂存预览），**绝不自动发送**（ADR-0014 §5：预览后由用户显式发送）。**端到端硬化与发布边界（HXA-056 已回归）**：发送/流式回复/Tool Loop/历史恢复/脱敏、grant 失效、Artifact 缺失/篡改（重试 fail-closed）、重复发送、绑定后 Provider 不可再换（单会话单 egress）、能力快照变化立即撤销图片视觉、请求过大、图片解压炸弹（伪造 SOF fail-closed）、取消与进程回收（持久化幸存、暂存丢弃）；UTF-16、PDF/PPT/DOC、音频、视频及其他二进制只归入 ADR-0014 的封闭 category 并稳定返回 unsupported，不做文档/媒体解析、渲染、OCR 或 Provider upload；日志/Room/audit/用户可见错误不泄露原始 URI、绝对路径、正文或 base64（有设备回归断言）；三 adapter golden request + ≥1 真实 vision endpoint smoke（本地 SGLang 服务、环境明确记录，不替代协议 fixture）。**导入成功不等于模型已理解**：导入只保证文件在端上落盘并可发送，模型是否理解取决于其能力。以上均受 accepted [ADR-0014](../adr/0014-session-attachment-materialization.md)约束。
-- Workspace 文件层两项低优先特性经 HXA-048 评估后**维持现状**（目录规模 / 大目录成为实际瓶颈前不改）：`WorkspaceQuota.usageBytes` 每次文件操作全量 walk scope 目录报告当前用量；`files.listDir` 先物化排序整个目录再分页、app 层 TIME/SIZE 排序只作用于按名截断前缀。
-- 全项目审查判定为**有意设计、不改动**：`RecoveryCoordinator.canResumeTurn`/`wakeAllowed` 是有测试覆盖、为未实现恢复/继续 UI 预留的门禁 seam；`tools/android`、`tools/browser` 已在 M6 实现并接入标准测试任务，不再是空占位模块。
+- M10 / HXA-179 已完成：ChatService 职责提取，完整主机门禁与 API29/36 各107项回归通过，见 [完成记录](../completion-records/HXA-179.md)。
 
-## Connector 扩展线收尾
+- M10 / HXA-180 已完成：手动 Workspace/共享存储/SAF 变更与恢复，主机2768项零失败（8既有条件跳过）、双 API 各18项及预览连续复跑通过，见 [完成记录](../completion-records/HXA-180.md)。
+- M10 / HXA-181 已完成：当前规范与历史记录分离，文档/ADR/i18n/secrets/diff 通过，见 [完成记录](../completion-records/HXA-181.md)。
 
-M13 首版 HXA-124 已验证；HXA-125 外部验收后置，HXA-127/128 已完成，HXA-126/129/130 尚未完成，M13 未整体完成。Connector 当前继续 HXA-125 真实服务/来源格式验收；WorkBuddy 公开规范的 `streamableHttp` 别名与 `staticHeaders` 认证提示已修复并通过 JVM 回归，2026-09-08 已补齐 GitHub/可灵真实 WorkBuddy 市场样本，修复声明名与目录名不一致的导入问题；仍需独立测试账号。ADR-0023 已于 2026-09-05 获所有者明确接受。所有者已于 2026-09-05 授权将当前已验证修改合入 main；历史本地合并阶段已结束；相关修改已进入 main 并在后续批次推送，当前提交状态以 Git 为准。HXA-125 的外部验收缺口继续保留，全局 Next task 不因本扩展线调整。
+- M10 / HXA-182 已完成：预览/回收站/聊天展示职责提取，手动传输持久记录与显式恢复；双 app JVM 727 通过/8 条件跳过，API29/36 各47项含发布中真实进程死亡后的 UI 恢复通过，见 [完成记录](../completion-records/HXA-182.md)。
 
-Connector 后续任务与未入 Git 的本地验收材料已交接到 main worktree，见 [Connector 工作交接](connector-handoff.md)。
+- M10 / HXA-183 已完成：七项职责拆分；主机897通过/8条件跳过，API29/36各145项app回归及PRoot生命周期/归档/ACK通过，见 [完成记录](../completion-records/HXA-183.md)。
+
+- M10 / HXA-184 已完成：B11/C15 职责与装配整理、审批注册/Goal提醒读取竞态修复；完整主机及独占双API回归通过，见 [完成记录](../completion-records/HXA-184.md)。
+
+## 历史验收索引
+
+以下保留全部已完成 HXA 索引，便于追溯当时的范围、命令、制品和限制。当前机制优先看上方摘要与最新对应完成记录；历史数量不作为当前全量测试数量。
+
+- [路线图](roadmap.md)：任务定义、依赖与状态。
+- [验证矩阵](verification-matrix.md)：各任务验收范围与证据入口。
+- [大类职责审查](large-class-responsibility-audit-2026-09-10.md)：拆分前快照及 HXA-183/184 收口入口；不因剩余类较长自动新增拆分任务。

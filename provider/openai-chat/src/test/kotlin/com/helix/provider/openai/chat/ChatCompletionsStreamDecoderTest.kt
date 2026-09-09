@@ -72,6 +72,22 @@ class ChatCompletionsStreamDecoderTest {
      * call (captured from ollama 0.33.0 + qwen2.5:3b-instruct, HXA-027 device
      * smoke): the COMPLETE arguments ride in the start fragment.
      */
+    @Test fun reasoningContentRemainsSeparateFromAnswerAndRejectsMalformedValues() {
+        fun reasoning(value: String) =
+            chunk("""{"choices":[{"index":0,"delta":{"reasoning_content":$value},"finish_reason":null}]}""")
+        val stream =
+            reasoning("null") + reasoning("\"\"") + reasoning("\"think\"") + contentChunk("answer") +
+                finishChunk("\"stop\"") +
+                DONE_SSE
+        assertEquals(
+            listOf(ModelEvent.ReasoningDelta("think"), ModelEvent.TextDelta("answer"), ModelEvent.Completed("stop")),
+            decodeAll(stream),
+        )
+        for (value in listOf("{}", "42", "\"\\u0000\"")) {
+            assertEquals(listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)), decodeAll(reasoning(value)))
+        }
+    }
+
     @Test
     fun ollamaArgumentsInStartFragmentAreEmitted() {
         val stream =

@@ -6,16 +6,17 @@ package com.helix.core.model
  * ```text
  * DRAFT          -> READY | CANCELLED
  * READY          -> RUNNING | CANCELLED
- * RUNNING        -> INPUT_REQUIRED | PAUSED | COMPLETED | FAILED | CANCELLED
+ * RUNNING        -> INPUT_REQUIRED | PAUSED | BLOCKED | COMPLETED | FAILED | CANCELLED
  * INPUT_REQUIRED -> RUNNING | CANCELLED   (explicit user resume / discard)
- * PAUSED         -> RUNNING | CANCELLED   (explicit user continue / discard)
+ * PAUSED         -> RUNNING | BLOCKED | CANCELLED (explicit continue / dependency / discard)
+ * BLOCKED        -> PAUSED | CANCELLED (host recheck after repair / discard)
  * process death: RUNNING -> PAUSED        (durable park; resume is user-explicit)
  * ```
  *
  * Goals never share the Turn state table (architecture doc section 5.2). Only explicit user
  * action creates a new `goal_run`; WorkManager reminders may be delayed or dropped by Doze and
- * force-stop and never start model or tool work. [COMPLETED] requires verifier-backed evidence
- * for every acceptance criterion; budget exhaustion lands in [PAUSED] or [FAILED], never in
+ * force-stop and never start model or tool work. [COMPLETED] consumes a model report after
+ * host execution gates; budget exhaustion lands in [BLOCKED], never in
  * [COMPLETED].
  */
 enum class GoalState(
@@ -26,6 +27,7 @@ enum class GoalState(
     RUNNING(false),
     INPUT_REQUIRED(false),
     PAUSED(false),
+    BLOCKED(false),
     COMPLETED(true),
     FAILED(true),
     CANCELLED(true),
@@ -48,9 +50,10 @@ enum class GoalState(
             when (this) {
                 DRAFT -> setOf(READY, CANCELLED)
                 READY -> setOf(RUNNING, CANCELLED)
-                RUNNING -> setOf(INPUT_REQUIRED, PAUSED, COMPLETED, FAILED, CANCELLED)
+                RUNNING -> setOf(INPUT_REQUIRED, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED)
                 INPUT_REQUIRED -> setOf(RUNNING, CANCELLED)
-                PAUSED -> setOf(RUNNING, CANCELLED)
+                PAUSED -> setOf(RUNNING, BLOCKED, CANCELLED)
+                BLOCKED -> setOf(PAUSED, CANCELLED)
                 COMPLETED, FAILED, CANCELLED -> emptySet()
             }
 

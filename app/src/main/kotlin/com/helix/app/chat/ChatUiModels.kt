@@ -12,6 +12,8 @@ data class SessionRowUi(
     val isArchived: Boolean,
     val providerName: String?,
     val model: String?,
+    val directoryRef: String? = null,
+    val providerId: String? = null,
 ) {
     companion object {
         fun from(
@@ -25,6 +27,8 @@ data class SessionRowUi(
                 isArchived = entity.archivedAt != null,
                 providerName = providerName,
                 model = entity.modelId,
+                directoryRef = entity.directoryRef,
+                providerId = entity.providerId,
             )
     }
 }
@@ -34,6 +38,7 @@ data class MessageUi(
     val id: String,
     val role: String,
     val content: String,
+    val turnId: String? = null,
 )
 
 /**
@@ -90,7 +95,15 @@ data class ChatScreenState(
      */
     val shareDraftText: String? = null,
     val subscriptionRecoveries: List<SubscriptionRecoveryUi> = emptyList(),
+    val turns: List<TurnUi> = emptyList(),
+    val isDraft: Boolean = false,
+    val preparingDraft: Boolean = false,
+    val sessionTitle: String = "",
+    val directoryRef: String? = null,
+    val contextUsage: ChatContextUsage = ChatContextUsage(),
 ) {
     val isSending: Boolean
-        get() = activeTurn?.let { !it.state.isTerminal && it.state != TurnState.INTERRUPTED } ?: false
+        get() =
+            preparingDraft ||
+                (activeTurn?.let { !it.state.isTerminal && it.state != TurnState.INTERRUPTED } ?: false)
 }

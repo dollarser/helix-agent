@@ -1,0 +1,21 @@
+import subprocess,os,json,pathlib,re,hashlib
+root=pathlib.Path('build/main-verification/current-automation-cleanup-fixed');root.mkdir(exist_ok=True)
+env=os.environ.copy();env['JAVA_HOME']='/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home';rows=[]
+apk=pathlib.Path('tools/automation/build/outputs/apk/androidTest/debug/automation-debug-androidTest.apk')
+pkg='com.helix.tools.automation.test'
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ row={'api':api,'apkSha256':hashlib.sha256(apk.read_bytes()).hexdigest()};rows.append(row)
+ def adb(*args):
+  return subprocess.run(['adb','-s',serial,*args],capture_output=True,text=True,timeout=420,check=True).stdout
+ try:
+  row['install']=adb('install','-r',str(apk))
+  output=adb('shell','am','instrument','-w','-r','-e','class','com.helix.tools.automation.AutomationServiceDeviceTest',pkg+'/androidx.test.runner.AndroidJUnitRunner');(root/f'api{api}-service.log').write_text(output)
+  row['servicePassed']='OK (1 test)' in output and not re.search(r'INSTRUMENTATION_STATUS_CODE: -[234]',output)
+  row['servicesAfter']=adb('shell','settings','get','secure','enabled_accessibility_services').strip();row['enabledAfter']=adb('shell','settings','get','secure','accessibility_enabled').strip()
+  if not row['servicePassed'] or pkg in row['servicesAfter']:raise RuntimeError('service test failed or left its component enabled')
+  command=['bash','tools/automation/scripts/run-hxa093-force-stop-matrix.sh',serial]
+  with (root/f'api{api}-force-stop.log').open('w') as out:
+   row['forceStopExit']=subprocess.run(command,env=env,stdout=out,stderr=subprocess.STDOUT,timeout=420).returncode
+  row['passed']=row['forceStopExit']==0
+ except Exception as e:row.update(passed=False,error=str(e))
+ (root/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(api,row['passed'],row.get('error',''),flush=True)

@@ -3,11 +3,6 @@ package com.helix.runtime.proot.app
 import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.helix.runtime.proot.core.JobArchiveException
-import com.helix.runtime.proot.core.JobArchiveLimits
-import com.helix.runtime.proot.core.JobManifest
-import com.helix.runtime.proot.core.JobManifestCodec
-import com.helix.runtime.proot.core.JobManifestEntry
-import com.helix.runtime.proot.core.JobPath
 import com.helix.runtime.proot.core.JobZipWriter
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.ZipJobExtractor
@@ -21,7 +16,6 @@ import com.helix.runtime.proot.ipc.ProotJobSubmitResult
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.InputStream
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
@@ -29,7 +23,6 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -56,8 +49,8 @@ import java.util.concurrent.atomic.AtomicReference
  * [ZipJobExtractor], and verifies the manifest hash against the record's
  * `outputManifestSha256` — that is the reconciliation proof.
  *
- * The runner IS the job lifecycle (submit, launch, capture, watchdog, terminal,
- * journal, sweep) in one process-wide object; splitting it only moves coupling.
+ * The runner owns lifecycle, watchdog and terminal publication in one process-wide
+ * object. Bounded capture and archive encoding are independent helpers.
  */
 @Suppress("TooManyFunctions")
 class ProotJobRunner private constructor(
@@ -579,49 +572,6 @@ class ProotJobRunner private constructor(
         )
     }
 
-    /**
-     * Writes the output archive (manifest entry first, then every artifact in
-     * manifest order) into [archive]; returns the canonical manifest document
-     * whose SHA-256 is the record's `outputManifestSha256`. Caps come from
-     * [JobArchiveLimits].
-     */
-    @Suppress("ThrowsCount") // one throw per distinct output failure
-    private fun buildOutputArchive(
-        archive: File,
-        workspace: File,
-        vararg extra: Pair<String, File>,
-    ): String {
-        val files = LinkedHashMap<String, File>()
-        if (workspace.isDirectory) {
-            workspace.walkTopDown().filter { it.isFile }.forEach { file ->
-                val rel = file.relativeTo(workspace).path
-                JobPath.validate(rel)
-                files[rel] = file
-            }
-        }
-        extra.forEach { (name, file) -> files[name] = file }
-        if (files.size > JobArchiveLimits.MAX_FILES) throw JobArchiveException("output exceeds the file count cap")
-        val entries =
-            files.entries
-                .map { (rel, file) ->
-                    if (file.length() > JobArchiveLimits.MAX_SINGLE_FILE_BYTES) {
-                        throw JobArchiveException("output file exceeds the per-file cap: $rel")
-                    }
-                    JobManifestEntry(rel, sha256OfFile(file), file.length())
-                }.sortedBy { it.path }
-        val totalBytes = entries.sumOf { it.size } + entries.sumOf { (it.path.length + 130).toLong() }
-        if (totalBytes > JobArchiveLimits.MAX_TOTAL_BYTES) {
-            throw JobArchiveException("output exceeds the total cap")
-        }
-        val manifestDocument = JobManifestCodec.encode(JobManifest(entries))
-        JobZipWriter(archive.outputStream()).use { writer ->
-            writer.writeManifest(manifestDocument)
-            entries.forEach { entry -> writer.writeEntry(entry.path, files.getValue(entry.path)) }
-            // close() re-checks written == manifest and flushes the PFD
-        }
-        return manifestDocument
-    }
-
     // ------------------------------------------------------------------ control
 
     override fun acknowledgeResult(
@@ -834,103 +784,6 @@ class ProotJobRunner private constructor(
     }
 }
 
-private interface CaptureBudget {
-    val hitLimit: AtomicBoolean
-
-    fun take(want: Int): Int
-}
-
-/** Shared stdout+stderr budget (the spec's maxOutputBytes caps the COMBINED streams). */
-private class OutputBudget(
-    limitBytes: Long,
-) : CaptureBudget {
-    private val remaining = AtomicLong(limitBytes)
-    override val hitLimit = AtomicBoolean(false)
-
-    /** Takes up to [want] bytes; returns the allowed amount (0 once the budget is spent). */
-    override fun take(want: Int): Int {
-        while (true) {
-            val cur = remaining.get()
-            if (cur <= 0) {
-                hitLimit.set(true)
-                return 0
-            }
-            val allow = minOf(cur, want.toLong()).toInt()
-            if (remaining.compareAndSet(cur, cur - allow)) return allow
-        }
-    }
-}
-
-/** A stream-local cap layered over the shared combined-output cap. */
-private class StreamOutputBudget(
-    private val shared: OutputBudget,
-    limitBytes: Long,
-) : CaptureBudget {
-    private val remaining = AtomicLong(limitBytes)
-    override val hitLimit: AtomicBoolean
-        get() = shared.hitLimit
-
-    override fun take(want: Int): Int {
-        while (true) {
-            val current = remaining.get()
-            if (current <= 0) {
-                hitLimit.set(true)
-                return 0
-            }
-            val streamAllowed = minOf(current, want.toLong()).toInt()
-            if (remaining.compareAndSet(current, current - streamAllowed)) {
-                val allowed = shared.take(streamAllowed)
-                if (allowed < want) hitLimit.set(true)
-                return allowed
-            }
-        }
-    }
-}
-
-/**
- * Capped stream capture sharing one [OutputBudget]: reads until EOF or the
- * budget is spent (flagging it so the watchdog kills the group — a job that
- * streams past its cap never runs on).
- */
-private class BoundedCapture(
-    private val budget: CaptureBudget,
-    private val onLimit: () -> Unit = {},
-) {
-    private val buffer = java.io.ByteArrayOutputStream()
-
-    @Volatile
-    var bytes: ByteArray = ByteArray(0)
-        private set
-
-    val truncated: Boolean
-        get() = budget.hitLimit.get()
-
-    // The pump has two legal exits (EOF, budget); both must stop immediately.
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // a read error is a short capture, not a crash
-    fun drain(input: InputStream) {
-        val chunk = ByteArray(65536)
-        try {
-            var n = input.read(chunk)
-            while (n >= 0) {
-                val allow = budget.take(n)
-                if (allow > 0) buffer.write(chunk, 0, allow)
-                if (allow < n) {
-                    budget.hitLimit.set(true)
-                    onLimit()
-                    break
-                }
-                n = input.read(chunk)
-            }
-        } catch (e: Exception) {
-            // stream closed by the kill: keep what was captured
-        }
-    }
-
-    fun finish() {
-        bytes = buffer.toByteArray()
-    }
-}
-
 private fun sha256Of(bytes: ByteArray): String =
     MessageDigest
         .getInstance("SHA-256")
@@ -1014,7 +867,7 @@ private fun executableLoader(
     }
 }
 
-private fun sha256OfFile(file: File): String {
+internal fun sha256OfFile(file: File): String {
     val digest = MessageDigest.getInstance("SHA-256")
     FileInputStream(file).use { input ->
         val chunk = ByteArray(65536)

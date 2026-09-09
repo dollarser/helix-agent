@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Close HXA-183 only after independently verified final host/device evidence exists."""
+from pathlib import Path
+import json
+import subprocess
+ROOT=Path(__file__).resolve().parents[3]
+e=ROOT/'build/debug/2026-09-10/hxa183'
+assert 'BUILD SUCCESSFUL' in (e/'final-gates-all.log').read_text()
+verified=subprocess.check_output(['python3','scripts/debug/2026-09-10/verify-hxa183-evidence.py',
+    str(e/'accepted29'),str(e/'accepted36'),str(e/'runtime29'),str(e/'runtime36')],cwd=ROOT,text=True)
+(e/'verified-evidence.jsonl').write_text(verified)
+rows=[json.loads(line) for line in verified.splitlines()]
+assert rows[0]['companion']==rows[1]['companion']
+assert rows[0]['main-proot']==rows[1]['main-proot']
+companion, main = rows[0]['companion'], rows[0]['main-proot']
+record=f'''# HXA-183: 七项大类职责拆分
+
+日期：2026-09-10。分支 `codex/phone-chat-polish`，未提交、推送或合并 main。
+
+## 实现与边界
+
+| 原入口 | 拆分前 → 当前行数 | 职责归属 |
+| --- | --- | --- |
+| ChatService | 1811 → 1730 | ChatDraftStore 独占草稿/准备锁；ChatAttachmentRetry 解析重试绑定；服务保留会话准入、发送与 Turn 生命周期 |
+| ChatToolCalls | 685 → 544 | ChatToolMessageEncoder 编码消息，ChatDispatchRequests 构造可信请求；审批事实和顺序结算仍集中 |
+| ChatScreen | 842 → 184 | 会话列表、对话区、模式控制、时间线分区；ConversationIntents 明确 UI 意图 |
+| ProviderScreen | 832 → 223 | 表单/保存处理与 Provider 行/连接状态分离 |
+| FileManagerServiceTransfers | 831 → 135 | 原 facade 保留，导入与导出各自维护权限、冲突、结果映射；不并入手动恢复日志 |
+| LinuxRunTool | 1038 → 537 | 保留嵌套 ProductionLinuxExecutor 兼容构造，委托 LinuxJobExecution；LinuxInputSnapshot 只构造有界快照 |
+| ProotJobRunner | 1028 → 881 | 有界流捕获与归档提取；取消、deadline、终态与进程组/孤儿清理仍由 runner 独占 |
+
+行数是含注释/导入/空行的文件快照，不是复杂度指标。ChatService 和 ProotJobRunner 仍较长：本轮优先形成明确 owner 与可验证边界，不把状态机机械切散。B/C 类审查建议未在本批扩大执行，D 类保留集中。
+
+原有公开入口、Tool schema、IPC、存储格式、审批与按原 jobId 对账语义保持。没有新增依赖、Agent 能力或自动重放路径。
+
+决策记录：不适用；在既有 ADR 契约内拆分实现。ADR-0007 的 Runtime 生命周期和现有 Goal/文件授权边界未改变。
+
+## 回归中修复
+
+- 提取草稿 owner 后，构造期状态订阅可能先于 owner 初始化运行，导致 API29 首次刷新 NPE。owner 已移动到订阅之前；新增 Unconfined 立即观察设备用例，避免只靠异步时序碰运气。
+- 新的 ChatDraftStore 原子拒绝重复准备，并冻结准备中的草稿修改；失败落库保留草稿，释放准备后可重新尝试。JVM 4 项覆盖持久化失败、并发准入、元数据/附件及过期草稿边界，两 flavor 均通过。
+- 既有后台任务文字入口挤压 240dp 窄屏顶栏：小于360dp 时入口移到“更多”面板，保留导航/新建等48dp点击区域；2倍字体回归同时验证后台任务仍可访问。返回会话列表测试补等待实际异步状态，不删断言、不跳过测试。
+
+## 验证
+
+最终主机命令（日志 `build/debug/2026-09-10/hxa183/final-gates-all.log`）：
+
+```sh
+./gradlew spotlessApply :app:testDeveloperDebugUnitTest :app:testConsumerDebugUnitTest :runtime:proot-core:test :runtime:proot-ipc:testDebugUnitTest :runtime:proot-client:testDebugUnitTest detekt :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest :runtime:proot-app:assembleDebug :runtime:proot-app:assembleDebugAndroidTest lintDebug :app:lintConsumerDebug :app:lintDeveloperDebug --continue --max-workers=1
+```
+
+- BUILD SUCCESSFUL。905 项 JVM：897通过、8项既有外部样本/服务条件跳过、0 failure/error；app 743（735通过/8跳过），PRoot core/ipc/client 162通过。companion 无 JVM suite，其执行依赖设备证据。
+- `run-hxa183-device.sh consumer 29 5586 .../accepted29` 和 `developer 36 5584 .../accepted36`：两侧各145/145 app 回归，0 ignored。包括导入导出12项、草稿/模型/顶栏/Provider、审批/取消/附件、Goal/压缩/后台和文件 UI。
+- App回归后发现 worktree 缺少被Git忽略的RootFS资产，两个follow-up在安装阶段失败；`restore-locked-proot-assets.py` 只读复用主工作树相同lock的5个资产，核对RootFS锁定hash、loader一致性并记录逐文件SHA，重建companion成功。未改main或lock，不将缺资产轮算作PRoot通过。
+- `run-hxa183-runtime-device.sh 29 5586 .../runtime29` / `36 5584 .../runtime36` 另起独占实例，复用 `accept-hxa-086-lifecycle.sh`，两 API 均完整通过：冷绑定、force-stop、空闲回收、锁屏、受控后台 kill、主 App/companion 中途死亡与原 jobId 对账、wake-lock采样、重复job、真实guest smoke/隔离/通知停止。受控kill不等于真实低内存或真机Doze。
+- 生命周期后每侧 companion {companion}/{companion}、主 App PRoot {main}/{main} 全部通过，无条件跳过；覆盖输出归档失败/部分交付、ACK、owner死亡、进程组取消/超时与真实 Linux Tool 输入输出。
+- `accepted29`、`accepted36` 保存app回归证据，`runtime29`、`runtime36`保存补齐资产后的PRoot验收；均有APK/hash、完整非空instrumentation和关闭记录。`verify-hxa183-evidence.py` 分别核对当前制品一致及四个自建实例已关闭；只把相应阶段的成功结果计入通过，不将app通过当成失败follow-up通过。未操作既有emulator-5554或真机。
+- 前期失败轮保留在 `api29/api36`、`final29/final36`；分别用于初始化缺陷与窄屏/测试同步取证，不计入最终通过。静态检查的中间格式失败也保留，最终以 final-gates-all 为准。
+- 文档、ADR、i18n、secrets 和 diff 门禁在收口后单独运行，日志 `final-docs.log`。
+
+## 未扩大范围
+
+系统 JNI/Binder 根因、长稳、真实账号、Root真机和商店发布门禁不由本轮替代。PRoot helper 提取没有改变 WebView/系统 Binder 资源机制。
+'''
+# Actual final file size, rather than a manually guessed number.
+count=len((ROOT/'app/src/main/kotlin/com/helix/app/chat/ChatService.kt').read_text().splitlines())
+record=record.replace('1811 → 1730',f'1811 → {count}')
+(ROOT/'docs/completion-records/HXA-183.md').write_text(record)
+p=ROOT/'docs/development/status.md'; s=p.read_text().replace('更新时间：2026-09-09','更新时间：2026-09-10',1)
+s=s.replace('HXA-182 的进一步职责收敛及文件传输恢复也已完成，不自动启动其他新功能候选。','HXA-182 的文件传输恢复与 HXA-183 的七项职责拆分均已完成；最新实现和验证见 [HXA-183](../completion-records/HXA-183.md)，不自动启动其他新功能候选。')
+s=s.replace('HXA-183：按大类审查拆分 7 项优先职责，保持行为与契约，实施与回归中；不提交、推送或合并 main。','无。HXA-183 七项职责拆分及回归已完成，保留当前 worktree；未提交、推送或合并 main。')
+s=s.replace('## In progress','- M10 / HXA-183 已完成：七项职责拆分；主机897通过/8条件跳过，API29/36各145项app回归及PRoot生命周期/归档/ACK通过，见 [完成记录](../completion-records/HXA-183.md)。\n\n## In progress',1)
+p.write_text(s)
+p=ROOT/'docs/development/roadmap.md'; s=p.read_text(); i=s.index('### HXA-183'); s=s[:i]+s[i:].replace('状态：in progress。','状态：completed，见 [完成记录](../completion-records/HXA-183.md)。',1); p.write_text(s)
+p=ROOT/'docs/development/verification-matrix.md'; s=p.read_text().replace('实施与回归中；完成后按独立设备及真实非空结果记录，不以主机通过代替设备验收','主机897通过/8条件跳过，双API各145项app及PRoot生命周期/归档/ACK通过；见 [HXA-183](../completion-records/HXA-183.md)'); p.write_text(s)
+print(verified)

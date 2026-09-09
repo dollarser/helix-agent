@@ -10,7 +10,6 @@ import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.CapabilityProbe
 import com.helix.provider.api.CleartextAuthorization
-import com.helix.provider.api.CredentialLookup
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
@@ -45,7 +44,7 @@ import kotlinx.coroutines.withContext
  * connection test, the send-path gates) so the invariants ("no untested
  * provider is selectable", "bindings prune with the endpoints") stay together.
  */
-@Suppress("TooManyFunctions")
+@Suppress("TooManyFunctions", "LongParameterList")
 class ProviderService(
     private val storage: HelixStorage,
     private val factory: ProviderFactory,
@@ -56,7 +55,54 @@ class ProviderService(
     private val idGenerator: () -> String,
     private val managed: ManagedProviderHooks = ManagedProviderHooks(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    val contextSettingsStore: ProviderContextSettingsStore =
+        ProviderContextSettingsStore(
+            com.helix.app.internal
+                .InMemoryLineStore(),
+        ),
 ) {
+    private val _contextRevision = MutableStateFlow(0L)
+    val contextRevision: StateFlow<Long> = _contextRevision.asStateFlow()
+
+    suspend fun contextSettings(
+        providerId: String,
+        model: String? = null,
+    ): ProviderContextSettings {
+        val config = storedConfig(providerId)
+        return contextSettingsStore.read(providerId, config.endpoint.full, model ?: config.model)
+    }
+
+    suspend fun saveContextSettings(
+        providerId: String,
+        model: String,
+        settings: ProviderContextSettings,
+    ) {
+        val config = storedConfig(providerId)
+        val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+        contextSettingsStore.write(
+            providerId,
+            config.endpoint.full,
+            model,
+            settings.copy(serverWindow = previous.serverWindow),
+        )
+        _contextRevision.value++
+        refresh()
+    }
+
+    suspend fun discoverContextWindow(
+        providerId: String,
+        model: String,
+    ): ProviderContextSettings =
+        withContext(workScope.coroutineContext) {
+            val config = storedConfig(providerId)
+            val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+            val detected = factory.create(config).contextWindow(model)
+            val updated = previous.copy(serverWindow = detected)
+            contextSettingsStore.write(providerId, config.endpoint.full, model, updated)
+            _contextRevision.value++
+            updated
+        }
+
     private val workScope = scope
     private val _rows = MutableStateFlow<List<ProviderRowUi>>(emptyList())
 
@@ -70,6 +116,19 @@ class ProviderService(
      */
     private val _networkOperations = MutableStateFlow(0)
     val networkOperations: StateFlow<Int> = _networkOperations.asStateFlow()
+
+    private val connectionProbe =
+        ProviderConnectionProbe(
+            storage,
+            factory,
+            testStatus,
+            probe,
+            clock,
+            managed,
+            ::storedConfig,
+            ::discoverContextWindow,
+            { _networkOperations.value += 1 },
+        )
 
     /**
      * Re-reads persisted state into [rows] (call on app start and after
@@ -234,52 +293,8 @@ class ProviderService(
      */
     suspend fun runConnectionTest(providerId: String): ProbeOutcome =
         withContext(workScope.coroutineContext) {
-            runConnectionTestNow(providerId)
+            connectionProbe.run(providerId).also { refreshNow() }
         }
-
-    /** The probe itself; only ever run on the service's IO scope (network + Room). */
-    private suspend fun runConnectionTestNow(providerId: String): ProbeOutcome {
-        val config = storedConfig(providerId)
-        val provider = factory.create(config)
-        _networkOperations.value += 1
-        val outcome = managed.probe(config, provider) ?: probe.probe(provider)
-        when (outcome) {
-            is ProbeOutcome.Ok -> {
-                storage.providerConfigs.overwrite(
-                    storage.providerConfigs.resolve(providerId).let { e ->
-                        ProviderConfigSpec(
-                            id = e.id,
-                            displayName = e.displayName,
-                            protocol = ProviderProtocol.parse(e.protocol),
-                            endpoint = e.endpoint,
-                            model = e.model,
-                            headersJson = e.headersJson,
-                            secretAlias = e.secretAlias,
-                            capabilitySnapshot = ProviderCapabilities.toJsonString(outcome.capabilities),
-                        )
-                    },
-                )
-                testStatus.recordPassed(
-                    providerId,
-                    clock.now().toEpochMilli(),
-                    outcome.capabilities,
-                    outcome.models,
-                )
-            }
-
-            is ProbeOutcome.Failed -> {
-                testStatus.recordFailed(
-                    providerId,
-                    clock.now().toEpochMilli(),
-                    outcome.phase,
-                    outcome.code,
-                    outcome.retryable,
-                )
-            }
-        }
-        refreshNow()
-        return outcome
-    }
 
     /**
      * The typed config of a persisted provider (fail-closed on corruption).

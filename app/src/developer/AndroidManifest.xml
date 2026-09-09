@@ -5,18 +5,6 @@
         <package android:name="com.helix.runtime.cli" />
     </queries>
     <!--
-        HXA-045 (developer flavor only): the All files consent flow requires MANAGE_EXTERNAL_STORAGE.
-        Declaring it grants nothing to the agent by itself — even when the system grant is on, the
-        file tools address only the af- roots the user explicitly enabled, and every call still
-        passes scope/Policy/approval. The consumer variant never declares this permission.
-        tools:ignore documents the accepted Lint ScopedStorage risk (HXA-045): the developer variant
-        is an internal, non-Play build that legitimately manages public storage; the Play-policy check
-        does not apply to the consumer (Play-distributed) variant, which never declares this permission.
-    -->
-    <uses-permission
-        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
-        tools:ignore="ScopedStorage" />
-    <!--
         HXA-083 (developer flavor only): use the companion's signature-level bind
         permission. It is granted only because the developer app and
         com.helix.runtime.proot are signed by the same set key; the consumer

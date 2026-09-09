@@ -9,19 +9,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -45,6 +47,8 @@ import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.CompactPageHeader
+import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.SettingsScreen
@@ -213,24 +217,7 @@ internal fun HelixApp(container: AppContainer) {
         ) {
             Scaffold(
                 topBar = {
-                    TopAppBar(
-                        title = { Text(stringResource(currentDestination.titleRes)) },
-                        navigationIcon = {
-                            IconButton(
-                                onClick = { scope.launch { drawerState.open() } },
-                                modifier = Modifier.testTag("open-navigation"),
-                            ) {
-                                Text(
-                                    text = "☰",
-                                    style = MaterialTheme.typography.headlineSmall,
-                                )
-                            }
-                        },
-                        colors =
-                            TopAppBarDefaults.topAppBarColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
-                    )
+                    ShellTopBar(currentDestination) { scope.launch { drawerState.open() } }
                 },
             ) { padding ->
                 NavHost(
@@ -246,6 +233,8 @@ internal fun HelixApp(container: AppContainer) {
                                         container.chatService,
                                         container.providerService,
                                         container.privacyDeletionService,
+                                        container.fileManager,
+                                        onNavigation = { scope.launch { drawerState.open() } },
                                     )
                                 }
 
@@ -259,6 +248,14 @@ internal fun HelixApp(container: AppContainer) {
                                         container.lanScopeStore,
                                         container.skillAuthoringService,
                                         container.skillInstallationService,
+                                    )
+                                }
+
+                                ShellDestination.Extensions -> {
+                                    ExtensionsScreen(
+                                        container.skillAuthoringService,
+                                        container.skillInstallationService,
+                                        container.connectorService,
                                     )
                                 }
 
@@ -281,11 +278,7 @@ internal fun HelixApp(container: AppContainer) {
                                 // HXA-045: the all-files consent screen lives in the developer
                                 // flavor; the consumer build keeps the honest empty state.
                                 ShellDestination.Permissions -> {
-                                    if (AllFilesModule.AVAILABLE) {
-                                        AllFilesModule.render(container.profileStore)
-                                    } else {
-                                        EmptyDestination(destination, PaddingValues(24.dp))
-                                    }
+                                    PermissionsScreenDestination(container)
                                 }
 
                                 else -> {
@@ -297,6 +290,16 @@ internal fun HelixApp(container: AppContainer) {
                 }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun PermissionsScreenDestination(container: AppContainer) {
+    if (AllFilesModule.AVAILABLE) {
+        AllFilesModule.render(container.profileStore)
+    } else {
+        EmptyDestination(ShellDestination.Permissions, PaddingValues(24.dp))
     }
 }
 
@@ -340,6 +343,25 @@ private fun EmptyDestination(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
+        }
+    }
+}
+
+/** Sessions own their header; all other routes share the same compact visual style. */
+@Composable
+@Suppress("FunctionName")
+private fun ShellTopBar(
+    currentDestination: ShellDestination,
+    onNavigation: () -> Unit,
+) {
+    if (currentDestination != ShellDestination.Sessions) {
+        // Scaffold delegates top insets to its topBar; our compact Row is not a Material TopAppBar.
+        Box(
+            Modifier.windowInsetsPadding(
+                WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+            ),
+        ) {
+            CompactPageHeader(stringResource(currentDestination.titleRes), onNavigation)
         }
     }
 }

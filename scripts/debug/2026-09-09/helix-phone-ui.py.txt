@@ -1,0 +1,13 @@
+import subprocess,xml.etree.ElementTree as E,sys
+adb=['<ANDROID_SDK>/platform-tools/adb','-s','<EXPLICIT_PHYSICAL_DEVICE_SERIAL>']
+subprocess.run(adb+['shell','uiautomator','dump','/sdcard/helix-ui.xml'],stdout=subprocess.DEVNULL,check=True)
+b=subprocess.check_output(adb+['shell','cat','/sdcard/helix-ui.xml'])
+if len(sys.argv)>1:
+ import re
+ nodes=[n for n in E.fromstring(b).iter('node') if n.get('text')==sys.argv[1]]
+ if len(nodes)!=1:raise RuntimeError('Text match count '+str(len(nodes)))
+ x1,y1,x2,y2=map(int,re.findall(r'\d+',nodes[0].get('bounds')))
+ subprocess.run(adb+['shell','input','tap',str((x1+x2)//2),str((y1+y2)//2)],check=True)
+ sys.exit()
+for n in E.fromstring(b).iter('node'):
+ if n.get('text') or n.get('clickable')=='true':print({k:n.get(k) for k in ['text','content-desc','bounds','enabled']})

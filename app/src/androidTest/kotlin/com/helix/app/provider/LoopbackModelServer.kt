@@ -56,7 +56,11 @@ internal class LoopbackModelServer(
     val heldSocket =
         java.util.concurrent.atomic
             .AtomicReference<Socket>()
+    val lastChatRequest =
+        java.util.concurrent.atomic
+            .AtomicReference<String?>(null)
     val holdChatStreams = AtomicBoolean(false)
+    val failNextSummary = AtomicBoolean(false)
     val heldStreams = AtomicInteger(0)
     val heldStreamDisconnected = AtomicBoolean(false)
     private val thread: Thread =
@@ -132,7 +136,14 @@ internal class LoopbackModelServer(
             } else {
                 ByteArray(0)
             }
-        if (holdChatStreams.get() && path == "/v1/chat/completions") {
+        if (path == "/v1/chat/completions") lastChatRequest.set(String(body, StandardCharsets.UTF_8))
+        val summaryFailure =
+            path == "/v1/chat/completions" &&
+                String(body, StandardCharsets.UTF_8).contains("compact continuity notes") &&
+                failNextSummary.compareAndSet(true, false)
+        if (summaryFailure) {
+            writeJson(output, 503, "{\"error\":\"temporary fixture failure\"}")
+        } else if (holdChatStreams.get() && path == "/v1/chat/completions") {
             holdChatStream(socket)
         } else {
             respond(output, path, String(body, StandardCharsets.UTF_8))
@@ -216,8 +227,35 @@ internal class LoopbackModelServer(
     }
 
     /** The OpenAI-compatible stream for the request body (tool fixture iff the body offers tools). */
-    private fun chatStream(requestBody: String): String =
-        if (requestBody.contains("\"tools\"")) OPENAI_TOOL_STREAM else OPENAI_TEXT_STREAM
+    var forceTextResponses = false
+
+    @Volatile var goalReportStatus: String? = null
+
+    @Suppress("ReturnCount") // Independent report, tool-probe and plain-text fixture responses.
+    private fun chatStream(requestBody: String): String {
+        val report = goalReportStatus
+        if (report != null) {
+            if (requestBody.contains("\"role\":\"tool\"")) return OPENAI_TEXT_STREAM
+            val arguments =
+                kotlinx.serialization.json
+                    .buildJsonObject {
+                        put("status", kotlinx.serialization.json.JsonPrimitive(report))
+                        put(
+                            "summary",
+                            kotlinx.serialization.json.JsonPrimitive("Checked the requested answer; no work remains."),
+                        )
+                    }.toString()
+            val function =
+                kotlinx.serialization.json.buildJsonObject {
+                    put("name", kotlinx.serialization.json.JsonPrimitive("goal.report"))
+                    put("arguments", kotlinx.serialization.json.JsonPrimitive(arguments))
+                }
+            return "data: {\"id\":\"goal-fixture\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[" +
+                "{\"id\":\"report-call\",\"index\":0,\"type\":\"function\",\"function\":$function}]}," +
+                "\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n"
+        }
+        return if (!forceTextResponses && requestBody.contains("\"tools\"")) OPENAI_TOOL_STREAM else OPENAI_TEXT_STREAM
+    }
 
     /** The Anthropic Messages stream for the request body (tool fixture iff the body offers tools). */
     private fun anthropicStream(requestBody: String): String =

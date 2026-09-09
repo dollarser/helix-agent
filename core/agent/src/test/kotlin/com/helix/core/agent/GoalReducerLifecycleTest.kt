@@ -75,8 +75,9 @@ class GoalReducerLifecycleTest {
         // Park the goal via budget exhaustion, extend the budget, then continue.
         var goal = runningGoal()
         goal = reduceGoal(goal, GoalEvent.WakeUsageReported(3, 0, 0, 0)).state
-        assertEquals(GoalState.PAUSED, goal.state)
+        assertEquals(GoalState.BLOCKED, goal.state)
         goal = reduceGoal(goal, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 5))).state
+        goal = reduceGoal(goal, GoalEvent.BlockerResolved).state
         val fromPaused = reduceGoal(goal, GoalEvent.Continued(GoalWakeReason.NOTIFICATION_ACTION))
         assertEquals(GoalState.RUNNING, fromPaused.state.state)
         assertEquals(GoalWakeReason.NOTIFICATION_ACTION, fromPaused.state.lastWakeReason)
@@ -212,11 +213,9 @@ class GoalReducerLifecycleTest {
         }
     }
 
-    /** A RUNNING goal whose single criterion already carries verifier evidence. */
+    /** A RUNNING goal ready to report semantic completion. */
     private fun fullySatisfiedRunningGoal(): Goal {
         val goal = runningGoal()
-        val evidence =
-            GoalFixtures.evidence()
-        return reduceGoal(goal, GoalEvent.CriterionSatisfied("c1", evidence)).state
+        return goal
     }
 }

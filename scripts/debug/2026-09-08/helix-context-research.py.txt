@@ -1,0 +1,11 @@
+import urllib.request,json,concurrent.futures,pathlib
+root=pathlib.Path('/tmp/helix-context-research');root.mkdir(exist_ok=True)
+def get(url):
+ with urllib.request.urlopen(urllib.request.Request(url,headers={'User-Agent':'Helix-source-review'}),timeout=35) as r:return json.load(r)
+def run(repo):
+ meta=get('https://api.github.com/repos/'+repo);branch=meta['default_branch'];head=get('https://api.github.com/repos/'+repo+'/commits/'+branch)['sha'];tree=get('https://api.github.com/repos/'+repo+'/git/trees/'+head+'?recursive=1')
+ d={'repo':repo,'sha':head,'tree':tree};(root/(repo.split('/')[-1]+'.json')).write_text(json.dumps(d))
+ matches=[x['path'] for x in tree['tree'] if any(n in x['path'] for n in ['EBWebView.kt','BrowserActivity.kt','BrowserTabFragment.kt','WebViewFactory','WebViewPool','LightningView.kt','TabsManager','TabManager','AndroidManifest.xml','TabState','WebViewProvider']) and x['path'].endswith(('.kt','.java','.xml'))]
+ return repo,head,matches[:45]
+with concurrent.futures.ThreadPoolExecutor(3) as ex:
+ for result in ex.map(run,['plateaukao/einkbro','Slion/Fulguris','duckduckgo/Android']):print(json.dumps(result))

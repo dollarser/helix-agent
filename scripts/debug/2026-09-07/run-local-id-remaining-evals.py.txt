@@ -1,0 +1,18 @@
+from pathlib import Path
+import subprocess,json,hashlib
+root=Path('build/main-verification/local-id-remaining-evals');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb';base=[adb,'-s','<OWNED_EMULATOR_SERIAL>']
+expected=json.loads(Path('build/main-verification/local-id-real-mcp-api34/config.json').read_text())['installedApkSha256']
+for pkg,hashes in expected.items():
+ paths=subprocess.check_output(base+['shell','pm','path',pkg],text=True).splitlines()
+ actual=[subprocess.check_output(base+['shell','sha256sum',p.removeprefix('package:')],text=True).split()[0] for p in paths]
+ assert actual==hashes,(pkg,actual,hashes)
+assert expected['com.helix.agent.developer']==[hashlib.sha256(Path('app/build/outputs/apk/developer/debug/app-developer-debug.apk').read_bytes()).hexdigest()]
+(root/'installed-apks.json').write_text(json.dumps(expected,indent=2)+'\n')
+records=[]
+for suite in ['providers','plan','javascript','browser','skills','accessibility','root']:
+ with (root/f'{suite}-host.log').open('w') as log:
+  p=subprocess.run(['python3','scripts/run-hxa100-provider-evals.py','<OWNED_EMULATOR_SERIAL>','--provider-port','30018','--suite',suite,'--output',str(root/suite)],stdout=log,stderr=subprocess.STDOUT)
+ records.append({'suite':suite,'exit':p.returncode})
+ (root/'progress.json').write_text(json.dumps(records,indent=2)+'\n');print(records[-1],flush=True)
+ if p.returncode:raise SystemExit(p.returncode)

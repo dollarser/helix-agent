@@ -1,0 +1,20 @@
+import subprocess,sys,pathlib
+serial,api=sys.argv[1:]
+adb='<ANDROID_SDK>/platform-tools/adb'
+root=pathlib.Path('<HELIX_CHECKOUT>')
+out=subprocess.check_output([adb,'-s',serial,'shell','am','instrument','-w','-r','com.helix.feature.browser.test/androidx.test.runner.AndroidJUnitRunner'],text=True,timeout=180)
+pathlib.Path(f'/tmp/helix160-browser{api}-final-evidence.log').write_text(out)
+if 'OK (38 tests)' not in out or 'FAILURES!!!' in out:raise RuntimeError('full browser suite failed')
+print('full browser',api,'passed',flush=True)
+for i in range(3):
+ p=pathlib.Path(f'/tmp/helix160-autofill{api}-stable-{i}.log')
+ out=subprocess.check_output([adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class','com.helix.feature.browser.BrowserAutofillDeviceTest','com.helix.feature.browser.test/androidx.test.runner.AndroidJUnitRunner'],text=True,timeout=120)
+ p.write_text(out)
+ if 'OK (1 test)' not in out or 'FAILURES!!!' in out:raise RuntimeError(str(p))
+ print('autofill',api,i,'passed',flush=True)
+if __import__("os").environ.get("HELIX_TEST_ONLY") == "1": sys.exit(0)
+for scenario in ['settled-close','network-recreate','network-background']:
+ p=pathlib.Path(f'/tmp/helix160-fixed-{api}-{scenario}.log')
+ with p.open('w') as log:
+  subprocess.run(['python3','scripts/diagnostics/run-jni-reference-trace.py',serial,'--count','100','--scenario',scenario],cwd=root,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=600)
+ print('trace',api,scenario,'passed',flush=True)

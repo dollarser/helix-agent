@@ -25,7 +25,7 @@ class RunControlModeUiDeviceTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun everyModeHasAnExplainableEntryAndChatRequiresExplicitToolOptIn() {
+    fun chatDetailsExplainTheModeAndRequireExplicitToolOptIn() {
         var config = RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT)
         composeRule.setContent {
             MaterialTheme {
@@ -51,9 +51,6 @@ class RunControlModeUiDeviceTest {
             }
         }
 
-        AgentMode.entries.forEach { mode ->
-            composeRule.onNodeWithTag("chat-mode-${mode.name.lowercase()}").assertExists()
-        }
         composeRule.onNodeWithTag("chat-mode-explanation").assertIsDisplayed()
         composeRule.onNodeWithTag("chat-tools-toggle").assertIsDisplayed()
         composeRule.onNodeWithTag("chat-budget-summary").assertIsDisplayed()

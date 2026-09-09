@@ -1,0 +1,34 @@
+import argparse,subprocess,json,pathlib,hashlib,re,urllib.request,time
+p=argparse.ArgumentParser();p.add_argument('--serial',required=True);p.add_argument('--api',required=True);a=p.parse_args()
+root=pathlib.Path(f'build/main-verification/hxa147-tool-completion-api{a.api}');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb';pkg='com.helix.agent.developer'
+def run(*args):return subprocess.run([adb,'-s',a.serial,*args],capture_output=True,timeout=120,check=True).stdout
+with urllib.request.urlopen('http://127.0.0.1:30008/v1/models',timeout=10) as reply:model=json.load(reply)['data'][0]['id']
+apks=[]
+for package,path in [(pkg,'app/build/outputs/apk/developer/debug/app-developer-debug.apk'),(pkg+'.test','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'),('com.helix.runtime.proot','runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk')]:
+ if package!='com.helix.runtime.proot':run('install','-r','-t',path)
+ remote=run('shell','pm','path',package).decode().strip().removeprefix('package:');actual=run('shell','sha256sum',remote).decode().split()[0];sha=hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest();assert actual==sha,(package,actual,sha);apks.append(dict(package=package,path=path,sha256=sha,installedSha256=actual))
+(root/'apks.json').write_text(json.dumps(apks,indent=2))
+for tool,protocol,suffix in [('write','OPENAI_RESPONSES',''),('edit','ANTHROPIC_MESSAGES','-edit'),('code.linux.run','OPENAI_CHAT_COMPLETIONS','-proot')]:
+ out=root/tool;out.mkdir();names=[f'result-{protocol}{suffix}.json',f'completed-{protocol}{suffix}.png']
+ for name in names:run('shell','run-as',pkg,'rm','-f','files/hxa102-goal-completion/'+name)
+ cmd=[adb,'-s',a.serial,'shell','am','instrument','-w','-r','-e','class','com.helix.app.ui.GoalRealCompletionUiTest','-e','helix.goalCompletion','true','-e','helix.goalCompletion.tool',tool,'-e','helix.goalCompletion.model',model,'-e','helix.goalCompletion.port','30008','-e','helix.goalCompletion.protocol',protocol,pkg+'.test/com.helix.app.HelixAndroidJUnitRunner']
+ record=dict(command=cmd,apks=apks,readFailures=[],passed=False)
+ try:
+  with (out/'instrumentation.log').open('w') as log:record['exitCode']=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=420).returncode
+  log=(out/'instrumentation.log').read_text();record['codes']=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',log,re.M)
+  assert record['exitCode']==0 and record['codes']==['1','0'] and 'OK (1 test)' in log
+  for name in names:
+   for attempt in range(3):
+    try:
+     data=run('exec-out','run-as',pkg,'cat','files/hxa102-goal-completion/'+name)
+     if name.endswith('.png'):assert data.startswith(b'\x89PNG')
+     else:json.loads(data)
+     (out/name).write_bytes(data);break
+    except (subprocess.SubprocessError,AssertionError,ValueError) as e:
+     record['readFailures'].append(dict(file=name,attempt=attempt,error=str(e)))
+     if attempt==2:raise
+     time.sleep(1)
+  result=json.loads((out/names[0]).read_text());assert result['tool']==tool and result['protocol']==protocol and result['goalState']=='COMPLETED';record['evidence']=result;record['screenshotSha256']=hashlib.sha256((out/names[1]).read_bytes()).hexdigest();record['passed']=True
+ finally:(out/'result.json').write_text(json.dumps(record,indent=2))
+ print(a.api,tool,record['passed'],flush=True)

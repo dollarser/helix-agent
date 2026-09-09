@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v6ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v12ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -65,6 +65,94 @@ class RoomMigrationFixtureTest {
                 InstrumentationRegistry.getInstrumentation(),
                 HelixDatabase::class.java,
             )
+    }
+
+    @Test
+    fun v9ToV10PreservesSessionsAndAddsOptionalDirectory() {
+        val name = "session-directory-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 9).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('old','Original title',1)")
+        }
+        helper.runMigrationsAndValidate(name, 10, true, HelixDatabase.MIGRATION_9_10).use { db ->
+            db.query("SELECT title,directoryRef FROM sessions WHERE id='old'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("Original title", it.getString(0))
+                assertTrue(it.isNull(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v10ToV11KeepsTurnsAndAddsNullableTaskReceipts() {
+        val name = "task-receipt-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 10).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('old','Original title',1)")
+            it.execSQL(
+                "INSERT INTO goals(id,objective,criteria,budgets,state,correlationId,runCount,modelCalls," +
+                    "toolCalls,totalTokens,runTimeMillis,currentWakeMillis,retries) " +
+                    "VALUES ('g','fixture','[]','{}','PAUSED','c',1,1,0,10,0,0,0)",
+            )
+            it.execSQL(
+                "INSERT INTO goal_runs(id,goalId,wakeReason,outcome,startedAt,endedAt," +
+                    "modelCalls,toolCalls,tokens) " +
+                    "VALUES ('r','g','USER_OPEN','BUDGET_EXHAUSTED(maxModelCalls)',1,2,1,0,10)",
+            )
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','old','COMPLETED',0,1)")
+        }
+        helper.runMigrationsAndValidate(name, 11, true, HelixDatabase.MIGRATION_10_11).use { db ->
+            db.query("SELECT state FROM goals WHERE id='g'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("BLOCKED", it.getString(0))
+            }
+            db.query("SELECT state,resultCollectedAt,pauseRequestedAt FROM turns WHERE id='t'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("COMPLETED", it.getString(0))
+                assertTrue(it.isNull(1))
+                assertTrue(it.isNull(2))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v11ToV12ReleasesOnlyRetiredEvidenceBlockerWithoutStartingRuns() {
+        val name = "model-goal-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 11).use { db ->
+            for ((id, reason) in listOf("binding" to "EVIDENCE_BINDING_REQUIRED", "budget" to "remainingBudget")) {
+                db.execSQL(
+                    "INSERT INTO goals(id,objective,criteria,budgets,state,correlationId,runCount,modelCalls," +
+                        "toolCalls,totalTokens,runTimeMillis,currentWakeMillis,retries) " +
+                        "VALUES (?, 'fixture','[]','{}','BLOCKED','c',1,1,0,10,0,0,0)",
+                    arrayOf(id),
+                )
+                val outcome = if (id == "binding") "BLOCKED($reason)" else "BUDGET_EXHAUSTED($reason)"
+                db.execSQL(
+                    "INSERT INTO goal_runs(id,goalId,wakeReason,outcome,startedAt,endedAt," +
+                        "modelCalls,toolCalls,tokens) " +
+                        "VALUES (?,?,'USER_OPEN',?,1,2,1,0,10)",
+                    arrayOf("r-$id", id, outcome),
+                )
+            }
+        }
+        helper.runMigrationsAndValidate(name, 12, true, HelixDatabase.MIGRATION_11_12).use { db ->
+            db.query("SELECT id,state,totalTokens FROM goals ORDER BY id").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("binding", it.getString(0))
+                assertEquals("PAUSED", it.getString(1))
+                assertEquals(10L, it.getLong(2))
+                assertTrue(it.moveToNext())
+                assertEquals("BLOCKED", it.getString(1))
+            }
+            db.query("SELECT COUNT(*) FROM goal_runs WHERE endedAt IS NOT NULL").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(2, it.getInt(0))
+            }
+        }
+        context.deleteDatabase(name)
     }
 
     @Test
@@ -165,8 +253,8 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v9ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v9-export.db", 9)
+    fun v12ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v12-export.db", 12)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -174,7 +262,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v9 schema must match the exported v9 schema",
+                "code-built v12 schema must match the exported v12 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -227,6 +315,9 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_6_7,
                     HelixDatabase.MIGRATION_7_8,
                     HelixDatabase.MIGRATION_8_9,
+                    HelixDatabase.MIGRATION_9_10,
+                    HelixDatabase.MIGRATION_10_11,
+                    HelixDatabase.MIGRATION_11_12,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase

@@ -48,18 +48,12 @@ internal fun GoalDialog(
     var checking by remember { mutableStateOf(false) }
     val controlsBusy = busy || checking
     var continueError by remember { mutableStateOf(false) }
-    var evidenceGoal by remember { mutableStateOf<String?>(null) }
     var creating by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<GoalSummaryUi?>(null) }
     LaunchedEffect(revision, busy, selectedGoalId) {
         rows = service.goalSummaries().filter { selectedGoalId == null || it.id == selectedGoalId }
     }
-    if (evidenceGoal != null) {
-        GoalCriteriaDialog(service, requireNotNull(evidenceGoal)) {
-            evidenceGoal = null
-            revision++
-        }
-    } else if (creating || editing != null) {
+    if (creating || editing != null) {
         GoalEditor(
             initial = editing,
             prompt = prompt,
@@ -101,6 +95,12 @@ internal fun GoalDialog(
                         )
                         Text(stringResource(goalStateLabel(row.status.state)), Modifier.testTag("goal-state-${row.id}"))
                         goalPauseLabel(row.status.outcome)?.let { Text(stringResource(it)) }
+                        row.status.modelSummary?.let {
+                            Text(stringResource(R.string.goal_model_report_label))
+                            androidx.compose.foundation.text.selection
+                                .SelectionContainer { Text(it) }
+                        }
+                        GoalBlockerControls(service, row) { revision++ }
                         Text(
                             stringResource(
                                 R.string.goal_usage,
@@ -121,15 +121,7 @@ internal fun GoalDialog(
                                 row.budgets.maxRetries,
                             ),
                         )
-                        Text(stringResource(R.string.goal_criteria_progress, row.satisfiedCriteria, row.criteria.size))
                         GoalCriterionDescriptions(row.criteria)
-                        TextButton(
-                            onClick = { evidenceGoal = row.id },
-                            enabled = !controlsBusy,
-                            modifier = Modifier.testTag("goal-criteria-${row.id}"),
-                        ) {
-                            Text(stringResource(R.string.goal_criterion_manage))
-                        }
                         TextButton(
                             enabled = row.canContinue && !controlsBusy,
                             onClick = {
@@ -137,14 +129,9 @@ internal fun GoalDialog(
                                     checking = true
                                     continueError = false
                                     try {
-                                        if (service.completeGoalFromEvidence(row.id)) {
-                                            revision++
-                                            heading.bringIntoView()
-                                        } else {
-                                            service.continueGoal(row.id, prompt.ifBlank { row.objective })
-                                            onContinued()
-                                            onDismiss()
-                                        }
+                                        service.continueGoal(row.id, prompt.ifBlank { row.objective })
+                                        onContinued()
+                                        onDismiss()
                                     } catch (_: IllegalArgumentException) {
                                         continueError = true
                                     } finally {
@@ -309,7 +296,7 @@ private suspend fun reportGoalSaveFailure(onFailure: () -> Unit, save: suspend (
 private fun validGoalDescription(
     objective: String,
     criteria: List<String>,
-): Boolean = objective.trim().length in 1..1024 && criteria.size in 1..32 && criteria.all { it.length <= 1024 }
+): Boolean = objective.trim().length in 1..1024 && criteria.size in 0..32 && criteria.all { it.length <= 1024 }
 
 internal fun parseGoalBudgetFields(fields: List<String>): GoalBudgets? {
     val bounds =
@@ -344,6 +331,7 @@ private fun goalStateLabel(state: String): Int =
         "READY", "DRAFT" -> R.string.goal_state_ready
         "RUNNING" -> R.string.goal_state_running
         "PAUSED" -> R.string.goal_state_paused
+        "BLOCKED" -> R.string.goal_state_blocked
         "INPUT_REQUIRED" -> R.string.goal_state_input
         "COMPLETED" -> R.string.goal_state_completed
         "FAILED" -> R.string.goal_state_failed
@@ -352,6 +340,7 @@ private fun goalStateLabel(state: String): Int =
 
 private fun goalPauseLabel(outcome: String?): Int? =
     when {
+        outcome == "USER_PAUSED" -> R.string.goal_user_paused
         outcome == "RUN_FINISHED" -> R.string.goal_pause_run_finished
         outcome == "INTERRUPTED" -> R.string.goal_pause_interrupted
         outcome?.startsWith("BUDGET_EXHAUSTED(") == true -> R.string.model_error_goal_budget_limit

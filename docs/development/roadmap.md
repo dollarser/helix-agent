@@ -935,3 +935,135 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：completed，见 [完成记录](../completion-records/HXA-160.md)。所有者授权按竞品对照方案优化。允许 feature/browser、app 接线、tools/browser 的宿主不可用结果、设备/单元测试、相关诊断脚本和 docs。Activity 持有真实 Context 的惰性宿主，应用仅保留逻辑标签和有效绑定；身份校验解绑，后台不销毁，JS 对话框终结，Autofill 保留。无 Activity 时不启动隐藏 Activity、不回退 Application Context、不重放工具；历史快照、池化、换内核与长稳不在本次范围。决策见 ADR-0033。
 
 验证：`./gradlew :feature:browser:testDebugUnitTest :tools:browser:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :feature:browser:assembleDebugAndroidTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest spotlessCheck detekt lintDebug --max-workers=1`；API29/36 宿主/回调/对话框/真实 AutofillService fixture、既有浏览器与 MainActivity 重建回归、有界生产 JNI/Binder 对照；docs/ADR/i18n/secrets/diff 门禁。
+
+
+### HXA-161 真机会话输入区与推理参数接线
+
+状态：completed（独立分支验收，尚未合入 main），见 [完成记录](../completion-records/HXA-161.md)。所有者于 2026-09-09 确认输入框上方左侧为模式下拉与附件，右侧为推理强度；语音、输入框、发送/停止同一行。
+
+范围：app 会话 UI、内部运行偏好及 request assembler；provider/api 的已观测推理能力、openai-chat 的 Qwen3.8 强度映射；对应测试、三语言资源与文档。沿用既有 ModelRequest/ReasoningEffort，保持 Tool/Policy/审批及 Goal Continue/预算语义。旧偏好兼容读取，默认沿用后端；仅探测到推理事件时确认推理，未验证不可展示为明确不支持。Qwen3.8 的 HIGH 映射 xhigh，其他模型保持原有编码。
+
+验证：`./gradlew :provider:api:test :provider:openai-chat:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --max-workers=1`；`./gradlew spotlessCheck detekt :app:lintConsumerDebug :app:lintDeveloperDebug --max-workers=1`；`bash scripts/check-i18n.sh`、`bash scripts/check-docs.sh`、`bash scripts/verify-adr.sh`、`git diff --check`。专用模拟器运行输入区窄屏/大字体/模式菜单/推理菜单与运行锁定测试，真机保留用户会话后安装并验证能力探测、强度选择和键盘布局。
+
+边界：文件交付卡片、工作区上下文以及既有 PROTOCOL 失败根因继续单列；本检查点不以布局通过宣称这些问题已修复。
+
+### HXA-162 会话时间线与复制
+
+状态：completed，见 [完成记录](../completion-records/HXA-162.md)。所有者要求工具执行记录归属轮次，输入和回复支持全文复制、长按选词复制。允许 app UI/projection/测试/资源/docs；不改变审批、存储或执行语义。
+
+验证：`./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest spotlessCheck detekt :app:lintConsumerDebug :app:lintDeveloperDebug --max-workers=1`；专用 API36 时间线/复制及既有输入区回归；docs/ADR/i18n/secrets/diff。后续 HXA 继续草稿会话、标题与工作目录。
+
+### HXA-163 草稿会话与目录归属
+
+状态：completed，见 [完成记录](../completion-records/HXA-163.md)。所有者授权新建按钮直接打开未命名草稿，首次发送才保存、截取首句标题、改名、会话列表切换和工作目录归属。允许 app、core/storage、迁移/设备测试和 docs；工作目录作为用户选择的组织信息，沿用现有文件服务和权限，不改变 PRoot cwd 或授权。
+
+验证：双 flavor app JVM/构建/lint、core/storage JVM 与迁移设备测试；专用 API36 草稿不落库、首次发送/双击、标题、改名、目录与旧数据升级；spotless/detekt/docs/ADR/i18n/secrets/diff。
+
+### HXA-164 即时消息发布与 Markdown
+
+状态：completed，见 [完成记录](../completion-records/HXA-164.md)。所有者报告普通会话的输入直到模型完成才显示，并要求回复 Markdown 渲染。允许 app UI/消息发布/测试/资源/docs；模型开始前发布已持久化用户消息，使用原生 Compose 渲染常用 Markdown，保留原文复制/选择；不引入 WebView、脚本执行或远程图片自动加载。
+
+验证：双 app JVM/构建/lint、spotless/detekt；API36 保持模型连接未完成时断言用户消息可见、Markdown/复制/停止回归；docs/ADR/i18n/secrets/diff。
+
+### HXA-165 参考移动对话界面的视觉整理
+
+状态：completed，见 [完成记录](../completion-records/HXA-165.md)。所有者授权参考 main 工作树中的七张竞品截图优化当前 UI。允许 app UI/资源/相关测试/docs；紧凑单行导航、浅色用户气泡与开放回复正文、图标复制、统一圆角输入区和菜单选中标记。按后续指示将附件改为输入框内加号，保留模式/推理位置、审批、草稿/持久化与执行语义；不复制第三方代码或增加截图中的未实现功能。
+
+验证：双 app JVM/构建/lint、spotless/detekt；专用 API36 窄屏/大字体/菜单/复制/草稿/停止回归，真机安装与键盘显示检查；docs/ADR/i18n/secrets/diff。
+
+### HXA-166 会话内模型选择
+
+状态：completed，见 [完成记录](../completion-records/HXA-166.md)。所有者明确要求从 Provider 提供的模型中选择，且现有会话可切换；模型先于推理强度，二者同区。允许 app、core/storage 的目标选择接口和相关测试/docs。复用连接测试返回目录；保留首次绑定接口，新增显式用户选择用于后续轮次，活动轮次/待确认时不可切换；不自动发送、不修改历史、不改全局 Provider 默认模型。决策见 ADR-0035。
+
+验证：storage 与双 app JVM、双 flavor APK/测试 APK、spotless/detekt/app lint；API36 菜单、模型切换持久化/历史保留/活动拒绝与输入区回归；docs/ADR/i18n/secrets/diff。
+
+### HXA-167 单行横向选项栏
+
+状态：completed，见 [完成记录](../completion-records/HXA-167.md)。所有者要求输入框上方所有选项单行排列，放不下左右滑动；未来选项复用此行。允许 app UI/相关测试/docs。统一 ComposerOptionRow，模式→模型→推理→输入原文复制，不改动作语义。
+
+验证：双 app JVM/构建/lint、spotless/detekt；API36 窄屏大字体横向滑动、菜单/模型切换/停止回归；真机安装与左右滑动检查；docs/ADR/i18n/secrets/diff。
+
+### HXA-168 顶部空间与胶囊选项
+
+状态：completed，见 [完成记录](../completion-records/HXA-168.md)。所有者要求选项椭圆外框、顶部会话名/列表/新建替换重复标题。允许 app UI/导航接线/测试/资源/docs。会话路由不叠加 shell 顶栏；原会话标题操作栏成为顶部，列表页保留一个标题。其他功能导航在列表按钮或会话更多中可达；所有输入选项使用统一胶囊，继续单行滑动。
+
+验证：双 app JVM/构建/lint、spotless/detekt；API36 顶部去重/应用导航/新建与返回、窄屏横向选项/模型/停止；真机安装和截图；docs/ADR/i18n/secrets/diff。
+
+### HXA-169 顶部主菜单与标题编辑
+
+状态：completed，见 [完成记录](../completion-records/HXA-169.md)。所有者指出主菜单被列表替换，要求顶部标题可编辑。允许 app UI/chat 草稿标题/测试/docs；独立主菜单、点击标题重命名、独立会话列表，保留新建/更多。草稿编辑标题不落库，首次发送保留手动标题，未编辑仍自动截取首句。
+
+验证：双 app JVM/构建/lint、spotless/detekt；API36 窄屏独立按钮、顶部直接主菜单、标题编辑持久化/草稿与既有回归；真机安装/入口截图；docs/ADR/i18n/secrets/diff。
+
+### HXA-170 导航样式与扩展入口修复
+
+状态：completed，见 [完成记录](../completion-records/HXA-170.md)。所有者要求统一非会话页顶栏，并核实 SAF、归档和 M7 占位。允许 app UI/导航/资源/测试/docs；统一 48dp 主菜单和标题，扩展页复用已有 Skill/Connector 管理组件，已归档按钮明确标注。保留原设置入口和权限语义，不新增协议或授权能力。
+
+验证：双 app JVM/构建/app lint、spotless/detekt；API36 全路由顶栏与扩展真实入口/归档标注专项，真机安装检查；docs/i18n/ADR/secrets/diff。
+
+### HXA-171 独立文件管理界面
+
+状态：completed，见 [完成记录](../completion-records/HXA-171.md)。所有者要求整理全部参考图片并按新增文件管理参考图重设计，文件页应在 Agent/Provider 不可用时独立使用。允许 app 文件 UI/导航/测试/资源/docs 和参考图片归档；复用 FileManagerService 手动操作，不扩大工具或存储授权。首页显示本地文件、已授权来源和快速入口；目录页紧凑路径/搜索/更多、文件列表/网格、长按选择和底部操作。当前目录搜索不冒充全盘搜索，共享来源仍按实际支持显示只读。
+
+验证：双 app JVM/构建/app lint、格式/Detekt；API36 手动管理无模型依赖、搜索/返回/来源/长按、既有文件浏览预览/批处理/导入导出及导航回归；真机布局、docs/i18n/ADR/secrets/diff。
+
+### HXA-172 归档列表、共享存储入口与上下文用量
+
+状态：completed，见 [完成记录](../completion-records/HXA-172.md)。所有者授权已归档会话单列、文件首页共享存储入口和上下文窗口进度/现状核实。允许 app UI/只读投影/相关测试/资源/docs；沿用既有存储与授权，真实请求输入用量不冒充当前完整窗口，不虚构未知上限；对窗口配置、自动压缩与全盘访问给出代码和官方来源依据。
+
+验证：双 app JVM/构建/app lint、格式/Detekt；独占 API36 归档隐藏/保留、共享入口/返回、圆环未知/接近上限与文件/导航回归；真机覆盖安装和布局检查；docs/ADR/i18n/secrets/diff。
+
+### HXA-173 归档恢复与共享根目录
+
+状态：completed，见 [完成记录](../completion-records/HXA-173.md)。允许 app、core/storage 会话恢复接口、相关测试/docs；归档恢复按钮，模型与圆环同胶囊，手动共享根目录及授权返回，两 flavor 权限声明；不扩大 Agent scope。决策见 [ADR-0036](../adr/0036-manual-shared-storage-root.md)。验证双 app/storage JVM、双 flavor 构建/lint、权限与归档设备专项、原文件/输入 UI 回归、真机安装、静态与文档门禁。
+
+### HXA-174 窗口配置和上下文压缩
+
+状态：completed，见 [完成记录](../completion-records/HXA-174.md)。允许 app、provider/api、core/model、core/storage 及相关测试/docs；实现 [ADR-0037](../adr/0037-context-window-and-compaction.md)。验证元数据边界/默认与配置隔离/阈值/摘要工具配对，预算、取消、失败、恢复、旧库兼容和原历史保留；双 app/provider/core JVM、双 flavor 构建/lint、API36 真实服务元数据与压缩/回归、真机安装和全部静态文档门禁。
+
+### HXA-175 调试脚本留存、紧凑会话控件与系统栏避让
+
+状态：completed，见 [完成记录](../completion-records/HXA-175.md)。所有者授权按日期归档临时脚本、独占模拟器生命周期、缩小上下文圆环、收紧复制间距并核实非会话顶栏重叠。允许 app UI/设备测试、scripts/debug、AGENTS 与 docs；不改变压缩算法或权限。
+
+验证：双 app JVM/构建和测试 APK、Spotless/Detekt、lintDebug 与双 app lint；独占 API36 状态栏修复前后、会话顶栏/复制/圆环/输入区回归；docs/ADR/i18n/secrets/diff。
+
+### HXA-176 长 Turn / Goal 压缩实战强化
+
+状态：completed，见 [完成记录](../completion-records/HXA-176.md)。所有者授权步骤边界压缩、收益/次数约束、实际用量校准、摘要质量和失败恢复，以及 Goal 连续执行回归。允许 app/chat、core/storage 测试、docs 与 scripts/debug；不改变 ADR-0004 的 Goal 继续/暂停/预算语义。决策见 ADR-0038。
+
+验证：双 app JVM/构建/测试 APK、Spotless/Detekt、lintDebug 与双 app lint；独占 API36 双版本长 Turn/Goal/压缩失败与恢复回归；真实小模型连续压缩约束保持；docs/ADR/i18n/secrets/diff。
+
+### HXA-177 后台任务与 Goal 阻塞恢复
+
+状态：completed，见 [完成记录](../completion-records/HXA-177.md)。允许 app、core/model、core/agent、core/storage、docs 与 scripts/debug。实现跨会话任务列表、精确暂停/取消、持久结果回收、全局服务保活；BLOCKED 不直接继续，PAUSED 显式恢复。决策见 [ADR-0039](../adr/0039-background-results-and-goal-blockers.md)。验收：core/model 与 core/agent JVM、app 双变体 JVM、spotless/detekt/lint、数据库迁移及独立模拟器任务/Goal 回归。
+
+### HXA-178 模型判断 Goal 完成
+
+状态：completed，见 [完成记录](../completion-records/HXA-178.md)。允许 app、core/model、core/agent、core/storage、相关测试、docs、scripts/debug。完全替代 ADR-0028，见 ADR-0040。验收：模型报告与异常边界、旧数据迁移、绑定 UI 移除、双 app/core JVM、双 flavor 构建和测试 APK、spotless/detekt/lintDebug/双 app lint、独占 API29/36 和真实模型、文档/ADR/i18n/secrets。
+
+
+### HXA-179 ChatService 职责拆分
+
+状态：completed。所有者授权保持行为的会话服务重构；允许 app/chat、相关测试、docs、scripts/debug。不合并 main。提取工具执行/结算/时间线与中断结果恢复，保留单会话准入、取消、审批和结果顺序。验收：双 app JVM、构建与测试 APK、Spotless/Detekt/lint、独占 API29/36 的工具/审批/Goal/后台/压缩回归。
+
+### HXA-180 独立文件管理变更能力
+
+状态：completed。所有者授权独立文件管理器的新建、重命名、复制、移动和删除；共享存储及 SAF 按真实权限和 provider 能力提供操作，Agent scope 不自动扩大。允许 app/files/UI、feature/files、core/workspace 必要复用、相关测试/docs/scripts。补充 ADR-0036 的只读首期边界。验收：冲突/越界/撤销/失败源文件保留、双版本主机与独占 API29/36 用户操作、Agent 隔离回归。
+
+### HXA-181 当前规范清理
+
+状态：completed。清理 status/架构/操作指南中的过时当前描述，保留 ADR 和完成记录的历史事实及取代关系；核对 HXA-179/180 的当前边界。不新增功能，不合并 main。验收：docs/ADR/i18n/secrets/diff 检查与当前代码引用核查。
+
+
+### HXA-182 大类职责继续收敛与文件传输恢复
+
+状态：completed，见 [完成记录](../completion-records/HXA-182.md)。所有者授权继续收敛大类职责、文件传输中断恢复。允许 app/chat、app/files、app/UI、相关测试、docs、scripts/debug；不提交、推送或合并 main。保持公开接口，拆分文件预览和聊天展示映射；手动复制/移动持久阶段记录、重启显式恢复及权限/内容重验，不盲目重放源删除。验收：双 app JVM、双 flavor APK/测试 APK、Spotless/Detekt/lintDebug/双 app lint、独占 API29/36 文件与聊天回归、恢复故障边界和文档门禁。
+
+
+### HXA-183 大类职责拆分
+
+状态：completed，见 [完成记录](../completion-records/HXA-183.md)。所有者授权按大类审查拆分；本批处理 ChatService、ChatToolCalls、ChatScreen、ProviderScreen、FileManagerTransfers、LinuxRunTool、ProotJobRunner 七项优先职责。允许 app/chat、app/UI、app/files、app/proot、runtime/proot-app、相关测试、docs、scripts/debug。保持公开 facade、Tool/IPC/持久格式和状态资源所有权，无新功能与依赖。验收：双 app 与 PRoot JVM、双 flavor/companion APK 和测试 APK、Spotless/Detekt/lintDebug/双 app lint、独占 API29/36 聊天/文件/Provider 与 PRoot 真 guest/取消/恢复回归、文档门禁。不提交、推送或合并 main。
+
+### HXA-184 谨慎提取与文件装配整理
+
+状态：completed，见 [完成记录](../completion-records/HXA-184.md)。所有者授权继续完成大类审查的 B 类 11 项和 C 类 15 项。允许 audit 所列 app、core/storage、core/workspace、tools/framework、tools/files、tools/android、tools/automation、runtime/quickjs、feature/browser、provider/api、extensions/mcp 及相关测试、docs、scripts/debug。保持公开契约、SQL/迁移版本、审批消费顺序、资源所有权及取消恢复语义；不引入新依赖。分阶段进行独立类型整理、纯转换/准备逻辑提取、组合根整理。验收：`./gradlew spotlessCheck detekt test lintDebug :app:lintConsumerDebug :app:lintDeveloperDebug --continue --max-workers=1`，受影响模块双 API29/36 独占模拟器回归，`scripts/check-docs.sh`、`scripts/verify-adr.sh`、`scripts/check-i18n.sh`、`scripts/check-secrets.sh`、`git diff --check`。全部 26 项完成后统一记录；不提交、推送或合并 main。

@@ -2,6 +2,7 @@ package com.helix.app.runcontrol
 
 import com.helix.app.internal.LineStore
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,6 +13,7 @@ data class RunControlConfig(
     val mode: AgentMode,
     val chatToolsEnabled: Boolean,
     val budgets: TurnBudgets,
+    val reasoning: ReasoningEffort = ReasoningEffort.OFF,
 )
 
 /**
@@ -44,6 +46,8 @@ interface RunControlStore {
 
     fun setMode(mode: AgentMode)
 
+    fun setReasoning(reasoning: ReasoningEffort)
+
     fun setChatToolsEnabled(enabled: Boolean)
 
     fun setBudgets(budgets: TurnBudgets)
@@ -57,6 +61,8 @@ class PersistedRunControlStore(
     override val flow: StateFlow<RunControlConfig> = state.asStateFlow()
     override val current: RunControlConfig get() = state.value
 
+    override fun setReasoning(reasoning: ReasoningEffort) = update(state.value.copy(reasoning = reasoning))
+
     override fun setMode(mode: AgentMode) = update(state.value.copy(mode = mode))
 
     override fun setChatToolsEnabled(enabled: Boolean) = update(state.value.copy(chatToolsEnabled = enabled))
@@ -65,7 +71,15 @@ class PersistedRunControlStore(
         update(state.value.copy(budgets = TurnBudgetBounds.validate(budgets)))
 
     private fun update(next: RunControlConfig) {
-        store.setLines(KEY, listOf(next.mode.name, next.chatToolsEnabled.toString(), next.budgets.toStorageString()))
+        store.setLines(
+            KEY,
+            listOf(
+                next.mode.name,
+                next.chatToolsEnabled.toString(),
+                next.budgets.toStorageString(),
+                next.reasoning.name,
+            ),
+        )
         state.value = next
     }
 
@@ -73,12 +87,13 @@ class PersistedRunControlStore(
     private fun readStored(): RunControlConfig =
         try {
             val lines = store.lines(KEY)
-            require(lines.size == 3)
+            require(lines.size in 3..4)
             val enabled = lines[1].toBooleanStrict()
             RunControlConfig(
                 AgentMode.valueOf(lines[0]),
                 enabled,
                 TurnBudgetBounds.validate(TurnBudgets.parse(lines[2])),
+                lines.getOrNull(3)?.let(ReasoningEffort::valueOf) ?: ReasoningEffort.OFF,
             )
         } catch (_: IllegalArgumentException) {
             RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT)

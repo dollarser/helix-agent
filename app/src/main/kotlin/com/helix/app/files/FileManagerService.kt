@@ -2,13 +2,11 @@ package com.helix.app.files
 
 import com.helix.app.R
 import com.helix.app.allfiles.AllFilesModule
-import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.core.workspace.WorkspaceLayout
-import com.helix.core.workspace.resolveFileScopePath
 import com.helix.feature.files.SafAccessMode
 import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.SafGrantStore
@@ -17,36 +15,23 @@ import com.helix.feature.files.SafTreeScopeAccess
 import java.io.File
 import java.io.FileNotFoundException
 import java.nio.file.FileAlreadyExistsException
-import java.security.MessageDigest
 
 /**
- * The app's user-facing file facade (HXA-046 文件管理 UI). This is the file manager's execution
- * seam — deliberately NOT the model tool pipeline: the user drives it directly, so there is no
- * per-call approval gate here (doc 09 section 4.3 approvals bind *model* ToolCalls, not the user
- * operating their own files). It wraps [WorkspaceArtifactStore] — the same nio, containment-
- * enforced, atomic-publish store the `files.*` tools use — with the browse / sort / preview /
- * mutate / trash shapes the UI needs.
+ * User-operated browse, preview, transfer and trash facade. Manual operations do not create
+ * model ToolCalls or expand Agent scopes. Workspace metadata remains private; shared storage
+ * and writable SAF trees use independently injected, live-permission-checked backends.
  *
- * The class is **nio-pure on purpose**: its logic is unit-testable on the JVM (a temp-dir store,
- * exactly like the store's own tests). The Android-only concerns — SAF document pickers, image
- * decode into a [android.graphics.ImageBitmap], and the share `FileProvider` URI — live in the
- * Compose layer, which owns the [android.content.Context]. [realFileFor] is the one method that
- * hands back a real [File]: it exists solely so the share action can mint a `content://` URI (an
- * OS-level handoff to another app). That [File] is consumed transiently by the share flow and is
- * never rendered as text, logged, or placed into model context (doc 10 constrains the model-side
- * surfaces, not an OS share).
- *
- * Sources: the app-private [workspaceScopeId] is always present and fully mutable. The developer
- * flavor's enabled all-files roots are appended read-only in this milestone — their layout is not
- * a workspace region (`input/`/`work/`/`output/`), so the store's region-gated mutations refuse
- * them (see [moveOrCopy]); browse / sort / preview / share all work.
+ * [WorkspaceArtifactStore] preserves existing workspace and import/export contracts.
+ * [ManualFileOperations] handles directory transfers and external mutations. JVM tests inject
+ * NIO backends; Android SAF and OS permissions are composed by AppFileServices, never by UI.
+ * [realFileFor] supplies a transient sharing file, not a model-visible absolute path.
  */
-@Suppress("TooManyFunctions", "LargeClass") // one cohesive store facade: splitting moves size, not coupling
+@Suppress("TooManyFunctions", "LargeClass", "ReturnCount")
 class FileManagerService(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
     private val workspaceScopeId: String,
-    // HXA-057: the governed SAF tree scope access (browse/preview/share, read-only). Null only in
+    // Governed SAF browse access; manual mutations use their own injected backend. Null only in
     // tests that do not exercise SAF scopes; a SAF scope id with a null access fails closed.
     private val saf: SafTreeScopeAccess? = null,
     // HXA-058: the restricted HXA-044 import/export pipelines + platform seams (the file
@@ -58,6 +43,8 @@ class FileManagerService(
     // app Context's getString. The JVM default (no Context in unit tests) resolves the id itself,
     // keeping the pure-JVM seam testable without an Android runtime.
     private val strings: (Int, Array<out Any>) -> String = { id, _ -> id.toString() },
+    private val sharedStorageGranted: () -> Boolean = { false },
+    private val manual: ManualFileOperations? = null,
 ) {
     /** Localizes a stable string-resource id (+ positional args) to the current locale (HXA-069). */
     private fun loc(
@@ -180,7 +167,7 @@ class FileManagerService(
 
     /**
      * The browsable sources (HXA-046 + HXA-057): the workspace (always, mutable) + any enabled
-     * all-files roots (developer, read-only) + any SAF tree scopes STILL LIVE right now (read-only).
+     * all-files roots (developer, read-only) + live SAF and manual shared-storage capabilities.
      * A SAF grant whose provider no longer answers / whose root changed is re-verified here and
      * omitted (fail closed: a source the resolver cannot resolve is never offered for browsing).
      */
@@ -189,13 +176,31 @@ class FileManagerService(
             mutableListOf(
                 FileSource(workspaceScopeId, "Workspace", FileSourceKind.WORKSPACE, supportsMutation = true),
             )
+        if (sharedStorageGranted()) {
+            list.add(
+                FileSource(
+                    SharedStorageAccess.SCOPE_ID,
+                    loc(R.string.files_shared),
+                    FileSourceKind.ALL_FILES,
+                    manual?.canWrite(SharedStorageAccess.SCOPE_ID) == true,
+                ),
+            )
+        }
         if (AllFilesModule.AVAILABLE) {
             AllFilesModule.allFilesSources().forEach {
                 list.add(FileSource(it.scopeId, it.displayName, FileSourceKind.ALL_FILES, supportsMutation = false))
             }
         }
         saf?.service?.liveSources()?.forEach {
-            list.add(FileSource(it.scopeId, it.displayName, FileSourceKind.SAF, supportsMutation = false))
+            list.add(
+                FileSource(
+                    it.scopeId,
+                    it.displayName,
+                    FileSourceKind.SAF,
+                    supportsMutation =
+                        manual?.canWrite(it.scopeId) == true,
+                ),
+            )
         }
         return list
     }
@@ -269,188 +274,39 @@ class FileManagerService(
         return compareByDescending<FileEntry> { it.isDirectory }.thenComparing(secondary)
     }
 
-    // --- Preview (预览: 文本 + 图片) and info (MIME/大小/哈希) ---
+    fun pendingTransfers(): List<FileTransferRecovery> = manual?.pendingTransfers().orEmpty()
 
-    /** The leading text of a text file, or null when it is not a text file (image/binary/missing). */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed null
+    fun recoverTransfer(id: String): Boolean = requireNotNull(manual).recoverTransfer(id)
+
+    private val preview = FileManagerPreview(store, roots, saf)
+
     fun previewText(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = DEFAULT_PREVIEW_BYTES,
-    ): String? =
-        if (isSaf(scopeId)) {
-            safPreviewText(scopeId, relativePath, maxBytes)
-        } else {
-            val fsp = FileScopePath(scopeId, relativePath)
-            val probe = store.probe(fsp)
-            if (!probe.isText || probe.sizeBytes < 0) {
-                null
-            } else {
-                runCatching { store.readWindow(fsp, 0, maxBytes).text }.getOrNull()
-            }
-        }
+    ): String? = preview.previewText(scopeId, relativePath, maxBytes)
 
-    /** SAF tree text preview (HXA-057): re-verified, bounded read, probed for text, then decoded. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed null
-    private fun safPreviewText(
-        scopeId: String,
-        relativePath: String,
-        maxBytes: Long,
-    ): String? {
-        val access = verifySaf(scopeId, SafAccessMode.READ)
-        return try {
-            val cap = minOf(maxBytes, SAF_READ_CAP)
-            val bytes = access.reader.read(scopeId, relativePath, 0, cap)
-            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).isText) return null
-            String(bytes, Charsets.UTF_8)
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    /**
-     * The raw bytes of an image for the preview, or an empty array when the file is not an image,
-     * is missing, or exceeds [maxBytes] (a too-large image is not previewed — it is still
-     * shareable / exportable). The Compose layer decodes the bytes into a bitmap.
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed empty array
     fun previewImageBytes(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = MAX_IMAGE_PREVIEW_BYTES,
-    ): ByteArray =
-        if (isSaf(scopeId)) {
-            safPreviewImageBytes(scopeId, relativePath, maxBytes)
-        } else {
-            val fsp = FileScopePath(scopeId, relativePath)
-            val probe = store.probe(fsp)
-            if (!probe.mimeType.startsWith("image/") || probe.sizeBytes < 0 || probe.sizeBytes > maxBytes) {
-                ByteArray(0)
-            } else {
-                runCatching { store.readAll(fsp) }.getOrDefault(ByteArray(0))
-            }
-        }
+    ): ByteArray = preview.previewImageBytes(scopeId, relativePath, maxBytes)
 
-    /** SAF tree image preview (HXA-057): re-verified, bounded read, probed for an image mime. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed empty array
-    private fun safPreviewImageBytes(
-        scopeId: String,
-        relativePath: String,
-        maxBytes: Long,
-    ): ByteArray {
-        val access = verifySaf(scopeId, SafAccessMode.READ)
-        return try {
-            val cap = minOf(maxBytes, SAF_READ_CAP)
-            val bytes = access.reader.read(scopeId, relativePath, 0, cap)
-            if (!ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType.startsWith("image/")) {
-                return ByteArray(0)
-            }
-            bytes
-        } catch (e: Exception) {
-            ByteArray(0)
-        }
-    }
-
-    /**
-     * The best-effort MIME of a file from a bounded prefix probe only (cheap — no full read, no
-     * hash). Used to set the share intent's MIME type.
-     */
     fun mimeTypeFor(
         scopeId: String,
         relativePath: String,
-    ): String {
-        if (isSaf(scopeId)) return safMimeTypeFor(scopeId, relativePath)
-        return store.probe(FileScopePath(scopeId, relativePath)).mimeType
-    }
+    ): String = preview.mimeTypeFor(scopeId, relativePath)
 
-    /** SAF tree best-effort MIME from a bounded prefix (HXA-057). A non-file/dir failure → octet. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed octet-stream
-    private fun safMimeTypeFor(
-        scopeId: String,
-        relativePath: String,
-    ): String {
-        val access = verifySaf(scopeId, SafAccessMode.READ)
-        return try {
-            val bytes = access.reader.read(scopeId, relativePath, 0, DEFAULT_PREVIEW_BYTES)
-            ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
-        } catch (e: Exception) {
-            "application/octet-stream"
-        }
-    }
-
-    /** Bounded per-file metadata (HXA-046: MIME/大小/哈希信息). The hash is a real SHA-256, computed
-     * on demand, omitted when the file exceeds [maxHashBytes]. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure omits the hash rather than throwing
     fun fileInfo(
         scopeId: String,
         relativePath: String,
         maxHashBytes: Long = MAX_HASH_BYTES,
-    ): FileMeta {
-        if (isSaf(scopeId)) return safFileInfo(scopeId, relativePath, maxHashBytes)
-        val fsp = FileScopePath(scopeId, relativePath)
-        val s = store.stat(fsp)
-        val probe = store.probe(fsp)
-        var sha: String? = null
-        var omitted = false
-        if (s.exists && s.isRegularFile && probe.sizeBytes in 0..maxHashBytes) {
-            try {
-                sha = sha256Hex(store.readAll(fsp))
-            } catch (e: Exception) {
-                omitted = true
-            }
-        } else if (s.exists && s.isRegularFile) {
-            omitted = true
-        }
-        return FileMeta(s.sizeBytes, s.mtimeEpochMillis, probe.mimeType, probe.isText, sha, omitted)
-    }
+    ): FileMeta = preview.fileInfo(scopeId, relativePath, maxHashBytes)
 
-    /**
-     * SAF tree per-file metadata (HXA-057): re-verified, [SafTreeReader.stat] for size/mtime, a
-     * bounded prefix probe for mime/text, and a real SHA-256 when the file fits the hash cap AND
-     * the SAF read window (a larger SAF file omits the hash, exactly as a too-large workspace file).
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure omits the hash rather than throwing
-    private fun safFileInfo(
+    fun realFileFor(
         scopeId: String,
         relativePath: String,
-        maxHashBytes: Long,
-    ): FileMeta {
-        val access = verifySaf(scopeId, SafAccessMode.READ)
-        val stat = access.reader.stat(scopeId, relativePath)
-        if (!stat.exists || stat.isDirectory) {
-            return if (!stat.exists) {
-                FileMeta(-1L, -1L, "application/octet-stream", false, null, false)
-            } else {
-                FileMeta(stat.sizeBytes, stat.mtimeEpochMillis, "inode/directory", true, null, true)
-            }
-        }
-        val prefix = access.reader.read(scopeId, relativePath, 0, DEFAULT_PREVIEW_BYTES)
-        val probe =
-            try {
-                ContentProbe.probeBytes(prefix, stat.sizeBytes)
-            } catch (e: Exception) {
-                ContentProbe.probeBytes(ByteArray(0), stat.sizeBytes)
-            }
-        val hashCap = minOf(maxHashBytes, stat.sizeBytes)
-        var sha: String? = null
-        var omitted = false
-        if (stat.sizeBytes in 1..hashCap && hashCap <= SAF_READ_CAP) {
-            val all =
-                try {
-                    access.reader.read(scopeId, relativePath, 0, hashCap)
-                } catch (e: Exception) {
-                    null
-                }
-            if (all != null && all.size == hashCap.toInt()) {
-                sha = sha256Hex(all)
-            } else {
-                omitted = true
-            }
-        } else {
-            omitted = true
-        }
-        return FileMeta(stat.sizeBytes, stat.mtimeEpochMillis, probe.mimeType, probe.isText, sha, omitted)
-    }
+    ): File = preview.realFileFor(scopeId, relativePath)
 
     data class FileMeta(
         val sizeBytes: Long,
@@ -460,46 +316,6 @@ class FileManagerService(
         val sha256: String?,
         val hashOmittedBecauseTooLarge: Boolean,
     )
-
-    /**
-     * The real [File] behind [relativePath], for the share action only (see the class KDoc).
-     * Containment- and symlink-checked via [resolveFileScopePath]; never meant to be displayed.
-     * @throws FileNotFoundException when the target is not an existing regular file.
-     */
-    fun realFileFor(
-        scopeId: String,
-        relativePath: String,
-    ): File {
-        if (isSaf(scopeId)) return safRealFileFor(scopeId, relativePath)
-        val fsp = FileScopePath(scopeId, relativePath)
-        val real = resolveFileScopePath(fsp, roots)
-        if (!java.nio.file.Files
-                .isRegularFile(real)
-        ) {
-            throw FileNotFoundException("not a regular file: ${fsp.toModelReference()}")
-        }
-        return real.toFile()
-    }
-
-    /**
-     * The app-private staged copy of a SAF tree document, for the share action only (HXA-057). A
-     * SAF document has no `java.io.File`; it is chunk-copied into the app-private [shareDir]
-     * (bounded by [SAF_SHARE_CAP]) and that file is handed to the FileProvider for a transient
-     * `content://` share URI — the real document id / `content://` URI is never rendered (doc 10).
-     * @throws FileNotFoundException when the document is missing or a directory.
-     * @throws SafTreeReadLimitExceeded when it exceeds [SAF_SHARE_CAP] (fail closed, not truncated).
-     */
-    private fun safRealFileFor(
-        scopeId: String,
-        relativePath: String,
-    ): File {
-        val access = verifySaf(scopeId, SafAccessMode.READ)
-        val staged = access.shareDir.resolve("share-${System.nanoTime()}.bin")
-        // copyToAppPrivate deletes its own partial target on the limit-exceeded failure; a missing
-        // document / revoked scope throws before any file is created, so no cleanup is needed here.
-        access.reader.copyToAppPrivate(scopeId, relativePath, staged, SAF_SHARE_CAP)
-        return staged.toFile()
-    }
 
     // --- Mutations (rename / copy / move, explicit conflict, NO default overwrite) ---
 
@@ -542,24 +358,22 @@ class FileManagerService(
         overwrite: Boolean,
     ): FileOpResult = moveOrCopy(scopeId, srcRel, dstRel, overwrite, move = false)
 
-    /**
-     * One rename/move/copy through the store. The destination region is derived from the
-     * destination path and MUST be a user region — this is what keeps all-files scopes (whose
-     * relative paths are not workspace regions) read-only in this milestone: a non-region
-     * destination fails closed to [FileOpResult.Error] rather than touching a file.
-     */
+    /** Manual operations use the injected backend; legacy workspace-only tests use the store. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
-    private fun moveOrCopy(
+    internal fun moveOrCopy(
         scopeId: String,
         srcRel: String,
         dstRel: String,
         overwrite: Boolean,
         move: Boolean,
+        shouldCancel: () -> Boolean = { false },
     ): FileOpResult {
-        // HXA-057: SAF tree scopes are read-only in this milestone (the all-files precedent). The
-        // UI hides these actions for SAF sources; this guard is defense-in-depth so a direct call
-        // on a SAF scope fails closed rather than touching an external document (fail closed, never
-        // a false success).
+        if (manual != null) {
+            return manualResult(
+                dstRel,
+            ) { manual.transfer(scopeId, srcRel, scopeId, dstRel, move, overwrite, shouldCancel) }
+        }
+        // A missing manual backend never falls through to a writable SAF implementation.
         if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val src = FileScopePath(scopeId, srcRel)
         val dst = FileScopePath(scopeId, dstRel)
@@ -590,6 +404,19 @@ class FileManagerService(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
+    private fun manualResult(
+        destination: String,
+        operation: () -> Boolean,
+    ): FileOpResult =
+        try {
+            FileOpResult.Ok(destination, operation())
+        } catch (_: FileAlreadyExistsException) {
+            FileOpResult.Conflict
+        } catch (failure: Exception) {
+            FileOpResult.Error(failure.message ?: loc(R.string.files_error_operation_failed))
+        }
+
     /** Creates a directory [name] under [parentRel] (inside a user region). Refuses an existing path. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
     fun makeDirectory(
@@ -597,6 +424,12 @@ class FileManagerService(
         parentRel: String,
         name: String,
     ): FileOpResult {
+        if (manual != null) {
+            return manualResult(joinPath(parentRel, name)) {
+                manual.mkdir(scopeId, parentRel, name)
+                false
+            }
+        }
         if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val rel = joinPath(parentRel, name)
         val region = WorkspaceLayout.regionOf(rel)
@@ -618,7 +451,7 @@ class FileManagerService(
         scopeId: String,
         baseRel: String,
     ): String {
-        val dir = baseRel.substringBeforeLast('/')
+        val dir = baseRel.substringBeforeLast('/', "")
         val name = baseRel.substringAfterLast('/')
         val dot = name.lastIndexOf('.')
         val stem = if (dot > 0) name.substring(0, dot) else name
@@ -626,10 +459,20 @@ class FileManagerService(
         var i = 1
         while (true) {
             val candidate = joinPath(dir, "$stem ($i)$ext")
-            if (!store.stat(FileScopePath(scopeId, candidate)).exists) return candidate
+            if (!(
+                    manual?.exists(
+                        scopeId,
+                        candidate,
+                    ) ?: store.stat(FileScopePath(scopeId, candidate)).exists
+                )
+            ) {
+                return candidate
+            }
             i++
         }
     }
+
+    private val directoryTrash = ManualWorkspaceTrash(roots, workspaceScopeId)
 
     // --- Trash (删除到回收站 / 恢复 / 永久删除 / 清空) ---
 
@@ -638,10 +481,23 @@ class FileManagerService(
     fun trash(
         scopeId: String,
         relativePath: String,
+        shouldCancel: () -> Boolean = { false },
     ): FileOpResult {
+        if (scopeId != workspaceScopeId &&
+            manual != null
+        ) {
+            return manualResult(relativePath) {
+                manual.delete(scopeId, relativePath, shouldCancel)
+                false
+            }
+        }
         if (isSaf(scopeId)) return FileOpResult.Error(loc(R.string.files_saf_read_only))
         val fsp = FileScopePath(scopeId, relativePath)
         return try {
+            if (scopeId == workspaceScopeId && directoryTrash.isDirectory(relativePath)) {
+                directoryTrash.trash(relativePath)
+                return FileOpResult.Ok(relativePath, false)
+            }
             store.moveToTrash(fsp)
             FileOpResult.Ok(relativePath, overwritten = false)
         } catch (e: FileNotFoundException) {
@@ -658,150 +514,44 @@ class FileManagerService(
         val sizeBytes: Long,
     )
 
-    /** The current trash contents, newest storage order; empty when there is none. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed empty list
-    fun listTrash(scopeId: String): List<TrashEntryView> {
-        val trashDir = FileScopePath(scopeId, WorkspaceLayout.TRASH)
-        return try {
-            store
-                .listDir(trashDir, MAX_LIST_ENTRIES)
-                .entries
-                .mapNotNull { entryName ->
-                    val original = decodeTrashEntryName(entryName) ?: return@mapNotNull null
-                    val s = store.stat(FileScopePath(scopeId, joinPath(WorkspaceLayout.TRASH, entryName)))
-                    TrashEntryView(entryName, original, s.sizeBytes)
-                }
-        } catch (e: Exception) {
-            emptyList()
-        }
-    }
+    private val trashOps = FileManagerTrash(store, workspaceScopeId, directoryTrash, strings)
 
-    /**
-     * Restores a trash entry to its original path. [FileOpResult.Conflict] when the original path
-     * is now occupied (the entry stays in the trash) — the user resolves it (skip/rename/overwrite).
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
+    fun listTrash(scopeId: String): List<TrashEntryView> = trashOps.listTrash(scopeId)
+
     fun restore(
         scopeId: String,
         entryName: String,
-    ): FileOpResult {
-        val ref = FileScopePath(scopeId, joinPath(WorkspaceLayout.TRASH, entryName))
-        return try {
-            val out = store.restoreFromTrash(ref)
-            FileOpResult.Ok(out.restoredRelativePath, overwritten = false)
-        } catch (e: FileAlreadyExistsException) {
-            FileOpResult.Conflict
-        } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound(loc(R.string.files_error_trash_entry_missing))
-        } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: loc(R.string.files_error_restore_failed))
-        }
-    }
+    ): FileOpResult = trashOps.restore(scopeId, entryName)
 
-    /** Permanently deletes ONE trash entry (the physical-empty half). */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
     fun purge(
         scopeId: String,
         entryName: String,
-    ): FileOpResult {
-        val ref = FileScopePath(scopeId, joinPath(WorkspaceLayout.TRASH, entryName))
-        return try {
-            val out = store.purgeTrashEntry(ref)
-            FileOpResult.Ok(out.purgedRelativePath, overwritten = false)
-        } catch (e: FileNotFoundException) {
-            FileOpResult.NotFound(loc(R.string.files_error_trash_entry_missing))
-        } catch (e: Exception) {
-            FileOpResult.Error(e.message ?: loc(R.string.files_error_purge_failed))
-        }
-    }
+    ): FileOpResult = trashOps.purge(scopeId, entryName)
 
-    /** Permanently deletes every trash entry; @return the number of entries purged. */
-    fun emptyTrash(scopeId: String): Int =
-        listTrash(scopeId)
-            .also { entries -> entries.forEach { purge(scopeId, it.entryName) } }
-            .size
+    fun emptyTrash(scopeId: String): Int = trashOps.emptyTrash(scopeId)
 
     // --- Batch (多选) with a conflict policy + partial-failure list ---
 
-    /**
-     * Applies [policy] per item to a multi-select copy/move. [ASK] is the single-item interactive
-     * policy (the UI dialog); inside a batch it fails closed to [BatchItem.Outcome.SKIPPED] so the
-     * user still gets a 部分失败清单 rather than a silent overwrite (禁止默认覆盖).
-     *
-     * [progress] is invoked after each item (done, total) so the UI can show a 长操作进度 bar;
-     * [shouldCancel] is checked before each item — once it returns true the remaining items are
-     * recorded as [BatchItem.Outcome.SKIPPED] ("已取消") and the batch stops, giving a real cancel
-     * for a multi-item operation. The completed items are not rolled back (each is an independent
-     * atomic store op); the partial-failure list reports exactly what happened.
-     */
     fun batchMoveOrCopy(
         scopeId: String,
         sources: List<String>,
         destinationDir: String,
         policy: ConflictPolicy,
         move: Boolean,
-        progress: (
-            done: Int,
-            total: Int,
-        ) -> Unit = { _, _ -> },
+        progress: (Int, Int) -> Unit = { _, _ -> },
         shouldCancel: () -> Boolean = { false },
-    ): BatchResult {
-        val total = sources.size
-        val items =
-            sources.mapIndexed { index, srcRel ->
-                val item =
-                    if (shouldCancel()) {
-                        BatchItem(srcRel, BatchItem.Outcome.SKIPPED, loc(R.string.files_detail_cancelled))
-                    } else {
-                        processBatchItem(scopeId, srcRel, destinationDir, policy, move)
-                    }
-                progress(index + 1, total)
-                item
-            }
-        return BatchResult(items)
-    }
+    ): BatchResult =
+        FileManagerBatchOperations(this) { loc(it) }
+            .batchMoveOrCopy(scopeId, sources, destinationDir, policy, move, progress, shouldCancel)
 
-    /** One batched item under [policy]: the destination is the folder + the item's own base name. */
-    private fun processBatchItem(
+    fun batchTrash(
         scopeId: String,
-        srcRel: String,
-        destinationDir: String,
-        policy: ConflictPolicy,
-        move: Boolean,
-    ): BatchItem {
-        val dstRel = joinPath(destinationDir, srcRel.substringAfterLast('/'))
-        return when (policy) {
-            ConflictPolicy.OVERWRITE -> {
-                mapItem(srcRel, moveOrCopy(scopeId, srcRel, dstRel, overwrite = true, move))
-            }
-
-            ConflictPolicy.RENAME -> {
-                val first = moveOrCopy(scopeId, srcRel, dstRel, overwrite = false, move)
-                if (first is FileOpResult.Conflict) {
-                    val renamed = nextAvailableName(scopeId, dstRel)
-                    val second = moveOrCopy(scopeId, srcRel, renamed, overwrite = false, move)
-                    if (second is FileOpResult.Ok) {
-                        BatchItem(srcRel, BatchItem.Outcome.RENAMED, second.destinationRelativePath)
-                    } else {
-                        mapItem(srcRel, second)
-                    }
-                } else {
-                    mapItem(srcRel, first)
-                }
-            }
-
-            // ASK (batch) and SKIP: try without overwrite; a conflict is reported, never clobbered.
-            ConflictPolicy.ASK,
-            ConflictPolicy.SKIP,
-            -> {
-                mapItem(
-                    srcRel,
-                    moveOrCopy(scopeId, srcRel, dstRel, overwrite = false, move),
-                    conflictIsSkipped = true,
-                )
-            }
-        }
-    }
+        relativePaths: List<String>,
+        progress: (Int, Int) -> Unit = { _, _ -> },
+        shouldCancel: () -> Boolean = { false },
+    ): BatchResult =
+        FileManagerBatchOperations(this) { loc(it) }
+            .batchTrash(scopeId, relativePaths, progress, shouldCancel)
 
     /** One batched item's outcome. [detail] is the destination (on success/rename) or the reason. */
     data class BatchItem(
@@ -822,103 +572,6 @@ class FileManagerService(
         val failures: List<BatchItem> get() =
             items.filter { it.outcome == BatchItem.Outcome.SKIPPED || it.outcome == BatchItem.Outcome.FAILED }
     }
-
-    private fun mapItem(
-        srcRel: String,
-        result: FileOpResult,
-        conflictIsSkipped: Boolean = false,
-    ): BatchItem =
-        when (result) {
-            is FileOpResult.Ok -> {
-                BatchItem(srcRel, BatchItem.Outcome.SUCCEEDED, result.destinationRelativePath)
-            }
-
-            FileOpResult.Conflict -> {
-                BatchItem(
-                    srcRel,
-                    if (conflictIsSkipped) BatchItem.Outcome.SKIPPED else BatchItem.Outcome.FAILED,
-                    loc(R.string.files_error_destination_exists),
-                )
-            }
-
-            is FileOpResult.NotFound -> {
-                BatchItem(srcRel, BatchItem.Outcome.FAILED, result.message)
-            }
-
-            is FileOpResult.Error -> {
-                BatchItem(srcRel, BatchItem.Outcome.FAILED, result.message)
-            }
-        }
-
-    /**
-     * Deletes a multi-select of regular files into the trash (restorable), one at a time with the
-     * same 长操作进度 ([progress]) and cooperative [shouldCancel] as [batchMoveOrCopy]. A
-     * non-file (a directory) or a missing path is a [BatchItem.Outcome.FAILED] item, never a throw.
-     */
-    fun batchTrash(
-        scopeId: String,
-        relativePaths: List<String>,
-        progress: (
-            done: Int,
-            total: Int,
-        ) -> Unit = { _, _ -> },
-        shouldCancel: () -> Boolean = { false },
-    ): BatchResult {
-        val total = relativePaths.size
-        val items =
-            relativePaths.mapIndexed { index, rel ->
-                val item =
-                    if (shouldCancel()) {
-                        BatchItem(rel, BatchItem.Outcome.SKIPPED, loc(R.string.files_detail_cancelled))
-                    } else {
-                        mapItem(rel, trash(scopeId, rel))
-                    }
-                progress(index + 1, total)
-                item
-            }
-        return BatchResult(items)
-    }
-
-    // --- Trash-entry name decoding (the exact inverse of the store's `encodeTrashPath`) ---
-
-    private fun decodeTrashEntryName(entryName: String): String? {
-        val match = WorkspaceArtifactStore.TRASH_ENTRY_NAME.matchEntire(entryName) ?: return null
-        return decodeTrashPath(match.groupValues[3])
-    }
-
-    private fun decodeTrashPath(encoded: String): String? {
-        val out = StringBuilder(encoded.length)
-        var i = 0
-        while (i < encoded.length) {
-            val c = encoded[i]
-            if (c != '%') {
-                out.append(c)
-                i++
-                continue
-            }
-            val decoded =
-                when {
-                    i + 2 >= encoded.length -> null
-                    else -> decodeEscape(encoded, i)
-                } ?: return null
-            out.append(decoded)
-            i += 3
-        }
-        return out.toString()
-    }
-
-    private fun decodeEscape(
-        encoded: String,
-        at: Int,
-    ): Char? =
-        when (encoded.substring(at + 1, at + 3)) {
-            "25" -> '%'
-            "2F" -> '/'
-            else -> null
-        }
-
-    private fun sha256Hex(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     private fun joinPath(
         dir: String,

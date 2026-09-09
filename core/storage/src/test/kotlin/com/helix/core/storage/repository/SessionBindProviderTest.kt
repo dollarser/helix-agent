@@ -66,6 +66,18 @@ class SessionBindProviderTest {
      * providerId IS NULL` row-count semantics (0 on missing or already-bound).
      */
     private class FakeSessionDao : SessionDao {
+        override fun selectModel(
+            id: String,
+            providerId: String,
+            modelId: String,
+        ): Int = error("not used")
+
+        override fun updateDetails(
+            id: String,
+            title: String,
+            directoryRef: String?,
+        ): Int = error("not used")
+
         val rows = HashMap<String, SessionEntity>()
 
         override fun insert(session: SessionEntity) {
@@ -86,6 +98,12 @@ class SessionBindProviderTest {
                 rows[it] = rows[it]!!.copy(archivedAt = archivedAt)
                 1
             } ?: 0
+
+        override fun restore(id: String): Int {
+            val row = rows[id]?.takeIf { it.archivedAt != null } ?: return 0
+            rows[id] = row.copy(archivedAt = null)
+            return 1
+        }
 
         override fun bindProvider(
             id: String,

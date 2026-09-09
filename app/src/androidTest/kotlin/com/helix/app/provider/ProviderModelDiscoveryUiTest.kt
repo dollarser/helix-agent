@@ -2,7 +2,9 @@ package com.helix.app.provider
 
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -120,8 +122,13 @@ class ProviderModelDiscoveryUiTest {
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
-        composeRule.onNodeWithTag("provider-form-save").performClick()
+        composeRule
+            .onNodeWithTag("provider-cleartext-confirm")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.onNodeWithTag("provider-cleartext-confirm").assertIsOn()
+        composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
         // The edit save does more Room/Keystore work than create (overwrite + status clear +
         // binding prune + refresh) — wait for the close explicitly instead of relying on idle.
         composeRule.waitUntil(10_000) {
@@ -267,8 +274,13 @@ class ProviderModelDiscoveryUiTest {
         }
         // The cleartext http endpoint requires the explicit per-host:port risk
         // confirmation (ProviderFlowTest precedent; tag from the form dialog).
-        composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
-        composeRule.onNodeWithTag("provider-form-save").performClick()
+        composeRule
+            .onNodeWithTag("provider-cleartext-confirm")
+            .performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.onNodeWithTag("provider-cleartext-confirm").assertIsOn()
+        composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
         // Compose idle does not wait for the Room/Keystore work on the IO dispatcher.
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()

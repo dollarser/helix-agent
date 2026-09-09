@@ -1,0 +1,22 @@
+import pathlib,subprocess,json,hashlib
+root=pathlib.Path('build/main-verification/repeated-tool-round-device-final');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb'
+cls='com.helix.app.chat.AttachmentE2eDeviceTest'
+methods=['repeatedWireIdAcrossSuccessfulRoundsKeepsIndependentLocalResults','repeatedWireIdAcrossRejectedRoundsKeepsIndependentLocalResults','toolLoopWithTextAttachmentRunsTheToolThenAnswers','toolBackfillKeepsContentBeyondTheTimelinePreview']
+records=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ for flavor,pkg in [('consumer','com.helix.agent'),('developer','com.helix.agent.developer')]:
+  base=[adb,'-s',serial];hashes={}
+  for app,p in [(pkg,f'app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk'),(pkg+'.test',f'app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk')]:
+   subprocess.run(base+['install','-r',p],check=True,capture_output=True)
+   remote=subprocess.check_output(base+['shell','pm','path',app],text=True).strip().removeprefix('package:')
+   actual=subprocess.check_output(base+['shell','sha256sum',remote],text=True).split()[0]
+   assert actual==hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+   hashes[app]=actual
+  log=root/f'api{api}-{flavor}.log'
+  with log.open('w') as f:
+   r=subprocess.run(base+['shell','am','instrument','-w','-r','-e','class',','.join(cls+'#'+m for m in methods),pkg+'.test/com.helix.app.HelixAndroidJUnitRunner'],stdout=f,stderr=subprocess.STDOUT,timeout=180)
+  passed=r.returncode==0 and 'OK (4 tests)' in log.read_text()
+  records.append(dict(api=api,flavor=flavor,passed=passed,installedApks=hashes,log=log.name))
+  (root/'result.json').write_text(json.dumps(records,indent=2)+'\n');print(api,flavor,passed,flush=True)
+  if not passed: raise SystemExit(1)

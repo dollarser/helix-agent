@@ -1,0 +1,20 @@
+from pathlib import Path
+import subprocess,json,hashlib,re
+out=Path('build/main-verification/current-api36-basic-modules');out.mkdir(exist_ok=True);rows=[]
+for module in ['feature/browser','feature/files','tools/android']:
+ base=Path(module);folder=base/'build/outputs/apk/androidTest/debug';meta=json.loads((folder/'output-metadata.json').read_text());apk=folder/meta['elements'][0]['outputFile'];pkg=meta['applicationId'];name=module.replace('/','-')
+ selectors=[];expected=0
+ for p in sorted((base/'src/androidTest').rglob('*.kt')):
+  s=p.read_text();n=len(re.findall(r'@Test\b',s))
+  if not n:continue
+  cls=re.search(r'^package (.+)$',s,re.M)[1]+'.'+p.stem
+  if p.stem=='WebViewResourceLifecycleDeviceTest':
+   selectors.extend(cls+'#'+m for m in ['destroyRemovesPendingEvaluationDeadlinesAndDropsLateResults','repeatedCreateDestroyDoesNotGrowTargetProcessDescriptors']);expected+=2
+  else:selectors.append(cls);expected+=n
+ p=subprocess.run(['adb','-s','<OWNED_EMULATOR_SERIAL>','install','-r','-t',str(apk)],capture_output=True,text=True,timeout=90);(out/(name+'-install.log')).write_text(p.stdout+p.stderr);assert p.returncode==0
+ devicepath=subprocess.check_output(['adb','-s','<OWNED_EMULATOR_SERIAL>','shell','pm','path',pkg],text=True).strip().removeprefix('package:');got=subprocess.check_output(['adb','-s','<OWNED_EMULATOR_SERIAL>','shell','sha256sum',devicepath],text=True).split()[0];sha=hashlib.sha256(apk.read_bytes()).hexdigest();assert sha==got
+ runners=subprocess.check_output(['adb','-s','<OWNED_EMULATOR_SERIAL>','shell','pm','list','instrumentation'],text=True);runner=re.search(r'instrumentation:('+re.escape(pkg)+r'/\S+)',runners)[1]
+ cmd=['adb','-s','<OWNED_EMULATOR_SERIAL>','shell','am','instrument','-w','-r','-e','class',','.join(selectors),runner]
+ with (out/(name+'.log')).open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=600)
+ raw=(out/(name+'.log')).read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',raw,re.M);ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} tests)' in raw
+ rows.append(dict(module=module,command=cmd,apk=str(apk),sha256=sha,installedSha256=got,expected=expected,passed=codes.count('0'),statusCodes=codes,ok=ok));(out/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(module,expected,ok,raw[-200:],flush=True)

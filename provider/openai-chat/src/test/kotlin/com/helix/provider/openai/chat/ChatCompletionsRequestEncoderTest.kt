@@ -142,6 +142,23 @@ class ChatCompletionsRequestEncoderTest {
         assertEquals("high", str(body, "reasoning_effort"))
     }
 
+    @Test fun qwen38HighMapsToItsNativeXhighWithoutChangingOtherModels() {
+        for ((model, expected) in listOf(
+            "Qwen3.8-27B" to "xhigh",
+            "Qwen/Qwen3.8-27B" to "xhigh",
+            "other-model" to "high",
+        )) {
+            val request =
+                ModelRequest(
+                    model = model,
+                    messages = listOf(ModelMessage(ModelRole.USER, "hi")),
+                    reasoning = ReasoningEffort.HIGH,
+                )
+            val body = parsed(encoder.encode(request))
+            assertEquals(expected, body["reasoning_effort"]?.jsonPrimitive?.content)
+        }
+    }
+
     @Test
     fun encodesFullRequest() {
         val body = parsed(encoder.encode(fullRequest()))

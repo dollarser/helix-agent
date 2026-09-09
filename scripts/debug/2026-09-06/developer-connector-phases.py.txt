@@ -1,0 +1,14 @@
+import pathlib, subprocess, sys
+adb = str(pathlib.Path.home()/'Library/Android/sdk/platform-tools/adb')
+serial=sys.argv[1]; api=sys.argv[2]; package='com.helix.agent.developer'
+runner=package+'.test/com.helix.app.HelixAndroidJUnitRunner'
+phases=[('ConnectorProcessRecoveryDeviceTest','seedPersistedConnector','connectorRecoveryPhase','seedPersistedConnector'),('ConnectorProcessRecoveryDeviceTest','recoverInNewProcess','connectorRecoveryPhase','recoverInNewProcess'),('ConnectorExternalDeviceTest','seedRealConnectionAndDispatch','connectorExternal','true'),('ConnectorExternalDeviceTest','recoverRealConnectionInNewProcess','connectorExternal','true'),('ConnectorSuppliedArchiveDeviceTest','actualArchiveImportsAllComponentsWithoutExecutingDependencies','connectorSample','true')]
+with open(f'build/main-verification/developer-connectors-api{api}.log','w') as f:
+    for cmd in [['shell','mkdir','-p',f'/sdcard/Android/data/{package}/files'],['push','app/build/outputs/connector-handoff-672dc5a/inputs/connector-参考包.zip',f'/sdcard/Android/data/{package}/files/hxa125-sample.zip']]:
+        subprocess.run([adb,'-s',serial]+cmd,check=True,stdout=f,stderr=subprocess.STDOUT)
+    for cls,method,key,value in phases:
+        subprocess.run([adb,'-s',serial,'shell','am','force-stop',package],check=True,stdout=f,stderr=subprocess.STDOUT)
+        r=subprocess.run([adb,'-s',serial,'shell','am','instrument','-w','-r','-e',key,value,'-e','class',f'com.helix.app.connector.{cls}#{method}',runner],stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+        f.write(r.stdout); f.flush()
+        assert r.returncode==0 and 'OK (1 test)' in r.stdout and not any(x in r.stdout for x in ['FAILURES!!!','Process crashed','STATUS_CODE: -4','STATUS_CODE: -3'])
+print(api,'five developer connector phases passed')

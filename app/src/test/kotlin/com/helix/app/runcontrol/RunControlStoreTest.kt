@@ -8,6 +8,18 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class RunControlStoreTest {
+    @Test fun reasoningSurvivesReconstructionAndLegacyModesArePreserved() {
+        val lines = InMemoryLineStore()
+        lines.setLines("run_control_v1", listOf("ACT", "false", TurnBudgetBounds.DEFAULT.toStorageString()))
+        val store = PersistedRunControlStore(lines)
+        assertEquals(AgentMode.ACT, store.current.mode)
+        assertEquals(com.helix.core.model.ReasoningEffort.OFF, store.current.reasoning)
+        store.setReasoning(com.helix.core.model.ReasoningEffort.MEDIUM)
+        val restored = PersistedRunControlStore(lines).current
+        assertEquals(AgentMode.ACT, restored.mode)
+        assertEquals(com.helix.core.model.ReasoningEffort.MEDIUM, restored.reasoning)
+    }
+
     @Test
     fun defaultsAreBoundedChatWithoutTools() {
         val store = PersistedRunControlStore(InMemoryLineStore())

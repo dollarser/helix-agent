@@ -4,7 +4,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,135 +25,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
-import com.helix.app.files.SortKey
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun FilesScreenLayout(
     state: FilesScreenState,
     actions: FilesScreenActions,
+    onPermissions: () -> Unit,
 ) {
+    if (state.homeOpen) {
+        FilesHome(state, actions, onPermissions)
+        return
+    }
     with(actions) {
         with(state) {
+            val visible = visibleEntries
             Column(
-                modifier = Modifier.fillMaxSize().padding(16.dp).testTag("screen-files"),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp).testTag("screen-files"),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                AdaptiveFileControls(
-                    location = "${currentSource.displayName} · /$currentPath",
-                ) {
-                    // 来源标识: switchable source chips + the always-shown current source.
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    ) {
-                        sources.forEach { source ->
-                            TextButton(
-                                onClick = {
-                                    if (source.scopeId != selectedScopeId) {
-                                        selectedScopeId = source.scopeId
-                                        currentPath = ""
-                                        trashOpen = false
-                                    }
-                                },
-                                modifier = Modifier.testTag("files-source-${source.scopeId}"),
-                            ) {
-                                Text(source.displayName)
-                            }
-                        }
-                    }
-                    Text(
-                        str(R.string.files_current_source, currentSource.displayName) +
-                            if (canMutate) "" else str(R.string.files_read_only_suffix),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("files-source-current"),
-                    )
-
-                    // 路径面包屑 + 排序 + 视图 + 工具按钮.
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier.horizontalScroll(rememberScrollState()).testTag("files-breadcrumb"),
-                        ) {
-                            BreadcrumbCrumb(str(R.string.files_root_directory), isRoot = true, onClick = {
-                                currentPath =
-                                    ""
-                            })
-                            currentPath
-                                .split("/")
-                                .filter { it.isNotEmpty() }
-                                .mapIndexed { index, segment ->
-                                    val prefix =
-                                        currentPath
-                                            .split("/")
-                                            .filter { it.isNotEmpty() }
-                                            .take(index + 1)
-                                            .joinToString("/")
-                                    BreadcrumbCrumb(segment, isRoot = false, onClick = { currentPath = prefix })
-                                }
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            SortButton(str(R.string.files_sort_name), SortKey.NAME, sortKey, onPick = { sortKey = it })
-                            SortButton(str(R.string.files_sort_time), SortKey.TIME, sortKey, onPick = { sortKey = it })
-                            SortButton(str(R.string.files_sort_size), SortKey.SIZE, sortKey, onPick = { sortKey = it })
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            TextButton(
-                                onClick = { viewMode = ViewMode.LIST },
-                                modifier = Modifier.testTag("files-view-list"),
-                            ) {
-                                Text(str(R.string.files_view_list))
-                            }
-                            TextButton(
-                                onClick = { viewMode = ViewMode.GRID },
-                                modifier = Modifier.testTag("files-view-grid"),
-                            ) {
-                                Text(str(R.string.files_view_grid))
-                            }
-                        }
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            TextButton(
-                                onClick = { trashOpen = true },
-                                modifier = Modifier.testTag("files-trash-open"),
-                            ) {
-                                Text(str(R.string.files_trash_button))
-                            }
-                            if (canMutate) {
-                                TextButton(
-                                    onClick = { newFolderOpen = true },
-                                    modifier = Modifier.testTag("files-newfolder"),
-                                ) {
-                                    Text(str(R.string.files_new_folder_button))
-                                }
-                            }
-                            // HXA-057: the visible 重新授权 / 移除 entry for SAF tree scopes.
-                            TextButton(
-                                onClick = { safPanelOpen = true },
-                                modifier = Modifier.testTag("files-saf-open"),
-                            ) {
-                                Text(str(R.string.files_saf_button))
-                            }
-                            // HXA-058: the 导入 entry (a single document or a folder into the Workspace).
-                            TextButton(
-                                onClick = {
-                                    importResult = null
-                                    importOpen = true
-                                },
-                                modifier = Modifier.testTag("files-import-open"),
-                            ) {
-                                Text(str(R.string.files_import_button))
-                            }
-                        }
-                    }
-                }
+                FilesLocationBar(state, actions)
 
                 // 长操作进度/取消 + 状态 + 部分失败清单.
                 if (batchBusy) {
@@ -250,9 +140,15 @@ internal fun FilesScreenLayout(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.testTag("files-error"),
                         )
-                    } else if (entries.isEmpty()) {
+                    } else if (visible.isEmpty()) {
                         Text(
-                            str(R.string.files_empty_directory),
+                            str(
+                                if (searchQuery.isBlank()) {
+                                    R.string.files_empty_directory
+                                } else {
+                                    R.string.files_search_empty
+                                },
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.testTag("files-empty"),
                         )
@@ -261,12 +157,13 @@ internal fun FilesScreenLayout(
                             modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            entries.forEach { entry ->
+                            visible.forEach { entry ->
                                 FileRow(
                                     entry,
                                     selected.contains(entry.relativePath),
-                                    onToggle = { toggleSelect(entry) },
-                                    onClick = { onEntry(entry) },
+                                    selectionMode = selected.isNotEmpty(),
+                                    onToggle = { if (canMutate) toggleSelect(entry) },
+                                    onClick = { if (selected.isEmpty()) onEntry(entry) else toggleSelect(entry) },
                                 )
                             }
                         }
@@ -277,12 +174,13 @@ internal fun FilesScreenLayout(
                             contentPadding = PaddingValues(4.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            items(entries) { entry ->
+                            items(visible) { entry ->
                                 GridFileItem(
                                     entry,
                                     selected.contains(entry.relativePath),
-                                    onToggle = { toggleSelect(entry) },
-                                    onClick = { onEntry(entry) },
+                                    selectionMode = selected.isNotEmpty(),
+                                    onToggle = { if (canMutate) toggleSelect(entry) },
+                                    onClick = { if (selected.isEmpty()) onEntry(entry) else toggleSelect(entry) },
                                 )
                             }
                         }
@@ -292,6 +190,7 @@ internal fun FilesScreenLayout(
                 // 多选 action bar.
                 if (selected.isNotEmpty() && !trashOpen && canMutate) {
                     Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
@@ -300,6 +199,15 @@ internal fun FilesScreenLayout(
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         val selectedRels = selected.toList()
+                        if (selectedRels.size == 1) {
+                            TextButton(
+                                onClick = {
+                                    renameTarget =
+                                        entries.firstOrNull { it.relativePath == selectedRels.single() }
+                                },
+                                modifier = Modifier.testTag("files-batch-rename"),
+                            ) { Text(str(R.string.files_rename)) }
+                        }
                         TextButton(
                             onClick = { copyMove = CopyMoveTarget(move = false, selectedRels) },
                             modifier = Modifier.testTag("files-batch-copy"),
@@ -313,7 +221,7 @@ internal fun FilesScreenLayout(
                             Text(str(R.string.files_move))
                         }
                         TextButton(
-                            onClick = { startTrash(selectedRels) },
+                            onClick = { requestDelete(selectedRels) },
                             modifier = Modifier.testTag("files-batch-trash"),
                         ) {
                             Text(str(R.string.files_delete))

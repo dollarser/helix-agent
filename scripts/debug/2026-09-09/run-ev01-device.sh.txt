@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# EV-01 device baseline: affected-set regression, developer flavor, API36 (primary).
+# Continue-on-failure; record per-task rc and parse JUnit XML for pass/fail/error/skip.
+set -u
+cd <HELIX_CHECKOUT>
+OUT=build/emulator-verification/ev01-device
+mkdir -p "$OUT"
+export ANDROID_SERIAL=<OWNED_EMULATOR_SERIAL>   # API36 arm64-v8a
+LOG="$OUT/device-baseline.log"
+{
+echo "=== [EV-01 device baseline] start $(date -u +%FT%TZ) serial=$ANDROID_SERIAL ==="
+echo "api=$(adb -s $ANDROID_SERIAL shell getprop ro.build.version.sdk) abi=$(adb -s $ANDROID_SERIAL shell getprop ro.product.cpu.abi)"
+
+run_task() {
+  local label="$1"; shift
+  echo ""
+  echo "############ $label ############"
+  echo "\$ $*"
+  ./gradlew "$@" --console=plain > "$OUT/$label.log" 2>&1
+  local rc=$?
+  echo "rc=$rc"
+  tail -20 "$OUT/$label.log"
+  echo "ENDTASK $label rc=$rc"
+}
+
+# install developer main app + test apk once (app-level suites need it)
+run_task 00-install-app :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest
+
+# core affected module suites (standalone app-under-test)
+run_task 01-storage :core:storage:connectedDebugAndroidTest
+run_task 02-browser :feature:browser:connectedDebugAndroidTest
+run_task 03-files :feature:files:connectedDebugAndroidTest
+run_task 04-android-tools :tools:android:connectedDebugAndroidTest
+run_task 05-quickjs :runtime:quickjs:connectedDebugAndroidTest
+
+# app-level MCP / A2A local-fixture handshake
+run_task 06-mcp-a2a :app:connectedDeveloperDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.mcp.McpAndroidSpikeDeviceTest,com.helix.app.a2a.A2aDiscoveryDeviceTest,com.helix.app.a2a.A2aTaskRunnerDeviceTest
+
+# companions (need same-cert install; tolerate setup failures)
+run_task 07-proot :runtime:proot-app:connectedDebugAndroidTest
+run_task 08-cli :runtime:cli-app:connectedDebugAndroidTest
+
+echo ""
+echo "=== JUnit XML summary (tests/failures/errors/skipped) ==="
+python3 - <<'PY'
+import glob, xml.etree.ElementTree as ET, collections, os
+tot=collections.Counter(); rows=[]; seen=set()
+for x in sorted(glob.glob("*/build/outputs/androidTest-results/connected/**/TEST-*.xml", recursive=True)
+             + glob.glob("app/build/outputs/androidTest-results/connected/**/TEST-*.xml", recursive=True)):
+    x=os.path.normpath(x)
+    if x in seen: continue
+    seen.add(x)
+    try:
+        r=ET.parse(x).getroot()
+        if r.tag!="testsuite": continue
+        name=r.get("name"); t=int(r.get("tests",0)); f=int(r.get("failures",0)); e=int(r.get("errors",0)); s=int(r.get("skipped",0))
+        tot["tests"]+=t; tot["failures"]+=f; tot["errors"]+=e; tot["skipped"]+=s
+        flag="OK" if (f==0 and e==0) else "!!FAIL"
+        rows.append(f"[{flag}] {t} tests, {f} fail, {e} err, {s} skip  <-  {name}")
+    except Exception:
+        pass
+print("TOTAL:", dict(tot))
+for row in sorted(rows): print("  ", row)
+PY
+echo "=== [EV-01 device baseline] end $(date -u +%FT%TZ) ==="
+} > "$LOG" 2>&1

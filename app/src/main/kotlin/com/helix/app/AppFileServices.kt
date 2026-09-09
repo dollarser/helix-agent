@@ -48,7 +48,6 @@ class FeatureFiles(
 internal class AppFileServices(
     context: Context,
     scopeRoots: ScopeRootResolver,
-    workspaceStore: WorkspaceArtifactStore,
     appScopeId: String,
     strings: (Int, Array<out Any>) -> String,
 ) {
@@ -58,17 +57,16 @@ internal class AppFileServices(
     /**
      * The SAF tree scope service (HXA-057: persisted SAF tree scope 接线). Re-verifies every grant
      * in real time (grant / provider identity / root document / read-write mode) and fails closed on
-     * revocation, provider-gone, restart, read-only grant or URI change. The file manager consumes
-     * it read-only; the model and tools see only the model-opaque `scopeId` + relative path.
+     * revocation, provider-gone, restart, read-only grant or URI change. The file manager reuses
+     * the same live grant service for reads and manual writes. Tools see only opaque scope IDs.
      */
     val safTree: SafTreeScopeService =
         SafTreeScopeService(safGrantStore, ContentResolverSafTreeCheck(context.contentResolver))
 
     /**
      * The SAF tree scope access the file manager consumes (HXA-057): the scope service + the
-     * read-only `DocumentsContract` browse backend + an app-private share-staging directory. SAF
-     * scopes are browse/preview/share-only in this milestone (the all-files precedent: mutations
-     * hidden; a read-only grant's write re-verification fails closed regardless).
+     * read-only browse backend and share directory. Manual SAF writes are separately composed
+     * below and never reuse an Agent Tool scope.
      */
     private val safAccess: SafTreeScopeAccess =
         SafTreeScopeAccess(
@@ -106,19 +104,33 @@ internal class AppFileServices(
         }
 
     /**
-     * The file-manager facade (HXA-046 + HXA-057 + HXA-058): shares the tool pipeline's
-     * [workspaceStore] and the same [scopeRoots] scope boundary, so the user's file manager and
-     * the model's `files.*` tools address the identical, containment-enforced store. [appScopeId]
-     * is the always-present, mutable workspace; all-files roots (developer) are appended read-only,
-     * and SAF tree scopes (HXA-057) are appended read-only and re-verified on every browse.
+     * The file-manager facade (HXA-046 + HXA-057 + HXA-058): delegates ordinary scopes to the tool pipeline's
+     * containment-enforced [scopeRoots]. A separately resolved shared-storage root belongs only to
+     * explicit user browsing and never becomes an Agent scope. [appScopeId]
+     * is the always-present workspace. Explicit manual shared-storage and writable SAF operations
+     * are separate from developer Agent all-files roots and recheck their own permissions.
      * HXA-058 adds the 导入/导出 entries: the HXA-044 pipelines driven by the file manager's
      * explicit user actions (pickers / authorized trees) — no chat message, no Provider call, no
      * Agent scope expansion.
      */
+    private val sharedStorage =
+        com.helix.app.files
+            .SharedStorageAccess(context.applicationContext)
+
+    // The manual root is deliberately absent from scopeRoots used by tools and exports.
+    private val manualRoots =
+        ScopeRootResolver { id ->
+            if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
+                sharedStorage.root()
+            } else {
+                scopeRoots.resolveRoot(id)
+            }
+        }
+
     val fileManager: FileManagerService =
         FileManagerService(
-            workspaceStore,
-            scopeRoots,
+            WorkspaceArtifactStore(manualRoots),
+            manualRoots,
             appScopeId,
             safAccess,
             SafImportExportAccess(
@@ -132,5 +144,46 @@ internal class AppFileServices(
             // HXA-069: the facade's user-visible status/detail texts are stable string-resource
             // ids, localized against the CHOSEN app language at emit time (via the injected locale resolver).
             strings = { id, args -> strings(id, args) },
+            sharedStorageGranted = sharedStorage::isGranted,
+            manual =
+                com.helix.app.files.ManualFileOperations(
+                    journal =
+                        com.helix.app.files.ManualTransferJournal(
+                            context.noBackupFilesDir.toPath().resolve("manual-transfers"),
+                        ),
+                    backend = { id ->
+                        if (id.startsWith(SafGrantStore.SCOPE_ID_PREFIX)) {
+                            com.helix.app.files
+                                .SafManualFileBackend(context.contentResolver, safGrantStore, safTree, id)
+                        } else {
+                            com.helix.app.files.NioManualFileBackend(id, manualRoots, id == appScopeId) {
+                                if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
+                                    check(sharedStorage.isWritable()) { "Shared storage write permission is required" }
+                                }
+                            }
+                        }
+                    },
+                    writable = { id ->
+                        when {
+                            id == appScopeId -> {
+                                true
+                            }
+
+                            id == com.helix.app.files.SharedStorageAccess.SCOPE_ID -> {
+                                sharedStorage.isWritable()
+                            }
+
+                            id.startsWith(SafGrantStore.SCOPE_ID_PREFIX) -> {
+                                runCatching {
+                                    safTree.resolve(id, com.helix.feature.files.SafAccessMode.WRITE)
+                                }.isSuccess
+                            }
+
+                            else -> {
+                                false
+                            }
+                        }
+                    },
+                ),
         )
 }

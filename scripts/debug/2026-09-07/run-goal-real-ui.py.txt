@@ -1,0 +1,29 @@
+import argparse,subprocess,json,pathlib,hashlib,urllib.request,re
+p=argparse.ArgumentParser();p.add_argument('--serial',required=True);p.add_argument('--flavor',choices=['consumer','developer'],required=True);p.add_argument('--output',type=pathlib.Path,required=True);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+pkg='com.helix.agent'+('.developer' if a.flavor=='developer' else '');port=30018
+with urllib.request.urlopen(f'http://127.0.0.1:{port}/v1/models',timeout=10) as reply:model=json.load(reply)['data'][0]['id']
+r={'serial':a.serial,'flavor':a.flavor,'model':model,'port':port,'apks':[],'passed':False}
+def adb(*args,timeout=90,check=True):
+ p=subprocess.run(['adb','-s',a.serial,*args],capture_output=True,timeout=timeout)
+ if check:p.check_returncode()
+ return p
+try:
+ for package,apk in [(pkg,f'app/build/outputs/apk/{a.flavor}/debug/app-{a.flavor}-debug.apk'),(pkg+'.test',f'app/build/outputs/apk/androidTest/{a.flavor}/debug/app-{a.flavor}-debug-androidTest.apk')]:
+  if package.endswith('.test'):r['testInstall']=adb('install','-r','-t',apk).stdout.decode()
+  installed=adb('shell','pm','path',package).stdout.decode().strip().removeprefix('package:');actual=adb('shell','sha256sum',installed).stdout.decode().split()[0];sha=hashlib.sha256(pathlib.Path(apk).read_bytes()).hexdigest();assert actual==sha;r['apks'].append(dict(package=package,sha256=sha,installedSha256=actual))
+ adb('shell','run-as',pkg,'rm','-f','files/hxa102-goal-ui/result.json',check=False)
+ cmd=['adb','-s',a.serial,'shell','am','instrument','-w','-r','-e','class','com.helix.app.ui.GoalRealModelUiDeviceTest','-e','helix.goalUi','true','-e','helix.goalUi.model',model,'-e','helix.goalUi.port',str(port),pkg+'.test/com.helix.app.HelixAndroidJUnitRunner'];r['command']=cmd;(a.output/'config.json').write_text(json.dumps(r,indent=2)+'\n')
+ with (a.output/'instrumentation.log').open('w') as out:r['exitCode']=subprocess.run(cmd,stdout=out,stderr=subprocess.STDOUT,timeout=600).returncode
+ log=(a.output/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',log,re.M);r['codes']=codes
+ evidence=adb('shell','run-as',pkg,'cat','files/hxa102-goal-ui/result.json',check=False)
+ if evidence.returncode==0:r['evidence']=json.loads(evidence.stdout)
+ r['screenshots']={}
+ for name in ['conversation.png','budget-paused.png']:
+  capture=adb('exec-out','run-as',pkg,'cat','files/hxa102-goal-ui/'+name,check=False)
+  if capture.returncode==0 and capture.stdout.startswith(b'\x89PNG'):
+   (a.output/name).write_bytes(capture.stdout);r['screenshots'][name]=hashlib.sha256(capture.stdout).hexdigest()
+ r['passed']=r['exitCode']==0 and codes.count('0')==1 and all(c in ['0','1'] for c in codes) and r.get('evidence',{}).get('passed') is True and 'OK (1 test)' in log and len(r['screenshots'])==2
+except Exception as e:r['error']=str(e)
+finally:
+ (a.output/'result.json').write_text(json.dumps(r,indent=2)+'\n');(a.output/'screen.png').write_bytes(adb('exec-out','screencap','-p',check=False).stdout)
+print(json.dumps({'passed':r['passed'],'error':r.get('error'),'output':str(a.output)}),flush=True)

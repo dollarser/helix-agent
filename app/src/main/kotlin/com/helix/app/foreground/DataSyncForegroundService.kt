@@ -53,7 +53,10 @@ class DataSyncForegroundService : Service() {
     ): Int {
         latestStartId = startId
         startAsForeground()
-        if (intent?.action == ACTION_STOP) transportRequested.set(false)
+        if (intent?.action == ACTION_STOP) {
+            transportRequested.set(false)
+            onStopTasks?.invoke()
+        }
         if (!transportRequested.get()) stopLatestStart()
         return START_NOT_STICKY
     }
@@ -70,6 +73,7 @@ class DataSyncForegroundService : Service() {
         startId: Int,
         fgsType: Int,
     ) {
+        onStopTasks?.invoke()
         stopDataSync()
     }
 
@@ -143,6 +147,9 @@ class DataSyncForegroundService : Service() {
         const val CHANNEL_ID = "data_sync"
         const val NOTIFICATION_ID = 4865
         const val ACTION_STOP = "com.helix.app.foreground.DATA_SYNC_STOP"
+
+        @Volatile
+        internal var onStopTasks: (() -> Unit)? = null
 
         /**
          * Device-test evidence slot (same pattern as [com.helix.app.goal.GoalReminderWorker]): the

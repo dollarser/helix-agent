@@ -1,0 +1,36 @@
+import subprocess,json,re,hashlib,pathlib,concurrent.futures
+P=pathlib.Path
+base=P('build/main-verification/current-cli-anonymous-endpoints-api29-dns-fixed');base.mkdir(exist_ok=True)
+source=P('runtime/cli-app/src/androidTest/kotlin/com/helix/runtime/cli/app/CliRuntimeManifestDeviceTest.kt').read_text()
+external={'codexTokenEndpointIsReachableWithoutCredentials','copilotDeviceEndpointIssuesBoundedAnonymousAttempt','grokDeviceEndpointIssuesBoundedAnonymousAttempt','codexDeviceEndpointIssuesBoundedAnonymousAttempt'}
+methods=[m for m in re.findall(r'@Test\s+fun (\w+)',source) if m in external]
+cli_classes=','.join('com.helix.runtime.cli.app.CliRuntimeManifestDeviceTest#'+m for m in methods)
+groups=[('cli-anonymous','runtime/cli-app',cli_classes,len(methods))]
+def run(api,serial):
+ outdir=base/f'api{api}';outdir.mkdir(exist_ok=True);rows=[]
+ def adb(*args,timeout=60):
+  p=subprocess.run(['adb','-s',serial,*args],capture_output=True,text=True,timeout=timeout)
+  if p.returncode:raise RuntimeError(p.stderr+p.stdout)
+  return p.stdout
+ for name,module,classes,expected in groups:
+  row={'group':name,'expectedTests':expected};rows.append(row)
+  try:
+   folder=P(module)/'build/outputs/apk/androidTest/debug';meta=json.loads((folder/'output-metadata.json').read_text());apk=folder/meta['elements'][0]['outputFile'];pkg=meta['applicationId']
+   if name=='cli-local':
+    private=adb('shell','run-as','com.helix.runtime.cli','ls','files').strip()
+    row['runtimePrivateFileNamesBefore']=private
+    if 'subscription-credentials' in private: raise RuntimeError('unexpected credential directory; inspect before destructive vault fixtures')
+   row['installOutput']=adb('install','-r',str(apk));row['hostSha256']=hashlib.sha256(apk.read_bytes()).hexdigest()
+   installed=adb('shell','pm','path',pkg).strip().split('package:')[-1];row['installedSha256']=adb('shell','sha256sum',installed).split()[0]
+   if row['installedSha256']!=row['hostSha256']:raise RuntimeError('installed APK hash differs')
+   cmd=['shell','am','instrument','-w','-r','-e','class',classes,pkg+'/androidx.test.runner.AndroidJUnitRunner'];row['command']=cmd
+   output=adb(*cmd,timeout=420);(outdir/f'{name}.log').write_text(output)
+   statuses=[int(x) for x in re.findall(r'INSTRUMENTATION_STATUS_CODE: (-?\d+)',output)]
+   row['completedTests']=statuses.count(0);row['nonSuccessStatuses']=[x for x in statuses if x not in (0,1)]
+   row['passed']=row['completedTests']==expected and not row['nonSuccessStatuses'] and f'OK ({expected} test'+('s' if expected!=1 else '')+')' in output
+  except Exception as e:row.update(passed=False,error=str(e))
+  (outdir/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(api,name,row.get('passed'),row.get('error',''),flush=True)
+ return rows
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+ results=list(pool.map(lambda pair:run(*pair),[(29,'<OWNED_EMULATOR_SERIAL>')]))
+(base/'result.json').write_text(json.dumps(results,indent=2)+'\n')

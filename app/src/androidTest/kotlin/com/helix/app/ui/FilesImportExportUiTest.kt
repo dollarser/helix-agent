@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
@@ -60,9 +61,11 @@ class FilesImportExportUiTest {
     @Test
     fun importDialogShowsSourceOptionsTargetPoliciesAndDismisses() {
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
 
-        composeRule.onNodeWithTag("files-import-open").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-import-open").performScrollTo().performClick()
         waitTag("files-import-dialog")
 
         // 来源: the two picker actions (the OS picker itself is not driven on device).
@@ -96,6 +99,7 @@ class FilesImportExportUiTest {
     fun exportEntryShowsTheLiveAuthorizedTreeSourcesAndPolicies() {
         seed("work/export-ui.txt", "export me")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-export-ui.txt")
@@ -152,6 +156,7 @@ class FilesImportExportUiTest {
 
         seed("work/fresh-ui.txt", "fresh ui export")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-fresh-ui.txt")

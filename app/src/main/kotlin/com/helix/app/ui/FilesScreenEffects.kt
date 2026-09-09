@@ -20,6 +20,9 @@ internal fun FilesDirectoryEffects(
             LaunchedEffect(selectedScopeId, currentPath, sortKey, reloadTick, trashOpen) {
                 if (trashOpen) return@LaunchedEffect
                 loadError = null
+                entries = emptyList()
+                selected = emptySet()
+                searchQuery = ""
                 val result =
                     withContext(Dispatchers.IO) {
                         runCatching { fileManager.list(selectedScopeId, currentPath, sortKey) }
@@ -46,36 +49,38 @@ internal fun FilesDirectoryEffects(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "TooGenericExceptionCaught") // Read failure is shown; cancellation still propagates.
 internal fun FilesPreviewEffects(
     state: FilesScreenState,
     actions: FilesScreenActions,
 ) {
-    with(actions) {
-        with(state) {
-            // The open file's preview + metadata (text/image first, then the bounded info incl. SHA-256).
-            LaunchedEffect(openFile?.relativePath, selectedScopeId) {
-                val file = openFile ?: return@LaunchedEffect
-                previewText = null
-                previewImage = null
-                fileInfo = null
-                if (file.isDirectory) return@LaunchedEffect
-                val loaded =
-                    withContext(Dispatchers.IO) {
-                        val text = fileManager.previewText(selectedScopeId, file.relativePath)
-                        val image =
-                            if (text == null) {
-                                val bytes = fileManager.previewImageBytes(selectedScopeId, file.relativePath)
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-                            } else {
-                                null
-                            }
-                        Triple(text, image, fileManager.fileInfo(selectedScopeId, file.relativePath))
-                    }
-                // Publish the completed preview and metadata together on the composition dispatcher.
-                previewText = loaded.first
-                previewImage = loaded.second
-                fileInfo = loaded.third
+    val file = state.openFile
+    val scopeId = state.selectedScopeId
+    LaunchedEffect(file?.relativePath, scopeId) {
+        if (file == null || file.isDirectory) return@LaunchedEffect
+        state.preview = FilePreviewState.Loading
+        val loaded =
+            withContext(Dispatchers.IO) {
+                try {
+                    val text = actions.fileManager.previewText(scopeId, file.relativePath)
+                    val image =
+                        if (text == null) {
+                            val bytes = actions.fileManager.previewImageBytes(scopeId, file.relativePath)
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                        } else {
+                            null
+                        }
+                    FilePreviewState.Ready(text, image, actions.fileManager.fileInfo(scopeId, file.relativePath))
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    FilePreviewState.Failed(failure.message ?: actions.str(R.string.files_read_directory_error))
+                }
+            }
+        // IO completion may resume on a test/effect dispatcher. Publish on Android's UI dispatcher.
+        withContext(Dispatchers.Main.immediate) {
+            if (state.openFile?.relativePath == file.relativePath && state.selectedScopeId == scopeId) {
+                state.preview = loaded
             }
         }
     }

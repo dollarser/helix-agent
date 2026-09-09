@@ -151,18 +151,18 @@ class StorageApprovalBroker(
     override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
         val now = clock.now().toEpochMilli()
         val approvalId = idGenerator()
-        approvals.create(
-            id = approvalId,
-            toolCallId = request.binding.toolCallId,
-            binding = request.binding,
-            createdAt = now,
-            expiresAt = now + ApprovalRepository.MAX_APPROVAL_TTL_MILLIS,
-        )
-        // Register the wait slot BEFORE publishing the card: a decision that arrived
-        // before the slot existed would be lost (decide() no-ops on an unknown id) — and
-        // a lost decision is a dispatch that can only end in window expiry.
         val wait = DecisionWaiter()
+        // The row can become visible to a decision thread before create() returns. Publish the
+        // wait slot under the same lock decide() takes after its durable write, so such a decision
+        // cannot pass the registration gap. No database connection is held while awaiting input.
         synchronized(lock) {
+            approvals.create(
+                id = approvalId,
+                toolCallId = request.binding.toolCallId,
+                binding = request.binding,
+                createdAt = now,
+                expiresAt = now + ApprovalRepository.MAX_APPROVAL_TTL_MILLIS,
+            )
             waits[approvalId] = wait
         }
         try {

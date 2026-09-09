@@ -15,11 +15,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.boolean
 import java.io.IOException
 import java.net.SocketTimeoutException
 
@@ -42,6 +37,7 @@ import java.net.SocketTimeoutException
  * The response body is always closed in a `finally`, including on
  * cancellation of the collecting coroutine.
  */
+@Suppress("TooManyFunctions") // shared HTTP transport and optional model metadata
 public abstract class WireModelProvider(
     override val descriptor: ProviderDescriptor,
     protected val credentials: CredentialLookup,
@@ -151,6 +147,20 @@ public abstract class WireModelProvider(
             }
         }.flowOn(Dispatchers.IO)
 
+    override suspend fun contextWindow(model: String): Long? {
+        val path = modelsPath() ?: return null
+        val endpoint = descriptor.endpoint
+        val serverUrl =
+            if (endpoint.path.trimEnd('/') in listOf("", "/v1") &&
+                descriptor.residence != com.helix.core.model.ProviderResidence.PUBLIC_CLOUD
+            ) {
+                endpoint.origin + "/get_server_info"
+            } else {
+                null
+            }
+        return ContextWindowDiscovery.read(wire, headersFor(), wireUrl(path), serverUrl, model)
+    }
+
     override suspend fun listModels(): ModelCatalogResult {
         val path = modelsPath() ?: return ModelCatalogResult.Unsupported
         var response: WireResponse? = null
@@ -251,48 +261,7 @@ public abstract class WireModelProvider(
         }
     }
 
-    /**
-     * Strict parse of the OpenAI-compatible `{"data":[{"id":...}]}` list body.
-     * Each of the four vendor contract violations (not JSON / not an object /
-     * no data array / entry without an id string) and the bound check is a
-     * distinct PROTOCOL failure — all are folded into one result here.
-     */
-    protected open fun parseModelIds(body: String): ModelCatalogResult {
-        val parsed = parseListObject(body)
-        val collected = ArrayList<String>()
-        var problem: String? = (parsed as? ModelListParse.Problem)?.detail
-        if (parsed is ModelListParse.Ok) {
-            for (entry in parsed.data) {
-                val text = (entry as? JsonObject)?.get("id")?.let { (it as? JsonPrimitive)?.content }
-                if (text == null) {
-                    problem = "model entry has no id string"
-                    break
-                }
-                collected += text
-            }
-        }
-        return when {
-            problem != null -> {
-                ModelCatalogResult.Failed(
-                    ModelErrorCode.PROTOCOL,
-                    boundedDetail(problem),
-                    retryable = false,
-                )
-            }
-
-            else -> {
-                try {
-                    ModelCatalogResult.Listed(collected)
-                } catch (e: IllegalArgumentException) {
-                    ModelCatalogResult.Failed(
-                        ModelErrorCode.PROTOCOL,
-                        boundedDetail("model list violates bounds: ${e.message}"),
-                        retryable = false,
-                    )
-                }
-            }
-        }
-    }
+    protected open fun parseModelIds(body: String): ModelCatalogResult = WireModelCatalogParser.parseModelIds(body)
 
     /**
      * Joins the endpoint's API root with the protocol resource path. The
@@ -371,37 +340,6 @@ private fun ioFailureCheck(
         boundedDetail(cause::class.simpleName ?: "io failure"),
         retryable = true,
     )
-
-private sealed interface ModelListParse {
-    data class Ok(
-        val data: JsonArray,
-    ) : ModelListParse
-
-    data class Problem(
-        val detail: String,
-    ) : ModelListParse
-}
-
-/**
- * Each return is a distinct vendor contract violation (not JSON / not an
- * object / no data array), folded into the [ModelListParse.Problem] class.
- */
-@Suppress("ReturnCount") // three fail-closed returns, one per vendor violation
-private fun parseListObject(body: String): ModelListParse {
-    val element =
-        try {
-            Json.parseToJsonElement(body)
-        } catch (e: IllegalArgumentException) {
-            return ModelListParse.Problem("models body is not JSON: ${e::class.simpleName}")
-        }
-    val obj =
-        element as? JsonObject
-            ?: return ModelListParse.Problem("models body is not a JSON object")
-    val data =
-        obj["data"] as? JsonArray
-            ?: return ModelListParse.Problem("models body has no data array")
-    return ModelListParse.Ok(data)
-}
 
 /**
  * Resolves the plaintext credential for [alias] at request time (fail closed:

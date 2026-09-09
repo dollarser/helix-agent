@@ -20,10 +20,11 @@ Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agen
 
 - 产品运行在 Android 单机；基础任务不依赖电脑、云端 Worker 或远程沙箱。
 - 原生 Tools、QuickJS、PRoot 与 CLI 分属不同执行域；本机执行不等于在主进程执行，也不等于虚拟机。
+- 文件管理器可独立于模型与会话使用；手动文件权限不自动成为 Agent 的可用范围。
 - 所有工具进入同一条 schema、Capability、Policy、Approval、执行、验证与审计管线；系统权限或 Runtime 权限不能替代 ToolCall 授权。
 - `STANDARD` 是各分发渠道的完整产品形态，`ADVANCED` 在同一产品内开放额外能力；Trusted Workspace、有界长期规则与精确批量批准的边界见 [ADR-0012](docs/adr/0012-capability-first-advanced-grants.md)。
 - 分发渠道、构建 flavor 与运行时安全配置互不等同；能力保留的分发决定见 [ADR-0013](docs/adr/0013-standard-store-capability-preserving-distribution.md)。
-- 远程 Worker、云端沙箱、桌面配对、HarmonyOS、自动支付和无人确认的对外发送不在当前范围；M7 规划的 A2A 仅作为用户配置的远程 Agent Client，不把远端 Agent 变成 Helix Worker，也不开放 A2A Server、递归多 Agent 或任意 peer 通信；Tasker/Auto.js 与 Shizuku/ADB 仅是未排期研究候选。
+- 远程 Worker、云端沙箱、桌面配对、HarmonyOS、自动支付和无人确认的对外发送不在当前范围；M7 的 A2A 仅作为用户配置的远程 Agent Client，不把远端 Agent 变成 Helix Worker，也不开放 A2A Server、递归多 Agent 或任意 peer 通信；Tasker/Auto.js 与 Shizuku/ADB 仅是未排期研究候选。
 
 具体技术选型、模块边界、applicationId、Runtime 生命周期和未来能力以[架构文档](docs/architecture/overview.md)、[产品需求](docs/product/requirements.md)及[有效 ADR](docs/adr/README.md)为准，避免在入口文档重复维护。
 

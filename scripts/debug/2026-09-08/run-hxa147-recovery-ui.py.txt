@@ -1,0 +1,10 @@
+import subprocess,pathlib,json,hashlib
+root=pathlib.Path('build/main-verification');adb='<ANDROID_SDK>/platform-tools/adb';results=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ path=pathlib.Path('runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk');remote=subprocess.check_output([adb,'-s',serial,'shell','pm','path','com.helix.runtime.proot'],text=True).strip().removeprefix('package:');got=subprocess.check_output([adb,'-s',serial,'shell','sha256sum',remote],text=True).split()[0];assert got==hashlib.sha256(path.read_bytes()).hexdigest()
+ for normal in [True,False]:
+  label='normal' if normal else 'missing';out=root/f'hxa147-recovery-ui-api{api}-{label}'
+  cmd=['python3','scripts/run-proot-goal-delivery-failure.py','--serial',serial,'--adb',adb,'--output',str(out)]
+  if normal:cmd+=['--normal-completion']
+  subprocess.run(cmd,check=True,timeout=150)
+  r=json.loads((out/'result.json').read_text());r.update(runtimeSha256=got,hostCommand=cmd);results.append(r);(root/'hxa147-recovery-ui-result.json').write_text(json.dumps(results,indent=2))

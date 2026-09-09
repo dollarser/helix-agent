@@ -1,11 +1,16 @@
 package com.helix.app.ui
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import com.helix.app.FeatureFiles
@@ -28,7 +33,9 @@ fun FilesScreen(
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
     val state = remember(fileManager) { FilesScreenState(fileManager) }
+    val openSharedStorage = rememberSharedStorageNavigation(state, fileManager)
     val actions = FilesScreenActions(state, fileManager, safTree, featureFiles, scope, context, resources)
+    BackHandler(enabled = !state.homeOpen) { state.goBack() }
     with(actions) {
         with(state) {
             val treePicker =
@@ -68,7 +75,7 @@ fun FilesScreen(
             FilesDirectoryEffects(state, actions)
             FilesPreviewEffects(state, actions)
             FilesScopeEffects(state, actions)
-            FilesScreenLayout(state, actions)
+            FilesRecoverableLayout(state, actions, openSharedStorage)
             state.FilesPreviewDialog(actions)
             FilesMutationDialogs(state, actions)
             FilesImportDialog(
@@ -80,5 +87,18 @@ fun FilesScreen(
             FilesExportDialog(state, actions) { exportDocPicker.launch(it) }
             FilesSafDialog(state, actions) { treePicker.launch(null) }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun FilesRecoverableLayout(
+    state: FilesScreenState,
+    actions: FilesScreenActions,
+    openSharedStorage: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize()) {
+        FilesRecoveryPanel(actions)
+        Box(Modifier.weight(1f)) { FilesScreenLayout(state, actions, openSharedStorage) }
     }
 }

@@ -30,7 +30,7 @@ class DataSyncForegroundController(
     private var foreground = false
 
     /**
-     * Driven from the chat-screen collector (main dispatcher); guarded anyway because a StateFlow
+     * Driven from the aggregate task collector (main dispatcher); guarded anyway because a StateFlow
      * replay and a live emit can interleave across a configuration change.
      */
     @Synchronized

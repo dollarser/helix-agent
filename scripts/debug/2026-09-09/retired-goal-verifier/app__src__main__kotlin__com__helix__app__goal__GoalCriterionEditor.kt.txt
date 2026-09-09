@@ -1,0 +1,92 @@
+package com.helix.app.goal
+
+import com.helix.core.agent.Criterion
+import com.helix.core.agent.Goal
+import com.helix.core.model.Clock
+import com.helix.core.model.CriterionPendingReview
+import com.helix.core.model.CriterionVerificationBinding
+import com.helix.core.model.GoalState
+import com.helix.core.model.ToolCallId
+import com.helix.core.storage.HelixStorage
+
+/** Explicit user intents only. Editing or reviewing never starts a run, grants scope or completes a Goal. */
+internal class GoalCriterionEditor(
+    private val storage: HelixStorage,
+    private val verifier: GoalCriterionVerifier,
+    private val clock: Clock,
+    private val idGenerator: () -> String,
+) {
+    fun bind(
+        goalId: String,
+        expected: Criterion,
+        description: String,
+        binding: CriterionVerificationBinding?,
+    ) {
+        storage.withTransaction {
+            val goal = parked(goalId)
+            require(goal.criteria.single { it.id == expected.id } == expected) { "criterion changed while editing" }
+            save(goal, expected.withBinding(description, binding), "goal.criterion_bound")
+        }
+    }
+
+    fun stageReview(
+        goalId: String,
+        criterionId: String,
+        selection: GoalEvidenceReview,
+    ) {
+        storage.withTransaction {
+            val goal = parked(goalId)
+            val criterion = goal.criteria.single { it.id == criterionId }
+            verifier.review(goalId, criterion, selection)
+            val pending =
+                CriterionPendingReview(
+                    ToolCallId(selection.toolCallId),
+                    selection.bindingHash,
+                    selection.sourceHash,
+                    selection.artifactRef,
+                    clock.now().toEpochMilli(),
+                )
+            save(goal, criterion.withPendingReview(pending), "goal.criterion_review_staged")
+        }
+    }
+
+    fun clearReview(
+        goalId: String,
+        criterionId: String,
+    ) {
+        storage.withTransaction {
+            val goal = parked(goalId)
+            val criterion = goal.criteria.single { it.id == criterionId }
+            save(goal, criterion.copy(pendingReview = null), "goal.criterion_review_cleared")
+        }
+    }
+
+    private fun parked(goalId: String): Goal {
+        val goal = storage.goals.resolve(goalId).toRuntimeGoal()
+        require(
+            goal.state in
+                setOf(GoalState.DRAFT, GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED),
+        ) {
+            "criterion editing requires a parked Goal"
+        }
+        require(storage.goalRuns.listOpenByGoal(goalId).isEmpty()) { "Goal has an open run" }
+        return goal
+    }
+
+    private fun save(
+        goal: Goal,
+        criterion: Criterion,
+        event: String,
+    ) {
+        val next = goal.copy(criteria = goal.criteria.map { if (it.id == criterion.id) criterion else it })
+        storage.goals.updateGoal(next.toStoredGoal())
+        storage.auditEvents.append(
+            idGenerator(),
+            goal.correlationId.value,
+            event,
+            "USER",
+            """{"criterionId":"${criterion.id}"}""",
+            clock.now().toEpochMilli(),
+        )
+    }
+}

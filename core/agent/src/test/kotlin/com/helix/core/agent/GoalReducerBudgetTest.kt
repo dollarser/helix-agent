@@ -29,7 +29,7 @@ class GoalReducerBudgetTest {
             )
         for ((limit, event) in cases) {
             val step = reduceGoal(runningGoal(), event)
-            assertEquals("$limit exhaustion", GoalState.PAUSED, step.state.state)
+            assertEquals("$limit exhaustion", GoalState.BLOCKED, step.state.state)
             val effect = step.effects.single() as GoalEffect.BudgetExhausted
             assertEquals(limit, effect.limit)
             assertEquals(0L, step.state.currentWakeMillis)
@@ -50,7 +50,7 @@ class GoalReducerBudgetTest {
         goal = reduceGoal(goal, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state
         assertEquals(GoalState.RUNNING, goal.state)
         val step = reduceGoal(goal, GoalEvent.WakeUsageReported(0, 0, 0, 4_000))
-        assertEquals(GoalState.PAUSED, step.state.state)
+        assertEquals(GoalState.BLOCKED, step.state.state)
         assertEquals("maxDurationMillis", (step.effects.single() as GoalEffect.BudgetExhausted).limit)
     }
 
@@ -62,7 +62,7 @@ class GoalReducerBudgetTest {
         goal = reduceGoal(goal, GoalEvent.WakeUsageReported(1, 0, 50, 1_000)).state
         assertEquals(GoalState.RUNNING, goal.state)
         val step = reduceGoal(goal, GoalEvent.WakeUsageReported(1, 0, 51, 1_000))
-        assertEquals(GoalState.PAUSED, step.state.state)
+        assertEquals(GoalState.BLOCKED, step.state.state)
         assertEquals("maxTotalTokens", (step.effects.single() as GoalEffect.BudgetExhausted).limit)
     }
 
@@ -89,10 +89,10 @@ class GoalReducerBudgetTest {
 
         var paused = runningGoal()
         paused = reduceGoal(paused, GoalEvent.WakeUsageReported(3, 0, 0, 0)).state
-        assertEquals(GoalState.PAUSED, paused.state)
+        assertEquals(GoalState.BLOCKED, paused.state)
         val updated = reduceGoal(paused, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 9)))
         assertEquals(9, updated.state.budgets.maxModelCalls)
-        assertEquals(GoalState.PAUSED, updated.state.state)
+        assertEquals(GoalState.BLOCKED, updated.state.state)
 
         val inputRequired = reduceGoal(runningGoal(), GoalEvent.InputRequired("r")).state
         val fromInput =
@@ -117,7 +117,7 @@ class GoalReducerBudgetTest {
         val running = runningGoal(GoalFixtures.budgets(maxModelCalls = 1))
         val used = reduceGoal(running, GoalEvent.WakeUsageReported(1, 0, 0, 0)).state
         val parked = reduceGoal(used, GoalEvent.RunFinished).state
-        assertEquals(GoalState.PAUSED, parked.state)
+        assertEquals(GoalState.BLOCKED, parked.state)
         val step = GoalReducer.reduce(parked, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
         assertTrue("continue with zero remaining model calls must be ignored", step.ignored)
         assertEquals(parked, step.state)
@@ -130,7 +130,9 @@ class GoalReducerBudgetTest {
         val parked = reduceGoal(used, GoalEvent.RunFinished).state
         assertTrue(GoalReducer.reduce(parked, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).ignored)
         val extended = reduceGoal(parked, GoalEvent.BudgetsUpdated(GoalFixtures.budgets(maxModelCalls = 2))).state
-        val continued = reduceGoal(extended, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
+        assertTrue(GoalReducer.reduce(extended, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).ignored)
+        val repaired = reduceGoal(extended, GoalEvent.BlockerResolved).state
+        val continued = reduceGoal(repaired, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
         assertEquals(GoalState.RUNNING, continued.state.state)
     }
 

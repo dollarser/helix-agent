@@ -40,26 +40,7 @@ internal object GoalFixtures {
     fun criterion(
         id: String = "c1",
         description: String = "Login works",
-    ): Criterion =
-        Criterion(
-            id,
-            description,
-            binding = CriterionVerificationBinding(CriterionVerificationMethod.MANUAL_REVIEW, ""),
-        )
-
-    fun evidence(criterion: Criterion = criterion()): CriterionEvidence =
-        CriterionEvidence(
-            CriterionEvidence.HOST_VERIFIER,
-            ArtifactRef("artifact-1"),
-            null,
-            CriterionVerificationRecord(
-                requireNotNull(criterion.binding).method,
-                requireNotNull(criterion.binding).hash(criterion.id, criterion.description),
-                CriterionEvidenceSource(goal, GoalRunId("run-1"), SessionId("session-1"), TurnId("turn-1")),
-                Sha256("a".repeat(64)),
-                100,
-            ),
-        )
+    ): Criterion = Criterion(id, description)
 
     fun newGoal(budgets: GoalBudgets = budgets()): Goal =
         Goal.initial(goal, "Investigate the login flow", listOf(criterion()), budgets, correlation)

@@ -1,0 +1,18 @@
+import subprocess,os,pathlib,json,hashlib,xml.etree.ElementTree as ET,time
+root=pathlib.Path.cwd();out=root/'build/main-verification';r={'started':time.time()}
+def snapshot():
+ paths=subprocess.check_output(['git','ls-files','-co','--exclude-standard'],text=True).splitlines()
+ return {p:hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in paths if pathlib.Path(p).is_file() and pathlib.Path(p).suffix in ['.kt','.kts','.xml','.toml','.properties','.gradle','.json']}
+before=snapshot();env=dict(os.environ,JAVA_HOME='/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home',HELIX_CONNECTOR_ACCEPTANCE_DIR=str(root/'app/build/outputs/hxa-125-samples'),HELIX_CONNECTOR_SAMPLE_ZIP=str(root/'app/build/outputs/connector-handoff-672dc5a/inputs/connector-参考包.zip'))
+cmd=['./gradlew','-I','build/main-verification/force-tests.gradle',':app:testConsumerDebugUnitTest',':app:testDeveloperDebugUnitTest','spotlessCheck','detekt','lintDebug','lintRelease','--max-workers=1'];r['command']=cmd
+with (out/'hxa147-host.log').open('w') as log:r['exitCode']=subprocess.run(cmd,env=env,stdout=log,stderr=subprocess.STDOUT).returncode
+after=snapshot();r['sourceFiles']=len(before);r['sourceUnchanged']=before==after;r['changedSources']=[p for p in before.keys()|after.keys() if before.get(p)!=after.get(p)]
+r['unitTests']={}
+for variant in ['testConsumerDebugUnitTest','testDeveloperDebugUnitTest']:
+ totals={k:0 for k in ['tests','failures','errors','skipped']}
+ files=list((root/'app/build/test-results'/variant).glob('TEST-*.xml'))
+ for path in files:
+  x=ET.parse(path).getroot()
+  for k in totals:totals[k]+=int(x.attrib.get(k,0))
+ totals['reports']=len(files);r['unitTests'][variant]=totals
+r['ended']=time.time();(out/'hxa147-host-result.json').write_text(json.dumps(r,indent=2));print(json.dumps(r),flush=True)

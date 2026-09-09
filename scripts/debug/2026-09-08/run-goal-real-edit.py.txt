@@ -1,0 +1,19 @@
+import subprocess,json,hashlib
+from pathlib import Path
+root=Path('build/main-verification/goal-real-edit');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb';rows=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ for apk in ['app/build/outputs/apk/developer/debug/app-developer-debug.apk','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk']:
+  subprocess.run([adb,'-s',serial,'install','-r','-t',apk],check=True,capture_output=True)
+ for protocol in ['OPENAI_CHAT_COMPLETIONS','OPENAI_RESPONSES','ANTHROPIC_MESSAGES']:
+  out=root/f'api{api}-{protocol}';out.mkdir()
+  cmd=[adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class','com.helix.app.ui.GoalRealCompletionUiTest','-e','helix.goalCompletion','true','-e','helix.goalCompletion.tool','edit','-e','helix.goalCompletion.model','Qwen3.8-27B','-e','helix.goalCompletion.port','30008','-e','helix.goalCompletion.protocol',protocol,'com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
+  with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=420)
+  text=(out/'instrumentation.log').read_text();ok=p.returncode==0 and 'OK (1 test)' in text and 'FAILURES' not in text
+  if not ok: raise RuntimeError(str(out))
+  for name in [f'result-{protocol}-edit.json',f'completed-{protocol}-edit.png']:
+   data=subprocess.check_output([adb,'-s',serial,'exec-out','run-as','com.helix.agent.developer','cat','files/hxa102-goal-completion/'+name])
+   (out/name).write_bytes(data)
+  result=json.loads((out/f'result-{protocol}-edit.json').read_text());assert result['tool']=='edit' and result['goalState']=='COMPLETED'
+  rows.append({'api':api,**result});(root/'result.json').write_text(json.dumps(rows,indent=2)+'\n')
+  print(api,protocol,result['modelCalls'],result['toolCalls'],result['tokens'],'passed',flush=True)

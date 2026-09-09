@@ -1,0 +1,11 @@
+import argparse,subprocess,json,pathlib
+p=argparse.ArgumentParser();p.add_argument('--serial',required=True);p.add_argument('--api',required=True);a=p.parse_args();adb='<ANDROID_SDK>/platform-tools/adb'
+def run(*args):return subprocess.check_output([adb,'-s',a.serial,*args],text=True).strip()
+assert 'Override size' not in run('shell','wm','size')
+assert run('shell','settings','get','system','font_scale') in ['null','1.0']
+r=[]
+for flavor in ['consumer','developer']:
+ for lang in ['zh-CN','en']:
+  out=f'build/main-verification/hxa147-navigation-normal-api{a.api}-{flavor}-{lang}'
+  subprocess.run(['python3','build/main-verification/run-hxa147-files-layout.py','--serial',a.serial,'--flavor',flavor,'--language',lang,'--output',out],check=True,timeout=400)
+  result=json.loads(pathlib.Path(out,'result.json').read_text());r.append(dict(output=out,passed=result['passed']));pathlib.Path(f'build/main-verification/hxa147-navigation-normal-api{a.api}.json').write_text(json.dumps(r,indent=2));assert result['passed'],out

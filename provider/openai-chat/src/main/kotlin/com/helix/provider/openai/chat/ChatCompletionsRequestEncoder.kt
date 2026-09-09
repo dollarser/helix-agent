@@ -112,7 +112,15 @@ public class ChatCompletionsRequestEncoder(
             if (request.reasoning != ReasoningEffort.OFF) {
                 put(
                     "reasoning_effort",
-                    JsonPrimitive(request.reasoning.name.lowercase()),
+                    JsonPrimitive(
+                        if (request.reasoning == ReasoningEffort.HIGH &&
+                            request.model.substringAfterLast('/').startsWith("Qwen3.8-", ignoreCase = true)
+                        ) {
+                            "xhigh"
+                        } else {
+                            request.reasoning.name.lowercase()
+                        },
+                    ),
                 )
             }
         }.toString()

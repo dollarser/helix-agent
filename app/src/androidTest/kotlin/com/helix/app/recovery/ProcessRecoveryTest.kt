@@ -403,7 +403,7 @@ class ProcessRecoveryTest {
             1_100L,
         )
         val goal = storage.goals.resolve("goal-budget")
-        assertEquals(GoalState.PAUSED.name, goal.state)
+        assertEquals(GoalState.BLOCKED.name, goal.state)
         assertEquals("BUDGET_EXHAUSTED(maxModelCalls)", goal.finishReason)
         val run = storage.goalRuns.resolve("run-budget")
         assertEquals(1, run.modelCalls)
@@ -443,7 +443,7 @@ class ProcessRecoveryTest {
         assertEquals(100L, before.wakeDurationMillis)
         assertEquals(7L, before.tokens)
         assertEquals(auditCount, reopened.auditEvents.listByCorrelation(seeded.correlationId).size)
-        assertEquals(GoalState.PAUSED.name, reopened.goals.resolve(seeded.id).state)
+        assertEquals(GoalState.BLOCKED.name, reopened.goals.resolve(seeded.id).state)
     }
 
     @Test

@@ -289,7 +289,7 @@ INTERRUPTED ─► BUILDING_CONTEXT（恢复，先完成副作用审查）| CANC
 
 终态：`COMPLETED`、`FAILED`、`CANCELLED`。`INTERRUPTED` 可由用户恢复，但恢复前必须检查是否存在可能已产生外部效果的 ToolCall。
 
-Goal 另有 `DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/COMPLETED/FAILED/CANCELLED` 状态，不允许把 Goal 和单个 Turn 合为同一张状态表。
+Goal 另有 `DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/BLOCKED/COMPLETED/FAILED/CANCELLED` 状态，不允许把 Goal 和单个 Turn 合为同一张状态表。
 
 ### 5.3 Agent Loop 伪代码
 
@@ -478,7 +478,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |
-| `sessions` | id, title, providerId, modelId, createdAt, archivedAt | 会话元数据 |
+| `sessions` | id, title, directoryRef, providerId, modelId, createdAt, archivedAt | 会话元数据 |
 | `messages` | id, sessionId, turnId, role, kind, contentRef, sequence | 时间线内容 |
 | `message_attachments` | messageId, artifactId, ordinal, purpose, boundSha256 | 规划字段：消息到不可变 Artifact 快照的有序关系；ADR-0014 接受并完成 schema migration 后才可视为落位 |
 | `turns` | id, sessionId, state, stepCount, startedAt, endedAt, errorCode | Agent Turn |
@@ -493,7 +493,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `provider_configs` | id, displayName, protocol, endpoint, model, headersJson, secretAlias, capabilitySnapshot | 无明文 key |
 | `runtime_installs` | id, type, version, state, manifestHash, installedAt | PRoot/RootFS |
 | `plans` / `plan_steps` | objective, version, hash, state, evidenceRef | 版本化计划 |
-| `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
+| `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED/BLOCKED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
 | `goal_turn_bindings` | turnId（主键，外键到 turns）, runId（索引，外键到 goal_runs） | ADR-0004 run/wake 的持久关联；一个 run 可含多个 Turn，一个 Turn 仅属于一个 run。创建 Turn 时同事务绑定，仅开放的 RUNNING Goal run 可接受绑定，同一 Goal 不跨会话；旧 Turn 不猜测回填。删除 Turn/run 级联删除关联 |
 | `goal_usage_reservations` | id（主键）, runId（索引，外键到 goal_runs）, kind, reservedTokens, reservedMillis, state, chargedTokens, chargedMillis | HXA-102 执行前预算预留；PENDING 占用可用额度，SETTLED 保存已知结算，INTERRUPTED 保存恢复时计入的预留值。仅保存计数，不存请求正文或凭据；run 删除时级联删除。预留准入、用量结算与恢复分别在事务中执行，不授权副作用或重放 |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
@@ -648,12 +648,12 @@ Helix 区分两种“面向 LLM”：
 
 ### 17.2 当前结构热点与优化顺序
 
-下表 LOC 是 2026-09-01 复核时的工作树快照，只用于表达相对规模，不是验收门禁；职责和契约比行数更权威。
+除注明新 HXA 的行外，下表是 2026-09-01 的历史结构评估；不将旧 LOC 当作当前源码规模或未完成任务。职责和契约比行数更权威。
 
 | 热点 | 当前判断 | 优化要求 |
 | --- | --- | --- |
 | `core:agent` reducer 与生产聊天链路 | HXA-039/ADR-0010 已选择新的 batch-safe application `TurnCoordinator`：生产 Turn 以 batch aggregate phase + 每调用 ToolCall 状态表达并发、结算和 unknown outcome；当前 ModelCall/stream checkpoint 与模型可见回填由 coordinator 统一持有。M1 串行 `TurnReducer` 只保留历史测试和旧恢复兼容 | 新生产路径不得调用旧 reducer；旧 `RECORDING_TOOL_RESULT → WAITING_APPROVAL/RUNNING_TOOL` 边只作兼容。后续改变 batch/恢复契约必须取代 ADR-0010，并继续用聊天、乱序结算、取消、失败和恢复 fixture 验证 |
-| `ChatService.kt`（约 1600 LOC） | HXA-038 已抽出 `ModelStreamState`；HXA-039 又把 Turn/ModelCall checkpoint、合法状态推进和事务化终局/回填抽到 `TurnCoordinator`。本类仍承担 egress/send gate、Tool Loop 调用、ToolCall 准备、审批卡/Timeline 投影和 UI facade | 继续按 egress gate、tool pipeline adapter、timeline/approval projection 三个真实 seam 渐进提取；UI 仍只依赖一个 application-service facade，不新增 Manager/DAO 旁路 |
+| `ChatService.kt`（HXA-179） | 保留会话准入、草稿/附件、Turn 生命周期和 UI facade；工具执行、结果持久化、时间线、模型循环、Goal 显式操作与恢复分别委托给职责组件 | UI 仍只依赖 application-service；取消、预算与活动会话状态不复制，按真实边界继续维护，验收见 HXA-179 |
 | `ToolDispatcher.kt`（853 LOC） | 文件偏大，但八段安全管线具有强顺序不变量，机械拆分类会增加绕过风险 | 保留唯一公开 `dispatch` facade；新增能力导致阶段继续增长时，只抽取 package-internal validator/approval/execution/result/audit phase，并用端到端合同测试证明阶段不可跳过 |
 | 三套 Provider SSE reader | UTF-8、行边界、data framing 存在相似实现，重复修复风险较高 | 先建立三协议共享 framing golden tests，再抽取无 vendor 语义的 `SseFramer`；各 Provider 的事件映射、终止和错误语义继续独立 |
 | `ConversationRepositories.kt`（约 710 LOC） | 多个 repository 同文件，运行时边界尚清楚但开发上下文过宽 | 后续触碰对应 repository 时按聚合根拆文件，不改变 `HelixStorage` 组合入口或事务语义 |
@@ -668,3 +668,34 @@ Helix 区分两种“面向 LLM”：
 - 反馈必须转化为结构化状态、指标或可操作错误；日志不是唯一事实，自适应不能越过 Policy、Approval、预算和恢复规则。
 - 先测再抽象：只有至少两个真实调用方或重复协议逻辑，并且能写共同合同测试时，才建立共享抽象；不为未来猜测创建 Manager/Factory/Provider-of-Provider。
 - 领域状态机只能有一个生产语义来源。UI/application service 不得以直接 DAO 状态写入复制 reducer 转移；临时迁移期必须用 characterization test 锁定旧行为，并按事件族逐段切换。
+
+### HXA-177 任务与阻塞语义
+
+任务列表以 Turn 为身份，结果回收时间和暂停请求持久化于 turns；会话切换不取消执行。前台服务观察全部正在传输的任务。Goal 的 BLOCKED 需要先处理并重新检查阻碍，PAUSED 可显式 Continue；预算耗尽、上下文容量不足或未知副作用不可通过继续绕过。暂停停止当前执行，未知副作用优先转为 BLOCKED，进程恢复不重放。旧 INPUT_REQUIRED 保留兼容用户输入流程。详见 [ADR-0039](../adr/0039-background-results-and-goal-blockers.md)。
+
+### HXA-178 Goal 完成判断
+
+按 [ADR-0040](../adr/0040-model-judged-goal-completion.md)，自然语言目标由模型通过 goal.report 判断；Harness 只在有效归属、正常结算且无未决副作用时写入状态。取消/暂停和预算中止优先，不使用旧 criterion verifier，也不因无绑定而阻塞。历史 codec 保留读取兼容；模型报告和原工具结果可追溯，不代表独立认证。
+
+### 独立文件管理边界（HXA-180 / ADR-0041）
+
+文件页不依赖已配置模型或已创建会话。Workspace、共享存储和用户授权 SAF 分别按实际权限提供浏览与整理；手动变更由 ManualFileOperations、ManualFileTree 和 NIO/SAF backend 执行，不注册为 Agent 工具。共享根仍只存在于手动 resolver。
+
+当前目录内支持新建文件夹、文件/文件夹重命名、复制、移动、删除及冲突选择；Workspace 文件和文件夹进入回收站，可恢复/永久删除。共享/SAF 删除须确认并永久执行。跨来源仍使用导入/导出入口。复制先流式写入临时兄弟节点，重读验证后发布；覆盖保留旧目标到发布成功，移动保留源到目标验证，取消或失败显示实际部分结果。Provider 不支持重命名/删除/创建等能力时明确失败。
+
+这些是显式用户操作能力，不自动扩大 Agent 的 Workspace、SAF 或 all-files scope。Android/data、其他 App 私有目录、后台长期传输队列和商店审核仍不由此获得保证。
+
+
+### 文件传输中断恢复（HXA-182 / ADR-0042）
+
+手动复制/移动通过 app 私有 noBackup 操作日志保存阶段、scoped 路径及发布前树内容指纹；不记录在 Agent 可读根或聊天数据库。文件首页和目录页提供“传输恢复”，只在用户点击后重验权限并恢复，不在启动时自动写外部存储。发布前回滚到可重试状态；发布后核实目标并保留剩余源文件，不自动重放移动源删除。目标、备份变化或权限失效时保留现场与记录并明确失败。恢复成功后仍需用户检查剩余源目录。
+
+这是进程中断对账，不是字节断点续传或持久后台队列；现有 picker 导入/导出、跨来源传输和旧版无日志暂存文件不在此契约内。方案见 [ADR-0042](../adr/0042-manual-transfer-recovery-journal.md)。
+
+`FileManagerService` 委托 `FileManagerPreview` 处理有界预览/元数据/分享暂存，委托 `FileManagerTrash` 处理回收站查询/恢复/清空；公开服务入口与结果类型保持。`ChatStatusLabels` 负责协议错误到当前语言文案的映射，ChatService 保留生命周期与单会话准入。
+
+HXA-183 进一步划分应用层职责：`ChatDraftStore` 持有唯一草稿与准备锁，必须在服务启动状态订阅前初始化；`ChatAttachmentRetry` 解析重试附件绑定。`ChatToolCalls` 委托 `ChatToolMessageEncoder` 和 `ChatDispatchRequests` 编码消息、构造请求，自己继续持有审批事实及顺序结算。`FileManagerTransfers` 保留原入口，分别委托 `FileManagerImports` 和 `FileManagerExports`；原 picker 导入导出仍与手动传输恢复日志区分。会话列表、对话区、模式控制、工具时间线、Provider 表单和状态行按 UI 区域组织。
+
+PRoot 的 `LinuxRunTool.ProductionLinuxExecutor` 保留兼容构造入口，委托 `LinuxJobExecution` 执行原生命周期；`LinuxInputSnapshot` 只构建有界输入归档。companion 的 `ProotOutputCapture` 与 `ProotOutputArchive` 处理有界输出，`ProotJobRunner` 继续独占终态发布、取消、deadline、进程组与孤儿清理。没有增加执行域、IPC 或恢复重放路径。
+
+HXA-184 延续既有契约内的职责划分：`ToolDeadlineRunner` 只管理有界执行等待，审批与审计顺序仍集中在 Dispatcher；`WorkspaceTrashOperations` 和 `WorkspacePrivacyOperations` 复用 Store 的同一根目录/路径校验。QuickJS 的客户端预检、PFD 准备和服务端校验独立，绑定释放与一次执行槽仍由原 owner 管理。`BrowserDownloadQueue` 集中下载状态与工作线程，`BrowserToolResultMapper` 只作结果映射；Activity/WebView 归属不变。A2A Artifact 导入由 `A2aTaskArtifacts` 管理，任务发送、取消与原 taskId 对账仍由 runner 管理。Provider 的连接探测与目录解析分别提取为 `ProviderConnectionProbe`、`WireModelCatalogParser`。Repository/DAO、各 Tool object、SDK transport/session 和设置区块按现有类型分文件；`DefaultAppContainer` 保持单一组合根，领域注册委托 `AppWorkspaceTools`、`AppAndroidTools`，不引入新的服务定位器。

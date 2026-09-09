@@ -1,8 +1,10 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -62,6 +64,11 @@ class ChatStopProgressDeviceTest {
                 server.holdChatStreams.set(true)
                 if (retry && !goalRetry) chat.send("Reply briefly.") else chat.continueGoal(goal, "Reply briefly.")
                 compose.waitUntil(10_000) { server.heldStreams.get() == 1 }
+                compose.onNodeWithTag("chat-message-user").assertIsDisplayed()
+                assertTrue(
+                    chat.screen.value.messages
+                        .any { it.role == "user" },
+                )
                 compose.onNodeWithTag("chat-turn-progress").assertIsDisplayed()
                 compose.onNodeWithTag("chat-empty-hint").assertDoesNotExist()
                 captureChatLayout(compose.activity, "running")
@@ -99,7 +106,7 @@ class ChatStopProgressDeviceTest {
         if (goalMode) {
             compose
                 .onNodeWithTag("chat-send")
-                .assertTextEquals(compose.activity.getString(R.string.chat_open_goals))
+                .assertContentDescriptionEquals(compose.activity.getString(R.string.chat_open_goals))
                 .performClick()
             compose.onNodeWithTag("goal-close").assertIsDisplayed().performClick()
         } else {
@@ -151,6 +158,9 @@ class ChatStopProgressDeviceTest {
                 ?.state
                 ?.name == "FAILED"
         }
+        // The durable terminal precedes projection refresh and the timeline's follow-to-end effect.
+        // Observe the real visible retry control before checking it; do not force-scroll it into view.
+        compose.waitUntil(10_000) { compose.onNodeWithTag("chat-retry").isDisplayed() }
         compose.onNodeWithTag("chat-turn-error").assertIsDisplayed()
         compose.onNodeWithTag("chat-retry").assertIsDisplayed()
         captureChatLayout(compose.activity, "failed-chat")

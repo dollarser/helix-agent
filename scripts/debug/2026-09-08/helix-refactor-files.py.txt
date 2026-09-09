@@ -1,0 +1,93 @@
+from pathlib import Path
+import re,textwrap
+p=Path('app/src/main/kotlin/com/helix/app/ui/FilesScreen.kt');s=p.read_text();Path('/tmp/helix-FilesScreen-before.kt').write_text(s)
+lines=s.splitlines(True)
+imports='package com.helix.app.ui\n\n'+''.join(l for l in lines if l.startswith('import '))+'\n'
+root=p.parent
+def part(a,b):return ''.join(lines[a-1:b])
+def write(name,body,extra=''):(root/name).write_text(imports+extra+'\n'+body)
+helpers=part(1650,1874).replace('private ','internal ')
+# Helpers are package-internal, while their formatter remains file-owned.
+helpers=helpers.replace('internal val timeFormat','private val timeFormat')
+write('FilesScreenComponents.kt',helpers)
+state=[]
+for l in lines[152:230]:
+ m=re.match(r'    (var|val) (\w+) (by|=) remember \{ (.*) \}\s*$',l)
+ if m:state.append(f'    {m[1]} {m[2]} {m[3]} {m[4]}\n')
+write('FilesScreenState.kt','''/** Composition-owned state; actions and panels share this one instance. */
+internal class FilesScreenState(fileManager: FileManagerService) {
+'''+''.join(state)+'''
+    val currentSource: FileSource get() = sources.first { it.scopeId == selectedScopeId }
+    val canMutate: Boolean get() = currentSource.supportsMutation
+}
+''')
+# Wrap each former local action with the same state owner rather than copying fields.
+actions=part(234,327)+part(423,580)
+starts=[m.start() for m in re.finditer(r'^    (?:@Suppress[^\n]*\n    )?fun ',actions,re.M)]+[len(actions)]
+wrapped=[]
+for a,b in zip(starts,starts[1:]):
+ chunk=actions[a:b].rstrip();opening=chunk.index(' {');end=chunk.rfind('}')
+ wrapped.append(chunk[:opening+2]+'\n        with(state) {\n'+textwrap.indent(chunk[opening+2:end].strip('\n'),'    ')+'\n        }\n    }\n')
+write('FilesScreenActions.kt','''/** Event handlers share state, but do not own composition or ActivityResult launchers. */
+@Suppress("TooManyFunctions")
+internal class FilesScreenActions(
+    val state: FilesScreenState,
+    val fileManager: FileManagerService,
+    val safTree: SafTreeScopeService,
+    val featureFiles: FeatureFiles,
+    val scope: kotlinx.coroutines.CoroutineScope,
+    val context: android.content.Context,
+    private val resources: android.content.res.Resources,
+) {
+    fun str(resId: Int, vararg args: Any): String = resources.getString(resId, *args)
+    @Suppress("SpreadOperator") // Resources is the localization boundary.
+    fun str(resId: Int, args: Array<out Any>): String = resources.getString(resId, *args)
+'''+''.join(wrapped)+'}\n')
+def panel(name,a,b,params='',replace=None):
+ body=part(a,b)
+ if replace:
+  for x,y in replace.items():body=body.replace(x,y)
+ write(name+'.kt',f'''@Composable
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
+internal fun {name}(state: FilesScreenState, actions: FilesScreenActions{params}) {{
+    with(actions) {{
+        with(state) {{
+'''+textwrap.indent(body,'        ')+'''        }
+    }
+}
+''')
+panel('FilesScreenLayout',643,898)
+panel('FilesPreviewDialog',900,1037)
+panel('FilesMutationDialogs',1039,1252)
+panel('FilesImportDialog',1255,1370,', onPickFile: () -> Unit, onPickFolder: () -> Unit',{'importFilePicker.launch(arrayOf("*/*"))':'onPickFile()','importFolderPicker.launch(null)':'onPickFolder()'})
+panel('FilesExportDialog',1373,1574,', onPickDocument: (String) -> Unit',{'exportDocPicker.launch(mime)':'onPickDocument(mime)'})
+panel('FilesSafDialog',1579,1647,', onPickTree: () -> Unit',{'treePicker.launch(null)':'onPickTree()'})
+# Shared result panel gets only the strings dependency, no screen state.
+result=part(582,640).replace('    fun TransferResultPanel(', '    internal fun TransferResultPanel(')
+result=result.replace('        tag: String,','        tag: String,\n        actions: FilesScreenActions,').replace('str(', 'actions.str(')
+write('FilesTransferResultPanel.kt',textwrap.dedent(result))
+for f in ('FilesImportDialog.kt','FilesExportDialog.kt'):
+ q=root/f;t=q.read_text();t=re.sub(r'TransferResultPanel\(([^\n]+)\)',r'TransferResultPanel(\1, actions)',t);q.write_text(t)
+# Remaining orchestration: launchers and keyed loading effects stay in composition.
+main='''@Composable
+@Suppress("FunctionName")
+fun FilesScreen(fileManager: FileManagerService, safTree: SafTreeScopeService, featureFiles: FeatureFiles) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val resources = LocalResources.current
+    val state = remember(fileManager) { FilesScreenState(fileManager) }
+    val actions = FilesScreenActions(state, fileManager, safTree, featureFiles, scope, context, resources)
+    with(actions) {
+        with(state) {
+'''+textwrap.indent(part(171,187)+part(330,346)+part(348,420),'        ')+'''
+            FilesScreenLayout(state, actions)
+            FilesPreviewDialog(state, actions)
+            FilesMutationDialogs(state, actions)
+            FilesImportDialog(state, actions, { importFilePicker.launch(arrayOf("*/*")) }, { importFolderPicker.launch(null) })
+            FilesExportDialog(state, actions) { exportDocPicker.launch(it) }
+            FilesSafDialog(state, actions) { treePicker.launch(null) }
+        }
+    }
+}
+'''
+write('FilesScreen.kt',main)

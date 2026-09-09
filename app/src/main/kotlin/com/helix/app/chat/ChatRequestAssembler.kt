@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.goal.goalReportContext
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
@@ -26,6 +27,34 @@ internal class ChatRequestAssembler(
     private val attachmentStaging: AttachmentStagingSupport,
     private val visionSessionBinder: (String) -> Unit,
 ) {
+    /** Read-only repair preflight; the ordinary send path still performs its full admission. */
+    suspend fun contextFits(
+        sessionId: String,
+        control: RunControlConfig,
+        prompt: String,
+    ): Boolean {
+        val config = providerService.storedConfig(sessionProviderId(sessionId))
+        val model = storage.sessions.resolve(sessionId).modelId ?: config.model
+        val request =
+            ChatContextRequest(
+                model,
+                persistedHistory(sessionId, null) + ModelMessage(ModelRole.USER, prompt),
+                modelTools(sessionId, control),
+                minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+                com.helix.core.model.ReasoningEffort.OFF,
+            )
+        val window =
+            providerService.contextSettingsStore
+                .read(
+                    config.id,
+                    config.endpoint.full,
+                    model,
+                ).window
+        return request.messages.size <= ModelRequest.MAX_MESSAGES &&
+            request.inputTokens() <= control.budgets.maxInputTokens &&
+            request.inputTokens() + request.maxOutputTokens <= window
+    }
+
     /**
      * Builds the model request from PERSISTED rows: the session's
      * user/assistant history (ChatHistoryBuilder) — for a retry, the retried
@@ -36,18 +65,29 @@ internal class ChatRequestAssembler(
         sessionId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-    ): ModelRequest {
+    ): ChatContextRequest {
         val history = persistedHistory(sessionId, retryTurnId)
         require(history.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
-        return ModelRequest(
+        return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(sessionId, control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            reasoning =
+                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
+                    com.helix.provider.api.ProviderCapabilities
+                        .parse(
+                            config.capabilitySnapshot,
+                        ).reasoning
+                ) {
+                    control.reasoning
+                } else {
+                    com.helix.core.model.ReasoningEffort.OFF
+                },
         )
     }
 
@@ -60,20 +100,43 @@ internal class ChatRequestAssembler(
     suspend fun buildBackfillRequest(
         sessionId: String,
         control: RunControlConfig,
-    ): ModelRequest {
+    ): ChatContextRequest {
         val history = persistedHistory(sessionId, null)
         require(history.lastOrNull()?.role == ModelRole.TOOL) {
             "a back-fill request must end with the tool results"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
-        return ModelRequest(
+        return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(sessionId, control),
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            reasoning =
+                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
+                    com.helix.provider.api.ProviderCapabilities
+                        .parse(
+                            config.capabilitySnapshot,
+                        ).reasoning
+                ) {
+                    control.reasoning
+                } else {
+                    com.helix.core.model.ReasoningEffort.OFF
+                },
         )
     }
+
+    suspend fun rebuild(
+        sessionId: String,
+        retryTurnId: String?,
+        control: RunControlConfig,
+        previous: ChatContextRequest,
+    ): ChatContextRequest =
+        if (previous.messages.lastOrNull()?.role == ModelRole.TOOL) {
+            buildBackfillRequest(sessionId, control)
+        } else {
+            buildRequest(sessionId, retryTurnId, control)
+        }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
     private fun modelTools(
@@ -91,6 +154,8 @@ internal class ChatRequestAssembler(
                 }
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
+            .filter { it.name.value != "goal.report" || control.mode == com.helix.core.model.AgentMode.GOAL }
+            .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
             .take(ModelRequest.MAX_TOOLS)
             .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
     }
@@ -111,9 +176,11 @@ internal class ChatRequestAssembler(
         sessionId: String,
         retryTurnId: String?,
     ): List<ModelMessage> {
+        val allRows = storage.messages.listBySession(sessionId)
+        val checkpoint = ContextCompaction.checkpoint(storage, allRows)
         val rows =
-            storage.messages
-                .listBySession(sessionId)
+            ContextCompaction
+                .retained(allRows, checkpoint)
                 .map {
                     ChatHistoryBuilder.PersistedRow(
                         turnId = it.turnId,
@@ -137,13 +204,21 @@ internal class ChatRequestAssembler(
             "history USER rows and USER messages diverge — image binding refused"
         }
         var userRow = 0
-        return messages.map { message ->
-            if (message.role == ModelRole.USER) {
-                message.copy(images = imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
-            } else {
-                message
+        val restored =
+            messages.map { message ->
+                if (message.role == ModelRole.USER) {
+                    message.copy(images = imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
+                } else {
+                    message
+                }
             }
-        }
+        return storage.goalReportContext(sessionId) +
+            if (checkpoint == null) {
+                restored
+            } else {
+                restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
+                    restored.filter { it.role != ModelRole.SYSTEM }
+            }
     }
 
     /**

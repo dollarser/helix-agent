@@ -1,0 +1,11 @@
+import subprocess,concurrent.futures
+adb='<ANDROID_SDK>/platform-tools/adb'
+classes='com.helix.app.ui.FilesScreenTest,com.helix.app.ui.FilesImportExportUiTest,com.helix.app.ui.ChatStopProgressDeviceTest,com.helix.app.ui.ApprovalCardScreenTest,com.helix.app.chat.AttachmentE2eDeviceTest,com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest,com.helix.app.chat.ChatSessionLifecycleDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest,com.helix.app.chat.GoalTurnBindingDeviceTest,com.helix.app.chat.GoalModelCancellationDeviceTest,com.helix.app.ApprovalFlowDeviceTest,com.helix.app.McpToolDiscoveryDeviceTest'
+def run(serial):
+ with open('/tmp/helix-hxa159-final-'+serial+'.log','w') as log:
+  for apk in ['app/build/outputs/apk/consumer/debug/app-consumer-debug.apk','app/build/outputs/apk/androidTest/consumer/debug/app-consumer-debug-androidTest.apk']:
+   subprocess.run([adb,'-s',serial,'install','-r','-t',apk],stdout=log,stderr=subprocess.STDOUT,check=True)
+  subprocess.run([adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class',classes,'com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner'],stdout=log,stderr=subprocess.STDOUT,check=True)
+ text=open('/tmp/helix-hxa159-final-'+serial+'.log').read()
+ print(serial,'PASS' if 'OK (74 tests)' in text else 'FAIL',flush=True)
+with concurrent.futures.ThreadPoolExecutor(2) as pool:list(pool.map(run,['<OWNED_EMULATOR_SERIAL>','<OWNED_EMULATOR_SERIAL>']))

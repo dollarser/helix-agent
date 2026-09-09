@@ -1,0 +1,566 @@
+package com.helix.app
+
+import android.app.Application
+import android.content.Context
+import com.helix.app.a2a.A2aAppService
+import com.helix.app.a2a.A2aStorageBridge
+import com.helix.app.a2a.A2aTaskRunner
+import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.approval.StorageApprovalBroker
+import com.helix.app.approval.StorageAuditSink
+import com.helix.app.audit.AuditLogService
+import com.helix.app.automation.AutomationModule
+import com.helix.app.capability.StorageCapabilityGrantRecorder
+import com.helix.app.capability.SystemCapabilityResolver
+import com.helix.app.chat.AttachmentStagingSupport
+import com.helix.app.chat.ChatService
+import com.helix.app.diagnostics.ProcessEvidenceStore
+import com.helix.app.files.FileManagerService
+import com.helix.app.foreground.AndroidForegroundServiceLauncher
+import com.helix.app.foreground.DataSyncForegroundController
+import com.helix.app.internal.PrefsLineStore
+import com.helix.app.language.AppLanguageStore
+import com.helix.app.mcp.McpAppService
+import com.helix.app.mcp.McpStorageBridge
+import com.helix.app.privacy.PrivacyDeletionService
+import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.profile.PersistedSafetyProfileStore
+import com.helix.app.profile.SafetyProfileStore
+import com.helix.app.proot.ProotToolModule
+import com.helix.app.provider.ArtifactVisionImageSource
+import com.helix.app.provider.CleartextBindingStore
+import com.helix.app.provider.ManagedProviderHooks
+import com.helix.app.provider.ProviderFactory
+import com.helix.app.provider.ProviderService
+import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.provider.SubscriptionProviderModule
+import com.helix.app.root.RootModule
+import com.helix.app.runcontrol.AndroidResourceGate
+import com.helix.app.runcontrol.PersistedRunControlStore
+import com.helix.app.runcontrol.PlatformDeviceResourceProbe
+import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.tool.ApprovalCardSinkHolder
+import com.helix.app.tool.ToolPipeline
+import com.helix.core.model.IdGenerator
+import com.helix.core.model.RandomIdGenerator
+import com.helix.core.model.SystemClock
+import com.helix.core.policy.CapabilityCenter
+import com.helix.core.policy.LiveEgressRules
+import com.helix.core.policy.PolicyEngine
+import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.ScopeNotAvailable
+import com.helix.core.workspace.ScopeRootResolver
+import com.helix.core.workspace.WorkspaceArtifactStore
+import com.helix.core.workspace.resolveFileScopePath
+import com.helix.extensions.a2a.A2aClients
+import com.helix.extensions.skills.SkillImportService
+import com.helix.extensions.skills.SkillRepository
+import com.helix.extensions.skills.SkillTools
+import com.helix.feature.browser.BrowserController
+import com.helix.feature.browser.BrowserToolBridgeImpl
+import com.helix.feature.files.AttachmentImporter
+import com.helix.feature.files.SafGrantStore
+import com.helix.feature.files.SafTreeScopeService
+import com.helix.provider.api.CredentialLookup
+import com.helix.runtime.quickjs.JsExecutionClient
+import com.helix.runtime.quickjs.tool.CodeJavascriptRunTool
+import com.helix.tools.android.EgressPolicy
+import com.helix.tools.android.EgressPolicyProvider
+import com.helix.tools.browser.BrowserTools
+import com.helix.tools.framework.TimeNowTool
+import com.helix.tools.framework.ToolDispatcher
+import com.helix.tools.framework.ToolImplementationRegistry
+import com.helix.tools.framework.ToolRegistry
+import com.helix.tools.framework.ToolScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import java.nio.file.Path
+
+internal class DefaultAppContainer(
+    context: Context,
+) : AppContainer {
+    private val appContext: Context = context.applicationContext
+    private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
+
+    override val shellRepository: ShellRepository = FakeShellRepository()
+
+    override val storage: HelixStorage = HelixStorage.create(context)
+
+    private val lineStore = PrefsLineStore(context, PREFS_NAME)
+
+    override val profileStore: SafetyProfileStore =
+        PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
+
+    override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
+    override val lanScopeStore =
+        com.helix.app.network.LanScopeStore(
+            PrefsLineStore(context, "helix-lan-scopes", synchronous = true),
+            { profileStore.profile == com.helix.core.model.SafetyProfile.ADVANCED },
+        )
+
+    private val resourceGate =
+        AndroidResourceGate(PlatformDeviceResourceProbe(context.applicationContext as Application))
+
+    override val firstLaunch: FirstLaunchStore = FirstLaunchStore(lineStore)
+
+    private val idGenerator: IdGenerator = RandomIdGenerator()
+
+    /**
+     * Request-time credential resolution (HXA-025 seam): the Keystore secret is
+     * read when the wire request is built — never at UI construction, never
+     * into UI state (NFR-007). Keyless providers use the fixed non-secret
+     * placeholder (their servers ignore the auth header).
+     */
+    private val credentials: CredentialLookup =
+        CredentialLookup { alias ->
+            if (alias.value == ProviderFactory.NO_KEY_ALIAS) {
+                ProviderFactory.NO_KEY_PLACEHOLDER
+            } else {
+                storage.secrets.get(alias)
+            }
+        }
+
+    /**
+     * The production image source for the protocol adapters (HXA-055): session-bound,
+     * hash-verified app-private artifacts + the reserved 1x1 vision-probe image. Lazy AND
+     * handed to the factory as a supplier: it depends on [workspaceStore], which is declared
+     * later in this container, so the source must never be materialized during container
+     * construction — only at stream time, when a message actually carries an image.
+     */
+    private val visionImageSource: ArtifactVisionImageSource by lazy {
+        ArtifactVisionImageSource(storage.artifacts, workspaceStore, APP_SCOPE_ID)
+    }
+
+    override val providerService: ProviderService =
+        run {
+            SubscriptionProviderModule.ensureRegistered(storage)
+            ProviderService(
+                storage = storage,
+                factory =
+                    ProviderFactory(
+                        credentials,
+                        ProviderFactory.defaultWire(),
+                        { visionImageSource },
+                        { config -> SubscriptionProviderModule.create(appContext, config) },
+                    ),
+                bindings = CleartextBindingStore(lineStore),
+                testStatus = ProviderTestStatusStore(lineStore),
+                contextSettingsStore =
+                    com.helix.app.provider
+                        .ProviderContextSettingsStore(lineStore),
+                idGenerator = { idGenerator.next() },
+                managed =
+                    ManagedProviderHooks(
+                        isManaged = SubscriptionProviderModule::isManaged,
+                        probe = SubscriptionProviderModule::probe,
+                        openAccount = { providerId ->
+                            SubscriptionProviderModule.openAccount(appContext, providerId)
+                        },
+                    ),
+            ).also { it.refresh() }
+        }
+
+    /**
+     * Capability Center (HXA-032, doc 9 section 2): [SystemCapabilityResolver] queries the real
+     * system state on every check; [StorageCapabilityGrantRecorder] writes the result to
+     * `capability_grants` for audit only — the stored rows never replace the execution-time
+     * check (doc 02 section 9.1).
+     */
+    override val capabilityCenter: CapabilityCenter =
+        CapabilityCenter(
+            SystemCapabilityResolver(context),
+            StorageCapabilityGrantRecorder(storage),
+        )
+
+    // --- HXA-036: the tool pipeline (dispatcher + storage-backed approval broker + audit sink) ---
+
+    /** One process clock shared by the chat service, the policy engine, the broker and the sink. */
+    private val appClock: SystemClock = SystemClock()
+
+    // --- HXA-066: dataSync foreground service for user-initiated transport / file processing ---
+
+    /** App-lifetime scope that observes the chat screen to drive the dataSync foreground service. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val dataSyncLauncher = AndroidForegroundServiceLauncher(context.applicationContext)
+
+    private val dataSyncController = DataSyncForegroundController(dataSyncLauncher)
+
+    private val toolRegistry: ToolRegistry = ToolRegistry()
+
+    private val toolImplementations: ToolImplementationRegistry = ToolImplementationRegistry()
+
+    private val skillsRoot: Path = java.io.File(context.filesDir, "skills").toPath()
+
+    override val skillImportService: SkillImportService =
+        SkillImportService(skillsRoot.resolve("staging"))
+
+    override val skillRepository: SkillRepository =
+        SkillRepository(
+            snapshotsRoot = skillsRoot.resolve("snapshots"),
+            stateFile = skillsRoot.resolve("enablement.txt"),
+            trashRoot = skillsRoot.resolve("trash"),
+        )
+
+    /**
+     * The app's own workspace scope (HXA-042): a fixed scope id whose root is the app-private
+     * `workspaces/app` directory. The SAF import pipeline (HXA-044) also targets this scope's
+     * `input/` region. All-files scopes (`af-<root>`, HXA-045) resolve through [AllFilesModule].
+     * The root is created lazily on first use and never handed to the model (doc 10).
+     */
+    private val appScopeRoot: Path =
+        java.io.File(context.filesDir, "workspaces/app").toPath().also {
+            java.nio.file.Files
+                .createDirectories(it)
+        }
+
+    private val scopeRoots: ScopeRootResolver =
+        ScopeRootResolver { scopeId ->
+            if (scopeId == APP_SCOPE_ID) {
+                appScopeRoot
+            } else {
+                // HXA-045: an all-files scope (af-<root>) resolves ONLY in the developer flavor,
+                // and only while MANAGE_EXTERNAL_STORAGE is granted and the root enabled
+                // (AllFilesModule.resolveScopeRoot is the fail-closed seam; the consumer no-op
+                // always returns null). The resolved path never reaches the model (doc 10);
+                // containment stays enforced by resolveFileScopePath downstream.
+                AllFilesModule.resolveScopeRoot(scopeId)
+                    ?: throw ScopeNotAvailable("unknown scope: $scopeId")
+            }
+        }
+
+    private val workspaceStore: WorkspaceArtifactStore =
+        WorkspaceArtifactStore(scopeRoots).also { it.ensureLayout(APP_SCOPE_ID) }
+
+    override val skillAuthoringService =
+        com.helix.app.skills.SkillAuthoringService(
+            workspaceStore,
+            skillImportService,
+            java.io.File(context.cacheDir, "skill-authoring").toPath(),
+        )
+
+    override val skillInstallationService =
+        com.helix.app.skills.SkillInstallationService(
+            skillAuthoringService,
+            skillImportService,
+            skillRepository,
+            java.io.File(context.filesDir, "skills/snapshots").toPath(),
+        )
+
+    override val connectorInstallationService =
+        com.helix.app.connector.ConnectorInstallationService(
+            workspaceStore,
+            java.io.File(context.cacheDir, "connector-installation").toPath(),
+            { connectorService },
+        )
+
+    /**
+     * The main-process QuickJS execution client (HXA-053): a stateless Binder façade that binds
+     * the non-exported one-shot [com.helix.runtime.quickjs.JsExecutionService] per execution.
+     * Constructed once for the process; the Service manifest entry ships with :runtime:quickjs
+     * and merges into both variants. The QuickJS tool executes through it on the dispatcher's
+     * (never main) executor thread.
+     */
+    private val jsExecutionClient: JsExecutionClient = JsExecutionClient(context)
+
+    /**
+     * The persisted SAF tree grant registry (HXA-044/HXA-057): one shared [SafGrantStore] under the
+     * app-private `workspaces/` directory, used by BOTH the SAF import/export bundle and the SAF
+     * tree scope service. The `content://` URIs it holds never reach the model (doc 10: 模型只看到
+     * scopeId).
+     */
+    private val fileServices = AppFileServices(context, scopeRoots, APP_SCOPE_ID, ::resolveLocalized)
+    override val safTree: SafTreeScopeService get() = fileServices.safTree
+    override val featureFiles: FeatureFiles get() = fileServices.featureFiles
+    override val fileManager: FileManagerService get() = fileServices.fileManager
+
+    /**
+     * The browser facade (HXA-060). App-scoped on purpose: the tab state machine outlives
+     * activity recreation; the (main-thread) WebViews it owns are destroyed by the activity's
+     * onDestroy and rebuilt lazily on the next navigation.
+     */
+    override val browser: BrowserController = BrowserController(context)
+
+    init {
+        // HXA-045: initialize the all-files module (developer flavor builds the roots registry;
+        // consumer is a no-op). Runs before any tool can resolve an af- scope.
+        AllFilesModule.init(context)
+        // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
+        TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        com.helix.app.goal.GoalReportTool
+            .register(toolRegistry, toolImplementations, storage)
+        // HXA-095: developer registers only the five high-level Root reads; consumer is a
+        // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
+        RootModule.register(context, appClock, toolRegistry, toolImplementations)
+        // HXA-097: developer exposes the accepted snapshot/token/action contracts; consumer
+        // remains a flavor-local no-op with no Accessibility tool descriptors.
+        AutomationModule.register(context, toolRegistry, toolImplementations)
+        // HXA-076/097: Skill discovery/activation/resource/enablement/removal run through the same
+        // Dispatcher/Policy/Approval/Audit pipeline. Built-ins are instruction-only; their text
+        // and allowed-tools hints cannot register tools or grant authority.
+        SkillTools.registerAll(toolRegistry, toolImplementations, skillRepository)
+        com.helix.app.skills.SkillAuthoringTools
+            .register(toolRegistry, toolImplementations, skillAuthoringService)
+        com.helix.app.skills.SkillInstallationTools.register(
+            toolRegistry,
+            toolImplementations,
+            skillInstallationService,
+        )
+        com.helix.app.connector.ConnectorInstallationTools.register(
+            toolRegistry,
+            toolImplementations,
+            connectorInstallationService,
+        )
+        AppWorkspaceTools.register(toolRegistry, toolImplementations, workspaceStore)
+        // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
+        // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
+        // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
+        CodeJavascriptRunTool.register(toolRegistry, toolImplementations) { params, cancel ->
+            jsExecutionClient.execute(params, cancel)
+        }
+        // HXA-085: the PRoot `code.linux.run` tool (developer flavor only; the consumer
+        // no-op registers nothing). Registration does NO bind and starts NO process
+        // (ADR-0007): the availability gate runs per execution, and the only bind paths
+        // are the user-click zero-Job verification and the approved job's own cold bind.
+        ProotToolModule.registerTools(
+            context,
+            toolRegistry,
+            toolImplementations,
+            workspaceStore,
+            storage,
+        )
+        // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
+        // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
+        // main-thread [browser] controller off the tool dispatcher's thread: node tokens are
+        // validated fail-closed against live state, and a click/type is PERFORMED only when BOTH
+        // the fixed script AND the host SensitiveFieldClassifier agree the field is normal.
+        BrowserTools.registerAll(
+            toolRegistry,
+            toolImplementations,
+            BrowserToolBridgeImpl(browser, workspaceStore, APP_SCOPE_ID),
+        )
+        AppAndroidTools.register(
+            context,
+            toolRegistry,
+            toolImplementations,
+            object : EgressPolicyProvider {
+                override fun current(): EgressPolicy = EgressPolicy(profileStore.profile, lanScopeStore.current())
+            },
+        )
+    }
+
+    /**
+     * The broker publishes approval cards to the chat service. The holder breaks the
+     * construction cycle (the broker is built before the chat service that renders its
+     * cards); the chat service installs the sink at the end of container construction.
+     */
+    private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
+
+    /**
+     * The production approval broker (roadmap HXA-036): pending records with the full
+     * binding hash + 24h window, the UI-decided [decide], and the HXA-034 mint/consume
+     * guards as the ONLY path to a typed proof (ADR-0005: no auto-approve path exists).
+     */
+    override val toolPipeline: ToolPipeline =
+        run {
+            val broker =
+                StorageApprovalBroker(
+                    approvals = storage.approvals,
+                    clock = appClock,
+                    idGenerator = { idGenerator.next() },
+                    cardSink = { approvalId, request ->
+                        approvalCardSink.deliver(approvalId, request)
+                    },
+                )
+            val auditSink = StorageAuditSink(storage.auditEvents) { idGenerator.next() }
+            val dispatcher =
+                ToolDispatcher(
+                    clock = appClock,
+                    registry = toolRegistry,
+                    implementations = toolImplementations,
+                    capabilityCenter = capabilityCenter,
+                    policyEngine = PolicyEngine(appClock),
+                    approvals = broker,
+                    audit = auditSink,
+                    // ADVANCED high-sensitivity egress rules (HXA-068, ADR-0005/0012): rehydrated
+                    // from Room on every evaluation. [LiveEgressRules.current] is the single
+                    // fail-closed gate — it hands the engine the full bound set ONLY while the
+                    // current profile is ADVANCED (a Standard profile, or a consumer build which
+                    // can never be ADVANCED, yields nothing), and yields NOTHING when the store
+                    // cannot be read or holds a corrupt row, so neither a profile switch nor
+                    // storage corruption ever auto-approves a possibly-wrong rule.
+                    ruleProvider = {
+                        LiveEgressRules.current(profileStore.profile) {
+                            storage.highSensitivityRules.all().map { it.rule }
+                        }
+                    },
+                )
+            // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
+            // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
+            // the constant default in this first version — low memory / background / thermal
+            // signals lower the allowance through this SAME seam in a later HXA (they can
+            // only lower it, never raise it, and never touch approvals or result order).
+            val scheduler =
+                ToolScheduler(
+                    clock = appClock,
+                    dispatcher = dispatcher,
+                    registry = toolRegistry,
+                    resourceGate = resourceGate::allowance,
+                )
+            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler).also {
+                it.mcpDiscovery.register(toolImplementations)
+            }
+        }
+
+    override val auditLogService: AuditLogService = AuditLogService(storage)
+
+    override val mcpService: McpAppService =
+        McpAppService(
+            storage = McpStorageBridge(storage),
+            profile = { profileStore.profile },
+            lanScopes = lanScopeStore::current,
+            registry = toolRegistry,
+            implementations = toolImplementations,
+        ).also { service ->
+            toolPipeline.installMcpFactsProvider(service::dispatchFacts)
+        }
+
+    override val connectorService by lazy {
+        com.helix.app.connector
+            .ConnectorService(context, storage, mcpService, skillImportService, skillRepository)
+    }
+
+    override val a2aService: A2aAppService =
+        A2aAppService(
+            storage = A2aStorageBridge(storage),
+            registry = toolRegistry,
+            implementations = toolImplementations,
+            runner =
+                A2aTaskRunner(
+                    storage = storage,
+                    workspace = workspaceStore,
+                    workspaceScopeId = APP_SCOPE_ID,
+                    resolveWorkspaceFile = { path -> resolveFileScopePath(path, scopeRoots).toFile() },
+                    client = A2aClients.task(),
+                ),
+        ).also { service ->
+            toolPipeline.installA2aFactsProvider(service::dispatchFacts)
+        }
+
+    /**
+     * The chat-attachment staging seams (HXA-049, ADR-0014): the EXISTING one-time private SAF
+     * import over the shared [featureFiles] pipeline, the source-metadata reader, the app
+     * workspace scope the attachments pin into, and the containment-enforced scope-path resolver.
+     * [AttachmentStagingSupport.resolveWorkspacePath] returns a REAL path consumed ONLY inside
+     * the chat service for hashing / re-materialization — it never reaches UI, logs or the model.
+     */
+    private val attachmentStaging: AttachmentStagingSupport =
+        AttachmentStagingSupport(
+            importer = AttachmentImporter(featureFiles.importPipeline),
+            workspaceScopeId = APP_SCOPE_ID,
+            sourceMetadata = featureFiles.metadataReader::metadata,
+            resolveWorkspacePath = { scopePath -> resolveFileScopePath(scopePath, scopeRoots) },
+        )
+
+    override val chatService: ChatService =
+        ChatService(
+            storage = storage,
+            providerService = providerService,
+            profileStore = profileStore,
+            runControlStore = runControlStore,
+            lanScopes = lanScopeStore::current,
+            clock = appClock,
+            idGenerator = { idGenerator.next() },
+            toolPipeline = toolPipeline,
+            attachmentStaging = attachmentStaging,
+            visionSessionBinder = visionImageSource::bindSession,
+            // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
+            strings = { resId, args -> resolveLocalized(resId, args) },
+            subscriptionResultRecovery = { turnId, modelCallId, localOnly ->
+                com.helix.app.provider.SubscriptionProviderModule
+                    .recoverInterruptedResult(context, storage, turnId, modelCallId, localOnly)
+            },
+            subscriptionRecovery = { turnId, modelCallId, stop ->
+                com.helix.app.provider.SubscriptionProviderModule
+                    .inspectInterruptedJob(context, storage, turnId, modelCallId, stop)
+            },
+            goalReminderSync = { goalId ->
+                com.helix.app.goal
+                    .GoalReminderReconciler(
+                        storage,
+                        com.helix.app.goal.GoalReminderScheduler
+                            .create(context),
+                        appClock,
+                    ).reconcile(goalId)
+            },
+        ).also {
+            // The broker (built above) publishes pending cards into the chat timeline.
+            approvalCardSink.sink = it::onApprovalCard
+            val chat = it
+            com.helix.app.foreground.DataSyncForegroundService.onStopTasks = {
+                chat.backgroundTasks.value.filter { task -> task.running }.forEach { task ->
+                    chat.stopTask(task.id, pause = task.goalId != null)
+                }
+            }
+            // HXA-066: keep the dataSync foreground service up only while a turn is actively
+            // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
+            appScope.launch {
+                it.screen.collect { screen ->
+                    val turn = screen.activeTurn
+                    processEvidenceStore.checkpointTurn(turn?.id, turn?.id, turn?.state?.name)
+                }
+            }
+            appScope.launch {
+                it.backgroundTasks.collect { tasks ->
+                    dataSyncController.onTurnState(
+                        tasks
+                            .firstOrNull { task ->
+                                task.state in DataSyncForegroundController.TRANSPORT_ACTIVE
+                            }?.state,
+                    )
+                }
+            }
+        }
+
+    override val privacyDeletionService: PrivacyDeletionService by lazy {
+        PrivacyDeletionService(
+            storage = storage,
+            workspace = workspaceStore,
+            browser = browser,
+            providers = providerService,
+            mcp = mcpService,
+            a2a = a2aService,
+            skills = skillRepository,
+            chat = chatService,
+            cancelGoalReminder = { goalId ->
+                com.helix.app.goal.GoalReminderScheduler
+                    .create(context)
+                    .cancelReminder(goalId)
+            },
+        )
+    }
+
+    /**
+     * HXA-069: resolves a stable string-resource [resId] + already-localized [args] against the
+     * CHOSEN app language at emit time. The app-level [appContext] does not carry the chosen
+     * language (only the activity's wrapped context does), so a context is wrapped per emit from
+     * the stored choice. Emits are discrete (chat blocks/terminals/tool states, file ops), never
+     * per token — so the one-shot array spread is not a hot path.
+     */
+    @Suppress("SpreadOperator") // discrete string resolve; getString's vararg API has no array overload
+    private fun resolveLocalized(resId: Int, args: Array<out Any>): String {
+        val base = appContext
+        return AppLanguageStore
+            .wrapForLocale(
+                base,
+                AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
+            ).getString(resId, *args)
+    }
+
+    private companion object {
+        const val PREFS_NAME = "helix-ui"
+    }
+}

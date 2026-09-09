@@ -291,3 +291,31 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-158 | 浏览器 JVM/测试 APK、双 flavor app 构建、spotless/detekt/browser lint、双 API JNI/设备回归；精确命令见 [完成记录](../completion-records/HXA-158.md) | 未使用宿主引用残留 480→0；116 JVM；每台设备 27 通过/2 opt-in skip；系统缺陷、24h/真机仍开放 |
 | HXA-159 | 双 flavor app JVM/构建、browser tools JVM、consumer 测试 APK、spotless/detekt/lintDebug；API29/36 文件/附件/恢复/审批/发现回归；精确命令见 [完成记录](../completion-records/HXA-159.md) | 职责重构；Context 迁移仅分析，未作为 Autofill 验收；设备最终结果与首次预览超时分开记录 |
 | HXA-160 | Activity owner/旧回调/JS 结果、真实 AutofillService 填写保存/重建/撤销；双 API 浏览器/MainActivity 与 JNI/Binder 有界对照；双 flavor JVM/build、完整 lint/静态与文档门禁 | ADR-0033；保留惰性分配，系统根因、长稳、真机分别记录 |
+| HXA-161 | provider JVM、双 flavor app JVM、Developer APK/测试 APK；spotless/detekt/双 flavor app lint、i18n/docs/ADR；专用模拟器输入区/菜单/停止/Goal 及真机 SGLang 参数、键盘布局 | API36 8 项通过；真机 API34 中/高请求和键盘通过，见 [完成记录](../completion-records/HXA-161.md)；不覆盖历史 PROTOCOL 根因、长稳或完整真机验收 |
+| HXA-162 | 双 app JVM/构建/lint、spotless/detekt；API36 7 项复制/输入/停止回归 | [完成记录](../completion-records/HXA-162.md)；时间线 JVM 保证旧记录顺序 |
+| HXA-163 | storage JVM/迁移、双 app JVM/构建/lint；API36 草稿/标题/目录/列表 | UI 9/9、迁移 22/22；[完成记录](../completion-records/HXA-163.md) |
+| HXA-164 | 双 app JVM/构建/lint；API36 等待模型时消息可见、Markdown/复制/停止/草稿回归 | 10 个不同设备用例通过，真机显示核实；[完成记录](../completion-records/HXA-164.md) |
+| HXA-165 | 双 app JVM/构建/lint；API36 导航/窄屏/大字体/附件/复制/草稿/停止 | 11/11，真机键盘及附件入口核实；[完成记录](../completion-records/HXA-165.md) |
+| HXA-166 | storage/双 app JVM/构建/lint；API36 模型选择/跨 Provider/请求模型/活动拒绝/窄屏 | 9/9，真机模型菜单核实；[完成记录](../completion-records/HXA-166.md) |
+| HXA-167 | 双 app JVM/构建/lint；API36 单行/窄屏/大字体/横向滑动/模型/停止 | 8 个不同用例通过，最终 Composer 4/4；[完成记录](../completion-records/HXA-167.md) |
+| HXA-168 | 双 app JVM/构建/lint；API36 顶部去重/导航/新建/窄屏/模型/停止 | 10/10，真机标题与椭圆选项核实；[完成记录](../completion-records/HXA-168.md) |
+| HXA-169 | 双 app JVM/构建/lint；API36 独立主菜单/标题改名/草稿保留/窄屏与回归 | 12/12，真机菜单和改名入口核实；[完成记录](../completion-records/HXA-169.md) |
+| HXA-170 | 双 app JVM/构建/lint；API36 六路由同高顶栏/扩展真实入口/归档状态/会话回归 | 14/14，真机文件与扩展布局及归档状态核实；[完成记录](../completion-records/HXA-170.md) |
+| HXA-171 | 双 app JVM/构建/lint；API36 无模型手动文件管理/搜索/选择/返回/原文件操作与导航回归 | 17/17，1.8 倍字体 3/3，真机首页/目录核实；[完成记录](../completion-records/HXA-171.md) |
+| HXA-172 | 双 app JVM/构建/lint；API36 归档分离、共享存储入口、上下文圆环及文件/输入区回归 | 23/23；双 app JVM/构建/lint 和真机核实通过；[完成记录](../completion-records/HXA-172.md) |
+| HXA-173 | 双 flavor 构建/lint、归档恢复与共享根目录授权/撤销、文件 UI 回归 | 双 flavor 权限/归档、真实系统授权返回和真机核实通过；[完成记录](../completion-records/HXA-173.md) |
+| HXA-174 | core/provider/app JVM、自动/手动摘要、取消/拒绝/预算/恢复、真实模型与 Provider 设置 UI | Developer 39、Consumer 17 个不同 flavor/用例通过（联合 HXA-173）；主机与真实模型通过；[完成记录](../completion-records/HXA-174.md) |
+| HXA-175 | 脚本归档/独占进程；双 app 主机、系统栏修复前后、紧凑圆环/复制/输入区 | 140 份历史脚本、主机与 API36 双版本 32/32 通过，真机安装/布局核实；[完成记录](../completion-records/HXA-175.md) |
+| HXA-176 | 长 Turn 步骤/新轮首请求、收益/容量/用量、摘要重试记账、Goal 暂停/继续/恢复 | Developer 43/43、Consumer 42/42，主机及真实模型三轮通过；[完成记录](../completion-records/HXA-176.md) |
+
+| HXA-177 | 跨会话后台/服务、精确停止、回收持久化、BLOCKED 门控/预算/恢复、数据库迁移 | 双 flavor 57/57 + 双 API 迁移 23/23，主机门禁通过；[完成记录](../completion-records/HXA-177.md) |
+
+| HXA-178 | 模型报告/状态归属/取消与预算/迁移/无绑定完成 | 主机门禁通过；双 API 各79、迁移各24、真实模型及最终复核3通过，见完成记录 |
+
+| HXA-179 | 完整主机门禁；独立 API29/36 工具/审批/附件/Goal/后台/压缩 | 各107/107；[完成记录](../completion-records/HXA-179.md) |
+| HXA-180 | 独立文件管理：目录/冲突/失败恢复/取消/权限/Agent隔离；双 API UI与SAF | 已完成，见 [HXA-180](../completion-records/HXA-180.md)：主机/双API各18/预览复跑 |
+| HXA-181 | 当前规范去过时描述、历史保留、docs/ADR/i18n/secrets/diff | 全部通过，见 [HXA-181](../completion-records/HXA-181.md) |
+| HXA-182 | 双 app JVM、构建/测试 APK、Spotless/Detekt/lint、独占 API29/36 文件/聊天和发布中进程死亡后的 UI 恢复、docs/ADR/i18n/secrets | 双 app JVM 727通过/8条件跳过、双 API 各47/47及静态/文档门禁通过，见 [HXA-182](../completion-records/HXA-182.md) |
+| HXA-183 | 七项职责拆分；双 app/PRoot JVM、构建/lint、草稿并发和构造期观察、独占 API29/36 聊天/Provider/文件/Goal/压缩/后台及跨 APK PRoot 生命周期/归档/ACK、文档门禁 | 主机897通过/8条件跳过，双API各145项app及PRoot生命周期/归档/ACK通过；见 [HXA-183](../completion-records/HXA-183.md) |
+
+| HXA-184 | B11/C15 职责与装配整理；全仓 JVM/lint、独占双 API 存储/文件/浏览器/QuickJS/Android/自动化与 app 集成 | 主机2788通过/8条件跳过；独占双API app各163与六库/Accessibility恢复通过，见 [HXA-184](../completion-records/HXA-184.md) |

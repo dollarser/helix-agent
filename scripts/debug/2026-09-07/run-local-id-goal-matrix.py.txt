@@ -1,0 +1,15 @@
+from pathlib import Path
+import subprocess,json,hashlib,re
+root=Path('build/main-verification');classes=json.loads((root/'current-goal-classes.json').read_text());expected=sum(x['expected'] for x in classes)
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ for flavor,pkg in [('consumer','com.helix.agent'),('developer','com.helix.agent.developer')]:
+  out=root/f'local-id-goal-api{api}-{flavor}';out.mkdir(exist_ok=False);result={'api':api,'serial':serial,'flavor':flavor,'apks':[],'classes':classes}
+  for package,apk in [(pkg,f'app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk'),(pkg+'.test',f'app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk')]:
+   p=subprocess.run(['adb','-s',serial,'install','-r','-t',apk],capture_output=True,text=True,timeout=120);(out/(package+'-install.log')).write_text(p.stdout+p.stderr);assert p.returncode==0
+   base=subprocess.check_output(['adb','-s',serial,'shell','pm','path',package],text=True).strip().removeprefix('package:');got=subprocess.check_output(['adb','-s',serial,'shell','sha256sum',base],text=True).split()[0];sha=hashlib.sha256(Path(apk).read_bytes()).hexdigest();assert sha==got;result['apks'].append(dict(package=package,path=apk,sha256=sha,installedSha256=got))
+  cmd=['adb','-s',serial,'shell','am','instrument','-w','-r','-e','class',','.join(x['class'] for x in classes),pkg+'.test/com.helix.app.HelixAndroidJUnitRunner'];result['command']=cmd
+  (out/'result.json').write_text(json.dumps(result,indent=2))
+  with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=420)
+  text=(out/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M);ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} tests)' in text
+  result.update(passed=codes.count('0'),statusCodes=codes,ok=ok);(out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(api,flavor,ok,text[-300:],flush=True)
+

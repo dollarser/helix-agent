@@ -1,0 +1,38 @@
+import subprocess, time, re, pathlib, json
+adb='<ANDROID_SDK>/platform-tools/adb'
+root=pathlib.Path('build/main-verification')
+runner='com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner'
+klass='com.helix.app.goal.GoalEvidenceProcessKillDeviceTest'
+receipts=[]
+for serial in ['<OWNED_EMULATOR_SERIAL>','<OWNED_EMULATOR_SERIAL>']:
+    subprocess.run([adb,'-s',serial,'install','-r','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'],check=True,capture_output=True)
+    for boundary in ['staged','uncommitted','committed']:
+        base=[adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class',klass,'-e','goal.evidence.boundary',boundary]
+        log=root/f'goal-evidence-kill-{serial}-{boundary}-prepare.log'
+        with log.open('w') as stream:
+            process=subprocess.Popen(base+['-e','goal.evidence.phase','prepare',runner],stdout=stream,stderr=subprocess.STDOUT)
+            deadline=time.monotonic()+90
+            pid=None
+            while time.monotonic()<deadline:
+                match=re.search(r'GOAL_EVIDENCE_KILL_READY boundary='+boundary+r' pid=(\d+)',log.read_text())
+                if match:
+                    pid=match.group(1)
+                    break
+                if process.poll() is not None:
+                    raise RuntimeError(log.read_text())
+                time.sleep(.2)
+            if pid is None:
+                raise RuntimeError('No ready signal: '+str(log))
+            live=subprocess.check_output([adb,'-s',serial,'shell','pidof','com.helix.agent.developer'],text=True).split()
+            assert pid in live,(pid,live)
+            killed=subprocess.run([adb,'-s',serial,'shell','su','0','kill','-9',pid],capture_output=True,text=True)
+            print({'killExit':killed.returncode,'stdout':killed.stdout,'stderr':killed.stderr},flush=True)
+            assert killed.returncode == 0
+            process.wait(timeout=30)
+        recovered=subprocess.run(base+['-e','goal.evidence.phase','recover',runner],capture_output=True,text=True,timeout=90)
+        output=recovered.stdout+recovered.stderr
+        (root/f'goal-evidence-kill-{serial}-{boundary}-recover.log').write_text(output)
+        assert 'OK (1 test)' in output and 'FAILURES' not in output,output
+        receipts.append({'serial':serial,'boundary':boundary,'killedPid':pid,'recovery':'OK (1 test)'})
+        print(json.dumps(receipts[-1]),flush=True)
+(root/'goal-evidence-kill-result.json').write_text(json.dumps(receipts,indent=2)+'\n')

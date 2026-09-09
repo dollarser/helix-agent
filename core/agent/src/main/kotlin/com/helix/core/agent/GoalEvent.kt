@@ -38,7 +38,7 @@ sealed interface GoalEvent {
 
     /**
      * The wake's Turn finished; the coordinator reports the aggregated usage of that wake.
-     * The reducer accumulates it into the goal-lifetime budget and parks the goal in PAUSED
+     * The reducer accumulates it into the goal-lifetime budget and parks the goal in BLOCKED
      * when any budget is exhausted.
      *
      * Ordering contract: for one wake, [WakeUsageReported] must precede [RunFinished] (or a
@@ -75,21 +75,18 @@ sealed interface GoalEvent {
 
     /**
      * The wake's Turn ended normally without completing the goal or exhausting a budget.
-     * The goal parks in PAUSED - the same durable state as budget exhaustion - where an
+     * The goal parks in PAUSED when budget remains; exhausted budget yields BLOCKED. An
      * explicit user continue (USER_OPEN or the checkpoint notification) starts the next wake.
      * A retry (retryable WakeFailed within budget) does not park: it is a new wake of the
      * same run.
      */
     data object RunFinished : GoalEvent
 
-    /**
-     * A verifier produced real evidence (ToolResult/Artifact) for one criterion. Only this
-     * event can satisfy a criterion - the model's own claims never do.
-     */
-    data class CriterionSatisfied(
-        val criterionId: String,
-        val evidence: CriterionEvidence,
-    ) : GoalEvent
+    /** Host-confirmed external dependency; Continue cannot bypass it. */
+    data object Blocked : GoalEvent
+
+    /** Host rechecked the dependency after an explicit user repair action. */
+    data object BlockerResolved : GoalEvent
 
     /** Sets the goal's next checkpoint and asks the coordinator to schedule its reminder. */
     data class CheckpointScheduled(
@@ -114,14 +111,14 @@ sealed interface GoalEvent {
         }
     }
 
-    /** User changed the budget while the goal is parked (PAUSED/INPUT_REQUIRED). */
+    /** User changed the budget while the goal is parked (PAUSED/BLOCKED/INPUT_REQUIRED). */
     data class BudgetsUpdated(
         val budgets: GoalBudgets,
     ) : GoalEvent
 
     /**
-     * All acceptance criteria carry verifier evidence and the user (or verifier flow) asks to
-     * finish. The reducer re-checks that every criterion is satisfied.
+     * The coordinator consumed a model completion report after execution gates passed.
+     * The reducer validates the lifecycle, not the semantic truth of the report.
      */
     data object CompleteRequested : GoalEvent
 

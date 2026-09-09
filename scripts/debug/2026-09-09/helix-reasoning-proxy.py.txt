@@ -1,0 +1,18 @@
+import http.server,http.client,json
+class Proxy(http.server.BaseHTTPRequestHandler):
+ def log_message(self,*args):pass
+ def do_GET(self):self.forward()
+ def do_POST(self):self.forward()
+ def forward(self):
+  body=self.rfile.read(int(self.headers.get('Content-Length','0')))
+  if body:
+   d=json.loads(body)
+   with open('/tmp/helix-reasoning-wire.jsonl','a') as f:f.write(json.dumps({'model':d.get('model'),'reasoning_effort':d.get('reasoning_effort'),'max_tokens':d.get('max_tokens'),'has_tools':bool(d.get('tools'))})+'\n')
+  c=http.client.HTTPConnection('127.0.0.1',30008,timeout=60)
+  try:
+   c.request(self.command,self.path,body=body,headers={'Content-Type':'application/json'})
+   r=c.getresponse();self.send_response(r.status);self.send_header('Content-Type',r.getheader('Content-Type','application/json'));self.end_headers()
+   while b:=r.read1(8192):self.wfile.write(b);self.wfile.flush()
+  except (BrokenPipeError,ConnectionResetError):pass
+  finally:c.close()
+http.server.ThreadingHTTPServer(('127.0.0.1',30009),Proxy).serve_forever()

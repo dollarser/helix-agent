@@ -27,6 +27,8 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
     with(actions) {
         openFile?.let { file ->
             if (!file.isDirectory) {
+                val currentPreview = preview
+                val loaded = currentPreview as? FilePreviewState.Ready
                 AlertDialog(
                     onDismissRequest = { openFile = null },
                     title = { Text(file.name) },
@@ -36,9 +38,20 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             when {
-                                previewImage != null -> {
+                                currentPreview is FilePreviewState.Loading -> {
+                                    Text(
+                                        str(R.string.egress_loading),
+                                        modifier = Modifier.testTag("files-preview-loading"),
+                                    )
+                                }
+
+                                currentPreview is FilePreviewState.Failed -> {
+                                    Text(currentPreview.message, modifier = Modifier.testTag("files-preview-error"))
+                                }
+
+                                loaded?.image != null -> {
                                     Image(
-                                        bitmap = previewImage!!,
+                                        bitmap = loaded.image,
                                         contentDescription = file.name,
                                         modifier =
                                             Modifier
@@ -48,9 +61,9 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                                     )
                                 }
 
-                                previewText != null -> {
+                                loaded?.text != null -> {
                                     Text(
-                                        previewText.orEmpty(),
+                                        loaded.text,
                                         style = MaterialTheme.typography.bodySmall,
                                         fontFamily = FontFamily.Monospace,
                                         modifier =
@@ -68,7 +81,7 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                                     )
                                 }
                             }
-                            fileInfo?.let { meta ->
+                            loaded?.info?.let { meta ->
                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                     Text(
                                         str(R.string.files_info_size, formatSize(meta.sizeBytes)),
@@ -132,7 +145,7 @@ internal fun FilesScreenState.FilesPreviewDialog(actions: FilesScreenActions) {
                                 TextButton(
                                     onClick = {
                                         openFile = null
-                                        startTrash(listOf(file.relativePath))
+                                        requestDelete(listOf(file.relativePath))
                                     },
                                     modifier = Modifier.testTag("files-action-trash"),
                                 ) {

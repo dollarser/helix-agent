@@ -1,0 +1,35 @@
+import subprocess, pathlib, re, time, json
+root=pathlib.Path('build/main-verification')
+adb='<ANDROID_SDK>/platform-tools/adb'
+base=[adb,'-s','<OWNED_EMULATOR_SERIAL>']
+cls='com.helix.app.chat.GoalProcessKillDeviceTest'
+runner='com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner'
+records=[]
+for phase in ['control','prepare','recover-prepare','recover-final']:
+    cmd=base+['shell','am','instrument','-w','-r','-e','class',cls,'-e','goal.kill.phase',phase,runner]
+    path=root/f'goal-kill-{phase}.log'
+    with path.open('w') as output:
+        process=subprocess.Popen(cmd,stdout=output,stderr=subprocess.STDOUT)
+        if phase in ['prepare','recover-prepare']:
+            start=time.monotonic();match=None
+            while time.monotonic()-start<25:
+                match=re.search(r'GOAL_KILL_READY pid=(\d+)',path.read_text())
+                if match or process.poll() is not None:break
+                time.sleep(.05)
+            if not match:
+                process.terminate();process.wait(timeout=5)
+                raise RuntimeError(f'{phase}: no durable ready marker; see {path}')
+            ready_at=time.monotonic()
+            pid=match.group(1)
+            active=subprocess.check_output(base+['shell','pidof','com.helix.agent'],text=True).split()
+            assert pid in active,(pid,active)
+            subprocess.run(base+['shell','run-as','com.helix.agent','kill','-9',pid],check=True)
+            process.wait(timeout=15)
+            records.append(dict(phase=phase,pid=int(pid),signal='SIGKILL',readyToKillSeconds=time.monotonic()-ready_at,exit=process.returncode,log=path.name))
+        else:
+            process.wait(timeout=30)
+            text=path.read_text()
+            assert 'OK (1 test)' in text,text
+            records.append(dict(phase=phase,tests=1,exit=process.returncode,log=path.name))
+    print(records[-1],flush=True)
+(root/'goal-kill-result.json').write_text(json.dumps(dict(serial='<OWNED_EMULATOR_SERIAL>',api=34,records=records,scope='actual process SIGKILL of durable Goal time/model reservations; no Provider or tool backend execution'),indent=2)+'\n')

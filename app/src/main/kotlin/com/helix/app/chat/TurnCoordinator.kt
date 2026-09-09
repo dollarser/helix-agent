@@ -85,6 +85,18 @@ internal class BatchTurnRuntime(
         modelCallClosed = true
     }
 
+    fun closeSummary(nextModelCallId: String?) {
+        require(phase == TurnState.RECEIVING_MODEL && batchCalls.isEmpty())
+        modelCallClosed = true
+        if (nextModelCallId != null) {
+            phase = TurnState.WAITING_MODEL
+            modelCallId = nextModelCallId
+            modelStep += 1
+            modelCallClosed = false
+            stream = ModelStreamState()
+        }
+    }
+
     fun settleCall(
         callId: String,
         sideEffectUnknown: Boolean,
@@ -130,6 +142,8 @@ internal class TurnCoordinator private constructor(
     private val providerSnapshot: String,
     private val runtime: BatchTurnRuntime,
 ) {
+    private var summaryStream = false
+
     val id: String
         get() = turnId
 
@@ -137,7 +151,8 @@ internal class TurnCoordinator private constructor(
 
     fun currentStream(): ModelStreamState = runtime.currentStream()
 
-    fun beginModelStream(): ModelStreamState {
+    fun beginModelStream(compacting: Boolean = false): ModelStreamState {
+        summaryStream = compacting
         val current = runtime.snapshot()
         require(current.phase == TurnState.WAITING_MODEL)
         transitionPersisted(TurnState.RECEIVING_MODEL, current.modelStep)
@@ -212,16 +227,65 @@ internal class TurnCoordinator private constructor(
         runtime.advanceModelCall(nextModelCallId)
     }
 
-    /** Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal. */
-    fun terminalize(
-        outcome: ModelStreamTerminal,
-        verifyGoal: ((com.helix.core.agent.Goal, String) -> com.helix.core.agent.Goal)? = null,
+    /** A completed summary is durable before the next request replaces any history. */
+    fun commitCompaction(
+        plan: ContextCompaction.Plan,
+        nextModelCallId: String?,
+        notice: String? = null,
+        failureReason: String? = null,
     ) {
+        val current = runtime.snapshot()
+        val stream = runtime.currentStream()
+        require(current.phase == TurnState.RECEIVING_MODEL && stream.finishedToolCalls.isEmpty())
+        require(summaryStream)
+        if (failureReason == null) require(stream.completed && stream.terminal(false).state == TurnState.COMPLETED)
+        require(!current.modelCallClosed && current.batchCalls.isEmpty())
+        require(nextModelCallId == null || nextModelCallId.isNotBlank())
+        storage.withTransaction {
+            if (failureReason == null) {
+                ContextCompaction.persist(
+                    storage,
+                    sessionId,
+                    turnId,
+                    idGenerator(),
+                    plan,
+                    stream.text,
+                    current.modelCallId,
+                )
+            }
+            if (notice != null && failureReason == null) {
+                storage.messages.append(
+                    idGenerator(),
+                    sessionId,
+                    turnId,
+                    ModelRole.ASSISTANT.name,
+                    ChatHistoryBuilder.KIND_TEXT,
+                    notice,
+                )
+            }
+            storage.modelCalls.update(
+                storage.modelCalls.resolve(current.modelCallId),
+                if (failureReason == null) "COMPLETED" else "FAILED",
+                stream.usageJson,
+                null,
+            )
+            if (nextModelCallId != null) {
+                var turn = storage.turns.resolve(turnId)
+                turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, current.modelStep + 1, null, null)
+                storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
+                storage.turns.updateState(turn, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
+            }
+        }
+        runtime.closeSummary(nextModelCallId)
+    }
+
+    /** Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal. */
+    fun terminalize(outcome: ModelStreamTerminal) {
         val current = runtime.snapshot()
         val stream = runtime.currentStream()
         val endedAt = clock.now().toEpochMilli()
         storage.withTransaction {
-            if (!current.modelCallClosed && stream.text.isNotBlank()) {
+            if (!current.modelCallClosed && !summaryStream && stream.text.isNotBlank()) {
                 storage.messages.append(
                     idGenerator(),
                     sessionId,
@@ -244,7 +308,7 @@ internal class TurnCoordinator private constructor(
                     null,
                 )
             }
-            GoalRunSettlement(storage, clock, idGenerator).settle(turnId, verifyGoal)
+            GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
         }
         runtime.terminalize(outcome.state)
     }

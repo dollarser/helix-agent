@@ -56,6 +56,8 @@ docs/
 
 ## 开发治理
 
+- [大文件与职责审查 2026-09-10](development/large-class-responsibility-audit-2026-09-10.md)：HXA-182 后工作分支的完整生产大文件清单；区分职责拆分、文件组织与应保持集中的状态机，属于快照建议。
+
 - [实施状态](development/status.md)：唯一当前状态源，只维护已验证范围、当前任务、接口和限制。
 - [开发路线](development/roadmap.md)：HXA 的依赖顺序、范围和验收要求。
 - [验收矩阵](development/verification-matrix.md)：每个 HXA 的真实命令、设备与证据。
@@ -88,3 +90,7 @@ docs/
 5. 新文件使用小写 kebab-case；HXA、ADR、M0 编号和日期型 Bug 文件保留各自约定格式。
 6. 产品需求和架构文档只定义长期边界，不复制“当前 HXA/已完成范围/下一任务”；需要表达实时实现状态时链接 `development/status.md`。
 7. 分发渠道、构建 flavor 与运行时安全配置是三个独立维度；任何文档不得再把 consumer/developer 直接等同于商店版/完整版。
+
+## UI 参考材料
+
+- [用户提供的会话与文件管理截图](references/ui/README.md)

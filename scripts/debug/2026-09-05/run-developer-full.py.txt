@@ -1,0 +1,36 @@
+import concurrent.futures, json, pathlib, re, subprocess
+adb = str(pathlib.Path.home() / 'Library/Android/sdk/platform-tools/adb')
+out = pathlib.Path('build/main-verification')
+def run(api, serial):
+    cmds = [
+        ['install','-r','-t','app/build/outputs/apk/developer/debug/app-developer-debug.apk'],
+        ['install','-r','-t','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'],
+        ['shell','input','keyevent','KEYCODE_WAKEUP'],
+        ['shell','wm','dismiss-keyguard'],
+        ['shell','am','instrument','-w','-r','-e','helix.smoke.model','qwen2.5:3b-instruct','-e','helix.smoke.ollamaUiModel','qwen3-vl:2b-instruct','com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner'],
+    ]
+    log = out / f'app-developer-api{api}-accepted.log'
+    print('START', api, flush=True)
+    with log.open('w') as f:
+        for cmd in cmds:
+            p = subprocess.run([adb,'-s',serial]+cmd,stdout=f,stderr=subprocess.STDOUT)
+            f.flush()
+            if p.returncode: raise RuntimeError(f'{api} command failed: {cmd}')
+    body = log.read_text()
+    record = {}; results = []
+    for line in body.splitlines():
+        m = re.match(r'INSTRUMENTATION_STATUS: (class|test)=(.*)', line)
+        if m: record[m[1]] = m[2]
+        m = re.match(r'INSTRUMENTATION_STATUS_CODE: (-?\d+)$', line)
+        if m and int(m[1]) in (0,-1,-2,-3,-4):
+            results.append(dict(record, code=int(m[1]))); record={}
+    counts = {str(code):sum(r['code']==code for r in results) for code in (0,-1,-2,-3,-4)}
+    passed = bool(re.search(r'^OK \(\d+ tests?\)', body, re.M)) and not any(x in body for x in ['FAILURES!!!','INSTRUMENTATION_FAILED','Process crashed'])
+    passed = passed and len(results)==202 and counts['-1']==0 and counts['-2']==0
+    data = dict(api=api,expected=202,observed=len(results),counts=counts,passed=passed,results=results)
+    (out/f'app-developer-api{api}-accepted.json').write_text(json.dumps(data, indent=2))
+    print('END',api,counts,passed,flush=True)
+    return passed
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    results = [pool.submit(run,29,'<OWNED_EMULATOR_SERIAL>'),pool.submit(run,36,'<OWNED_EMULATOR_SERIAL>')]
+    assert all(f.result() for f in results), 'full developer instrumentation failed'

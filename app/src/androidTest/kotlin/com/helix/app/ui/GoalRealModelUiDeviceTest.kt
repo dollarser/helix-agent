@@ -62,6 +62,7 @@ class GoalRealModelUiDeviceTest {
                 service.setTurnBudgets(TurnBudgets(4, 1, 32768, 2048, 34816))
                 compose.navigateTo("sessions")
                 compose.waitUntil(10_000) { service.screen.value.openSessionId == sessionId }
+                compose.onNodeWithTag("chat-mode-menu").performClick()
                 compose.onNodeWithTag("chat-mode-goal").performClick()
                 createGoalThroughUi()
                 assertRunCount(0)

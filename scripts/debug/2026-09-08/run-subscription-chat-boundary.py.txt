@@ -1,0 +1,19 @@
+from pathlib import Path
+import subprocess,json,hashlib,re
+root=Path('build/main-verification');adb='<ANDROID_SDK>/platform-tools/adb';results=[]
+classes=['com.helix.app.provider.SubscriptionChatBoundaryDeviceTest']
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ out=root/f'subscription-chat-boundary-api{api}';out.mkdir(exist_ok=False);apks=[]
+ for package,apk in [('com.helix.agent.developer','app/build/outputs/apk/developer/debug/app-developer-debug.apk'),('com.helix.agent.developer.test','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'),('com.helix.runtime.cli','runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk')]:
+  sha=hashlib.sha256(Path(apk).read_bytes()).hexdigest()
+  subprocess.run([adb,'-s',serial,'install','-r','-t',apk],capture_output=True,check=True,timeout=120)
+  remote=subprocess.check_output([adb,'-s',serial,'shell','pm','path',package],text=True).strip().removeprefix('package:')
+  got=subprocess.check_output([adb,'-s',serial,'shell','sha256sum',remote],text=True).split()[0]
+  assert sha==got;apks.append(dict(package=package,path=apk,sha256=sha,installedSha256=got))
+ cmd=[adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class',','.join(classes),'com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
+ with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=900)
+ text=(out/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M)
+ ok=p.returncode==0 and codes.count('0')==4 and all(c in ['0','1'] for c in codes) and 'OK (4 tests)' in text
+ result=dict(api=api,serial=serial,classes=classes,command=cmd,apks=apks,expected=4,passed=codes.count('0'),statusCodes=codes,ok=ok)
+ (out/'result.json').write_text(json.dumps(result,indent=2));results.append(result);(root/'subscription-chat-boundary-result.json').write_text(json.dumps(results,indent=2));print(api,ok,codes.count('0'),flush=True)
+ if not ok:raise RuntimeError(str(out))

@@ -77,7 +77,7 @@ class GoalDurableUsageLedger(
         val exhausted = if (storage.goalUsageReservations.pendingForRun(runId).isEmpty()) firstExhausted(next) else null
         storage.goals.updateGoal(
             next.copy(
-                state = if (exhausted == null) next.state else GoalState.PAUSED.name,
+                state = if (exhausted == null) next.state else GoalState.BLOCKED.name,
                 currentWakeMillis = if (exhausted == null) next.currentWakeMillis else 0,
                 finishReason = exhausted?.let { "BUDGET_EXHAUSTED($it)" } ?: next.finishReason,
             ),

@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
 class GoalModelCancellationDeviceTest {
     @Test fun explicitStopClosesModelSocketAndGoalRun() = exercise(stop = true)
 
-    @Test fun wakeTimeLimitClosesModelSocketAndParksGoal() = exercise(stop = false)
+    @Test fun wakeTimeLimitClosesModelSocketAndBlocksGoal() = exercise(stop = false)
 
     @Test fun rotationKeepsTheOriginalRunningGoalAndModelSocket() = exercise(stop = true, rotate = true)
 
@@ -129,7 +129,7 @@ class GoalModelCancellationDeviceTest {
     ) {
         val stored = storage.goals.resolve(goal)
         val run = storage.goalRuns.listByGoal(goal).single()
-        assertEquals(if (stop) "CANCELLED" else "PAUSED", stored.state)
+        assertEquals(if (stop) "CANCELLED" else "BLOCKED", stored.state)
         assertTrue(run.endedAt != null)
         if (!stop) assertTrue(requireNotNull(run.outcome).startsWith("BUDGET_EXHAUSTED("))
         assertEquals(1, stored.modelCalls)

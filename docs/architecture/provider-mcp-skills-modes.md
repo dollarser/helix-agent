@@ -294,7 +294,7 @@ a2a.<agentSlug>.<skillSlug>
 - 每次请求沿用网络 ToolCall 的 origin、数据类别、scope、预算、摘要和审计语义。可复用规则必须精确绑定 A2A agent ID、规范 origin、Agent Card/Skill contract hash、数据类别、scope 和期限。
 - A2A Agent 不继承 Helix 的 pending approval、Approval Proof、Android Capability、Workspace scope、Secret、UI token、Root/Automation session 或本机工具表。
 - 远端输出只能作为不可信 ToolResult/Artifact 回到父 Turn；若它建议写文件、操作 UI 或调用本机工具，Helix 必须创建新的本地 ToolCall，经同一 Dispatcher/Policy/Approval/Verification/Audit 管线处理。
-- A2A Agent 的 `completed` 只证明远端协议 Task 已完成，不证明本机目标或远端副作用真实完成；验收条件仍需要 Helix 可验证证据。
+- A2A Agent 的 `completed` 只证明远端协议 Task 已完成，不证明本机目标或远端副作用真实完成；Helix 模型应结合实际结果判断目标完成，远端状态不直接控制本机 Goal（ADR-0040）；本机工具副作用仍由工具验证器核实。
 
 本节是 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md) 的目标边界；具体 Client 底座由 accepted [ADR-0018](../adr/0018-a2a-minimal-android-client-base.md) 固定。HXA-078/079 只能实现该最小 Client 边界；在 API 29/36 运行和完整互操作门禁补齐前，不得声称 M7 已设备验收或可发布。
 
@@ -319,7 +319,7 @@ a2a.<agentSlug>.<skillSlug>
 | Chat | 问答和解释 | 默认无工具；显式启用时仅 `operationClass=READ_ONLY` 且动态风险为 L0 | 否 |
 | Plan | 调研并生成计划 | 仅 `operationClass=READ_ONLY` 且动态风险 ≤ L1（class 为主判断，风险上限不替代 class 判断） | 否 |
 | Act | 完成当前交互任务 | 按 Policy 开放 | 当前 Turn |
-| Goal | 持续推进有验收条件的目标 | 按 Policy 开放，受预算和检查点约束 | 是，可恢复 |
+| Goal | 持续推进目标，可附补充要求 | 按 Policy 开放，受预算和检查点约束 | 是，可恢复 |
 
 Plan 不是“模型说一段计划文字”。它产生版本化 `PlanArtifact`：
 
@@ -355,7 +355,7 @@ data class Goal(
 
 首版只有用户显式继续才创建新 `goal_run`。WorkManager 可在 `nextCheckpoint` 附近发提醒通知，但不得在后台调用模型/工具，且调度可被 Doze、强制停止和系统限制延迟。`wakeReason` 记录 `USER_OPEN`、`NOTIFICATION_ACTION` 等真实来源。
 
-Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且在 ADR-0009 接受前不可用。A2A Client 也不是第五种模式；它是父 Turn 发起的外部网络 ToolCall，不等于内部 child，也不取得本机执行权。
+Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且须通过已接受 ADR-0009 的生产启用门禁后才可用。A2A Client 也不是第五种模式；它是父 Turn 发起的外部网络 ToolCall，不等于内部 child，也不取得本机执行权。
 
 ### 6.2 状态
 
@@ -363,12 +363,13 @@ Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循�
 DRAFT → READY → RUNNING
                  ├─ INPUT_REQUIRED ─┐
                  ├─ PAUSED ─────────┴─► RUNNING（仅用户显式继续）
+                 ├─ BLOCKED ──► PAUSED（解决依赖并重新检查）
                  ├─ COMPLETED
                  ├─ FAILED
                  └─ CANCELLED
 ```
 
-恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）只能由用户显式继续（`Continued`）触发，见已接受的 [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md) 与 `GoalState` 全矩阵测试。PAUSED 不扩枚举，但当前原因必须从稳定的 run outcome + audit 得到：`RUN_FINISHED`、`BUDGET_EXHAUSTED(../limit)` 或 `PROCESS_INTERRUPTED`，不得只依赖进程内 effect。只有验收条件由真实 ToolResult/Artifact verifier 支持时才能 `COMPLETED`。预算耗尽按 ADR-0004 进入可由用户扩预算后继续的 `PAUSED`，不是成功；若未来改为终态 `FAILED(../BUDGET_EXCEEDED)`，必须以 superseding ADR 修改。
+恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）由用户显式 Continue 触发。BLOCKED 必须先解决阻碍并重新检查转 PAUSED，不能直接继续；预算耗尽不是完成。原因来自持久 run outcome 与 audit。模型使用当前 Goal 的 `goal.report` 报告 complete/in_progress/blocked；正常 Turn 结算且没有用户暂停、取消或未决副作用时，宿主消费当前轮最后有效报告。普通回复结束不等于 Goal 完成，也不因缺少证据绑定而阻塞。宿主检查执行约束，模型判断自然语言目标，详见 [ADR-0040](../adr/0040-model-judged-goal-completion.md)。
 
 ## 7. 数据模型扩展
 
@@ -388,9 +389,9 @@ Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-
 - A2A v1.0 Android/R8/transport Spike 通过；Agent Card/Skill 快照、Task 对账、取消、流式事件和 Artifact 边界有固定 fixture。
 - Skill catalog 只预载 metadata，正文按需读取；恶意 zip 和越界 resource 被拒绝。
 - Plan 模式不能执行写入/代码/UI 动作。
-- Goal 可在进程重启后恢复，预算和验收证据一致，绝不自动重放不明确副作用。
+- Goal 可在进程重启后恢复，预算和模型报告保留，绝不自动重放不明确副作用。
 - 单 Turn 多 ToolCall 只并行平台证明无冲突的读取，取消/恢复有持久结果，模型回填顺序不随完成速度变化。
-- child delegation/JSON Workflow 在 ADR-0009 接受前不可用；即使以后启用也不是新模式，不能继承审批或扩大父 Goal 预算。
+- child delegation/JSON Workflow 须通过已接受 ADR-0009 的生产启用门禁后才可用；即使以后启用也不是新模式，不能继承审批或扩大父 Goal 预算。
 - CLI 订阅后端只有在官方客户端持有凭据且 Helix 不接触 token 时才可启用；未完成安全 Spike 前不得列为正式 ModelProvider。
 - Provider/MCP/A2A 数据去向取自实际 endpoint；Standard/Advanced 的高敏出网门控和禁止发送类别均有 Policy/UI 测试。
 
@@ -406,3 +407,11 @@ Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-
 - [Ollama OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility)
 - [SGLang quickstart](https://github.com/sgl-project/sglang/blob/main/docs/docs/get-started/quickstart.mdx)
 - [Pi coding agent](https://github.com/earendil-works/pi)
+
+### Goal 阻塞与暂停更新（HXA-177）
+
+[ADR-0039](../adr/0039-background-results-and-goal-blockers.md) 部分替代早期 PAUSED 三义：BLOCKED 记录待解决依赖，禁止直接 Continued；宿主在用户修复动作后复查，满足门槛才转 PAUSED，后续显式继续创建新 run。用户暂停保留原 Turn 的实际终态与暂停请求；Goal 不因暂停而取消。预算与证据仍跨 run 保留。此增量不增加自动续跑或子 Agent。
+
+### HXA-178 模型报告替代强制绑定
+
+ADR-0040 完全替代 ADR-0028，取消规则绑定、人工证据复核与独立 Goal verifier。成功 ToolResult 仅证明一次工具执行，不自动完成 Goal；模型报告附结果、检查和剩余工作，UI 明示为模型判断。旧绑定类型只用于历史存储兼容，不再进入运行时条件或完成门控。工具自身的验证、审批和权限不变。

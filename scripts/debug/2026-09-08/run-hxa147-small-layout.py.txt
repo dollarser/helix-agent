@@ -1,0 +1,16 @@
+import subprocess,json,pathlib,re
+adb='<ANDROID_SDK>/platform-tools/adb';serial='<OWNED_EMULATOR_SERIAL>'
+def run(*args):return subprocess.check_output([adb,'-s',serial,*args],text=True).strip()
+assert run('shell','getprop','ro.kernel.qemu')=='1'
+size=run('shell','wm','size');density=run('shell','wm','density');font=run('shell','settings','get','system','font_scale')
+dpi=int(re.findall(r'(?:Physical|Override) density: (\d+)',density)[-1]);override=re.search(r'Override size: (\d+x\d+)',size)
+r=dict(originalSize=size,originalDensity=density,originalFontScale=font,targetDp=[320,640],targetFontScale='1.3',restored=False)
+p=pathlib.Path('build/main-verification/hxa147-small-display.json');p.write_text(json.dumps(r,indent=2))
+try:
+ run('shell','wm','size',f'{320*dpi//160}x{640*dpi//160}');run('shell','settings','put','system','font_scale','1.3')
+ subprocess.run(['python3','build/main-verification/run-hxa147-layout.py','--serial',serial,'--flavor','developer','--language','en','--output','build/main-verification/hxa147-layout-small-en-api36-developer'],check=True,timeout=400)
+finally:
+ run('shell','wm','size',override.group(1) if override else 'reset')
+ if font=='null':run('shell','settings','delete','system','font_scale')
+ else:run('shell','settings','put','system','font_scale',font)
+ r['restored']=run('shell','wm','size')==size and run('shell','settings','get','system','font_scale')==font;p.write_text(json.dumps(r,indent=2));assert r['restored'];print('Display restored',flush=True)

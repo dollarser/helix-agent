@@ -1,0 +1,13 @@
+from pathlib import Path
+p=Path('app/src/main/kotlin/com/helix/app/goal/GoalReportTool.kt')
+s=p.read_text().replace('""".trimIndent(),','""".trimIndent().replace("\\n", " "),')
+p.write_text(s)
+p=Path('app/src/androidTest/kotlin/com/helix/app/chat/GoalModelReportDeviceTest.kt')
+s=p.read_text().replace('import com.helix.core.model.ExecutionTargetType','import com.helix.core.model.ModelToolSchema\nimport com.helix.core.model.ExecutionTargetType')
+s=s.replace('''            GoalReportTool.register(ToolRegistry(), implementations, s)
+            val executor''','''            val registry = ToolRegistry()
+            GoalReportTool.register(registry, implementations, s)
+            val descriptor = registry.resolve(ToolName("goal.report"), ToolVersion(1))
+            ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
+            val executor''',1)
+p.write_text(s)

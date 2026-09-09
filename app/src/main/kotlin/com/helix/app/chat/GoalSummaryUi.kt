@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.goal.goalModelReport
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.core.agent.GoalEffect
 import com.helix.core.agent.GoalEvent
@@ -13,7 +14,6 @@ internal data class GoalSummaryUi(
     val objective: String,
     val status: GoalStatusUi,
     val criteria: List<String>,
-    val satisfiedCriteria: Int,
     val budgets: GoalBudgets,
     val usage: GoalUsageUi,
     val canContinue: Boolean,
@@ -25,6 +25,7 @@ internal data class GoalStatusUi(
     val state: String,
     val outcome: String?,
     val nextCheckpoint: Long? = null,
+    val modelSummary: String? = null,
 )
 
 internal data class GoalUsageUi(
@@ -39,6 +40,12 @@ internal class GoalSummaryQuery(
     private val storage: HelixStorage,
 ) {
     fun forSession(sessionId: String): List<GoalSummaryUi> {
+        var snapshot = emptyList<GoalSummaryUi>()
+        storage.withTransaction { snapshot = readSnapshot(sessionId) }
+        return snapshot
+    }
+
+    private fun readSnapshot(sessionId: String): List<GoalSummaryUi> {
         val runIds =
             storage.turns
                 .listBySession(
@@ -58,13 +65,22 @@ internal class GoalSummaryQuery(
             GoalSummaryUi(
                 goal.id,
                 goal.objective,
-                GoalStatusUi(goal.state, runs.maxByOrNull { it.startedAt }?.outcome, goal.nextCheckpoint),
+                GoalStatusUi(
+                    goal.state,
+                    runs.lastOrNull()?.outcome,
+                    goal.nextCheckpoint,
+                    runs.lastOrNull()?.let { latest ->
+                        storage.turns
+                            .listBySession(sessionId)
+                            .lastOrNull { storage.goalTurnBindings.byTurn(it.id)?.runId == latest.id }
+                            ?.let { storage.goalModelReport(it.id)?.summary }
+                    },
+                ),
                 goal.criteria.map { it.description },
-                runtime.criteria.size - runtime.unsatisfiedCriteria.size,
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
                 canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
-                goal.state in setOf("PAUSED", "INPUT_REQUIRED"),
+                goal.state in setOf("PAUSED", "INPUT_REQUIRED", "BLOCKED"),
                 goal.state != "RUNNING" && runs.none { it.endedAt == null },
             )
         }

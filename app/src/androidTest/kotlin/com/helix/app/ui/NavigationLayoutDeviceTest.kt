@@ -59,16 +59,14 @@ class NavigationLayoutDeviceTest {
 
     private fun verifyFiles() {
         compose.navigateTo("files")
-        val config = compose.activity.resources.configuration
-        val compact = config.screenHeightDp <= 640 || config.fontScale >= 1.3f
-        if (compact) compose.onNodeWithTag("files-controls-open").assertIsDisplayed().performClick()
-        listOf("files-source-current", "files-view-grid", "files-import-open", "files-newfolder").forEach {
-            val node = compose.onNodeWithTag(it)
-            if (compact) node.performScrollTo()
-            node.assertIsDisplayed()
+        compose.onNodeWithTag("files-home-source-app").performScrollTo().performClick()
+        compose.onNodeWithTag("files-source-current").assertIsDisplayed()
+        compose.onNodeWithTag("files-controls-open").assertIsDisplayed().performClick()
+        listOf("files-view-grid", "files-import-open", "files-newfolder").forEach {
+            compose.onNodeWithTag(it).performScrollTo().assertIsDisplayed()
         }
         captureChatLayout(compose.activity, "files-options")
-        if (compact) compose.onNodeWithTag("files-controls-close").performClick()
+        compose.onNodeWithTag("files-controls-close").performClick()
         compose.waitForIdle()
         compose
             .onNodeWithTag("files-entry-work")

@@ -22,12 +22,17 @@ internal class ModelStreamState(
     private val calls = LinkedHashMap<Int, MutableToolCall>()
     private var refused = false
     private var errorCode: String? = null
+    var retryableError: Boolean = false
+        private set
 
     var usageJson: String? = null
         private set
     var inputTokens: Long? = null
         private set
     var outputTokens: Long? = null
+        private set
+
+    var completed: Boolean = false
         private set
 
     var receiving: Boolean = false
@@ -85,6 +90,7 @@ internal class ModelStreamState(
 
             is ModelEvent.Error -> {
                 errorCode = event.code.name
+                retryableError = event.retryable
             }
 
             is ModelEvent.ToolCallStarted -> {
@@ -135,11 +141,13 @@ internal class ModelStreamState(
             }
 
             is ModelEvent.Completed -> {
+                completed = true
                 if (event.finishReason == "length") protocolFailure("TOKEN_BUDGET_LIMIT")
             }
 
             is ModelEvent.ReasoningDelta -> {
-                Unit
+                update = ModelStreamUpdate(textChanged = false, receivingStarted = !receiving)
+                receiving = true
             }
         }
         return update

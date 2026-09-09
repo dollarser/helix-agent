@@ -78,6 +78,7 @@ object ChatHistoryBuilder {
     ): List<ModelMessage> =
         rows.mapNotNull { row ->
             when (row.kind) {
+                ContextCompaction.KIND -> null
                 KIND_TOOL_CALLS -> assistantToolCallMessage(row, strict)
                 KIND_TOOL_RESULT -> toolResultMessage(row, strict)
                 else -> textMessage(row)

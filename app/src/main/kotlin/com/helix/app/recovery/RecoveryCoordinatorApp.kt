@@ -157,7 +157,8 @@ class RecoveryCoordinatorApp(
     }
 
     /**
-     * Parks a RUNNING goal in PAUSED and closes its open runs (ADR-0004: the checkpoint is kept
+     * Parks a RUNNING goal in PAUSED, or BLOCKED for unresolved effects/budget, and closes runs.
+     * ADR-0004/0039: the checkpoint is kept
      * — it survives as a wake source; the in-flight wake is dropped, the same semantics as
      * `GoalReducer.afterProcessDeath` on the domain Goal).
      */
@@ -168,14 +169,17 @@ class RecoveryCoordinatorApp(
         val recoveringRuns = storage.goalRuns.listOpenByGoal(park.goalId.value)
         recoveringRuns.forEach { GoalUsageReservations(storage).recoverRun(it.id, now) }
         val goal = storage.goals.resolve(park.goalId.value)
-        storage.goals.updateGoal(goal.copy(state = GoalState.PAUSED.name, currentWakeMillis = 0L))
+        val uncertain = storage.goalTurnBindings.hasUnsettledCalls(goal.id)
+        val parkedState = if (uncertain || goal.state == "BLOCKED") GoalState.BLOCKED else GoalState.PAUSED
+        val outcome = if (uncertain) "BLOCKED(NEEDS_REVIEW)" else OUTCOME_INTERRUPTED
+        storage.goals.updateGoal(goal.copy(state = parkedState.name, currentWakeMillis = 0L))
         val closedRuns =
             storage.goalRuns.listOpenByGoal(goal.id).map { run ->
                 // Clock-rewind clamp: see the turn interruption above.
                 val endedAt = now.coerceAtLeast(run.startedAt)
                 storage.goalRuns.finish(
                     run,
-                    OUTCOME_INTERRUPTED,
+                    outcome,
                     endedAt,
                     // Offline wall time after the last durable checkpoint is not execution
                     // usage. Keeping the persisted monotonic counter prevents a long offline
@@ -189,7 +193,7 @@ class RecoveryCoordinatorApp(
                     correlationId = goal.correlationId,
                     type = "recovery.run_closed",
                     payload =
-                        """{"goal":"${goal.id}","run":"${run.id}","outcome":"$OUTCOME_INTERRUPTED"}""",
+                        """{"goal":"${goal.id}","run":"${run.id}","outcome":"$outcome"}""",
                     at = now,
                 )
                 run.id

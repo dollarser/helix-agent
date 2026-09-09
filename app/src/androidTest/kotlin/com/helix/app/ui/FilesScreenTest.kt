@@ -2,9 +2,13 @@ package com.helix.app.ui
 
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
@@ -12,6 +16,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.AppContainer
 import com.helix.app.HelixApplication
@@ -72,10 +78,11 @@ class FilesScreenTest {
     fun listsWorkspaceSourceAndNavigatesByBreadcrumb() {
         seed("work/alpha.txt", "hello alpha")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
 
         // 来源标识: the always-present Workspace is the current (and, in consumer, only) source.
         waitTag("files-entry-work")
-        composeRule.onNodeWithText("当前来源：Workspace").assertExists()
+        composeRule.onNodeWithTag("files-source-current").assertTextContains("Workspace", substring = true)
 
         // Root lists the three user regions; .helix is hidden.
         composeRule.onNodeWithTag("files-entry-input").assertExists()
@@ -103,18 +110,21 @@ class FilesScreenTest {
         seed("work/a.txt", "1") // 1 byte
         seed("work/b.txt", "222") // 3 bytes
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-a.txt")
 
         // Default NAME sort: a.txt before b.txt. SIZE sort (desc): b.txt (3) before a.txt (1).
         assertEquals("files-entry-a.txt", entryTags().first())
-        composeRule.onNodeWithTag("files-sort-SIZE").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-sort-SIZE").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { entryTags().firstOrNull() == "files-entry-b.txt" }
         assertEquals("files-entry-b.txt", entryTags().first())
 
         // 网格视图: the same entries re-render in the grid.
-        composeRule.onNodeWithTag("files-view-grid").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-view-grid").performScrollTo().performClick()
         composeRule.waitUntil(5_000) { entryTags().size >= 2 }
         assertTrue(
             "grid still lists both entries",
@@ -122,7 +132,7 @@ class FilesScreenTest {
         )
 
         // 多选: checking a box surfaces the batch action bar.
-        composeRule.onNodeWithTag("files-select-a.txt").performClick()
+        composeRule.onNodeWithTag("files-entry-a.txt").performTouchInput { longClick() }
         waitTag("files-batch-copy")
         composeRule.onNodeWithText("已选 1").assertExists()
         composeRule.onNodeWithTag("files-batch-move").assertExists()
@@ -135,6 +145,7 @@ class FilesScreenTest {
     fun previewsTextFileWithHashInfo() {
         seed("work/note.txt", "hello alpha")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-note.txt")
@@ -157,9 +168,47 @@ class FilesScreenTest {
     }
 
     @Test
+    fun unavailablePreviewShowsFailureAndCanBeReopenedAfterRepair() {
+        seed("work/note.txt", "original")
+        seed("work/target.txt", "target")
+        composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-quick-work").performClick()
+        waitTag("files-entry-note.txt")
+        val file = wsRoot.resolve("work/note.txt").toPath()
+        java.nio.file.Files
+            .delete(file)
+        java.nio.file.Files
+            .createSymbolicLink(file, wsRoot.resolve("work/target.txt").toPath())
+        composeRule.onNodeWithTag("files-entry-note.txt").performClick()
+        waitTag("files-preview-error")
+        composeRule.onNodeWithTag("files-preview-text").assertDoesNotExist()
+        composeRule.onNodeWithTag("files-preview-close").performClick()
+        java.nio.file.Files
+            .delete(file)
+        seed("work/note.txt", "repaired")
+        composeRule.onNodeWithTag("files-entry-note.txt").performClick()
+        waitTag("files-preview-text")
+        assertEquals("repaired", nodeText("files-preview-text"))
+        waitTag("files-info-sha")
+    }
+
+    @Test
+    fun binaryWithoutPreviewStillShowsCompletedMetadata() {
+        seed("work/data.bin", "\u0000binary")
+        composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-quick-work").performClick()
+        waitTag("files-entry-data.bin")
+        composeRule.onNodeWithTag("files-entry-data.bin").performClick()
+        waitTag("files-info-sha")
+        composeRule.onNodeWithTag("files-preview-none").assertExists()
+        composeRule.onNodeWithTag("files-preview-loading").assertDoesNotExist()
+    }
+
+    @Test
     fun longTextPreviewKeepsTheMetadataReachable() {
         seed("work/long.txt", (1..100).joinToString("\n") { "preview line $it" })
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-long.txt")
@@ -177,6 +226,7 @@ class FilesScreenTest {
         seed("work/a.txt", "keep-me-a")
         seed("work/b.txt", "keep-me-b")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-a.txt")
@@ -205,6 +255,7 @@ class FilesScreenTest {
     fun trashesRestoresAndPurges() {
         seed("work/doomed.txt", "bye")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-doomed.txt")
@@ -216,7 +267,8 @@ class FilesScreenTest {
         composeRule.waitUntil(5_000) { nodeText("files-status").contains("完成") }
 
         // The file is now in the trash (not in the listing); the panel lists it.
-        composeRule.onNodeWithTag("files-trash-open").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-trash-open").performScrollTo().performClick()
         waitTagPrefix("files-trash-entry-")
         composeRule.onNodeWithTag("files-trash-back").performClick()
         composeRule.waitUntil(5_000) {
@@ -224,7 +276,8 @@ class FilesScreenTest {
         }
 
         // 恢复: back in the trash panel, restore the single entry → it returns to work/.
-        composeRule.onNodeWithTag("files-trash-open").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-trash-open").performScrollTo().performClick()
         waitTagPrefix("files-trash-entry-")
         composeRule.onAllNodes(tagPrefix("files-trash-restore-"), true).onFirst().performClick()
         composeRule.waitUntil(5_000) { nodeText("files-status").contains("已恢复") }
@@ -237,7 +290,8 @@ class FilesScreenTest {
         waitTag("files-preview-dialog")
         composeRule.onNodeWithTag("files-action-trash").performClick()
         composeRule.waitUntil(5_000) { nodeText("files-status").contains("完成") }
-        composeRule.onNodeWithTag("files-trash-open").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-trash-open").performScrollTo().performClick()
         waitTagPrefix("files-trash-entry-")
         composeRule.onAllNodes(tagPrefix("files-trash-purge-"), true).onFirst().performClick()
         composeRule.waitUntil(5_000) {
@@ -251,12 +305,14 @@ class FilesScreenTest {
     fun createsFolderAndExposesShare() {
         seed("work/share.txt", "share me")
         composeRule.navigateTo("files")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
         waitTag("files-entry-work")
         composeRule.onNodeWithTag("files-entry-work").performClick()
         waitTag("files-entry-share.txt")
 
         // 新建文件夹.
-        composeRule.onNodeWithTag("files-newfolder").performClick()
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-newfolder").performScrollTo().performClick()
         waitTag("files-newfolder-dialog")
         composeRule.onNodeWithTag("files-newfolder-field").performTextInput("newdir")
         composeRule.onNodeWithTag("files-newfolder-confirm").performClick()
@@ -320,8 +376,15 @@ class FilesScreenTest {
         tag: String,
         timeoutMs: Long = WAIT_TIMEOUT_MS,
     ) {
-        composeRule.waitUntil(timeoutMs) {
-            composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        try {
+            composeRule.waitUntil(timeoutMs) {
+                composeRule.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+            }
+        } catch (failure: ComposeTimeoutException) {
+            val tree =
+                runCatching { composeRule.onAllNodes(isRoot(), useUnmergedTree = true).printToString(maxDepth = 20) }
+                    .getOrElse { "Semantics snapshot unavailable: ${it.message}" }
+            throw AssertionError("Timed out waiting for $tag\n$tree", failure)
         }
     }
 

@@ -1,0 +1,93 @@
+from pathlib import Path
+p=Path('feature/browser/src/main/kotlin/com/helix/feature/browser/BrowserController.kt');s=p.read_text().replace('import java.util.UUID','import java.util.UUID\nimport java.lang.ref.WeakReference')
+s=s.replace('private val hosts = HashMap<String, WebViewTabHost>()','private var ownerBinding = WeakReference<BrowserViewOwner>(null)\n    private val hosts: Map<String, WebViewTabHost> get() = ownerBinding.get()?.hosts.orEmpty()')
+s=s.replace('hosts.remove(id)?.destroy()','ownerBinding.get()?.hosts?.remove(id)?.destroy()')
+s=s.replace('fun select(id: String) {\n        tabs.select(id)','fun select(id: String) {\n        hosts.values.forEach { it.cancelDialogs() }\n        tabs.select(id)')
+s=s.replace('if (!isLive(id)) return BrowserNavResult.NoTab','if (!isLive(id)) return BrowserNavResult.NoTab\n        if (ownerBinding.get()?.available != true) return BrowserNavResult.Denied("browser-host-unavailable")',1)
+s=s.replace('val id = newTab()\n        if (url.isBlank())','if (url.isNotBlank() && ownerBinding.get()?.available != true) {\n            return BrowserOpenResult("", "", "", "browser-host-unavailable")\n        }\n        val id = newTab()\n        if (url.isBlank())',1)
+for fun,res in [('goBackOutcome','BrowserHistResult'),('goForwardOutcome','BrowserHistResult'),('reloadOutcome','BrowserReloadResult')]:
+ a=s.index('fun '+fun);b=s.index('val command =',a);s=s[:b]+'if (hosts[id] == null) return '+res+'.NoChange("page-requires-navigation")\n        '+s[b:]
+s=s.replace('host(id).stop()','hosts[id]?.stop()')
+s=s.replace('hosts.values.forEach { it.destroy() }\n        hosts.clear()','ownerBinding.get()?.clear()')
+a=s.index('    /** From the activity\'s onPause:');b=s.index('    // ---------------------------------------------------------------- internals',a)
+s=s[:a]+'''    /** Bind before UI/tool use; replacement invalidates old callbacks before releasing Views. */
+    fun attach(owner: BrowserViewOwner) {
+        check(owner.available) { "browser owner is destroyed" }
+        val previous = ownerBinding.get()
+        if (previous === owner) return
+        ownerBinding = WeakReference(owner)
+        previous?.destroy()
+        invalidatePages()
+    }
+
+    /** A late callback from an old Activity cannot detach the new Activity's owner. */
+    fun detach(owner: BrowserViewOwner) {
+        if (ownerBinding.get() !== owner) {
+            owner.destroy()
+            return
+        }
+        ownerBinding.clear()
+        owner.destroy()
+        invalidatePages()
+    }
+
+    /** Best-effort per-view pause; it does not globally suspend JavaScript timers. */
+    fun pause(owner: BrowserViewOwner? = ownerBinding.get()) {
+        if (owner === ownerBinding.get()) owner?.pause()
+    }
+
+    fun resume(owner: BrowserViewOwner? = ownerBinding.get()) {
+        if (owner === ownerBinding.get()) owner?.resume()
+    }
+
+    /** Clear page resources while keeping the current live Activity binding usable. */
+    fun destroy() {
+        ownerBinding.get()?.clear()
+        invalidatePages()
+    }
+
+    private fun invalidatePages() {
+        snapshots.clear()
+        tabs.releasePages()
+        publish()
+    }
+
+'''+s[b:]
+a=s.index('    private fun host(id: String): WebViewTabHost =');b=s.index('    private fun isLive',a)
+block=s[a:b];block=block.replace('private fun host(id: String): WebViewTabHost =\n        hosts.getOrPut(id) {\n            WebViewTabHost(\n                appContext,','''private fun host(id: String): WebViewTabHost {
+        val owner = checkNotNull(ownerBinding.get()) { "browser-host-unavailable" }
+        return owner.hosts.getOrPut(id) {
+            lateinit var created: WebViewTabHost
+            fun live(): Boolean = ownerBinding.get() === owner && owner.hosts[id] === created && isLive(id)
+            created = owner.create(''')
+# Guard each callback as a whole, including title/state/download and renderer removal.
+import re
+block=re.sub(r'(override fun \w+\([\s\S]*?\) \{)', r'\1\n                        if (!live()) return', block)
+block=block.replace('hosts.remove(id)','owner.hosts.remove(id)')
+block=block.replace('''                },
+            )
+        }
+''','''                },
+                canShowDialogs = { live() && owner.resumed && owner.available && state.value.selectedId == id },
+            )
+            if (!owner.resumed) created.pause()
+            created
+        }
+    }
+''')
+s=s[:a]+block+s[b:];p.write_text(s)
+p=Path('feature/browser/src/main/kotlin/com/helix/feature/browser/BrowserTabController.kt');s=p.read_text();a=s.index('    // ---------------------------------------------------------------- WebView callbacks');s=s[:a]+'''    /** Retire page-only facts without replaying navigation or discarding logical tabs. */
+    fun releasePages() {
+        state = state.copy(tabs = state.tabs.map {
+            it.copy(isLoading = false, canGoBack = false, canGoForward = false,
+                navigationGeneration = it.navigationGeneration + 1, stopped = true)
+        })
+    }
+
+'''+s[a:];p.write_text(s)
+p=Path('feature/browser/src/main/kotlin/com/helix/feature/browser/BrowserToolOutcomes.kt');s=p.read_text().replace('val origin: String,\n)', 'val origin: String,\n    val failureReason: String? = null,\n)',1);p.write_text(s)
+p=Path('tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserToolBridge.kt');s=p.read_text().replace('val origin: String,\n)', 'val origin: String,\n    val failureReason: String? = null,\n)',1);p.write_text(s)
+p=Path('feature/browser/src/main/kotlin/com/helix/feature/browser/BrowserToolBridgeImpl.kt');s=p.read_text().replace('OpenOutcome(result.tabId, result.url, result.origin)','OpenOutcome(result.tabId, result.url, result.origin, result.failureReason)');p.write_text(s)
+p=Path('tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserNavigationTools.kt');s=p.read_text().replace('val out = bridge.open(url)','val out = bridge.open(url)\n                out.failureReason?.let { return ToolExecutorResult.Failed(it) }');p.write_text(s)
+p=Path('feature/browser/src/main/kotlin/com/helix/feature/browser/ui/BrowserScreen.kt');s=p.read_text().replace('key(selected.id) {','key(selected.id, controller.hostView(selected.id)) {');p.write_text(s)
+p=Path('app/src/main/kotlin/com/helix/app/MainActivity.kt');s=p.read_text();a=s.index('    override fun onCreate(savedInstanceState: Bundle?)');s=s[:a]+'    private lateinit var browserOwner: com.helix.feature.browser.BrowserViewOwner\n\n'+s[a:];s=s.replace('val container = (application as HelixApplication).appContainer\n        // HXA-056','val container = (application as HelixApplication).appContainer\n        browserOwner = com.helix.feature.browser.BrowserViewOwner(this)\n        container.browser.attach(browserOwner)\n        // HXA-056',1);s=s.replace('browser.pause()','browser.pause(browserOwner)').replace('browser.resume()','browser.resume(browserOwner)').replace('browser.destroy()','browser.detach(browserOwner)');s=s.replace('// HXA-060: while the app is in the background every tab\'s WebView stops its JS timers\n    // and compositor (doc 09 performance); they resume with the activity.','// Best-effort WebView pause on background; onPause does not pause JavaScript globally.');p.write_text(s)

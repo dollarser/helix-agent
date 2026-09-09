@@ -71,9 +71,9 @@ class ProviderFlowTest {
         composeRule.navigateTo("sessions")
         composeRule.onNodeWithTag("chat-new-session").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("chat-new-session-dialog").assertIsDisplayed()
+        composeRule.onNodeWithTag("chat-input").assertIsDisplayed()
         composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
-        composeRule.onNodeWithTag("chat-new-session-cancel").performClick()
+        composeRule.onNodeWithTag("chat-back").performClick()
 
         // --- connection test against the unreachable endpoint: phase-1 failure ---
         composeRule.navigateTo("settings")
@@ -91,7 +91,7 @@ class ProviderFlowTest {
         composeRule.onNodeWithTag("chat-new-session").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
-        composeRule.onNodeWithTag("chat-new-session-cancel").performClick()
+        composeRule.onNodeWithTag("chat-back").performClick()
 
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
         composeRule.navigateTo("settings")

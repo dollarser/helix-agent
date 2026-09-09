@@ -63,6 +63,27 @@ class ChatServiceAttachmentRetryDeviceTest {
     private val sourceFiles = HashMap<String, File>()
 
     @Test
+    fun immediateProviderObservationSeesAnInitializedDraftOwner() {
+        val failures = mutableListOf<Throwable>()
+        val job = kotlinx.coroutines.SupervisorJob()
+        val scope =
+            kotlinx.coroutines.CoroutineScope(
+                job + kotlinx.coroutines.Dispatchers.Unconfined +
+                    kotlinx.coroutines.CoroutineExceptionHandler { _, error -> failures.add(error) },
+            )
+        val fixture = newFixture(ApplicationProvider.getApplicationContext(), scope)
+        try {
+            assertTrue("constructor observers must not see uninitialized state: $failures", failures.isEmpty())
+            fixture.service.newSessionDraft()
+            assertTrue(fixture.service.screen.value.isDraft)
+            assertTrue(failures.isEmpty())
+        } finally {
+            job.cancel()
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
     fun retryIsBlockedFailClosedWhenTheBoundArtifactIsTampered() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val fixture = newFixture(context)
@@ -356,7 +377,13 @@ class ChatServiceAttachmentRetryDeviceTest {
         val workspaceRoot: File,
     )
 
-    private fun newFixture(context: Context): Fixture {
+    private fun newFixture(
+        context: Context,
+        scope: kotlinx.coroutines.CoroutineScope =
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+            ),
+    ): Fixture {
         val suffix = UUID.randomUUID().toString()
         val storage =
             HelixStorage.open(context, "attach-retry-$suffix.db", File(context.filesDir, "attach-retry-$suffix"))
@@ -384,6 +411,7 @@ class ChatServiceAttachmentRetryDeviceTest {
                 toolPipeline = app.appContainer.toolPipeline,
                 idGenerator = { "id-${UUID.randomUUID()}" },
                 attachmentStaging = staging,
+                scope = scope,
                 strings = { resId, args -> zh.getString(resId, *args) },
             )
         return Fixture(storage, service, providerSpec, workspaceRoot)

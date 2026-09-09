@@ -1,11 +1,11 @@
 # ADR-0028: Goal 验收条件的验证绑定与人工证据复核
 
-Status: accepted
+Status: superseded
 Date: 2026-09-06
 HXA: HXA-102
 Deciders: Project owner（2026-09-08 明确接受 ADR-0028 并授权继续实现）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0040](0040-model-judged-goal-completion.md)
 
 ## Context
 
@@ -65,3 +65,5 @@ ADR-0004 要求只有真实 ToolResult/Artifact verifier 支持的验收条件�
 - [需求 FR-AGENT-009](../product/requirements.md)
 - [Goal 模式规范](../architecture/provider-mcp-skills-modes.md)
 - [HXA-102](../completion-records/HXA-102.md)
+
+当前替代决策：[ADR-0040](0040-model-judged-goal-completion.md)。本文件保留历史，不再指导生产完成机制。

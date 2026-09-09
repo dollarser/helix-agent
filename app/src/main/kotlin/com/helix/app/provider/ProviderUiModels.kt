@@ -55,8 +55,24 @@ data class ProviderRowUi(
                     add(CapabilityChip(R.string.provider_capability_streaming, listOf(mark(caps.streaming))))
                     add(CapabilityChip(R.string.provider_capability_tool_calls, listOf(mark(caps.toolCalls))))
                     add(CapabilityChip(R.string.provider_capability_vision, listOf(mark(caps.vision))))
-                    add(CapabilityChip(R.string.provider_capability_reasoning, listOf(mark(caps.reasoning))))
-                    add(CapabilityChip(R.string.provider_capability_json, listOf(mark(caps.jsonSchemaOutput))))
+                    add(
+                        CapabilityChip(
+                            if (caps.reasoning) {
+                                R.string.provider_reasoning_confirmed
+                            } else {
+                                R.string.provider_reasoning_unverified
+                            },
+                        ),
+                    )
+                    add(
+                        CapabilityChip(
+                            if (caps.jsonSchemaOutput) {
+                                R.string.provider_json_confirmed
+                            } else {
+                                R.string.provider_json_unverified
+                            },
+                        ),
+                    )
                     caps.maxContextTokens?.let { tokens ->
                         add(CapabilityChip(R.string.provider_capability_context, listOf((tokens / 1000).toString())))
                     }
@@ -91,6 +107,8 @@ data class ProviderBadgeUi(
     val origin: String,
     val residence: ProviderResidence,
     val chips: List<CapabilityChip>,
+    val reasoningSupported: Boolean = false,
+    val providerId: String? = null,
 )
 
 /**

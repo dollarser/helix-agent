@@ -189,6 +189,7 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         out: MutableList<ModelEvent>,
     ) {
         if (delta == null) return
+        reasoningDelta(delta)?.let { out += it }
         val content = (delta["content"] as? JsonPrimitive)?.contentOrNull
         if (content != null && content.isNotEmpty()) out += ModelEvent.TextDelta(content)
         // sglang sends an EXPLICIT null for `tool_calls` on text-only deltas (and many
@@ -204,6 +205,20 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
             }
         if (fragments != null) {
             for (fragment in fragments) handleToolCallFragment(fragment.jsonObject, out)
+        }
+    }
+
+    private fun reasoningDelta(delta: JsonObject): ModelEvent.ReasoningDelta? {
+        val value = delta["reasoning_content"]
+        if (value == null || value is JsonNull) return null
+        if (value !is JsonPrimitive || !value.isString) {
+            throw ProtocolViolation("delta.reasoning_content must be a string or null")
+        }
+        if (value.content.isEmpty()) return null
+        return try {
+            ModelEvent.ReasoningDelta(value.content)
+        } catch (_: IllegalArgumentException) {
+            throw ProtocolViolation("delta.reasoning_content violates event bounds")
         }
     }
 

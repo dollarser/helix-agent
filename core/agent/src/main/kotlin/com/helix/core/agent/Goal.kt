@@ -27,9 +27,9 @@ enum class GoalWakeReason {
  * remaining goal budget by [GoalEffect.StartRun].
  *
  * Process death parks a RUNNING goal in [GoalState.PAUSED] (durable park; resume requires an
- * explicit user continue with a real [GoalWakeReason]). Only verifier-backed evidence
- * satisfies criteria; only then may the goal complete. Budget exhaustion parks the goal in
- * PAUSED (never COMPLETED); a wake failure exhausts [GoalBudgets.maxRetries] into FAILED.
+ * explicit user continue with a real [GoalWakeReason]). The model reports semantic completion;
+ * the host checks execution state. Budget exhaustion parks the goal in
+ * BLOCKED (never COMPLETED); a wake failure exhausts [GoalBudgets.maxRetries] into FAILED.
  */
 data class Goal(
     val id: GoalId,
@@ -57,7 +57,6 @@ data class Goal(
         require(objective.length <= MAX_OBJECTIVE_LENGTH) {
             "objective must be <= $MAX_OBJECTIVE_LENGTH characters"
         }
-        require(criteria.isNotEmpty()) { "criteria must not be empty" }
         require(criteria.size <= MAX_CRITERIA) { "criteria must have <= $MAX_CRITERIA items" }
         val ids = criteria.map { it.id }
         require(ids.distinct().size == ids.size) { "criterion ids must be unique" }
@@ -73,15 +72,6 @@ data class Goal(
 
     val isTerminal: Boolean
         get() = state.isTerminal
-
-    val unsatisfiedCriteria: List<Criterion>
-        get() =
-            criteria.filterNot {
-                it.isSatisfied && it.evidence
-                    ?.verification
-                    ?.source
-                    ?.goalId == id
-            }
 
     fun remainingModelCalls(): Int = budgets.maxModelCalls - modelCalls
 

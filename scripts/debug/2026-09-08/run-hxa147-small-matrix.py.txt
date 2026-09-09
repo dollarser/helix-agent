@@ -1,0 +1,19 @@
+import argparse,subprocess,json,pathlib,re
+p=argparse.ArgumentParser();p.add_argument('--serial',required=True);p.add_argument('--api',required=True);a=p.parse_args();adb='<ANDROID_SDK>/platform-tools/adb'
+def run(*args):return subprocess.check_output([adb,'-s',a.serial,*args],text=True).strip()
+assert run('shell','getprop','ro.kernel.qemu')=='1'
+size=run('shell','wm','size');density=run('shell','wm','density');font=run('shell','settings','get','system','font_scale');dpi=int(re.findall(r'(?:Physical|Override) density: (\d+)',density)[-1]);override=re.search(r'Override size: (\d+x\d+)',size)
+r=dict(serial=a.serial,originalSize=size,originalDensity=density,originalFontScale=font,targetDp=[320,640],targetFontScale='1.3',restored=False,results=[])
+p=pathlib.Path(f'build/main-verification/hxa147-small-matrix-api{a.api}.json');assert not p.exists();p.write_text(json.dumps(r,indent=2))
+try:
+ run('shell','wm','size',f'{320*dpi//160}x{640*dpi//160}');run('shell','settings','put','system','font_scale','1.3')
+ for flavor in ['consumer','developer']:
+  for lang in ['zh-CN','en']:
+   out=f'build/main-verification/hxa147-small-matrix-api{a.api}-{flavor}-{lang}'
+   subprocess.run(['python3','build/main-verification/run-hxa147-layout.py','--serial',a.serial,'--flavor',flavor,'--language',lang,'--output',out],check=True,timeout=400)
+   result=json.loads(pathlib.Path(out,'result.json').read_text());r['results'].append(dict(output=out,passed=result['passed']));p.write_text(json.dumps(r,indent=2));assert result['passed'],out
+finally:
+ run('shell','wm','size',override.group(1) if override else 'reset')
+ if font=='null':run('shell','settings','delete','system','font_scale')
+ else:run('shell','settings','put','system','font_scale',font)
+ r['restored']=run('shell','wm','size')==size and run('shell','settings','get','system','font_scale')==font;p.write_text(json.dumps(r,indent=2));assert r['restored'];print('Display restored',a.api,flush=True)

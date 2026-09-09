@@ -1,0 +1,17 @@
+from pathlib import Path
+import json,subprocess,hashlib,re
+base=Path('runtime/proot-app');classes=[];expected=0
+for p in sorted((base/'src/androidTest').rglob('*.kt')):
+ s=p.read_text();n=len(re.findall(r'@Test\b',s))
+ if not n or p.stem=='ProotLifecycleHostSetupDeviceTest':continue
+ classes.append(re.search(r'^package (.+)$',s,re.M)[1]+'.'+p.stem);expected+=n
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ out=Path(f'build/main-verification/current-proot-api{api}');out.mkdir(exist_ok=True);result={'api':api,'expected':expected,'apks':[]}
+ for pkg,path in [('com.helix.runtime.proot',base/'build/outputs/apk/debug/proot-app-debug.apk'),('com.helix.runtime.proot.test',base/'build/outputs/apk/androidTest/debug/proot-app-debug-androidTest.apk')]:
+  p=subprocess.run(['adb','-s',serial,'install','-r','-t',str(path)],capture_output=True,text=True,timeout=120);(out/(pkg+'-install.log')).write_text(p.stdout+p.stderr);assert p.returncode==0
+  devpath=subprocess.check_output(['adb','-s',serial,'shell','pm','path',pkg],text=True).strip().removeprefix('package:');got=subprocess.check_output(['adb','-s',serial,'shell','sha256sum',devpath],text=True).split()[0];sha=hashlib.sha256(path.read_bytes()).hexdigest();assert sha==got;result['apks'].append({'path':str(path),'sha256':sha,'installedSha256':got})
+ if api>=33:subprocess.run(['adb','-s',serial,'shell','pm','grant','com.helix.runtime.proot','android.permission.POST_NOTIFICATIONS'],check=True)
+ cmd=['adb','-s',serial,'shell','am','instrument','-w','-r','-e','class',','.join(classes),'com.helix.runtime.proot.test/androidx.test.runner.AndroidJUnitRunner'];result['command']=cmd;(out/'result.json').write_text(json.dumps(result,indent=2))
+ with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=900)
+ raw=(out/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',raw,re.M);ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} tests)' in raw
+ result.update(passed=codes.count('0'),statusCodes=codes,ok=ok);(out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(api,expected,ok,raw[-250:],flush=True)

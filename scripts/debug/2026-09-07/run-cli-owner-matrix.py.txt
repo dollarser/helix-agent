@@ -1,0 +1,12 @@
+from pathlib import Path
+import json,subprocess
+root=Path('build/main-verification/cli-owner-kill-matrix');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb';rows=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ subprocess.run([adb,'-s',serial,'install','-r','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'],check=True)
+ for provider in ['CODEX','CLAUDE','GROK','COPILOT']:
+  name=f'api{api}-{provider.lower()}'
+  with (root/f'{name}-host.log').open('w') as log:
+   p=subprocess.run(['python3','scripts/run-cli-owner-process-kill.py','--adb',adb,'--serial',serial,'--provider',provider,'--output',str(root/name)],stdout=log,stderr=subprocess.STDOUT,timeout=90)
+  rows.append(dict(api=api,provider=provider,exit=p.returncode));(root/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(rows[-1],flush=True)
+  if p.returncode:raise SystemExit(p.returncode)

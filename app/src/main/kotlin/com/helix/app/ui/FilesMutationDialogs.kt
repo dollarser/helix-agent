@@ -32,6 +32,28 @@ internal fun FilesMutationDialogs(
 ) {
     with(actions) {
         with(state) {
+            permanentDelete?.let { paths ->
+                AlertDialog(
+                    onDismissRequest = { permanentDelete = null },
+                    title = { Text(str(R.string.files_permanent_delete_title)) },
+                    text = { Text(str(R.string.files_permanent_delete_message, paths.size)) },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                permanentDelete = null
+                                startTrash(paths)
+                            },
+                            modifier = Modifier.testTag("files-permanent-delete-confirm"),
+                        ) { Text(str(R.string.files_delete)) }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { permanentDelete = null },
+                        ) { Text(str(R.string.common_cancel)) }
+                    },
+                )
+            }
+
             renameTarget?.let { target ->
                 // Start empty: the user types the new name fresh (the label hints at it) rather than editing
                 // a pre-filled name, which keeps the entry unambiguous.
@@ -59,7 +81,7 @@ internal fun FilesMutationDialogs(
                                     status = str(R.string.files_name_required)
                                     renameTarget = null
                                 } else {
-                                    val dir = target.relativePath.substringBeforeLast('/')
+                                    val dir = target.relativePath.substringBeforeLast('/', "")
                                     val dstRel = if (dir.isEmpty()) chosen else "$dir/$chosen"
                                     renameTarget = null
                                     openFile = null

@@ -1,0 +1,11 @@
+from pathlib import Path
+keys={
+'skill_installer_title':('Skill Installer','Skill 安装器'),
+'skill_installer_intro':('Review a Workspace Skill directory or ZIP. Import external files into Workspace first. Installation creates a disabled snapshot.','预览工作区中的 Skill 目录或 ZIP。外部文件请先导入工作区。安装后新快照默认禁用。'),
+'skill_installer_install':('Install reviewed content','安装已预览内容'),
+'skill_installer_enable':('Enable this Skill','启用此 Skill'),
+'skill_installer_disabled':('Installed · disabled','已安装 · 未启用'),
+'skill_installer_enabled':('Installed · enabled','已安装 · 已启用'),
+'skill_installer_failed':('Installation not confirmed. Check the Skill list for this hash and refresh the preview before retrying.','未确认安装完成。请按 hash 检查 Skill 列表，并刷新预览后重试。')}
+for locale in ['values','values-en','values-zh-rCN']:
+ p=Path('app/src/main/res')/locale/'strings.xml';s=p.read_text();s=s.replace('</resources>',''.join(f'    <string name="{k}">{v[locale=="values-zh-rCN"]}</string>\n' for k,v in keys.items())+'</resources>');p.write_text(s)

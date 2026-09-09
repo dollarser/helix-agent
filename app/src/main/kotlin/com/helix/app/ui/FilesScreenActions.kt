@@ -145,6 +145,7 @@ internal class FilesScreenActions(
         with(state) {
             if (entry.isDirectory) {
                 currentPath = entry.relativePath
+                searchQuery = ""
             } else {
                 openFile = entry
             }
@@ -236,13 +237,21 @@ internal class FilesScreenActions(
         move: Boolean,
     ) {
         with(state) {
-            if (destDir.isBlank()) {
+            if (destDir.isBlank() && currentSource.kind == com.helix.app.files.FileSourceKind.WORKSPACE) {
                 status = str(R.string.files_dest_dir_required)
                 return
             }
             startBatch(sourceRels.size) { progress, cancel ->
                 fileManager.batchMoveOrCopy(selectedScopeId, sourceRels, destDir, policy, move, progress, cancel)
             }
+        }
+    }
+
+    fun requestDelete(sourceRels: List<String>) {
+        if (state.currentSource.kind == com.helix.app.files.FileSourceKind.WORKSPACE) {
+            startTrash(sourceRels)
+        } else {
+            state.permanentDelete = sourceRels
         }
     }
 

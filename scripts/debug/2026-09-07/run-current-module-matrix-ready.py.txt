@@ -1,0 +1,25 @@
+import subprocess,json,pathlib,hashlib,re,time
+root=pathlib.Path.cwd()
+basecmd=json.loads((root/'build/main-verification/cli-await-device-command.json').read_text())
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ out=root/f'build/main-verification/current-api{api}-modules-ready';out.mkdir(exist_ok=True)
+ for attempt in range(60):
+  p=subprocess.run(['adb','-s',serial,'shell','getprop','sys.boot_completed'],capture_output=True,text=True,timeout=10)
+  if p.stdout.strip()=='1':break
+  time.sleep(2)
+ else:raise RuntimeError('boot incomplete '+serial)
+ data={'device':{k:subprocess.check_output(['adb','-s',serial,'shell','getprop',k],text=True).strip() for k in ['ro.build.version.sdk','ro.build.fingerprint','ro.product.cpu.abi']},'apks':[],'suites':[]}
+ def save(): (out/'result.json').write_text(json.dumps(data,indent=2)+'\n')
+ for pkg,rel in [('com.helix.runtime.cli.client.test','runtime/cli-client/build/outputs/apk/androidTest/debug/cli-client-debug-androidTest.apk'),('com.helix.core.storage.test','core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk'),('com.helix.runtime.cli','runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk'),('com.helix.agent.developer','app/build/outputs/apk/developer/debug/app-developer-debug.apk'),('com.helix.agent.developer.test','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk')]:
+  p=subprocess.run(['adb','-s',serial,'install','-r','-t',rel],capture_output=True,text=True,timeout=120);(out/(pkg+'-install.log')).write_text(p.stdout+p.stderr);assert p.returncode==0,p.stdout+p.stderr
+  base=subprocess.check_output(['adb','-s',serial,'shell','pm','path',pkg],text=True).strip().removeprefix('package:');got=subprocess.check_output(['adb','-s',serial,'shell','sha256sum',base],text=True).split()[0];sha=hashlib.sha256((root/rel).read_bytes()).hexdigest();assert got==sha;data['apks'].append(dict(package=pkg,apk=rel,sha256=sha,installedSha256=got));save()
+ def run(name,args,expected):
+  cmd=['adb','-s',serial,'shell','am','instrument','-w','-r']+args
+  p=subprocess.run(cmd,capture_output=True,text=True,timeout=240);text=p.stdout+p.stderr;(out/(name+'.log')).write_text(text);codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M)
+  ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} test' in text
+  data['suites'].append(dict(name=name,command=cmd,passed=codes.count('0'),statusCodes=codes,ok=ok));save();print(api,name,ok,text[-180:],flush=True)
+  assert ok, name
+ run('account-entry',['-e','class','com.helix.app.provider.CodexSubscriptionProviderE2eDeviceTest#managedAccountOpensTheExplicitRuntimeUi','com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner'],1)
+ subprocess.run(['adb','-s',serial,'shell','input','keyevent','KEYCODE_BACK'],check=True)
+ for name,pkg,n in [('cli-client','com.helix.runtime.cli.client.test',16),('storage','com.helix.core.storage.test',47)]:run(name,[pkg+'/androidx.test.runner.AndroidJUnitRunner'],n)
+ run('cli-recovery',basecmd[8:],9)

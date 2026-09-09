@@ -30,6 +30,7 @@ data class SessionEntity(
     val modelId: String?,
     val createdAt: Long,
     val archivedAt: Long?,
+    val directoryRef: String? = null,
 )
 
 /** architecture doc 9.1: `messages` — timeline row; large content in files via `contentRef`. */
@@ -122,6 +123,8 @@ data class TurnEntity(
     val startedAt: Long,
     val endedAt: Long?,
     val errorCode: String?,
+    val resultCollectedAt: Long? = null,
+    val pauseRequestedAt: Long? = null,
 )
 
 /** architecture doc 9.1: `model_calls` — provider snapshot, state, usage, requestId. */

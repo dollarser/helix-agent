@@ -1,0 +1,26 @@
+from pathlib import Path
+import subprocess,json,hashlib,re
+root=Path('build/main-verification');adb='<ANDROID_SDK>/platform-tools/adb';all_results=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ for flavor,pkg in [('consumer','com.helix.agent'),('developer','com.helix.agent.developer')]:
+  apks=[]
+  for package,apk in [(pkg,f'app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk'),(pkg+'.test',f'app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk')]:
+   subprocess.run([adb,'-s',serial,'install','-r','-t',apk],capture_output=True,check=True,timeout=120)
+   remote=subprocess.check_output([adb,'-s',serial,'shell','pm','path',package],text=True).strip().removeprefix('package:')
+   got=subprocess.check_output([adb,'-s',serial,'shell','sha256sum',remote],text=True).split()[0]
+   sha=hashlib.sha256(Path(apk).read_bytes()).hexdigest();assert sha==got;apks.append(dict(package=package,path=apk,sha256=sha,installedSha256=got))
+  for label in ['core','goal','additional']:
+   classes=json.loads((root/f'final-{label}-classes.json').read_text())
+   if label=='goal' and flavor=='developer':
+    classes += [{'class':'com.helix.app.goal.GoalArchiveArtifactDeviceTest','expected':1},{'class':'com.helix.app.ui.ProotGoalReviewUiTest','expected':1}]
+   expected=sum(x['expected'] for x in classes)-(1 if label=='core' and api==29 else 0)
+   out=root/f'final-app-{label}-api{api}-{flavor}';out.mkdir(exist_ok=False)
+   cmd=[adb,'-s',serial,'shell','am','instrument','-w','-r','-e','class',','.join(x['class'] for x in classes),pkg+'.test/com.helix.app.HelixAndroidJUnitRunner']
+   result=dict(api=api,serial=serial,flavor=flavor,suite=label,classes=classes,expected=expected,apks=apks,command=cmd)
+   with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=1500)
+   text=(out/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M)
+   ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} tests)' in text
+   result.update(passed=codes.count('0'),statusCodes=codes,ok=ok);(out/'result.json').write_text(json.dumps(result,indent=2))
+   all_results.append(result);(root/'final-app-matrix-result.json').write_text(json.dumps(all_results,indent=2))
+   print(api,flavor,label,ok,codes.count('0'),flush=True)
+   if not ok:raise RuntimeError(str(out))

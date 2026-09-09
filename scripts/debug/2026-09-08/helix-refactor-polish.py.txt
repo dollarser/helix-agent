@@ -1,0 +1,55 @@
+from pathlib import Path
+import re,textwrap
+root=Path('app/src/main/kotlin/com/helix/app/ui')
+p=root/'FilesScreen.kt';s=p.read_text();a=s.index('            // ── Data loading');b=s.index('            FilesScreenLayout',a);effects=s[a:b]
+headers=[effects.index('            // ── Data loading'),effects.index("            // The open file's preview"),effects.index("            // The conflict dialog")]+[len(effects)]
+imports='package com.helix.app.ui\n\n'+''.join(l+'\n' for l in s.splitlines() if l.startswith('import '))+'\n'
+names=['FilesDirectoryEffects','FilesPreviewEffects','FilesScopeEffects'];body=''
+for name,x,y in zip(names,headers,headers[1:]):
+ body+=f'''@Composable
+@Suppress("FunctionName")
+internal fun {name}(state: FilesScreenState, actions: FilesScreenActions) {{
+    with(actions) {{
+        with(state) {{
+'''+effects[x:y]+'''        }
+    }
+}
+
+'''
+(root/'FilesScreenEffects.kt').write_text(imports+body)
+s=s[:a]+''.join('            '+n+'(state, actions)\n' for n in names)+s[b:];s=s.replace('FilesPreviewDialog(state, actions)','state.FilesPreviewDialog(actions)');p.write_text(s)
+p=root/'FilesPreviewDialog.kt';s=p.read_text();s=s.replace('internal fun FilesPreviewDialog(\n    state: FilesScreenState,','internal fun FilesScreenState.FilesPreviewDialog(');s=s.replace('        with(state) {\n','',1);idx=s.rfind('        }\n    }\n}');s=s[:idx]+s[idx:].replace('        }\n','',1);p.write_text(s)
+p=Path('app/src/main/kotlin/com/helix/app/chat/ChatService.kt');s=p.read_text();a=s.index('    private fun sessionProviderId(');b=s.index('    private suspend fun providerSnapshot(',a);s=s[:a]+s[b:];p.write_text(s)
+p=Path('tools/browser/src/main/kotlin/com/helix/tools/browser/BrowserToolSchemas.kt');s=p.read_text();a=s.index('internal fun nodeSchema(');b=s.index('internal fun strArg(',a);body=s[a:b];s=s[:a]+s[b:];p.write_text(s);imports='package com.helix.tools.browser\n\n'+''.join(l+'\n' for l in s.splitlines() if l.startswith('import '))+'\n';(p.parent/'BrowserNodeSchemas.kt').write_text(imports+body)
+# Extract remaining dialog I/O into the existing shared action handler.
+p=root/'FilesScreenActions.kt';s=p.read_text();insert=s.rfind('}')
+s=s[:insert]+'''    fun createDirectory(name: String) {
+        with(state) {
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    fileManager.makeDirectory(selectedScopeId, currentPath, name)
+                }
+                when (result) {
+                    is FileOpResult.Ok -> { status = str(R.string.files_folder_created_status); reloadTick++ }
+                    FileOpResult.Conflict -> status = str(R.string.files_folder_exists_status)
+                    is FileOpResult.NotFound -> status = result.message
+                    is FileOpResult.Error -> status = result.message
+                }
+            }
+        }
+    }
+
+    fun revokeScope(source: com.helix.feature.files.SafTreeSource) {
+        with(state) {
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    safTree.revoke(source.scopeId)
+                    sources = fileManager.sources()
+                }
+                status = str(R.string.files_saf_removed, source.displayName)
+            }
+        }
+    }
+'''+s[insert:];p.write_text(s)
+p=root/'FilesMutationDialogs.kt';s=p.read_text();a=s.index('                        scope.launch {');b=s.index('\n                    },\n                    modifier = Modifier.testTag("files-newfolder-confirm")',a);s=s[:a]+'                        createDirectory(name)'+s[b:];p.write_text(s)
+p=root/'FilesSafDialog.kt';s=p.read_text();a=s.index('                                            scope.launch {');b=s.index('\n                                        },',a);s=s[:a]+'                                            revokeScope(source)'+s[b:];p.write_text(s)

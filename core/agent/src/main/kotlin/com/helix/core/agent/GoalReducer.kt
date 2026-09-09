@@ -40,23 +40,63 @@ data class GoalStep(
  */
 @Suppress("TooManyFunctions")
 object GoalReducer {
+    @Suppress("CyclomaticComplexMethod") // Exhaustive event dispatch; decisions live in typed handlers.
     fun reduce(
         state: Goal,
         event: GoalEvent,
     ): GoalStep =
         when (event) {
-            is GoalEvent.Ready -> onReady(state, event)
-            is GoalEvent.Continued -> onContinued(state, event)
-            is GoalEvent.WakeUsageReported -> onWakeUsage(state, event)
-            is GoalEvent.WakeFailed -> onWakeFailed(state, event)
-            GoalEvent.RunFinished -> onRunFinished(state)
-            is GoalEvent.CriterionSatisfied -> onCriterionSatisfied(state, event)
-            is GoalEvent.CheckpointScheduled -> onCheckpointScheduled(state, event)
-            GoalEvent.CheckpointCleared -> onCheckpointCleared(state)
-            is GoalEvent.InputRequired -> onInputRequired(state, event)
-            is GoalEvent.BudgetsUpdated -> onBudgetsUpdated(state, event)
-            GoalEvent.CompleteRequested -> onCompleteRequested(state)
-            GoalEvent.Cancelled -> onCancelled(state)
+            is GoalEvent.Ready -> {
+                onReady(state, event)
+            }
+
+            is GoalEvent.Continued -> {
+                onContinued(state, event)
+            }
+
+            is GoalEvent.WakeUsageReported -> {
+                onWakeUsage(state, event)
+            }
+
+            is GoalEvent.WakeFailed -> {
+                onWakeFailed(state, event)
+            }
+
+            GoalEvent.RunFinished -> {
+                onRunFinished(state)
+            }
+
+            GoalEvent.Blocked -> {
+                onBlocked(state)
+            }
+
+            GoalEvent.BlockerResolved -> {
+                onBlockerResolved(state)
+            }
+
+            is GoalEvent.CheckpointScheduled -> {
+                onCheckpointScheduled(state, event)
+            }
+
+            GoalEvent.CheckpointCleared -> {
+                onCheckpointCleared(state)
+            }
+
+            is GoalEvent.InputRequired -> {
+                onInputRequired(state, event)
+            }
+
+            is GoalEvent.BudgetsUpdated -> {
+                onBudgetsUpdated(state, event)
+            }
+
+            GoalEvent.CompleteRequested -> {
+                onCompleteRequested(state)
+            }
+
+            GoalEvent.Cancelled -> {
+                onCancelled(state)
+            }
         }
 
     /**
@@ -131,7 +171,7 @@ object GoalReducer {
             )
         val exhausted = firstExhaustedLimit(next)
         return if (exhausted != null) {
-            val parked = next.copy(state = GoalState.PAUSED, currentWakeMillis = 0L)
+            val parked = next.copy(state = GoalState.BLOCKED, currentWakeMillis = 0L)
             step(next, parked, listOf(GoalEffect.BudgetExhausted(exhausted)))
         } else {
             step(state, next)
@@ -153,8 +193,34 @@ object GoalReducer {
         }
     }
 
+    private fun onBlocked(state: Goal): GoalStep =
+        if (state.state in setOf(GoalState.RUNNING, GoalState.PAUSED)) {
+            step(
+                state,
+                state.copy(state = GoalState.BLOCKED, currentWakeMillis = 0),
+                listOf(GoalEffect.ReminderCancelled),
+            )
+        } else {
+            GoalStep.unchanged(state)
+        }
+
+    private fun onBlockerResolved(state: Goal): GoalStep =
+        if (state.state == GoalState.BLOCKED && state.canStartRun()) {
+            step(state, state.copy(state = GoalState.PAUSED))
+        } else {
+            GoalStep.unchanged(state)
+        }
+
+    @Suppress("ReturnCount") // State and remaining budget reject before normal pause handling.
     private fun onRunFinished(state: Goal): GoalStep {
         if (state.state != GoalState.RUNNING) return GoalStep.unchanged(state)
+        if (!state.canStartRun()) {
+            return step(
+                state,
+                state.copy(state = GoalState.BLOCKED, currentWakeMillis = 0L),
+                listOf(GoalEffect.BudgetExhausted("remainingBudget"), GoalEffect.ReminderCancelled),
+            )
+        }
         val checkpoint = state.nextCheckpoint
         val next = state.copy(state = GoalState.PAUSED, currentWakeMillis = 0L)
         val effects =
@@ -164,25 +230,6 @@ object GoalReducer {
                 listOf(GoalEffect.RunFinished)
             }
         return step(state, next, effects)
-    }
-
-    private fun onCriterionSatisfied(
-        state: Goal,
-        event: GoalEvent.CriterionSatisfied,
-    ): GoalStep {
-        val criterion = state.criteria.firstOrNull { it.id == event.criterionId }
-        val satisfiable =
-            state.state == GoalState.RUNNING && criterion != null && !criterion.isSatisfied &&
-                criterion.acceptsEvidence(event.evidence) && event.evidence.verification
-                    ?.source
-                    ?.goalId == state.id
-        if (!satisfiable) return GoalStep.unchanged(state)
-        val next =
-            state.copy(
-                criteria =
-                    state.criteria.map { if (it.id == event.criterionId) it.withEvidence(event.evidence) else it },
-            )
-        return step(state, next)
     }
 
     private fun onCheckpointScheduled(
@@ -218,7 +265,7 @@ object GoalReducer {
         // only meaningful update, so a reduction below usage in ANY of the six dimensions —
         // including maxRetries vs state.retries — is ignored.
         val acceptable =
-            (state.state == GoalState.PAUSED || state.state == GoalState.INPUT_REQUIRED) &&
+            (state.state in setOf(GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)) &&
                 budgets.maxModelCalls >= state.modelCalls &&
                 budgets.maxToolCalls >= state.toolCalls &&
                 budgets.maxTotalTokens >= state.totalTokens &&
@@ -230,14 +277,7 @@ object GoalReducer {
     }
 
     private fun onCompleteRequested(state: Goal): GoalStep {
-        val completable =
-            state.state == GoalState.RUNNING && state.unsatisfiedCriteria.isEmpty() &&
-                state.criteria.all {
-                    it.evidence
-                        ?.verification
-                        ?.source
-                        ?.goalId == state.id
-                }
+        val completable = state.state == GoalState.RUNNING
         if (!completable) return GoalStep.unchanged(state)
         val next =
             state.copy(
@@ -302,9 +342,6 @@ object GoalReducer {
             require(goal.error == null && goal.finishReason == "completed") {
                 "COMPLETED goal requires finishReason=completed and no error"
             }
-            require(goal.unsatisfiedCriteria.isEmpty()) {
-                "COMPLETED goal requires verifier evidence for every criterion"
-            }
         }
         if (state == GoalState.FAILED) {
             require(goal.error != null) { "FAILED goal requires an error" }
@@ -325,7 +362,8 @@ object GoalReducer {
         if (state != GoalState.RUNNING) {
             require(goal.currentWakeMillis == 0L) { "currentWakeMillis is only valid in RUNNING" }
         }
-        val checkpointable = state in setOf(GoalState.RUNNING, GoalState.PAUSED, GoalState.INPUT_REQUIRED)
+        val checkpointable =
+            state in setOf(GoalState.RUNNING, GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)
         if (goal.nextCheckpoint != null) {
             require(checkpointable) { "nextCheckpoint is only valid in RUNNING/PAUSED/INPUT_REQUIRED" }
         }

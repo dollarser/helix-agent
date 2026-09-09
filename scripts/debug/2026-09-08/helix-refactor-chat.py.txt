@@ -1,0 +1,119 @@
+from pathlib import Path
+import re,textwrap
+p=Path('app/src/main/kotlin/com/helix/app/chat/ChatService.kt');s=p.read_text();Path('/tmp/helix-ChatService-before.kt').write_text(s);root=p.parent
+imports='package com.helix.app.chat\n\n'+''.join(l+'\n' for l in s.splitlines() if l.startswith('import '))+'\n'
+def extract(start,end):
+ global s
+ a=s.index(start);b=s.index(end,a);v=s[a:b];s=s[:a]+s[b:];return v
+def write(name,header,body): (root/name).write_text(imports+header+'\n'+body+'\n}\n')
+requests=extract('    /**\n     * The initial model request', '    /**\n     * Persists the assistant') if '    /**\n     * The initial model request' in s else ''
+if not requests:
+ # Include the explanatory block immediately before buildRequest.
+ a=s.rfind('    /**',0,s.index('    private suspend fun buildRequest('));b=s.index('    /**\n     * Persists the assistant',a);requests=s[a:b];s=s[:a]+s[b:]
+requests=requests.replace('private suspend fun buildRequest(', 'suspend fun buildRequest(').replace('private suspend fun buildBackfillRequest(', 'suspend fun buildBackfillRequest(')
+requests+='''    private fun sessionProviderId(sessionId: String): String =
+        requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }
+    private companion object { const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L }
+'''
+write('ChatRequestAssembler.kt','''/** Reads current persisted facts for each request; owns no live Turn or approval state. */
+internal class ChatRequestAssembler(
+    private val storage: HelixStorage,
+    private val providerService: ProviderService,
+    private val toolPipeline: ToolPipeline,
+    private val attachmentStaging: AttachmentStagingSupport,
+    private val visionSessionBinder: (String) -> Unit,
+) {''',requests)
+for name in ('buildRequest','buildBackfillRequest'):
+ s=re.sub(r'(?<![.\w])'+name+r'\(', 'requestAssembler.'+name+'(',s)
+s=s.replace('    private val workScope = scope','''    private val requestAssembler =
+        ChatRequestAssembler(storage, providerService, toolPipeline, attachmentStaging, visionSessionBinder)
+    private val projection = ChatScreenProjection(storage, providerService, strings, ::modelTerminalCodeRes)
+    private val stagingProcessor = StagedAttachmentProcessor(storage, attachmentStaging, idGenerator, strings)
+    private val workScope = scope''')
+# Projection owns repositories only, and receives the live overlay explicitly.
+a=s.rfind('    /**',0,s.index('    private fun toolTimelineFor('));b=s.index('    private fun publishTurn(',a)
+projection=s[a:b];s=s[:a]+s[b:]
+for name in ('toolTimelineFor','messagesFor','turnUiFor','retryTargetFor','badgeFor'):
+ projection=projection.replace('private fun '+name+'(', 'fun '+name+'(')
+ s=re.sub(r'(?<![.\w])'+name+r'\(', 'projection.'+name+'(',s)
+projection+='''    private fun str(resId: Int, vararg args: Any): String = strings(resId, args)
+    private companion object { const val TOOL_TIMELINE_CAP = 200 }
+'''
+write('ChatScreenProjection.kt','''/** Repository-to-UI projection; live cards and streaming state remain owned by ChatService. */
+internal class ChatScreenProjection(
+    private val storage: HelixStorage,
+    private val providerService: ProviderService,
+    private val strings: (Int, Array<out Any>) -> String,
+    private val modelTerminalCodeRes: (String) -> Int,
+) {''',projection)
+# Move immutable attachment facts and preparation; the service retains lock/admission/publication.
+a=s.index('    /** The in-memory facts of one staged attachment');b=s.index('    // --- HXA-036',a)
+facts=textwrap.dedent(s[a:b]).replace('private class StagedAttachmentEntry','internal class StagedAttachmentEntry')
+(root/'StagedAttachmentEntry.kt').write_text(imports+facts);s=s[:a]+s[b:]
+a=s.index('    /**\n     * Completes staging');b=s.index('    /**\n     * The authoritative, in-lock append',a)
+preparation=s[a:b]
+preparation=preparation.replace('private fun stageImportedAttachment(', 'fun prepare(').replace('''        sessionId: String,
+    ) {''','''        sessionId: String,
+    ): Preparation {''',1)
+preparation=re.sub(r'            setBlocked\(([^\n]+)\)\n            return',r'            return Preparation.Rejected(\1)',preparation)
+start=preparation.index('        // In-lock admission');end=preparation.index('    /** The registered facts',start)
+preparation=preparation[:start]+'''        return Preparation.Ready(
+            StagedAttachmentEntry(
+                sessionId = sessionId, artifactId = artifactId, fileName = fileName,
+                sizeBytes = result.sizeBytes, boundSha256 = sha, relativePath = scopePath.relativePath,
+                file = realPath, normalizedArtifactId = normalized?.id,
+                normalizedSha256 = normalized?.sha256, normalizedFile = normalized?.file,
+                normalizedWidth = normalized?.width ?: 0, normalizedHeight = normalized?.height ?: 0,
+                normalizedMediaType = normalized?.mediaType, imageSendError = normalized?.failureReason,
+            ),
+        )
+    }
+
+'''+preparation[end:]
+s=s[:a]+'''    private fun stageImportedAttachment(result: AttachmentImportResult, sessionId: String) {
+        when (val prepared = stagingProcessor.prepare(result, sessionId)) {
+            is StagedAttachmentProcessor.Preparation.Rejected -> setBlocked(prepared.reason)
+            is StagedAttachmentProcessor.Preparation.Ready -> {
+                if (admitStagedEntry(prepared.entry)) refreshScreen()
+            }
+        }
+    }
+
+'''+s[b:]
+a=s.index('    @Suppress("LongParameterList") // each parameter is one staged fact');b=s.index('    /** Best-effort delete',a)
+s=s[:a]+'''    private fun admitStagedEntry(entry: StagedAttachmentEntry): Boolean {
+        var admitted = false
+        synchronized(stagedLock) {
+            if (openSessionId == entry.sessionId) {
+                if (stagedAttachments.size >= AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE) {
+                    setBlocked(str(R.string.chat_blocked_max_attachments, AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE))
+                } else {
+                    stagedAttachments = stagedAttachments + entry
+                    admitted = true
+                }
+            }
+        }
+        return admitted
+    }
+
+'''+s[b:]
+a=s.index('    /** Best-effort delete');b=s.index('    /** The fixed, user-visible (Chinese) reason for a refused',a)
+cleanup=s[a:b];s=s[:a]+s[b:]
+preparation+=cleanup+'''    private fun str(resId: Int, vararg args: Any): String = strings(resId, args)
+    sealed interface Preparation {
+        data class Ready(val entry: StagedAttachmentEntry) : Preparation
+        data class Rejected(val reason: String) : Preparation
+    }
+'''
+write('StagedAttachmentProcessor.kt','''/** Prepares durable attachment facts; never admits them to a live session or mutates UI state. */
+internal class StagedAttachmentProcessor(
+    private val storage: HelixStorage,
+    private val attachmentStaging: AttachmentStagingSupport,
+    private val idGenerator: () -> String,
+    private val strings: (Int, Array<out Any>) -> String,
+) {''',preparation)
+s=s.replace('        const val TOOL_TIMELINE_CAP = 200\n','').replace('        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L\n','')
+s=s.replace(''' * One class owns every chat-screen fact (sessions, the open conversation,''',''' * ChatService owns every live chat-screen fact (sessions, the open conversation,''')
+s=s.replace(''' * The class-level suppressions record that single-owner decision; LongParameterList''',''' * Request assembly, attachment preparation and repository projections are delegated without
+ * transferring ownership of mutable session state. The remaining suppressions cover orchestration; LongParameterList''')
+p.write_text(s)

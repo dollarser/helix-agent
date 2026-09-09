@@ -35,26 +35,27 @@ class ModeLayoutDeviceTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                 MaterialTheme {
-                    Column(Modifier.width(240.dp)) { ModeControlSection(config.value, active.value, intents()) }
+                    Column(
+                        Modifier.width(240.dp),
+                    ) { ComposerModeMenu(config.value.mode, !active.value, intents().onSetMode) }
                 }
             }
         }
-        val area = compose.onNodeWithTag("chat-mode-control").getUnclippedBoundsInRoot()
+        compose.onNodeWithTag("chat-mode-menu").performClick()
         AgentMode.entries.forEach { mode ->
             val node = compose.onNodeWithTag("chat-mode-${mode.name.lowercase()}")
             node.assertIsDisplayed()
             val bounds = node.getUnclippedBoundsInRoot()
-            assertTrue("$mode must fit the narrow viewport", bounds.left >= area.left && bounds.right <= area.right)
             assertTrue("$mode must keep a usable touch target", bounds.bottom - bounds.top >= 48.dp)
         }
         compose.onNodeWithTag("chat-mode-goal").performClick()
         compose.runOnIdle { assertEquals(AgentMode.GOAL, config.value.mode) }
+        compose.onNodeWithTag("chat-mode-menu").performClick()
         compose.onNodeWithTag("chat-mode-goal").assertIsSelected()
         compose.onNodeWithTag("chat-mode-chat").assertIsNotSelected()
         compose.runOnIdle { active.value = true }
-        AgentMode.entries.forEach { mode ->
-            compose.onNodeWithTag("chat-mode-${mode.name.lowercase()}").assertIsNotEnabled()
-        }
+        compose.onNodeWithTag("chat-mode-menu").assertIsNotEnabled()
+        compose.onNodeWithTag("chat-mode-goal").assertDoesNotExist()
         compose.runOnIdle { assertEquals(AgentMode.GOAL, config.value.mode) }
     }
 

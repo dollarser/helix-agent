@@ -96,7 +96,7 @@ class JsExecutionClient(
         cancellation: JsCancellation? = null,
     ): JsExecutionResult {
         val inputSha = params.inputJsonUtf8?.let(JsHash::sha256Hex) ?: ""
-        val preflight = preflightReject(params, cancellation, inputSha)
+        val preflight = JsClientPreflight.preflightReject(params, cancellation, inputSha)
         if (preflight != null) return preflight
 
         val limits = params.limits.validate()
@@ -109,7 +109,10 @@ class JsExecutionClient(
         val pfdHolders = mutableListOf<ParcelFileDescriptor>()
         var bound: BoundInstance? = null
         try {
-            val transport = prepareTransport(params, sourceBytes, inputBytes, tempFiles, pfdHolders)
+            val transport =
+                JsTransportPreparation(
+                    context,
+                ).prepareTransport(params, sourceBytes, inputBytes, tempFiles, pfdHolders)
             val request =
                 JsExecutionRequest(
                     executionId = params.executionId,
@@ -158,157 +161,6 @@ class JsExecutionClient(
     private class JsClientFailure(
         val result: JsExecutionResult,
     ) : RuntimeException("client failure result")
-
-    private data class Transport(
-        val sourcePfd: ParcelFileDescriptor?,
-        val inputPfd: ParcelFileDescriptor?,
-        val outputPfd: ParcelFileDescriptor?,
-        val inlineSource: ByteArray,
-        val inlineInput: ByteArray,
-    )
-
-    /**
-     * Transport assembly (doc 03 §3.1): payloads above the inline parcel cap move to
-     * read-only PFDs over app-private temp files; [JsExecuteParams.outputFile] becomes
-     * the caller-writable output PFD. All created resources are registered in
-     * [tempFiles]/[pfdHolders] so the `finally` path releases them unconditionally.
-     */
-    private fun prepareTransport(
-        params: JsExecuteParams,
-        sourceBytes: ByteArray,
-        inputBytes: ByteArray?,
-        tempFiles: MutableList<File>,
-        pfdHolders: MutableList<ParcelFileDescriptor>,
-    ): Transport {
-        val sourcePfd: ParcelFileDescriptor?
-        val inlineSource: ByteArray
-        if (sourceBytes.size > JsProtocol.PARCEL_INLINE_MAX_BYTES) {
-            val tmp = materializeTemp(params.executionId, "source", sourceBytes, tempFiles)
-            sourcePfd = ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY)
-            pfdHolders += sourcePfd
-            inlineSource = ByteArray(0)
-        } else {
-            sourcePfd = null
-            inlineSource = sourceBytes
-        }
-        val inputPfd: ParcelFileDescriptor?
-        val inlineInput: ByteArray
-        if (inputBytes != null && inputBytes.size > JsProtocol.PARCEL_INLINE_MAX_BYTES) {
-            val tmp = materializeTemp(params.executionId, "input", inputBytes, tempFiles)
-            inputPfd = ParcelFileDescriptor.open(tmp, ParcelFileDescriptor.MODE_READ_ONLY)
-            pfdHolders += inputPfd
-            inlineInput = ByteArray(0)
-        } else {
-            inputPfd = null
-            inlineInput = inputBytes ?: ByteArray(0)
-        }
-        var outputPfd: ParcelFileDescriptor? = null
-        if (params.outputFile != null) {
-            val target = params.outputFile.absoluteFile
-            target.parentFile?.mkdirs()
-            outputPfd =
-                ParcelFileDescriptor.open(
-                    target,
-                    ParcelFileDescriptor.MODE_WRITE_ONLY or
-                        ParcelFileDescriptor.MODE_CREATE or
-                        ParcelFileDescriptor.MODE_TRUNCATE,
-                )
-            pfdHolders += outputPfd
-        }
-        return Transport(sourcePfd, inputPfd, outputPfd, inlineSource, inlineInput)
-    }
-
-    /**
-     * Pre-flight rejections (doc 03 §4.1): everything the client can decide BEFORE
-     * binding is rejected here, so a rejected execution never spawns an isolated
-     * process. Returns null when the execution may proceed.
-     */
-    private fun preflightReject(
-        params: JsExecuteParams,
-        cancellation: JsCancellation?,
-        inputSha: String,
-    ): JsExecutionResult? {
-        val limitsError: String? =
-            try {
-                params.limits.validate()
-                null
-            } catch (e: IllegalArgumentException) {
-                "invalid limits: ${e.message}"
-            }
-        val inputError = preflightInputReject(params.inputJsonUtf8)
-        val sizeError = preflightSizeReject(params, params.limits)
-        return when {
-            cancellation?.isCancelled() == true -> {
-                rejection(params, JsExecutionStatus.CANCELLED, "cancelled before start", inputSha)
-            }
-
-            params.executionId.isBlank() -> {
-                rejection(params, JsExecutionStatus.REQUEST_REJECTED, "blank executionId", inputSha)
-            }
-
-            limitsError != null -> {
-                rejection(params, JsExecutionStatus.REQUEST_REJECTED, limitsError, inputSha)
-            }
-
-            inputError != null -> {
-                rejection(params, JsExecutionStatus.REQUEST_REJECTED, inputError, inputSha)
-            }
-
-            sizeError != null -> {
-                rejection(params, JsExecutionStatus.REQUEST_REJECTED, sizeError, inputSha)
-            }
-
-            params.debugInjectCrash && !BuildConfig.DEBUG -> {
-                rejection(
-                    params,
-                    JsExecutionStatus.REQUEST_REJECTED,
-                    "crash-injection seam is disabled outside debug builds",
-                    inputSha,
-                )
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    /** HXA-052: a non-empty input must be exactly one valid JSON document (doc 03 §3.2). */
-    private fun preflightInputReject(inputJsonUtf8: ByteArray?): String? {
-        if (inputJsonUtf8 == null || inputJsonUtf8.isEmpty()) return null
-        return if (JsJsonDocument.isValidJson(inputJsonUtf8)) {
-            null
-        } else {
-            "input is not a valid JSON document"
-        }
-    }
-
-    private fun preflightSizeReject(
-        params: JsExecuteParams,
-        limits: JsExecutionLimits,
-    ): String? {
-        val inputBytes = params.inputJsonUtf8
-        return when {
-            params.source.toByteArray(StandardCharsets.UTF_8).size > limits.maxSourceBytes -> {
-                "source exceeds maxSourceBytes ${limits.maxSourceBytes}"
-            }
-
-            inputBytes != null && inputBytes.size > limits.maxInputBytes -> {
-                "input ${inputBytes.size} exceeds maxInputBytes ${limits.maxInputBytes}"
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun rejection(
-        params: JsExecuteParams,
-        status: JsExecutionStatus,
-        detail: String,
-        inputSha: String,
-    ): JsExecutionResult = JsExecutionResult.clientFailure(params.executionId, status, detail, inputSha)
 
     private data class BoundInstance(
         val binder: IBinder,
@@ -621,22 +473,6 @@ class JsExecutionClient(
         return outcome
     }
 
-    private fun materializeTemp(
-        executionId: String,
-        tag: String,
-        bytes: ByteArray,
-        tempFiles: MutableList<File>,
-    ): File {
-        // The execution ID is internal (the tool generates UUIDs), but keep only path-safe
-        // characters so an arbitrary caller-supplied ID cannot redirect the temp file
-        // outside the cache directory.
-        val safeId = executionId.take(128).replace(PATH_UNSAFE_CHARS, "_")
-        val tmp = File(context.cacheDir, "js-exec-$safeId-$tag.tmp")
-        tmp.writeBytes(bytes)
-        tempFiles += tmp
-        return tmp
-    }
-
     private fun readBounded(
         file: File,
         expectedBytes: Long,
@@ -663,7 +499,6 @@ class JsExecutionClient(
         private const val POLL_MS: Long = 50L
 
         /** Characters that could redirect a temp file name outside the cache directory. */
-        private val PATH_UNSAFE_CHARS = Regex("[^A-Za-z0-9._-]")
 
         private val UNSTARTED = Object()
     }

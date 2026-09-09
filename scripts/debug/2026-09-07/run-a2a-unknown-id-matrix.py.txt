@@ -1,0 +1,10 @@
+from pathlib import Path
+import subprocess,json
+root=Path('build/main-verification/a2a-unknown-id-current');root.mkdir(exist_ok=False)
+adb='<ANDROID_SDK>/platform-tools/adb';rows=[]
+for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')]:
+ subprocess.run([adb,'-s',serial,'install','-r','app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk'],check=True)
+ with (root/f'api{api}-host.log').open('w') as log:
+  r=subprocess.run(['python3','scripts/run-a2a-process-kill.py','--adb',adb,'--serial',serial,'--boundary','send','--output',str(root/f'api{api}')],stdout=log,stderr=subprocess.STDOUT,timeout=180)
+ rows.append(dict(api=api,exit=r.returncode));(root/'result.json').write_text(json.dumps(rows,indent=2)+'\n');print(rows[-1],flush=True)
+ if r.returncode:raise SystemExit(r.returncode)

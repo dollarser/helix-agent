@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.goal.goalModelReport
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
 import com.helix.core.agent.GoalEvent
@@ -17,20 +18,16 @@ internal class GoalRunSettlement(
     private val clock: Clock,
     private val idGenerator: () -> String,
 ) {
-    fun settle(
-        turnId: String,
-        verifyGoal: ((com.helix.core.agent.Goal, String) -> com.helix.core.agent.Goal)? = null,
-    ) {
+    fun settle(turnId: String) {
         storage.withTransaction {
             val binding = storage.goalTurnBindings.byTurn(turnId)
-            if (binding != null) settleBoundTurn(turnId, binding.runId, verifyGoal)
+            if (binding != null) settleBoundTurn(turnId, binding.runId)
         }
     }
 
     private fun settleBoundTurn(
         turnId: String,
         runId: String,
-        verifyGoal: ((com.helix.core.agent.Goal, String) -> com.helix.core.agent.Goal)?,
     ) {
         val turn = storage.turns.resolve(turnId)
         val state = TurnState.valueOf(turn.state)
@@ -39,24 +36,42 @@ internal class GoalRunSettlement(
             .GoalUsageReservations(storage)
             .recoverRun(runId, clock.now().toEpochMilli())
         val run = storage.goalRuns.resolve(runId)
-        var goal = storage.goals.resolve(run.goalId).toRuntimeGoal()
+        val goal = storage.goals.resolve(run.goalId).toRuntimeGoal()
         // Ledger budget closure and repeated terminal notifications must preserve the first outcome.
         if (run.endedAt != null || goal.state != GoalState.RUNNING) return
         val uncertain = storage.goalTurnBindings.hasUnsettledCalls(goal.id.value)
-        val verified = state == TurnState.COMPLETED && !uncertain && verifyGoal != null
-        if (verified) goal = requireNotNull(verifyGoal).invoke(goal, turnId)
-        val (event, outcome) =
-            if (verified && goal.unsatisfiedCriteria.isEmpty()) {
-                GoalEvent.CompleteRequested to "COMPLETED"
+        val paused = turn.pauseRequestedAt != null
+        val report =
+            if (state == TurnState.COMPLETED && !uncertain &&
+                !paused
+            ) {
+                storage.goalModelReport(turnId)
             } else {
-                decision(goal, state, turn.errorCode, uncertain)
+                null
+            }
+        val (event, outcome) =
+            if (report?.status == "complete") {
+                GoalEvent.CompleteRequested to "MODEL_COMPLETED"
+            } else if (report?.status == "blocked") {
+                GoalEvent.Blocked to "BLOCKED(MODEL_REPORTED)"
+            } else if (!uncertain && paused) {
+                GoalEvent.RunFinished to "USER_PAUSED"
+            } else {
+                decision(goal.correlationId, state, turn.errorCode, uncertain)
             }
         val next = GoalReducer.reduce(goal, event)
         check(!next.ignored) { "Goal settlement was not applicable" }
+        val settledOutcome =
+            if (next.state.state == GoalState.BLOCKED && !outcome.startsWith("BLOCKED(")) {
+                "BUDGET_EXHAUSTED(remainingBudget)"
+            } else {
+                outcome
+            }
         storage.goals.updateGoal(next.state.toStoredGoal())
+        recordReport(goal, report)
         storage.goalRuns.finish(
             run,
-            outcome,
+            settledOutcome,
             clock.now().toEpochMilli().coerceAtLeast(run.startedAt),
             run.wakeDurationMillis ?: 0L,
             run.modelCalls,
@@ -68,20 +83,36 @@ internal class GoalRunSettlement(
             goal.correlationId.value,
             "goal.run_finished",
             "SYSTEM",
-            """{"outcome":"$outcome","turnState":"${state.name}"}""",
+            """{"outcome":"$settledOutcome","turnState":"${state.name}"}""",
             clock.now().toEpochMilli(),
         )
     }
 
-    private fun decision(
+    private fun recordReport(
         goal: com.helix.core.agent.Goal,
+        report: com.helix.app.goal.GoalModelReport?,
+    ) {
+        if (report != null) {
+            storage.auditEvents.append(
+                idGenerator(),
+                goal.correlationId.value,
+                "goal.model_report",
+                "MODEL",
+                """{"status":"${report.status}","toolCallId":"${report.callId}"}""",
+                clock.now().toEpochMilli(),
+            )
+        }
+    }
+
+    private fun decision(
+        correlationId: com.helix.core.model.CorrelationId,
         state: TurnState,
         errorCode: String?,
         uncertain: Boolean,
     ): Pair<GoalEvent, String> =
         when {
             uncertain -> {
-                GoalEvent.InputRequired("NEEDS_REVIEW") to "INPUT_REQUIRED(NEEDS_REVIEW)"
+                GoalEvent.Blocked to "BLOCKED(NEEDS_REVIEW)"
             }
 
             state == TurnState.CANCELLED -> {
@@ -90,6 +121,10 @@ internal class GoalRunSettlement(
 
             state == TurnState.COMPLETED -> {
                 GoalEvent.RunFinished to "RUN_FINISHED"
+            }
+
+            errorCode == "CONTEXT_WINDOW_LIMIT" -> {
+                GoalEvent.Blocked to "BLOCKED(CONTEXT_WINDOW_LIMIT)"
             }
 
             errorCode == "GOAL_TIME_WINDOW_EXPIRED" -> {
@@ -102,12 +137,19 @@ internal class GoalRunSettlement(
 
             else -> {
                 GoalEvent.WakeFailed(
-                    HelixError(ErrorCode.EXECUTION, "Goal turn failed", false, emptyMap(), goal.correlationId),
+                    HelixError(ErrorCode.EXECUTION, "Goal turn failed", false, emptyMap(), correlationId),
                 ) to "FAILED"
             }
         }
 
     private companion object {
-        val TURN_LIMITS = setOf("MODEL_CALL_LIMIT", "TOKEN_BUDGET_LIMIT", "TOOL_STEP_LIMIT", "GOAL_BUDGET_LIMIT")
+        val TURN_LIMITS =
+            setOf(
+                "MODEL_CALL_LIMIT",
+                "TOKEN_BUDGET_LIMIT",
+                "TOOL_STEP_LIMIT",
+                "GOAL_BUDGET_LIMIT",
+                "CONTEXT_WINDOW_LIMIT",
+            )
     }
 }

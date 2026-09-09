@@ -10,6 +10,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ToolName
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 
 /**
@@ -34,8 +35,8 @@ import kotlinx.coroutines.flow.toList
  * The first failing phase stops the probe: later phases do not run, and no
  * [ProviderCapabilities] is produced ([ProbeOutcome.Failed] carries the phase,
  * the closed failure class and the retryability). A passing probe never claims
- * a capability it did not exercise: parallel tool calls, vision, reasoning and
- * JSON-schema output stay `false` and [ProviderCapabilities.maxContextTokens]
+ * a capability it did not exercise: parallel tool calls and
+ * JSON-schema output stay `false`; reasoning is proved only by an observed ReasoningDelta and [ProviderCapabilities.maxContextTokens]
  * stays `null` (conservative defaults — the doc's rule is to rely on capability
  * tests, never on product names).
  */
@@ -59,13 +60,22 @@ public class CapabilityProbe(
         val phaseTwo = phase2(provider)
         if (phaseTwo is PhaseTwo.Stopped) return phaseTwo.outcome
         val models = (phaseTwo as? PhaseTwo.Listed)?.models
+        var reasoningProved = false
+        val observed =
+            object : ModelProvider by provider {
+                override fun stream(request: ModelRequest): Flow<ModelEvent> =
+                    provider.stream(request).onEach { if (it is ModelEvent.ReasoningDelta) reasoningProved = true }
+            }
         val phases: List<suspend (ModelProvider) -> ProbeOutcome?> =
             listOf(::phase3, ::phase4, ::phase5)
         for (phase in phases) {
-            val failure = phase(provider)
+            val failure = phase(observed)
             if (failure != null) return failure
         }
-        return ProbeOutcome.Ok(capabilities = PROBED_CAPABILITIES.withVisionProved(), models = models)
+        return ProbeOutcome.Ok(
+            capabilities = PROBED_CAPABILITIES.withVisionProved().copy(reasoning = reasoningProved),
+            models = models,
+        )
     }
 
     /** Phase 1: transport/TLS/HTTP + authentication. */
@@ -336,7 +346,7 @@ public class CapabilityProbe(
                 toolCalls = true,
                 parallelToolCalls = false, // not exercised by the fixture
                 vision = false, // proved true by phase 5 when it passes
-                reasoning = false, // not exercised
+                reasoning = false, // set only when a passing probe actually receives ReasoningDelta
                 jsonSchemaOutput = false, // not exercised
                 maxContextTokens = null, // unknown until declared
                 source = CapabilitySource.PROBED,

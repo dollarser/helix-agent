@@ -1,0 +1,20 @@
+from pathlib import Path
+r=Path('<HELIX_CHECKOUT>')
+def edit(p,a,b):
+ p=r/p;s=p.read_text();assert a in s,p;p.write_text(s.replace(a,b,1))
+edit('core/storage/src/main/kotlin/com/helix/core/storage/dao/ConversationDaos.kt','    /**\n     * Binds a provider to a session','    @Query("UPDATE sessions SET archivedAt = NULL WHERE id = :id AND archivedAt IS NOT NULL")\n    fun restore(id: String): Int\n\n    /**\n     * Binds a provider to a session')
+edit('core/storage/src/main/kotlin/com/helix/core/storage/repository/ConversationRepositories.kt','    /**\n     * Binds a provider+model','    fun restore(id: String) {\n        require(dao.restore(id) == 1 || resolve(id).archivedAt == null)\n    }\n\n    /**\n     * Binds a provider+model')
+edit('core/storage/src/test/kotlin/com/helix/core/storage/repository/SessionBindProviderTest.kt','        override fun bindProvider(','        override fun restore(id: String): Int {\n            val row = rows[id]?.takeIf { it.archivedAt != null } ?: return 0\n            rows[id] = row.copy(archivedAt = null)\n            return 1\n        }\n\n        override fun bindProvider(')
+edit('app/src/main/kotlin/com/helix/app/chat/ChatService.kt','    /** Opens a session: loads','    fun restoreSession(id: String) {\n        workScope.launch {\n            storage.sessions.restore(id)\n            refreshSessionsNow()\n            refreshScreen()\n        }\n    }\n\n    /** Opens a session: loads')
+p='app/src/main/kotlin/com/helix/app/ui/ChatScreen.kt'
+edit(p,'                onArchive = { chatService.archiveSession(it) },','                onArchive = { chatService.archiveSession(it) },\n                onRestore = chatService::restoreSession,')
+edit(p,'    onArchive: (String) -> Unit,','    onArchive: (String) -> Unit,\n    onRestore: (String) -> Unit,')
+edit(p,'@Suppress("FunctionName", "LongMethod")\nprivate fun SessionListSection','@Suppress("FunctionName", "LongMethod", "LongParameterList")\nprivate fun SessionListSection')
+edit(p,'                            onClick = { onArchive(session.id) },\n                            enabled = !session.isArchived,\n                            modifier = Modifier.testTag("chat-archive"),','                            onClick = { if (session.isArchived) onRestore(session.id) else onArchive(session.id) },\n                            modifier = Modifier.testTag(if (session.isArchived) "chat-restore" else "chat-archive"),')
+edit(p,'if (session.isArchived) R.string.chat_archived else R.string.chat_archive','if (session.isArchived) R.string.chat_restore else R.string.chat_archive')
+# Keep indicator and model in same capsule, once only.
+edit('app/src/main/kotlin/com/helix/app/ui/ConversationComposer.kt','        ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, modelSelector) {\n            ContextWindowIndicator(contextUsage)','        ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {\n            Row(verticalAlignment = Alignment.CenterVertically) {\n                modelSelector?.invoke()\n                ContextWindowIndicator(contextUsage)\n            }\n        }) {')
+p='app/src/main/kotlin/com/helix/app/ui/ContextWindowIndicator.kt'
+edit(p,'    ComposerOptionPill {\n        TextButton(','    Box {\n        TextButton(')
+for loc,v in [('values','恢复'),('values-zh-rCN','恢复'),('values-en','Restore')]:
+ p=r/f'app/src/main/res/{loc}/strings.xml';p.write_text(p.read_text().replace('</resources>',f'    <string name="chat_restore">{v}</string>\n</resources>'))

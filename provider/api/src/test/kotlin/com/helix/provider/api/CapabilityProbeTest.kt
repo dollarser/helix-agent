@@ -92,6 +92,29 @@ class CapabilityProbeTest {
         }
     }
 
+    @Test fun passingStreamProvesReasoningButFailedStreamDoesNot() =
+        runBlocking {
+            val observed =
+                FakeProvider(
+                    textEvents =
+                        listOf(
+                            ModelEvent.ReasoningDelta("thinking"),
+                            ModelEvent.TextDelta("ok"),
+                            ModelEvent.Completed("stop"),
+                        ),
+                )
+            assertTrue((CapabilityProbe().probe(observed) as ProbeOutcome.Ok).capabilities.reasoning)
+            val failed =
+                FakeProvider(
+                    textEvents =
+                        listOf(
+                            ModelEvent.ReasoningDelta("thinking"),
+                            ModelEvent.Error(ModelErrorCode.PROTOCOL, false),
+                        ),
+                )
+            assertTrue(CapabilityProbe().probe(failed) is ProbeOutcome.Failed)
+        }
+
     private val probe = CapabilityProbe()
 
     @Test

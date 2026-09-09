@@ -1,0 +1,1122 @@
+[
+  {
+    "source_basename": "helix-172-edit.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "fcd442c3a97a1d515faacac7f40b2a85c16a79ac8ee2f3fa57d66ca33b255c8d",
+    "archive": "2026-09-09/helix-172-edit.py.txt",
+    "archive_sha256": "73cb71b8483c55d71baf35d61d9dbae7a865608ec8c7d655d2bb9d8f51c3aeac",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-173-edit.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "e8f759d6f5b475370aa1ad74911b22c722a065da78557beee797a6cb5f100758",
+    "archive": "2026-09-09/helix-173-edit.py.txt",
+    "archive_sha256": "6c08ae5721b98dfdd4a4abe610f45c78e37b54fb3930b1ad98b570f73967200d",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-context-research.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "078104020c3c3abdf90d5dc5d8c868630c64c0786aa63cde5940da46ef96d94a",
+    "archive": "2026-09-08/helix-context-research.py.txt",
+    "archive_sha256": "078104020c3c3abdf90d5dc5d8c868630c64c0786aa63cde5940da46ef96d94a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-emulator-ui.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "f0d2ba128e4086fe81e42b26b441db948da1ad6304e49eb86303636c02ff5008",
+    "archive": "2026-09-09/helix-emulator-ui.py.txt",
+    "archive_sha256": "fcbb1cbba48863d7e05e60b6edcafb52b16503585f8d3c44c93617aef9a2f538",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-hxa159-device-final.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "e06765fd098e6e645d37813a8a2b9e860e5e2a2f3006159489ef10bb4a531f8a",
+    "archive": "2026-09-08/helix-hxa159-device-final.py.txt",
+    "archive_sha256": "2a1d4297ffedc43354c8af528176ee2570a414e86befc7dd4da636b958152a3d",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-installer-strings.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a55396f2befefe10f18629e30f9e8895ec346008a43107cf9d86347c894dbd75",
+    "archive": "2026-09-08/helix-installer-strings.py.txt",
+    "archive_sha256": "a55396f2befefe10f18629e30f9e8895ec346008a43107cf9d86347c894dbd75",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-phone-ui.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "8d5348976c726ecc5df4aa70a7bf9ba72e41edba8ee1f40376755b9a0e2f3d2d",
+    "archive": "2026-09-09/helix-phone-ui.py.txt",
+    "archive_sha256": "9478fc4600e400c35cbfb1a6cd4c944dc10831e2a0ea84ba0644098dcb855438",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-reasoning-proxy.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "e87a4b9fab7fdfc9fdb0170c85f3fef619ba9197b3e02e4ed517c93762ef4212",
+    "archive": "2026-09-09/helix-reasoning-proxy.py.txt",
+    "archive_sha256": "e87a4b9fab7fdfc9fdb0170c85f3fef619ba9197b3e02e4ed517c93762ef4212",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-refactor-chat.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "4f0e6ab5b177fe38d49d21baf1459c1c534b2e3f1038e276683b6a682544c9aa",
+    "archive": "2026-09-08/helix-refactor-chat.py.txt",
+    "archive_sha256": "4f0e6ab5b177fe38d49d21baf1459c1c534b2e3f1038e276683b6a682544c9aa",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-refactor-files.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "3dd25b2f58b7cdd447773ee000f4e4cea74fcdcf0f73d2056b15ab823a6ffa81",
+    "archive": "2026-09-08/helix-refactor-files.py.txt",
+    "archive_sha256": "3dd25b2f58b7cdd447773ee000f4e4cea74fcdcf0f73d2056b15ab823a6ffa81",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix-refactor-polish.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "fb010325862c1f573b358fa59120fa9ee4b84226c112afac4db1f67a098ddfef",
+    "archive": "2026-09-08/helix-refactor-polish.py.txt",
+    "archive_sha256": "fb010325862c1f573b358fa59120fa9ee4b84226c112afac4db1f67a098ddfef",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix160-edit.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "16aa3a648c2177d82e3bd1b77a55686a404be5deba4d32b2d4d071b26010937e",
+    "archive": "2026-09-08/helix160-edit.py.txt",
+    "archive_sha256": "16aa3a648c2177d82e3bd1b77a55686a404be5deba4d32b2d4d071b26010937e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix160-final-device.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "b66c99514092e43af0c8baf3b1e2a94b110886c55f8a7c3ea9c1943f315318c5",
+    "archive": "2026-09-08/helix160-final-device.py.txt",
+    "archive_sha256": "167a7cac6e2aec54506d687d54fa6e2741e8f8f6d8d56e6452692ef9de78756f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "helix171-edit.py",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "c7ec5da031b03d5cf3890c1feaf165fe9ac7f5ba09fdf7a89a7caa3c06a92558",
+    "archive": "2026-09-09/helix171-edit.py.txt",
+    "archive_sha256": "21b5ebfd5a7e88af4a7be498da038226f1dce6636a3ee7bd110235a58beefa23",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "app29-final.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "4d0103d154836f676301d548f7b7c678980c55f8e8b8cc0a8dd6fe7f37eeb87d",
+    "archive": "2026-09-05/app29-final.py.txt",
+    "archive_sha256": "b0f8666a6ffe3785a1c8a3384633f51830482c81d110922183cc275a19576fce",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "app36-final.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "acdaa17ca4ece39df1a6eb6d207ca04c97b440a31277c5260bb7a9ce400789ee",
+    "archive": "2026-09-05/app36-final.py.txt",
+    "archive_sha256": "92cb0f879df38d1600fcbaad108f17c7a8cc5fad308adb55c8f09fa9cffd0f37",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "consumer29-accepted.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "97ae0538bcf0b81b1d1892ee8c0d662ab35eb8f187320ed00b56f0092092cb6d",
+    "archive": "2026-09-05/consumer29-accepted.py.txt",
+    "archive_sha256": "2c6ec340582c57b245e0ab72aaa20704111d7ef39718df0b280c61e8d1d20f04",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "consumer36-accepted.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "1137e22a7b3a47414c66adf7ed8320a9232fe5921e8e34b9b862aa904be49e9f",
+    "archive": "2026-09-05/consumer36-accepted.py.txt",
+    "archive_sha256": "31b9dcdd2cb6dd68ff044a3792f50625368d0aaabe6b826a39f24364454946e2",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "consumers-verified.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "2790854b5aeac30696be75386587e66d08739eaec1bf085a24e7e4f24a59e089",
+    "archive": "2026-09-05/consumers-verified.py.txt",
+    "archive_sha256": "67599e9954283e9eb682602d69d3f30a601da607368edc696504949d1d06125a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "developer-connector-phases.py",
+    "date_from_mtime": "2026-09-06",
+    "original_sha256": "868b0f6be79d9ec56eaa4169b85ed319e7fc31f527b9e8b84e5eced63dfc8e65",
+    "archive": "2026-09-06/developer-connector-phases.py.txt",
+    "archive_sha256": "868b0f6be79d9ec56eaa4169b85ed319e7fc31f527b9e8b84e5eced63dfc8e65",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-a2a-known-id-refreshed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "53ae6b9d1dcd6d149eb448bddcdab93db91b69c0c5541b666151760671f424ed",
+    "archive": "2026-09-07/run-a2a-known-id-refreshed.py.txt",
+    "archive_sha256": "34205e5233fc10c8d42c3f84ee3d8eb15e26ab0a115ea194e517012f08fa11f6",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-a2a-live-kill-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "9bdaf1146a693de64d38fd9e1a6b35e5390b92e90846320e232b667771ee7ea7",
+    "archive": "2026-09-07/run-a2a-live-kill-matrix.py.txt",
+    "archive_sha256": "370c94a253f5d2de13be1441c126c84ed61845736fdf436b8225e14fa3473434",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-a2a-unknown-id-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "087dbf19269a2f5a2a3022bfd005ebace858536511ce0c3c42636a56f3f6190f",
+    "archive": "2026-09-07/run-a2a-unknown-id-matrix.py.txt",
+    "archive_sha256": "0a26bffaa67fe61b6801cec9f1c9c38c30fb5553f845dd3bf0f2c65c2e8f37d3",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-api29-basic-modules.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "5dc0e49d2cf88f193adde480b401d5ad7ff645ac83724a2264a5e8424bb42c51",
+    "archive": "2026-09-07/run-api29-basic-modules.py.txt",
+    "archive_sha256": "74bc278f881cf988d68d9abeba34b2e8c1791c1b3fb85889781257cd65799b18",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-api36-basic-modules.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "5bf08081364243ca364ed4e17b807ad6d2be3503dcde1be8e1a977e05d3ba292",
+    "archive": "2026-09-07/run-api36-basic-modules.py.txt",
+    "archive_sha256": "dce1a90a56a8f6134c1d342d93c9c0e95d4fed4ed576ba5dd6dc0f11149e2dd0",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-apps-settled.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "3563f7c8410d96e307af44fb7452461cbaac73c7cde7f4a6fd0a062b470c6814",
+    "archive": "2026-09-05/run-apps-settled.py.txt",
+    "archive_sha256": "205dccf424ea939725a44bdc74f43ab98eb5de5e808a138c6a12e24af908961a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-automation-cleanup-fixed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bc4a264aa1564da88e4c4a4b1424a14ea64dbba0d5b410e185883878dc475e8b",
+    "archive": "2026-09-07/run-automation-cleanup-fixed.py.txt",
+    "archive_sha256": "a3083d43e63d6aed65a467a4a135094a0b45f71ab32498b9d91bce22f43a9cb1",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-automation-live-force-stop.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "7b58a9469b6412af7e5b75fc26df335f67e60b7e099294af489233de5a250d36",
+    "archive": "2026-09-07/run-automation-live-force-stop.py.txt",
+    "archive_sha256": "6968dcb8ba311d334f1b39ea74e610f96488594084a39d1cf61e2b69af718b55",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-cli-anonymous-api29-dns-fixed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bbc6b09d50822f26546ff79443c51e888b461f066f4d2794dbf06e3dc68d6cd5",
+    "archive": "2026-09-07/run-cli-anonymous-api29-dns-fixed.py.txt",
+    "archive_sha256": "3bcc08c6ed74d38b8dd2bf77bf3b59f7ed5ac58b0cdbed277ee9dc1218cd6b57",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-cli-anonymous-endpoints.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bc1051a84ba0d996737a8f54abe6de01d0cc9547848826eb74a6fe858a268ced",
+    "archive": "2026-09-07/run-cli-anonymous-endpoints.py.txt",
+    "archive_sha256": "186f6547a59192b55ad902b6db6464a228a542959201044ed2ea166990e7b404",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-cli-owner-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "dea75e592b20e904f1629b958d2f19fbb4864ceda8cecaec5541582aadc5c5f5",
+    "archive": "2026-09-07/run-cli-owner-matrix.py.txt",
+    "archive_sha256": "9626cc3633ddf34c54d43b7659207a070d5f06260368a48c37cf3c56af4d48f3",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-additional-app-matrix-fixed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "5c16f61712be7688ed77bd2bb31702e6432193ab82e60fef94de7cfca983a8bb",
+    "archive": "2026-09-07/run-current-additional-app-matrix-fixed.py.txt",
+    "archive_sha256": "c1bcb7ebfe3edefe2eee43b6e5f07032f1a92901cadef5b64d2695c0308b62a9",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-additional-app-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "447aa84279aee4586bf89f9130442ce74c3d534f7429b559e22791cbef90b9fe",
+    "archive": "2026-09-07/run-current-additional-app-matrix.py.txt",
+    "archive_sha256": "aa35d7c1b7e3250b97f5bd0b6d62d0fbba71d17d9ccbf42afb9c06beb30a17c9",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-core-matrix-fixed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "7ab7dda4116d6bef4352ee36f653f47df24d2797b3ba4519d508e233641ae931",
+    "archive": "2026-09-07/run-current-core-matrix-fixed.py.txt",
+    "archive_sha256": "aabbce6797c43a87b326f198375b89b0b839caefd22cfe1ec41f7613df6a7f7a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-core-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "2d501eafb8e03dfbcce1ec8f6d75b693030930ec1e554d91707a4c9a477dfc7e",
+    "archive": "2026-09-07/run-current-core-matrix.py.txt",
+    "archive_sha256": "b58b6fffa2ca0d9c36bcf8b406f943266a369364ef8ebde452c41611706211b8",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-flavor-ui.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "54862cc101cad16cf77bd21e5da8c757f5eb1d37cfab84bc38ab65b358e7b477",
+    "archive": "2026-09-07/run-current-flavor-ui.py.txt",
+    "archive_sha256": "5734f5a84eb2c13a90a1cb69fd747e32dc5e97a3cf2d1034798ee3c60182c1bf",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-goal-matrix-fixed.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "66cf689b93d417dc2922fd271481feb44d9ccc6d3f5929ac9324c6417a3f892f",
+    "archive": "2026-09-07/run-current-goal-matrix-fixed.py.txt",
+    "archive_sha256": "edc603496657afaa1db24eabd09e062ea3aaed7245255a5c69dc063091e26a8a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-goal-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "d31646ef5d014d4c7c435dcd918cdaeb1ac157e750c6c3ed2f2e37aa9bd742c5",
+    "archive": "2026-09-07/run-current-goal-matrix.py.txt",
+    "archive_sha256": "bc659a14623a96ed877a71b5fb748d544d9fbf2aa53f30bb693dd095cc1c731a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-language-allfiles.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bac17b4c99abd1cede1ad4788e6b7300995c50cd532d0143170ec0f831be4792",
+    "archive": "2026-09-07/run-current-language-allfiles.py.txt",
+    "archive_sha256": "96363e2b22d24620f348668a44333ac7d50ed156fac439e2f3726bc9e7fffce7",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-m11-mcp-main.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "d36c529f685f001906a7e8493f17e48f054b5821b8fc742d04d2a74c0fb98e6c",
+    "archive": "2026-09-07/run-current-m11-mcp-main.py.txt",
+    "archive_sha256": "c95db6116a175dd8e94279769c6d6c338d0cd97d21cba193a427a0ab4dbf106b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-module-matrix-ready.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "b4a4dff7c49271eb8fbc66a89c32bb6b4a8ccf66c7cd8a807ee78eb5e3dbd9db",
+    "archive": "2026-09-07/run-current-module-matrix-ready.py.txt",
+    "archive_sha256": "ce2e26bf8a52dc8e06e02176b9fb91e618ba706bf6d68753bafaf5547806b338",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-module-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "cd0e74daf2d435e8e46e0b6ef222a729ca77d7e2714a42e41dcbfe802b2bd366",
+    "archive": "2026-09-07/run-current-module-matrix.py.txt",
+    "archive_sha256": "9cf97eafdf2396c35e7d47449c41b0b97bcf525113364e0cdbefd17509339d68",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-proot-main-remaining.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "8352dc2fae7469709ca0c436ae1209f82cc64e67c48cbb5a20e303b75e70c214",
+    "archive": "2026-09-07/run-current-proot-main-remaining.py.txt",
+    "archive_sha256": "d8c44e93c2b2d6446a42e30b4d7e5d9d7eb4c70eb8cc5be59de96ba57684be47",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-proot-modules.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "62673a37cb8f51f35fdb9849b0c8b6c45e4bd4a45d2fb69c5e7b04f38607d750",
+    "archive": "2026-09-07/run-current-proot-modules.py.txt",
+    "archive_sha256": "9d6c55d3e5cd83aeedbbaa482851c918d62a641810b3ac868511720b01bf3975",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-provider-ui-matrix-final.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "b0c2d3ec7f726ace10421c54cc3a8afda735fe9e1bbe1a7f943394972c13c397",
+    "archive": "2026-09-07/run-current-provider-ui-matrix-final.py.txt",
+    "archive_sha256": "51da302eeddec963df2954437125aa85cedaf7220283a08c0ecacefca203690f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-provider-ui-matrix-scoped.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "213afcd565f6551fb3af206f4e082c702735f8435417bb82c4462c13d355ebb9",
+    "archive": "2026-09-07/run-current-provider-ui-matrix-scoped.py.txt",
+    "archive_sha256": "dbca5feb1cf8d212f729f6c47cb47c6f92b906df201e43982ccabcbb3f98a130",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-provider-ui-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "e70de016b3f95f8aa5b5b337b9d253dfd9a8f8f7ea4029c26873df9a8ab23581",
+    "archive": "2026-09-07/run-current-provider-ui-matrix.py.txt",
+    "archive_sha256": "c270f69a0497fd9894d3a2f9304cbc5ec024dae30e114b700df2d086a5ba2b4c",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-current-resource-api35.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c579a2868382d586dc45f2e542f8dd56fde2e1f60b9e3496cb03f59fa924c5cd",
+    "archive": "2026-09-08/run-current-resource-api35.py.txt",
+    "archive_sha256": "6de1323e0b0041aeaca2beb0ef32a39702519ca6981db22f5584764cbd53e323",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-developer-full.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "5e4d8062bed9eb6829740684895571c80ad71936e22a8ea4424f470fc8fbf4f9",
+    "archive": "2026-09-05/run-developer-full.py.txt",
+    "archive_sha256": "1e2967f173ba1bb7e93d39a4d5ff47073083e728ef3d329e5d611f738b4dc997",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-final-app-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "bce44bbcb079a58463e64295724f107e8746974d635773a4f2309db58d750b26",
+    "archive": "2026-09-08/run-final-app-matrix.py.txt",
+    "archive_sha256": "2db80d7a9d4b483975cc9ac2fed1631e8cba971fb14fae3dfd995d19c43ecbc7",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-final-entry.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a56ae9bda84e72e62076bf340ff7b369e5a197ebb0ca40379e7513df8c4528cc",
+    "archive": "2026-09-08/run-final-entry.py.txt",
+    "archive_sha256": "b25579ef90ba4d6ce1eefaa4b3a784c039082627c051bf1395bf81b7590daf15",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-final-m11-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "37497371dcb4a4bbb381fe77c98b8454c1921a7ddaec35b25ee7f70ba34cf753",
+    "archive": "2026-09-08/run-final-m11-fixed.py.txt",
+    "archive_sha256": "f8c57a01ce81c74249a85a677f1668558788885eb4e3b0f63988ac6f8966b4f3",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-final-m11-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "0a7be08bed680077ecc7d9bba719c813cefbc7736799e020a9959ca57fe20128",
+    "archive": "2026-09-08/run-final-m11-matrix.py.txt",
+    "archive_sha256": "af774b3c5a9bb861f2308ee8357e444aed5658693478cbb55cd7d7804e6d2247",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-component-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "eb2ff1049b046c75e082216b5eb42a88b9a95a8e144acfaa6e338eac56ee24bb",
+    "archive": "2026-09-07/run-goal-component-matrix.py.txt",
+    "archive_sha256": "87d29c4bf48833cb219f977d44a24fe5c093cfc91860b7a3946051b313d0a3a0",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-deletion-fixed-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "de683c9f6785d49e82d298e9f56c211e8df174037408598cd2d9d4f7be926f70",
+    "archive": "2026-09-08/run-goal-deletion-fixed-matrix.py.txt",
+    "archive_sha256": "f0c06bb8e0cfc88c791570566569a9425bd6d64a97afb5d5e65a9d452fa84bb1",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-disconnect-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "28e93267932f73e6aa5bd41d77b9f705e526f5dcb9de7c0b64ff31f365548355",
+    "archive": "2026-09-07/run-goal-disconnect-matrix.py.txt",
+    "archive_sha256": "61cfa46ca8d98108cbbc26b26ed60bac8f385f4f4942be9baa6943bb0185b3eb",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-evidence-kill.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "61fd83f042b0cdf812503ea7fc2e46b3a2bb3fe01f981ad8f6408f7bccbe744d",
+    "archive": "2026-09-08/run-goal-evidence-kill.py.txt",
+    "archive_sha256": "428a99b938c5a7aba179f193818b555a8a55196ec025c208460abaf9bceafab2",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-host-signal-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "b742d42ae6acacf2d2219f4f05d3427af290f92b59b453f7ba9b467986b49c03",
+    "archive": "2026-09-07/run-goal-host-signal-matrix.py.txt",
+    "archive_sha256": "0eae07020945e9e31d49b6fc96aad97c766bf51a84b491c9c3bbd05b6dcd8d05",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-kill.py",
+    "date_from_mtime": "2026-09-06",
+    "original_sha256": "ced7b54bcc6163e161c39ed8253cba64d1cf9d1a6ff957fda5e6c5b5c68711cc",
+    "archive": "2026-09-06/run-goal-kill.py.txt",
+    "archive_sha256": "6381b32ba25482eb600ead745aa66bfa2f87333029fb3c2bee49c5a3b3339768",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-real-edit.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "b5f0fac61fec6912ca8d0b2b2fa116727100516ed8a096103a297e20313501f8",
+    "archive": "2026-09-08/run-goal-real-edit.py.txt",
+    "archive_sha256": "8b84b5faa6f3eac37ce7da293a2e218fe344431ea27891b9ae0e7a9a46c72564",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-real-proot.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a07b18b451838336ab1bcc1bf7599d0d77de21adf71e478456a6216336936eb8",
+    "archive": "2026-09-08/run-goal-real-proot.py.txt",
+    "archive_sha256": "c7697a8373de0a924659277fd3896717abd45bb6f50df751b773e11d2e5c1a1a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-real-ui.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bb1fb3aad4d7fcd6de03e7e6881296419c66dbe21cf17cb10aad517d8cb21451",
+    "archive": "2026-09-07/run-goal-real-ui.py.txt",
+    "archive_sha256": "bb1fb3aad4d7fcd6de03e7e6881296419c66dbe21cf17cb10aad517d8cb21451",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-goal-rotation-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "18c9a2a9848545071f4d1be78e45fb8c994fc37a5f6216d3e55f2950977bc8fd",
+    "archive": "2026-09-07/run-goal-rotation-matrix.py.txt",
+    "archive_sha256": "3dbc11acfca33136652b3285826989fe9e7ad6c85cfaaa9dd91555a704b3c44b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-approval-layout-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "37d663eaaa7e1e227d5d64ea149bba6d68136e255aec0eecbbbfb96f6dc10738",
+    "archive": "2026-09-08/run-hxa147-approval-layout-fixed.py.txt",
+    "archive_sha256": "fe696ad1ca17e3d81f79c9d87d9bf467c056404ac7b5d04aa98596a28d1ad0fd",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-approval-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a7588f02e7a9e2308eba8f7b14c299d95b06c8383b2f003e0a29bc5221e13c8a",
+    "archive": "2026-09-08/run-hxa147-approval-layout.py.txt",
+    "archive_sha256": "05280ffc5cf055d273c82fed45d85819d1e4e52e9884ac1ff02ec826a43612ee",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-browser-layout-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a944b3b82dd7dfdfef09b67438aa5d3df46fd62e84148bf31ededa9f102620c4",
+    "archive": "2026-09-08/run-hxa147-browser-layout-matrix.py.txt",
+    "archive_sha256": "bd0e1e85f1fe39051047ebf81457970735e06b827812b9f2ca4eb97c8e09bb81",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-browser-layout-red.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "4d2fd519580982c580206c24cf3fb5ce9a5107af591ee321508656b76920cad4",
+    "archive": "2026-09-08/run-hxa147-browser-layout-red.py.txt",
+    "archive_sha256": "b18e9adbbdf4ba551607c33536590b40dcac982b39d311bc32fc2b06d19d2306",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-composer-flow.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "d461be8421561afc0cfb39d04ee2a4596045dfa815cd3ca290c409a7619e459c",
+    "archive": "2026-09-08/run-hxa147-composer-flow.py.txt",
+    "archive_sha256": "b592f184e13311fe8b06655cfe18fee01049037b708df704b6ec64203987c826",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-composer.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "f4f3f41e7f7805b7243d6e215af15ab709125f06c8cbd90e5d7965ed716237d1",
+    "archive": "2026-09-08/run-hxa147-composer.py.txt",
+    "archive_sha256": "c8a888ccb7e6ddfdb54798dac0c13a819f6f7d36f2a572512c820b7d61d6b5fa",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-empty-follow.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "b6f560cf51e0925826d5e2e62c2bf6faac8fc6e89576a3cea1a10688cabbf520",
+    "archive": "2026-09-08/run-hxa147-empty-follow.py.txt",
+    "archive_sha256": "b3783e204d7fcf04a3bccc4cdfb37ee85dd30f673e7b1db6eb82801c9822298d",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-empty.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "af648b91625844e1520f816716659424265a22eabe6e24926c8e5319cf3717fd",
+    "archive": "2026-09-08/run-hxa147-empty.py.txt",
+    "archive_sha256": "74d58322b2cd00de59156342d8b1886ef2660b29428dbba48cb97b942e22da96",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-file-actions.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "72022ae9759ccb2122e18a894427e4869e7b4dc3809452e022f38199276ac587",
+    "archive": "2026-09-08/run-hxa147-file-actions.py.txt",
+    "archive_sha256": "6817ee691803c98dc168addf7b47c8c1db4d200b3fc43206f7a478c90925f12e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-files-controls-font2.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "1b54fe686f01eeb3672a707d01ba3c5ce70878bea5797c86384b1303712b7dc9",
+    "archive": "2026-09-08/run-hxa147-files-controls-font2.py.txt",
+    "archive_sha256": "35b34532bc3b6f5dac0534f06e8c9c1108b7944b9cb742a0dc1ad3b323846969",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-files-controls-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "45889b8cd7e71b529a9e7757e68967165e5af98d5cfdb06a04f6c05ace9002cb",
+    "archive": "2026-09-08/run-hxa147-files-controls-matrix.py.txt",
+    "archive_sha256": "c0a631deac8dacc260dcd8e6f45e3e0b0f9989aa0133d4a027ecd06dd620f3c5",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-files-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "dc0ba49fc66ed40b5cc6a0df36b7d6b88cd37c474e31083a88dd1dd137fe7e99",
+    "archive": "2026-09-08/run-hxa147-files-host.py.txt",
+    "archive_sha256": "dc0ba49fc66ed40b5cc6a0df36b7d6b88cd37c474e31083a88dd1dd137fe7e99",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-files-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "628bf929e44b8d28c5609b361e71d3410f5ef8444cc196d263bc368a00bf77fb",
+    "archive": "2026-09-08/run-hxa147-files-layout.py.txt",
+    "archive_sha256": "9d27f1ebaaf409863ab0a9223ec0eb7869c0abc0e6f42c880e095ad47e68db49",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-final-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "210bdf7f7760c921093f8433eaad31e54025ab5a7dddea961f6f784ebbe85d70",
+    "archive": "2026-09-08/run-hxa147-final-host.py.txt",
+    "archive_sha256": "210bdf7f7760c921093f8433eaad31e54025ab5a7dddea961f6f784ebbe85d70",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-font2-fixed-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "5a513cadb9a01c163c3fd90e96fc610a07fdbcbf198e9d90a1f517512dffc826",
+    "archive": "2026-09-08/run-hxa147-font2-fixed-layout.py.txt",
+    "archive_sha256": "2c5e65050702842a1dfb93f95fc80286e41c6fe41aff6b70f3e0edb5a1488e1f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-font2-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "4983a47db1552565567ea1a20c977a1e27bdaa55effaab300cb52dd9eedd5ef2",
+    "archive": "2026-09-08/run-hxa147-font2-layout.py.txt",
+    "archive_sha256": "06ee0f1d3a4b1280c033e09c955eb4d6c51654f35b7668cb2d4256fbfd8f4d95",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-font2-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "7de61af7facf39280f328ad7d4350a7537e0a94c3bbc376ed2cff481eeaeef3e",
+    "archive": "2026-09-08/run-hxa147-font2-matrix.py.txt",
+    "archive_sha256": "9e80af29006965f99f735ef179d870ea0712636ef87f2688a9c8fe8801b8e6cf",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "ecfe80c1e42e45abe0e79f490b042fbcf3f04d395de7380bd3a0048cb49f094e",
+    "archive": "2026-09-08/run-hxa147-host.py.txt",
+    "archive_sha256": "ecfe80c1e42e45abe0e79f490b042fbcf3f04d395de7380bd3a0048cb49f094e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c3c9b7927498a7264a21c8644f4d41b48b0894f89d9d374bfc516a74ddc87f7d",
+    "archive": "2026-09-08/run-hxa147-layout.py.txt",
+    "archive_sha256": "ee86ec0817e1c6d3601f3dd5b612716af2ebbeff0e44242a9664a1a9a66e531e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-mode.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "ad6543baa8792b7e54f67ade785c7e84b7522fbc79ab0116d0e54a079fb97de5",
+    "archive": "2026-09-08/run-hxa147-mode.py.txt",
+    "archive_sha256": "0efb8bb2198236e39c136ecdf40cc27ae29fc7eaa899ee54a076e85c50a9b2b0",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-navigation-font2-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "63cb1d354e56f797b49e1c014ccaf6a7e9f5d7eec57865c36fd844f58e4b53d3",
+    "archive": "2026-09-08/run-hxa147-navigation-font2-fixed.py.txt",
+    "archive_sha256": "7d0a12a8f15ae7e9b443f3c858d49700878641fca83cd3621d7b7def02249bb4",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-navigation-font2.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "97a51061d736625ccf2e344ec372e862c6b7a53ea88215a709d78dfd3cf90f42",
+    "archive": "2026-09-08/run-hxa147-navigation-font2.py.txt",
+    "archive_sha256": "9dbc9160db924c78e709561683e075fc87d7fca2c92ee00d52ad3e3a8995c8a5",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-navigation-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "f5c0711a5ca3fbb38d76c239c1308c42d707620066ec4d491bfdb2c832323127",
+    "archive": "2026-09-08/run-hxa147-navigation-layout.py.txt",
+    "archive_sha256": "5bdc0ae6ac7caf22d05a2ada716a0918a150da333fb42292cf6ab17f971ec6e5",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-navigation-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "325d62f691587f92d686b47d107b39495e0da4e1cca398f8cc8ecd701e9fc820",
+    "archive": "2026-09-08/run-hxa147-navigation-matrix.py.txt",
+    "archive_sha256": "69eec160383716f62dada7e421396e0be46dd68963278b944b94f49de35f8b82",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-navigation-normal.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "204953189f5493356f6a71d2b39c225fa730e18ac74faed5809aab2c5413e7d3",
+    "archive": "2026-09-08/run-hxa147-navigation-normal.py.txt",
+    "archive_sha256": "8854880ead320512c12799d14b99c0d719ec415348e9142c095488c0fbb65e43",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-notice.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "b0e5243660b858ff3c939f3cf04ce4c805e04bdf93988d76321328d373c12ea1",
+    "archive": "2026-09-08/run-hxa147-notice.py.txt",
+    "archive_sha256": "c0d5f8185d6cfcee59bbea71b0e1edc581b534fef50002fcfd4bfd28079310f8",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-progress.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c4df914d6bb1fe88c86d867cdc1d9fd34b615633ae9dae6db113d9ff6f4955b8",
+    "archive": "2026-09-08/run-hxa147-progress.py.txt",
+    "archive_sha256": "39a4af00db884c253d9c50c2312e7001ac1a8347ddd0329de0811f27809c61e2",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-provider-copy-fixed-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "27af72f03cc092dfb12f4389d344c419aac8e92794aff862a42e4bc297a48f02",
+    "archive": "2026-09-08/run-hxa147-provider-copy-fixed-matrix.py.txt",
+    "archive_sha256": "ed63f4587ba1c05dc4bbadfa4936f22fecb491e217bc919abb705af8370d79fc",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-provider-copy-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "296281473225a52551d755729b09c8b7549a67d2375bf7ccfaf4b8b32c70e83f",
+    "archive": "2026-09-08/run-hxa147-provider-copy-matrix.py.txt",
+    "archive_sha256": "d316d031c1a564879dcd1329f0d3a1c3ce8e5045998fcf6140b23cb4334e31ee",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-real-ui.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "0cbdc705d836826f1599b5895dcc46b0d6b45af9cecd8d1f782f0095d9ac293f",
+    "archive": "2026-09-08/run-hxa147-real-ui.py.txt",
+    "archive_sha256": "0cbdc705d836826f1599b5895dcc46b0d6b45af9cecd8d1f782f0095d9ac293f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-recovery-ui.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "a4bac3a18e6cab2e0631457e0e0f775aa1d1345b6c0d0386c8579396fa534cb0",
+    "archive": "2026-09-08/run-hxa147-recovery-ui.py.txt",
+    "archive_sha256": "d66da45a5147da42fa69bd7f90926f916bfa481775db833cc7d19533234d3f8a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-retry-eligibility.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "608b514c75d1c0b9603b237bb6238b681b7a6f7c654b5c024434fdef176bf191",
+    "archive": "2026-09-08/run-hxa147-retry-eligibility.py.txt",
+    "archive_sha256": "c870afb11489823695ba088ca534c13371944e7d28d06b25d204c242099e6dbb",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-retry-ui.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "6e6cefc9d4be041f7fdcff73d46c4fee426069a207ab93b8a4462b6e5ef2f00a",
+    "archive": "2026-09-08/run-hxa147-retry-ui.py.txt",
+    "archive_sha256": "c4c25ed78657ef17d713e7bd320803a4f4804304c3174e5e23de9bb012ed3326",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-scroll.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "d2a237ed863c4b94a615baa5e738f85c02eb612abab6e943923d0b01c110b0f1",
+    "archive": "2026-09-08/run-hxa147-scroll.py.txt",
+    "archive_sha256": "25e76daa12d1350131551c98c7b4f61d7ea30d79980fd6b8017810386fccc3b3",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "503eeb6b30701d3142ab16d351b78aecc06ce52ac48d3179d50e0dc944c1cece",
+    "archive": "2026-09-08/run-hxa147-small-layout.py.txt",
+    "archive_sha256": "62a7caaa78ffb21044a896debaeda34e6359f6979c155286fd60195b8ff6994b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout2.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "11cf80d2c75c1c533235b96e652c03ce92572ec39121f49b65c9f2148b16ef4c",
+    "archive": "2026-09-08/run-hxa147-small-layout2.py.txt",
+    "archive_sha256": "194ff40657d9d3bec26eda7c3a58fb93f451946909dd1c15f2cbe99bde0a6f84",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout3.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "d9024cee181d3bbd2492aeb96b1983a521b5fc744d23af39d387b1d2d7129f9e",
+    "archive": "2026-09-08/run-hxa147-small-layout3.py.txt",
+    "archive_sha256": "e50255deba54448883ca262121c3dac153d03c8ddb822155f31e954b441f3efb",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout4.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "295d43e020e11f64def9b305c480c8a8cfd60c76c864286765a065c95e740c85",
+    "archive": "2026-09-08/run-hxa147-small-layout4.py.txt",
+    "archive_sha256": "64aecdab941ba30f8106a01e3a35b7618f00442f2d4063e756a1819971aa0a9a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout5.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c4e25161d60e2525655d3745d15e09a3247de27eceb25fa2b7d8966478278f61",
+    "archive": "2026-09-08/run-hxa147-small-layout5.py.txt",
+    "archive_sha256": "e40889e7ac4b6018f4f2ee30a150131462da0b7639845519e797f1bcbaee7b2c",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout6.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "4018a3396dcb7a5338b3b14406029fbd475ee65cf5be33323941ba152270a4fa",
+    "archive": "2026-09-08/run-hxa147-small-layout6.py.txt",
+    "archive_sha256": "cc3de2e84425bc95de8e34f763e2808694814965fefb081a0dab364c570a06ed",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-layout7.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "fc998b409960f7be8f894f794bc730f37f90300e81d878aa6f5eb13e2a50438a",
+    "archive": "2026-09-08/run-hxa147-small-layout7.py.txt",
+    "archive_sha256": "35a9ce81ea9c2b540f031f68cf2f2d3900dadf65a4ee4b8af058cf58bfbbfbbe",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-small-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "d0c8f4db79d595b3b8aa867341c9f7e6cc39ae4140b1185ed9769b7f9aa4acd7",
+    "archive": "2026-09-08/run-hxa147-small-matrix.py.txt",
+    "archive_sha256": "5dbb7c4d967ab24de27b8952426f145b6ca31b7443ae96e7538c66971567248f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-stop-ui-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "1df2f8e2ac0b09852c091eaa6bd65f621563a5c8215d776cc7c52cf984798aa3",
+    "archive": "2026-09-08/run-hxa147-stop-ui-fixed.py.txt",
+    "archive_sha256": "5f14fd1b6122ab4868c56d70c77883a1310dbd658ee117cd66e8dfa786adc9f3",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-stop-ui.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "75b024bf7d054d2903b84527497686a958558d4639729916f87711912dc6de74",
+    "archive": "2026-09-08/run-hxa147-stop-ui.py.txt",
+    "archive_sha256": "77fff993e8fc44dd402dc626d819ec443cd92dd42e61d92e5958d0e96e94856e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-subscription-chat-boundary.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c70fa5092936f09320399d3cd09e1d800cd3eda2f85df732314fbde715068fc7",
+    "archive": "2026-09-08/run-hxa147-subscription-chat-boundary.py.txt",
+    "archive_sha256": "3df2d756ea4a52b8e2b6864ede3401cb86b40f796d86f3c3a15cfe2d4be0a990",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-summary-accessibility-touch.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "0a5fb70c8116973121adfcd4af4a2394da7954482ad92c78ca48d470c0332880",
+    "archive": "2026-09-08/run-hxa147-summary-accessibility-touch.py.txt",
+    "archive_sha256": "1d3b0a22d75739f5159594a9cf40f6921063b935e7b1ab2cc28d4b044703df92",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-summary-accessibility.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "5aea839051455b6666f6cdb4365a8e0984b48a6b96f1b26ae51404c7ce89f619",
+    "archive": "2026-09-08/run-hxa147-summary-accessibility.py.txt",
+    "archive_sha256": "9405355f788f3c0d28b3aba752225982d235165ec18b4c9ee71c757746b0bbec",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-summary-inline.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "e0f2daaff8964730aa79cd3dea6cc317a6bd95ece14164ba1eca57ea7b72a8a5",
+    "archive": "2026-09-08/run-hxa147-summary-inline.py.txt",
+    "archive_sha256": "723b452d8185af1a5f3be5071c728ec37bb5aec4f156bd507524a772b0a14a4b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-summary.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "fabee4759a71ce9d35879c0392741f9e9aeebeb077fbe85a04869f356060fd14",
+    "archive": "2026-09-08/run-hxa147-summary.py.txt",
+    "archive_sha256": "1afca408c5f44f907cae08e66c4a6a0de9f938f6bae8cbfae15c1bc41c8c1387",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-tool-completion-current.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "b2af3c4344ea66bde80eb6109b6922435916294dad59f61e502ef26bb8e94ec0",
+    "archive": "2026-09-08/run-hxa147-tool-completion-current.py.txt",
+    "archive_sha256": "ac60cd9a75ff891eb77242d3a793e483d86c383f45fb0f7ae064a6f3eff5770a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-tool-completion.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "7d673afc267d359b58a624288a30b1b878a1275b9849113c361fee6a43a524dd",
+    "archive": "2026-09-08/run-hxa147-tool-completion.py.txt",
+    "archive_sha256": "3d564ef882a28fd0b719cabaeb18fef4bc893e70fd692178b4afcc045a89ee28",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-hxa147-tool-row.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "76195aac85a4c9321863fd08f95b5f2ccf4ec04a677d091918a6b52e1ced9463",
+    "archive": "2026-09-08/run-hxa147-tool-row.py.txt",
+    "archive_sha256": "a374e0af9665e86abe36bea4832ff3bb0a09571fc189d44f9160da8a1f7d2c01",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-js-approval-boundaries.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "960667c52b0a4734005c3892604f5fa42e645c0ee1caba7ba94a8411ada6b035",
+    "archive": "2026-09-07/run-js-approval-boundaries.py.txt",
+    "archive_sha256": "513b8a88a9bd2a50801092a1c57dd0d55c2394daa78f5272caf590d26590f838",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-lifecycle-component-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "aea3b0b33c8b86bf6d5aee84669c6fbc3db7257c8b17bc86353afaa57779217c",
+    "archive": "2026-09-07/run-lifecycle-component-matrix.py.txt",
+    "archive_sha256": "c781aa8ac6ff420d77409f2fc1efeb437c59fa8070c46c346c5d221f9e9194a9",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-local-id-core-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "57a1e6babfe64871543141da12849821b17d42c4e18fa5e5cfa160ed453502b1",
+    "archive": "2026-09-07/run-local-id-core-matrix.py.txt",
+    "archive_sha256": "3c088833060efc5e090ac85b69b2c339cffaa34910bfdd9759726e87edc4c737",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-local-id-goal-attachment-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "718f4c6cdc444364a7f924eecc3e1bb019843f26b3d92637927e8aedf132bfd3",
+    "archive": "2026-09-07/run-local-id-goal-attachment-matrix.py.txt",
+    "archive_sha256": "e2281baeb42aa211b02b1a24613816f35304f290c60c0c9624d1a6e35ae2fcbd",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-local-id-goal-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "bc9d358435ea3ccf9abe1a754509e7b1c7929ebac0f70ad780f22e14c87a5ec6",
+    "archive": "2026-09-07/run-local-id-goal-matrix.py.txt",
+    "archive_sha256": "3abbc3cfd60ca447db46e273cb06c2b98ae21213fb6a514c64485329693908f8",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-local-id-remaining-evals.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "b1c5740e6d5ed5ef4f08ab5e3c3a7f51f64a98c094fdbc726e2f20f0df4a0480",
+    "archive": "2026-09-07/run-local-id-remaining-evals.py.txt",
+    "archive_sha256": "c70a1c9d36fb914ab953bffe3f4f6550f8fe4ecad972edb2be2f96d18976a15e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-model-kill-host-signal-matrix.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "396d200806eea09a2768d5c672191903a7b3c98c5944224fb954a1f6e3f85616",
+    "archive": "2026-09-07/run-model-kill-host-signal-matrix.py.txt",
+    "archive_sha256": "2f738d50e25eceba2bfa699f83afe7e387af96d93915307107ad73c4eeb2c1a2",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-archive-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "f806e2f252ba8f9c033345101791a1d2e86d93c984b1d18f60368e024dd2da92",
+    "archive": "2026-09-08/run-post-archive-host.py.txt",
+    "archive_sha256": "f806e2f252ba8f9c033345101791a1d2e86d93c984b1d18f60368e024dd2da92",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-additional.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "2616a6ea95aa52f760b9b77b7b5d42d4ffe3867a73339c4de8f28fea2b660299",
+    "archive": "2026-09-08/run-post-evidence-additional.py.txt",
+    "archive_sha256": "a33da3e0e6d00c97c259d41f51197034c084b5e218f0b6c2fe2936a1faf39b22",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-core-remaining.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "83909fa3a075e3f08f60c8e5146ce95913df14cf4cc149e43fc0d41db8605cc6",
+    "archive": "2026-09-08/run-post-evidence-core-remaining.py.txt",
+    "archive_sha256": "fa25b7a9693170157be86b79ad1fbfc9b72f3aaed7f512874f5058cba71c4b9a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-core.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "1ab3452ac2bdd57b955bae33847de575b3a22fc611d4411f0fd5836fb72c480c",
+    "archive": "2026-09-08/run-post-evidence-core.py.txt",
+    "archive_sha256": "b802b0dc5d060209b2c6e04aa74a1dd5b933278af01cf762ac3c265d58ced5e7",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-goal-matrix.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "0a7963e1e3827d66266264341b0c9a0a2672c748b2d6f7febc97c8e44de4b439",
+    "archive": "2026-09-08/run-post-evidence-goal-matrix.py.txt",
+    "archive_sha256": "07facbb537dcbeefb14a986c6dd609680e290b97cd4ed260cecf6737d646c1a5",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "c2e31f5068871976650c4ba1ce9991a32c8319409810f2789478a92a27a71f8b",
+    "archive": "2026-09-08/run-post-evidence-host.py.txt",
+    "archive_sha256": "c2e31f5068871976650c4ba1ce9991a32c8319409810f2789478a92a27a71f8b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-platform-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "32a08d0b190937be1b1ae27e562e451b113bf805e8918821aa6340f491c428ac",
+    "archive": "2026-09-08/run-post-evidence-platform-fixed.py.txt",
+    "archive_sha256": "d68de0dacacb567765b51c30983d3b9cf6d1a2d3cc6e20502944e64ad7100df2",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-evidence-platform.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "4ac3b6a68e8d2a6dad51c1e45d0eb388941e12b295accb258f2d2ac240fc1775",
+    "archive": "2026-09-08/run-post-evidence-platform.py.txt",
+    "archive_sha256": "53e10f6a503fedc494160263962f42d9b6ccc04acbbcdf28e3e744ec655a2883",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-private-delete-device.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "6eddb35fabd85224270dac5a0aa9cd592d761e8a529c190cbb3f84ef7048b37d",
+    "archive": "2026-09-08/run-post-private-delete-device.py.txt",
+    "archive_sha256": "bece3043c3d8df08e013e4d37063d4e57517841c3c33f094df34985a214ff85d",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-post-private-delete-host.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "3f03b15aa71b85676b597978575472be2f420f86d436c228276b0bc0f9d88c0e",
+    "archive": "2026-09-08/run-post-private-delete-host.py.txt",
+    "archive_sha256": "3f03b15aa71b85676b597978575472be2f420f86d436c228276b0bc0f9d88c0e",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-remaining-local-modules.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "b9e71056940030c93a366a1b2dc40b36aa3f42e8917eef7e05971227426f09b1",
+    "archive": "2026-09-07/run-remaining-local-modules.py.txt",
+    "archive_sha256": "8d1150fb10bbdf08e023877a1dc91a2d1166f9b105142bc8fd2383332c76d33f",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-repeated-tool-rounds.py",
+    "date_from_mtime": "2026-09-07",
+    "original_sha256": "599aace89192b04f5bb3fb214649306bdb1b906f55d1d389008f88b6a367d43a",
+    "archive": "2026-09-07/run-repeated-tool-rounds.py.txt",
+    "archive_sha256": "4c1040ab9069180ed3e777fca0adc01e157340db1b8abc6bfcbfa5640451fff6",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-subscription-chat-boundary-final.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "cf4c9deaa024e35ae743ba2b9866eff063bc1d0349f876b5e7f52de2950ab802",
+    "archive": "2026-09-08/run-subscription-chat-boundary-final.py.txt",
+    "archive_sha256": "aebfc57a963acab5a4da2498a72e7b309d8f72a1355787d537aa59dc7b239430",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-subscription-chat-boundary-fixed.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "8ac91dc108ac77191bda35483750e745a1b7634389d3964bda124579c08dcc7e",
+    "archive": "2026-09-08/run-subscription-chat-boundary-fixed.py.txt",
+    "archive_sha256": "17ffc6683184fe67ec10ae34f7674918e856dda995f16e69844545f04286821a",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-subscription-chat-boundary.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "d80ec76fe13ca865ecf97a7c98573d2446db7b9f18e19eef540aca1c5306a905",
+    "archive": "2026-09-08/run-subscription-chat-boundary.py.txt",
+    "archive_sha256": "88d6999cce1ea80a11fa72164b35d75e1f278a36a2a63defeaf05e8bf2b3394b",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-subscription-chat-routing.py",
+    "date_from_mtime": "2026-09-08",
+    "original_sha256": "8279c3a3e62e0b3595773a0d526f3313dc96a86675e6464440c9521be9f7cae8",
+    "archive": "2026-09-08/run-subscription-chat-routing.py.txt",
+    "archive_sha256": "8f6cacda478b3e1292c8f33b029e088989b7d44443a0267f522bdd8e410ab318",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run_app_matrix.py",
+    "date_from_mtime": "2026-09-05",
+    "original_sha256": "903454d2d488c3beb216b156a27612b89a209c05144e2c5fa824e7fd5e58f6e1",
+    "archive": "2026-09-05/run_app_matrix.py.txt",
+    "archive_sha256": "dcd2bc33091695e3ea27b43e2890761406b3c2b0d8753034756664674494c52d",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  },
+  {
+    "source_basename": "run-ev01-device.sh",
+    "date_from_mtime": "2026-09-09",
+    "original_sha256": "98e090140b37549fb940e4d8cc848af591fb2f037557c267d5b76918c4fdedd0",
+    "archive": "2026-09-09/run-ev01-device.sh.txt",
+    "archive_sha256": "25965503c0e92ab6d8031e238d77d8b935f0e4b9a499f0224b69ac271320c5fa",
+    "redaction": "host checkout/SDK paths and physical/emulator serials"
+  }
+]

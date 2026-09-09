@@ -115,12 +115,13 @@ internal class ChatScreenProjection(
         if (sessionId == null) return screen.messages
         return storage.messages
             .listBySession(sessionId)
+            .filter { it.kind != ContextCompaction.KIND }
             .mapNotNull { entity ->
                 val content = storage.messages.readContent(entity)
                 if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
                     null
                 } else {
-                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty())
+                    MessageUi(entity.id, entity.role.lowercase(), content.orEmpty(), entity.turnId)
                 }
             }
     }
@@ -170,9 +171,24 @@ internal class ChatScreenProjection(
 
     fun badgeFor(sessionId: String): ProviderBadgeUi? {
         val session = storage.sessions.resolve(sessionId)
-        val row = session.providerId?.let { pid -> providerService.rows.value.firstOrNull { it.id == pid } }
+        return badgeForProvider(session.providerId, session.modelId)
+    }
+
+    fun badgeForProvider(
+        providerId: String?,
+        modelId: String? = null,
+    ): ProviderBadgeUi? {
+        val row = providerId?.let { pid -> providerService.rows.value.firstOrNull { it.id == pid } }
         return row?.let {
-            ProviderBadgeUi(it.displayName, it.model, it.origin, it.residence, it.capabilityChips)
+            ProviderBadgeUi(
+                it.displayName,
+                modelId ?: it.model,
+                it.origin,
+                it.residence,
+                if (modelId == null || modelId == it.model) it.capabilityChips else emptyList(),
+                (modelId == null || modelId == it.model) && it.capabilities?.reasoning == true,
+                it.id,
+            )
         }
     }
 

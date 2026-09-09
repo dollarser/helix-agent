@@ -1,0 +1,23 @@
+import subprocess,json,hashlib,pathlib,sys,re,time
+serial,api=sys.argv[1:]
+base=['<ANDROID_SDK>/platform-tools/adb','-s',serial]
+assert serial in ['<OWNED_EMULATOR_SERIAL>','<OWNED_EMULATOR_SERIAL>']
+classes=','.join(['com.helix.app.chat.'+n+'DeviceTest' for n in ['GoalRunCoordinator','GoalTurnBinding','GoalUsageReservations','GoalModelCancellation']]+['com.helix.app.ui.'+n+'DeviceTest' for n in ['GoalDialog','GoalEditor']])
+b=pathlib.Path('build/main-verification')
+for variant,pkg in [('developer','com.helix.agent.developer'),('consumer','com.helix.agent')]:
+ out=b/f'post-cli-goal-api{api}-{variant}';out.mkdir(exist_ok=False)
+ hashes={}
+ for package,apk in [(pkg,f'app/build/outputs/apk/{variant}/debug/app-{variant}-debug.apk'),(pkg+'.test',f'app/build/outputs/apk/androidTest/{variant}/debug/app-{variant}-debug-androidTest.apk')]:
+  subprocess.run(base+['install','-r',apk],check=True,capture_output=True)
+  remote=subprocess.check_output(base+['shell','pm','path',package],text=True).strip().removeprefix('package:')
+  actual=subprocess.check_output(base+['shell','sha256sum',remote],text=True).split()[0]
+  assert actual==hashlib.sha256(pathlib.Path(apk).read_bytes()).hexdigest()
+  hashes[package]=actual
+ cmd=base+['shell','am','instrument','-w','-r','-e','class',classes,pkg+'.test/com.helix.app.HelixAndroidJUnitRunner']
+ (out/'command.json').write_text(json.dumps(cmd,indent=2))
+ with (out/'instrumentation.log').open('w') as log: subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=180,check=True)
+ text=(out/'instrumentation.log').read_text()
+ assert 'OK (28 tests)' in text and not re.search(r'INSTRUMENTATION_STATUS_CODE: -(2|3|4)',text),text[-4500:]
+ result=dict(serial=serial,api=api,variant=variant,tests=28,hashes=hashes,classes=classes)
+ (out/'result.json').write_text(json.dumps(result,indent=2))
+ print(json.dumps(result),flush=True)

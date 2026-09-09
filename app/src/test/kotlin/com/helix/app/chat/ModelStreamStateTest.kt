@@ -12,6 +12,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelStreamStateTest {
+    @Test fun providerRetryabilityRemainsDistinctFromTheErrorCategory() {
+        listOf(true, false).forEach { retryable ->
+            val state = ModelStreamState()
+            state.apply(ModelEvent.Error(ModelErrorCode.SERVER_ERROR, retryable))
+            assertEquals("SERVER_ERROR", state.terminal(false).errorCode)
+            assertEquals(retryable, state.retryableError)
+        }
+    }
+
+    @Test fun reasoningStartsProgressWithoutLeakingIntoTheAnswer() {
+        val state = ModelStreamState()
+        val update = state.apply(ModelEvent.ReasoningDelta("private reasoning"))
+        assertTrue(update.receivingStarted)
+        assertFalse(update.textChanged)
+        assertEquals("", state.text)
+        assertFalse(state.apply(ModelEvent.TextDelta("answer")).receivingStarted)
+        assertEquals("answer", state.text)
+    }
+
     @Test
     fun outputTokenLimitNeverCompletesAnEmptyOrPartialAnswer() {
         listOf("", "partial answer").forEach { partial ->

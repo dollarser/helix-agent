@@ -179,10 +179,16 @@ class GoalRunCoordinatorDeviceTest {
         }
 
     @Test
-    fun invalidTurnRollsBackRunAndCreationRejectsMissingCriteria() =
+    fun invalidTurnRollsBackRunAndObjectiveOnlyCreationSucceeds() =
         withStorage { storage ->
             val coordinator = coordinator(storage)
-            assertThrows(IllegalArgumentException::class.java) { coordinator.create("Empty", emptyList(), budgets) }
+            val objectiveOnly = coordinator.create("Explain clearly", emptyList(), budgets)
+            assertTrue(
+                storage.goals
+                    .resolve(objectiveOnly)
+                    .criteria
+                    .isEmpty(),
+            )
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val before = storage.goals.resolve(id)
             assertThrows(android.database.sqlite.SQLiteConstraintException::class.java) {
@@ -197,6 +203,21 @@ class GoalRunCoordinatorDeviceTest {
         withStorage { storage ->
             val coordinator = coordinator(storage)
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
+            val stored = storage.goals.resolve(id)
+            storage.goals.updateGoal(
+                stored.copy(
+                    criteria =
+                        stored.criteria.map {
+                            it.copy(
+                                binding =
+                                    com.helix.core.model.CriterionVerificationBinding(
+                                        com.helix.core.model.CriterionVerificationMethod.LOCAL_TOOL_SUCCESS,
+                                        "read",
+                                    ),
+                            )
+                        },
+                ),
+            )
             val first = requireNotNull(coordinator.start(request(id, "first")))
             first.coordinator.beginModelStream()
             first.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
@@ -233,8 +254,8 @@ class GoalRunCoordinatorDeviceTest {
             storage.toolCalls.append("uncertain", "first", "uncertain", "files.write", "1", "{}", "NEEDS_REVIEW")
             started.coordinator.beginModelStream()
             started.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
-            assertEquals(GoalState.INPUT_REQUIRED.name, storage.goals.resolve(id).state)
-            assertEquals("INPUT_REQUIRED(NEEDS_REVIEW)", storage.goalRuns.resolve(started.runId).outcome)
+            assertEquals(GoalState.BLOCKED.name, storage.goals.resolve(id).state)
+            assertEquals("BLOCKED(NEEDS_REVIEW)", storage.goalRuns.resolve(started.runId).outcome)
             assertEquals("NEEDS_REVIEW", storage.toolCalls.resolve("uncertain").state)
             assertNull(coordinator.start(request(id, "blocked-continue")))
         }

@@ -71,6 +71,9 @@ public interface ModelProvider {
      */
     public suspend fun validateConfiguration(): ProviderCheckResult
 
+    /** Optional exact-model metadata. Unknown is null; never guessed from a model name. */
+    public suspend fun contextWindow(model: String): Long? = null
+
     /** One streaming model call. */
     public fun stream(request: ModelRequest): Flow<ModelEvent>
 }
