@@ -101,11 +101,14 @@ class BrowserAutofillDeviceTest {
         view: android.webkit.WebView,
         value: String,
     ) {
-        onMain {
-            val connection = view.onCreateInputConnection(android.view.inputmethod.EditorInfo())
-            assertTrue("WebView input connection", connection != null)
-            assertTrue("WebView input commit", connection!!.commitText(value, 1))
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        var connection = onMain { view.onCreateInputConnection(android.view.inputmethod.EditorInfo()) }
+        while (connection == null && SystemClock.uptimeMillis() < deadline) {
+            SystemClock.sleep(20)
+            connection = onMain { view.onCreateInputConnection(android.view.inputmethod.EditorInfo()) }
         }
+        val ready = requireNotNull(connection) { "WebView input connection did not become ready" }
+        onMain { assertTrue("WebView input commit", ready.commitText(value, 1)) }
     }
 
     private fun awaitValue(
@@ -188,8 +191,13 @@ class BrowserAutofillDeviceTest {
                 val headers =
                     "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" +
                         "Content-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
-                it.getOutputStream().write(headers.toByteArray())
-                it.getOutputStream().write(bytes)
+                try {
+                    it.getOutputStream().write(headers.toByteArray() + bytes)
+                } catch (failure: java.net.SocketException) {
+                    // Navigation/recreation may cancel an auxiliary request. The page and
+                    // real fill/save assertions still require successful delivery.
+                    android.util.Log.i("AutofillFixture", "Client closed response: ${failure.message}")
+                }
             }
         }
     }

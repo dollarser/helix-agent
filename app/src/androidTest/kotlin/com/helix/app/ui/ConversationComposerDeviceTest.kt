@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
@@ -78,7 +79,7 @@ class ConversationComposerDeviceTest {
     @Test fun englishGoalActionsHaveRoomAtDoubleFontSize() {
         compose.setContent {
             val context = LocalContext.current
-            val config = Configuration(context.resources.configuration).apply { setLocale(Locale.ENGLISH) }
+            val config = Configuration(LocalConfiguration.current).apply { setLocale(Locale.ENGLISH) }
             val density = LocalDensity.current
             CompositionLocalProvider(
                 LocalContext provides context.createConfigurationContext(config),

@@ -15,6 +15,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,8 +31,13 @@ internal fun AdaptiveFileControls(
     content: @Composable () -> Unit,
 ) {
     val config = LocalConfiguration.current
+    val height =
+        with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.height
+                .toDp()
+        }
     var open by remember { mutableStateOf(false) }
-    if (config.screenHeightDp > 640 && config.fontScale < 1.3f) {
+    if (height > 640.dp && config.fontScale < 1.3f) {
         content()
     } else {
         Text(

@@ -17,6 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,7 +34,12 @@ internal fun AdaptiveConversationHeader(
     content: @Composable () -> Unit,
 ) {
     val configuration = LocalConfiguration.current
-    val compact = configuration.screenHeightDp <= 640 || configuration.fontScale >= 1.3f
+    val height =
+        with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.height
+                .toDp()
+        }
+    val compact = height <= 640.dp || configuration.fontScale >= 1.3f
     var details by remember { mutableStateOf(false) }
     if (!compact) {
         content()
