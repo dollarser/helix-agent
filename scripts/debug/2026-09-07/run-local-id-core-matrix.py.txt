@@ -12,4 +12,3 @@ for api,serial in [(29,'<OWNED_EMULATOR_SERIAL>'),(36,'<OWNED_EMULATOR_SERIAL>')
   with (out/'instrumentation.log').open('w') as log:p=subprocess.run(cmd,stdout=log,stderr=subprocess.STDOUT,timeout=900)
   text=(out/'instrumentation.log').read_text();codes=re.findall(r'^INSTRUMENTATION_STATUS_CODE: (-?\d+)$',text,re.M);ok=p.returncode==0 and codes.count('0')==expected and all(c in ['0','1'] for c in codes) and f'OK ({expected} tests)' in text
   result.update(passed=codes.count('0'),statusCodes=codes,ok=ok);(out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(api,flavor,ok,text[-300:],flush=True)
-
