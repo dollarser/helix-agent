@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <queries>
+        <package android:name="com.helix.runtime.proot" />
         <package android:name="com.helix.runtime.cli" />
     </queries>
     <!--
@@ -14,6 +16,12 @@
     <uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />
     <application
         android:networkSecurityConfig="@xml/network_security_config">
+        <activity android:name="com.helix.app.companions.BundledRuntimeInstallActivity" android:exported="false" />
+        <provider android:name="com.helix.app.companions.RuntimeApkProvider"
+            android:authorities="${applicationId}.runtime-apks"
+            android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/runtime_apk_paths" />
+        </provider>
         <meta-data
             android:name="com.helix.agent.DEVELOPER_VARIANT"
             android:value="HELIX_DEVELOPER_ONLY_APP" />

@@ -135,6 +135,9 @@ fun SettingsScreen(
 
         AutomationModule.Section(profile)
 
+        com.helix.app.companions
+            .BundledRuntimeSection()
+
         LanguageSection()
 
         ProviderManager(providerService)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bundled_runtime_title">Bundled components</string>
+    <string name="bundled_runtime_note">Installers are bundled for offline use. Android confirms installation or updates. Initialize and verify PRoot after installation.</string>
+    <string name="bundled_subscriptions">Install / update Subscriptions</string>
+    <string name="bundled_proot">Install / update PRoot</string>
+    <string name="bundled_install_working">Preparing installer…</string>
+    <string name="bundled_install_failed">Cannot install: package missing, invalid, signature mismatch, or installation blocked. Use the main app and components from the same release.</string>
+    <string name="bundled_install_permission">Allow Helix to install apps, then return to continue.</string>
+    <string name="bundled_install_continue">Continue installation</string>
+</resources>
