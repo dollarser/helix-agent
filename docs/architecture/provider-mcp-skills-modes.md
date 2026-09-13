@@ -316,8 +316,8 @@ a2a.<agentSlug>.<skillSlug>
 
 | 模式 | 目的 | 默认可用工具 | 是否持久运行 |
 | --- | --- | --- | --- |
-| Chat | 问答和解释 | 默认无工具；显式启用时仅 `operationClass=READ_ONLY` 且动态风险为 L0 | 否 |
-| Plan | 调研并生成计划 | 仅 `operationClass=READ_ONLY` 且动态风险 ≤ L1（class 为主判断，风险上限不替代 class 判断） | 否 |
+| Chat | 问答和解释 | 默认无工具；显式启用时仅 `operationClass=READ_ONLY` 或内置 `METADATA` 且动态风险为 L0 | 否 |
+| Plan | 调研并生成计划 | 仅 `operationClass=READ_ONLY` 或内置 `METADATA` 且动态风险 ≤ L1（class 为主判断，风险上限不替代 class 判断） | 否 |
 | Act | 完成当前交互任务 | 按 Policy 开放 | 当前 Turn |
 | Goal | 持续推进目标，可附补充要求 | 按 Policy 开放，受预算和检查点约束 | 是，可恢复 |
 
