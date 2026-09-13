@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v14ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v15ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -323,8 +323,48 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v14ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v14-export.db", 14)
+    fun v14ToV15AddsTheTurnIdToArtifacts() {
+        val name = "artifact-turn-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 14).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256) " +
+                    "VALUES ('a1','s1','output/legacy.txt','text/plain',3,'${"a".repeat(64)}')",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 15, true, HelixDatabase.MIGRATION_14_15).use { db ->
+            // The pre-v15 row keeps a NULL turn (no turn attribution is invented).
+            db.query("SELECT turnId FROM artifacts WHERE id='a1'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+            }
+            // A v15 registration records the writing turn on its row.
+            db.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                    "VALUES ('a2','s1','output/new.txt','text/plain',3,'${"b".repeat(64)}','t-1')",
+            )
+            db.query("SELECT turnId FROM artifacts WHERE id='a2'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("t-1", it.getString(0))
+            }
+            // The unique (sessionId, relativePath) index still refuses a second row per path —
+            // re-writes go through the upsert, not a second insert.
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                        "VALUES ('a3','s1','output/new.txt','text/plain',3,'${"c".repeat(64)}','t-2')",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v15ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v15-export.db", 15)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -332,7 +372,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v14 schema must match the exported v14 schema",
+                "code-built v15 schema must match the exported v15 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )

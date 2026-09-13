@@ -40,6 +40,32 @@ class ArtifactVisionImageSourceTest {
                 rows[artifact.id] = artifact
             }
 
+            override fun upsertBySessionAndPath(
+                id: String,
+                sessionId: String,
+                relativePath: String,
+                mediaType: String,
+                size: Long,
+                sha256: String,
+                turnId: String?,
+            ) {
+                // Mirror the SQL: a re-write refreshes the existing row and keeps its id.
+                val existing =
+                    rows.values.singleOrNull {
+                        it.sessionId == sessionId && it.relativePath == relativePath
+                    }
+                rows[existing?.id ?: id] =
+                    ArtifactEntity(
+                        existing?.id ?: id,
+                        sessionId,
+                        relativePath,
+                        mediaType,
+                        size,
+                        sha256,
+                        turnId,
+                    )
+            }
+
             override fun byId(id: String): ArtifactEntity? = rows[id]
 
             override fun listBySession(sessionId: String): List<ArtifactEntity> =

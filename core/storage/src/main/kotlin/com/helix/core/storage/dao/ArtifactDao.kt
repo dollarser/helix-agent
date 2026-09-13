@@ -11,6 +11,31 @@ interface ArtifactDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(artifact: ArtifactEntity)
 
+    /**
+     * Tool-write registration (v15): the file row is stable per (sessionId, relativePath) —
+     * re-writing the same path refreshes the content columns of the EXISTING row and keeps its
+     * id, so `message_attachments` bound to that artifact survive a re-write (their boundSha256
+     * then fails closed on the changed content, by design). Only a brand-new path inserts,
+     * where [id] is used. NOT `INSERT OR REPLACE`: that would delete the old row and cascade
+     * its attachments.
+     */
+    @Query(
+        "INSERT INTO artifacts (id, sessionId, relativePath, mediaType, size, sha256, turnId) " +
+            "VALUES (:id, :sessionId, :relativePath, :mediaType, :size, :sha256, :turnId) " +
+            "ON CONFLICT (sessionId, relativePath) DO UPDATE SET " +
+            "mediaType = excluded.mediaType, size = excluded.size, " +
+            "sha256 = excluded.sha256, turnId = excluded.turnId",
+    )
+    fun upsertBySessionAndPath(
+        id: String,
+        sessionId: String,
+        relativePath: String,
+        mediaType: String,
+        size: Long,
+        sha256: String,
+        turnId: String?,
+    )
+
     @Query("SELECT * FROM artifacts WHERE id = :id")
     fun byId(id: String): ArtifactEntity?
 

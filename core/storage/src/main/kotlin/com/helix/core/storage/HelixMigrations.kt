@@ -5,6 +5,19 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v14 -> v15 (doc 02 §8: `artifacts`): adds `turnId` — the turn that last wrote the file —
+     * so the artifact surface can show which session/turn produced each file instead of only
+     * background turns. Nullable: rows registered before v15 and registrations without turn
+     * context (A2A task artifacts) keep NULL. Purely additive; no data change.
+     */
+    val MIGRATION_14_15 =
+        object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE artifacts ADD COLUMN turnId TEXT")
+            }
+        }
+
+    /**
      * v13 -> v14 (research doc section 4.4): the per-request system-prompt record. Adds
      * `promptFingerprint` + `promptSections` to `model_calls` — the fingerprint of the exact
      * prompt bytes a request sent and the redacted section list (provenance + content hash,

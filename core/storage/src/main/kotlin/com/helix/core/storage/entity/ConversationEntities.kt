@@ -313,4 +313,10 @@ data class ArtifactEntity(
     val mediaType: String,
     val size: Long,
     val sha256: String,
+    /**
+     * The turn that last wrote this file (v15, doc 02 §8): lets the artifact dashboard show
+     * which session/turn produced a file. NULL for rows registered before v15 and for
+     * registrations without turn context (e.g. the A2A task-artifact path).
+     */
+    val turnId: String? = null,
 )
