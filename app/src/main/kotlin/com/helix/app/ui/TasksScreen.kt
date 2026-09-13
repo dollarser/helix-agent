@@ -36,6 +36,10 @@ import com.helix.core.model.TurnState
  * goals and review-required plans bucketed into running / needs-you / completed / failed.
  * A turn bound to a goal renders as the goal row (one row per unit of work); the "needs
  * you" bucket aggregates the doc's approval / input / blocker / plan-review waits.
+ *
+ * All three feeds are live StateFlows the service refreshes after every write (turn-state
+ * changes, goal and plan mutations), so the screen observes the persistent facts directly —
+ * no re-query on entry or after local actions.
  */
 @Composable
 @Suppress("FunctionName")
@@ -44,15 +48,16 @@ internal fun TasksScreen(
     onOpenSession: (String) -> Unit,
 ) {
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    var goals by remember { mutableStateOf<List<GoalSummaryUi>>(emptyList()) }
-    var plans by remember { mutableStateOf<List<PlanRowUi>>(emptyList()) }
-    var revision by remember { mutableStateOf(0L) }
+    val goals by service.goalDashboard.collectAsStateWithLifecycle()
+    val plans by service.planDashboard.collectAsStateWithLifecycle()
     var selectedPlan by remember { mutableStateOf<String?>(null) }
     var resultTurn by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(revision) {
-        goals = service.goalSummariesAll()
-        plans = service.planRows()
+    // Entry refresh: facts written while the app was closed (or by another process) become
+    // visible on open; afterwards the shared flows stay live.
+    LaunchedEffect(Unit) {
+        service.refreshBackgroundTasksNow()
+        service.refreshTaskDashboardsNow()
     }
 
     if (resultTurn != null) {
@@ -60,10 +65,9 @@ internal fun TasksScreen(
         return
     }
     if (selectedPlan != null) {
-        PlanReviewDialog(service, requireNotNull(selectedPlan)) {
-            selectedPlan = null
-            revision += 1
-        }
+        // The review dialog's decisions go through the service, which refreshes the plan
+        // feed itself — no screen-side revision bump needed.
+        PlanReviewDialog(service, requireNotNull(selectedPlan)) { selectedPlan = null }
         return
     }
 

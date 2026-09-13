@@ -66,4 +66,44 @@ class TasksDashboardDeviceTest {
                 compose.onAllNodesWithTag("tasks-plan-$planId").fetchSemanticsNodes().isEmpty()
             }
         }
+
+    /**
+     * Live observation (doc section 13): a plan decision made THROUGH THE SERVICE while the
+     * dashboard is open — from any screen, no dialog, no re-entry — refreshes the shared plan
+     * feed, so the open dashboard drops the row on its own.
+     */
+    @Test
+    fun planCancelThroughTheServiceUpdatesTheOpenDashboard() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val planId = "plan-live-${System.currentTimeMillis()}"
+            container.storage.withTransaction {
+                container.storage.plans.save(
+                    PlanArtifact(
+                        id = PlanId(planId),
+                        objective = "Live update plan",
+                        assumptions = emptyList(),
+                        steps = listOf(PlanStep("step one", "do the thing")),
+                        acceptanceCriteria = listOf("the thing is done"),
+                        risks = emptyList(),
+                        version = 1,
+                    ),
+                    "READY",
+                    null,
+                )
+            }
+
+            compose.onNodeWithTag("open-navigation").performClick()
+            compose.waitForIdle()
+            compose.navigateTo("tasks")
+            compose.onNodeWithTag("screen-tasks").assertExists()
+            compose.onNodeWithTag("tasks-plan-$planId").assertExists()
+
+            container.chatService.cancelPlan(planId)
+
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("tasks-plan-$planId").fetchSemanticsNodes().isEmpty()
+            }
+        }
 }

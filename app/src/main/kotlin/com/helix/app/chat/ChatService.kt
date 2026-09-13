@@ -25,6 +25,7 @@ import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.app.plan.PlanReview
 import com.helix.app.plan.PlanReviewService
 import com.helix.app.plan.StoragePlanReviewPort
 import com.helix.app.profile.SafetyProfileStore
@@ -235,6 +236,10 @@ class ChatService(
     private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
     private val _backgroundTasks = MutableStateFlow<List<BackgroundTaskUi>>(emptyList())
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
+    private val goalDashboardState = MutableStateFlow<List<GoalSummaryUi>>(emptyList())
+    internal val goalDashboard: StateFlow<List<GoalSummaryUi>> = goalDashboardState
+    private val planDashboardState = MutableStateFlow<List<PlanRowUi>>(emptyList())
+    internal val planDashboard: StateFlow<List<PlanRowUi>> = planDashboardState
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
     private val reminderGoalState = MutableStateFlow<String?>(null)
@@ -879,7 +884,11 @@ class ChatService(
         objective: String,
         criteria: List<String>,
         budgets: com.helix.core.model.GoalBudgets,
-    ) = goals.createGoal(objective, criteria, budgets)
+    ): String {
+        val goal = goals.createGoal(objective, criteria, budgets)
+        refreshTaskDashboards()
+        return goal
+    }
 
     internal suspend fun goalSummaries() = goals.goalSummaries()
 
@@ -889,32 +898,57 @@ class ChatService(
     internal suspend fun setGoalReminder(
         goalId: String,
         delayMillis: Long?,
-    ) = goals.setGoalReminder(goalId, delayMillis)
+    ): Boolean {
+        val changed = goals.setGoalReminder(goalId, delayMillis)
+        refreshTaskDashboards()
+        return changed
+    }
 
-    internal suspend fun recheckGoalBlocker(goalId: String) = goals.recheckGoalBlocker(goalId)
+    internal suspend fun recheckGoalBlocker(goalId: String): Boolean {
+        val resolved = goals.recheckGoalBlocker(goalId)
+        refreshTaskDashboards()
+        return resolved
+    }
 
     internal suspend fun updateGoalBudgets(
         goalId: String,
         budgets: com.helix.core.model.GoalBudgets,
-    ) = goals.updateGoalBudgets(goalId, budgets)
+    ): Boolean {
+        val changed = goals.updateGoalBudgets(goalId, budgets)
+        refreshTaskDashboards()
+        return changed
+    }
 
     // --------------------------------------------------------------------------------
     // Plan review (research doc section 4.2/4.3; HX2-05): the user's decisions on a plan
     // submitted through `plan.submit` — approve / revise / cancel / execute.
     // --------------------------------------------------------------------------------
 
-    internal suspend fun reviewPlan(planId: String) = withContext(Dispatchers.IO) { planReview.review(planId) }
+    internal suspend fun reviewPlan(planId: String): PlanReview {
+        val review = withContext(Dispatchers.IO) { planReview.review(planId) }
+        refreshTaskDashboards()
+        return review
+    }
 
     /** Cross-session plan rows for the Tasks dashboard review queue (doc section 12/13). */
     internal suspend fun planRows(): List<PlanRowUi> = withContext(Dispatchers.IO) { PlanRowQuery(storage).read() }
 
     /** The ONLY path to a [PlanExecutionBinding] (doc 4.3); requires the plan to be READY. */
-    internal suspend fun approvePlan(planId: String): PlanExecutionBinding =
-        withContext(Dispatchers.IO) { planReview.approve(planId) }
+    internal suspend fun approvePlan(planId: String): PlanExecutionBinding {
+        val binding = withContext(Dispatchers.IO) { planReview.approve(planId) }
+        refreshTaskDashboards()
+        return binding
+    }
 
-    internal suspend fun revisePlan(planId: String) = withContext(Dispatchers.IO) { planReview.revise(planId) }
+    internal suspend fun revisePlan(planId: String) {
+        withContext(Dispatchers.IO) { planReview.revise(planId) }
+        refreshTaskDashboards()
+    }
 
-    internal suspend fun cancelPlan(planId: String) = withContext(Dispatchers.IO) { planReview.cancel(planId) }
+    internal suspend fun cancelPlan(planId: String) {
+        withContext(Dispatchers.IO) { planReview.cancel(planId) }
+        refreshTaskDashboards()
+    }
 
     /**
      * Executes an APPROVED plan (doc 4.3: only after the user's approval): creates the Goal
@@ -965,6 +999,7 @@ class ChatService(
         if (!started && _screen.value.blockedReason == priorBlocked) {
             setBlocked(str(R.string.plan_execute_not_started))
         }
+        refreshTaskDashboards()
         return goalId
     }
 
@@ -1454,6 +1489,23 @@ class ChatService(
      */
     fun refreshBackgroundTasksNow() {
         workScope.launch { refreshBackgroundTasks() }
+    }
+
+    /**
+     * The dashboard's persistent facts — every goal plus the plan review queue — onto their
+     * shared flows ([goalDashboard] / [planDashboard]), the same re-read pattern as
+     * [refreshBackgroundTasks]. Called after every goal/plan mutation and on each turn-state
+     * change ([publishTurn]), so an open Tasks screen observes the live state instead of a
+     * screen-entry snapshot; screen entry and an explicit refresh go through
+     * [refreshTaskDashboardsNow].
+     */
+    private fun refreshTaskDashboards() {
+        goalDashboardState.value = GoalSummaryQuery(storage).forAll()
+        planDashboardState.value = PlanRowQuery(storage).read()
+    }
+
+    fun refreshTaskDashboardsNow() {
+        workScope.launch { refreshTaskDashboards() }
     }
 
     fun stop() {
@@ -2136,7 +2188,12 @@ class ChatService(
         // Feed this turn's live-frame channel first (HX2-01 §2c): observers of a NON-open session's
         // turn get frames here, since the screen below only reflects the one session on screen.
         turnLiveFrames.emit(turn.id, turn)
-        if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) refreshBackgroundTasks()
+        if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) {
+            // A turn-state change settles goal runs and can move plans — re-read the dashboard
+            // facts too, so an open Tasks screen tracks the same live state as the task list.
+            refreshBackgroundTasks()
+            refreshTaskDashboards()
+        }
         val session = storage.turns.resolve(turn.id).sessionId
         _screen.update { if (it.openSessionId == session) it.copy(activeTurn = turn) else it }
     }
