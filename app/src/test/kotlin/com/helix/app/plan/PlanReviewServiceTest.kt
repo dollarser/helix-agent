@@ -91,6 +91,12 @@ class PlanReviewServiceTest {
             planId: String,
             planHash: String,
         ): String {
+            // Model the real port: a re-drive of an already-executing plan returns the bound goal
+            // instead of creating a second one (idempotent execution; the conditional transition
+            // in the production port is what keeps this safe under concurrency).
+            if (row.state == PlanLifecycleState.EXECUTING.name) {
+                return requireNotNull(row.evidenceRef)
+            }
             beginExecutions++
             goalCreation = GoalCreation(objective, criteria, planId, planHash)
             // One atomic operation: the row moves to EXECUTING with the goal as its evidenceRef.
@@ -195,6 +201,23 @@ class PlanReviewServiceTest {
         val row = port.resolveEntity(planId)
         assertEquals(PlanLifecycleState.EXECUTING, PlanLifecycleState.valueOf(row.state))
         assertEquals(port.goalId, row.evidenceRef)
+        assertEquals(listOf("plan.execution_started"), port.audits.map { it.first })
+    }
+
+    @Test
+    fun reExecutionOfAnExecutingPlanReturnsTheBoundGoalWithoutCreatingAnother() {
+        val port = FakePort(entity(PlanLifecycleState.APPROVED), artifact)
+        val service = PlanReviewService(port)
+        val binding = PlanExecutionBinding(PlanId(planId), artifact.version, artifact.sha256())
+
+        val first = service.execute(binding, budgets)
+        val second = service.execute(binding, budgets)
+
+        // A re-drive of the now-EXECUTING plan is idempotent: the same bound goal, exactly one
+        // goal created. A double-click or a re-driven submission does not start a second run.
+        assertEquals(port.goalId, first)
+        assertEquals(first, second)
+        assertEquals(1, port.beginExecutions)
         assertEquals(listOf("plan.execution_started"), port.audits.map { it.first })
     }
 

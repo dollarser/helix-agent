@@ -66,6 +66,20 @@ class PlanRepository(
         dao.updateState(id, state, evidenceRef)
     }
 
+    /**
+     * Conditional transition to [state] that only succeeds while the plan is still `APPROVED`;
+     * returns the number of rows updated. Callers gate on `== 1`: a `0` means the plan left
+     * `APPROVED` (a concurrent execution already moved it), so no second goal may be created.
+     */
+    fun transitionFromApproved(
+        id: String,
+        state: String,
+        evidenceRef: String?,
+    ): Int {
+        enumByName(state, PlanLifecycleState::class.java, "plan state")
+        return dao.transitionFromApproved(id, state, evidenceRef)
+    }
+
     fun delete(id: String) {
         require(dao.delete(id) == 1) { "plan not found or still referenced: $id" }
     }

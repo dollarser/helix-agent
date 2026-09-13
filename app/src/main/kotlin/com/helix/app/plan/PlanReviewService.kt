@@ -77,8 +77,13 @@ internal class PlanReviewService(
         budgets: GoalBudgets,
     ): String {
         val entity = port.resolveEntity(binding.planId.value)
-        require(PlanLifecycleState.valueOf(entity.state) == PlanLifecycleState.APPROVED) {
-            "plan ${binding.planId.value} cannot be executed in state ${entity.state}; only an APPROVED plan executes"
+        val state = PlanLifecycleState.valueOf(entity.state)
+        // APPROVED starts the execution; EXECUTING is a re-drive of an already-running plan, which
+        // returns its bound goal (idempotent). The state is re-validated INSIDE beginExecution via
+        // a conditional transition, so a concurrent execution cannot slip a second goal past this.
+        require(state == PlanLifecycleState.APPROVED || state == PlanLifecycleState.EXECUTING) {
+            "plan ${binding.planId.value} cannot be executed in state ${entity.state}; " +
+                "only an APPROVED (or already EXECUTING) plan executes"
         }
         // The binding is the approval proof: a drifted version or hash (a revised plan, or a
         // stale binding) is refused — the execution may only reference the approved version.
@@ -176,9 +181,22 @@ internal class StoragePlanReviewPort(
         planId: String,
         planHash: String,
     ): String {
-        var goalId: String? = null
+        // A re-drive of a plan that is already EXECUTING returns its bound goal instead of
+        // creating a second one (idempotent execution). The caller verified the binding matches
+        // this plan's approved version+hash, so the bound goal is the one for this plan.
+        val alreadyExecuting =
+            storage.plans
+                .resolveEntity(planId)
+                .takeIf { it.state == PlanLifecycleState.EXECUTING.name }
+        if (alreadyExecuting != null) {
+            return requireNotNull(alreadyExecuting.evidenceRef) {
+                "plan $planId is executing but has no bound goal"
+            }
+        }
+
+        var committedGoalId: String? = null
         storage.withTransaction {
-            goalId =
+            val goalId =
                 GoalRunCoordinator(storage, clock, idGenerator).saveReadyGoal(
                     objective,
                     criteria,
@@ -186,7 +204,13 @@ internal class StoragePlanReviewPort(
                     PlanId(planId),
                     Sha256(planHash),
                 )
-            storage.plans.updateState(planId, PlanLifecycleState.EXECUTING.name, goalId)
+            // The conditional transition is the concurrency guard: exactly one caller can move
+            // the plan APPROVED -> EXECUTING. A concurrent execution that committed first makes
+            // this update affect 0 rows, so the require fails, the transaction rolls back the
+            // goal just inserted (no orphan), and no duplicate goal is ever created.
+            require(
+                storage.plans.transitionFromApproved(planId, PlanLifecycleState.EXECUTING.name, goalId) == 1,
+            ) { "plan $planId left APPROVED before execution began; refusing to start a duplicate goal" }
             storage.auditEvents.append(
                 idGenerator(),
                 planId,
@@ -195,8 +219,9 @@ internal class StoragePlanReviewPort(
                 """{"goalId":"$goalId"}""",
                 clock.now().toEpochMilli(),
             )
+            committedGoalId = goalId
         }
-        return goalId ?: error("beginExecution must save the executing goal")
+        return committedGoalId ?: error("beginExecution must save the executing goal")
     }
 
     override fun audit(

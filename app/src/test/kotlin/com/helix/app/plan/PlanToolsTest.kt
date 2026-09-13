@@ -218,6 +218,20 @@ class PlanToolsTest {
             saved = saved?.copy(state = state, evidenceRef = evidenceRef)
         }
 
+        override fun transitionFromApproved(
+            id: String,
+            state: String,
+            evidenceRef: String?,
+        ): Int {
+            // Mirror the DAO's guard: only a plan still in APPROVED moves; anyone else sees 0.
+            val current = saved?.takeIf { it.id == id }
+            if (current == null || current.state != "APPROVED") {
+                return 0
+            }
+            saved = current.copy(state = state, evidenceRef = evidenceRef)
+            return 1
+        }
+
         override fun delete(id: String): Int = if (saved?.id == id) 1 else 0
     }
 }
