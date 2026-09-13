@@ -324,7 +324,17 @@ internal class DefaultAppContainer(
             toolImplementations,
             connectorInstallationService,
         )
-        AppWorkspaceTools.register(toolRegistry, toolImplementations, workspaceStore)
+        // Tool writes register their artifacts through the sink (doc 02 §8): the file is
+        // published first, then the artifacts row is re-verified on disk and stamped with the
+        // writing session/turn — the same file-first contract as the A2A import path.
+        AppWorkspaceTools.register(
+            toolRegistry,
+            toolImplementations,
+            workspaceStore,
+            ToolArtifactRegistrationSink(storage, APP_SCOPE_ID) { path ->
+                resolveFileScopePath(path, scopeRoots).toFile()
+            },
+        )
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
