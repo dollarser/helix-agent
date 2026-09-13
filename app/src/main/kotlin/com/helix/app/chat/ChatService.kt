@@ -929,6 +929,13 @@ class ChatService(
      * unified [agentRuntime] every in-app entry uses (HX2-01). The provider is resolved from
      * the currently open session under the same fail-closed gates as the chat send path; a
      * failed gate returns null BEFORE anything is written, with the block reason surfaced.
+     *
+     * After the plan is committed EXECUTING + its goal READY (one atomic transaction, [planReview]
+     * .execute), a refused first turn (a busy session drops it silently; a provider/goal gate sets
+     * its own reason) leaves the goal READY and the plan EXECUTING — a RECOVERABLE state, never a
+     * dead end. The goal is startable again from its row and re-executing this plan is idempotent
+     * (it returns the bound goal, not a second), so this surfaces a "ready, not started" block
+     * only when a more-specific gate did not already explain the refusal (research doc 5.1).
      */
     @Suppress("ReturnCount", "SwallowedException") // one early return per gate; the IAE becomes a localized UI block
     internal suspend fun executeApprovedPlan(
@@ -955,7 +962,16 @@ class ChatService(
                 setBlocked(str(R.string.plan_execute_failed))
                 return null
             }
-        submitTurn(text = null, providerId = providerId, goalId = goalId)
+        // The plan is committed EXECUTING and its goal is READY — both durable. If the first turn
+        // does not start (e.g. the session is busy, which launchTurn drops silently) the state is
+        // RECOVERABLE, not a dead end: the goal is startable again from its row, and re-executing
+        // this plan is idempotent (it returns the bound goal, never a second). Surface that, but
+        // only when no more-specific gate (provider / goal) already set a reason — never clobber it.
+        val priorBlocked = _screen.value.blockedReason
+        val started = submitTurn(text = null, providerId = providerId, goalId = goalId)
+        if (!started && _screen.value.blockedReason == priorBlocked) {
+            setBlocked(str(R.string.plan_execute_not_started))
+        }
         return goalId
     }
 
@@ -1684,10 +1700,10 @@ class ChatService(
         attachments: List<AttachmentBindingIntent> = emptyList(),
         goalId: String? = null,
         clientRequestId: String? = null,
-    ) {
-        val session = currentSession() ?: return
+    ): Boolean {
+        val session = currentSession() ?: return false
         val control = runControlStore.current
-        try {
+        return try {
             agentRuntime.submit(
                 SubmitTurnCommand(
                     session = SessionId(session.id),
@@ -1706,8 +1722,13 @@ class ChatService(
                     clientRequestId = clientRequestId ?: idGenerator(),
                 ),
             )
+            // A turn row was committed and its loop launched: the start truly happened.
+            true
         } catch (e: TurnStartBlocked) {
-            // the refused start already set the session's blocked state (fail-closed, safe label)
+            // the refused start already set the session's blocked state (fail-closed, safe label);
+            // this return value is the SECOND signal, for a caller (the plan-execute path) that
+            // must react to a start that did not happen — it is never the first.
+            false
         }
     }
 
