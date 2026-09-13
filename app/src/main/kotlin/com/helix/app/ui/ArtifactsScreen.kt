@@ -36,16 +36,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.AppContainer
 import com.helix.app.R
-import com.helix.app.chat.BackgroundTaskQuery
 import com.helix.app.chat.BackgroundTaskUi
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
 import com.helix.core.model.TurnState
-import com.helix.core.storage.HelixStorage
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /**
  * The Artifact Center (P0-B, research doc section 28 / PX-02 "结果可交付"): one first-class page
@@ -53,9 +50,10 @@ import kotlinx.coroutines.withContext
  * outcomes are reachable and shareable outside the chat. A row opens a result view with the
  * persisted summary plus honest Share / Open / Collect actions.
  *
- * Rows are read straight from [BackgroundTaskQuery] (storage-backed, off the main thread) inside
- * a [LaunchedEffect] keyed on [revision], so the list refreshes on entry and on an explicit
- * refresh without recomputing on every recomposition.
+ * Rows are the shared [ChatService.backgroundTasks] StateFlow filtered to terminal turns — the
+ * same query the task dashboard uses, kept live as turns finish in any session. Entry and an
+ * explicit refresh re-read storage onto that flow (off the main thread) so a just-finished task
+ * is visible on open.
  */
 @Composable
 @Suppress("FunctionName")
@@ -63,15 +61,18 @@ internal fun ArtifactsScreenDestination(
     container: AppContainer,
     onOpenSession: (String) -> Unit,
 ) {
+    val service = container.chatService
     var revision by remember { mutableStateOf(0) }
-    var rows by remember { mutableStateOf<List<BackgroundTaskUi>?>(null) }
     var selected by remember { mutableStateOf<BackgroundTaskUi?>(null) }
 
-    LaunchedEffect(revision) {
-        // BackgroundTaskQuery reads Room (turns + sessions + bindings), so keep it off main,
-        // matching how CapabilitiesScreen and ProotRuntimeSection refresh.
-        rows = withContext(Dispatchers.IO) { loadArtifacts(container.storage) }
-    }
+    // Entry and explicit refresh re-read storage onto the shared [ChatService.backgroundTasks]
+    // flow (a Room read on the service work scope), so a task finished while the app was closed
+    // — or written directly — is visible on open; the shared StateFlow then keeps the list live
+    // as turns terminalize in any session, so no separate per-screen query is needed.
+    LaunchedEffect(revision) { service.refreshBackgroundTasksNow() }
+
+    val allTasks by service.backgroundTasks.collectAsStateWithLifecycle()
+    val rows: List<BackgroundTaskUi> = allTasks.filter { !it.running }
 
     Column(Modifier.fillMaxSize().testTag("screen-artifacts")) {
         Row(
@@ -90,14 +91,14 @@ internal fun ArtifactsScreenDestination(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(rows.orEmpty(), key = BackgroundTaskUi::id) { row ->
+            items(rows, key = BackgroundTaskUi::id) { row ->
                 ArtifactRowView(row, onOpen = { selected = row })
             }
         }
     }
     selected?.let { s ->
         ArtifactResultDialog(
-            container.chatService,
+            service,
             s,
             onOpenSession = { onOpenSession(s.sessionId) },
             onDismiss = { selected = null },
@@ -229,10 +230,6 @@ private fun ArtifactResultDialog(
         },
     )
 }
-
-/** Finished-task results: every terminal turn (completed / failed / cancelled / interrupted). */
-private fun loadArtifacts(storage: HelixStorage): List<BackgroundTaskUi> =
-    BackgroundTaskQuery(storage).read().filter { !it.running }
 
 /** A terminal turn's human status; anything unexpected reads as the neutral "interrupted". */
 private fun statusResFor(state: TurnState): Int =

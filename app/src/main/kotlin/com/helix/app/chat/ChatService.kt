@@ -1437,6 +1437,16 @@ class ChatService(
         _backgroundTasks.value = BackgroundTaskQuery(storage).read()
     }
 
+    /**
+     * Re-read the background-task list from storage onto the shared [backgroundTasks] flow.
+     * Runs on the service work scope (a Room read, never the main thread); the task dashboards
+     * call it on entry and on an explicit refresh so a task finished while the app was closed —
+     * or written directly — is visible on open, after which the shared StateFlow stays live.
+     */
+    fun refreshBackgroundTasksNow() {
+        workScope.launch { refreshBackgroundTasks() }
+    }
+
     fun stop() {
         toolCalls.cancelPendingApproval()
         val sessionId = openSessionId ?: return
