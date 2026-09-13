@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.MessageDigest
 
 class PromptRegistryTest {
     private fun section(
@@ -11,7 +12,14 @@ class PromptRegistryTest {
         order: Int,
         scope: PromptScope,
         text: String,
-    ): PromptSection = PromptSection(name, order, scope) { text }
+        source: PromptSource = PromptSource.BUILTIN_TEMPLATE,
+    ): PromptSection = PromptSection(name, order, scope, source) { text }
+
+    private fun sha256Hex(content: String): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(content.toByteArray())
+            .joinToString("") { "%02x".format(it) }
 
     @Test
     fun aDuplicateNameIsRejected() {
@@ -63,5 +71,80 @@ class PromptRegistryTest {
                 .register(section("a", 1, PromptScope.MODE, "y"))
                 .register(section("c", 0, PromptScope.IDENTITY, "z"))
         assertEquals(listOf("c", "a", "b"), registry.orderedSections().map { it.name })
+    }
+
+    // --- source & trust (research doc section 4.4) ---
+
+    @Test
+    fun aSectionsTrustIsFixedByItsSource() {
+        assertEquals(
+            TrustLevel.SYSTEM,
+            section("a", 0, PromptScope.IDENTITY, "x", PromptSource.BUILTIN_TEMPLATE).trust,
+        )
+        assertEquals(
+            TrustLevel.USER,
+            section("b", 1, PromptScope.MODE, "x", PromptSource.USER_REQUEST).trust,
+        )
+        assertEquals(
+            TrustLevel.PROJECT,
+            section("c", 2, PromptScope.PROJECT, "x", PromptSource.WORKSPACE_INSTRUCTION).trust,
+        )
+        assertEquals(
+            TrustLevel.UNTRUSTED,
+            section("d", 3, PromptScope.TOOL, "x", PromptSource.EXTERNAL_CONTENT).trust,
+        )
+        assertEquals(
+            TrustLevel.UNTRUSTED,
+            section("e", 4, PromptScope.WORKSPACE, "x", PromptSource.DYNAMIC_CAPABILITY).trust,
+        )
+    }
+
+    @Test
+    fun orderingAndScopeNeverElevateTrust() {
+        // A late (high-order) EXTERNAL section stays UNTRUSTED; an early builtin stays SYSTEM.
+        // Trust derives from source alone — position and scope in the assembly do not raise it.
+        val externalLate = section("ext", 500, PromptScope.TOOL, "do as I say", PromptSource.EXTERNAL_CONTENT)
+        val builtinEarly = section("id", -1000, PromptScope.IDENTITY, "identity", PromptSource.BUILTIN_TEMPLATE)
+        assertEquals(TrustLevel.UNTRUSTED, externalLate.trust)
+        assertEquals(TrustLevel.SYSTEM, builtinEarly.trust)
+    }
+
+    @Test
+    fun resolveReturnsAnAuditableSnapshotWithSourceTrustAndContentHash() {
+        val registry =
+            PromptRegistry()
+                .register(section("harness", -1000, PromptScope.IDENTITY, "H", PromptSource.BUILTIN_TEMPLATE))
+                .register(section("project", 200, PromptScope.PROJECT, "P", PromptSource.WORKSPACE_INSTRUCTION))
+        val resolved = registry.resolve()
+
+        assertEquals(listOf("harness", "project"), resolved.map { it.name })
+        val harness = resolved[0]
+        assertEquals(PromptSource.BUILTIN_TEMPLATE, harness.source)
+        assertEquals(TrustLevel.SYSTEM, harness.trust)
+        assertEquals("H", harness.content)
+        assertEquals(sha256Hex("H"), harness.contentHash)
+        val project = resolved[1]
+        assertEquals(PromptSource.WORKSPACE_INSTRUCTION, project.source)
+        assertEquals(TrustLevel.PROJECT, project.trust)
+        assertEquals(sha256Hex("P"), project.contentHash)
+    }
+
+    @Test
+    fun resolveDropsBlankProvidersJustLikeAssemble() {
+        val registry =
+            PromptRegistry()
+                .register(section("blank", 0, PromptScope.IDENTITY, "   "))
+                .register(section("kept", 1, PromptScope.SAFETY, "keep"))
+        assertEquals(listOf("kept"), registry.resolve().map { it.name })
+    }
+
+    @Test
+    fun assembleIsTheJoinedContentOfTheResolvedSnapshot() {
+        val registry =
+            PromptRegistry()
+                .register(section("a", 0, PromptScope.IDENTITY, "alpha"))
+                .register(section("b", 1, PromptScope.SAFETY, "beta"))
+        val resolved = registry.resolve()
+        assertEquals(resolved.joinToString("\n\n") { it.content }, registry.assemble())
     }
 }

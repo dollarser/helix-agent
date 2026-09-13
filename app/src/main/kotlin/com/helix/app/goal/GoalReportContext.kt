@@ -3,6 +3,7 @@ package com.helix.app.goal
 import com.helix.core.agent.PromptRegistry
 import com.helix.core.agent.PromptScope
 import com.helix.core.agent.PromptSection
+import com.helix.core.agent.PromptSource
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
 import com.helix.core.storage.HelixStorage
@@ -31,12 +32,25 @@ internal fun HelixStorage.goalReportContext(
     if (goal.state != "RUNNING") return emptyList()
     val prompt =
         PromptRegistry()
-            .register(PromptSection("goal.identity", -1000, PromptScope.IDENTITY) { IDENTITY })
-            .register(PromptSection("goal.protocol", -900, PromptScope.MODE) { PROTOCOL })
-            .register(PromptSection("goal.safety", -800, PromptScope.SAFETY) { SAFETY })
-            .register(PromptSection("goal.project", 200, PromptScope.PROJECT) { projectInstructionsProvider() })
-            .register(PromptSection("goal.objective", 300, PromptScope.GOAL) { objective(goal) })
-            .assemble()
+            .register(
+                PromptSection("goal.identity", -1000, PromptScope.IDENTITY, PromptSource.BUILTIN_TEMPLATE) { IDENTITY },
+            ).register(
+                PromptSection("goal.protocol", -900, PromptScope.MODE, PromptSource.BUILTIN_TEMPLATE) { PROTOCOL },
+            ).register(PromptSection("goal.safety", -800, PromptScope.SAFETY, PromptSource.BUILTIN_TEMPLATE) { SAFETY })
+            // The project section is WORKSPACE-sourced (PROJECT trust): it is loaded from the
+            // selected scope and can never override the system boundary or the user's objective.
+            .register(
+                PromptSection("goal.project", 200, PromptScope.PROJECT, PromptSource.WORKSPACE_INSTRUCTION) {
+                    projectInstructionsProvider()
+                },
+            ).register(
+                PromptSection(
+                    "goal.objective",
+                    300,
+                    PromptScope.GOAL,
+                    PromptSource.BUILTIN_TEMPLATE,
+                ) { objective(goal) },
+            ).assemble()
     return listOf(ModelMessage(ModelRole.SYSTEM, prompt))
 }
 
