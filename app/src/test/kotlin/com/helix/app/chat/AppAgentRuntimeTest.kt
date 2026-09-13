@@ -130,18 +130,22 @@ class AppAgentRuntimeTest {
     }
 
     @Test
-    fun cancelOfALiveTurnCancelsAndReportsCancelled() {
+    fun cancelOfALiveTurnReportsStopAccepted() {
+        // A live turn receives the stop and settles asynchronously when its unwind reaches the
+        // terminal — the result is StopAccepted (the stop was accepted), not Cancelled (which
+        // would claim the settlement already completed).
         val fake = host().apply { phase = TurnState.RUNNING_TOOL }
         val runtime = AppAgentRuntime(fake)
         val result = runBlocking { runtime.cancel(turnId) }
-        assertTrue(result is CancelResult.Cancelled)
+        assertTrue(result is CancelResult.StopAccepted)
         assertEquals(listOf("t1"), fake.cancelled)
     }
 
     @Test
     fun cancelOfAParkedInterruptedTurnIsDiscardedAndReportsCancelled() {
-        // A parked (INTERRUPTED) turn has no live loop; the host discards it to CANCELLED, so the
-        // result is still Cancelled (honest — a real cancel happened, not a silent no-op).
+        // A parked (INTERRUPTED) turn has no live loop; the host discards it to CANCELLED and
+        // settles it before returning, so the result is Cancelled (settled now — honest: a real
+        // cancel happened, not a silent no-op).
         val fake = host().apply { phase = TurnState.INTERRUPTED }
         val runtime = AppAgentRuntime(fake)
         val result = runBlocking { runtime.cancel(turnId) }

@@ -55,12 +55,15 @@ internal class AppAgentRuntime(
                 CancelResult.AlreadyTerminal(phase)
             }
 
-            // A non-terminal turn is cancelled for real: the host stops its live loop, or — for a
-            // parked (INTERRUPTED) turn with no live loop — discards it to CANCELLED. Either way
-            // the turn ends cancelled, so Cancelled is honest (a parked turn is not no-oped).
+            // A non-terminal turn is cancelled for real — and the result says what kind of
+            // cancel it is: a stopped LIVE turn settles asynchronously when its unwind reaches
+            // the terminal (StopAccepted); a DISCARDED PARKED turn is already settled in
+            // CANCELLED before the host returns (Cancelled — a parked turn is not no-oped).
             else -> {
-                host.cancelTurn(turnId.value)
-                CancelResult.Cancelled
+                when (host.cancelTurn(turnId.value)) {
+                    TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
+                    TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
+                }
             }
         }
     }

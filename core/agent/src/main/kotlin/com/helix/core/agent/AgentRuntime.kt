@@ -45,9 +45,13 @@ interface AgentRuntime {
     suspend fun submit(command: SubmitTurnCommand): TurnId
 
     /**
-     * Cancel a live or recoverable turn. A non-terminal phase moves to [TurnPhase.CANCELLING]
-     * and then [TurnPhase.CANCELLED]; an [TurnPhase.INTERRUPTED] turn is discarded straight to
-     * [TurnPhase.CANCELLED] because no live loop exists to cancel.
+     * Cancel a live or recoverable turn. A live turn (its loop still running) receives the stop
+     * and unwinds to [TurnPhase.CANCELLED] through [TurnPhase.CANCELLING] — reported as
+     * [CancelResult.StopAccepted]: its settlement (terminal row, goal settlement, audit) completes
+     * asynchronously when the unwind reaches the terminal, so a caller that needs the terminal
+     * observes the turn. A parked [TurnPhase.INTERRUPTED] turn has no live loop and is settled
+     * straight to [TurnPhase.CANCELLED] before this returns ([CancelResult.Cancelled]).
+     * Cancelling an already-terminal turn is an idempotent no-op ([CancelResult.AlreadyTerminal]).
      */
     suspend fun cancel(turnId: TurnId): CancelResult
 
@@ -132,7 +136,13 @@ data class TurnSnapshot(
 
 /** Outcome of [AgentRuntime.cancel]. */
 sealed interface CancelResult {
-    /** The turn was cancelled. */
+    /**
+     * The turn's live loop received the stop; the turn unwinds to [TurnPhase.CANCELLED] and its
+     * settlement completes asynchronously — [AgentRuntime.observe] delivers its terminal frame.
+     */
+    data object StopAccepted : CancelResult
+
+    /** The turn was cancelled and is already settled in [TurnPhase.CANCELLED]. */
     data object Cancelled : CancelResult
 
     /** The turn was already terminal; cancellation was a no-op. */

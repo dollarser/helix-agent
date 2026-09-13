@@ -8,6 +8,7 @@ import com.helix.app.agent.ChatContextProjection
 import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.GoalTimeLimitException
 import com.helix.app.agent.LocalToolCallBatch
@@ -1614,9 +1615,13 @@ class ChatService(
 
     /**
      * [com.helix.core.agent.AgentRuntime.cancel]: stop the turn's live work, or — when it has no
-     * live loop (a parked / INTERRUPTED turn) — discard it to CANCELLED. Reports the outcome so
-     * the adapter's CancelResult is honest (a parked turn is actually cancelled, not silently
-     * no-oped). The turn exists: the adapter pre-checks [persistedPhase] before calling this.
+     * live loop (a parked / INTERRUPTED turn) — settle it to CANCELLED through the SAME unified
+     * settlement the live unwind uses (terminal row + goal settlement in one transaction, then
+     * the shared post-settlement cleanup, frame publication and page refresh). Reports the
+     * outcome so the adapter's CancelResult is honest: a stopped live turn settles asynchronously
+     * (StopAccepted); a parked turn is actually cancelled and already settled (Cancelled), not
+     * silently no-oped. The turn exists: the adapter pre-checks [persistedPhase] before calling
+     * this.
      */
     override suspend fun cancelTurn(turnId: String): TurnCancelOutcome =
         withContext(Dispatchers.IO) {
@@ -1630,14 +1635,23 @@ class ChatService(
                 // No live loop: a non-terminal turn without one is a parked (INTERRUPTED) turn.
                 // Discard it straight to CANCELLED — the model's only direct-to-CANCELLED edge.
                 // updateState validates the transition, so a turn not in a discardable state fails
-                // closed (throws) instead of being silently marked cancelled.
-                storage.turns.updateState(
-                    turn = task,
-                    state = TurnState.CANCELLED,
-                    stepCount = task.stepCount,
-                    endedAt = clock.now().toEpochMilli(),
-                    errorCode = null,
-                )
+                // closed (throws) instead of being silently marked cancelled. The terminal write
+                // and the goal settlement commit in ONE transaction — the same unified settlement
+                // the live unwind commits in [TurnCoordinator.terminalize]: a parked goal was
+                // already recovered to PAUSED at process restart, so [GoalRunSettlement.settle]
+                // is a guarded no-op there, kept so both paths settle identically.
+                storage.withTransaction {
+                    val current = storage.turns.resolve(turnId)
+                    storage.turns.updateState(
+                        turn = current,
+                        state = TurnState.CANCELLED,
+                        stepCount = current.stepCount,
+                        endedAt = clock.now().toEpochMilli(),
+                        errorCode = null,
+                    )
+                    GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+                }
+                endTurnSettlement(turnId)
                 // Deliver the terminal to this turn's live-frame observers too: a parked turn was
                 // started (its flow is open) but never went through terminalize, so without this
                 // emit an [AgentTurnHost.observeTurnFrames] subscriber would hang for it.
@@ -1645,6 +1659,10 @@ class ChatService(
                     turnId,
                     TurnUi(turnId, TurnState.CANCELLED, null, terminalLabel(TurnState.CANCELLED, null), false),
                 )
+                // Same post-settlement surface as the live unwind: the page refresh (a parked
+                // turn may be the open session's last row) and the goal reminder sync.
+                refreshScreen()
+                syncGoalReminderForTurn(turnId)
                 TurnCancelOutcome.DiscardedParked
             }
         }
@@ -1974,12 +1992,7 @@ class ChatService(
     ) {
         val turnId = coordinator.id
         coordinator.terminalize(outcome)
-        // HXA-036: the turn is over — clear the dispatcher's same-turn denial set for it
-        // (a later turn may re-request a previously denied action and get a fresh card)
-        // and drop this turn's pipeline state.
-        toolPipeline.endTurn(turnId)
-        turnCancels.remove(turnId)
-        toolCalls.finishTurn(turnId)
+        endTurnSettlement(turnId)
         // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
         // user reacting immediately cannot hit the still-active coroutine's completion gap.
         sessionTurnAdmission.complete(sessionId, turnId)
@@ -2002,6 +2015,20 @@ class ChatService(
         }
         refreshScreen()
         syncGoalReminderForTurn(turnId)
+    }
+
+    /**
+     * The post-settlement per-turn cleanup shared by the live unwind ([terminalize]) and the
+     * parked-turn discard ([cancelTurn]): when this runs the terminal row and its goal
+     * settlement are already durable — only in-memory per-turn state is released here.
+     */
+    private fun endTurnSettlement(turnId: String) {
+        // HXA-036: the turn is over — clear the dispatcher's same-turn denial set for it
+        // (a later turn may re-request a previously denied action and get a fresh card)
+        // and drop this turn's pipeline state.
+        toolPipeline.endTurn(turnId)
+        turnCancels.remove(turnId)
+        toolCalls.finishTurn(turnId)
     }
 
     private fun syncGoalReminderForTurn(turnId: String) {

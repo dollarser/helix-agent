@@ -39,10 +39,12 @@ internal interface AgentTurnHost {
     /**
      * Cancel the turn by id, reporting what actually happened so the adapter's
      * [com.helix.core.agent.CancelResult] is honest. A turn with a live loop has that loop stopped
-     * ([TurnCancelOutcome.StoppedLive] — it unwinds to CANCELLED); a non-terminal turn with NO
-     * live loop (a parked / INTERRUPTED turn) is discarded straight to CANCELLED
-     * ([TurnCancelOutcome.DiscardedParked]). Only called for an existing, non-terminal turn — the
-     * adapter pre-checks the rest.
+     * ([TurnCancelOutcome.StoppedLive] — it unwinds to CANCELLED and settles asynchronously); a
+     * non-terminal turn with NO live loop (a parked / INTERRUPTED turn) is settled straight to
+     * CANCELLED ([TurnCancelOutcome.DiscardedParked]). The adapter maps StoppedLive to
+     * [com.helix.core.agent.CancelResult.StopAccepted] and DiscardedParked to
+     * [com.helix.core.agent.CancelResult.Cancelled]. Only called for an existing, non-terminal
+     * turn — the adapter pre-checks the rest.
      */
     suspend fun cancelTurn(turnId: String): TurnCancelOutcome
 
@@ -71,9 +73,10 @@ internal class TurnStartBlocked(
 
 /**
  * What a turn cancel actually did (research doc section 34; HX2-01) — the input to an honest
- * [com.helix.core.agent.CancelResult]. Both cases leave the turn cancelled; the distinction is the
- * mechanism (a live loop was stopped vs. a parked turn was discarded) and keeps the host from
- * silently no-opping a parked turn.
+ * [com.helix.core.agent.CancelResult]. Both cases leave the turn cancelled; the distinction is
+ * WHEN the settlement completes: a stopped live loop settles asynchronously as it unwinds
+ * (StopAccepted), while a discarded parked turn is already settled in CANCELLED (Cancelled) — and
+ * it keeps the host from silently no-opping a parked turn.
  *
  * Public (not internal) because [AgentTurnHost] is implemented by the public [ChatService]; its
  * [cancelTurn] override is a public member and may not expose an internal return type.
