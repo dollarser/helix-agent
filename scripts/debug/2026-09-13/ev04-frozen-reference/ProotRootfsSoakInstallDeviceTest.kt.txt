@@ -1,0 +1,51 @@
+package com.helix.runtime.proot.app
+
+import android.content.Context
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.runtime.proot.core.InstallOutcome
+import com.helix.runtime.proot.core.RootFsInstaller
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+/**
+ * EV-04 soak one-time setup fixture (developer channel).
+ *
+ * The main-app soak fixture drives `code.linux.run` for a real PRoot guest
+ * read/write every block (master-plan EV-04: "developer每块另加一次已批准PRoot真实guest读写
+ * 合成快照"), which requires the embedded rootfs to be *installed* in the
+ * companion's `filesDir/runtime`. The product's only install trigger is the
+ * repair-activity install button (`ProotRepairActivity.runInstall`); there is no
+ * install IPC the main app can send. This fixture runs that SAME install path on
+ * the companion's own target context (its embedded `assets/runtime` + its
+ * `filesDir`), exactly as the button does.
+ *
+ * Unlike the product's `ProotInstallerDeviceTest` (which `@After`-wipes the
+ * runtime dir to stay isolated), this fixture deliberately does NOT clean up:
+ * the install is durable and the soak runner never `pm clear`s the companion
+ * package, so one run on a device makes `code.linux.run` work for the whole
+ * round and across rounds on that device. Idempotent — each run promotes a new
+ * install id to active and keeps the previous as rollback.
+ */
+@RunWith(AndroidJUnit4::class)
+class ProotRootfsSoakInstallDeviceTest {
+    private val context: Context
+        get() = InstrumentationRegistry.getInstrumentation().targetContext
+
+    @Test
+    fun installEmbeddedRootfsDurable() {
+        val lock = ProotRuntimeInstaller.loadEmbeddedLock(context)
+        val request =
+            ProotRuntimeInstaller.buildInstallRequest(
+                context,
+                lock,
+                pageSizeBytes = ProotNative.pageSizeBytes(),
+                nowEpochMs = System.currentTimeMillis(),
+            )
+        val outcome = RootFsInstaller.install(request)
+        assertTrue("rootfs install failed: $outcome", outcome is InstallOutcome.Success)
+        assertNotNull("no active rootfs after install", RootFsInstaller.currentActive(ProotRuntimeInstaller.runtimeRoot(context)))
+    }
+}

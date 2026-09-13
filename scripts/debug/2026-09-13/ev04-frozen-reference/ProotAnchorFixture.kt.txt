@@ -1,0 +1,60 @@
+package com.helix.app
+
+import android.app.Application
+import com.helix.runtime.proot.client.ProotRuntimeSupervisor
+import com.helix.runtime.proot.client.RepairEntryResult
+import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
+
+/**
+ * Developer-only PRoot anchor persistence for the shared main-app soak fixture.
+ *
+ * The raw proot-client types are `developerImplementation`-only (absent from the
+ * consumer classpath), so this helper lives in the `androidTestDeveloper` source set
+ * (developer variant only) and is reached *reflectively* from the flavor-shared
+ * [MainAppCombinedSoakDeviceTest] — that keeps the shared fixture compiling in BOTH
+ * flavors while the real cold bind + handshake only runs in the developer round.
+ *
+ * Mirrors the real user "验证 Runtime" flow in two steps:
+ *  1. [ProotRuntimeSupervisor.openRepairActivity] (removeRuntime=false — a bare,
+ *     non-destructive launch) lifts the companion out of Android's implicit
+ *     stopped state (FLAG_STOPPED), which the per-execution gate would otherwise
+ *     read as PACKAGE_FORCED_STOPPED before any bind. The main app is the ONLY
+ *     party that can do this — the repair activity is signature-gated, so an
+ *     `am start` from the adb shell is denied — and it is the product's own
+ *     documented recovery path for a stopped/force-stopped companion.
+ *  2. [ProotRuntimeSupervisor.verify] does the cold bind + handshake and persists
+ *     the anchor on success — what the developer `code.linux.run` gate (install +
+ *     enabled + same-signing + persisted anchor) reads per execution.
+ *
+ * verify is retried briefly while the companion is still in the stopped state
+ * (the freshly-launched process needs a moment to come up); any other stable
+ * refusal (HANDSHAKE_TIMEOUT, SIGNATURE_MISMATCH, …) is returned as-is. The
+ * caller runs this on a worker thread (the bind's `latch.await` must not run on
+ * the instrumentation main thread). Returns a short note for the log; a
+ * missing/invalid companion surfaces as its stable cause — never a fake ok.
+ */
+object ProotAnchorFixture {
+    @JvmStatic
+    fun persist(app: Application): String = try {
+        val supervisor = ProotRuntimeSupervisor(app)
+        val openNote =
+            when (val opened = supervisor.openRepairActivity()) {
+                is RepairEntryResult.Opened -> "opened"
+                is RepairEntryResult.Unavailable -> "open-unavailable(${opened.cause})"
+            }
+        var note = ""
+        for (attempt in 1..4) {
+            Thread.sleep(2_000L)
+            when (val result = supervisor.verify(System.currentTimeMillis())) {
+                is ProotRuntimeAvailability.Verified ->
+                    note = "Verified(anchor persisted)[$openNote]x$attempt"
+                is ProotRuntimeAvailability.Unavailable ->
+                    note = "Unavailable(${result.cause})[$openNote]x$attempt"
+            }
+            if (!note.contains("PACKAGE_FORCED_STOPPED")) break
+        }
+        note
+    } catch (e: Exception) {
+        "verify error: ${e.message ?: e::class.simpleName}".take(200)
+    }
+}
