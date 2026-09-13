@@ -3,6 +3,11 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnMessageDraft
+import com.helix.app.agent.TurnStartSpec
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole

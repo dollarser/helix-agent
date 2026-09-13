@@ -1,6 +1,9 @@
 package com.helix.core.model
 
-/** A user-reviewed selection awaiting explicit Continue and host revalidation; never completion evidence. */
+/**
+ * A user-reviewed selection from the superseded ADR-0028 binding flow (ADR-0040): retained
+ * for compatible reads of historical goal rows; never completion evidence.
+ */
 data class CriterionPendingReview(
     val toolCallId: ToolCallId,
     val bindingHash: Sha256,

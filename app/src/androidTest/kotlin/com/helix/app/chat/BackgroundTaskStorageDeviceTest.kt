@@ -2,6 +2,9 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock

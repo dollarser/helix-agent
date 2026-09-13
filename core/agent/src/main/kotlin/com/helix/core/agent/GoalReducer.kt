@@ -20,21 +20,28 @@ data class GoalStep(
  * Pure reducer for persistent Goals: `state + event -> state/effects`
  * (modes doc sections 6.1/6.2, architecture doc section 5.3).
  *
- * Design decisions (recorded in the HXA-013 completion record):
+ * Design decisions (recorded in the HXA-013 completion record; the ADR-0039/0040 evolution is
+ * noted inline):
  * - A run (created by an explicit `Continued`) contains wakes. A wake ends by: normal Turn
  *   completion (`RunFinished` -> PAUSED, awaiting the next explicit wake), budget exhaustion
- *   (`WakeUsageReported` -> PAUSED with `BudgetExhausted(limit)`), input need (->
- *   INPUT_REQUIRED), or failure (`WakeFailed`: retry within budget stays RUNNING, otherwise
- *   FAILED). PAUSED is the single durable "awaiting user" state: between wakes, after
- *   exhaustion, and after process death.
+ *   (`WakeUsageReported` -> BLOCKED with `BudgetExhausted(limit)`; ADR-0039: a missing budget
+ *   is a blocker that must be resolved, not a plain park), input need (-> INPUT_REQUIRED), or
+ *   failure (`WakeFailed`: retry within budget stays RUNNING, otherwise FAILED).
  * - `WakeFailed`: a retryable failure consumes one of `maxRetries` and keeps the goal RUNNING
  *   with a `RetryWake` effect; a non-retryable failure, or retry exhaustion, fails the goal.
  *   (The `GoalState` machine has no RUNNING -> RUNNING edge, so retries are wake-level: the
  *   goal state stays RUNNING while the coordinator re-tries the wake.)
- * - `CompleteRequested` is honored only when every criterion carries verifier evidence.
+ * - BLOCKED (ADR-0039) is a durable state that cannot be Continued directly: the recorded
+ *   dependency is resolved first (`BlockerResolved` -> PAUSED, then an explicit `Continued`
+ *   starts the run).
+ * - `CompleteRequested` completes a RUNNING goal: settlement has already consumed the model's
+ *   completion report after the execution gates (terminal turn, no unsettled side effects, no
+ *   user pause; ADR-0040). The reducer validates the lifecycle, not the report's semantic
+ *   truth — no criterion-evidence gate exists (ADR-0028's mandatory bindings are superseded).
  * - Process death parks RUNNING in PAUSED (durable park, `GoalState.stateAfterProcessDeath`);
- *   the checkpoint reminder survives the park because tapping it is a legitimate wake source.
- *   Reminders are cancelled on INPUT_REQUIRED/COMPLETED/FAILED/CANCELLED.
+ *   the checkpoint survives the park because tapping it is a legitimate wake source. The
+ *   durable reconciler keeps a reminder only while the goal is RUNNING/PAUSED with a pending
+ *   checkpoint; every other state cancels it.
  * - The goal never grants permission: Act/Goal share the same per-call Policy/approval rules;
  *   this reducer only schedules work and accounts budgets.
  */
@@ -303,12 +310,10 @@ object GoalReducer {
 
     /**
      * A new run can start only while the remaining goal budget can be materialized as a
-     * legal [com.helix.core.model.TurnBudgets] by the coordinator (ADR-0004 item 1): at
-     * least one model call, one tool call and one token of headroom per run.
+     * legal [com.helix.core.model.TurnBudgets] by the coordinator (ADR-0004 item 1). Delegates
+     * to [Goal.hasRunBudgetHeadroom] so the reducer and the [GoalDriver] share one rule.
      */
-    private fun Goal.canStartRun(): Boolean =
-        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1 &&
-            runTimeMillis < budgets.maxDurationMillis && budgets.maxWakeDurationMillis > 0
+    private fun Goal.canStartRun(): Boolean = hasRunBudgetHeadroom()
 
     /** First goal-lifetime budget that `goal` exceeds, in a fixed check order, or null. */
     private fun firstExhaustedLimit(goal: Goal): String? =

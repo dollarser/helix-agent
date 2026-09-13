@@ -2,8 +2,8 @@ package com.helix.app
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.approval.StorageAuditSink
-import com.helix.app.chat.ChatHistoryBuilder
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelRole

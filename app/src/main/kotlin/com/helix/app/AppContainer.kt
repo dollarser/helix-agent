@@ -10,6 +10,7 @@ import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentRuntime
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -50,6 +51,13 @@ interface AppContainer {
     val providerService: ProviderService
 
     val chatService: ChatService
+
+    /**
+     * The unified agent entry point (research doc section 34; HX2-01). Every producer (Chat /
+     * Goal / Share / Voice / Widget / Channel) drives an agent turn ONLY through this — never the
+     * model provider or the tool pipeline directly.
+     */
+    val agentRuntime: AgentRuntime
 
     val capabilityCenter: CapabilityCenter
 

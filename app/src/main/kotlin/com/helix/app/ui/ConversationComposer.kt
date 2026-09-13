@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.agent.ChatContextUsage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 
@@ -39,9 +40,7 @@ internal fun ConversationComposer(
     reasoningSupported: Boolean = false,
     onReasoning: (ReasoningEffort) -> Unit = {},
     modelSelector: (@Composable () -> Unit)? = null,
-    contextUsage: com.helix.app.chat.ChatContextUsage =
-        com.helix.app.chat
-            .ChatContextUsage(),
+    contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
 ) {

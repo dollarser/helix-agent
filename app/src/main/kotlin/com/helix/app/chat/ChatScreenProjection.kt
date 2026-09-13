@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.app.R
+import com.helix.app.agent.ContextCompaction
 import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.ModelRole

@@ -20,10 +20,20 @@ class AttachmentClassificationTest {
     }
 
     @Test
-    fun textKindIsClosedToTheFourFirstBatchKinds() {
+    fun textKindIsClosedToTheFirstBatchPlusDocumentBatch() {
         assertEquals(
-            setOf("TXT", "MARKDOWN", "CSV", "JSON"),
+            setOf("TXT", "MARKDOWN", "CSV", "JSON", "PDF", "DOCX", "HTML"),
             TextAttachmentKind.entries.map(TextAttachmentKind::name).toSet(),
+        )
+    }
+
+    @Test
+    fun onlyTheDocumentKindsAreExtracted() {
+        // The document batch is recognized by container magic and its text is EXTRACTED; the first
+        // batch is confirmed-UTF-8 text whose raw bytes are inlined verbatim.
+        assertEquals(
+            setOf(TextAttachmentKind.PDF, TextAttachmentKind.DOCX, TextAttachmentKind.HTML),
+            TextAttachmentKind.entries.filter { it.isExtractedDocument }.toSet(),
         )
     }
 

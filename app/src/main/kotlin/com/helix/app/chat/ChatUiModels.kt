@@ -1,6 +1,8 @@
 package com.helix.app.chat
 
+import com.helix.app.agent.ChatContextUsage
 import com.helix.app.provider.ProviderBadgeUi
+import com.helix.app.todo.LedgerItemUi
 import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.SessionEntity
 
@@ -101,6 +103,11 @@ data class ChatScreenState(
     val sessionTitle: String = "",
     val directoryRef: String? = null,
     val contextUsage: ChatContextUsage = ChatContextUsage(),
+    /**
+     * The open session's task progress (HX2-07): the model's working-memory ledger projected
+     * from its latest successful `todo.write` call; empty when the model has not kept one.
+     */
+    val taskLedger: List<LedgerItemUi> = emptyList(),
 ) {
     val isSending: Boolean
         get() =

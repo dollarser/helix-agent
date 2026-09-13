@@ -2,6 +2,12 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.agent.ChatContextRequest
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderContextSettings
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.model.Clock

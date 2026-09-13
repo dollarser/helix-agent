@@ -8,9 +8,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * HXA-049: [AttachmentMaterializer] — the fail-closed, re-verified materialization of a bound
@@ -43,6 +46,17 @@ class AttachmentMaterializerTest {
         return file
     }
 
+    /** A minimal .docx (a zip with `word/document.xml`) — a REAL container, not a stub. */
+    private fun docxBytes(documentXml: String): ByteArray =
+        ByteArrayOutputStream().use { out ->
+            ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(ZipEntry("word/document.xml"))
+                zip.write(documentXml.toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+            }
+            out.toByteArray()
+        }
+
     // ── Confirmed-UTF-8 text materializes, bounded, with the full-content hash ─────────────
 
     @Test
@@ -70,6 +84,71 @@ class AttachmentMaterializerTest {
         assertEquals(TextAttachmentKind.JSON, kind("cfg.json"))
         assertEquals(TextAttachmentKind.MARKDOWN, kind("readme.md"))
         assertEquals(TextAttachmentKind.TXT, kind("plain.txt"))
+    }
+
+    // ── Extracted-document kinds (P0-B): text is extracted; the SHA binds the RAW file ────
+
+    @Test
+    fun anHtmlFileMaterializesAsExtractedTextWithTheRawFileBound() {
+        val body = "<html><body><p>Hello HTML</p></body></html>\n"
+        val file = write(body, "page.html")
+        val result = AttachmentMaterializer.materialize(file, sha(body.toByteArray(Charsets.UTF_8)), "page.html")
+
+        val text = result as AttachmentMaterialization.Text
+        assertEquals(TextAttachmentKind.HTML, text.kind)
+        assertTrue("the extracted text must carry the visible content", text.content.contains("Hello HTML"))
+        assertEquals("the SHA binds the FULL raw file", sha(body.toByteArray(Charsets.UTF_8)), text.sha256)
+        assertEquals(body.toByteArray(Charsets.UTF_8).size.toLong(), text.sizeBytes)
+    }
+
+    @Test
+    fun aPdfFileMaterializesAsExtractedTextWithTheRawFileBound() {
+        val pdfBytes =
+            (
+                "%PDF-1.4\n4 0 obj\n<< /Length 30 >>\nstream\n" +
+                    "BT /F1 12 Tf (PDF hello) Tj ET\nendstream\nendobj\n%%EOF\n"
+            ).encodeToByteArray(Charsets.ISO_8859_1)
+        val file = writeBytes(pdfBytes, "doc.pdf")
+        val result = AttachmentMaterializer.materialize(file, sha(pdfBytes), "doc.pdf")
+
+        val text = result as AttachmentMaterialization.Text
+        assertEquals(TextAttachmentKind.PDF, text.kind)
+        assertTrue("the extracted PDF text must be present", text.content.contains("PDF hello"))
+        assertEquals("the SHA binds the FULL raw PDF, not the extracted view", sha(pdfBytes), text.sha256)
+        assertEquals(pdfBytes.size.toLong(), text.sizeBytes)
+    }
+
+    @Test
+    fun aDocxFileMaterializesAsExtractedTextWithTheRawFileBound() {
+        val bytes = docxBytes("<w:p><w:r><w:t>Docx hello</w:t></w:r></w:p>")
+        val file = writeBytes(bytes, "doc.docx")
+        val result = AttachmentMaterializer.materialize(file, sha(bytes), "doc.docx")
+
+        val text = result as AttachmentMaterialization.Text
+        assertEquals(TextAttachmentKind.DOCX, text.kind)
+        assertTrue("the extracted DOCX text must be present", text.content.contains("Docx hello"))
+        assertEquals(sha(bytes), text.sha256)
+        assertEquals(bytes.size.toLong(), text.sizeBytes)
+    }
+
+    @Test
+    fun anExtractedDocumentLargerThanTheInlineBoundIsTruncated() {
+        // A DOCX whose extracted text exceeds the 8 KiB inline bound: the view is a prefix, the
+        // SHA still binds the full raw file, and truncated is reported.
+        val paragraph = "<w:p><w:r><w:t>${"x".repeat(40)}</w:t></w:r></w:p>"
+        val bytes = docxBytes("<w:body>" + paragraph.repeat(300) + "</w:body>") // ~120 KB of extracted text
+        val file = writeBytes(bytes, "big.docx")
+        val result = AttachmentMaterializer.materialize(file, sha(bytes), "big.docx")
+
+        val text = result as AttachmentMaterialization.Text
+        assertTrue("over-cap extracted text is truncated", text.truncated)
+        assertEquals(
+            "the extracted view is exactly the inline bound",
+            AttachmentMaterializer.MAX_INLINE_TEXT_BYTES,
+            text.content.length,
+        )
+        assertEquals(sha(bytes), text.sha256)
+        assertEquals(bytes.size.toLong(), text.sizeBytes)
     }
 
     @Test

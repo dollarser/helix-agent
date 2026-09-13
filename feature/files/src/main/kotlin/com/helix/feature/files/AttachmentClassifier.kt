@@ -32,7 +32,7 @@ object AttachmentClassifier {
     /** The trusted, magic-derived image media types (HXA-055; the bytes win, the label never does). */
     private val IMAGE_MEDIA_TYPES = setOf("image/png", "image/jpeg", "image/webp", "image/gif")
 
-    @Suppress("ReturnCount") // one return per closed branch: image / text / unsupported
+    @Suppress("ReturnCount") // one return per closed branch: image / pdf / docx / text / unsupported
     fun classify(
         probe: ContentProbe.Result,
         fileName: String?,
@@ -43,6 +43,19 @@ object AttachmentClassifier {
         if (probe.mimeType in IMAGE_MEDIA_TYPES) {
             return AttachmentClassification.ImageAttachment(probe.mimeType)
         }
+        // P0-B document batch (doc PX-05): a magic-recognized CONTAINER is an extracted-document
+        // text attachment. These are BYTES, not UTF-8, so they must be caught BEFORE the UTF-8
+        // gate below — a PDF is BINARY to the encoding probe and would otherwise be unsupported.
+        // Recognition is by the trusted magic table (the bytes win); the extension only breaks the
+        // zip-family tie (a .docx is a zip container, so `application/zip` + `.docx` name → DOCX;
+        // any other zip stays an unsupported archive). The model-visible text is then EXTRACTED
+        // (DocumentTextExtractor), still surfaced as UNTRUSTED.
+        if (probe.mimeType == "application/pdf") {
+            return AttachmentClassification.TextAttachment(TextAttachmentKind.PDF)
+        }
+        if (probe.mimeType == "application/zip" && extensionOf(fileName) == "docx") {
+            return AttachmentClassification.TextAttachment(TextAttachmentKind.DOCX)
+        }
         // The trusted, byte-derived encoding gate: only clean UTF-8 is a text attachment.
         // UTF-16 / binary / empty are never materialized as text here.
         if (probe.encoding != ContentProbe.Encoding.UTF8) {
@@ -52,7 +65,7 @@ object AttachmentClassifier {
         return if (kind != null) {
             AttachmentClassification.TextAttachment(kind)
         } else {
-            // UTF-8 text, but not one of the four supported first-batch kinds.
+            // UTF-8 text, but not one of the supported kinds (txt / md / csv / json / html).
             AttachmentClassification.UnsupportedAttachment(AttachmentCategory.OTHER)
         }
     }
@@ -69,7 +82,7 @@ object AttachmentClassifier {
 
             ext in VIDEO_EXTENSIONS -> AttachmentCategory.VIDEO
 
-            ext in DOCUMENT_EXTENSIONS || probe.mimeType == "application/pdf" -> AttachmentCategory.DOCUMENT
+            ext in DOCUMENT_EXTENSIONS -> AttachmentCategory.DOCUMENT
 
             // Every other unrecognized binary (archives, unknown formats, ...).
             else -> AttachmentCategory.OTHER
@@ -91,6 +104,11 @@ object AttachmentClassifier {
             "markdown" to TextAttachmentKind.MARKDOWN,
             "csv" to TextAttachmentKind.CSV,
             "json" to TextAttachmentKind.JSON,
+            // HTML is UTF-8 text (it passes the encoding gate above); the extension picks the
+            // kind and the extractor parses the real bytes (a mislabeled .html that is not parseable
+            // fails closed to empty text — the extension only selects the extractor, never the trust).
+            "html" to TextAttachmentKind.HTML,
+            "htm" to TextAttachmentKind.HTML,
         )
 
     private val AUDIO_EXTENSIONS: Set<String> =

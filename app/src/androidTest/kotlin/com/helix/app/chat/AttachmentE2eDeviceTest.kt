@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
@@ -44,9 +45,12 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.Base64
 import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * HXA-056: the fixture-based attachment E2E (roadmap §9A: "固定 fixture 完成纯文本与图片附件
@@ -522,6 +526,51 @@ class AttachmentE2eDeviceTest {
             )
         } finally {
             settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun documentAttachmentsAreExtractedStagedAndSentNotRefused() {
+        // P0-B document batch (doc PX-05): a real PDF / DOCX / HTML is an extracted-document text
+        // attachment — it stages (NOT refused as a closed-unsupported type), sends on per-send
+        // confirmation, and the wire carries the EXTRACTED text inside a labelled, hash-bound
+        // UNTRUSTED attachment block. This is the positive mirror of
+        // unsupportedTypesAreStablyRefusedWithoutSideEffects: the container family that is now
+        // supported must ride the wire, never the closed refusal.
+        val cases =
+            listOf(
+                Triple("doc.pdf", pdfDocumentBytes("PDF extraction marker"), "PDF extraction marker"),
+                Triple("doc.docx", docxDocumentBytes("DOCX extraction marker"), "DOCX extraction marker"),
+                Triple(
+                    "page.html",
+                    "<html><body><p>HTML extraction marker</p></body></html>".toByteArray(),
+                    "HTML extraction marker",
+                ),
+            )
+        for ((name, bytes, marker) in cases) {
+            val fixture = newFixture(vision = false)
+            try {
+                stageRawAttachment(fixture, name, bytes)
+
+                fixture.wire.script(sseResponse(textAnswerStream("收到文档。")))
+                sendToDisclosure(fixture)
+                fixture.service.confirmSend()
+                await(fixture, "$name turn completes") { turnIsTerminal(fixture) }
+
+                assertEquals(1, fixture.wire.callCount)
+                val body = fixture.wire.lastRequestBody
+                assertTrue("$name: the wire must carry the attachment label", body.contains("【附件 1/1"))
+                assertTrue(
+                    "$name: the attachment block must be UNTRUSTED",
+                    body.contains(AttachmentContext.UNTRUSTED_MARKER),
+                )
+                assertTrue(
+                    "$name: the wire must carry the extracted text, was: $body",
+                    body.contains(marker),
+                )
+            } finally {
+                settleAndClose(fixture)
+            }
         }
     }
 
@@ -1062,12 +1111,13 @@ class AttachmentE2eDeviceTest {
 
     @Test
     fun unsupportedTypesAreStablyRefusedWithoutSideEffects() {
-        // The closed unsupported boundary (HXA-056): PDF / DOC-binary / audio / UTF-16 text
-        // are REFUSED at the closed classifier — no parser, no OCR, no media decode, no
-        // Provider upload, no base64 in any context, no derived artifacts.
+        // The closed unsupported boundary (HXA-056): legacy DOC-binary / audio / UTF-16 text are
+        // REFUSED at the closed classifier — no OCR, no media decode, no Provider upload, no base64
+        // in any context, no derived artifacts. PDF / DOCX are NO LONGER refused: the P0-B
+        // document batch is an extracted-document text attachment (see
+        // DocumentAttachmentExtractionDeviceTest for the positive path).
         val cases =
             listOf(
-                "doc.pdf" to pdfBytes(),
                 "binary.doc" to ole2Bytes(),
                 "clip.wav" to wavBytes(),
                 "utf16.txt" to "utf-16 body".toByteArray(java.nio.charset.StandardCharsets.UTF_16LE),
@@ -1422,6 +1472,23 @@ class AttachmentE2eDeviceTest {
         await(fixture, "the text attachment stages") { fixture.service.screen.value.pendingAttachments.size == 1 }
     }
 
+    /** Stages one raw-byte attachment under [name] and awaits one pending attachment (no block). */
+    private fun stageRawAttachment(
+        fixture: Fixture,
+        name: String,
+        bytes: ByteArray,
+    ) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val source = File(context.cacheDir, "raw-${UUID.randomUUID()}-$name")
+        source.writeBytes(bytes)
+        sourceFiles[URI_KEY] = source
+        fixture.service.stageAttachment(URI_KEY)
+        await(fixture, "$name stages as an extracted document (not refused)") {
+            val s = fixture.service.screen.value
+            s.pendingAttachments.size == 1 && s.blockedReason == null
+        }
+    }
+
     /** Stages one real PNG (64x64) and returns the source file (for the leak scan). */
     private fun stageImageAttachment(fixture: Fixture): File {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -1521,10 +1588,6 @@ class AttachmentE2eDeviceTest {
             0x52.toByte(),
         )
 
-    /** %PDF-1.4 header + harmless trailer bytes (magic only; the importer refuses before parsing). */
-    private fun pdfBytes(): ByteArray =
-        ("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< >>\n%%EOF\n").encodeToByteArray()
-
     /** OLE2 compound document magic (DOC/PPT family) + padding. */
     private fun ole2Bytes(): ByteArray {
         val b = ByteArray(64)
@@ -1572,4 +1635,31 @@ class AttachmentE2eDeviceTest {
             0xFF.toByte(),
             0xD9.toByte(), // EOI
         )
+
+    /** A minimal, REAL PDF (hand-written) whose text-showing operator carries [text]. */
+    private fun pdfDocumentBytes(text: String): ByteArray =
+        (
+            "%PDF-1.4\n" +
+                "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n" +
+                "2 0 obj\n<< /Type /Pages /Kids [3 0 R] >>\nendobj\n" +
+                "3 0 obj\n<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>\nendobj\n" +
+                "4 0 obj\n<< /Length ${text.length} >>\nstream\n" +
+                "BT /F1 12 Tf ($text) Tj ET\n" +
+                "endstream\nendobj\n" +
+                "trailer\n<< /Root 1 0 R >>\n%%EOF\n"
+        ).toByteArray(Charsets.ISO_8859_1)
+
+    /** A minimal, REAL DOCX (a zip with `word/document.xml`) carrying [text]. */
+    private fun docxDocumentBytes(text: String): ByteArray =
+        ByteArrayOutputStream().use { out ->
+            ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(ZipEntry("word/document.xml"))
+                zip.write(
+                    "<w:document><w:body><w:p><w:r><w:t>$text</w:t></w:r></w:p></w:body></w:document>"
+                        .toByteArray(),
+                )
+                zip.closeEntry()
+            }
+            out.toByteArray()
+        }
 }

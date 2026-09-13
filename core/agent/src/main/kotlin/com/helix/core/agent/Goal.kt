@@ -9,14 +9,24 @@ import com.helix.core.model.PlanId
 import com.helix.core.model.Sha256
 
 /**
- * Real wake source recorded into the `goal_runs` table (modes doc section 6.1). The first
- * version only has explicit user wakes: opening the goal or tapping its notification.
- * WorkManager may delay or drop the notification (Doze, force-stop, system limits); it never
- * wakes the goal by itself.
+ * Real wake source recorded into the `goal_runs` table (modes doc section 6.1).
+ *
+ * v1 admits only the two explicit user wakes ([USER_OPEN], [NOTIFICATION_ACTION]); WorkManager
+ * reminders may be delayed or dropped (Doze, force-stop) and never wake the goal by themselves.
+ *
+ * The remaining three values are the wake types the [GoalDriver] (HX2-08) makes admission
+ * policy for — the "should we attempt a run?" layer above the reducer's "can a run start?" —
+ * and are gated off in the v1 driver policy ([GoalWakePolicy.V1]) until their product loops
+ * (foreground continuation, scheduled checkpoints, channels) land. They live in this enum so
+ * `goal_runs` can record them once enabled, without the reducer ever special-casing them
+ * (research doc section 32: adding Cron/Channel/A2A/push must not pollute the Goal reducer).
  */
 enum class GoalWakeReason {
     USER_OPEN,
     NOTIFICATION_ACTION,
+    FOREGROUND_CONTINUATION,
+    SCHEDULED_CHECKPOINT,
+    CHANNEL_EVENT,
 }
 
 /**
@@ -78,6 +88,19 @@ data class Goal(
     fun remainingToolCalls(): Int = budgets.maxToolCalls - toolCalls
 
     fun remainingTotalTokens(): Long = budgets.maxTotalTokens - totalTokens
+
+    /**
+     * Whether the remaining goal budget can still be materialized as a legal per-run
+     * [com.helix.core.model.TurnBudgets] (ADR-0004 item 1): at least one model call, one tool
+     * call and one token of headroom, plus lifetime and single-wake duration headroom.
+     *
+     * Single source of truth shared by the reducer's [GoalEvent.Continued] acceptance and the
+     * [GoalDriver] pre-flight, so the "can a run start?" and "should we attempt one?" layers
+     * never diverge.
+     */
+    fun hasRunBudgetHeadroom(): Boolean =
+        remainingModelCalls() >= 1 && remainingToolCalls() >= 1 && remainingTotalTokens() >= 1 &&
+            runTimeMillis < budgets.maxDurationMillis && budgets.maxWakeDurationMillis > 0
 
     companion object {
         const val MAX_OBJECTIVE_LENGTH = 1024

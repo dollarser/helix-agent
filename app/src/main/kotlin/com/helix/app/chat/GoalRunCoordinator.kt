@@ -1,5 +1,7 @@
 package com.helix.app.chat
 
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.goal.toRuntimeGoal
 import com.helix.app.goal.toStoredGoal
 import com.helix.core.agent.Criterion
@@ -12,6 +14,8 @@ import com.helix.core.model.Clock
 import com.helix.core.model.CorrelationId
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalId
+import com.helix.core.model.PlanId
+import com.helix.core.model.Sha256
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.HelixStorage
 
@@ -39,7 +43,12 @@ internal class GoalRunCoordinator(
         objective: String,
         criteria: List<String>,
         budgets: GoalBudgets,
+        planId: PlanId? = null,
+        planHash: Sha256? = null,
     ): String {
+        // HX2-05: a plan-executing goal binds the approved plan version; the pair is
+        // all-or-nothing (StoredGoal enforces the same invariant at the row level).
+        require((planId == null) == (planHash == null)) { "planId and planHash must be set together" }
         val goal =
             Goal.initial(
                 GoalId(idGenerator()),
@@ -47,6 +56,8 @@ internal class GoalRunCoordinator(
                 criteria.mapIndexed { index, description -> Criterion("criterion-$index", description) },
                 budgets,
                 CorrelationId(idGenerator()),
+                planId,
+                planHash,
             )
         val ready = GoalReducer.reduce(goal, GoalEvent.Ready(null, null)).state
         storage.withTransaction {

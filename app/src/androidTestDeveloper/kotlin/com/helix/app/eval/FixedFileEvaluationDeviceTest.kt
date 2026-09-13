@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
+import com.helix.app.agent.TurnCoordinator
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint

@@ -115,11 +115,43 @@ class AttachmentClassifierTest {
 
     @Test
     fun binaryDocumentsAudioAndVideoMapToTheirClosedCategory() {
-        // Office files are detected as application/zip by the probe; the extension says DOCUMENT.
-        assertEquals(unsupported(AttachmentCategory.DOCUMENT), binary("report.docx", "application/zip"))
-        assertEquals(unsupported(AttachmentCategory.DOCUMENT), binary("spec.pdf", "application/pdf"))
+        // Office .doc (OLE2, not a zip) and audio/video remain closed-unsupported: a magic-recognized
+        // document container (PDF / DOCX) now becomes a text attachment instead (see below).
+        assertEquals(unsupported(AttachmentCategory.DOCUMENT), binary("report.doc", "application/octet-stream"))
         assertEquals(unsupported(AttachmentCategory.AUDIO), binary("song.mp3", "application/octet-stream"))
         assertEquals(unsupported(AttachmentCategory.VIDEO), binary("clip.mp4", "application/octet-stream"))
+    }
+
+    @Test
+    fun aMagicRecognizedDocumentIsAnExtractedTextAttachment() {
+        // P0-B document batch (doc PX-05): a magic-recognized container is an extracted-document
+        // text attachment — the BYTES (magic) win; the extension only breaks the zip-family tie
+        // (a .docx is a zip). A zip NOT named .docx stays an unsupported archive.
+        assertEquals(
+            AttachmentClassification.TextAttachment(TextAttachmentKind.PDF),
+            binary("spec.pdf", "application/pdf"),
+        )
+        assertEquals(
+            AttachmentClassification.TextAttachment(TextAttachmentKind.DOCX),
+            binary("report.docx", "application/zip"),
+        )
+        assertEquals(
+            AttachmentClassification.TextAttachment(TextAttachmentKind.DOCX),
+            binary("REPORT.Docx", "application/zip"),
+        )
+        assertEquals(unsupported(AttachmentCategory.OTHER), binary("archive.zip", "application/zip"))
+        // A .docx-named file whose bytes are NOT a zip (octet-stream) is not promoted: the magic
+        // must confirm the container, the extension alone never does.
+        assertEquals(unsupported(AttachmentCategory.DOCUMENT), binary("fake.docx", "application/octet-stream"))
+    }
+
+    @Test
+    fun utf8HtmlIsAnExtractedTextAttachment() {
+        // HTML is UTF-8 text (it passes the encoding gate); the extension picks the kind and the
+        // extractor parses the real bytes.
+        assertEquals(AttachmentClassification.TextAttachment(TextAttachmentKind.HTML), utf8("page.html"))
+        assertEquals(AttachmentClassification.TextAttachment(TextAttachmentKind.HTML), utf8("page.htm"))
+        assertEquals(AttachmentClassification.TextAttachment(TextAttachmentKind.HTML), utf8("PAGE.Html"))
     }
 
     @Test

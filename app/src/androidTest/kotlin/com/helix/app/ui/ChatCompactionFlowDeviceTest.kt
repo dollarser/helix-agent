@@ -5,10 +5,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.helix.app.MainActivity
-import com.helix.app.chat.ContextCompaction
-import com.helix.app.chat.ModelStreamTerminal
-import com.helix.app.chat.TurnCoordinator
-import com.helix.app.chat.TurnStartSpec
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderContextSettings
 import com.helix.app.provider.ProviderDraft

@@ -5,6 +5,8 @@ import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.agent.GoalTimeBudget
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.recovery.GoalUsageReservations
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason

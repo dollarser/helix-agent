@@ -2,6 +2,14 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.R
+import com.helix.app.agent.BufferedModelToolCall
+import com.helix.app.agent.GoalTimeBudget
+import com.helix.app.agent.LocalToolCallBatch
+import com.helix.app.agent.SettledCall
+import com.helix.app.agent.TurnCancelSignal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnMessageDraft
+import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
@@ -31,7 +39,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.jvm.Volatile
 
-/** Owns tool dispatch facts, approval decisions and ordered durable tool settlement. */
+/**
+ * Owns tool dispatch facts, approval decisions and ordered durable tool settlement. Also the
+ * agent loop's [TurnToolExecutor] port (HX2-02): the loop's tool rounds execute through here.
+ */
 @Suppress("LongParameterList", "TooManyFunctions", "LargeClass")
 internal class ChatToolCalls(
     private val storage: HelixStorage,
@@ -45,7 +56,7 @@ internal class ChatToolCalls(
     private val goalTimes: java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>,
     private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
-) {
+) : TurnToolExecutor {
     private val requests = ChatDispatchRequests(toolPipeline, turnCancels, goalTimes, lanScopes)
     private val timeline = ChatToolTimeline(screen, strings)
     private val outcomeStore =
@@ -180,9 +191,9 @@ internal class ChatToolCalls(
 
     private val messageEncoder = ChatToolMessageEncoder(strings)
 
-    fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
+    override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
 
-    fun toolResultDraft(settled: SettledCall): TurnMessageDraft = messageEncoder.toolResultDraft(settled)
+    override fun toolResultDraft(settled: SettledCall): TurnMessageDraft = messageEncoder.toolResultDraft(settled)
 
     // --------------------------------------------------------------------------------
     // HXA-036: tool call processing (model tool calls -> dispatcher -> timeline)
@@ -221,7 +232,7 @@ internal class ChatToolCalls(
      * This runs on the work scope's IO thread — the scheduler and the broker's blocking
      * user-decision wait never touch the main thread.
      */
-    fun runToolBatch(
+    override fun runToolBatch(
         turn: com.helix.core.storage.entity.TurnEntity,
         turnId: String,
         calls: List<BufferedModelToolCall>,
@@ -277,13 +288,6 @@ internal class ChatToolCalls(
         }
         return settled
     }
-
-    /** A settled tool call: the model call id, its name, the durable outcome (call order). */
-    data class SettledCall(
-        val callId: String,
-        val toolName: String,
-        val outcome: ToolDispatchOutcome,
-    )
 
     /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */
     private class PreparedToolCall(

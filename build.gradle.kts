@@ -505,6 +505,14 @@ subprojects {
                 }
             }
 
+            // HX2-01: core:agent owns the AgentRuntime contract (suspend / Flow), so — like
+            // :provider:api (HXA-025) — coroutines are exposed as `api`: the interface
+            // signatures reference kotlinx.coroutines.flow.Flow and every caller needs it on
+            // its classpath. Same pinned catalog artifact (1.10.2); no new version.
+            if (path == ":core:agent") {
+                dependencies.add("api", coroutinesCoreDependency.get())
+            }
+
             // The provider adapters (HXA-022 Responses, HXA-023 Chat Completions,
             // HXA-024 Anthropic Messages) encode request bodies and decode vendor
             // SSE payloads with the pinned kotlinx-serialization JsonElement API

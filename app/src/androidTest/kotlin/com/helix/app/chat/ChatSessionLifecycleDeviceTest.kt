@@ -90,7 +90,7 @@ class ChatSessionLifecycleDeviceTest {
             assertNull("unbound session must not inherit a previous badge", container.chatService.screen.value.badge)
             container.chatService.openSession(bound)
             awaitOpenSession(bound)
-            container.chatService.acceptShareDraft("share-$run", emptyList())
+            container.chatService.acceptShareDraft("share-$run", emptyList(), emptyList())
             val deadline = System.currentTimeMillis() + 10_000
             while (container.chatService.screen.value.shareDraftText != "share-$run" &&
                 System.currentTimeMillis() < deadline

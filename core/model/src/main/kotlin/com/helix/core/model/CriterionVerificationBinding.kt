@@ -4,7 +4,11 @@ import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.security.MessageDigest
 
-/** Closed user-selected propositions; never a script or a model-selected verifier (ADR-0028). */
+/**
+ * Closed user-selected propositions; never a script or a model-selected verifier. Legacy of
+ * ADR-0028 (superseded by ADR-0040): retained only for compatible reads of historical goal
+ * rows — the production binding/verification path is gone.
+ */
 enum class CriterionVerificationMethod {
     ARTIFACT_SHA256,
     ARTIFACT_UTF8_CONTAINS,

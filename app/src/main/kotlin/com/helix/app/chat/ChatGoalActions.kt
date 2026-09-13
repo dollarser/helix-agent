@@ -32,6 +32,10 @@ internal class ChatGoalActions(
             openSessionId()?.let { GoalSummaryQuery(storage).forSession(it) } ?: emptyList()
         }
 
+    /** Cross-session goal list for the Tasks dashboard (doc section 13). */
+    suspend fun goalSummariesAll(): List<GoalSummaryUi> =
+        withContext(Dispatchers.IO) { GoalSummaryQuery(storage).forAll() }
+
     suspend fun setGoalReminder(
         goalId: String,
         delayMillis: Long?,

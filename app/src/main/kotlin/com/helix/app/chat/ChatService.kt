@@ -2,21 +2,51 @@ package com.helix.app.chat
 
 import android.util.Log
 import com.helix.app.R
+import com.helix.app.agent.AgentLoop
+import com.helix.app.agent.BufferedModelToolCall
+import com.helix.app.agent.ChatContextProjection
+import com.helix.app.agent.ChatContextRequest
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.GoalTimeBudget
+import com.helix.app.agent.GoalTimeLimitException
+import com.helix.app.agent.LocalToolCallBatch
+import com.helix.app.agent.MAX_MODEL_TEXT_CHARS
+import com.helix.app.agent.ModelStreamState
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.SettledCall
+import com.helix.app.agent.TurnCancelSignal
+import com.helix.app.agent.TurnContextAssembler
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnMessageDraft
+import com.helix.app.agent.TurnStartSpec
+import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.internal.InMemoryLineStore
+import com.helix.app.plan.PlanReviewService
+import com.helix.app.plan.StoragePlanReviewPort
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.PersistedRunControlStore
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.todo.TaskLedgerProjection
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentRuntime
+import com.helix.core.agent.AttachmentBindingIntent
+import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
+import com.helix.core.model.GoalId
+import com.helix.core.model.PlanExecutionBinding
+import com.helix.core.model.ProviderId
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.SessionId
 import com.helix.core.model.SystemClock
+import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
@@ -38,9 +68,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -105,7 +137,18 @@ class ChatService(
     private val subscriptionRecovery: (String, String, Boolean) -> com.helix.app.provider.SubscriptionRecoveryStatus =
         { _, _, _ -> com.helix.app.provider.SubscriptionRecoveryStatus.UNKNOWN },
     private val goalReminderSync: (String) -> Unit = {},
-) {
+) : AgentTurnHost {
+    // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
+    // none reaches launchTurn directly. The container re-exposes the SAME instance as the
+    // production entry point (AppContainer.agentRuntime).
+    internal val agentRuntime: AgentRuntime = AppAgentRuntime(this)
+
+    // The Plan closed loop (research doc section 4.2/4.3; HX2-05): the review state machine the
+    // plan surface drives — approve is the ONLY source of a PlanExecutionBinding, and execute
+    // creates the plan-bound Goal. The production port is backed by [storage] (the same
+    // repository the `plan.submit` tool persists through).
+    internal val planReview: PlanReviewService = PlanReviewService(StoragePlanReviewPort(storage, clock, idGenerator))
+
     // Observers started in init may refresh immediately on another thread.
     private val drafts = ChatDraftStore()
     private val requestAssembler =
@@ -130,8 +173,8 @@ class ChatService(
             lanScopes,
         )
     }
-    private val modelLoop by lazy {
-        ChatModelLoop(
+    private val agentLoop by lazy {
+        AgentLoop(
             storage,
             providerService,
             requestAssembler,
@@ -526,24 +569,26 @@ class ChatService(
     // --------------------------------------------------------------------------------
 
     /**
-     * Accepts a share draft from the system share sheet (HXA-056, ADR-0014 §5): creates a
-     * dedicated provider-free draft session, opens it, and lands the shared content LOCALLY
-     * — [text] becomes the one-shot composer pre-fill ([ChatScreenState.shareDraftText])
-     * and every [imageUris] reference goes through the EXISTING attachment pipeline
-     * (import → closed classification → normalize → stage). Nothing is ever sent: staging
-     * and pre-filling are local, and only an explicit [send] after the user's review reaches
-     * the model. An empty draft is a no-op. Each image fails closed individually: one bad
-     * share item blocks only itself (user-visible reason), the rest still stage.
+     * Accepts a share draft from the system share sheet (HXA-056 / PX-06, ADR-0014 §5): creates
+     * a dedicated provider-free draft session, opens it, and lands the shared content LOCALLY —
+     * [text] becomes the one-shot composer pre-fill ([ChatScreenState.shareDraftText]) and every
+     * [imageUris] / [fileUris] reference goes through the EXISTING attachment pipeline
+     * (import → closed classification → normalize → stage), so a shared PDF / DOCX / HTML file
+     * stages as an extracted-text attachment. Nothing is ever sent: staging and pre-filling are
+     * local, and only an explicit [send] after the user's review reaches the model. An empty
+     * draft is a no-op. Each share item fails closed individually: one bad item blocks only
+     * itself (user-visible reason), the rest still stage.
      *
-     * Runs on the work scope; the UI follows [screen] (the draft session opens and its
-     * staged attachments appear as they import). Called by the activity for launch intents
-     * and `onNewIntent` re-shares.
+     * Runs on the work scope; the UI follows [screen] (the draft session opens and its staged
+     * attachments appear as they import). Called by the activity for launch intents and
+     * `onNewIntent` re-shares.
      */
     fun acceptShareDraft(
         text: String?,
         imageUris: List<String>,
+        fileUris: List<String>,
     ) {
-        if ((text?.isEmpty() ?: true) && imageUris.isEmpty()) return
+        if ((text?.isEmpty() ?: true) && imageUris.isEmpty() && fileUris.isEmpty()) return
         workScope.launch {
             // A share intent is an explicit user action aimed at this app: opening the draft
             // session is the expected outcome (any open session's in-memory staging drops,
@@ -557,7 +602,7 @@ class ChatService(
             storage.sessions.create(id, str(R.string.session_shared_draft), null, null, clock.now().toEpochMilli())
             refreshSessionsNow()
             openSession(id)
-            imageUris.forEach { uri -> stageAttachmentNow(uri) }
+            (imageUris + fileUris).forEach { uri -> stageAttachmentNow(uri) }
             shareDraftText = text
             refreshScreen()
         }
@@ -803,6 +848,9 @@ class ChatService(
 
     internal suspend fun goalSummaries() = goals.goalSummaries()
 
+    /** Cross-session goal list for the Tasks dashboard (doc section 13). */
+    internal suspend fun goalSummariesAll() = goals.goalSummariesAll()
+
     internal suspend fun setGoalReminder(
         goalId: String,
         delayMillis: Long?,
@@ -814,6 +862,60 @@ class ChatService(
         goalId: String,
         budgets: com.helix.core.model.GoalBudgets,
     ) = goals.updateGoalBudgets(goalId, budgets)
+
+    // --------------------------------------------------------------------------------
+    // Plan review (research doc section 4.2/4.3; HX2-05): the user's decisions on a plan
+    // submitted through `plan.submit` — approve / revise / cancel / execute.
+    // --------------------------------------------------------------------------------
+
+    internal suspend fun reviewPlan(planId: String) = withContext(Dispatchers.IO) { planReview.review(planId) }
+
+    /** Cross-session plan rows for the Tasks dashboard review queue (doc section 12/13). */
+    internal suspend fun planRows(): List<PlanRowUi> = withContext(Dispatchers.IO) { PlanRowQuery(storage).read() }
+
+    /** The ONLY path to a [PlanExecutionBinding] (doc 4.3); requires the plan to be READY. */
+    internal suspend fun approvePlan(planId: String): PlanExecutionBinding =
+        withContext(Dispatchers.IO) { planReview.approve(planId) }
+
+    internal suspend fun revisePlan(planId: String) = withContext(Dispatchers.IO) { planReview.revise(planId) }
+
+    internal suspend fun cancelPlan(planId: String) = withContext(Dispatchers.IO) { planReview.cancel(planId) }
+
+    /**
+     * Executes an APPROVED plan (doc 4.3: only after the user's approval): creates the Goal
+     * bound to the approved version (planId + hash) and drives its first turn through the SAME
+     * unified [agentRuntime] every in-app entry uses (HX2-01). The provider is resolved from
+     * the currently open session under the same fail-closed gates as the chat send path; a
+     * failed gate returns null BEFORE anything is written, with the block reason surfaced.
+     */
+    @Suppress("ReturnCount", "SwallowedException") // one early return per gate; the IAE becomes a localized UI block
+    internal suspend fun executeApprovedPlan(
+        binding: PlanExecutionBinding,
+        budgets: com.helix.core.model.GoalBudgets,
+    ): String? {
+        val providerId = currentSession()?.providerId
+        if (providerId == null) {
+            setBlocked(str(R.string.chat_blocked_no_provider_bound))
+            return null
+        }
+        if (!providerService.chatSelectable(providerId)) {
+            setBlocked(str(R.string.chat_blocked_provider_untested))
+            return null
+        }
+        if (!providerService.isCleartextPermitted(providerId)) {
+            setBlocked(str(R.string.chat_blocked_cleartext_http))
+            return null
+        }
+        val goalId =
+            try {
+                planReview.execute(binding, budgets)
+            } catch (e: IllegalArgumentException) {
+                setBlocked(str(R.string.plan_execute_failed))
+                return null
+            }
+        submitTurn(text = null, providerId = providerId, goalId = goalId)
+        return goalId
+    }
 
     @Suppress("SwallowedException") // Rejected stored Goal/session state becomes a localized UI block; no raw details.
     internal fun continueGoal(
@@ -982,7 +1084,7 @@ class ChatService(
                 // list is already empty (the snapshot above), and a file picked in the microsecond
                 // since that snapshot is the user's for the NEXT send — a send is never a silent
                 // drop. (The confirm path clears exactly the approved set, not the live list.)
-                launchTurn(text, providerId, goalId = goalId)
+                submitTurn(text = text, providerId = providerId, goalId = goalId)
             }
 
             is EgressDisclosure.Decision.Confirm -> {
@@ -1091,7 +1193,7 @@ class ChatService(
             return
         }
         if (staged.isEmpty()) {
-            launchTurn(text, providerId, goalId = goalId)
+            submitTurn(text = text, providerId = providerId, goalId = goalId)
             return
         }
         // HXA-055: a staged image whose on-device normalization failed at staging time is
@@ -1175,10 +1277,10 @@ class ChatService(
         }
         // The sent chips clear from the screen now, not left dangling until the turn terminalizes.
         refreshScreen()
-        launchTurn(
+        submitTurn(
             text = AttachmentContext.buildUserMessageContent(text, blocks),
             providerId = providerId,
-            attachmentBindings = bindings,
+            attachments = bindings.map { AttachmentBindingIntent(it.artifactId, it.boundSha256) },
             goalId = goalId,
         )
     }
@@ -1394,13 +1496,120 @@ class ChatService(
                 }
             }
             val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
-            launchTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
+            submitTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
         }
+    }
+
+    // --------------------------------------------------------------------------------
+    // AgentTurnHost (HX2-01): the production turn path behind the core AgentRuntime contract
+    // --------------------------------------------------------------------------------
+
+    /**
+     * [com.helix.core.agent.AgentRuntime.submit] starts a turn through the SAME path as every
+     * in-app entry (send / confirmed egress / retry / goal start, which all [submitTurn] into
+     * this) — but for an explicit session and an explicit per-turn run control: the research
+     * doc's unified entry point. Returns the started turn's id, or null when the session refused
+     * it (fail-closed; the adapter surfaces that as a start-blocked signal).
+     */
+    override suspend fun startTurn(
+        sessionId: String,
+        text: String?,
+        providerId: String,
+        retryTurnId: String?,
+        goalId: String?,
+        attachments: List<AttachmentBindingIntent>,
+        control: RunControlConfig,
+    ): String? =
+        launchTurn(
+            text = text,
+            providerId = providerId,
+            retryTurnId = retryTurnId,
+            goalId = goalId,
+            attachmentBindings =
+                attachments.map {
+                    MessageAttachmentRepository.Binding(
+                        artifactId = it.artifactId,
+                        purpose = AttachmentPurpose.REFERENCE,
+                        boundSha256 = it.boundSha256,
+                    )
+                },
+            requestedSessionId = sessionId,
+            controlOverride = control,
+        )
+
+    /**
+     * [com.helix.core.agent.AgentRuntime.cancel] cancels the turn's live work — the stop path,
+     * which guards against a stale id (a turn that is no longer its session's active one) and
+     * cancels both the turn flag and the service-owned job.
+     */
+    override fun cancelTurn(turnId: String) {
+        stopTask(turnId)
+    }
+
+    /**
+     * Live-frame source for [com.helix.core.agent.AgentRuntime.observe]: the open session's
+     * active turn. A turn is observed live while it is the open session's active turn.
+     */
+    override val activeTurn: Flow<TurnUi?>
+        get() = screen.map { it.activeTurn }
+
+    /** The turn's persisted phase; null when the id addresses no turn row. */
+    override fun persistedPhase(turnId: String): TurnState? =
+        runCatching { storage.turns.resolve(turnId) }.getOrNull()?.let { TurnState.valueOf(it.state) }
+
+    /**
+     * The turn's terminal assistant text (its last assistant row) or null — the adapter uses it
+     * so the terminal frame carries the turn's content.
+     */
+    override fun persistedAssistantText(turnId: String): String? {
+        val turn = runCatching { storage.turns.resolve(turnId) }.getOrNull() ?: return null
+        val assistant =
+            storage.messages
+                .listBySession(turn.sessionId)
+                .lastOrNull { it.turnId == turnId && it.role == com.helix.core.model.ModelRole.ASSISTANT.name }
+        return assistant?.let { storage.messages.readContent(it) }?.takeIf { it.isNotBlank() }
     }
 
     // --------------------------------------------------------------------------------
     // Turn execution (service-owned; the UI only observes)
     // --------------------------------------------------------------------------------
+
+    /**
+     * The in-app turn entry (HX2-01): send, confirmed egress, retry and goal start all drive the
+     * turn through the unified [agentRuntime] — the command carries the current run-control
+     * snapshot (the per-turn facts) and the producer's approved attachment intents. A start the
+     * session refused has ALREADY surfaced its safe blocked state inside [launchTurn], so the
+     * adapter's [TurnStartBlocked] is swallowed — it is a second signal, never the first.
+     */
+    @Suppress("SwallowedException") // the refused start already surfaced its own safe blocked state
+    private suspend fun submitTurn(
+        text: String?,
+        providerId: String,
+        retryTurnId: String? = null,
+        attachments: List<AttachmentBindingIntent> = emptyList(),
+        goalId: String? = null,
+    ) {
+        val session = currentSession() ?: return
+        val control = runControlStore.current
+        try {
+            agentRuntime.submit(
+                SubmitTurnCommand(
+                    session = SessionId(session.id),
+                    providerId = ProviderId(providerId),
+                    mode = control.mode,
+                    text = text,
+                    budgets = control.budgets,
+                    chatToolsEnabled = control.chatToolsEnabled,
+                    reasoning = control.reasoning,
+                    goalId = goalId?.let { GoalId(it) },
+                    retryTurnId = retryTurnId?.let { TurnId(it) },
+                    attachments = attachments,
+                ),
+            )
+        } catch (e: TurnStartBlocked) {
+            // the refused start already set the session's blocked state (fail-closed, safe label)
+        }
+    }
 
     @Suppress("ReturnCount") // one fail-closed return per guard (session, snapshot, turn gate)
     private suspend fun launchTurn(
@@ -1409,12 +1618,17 @@ class ChatService(
         retryTurnId: String? = null,
         attachmentBindings: List<MessageAttachmentRepository.Binding> = emptyList(),
         goalId: String? = null,
-    ) {
-        val session = currentSession() ?: return
+        requestedSessionId: String? = null,
+        controlOverride: RunControlConfig? = null,
+    ): String? {
+        // The unified AgentRuntime (HX2-01) starts turns for an explicit session with an explicit
+        // per-turn control; the in-session send path passes neither and falls back to the open
+        // session + the current run-control (behavior unchanged).
+        val session = resolveTurnSession(requestedSessionId) ?: return null
         val sessionId = session.id
         // Snapshot before creating the durable Turn: later UI/profile changes cannot alter this
         // Turn's mode, tool table, dispatcher mode, or limits.
-        val control = runControlStore.current
+        val control = controlOverride ?: runControlStore.current
         // The Room read runs OUTSIDE the gate: a suspend point must never be
         // reached while holding the monitor (the gate only serializes the
         // turn-start writes below).
@@ -1428,16 +1642,16 @@ class ChatService(
                 // send must never vanish.
                 Log.e(TAG, "could not snapshot provider $providerId", e)
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
-                return
+                return null
             }
         synchronized(turnGate) {
             // Per-session admission: refuse only when THIS session already has an in-flight turn —
             // a turn in another session must never make this send vanish.
-            if (sessionTurnAdmission.hasActive(sessionId)) return
+            if (sessionTurnAdmission.hasActive(sessionId)) return null
             val liveSession = storage.sessions.resolve(sessionId)
             if (liveSession.providerId != providerId || liveSession.modelId != session.modelId) {
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
-                return
+                return null
             }
             val turnId = idGenerator()
             val callId = idGenerator()
@@ -1450,7 +1664,7 @@ class ChatService(
                 }
             if (goalId != null && goalStart == null) {
                 setBlocked(str(R.string.goal_continue_unavailable))
-                return
+                return null
             }
             val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
             val effectiveControl =
@@ -1469,8 +1683,17 @@ class ChatService(
                 publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
             }
             startGate.complete(Unit)
+            return turnId
         }
     }
+
+    /**
+     * Resolves the session for a turn start (HX2-01): an explicit [requestedSessionId] from the
+     * unified AgentRuntime takes precedence, falling back to the open session when it is absent or
+     * cannot be resolved. Null when neither is available (fail-closed — no turn is started).
+     */
+    private fun resolveTurnSession(requestedSessionId: String?) =
+        requestedSessionId?.let { runCatching { storage.sessions.resolve(it) }.getOrNull() } ?: currentSession()
 
     // The boundary catch is deliberately broad: ANY unexpected failure at the
     // model boundary (guard rejects, corrupt rows, a vanished provider) must
@@ -1489,8 +1712,8 @@ class ChatService(
         try {
             startGate.await()
             val decision =
-                modelLoop.runWithGoalTime(coordinator.id) {
-                    modelLoop.runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
+                agentLoop.runWithGoalTime(coordinator.id) {
+                    agentLoop.runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
                 }
             terminalize(sessionId, coordinator, decision)
         } catch (e: GoalTimeLimitException) {
@@ -1643,6 +1866,7 @@ class ChatService(
                 retryTargetTurnId = projection.retryTargetFor(sessionId),
                 pendingAttachments = stagedAttachmentsUi(),
                 shareDraftText = shareDraftText,
+                taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
             )
         }
     }

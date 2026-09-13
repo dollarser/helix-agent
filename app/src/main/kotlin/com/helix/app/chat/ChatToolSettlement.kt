@@ -3,6 +3,8 @@ package com.helix.app.chat
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
+import com.helix.app.todo.TaskLedgerProjection
+import com.helix.app.todo.TodoWriteTool
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.Clock
 import com.helix.core.model.ToolCallState
@@ -12,6 +14,8 @@ import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ToolDispatchOutcome
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 /** Persists each scheduled outcome and projects its verified or uncertain state without replay. */
 @Suppress("LongParameterList")
@@ -83,6 +87,21 @@ internal class ChatToolSettlement(
             summary,
             null,
         )
+        publishLedgerForTodoWrite(row)
+    }
+
+    /**
+     * HX2-07: a verified `todo.write` settle updates the open session's Progress card live —
+     * the same atomic, session-scoped publish the timeline rows use. Any parse problem keeps
+     * the previous ledger (a corrupt row must not wipe the user's view of progress).
+     */
+    private fun publishLedgerForTodoWrite(row: com.helix.core.storage.entity.ToolCallEntity) {
+        if (row.name != TodoWriteTool.NAME) return
+        val args = runCatching { Json.parseToJsonElement(row.argsJson).jsonObject }.getOrNull() ?: return
+        val items = TaskLedgerProjection.itemsFromArgs(args)
+        if (items.isNotEmpty()) {
+            timeline.publishLedger(storage.turns.resolve(row.turnId).sessionId, items)
+        }
     }
 
     private fun settleDenied(

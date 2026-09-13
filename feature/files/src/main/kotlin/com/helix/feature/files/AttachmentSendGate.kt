@@ -66,7 +66,7 @@ object AttachmentSendGate {
      * @throws IllegalArgumentException when more than the closed per-message cap are staged (an
      *   independent guard alongside the Room binding — fail closed before any materialization).
      */
-    @Suppress("ReturnCount", "SwallowedException") // one fail-closed return per first problem attachment
+    @Suppress("ReturnCount") // one fail-closed return per first problem attachment
     fun evaluate(
         staged: List<StagedAttachment>,
         credentialScan: (String) -> String?,
@@ -78,17 +78,11 @@ object AttachmentSendGate {
         for (s in staged) {
             when (val materialized = AttachmentMaterializer.materialize(s.file, s.boundSha256, s.fileName)) {
                 is AttachmentMaterialization.Text -> {
-                    val reason =
-                        try {
-                            // The materializer already verified existence + the full-file hash;
-                            // this second read only feeds the credential scan (bounded by the
-                            // 10 MiB import cap).
-                            credentialScan(Files.readAllBytes(s.file).toString(Charsets.UTF_8))
-                        } catch (e: IOException) {
-                            // The file vanished between materialization and the scan: fail
-                            // closed exactly like missing.
-                            return AttachmentSendDecision.SnapshotBroken(s.fileName, SnapshotKind.MISSING)
-                        }
+                    val scanned = credentialScanTarget(s, materialized)
+                    if (scanned == null) {
+                        return AttachmentSendDecision.SnapshotBroken(s.fileName, SnapshotKind.MISSING)
+                    }
+                    val reason = credentialScan(scanned)
                     if (reason != null) {
                         return AttachmentSendDecision.CredentialDetected(s.fileName, reason)
                     }
@@ -122,6 +116,29 @@ object AttachmentSendGate {
         }
         return AttachmentSendDecision.Ready(ready)
     }
+
+    /**
+     * The content the credential scan runs over for one materialized [text]: for an extracted
+     * document (PDF / DOCX / HTML) the materialized inline text IS the full egress in this design
+     * (no raw sidecar reaches the model), so that text is scanned; for plain text the FULL raw
+     * file is the egress (the model can read the whole file through the chunked
+     * `read(offset, maxBytes)`) and is scanned as UTF-8. Returns null when the raw file vanished
+     * between materialization and the scan — the caller fails closed exactly like missing.
+     */
+    @Suppress("SwallowedException") // the I/O failure IS the closed "file vanished" outcome
+    private fun credentialScanTarget(
+        s: StagedAttachment,
+        text: AttachmentMaterialization.Text,
+    ): String? =
+        if (text.kind.isExtractedDocument) {
+            text.content
+        } else {
+            try {
+                Files.readAllBytes(s.file).toString(Charsets.UTF_8)
+            } catch (_: IOException) {
+                null
+            }
+        }
 
     /** The closed outcome of the NORMALIZED artifact re-verification (HXA-055). */
     private sealed interface ImageVerification {

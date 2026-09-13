@@ -1,6 +1,10 @@
 package com.helix.app.chat
 
 import com.helix.app.R
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.LocalToolCallBatch
+import com.helix.app.agent.SettledCall
+import com.helix.app.agent.TurnMessageDraft
 import com.helix.core.model.ModelRole
 import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.serialization.json.buildJsonArray
@@ -37,7 +41,7 @@ internal class ChatToolMessageEncoder(
      * Dispatcher's size-bounded payload; the timeline's shorter preview must not truncate
      * structured fields or node tokens needed by the next model call.
      */
-    fun toolResultDraft(settled: ChatToolCalls.SettledCall): TurnMessageDraft {
+    fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
         val status: String
         val summary: String
         when (val o = settled.outcome) {

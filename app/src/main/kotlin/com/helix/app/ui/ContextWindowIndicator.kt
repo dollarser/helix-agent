@@ -26,7 +26,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.helix.app.R
-import com.helix.app.chat.ChatContextUsage
+import com.helix.app.agent.ChatContextUsage
 
 @Composable
 @Suppress("FunctionName", "LongMethod")

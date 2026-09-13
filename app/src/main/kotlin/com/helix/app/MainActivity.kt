@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -45,13 +46,17 @@ import androidx.navigation.compose.rememberNavController
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
+import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
+import com.helix.app.ui.CapabilitiesScreenDestination
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CompactPageHeader
 import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
+import com.helix.app.ui.GitStatusScreenDestination
 import com.helix.app.ui.SettingsScreen
+import com.helix.app.ui.TasksScreen
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
@@ -79,11 +84,11 @@ class MainActivity : ComponentActivity() {
         val container = (application as HelixApplication).appContainer
         browserOwner = BrowserViewOwner(this)
         container.browser.attach(browserOwner)
-        // HXA-056: a share intent (ACTION_SEND text/image, ACTION_SEND_MULTIPLE images)
-        // becomes a local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5).
-        // Re-runs when the user shares again into the running task (onNewIntent).
+        // HXA-056 / PX-06: a share intent (text, images, or PDF/DOCX/HTML files) becomes a
+        // local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5). Re-runs when the
+        // user shares again into the running task (onNewIntent).
         val draft = ShareIntentDraft.draftFrom(intent)
-        container.chatService.acceptShareDraft(draft.text, draft.imageUris)
+        container.chatService.acceptShareDraft(draft.text, draft.imageUris, draft.fileUris)
         acceptGoalReminder(intent)
         setContent { HelixApp(container) }
     }
@@ -116,6 +121,7 @@ class MainActivity : ComponentActivity() {
         (application as HelixApplication).appContainer.chatService.acceptShareDraft(
             draft.text,
             draft.imageUris,
+            draft.fileUris,
         )
     }
 
@@ -227,68 +233,136 @@ internal fun HelixApp(container: AppContainer) {
                 ) {
                     repository.destinations.forEach { destination ->
                         composable(destination.route) {
-                            when (destination) {
-                                ShellDestination.Sessions -> {
-                                    ChatScreen(
-                                        container.chatService,
-                                        container.providerService,
-                                        container.privacyDeletionService,
-                                        container.fileManager,
-                                        onNavigation = { scope.launch { drawerState.open() } },
-                                    )
-                                }
-
-                                ShellDestination.Settings -> {
-                                    SettingsScreen(
-                                        container.profileStore,
-                                        container.providerService,
-                                        container.storage.highSensitivityRules,
-                                        container.runControlStore,
-                                        container.connectorService,
-                                        container.lanScopeStore,
-                                        container.skillAuthoringService,
-                                        container.skillInstallationService,
-                                    )
-                                }
-
-                                ShellDestination.Extensions -> {
-                                    ExtensionsScreen(
-                                        container.skillAuthoringService,
-                                        container.skillInstallationService,
-                                        container.connectorService,
-                                    )
-                                }
-
-                                ShellDestination.Audit -> {
-                                    AuditScreenDestination(container)
-                                }
-
-                                // HXA-046: the file-management screen over the always-available
-                                // sources (Workspace, always; developer all-files roots, read-only)
-                                // + HXA-058: the import/export entries over the HXA-044 pipelines.
-                                ShellDestination.Files -> {
-                                    FilesScreen(container.fileManager, container.safTree, container.featureFiles)
-                                }
-
-                                // HXA-060: the minimal hardened WebView browser.
-                                ShellDestination.Browser -> {
-                                    BrowserScreen(container.browser)
-                                }
-
-                                // HXA-045: the all-files consent screen lives in the developer
-                                // flavor; the consumer build keeps the honest empty state.
-                                ShellDestination.Permissions -> {
-                                    PermissionsScreenDestination(container)
-                                }
-
-                                else -> {
-                                    EmptyDestination(destination, PaddingValues(24.dp))
-                                }
-                            }
+                            destinationScreen(
+                                destination,
+                                container,
+                                navController,
+                                onOpenDrawer = { scope.launch { drawerState.open() } },
+                            )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod")
+private fun destinationScreen(
+    destination: ShellDestination,
+    container: AppContainer,
+    navController: NavController,
+    onOpenDrawer: () -> Unit,
+) {
+    when (destination) {
+        ShellDestination.Sessions -> {
+            ChatScreen(
+                container.chatService,
+                container.providerService,
+                container.privacyDeletionService,
+                container.fileManager,
+                onNavigation = onOpenDrawer,
+            )
+        }
+
+        // P0-B: the cross-session task dashboard (doc section 13).
+        // Opening a row binds that session and returns to chat.
+        ShellDestination.Tasks -> {
+            TasksScreen(
+                container.chatService,
+                onOpenSession = { sessionId ->
+                    container.chatService.openSession(sessionId)
+                    navController.navigate(ShellDestination.Sessions.route) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+
+        // P0-B: the Artifact Center (doc section 28) — the deliverable results of finished
+        // tasks, each shareable and openable, so outcomes are reachable outside the chat.
+        ShellDestination.Artifacts -> {
+            ArtifactsScreenDestination(
+                container,
+                onOpenSession = { sessionId ->
+                    container.chatService.openSession(sessionId)
+                    navController.navigate(ShellDestination.Sessions.route) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+
+        // P0-B: the Git status / diff / changed-files surface (doc section 29) — the workspace
+        // repository's staged / unstaged / untracked changes, read on-device with JGit.
+        ShellDestination.Git -> {
+            GitStatusScreenDestination()
+        }
+
+        // P0-B: the Capability Center (doc section 11) — live statuses plus honest
+        // Test / Repair / Disable actions per capability.
+        ShellDestination.Capabilities -> {
+            CapabilitiesScreenDestination(
+                container,
+                onOpenSettings = {
+                    navController.navigate(ShellDestination.Settings.route) {
+                        launchSingleTop = true
+                    }
+                },
+                onOpenExtensions = {
+                    navController.navigate(ShellDestination.Extensions.route) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+
+        ShellDestination.Settings -> {
+            SettingsScreen(
+                container.profileStore,
+                container.providerService,
+                container.storage.highSensitivityRules,
+                container.runControlStore,
+                container.connectorService,
+                container.lanScopeStore,
+                container.skillAuthoringService,
+                container.skillInstallationService,
+            )
+        }
+
+        ShellDestination.Extensions -> {
+            ExtensionsScreen(
+                container.skillAuthoringService,
+                container.skillInstallationService,
+                container.connectorService,
+            )
+        }
+
+        ShellDestination.Audit -> {
+            AuditScreenDestination(container)
+        }
+
+        // HXA-046: the file-management screen over the always-available
+        // sources (Workspace, always; developer all-files roots, read-only)
+        // + HXA-058: the import/export entries over the HXA-044 pipelines.
+        ShellDestination.Files -> {
+            FilesScreen(container.fileManager, container.safTree, container.featureFiles)
+        }
+
+        // HXA-060: the minimal hardened WebView browser.
+        ShellDestination.Browser -> {
+            BrowserScreen(container.browser)
+        }
+
+        // HXA-045: the all-files consent screen lives in the developer
+        // flavor; the consumer build keeps the honest empty state.
+        ShellDestination.Permissions -> {
+            PermissionsScreenDestination(container)
+        }
+
+        else -> {
+            EmptyDestination(destination, PaddingValues(24.dp))
         }
     }
 }

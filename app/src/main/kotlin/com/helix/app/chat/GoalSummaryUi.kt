@@ -45,6 +45,40 @@ internal class GoalSummaryQuery(
         return snapshot
     }
 
+    /**
+     * Cross-session view for the Tasks dashboard (doc section 13): every goal, no session
+     * filter. [GoalStatusUi.modelSummary] is null here — the model report is bound to a
+     * turn of a concrete session, which this view does not address.
+     */
+    fun forAll(): List<GoalSummaryUi> {
+        var snapshot = emptyList<GoalSummaryUi>()
+        storage.withTransaction { snapshot = readAll() }
+        return snapshot
+    }
+
+    private fun readAll(): List<GoalSummaryUi> =
+        storage.goals.list().map { entity ->
+            val goal = storage.goals.resolve(entity.id)
+            val runtime = goal.toRuntimeGoal()
+            val runs = storage.goalRuns.listByGoal(entity.id)
+            val canStart =
+                GoalReducer
+                    .reduce(runtime, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
+                    .effects
+                    .any { it is GoalEffect.StartRun }
+            GoalSummaryUi(
+                goal.id,
+                goal.objective,
+                GoalStatusUi(goal.state, runs.lastOrNull()?.outcome, goal.nextCheckpoint, null),
+                goal.criteria.map { it.description },
+                goal.budgets,
+                GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
+                canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
+                goal.state in setOf("PAUSED", "INPUT_REQUIRED", "BLOCKED"),
+                goal.state != "RUNNING" && runs.none { it.endedAt == null },
+            )
+        }
+
     private fun readSnapshot(sessionId: String): List<GoalSummaryUi> {
         val runIds =
             storage.turns

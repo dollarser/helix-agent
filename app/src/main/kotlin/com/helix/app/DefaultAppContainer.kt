@@ -41,6 +41,7 @@ import com.helix.app.runcontrol.PlatformDeviceResourceProbe
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentRuntime
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
@@ -292,6 +293,15 @@ internal class DefaultAppContainer(
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
         com.helix.app.goal.GoalReportTool
             .register(toolRegistry, toolImplementations, storage)
+        // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
+        // versioned PlanArtifact REVIEW_REQUIRED through the same repository the review
+        // loop (ChatService.planReview) drives.
+        com.helix.app.plan.PlanTools
+            .register(toolRegistry, toolImplementations, storage.plans, { idGenerator.next() })
+        // HX2-07: `todo.write` — the model's working-memory ledger; read-only L0 echo whose
+        // durable record is the dispatcher's own tool-call row (like `goal.report`).
+        com.helix.app.todo.TodoWriteTool
+            .register(toolRegistry, toolImplementations)
         // HXA-095: developer registers only the five high-level Root reads; consumer is a
         // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
         RootModule.register(context, appClock, toolRegistry, toolImplementations)
@@ -524,6 +534,13 @@ internal class DefaultAppContainer(
                 }
             }
         }
+
+    // The unified agent entry point (research doc section 34; HX2-01): the production turn path
+    // behind the core AgentRuntime contract.
+    // The SAME instance every in-app turn entry drives (HX2-01): the container re-exposes the
+    // runtime ChatService itself submits through, so the production entry point and the in-app
+    // producers never fork into two runtimes.
+    override val agentRuntime: AgentRuntime = chatService.agentRuntime
 
     override val privacyDeletionService: PrivacyDeletionService by lazy {
         PrivacyDeletionService(
