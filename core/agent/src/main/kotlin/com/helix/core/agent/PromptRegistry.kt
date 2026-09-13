@@ -1,5 +1,7 @@
 package com.helix.core.agent
 
+import com.helix.core.model.ModelMessage
+import com.helix.core.model.ModelRole
 import java.security.MessageDigest
 
 /**
@@ -123,10 +125,37 @@ data class ResolvedPromptSection(
 )
 
 /**
- * Ordered assembly of the system prompt from registered [PromptSection]s (HX2-04). Replaces the
- * ad-hoc string concatenation — today the only production system prompt is the ad-hoc Goal
- * report context, and Chat/Plan/Act have none at all — with one registry every mode assembles
- * through.
+ * The consistent snapshot of ONE assembled system prompt (research doc section 4.4): the exact
+ * non-blank [sections] shipped for the request (with provenance, trust and per-section content
+ * hash), the exact [content] that was sent, and a [fingerprint] of that content — the SHA-256 of
+ * [content], so a per-request record (a `model_calls` row or an audit event) can say WHICH exact
+ * prompt bytes went out, and whether a later request reused or drifted from them, WITHOUT storing
+ * the prompt content itself. An assembly with no non-blank sections yields an empty [content]
+ * and the fingerprint of the empty string — both deterministic.
+ */
+data class PromptSnapshot(
+    val sections: List<ResolvedPromptSection>,
+    val content: String,
+    val fingerprint: String,
+) {
+    /**
+     * The system prompt as model messages: one SYSTEM message carrying [content], or none when
+     * the assembly was empty (an empty system prompt is sent as nothing, never as a blank
+     * message the model would have to parse around).
+     */
+    fun modelMessages(): List<ModelMessage> =
+        if (content.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(ModelMessage(ModelRole.SYSTEM, content))
+        }
+}
+
+/**
+ * Ordered assembly of the system prompt from registered [PromptSection]s (HX2-04). Every mode
+ * assembles through this one registry — the packaged environment sections (base / files / plan)
+ * for all modes plus the Goal sections on a goal turn — replacing the ad-hoc string
+ * concatenation with ordered, scoped, provenance-tagged sections.
  *
  * Deterministic: sections assemble in ascending [PromptSection.order]; ties break by [name] so
  * registration order never leaks into the output. A section whose provider returns a blank
@@ -171,10 +200,23 @@ class PromptRegistry {
         }
 
     /**
+     * Resolves the prompt once and keeps the whole auditable form: the [PromptSnapshot.sections]
+     * (provenance, trust, per-section content hash), the exact [PromptSnapshot.content] that is
+     * sent, and the [PromptSnapshot.fingerprint] a per-request record can carry. Production
+     * request paths use this — not [assemble] — so the section list and fingerprint of every
+     * request persist alongside the request (research doc section 4.4).
+     */
+    fun resolveAndAssemble(): PromptSnapshot {
+        val resolved = resolve()
+        val content = resolved.joinToString(separator = "\n\n") { it.content }
+        return PromptSnapshot(resolved, content, sha256Hex(content))
+    }
+
+    /**
      * Assembles the system prompt: the resolved sections' content joined by a blank line.
      * Returns an empty string when nothing is non-blank.
      */
-    fun assemble(): String = resolve().joinToString(separator = "\n\n") { it.content }
+    fun assemble(): String = resolveAndAssemble().content
 
     private fun sha256Hex(content: String): String =
         MessageDigest

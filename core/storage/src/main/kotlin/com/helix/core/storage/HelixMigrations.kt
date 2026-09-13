@@ -5,6 +5,22 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v13 -> v14 (research doc section 4.4): the per-request system-prompt record. Adds
+     * `promptFingerprint` + `promptSections` to `model_calls` — the fingerprint of the exact
+     * prompt bytes a request sent and the redacted section list (provenance + content hash,
+     * never content) — so a request can be traced for which sources and which version of
+     * content it used. Both columns are nullable: calls committed before v14 and compaction
+     * summary calls keep NULL.
+     */
+    val MIGRATION_13_14 =
+        object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE model_calls ADD COLUMN promptFingerprint TEXT")
+                db.execSQL("ALTER TABLE model_calls ADD COLUMN promptSections TEXT")
+            }
+        }
+
+    /**
      * v12 -> v13 (research doc section 34; HX2-01 §2e): the persistent submit-dedup receipt.
      * Adds `clientRequestId` + `inputFingerprint` to `turns` — the turn row becomes the durable
      * receipt for the client-request id that started it (created atomically with the turn, so a

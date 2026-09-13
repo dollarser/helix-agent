@@ -155,6 +155,11 @@ data class ModelCallEntity(
     val state: String,
     val usage: String?,
     val requestId: String?,
+    // The per-request system-prompt record (research doc section 4.4): the fingerprint of the
+    // exact prompt bytes sent and the redacted section list (provenance + content hash, never
+    // content). Null for calls predating v14 and for compaction summary calls.
+    val promptFingerprint: String? = null,
+    val promptSections: String? = null,
 )
 
 /** architecture doc 9.1: `tool_calls` — canonical argsJson + immutable argsHash. */

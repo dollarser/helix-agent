@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v13ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v14ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -292,8 +292,39 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v13ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v13-export.db", 13)
+    fun v13ToV14AddsThePromptRecordToModelCalls() {
+        val name = "prompt-record-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 13).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+            it.execSQL(
+                "INSERT INTO model_calls(id,turnId,providerSnapshot,state) VALUES ('c','t','prov','RUNNING')",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 14, true, HelixDatabase.MIGRATION_13_14).use { db ->
+            // The pre-v14 call keeps a NULL prompt record (it was never recorded).
+            db.query("SELECT promptFingerprint, promptSections FROM model_calls WHERE id='c'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+                assertTrue(it.isNull(1))
+            }
+            // A v14 call records the redacted prompt record on its row (fingerprint + section list).
+            db.execSQL(
+                "UPDATE model_calls SET promptFingerprint = 'fp', promptSections = '[\"sections\"]' WHERE id = 'c'",
+            )
+            db.query("SELECT promptFingerprint, promptSections FROM model_calls WHERE id='c'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("fp", it.getString(0))
+                assertEquals("[\"sections\"]", it.getString(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v14ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v14-export.db", 14)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -301,7 +332,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v13 schema must match the exported v13 schema",
+                "code-built v14 schema must match the exported v14 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )

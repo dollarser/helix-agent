@@ -1,5 +1,6 @@
 package com.helix.app.agent
 
+import com.helix.core.agent.PromptSnapshot
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnState
@@ -137,6 +138,7 @@ internal class BatchTurnRuntime(
  * External tool effects remain outside Room transactions; their durable per-call settlements
  * are completed first, then model-visible backfill and the next ModelCall commit atomically.
  */
+@Suppress("TooManyFunctions") // one method per lifecycle step + the per-request prompt record (doc 4.4)
 internal class TurnCoordinator private constructor(
     private val storage: HelixStorage,
     private val clock: Clock,
@@ -161,6 +163,36 @@ internal class TurnCoordinator private constructor(
         require(current.phase == TurnState.WAITING_MODEL)
         transitionPersisted(TurnState.RECEIVING_MODEL, current.modelStep)
         return runtime.beginModelStream()
+    }
+
+    /**
+     * Records the request's system-prompt snapshot (research doc section 4.4): the current
+     * model-call row's prompt columns and the `prompt.assembled` audit event commit in ONE
+     * transaction — the record of a request either fully exists or not at all. The section
+     * list + fingerprint are redacted (provenance and content hash, never content). No-op for
+     * an empty snapshot and for the compaction summary call ([summary] — its prompt is the
+     * serialized history, not the assembled system prompt). The flag is the caller's fact about
+     * THIS call: it is read before [beginModelStream] runs, so the coordinator's own
+     * [summaryStream] state (set by the previous call's stream) is not authoritative here.
+     */
+    fun recordPromptSnapshot(
+        snapshot: PromptSnapshot?,
+        summary: Boolean,
+    ) {
+        if (snapshot == null || summary) return
+        val current = runtime.snapshot()
+        val record = promptSnapshotRecord(snapshot, current.modelCallId, turnId) ?: return
+        storage.withTransaction {
+            storage.modelCalls.recordPrompt(record.modelCallId, record.fingerprint, record.sectionsJson)
+            storage.auditEvents.append(
+                idGenerator(),
+                record.modelCallId,
+                AUDIT_PROMPT_ASSEMBLED,
+                "assembler",
+                record.auditPayload,
+                clock.now().toEpochMilli(),
+            )
+        }
     }
 
     fun beginToolBatch(callIds: List<String>) {
@@ -329,6 +361,7 @@ internal class TurnCoordinator private constructor(
         private const val CALL_COMPLETED = "COMPLETED"
         private const val CALL_CANCELLED = "CANCELLED"
         private const val CALL_FAILED = "FAILED"
+        const val AUDIT_PROMPT_ASSEMBLED = "prompt.assembled"
 
         fun start(
             storage: HelixStorage,

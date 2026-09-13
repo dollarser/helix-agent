@@ -147,4 +147,50 @@ class PromptRegistryTest {
         val resolved = registry.resolve()
         assertEquals(resolved.joinToString("\n\n") { it.content }, registry.assemble())
     }
+
+    // --- the per-request snapshot (research doc section 4.4: the request keeps its sections) ---
+
+    @Test
+    fun resolveAndAssembleKeepsTheSectionListContentAndFingerprint() {
+        val registry =
+            PromptRegistry()
+                .register(section("harness", -1000, PromptScope.IDENTITY, "H", PromptSource.BUILTIN_TEMPLATE))
+                .register(section("project", 200, PromptScope.PROJECT, "P", PromptSource.WORKSPACE_INSTRUCTION))
+        val snapshot = registry.resolveAndAssemble()
+
+        assertEquals("H\n\nP", snapshot.content)
+        assertEquals(snapshot.content, registry.assemble())
+        assertEquals(
+            listOf("harness" to PromptSource.BUILTIN_TEMPLATE, "project" to PromptSource.WORKSPACE_INSTRUCTION),
+            snapshot.sections.map { it.name to it.source },
+        )
+        // The fingerprint is over the exact bytes that get sent — recomputable from the content.
+        assertEquals(sha256Hex("H\n\nP"), snapshot.fingerprint)
+        // A drift in ANY section content changes the fingerprint (staleness/tamper signal).
+        val drifted =
+            PromptRegistry()
+                .register(section("harness", -1000, PromptScope.IDENTITY, "H2", PromptSource.BUILTIN_TEMPLATE))
+                .register(section("project", 200, PromptScope.PROJECT, "P", PromptSource.WORKSPACE_INSTRUCTION))
+                .resolveAndAssemble()
+        assertTrue(drifted.fingerprint != snapshot.fingerprint)
+    }
+
+    @Test
+    fun anEmptyAssemblyIsADeterministicEmptySnapshotWithoutSystemMessage() {
+        val snapshot = PromptRegistry().resolveAndAssemble()
+        assertTrue(snapshot.sections.isEmpty())
+        assertTrue(snapshot.content.isEmpty())
+        assertEquals(sha256Hex(""), snapshot.fingerprint)
+        assertTrue(snapshot.modelMessages().isEmpty())
+    }
+
+    @Test
+    fun aNonEmptySnapshotIsExactlyOneSystemMessageCarryingTheContent() {
+        val snapshot =
+            PromptRegistry().register(section("harness", -1000, PromptScope.IDENTITY, "H")).resolveAndAssemble()
+        val messages = snapshot.modelMessages()
+        assertEquals(1, messages.size)
+        assertEquals(com.helix.core.model.ModelRole.SYSTEM, messages[0].role)
+        assertEquals("H", messages[0].text)
+    }
 }

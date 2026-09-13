@@ -30,4 +30,11 @@ interface ModelCallDao {
         usage: String?,
         requestId: String?,
     )
+
+    @Query("UPDATE model_calls SET promptFingerprint = :fingerprint, promptSections = :sections WHERE id = :id")
+    fun recordPrompt(
+        id: String,
+        fingerprint: String,
+        sections: String,
+    )
 }

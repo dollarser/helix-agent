@@ -4,11 +4,11 @@ import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnContextAssembler
-import com.helix.app.goal.goalReportContext
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ModePolicy
+import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -44,6 +44,18 @@ internal class ChatRequestAssembler(
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
+    // The one production system-prompt assembly (cross-mode, HX2-04): environment sections for
+    // this session's directory/mode plus the Goal sections on an active goal turn. Its
+    // [PromptSnapshot] rides every built request so the request's records carry the section
+    // list + fingerprint (research doc section 4.4).
+    private val systemPrompt =
+        SystemPromptContext(storage, attachmentStaging.workspaceScopeId, projectInstructionsReader)
+
+    // The local file tools whose visibility decides the `env.files` section (mainline rule: the
+    // working-directory guidance ships only when the file tools are actually exposed).
+    private fun fileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
+        tools.any { it.name.value in FILE_TOOL_NAMES }
+
     // AgentLoop port (HX2-02): the loop-facing names of the two plain request paths.
     override suspend fun build(
         sessionId: String,
@@ -64,13 +76,18 @@ internal class ChatRequestAssembler(
     ): Boolean {
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         val model = storage.sessions.resolve(sessionId).modelId ?: config.model
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
         val request =
             ChatContextRequest(
                 model,
-                persistedHistory(sessionId, null) + ModelMessage(ModelRole.USER, prompt),
-                modelTools(sessionId, control),
+                system.modelMessages() +
+                    persistedHistory(sessionId, null, system) +
+                    ModelMessage(ModelRole.USER, prompt),
+                tools,
                 minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
                 com.helix.core.model.ReasoningEffort.OFF,
+                system,
             )
         val window =
             providerService.contextSettingsStore
@@ -95,7 +112,9 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = persistedHistory(sessionId, retryTurnId)
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
+        val history = persistedHistory(sessionId, retryTurnId, system)
         require(history.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
@@ -104,7 +123,7 @@ internal class ChatRequestAssembler(
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(sessionId, control),
+            tools = tools,
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
             reasoning =
                 if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
@@ -117,6 +136,7 @@ internal class ChatRequestAssembler(
                 } else {
                     com.helix.core.model.ReasoningEffort.OFF
                 },
+            prompt = system,
         )
     }
 
@@ -130,7 +150,9 @@ internal class ChatRequestAssembler(
         sessionId: String,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = persistedHistory(sessionId, null)
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
+        val history = persistedHistory(sessionId, null, system)
         require(history.lastOrNull()?.role == ModelRole.TOOL) {
             "a back-fill request must end with the tool results"
         }
@@ -139,7 +161,7 @@ internal class ChatRequestAssembler(
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(sessionId, control),
+            tools = tools,
             maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
             reasoning =
                 if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
@@ -152,6 +174,7 @@ internal class ChatRequestAssembler(
                 } else {
                     com.helix.core.model.ReasoningEffort.OFF
                 },
+            prompt = system,
         )
     }
 
@@ -204,6 +227,7 @@ internal class ChatRequestAssembler(
     private suspend fun persistedHistory(
         sessionId: String,
         retryTurnId: String?,
+        system: PromptSnapshot,
     ): List<ModelMessage> {
         val allRows = storage.messages.listBySession(sessionId)
         val checkpoint = ContextCompaction.checkpoint(storage, allRows)
@@ -241,7 +265,7 @@ internal class ChatRequestAssembler(
                     message
                 }
             }
-        return storage.goalReportContext(sessionId) { projectInstructionsReader(sessionId) } +
+        return system.modelMessages() +
             if (checkpoint == null) {
                 restored
             } else {
@@ -255,5 +279,8 @@ internal class ChatRequestAssembler(
 
     private companion object {
         const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
+
+        val FILE_TOOL_NAMES =
+            setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
     }
 }

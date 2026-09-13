@@ -3,6 +3,7 @@ package com.helix.app.agent
 import com.helix.app.R
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.PromptSnapshot
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.TurnState
@@ -123,7 +124,8 @@ internal class AgentLoop(
                 )
             admission.failure?.let { return it }
             val request = requireNotNull(admission.request)
-            val acc = collectModelStream(coordinator, provider, request, compaction == null)
+            // The per-request prompt record commits inside collectModelStream, before the wire call.
+            val acc = collectModelStream(coordinator, provider, request, compaction == null, context.prompt)
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
             admission.finish(acc)?.let { return it }
             if (compaction != null) {
@@ -164,7 +166,11 @@ internal class AgentLoop(
         provider: com.helix.provider.api.ModelProvider,
         request: ModelRequest,
         publishText: Boolean = true,
+        prompt: PromptSnapshot? = null,
     ): ModelStreamState {
+        // Per-request prompt record (research doc section 4.4): commits to THIS model-call row
+        // plus its audit event before the wire call; summary calls carry no record.
+        coordinator.recordPromptSnapshot(prompt, !publishText)
         val acc = coordinator.beginModelStream(compacting = !publishText)
         goalTimes[coordinator.id]?.checkActive()
         kotlinx.coroutines.withContext(
