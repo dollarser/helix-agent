@@ -92,11 +92,16 @@ class ToolDescriptorTest {
     }
 
     @Test
-    fun mcpToolsCanNeverBeReadOnlyEvenWhenHelixDeclaresIt() {
+    fun mcpToolsCanNeverBeReadOnlyOrMetadataEvenWhenHelixDeclaresIt() {
         assertThrows(IllegalArgumentException::class.java) {
             mcpDescriptor("mcp.srv.tool", ToolOperationClass.READ_ONLY)
         }
-        // a non-READ_ONLY MCP classification is accepted (effect at least NETWORK)
+        // METADATA is a built-in-only closed set; an MCP tool must not ride it into the
+        // read-gated (Plan/Chat) modes either.
+        assertThrows(IllegalArgumentException::class.java) {
+            mcpDescriptor("mcp.srv.tool", ToolOperationClass.METADATA)
+        }
+        // a non-review-admitted MCP classification is accepted (effect at least NETWORK)
         val d = mcpDescriptor("mcp.srv.tool", ToolOperationClass.NETWORK)
         assertEquals(ToolOperationClass.NETWORK, d.operationClass)
     }

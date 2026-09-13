@@ -33,7 +33,15 @@ class EnumsContractTest {
     @Test
     fun toolOperationClassMatchesDocumentedSet() {
         assertEquals(
-            listOf("READ_ONLY", "LOCAL_MUTATION", "NETWORK", "EXTERNAL_ACTION", "CODE_EXECUTION", "PRIVILEGED"),
+            listOf(
+                "READ_ONLY",
+                "LOCAL_MUTATION",
+                "NETWORK",
+                "EXTERNAL_ACTION",
+                "CODE_EXECUTION",
+                "PRIVILEGED",
+                "METADATA",
+            ),
             ToolOperationClass.entries.map { it.name },
         )
     }

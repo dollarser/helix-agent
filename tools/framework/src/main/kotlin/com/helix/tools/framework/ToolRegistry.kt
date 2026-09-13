@@ -129,11 +129,11 @@ class ToolRegistry(
      * The MODE VIEW of the registry: the latest version of every tool whose
      * operation class is in [allowedOperationClasses], sorted by name.
      *
-     * This is the list a mode's tool table is built from. Plan mode passes
-     * exactly `setOf(ToolOperationClass.READ_ONLY)` — the filter is on the
+     * This is a generic operation-class view of the registry. The read-gated
+     * modes (Plan, Chat) admit READ_ONLY or METADATA — the filter is on the
      * OPERATION CLASS ONLY; a risk-level (L0/L1) check can never substitute
-     * it (doc 02 section 7; core:agent ModePolicy enforces the same rule per
-     * call).
+     * it (doc 02 section 7; core:agent ModePolicy is the authoritative
+     * per-turn filter and enforces the same rule per call).
      */
     fun visibleFor(allowedOperationClasses: Set<ToolOperationClass>): List<ToolDescriptor> {
         val latestByName = LinkedHashMap<ToolName, ToolDescriptor>()

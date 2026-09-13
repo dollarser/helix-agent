@@ -89,19 +89,19 @@ class PlanToolsTest {
     // --- the contract ---
 
     @Test
-    fun theContractIsAReadOnlyL0ControlToolAdmittedByPlanMode() {
+    fun theContractIsAMetadataL0ControlToolAdmittedByPlanMode() {
         val d = PlanTools.descriptor() // construction also enforces the ToolSchema subset
         assertEquals(ToolName("plan.submit"), d.name)
         assertEquals(ToolVersion(1), d.version)
-        assertEquals(ToolOperationClass.READ_ONLY, d.operationClass)
+        assertEquals(ToolOperationClass.METADATA, d.operationClass)
         assertEquals(RiskLevel.L0, d.baseRisk)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
-        // Plan mode admits exactly READ_ONLY at dynamic risk <= L1 (core:agent ModePolicy):
-        // that is why the structured termination tool is classified this way.
+        // Plan mode admits READ_ONLY or METADATA at dynamic risk <= L1 (core:agent ModePolicy):
+        // the structured termination tool is a distinct METADATA op, not a disguised READ_ONLY.
         assertTrue(
             ModePolicy.evaluate(
                 AgentMode.PLAN,
-                ToolModeProfile(ToolOperationClass.READ_ONLY, RiskLevel.L0),
+                ToolModeProfile(ToolOperationClass.METADATA, RiskLevel.L0),
             ) is ModeDecision.Allowed,
         )
     }

@@ -32,11 +32,13 @@ import kotlin.time.Duration.Companion.seconds
  * this tool only validates and echoes; [TaskLedgerProjection] reads the latest successful
  * call back into the conversation's Progress section.
  *
- * Classification: READ_ONLY at L0 — its one side effect is internal harness state (the
- * persisted call row): no user-visible local mutation, no egress. IDEMPOTENT: the call
- * declares state, the latest call wins, and a replay with the same args leaves the same
- * ledger. It is valid in every mode (ACT or GOAL, bound or unbound) — unlike `goal.report`
- * there is no goal gate: a plain chat task keeps its progress too.
+ * Classification: METADATA at L0 — the internal metadata-operation contract (research doc
+ * section 4), NOT a disguised READ_ONLY: its one durable side effect is internal harness
+ * state (the persisted call row), no user-visible local mutation, no egress, no file path or
+ * foreign Goal ID in its input. IDEMPOTENT: the call declares state, the latest call wins,
+ * and a replay with the same args leaves the same ledger. It is valid in every mode (ACT or
+ * GOAL, bound or unbound, and a plain chat task) — unlike `goal.report` there is no goal
+ * gate: a chat task keeps its progress too.
  */
 internal object TodoWriteTool {
     const val NAME: String = "todo.write"
@@ -91,7 +93,7 @@ internal object TodoWriteTool {
                     """.trimIndent().replace("\n", " "),
                 inputSchema = schema,
                 outputSchema = schema,
-                operationClass = ToolOperationClass.READ_ONLY,
+                operationClass = ToolOperationClass.METADATA,
                 baseRisk = RiskLevel.L0,
                 timeout = 5.seconds,
                 maxOutputBytes = 32768,

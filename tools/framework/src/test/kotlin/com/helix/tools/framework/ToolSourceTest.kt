@@ -85,7 +85,7 @@ class ToolSourceTest {
     }
 
     @Test
-    fun mcpSourceRejectsAReadOnlyClassification() {
+    fun mcpSourceRejectsReadOnlyAndMetadataClassifications() {
         assertThrows(IllegalArgumentException::class.java) {
             McpToolSource(
                 "srv",
@@ -98,6 +98,14 @@ class ToolSourceTest {
                             mapOf("readOnlyHint" to true),
                     ),
                 ),
+            )
+        }
+        // METADATA is built-in-only: an MCP spec must not declare it either.
+        assertThrows(IllegalArgumentException::class.java) {
+            McpToolSource(
+                "srv",
+                "2025-03-26",
+                listOf(mcpSpec("search", operationClass = ToolOperationClass.METADATA)),
             )
         }
     }

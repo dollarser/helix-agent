@@ -8,6 +8,7 @@ import com.helix.core.model.Sha256
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.core.model.isReviewModeAdmitted
 import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
 import kotlin.time.Duration
@@ -25,7 +26,7 @@ import kotlin.time.Duration.Companion.hours
  * approvals for the tool).
  *
  * [operationClass] describes the effect of the operation (orthogonal to
- * [baseRisk]): Plan mode filters on [ToolOperationClass.READ_ONLY] ONLY and
+ * [baseRisk]): Plan mode filters on [ToolOperationClass.READ_ONLY] or [ToolOperationClass.METADATA] and
  * never substitutes a risk-level check (core:agent ModePolicy consumes this
  * descriptor). [requiredCapabilities] uses core:model's unified
  * [Capability] enum; capability states describe what the app CAN do and never
@@ -94,8 +95,8 @@ data class ToolDescriptor(
             // the effect is at least NETWORK. A server-provided readOnlyHint
             // can never classify (or reclassify) a tool as READ_ONLY
             // (doc 02 section 7 / doc 10 section 4.4).
-            require(operationClass != ToolOperationClass.READ_ONLY) {
-                "remote tool ${name.value} can never be classified READ_ONLY"
+            require(!operationClass.isReviewModeAdmitted) {
+                "remote tool ${name.value} can never be classified READ_ONLY or METADATA"
             }
         }
     }

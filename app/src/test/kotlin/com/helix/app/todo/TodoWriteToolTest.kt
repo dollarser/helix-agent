@@ -75,19 +75,19 @@ class TodoWriteToolTest {
     // --- the contract ---
 
     @Test
-    fun theContractIsAReadOnlyL0BuiltInIdempotentToolAdmittedByPlanMode() {
+    fun theContractIsAMetadataL0BuiltInIdempotentToolAdmittedByPlanMode() {
         val d = registry.resolve(ToolName(TodoWriteTool.NAME), ToolVersion(TodoWriteTool.VERSION))
-        assertEquals(ToolOperationClass.READ_ONLY, d.operationClass)
+        assertEquals(ToolOperationClass.METADATA, d.operationClass)
         assertEquals(RiskLevel.L0, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
         assertEquals(ExecutionTargetType.LOCAL_ANDROID, d.executionTarget)
         assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
-        // The ledger is available in PLAN mode too: READ_ONLY at dynamic risk <= L1
+        // The ledger is available in PLAN mode too: a METADATA op at dynamic risk <= L1
         // (core:agent ModePolicy) — a planning conversation keeps its steps legible.
         assertTrue(
             ModePolicy.evaluate(
                 AgentMode.PLAN,
-                ToolModeProfile(ToolOperationClass.READ_ONLY, RiskLevel.L0),
+                ToolModeProfile(ToolOperationClass.METADATA, RiskLevel.L0),
             ) is ModeDecision.Allowed,
         )
     }

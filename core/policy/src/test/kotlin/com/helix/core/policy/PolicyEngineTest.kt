@@ -190,6 +190,26 @@ class PolicyEngineTest {
     }
 
     @Test
+    fun planModeMetadataAtLowRiskIsAllowed() {
+        // plan.submit is a METADATA op: admitted in Plan at the same cap as READ_ONLY, not a
+        // disguised read.
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L0),
+            )
+        assertEquals(PolicyDecision.Allow, evaluation.decision)
+    }
+
+    @Test
+    fun planModeMetadataAboveL1IsDeniedByRiskCeiling() {
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L2),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
+    }
+
+    @Test
     fun chatRequiresExplicitOptInAndStillAllowsOnlyReadOnlyL0() {
         val disabled =
             engine.evaluate(
@@ -227,6 +247,33 @@ class PolicyEngineTest {
                 ),
             )
         assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(sensitiveRead).code)
+    }
+
+    @Test
+    fun chatEnabledAllowsMetadataL0AndRejectsItAboveL0() {
+        // The todo ledger is a METADATA op Chat keeps at L0; above the cap the risk ceiling
+        // still denies it (risk cannot trade for the admitted class).
+        val allowed =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.METADATA,
+                    baseRisk = RiskLevel.L0,
+                ),
+            )
+        assertEquals(PolicyDecision.Allow, allowed.decision)
+
+        val aboveCap =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.METADATA,
+                    baseRisk = RiskLevel.L1,
+                ),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(aboveCap).code)
     }
 
     @Test

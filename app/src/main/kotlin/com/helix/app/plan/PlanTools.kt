@@ -31,11 +31,13 @@ import kotlin.time.Duration.Companion.seconds
  * itself is NOT a paragraph of assistant text — it is a versioned [PlanArtifact], and this is
  * the ONLY way it leaves the model.
  *
- * Classification: READ_ONLY at L0. Its one side effect is internal harness state — the
- * persisted plan row (REVIEW_REQUIRED/READY) and nothing else: no user-visible local
- * mutation, no egress. That is what lets the PLAN mode filter admit it (core:agent
- * [ModePolicy]: Plan allows only READ_ONLY at dynamic risk <= L1); classifying it as a
- * mutation would deny it in the one mode where the doc requires it.
+ * Classification: METADATA at L0 — the internal metadata-operation contract (research doc
+ * section 4), NOT a disguised READ_ONLY. Its one durable side effect is the persisted plan
+ * row (READY) and nothing else: no user-visible local mutation, no egress, no file path or
+ * foreign Goal ID in its input, and the write is audited. That distinct class is what lets
+ * the PLAN mode filter admit it (core:agent [ModePolicy]: Plan allows READ_ONLY or METADATA
+ * at dynamic risk <= L1); classifying it as a mutation would deny it in the one mode where
+ * the doc requires it.
  *
  * The harness flow (doc 4.3) is enforced AROUND this executor, not inside it: the dispatcher
  * validates the arguments against the input schema (stage 1) and verifies the output against
@@ -87,7 +89,7 @@ object PlanTools {
                     )
                     put("additionalProperties", JsonPrimitive(false))
                 },
-            operationClass = ToolOperationClass.READ_ONLY,
+            operationClass = ToolOperationClass.METADATA,
             baseRisk = RiskLevel.L0,
             timeout = 30.seconds,
             maxOutputBytes = 4096,

@@ -43,6 +43,22 @@ class ModePolicyTest {
     }
 
     @Test
+    fun chatEnabledAllowsMetadataL0() {
+        // The built-in metadata ops (plan row, todo ledger) are a closed, audited set Chat keeps.
+        val p = profile(ToolOperationClass.METADATA, RiskLevel.L0)
+        val decision = ModePolicy.evaluate(AgentMode.CHAT, p, chatToolsEnabled = true)
+        assertTrue("METADATA at L0 must be allowed in Chat", decision is ModeDecision.Allowed)
+    }
+
+    @Test
+    fun chatEnabledRejectsMetadataAboveL0() {
+        // The class is admitted, but Chat's risk cap is still L0 — risk cannot trade for class.
+        val p = profile(ToolOperationClass.METADATA, RiskLevel.L1)
+        val decision = ModePolicy.evaluate(AgentMode.CHAT, p, chatToolsEnabled = true)
+        assertEquals(ModeDenialCode.RISK_LEVEL_TOO_HIGH, deniedCode(decision))
+    }
+
+    @Test
     fun chatEnabledRejectsWriteEvenAtL0() {
         val p = profile(ToolOperationClass.LOCAL_MUTATION, RiskLevel.L0)
         val decision = ModePolicy.evaluate(AgentMode.CHAT, p, chatToolsEnabled = true)
@@ -84,6 +100,22 @@ class ModePolicyTest {
             val decision = ModePolicy.evaluate(AgentMode.PLAN, profile(ToolOperationClass.READ_ONLY, risk))
             assertTrue("READ_ONLY at $risk must be allowed in Plan", decision is ModeDecision.Allowed)
         }
+    }
+
+    @Test
+    fun planAllowsMetadataAtL0AndL1() {
+        // plan.submit is the METADATA op Plan mode needs to terminate; it rides the same cap
+        // as READ_ONLY — a distinct class, not a disguised read.
+        for (risk in listOf(RiskLevel.L0, RiskLevel.L1)) {
+            val decision = ModePolicy.evaluate(AgentMode.PLAN, profile(ToolOperationClass.METADATA, risk))
+            assertTrue("METADATA at $risk must be allowed in Plan", decision is ModeDecision.Allowed)
+        }
+    }
+
+    @Test
+    fun planRejectsMetadataAboveL1() {
+        val decision = ModePolicy.evaluate(AgentMode.PLAN, profile(ToolOperationClass.METADATA, RiskLevel.L2))
+        assertEquals(ModeDenialCode.RISK_LEVEL_TOO_HIGH, deniedCode(decision))
     }
 
     @Test
