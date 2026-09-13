@@ -406,13 +406,10 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 7) —
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 15) —
         // the exact production path (HelixStorage registers the same set; including the
         // room_master_table identity update). The assertions below verify the 1 -> 2 step
-        // specifically; the chain also proves 2 -> 3 (interaction_receipts), 3 -> 4
-        // (message_attachments), 4 -> 5 (high_sensitivity_rules), 5 -> 6 (A2A snapshots),
-        // and 6 -> 7 (A2A Task correlation)
-        // all applied.
+        // specifically; the chain also proves every later migration step applies.
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
@@ -428,11 +425,13 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_9_10,
                     HelixDatabase.MIGRATION_10_11,
                     HelixDatabase.MIGRATION_11_12,
+                    HelixDatabase.MIGRATION_12_13,
+                    HelixDatabase.MIGRATION_13_14,
+                    HelixDatabase.MIGRATION_14_15,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
-            val columns =
-                pragmaRows(sqlite, "PRAGMA table_info(approvals)").map { row -> row[1] }.toSet()
+            val columns = pragmaRows(sqlite, "PRAGMA table_info(approvals)").map { row -> row[1] }.toSet()
             assertTrue(
                 "v2 approvals must carry bindingHash + expiresAt and drop argsHash: $columns",
                 "bindingHash" in columns && "expiresAt" in columns && "argsHash" !in columns,
