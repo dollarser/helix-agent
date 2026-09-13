@@ -49,6 +49,7 @@ import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
@@ -1703,11 +1704,17 @@ class ChatService(
 
     /**
      * Resolves the session for a turn start (HX2-01): an explicit [requestedSessionId] from the
-     * unified AgentRuntime takes precedence, falling back to the open session when it is absent or
-     * cannot be resolved. Null when neither is available (fail-closed — no turn is started).
+     * unified AgentRuntime must run in exactly that session — when it cannot be resolved the start
+     * is refused (fail-closed), never substituted with the open session (which would run the
+     * request in a different session than its caller addressed). Only a start with no explicit
+     * session falls back to the open session. Null = refuse (no turn is started).
      */
-    private fun resolveTurnSession(requestedSessionId: String?) =
-        requestedSessionId?.let { runCatching { storage.sessions.resolve(it) }.getOrNull() } ?: currentSession()
+    private fun resolveTurnSession(requestedSessionId: String?): SessionEntity? =
+        TurnSessionResolver.resolve(
+            explicitSessionId = requestedSessionId,
+            openSession = currentSession(),
+            resolveSession = { id -> runCatching { storage.sessions.resolve(id) }.getOrNull() },
+        )
 
     // The boundary catch is deliberately broad: ANY unexpected failure at the
     // model boundary (guard rejects, corrupt rows, a vanished provider) must
