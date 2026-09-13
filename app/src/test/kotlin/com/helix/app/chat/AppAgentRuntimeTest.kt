@@ -178,7 +178,7 @@ class AppAgentRuntimeTest {
     fun aLateSubscriberSeesThePersistedTerminalState() {
         val fake =
             host().apply {
-                frames = listOf(null) // no live frame: the turn already left the open session
+                frames = emptyList() // not live: the turn already ended before we subscribed
                 phase = TurnState.COMPLETED
                 assistantText = "final"
             }
@@ -194,7 +194,7 @@ class AppAgentRuntimeTest {
     fun observeOfAnUnknownTurnEmitsNothing() {
         val fake =
             host().apply {
-                frames = listOf(null)
+                frames = emptyList()
                 phase = null
             }
         val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
@@ -216,6 +216,47 @@ class AppAgentRuntimeTest {
         assertEquals("partial", frames[0].assistantText)
     }
 
+    @Test
+    fun aBackgroundTurnReachingItsCleanTerminalIsObservedToEnd() {
+        // HX2-01 §2c: the point of persistent observation — a turn that is NOT the open session's
+        // active turn (a background turn) still streams to its terminal via the per-turn
+        // live-frame channel. A clean COMPLETED carries no status label, so the host emits its
+        // terminal directly to that channel; the observer must receive it and the stream must END
+        // (toList returns) rather than hang waiting for a frame that never comes.
+        val fake =
+            host().apply {
+                frames =
+                    listOf(
+                        TurnUi("t1", TurnState.RECEIVING_MODEL, "thinking…", null, false),
+                        TurnUi("t1", TurnState.COMPLETED, null, null, false), // the null-label terminal
+                    )
+                assistantText = "done in the background"
+            }
+        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        assertEquals(listOf(TurnState.RECEIVING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
+        assertEquals("done in the background", frames[1].assistantText)
+        assertTrue(frames[1].isTerminal)
+    }
+
+    @Test
+    fun whenTheLiveStreamEndsWithoutATerminalTheObserverFallsBackToThePersistedPhase() {
+        // HX2-01 §2c robustness: if the live-frame stream ends without a terminal snapshot (a
+        // back-pressured consumer dropped the terminal frame), the observer is not stranded — it
+        // projects the turn's persisted phase, so a COMPLETED turn is still reported completed.
+        val fake =
+            host().apply {
+                frames = listOf(TurnUi("t1", TurnState.RECEIVING_MODEL, "partial", null, false))
+                phase = TurnState.COMPLETED
+                assistantText = "final"
+            }
+        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        assertEquals(listOf(TurnState.RECEIVING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
+        assertEquals("final", frames[1].assistantText)
+        assertTrue(frames[1].isTerminal)
+    }
+
     private class FakeAgentTurnHost : AgentTurnHost {
         var nextStartTurnId: String? = "t1"
         var lastStartSession: String? = null
@@ -223,7 +264,7 @@ class AppAgentRuntimeTest {
         var lastStartAttachments: List<AttachmentBindingIntent> = emptyList()
         var phase: TurnState? = null
         var assistantText: String? = null
-        var frames: List<TurnUi?> = emptyList()
+        var frames: List<TurnUi> = emptyList()
         val cancelled = mutableListOf<String>()
         val startedTurns = mutableListOf<String>() // turn ids actually started (a dedup hit adds none)
         private val claimedClientIds = HashMap<String, String>()
@@ -260,8 +301,7 @@ class AppAgentRuntimeTest {
             }
         }
 
-        override val activeTurn: Flow<TurnUi?>
-            get() = flowOf(*frames.toTypedArray())
+        override fun observeTurnFrames(turnId: String): Flow<TurnUi> = flowOf(*frames.toTypedArray())
 
         override fun persistedPhase(turnId: String): TurnState? = phase
 

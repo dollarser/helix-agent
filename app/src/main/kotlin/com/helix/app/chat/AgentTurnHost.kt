@@ -46,8 +46,16 @@ internal interface AgentTurnHost {
      */
     suspend fun cancelTurn(turnId: String): TurnCancelOutcome
 
-    /** The open session's active turn, or null — the live-frame source for [AgentRuntime.observe]. */
-    val activeTurn: Flow<TurnUi?>
+    /**
+     * The turn's LIVE frame stream (research doc section 34; HX2-01 §2c): [TurnUi] frames whose
+     * lifetime equals the turn's, independent of the open session's UI screen. This is what lets
+     * [com.helix.core.agent.AgentRuntime.observe] stream a turn in a NON-open (background) session
+     * to its terminal — the open-session screen only reflects the one session the user is looking
+     * at, so it cannot be the live-frame source for a turn the user is not viewing. A turn that is
+     * not live (not yet started, or already ended) yields an empty flow, and the adapter falls
+     * back to the turn's persisted state.
+     */
+    fun observeTurnFrames(turnId: String): Flow<TurnUi>
 
     /** The turn's persisted phase, or null when the id addresses no turn row. */
     fun persistedPhase(turnId: String): TurnState?

@@ -300,6 +300,15 @@ class ChatService(
      */
     private val turnSubmitDedup = TurnSubmitDedup()
 
+    /**
+     * The per-turn live-frame channel behind [AgentTurnHost.observeTurnFrames] (HX2-01 §2c): a
+     * turn's frames stream to observers regardless of the open session, so the app-layer runtime's
+     * `observe` can stream a turn in a NON-open (background) session to its terminal. Its lifetime
+     * equals the turn's — [TurnLiveFrames.open] at start, untracked at terminal — so the map holds
+     * only live turns and cannot grow without bound.
+     */
+    private val turnLiveFrames = TurnLiveFrames()
+
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
     // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
     // write would silently drop the user's message with no UI feedback).
@@ -1611,16 +1620,23 @@ class ChatService(
                     endedAt = clock.now().toEpochMilli(),
                     errorCode = null,
                 )
+                // Deliver the terminal to this turn's live-frame observers too: a parked turn was
+                // started (its flow is open) but never went through terminalize, so without this
+                // emit an [AgentTurnHost.observeTurnFrames] subscriber would hang for it.
+                turnLiveFrames.emit(
+                    turnId,
+                    TurnUi(turnId, TurnState.CANCELLED, null, terminalLabel(TurnState.CANCELLED, null), false),
+                )
                 TurnCancelOutcome.DiscardedParked
             }
         }
 
     /**
-     * Live-frame source for [com.helix.core.agent.AgentRuntime.observe]: the open session's
-     * active turn. A turn is observed live while it is the open session's active turn.
+     * The turn's LIVE frame stream (HX2-01 §2c), independent of the open session: [TurnLiveFrames]
+     * holds the frame channel for every live turn. A turn that is not live (not yet started, or
+     * already ended) yields an empty flow, and the adapter projects the turn's persisted state.
      */
-    override val activeTurn: Flow<TurnUi?>
-        get() = screen.map { it.activeTurn }
+    override fun observeTurnFrames(turnId: String): Flow<TurnUi> = turnLiveFrames.forTurn(turnId)
 
     /** The turn's persisted phase; null when the id addresses no turn row. */
     override fun persistedPhase(turnId: String): TurnState? =
@@ -1759,6 +1775,9 @@ class ChatService(
                     runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
+            // The turn is live now — open its per-turn live-frame channel so its frames stream to
+            // [AgentTurnHost.observeTurnFrames] observers regardless of the open session (HX2-01 §2c).
+            turnLiveFrames.open(turnId)
             // Record ONLY once the turn is committed (row written, job launched): a start that
             // failed before this point leaves the id unclaimed, so a re-drive may legitimately
             // retry it instead of being pinned to a turn that was never written.
@@ -1867,9 +1886,21 @@ class ChatService(
         // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
         // user reacting immediately cannot hit the still-active coroutine's completion gap.
         sessionTurnAdmission.complete(sessionId, turnId)
-        terminalLabel(outcome.state, outcome.errorCode)?.let { label ->
+        val label = terminalLabel(outcome.state, outcome.errorCode)
+        label?.let {
             publishTurn(
-                TurnUi(turnId, outcome.state, null, label, outcome.state == TurnState.FAILED),
+                TurnUi(turnId, outcome.state, null, it, outcome.state == TurnState.FAILED),
+            )
+        }
+        // A terminal with no status label (a clean COMPLETED) never goes through [publishTurn],
+        // whose turn-frame emit is what feeds [AgentTurnHost.observeTurnFrames]. Emit it directly
+        // so a background turn's observer still receives its terminal and its flow completes —
+        // otherwise the observe stream for such a turn would hang. A duplicate terminal is a
+        // no-op: [TurnLiveFrames.emit] drops a frame for a turn it no longer tracks.
+        if (label == null) {
+            turnLiveFrames.emit(
+                turnId,
+                TurnUi(turnId, outcome.state, null, null, outcome.state == TurnState.FAILED),
             )
         }
         refreshScreen()
@@ -1978,6 +2009,9 @@ class ChatService(
         }
 
     private fun publishTurn(turn: TurnUi) {
+        // Feed this turn's live-frame channel first (HX2-01 §2c): observers of a NON-open session's
+        // turn get frames here, since the screen below only reflects the one session on screen.
+        turnLiveFrames.emit(turn.id, turn)
         if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) refreshBackgroundTasks()
         val session = storage.turns.resolve(turn.id).sessionId
         _screen.update { if (it.openSessionId == session) it.copy(activeTurn = turn) else it }
