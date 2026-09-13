@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v12ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v13ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -253,8 +253,47 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v12ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v12-export.db", 12)
+    fun v12ToV13AddsThePersistentSubmitDedupReceiptToTurns() {
+        val name = "turn-submit-dedup-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 12).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+        }
+        helper.runMigrationsAndValidate(name, 13, true, HelixDatabase.MIGRATION_12_13).use { db ->
+            // The pre-v13 row keeps a NULL receipt (never matched by a non-null re-drive query).
+            db.query("SELECT clientRequestId, inputFingerprint FROM turns WHERE id='t'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+                assertTrue(it.isNull(1))
+            }
+            // A v13 turn records its client-request receipt, and a second NULL receipt is allowed
+            // (NULLs stay distinct under the unique index)...
+            db.execSQL(
+                "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                    "VALUES ('t2','s1','CREATED',0,1,'req-1','fp-1')",
+            )
+            db.execSQL(
+                "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                    "VALUES ('t3','s1','CREATED',0,1,NULL,NULL)",
+            )
+            // ...but a duplicate clientRequestId is refused by the unique index — the DB-level
+            // backstop so one client-request id can never back a second turn.
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                        "VALUES ('t4','s1','CREATED',0,1,'req-1','fp-other')",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v13ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v13-export.db", 13)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -262,7 +301,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v12 schema must match the exported v12 schema",
+                "code-built v13 schema must match the exported v13 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )

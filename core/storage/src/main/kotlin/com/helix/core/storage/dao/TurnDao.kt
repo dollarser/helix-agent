@@ -42,6 +42,10 @@ interface TurnDao {
     @Query("SELECT * FROM turns WHERE id = :id")
     fun byId(id: String): TurnEntity?
 
+    /** The turn a [clientRequestId] already started (submit dedup, HX2-01 §2e); unique index ⇒ at most one. */
+    @Query("SELECT * FROM turns WHERE clientRequestId = :clientRequestId LIMIT 1")
+    fun byClientRequestId(clientRequestId: String): TurnEntity?
+
     @Query("SELECT * FROM turns WHERE sessionId = :sessionId ORDER BY startedAt ASC, rowid ASC")
     fun listBySession(sessionId: String): List<TurnEntity>
 

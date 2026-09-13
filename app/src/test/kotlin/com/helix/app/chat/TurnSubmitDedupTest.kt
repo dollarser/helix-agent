@@ -1,65 +1,124 @@
 package com.helix.app.chat
 
+import com.helix.core.model.TurnState
+import com.helix.core.storage.entity.TurnEntity
+import com.helix.core.storage.repository.MessageAttachmentRepository
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Unit tests for [TurnSubmitDedup] (research doc section 34; HX2-01 §2e): the pure idempotency
- * ledger behind a turn start's client-request dedup — a re-driven submission with the same id
- * returns the already-started turn, the bounded map evicts oldest-first, and a non-positive
- * capacity fails closed.
+ * Unit tests for the PERSISTENT submit-dedup logic (research doc section 34; HX2-01 §2e): the
+ * [TurnInputFingerprint] binds a client-request id to the exact content of a submission, and
+ * [TurnDedup] decides how a re-driven id resolves against its receipt row — a same session + input
+ * dedups to the started turn; any divergence is a conflict (fail-closed). Pure, so they run on the
+ * JVM where the heavy [ChatService] cannot be constructed.
  */
 class TurnSubmitDedupTest {
+    private fun binding(
+        artifactId: String,
+        sha: String = "sha-$artifactId",
+    ) = MessageAttachmentRepository.Binding(artifactId, "INPUT", sha)
+
+    private fun turn(
+        id: String,
+        sessionId: String,
+        inputFingerprint: String,
+    ) = TurnEntity(
+        id = id,
+        sessionId = sessionId,
+        state = TurnState.CREATED.name,
+        stepCount = 0,
+        startedAt = 0,
+        endedAt = null,
+        errorCode = null,
+        clientRequestId = "req-1",
+        inputFingerprint = inputFingerprint,
+    )
+
+    // --- TurnInputFingerprint ---
+
     @Test
-    fun aNewClientRequestIdIsNotYetStarted() {
-        val dedup = TurnSubmitDedup()
-        assertNull(dedup.alreadyStarted("req-1"))
+    fun theFingerprintIsStableForIdenticalContent() {
+        val input = listOf(binding("art-1"), binding("art-2"))
+        assertEquals(TurnInputFingerprint.of("hello", input), TurnInputFingerprint.of("hello", input))
     }
 
     @Test
-    fun aRecordedClientRequestIdReturnsItsTurn() {
-        val dedup = TurnSubmitDedup()
-        dedup.record("req-1", "t1")
-        assertEquals("t1", dedup.alreadyStarted("req-1"))
+    fun aDifferentTextChangesTheFingerprint() {
+        assertNotEquals(TurnInputFingerprint.of("hello", emptyList()), TurnInputFingerprint.of("world", emptyList()))
     }
 
     @Test
-    fun reRecordingTheSameClientRequestIdOverwritesTheTurn() {
-        val dedup = TurnSubmitDedup()
-        dedup.record("req-1", "t1")
-        dedup.record("req-1", "t2")
-        assertEquals("t2", dedup.alreadyStarted("req-1"))
+    fun aDifferentAttachmentChangesTheFingerprint() {
+        assertNotEquals(
+            TurnInputFingerprint.of("x", listOf(binding("art-1"))),
+            TurnInputFingerprint.of("x", listOf(binding("art-2"))),
+        )
     }
 
     @Test
-    fun reRecordingAnExistingIdDoesNotEvictAnotherEntry() {
-        // Only a NEW id that overflows the capacity evicts the oldest; a re-record of an existing
-        // id must not drop an unrelated entry.
-        val dedup = TurnSubmitDedup(capacity = 2)
-        dedup.record("a", "t-a")
-        dedup.record("b", "t-b")
-        dedup.record("a", "t-a2")
-        assertEquals("t-a2", dedup.alreadyStarted("a"))
-        assertEquals("t-b", dedup.alreadyStarted("b"))
+    fun aDifferentAttachmentOrderChangesTheFingerprint() {
+        // The binding order is the message ordinal; a re-drive must preserve it, so a reorder is a
+        // distinct content and must NOT collide with the original fingerprint.
+        assertNotEquals(
+            TurnInputFingerprint.of("x", listOf(binding("art-1"), binding("art-2"))),
+            TurnInputFingerprint.of("x", listOf(binding("art-2"), binding("art-1"))),
+        )
     }
 
     @Test
-    fun aNewIdBeyondCapacityEvictsTheOldest() {
-        val dedup = TurnSubmitDedup(capacity = 2)
-        dedup.record("a", "t-a")
-        dedup.record("b", "t-b")
-        dedup.record("c", "t-c")
-        assertNull(dedup.alreadyStarted("a"))
-        assertEquals("t-b", dedup.alreadyStarted("b"))
-        assertEquals("t-c", dedup.alreadyStarted("c"))
+    fun theFieldSeparatorPreventsAConcatenationCollision() {
+        // Without a separator, text "ab" + artifact "c" would hash like text "a" + artifact "bc".
+        val a = TurnInputFingerprint.of("ab", listOf(binding("c")))
+        val b = TurnInputFingerprint.of("a", listOf(binding("bc")))
+        assertNotEquals(a, b)
     }
 
     @Test
-    fun aNonPositiveCapacityIsRejected() {
-        assertThrows(IllegalArgumentException::class.java) {
-            TurnSubmitDedup(capacity = 0)
-        }
+    fun aNullTextFingerprintsLikeTheEmptyText() {
+        assertEquals(TurnInputFingerprint.of(null, emptyList()), TurnInputFingerprint.of("", emptyList()))
+    }
+
+    @Test
+    fun theFingerprintIsA64CharLowercaseSha256Hex() {
+        val fp = TurnInputFingerprint.of("hello", listOf(binding("art-1")))
+        assertEquals(64, fp.length)
+        assertTrue(fp.all { it in '0'..'9' || it in 'a'..'f' })
+    }
+
+    // --- TurnDedup ---
+
+    @Test
+    fun anUnknownClientRequestIdIsFresh() {
+        assertEquals(TurnDedupDecision.Fresh, TurnDedup.decide(null, "s1", "fp"))
+    }
+
+    @Test
+    fun aSameSessionAndInputReDriveDedupsToTheStartedTurn() {
+        val fp = TurnInputFingerprint.of("hello", emptyList())
+        val decision = TurnDedup.decide(turn("t1", "s1", fp), "s1", fp)
+        assertEquals(TurnDedupDecision.Dedup("t1"), decision)
+    }
+
+    @Test
+    fun aDifferentInputUnderTheSameIdIsAConflict() {
+        val fp = TurnInputFingerprint.of("hello", emptyList())
+        val other = TurnInputFingerprint.of("different content", emptyList())
+        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s1", other))
+    }
+
+    @Test
+    fun aDifferentSessionUnderTheSameIdIsAConflict() {
+        val fp = TurnInputFingerprint.of("hello", emptyList())
+        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s2", fp))
+    }
+
+    @Test
+    fun aDifferentSessionAndInputIsAConflict() {
+        val fp = TurnInputFingerprint.of("hello", emptyList())
+        val other = TurnInputFingerprint.of("other", emptyList())
+        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s2", other))
     }
 }

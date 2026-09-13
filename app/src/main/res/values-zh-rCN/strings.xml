@@ -838,6 +838,7 @@
     <string name="plan_close">关闭</string>
     <string name="plan_execute_failed">计划状态已变化，未启动执行。请重新审阅。</string>
     <string name="plan_execute_not_started">计划已就绪，但本次未能启动执行（会话可能正忙）。目标已创建，可稍后重新启动。</string>
+    <string name="turn_submit_conflict">该请求无法启动：它与之前的提交冲突。请重试。</string>
     <string name="goal_model_report_label">模型判断</string>
     <string name="goal_blocked_model">模型报告需要外部帮助。解决阻碍后，确认并重新检查即可继续。</string>
     <string name="files_permanent_delete_title">永久删除？</string>

@@ -113,7 +113,7 @@ data class MessageAttachmentEntity(
                 onDelete = ForeignKey.CASCADE,
             ),
         ],
-    indices = [Index("sessionId")],
+    indices = [Index("sessionId"), Index(value = ["clientRequestId"], unique = true)],
 )
 data class TurnEntity(
     @PrimaryKey val id: String,
@@ -125,6 +125,13 @@ data class TurnEntity(
     val errorCode: String?,
     val resultCollectedAt: Long? = null,
     val pauseRequestedAt: Long? = null,
+    // The persistent submit-dedup receipt (research doc section 34; HX2-01 §2e): the stable
+    // [clientRequestId] that started this turn and the [inputFingerprint] of the input it carried.
+    // The turn row IS the receipt — created atomically with the turn, it survives restart, and the
+    // unique index on [clientRequestId] is the DB-level backstop against a second turn for one id.
+    // Null on rows created before v13 (never matched by a non-null re-drive query).
+    val clientRequestId: String? = null,
+    val inputFingerprint: String? = null,
 )
 
 /** architecture doc 9.1: `model_calls` — provider snapshot, state, usage, requestId. */

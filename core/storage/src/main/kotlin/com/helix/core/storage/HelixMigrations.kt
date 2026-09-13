@@ -4,6 +4,27 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    /**
+     * v12 -> v13 (research doc section 34; HX2-01 §2e): the persistent submit-dedup receipt.
+     * Adds `clientRequestId` + `inputFingerprint` to `turns` — the turn row becomes the durable
+     * receipt for the client-request id that started it (created atomically with the turn, so a
+     * restart can no longer let the same id re-start a second turn) — and a UNIQUE index on
+     * `clientRequestId`, the DB-level backstop so one id can never back a second turn. Both columns
+     * are nullable: rows created before v13 keep NULL (never matched by a non-null re-drive query)
+     * and NULLs stay distinct under the unique index, so the backstop does not collide across them.
+     */
+    val MIGRATION_12_13 =
+        object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE turns ADD COLUMN clientRequestId TEXT")
+                db.execSQL("ALTER TABLE turns ADD COLUMN inputFingerprint TEXT")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_turns_clientRequestId` " +
+                        "ON `turns` (`clientRequestId`)",
+                )
+            }
+        }
+
     val MIGRATION_11_12 =
         object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {

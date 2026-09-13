@@ -21,6 +21,10 @@ internal data class TurnStartSpec(
     val userText: String?,
     val attachments: List<MessageAttachmentRepository.Binding> = emptyList(),
     val goalRunId: String? = null,
+    // The persistent submit-dedup receipt (research doc section 34; HX2-01 §2e): written onto the
+    // turn row atomically with the turn so the client-request id survives a restart.
+    val clientRequestId: String? = null,
+    val inputFingerprint: String? = null,
 )
 
 internal enum class BatchCallResolution {
@@ -334,7 +338,16 @@ internal class TurnCoordinator private constructor(
         ): TurnCoordinator {
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
-                var turn = storage.turns.start(spec.turnId, spec.sessionId, now)
+                // The receipt (clientRequestId + inputFingerprint) commits WITH the turn row (research
+                // doc section 34): a restart can no longer let the same id re-start a second turn.
+                var turn =
+                    storage.turns.start(
+                        spec.turnId,
+                        spec.sessionId,
+                        now,
+                        spec.clientRequestId,
+                        spec.inputFingerprint,
+                    )
                 spec.goalRunId?.let { storage.goalTurnBindings.bind(spec.turnId, it) }
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
                 if (spec.userText != null || spec.attachments.isNotEmpty()) {

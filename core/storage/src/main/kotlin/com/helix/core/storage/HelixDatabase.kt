@@ -113,7 +113,7 @@ import com.helix.core.storage.entity.TurnEntity
             A2aCapabilityEntity::class,
             A2aTaskEntity::class,
         ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
@@ -178,6 +178,8 @@ abstract class HelixDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "helix.db"
+
+        val MIGRATION_12_13 = HelixMigrations.MIGRATION_12_13
 
         val MIGRATION_11_12 = HelixMigrations.MIGRATION_11_12
 

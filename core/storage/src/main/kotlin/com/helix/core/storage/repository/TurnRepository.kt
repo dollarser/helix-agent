@@ -11,12 +11,28 @@ class TurnRepository(
         id: String,
         sessionId: String,
         startedAt: Long,
+        clientRequestId: String? = null,
+        inputFingerprint: String? = null,
     ): TurnEntity {
         require(startedAt >= 0) { "startedAt must be >= 0" }
-        val entity = TurnEntity(id, sessionId, TurnState.CREATED.name, 0, startedAt, null, null)
+        val entity =
+            TurnEntity(
+                id = id,
+                sessionId = sessionId,
+                state = TurnState.CREATED.name,
+                stepCount = 0,
+                startedAt = startedAt,
+                endedAt = null,
+                errorCode = null,
+                clientRequestId = clientRequestId,
+                inputFingerprint = inputFingerprint,
+            )
         dao.insert(entity)
         return entity
     }
+
+    /** The turn [clientRequestId] already started (submit dedup, HX2-01 §2e), or null when the id is new. */
+    fun resolveByClientRequestId(clientRequestId: String): TurnEntity? = dao.byClientRequestId(clientRequestId)
 
     fun resolve(id: String): TurnEntity {
         val entity = dao.byId(id)

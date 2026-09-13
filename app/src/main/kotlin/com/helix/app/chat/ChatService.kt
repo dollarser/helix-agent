@@ -293,14 +293,6 @@ class ChatService(
     private val sessionTurnAdmission = SessionTurnAdmission()
 
     /**
-     * Idempotency for turn submission (HX2-01 §2e): a stable client-request id maps to the turn it
-     * started, so a re-driven submission (a confirmed egress re-delivered by a double-confirm)
-     * returns the already-started turn instead of starting a second. Checked and recorded together
-     * under [turnGate] in [launchTurn].
-     */
-    private val turnSubmitDedup = TurnSubmitDedup()
-
-    /**
      * The per-turn live-frame channel behind [AgentTurnHost.observeTurnFrames] (HX2-01 §2c): a
      * turn's frames stream to observers regardless of the open session, so the app-layer runtime's
      * `observe` can stream a turn in a NON-open (background) session to its terminal. Its lifetime
@@ -1753,9 +1745,7 @@ class ChatService(
         // Snapshot before creating the durable Turn: later UI/profile changes cannot alter this
         // Turn's mode, tool table, dispatcher mode, or limits.
         val control = controlOverride ?: runControlStore.current
-        // The Room read runs OUTSIDE the gate: a suspend point must never be
-        // reached while holding the monitor (the gate only serializes the
-        // turn-start writes below).
+        // The Room read runs OUTSIDE the gate: a suspend point must never be reached while holding the monitor.
         val snapshot =
             try {
                 providerSnapshot(providerId, session.modelId)
@@ -1768,11 +1758,15 @@ class ChatService(
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
                 return null
             }
+        val inputFingerprint = TurnInputFingerprint.of(text, attachmentBindings)
         synchronized(turnGate) {
-            // Idempotency (HX2-01 §2e): a re-driven submission carrying an id this process already
-            // started returns that turn — never a second. Checked under the gate so this check and
-            // the record below are atomic with respect to every other start attempt on the gate.
-            turnSubmitDedup.alreadyStarted(clientRequestId)?.let { existing -> return existing }
+            // Persistent submit-dedup (research doc section 34): a re-drive with the same session +
+            // input returns the started turn; a diverged session or input is a conflict (refused).
+            when (val dedup = resolveSubmitDedup(clientRequestId, sessionId, inputFingerprint)) {
+                is TurnDedupDecision.Dedup -> return dedup.turnId
+                TurnDedupDecision.Conflict -> return null
+                TurnDedupDecision.Fresh -> Unit
+            }
             // Per-session admission: refuse only when THIS session already has an in-flight turn —
             // a turn in another session must never make this send vanish.
             if (sessionTurnAdmission.hasActive(sessionId)) return null
@@ -1783,20 +1777,23 @@ class ChatService(
             }
             val turnId = idGenerator()
             val callId = idGenerator()
-            val spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings)
-            val goalStart =
-                goalId?.let {
-                    GoalRunCoordinator(storage, clock, idGenerator).start(
-                        GoalTurnStart(it, com.helix.core.agent.GoalWakeReason.USER_OPEN, spec, control.budgets),
-                    )
-                }
-            if (goalId != null && goalStart == null) {
+            val spec =
+                turnStartSpec(
+                    sessionId,
+                    turnId,
+                    callId,
+                    snapshot,
+                    text,
+                    attachmentBindings,
+                    clientRequestId,
+                    inputFingerprint,
+                )
+            val started = startCoordinatorForTurn(spec, goalId, control)
+            if (started == null) {
                 setBlocked(str(R.string.goal_continue_unavailable))
                 return null
             }
-            val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
-            val effectiveControl =
-                goalStart?.let { control.copy(mode = AgentMode.GOAL, budgets = it.budgets) } ?: control
+            val (coordinator, effectiveControl) = started
             // The worker waits behind this gate until its active-turn entry and initial UI are
             // published. Without the gate, a fast scheduler can begin streaming before register;
             // stop() in that window cannot find the job and silently fails to cancel the turn.
@@ -1809,10 +1806,6 @@ class ChatService(
             // The turn is live now — open its per-turn live-frame channel so its frames stream to
             // [AgentTurnHost.observeTurnFrames] observers regardless of the open session (HX2-01 §2c).
             turnLiveFrames.open(turnId)
-            // Record ONLY once the turn is committed (row written, job launched): a start that
-            // failed before this point leaves the id unclaimed, so a re-drive may legitimately
-            // retry it instead of being pinned to a turn that was never written.
-            turnSubmitDedup.record(clientRequestId, turnId)
             if (openSessionId == sessionId) {
                 refreshScreen() // publish the committed user message before the model may emit or wait
                 publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
@@ -1820,6 +1813,79 @@ class ChatService(
             startGate.complete(Unit)
             return turnId
         }
+    }
+
+    /**
+     * Resolves the persistent submit-dedup receipt for [clientRequestId] (research doc section 34;
+     * HX2-01 §2e): the receipt is the turn row itself (clientRequestId + inputFingerprint),
+     * committed WITH the turn, so a restart can no longer let the same id re-start a second turn.
+     * A re-drive with the SAME session + input is a [TurnDedupDecision.Dedup] to the started turn;
+     * a DIFFERENT session or input is a [TurnDedupDecision.Conflict] — which surfaces the safe
+     * blocked state (fail-closed) so a second turn is never started. The synchronous Room read is
+     * NOT a suspend point, so the caller invokes this under the turn gate.
+     */
+    private fun resolveSubmitDedup(
+        clientRequestId: String,
+        sessionId: String,
+        inputFingerprint: String,
+    ): TurnDedupDecision {
+        val decision =
+            TurnDedup.decide(
+                storage.turns.resolveByClientRequestId(clientRequestId),
+                sessionId,
+                inputFingerprint,
+            )
+        if (decision is TurnDedupDecision.Conflict) {
+            Log.w(TAG, "submit-dedup conflict for clientRequestId $clientRequestId (session/input diverged)")
+            setBlocked(str(R.string.turn_submit_conflict))
+        }
+        return decision
+    }
+
+    /** Builds the [TurnStartSpec] for a turn start, carrying the persistent submit-dedup receipt (section 34). */
+    private fun turnStartSpec(
+        sessionId: String,
+        turnId: String,
+        callId: String,
+        snapshot: String,
+        text: String?,
+        attachmentBindings: List<MessageAttachmentRepository.Binding>,
+        clientRequestId: String,
+        inputFingerprint: String,
+    ): TurnStartSpec =
+        TurnStartSpec(
+            sessionId,
+            turnId,
+            callId,
+            snapshot,
+            text,
+            attachmentBindings,
+            clientRequestId = clientRequestId,
+            inputFingerprint = inputFingerprint,
+        )
+
+    /**
+     * Starts the turn's coordinator under the caller's gate: a goal start goes through the
+     * [GoalRunCoordinator] (its budgets applied to the control); a plain start goes through
+     * [TurnCoordinator]. Returns null when a goal wake was REFUSED (the goal reducer declined) —
+     * the caller then surfaces the blocked state and does not start a turn.
+     */
+    private fun startCoordinatorForTurn(
+        spec: TurnStartSpec,
+        goalId: String?,
+        control: RunControlConfig,
+    ): Pair<TurnCoordinator, RunControlConfig>? {
+        val goalStart =
+            goalId?.let {
+                GoalRunCoordinator(storage, clock, idGenerator).start(
+                    GoalTurnStart(it, com.helix.core.agent.GoalWakeReason.USER_OPEN, spec, control.budgets),
+                )
+            }
+        if (goalId != null && goalStart == null) return null
+        val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
+        val effectiveControl =
+            goalStart?.let { control.copy(mode = AgentMode.GOAL, budgets = it.budgets) } ?: control
+        return coordinator to effectiveControl
     }
 
     /**

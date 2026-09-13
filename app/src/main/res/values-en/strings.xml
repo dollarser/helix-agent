@@ -840,6 +840,7 @@
     <string name="plan_close">Close</string>
     <string name="plan_execute_failed">The plan state changed, so execution did not start. Review it again.</string>
     <string name="plan_execute_not_started">The plan is ready, but this attempt could not start execution (the session may be busy). The goal was created — start it again later.</string>
+    <string name="turn_submit_conflict">This request could not be started: it conflicts with an earlier submission. Please retry.</string>
     <string name="goal_model_report_label">Model assessment</string>
     <string name="goal_blocked_model">The model reported an external blocker. After resolving it, confirm and recheck to continue.</string>
     <string name="files_permanent_delete_title">Permanently delete?</string>
