@@ -31,6 +31,8 @@ internal fun ProviderRow(
     testing: Boolean,
     actions: ProviderRowActions,
     accountUnavailable: Boolean,
+    detectingCapabilities: Boolean = false,
+    capabilityOutcome: com.helix.provider.api.ProbeOutcome? = null,
 ) {
     val visionEnabled = row.capabilities?.vision == true
     Column(
@@ -116,6 +118,24 @@ internal fun ProviderRow(
                 )
             }
         }
+        capabilityOutcome?.let { outcome ->
+            Text(
+                when (outcome) {
+                    is com.helix.provider.api.ProbeOutcome.Ok -> {
+                        stringResource(R.string.provider_capabilities_passed)
+                    }
+
+                    is com.helix.provider.api.ProbeOutcome.Failed -> {
+                        stringResource(
+                            R.string.provider_capabilities_failed,
+                            stringResource(ConnectionTestMapping.codeLabel(outcome.code)),
+                        )
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("provider-capability-result"),
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = actions.onTest,
@@ -124,10 +144,31 @@ internal fun ProviderRow(
             ) {
                 Text(
                     stringResource(
-                        if (testing) R.string.provider_testing else R.string.provider_connection_test,
+                        if (testing && !detectingCapabilities) {
+                            R.string.provider_testing
+                        } else {
+                            R.string.provider_connection_test
+                        },
                     ),
                 )
             }
+            OutlinedButton(
+                onClick = actions.onDetectCapabilities,
+                enabled = !testing && row.chatSelectable,
+                modifier = Modifier.testTag("provider-capabilities"),
+            ) {
+                Text(
+                    stringResource(
+                        if (detectingCapabilities) {
+                            R.string.provider_capabilities_testing
+                        } else {
+                            R.string.provider_capabilities_test
+                        },
+                    ),
+                )
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!row.managedExternally) {
                 TextButton(onClick = { actions.onEdit(null) }, modifier = Modifier.testTag("provider-edit")) {
                     Text(stringResource(R.string.provider_edit_button))
@@ -189,7 +230,13 @@ private fun StatusChip(status: ConnectionTestStatus) {
             }
 
             is ConnectionTestStatus.Passed -> {
-                stringResource(R.string.conn_passed)
+                stringResource(
+                    if (status.capabilities.source == com.helix.provider.api.CapabilitySource.CONNECTION_ONLY) {
+                        R.string.conn_connection_only
+                    } else {
+                        R.string.conn_passed
+                    },
+                )
             }
 
             is ConnectionTestStatus.Failed -> {
@@ -245,7 +292,13 @@ private fun statusDetail(row: ProviderRowUi): String? =
             stringResource(
                 R.string.provider_failed_detail,
                 stringResource(ConnectionTestMapping.phaseLabel(status.phase)),
-                stringResource(ConnectionTestMapping.codeLabel(status.code)),
+                stringResource(
+                    if (row.managedExternally && status.code == com.helix.core.model.ModelErrorCode.TRANSPORT) {
+                        R.string.conn_subscription_transport
+                    } else {
+                        ConnectionTestMapping.codeLabel(status.code)
+                    },
+                ),
                 if (status.retryable) stringResource(R.string.provider_retryable) else "",
             )
         }

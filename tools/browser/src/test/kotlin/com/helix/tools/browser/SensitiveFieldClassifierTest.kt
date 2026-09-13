@@ -17,6 +17,15 @@ import org.junit.Test
  * test (asserts the runtime agrees).
  */
 class SensitiveFieldClassifierTest {
+    @Test
+    fun textPasswordFieldsAreRefusedButPasswordLinksRemainClickable() {
+        assertEquals(Refusal.PASSWORD, refusalOf(classify(nameId = "newPassword")))
+        assertEquals(Refusal.PASSWORD, refusalOf(classify(placeholder = "请输入密码")))
+        assertEquals(Refusal.PASSWORD, refusalOf(classify(nameId = "passwd")))
+        assertEquals(Verdict.Normal, classify(tag = "a", nameId = "reset-password"))
+        assertEquals(Verdict.Normal, classify(nameId = "postal_code"))
+    }
+
     private fun classify(
         tag: String = "input",
         type: String = "text",

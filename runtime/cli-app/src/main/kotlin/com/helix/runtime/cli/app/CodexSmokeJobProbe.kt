@@ -22,7 +22,10 @@ internal object CodexSmokeJobProbe {
         jobId: String,
     ): CodexModelJobRecord {
         repeat(480) {
-            runner.query(jobId)?.takeIf { it.state.terminal }?.let { return it }
+            runner.query(jobId)?.takeIf { it.state.terminal }?.let {
+                if (it.state == CodexModelJobState.FAILED) runner.failure(jobId)?.let { failure -> throw failure }
+                return it
+            }
             Thread.sleep(250)
         }
         runner.cancel(jobId)

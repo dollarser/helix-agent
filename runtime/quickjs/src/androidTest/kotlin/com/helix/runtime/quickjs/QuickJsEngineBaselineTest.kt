@@ -28,7 +28,7 @@ import org.junit.rules.Timeout
  * contract, it is deliberately NOT asserted here — the service simply never evaluates
  * off its execution thread, and the same-thread degradation above is what is pinned.
  */
-class QuickJsEngineBaselineTest {
+class QuickJsEngineBaselineTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(120)
 

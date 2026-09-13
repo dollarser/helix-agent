@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.seconds
 object FilesMkdirTool {
     const val NAME: String = "files.mkdir"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(
@@ -59,7 +59,7 @@ object FilesMkdirTool {
                         "path",
                         filesMetaToolsStr(
                             maxLength = 512,
-                            "Model reference of the directory to create (input/, work/ or output/)",
+                            "Model reference of the directory to create (workspace files; .helix/ is reserved)",
                         ),
                     )
                 },
@@ -94,7 +94,9 @@ object FilesMkdirTool {
                 return try {
                     val region = WorkspaceLayout.regionOf(path.relativePath)
                     if (region == null || !WorkspaceLayout.isRegion(region)) {
-                        return ToolExecutorResult.Failed("destination must be inside input/, work/ or output/: $ref")
+                        return ToolExecutorResult.Failed(
+                            "destination must be a user file or directory, outside .helix/: $ref",
+                        )
                     }
                     store.mkdir(path, region)
                     ToolExecutorResult.Completed(

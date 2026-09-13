@@ -18,18 +18,32 @@ internal class ProviderConnectionProbe(
     private val clock: Clock,
     private val managed: ManagedProviderHooks,
     private val storedConfig: suspend (String) -> ProviderConfig,
-    private val discoverContextWindow: suspend (String, String) -> ProviderContextSettings,
+    private val discoverContextWindow: suspend (String, String, Long?) -> Unit,
     private val onNetworkOperation: () -> Unit,
 ) {
     /** The probe itself; only ever run on the service's IO scope (network + Room). */
-    suspend fun run(providerId: String): ProbeOutcome {
+    suspend fun run(
+        providerId: String,
+        detectCapabilities: Boolean = false,
+    ): ProbeOutcome {
         val config = storedConfig(providerId)
         val provider = factory.create(config)
         onNetworkOperation()
-        val outcome = managed.probe(config, provider) ?: probe.probe(provider)
+        val outcome =
+            if (detectCapabilities) {
+                managed.probe(config, provider) ?: probe.probe(provider)
+            } else {
+                ProviderConnectionCheck.run(
+                    config,
+                    provider,
+                    (testStatus.statusFor(config.id) as? ConnectionTestStatus.Passed)?.capabilities,
+                )
+            }
         when (outcome) {
             is ProbeOutcome.Ok -> {
-                discoverContextWindow(providerId, config.model)
+                testStatus.modelMetadata.write(config.id, config.endpoint.full, provider.modelMetadata())
+                // Reuse this provider's catalog instead of cold-binding and fetching it twice.
+                discoverContextWindow(providerId, config.model, provider.contextWindow(config.model))
                 storage.providerConfigs.overwrite(
                     storage.providerConfigs.resolve(providerId).let { e ->
                         ProviderConfigSpec(
@@ -53,6 +67,9 @@ internal class ProviderConnectionProbe(
             }
 
             is ProbeOutcome.Failed -> {
+                // Capability failures do not revoke a separately verified connection.
+                if (detectCapabilities) return outcome
+                testStatus.modelMetadata.write(config.id, config.endpoint.full, emptyMap())
                 testStatus.recordFailed(
                     providerId,
                     clock.now().toEpochMilli(),

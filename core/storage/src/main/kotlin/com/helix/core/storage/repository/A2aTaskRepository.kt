@@ -177,8 +177,12 @@ class A2aTaskRepository(
                 state.name,
                 delivery.name,
                 updatedAt,
+                current.lastEventSequence,
+                current.updatedAtEpochMillis,
+                current.state,
+                current.deliveryState,
             ) == 1,
-        ) { "A2A task not found: ${current.toolCallId}" }
+        ) { "A2A task missing or concurrently changed: ${current.toolCallId}" }
         return current.copy(
             taskId = taskId,
             contextId = contextId,

@@ -19,11 +19,30 @@ enum class ModelRole {
  * (e.g. OpenAI `reasoning_effort`, Anthropic thinking budget) or drop it when the capability
  * snapshot says `reasoning=false` (doc 10 section 2.4).
  */
-enum class ReasoningEffort {
-    OFF,
-    LOW,
-    MEDIUM,
-    HIGH,
+@JvmInline
+value class ReasoningEffort private constructor(
+    val name: String,
+) {
+    override fun toString(): String = name
+
+    companion object {
+        val OFF = ReasoningEffort("OFF")
+        val LOW = ReasoningEffort("LOW")
+        val MEDIUM = ReasoningEffort("MEDIUM")
+        val HIGH = ReasoningEffort("HIGH")
+        val FALLBACK = listOf(OFF, LOW, MEDIUM, HIGH)
+
+        /** Preserve old persisted names while accepting bounded, future server-defined effort tokens. */
+        fun valueOf(name: String): ReasoningEffort {
+            require(name.matches(Regex("[A-Z][A-Z0-9_-]{0,31}")))
+            return ReasoningEffort(name)
+        }
+
+        fun fromWire(value: String): ReasoningEffort {
+            require(value.matches(Regex("[a-z][a-z0-9_-]{0,31}")) && value != "off")
+            return valueOf(value.uppercase(java.util.Locale.ROOT))
+        }
+    }
 }
 
 /**

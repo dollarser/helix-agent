@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets
  * Every wait is bounded; the class-level [Timeout] rule is the last-resort
  * anti-hang guard.
  */
-class JsBinderLargeInputE2eTest {
+class JsBinderLargeInputE2eTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(600)
 

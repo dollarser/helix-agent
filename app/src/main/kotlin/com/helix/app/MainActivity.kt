@@ -235,6 +235,7 @@ internal fun HelixApp(container: AppContainer) {
                                         container.privacyDeletionService,
                                         container.fileManager,
                                         onNavigation = { scope.launch { drawerState.open() } },
+                                        onProviders = { navController.navigate(ShellDestination.Settings.route) },
                                     )
                                 }
 
@@ -248,6 +249,7 @@ internal fun HelixApp(container: AppContainer) {
                                         container.lanScopeStore,
                                         container.skillAuthoringService,
                                         container.skillInstallationService,
+                                        chatService = container.chatService,
                                     )
                                 }
 
@@ -275,8 +277,8 @@ internal fun HelixApp(container: AppContainer) {
                                     BrowserScreen(container.browser)
                                 }
 
-                                // HXA-045: the all-files consent screen lives in the developer
-                                // flavor; the consumer build keeps the honest empty state.
+                                // System permission entries exist in both channels.
+                                // All-files remains flavor-owned.
                                 ShellDestination.Permissions -> {
                                     PermissionsScreenDestination(container)
                                 }
@@ -296,11 +298,14 @@ internal fun HelixApp(container: AppContainer) {
 @Composable
 @Suppress("FunctionName")
 private fun PermissionsScreenDestination(container: AppContainer) {
-    if (AllFilesModule.AVAILABLE) {
-        AllFilesModule.render(container.profileStore)
-    } else {
-        EmptyDestination(ShellDestination.Permissions, PaddingValues(24.dp))
-    }
+    com.helix.app.ui.SystemPermissionsScreen(
+        filePermissions =
+            if (AllFilesModule.AVAILABLE) {
+                { AllFilesModule.render(container.profileStore) }
+            } else {
+                null
+            },
+    )
 }
 
 /**

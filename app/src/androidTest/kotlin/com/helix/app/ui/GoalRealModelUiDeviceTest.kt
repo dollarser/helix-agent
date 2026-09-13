@@ -65,11 +65,10 @@ class GoalRealModelUiDeviceTest {
                 compose.onNodeWithTag("chat-mode-menu").performClick()
                 compose.onNodeWithTag("chat-mode-goal").performClick()
                 createGoalThroughUi()
-                assertRunCount(0)
-                continueAndVerify(1, "GOAL_UI_FIRST")
-                compose.onNodeWithTag("chat-input").performTextInput("Reply only GOAL_UI_SECOND. Do not call tools.")
+                continueAndVerify(1, "GOAL_UI_FIRST", start = false)
                 compose.onNodeWithTag("goal-manage").performClick()
                 compose.onNodeWithTag("goal-continue-$goalId").performScrollTo().assertIsNotEnabled()
+                compose.onNodeWithTag("goal-settings").performClick()
                 compose.onNodeWithTag("goal-edit-budgets-$goalId").performScrollTo().performClick()
                 replace("goal-budget-0", "2")
                 compose.onNodeWithTag("goal-save").performClick()
@@ -79,12 +78,16 @@ class GoalRealModelUiDeviceTest {
                         .budgets.maxModelCalls == 2
                 }
                 assertRunCount(1)
+                compose.navigateTo("sessions")
+                compose.onNodeWithTag("chat-input").performTextInput("Reply only GOAL_UI_SECOND. Do not call tools.")
+                compose.onNodeWithTag("goal-manage").performClick()
                 continueAndVerify(2, "GOAL_UI_SECOND")
                 saveEvidence(model)
             } finally {
                 service.stop()
                 compose.waitUntil(10_000) { !service.screen.value.isSending }
                 service.closeSession()
+                container.runControlStore.setGoalBudgets(previous.goalBudgets)
                 service.setMode(previous.mode)
                 service.setTurnBudgets(previous.budgets)
                 goalId?.let(storage.goals::delete)
@@ -118,12 +121,13 @@ class GoalRealModelUiDeviceTest {
 
     private fun createGoalThroughUi() {
         val objective = "Reply only GOAL_UI_FIRST. Do not call tools. Fixture ${UUID.randomUUID()}."
-        compose.onNodeWithTag("chat-input").performTextInput(objective)
-        compose.onNodeWithTag("goal-manage").performClick()
-        compose.onNodeWithTag("goal-create").performClick()
-        compose.onNodeWithTag("goal-criteria").performTextInput("The output has independently verified evidence.")
+        compose.navigateTo("settings")
+        compose.onNodeWithTag("goal-defaults-edit").performScrollTo().performClick()
         replace("goal-budget-0", "1")
         compose.onNodeWithTag("goal-save").performClick()
+        compose.navigateTo("sessions")
+        compose.onNodeWithTag("chat-input").performTextInput(objective)
+        compose.onNodeWithTag("chat-send").performClick()
         compose.waitUntil(10_000) {
             goalId =
                 storage.goals
@@ -132,7 +136,6 @@ class GoalRealModelUiDeviceTest {
                     ?.id
             goalId != null
         }
-        assertEquals("READY", storage.goals.resolve(requireNotNull(goalId)).state)
     }
 
     private fun replace(
@@ -146,12 +149,15 @@ class GoalRealModelUiDeviceTest {
     private fun continueAndVerify(
         count: Int,
         marker: String,
+        start: Boolean = true,
     ) {
-        compose
-            .onNodeWithTag("goal-continue-$goalId")
-            .performScrollTo()
-            .assertIsEnabled()
-            .performClick()
+        if (start) {
+            compose
+                .onNodeWithTag("goal-continue-$goalId")
+                .performScrollTo()
+                .assertIsEnabled()
+                .performClick()
+        }
         compose.waitUntil(180_000) {
             val turns = storage.turns.listBySession(requireNotNull(sessionId))
             turns.size == count && turns.all { TurnState.valueOf(it.state).isTerminal }

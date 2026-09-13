@@ -67,7 +67,9 @@ object SensitiveFieldClassifier {
         val isInputTag = tag.trim().lowercase() in INPUT_TAGS
 
         // 1) password — refused in every context (doc 09 §3.3 密码框默认拒绝).
-        if (t == "password" || ac == "password" || ac.endsWith("-password")) {
+        if (t == "password" || ac == "password" || ac.endsWith("-password") ||
+            (isInputTag && ("password" in label || "passwd" in label || "密码" in label))
+        ) {
             return Verdict.Sensitive(Refusal.PASSWORD)
         }
         // 2) payment — card number / holder / expiry / IBAN fields (doc 09 §3.4 支付).

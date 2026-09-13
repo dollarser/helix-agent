@@ -8,15 +8,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.chat.ChatService
 import com.helix.app.provider.ProviderService
-import com.helix.core.model.AgentMode
-import kotlinx.coroutines.launch
 
 /**
  * The chat UI (HXA-028). Two views over the service's observable state:
@@ -39,6 +36,7 @@ fun ChatScreen(
     privacyDeletionService: com.helix.app.privacy.PrivacyDeletionService,
     fileManager: com.helix.app.files.FileManagerService? = null,
     onNavigation: () -> Unit = {},
+    onProviders: () -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -47,7 +45,6 @@ fun ChatScreen(
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
-    val uiScope = rememberCoroutineScope()
     var input by remember(screen.openSessionId) { mutableStateOf("") }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
@@ -76,6 +73,8 @@ fun ChatScreen(
                 sessions = sessions,
                 onNavigation = onNavigation,
                 onNew = { chatService.newSessionDraft() },
+                onProviders = onProviders,
+                needsProvider = providerRows.none { it.chatSelectable },
                 onRename = { renameId = it },
                 onOpen = { chatService.openSession(it) },
                 onArchive = { chatService.archiveSession(it) },
@@ -100,14 +99,8 @@ fun ChatScreen(
                         onRename = { renameId = screen.openSessionId },
                         onDirectory = { directoryOpen = true },
                         onSend = {
-                            if (runControl.mode == AgentMode.GOAL) {
-                                uiScope.launch {
-                                    if (!screen.isDraft || chatService.saveDraftForGoal(input.trim())) goalsOpen = true
-                                }
-                            } else {
-                                chatService.send(input.trim())
-                                input = ""
-                            }
+                            chatService.send(input.trim())
+                            input = ""
                         },
                         onStop = { chatService.stop() },
                         onCompact = chatService::compactContext,
@@ -141,7 +134,7 @@ fun ChatScreen(
                 chatService.dismissGoalReminder()
             },
             onContinued = { input = "" },
-            busy = screen.isSending,
+            onSettings = onProviders,
             selectedGoalId = reminderGoal,
             onDeleteGoal = { id ->
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

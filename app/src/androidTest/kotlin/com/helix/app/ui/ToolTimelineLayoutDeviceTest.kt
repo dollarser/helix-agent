@@ -40,6 +40,9 @@ class ToolTimelineLayoutDeviceTest {
         val args = "{\"path\":\"workspace/long-document.txt\"}\n".repeat(20)
         val result = "A long tool result with its original content.\n".repeat(20)
         render(ToolTimelineRow("turn", "call", "read", args, "已执行成功", result, null))
+        compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-row-result-call").assertDoesNotExist()
+        compose.onNodeWithTag("tool-details-call").performClick()
         verifyExpansion("tool-row-args-call", args)
         verifyExpansion("tool-row-result-call", result)
     }

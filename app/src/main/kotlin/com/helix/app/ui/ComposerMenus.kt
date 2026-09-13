@@ -47,16 +47,11 @@ internal fun ComposerReasoningMenu(
     enabled: Boolean,
     onReasoning: (ReasoningEffort) -> Unit,
     modifier: Modifier = Modifier,
+    efforts: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
 ) {
-    val options =
-        listOf(
-            ReasoningEffort.OFF to stringResource(R.string.chat_reasoning_default),
-            ReasoningEffort.LOW to stringResource(R.string.chat_reasoning_low),
-            ReasoningEffort.MEDIUM to stringResource(R.string.chat_reasoning_medium),
-            ReasoningEffort.HIGH to stringResource(R.string.chat_reasoning_high),
-        )
+    val options = efforts.map { it to reasoningLabel(it) }
     ComposerMenu(
-        label = stringResource(R.string.chat_reasoning_selection, options.first { it.first == reasoning }.second),
+        label = stringResource(R.string.chat_reasoning_selection, reasoningLabel(reasoning)),
         selected = reasoning,
         options = options,
         enabled = enabled,
@@ -68,7 +63,7 @@ internal fun ComposerReasoningMenu(
 
 @Composable
 @Suppress("FunctionName", "LongParameterList")
-private fun <T : Enum<T>> ComposerMenu(
+private fun <T> ComposerMenu(
     label: String,
     selected: T,
     options: List<Pair<T, String>>,
@@ -96,9 +91,21 @@ private fun <T : Enum<T>> ComposerMenu(
                         Modifier
                             .heightIn(min = 48.dp)
                             .semantics { this.selected = selected == value }
-                            .testTag("$tag-${value.name.lowercase()}"),
+                            .testTag("$tag-${value.toString().lowercase()}"),
                 )
             }
         }
     }
 }
+
+/** Labels are presentation only; available values come from the selected model's metadata. */
+@Composable
+private fun reasoningLabel(effort: ReasoningEffort): String =
+    when (effort.name) {
+        "OFF" -> stringResource(R.string.chat_reasoning_default)
+        "LOW" -> stringResource(R.string.chat_reasoning_low)
+        "MEDIUM" -> stringResource(R.string.chat_reasoning_medium)
+        "HIGH" -> stringResource(R.string.chat_reasoning_high)
+        "XHIGH" -> stringResource(R.string.chat_reasoning_xhigh)
+        else -> effort.name.lowercase()
+    }

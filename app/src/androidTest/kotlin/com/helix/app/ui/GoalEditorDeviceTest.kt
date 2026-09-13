@@ -3,12 +3,10 @@ package com.helix.app.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.model.GoalBudgets
 import kotlinx.coroutines.CancellationException
@@ -26,13 +24,11 @@ class GoalEditorDeviceTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun objectiveOnlyGoalSavesOnlyAfterExplicitClick() {
+    fun budgetDefaultsSaveOnlyAfterExplicitClick() {
         var saved: GoalBudgets? = null
         compose.setContent {
             MaterialTheme {
-                GoalEditor(null, "Check an output", {}, { objective, criteria, budgets ->
-                    assertEquals("Check an output", objective)
-                    assertTrue(criteria.isEmpty())
+                GoalEditor(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, {}, { budgets ->
                     saved = budgets
                 })
             }
@@ -40,7 +36,7 @@ class GoalEditorDeviceTest {
         compose.onNodeWithTag("goal-save").assertIsEnabled()
         compose.runOnIdle { assertNull(saved) }
         compose.onNodeWithTag("goal-save").performClick()
-        compose.runOnIdle { assertEquals(GoalBudgets(32, 64, 100_000, 600_000, 300_000, 0), saved) }
+        compose.runOnIdle { assertEquals(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, saved) }
     }
 
     @Test
@@ -74,9 +70,8 @@ class GoalEditorDeviceTest {
     private fun renderEditor(save: suspend () -> Unit) {
         compose.setContent {
             MaterialTheme {
-                GoalEditor(null, "Check an output", {}, { _, _, _ -> save() })
+                GoalEditor(com.helix.app.runcontrol.GoalBudgetDefaults.VALUE, {}, { save() })
             }
         }
-        compose.onNodeWithTag("goal-criteria").performTextInput("Output has been verified")
     }
 }

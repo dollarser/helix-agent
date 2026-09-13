@@ -2,8 +2,10 @@ package com.helix.app.provider
 
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.core.model.ModelErrorCode
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.provider.api.CapabilitySource
+import com.helix.provider.api.ModelMetadata
 import com.helix.provider.api.ProviderCapabilities
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,6 +32,30 @@ class ProviderRowUiModelDiscoveryTest {
             maxContextTokens = null,
             source = CapabilitySource.PROBED,
         )
+
+    @Test fun selectedModelUsesItsOwnMetadataInsteadOfDefaultModelCapabilities() {
+        val store = ProviderTestStatusStore(InMemoryLineStore())
+        store.recordPassed("prov_1", 1000, capabilities, listOf("fixture-model-a", "future"))
+        val row =
+            providerRowUi(entity(), store.statusFor("prov_1")).copy(
+                modelMetadata =
+                    mapOf(
+                        "future" to
+                            ModelMetadata(
+                                listOf(ReasoningEffort.fromWire("adaptive_next")),
+                                false,
+                                123456,
+                            ),
+                    ),
+            )
+        val selected = requireNotNull(row.capabilitiesForModel("future"))
+        assertEquals(false, selected.vision)
+        assertEquals(true, selected.reasoning)
+        assertEquals(123456L, selected.maxContextTokens)
+        assertEquals(false, selected.toolCalls)
+        assertEquals(capabilities, row.capabilitiesForModel(row.model))
+        assertNull(row.capabilitiesForModel("unknown"))
+    }
 
     private fun entity() =
         ProviderConfigEntity(

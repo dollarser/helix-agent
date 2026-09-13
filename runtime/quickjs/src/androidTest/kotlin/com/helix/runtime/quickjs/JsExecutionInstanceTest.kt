@@ -24,7 +24,7 @@ import java.util.concurrent.CountDownLatch
  * Isolation is asserted via PID/UID only; the process-name string is never an assertion
  * target or a protocol ID.
  */
-class JsExecutionInstanceTest {
+class JsExecutionInstanceTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(300)
 

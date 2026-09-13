@@ -8,6 +8,30 @@ import org.junit.Test
 
 class A2aTaskRepositoryTest {
     @Test
+    fun `stale reconciler cannot overwrite a newer terminal result`() {
+        val dao = FakeA2aTaskDao()
+        val repository = A2aTaskRepository(dao)
+        val stale = begin(repository, "race", hash('c'), 10)
+        val completed =
+            repository.markAccepted(
+                stale,
+                "task",
+                "context",
+                A2aPersistedTaskState.COMPLETED,
+                5,
+                "event-5",
+                20,
+            )
+        assertThrows(IllegalStateException::class.java) {
+            repository.markAccepted(stale, "task", "context", A2aPersistedTaskState.WORKING, 2, "event-2", 30)
+        }
+        assertThrows(IllegalStateException::class.java) {
+            repository.markDeliveryUnknown(stale, 30)
+        }
+        assertEquals(completed, dao.byToolCall("race"))
+    }
+
+    @Test
     fun `one ToolCall binds one immutable remote Task and monotonic event sequence`() {
         val dao = FakeA2aTaskDao()
         val repository = A2aTaskRepository(dao)
@@ -122,8 +146,17 @@ private class FakeA2aTaskDao : A2aTaskDao {
         state: String,
         deliveryState: String,
         updatedAt: Long,
+        expectedSequence: Long,
+        expectedUpdatedAt: Long,
+        expectedState: String,
+        expectedDeliveryState: String,
     ): Int {
         val current = rows[toolCallId] ?: return 0
+        if (current.lastEventSequence != expectedSequence || current.updatedAtEpochMillis != expectedUpdatedAt ||
+            current.state != expectedState || current.deliveryState != expectedDeliveryState
+        ) {
+            return 0
+        }
         rows[toolCallId] =
             current.copy(
                 taskId = taskId,

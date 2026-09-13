@@ -16,6 +16,9 @@ import kotlinx.serialization.json.longOrNull
  * HXA-025: "保存 capability snapshot 和来源。手工 override 必须标记。").
  */
 public enum class CapabilitySource {
+    /** Only an ordinary text request passed; capability probes have not run. */
+    CONNECTION_ONLY,
+
     /** Derived from the four-phase connection test (transport/auth → models → text stream → ToolCall). */
     PROBED,
 
@@ -64,7 +67,7 @@ public data class ProviderCapabilities(
     public fun withManualSource(): ProviderCapabilities = copy(source = CapabilitySource.MANUAL)
 
     public companion object {
-        const val MAX_CONTEXT_BOUND = 1_000_000L
+        const val MAX_CONTEXT_BOUND = 10_000_000L
 
         /**
          * Canonical wire form: fixed field order, booleans as JSON literals, the enum

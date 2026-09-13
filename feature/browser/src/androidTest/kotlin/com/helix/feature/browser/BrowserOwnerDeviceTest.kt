@@ -211,8 +211,18 @@ class BrowserOwnerDeviceTest {
                 }
             val deadline = SystemClock.uptimeMillis() + 10_000
             while (SystemClock.uptimeMillis() < deadline) {
-                val roots = automation.windows.map { it.root } + automation.rootInActiveWindow
-                roots.firstNotNullOfOrNull { find(it, predicate) }?.let { return it }
+                // A window mid-transition (the system Autofill UI showing/dismissing, a bg/fg
+                // switch) can leave no active window for an instant; rootInActiveWindow — or a
+                // node going stale mid-scan — then throws (e.g. "getAccessibilityInteractionController
+                // called when there is no mView"). That is a transient automation condition, not a
+                // failed wait: treat it as "node not present yet" and keep polling. A genuinely
+                // absent node still fails at the deadline below, so a real regression is not masked.
+                val node =
+                    runCatching {
+                        val roots = automation.windows.map { it.root } + automation.rootInActiveWindow
+                        roots.firstNotNullOfOrNull { find(it, predicate) }
+                    }.getOrNull()
+                if (node != null) return node
                 SystemClock.sleep(40)
             }
             error("Expected window node was not shown")

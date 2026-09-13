@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.helix.core.model.ReasoningEffort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -111,7 +112,7 @@ class ConversationComposerDeviceTest {
     }
 
     @Test fun reasoningSelectionIsExplicitAndLockedDuringGeneration() {
-        val reasoning = mutableStateOf(com.helix.core.model.ReasoningEffort.OFF)
+        val reasoning = mutableStateOf(ReasoningEffort.OFF)
         val sending = mutableStateOf(false)
         var sends = 0
         compose.setContent {
@@ -131,7 +132,7 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
         compose.onNodeWithTag("chat-reasoning-medium").performClick()
         compose.runOnIdle {
-            assertEquals(com.helix.core.model.ReasoningEffort.MEDIUM, reasoning.value)
+            assertEquals(ReasoningEffort.MEDIUM, reasoning.value)
             assertEquals(0, sends)
         }
         compose.onNodeWithTag("chat-reasoning-menu").performClick()
@@ -177,12 +178,29 @@ class ConversationComposerDeviceTest {
         val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
         assertTrue(model.right <= reasoning.left)
         assertEquals("Options remain on the same row", model.top, reasoning.top)
-        compose.onNodeWithTag("chat-copy-input").performScrollTo().assertIsDisplayed()
-        val copy = compose.onNodeWithTag("chat-copy-input").getUnclippedBoundsInRoot()
-        val centerOffset = ((reasoning.top + reasoning.bottom) - (copy.top + copy.bottom)) / 2
-        assertTrue("Additional options share the row center", centerOffset >= (-1).dp && centerOffset <= 1.dp)
+        compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
         compose.onNodeWithTag("chat-mode-menu").performScrollTo().assertIsDisplayed()
         assertEquals(modeBefore.top, compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot().top)
+    }
+
+    @Test fun serverDefinedEffortsUpdateWithoutACompiledOptionList() {
+        val future = ReasoningEffort.fromWire("adaptive_next")
+        val options = mutableStateOf(listOf(ReasoningEffort.OFF, future))
+        var selected = ReasoningEffort.OFF
+        compose.setContent {
+            MaterialTheme {
+                ComposerReasoningMenu(selected, true, { selected = it }, efforts = options.value)
+            }
+        }
+        compose.onNodeWithTag("chat-reasoning-menu").performClick()
+        compose.onNodeWithTag("chat-reasoning-low").assertDoesNotExist()
+        compose.onNodeWithTag("chat-reasoning-adaptive_next").performClick()
+        compose.runOnIdle { assertEquals(future, selected) }
+        compose.runOnIdle { options.value = listOf(ReasoningEffort.OFF, ReasoningEffort.LOW) }
+        compose.onNodeWithTag("chat-reasoning-menu").performClick()
+        compose.onNodeWithTag("chat-reasoning-adaptive_next").assertDoesNotExist()
+        compose.onNodeWithTag("chat-reasoning-low").performClick()
+        compose.runOnIdle { assertEquals(ReasoningEffort.LOW, selected) }
     }
 
     private fun assertFits(vararg tags: String) {

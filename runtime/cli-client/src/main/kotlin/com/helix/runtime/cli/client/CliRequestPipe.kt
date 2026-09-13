@@ -12,7 +12,6 @@ internal class CliRequestPipe(
     private val failed = AtomicBoolean(false)
     private val pipe =
         run {
-            require(payload.size <= CliModelRequestCodec.MAX_BYTES)
             ParcelFileDescriptor.createPipe()
         }
     val readEnd: ParcelFileDescriptor get() = pipe[0]
@@ -21,7 +20,7 @@ internal class CliRequestPipe(
         Thread(
             {
                 try {
-                    CliPfdChannel.write(pipe[1], payload, CliModelRequestCodec.MAX_BYTES)
+                    CliPfdChannel.write(pipe[1], payload)
                 } catch (_: IOException) {
                     failed.set(true)
                 }

@@ -21,6 +21,36 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class CodexPayloadJobTest {
+    @Test fun previewIsVisibleBeforeCompletionButNeverCompletesOrSurvivesCancellation() {
+        val root = Files.createTempDirectory("codex-progress").toFile()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val events = listOf<ModelEvent>(ModelEvent.TextDelta("first"), ModelEvent.Completed("stop"))
+        CodexPayloadJobRunner(
+            CodexPayloadJobStore(root),
+            { error("streaming executor required") },
+            { release.countDown() },
+            executeStreaming = { _, progress ->
+                progress(events)
+                entered.countDown()
+                release.await()
+                progress(listOf(ModelEvent.TextDelta("late")))
+                CodexModelExecution("model", events)
+            },
+        ).use { runner ->
+            val id = "job_134000000005"
+            runner.submit(id, hash, request)
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            assertEquals(CliModelJobState.RUNNING, runner.query(id)?.state)
+            assertEquals(listOf(ModelEvent.TextDelta("first")), runner.readProgress(id, 0))
+            assertEquals(emptyList<ModelEvent>(), runner.readProgress(id, 1))
+            assertEquals(emptyList<ModelEvent>(), runner.readProgress("job_134000000006", 0))
+            assertThrows(IllegalArgumentException::class.java) { runner.readProgress(id, 2) }
+            assertEquals(CliModelJobState.CANCELLED, runner.cancel(id)?.state)
+            assertEquals(null, runner.prepareReconcile(id)?.payload)
+        }
+    }
+
     @Test fun identicalModelAcrossPlatformsCannotReuseAJob() {
         val root = Files.createTempDirectory("subscription-platform").toFile()
         val model = ModelRequest("shared", listOf(ModelMessage(ModelRole.USER, "hello")))

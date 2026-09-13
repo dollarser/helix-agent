@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,18 +54,16 @@ class GoalReminderControlsDeviceTest {
             compose.setContent {
                 MaterialTheme {
                     if (open) {
-                        GoalDialog(
-                            service,
-                            "",
-                            { open = false },
-                            { error("Unexpected Continue") },
-                            selectedGoalId = id,
-                        )
+                        androidx.compose.foundation.layout.Column(
+                            androidx.compose.ui.Modifier.verticalScroll(
+                                androidx.compose.foundation.rememberScrollState(),
+                            ),
+                        ) { GoalSettingsSection(container.runControlStore, service) }
                     }
                 }
             }
             verifyReminder(app, id) {
-                compose.onNodeWithTag("goal-close").performClick()
+                compose.runOnIdle { open = false }
                 compose.runOnIdle { open = true }
             }
             assertEquals(before, container.storage.goals.resolve(id))
@@ -99,13 +98,11 @@ class GoalReminderControlsDeviceTest {
             compose.setContent {
                 MaterialTheme {
                     if (open) {
-                        GoalDialog(
-                            service,
-                            "",
-                            { open = false },
-                            { error("Unexpected Continue") },
-                            selectedGoalId = id,
-                        )
+                        androidx.compose.foundation.layout.Column(
+                            androidx.compose.ui.Modifier.verticalScroll(
+                                androidx.compose.foundation.rememberScrollState(),
+                            ),
+                        ) { GoalSettingsSection(container.runControlStore, service) }
                     }
                 }
             }
@@ -209,8 +206,8 @@ class GoalReminderControlsDeviceTest {
     ) {
         val storage = app.appContainer.storage
         val original = storage.goals.resolve(id)
-        compose.onNodeWithTag("goal-remind-$id").performScrollTo().performClick()
-        awaitClearEnabled(id)
+        kotlinx.coroutines.runBlocking { app.appContainer.chatService.setGoalReminder(id, 1_800_000) }
+        compose.waitUntil(10_000) { work(app, id).any { !it.state.isFinished } }
         val scheduled = work(app, id).single()
         compose.onNodeWithTag("goal-delete-$id").performScrollTo().performClick()
         compose.onNodeWithTag("goal-delete-cancel").performClick()

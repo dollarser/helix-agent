@@ -28,7 +28,7 @@ import kotlin.time.Duration.Companion.seconds
 object FilesCopyTool {
     const val NAME: String = "files.copy"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(
@@ -69,13 +69,13 @@ object FilesCopyTool {
                 val srcRegion = filesMutateToolsUserRegionOf(source)
                 if (srcRegion == null) {
                     return ToolExecutorResult.Failed(
-                        "source must be inside input/, work/ or output/: ${source.toModelReference()}",
+                        "source must be a user file or directory, outside .helix/: ${source.toModelReference()}",
                     )
                 }
                 val dstRegion = filesMutateToolsUserRegionOf(destination)
                 if (dstRegion == null) {
                     return ToolExecutorResult.Failed(
-                        "destination must be inside input/, work/ or output/: ${destination.toModelReference()}",
+                        "destination must be a user file or directory, outside .helix/: ${destination.toModelReference()}",
                     )
                 }
                 return try {

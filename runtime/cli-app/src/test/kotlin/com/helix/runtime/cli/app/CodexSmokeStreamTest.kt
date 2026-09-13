@@ -1,6 +1,7 @@
 package com.helix.runtime.cli.app
 
 import okio.Buffer
+import okio.buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -56,6 +57,25 @@ class CodexSmokeStreamTest {
     @Test fun outputBeyondTextLimitFails() {
         val event = "data: {\"type\":\"response.output_text.delta\",\"delta\":\"" + "x".repeat(65) + "\"}\n\n"
         assertEquals("output-too-large", failure(event + completed).stage)
+    }
+
+    @Test fun completionDoesNotReadAgainEvenIfSocketWouldFail() {
+        val body = Buffer().writeUtf8(delta + completed)
+        val source =
+            object : okio.Source {
+                override fun read(
+                    sink: Buffer,
+                    byteCount: Long,
+                ): Long {
+                    if (body.size == 0L) throw java.io.IOException("socket closed after completed response")
+                    return body.read(sink, minOf(byteCount, 1L))
+                }
+
+                override fun timeout() = okio.Timeout.NONE
+
+                override fun close() = Unit
+            }
+        assertEquals("HELIX_OK", CodexSmokeStream.read(source.buffer()))
     }
 
     private fun failure(body: String): CodexSmokeException =

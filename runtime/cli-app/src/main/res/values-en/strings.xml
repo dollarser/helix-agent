@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="subscription_network_channel">Subscription requests</string>
+    <string name="subscription_network_running">Receiving model results</string>
+    <string name="subscription_network_stop">Stop</string>
     <string name="codex_login_title">Codex subscription login</string>
-    <string name="codex_login_warning">Third-party, unofficial sideload experiment. Login reuses the Codex CLI OAuth identity; OpenAI has not publicly authorized Helix to use it. Credentials stay in this Runtime UID. Continuing may risk the account or service continuity.</string>
+    <string name="codex_login_warning">Third-party, unofficial sideload experiment. Login reuses the Codex CLI OAuth identity; OpenAI has not publicly authorized Helix to use it. Credentials stay in this app UID. Continuing may risk the account or service continuity.</string>
     <string name="codex_login_action">Sign in to Codex in browser</string>
     <string name="codex_device_login_action">Generate Codex device code</string>
     <string name="codex_device_open_browser">Open Codex device verification</string>
@@ -30,12 +33,12 @@
     <string name="codex_login_http_error">Token endpoint rejected the request (HTTP %1$d, %2$s); no credentials were saved.</string>
     <string name="codex_login_network_error">Token exchange network failure (%1$s); no credentials were saved.</string>
     <string name="codex_login_protocol_error">Token response failed strict protocol validation; no credentials were saved.</string>
-    <string name="codex_smoke_action">Run tiny Codex subscription model test</string>
-    <string name="codex_smoke_running">Running a fixed prompt with no tools and a strict client-side output bound inside the Runtime UID.</string>
-    <string name="codex_smoke_success">Subscription model test passed. Model: %1$s; fixed response: %2$s. The Runtime job is durable; the cross-APK Provider is not registered.</string>
+    <string name="codex_smoke_action">Check Codex subscription connection</string>
+    <string name="codex_smoke_running">Checking authentication and model catalog; no generation request…</string>
+    <string name="codex_smoke_success">Subscription model test passed. Model: %1$s; reply: %2$s.</string>
     <string name="codex_smoke_failed">Subscription model test failed (stage %1$s, HTTP %2$s). No credential was returned to the main app.</string>
     <string name="copilot_login_title">GitHub Copilot login</string>
-    <string name="copilot_login_warning">Third-party, unofficial personal sideload experiment. This fixed client ID does not mean GitHub, Microsoft, or its registrant authorized Helix. Use may restrict the account or stop working. Credentials stay in this Runtime UID.</string>
+    <string name="copilot_login_warning">Third-party, unofficial personal sideload experiment. This fixed client ID does not mean GitHub, Microsoft, or its registrant authorized Helix. Use may restrict the account or stop working. Credentials stay in this app UID.</string>
     <string name="copilot_login_action">Generate device code</string>
     <string name="copilot_open_browser">Open GitHub verification page</string>
     <string name="copilot_cancel">Cancel current login</string>
@@ -52,7 +55,7 @@
     <string name="copilot_protocol_error">GitHub/Copilot response failed strict protocol validation; no credentials were saved.</string>
     <string name="copilot_browser_error">Unable to open the system browser. You can visit https://github.com/login/device manually.</string>
     <string name="claude_login_title">Claude subscription login</string>
-    <string name="claude_login_warning">Third-party, unofficial personal sideload experiment. Anthropic has not publicly authorized this OAuth identity or consumer subscription interface for Helix. Credentials stay in the Runtime UID. Claude Free can test the login entry, but authorization may require upgrading to Pro/Max and does not establish Claude Code entitlement.</string>
+    <string name="claude_login_warning">Third-party, unofficial personal sideload experiment. Anthropic has not publicly authorized this OAuth identity or consumer subscription interface for Helix. Credentials stay in the app UID. Claude Free can test the login entry, but authorization may require upgrading to Pro/Max and does not establish Claude Code entitlement.</string>
     <string name="claude_login_action">Sign in to Claude in browser</string>
     <string name="claude_login_cancel">Cancel current login</string>
     <string name="claude_logout_action">Delete Claude login credentials</string>
@@ -69,7 +72,7 @@
     <string name="claude_login_network_error">Claude login or entitlement lookup failed on the network; no credentials were saved.</string>
     <string name="claude_login_protocol_error">Claude response failed strict protocol validation; no credentials were saved.</string>
     <string name="grok_login_title">Grok subscription login</string>
-    <string name="grok_login_warning">Third-party personal sideload experiment. It uses the public official Grok Build device-code identity, but that does not mean xAI authorized Helix. Free, X Basic, and unknown tiers are not saved. Credentials stay in the Runtime UID.</string>
+    <string name="grok_login_warning">Third-party personal sideload experiment. It uses the public official Grok Build device-code identity, but that does not mean xAI authorized Helix. Free, X Basic, and unknown tiers are not saved. Credentials stay in the app UID.</string>
     <string name="grok_login_action">Generate Grok device code</string>
     <string name="grok_open_browser">Open Grok verification page</string>
     <string name="grok_copy_code">Copy Grok device code</string>
@@ -99,4 +102,34 @@
     <string name="grok_browser_error">Unable to open the verification page; use the URL shown in this screen.</string>
     <string name="copilot_copy_code">Copy Copilot device code</string>
     <string name="copilot_copy_url">Copy Copilot verification URL</string>
+    <string name="runtime_home_help">Choose a subscription service to manage sign-in. Credentials stay in this separate app and are never exposed to the Helix main app.</string>
+    <string name="subscription_app_name">Helix Subscriptions</string>
+    <string name="subscription_back">Back</string>
+    <string name="subscription_dns_title">Network settings · DNS</string>
+    <string name="subscription_dns_help">Override DNS only inside this subscription app, without Root or changes to other apps. HTTPS hostname and certificate checks remain enabled. Changes apply to new connections; active requests continue. Expired or removed entries use system DNS.</string>
+    <string name="subscription_dns_host">Hostname (no scheme, port or path)</string>
+    <string name="subscription_dns_addresses">IP addresses (IPv4 or IPv6; separate up to 16 with commas or newlines)</string>
+    <string name="subscription_dns_duration">Valid for</string>
+    <string name="subscription_dns_hour">1 hour</string>
+    <string name="subscription_dns_day">24 hours</string>
+    <string name="subscription_dns_week">7 days</string>
+    <string name="subscription_dns_save">Save / update mapping</string>
+    <string name="subscription_dns_clear">Clear all and use system DNS</string>
+    <string name="subscription_dns_saved">Saved. New connections use the updated configuration.</string>
+    <string name="subscription_dns_invalid">Enter a valid hostname and 1–16 IP addresses. Wildcards, URLs, ports and IPv6 zone IDs are not supported.</string>
+    <string name="subscription_dns_save_failed">Could not save the configuration. Please retry.</string>
+    <string name="subscription_dns_empty">No overrides. Using system DNS.</string>
+    <string name="subscription_dns_entry">%1$s\n%2$s\n%3$s · Expires: %4$s</string>
+    <string name="subscription_dns_active">Active</string>
+    <string name="subscription_dns_expired">Expired; using system DNS</string>
+    <string name="subscription_dns_edit">Edit</string>
+    <string name="subscription_dns_delete">Delete</string>
+    <string name="codex_smoke_network_error">Subscription check network failure (stage %1$s, category %2$s). Check DNS mappings, proxy/VPN and network access; this does not establish login expiry. Existing credentials are retained.</string>
+    <string name="codex_smoke_auth_hint">The server rejected authentication. Sign in again here, then retry.</string>
+    <string name="codex_smoke_forbidden_hint">Access was denied. Check account access and network/proxy routing; this does not necessarily mean the login expired.</string>
+    <string name="codex_smoke_rate_hint">Rate or usage limit reached. Check subscription usage and retry later.</string>
+    <string name="codex_smoke_server_hint">Temporary server failure. Retry later; do not delete your login first.</string>
+    <string name="codex_smoke_protocol_hint">Retry. If it persists, report this stage and HTTP status to investigate the protocol or model response.</string>
+    <string name="codex_connection_success">Subscription connected. Authentication and model catalog verified; no generation was requested. Test specific model capabilities in Helix.</string>
+    <string name="subscription_dns_default_host">chatgpt.com</string>
 </resources>

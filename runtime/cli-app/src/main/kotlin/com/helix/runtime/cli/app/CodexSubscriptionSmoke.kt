@@ -47,6 +47,18 @@ internal class CodexSubscriptionSmoke(
             .followRedirects(false)
             .build()
 
+    /** Authenticated account check only. No model selection or generation request. */
+    fun checkConnection() {
+        var session = vault.load(CliSubscriptionProvider.CODEX)
+        var result = discoverModel(session.accessToken, accountId(session))
+        if (result.httpCode == 401) {
+            oauth.refresh()
+            session = vault.load(CliSubscriptionProvider.CODEX)
+            result = discoverModel(session.accessToken, accountId(session))
+        }
+        if (result.model == null) throw CodexSmokeException("models", result.httpCode)
+    }
+
     fun run(): CodexSmokeResult {
         var session = vault.load(CliSubscriptionProvider.CODEX)
         var modelResult =
@@ -74,18 +86,20 @@ internal class CodexSubscriptionSmoke(
                 .header("Accept", "text/event-stream")
                 .post(requestBody.toRequestBody(JSON_MEDIA_TYPE))
                 .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                val errorCode =
-                    runCatching {
-                        val bytes = response.body.source().readBoundedByteArray(64 * 1024L)
-                        val error = Json.parseToJsonElement(bytes.decodeToString()).jsonObject["error"]?.jsonObject
-                        error?.get("code")?.jsonPrimitive?.contentOrNull
-                            ?: error?.get("type")?.jsonPrimitive?.contentOrNull
-                    }.getOrNull()?.takeIf { it.matches(Regex("[a-zA-Z0-9_.-]{1,64}")) }
-                throw CodexSmokeException("response-${errorCode ?: "rejected"}", response.code)
+        smokeNetwork("response") {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val errorCode =
+                        runCatching {
+                            val bytes = response.body.source().readBoundedByteArray(64 * 1024L)
+                            val error = Json.parseToJsonElement(bytes.decodeToString()).jsonObject["error"]?.jsonObject
+                            error?.get("code")?.jsonPrimitive?.contentOrNull
+                                ?: error?.get("type")?.jsonPrimitive?.contentOrNull
+                        }.getOrNull()?.takeIf { it.matches(Regex("[a-zA-Z0-9_.-]{1,64}")) }
+                    throw CodexSmokeException("response-${errorCode ?: "rejected"}", response.code)
+                }
+                return CodexSmokeResult(model, CodexSmokeStream.read(response.body.source()))
             }
-            return CodexSmokeResult(model, CodexSmokeStream.read(response.body.source()))
         }
     }
 
@@ -109,10 +123,12 @@ internal class CodexSubscriptionSmoke(
                 .header("originator", "codex_cli_rs")
                 .header("Accept", "application/json")
                 .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return ModelDiscovery(null, response.code)
-            val model = CodexSmokeCatalog.read(response.body.source())
-            return ModelDiscovery(model, response.code)
+        smokeNetwork("models") {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return ModelDiscovery(null, response.code)
+                val model = CodexSmokeCatalog.read(response.body.source())
+                return ModelDiscovery(model, response.code)
+            }
         }
     }
 
@@ -162,3 +178,23 @@ internal class CodexSubscriptionSmoke(
             }.toString()
     }
 }
+
+internal class CodexSmokeNetworkException(
+    val stage: String,
+    cause: java.io.IOException,
+) : java.io.IOException(cause)
+
+private inline fun <T> smokeNetwork(
+    stage: String,
+    block: () -> T,
+): T =
+    try {
+        block()
+    } catch (failure: java.io.IOException) {
+        android.util.Log.w(
+            "HelixSubscriptionIo",
+            "phase=$stage causes=" +
+                generateSequence<Throwable>(failure) { it.cause }.take(6).joinToString(",") { it.javaClass.simpleName },
+        )
+        throw CodexSmokeNetworkException(stage, failure)
+    }

@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -29,7 +28,7 @@ class ClaudeLoginActivity : Activity() {
         transport = OkHttpClaudeOAuthTransport()
         controller = ClaudeLoginController(vault, transport)
         title = getString(R.string.claude_login_title)
-        setContentView(buildContent())
+        SubscriptionScreen.show(this, buildContent())
         renderState()
     }
 
@@ -41,24 +40,10 @@ class ClaudeLoginActivity : Activity() {
         super.onDestroy()
     }
 
-    @Suppress("DEPRECATION")
-    private fun buildContent(): View =
+    private fun buildContent(): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val padding = (24 * resources.displayMetrics.density).toInt()
-            val attributes = theme.obtainStyledAttributes(intArrayOf(android.R.attr.actionBarSize))
-            val actionBarHeight = attributes.getDimensionPixelSize(0, 0)
-            attributes.recycle()
-            setOnApplyWindowInsetsListener { view, insets ->
-                view.setPadding(
-                    padding,
-                    padding + actionBarHeight + insets.systemWindowInsetTop,
-                    padding,
-                    padding + insets.systemWindowInsetBottom,
-                )
-                insets
-            }
-            requestApplyInsets()
             addView(TextView(context).apply { setText(R.string.claude_login_warning) })
             status =
                 TextView(context).also {

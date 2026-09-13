@@ -8,6 +8,9 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.Parcel
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.util.UUID
@@ -131,10 +134,28 @@ internal object JsExecutionTestSupport {
     ): Boolean {
         val deadline = System.nanoTime() + timeoutMs * 1_000_000L
         while (System.nanoTime() < deadline) {
-            if (pid !in runningPids()) return true
+            if (processIsGone(pid)) return true
             Thread.sleep(100)
         }
-        return pid !in runningPids()
+        return processIsGone(pid)
+    }
+
+    // ActivityManager's caller-filtered list can omit live isolated UIDs. Signal 0
+    // does not send a signal: ESRCH proves absence; EPERM still means a live PID.
+    private fun processIsGone(pid: Int): Boolean {
+        require(pid > 0)
+        return try {
+            Os.kill(pid, 0)
+            false
+        } catch (e: ErrnoException) {
+            if (e.errno == OsConstants.ESRCH) {
+                true
+            } else if (e.errno == OsConstants.EPERM) {
+                false
+            } else {
+                throw e
+            }
+        }
     }
 
     /** A directly bound isolated instance (bypassing the client) plus its INFO identity. */

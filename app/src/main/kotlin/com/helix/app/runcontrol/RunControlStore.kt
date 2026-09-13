@@ -2,6 +2,7 @@ package com.helix.app.runcontrol
 
 import com.helix.app.internal.LineStore
 import com.helix.core.model.AgentMode
+import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,6 +15,7 @@ data class RunControlConfig(
     val chatToolsEnabled: Boolean,
     val budgets: TurnBudgets,
     val reasoning: ReasoningEffort = ReasoningEffort.OFF,
+    val goalBudgets: GoalBudgets = GoalBudgetDefaults.VALUE,
 )
 
 /**
@@ -21,13 +23,15 @@ data class RunControlConfig(
  * neither a profile nor the UI can widen them. Provider limits are intersected at request time.
  */
 object TurnBudgetBounds {
-    const val MAX_STEPS = 32
-    const val MAX_MODEL_CALLS = 16
+    const val MAX_STEPS = 64
+    const val MAX_MODEL_CALLS = 65
     const val MAX_INPUT_TOKENS = 1_000_000L
     const val MAX_OUTPUT_TOKENS = 128_000L
     const val MAX_TOTAL_TOKENS = 1_000_000L
 
-    val DEFAULT = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
+    val DEFAULT = TurnBudgets(32, 48, 1_000_000, 16_384, 1_000_000)
+    internal val PREVIOUS_DEFAULT = TurnBudgets(32, 33, 128_000, 4_096, 160_000)
+    internal val LEGACY_DEFAULT = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
 
     fun validate(value: TurnBudgets): TurnBudgets =
         value.also {
@@ -51,6 +55,8 @@ interface RunControlStore {
     fun setChatToolsEnabled(enabled: Boolean)
 
     fun setBudgets(budgets: TurnBudgets)
+
+    fun setGoalBudgets(budgets: GoalBudgets)
 }
 
 class PersistedRunControlStore(
@@ -70,6 +76,11 @@ class PersistedRunControlStore(
     override fun setBudgets(budgets: TurnBudgets) =
         update(state.value.copy(budgets = TurnBudgetBounds.validate(budgets)))
 
+    override fun setGoalBudgets(budgets: GoalBudgets) {
+        store.setLines("goal_defaults_v1", listOf(GoalBudgetDefaults.validate(budgets).toStorageString()))
+        state.value = state.value.copy(goalBudgets = budgets)
+    }
+
     private fun update(next: RunControlConfig) {
         store.setLines(
             KEY,
@@ -78,6 +89,7 @@ class PersistedRunControlStore(
                 next.chatToolsEnabled.toString(),
                 next.budgets.toStorageString(),
                 next.reasoning.name,
+                "budgets_v3",
             ),
         )
         state.value = next
@@ -87,16 +99,41 @@ class PersistedRunControlStore(
     private fun readStored(): RunControlConfig =
         try {
             val lines = store.lines(KEY)
-            require(lines.size in 3..4)
+            require(lines.size in 3..5)
+            require(lines.size < 5 || lines[4] in setOf("budgets_v2", "budgets_v3"))
             val enabled = lines[1].toBooleanStrict()
             RunControlConfig(
                 AgentMode.valueOf(lines[0]),
                 enabled,
-                TurnBudgetBounds.validate(TurnBudgets.parse(lines[2])),
+                TurnBudgetBounds.validate(TurnBudgets.parse(lines[2])).let {
+                    when {
+                        lines.size < 5 && it == TurnBudgetBounds.LEGACY_DEFAULT -> {
+                            TurnBudgetBounds.DEFAULT
+                        }
+
+                        lines.getOrNull(4) != "budgets_v3" && it == TurnBudgetBounds.PREVIOUS_DEFAULT -> {
+                            TurnBudgetBounds.DEFAULT
+                        }
+
+                        else -> {
+                            it
+                        }
+                    }
+                },
                 lines.getOrNull(3)?.let(ReasoningEffort::valueOf) ?: ReasoningEffort.OFF,
+                readGoalBudgets(),
             )
         } catch (_: IllegalArgumentException) {
-            RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT)
+            RunControlConfig(AgentMode.CHAT, false, TurnBudgetBounds.DEFAULT, goalBudgets = readGoalBudgets())
+        }
+
+    @Suppress("SwallowedException") // Only malformed preferences fall back; saved Goals are never changed.
+    private fun readGoalBudgets(): GoalBudgets =
+        try {
+            store.lines("goal_defaults_v1").singleOrNull()?.let { GoalBudgetDefaults.validate(GoalBudgets.parse(it)) }
+                ?: GoalBudgetDefaults.VALUE
+        } catch (_: IllegalArgumentException) {
+            GoalBudgetDefaults.VALUE
         }
 
     private companion object {

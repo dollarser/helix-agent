@@ -6,14 +6,17 @@ import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.ToolModeProfile
+import com.helix.core.model.AgentMode
 import com.helix.core.model.ArtifactRef
 import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.MessageAttachmentEntity
 import com.helix.core.workspace.AtomicFileWriter
 import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
@@ -38,10 +41,10 @@ internal class ChatRequestAssembler(
         val request =
             ChatContextRequest(
                 model,
-                persistedHistory(sessionId, null) + ModelMessage(ModelRole.USER, prompt),
+                requestHistory(sessionId, null, control) + ModelMessage(ModelRole.USER, prompt),
                 modelTools(sessionId, control),
-                minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
-                com.helix.core.model.ReasoningEffort.OFF,
+                control.budgets.maxOutputTokens,
+                ReasoningEffort.OFF,
             )
         val window =
             providerService.contextSettingsStore
@@ -66,7 +69,7 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = persistedHistory(sessionId, retryTurnId)
+        val history = requestHistory(sessionId, retryTurnId, control)
         require(history.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
@@ -76,18 +79,15 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(sessionId, control),
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
-                    com.helix.provider.api.ProviderCapabilities
-                        .parse(
-                            config.capabilitySnapshot,
-                        ).reasoning
-                ) {
-                    control.reasoning
-                } else {
-                    com.helix.core.model.ReasoningEffort.OFF
-                },
+                control.reasoning.takeIf {
+                    it in
+                        providerService.reasoningOptions(
+                            config.id,
+                            storage.sessions.resolve(sessionId).modelId ?: config.model,
+                        )
+                } ?: ReasoningEffort.OFF,
         )
     }
 
@@ -101,7 +101,7 @@ internal class ChatRequestAssembler(
         sessionId: String,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = persistedHistory(sessionId, null)
+        val history = requestHistory(sessionId, null, control)
         require(history.lastOrNull()?.role == ModelRole.TOOL) {
             "a back-fill request must end with the tool results"
         }
@@ -111,18 +111,15 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = modelTools(sessionId, control),
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
-                    com.helix.provider.api.ProviderCapabilities
-                        .parse(
-                            config.capabilitySnapshot,
-                        ).reasoning
-                ) {
-                    control.reasoning
-                } else {
-                    com.helix.core.model.ReasoningEffort.OFF
-                },
+                control.reasoning.takeIf {
+                    it in
+                        providerService.reasoningOptions(
+                            config.id,
+                            storage.sessions.resolve(sessionId).modelId ?: config.model,
+                        )
+                } ?: ReasoningEffort.OFF,
         )
     }
 
@@ -137,6 +134,24 @@ internal class ChatRequestAssembler(
         } else {
             buildRequest(sessionId, retryTurnId, control)
         }
+
+    private suspend fun requestHistory(
+        sessionId: String,
+        retryTurnId: String?,
+        control: RunControlConfig,
+    ): List<ModelMessage> {
+        val directory =
+            FileToolArguments.directory(
+                attachmentStaging.workspaceScopeId,
+                storage.sessions.resolve(sessionId).directoryRef,
+            )
+        val files =
+            modelTools(sessionId, control).any {
+                it.name.value in setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
+            }
+        return ChatEnvironmentContext.messages(directory, control.mode, files) +
+            persistedHistory(sessionId, retryTurnId)
+    }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
     private fun modelTools(
@@ -154,10 +169,10 @@ internal class ChatRequestAssembler(
                 }
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
-            .filter { it.name.value != "goal.report" || control.mode == com.helix.core.model.AgentMode.GOAL }
+            .filter { it.name.value != "goal.report" || control.mode == AgentMode.GOAL }
             .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
             .take(ModelRequest.MAX_TOOLS)
-            .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
+            .map(FileToolArguments::modelSchema)
     }
 
     /**
@@ -257,7 +272,7 @@ internal class ChatRequestAssembler(
 
     @Suppress("ThrowsCount") // one throw per closed re-verification failure (existence / path / hash / magic)
     private suspend fun verifiedImageBinding(
-        binding: com.helix.core.storage.entity.MessageAttachmentEntity,
+        binding: MessageAttachmentEntity,
     ): ImageBindingFacts? {
         val artifact =
             runCatching { storage.artifacts.resolve(binding.artifactId) }
@@ -303,8 +318,4 @@ internal class ChatRequestAssembler(
 
     private fun sessionProviderId(sessionId: String): String =
         requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }
-
-    private companion object {
-        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
-    }
 }

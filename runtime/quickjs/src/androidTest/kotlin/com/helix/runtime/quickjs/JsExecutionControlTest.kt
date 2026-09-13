@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong
  * Every wait is bounded (deadline + grace) — these tests cannot hang the device runner,
  * and the class-level [Timeout] rule is the last-resort anti-hang guard.
  */
-class JsExecutionControlTest {
+class JsExecutionControlTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(300)
 

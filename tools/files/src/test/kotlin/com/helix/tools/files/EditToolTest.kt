@@ -137,7 +137,7 @@ class EditToolTest {
     fun descriptorIsAValidRegisterableBuiltIn() {
         val d = EditTool.descriptor()
         assertEquals("edit", d.name.value)
-        assertEquals(1, d.version.value)
+        assertEquals(2, d.version.value)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
         assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
@@ -148,6 +148,15 @@ class EditToolTest {
     }
 
     // ── happy path + 前置 hash guard ───────────────────────────────────────────────────
+
+    @Test fun rootFileEditsStillRequireTheObservedHash() {
+        val root = root()
+        val path = write(root, "main.txt", "old text".toByteArray())
+        val hash = shaOf(root, path)
+        assertTrue(edit(root, path, "old", "new", "0".repeat(64)) is ToolExecutorResult.Failed)
+        assertTrue(edit(root, path, "old", "new", hash) is ToolExecutorResult.Completed)
+        assertEquals("new text", Files.readString(root.resolve("main.txt")))
+    }
 
     @Test
     fun aSingleUnambiguousSpanIsReplacedAndTheNewHashIsReported() {
@@ -263,7 +272,7 @@ class EditToolTest {
         Files.write(meta, "old".toByteArray())
         val path = FileScopePath("ws", ".helix/metadata.json")
         val detail = failed(edit(root, path, "old", "new", shaOf(root, path)))
-        assertTrue(detail.contains("input/, work/ or output/"))
+        assertTrue(detail.contains("outside .helix/"))
         assertEquals("old", Files.readString(meta))
     }
 

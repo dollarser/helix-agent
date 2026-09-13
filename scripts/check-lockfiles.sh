@@ -16,43 +16,22 @@ if rg --line-number '(^|[=[:space:]"])[A-Za-z0-9.+-]*\+|latest\.(release|integra
 fi
 
 lock_snapshot() {
-    # sha256sum (Linux/CI) or shasum (macOS); both produce "<hash>  <file>" lines.
-    # .claude/ is excluded: local session worktrees (git worktree add under
-    # .claude/worktrees/) each carry their own lockfile copies, not project state.
-    find . -name gradle.lockfile -not -path '*/build/*' -not -path './.claude/*' -print0 |
-        sort -z |
-        if command -v sha256sum >/dev/null 2>&1; then
-            xargs -0 sha256sum
-        else
-            xargs -0 shasum -a 256
-        fi
+    python3 "$project_root/scripts/gradle-projects.py" --snapshot
 }
 
-readonly before="$(lock_snapshot)"
-readonly lock_count="$(find . -name gradle.lockfile -not -path '*/build/*' -not -path './.claude/*' | wc -l | tr -d '[:space:]')"
-
-if [[ "$lock_count" != "35" ]]; then
-    printf 'Expected 35 dependency lock files, found %s.\n' "$lock_count" >&2
-    exit 1
-fi
-
-readonly projects=(
-    app core:model core:agent core:policy core:storage core:workspace
-    provider:api provider:openai-responses provider:openai-chat provider:anthropic provider:catalog
-    extensions:mcp extensions:skills extensions:a2a feature:browser feature:files feature:files-allfiles
-    runtime:quickjs runtime:proot-core runtime:proot-ipc runtime:proot-client runtime:proot-app runtime:cli-client runtime:cli-app
-    tools:framework tools:android tools:automation tools:browser tools:files tools:root testing
-    spikes:a2a-sdk spikes:a2a-minimal spikes:bounded-orchestration
-)
-
+before="$(lock_snapshot)"
+readonly before
+readonly lock_count="$(printf '%s\n' "$before" | wc -l | tr -d '[:space:]')"
+project_list="$(python3 "$project_root/scripts/gradle-projects.py")"
 tasks=(dependencies)
-for project_path in "${projects[@]}"; do
-    tasks+=(":${project_path}:dependencies")
-done
+while IFS= read -r project_path; do
+    tasks+=("${project_path}:dependencies")
+done <<< "$project_list"
 
 "$project_root/gradlew" "${tasks[@]}" --write-locks >/dev/null
 
-readonly after="$(lock_snapshot)"
+after="$(lock_snapshot)"
+readonly after
 if [[ "$before" != "$after" ]]; then
     printf 'Dependency locks changed after resolution. Review and commit the lock diff.\n' >&2
     diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") || true

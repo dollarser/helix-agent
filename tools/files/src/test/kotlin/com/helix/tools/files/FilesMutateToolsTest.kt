@@ -136,7 +136,7 @@ class FilesMutateToolsTest {
         assertEquals("files.move", move.name.value)
         assertEquals("files.delete", delete.name.value)
         listOf(copy, move, delete).forEach { d ->
-            assertEquals(1, d.version.value)
+            assertEquals(2, d.version.value)
             assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
             assertEquals(RiskLevel.L2, d.baseRisk)
             assertTrue(d.origin is ToolOrigin.BuiltInOrigin)
@@ -213,7 +213,7 @@ class FilesMutateToolsTest {
     fun copyRefusesASourceOutsideUserRegions() {
         val root = freshScope("c4")
         val detail = failed(copyExec(store(root), copyArgs("scope:ws:.helix/metadata.json", "scope:ws:output/x.txt")))
-        assertTrue(detail.contains("input/, work/ or output/"))
+        assertTrue(detail.contains("outside .helix/"))
         // doc 10: the stable message must not carry the real scope-root path.
         assertFalse(detail.contains(root.toString()))
         assertFalse(Files.exists(root.resolve("output/x.txt")))
@@ -299,7 +299,7 @@ class FilesMutateToolsTest {
     fun deleteRefusesPathsOutsideUserRegions() {
         val root = freshScope("d3")
         val detail = failed(deleteExec(store(root), deleteArgs("scope:ws:.helix/metadata.json")))
-        assertTrue(detail.contains("input/, work/ or output/"))
+        assertTrue(detail.contains("outside .helix/"))
         assertTrue("internal metadata is never deleted", Files.exists(root.resolve(".helix/metadata.json")))
     }
 

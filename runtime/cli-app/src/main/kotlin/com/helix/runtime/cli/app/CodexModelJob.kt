@@ -121,6 +121,7 @@ internal class CodexModelJobRunner(
 ) : AutoCloseable {
     private val lock = Any()
     private var activeJobId: String? = null
+    private var lastFailure: Pair<String, Throwable>? = null
 
     init {
         store.recoverInterrupted(clock())
@@ -152,6 +153,8 @@ internal class CodexModelJobRunner(
             store.expireEvidence(clock())
             store.load(jobId)
         }
+
+    fun failure(jobId: String): Throwable? = synchronized(lock) { lastFailure?.takeIf { it.first == jobId }?.second }
 
     fun cancel(jobId: String): CodexModelJobRecord? =
         synchronized(lock) {
@@ -195,6 +198,7 @@ internal class CodexModelJobRunner(
                     ),
                 )
             } else if (live != null && !live.state.terminal) {
+                lastFailure = pending.jobId to requireNotNull(result.exceptionOrNull())
                 terminal(live, CodexModelJobState.FAILED)
             }
             clearActive(pending.jobId)

@@ -61,7 +61,7 @@ import kotlin.time.Duration.Companion.seconds
 object EditTool {
     const val NAME: String = "edit"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /** The input content cap; an edit payload never needs more than one 1 MiB window. */
     const val MAX_CONTENT_CHARS: Int = 1024 * 1024
@@ -108,7 +108,7 @@ object EditTool {
                         "path",
                         stringSchema(
                             maxLength = 512,
-                            "Model reference: scope:<scopeId>:<relativePath> (input/, work/ or output/)",
+                            "Workspace file: scope:<scopeId>:<relativePath>; .helix/ is reserved.",
                         ),
                     )
                     put(
@@ -202,7 +202,9 @@ object EditTool {
                 return try {
                     val region = WorkspaceLayout.regionOf(parsed.path.relativePath)
                     if (region == null || !WorkspaceLayout.isRegion(region)) {
-                        return ToolExecutorResult.Failed("destination must be inside input/, work/ or output/: $ref")
+                        return ToolExecutorResult.Failed(
+                            "destination must be a user file or directory, outside .helix/: $ref",
+                        )
                     }
                     val probe = store.probe(parsed.path)
                     probeRefusal(probe, ref)?.let { return it }

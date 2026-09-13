@@ -29,6 +29,10 @@ internal object CodexLoginFailure {
                 context.getString(R.string.codex_device_network_error, error.stage, error.safeNetworkCategory())
             }
 
+            is CodexSmokeNetworkException -> {
+                context.getString(R.string.codex_smoke_network_error, error.stage, error.safeNetworkCategory())
+            }
+
             is IOException -> {
                 context.getString(R.string.codex_login_network_error, error.safeNetworkCategory())
             }
@@ -42,6 +46,15 @@ internal object CodexLoginFailure {
             }
         }
 
+    internal fun smokeHint(httpCode: Int?): Int =
+        when (httpCode) {
+            401 -> R.string.codex_smoke_auth_hint
+            403 -> R.string.codex_smoke_forbidden_hint
+            429 -> R.string.codex_smoke_rate_hint
+            in 500..599 -> R.string.codex_smoke_server_hint
+            else -> R.string.codex_smoke_protocol_hint
+        }
+
     private fun IOException.safeNetworkCategory(): String {
         val causes = generateSequence<Throwable>(this) { it.cause }.take(8).toList()
         return when {
@@ -50,6 +63,7 @@ internal object CodexLoginFailure {
             causes.any { it is SocketTimeoutException } -> "timeout"
             causes.any { it is ConnectException } -> "connect"
             causes.any { it is java.io.EOFException } -> "response-read"
+            causes.any { it is java.net.SocketException } -> "socket"
             else -> "io"
         }
     }
@@ -68,7 +82,8 @@ internal object CodexLoginFailure {
             },
             onFailure = {
                 if (it is CodexSmokeException) {
-                    context.getString(R.string.codex_smoke_failed, it.stage, it.httpCode?.toString() ?: "none")
+                    context.getString(R.string.codex_smoke_failed, it.stage, it.httpCode?.toString() ?: "none") +
+                        " " + context.getString(smokeHint(it.httpCode))
                 } else {
                     message(context, it)
                 }

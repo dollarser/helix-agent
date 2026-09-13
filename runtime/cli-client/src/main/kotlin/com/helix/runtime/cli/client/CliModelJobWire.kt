@@ -71,7 +71,7 @@ internal object CliModelJobWire {
                 val output =
                     reply.readParcelable<ParcelFileDescriptor>(ParcelFileDescriptor::class.java.classLoader)
                         ?: return CliModelWireResult()
-                CliPfdChannel.read(output, CliModelEventCodec.MAX_BYTES)
+                CliPfdChannel.read(output)
             } else {
                 null
             }

@@ -137,6 +137,20 @@ class CodexModelJobTest {
         assertEquals(CodexModelJobStore.MAX_ENTRIES, root.walkTopDown().count { it.name == "record.json" })
     }
 
+    @Test fun probePreservesNetworkFailureWithoutWritingItToJournal() {
+        val root = Files.createTempDirectory("codex-job-network").toFile()
+        val failure = CodexSmokeNetworkException("models", java.net.UnknownHostException("private detail"))
+        CodexModelJobRunner(CodexModelJobStore(root), { throw failure }, {}).use { runner ->
+            val actual =
+                org.junit.Assert.assertThrows(CodexSmokeNetworkException::class.java) {
+                    CodexSmokeJobProbe.run(runner, "job_000000000009", hash)
+                }
+            org.junit.Assert.assertSame(failure, actual)
+            org.junit.Assert.assertNull(runner.failure("job_000000000010"))
+        }
+        assertTrue(root.walkTopDown().filter { it.isFile }.none { it.readText().contains("private detail") })
+    }
+
     private fun await(
         runner: CodexModelJobRunner,
         jobId: String,

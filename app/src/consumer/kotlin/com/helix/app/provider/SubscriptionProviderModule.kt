@@ -13,6 +13,7 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     override fun create(
         context: Context,
         config: ProviderConfig,
+        imageSource: (() -> VisionImageSource)?,
     ): ModelProvider? = null
 
     override fun isManaged(providerId: String): Boolean = false

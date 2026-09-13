@@ -1,0 +1,5 @@
+<resources>
+    <item type="id" name="subscription_dns_host" />
+    <item type="id" name="subscription_dns_addresses" />
+    <item type="id" name="subscription_dns_duration" />
+</resources>

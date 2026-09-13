@@ -16,6 +16,16 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class CliRuntimeBindingDeviceTest {
     @Test
+    fun missingCallbackTimesOutAndReleasesTheBinding() {
+        val context = BindingContext { true }
+        assertEquals(
+            CliRuntimeConnection.Refused(CliRuntimeVerification.Cause.TIMEOUT),
+            CliRuntimeSupervisor(context, bindTimeoutMillis = 10).openConnection(),
+        )
+        assertEquals(1, context.unbinds)
+    }
+
+    @Test
     fun refusalDoesNotUnbindAnUnboundConnection() {
         verifyRefused(CliRuntimeVerification.Cause.BIND_REFUSED) { false }
     }

@@ -24,7 +24,7 @@ internal class ChatToolMessageEncoder(
                         put("id", batch.wireId(call.callId))
                         put("localId", call.callId)
                         put("name", call.name)
-                        put("arguments", call.arguments)
+                        put("arguments", call.arguments.ifBlank { "{}" })
                     },
                 )
             }
@@ -34,8 +34,8 @@ internal class ChatToolMessageEncoder(
      * Persists ONE settled tool result as a TOOL message (called in CALL SEQUENCE — the
      * back-fill order the next model request re-carries). The content is the bounded
      * `{"id","tool","status","summary"}` envelope. Successful content retains the
-     * Dispatcher's size-bounded payload; the timeline's shorter preview must not truncate
-     * structured fields or node tokens needed by the next model call.
+     * task-relevant fields of the Dispatcher's size-bounded payload. Full output remains
+     * in tool_results; model projection never slices content or continuation tokens.
      */
     fun toolResultDraft(settled: ChatToolCalls.SettledCall): TurnMessageDraft {
         val status: String
@@ -43,7 +43,7 @@ internal class ChatToolMessageEncoder(
         when (val o = settled.outcome) {
             is ToolDispatchOutcome.Succeeded -> {
                 status = "SUCCEEDED"
-                summary = o.result.payload
+                summary = ToolModelResult.project(settled.toolName, o.result.payload)
             }
 
             is ToolDispatchOutcome.Denied -> {

@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * hit probability; every wait is bounded (per-round deadline + grace), and the
  * class-level [Timeout] rule is the last-resort anti-hang guard.
  */
-class JsCancelRaceE2eTest {
+class JsCancelRaceE2eTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(900)
 

@@ -117,15 +117,11 @@ internal object ContextCompaction {
         val prefix = StringBuilder()
         previous?.let { prefix.append(summaryMessage(it).text).append('\n') }
         val summaryOutput =
-            minOf(
-                (request.inputTokens() / 8).coerceIn(SUMMARY_OUTPUT, 4096),
-                control.budgets.maxOutputTokens,
-                settings.window / 4,
-            )
+            SummaryOutputBudget.forRequest(request.inputTokens(), control.budgets.maxOutputTokens, settings.window)
         val reserve = minOf(ENVELOPE_RESERVE, settings.window / 4)
         val inputLimit =
             minOf(
-                settings.window - summaryOutput - reserve,
+                settings.window - summaryOutput.allowance - reserve,
                 control.budgets.maxInputTokens - reserve,
             )
         var through: Long? = null
@@ -147,9 +143,9 @@ internal object ContextCompaction {
                 boundary,
                 ModelRequest(
                     model = request.model,
-                    messages = summaryMessages(prefix.toString(), summaryOutput),
+                    messages = summaryMessages(prefix.toString(), summaryOutput.target),
                     tools = emptyList(),
-                    maxOutputTokens = summaryOutput,
+                    maxOutputTokens = summaryOutput.allowance,
                     reasoning = ReasoningEffort.OFF,
                 ),
                 retained,

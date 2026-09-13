@@ -6,7 +6,7 @@ import java.io.ByteArrayOutputStream
 object CliPfdChannel {
     fun read(
         readEnd: ParcelFileDescriptor,
-        limit: Int,
+        limit: Int? = null,
     ): ByteArray {
         val out = ByteArrayOutputStream()
         ParcelFileDescriptor.AutoCloseInputStream(readEnd).use { input ->
@@ -14,7 +14,7 @@ object CliPfdChannel {
             while (true) {
                 val count = input.read(buffer)
                 if (count < 0) break
-                require(out.size() + count <= limit) { "PFD payload exceeds limit" }
+                require(limit == null || out.size().toLong() + count <= limit) { "PFD payload exceeds limit" }
                 out.write(buffer, 0, count)
             }
         }
@@ -24,9 +24,9 @@ object CliPfdChannel {
     fun write(
         writeEnd: ParcelFileDescriptor,
         bytes: ByteArray,
-        limit: Int,
+        limit: Int? = null,
     ) {
-        require(bytes.size <= limit)
+        require(limit == null || bytes.size <= limit)
         ParcelFileDescriptor.AutoCloseOutputStream(writeEnd).use { it.write(bytes) }
     }
 }

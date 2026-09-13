@@ -317,5 +317,24 @@ runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 | HXA-181 | 当前规范去过时描述、历史保留、docs/ADR/i18n/secrets/diff | 全部通过，见 [HXA-181](../completion-records/HXA-181.md) |
 | HXA-182 | 双 app JVM、构建/测试 APK、Spotless/Detekt/lint、独占 API29/36 文件/聊天和发布中进程死亡后的 UI 恢复、docs/ADR/i18n/secrets | 双 app JVM 727通过/8条件跳过、双 API 各47/47及静态/文档门禁通过，见 [HXA-182](../completion-records/HXA-182.md) |
 | HXA-183 | 七项职责拆分；双 app/PRoot JVM、构建/lint、草稿并发和构造期观察、独占 API29/36 聊天/Provider/文件/Goal/压缩/后台及跨 APK PRoot 生命周期/归档/ACK、文档门禁 | 主机897通过/8条件跳过，双API各145项app及PRoot生命周期/归档/ACK通过；见 [HXA-183](../completion-records/HXA-183.md) |
-
 | HXA-184 | B11/C15 职责与装配整理；全仓 JVM/lint、独占双 API 存储/文件/浏览器/QuickJS/Android/自动化与 app 集成 | 主机2788通过/8条件跳过；独占双API app各163与六库/Accessibility恢复通过，见 [HXA-184](../completion-records/HXA-184.md) |
+| HXA-185 | 合并后长稳夹具适配与失败取证：EV-04 新 Goal 机制（model-report-user-pause-v1）、PSS 单位、Autofill 独立探针与失败取证、WebView 身份解析、FD 五臂阶段对照 | 已完成，见 [HXA-185](../completion-records/HXA-185.md)：主机门禁+4自测 PASS、Goal 双flavor 16/16、Autofill 短项 1/1+6/6（pilot 按设计 INCONCLUSIVE）、FD五臂 5/5（归因锁资源门/设备路径，goldfish 主导）、24h ON API36 = FAIL_FUNCTIONAL（API36 系统 WebView a11y 重尾 cycle 55，非产品，新 10s probe 按设计取证，24h 门禁未触及） |
+| HXA-186 | API35 真机隔离 App/存储/文件/浏览器/QuickJS 回归 | App48、存储50、文件38通过；浏览器和QuickJS停滞未收口，见 [记录](../completion-records/HXA-186.md) |
+| HXA-187 | QuickJS冻结诊断、回收证据与绑定早退清理 | JVM85与API35真机77项通过；生产10秒限额不变，见 [记录](../completion-records/HXA-187.md) |
+
+| HXA-188 | 真机浏览器整套、实际 HOME/锁屏 Chat/Goal 恢复、Root 授权与服务丢失/只读边界 | 浏览器36通过/2条件跳过；实际后台3通过；Root6通过/1条件跳过，独立grant/deny各1通过，见 [HXA-188](../completion-records/HXA-188.md) |
+
+| HXA-189 | 审查逐条复核；PFD释放、权限/导航/文案、文档/CI门禁 | [HXA-189记录](../completion-records/HXA-189.md)：主机2788通过/8条件跳过、构建/lint/脚本通过；新增设备用例未执行 |
+
+## HXA-185 验证结果（2026-09-10）
+
+由 Claude 独占模拟器执行完毕，见 [完成记录](../completion-records/HXA-185.md) 与 本地忽略制品 `build/emulator-verification/run-index.json`（`HXA185-*` 14 条）。主机门禁 + 4 项 runner 自测 PASS；Goal 短项双 flavor 各 16/16；Autofill 短项 `OK (1)`+`OK (6)`，pilot on/off 按设计 INCONCLUSIVE（该深度不施加 24h 门禁）；FD 五臂 5/5（归因透镜，锁增长在资源门/设备路径，goldfish 主导，非泄漏判定）；**24h（p3）ON API36 = FAIL_FUNCTIONAL**（API36 系统 WebView a11y 节点暴露重尾，cycle 55，非产品；新 10s probe 按设计更早暴露 + `device-autofill-failure.json` 确证，未加宽到 100s、未改产品；24h 资源门禁未触及，2h 窗口资源有界）。更宽 EV-02 正式 2×24h 的 **API29** 一臂已由 Claude 独占模拟器**跑完 = INCONCLUSIVE（非失败）**（方案第 11 行 API29+36 各一次）：独占 emulator-5584（AVD `Helix_EV_Repair_API29`，p3 ON，WebView 91.0.4472.114，冻结制品 `b9382e97…`）跑满整段 90006s（~25h）、615/615 cycle 全 ok、单 pid 1665、零 a11y 失败 → **a11y 节点暴露重尾确认 API36 系统 WebView 特有（非产品/夹具/金鱼缸）**；FD/threads/PSS 三可采样维度均在 24h 门禁内（FD+5/thread+4/PSS+14.7MB vs +8/+16/+96MB），唯 PSS +0.52MB/h 缓升未平台化（观察项非泄漏判定）。整体 INCONCLUSIVE 因 system-Binder（UID-proxy）模拟器物理不可采（结构性，重跑不变；正式判定需真机 X 类），见 本机忽略产物 `../../build/emulator-verification/ev02-autofill-soak/p3-api29-on-24h-ev02-1-result.md` 与 run-index `ev02-p3-api29-on-1`。至此 EV-02 正式 2×24h 两臂齐，共同产出归因而非"24h 门禁 PASS"。
+
+## HXA-186 真机有界执行
+
+API35 OnePlus：App48、存储50、文件38通过；浏览器连续创建/销毁与QuickJS超时停滞未关闭，部分通过不代表套件全绿。见 [执行记录](../completion-records/HXA-186.md)。
+
+HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻结诊断与77项通过结果更新；原失败证据保留。
+
+| HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
+| HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |

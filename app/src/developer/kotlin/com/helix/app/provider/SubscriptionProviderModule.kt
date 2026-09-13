@@ -8,6 +8,7 @@ import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.CapabilitySource
+import com.helix.provider.api.ModelCatalogResult
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
@@ -120,9 +121,10 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
     override fun create(
         context: Context,
         config: ProviderConfig,
+        imageSource: (() -> VisionImageSource)?,
     ): ModelProvider? =
         when (config.id) {
-            CODEX_ID -> CodexSubscriptionProvider(context, config)
+            CODEX_ID -> CodexSubscriptionProvider(context, config, imageSource = imageSource)
             CLAUDE_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.CLAUDE)
             GROK_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.GROK)
             COPILOT_ID -> CodexSubscriptionProvider(context, config, CliModelProvider.COPILOT)
@@ -136,11 +138,26 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
         provider: ModelProvider,
     ): ProbeOutcome? {
         if (!isManaged(config.id)) return null
-        return when (val result = provider.validateConfiguration()) {
+        return if (config.id == CODEX_ID && provider is CodexSubscriptionProvider) {
+            probeCodex(provider)
+        } else {
+            probeText(config, provider)
+        }
+    }
+
+    private suspend fun probeCodex(provider: CodexSubscriptionProvider): ProbeOutcome =
+        CodexCapabilityProbe(provider, allReasoningEfforts = false) { phase ->
+            android.util.Log.d("HelixCapabilityProbe", phase)
+        }.run()
+
+    private suspend fun probeText(
+        config: ProviderConfig,
+        provider: ModelProvider,
+    ): ProbeOutcome =
+        when (val result = provider.validateConfiguration()) {
             ProviderCheckResult.Ok -> ProbeOutcome.Ok(capabilities, listOf(config.model))
             is ProviderCheckResult.Failed -> ProbeOutcome.Failed(1, result.code, result.detail, result.retryable)
         }
-    }
 
     fun accountIntent(providerId: String = CODEX_ID): Intent =
         Intent()

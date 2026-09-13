@@ -25,7 +25,7 @@ import com.helix.core.model.SystemClock as HelixSystemClock
 
 /** HXA-095 rooted physical-device matrix. It is skipped unless the harness explicitly opts in. */
 @RunWith(AndroidJUnit4::class)
-class RootHighLevelToolsDeviceTest {
+class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
     private val clock = HelixSystemClock()
     private val access = LibsuRootAccess(ApplicationProvider.getApplicationContext())
     private val sessions = RootSessionManager(clock, access::status, access::disconnect)

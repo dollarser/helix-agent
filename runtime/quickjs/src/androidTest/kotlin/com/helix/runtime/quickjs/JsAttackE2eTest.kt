@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Every wait is bounded (deadline + grace, ≤ 30 s reclamation); the class-level
  * [Timeout] rule is the last-resort anti-hang guard.
  */
-class JsAttackE2eTest {
+class JsAttackE2eTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(600)
 
@@ -85,7 +85,7 @@ class JsAttackE2eTest {
     // ---------------------------------------------------------------- 2. memory
 
     @Test
-    fun oomSurfaceFormIsPinnedPerApiAndExecutionRecovers() {
+    fun oomSurfaceFormsRemainBoundedAndExecutionRecovers() {
         // The HXA-052-pinned SAFE 64 MiB heap-exhaustion form: a 32 MiB Array.fill.
         // NEVER the 16-million-iteration loop — that one takes the engine native
         // SIGSEGV on API 29 and must not be a test source (status.md pinned fact).
@@ -99,24 +99,15 @@ class JsAttackE2eTest {
         assertEquals("expected OOM, got ${result.status}: ${result.detail}", JsExecutionStatus.OOM, result.status)
         assertNotEquals("service must run in a different process", Process.myPid(), result.servicePid)
         assertNotEquals("service must run in a different (isolated) UID", Process.myUid(), result.serviceUid)
-        // The two pinned OOM surface forms (status.md / HXA-052 wrapper semantics): on
-        // API 29 a bulk heap exhaustion can fail to allocate the JS Error object
-        // itself, the caught-null form survives to the host as the EMPTY message; on
-        // API 36 the Error carries "out of memory" (the wrapper prefix survives as a
-        // substring).
+        // Heap exhaustion can also prevent allocating the Error itself. API level
+        // does not determine that allocation outcome: API35 hardware returns the
+        // same empty form previously observed on API29. Keep the two documented
+        // forms bounded, alongside the OOM status and recovery assertions.
         val sdk = Build.VERSION.SDK_INT
-        if (sdk <= 29) {
-            assertEquals(
-                "API 29 OOM surface form is the empty-message (caught-null) form, got: '${result.detail}'",
-                "<empty message>",
-                result.detail,
-            )
-        } else {
-            assertTrue(
-                "API 36 OOM surface form must carry 'out of memory', got: '${result.detail}'",
-                result.detail.contains("out of memory"),
-            )
-        }
+        assertTrue(
+            "OOM must retain a documented surface form on API $sdk, got: '${result.detail}'",
+            result.detail == "<empty message>" || result.detail.contains("out of memory"),
+        )
         println(
             "HXA-054 evidence — OOM: sdk=$sdk detail='${result.detail}' " +
                 "servicePid=${result.servicePid} serviceUid=${result.serviceUid}",

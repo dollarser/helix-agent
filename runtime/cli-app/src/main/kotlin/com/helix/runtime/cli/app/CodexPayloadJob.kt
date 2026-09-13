@@ -1,5 +1,6 @@
 package com.helix.runtime.cli.app
 
+import com.helix.core.model.ModelEvent
 import com.helix.runtime.cli.client.CliModelEventCodec
 import com.helix.runtime.cli.client.CliModelJobRecord
 import com.helix.runtime.cli.client.CliModelJobState
@@ -19,10 +20,7 @@ internal class CodexPayloadJobStore(
 
     fun put(record: CliModelJobRecord) = records.put(record)
 
-    fun canAcceptNew(incomingBytes: Int) =
-        incomingBytes in 1..CliModelRequestCodec.MAX_BYTES &&
-            records.canAcceptNew() &&
-            payloads.payloadBytes() + incomingBytes <= MAX_PAYLOAD_BYTES
+    fun canAcceptNew(incomingBytes: Int) = incomingBytes > 0 && records.canAcceptNew()
 
     fun recoverInterrupted(now: Long) = records.recoverInterrupted(now)
 
@@ -54,7 +52,7 @@ internal class CodexPayloadJobStore(
     }
 
     companion object {
-        const val MAX_PAYLOAD_BYTES = 8L * 1024L * 1024L
+        const val MAX_PAYLOAD_BYTES = 64L * 1024L * 1024L
     }
 }
 
@@ -85,9 +83,11 @@ internal class CodexPayloadJobRunner(
     private val cancelExecution: () -> Unit,
     private val clock: () -> Long = System::currentTimeMillis,
     private val worker: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val executeStreaming: ((ByteArray, (List<ModelEvent>) -> Unit) -> CodexModelExecution)? = null,
 ) : AutoCloseable {
     private val lock = Any()
     private var activeJobId: String? = null
+    private val progress = CodexJobProgress()
 
     init {
         store.recoverInterrupted(clock())
@@ -114,6 +114,7 @@ internal class CodexPayloadJobRunner(
             val pending = CliModelJobRecord(jobId, requestSha256, CliModelJobState.PENDING, clock())
             store.put(pending)
             activeJobId = jobId
+            progress.clear()
             worker.submit { runJob(pending) }
             CodexPayloadSubmit.Accepted(pending)
         }
@@ -122,6 +123,15 @@ internal class CodexPayloadJobRunner(
         synchronized(lock) {
             store.expireEvidence(clock())
             store.load(jobId)
+        }
+
+    fun readProgress(
+        jobId: String,
+        offset: Int,
+    ): List<ModelEvent> =
+        synchronized(lock) {
+            require(offset >= 0)
+            if (activeJobId != jobId) emptyList() else progress.read(offset)
         }
 
     fun cancel(jobId: String): CliModelJobRecord? =
@@ -178,17 +188,29 @@ internal class CodexPayloadJobRunner(
         synchronized(lock) {
             val live = store.load(pending.jobId)
             if (live == null || live.state != CliModelJobState.PENDING) {
-                clear(pending.jobId)
+                if (activeJobId == pending.jobId) activeJobId = null
                 return
             }
             store.put(live.copy(state = CliModelJobState.RUNNING))
         }
-        val result = runCatching { execute(store.loadRequest(pending.jobId)) }
+        val result =
+            runCatching {
+                val bytes = store.loadRequest(pending.jobId)
+                executeStreaming?.invoke(bytes) { chunk ->
+                    synchronized(lock) {
+                        if (activeJobId == pending.jobId && store.load(pending.jobId)?.state?.terminal == false) {
+                            progress.append(chunk)
+                        }
+                    }
+                } ?: execute(bytes)
+            }.mapCatching { execution ->
+                // Malformed output must settle this job, not leave the runner permanently busy.
+                execution to CliModelEventCodec.encode(execution.events)
+            }
         synchronized(lock) {
             val live = store.load(pending.jobId)
             if (live != null && !live.state.terminal && result.isSuccess) {
-                val execution = result.getOrThrow()
-                val output = CliModelEventCodec.encode(execution.events)
+                val (execution, output) = result.getOrThrow()
                 store.putOutput(live.jobId, output)
                 store.put(
                     live.copy(
@@ -201,12 +223,8 @@ internal class CodexPayloadJobRunner(
             } else if (live != null && !live.state.terminal) {
                 store.put(live.copy(state = CliModelJobState.FAILED, terminalAtEpochMillis = clock()))
             }
-            clear(pending.jobId)
+            if (activeJobId == pending.jobId) activeJobId = null
         }
-    }
-
-    private fun clear(jobId: String) {
-        if (activeJobId == jobId) activeJobId = null
     }
 
     private fun sha256(bytes: ByteArray): String =

@@ -3,6 +3,7 @@ package com.helix.feature.browser
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 
@@ -13,6 +14,7 @@ class BrowserTestActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         controller = BrowserController(this)
         owner = BrowserViewOwner(this)
         controller.attach(owner)

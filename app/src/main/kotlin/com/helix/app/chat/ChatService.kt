@@ -7,18 +7,27 @@ import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.profile.SafetyProfileStore
 import com.helix.app.provider.ProviderService
+import com.helix.app.provider.SubscriptionRecoveredOutput
+import com.helix.app.provider.SubscriptionRecoveryStatus
 import com.helix.app.runcontrol.PersistedRunControlStore
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.AgentMode
 import com.helix.core.model.AttachmentPurpose
 import com.helix.core.model.Clock
 import com.helix.core.model.ErrorCode
+import com.helix.core.model.GoalBudgets
+import com.helix.core.model.ModelEvent
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SystemClock
+import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
+import com.helix.core.policy.NetworkOriginScope
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
@@ -30,6 +39,7 @@ import com.helix.feature.files.ImportRefusal
 import com.helix.feature.files.ImportStatus
 import com.helix.feature.files.SafCancelToken
 import com.helix.feature.files.StagedAttachment
+import com.helix.provider.api.ProviderCapabilities
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.coroutines.CancellationException
@@ -41,6 +51,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,15 +106,15 @@ class ChatService(
      * still compiles.
      */
     private val strings: (Int, Array<out Any>) -> String = { resId, _ -> "§$resId" },
-    private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
+    private val lanScopes: () -> Set<NetworkOriginScope> = { emptySet() },
     private val subscriptionResultRecovery: (
         String,
         String,
         Boolean,
-    ) -> com.helix.app.provider.SubscriptionRecoveredOutput? =
+    ) -> SubscriptionRecoveredOutput? =
         { _, _, _ -> null },
-    private val subscriptionRecovery: (String, String, Boolean) -> com.helix.app.provider.SubscriptionRecoveryStatus =
-        { _, _, _ -> com.helix.app.provider.SubscriptionRecoveryStatus.UNKNOWN },
+    private val subscriptionRecovery: (String, String, Boolean) -> SubscriptionRecoveryStatus =
+        { _, _, _ -> SubscriptionRecoveryStatus.UNKNOWN },
     private val goalReminderSync: (String) -> Unit = {},
 ) {
     // Observers started in init may refresh immediately on another thread.
@@ -128,6 +139,7 @@ class ChatService(
             goalTimes,
             strings,
             lanScopes,
+            attachmentStaging.workspaceScopeId,
         )
     }
     private val modelLoop by lazy {
@@ -209,7 +221,7 @@ class ChatService(
         runControlStore.setMode(mode)
     }
 
-    fun setReasoning(reasoning: com.helix.core.model.ReasoningEffort) {
+    fun setReasoning(reasoning: ReasoningEffort) {
         require(
             sessionTurnAdmission.activeTurn(openSessionId.orEmpty()) == null,
         ) { "cannot change reasoning during a turn" }
@@ -223,7 +235,7 @@ class ChatService(
         runControlStore.setChatToolsEnabled(enabled)
     }
 
-    fun setTurnBudgets(budgets: com.helix.core.model.TurnBudgets) {
+    fun setTurnBudgets(budgets: TurnBudgets) {
         require(
             sessionTurnAdmission.activeTurn(openSessionId.orEmpty()) == null,
         ) { "cannot change budgets during a turn" }
@@ -359,7 +371,7 @@ class ChatService(
             providerService.rows.value.firstOrNull { it.chatSelectable && it.id == inherited }
                 ?: providerService.rows.value.firstOrNull { it.chatSelectable }
         val entity =
-            com.helix.core.storage.entity.SessionEntity(
+            SessionEntity(
                 idGenerator(),
                 "",
                 provider?.id,
@@ -545,6 +557,8 @@ class ChatService(
     ) {
         if ((text?.isEmpty() ?: true) && imageUris.isEmpty()) return
         workScope.launch {
+            // Preserve the incoming share until the current draft has finished materializing.
+            screen.first { !it.preparingDraft }
             // A share intent is an explicit user action aimed at this app: opening the draft
             // session is the expected outcome (any open session's in-memory staging drops,
             // exactly like a manual session switch — ADR-0014 §5).
@@ -633,7 +647,7 @@ class ChatService(
                         return@synchronized
                     }
                 }
-                runControlStore.setReasoning(com.helix.core.model.ReasoningEffort.OFF)
+                runControlStore.setReasoning(ReasoningEffort.OFF)
                 refreshScreen()
             }
         }
@@ -798,7 +812,7 @@ class ChatService(
     internal suspend fun createGoal(
         objective: String,
         criteria: List<String>,
-        budgets: com.helix.core.model.GoalBudgets,
+        budgets: GoalBudgets,
     ) = goals.createGoal(objective, criteria, budgets)
 
     internal suspend fun goalSummaries() = goals.goalSummaries()
@@ -812,7 +826,7 @@ class ChatService(
 
     internal suspend fun updateGoalBudgets(
         goalId: String,
-        budgets: com.helix.core.model.GoalBudgets,
+        budgets: GoalBudgets,
     ) = goals.updateGoalBudgets(goalId, budgets)
 
     @Suppress("SwallowedException") // Rejected stored Goal/session state becomes a localized UI block; no raw details.
@@ -890,7 +904,7 @@ class ChatService(
         // An attachment-only send is valid (ADR-0014 §5): blank text is admitted while
         // staged attachments ride the send; blank text with nothing staged is still the
         // empty-send block of today.
-        if (text.isBlank() && staged.isEmpty()) {
+        if (text.isBlank() && (staged.isEmpty() || runControlStore.current.mode == AgentMode.GOAL)) {
             setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
             return
         }
@@ -922,8 +936,12 @@ class ChatService(
         if (staged.any { it.normalizedArtifactId != null }) {
             // capabilitiesFor is fail-closed by contract (null on any stored-snapshot failure).
             val visionConfirmed =
-                runCatching { providerService.capabilitiesFor(providerId) }
-                    .getOrNull()
+                runCatching {
+                    providerService.capabilitiesFor(
+                        providerId,
+                        openSessionId?.let { storage.sessions.resolve(it).modelId },
+                    )
+                }.getOrNull()
                     ?.vision
                     ?: false
             if (!visionConfirmed) {
@@ -1114,8 +1132,12 @@ class ChatService(
         if (materialized.any { it is AttachmentMaterialization.Image }) {
             // capabilitiesFor is fail-closed by contract (null on any stored-snapshot failure).
             val visionConfirmed =
-                runCatching { providerService.capabilitiesFor(providerId) }
-                    .getOrNull()
+                runCatching {
+                    providerService.capabilitiesFor(
+                        providerId,
+                        openSessionId?.let { storage.sessions.resolve(it).modelId },
+                    )
+                }.getOrNull()
                     ?.vision
                     ?: false
             if (!visionConfirmed) {
@@ -1167,20 +1189,22 @@ class ChatService(
                             ?: entry.boundSha256,
                 )
             }
-        // Clear EXACTLY the approved set (not the whole live list): a file staged in the
-        // microsecond between the drift check above and this lock survives for the user's next
-        // send — a send is never a silent drop (the KDoc contract of the lock).
-        synchronized(stagedLock) {
-            stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
+        val admitted =
+            launchTurn(
+                text = AttachmentContext.buildUserMessageContent(text, blocks),
+                providerId = providerId,
+                attachmentBindings = bindings,
+                goalId = goalId,
+            )
+        if (admitted) {
+            // Only consume attachments after the user message and its bindings are durable.
+            synchronized(stagedLock) {
+                stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
+            }
+        } else {
+            shareDraftText = text
         }
-        // The sent chips clear from the screen now, not left dangling until the turn terminalizes.
         refreshScreen()
-        launchTurn(
-            text = AttachmentContext.buildUserMessageContent(text, blocks),
-            providerId = providerId,
-            attachmentBindings = bindings,
-            goalId = goalId,
-        )
     }
 
     /** A staged entry as the gate's input — the real paths cross into hashing/probing only. */
@@ -1274,6 +1298,7 @@ class ChatService(
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
             }
             turnCancels[turnId]?.cancel()
+            toolCalls.cancelPendingApproval(turnId)
             active.job.cancel()
         }
     }
@@ -1283,10 +1308,10 @@ class ChatService(
     }
 
     fun stop() {
-        toolCalls.cancelPendingApproval()
         val sessionId = openSessionId ?: return
         val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
         turnCancels[active.turnId]?.cancel()
+        toolCalls.cancelPendingApproval(active.turnId)
         active.job.cancel()
     }
 
@@ -1359,8 +1384,19 @@ class ChatService(
      */
     fun retry() {
         workScope.launch {
-            val turnId = _screen.value.retryTargetTurnId ?: return@launch
+            val targetTurnId = _screen.value.retryTargetTurnId ?: return@launch
             val session = currentSession() ?: return@launch
+            val turnId =
+                RetryMessageSource.resolve(
+                    targetTurnId,
+                    storage.turns.listBySession(session.id).map { it.id },
+                    storage.messages
+                        .listBySession(
+                            session.id,
+                        ).filter { it.role == "USER" }
+                        .mapNotNull { it.turnId }
+                        .toSet(),
+                ) ?: return@launch
             val providerId = session.providerId ?: return@launch
             if (!providerService.chatSelectable(providerId)) {
                 setBlocked(str(R.string.chat_blocked_provider_untested))
@@ -1393,7 +1429,11 @@ class ChatService(
                     }
                 }
             }
-            val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
+            val goalId =
+                storage.goalTurnBindings
+                    .byTurn(
+                        targetTurnId,
+                    )?.let { storage.goalRuns.resolve(it.runId).goalId }
             launchTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
         }
     }
@@ -1409,15 +1449,14 @@ class ChatService(
         retryTurnId: String? = null,
         attachmentBindings: List<MessageAttachmentRepository.Binding> = emptyList(),
         goalId: String? = null,
-    ) {
-        val session = currentSession() ?: return
+    ): Boolean {
+        val session = currentSession() ?: return false
         val sessionId = session.id
         // Snapshot before creating the durable Turn: later UI/profile changes cannot alter this
         // Turn's mode, tool table, dispatcher mode, or limits.
         val control = runControlStore.current
-        // The Room read runs OUTSIDE the gate: a suspend point must never be
-        // reached while holding the monitor (the gate only serializes the
-        // turn-start writes below).
+        // Prepare the provider snapshot outside the admission gate. The gate also performs
+        // synchronous Room admission reads/writes; no suspend point is allowed inside it.
         val snapshot =
             try {
                 providerSnapshot(providerId, session.modelId)
@@ -1428,29 +1467,34 @@ class ChatService(
                 // send must never vanish.
                 Log.e(TAG, "could not snapshot provider $providerId", e)
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
-                return
+                return false
             }
         synchronized(turnGate) {
             // Per-session admission: refuse only when THIS session already has an in-flight turn —
             // a turn in another session must never make this send vanish.
-            if (sessionTurnAdmission.hasActive(sessionId)) return
+            if (sessionTurnAdmission.hasActive(sessionId)) {
+                setBlocked(str(R.string.chat_blocked_session_busy))
+                return false
+            }
             val liveSession = storage.sessions.resolve(sessionId)
             if (liveSession.providerId != providerId || liveSession.modelId != session.modelId) {
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
-                return
+                return false
             }
             val turnId = idGenerator()
             val callId = idGenerator()
             val spec = TurnStartSpec(sessionId, turnId, callId, snapshot, text, attachmentBindings)
-            val goalStart =
-                goalId?.let {
-                    GoalRunCoordinator(storage, clock, idGenerator).start(
-                        GoalTurnStart(it, com.helix.core.agent.GoalWakeReason.USER_OPEN, spec, control.budgets),
-                    )
-                }
-            if (goalId != null && goalStart == null) {
+            val goalSend =
+                GoalComposerStart(storage, clock, idGenerator).admit(
+                    goalId,
+                    spec,
+                    control,
+                    retryTurnId != null,
+                )
+            val goalStart = goalSend.started
+            if (goalSend.required && goalStart == null) {
                 setBlocked(str(R.string.goal_continue_unavailable))
-                return
+                return false
             }
             val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
             val effectiveControl =
@@ -1463,12 +1507,19 @@ class ChatService(
                 workScope.launch(start = CoroutineStart.UNDISPATCHED) {
                     runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
                 }
-            sessionTurnAdmission.register(sessionId, job, turnId)
-            if (openSessionId == sessionId) {
-                refreshScreen() // publish the committed user message before the model may emit or wait
-                publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+            var published = false
+            try {
+                sessionTurnAdmission.register(sessionId, job, turnId)
+                if (openSessionId == sessionId) {
+                    refreshScreen() // publish the committed user message before the model may emit or wait
+                    publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+                }
+                published = true
+            } finally {
+                if (!published) job.cancel()
+                startGate.complete(Unit)
             }
-            startGate.complete(Unit)
+            return true
         }
     }
 
@@ -1522,7 +1573,7 @@ class ChatService(
     }
 
     private fun applyEvent(
-        event: com.helix.core.model.ModelEvent,
+        event: ModelEvent,
         acc: ModelStreamState,
         turnId: String,
     ) {
@@ -1689,8 +1740,8 @@ class ChatService(
         // closed: the column is informational, the send gate is the authority).
         val capabilitiesJson =
             runCatching {
-                com.helix.provider.api.ProviderCapabilities.parse(c.capabilitySnapshot).let { caps ->
-                    ",\"capabilities\":${com.helix.provider.api.ProviderCapabilities.toJsonString(caps)}"
+                ProviderCapabilities.parse(c.capabilitySnapshot).let { caps ->
+                    ",\"capabilities\":${ProviderCapabilities.toJsonString(caps)}"
                 }
             }.getOrDefault("")
         return buildString {

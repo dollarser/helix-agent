@@ -98,7 +98,9 @@ interface A2aTaskDao {
         "UPDATE a2a_tasks SET taskId = :taskId, contextId = :contextId, " +
             "lastEventSequence = :sequence, lastEventId = :eventId, " +
             "state = :state, deliveryState = :deliveryState, " +
-            "updatedAtEpochMillis = :updatedAt WHERE toolCallId = :toolCallId",
+            "updatedAtEpochMillis = :updatedAt WHERE toolCallId = :toolCallId " +
+            "AND lastEventSequence = :expectedSequence AND updatedAtEpochMillis = :expectedUpdatedAt " +
+            "AND state = :expectedState AND deliveryState = :expectedDeliveryState",
     )
     @Suppress("LongParameterList") // one column-bound parameter per durable remote Task transition
     fun updateRemoteState(
@@ -110,5 +112,9 @@ interface A2aTaskDao {
         state: String,
         deliveryState: String,
         updatedAt: Long,
+        expectedSequence: Long,
+        expectedUpdatedAt: Long,
+        expectedState: String,
+        expectedDeliveryState: String,
     ): Int
 }

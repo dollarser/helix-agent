@@ -104,7 +104,10 @@ object FilesListTool {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
                 val path =
                     filesMetaToolsParsePath(call.args)
-                        ?: return ToolExecutorResult.Failed("invalid 'files.list' arguments")
+                        ?: return ToolExecutorResult.Failed(
+                            "invalid files.list path: use scope:<scopeId>:. for the root, " +
+                                "or scope:<scopeId>:output for a directory. Use the workspace scope ID from context.",
+                        )
                 val max =
                     filesMetaToolsIntArg(call.args, "maxEntries")?.coerceIn(1, MAX_MAX_ENTRIES) ?: DEFAULT_MAX_ENTRIES
                 return try {

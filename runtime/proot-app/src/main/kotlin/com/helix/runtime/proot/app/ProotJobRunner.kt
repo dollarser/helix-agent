@@ -404,6 +404,9 @@ class ProotJobRunner private constructor(
             stderrReader.join(5_000L)
             stdout.finish()
             stderr.finish()
+            // A child may retain the pipe after its parent exits. Never publish a successful
+            // truncated snapshot while a pump is still waiting; stop the remaining group.
+            if (stdoutReader.isAlive || stderrReader.isAlive) killProcessGroup(childPid)
 
             // 6) Terminal state from the flags + the exit code.
             val state =
@@ -411,6 +414,7 @@ class ProotJobRunner private constructor(
                     outputBudget.hitLimit.get() -> ProotJobState.OUTPUT_LIMIT_EXCEEDED
                     cancelRequested.get() -> ProotJobState.CANCELLED
                     deadlineHit.get() -> ProotJobState.TIMED_OUT
+                    !stdout.complete || !stderr.complete -> ProotJobState.FAILED
                     process.exitValue() == 0 -> ProotJobState.SUCCEEDED
                     else -> ProotJobState.FAILED
                 }

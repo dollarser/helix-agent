@@ -37,7 +37,7 @@ class CopilotLoginActivity : Activity() {
                 { userCode?.let { DeviceCodeClipboard.copy(this, getString(R.string.copilot_copy_code), it) } },
                 { verificationUri?.let { DeviceCodeClipboard.copy(this, getString(R.string.copilot_copy_url), it) } },
             )
-        setContentView(content.root)
+        SubscriptionScreen.show(this, content.root)
         renderState()
     }
 

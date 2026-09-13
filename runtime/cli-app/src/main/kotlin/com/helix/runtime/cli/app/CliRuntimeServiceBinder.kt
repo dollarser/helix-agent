@@ -12,6 +12,7 @@ internal class CliRuntimeServiceBinder(
     private val statusProvider: () -> String,
     private val callerVerifier: (Int) -> Boolean,
     private val jobRunner: CodexPayloadJobRunner? = null,
+    private val catalogProvider: (() -> com.helix.runtime.cli.client.CliModelCatalog)? = null,
 ) : Binder() {
     @Suppress("ReturnCount") // Unknown transaction, rejected caller, and success are distinct outcomes.
     override fun onTransact(
@@ -33,7 +34,24 @@ internal class CliRuntimeServiceBinder(
         }
         return runCatching {
             data.enforceInterface(CliRuntimeProtocol.DESCRIPTOR)
-            if (code == CliRuntimeProtocol.TRANSACTION_STATUS) writeStatus(reply) else writeJob(code, data, reply)
+            when (code) {
+                CliRuntimeProtocol.TRANSACTION_STATUS -> {
+                    writeStatus(reply)
+                }
+
+                CliRuntimeProtocol.TRANSACTION_MODEL_CATALOG -> {
+                    val catalog = requireNotNull(catalogProvider).invoke()
+                    val document =
+                        com.helix.runtime.cli.client.CliModelCatalogCodec
+                            .encode(catalog)
+                    reply.writeInt(CliRuntimeProtocol.REPLY_OK)
+                    reply.writeString(document)
+                }
+
+                else -> {
+                    writeJob(code, data, reply)
+                }
+            }
             true
         }.getOrElse {
             reply.setDataPosition(0)
@@ -74,6 +92,31 @@ internal class CliRuntimeServiceBinder(
                 writeRecordOrMissing(reply, runner.query(jobId))
             }
 
+            CliRuntimeProtocol.TRANSACTION_JOB_PROGRESS -> {
+                val events = runner.readProgress(jobId, data.readInt())
+                val bytes =
+                    com.helix.runtime.cli.client.CliModelProgressCodec
+                        .encode(events)
+                val hash =
+                    java.security.MessageDigest
+                        .getInstance("SHA-256")
+                        .digest(bytes)
+                        .joinToString("") { "%02x".format(it) }
+                val (readEnd, writeEnd) = ParcelFileDescriptor.createPipe()
+                reply.writeInt(CliRuntimeProtocol.REPLY_OK)
+                reply.writeString(hash)
+                reply.writeParcelable(readEnd, 0)
+                readEnd.close()
+                Thread({
+                    runCatching {
+                        CliPfdChannel.write(
+                            writeEnd,
+                            bytes,
+                        )
+                    }.onFailure { writeEnd.close() }
+                }, "cli-progress-$jobId").start()
+            }
+
             CliRuntimeProtocol.TRANSACTION_JOB_CANCEL -> {
                 writeRecordOrMissing(reply, runner.cancel(jobId))
             }
@@ -106,7 +149,7 @@ internal class CliRuntimeServiceBinder(
         val input =
             data.readParcelable<ParcelFileDescriptor>(ParcelFileDescriptor::class.java.classLoader)
                 ?: error("missing request PFD")
-        val payload = CliPfdChannel.read(input, CliModelRequestCodec.MAX_BYTES)
+        val payload = CliPfdChannel.read(input)
         when (val result = runner.submit(jobId, hash, payload)) {
             is CodexPayloadSubmit.Accepted -> {
                 writeRecord(
@@ -192,7 +235,6 @@ internal class CliRuntimeServiceBinder(
                 CliPfdChannel.write(
                     writeEnd,
                     payload,
-                    com.helix.runtime.cli.client.CliModelEventCodec.MAX_BYTES,
                 )
             }.onSuccess { if (consume) runner.finishReconcile(prepared.record) }
                 .onFailure { writeEnd.close() }
@@ -203,6 +245,8 @@ internal class CliRuntimeServiceBinder(
         val TRANSACTIONS =
             setOf(
                 CliRuntimeProtocol.TRANSACTION_STATUS,
+                CliRuntimeProtocol.TRANSACTION_MODEL_CATALOG,
+                CliRuntimeProtocol.TRANSACTION_JOB_PROGRESS,
                 CliRuntimeProtocol.TRANSACTION_JOB_SUBMIT,
                 CliRuntimeProtocol.TRANSACTION_JOB_QUERY,
                 CliRuntimeProtocol.TRANSACTION_JOB_CANCEL,

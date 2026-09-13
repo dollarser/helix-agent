@@ -75,6 +75,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
      * be closed before the terminal — orphan events and terminal truncation fail the
      * stream, exactly like the chat and anthropic decoders. */
     private val openCalls = LinkedHashMap<Int, ToolCallId>()
+    private val argumentBuffers = LinkedHashMap<Int, StringBuilder>()
     private var failureDetail: String? = null
 
     /** Diagnostic detail of the protocol failure (exception class / vendor field, no payload). */
@@ -271,6 +272,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
             throw ProtocolViolation("too many function calls in one response")
         }
         openCalls[index] = id
+        argumentBuffers[index] = StringBuilder()
         hasFunctionCall = true
         out += ModelEvent.ToolCallStarted(index, id, name)
     }
@@ -299,6 +301,7 @@ public class ResponsesStreamDecoder : StreamDecoder {
         }
         val delta = requireString(obj, "delta")
         if (delta.isEmpty()) return
+        argumentBuffers.getValue(index).append(delta)
         out += ModelEvent.ToolArgumentsDelta(index, delta)
     }
 
@@ -311,6 +314,15 @@ public class ResponsesStreamDecoder : StreamDecoder {
         // A done for an unknown or already-closed index closes nothing downstream:
         // reject it instead of emitting a spurious ToolCallFinished.
         openCalls.remove(index) ?: throw ProtocolViolation("arguments done for unknown index $index")
+        val streamed = argumentBuffers.remove(index).toString()
+        if (obj.containsKey("arguments")) {
+            val complete = requireString(obj, "arguments")
+            if (!complete.startsWith(streamed)) {
+                throw ProtocolViolation("final tool arguments conflict with streamed arguments")
+            }
+            val remaining = complete.substring(streamed.length)
+            if (remaining.isNotEmpty()) out += ModelEvent.ToolArgumentsDelta(index, remaining)
+        }
         out += ModelEvent.ToolCallFinished(index)
     }
 

@@ -74,9 +74,14 @@ object BrowserSnapshotScript {
           }
           function valueOf(el) {
             var t = String(el.tagName || "").toLowerCase();
-            if (t === "input") {
+            if (t === "input" || t === "select" || t === "textarea") {
               // doc 09 §3.3: 密码框默认拒绝 —— the value of a password field is never read.
               if (String(el.getAttribute("type") || "").toLowerCase() === "password") return null;
+              var ac = String(el.getAttribute("autocomplete") || "").toLowerCase();
+              var label = String((el.getAttribute("name") || el.id || "") + " " +
+                                 (el.getAttribute("placeholder") || "")).toLowerCase();
+              if (ac === "password" || ac.endsWith("-password") || label.indexOf("password") >= 0 ||
+                  label.indexOf("passwd") >= 0 || label.indexOf("密码") >= 0) return null;
             }
             if (t === "select") {
               var opt = el.selectedIndex >= 0 ? el.options[el.selectedIndex] : null;

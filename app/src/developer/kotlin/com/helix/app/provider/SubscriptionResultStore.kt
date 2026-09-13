@@ -69,7 +69,7 @@ internal class SubscriptionResultStore(
         val artifact = storage.artifacts.findBySessionAndPath(session, relative) ?: return null
         check(artifact.id == "cli-result-${ownership.modelCallId}")
         val file = File(workspace, relative)
-        check(file.isFile && file.length() == artifact.size && artifact.size <= CliModelEventCodec.MAX_BYTES)
+        check(file.isFile && file.length() == artifact.size)
         val bytes = file.readBytes()
         check(FileContentStore.sha256Hex(bytes) == artifact.sha256)
         return CliModelEventCodec.decode(bytes)

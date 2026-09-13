@@ -47,7 +47,13 @@ class ArtifactVisionImageSource(
 ) : VisionImageSource {
     @Suppress("TooGenericExceptionCaught") // ANY read failure (path/scope/I-O) maps to one closed, path-free error
     override fun load(ref: ArtifactRef): LoadedImage {
-        if (ref == PROBE_IMAGE_REF) return PROBE_IMAGE
+        val fixture =
+            when (ref) {
+                COLOR_PROBE_REF -> COLOR_PROBE_IMAGE
+                PROBE_IMAGE_REF -> PROBE_IMAGE
+                else -> null
+            }
+        if (fixture != null) return fixture
         val artifact =
             artifacts
                 .listBySession(currentSession())
@@ -98,6 +104,14 @@ class ArtifactVisionImageSource(
          * The single source of truth is [CapabilityProbe.VISION_PROBE_REF].
          */
         val PROBE_IMAGE_REF: ArtifactRef = CapabilityProbe.VISION_PROBE_REF
+        val COLOR_PROBE_REF = ArtifactRef("helix:vision-color-probe")
+        private val COLOR_PROBE_IMAGE =
+            LoadedImage(
+                "image/png",
+                "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAb0lEQVR4nO3PAQkAAAyEwO9feoshgnAB" +
+                    "dLep8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjx" +
+                    "BQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3IPanc8OLDQitxAAAAAElFTkSuQmCC",
+            )
 
         /**
          * A 1x1 transparent PNG (67 bytes) — the smallest valid image every provider accepts;

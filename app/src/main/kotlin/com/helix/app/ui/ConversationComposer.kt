@@ -21,6 +21,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.chat.ChatContextUsage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 
@@ -39,11 +40,12 @@ internal fun ConversationComposer(
     reasoningSupported: Boolean = false,
     onReasoning: (ReasoningEffort) -> Unit = {},
     modelSelector: (@Composable () -> Unit)? = null,
-    contextUsage: com.helix.app.chat.ChatContextUsage =
+    contextUsage: ChatContextUsage =
         com.helix.app.chat
             .ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
+    reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
@@ -51,9 +53,7 @@ internal fun ConversationComposer(
                 modelSelector?.invoke()
                 ContextWindowIndicator(contextUsage, onCompact, canCompact)
             }
-        }) {
-            if (input.isNotEmpty()) ComposerOptionPill { CopyTextButton(input, "chat-copy-input") }
-        }
+        }, reasoningOptions = reasoningOptions)
         Row(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,
@@ -85,7 +85,7 @@ internal fun ConversationComposer(
             )
             IconButton(
                 onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = isSending || goalMode || input.isNotBlank() || hasAttachments,
+                enabled = isSending || input.isNotBlank() || (!goalMode && hasAttachments),
                 modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
             ) {
                 Icon(
@@ -93,7 +93,7 @@ internal fun ConversationComposer(
                     stringResource(
                         when {
                             isSending -> R.string.chat_stop
-                            goalMode -> R.string.chat_open_goals
+                            goalMode -> R.string.common_send
                             else -> R.string.common_send
                         },
                     ),

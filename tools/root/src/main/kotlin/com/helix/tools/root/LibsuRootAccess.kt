@@ -41,10 +41,11 @@ private class LibsuRootAccessDriver(
 ) : RootAccessDriver {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var connection: ServiceConnection? = null
-    private var serviceBinder: IBinder? = null
+
+    @Volatile private var serviceBinder: IBinder? = null
     private var lossCallback: (() -> Unit)? = null
     private val requestGeneration = AtomicInteger()
-    private val deathRecipient = IBinder.DeathRecipient(::notifyLost)
+    private var deathRecipient: IBinder.DeathRecipient? = null
 
     override fun cachedGrant(): Boolean? = Shell.isAppGrantedRoot()
 
@@ -85,7 +86,9 @@ private class LibsuRootAccessDriver(
             val newConnection = rootServiceConnection(onConnected, onLost)
             connection = newConnection
             try {
-                RootService.bind(Intent(context, HelixRootService::class.java), newConnection)
+                // libsu removes connection entries after invoking callbacks. Always enqueue callbacks
+                // so our unbind cannot re-enter its ArrayMap iterator during service death.
+                RootService.bind(Intent(context, HelixRootService::class.java), { mainHandler.post(it) }, newConnection)
             } catch (_: RuntimeException) {
                 clearConnection()
                 onLost()
@@ -116,7 +119,9 @@ private class LibsuRootAccessDriver(
         return try {
             RootServiceCodec.transact(binder, request)
         } catch (_: Exception) {
-            notifyLost()
+            mainHandler.post {
+                if (serviceBinder === binder) notifyLost()
+            }
             RootOperationResult.Failed("ROOT_SERVICE_LOST")
         }
     }
@@ -148,8 +153,15 @@ private class LibsuRootAccessDriver(
                     return
                 }
                 serviceBinder = binder
+                val recipient =
+                    IBinder.DeathRecipient {
+                        mainHandler.post {
+                            if (connection === this && serviceBinder === binder) notifyLost()
+                        }
+                    }
+                deathRecipient = recipient
                 try {
-                    binder.linkToDeath(deathRecipient, 0)
+                    binder.linkToDeath(recipient, 0)
                     onConnected(readProcessId(binder))
                 } catch (_: Exception) {
                     clearConnection()
@@ -193,12 +205,13 @@ private class LibsuRootAccessDriver(
     private fun clearConnection() {
         val oldConnection = connection
         try {
-            serviceBinder?.unlinkToDeath(deathRecipient, 0)
+            deathRecipient?.let { serviceBinder?.unlinkToDeath(it, 0) }
         } catch (_: NoSuchElementException) {
             Unit
         }
         connection = null
         serviceBinder = null
+        deathRecipient = null
         lossCallback = null
         if (oldConnection != null) {
             try {

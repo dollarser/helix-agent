@@ -30,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
 object FilesDeleteTool {
     const val NAME: String = "files.delete"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     fun descriptor(): ToolDescriptor =
         ToolDescriptor(
@@ -113,7 +113,7 @@ object FilesDeleteTool {
                 val region = filesMutateToolsUserRegionOf(path)
                 if (region == null) {
                     return ToolExecutorResult.Failed(
-                        "path must be inside input/, work/ or output/: ${path.toModelReference()}",
+                        "path must be a user file or directory, outside .helix/: ${path.toModelReference()}",
                     )
                 }
                 return try {

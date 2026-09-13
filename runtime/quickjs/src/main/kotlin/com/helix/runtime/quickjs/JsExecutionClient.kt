@@ -199,41 +199,50 @@ class JsExecutionClient(
                 connection,
             )
         if (!bindAccepted) return null
-        val startedAt = System.nanoTime()
-        while (!connected.await(POLL_MS, TimeUnit.MILLISECONDS)) {
-            if (cancellation?.isCancelled() == true) {
-                bindFailure(executionId, JsExecutionStatus.CANCELLED, "cancelled during bind", inputSha)
-            }
-            if (System.nanoTime() - startedAt > BIND_TIMEOUT_MS * NANOS_PER_MS) {
-                bindFailure(
-                    executionId,
-                    JsExecutionStatus.BIND_FAILED,
-                    "service did not connect within ${BIND_TIMEOUT_MS} ms",
-                    inputSha,
-                )
-            }
-        }
-        val binder =
-            binderHolder.get()
-                ?: bindFailure(
-                    executionId,
-                    JsExecutionStatus.BIND_FAILED,
-                    "onServiceConnected delivered no binder",
-                    inputSha,
-                )
-        val dead = AtomicBoolean(false)
-        val deathRecipient =
-            object : IBinder.DeathRecipient {
-                override fun binderDied() {
-                    dead.set(true)
+        var handedOff = false
+        try {
+            val startedAt = System.nanoTime()
+            while (!connected.await(POLL_MS, TimeUnit.MILLISECONDS)) {
+                if (cancellation?.isCancelled() == true) {
+                    bindFailure(executionId, JsExecutionStatus.CANCELLED, "cancelled during bind", inputSha)
+                }
+                if (System.nanoTime() - startedAt > BIND_TIMEOUT_MS * NANOS_PER_MS) {
+                    bindFailure(
+                        executionId,
+                        JsExecutionStatus.BIND_FAILED,
+                        "service did not connect within ${BIND_TIMEOUT_MS} ms",
+                        inputSha,
+                    )
                 }
             }
-        try {
-            binder.linkToDeath(deathRecipient, 0)
-        } catch (e: DeadObjectException) {
-            dead.set(true)
+            val binder =
+                binderHolder.get()
+                    ?: bindFailure(
+                        executionId,
+                        JsExecutionStatus.BIND_FAILED,
+                        "onServiceConnected delivered no binder",
+                        inputSha,
+                    )
+            val dead = AtomicBoolean(false)
+            val deathRecipient =
+                object : IBinder.DeathRecipient {
+                    override fun binderDied() {
+                        dead.set(true)
+                    }
+                }
+            try {
+                binder.linkToDeath(deathRecipient, 0)
+            } catch (e: DeadObjectException) {
+                dead.set(true)
+            }
+            val instance = BoundInstance(binder, connection, dead, deathRecipient)
+            handedOff = true
+            return instance
+        } finally {
+            // execute() cannot release a binding until bindInstance returns it.
+            // Cancel, timeout and callback failures before handoff still own it here.
+            if (!handedOff) runCatching { context.unbindService(connection) }
         }
-        return BoundInstance(binder, connection, dead, deathRecipient)
     }
 
     /** A bind-phase failure carries a pre-built failure result through the finally cleanup. */

@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets
  * a top-level source expression is now a helixMain BODY and the SUCCESS output is the
  * wrapper's JSON.stringify text — a JSON document (strings quoted, numbers bare).
  */
-class JsExecutionLargeDataTest {
+class JsExecutionLargeDataTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(240)
 

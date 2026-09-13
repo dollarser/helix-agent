@@ -31,7 +31,8 @@ data class GoalStep(
  *   with a `RetryWake` effect; a non-retryable failure, or retry exhaustion, fails the goal.
  *   (The `GoalState` machine has no RUNNING -> RUNNING edge, so retries are wake-level: the
  *   goal state stays RUNNING while the coordinator re-tries the wake.)
- * - `CompleteRequested` is honored only when every criterion carries verifier evidence.
+ * - `CompleteRequested` completes a RUNNING Goal after the coordinator accepts its model report
+ *   (ADR-0040); criterion evidence binding is historical, not a current completion gate.
  * - Process death parks RUNNING in PAUSED (durable park, `GoalState.stateAfterProcessDeath`);
  *   the checkpoint reminder survives the park because tapping it is a legitimate wake source.
  *   Reminders are cancelled on INPUT_REQUIRED/COMPLETED/FAILED/CANCELLED.

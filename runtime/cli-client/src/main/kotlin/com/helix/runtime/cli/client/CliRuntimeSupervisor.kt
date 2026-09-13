@@ -45,7 +45,12 @@ sealed interface CliRuntimeConnection {
 
 class CliRuntimeSupervisor(
     context: Context,
+    private val bindTimeoutMillis: Long = 30_000L,
 ) {
+    init {
+        require(bindTimeoutMillis > 0)
+    }
+
     private val context = context.applicationContext
 
     fun verify(): CliRuntimeVerification {
@@ -111,7 +116,8 @@ class CliRuntimeSupervisor(
         bindCause(intent, connection)?.let { return CliRuntimeConnection.Refused(it) }
         val connected =
             try {
-                latch.await(CliRuntimeProtocol.BIND_DEADLINE_MS, TimeUnit.MILLISECONDS)
+                // Only bound the initial Android service connection, never model execution or streaming.
+                latch.await(bindTimeoutMillis, TimeUnit.MILLISECONDS)
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
                 false

@@ -10,12 +10,16 @@ from __future__ import annotations
 import os
 import re
 import sys
+import subprocess
 from pathlib import Path
 
 root = Path(os.environ["HELIX_PROJECT_ROOT"]).resolve()
 markdown_files = sorted([*root.glob("*.md"), *(root / "docs").rglob("*.md")])
 link_pattern = re.compile(r"(?<!!)\[[^]]*]\(([^)]+)\)")
 errors: list[str] = []
+index_check = subprocess.run([sys.executable, str(root / "scripts/generate-completion-index.py"), "--check"], capture_output=True, text=True)
+if index_check.returncode:
+    errors.append(index_check.stderr.strip())
 
 
 def fail(path: Path, message: str) -> None:
@@ -65,7 +69,14 @@ for path in markdown_files:
         if target.startswith("/"):
             fail(path, f"uses an absolute repository link: {raw_target}")
             continue
-        if not (path.parent / target).resolve().exists():
+        resolved = (path.parent / target).resolve()
+        if resolved.is_relative_to(root):
+            ignored = subprocess.run(["git", "check-ignore", "-q", "--", str(resolved)], cwd=root)
+            if ignored.returncode == 0:
+                fail(path, f"links to an ignored local artifact; use a plain code path: {raw_target}")
+            elif ignored.returncode != 1:
+                fail(path, f"could not verify git ignore state: {raw_target}")
+        if not resolved.exists():
             fail(path, f"has an unresolved relative link: {raw_target}")
 
 roadmap_path = root / "docs" / "development" / "roadmap.md"
@@ -121,6 +132,10 @@ for milestone, start, end in re.findall(
         (milestone, f"HXA-{task_number:03d}")
         for task_number in range(int(start), int(end) + 1)
     )
+
+if "[完成记录索引](../completion-records/index.md)" in completed_section:
+    index = (root / "docs/completion-records/index.md").read_text(encoding="utf-8")
+    completed_entries.extend(("record", task_id) for task_id in re.findall(r"^\| (HXA-\d{3}) \|", index, re.MULTILINE))
 
 if not completed_entries:
     fail(status_path, "Completed has neither milestone ranges nor legacy per-HXA bullets (gate would be vacuous)")

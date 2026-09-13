@@ -8,7 +8,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
@@ -25,7 +24,7 @@ class GoalDialogDeviceTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun dismissalPreservesDraftAndCreationDoesNotRunUntilExplicitContinue() {
+    fun dismissalAndSettingsPreserveDraftAndContinueStillUsesAdmission() {
         val container = ApplicationProvider.getApplicationContext<HelixApplication>().appContainer
         val storage = container.storage
         val service = container.chatService
@@ -36,7 +35,11 @@ class GoalDialogDeviceTest {
         var draft by mutableStateOf(objective)
         var open by mutableStateOf(true)
         var continued = 0
-        var goalId: String? = null
+        var settingsOpened = false
+        var goalId: String? =
+            kotlinx.coroutines.runBlocking {
+                service.createGoal(objective, emptyList(), com.helix.app.runcontrol.GoalBudgetDefaults.VALUE)
+            }
         try {
             compose.waitUntil(10_000) { service.screen.value.openSessionId == sessionId }
             compose.setContent {
@@ -45,7 +48,7 @@ class GoalDialogDeviceTest {
                         GoalDialog(service, draft, { open = false }, {
                             draft = ""
                             continued++
-                        })
+                        }, onSettings = { settingsOpened = true })
                     }
                 }
             }
@@ -55,16 +58,11 @@ class GoalDialogDeviceTest {
                 assertEquals(0, continued)
                 open = true
             }
-            compose.onNodeWithTag("goal-create").performClick()
-            compose.onNodeWithTag("goal-criteria").performTextInput("The output is verified")
-            compose.onNodeWithTag("goal-save").performClick()
-            compose.waitUntil(10_000) {
-                goalId =
-                    storage.goals
-                        .list()
-                        .singleOrNull { it.objective == objective }
-                        ?.id
-                goalId != null
+            compose.onNodeWithTag("goal-settings").performClick()
+            compose.runOnIdle {
+                assertEquals(true, settingsOpened)
+                assertEquals(objective, draft)
+                open = true
             }
             val id = requireNotNull(goalId)
             assertNotStarted(storage, id, sessionId)

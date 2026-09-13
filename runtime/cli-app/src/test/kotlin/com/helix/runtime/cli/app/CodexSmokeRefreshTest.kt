@@ -71,6 +71,21 @@ class CodexSmokeRefreshTest {
         }
     }
 
+    @Test fun accountConnectionRefreshesOnceWithoutGenerating() {
+        Fixture().use {
+            it.smoke.checkConnection()
+            assertEquals(listOf("GET", "GET"), it.requests.map { request -> request.method })
+            assertEquals(1, it.refreshCalls)
+        }
+    }
+
+    @Test fun accountConnectionRejectsUnauthorizedWithoutGenerating() {
+        Fixture(alwaysUnauthorized = true).use {
+            assertEquals(401, assertThrows(CodexSmokeException::class.java) { it.smoke.checkConnection() }.httpCode)
+            assertEquals(listOf("GET", "GET"), it.requests.map { request -> request.method })
+        }
+    }
+
     private class Fixture(
         alwaysUnauthorized: Boolean = false,
         refreshAction: (CliSubscriptionSession) -> CliSubscriptionSession = { it.copy(accessToken = "rotated") },

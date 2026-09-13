@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class CliRuntimeService : Service() {
     private lateinit var runner: CodexPayloadJobRunner
+    private lateinit var networkForeground: SubscriptionNetworkForeground
     private val oauthTransport = lazy { OkHttpCodexOAuthTransport() }
     private val claudeTransport = lazy { OkHttpClaudeOAuthTransport() }
     private val grokTransport = lazy { OkHttpGrokDeviceTransport() }
@@ -19,53 +20,68 @@ class CliRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        initializeNetworkForeground()
         val vault = CliSubscriptionCredentialVault(this)
         val oauth by lazy { CodexLoginController(vault, oauthTransport.value) }
         val claudeOauth by lazy { ClaudeLoginController(vault, claudeTransport.value) }
         val grokOauth by lazy { GrokLoginController(vault, grokTransport.value) }
         val copilotOauth by lazy { CopilotLoginController(vault, copilotTransport.value) }
+        val executeModel: (
+            ByteArray,
+            (List<ModelEvent>) -> Unit,
+        ) -> CodexModelExecution = executeModel@{ bytes, onEvents ->
+            val envelope =
+                com.helix.runtime.cli.client.CliModelRequestCodec
+                    .decodeEnvelope(bytes)
+            val request = envelope.request
+            fixtureExecution(request)?.let { return@executeModel it }
+            networkForeground.begin()
+            if (envelope.provider == CliModelProvider.CLAUDE) {
+                val model = ClaudeSubscriptionModel(vault, claudeOauth::refresh).also(activeModel::set)
+                return@executeModel try {
+                    model.use { it.run(request) }
+                } finally {
+                    activeModel.compareAndSet(model, null)
+                }
+            }
+            if (envelope.provider == CliModelProvider.GROK) {
+                val model = GrokSubscriptionModel(vault, grokOauth::refresh).also(activeModel::set)
+                return@executeModel try {
+                    model.use { it.run(request) }
+                } finally {
+                    activeModel.compareAndSet(model, null)
+                }
+            }
+            if (envelope.provider == CliModelProvider.COPILOT) {
+                val model = CopilotSubscriptionModel(vault, copilotOauth::refresh).also(activeModel::set)
+                return@executeModel try {
+                    model.use { it.run(request) }
+                } finally {
+                    activeModel.compareAndSet(model, null)
+                }
+            }
+            val model = CodexSubscriptionModel(vault, oauth, images = envelope.images).also(activeModel::set)
+            try {
+                model.use { it.run(request, onEvents) }
+            } finally {
+                activeModel.compareAndSet(model, null)
+            }
+        }
         runner =
             CodexPayloadJobRunner(
                 store = CodexPayloadJobStore(filesDir),
-                execute = { bytes ->
-                    val envelope =
-                        com.helix.runtime.cli.client.CliModelRequestCodec
-                            .decodeEnvelope(bytes)
-                    val request = envelope.request
-                    fixtureExecution(request)?.let { return@CodexPayloadJobRunner it }
-                    if (envelope.provider == CliModelProvider.CLAUDE) {
-                        val model = ClaudeSubscriptionModel(vault, claudeOauth::refresh).also(activeModel::set)
-                        return@CodexPayloadJobRunner try {
-                            model.use { it.run(request) }
-                        } finally {
-                            activeModel.compareAndSet(model, null)
-                        }
-                    }
-                    if (envelope.provider == CliModelProvider.GROK) {
-                        val model = GrokSubscriptionModel(vault, grokOauth::refresh).also(activeModel::set)
-                        return@CodexPayloadJobRunner try {
-                            model.use { it.run(request) }
-                        } finally {
-                            activeModel.compareAndSet(model, null)
-                        }
-                    }
-                    if (envelope.provider == CliModelProvider.COPILOT) {
-                        val model = CopilotSubscriptionModel(vault, copilotOauth::refresh).also(activeModel::set)
-                        return@CodexPayloadJobRunner try {
-                            model.use { it.run(request) }
-                        } finally {
-                            activeModel.compareAndSet(model, null)
-                        }
-                    }
-                    val model = CodexSubscriptionModel(vault, oauth).also(activeModel::set)
-                    try {
-                        model.use { it.run(request) }
-                    } finally {
-                        activeModel.compareAndSet(model, null)
-                    }
-                },
+                execute = { executeModel(it) {} },
+                executeStreaming = executeModel,
                 cancelExecution = { activeModel.getAndSet(null)?.close() },
             )
+    }
+
+    private fun initializeNetworkForeground() {
+        networkForeground =
+            SubscriptionNetworkForeground(this) {
+                runner.close()
+                activeModel.getAndSet(null)?.close()
+            }
     }
 
     private fun fixtureExecution(request: ModelRequest): CodexModelExecution? =
@@ -107,11 +123,36 @@ class CliRuntimeService : Service() {
             statusProvider = { CliEmbeddedBaseline.status(this) },
             callerVerifier = { uid -> CliCallerVerifier.verify(this, uid) },
             jobRunner = runner,
+            catalogProvider = {
+                networkForeground.begin()
+                val vault = CliSubscriptionCredentialVault(this)
+                CodexModelCatalog(vault, CodexLoginController(vault, oauthTransport.value)).fetch()
+            },
         )
 
-    override fun onUnbind(intent: Intent): Boolean = false
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        networkForeground.handle(intent)
+        return START_NOT_STICKY
+    }
+
+    override fun onUnbind(intent: Intent): Boolean {
+        networkForeground.close()
+        return false
+    }
+
+    override fun onTimeout(
+        startId: Int,
+        fgsType: Int,
+    ) {
+        networkForeground.stop()
+    }
 
     override fun onDestroy() {
+        networkForeground.close()
         runner.close()
         activeModel.getAndSet(null)?.close()
         if (oauthTransport.isInitialized()) oauthTransport.value.close()

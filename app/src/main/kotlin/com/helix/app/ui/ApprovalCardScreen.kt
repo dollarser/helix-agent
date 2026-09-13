@@ -10,7 +10,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -40,6 +45,7 @@ fun ApprovalCard(
     onApprove: () -> Unit,
     onDeny: () -> Unit,
 ) {
+    var expanded by remember(card.approvalId) { mutableStateOf(false) }
     Card(
         modifier =
             Modifier
@@ -59,8 +65,45 @@ fun ApprovalCard(
                 ),
                 style = MaterialTheme.typography.titleMedium,
             )
-            ApprovalCardFields(card)
+            if (expanded) {
+                ApprovalCardFields(card)
+            } else {
+                Text(card.scope, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    approvalArgumentSummary(card.arguments),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+                Text(
+                    localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                card.networkOrigin?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            }
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.testTag("approval-details-${card.approvalId}"),
+            ) {
+                Text(stringResource(if (expanded) R.string.summary_collapse else R.string.summary_expand))
+            }
             ApprovalCardActions(card, onApprove, onDeny)
+        }
+    }
+}
+
+private fun approvalArgumentSummary(arguments: String): String {
+    val fields =
+        runCatching {
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(arguments) as? kotlinx.serialization.json.JsonObject
+        }.getOrNull() ?: return arguments.take(160)
+    val targets = fields.filterKeys { it in setOf("path", "source", "destination", "url", "command") }
+    return if (targets.isEmpty()) {
+        fields.keys.joinToString(", ")
+    } else {
+        targets.entries.joinToString(" · ") {
+            "${it.key}: ${it.value}"
         }
     }
 }
@@ -87,9 +130,12 @@ private fun ApprovalCardFields(card: ApprovalCardUi) {
         localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
         tag = "approval-card-risk",
     )
-    FieldLine("Safety Profile", stringResource(ApprovalUiMapper.profileLabel(card.profile)))
     FieldLine(
-        "Provider/MCP",
+        stringResource(R.string.approval_profile_label),
+        stringResource(ApprovalUiMapper.profileLabel(card.profile)),
+    )
+    FieldLine(
+        stringResource(R.string.approval_provider_label),
         card.providerMcpId ?: stringResource(R.string.approval_builtin_no_provider_mcp),
     )
     FieldLine(

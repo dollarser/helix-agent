@@ -1,0 +1,5 @@
+gradle.beforeProject { p ->
+    if (p.path == ':feature:browser') {
+        p.layout.buildDirectory.set(new File(p.rootDir, 'build/debug/2026-09-10/physical-browser-build'))
+    }
+}
