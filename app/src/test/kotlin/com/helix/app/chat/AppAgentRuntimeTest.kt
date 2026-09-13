@@ -121,6 +121,17 @@ class AppAgentRuntimeTest {
         assertEquals(listOf("t1"), fake.cancelled)
     }
 
+    @Test
+    fun cancelOfAParkedInterruptedTurnIsDiscardedAndReportsCancelled() {
+        // A parked (INTERRUPTED) turn has no live loop; the host discards it to CANCELLED, so the
+        // result is still Cancelled (honest — a real cancel happened, not a silent no-op).
+        val fake = host().apply { phase = TurnState.INTERRUPTED }
+        val runtime = AppAgentRuntime(fake)
+        val result = runBlocking { runtime.cancel(turnId) }
+        assertTrue(result is CancelResult.Cancelled)
+        assertEquals(listOf("t1"), fake.cancelled)
+    }
+
     // --- observe ---
 
     @Test
@@ -213,8 +224,13 @@ class AppAgentRuntimeTest {
             return nextStartTurnId
         }
 
-        override fun cancelTurn(turnId: String) {
+        override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {
             cancelled += turnId
+            // Mirror the host: a parked (INTERRUPTED) turn is discarded, a live one stopped.
+            return when (phase) {
+                TurnState.INTERRUPTED -> TurnCancelOutcome.DiscardedParked
+                else -> TurnCancelOutcome.StoppedLive
+            }
         }
 
         override val activeTurn: Flow<TurnUi?>

@@ -1553,13 +1553,34 @@ class ChatService(
         )
 
     /**
-     * [com.helix.core.agent.AgentRuntime.cancel] cancels the turn's live work — the stop path,
-     * which guards against a stale id (a turn that is no longer its session's active one) and
-     * cancels both the turn flag and the service-owned job.
+     * [com.helix.core.agent.AgentRuntime.cancel]: stop the turn's live work, or — when it has no
+     * live loop (a parked / INTERRUPTED turn) — discard it to CANCELLED. Reports the outcome so
+     * the adapter's CancelResult is honest (a parked turn is actually cancelled, not silently
+     * no-oped). The turn exists: the adapter pre-checks [persistedPhase] before calling this.
      */
-    override fun cancelTurn(turnId: String) {
-        stopTask(turnId)
-    }
+    override suspend fun cancelTurn(turnId: String): TurnCancelOutcome =
+        withContext(Dispatchers.IO) {
+            val task = storage.turns.resolve(turnId)
+            val active = sessionTurnAdmission.activeTurn(task.sessionId)
+            if (active != null && active.turnId == turnId) {
+                turnCancels[turnId]?.cancel()
+                active.job.cancel()
+                TurnCancelOutcome.StoppedLive
+            } else {
+                // No live loop: a non-terminal turn without one is a parked (INTERRUPTED) turn.
+                // Discard it straight to CANCELLED — the model's only direct-to-CANCELLED edge.
+                // updateState validates the transition, so a turn not in a discardable state fails
+                // closed (throws) instead of being silently marked cancelled.
+                storage.turns.updateState(
+                    turn = task,
+                    state = TurnState.CANCELLED,
+                    stepCount = task.stepCount,
+                    endedAt = clock.now().toEpochMilli(),
+                    errorCode = null,
+                )
+                TurnCancelOutcome.DiscardedParked
+            }
+        }
 
     /**
      * Live-frame source for [com.helix.core.agent.AgentRuntime.observe]: the open session's

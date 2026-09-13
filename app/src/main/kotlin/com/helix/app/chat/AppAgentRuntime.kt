@@ -46,12 +46,23 @@ internal class AppAgentRuntime(
     }
 
     override suspend fun cancel(turnId: TurnId): CancelResult {
-        val phase = host.persistedPhase(turnId.value) ?: return CancelResult.NotFound
-        return if (phase.isTerminal) {
-            CancelResult.AlreadyTerminal(phase)
-        } else {
-            host.cancelTurn(turnId.value)
-            CancelResult.Cancelled
+        val phase = host.persistedPhase(turnId.value)
+        return when {
+            phase == null -> {
+                CancelResult.NotFound
+            }
+
+            phase.isTerminal -> {
+                CancelResult.AlreadyTerminal(phase)
+            }
+
+            // A non-terminal turn is cancelled for real: the host stops its live loop, or — for a
+            // parked (INTERRUPTED) turn with no live loop — discards it to CANCELLED. Either way
+            // the turn ends cancelled, so Cancelled is honest (a parked turn is not no-oped).
+            else -> {
+                host.cancelTurn(turnId.value)
+                CancelResult.Cancelled
+            }
         }
     }
 
