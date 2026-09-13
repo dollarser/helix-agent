@@ -1504,13 +1504,16 @@ class ChatService(
      * files are written DURING turns, so a turn-state change is when a new artifact row can
      * appear — so an open Tasks or Artifacts screen observes the live state instead of a
      * screen-entry snapshot; screen entry and an explicit refresh go through
-     * [refreshTaskDashboardsNow].
+     * [refreshTaskDashboardsNow]. The reads hop to [Dispatchers.IO] rather than trusting the
+     * caller: the goal/plan mutations that re-read after their write run on the CALLER's
+     * dispatcher — the UI's main one — and Room refuses database work on the main thread.
      */
-    private fun refreshTaskDashboards() {
-        goalDashboardState.value = GoalSummaryQuery(storage).forAll()
-        planDashboardState.value = PlanRowQuery(storage).read()
-        artifactFilesState.value = ArtifactQuery(storage).recent(ARTIFACT_FILES_LIMIT)
-    }
+    private suspend fun refreshTaskDashboards() =
+        withContext(Dispatchers.IO) {
+            goalDashboardState.value = GoalSummaryQuery(storage).forAll()
+            planDashboardState.value = PlanRowQuery(storage).read()
+            artifactFilesState.value = ArtifactQuery(storage).recent(ARTIFACT_FILES_LIMIT)
+        }
 
     fun refreshTaskDashboardsNow() {
         workScope.launch { refreshTaskDashboards() }
@@ -2199,8 +2202,10 @@ class ChatService(
         if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) {
             // A turn-state change settles goal runs and can move plans — re-read the dashboard
             // facts too, so an open Tasks screen tracks the same live state as the task list.
+            // publishTurn is not suspend (it runs from the stream event path), so go through
+            // the work-scope variant for the hop-off-thread read.
             refreshBackgroundTasks()
-            refreshTaskDashboards()
+            refreshTaskDashboardsNow()
         }
         val session = storage.turns.resolve(turn.id).sessionId
         _screen.update { if (it.openSessionId == session) it.copy(activeTurn = turn) else it }
