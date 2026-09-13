@@ -46,8 +46,30 @@ internal class GoalRunCoordinator(
         planId: PlanId? = null,
         planHash: Sha256? = null,
     ): String {
-        // HX2-05: a plan-executing goal binds the approved plan version; the pair is
-        // all-or-nothing (StoredGoal enforces the same invariant at the row level).
+        var created: String? = null
+        storage.withTransaction {
+            created = saveReadyGoal(objective, criteria, budgets, planId, planHash)
+        }
+        return created ?: error("a new goal must be saved")
+    }
+
+    /**
+     * Computes and persists a fresh READY goal and returns its id. [create] wraps this in its
+     * own transaction; a caller that must commit the goal TOGETHER with other writes — the plan
+     * EXECUTING transition (research doc 5.1: restart + double-click execute) — calls this from
+     * INSIDE its own storage transaction. Callers MUST already be inside a transaction; this
+     * method does not open one.
+     *
+     * HX2-05: a plan-executing goal binds the approved plan version; the pair is all-or-nothing
+     * (StoredGoal enforces the same invariant at the row level).
+     */
+    fun saveReadyGoal(
+        objective: String,
+        criteria: List<String>,
+        budgets: GoalBudgets,
+        planId: PlanId?,
+        planHash: Sha256?,
+    ): String {
         require((planId == null) == (planHash == null)) { "planId and planHash must be set together" }
         val goal =
             Goal.initial(
@@ -60,10 +82,8 @@ internal class GoalRunCoordinator(
                 planHash,
             )
         val ready = GoalReducer.reduce(goal, GoalEvent.Ready(null, null)).state
-        storage.withTransaction {
-            storage.goals.save(ready.toStoredGoal())
-            audit(ready, "goal.created")
-        }
+        storage.goals.save(ready.toStoredGoal())
+        audit(ready, "goal.created")
         return ready.id.value
     }
 

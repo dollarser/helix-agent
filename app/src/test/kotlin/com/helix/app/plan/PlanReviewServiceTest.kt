@@ -67,6 +67,7 @@ class PlanReviewServiceTest {
 
         var goalCreation: GoalCreation? = null
         val goalId = "goal-1"
+        var beginExecutions = 0
 
         override fun resolveEntity(planId: String): PlanEntity =
             row.takeIf { it.id == planId } ?: throw IllegalArgumentException("plan not found: $planId")
@@ -83,14 +84,20 @@ class PlanReviewServiceTest {
             row = row.copy(state = to.name, evidenceRef = evidenceRef)
         }
 
-        override fun createExecutingGoal(
+        override fun beginExecution(
             objective: String,
             criteria: List<String>,
             budgets: GoalBudgets,
             planId: String,
             planHash: String,
         ): String {
+            beginExecutions++
             goalCreation = GoalCreation(objective, criteria, planId, planHash)
+            // One atomic operation: the row moves to EXECUTING with the goal as its evidenceRef.
+            // Deliberately NOT recorded in [transitions] — that list proves the EXECUTING
+            // transition is INSIDE beginExecution, not a separate port call the service made.
+            row = row.copy(state = PlanLifecycleState.EXECUTING.name, evidenceRef = goalId)
+            audits += "plan.execution_started" to """{"goalId":"$goalId"}"""
             return goalId
         }
 
@@ -173,6 +180,10 @@ class PlanReviewServiceTest {
         val goalId = service.execute(binding, budgets)
 
         assertEquals(port.goalId, goalId)
+        // Exactly one atomic beginExecution call — the Goal save and the plan transition are ONE
+        // port operation, not a create followed by a separate transition the service made.
+        assertEquals(1, port.beginExecutions)
+        assertTrue(port.transitions.isEmpty())
         val creation =
             port.goalCreation
                 ?: throw AssertionError("no goal was created")
@@ -180,11 +191,10 @@ class PlanReviewServiceTest {
         assertEquals(artifact.acceptanceCriteria, creation.criteria)
         assertEquals(planId, creation.planId)
         assertEquals(artifact.sha256().hex, creation.planHash)
-        // The executing Goal is the plan's evidenceRef; the state is EXECUTING.
-        assertEquals(
-            listOf<Pair<PlanLifecycleState, String?>>(PlanLifecycleState.EXECUTING to port.goalId),
-            port.transitions,
-        )
+        // The row moved to EXECUTING with the goal as its evidenceRef — all inside beginExecution.
+        val row = port.resolveEntity(planId)
+        assertEquals(PlanLifecycleState.EXECUTING, PlanLifecycleState.valueOf(row.state))
+        assertEquals(port.goalId, row.evidenceRef)
         assertEquals(listOf("plan.execution_started"), port.audits.map { it.first })
     }
 
@@ -195,6 +205,7 @@ class PlanReviewServiceTest {
         val drifted = PlanExecutionBinding(PlanId(planId), artifact.version, artifact.withNextVersion().sha256())
         assertThrows(IllegalArgumentException::class.java) { service.execute(drifted, budgets) }
         assertNull(port.goalCreation)
+        assertEquals(0, port.beginExecutions)
         assertTrue(port.transitions.isEmpty())
     }
 
@@ -205,6 +216,7 @@ class PlanReviewServiceTest {
             val service = PlanReviewService(port)
             val binding = PlanExecutionBinding(PlanId(planId), artifact.version, artifact.sha256())
             assertThrows(IllegalArgumentException::class.java) { service.execute(binding, budgets) }
+            assertEquals(0, port.beginExecutions)
             assertTrue(port.transitions.isEmpty())
         }
     }

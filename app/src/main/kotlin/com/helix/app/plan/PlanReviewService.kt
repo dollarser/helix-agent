@@ -32,8 +32,9 @@ internal data class PlanReview(
  * - [revise]: READY -> DRAFT; the user's feedback re-drives Plan mode and the model
  *   re-submits (a new plan row);
  * - [cancel]: READY -> REJECTED;
- * - [execute]: APPROVED -> EXECUTING; creates the Goal bound to the exact approved version
- *   (goal.planId + goal.planHash) and returns its id — only after approval (doc 4.3).
+ * - [execute]: APPROVED -> EXECUTING; begins execution in ONE transaction — it creates the Goal
+ *   bound to the exact approved version (goal.planId + goal.planHash) AND moves the plan to
+ *   EXECUTING together (doc 5.1: restart + double-click execute) and returns the goal id.
  *
  * Every transition is illegal-state fail-closed: a plan that is not in the state the doc's
  * lifecycle requires is refused, nothing is written. (READY is this codebase's name for the
@@ -85,17 +86,16 @@ internal class PlanReviewService(
             "the execution binding does not match the approved plan version"
         }
         val plan = port.resolve(binding.planId.value)
-        val goalId =
-            port.createExecutingGoal(
-                objective = plan.objective,
-                criteria = plan.acceptanceCriteria,
-                budgets = budgets,
-                planId = binding.planId.value,
-                planHash = binding.planHash.hex,
-            )
-        port.transition(binding.planId.value, PlanLifecycleState.EXECUTING, goalId)
-        port.audit(binding.planId.value, "plan.execution_started", """{"goalId":"$goalId"}""")
-        return goalId
+        // One atomic port operation: the bound Goal and the plan's EXECUTING transition (and the
+        // execution_started audit) commit together, so a crash or a second click cannot leave an
+        // orphaned Goal or a double execution (research doc 5.1).
+        return port.beginExecution(
+            objective = plan.objective,
+            criteria = plan.acceptanceCriteria,
+            budgets = budgets,
+            planId = binding.planId.value,
+            planHash = binding.planHash.hex,
+        )
     }
 
     private fun requireReady(
@@ -130,8 +130,12 @@ internal interface PlanReviewPort {
         evidenceRef: String?,
     )
 
-    /** Creates the Goal bound to the approved plan version; returns the goal id. */
-    fun createExecutingGoal(
+    /**
+     * Begins execution in ONE atomic transaction: creates the Goal bound to the approved plan
+     * version, moves the plan to EXECUTING (with the goal as its evidenceRef) and appends the
+     * execution_started audit — all commit together or none (research doc 5.1). Returns the goal id.
+     */
+    fun beginExecution(
         objective: String,
         criteria: List<String>,
         budgets: GoalBudgets,
@@ -165,18 +169,35 @@ internal class StoragePlanReviewPort(
         storage.withTransaction { storage.plans.updateState(planId, to.name, evidenceRef) }
     }
 
-    override fun createExecutingGoal(
+    override fun beginExecution(
         objective: String,
         criteria: List<String>,
         budgets: GoalBudgets,
         planId: String,
         planHash: String,
-    ): String =
-        GoalRunCoordinator(
-            storage,
-            clock,
-            idGenerator,
-        ).create(objective, criteria, budgets, PlanId(planId), Sha256(planHash))
+    ): String {
+        var goalId: String? = null
+        storage.withTransaction {
+            goalId =
+                GoalRunCoordinator(storage, clock, idGenerator).saveReadyGoal(
+                    objective,
+                    criteria,
+                    budgets,
+                    PlanId(planId),
+                    Sha256(planHash),
+                )
+            storage.plans.updateState(planId, PlanLifecycleState.EXECUTING.name, goalId)
+            storage.auditEvents.append(
+                idGenerator(),
+                planId,
+                "plan.execution_started",
+                "USER",
+                """{"goalId":"$goalId"}""",
+                clock.now().toEpochMilli(),
+            )
+        }
+        return goalId ?: error("beginExecution must save the executing goal")
+    }
 
     override fun audit(
         planId: String,
