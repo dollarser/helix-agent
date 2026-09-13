@@ -5,6 +5,7 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.LocalToolCallBatch
 import com.helix.app.agent.SettledCall
 import com.helix.app.agent.TurnMessageDraft
+import com.helix.core.agent.TestRunResult
 import com.helix.core.model.ModelRole
 import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.serialization.json.buildJsonArray
@@ -47,7 +48,7 @@ internal class ChatToolMessageEncoder(
         when (val o = settled.outcome) {
             is ToolDispatchOutcome.Succeeded -> {
                 status = "SUCCEEDED"
-                summary = o.result.payload
+                summary = withTestSummary(settled.toolName, o.result.payload)
             }
 
             is ToolDispatchOutcome.Denied -> {
@@ -78,4 +79,23 @@ internal class ChatToolMessageEncoder(
             content = body.toString(),
         )
     }
+
+    /**
+     * P1 (research doc section 44 "structured test result"): for an exec tool, if the output
+     * parses as a test/build aggregate, append the concise structured line so the model sees
+     * "N passed, M failed" without re-reading the whole log. Non-exec tools and unrecognized
+     * output pass through unchanged (the parser is fail-open: a miss yields the payload as-is).
+     */
+    private fun withTestSummary(
+        toolName: String,
+        payload: String,
+    ): String =
+        if (toolName in EXEC_TOOLS) {
+            TestRunResult.parse(payload)?.let { "$payload\n${it.line}" } ?: payload
+        } else {
+            payload
+        }
 }
+
+// The exec tools whose output may carry a test/build summary (research doc section 44).
+private val EXEC_TOOLS = setOf("bash", "code.linux.run")
