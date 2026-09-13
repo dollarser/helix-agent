@@ -42,6 +42,7 @@ class AppAgentRuntimeTest {
         goalId: GoalId? = null,
         retryTurnId: TurnId? = null,
         attachments: List<AttachmentBindingIntent> = emptyList(),
+        clientRequestId: String = "req-1",
     ) = SubmitTurnCommand(
         sessionId,
         providerId,
@@ -52,6 +53,7 @@ class AppAgentRuntimeTest {
         goalId = goalId,
         retryTurnId = retryTurnId,
         attachments = attachments,
+        clientRequestId = clientRequestId,
     )
 
     // --- submit: the command becomes a per-turn run control and a turn start ---
@@ -95,6 +97,21 @@ class AppAgentRuntimeTest {
         runBlocking { runtime.submit(command(attachments = listOf(intent))) }
 
         assertEquals(listOf(intent), fake.lastStartAttachments)
+    }
+
+    @Test
+    fun aResubmittedClientRequestIdReturnsTheSameTurnWithoutStartingASecond() {
+        // HX2-01 §2e: the adapter forwards the stable client-request id; the host dedups on it,
+        // so a re-driven submission with the same id returns the already-started turn — the host
+        // never starts a second turn (this is what collapses a re-driven egress confirm).
+        val fake = host()
+        val runtime = AppAgentRuntime(fake)
+        runBlocking {
+            val first = runtime.submit(command(clientRequestId = "req-same"))
+            val resubmitted = runtime.submit(command(clientRequestId = "req-same"))
+            assertEquals(first, resubmitted)
+            assertEquals(1, fake.startedTurns.size)
+        }
     }
 
     // --- cancel ---
@@ -208,9 +225,12 @@ class AppAgentRuntimeTest {
         var assistantText: String? = null
         var frames: List<TurnUi?> = emptyList()
         val cancelled = mutableListOf<String>()
+        val startedTurns = mutableListOf<String>() // turn ids actually started (a dedup hit adds none)
+        private val claimedClientIds = HashMap<String, String>()
 
         override suspend fun startTurn(
             sessionId: String,
+            clientRequestId: String,
             text: String?,
             providerId: String,
             retryTurnId: String?,
@@ -218,9 +238,16 @@ class AppAgentRuntimeTest {
             attachments: List<AttachmentBindingIntent>,
             control: RunControlConfig,
         ): String? {
+            // Mirror the production host (HX2-01 §2e): idempotent by clientRequestId — a re-driven
+            // start carrying an already-claimed id returns the existing turn, never a second.
+            claimedClientIds[clientRequestId]?.let { existing -> return existing }
             lastStartSession = sessionId
             lastStart = control
             lastStartAttachments = attachments
+            if (nextStartTurnId != null) {
+                claimedClientIds[clientRequestId] = nextStartTurnId!!
+                startedTurns += nextStartTurnId!!
+            }
             return nextStartTurnId
         }
 

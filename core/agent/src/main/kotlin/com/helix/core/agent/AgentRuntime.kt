@@ -38,7 +38,9 @@ import com.helix.core.model.TurnState as TurnPhase
 interface AgentRuntime {
     /**
      * Start a new turn for [command] and return its [TurnId]. The returned id is stable for the
-     * turn's whole lifetime and addresses [observe] and [cancel].
+     * turn's whole lifetime and addresses [observe] and [cancel]. Idempotent by
+     * [SubmitTurnCommand.clientRequestId]: a second [submit] carrying the same id returns the turn
+     * the first one already started — it never starts a second turn for the same submission.
      */
     suspend fun submit(command: SubmitTurnCommand): TurnId
 
@@ -64,6 +66,13 @@ interface AgentRuntime {
  * path approves ONE enumerated set (ADR-0014 §5) and binds exactly those artifacts, so the
  * approved set travels with the intent — the session's live staged set is the source of truth
  * only until a send approves it. A producer without an approved set passes none.
+ *
+ * [clientRequestId] is the producer's STABLE id for this submission: the runtime is idempotent by
+ * it. A submission is a single logical intent; a producer that may re-drive the same intent (a
+ * confirmed egress re-delivered by a double-confirm, a client that retries after a timeout) passes
+ * the SAME [clientRequestId] each time and the runtime returns the already-started turn instead of
+ * starting a second. A producer whose intents never re-drive (a fresh tap) passes a fresh id per
+ * intent. The id is opaque to the runtime — it never inspects its value, only its equality.
  */
 data class SubmitTurnCommand(
     val session: SessionId,
@@ -76,11 +85,13 @@ data class SubmitTurnCommand(
     val goalId: GoalId? = null,
     val retryTurnId: TurnId? = null,
     val attachments: List<AttachmentBindingIntent> = emptyList(),
+    val clientRequestId: String,
 ) {
     init {
         require(text != null || goalId != null || retryTurnId != null) {
             "a turn needs a driver: user text, a bound goal, or a retryTurnId (none provided)"
         }
+        require(clientRequestId.isNotBlank()) { "clientRequestId must not be blank" }
     }
 }
 

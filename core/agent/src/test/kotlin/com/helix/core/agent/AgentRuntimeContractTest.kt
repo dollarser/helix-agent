@@ -35,7 +35,15 @@ class AgentRuntimeContractTest {
 
     @Test
     fun aCommandCarriesTheTurnStartIntent() {
-        val command = SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, "hi", budgets)
+        val command =
+            SubmitTurnCommand(
+                sessionId,
+                providerId,
+                AgentMode.CHAT,
+                "hi",
+                budgets,
+                clientRequestId = "req-1",
+            )
         assertEquals(sessionId, command.session)
         assertEquals(AgentMode.CHAT, command.mode)
         assertEquals("hi", command.text)
@@ -56,6 +64,7 @@ class AgentRuntimeContractTest {
                 budgets = budgets,
                 reasoning = ReasoningEffort.MEDIUM,
                 goalId = goalId,
+                clientRequestId = "req-2",
             )
         assertEquals(goalId, command.goalId)
         assertEquals(ReasoningEffort.MEDIUM, command.reasoning)
@@ -66,14 +75,32 @@ class AgentRuntimeContractTest {
     fun aCommandWithoutADriverIsRejected() {
         // No user text, no bound goal, no retry: nothing could drive the turn.
         assertThrows(IllegalArgumentException::class.java) {
-            SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, null, budgets)
+            SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, null, budgets, clientRequestId = "req-3")
         }
     }
 
     @Test
     fun aRetryTurnIsADriverOnItsOwn() {
-        val command = SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, null, budgets, retryTurnId = turnId)
+        val command =
+            SubmitTurnCommand(
+                sessionId,
+                providerId,
+                AgentMode.CHAT,
+                null,
+                budgets,
+                retryTurnId = turnId,
+                clientRequestId = "req-4",
+            )
         assertEquals(turnId, command.retryTurnId)
+    }
+
+    @Test
+    fun aBlankClientRequestIdIsRejected() {
+        // The stable dedup id is part of the submission's identity: a blank one would make
+        // idempotency-by-id meaningless, so the contract refuses it (fail-closed).
+        assertThrows(IllegalArgumentException::class.java) {
+            SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, "hi", budgets, clientRequestId = "  ")
+        }
     }
 
     // --- TurnSnapshot projects the reducer state onto the UI ---
@@ -102,7 +129,17 @@ class AgentRuntimeContractTest {
     fun aRuntimeImplementsSubmitCancelObserve() {
         val runtime = FakeAgentRuntime(turnId)
         runBlocking {
-            val submitted = runtime.submit(SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, "hi", budgets))
+            val submitted =
+                runtime.submit(
+                    SubmitTurnCommand(
+                        sessionId,
+                        providerId,
+                        AgentMode.CHAT,
+                        "hi",
+                        budgets,
+                        clientRequestId = "req-5",
+                    ),
+                )
             assertEquals(turnId, submitted)
 
             val frames = runtime.observe(turnId).take(2).toList()
@@ -111,6 +148,56 @@ class AgentRuntimeContractTest {
             val cancelled = runtime.cancel(turnId)
             assertTrue(cancelled is CancelResult.AlreadyTerminal)
         }
+    }
+
+    @Test
+    fun aResubmittedClientRequestIdReturnsTheSameTurnNotASecondOne() {
+        // The contract is idempotent by clientRequestId (HX2-01 §2e): a re-driven submission
+        // carrying the same id returns the already-started turn; a DIFFERENT id starts a new one.
+        val runtime = IdempotentFakeRuntime()
+        val command =
+            SubmitTurnCommand(
+                sessionId,
+                providerId,
+                AgentMode.CHAT,
+                "hi",
+                budgets,
+                clientRequestId = "req-idem",
+            )
+        runBlocking {
+            val first = runtime.submit(command)
+            val resubmitted = runtime.submit(command)
+            assertEquals(first, resubmitted)
+            assertEquals(1, runtime.turnsStarted) // the re-drive did not start a second turn
+
+            val different = runtime.submit(command.copy(clientRequestId = "req-other"))
+            assertTrue(different != first)
+            assertEquals(2, runtime.turnsStarted)
+        }
+    }
+
+    private class IdempotentFakeRuntime : AgentRuntime {
+        private val started = HashMap<String, TurnId>()
+        var turnsStarted = 0
+            private set
+
+        override suspend fun submit(command: SubmitTurnCommand): TurnId {
+            started[command.clientRequestId]?.let { return it }
+            val id = TurnId("t$turnsStarted")
+            started[command.clientRequestId] = id
+            turnsStarted++
+            return id
+        }
+
+        override suspend fun cancel(turnId: TurnId): CancelResult =
+            if (started.values.contains(turnId)) {
+                CancelResult.AlreadyTerminal(TurnState.COMPLETED)
+            } else {
+                CancelResult.NotFound
+            }
+
+        override fun observe(turnId: TurnId): Flow<TurnSnapshot> =
+            flowOf(TurnSnapshot(turnId, TurnState.COMPLETED, assistantText = "done"))
     }
 
     private class FakeAgentRuntime(

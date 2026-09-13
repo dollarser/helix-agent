@@ -292,6 +292,14 @@ class ChatService(
     private val turnGate = Any()
     private val sessionTurnAdmission = SessionTurnAdmission()
 
+    /**
+     * Idempotency for turn submission (HX2-01 §2e): a stable client-request id maps to the turn it
+     * started, so a re-driven submission (a confirmed egress re-delivered by a double-confirm)
+     * returns the already-started turn instead of starting a second. Checked and recorded together
+     * under [turnGate] in [launchTurn].
+     */
+    private val turnSubmitDedup = TurnSubmitDedup()
+
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
     // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
     // write would silently drop the user's message with no UI feedback).
@@ -323,6 +331,16 @@ class ChatService(
      */
     @Volatile
     private var pendingAttachmentIds: List<String> = emptyList()
+
+    /**
+     * HX2-01 §2e: the stable client-request id for the open [pendingSend]'s submission. Generated
+     * ONCE when the egress confirmation is created and carried through the (possibly re-driven)
+     * confirm, so a double-confirm that re-drives the same pending send dedups to the single turn
+     * it started — the read-and-clear of [pendingSend] is a liveness guard, not an atomic one, so
+     * this id is what actually collapses a racing re-drive. Cleared everywhere [pendingSend] is.
+     */
+    @Volatile
+    private var pendingClientRequestId: String? = null
 
     /**
      * HXA-056: the shared-in TEXT draft awaiting a one-shot composer pre-fill (set by
@@ -1112,6 +1130,9 @@ class ChatService(
                 pendingSend = text
                 pendingEgress = target
                 pendingAttachmentIds = staged.map { it.artifactId }
+                // HX2-01 §2e: one stable id for this pending submission, carried through a possibly
+                // re-driven confirm so a double-confirm dedups to the single turn it started.
+                pendingClientRequestId = idGenerator()
                 _screen.update { it.copy(pendingDisclosure = decision.summary, blockedReason = null) }
             }
 
@@ -1130,6 +1151,10 @@ class ChatService(
     private suspend fun confirmSendNow() {
         val text = pendingSend ?: return
         val goalId = pendingGoalId
+        // Capture the stable client-request id with the pending state it belongs to (HX2-01 §2e):
+        // a possibly-re-driven confirm carries the same id, so the runtime dedups to the single
+        // turn it started.
+        val clientRequestId = pendingClientRequestId
         // Capture the approved target AND attachment set BEFORE clearing the pending state: the
         // binding checks below compare the LIVE target and the CURRENT staged set against exactly
         // what the dialog showed.
@@ -1141,6 +1166,7 @@ class ChatService(
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
+        pendingClientRequestId = null
         _screen.update { it.copy(pendingDisclosure = null) }
         // Fail-closed re-check (the gate already ran when the disclosure was
         // shown): a provider re-test/revocation between the dialog and this
@@ -1175,7 +1201,7 @@ class ChatService(
         }
         // Delegate the staged-attachment handling (enumeration drift check + re-verify + launch);
         // a pure-text pending (no staged) takes the exact pre-attachment path (no regression).
-        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget, goalId)
+        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget, goalId, clientRequestId)
     }
 
     /**
@@ -1194,6 +1220,7 @@ class ChatService(
         approvedAttachmentIds: List<String>,
         liveTarget: EgressDisclosure.EgressTarget,
         goalId: String?,
+        clientRequestId: String?,
     ) {
         val staged = stagedAttachments
         // ADR-0014 §5: the user approved a SPECIFIC enumerated set of attachments — the dialog
@@ -1208,7 +1235,7 @@ class ChatService(
             return
         }
         if (staged.isEmpty()) {
-            submitTurn(text = text, providerId = providerId, goalId = goalId)
+            submitTurn(text = text, providerId = providerId, goalId = goalId, clientRequestId = clientRequestId)
             return
         }
         // HXA-055: a staged image whose on-device normalization failed at staging time is
@@ -1297,6 +1324,7 @@ class ChatService(
             providerId = providerId,
             attachments = bindings.map { AttachmentBindingIntent(it.artifactId, it.boundSha256) },
             goalId = goalId,
+            clientRequestId = clientRequestId,
         )
     }
 
@@ -1351,6 +1379,7 @@ class ChatService(
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
+        pendingClientRequestId = null
         _screen.update { it.copy(pendingDisclosure = null) }
     }
 
@@ -1523,11 +1552,14 @@ class ChatService(
      * [com.helix.core.agent.AgentRuntime.submit] starts a turn through the SAME path as every
      * in-app entry (send / confirmed egress / retry / goal start, which all [submitTurn] into
      * this) — but for an explicit session and an explicit per-turn run control: the research
-     * doc's unified entry point. Returns the started turn's id, or null when the session refused
-     * it (fail-closed; the adapter surfaces that as a start-blocked signal).
+     * doc's unified entry point. Idempotent by [clientRequestId]: a re-driven start carrying an id
+     * it already started returns the existing turn's id, never a second turn (see [launchTurn]).
+     * Returns the started turn's id, or null when the session refused it (fail-closed; the
+     * adapter surfaces that as a start-blocked signal).
      */
     override suspend fun startTurn(
         sessionId: String,
+        clientRequestId: String,
         text: String?,
         providerId: String,
         retryTurnId: String?,
@@ -1550,6 +1582,7 @@ class ChatService(
                 },
             requestedSessionId = sessionId,
             controlOverride = control,
+            clientRequestId = clientRequestId,
         )
 
     /**
@@ -1624,6 +1657,7 @@ class ChatService(
         retryTurnId: String? = null,
         attachments: List<AttachmentBindingIntent> = emptyList(),
         goalId: String? = null,
+        clientRequestId: String? = null,
     ) {
         val session = currentSession() ?: return
         val control = runControlStore.current
@@ -1640,6 +1674,10 @@ class ChatService(
                     goalId = goalId?.let { GoalId(it) },
                     retryTurnId = retryTurnId?.let { TurnId(it) },
                     attachments = attachments,
+                    // A caller that supplies a stable [clientRequestId] (the confirmed-egress
+                    // re-drive) dedups to the turn it already started; every other entry point is a
+                    // fresh intent and gets a fresh id.
+                    clientRequestId = clientRequestId ?: idGenerator(),
                 ),
             )
         } catch (e: TurnStartBlocked) {
@@ -1647,7 +1685,9 @@ class ChatService(
         }
     }
 
-    @Suppress("ReturnCount") // one fail-closed return per guard (session, snapshot, turn gate)
+    // one fail-closed return per guard (session, snapshot, turn gate); one branch per guard plus
+    // the idempotency dedup check (HX2-01 §2e)
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
     private suspend fun launchTurn(
         text: String?,
         providerId: String,
@@ -1656,6 +1696,7 @@ class ChatService(
         goalId: String? = null,
         requestedSessionId: String? = null,
         controlOverride: RunControlConfig? = null,
+        clientRequestId: String,
     ): String? {
         // The unified AgentRuntime (HX2-01) starts turns for an explicit session with an explicit
         // per-turn control; the in-session send path passes neither and falls back to the open
@@ -1681,6 +1722,10 @@ class ChatService(
                 return null
             }
         synchronized(turnGate) {
+            // Idempotency (HX2-01 §2e): a re-driven submission carrying an id this process already
+            // started returns that turn — never a second. Checked under the gate so this check and
+            // the record below are atomic with respect to every other start attempt on the gate.
+            turnSubmitDedup.alreadyStarted(clientRequestId)?.let { existing -> return existing }
             // Per-session admission: refuse only when THIS session already has an in-flight turn —
             // a turn in another session must never make this send vanish.
             if (sessionTurnAdmission.hasActive(sessionId)) return null
@@ -1714,6 +1759,10 @@ class ChatService(
                     runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
                 }
             sessionTurnAdmission.register(sessionId, job, turnId)
+            // Record ONLY once the turn is committed (row written, job launched): a start that
+            // failed before this point leaves the id unclaimed, so a re-drive may legitimately
+            // retry it instead of being pinned to a turn that was never written.
+            turnSubmitDedup.record(clientRequestId, turnId)
             if (openSessionId == sessionId) {
                 refreshScreen() // publish the committed user message before the model may emit or wait
                 publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))

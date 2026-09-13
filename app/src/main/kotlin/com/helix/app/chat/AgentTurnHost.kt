@@ -19,11 +19,15 @@ internal interface AgentTurnHost {
     /**
      * Start a turn for [sessionId] under the explicit per-turn [control]. [attachments] are the
      * producer's approved binding intents (ADR-0014 §5) the host binds to the turn's user message.
-     * Returns the new turn's id, or null when the session refused the start (fail-closed — no turn
-     * row was written).
+     * [clientRequestId] is the producer's stable id for this submission (HX2-01 §2e): the host is
+     * idempotent by it — a re-driven start carrying an id it already started returns the existing
+     * turn's id, never a second turn. Returns the started turn's id, or null when the session
+     * refused the start (fail-closed — no turn row was written).
      */
+    @Suppress("LongParameterList") // one start fact per parameter (see the KDoc)
     suspend fun startTurn(
         sessionId: String,
+        clientRequestId: String,
         text: String?,
         providerId: String,
         retryTurnId: String?,

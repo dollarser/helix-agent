@@ -34,6 +34,7 @@ internal class AppAgentRuntime(
         val turnId =
             host.startTurn(
                 sessionId = command.session.value,
+                clientRequestId = command.clientRequestId,
                 text = command.text,
                 providerId = command.providerId.value,
                 retryTurnId = command.retryTurnId?.value,
