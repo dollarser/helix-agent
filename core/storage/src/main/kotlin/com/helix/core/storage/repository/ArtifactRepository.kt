@@ -89,6 +89,9 @@ class ArtifactRepository(
 
     fun listBySession(sessionId: String): List<ArtifactEntity> = dao.listBySession(sessionId)
 
+    /** Cross-session newest-first listing (artifact center files section). */
+    fun recent(limit: Int): List<ArtifactEntity> = dao.recent(limit)
+
     fun findBySessionAndPath(
         sessionId: String,
         relativePath: String,

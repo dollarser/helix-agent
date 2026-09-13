@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -12,6 +13,8 @@ import com.helix.core.model.TurnState
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
+import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -92,4 +95,99 @@ class ArtifactCenterDeviceTest {
             compose.onNodeWithTag("screen-artifacts").assertExists()
         }
     }
+
+    /**
+     * The real artifact entries (doc 02 §8): a file the tools actually wrote appears in the
+     * files section with its name, size/type and source session; opening the file view checks
+     * the REAL file — the text previews in-app and Share is enabled. After the file is
+     * deleted, reopening the same row shows the honest invalidation and disables Share (the
+     * row outlives the file).
+     */
+    @Suppress("LongMethod") // One linear walkthrough: seed, list, open, invalidate, reopen.
+    @Test
+    fun aToolWrittenFileListsPreviewsAndInvalidatesWhenGone() {
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val storage = container.storage
+            val sessionId = "artifact-file-${UUID.randomUUID()}"
+            val turnId = "turn-file-${UUID.randomUUID()}"
+            val artifactId = "artifact-file-${UUID.randomUUID()}"
+            val name = "report-${UUID.randomUUID()}.txt"
+            val relativePath = "output/$name"
+            val bytes = "line one of the delivered report\nline two".toByteArray()
+            val file =
+                File(compose.activity.filesDir, "workspaces/app/$relativePath").apply {
+                    requireNotNull(parentFile).mkdirs()
+                    writeBytes(bytes)
+                }
+            storage.withTransaction {
+                storage.sessions.create(sessionId, "File fixture", null, null, 1000)
+                storage.artifacts.registerOrRefresh(
+                    artifactId,
+                    sessionId,
+                    relativePath,
+                    "text/plain",
+                    bytes.size.toLong(),
+                    sha256Hex(bytes),
+                    turnId,
+                    file,
+                )
+            }
+
+            compose.navigateTo("artifacts")
+            compose.waitUntil(10_000) {
+                compose
+                    .onAllNodesWithTag("artifact-file-row-$artifactId")
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose
+                .onNodeWithTag("artifact-file-name-$artifactId", useUnmergedTree = true)
+                .assertTextEquals(name)
+            compose
+                .onNodeWithTag("artifact-file-meta-$artifactId", useUnmergedTree = true)
+                .assertIsDisplayed()
+
+            // The file exists: in-app text preview and Share enabled.
+            compose.onNodeWithTag("artifact-file-row-$artifactId").performClick()
+            compose.waitUntil(5_000) {
+                compose
+                    .onAllNodesWithTag("artifact-file-preview", useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose
+                .onNodeWithTag("artifact-file-share-$artifactId", useUnmergedTree = true)
+                .assertIsEnabled()
+            compose
+                .onNodeWithTag("artifact-file-close-$artifactId", useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+
+            // The row outlives the file: after deletion, honest invalidation, Share disabled.
+            check(file.delete())
+            compose.onNodeWithTag("artifact-file-row-$artifactId").performClick()
+            compose.waitUntil(5_000) {
+                compose
+                    .onAllNodesWithTag("artifact-file-missing", useUnmergedTree = true)
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
+            }
+            compose
+                .onNodeWithTag("artifact-file-share-$artifactId", useUnmergedTree = true)
+                .assertIsNotEnabled()
+            compose
+                .onNodeWithTag("artifact-file-close-$artifactId", useUnmergedTree = true)
+                .performClick()
+            compose.waitForIdle()
+            compose.onNodeWithTag("screen-artifacts").assertExists()
+        }
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String =
+        MessageDigest
+            .getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { "%02x".format(it) }
 }

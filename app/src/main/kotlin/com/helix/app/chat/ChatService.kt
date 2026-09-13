@@ -81,6 +81,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.jvm.Volatile
 
+/** The artifact center's files section is a digest, not the file manager (that is the Files page). */
+private const val ARTIFACT_FILES_LIMIT = 50
+
 /**
  * The chat service (HXA-028): owns the chat send path end to end. The UI
  * dispatches intents ([send]/[stop]/[retry]/…) and observes [sessions] +
@@ -240,6 +243,8 @@ class ChatService(
     internal val goalDashboard: StateFlow<List<GoalSummaryUi>> = goalDashboardState
     private val planDashboardState = MutableStateFlow<List<PlanRowUi>>(emptyList())
     internal val planDashboard: StateFlow<List<PlanRowUi>> = planDashboardState
+    private val artifactFilesState = MutableStateFlow<List<ArtifactRowUi>>(emptyList())
+    internal val artifactFiles: StateFlow<List<ArtifactRowUi>> = artifactFilesState
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
     private val reminderGoalState = MutableStateFlow<String?>(null)
@@ -1492,16 +1497,19 @@ class ChatService(
     }
 
     /**
-     * The dashboard's persistent facts — every goal plus the plan review queue — onto their
-     * shared flows ([goalDashboard] / [planDashboard]), the same re-read pattern as
-     * [refreshBackgroundTasks]. Called after every goal/plan mutation and on each turn-state
-     * change ([publishTurn]), so an open Tasks screen observes the live state instead of a
+     * The dashboard's persistent facts — every goal, the plan review queue, and the artifact
+     * center's real file rows (doc 02 §8) — onto their shared flows ([goalDashboard] /
+     * [planDashboard] / [artifactFiles]), the same re-read pattern as [refreshBackgroundTasks].
+     * Called after every goal/plan mutation and on each turn-state change ([publishTurn]) —
+     * files are written DURING turns, so a turn-state change is when a new artifact row can
+     * appear — so an open Tasks or Artifacts screen observes the live state instead of a
      * screen-entry snapshot; screen entry and an explicit refresh go through
      * [refreshTaskDashboardsNow].
      */
     private fun refreshTaskDashboards() {
         goalDashboardState.value = GoalSummaryQuery(storage).forAll()
         planDashboardState.value = PlanRowQuery(storage).read()
+        artifactFilesState.value = ArtifactQuery(storage).recent(ARTIFACT_FILES_LIMIT)
     }
 
     fun refreshTaskDashboardsNow() {

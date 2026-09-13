@@ -3,6 +3,8 @@ package com.helix.app.ui
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,28 +34,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.APP_SCOPE_ID
 import com.helix.app.AppContainer
 import com.helix.app.R
+import com.helix.app.chat.ArtifactRowUi
 import com.helix.app.chat.BackgroundTaskUi
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
+import com.helix.app.files.FileManagerService
 import com.helix.core.model.TurnState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * The Artifact Center (P0-B, research doc section 28 / PX-02 "结果可交付"): one first-class page
- * listing the deliverable results of finished tasks — every terminal turn across sessions — so
- * outcomes are reachable and shareable outside the chat. A row opens a result view with the
- * persisted summary plus honest Share / Open / Collect actions.
- *
- * Rows are the shared [ChatService.backgroundTasks] StateFlow filtered to terminal turns — the
- * same query the task dashboard uses, kept live as turns finish in any session. Entry and an
- * explicit refresh re-read storage onto that flow (off the main thread) so a just-finished task
- * is visible on open.
+ * with TWO honest entry kinds. The FILES section lists real artifact rows (doc 02 §8) — files the
+ * agent's tools actually wrote, from the `artifacts` table, with source session and size; the
+ * RESULTS section lists every terminal turn across sessions. Rows are shared [ChatService]
+ * StateFlows kept live as turns and files land in any session; entry and an explicit refresh
+ * re-read storage onto those flows (off the main thread) so just-finished work is visible on
+ * open. A file row opens a view that checks the file's availability AT OPEN — the row outlives
+ * the file — with an in-app bounded preview (text or image, same facade as the Files page).
  */
 @Composable
 @Suppress("FunctionName")
@@ -62,24 +70,27 @@ internal fun ArtifactsScreenDestination(
     onOpenSession: (String) -> Unit,
 ) {
     val service = container.chatService
+    val fileManager = container.fileManager
     var revision by remember { mutableStateOf(0) }
     var selected by remember { mutableStateOf<BackgroundTaskUi?>(null) }
+    var selectedFile by remember { mutableStateOf<ArtifactRowUi?>(null) }
 
-    // Entry and explicit refresh re-read storage onto the shared [ChatService.backgroundTasks]
-    // flow (a Room read on the service work scope), so a task finished while the app was closed
-    // — or written directly — is visible on open; the shared StateFlow then keeps the list live
-    // as turns terminalize in any session, so no separate per-screen query is needed.
-    LaunchedEffect(revision) { service.refreshBackgroundTasksNow() }
+    // Entry and explicit refresh re-read storage onto the shared flows (Room reads on the
+    // service work scope), so a task finished while the app was closed — or a file written
+    // directly — is visible on open; the shared StateFlows then keep both lists live, so no
+    // separate per-screen query is needed.
+    LaunchedEffect(revision) {
+        service.refreshBackgroundTasksNow()
+        service.refreshTaskDashboardsNow()
+    }
 
     val allTasks by service.backgroundTasks.collectAsStateWithLifecycle()
-    val rows: List<BackgroundTaskUi> = allTasks.filter { !it.running }
+    val taskRows: List<BackgroundTaskUi> = allTasks.filter { !it.running }
+    val fileRows by service.artifactFiles.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().testTag("screen-artifacts")) {
         Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .testTag("artifacts-header"),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp).testTag("artifacts-header"),
             horizontalArrangement = Arrangement.End,
         ) {
             TextButton(onClick = { revision += 1 }, modifier = Modifier.testTag("artifacts-refresh")) {
@@ -91,18 +102,235 @@ internal fun ArtifactsScreenDestination(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            items(rows, key = BackgroundTaskUi::id) { row ->
+            if (fileRows.isNotEmpty()) {
+                item(key = "files-header") {
+                    SectionHeader(stringResource(R.string.artifacts_files_section), "artifacts-section-files")
+                }
+                items(fileRows, key = ArtifactRowUi::id) { row ->
+                    ArtifactFileRowView(row, onOpen = { selectedFile = row })
+                }
+            }
+            if (taskRows.isNotEmpty()) {
+                item(key = "results-header") {
+                    SectionHeader(stringResource(R.string.artifacts_results_section), "artifacts-section-results")
+                }
+            }
+            items(taskRows, key = BackgroundTaskUi::id) { row ->
                 ArtifactRowView(row, onOpen = { selected = row })
             }
         }
     }
     selected?.let { s ->
-        ArtifactResultDialog(
-            service,
-            s,
-            onOpenSession = { onOpenSession(s.sessionId) },
-            onDismiss = { selected = null },
-        )
+        ArtifactResultDialog(service, s, { onOpenSession(s.sessionId) }, { selected = null })
+    }
+    selectedFile?.let { f ->
+        ArtifactFileDialog(fileManager, f, { onOpenSession(f.sessionId) }, { selectedFile = null })
+    }
+}
+
+/** A section label above one kind of artifact row. */
+@Composable
+@Suppress("FunctionName")
+private fun SectionHeader(
+    label: String,
+    tag: String,
+) {
+    Text(
+        label,
+        style = MaterialTheme.typography.labelLarge,
+        modifier = Modifier.testTag(tag),
+    )
+}
+
+/**
+ * One real artifact file row (doc 02 §8): the file name, size and type from the `artifacts`
+ * row plus the source session's title. Tapping opens the file view (availability re-checked
+ * there at open — the row outlives the file).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun ArtifactFileRowView(
+    row: ArtifactRowUi,
+    onOpen: () -> Unit,
+) {
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .testTag("artifact-file-row-${row.id}"),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                row.fileName,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.testTag("artifact-file-name-${row.id}"),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "${formatSize(row.sizeBytes)} · ${row.mediaType}",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("artifact-file-meta-${row.id}"),
+            )
+            row.sessionTitle?.let { title ->
+                Text(
+                    stringResource(R.string.artifacts_file_source, title),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+/** The file view's load outcome, checked against the REAL file at open (never the row alone). */
+private sealed interface ArtifactFilePreviewState {
+    data object Loading : ArtifactFilePreviewState
+
+    /** The file is gone (deleted / moved / trash-purged) — an honest invalidation reason. */
+    data object Missing : ArtifactFilePreviewState
+
+    /** The file could not be inspected at all (scope unavailable, I/O failure). */
+    data object Failed : ArtifactFilePreviewState
+
+    data class Ready(
+        val meta: FileManagerService.FileMeta,
+        val text: String?,
+        val imageBytes: ByteArray,
+    ) : ArtifactFilePreviewState
+}
+
+/**
+ * The file view for one real artifact row: re-checks the file at open (a row outlives its
+ * file — the file can be trashed or edited independently), then shows an in-app bounded
+ * preview through the SAME facade the Files page uses (never a raw path to the model) plus
+ * honest actions — Share (text only, ACTION_SEND) and Open (the source session). Never
+ * mutates the file.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun ArtifactFileDialog(
+    fileManager: FileManagerService,
+    row: ArtifactRowUi,
+    onOpenSession: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    var state by remember(row.id) { mutableStateOf<ArtifactFilePreviewState>(ArtifactFilePreviewState.Loading) }
+    LaunchedEffect(row.id) {
+        state =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val meta = fileManager.fileInfo(APP_SCOPE_ID, row.relativePath)
+                    if (meta.sizeBytes < 0) {
+                        ArtifactFilePreviewState.Missing
+                    } else {
+                        ArtifactFilePreviewState.Ready(
+                            meta = meta,
+                            text = if (meta.isText) fileManager.previewText(APP_SCOPE_ID, row.relativePath) else null,
+                            imageBytes =
+                                if (meta.mimeType.startsWith("image/")) {
+                                    fileManager.previewImageBytes(APP_SCOPE_ID, row.relativePath)
+                                } else {
+                                    ByteArray(0)
+                                },
+                        )
+                    }
+                }.getOrElse { ArtifactFilePreviewState.Failed }
+            }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(row.fileName) },
+        text = { ArtifactFilePreviewBody(row, state) },
+        confirmButton = {
+            val shareText = (state as? ArtifactFilePreviewState.Ready)?.text
+            TextButton(
+                enabled = shareText != null,
+                modifier = Modifier.testTag("artifact-file-share-${row.id}"),
+                onClick = { sharePlainText(context, shareText!!) },
+            ) {
+                Text(stringResource(R.string.artifacts_share))
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onOpenSession, modifier = Modifier.testTag("artifact-file-open-${row.id}")) {
+                    Text(stringResource(R.string.artifacts_open))
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.testTag("artifact-file-close-${row.id}")) {
+                    Text(stringResource(R.string.goal_close))
+                }
+            }
+        },
+        modifier = Modifier.testTag("artifact-file-dialog"),
+    )
+}
+
+/** The dialog body: size + type, then the honest state — missing, unavailable, or a preview. */
+@Composable
+@Suppress("FunctionName")
+private fun ArtifactFilePreviewBody(
+    row: ArtifactRowUi,
+    state: ArtifactFilePreviewState,
+) {
+    Column(
+        Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        when (val s = state) {
+            ArtifactFilePreviewState.Loading -> {
+                Text(stringResource(R.string.egress_loading))
+            }
+
+            ArtifactFilePreviewState.Missing -> {
+                Text(
+                    stringResource(R.string.artifacts_file_missing),
+                    modifier = Modifier.testTag("artifact-file-missing"),
+                )
+            }
+
+            ArtifactFilePreviewState.Failed -> {
+                Text(
+                    stringResource(R.string.artifacts_file_unavailable),
+                    modifier = Modifier.testTag("artifact-file-unavailable"),
+                )
+            }
+
+            is ArtifactFilePreviewState.Ready -> {
+                Text(
+                    "${stringResource(R.string.files_info_size, formatSize(s.meta.sizeBytes))} · " +
+                        stringResource(R.string.files_info_type, s.meta.mimeType),
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.testTag("artifact-file-info"),
+                )
+                val bitmap =
+                    s.imageBytes.takeIf { it.isNotEmpty() }?.let {
+                        BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+                    }
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = row.fileName,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .testTag("artifact-file-image"),
+                    )
+                } else if (s.text != null) {
+                    Text(
+                        s.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.testTag("artifact-file-preview").padding(4.dp),
+                    )
+                } else {
+                    Text(
+                        stringResource(R.string.files_no_preview),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -203,7 +431,7 @@ private fun ArtifactResultDialog(
             TextButton(
                 enabled = result != null && !failed,
                 modifier = Modifier.testTag("artifact-share-${row.id}"),
-                onClick = { result?.let { shareResultText(context, it) } },
+                onClick = { result?.let { sharePlainText(context, it.joinToString("\n") { m -> m.content }) } },
             ) {
                 Text(stringResource(R.string.artifacts_share))
             }
@@ -240,16 +468,12 @@ private fun statusResFor(state: TurnState): Int =
         else -> R.string.artifacts_state_interrupted
     }
 
-/**
- * Posts a result as a plain-text ACTION_SEND chooser. A test fixture (or a device with no share
- * target) resolves to nothing: fail closed by staying put, never a crash.
- */
+/** A plain-text ACTION_SEND chooser; no share target in a fixture stays put (fail closed). */
 @Suppress("SwallowedException")
-private fun shareResultText(
+private fun sharePlainText(
     context: Context,
-    messages: List<MessageUi>,
+    text: String,
 ) {
-    val text = messages.joinToString("\n") { it.content }
     val intent =
         Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"

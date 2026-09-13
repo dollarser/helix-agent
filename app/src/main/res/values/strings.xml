@@ -911,6 +911,11 @@
     <string name="artifacts_state_failed">失败</string>
     <string name="artifacts_state_cancelled">已取消</string>
     <string name="artifacts_state_interrupted">已中断</string>
+    <string name="artifacts_files_section">交付文件</string>
+    <string name="artifacts_results_section">任务结果</string>
+    <string name="artifacts_file_source">来源：%1$s</string>
+    <string name="artifacts_file_missing">文件已不存在（可能已被删除或移动）</string>
+    <string name="artifacts_file_unavailable">文件暂不可用</string>
 
     <!-- P0-B: Git status / diff / changed files (doc section 29) -->
     <string name="nav_git">Git</string>

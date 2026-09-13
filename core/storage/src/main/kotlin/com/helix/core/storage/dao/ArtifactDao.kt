@@ -42,6 +42,15 @@ interface ArtifactDao {
     @Query("SELECT * FROM artifacts WHERE sessionId = :sessionId ORDER BY rowid ASC")
     fun listBySession(sessionId: String): List<ArtifactEntity>
 
+    /**
+     * The newest-registered artifacts across sessions (the artifact center's files section,
+     * doc 02 §8). `rowid` is registration order: a re-write refreshes the row in place and
+     * keeps its position (upsert, not delete+insert), so the list orders by FIRST write of
+     * a path, which is the honest reading of "when did this file appear".
+     */
+    @Query("SELECT * FROM artifacts ORDER BY rowid DESC LIMIT :limit")
+    fun recent(limit: Int): List<ArtifactEntity>
+
     @Query("SELECT * FROM artifacts WHERE sessionId = :sessionId AND relativePath = :relativePath LIMIT 1")
     fun bySessionAndPath(
         sessionId: String,
