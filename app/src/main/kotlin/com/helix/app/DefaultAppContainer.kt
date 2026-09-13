@@ -487,6 +487,13 @@ internal class DefaultAppContainer(
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
+            // P1 (research doc section 8): the session workspace's project-instruction file
+            // (AGENTS.md / CLAUDE.md / HELIX.md) becomes the goal prompt's PROJECT section; the
+            // reader degrades to "" on any failure (no workspace / revoked scope / missing file).
+            projectInstructionsReader = { sessionId ->
+                com.helix.app.chat
+                    .readProjectInstructionsText(storage, scopeRoots, sessionId)
+            },
             // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
             strings = { resId, args -> resolveLocalized(resId, args) },
             subscriptionResultRecovery = { turnId, modelCallId, localOnly ->

@@ -33,6 +33,14 @@ internal class ChatRequestAssembler(
     private val toolPipeline: ToolPipeline,
     private val attachmentStaging: AttachmentStagingSupport,
     private val visionSessionBinder: (String) -> Unit,
+    /**
+     * P1 (research doc section 8): resolves the session workspace's project-instruction file
+     * (AGENTS.md / CLAUDE.md / HELIX.md) to the bounded, trust-framed block registered as the
+     * PROJECT section of the goal system prompt. Called only for an active goal turn. The
+     * default yields "" so JVM/device services without a workspace reader behave exactly as
+     * before (no project instructions injected).
+     */
+    private val projectInstructionsReader: (String) -> String = { "" },
 ) : TurnContextAssembler {
     private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
 
@@ -233,7 +241,7 @@ internal class ChatRequestAssembler(
                     message
                 }
             }
-        return storage.goalReportContext(sessionId) +
+        return storage.goalReportContext(sessionId) { projectInstructionsReader(sessionId) } +
             if (checkpoint == null) {
                 restored
             } else {

@@ -137,6 +137,13 @@ class ChatService(
     private val subscriptionRecovery: (String, String, Boolean) -> com.helix.app.provider.SubscriptionRecoveryStatus =
         { _, _, _ -> com.helix.app.provider.SubscriptionRecoveryStatus.UNKNOWN },
     private val goalReminderSync: (String) -> Unit = {},
+    /**
+     * P1 (research doc section 8): resolves the session workspace's project-instruction file to
+     * the bounded, trust-framed PROJECT section of the goal system prompt. The production
+     * container injects the workspace reader; the default yields "" so JVM/device construction
+     * without a workspace behaves exactly as before.
+     */
+    private val projectInstructionsReader: (String) -> String = { "" },
 ) : AgentTurnHost {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none reaches launchTurn directly. The container re-exposes the SAME instance as the
@@ -152,7 +159,14 @@ class ChatService(
     // Observers started in init may refresh immediately on another thread.
     private val drafts = ChatDraftStore()
     private val requestAssembler =
-        ChatRequestAssembler(storage, providerService, toolPipeline, attachmentStaging, visionSessionBinder)
+        ChatRequestAssembler(
+            storage,
+            providerService,
+            toolPipeline,
+            attachmentStaging,
+            visionSessionBinder,
+            projectInstructionsReader,
+        )
     private val attachmentRetry = ChatAttachmentRetry(storage, attachmentStaging)
     private val labels = ChatStatusLabels(strings)
     private val projection = ChatScreenProjection(storage, providerService, strings, labels::modelTerminalCodeRes)
