@@ -6,6 +6,7 @@ import com.helix.core.agent.PromptSection
 import com.helix.core.agent.PromptSource
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRole
+import com.helix.core.model.PlanArtifact
 import com.helix.core.storage.HelixStorage
 
 /**
@@ -44,6 +45,17 @@ internal fun HelixStorage.goalReportContext(
                     projectInstructionsProvider()
                 },
             ).register(
+                // A plan-executing goal carries the user-approved plan: its steps are the work to
+                // follow. USER provenance — the user reviewed this version and chose to execute it
+                // — and the "no permissions" note is part of the CONTENT (research doc 5.1): a plan
+                // guides the work but never stands in for per-call Policy/Approval.
+                PromptSection("goal.plan", 290, PromptScope.GOAL, PromptSource.USER_REQUEST) {
+                    goal.planId
+                        ?.let { id -> plans.resolveOrNull(id) }
+                        ?.let(::planStepsSection)
+                        .orEmpty()
+                },
+            ).register(
                 PromptSection(
                     "goal.objective",
                     300,
@@ -60,6 +72,27 @@ private fun objective(goal: com.helix.core.storage.mapping.StoredGoal): String =
     Additional requirements (if any):
     ${goal.criteria.joinToString("\n") { "- " + it.description }}
     """.trimIndent()
+
+/**
+ * The approved plan a goal is executing, rendered as its steps (research doc 5.1). The user
+ * reviewed this exact version and chose to execute it, so the steps are the work to follow —
+ * but a plan grants NO permissions: the closing note that writes, deletions and egress still
+ * pass normal authorization is part of the section's CONTENT, not a comment (doc 5.1: 后续写入、
+ * 删除、外发仍重新经过既有授权判断). Pure and independently testable — storage resolution lives
+ * in the caller.
+ */
+internal fun planStepsSection(plan: PlanArtifact): String =
+    buildString {
+        append("Approved plan v${plan.version}: you are executing this plan.\n")
+        plan.steps.forEachIndexed { index, step ->
+            append("${index + 1}. ${step.title}\n")
+            append("   ${step.description}\n")
+        }
+        append(
+            "\nThe plan guides the work but grants no permissions: every write, deletion or " +
+                "egress still goes through normal authorization.",
+        )
+    }.trim()
 
 // The goal report contract, split into registry sections (order: identity → protocol → safety →
 // project → objective). Content is unchanged from the prior ad-hoc block; only the assembly path

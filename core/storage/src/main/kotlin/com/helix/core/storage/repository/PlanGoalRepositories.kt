@@ -45,6 +45,16 @@ class PlanRepository(
 
     fun resolveEntity(id: String): PlanEntity = dao.byId(id) ?: throw IllegalArgumentException("plan not found: $id")
 
+    /**
+     * The plan, or null when no plan row carries [id]. For callers where a plan's absence is a
+     * VALID state rather than an error — the goal prompt degrades to the goal's own objective
+     * and criteria when its bound plan row is gone, instead of failing the whole turn.
+     */
+    fun resolveOrNull(id: String): PlanArtifact? {
+        val entity = dao.byId(id) ?: return null
+        return entity.toPlanArtifact(dao.stepsOf(entity.id))
+    }
+
     fun list(): List<PlanEntity> = dao.list()
 
     fun updateState(
