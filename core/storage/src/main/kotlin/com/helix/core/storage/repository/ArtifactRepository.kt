@@ -49,9 +49,15 @@ class ArtifactRepository(
         file: File,
     ): ArtifactEntity {
         verifyBeforeRegistration(relativePath, mediaType, size, sha256, file)
-        dao.upsertBySessionAndPath(id, sessionId, relativePath, mediaType, size, sha256, turnId)
+        // Refresh the stable row first and insert only when no row exists yet: the
+        // single-statement upsert (ON CONFLICT ... DO UPDATE) that would do both needs
+        // SQLite 3.24, and minSdk 29 AOSP images ship 3.22.
+        val refreshed = dao.refreshBySessionAndPath(sessionId, relativePath, mediaType, size, sha256, turnId)
+        if (refreshed == 0) {
+            dao.insertOrIgnore(ArtifactEntity(id, sessionId, relativePath, mediaType, size, sha256, turnId))
+        }
         return requireNotNull(dao.bySessionAndPath(sessionId, relativePath)) {
-            "artifact row missing after upsert: $relativePath"
+            "artifact row missing after registration: $relativePath"
         }
     }
 

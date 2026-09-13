@@ -12,29 +12,32 @@ interface ArtifactDao {
     fun insert(artifact: ArtifactEntity)
 
     /**
-     * Tool-write registration (v15): the file row is stable per (sessionId, relativePath) —
-     * re-writing the same path refreshes the content columns of the EXISTING row and keeps its
-     * id, so `message_attachments` bound to that artifact survive a re-write (their boundSha256
-     * then fails closed on the changed content, by design). Only a brand-new path inserts,
-     * where [id] is used. NOT `INSERT OR REPLACE`: that would delete the old row and cascade
-     * its attachments.
+     * Tool-write registration (v15) — the refresh half: the file row is stable per
+     * (sessionId, relativePath), so re-writing the same path updates the content columns of
+     * the EXISTING row and keeps its id; `message_attachments` bound to that artifact survive
+     * a re-write (their boundSha256 then fails closed on the changed content, by design).
+     * Returns the rows updated (0 or 1); the [com.helix.core.storage.repository.ArtifactRepository]
+     * inserts only when 0, because the single-statement `ON CONFLICT ... DO UPDATE` upsert
+     * that would express both halves needs SQLite 3.24 and minSdk 29 AOSP images ship 3.22.
+     * NOT `INSERT OR REPLACE` on the insert path either: that would delete the old row and
+     * cascade its attachments.
      */
     @Query(
-        "INSERT INTO artifacts (id, sessionId, relativePath, mediaType, size, sha256, turnId) " +
-            "VALUES (:id, :sessionId, :relativePath, :mediaType, :size, :sha256, :turnId) " +
-            "ON CONFLICT (sessionId, relativePath) DO UPDATE SET " +
-            "mediaType = excluded.mediaType, size = excluded.size, " +
-            "sha256 = excluded.sha256, turnId = excluded.turnId",
+        "UPDATE artifacts SET mediaType = :mediaType, size = :size, " +
+            "sha256 = :sha256, turnId = :turnId " +
+            "WHERE sessionId = :sessionId AND relativePath = :relativePath",
     )
-    fun upsertBySessionAndPath(
-        id: String,
+    fun refreshBySessionAndPath(
         sessionId: String,
         relativePath: String,
         mediaType: String,
         size: Long,
         sha256: String,
         turnId: String?,
-    )
+    ): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertOrIgnore(artifact: ArtifactEntity)
 
     @Query("SELECT * FROM artifacts WHERE id = :id")
     fun byId(id: String): ArtifactEntity?
