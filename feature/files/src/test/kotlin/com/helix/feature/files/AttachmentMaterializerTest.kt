@@ -107,7 +107,7 @@ class AttachmentMaterializerTest {
             (
                 "%PDF-1.4\n4 0 obj\n<< /Length 30 >>\nstream\n" +
                     "BT /F1 12 Tf (PDF hello) Tj ET\nendstream\nendobj\n%%EOF\n"
-            ).encodeToByteArray(Charsets.ISO_8859_1)
+            ).toByteArray(Charsets.ISO_8859_1)
         val file = writeBytes(pdfBytes, "doc.pdf")
         val result = AttachmentMaterializer.materialize(file, sha(pdfBytes), "doc.pdf")
 

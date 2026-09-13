@@ -152,7 +152,10 @@ object AttachmentMaterializer {
      * The extracted-document branch (P0-B PDF / DOCX / HTML): reads the FULL raw file (already
      * hash-verified), extracts its text on-device, and returns a [Text] whose [Text.content] is a
      * bounded UTF-8 view of the EXTRACTED text, while [Text.sha256] / [Text.sizeBytes] bind the
-     * FULL raw file. A failed extraction is an empty (but valid) view — fail-closed, never a crash.
+     * FULL raw file. The extraction's honest outcome maps straight onto the view: a cap hit
+     * ([ExtractedText.Truncated]) forces [Text.truncated]; an unreadable container
+     * ([ExtractedText.Unreadable]) is an empty (but valid) view — fail-closed, never a crash and
+     * never a fabricated byte.
      */
     private fun extractedText(
         name: String,
@@ -161,16 +164,42 @@ object AttachmentMaterializer {
         sha: String,
     ): AttachmentMaterialization.Text {
         val size = Files.size(file)
-        val full = DocumentTextExtractor.extract(kind, Files.readAllBytes(file))
-        val truncated = full.toByteArray(Charsets.UTF_8).size > MAX_INLINE_TEXT_BYTES
-        return AttachmentMaterialization.Text(
-            fileName = name,
-            kind = kind,
-            content = prefixUtf8(full, MAX_INLINE_TEXT_BYTES),
-            sha256 = sha,
-            truncated = truncated,
-            sizeBytes = size,
-        )
+        return when (val extracted = DocumentTextExtractor.extract(kind, Files.readAllBytes(file))) {
+            is ExtractedText.Success -> {
+                val content = prefixUtf8(extracted.text, MAX_INLINE_TEXT_BYTES)
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = content,
+                    sha256 = sha,
+                    truncated = content != extracted.text,
+                    sizeBytes = size,
+                )
+            }
+
+            is ExtractedText.Truncated -> {
+                val content = prefixUtf8(extracted.text, MAX_INLINE_TEXT_BYTES)
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = content,
+                    sha256 = sha,
+                    truncated = true,
+                    sizeBytes = size,
+                )
+            }
+
+            ExtractedText.Unreadable -> {
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = "",
+                    sha256 = sha,
+                    truncated = false,
+                    sizeBytes = size,
+                )
+            }
+        }
     }
 
     /** The leading UTF-8 prefix of [s] within [maxBytes] bytes, never splitting a code point. */

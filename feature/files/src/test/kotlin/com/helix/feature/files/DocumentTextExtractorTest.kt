@@ -12,7 +12,9 @@ import java.util.zip.ZipOutputStream
  * P0-B document batch (doc PX-05): [DocumentTextExtractor] — the zero-dependency, fail-closed
  * on-device text extraction for PDF / DOCX / HTML. The fixtures are REAL in-memory containers (a
  * genuine zip for DOCX, a hand-written minimal PDF), not mocks: the extractor's whole job is to
- * read the actual bytes. Malformed inputs must yield "" (fail-closed), never throw.
+ * read the actual bytes. Malformed inputs must be an honest [ExtractedText.Unreadable] (never a
+ * throw), and a valid document without readable text is [ExtractedText.Success] with empty text.
+ * The size-cap behavior (bombs, truncation) lives in [DocumentTextExtractorCapTest].
  */
 class DocumentTextExtractorTest {
     // ── HTML ────────────────────────────────────────────────────────────────────
@@ -25,7 +27,7 @@ class DocumentTextExtractorTest {
                 "<body><h1>Report</h1><p>First &amp; second.</p>" +
                 "<ul><li>one</li><li>two</li></ul>" +
                 "<p>Broken<br/>line</p><!-- a comment --><p>End</p></body></html>"
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.HTML, html.toByteArray(Charsets.UTF_8))
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.HTML, html.toByteArray(Charsets.UTF_8)))
         assertEquals("Report", text.lineSequence().first())
         assertTrue("script/style must be dropped", !text.contains("var x") && !text.contains("color:red"))
         assertTrue("a comment must be dropped", !text.contains("a comment"))
@@ -38,7 +40,7 @@ class DocumentTextExtractorTest {
     @Test
     fun htmlIsBoundedAndClean() {
         val html = "<html><body><p>a</p><p></p><p></p><p>b</p></body></html>"
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.HTML, html.toByteArray(Charsets.UTF_8))
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.HTML, html.toByteArray(Charsets.UTF_8)))
         // Three blank lines from the empty <p>s collapse to one; no leading/trailing whitespace.
         assertEquals("a\n\nb", text)
     }
@@ -62,7 +64,7 @@ class DocumentTextExtractorTest {
                 "<w:p><w:r><w:t>Para one</w:t></w:r></w:p>" +
                 "<w:p><w:r><w:t>Para two</w:t></w:r></w:p>" +
                 "</w:body></w:document>"
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.DOCX, docx(xml))
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.DOCX, docx(xml)))
         assertEquals("Para one\nPara two", text)
     }
 
@@ -70,7 +72,7 @@ class DocumentTextExtractorTest {
     fun docxTurnsTabsAndBreaksIntoWhitespace() {
         val xml =
             "<w:p><w:r><w:t>A</w:t><w:tab/></w:r><w:r><w:t>B</w:t><w:br/></w:r></w:p>"
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.DOCX, docx(xml))
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.DOCX, docx(xml)))
         assertTrue("a <w:tab/> must become a tab", text.contains("A\tB"))
     }
 
@@ -85,7 +87,10 @@ class DocumentTextExtractorTest {
                 }
                 out.toByteArray()
             }
-        assertEquals("", DocumentTextExtractor.extract(TextAttachmentKind.DOCX, noDoc))
+        assertEquals(
+            ExtractedText.Success(""),
+            DocumentTextExtractor.extract(TextAttachmentKind.DOCX, noDoc),
+        )
     }
 
     // ── PDF (a hand-written minimal document) ───────────────────────────────────
@@ -103,35 +108,48 @@ class DocumentTextExtractorTest {
     @Test
     fun pdfReadsTheTextShowingOperator() {
         val bytes = pdf("BT /F1 12 Tf (Hello World) Tj ET").toByteArray(Charsets.ISO_8859_1)
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes)
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes))
         assertEquals("Hello World", text)
     }
 
     @Test
     fun pdfInsertsNewlinesAtPositioningOperators() {
         val bytes = pdf("BT /F1 12 Tf (Line one) Tj 0 -14 Td (Line two) Tj ET").toByteArray(Charsets.ISO_8859_1)
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes)
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes))
         assertEquals("Line one\nLine two", text)
     }
 
     @Test
     fun pdfDecodesSimpleEscapesInsideStrings() {
         val bytes = pdf("BT /F1 12 Tf (line1\\nline2) Tj ET").toByteArray(Charsets.ISO_8859_1)
-        val text = DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes)
+        val text = successText(DocumentTextExtractor.extract(TextAttachmentKind.PDF, bytes))
         assertEquals("line1\nline2", text)
     }
 
-    // ── Fail-closed: malformed / out-of-kind inputs never throw, yield "" ──────
+    // ── Fail-closed: malformed / out-of-kind inputs never throw ────────────────
 
     @Test
-    fun malformedOrOutOfKindInputYieldsEmptyTextWithoutThrowing() {
-        assertEquals("", DocumentTextExtractor.extract(TextAttachmentKind.PDF, "not a pdf".toByteArray(Charsets.UTF_8)))
+    fun malformedOrOutOfKindInputFailsClosedWithoutThrowing() {
         assertEquals(
-            "",
+            ExtractedText.Unreadable,
+            DocumentTextExtractor.extract(TextAttachmentKind.PDF, "not a pdf".toByteArray(Charsets.UTF_8)),
+        )
+        assertEquals(
+            ExtractedText.Unreadable,
             DocumentTextExtractor.extract(TextAttachmentKind.DOCX, "not a zip".toByteArray(Charsets.UTF_8)),
         )
-        assertEquals("", DocumentTextExtractor.extract(TextAttachmentKind.HTML, ByteArray(0)))
+        // A valid container kind with nothing in it is an EMPTY success, not unreadable.
+        assertEquals(
+            ExtractedText.Success(""),
+            DocumentTextExtractor.extract(TextAttachmentKind.HTML, ByteArray(0)),
+        )
         // A non-extracted kind (raw first-batch text) is out of scope for the extractor.
-        assertEquals("", DocumentTextExtractor.extract(TextAttachmentKind.TXT, "plain".toByteArray(Charsets.UTF_8)))
+        assertEquals(
+            ExtractedText.Success(""),
+            DocumentTextExtractor.extract(TextAttachmentKind.TXT, "plain".toByteArray(Charsets.UTF_8)),
+        )
     }
 }
+
+/** Unwraps the (expected) [ExtractedText.Success] of a test extraction to its text. */
+private fun successText(result: ExtractedText): String = (result as ExtractedText.Success).text

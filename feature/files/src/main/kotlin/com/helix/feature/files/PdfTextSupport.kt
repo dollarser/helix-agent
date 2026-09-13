@@ -8,7 +8,9 @@ import java.util.zip.Inflater
  * PDF bytes, decompresses each content stream (zlib when present) and reads the text-showing
  * operators (`Tj` / `TJ`) between `BT`…`ET` blocks. No PDF library is added: the reader is bounded,
  * pure-JVM (identical on the Android runtime and the JVM unit tests) and FAILS CLOSED — a
- * malformed or non-text PDF yields "" rather than a crash (best-effort, see [pdfText]).
+ * malformed or non-PDF input is an honest [ExtractedText.Unreadable], a cap hit is
+ * [ExtractedText.Truncated] with the real bounded prefix, and every inflate is bounded by
+ * [MAX_DECOMPRESSED_BYTES] (the same zip-bomb guard the DOCX reader uses).
  */
 internal const val MAX_PDF_TEXT = 256_000
 
@@ -24,19 +26,25 @@ private fun List<Int>.toPdfBytes(): ByteArray = ByteArray(size) { this[it].toByt
 /**
  * Extracts the visible text of the PDF [bytes]. Verifies the `%PDF` header, then for each content
  * stream decompresses it (zlib when the data is deflate-compressed) and reads the `BT`…`ET`
- * text blocks. Returns "" for a non-PDF or a PDF with no readable text (fail-closed).
+ * text blocks. Returns [ExtractedText.Unreadable] for a non-PDF, [ExtractedText.Success] (possibly
+ * empty — a valid PDF with no readable text) otherwise, and [ExtractedText.Truncated] with the
+ * real bounded prefix when a decompression or text-length cap is hit.
  */
-internal fun pdfText(bytes: ByteArray): String {
+internal fun pdfText(bytes: ByteArray): ExtractedText {
     val data = bytes.toString(Charsets.ISO_8859_1)
-    if (!data.startsWith("%PDF")) return ""
+    if (!data.startsWith("%PDF")) return ExtractedText.Unreadable
+    val budget = DecompressBudget(MAX_DECOMPRESSED_BYTES)
     val out = StringBuilder()
     for (raw in findStreamDatas(data)) {
-        val content = (inflate(raw) ?: raw).toString(Charsets.ISO_8859_1)
+        if (budget.remaining <= 0) break
+        val content = (inflate(raw, budget) ?: raw).toString(Charsets.ISO_8859_1)
         appendTextFromStream(content, out)
     }
     var text = out.toString()
+    val capped = budget.remaining <= 0 || text.length > MAX_PDF_TEXT
     if (text.length > MAX_PDF_TEXT) text = text.substring(0, MAX_PDF_TEXT)
-    return text.replace(Regex("[ \\t]+\\n"), "\n").replace(Regex("\\n{3,}"), "\n\n").trim()
+    val normalized = text.replace(Regex("[ \\t]+\\n"), "\n").replace(Regex("\\n{3,}"), "\n\n").trim()
+    return if (capped) ExtractedText.Truncated(normalized) else ExtractedText.Success(normalized)
 }
 
 /**
@@ -164,8 +172,10 @@ private fun readPdfString(
             }
 
             c == '(' -> {
+                // The outermost paren only delimits the literal (never recorded); a nested one
+                // is a literal paren in the text, so it is recorded and tracked by [depth].
+                if (depth > 0) raw.add(0x28)
                 depth++
-                raw.add(0x28)
                 j++
             }
 
@@ -224,22 +234,36 @@ private fun decodePdfString(bytes: ByteArray): String {
 }
 
 /**
- * Inflates a zlib-wrapped stream, or null when [raw] is not deflate data (a raw stream) or the
- * inflate fails (fail-closed: the caller falls back to the raw bytes, which then simply yield no
- * readable text blocks).
+ * The remaining DECOMPRESSED-byte budget shared by every inflate of one extraction (the
+ * inflate-bomb guard): an 8 MiB expansion from a few KB of raw deflate is refused at
+ * [MAX_DECOMPRESSED_BYTES] of output instead of an OOM.
  */
-private fun inflate(raw: ByteArray): ByteArray? {
+private class DecompressBudget(
+    var remaining: Long,
+)
+
+/**
+ * Inflates a zlib-wrapped stream against the shared [budget], or null when [raw] is not deflate
+ * data (a raw stream) or the inflate fails (fail-closed: the caller falls back to the raw bytes,
+ * which then simply yield no readable text blocks). When the budget runs out mid-stream the
+ * bounded partial output is returned (a real prefix, flagged by the exhausted budget).
+ */
+private fun inflate(
+    raw: ByteArray,
+    budget: DecompressBudget,
+): ByteArray? {
     val inf = Inflater()
     try {
         inf.setInput(raw)
         val out = ByteArrayOutputStream()
         val buf = ByteArray(8 * 1024)
-        while (!inf.finished() && !inf.needsInput()) {
+        while (!inf.finished() && !inf.needsInput() && budget.remaining > 0) {
             val n = inf.inflate(buf)
             if (n <= 0) break
+            budget.remaining -= n
             out.write(buf, 0, n)
         }
-        return if (inf.finished()) out.toByteArray() else null
+        return if (inf.finished() || budget.remaining <= 0) out.toByteArray() else null
     } catch (_: Exception) {
         return null
     } finally {
