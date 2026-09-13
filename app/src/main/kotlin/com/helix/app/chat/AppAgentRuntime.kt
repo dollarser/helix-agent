@@ -3,7 +3,6 @@ package com.helix.app.chat
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.CancelResult
-import com.helix.core.agent.ResumeResult
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.agent.TurnSnapshot
 import com.helix.core.model.TurnId
@@ -44,18 +43,6 @@ internal class AppAgentRuntime(
                     RunControlConfig(command.mode, command.chatToolsEnabled, command.budgets, command.reasoning),
             ) ?: throw TurnStartBlocked()
         return TurnId(turnId)
-    }
-
-    override suspend fun resume(turnId: TurnId): ResumeResult {
-        val phase = host.persistedPhase(turnId.value) ?: return ResumeResult.NotFound
-        // Production has NO general turn resume: an interrupted turn is PARKED (a possibly-unknown
-        // tool side effect may or may not have run), and a live turn is already driving its loop.
-        // Either way the correct follow-up is an explicit re-drive (a new submit), not a blind
-        // replay — so resume reports that rather than silently restarting anything.
-        return when {
-            phase.isTerminal -> ResumeResult.AlreadyTerminal(phase)
-            else -> ResumeResult.Rejected("the turn is in $phase and cannot be auto-resumed; re-drive it to continue")
-        }
     }
 
     override suspend fun cancel(turnId: TurnId): CancelResult {

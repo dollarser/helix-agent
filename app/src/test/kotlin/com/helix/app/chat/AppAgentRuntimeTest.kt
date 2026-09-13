@@ -3,7 +3,6 @@ package com.helix.app.chat
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AttachmentBindingIntent
 import com.helix.core.agent.CancelResult
-import com.helix.core.agent.ResumeResult
 import com.helix.core.agent.SubmitTurnCommand
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalId
@@ -96,33 +95,6 @@ class AppAgentRuntimeTest {
         runBlocking { runtime.submit(command(attachments = listOf(intent))) }
 
         assertEquals(listOf(intent), fake.lastStartAttachments)
-    }
-
-    // --- resume: production parks interrupted turns, so there is no general auto-resume ---
-
-    @Test
-    fun resumeOfAnUnknownTurnIsNotFound() {
-        val runtime = AppAgentRuntime(host()) // phase == null
-        assertTrue(runBlocking { runtime.resume(turnId) } is ResumeResult.NotFound)
-    }
-
-    @Test
-    fun resumeOfATerminalTurnIsAlreadyTerminal() {
-        val runtime = AppAgentRuntime(host().apply { phase = TurnState.COMPLETED })
-        val result = runBlocking { runtime.resume(turnId) }
-        assertTrue(result is ResumeResult.AlreadyTerminal && result.phase == TurnState.COMPLETED)
-    }
-
-    @Test
-    fun resumeOfAParkedInterruptedTurnIsRejected() {
-        val runtime = AppAgentRuntime(host().apply { phase = TurnState.INTERRUPTED })
-        assertTrue(runBlocking { runtime.resume(turnId) } is ResumeResult.Rejected)
-    }
-
-    @Test
-    fun resumeOfALiveTurnIsRejectedBecauseItAlreadyRuns() {
-        val runtime = AppAgentRuntime(host().apply { phase = TurnState.RUNNING_TOOL })
-        assertTrue(runBlocking { runtime.resume(turnId) } is ResumeResult.Rejected)
     }
 
     // --- cancel ---

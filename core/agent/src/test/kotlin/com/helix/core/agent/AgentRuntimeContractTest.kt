@@ -22,7 +22,7 @@ import org.junit.Test
 /**
  * Contract tests for the [AgentRuntime] unified entry point (HX2-01): the command and snapshot
  * value types, and that the interface is implementable and observable end-to-end (submit ->
- * observe -> resume / cancel) via a fake runtime.
+ * observe -> cancel) via a fake runtime.
  */
 class AgentRuntimeContractTest {
     private val sessionId = SessionId("s1")
@@ -99,7 +99,7 @@ class AgentRuntimeContractTest {
     // --- the contract is implementable and observable end-to-end ---
 
     @Test
-    fun aRuntimeImplementsSubmitResumeCancelObserve() {
+    fun aRuntimeImplementsSubmitCancelObserve() {
         val runtime = FakeAgentRuntime(turnId)
         runBlocking {
             val submitted = runtime.submit(SubmitTurnCommand(sessionId, providerId, AgentMode.CHAT, "hi", budgets))
@@ -107,12 +107,6 @@ class AgentRuntimeContractTest {
 
             val frames = runtime.observe(turnId).take(2).toList()
             assertEquals(listOf(TurnState.WAITING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
-
-            val resumed = runtime.resume(turnId)
-            assertTrue(resumed is ResumeResult.AlreadyTerminal)
-
-            val unknownResume = runtime.resume(TurnId("nope"))
-            assertTrue(unknownResume is ResumeResult.NotFound)
 
             val cancelled = runtime.cancel(turnId)
             assertTrue(cancelled is CancelResult.AlreadyTerminal)
@@ -123,9 +117,6 @@ class AgentRuntimeContractTest {
         private val id: TurnId,
     ) : AgentRuntime {
         override suspend fun submit(command: SubmitTurnCommand): TurnId = id
-
-        override suspend fun resume(turnId: TurnId): ResumeResult =
-            if (turnId == id) ResumeResult.AlreadyTerminal(TurnState.COMPLETED) else ResumeResult.NotFound
 
         override suspend fun cancel(turnId: TurnId): CancelResult =
             if (turnId == id) CancelResult.AlreadyTerminal(TurnState.COMPLETED) else CancelResult.NotFound

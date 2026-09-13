@@ -26,21 +26,21 @@ import com.helix.core.model.TurnState as TurnPhase
  * recovery) still receives the turn's frames from its current phase to the terminal phase.
  * Subscribers hold no coroutine handle — the runtime owns the loop (the UI observes service
  * state; it never holds a Job).
+ *
+ * Recovery is NOT a per-turn operation on this interface. After process death the app's startup
+ * sweep (the [RecoveryCoordinator] applied over storage) marks an in-flight turn
+ * [TurnPhase.INTERRUPTED] and parks its possibly-unknown tool side effects; the user then
+ * explicitly re-drives the work with a new [submit] — or continues a bound goal with a [submit]
+ * carrying its goalId. An interrupted turn's state is simply observed through [observe]. Nothing
+ * is ever auto-resumed: a possibly-unknown side effect makes a blind replay unsafe, so the
+ * contract deliberately offers no per-turn "resume."
  */
 interface AgentRuntime {
     /**
      * Start a new turn for [command] and return its [TurnId]. The returned id is stable for the
-     * turn's whole lifetime (including any [resume]) and addresses [observe], [resume] and
-     * [cancel].
+     * turn's whole lifetime and addresses [observe] and [cancel].
      */
     suspend fun submit(command: SubmitTurnCommand): TurnId
-
-    /**
-     * Resume an [TurnPhase.INTERRUPTED] turn after process recovery (crash / kill / power loss).
-     * The caller is expected to have completed the side-effect review for any possibly-unknown
-     * tool calls first; [resume] encodes the state transition, not that policy.
-     */
-    suspend fun resume(turnId: TurnId): ResumeResult
 
     /**
      * Cancel a live or recoverable turn. A non-terminal phase moves to [TurnPhase.CANCELLING]
@@ -117,25 +117,6 @@ data class TurnSnapshot(
 ) {
     val isTerminal: Boolean
         get() = phase.isTerminal
-}
-
-/** Outcome of [AgentRuntime.resume]. */
-sealed interface ResumeResult {
-    /** The turn was picked back up and its loop restarted. */
-    data object Resumed : ResumeResult
-
-    /** The turn was already terminal; there is nothing to resume. */
-    data class AlreadyTerminal(
-        val phase: TurnPhase,
-    ) : ResumeResult
-
-    /** No turn exists for this id. */
-    data object NotFound : ResumeResult
-
-    /** The turn cannot be resumed (e.g. a possibly-unknown tool side effect failed its review). */
-    data class Rejected(
-        val reason: String,
-    ) : ResumeResult
 }
 
 /** Outcome of [AgentRuntime.cancel]. */
