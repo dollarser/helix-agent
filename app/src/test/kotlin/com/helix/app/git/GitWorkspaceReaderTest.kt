@@ -88,6 +88,138 @@ class GitWorkspaceReaderTest {
     }
 
     @Test
+    fun `diffFor renders a git-style unified diff`() {
+        val root = tmp.newFolder("ws")
+        initRepo(root)
+        File(root, "a.txt").writeText("one\nTWO\nthree\n")
+        val expected =
+            "diff --git a/a.txt b/a.txt\n" +
+                "--- a/a.txt\n" +
+                "+++ b/a.txt\n" +
+                "@@ -1,1 +1,3 @@\n" +
+                " one\n" +
+                "+TWO\n" +
+                "+three\n"
+        assertEquals(expected, GitWorkspaceReader(root).diffFor("a.txt"))
+    }
+
+    @Test
+    fun `diffFor never writes to the object database`() {
+        val root = tmp.newFolder("ws")
+        initRepo(root)
+        File(root, "a.txt").writeText("one\ntwo\n")
+        val objectsDir = File(root, ".git/objects")
+        val before =
+            objectsDir
+                .walkTopDown()
+                .filter { it.isFile }
+                .map { it.path }
+                .toList()
+                .sorted()
+        val diff = GitWorkspaceReader(root).diffFor("a.txt")
+        assertTrue(diff.contains("+two"))
+        val after =
+            objectsDir
+                .walkTopDown()
+                .filter { it.isFile }
+                .map { it.path }
+                .toList()
+                .sorted()
+        assertEquals(before, after)
+    }
+
+    @Test
+    fun `diffFor falls back to the staged diff when the worktree is clean`() {
+        val root = tmp.newFolder("ws")
+        val git = initRepo(root)
+        File(root, "a.txt").writeText("one\nstaged-line\n")
+        git.add().addFilepattern("a.txt").call()
+        val diff = GitWorkspaceReader(root).diffFor("a.txt")
+        assertTrue(diff.contains("+staged-line"))
+    }
+
+    @Test
+    fun `diffFor shows a worktree deletion against dev-null`() {
+        val root = tmp.newFolder("ws")
+        initRepo(root)
+        File(root, "b.txt").delete()
+        val diff = GitWorkspaceReader(root).diffFor("b.txt")
+        assertTrue(diff.contains("+++ /dev/null"))
+        assertTrue(diff.contains("-B"))
+    }
+
+    @Test
+    fun `diffFor names binary content instead of rendering it`() {
+        val root = tmp.newFolder("ws")
+        val git = initRepo(root)
+        File(root, "img.bin").writeBytes(byteArrayOf(0, 1, 2))
+        git
+            .add()
+            .addFilepattern("img.bin")
+            .call()
+        git
+            .commit()
+            .setMessage("bin")
+            .setAuthor("t", "t@example.com")
+            .setCommitter("t", "t@example.com")
+            .call()
+        File(root, "img.bin").writeBytes(byteArrayOf(0, 1, 2, 3))
+        assertEquals(
+            "Binary files a/img.bin and b/img.bin differ\n",
+            GitWorkspaceReader(root).diffFor("img.bin"),
+        )
+    }
+
+    @Test
+    fun `diffFor reports a too-large file honestly instead of diffing it`() {
+        val root = tmp.newFolder("ws")
+        val git = initRepo(root)
+        File(root, "big.txt").writeText("small\n")
+        git
+            .add()
+            .addFilepattern("big.txt")
+            .call()
+        git
+            .commit()
+            .setMessage("big")
+            .setAuthor("t", "t@example.com")
+            .setCommitter("t", "t@example.com")
+            .call()
+        File(root, "big.txt").writeText("x".repeat(1024 * 1024 + 1))
+        assertTrue(GitWorkspaceReader(root).diffFor("big.txt").contains("per-side limit"))
+    }
+
+    @Test
+    fun `diffFor reports a too-many-lines file honestly instead of diffing it`() {
+        val root = tmp.newFolder("ws")
+        val git = initRepo(root)
+        File(root, "lines.txt").writeText("small\n")
+        git
+            .add()
+            .addFilepattern("lines.txt")
+            .call()
+        git
+            .commit()
+            .setMessage("lines")
+            .setAuthor("t", "t@example.com")
+            .setCommitter("t", "t@example.com")
+            .call()
+        File(root, "lines.txt").writeText("line\n".repeat(50_001))
+        assertTrue(GitWorkspaceReader(root).diffFor("lines.txt").contains("line limit"))
+    }
+
+    @Test
+    fun `diffFor shows a lost trailing newline as a last-line change`() {
+        val root = tmp.newFolder("ws")
+        initRepo(root)
+        File(root, "a.txt").writeBytes("one".toByteArray(Charsets.UTF_8))
+        val diff = GitWorkspaceReader(root).diffFor("a.txt")
+        assertTrue(diff.contains("-one"))
+        assertTrue(diff.contains("+one"))
+        assertTrue(diff.contains("No newline at end of file"))
+    }
+
+    @Test
     fun `diffFor is empty for an untracked file`() {
         val root = tmp.newFolder("ws")
         initRepo(root)

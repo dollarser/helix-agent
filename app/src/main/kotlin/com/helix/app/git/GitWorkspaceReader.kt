@@ -3,7 +3,6 @@ package com.helix.app.git
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.diff.DiffFormatter
-import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Repository
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -14,8 +13,10 @@ import java.io.File
  * consumer and developer flavors (the doc's native-first principle) and is fully unit-testable.
  *
  * The repository may live at the workspace root or one level below it (the common "clone a repo
- * into the workspace" case); [locate] resolves which. Every read is fail-closed: a non-repo and a
- * read error are distinct, honest states — never a fabricated clean status.
+ * into the workspace" case); [locate] resolves which. The reader is strictly READ-ONLY — it
+ * never writes into `.git` (an unstaged diff is rendered in memory by [WorktreeDiffRenderer]) —
+ * and every read is fail-closed: a non-repo and a read error are distinct, honest states, never
+ * a fabricated clean status.
  */
 class GitWorkspaceReader(
     private val workspaceRoot: File,
@@ -98,10 +99,8 @@ class GitWorkspaceReader(
                     .filter { !untrackedPaths.contains(it.newPath) }
                     .filter { it.newPath == path || it.oldPath == path }
             if (unstaged.isNotEmpty()) {
-                unstaged
-                    .filter { it.newId != null }
-                    .forEach { materializeWorktreeBlob(git.repository, File(repoDir, it.newPath)) }
-                formatter.format(unstaged)
+                val renderer = WorktreeDiffRenderer(repoDir)
+                unstaged.forEach { out.write(renderer.render(git.repository, it).toByteArray(Charsets.UTF_8)) }
             } else if (hasCommit(git.repository)) {
                 val staged =
                     git
@@ -109,27 +108,12 @@ class GitWorkspaceReader(
                         .setCached(true)
                         .call()
                         .filter { it.newPath == path || it.oldPath == path }
+                // Staged (index vs HEAD) pairs live entirely in the object database, so the
+                // formatter needs no worktree-side materialization and stays read-only as is.
                 formatter.format(staged)
             }
             formatter.flush()
             return out.toString(Charsets.UTF_8)
-        }
-    }
-
-    /**
-     * The worktree side of an unstaged diff is hashed into the [DiffEntry] but not stored in the
-     * object database, so [DiffFormatter] cannot read it. Materialize it as a loose object — a
-     * content-addressed, idempotent write, exactly what `git hash-object -w` performs — so the
-     * unified diff can render.
-     */
-    private fun materializeWorktreeBlob(
-        repo: Repository,
-        worktreeFile: File,
-    ) {
-        if (worktreeFile.isFile) {
-            runCatching {
-                repo.newObjectInserter().insert(Constants.OBJ_BLOB, worktreeFile.readBytes())
-            }
         }
     }
 
