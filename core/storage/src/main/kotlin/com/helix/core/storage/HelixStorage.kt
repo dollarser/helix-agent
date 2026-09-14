@@ -36,6 +36,7 @@ import com.helix.core.storage.repository.RuntimeInstallRepository
 import com.helix.core.storage.repository.SessionRepository
 import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
+import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
 import com.helix.core.storage.repository.ToolCallRepository
 import com.helix.core.storage.repository.ToolResultRepository
 import com.helix.core.storage.repository.TurnRepository
@@ -64,6 +65,14 @@ class HelixStorage internal constructor(
     val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao()) }
     val toolResults: ToolResultRepository by lazy { ToolResultRepository(database.toolResultDao(), contentStore) }
     val approvals: ApprovalRepository by lazy { ApprovalRepository(database.approvalDao()) }
+
+    /**
+     * Standing user tool-approval preferences (HXA-200, ADR-0052), distinct from the per-call
+     * [approvals] table. The user application service writes; the Registry and Dispatcher read.
+     */
+    val toolApprovalPreferences: ToolApprovalPreferenceRepository by lazy {
+        ToolApprovalPreferenceRepository(database.toolApprovalPreferenceDao())
+    }
     val interactionReceipts: InteractionReceiptRepository by lazy {
         InteractionReceiptRepository(database.interactionReceiptDao())
     }

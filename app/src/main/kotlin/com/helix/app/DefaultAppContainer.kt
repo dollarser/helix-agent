@@ -8,6 +8,7 @@ import com.helix.app.a2a.A2aTaskRunner
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
+import com.helix.app.approval.ToolApprovalPreferenceService
 import com.helix.app.audit.AuditLogService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
@@ -380,6 +381,15 @@ internal class DefaultAppContainer(
     private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
 
     /**
+     * Standing user tool-approval preferences (HXA-200, ADR-0052). The ONLY write path (the future
+     * settings screen / approval card / device tests call [set]/[remove]); it is also the live read
+     * seam handed to BOTH the [ToolDispatcher] (pre-start re-resolution) and the Registry exposure
+     * filter so they resolve one tool against the same store (point 7).
+     */
+    override val toolApprovalPreferenceService: ToolApprovalPreferenceService =
+        ToolApprovalPreferenceService(storage.toolApprovalPreferences)
+
+    /**
      * The production approval broker (roadmap HXA-036): pending records with the full
      * binding hash + 24h window, the UI-decided [decide], and the HXA-034 mint/consume
      * guards as the ONLY path to a typed proof (ADR-0005: no auto-approve path exists).
@@ -417,6 +427,9 @@ internal class DefaultAppContainer(
                             storage.highSensitivityRules.all().map { it.rule }
                         }
                     },
+                    // HXA-200 (ADR-0052): re-resolve the user's stored preference before the call
+                    // starts — the SAME instance the Registry exposure filter reads (point 7).
+                    preferenceSource = toolApprovalPreferenceService,
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
@@ -430,7 +443,15 @@ internal class DefaultAppContainer(
                     registry = toolRegistry,
                     resourceGate = resourceGate::allowance,
                 )
-            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler).also {
+            ToolPipeline(
+                toolRegistry,
+                toolImplementations,
+                dispatcher,
+                broker,
+                auditSink,
+                scheduler,
+                toolApprovalPreferenceService,
+            ).also {
                 it.mcpDiscovery.register(toolImplementations)
             }
         }

@@ -95,7 +95,7 @@
     <string name="approval_code_invalid_output">Output does not match the registered schema</string>
     <string name="approval_code_no_implementation">No registered implementation</string>
     <string name="approval_code_policy_denied">Denied by policy</string>
-    <string name="approval_code_preference_denied">Blocked by the user&#39;s DENY preference</string>
+    <string name="approval_code_preference_denied">Blocked by the user\'s DENY preference</string>
     <string name="approval_code_same_turn_denied">This action was already denied in this turn</string>
     <string name="approval_code_sha256">Code digest SHA-256</string>
     <string name="approval_code_success">Succeeded</string>

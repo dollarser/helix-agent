@@ -1,6 +1,7 @@
 package com.helix.app
 
 import com.helix.app.a2a.A2aAppService
+import com.helix.app.approval.ToolApprovalPreferenceService
 import com.helix.app.audit.AuditLogService
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
@@ -68,6 +69,14 @@ interface AppContainer {
      * directly (AGENTS: UI never touches the execution layer).
      */
     val toolPipeline: ToolPipeline
+
+    /**
+     * Standing user tool-approval preferences (HXA-200, ADR-0052) — the user application service
+     * (the only write path: the future settings screen / approval card / device tests) and the live
+     * read seam the Dispatcher and Registry exposure filter share. Distinct from the per-call
+     * approval decisions.
+     */
+    val toolApprovalPreferenceService: ToolApprovalPreferenceService
 
     val connectorService: com.helix.app.connector.ConnectorService
         get() = error("Connector service is unavailable in this container")
