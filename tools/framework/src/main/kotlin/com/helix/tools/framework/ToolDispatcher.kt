@@ -23,8 +23,13 @@ import com.helix.core.policy.NetworkOriginScope
 import com.helix.core.policy.PolicyDecision
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.PolicyInput
+import com.helix.core.policy.ToolApprovalBlockCode
+import com.helix.core.policy.ToolApprovalPreferenceSource
+import com.helix.core.policy.ToolApprovalResolution
+import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.policy.ToolCallSource
 import com.helix.core.policy.UserScope
+import com.helix.core.policy.WorkspaceScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
@@ -201,6 +206,14 @@ class ToolDispatcher(
     private val approvals: ApprovalBroker,
     private val audit: AuditSink,
     private val ruleProvider: () -> Set<HighSensitivityRule> = { emptySet() },
+    /**
+     * HXA-200 (ADR-0052): the live read seam for the user's stored tool-approval preferences.
+     * Null (the default) means no preference source is wired — the dispatcher behaves exactly as
+     * before (a preference can only ever RESTRICT, so an absent source never expands anything).
+     * The Registry exposure path parses the same contract, so a preference changed while a call
+     * is queued is re-read before this call starts (point 7).
+     */
+    private val preferenceSource: ToolApprovalPreferenceSource? = null,
 ) {
     private val deadlineRunner = ToolDeadlineRunner(clock, EXECUTOR_SERVICE)
 
@@ -360,33 +373,112 @@ class ToolDispatcher(
             )
         ctx.policyDecidedAt = clock.now().toEpochMilli()
         ctx.riskLevel = policy.dynamicRisk
-        return when (val decision = policy.decision) {
-            is PolicyDecision.Deny -> {
+        // HXA-200 (ADR-0052 point 7): the user's stored preference is re-read LIVE right before
+        // this call starts — a preference changed while the call sat in the queue is honored, and
+        // it is folded into the SAME policy decision by the ONE resolver the Registry exposure
+        // path also parses. A preference can only ever RESTRICT (DENY blocks, ASK forces a card);
+        // it never expands capability, scope or a high-risk approval, and a policy denial always
+        // wins (points 2 and 4). With no preference seam wired the decision maps 1:1 to its
+        // historical outcome, so pre-feature callers behave exactly as before.
+        val resolution = resolutionFor(request, descriptor, policy.decision, preferenceSource)
+        return when (resolution) {
+            is ToolApprovalResolution.Blocked -> {
+                val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
+                // A policy denial keeps its own stable reason text; a preference denial uses the
+                // resolver's note. A policy denial is a POLICY decision, a preference a USER one.
+                val code =
+                    if (policyDenied) {
+                        DispatchOutcomeCode.POLICY_DENIED
+                    } else {
+                        DispatchOutcomeCode.PREFERENCE_DENIED
+                    }
+                val detail =
+                    if (policyDenied) {
+                        val deny = policy.decision as PolicyDecision.Deny
+                        "policy ${deny.code.name}: ${deny.detail}"
+                    } else {
+                        resolution.detail
+                    }
                 stopped(
                     ctx,
-                    ToolDispatchOutcome.Denied(
-                        DispatchOutcomeCode.POLICY_DENIED,
-                        "policy ${decision.code.name}: ${decision.detail}",
-                    ),
-                    DecisionSource.POLICY,
+                    ToolDispatchOutcome.Denied(code, detail),
+                    if (policyDenied) DecisionSource.POLICY else DecisionSource.USER,
                 )
             }
 
-            PolicyDecision.Allow -> {
-                null
-            }
-
-            is PolicyDecision.RequiresApproval -> {
+            is ToolApprovalResolution.RequiresCard -> {
+                // L2/L3 or high-sensitivity egress always cards (the policy's detail is shown); an
+                // ASK preference now ALSO forces a card on a policy Allow (point 3) — an explicit
+                // ALLOW is the only card-free path for an in-scope low-risk call. Both present the
+                // SAME per-call surface; a preference-forced card (no policy detail) shows the
+                // resolver's note instead.
+                val detail =
+                    (policy.decision as? PolicyDecision.RequiresApproval)?.detail ?: resolution.detail
                 if (carriedProof != null) {
                     ctx.approvalAcquiredAt = clock.now().toEpochMilli()
                     ctx.attemptProof = carriedProof
                     carriedProof
                 } else {
-                    acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
+                    acquireApproval(
+                        request,
+                        descriptor,
+                        PolicyDecision.RequiresApproval(detail),
+                        ctx,
+                        policy.matchedEgressRule,
+                    )
                 }
+            }
+
+            // An in-scope L0/L1 call under an explicit ALLOW proceeds card-free (point 2). A
+            // carried retry proof goes unspent when the live re-resolution no longer needs it.
+            ToolApprovalResolution.AutoProceed -> {
+                null
             }
         }
     }
+
+    /**
+     * HXA-200 (ADR-0052 point 7): fold the live preference into the policy decision. When no
+     * preference seam is wired (`source == null` — the framework default for every caller that
+     * predates the feature), the policy decision maps 1:1 to its historical outcome so nothing
+     * changes for them: an Allow proceeds card-free, a denial stays a policy denial, and
+     * RequiresApproval still presents a card. Once a source IS wired, the ONE shared
+     * [ToolApprovalResolver] applies the live preference; an unset user preference still resolves
+     * to the ASK default, which is the point of the feature (new tools default to ASK,
+     * ADR-0052 point 1).
+     */
+    private fun resolutionFor(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+        decision: PolicyDecision,
+        source: ToolApprovalPreferenceSource?,
+    ): ToolApprovalResolution =
+        if (source == null) {
+            when (decision) {
+                is PolicyDecision.Deny -> {
+                    ToolApprovalResolution.Blocked(ToolApprovalBlockCode.POLICY_DENIED, decision.detail)
+                }
+
+                PolicyDecision.Allow -> {
+                    ToolApprovalResolution.AutoProceed
+                }
+
+                is PolicyDecision.RequiresApproval -> {
+                    ToolApprovalResolution.RequiresCard(detail = decision.detail)
+                }
+            }
+        } else {
+            ToolApprovalResolver.resolve(
+                source.effectiveFor(
+                    sourceRef = descriptor.origin.canonicalOf(),
+                    toolName = descriptor.name.value,
+                    contractHash = descriptor.contractHash.hex,
+                    sessionId = request.sessionId,
+                    workspaceRef = (request.scope as? WorkspaceScope)?.workspaceId,
+                ),
+                decision,
+            )
+        }
 
     /** Clears the same-turn denial set for [turnId] (the agent loop calls this at turn end). */
     fun endTurn(turnId: String) {

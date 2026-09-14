@@ -145,6 +145,7 @@ object ApprovalUiMapper {
             DispatchOutcomeCode.INVALID_ARGUMENTS -> R.string.approval_code_invalid_arguments
             DispatchOutcomeCode.BUDGET_EXHAUSTED -> R.string.model_error_goal_budget_limit
             DispatchOutcomeCode.POLICY_DENIED -> R.string.approval_code_policy_denied
+            DispatchOutcomeCode.PREFERENCE_DENIED -> R.string.approval_code_preference_denied
             DispatchOutcomeCode.SAME_TURN_DENIED -> R.string.approval_code_same_turn_denied
             DispatchOutcomeCode.APPROVAL_PENDING -> R.string.approval_code_approval_pending
             DispatchOutcomeCode.APPROVAL_DENIED -> R.string.approval_code_approval_denied

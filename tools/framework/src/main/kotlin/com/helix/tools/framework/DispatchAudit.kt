@@ -16,6 +16,9 @@ enum class DispatchOutcomeCode {
     INVALID_ARGUMENTS,
     BUDGET_EXHAUSTED,
     POLICY_DENIED,
+
+    /** A user DENY preference blocked the tool (HXA-200, ADR-0052); distinct from a policy-engine denial. */
+    PREFERENCE_DENIED,
     SAME_TURN_DENIED,
     APPROVAL_PENDING,
     APPROVAL_DENIED,
