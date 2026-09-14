@@ -5,7 +5,6 @@ import com.helix.core.agent.PromptRegistry
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.model.AgentMode
 import com.helix.core.storage.HelixStorage
-import com.helix.core.workspace.FileScopePath
 
 /**
  * The single production system-prompt assembly (cross-mode unification, HX2-04): EVERY mode goes
@@ -31,13 +30,16 @@ internal class SystemPromptContext(
         mode: AgentMode,
         fileToolsAvailable: Boolean,
     ): PromptSnapshot {
+        // The working directory the prompt advertises MUST be the one the file tools resolve
+        // against: ChatToolCalls binds every relative arg via the same FileToolArguments.directory
+        // (which parses a `scope:` directoryRef or falls back to the scope root), so the prompt and
+        // the tools agree on default root / selected subdirectory / other authorized root alike.
         val directory =
-            FileScopePath(
+            FileToolArguments.directory(
                 workspaceScopeId,
                 storage.sessions
                     .resolve(sessionId)
-                    .directoryRef
-                    .orEmpty(),
+                    .directoryRef,
             )
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, mode, fileToolsAvailable, templates)
