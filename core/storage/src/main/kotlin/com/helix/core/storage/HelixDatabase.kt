@@ -28,6 +28,7 @@ import com.helix.core.storage.dao.RuntimeInstallDao
 import com.helix.core.storage.dao.SessionDao
 import com.helix.core.storage.dao.SkillDao
 import com.helix.core.storage.dao.SkillSnapshotDao
+import com.helix.core.storage.dao.ToolApprovalPreferenceDao
 import com.helix.core.storage.dao.ToolCallDao
 import com.helix.core.storage.dao.ToolResultDao
 import com.helix.core.storage.dao.TurnDao
@@ -58,6 +59,7 @@ import com.helix.core.storage.entity.RuntimeInstallEntity
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.entity.SkillEntity
 import com.helix.core.storage.entity.SkillSnapshotEntity
+import com.helix.core.storage.entity.ToolApprovalPreferenceEntity
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
@@ -112,8 +114,9 @@ import com.helix.core.storage.entity.TurnEntity
             A2aAgentEntity::class,
             A2aCapabilityEntity::class,
             A2aTaskEntity::class,
+            ToolApprovalPreferenceEntity::class,
         ],
-    version = 16,
+    version = 17,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
@@ -176,8 +179,12 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun a2aTaskDao(): A2aTaskDao
 
+    abstract fun toolApprovalPreferenceDao(): ToolApprovalPreferenceDao
+
     companion object {
         const val DATABASE_NAME = "helix.db"
+
+        val MIGRATION_16_17 = HelixMigrations.MIGRATION_16_17
 
         val MIGRATION_15_16 = HelixMigrations.MIGRATION_15_16
 

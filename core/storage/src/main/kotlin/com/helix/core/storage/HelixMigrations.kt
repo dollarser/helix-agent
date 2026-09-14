@@ -5,6 +5,40 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v16 -> v17 (HXA-200, ADR-0052: user tool-approval preferences): adds the
+     * `tool_approval_preferences` table — one standing user setting per (tool identity, scope),
+     * written only by the user application service, never the model/Skill/MCP/A2A. Additive and
+     * empty on upgrade: no ALLOW rows are seeded, so an unconfigured user keeps their original
+     * behavior (ADR-0052 point 1). Mirrors the canonical Room v17 DDL for
+     * [ToolApprovalPreferenceEntity]; the table has no foreign keys (a preference is keyed by the
+     * stable tool source + name, not a relation to a session/turn/tool-call) and the unique index
+     * makes "reset to default" a delete, not a fourth state (point 5).
+     */
+    val MIGRATION_16_17 =
+        object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_approval_preferences` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`preference` TEXT NOT NULL, " +
+                        "`scopeKind` TEXT NOT NULL, " +
+                        "`scopeRef` TEXT NOT NULL, " +
+                        "`contractHash` TEXT NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_approval_preferences_key` " +
+                        "ON `tool_approval_preferences` (`sourceRef`, `toolName`, `scopeKind`, `scopeRef`)",
+                )
+            }
+        }
+
+    /**
      * v15 -> v16 (doc 02 §8; artifact-scope identity): `artifacts.relativePath` now stores the
      * file's FULL `scope:` model reference (e.g. `scope:app:output/a2a/...`) instead of a bare
      * scope-relative path, so the artifact identity carries its real scope through the unique

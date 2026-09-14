@@ -1,6 +1,7 @@
 package com.helix.core.policy
 
 import com.helix.core.model.ToolApprovalPreference
+import com.helix.core.model.ToolApprovalPreferenceScope
 
 /**
  * One effective outcome of applying a user tool preference to a policy decision (ADR-0052).
@@ -52,6 +53,18 @@ enum class ToolApprovalExposure {
     /** The user has DENYed the tool; it must not be offered to the model. */
     HIDDEN_BY_DENY,
 }
+
+/**
+ * One stored tool-approval preference as the resolver consumes it: the three-state value, its
+ * scope, and the descriptor `contractHash` an ALLOW was bound to (null for ASK/DENY). The storage
+ * layer rehydrates a row into this; the caller feeds the applicable set to
+ * [ToolApprovalResolver.effectivePreference].
+ */
+data class ToolApprovalPreferenceRecord(
+    val preference: ToolApprovalPreference,
+    val scope: ToolApprovalPreferenceScope,
+    val contractHash: String?,
+)
 
 /**
  * Resolves a user [ToolApprovalPreference] against a [PolicyDecision] into the effective
@@ -141,4 +154,40 @@ object ToolApprovalResolver {
             ToolApprovalPreference.DENY -> ToolApprovalExposure.HIDDEN_BY_DENY
             ToolApprovalPreference.ASK, ToolApprovalPreference.ALLOW, null -> ToolApprovalExposure.EXPOSE
         }
+
+    /**
+     * Collapses the stored records applicable to one tool call into the single effective preference
+     * (ADR-0052 points 5, 6, 7). Returns null when nothing live remains, which the caller treats as
+     * the unset default ([DEFAULT_PREFERENCE]).
+     *
+     * Rule order:
+     * 1. A stored ALLOW that no longer matches the current descriptor [currentContractHash] is
+     *    dropped first — a contract or source change falls an ALLOW back to ASK while a stored DENY
+     *    or ASK is kept (point 6). ASK and DENY never carry a contract binding, so they always stay
+     *    live.
+     * 2. A live DENY in any applicable scope is authoritative: a narrower ALLOW (or ASK) cannot
+     *    override an outer DENY (point 5).
+     * 3. Otherwise the narrowest present scope wins: SESSION over WORKSPACE over GLOBAL.
+     */
+    fun effectivePreference(
+        records: List<ToolApprovalPreferenceRecord>,
+        currentContractHash: String?,
+    ): ToolApprovalPreference? {
+        val live =
+            records.filter {
+                it.preference != ToolApprovalPreference.ALLOW ||
+                    (it.contractHash != null && it.contractHash == currentContractHash)
+            }
+        if (live.any { it.preference == ToolApprovalPreference.DENY }) {
+            return ToolApprovalPreference.DENY
+        }
+        return preferenceInScope(live, ToolApprovalPreferenceScope.SESSION)
+            ?: preferenceInScope(live, ToolApprovalPreferenceScope.WORKSPACE)
+            ?: preferenceInScope(live, ToolApprovalPreferenceScope.GLOBAL)
+    }
+
+    private fun preferenceInScope(
+        records: List<ToolApprovalPreferenceRecord>,
+        scope: ToolApprovalPreferenceScope,
+    ): ToolApprovalPreference? = records.firstOrNull { it.scope == scope }?.preference
 }
