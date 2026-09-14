@@ -66,7 +66,7 @@ internal class ImageReferenceVerifier(
             "bound image exceeds the per-image wire budget"
         }
         val scopePath =
-            runCatching { FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath) }
+            runCatching { FileScopePath.fromModelReference(artifact.relativePath) }
                 .getOrNull()
                 ?: throw IllegalArgumentException("bound image artifact path is invalid — re-verify the session")
         val file =

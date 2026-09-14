@@ -1,8 +1,10 @@
 package com.helix.app.proot
 
+import com.helix.app.APP_SCOPE_ID
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.workspace.AtomicFileWriter
+import com.helix.core.workspace.FileScopePath
 import com.helix.runtime.proot.core.JobArchiveLimits
 import com.helix.runtime.proot.core.ZipJobExtractor
 import com.helix.runtime.proot.ipc.ProotJobRecord
@@ -52,7 +54,7 @@ internal class ProotResultStore(
         val job = binding(turnId, callId).getValue("jobId").jsonPrimitive.content
         val session = storage.turns.resolve(turnId).sessionId
         val relative = relativePath(job)
-        val artifact = storage.artifacts.findBySessionAndPath(session, relative) ?: return null
+        val artifact = storage.artifacts.findBySessionAndPath(session, modelRef(relative)) ?: return null
         check(artifact.id == "proot-result-$callId" && artifact.mediaType == "application/zip")
         val file = File(workspace, relative)
         check(artifact.size in 1..JobArchiveLimits.MAX_TOTAL_BYTES)
@@ -71,7 +73,7 @@ internal class ProotResultStore(
         val relative = relativePath(job)
         val hash = FileContentStore.sha256Hex(candidate)
         storage.withTransaction {
-            val existing = storage.artifacts.findBySessionAndPath(session, relative)
+            val existing = storage.artifacts.findBySessionAndPath(session, modelRef(relative))
             if (existing == null) {
                 val target = File(workspace, relative)
                 val parent = requireNotNull(target.parentFile)
@@ -82,7 +84,7 @@ internal class ProotResultStore(
                 storage.artifacts.register(
                     "proot-result-$callId",
                     session,
-                    relative,
+                    modelRef(relative),
                     "application/zip",
                     candidate.length(),
                     hash,
@@ -110,6 +112,11 @@ internal class ProotResultStore(
         ProotJobRecordCodec.checkJobId(job)
         return ".helix/proot-results/$job.zip"
     }
+
+    // The `artifacts` row stores the file's FULL `scope:` reference (the unique key and every
+    // lookup agree on it); the I/O still uses the bare scope-relative path under this store's
+    // app-scope workspace root.
+    private fun modelRef(relative: String): String = FileScopePath(APP_SCOPE_ID, relative).toModelReference()
 
     private fun copyBounded(
         input: InputStream,

@@ -350,6 +350,7 @@ class SafImportPipeline(
             val record =
                 WorkspaceArtifactStore.ArtifactRecord(
                     id = "art_" + UUID.randomUUID().toString().replace("-", ""),
+                    scopeId = target.scopeId,
                     relativePath = target.relativePath,
                     mediaType = probe.mimeType,
                     sizeBytes = streamed.bytesWritten,

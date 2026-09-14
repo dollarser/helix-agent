@@ -11,22 +11,26 @@ import com.helix.core.workspace.WorkspaceArtifactStore
  * never land. The row is stable per (session, path): a re-write of the same path refreshes the
  * existing row (keeping its id so message attachments bound to the artifact survive) and stamps
  * the writing turn from the tool call's trusted context.
+ *
+ * The stored path is the file's FULL `scope:` reference: the record carries the real scope id
+ * the write landed in (not a fixed app scope), so a file written under a selected or other
+ * authorized root is registered and later opened against exactly that scope.
  */
 internal class ToolArtifactRegistrationSink(
     private val storage: HelixStorage,
-    private val workspaceScopeId: String,
     private val resolveWorkspaceFile: (FileScopePath) -> java.io.File,
 ) : WorkspaceArtifactStore.ArtifactSink {
     override fun register(
         sessionId: String,
         record: WorkspaceArtifactStore.ArtifactRecord,
     ) {
-        val file = resolveWorkspaceFile(FileScopePath(workspaceScopeId, record.relativePath))
+        val scopePath = FileScopePath(record.scopeId, record.relativePath)
+        val file = resolveWorkspaceFile(scopePath)
         storage.withTransaction {
             storage.artifacts.registerOrRefresh(
                 record.id,
                 sessionId,
-                record.relativePath,
+                scopePath.toModelReference(),
                 record.mediaType,
                 record.sizeBytes,
                 record.sha256,

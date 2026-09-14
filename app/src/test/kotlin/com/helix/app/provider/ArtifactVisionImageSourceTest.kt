@@ -97,7 +97,7 @@ class ArtifactVisionImageSourceTest {
     fun setUp() {
         root = tmp.newFolder("ws").toPath()
         store = WorkspaceArtifactStore(ScopeRootResolver { _ -> root })
-        source = ArtifactVisionImageSource(ArtifactRepository(dao()), store, "app")
+        source = ArtifactVisionImageSource(ArtifactRepository(dao()), store)
     }
 
     /** A real JPEG file (FF D8 FF magic) under the input region, registered as an artifact. */
@@ -111,10 +111,15 @@ class ArtifactVisionImageSourceTest {
         Files.createDirectories(file.parent)
         Files.write(file, bytes)
         val sha = AtomicSha.sha(bytes)
-        val entity = ArtifactEntity(id, sessionId, relativePath, "image/jpeg", bytes.size.toLong(), sha)
+        // The file lands at the bare scope-relative path; the ROW stores the full `scope:` ref
+        // (the v16 stored form) that the source parses back via FileScopePath.fromModelReference.
+        val entity = ArtifactEntity(id, sessionId, ref(relativePath), "image/jpeg", bytes.size.toLong(), sha)
         rows[id] = entity
         return entity
     }
+
+    /** The v16 stored form of a bare app-scope relative path: its full `scope:` model reference. */
+    private fun ref(bare: String): String = FileScopePath("app", bare).toModelReference()
 
     private fun jpegBytes(): ByteArray =
         byteArrayOf(
@@ -175,7 +180,7 @@ class ArtifactVisionImageSourceTest {
             ArtifactEntity(
                 "art_big",
                 "s1",
-                "input/attachments/att2/normalized.jpg",
+                ref("input/attachments/att2/normalized.jpg"),
                 "image/jpeg",
                 (VisionLimits.MAX_NORMALIZED_RAW_BYTES + 1L),
                 "0".repeat(64),
@@ -198,7 +203,7 @@ class ArtifactVisionImageSourceTest {
             ArtifactEntity(
                 "art_bad",
                 "s1",
-                "input/attachments/att3/normalized.jpg",
+                ref("input/attachments/att3/normalized.jpg"),
                 "image/jpeg",
                 png.size.toLong(),
                 sha,
@@ -214,7 +219,7 @@ class ArtifactVisionImageSourceTest {
             ArtifactEntity(
                 "art_gone",
                 "s1",
-                "input/attachments/att4/normalized.jpg",
+                ref("input/attachments/att4/normalized.jpg"),
                 "image/jpeg",
                 9L,
                 AtomicSha.sha(jpegBytes()),
@@ -226,12 +231,15 @@ class ArtifactVisionImageSourceTest {
 
     @Test
     fun aPathEscapingTheScopeFailsClosed() {
-        // A registered relativePath that escapes the scope (../../etc) must never read.
+        // A stored full ref whose path escapes the scope must never read: fromModelReference
+        // re-validates the path through FileScopePath, so an escaping `..` segment is refused
+        // before any bytes are read. A real sink can never persist such a ref (FileScopePath
+        // construction rejects it) — this is defense in depth against a corrupted row.
         val entity =
             ArtifactEntity(
                 "art_escape",
                 "s1",
-                "../../escape.jpg",
+                "scope:app:../../escape.jpg",
                 "image/jpeg",
                 9L,
                 AtomicSha.sha(jpegBytes()),

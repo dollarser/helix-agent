@@ -341,12 +341,13 @@ class A2aTaskRunner(
         val artifact = storage.artifacts.resolve(artifactId)
         require(artifact.sessionId == sessionId) { "A2A artifact is not bound to this session" }
         require(artifact.size in 0..MAX_ARTIFACT_BYTES) { "A2A artifact exceeds wire limit" }
-        val bytes = workspace.readAll(FileScopePath(workspaceScopeId, artifact.relativePath))
+        val scopePath = FileScopePath.fromModelReference(artifact.relativePath)
+        val bytes = workspace.readAll(scopePath)
         require(bytes.size.toLong() == artifact.size && FileContentStore.sha256Hex(bytes) == artifact.sha256) {
             "A2A artifact bytes do not match their snapshot"
         }
         return A2aOutboundArtifact(
-            filename = artifact.relativePath.substringAfterLast('/').take(256),
+            filename = scopePath.name.take(256),
             mediaType = artifact.mediaType,
             base64 = Base64.getEncoder().encodeToString(bytes),
             sha256 = artifact.sha256,

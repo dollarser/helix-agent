@@ -5,6 +5,27 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v15 -> v16 (doc 02 §8; artifact-scope identity): `artifacts.relativePath` now stores the
+     * file's FULL `scope:` model reference (e.g. `scope:app:output/a2a/...`) instead of a bare
+     * scope-relative path, so the artifact identity carries its real scope through the unique
+     * key, every lookup, open, and invalidation check. The pre-v16 sink always resolved a row
+     * under the app scope, so every existing file physically lives under the app-scope root —
+     * normalizing each legacy bare row to `scope:app:<path>` makes it addressable by the
+     * scope-carrying readers (which parse via `FileScopePath.fromModelReference`). Pure data
+     * update, no DDL. A stored path is either legacy-bare or a full ref and no bare path starts
+     * with `scope:`, so the guard is exact.
+     */
+    val MIGRATION_15_16 =
+        object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "UPDATE artifacts SET relativePath = 'scope:app:' || relativePath " +
+                        "WHERE relativePath NOT LIKE 'scope:%'",
+                )
+            }
+        }
+
+    /**
      * v14 -> v15 (doc 02 §8: `artifacts`): adds `turnId` — the turn that last wrote the file —
      * so the artifact surface can show which session/turn produced each file instead of only
      * background turns. Nullable: rows registered before v15 and registrations without turn

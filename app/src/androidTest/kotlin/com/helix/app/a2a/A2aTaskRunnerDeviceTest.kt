@@ -64,7 +64,7 @@ class A2aTaskRunnerDeviceTest {
             assertEquals(1, storage.artifacts.listBySession(SESSION_ID).size)
 
             val artifact = storage.artifacts.resolve(firstRef)
-            fixture.resolve(artifact.relativePath).writeText("tampered")
+            fixture.resolve(FileScopePath.fromModelReference(artifact.relativePath).relativePath).writeText("tampered")
             assertThrows(IllegalArgumentException::class.java) {
                 fixture.runner(storage, client).reconcile(TOOL_CALL_ID, SESSION_ID)
             }

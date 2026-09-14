@@ -41,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.helix.app.APP_SCOPE_ID
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.chat.ArtifactRowUi
@@ -50,6 +49,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
 import com.helix.app.files.FileManagerService
 import com.helix.core.model.TurnState
+import com.helix.core.workspace.FileScopePath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -219,16 +219,19 @@ private fun ArtifactFileDialog(
         state =
             withContext(Dispatchers.IO) {
                 runCatching {
-                    val meta = fileManager.fileInfo(APP_SCOPE_ID, row.relativePath)
+                    val scopePath = FileScopePath.fromModelReference(row.relativePath)
+                    val scopeId = scopePath.scopeId
+                    val relPath = scopePath.relativePath
+                    val meta = fileManager.fileInfo(scopeId, relPath)
                     if (meta.sizeBytes < 0) {
                         ArtifactFilePreviewState.Missing
                     } else {
                         ArtifactFilePreviewState.Ready(
                             meta = meta,
-                            text = if (meta.isText) fileManager.previewText(APP_SCOPE_ID, row.relativePath) else null,
+                            text = if (meta.isText) fileManager.previewText(scopeId, relPath) else null,
                             imageBytes =
                                 if (meta.mimeType.startsWith("image/")) {
-                                    fileManager.previewImageBytes(APP_SCOPE_ID, row.relativePath)
+                                    fileManager.previewImageBytes(scopeId, relPath)
                                 } else {
                                     ByteArray(0)
                                 },

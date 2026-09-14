@@ -23,6 +23,7 @@ import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.feature.files.AttachmentImporter
@@ -593,7 +594,7 @@ class AttachmentE2eDeviceTest {
             val normalizedBytes =
                 fixture.workspaceRoot
                     .toPath()
-                    .resolve(normalized.relativePath)
+                    .resolve(FileScopePath.fromModelReference(normalized.relativePath).relativePath)
                     .toFile()
                     .readBytes()
             val expectedDataUrl =
@@ -742,7 +743,7 @@ class AttachmentE2eDeviceTest {
                     .single { it.relativePath.contains("normalized.") }
             fixture.workspaceRoot
                 .toPath()
-                .resolve(normalized.relativePath)
+                .resolve(FileScopePath.fromModelReference(normalized.relativePath).relativePath)
                 .toFile()
                 .appendBytes(byteArrayOf(0, 1, 2))
 
@@ -996,10 +997,11 @@ class AttachmentE2eDeviceTest {
             stageImageAttachment(fixture)
             val artifactsBefore = fixture.storage.artifacts.listBySession(SESSION_ID)
             assertEquals("raw + normalized registered", 2, artifactsBefore.size)
+            val normalizedBefore = artifactsBefore.single { it.relativePath.contains("normalized.") }
             val normalizedFile =
                 fixture.workspaceRoot
                     .toPath()
-                    .resolve(artifactsBefore.single { it.relativePath.contains("normalized.") }.relativePath)
+                    .resolve(FileScopePath.fromModelReference(normalizedBefore.relativePath).relativePath)
                     .toFile()
             assertTrue("the normalized file exists pre-death", normalizedFile.exists())
 
@@ -1223,7 +1225,7 @@ class AttachmentE2eDeviceTest {
             val normalizedBytes =
                 fixture.workspaceRoot
                     .toPath()
-                    .resolve(normalized.relativePath)
+                    .resolve(FileScopePath.fromModelReference(normalized.relativePath).relativePath)
                     .toFile()
                     .readBytes()
             val b64Slice = Base64.getEncoder().encodeToString(normalizedBytes).substring(0, 24)
@@ -1263,7 +1265,7 @@ class AttachmentE2eDeviceTest {
         val file2 =
             fixture.workspaceRoot
                 .toPath()
-                .resolve(norm2.relativePath)
+                .resolve(FileScopePath.fromModelReference(norm2.relativePath).relativePath)
                 .toFile()
         assertTrue("the normalized file survived", file2.exists())
         assertEquals("the file still matches its snapshot", norm2.size, file2.length())
@@ -1361,7 +1363,7 @@ class AttachmentE2eDeviceTest {
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
         val workspaceStore = WorkspaceArtifactStore(ScopeRootResolver { _ -> workspaceRoot.toPath() })
-        val imageSource = ArtifactVisionImageSource(storage.artifacts, workspaceStore, SCOPE_ID)
+        val imageSource = ArtifactVisionImageSource(storage.artifacts, workspaceStore)
         val providerService =
             ProviderService(
                 storage = storage,

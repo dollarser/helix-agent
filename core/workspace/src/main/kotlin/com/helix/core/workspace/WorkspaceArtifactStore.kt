@@ -38,12 +38,16 @@ class WorkspaceArtifactStore(
 ) {
     /**
      * A registered artifact (doc 02 §8 `artifacts` row shape: id, relativePath, mediaType, size,
-     * sha256). [sessionId] is supplied by the caller at registration; [turnId] is the turn that
-     * wrote the file when the caller has one (tool writes), null otherwise (pre-v15 rows and
-     * registrations without turn context keep NULL in the DB).
+     * sha256). [scopeId] is the REAL scope the file lives in (the record carries it so a
+     * registration sink can build the full `scope:` reference instead of assuming a fixed scope);
+     * [relativePath] stays scope-relative. [sessionId] is supplied by the caller at
+     * registration; [turnId] is the turn that wrote the file when the caller has one (tool
+     * writes), null otherwise (pre-v15 rows and registrations without turn context keep NULL in
+     * the DB).
      */
     data class ArtifactRecord(
         val id: String,
+        val scopeId: String,
         val relativePath: String,
         val mediaType: String,
         val sizeBytes: Long,
@@ -151,6 +155,7 @@ class WorkspaceArtifactStore(
         val record =
             ArtifactRecord(
                 id = newArtifactId(),
+                scopeId = path.scopeId,
                 relativePath = path.relativePath,
                 mediaType = probe.mimeType,
                 sizeBytes = probe.sizeBytes,
@@ -222,6 +227,7 @@ class WorkspaceArtifactStore(
         val record =
             ArtifactRecord(
                 id = newArtifactId(),
+                scopeId = path.scopeId,
                 relativePath = path.relativePath,
                 mediaType = probe.mimeType,
                 sizeBytes = probe.sizeBytes,

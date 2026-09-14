@@ -363,6 +363,39 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
+    fun v15ToV16NormalizesLegacyArtifactPathsToFullScopeRefs() {
+        val name = "artifact-scope-ref-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 15).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            // A legacy v15 row: a bare scope-relative path (the pre-v16 stored form). The
+            // pre-v16 sink always resolved rows under the app scope, so it physically lives there.
+            it.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                    "VALUES ('a1','s1','output/legacy.txt','text/plain',3,'${"a".repeat(64)}',NULL)",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 16, true, HelixDatabase.MIGRATION_15_16).use { db ->
+            // The legacy bare row is normalized to the app-scope full reference.
+            db.query("SELECT relativePath FROM artifacts WHERE id='a1'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("scope:app:output/legacy.txt", it.getString(0))
+            }
+            // A row already in full-ref form is left untouched: the guard is an exact
+            // "does not start with scope:" check, never a blind prefix.
+            db.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                    "VALUES ('a2','s1','scope:other:output/x.txt','text/plain',3,'${"b".repeat(64)}',NULL)",
+            )
+            db.query("SELECT relativePath FROM artifacts WHERE id='a2'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("scope:other:output/x.txt", it.getString(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
     fun v15ExportMatchesTheCodeBuiltSchema() {
         val exportedDb = helper.createDatabase("v15-export.db", 15)
         val exported = schemaFacts(exportedDb)

@@ -132,7 +132,7 @@ internal class DefaultAppContainer(
      * construction — only at stream time, when a message actually carries an image.
      */
     private val visionImageSource: ArtifactVisionImageSource by lazy {
-        ArtifactVisionImageSource(storage.artifacts, workspaceStore, APP_SCOPE_ID)
+        ArtifactVisionImageSource(storage.artifacts, workspaceStore)
     }
 
     override val providerService: ProviderService =
@@ -331,7 +331,7 @@ internal class DefaultAppContainer(
             toolRegistry,
             toolImplementations,
             workspaceStore,
-            ToolArtifactRegistrationSink(storage, APP_SCOPE_ID) { path ->
+            ToolArtifactRegistrationSink(storage) { path ->
                 resolveFileScopePath(path, scopeRoots).toFile()
             },
         )

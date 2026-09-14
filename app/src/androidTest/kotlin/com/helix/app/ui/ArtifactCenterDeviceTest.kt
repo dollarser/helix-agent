@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
 import com.helix.core.model.TurnState
+import com.helix.core.workspace.FileScopePath
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -115,6 +116,9 @@ class ArtifactCenterDeviceTest {
             val artifactId = "artifact-file-${UUID.randomUUID()}"
             val name = "report-${UUID.randomUUID()}.txt"
             val relativePath = "output/$name"
+            // v16 stored form: the row carries the full `scope:` ref; the UI and readers parse it
+            // back via FileScopePath.fromModelReference. The file itself stays at the bare path.
+            val storedRef = FileScopePath("app", relativePath).toModelReference()
             val bytes = "line one of the delivered report\nline two".toByteArray()
             val file =
                 File(compose.activity.filesDir, "workspaces/app/$relativePath").apply {
@@ -126,7 +130,7 @@ class ArtifactCenterDeviceTest {
                 storage.artifacts.registerOrRefresh(
                     artifactId,
                     sessionId,
-                    relativePath,
+                    storedRef,
                     "text/plain",
                     bytes.size.toLong(),
                     sha256Hex(bytes),

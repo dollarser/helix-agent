@@ -37,13 +37,13 @@ fun interface VisionImageSource {
 
 /**
  * The production [VisionImageSource]: the Room `artifacts` registry (the message-binding proof)
- * + the containment-enforced workspace store (the bytes). The workspace scope is the app scope —
- * every chat attachment artifact (raw or normalized) is staged there by [com.helix.app.chat.ChatService].
+ * + the containment-enforced workspace store (the bytes). The file's scope is carried by the
+ * stored full `scope:` reference (parsed via [FileScopePath.fromModelReference]), so the bytes
+ * are read back from exactly the scope the artifact was registered under — never an assumed one.
  */
 class ArtifactVisionImageSource(
     private val artifacts: ArtifactRepository,
     private val workspace: WorkspaceArtifactStore,
-    private val scopeId: String,
 ) : VisionImageSource {
     @Suppress("TooGenericExceptionCaught") // ANY read failure (path/scope/I-O) maps to one closed, path-free error
     override fun load(ref: ArtifactRef): LoadedImage {
@@ -67,7 +67,7 @@ class ArtifactVisionImageSource(
         }
         val bytes =
             try {
-                workspace.readAll(FileScopePath(scopeId, artifact.relativePath))
+                workspace.readAll(FileScopePath.fromModelReference(artifact.relativePath))
             } catch (e: Exception) {
                 throw IllegalArgumentException("image artifact is unreadable", e)
             }

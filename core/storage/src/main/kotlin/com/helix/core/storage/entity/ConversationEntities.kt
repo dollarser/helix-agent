@@ -309,6 +309,13 @@ data class ExecutionEntity(
 data class ArtifactEntity(
     @PrimaryKey val id: String,
     val sessionId: String,
+    /**
+     * The file's FULL `scope:` model reference (v16) — e.g. `scope:app:output/a2a/...` — not a
+     * bare scope-relative path: the artifact's identity carries its real scope so the unique
+     * key, every lookup, open, and invalidation check resolve it against exactly that scope.
+     * Column name is unchanged from v15; only the stored value form changed (v15 rows are
+     * normalized to `scope:app:<path>` by the v15->v16 migration).
+     */
     val relativePath: String,
     val mediaType: String,
     val size: Long,
