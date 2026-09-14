@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
 
 /** HXA-103 device gates for WebView callback and file-descriptor lifecycle. */
 @RunWith(AndroidJUnit4::class)
-class WebViewResourceLifecycleDeviceTest {
+class WebViewResourceLifecycleDeviceTest : BrowserResourceTestHost() {
     @Test
     fun unusedHostLifecycleNeverAllocatesOrResurrectsAWebView() {
         onMain {

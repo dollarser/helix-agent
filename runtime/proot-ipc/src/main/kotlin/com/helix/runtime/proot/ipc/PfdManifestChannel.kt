@@ -2,7 +2,6 @@ package com.helix.runtime.proot.ipc
 
 import android.os.ParcelFileDescriptor
 import java.io.ByteArrayOutputStream
-import java.io.FileOutputStream
 import java.io.IOException
 
 /**
@@ -29,7 +28,7 @@ object PfdManifestChannel {
     ) {
         try {
             requireWithinCap(bytes.size)
-            FileOutputStream(writeEnd.fileDescriptor).use { it.write(bytes) }
+            ParcelFileDescriptor.AutoCloseOutputStream(writeEnd).use { it.write(bytes) }
         } catch (e: IOException) {
             writeEnd.close()
             throw ProotIpcException("manifest write failed: ${e.message?.take(80)}", e)
@@ -55,7 +54,7 @@ object PfdManifestChannel {
     fun readFromStart(readEnd: ParcelFileDescriptor): ByteArray {
         val out = ByteArrayOutputStream()
         try {
-            readAll(ParcelFileDescriptor.AutoCloseInputStream(readEnd), out)
+            ParcelFileDescriptor.AutoCloseInputStream(readEnd).use { readAll(it, out) }
         } catch (e: IOException) {
             throw ProotIpcException("manifest read failed: ${e.message?.take(80)}", e)
         }

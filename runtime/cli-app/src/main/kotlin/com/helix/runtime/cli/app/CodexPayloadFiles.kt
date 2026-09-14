@@ -11,21 +11,21 @@ internal class CodexPayloadFiles(
     fun putRequest(
         jobId: String,
         bytes: ByteArray,
-    ) = atomicWrite(file(jobId, REQUEST), bytes, CliModelRequestCodec.MAX_BYTES)
+    ) = atomicWrite(file(jobId, REQUEST), bytes)
 
     fun loadRequest(jobId: String): ByteArray =
         file(jobId, REQUEST).readBytes().also {
-            require(it.isNotEmpty() && it.size <= CliModelRequestCodec.MAX_BYTES)
+            require(it.isNotEmpty())
         }
 
     fun putOutput(
         jobId: String,
         bytes: ByteArray,
-    ) = atomicWrite(file(jobId, OUTPUT), bytes, CliModelEventCodec.MAX_BYTES)
+    ) = atomicWrite(file(jobId, OUTPUT), bytes)
 
     fun loadOutput(jobId: String): ByteArray? =
         file(jobId, OUTPUT).takeIf(File::isFile)?.readBytes()?.also {
-            require(it.isNotEmpty() && it.size <= CliModelEventCodec.MAX_BYTES)
+            require(it.isNotEmpty())
         }
 
     fun delete(jobId: String) {
@@ -45,9 +45,8 @@ internal class CodexPayloadFiles(
     private fun atomicWrite(
         target: File,
         bytes: ByteArray,
-        limit: Int,
     ) {
-        require(bytes.isNotEmpty() && bytes.size <= limit)
+        require(bytes.isNotEmpty())
         require(target.parentFile?.mkdirs() == true || target.parentFile?.isDirectory == true)
         val tmp = File(target.parentFile, "${target.name}.tmp")
         FileOutputStream(tmp).use { out ->

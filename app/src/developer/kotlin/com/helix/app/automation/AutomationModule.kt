@@ -89,12 +89,11 @@ internal object AutomationModule {
                 enabled = !sessionActive,
                 modifier = Modifier.fillMaxWidth().testTag("automation-packages"),
             )
-            Row(modifier = Modifier.padding(top = 8.dp)) {
+            com.helix.app.ui.SettingsActions(modifier = Modifier.padding(top = 8.dp)) {
                 OutlinedButton(
                     onClick = { context.startActivity(permissionCenter.accessibilitySettingsIntent()) },
                     modifier = Modifier.testTag("automation-open-settings"),
                 ) { Text(stringResource(R.string.automation_open_settings)) }
-                Spacer(Modifier.padding(horizontal = 4.dp))
                 Button(
                     onClick = {
                         val selected =
@@ -110,7 +109,6 @@ internal object AutomationModule {
                     enabled = serviceState == AutomationServiceState.CONNECTED && !sessionActive,
                     modifier = Modifier.testTag("automation-start"),
                 ) { Text(stringResource(R.string.automation_start)) }
-                Spacer(Modifier.padding(horizontal = 4.dp))
                 OutlinedButton(
                     onClick = {
                         permissionCenter.stopSession()

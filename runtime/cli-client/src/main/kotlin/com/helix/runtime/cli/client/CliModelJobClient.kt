@@ -38,7 +38,7 @@ class CliModelJobClient(
 
     fun submitAndAwaitFixed(
         jobId: String,
-        timeoutMs: Long = 120_000L,
+        timeoutMs: Long = 0L,
         pollIntervalMs: Long = 100L,
     ): AwaitOutcome =
         submitAndAwait(
@@ -51,11 +51,13 @@ class CliModelJobClient(
     fun submitAndAwait(
         jobId: String,
         request: ModelRequest,
-        timeoutMs: Long = 120_000L,
+        timeoutMs: Long = 0L,
         pollIntervalMs: Long = 100L,
         provider: CliModelProvider = CliModelProvider.CODEX,
+        images: List<CliImageSnapshot> = emptyList(),
+        onProgress: ((List<ModelEvent>) -> Unit)? = null,
     ): AwaitOutcome {
-        val payload = CliModelRequestCodec.encode(request, provider)
+        val payload = CliModelRequestCodec.encode(request, provider, images)
         val requestSha256 = cliPayloadSha256(payload)
         val connection = supervisor.openConnection()
         if (connection is CliRuntimeConnection.Refused) return AwaitOutcome.Unavailable(connection.cause)
@@ -69,9 +71,29 @@ class CliModelJobClient(
                     requestSha256,
                     payload,
                 )
-            CliModelJobAwaiter { code ->
+            val delivered = ArrayList<ModelEvent>()
+            var progressSupported = onProgress != null
+            CliModelJobAwaiter(readProgress = {
+                if (progressSupported) {
+                    val chunk = CliModelProgressClient.read(connection.binder, jobId, delivered.size)
+                    if (chunk == null) {
+                        progressSupported = false
+                    } else if (chunk.isNotEmpty()) {
+                        delivered.addAll(chunk)
+                        onProgress?.invoke(chunk)
+                    }
+                }
+            }) { code ->
                 transactOn(connection.binder, code, jobId, null, null)
-            }.await(submitted, timeoutMs, pollIntervalMs)
+            }.await(submitted, timeoutMs, pollIntervalMs).let { outcome ->
+                if (outcome is AwaitOutcome.Terminal && outcome.events?.lastOrNull() is ModelEvent.Completed &&
+                    outcome.events.take(delivered.size) != delivered
+                ) {
+                    AwaitOutcome.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
+                } else {
+                    outcome
+                }
+            }
         } finally {
             supervisor.closeConnection(connection)
         }

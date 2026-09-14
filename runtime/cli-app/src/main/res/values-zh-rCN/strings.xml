@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="subscription_network_channel">订阅网络请求</string>
+    <string name="subscription_network_running">正在接收模型结果</string>
+    <string name="subscription_network_stop">停止</string>
     <string name="codex_login_title">Codex 订阅登录</string>
-    <string name="codex_login_warning">第三方、非官方侧载实验。登录会复用 Codex CLI OAuth 身份；OpenAI 尚未公开授权 Helix 使用该身份。凭据只保存在本 Runtime UID。继续可能有账号或服务中断风险。</string>
+    <string name="codex_login_warning">第三方、非官方侧载实验。登录会复用 Codex CLI OAuth 身份；OpenAI 尚未公开授权 Helix 使用该身份。凭据只保存在本 独立应用。继续可能有账号或服务中断风险。</string>
     <string name="codex_login_action">在浏览器登录 Codex</string>
     <string name="codex_device_login_action">生成 Codex Device Code</string>
     <string name="codex_device_open_browser">打开 Codex Device 验证页</string>
@@ -30,12 +33,12 @@
     <string name="codex_login_http_error">Token endpoint 拒绝请求（HTTP %1$d，%2$s）；未保存凭据。</string>
     <string name="codex_login_network_error">Token exchange 网络失败（%1$s）；未保存凭据。</string>
     <string name="codex_login_protocol_error">Token 响应未满足严格协议；未保存凭据。</string>
-    <string name="codex_smoke_action">运行极小 Codex 订阅模型测试</string>
-    <string name="codex_smoke_running">正在 Runtime UID 内执行固定提示、无工具、客户端严格限制输出的模型测试。</string>
-    <string name="codex_smoke_success">订阅模型测试成功。模型：%1$s；固定响应：%2$s。Runtime Job 已持久化；跨 APK Provider 尚未注册。</string>
-    <string name="codex_smoke_failed">订阅模型测试失败（阶段 %1$s，HTTP %2$s）。未向主应用返回凭据。</string>
+    <string name="codex_smoke_action">测试 Codex 订阅连接</string>
+    <string name="codex_smoke_running">正在验证认证与模型目录，不调用模型生成…</string>
+    <string name="codex_smoke_success">订阅模型测试成功。模型：%1$s；响应：%2$s。</string>
+    <string name="codex_smoke_failed">订阅检查失败（阶段 %1$s，HTTP %2$s）。未向主应用返回凭据。</string>
     <string name="copilot_login_title">GitHub Copilot 登录</string>
-    <string name="copilot_login_warning">第三方、非官方个人侧载实验。此固定 client id 不代表 GitHub、Microsoft 或其注册者授权 Helix；使用可能触发账号限制或随时停止。凭据只保存在本 Runtime UID。</string>
+    <string name="copilot_login_warning">第三方、非官方个人侧载实验。此固定 client id 不代表 GitHub、Microsoft 或其注册者授权 Helix；使用可能触发账号限制或随时停止。凭据只保存在本 独立应用。</string>
     <string name="copilot_login_action">生成 Device Code</string>
     <string name="copilot_open_browser">打开 GitHub 验证页面</string>
     <string name="copilot_cancel">取消当前登录</string>
@@ -52,7 +55,7 @@
     <string name="copilot_protocol_error">GitHub/Copilot 响应不符合严格协议；未保存凭据。</string>
     <string name="copilot_browser_error">无法打开系统浏览器；可手动访问 https://github.com/login/device。</string>
     <string name="claude_login_title">Claude 订阅登录</string>
-    <string name="claude_login_warning">第三方、非官方个人侧载实验。此 OAuth identity 和消费订阅接口未获 Anthropic 公开授权给 Helix；凭据只保存在 Runtime UID。Claude Free 可验证登录入口，但授权页可能直接要求升级 Pro/Max，且不等于具备 Claude Code 订阅资格。</string>
+    <string name="claude_login_warning">第三方、非官方个人侧载实验。此 OAuth identity 和消费订阅接口未获 Anthropic 公开授权给 Helix；凭据只保存在 独立应用。Claude Free 可验证登录入口，但授权页可能直接要求升级 Pro/Max，且不等于具备 Claude Code 订阅资格。</string>
     <string name="claude_login_action">在浏览器登录 Claude</string>
     <string name="claude_login_cancel">取消当前登录</string>
     <string name="claude_logout_action">删除 Claude 登录凭据</string>
@@ -69,7 +72,7 @@
     <string name="claude_login_network_error">Claude 登录或资格查询网络失败；未保存凭据。</string>
     <string name="claude_login_protocol_error">Claude 响应不符合严格协议；未保存凭据。</string>
     <string name="grok_login_title">Grok 订阅登录</string>
-    <string name="grok_login_warning">第三方个人侧载实验。使用官方 Grok Build 的公开 Device Code identity，但不代表 xAI 授权 Helix。Free/X Basic/未知套餐不会保存凭据；凭据只保存在 Runtime UID。</string>
+    <string name="grok_login_warning">第三方个人侧载实验。使用官方 Grok Build 的公开 Device Code identity，但不代表 xAI 授权 Helix。Free/X Basic/未知套餐不会保存凭据；凭据只保存在 独立应用。</string>
     <string name="grok_login_action">生成 Grok Device Code</string>
     <string name="grok_open_browser">打开 Grok 验证页面</string>
     <string name="grok_copy_code">复制 Grok Device Code</string>
@@ -99,4 +102,34 @@
     <string name="grok_browser_error">无法打开验证页面；请使用界面显示的网址。</string>
     <string name="copilot_copy_code">复制 Copilot Device Code</string>
     <string name="copilot_copy_url">复制 Copilot 验证网址</string>
+    <string name="runtime_home_help">选择订阅服务管理登录。凭据保存在此独立应用，Helix 主应用不会读取凭据。</string>
+    <string name="subscription_app_name">Helix Subscriptions</string>
+    <string name="subscription_back">返回</string>
+    <string name="subscription_dns_title">网络设置 · 域名解析</string>
+    <string name="subscription_dns_help">仅覆盖本订阅组件的域名解析，无需 Root，不影响其他应用。HTTPS 域名和证书校验保持不变。配置用于新建连接，正在进行的请求不受影响；过期或删除后恢复系统 DNS。</string>
+    <string name="subscription_dns_host">域名（不含协议、端口或路径）</string>
+    <string name="subscription_dns_addresses">IP 地址（IPv4 或 IPv6，多个用换行或逗号分隔，最多 16 个）</string>
+    <string name="subscription_dns_duration">有效期</string>
+    <string name="subscription_dns_hour">1 小时</string>
+    <string name="subscription_dns_day">24 小时</string>
+    <string name="subscription_dns_week">7 天</string>
+    <string name="subscription_dns_save">保存／更新映射</string>
+    <string name="subscription_dns_clear">清除全部，恢复系统 DNS</string>
+    <string name="subscription_dns_saved">已保存，新连接使用更新后的配置。</string>
+    <string name="subscription_dns_invalid">请输入有效域名及 1～16 个 IP 地址；不支持通配符、URL、端口或 IPv6 区域标识。</string>
+    <string name="subscription_dns_save_failed">保存失败，配置未更新，请重试。</string>
+    <string name="subscription_dns_empty">没有配置覆盖，使用系统 DNS。</string>
+    <string name="subscription_dns_entry">%1$s\n%2$s\n%3$s · 到期：%4$s</string>
+    <string name="subscription_dns_active">生效中</string>
+    <string name="subscription_dns_expired">已过期，使用系统 DNS</string>
+    <string name="subscription_dns_edit">编辑</string>
+    <string name="subscription_dns_delete">删除</string>
+    <string name="codex_smoke_network_error">订阅检查网络失败（阶段 %1$s，类别 %2$s）。请检查域名解析、代理/VPN及网络连通性；这不代表登录过期，已有凭据保留。</string>
+    <string name="codex_smoke_auth_hint">认证已被服务端拒绝；请在此重新登录后重试。</string>
+    <string name="codex_smoke_forbidden_hint">服务端拒绝访问；请检查账号权限、网络出口或代理，不一定是登录过期。</string>
+    <string name="codex_smoke_rate_hint">服务限流或额度不足，请稍后重试并检查订阅用量。</string>
+    <string name="codex_smoke_server_hint">服务端暂时异常，请稍后重试，无需先删除登录。</string>
+    <string name="codex_smoke_protocol_hint">请重试；若持续失败，请提供此阶段和 HTTP 状态以排查协议或模型响应。</string>
+    <string name="codex_connection_success">订阅连接正常：认证与模型目录已验证，未调用模型生成。具体模型能力请在 Helix 中检测。</string>
+    <string name="subscription_dns_default_host">chatgpt.com</string>
 </resources>

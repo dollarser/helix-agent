@@ -67,7 +67,9 @@ class ProotRuntimeSupervisor(
      * every failure path is a stable [ProotConnection.Refused] cause.
      */
     @Suppress("ReturnCount") // one return per distinct local-refuse / refused / opened outcome
+    @Synchronized
     fun openConnection(deadlineMs: Long = ProotRuntimeProtocol.HANDSHAKE_DEADLINE_MS): ProotConnection {
+        if (activeConnection != null) return ProotConnection.Refused(UnavailableCause.BIND_REFUSED)
         checkLocalState()?.let { return ProotConnection.Refused(it) }
         val binderRef = AtomicReference<IBinder>()
         val latch = CountDownLatch(1)
@@ -93,12 +95,8 @@ class ProotRuntimeSupervisor(
                     latch.countDown()
                 }
 
-                // The bound process died (API 35+ callback form): release the
-                // latch too. If a binder was already delivered, the caller gets
-                // it and the next transact reports DEAD_OBJECT (honest); if not,
-                // this is a plain refusal. On older platforms the callback never
-                // fires and a pre-connection death degrades to the deadline
-                // timeout — still a stable, honest state.
+                // API 26+: a dead binding releases the waiter. Missing callbacks are
+                // independently bounded by the connection deadline.
                 override fun onBindingDied(name: ComponentName) {
                     latch.countDown()
                 }
@@ -126,7 +124,13 @@ class ProotRuntimeSupervisor(
             unbindQuietly(connection)
             return ProotConnection.Refused(UnavailableCause.BIND_REFUSED)
         }
-        val completed = latch.await(deadlineMs, TimeUnit.MILLISECONDS)
+        val completed =
+            try {
+                latch.await(deadlineMs, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
         val binder = binderRef.get()
         if (completed && binder != null) {
             activeConnection = connection
@@ -139,6 +143,7 @@ class ProotRuntimeSupervisor(
     }
 
     /** Releases the current binding; the idle companion process becomes reclaimable. */
+    @Synchronized
     fun closeConnection() {
         val connection = activeConnection ?: return
         activeConnection = null

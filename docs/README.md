@@ -67,6 +67,7 @@ docs/
 - [待模拟器验证总计划](development/emulator-verification-master-plan.md)：覆盖待测缺口、已测回归、外部条件与真机排除；含EV-00～12执行包和小模型总交接。
 - [全仓优化改进审查 2026-09-06](development/improvement-review-2026-09-06.md)：M0～M10 阶段性完成后的全仓代码/文档快照审查（安全/缺陷/架构/工程/文档问题清单 + 未决事项 + 优先级路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
 - [全仓优化改进审查 2026-09-07](development/improvement-review-2026-09-07.md)：M11/HXA-102 大波开发后的第二轮全仓审查（上轮问题逐条回归核对 + Goal 硬化/M11/core/runtime/app 新代码问题 + 文档治理 + 更新版 P0～P5 路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
+- [全仓优化改进审查 2026-09-10](development/improvement-review-2026-09-10.md)：HXA-147～187 大波开发后的第三轮全仓审查（文档流程/架构/产品 UX/工程实践四维度并行扫描 + 前轮文档治理项抽核；未做 09-07 P0/P1 代码项逐条回归）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
 
 ## 安全与外部参考
 
@@ -94,3 +95,18 @@ docs/
 ## UI 参考材料
 
 - [用户提供的会话与文件管理截图](references/ui/README.md)
+
+## 当前专项交接与复核
+
+- [完成记录索引](completion-records/index.md)：自动生成的历史交付导航。
+- [模拟器统一验收计划](development/emulator-verification-master-plan.md)、[HXA-185 Claude 交接](development/hxa185-claude-test-handoff.md)：独占模拟器、长稳轮次与证据入口。
+- [第三轮审查复核](development/improvement-review-2026-09-10-followup.md)：已证实缺陷、纠正结论与发布前待办。
+- [M9 当前非设备进展](development/m9-non-device-progress.md)、[Connector 交接](development/connector-handoff.md)：专项边界；实时汇总仍以 status.md 为准。
+
+### 历史专项执行快照
+
+以下文档保留原轮次证据；其中“进行中”“下一步”只描述当时现场，不能替代当前状态：
+
+- [M7 非设备验证](development/m7-non-device-progress.md)、[验证缺口追踪](development/verification-gaps-progress.md)、[M10 收尾执行](development/m10-closure-followup.md)。
+- [Root 模拟器实验](development/m9-rooted-emulator-experiment.md)、[M11 原交接](development/m11-handoff.md)。
+- [HXA-125](development/hxa-125-progress.md)、[HXA-144](development/hxa-144-progress.md)、[HXA-146](development/hxa-146-progress.md)、[HXA-147](development/hxa147-progress.md)。

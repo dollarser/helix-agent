@@ -132,7 +132,7 @@ class FilesMetaToolsTest {
         risk: RiskLevel,
     ) {
         assertEquals(name, d.name.value)
-        assertEquals(1, d.version.value)
+        assertEquals(if (d.name.value == "files.mkdir") 2 else 1, d.version.value)
         assertEquals(op, d.operationClass)
         assertEquals(risk, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
@@ -328,7 +328,7 @@ class FilesMetaToolsTest {
         assertTrue(
             failed(
                 run(root, "files.mkdir", FilesMkdirTool::executor, pathArgs(helix)),
-            ).contains("input/, work/ or output/"),
+            ).contains("outside .helix/"),
         )
         assertFalse(Files.exists(root.resolve(".helix/newdir")))
     }

@@ -25,22 +25,28 @@ object WorkspaceLayout {
     const val TRASH = "$HELIX/trash"
     const val EXECUTIONS = "$HELIX/executions"
     const val METADATA = "$HELIX/metadata.json"
+    const val ROOT_FILES = "<root-files>"
 
-    /** Every user-visible path region of the layout; nothing else is addressable. */
+    /** Conventional directories created by ensureLayout; root user files need no extra directory. */
     val regions: List<String> = listOf(INPUT, WORK, OUTPUT)
 
     /** True when [region] is one of [regions]. */
-    fun isRegion(region: String): Boolean = regions.contains(region)
+    fun isRegion(region: String): Boolean = regions.contains(region) || region == ROOT_FILES
 
     /**
-     * The first segment of a canonical [relativePath], i.e. the layout region it lives in, or
-     * null for the root (the root belongs to no user region). Region membership is a *logical*
+     * The conventional region or ROOT_FILES for ordinary root entries; null for the root
+     * itself and reserved .helix internals. Region membership is a *logical*
      * property of the canonical relative path, not of the real on-disk location, so this check is
      * stable across filesystems where the scope root is itself a symlink (e.g. macOS
      * `/var` → `/private/var`).
      */
     fun regionOf(relativePath: String): String? {
         if (relativePath.isEmpty()) return null
-        return relativePath.split('/').first()
+        val first = relativePath.split('/').first()
+        return when {
+            first == HELIX -> null
+            first in regions -> first
+            else -> ROOT_FILES
+        }
     }
 }

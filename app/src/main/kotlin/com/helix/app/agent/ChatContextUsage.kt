@@ -42,7 +42,7 @@ internal object ChatContextProjection {
         val providerId = session?.providerId ?: return ChatContextUsage()
         val config = storage.providerConfigs.resolve(providerId)
         val model = session.modelId ?: config.model
-        val window =
+        val stored =
             providerService.contextSettingsStore
                 .read(
                     providerId,
@@ -50,7 +50,8 @@ internal object ChatContextProjection {
                         .parse(config.endpoint)
                         .full,
                     model,
-                ).window
+                )
+        val window = stored.withDetectedWindow(providerService.metadataFor(providerId, model)?.contextWindow).window
         // Only the newest call is relevant. Falling back to an older successful call would
         // falsely present stale usage after a failed request or a model switch.
         val turn = storage.turns.listBySession(session.id).lastOrNull()

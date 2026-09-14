@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlin.jvm.Volatile
 
 /**
  * Owns tool dispatch facts, approval decisions and ordered durable tool settlement. Also the
@@ -56,6 +55,7 @@ internal class ChatToolCalls(
     private val goalTimes: java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>,
     private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
+    private val workspaceScopeId: String,
 ) : TurnToolExecutor {
     private val requests = ChatDispatchRequests(toolPipeline, turnCancels, goalTimes, lanScopes)
     private val timeline = ChatToolTimeline(screen, strings)
@@ -65,20 +65,20 @@ internal class ChatToolCalls(
         }
     private val dispatchFacts = java.util.concurrent.ConcurrentHashMap<String, DispatchFacts>()
 
-    @Volatile private var activePendingApprovalId: String? = null
+    private val pendingApprovals = PendingTurnApprovals()
 
     private fun str(
         resId: Int,
         vararg args: Any,
     ): String = strings(resId, args)
 
-    fun cancelPendingApproval() {
-        activePendingApprovalId?.let { toolPipeline.broker.cancel(it) }
+    fun cancelPendingApproval(turnId: String) {
+        pendingApprovals.forTurn(turnId).forEach { toolPipeline.broker.cancel(it) }
     }
 
     fun finishTurn(turnId: String) {
         dispatchFacts.values.removeIf { it.turnId == turnId }
-        activePendingApprovalId = null
+        pendingApprovals.finishTurn(turnId)
     }
 
     /** The approval card's "本次批准" action (UI -> service -> broker, on the work scope). */
@@ -166,7 +166,7 @@ internal class ChatToolCalls(
                 confirmationDetail = request.confirmationDetail,
                 terminalDetail = null,
             )
-        activePendingApprovalId = approvalId
+        pendingApprovals.register(approvalId, facts.turnId)
         storage.toolCalls
             .byTurnAndCallId(facts.turnId, callId)
             ?.let { row -> storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL) }
@@ -354,7 +354,22 @@ internal class ChatToolCalls(
         // rejection (missing properties), instead of the misleading "not a valid JSON
         // object" for a call the model made correctly.
         val normalizedArgs = if (rawArgsJson.isBlank()) "{}" else rawArgsJson
-        val args: JsonObject? = parseJsonObjectOrNull(normalizedArgs)
+        val args: JsonObject? =
+            parseJsonObjectOrNull(normalizedArgs)?.let { parsed ->
+                if (FileToolArguments.handles(descriptor)) {
+                    runCatching {
+                        FileToolArguments.normalize(
+                            parsed,
+                            FileToolArguments.directory(
+                                workspaceScopeId,
+                                storage.sessions.resolve(turn.sessionId).directoryRef,
+                            ),
+                        )
+                    }.getOrNull()
+                } else {
+                    parsed
+                }
+            }
         // Malformed input the dispatcher can never see (an invalid tool name, non-object
         // arguments) is persisted + audited HERE as a stable Denied (preSettled).
         val rejection = invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)

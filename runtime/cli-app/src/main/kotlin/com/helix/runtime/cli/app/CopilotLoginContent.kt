@@ -29,23 +29,9 @@ internal class CopilotLoginContent(
     val cancel = button(R.string.copilot_cancel, onCancel)
     val logout = button(R.string.copilot_logout, onLogout)
 
-    @Suppress("DEPRECATION") // minSdk 29 WindowInsets accessor keeps the disclosure clear of system chrome.
     private fun createRoot(): LinearLayout =
         LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            val attributes = activity.theme.obtainStyledAttributes(intArrayOf(android.R.attr.actionBarSize))
-            val actionBarHeight = attributes.getDimensionPixelSize(0, 0)
-            attributes.recycle()
-            setOnApplyWindowInsetsListener { view, insets ->
-                view.setPadding(
-                    padding,
-                    padding + actionBarHeight + insets.systemWindowInsetTop,
-                    padding,
-                    padding + insets.systemWindowInsetBottom,
-                )
-                insets
-            }
-            requestApplyInsets()
             addView(TextView(context).apply { setText(R.string.copilot_login_warning) })
         }
 

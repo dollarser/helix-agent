@@ -145,7 +145,7 @@ internal class DefaultAppContainer(
                         credentials,
                         ProviderFactory.defaultWire(),
                         { visionImageSource },
-                        { config -> SubscriptionProviderModule.create(appContext, config) },
+                        { config -> SubscriptionProviderModule.create(appContext, config) { visionImageSource } },
                     ),
                 bindings = CleartextBindingStore(lineStore),
                 testStatus = ProviderTestStatusStore(lineStore),
@@ -526,12 +526,6 @@ internal class DefaultAppContainer(
         ).also {
             // The broker (built above) publishes pending cards into the chat timeline.
             approvalCardSink.sink = it::onApprovalCard
-            val chat = it
-            com.helix.app.foreground.DataSyncForegroundService.onStopTasks = {
-                chat.backgroundTasks.value.filter { task -> task.running }.forEach { task ->
-                    chat.stopTask(task.id, pause = task.goalId != null)
-                }
-            }
             // HXA-066: keep the dataSync foreground service up only while a turn is actively
             // moving data; it stops the moment the turn waits for the user (approval) or goes idle.
             appScope.launch {

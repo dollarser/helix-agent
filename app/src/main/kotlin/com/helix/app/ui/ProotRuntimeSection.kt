@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -71,7 +70,7 @@ internal fun ProotRuntimeSection() {
                 modifier = Modifier.testTag("settings-proot-verify-note"),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        SettingsActions {
             OutlinedButton(
                 onClick = {
                     if (busy) return@OutlinedButton
@@ -108,7 +107,7 @@ internal fun ProotRuntimeSection() {
             }
         }
         if (verifyNote?.needsRebaseline == true) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SettingsActions {
                 OutlinedButton(
                     onClick = {
                         scope.launch(Dispatchers.IO) {

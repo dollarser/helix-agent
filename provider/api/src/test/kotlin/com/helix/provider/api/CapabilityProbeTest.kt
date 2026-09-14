@@ -13,6 +13,31 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CapabilityProbeTest {
+    @Test
+    fun runawayProbeCancelsUpstreamAtTheEventBound() =
+        runBlocking {
+            val delegate = FakeProvider()
+            var emitted = 0
+            var closed = false
+            val provider =
+                object : ModelProvider by delegate {
+                    override fun stream(request: ModelRequest): Flow<ModelEvent> =
+                        kotlinx.coroutines.flow.flow {
+                            try {
+                                repeat(CapabilityProbe.MAX_PROBE_EVENTS + 100) {
+                                    emitted++
+                                    emit(ModelEvent.TextDelta("x"))
+                                }
+                            } finally {
+                                closed = true
+                            }
+                        }
+                }
+            CapabilityProbe().probe(provider)
+            assertTrue(closed)
+            assertEquals(CapabilityProbe.MAX_PROBE_EVENTS + 1, emitted)
+        }
+
     /** A scripted ModelProvider: records which methods ran and returns canned results. */
     private class FakeProvider(
         private val check: ProviderCheckResult = ProviderCheckResult.Ok,

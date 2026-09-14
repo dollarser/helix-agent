@@ -56,7 +56,7 @@ Required before acceptance（HXA-088）：
 - 为候选结构化命令给出 Tool schema、动态风险、scope、Approval 和审计示例；证明 Standard 不需要 Git 配置。
 - 对任何候选第三方 Git 库记录版本、来源、许可证、ABI/体积、依赖验证与替代方案。
 
-### HXA-088 Spike 结果（2026-09-04，Status 仍为 proposed，待所有者决定）
+### HXA-088 Spike 结果（2026-09-04，当时为 proposed；当前状态以文件头及 Decision 为准）
 
 设备证据（`ProotGitSpikeDeviceTest`，6 例 × 两台：emulator-5554 API 36 / emulator-5556 API 29，均 arm64-v8a 4 KiB 模拟器 = ADR 允许的代表性设备；**本环境无 arm64 真机**，4/16 KiB 真机与最低设备集证据沿用 HXA-086 真机缺口记录）：
 

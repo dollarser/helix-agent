@@ -2,19 +2,21 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
@@ -106,7 +109,7 @@ fun AuditScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        Column(modifier = Modifier.testTag("audit-list")) {
+        Column(modifier = Modifier.testTag("audit-list"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             records.forEach { record ->
                 AuditRow(record)
             }
@@ -128,7 +131,6 @@ private fun auditCountText(size: Int): String =
 @Composable
 @Suppress("FunctionName")
 private fun AuditLogHeader() {
-    Text(stringResource(R.string.audit_title), style = MaterialTheme.typography.titleLarge)
     Text(
         stringResource(R.string.audit_redaction_note),
         style = MaterialTheme.typography.bodyMedium,
@@ -158,7 +160,7 @@ private fun AuditSessionToolRiskFilters(
     risk: RiskLevel?,
     onRisk: (RiskLevel?) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    SettingsActions {
         FilterSelect(
             tag = "audit-filter-session",
             label = stringResource(R.string.audit_filter_session),
@@ -198,18 +200,18 @@ private fun AuditDateFilters(
     toDay: String,
     onToDay: (String) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    SettingsActions {
         OutlinedTextField(
             value = fromDay,
             onValueChange = onFromDay,
-            modifier = Modifier.weight(1f).testTag("audit-filter-from"),
+            modifier = Modifier.widthIn(min = 160.dp, max = 220.dp).testTag("audit-filter-from"),
             label = { Text(stringResource(R.string.audit_from_date)) },
             singleLine = true,
         )
         OutlinedTextField(
             value = toDay,
             onValueChange = onToDay,
-            modifier = Modifier.weight(1f).testTag("audit-filter-to"),
+            modifier = Modifier.widthIn(min = 160.dp, max = 220.dp).testTag("audit-filter-to"),
             label = { Text(stringResource(R.string.audit_to_date)) },
             singleLine = true,
         )
@@ -227,12 +229,14 @@ private fun FilterSelect(
     onSelect: (String?) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.width(140.dp).testTag(tag)) {
+    Column(modifier = Modifier.widthIn(min = 140.dp, max = 220.dp).testTag(tag)) {
         Text(label, style = MaterialTheme.typography.labelSmall)
-        OutlinedButton(onClick = { expanded = true }) {
+        OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
             Text(
                 selected?.let { value -> options.firstOrNull { it.first == value }?.second }
                     ?: placeholder,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -298,16 +302,34 @@ private fun AuditRow(record: com.helix.app.approval.DispatchAuditRecord) {
                 add(stringResource(R.string.audit_row_correlation, record.correlationId))
             }
         }
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-                .testTag("audit-row-${record.id}"),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    var details by remember(record.id) { mutableStateOf(false) }
+    Surface(
+        modifier = Modifier.fillMaxWidth().testTag("audit-row-${record.id}"),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        lines.forEach { line ->
-            Text(line, style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(lines.first(), style = MaterialTheme.typography.titleSmall)
+            Text(
+                remember(record.startedAt) {
+                    java.text.DateFormat
+                        .getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.MEDIUM)
+                        .format(java.util.Date(record.startedAt))
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = { details = !details }, modifier = Modifier.testTag("audit-details-${record.id}")) {
+                Text(stringResource(if (details) R.string.audit_details_hide else R.string.audit_details_show))
+            }
+            if (details) {
+                lines.drop(1).forEach { line ->
+                    Text(line, style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }

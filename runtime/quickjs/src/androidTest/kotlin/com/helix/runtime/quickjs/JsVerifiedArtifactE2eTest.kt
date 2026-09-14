@@ -26,7 +26,7 @@ import java.nio.charset.StandardCharsets
  * Every wait is bounded; the class-level [Timeout] rule is the last-resort
  * anti-hang guard.
  */
-class JsVerifiedArtifactE2eTest {
+class JsVerifiedArtifactE2eTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(600)
 

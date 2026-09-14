@@ -4,8 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import java.security.MessageDigest
-import java.util.UUID
 import java.util.concurrent.Executors
 
 class CodexLoginActivity : Activity() {
@@ -23,12 +21,11 @@ class CodexLoginActivity : Activity() {
 
     @Volatile private var activeSmoke: CodexSubscriptionSmoke? = null
 
-    @Volatile private var activeSmokeJob: CodexModelJobRunner? = null
     private var deviceUserCode: String? = null
     private var deviceVerificationUrl: String? = null
 
     private val busy: Boolean
-        get() = loopback != null || deviceCancellation != null || activeSmoke != null || activeSmokeJob != null
+        get() = loopback != null || deviceCancellation != null || activeSmoke != null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,7 +53,7 @@ class CodexLoginActivity : Activity() {
                 { deviceUserCode },
                 { deviceVerificationUrl },
             )
-        setContentView(content.root)
+        SubscriptionScreen.show(this, content.root)
         content.renderState(
             vault.contains(CliSubscriptionProvider.CODEX),
             busy,
@@ -70,7 +67,6 @@ class CodexLoginActivity : Activity() {
         active?.close()
         deviceCancellation?.cancel()
         activeSmoke?.close()
-        activeSmokeJob?.close()
         transport.close()
         deviceTransport.close()
         worker.shutdownNow()
@@ -84,8 +80,6 @@ class CodexLoginActivity : Activity() {
         deviceCancellation = null
         activeSmoke?.close()
         activeSmoke = null
-        activeSmokeJob?.close()
-        activeSmokeJob = null
         deviceUserCode = null
         deviceVerificationUrl = null
         content.status.setText(R.string.codex_login_cancelled)
@@ -204,27 +198,18 @@ class CodexLoginActivity : Activity() {
         content.setBusy(true, vault.contains(CliSubscriptionProvider.CODEX))
         content.status.setText(R.string.codex_smoke_running)
         val smoke = CodexSubscriptionSmoke(vault, controller).also { activeSmoke = it }
-        val jobId = "job_${UUID.randomUUID().toString().replace("-", "").take(12)}"
-        val requestHash =
-            MessageDigest
-                .getInstance("SHA-256")
-                .digest("codex-fixed-smoke-v1".encodeToByteArray())
-                .joinToString("") { byte -> "%02x".format(byte) }
-        val runner =
-            CodexModelJobRunner(CodexModelJobStore(filesDir), smoke::run, smoke::close)
-                .also { activeSmokeJob = it }
         worker.execute {
-            val result =
-                runCatching {
-                    CodexSmokeJobProbe.run(runner, jobId, requestHash)
-                }
+            val result = runCatching { smoke.checkConnection() }
             smoke.close()
-            runner.close()
             if (activeSmoke !== smoke) return@execute
             activeSmoke = null
-            activeSmokeJob = null
             finishAttempt(
-                CodexLoginFailure.smokeResult(this, result),
+                result.fold(
+                    onSuccess = { getString(R.string.codex_connection_success) },
+                    onFailure = {
+                        CodexLoginFailure.smokeResult(this, Result.failure(it))
+                    },
+                ),
             )
         }
     }

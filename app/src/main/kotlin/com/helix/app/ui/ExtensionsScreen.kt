@@ -34,12 +34,14 @@ fun ExtensionsScreen(
             .testTag("screen-extensions"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        authoring?.let { SkillAuthoringSection(it) }
-        HorizontalDivider()
+        authoring?.let {
+            SkillAuthoringSection(it)
+            HorizontalDivider()
+        }
         if (authoring != null && installation != null) {
             SkillInstallationSection(authoring, installation)
+            HorizontalDivider()
         }
-        HorizontalDivider()
         ConnectorSection(connectors)
     }
 }

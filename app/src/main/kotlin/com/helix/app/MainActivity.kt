@@ -263,6 +263,7 @@ private fun destinationScreen(
                 container.privacyDeletionService,
                 container.fileManager,
                 onNavigation = onOpenDrawer,
+                onProviders = { navController.navigate(ShellDestination.Settings.route) },
             )
         }
 
@@ -328,6 +329,7 @@ private fun destinationScreen(
                 container.lanScopeStore,
                 container.skillAuthoringService,
                 container.skillInstallationService,
+                chatService = container.chatService,
             )
         }
 
@@ -370,11 +372,14 @@ private fun destinationScreen(
 @Composable
 @Suppress("FunctionName")
 private fun PermissionsScreenDestination(container: AppContainer) {
-    if (AllFilesModule.AVAILABLE) {
-        AllFilesModule.render(container.profileStore)
-    } else {
-        EmptyDestination(ShellDestination.Permissions, PaddingValues(24.dp))
-    }
+    com.helix.app.ui.SystemPermissionsScreen(
+        filePermissions =
+            if (AllFilesModule.AVAILABLE) {
+                { AllFilesModule.render(container.profileStore) }
+            } else {
+                null
+            },
+    )
 }
 
 /**

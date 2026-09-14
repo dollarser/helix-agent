@@ -9,4 +9,5 @@ internal data class ProviderRowActions(
     val onDelete: () -> Unit,
     val onDeclareVision: (enabled: Boolean) -> Unit,
     val onManageAccount: () -> Unit,
+    val onDetectCapabilities: () -> Unit = {},
 )

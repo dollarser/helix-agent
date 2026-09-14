@@ -10,10 +10,12 @@ import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ModePolicy
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.ToolModeProfile
+import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
 
@@ -85,7 +87,7 @@ internal class ChatRequestAssembler(
                     persistedHistory(sessionId, null, system) +
                     ModelMessage(ModelRole.USER, prompt),
                 tools,
-                minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+                control.budgets.maxOutputTokens,
                 com.helix.core.model.ReasoningEffort.OFF,
                 system,
             )
@@ -124,18 +126,15 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = tools,
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
-                    com.helix.provider.api.ProviderCapabilities
-                        .parse(
-                            config.capabilitySnapshot,
-                        ).reasoning
-                ) {
-                    control.reasoning
-                } else {
-                    com.helix.core.model.ReasoningEffort.OFF
-                },
+                control.reasoning.takeIf {
+                    it in
+                        providerService.reasoningOptions(
+                            config.id,
+                            storage.sessions.resolve(sessionId).modelId ?: config.model,
+                        )
+                } ?: ReasoningEffort.OFF,
             prompt = system,
         )
     }
@@ -162,18 +161,15 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
             tools = tools,
-            maxOutputTokens = minOf(DEFAULT_MAX_OUTPUT_TOKENS, control.budgets.maxOutputTokens),
+            maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
-                if ((storage.sessions.resolve(sessionId).modelId ?: config.model) == config.model &&
-                    com.helix.provider.api.ProviderCapabilities
-                        .parse(
-                            config.capabilitySnapshot,
-                        ).reasoning
-                ) {
-                    control.reasoning
-                } else {
-                    com.helix.core.model.ReasoningEffort.OFF
-                },
+                control.reasoning.takeIf {
+                    it in
+                        providerService.reasoningOptions(
+                            config.id,
+                            storage.sessions.resolve(sessionId).modelId ?: config.model,
+                        )
+                } ?: ReasoningEffort.OFF,
             prompt = system,
         )
     }
@@ -206,10 +202,10 @@ internal class ChatRequestAssembler(
                 }
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
-            .filter { it.name.value != "goal.report" || control.mode == com.helix.core.model.AgentMode.GOAL }
+            .filter { it.name.value != "goal.report" || control.mode == AgentMode.GOAL }
             .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
             .take(ModelRequest.MAX_TOOLS)
-            .map { ModelToolSchema(it.name, it.description, it.inputSchema.toString()) }
+            .map(FileToolArguments::modelSchema)
     }
 
     /**
@@ -278,8 +274,6 @@ internal class ChatRequestAssembler(
         requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }
 
     private companion object {
-        const val DEFAULT_MAX_OUTPUT_TOKENS = 4_096L
-
         val FILE_TOOL_NAMES =
             setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
     }

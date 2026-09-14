@@ -271,8 +271,10 @@ internal class BoundedDnsCache(
 
     private val entries = LinkedHashMap<String, Entry>()
 
-    override fun lookup(hostname: String): List<InetAddress> =
-        synchronized(entries) {
+    override fun lookup(hostname: String): List<InetAddress> {
+        // Overrides are checked before the system cache, never stored in it, and expire per lookup.
+        SubscriptionDnsOverrides.settings?.lookup(hostname)?.let { return it }
+        return synchronized(entries) {
             entries[hostname]?.takeIf { it.expiresAtMillis > clock() }?.addresses
         } ?: upstream.lookup(hostname).also { addresses ->
             synchronized(entries) {
@@ -280,6 +282,7 @@ internal class BoundedDnsCache(
                 entries[hostname] = Entry(addresses.toList(), clock() + MAX_AGE_MILLIS)
             }
         }
+    }
 
     private companion object {
         const val MAX_ENTRIES = 8

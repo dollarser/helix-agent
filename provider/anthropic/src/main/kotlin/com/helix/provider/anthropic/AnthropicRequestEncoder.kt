@@ -291,7 +291,7 @@ public class AnthropicRequestEncoder(
         if (request.reasoning == ReasoningEffort.OFF) return null
         val maxTokens = maxTokensOf(request)
         val budget =
-            PREFERRED_THINKING_BUDGET[request.reasoning]!!
+            (PREFERRED_THINKING_BUDGET[request.reasoning] ?: PREFERRED_THINKING_BUDGET.getValue(ReasoningEffort.HIGH))
                 .coerceAtMost(maxTokens - THINKING_MARGIN)
         require(budget >= MIN_THINKING_BUDGET) {
             "max_tokens $maxTokens leaves no room for the ${request.reasoning} thinking " +

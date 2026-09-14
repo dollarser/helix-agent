@@ -11,24 +11,26 @@ import okio.BufferedSource
 
 internal object CodexSmokeStream {
     fun read(source: BufferedSource): String {
-        val bytes = readBounded(source)
         val text = StringBuilder()
-        var completed = false
-        bytes.decodeToString().lineSequence().mapNotNull(::parseEvent).forEach { event ->
-            completed = accept(event, text) || completed
+        var remaining = MAX_STREAM_BYTES
+        while (remaining > 0) {
+            val newline = source.indexOf('\n'.code.toByte(), 0, remaining + 1)
+            if (newline < 0 && source.buffer.size > remaining) throw CodexSmokeException("response-too-large")
+            val count = if (newline >= 0) newline + 1 else source.buffer.size
+            if (count == 0L) break
+            if (count > remaining) throw CodexSmokeException("response-too-large")
+            remaining -= count
+            val event = parseEvent(source.readUtf8(count).trimEnd('\n', '\r')) ?: continue
+            if (accept(event, text)) {
+                // SSE completion is the end of this request; the server need not close the socket.
+                val normalized = text.toString().trim()
+                if (normalized != EXPECTED_TEXT) throw CodexSmokeException("unexpected-output")
+                return normalized
+            }
         }
-        if (!completed) throw CodexSmokeException("response-incomplete")
-        val normalized = text.toString().trim()
-        if (normalized != EXPECTED_TEXT) throw CodexSmokeException("unexpected-output")
-        return normalized
+        if (remaining == 0L) throw CodexSmokeException("response-too-large")
+        throw CodexSmokeException("response-incomplete")
     }
-
-    private fun readBounded(source: BufferedSource): ByteArray =
-        try {
-            source.readBoundedByteArray(MAX_STREAM_BYTES)
-        } catch (_: IllegalArgumentException) {
-            throw CodexSmokeException("response-too-large")
-        }
 
     private fun parseEvent(line: String): JsonObject? {
         val data = line.takeIf { it.startsWith("data:") }?.removePrefix("data:")?.trim()

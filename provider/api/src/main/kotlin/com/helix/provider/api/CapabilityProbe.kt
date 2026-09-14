@@ -11,6 +11,7 @@ import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ToolName
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 
 /**
@@ -280,7 +281,7 @@ public class CapabilityProbe(
 
     /** The collected events, or null when the stream exceeded the event bound. */
     private suspend fun collectBounded(flow: Flow<ModelEvent>): List<ModelEvent>? {
-        val events = flow.toList()
+        val events = flow.take(MAX_PROBE_EVENTS + 1).toList()
         if (events.size > MAX_PROBE_EVENTS) return null
         return events
     }

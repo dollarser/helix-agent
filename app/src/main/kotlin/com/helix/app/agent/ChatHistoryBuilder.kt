@@ -175,7 +175,9 @@ private fun parseToolCallElement(element: JsonElement): AssistantToolCall {
     return AssistantToolCall(
         ToolCallId(obj.requiredField("id")),
         ToolName(obj.requiredField("name")),
-        obj.requiredField("arguments"),
+        // Match dispatch normalization for no-argument calls, including legacy rows.
+        // Keep the call/result pair and its denial; never replay or erase the outcome.
+        obj.requiredField("arguments").ifBlank { "{}" },
     )
 }
 

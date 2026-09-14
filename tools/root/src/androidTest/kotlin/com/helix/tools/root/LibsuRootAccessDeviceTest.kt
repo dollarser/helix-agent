@@ -18,7 +18,7 @@ import org.junit.runners.MethodSorters
 
 @RunWith(AndroidJUnit4::class)
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-class LibsuRootAccessDeviceTest {
+class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
     private var access: LibsuRootAccess? = null
 
     @After
@@ -81,6 +81,21 @@ class LibsuRootAccessDeviceTest {
         rootAccess.disconnect()
         assertEquals(RootGrantState.UNAVAILABLE, rootAccess.status().grant)
         awaitCachedShellClosed()
+    }
+
+    @Test
+    fun d_repeatedServiceDeathAllowsOnlyExplicitRebind() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString(EXPECTED_ROOT_ARGUMENT) == "granted")
+        repeat(3) {
+            val rootAccess = newAccess()
+            assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
+            verifyGrantedRootServiceAndLoss(rootAccess, killService = true)
+            awaitCachedShellClosed()
+            SystemClock.sleep(250)
+            assertEquals(RootGrantState.LOST, rootAccess.status().grant)
+            assertNull(rootAccess.rootServiceProcessIdForTest())
+            rootAccess.disconnect()
+        }
     }
 
     private fun verifyGrantedRootServiceAndLoss(

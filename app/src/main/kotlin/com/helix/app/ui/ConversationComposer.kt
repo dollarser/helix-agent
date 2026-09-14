@@ -43,6 +43,7 @@ internal fun ConversationComposer(
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
+    reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
@@ -50,9 +51,7 @@ internal fun ConversationComposer(
                 modelSelector?.invoke()
                 ContextWindowIndicator(contextUsage, onCompact, canCompact)
             }
-        }) {
-            if (input.isNotEmpty()) ComposerOptionPill { CopyTextButton(input, "chat-copy-input") }
-        }
+        }, reasoningOptions = reasoningOptions)
         Row(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,
@@ -84,7 +83,7 @@ internal fun ConversationComposer(
             )
             IconButton(
                 onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = isSending || goalMode || input.isNotBlank() || hasAttachments,
+                enabled = isSending || input.isNotBlank() || (!goalMode && hasAttachments),
                 modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
             ) {
                 Icon(
@@ -92,7 +91,7 @@ internal fun ConversationComposer(
                     stringResource(
                         when {
                             isSending -> R.string.chat_stop
-                            goalMode -> R.string.chat_open_goals
+                            goalMode -> R.string.common_send
                             else -> R.string.common_send
                         },
                     ),

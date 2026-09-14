@@ -29,6 +29,7 @@ internal interface SubscriptionProviderIntegration {
     fun create(
         context: Context,
         config: ProviderConfig,
+        imageSource: (() -> VisionImageSource)? = null,
     ): ModelProvider?
 
     fun isManaged(providerId: String): Boolean

@@ -141,3 +141,5 @@ if errors:
 
 print(f"ADR verification passed ({len(records)} decision records).")
 PY
+
+python3 "$project_root/scripts/adr-status-claims.py"

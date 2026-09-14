@@ -217,6 +217,17 @@ internal class TurnCoordinator private constructor(
                 runtime.currentStream().usageJson,
                 null,
             )
+            val text = runtime.currentStream().text
+            if (text.isNotBlank()) {
+                storage.messages.append(
+                    idGenerator(),
+                    sessionId,
+                    turnId,
+                    ModelRole.ASSISTANT.name,
+                    ChatHistoryBuilder.KIND_TEXT,
+                    text,
+                )
+            }
             storage.messages.append(
                 idGenerator(),
                 sessionId,

@@ -103,15 +103,10 @@ class ChatStopProgressDeviceTest {
                 "chat-empty-hint",
             ).assertTextEquals(compose.activity.getString(resource))
             .assertIsDisplayed()
-        if (goalMode) {
-            compose
-                .onNodeWithTag("chat-send")
-                .assertContentDescriptionEquals(compose.activity.getString(R.string.chat_open_goals))
-                .performClick()
-            compose.onNodeWithTag("goal-close").assertIsDisplayed().performClick()
-        } else {
-            compose.onNodeWithTag("chat-send").assertIsNotEnabled()
-        }
+        compose
+            .onNodeWithTag("chat-send")
+            .assertContentDescriptionEquals(compose.activity.getString(R.string.common_send))
+            .assertIsNotEnabled()
         assertTrue(
             compose
                 .container()

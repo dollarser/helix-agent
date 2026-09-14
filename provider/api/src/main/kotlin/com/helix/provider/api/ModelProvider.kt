@@ -1,16 +1,19 @@
 package com.helix.provider.api
 
+import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.core.model.SecretAlias
+import com.helix.provider.api.ProviderConfig
 import kotlinx.coroutines.flow.Flow
 
 /**
  * Identity and static facts of one configured provider (provider doc section 2.1,
- * HXA-025). Derived from the validated [com.helix.provider.api.ProviderConfig]; no
- * credential material (only the [com.helix.core.model.SecretAlias] reference lives in the
+ * HXA-025). Derived from the validated [ProviderConfig]; no
+ * credential material (only the [SecretAlias] reference lives in the
  * config, never here).
  */
 public data class ProviderDescriptor(
@@ -53,7 +56,7 @@ public data class ProviderDescriptor(
  * [stream] emits the internal event sequence and ends with exactly one terminal
  * ([ModelEvent.Completed]/[ModelEvent.Refusal]/[ModelEvent.Error]); transport-level
  * failures (non-2xx HTTP, DNS/TLS/timeout) are mapped to [ModelEvent.Error] with the
- * closed [com.helix.core.model.ModelErrorCode] classes — the stream contract stays total.
+ * closed [ModelErrorCode] classes — the stream contract stays total.
  */
 public interface ModelProvider {
     public val descriptor: ProviderDescriptor
@@ -73,6 +76,9 @@ public interface ModelProvider {
 
     /** Optional exact-model metadata. Unknown is null; never guessed from a model name. */
     public suspend fun contextWindow(model: String): Long? = null
+
+    /** Explicit discovery only. No model-name heuristics; unknown providers return no metadata. */
+    public suspend fun modelMetadata(): Map<String, ModelMetadata> = emptyMap()
 
     /** One streaming model call. */
     public fun stream(request: ModelRequest): Flow<ModelEvent>

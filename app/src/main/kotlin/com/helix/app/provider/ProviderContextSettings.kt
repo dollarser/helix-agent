@@ -18,10 +18,13 @@ data class ProviderContextSettings(
 
     val window: Long get() = listOfNotNull(manualWindow, serverWindow).minOrNull() ?: DEFAULT_WINDOW
 
+    fun withDetectedWindow(detected: Long?): ProviderContextSettings =
+        if (detected == null) this else copy(serverWindow = detected)
+
     companion object {
         const val DEFAULT_WINDOW = 200_000L
         const val MIN_WINDOW = 1024L
-        const val MAX_WINDOW = 1_000_000L
+        const val MAX_WINDOW = com.helix.provider.api.ProviderCapabilities.MAX_CONTEXT_BOUND
     }
 }
 

@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import com.helix.app.R
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderBadgeUi
 import com.helix.app.provider.ProviderService
 import com.helix.core.model.ModelRole
@@ -64,7 +65,7 @@ internal class ChatScreenProjection(
                                 resultSummary = result?.summary,
                                 card = null,
                                 prootRecoveryAvailable =
-                                    com.helix.app.proot.ProotToolModule.AVAILABLE &&
+                                    ProotToolModule.AVAILABLE &&
                                         interruptedProot,
                             )
                         }
@@ -186,9 +187,14 @@ internal class ChatScreenProjection(
                 modelId ?: it.model,
                 it.origin,
                 it.residence,
-                if (modelId == null || modelId == it.model) it.capabilityChips else emptyList(),
-                (modelId == null || modelId == it.model) && it.capabilities?.reasoning == true,
+                it
+                    .copy(
+                        model = modelId ?: it.model,
+                        capabilities = it.capabilitiesForModel(modelId ?: it.model),
+                    ).capabilityChips,
+                providerService.reasoningOptions(it.id, modelId ?: it.model).isNotEmpty(),
                 it.id,
+                providerService.reasoningOptions(it.id, modelId ?: it.model),
             )
         }
     }

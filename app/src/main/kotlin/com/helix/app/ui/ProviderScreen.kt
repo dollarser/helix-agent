@@ -26,6 +26,8 @@ import com.helix.app.R
 import com.helix.app.provider.ManagedProviderAccountResult
 import com.helix.app.provider.ProviderRowUi
 import com.helix.app.provider.ProviderService
+import com.helix.core.model.ModelErrorCode
+import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.launch
 
 /**
@@ -53,6 +55,8 @@ fun ProviderManager(providerService: ProviderService) {
     var form by remember { mutableStateOf<ProviderForm?>(null) }
     var contextRow by remember { mutableStateOf<com.helix.app.provider.ProviderRowUi?>(null) }
     var testingId by remember { mutableStateOf<String?>(null) }
+    var detectingId by remember { mutableStateOf<String?>(null) }
+    var capabilityResults by remember { mutableStateOf<Map<String, ProbeOutcome>>(emptyMap()) }
     var saving by remember { mutableStateOf(false) }
     var accountFailureId by remember { mutableStateOf<String?>(null) }
 
@@ -106,6 +110,34 @@ fun ProviderManager(providerService: ProviderService) {
                                 }
                             }
                         },
+                        onDetectCapabilities = {
+                            if (testingId == null) {
+                                testingId = row.id
+                                detectingId = row.id
+                                capabilityResults = capabilityResults - row.id
+                                scope.launch {
+                                    try {
+                                        val result = providerService.runCapabilityTest(row.id)
+                                        capabilityResults = capabilityResults + (row.id to result)
+                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "capability detection failed: ${e.javaClass.simpleName}")
+                                        val failure =
+                                            ProbeOutcome.Failed(
+                                                0,
+                                                ModelErrorCode.PROTOCOL,
+                                                "capability detection did not complete",
+                                                false,
+                                            )
+                                        capabilityResults = capabilityResults + (row.id to failure)
+                                    } finally {
+                                        testingId = null
+                                        detectingId = null
+                                    }
+                                }
+                            }
+                        },
                         onEdit = { modelOverride ->
                             // storedConfig is a Room read: it runs on the service's IO
                             // scope, never on this (UI) thread. HXA-059: a backend model
@@ -149,6 +181,8 @@ fun ProviderManager(providerService: ProviderService) {
                         },
                     ),
                 accountUnavailable = accountFailureId == row.id,
+                detectingCapabilities = detectingId == row.id,
+                capabilityOutcome = capabilityResults[row.id],
             )
             TextButton({ contextRow = row }, Modifier.testTag("provider-context-${row.id}")) {
                 Text(stringResource(R.string.chat_context_title))

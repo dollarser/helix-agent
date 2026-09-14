@@ -10,6 +10,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -30,6 +32,7 @@ internal fun ToolTimelineItem(
     row: com.helix.app.chat.ToolTimelineRow,
     intents: ConversationIntents,
 ) {
+    var details by remember(row.callId) { mutableStateOf(false) }
     Column(
         modifier =
             Modifier
@@ -49,24 +52,35 @@ internal fun ToolTimelineItem(
                 modifier = Modifier.testTag("tool-row-state-${row.callId}"),
             )
         }
-        ExpandableSummary(
-            stringResource(R.string.chat_tool_request, row.requestSummary),
+        Text(
+            ToolPurpose.text(row.toolName, row.requestSummary),
             style = MaterialTheme.typography.bodySmall,
-            tag = "tool-row-args-${row.callId}",
-            collapsedLines = 3,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
-        row.resultSummary?.let { summary ->
+        TextButton(onClick = { details = !details }, modifier = Modifier.testTag("tool-details-${row.callId}")) {
+            Text(stringResource(if (details) R.string.tool_details_hide else R.string.tool_details_show))
+        }
+        if (details) {
             ExpandableSummary(
-                stringResource(R.string.chat_tool_result, summary),
+                stringResource(R.string.chat_tool_request, row.requestSummary),
                 style = MaterialTheme.typography.bodySmall,
-                tag = "tool-row-result-${row.callId}",
-                collapsedLines = 5,
+                tag = "tool-row-args-${row.callId}",
+                collapsedLines = 3,
             )
+            row.resultSummary?.let { summary ->
+                ExpandableSummary(
+                    stringResource(R.string.chat_tool_result, summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    tag = "tool-row-result-${row.callId}",
+                    collapsedLines = 5,
+                )
+            }
         }
         if (row.prootRecoveryAvailable) {
             ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
         }
-        row.card?.let { card ->
+        row.card?.takeIf { details || it.state == com.helix.app.approval.ApprovalCardState.PENDING }?.let { card ->
             ApprovalCard(
                 card = card,
                 onApprove = { intents.onApproveApproval(card.approvalId) },

@@ -116,6 +116,27 @@ class WriteToolTest {
     private fun sha(b: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
+    @Test fun emptyOptionalHashCreatesFileWithoutWeakeningOverwriteProtection() {
+        val root = root()
+        assertTrue(write(root, "scope:ws:new.txt", "v1", expectedSha256 = "") is ToolExecutorResult.Completed)
+        assertTrue(write(root, "scope:ws:new.txt", "v2", expectedSha256 = "") is ToolExecutorResult.Failed)
+        assertEquals("v1", Files.readString(root.resolve("new.txt")))
+    }
+
+    @Test fun suppliedHashCannotCreateAMissingFile() {
+        val root = root()
+        val result = write(root, "scope:ws:new.txt", "x", overwrite = true, expectedSha256 = "f".repeat(64))
+        assertTrue(failed(result).contains("expectedSha256"))
+        assertFalse(Files.exists(root.resolve("new.txt")))
+    }
+
+    @Test fun writesOrdinaryFileAtWorkspaceRoot() {
+        val root = root()
+        assertTrue(write(root, "scope:ws:cnn.py", "print(1)") is ToolExecutorResult.Completed)
+        assertEquals("print(1)", String(Files.readAllBytes(root.resolve("cnn.py"))))
+        assertTrue(write(root, "scope:ws:.helix/private", "no") is ToolExecutorResult.Failed)
+    }
+
     private fun root(): Path {
         val p = tmp.newFolder("ws").toPath()
         WorkspaceArtifactStore(ScopeRootResolver { _ -> p }).ensureLayout("ws")
@@ -176,7 +197,7 @@ class WriteToolTest {
     fun descriptorIsAValidRegisterableBuiltIn() {
         val d = WriteTool.descriptor()
         assertEquals("write", d.name.value)
-        assertEquals(1, d.version.value)
+        assertEquals(3, d.version.value)
         assertEquals(ToolOperationClass.LOCAL_MUTATION, d.operationClass)
         assertEquals(RiskLevel.L2, d.baseRisk)
         assertEquals(Idempotency.IDEMPOTENT, d.idempotency)
@@ -262,14 +283,14 @@ class WriteToolTest {
     fun writingIntoHelixInternalsIsRefused() {
         val root = root()
         val r = write(root, "scope:ws:.helix/trash/x", "x")
-        assertTrue(failed(r).contains("input/, work/ or output/"))
+        assertTrue(failed(r).contains("outside .helix/"))
     }
 
     @Test
     fun writingToTheScopeRootIsRefused() {
         val root = root()
         val r = write(root, "scope:ws:.", "x")
-        assertTrue(failed(r).contains("input/, work/ or output/"))
+        assertTrue(failed(r).contains("outside .helix/"))
     }
 
     @Test

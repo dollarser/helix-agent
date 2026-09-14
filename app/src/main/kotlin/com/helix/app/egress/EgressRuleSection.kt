@@ -153,7 +153,7 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.testTag("egress-create-form"),
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.helix.app.ui.SettingsActions {
                 ChoiceButton(targetIsProvider, "egress-target-provider", "Provider") { targetIsProvider = true }
                 ChoiceButton(!targetIsProvider, "egress-target-mcp", "MCP") { targetIsProvider = false }
             }
@@ -178,7 +178,7 @@ fun EgressRuleSection(rules: HighSensitivityRuleRepository) {
                         .testTag("egress-origin"),
             )
             Text(stringResource(R.string.egress_ttl_hint), style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.helix.app.ui.SettingsActions {
                 for (duration in RuleDuration.entries) {
                     ChoiceButton(ttl == duration, "egress-ttl-${duration.name}", stringResource(ttlRes(duration))) {
                         ttl = duration

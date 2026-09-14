@@ -40,12 +40,15 @@ internal fun ComposerToolbar(
     onReasoning: (ReasoningEffort) -> Unit,
     isSending: Boolean,
     modelSelector: (@Composable () -> Unit)?,
+    reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
     trailingOptions: @Composable () -> Unit = {},
 ) {
     ComposerOptionRow {
         ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
         modelSelector?.let { model -> ComposerOptionPill { model() } }
-        ComposerOptionPill { ComposerReasoningMenu(reasoning, reasoningSupported && !isSending, onReasoning) }
+        ComposerOptionPill {
+            ComposerReasoningMenu(reasoning, reasoningSupported && !isSending, onReasoning, efforts = reasoningOptions)
+        }
         trailingOptions()
     }
 }

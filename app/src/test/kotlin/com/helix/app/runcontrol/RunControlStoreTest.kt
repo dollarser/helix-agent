@@ -8,6 +8,41 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class RunControlStoreTest {
+    @Test fun previousTemplateMigratesButExplicitV3AndCustomValuesRemain() {
+        val lines = InMemoryLineStore()
+        val old = TurnBudgetBounds.PREVIOUS_DEFAULT
+        lines.setLines("run_control_v1", listOf("ACT", "true", old.toStorageString(), "HIGH", "budgets_v2"))
+        val migrated = PersistedRunControlStore(lines)
+        assertEquals(TurnBudgetBounds.DEFAULT, migrated.current.budgets)
+        assertEquals(com.helix.core.model.ReasoningEffort.HIGH, migrated.current.reasoning)
+        migrated.setBudgets(old)
+        assertEquals(old, PersistedRunControlStore(lines).current.budgets)
+        val custom = old.copy(maxTotalTokens = 250000)
+        lines.setLines("run_control_v1", listOf("ACT", "true", custom.toStorageString(), "HIGH", "budgets_v2"))
+        assertEquals(custom, PersistedRunControlStore(lines).current.budgets)
+    }
+
+    @Test fun defaultsProvideCompactionHeadroomAndLongerOutputWithinExistingCaps() {
+        val defaults = TurnBudgetBounds.validate(TurnBudgetBounds.DEFAULT)
+        assertEquals(32, defaults.maxSteps)
+        assertEquals(48, defaults.maxModelCalls)
+        assertEquals(16384L, defaults.maxOutputTokens)
+        assertEquals(1000000L, defaults.maxTotalTokens)
+    }
+
+    @Test
+    fun legacyDefaultUpgradesWhileCustomBudgetsStayUnchanged() {
+        val lines = InMemoryLineStore()
+        lines.setLines("run_control_v1", listOf("ACT", "false", TurnBudgetBounds.LEGACY_DEFAULT.toStorageString()))
+        assertEquals(32, PersistedRunControlStore(lines).current.budgets.maxSteps)
+        assertEquals(48, PersistedRunControlStore(lines).current.budgets.maxModelCalls)
+        val custom = TurnBudgetBounds.LEGACY_DEFAULT.copy(maxSteps = 3)
+        PersistedRunControlStore(lines).setBudgets(custom)
+        assertEquals(custom, PersistedRunControlStore(lines).current.budgets)
+        PersistedRunControlStore(lines).setBudgets(TurnBudgetBounds.LEGACY_DEFAULT)
+        assertEquals(TurnBudgetBounds.LEGACY_DEFAULT, PersistedRunControlStore(lines).current.budgets)
+    }
+
     @Test fun reasoningSurvivesReconstructionAndLegacyModesArePreserved() {
         val lines = InMemoryLineStore()
         lines.setLines("run_control_v1", listOf("ACT", "false", TurnBudgetBounds.DEFAULT.toStorageString()))

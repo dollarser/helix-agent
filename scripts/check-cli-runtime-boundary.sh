@@ -56,7 +56,7 @@ rg -F 'submitAndAwaitFixed' "$client" >/dev/null
 rg -F 'submitAndAwait(' "$client" >/dev/null
 rg -F 'TRANSACTION_JOB_QUERY' "$client" >/dev/null
 rg -F 'TRANSACTION_JOB_RECONCILE' "$client" >/dev/null
-rg -F 'const val MAX_BYTES = 512 * 1024' "$payload_codec" >/dev/null
+rg -F 'const val MAX_TEXT_BYTES = 512 * 1024' "$payload_codec" >/dev/null
 rg -F 'const val MAX_BYTES = 1024 * 1024' "$payload_codec" >/dev/null
 rg -F 'const val MAX_EVENTS = 2048' "$payload_codec" >/dev/null
 wire="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobWire.kt"

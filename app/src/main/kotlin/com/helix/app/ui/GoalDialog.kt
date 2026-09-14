@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.GoalSummaryUi
@@ -38,153 +39,122 @@ internal fun GoalDialog(
     prompt: String,
     onDismiss: () -> Unit,
     onContinued: () -> Unit,
-    busy: Boolean = false,
     selectedGoalId: String? = null,
+    onSettings: () -> Unit = {},
     onDeleteGoal: (suspend (String) -> Unit)? = null,
 ) {
+    val screen by service.screen.collectAsStateWithLifecycle()
+    val busy = screen.isSending
     var rows by remember { mutableStateOf<List<GoalSummaryUi>>(emptyList()) }
     var revision by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     var checking by remember { mutableStateOf(false) }
     val controlsBusy = busy || checking
     var continueError by remember { mutableStateOf(false) }
-    var creating by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf<GoalSummaryUi?>(null) }
     LaunchedEffect(revision, busy, selectedGoalId) {
         rows = service.goalSummaries().filter { selectedGoalId == null || it.id == selectedGoalId }
     }
-    if (creating || editing != null) {
-        GoalEditor(
-            initial = editing,
-            prompt = prompt,
-            onDismiss = {
-                creating = false
-                editing = null
-            },
-            onSave = { objective, criteria, budgets ->
-                val row = editing
-                if (row == null) {
-                    service.createGoal(objective, criteria, budgets)
-                } else {
-                    check(service.updateGoalBudgets(row.id, budgets))
-                }
-                creating = false
-                editing = null
-                revision++
-            },
-        )
-    } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text(stringResource(R.string.goal_manage)) },
-            text = {
-                Column(
-                    Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(stringResource(R.string.goal_explicit_continue))
-                    if (continueError) Text(stringResource(R.string.goal_continue_unavailable))
-                    rows.forEach { row ->
-                        val heading = remember(row.id) { BringIntoViewRequester() }
-                        ExpandableSummary(
-                            row.objective,
-                            modifier = Modifier.bringIntoViewRequester(heading),
-                            style = MaterialTheme.typography.titleMedium,
-                            tag = "goal-summary-${row.id}",
-                            collapsedLines = 3,
-                        )
-                        Text(stringResource(goalStateLabel(row.status.state)), Modifier.testTag("goal-state-${row.id}"))
-                        goalPauseLabel(row.status.outcome)?.let { Text(stringResource(it)) }
-                        row.status.modelSummary?.let {
-                            Text(stringResource(R.string.goal_model_report_label))
-                            androidx.compose.foundation.text.selection
-                                .SelectionContainer { Text(it) }
-                        }
-                        GoalBlockerControls(service, row) { revision++ }
-                        Text(
-                            stringResource(
-                                R.string.goal_usage,
-                                row.usage.modelCalls,
-                                row.budgets.maxModelCalls,
-                                row.usage.toolCalls,
-                                row.budgets.maxToolCalls,
-                                row.usage.tokens,
-                                row.budgets.maxTotalTokens,
-                                row.usage.millis / 1_000,
-                                row.budgets.maxDurationMillis / 1_000,
-                            ),
-                        )
-                        Text(
-                            stringResource(
-                                R.string.goal_wake_retry_summary,
-                                row.budgets.maxWakeDurationMillis / 1_000,
-                                row.budgets.maxRetries,
-                            ),
-                        )
-                        GoalCriterionDescriptions(row.criteria)
-                        TextButton(
-                            enabled = row.canContinue && !controlsBusy,
-                            onClick = {
-                                scope.launch {
-                                    checking = true
-                                    continueError = false
-                                    try {
-                                        service.continueGoal(row.id, prompt.ifBlank { row.objective })
-                                        onContinued()
-                                        onDismiss()
-                                    } catch (_: IllegalArgumentException) {
-                                        continueError = true
-                                    } finally {
-                                        checking = false
-                                    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.goal_manage)) },
+        text = {
+            Column(
+                Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(stringResource(R.string.goal_explicit_continue))
+                if (continueError) Text(stringResource(R.string.goal_continue_unavailable))
+                rows.forEach { row ->
+                    val heading = remember(row.id) { BringIntoViewRequester() }
+                    ExpandableSummary(
+                        row.objective,
+                        modifier = Modifier.bringIntoViewRequester(heading),
+                        style = MaterialTheme.typography.titleMedium,
+                        tag = "goal-summary-${row.id}",
+                        collapsedLines = 3,
+                    )
+                    Text(stringResource(goalStateLabel(row.status.state)), Modifier.testTag("goal-state-${row.id}"))
+                    goalPauseLabel(row.status.outcome)?.let { Text(stringResource(it)) }
+                    row.status.modelSummary?.let {
+                        Text(stringResource(R.string.goal_model_report_label))
+                        androidx.compose.foundation.text.selection
+                            .SelectionContainer { Text(it) }
+                    }
+                    GoalBlockerControls(service, row) { revision++ }
+                    Text(
+                        stringResource(
+                            R.string.goal_usage,
+                            row.usage.modelCalls,
+                            row.budgets.maxModelCalls,
+                            row.usage.toolCalls,
+                            row.budgets.maxToolCalls,
+                            row.usage.tokens,
+                            row.budgets.maxTotalTokens,
+                            row.usage.millis / 1_000,
+                            row.budgets.maxDurationMillis / 1_000,
+                        ),
+                    )
+                    Text(
+                        stringResource(
+                            R.string.goal_wake_retry_summary,
+                            row.budgets.maxWakeDurationMillis / 1_000,
+                            row.budgets.maxRetries,
+                        ),
+                    )
+                    GoalCriterionDescriptions(row.criteria)
+                    TextButton(
+                        enabled = row.canContinue && !controlsBusy,
+                        onClick = {
+                            scope.launch {
+                                checking = true
+                                continueError = false
+                                try {
+                                    service.continueGoal(row.id, prompt.ifBlank { row.objective })
+                                    onContinued()
+                                    onDismiss()
+                                } catch (_: IllegalArgumentException) {
+                                    continueError = true
+                                } finally {
+                                    checking = false
                                 }
-                            },
-                            modifier =
-                                Modifier.testTag(
-                                    "goal-continue-${row.id}",
-                                ),
-                        ) { Text(stringResource(R.string.goal_continue)) }
-                        TextButton(
-                            enabled = row.canEditBudgets,
-                            onClick = { editing = row },
-                            modifier = Modifier.testTag("goal-edit-budgets-${row.id}"),
-                        ) {
-                            Text(stringResource(R.string.goal_edit_budgets))
-                        }
-                        GoalReminderControls(service, row) { revision++ }
-                        onDeleteGoal?.let { delete ->
-                            GoalDeletionControls(row, delete) { revision++ }
-                        }
+                            }
+                        },
+                        modifier =
+                            Modifier.testTag(
+                                "goal-continue-${row.id}",
+                            ),
+                    ) { Text(stringResource(R.string.goal_continue)) }
+                    onDeleteGoal?.let { delete ->
+                        GoalDeletionControls(row, delete) { revision++ }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { creating = true },
-                    modifier = Modifier.testTag("goal-create"),
-                ) { Text(stringResource(R.string.goal_create)) }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismiss, modifier = Modifier.testTag("goal-close")) {
-                    Text(stringResource(R.string.goal_close))
-                }
-            },
-        )
-    }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    onSettings()
+                },
+                modifier = Modifier.testTag("goal-settings"),
+            ) { Text(stringResource(R.string.goal_settings_title)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("goal-close")) {
+                Text(stringResource(R.string.goal_close))
+            }
+        },
+    )
 }
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "SwallowedException") // Validation/state races use a fixed localized error.
 internal fun GoalEditor(
-    initial: GoalSummaryUi?,
-    prompt: String,
+    initialBudget: GoalBudgets,
     onDismiss: () -> Unit,
-    onSave: suspend (String, List<String>, GoalBudgets) -> Unit,
+    onSave: suspend (GoalBudgets) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var objective by remember { mutableStateOf(initial?.objective ?: prompt) }
-    var criteria by remember { mutableStateOf(initial?.criteria?.joinToString("\n") ?: "") }
-    val initialBudget = initial?.budgets ?: GoalBudgets(32, 64, 100_000, 600_000, 300_000, 0)
     var fields by remember {
         mutableStateOf(
             listOf(
@@ -200,8 +170,6 @@ internal fun GoalEditor(
     var failed by remember { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     val budgets = parseGoalBudgetFields(fields)
-    val criterionList = criteria.lines().map(String::trim).filter(String::isNotEmpty)
-    val valid = validGoalDescription(objective, criterionList)
     val labels =
         listOf(
             R.string.goal_model_limit,
@@ -213,26 +181,12 @@ internal fun GoalEditor(
         )
     AlertDialog(
         onDismissRequest = { if (!saving) onDismiss() },
-        title = { Text(stringResource(if (initial == null) R.string.goal_create else R.string.goal_edit_budgets)) },
+        title = { Text(stringResource(R.string.goal_edit_budgets)) },
         text = {
             Column(
                 Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedTextField(
-                    objective,
-                    { objective = it },
-                    enabled = initial == null && !saving,
-                    label = { Text(stringResource(R.string.goal_objective)) },
-                    modifier = Modifier.testTag("goal-objective"),
-                )
-                OutlinedTextField(
-                    criteria,
-                    { criteria = it },
-                    enabled = initial == null && !saving,
-                    label = { Text(stringResource(R.string.goal_criteria)) },
-                    modifier = Modifier.testTag("goal-criteria"),
-                )
                 labels.forEachIndexed { index, label ->
                     OutlinedTextField(
                         fields[index],
@@ -256,13 +210,13 @@ internal fun GoalEditor(
             }
         },
         confirmButton = {
-            TextButton(enabled = valid && budgets != null && !saving, onClick = {
+            TextButton(enabled = budgets != null && !saving, onClick = {
                 scope.launch {
                     saving = true
                     failed = false
                     try {
                         reportGoalSaveFailure({ failed = true }) {
-                            onSave(objective.trim(), criterionList, requireNotNull(budgets))
+                            onSave(requireNotNull(budgets))
                         }
                     } finally {
                         saving = false
@@ -292,11 +246,6 @@ private suspend fun reportGoalSaveFailure(onFailure: () -> Unit, save: suspend (
         onFailure()
     }
 }
-
-private fun validGoalDescription(
-    objective: String,
-    criteria: List<String>,
-): Boolean = objective.trim().length in 1..1024 && criteria.size in 0..32 && criteria.all { it.length <= 1024 }
 
 internal fun parseGoalBudgetFields(fields: List<String>): GoalBudgets? {
     val bounds =

@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets
  * raw-mode-specific assertions (top-level object → null, empty-message OOM form)
  * are replaced by their wrapper semantics — see the individual tests.
  */
-class JsExecutionProtocolTest {
+class JsExecutionProtocolTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(240)
 

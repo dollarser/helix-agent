@@ -65,6 +65,7 @@ fun SettingsScreen(
     lanScopeStore: com.helix.app.network.LanScopeStore? = null,
     skillAuthoringService: com.helix.app.skills.SkillAuthoringService? = null,
     skillInstallationService: com.helix.app.skills.SkillInstallationService? = null,
+    chatService: com.helix.app.chat.ChatService? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -78,8 +79,6 @@ fun SettingsScreen(
                 .testTag("screen-settings"),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
-
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.settings_safety_section), style = MaterialTheme.typography.titleMedium)
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -126,25 +125,27 @@ fun SettingsScreen(
         }
 
         if (profile == SafetyProfile.ADVANCED && ProotToolModule.AVAILABLE) {
-            ProotRuntimeSection()
+            SettingsGroup { ProotRuntimeSection() }
         }
 
         HorizontalDivider()
 
-        RootModule.Section(profile)
-
-        AutomationModule.Section(profile)
+        if (profile == SafetyProfile.ADVANCED) {
+            SettingsGroup { RootModule.Section(profile) }
+            SettingsGroup { AutomationModule.Section(profile) }
+        }
 
         com.helix.app.companions
             .BundledRuntimeSection()
 
-        LanguageSection()
+        SettingsGroup { LanguageSection() }
 
-        ProviderManager(providerService)
+        SettingsGroup { ProviderManager(providerService) }
 
         HorizontalDivider()
 
-        RunControlSettingsSection(runControlStore)
+        SettingsGroup { RunControlSettingsSection(runControlStore) }
+        SettingsGroup { GoalSettingsSection(runControlStore, chatService) }
 
         skillAuthoringService?.let {
             com.helix.app.skills

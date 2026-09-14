@@ -65,6 +65,8 @@ class ApprovalLayoutDeviceTest {
                 }
             }
         }
+        compose.onNodeWithTag("approval-card-args").assertDoesNotExist()
+        compose.onNodeWithTag("approval-details-layout").performScrollTo().performClick()
         compose
             .onNodeWithTag(
                 "approval-card-args",

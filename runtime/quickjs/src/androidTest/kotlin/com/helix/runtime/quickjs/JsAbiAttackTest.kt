@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets
  * boundary arithmetic (UTF-16 code-unit check vs authoritative UTF-8 byte check), bridge
  * absence, and input round trips. Every execution uses a fresh unique isolated instance.
  */
-class JsAbiAttackTest {
+class JsAbiAttackTest : QuickJsDeviceTestHost() {
     @get:Rule
     val globalTimeout = Timeout.seconds(240)
 

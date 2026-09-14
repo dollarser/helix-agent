@@ -67,6 +67,11 @@ internal class BoundedCapture(
     private val onLimit: () -> Unit = {},
 ) {
     private val buffer = java.io.ByteArrayOutputStream()
+    private var finished = false
+
+    @Volatile
+    var complete: Boolean = false
+        private set
 
     @Volatile
     var bytes: ByteArray = ByteArray(0)
@@ -83,13 +88,19 @@ internal class BoundedCapture(
             var n = input.read(chunk)
             while (n >= 0) {
                 val allow = budget.take(n)
-                if (allow > 0) buffer.write(chunk, 0, allow)
+                synchronized(buffer) {
+                    if (finished) return
+                    if (allow > 0) buffer.write(chunk, 0, allow)
+                }
                 if (allow < n) {
                     budget.hitLimit.set(true)
                     onLimit()
-                    break
+                    return
                 }
                 n = input.read(chunk)
+            }
+            synchronized(buffer) {
+                if (!finished) complete = true
             }
         } catch (e: Exception) {
             // stream closed by the kill: keep what was captured
@@ -97,6 +108,10 @@ internal class BoundedCapture(
     }
 
     fun finish() {
-        bytes = buffer.toByteArray()
+        synchronized(buffer) {
+            if (finished) return
+            finished = true
+            bytes = buffer.toByteArray()
+        }
     }
 }

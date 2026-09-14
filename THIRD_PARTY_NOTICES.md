@@ -18,9 +18,14 @@ licenses and are not relicensed by the Helix project.
    artifacts, and model files require a separate source-and-license manifest
    before they can be bundled.
 
-M0 does not bundle third-party source or runtime assets. Maven dependencies in
-the debug application remain governed by their published upstream licenses;
-the release notice inventory will be generated and verified before M12.
+This file is a notice policy and a partial attribution inventory, not a complete
+release SBOM. Current debug APKs include Maven dependencies and QuickJS/Zipline
+native libraries; optional PRoot/RootFS/CLI assets have separate lock and license
+gates. Before M12 distribution, the exact resolved release artifacts (including
+transitive dependencies and native assets) need a generated SBOM, upstream license
+texts and required notices reconciled against the shipped APKs. A Compose BOM is
+a dependency constraint, not a shipped binary. Passing dependency hash checks or
+building an unminified release APK does not close this distribution gate.
 
 ## topjohnwu/libsu 6.0.0
 

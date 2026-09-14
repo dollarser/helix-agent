@@ -18,11 +18,14 @@ M0 工程基线
   → M9 Accessibility 与 Root
   → M10 单机 Alpha/Beta 硬化
   → M11 官方 CLI/第三方订阅协议实验
+  → M11A 第三方订阅协议适配器研究（第 15A 节）
   → M12 直接分发 Release
 M13 Connector 可迁移能力包（扩展线，按 M7/M11 实际依赖推进）
 ```
 
 远程 Worker、云端沙箱、桌面配对和 HarmonyOS 不属于当前路线。M7 的 A2A Client 是用户配置的外部 Agent 连接器，不是远程 `ExecutionTarget`/Worker；只在 HXA-077 Spike 通过并形成协议决定后创建真实模块，不提前创建网络空模块。
+
+HXA-148～151 归入后续专项交付，不再使用未定义的 M14 标签；具体任务和验收记录为准。HXA 编号不要求连续，历史占号规则见 [M11 编号协调](m11-main-numbering.md)，不为空号补造任务。
 
 ## 2. 里程碑退出条件
 
@@ -40,6 +43,7 @@ M13 Connector 可迁移能力包（扩展线，按 M7/M11 实际依赖推进）
 | M9 | 高级用户可开启跨 App 自动化、Android UI Skill 和 Root 只读工具 | 敏感界面、scope、停止、Skill 逐步复验和 Root 拒绝测试通过 |
 | M10 | 固定场景可重复完成 | 指标、安全、恢复、资源和隐私门禁达标；HXA-105 以接受或有证据拒绝的 ADR 收口，不留半实现编排入口 |
 | M11 | 可选官方 CLI 隔离会话 | 凭据隔离和工具拦截结论有证据；不合格则保持独立 CLI 模式 |
+| M11A | 第三方订阅协议适配器研究 | 以第 15A 节任务及 ADR-0021 的分发、凭据和账户证据为准；研究通过不等于官方支持 |
 | M12 | Android 直接分发包可发布 | 全部门禁、SBOM、notice、权限说明和真机证据齐全 |
 
 | M13 | 可迁移、管理并验证 MCP + Skill Connector | HXA-124 首版完成；后续 HXA-125～130 按依赖分别验收，M13 尚未整体完成 |
@@ -647,7 +651,7 @@ Chat/Act/Goal。任务完成时曾把 Binder/PFD、主 App client、统一 Model
 
 ### HXA-142 订阅协议实验停止线与注册门禁
 
-依 accepted [ADR-0024](../adr/0024-subscription-adapter-production-stop-line.md)，正式停止官方 CLI/SDK Android/bionic 打包路线，也不把 HXA-140/141 的第三方订阅协议 smoke/私有
+依历史决定（现已 superseded）[ADR-0024](../adr/0024-subscription-adapter-production-stop-line.md)，正式停止官方 CLI/SDK Android/bionic 打包路线，也不把 HXA-140/141 的第三方订阅协议 smoke/私有
 journal 延伸成跨 APK 模型 Provider。`CliAgentBackendEligibility` 除 Android 执行底座、内置工具控制和
 jobId 对账外，必须要求供应商对 Helix 分发及消费订阅接口的可核验授权；任一缺失均不得注册
 Chat/Act/Goal。协议可调用、公开 client id、真实订阅成功和 Runtime 私有 Job 都不能替代该授权。
@@ -1067,3 +1071,52 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 ### HXA-184 谨慎提取与文件装配整理
 
 状态：completed，见 [完成记录](../completion-records/HXA-184.md)。所有者授权继续完成大类审查的 B 类 11 项和 C 类 15 项。允许 audit 所列 app、core/storage、core/workspace、tools/framework、tools/files、tools/android、tools/automation、runtime/quickjs、feature/browser、provider/api、extensions/mcp 及相关测试、docs、scripts/debug。保持公开契约、SQL/迁移版本、审批消费顺序、资源所有权及取消恢复语义；不引入新依赖。分阶段进行独立类型整理、纯转换/准备逻辑提取、组合根整理。验收：`./gradlew spotlessCheck detekt test lintDebug :app:lintConsumerDebug :app:lintDeveloperDebug --continue --max-workers=1`，受影响模块双 API29/36 独占模拟器回归，`scripts/check-docs.sh`、`scripts/verify-adr.sh`、`scripts/check-i18n.sh`、`scripts/check-secrets.sh`、`git diff --check`。全部 26 项完成后统一记录；不提交、推送或合并 main。
+
+
+### HXA-185 合并后长稳夹具适配与失败取证
+
+状态：completed（本轮有界实现/取证已交付，正式24h门禁未完成），见 [完成记录](../completion-records/HXA-185.md)。所有者授权处理合并复核发现的 EV-04 Goal 旧接口、Autofill 失败取证、WebView 版本解析与 FD 归因；明确本轮 Codex 不执行测试，模拟器由 Claude 小模型独占运行。允许 app/androidTest、feature/browser/androidTest、相关测试 runner、scripts/debug 与 docs；不修改生产语义、不升级依赖、不放宽失败门限。验收命令、短测/对照矩阵及关闭要求见 [Claude 测试交接](hxa185-claude-test-handoff.md)。本轮实际通过与失败边界以完成记录为准，不把API36功能中止或API29在途测试记为24h通过。
+
+
+### HXA-186 API35 真机隔离回归
+
+状态：completed（有界执行完成，含未收口失败），见 [执行记录](../completion-records/HXA-186.md)。所有者授权真机测试；保留在途 Claude 模拟器测试。仅在明确选择的 USB 真机上安装独立库测试 APK 和临时 consumer 测试沙箱，不改已安装 developer 的数据；验证浏览器/Autofill、存储、文件、QuickJS、Goal/压缩/后台及会话/文件界面。脚本 `scripts/debug/2026-09-10/run-physical-library-regression.py` 与 `run-physical-app-regression.py` 必须显式传入 serial/output，冻结 APK SHA、保存非空 instrumentation 结果、恢复 Autofill 设置并清理自己新增的测试包。当前不覆盖真实账号、Root、长稳或全 OEM/发布矩阵；结果据实记录。
+
+### HXA-187 QuickJS 真机超时停滞修复
+
+状态：completed，见 [完成记录](../completion-records/HXA-187.md)。所有者授权定位和修复 HXA-186 QuickJS 超时停滞。允许 runtime/quickjs、对应测试、docs 与日期调试脚本；保持10秒默认预算、隔离与结果契约，不操作Claude在途模拟器。验收：QuickJS JVM/构建/模块lint及Spotless/Detekt，明确真机单用例超时、取消/恢复和模块回归；文档/ADR/i18n/secrets/diff检查。保留修复前后制品和原始证据，完成后覆盖更新用户授权的developer并保留数据。
+
+
+### HXA-188 真机浏览器冻结、后台恢复与 Root 验证
+
+状态：completed，见 [完成记录](../completion-records/HXA-188.md)。所有者授权按浏览器卡住、真实 HOME/锁屏恢复、Root 真机顺序执行。允许 feature/browser、app、tools/root 的相关代码/测试、日期脚本与 docs；不操作 Claude 模拟器、不改个人 developer 数据或系统锁屏策略。验证：独立构建的浏览器全套及失败隔离重跑；临时 consumer 的真实 HOME/熄屏/解锁后 Chat 与 Goal 状态、请求去重和恢复；临时 Root APK 的被动状态、显式授权/拒绝、服务死亡及有界只读工具。主机执行 spotlessCheck、detekt、相关 JVM/lint/构建及 docs/ADR/i18n/secrets/diff。真机发现的 RootService 死亡回调重入崩溃采用主线程排队与连接身份校验修复，不升级 libsu/依赖、不改变授权或重放语义。安全锁屏由所有者正常解锁；阻塞项保留，不能以模拟生命周期代替实际设备证据。
+
+
+### HXA-189 第三轮审查复核与缺陷修复
+
+状态：本轮源码/主机门禁与交接完成，新增设备验证待Claude执行，见 [完成记录](../completion-records/HXA-189.md)。所有者授权逐条复核 improvement-review-2026-09-10，并修复当前证据支持的缺陷。允许 runtime/proot-ipc、app/UI/权限入口及相应测试、scripts/CI/docs/AGENTS；保留并行测试，不操作Claude模拟器。修复PFD所有权释放、用户主动系统权限申请/设置入口、Provider空态导航及文案、文档状态/索引和统一主机门禁。架构搬迁、全套onboarding/主题、R8/发行与新增扫描器需按收益/验证条件独立分类，不把建议当bug。保持IPC与能力/审批边界，不升级依赖，仅复用已锁定测试依赖。验收：受影响JVM、双app及PRoot构建/lint、Spotless/Detekt，门禁脚本自测与实际执行；设备脚本/用例交接独占测试者，未执行不得宣称通过。
+
+
+### HXA-190 Codex 订阅目录、协议与 Runtime 安装体验
+
+2026-09-13 所有者授权在 main 二次复核四维审查并局部修复确认缺陷；允许 app、core/storage、core/agent 注释、provider/api、runtime/cli-client、runtime/proot-client、runtime/proot-app、tools/browser、feature/browser 及相关测试/日期脚本/文档。不触碰 Harness 2.0 worktree，不实施大类职责搬迁；以受影响主机回归/编译/lint 和明确的设备交接为验收边界，见 [复核记录](../bug-fixes/2026-09-13-main-audit-followup.md)。
+
+2026-09-10 所有者追加：developer 主包内置 Subscriptions 与 PRoot APK，设置页用户点击进入 Android 安装/更新；允许 app 构建、manifest、安装界面与相关回归文档。按 [ADR-0047](../adr/0047-bundled-companion-installers.md) 保留独立 UID、同签名及用户系统确认。此轮仅主机验证，发行签名仍待 HXA-122。
+
+2026-09-10 所有者要求订阅连接验证与具体模型生成解耦，并优化设置/审计页面排版；按 [ADR-0046](../adr/0046-subscription-account-connection-check.md) 部分替代旧生成检查，范围为 app、runtime/cli-app 与相关回归和文档。此轮仅主机测试及构建，真机明日由所有者验收，不访问其他人在途模拟器。
+
+2026-09-10 所有者追加 DNS 默认预填与普通 Turn 默认阈值优化，允许 app/runcontrol、请求组装、订阅网络设置 UI 和对应主机测试；保留手动 DNS 的生效/过期/TLS 边界及 Goal 自身预算语义。方案与证据见 [默认策略](dns-and-turn-defaults-2026-09-10.md)。
+
+2026-09-10 所有者追加：参考开源 Harness 复核全部内置工具的模型返回信息，保留后续操作需要的 hash，减少无关内部信息；修复手动压缩预算误判及切换模型的上下文圆环。此轮局部实现位于 app 的结果投影、压缩计划和显示层，工具执行公开 schema、权限与 Goal 预算保持不变；仅相关主机回归和构建后覆盖安装，真实对话由所有者人工测试。
+
+2026-09-10 所有者扩展授权：统一内置文件工具相对路径与会话目录绑定，允许工作区根目录普通文件，保留 scope/Policy/审批/内部目录保护；公共 Harness 模板集中维护并按需注入。涉及 app、tools/files、core/workspace 及对应测试、文档，决定见 ADR-0045。主机回归和打包验证完成后覆盖更新真机，模型任务由所有者人工测试。
+
+显示层补充：所有者要求订阅 companion 按实际功能更名，复核后采用更简洁的 `Helix Subscriptions`，首页及四个登录页与 Helix 统一。包名和代码路径允许按需调整；本轮确认无需通过身份迁移修复桌面缓存，因此保持 `com.helix.runtime.cli`、IPC/签名/凭据位置及既有认证行为，仅改显示资源和页面布局，不另设迁移或架构决策。
+
+状态：in progress。所有者报告登录后仅单模型、能力/上下文缺失、对话协议失败，并要求主App提供CLI Runtime安装入口。允许 app、runtime/cli-client、runtime/cli-app、provider/api及关联模型/协议、构建、测试与文档；凭据保持Runtime UID，不读取其他App/CLI凭据。按实际账号目录传递模型元数据，不硬编码六个；补齐实际图像快照传输才声明视觉支持。安装必须用户触发、验证目标包/签名并进入系统安装确认，保持developer/consumer渠道边界；不扩大Agent安装权限。验证：主机回归/lint/构建、已授权真机合成提示真实账号调用及模型目录、独立测试沙箱、安装/返回恢复；不操作Claude在途模拟器、不提交推送。
+
+### HXA-191 配置引导、审批卡折叠、深色模式与会话搜索
+
+2026-09-10 所有者追加 Goal 对话式创建：直接输入任务发送，默认额度与已暂停目标的预算/提醒移动到设置；允许 app UI、runcontrol、Goal 启动接线与相关主机/设备测试源码。保留 ADR-0004/0040，具体默认与验证见 [Goal 入口优化](goal-conversation-entry-2026-09-10.md)。本轮仅主机验证，设备由所有者后续验收。
+
+状态：授权待执行，先完成HXA-189本轮设备验收及HXA-190修复。所有者已选择配置引导、审批卡折叠、深色模式和会话搜索，不含备份迁移。允许app UI/会话查询与必要core/storage及测试/docs；保持完整审批披露与用户授权、配置/会话数据兼容，搜索同时考虑归档分组。验证：失败/空态/恢复、主题/系统栏、配置完成路径、搜索命中/空结果与切换、主机门禁及独占设备回归。

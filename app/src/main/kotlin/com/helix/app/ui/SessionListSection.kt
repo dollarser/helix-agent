@@ -44,6 +44,8 @@ internal fun SessionListSection(
     onTasks: () -> Unit,
     onRename: (String) -> Unit,
     onNavigation: () -> Unit,
+    onProviders: () -> Unit = {},
+    needsProvider: Boolean = false,
 ) {
     var archivedOnly by rememberSaveable { mutableStateOf(false) }
     val visibleSessions = sessions.filter { it.isArchived == archivedOnly }
@@ -74,6 +76,13 @@ internal fun SessionListSection(
                     modifier = Modifier.testTag("chat-new-session"),
                 ) {
                     Text(stringResource(R.string.chat_new_session))
+                }
+            }
+        }
+        if (needsProvider && !archivedOnly) {
+            item(key = "provider-setup") {
+                OutlinedButton(onProviders, Modifier.testTag("chat-setup-provider")) {
+                    Text(stringResource(R.string.chat_setup_provider))
                 }
             }
         }

@@ -5,11 +5,24 @@ import com.helix.core.model.ModelEvent
 import com.helix.provider.api.StreamDecoder
 import okhttp3.Response
 import okio.Buffer
+import java.io.IOException
+import java.io.InterruptedIOException
 
-/** Common bounded response handling for subscription protocol adapters. */
+internal fun <T> subscriptionNetwork(block: () -> T): T =
+    try {
+        block()
+    } catch (failure: InterruptedIOException) {
+        throw SubscriptionTransportFailure(ModelErrorCode.TIMEOUT, failure)
+    } catch (failure: IOException) {
+        throw SubscriptionTransportFailure(ModelErrorCode.TRANSPORT, failure)
+    }
+
+/** Response handling for subscription protocol adapters; no cumulative reply cap. */
 internal fun readSubscriptionEvents(
     response: Response,
     decoder: StreamDecoder,
+    onReadFailure: (SubscriptionTransportFailure, Int) -> Unit = { _, _ -> },
+    onEvents: (List<ModelEvent>) -> Unit = {},
 ): List<ModelEvent> {
     if (!response.isSuccessful) {
         return listOf(
@@ -24,33 +37,37 @@ internal fun readSubscriptionEvents(
             ),
         )
     }
-    return readSuccessfulSubscriptionEvents(response, decoder)
+    return readSuccessfulSubscriptionEvents(response, decoder, onEvents, onReadFailure)
 }
 
 private fun readSuccessfulSubscriptionEvents(
     response: Response,
     decoder: StreamDecoder,
+    onEvents: (List<ModelEvent>) -> Unit,
+    onReadFailure: (SubscriptionTransportFailure, Int) -> Unit,
 ): List<ModelEvent> {
     val events = ArrayList<ModelEvent>()
     val buffer = Buffer()
-    var total = 0L
-    while (events.size <= CodexSubscriptionModel.MAX_EVENTS) {
-        val count = response.body.source().read(buffer, 16 * 1024L)
+    var terminal = false
+    while (!terminal) {
+        val count =
+            try {
+                subscriptionNetwork { response.body.source().read(buffer, 16 * 1024L) }
+            } catch (failure: SubscriptionTransportFailure) {
+                onReadFailure(failure, events.size)
+                // Keep the exact preview prefix in the durable result even when the socket fails.
+                // Never fabricate completion or replay a partially delivered/tool-bearing request.
+                val error = ModelEvent.Error(failure.code, true)
+                events += error
+                onEvents(listOf(error))
+                return events
+            }
         if (count < 0) break
-        total += count
-        if (total >
-            CodexSubscriptionModel.MAX_STREAM_BYTES
-        ) {
-            return listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
-        }
-        events += decoder.feed(buffer.readByteArray())
+        val chunk = decoder.feed(buffer.readByteArray())
+        events += chunk
+        onEvents(chunk)
+        terminal = chunk.any { it is ModelEvent.Completed || it is ModelEvent.Refusal || it is ModelEvent.Error }
     }
-    if (events.size <= CodexSubscriptionModel.MAX_EVENTS) events += decoder.finish()
-    return if (events.size <=
-        CodexSubscriptionModel.MAX_EVENTS
-    ) {
-        events
-    } else {
-        listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
-    }
+    events += decoder.finish()
+    return events
 }

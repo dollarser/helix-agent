@@ -55,7 +55,7 @@ class DataSyncForegroundService : Service() {
         startAsForeground()
         if (intent?.action == ACTION_STOP) {
             transportRequested.set(false)
-            onStopTasks?.invoke()
+            stopTasks()
         }
         if (!transportRequested.get()) stopLatestStart()
         return START_NOT_STICKY
@@ -73,11 +73,19 @@ class DataSyncForegroundService : Service() {
         startId: Int,
         fgsType: Int,
     ) {
-        onStopTasks?.invoke()
+        stopTasks()
         stopDataSync()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun stopTasks() {
+        val app = application as com.helix.app.HelixApplication
+        val chat = app.appContainer.chatService
+        chat.backgroundTasks.value.filter { it.running }.forEach { task ->
+            chat.stopTask(task.id, pause = task.goalId != null)
+        }
+    }
 
     private fun startAsForeground() {
         startForeground(
@@ -147,9 +155,6 @@ class DataSyncForegroundService : Service() {
         const val CHANNEL_ID = "data_sync"
         const val NOTIFICATION_ID = 4865
         const val ACTION_STOP = "com.helix.app.foreground.DATA_SYNC_STOP"
-
-        @Volatile
-        internal var onStopTasks: (() -> Unit)? = null
 
         /**
          * Device-test evidence slot (same pattern as [com.helix.app.goal.GoalReminderWorker]): the

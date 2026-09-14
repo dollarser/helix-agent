@@ -290,7 +290,7 @@ subprojects {
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
             }
 
-            if (path == ":runtime:cli-client") {
+            if (path == ":runtime:cli-client" || path == ":runtime:proot-ipc") {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())

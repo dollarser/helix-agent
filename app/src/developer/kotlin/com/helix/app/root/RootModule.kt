@@ -124,7 +124,7 @@ internal object RootModule {
                 )
                 Text(stringResource(R.string.root_scope_system_etc))
             }
-            Row(modifier = Modifier.padding(top = 8.dp)) {
+            com.helix.app.ui.SettingsActions(modifier = Modifier.padding(top = 8.dp)) {
                 Button(
                     onClick = {
                         val result = rootAccess.requestRoot()
@@ -133,7 +133,6 @@ internal object RootModule {
                     enabled = accessStatus.grant != RootGrantState.REQUESTING,
                     modifier = Modifier.testTag("root-request"),
                 ) { Text(stringResource(R.string.root_request)) }
-                Spacer(Modifier.padding(horizontal = 4.dp))
                 OutlinedButton(
                     onClick = {
                         sessionStatus =
@@ -144,7 +143,6 @@ internal object RootModule {
                     enabled = accessStatus == RootAccessStatus(RootGrantState.GRANTED, RootServiceState.CONNECTED),
                     modifier = Modifier.testTag("root-session-start"),
                 ) { Text(stringResource(R.string.root_session_start)) }
-                Spacer(Modifier.padding(horizontal = 4.dp))
                 OutlinedButton(
                     onClick = {
                         sessionManager.close()

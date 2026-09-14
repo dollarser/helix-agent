@@ -19,8 +19,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -31,7 +31,6 @@ import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ConversationEntry
 import com.helix.app.chat.MessageUi
-import com.helix.app.chat.TurnUi
 
 @Composable
 @Suppress("FunctionName")
@@ -58,34 +57,42 @@ internal fun CopyTextButton(
 internal fun MessageRow(message: MessageUi) {
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color =
-                if (isUser) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
-            modifier =
-                Modifier
-                    .fillMaxWidth(
-                        if (isUser) 0.88f else 1f,
-                    ).testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
+        Column(
+            modifier = Modifier.fillMaxWidth(if (isUser) 0.88f else 1f),
+            horizontalAlignment = if (isUser) Alignment.End else Alignment.Start,
         ) {
-            Column {
-                val bodyModifier =
-                    Modifier
-                        .testTag("chat-message-body-${message.id}")
-                        .padding(start = 12.dp, end = 12.dp, top = 8.dp)
-                SelectionContainer {
-                    if (!isUser) {
-                        MarkdownText(message.content, bodyModifier)
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color =
+                    if (isUser) {
+                        MaterialTheme.colorScheme.surfaceContainerHigh
                     } else {
-                        Text(
-                            message.content,
-                            style = MaterialTheme.typography.bodyLarge,
-                            modifier = bodyModifier,
-                        )
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(if (isUser) "chat-message-user" else "chat-message-assistant"),
+            ) {
+                Column {
+                    val bodyModifier =
+                        Modifier
+                            .testTag("chat-message-body-${message.id}")
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    SelectionContainer {
+                        if (!isUser) {
+                            MarkdownText(message.content, bodyModifier)
+                        } else {
+                            Text(
+                                message.content,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = bodyModifier,
+                            )
+                        }
                     }
                 }
-                CopyTextButton(message.content, "chat-copy-${message.id}")
             }
+            CopyTextButton(message.content, "chat-copy-${message.id}")
         }
     }
 }
@@ -94,20 +101,12 @@ internal fun MessageRow(message: MessageUi) {
 @Suppress("FunctionName")
 internal fun TurnOperations(
     entry: ConversationEntry,
-    active: TurnUi?,
     intents: ConversationIntents,
 ) {
     if (entry.tools.isEmpty() && entry.recoveries.isEmpty()) return
-    var expanded by remember(entry.key) { mutableStateOf(false) }
-    val needsAttention = entry.tools.any { it.card?.state == ApprovalCardState.PENDING || it.prootRecoveryAvailable }
-    val live = active?.id == entry.key && !active.state.isTerminal
-    val showOperations = expanded || live || needsAttention
     Column(Modifier.fillMaxWidth().testTag("turn-operations-${entry.key}")) {
-        TextButton({ expanded = !expanded }, modifier = Modifier.testTag("turn-expand-${entry.key}")) {
-            Text(stringResource(R.string.chat_operations_count, entry.tools.size))
-        }
-        if (showOperations || entry.recoveries.isNotEmpty()) {
-            entry.tools.forEach { ToolTimelineItem(it, intents) }
+        entry.tools.forEach { ToolTimelineItem(it, intents) }
+        if (entry.recoveries.isNotEmpty()) {
             entry.recoveries.forEach {
                 SubscriptionRecoveryActions(it, intents.onInspectSubscription, intents.onRecoverSubscriptionResult)
             }

@@ -54,6 +54,7 @@ ALLOWLIST: list[tuple[str, str, str]] = [
     # BrowserSnapshotScriptTest). The only CJK is a JS comment inside the versioned constant; the
     # script bytes must not change per locale.
     ("snapshot/BrowserSnapshotScript.kt", "", "fixed versioned pinned JS script; locale-independent"),
+    ("snapshot/BrowserActionScript.kt", 'label.indexOf("密码")', "DOM password-field classifier; locale-independent matching, not UI text"),
 ]
 
 # ── Check 1: translation-key parity (every module that ships a base fallback) ──────

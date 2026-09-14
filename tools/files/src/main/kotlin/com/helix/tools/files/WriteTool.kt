@@ -48,14 +48,14 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Contract: L2 base risk (a per-call-approval mutation), LOCAL_MUTATION operation class, idempotent
  * (re-writing identical content has no additional effect), LOCAL_ANDROID, built-in origin, no
- * required capabilities (workspace writes need no OS permission). Only the three user-visible
- * regions (`input`/`work`/`output`) are writable — the scope root and `.helix/` internals are not.
+ * required capabilities (workspace writes need no OS permission). Ordinary workspace root files
+ * are writable; `.helix/` internals remain protected.
  */
 @Suppress("TooManyFunctions") // one helper per schema primitive; splitting fragments the tool
 object WriteTool {
     const val NAME: String = "write"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 3
 
     private val SHA256_HEX = Regex("[0-9a-f]{64}")
 
@@ -97,7 +97,7 @@ object WriteTool {
                         "path",
                         stringSchema(
                             maxLength = 512,
-                            description = "Model reference: scope:<scopeId>:<relativePath> (input/, work/ or output/)",
+                            description = "Workspace file: scope:<scopeId>:<relativePath>; .helix/ is reserved.",
                         ),
                     )
                     put(
@@ -120,8 +120,8 @@ object WriteTool {
                         stringSchema(
                             maxLength = 64,
                             description =
-                                "When overwriting, the SHA-256 the current file must have (64-hex); " +
-                                    "else the write fails",
+                                "Optional: omit or leave empty for a new file. A nonempty value must be the " +
+                                    "64-hex hash returned by read; missing or changed files fail. Never invent it.",
                         ),
                     )
                 },
@@ -183,20 +183,33 @@ object WriteTool {
 
             /**
              * Parses, guards and publishes one call; every terminal condition is a stable, sanitized
-             * report (the internal exception text is dropped on purpose — it may carry scope ids,
-             * quota figures or path grammar the model must never see).
+             * report. Raw exception text may expose host paths; actionable messages use only
+             * the public model-reference grammar already declared by the tool schema.
              */
             @Suppress("ReturnCount", "SwallowedException") // sanitized failure messages; distinct outcomes
             private fun runWrite(
                 store: WorkspaceArtifactStore,
                 call: ExecutableToolCall,
             ): ToolExecutorResult {
-                val parsed = parseArgs(call.args) ?: return ToolExecutorResult.Failed("invalid 'write' arguments")
+                val suppliedHash = (call.args["expectedSha256"] as? JsonPrimitive)?.content
+                if (!suppliedHash.isNullOrBlank() && !SHA256_HEX.matches(suppliedHash)) {
+                    return ToolExecutorResult.Failed(
+                        "invalid expectedSha256: use the 64-hex hash returned by read; omit it for a new file. " +
+                            "Never invent a hash.",
+                        sideEffectFree = true,
+                    )
+                }
+                val parsed =
+                    parseArgs(call.args) ?: return ToolExecutorResult.Failed(
+                        "invalid write arguments: use a relative file path from the current working directory " +
+                            "or an explicit scope:<scopeId>:<relativePath> reference. " +
+                            "content must be text; omit expectedSha256 for a new file, otherwise use a verified 64-hex hash.",
+                    )
                 return try {
                     val region = WorkspaceLayout.regionOf(parsed.path.relativePath)
                     if (region == null || !WorkspaceLayout.isRegion(region)) {
                         return ToolExecutorResult.Failed(
-                            "destination must be inside input/, work/ or output/: ${parsed.path.toModelReference()}",
+                            "destination must be a user file or directory, outside .helix/: ${parsed.path.toModelReference()}",
                         )
                     }
                     // stat (not probe): a directory target reports "absent" to the probe, and letting
@@ -214,7 +227,7 @@ object WriteTool {
                             "file already exists; pass overwrite=true to replace it: ${parsed.path.toModelReference()}",
                         )
                     }
-                    val expected = if (exists && parsed.expectedSha256 != null) parsed.expectedSha256 else null
+                    val expected = parsed.expectedSha256
                     val outcome =
                         publish(
                             parsed.path,
@@ -226,7 +239,7 @@ object WriteTool {
                     ToolExecutorResult.Completed(output(parsed.path, outcome, exists))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(
-                        "file changed since you read it (hash mismatch); " +
+                        "expectedSha256 precondition failed (hash mismatch): file is missing or changed since read; " +
                             "re-read it and retry with a fresh expectedSha256",
                     )
                 } catch (e: WorkspaceQuota.QuotaExceeded) {
@@ -270,15 +283,15 @@ object WriteTool {
 
     /**
      * Extracts [Parsed] from the (already schema-validated) arguments. A malformed model reference
-     * or a non-hex `expectedSha256` is reported as absent (null) — the sanitized "invalid arguments"
-     * message keeps the internal reference grammar and scope ids away from the model.
+     * or a non-hex `expectedSha256` is reported as absent (null). The caller supplies public
+     * schema guidance without disclosing internal host paths.
      */
     @Suppress("SwallowedException") // a bad model reference / hash is deliberately null, not propagated (sanitized)
     private fun parseArgs(args: JsonObject): Parsed? {
         val ref = args["path"]?.jsonPrimitive?.content
         val content = args["content"]?.jsonPrimitive?.content
         val path = ref?.let { runCatching { FileScopePath.fromModelReference(it) }.getOrNull() }
-        val expected = args["expectedSha256"]?.jsonPrimitive?.content
+        val expected = args["expectedSha256"]?.jsonPrimitive?.content?.takeUnless { it.isBlank() }
         // The optional hash, when present, must be well-formed 64-hex or the whole call is invalid.
         val badHash = expected != null && !SHA256_HEX.matches(expected)
         val missing = ref == null || content == null || path == null

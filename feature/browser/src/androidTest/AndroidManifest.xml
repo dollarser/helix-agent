@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:usesCleartextTraffic="true">
+        <activity android:name="com.helix.feature.browser.webview.BrowserResourceTestActivity" android:exported="false" />
         <activity android:name="com.helix.feature.browser.BrowserTestActivity" android:exported="true" />
         <activity
             android:name="com.helix.feature.browser.webview.RawWebViewControlActivity"

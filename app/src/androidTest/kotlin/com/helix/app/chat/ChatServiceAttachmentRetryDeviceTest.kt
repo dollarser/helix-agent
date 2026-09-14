@@ -63,6 +63,34 @@ class ChatServiceAttachmentRetryDeviceTest {
     private val sourceFiles = HashMap<String, File>()
 
     @Test
+    fun busySessionRetainsApprovedAttachmentsAndRestoresTheUnsentText() {
+        val fixture = newFixture(ApplicationProvider.getApplicationContext())
+        val occupied = kotlinx.coroutines.Job()
+        try {
+            openSessionWithStagedAttachment(fixture, "retained attachment")
+            sendToDisclosure(fixture)
+            // Reserve the session after disclosure, reproducing a competing send winning admission.
+            val field = ChatService::class.java.getDeclaredField("sessionTurnAdmission").apply { isAccessible = true }
+            (field.get(fixture.service) as SessionTurnAdmission).register(SESSION_ID, occupied, "competing-turn")
+            fixture.service.confirmSend()
+            await(fixture, "busy admission reports a reason and restores the draft") {
+                val screen = fixture.service.screen.value
+                screen.blockedReason != null && screen.shareDraftText != null
+            }
+            assertEquals(1, fixture.service.screen.value.pendingAttachments.size)
+            assertEquals("帮我总结这个附件", fixture.service.screen.value.shareDraftText)
+            assertTrue(
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .isEmpty(),
+            )
+        } finally {
+            occupied.cancel()
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
     fun immediateProviderObservationSeesAnInitializedDraftOwner() {
         val failures = mutableListOf<Throwable>()
         val job = kotlinx.coroutines.SupervisorJob()

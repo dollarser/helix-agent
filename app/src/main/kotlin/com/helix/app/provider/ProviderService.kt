@@ -1,15 +1,19 @@
 package com.helix.app.provider
 
+import com.helix.app.chat.EgressDisclosure
 import com.helix.core.model.Clock
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.SecretAlias
 import com.helix.core.model.SystemClock
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.CapabilityProbe
+import com.helix.provider.api.CapabilitySource
 import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.ModelMetadata
 import com.helix.provider.api.ModelProvider
 import com.helix.provider.api.ProbeOutcome
 import com.helix.provider.api.ProviderCapabilities
@@ -69,7 +73,10 @@ class ProviderService(
         model: String? = null,
     ): ProviderContextSettings {
         val config = storedConfig(providerId)
-        return contextSettingsStore.read(providerId, config.endpoint.full, model ?: config.model)
+        val selectedModel = model ?: config.model
+        val stored = contextSettingsStore.read(providerId, config.endpoint.full, selectedModel)
+        val detected = metadataFor(providerId, selectedModel)?.contextWindow
+        return stored.withDetectedWindow(detected)
     }
 
     suspend fun saveContextSettings(
@@ -126,7 +133,17 @@ class ProviderService(
             clock,
             managed,
             ::storedConfig,
-            ::discoverContextWindow,
+            { providerId, model, detected ->
+                val config = storedConfig(providerId)
+                val previous = contextSettingsStore.read(providerId, config.endpoint.full, model)
+                contextSettingsStore.write(
+                    providerId,
+                    config.endpoint.full,
+                    model,
+                    previous.copy(serverWindow = detected),
+                )
+                _contextRevision.value++
+            },
             { _networkOperations.value += 1 },
         )
 
@@ -155,7 +172,10 @@ class ProviderService(
 
     /** One persisted provider as its UI row (a corrupt row throws IAE, fail-closed). */
     private fun rowUi(entity: ProviderConfigEntity): ProviderRowUi =
-        providerRowUi(entity, statusFor(entity.id)).copy(managedExternally = managed.isManaged(entity.id))
+        providerRowUi(entity, statusFor(entity.id)).copy(
+            managedExternally = managed.isManaged(entity.id),
+            modelMetadata = testStatus.modelMetadata.read(entity.id, entity.endpoint),
+        )
 
     /**
      * Persists a new provider from a composed [ProviderDraft].
@@ -282,18 +302,16 @@ class ProviderService(
         }
     }
 
-    /**
-     * Runs the five-phase connection test (HXA-025 [CapabilityProbe]) against
-     * the persisted provider. On success the PROBED capability snapshot is
-     * persisted into the row (it becomes chat-selectable); since HXA-059 the
-     * backend model list (phase 2) rides with the PASSED status (null when the
-     * backend does not expose a list) so the UI can offer it for selection.
-     * On failure the phase + safe error class are recorded (the row stays
-     * non-selectable; no list is ever shown for a failed test).
-     */
+    /** Catalog discovery plus one short text reply; independent of optional capability detection. */
     suspend fun runConnectionTest(providerId: String): ProbeOutcome =
         withContext(workScope.coroutineContext) {
             connectionProbe.run(providerId).also { refreshNow() }
+        }
+
+    /** Explicit capability detection; failures never invalidate a passed connection. */
+    suspend fun runCapabilityTest(providerId: String): ProbeOutcome =
+        withContext(workScope.coroutineContext) {
+            connectionProbe.run(providerId, detectCapabilities = true).also { refreshNow() }
         }
 
     /**
@@ -358,9 +376,9 @@ class ProviderService(
      * display + residence facts the pre-send gate shows. Derived from the
      * persisted endpoint only — never from the template name.
      */
-    suspend fun egressTargetFor(providerId: String): com.helix.app.chat.EgressDisclosure.EgressTarget {
+    suspend fun egressTargetFor(providerId: String): EgressDisclosure.EgressTarget {
         val config = storedConfig(providerId)
-        return com.helix.app.chat.EgressDisclosure.EgressTarget(
+        return EgressDisclosure.EgressTarget(
             providerId = config.id,
             providerName = config.displayName,
             protocol = config.protocol,
@@ -397,12 +415,37 @@ class ProviderService(
      * "no confirmed capability" (fail closed: the send path blocks, the probe re-establishes).
      */
     @Suppress("SwallowedException") // an unparseable snapshot IS the null outcome (fail closed)
-    suspend fun capabilitiesFor(providerId: String): ProviderCapabilities? =
+    suspend fun capabilitiesFor(providerId: String, model: String? = null): ProviderCapabilities? =
         runCatching {
-            ProviderCapabilities.parse(
-                storage.providerConfigs.resolve(providerId).capabilitySnapshot,
-            )
+            if (model == null) {
+                ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
+            } else {
+                rows.value.firstOrNull { it.id == providerId }?.capabilitiesForModel(model)
+            }
         }.getOrNull()
+
+    fun metadataFor(
+        providerId: String,
+        model: String,
+    ): ModelMetadata? =
+        rows.value
+            .firstOrNull { it.id == providerId }
+            ?.modelMetadata
+            ?.get(model)
+
+    fun reasoningOptions(
+        providerId: String,
+        model: String,
+    ): List<ReasoningEffort> {
+        val row = rows.value.firstOrNull { it.id == providerId && it.chatSelectable } ?: return emptyList()
+        val explicit = row.modelMetadata[model]?.reasoningEfforts
+        return when {
+            explicit != null && explicit.isNotEmpty() -> listOf(ReasoningEffort.OFF) + explicit
+            explicit != null -> emptyList()
+            model == row.model && row.capabilities?.reasoning == true -> ReasoningEffort.FALLBACK
+            else -> emptyList()
+        }
+    }
 
     /**
      * The user-visible manual vision declaration (HXA-0014 §4 / ADR-0014: vision "must come from
@@ -454,7 +497,7 @@ class ProviderService(
                     reasoning = false,
                     jsonSchemaOutput = false,
                     maxContextTokens = null,
-                    source = com.helix.provider.api.CapabilitySource.MANUAL,
+                    source = CapabilitySource.MANUAL,
                 ),
             )
     }

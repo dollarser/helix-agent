@@ -36,7 +36,7 @@ class GrokLoginActivity : Activity() {
                 ::copyUserCode,
                 ::copyVerificationUrl,
             )
-        setContentView(content.root)
+        SubscriptionScreen.show(this, content.root)
         renderState()
     }
 

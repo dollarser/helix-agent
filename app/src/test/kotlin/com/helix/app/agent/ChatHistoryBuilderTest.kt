@@ -9,6 +9,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatHistoryBuilderTest {
+    @Test
+    fun legacyBlankArgumentsKeepTheDeniedExchangeAndAllowLaterMessages() {
+        val rows =
+            listOf(
+                ChatHistoryBuilder.PersistedRow(
+                    "failed",
+                    "ASSISTANT",
+                    "TOOL_CALLS",
+                    """[{"id":"c1","name":"write","arguments":""}]""",
+                ),
+                ChatHistoryBuilder.PersistedRow(
+                    "failed",
+                    "TOOL",
+                    "TOOL_RESULT",
+                    """{"id":"c1","tool":"write","status":"DENIED","summary":"missing required arguments"}""",
+                ),
+                textRow("next", "USER", "continue"),
+            )
+        val messages = ChatHistoryBuilder.toModelMessagesStrict(rows)
+        assertEquals(3, messages.size)
+        assertEquals("{}", messages[0].toolCalls.single().argumentsJson)
+        assertEquals("[DENIED] missing required arguments", messages[1].text)
+        assertEquals(ModelRole.USER, messages.last().role)
+        assertEquals("continue", messages.last().text)
+    }
+
     private fun textRow(
         turnId: String?,
         role: String,

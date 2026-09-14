@@ -232,13 +232,18 @@ internal fun ConversationSection(
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
                 items(entry.messages.filter { it.role == "user" }, key = { it.id }) { MessageRow(it) }
                 item(key = "operations-${entry.key}") {
-                    TurnOperations(entry, screen.activeTurn, intents)
+                    TurnOperations(entry, intents)
                 }
                 items(entry.messages.filter { it.role != "user" }, key = { it.id }) { MessageRow(it) }
                 val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {
-                        Text(stringResource(R.string.chat_turn_failed, past.errorLabel))
+                        Text(
+                            stringResource(R.string.chat_turn_failed, past.errorLabel),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.testTag("chat-turn-error-${entry.key}"),
+                        )
                     }
                 }
             }
@@ -349,6 +354,7 @@ internal fun ConversationSection(
                     screen.pendingDisclosure == null && screen.pendingAttachments.isEmpty(),
             reasoning = runControl.reasoning,
             reasoningSupported = screen.badge?.reasoningSupported == true,
+            reasoningOptions = screen.badge?.reasoningEfforts.orEmpty(),
             onReasoning = intents.onSetReasoning,
             actions =
                 ComposerActions(

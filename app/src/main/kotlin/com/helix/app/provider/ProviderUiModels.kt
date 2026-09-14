@@ -3,13 +3,17 @@ package com.helix.app.provider
 import com.helix.app.R
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
+import com.helix.core.model.ReasoningEffort
 import com.helix.core.storage.entity.ProviderConfigEntity
+import com.helix.core.storage.repository.ProviderConfigRepository
+import com.helix.provider.api.CapabilitySource
+import com.helix.provider.api.ModelMetadata
 import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.ProviderConfig
 
 /**
  * The provider row as the UI sees it (HXA-028): everything is derived from
- * persisted state — the [com.helix.core.storage.repository.ProviderConfigRepository]
+ * persisted state — the [ProviderConfigRepository]
  * row, the recorded connection-test status and the capability snapshot. The
  * UI never sees entities/DAOs (AGENTS.md) and never sees secrets (NFR-007):
  * only the [hasKey] flag.
@@ -35,6 +39,7 @@ data class ProviderRowUi(
     val backendModels: List<String>?,
     val templateNotes: List<String>,
     val managedExternally: Boolean = false,
+    val modelMetadata: Map<String, ModelMetadata> = emptyMap(),
 ) {
     /**
      * Selectable for a new session only when the connection test COMPLETED
@@ -42,6 +47,25 @@ data class ProviderRowUi(
      */
     val chatSelectable: Boolean
         get() = status is ConnectionTestStatus.Passed
+
+    /** Resolve only this model's declared fields; a default-model probe does not prove other models. */
+    fun capabilitiesForModel(selectedModel: String): ProviderCapabilities? {
+        val base = capabilities ?: return null
+        val metadata = modelMetadata[selectedModel]
+        val sameModel = selectedModel == model
+        return if (!sameModel && metadata == null) {
+            null
+        } else {
+            base.copy(
+                toolCalls = sameModel && base.toolCalls,
+                parallelToolCalls = sameModel && base.parallelToolCalls,
+                vision = metadata?.vision ?: (sameModel && base.vision),
+                reasoning = metadata?.reasoningEfforts?.isNotEmpty() ?: (sameModel && base.reasoning),
+                jsonSchemaOutput = sameModel && base.jsonSchemaOutput,
+                maxContextTokens = metadata?.contextWindow ?: base.maxContextTokens.takeIf { sameModel },
+            )
+        }
+    }
 
     /**
      * Capability chips for the UI (doc 10 section 2.4: rely on capability tests). HXA-069: each
@@ -52,8 +76,16 @@ data class ProviderRowUi(
         capabilities
             ?.let { caps ->
                 buildList {
+                    if (caps.source == CapabilitySource.CONNECTION_ONLY) {
+                        add(CapabilityChip(R.string.provider_capabilities_unverified))
+                        return@buildList
+                    }
                     add(CapabilityChip(R.string.provider_capability_streaming, listOf(mark(caps.streaming))))
-                    add(CapabilityChip(R.string.provider_capability_tool_calls, listOf(mark(caps.toolCalls))))
+                    if (caps.toolCalls) {
+                        add(CapabilityChip(R.string.provider_capability_tool_calls, listOf(mark(true))))
+                    } else {
+                        add(CapabilityChip(R.string.provider_tool_calls_unverified))
+                    }
                     add(CapabilityChip(R.string.provider_capability_vision, listOf(mark(caps.vision))))
                     add(
                         CapabilityChip(
@@ -76,7 +108,10 @@ data class ProviderRowUi(
                     caps.maxContextTokens?.let { tokens ->
                         add(CapabilityChip(R.string.provider_capability_context, listOf((tokens / 1000).toString())))
                     }
-                    if (caps.source == com.helix.provider.api.CapabilitySource.MANUAL) {
+                    if (modelMetadata[model] != null) {
+                        add(CapabilityChip(R.string.provider_model_metadata_source))
+                    }
+                    if (caps.source == CapabilitySource.MANUAL) {
                         add(CapabilityChip(R.string.provider_capability_manual))
                     }
                 }
@@ -109,6 +144,7 @@ data class ProviderBadgeUi(
     val chips: List<CapabilityChip>,
     val reasoningSupported: Boolean = false,
     val providerId: String? = null,
+    val reasoningEfforts: List<ReasoningEffort> = emptyList(),
 )
 
 /**

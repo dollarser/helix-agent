@@ -59,6 +59,7 @@ class TurnCoordinatorDeviceTest {
                 )
 
             val first = coordinator.beginModelStream()
+            first.apply(ModelEvent.TextDelta("checking the time"))
             first.apply(ModelEvent.ToolCallStarted(0, ToolCallId("tool-1"), "time.now"))
             first.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
             first.apply(ModelEvent.ToolCallFinished(0))
@@ -82,7 +83,7 @@ class TurnCoordinatorDeviceTest {
                     .listBySession("session-1")
                     .filter { it.role == ModelRole.ASSISTANT.name && it.kind == ChatHistoryBuilder.KIND_TEXT }
                     .mapNotNull(storage.messages::readContent)
-            assertEquals(listOf("partial-second"), assistantTexts)
+            assertEquals(listOf("checking the time", "partial-second"), assistantTexts)
             assertTrue(
                 storage.messages.listBySession("session-1").any { it.kind == ChatHistoryBuilder.KIND_TOOL_RESULT },
             )

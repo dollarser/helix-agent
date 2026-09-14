@@ -46,17 +46,11 @@ jobs:
         # verify-variant-boundaries.sh on a cold runner.
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
 
-      - name: Static checks and tests
-        # Include every Android library in both variants; app flavor lint alone misses library defects.
-        run: ./gradlew spotlessCheck detekt test lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
+      - name: Verify source contracts
+        run: ./scripts/check-all.sh --source
 
-      - name: Build all M0 applications
-        run: >-
-          ./gradlew
-          :app:assembleConsumerDebug
-          :app:assembleDeveloperDebug
-          :runtime:proot-app:assembleDebug
-          :runtime:cli-app:assembleDebug
+      - name: Verify tests, lint, locks and debug/release builds
+        run: ./scripts/check-all.sh --build
 
       - name: Upload debug APKs
         # Debug-signed build artifacts for installation (development use, not for
@@ -90,20 +84,8 @@ jobs:
             '> Debug-signed development artifacts only; not release evidence.' \
             >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verify dependency locks
-        run: ./scripts/check-lockfiles.sh
-
-      - name: Scan for secrets
-        run: ./scripts/check-secrets.sh
-
-      - name: Verify architecture decisions
-        run: ./scripts/verify-adr.sh
-
-      - name: Verify documentation contracts
-        run: ./scripts/check-docs.sh
-
-      - name: Verify variant boundaries
-        run: ./scripts/verify-variant-boundaries.sh
+      - name: Verify APK boundaries
+        run: ./scripts/check-all.sh --artifacts
 
       - name: Check whitespace
         # `git diff --check` on a fresh checkout inspects an always-empty worktree diff and

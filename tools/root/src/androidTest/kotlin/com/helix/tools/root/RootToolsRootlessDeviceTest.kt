@@ -18,7 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class RootToolsRootlessDeviceTest {
+class RootToolsRootlessDeviceTest : RootDeviceTestHost() {
     private val clock = SystemClock()
     private val access = LibsuRootAccess(ApplicationProvider.getApplicationContext())
     private val sessions = RootSessionManager(clock, access::status, access::disconnect)

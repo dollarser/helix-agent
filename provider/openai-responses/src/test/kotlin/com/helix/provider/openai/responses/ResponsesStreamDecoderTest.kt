@@ -7,6 +7,35 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ResponsesStreamDecoderTest {
+    @Test
+    fun finalArgumentsSupplyMissingDeltasWithoutDuplicatingPrefixes() {
+        for (prefix in listOf("", "{", "{}")) {
+            val stream =
+                functionCallItemAdded(0, "fc_1", "call_1", "write") +
+                    sse("response.function_call_arguments.delta", """{"output_index":0,"delta":${jsonStr(prefix)}}""") +
+                    sse("response.function_call_arguments.done", """{"output_index":0,"arguments":"{}"}""") +
+                    sse("response.completed", completedJson(4, 1, 1))
+            val events = decodeChunked(stream, 7)
+            assertEquals(
+                "{}",
+                events.filterIsInstance<ModelEvent.ToolArgumentsDelta>().joinToString("") { it.jsonFragment },
+            )
+            assertEquals(1, events.filterIsInstance<ModelEvent.ToolCallFinished>().size)
+            assertEquals(0, events.filterIsInstance<ModelEvent.Error>().size)
+        }
+    }
+
+    @Test
+    fun contradictoryFinalArgumentsNeverFinishAnExecutableCall() {
+        val stream =
+            functionCallItemAdded(0, "fc_1", "call_1", "write") +
+                sse("response.function_call_arguments.delta", """{"output_index":0,"delta":"{\"x\":1}"}""") +
+                sse("response.function_call_arguments.done", """{"output_index":0,"arguments":"{\"x\":2}"}""")
+        val events = decodeAll(stream)
+        assertEquals(0, events.filterIsInstance<ModelEvent.ToolCallFinished>().size)
+        assertEquals(ModelErrorCode.PROTOCOL, events.filterIsInstance<ModelEvent.Error>().single().code)
+    }
+
     private fun sse(
         type: String,
         data: String,

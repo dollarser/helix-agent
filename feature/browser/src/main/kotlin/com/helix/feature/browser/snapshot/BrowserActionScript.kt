@@ -110,7 +110,9 @@ object BrowserActionScript {
         var acl = ac.toLowerCase();
         var label = (nameId + " " + ph).toLowerCase();
         var refuse = "";
-        if (tl === "password" || acl === "password" || acl.endsWith("-password")) refuse = "password";
+        if (tl === "password" || acl === "password" || acl.endsWith("-password") ||
+            ((tag === "input" || tag === "select" || tag === "textarea") &&
+             (label.indexOf("password") >= 0 || label.indexOf("passwd") >= 0 || label.indexOf("密码") >= 0))) refuse = "password";
         else if (acl.indexOf("cc-") === 0 || acl === "credit-card" || acl === "on-card" ||
                  PAYMENT_NAME.test(label)) refuse = "payment";
         else if (acl === "one-time-code") refuse = "one-time-code";
