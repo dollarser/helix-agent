@@ -27,9 +27,10 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * The `plan.submit` built-in tool (research doc section 4.3; HX2-05): Plan mode's structured
- * termination tool (the `exit_plan_mode` analogue). Plan mode is read-only research; the plan
- * itself is NOT a paragraph of assistant text — it is a versioned [PlanArtifact], and this is
- * the ONLY way it leaves the model.
+ * plan-submission tool (the `exit_plan_mode` analogue). Plan mode is read-only research and a
+ * plain text answer can end the turn; when the user wants a reviewable plan, that plan is NOT
+ * freeform assistant text — it is a versioned [PlanArtifact], and this tool is the ONLY way such
+ * an artifact leaves the model.
  *
  * Classification: METADATA at L0 — the internal metadata-operation contract (research doc
  * section 4), NOT a disguised READ_ONLY. Its one durable side effect is the persisted plan
@@ -49,7 +50,7 @@ import kotlin.time.Duration.Companion.seconds
 object PlanTools {
     const val NAME: String = "plan.submit"
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /** The registered contract; no required capabilities (in-process persist only). */
     fun descriptor(): ToolDescriptor =
@@ -57,12 +58,14 @@ object PlanTools {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Submits the completed plan for the user's review; this is the ONLY way to finish Plan mode. " +
-                    "Call it once the plan is complete, with the full structured plan (objective, ordered steps, " +
-                    "acceptance criteria, and known assumptions/risks). After a successful call the plan is " +
-                    "persisted and AWAITING THE USER'S REVIEW: the user will decide to execute it, revise it or " +
-                    "cancel it. End the turn immediately after a successful call — make no further tool calls " +
-                    "and do not start executing the plan yourself.",
+                "Submits a completed plan as a versioned artifact for the user's review. Use it " +
+                    "when the user wants a plan they can approve, revise or cancel; a plain text " +
+                    "answer can otherwise finish the turn. Provide the full structured plan " +
+                    "(objective, ordered steps, acceptance criteria, and known assumptions/risks). " +
+                    "After a successful call the plan is persisted and AWAITING THE USER'S REVIEW: " +
+                    "the user will decide to execute it, revise it or cancel it. End the turn " +
+                    "immediately after a successful call — make no further tool calls and do not " +
+                    "start executing the plan yourself.",
             inputSchema = Schema.input(),
             outputSchema =
                 buildJsonObject {

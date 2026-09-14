@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v15ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v16ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -365,39 +365,40 @@ class RoomMigrationFixtureTest {
     @Test
     fun v15ToV16NormalizesLegacyArtifactPathsToFullScopeRefs() {
         val name = "artifact-scope-ref-migration"
+        val legacyPaths =
+            listOf("output/legacy.txt", "scope:notes.txt", "scope:other:output/x.txt", "scope:app:output/legacy.txt")
         context.deleteDatabase(name)
         helper.createDatabase(name, 15).use {
             it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
-            // A legacy v15 row: a bare scope-relative path (the pre-v16 stored form). The
-            // pre-v16 sink always resolved rows under the app scope, so it physically lives there.
-            it.execSQL(
-                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
-                    "VALUES ('a1','s1','output/legacy.txt','text/plain',3,'${"a".repeat(64)}',NULL)",
-            )
+            // All v15 rows are bare paths, including legal names that resemble full refs.
+            legacyPaths.forEachIndexed { index, path ->
+                it.execSQL(
+                    "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                        "VALUES (?, 's1', ?, 'text/plain', 3, ?, ?)",
+                    arrayOf("a$index", path, "a".repeat(64), if (index == 0) null else "t-$index"),
+                )
+            }
         }
         helper.runMigrationsAndValidate(name, 16, true, HelixDatabase.MIGRATION_15_16).use { db ->
-            // The legacy bare row is normalized to the app-scope full reference.
-            db.query("SELECT relativePath FROM artifacts WHERE id='a1'").use {
-                assertTrue(it.moveToFirst())
-                assertEquals("scope:app:output/legacy.txt", it.getString(0))
-            }
-            // A row already in full-ref form is left untouched: the guard is an exact
-            // "does not start with scope:" check, never a blind prefix.
-            db.execSQL(
-                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
-                    "VALUES ('a2','s1','scope:other:output/x.txt','text/plain',3,'${"b".repeat(64)}',NULL)",
-            )
-            db.query("SELECT relativePath FROM artifacts WHERE id='a2'").use {
-                assertTrue(it.moveToFirst())
-                assertEquals("scope:other:output/x.txt", it.getString(0))
+            db.query("SELECT id, relativePath, sha256, turnId, size, mediaType FROM artifacts ORDER BY id").use {
+                assertEquals(legacyPaths.size, it.count)
+                legacyPaths.forEachIndexed { index, path ->
+                    assertTrue(it.moveToNext())
+                    assertEquals("a$index", it.getString(0))
+                    assertEquals("scope:app:$path", it.getString(1))
+                    assertEquals("a".repeat(64), it.getString(2))
+                    assertEquals(if (index == 0) null else "t-$index", it.getString(3))
+                    assertEquals(3L, it.getLong(4))
+                    assertEquals("text/plain", it.getString(5))
+                }
             }
         }
         context.deleteDatabase(name)
     }
 
     @Test
-    fun v15ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v15-export.db", 15)
+    fun v16ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v16-export.db", 16)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -405,7 +406,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v15 schema must match the exported v15 schema",
+                "code-built v16 schema must match the exported v16 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -439,10 +440,10 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 15) —
-        // the exact production path (HelixStorage registers the same set; including the
-        // room_master_table identity update). The assertions below verify the 1 -> 2 step
-        // specifically; the chain also proves every later migration step applies.
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 16) —
+        // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
+        // including the room_master_table identity update). The assertions below verify the
+        // 1 -> 2 step specifically; the chain also proves every later migration step applies.
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
@@ -461,6 +462,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_12_13,
                     HelixDatabase.MIGRATION_13_14,
                     HelixDatabase.MIGRATION_14_15,
+                    HelixDatabase.MIGRATION_15_16,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -470,50 +472,21 @@ class RoomMigrationFixtureTest {
                 "bindingHash" in columns && "expiresAt" in columns && "argsHash" !in columns,
             )
 
-            fun row(id: String): List<String> {
-                val cursor =
-                    sqlite.query(
-                        "SELECT bindingHash, decision, consumedAt, expiresAt FROM approvals WHERE id = ?",
-                        arrayOf(id),
-                    )
-                try {
-                    assertTrue(cursor.moveToFirst())
-                    return listOf(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                    )
-                } finally {
-                    cursor.close()
-                }
-            }
             // Rows survive the migration; the hash content is preserved under the new name.
-            assertEquals(listOf("p".repeat(64), null, null, "0"), row("approval-mig-1"))
-            assertEquals(listOf("q".repeat(64), "APPROVED", "20", "0"), row("approval-mig-2"))
+            assertEquals(
+                listOf("p".repeat(64), null, null, "0"),
+                approvalColumns(sqlite, "approval-mig-1"),
+            )
+            assertEquals(
+                listOf("q".repeat(64), "APPROVED", "20", "0"),
+                approvalColumns(sqlite, "approval-mig-2"),
+            )
             // expiresAt = 0: every migrated approval is already expired (fail closed) — the
             // old APPROVED row can never consume a proof post-migration (SQL guard).
             assertEquals(0, roomDb.approvalDao().consumeByBinding("approval-mig-2", "q".repeat(64), 30L, 30L))
-            // The 2 -> 3 step landed: the live schema carries the receipts table.
-            assertTrue(
-                "v3 upgrade must add interaction_receipts",
-                "interaction_receipts" in tables(sqlite),
-            )
-            // The 3 -> 4 step landed (HXA-049, ADR-0014): the live schema carries the
-            // message-attachment relation.
-            assertTrue(
-                "v4 upgrade must add message_attachments",
-                "message_attachments" in tables(sqlite),
-            )
-            // The 4 -> 5 step landed (HXA-068, ADR-0005): the live schema carries the
-            // high-sensitivity egress-rule table.
-            assertTrue(
-                "v5 upgrade must add high_sensitivity_rules",
-                "high_sensitivity_rules" in tables(sqlite),
-            )
-            assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
-            assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
-            assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
+            // Every later step (v3 receipts, v4 attachments, v5 egress, v6/v7 a2a) must have
+            // landed in the live schema — the full chain applies, not just the 1 -> 2 rename.
+            assertLaterMigrationStepsLanded(sqlite)
         } finally {
             roomDb.close()
         }
@@ -897,6 +870,53 @@ class RoomMigrationFixtureTest {
         val foreignKeys: Map<String, List<List<String>>>,
         val indexes: Map<String, List<String>>,
     )
+
+    /** The migrated approvals row's (bindingHash, decision, consumedAt, expiresAt) as strings. */
+    private fun approvalColumns(
+        sqlite: SupportSQLiteDatabase,
+        id: String,
+    ): List<String> {
+        val cursor =
+            sqlite.query(
+                "SELECT bindingHash, decision, consumedAt, expiresAt FROM approvals WHERE id = ?",
+                arrayOf(id),
+            )
+        try {
+            assertTrue(cursor.moveToFirst())
+            return listOf(
+                cursor.getString(0),
+                cursor.getString(1),
+                cursor.getString(2),
+                cursor.getString(3),
+            )
+        } finally {
+            cursor.close()
+        }
+    }
+
+    /** Every migration step after the 1 -> 2 rename must have landed in the live schema. */
+    private fun assertLaterMigrationStepsLanded(sqlite: SupportSQLiteDatabase) {
+        // The 2 -> 3 step landed: the live schema carries the receipts table.
+        assertTrue(
+            "v3 upgrade must add interaction_receipts",
+            "interaction_receipts" in tables(sqlite),
+        )
+        // The 3 -> 4 step landed (HXA-049, ADR-0014): the live schema carries the
+        // message-attachment relation.
+        assertTrue(
+            "v4 upgrade must add message_attachments",
+            "message_attachments" in tables(sqlite),
+        )
+        // The 4 -> 5 step landed (HXA-068, ADR-0005): the live schema carries the
+        // high-sensitivity egress-rule table.
+        assertTrue(
+            "v5 upgrade must add high_sensitivity_rules",
+            "high_sensitivity_rules" in tables(sqlite),
+        )
+        assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
+        assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
+        assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
+    }
 
     private fun schemaFacts(sqlite: SupportSQLiteDatabase): SchemaFacts {
         val tableNames = tables(sqlite)

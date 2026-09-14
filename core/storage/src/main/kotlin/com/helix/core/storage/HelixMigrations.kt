@@ -11,16 +11,24 @@ internal object HelixMigrations {
      * key, every lookup, open, and invalidation check. The pre-v16 sink always resolved a row
      * under the app scope, so every existing file physically lives under the app-scope root —
      * normalizing each legacy bare row to `scope:app:<path>` makes it addressable by the
-     * scope-carrying readers (which parse via `FileScopePath.fromModelReference`). Pure data
-     * update, no DDL. A stored path is either legacy-bare or a full ref and no bare path starts
-     * with `scope:`, so the guard is exact.
+     * scope-carrying readers (which parse via `FileScopePath.fromModelReference`).
+     * The schema version identifies the stored format: EVERY v15 row is bare.
+     * A legal legacy filename can start with `scope:` (even `scope:other:output/x.txt`), so
+     * content-based detection would either lose that artifact or redirect it to another scope.
+     * Room applies this migration once; it is not a normalizer for mixed-version input.
+     * Rebuild the unique index inside Room's migration transaction: a prefixed destination
+     * can equal another row's OLD bare path during UPDATE, although final keys are distinct.
      */
     val MIGRATION_15_16 =
         object : Migration(15, 16) {
             override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX index_artifacts_sessionId_relativePath")
                 db.execSQL(
-                    "UPDATE artifacts SET relativePath = 'scope:app:' || relativePath " +
-                        "WHERE relativePath NOT LIKE 'scope:%'",
+                    "UPDATE artifacts SET relativePath = 'scope:app:' || relativePath",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX index_artifacts_sessionId_relativePath " +
+                        "ON artifacts(sessionId, relativePath)",
                 )
             }
         }
