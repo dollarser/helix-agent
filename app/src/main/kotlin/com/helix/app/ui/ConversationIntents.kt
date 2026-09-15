@@ -17,7 +17,10 @@ data class ConversationIntents(
     /** HXA-201: save a standing GLOBAL preference (允许/询问/禁止) from a pending approval
      * card — separate from the one-time approve/deny of the pending call itself.
      */
-    val onSaveFuturePreference: (String, String, com.helix.core.model.ToolApprovalPreference) -> Unit = { _, _, _ -> },
+    val onSaveFuturePreference: (
+        com.helix.app.approval.ApprovalCardUi,
+        com.helix.core.model.ToolApprovalPreference,
+    ) -> Unit = { _, _ -> },
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
     /** HXA-056: bind a tested provider to the open (provider-free) draft session. */

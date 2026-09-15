@@ -117,6 +117,7 @@ data class CodeExecutionUi(
 data class ApprovalCardUi(
     val approvalId: String,
     val bindingHash: String,
+    val contractHash: String? = null,
     /** HXA-201: the tool identity the "save future preference" actions bind — (sourceRef,
      * toolName) is the trusted storage key pair, never a display name (same tool names from
      * different origins are distinct tools).
@@ -125,6 +126,7 @@ data class ApprovalCardUi(
     val sourceRef: String,
     /** The descriptor's base risk: high-risk cards never offer the future "allow" action. */
     val baseRisk: RiskLevel,
+    val dynamicRisk: RiskLevel = baseRisk,
     val state: ApprovalCardState,
     val sourceRes: Int,
     val sourceArgs: List<String> = emptyList(),

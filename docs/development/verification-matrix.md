@@ -341,3 +341,7 @@ HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻�
 
 | HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
 | HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |
+
+## HXA-201 验收结论（2026-09-16）
+
+本任务范围completed；P1/P2/P3及API29/36双flavor四象限272次通过，真实Activity重建与不同PID恢复均通过。完整API29 consumer套件仍有18项基线复现失败，未宣称全产品通过。见[完成记录](../completion-records/HXA-201.md)和[逐项证据](hxa201-acceptance-2026-09-16.md)。

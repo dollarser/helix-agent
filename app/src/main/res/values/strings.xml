@@ -18,7 +18,7 @@
     <string name="settings_tool_approval_action_ask">询问</string>
     <string name="settings_tool_approval_action_deny">禁止</string>
     <string name="settings_tool_approval_action_reset">恢复默认</string>
-    <string name="approval_future_pref_caption">仅影响此后对该工具的调用；本次调用仍需在上方批准或拒绝</string>
+    <string name="approval_future_pref_caption">保存适用于所有会话的设置，不会批准本次调用；尚未开始的调用也会按新设置处理</string>
     <string name="approval_future_pref_high_risk_note">高风险工具在此不提供未来允许；可在设置中设置（高风险调用仍须逐次确认）</string>
     <string name="language_system">跟随系统</string>
     <string name="language_zh_cn">简体中文</string>

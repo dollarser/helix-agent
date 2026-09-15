@@ -38,7 +38,11 @@ class ToolApprovalPreferenceService(
     private val repository: ToolApprovalPreferenceRepository,
     private val baselineRepository: ToolRegistrationBaselineRepository,
     private val currentVersionCode: Long,
+    private val sessionWorkspace: (String) -> String? = { null },
 ) : ToolApprovalPreferenceSource {
+    private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    val changes: kotlinx.coroutines.flow.StateFlow<Long> = revision
+
     @Synchronized
     override fun effectiveFor(
         sourceRef: String,
@@ -56,7 +60,13 @@ class ToolApprovalPreferenceService(
         sessionId: String?,
         workspaceRef: String?,
     ): ToolPreferenceSnapshot {
-        val records = repository.applicable(sourceRef, toolName, sessionId, workspaceRef)
+        val records =
+            repository.applicable(
+                sourceRef,
+                toolName,
+                sessionId,
+                workspaceRef ?: sessionId?.let(sessionWorkspace),
+            )
         return ToolPreferenceSnapshot(
             ToolApprovalResolver.effectivePreference(records, contractHash, newToolDefault(sourceRef, toolName)),
             records,
@@ -116,7 +126,9 @@ class ToolApprovalPreferenceService(
         require(preference != ToolApprovalPreference.ALLOW || contractHash != null) {
             "an ALLOW preference must be bound to a contractHash"
         }
-        return repository.set(sourceRef, toolName, scope, scopeRef, preference, contractHash, nowEpochMillis)
+        return repository.set(sourceRef, toolName, scope, scopeRef, preference, contractHash, nowEpochMillis).also {
+            revision.value++
+        }
     }
 
     /** Removes one tool's preference in one scope — a reset to the unset default, not a fourth state (point 5). */
@@ -126,5 +138,8 @@ class ToolApprovalPreferenceService(
         toolName: String,
         scope: ToolApprovalPreferenceScope,
         scopeRef: String,
-    ): Unit = repository.remove(sourceRef, toolName, scope, scopeRef)
+    ) {
+        repository.remove(sourceRef, toolName, scope, scopeRef)
+        revision.value++
+    }
 }

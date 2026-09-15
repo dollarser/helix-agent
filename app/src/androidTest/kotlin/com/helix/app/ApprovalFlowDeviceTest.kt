@@ -377,24 +377,10 @@ class ApprovalFlowDeviceTest {
 
     @Test
     fun stopWhilePendingCancelsTheDispatchOnDevice() {
-        val handle = dispatchOnThread("flow-call-c-$run", "flow-turn-3-$run")
-        val approvalId = approvalIdOf("flow-call-c-$run")
-        // The user stops the turn while the card is pending (the production stop() path:
-        // the broker's card-level cancel AND the turn-level cancel signal).
-        container.chatService.stop()
-        val thrown = handle.joinError()
-        assertTrue(
-            "the blocked dispatch must be cancelled, was: ${thrown::class.java.name}",
-            thrown is ApprovalCancelledException,
-        )
-        // The record stays PENDING (no decision was made): it expires with its window and
-        // can never mint — a stop is not a denial.
-        val record = container.storage.approvals.resolve(approvalId)
-        assertNull("a stop is not a decision", record.decision)
-        // The call row got its durable CANCELLED outcome (doc 11: cancel leaves a durable
-        // outcome for every queued call).
-        val callRow = container.storage.toolCalls.resolve("flow-call-c-$run")
-        assertEquals(ToolCallState.CANCELLED.name, callRow.state)
+        // A persisted synthetic turn is not an active ChatService run. stop() deliberately
+        // targets the owned active run; use the real model-loop fixture to establish ownership.
+        // It asserts cancellation, zero execution, undecided/unconsumed proof and late-card rejection.
+        ToolPreferenceStopDeviceTest().verifyRealTurnStopAndOldCardRejection()
     }
 
     companion object {

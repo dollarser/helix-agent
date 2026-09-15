@@ -4,6 +4,8 @@
 
 ## Current summary
 
+2026-09-16 HXA-201 已完成本任务范围验收，见[完成记录](../completion-records/HXA-201.md)及[完整证据与剩余失败](hxa201-acceptance-2026-09-16.md)。已补齐会话/Workspace设置、旧卡契约、实际保存反馈与真实恢复；P1/P2/P3及四象限专项通过。全套API29 consumer仍有18项基线复现失败，不代表全产品通过。HXA-202可按产品链继续；下方201切片和200 gap均为历史快照，其旧“未完成”、无契约哈希、宽度变化等于旋转和JGit依赖漂移判断不再作为当前结论。
+
 2026-09-15 HXA-200 已完成本任务范围验收，审计、停止/恢复和JGit门禁问题已修复，见[完成记录](../completion-records/HXA-200.md)。产品链下一项为HXA-201工具设置与审批卡，后端依赖已满足；其他并行HXA状态不变。下方旧复核与gap条目仅为历史证据。
 
 最近的有界真机回归与修复见 [HXA-186](../completion-records/HXA-186.md)、[HXA-187](../completion-records/HXA-187.md)、[HXA-188](../completion-records/HXA-188.md)。[HXA-189](../completion-records/HXA-189.md) 已完成审查复核、源码修复与主机门禁；新增设备用例待 Claude 独占执行。完成记录仅代表各自范围，不等于全部设备/长稳/发布验收。EV-02 的 API36 24h 功能中止（a11y 重尾，非产品），API29 一臂已跑满 25h 出 INCONCLUSIVE（system-Binder 模拟器不可采），两臂均不能记为 24h 门禁全绿。EV-03 应用 24h 资源门禁：隔离复跑 pilot（单开 5558）仍 FAIL_RESOURCE，`128→137`（+9 全落在 `/dev/goldfish_pipe_dprctd` QEMU 虚拟驱动节点，真机无；逐 fd readlink 证实所有真实资源描述符不变），判定**模拟器固有（X 类）**，非应用泄漏、非 3 开 flake，不进 2h/24h，权威 FD 判定需真机；threads/PSS 均在门禁内。
@@ -20,6 +22,8 @@
 系统 JNI/Binder 根因、长稳、完整真机矩阵与商店发布仍未关闭。历史主线验证见 [main 验证报告](main-merged-verification.md)，后置测试见 [优化待办](main-optimization-todo.md)。
 
 ## In progress
+
+HXA-201：2026-09-16已关闭；本轮无未完成的201切片。其他所有方任务保持原状态，下方旧收尾条目仅用于追溯。
 
 HXA-190 main 缺陷复审（2026-09-13）：复核四维审查，修复跨会话审批取消、附件忙碌拒绝丢失、CLI 初次绑定无限等待、A2A 过期写、工具前说明持久化、探测流上限与局部 Runtime 生命周期问题。仅在 main 修改，不操作 Harness 2.0 worktree 或模拟器；主机验证和待设备项见 [复核记录](../bug-fixes/2026-09-13-main-audit-followup.md)。不将审查推测视为长稳资源根因，不做大类迁移。
 
@@ -64,6 +68,8 @@ HXA-189 剩余设备回归：双flavor完整系统授权允许/拒绝/设置恢�
 HXA-185 已由 Claude 独占模拟器验证完毕（主机门禁+4自测、Goal 双 flavor 16/16、Autofill 短项 1/1+6/6、FD 五臂 5/5、24h ON API36 = FAIL_FUNCTIONAL，Claude取证指向系统a11y重尾；跨版本长稳归因仍待补证），见 [完成记录](../completion-records/HXA-185.md) 与 [交接](hxa185-claude-test-handoff.md)。更宽 EV-02 浏览器正式 24h 的剩余 API29 一臂（方案第 11 行：API29+36 各一次）**已完成 = INCONCLUSIVE（非失败）**：独占 API29 模拟器 emulator-5584（AVD `Helix_EV_Repair_API29`，p3 ON，WebView 91.0.4472.114，冻结制品 `b9382e97…`，已 finally 关闭 exit 0）跑满整段 90006s（~25h）、615/615 cycle 全 ok、单 pid 1665、零 a11y 失败——**a11y 节点暴露重尾确认是 API36 系统 WebView 特有（非产品/夹具/金鱼缸）**；FD/threads/PSS 三可采样维度均在 24h 门禁内（FD+5/thread+4/PSS+14.7MB vs 门禁 +8/+16/+96MB），唯 PSS 有 +0.52MB/h 缓升未平台化（观察项，非泄漏判定）。整体 INCONCLUSIVE 因 system-Binder（UID-proxy）在模拟器物理不可采（结构性，重跑不变；正式判定需真机，X 类）。至此 EV-02 正式 2×24h 两臂齐（API36 FAIL_FUNCTIONAL a11y 重尾 + API29 INCONCLUSIVE 功能满绿），共同产出归因而非"24h 门禁 PASS"，详见 本机忽略产物 `../../build/emulator-verification/ev02-autofill-soak/p3-api29-on-24h-ev02-1-result.md` 与 run-index `ev02-p3-api29-on-1`。
 
 ## Next task
+
+产品链下一项为HXA-202：先核对现有任务入口与本轮记录的TasksDashboard/Composer失败，复用现有任务ID、取消和恢复事实。201依赖已满足，不重做三态后端或设置；允许按任务规则验证后具名本地commit，不push/合并。
 
 2026-09-15 HXA-200 推进（未整体完成）：按 2026-09-14 澄清保留解析来源——`ToolApprovalResolver` 产出带来源的 `EffectiveToolPreference`（UNSET 沿用原 Policy / EXPLICIT 用户明确 / ALLOW_INVALIDATED 契约失效回退 ASK / NEW_DEFAULT 预留待可信登记升级基线），scope 合并保持 DENY > ASK > ALLOW、窄 scope 不覆盖外层禁止；ADR-0052 已补精确修订（仅第 1 点，不改第 2–8 点）。设备验收（生产 source 接线 + 真实 Room/broker/dispatcher）：新增 `ToolApprovalPreferenceDeviceTest` 4 用例（UNSET-L0 免卡并钉住新工具默认=空记录即 Unset、明确 ASK 强制卡、失效 ALLOW 回退 ASK 卡、跨 scope DENY>ASK>ALLOW），原 `ToolSchedulerDeviceTest` 9 用例免卡回归保持绿；API 29/36 × consumer/developer 共 8 次 gradle 运行全过（每 API 4+9），独占模拟器已在 finally 关闭（证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`、`build/hxa200-device-20260915-105951/`）。剩余三态×风险/模式/能力全矩阵、精确批次、版本/范围/迁移、排队撤销、外部来源碰撞尚未覆盖，故不写整体完成记录。P3 lint 仅被 2 处既有第三方 JGit TrustAll 挡住（HXA-192/ADR-0048 所有方决定），非本切片代码。
 

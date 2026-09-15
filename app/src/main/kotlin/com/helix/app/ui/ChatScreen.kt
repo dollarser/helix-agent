@@ -41,6 +41,7 @@ fun ChatScreen(
     onProviders: () -> Unit = {},
     toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel? = null,
 ) {
+    var preferenceNotice by remember { mutableStateOf<Int?>(null) }
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
     val profile by chatService.profile.collectAsStateWithLifecycle()
@@ -74,6 +75,13 @@ fun ChatScreen(
             .imePadding()
             .testTag("screen-sessions"),
     ) {
+        preferenceNotice?.let {
+            androidx.compose.material3.Text(
+                androidx.compose.ui.res
+                    .stringResource(it),
+                modifier = Modifier.testTag("chat-preference-save-notice"),
+            )
+        }
         if (screen.openSessionId == null) {
             SessionListSection(
                 sessions = sessions,
@@ -114,9 +122,17 @@ fun ChatScreen(
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
-                        onSaveFuturePreference = { sourceRef, toolName, preference ->
+                        onSaveFuturePreference = { card, preference ->
                             scope.launch {
-                                toolApprovalSettings?.setPreferenceFor(sourceRef, toolName, preference)
+                                preferenceNotice =
+                                    savePreferenceNotice {
+                                        toolApprovalSettings?.setPreferenceFor(
+                                            card.sourceRef,
+                                            card.toolName,
+                                            preference,
+                                            card.contractHash,
+                                        )
+                                    }
                             }
                         },
                         onStageAttachment = { chatService.stageAttachment(it) },

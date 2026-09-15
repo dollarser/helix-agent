@@ -212,6 +212,65 @@ class ToolApprovalSettingsModelTest {
         assertEquals(listOf(1, 2), shared.map { it.version })
     }
 
+    @Test fun staleCardAllowCannotBindAnUnreviewedUpgrade() =
+        runBlocking {
+            val registry = ToolRegistry().also { it.register(descriptor("fake.version")) }
+            val model = model(registry)
+            val old = model.rows().single()
+            registry.register(descriptor("fake.version", version = 2))
+            try {
+                model.setPreferenceFor(old.sourceRef, old.toolName, ToolApprovalPreference.ALLOW, old.contractHash)
+                org.junit.Assert.fail("must reject an unreviewed contract")
+            } catch (_: PreferenceContractChanged) {
+                assertEquals(ToolApprovalSettingsState.UNSET, model.rows().single().state)
+            }
+            val current = model.rows().single()
+            assertEquals(
+                ToolApprovalSettingsState.ALLOW,
+                model
+                    .setPreferenceFor(
+                        current.sourceRef,
+                        current.toolName,
+                        ToolApprovalPreference.ALLOW,
+                        current.contractHash,
+                    )?.state,
+            )
+        }
+
+    @Test fun scopedResetPreservesInheritedRestrictions() =
+        runBlocking {
+            val registry = ToolRegistry().also { it.register(descriptor("fake.scope")) }
+            val session = PreferenceScopeChoice(ToolApprovalPreferenceScope.SESSION, "s", "session", "s", "w")
+            val workspace =
+                PreferenceScopeChoice(ToolApprovalPreferenceScope.WORKSPACE, "w", "workspace", workspaceRef = "w")
+            val service =
+                ToolApprovalPreferenceService(
+                    ToolApprovalPreferenceRepository(InMemoryPreferenceDao()),
+                    ToolRegistrationBaselineRepository(InMemoryBaselineDao(), InMemoryMetaDao()),
+                    2L,
+                    sessionWorkspace = { "w" },
+                )
+            val model =
+                ToolApprovalSettingsModel(
+                    registry,
+                    service,
+                    choices = { listOf(PreferenceScopeChoice.GLOBAL, session, workspace) },
+                )
+            model.setPreference(model.rows().single(), ToolApprovalPreference.ASK)
+            model.setPreference(model.rows(selection = workspace).single(), ToolApprovalPreference.DENY)
+            val row = model.setPreference(model.rows(selection = session).single(), ToolApprovalPreference.ALLOW)
+            assertEquals(ToolApprovalSettingsState.DENY, row.state)
+            assertEquals(3, row.records.size)
+            assertEquals(
+                ToolApprovalSettingsState.ASK,
+                model.restoreDefault(model.rows(selection = workspace).single()).state,
+            )
+            assertEquals(ToolApprovalSettingsState.ASK, model.rows(selection = session).single().state)
+            model.restoreDefault(model.rows().single())
+            assertEquals(ToolApprovalSettingsState.ALLOW, model.rows(selection = session).single().state)
+            assertEquals(ToolApprovalSettingsState.UNSET, model.rows(selection = workspace).single().state)
+        }
+
     private fun model(registry: ToolRegistry) =
         ToolApprovalSettingsModel(
             registry,

@@ -47,13 +47,15 @@ class ToolPreferenceStopDeviceTest {
         }
     }
 
-    @Test fun userStopDuringAskSettlesTheRealTurnAndRejectsTheOldCard() =
+    @Test fun userStopDuringAskSettlesTheRealTurnAndRejectsTheOldCard() = verifyRealTurnStopAndOldCardRejection()
+
+    internal fun verifyRealTurnStopAndOldCardRejection() =
         runBlocking {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             val container = app.appContainer
             val chat = container.chatService
             val executions = AtomicInteger()
-            registerEcho(container, executions)
+            val descriptor = registerEcho(container, executions)
             LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
                 server.start()
                 val provider = createProvider(container, server.port)
@@ -62,7 +64,6 @@ class ToolPreferenceStopDeviceTest {
                 try {
                     chat.openSession(session)
                     chat.setMode(AgentMode.ACT)
-                    val descriptor = container.toolPipeline.registry.resolve(ToolName("echo"), ToolVersion(1))
                     container.toolApprovalPreferenceService.set(
                         descriptor.origin.canonicalOf(),
                         "echo",
@@ -124,6 +125,9 @@ class ToolPreferenceStopDeviceTest {
         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
             container.toolPipeline.broker.decide(approval.id, ApprovalDecision.APPROVED)
         }
+        val stoppedApproval = container.storage.approvals.resolve(approval.id)
+        org.junit.Assert.assertNull(stoppedApproval.decision)
+        org.junit.Assert.assertNull(stoppedApproval.consumedAt)
         assertTrue(
             app
                 .getSharedPreferences("hxa200-recovery-fixture", Context.MODE_PRIVATE)
@@ -140,11 +144,18 @@ class ToolPreferenceStopDeviceTest {
     private fun registerEcho(
         container: AppContainer,
         executions: AtomicInteger,
-    ) {
+    ): ToolDescriptor {
+        val nextVersion =
+            (
+                container.toolPipeline.registry
+                    .resolveLatest(ToolName("echo"))
+                    ?.version
+                    ?.value ?: 0
+            ) + 1
         val descriptor =
             ToolDescriptor(
                 ToolName("echo"),
-                ToolVersion(1),
+                ToolVersion(nextVersion),
                 "Stop fixture",
                 inputSchema = JsonObject(emptyMap()),
                 outputSchema = JsonObject(emptyMap()),
@@ -167,6 +178,7 @@ class ToolPreferenceStopDeviceTest {
                 }
             },
         )
+        return descriptor
     }
 
     private suspend fun createProvider(

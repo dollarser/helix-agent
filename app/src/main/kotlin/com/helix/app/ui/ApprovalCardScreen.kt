@@ -228,8 +228,8 @@ private fun ApprovalCardActions(
 /**
  * HXA-201: the "save future preference" surface, deliberately SEPARATE from the one-time
  * 本次批准/拒绝 above — saving a preference here writes the GLOBAL-scope standing setting for
- * future calls (through the single write service) and NEVER approves or denies the pending
- * call. The caption says exactly that. High-risk (L2/L3) tools never get the future "allow"
+ * all sessions through the single write service, without writing a one-time approval decision.
+ * Pending calls recheck this setting. Dynamically high-risk calls never get the future "allow"
  * button on the card — the note points to the settings screen, where the allow copy carries
  * the "high-risk calls still confirm" boundary.
  */
@@ -247,7 +247,7 @@ private fun FuturePreferenceActions(
             modifier = Modifier.testTag("approval-future-caption-${card.approvalId}"),
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!card.baseRisk.requiresApproval) {
+            if (!card.dynamicRisk.requiresApproval) {
                 TextButton(
                     onClick = { onSave(ToolApprovalPreference.ALLOW) },
                     modifier = Modifier.testTag("approval-future-allow-${card.approvalId}"),
@@ -262,7 +262,7 @@ private fun FuturePreferenceActions(
                 modifier = Modifier.testTag("approval-future-deny-${card.approvalId}"),
             ) { Text(stringResource(R.string.settings_tool_approval_action_deny)) }
         }
-        if (card.baseRisk.requiresApproval) {
+        if (card.dynamicRisk.requiresApproval) {
             Text(
                 stringResource(R.string.approval_future_pref_high_risk_note),
                 style = MaterialTheme.typography.bodySmall,

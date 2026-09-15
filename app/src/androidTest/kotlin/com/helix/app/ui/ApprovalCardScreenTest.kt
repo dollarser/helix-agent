@@ -258,7 +258,7 @@ class ApprovalCardScreenTest {
         composeRule.setContent {
             CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
                 ApprovalCard(
-                    card = card.copy(baseRisk = RiskLevel.L2),
+                    card = card.copy(baseRisk = RiskLevel.L2, dynamicRisk = RiskLevel.L2),
                     onApprove = {},
                     onDeny = {},
                     onSaveFuturePreference = {},
@@ -270,6 +270,22 @@ class ApprovalCardScreenTest {
         composeRule.onNodeWithTag("approval-future-ask-approval-1").assertIsDisplayed()
         composeRule.onNodeWithTag("approval-future-deny-approval-1").assertIsDisplayed()
         composeRule.onNodeWithTag("approval-future-note-approval-1").assertIsDisplayed()
+    }
+
+    @Test fun dynamicallyElevatedRiskDoesNotOfferFutureAllow() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(
+                    card = card.copy(baseRisk = RiskLevel.L1, dynamicRisk = RiskLevel.L2),
+                    onApprove = {},
+                    onDeny = {},
+                    onSaveFuturePreference = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("approval-future-allow-approval-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("approval-future-ask-approval-1").assertIsDisplayed()
     }
 
     @Test

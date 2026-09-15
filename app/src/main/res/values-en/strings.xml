@@ -17,7 +17,7 @@
     <string name="settings_tool_approval_action_ask">Ask</string>
     <string name="settings_tool_approval_action_deny">Deny</string>
     <string name="settings_tool_approval_action_reset">Restore default</string>
-    <string name="approval_future_pref_caption">Affects future calls of this tool only; this call still needs the decision above</string>
+    <string name="approval_future_pref_caption">Saves settings for all sessions without approving this call. Calls that have not started are also checked against the new setting.</string>
     <string name="approval_future_pref_high_risk_note">No future allow is offered here for high-risk tools; set it in Settings (high-risk calls still confirm every time)</string>
     <string name="language_system">Follow system</string>
     <string name="language_zh_cn">简体中文</string>

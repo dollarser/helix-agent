@@ -510,6 +510,221 @@ class ToolApprovalSettingsDeviceTest {
         assertTrue(fixture.edit().clear().commit())
     }
 
+    @Test fun selectedSessionDenyDoesNotLeakToAnotherSession() {
+        val descriptor = registerLocalTool("aset.session.$run")
+        val model = container.toolApprovalSettings
+        val selected = model.scopeChoices().single { it.sessionId == sessionId }
+        val row = model.rows(selection = selected).single { it.toolName == descriptor.name.value }
+        runBlocking { model.setPreference(row, ToolApprovalPreference.DENY) }
+        assertTrue(
+            dispatchOnThread("scope-deny-$run", "scope-turn-$run", row.toolName).join() is ToolDispatchOutcome.Denied,
+        )
+        assertTrue(
+            dispatchOnThread(
+                "scope-other-$run",
+                "scope-other-turn-$run",
+                row.toolName,
+                otherSessionId,
+            ).join() is ToolDispatchOutcome.Succeeded,
+        )
+        runBlocking { model.restoreDefault(row) }
+        assertTrue(
+            dispatchOnThread(
+                "scope-reset-$run",
+                "scope-reset-turn-$run",
+                row.toolName,
+            ).join() is ToolDispatchOutcome.Succeeded,
+        )
+    }
+
+    @Test fun workspaceRestrictionIsResolvedFromThePersistedSession() {
+        val descriptor = registerLocalTool("aset.workspace.$run")
+        val model = container.toolApprovalSettings
+        val selected = model.scopeChoices().single { it.sessionId == sessionId }
+        val workspace =
+            model.scopeChoices().single {
+                it.scope == ToolApprovalPreferenceScope.WORKSPACE &&
+                    it.ref == selected.workspaceRef
+            }
+        val row = model.rows(selection = workspace).single { it.toolName == descriptor.name.value }
+        runBlocking { model.setPreference(row, ToolApprovalPreference.DENY) }
+        // A context absent from this repository must not acquire a guessed default workspace.
+        assertTrue(
+            container.toolApprovalPreferenceService
+                .snapshotFor(
+                    descriptor.origin.canonicalOf(),
+                    descriptor.name.value,
+                    descriptor.contractHash.hex,
+                    "missing-session-$run",
+                    null,
+                ).records
+                .isEmpty(),
+        )
+        assertTrue(
+            dispatchOnThread(
+                "workspace-deny-$run",
+                "workspace-turn-$run",
+                row.toolName,
+            ).join() is ToolDispatchOutcome.Denied,
+        )
+        container.storage.sessions.updateDetails(otherSessionId, "other workspace", "app:other")
+        try {
+            assertTrue(
+                dispatchOnThread(
+                    "workspace-other-$run",
+                    "workspace-other-turn-$run",
+                    row.toolName,
+                    otherSessionId,
+                ).join() is ToolDispatchOutcome.Succeeded,
+            )
+        } finally {
+            container.storage.sessions.updateDetails(otherSessionId, "other session", null)
+        }
+        val sessionRow = model.rows(selection = selected).single { it.toolName == row.toolName }
+        assertEquals(
+            ToolApprovalSettingsState.DENY,
+            runBlocking {
+                model.setPreference(sessionRow, ToolApprovalPreference.ALLOW)
+            }.state,
+        )
+        runBlocking { model.restoreDefault(row) }
+        assertTrue(
+            dispatchOnThread(
+                "workspace-reset-$run",
+                "workspace-reset-turn-$run",
+                row.toolName,
+            ).join() is ToolDispatchOutcome.Succeeded,
+        )
+    }
+
+    @Test fun oldCardAllowReportsChangedContractAndWritesNothing() {
+        val descriptor = registerLocalTool("aset.oldcard.$run")
+        val model = container.toolApprovalSettings
+        registerLocalTool(descriptor.name.value, version = 2)
+        val notice =
+            runBlocking {
+                com.helix.app.ui.savePreferenceNotice {
+                    model.setPreferenceFor(
+                        descriptor.origin.canonicalOf(),
+                        descriptor.name.value,
+                        ToolApprovalPreference.ALLOW,
+                        descriptor.contractHash.hex,
+                    )
+                }
+            }
+        assertEquals(R.string.preference_save_changed, notice)
+        assertEquals(
+            ToolApprovalSettingsState.UNSET,
+            model.rowForIdentity(descriptor.origin.canonicalOf(), descriptor.name.value)?.state,
+        )
+    }
+
+    @Test fun selectedScopeUiSavesAndResetsOnlyThatSession() {
+        val descriptor = registerLocalTool("aset.select.$run")
+        val selected = container.toolApprovalSettings.scopeChoices().single { it.sessionId == sessionId }
+        renderSectionViewport(
+            container.toolApprovalSettings,
+            mutableStateOf(AppLanguageStore.localeListFor(AppLanguage.EN)),
+            mutableStateOf(400),
+            mutableStateOf(false),
+            mutableStateOf(1f),
+        )
+        compose.onNodeWithTag("preference-scope-picker", useUnmergedTree = true).performScrollTo().performClick()
+        compose
+            .onNodeWithTag("preference-scope-${selected.key}", useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
+        val name = descriptor.name.value
+        compose.waitUntil(15_000) {
+            compose
+                .onAllNodes(
+                    SemanticsMatcher("scoped row ready") {
+                        it.config.getOrElse(SemanticsProperties.TestTag) { "" } == "tool-approval-$name-deny"
+                    },
+                    true,
+                ).fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        compose.onNodeWithTag("tool-approval-$name-deny", useUnmergedTree = true).performScrollTo().performClick()
+        awaitRowState("tool-approval-state-$name", "Deny: hidden from the model; calls are blocked")
+        captureSettings("selected-session")
+        assertEquals(
+            ToolApprovalPreferenceScope.SESSION,
+            container.toolApprovalSettings
+                .rows(selection = selected)
+                .single {
+                    it.toolName ==
+                        name
+                }.records
+                .single()
+                .scope,
+        )
+        assertTrue(
+            dispatchOnThread(
+                "ui-scope-other-$run",
+                "ui-scope-turn-$run",
+                name,
+                otherSessionId,
+            ).join() is ToolDispatchOutcome.Succeeded,
+        )
+        compose.onNodeWithTag("tool-approval-$name-reset", useUnmergedTree = true).performScrollTo().performClick()
+        awaitRowState("tool-approval-state-$name", "Unset: follows the default policy")
+    }
+
+    @Test fun realChatCardRejectsStaleAllowAndReportsSavedDenyWithoutExecuting() {
+        val descriptor = registerLocalTool("aset.realcard.$run")
+        val source = descriptor.origin.canonicalOf()
+        saveSetting(descriptor.name.value, source, ToolApprovalPreference.ASK)
+        val callId = "realcard-call-$run"
+        val handle = dispatchOnThread(callId, "realcard-turn-$run", descriptor.name.value)
+        val approvalId = approvalIdOf(callId)
+        lateinit var target: Context
+        compose.setContent {
+            target = LocalContext.current
+            MaterialTheme {
+                com.helix.app.ui.ChatScreen(
+                    container.chatService,
+                    container.providerService,
+                    container.privacyDeletionService,
+                    toolApprovalSettings = container.toolApprovalSettings,
+                )
+            }
+        }
+        compose.waitForIdle()
+        registerLocalTool(descriptor.name.value, version = 2)
+        compose
+            .onNodeWithTag(
+                "approval-future-allow-$approvalId",
+                useUnmergedTree = true,
+            ).performScrollTo()
+            .performClick()
+        awaitRowState("chat-preference-save-notice", target.getString(R.string.preference_save_changed))
+        assertEquals(
+            ToolApprovalSettingsState.ASK,
+            container.toolApprovalSettings.rowForIdentity(source, descriptor.name.value)?.state,
+        )
+        assertNull(
+            container.storage.approvals
+                .byToolCall(callId)
+                ?.decision,
+        )
+        compose
+            .onNodeWithTag(
+                "approval-future-deny-$approvalId",
+                useUnmergedTree = true,
+            ).performScrollTo()
+            .performClick()
+        awaitRowState("chat-preference-save-notice", target.getString(R.string.settings_tool_approval_state_deny))
+        assertNull(
+            container.storage.approvals
+                .byToolCall(callId)
+                ?.decision,
+        )
+        captureSettings("real-card-save-feedback")
+        container.chatService.approveApproval(approvalId)
+        assertTrue(handle.join() is ToolDispatchOutcome.Denied)
+    }
+
     /** True in phase 2 of the restart protocol (the whole-class re-run after the force-stop). */
     private fun isRestartPhase(): Boolean =
         InstrumentationRegistry
@@ -666,6 +881,7 @@ class ToolApprovalSettingsDeviceTest {
                 bounds.left >= viewport.left && bounds.right <= viewport.right,
             )
         }
+        captureSettings("small-dark-large-font")
         // "Rotated" to a 640dp landscape viewport: the same row and actions stay reachable,
         // and a real click works (the write goes through the model off the main thread).
         width.value = 640
@@ -731,6 +947,20 @@ class ToolApprovalSettingsDeviceTest {
      * The UI writes are async (Compose scope → IO dispatcher → Room → the section's refetch),
      * so poll the re-resolved row-state copy instead of assuming it settled by the next idle.
      */
+    private fun captureSettings(name: String) {
+        compose.waitForIdle()
+        val target = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = java.io.File(target.filesDir, "hxa201-captures").apply { mkdirs() }
+        val bitmap = requireNotNull(InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot())
+        try {
+            java.io.File(directory, "$name.png").outputStream().use {
+                assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     private fun awaitRowState(
         tag: String,
         expectedCopy: String,
@@ -740,10 +970,17 @@ class ToolApprovalSettingsDeviceTest {
         // test (with the message) on timeout.
         compose.waitUntil("row state must reach $expectedCopy (waiting on $tag)", 15_000) {
             compose
-                .onNodeWithTag(tag, useUnmergedTree = true)
-                .fetchSemanticsNode()
-                .config[SemanticsProperties.Text]
-                .any { it.text == expectedCopy }
+                .onAllNodes(
+                    SemanticsMatcher("matching state") {
+                        it.config.getOrElse(SemanticsProperties.TestTag) { "" } == tag &&
+                            it.config.getOrElse(SemanticsProperties.Text) { emptyList() }.any { text ->
+                                text.text ==
+                                    expectedCopy
+                            }
+                    },
+                    true,
+                ).fetchSemanticsNodes()
+                .isNotEmpty()
         }
     }
 
@@ -774,13 +1011,15 @@ class ToolApprovalSettingsDeviceTest {
                 LocalDensity provides Density(density.density, fontScale.value),
             ) {
                 MaterialTheme(colorScheme = scheme) {
-                    Column(
-                        Modifier
-                            .width(width.value.dp)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
-                            .testTag("aset-viewport"),
-                    ) { ToolApprovalSettingsSection(model) }
+                    androidx.compose.material3.Surface {
+                        Column(
+                            Modifier
+                                .width(width.value.dp)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                                .testTag("aset-viewport"),
+                        ) { ToolApprovalSettingsSection(model) }
+                    }
                 }
             }
         }

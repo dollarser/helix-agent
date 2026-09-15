@@ -14,15 +14,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.approval.PreferenceScopeChoice
 import com.helix.app.approval.ToolApprovalSettingsModel
 import com.helix.app.approval.ToolApprovalSettingsState
 import com.helix.core.model.ToolApprovalPreference
+import com.helix.core.model.ToolApprovalPreferenceScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,20 +34,26 @@ import kotlinx.coroutines.withContext
 /**
  * The standing tool-approval preferences section (HXA-201, ADR-0052): search by tool name or
  * provider, the effective state WITH its provenance (unset / allow / ask / deny — an invalidated
- * allow visibly needs re-confirm, unset is never shown as allowed), and the GLOBAL-scope
+ * allow visibly needs re-confirm, unset is never shown as allowed), and scope-specific
  * set / restore-default actions. The UI talks ONLY to [ToolApprovalSettingsModel] (which talks
  * to the single write service and the live read seam the Dispatcher re-resolves) — never the
- * DAO, so what is shown is exactly what the runtime enforces before a call starts.
+ * DAO. The selected context uses the runtime preference resolver; Policy still runs separately.
  */
 @Composable
 @Suppress("FunctionName")
 internal fun ToolApprovalSettingsSection(model: ToolApprovalSettingsModel) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
     var rows by remember { mutableStateOf<List<ToolApprovalSettingsModel.Row>>(emptyList()) }
     var tick by remember { mutableStateOf(0) }
+    val revision by model.changes.collectAsStateWithLifecycle()
+    var selectedKey by rememberSaveable { mutableStateOf(PreferenceScopeChoice.GLOBAL.key) }
+    var choices by remember { mutableStateOf(listOf(PreferenceScopeChoice.GLOBAL)) }
+    val selected = choices.firstOrNull { it.key == selectedKey } ?: PreferenceScopeChoice.GLOBAL
 
-    LaunchedEffect(query, tick) {
-        rows = withContext(Dispatchers.IO) { model.rows(query) }
+    LaunchedEffect(query, tick, selectedKey, revision) {
+        withContext(Dispatchers.IO) { model.scopeChoices() }.let { choices = it }
+        val context = choices.firstOrNull { it.key == selectedKey } ?: PreferenceScopeChoice.GLOBAL
+        rows = withContext(Dispatchers.IO) { model.rows(query, context) }
     }
 
     Column(
@@ -61,6 +71,11 @@ internal fun ToolApprovalSettingsSection(model: ToolApprovalSettingsModel) {
                     .fillMaxWidth()
                     .testTag("settings-tool-approval-search"),
         )
+        PreferenceScopePicker(choices, selected) {
+            selectedKey = it.key
+            rows = emptyList()
+        }
+        Text(stringResource(R.string.preference_scope_explanation))
         if (rows.isEmpty()) {
             Text(
                 stringResource(R.string.settings_tool_approval_empty),
@@ -68,8 +83,10 @@ internal fun ToolApprovalSettingsSection(model: ToolApprovalSettingsModel) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        rows.forEach { row ->
-            ToolApprovalSettingsRow(model = model, row = row, onAction = { tick++ })
+        rows.filter { it.selection.key == selected.key }.forEach { row ->
+            androidx.compose.runtime.key(row.sourceRef, row.toolName, row.selection.key) {
+                ToolApprovalSettingsRow(model = model, row = row, onAction = { tick++ })
+            }
         }
     }
 }
@@ -100,22 +117,15 @@ private fun ToolApprovalSettingsRow(
             modifier = Modifier.testTag("tool-approval-state-${row.toolName}"),
         )
         if (row.records.isNotEmpty()) {
-            Text(
-                row.records.joinToString { record ->
-                    "${record.scope.name.lowercase()}:${record.scopeRef.orEmpty().ifBlank { "-" }}"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("tool-approval-scopes-${row.toolName}"),
-            )
+            PreferenceSources(row)
         }
         ToolApprovalTriStateButtons(model = model, row = row, onAction = onAction)
     }
 }
 
 /**
- * The per-tool actions: store ALLOW / ASK / DENY in the GLOBAL scope, or restore the default by
- * removing the GLOBAL record. Each is a deliberate, separate user action — a one-call approval
+ * The per-tool actions: store ALLOW / ASK / DENY in the selected scope, or restore the default by
+ * removing only that scope record. Each is a deliberate, separate user action — a one-call approval
  * never writes a standing preference. A FlowRow keeps all four reachable on narrow viewports and
  * at large font scales (HXA-201 small-screen / large-font device matrix).
  */
@@ -129,43 +139,51 @@ private fun ToolApprovalTriStateButtons(
     // The writes are suspend and hop to the IO dispatcher themselves (Room's main-thread
     // guard): the click handler only launches, it never does storage I/O on the main thread.
     val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf<Int?>(null) }
+    notice?.let { Text(stringResource(it), Modifier.testTag("preference-save-notice-${row.toolName}")) }
+
+    fun save(write: suspend () -> ToolApprovalSettingsModel.Row) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            try {
+                notice = savePreferenceNotice(write)
+                onAction()
+            } finally {
+                busy = false
+            }
+        }
+    }
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         OutlinedButton(
+            enabled = !busy,
             onClick = {
-                scope.launch {
-                    model.setPreference(row, ToolApprovalPreference.ALLOW)
-                    onAction()
-                }
+                save { model.setPreference(row, ToolApprovalPreference.ALLOW) }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-allow"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_allow)) }
         OutlinedButton(
+            enabled = !busy,
             onClick = {
-                scope.launch {
-                    model.setPreference(row, ToolApprovalPreference.ASK)
-                    onAction()
-                }
+                save { model.setPreference(row, ToolApprovalPreference.ASK) }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-ask"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_ask)) }
         OutlinedButton(
+            enabled = !busy,
             onClick = {
-                scope.launch {
-                    model.setPreference(row, ToolApprovalPreference.DENY)
-                    onAction()
-                }
+                save { model.setPreference(row, ToolApprovalPreference.DENY) }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-deny"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_deny)) }
         OutlinedButton(
+            enabled = !busy,
             onClick = {
-                scope.launch {
-                    model.restoreDefault(row)
-                    onAction()
-                }
+                save { model.restoreDefault(row) }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-reset"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_reset)) }
@@ -173,7 +191,7 @@ private fun ToolApprovalTriStateButtons(
 }
 
 /** The user-facing copy of each effective state (the provenance is part of the copy). */
-private fun stateResOf(state: ToolApprovalSettingsState): Int =
+internal fun stateResOf(state: ToolApprovalSettingsState): Int =
     when (state) {
         ToolApprovalSettingsState.UNSET -> R.string.settings_tool_approval_state_unset
         ToolApprovalSettingsState.ALLOW -> R.string.settings_tool_approval_state_allow

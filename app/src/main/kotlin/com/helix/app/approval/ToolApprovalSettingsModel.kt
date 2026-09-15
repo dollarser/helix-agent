@@ -19,14 +19,16 @@ import kotlinx.coroutines.withContext
  * preferences — the ONLY surface the settings UI uses (it never reaches the DAO).
  *
  * Reads: one row per registered tool name (the newest version), where the effective value is
- * parsed by [ToolApprovalPreferenceService] — the SAME resolver the Dispatcher re-reads before
- * each call starts (ADR-0052 point 7), so what the settings screen shows can never drift from
- * what the runtime enforces. The applicable stored records are carried on each row as provenance,
+ * parsed by [ToolApprovalPreferenceService] — the resolver the Dispatcher re-reads before
+ * each call starts (ADR-0052 point 7), so the selected preference context follows the same merge rules as dispatch.
+ * Policy and live capabilities are evaluated separately at execution start.
+ * Applicable stored records are carried on each row as provenance,
  * so the user sees WHICH scopes a setting comes from. Unset means "follows the default policy" —
  * it is never displayed as if the user had allowed the tool.
  *
  * Writes: [setPreference], [restoreDefault] and [setPreferenceFor] go through
- * [ToolApprovalPreferenceService] (the single write path) in the GLOBAL scope. An ALLOW binds to
+ * [ToolApprovalPreferenceService] (the single write path). Settings target the selected scope;
+ * the card action explicitly targets GLOBAL and carries the presented contract. An ALLOW binds to
  * the row's current contract hash, so a later contract change invalidates it at read time and
  * the row shows the re-confirm state. All three writes are `suspend`: they serialize under one
  * lock (a write is read-modify-write and must not interleave) and run on the IO dispatcher, so
@@ -37,7 +39,12 @@ class ToolApprovalSettingsModel(
     private val registry: ToolRegistry,
     private val preferences: ToolApprovalPreferenceService,
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
+    private val choices: () -> List<PreferenceScopeChoice> = { listOf(PreferenceScopeChoice.GLOBAL) },
 ) {
+    val changes get() = preferences.changes
+
+    fun scopeChoices(): List<PreferenceScopeChoice> = choices()
+
     /** One lock for all writes: serialized read-modify-write, no interleaved insert/update races. */
     private val writeMutex = Mutex()
 
@@ -61,6 +68,7 @@ class ToolApprovalSettingsModel(
         val state: ToolApprovalSettingsState,
         /** The applicable stored records, as provenance (value + scope + scopeRef). */
         val records: List<ToolApprovalPreferenceRecord>,
+        val selection: PreferenceScopeChoice = PreferenceScopeChoice.GLOBAL,
     )
 
     /**
@@ -69,7 +77,10 @@ class ToolApprovalSettingsModel(
      * (origin, name): the same tool name registered under two origins (e.g. built-in and an
      * MCP server) is TWO rows — identity is the trusted pair, never the bare name.
      */
-    fun rows(query: String = ""): List<Row> {
+    fun rows(
+        query: String = "",
+        selection: PreferenceScopeChoice = PreferenceScopeChoice.GLOBAL,
+    ): List<Row> {
         val needle = query.trim().lowercase()
         return registry
             .all()
@@ -81,11 +92,11 @@ class ToolApprovalSettingsModel(
                     descriptor.name.value.contains(needle, ignoreCase = true) ||
                     displayOriginLabel(descriptor.origin).contains(needle, ignoreCase = true)
             }.sortedWith(compareBy({ it.name.value.lowercase() }, { it.origin.canonicalOf() }))
-            .map { it.toRow() }
+            .map { it.toRow(selection) }
     }
 
     /**
-     * Stores [preference] in the GLOBAL scope for [row] and returns the re-resolved row — the
+     * Stores [preference] in the selected scope for [row] and returns the re-resolved row — the
      * actually-effective result after the write. An ALLOW binds to the row's current contract;
      * ASK and DENY carry no contract.
      */
@@ -95,13 +106,14 @@ class ToolApprovalSettingsModel(
     ): Row = writeOffMain { applyLocked(row, preference) }
 
     /**
-     * Removes the GLOBAL-scope record for [row] — a reset to the unset default, not a fourth
+     * Removes the selected-scope record for [row] — a reset to the unset default, not a fourth
      * state — and returns the re-resolved row. Records in other scopes stay untouched and keep
      * showing through [Row.records].
      */
     suspend fun restoreDefault(row: Row): Row =
         writeOffMain {
-            preferences.remove(row.sourceRef, row.toolName, ToolApprovalPreferenceScope.GLOBAL, "")
+            row.selection.requireAvailable(scopeChoices())
+            preferences.remove(row.sourceRef, row.toolName, row.selection.scope, row.selection.ref)
             rowFor(row)
         }
 
@@ -110,12 +122,18 @@ class ToolApprovalSettingsModel(
         row: Row,
         preference: ToolApprovalPreference,
     ): Row {
+        row.selection.requireAvailable(scopeChoices())
+        if (preference == ToolApprovalPreference.ALLOW &&
+            rowForIdentity(row.sourceRef, row.toolName)?.contractHash != row.contractHash
+        ) {
+            throw PreferenceContractChanged()
+        }
         val contractHash = if (preference == ToolApprovalPreference.ALLOW) row.contractHash else null
         preferences.set(
             row.sourceRef,
             row.toolName,
-            ToolApprovalPreferenceScope.GLOBAL,
-            "",
+            row.selection.scope,
+            row.selection.ref,
             preference,
             contractHash,
             nowEpochMillis(),
@@ -124,7 +142,7 @@ class ToolApprovalSettingsModel(
     }
 
     private fun rowFor(row: Row): Row =
-        rows()
+        rows(selection = row.selection)
             .firstOrNull { it.sourceRef == row.sourceRef && it.toolName == row.toolName }
             ?: row
 
@@ -141,7 +159,7 @@ class ToolApprovalSettingsModel(
             .firstOrNull { it.sourceRef == sourceRef && it.toolName == toolName }
 
     /**
-     * Stores [preference] in the GLOBAL scope for the exact (sourceRef, toolName) identity —
+     * Stores [preference] in GLOBAL scope for the exact (sourceRef, toolName) identity —
      * the path the approval card's "save future preference" actions use — and returns the
      * re-resolved row. Null when the tool is no longer registered (fail-closed: a stale card
      * can never write a standing preference for a vanished tool).
@@ -150,14 +168,25 @@ class ToolApprovalSettingsModel(
         sourceRef: String,
         toolName: String,
         preference: ToolApprovalPreference,
+        expectedContract: String? = null,
     ): Row? =
         writeOffMain {
             val row = rowForIdentity(sourceRef, toolName) ?: return@writeOffMain null
+            if (preference == ToolApprovalPreference.ALLOW && expectedContract != row.contractHash) {
+                throw PreferenceContractChanged()
+            }
             applyLocked(row, preference)
         }
 
-    private fun ToolDescriptor.toRow(): Row {
-        val snapshot = preferences.snapshotFor(origin.canonicalOf(), name.value, contractHash.hex, null, null)
+    private fun ToolDescriptor.toRow(selection: PreferenceScopeChoice): Row {
+        val snapshot =
+            preferences.snapshotFor(
+                origin.canonicalOf(),
+                name.value,
+                contractHash.hex,
+                selection.sessionId,
+                selection.workspaceRef.takeIf { selection.scope == ToolApprovalPreferenceScope.WORKSPACE },
+            )
         return Row(
             toolName = name.value,
             sourceRef = origin.canonicalOf(),
@@ -168,6 +197,7 @@ class ToolApprovalSettingsModel(
             contractHash = contractHash.hex,
             state = settingsStateOf(snapshot.effective),
             records = snapshot.records,
+            selection = selection,
         )
     }
 }

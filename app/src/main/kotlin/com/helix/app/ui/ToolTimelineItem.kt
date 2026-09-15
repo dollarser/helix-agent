@@ -99,7 +99,7 @@ private fun PendingApprovalCard(
         onApprove = { intents.onApproveApproval(card.approvalId) },
         onDeny = { intents.onDenyApproval(card.approvalId) },
         onSaveFuturePreference = { preference ->
-            intents.onSaveFuturePreference(card.sourceRef, card.toolName, preference)
+            intents.onSaveFuturePreference(card, preference)
         },
     )
 }
