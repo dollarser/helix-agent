@@ -19,6 +19,8 @@
 
 ## In progress
 
+HXA-192（2026-09-14）Harness 分支专项：研究材料已分类；v16 迁移与 CLI 旧契约测试已局部修复，CLI 162 项和 storage 89 项主机回归通过，androidTest 编译通过；设备未运行。两个工作区的国际化漏扫已修，新增门禁回归通过；Harness 五项缺翻译已补齐。Detekt 仍有 27 项，完整 lint 待重跑处理，ADR-0048 仍 proposed。产品源码修复位于 `worktree-harness-2.0`，main 同步文档及门禁脚本/测试；均未提交、推送或合并。小模型按[专项交接 R1～R4](harness-2.0-next-work.md)推进，不重复已完成修复，不将局部主机通过写成整体验收。
+
 HXA-190 main 缺陷复审（2026-09-13）：复核四维审查，修复跨会话审批取消、附件忙碌拒绝丢失、CLI 初次绑定无限等待、A2A 过期写、工具前说明持久化、探测流上限与局部 Runtime 生命周期问题。仅在 main 修改，不操作 Harness 2.0 worktree 或模拟器；主机验证和待设备项见 [复核记录](../bug-fixes/2026-09-13-main-audit-followup.md)。不将审查推测视为长稳资源根因，不做大类迁移。
 
 HXA-190 内置组件安装：developer 主包现在自动嵌入同批 Subscriptions 与 PRoot APK（主包约 111 MiB），设置页用户点击进入安装来源授权和系统安装确认；固定包名/同签名校验、独立 UID 与既有文件共享保留。4 项签名策略主机回归、双 flavor 构建/lint、嵌入字节/实际三包签名/合并 manifest 核验通过。consumer 保持原接线；Release 需先配置组件发行签名。未操作设备、安装、提交或推送，安装/升级流程待人工验收。见 [实现记录](bundled-runtime-installers-2026-09-10.md) 与 [ADR-0047](../adr/0047-bundled-companion-installers.md)。

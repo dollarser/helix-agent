@@ -25,6 +25,7 @@ docs/
 ├── architecture/        当前规范性架构与专项设计
 ├── development/         当前状态、路线、环境、实施与验收
 ├── security/            威胁模型、测试和发布门禁
+├── research/            研究快照、候选方案与非规范性图集
 ├── references/          外部项目、依赖和许可证边界
 ├── adr/                 架构决定及其理由
 ├── completion-records/  已完成 HXA 的不可变交付证据
@@ -45,6 +46,12 @@ docs/
 - [竞品评估与横评计划](product/competitive-evaluation.md)：证据等级、固定任务、指标和结果模板。
 - [竞品证据与材料校正](product/competitive-evidence.md)：来源批次、历史纠错与维护口径。
 - [市场、用户与商业化](product/market-users-and-commercialization.md)：目标用户、购买理由、能力包装、分发与商业化假设。
+
+## 重构研究
+
+- [研究与产品演进候选方案](research/helix-agent-complete-research-and-product-plan.md)：事实复核、产品问题、职责契约与候选批次；不是实施授权。
+- [现状快照与候选演进图](research/helix-mermaid-architecture-diagrams.md)：配套调用、执行域、状态和恢复视图；不替代当前架构规范。
+- [Harness 2.0 收尾与小模型交接](development/harness-2.0-next-work.md)：已解决问题、技术取舍、执行顺序与验收要求。
 
 ## 架构
 

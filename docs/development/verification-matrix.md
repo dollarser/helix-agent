@@ -338,3 +338,4 @@ HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻�
 
 | HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
 | HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |
+| HXA-192 | Harness 2.0 迁移、门禁与集成 | 进行中：[执行包及真实命令](harness-2.0-next-work.md)；CLI/storage 主机及迁移 SQL 通过，Android Room/Plan 集成与完整 check-all 待 R1～R4，不提前接受 ADR-0048 |
