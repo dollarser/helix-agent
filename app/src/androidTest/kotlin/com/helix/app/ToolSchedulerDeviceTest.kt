@@ -3,8 +3,10 @@ package com.helix.app
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ModelRole
 import com.helix.core.model.RiskLevel
@@ -15,6 +17,7 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataOrigin
+import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.repository.InteractionReceiptRepository.ReceiptRequest
 import com.helix.core.storage.repository.NotPendingReason
 import com.helix.core.storage.repository.ReceiptResult
@@ -30,6 +33,7 @@ import com.helix.tools.framework.ResourceKeyExtractor
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolDispatchRequest
+import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
@@ -39,9 +43,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -72,12 +80,24 @@ import kotlin.time.Duration.Companion.seconds
  * - receipt 一次性: late/duplicate/cancelled/superseded/expired answers return
  *   NOT_PENDING with a stable reason, and a receipt is not an Approval Proof;
  * - 恢复: the durable rows (audit + model-visible tool rows) survive a storage reload
- *   and rebuild the exact model-visible sequence.
+ *   and rebuild the exact model-visible sequence;
+ * - HXA-200 Gap 4 证明复用: an approved call's bounded technical retry re-mints from the
+ *   SAME record — exactly ONE card, no re-ask; an approval of one call's arguments never
+ *   covers a sibling call with different arguments in the same batch (its own record, its
+ *   own binding hash). These pair the production StorageApprovalBroker class (over the same
+ *   Room store, the app's registry/implementations/audit sink) with a no-op card sink: the
+ *   PRODUCTION dispatcher's card sink fails closed for a direct dispatch — the card is
+ *   built from the chat pipeline's dispatch facts, and a card that cannot be rendered
+ *   cannot be approved (UI card rendering is ApprovalFlowDeviceTest's coverage).
  */
 @RunWith(AndroidJUnit4::class)
 class ToolSchedulerDeviceTest {
     private lateinit var container: AppContainer
     private val clock = SystemClock()
+
+    /** Test brokers built for the approval tests — @After cancels their pending waits too. */
+    private val testBrokers = mutableListOf<StorageApprovalBroker>()
+    private val approvalIdCounter = AtomicInteger(0)
 
     /** Per-run suffix: the device Room persists across test runs — ids must be unique. */
     private val run = System.nanoTime()
@@ -105,6 +125,80 @@ class ToolSchedulerDeviceTest {
         ) {
             container.storage.turns.start(turnId, sessionId, now)
         }
+    }
+
+    @After
+    fun settleAbandonedApprovals() {
+        // Backstop (same pattern as ApprovalFlowDeviceTest): a test that died mid-approval
+        // leaves its dispatch BLOCKED in the broker, holding an EXCLUSIVE scheduler slot
+        // (every non-read call is a full barrier) for the process lifetime — every later
+        // dispatch in this process would then wait on admission forever. Cancel any
+        // approval still pending on this class's session and wait for its dispatch to
+        // settle (CANCELLED) so the slot is free before the next test starts.
+        pendingApprovalIdsOn(sessionId).forEach { id ->
+            container.toolPipeline.broker.cancel(id)
+            testBrokers.forEach { it.cancel(id) }
+        }
+        val deadline = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
+            Thread.sleep(50)
+        }
+    }
+
+    /**
+     * The approval ids still pending (decision == null) on this class's seeded session. Keyed
+     * on the approval RECORD, not the call row's state: this class drives the dispatcher
+     * directly, and only the chat pipeline moves rows to AWAITING_APPROVAL.
+     */
+    private fun pendingApprovalIdsOn(sessionId: String): List<String> =
+        container.storage.turns
+            .listBySession(sessionId)
+            .flatMap { turn ->
+                container.storage.toolCalls
+                    .listByTurn(turn.id)
+                    .mapNotNull { call ->
+                        container.storage.approvals
+                            .byToolCall(call.id)
+                            ?.takeIf { it.decision == null }
+                            ?.id
+                    }
+            }
+
+    /**
+     * Polls the storage-backed approval record — the source of truth for the pending
+     * decision — until the broker has created it (independent of UI timeline state).
+     */
+    private fun approvalIdOf(toolCallId: String): String {
+        val deadline = System.currentTimeMillis() + 15_000
+        while (System.currentTimeMillis() < deadline) {
+            container.storage.approvals
+                .byToolCall(toolCallId)
+                ?.let { return it.id }
+            Thread.sleep(50)
+        }
+        error("no pending approval record for $toolCallId")
+    }
+
+    /**
+     * The production contract behind the approval FK (`approvals.toolCallId` ->
+     * `toolCalls.id`): the chat pipeline persists the tool_call row (id == callId, PENDING)
+     * BEFORE dispatch. This class drives the dispatcher directly, so it honors the same
+     * contract itself — without the row the broker's approval insert fails the FK.
+     */
+    private fun seedToolCallRow(
+        callId: String,
+        toolName: String,
+        args: JsonObject,
+    ) {
+        container.storage.toolCalls.append(
+            id = callId,
+            turnId = turnId,
+            callId = callId,
+            name = toolName,
+            version = "1",
+            argsJson = args.toString(),
+            state = ToolCallState.PENDING.name,
+        )
     }
 
     private fun descriptorFor(
@@ -137,10 +231,49 @@ class ToolSchedulerDeviceTest {
         container.toolPipeline.implementations.register(d, executor)
     }
 
+    /**
+     * An L2 (approval-required) LOCAL_MUTATION tool with one required `path` argument: the
+     * production policy cards it, so its dispatches exercise the real storage-backed broker.
+     */
+    private fun registerApprovalTool(
+        name: String,
+        executor: (ExecutableToolCall) -> ToolExecutorResult,
+    ) {
+        val d =
+            ToolDescriptor(
+                name = ToolName(name),
+                version = ToolVersion(1),
+                description = "scheduler approval device test tool",
+                inputSchema =
+                    Json
+                        .parseToJsonElement(
+                            """{"type":"object","properties":{"path":{"type":"string"}},""" +
+                                """"required":["path"],"additionalProperties":false}""",
+                        ).let { it as JsonObject },
+                outputSchema = Json.parseToJsonElement("""{"type":"object"}""").let { it as JsonObject },
+                operationClass = ToolOperationClass.LOCAL_MUTATION,
+                baseRisk = RiskLevel.L2,
+                timeout = 30.seconds,
+                maxOutputBytes = 1024L,
+                requiredCapabilities = emptySet(),
+                idempotency = Idempotency.IDEMPOTENT,
+                executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+                origin = ToolOrigin.BuiltInOrigin,
+            )
+        container.toolPipeline.registry.register(d)
+        container.toolPipeline.implementations.register(
+            d,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult = executor(call)
+            },
+        )
+    }
+
     private fun request(
         toolCallId: String,
         toolName: String,
         cancel: CancelSignal = NoCancellation,
+        args: JsonObject = Json.parseToJsonElement("{}").let { it as JsonObject },
     ): ToolDispatchRequest =
         ToolDispatchRequest(
             toolCallId = toolCallId,
@@ -148,7 +281,7 @@ class ToolSchedulerDeviceTest {
             sessionId = sessionId,
             toolName = ToolName(toolName),
             toolVersion = ToolVersion(1),
-            args = Json.parseToJsonElement("{}").let { it as JsonObject },
+            args = args,
             mode = AgentMode.ACT,
             profile = SafetyProfile.STANDARD,
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
@@ -157,6 +290,36 @@ class ToolSchedulerDeviceTest {
             uiToken = "chat:$turnId",
             cancel = cancel,
         )
+
+    /**
+     * The broker + dispatcher pair for the approval tests (see the class KDoc): the
+     * production [StorageApprovalBroker] class over the same Room approvals store, paired
+     * with a [ToolDispatcher] over the app's registry/implementations/audit sink and a
+     * no-op card sink. ONE broker instance serves both the dispatch's acquire and the
+     * test's decide — the same shape as the single production broker.
+     */
+    private fun approvalPipeline(): Pair<StorageApprovalBroker, ToolDispatcher> {
+        val broker =
+            StorageApprovalBroker(
+                approvals = container.storage.approvals,
+                clock = clock,
+                idGenerator = { "sdx-approval-$run-${approvalIdCounter.incrementAndGet()}" },
+                cardSink = { _, _ -> },
+            )
+        val dispatcher =
+            ToolDispatcher(
+                clock = clock,
+                registry = container.toolPipeline.registry,
+                implementations = container.toolPipeline.implementations,
+                capabilityCenter = container.capabilityCenter,
+                policyEngine = PolicyEngine(clock),
+                approvals = broker,
+                audit = container.toolPipeline.auditSink,
+                preferenceSource = container.toolPipeline.preferenceSource,
+            )
+        testBrokers.add(broker)
+        return broker to dispatcher
+    }
 
     private class Span(
         val callId: String,
@@ -180,11 +343,28 @@ class ToolSchedulerDeviceTest {
             }
         }
 
-    /** scheduleBatch blocks: run it off the instrumentation (main) thread. */
-    private fun runBatch(
+    /** A batch running off the instrumentation thread; [join] blocks for its settled result. */
+    private class BatchHandle(
+        private val latch: CountDownLatch,
+        private val holder: Array<ToolScheduler.BatchResult?>,
+        private val error: Array<Throwable?>,
+    ) {
+        fun join(): ToolScheduler.BatchResult {
+            assertTrue("the batch must finish", latch.await(60, TimeUnit.SECONDS))
+            error[0]?.let { throw it }
+            return holder[0] ?: error("no batch result")
+        }
+    }
+
+    /**
+     * scheduleBatch blocks (and its approval waits need the CALLING thread free to decide
+     * them), so the batch always runs off the instrumentation (main) thread. [startBatch]
+     * hands back a handle for mid-batch intervention; [runBatch] is the plain blocking form.
+     */
+    private fun startBatch(
         calls: List<ToolDispatchRequest>,
         scheduler: ToolScheduler,
-    ): ToolScheduler.BatchResult {
+    ): BatchHandle {
         val latch = CountDownLatch(1)
         val holder = arrayOf<ToolScheduler.BatchResult?>(null)
         val error = arrayOf<Throwable?>(null)
@@ -200,10 +380,13 @@ class ToolSchedulerDeviceTest {
             }
         t.isDaemon = true
         t.start()
-        assertTrue("the batch must finish", latch.await(60, TimeUnit.SECONDS))
-        error[0]?.let { throw it }
-        return holder[0] ?: error("no batch result")
+        return BatchHandle(latch, holder, error)
     }
+
+    private fun runBatch(
+        calls: List<ToolDispatchRequest>,
+        scheduler: ToolScheduler,
+    ): ToolScheduler.BatchResult = startBatch(calls, scheduler).join()
 
     private fun auditRows(
         toolCallIds: Set<String>,
@@ -677,5 +860,109 @@ class ToolSchedulerDeviceTest {
         val callRows = calls.listByTurn(turnId).filter { it.callId in setOf("rcm-c1-$run", "rcm-c2-$run") }
         assertEquals(2, callRows.size)
         assertTrue(callRows.all { it.state == ToolCallState.COMPLETED.name })
+    }
+
+    @Test
+    fun anApprovedRetryReusesTheProofWithoutReaskingOnDevice() {
+        // HXA-200 Gap 4 (exact per-call proof reuse, no re-ask): a CONFIRMED zero-side-effect
+        // failure of an approved call re-mints from the SAME approval record against the REAL
+        // storage-backed broker — the confirmation surface is presented exactly ONCE (one
+        // record for the call), and the second attempt spends the fresh proof from the
+        // identical binding.
+        val name = "sdx.retryproof.$run"
+        val callId = "sdx-retryproof-$run"
+        val attempts = AtomicInteger()
+        registerApprovalTool(name) {
+            if (attempts.incrementAndGet() == 1) {
+                ToolExecutorResult.Failed("transient device failure", sideEffectFree = true)
+            } else {
+                ToolExecutorResult.Completed(buildJsonObject { put("ok", true) })
+            }
+        }
+        val args = buildJsonObject { put("path", "x-$run") }
+        seedToolCallRow(callId, name, args)
+        val (broker, dispatcher) = approvalPipeline()
+        val scheduler = ToolScheduler(clock, dispatcher, container.toolPipeline.registry)
+        val handle =
+            startBatch(
+                listOf(request(callId, name, args = args).copy(maxAttempts = 2)),
+                scheduler,
+            )
+        val approvalId = approvalIdOf(callId)
+        broker.decide(approvalId, ApprovalDecision.APPROVED)
+        val batch = handle.join()
+        val settlement = batch.settlements.single()
+        assertTrue(
+            settlement is ToolScheduler.BatchSettlement.Outcome &&
+                settlement.outcome is ToolDispatchOutcome.Succeeded,
+        )
+        // No re-ask: exactly ONE approval record was ever created for this call — the retry
+        // minted from the same record, a second card was never published.
+        assertEquals(
+            "the retry must not present a second card",
+            1,
+            container.storage.approvals.countByToolCall(callId),
+        )
+        val record = container.storage.approvals.resolve(approvalId)
+        assertEquals("APPROVED", record.decision)
+        assertNotNull("the re-minted proof was finally consumed", record.consumedAt)
+        // One durable audit row per attempt (attemptId 1 + 2), and the retry's row carries
+        // the SAME binding hash as the original — the proof was reused, not re-authorized.
+        // (recent() is newest-first: order the rows by attemptId before comparing.)
+        val rows = auditRows(setOf(callId))
+        assertEquals(2, rows.size)
+        val attemptIds =
+            rows
+                .sortedBy { it.first["attemptId"]!!.jsonPrimitive.content }
+                .map { it.first["attemptId"]!!.jsonPrimitive.content }
+        assertEquals(listOf("1", "2"), attemptIds)
+        assertEquals(1, rows.map { it.first["bindingHash"] }.toSet().size)
+    }
+
+    @Test
+    fun anApprovalNeverCoversASiblingCallWithDifferentParameters() {
+        // HXA-200 Gap 4 (no cross-parameter reuse): one model response (one batch) holds two
+        // calls of the SAME tool with DIFFERENT arguments. The user's approval of call-1's
+        // arguments never covers call-2: each binding carries its own argsHash, so call-2
+        // gets its OWN record + card (a different binding hash), and denying it leaves
+        // call-1's consumed proof untouched.
+        val name = "sdx.params.$run"
+        registerApprovalTool(name) { ToolExecutorResult.Completed(buildJsonObject { put("ok", true) }) }
+        val aId = "sdx-params-a-$run"
+        val bId = "sdx-params-b-$run"
+        val argsA = buildJsonObject { put("path", "a-$run") }
+        val argsB = buildJsonObject { put("path", "b-$run") }
+        seedToolCallRow(aId, name, argsA)
+        seedToolCallRow(bId, name, argsB)
+        val (broker, dispatcher) = approvalPipeline()
+        val scheduler = ToolScheduler(clock, dispatcher, container.toolPipeline.registry)
+        val handle =
+            startBatch(
+                listOf(
+                    request(aId, name, args = argsA),
+                    request(bId, name, args = argsB),
+                ),
+                scheduler,
+            )
+        val approvalA = approvalIdOf(aId)
+        broker.decide(approvalA, ApprovalDecision.APPROVED)
+        val approvalB = approvalIdOf(bId)
+        broker.decide(approvalB, ApprovalDecision.DENIED)
+        val batch = handle.join()
+        assertTrue(
+            (batch.settlements[0] as ToolScheduler.BatchSettlement.Outcome).outcome is ToolDispatchOutcome.Succeeded,
+        )
+        val denied =
+            (batch.settlements[1] as ToolScheduler.BatchSettlement.Outcome).outcome as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, denied.code)
+        // call-2's card is a DIFFERENT record with a DIFFERENT binding hash (its own
+        // toolCallId AND its own argsHash) — call-1's approval could never cover it.
+        val recordA = container.storage.approvals.resolve(approvalA)
+        val recordB = container.storage.approvals.resolve(approvalB)
+        assertNotEquals(recordA.bindingHash, recordB.bindingHash)
+        assertEquals("APPROVED", recordA.decision)
+        assertEquals("DENIED", recordB.decision)
+        assertNotNull("call-1's proof was consumed at execution start", recordA.consumedAt)
+        assertNull("call-2 never minted (denied before execution)", recordB.consumedAt)
     }
 }

@@ -17,6 +17,10 @@ interface ApprovalDao {
     @Query("SELECT * FROM approvals WHERE toolCallId = :toolCallId")
     fun byToolCall(toolCallId: String): ApprovalEntity?
 
+    /** How many approval records were created for this tool call (0 = never presented). */
+    @Query("SELECT COUNT(*) FROM approvals WHERE toolCallId = :toolCallId")
+    fun countByToolCall(toolCallId: String): Int
+
     /** One-time closed decision: affected row count is 0 for unknown or already-decided values. */
     @Query(
         "UPDATE approvals SET decision = :decision, decidedAt = :decidedAt " +
@@ -47,11 +51,12 @@ interface ApprovalDao {
     ): Int
 
     /**
-     * One-time refund of a consumed proof (roadmap HXA-037; doc 11 section 3.3): the
-     * consumption is annulled ONLY when the record is APPROVED and currently consumed and
-     * the binding hash matches the proof. A second refund — or a refund of an
-     * unconsumed / non-APPROVED / mismatched record — affects 0 rows (enforced in SQL).
-     * The refund grants nothing by itself: the record must still pass the mint guards.
+     * One refund per consumption (roadmap HXA-037; doc 11 section 3.3): the consumption
+     * is annulled ONLY when the record is APPROVED and currently consumed and the binding
+     * hash matches the proof. An immediate double-annulment of the same spend — or a
+     * refund of an unconsumed / non-APPROVED / mismatched record — affects 0 rows
+     * (enforced in SQL). The refund grants nothing by itself: the record must still pass
+     * the mint guards.
      */
     @Query(
         "UPDATE approvals SET consumedAt = NULL " +

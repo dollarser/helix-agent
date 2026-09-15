@@ -99,6 +99,8 @@ class ApprovalRegistrationRaceTest {
 
         override fun byToolCall(toolCallId: String): ApprovalEntity? = row.get()?.takeIf { it.toolCallId == toolCallId }
 
+        override fun countByToolCall(toolCallId: String): Int = if (byToolCall(toolCallId) != null) 1 else 0
+
         override fun decide(
             id: String,
             decision: String,

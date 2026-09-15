@@ -21,6 +21,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -226,6 +227,106 @@ class ToolSchedulerTest {
             )
         assertNull(batch.error)
         assertEquals("exclusive calls never overlap", 1, maxSeen.get())
+    }
+
+    @Test
+    fun anApprovalCoversExactlyOneCallInABatch() {
+        // HXA-200 Gap 4 (proof reuse is scoped to the EXACT call): two identical high-risk
+        // calls in one batch (same tool, same arguments, different toolCallIds) each get
+        // their OWN card — the approval of the first never covers the second, because the
+        // toolCallId is part of the binding hash.
+        val inFlight = AtomicInteger()
+        val maxSeen = AtomicInteger()
+        register(
+            "b.a",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L2,
+            TimingExecutor(30, json("{}"), inFlight, maxSeen),
+        )
+        broker.script(
+            ApprovalAcquisition.Approved(ApprovalProof("call-b1", "1".repeat(64))),
+            ApprovalAcquisition.Approved(ApprovalProof("call-b2", "2".repeat(64))),
+        )
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
+        val batch = scheduler.scheduleBatch(listOf(call("call-b1", "b.a"), call("call-b2", "b.a")))
+        assertEquals(2, batch.settlements.size)
+        assertTrue(
+            batch.settlements.all {
+                it is ToolScheduler.BatchSettlement.Outcome && it.outcome is ToolDispatchOutcome.Succeeded
+            },
+        )
+        // Two cards, with DIFFERENT binding hashes despite identical tool + args.
+        assertEquals(2, broker.acquireCalls.size)
+        assertEquals("call-b1", broker.acquireCalls[0].binding.toolCallId)
+        assertEquals("call-b2", broker.acquireCalls[1].binding.toolCallId)
+        assertNotEquals(
+            "identical tool + args in one batch are still distinct bindings",
+            broker.acquireCalls[0].binding.hash,
+            broker.acquireCalls[1].binding.hash,
+        )
+        // Each proof is spent on its own call: two distinct proofs, never one proof twice,
+        // and no refund/re-mint ever happened (nothing failed).
+        assertEquals(2, broker.consumeCalls.size)
+        assertEquals(
+            2,
+            broker.consumeCalls
+                .map { it.approvalId }
+                .toSet()
+                .size,
+        )
+        assertTrue(broker.reMintCalls.isEmpty())
+    }
+
+    @Test
+    fun aBoundedRetryInABatchReusesTheProofWithoutReasking() {
+        // HXA-200 Gap 4 (exact per-call proof reuse, no re-ask): the HXA-037 bounded
+        // technical retry rides a REFUND, not a new question — inside a batch, a confirmed
+        // zero-side-effect failure of an approved call re-mints from the SAME record, so
+        // the confirmation surface is presented exactly once.
+        val inFlight = AtomicInteger()
+        val maxSeen = AtomicInteger()
+        val attempts = AtomicInteger()
+        register(
+            "b.r2",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L2,
+            object : ToolExecutor {
+                override fun execute(c: ExecutableToolCall): ToolExecutorResult =
+                    if (attempts.incrementAndGet() == 1) {
+                        ToolExecutorResult.Failed("transient failure", sideEffectFree = true)
+                    } else {
+                        ToolExecutorResult.Completed(json("{}"))
+                    }
+            },
+        )
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-r2", "3".repeat(64))))
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
+        val batch = scheduler.scheduleBatch(listOf(call("call-r2", "b.r2").copy(maxAttempts = 2)))
+        val settlement = batch.settlements.single()
+        assertTrue(
+            settlement is ToolScheduler.BatchSettlement.Outcome &&
+                settlement.outcome is ToolDispatchOutcome.Succeeded,
+        )
+        // No re-ask: exactly ONE card for both attempts; the retry rode the refund path.
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals(1, broker.reMintCalls.size)
+        // The proof is spent at each attempt's start: the first spend was refunded by the
+        // re-mint, the second spend is final.
+        assertEquals(2, broker.consumeCalls.size)
+        // One audit row per attempt (attemptId 1 and 2), and the retry's row carries the
+        // SAME binding hash as the attempt that minted the proof.
+        val events = sink.events.filter { it.correlationId == "call-r2" }
+        assertEquals(2, events.size)
+        assertEquals(listOf(1, 2), events.map { it.attemptId })
+        assertEquals(1, events.map { it.bindingHash }.toSet().size)
+        assertTrue(
+            events.all {
+                it.bindingHash ==
+                    broker.acquireCalls
+                        .single()
+                        .binding.hash
+            },
+        )
     }
 
     @Test
@@ -697,13 +798,16 @@ class ToolSchedulerTest {
 
     private class ScriptedBroker : ApprovalBroker {
         val scripted = ArrayDeque<ApprovalAcquisition>()
+        val acquireCalls = mutableListOf<ApprovalRequest>()
         val consumeCalls = mutableListOf<ApprovalProof>()
+        val reMintCalls = mutableListOf<ApprovalProof>()
 
         fun script(vararg acquisitions: ApprovalAcquisition) {
             scripted.addAll(acquisitions)
         }
 
         override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
+            acquireCalls += request
             check(scripted.isNotEmpty()) { "scheduler test broker scripted empty" }
             return scripted.removeFirst()
         }
@@ -712,7 +816,10 @@ class ToolSchedulerTest {
             consumeCalls += proof
         }
 
-        override fun reMint(proof: ApprovalProof): ApprovalProof? = proof
+        override fun reMint(proof: ApprovalProof): ApprovalProof? {
+            reMintCalls += proof
+            return proof
+        }
     }
 
     private class RecordingSink : AuditSink {
