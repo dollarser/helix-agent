@@ -10,13 +10,16 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.approval.BoundedRuleUi
+import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolApprovalPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,6 +53,9 @@ class ApprovalCardScreenTest {
         ApprovalCardUi(
             approvalId = "approval-1",
             bindingHash = "a".repeat(64),
+            toolName = "mcp.srv7.git_pull",
+            sourceRef = "mcp:srv-7:2025-03-26:" + "cd".repeat(32),
+            baseRisk = RiskLevel.L1,
             state = ApprovalCardState.PENDING,
             sourceRes = R.string.approval_source_mcp,
             sourceArgs = listOf("srv-7"),
@@ -180,6 +186,79 @@ class ApprovalCardScreenTest {
                 .fetchSemanticsNodes()
                 .filter { node -> isClickable(node) }
         assertEquals(0, clickable.size)
+    }
+
+    // ------------------------------------------------------------------ HXA-201 slice 2:
+    // future-preference actions are SEPARATE from the one-time approve/deny.
+
+    @Test
+    fun lowRiskCardOffersFutureAllowAskAndDenySeparateFromTheOneTimeDecision() {
+        var saved: ToolApprovalPreference? = null
+        var approved = 0
+        composeRule.setContent {
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(
+                    card = card, // baseRisk = L1
+                    onApprove = { approved++ },
+                    onDeny = {},
+                    onSaveFuturePreference = { saved = it },
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("approval-future-caption-approval-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("approval-future-allow-approval-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("approval-future-ask-approval-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("approval-future-deny-approval-1").assertIsDisplayed()
+        // L1 → no high-risk note.
+        composeRule.onNodeWithTag("approval-future-note-approval-1").assertDoesNotExist()
+        // Saving a future preference does NOT approve the pending call…
+        composeRule.onNodeWithTag("approval-future-allow-approval-1").performClick()
+        composeRule.runOnIdle {
+            assertEquals(ToolApprovalPreference.ALLOW, saved)
+            assertEquals("saving a preference must not approve the pending call", 0, approved)
+        }
+        // …and the one-time approve still works on its own.
+        composeRule.onNodeWithTag("approval-approve-approval-1").performClick()
+        composeRule.runOnIdle { assertEquals(1, approved) }
+    }
+
+    @Test
+    fun highRiskCardWithholdsFutureAllowAndShowsTheSettingsNote() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(
+                    card = card.copy(baseRisk = RiskLevel.L2),
+                    onApprove = {},
+                    onDeny = {},
+                    onSaveFuturePreference = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("approval-future-allow-approval-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("approval-future-ask-approval-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("approval-future-deny-approval-1").assertIsDisplayed()
+        composeRule.onNodeWithTag("approval-future-note-approval-1").assertIsDisplayed()
+    }
+
+    @Test
+    fun terminalCardShowsNoFuturePreferenceActions() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalContext provides canonicalZhContext()) {
+                ApprovalCard(
+                    card = card.copy(state = ApprovalCardState.APPROVED),
+                    onApprove = {},
+                    onDeny = {},
+                    onSaveFuturePreference = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("approval-future-caption-approval-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("approval-future-allow-approval-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("approval-future-ask-approval-1").assertDoesNotExist()
+        composeRule.onNodeWithTag("approval-future-deny-approval-1").assertDoesNotExist()
     }
 
     /** A node's own text plus all descendant text (button labels live on child Text nodes). */

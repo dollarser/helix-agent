@@ -264,6 +264,7 @@ private fun destinationScreen(
                 container.fileManager,
                 onNavigation = onOpenDrawer,
                 onProviders = { navController.navigate(ShellDestination.Settings.route) },
+                toolApprovalSettings = container.toolApprovalSettings,
             )
         }
 

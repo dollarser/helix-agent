@@ -511,6 +511,11 @@ class ApprovalCardUiMapperTest {
 
         assertEquals("approval-1", card.approvalId)
         assertEquals(binding.hash, card.bindingHash)
+        // HXA-201 slice 2: the (sourceRef, toolName) identity the future-preference actions
+        // bind to — trusted from the descriptor, never a display name.
+        assertEquals("fs.write", card.toolName)
+        assertEquals("built-in", card.sourceRef)
+        assertEquals(RiskLevel.L1, card.baseRisk)
         assertEquals(ApprovalCardState.PENDING, card.state)
         assertEquals(R.string.approval_source_builtin, card.sourceRes)
         assertTrue(card.sourceArgs.isEmpty())
@@ -593,6 +598,10 @@ class ApprovalCardUiMapperTest {
                 confirmationDetail = "d",
                 terminalDetail = null,
             )
+        // HXA-201 slice 2: the MCP identity is the canonical origin ref, not the server id alone.
+        assertEquals("mcp:srv-7:2025-03-26:" + "a".repeat(64), card.sourceRef)
+        assertEquals("mcp.tool", card.toolName)
+        assertEquals(RiskLevel.L2, card.baseRisk)
         assertEquals(R.string.approval_source_mcp, card.sourceRes)
         assertEquals(listOf("srv-7"), card.sourceArgs)
         assertEquals("srv-7", card.providerMcpId)

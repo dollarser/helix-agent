@@ -26,6 +26,7 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
+import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -92,6 +93,9 @@ private fun layoutApproval() =
     ApprovalCardUi(
         approvalId = "layout",
         bindingHash = "a".repeat(64),
+        toolName = "layout.fixture",
+        sourceRef = "mcp:layout-fixture:2025-03-26:" + "ab".repeat(32),
+        baseRisk = RiskLevel.L2,
         state = ApprovalCardState.PENDING,
         sourceRes = R.string.approval_source_mcp,
         sourceArgs = listOf("layout-fixture"),

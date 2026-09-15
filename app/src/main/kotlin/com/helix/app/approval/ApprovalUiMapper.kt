@@ -397,6 +397,9 @@ object ApprovalUiMapper {
         return ApprovalCardUi(
             approvalId = approvalId,
             bindingHash = binding.hash,
+            toolName = descriptor.name.value,
+            sourceRef = origin.canonicalOf(),
+            baseRisk = descriptor.baseRisk,
             state = state,
             sourceRes = source.res,
             sourceArgs = source.args,

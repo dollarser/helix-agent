@@ -49,20 +49,22 @@ class ToolApprovalSettingsModel(
 
     /**
      * The newest version of every registered tool, as settings rows, optionally filtered by a
-     * case-insensitive match on the tool name or the provider label.
+     * case-insensitive match on the tool name or the provider label. Rows are keyed per
+     * (origin, name): the same tool name registered under two origins (e.g. built-in and an
+     * MCP server) is TWO rows — identity is the trusted pair, never the bare name.
      */
     fun rows(query: String = ""): List<Row> {
         val needle = query.trim().lowercase()
         return registry
             .all()
-            .groupBy { it.name.value }
+            .groupBy { it.origin.canonicalOf() to it.name.value }
             .mapValues { (_, versions) -> versions.maxBy { it.version.value } }
             .values
             .filter { descriptor ->
                 needle.isEmpty() ||
                     descriptor.name.value.contains(needle, ignoreCase = true) ||
                     displayOriginLabel(descriptor.origin).contains(needle, ignoreCase = true)
-            }.sortedBy { it.name.value.lowercase() }
+            }.sortedWith(compareBy({ it.name.value.lowercase() }, { it.origin.canonicalOf() }))
             .map { it.toRow() }
     }
 
@@ -85,7 +87,7 @@ class ToolApprovalSettingsModel(
             contractHash,
             nowEpochMillis(),
         )
-        return rowFor(row.toolName)
+        return rowFor(row)
     }
 
     /**
@@ -95,10 +97,40 @@ class ToolApprovalSettingsModel(
      */
     fun restoreDefault(row: Row): Row {
         preferences.remove(row.sourceRef, row.toolName, ToolApprovalPreferenceScope.GLOBAL, "")
-        return rowFor(row.toolName)
+        return rowFor(row)
     }
 
-    private fun rowFor(toolName: String): Row = rows().first { it.toolName == toolName }
+    private fun rowFor(row: Row): Row =
+        rows()
+            .firstOrNull { it.sourceRef == row.sourceRef && it.toolName == row.toolName }
+            ?: row
+
+    /**
+     * The newest registered row for the exact (sourceRef, toolName) identity — null when the
+     * tool is no longer registered (e.g. the MCP server disconnected). Same tool names from
+     * different origins are distinct tools; the bare name is never enough.
+     */
+    fun rowForIdentity(
+        sourceRef: String,
+        toolName: String,
+    ): Row? =
+        rows()
+            .firstOrNull { it.sourceRef == sourceRef && it.toolName == toolName }
+
+    /**
+     * Stores [preference] in the GLOBAL scope for the exact (sourceRef, toolName) identity —
+     * the path the approval card's "save future preference" actions use — and returns the
+     * re-resolved row. Null when the tool is no longer registered (fail-closed: a stale card
+     * can never write a standing preference for a vanished tool).
+     */
+    fun setPreferenceFor(
+        sourceRef: String,
+        toolName: String,
+        preference: ToolApprovalPreference,
+    ): Row? {
+        val row = rowForIdentity(sourceRef, toolName) ?: return null
+        return setPreference(row, preference)
+    }
 
     private fun ToolDescriptor.toRow(): Row {
         val snapshot = preferences.snapshotFor(origin.canonicalOf(), name.value, contractHash.hex, null, null)

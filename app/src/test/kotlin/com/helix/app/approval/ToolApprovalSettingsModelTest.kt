@@ -149,6 +149,59 @@ class ToolApprovalSettingsModelTest {
         assertEquals(ToolApprovalSettingsState.DENY, settingsStateOf(EffectiveToolPreference.Deny))
     }
 
+    // HXA-201 slice 2: the approval card saves by (sourceRef, toolName) identity. The
+    // registry keys on (name, version), so the real cross-server collision is the same NAME
+    // at different versions from two servers — the preference must never leak across servers.
+
+    @Test
+    fun setPreferenceForWritesTheExactIdentityAmongSameNameTools() {
+        val registry = ToolRegistry()
+        registry.register(mcpDescriptor("mcp.demo.tool", "srv-a"))
+        // Same NAME, another server, a different (registry-legal) version.
+        registry.register(mcpDescriptor("mcp.demo.tool", "srv-b", version = 2))
+        val model = model(registry)
+        val bRef = "mcp:srv-b:2025-03-26:${MCP_SCHEMA_SHA}"
+
+        val updated = model.setPreferenceFor(bRef, "mcp.demo.tool", ToolApprovalPreference.DENY)
+
+        assertEquals(bRef, updated?.sourceRef)
+        assertEquals(ToolApprovalSettingsState.DENY, updated?.state)
+        // The other server's same-named tool is untouched: still UNSET.
+        val aRow = model.rowForIdentity("mcp:srv-a:2025-03-26:${MCP_SCHEMA_SHA}", "mcp.demo.tool")
+        assertEquals(ToolApprovalSettingsState.UNSET, aRow?.state)
+    }
+
+    @Test
+    fun setPreferenceForFailsClosedForAnUnregisteredTool() {
+        val model = model(ToolRegistry().also { it.register(descriptor("fake.a")) })
+
+        assertNull(model.setPreferenceFor("built-in", "not.registered", ToolApprovalPreference.ALLOW))
+        // Same name, unknown origin: no row to bind to.
+        assertNull(
+            model.setPreferenceFor("mcp:ghost:2025-03-26:${MCP_SCHEMA_SHA}", "fake.a", ToolApprovalPreference.DENY),
+        )
+        // Nothing was written.
+        assertEquals(ToolApprovalSettingsState.UNSET, model.rows().single().state)
+    }
+
+    @Test
+    fun rowsListEachServerOfASharedNameSeparately() {
+        val registry = ToolRegistry()
+        registry.register(mcpDescriptor("mcp.demo.tool", "srv-a"))
+        registry.register(mcpDescriptor("mcp.demo.tool", "srv-b", version = 2))
+        val model = model(registry)
+
+        val shared = model.rows().filter { it.toolName == "mcp.demo.tool" }
+        assertEquals(2, shared.size)
+        // Tied on name, ordered by sourceRef: srv-a sorts before srv-b.
+        assertEquals(
+            listOf("mcp:srv-a:2025-03-26:${MCP_SCHEMA_SHA}", "mcp:srv-b:2025-03-26:${MCP_SCHEMA_SHA}"),
+            shared.map { it.sourceRef },
+        )
+        // The row keeps its own server's version, not the global max.
+        assertEquals(listOf(1, 2), shared.map { it.version })
+    }
+
     private fun model(registry: ToolRegistry) =
         ToolApprovalSettingsModel(
             registry,
@@ -182,8 +235,12 @@ class ToolApprovalSettingsModelTest {
             origin = origin,
         )
 
-    private fun mcpDescriptor(name: String): ToolDescriptor =
-        descriptor(name, origin = ToolOrigin.McpOrigin("demo", "2025-03-26", MCP_SCHEMA_SHA))
+    private fun mcpDescriptor(
+        name: String,
+        serverId: String = "demo",
+        version: Int = 1,
+    ): ToolDescriptor =
+        descriptor(name, version = version, origin = ToolOrigin.McpOrigin(serverId, "2025-03-26", MCP_SCHEMA_SHA))
 
     companion object {
         private const val MCP_SCHEMA_SHA = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

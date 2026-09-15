@@ -81,13 +81,27 @@ internal fun ToolTimelineItem(
             ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
         }
         row.card?.takeIf { details || it.state == com.helix.app.approval.ApprovalCardState.PENDING }?.let { card ->
-            ApprovalCard(
-                card = card,
-                onApprove = { intents.onApproveApproval(card.approvalId) },
-                onDeny = { intents.onDenyApproval(card.approvalId) },
-            )
+            PendingApprovalCard(card, intents)
         }
     }
+}
+
+/** The live approval card wired to the conversation intents (HXA-201 slice 2: the separate
+ * "save future preference" path included). */
+@Composable
+@Suppress("FunctionName")
+private fun PendingApprovalCard(
+    card: com.helix.app.approval.ApprovalCardUi,
+    intents: ConversationIntents,
+) {
+    ApprovalCard(
+        card = card,
+        onApprove = { intents.onApproveApproval(card.approvalId) },
+        onDeny = { intents.onDenyApproval(card.approvalId) },
+        onSaveFuturePreference = { preference ->
+            intents.onSaveFuturePreference(card.sourceRef, card.toolName, preference)
+        },
+    )
 }
 
 @Composable

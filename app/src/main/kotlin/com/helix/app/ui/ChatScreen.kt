@@ -37,6 +37,7 @@ fun ChatScreen(
     fileManager: com.helix.app.files.FileManagerService? = null,
     onNavigation: () -> Unit = {},
     onProviders: () -> Unit = {},
+    toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel? = null,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -108,6 +109,9 @@ fun ChatScreen(
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
+                        onSaveFuturePreference = { sourceRef, toolName, preference ->
+                            toolApprovalSettings?.setPreferenceFor(sourceRef, toolName, preference)
+                        },
                         onStageAttachment = { chatService.stageAttachment(it) },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
                         onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
