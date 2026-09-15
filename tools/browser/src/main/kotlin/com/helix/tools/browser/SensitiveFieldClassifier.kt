@@ -67,22 +67,40 @@ object SensitiveFieldClassifier {
         val isInputTag = tag.trim().lowercase() in INPUT_TAGS
 
         // 1) password — refused in every context (doc 09 §3.3 密码框默认拒绝).
-        if (t == "password" || ac == "password" || ac.endsWith("-password") ||
-            (isInputTag && ("password" in label || "passwd" in label || "密码" in label))
-        ) {
-            return Verdict.Sensitive(Refusal.PASSWORD)
-        }
+        if (isPasswordField(t, ac, isInputTag, label)) return Verdict.Sensitive(Refusal.PASSWORD)
         // 2) payment — card number / holder / expiry / IBAN fields (doc 09 §3.4 支付).
-        if (ac.startsWith("cc-") || ac == "credit-card" || ac == "on-card") {
+        if (isPaymentAutofill(ac) || PAYMENT_NAME.containsMatchIn(label)) {
             return Verdict.Sensitive(Refusal.PAYMENT)
         }
-        if (PAYMENT_NAME.containsMatchIn(label)) return Verdict.Sensitive(Refusal.PAYMENT)
         // 3) one-time-code / verification / biometric-adjacent (doc 09 §3.4 验证码).
         if (ac == "one-time-code") return Verdict.Sensitive(Refusal.ONE_TIME_CODE)
         if (isInputTag && OTP_NAME.containsMatchIn(label)) return Verdict.Sensitive(Refusal.ONE_TIME_CODE)
 
         return Verdict.Normal
     }
+
+    /** Password fields are refused in every context (doc 09 §3.3 密码框默认拒绝). */
+    private fun isPasswordField(
+        type: String,
+        autocomplete: String,
+        isInputTag: Boolean,
+        label: String,
+    ): Boolean = isPasswordTypeOrAutofill(type, autocomplete) || (isInputTag && hasPasswordLabel(label))
+
+    private fun isPasswordTypeOrAutofill(
+        type: String,
+        autocomplete: String,
+    ): Boolean = type == "password" || isPasswordAutofill(autocomplete)
+
+    private fun isPasswordAutofill(autocomplete: String): Boolean =
+        autocomplete == "password" || autocomplete.endsWith("-password")
+
+    private val PASSWORD_LABELS = setOf("password", "passwd", "密码")
+
+    private fun hasPasswordLabel(label: String): Boolean = PASSWORD_LABELS.any { it in label }
+
+    private fun isPaymentAutofill(autocomplete: String): Boolean =
+        autocomplete.startsWith("cc-") || autocomplete == "credit-card" || autocomplete == "on-card"
 
     /** The model-visible reason string for a [Refusal] ("" for [Verdict.Normal]). */
     fun reasonOf(verdict: Verdict): String =

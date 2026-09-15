@@ -109,11 +109,13 @@ internal class CodexSubscriptionProvider(
 
     override suspend fun validateConfiguration(): ProviderCheckResult {
         val events =
-            execute(
-                ModelRequest(
-                    config.model,
-                    listOf(ModelMessage(ModelRole.USER, "Reply briefly with OK.")),
-                    maxOutputTokens = 8,
+            eventsFor(
+                jobs.execute(
+                    ModelRequest(
+                        config.model,
+                        listOf(ModelMessage(ModelRole.USER, "Reply briefly with OK.")),
+                        maxOutputTokens = 8,
+                    ),
                 ),
             )
         val error = events.lastOrNull() as? ModelEvent.Error
@@ -144,8 +146,6 @@ internal class CodexSubscriptionProvider(
             val remaining = if (events.take(delivered.size) == delivered) events.drop(delivered.size) else events
             remaining.forEach { send(it) }
         }
-
-    private suspend fun execute(request: ModelRequest): List<ModelEvent> = eventsFor(jobs.execute(request))
 
     private fun eventsFor(outcome: CliModelJobClient.AwaitOutcome): List<ModelEvent> =
         when (outcome) {

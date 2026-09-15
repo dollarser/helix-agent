@@ -168,19 +168,38 @@ fun SettingsScreen(
         }
     }
 
-    if (riskDialogOpen) {
+    AdvancedRiskDialog(
+        open = riskDialogOpen,
+        onConfirm = {
+            profileStore.switchTo(SafetyProfile.ADVANCED)
+            riskDialogOpen = false
+        },
+        onDismiss = { riskDialogOpen = false },
+    )
+}
+
+/**
+ * The developer-build ADVANCED risk-confirmation dialog (ADR-0005/0006): rendered only while the
+ * user is confirming the switch; confirming performs the pure profile transition, cancelling keeps
+ * the current profile. Split from [SettingsScreen] to keep the screen body a focused section list.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun AdvancedRiskDialog(
+    open: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (open) {
         AlertDialog(
-            onDismissRequest = { riskDialogOpen = false },
+            onDismissRequest = onDismiss,
             title = { Text(stringResource(R.string.settings_advanced_confirm_title)) },
             text = {
                 Text(stringResource(R.string.profile_advanced_risk_summary))
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        profileStore.switchTo(SafetyProfile.ADVANCED)
-                        riskDialogOpen = false
-                    },
+                    onClick = onConfirm,
                     modifier = Modifier.testTag("settings-risk-confirm"),
                 ) {
                     Text(stringResource(R.string.settings_advanced_confirm_ok))
@@ -188,7 +207,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = { riskDialogOpen = false },
+                    onClick = onDismiss,
                     modifier = Modifier.testTag("settings-risk-cancel"),
                 ) {
                     Text(stringResource(R.string.common_cancel))

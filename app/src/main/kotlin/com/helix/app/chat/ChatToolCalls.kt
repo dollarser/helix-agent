@@ -342,30 +342,7 @@ internal class ChatToolCalls(
         val turnId = turn.id
         val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
         val descriptor = toolPipeline.resolveLatest(toolNameRaw)
-        // No-argument tools (e.g. time.now, whose ONLY valid input is {}) receive
-        // arguments as an empty string or no argument fragments at all on many
-        // OpenAI-compatible servers (observed: Ollama) — the decoders skip blank
-        // fragments, so the accumulated buffer ends up empty. Normalize empty to the
-        // empty object: a tool that REQUIRES arguments still gets its precise schema
-        // rejection (missing properties), instead of the misleading "not a valid JSON
-        // object" for a call the model made correctly.
-        val normalizedArgs = if (rawArgsJson.isBlank()) "{}" else rawArgsJson
-        val args: JsonObject? =
-            parseJsonObjectOrNull(normalizedArgs)?.let { parsed ->
-                if (FileToolArguments.handles(descriptor)) {
-                    runCatching {
-                        FileToolArguments.normalize(
-                            parsed,
-                            FileToolArguments.directory(
-                                workspaceScopeId,
-                                storage.sessions.resolve(turn.sessionId).directoryRef,
-                            ),
-                        )
-                    }.getOrNull()
-                } else {
-                    parsed
-                }
-            }
+        val args = parseToolArgs(rawArgsJson, descriptor, turn.sessionId)
         // Malformed input the dispatcher can never see (an invalid tool name, non-object
         // arguments) is persisted + audited HERE as a stable Denied (preSettled).
         val rejection = invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
@@ -422,6 +399,38 @@ internal class ChatToolCalls(
         dispatchFacts[toolCallId] =
             DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
+    }
+
+    /**
+     * Parse + normalize a tool call's raw arguments into the JSON object the dispatcher sees.
+     * No-argument tools (e.g. time.now, whose ONLY valid input is {}) receive arguments as an
+     * empty string or no argument fragments at all on many OpenAI-compatible servers (observed:
+     * Ollama) — the decoders skip blank fragments, so the accumulated buffer ends up empty.
+     * Normalize empty to the empty object: a tool that REQUIRES arguments still gets its precise
+     * schema rejection (missing properties), instead of the misleading "not a valid JSON object"
+     * for a call the model made correctly. File-scope paths are bound here, before hashing/approval.
+     */
+    private fun parseToolArgs(
+        rawArgsJson: String,
+        descriptor: ToolDescriptor?,
+        sessionId: String,
+    ): JsonObject? {
+        val normalizedArgs = if (rawArgsJson.isBlank()) "{}" else rawArgsJson
+        return parseJsonObjectOrNull(normalizedArgs)?.let { parsed ->
+            if (FileToolArguments.handles(descriptor)) {
+                runCatching {
+                    FileToolArguments.normalize(
+                        parsed,
+                        FileToolArguments.directory(
+                            workspaceScopeId,
+                            storage.sessions.resolve(sessionId).directoryRef,
+                        ),
+                    )
+                }.getOrNull()
+            } else {
+                parsed
+            }
+        }
     }
 
     /** The pre-settled Denied for an invalid tool NAME or non-object ARGUMENTS; null when both are valid. */

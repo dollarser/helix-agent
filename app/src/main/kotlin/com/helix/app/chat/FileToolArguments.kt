@@ -71,76 +71,84 @@ internal object FileToolArguments {
             return ModelToolSchema(descriptor.name, descriptor.description, descriptor.inputSchema.toString())
         }
         val schema = descriptor.inputSchema
-        val properties = schema["properties"] as? JsonObject ?: JsonObject(emptyMap())
-        val updated =
-            JsonObject(
-                properties.mapValues { (key, value) ->
-                    if (key in pathKeys && value is JsonObject) {
-                        JsonObject(value + ("description" to JsonPrimitive(PATH_HELP)))
-                    } else {
-                        value
-                    }
-                },
-            )
-        val purpose =
-            when (descriptor.name.value) {
-                "write" -> {
-                    "Create a UTF-8 file with path and content. Existing files require explicit overwrite; " +
-                        "omit expectedSha256 for new files."
-                }
-
-                "read" -> {
-                    "Read a file before editing; use its returned content and hash rather than guessing."
-                }
-
-                "edit" -> {
-                    "Edit an existing file; read first and supply the required matching content/hash."
-                }
-
-                "files.list" -> {
-                    "List immediate directory children; path '.' lists the current working directory."
-                }
-
-                "files.stat" -> {
-                    "Inspect file or directory metadata without reading its full content."
-                }
-
-                "files.search" -> {
-                    "Search within a directory using the declared query and result limits."
-                }
-
-                "files.mkdir" -> {
-                    "Create a directory at the desired relative path; follow existing-directory rules."
-                }
-
-                "files.copy" -> {
-                    "Copy source to destination; existing destinations require explicit overwrite."
-                }
-
-                "files.move" -> {
-                    "Move source to destination; existing destinations require explicit overwrite."
-                }
-
-                "files.delete" -> {
-                    "Move the selected user file or directory to trash; never delete the whole workspace."
-                }
-
-                "files.archive" -> {
-                    "Archive source into destination; the archive destination must be within work/."
-                }
-
-                "files.extract" -> {
-                    "Extract source into destination within work/; existing files require explicit overwrite."
-                }
-
-                else -> {
-                    descriptor.description
-                }
-            }
+        val updated = withPathDescriptions(schema)
+        val purpose = purposeFor(descriptor.name.value, descriptor.description)
         return ModelToolSchema(
             descriptor.name,
             "$purpose $PATH_HELP .helix internals are not writable.",
             JsonObject(schema + ("properties" to updated)).toString(),
         )
     }
+
+    private fun withPathDescriptions(schema: JsonObject): JsonObject {
+        val properties = schema["properties"] as? JsonObject ?: JsonObject(emptyMap())
+        return JsonObject(
+            properties.mapValues { (key, value) ->
+                if (key in pathKeys && value is JsonObject) {
+                    JsonObject(value + ("description" to JsonPrimitive(PATH_HELP)))
+                } else {
+                    value
+                }
+            },
+        )
+    }
+
+    private fun purposeFor(
+        name: String,
+        fallback: String,
+    ): String =
+        when (name) {
+            "write" -> {
+                "Create a UTF-8 file with path and content. Existing files require explicit overwrite; " +
+                    "omit expectedSha256 for new files."
+            }
+
+            "read" -> {
+                "Read a file before editing; use its returned content and hash rather than guessing."
+            }
+
+            "edit" -> {
+                "Edit an existing file; read first and supply the required matching content/hash."
+            }
+
+            "files.list" -> {
+                "List immediate directory children; path '.' lists the current working directory."
+            }
+
+            "files.stat" -> {
+                "Inspect file or directory metadata without reading its full content."
+            }
+
+            "files.search" -> {
+                "Search within a directory using the declared query and result limits."
+            }
+
+            "files.mkdir" -> {
+                "Create a directory at the desired relative path; follow existing-directory rules."
+            }
+
+            "files.copy" -> {
+                "Copy source to destination; existing destinations require explicit overwrite."
+            }
+
+            "files.move" -> {
+                "Move source to destination; existing destinations require explicit overwrite."
+            }
+
+            "files.delete" -> {
+                "Move the selected user file or directory to trash; never delete the whole workspace."
+            }
+
+            "files.archive" -> {
+                "Archive source into destination; the archive destination must be within work/."
+            }
+
+            "files.extract" -> {
+                "Extract source into destination within work/; existing files require explicit overwrite."
+            }
+
+            else -> {
+                fallback
+            }
+        }
 }

@@ -229,13 +229,7 @@ object EditTool {
                         } else {
                             current.replaceFirst(parsed.oldText, parsed.newText)
                         }
-                    val outcome =
-                        store.writeArtifact(
-                            path = parsed.path,
-                            bytes = updated.toByteArray(Charsets.UTF_8),
-                            region = region,
-                            expectedPreviousSha256 = parsed.expectedSha256,
-                        )
+                    val outcome = publish(store, parsed.path, region, updated, parsed.expectedSha256)
                     ToolExecutorResult.Completed(output(parsed.path, count, outcome))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(
@@ -258,6 +252,19 @@ object EditTool {
                     ToolExecutorResult.Failed("workspace I/O failure; the edit was not performed")
                 }
             }
+
+            private fun publish(
+                store: WorkspaceArtifactStore,
+                path: FileScopePath,
+                region: String,
+                updated: String,
+                expectedSha256: String,
+            ) = store.writeArtifact(
+                path = path,
+                bytes = updated.toByteArray(Charsets.UTF_8),
+                region = region,
+                expectedPreviousSha256 = expectedSha256,
+            )
         }
 
     /** Registers both the contract and the implementation in the given registries. */

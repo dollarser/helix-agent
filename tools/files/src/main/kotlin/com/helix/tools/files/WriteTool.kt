@@ -200,39 +200,25 @@ object WriteTool {
                     parseArgs(call.args) ?: return ToolExecutorResult.Failed(
                         "invalid write arguments: use a relative file path from the current working directory " +
                             "or an explicit scope:<scopeId>:<relativePath> reference. " +
-                            "content must be text; omit expectedSha256 for a new file, otherwise use a verified 64-hex hash.",
+                            "content must be text; omit expectedSha256 for a new file, " +
+                            "otherwise use a verified 64-hex hash.",
                     )
                 return try {
-                    val region = WorkspaceLayout.regionOf(parsed.path.relativePath)
-                    if (region == null || !WorkspaceLayout.isRegion(region)) {
-                        return ToolExecutorResult.Failed(
-                            "destination must be a user file or directory, outside .helix/: ${parsed.path.toModelReference()}",
-                        )
-                    }
-                    // stat (not probe): a directory target reports "absent" to the probe, and letting
-                    // it through would make the atomic move fail with a raw exception whose message
-                    // carries real paths (doc 10) — refuse it up front with a stable message.
-                    val st = store.stat(parsed.path)
-                    if (st.isDirectory) {
-                        return ToolExecutorResult.Failed(
-                            "destination is a directory, not a file: ${parsed.path.toModelReference()}",
-                        )
-                    }
-                    val exists = st.isRegularFile
-                    if (exists && !parsed.overwrite) {
-                        return ToolExecutorResult.Failed(
-                            "file already exists; pass overwrite=true to replace it: ${parsed.path.toModelReference()}",
-                        )
-                    }
+                    val preflight = writePreflight(store, parsed)
+                    val ok =
+                        when (preflight) {
+                            is WritePreflight.Reject -> return ToolExecutorResult.Failed(preflight.message)
+                            is WritePreflight.Ok -> preflight
+                        }
                     val expected = parsed.expectedSha256
                     val outcome =
                         publish(
                             parsed.path,
                             parsed.content.toByteArray(Charsets.UTF_8),
-                            region,
+                            ok.region,
                             expected,
                         )
-                    ToolExecutorResult.Completed(output(parsed.path, outcome, exists))
+                    ToolExecutorResult.Completed(output(parsed.path, outcome, ok.exists))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(
                         "expectedSha256 precondition failed (hash mismatch): file is missing or changed since read; " +
@@ -256,6 +242,55 @@ object WriteTool {
                 }
             }
         }
+
+    /**
+     * Resolves the destination region and pre-publish guards for a parsed `write` — a non-user
+     * region, a directory target, or an existing file without `overwrite` — returning a stable
+     * reject message or the resolved region + existence flag. [WorkspaceArtifactStore.stat] may
+     * throw, so the caller runs this inside its guarded block.
+     */
+    private fun writePreflight(
+        store: WorkspaceArtifactStore,
+        parsed: Parsed,
+    ): WritePreflight {
+        val region = WorkspaceLayout.regionOf(parsed.path.relativePath)
+        if (region == null || !WorkspaceLayout.isRegion(region)) {
+            return WritePreflight.Reject(
+                "destination must be a user file or directory, outside .helix/: ${parsed.path.toModelReference()}",
+            )
+        }
+        // stat (not probe): a directory target reports "absent" to the probe, and letting
+        // it through would make the atomic move fail with a raw exception whose message
+        // carries real paths (doc 10) — refuse it up front with a stable message.
+        val st = store.stat(parsed.path)
+        val reject =
+            when {
+                st.isDirectory -> {
+                    "destination is a directory, not a file: ${parsed.path.toModelReference()}"
+                }
+
+                st.isRegularFile && !parsed.overwrite -> {
+                    "file already exists; pass overwrite=true to replace it: ${parsed.path.toModelReference()}"
+                }
+
+                else -> {
+                    null
+                }
+            }
+        return reject?.let { WritePreflight.Reject(it) } ?: WritePreflight.Ok(region, st.isRegularFile)
+    }
+
+    /** The resolved pre-publish state of a `write`, or a stable reject message. */
+    private sealed interface WritePreflight {
+        data class Ok(
+            val region: String,
+            val exists: Boolean,
+        ) : WritePreflight
+
+        data class Reject(
+            val message: String,
+        ) : WritePreflight
+    }
 
     /** Registers both the contract and the implementation in the given registries. */
     fun register(

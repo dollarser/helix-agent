@@ -1153,30 +1153,7 @@ class ChatService(
         // (b) the message_attachments bindings [TurnCoordinator.start] persists IN the turn's
         // transaction. An image BINDS THE NORMALIZED ARTIFACT (the bytes that leave) — the raw
         // artifact stays registered but unbound (local save/preview source).
-        val blocks =
-            materialized.mapIndexed { index, m ->
-                when (m) {
-                    is AttachmentMaterialization.Text -> {
-                        AttachmentContextBlock.Text(m, staged[index].relativePath)
-                    }
-
-                    is AttachmentMaterialization.Image -> {
-                        AttachmentContextBlock.Image(
-                            fileName = m.fileName,
-                            mediaType = m.mediaType,
-                            sha256 = m.sha256,
-                            sizeBytes = m.sizeBytes,
-                            width = m.width,
-                            height = m.height,
-                        )
-                    }
-
-                    else -> {
-                        // Unreachable (the gate returns only Text/Image in Ready) — fail closed.
-                        error("non-materializable attachment reached the send path")
-                    }
-                }
-            }
+        val blocks = attachmentContextBlocks(materialized, staged)
         val bindings =
             staged.map { entry ->
                 MessageAttachmentRepository.Binding(
@@ -1206,6 +1183,39 @@ class ChatService(
         }
         refreshScreen()
     }
+
+    /**
+     * The model-visible attachment context blocks for a Ready egress (in staged order): text
+     * blocks carry the bounded content, image blocks describe the NORMALIZED artifact (the bytes
+     * that travel as the message's image parts). A non-materializable entry is unreachable (the
+     * gate returns only Text/Image in Ready) — fail closed if that invariant ever changes.
+     */
+    private fun attachmentContextBlocks(
+        materialized: List<AttachmentMaterialization>,
+        staged: List<StagedAttachmentEntry>,
+    ): List<AttachmentContextBlock> =
+        materialized.mapIndexed { index, m ->
+            when (m) {
+                is AttachmentMaterialization.Text -> {
+                    AttachmentContextBlock.Text(m, staged[index].relativePath)
+                }
+
+                is AttachmentMaterialization.Image -> {
+                    AttachmentContextBlock.Image(
+                        fileName = m.fileName,
+                        mediaType = m.mediaType,
+                        sha256 = m.sha256,
+                        sizeBytes = m.sizeBytes,
+                        width = m.width,
+                        height = m.height,
+                    )
+                }
+
+                else -> {
+                    error("non-materializable attachment reached the send path")
+                }
+            }
+        }
 
     /** A staged entry as the gate's input — the real paths cross into hashing/probing only. */
     private fun StagedAttachmentEntry.toStagedAttachment() =
@@ -1499,28 +1509,45 @@ class ChatService(
             val coordinator = goalStart?.coordinator ?: TurnCoordinator.start(storage, clock, idGenerator, spec)
             val effectiveControl =
                 goalStart?.let { control.copy(mode = AgentMode.GOAL, budgets = it.budgets) } ?: control
-            // The worker waits behind this gate until its active-turn entry and initial UI are
-            // published. Without the gate, a fast scheduler can begin streaming before register;
-            // stop() in that window cannot find the job and silently fails to cancel the turn.
-            val startGate = CompletableDeferred<Unit>()
-            val job =
-                workScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
-                }
-            var published = false
-            try {
-                sessionTurnAdmission.register(sessionId, job, turnId)
-                if (openSessionId == sessionId) {
-                    refreshScreen() // publish the committed user message before the model may emit or wait
-                    publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
-                }
-                published = true
-            } finally {
-                if (!published) job.cancel()
-                startGate.complete(Unit)
-            }
-            return true
+            return launchAndPublishTurn(sessionId, turnId, coordinator, providerId, retryTurnId, effectiveControl)
         }
+    }
+
+    /**
+     * Launches the turn's worker behind a start gate, registers its admission and publishes the
+     * initial UI — cancelling the job if publication fails before the gate completes. Split from
+     * [launchTurn] (which keeps the turn-start owner/sequence); this unit owns the worker / register
+     * / publish / cancel handshake.
+     */
+    private fun launchAndPublishTurn(
+        sessionId: String,
+        turnId: String,
+        coordinator: TurnCoordinator,
+        providerId: String,
+        retryTurnId: String?,
+        effectiveControl: RunControlConfig,
+    ): Boolean {
+        // The worker waits behind this gate until its active-turn entry and initial UI are
+        // published. Without the gate, a fast scheduler can begin streaming before register;
+        // stop() in that window cannot find the job and silently fails to cancel the turn.
+        val startGate = CompletableDeferred<Unit>()
+        val job =
+            workScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
+            }
+        var published = false
+        try {
+            sessionTurnAdmission.register(sessionId, job, turnId)
+            if (openSessionId == sessionId) {
+                refreshScreen() // publish the committed user message before the model may emit or wait
+                publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+            }
+            published = true
+        } finally {
+            if (!published) job.cancel()
+            startGate.complete(Unit)
+        }
+        return true
     }
 
     // The boundary catch is deliberately broad: ANY unexpected failure at the
