@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v16ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v17ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -397,8 +397,85 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v16ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v16-export.db", 16)
+    fun v16ToV17AddsTheToolApprovalPreferenceTableEmptyOnUpgrade() {
+        val name = "tool-approval-preference-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 16).use {
+            // Legacy rows prove existing data survives the additive v16 -> v17 step.
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+        }
+        helper.runMigrationsAndValidate(name, 17, true, HelixDatabase.MIGRATION_16_17).use { db ->
+            // The legacy rows survive the additive migration.
+            db.query("SELECT title FROM sessions WHERE id='s1'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("S", it.getString(0))
+            }
+            // The new table exists and is EMPTY on upgrade: the migration bulk-creates NO ALLOW
+            // (or any) rows, so an existing unconfigured user keeps their original card-free
+            // behavior (ADR-0052 point 1).
+            db.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            // The unique (sourceRef, toolName, scopeKind, scopeRef) key is enforced on the
+            // migrated table — "reset to default" is a delete, not a fourth state (point 5).
+            db.execSQL(
+                "INSERT INTO tool_approval_preferences " +
+                    "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('p1','src','tool','ASK','GLOBAL','','',0,1,1)",
+            )
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO tool_approval_preferences " +
+                        "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                        "revision, createdAtEpoch, updatedAtEpoch) " +
+                        "VALUES ('p2','src','tool','ALLOW','GLOBAL','','x',0,2,2)",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun productionOpenMigratesAV16DatabaseToV17() {
+        val name = "prod-upgrade-v16.db"
+        val contentDir = File(context.cacheDir, "content-$name")
+        context.deleteDatabase(name)
+        contentDir.deleteRecursively()
+        // A real v16 database file (committed export) carrying a legacy row — the state an
+        // existing user's install has before the v17 app launches.
+        helper.createDatabase(name, 16).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+        }
+        // Open it through the PRODUCTION factory: HelixStorage.open applies ALL_MIGRATIONS, the
+        // exact chain a real install upgrade runs. A migration added to the schema but forgotten
+        // in ALL_MIGRATIONS crashes here ("A migration from 16 to 17 is required") — the gap that
+        // left the v16 -> v17 step unregistered (HXA-200).
+        val storage = HelixStorage.open(context, name, contentDir)
+        try {
+            val sqlite = storage.database.openHelper.writableDatabase
+            // Upgraded to the live schema: the preference table landed and is EMPTY on upgrade
+            // (no seeded ALLOW — ADR-0052 point 1), and the legacy session row survived.
+            sqlite.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            sqlite.query("SELECT title FROM sessions WHERE id='s1'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("S", it.getString(0))
+            }
+        } finally {
+            storage.database.close()
+        }
+    }
+
+    @Test
+    fun v17ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v17-export.db", 17)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -406,7 +483,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v16 schema must match the exported v16 schema",
+                "code-built v17 schema must match the exported v17 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -440,7 +517,7 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 16) —
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 17) —
         // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
         // including the room_master_table identity update). The assertions below verify the
         // 1 -> 2 step specifically; the chain also proves every later migration step applies.
@@ -463,6 +540,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_13_14,
                     HelixDatabase.MIGRATION_14_15,
                     HelixDatabase.MIGRATION_15_16,
+                    HelixDatabase.MIGRATION_16_17,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -916,6 +994,12 @@ class RoomMigrationFixtureTest {
         assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
         assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
         assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
+        // The 16 -> 17 step landed (HXA-200, ADR-0052): the live schema carries the user
+        // tool-approval-preference table — empty on upgrade, no seeded ALLOW rows.
+        assertTrue(
+            "v17 upgrade must add tool_approval_preferences",
+            "tool_approval_preferences" in tables(sqlite),
+        )
     }
 
     private fun schemaFacts(sqlite: SupportSQLiteDatabase): SchemaFacts {
@@ -1027,6 +1111,10 @@ class RoomMigrationFixtureTest {
             "a2a_agents",
             "a2a_capabilities",
             "a2a_tasks",
+            // HXA-200 (v16 -> v17, ADR-0052): the user tool-approval-preference table landed in
+            // the live schema. Added here (not in any earlier export) so the export/code drift
+            // guard sees it; a new table added to the schema but not to this set turns this red.
+            "tool_approval_preferences",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {
