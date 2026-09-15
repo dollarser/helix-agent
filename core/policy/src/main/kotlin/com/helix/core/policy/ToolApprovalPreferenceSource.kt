@@ -15,6 +15,13 @@ package com.helix.core.policy
  */
 fun interface ToolApprovalPreferenceSource {
     /**
+     * Serializes the final preference read and execution-start commitment with preference writes.
+     * Mutable implementations must use this same monitor for every write. The action must not
+     * wait for approval or run an executor: it only checks live restrictions and commits start.
+     */
+    fun <T> withExecutionStart(action: () -> T): T = synchronized(this) { action() }
+
+    /**
      * The collapsed effective preference for [toolName] from source [sourceRef] in the context
      * ([sessionId], [workspaceRef]), with the provenance that produced it
      * ([ToolApprovalResolver.effectivePreference]).

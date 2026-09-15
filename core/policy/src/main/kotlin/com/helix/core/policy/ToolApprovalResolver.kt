@@ -243,7 +243,7 @@ object ToolApprovalResolver {
      *    ASK never carries a contract binding, so it always stays live (point 6).
      * 2. A live DENY in any applicable scope is authoritative: a narrower ALLOW (or ASK) cannot
      *    override an outer DENY (point 5).
-     * 3. Otherwise the narrowest present scope wins: SESSION over WORKSPACE over GLOBAL (point 5).
+     * 3. A live ASK in any applicable scope wins over ALLOW (point 5).
      * 4. When NO record is live but a stored ALLOW was dropped by step 1, the result is an
      *    effective ASK tagged [ToolApprovalReason.ALLOW_INVALIDATED] — distinct from a fresh
      *    [EffectiveToolPreference.Unset], so the runtime says "your ALLOW no longer applies"
@@ -275,10 +275,11 @@ object ToolApprovalResolver {
             return EffectiveToolPreference.Deny
         }
         val narrowest =
-            live.firstOrNull { it.scope == ToolApprovalPreferenceScope.SESSION }
+            live.firstOrNull { it.preference == ToolApprovalPreference.ASK }
+                ?: live.firstOrNull { it.scope == ToolApprovalPreferenceScope.SESSION }
                 ?: live.firstOrNull { it.scope == ToolApprovalPreferenceScope.WORKSPACE }
                 ?: live.firstOrNull { it.scope == ToolApprovalPreferenceScope.GLOBAL }
-        // The narrowest live scope wins (point 5); else a stored ALLOW a contract change dropped
+        // ASK wins over every applicable ALLOW (point 5); else a stored ALLOW a contract change dropped
         // falls back to an ASK tagged so the reason is preserved (point 6); else nothing was set.
         val narrowestEffective: EffectiveToolPreference? =
             narrowest?.let {

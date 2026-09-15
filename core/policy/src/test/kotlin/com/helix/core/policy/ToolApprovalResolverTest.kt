@@ -139,24 +139,18 @@ class ToolApprovalResolverTest {
         assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(EffectiveToolPreference.Unset))
     }
 
-    // Scope-merge (point 5) for the ASK/ALLOW axis: effectivePreference collapses the stored
-    // records for one tool into the single effective preference. DENY is the only
-    // cross-scope-authoritative state; for ASK vs ALLOW the narrowest present scope wins. HXA-200
-    // Gap 1's load-bearing case is a GLOBAL ASK with a NARROWER session ALLOW: the session ALLOW
-    // preempts the global ASK (card-free), the opposite of the DENY case above where the outer
-    // DENY is authoritative.
-
+    // Applicable restrictions compose as DENY > ASK > ALLOW.
     @Test
-    fun aNarrowerSessionAllowOverridesAGlobalAsk() {
-        // A standing GLOBAL ASK plus a NARROWER, still-live session ALLOW (matching contract): the
-        // narrowest scope wins, so the effective preference is Allow (not the global ASK). This is
-        // exactly "全局 ASK + 窄 scope ALLOW" — it resolves card-free, not to a card.
+    fun aGlobalAskRestrictsANarrowerSessionAllow() {
         val records =
             listOf(
                 ToolApprovalPreferenceRecord(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.GLOBAL, null),
                 ToolApprovalPreferenceRecord(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.SESSION, "c1"),
             )
-        assertEquals(EffectiveToolPreference.Allow, ToolApprovalResolver.effectivePreference(records, "c1"))
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT),
+            ToolApprovalResolver.effectivePreference(records, "c1"),
+        )
     }
 
     @Test

@@ -1,12 +1,9 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.A2aAgentId
 import com.helix.core.model.AgentMode
-import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
-import com.helix.core.model.McpServerId
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
@@ -22,15 +19,10 @@ import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.NetworkOriginScope
 import com.helix.core.policy.PolicyDecision
 import com.helix.core.policy.PolicyEngine
-import com.helix.core.policy.PolicyInput
 import com.helix.core.policy.ToolApprovalBlockCode
 import com.helix.core.policy.ToolApprovalPreferenceSource
-import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.ToolApprovalResolution
-import com.helix.core.policy.ToolApprovalResolver
-import com.helix.core.policy.ToolCallSource
 import com.helix.core.policy.UserScope
-import com.helix.core.policy.WorkspaceScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
@@ -369,7 +361,7 @@ class ToolDispatcher(
         val evaluation = capabilityCenter.evaluate(descriptor.requiredCapabilities)
         val policy =
             policyEngine.evaluate(
-                buildInput(request, descriptor, evaluation.missing.toSet()),
+                buildDispatchPolicyInput(request, descriptor, evaluation.missing.toSet()),
                 ruleProvider(),
             )
         ctx.policyDecidedAt = clock.now().toEpochMilli()
@@ -381,7 +373,7 @@ class ToolDispatcher(
         // it never expands capability, scope or a high-risk approval, and a policy denial always
         // wins (points 2 and 4). With no preference seam wired the decision maps 1:1 to its
         // historical outcome, so pre-feature callers behave exactly as before.
-        val resolution = resolutionFor(request, descriptor, policy.decision, preferenceSource)
+        val resolution = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
         return when (resolution) {
             is ToolApprovalResolution.Blocked -> {
                 val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
@@ -438,53 +430,6 @@ class ToolDispatcher(
             }
         }
     }
-
-    /**
-     * HXA-200 (ADR-0052 point 7): fold the live preference into the policy decision. When no
-     * preference seam is wired (`source == null` — the framework default for every caller that
-     * predates the feature), the policy decision maps 1:1 to its historical outcome so nothing
-     * changes for them: an Allow proceeds card-free, a denial stays a policy denial, and
-     * RequiresApproval still presents a card. Once a source IS wired, the ONE shared
-     * [ToolApprovalResolver] applies the live preference: an unset tool keeps its original policy
-     * handling (card-free for an in-scope low-risk Allow), an explicit ASK — or an ALLOW a contract
-     * change invalidated — forces a card, and a DENY blocks (point 1, as clarified 2026-09-14).
-     */
-    private fun resolutionFor(
-        request: ToolDispatchRequest,
-        descriptor: ToolDescriptor,
-        decision: PolicyDecision,
-        source: ToolApprovalPreferenceSource?,
-    ): ToolApprovalResolution =
-        if (source == null) {
-            when (decision) {
-                is PolicyDecision.Deny -> {
-                    ToolApprovalResolution.Blocked(
-                        ToolApprovalBlockCode.POLICY_DENIED,
-                        decision.detail,
-                        ToolApprovalReason.POLICY,
-                    )
-                }
-
-                PolicyDecision.Allow -> {
-                    ToolApprovalResolution.AutoProceed(reason = ToolApprovalReason.UNSET)
-                }
-
-                is PolicyDecision.RequiresApproval -> {
-                    ToolApprovalResolution.RequiresCard(detail = decision.detail, reason = ToolApprovalReason.POLICY)
-                }
-            }
-        } else {
-            ToolApprovalResolver.resolve(
-                source.effectiveFor(
-                    sourceRef = descriptor.origin.canonicalOf(),
-                    toolName = descriptor.name.value,
-                    contractHash = descriptor.contractHash.hex,
-                    sessionId = request.sessionId,
-                    workspaceRef = (request.scope as? WorkspaceScope)?.workspaceId,
-                ),
-                decision,
-            )
-        }
 
     /** Clears the same-turn denial set for [turnId] (the agent loop calls this at turn end). */
     fun endTurn(turnId: String) {
@@ -669,14 +614,7 @@ class ToolDispatcher(
     ): ToolDispatchOutcome {
         val descriptor = ctx.descriptor ?: error("executeStage reached before validate")
         val executor = ctx.executor ?: error("executeStage reached before validate")
-        if (request.cancel.isCancelled()) {
-            return finish(request, startedAt, ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
-        }
-        val execStart = clock.now()
-        ctx.executionStartedAt = execStart.toEpochMilli()
-        if (proof != null) {
-            approvals.consume(proof)
-        }
+        val execStart = commitExecutionStart(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
         request.onExecutionStarting()
         val call = buildCall(request, descriptor, execStart)
         val result = deadlineRunner.executeWithinDeadline(executor, call)
@@ -708,13 +646,78 @@ class ToolDispatcher(
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
                     ctx.outputHash = bound.outputHash.hex
                     ctx.outputTruncated = bound.truncated
-                    finish(request, startedAt, ctx, ToolDispatchOutcome.Succeeded(bound), sourceOf(proof))
+                    finish(request, startedAt, ctx, ToolDispatchOutcome.Succeeded(bound), sourceOf(ctx.attemptProof))
                 } ?: finishStop(request, startedAt, ctx)
             }
 
             else -> {
                 finishExecutionFailure(request, startedAt, ctx, result)
             }
+        }
+    }
+
+    /** Approval waits and executor work stay outside the preference service's write monitor. */
+    private fun commitExecutionStart(
+        request: ToolDispatchRequest,
+        initialProof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): Instant? {
+        var proof = initialProof
+        val descriptor = ctx.descriptor ?: error("missing descriptor")
+        while (ctx.stopped == null) {
+            val attempt: () -> Instant? = {
+                if (request.cancel.isCancelled()) {
+                    stopped(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
+                } else if (preferenceSource != null && !mayStart(request, descriptor, proof, ctx)) {
+                    null
+                } else {
+                    proof?.let { approvals.consume(it) }
+                    clock.now().also { ctx.executionStartedAt = it.toEpochMilli() }
+                }
+            }
+            val started = if (preferenceSource == null) attempt() else preferenceSource.withExecutionStart(attempt)
+            if (started != null || ctx.stopped != null) return started
+            // A new ASK arrived after the first evaluation. Acquire outside the monitor, then
+            // recheck again. An existing exact proof satisfies ASK without a second card.
+            proof = policyStage(request, descriptor, ctx, proof)
+        }
+        return null
+    }
+
+    private fun mayStart(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+        proof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): Boolean {
+        if (orNull { registry.resolve(request.toolName, request.toolVersion) } != descriptor) {
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(DispatchOutcomeCode.UNKNOWN_TOOL, "tool contract changed before start"),
+                DecisionSource.FRAMEWORK,
+            )
+            return false
+        }
+        val capabilities = capabilityCenter.evaluate(descriptor.requiredCapabilities)
+        val policy =
+            policyEngine.evaluate(
+                buildDispatchPolicyInput(request, descriptor, capabilities.missing.toSet()),
+                ruleProvider(),
+            )
+        val resolution = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        return if (resolution is ToolApprovalResolution.Blocked) {
+            val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(
+                    if (policyDenied) DispatchOutcomeCode.POLICY_DENIED else DispatchOutcomeCode.PREFERENCE_DENIED,
+                    resolution.detail,
+                ),
+                if (policyDenied) DecisionSource.POLICY else DecisionSource.USER,
+            )
+            false
+        } else {
+            resolution !is ToolApprovalResolution.RequiresCard || proof != null
         }
     }
 
@@ -890,37 +893,6 @@ class ToolDispatcher(
         )
         return outcome
     }
-
-    private fun buildInput(
-        request: ToolDispatchRequest,
-        descriptor: ToolDescriptor,
-        missingCapabilities: Set<Capability>,
-    ): PolicyInput =
-        PolicyInput(
-            baseRisk = descriptor.baseRisk,
-            operationClass = descriptor.operationClass,
-            mode = request.mode,
-            chatToolsEnabled = request.chatToolsEnabled,
-            profile = request.profile,
-            source = toolCallSourceOf(descriptor),
-            executionTarget = request.executionTarget,
-            dataOrigin = request.dataOrigin,
-            scope = request.scope,
-            overwritesExisting = request.overwritesExisting,
-            codeOrCommandChanged = request.codeOrCommandChanged,
-            sourceBindingChanged = request.sourceBindingChanged,
-            missingCapabilities = missingCapabilities,
-            egress = request.egress,
-            originSeenInSession = request.originSeenInSession,
-            lanScopes = request.lanScopes,
-        )
-
-    private fun toolCallSourceOf(descriptor: ToolDescriptor): ToolCallSource =
-        when (val origin = descriptor.origin) {
-            ToolOrigin.BuiltInOrigin -> ToolCallSource.BuiltIn
-            is ToolOrigin.McpOrigin -> ToolCallSource.Mcp(McpServerId(origin.serverId), origin.sourceSchemaHash)
-            is ToolOrigin.A2aOrigin -> ToolCallSource.A2a(A2aAgentId(origin.agentId), origin.cardHash, origin.skillHash)
-        }
 
     /** The approval binding: registry contract facts + trusted request facts; args hashed canonically. */
     private fun buildBinding(

@@ -9,7 +9,7 @@ import org.junit.Test
  * HXA-200: [ToolApprovalResolver.effectivePreference] — the collapse of the stored per-scope
  * records (GLOBAL/WORKSPACE/SESSION) into the single effective preference the runtime applies.
  * Pins the ADR-0052 scope rules: DENY at any applicable scope is authoritative (a narrower ALLOW
- * cannot override it), otherwise the narrowest present scope wins, and — the 2026-09-14
+ * cannot override it), otherwise ASK wins over ALLOW, and — the 2026-09-14
  * clarification — a stored ALLOW that no longer matches the current contract hash becomes an
  * effective ASK tagged [ToolApprovalReason.ALLOW_INVALIDATED] (distinct from [EffectiveToolPreference.Unset],
  * which is produced only when nothing was ever stored).
@@ -77,7 +77,7 @@ class ToolApprovalPreferenceEffectiveTest {
     }
 
     @Test
-    fun `the most specific scope present wins`() {
+    fun `a workspace ask restricts a session allow`() {
         val effective =
             ToolApprovalResolver.effectivePreference(
                 listOf(
@@ -87,12 +87,12 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        // SESSION is present and narrowest, so it beats the WORKSPACE ASK and the GLOBAL ALLOW.
-        assertEquals(EffectiveToolPreference.Allow, effective)
+        // Applicable ASK remains a restriction even in a broader scope.
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
     }
 
     @Test
-    fun `a workspace allow wins over a global ask but a session ask still wins over it`() {
+    fun `a global ask restricts a workspace allow`() {
         val effective =
             ToolApprovalResolver.effectivePreference(
                 listOf(
@@ -101,7 +101,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        assertEquals(EffectiveToolPreference.Allow, effective)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
     }
 
     @Test

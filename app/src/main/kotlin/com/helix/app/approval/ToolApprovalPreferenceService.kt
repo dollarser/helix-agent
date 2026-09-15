@@ -38,6 +38,7 @@ class ToolApprovalPreferenceService(
     private val baselineRepository: ToolRegistrationBaselineRepository,
     private val currentVersionCode: Long,
 ) : ToolApprovalPreferenceSource {
+    @Synchronized
     override fun effectiveFor(
         sourceRef: String,
         toolName: String,
@@ -76,6 +77,7 @@ class ToolApprovalPreferenceService(
      * introduced. The ONLY write path to the baseline — the app's trusted startup/upgrade path
      * calls it; the model/Skill/MCP/A2A/UI never do.
      */
+    @Synchronized
     fun reconcile(
         registeredIdentities: List<ToolBaselineIdentity>,
         nowEpoch: Long,
@@ -90,6 +92,7 @@ class ToolApprovalPreferenceService(
      * ALLOW at read time, so it would silently never take effect. We reject it at the write boundary
      * (fail closed) rather than persist a row that can never authorize a call.
      */
+    @Synchronized
     fun set(
         sourceRef: String,
         toolName: String,
@@ -106,6 +109,7 @@ class ToolApprovalPreferenceService(
     }
 
     /** Removes one tool's preference in one scope — a reset to the unset default, not a fourth state (point 5). */
+    @Synchronized
     fun remove(
         sourceRef: String,
         toolName: String,

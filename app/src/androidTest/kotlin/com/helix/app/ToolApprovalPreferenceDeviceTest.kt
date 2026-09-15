@@ -128,7 +128,10 @@ class ToolApprovalPreferenceDeviceTest {
             }
 
     /** A READ_ONLY L0 tool: in-scope under STANDARD it resolves to a policy Allow (card-free). */
-    private fun registerLowRiskTool(name: String): ToolDescriptor {
+    private fun registerLowRiskTool(
+        name: String,
+        onExecute: () -> Unit = {},
+    ): ToolDescriptor {
         val descriptor =
             ToolDescriptor(
                 name = ToolName(name),
@@ -149,8 +152,10 @@ class ToolApprovalPreferenceDeviceTest {
         container.toolPipeline.implementations.register(
             descriptor,
             object : ToolExecutor {
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult =
-                    ToolExecutorResult.Completed(buildJsonObject { put("ok", true) })
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    onExecute()
+                    return ToolExecutorResult.Completed(buildJsonObject { put("ok", true) })
+                }
             },
         )
         return descriptor
@@ -368,13 +373,8 @@ class ToolApprovalPreferenceDeviceTest {
     }
 
     @Test
-    fun aNarrowerSessionAllowOverridesAGlobalAskCardFree() {
-        // HXA-200 Gap 1 emphasis (全局 ASK + 窄 scope ALLOW), end to end on the PRODUCTION pipeline:
-        // a GLOBAL ASK (a standing "ask before this tool" restriction) plus a NARROWER session ALLOW
-        // that is still live (its contract matches). DENY is the only cross-scope-authoritative
-        // state; for ASK vs ALLOW the narrowest scope wins (point 5), so the session ALLOW preempts
-        // the global ASK and this in-scope L0 call proceeds CARD-FREE — the direct opposite of
-        // anOuterDenyIsNotOverriddenByANarrowerAllow.
+    fun aGlobalAskRestrictsANarrowerSessionAllow() {
+        // ADR-0052 point 5: the applicable outer ASK remains a restriction.
         val descriptor = registerLowRiskTool("apref.askallow.$run")
         val sourceRef = sourceRefOf(descriptor)
         val contractHash = descriptor.contractHash.hex
@@ -404,17 +404,55 @@ class ToolApprovalPreferenceDeviceTest {
                 sessionId,
                 null,
             )
-        assertEquals(EffectiveToolPreference.Allow, effective)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
         val callId = "apref-askallow-call-$run"
-        val outcome = dispatchOnThread(callId, "apref-askallow-turn-$run", descriptor.name.value).join()
-        assertTrue(
-            "a session ALLOW over a global ASK must proceed card-free: $outcome",
-            outcome is ToolDispatchOutcome.Succeeded,
+        val handle = dispatchOnThread(callId, "apref-askallow-turn-$run", descriptor.name.value)
+        val approvalId = approvalIdOf(callId)
+        container.chatService.denyApproval(approvalId)
+        val outcome = handle.join() as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, outcome.code)
+        assertEquals(1, container.storage.approvals.countByToolCall(callId))
+    }
+
+    @Test
+    fun denyingTheToolWhileApprovalIsPendingBlocksTheOldCard() {
+        val executions =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        val descriptor = registerLowRiskTool("apref.pendingdeny.$run") { executions.incrementAndGet() }
+        val source = sourceRefOf(descriptor)
+        val service = container.toolApprovalPreferenceService
+        service.set(
+            source,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ASK,
+            null,
+            System.currentTimeMillis(),
         )
+        val callId = "apref-pendingdeny-call-$run"
+        val handle = dispatchOnThread(callId, "apref-pendingdeny-turn-$run", descriptor.name.value)
+        val approvalId = approvalIdOf(callId)
+        service.set(
+            source,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.DENY,
+            null,
+            System.currentTimeMillis(),
+        )
+        container.chatService.approveApproval(approvalId)
+        val outcome = handle.join() as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, outcome.code)
+        assertEquals(0, executions.get())
         assertNull(
-            "no card may be published for a session-ALLOW-over-global-ASK call",
-            container.storage.approvals.byToolCall(callId),
+            container.storage.approvals
+                .byToolCall(callId)!!
+                .consumedAt,
         )
+        assertEquals(1, container.storage.approvals.countByToolCall(callId))
     }
 
     @Test

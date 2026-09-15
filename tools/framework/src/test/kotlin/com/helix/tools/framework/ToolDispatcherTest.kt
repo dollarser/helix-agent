@@ -1360,7 +1360,7 @@ class ToolDispatcherTest {
         val d = descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0)
         registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
         dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), scope = WorkspaceScope("ws-7")))
-        val call = source.calls.single()
+        val call = source.calls.first()
         assertEquals("built-in", call.sourceRef)
         assertEquals("fake", call.toolName)
         assertEquals(d.contractHash.hex, call.contractHash)
@@ -1369,27 +1369,69 @@ class ToolDispatcherTest {
     }
 
     @Test
-    fun aPreferenceFlipWhileTheCardIsPendingCannotRewriteThePresentedDecision() {
-        // While the card is pending, the user flips the tool's preference to DENY. The
-        // preference was read at dispatch start — the re-resolution happens BEFORE the
-        // call starts, never again mid-wait (ADR-0052 point 7) — so the presented card's
-        // explicit per-call decision governs. The source is read exactly once.
+    fun aDenyWhileTheCardIsPendingBlocksTheApprovedCallBeforeConsumption() {
         val source = ScriptedPreferenceSource(ToolApprovalPreference.ASK)
         dispatcher = dispatcherWithPreference(source)
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         broker.acquireHook = { source.preference = ToolApprovalPreference.DENY }
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            executor,
+        )
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, (outcome as ToolDispatchOutcome.Denied).code)
+        assertEquals(2, source.calls.size)
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals(0, broker.consumeCalls.size)
+        assertEquals(0, executor.calls.size)
+        assertNull(sink.events.single().executionStartedAt)
+    }
+
+    @Test
+    fun aNewAskAtTheStartGateAcquiresOneProofOutsideTheGate() {
+        var reads = 0
+        val source =
+            ToolApprovalPreferenceSource { _, _, _, _, _ ->
+                reads++
+                if (reads == 1) {
+                    EffectiveToolPreference.Allow
+                } else {
+                    EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
+                }
+            }
+        dispatcher = dispatcherWithPreference(source)
+        broker.acquireHook = {
+            assertFalse("approval must not hold the start gate", Thread.holdsLock(source))
+        }
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        val executor =
+            CaptureExecutor {
+                assertFalse("execution must not hold the start gate", Thread.holdsLock(source))
+                ToolExecutorResult.Completed(emptyObject())
+            }
+        registerTool(descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0), executor)
+        assertTrue(dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs())) is ToolDispatchOutcome.Succeeded)
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals(1, broker.consumeCalls.size)
+        assertEquals(1, executor.calls.size)
+        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
+    }
+
+    @Test
+    fun aDenyAfterStartDoesNotCancelTheStartedCall() {
+        val source = ScriptedPreferenceSource(ToolApprovalPreference.ALLOW)
+        dispatcher = dispatcherWithPreference(source)
         registerTool(
             descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
         )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals(
-            "the preference is read once, before the card — never re-read while it is pending",
-            1,
-            source.calls.size,
-        )
-        assertEquals(1, broker.consumeCalls.size)
+        val request =
+            request(tool("fake"), version(1), emptyArgs()).copy(
+                onExecutionStarting = { source.preference = ToolApprovalPreference.DENY },
+            )
+        assertTrue(dispatcher.dispatch(request) is ToolDispatchOutcome.Succeeded)
+        assertEquals(0, broker.acquireCalls.size)
     }
 
     // ---------------------------------------------------------------------- helpers
@@ -1460,7 +1502,7 @@ class ToolDispatcherTest {
     /**
      * A preference source that records the identity/scope it was asked about, then returns
      * [preference]. [preference] is mutable so a test can flip it mid-wait (the dispatcher
-     * must not re-read it).
+     * must re-read it before committing execution).
      */
     private class ScriptedPreferenceSource(
         @Volatile var preference: ToolApprovalPreference?,

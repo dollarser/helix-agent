@@ -172,6 +172,52 @@ class ToolApprovalPreferenceServiceTest {
     }
 
     @Test
+    fun preferenceWritesSerializeWithExecutionStart() {
+        val service = service()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(1)
+        val writer =
+            Thread {
+                entered.countDown()
+                service.set(
+                    "builtin",
+                    "time.now",
+                    ToolApprovalPreferenceScope.GLOBAL,
+                    "",
+                    ToolApprovalPreference.DENY,
+                    null,
+                    1000L,
+                )
+                done.countDown()
+            }
+        try {
+            service.withExecutionStart {
+                writer.start()
+                org.junit.Assert.assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                val deadline =
+                    System.nanoTime() +
+                        java.util.concurrent.TimeUnit.SECONDS
+                            .toNanos(5)
+                while (writer.state != Thread.State.BLOCKED && System.nanoTime() < deadline) Thread.yield()
+                assertEquals(Thread.State.BLOCKED, writer.state)
+                assertEquals(
+                    EffectiveToolPreference.Unset,
+                    service.effectiveFor("builtin", "time.now", "h1", "s1", null),
+                )
+            }
+            org.junit.Assert.assertTrue(done.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            service.withExecutionStart {
+                assertEquals(
+                    EffectiveToolPreference.Deny,
+                    service.effectiveFor("builtin", "time.now", "h1", "s1", null),
+                )
+            }
+        } finally {
+            writer.join(5000)
+        }
+    }
+
+    @Test
     fun anAllowWithoutAContractHashFailsClosed() {
         // An ALLOW is bound to the contract it was granted for (point 6). A contract-less ALLOW could
         // never take effect (the resolver drops it at read time), so the write path rejects it instead
