@@ -113,7 +113,9 @@ class GoalProcessKillDeviceTest {
         val report = RecoveryCoordinatorApp(storage, clock(wallTime)).recover()
         assertEquals(1, report.closedRuns.size)
         val goal = storage.goals.resolve(goalId)
-        assertEquals("PAUSED", goal.state)
+        // ADR-0039 (193de8e9): the runs==2 recovery has exhausted maxWakeDurationMillis, which
+        // BLOCKS the goal; a plain process kill with budget headroom (runs==1) stays PAUSED.
+        assertEquals(if (runs == 2) "BLOCKED" else "PAUSED", goal.state)
         assertEquals(runs * 5_000L, goal.runTimeMillis)
         assertEquals(runs * 100L, goal.totalTokens)
         assertEquals(runs, goal.modelCalls)

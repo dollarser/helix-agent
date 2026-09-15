@@ -53,6 +53,9 @@ class ShareDraftUiDeviceTest {
             // session offers the explicit bind affordance (no provider was auto-assigned).
             rule.waitUntil(15_000) { rule.onAllNodesWithTag("chat-input").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("chat-input").assertTextContains(shared)
+            // 193de8e9: the unbound-provider bind affordance moved into the conversation
+            // details dialog (collapsed header by default) — open it before looking for it.
+            rule.onNodeWithTag("chat-conversation-details").performClick()
             rule.waitUntil(
                 15_000,
             ) { rule.onAllNodesWithTag("chat-unbound-provider").fetchSemanticsNodes().isNotEmpty() }
@@ -98,6 +101,8 @@ class ShareDraftUiDeviceTest {
                 (inputText as? List<*>).orEmpty().any { it.toString().contains("输入消息…") },
             )
             // …the session is provider-free (the user must explicitly bind before any send)…
+            // (193de8e9: the bind affordance lives in the conversation details dialog.)
+            rule.onNodeWithTag("chat-conversation-details").performClick()
             rule.waitUntil(
                 15_000,
             ) { rule.onAllNodesWithTag("chat-unbound-provider").fetchSemanticsNodes().isNotEmpty() }

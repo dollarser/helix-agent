@@ -90,6 +90,7 @@ class ConversationComposerDeviceTest {
     }
 
     @Test fun englishGoalActionsHaveRoomAtDoubleFontSize() {
+        val input = mutableStateOf("")
         compose.setContent {
             val context = LocalContext.current
             val config = Configuration(LocalConfiguration.current).apply { setLocale(Locale.ENGLISH) }
@@ -100,7 +101,14 @@ class ConversationComposerDeviceTest {
             ) {
                 MaterialTheme {
                     Column(Modifier.width(320.dp)) {
-                        ConversationComposer("", {}, false, false, ComposerActions({}, {}, {}, {}), goalMode = true)
+                        ConversationComposer(
+                            input.value,
+                            { input.value = it },
+                            false,
+                            false,
+                            ComposerActions({}, {}, {}, {}),
+                            goalMode = true,
+                        )
                     }
                 }
             }
@@ -108,6 +116,9 @@ class ConversationComposerDeviceTest {
         assertFits("chat-input", "chat-attach", "chat-voice", "chat-send")
         val attach = compose.onNodeWithTag("chat-attach").getUnclippedBoundsInRoot()
         assertTrue("Attachment label should fit one line", attach.bottom - attach.top < 72.dp)
+        // Send is only enabled with non-blank input (3d6a2b57); type one char so the
+        // goal-mode send button is enabled and measurable.
+        compose.onNodeWithTag("chat-input").performTextInput("x")
         compose.onNodeWithTag("chat-send").assertIsEnabled()
     }
 
@@ -177,7 +188,9 @@ class ConversationComposerDeviceTest {
         val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
         val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
         assertTrue(model.right <= reasoning.left)
-        assertEquals("Options remain on the same row", model.top, reasoning.top)
+        // Tolerate a 1dp delta: the menus' CJK/Latin labels can differ in line height.
+        val rowDelta = model.top - reasoning.top
+        assertTrue("Options remain on the same row", rowDelta >= -1.dp && rowDelta <= 1.dp)
         compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
         compose.onNodeWithTag("chat-mode-menu").performScrollTo().assertIsDisplayed()
         assertEquals(modeBefore.top, compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot().top)

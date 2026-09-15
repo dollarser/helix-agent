@@ -65,6 +65,15 @@ internal class ChatToolCalls(
         pendingApprovals.forTurn(turnId).forEach { toolPipeline.broker.cancel(it) }
     }
 
+    /**
+     * The session-scoped stop cancel: every pending card owned by a turn of [sessionId].
+     * A turn that was never admitted (the direct per-call entry) has no turn-level stop
+     * that can reach its blocked wait — the session's stop is its only cancel path.
+     */
+    fun cancelPendingApprovalsOnSession(sessionId: String) {
+        pendingApprovals.forSession(sessionId).forEach { toolPipeline.broker.cancel(it) }
+    }
+
     fun finishTurn(turnId: String) {
         dispatchFacts.values.removeIf { it.turnId == turnId }
         pendingApprovals.finishTurn(turnId)
@@ -155,7 +164,7 @@ internal class ChatToolCalls(
                 confirmationDetail = request.confirmationDetail,
                 terminalDetail = null,
             )
-        pendingApprovals.register(approvalId, facts.turnId)
+        pendingApprovals.register(approvalId, facts.turnId, facts.sessionId)
         storage.toolCalls
             .byTurnAndCallId(facts.turnId, callId)
             ?.let { row -> storage.toolCalls.updateState(row, ToolCallState.AWAITING_APPROVAL) }
@@ -201,6 +210,9 @@ internal class ChatToolCalls(
         val profile: SafetyProfile,
         val dataOrigin: DataOrigin,
         val turnId: String,
+        /** The turn's session: stop's session-scoped pending-cancel needs it in memory (the
+         *  card sink never re-reads storage from the UI thread). */
+        val sessionId: String,
         /** The call's egress facet (null when the call does not egress) — the card shows
          * origin / residence / data category from these trusted facts. */
         val egress: com.helix.core.policy.EgressRequest? = null,
@@ -331,6 +343,22 @@ internal class ChatToolCalls(
             )
         }
 
+    private fun appendPendingToolRow(
+        turnId: String,
+        toolCallId: String,
+        toolNameRaw: String,
+        canonical: String,
+        descriptor: ToolDescriptor?,
+    ) = storage.toolCalls.append(
+        id = toolCallId,
+        turnId = turnId,
+        callId = toolCallId,
+        name = toolNameRaw,
+        version = descriptor?.version?.value?.toString() ?: "0",
+        argsJson = canonical,
+        state = ToolCallState.PENDING.name,
+    )
+
     private fun prepareAdmittedToolCall(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
@@ -350,16 +378,7 @@ internal class ChatToolCalls(
         val validName = toolName!!
         val validArgs = args!!
         val canonical = CanonicalArgs.canonicalize(validArgs)
-        val row =
-            storage.toolCalls.append(
-                id = toolCallId,
-                turnId = turnId,
-                callId = toolCallId,
-                name = toolNameRaw,
-                version = descriptor?.version?.value?.toString() ?: "0",
-                argsJson = canonical,
-                state = ToolCallState.PENDING.name,
-            )
+        val row = appendPendingToolRow(turnId, toolCallId, toolNameRaw, canonical, descriptor)
         // The card facts: profile at REQUEST time (the consumer profile is STANDARD-pinned;
         // a later switch must not change a pending card — the card renders these trusted
         // facts, never the live store).
@@ -397,7 +416,15 @@ internal class ChatToolCalls(
                     )
                 })
         dispatchFacts[toolCallId] =
-            DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
+            DispatchFacts(
+                descriptor,
+                validArgs,
+                profile,
+                DataOrigin.WORKSPACE,
+                turnId,
+                sessionId = turn.sessionId,
+                egress = request.egress,
+            )
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
     }
 

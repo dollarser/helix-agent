@@ -67,8 +67,36 @@ class ProviderConnectionCheckTest {
             assertEquals(1, provider.generations)
         }
 
+    @Test fun reasoningOnlyStreamPassesTheConnectionPhase() =
+        runBlocking {
+            // Thinking-mode backends can spend the whole 16-token budget on reasoning
+            // (finish_reason=length, zero visible text): that stream still proves the
+            // connection generates (HXA-059 SGLang smoke).
+            val provider =
+                Fixture(
+                    null,
+                    listOf(
+                        ModelEvent.ReasoningDelta("thinking"),
+                        ModelEvent.Completed("length"),
+                    ),
+                )
+            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Ok
+            assertEquals(listOf(config.model), result.models)
+            assertEquals(1, provider.generations)
+        }
+
+    @Test fun outputFreeStreamFailsTheProtocolPhase() =
+        runBlocking {
+            val provider = Fixture(null, listOf(ModelEvent.Completed("stop")))
+            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            assertEquals(ModelErrorCode.PROTOCOL, result.code)
+            assertEquals(3, result.phase)
+            assertEquals(1, provider.generations)
+        }
+
     private inner class Fixture(
         private val account: ModelCatalogResult?,
+        private val streamEvents: List<ModelEvent> = listOf(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)),
     ) : ModelProvider,
         SubscriptionConnectionProvider {
         var generations = 0
@@ -86,7 +114,7 @@ class ProviderConnectionCheckTest {
         override suspend fun validateConfiguration(): ProviderCheckResult = error("not used")
 
         override fun stream(request: ModelRequest) =
-            flowOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)).also {
+            flowOf(*streamEvents.toTypedArray()).also {
                 generations++
             }
     }

@@ -34,7 +34,11 @@ internal class CodexModelCatalog(
                 .build()
         return try {
             var result = execute(client)
-            if (result is CliModelCatalog.Failed && result.code == ModelErrorCode.AUTH) {
+            // A logged-out vault must stay a terminal AUTH state: refreshing without a stored
+            // session throws from vault.load and the catch below would misclassify it PROTOCOL.
+            if (result is CliModelCatalog.Failed && result.code == ModelErrorCode.AUTH &&
+                vault.contains(CliSubscriptionProvider.CODEX)
+            ) {
                 oauth.refresh()
                 result = execute(client)
             }

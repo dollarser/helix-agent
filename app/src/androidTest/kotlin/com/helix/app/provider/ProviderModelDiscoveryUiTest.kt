@@ -19,6 +19,7 @@ import com.helix.app.MainActivity
 import com.helix.app.ui.container
 import com.helix.app.ui.deleteEditableProviders
 import com.helix.app.ui.editableProviderTag
+import com.helix.app.ui.editableProviderText
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import org.junit.After
@@ -179,8 +180,10 @@ class ProviderModelDiscoveryUiTest {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("失败阶段：模型列表", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("认证失败（key 缺失或无效）", substring = true).assertIsDisplayed()
+        // Scoped to the row under test: retained runtime-managed fixture rows keep their own
+        // probe state (e.g. an account-gated AUTH failure) and must not make these ambiguous.
+        composeRule.onNode(editableProviderText("失败阶段：模型列表")).assertIsDisplayed()
+        composeRule.onNode(editableProviderText("认证或访问权限被服务端拒绝")).assertIsDisplayed()
         composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty()
         composeRule.onAllNodes(editableProviderTag("provider-models-unsupported")).fetchSemanticsNodes().isEmpty()
 

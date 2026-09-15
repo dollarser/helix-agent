@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.internal.PrefsLineStore
+import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.ProbeOutcome
@@ -98,7 +99,24 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     ),
                 )
                 val probe = container.providerService.runConnectionTest(providerId)
-                assertTrue(probe is ProbeOutcome.Ok)
+                if (probe !is ProbeOutcome.Ok) {
+                    // Codex's catalog probe is account-gated: without a logged-in Codex account
+                    // it deterministically fails with AUTH (no account traffic is sent) and the
+                    // chat gate keeps the provider unselectable — the account-required chat
+                    // contract is covered by the opt-in
+                    // CodexSubscriptionProviderRealAccountDeviceTest.
+                    val failure = probe as ProbeOutcome.Failed
+                    assertEquals(
+                        "account-gated codex probe must fail AUTH without credentials, was: $probe",
+                        ModelErrorCode.AUTH,
+                        failure.code,
+                    )
+                    assertFalse(
+                        "account-gated provider must stay unselectable",
+                        container.providerService.chatSelectable(providerId),
+                    )
+                    return@runBlocking
+                }
                 val row =
                     container.providerService.rows.value
                         .single { it.id == providerId }
@@ -112,20 +130,30 @@ class CodexSubscriptionProviderE2eDeviceTest {
 
                 SubscriptionProviderContractCheck.verify(container, row.id, row.model)
             } finally {
-                repository.overwrite(
-                    ProviderConfigSpec(
-                        original.id,
-                        original.displayName,
-                        ProviderProtocol.parse(original.protocol),
-                        original.endpoint,
-                        original.model,
-                        original.headersJson,
-                        original.secretAlias,
-                        original.capabilitySnapshot,
-                    ),
-                )
-                ProviderTestStatusStore(PrefsLineStore(app, "helix-ui")).clear(providerId)
+                restoreConfig(repository, original)
+                // Synchronous commit(): if this class ends the suite, the last async apply()
+                // would be lost at process exit and the next run would inherit the probe result.
+                ProviderTestStatusStore(PrefsLineStore(app, "helix-ui", synchronous = true)).clear(providerId)
                 container.providerService.refresh()
             }
         }
+
+    /** Puts the provider spec back the way the test found it. */
+    private fun restoreConfig(
+        repository: com.helix.core.storage.repository.ProviderConfigRepository,
+        original: com.helix.core.storage.entity.ProviderConfigEntity,
+    ) {
+        repository.overwrite(
+            ProviderConfigSpec(
+                original.id,
+                original.displayName,
+                ProviderProtocol.parse(original.protocol),
+                original.endpoint,
+                original.model,
+                original.headersJson,
+                original.secretAlias,
+                original.capabilitySnapshot,
+            ),
+        )
+    }
 }

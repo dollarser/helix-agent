@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The developer CLI-runtime device tests look up the companion runtime packages by
+         name; on API 30+ the instrumentation (test package) uid sees a package only when
+         this manifest declares it, so the lookup degrades to NOT_INSTALLED without these. -->
+    <queries>
+        <package android:name="com.helix.runtime.cli" />
+        <package android:name="com.helix.runtime.proot" />
+    </queries>
+
     <application>
         <!-- HXA-058: the document fixtures for the file-manager import/export device tests.
              exported=true is REQUIRED and safe here: the app module's instrumentation runs in

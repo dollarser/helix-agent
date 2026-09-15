@@ -82,9 +82,11 @@ class ProviderFlowTest {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("失败阶段：网络与认证", substring = true).assertIsDisplayed()
+        // Scoped to the row under test: retained runtime-managed fixture rows keep their own
+        // probe state (e.g. an account-gated AUTH failure) and must not make these ambiguous.
+        composeRule.onNode(editableProviderText("失败阶段：网络与认证")).assertIsDisplayed()
         // The safe code label is shown (doc 02 section 13: never raw exceptions).
-        composeRule.onNodeWithText("网络/TLS 连接失败", substring = true).assertIsDisplayed()
+        composeRule.onNode(editableProviderText("网络/TLS 连接失败")).assertIsDisplayed()
 
         // --- a FAILED provider is still not chat-selectable (only Passed is) ---
         composeRule.navigateTo("sessions")

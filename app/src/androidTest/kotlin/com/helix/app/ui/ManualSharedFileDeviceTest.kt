@@ -15,6 +15,7 @@ import com.helix.app.files.SharedStorageAccess
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
@@ -28,7 +29,14 @@ class ManualSharedFileDeviceTest {
     fun userCanManageSharedFilesWithoutProviderAndDeleteRequiresConfirmation() {
         compose.resetDeterministicUiState()
         val context = compose.activity
-        assertTrue(SharedStorageAccess(context).isWritable())
+        // Device-state fixture: the journey needs a writable shared storage — runtime
+        // read+write on API < 30, the all-files grant on 30+ (a fresh install has NEITHER,
+        // so a denied-state run skips instead of failing; the granted state is covered by
+        // a run with the permission granted).
+        assumeTrue(
+            "shared storage must be writable (grant READ/WRITE_EXTERNAL_STORAGE or the all-files appops)",
+            SharedStorageAccess(context).isWritable(),
+        )
         val name = "helix-manual-${UUID.randomUUID()}"
 
         @Suppress("DEPRECATION")

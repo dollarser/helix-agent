@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
@@ -148,7 +149,10 @@ class AllFilesDeviceTest {
     fun consentScreenShowsLiveStateAndTheSettingsJumpWhenDenied() {
         composeRule.resetDeterministicUiState() // STANDARD profile + gate dismissed
         composeRule.navigateTo("permissions")
-
+        // 3d6a2b57: the All Files consent screen moved behind the 文件权限 entry on the
+        // system permissions screen.
+        composeRule.onNodeWithTag("permission-files").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithTag("screen-permissions-allfiles").assertIsDisplayed()
         // The honest explanation is always present — it never claims "the whole phone".
         composeRule.onNodeWithTag("allfiles-explanation").assertIsDisplayed()

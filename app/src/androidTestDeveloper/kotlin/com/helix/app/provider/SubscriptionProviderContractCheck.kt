@@ -1,10 +1,12 @@
 package com.helix.app.provider
 
 import com.helix.app.AppContainer
+import com.helix.core.model.AgentMode
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import kotlinx.coroutines.flow.toList
 import org.junit.Assert.assertEquals
@@ -30,17 +32,25 @@ internal object SubscriptionProviderContractCheck {
             events,
         )
 
-        val sessionId = container.chatService.createSession("subscription", providerId, model)
-        container.chatService.openSession(sessionId)
-        await("session opens") { container.chatService.screen.value.openSessionId == sessionId }
-        container.chatService.send("hello from chat")
+        // The production ChatService reads run control from the persisted "helix-ui" store, so
+        // a prior test class (e.g. the budget-exhaustion boundary test) can leave maxTotalTokens=1
+        // behind and this turn would never complete; pin the contract to a clean run control.
+        val chat = container.chatService
+        chat.setMode(AgentMode.CHAT)
+        chat.setChatToolsEnabled(false)
+        chat.setTurnBudgets(TurnBudgets(3, 2, 10000, 128, 10000))
+
+        val sessionId = chat.createSession("subscription", providerId, model)
+        chat.openSession(sessionId)
+        await("session opens") { chat.screen.value.openSessionId == sessionId }
+        chat.send("hello from chat")
         await("chat turn completes") {
-            container.chatService.screen.value.activeTurn
+            chat.screen.value.activeTurn
                 ?.state == TurnState.COMPLETED
         }
         assertEquals(
             "HELIX_OK",
-            container.chatService.screen.value.messages
+            chat.screen.value.messages
                 .last()
                 .content,
         )

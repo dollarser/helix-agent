@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.R
@@ -24,11 +25,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * HXA-036 approval card fixture: the full authorization summary renders every mandated
- * field (来源、目标、scope、参数、风险、Safety Profile、Provider/MCP ID、网络 origin、
- * 数据驻留、数据类别、规则有效期、代码/命令、预期影响、verifier) and the action surface is
- * EXACTLY the two buttons "本次批准" / "拒绝" — no "模型帮我批准", no "此后全部允许",
- * and a bounded Policy rule is labeled as such (never a general approval credential).
+ * HXA-036 approval card fixture: the card starts collapsed (scope/summary/risk preview) and
+ * the full authorization summary — every mandated field (来源、目标、scope、参数、风险、
+ * Safety Profile、Provider/MCP ID、网络 origin、数据驻留、数据类别、规则有效期、代码/命令、
+ * 预期影响、verifier) — renders behind the 展开详情 disclosure. The approval action surface is
+ * EXACTLY the two buttons "本次批准" / "拒绝" (the details toggle is navigation, not an action):
+ * no "模型帮我批准", no "此后全部允许", and a bounded Policy rule is labeled as such (never a
+ * general approval credential).
  */
 @RunWith(AndroidJUnit4::class)
 class ApprovalCardScreenTest {
@@ -84,6 +87,8 @@ class ApprovalCardScreenTest {
     fun cardShowsEveryMandatedField() {
         render()
         composeRule.onNodeWithTag("approval-card-approval-1").assertIsDisplayed()
+        // The mandated fields live behind the 展开详情 disclosure; expand it first.
+        composeRule.onNodeWithTag("approval-details-approval-1").performClick()
         // 来源 / 目标 / scope
         composeRule.onNodeWithText("来源：MCP 服务器：srv-7").assertIsDisplayed()
         composeRule.onNodeWithText("目标：本机（主应用进程）").assertIsDisplayed()
@@ -92,10 +97,10 @@ class ApprovalCardScreenTest {
         composeRule.onNodeWithText("参数：{\"command\":\"git pull --ff-only\"}").assertIsDisplayed()
         // 风险（dynamic uplift visible）
         composeRule.onNodeWithText("风险：L1（低风险） → 动态 L2（需逐次批准）").assertIsDisplayed()
-        // Safety Profile
-        composeRule.onNodeWithText("Safety Profile：Standard（默认）").assertIsDisplayed()
+        // Safety Profile (rendered under its zh label 权限配置, HXA-069 zh-pinned fixture)
+        composeRule.onNodeWithText("权限配置：Standard（默认）").assertIsDisplayed()
         // Provider/MCP ID
-        composeRule.onNodeWithText("Provider/MCP：srv-7").assertIsDisplayed()
+        composeRule.onNodeWithText("模型服务／MCP：srv-7").assertIsDisplayed()
         // 网络 origin + 数据驻留
         composeRule.onNodeWithText("网络 origin：https://api.example.com:443").assertIsDisplayed()
         composeRule.onNodeWithText("数据驻留：中国大陆").assertIsDisplayed()
@@ -127,13 +132,13 @@ class ApprovalCardScreenTest {
         // The exact labels, rendered from ApprovalCardUi.ACTIONS.
         composeRule.onNodeWithText("本次批准").assertIsDisplayed()
         composeRule.onNodeWithText("拒绝").assertIsDisplayed()
-        // No model-self-approval, no permanent allow: the ONLY clickable nodes in the
-        // whole composition are the two action buttons (the card is the only content).
+        // No model-self-approval, no permanent allow: the ONLY approval-action clickables are
+        // the two buttons (the 展开详情 toggle is navigation, excluded by tag).
         val clickable =
             composeRule
                 .onAllNodes(SemanticsMatcher("all") { true }, true)
                 .fetchSemanticsNodes()
-                .filter { node -> isClickable(node) }
+                .filter { node -> isApprovalAction(node) }
         assertEquals("exactly two clickable nodes (本次批准 / 拒绝)", 2, clickable.size)
         val clickableTexts = clickable.map { nodeText(it) }.toSet()
         assertEquals(setOf("本次批准", "拒绝"), clickableTexts)
@@ -173,12 +178,13 @@ class ApprovalCardScreenTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("approval-card-state-approval-1").assertIsDisplayed()
         composeRule.onNodeWithText("已拒绝：用户已拒绝本次动作").assertIsDisplayed()
-        // No action buttons in the terminal state.
+        // No action buttons in the terminal state; the only clickable left is the disclosure
+        // toggle, which is not an approval action.
         val clickable =
             composeRule
                 .onAllNodes(SemanticsMatcher("all") { true }, true)
                 .fetchSemanticsNodes()
-                .filter { node -> isClickable(node) }
+                .filter { node -> isApprovalAction(node) }
         assertEquals(0, clickable.size)
     }
 
@@ -193,4 +199,14 @@ class ApprovalCardScreenTest {
             node.children.joinToString("") { nodeText(it) }
 
     private fun isClickable(node: SemanticsNode): Boolean = node.config.contains(SemanticsActions.OnClick)
+
+    /** An approval action: clickable and not the 展开详情 disclosure toggle. */
+    private fun isApprovalAction(node: SemanticsNode): Boolean =
+        isClickable(node) && !nodeTag(node).orEmpty().startsWith("approval-details")
+
+    /** The node's test tag (TestTag is a single string); null when untagged. */
+    private fun nodeTag(node: SemanticsNode): String? =
+        node.config
+            .getOrElse(SemanticsProperties.TestTag) { "" }
+            .ifEmpty { null }
 }

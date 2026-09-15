@@ -8,9 +8,72 @@ import com.helix.app.diagnostics.ProcessDiagnostics
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
+import java.util.concurrent.CountDownLatch
 
 class HelixApplication : Application() {
-    val appContainer: AppContainer by lazy { DefaultAppContainer(this) }
+    private val containerInitLock = Any()
+    private var containerInstance: AppContainer? = null
+    private var containerInitError: Throwable? = null
+    private var containerInitScheduled = false
+    private val containerReady = CountDownLatch(1)
+
+    /**
+     * The app container. Construction performs blocking Room work (database open, the
+     * provider-registration writes), which must never run on the main thread: with a plain
+     * `by lazy`, a cold start let [MainActivity.onCreate]'s first access win the race
+     * against the recovery thread and initialize on main (Room ISE crash, device-verified
+     * in the browser activity-lifecycle test). The FIRST init therefore runs on a dedicated
+     * background thread started in [onCreate], and every access — including the main
+     * thread — blocks until it completes. In an isolated process (where [onCreate] does not
+     * schedule that thread) the legacy synchronous lazy behavior is preserved.
+     */
+    val appContainer: AppContainer
+        get() {
+            if (!ensureContainerInitialized()) {
+                containerReady.await()
+            }
+            val instance = containerInstance
+            if (instance != null) return instance
+            val failure = containerInitError
+            if (failure != null) throw failure
+            error("app container unavailable")
+        }
+
+    /**
+     * True when the container is initialized after this call (already set, or initialized
+     * synchronously in an isolated process); false when the process scheduled the background
+     * init and the caller must wait on [containerReady].
+     */
+    private fun ensureContainerInitialized(): Boolean {
+        containerInstance?.let { return true }
+        return synchronized(containerInitLock) {
+            containerInstance?.let { true } ?: if (containerInitScheduled) {
+                false
+            } else {
+                containerInitScheduled = true
+                initContainer()
+                true
+            }
+        }
+    }
+
+    /**
+     * The broad catch is intentional (suppressed below): the init runs on a background
+     * thread, so a construction failure — any persistence, validation or mapping error —
+     * must be recorded, not crash the process; the next [appContainer] read re-throws it,
+     * and [containerReady] always releases so a failed init can never leave a caller
+     * blocked.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun initContainer() {
+        try {
+            containerInstance = DefaultAppContainer(this)
+        } catch (t: Throwable) {
+            containerInitError = t
+        } finally {
+            containerReady.countDown()
+        }
+    }
 
     private lateinit var processDiagnostics: ProcessDiagnostics
 
@@ -54,6 +117,13 @@ class HelixApplication : Application() {
         // read host preferences/Room or start host diagnostics and recovery there.
         if (Process.isIsolated()) return
         processDiagnostics = ProcessDiagnostics.install(this)
+        // Pin the container's first (and only) init to a background thread: every other
+        // thread — main included — then blocks on the latch in the [appContainer] getter
+        // instead of risking a main-thread initialization (Room ISE on cold start).
+        synchronized(containerInitLock) {
+            containerInitScheduled = true
+        }
+        Thread(this::initContainer, CONTAINER_INIT_THREAD_NAME).start()
         Thread(
             {
                 try {
@@ -77,5 +147,6 @@ class HelixApplication : Application() {
     private companion object {
         const val TAG = "HelixRecovery"
         const val RECOVERY_THREAD_NAME = "helix-recovery"
+        const val CONTAINER_INIT_THREAD_NAME = "helix-container-init"
     }
 }

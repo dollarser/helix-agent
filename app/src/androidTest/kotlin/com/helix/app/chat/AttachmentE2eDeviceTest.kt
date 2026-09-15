@@ -408,7 +408,8 @@ class AttachmentE2eDeviceTest {
                     .single()
             val goal = fixture.storage.goals.resolve(goalId)
             assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
-            assertEquals("PAUSED", goal.state)
+            // ADR-0039 (193de8e9): budget exhaustion BLOCKS the goal (PAUSED was pre-refactor).
+            assertEquals("BLOCKED", goal.state)
             assertTrue(goal.runTimeMillis >= 2_000)
             assertEquals(1, goal.modelCalls)
             assertEquals(1, fixture.wire.callCount)
@@ -434,9 +435,13 @@ class AttachmentE2eDeviceTest {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
             fixture.service.setMode(com.helix.core.model.AgentMode.CHAT)
             fixture.service.setChatToolsEnabled(false)
+            // The total budget must be the binding constraint, not maxInputTokens: the first
+            // call's estimated input is ~122 tokens (483-byte system base.md + user "1234"), so
+            // maxInputTokens=100 would reject the call before any wire request. With a
+            // generous input cap, remaining = 141 - 122 = 19 and min(20, 19) bounds max_tokens.
             fixture.service.setTurnBudgets(
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 100, 20, 20),
+                    .TurnBudgets(2, 1, 512, 20, 141),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
             fixture.service.send("1234")
@@ -618,8 +623,7 @@ class AttachmentE2eDeviceTest {
             await(fixture, "the first image turn completes") { turnIsTerminal(fixture) }
             assertEquals(1, fixture.wire.callCount)
 
-            // A re-run connection test FAILED the vision probe: the stored snapshot is
-            // replaced (vision lost) — the same staged image must now be blocked.
+            // A re-run connection test FAILED the vision probe — mirror its persistence.
             val revoked =
                 ProviderCapabilities(
                     streaming = true,
@@ -631,18 +635,13 @@ class AttachmentE2eDeviceTest {
                     maxContextTokens = null,
                     source = CapabilitySource.PROBED,
                 )
-            fixture.storage.providerConfigs.overwrite(
-                ProviderConfigSpec(
-                    id = PROVIDER_ID,
-                    displayName = "E2E Provider",
-                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
-                    endpoint = "https://one.invalid/v1",
-                    model = "model-e2e",
-                    headersJson = "{}",
-                    secretAlias = ProviderFactory.NO_KEY_ALIAS,
-                    capabilitySnapshot = ProviderCapabilities.toJsonString(revoked),
-                ),
-            )
+            recordDegradedCapabilities(fixture, revoked)
+            await(fixture, "the refreshed row drops the vision capability") {
+                fixture.providerService.rows.value
+                    .single { it.id == PROVIDER_ID }
+                    .capabilitiesForModel("model-e2e")
+                    ?.vision == false
+            }
 
             // The same image re-enters through a fresh import (the staging was consumed by
             // the first send) — the vision gate then blocks the attachment egress.
@@ -667,6 +666,29 @@ class AttachmentE2eDeviceTest {
         } finally {
             settleAndClose(fixture)
         }
+    }
+
+    /** Mirrors the production probe persistence: the capabilities land in BOTH stores — the
+     *  entity snapshot AND the test-status PASSED line (the row's capabilities come from the
+     *  latter) — followed by the post-probe row refresh that re-derives the rows. */
+    private fun recordDegradedCapabilities(
+        fixture: Fixture,
+        caps: ProviderCapabilities,
+    ) {
+        fixture.storage.providerConfigs.overwrite(
+            ProviderConfigSpec(
+                id = PROVIDER_ID,
+                displayName = "E2E Provider",
+                protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                endpoint = "https://one.invalid/v1",
+                model = "model-e2e",
+                headersJson = "{}",
+                secretAlias = ProviderFactory.NO_KEY_ALIAS,
+                capabilitySnapshot = ProviderCapabilities.toJsonString(caps),
+            ),
+        )
+        fixture.statusStore.recordPassed(PROVIDER_ID, System.currentTimeMillis(), caps)
+        fixture.providerService.refresh()
     }
 
     @Test
@@ -1235,7 +1257,7 @@ class AttachmentE2eDeviceTest {
                 fixture.visionFlag,
                 storage,
                 CoroutineScope(SupervisorJob() + Dispatchers.IO),
-            )
+            ).second
         service2.openSession(SESSION_ID)
         val deadline = System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
         while (System.currentTimeMillis() < deadline && service2.screen.value.openSessionId != SESSION_ID) {
@@ -1254,6 +1276,8 @@ class AttachmentE2eDeviceTest {
     private data class Fixture(
         val storage: HelixStorage,
         val service: ChatService,
+        val providerService: ProviderService,
+        val statusStore: ProviderTestStatusStore,
         val wire: ScriptedSseWire,
         val workspaceRoot: File,
         val dbName: String,
@@ -1284,12 +1308,30 @@ class AttachmentE2eDeviceTest {
                         android.util.Log.e("E2E-STAGE-EXC", "fixture scope exception", e)
                     },
             )
-        val service = buildService(wire, workspaceRoot, suffix, vision, storage, serviceScope)
+        val (providerService, service, statusStore) =
+            buildService(wire, workspaceRoot, suffix, vision, storage, serviceScope)
         // One provider-bound session, opened — staging requires an open session (ADR-0014 §4:
         // attachments are always session-scoped).
         storage.sessions.create(SESSION_ID, "e2e session", PROVIDER_ID, sessionModel, System.currentTimeMillis())
         service.openSession(SESSION_ID)
-        return Fixture(storage, service, wire, workspaceRoot, dbName, dataDir, serviceScope, suffix, vision)
+        // Production refreshes the provider rows on start and after mutations, and the vision
+        // gate reads the ROW-derived capabilities — the fixture must mirror that, otherwise the
+        // seeded PASSED row never becomes visible to capabilitiesFor (fail-closed vision=false).
+        providerService.refresh()
+        awaitRowsReady(providerService)
+        return Fixture(
+            storage,
+            service,
+            providerService,
+            statusStore,
+            wire,
+            workspaceRoot,
+            dbName,
+            dataDir,
+            serviceScope,
+            suffix,
+            vision,
+        )
     }
 
     /** Builds the production-shaped ChatService over [storage] (fresh in-memory state). */
@@ -1300,7 +1342,7 @@ class AttachmentE2eDeviceTest {
         vision: Boolean,
         storage: HelixStorage,
         serviceScope: CoroutineScope,
-    ): ChatService {
+    ): Triple<ProviderService, ChatService, ProviderTestStatusStore> {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val app = context.applicationContext as HelixApplication
         val zh =
@@ -1326,17 +1368,29 @@ class AttachmentE2eDeviceTest {
                 idGenerator = { "prov-$suffix" },
             )
         seedProvider(storage, statusStore, vision)
-        return ChatService(
-            storage = storage,
-            providerService = providerService,
-            profileStore = FixedStandardProfileStore,
-            toolPipeline = app.appContainer.toolPipeline,
-            idGenerator = { "id-${UUID.randomUUID()}" },
-            scope = serviceScope,
-            attachmentStaging = stagingFor(workspaceRoot),
-            visionSessionBinder = imageSource::bindSession,
-            strings = { resId, args -> zh.getString(resId, *args) },
-        )
+        val service =
+            ChatService(
+                storage = storage,
+                providerService = providerService,
+                profileStore = FixedStandardProfileStore,
+                toolPipeline = app.appContainer.toolPipeline,
+                idGenerator = { "id-${UUID.randomUUID()}" },
+                scope = serviceScope,
+                attachmentStaging = stagingFor(workspaceRoot),
+                visionSessionBinder = imageSource::bindSession,
+                strings = { resId, args -> zh.getString(resId, *args) },
+            )
+        return Triple(providerService, service, statusStore)
+    }
+
+    /** Production shape: after a refresh the seeded PASSED provider row must be visible. */
+    private fun awaitRowsReady(providerService: ProviderService) {
+        val deadline = System.currentTimeMillis() + AWAIT_TIMEOUT_MILLIS
+        while (System.currentTimeMillis() < deadline) {
+            if (providerService.rows.value.any { it.id == PROVIDER_ID && it.chatSelectable }) return
+            Thread.sleep(POLL_MILLIS)
+        }
+        error("timed out waiting for: the seeded provider row to become chat-selectable")
     }
 
     /**

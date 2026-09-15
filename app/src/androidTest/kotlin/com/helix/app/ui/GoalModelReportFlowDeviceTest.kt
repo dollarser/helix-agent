@@ -5,6 +5,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -13,6 +15,7 @@ import com.helix.provider.api.ProbeOutcome
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -42,10 +45,16 @@ class LiveGoalModelReportDeviceTest {
     @Test fun realModelCompletesAnUnboundGoal() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
-            val configuredPort = requireNotNull(args.getString("goalReportPort"))
-            val port = configuredPort.toInt()
-            val model = requireNotNull(args.getString("goalReportModel"))
-            runGoalReportFlow(compose, port, model, "COMPLETED") {}
+            val configuredPort = args.getString("goalReportPort")
+            val model = args.getString("goalReportModel")
+            // Opt-in live-model test: without a reachable model server the test is SKIPPED
+            // with a reason instead of failing the default suite.
+            assumeTrue(
+                "live model test skipped — pass -e goalReportPort <port> -e goalReportModel <model>",
+                configuredPort != null && model != null,
+            )
+            val port = requireNotNull(configuredPort).toInt()
+            runGoalReportFlow(compose, port, requireNotNull(model), "COMPLETED") {}
         }
 }
 
@@ -82,6 +91,19 @@ private suspend fun runGoalReportFlow(
     try {
         check(container.providerService.runConnectionTest(provider) is ProbeOutcome.Ok)
         afterProbe()
+        // The production ChatService reads run control from the persisted "helix-ui" store, and a
+        // prior test class (e.g. the budget-exhaustion boundary suite) can leave an exhausted
+        // budget behind — maxInputTokens=1000 fails the compaction window check with
+        // CONTEXT_WINDOW_LIMIT and BLOCKs every goal turn. Pin the pristine-install defaults and
+        // wait for the store to apply them before any turn starts.
+        chat.setMode(AgentMode.CHAT)
+        chat.setChatToolsEnabled(false)
+        chat.setTurnBudgets(TurnBudgetBounds.DEFAULT)
+        compose.waitUntil(10_000) {
+            chat.runControl.value.mode == AgentMode.CHAT &&
+                !chat.runControl.value.chatToolsEnabled &&
+                chat.runControl.value.budgets == TurnBudgetBounds.DEFAULT
+        }
         session = chat.createSession("Goal report fixture", provider, model)
         chat.openSession(session)
         compose.waitUntil(10000) { chat.screen.value.openSessionId == session }

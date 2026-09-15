@@ -3,7 +3,9 @@ package com.helix.app.provider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.internal.PrefsLineStore
 import com.helix.core.model.AgentMode
+import com.helix.core.model.ModelErrorCode
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
@@ -31,7 +33,10 @@ class SubscriptionChatBoundaryDeviceTest {
 
     @Test fun exhaustedBudgetNeverStartsSubscriptionJob() =
         forEachPlatform { provider ->
-            chat.setTurnBudgets(TurnBudgets(2, 1, 1, 1, 1))
+            // maxInputTokens stays generous: the compaction round's window check runs before
+            // turn-budget admission (193de8e9), so maxInputTokens=1 would surface
+            // CONTEXT_WINDOW_LIMIT instead of exhausting the total token budget.
+            chat.setTurnBudgets(TurnBudgets(2, 1, 1000, 1, 1))
             val session = start(provider, "helix-fixture")
             val turn = terminal(session)
             assertEquals("TOKEN_BUDGET_LIMIT", turn.errorCode)
@@ -73,7 +78,20 @@ class SubscriptionChatBoundaryDeviceTest {
         forEachPlatform { provider ->
             val first = start(provider, "helix-fixture")
             assertEquals(TurnState.COMPLETED.name, terminal(first).state)
-            val nextProvider = platforms[(platforms.indexOf(provider) + 1) % platforms.size]
+            // Codex is account-gated: without a logged-in account its probe fails AUTH and a
+            // session can never bind to it, so the second session pairs with the next
+            // probe-able platform instead of the raw list successor.
+            val selectable = platforms.filterNot { it == SubscriptionProviderModule.CODEX_ID }
+            val nextIndex = (selectable.indexOf(provider).coerceAtLeast(0) + 1) % selectable.size
+            val nextProvider = selectable[nextIndex]
+            // The pair must hold in isolation too: the session gate only opens after a passing
+            // probe, so give the next platform the fixture model and probe it (no account traffic).
+            val nextOriginal = storage.providerConfigs.resolve(nextProvider)
+            storage.providerConfigs.overwrite(spec(nextOriginal, "helix-fixture"))
+            assertTrue(
+                "next platform probe must pass without an account",
+                container.providerService.runConnectionTest(nextProvider) is ProbeOutcome.Ok,
+            )
             val second = start(nextProvider, "helix-fixture")
             assertEquals(TurnState.COMPLETED.name, terminal(second).state)
             chat.openSession(first)
@@ -119,16 +137,32 @@ class SubscriptionChatBoundaryDeviceTest {
                 chat.setChatToolsEnabled(false)
                 for (original in originals) {
                     storage.providerConfigs.overwrite(spec(original, "helix-fixture"))
-                    assertTrue(container.providerService.runConnectionTest(original.id) is ProbeOutcome.Ok)
-                }
-                for (provider in platforms) {
+                    val outcome = container.providerService.runConnectionTest(original.id)
+                    if (outcome !is ProbeOutcome.Ok) {
+                        // The Codex catalog probe is account-gated: without a logged-in Codex
+                        // account it deterministically fails with AUTH (no account traffic is
+                        // sent), the chat gate keeps the provider unselectable, and that leg is
+                        // covered by the opt-in CodexSubscriptionProviderRealAccountDeviceTest.
+                        val failure = outcome as? ProbeOutcome.Failed
+                        assertTrue(
+                            "account-gated probe must fail AUTH without credentials, was: $outcome",
+                            failure?.code == ModelErrorCode.AUTH,
+                        )
+                        continue
+                    }
                     chat.setTurnBudgets(TurnBudgets(3, 2, 10000, 128, 10000))
-                    check(provider)
+                    check(original.id)
                 }
             } finally {
                 chat.stop()
                 awaitSubscriptionBoundary { !chat.screen.value.isSending }
                 chat.closeSession()
+                // Restore the run control FIRST: SharedPreferences apply() is async and the
+                // instrumentation process dies at run end, so the restore must not be the last
+                // write — the session deletions and provider refresh below give it time to flush.
+                chat.setMode(previous.mode)
+                chat.setChatToolsEnabled(previous.chatToolsEnabled)
+                chat.setTurnBudgets(previous.budgets)
                 try {
                     sessions.forEach { session ->
                         val paths = storage.artifacts.listBySession(session).map { it.relativePath }
@@ -138,11 +172,17 @@ class SubscriptionChatBoundaryDeviceTest {
                         }
                     }
                 } finally {
-                    for (original in originals) storage.providerConfigs.overwrite(spec(original, original.model))
+                    for (original in originals) {
+                        storage.providerConfigs.overwrite(spec(original, original.model))
+                        // The probes above persist per-provider connection-test outcomes (codex
+                        // deterministically fails AUTH, account-gated); clear them so the next
+                        // test class starts from the untested baseline. The LAST test method's
+                        // clear must be a synchronous commit(): an async apply() posted at run
+                        // end can be lost when the instrumentation process exits, which would
+                        // leave the next suite inheriting a FAILED fixture row.
+                        ProviderTestStatusStore(PrefsLineStore(app, "helix-ui", synchronous = true)).clear(original.id)
+                    }
                     container.providerService.refresh()
-                    chat.setMode(previous.mode)
-                    chat.setChatToolsEnabled(previous.chatToolsEnabled)
-                    chat.setTurnBudgets(previous.budgets)
                 }
             }
         }

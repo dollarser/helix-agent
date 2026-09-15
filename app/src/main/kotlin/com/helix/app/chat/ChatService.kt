@@ -1319,9 +1319,13 @@ class ChatService(
 
     fun stop() {
         val sessionId = openSessionId ?: return
+        // Session-scoped, and BEFORE the admission guard: a blocked dispatch on a turn that
+        // was never admitted (the direct per-call entry) still gets its pending card
+        // cancelled by the session's stop. Cancel is conservative — the record stays
+        // PENDING and expires with its window, it can never mint (a stop is not a decision).
+        toolCalls.cancelPendingApprovalsOnSession(sessionId)
         val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
         turnCancels[active.turnId]?.cancel()
-        toolCalls.cancelPendingApproval(active.turnId)
         active.job.cancel()
     }
 
