@@ -20,7 +20,8 @@ snakeyaml-engine = "3.1.1"
 commons-compress = "1.28.0"
 a2a-java = "1.3.1.Final"
 libsu = "6.0.0"
-jgit = "6.10.0.202406032230-r"
+jgit = "7.8.0.202609011348-r"
+desugar-jdk-libs = "2.1.5"
 junit4 = "4.13.2"
 androidx-test = "1.7.0"
 androidx-test-junit = "1.3.0"
@@ -30,6 +31,7 @@ detekt = "1.23.8"
 ktlint = "1.8.0"
 
 [libraries]
+desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar-jdk-libs" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }

@@ -4,6 +4,7 @@ import android.os.Build
 import android.os.Environment
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -30,27 +31,93 @@ import java.util.UUID
 class SharedStorageDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
-    @Test fun grantedRootNavigationKeepsAgentScopeSeparate() {
-        assumeTrue(Build.VERSION.SDK_INT >= 30)
-        compose.resetDeterministicUiState()
-        val folderName = "helix-root-${UUID.randomUUID()}"
+    @RequiresStorageHostPhase
+    @Test fun grantedRootNavigationKeepsAgentScopeSeparate() =
+        SharedStoragePermissionRule().withGrant {
+            assumeTrue(Build.VERSION.SDK_INT >= 30)
+            compose.resetDeterministicUiState()
+            val folderName = "helix-root-${UUID.randomUUID()}"
 
-        @Suppress("DEPRECATION")
-        val folder = File(Environment.getExternalStorageDirectory(), folderName)
-        try {
+            @Suppress("DEPRECATION")
+            val folder = File(Environment.getExternalStorageDirectory(), folderName)
+            try {
+                val access = SharedStorageAccess(compose.activity)
+                assertTrue(access.isGranted())
+                assertTrue(folder.mkdir())
+                folder.resolve("readme.txt").writeText("shared storage fixture")
+                verifyAgentCannotReadManualRoot(folderName)
+                compose.navigateTo("files")
+                compose.onNodeWithTag("files-shared-open").performClick()
+                compose.waitUntil(10_000) {
+                    compose.onAllNodesWithTag("files-entry-$folderName").fetchSemanticsNodes().isNotEmpty()
+                }
+                compose.onNodeWithTag("files-entry-$folderName").performScrollTo().assertIsDisplayed()
+                val manager = compose.container().fileManager
+                assertTrue(manager.sources().single { it.scopeId == SharedStorageAccess.SCOPE_ID }.supportsMutation)
+                assertThrows(Exception::class.java) { manager.list(SharedStorageAccess.SCOPE_ID, "../") }
+            } finally {
+                folder.deleteRecursively()
+            }
+        }
+
+    @RequiresStorageHostPhase
+    @Test fun revokingAppOpRemovesTheManualRootWithoutGrantingAgentAccess() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            verifyHostRevocationPhase()
+            return
+        }
+        val permissions = SharedStoragePermissionRule()
+        permissions.withGrant {
             val access = SharedStorageAccess(compose.activity)
             assertTrue(access.isGranted())
-            assertTrue(folder.mkdir())
-            folder.resolve("readme.txt").writeText("shared storage fixture")
-            verifyAgentCannotReadManualRoot(folderName)
-            compose.navigateTo("files")
-            compose.onNodeWithTag("files-shared-open").performClick()
-            compose.onNodeWithTag("files-entry-$folderName").performScrollTo().assertIsDisplayed()
-            val manager = compose.container().fileManager
-            assertTrue(manager.sources().single { it.scopeId == SharedStorageAccess.SCOPE_ID }.supportsMutation)
-            assertThrows(Exception::class.java) { manager.list(SharedStorageAccess.SCOPE_ID, "../") }
-        } finally {
-            folder.deleteRecursively()
+            permissions.revokeAccess()
+            assertFalse(access.isGranted())
+            assertThrows(
+                Exception::class.java,
+            ) { compose.container().fileManager.list(SharedStorageAccess.SCOPE_ID, "") }
+        }
+    }
+
+    private fun verifyHostRevocationPhase() {
+        val instrumentation =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getInstrumentation()
+        val context = instrumentation.targetContext
+        val marker = File(context.filesDir, "storage-revocation-fixture-pid")
+        val access = SharedStorageAccess(context)
+        when (
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString("hxaStoragePhase")
+        ) {
+            "granted" -> {
+                assertTrue(access.isGranted())
+                marker.writeText(
+                    android.os.Process
+                        .myPid()
+                        .toString(),
+                )
+            }
+
+            "revoked" -> {
+                assertTrue("Granted phase must precede revocation", marker.isFile)
+                assertTrue(
+                    "Revocation must be verified in a new process",
+                    marker.readText() !=
+                        android.os.Process
+                            .myPid()
+                            .toString(),
+                )
+                assertFalse(access.isGranted())
+                assertThrows(
+                    Exception::class.java,
+                ) { compose.container().fileManager.list(SharedStorageAccess.SCOPE_ID, "") }
+                assertTrue(marker.delete())
+            }
+
+            else -> {
+                error("Run the host-controlled granted and revoked phases")
+            }
         }
     }
 

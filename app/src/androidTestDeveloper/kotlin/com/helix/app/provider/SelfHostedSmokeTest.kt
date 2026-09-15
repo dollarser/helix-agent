@@ -37,6 +37,7 @@ import java.net.URL
 import java.net.UnknownHostException
 
 /**
+ * Requires explicit `realSelfHosted=true`; default runs never contact host model services.
  * HXA-027 self-hosted service smoke (developer instrumented test): drives the REAL
  * provider stack — [OpenAiChatProvider] + [OkHttpWireClient] — from an emulator
  * or physical device against a dev-machine model server. The host defaults to the
@@ -59,6 +60,9 @@ import java.net.UnknownHostException
 )
 @RunWith(AndroidJUnit4::class)
 class SelfHostedSmokeTest {
+    @org.junit.Before
+    fun requireExplicitProfile() = requireSelfHostedSmoke()
+
     private var serverModel: String = ""
     private lateinit var provider: OpenAiChatProvider
 

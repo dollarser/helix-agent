@@ -339,7 +339,7 @@ object ApprovalUiMapper {
      * 高敏出网规则的卡片行 (roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则): the
      * live rule that already satisfies the card's egress is shown as a BOUNDED rule — its
      * exact binding (target / origin / category / scope) and validity window — never as a
-     * general approval credential (ADR-0005). Null when the call has no covered rule.
+     * general approval credential (ADR-0012). Null when the call has no covered rule.
      * The display line is a string-resource ID + stable binding args (HXA-069).
      */
     fun boundedRuleUi(rule: HighSensitivityRule?): BoundedRuleUi? {

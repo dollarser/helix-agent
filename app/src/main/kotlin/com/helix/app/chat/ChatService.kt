@@ -324,10 +324,16 @@ class ChatService(
     private val turnLiveFrames = TurnLiveFrames()
 
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
-    // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
-    // write would silently drop the user's message with no UI feedback).
-    @Volatile
-    private var openSessionId: String? = null
+    // (sendNow): atomic visibility keeps fresh opens visible to racing sends, and
+    // compare-and-set prevents a stale failed lookup from clearing a newer selection.
+    private val openSession =
+        java.util.concurrent.atomic
+            .AtomicReference<String?>(null)
+    private var openSessionId: String?
+        get() = openSession.get()
+        set(value) {
+            openSession.set(value)
+        }
 
     @Volatile
     private var pendingSend: String? = null
@@ -2176,7 +2182,8 @@ class ChatService(
         return if (runCatching { storage.sessions.resolve(id) }.isSuccess) {
             id
         } else {
-            openSessionId = null
+            // A stale lookup must not close a newer user-selected session.
+            openSession.compareAndSet(id, null)
             null
         }
     }
@@ -2184,7 +2191,7 @@ class ChatService(
     private fun refreshScreen() {
         refreshBackgroundTasks()
         sessionDraft?.takeIf { it.session.id == openSessionId }?.let { draft ->
-            _screen.value =
+            val refreshed =
                 EMPTY_SCREEN.copy(
                     sessions = _sessions.value,
                     openSessionId = draft.session.id,
@@ -2195,36 +2202,52 @@ class ChatService(
                     directoryRef = draft.session.directoryRef,
                     pendingAttachments = draft.attachments.map { PendingAttachmentUi(it.id, it.name, it.size, true) },
                 )
+            _screen.update { if (openSessionId == draft.session.id) refreshed else it }
             return
         }
-        val sessionId = resolvableOpenSessionId()
-        val turns = sessionId?.let { id -> storage.turns.listBySession(id) }.orEmpty()
-        val lastTurn = turns.lastOrNull()
-        // Refreshes race with targeted UI publications (for example an attachment refusal).
-        // Build from the value observed by StateFlow's atomic update so a refresh can never
-        // restore an older blocked/disclosure/streaming snapshot over a newer publication.
-        _screen.update { current ->
-            ChatScreenState(
-                sessions = _sessions.value,
-                openSessionId = sessionId,
-                preparingDraft = preparingDraft,
-                sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
-                directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
-                // A null badge is authoritative for an unbound session, not a missing refresh.
-                badge = sessionId?.let { projection.badgeFor(it) },
-                messages = projection.messagesFor(sessionId, current),
-                contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
-                toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
-                subscriptionRecoveries = subscriptionRecoveriesFor(storage, sessionId, current.subscriptionRecoveries),
-                activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
-                turns = turns.map { projection.turnUiFor(it, null) },
-                pendingDisclosure = current.pendingDisclosure,
-                blockedReason = current.blockedReason,
-                retryTargetTurnId = projection.retryTargetFor(sessionId),
-                pendingAttachments = stagedAttachmentsUi(),
-                shareDraftText = shareDraftText,
-                taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
-            )
+        refreshPersistedScreen()
+    }
+
+    private fun refreshPersistedScreen() {
+        // Session deletion can race terminal publication. Keep existence and all
+        // dependent projections in one Room snapshot, not separate check/read calls.
+        storage.withTransaction {
+            val sessionId = resolvableOpenSessionId()
+            val turns = sessionId?.let { id -> storage.turns.listBySession(id) }.orEmpty()
+            val lastTurn = turns.lastOrNull()
+            // Refreshes race with targeted UI publications (for example an attachment refusal).
+            // Build from the value observed by StateFlow's atomic update so a refresh can never
+            // restore an older blocked/disclosure/streaming snapshot over a newer publication.
+            _screen.update { current ->
+                val refreshed =
+                    ChatScreenState(
+                        sessions = _sessions.value,
+                        openSessionId = sessionId,
+                        preparingDraft = preparingDraft,
+                        sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
+                        directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
+                        // A null badge is authoritative for an unbound session, not a missing refresh.
+                        badge = sessionId?.let { projection.badgeFor(it) },
+                        messages = projection.messagesFor(sessionId, current),
+                        contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
+                        toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
+                        subscriptionRecoveries =
+                            subscriptionRecoveriesFor(
+                                storage,
+                                sessionId,
+                                current.subscriptionRecoveries,
+                            ),
+                        activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
+                        turns = turns.map { projection.turnUiFor(it, null) },
+                        pendingDisclosure = current.pendingDisclosure,
+                        blockedReason = current.blockedReason,
+                        retryTargetTurnId = projection.retryTargetFor(sessionId),
+                        pendingAttachments = stagedAttachmentsUi(),
+                        shareDraftText = shareDraftText,
+                        taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
+                    )
+                if (openSessionId == sessionId) refreshed else current
+            }
         }
     }
 

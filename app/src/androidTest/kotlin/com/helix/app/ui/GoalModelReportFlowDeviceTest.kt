@@ -42,6 +42,11 @@ class LiveGoalModelReportDeviceTest {
     @Test fun realModelCompletesAnUnboundGoal() =
         runBlocking {
             val args = InstrumentationRegistry.getArguments()
+            // The live endpoint is an explicit profile; local acceptance uses the loopback tests above.
+            org.junit.Assume.assumeTrue(
+                "Live Goal profile requires goalReportPort and goalReportModel",
+                args.containsKey("goalReportPort") || args.containsKey("goalReportModel"),
+            )
             val configuredPort = requireNotNull(args.getString("goalReportPort"))
             val port = configuredPort.toInt()
             val model = requireNotNull(args.getString("goalReportModel"))

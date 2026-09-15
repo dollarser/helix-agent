@@ -30,7 +30,7 @@ class FilesHomeDeviceTest {
         try {
             compose.navigateTo("files")
             compose.onNodeWithTag("files-quick-work").assertIsDisplayed().performClick()
-            compose.waitUntil {
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                 compose
                     .onAllNodesWithTag(
                         "files-entry-standalone-check",
@@ -38,7 +38,9 @@ class FilesHomeDeviceTest {
                     .isNotEmpty()
             }
             compose.onNodeWithTag("files-entry-standalone-check").performScrollTo().performClick()
-            compose.waitUntil { compose.onAllNodesWithTag("files-entry-alpha.txt").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+                compose.onAllNodesWithTag("files-entry-alpha.txt").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("files-search-open").performClick()
             compose.onNodeWithTag("files-search-query").performTextReplacement("ALPHA")
             compose.onNodeWithTag("files-entry-alpha.txt").assertIsDisplayed()
@@ -52,7 +54,7 @@ class FilesHomeDeviceTest {
             compose.onNodeWithTag("files-newfolder").performScrollTo().performClick()
             compose.onNodeWithTag("files-newfolder-field").performTextReplacement("Created without AI")
             compose.onNodeWithTag("files-newfolder-confirm").performClick()
-            compose.waitUntil { folder.resolve("Created without AI").isDirectory }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { folder.resolve("Created without AI").isDirectory }
             assertTrue(folder.resolve("Created without AI").isDirectory)
             assertNull(container.chatService.screen.value.openSessionId)
             compose.onNodeWithTag("files-home-open").performClick()
@@ -68,7 +70,9 @@ class FilesHomeDeviceTest {
         compose.onNodeWithTag("files-quick-work").performClick()
         compose.waitForIdle()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
-        compose.waitUntil { compose.onAllNodesWithTag("files-entry-work").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("files-entry-work").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("files-entry-work").assertIsDisplayed()
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.onNodeWithTag("files-home-source-app").assertIsDisplayed()

@@ -62,7 +62,7 @@ class TaskLedgerProgressDeviceTest {
             }
             try {
                 chat.openSession(sessionId)
-                compose.waitUntil { chat.screen.value.taskLedger.size == 4 }
+                compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.taskLedger.size == 4 }
                 compose.onNodeWithTag("chat-ledger").assertIsDisplayed()
                 compose.onNodeWithTag("chat-ledger-title").assertTextEquals("任务进度").assertIsDisplayed()
                 compose.onNodeWithTag("chat-ledger-item-in_progress-0").assertIsDisplayed()

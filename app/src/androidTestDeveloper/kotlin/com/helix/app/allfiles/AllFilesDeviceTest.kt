@@ -8,6 +8,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
@@ -148,8 +150,9 @@ class AllFilesDeviceTest {
     fun consentScreenShowsLiveStateAndTheSettingsJumpWhenDenied() {
         composeRule.resetDeterministicUiState() // STANDARD profile + gate dismissed
         composeRule.navigateTo("permissions")
+        composeRule.onNodeWithTag("permission-files").performScrollTo().performClick()
 
-        composeRule.onNodeWithTag("screen-permissions-allfiles").assertIsDisplayed()
+        composeRule.onNodeWithTag("allfiles-explanation").performScrollTo().assertIsDisplayed()
         // The honest explanation is always present — it never claims "the whole phone".
         composeRule.onNodeWithTag("allfiles-explanation").assertIsDisplayed()
         // The live system-state text mirrors the real platform (re-read from the capability center).
@@ -173,6 +176,6 @@ class AllFilesDeviceTest {
         }
         // STANDARD (set by resetDeterministicUiState): the ADVANCED gate note is shown, and a root row exists.
         composeRule.onNodeWithTag("allfiles-advanced-required").assertIsDisplayed()
-        composeRule.onNodeWithTag("allfiles-root-download").assertIsDisplayed()
+        composeRule.onNodeWithTag("allfiles-root-download").performScrollTo().assertIsDisplayed()
     }
 }

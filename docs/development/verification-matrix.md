@@ -8,12 +8,15 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 
 ## 1. 通用约定
 
+- API30+完整本地设备门禁包含宿主存储阶段：`RequiresStorageHostPhase`的3个场景从常规进程移到授权阶段执行，并追加撤权后新进程验证（3+1，缺阶段失败）；Android变更`MANAGE_EXTERNAL_STORAGE`可结束应用，不能在同一instrumentation内改权限后继续断言。命令与证据见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)。
+
 - 所有 Gradle 命令从仓库根目录执行，并且只使用 `./gradlew`。
 - JVM 行无需设备；Android 行需要 `adb devices` 中存在已授权设备或模拟器。
 - consumer 仪器测试验证共享功能与当前编译边界；修改共享逻辑、consumer route/manifest 或变体边界时必须运行对应 consumer task，但 consumer 不预设为最终商店包。
 - developer 当前承载最完整能力，是开发阶段主要验收对象；涉及 Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。HXA-120～123 再把真实渠道要求映射为 artifact，不能从 flavor 名推导产品能力。
+- 每个HXA开工前清理已知必过本地主机/设备门禁失败；“继承失败”是归因，不是豁免。修复后保留原场景并重跑，禁止删测试或用skip代替失败修复；外部profile沿用下述显式启用边界。
 - 真机/外部服务验收必须记录设备、API、ABI、服务版本和实际结果，不能用构建成功替代。
-- 外部 API/真实账号依赖不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。真实订阅/账号/网络 smoke（`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；运行后须按上一行记录设备/版本/实际结果。
+- 外部 API/真实账号依赖不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。真实订阅/账号/网络 smoke（`realSelfHosted`（Ollama/sglang，默认不探测宿主）/`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；运行后须按上一行记录设备/版本/实际结果。
 - Release、APK 内容和许可证总门禁始终追加第 4 节命令。
 
 ## 2. M0 任务命令（已完成）

@@ -2,6 +2,8 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.isPopup
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,7 +23,7 @@ import org.junit.runner.RunWith
 /**
  * HXA-028 provider UI flow (both variants): create → untested → NOT
  * chat-selectable → connection test against an unreachable endpoint fails at
- * phase 1 with a SAFE label (FR-LLM-004) → still not selectable → delete.
+ * the model-list phase with a SAFE label (FR-LLM-004) → still not selectable → delete.
  *
  * The endpoint `https://127.0.0.1:9/v1` is the emulator's own loopback on a
  * closed port: the probe must fail fast at phase 1 (network & auth) without
@@ -68,30 +70,21 @@ class ProviderFlowTest {
         composeRule.onNode(editableProviderText("尚未通过连接测试")).performScrollTo().assertIsDisplayed()
 
         // --- an untested provider must NOT appear in the new-session picker ---
-        composeRule.navigateTo("sessions")
-        composeRule.onNodeWithTag("chat-new-session").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithTag("chat-input").assertIsDisplayed()
-        composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
-        composeRule.onNodeWithTag("chat-back").performClick()
+        assertAbsentFromModelPicker()
 
-        // --- connection test against the unreachable endpoint: phase-1 failure ---
+        // --- connection test against the unreachable endpoint: model-list failure ---
         composeRule.navigateTo("settings")
         composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("失败阶段：网络与认证", substring = true).assertIsDisplayed()
+        composeRule.onNode(editableProviderText("失败阶段：模型列表")).assertIsDisplayed()
         // The safe code label is shown (doc 02 section 13: never raw exceptions).
-        composeRule.onNodeWithText("网络/TLS 连接失败", substring = true).assertIsDisplayed()
+        composeRule.onNode(editableProviderText("网络/TLS 连接失败")).assertIsDisplayed()
 
         // --- a FAILED provider is still not chat-selectable (only Passed is) ---
-        composeRule.navigateTo("sessions")
-        composeRule.onNodeWithTag("chat-new-session").performClick()
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
-        composeRule.onNodeWithTag("chat-back").performClick()
+        assertAbsentFromModelPicker()
 
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
         composeRule.navigateTo("settings")
@@ -106,5 +99,20 @@ class ProviderFlowTest {
             "the deleted provider must be gone from the persisted rows",
             rows.none { it.displayName == providerName },
         )
+    }
+
+    private fun assertAbsentFromModelPicker() {
+        composeRule.navigateTo("sessions")
+        composeRule.onNodeWithTag("chat-new-session").performClick()
+        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-input").isDisplayed() }
+        composeRule.onNodeWithTag("chat-model-menu").performClick()
+        composeRule.waitUntil(10_000) { composeRule.onNode(isPopup()).isDisplayed() }
+        composeRule.onNodeWithText(providerName).assertIsNotDisplayed()
+        androidx.test.espresso.Espresso
+            .pressBack()
+        composeRule.waitUntil(10_000) { !composeRule.onNode(isPopup()).isDisplayed() }
+        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-back").isDisplayed() }
+        composeRule.onNodeWithTag("chat-back").performClick()
+        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-session-list").isDisplayed() }
     }
 }

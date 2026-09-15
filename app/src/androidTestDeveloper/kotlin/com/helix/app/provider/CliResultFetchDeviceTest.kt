@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
+import com.helix.core.workspace.FileScopePath
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelProvider
 import com.helix.runtime.cli.client.CliModelRequestCodec
@@ -73,10 +74,13 @@ class CliResultFetchDeviceTest {
         val file =
             java.io.File(
                 root,
-                storage.artifacts
-                    .listBySession("session")
-                    .single()
-                    .relativePath,
+                FileScopePath
+                    .fromModelReference(
+                        storage.artifacts
+                            .listBySession("session")
+                            .single()
+                            .relativePath,
+                    ).relativePath,
             )
         val original = file.readBytes()
         val corrupted = original.copyOf().also { it[0] = (it[0].toInt() xor 1).toByte() }
@@ -125,7 +129,12 @@ class CliResultFetchDeviceTest {
             assertEquals(ack, client.acknowledgeResult(fetched.record))
             assertEquals(null, (client.fetchResult(fetched.record.jobId) as CliModelJobClient.StateOutcome.Ok).events)
             val artifact = storage.artifacts.listBySession("session").single()
-            val bytes = java.io.File(root, artifact.relativePath).readBytes()
+            val bytes =
+                java.io
+                    .File(
+                        root,
+                        FileScopePath.fromModelReference(artifact.relativePath).relativePath,
+                    ).readBytes()
             assertEquals(
                 fetched.events,
                 com.helix.runtime.cli.client.CliModelEventCodec

@@ -172,17 +172,22 @@ class ProviderModelDiscoveryUiTest {
         val name = "Phase Two Fail ${System.currentTimeMillis()}"
         createProvider(name, "http://127.0.0.1:$port/v1", "fixture-model-z")
 
-        // Phase 1 (the first models call) passes; phase 2 (the second call)
-        // gets a 401 → the probe stops at phase 2 with the safe AUTH label.
+        // Connection checks use a single catalog fetch. A subsequent explicit check
+        // reaches the fixture's 401 and must revoke selectability with a stable phase.
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
+        composeRule.waitUntil(30_000) {
+            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty()
+        }
         composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNode(editableProviderTag("provider-status-failed")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("失败阶段：模型列表", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("认证失败（key 缺失或无效）", substring = true).assertIsDisplayed()
-        composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty()
-        composeRule.onAllNodes(editableProviderTag("provider-models-unsupported")).fetchSemanticsNodes().isEmpty()
+        composeRule.onNodeWithText("认证或访问权限被服务端拒绝", substring = true).performScrollTo().assertIsDisplayed()
+        org.junit.Assert.assertTrue(
+            composeRule.onAllNodes(editableProviderTag("provider-models-section")).fetchSemanticsNodes().isEmpty(),
+        )
 
         deleteProviderAndAwait(name)
     }

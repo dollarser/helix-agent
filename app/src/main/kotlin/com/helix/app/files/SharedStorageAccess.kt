@@ -2,9 +2,9 @@ package com.helix.app.files
 
 import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Environment
+import androidx.core.content.PermissionChecker
 import com.helix.core.workspace.ScopeNotAvailable
 import java.nio.file.Path
 
@@ -16,13 +16,14 @@ class SharedStorageAccess(
         if (Build.VERSION.SDK_INT >= 30) {
             Environment.isExternalStorageManager()
         } else {
-            context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            PermissionChecker.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) ==
+                PermissionChecker.PERMISSION_GRANTED
         }
 
     fun isWritable(): Boolean {
         if (Build.VERSION.SDK_INT >= 30) return isGranted()
-        val writeGranted = context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-        return isGranted() && writeGranted == PackageManager.PERMISSION_GRANTED
+        val writeGranted = PermissionChecker.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        return isGranted() && writeGranted == PermissionChecker.PERMISSION_GRANTED
     }
 
     @Suppress("DEPRECATION")

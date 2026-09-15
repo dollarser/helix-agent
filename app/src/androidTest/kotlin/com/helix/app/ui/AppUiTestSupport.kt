@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -27,6 +28,9 @@ import kotlinx.coroutines.runBlocking
  * SafetyProfileStore.switchTo(STANDARD) — then recreates the activity so the
  * fresh gate state is recomposed.
  */
+
+/** IO-backed UI projections wait up to ten seconds, returning as soon as state arrives; not a latency SLA. */
+internal const val ASYNC_UI_TIMEOUT_MILLIS = 10_000L
 
 /** The production container of the running app (instrumentation runs in-app). */
 fun AndroidComposeTestRule<*, *>.container(): AppContainer = (activity.application as HelixApplication).appContainer
@@ -95,6 +99,7 @@ fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     waitForIdle()
     onNodeWithTag("navigation-$route").performClick()
     waitForIdle()
+    waitUntil(10_000) { !onNodeWithTag("navigation-$route").isDisplayed() }
 }
 
 /**

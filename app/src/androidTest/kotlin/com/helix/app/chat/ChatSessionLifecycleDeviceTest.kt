@@ -55,6 +55,21 @@ class ChatSessionLifecycleDeviceTest {
     }
 
     @Test
+    fun queuedUnknownRefreshCannotCloseTheLastSelectedRealSession() {
+        val sessionId = "lifecycle-last-$run"
+        container.storage.sessions.create(sessionId, "latest", null, null, System.currentTimeMillis())
+        repeat(30) { index ->
+            container.chatService.openSession("missing-$run-$index")
+            container.chatService.openSession(sessionId)
+        }
+        awaitOpenSession(sessionId)
+        repeat(20) {
+            Thread.sleep(50)
+            assertEquals(sessionId, container.chatService.screen.value.openSessionId)
+        }
+    }
+
+    @Test
     fun openingAnUnknownSessionDegradesToTheSessionListWithoutCrashing() {
         // Never persisted. Before the fix this killed the app process during the async
         // refresh; the test dying with it would be the regression.

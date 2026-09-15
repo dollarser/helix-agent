@@ -21,10 +21,15 @@ import java.io.File
 import java.util.UUID
 
 class ManualSharedFileDeviceTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order = 0)
+    val sharedStorage = SharedStoragePermissionRule()
+
+    @get:Rule(order = 1)
+    val compose = createAndroidComposeRule<MainActivity>()
 
     @Suppress("LongMethod") // One user journey, including the explicit delete-confirmation boundary.
     @Test
+    @RequiresStorageHostPhase
     fun userCanManageSharedFilesWithoutProviderAndDeleteRequiresConfirmation() {
         compose.resetDeterministicUiState()
         val context = compose.activity
@@ -72,9 +77,11 @@ class ManualSharedFileDeviceTest {
             assertEquals("user file", folder.resolve("destination/copy.txt").readText())
             compose.navigateTo("files")
             compose.onNodeWithTag("files-shared-open").performClick()
-            compose.waitUntil { compose.onAllNodesWithTag("files-entry-$name").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+                compose.onAllNodesWithTag("files-entry-$name").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("files-entry-$name").performScrollTo().performClick()
-            compose.waitUntil {
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                 compose
                     .onAllNodesWithTag(
                         "files-entry-original.txt",
@@ -85,7 +92,7 @@ class ManualSharedFileDeviceTest {
             compose.onNodeWithTag("files-batch-rename").performScrollTo().performClick()
             compose.onNodeWithTag("files-rename-field").performTextReplacement("renamed.txt")
             compose.onNodeWithTag("files-rename-confirm").performClick()
-            compose.waitUntil {
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                 compose
                     .onAllNodesWithTag(
                         "files-entry-renamed.txt",
@@ -96,7 +103,7 @@ class ManualSharedFileDeviceTest {
             compose.onNodeWithTag("files-batch-trash").performScrollTo().performClick()
             assertTrue(folder.resolve("renamed.txt").exists())
             compose.onNodeWithTag("files-permanent-delete-confirm").performClick()
-            compose.waitUntil { !folder.resolve("renamed.txt").exists() }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { !folder.resolve("renamed.txt").exists() }
             assertFalse(folder.resolve("renamed.txt").exists())
         } finally {
             folder.deleteRecursively()

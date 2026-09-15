@@ -420,7 +420,12 @@ class ProviderService(
             if (model == null) {
                 ProviderCapabilities.parse(storage.providerConfigs.resolve(providerId).capabilitySnapshot)
             } else {
-                rows.value.firstOrNull { it.id == providerId }?.capabilitiesForModel(model)
+                withContext(workScope.coroutineContext) {
+                    val entity = storage.providerConfigs.resolve(providerId)
+                    rowUi(entity)
+                        .copy(capabilities = ProviderCapabilities.parse(entity.capabilitySnapshot))
+                        .capabilitiesForModel(model)
+                }
             }
         }.getOrNull()
 

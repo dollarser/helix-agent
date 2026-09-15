@@ -35,7 +35,7 @@ class PrivacyDeletionService(
         chat.preparePermanentDeletion(sessionId)
         val manifest = storage.deleteSessionPermanently(sessionId)
         manifest.unreferencedWorkspacePaths.forEach { relativePath ->
-            workspace.deletePermanentlyForPrivacy(FileScopePath(APP_SCOPE_ID, relativePath))
+            workspace.deletePermanentlyForPrivacy(FileScopePath.fromModelReference(relativePath))
         }
         return DeletionResult("session:$sessionId", 1 + manifest.deletedContentBodies)
     }

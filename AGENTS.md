@@ -39,7 +39,7 @@ Before editing, read `README.md`, `docs/development/status.md`, the current HXA 
 - Create a persistent development Goal only when the user explicitly requests one. Derive its objective and checkpoints from the authorized scope, `docs/development/status.md`, and the roadmap; do not hard-code historical milestone state.
 - A persistent development goal may span a milestone, but it keeps only one HXA checkpoint in progress. After a checkpoint passes, update its completion record and continue to the next task without asking for routine confirmation.
 - Keep edits inside the task's allowed modules.
-- Do not upgrade dependencies unless the task explicitly requires it.
+- Dependency upgrades are authorized when needed for compatibility or maintenance. Select a supported stable version, update lockfiles and verification metadata, and verify supported Android APIs; do not retain an incompatible version solely because it was locked.
 - Add tests for failure, cancellation, boundaries, and recovery as applicable.
 - Never delete or skip tests to make a task pass.
 - Do not return success from catch-all exception handlers.
@@ -57,3 +57,7 @@ Reference repositories listed in `docs/references/open-source-projects.md` are e
 - Start an exclusive emulator process for each test run, reject existing device serials, and shut down only the owned process in `finally`. Never borrow emulators started by another person or agent.
 
 Run the exact commands listed by the HXA task. Report the commands and actual results. Build success alone is not functional or security acceptance. Never commit secrets, real user data, machine-specific absolute paths, downloaded RootFS content, or signing material.
+
+## Baseline acceptance before each HXA
+
+Before starting the next HXA, resolve known failures in the mandatory local host and device gates, including inherited failures outside the previous slice. Record the baseline, root cause, scoped fix and fresh verification; unchanged baseline failures are not permission to proceed. Keep external-account/network profiles opt-in, with missing profile inputs explicitly skipped and malformed supplied inputs rejected. Preserve parallel work and stage only owned paths/hunks. A task-specific completion record does not mean the complete product suite passed.

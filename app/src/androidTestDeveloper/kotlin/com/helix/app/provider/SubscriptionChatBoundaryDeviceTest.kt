@@ -3,12 +3,14 @@ package com.helix.app.provider
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
+import com.helix.app.internal.PrefsLineStore
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.repository.ProviderConfigSpec
-import com.helix.provider.api.ProbeOutcome
+import com.helix.core.workspace.FileScopePath
+import com.helix.provider.api.ProviderCapabilities
 import com.helix.runtime.cli.client.CliModelJobClient
 import com.helix.runtime.cli.client.CliModelJobState
 import com.helix.runtime.cli.client.CliRuntimeSupervisor
@@ -34,7 +36,8 @@ class SubscriptionChatBoundaryDeviceTest {
             chat.setTurnBudgets(TurnBudgets(2, 1, 1, 1, 1))
             val session = start(provider, "helix-fixture")
             val turn = terminal(session)
-            assertEquals("TOKEN_BUDGET_LIMIT", turn.errorCode)
+            // The assembled system context exhausts this one-token budget before dispatch.
+            assertEquals("CONTEXT_WINDOW_LIMIT", turn.errorCode)
             assertEquals(TurnState.FAILED.name, turn.state)
             assertTrue(storage.auditEvents.listByCorrelation(session).none { it.type == "cli.job_prepared" })
             assertTrue(storage.modelCalls.listByTurn(turn.id).all { it.state == "FAILED" })
@@ -114,12 +117,22 @@ class SubscriptionChatBoundaryDeviceTest {
         runBlocking {
             val previous = chat.runControl.value
             val originals = platforms.map(storage.providerConfigs::resolve)
+            val lineStore = PrefsLineStore(app, "helix-ui")
+            val originalStatuses = lineStore.lines("provider_test_status")
+            val statusStore = ProviderTestStatusStore(lineStore)
             try {
                 chat.setMode(AgentMode.CHAT)
                 chat.setChatToolsEnabled(false)
                 for (original in originals) {
                     storage.providerConfigs.overwrite(spec(original, "helix-fixture"))
-                    assertTrue(container.providerService.runConnectionTest(original.id) is ProbeOutcome.Ok)
+                    // This tests job lifecycle against the debug Runtime fixture, not a live
+                    // account/catalog probe. Seed only the fixture's connection prerequisite.
+                    statusStore.recordPassed(
+                        original.id,
+                        System.currentTimeMillis(),
+                        ProviderCapabilities.parse(original.capabilitySnapshot),
+                        listOf("helix-fixture", "helix-fixture-wait"),
+                    )
                 }
                 for (provider in platforms) {
                     chat.setTurnBudgets(TurnBudgets(3, 2, 10000, 128, 10000))
@@ -131,14 +144,20 @@ class SubscriptionChatBoundaryDeviceTest {
                 chat.closeSession()
                 try {
                     sessions.forEach { session ->
-                        val paths = storage.artifacts.listBySession(session).map { it.relativePath }
+                        val paths =
+                            storage.artifacts
+                                .listBySession(
+                                    session,
+                                ).map { FileScopePath.fromModelReference(it.relativePath) }
                         container.privacyDeletionService.deleteSession(session)
                         paths.forEach { path ->
-                            assertTrue(!java.io.File(app.filesDir, "workspaces/app/$path").exists())
+                            val file = java.io.File(app.filesDir, "workspaces/${path.scopeId}/${path.relativePath}")
+                            assertTrue(!file.exists())
                         }
                     }
                 } finally {
                     for (original in originals) storage.providerConfigs.overwrite(spec(original, original.model))
+                    lineStore.setLines("provider_test_status", originalStatuses)
                     container.providerService.refresh()
                     chat.setMode(previous.mode)
                     chat.setChatToolsEnabled(previous.chatToolsEnabled)

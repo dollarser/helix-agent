@@ -413,7 +413,7 @@ class AttachmentE2eDeviceTest {
                     .single()
             val goal = fixture.storage.goals.resolve(goalId)
             assertEquals("GOAL_BUDGET_LIMIT", turn.errorCode)
-            assertEquals("PAUSED", goal.state)
+            assertEquals("BLOCKED", goal.state)
             assertTrue(goal.runTimeMillis >= 2_000)
             assertEquals(1, goal.modelCalls)
             assertEquals(1, fixture.wire.callCount)
@@ -441,14 +441,28 @@ class AttachmentE2eDeviceTest {
             fixture.service.setChatToolsEnabled(false)
             fixture.service.setTurnBudgets(
                 com.helix.core.model
-                    .TurnBudgets(2, 1, 100, 20, 20),
+                    .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
             fixture.service.send("1234")
             await(fixture, "bounded request completes") { turnIsTerminal(fixture) }
             assertEquals(1, fixture.wire.callCount)
             val body = org.json.JSONObject(fixture.wire.lastRequestBody)
-            assertEquals(19L, body.getLong("max_tokens"))
+            val messages = body.getJSONArray("messages")
+            val inputBytes =
+                (0 until messages.length()).sumOf {
+                    messages
+                        .getJSONObject(it)
+                        .getString("content")
+                        .toByteArray()
+                        .size
+                        .toLong()
+                }
+            val estimatedInput =
+                com.helix.core.agent.TokenEstimator
+                    .estimateTokens(inputBytes)
+            assertTrue("system sections must count toward input", estimatedInput > 1)
+            assertEquals(20_000L - estimatedInput, body.getLong("max_tokens"))
             assertEquals(
                 TurnState.COMPLETED.name,
                 fixture.storage.turns

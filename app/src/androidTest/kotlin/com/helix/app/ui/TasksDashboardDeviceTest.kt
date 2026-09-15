@@ -1,9 +1,11 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.helix.app.MainActivity
 import com.helix.core.model.PlanArtifact
 import com.helix.core.model.PlanId
@@ -50,7 +52,13 @@ class TasksDashboardDeviceTest {
 
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
+            compose.waitUntil(10_000) {
+                container.chatService.planDashboard.value
+                    .any { it.id == planId }
+            }
+            compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-bucket-needs_you"))
             compose.onNodeWithTag("tasks-bucket-needs_you").assertExists()
+            compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-plan-$planId"))
             compose.onNodeWithTag("tasks-plan-$planId").assertExists()
 
             compose.onNodeWithTag("tasks-plan-review-$planId").performClick()
@@ -98,6 +106,11 @@ class TasksDashboardDeviceTest {
             compose.waitForIdle()
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
+            compose.waitUntil(10_000) {
+                container.chatService.planDashboard.value
+                    .any { it.id == planId }
+            }
+            compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag("tasks-plan-$planId"))
             compose.onNodeWithTag("tasks-plan-$planId").assertExists()
 
             container.chatService.cancelPlan(planId)

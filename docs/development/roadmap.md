@@ -1126,4 +1126,4 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 
 ### HXA-201 工具设置与审批卡
 
-状态：completed（2026-09-16，本任务范围），见[完成记录](../completion-records/HXA-201.md)。三态搜索/设置/恢复默认、会话/Workspace范围、实际结果与旧卡契约均已验收；P1/P2/P3及API29/36双flavor专项通过。完整产品套件仍有基线失败，见[验收证据](hxa201-acceptance-2026-09-16.md)。本项依赖已满足，可继续202。
+状态：completed（2026-09-16，本任务范围），见[完成记录](../completion-records/HXA-201.md)。三态搜索/设置/恢复默认、会话/Workspace范围、实际结果与旧卡契约均已验收；P1/P2/P3及API29/36双flavor专项通过。当时完整套件的基线失败已修复，主机与四象限完整本地复测通过，见[基线修复记录](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)。本项依赖已满足，可按[审批体验复核](approval-experience-review-2026-09-16.md)继续202；不扩大L2/L3授权，每个下一HXA仍先清理已知必过门禁。

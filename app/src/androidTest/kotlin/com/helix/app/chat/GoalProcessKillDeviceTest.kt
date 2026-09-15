@@ -115,7 +115,8 @@ class GoalProcessKillDeviceTest {
         val report = RecoveryCoordinatorApp(storage, clock(wallTime)).recover()
         assertEquals(1, report.closedRuns.size)
         val goal = storage.goals.resolve(goalId)
-        assertEquals("PAUSED", goal.state)
+        // ADR-0039: exhaustion blocks continuation; interruption alone remains resumable.
+        assertEquals(if (runs == 2) "BLOCKED" else "PAUSED", goal.state)
         assertEquals(runs * 5_000L, goal.runTimeMillis)
         assertEquals(runs * 100L, goal.totalTokens)
         assertEquals(runs, goal.modelCalls)

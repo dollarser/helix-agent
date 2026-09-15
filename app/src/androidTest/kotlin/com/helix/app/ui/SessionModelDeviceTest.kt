@@ -70,9 +70,9 @@ class SessionModelDeviceTest {
                     check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
                     check(service.runConnectionTest(alternate) is ProbeOutcome.Ok)
                     chat.newSessionDraft()
-                    compose.waitUntil { chat.screen.value.isDraft }
+                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
                     chat.selectSessionModel(provider, "fixture-model-b")
-                    compose.waitUntil {
+                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                         chat.screen.value.badge
                             ?.model == "fixture-model-b"
                     }
@@ -95,7 +95,7 @@ class SessionModelDeviceTest {
                     chat.setReasoning(ReasoningEffort.MEDIUM)
                     compose.onNodeWithTag("chat-model-menu").performClick()
                     compose.onNodeWithTag("chat-model-$alternate-fixture-model-c").performClick()
-                    compose.waitUntil {
+                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                         chat.screen.value.badge
                             ?.model == "fixture-model-c"
                     }
@@ -104,7 +104,7 @@ class SessionModelDeviceTest {
                     assertEquals(history, storage.messages.listBySession(id))
                     chat.closeSession()
                     chat.openSession(id)
-                    compose.waitUntil {
+                    compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                         chat.screen.value.badge
                             ?.model == "fixture-model-c"
                     }

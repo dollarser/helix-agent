@@ -1,10 +1,12 @@
 # Helix 实施状态
 
-更新时间：2026-09-10。HXA-161～184 已提交并快进合入本地 `main`（`81d60e6`）；未推送。main 工作树仍保留另一轮未提交的测试夹具与记录。
+更新时间：2026-09-16（基线修复与本地主机、设备验收更新）。历史主线快照：HXA-161～184 已提交并快进合入本地 `main`（`81d60e6`），当时未推送；当前 Git 状态须接手实查。
 
 ## Current summary
 
-2026-09-16 HXA-201 已完成本任务范围验收，见[完成记录](../completion-records/HXA-201.md)及[完整证据与剩余失败](hxa201-acceptance-2026-09-16.md)。已补齐会话/Workspace设置、旧卡契约、实际保存反馈与真实恢复；P1/P2/P3及四象限专项通过。全套API29 consumer仍有18项基线复现失败，不代表全产品通过。HXA-202可按产品链继续；下方201切片和200 gap均为历史快照，其旧“未完成”、无契约哈希、宽度变化等于旋转和JGit依赖漂移判断不再作为当前结论。
+2026-09-16 基线修复完成：原18项设备失败及复测发现的问题已修复；主机4399通过/8条件跳过/0失败，全量构建、lint、制品检查与API29/36双flavor本地完整套件通过，详见[修复与证据](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)。证据针对保留并行WIP的实际工作树，真实账号和长稳仍独立记录。每个下一HXA先清理已知必过门禁；依赖允许为兼容性升级并更新锁文件和验证材料，不能以固定旧版本代替兼容性修复。
+
+2026-09-16 HXA-201 已完成本任务范围验收，见[完成记录](../completion-records/HXA-201.md)及[当时验收证据](hxa201-acceptance-2026-09-16.md)。已补齐会话/Workspace设置、旧卡契约、实际保存反馈与真实恢复；P1/P2/P3及四象限专项通过。当时全套API29 consumer的18项失败现已按上方记录修复。下方201切片和200 gap均为历史快照，其旧“未完成”、无契约哈希、宽度变化等于旋转和JGit依赖漂移判断不再作为当前结论。
 
 2026-09-15 HXA-200 已完成本任务范围验收，审计、停止/恢复和JGit门禁问题已修复，见[完成记录](../completion-records/HXA-200.md)。产品链下一项为HXA-201工具设置与审批卡，后端依赖已满足；其他并行HXA状态不变。下方旧复核与gap条目仅为历史证据。
 
@@ -69,7 +71,7 @@ HXA-185 已由 Claude 独占模拟器验证完毕（主机门禁+4自测、Goal 
 
 ## Next task
 
-产品链下一项为HXA-202：先核对现有任务入口与本轮记录的TasksDashboard/Composer失败，复用现有任务ID、取消和恢复事实。201依赖已满足，不重做三态后端或设置；允许按任务规则验证后具名本地commit，不push/合并。
+产品链下一项为HXA-202：先读[基线修复记录](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[审批体验复核](approval-experience-review-2026-09-16.md)，复用现有任务ID、取消和恢复事实，补待审批入口、通知直达与Plan执行授权说明。201依赖和本轮基线已满足，不重做三态后端或设置，不扩大L2/L3授权；允许按任务规则验证后具名本地commit，不push/合并。
 
 2026-09-15 HXA-200 推进（未整体完成）：按 2026-09-14 澄清保留解析来源——`ToolApprovalResolver` 产出带来源的 `EffectiveToolPreference`（UNSET 沿用原 Policy / EXPLICIT 用户明确 / ALLOW_INVALIDATED 契约失效回退 ASK / NEW_DEFAULT 预留待可信登记升级基线），scope 合并保持 DENY > ASK > ALLOW、窄 scope 不覆盖外层禁止；ADR-0052 已补精确修订（仅第 1 点，不改第 2–8 点）。设备验收（生产 source 接线 + 真实 Room/broker/dispatcher）：新增 `ToolApprovalPreferenceDeviceTest` 4 用例（UNSET-L0 免卡并钉住新工具默认=空记录即 Unset、明确 ASK 强制卡、失效 ALLOW 回退 ASK 卡、跨 scope DENY>ASK>ALLOW），原 `ToolSchedulerDeviceTest` 9 用例免卡回归保持绿；API 29/36 × consumer/developer 共 8 次 gradle 运行全过（每 API 4+9），独占模拟器已在 finally 关闭（证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`、`build/hxa200-device-20260915-105951/`）。剩余三态×风险/模式/能力全矩阵、精确批次、版本/范围/迁移、排队撤销、外部来源碰撞尚未覆盖，故不写整体完成记录。P3 lint 仅被 2 处既有第三方 JGit TrustAll 挡住（HXA-192/ADR-0048 所有方决定），非本切片代码。
 

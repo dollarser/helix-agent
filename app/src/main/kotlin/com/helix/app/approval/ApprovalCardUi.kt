@@ -46,7 +46,7 @@ data class ApprovalLabel(
 )
 
 /**
- * The display of an ACTIVE bounded Policy rule (ADR-0005) that satisfied the egress this
+ * The display of an ACTIVE bounded Policy rule (ADR-0012) that satisfied the egress this
  * card is about — roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则.
  *
  * [displayRes]/[displayArgs] always carry the "有界 Policy 规则" line and the expiry — a
@@ -92,10 +92,9 @@ data class CodeExecutionUi(
  * 预期影响和 verifier.
  *
  * Invariants:
- * - The card offers EXACTLY the two actions in [ACTIONS] ("本次批准 / 拒绝") — no
- *   "模型帮我批准", no "此后全部允许", no permanent-allow (doc 02 section 8.1; ADR-0005).
- *   [ACTIONS] is the single source the UI renders from, so a future drift is a test
- *   failure, not a silent copy change.
+ * - [ACTIONS] contains the two decisions for THIS call ("本次批准 / 拒绝").
+ *   Separate future-preference controls follow ADR-0052; they do not grant this call
+ *   or create wildcard L2/L3 authority (ADR-0012). The model cannot grant approval.
  * - [profile] is the Safety Profile at REQUEST TIME — a trusted fact captured when the
  *   dispatch started. A later profile switch must not rewrite this card or its pending
  *   decision (roadmap HXA-036 test: 切换 Profile 不改变待审批决定).

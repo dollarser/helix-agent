@@ -53,6 +53,7 @@ class ShareDraftUiDeviceTest {
             // session offers the explicit bind affordance (no provider was auto-assigned).
             rule.waitUntil(15_000) { rule.onAllNodesWithTag("chat-input").fetchSemanticsNodes().isNotEmpty() }
             rule.onNodeWithTag("chat-input").assertTextContains(shared)
+            rule.onNodeWithTag("chat-conversation-details").performClick()
             rule.waitUntil(
                 15_000,
             ) { rule.onAllNodesWithTag("chat-unbound-provider").fetchSemanticsNodes().isNotEmpty() }
@@ -97,6 +98,7 @@ class ShareDraftUiDeviceTest {
                 "the image share must not prefill the composer, was: $inputText",
                 (inputText as? List<*>).orEmpty().any { it.toString().contains("输入消息…") },
             )
+            rule.onNodeWithTag("chat-conversation-details").performClick()
             // …the session is provider-free (the user must explicitly bind before any send)…
             rule.waitUntil(
                 15_000,

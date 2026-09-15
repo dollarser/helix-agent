@@ -129,7 +129,7 @@ private class DecisionWaiter {
  * turn is cancelled after the tap, the row is already decided and still expires, but it
  * can never silently become "no decision happened").
  *
- * Invariants (ADR-0005 / doc 02 section 8.1): no auto-approve path exists in this class —
+ * Invariants (ADR-0012 / ADR-0052): no auto-approve path exists in this class —
  * the only way to [ApprovalAcquisition.Approved] is the user's typed decision on the
  * pending record, minted through the HXA-034 guards. Profile switches, permissions and
  * Root grants are not read here at all, so they cannot influence a pending decision
