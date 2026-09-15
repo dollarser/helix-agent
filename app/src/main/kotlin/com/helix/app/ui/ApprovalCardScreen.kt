@@ -82,6 +82,7 @@ fun ApprovalCard(
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 3,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("approval-card-summary-${card.approvalId}"),
                 )
                 Text(
                     localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),

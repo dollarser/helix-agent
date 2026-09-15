@@ -8,12 +8,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.chat.ChatService
 import com.helix.app.provider.ProviderService
+import kotlinx.coroutines.launch
 
 /**
  * The chat UI (HXA-028). Two views over the service's observable state:
@@ -50,6 +52,9 @@ fun ChatScreen(
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
+    // HXA-201: the approval card's "save future preference" write is suspend (it hops to the
+    // IO dispatcher; Room forbids the main thread) — launch from the composition's scope.
+    val scope = rememberCoroutineScope()
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
     LaunchedEffect(screen.openSessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
@@ -110,7 +115,9 @@ fun ChatScreen(
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
                         onSaveFuturePreference = { sourceRef, toolName, preference ->
-                            toolApprovalSettings?.setPreferenceFor(sourceRef, toolName, preference)
+                            scope.launch {
+                                toolApprovalSettings?.setPreferenceFor(sourceRef, toolName, preference)
+                            }
                         },
                         onStageAttachment = { chatService.stageAttachment(it) },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },

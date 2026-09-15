@@ -9,6 +9,10 @@ import com.helix.core.policy.ToolApprovalReason
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * HXA-201 (ADR-0052): the settings screen's read/write model over the standing tool-approval
@@ -21,15 +25,27 @@ import com.helix.tools.framework.ToolRegistry
  * so the user sees WHICH scopes a setting comes from. Unset means "follows the default policy" —
  * it is never displayed as if the user had allowed the tool.
  *
- * Writes: [setPreference] and [restoreDefault] go through [ToolApprovalPreferenceService] (the
- * single write path) in the GLOBAL scope. An ALLOW binds to the row's current contract hash, so
- * a later contract change invalidates it at read time and the row shows the re-confirm state.
+ * Writes: [setPreference], [restoreDefault] and [setPreferenceFor] go through
+ * [ToolApprovalPreferenceService] (the single write path) in the GLOBAL scope. An ALLOW binds to
+ * the row's current contract hash, so a later contract change invalidates it at read time and
+ * the row shows the re-confirm state. All three writes are `suspend`: they serialize under one
+ * lock (a write is read-modify-write and must not interleave) and run on the IO dispatcher, so
+ * the Compose click handlers that call them — on the MAIN thread, where Room's guard would
+ * crash — are safe without any caller-side dispatching (HXA-201 device matrix).
  */
 class ToolApprovalSettingsModel(
     private val registry: ToolRegistry,
     private val preferences: ToolApprovalPreferenceService,
     private val nowEpochMillis: () -> Long = { System.currentTimeMillis() },
 ) {
+    /** One lock for all writes: serialized read-modify-write, no interleaved insert/update races. */
+    private val writeMutex = Mutex()
+
+    private suspend fun <T> writeOffMain(block: () -> T): T =
+        withContext(Dispatchers.IO) {
+            writeMutex.withLock { block() }
+        }
+
     /** One settings row: the newest registered contract of a tool + what is effective right now. */
     data class Row(
         val toolName: String,
@@ -73,7 +89,24 @@ class ToolApprovalSettingsModel(
      * actually-effective result after the write. An ALLOW binds to the row's current contract;
      * ASK and DENY carry no contract.
      */
-    fun setPreference(
+    suspend fun setPreference(
+        row: Row,
+        preference: ToolApprovalPreference,
+    ): Row = writeOffMain { applyLocked(row, preference) }
+
+    /**
+     * Removes the GLOBAL-scope record for [row] — a reset to the unset default, not a fourth
+     * state — and returns the re-resolved row. Records in other scopes stay untouched and keep
+     * showing through [Row.records].
+     */
+    suspend fun restoreDefault(row: Row): Row =
+        writeOffMain {
+            preferences.remove(row.sourceRef, row.toolName, ToolApprovalPreferenceScope.GLOBAL, "")
+            rowFor(row)
+        }
+
+    /** Assumes [writeMutex] is held and the caller is off the main thread. */
+    private fun applyLocked(
         row: Row,
         preference: ToolApprovalPreference,
     ): Row {
@@ -87,16 +120,6 @@ class ToolApprovalSettingsModel(
             contractHash,
             nowEpochMillis(),
         )
-        return rowFor(row)
-    }
-
-    /**
-     * Removes the GLOBAL-scope record for [row] — a reset to the unset default, not a fourth
-     * state — and returns the re-resolved row. Records in other scopes stay untouched and keep
-     * showing through [Row.records].
-     */
-    fun restoreDefault(row: Row): Row {
-        preferences.remove(row.sourceRef, row.toolName, ToolApprovalPreferenceScope.GLOBAL, "")
         return rowFor(row)
     }
 
@@ -123,14 +146,15 @@ class ToolApprovalSettingsModel(
      * re-resolved row. Null when the tool is no longer registered (fail-closed: a stale card
      * can never write a standing preference for a vanished tool).
      */
-    fun setPreferenceFor(
+    suspend fun setPreferenceFor(
         sourceRef: String,
         toolName: String,
         preference: ToolApprovalPreference,
-    ): Row? {
-        val row = rowForIdentity(sourceRef, toolName) ?: return null
-        return setPreference(row, preference)
-    }
+    ): Row? =
+        writeOffMain {
+            val row = rowForIdentity(sourceRef, toolName) ?: return@writeOffMain null
+            applyLocked(row, preference)
+        }
 
     private fun ToolDescriptor.toRow(): Row {
         val snapshot = preferences.snapshotFor(origin.canonicalOf(), name.value, contractHash.hex, null, null)

@@ -21,6 +21,7 @@ import com.helix.tools.framework.Idempotency
 import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolRegistry
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
@@ -80,7 +81,7 @@ class ToolApprovalSettingsModelTest {
         val model = model(ToolRegistry().also { it.register(descriptor("fake.a")) })
         val row = model.rows().single()
 
-        val updated = model.setPreference(row, ToolApprovalPreference.ALLOW)
+        val updated = runBlocking { model.setPreference(row, ToolApprovalPreference.ALLOW) }
 
         assertEquals(ToolApprovalSettingsState.ALLOW, updated.state)
         val record = updated.records.single()
@@ -94,11 +95,11 @@ class ToolApprovalSettingsModelTest {
         val model = model(ToolRegistry().also { it.register(descriptor("fake.a")) })
         val row = model.rows().single()
 
-        val denied = model.setPreference(row, ToolApprovalPreference.DENY)
+        val denied = runBlocking { model.setPreference(row, ToolApprovalPreference.DENY) }
         assertEquals(ToolApprovalSettingsState.DENY, denied.state)
         assertNull(denied.records.single().contractHash)
 
-        val reset = model.restoreDefault(denied)
+        val reset = runBlocking { model.restoreDefault(denied) }
         assertEquals(ToolApprovalSettingsState.UNSET, reset.state)
         assertTrue(reset.records.isEmpty())
     }
@@ -108,7 +109,7 @@ class ToolApprovalSettingsModelTest {
         val model = model(ToolRegistry().also { it.register(descriptor("fake.a")) })
         val row = model.rows().single()
 
-        val updated = model.setPreference(row, ToolApprovalPreference.ASK)
+        val updated = runBlocking { model.setPreference(row, ToolApprovalPreference.ASK) }
 
         assertEquals(ToolApprovalSettingsState.ASK, updated.state)
         assertNull(updated.records.single().contractHash)
@@ -120,7 +121,7 @@ class ToolApprovalSettingsModelTest {
         registry.register(descriptor("fake.a", version = 1))
         val model = model(registry)
 
-        model.setPreference(model.rows().single(), ToolApprovalPreference.ALLOW)
+        runBlocking { model.setPreference(model.rows().single(), ToolApprovalPreference.ALLOW) }
         // A newer version of the tool changes the contract hash, invalidating the stored ALLOW.
         registry.register(descriptor("fake.a", version = 2))
 
@@ -162,7 +163,8 @@ class ToolApprovalSettingsModelTest {
         val model = model(registry)
         val bRef = "mcp:srv-b:2025-03-26:${MCP_SCHEMA_SHA}"
 
-        val updated = model.setPreferenceFor(bRef, "mcp.demo.tool", ToolApprovalPreference.DENY)
+        val updated =
+            runBlocking { model.setPreferenceFor(bRef, "mcp.demo.tool", ToolApprovalPreference.DENY) }
 
         assertEquals(bRef, updated?.sourceRef)
         assertEquals(ToolApprovalSettingsState.DENY, updated?.state)
@@ -175,10 +177,18 @@ class ToolApprovalSettingsModelTest {
     fun setPreferenceForFailsClosedForAnUnregisteredTool() {
         val model = model(ToolRegistry().also { it.register(descriptor("fake.a")) })
 
-        assertNull(model.setPreferenceFor("built-in", "not.registered", ToolApprovalPreference.ALLOW))
+        assertNull(
+            runBlocking { model.setPreferenceFor("built-in", "not.registered", ToolApprovalPreference.ALLOW) },
+        )
         // Same name, unknown origin: no row to bind to.
         assertNull(
-            model.setPreferenceFor("mcp:ghost:2025-03-26:${MCP_SCHEMA_SHA}", "fake.a", ToolApprovalPreference.DENY),
+            runBlocking {
+                model.setPreferenceFor(
+                    "mcp:ghost:2025-03-26:${MCP_SCHEMA_SHA}",
+                    "fake.a",
+                    ToolApprovalPreference.DENY,
+                )
+            },
         )
         // Nothing was written.
         assertEquals(ToolApprovalSettingsState.UNSET, model.rows().single().state)

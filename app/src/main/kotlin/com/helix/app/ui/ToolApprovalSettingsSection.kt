@@ -2,7 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -13,6 +13,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -23,6 +24,7 @@ import com.helix.app.approval.ToolApprovalSettingsModel
 import com.helix.app.approval.ToolApprovalSettingsState
 import com.helix.core.model.ToolApprovalPreference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -114,7 +116,8 @@ private fun ToolApprovalSettingsRow(
 /**
  * The per-tool actions: store ALLOW / ASK / DENY in the GLOBAL scope, or restore the default by
  * removing the GLOBAL record. Each is a deliberate, separate user action — a one-call approval
- * never writes a standing preference.
+ * never writes a standing preference. A FlowRow keeps all four reachable on narrow viewports and
+ * at large font scales (HXA-201 small-screen / large-font device matrix).
  */
 @Composable
 @Suppress("FunctionName")
@@ -123,32 +126,46 @@ private fun ToolApprovalTriStateButtons(
     row: ToolApprovalSettingsModel.Row,
     onAction: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // The writes are suspend and hop to the IO dispatcher themselves (Room's main-thread
+    // guard): the click handler only launches, it never does storage I/O on the main thread.
+    val scope = rememberCoroutineScope()
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         OutlinedButton(
             onClick = {
-                model.setPreference(row, ToolApprovalPreference.ALLOW)
-                onAction()
+                scope.launch {
+                    model.setPreference(row, ToolApprovalPreference.ALLOW)
+                    onAction()
+                }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-allow"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_allow)) }
         OutlinedButton(
             onClick = {
-                model.setPreference(row, ToolApprovalPreference.ASK)
-                onAction()
+                scope.launch {
+                    model.setPreference(row, ToolApprovalPreference.ASK)
+                    onAction()
+                }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-ask"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_ask)) }
         OutlinedButton(
             onClick = {
-                model.setPreference(row, ToolApprovalPreference.DENY)
-                onAction()
+                scope.launch {
+                    model.setPreference(row, ToolApprovalPreference.DENY)
+                    onAction()
+                }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-deny"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_deny)) }
         OutlinedButton(
             onClick = {
-                model.restoreDefault(row)
-                onAction()
+                scope.launch {
+                    model.restoreDefault(row)
+                    onAction()
+                }
             },
             modifier = Modifier.testTag("tool-approval-${row.toolName}-reset"),
         ) { Text(stringResource(R.string.settings_tool_approval_action_reset)) }
