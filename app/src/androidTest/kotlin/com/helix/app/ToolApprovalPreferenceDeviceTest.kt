@@ -66,6 +66,10 @@ import kotlin.time.Duration.Companion.seconds
  *   unconfigured tool resolves to an ASK tagged NEW_DEFAULT; a real user choice overrides it, a
  *   reset returns to it, and the decision survives a close/reopen "restart" because it is a pure
  *   function of the persisted first-write-wins baseline (点1, 2026-09-15).
+ * - 范围不匹配 + 外部来源同名碰撞 (Gap 3): a session-scoped ALLOW does not exempt a dispatch from
+ *   ANOTHER session — the dispatcher re-resolves against the call's own persisted session (point 7)
+ *   — and a preference is bound to the tool SOURCE: an external same-named tool never inherits the
+ *   built-in's stored ALLOW.
  */
 @RunWith(AndroidJUnit4::class)
 class ToolApprovalPreferenceDeviceTest {
@@ -74,6 +78,9 @@ class ToolApprovalPreferenceDeviceTest {
     /** Per-run suffix: the device Room persists across runs — tool names and ids must be unique. */
     private val run = System.nanoTime()
     private val sessionId = "apref-session"
+
+    /** Every session this class may have seeded cards into — the @After sweep must settle all of them. */
+    private val sweptSessions = mutableSetOf(sessionId)
 
     @Before
     fun setUp() {
@@ -94,11 +101,13 @@ class ToolApprovalPreferenceDeviceTest {
         // A test that dies after its card is published (any assertion before its deny) leaves the
         // dispatch BLOCKED in the broker, holding a scheduler slot for the process lifetime — every
         // later dispatch in the process would then wait on admission forever. Cancel any approval
-        // still pending on this class's seeded session and wait for its dispatch to settle so the
-        // slot is free before the next test starts.
-        pendingApprovalIdsOn(sessionId).forEach { container.toolPipeline.broker.cancel(it) }
+        // still pending on any of this class's seeded sessions and wait for its dispatch to settle
+        // so the slot is free before the next test starts.
+        sweptSessions.forEach { sid ->
+            pendingApprovalIdsOn(sid).forEach { container.toolPipeline.broker.cancel(it) }
+        }
         val deadline = System.currentTimeMillis() + 10_000
-        while (System.currentTimeMillis() < deadline && pendingApprovalIdsOn(sessionId).isNotEmpty()) {
+        while (System.currentTimeMillis() < deadline && sweptSessions.any { pendingApprovalIdsOn(it).isNotEmpty() }) {
             Thread.sleep(50)
         }
     }
@@ -147,27 +156,35 @@ class ToolApprovalPreferenceDeviceTest {
         return descriptor
     }
 
-    /** Seeds the turn row the tool_calls foreign keys require (the session is seeded in [setUp]). */
-    private fun ensureTurn(turnId: String) {
+    /** Seeds the turn row the tool_calls foreign keys require. */
+    private fun ensureTurnIn(
+        turnId: String,
+        sid: String,
+    ) {
         val now = System.currentTimeMillis()
         if (container.storage.turns
-                .listBySession(sessionId)
+                .listBySession(sid)
                 .none { it.id == turnId }
         ) {
-            container.storage.turns.start(turnId, sessionId, now)
+            container.storage.turns.start(turnId, sid, now)
         }
     }
 
     /** The stable tool source identity the dispatcher resolves preferences against. */
     private fun sourceRefOf(descriptor: ToolDescriptor): String = descriptor.origin.canonicalOf()
 
-    /** Runs one dispatch on a worker thread (the broker blocks on the user's decision). */
+    /**
+     * Runs one dispatch on a worker thread (the broker blocks on the user's decision). The
+     * dispatcher trusts the turn's PERSISTED session, so [sid] only seeds the turn — the
+     * dispatch itself carries whichever session the turn belongs to.
+     */
     private fun dispatchOnThread(
         toolCallId: String,
         turnId: String,
         toolName: String,
+        sid: String = sessionId,
     ): DispatchHandle {
-        ensureTurn(turnId)
+        ensureTurnIn(turnId, sid)
         val latch = CountDownLatch(1)
         val outcome = arrayOf<ToolDispatchOutcome?>(null)
         val error = arrayOf<Throwable?>(null)
@@ -398,6 +415,95 @@ class ToolApprovalPreferenceDeviceTest {
             "no card may be published for a session-ALLOW-over-global-ASK call",
             container.storage.approvals.byToolCall(callId),
         )
+    }
+
+    @Test
+    fun aSessionAllowIsNotLeakedToADispatchInAnotherSession() {
+        // HXA-200 Gap 3 (范围不匹配) end to end: a GLOBAL ASK plus a session-scoped ALLOW granted
+        // to the seeded session. The dispatcher re-resolves against the call's own PERSISTED
+        // session (point 7), so a dispatch from ANOTHER session sees the GLOBAL ASK — the
+        // seeded session's ALLOW row is not applicable there — and the call takes a card. If the
+        // row leaked across sessions, the other session would resolve Allow and go card-free.
+        val descriptor = registerLowRiskTool("apref.crosssession.$run")
+        val sourceRef = sourceRefOf(descriptor)
+        val contractHash = descriptor.contractHash.hex
+        container.toolApprovalPreferenceService.set(
+            sourceRef,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ASK,
+            null,
+            System.currentTimeMillis(),
+        )
+        container.toolApprovalPreferenceService.set(
+            sourceRef,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.SESSION,
+            sessionId,
+            ToolApprovalPreference.ALLOW,
+            contractHash,
+            System.currentTimeMillis(),
+        )
+        // The other session: fresh, with its own turn (the dispatcher trusts the turn's session).
+        val otherSession = "apref-other-$run"
+        sweptSessions += otherSession
+        container.storage.sessions.create(otherSession, "apref other session", null, null, System.currentTimeMillis())
+        // The read seam confirms the other session's view first: the session ALLOW is not there.
+        val effectiveOther =
+            container.toolApprovalPreferenceService.effectiveFor(
+                sourceRef,
+                descriptor.name.value,
+                contractHash,
+                otherSession,
+                null,
+            )
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effectiveOther)
+        val callId = "apref-crosssession-call-$run"
+        val handle = dispatchOnThread(callId, "apref-crosssession-turn-$run", descriptor.name.value, otherSession)
+        val approvalId = approvalIdOf(callId)
+        container.chatService.denyApproval(approvalId)
+        val outcome = handle.join() as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, outcome.code)
+    }
+
+    @Test
+    fun aSameNamedToolFromAnotherSourceDoesNotInheritThePreference() {
+        // HXA-200 Gap 3 (外部来源同名碰撞) on REAL Room through the PRODUCTION service: preference
+        // identity is (sourceRef, toolName), never the bare name. An external source (MCP/A2A)
+        // exposing the SAME tool name has NO record of its own — the built-in's stored ALLOW does
+        // not authorize it, so it stays Unset and keeps its original policy handling.
+        val descriptor = registerLowRiskTool("apref.collision.$run")
+        val builtinRef = sourceRefOf(descriptor)
+        val externalRef = "mcp:apref-collision-$run"
+        val contractHash = descriptor.contractHash.hex
+        container.toolApprovalPreferenceService.set(
+            builtinRef,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ALLOW,
+            contractHash,
+            System.currentTimeMillis(),
+        )
+        val builtinEffective =
+            container.toolApprovalPreferenceService.effectiveFor(
+                builtinRef,
+                descriptor.name.value,
+                contractHash,
+                sessionId,
+                null,
+            )
+        assertEquals(EffectiveToolPreference.Allow, builtinEffective)
+        val externalEffective =
+            container.toolApprovalPreferenceService.effectiveFor(
+                externalRef,
+                descriptor.name.value,
+                contractHash,
+                sessionId,
+                null,
+            )
+        assertEquals(EffectiveToolPreference.Unset, externalEffective)
     }
 
     @Test

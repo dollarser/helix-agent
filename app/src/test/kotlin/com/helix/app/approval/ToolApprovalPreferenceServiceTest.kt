@@ -245,6 +245,68 @@ class ToolApprovalPreferenceServiceTest {
         assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", "h", "s2", null))
     }
 
+    // Gap 3 (范围不匹配 + 外部来源同名碰撞): a stored row applies ONLY to the exact scope it was
+    // granted in and ONLY to the tool SOURCE it was granted for — never a looser name match. The
+    // ALLOW-contract-invalidation half of Gap 3 is pinned by allowIsInvalidatedWhenTheContractChanges
+    // and the device's anInvalidatedAllowFallsBackToACard.
+
+    @Test
+    fun aWorkspaceAllowIsNotLeakedAcrossWorkspaces() {
+        val service = service()
+        service.set("builtin", "t", ToolApprovalPreferenceScope.WORKSPACE, "w1", ToolApprovalPreference.ALLOW, "h", 1L)
+        // Inside the workspace it was granted for: live.
+        assertEquals(EffectiveToolPreference.Allow, service.effectiveFor("builtin", "t", "h", "s1", "w1"))
+        // A different workspace — and a context with no workspace at all — never sees it: Unset.
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", "h", "s1", "w2"))
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", "h", "s1", null))
+    }
+
+    @Test
+    fun aSessionAllowDoesNotApplyOutsideASessionContext() {
+        // A session row can only match a call that HAS that session; a context-less call (null
+        // sessionId) must not inherit it — Unset, never Allow.
+        val service = service()
+        service.set("builtin", "t", ToolApprovalPreferenceScope.SESSION, "s1", ToolApprovalPreference.ALLOW, "h", 1L)
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", "h", null, null))
+    }
+
+    @Test
+    fun aPreferenceIsScopedToItsToolSourceNotJustTheName() {
+        // External-source same-name collision: an MCP server may expose a tool with the SAME name
+        // as a built-in. Identity is (sourceRef, toolName), never the bare name — an ALLOW on the
+        // built-in never authorizes the external same-named tool, and a DENY on one source never
+        // removes the other from the model's exposure.
+        val service = service()
+        service.set(
+            "builtin",
+            "web.search",
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ALLOW,
+            "h",
+            1L,
+        )
+        assertEquals(EffectiveToolPreference.Allow, service.effectiveFor("builtin", "web.search", "h", "s1", null))
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("mcp:other", "web.search", "h", "s1", null))
+        service.set(
+            "builtin",
+            "web.search",
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.DENY,
+            null,
+            2L,
+        )
+        assertEquals(
+            ToolApprovalExposure.HIDDEN_BY_DENY,
+            ToolApprovalResolver.exposure(service.effectiveFor("builtin", "web.search", null, "s1", null)),
+        )
+        assertEquals(
+            ToolApprovalExposure.EXPOSE,
+            ToolApprovalResolver.exposure(service.effectiveFor("mcp:other", "web.search", null, "s1", null)),
+        )
+    }
+
     @Test
     fun removeResetsToUnsetAndFailsClosedWhenAbsent() {
         val service = service()
