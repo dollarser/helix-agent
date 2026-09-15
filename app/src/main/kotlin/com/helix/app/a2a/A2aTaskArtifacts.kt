@@ -94,7 +94,7 @@ internal class A2aTaskArtifacts(
     ): JsonObject =
         synchronized(ARTIFACT_IMPORT_LOCK) {
             val expectedHash = FileContentStore.sha256Hex(bytes)
-            storage.artifacts.findBySessionAndPath(sessionId, path.relativePath)?.let { existing ->
+            storage.artifacts.findBySessionAndPath(sessionId, path.toModelReference())?.let { existing ->
                 val file = resolveWorkspaceFile(path)
                 require(
                     existing.size == bytes.size.toLong() &&
@@ -122,14 +122,15 @@ internal class A2aTaskArtifacts(
                     sessionId = sessionId,
                     sink =
                         WorkspaceArtifactStore.ArtifactSink { owner, record ->
+                            val scopePath = FileScopePath(record.scopeId, record.relativePath)
                             storage.artifacts.register(
                                 record.id,
                                 owner,
-                                record.relativePath,
+                                scopePath.toModelReference(),
                                 record.mediaType,
                                 record.sizeBytes,
                                 record.sha256,
-                                resolveWorkspaceFile(FileScopePath(workspaceScopeId, record.relativePath)),
+                                resolveWorkspaceFile(scopePath),
                             )
                         },
                 )

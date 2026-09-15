@@ -3,6 +3,7 @@ package com.helix.core.agent
 import com.helix.core.model.AgentMode
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolOperationClass
+import com.helix.core.model.isReviewModeAdmitted
 
 /**
  * The two tool facts the mode filter needs. Dynamic risk is computed per call by the Policy
@@ -22,7 +23,7 @@ enum class ModeDenialCode {
     /** Chat mode without explicit user tool enablement: the tool table is empty. */
     TOOLS_DISABLED,
 
-    /** The operation class is not READ_ONLY (Chat and Plan). */
+    /** The operation class is not admitted by the mode (Chat/Plan allow only READ_ONLY or METADATA). */
     OPERATION_CLASS_NOT_READ_ONLY,
 
     /** The dynamic risk exceeds the mode cap (Chat: L0, Plan: L1). */
@@ -87,10 +88,10 @@ object ModePolicy {
                 )
             }
 
-            profile.operationClass != ToolOperationClass.READ_ONLY -> {
+            !profile.operationClass.isReviewModeAdmitted -> {
                 ModeDecision.Denied(
                     ModeDenialCode.OPERATION_CLASS_NOT_READ_ONLY,
-                    "Chat mode allows only READ_ONLY tools.",
+                    "Chat mode allows only READ_ONLY or METADATA tools.",
                 )
             }
 
@@ -105,10 +106,11 @@ object ModePolicy {
 
     private fun evaluatePlan(profile: ToolModeProfile): ModeDecision =
         when {
-            profile.operationClass != ToolOperationClass.READ_ONLY -> {
+            !profile.operationClass.isReviewModeAdmitted -> {
                 ModeDecision.Denied(
                     ModeDenialCode.OPERATION_CLASS_NOT_READ_ONLY,
-                    "Plan mode allows only READ_ONLY tools; a risk-level check cannot substitute this.",
+                    "Plan mode allows only READ_ONLY or METADATA tools; a risk-level check cannot " +
+                        "substitute this.",
                 )
             }
 

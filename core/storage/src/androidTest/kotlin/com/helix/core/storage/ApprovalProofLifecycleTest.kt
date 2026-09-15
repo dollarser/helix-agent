@@ -14,6 +14,8 @@ import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.repository.ApprovalRepository
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -213,6 +215,61 @@ class ApprovalProofLifecycleTest {
         assertTrue(failures.all { it is IllegalArgumentException })
         // The stored consumedAt is exactly the winning consumer's timestamp.
         assertEquals(successes.single(), storage.approvals.resolve(approval.id).consumedAt)
+    }
+
+    @Test
+    fun aRefundReMintsExactlyOnceForTheExactBinding() {
+        // HXA-200 Gap 4 (the storage half of exact per-call proof reuse): a consumption is
+        // refunded (annulled) only for the EXACT binding, never double-annulled for the same
+        // spend, and the refund grants nothing by itself — the record must still pass the
+        // mint guards to re-mint (no re-ask, no cross-parameter reuse of the refund path).
+        val call = seedToolCall("call-refund")
+        val approval =
+            createApproval("approval-refund", call, "workspace:ws-1", "session-r", "2".repeat(64), 100L, 20_000L)
+        storage.approvals.decide(approval.id, ApprovalDecision.APPROVED, 150L)
+        val proof = (storage.approvals.mint(approval.id, 160L) as ApprovalMintOutcome.Minted).proof
+
+        // A record that is not currently consumed cannot be refunded (0 rows).
+        assertFalse("refund requires a current consumption", storage.approvals.refund(proof))
+
+        storage.approvals.consume(proof, 170L, 170L)
+        // A MISMATCHED binding hash never touches the record — the refund path is bound to
+        // the exact call + arguments, just like consume.
+        val foreign =
+            binding(
+                "call-refund-other",
+                scopeRef = "workspace:ws-1",
+                sessionId = "session-r",
+                argsHash = "9".repeat(64),
+            )
+        assertFalse(
+            "a mismatched binding hash cannot refund",
+            storage.approvals.refund(ApprovalProof(approval.id, foreign.hash)),
+        )
+        assertEquals(170L, storage.approvals.resolve(approval.id).consumedAt)
+
+        // The exact consumed binding refunds ONCE: the consumption is annulled, no new
+        // decision, no new record — and the SAME record re-mints from its typed decision.
+        assertTrue("the exact consumed binding refunds once", storage.approvals.refund(proof))
+        assertNull("the refund annuls the consumption", storage.approvals.resolve(approval.id).consumedAt)
+        val reMinted = (storage.approvals.mint(approval.id, 180L) as ApprovalMintOutcome.Minted).proof
+
+        // The refund is one-per-consumption, not one-per-record: after the re-minted proof
+        // is consumed, that new consumption annuls independently (the storage primitive is
+        // "annul THIS spend"; the retry-COUNT bound — hard cap 2 attempts, at most one
+        // refund per dispatch — lives in the dispatcher, pinned in ToolDispatcherTest and
+        // by the device exactly-one-card assertion).
+        storage.approvals.consume(reMinted, 190L, 190L)
+        assertEquals(
+            ApprovalMintOutcome.Rejected(MintRejectionCode.CONSUMED),
+            storage.approvals.mint(approval.id, 200L),
+        )
+        assertTrue(
+            "a new consumption refunds independently",
+            storage.approvals.refund(proof),
+        )
+        // The refund never extended the record's window.
+        assertEquals(20_000L, storage.approvals.resolve(approval.id).expiresAt)
     }
 
     private fun seedToolCall(callId: String): ToolCallEntity {

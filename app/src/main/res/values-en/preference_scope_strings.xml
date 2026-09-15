@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preference_scope_global">All sessions</string>
+    <string name="preference_scope_session">Session: %1$s</string>
+    <string name="preference_scope_workspace">Workspace: %1$s</string>
+    <string name="preference_default_workspace">Default workspace</string>
+    <string name="preference_inherited_workspace">Inherited workspace</string>
+    <string name="preference_inherited_session">Inherited session</string>
+    <string name="preference_rule_source">%1$s: %2$s</string>
+    <string name="preference_scope_explanation">Changes and resets affect only the selected scope. Matching Deny or Ask rules take priority over Allow. System permissions and high-risk confirmation still apply.</string>
+    <string name="preference_save_changed">The tool changed. Refresh and review it before allowing.</string>
+    <string name="preference_save_unavailable">The tool is unavailable. Nothing was saved.</string>
+    <string name="preference_save_failed">Could not confirm the save. Refresh to check the result before retrying.</string>
+</resources>

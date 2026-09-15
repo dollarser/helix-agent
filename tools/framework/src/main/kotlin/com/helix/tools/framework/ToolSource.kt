@@ -6,6 +6,7 @@ import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
+import com.helix.core.model.isReviewModeAdmitted
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Duration
 
@@ -103,8 +104,8 @@ data class McpToolSpec(
  *   segments, so the full name has exactly 3 segments (stable, unambiguous,
  *   and parseable back into server + tool);
  * - the (serverId, serverToolName) pair is unique within this source;
- * - no [McpToolSpec] may declare [ToolOperationClass.READ_ONLY]
- *   (server hints are not classification, doc 02 section 7).
+ * - no [McpToolSpec] may declare [ToolOperationClass.READ_ONLY] or [ToolOperationClass.METADATA]
+ *   (server hints are not classification, doc 02 section 7; only built-in tools carry METADATA).
  */
 class McpToolSource(
     private val serverId: String,
@@ -125,8 +126,9 @@ class McpToolSource(
             }
         }
         descriptors.forEach { descriptor ->
-            require(descriptor.operationClass != ToolOperationClass.READ_ONLY) {
-                "MCP tool ${descriptor.name.value} must not be READ_ONLY (server hints are not classification)"
+            require(!descriptor.operationClass.isReviewModeAdmitted) {
+                "MCP tool ${descriptor.name.value} must not be READ_ONLY or METADATA " +
+                    "(server hints are not classification; only built-in tools carry METADATA)"
             }
         }
     }

@@ -207,9 +207,11 @@ internal fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
+        TaskLedgerCard(screen.taskLedger)
         val emptyConversation =
             screen.activeTurn == null &&
-                listOf(screen.messages, screen.toolTimeline, screen.subscriptionRecoveries).all { it.isEmpty() }
+                listOf(screen.messages, screen.toolTimeline, screen.subscriptionRecoveries, screen.taskLedger)
+                    .all { it.isEmpty() }
         ConversationTimeline(
             sessionId = screen.openSessionId,
             followContent = !emptyConversation,

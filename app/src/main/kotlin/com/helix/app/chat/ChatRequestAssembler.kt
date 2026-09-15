@@ -1,35 +1,82 @@
 package com.helix.app.chat
 
-import com.helix.app.goal.goalReportContext
+import com.helix.app.agent.ChatContextRequest
+import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.TurnContextAssembler
+import com.helix.app.automation.AutomationModule
 import com.helix.app.provider.ProviderService
+import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ModePolicy
+import com.helix.core.agent.PromptSnapshot
 import com.helix.core.agent.ToolModeProfile
 import com.helix.core.model.AgentMode
-import com.helix.core.model.ArtifactRef
-import com.helix.core.model.ImageReference
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
+import com.helix.core.policy.ToolApprovalExposure
+import com.helix.core.policy.ToolApprovalResolver
+import com.helix.core.policy.WorkspaceScope
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.entity.MessageAttachmentEntity
-import com.helix.core.workspace.AtomicFileWriter
-import com.helix.core.workspace.ContentProbe
-import com.helix.core.workspace.FileScopePath
-import java.nio.file.Files
+import com.helix.tools.framework.ToolDescriptor
 
-/** Reads current persisted facts for each request; owns no live Turn or approval state. */
+/**
+ * The single context-construction system (HX2-03; the doc section 34 ContextEngine entry):
+ * this assembler (request build + compaction admission) + [ChatHistoryBuilder] (persisted rows
+ * to model messages) + [ContextCompaction] (the only trim mechanism). The dormant first-version
+ * core ContextBuilder was retired as the parallel "architecture" context system (doc section
+ * 9.1); its source/trust domain remains design input for the tiered upgrade (doc section 12).
+ * Reads current persisted facts for each request; owns no live Turn or approval state. Also the
+ * agent loop's [TurnContextAssembler] port (HX2-02): every model request the loop builds flows
+ * through here.
+ */
+@Suppress("TooManyFunctions") // one builder per request path + the model-exposure deny filter
 internal class ChatRequestAssembler(
     private val storage: HelixStorage,
     private val providerService: ProviderService,
     private val toolPipeline: ToolPipeline,
     private val attachmentStaging: AttachmentStagingSupport,
     private val visionSessionBinder: (String) -> Unit,
-) {
+    /**
+     * P1 (research doc section 8): resolves the session workspace's project-instruction file
+     * (AGENTS.md / CLAUDE.md / HELIX.md) to the bounded, trust-framed block registered as the
+     * PROJECT section of the goal system prompt. Called only for an active goal turn. The
+     * default yields "" so JVM/device services without a workspace reader behave exactly as
+     * before (no project instructions injected).
+     */
+    private val projectInstructionsReader: (String) -> String = { "" },
+) : TurnContextAssembler {
+    private val imageVerifier = ImageReferenceVerifier(storage, attachmentStaging)
+
+    // The one production system-prompt assembly (cross-mode, HX2-04): environment sections for
+    // this session's directory/mode plus the Goal sections on an active goal turn. Its
+    // [PromptSnapshot] rides every built request so the request's records carry the section
+    // list + fingerprint (research doc section 4.4).
+    private val systemPrompt =
+        SystemPromptContext(storage, attachmentStaging.workspaceScopeId, projectInstructionsReader)
+
+    // The local file tools whose visibility decides the `env.files` section (mainline rule: the
+    // working-directory guidance ships only when the file tools are actually exposed).
+    private fun fileToolsAvailable(tools: List<ModelToolSchema>): Boolean =
+        tools.any { it.name.value in FILE_TOOL_NAMES }
+
+    // AgentLoop port (HX2-02): the loop-facing names of the two plain request paths.
+    override suspend fun build(
+        sessionId: String,
+        retryTurnId: String?,
+        control: RunControlConfig,
+    ): ChatContextRequest = buildRequest(sessionId, retryTurnId, control)
+
+    override suspend fun buildBackfill(
+        sessionId: String,
+        control: RunControlConfig,
+    ): ChatContextRequest = buildBackfillRequest(sessionId, control)
+
     /** Read-only repair preflight; the ordinary send path still performs its full admission. */
     suspend fun contextFits(
         sessionId: String,
@@ -38,13 +85,18 @@ internal class ChatRequestAssembler(
     ): Boolean {
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         val model = storage.sessions.resolve(sessionId).modelId ?: config.model
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
         val request =
             ChatContextRequest(
                 model,
-                requestHistory(sessionId, null, control) + ModelMessage(ModelRole.USER, prompt),
-                modelTools(sessionId, control),
+                system.modelMessages() +
+                    persistedHistory(sessionId, null, system) +
+                    ModelMessage(ModelRole.USER, prompt),
+                tools,
                 control.budgets.maxOutputTokens,
-                ReasoningEffort.OFF,
+                com.helix.core.model.ReasoningEffort.OFF,
+                system,
             )
         val window =
             providerService.contextSettingsStore
@@ -69,7 +121,9 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = requestHistory(sessionId, retryTurnId, control)
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
+        val history = persistedHistory(sessionId, retryTurnId, system)
         require(history.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
@@ -78,7 +132,7 @@ internal class ChatRequestAssembler(
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(sessionId, control),
+            tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
                 control.reasoning.takeIf {
@@ -88,6 +142,7 @@ internal class ChatRequestAssembler(
                             storage.sessions.resolve(sessionId).modelId ?: config.model,
                         )
                 } ?: ReasoningEffort.OFF,
+            prompt = system,
         )
     }
 
@@ -101,7 +156,9 @@ internal class ChatRequestAssembler(
         sessionId: String,
         control: RunControlConfig,
     ): ChatContextRequest {
-        val history = requestHistory(sessionId, null, control)
+        val tools = modelTools(sessionId, control)
+        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
+        val history = persistedHistory(sessionId, null, system)
         require(history.lastOrNull()?.role == ModelRole.TOOL) {
             "a back-fill request must end with the tool results"
         }
@@ -110,7 +167,7 @@ internal class ChatRequestAssembler(
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history,
-            tools = modelTools(sessionId, control),
+            tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
                 control.reasoning.takeIf {
@@ -120,10 +177,11 @@ internal class ChatRequestAssembler(
                             storage.sessions.resolve(sessionId).modelId ?: config.model,
                         )
                 } ?: ReasoningEffort.OFF,
+            prompt = system,
         )
     }
 
-    suspend fun rebuild(
+    override suspend fun rebuild(
         sessionId: String,
         retryTurnId: String?,
         control: RunControlConfig,
@@ -134,24 +192,6 @@ internal class ChatRequestAssembler(
         } else {
             buildRequest(sessionId, retryTurnId, control)
         }
-
-    private suspend fun requestHistory(
-        sessionId: String,
-        retryTurnId: String?,
-        control: RunControlConfig,
-    ): List<ModelMessage> {
-        val directory =
-            FileToolArguments.directory(
-                attachmentStaging.workspaceScopeId,
-                storage.sessions.resolve(sessionId).directoryRef,
-            )
-        val files =
-            modelTools(sessionId, control).any {
-                it.name.value in setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
-            }
-        return ChatEnvironmentContext.messages(directory, control.mode, files) +
-            persistedHistory(sessionId, retryTurnId)
-    }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
     private fun modelTools(
@@ -169,10 +209,38 @@ internal class ChatRequestAssembler(
                 }
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
+            .filter { !hiddenByDenyPreference(it, sessionId) }
             .filter { it.name.value != "goal.report" || control.mode == AgentMode.GOAL }
             .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
             .take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
+    }
+
+    /**
+     * HXA-200 (ADR-0052 point 4): a tool the user has DENYed is hidden before the model sees it.
+     * Reads through the SAME [ToolPipeline.preferenceSource] the dispatcher re-resolves before a
+     * call starts and collapses it with the SAME [ToolApprovalResolver], so exposure and execution
+     * can never disagree on one tool (point 7). The workspace scope is bound the same way the
+     * dispatcher does (RootModule scope, else AutomationModule scope), so both surfaces resolve the
+     * same tool against the same workspace (point 7). With no preference seam wired this is a no-op.
+     */
+    private fun hiddenByDenyPreference(
+        descriptor: ToolDescriptor,
+        sessionId: String,
+    ): Boolean {
+        val source = toolPipeline.preferenceSource ?: return false
+        val toolName = descriptor.name.value
+        val scope = RootModule.scopeFor(toolName) ?: AutomationModule.scopeFor(toolName)
+        val workspaceId = (scope as? WorkspaceScope)?.workspaceId
+        val preference =
+            source.effectiveFor(
+                sourceRef = descriptor.origin.canonicalOf(),
+                toolName = toolName,
+                contractHash = descriptor.contractHash.hex,
+                sessionId = sessionId,
+                workspaceRef = workspaceId,
+            )
+        return ToolApprovalResolver.exposure(preference) == ToolApprovalExposure.HIDDEN_BY_DENY
     }
 
     /**
@@ -190,6 +258,7 @@ internal class ChatRequestAssembler(
     private suspend fun persistedHistory(
         sessionId: String,
         retryTurnId: String?,
+        system: PromptSnapshot,
     ): List<ModelMessage> {
         val allRows = storage.messages.listBySession(sessionId)
         val checkpoint = ContextCompaction.checkpoint(storage, allRows)
@@ -222,12 +291,12 @@ internal class ChatRequestAssembler(
         val restored =
             messages.map { message ->
                 if (message.role == ModelRole.USER) {
-                    message.copy(images = imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
+                    message.copy(images = imageVerifier.imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
                 } else {
                     message
                 }
             }
-        return storage.goalReportContext(sessionId) +
+        return system.modelMessages() +
             if (checkpoint == null) {
                 restored
             } else {
@@ -236,86 +305,11 @@ internal class ChatRequestAssembler(
             }
     }
 
-    /**
-     * The verified [ImageReference]s bound to one persisted USER message (HXA-055): every
-     * binding whose artifact is an image (closed media type) is re-verified — artifact present,
-     * bytes hash to the bound SHA-256, magic agrees with the registered type — and the
-     * request-wide base64 budget is enforced. Any miss throws [IllegalArgumentException] and
-     * the turn fails closed; there is no silent drop and no raw fallback.
-     */
-    private suspend fun imageReferencesFor(messageId: String): List<ImageReference> {
-        val bindings = storage.messageAttachments.listByMessage(messageId)
-        if (bindings.isEmpty()) return emptyList()
-        var totalBase64 = 0L
-        val images = ArrayList<ImageReference>(bindings.size)
-        for (binding in bindings) {
-            val facts = verifiedImageBinding(binding) ?: continue // a text binding is not an image
-            totalBase64 += facts.base64Bytes
-            images += facts.reference
-        }
-        require(totalBase64 <= VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES) {
-            "the session's image data exceeds the per-request budget — start a new session to send more images"
-        }
-        return images
-    }
-
-    /**
-     * One persisted binding re-verified against its artifact (HXA-055): [null] when the binding
-     * is NOT an image (a text attachment), a verified [ImageReference] + its base64 size when it
-     * is, and an [IllegalArgumentException] (the turn fails closed) when the artifact changed or
-     * vanished — the ADR's re-verify-before-send/retry/restore rule.
-     */
-    private data class ImageBindingFacts(
-        val reference: ImageReference,
-        val base64Bytes: Long,
-    )
-
-    @Suppress("ThrowsCount") // one throw per closed re-verification failure (existence / path / hash / magic)
-    private suspend fun verifiedImageBinding(
-        binding: MessageAttachmentEntity,
-    ): ImageBindingFacts? {
-        val artifact =
-            runCatching { storage.artifacts.resolve(binding.artifactId) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact no longer exists — re-verify the session")
-        if (artifact.mediaType !in VisionLimits.NORMALIZED_MEDIA_TYPES) return null // text binding
-        require(artifact.size <= VisionLimits.MAX_NORMALIZED_RAW_BYTES) {
-            "bound image exceeds the per-image wire budget"
-        }
-        val scopePath =
-            runCatching { FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact path is invalid — re-verify the session")
-        val file =
-            runCatching { attachmentStaging.resolveWorkspacePath(scopePath) }
-                .getOrNull()
-                ?: throw IllegalArgumentException("bound image artifact path escapes the workspace")
-        require(Files.isRegularFile(file)) {
-            "bound image artifact is missing — the message can no longer be restored"
-        }
-        val actualHash =
-            try {
-                AtomicFileWriter.sha256Hex(file)
-            } catch (e: java.io.IOException) {
-                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
-            }
-        require(actualHash == binding.boundSha256) {
-            "bound image hash no longer matches the message binding"
-        }
-        val bytes =
-            try {
-                Files.readAllBytes(file)
-            } catch (e: java.io.IOException) {
-                throw IllegalArgumentException("bound image artifact is unreadable — re-verify the session", e)
-            }
-        val magic = ContentProbe.probeBytes(bytes, bytes.size.toLong()).mimeType
-        require(magic == artifact.mediaType) { "bound image bytes do not match their registered type" }
-        return ImageBindingFacts(
-            reference = ImageReference(ArtifactRef(artifact.id), artifact.mediaType),
-            base64Bytes = ((bytes.size + 2L) / 3L) * 4L,
-        )
-    }
-
     private fun sessionProviderId(sessionId: String): String =
         requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }
+
+    private companion object {
+        val FILE_TOOL_NAMES =
+            setOf("read", "write", "edit", "files.list", "files.stat", "files.search")
+    }
 }

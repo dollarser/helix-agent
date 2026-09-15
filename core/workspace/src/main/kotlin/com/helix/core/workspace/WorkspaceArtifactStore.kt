@@ -38,14 +38,21 @@ class WorkspaceArtifactStore(
 ) {
     /**
      * A registered artifact (doc 02 §8 `artifacts` row shape: id, relativePath, mediaType, size,
-     * sha256). [sessionId] is supplied by the caller at registration.
+     * sha256). [scopeId] is the REAL scope the file lives in (the record carries it so a
+     * registration sink can build the full `scope:` reference instead of assuming a fixed scope);
+     * [relativePath] stays scope-relative. [sessionId] is supplied by the caller at
+     * registration; [turnId] is the turn that wrote the file when the caller has one (tool
+     * writes), null otherwise (pre-v15 rows and registrations without turn context keep NULL in
+     * the DB).
      */
     data class ArtifactRecord(
         val id: String,
+        val scopeId: String,
         val relativePath: String,
         val mediaType: String,
         val sizeBytes: Long,
         val sha256: String,
+        val turnId: String? = null,
     )
 
     /**
@@ -125,6 +132,7 @@ class WorkspaceArtifactStore(
         expectedPreviousSha256: String? = null,
         sessionId: String? = null,
         sink: ArtifactSink? = null,
+        turnId: String? = null,
     ): WriteOutcome {
         require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
         require(WorkspaceLayout.regionOf(path.relativePath) == region) {
@@ -147,10 +155,12 @@ class WorkspaceArtifactStore(
         val record =
             ArtifactRecord(
                 id = newArtifactId(),
+                scopeId = path.scopeId,
                 relativePath = path.relativePath,
                 mediaType = probe.mimeType,
                 sizeBytes = probe.sizeBytes,
                 sha256 = writtenHash,
+                turnId = turnId,
             )
         if (sink != null && sessionId != null) {
             sink.register(sessionId, record)
@@ -191,6 +201,7 @@ class WorkspaceArtifactStore(
         maxBytes: Long,
         sessionId: String? = null,
         sink: ArtifactSink? = null,
+        turnId: String? = null,
         sourceInto: (OutputStream) -> Unit,
     ): WriteOutcome {
         require(WorkspaceLayout.isRegion(region)) { "destination region must be one of ${WorkspaceLayout.regions}" }
@@ -216,10 +227,12 @@ class WorkspaceArtifactStore(
         val record =
             ArtifactRecord(
                 id = newArtifactId(),
+                scopeId = path.scopeId,
                 relativePath = path.relativePath,
                 mediaType = probe.mimeType,
                 sizeBytes = probe.sizeBytes,
                 sha256 = writtenHash,
+                turnId = turnId,
             )
         if (sink != null && sessionId != null) {
             sink.register(sessionId, record)

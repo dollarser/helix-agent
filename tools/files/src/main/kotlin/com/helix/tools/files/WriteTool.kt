@@ -163,14 +163,17 @@ object WriteTool {
         }
 
     /** The implementation bound to [descriptor]. */
-    fun executor(store: WorkspaceArtifactStore): ToolExecutor =
-        executorWithPublisher(store) { path, bytes, region, expected ->
-            store.writeArtifact(path, bytes, region, expected)
+    fun executor(
+        store: WorkspaceArtifactStore,
+        artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
+    ): ToolExecutor =
+        executorWithPublisher(store) { path, bytes, region, expected, call ->
+            store.writeArtifact(path, bytes, region, expected, call.sessionId, artifactSink, call.turnId)
         }
 
     internal fun executorWithPublisher(
         store: WorkspaceArtifactStore,
-        publish: (FileScopePath, ByteArray, String, String?) -> WriteOutcome,
+        publish: (FileScopePath, ByteArray, String, String?, ExecutableToolCall) -> WriteOutcome,
     ): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
@@ -231,6 +234,7 @@ object WriteTool {
                             parsed.content.toByteArray(Charsets.UTF_8),
                             region,
                             expected,
+                            call,
                         )
                     ToolExecutorResult.Completed(output(parsed.path, outcome, exists))
                 } catch (e: PreconditionHashMismatch) {
@@ -262,10 +266,11 @@ object WriteTool {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         store: WorkspaceArtifactStore,
+        artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
         val d = descriptor()
         registry.register(d)
-        implementations.register(d, executor(store))
+        implementations.register(d, executor(store, artifactSink))
     }
 
     /** A parsed `write` argument set, or null when any required field is missing or malformed. */

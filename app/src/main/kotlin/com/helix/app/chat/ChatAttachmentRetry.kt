@@ -40,7 +40,7 @@ internal class ChatAttachmentRetry(
                     bindings.map { binding ->
                         val artifact = storage.artifacts.resolve(binding.artifactId)
                         val scopePath =
-                            FileScopePath(attachmentStaging.workspaceScopeId, artifact.relativePath)
+                            FileScopePath.fromModelReference(artifact.relativePath)
                         val file = attachmentStaging.resolveWorkspacePath(scopePath)
                         // HXA-055: an image binding points at the NORMALIZED artifact (the
                         // bytes that leave) — the retry re-verifies exactly that file, twice

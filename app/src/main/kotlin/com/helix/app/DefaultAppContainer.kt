@@ -8,6 +8,9 @@ import com.helix.app.a2a.A2aTaskRunner
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
+import com.helix.app.approval.ToolApprovalPreferenceService
+import com.helix.app.approval.ToolApprovalSettingsModel
+import com.helix.app.approval.preferenceScopeChoices
 import com.helix.app.audit.AuditLogService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
@@ -41,6 +44,7 @@ import com.helix.app.runcontrol.PlatformDeviceResourceProbe
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ApprovalCardSinkHolder
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.agent.AgentRuntime
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
@@ -48,6 +52,7 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -131,7 +136,7 @@ internal class DefaultAppContainer(
      * construction — only at stream time, when a message actually carries an image.
      */
     private val visionImageSource: ArtifactVisionImageSource by lazy {
-        ArtifactVisionImageSource(storage.artifacts, workspaceStore, APP_SCOPE_ID)
+        ArtifactVisionImageSource(storage.artifacts, workspaceStore)
     }
 
     override val providerService: ProviderService =
@@ -292,6 +297,15 @@ internal class DefaultAppContainer(
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
         com.helix.app.goal.GoalReportTool
             .register(toolRegistry, toolImplementations, storage)
+        // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
+        // versioned PlanArtifact REVIEW_REQUIRED through the same repository the review
+        // loop (ChatService.planReview) drives.
+        com.helix.app.plan.PlanTools
+            .register(toolRegistry, toolImplementations, storage.plans, { idGenerator.next() })
+        // HX2-07: `todo.write` — the model's working-memory ledger; read-only L0 echo whose
+        // durable record is the dispatcher's own tool-call row (like `goal.report`).
+        com.helix.app.todo.TodoWriteTool
+            .register(toolRegistry, toolImplementations)
         // HXA-095: developer registers only the five high-level Root reads; consumer is a
         // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
         RootModule.register(context, appClock, toolRegistry, toolImplementations)
@@ -314,7 +328,17 @@ internal class DefaultAppContainer(
             toolImplementations,
             connectorInstallationService,
         )
-        AppWorkspaceTools.register(toolRegistry, toolImplementations, workspaceStore)
+        // Tool writes register their artifacts through the sink (doc 02 §8): the file is
+        // published first, then the artifacts row is re-verified on disk and stamped with the
+        // writing session/turn — the same file-first contract as the A2A import path.
+        AppWorkspaceTools.register(
+            toolRegistry,
+            toolImplementations,
+            workspaceStore,
+            ToolArtifactRegistrationSink(storage) { path ->
+                resolveFileScopePath(path, scopeRoots).toFile()
+            },
+        )
         // HXA-053: the isolated QuickJS tool. Registered for BOTH consumer and developer
         // (ADR-0013: Standard is the complete product; QuickJS is APK-embedded, no native
         // download). L2 CODE_EXECUTION on the platform's single-concurrency QuickJS lane.
@@ -360,6 +384,62 @@ internal class DefaultAppContainer(
     private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
 
     /**
+     * The app's own versionCode (HXA-200 Gap 2, point 1): the trusted input to the new-tool baseline
+     * decision. Read once from the package manager and folded into the preference service via
+     * [com.helix.core.policy.ToolBaseline], so an upgrade-introduced, unconfigured tool resolves to
+     * an ASK tagged NEW_DEFAULT — and the same build's restart stays stable (the decision is a pure
+     * function of this plus the persisted founding/first-seen codes).
+     */
+    private val currentVersionCode: Long =
+        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+
+    /**
+     * Standing user tool-approval preferences (HXA-200, ADR-0052). The ONLY write path (the future
+     * settings screen / approval card / device tests call [set]/[remove]); it is also the live read
+     * seam handed to BOTH the [ToolDispatcher] (pre-start re-resolution) and the Registry exposure
+     * filter so they resolve one tool against the same store (point 7). Its [ToolApprovalPreferenceService.reconcile]
+     * is likewise the ONLY write path to the trusted new-tool baseline: the built-in tools are
+     * registered first-write-wins under the current build, so a fresh install marks them all OLD
+     * (founding == current) and an upgrade marks only the tools it newly introduced as NEW for this
+     * build (Gap 2, point 1).
+     */
+    override val toolApprovalPreferenceService: ToolApprovalPreferenceService =
+        ToolApprovalPreferenceService(
+            storage.toolApprovalPreferences,
+            storage.toolRegistrationBaseline,
+            currentVersionCode,
+            sessionWorkspace = { sessionId ->
+                storage.sessions
+                    .list()
+                    .firstOrNull { it.id == sessionId }
+                    ?.let { it.directoryRef ?: APP_SCOPE_ID }
+            },
+        ).also { service ->
+            service.reconcile(builtInToolIdentities(), appClock.now().toEpochMilli())
+        }
+
+    /** HXA-201: the settings screen's tool-approval model over the same registry + preference service. */
+    override val toolApprovalSettings: ToolApprovalSettingsModel =
+        ToolApprovalSettingsModel(
+            toolRegistry,
+            toolApprovalPreferenceService,
+            choices = { preferenceScopeChoices(storage.sessions.list(), APP_SCOPE_ID) },
+        )
+
+    /**
+     * The trusted (source, name) identities of the built-in tools for the baseline (HXA-200 Gap 2):
+     * exactly what the [init] block has registered into [toolRegistry] at construction — the
+     * statically-bundled tools (the flavor-conditional modules register nothing in consumer). Dynamic
+     * MCP/A2A tools register later at connection time and are deliberately NOT part of the founding
+     * baseline (deferred): they resolve UNSET until a trusted path registers them, so an empty record
+     * is never mistaken for "new."
+     */
+    private fun builtInToolIdentities(): List<ToolBaselineIdentity> =
+        toolRegistry.all().map { descriptor ->
+            ToolBaselineIdentity(descriptor.origin.canonicalOf(), descriptor.name.value)
+        }
+
+    /**
      * The production approval broker (roadmap HXA-036): pending records with the full
      * binding hash + 24h window, the UI-decided [decide], and the HXA-034 mint/consume
      * guards as the ONLY path to a typed proof (ADR-0005: no auto-approve path exists).
@@ -397,6 +477,9 @@ internal class DefaultAppContainer(
                             storage.highSensitivityRules.all().map { it.rule }
                         }
                     },
+                    // HXA-200 (ADR-0052): re-resolve the user's stored preference before the call
+                    // starts — the SAME instance the Registry exposure filter reads (point 7).
+                    preferenceSource = toolApprovalPreferenceService,
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
@@ -410,7 +493,15 @@ internal class DefaultAppContainer(
                     registry = toolRegistry,
                     resourceGate = resourceGate::allowance,
                 )
-            ToolPipeline(toolRegistry, toolImplementations, dispatcher, broker, auditSink, scheduler).also {
+            ToolPipeline(
+                toolRegistry,
+                toolImplementations,
+                dispatcher,
+                broker,
+                auditSink,
+                scheduler,
+                toolApprovalPreferenceService,
+            ).also {
                 it.mcpDiscovery.register(toolImplementations)
             }
         }
@@ -477,6 +568,13 @@ internal class DefaultAppContainer(
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,
+            // P1 (research doc section 8): the session workspace's project-instruction file
+            // (AGENTS.md / CLAUDE.md / HELIX.md) becomes the goal prompt's PROJECT section; the
+            // reader degrades to "" on any failure (no workspace / revoked scope / missing file).
+            projectInstructionsReader = { sessionId ->
+                com.helix.app.chat
+                    .readProjectInstructionsText(storage, scopeRoots, sessionId)
+            },
             // HXA-069: chat user-visible texts are stable ids, localized per emit (see [resolveLocalized]).
             strings = { resId, args -> resolveLocalized(resId, args) },
             subscriptionResultRecovery = { turnId, modelCallId, localOnly ->
@@ -518,6 +616,13 @@ internal class DefaultAppContainer(
                 }
             }
         }
+
+    // The unified agent entry point (research doc section 34; HX2-01): the production turn path
+    // behind the core AgentRuntime contract.
+    // The SAME instance every in-app turn entry drives (HX2-01): the container re-exposes the
+    // runtime ChatService itself submits through, so the production entry point and the in-app
+    // producers never fork into two runtimes.
+    override val agentRuntime: AgentRuntime = chatService.agentRuntime
 
     override val privacyDeletionService: PrivacyDeletionService by lazy {
         PrivacyDeletionService(

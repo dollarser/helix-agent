@@ -75,15 +75,22 @@ object AttachmentMaterializer {
             }
             when (val classification = AttachmentClassifier.classify(ContentProbe.probe(file), fileName)) {
                 is AttachmentClassification.TextAttachment -> {
-                    val (content, size) = boundedText(file)
-                    AttachmentMaterialization.Text(
-                        fileName = name,
-                        kind = classification.kind,
-                        content = content,
-                        sha256 = actual,
-                        truncated = size > MAX_INLINE_TEXT_BYTES.toLong(),
-                        sizeBytes = size,
-                    )
+                    if (classification.kind.isExtractedDocument) {
+                        // PDF / DOCX / HTML: the raw bytes are a container, not UTF-8 text. The
+                        // model-visible content is EXTRACTED on-device (best-effort, fail-closed);
+                        // the SHA and size still bind the FULL raw file.
+                        extractedText(name, file, classification.kind, actual)
+                    } else {
+                        val (content, size) = boundedText(file)
+                        AttachmentMaterialization.Text(
+                            fileName = name,
+                            kind = classification.kind,
+                            content = content,
+                            sha256 = actual,
+                            truncated = size > MAX_INLINE_TEXT_BYTES.toLong(),
+                            sizeBytes = size,
+                        )
+                    }
                 }
 
                 is AttachmentClassification.ImageAttachment -> {
@@ -139,6 +146,87 @@ object AttachmentMaterializer {
             }
         }
         return buffer.toString(Charsets.UTF_8) to size
+    }
+
+    /**
+     * The extracted-document branch (P0-B PDF / DOCX / HTML): reads the FULL raw file (already
+     * hash-verified), extracts its text on-device, and returns a [Text] whose [Text.content] is a
+     * bounded UTF-8 view of the EXTRACTED text, while [Text.sha256] / [Text.sizeBytes] bind the
+     * FULL raw file. The extraction's honest outcome maps straight onto the view: a cap hit
+     * ([ExtractedText.Truncated]) forces [Text.truncated]; an unreadable container
+     * ([ExtractedText.Unreadable]) is an empty (but valid) view — fail-closed, never a crash and
+     * never a fabricated byte.
+     */
+    private fun extractedText(
+        name: String,
+        file: Path,
+        kind: TextAttachmentKind,
+        sha: String,
+    ): AttachmentMaterialization.Text {
+        val size = Files.size(file)
+        return when (val extracted = DocumentTextExtractor.extract(kind, Files.readAllBytes(file))) {
+            is ExtractedText.Success -> {
+                val content = prefixUtf8(extracted.text, MAX_INLINE_TEXT_BYTES)
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = content,
+                    sha256 = sha,
+                    truncated = content != extracted.text,
+                    sizeBytes = size,
+                )
+            }
+
+            is ExtractedText.Truncated -> {
+                val content = prefixUtf8(extracted.text, MAX_INLINE_TEXT_BYTES)
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = content,
+                    sha256 = sha,
+                    truncated = true,
+                    sizeBytes = size,
+                )
+            }
+
+            ExtractedText.Unreadable -> {
+                AttachmentMaterialization.Text(
+                    fileName = name,
+                    kind = kind,
+                    content = "",
+                    sha256 = sha,
+                    truncated = false,
+                    sizeBytes = size,
+                )
+            }
+        }
+    }
+
+    /** The leading UTF-8 prefix of [s] within [maxBytes] bytes, never splitting a code point. */
+    private fun prefixUtf8(
+        s: String,
+        maxBytes: Int,
+    ): String {
+        var bytes = 0
+        var limit = s.length
+        for (i in s.indices) {
+            val code = s[i].code
+            bytes +=
+                if (code < 0x80) {
+                    1
+                } else if (code < 0x800) {
+                    2
+                } else if (code in 0xD800..0xDFFF) {
+                    2
+                } else {
+                    3
+                }
+            if (bytes > maxBytes) {
+                limit = i
+                break
+            }
+        }
+        return s.substring(0, limit)
     }
 }
 

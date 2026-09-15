@@ -3,6 +3,9 @@ package com.helix.app.chat
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.agent.GoalRunSettlement
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.recovery.GoalDurableUsageLedger
 import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason

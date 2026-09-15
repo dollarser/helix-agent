@@ -103,3 +103,21 @@ data class PlanArtifact(
     /** Returns this plan revised as the next version; the hash changes accordingly. */
     fun withNextVersion(): PlanArtifact = copy(version = version + 1)
 }
+
+/**
+ * The approved plan's execution binding (research doc section 4.3; HX2-05): created ONLY when
+ * the user approves a plan, it carries exactly the three facts an execution may reference —
+ * the plan's id, the approved version and the SHA-256 over that version's canonical storage
+ * string ([PlanArtifact.sha256]) — so the Act run or Goal created from it can never drift to
+ * a different plan or version. Revising the plan ([PlanArtifact.withNextVersion]) changes the
+ * hash, which invalidates any binding made to the previous version.
+ */
+data class PlanExecutionBinding(
+    val planId: PlanId,
+    val planVersion: Int,
+    val planHash: Sha256,
+) {
+    init {
+        require(planVersion >= 1) { "planVersion must be >= 1" }
+    }
+}

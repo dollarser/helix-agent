@@ -251,12 +251,12 @@ interface ToolExecutor {
 
 | 模式 | 允许行为 |
 | --- | --- |
-| Chat | 默认无工具；用户显式启用时仅允许 `operationClass=READ_ONLY` 且动态风险为 L0 的读取 |
-| Plan | 只读调研并生成版本化 PlanArtifact；禁止写、代码执行、点击和外部动作 |
+| Chat | 默认无工具；用户显式启用时仅允许 `operationClass=READ_ONLY` 或内置 `METADATA` 且动态风险为 L0 |
+| Plan | 只读调研并生成版本化 PlanArtifact（经内置 `METADATA` 工具落库）；禁止用户可见写入、代码执行、点击和外部动作 |
 | Act | 在当前 Turn 内按 Policy 执行 |
 | Goal | 持久化、多次唤醒、受预算和检查点约束；审批规则与 Act 相同 |
 
-Tool Registry 在构建模型请求前同时按 mode、Capability、user scope 和 execution target 过滤。不可用工具不进入本次模型工具表。Plan 只允许 `operationClass=READ_ONLY`，不能用 `baseRisk <= L1` 代替这个判断；因此 L1 的新建文件、HTTP 请求和页面动作仍不可用。Plan 对 `READ_ONLY` 工具同时施加动态风险上限：动态风险升到 L2/L3 的读取（如读取 Root 日志、敏感联系人）在 Plan 同样不可用——operation class 是主判断，风险上限不替代 class 判断。
+Tool Registry 在构建模型请求前同时按 mode、Capability、user scope 和 execution target 过滤。不可用工具不进入本次模型工具表。Plan 只允许 `operationClass=READ_ONLY` 或闭合的内置 `METADATA` 类别（如 `plan.submit`），不能用 `baseRisk <= L1` 代替这个 class 判断；因此 L1 的新建文件、HTTP 请求和页面动作仍不可用。Plan 对放行类别的工具同时施加动态风险上限：动态风险升到 L2/L3 的读取（如读取 Root 日志、敏感联系人）在 Plan 同样不可用——operation class 是主判断，风险上限不替代 class 判断。
 
 Goal 的首版唤醒源只有用户显式继续（打开 Goal/点击通知）。可选 WorkManager 只在 `nextCheckpoint` 附近发出提醒，不在后台发起模型请求或工具调用；Doze、强制停止和系统调度均可延迟/取消提醒，UI 不得将检查点显示为精确定时器。
 
@@ -392,7 +392,7 @@ data class ToolDescriptor(
 )
 ```
 
-`ToolOperationClass` 至少包含 `READ_ONLY`、`LOCAL_MUTATION`、`NETWORK`、`EXTERNAL_ACTION`、`CODE_EXECUTION`、`PRIVILEGED`。它描述操作效应，与动态风险等级正交；MCP annotation、A2A Agent Card/Skill 或远端状态不能将工具降为 `READ_ONLY`。
+`ToolOperationClass` 至少包含 `READ_ONLY`、`LOCAL_MUTATION`、`NETWORK`、`EXTERNAL_ACTION`、`CODE_EXECUTION`、`PRIVILEGED`、`METADATA`（闭合，仅内置工具携带，见 [ADR-0048](../adr/0048-review-modes-admit-built-in-metadata-class.md)）。它描述操作效应，与动态风险等级正交；MCP annotation、A2A Agent Card/Skill 或远端状态不能将工具降为 `READ_ONLY` 或 `METADATA`。
 
 ### 7.1 执行管线
 

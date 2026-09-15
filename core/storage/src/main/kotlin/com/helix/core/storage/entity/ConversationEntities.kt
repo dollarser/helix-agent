@@ -113,7 +113,7 @@ data class MessageAttachmentEntity(
                 onDelete = ForeignKey.CASCADE,
             ),
         ],
-    indices = [Index("sessionId")],
+    indices = [Index("sessionId"), Index(value = ["clientRequestId"], unique = true)],
 )
 data class TurnEntity(
     @PrimaryKey val id: String,
@@ -125,6 +125,13 @@ data class TurnEntity(
     val errorCode: String?,
     val resultCollectedAt: Long? = null,
     val pauseRequestedAt: Long? = null,
+    // The persistent submit-dedup receipt (research doc section 34; HX2-01 §2e): the stable
+    // [clientRequestId] that started this turn and the [inputFingerprint] of the input it carried.
+    // The turn row IS the receipt — created atomically with the turn, it survives restart, and the
+    // unique index on [clientRequestId] is the DB-level backstop against a second turn for one id.
+    // Null on rows created before v13 (never matched by a non-null re-drive query).
+    val clientRequestId: String? = null,
+    val inputFingerprint: String? = null,
 )
 
 /** architecture doc 9.1: `model_calls` — provider snapshot, state, usage, requestId. */
@@ -148,6 +155,11 @@ data class ModelCallEntity(
     val state: String,
     val usage: String?,
     val requestId: String?,
+    // The per-request system-prompt record (research doc section 4.4): the fingerprint of the
+    // exact prompt bytes sent and the redacted section list (provenance + content hash, never
+    // content). Null for calls predating v14 and for compaction summary calls.
+    val promptFingerprint: String? = null,
+    val promptSections: String? = null,
 )
 
 /** architecture doc 9.1: `tool_calls` — canonical argsJson + immutable argsHash. */
@@ -297,8 +309,21 @@ data class ExecutionEntity(
 data class ArtifactEntity(
     @PrimaryKey val id: String,
     val sessionId: String,
+    /**
+     * The file's FULL `scope:` model reference (v16) — e.g. `scope:app:output/a2a/...` — not a
+     * bare scope-relative path: the artifact's identity carries its real scope so the unique
+     * key, every lookup, open, and invalidation check resolve it against exactly that scope.
+     * Column name is unchanged from v15; only the stored value form changed (v15 rows are
+     * normalized to `scope:app:<path>` by the v15->v16 migration).
+     */
     val relativePath: String,
     val mediaType: String,
     val size: Long,
     val sha256: String,
+    /**
+     * The turn that last wrote this file (v15, doc 02 §8): lets the artifact dashboard show
+     * which session/turn produced a file. NULL for rows registered before v15 and for
+     * registrations without turn context (e.g. the A2A task-artifact path).
+     */
+    val turnId: String? = null,
 )

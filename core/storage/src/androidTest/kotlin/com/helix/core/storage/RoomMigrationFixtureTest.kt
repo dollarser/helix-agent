@@ -34,7 +34,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v12ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v18ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -253,8 +253,323 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v12ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v12-export.db", 12)
+    fun v12ToV13AddsThePersistentSubmitDedupReceiptToTurns() {
+        val name = "turn-submit-dedup-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 12).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+        }
+        helper.runMigrationsAndValidate(name, 13, true, HelixDatabase.MIGRATION_12_13).use { db ->
+            // The pre-v13 row keeps a NULL receipt (never matched by a non-null re-drive query).
+            db.query("SELECT clientRequestId, inputFingerprint FROM turns WHERE id='t'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+                assertTrue(it.isNull(1))
+            }
+            // A v13 turn records its client-request receipt, and a second NULL receipt is allowed
+            // (NULLs stay distinct under the unique index)...
+            db.execSQL(
+                "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                    "VALUES ('t2','s1','CREATED',0,1,'req-1','fp-1')",
+            )
+            db.execSQL(
+                "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                    "VALUES ('t3','s1','CREATED',0,1,NULL,NULL)",
+            )
+            // ...but a duplicate clientRequestId is refused by the unique index — the DB-level
+            // backstop so one client-request id can never back a second turn.
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId,inputFingerprint) " +
+                        "VALUES ('t4','s1','CREATED',0,1,'req-1','fp-other')",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v13ToV14AddsThePromptRecordToModelCalls() {
+        val name = "prompt-record-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 13).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+            it.execSQL(
+                "INSERT INTO model_calls(id,turnId,providerSnapshot,state) VALUES ('c','t','prov','RUNNING')",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 14, true, HelixDatabase.MIGRATION_13_14).use { db ->
+            // The pre-v14 call keeps a NULL prompt record (it was never recorded).
+            db.query("SELECT promptFingerprint, promptSections FROM model_calls WHERE id='c'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+                assertTrue(it.isNull(1))
+            }
+            // A v14 call records the redacted prompt record on its row (fingerprint + section list).
+            db.execSQL(
+                "UPDATE model_calls SET promptFingerprint = 'fp', promptSections = '[\"sections\"]' WHERE id = 'c'",
+            )
+            db.query("SELECT promptFingerprint, promptSections FROM model_calls WHERE id='c'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("fp", it.getString(0))
+                assertEquals("[\"sections\"]", it.getString(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v14ToV15AddsTheTurnIdToArtifacts() {
+        val name = "artifact-turn-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 14).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256) " +
+                    "VALUES ('a1','s1','output/legacy.txt','text/plain',3,'${"a".repeat(64)}')",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 15, true, HelixDatabase.MIGRATION_14_15).use { db ->
+            // The pre-v15 row keeps a NULL turn (no turn attribution is invented).
+            db.query("SELECT turnId FROM artifacts WHERE id='a1'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+            }
+            // A v15 registration records the writing turn on its row.
+            db.execSQL(
+                "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                    "VALUES ('a2','s1','output/new.txt','text/plain',3,'${"b".repeat(64)}','t-1')",
+            )
+            db.query("SELECT turnId FROM artifacts WHERE id='a2'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("t-1", it.getString(0))
+            }
+            // The unique (sessionId, relativePath) index still refuses a second row per path —
+            // re-writes go through the upsert, not a second insert.
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                        "VALUES ('a3','s1','output/new.txt','text/plain',3,'${"c".repeat(64)}','t-2')",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v15ToV16NormalizesLegacyArtifactPathsToFullScopeRefs() {
+        val name = "artifact-scope-ref-migration"
+        val legacyPaths =
+            listOf("output/legacy.txt", "scope:notes.txt", "scope:other:output/x.txt", "scope:app:output/legacy.txt")
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 15).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            // All v15 rows are bare paths, including legal names that resemble full refs.
+            legacyPaths.forEachIndexed { index, path ->
+                it.execSQL(
+                    "INSERT INTO artifacts(id,sessionId,relativePath,mediaType,size,sha256,turnId) " +
+                        "VALUES (?, 's1', ?, 'text/plain', 3, ?, ?)",
+                    arrayOf("a$index", path, "a".repeat(64), if (index == 0) null else "t-$index"),
+                )
+            }
+        }
+        helper.runMigrationsAndValidate(name, 16, true, HelixDatabase.MIGRATION_15_16).use { db ->
+            db.query("SELECT id, relativePath, sha256, turnId, size, mediaType FROM artifacts ORDER BY id").use {
+                assertEquals(legacyPaths.size, it.count)
+                legacyPaths.forEachIndexed { index, path ->
+                    assertTrue(it.moveToNext())
+                    assertEquals("a$index", it.getString(0))
+                    assertEquals("scope:app:$path", it.getString(1))
+                    assertEquals("a".repeat(64), it.getString(2))
+                    assertEquals(if (index == 0) null else "t-$index", it.getString(3))
+                    assertEquals(3L, it.getLong(4))
+                    assertEquals("text/plain", it.getString(5))
+                }
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v16ToV17AddsTheToolApprovalPreferenceTableEmptyOnUpgrade() {
+        val name = "tool-approval-preference-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 16).use {
+            // Legacy rows prove existing data survives the additive v16 -> v17 step.
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+            it.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s1','COMPLETED',0,1)")
+        }
+        helper.runMigrationsAndValidate(name, 17, true, HelixDatabase.MIGRATION_16_17).use { db ->
+            // The legacy rows survive the additive migration.
+            db.query("SELECT title FROM sessions WHERE id='s1'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("S", it.getString(0))
+            }
+            // The new table exists and is EMPTY on upgrade: the migration bulk-creates NO ALLOW
+            // (or any) rows, so an existing unconfigured user keeps their original card-free
+            // behavior (ADR-0052 point 1).
+            db.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            // The unique (sourceRef, toolName, scopeKind, scopeRef) key is enforced on the
+            // migrated table — "reset to default" is a delete, not a fourth state (point 5).
+            db.execSQL(
+                "INSERT INTO tool_approval_preferences " +
+                    "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('p1','src','tool','ASK','GLOBAL','','',0,1,1)",
+            )
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO tool_approval_preferences " +
+                        "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                        "revision, createdAtEpoch, updatedAtEpoch) " +
+                        "VALUES ('p2','src','tool','ALLOW','GLOBAL','','x',0,2,2)",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v17ToV18AddsTheTrustedToolBaselineTablesEmptyOnUpgrade() {
+        val name = "tool-baseline-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 17).use {
+            // Legacy rows: a stored ALLOW bound to a contract and a narrower SESSION ASK —
+            // existing user data the additive v17 -> v18 step must not touch.
+            it.execSQL(
+                "INSERT INTO tool_approval_preferences " +
+                    "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('p-allow','builtin','files.write','ALLOW','GLOBAL','','c1',0,1,1)",
+            )
+            it.execSQL(
+                "INSERT INTO tool_approval_preferences " +
+                    "(id, sourceRef, toolName, preference, scopeKind, scopeRef, contractHash, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('p-ask','builtin','files.write','ASK','SESSION','s1','',0,2,2)",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 18, true, HelixDatabase.MIGRATION_17_18).use { db ->
+            // The trusted baseline tables (HXA-200 Gap 2, ADR-0052 point 1) exist but are EMPTY
+            // on upgrade: no seeded founding anchor, no per-tool first-seen markers — the migration
+            // bulk-creates no "new" marking and no ALLOW (既有工具 UNSET).
+            assertTableEmpty(db, "tool_registration_baseline")
+            assertTableEmpty(db, "tool_baseline_meta")
+            // The pre-existing preference rows survive the additive migration, byte-for-byte.
+            assertPreferenceRow(db, "p-allow", "ALLOW", "GLOBAL", "", "c1")
+            assertPreferenceRow(db, "p-ask", "ASK", "SESSION", "s1", "")
+            // The unique (sourceRef, toolName) key is enforced on the migrated marker table — the
+            // first-write-wins stamp that keeps firstSeenVersionCode immutable across restarts.
+            db.execSQL(
+                "INSERT INTO tool_registration_baseline " +
+                    "(sourceRef, toolName, firstSeenVersionCode, updatedAtEpoch) " +
+                    "VALUES ('builtin','a.tool',1,1)",
+            )
+            assertThrows(
+                android.database.SQLException::class.java,
+            ) {
+                db.execSQL(
+                    "INSERT INTO tool_registration_baseline " +
+                        "(sourceRef, toolName, firstSeenVersionCode, updatedAtEpoch) " +
+                        "VALUES ('builtin','a.tool',2,2)",
+                )
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    /** The v18 baseline tables carry no rows after the upgrade (no seeded data). */
+    private fun assertTableEmpty(
+        db: SupportSQLiteDatabase,
+        table: String,
+    ) {
+        db.query("SELECT COUNT(*) FROM $table").use {
+            assertTrue(it.moveToFirst())
+            assertEquals(0, it.getInt(0))
+        }
+    }
+
+    /** One pre-existing preference row survived the additive v17 -> v18 migration intact. */
+    private fun assertPreferenceRow(
+        db: SupportSQLiteDatabase,
+        id: String,
+        preference: String,
+        scopeKind: String,
+        scopeRef: String,
+        contractHash: String,
+    ) {
+        db
+            .query(
+                "SELECT preference, scopeKind, scopeRef, contractHash " +
+                    "FROM tool_approval_preferences WHERE id='$id'",
+            ).use {
+                assertTrue(it.moveToFirst())
+                assertEquals(preference, it.getString(0))
+                assertEquals(scopeKind, it.getString(1))
+                assertEquals(scopeRef, it.getString(2))
+                assertEquals(contractHash, it.getString(3))
+            }
+    }
+
+    @Test
+    fun productionOpenMigratesAV16DatabaseToV18() {
+        val name = "prod-upgrade-v16.db"
+        val contentDir = File(context.cacheDir, "content-$name")
+        context.deleteDatabase(name)
+        contentDir.deleteRecursively()
+        // A real v16 database file (committed export) carrying a legacy row — the state an
+        // existing user's install has before the v18 app launches.
+        helper.createDatabase(name, 16).use {
+            it.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s1','S',1)")
+        }
+        // Open it through the PRODUCTION factory: HelixStorage.open applies ALL_MIGRATIONS, the
+        // exact chain a real install upgrade runs. A migration added to the schema but forgotten
+        // in ALL_MIGRATIONS crashes here ("A migration from 16 to 18 is required") — the gap that
+        // left the v16 -> v17 step unregistered (HXA-200).
+        val storage = HelixStorage.open(context, name, contentDir)
+        try {
+            val sqlite = storage.database.openHelper.writableDatabase
+            // Upgraded to the live schema: the preference table landed and is EMPTY on upgrade
+            // (no seeded ALLOW — ADR-0052 point 1), and the legacy session row survived.
+            sqlite.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            sqlite.query("SELECT title FROM sessions WHERE id='s1'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("S", it.getString(0))
+            }
+            // The trusted baseline tables (HXA-200 Gap 2) landed and are EMPTY on upgrade: the
+            // migration seeds NO founding anchor and NO per-tool markers, so the NEW-default
+            // decision has no basis until the app's trusted startup path runs its first reconcile
+            // (no batch "new" marking, no batch ALLOW).
+            sqlite.query("SELECT COUNT(*) FROM tool_registration_baseline").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            sqlite.query("SELECT COUNT(*) FROM tool_baseline_meta").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        } finally {
+            storage.database.close()
+        }
+    }
+
+    @Test
+    fun v18ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v18-export.db", 18)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -262,7 +577,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v12 schema must match the exported v12 schema",
+                "code-built v18 schema must match the exported v18 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -296,13 +611,10 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 7) —
-        // the exact production path (HelixStorage registers the same set; including the
-        // room_master_table identity update). The assertions below verify the 1 -> 2 step
-        // specifically; the chain also proves 2 -> 3 (interaction_receipts), 3 -> 4
-        // (message_attachments), 4 -> 5 (high_sensitivity_rules), 5 -> 6 (A2A snapshots),
-        // and 6 -> 7 (A2A Task correlation)
-        // all applied.
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 18) —
+        // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
+        // including the room_master_table identity update). The assertions below verify the
+        // 1 -> 2 step specifically; the chain also proves every later migration step applies.
         val roomDb =
             Room
                 .databaseBuilder(context, HelixDatabase::class.java, MIGRATION_DB)
@@ -318,60 +630,36 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_9_10,
                     HelixDatabase.MIGRATION_10_11,
                     HelixDatabase.MIGRATION_11_12,
+                    HelixDatabase.MIGRATION_12_13,
+                    HelixDatabase.MIGRATION_13_14,
+                    HelixDatabase.MIGRATION_14_15,
+                    HelixDatabase.MIGRATION_15_16,
+                    HelixDatabase.MIGRATION_16_17,
+                    HelixDatabase.MIGRATION_17_18,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
-            val columns =
-                pragmaRows(sqlite, "PRAGMA table_info(approvals)").map { row -> row[1] }.toSet()
+            val columns = pragmaRows(sqlite, "PRAGMA table_info(approvals)").map { row -> row[1] }.toSet()
             assertTrue(
                 "v2 approvals must carry bindingHash + expiresAt and drop argsHash: $columns",
                 "bindingHash" in columns && "expiresAt" in columns && "argsHash" !in columns,
             )
 
-            fun row(id: String): List<String> {
-                val cursor =
-                    sqlite.query(
-                        "SELECT bindingHash, decision, consumedAt, expiresAt FROM approvals WHERE id = ?",
-                        arrayOf(id),
-                    )
-                try {
-                    assertTrue(cursor.moveToFirst())
-                    return listOf(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                    )
-                } finally {
-                    cursor.close()
-                }
-            }
             // Rows survive the migration; the hash content is preserved under the new name.
-            assertEquals(listOf("p".repeat(64), null, null, "0"), row("approval-mig-1"))
-            assertEquals(listOf("q".repeat(64), "APPROVED", "20", "0"), row("approval-mig-2"))
+            assertEquals(
+                listOf("p".repeat(64), null, null, "0"),
+                approvalColumns(sqlite, "approval-mig-1"),
+            )
+            assertEquals(
+                listOf("q".repeat(64), "APPROVED", "20", "0"),
+                approvalColumns(sqlite, "approval-mig-2"),
+            )
             // expiresAt = 0: every migrated approval is already expired (fail closed) — the
             // old APPROVED row can never consume a proof post-migration (SQL guard).
             assertEquals(0, roomDb.approvalDao().consumeByBinding("approval-mig-2", "q".repeat(64), 30L, 30L))
-            // The 2 -> 3 step landed: the live schema carries the receipts table.
-            assertTrue(
-                "v3 upgrade must add interaction_receipts",
-                "interaction_receipts" in tables(sqlite),
-            )
-            // The 3 -> 4 step landed (HXA-049, ADR-0014): the live schema carries the
-            // message-attachment relation.
-            assertTrue(
-                "v4 upgrade must add message_attachments",
-                "message_attachments" in tables(sqlite),
-            )
-            // The 4 -> 5 step landed (HXA-068, ADR-0005): the live schema carries the
-            // high-sensitivity egress-rule table.
-            assertTrue(
-                "v5 upgrade must add high_sensitivity_rules",
-                "high_sensitivity_rules" in tables(sqlite),
-            )
-            assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
-            assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
-            assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
+            // Every later step (v3 receipts, v4 attachments, v5 egress, v6/v7 a2a) must have
+            // landed in the live schema — the full chain applies, not just the 1 -> 2 rename.
+            assertLaterMigrationStepsLanded(sqlite)
         } finally {
             roomDb.close()
         }
@@ -756,6 +1044,70 @@ class RoomMigrationFixtureTest {
         val indexes: Map<String, List<String>>,
     )
 
+    /** The migrated approvals row's (bindingHash, decision, consumedAt, expiresAt) as strings. */
+    private fun approvalColumns(
+        sqlite: SupportSQLiteDatabase,
+        id: String,
+    ): List<String> {
+        val cursor =
+            sqlite.query(
+                "SELECT bindingHash, decision, consumedAt, expiresAt FROM approvals WHERE id = ?",
+                arrayOf(id),
+            )
+        try {
+            assertTrue(cursor.moveToFirst())
+            return listOf(
+                cursor.getString(0),
+                cursor.getString(1),
+                cursor.getString(2),
+                cursor.getString(3),
+            )
+        } finally {
+            cursor.close()
+        }
+    }
+
+    /** Every migration step after the 1 -> 2 rename must have landed in the live schema. */
+    private fun assertLaterMigrationStepsLanded(sqlite: SupportSQLiteDatabase) {
+        // The 2 -> 3 step landed: the live schema carries the receipts table.
+        assertTrue(
+            "v3 upgrade must add interaction_receipts",
+            "interaction_receipts" in tables(sqlite),
+        )
+        // The 3 -> 4 step landed (HXA-049, ADR-0014): the live schema carries the
+        // message-attachment relation.
+        assertTrue(
+            "v4 upgrade must add message_attachments",
+            "message_attachments" in tables(sqlite),
+        )
+        // The 4 -> 5 step landed (HXA-068, ADR-0005): the live schema carries the
+        // high-sensitivity egress-rule table.
+        assertTrue(
+            "v5 upgrade must add high_sensitivity_rules",
+            "high_sensitivity_rules" in tables(sqlite),
+        )
+        assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
+        assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
+        assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
+        // The 16 -> 17 step landed (HXA-200, ADR-0052): the live schema carries the user
+        // tool-approval-preference table — empty on upgrade, no seeded ALLOW rows.
+        assertTrue(
+            "v17 upgrade must add tool_approval_preferences",
+            "tool_approval_preferences" in tables(sqlite),
+        )
+        // The 17 -> 18 step landed (HXA-200 Gap 2, ADR-0052 point 1): the live schema carries the
+        // trusted tool-registration/upgrade baseline — the versionCode facts behind the NEW_DEFAULT
+        // default, empty on upgrade (no seeded founding anchor, no per-tool markers).
+        assertTrue(
+            "v18 upgrade must add tool_registration_baseline",
+            "tool_registration_baseline" in tables(sqlite),
+        )
+        assertTrue(
+            "v18 upgrade must add tool_baseline_meta",
+            "tool_baseline_meta" in tables(sqlite),
+        )
+    }
+
     private fun schemaFacts(sqlite: SupportSQLiteDatabase): SchemaFacts {
         val tableNames = tables(sqlite)
         val columns = mutableMapOf<String, List<List<String>>>()
@@ -865,6 +1217,16 @@ class RoomMigrationFixtureTest {
             "a2a_agents",
             "a2a_capabilities",
             "a2a_tasks",
+            // HXA-200 (v16 -> v17, ADR-0052): the user tool-approval-preference table landed in
+            // the live schema. Added here (not in any earlier export) so the export/code drift
+            // guard sees it; a new table added to the schema but not to this set turns this red.
+            "tool_approval_preferences",
+            // HXA-200 Gap 2 (v17 -> v18, ADR-0052 point 1): the trusted tool-registration/upgrade
+            // baseline — the per-tool first-seen markers and the single founding anchor. Empty on
+            // upgrade (the migration seeds no rows), so an existing install never treats a tool as
+            // "new." Both must appear in the live schema for the drift guard to pass.
+            "tool_registration_baseline",
+            "tool_baseline_meta",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

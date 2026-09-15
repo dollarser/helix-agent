@@ -6,8 +6,9 @@ package com.helix.core.model
  *
  * Levels are ordinal-ordered L0 < L1 < L2 < L3. `L2` and `L3` always require per-call user
  * approval; unknown tools, unknown capabilities and `L3` are denied by default (roadmap
- * HXA-033, Policy Engine). [ToolOperationClass] is orthogonal to risk: Plan mode filters on
- * `READ_ONLY` only and must never substitute a `baseRisk <= L1` check.
+ * HXA-033, Policy Engine). [ToolOperationClass] is orthogonal to risk: the user-review
+ * read-only modes (Chat, Plan) filter on `READ_ONLY` or `METADATA` and must never substitute a
+ * `baseRisk` check for the class check.
  */
 enum class RiskLevel {
     L0,
@@ -45,7 +46,9 @@ enum class Capability {
 
 /**
  * Operation effect class of a tool (architecture doc section 7). It describes what the tool
- * does, independent of dynamic risk. MCP annotations can never reclassify a tool as [READ_ONLY].
+ * does, independent of dynamic risk. MCP annotations can never reclassify a tool as [READ_ONLY]
+ * or [METADATA] — those are the two classes the user-review read-only modes (Chat, Plan)
+ * admit, and they form a closed set carried only by built-in tools.
  */
 enum class ToolOperationClass {
     READ_ONLY,
@@ -54,4 +57,22 @@ enum class ToolOperationClass {
     EXTERNAL_ACTION,
     CODE_EXECUTION,
     PRIVILEGED,
+
+    /**
+     * A built-in tool whose only durable side effect is writing internal harness metadata — a
+     * plan row, the todo ledger. A persistent write that is NOT a user-visible local mutation
+     * and NOT egress, so it must not be disguised as [READ_ONLY] (research doc section 4: the
+     * Plan metadata-operation contract). Scope is fixed by the tool's schema: bound to the
+     * current session/Turn, no file path or foreign Goal ID in its input, size/version and
+     * update-conflict limited, and the write is audited. Only built-in tools carry it.
+     */
+    METADATA,
 }
+
+/**
+ * The operation classes the user-review read-only modes (Chat, Plan) admit: ordinary reads plus
+ * the closed built-in [METADATA] ops. A risk-level check can never substitute for this class
+ * check (architecture doc section 8).
+ */
+val ToolOperationClass.isReviewModeAdmitted: Boolean
+    get() = this == ToolOperationClass.READ_ONLY || this == ToolOperationClass.METADATA

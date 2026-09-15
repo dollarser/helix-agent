@@ -27,15 +27,31 @@ enum class AttachmentCategory {
 }
 
 /**
- * The first batch of confirmed-UTF-8 text attachment kinds (ADR-0014 「首批」). A kind is a
- * *label* of the file's shape, not a claim of any semantic understanding: the content is always
- * carried as UNTRUSTED data.
+ * The closed set of text attachment kinds (ADR-0014 「首批」 + the P0-B document batch, doc
+ * PX-05). A kind is a *label* of the file's shape, not a claim of any semantic understanding: the
+ * content is always carried as UNTRUSTED data.
+ *
+ * The first batch ([TXT] / [MARKDOWN] / [CSV] / [JSON]) is confirmed-UTF-8 text whose bytes are
+ * inlined verbatim. The document batch ([PDF] / [DOCX] / [HTML]) is a byte-recognized container
+ * whose model-visible text is EXTRACTED on-device (see [isExtractedDocument]) — still UNTRUSTED.
  */
 enum class TextAttachmentKind {
     TXT,
     MARKDOWN,
     CSV,
     JSON,
+    PDF,
+    DOCX,
+    HTML,
+    ;
+
+    /**
+     * True for the kinds whose model-visible text is EXTRACTED from the file's bytes (a container
+     * the raw bytes are not readable as UTF-8), not the raw bytes themselves. Those kinds never
+     * pass the UTF-8 gate; they are recognized by their container magic and their text is derived.
+     */
+    val isExtractedDocument: Boolean
+        get() = this == PDF || this == DOCX || this == HTML
 }
 
 /**

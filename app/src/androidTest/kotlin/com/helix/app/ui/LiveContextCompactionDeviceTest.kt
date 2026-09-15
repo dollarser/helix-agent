@@ -3,10 +3,10 @@ package com.helix.app.ui
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
-import com.helix.app.chat.ContextCompaction
-import com.helix.app.chat.ModelStreamTerminal
-import com.helix.app.chat.TurnCoordinator
-import com.helix.app.chat.TurnStartSpec
+import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderDraft
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock

@@ -9,8 +9,9 @@ data class CriterionEvidenceSource(
 )
 
 /**
- * A host verification receipt for the references carried by CriterionEvidence. Loading this
- * value does not authorize completion: source state, content and binding require revalidation.
+ * A host verification receipt for the references carried by CriterionEvidence. Legacy of
+ * ADR-0028 (superseded by ADR-0040): retained for compatible reads of historical goal rows.
+ * Loading this value does not authorize completion.
  */
 data class CriterionVerificationRecord(
     val method: CriterionVerificationMethod,

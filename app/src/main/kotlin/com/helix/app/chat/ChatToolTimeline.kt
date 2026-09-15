@@ -2,6 +2,7 @@ package com.helix.app.chat
 
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
+import com.helix.app.todo.LedgerItemUi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -17,6 +18,22 @@ internal class ChatToolTimeline(
     ): String = strings(resId, args)
 
     fun hasCall(callId: String): Boolean = screenState.value.toolTimeline.any { it.callId == callId }
+
+    /**
+     * The open session's Progress card (HX2-07): the model's latest ledger right after a
+     * successful `todo.write` settles. Scoped to the OPEN session — a settle for another
+     * session must not rewrite the screen the user is looking at (the next refresh rebuilds
+     * it from storage).
+     */
+    fun publishLedger(
+        sessionId: String,
+        items: List<LedgerItemUi>,
+    ) {
+        screenState.update { screen ->
+            if (screen.openSessionId != sessionId) return@update screen
+            screen.copy(taskLedger = items)
+        }
+    }
 
     /**
      * Publishes (or replaces) the timeline row for one call. [card] = null PRESERVES the

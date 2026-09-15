@@ -25,6 +25,7 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalCardUi
 import com.helix.app.approval.ApprovalUiMapper
 import com.helix.app.approval.CodeExecutionUi
+import com.helix.core.model.ToolApprovalPreference
 
 /**
  * The approval card (roadmap HXA-036): the full authorization summary of one exact,
@@ -37,6 +38,12 @@ import com.helix.app.approval.CodeExecutionUi
  * so a drift is a compile/test failure, not a silent copy change. A bounded Policy rule,
  * when present, is displayed with its own "有界 Policy 规则" label and expiry — never as a
  * general approval credential.
+ *
+ * HXA-201: while PENDING the card additionally offers the SEPARATE "save future preference"
+ * actions (允许/询问/禁止 in the GLOBAL scope) — a standing setting for future calls, never
+ * an approval of this call. High-risk (L2/L3) cards withhold the future "allow" entirely.
+ * Terminal cards (approved / denied / succeeded / failed — incl. expired, consumed and
+ * cancelled) offer no actions at all: a stale card can never approve a new call.
  */
 @Composable
 @Suppress("FunctionName")
@@ -44,6 +51,7 @@ fun ApprovalCard(
     card: ApprovalCardUi,
     onApprove: () -> Unit,
     onDeny: () -> Unit,
+    onSaveFuturePreference: ((ToolApprovalPreference) -> Unit)? = null,
 ) {
     var expanded by remember(card.approvalId) { mutableStateOf(false) }
     Card(
@@ -74,6 +82,7 @@ fun ApprovalCard(
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 3,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.testTag("approval-card-summary-${card.approvalId}"),
                 )
                 Text(
                     localizedString(card.riskRes, card.riskArgs.map { stringResource(it) }),
@@ -87,7 +96,7 @@ fun ApprovalCard(
             ) {
                 Text(stringResource(if (expanded) R.string.summary_collapse else R.string.summary_expand))
             }
-            ApprovalCardActions(card, onApprove, onDeny)
+            ApprovalCardActions(card, onApprove, onDeny, onSaveFuturePreference)
         }
     }
 }
@@ -170,7 +179,9 @@ private fun ApprovalCardFields(card: ApprovalCardUi) {
 
 /**
  * The card's action surface: while [ApprovalCardState.PENDING] the EXACTLY two buttons from
- * [ApprovalCardUi.ACTIONS] ("本次批准" / "拒绝"); afterwards the stable state label.
+ * [ApprovalCardUi.ACTIONS] ("本次批准" / "拒绝"), plus — when wired — the separate "save
+ * future preference" group ([FuturePreferenceActions]); afterwards the stable state label.
+ * A terminal card renders no actions: expired / consumed / cancelled cards approve nothing.
  */
 @Composable
 @Suppress("FunctionName")
@@ -178,6 +189,7 @@ private fun ApprovalCardActions(
     card: ApprovalCardUi,
     onApprove: () -> Unit,
     onDeny: () -> Unit,
+    onSaveFuturePreference: ((ToolApprovalPreference) -> Unit)?,
 ) {
     when (card.state) {
         ApprovalCardState.PENDING -> {
@@ -197,6 +209,7 @@ private fun ApprovalCardActions(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("approval-card-no-permanent-allow"),
             )
+            onSaveFuturePreference?.let { save -> FuturePreferenceActions(card, save) }
         }
 
         else -> {
@@ -207,6 +220,54 @@ private fun ApprovalCardActions(
                 } ?: stateLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.testTag("approval-card-state-${card.approvalId}"),
+            )
+        }
+    }
+}
+
+/**
+ * HXA-201: the "save future preference" surface, deliberately SEPARATE from the one-time
+ * 本次批准/拒绝 above — saving a preference here writes the GLOBAL-scope standing setting for
+ * all sessions through the single write service, without writing a one-time approval decision.
+ * Pending calls recheck this setting. Dynamically high-risk calls never get the future "allow"
+ * button on the card — the note points to the settings screen, where the allow copy carries
+ * the "high-risk calls still confirm" boundary.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun FuturePreferenceActions(
+    card: ApprovalCardUi,
+    onSave: (ToolApprovalPreference) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(R.string.approval_future_pref_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("approval-future-caption-${card.approvalId}"),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!card.dynamicRisk.requiresApproval) {
+                TextButton(
+                    onClick = { onSave(ToolApprovalPreference.ALLOW) },
+                    modifier = Modifier.testTag("approval-future-allow-${card.approvalId}"),
+                ) { Text(stringResource(R.string.settings_tool_approval_action_allow)) }
+            }
+            TextButton(
+                onClick = { onSave(ToolApprovalPreference.ASK) },
+                modifier = Modifier.testTag("approval-future-ask-${card.approvalId}"),
+            ) { Text(stringResource(R.string.settings_tool_approval_action_ask)) }
+            TextButton(
+                onClick = { onSave(ToolApprovalPreference.DENY) },
+                modifier = Modifier.testTag("approval-future-deny-${card.approvalId}"),
+            ) { Text(stringResource(R.string.settings_tool_approval_action_deny)) }
+        }
+        if (card.dynamicRisk.requiresApproval) {
+            Text(
+                stringResource(R.string.approval_future_pref_high_risk_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("approval-future-note-${card.approvalId}"),
             )
         }
     }

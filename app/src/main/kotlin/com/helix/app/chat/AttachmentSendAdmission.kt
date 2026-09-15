@@ -176,13 +176,16 @@ object AttachmentSendAdmission {
             }
         }
 
-    /** The string-resource id of the first-batch [TextAttachmentKind] label (ADR-0014 §5; HXA-069). */
+    /** The string-resource id of a [TextAttachmentKind] label (ADR-0014 §5; HXA-069; P0-B docs). */
     private fun kindRes(kind: TextAttachmentKind): Int =
         when (kind) {
             TextAttachmentKind.TXT -> R.string.kind_txt
             TextAttachmentKind.MARKDOWN -> R.string.kind_markdown
             TextAttachmentKind.CSV -> R.string.kind_csv
             TextAttachmentKind.JSON -> R.string.kind_json
+            TextAttachmentKind.PDF -> R.string.kind_pdf
+            TextAttachmentKind.DOCX -> R.string.kind_docx
+            TextAttachmentKind.HTML -> R.string.kind_html
         }
 
     private fun unsupportedReason(

@@ -74,7 +74,7 @@ internal class StagedAttachmentProcessor(
                     .register(
                         id = "art_" + idGenerator(),
                         sessionId = sessionId,
-                        relativePath = scopePath.relativePath,
+                        relativePath = scopePath.toModelReference(),
                         mediaType =
                             when (classification) {
                                 is AttachmentClassification.ImageAttachment -> classification.mediaType
@@ -189,7 +189,7 @@ internal class StagedAttachmentProcessor(
                     .register(
                         id = "art_" + idGenerator(),
                         sessionId = sessionId,
-                        relativePath = normalizedRelative.relativePath,
+                        relativePath = normalizedRelative.toModelReference(),
                         mediaType = ok.image.mediaType,
                         size = ok.image.sizeBytes,
                         sha256 = ok.image.sha256,

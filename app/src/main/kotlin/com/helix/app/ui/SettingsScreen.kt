@@ -66,6 +66,7 @@ fun SettingsScreen(
     skillAuthoringService: com.helix.app.skills.SkillAuthoringService? = null,
     skillInstallationService: com.helix.app.skills.SkillInstallationService? = null,
     chatService: com.helix.app.chat.ChatService? = null,
+    toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -146,6 +147,7 @@ fun SettingsScreen(
 
         SettingsGroup { RunControlSettingsSection(runControlStore) }
         SettingsGroup { GoalSettingsSection(runControlStore, chatService) }
+        SettingsGroup { ToolApprovalSettingsSection(toolApprovalSettings) }
 
         skillAuthoringService?.let {
             com.helix.app.skills

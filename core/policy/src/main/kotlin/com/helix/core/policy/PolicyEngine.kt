@@ -7,7 +7,7 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
-import com.helix.core.model.ToolOperationClass
+import com.helix.core.model.isReviewModeAdmitted
 import java.time.Instant
 
 /** Stable denial reasons for UI, audit and tests (mirrors ModeDenialCode's style). */
@@ -27,13 +27,13 @@ enum class PolicyDenialCode {
     /** Cloud metadata and platform-reserved endpoints are always rejected (SSRF). */
     RESERVED_ENDPOINT,
 
-    /** Plan mode is read-only; an operation-class denial no risk level can substitute. */
+    /** Plan mode admits only READ_ONLY or METADATA; the class denial no risk level can substitute. */
     PLAN_MODE_NOT_READ_ONLY,
 
     /** Chat has no tools unless the user explicitly opts in for this Turn. */
     CHAT_TOOLS_DISABLED,
 
-    /** Chat only admits READ_ONLY/L0 and Plan only admits READ_ONLY/L0-L1 after dynamic risk. */
+    /** Chat admits READ_ONLY or METADATA at L0 and Plan at L0-L1 after dynamic risk. */
     MODE_RISK_CEILING,
 
     /** PRoot/CLI runtimes are ADVANCED-only (ADR-0005). */
@@ -156,8 +156,11 @@ class PolicyEngine(
                 deny(PolicyDenialCode.CHAT_TOOLS_DISABLED, "Chat tools were not enabled by the user")
             }
 
-            input.mode == AgentMode.CHAT && input.operationClass != ToolOperationClass.READ_ONLY -> {
-                deny(PolicyDenialCode.MODE_RISK_CEILING, "Chat mode allows only READ_ONLY tools")
+            input.mode == AgentMode.CHAT && !input.operationClass.isReviewModeAdmitted -> {
+                deny(
+                    PolicyDenialCode.MODE_RISK_CEILING,
+                    "Chat mode allows only READ_ONLY or METADATA tools",
+                )
             }
 
             input.mode == AgentMode.CHAT && risk != RiskLevel.L0 -> {
@@ -187,10 +190,11 @@ class PolicyEngine(
                 deny(PolicyDenialCode.L3_DEFAULT_DENY, "base risk L3 is denied by default")
             }
 
-            input.mode == AgentMode.PLAN && input.operationClass != ToolOperationClass.READ_ONLY -> {
+            input.mode == AgentMode.PLAN && !input.operationClass.isReviewModeAdmitted -> {
                 deny(
                     PolicyDenialCode.PLAN_MODE_NOT_READ_ONLY,
-                    "Plan mode is read-only; operation class ${input.operationClass} is not READ_ONLY",
+                    "Plan mode allows only READ_ONLY or METADATA; " +
+                        "operation class ${input.operationClass} is neither",
                 )
             }
 

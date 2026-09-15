@@ -39,7 +39,7 @@ internal object ProviderConnectionCheck {
                 ).toList()
         val error = events.filterIsInstance<ModelEvent.Error>().firstOrNull()
         if (error != null) return ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
-        if (events.lastOrNull() !is ModelEvent.Completed ||
+        if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
             events.filterIsInstance<ModelEvent.TextDelta>().none { it.text.isNotBlank() }
         ) {
             return ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)

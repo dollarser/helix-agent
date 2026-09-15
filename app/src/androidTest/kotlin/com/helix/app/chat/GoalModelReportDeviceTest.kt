@@ -2,6 +2,8 @@ package com.helix.app.chat
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.goal.GoalReportTool
 import com.helix.app.goal.goalModelReport
 import com.helix.core.agent.GoalWakeReason

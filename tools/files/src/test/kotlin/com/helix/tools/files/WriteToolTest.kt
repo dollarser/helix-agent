@@ -46,7 +46,7 @@ class WriteToolTest {
         val root = root()
         val store = store(root)
         val executor =
-            WriteTool.executorWithPublisher(store) { path, bytes, region, expected ->
+            WriteTool.executorWithPublisher(store) { path, bytes, region, expected, _ ->
                 store.writeArtifact(path, bytes, region, expected)
                 throw java.io.IOException("private fixture path must not escape")
             }
@@ -61,6 +61,56 @@ class WriteToolTest {
         assertTrue(outcome.requiresReview)
         assertFalse(outcome.detail.contains("not performed"))
         assertFalse(outcome.detail.contains("private fixture"))
+    }
+
+    @Test
+    fun theExecutorRegistersTheArtifactWithTheCallSessionAndTurn() {
+        val root = root()
+        val recorded = mutableListOf<Pair<String, WorkspaceArtifactStore.ArtifactRecord>>()
+        val sink =
+            object : WorkspaceArtifactStore.ArtifactSink {
+                override fun register(
+                    sessionId: String,
+                    record: WorkspaceArtifactStore.ArtifactRecord,
+                ) {
+                    recorded += sessionId to record
+                }
+            }
+        val args =
+            buildJsonObject {
+                put("path", JsonPrimitive("scope:ws:output/tracked.txt"))
+                put("content", JsonPrimitive("tracked"))
+            }
+        val r = WriteTool.executor(store(root), sink).execute(call(args, sessionId = "session-9", turnId = "turn-7"))
+        assertTrue(r is ToolExecutorResult.Completed)
+        assertEquals(1, recorded.size)
+        assertEquals("session-9", recorded[0].first)
+        assertEquals("turn-7", recorded[0].second.turnId)
+        assertEquals("output/tracked.txt", recorded[0].second.relativePath)
+    }
+
+    @Test
+    fun aCallWithoutSessionContextPublishesButRegistersNothing() {
+        val root = root()
+        val recorded = mutableListOf<Pair<String, WorkspaceArtifactStore.ArtifactRecord>>()
+        val sink =
+            object : WorkspaceArtifactStore.ArtifactSink {
+                override fun register(
+                    sessionId: String,
+                    record: WorkspaceArtifactStore.ArtifactRecord,
+                ) {
+                    recorded += sessionId to record
+                }
+            }
+        val args =
+            buildJsonObject {
+                put("path", JsonPrimitive("scope:ws:work/untracked.txt"))
+                put("content", JsonPrimitive("untracked"))
+            }
+        val r = WriteTool.executor(store(root), sink).execute(call(args))
+        assertTrue(r is ToolExecutorResult.Completed)
+        assertTrue("the file is the source of truth; registration is optional", recorded.isEmpty())
+        assertEquals("untracked", Files.readString(root.resolve("work/untracked.txt")))
     }
 
     private fun sha(b: ByteArray): String =
@@ -103,6 +153,8 @@ class WriteToolTest {
     private fun call(
         args: JsonObject,
         cancel: CancelSignal = noCancel,
+        sessionId: String? = null,
+        turnId: String? = null,
     ): ExecutableToolCall =
         ExecutableToolCall(
             toolCallId = "call-1",
@@ -112,6 +164,8 @@ class WriteToolTest {
             executionTarget = ExecutionTargetType.LOCAL_ANDROID,
             deadline = Instant.now().plusSeconds(30),
             cancel = cancel,
+            sessionId = sessionId,
+            turnId = turnId,
         )
 
     private fun write(

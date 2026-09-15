@@ -185,7 +185,10 @@ object EditTool {
         }
 
     /** The implementation bound to [descriptor]. */
-    fun executor(store: WorkspaceArtifactStore): ToolExecutor =
+    fun executor(
+        store: WorkspaceArtifactStore,
+        artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
+    ): ToolExecutor =
         object : ToolExecutor {
             override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                 if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
@@ -229,13 +232,7 @@ object EditTool {
                         } else {
                             current.replaceFirst(parsed.oldText, parsed.newText)
                         }
-                    val outcome =
-                        store.writeArtifact(
-                            path = parsed.path,
-                            bytes = updated.toByteArray(Charsets.UTF_8),
-                            region = region,
-                            expectedPreviousSha256 = parsed.expectedSha256,
-                        )
+                    val outcome = publish(store, parsed, region, updated, call)
                     ToolExecutorResult.Completed(output(parsed.path, count, outcome))
                 } catch (e: PreconditionHashMismatch) {
                     ToolExecutorResult.Failed(
@@ -258,6 +255,28 @@ object EditTool {
                     ToolExecutorResult.Failed("workspace I/O failure; the edit was not performed")
                 }
             }
+
+            /**
+             * The atomic publish plus its artifact registration: the file lands first, then the
+             * sink (when the call carries session context) registers the artifacts row with the
+             * writing turn — the file stays the source of truth either way.
+             */
+            private fun publish(
+                store: WorkspaceArtifactStore,
+                parsed: Parsed,
+                region: String,
+                updated: String,
+                call: ExecutableToolCall,
+            ): WriteOutcome =
+                store.writeArtifact(
+                    path = parsed.path,
+                    bytes = updated.toByteArray(Charsets.UTF_8),
+                    region = region,
+                    expectedPreviousSha256 = parsed.expectedSha256,
+                    sessionId = call.sessionId,
+                    sink = artifactSink,
+                    turnId = call.turnId,
+                )
         }
 
     /** Registers both the contract and the implementation in the given registries. */
@@ -265,10 +284,11 @@ object EditTool {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         store: WorkspaceArtifactStore,
+        artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
         val d = descriptor()
         registry.register(d)
-        implementations.register(d, executor(store))
+        implementations.register(d, executor(store, artifactSink))
     }
 
     /** A parsed `edit` argument set, or null when a required field is missing or malformed. */

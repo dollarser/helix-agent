@@ -6,10 +6,10 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.work.WorkManager
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
-import com.helix.app.chat.ModelStreamTerminal
-import com.helix.app.chat.TurnStartSpec
 import com.helix.app.goal.GoalDeletionCoordinator
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderReconciler

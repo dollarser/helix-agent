@@ -1,12 +1,9 @@
 package com.helix.tools.framework
 
-import com.helix.core.model.A2aAgentId
 import com.helix.core.model.AgentMode
-import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.Hex
-import com.helix.core.model.McpServerId
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
@@ -22,8 +19,9 @@ import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.NetworkOriginScope
 import com.helix.core.policy.PolicyDecision
 import com.helix.core.policy.PolicyEngine
-import com.helix.core.policy.PolicyInput
-import com.helix.core.policy.ToolCallSource
+import com.helix.core.policy.ToolApprovalBlockCode
+import com.helix.core.policy.ToolApprovalPreferenceSource
+import com.helix.core.policy.ToolApprovalResolution
 import com.helix.core.policy.UserScope
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -201,6 +199,14 @@ class ToolDispatcher(
     private val approvals: ApprovalBroker,
     private val audit: AuditSink,
     private val ruleProvider: () -> Set<HighSensitivityRule> = { emptySet() },
+    /**
+     * HXA-200 (ADR-0052): the live read seam for the user's stored tool-approval preferences.
+     * Null (the default) means no preference source is wired — the dispatcher behaves exactly as
+     * before (a preference can only ever RESTRICT, so an absent source never expands anything).
+     * The Registry exposure path parses the same contract, so a preference changed while a call
+     * is queued is re-read before this call starts (point 7).
+     */
+    private val preferenceSource: ToolApprovalPreferenceSource? = null,
 ) {
     private val deadlineRunner = ToolDeadlineRunner(clock, EXECUTOR_SERVICE)
 
@@ -252,41 +258,12 @@ class ToolDispatcher(
                 try {
                     runAttempt(request, startedAt, ctx, carriedProof)
                 } catch (t: Throwable) {
-                    // Settle the attempt durably (the audit event) BEFORE rethrowing. The
-                    // honest outcome depends on WHY the stage threw:
-                    // - the turn was stopped while the stage was blocked (the broker's
-                    //   approval wait throws its cancel exception; the cancel gate would
-                    //   have returned Cancelled had it run later) -> Cancelled, the SAME
-                    //   outcome the caller settles durably — audit and settlement agree
-                    //   ("cancelled before start, no side effects");
-                    // - anything else (executor NPE, dependency ISE) -> TOOL_FAILED with
-                    //   unknown side-effect state.
-                    // Neither case retries: the turn is being torn down, or the side-effect
-                    // state is UNKNOWN (the one case a technical retry is forbidden).
-                    val turnStoppedBeforeExecution =
-                        request.cancel.isCancelled() && ctx.executionStartedAt == null
                     ctx.stopped =
                         DispatchContext.StopResult(
-                            if (turnStoppedBeforeExecution) {
-                                ToolDispatchOutcome.Cancelled
-                            } else {
-                                ToolDispatchOutcome.ExecutionFailed(
-                                    DispatchOutcomeCode.TOOL_FAILED,
-                                    // Sanitized (doc 10): the raw message may carry real paths; the
-                                    // exception object itself still propagates for caller logging.
-                                    "unexpected dispatch failure: ${t::class.simpleName}",
-                                )
-                            },
+                            thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, t),
                             DecisionSource.FRAMEWORK,
                         )
-                    try {
-                        finishStop(request, startedAt, ctx)
-                    } catch (auditFailure: Throwable) {
-                        // Fail closed (the audit failure still propagates) but do not LOSE
-                        // the original root cause: keep it as a suppressed exception.
-                        auditFailure.addSuppressed(t)
-                        throw auditFailure
-                    }
+                    auditFailurePreservingCause(t) { finishStop(request, startedAt, ctx) }
                     throw t
                 }
             // The proof THIS attempt acquired (set by the approval stage, which runs
@@ -355,35 +332,74 @@ class ToolDispatcher(
         val evaluation = capabilityCenter.evaluate(descriptor.requiredCapabilities)
         val policy =
             policyEngine.evaluate(
-                buildInput(request, descriptor, evaluation.missing.toSet()),
+                buildDispatchPolicyInput(request, descriptor, evaluation.missing.toSet()),
                 ruleProvider(),
             )
         ctx.policyDecidedAt = clock.now().toEpochMilli()
         ctx.riskLevel = policy.dynamicRisk
-        return when (val decision = policy.decision) {
-            is PolicyDecision.Deny -> {
+        // HXA-200 (ADR-0052 point 7): the user's stored preference is re-read LIVE right before
+        // this call starts — a preference changed while the call sat in the queue is honored, and
+        // it is folded into the SAME policy decision by the ONE resolver the Registry exposure
+        // path also parses. A preference can only ever RESTRICT (DENY blocks, ASK forces a card);
+        // it never expands capability, scope or a high-risk approval, and a policy denial always
+        // wins (points 2 and 4). With no preference seam wired the decision maps 1:1 to its
+        // historical outcome, so pre-feature callers behave exactly as before.
+        val resolved = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        ctx.preferenceEvaluated = resolved.audit
+        val resolution = resolved.resolution
+        return when (resolution) {
+            is ToolApprovalResolution.Blocked -> {
+                val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
+                // A policy denial keeps its own stable reason text; a preference denial uses the
+                // resolver's note. A policy denial is a POLICY decision, a preference a USER one.
+                val code =
+                    if (policyDenied) {
+                        DispatchOutcomeCode.POLICY_DENIED
+                    } else {
+                        DispatchOutcomeCode.PREFERENCE_DENIED
+                    }
+                val detail =
+                    if (policyDenied) {
+                        val deny = policy.decision as PolicyDecision.Deny
+                        "policy ${deny.code.name}: ${deny.detail}"
+                    } else {
+                        resolution.detail
+                    }
                 stopped(
                     ctx,
-                    ToolDispatchOutcome.Denied(
-                        DispatchOutcomeCode.POLICY_DENIED,
-                        "policy ${decision.code.name}: ${decision.detail}",
-                    ),
-                    DecisionSource.POLICY,
+                    ToolDispatchOutcome.Denied(code, detail),
+                    if (policyDenied) DecisionSource.POLICY else DecisionSource.USER,
                 )
             }
 
-            PolicyDecision.Allow -> {
-                null
-            }
-
-            is PolicyDecision.RequiresApproval -> {
+            is ToolApprovalResolution.RequiresCard -> {
+                // L2/L3 or high-sensitivity egress always cards (the policy's detail is shown); an
+                // ASK preference now ALSO forces a card on a policy Allow (point 3) — an explicit
+                // ALLOW is the only card-free path for an in-scope low-risk call. Both present the
+                // SAME per-call surface; a preference-forced card (no policy detail) shows the
+                // resolver's note instead.
+                val detail =
+                    (policy.decision as? PolicyDecision.RequiresApproval)?.detail ?: resolution.detail
                 if (carriedProof != null) {
                     ctx.approvalAcquiredAt = clock.now().toEpochMilli()
                     ctx.attemptProof = carriedProof
                     carriedProof
                 } else {
-                    acquireApproval(request, descriptor, decision, ctx, policy.matchedEgressRule)
+                    acquireApproval(
+                        request,
+                        descriptor,
+                        PolicyDecision.RequiresApproval(detail),
+                        ctx,
+                        policy.matchedEgressRule,
+                    )
                 }
+            }
+
+            // An in-scope L0/L1 call proceeds card-free: either because the effective preference is
+            // unset (the original behavior) or an explicit ALLOW (point 2). A carried retry proof
+            // goes unspent when the live re-resolution no longer needs it.
+            is ToolApprovalResolution.AutoProceed -> {
+                null
             }
         }
     }
@@ -506,6 +522,7 @@ class ToolDispatcher(
                 DecisionSource.USER,
             )
         }
+        ctx.preferencePresented = ctx.preferenceEvaluated
         val acquisition =
             approvals.acquire(
                 ApprovalRequest(
@@ -571,14 +588,7 @@ class ToolDispatcher(
     ): ToolDispatchOutcome {
         val descriptor = ctx.descriptor ?: error("executeStage reached before validate")
         val executor = ctx.executor ?: error("executeStage reached before validate")
-        if (request.cancel.isCancelled()) {
-            return finish(request, startedAt, ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
-        }
-        val execStart = clock.now()
-        ctx.executionStartedAt = execStart.toEpochMilli()
-        if (proof != null) {
-            approvals.consume(proof)
-        }
+        val execStart = commitExecutionStart(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
         request.onExecutionStarting()
         val call = buildCall(request, descriptor, execStart)
         val result = deadlineRunner.executeWithinDeadline(executor, call)
@@ -610,13 +620,83 @@ class ToolDispatcher(
                 bindOutput(result.output, descriptor, execStart, ctx)?.let { bound ->
                     ctx.outputHash = bound.outputHash.hex
                     ctx.outputTruncated = bound.truncated
-                    finish(request, startedAt, ctx, ToolDispatchOutcome.Succeeded(bound), sourceOf(proof))
+                    finish(request, startedAt, ctx, ToolDispatchOutcome.Succeeded(bound), sourceOf(ctx.attemptProof))
                 } ?: finishStop(request, startedAt, ctx)
             }
 
             else -> {
                 finishExecutionFailure(request, startedAt, ctx, result)
             }
+        }
+    }
+
+    /** Approval waits and executor work stay outside the preference service's write monitor. */
+    private fun commitExecutionStart(
+        request: ToolDispatchRequest,
+        initialProof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): Instant? {
+        var proof = initialProof
+        val descriptor = ctx.descriptor ?: error("missing descriptor")
+        while (ctx.stopped == null) {
+            val attempt: () -> Instant? = {
+                if (request.cancel.isCancelled()) {
+                    stopped(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
+                } else if (preferenceSource != null && !mayStart(request, descriptor, proof, ctx)) {
+                    null
+                } else {
+                    proof?.let { approvals.consume(it) }
+                    clock.now().also {
+                        ctx.executionStartedAt = it.toEpochMilli()
+                        ctx.preferenceAtStart = ctx.preferenceEvaluated
+                    }
+                }
+            }
+            val started = if (preferenceSource == null) attempt() else preferenceSource.withExecutionStart(attempt)
+            if (started != null || ctx.stopped != null) return started
+            // A new ASK arrived after the first evaluation. Acquire outside the monitor, then
+            // recheck again. An existing exact proof satisfies ASK without a second card.
+            proof = policyStage(request, descriptor, ctx, proof)
+        }
+        return null
+    }
+
+    private fun mayStart(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+        proof: ApprovalProof?,
+        ctx: DispatchContext,
+    ): Boolean {
+        if (orNull { registry.resolve(request.toolName, request.toolVersion) } != descriptor) {
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(DispatchOutcomeCode.UNKNOWN_TOOL, "tool contract changed before start"),
+                DecisionSource.FRAMEWORK,
+            )
+            return false
+        }
+        val capabilities = capabilityCenter.evaluate(descriptor.requiredCapabilities)
+        val policy =
+            policyEngine.evaluate(
+                buildDispatchPolicyInput(request, descriptor, capabilities.missing.toSet()),
+                ruleProvider(),
+            )
+        val resolved = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        ctx.preferenceEvaluated = resolved.audit
+        val resolution = resolved.resolution
+        return if (resolution is ToolApprovalResolution.Blocked) {
+            val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(
+                    if (policyDenied) DispatchOutcomeCode.POLICY_DENIED else DispatchOutcomeCode.PREFERENCE_DENIED,
+                    resolution.detail,
+                ),
+                if (policyDenied) DecisionSource.POLICY else DecisionSource.USER,
+            )
+            false
+        } else {
+            resolution !is ToolApprovalResolution.RequiresCard || proof != null
         }
     }
 
@@ -788,41 +868,13 @@ class ToolDispatcher(
                 outputTruncated = ctx.outputTruncated,
                 attemptId = ctx.attemptId,
                 executionDetail = ctx.executionDetail,
+                preferenceEvaluated = ctx.preferenceEvaluated,
+                preferencePresented = ctx.preferencePresented,
+                preferenceAtStart = ctx.preferenceAtStart,
             ),
         )
         return outcome
     }
-
-    private fun buildInput(
-        request: ToolDispatchRequest,
-        descriptor: ToolDescriptor,
-        missingCapabilities: Set<Capability>,
-    ): PolicyInput =
-        PolicyInput(
-            baseRisk = descriptor.baseRisk,
-            operationClass = descriptor.operationClass,
-            mode = request.mode,
-            chatToolsEnabled = request.chatToolsEnabled,
-            profile = request.profile,
-            source = toolCallSourceOf(descriptor),
-            executionTarget = request.executionTarget,
-            dataOrigin = request.dataOrigin,
-            scope = request.scope,
-            overwritesExisting = request.overwritesExisting,
-            codeOrCommandChanged = request.codeOrCommandChanged,
-            sourceBindingChanged = request.sourceBindingChanged,
-            missingCapabilities = missingCapabilities,
-            egress = request.egress,
-            originSeenInSession = request.originSeenInSession,
-            lanScopes = request.lanScopes,
-        )
-
-    private fun toolCallSourceOf(descriptor: ToolDescriptor): ToolCallSource =
-        when (val origin = descriptor.origin) {
-            ToolOrigin.BuiltInOrigin -> ToolCallSource.BuiltIn
-            is ToolOrigin.McpOrigin -> ToolCallSource.Mcp(McpServerId(origin.serverId), origin.sourceSchemaHash)
-            is ToolOrigin.A2aOrigin -> ToolCallSource.A2a(A2aAgentId(origin.agentId), origin.cardHash, origin.skillHash)
-        }
 
     /** The approval binding: registry contract facts + trusted request facts; args hashed canonically. */
     private fun buildBinding(
@@ -910,6 +962,9 @@ class ToolDispatcher(
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */
     private class DispatchContext {
         /** 1-based attempt number within this dispatch (doc 11 section 3.3 attemptId). */
+        var preferenceEvaluated: PreferenceDecisionAudit? = null
+        var preferencePresented: PreferenceDecisionAudit? = null
+        var preferenceAtStart: PreferenceDecisionAudit? = null
         var attemptId: Int = 1
         var policyDecidedAt: Long? = null
         var riskLevel: RiskLevel? = null

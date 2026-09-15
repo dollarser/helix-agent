@@ -8,17 +8,31 @@ class ShellRepositoryTest {
     private val repository: ShellRepository = FakeShellRepository()
 
     @Test
-    fun `shell exposes exactly seven unique routes`() {
-        assertEquals(7, repository.destinations.size)
+    fun `shell exposes exactly eleven unique routes`() {
+        // P0-B added the Tasks dashboard, the Artifact Center, the Git status page and the
+        // Capabilities panel.
+        assertEquals(11, repository.destinations.size)
         assertEquals(
-            7,
+            11,
             repository.destinations
                 .map(ShellDestination::route)
                 .toSet()
                 .size,
         )
         assertEquals(
-            listOf("sessions", "files", "browser", "extensions", "permissions", "settings", "audit"),
+            listOf(
+                "sessions",
+                "tasks",
+                "artifacts",
+                "git",
+                "files",
+                "browser",
+                "extensions",
+                "capabilities",
+                "permissions",
+                "settings",
+                "audit",
+            ),
             repository.destinations.map(ShellDestination::route),
         )
     }

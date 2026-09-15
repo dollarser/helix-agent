@@ -82,6 +82,9 @@ class StorageAuditSink(
                 // It is one allowlisted top-level key (the nested sub-keys are built by the
                 // executor, not passed through); null (JsonNull) when the tool reports none.
                 "executionDetail",
+                "preferenceEvaluated",
+                "preferencePresented",
+                "preferenceAtStart",
             )
 
         /**
@@ -113,6 +116,9 @@ class StorageAuditSink(
                 // HXA-053: the nested redacted object is emitted as-is when present; a null
                 // fact stays a present-but-null key so the allowlist shape is stable.
                 put("executionDetail", event.executionDetail ?: JsonNull)
+                put("preferenceEvaluated", event.preferenceEvaluated?.let(PreferenceAuditPayload::encode) ?: JsonNull)
+                put("preferencePresented", event.preferencePresented?.let(PreferenceAuditPayload::encode) ?: JsonNull)
+                put("preferenceAtStart", event.preferenceAtStart?.let(PreferenceAuditPayload::encode) ?: JsonNull)
             }.toString()
 
         /**
@@ -148,6 +154,24 @@ class StorageAuditSink(
                         outputHash = obj.optString("outputHash"),
                         startedAt = obj.optLong("startedAt") ?: timestamp,
                         finishedAt = obj.optLong("finishedAt") ?: timestamp,
+                        preferenceEvaluated =
+                            obj["preferenceEvaluated"]?.let {
+                                PreferenceAuditPayload.decode(
+                                    it.toString(),
+                                )
+                            },
+                        preferencePresented =
+                            obj["preferencePresented"]?.let {
+                                PreferenceAuditPayload.decode(
+                                    it.toString(),
+                                )
+                            },
+                        preferenceAtStart =
+                            obj["preferenceAtStart"]?.let {
+                                PreferenceAuditPayload.decode(
+                                    it.toString(),
+                                )
+                            },
                     )
                 }
             }
@@ -216,6 +240,9 @@ data class DispatchAuditRecord(
     val outputHash: String? = null,
     val startedAt: Long,
     val finishedAt: Long,
+    val preferenceEvaluated: PreferenceAuditPayload? = null,
+    val preferencePresented: PreferenceAuditPayload? = null,
+    val preferenceAtStart: PreferenceAuditPayload? = null,
 ) {
     /** True when every mandatory display fact parsed (the page hides rows that fail). */
     val complete: Boolean

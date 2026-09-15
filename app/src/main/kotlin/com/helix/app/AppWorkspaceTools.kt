@@ -21,13 +21,16 @@ internal object AppWorkspaceTools {
         toolRegistry: ToolRegistry,
         toolImplementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
+        artifactSink: WorkspaceArtifactStore.ArtifactSink? = null,
     ) {
         // HXA-042: the first non-time.now business tools enter the production tool table. The
         // contractHash gate (ContractHashGateTest / ADR-0011) is the mechanical proof that a
         // security-descriptor change invalidates any approval minted for the old contract.
+        // Only the IMPLEMENTATIONS take [artifactSink] — the descriptors (and their contract
+        // hash) are unchanged, so minted approvals stay valid.
         ReadTool.register(toolRegistry, toolImplementations, workspaceStore)
-        WriteTool.register(toolRegistry, toolImplementations, workspaceStore)
-        EditTool.register(toolRegistry, toolImplementations, workspaceStore)
+        WriteTool.register(toolRegistry, toolImplementations, workspaceStore, artifactSink)
+        EditTool.register(toolRegistry, toolImplementations, workspaceStore, artifactSink)
         FilesListTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesSearchTool.register(toolRegistry, toolImplementations, workspaceStore)
         FilesStatTool.register(toolRegistry, toolImplementations, workspaceStore)

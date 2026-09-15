@@ -16,6 +16,9 @@ enum class DispatchOutcomeCode {
     INVALID_ARGUMENTS,
     BUDGET_EXHAUSTED,
     POLICY_DENIED,
+
+    /** A user DENY preference blocked the tool (HXA-200, ADR-0052); distinct from a policy-engine denial. */
+    PREFERENCE_DENIED,
     SAME_TURN_DENIED,
     APPROVAL_PENDING,
     APPROVAL_DENIED,
@@ -90,6 +93,10 @@ data class DispatchAuditEvent(
     val attemptId: Int = 1,
     /** Optional bounded redacted executor metadata (HXA-053); see the class KDoc. */
     val executionDetail: JsonObject? = null,
+    /** Latest evaluation, card presentation, and committed start are separate immutable facts. */
+    val preferenceEvaluated: PreferenceDecisionAudit? = null,
+    val preferencePresented: PreferenceDecisionAudit? = null,
+    val preferenceAtStart: PreferenceDecisionAudit? = null,
 ) {
     init {
         require(correlationId.isNotBlank()) { "correlationId must not be blank" }

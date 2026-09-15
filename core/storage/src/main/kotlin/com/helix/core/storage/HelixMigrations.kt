@@ -4,6 +4,149 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    /**
+     * v17 -> v18 (HXA-200 Gap 2, ADR-0052 point 1; 2026-09-15 mechanism addendum): adds the trusted
+     * tool-registration/upgrade baseline — `tool_registration_baseline` (one row per trusted tool
+     * identity, its `firstSeenVersionCode`) and `tool_baseline_meta` (the single-row
+     * `foundingVersionCode` anchor). Both are additive and EMPTY on upgrade: no rows are seeded, so
+     * an unconfigured, un-upgraded user has no baseline and every tool stays UNSET (the original
+     * behavior — "new tool default ASK" is never bootstrapped by a migration). Only the trusted app
+     * registration path writes these tables at runtime.
+     */
+    val MIGRATION_17_18 =
+        object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_registration_baseline` (" +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`firstSeenVersionCode` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sourceRef`, `toolName`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_baseline_meta` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`foundingVersionCode` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+    /**
+     * v16 -> v17 (HXA-200, ADR-0052: user tool-approval preferences): adds the
+     * `tool_approval_preferences` table — one standing user setting per (tool identity, scope),
+     * written only by the user application service, never the model/Skill/MCP/A2A. Additive and
+     * empty on upgrade: no ALLOW rows are seeded, so an unconfigured user keeps their original
+     * behavior (ADR-0052 point 1). Mirrors the canonical Room v17 DDL for
+     * [ToolApprovalPreferenceEntity]; the table has no foreign keys (a preference is keyed by the
+     * stable tool source + name, not a relation to a session/turn/tool-call) and the unique index
+     * makes "reset to default" a delete, not a fourth state (point 5).
+     */
+    val MIGRATION_16_17 =
+        object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_approval_preferences` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`preference` TEXT NOT NULL, " +
+                        "`scopeKind` TEXT NOT NULL, " +
+                        "`scopeRef` TEXT NOT NULL, " +
+                        "`contractHash` TEXT NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_tool_approval_preferences_key` " +
+                        "ON `tool_approval_preferences` (`sourceRef`, `toolName`, `scopeKind`, `scopeRef`)",
+                )
+            }
+        }
+
+    /**
+     * v15 -> v16 (doc 02 §8; artifact-scope identity): `artifacts.relativePath` now stores the
+     * file's FULL `scope:` model reference (e.g. `scope:app:output/a2a/...`) instead of a bare
+     * scope-relative path, so the artifact identity carries its real scope through the unique
+     * key, every lookup, open, and invalidation check. The pre-v16 sink always resolved a row
+     * under the app scope, so every existing file physically lives under the app-scope root —
+     * normalizing each legacy bare row to `scope:app:<path>` makes it addressable by the
+     * scope-carrying readers (which parse via `FileScopePath.fromModelReference`).
+     * The schema version identifies the stored format: EVERY v15 row is bare.
+     * A legal legacy filename can start with `scope:` (even `scope:other:output/x.txt`), so
+     * content-based detection would either lose that artifact or redirect it to another scope.
+     * Room applies this migration once; it is not a normalizer for mixed-version input.
+     * Rebuild the unique index inside Room's migration transaction: a prefixed destination
+     * can equal another row's OLD bare path during UPDATE, although final keys are distinct.
+     */
+    val MIGRATION_15_16 =
+        object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP INDEX index_artifacts_sessionId_relativePath")
+                db.execSQL(
+                    "UPDATE artifacts SET relativePath = 'scope:app:' || relativePath",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX index_artifacts_sessionId_relativePath " +
+                        "ON artifacts(sessionId, relativePath)",
+                )
+            }
+        }
+
+    /**
+     * v14 -> v15 (doc 02 §8: `artifacts`): adds `turnId` — the turn that last wrote the file —
+     * so the artifact surface can show which session/turn produced each file instead of only
+     * background turns. Nullable: rows registered before v15 and registrations without turn
+     * context (A2A task artifacts) keep NULL. Purely additive; no data change.
+     */
+    val MIGRATION_14_15 =
+        object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE artifacts ADD COLUMN turnId TEXT")
+            }
+        }
+
+    /**
+     * v13 -> v14 (research doc section 4.4): the per-request system-prompt record. Adds
+     * `promptFingerprint` + `promptSections` to `model_calls` — the fingerprint of the exact
+     * prompt bytes a request sent and the redacted section list (provenance + content hash,
+     * never content) — so a request can be traced for which sources and which version of
+     * content it used. Both columns are nullable: calls committed before v14 and compaction
+     * summary calls keep NULL.
+     */
+    val MIGRATION_13_14 =
+        object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE model_calls ADD COLUMN promptFingerprint TEXT")
+                db.execSQL("ALTER TABLE model_calls ADD COLUMN promptSections TEXT")
+            }
+        }
+
+    /**
+     * v12 -> v13 (research doc section 34; HX2-01 §2e): the persistent submit-dedup receipt.
+     * Adds `clientRequestId` + `inputFingerprint` to `turns` — the turn row becomes the durable
+     * receipt for the client-request id that started it (created atomically with the turn, so a
+     * restart can no longer let the same id re-start a second turn) — and a UNIQUE index on
+     * `clientRequestId`, the DB-level backstop so one id can never back a second turn. Both columns
+     * are nullable: rows created before v13 keep NULL (never matched by a non-null re-drive query)
+     * and NULLs stay distinct under the unique index, so the backstop does not collide across them.
+     */
+    val MIGRATION_12_13 =
+        object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE turns ADD COLUMN clientRequestId TEXT")
+                db.execSQL("ALTER TABLE turns ADD COLUMN inputFingerprint TEXT")
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_turns_clientRequestId` " +
+                        "ON `turns` (`clientRequestId`)",
+                )
+            }
+        }
+
     val MIGRATION_11_12 =
         object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {

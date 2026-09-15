@@ -39,4 +39,19 @@ class ModelCallRepository(
         require(state.isNotBlank()) { "state must not be blank" }
         dao.update(call.id, state, usage, requestId)
     }
+
+    /**
+     * Records the request's system-prompt snapshot on the call row (research doc section 4.4):
+     * the fingerprint of the exact prompt bytes sent plus the redacted section list. Both
+     * values are caller-redacted (content hashes, never content).
+     */
+    fun recordPrompt(
+        id: String,
+        fingerprint: String,
+        sections: String,
+    ) {
+        require(fingerprint.isNotBlank()) { "fingerprint must not be blank" }
+        require(sections.isNotBlank()) { "sections must not be blank" }
+        dao.recordPrompt(id, fingerprint, sections)
+    }
 }

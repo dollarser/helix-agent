@@ -55,7 +55,10 @@ data class StoredCriterion(
         }
     }
 
-    /** Legacy wire flag records evidence presence; only the domain binding check establishes verification. */
+    /**
+     * Legacy wire flag records evidence presence only: under ADR-0040 it gates nothing and
+     * completion is the model's judgment; it is historical data for old rows.
+     */
     val satisfied: Boolean
         get() = evidence != null
 

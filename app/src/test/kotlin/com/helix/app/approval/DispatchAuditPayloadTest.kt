@@ -24,6 +24,27 @@ import org.junit.Test
  * cannot render what was never stored.
  */
 class DispatchAuditPayloadTest {
+    @Test
+    fun legacyRowsRemainReadableWithoutInventingPreferenceEvidence() {
+        val current = Json.parseToJsonElement(StorageAuditSink.payload(fullEvent())).jsonObject
+        val legacy = kotlinx.serialization.json.JsonObject(current.filterKeys { !it.startsWith("preference") })
+        val row =
+            requireNotNull(
+                StorageAuditSink.parseRow(
+                    "id",
+                    "call",
+                    StorageAuditSink.TYPE,
+                    StorageAuditSink.ACTOR,
+                    legacy.toString(),
+                    1000,
+                ),
+            )
+        assertTrue(row.complete)
+        assertNull(row.preferenceEvaluated)
+        assertNull(row.preferencePresented)
+        assertNull(row.preferenceAtStart)
+    }
+
     private fun fullEvent() =
         DispatchAuditEvent(
             correlationId = "turn-1",

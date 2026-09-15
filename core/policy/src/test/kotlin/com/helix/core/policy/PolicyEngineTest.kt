@@ -190,6 +190,26 @@ class PolicyEngineTest {
     }
 
     @Test
+    fun planModeMetadataAtLowRiskIsAllowed() {
+        // plan.submit is a METADATA op: admitted in Plan at the same cap as READ_ONLY, not a
+        // disguised read.
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L0),
+            )
+        assertEquals(PolicyDecision.Allow, evaluation.decision)
+    }
+
+    @Test
+    fun planModeMetadataAboveL1IsDeniedByRiskCeiling() {
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.METADATA, baseRisk = RiskLevel.L2),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
+    }
+
+    @Test
     fun chatRequiresExplicitOptInAndStillAllowsOnlyReadOnlyL0() {
         val disabled =
             engine.evaluate(
@@ -230,12 +250,96 @@ class PolicyEngineTest {
     }
 
     @Test
+    fun chatEnabledAllowsMetadataL0AndRejectsItAboveL0() {
+        // The todo ledger is a METADATA op Chat keeps at L0; above the cap the risk ceiling
+        // still denies it (risk cannot trade for the admitted class).
+        val allowed =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.METADATA,
+                    baseRisk = RiskLevel.L0,
+                ),
+            )
+        assertEquals(PolicyDecision.Allow, allowed.decision)
+
+        val aboveCap =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.CHAT,
+                    chatToolsEnabled = true,
+                    operationClass = ToolOperationClass.METADATA,
+                    baseRisk = RiskLevel.L1,
+                ),
+            )
+        assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(aboveCap).code)
+    }
+
+    @Test
     fun planDynamicRiskCeilingCannotBeApprovedThrough() {
         val evaluation =
             engine.evaluate(
                 input(mode = AgentMode.PLAN, operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L2),
             )
         assertEquals(PolicyDenialCode.MODE_RISK_CEILING, denialOf(evaluation).code)
+    }
+
+    // --- goal mode: where a plan-executing goal runs -------------------------------
+    // A goal created by executing an approved plan runs its turns in GOAL mode, NOT the
+    // restricted PLAN mode — so it can perform the mutations the plan specifies. But the
+    // plan's approval is NOT a tool approval: every high-risk call still goes through the
+    // per-call gate (research doc 5.1: 后续写入、删除、外发仍重新经过既有授权判断 / 高风险调用
+    // 仍需精确审批).
+
+    @Test
+    fun goalModePerformsTheMutationsTheApprovedPlanSpecifies() {
+        // The same LOCAL_MUTATION that PLAN mode denies by operation class is admissible in
+        // GOAL mode: executing a plan is not stuck in the read-only review class.
+        val plan =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.PLAN,
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                    baseRisk = RiskLevel.L1,
+                ),
+            )
+        assertEquals(PolicyDenialCode.PLAN_MODE_NOT_READ_ONLY, denialOf(plan).code)
+
+        val goal =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.GOAL,
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                    baseRisk = RiskLevel.L1,
+                ),
+            )
+        assertEquals(PolicyDecision.Allow, goal.decision)
+    }
+
+    @Test
+    fun goalModeHighRiskCallStillRequiresPerCallApproval() {
+        // Approving/executing the plan minted no tool approval: an L2 mutation in GOAL mode is
+        // still gated per call, not waved through because a plan was approved.
+        val evaluation =
+            engine.evaluate(
+                input(
+                    mode = AgentMode.GOAL,
+                    operationClass = ToolOperationClass.LOCAL_MUTATION,
+                    baseRisk = RiskLevel.L2,
+                ),
+            )
+        approvalOf(evaluation)
+        assertEquals(RiskLevel.L2, evaluation.dynamicRisk)
+    }
+
+    @Test
+    fun goalModeL3IsDeniedByDefaultRegardlessOfAnyPlan() {
+        val evaluation =
+            engine.evaluate(
+                input(mode = AgentMode.GOAL, operationClass = ToolOperationClass.PRIVILEGED, baseRisk = RiskLevel.L3),
+            )
+        assertEquals(PolicyDenialCode.L3_DEFAULT_DENY, denialOf(evaluation).code)
     }
 
     @Test

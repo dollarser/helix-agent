@@ -47,4 +47,21 @@ class FileToolArgumentsTest {
         assertEquals("scope:app:b", result["destination"]!!.jsonPrimitive.content)
         assertEquals("scope:app:.", result["path"]!!.jsonPrimitive.content)
     }
+
+    // The session prompt (SystemPromptContext) and the file tools resolve the working directory
+    // through this one helper, so a `scope:` directoryRef must land exactly where the model put
+    // it for the three real requests — never re-wrapped under the default scope (the previous
+    // prompt bug rendered scope:app:scope:app:work for a selected subdirectory).
+    @Test fun workingDirectoryResolutionCoversTheThreeRealRequests() {
+        // Default root: no directoryRef → the default scope root.
+        assertEquals("scope:app:.", FileToolArguments.directory("app", null).toModelReference())
+        // Selected subdirectory: a scope: ref under the default scope resolves to itself.
+        val sub = FileToolArguments.directory("app", "scope:app:work/project")
+        assertEquals("app", sub.scopeId)
+        assertEquals("scope:app:work/project", sub.toModelReference())
+        // Other authorized root: a different scope is preserved, not forced under the default.
+        val other = FileToolArguments.directory("app", "scope:other:output")
+        assertEquals("other", other.scopeId)
+        assertEquals("scope:other:output", other.toModelReference())
+    }
 }

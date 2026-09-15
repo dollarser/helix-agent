@@ -1,9 +1,11 @@
 package com.helix.app.provider
 
+import com.helix.app.APP_SCOPE_ID
 import com.helix.core.model.ModelEvent
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.workspace.AtomicFileWriter
+import com.helix.core.workspace.FileScopePath
 import com.helix.runtime.cli.client.CliModelEventCodec
 import com.helix.runtime.cli.client.CliModelJobRecord
 import kotlinx.serialization.json.jsonPrimitive
@@ -28,12 +30,12 @@ internal class SubscriptionResultStore(
         val hash = AtomicFileWriter.writeAtomic(file.toPath(), bytes)
         val session = storage.turns.resolve(ownership.turnId).sessionId
         storage.withTransaction {
-            val existing = storage.artifacts.findBySessionAndPath(session, relative)
+            val existing = storage.artifacts.findBySessionAndPath(session, modelRef(relative))
             if (existing == null) {
                 storage.artifacts.register(
                     "cli-result-${ownership.modelCallId}",
                     session,
-                    relative,
+                    modelRef(relative),
                     "application/json",
                     bytes.size.toLong(),
                     hash,
@@ -53,7 +55,7 @@ internal class SubscriptionResultStore(
         verifyBinding(ownership, record)
         val session = storage.turns.resolve(ownership.turnId).sessionId
         val relative = ".helix/subscription-results/${record.jobId}.json"
-        val artifact = storage.artifacts.findBySessionAndPath(session, relative) ?: return null
+        val artifact = storage.artifacts.findBySessionAndPath(session, modelRef(relative)) ?: return null
         check(artifact.id == "cli-result-${ownership.modelCallId}" && artifact.sha256 == record.outputSha256)
         return readLocal(ownership)
     }
@@ -66,7 +68,7 @@ internal class SubscriptionResultStore(
         CliModelJobRecord.checkJobId(job)
         val session = storage.turns.resolve(ownership.turnId).sessionId
         val relative = ".helix/subscription-results/$job.json"
-        val artifact = storage.artifacts.findBySessionAndPath(session, relative) ?: return null
+        val artifact = storage.artifacts.findBySessionAndPath(session, modelRef(relative)) ?: return null
         check(artifact.id == "cli-result-${ownership.modelCallId}")
         val file = File(workspace, relative)
         check(file.isFile && file.length() == artifact.size)
@@ -85,4 +87,9 @@ internal class SubscriptionResultStore(
         check(binding.getValue("jobId").jsonPrimitive.content == record.jobId)
         check(binding.getValue("requestSha256").jsonPrimitive.content == record.requestSha256)
     }
+
+    // The `artifacts` row stores the file's FULL `scope:` reference (the unique key and every
+    // lookup agree on it); the I/O still uses the bare scope-relative path under this store's
+    // app-scope workspace root.
+    private fun modelRef(relative: String): String = FileScopePath(APP_SCOPE_ID, relative).toModelReference()
 }

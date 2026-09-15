@@ -45,6 +45,16 @@ class PlanRepository(
 
     fun resolveEntity(id: String): PlanEntity = dao.byId(id) ?: throw IllegalArgumentException("plan not found: $id")
 
+    /**
+     * The plan, or null when no plan row carries [id]. For callers where a plan's absence is a
+     * VALID state rather than an error — the goal prompt degrades to the goal's own objective
+     * and criteria when its bound plan row is gone, instead of failing the whole turn.
+     */
+    fun resolveOrNull(id: String): PlanArtifact? {
+        val entity = dao.byId(id) ?: return null
+        return entity.toPlanArtifact(dao.stepsOf(entity.id))
+    }
+
     fun list(): List<PlanEntity> = dao.list()
 
     fun updateState(
@@ -54,6 +64,20 @@ class PlanRepository(
     ) {
         enumByName(state, PlanLifecycleState::class.java, "plan state")
         dao.updateState(id, state, evidenceRef)
+    }
+
+    /**
+     * Conditional transition to [state] that only succeeds while the plan is still `APPROVED`;
+     * returns the number of rows updated. Callers gate on `== 1`: a `0` means the plan left
+     * `APPROVED` (a concurrent execution already moved it), so no second goal may be created.
+     */
+    fun transitionFromApproved(
+        id: String,
+        state: String,
+        evidenceRef: String?,
+    ): Int {
+        enumByName(state, PlanLifecycleState::class.java, "plan state")
+        return dao.transitionFromApproved(id, state, evidenceRef)
     }
 
     fun delete(id: String) {

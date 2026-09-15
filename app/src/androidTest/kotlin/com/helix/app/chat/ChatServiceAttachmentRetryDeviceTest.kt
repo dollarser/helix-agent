@@ -19,6 +19,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.feature.files.AttachmentImporter
 import com.helix.feature.files.SafImportPipeline
@@ -346,7 +347,7 @@ class ChatServiceAttachmentRetryDeviceTest {
                 .single()
         return fixture.workspaceRoot
             .toPath()
-            .resolve(artifact.relativePath)
+            .resolve(FileScopePath.fromModelReference(artifact.relativePath).relativePath)
             .toFile()
     }
 

@@ -44,6 +44,19 @@ interface PlanDao {
         evidenceRef: String?,
     )
 
+    /**
+     * Conditional transition: moves the plan to [state] only while it is still `APPROVED`,
+     * returning the number of rows updated. Exactly one caller can win the `APPROVED ->
+     * EXECUTING` move under concurrency (SQLite serializes writers); a caller that loses sees 0
+     * and must not proceed. This is the guard that keeps plan execution idempotent.
+     */
+    @Query("UPDATE plans SET state = :state, evidenceRef = :evidenceRef WHERE id = :id AND state = 'APPROVED'")
+    fun transitionFromApproved(
+        id: String,
+        state: String,
+        evidenceRef: String?,
+    ): Int
+
     @Query("DELETE FROM plans WHERE id = :id")
     fun delete(id: String): Int
 }

@@ -1,6 +1,7 @@
 package com.helix.app.approval
 
 import com.helix.app.R
+import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.runtime.quickjs.JsExecutionLimits
 
@@ -107,10 +108,25 @@ data class CodeExecutionUi(
  *   [verifierRes]) are STABLE string-resource IDs (+ args), never locale text (HXA-069):
  *   the UI resolves them to the current locale. [scope] keeps the STABLE scope ref; the
  *   UI localizes the "unscoped" ref.
+ * - HXA-201: [toolName] + [sourceRef] + [baseRisk] carry the REQUEST-TIME tool identity so
+ *   the card's "save future preference" actions can write the GLOBAL-scope preference for
+ *   exactly this tool (through the single write service) — and so the card can WITHHOLD the
+ *   future "allow" action for high-risk (L2/L3) tools. Saving a preference never approves or
+ *   denies the pending call itself.
  */
 data class ApprovalCardUi(
     val approvalId: String,
     val bindingHash: String,
+    val contractHash: String? = null,
+    /** HXA-201: the tool identity the "save future preference" actions bind — (sourceRef,
+     * toolName) is the trusted storage key pair, never a display name (same tool names from
+     * different origins are distinct tools).
+     */
+    val toolName: String,
+    val sourceRef: String,
+    /** The descriptor's base risk: high-risk cards never offer the future "allow" action. */
+    val baseRisk: RiskLevel,
+    val dynamicRisk: RiskLevel = baseRisk,
     val state: ApprovalCardState,
     val sourceRes: Int,
     val sourceArgs: List<String> = emptyList(),

@@ -9,9 +9,10 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.helix.app.agent.ModelStreamTerminal
+import com.helix.app.agent.TurnStartSpec
 import com.helix.app.chat.GoalRunCoordinator
 import com.helix.app.chat.GoalTurnStart
-import com.helix.app.chat.TurnStartSpec
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.goalReminderId
 import com.helix.core.agent.GoalWakeReason
@@ -110,8 +111,7 @@ class GoalReminderNavigationDeviceTest {
             )
         started.coordinator.beginModelStream()
         started.coordinator.terminalize(
-            com.helix.app.chat
-                .ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
+            ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
         )
     }
 

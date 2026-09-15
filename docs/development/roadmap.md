@@ -5,6 +5,8 @@
 
 ## 1. 路线总览
 
+2026-09-15 HXA-200 已完成本任务范围验收，当前命令与证据见[完成记录](../completion-records/HXA-200.md)。审计/恢复及JGit lint阻塞已解决，HXA-201后端依赖已满足；本结论不关闭其他并行HXA或发行门禁。
+
 ```text
 M0 工程基线
   → M1 领域状态、Plan/Goal 与持久化
@@ -60,6 +62,7 @@ HXA-148～151 归入后续专项交付，不再使用未定义的 M14 标签；�
 - HXA-069 验收后，所有新增用户可见文案必须使用资源键并同步补齐简体中文/英文；Tool 名、协议字段、审计类型和稳定错误码不翻译。
 - 开始前按 [ADR 约定](../adr/README.md) 检索同一机制的既有决定；触发 ADR 的任务必须在同一 HXA 中新增、更新或显式取代记录。普通契约内实现不强制制造 ADR。
 - 小模型默认只能起草 `proposed`；`accepted` 不代表已实现，改变既有决定时必须停止并等待授权。
+- 外部 API/真实账号不进默认验收与强制 gate：默认本地门禁（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic；真实订阅/账号/网络 smoke 为可选 profile，经 instrumentation 参数 + JUnit Assume 选择性启用，缺参数即 skip（非 fail）、不消耗配额、不计入默认必过项。设备与网络/运行时资产资格是显式单独运行，详见 [验收矩阵](verification-matrix.md)。
 
 ### 3.1 验收命令不得猜测
 
@@ -1128,3 +1131,7 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 允许范围：研究材料/索引/治理；Harness 的 core/storage 迁移及对应测试，runtime/cli-client、runtime/cli-app 的契约回归；后续仅限交接 R1 报告点的局部 API/UI/资源/Detekt 修复，R2 的 Plan/METADATA 暴露、Dispatcher/存储/审计集成，R3 的独占设备验证。保持 Goal、审批、UID、schema 和恢复边界；不扩大成全套 Harness 或新自动化项目。
 
 顺序、具体路径、验收和已执行证据见 [专项交接](harness-2.0-next-work.md)：R1 原门禁 → R2 Plan 契约/集成 → R3 迁移与产物设备闭环 → R4 架构接受和最终集成记录。ADR-0048 在 Harness 分支仍 proposed，不能提前当作现行授权；本 HXA 不关闭 main 既有 HXA-190/191，不授权提交、推送或合并。
+
+### HXA-201 工具设置与审批卡
+
+状态：completed（2026-09-16，本任务范围），见[完成记录](../completion-records/HXA-201.md)。三态搜索/设置/恢复默认、会话/Workspace范围、实际结果与旧卡契约均已验收；P1/P2/P3及API29/36双flavor专项通过。完整产品套件仍有基线失败，见[验收证据](hxa201-acceptance-2026-09-16.md)。本项依赖已满足，可继续202。

@@ -3,7 +3,8 @@ package com.helix.app
 import androidx.annotation.StringRes
 
 /**
- * The seven shell destinations (HXA-028). [route] is the stable, locale-independent nav key;
+ * The eleven shell destinations (HXA-028; Tasks, Artifacts, Git and Capabilities added by the
+ * P0-B product surfaces). [route] is the stable, locale-independent nav key;
  * [titleRes] / [emptyStateRes] are the user-visible string ids resolved at the UI boundary
  * (HXA-069) so the drawer and top bar follow the active app language.
  */
@@ -16,6 +17,21 @@ enum class ShellDestination(
         route = "sessions",
         titleRes = R.string.nav_sessions,
         emptyStateRes = R.string.empty_sessions,
+    ),
+    Tasks(
+        route = "tasks",
+        titleRes = R.string.nav_tasks,
+        emptyStateRes = R.string.empty_tasks,
+    ),
+    Artifacts(
+        route = "artifacts",
+        titleRes = R.string.nav_artifacts,
+        emptyStateRes = R.string.empty_artifacts,
+    ),
+    Git(
+        route = "git",
+        titleRes = R.string.nav_git,
+        emptyStateRes = R.string.empty_git,
     ),
     Files(
         route = "files",
@@ -31,6 +47,11 @@ enum class ShellDestination(
         route = "extensions",
         titleRes = R.string.nav_extensions,
         emptyStateRes = R.string.empty_extensions,
+    ),
+    Capabilities(
+        route = "capabilities",
+        titleRes = R.string.nav_capabilities,
+        emptyStateRes = R.string.empty_capabilities,
     ),
     Permissions(
         route = "permissions",

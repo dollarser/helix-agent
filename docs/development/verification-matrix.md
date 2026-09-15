@@ -1,5 +1,7 @@
 # Helix 验收命令矩阵
 
+2026-09-15 HXA-200 最终验收通过，命令、测试数量、API/进程证据及剩余产品边界见[完成记录](../completion-records/HXA-200.md)。下方早期阻断与gap条目为历史证据，不能再将已修复的审计/恢复/JGit列为当前200阻断。
+
 基线日期：2026-09-03。命令来自 Gradle 9.5.0 / AGP 9.3.2 工程的真实
 `projects` 与 `tasks --all` 输出。每个 HXA 开始前必须确认对应命令仍存在；若模块、
 variant 或 source set 改名，先更新本矩阵，再实现功能。
@@ -11,6 +13,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 - consumer 仪器测试验证共享功能与当前编译边界；修改共享逻辑、consumer route/manifest 或变体边界时必须运行对应 consumer task，但 consumer 不预设为最终商店包。
 - developer 当前承载最完整能力，是开发阶段主要验收对象；涉及 Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。HXA-120～123 再把真实渠道要求映射为 artifact，不能从 flavor 名推导产品能力。
 - 真机/外部服务验收必须记录设备、API、ABI、服务版本和实际结果，不能用构建成功替代。
+- 外部 API/真实账号依赖不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。真实订阅/账号/网络 smoke（`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；运行后须按上一行记录设备/版本/实际结果。
 - Release、APK 内容和许可证总门禁始终追加第 4 节命令。
 
 ## 2. M0 任务命令（已完成）
@@ -339,3 +342,7 @@ HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻�
 | HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
 | HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |
 | HXA-192 | Harness 2.0 迁移、门禁与集成 | 进行中：[执行包及真实命令](harness-2.0-next-work.md)；CLI/storage 主机及迁移 SQL 通过，Android Room/Plan 集成与完整 check-all 待 R1～R4，不提前接受 ADR-0048 |
+
+## HXA-201 验收结论（2026-09-16）
+
+本任务范围completed；P1/P2/P3及API29/36双flavor四象限272次通过，真实Activity重建与不同PID恢复均通过。完整API29 consumer套件仍有18项基线复现失败，未宣称全产品通过。见[完成记录](../completion-records/HXA-201.md)和[逐项证据](hxa201-acceptance-2026-09-16.md)。

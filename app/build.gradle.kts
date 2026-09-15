@@ -3,6 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+apply(from = rootProject.file("config/jgit/reject-insecure-tls.gradle.kts"))
+
 android {
     namespace = "com.helix.app"
     compileSdk = 36
@@ -142,6 +144,8 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.navigation.compose)
     implementation(libs.work.runtime.ktx)
+    // P0-B Git status / diff / changed files: on-device (native) git reader for the
+    // workspace repo. Pure JVM; works in both flavors with no PRoot runtime required.
 
     testImplementation(libs.junit4)
     androidTestImplementation(libs.androidx.test.core.ktx)

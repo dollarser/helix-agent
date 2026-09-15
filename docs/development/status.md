@@ -4,6 +4,10 @@
 
 ## Current summary
 
+2026-09-16 HXA-201 已完成本任务范围验收，见[完成记录](../completion-records/HXA-201.md)及[完整证据与剩余失败](hxa201-acceptance-2026-09-16.md)。已补齐会话/Workspace设置、旧卡契约、实际保存反馈与真实恢复；P1/P2/P3及四象限专项通过。全套API29 consumer仍有18项基线复现失败，不代表全产品通过。HXA-202可按产品链继续；下方201切片和200 gap均为历史快照，其旧“未完成”、无契约哈希、宽度变化等于旋转和JGit依赖漂移判断不再作为当前结论。
+
+2026-09-15 HXA-200 已完成本任务范围验收，审计、停止/恢复和JGit门禁问题已修复，见[完成记录](../completion-records/HXA-200.md)。产品链下一项为HXA-201工具设置与审批卡，后端依赖已满足；其他并行HXA状态不变。下方旧复核与gap条目仅为历史证据。
+
 最近的有界真机回归与修复见 [HXA-186](../completion-records/HXA-186.md)、[HXA-187](../completion-records/HXA-187.md)、[HXA-188](../completion-records/HXA-188.md)。[HXA-189](../completion-records/HXA-189.md) 已完成审查复核、源码修复与主机门禁；新增设备用例待 Claude 独占执行。完成记录仅代表各自范围，不等于全部设备/长稳/发布验收。EV-02 的 API36 24h 功能中止（a11y 重尾，非产品），API29 一臂已跑满 25h 出 INCONCLUSIVE（system-Binder 模拟器不可采），两臂均不能记为 24h 门禁全绿。EV-03 应用 24h 资源门禁：隔离复跑 pilot（单开 5558）仍 FAIL_RESOURCE，`128→137`（+9 全落在 `/dev/goldfish_pipe_dprctd` QEMU 虚拟驱动节点，真机无；逐 fd readlink 证实所有真实资源描述符不变），判定**模拟器固有（X 类）**，非应用泄漏、非 3 开 flake，不进 2h/24h，权威 FD 判定需真机；threads/PSS 均在门禁内。
 
 | 最近交付 | 当前状态与证据 |
@@ -18,6 +22,8 @@
 系统 JNI/Binder 根因、长稳、完整真机矩阵与商店发布仍未关闭。历史主线验证见 [main 验证报告](main-merged-verification.md)，后置测试见 [优化待办](main-optimization-todo.md)。
 
 ## In progress
+
+HXA-201：2026-09-16已关闭；本轮无未完成的201切片。其他所有方任务保持原状态，下方旧收尾条目仅用于追溯。
 
 HXA-192（2026-09-14）Harness 分支专项：研究材料已分类；v16 迁移与 CLI 旧契约测试已局部修复，CLI 162 项和 storage 89 项主机回归通过，androidTest 编译通过；设备未运行。两个工作区的国际化漏扫已修，新增门禁回归通过；Harness 五项缺翻译已补齐。Detekt 仍有 27 项，完整 lint 待重跑处理，ADR-0048 仍 proposed。产品源码修复位于 `worktree-harness-2.0`，main 同步文档及门禁脚本/测试；均未提交、推送或合并。小模型按[专项交接 R1～R4](harness-2.0-next-work.md)推进，不重复已完成修复，不将局部主机通过写成整体验收。
 
@@ -65,6 +71,16 @@ HXA-185 已由 Claude 独占模拟器验证完毕（主机门禁+4自测、Goal 
 
 ## Next task
 
+产品链下一项为HXA-202：先核对现有任务入口与本轮记录的TasksDashboard/Composer失败，复用现有任务ID、取消和恢复事实。201依赖已满足，不重做三态后端或设置；允许按任务规则验证后具名本地commit，不push/合并。
+
+2026-09-15 HXA-200 推进（未整体完成）：按 2026-09-14 澄清保留解析来源——`ToolApprovalResolver` 产出带来源的 `EffectiveToolPreference`（UNSET 沿用原 Policy / EXPLICIT 用户明确 / ALLOW_INVALIDATED 契约失效回退 ASK / NEW_DEFAULT 预留待可信登记升级基线），scope 合并保持 DENY > ASK > ALLOW、窄 scope 不覆盖外层禁止；ADR-0052 已补精确修订（仅第 1 点，不改第 2–8 点）。设备验收（生产 source 接线 + 真实 Room/broker/dispatcher）：新增 `ToolApprovalPreferenceDeviceTest` 4 用例（UNSET-L0 免卡并钉住新工具默认=空记录即 Unset、明确 ASK 强制卡、失效 ALLOW 回退 ASK 卡、跨 scope DENY>ASK>ALLOW），原 `ToolSchedulerDeviceTest` 9 用例免卡回归保持绿；API 29/36 × consumer/developer 共 8 次 gradle 运行全过（每 API 4+9），独占模拟器已在 finally 关闭（证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`、`build/hxa200-device-20260915-105951/`）。剩余三态×风险/模式/能力全矩阵、精确批次、版本/范围/迁移、排队撤销、外部来源碰撞尚未覆盖，故不写整体完成记录。P3 lint 仅被 2 处既有第三方 JGit TrustAll 挡住（HXA-192/ADR-0048 所有方决定），非本切片代码。
+
+2026-09-15 HXA-201 Slice 1（工具审批设置区块，commit `7356453b`）：设置屏提供常驻工具审批偏好——每个已注册工具名一行（最新版本），按工具名称/提供方搜索（大小写不敏感），生效态由与 Dispatcher 相同的 `ToolApprovalPreferenceService` 解析（ADR-0052 第 7 点：设置屏显示的即运行时执行前重验的，不会漂移），行上携带适用记录作为来源（scope+scopeRef）；GLOBAL 作用域的 允许/询问/禁止/恢复默认 四个独立动作，ALLOW 绑定行当前契约哈希（后续契约变化在读取时失效），恢复默认仅移除 GLOBAL 记录并显示实际解析结果。保留来源的六态投影：未设置绝不显示为已允许（`UNSET`），失效 ALLOW 显式为「需重新确认」（`ASK_INVALIDATED`），新工具默认单独标注（`ASK_NEW_DEFAULT`），禁止态说明对模型隐藏且调用被阻止。新增 `ToolApprovalSettingsModel`（设置 UI 唯一读写面，不访问 DAO、不另建偏好存储）+ `ToolApprovalSettingsSection` + `AppContainer.toolApprovalSettings` 接线（接口 `error()` 默认保住测试 fake 编译）+ 三语言 strings（zh/zh-rCN/en，check-i18n 键集一致）。主机新增 7 用例（真实 registry + 真实 service over 内存 DAO）双 flavor 全过；P1（spotlessCheck/detekt）+ `git diff --check` 全过；P2 app 主机套件 consumer 526 pass / developer 552 pass / 0 fail。本地 commit `7356453b`（不 push/合并），具名路径 + 具名 hunk 暂存，并行改动全部保留未夹带。剩余范围：会话/Workspace 作用域设置、审批卡改进（首屏动作/目标/范围/摘要、本次批准与未来偏好分开、高风险不显示「永远允许」）、`ToolApprovalSettingsDeviceTest`（API29/36 × consumer/developer 独占运行、真实工具行为 + 三语言/深色/大字体/小屏/旋转）、P3；整体未达标，不写完成记录。
+2026-09-15 HXA-201 Slice 2（审批卡：本次决策与未来偏好分离，commit `4f349dff`）：PENDING 审批卡新增独立的「保存未来偏好」动作组（允许/询问/禁止）——与本次批准/拒绝完全分离：保存经唯一写路径 `ToolApprovalSettingsModel.setPreferenceFor(sourceRef, toolName)` 写 GLOBAL 作用域常驻偏好（UI 不触 DAO；卡只携带 (sourceRef, toolName) + baseRisk、从不携带契约哈希，写不出过期契约）；保存偏好不批准/不拒绝本次调用（compose 用例钉死 approved==0）；高风险（L2/L3）卡不显示未来允许按钮，改给「请在设置中设置，高风险调用仍须逐次确认」说明；终态卡（已批准/已拒绝/成功/失败，含过期/已消费/已取消）不显示任何动作按钮。`ApprovalCardUi` 新增 toolName/sourceRef/baseRisk（descriptor 身份，绝非显示名），`ApprovalUiMapper.buildCard` 填充；`ToolApprovalSettingsModel` 的 rows 按 (origin, name) 键控（跨 server 同名工具 = 两行：registry 以 (name, version) 键控且 MCP 前缀命名空间隔离，跨源同名碰撞只能经不同版本的同名 MCP 工具表达），`rowFor`/新增 `rowForIdentity`/`setPreferenceFor` 一律以 (sourceRef, toolName) 为身份（fail-closed：未注册工具返回 null 且不写任何东西）；`ConversationIntents.onSaveFuturePreference` → `ChatScreen` → model 接线。主机 +3 用例（同名跨 server 写入隔离、fail-closed null、同名分行）、compose +3 用例（L1 卡三未来动作且保存不批准本次、L2 卡无允许按钮+说明、终态无任何动作）、设备 fixture 更新过新字段。P1（spotlessCheck/detekt）+ `git diff --check` 全过；P2 全过（core model 142 / policy 1177 / agent 271 / tools 164 / storage 89；app consumer 529 / developer 555，0 fail；双 flavor androidTest assemble 通过）。本地 commit `4f349dff`（不 push/合并），10 个具名路径 + 5 个具名 hunk（mapper buildCard 3 行、MainActivity 1 行、strings 2 行 × 三语言）暂存，并行改动全部保留未夹带。剩余范围：保存设置后的真实工具行为验证（低风险 ASK/UNSET、DENY、ALLOW 高风险仍确认、跨 scope、失效版本、等待期间修改、取消、重启、迟到批准）、`ToolApprovalSettingsDeviceTest`（API29/36 × consumer/developer 独占运行 + 三语言/深色/大字体/小屏/旋转）、P3；整体未达标，不写完成记录。
+2026-09-15 HXA-201 Slice 3（设备验收 + 主线程安全写入，commit `b4f20607`）：新增 `ToolApprovalSettingsDeviceTest`（11 用例），从 201 表面（设置模型 + 卡的 identity-based setPreferenceFor）走生产 pipeline（真实 Room/dispatcher/broker，ADR-0052 第 7 点执行前重验）：设置保存 GLOBAL ASK 全会话出卡、ALLOW 免卡（audit preferenceAtStart=ALLOW）、DENY 无卡拦截、ALLOW 高风险（L2）仍出卡且批准后才执行、契约变化（v2 注册）使 ALLOW 失效为可见的重新确认（reason=ALLOW_INVALIDATED、contractValid=false）、卡上经 identity 路径在 pending 期间保存 DENY 连已呈现的卡也拦截；raw service-write 矩阵（unset/取消/迟到批准/跨 scope）复用 HXA-200 `ToolApprovalPreferenceDeviceTest`，不重做。重启用例走两阶段 `adb shell am instrument` 协议（普通阶段写 SharedPreferences fixture（工具身份 + app PID）+ Room ALLOW → `am force-stop com.helix.agent` → `-e hxa201SettingsPhase restart` 整类重跑；不用 gradle connected：本 AGP 每次 connected 运行结束后卸载应用（连用户数据一起，logcat 取证 deletePackageX），跨 run 状态无法持久；fixture 写者按 phase 参自门控）。新进程（PID 断言 ≠ 旧 PID）下 ALLOW 仍生效且免卡分派成功。Compose 用例：三语言（zh/zh-CN/en）标题与未设置文案、按名称/提供方搜索过滤、深色 + 2x 大字体 + 360dp 小屏四动作全可触达、640dp「旋转」后真实点击 DENY → 禁止文案 → 恢复默认 → 未设置（EN locale 往返 Room，effectiveFor=Deny/Unset 断言）。生产修正（设备矩阵逼出）：`ToolApprovalSettingsModel` 三个写方法改 suspend（单一 mutex 串行 + IO dispatcher，Room 主线程 guard 下 Compose 点击无需调用方切线程；setPreferenceFor 对未注册工具 fail-closed 返回 null 且不写）、Section 动作行改 FlowRow（窄屏/大字体四动作全可触达）、ChatScreen 经 rememberCoroutineScope 接线、审批卡摘要加 testTag；`ApprovalCardScreenTest` 对齐 HXA-201 卡形态（首屏摘要 + details 展开器：pending 时恰 3 个可点击=批准/拒绝/展开，终态仅展开器）。设备（自建独占模拟器，用完即关）：API 29/36 × consumer/developer 四象限两阶段全过（每象限 phase 1 = 10 过 + 重启 skip、phase 2 = 新进程同数据 11/11 含重启用例；设备执行的 APK 与提交源仅注释/导入级差异，无行为变化）。P1（spotlessCheck/detekt）+ `git diff --check` 全过；P2 主机套件：core model 142 / policy 1177 / agent 271 / tools 164 / storage 89，app consumer 529 / developer 555，0 fail（每 flavor 4 项既有条件跳过，见 HXA-184）。本地 commit `b4f20607`（不 push/合并），7 个具名路径暂存，并行改动全部保留未夹带。剩余范围：P3（lint 等）、会话/Workspace 作用域设置；整体未达标，不写完成记录。
+2026-09-15 HXA-201 Slice 3 附记（full app 设备套件状态，非本任务门禁）：一次 full `:app` connected 设备套件运行（gradle connected，API 29）中，`ToolApprovalSettingsDeviceTest` 之外的 22 个测试类失败，失败模式横跨 attachments/goals/providers/git（JGit `NoSuchMethodError: readNBytes`）/tasks/share/composer，均不在 HXA-201 diff 范围；JGit 项为工作树依赖级红（并行未提交 WIP 的依赖漂移症状）。本任务强制设备门禁是隔离的两阶段 `ToolApprovalSettingsDeviceTest`（API 29/36 × consumer/developer 四象限全绿，见上一条）。此 full-suite 红记录为既有/并行 WIP 红，不计入 HXA-201。
+2026-09-15 HXA-201 Slice 3 收尾门禁：P3 全过——`:app:assembleConsumerDebug` / `:app:assembleDeveloperDebug` / 双 flavor `assembleAndroidTest` + `:app:lintConsumerDebug` / `:app:lintDeveloperDebug` 均执行且 BUILD SUCCESSFUL；已知的 2 项第三方 JGit TrustAll lint 不在本轮 app lint 结果中（保持 HXA-192/ADR-0048 所有方独立记账，未 suppress）。至此 Slice 3 的 P1/P2/P3 + API 29/36 × consumer/developer 四象限两阶段设备门禁全绿（本地 commit `b4f20607`/`b0211448`/`6975d29e`，不 push/合并）。HXA-201 整体仍未达标：剩余范围（会话/Workspace 作用域设置等）见路线图，不写完成记录。
+
 Claude 完成原冻结轮次后，按交接执行主机门禁、独占模拟器短测与 FD 对照，再决定新制品长稳。HXA-189 主机门禁已通过，Claude 按复核交接执行新增设备回归；HXA-186～188 有界真机工作已有完成记录，不操作原模拟器，不自动推送；Claude 在途结果独立落盘。
 
 ## Blocked
@@ -98,6 +114,7 @@ Claude 完成原冻结轮次后，按交接执行主机门禁、独占模拟器�
 - **后续功能**：持久 Git Workspace、结构化 Git UI、remote Git/凭据，以及生产子 Agent/Workflow 不在当前实现范围；接受 ADR 不构成实现证据。Connector OAuth、版本管理与市场扩展也不因本轮整理自动启动。
 - **发行**：Standard 完整产品形态是 ADR-0013 的决定；当前 consumer/developer 构建与 CI debug APK 不是签名 release、完整渠道权限申报或商店审核证据。
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
+- **外部 API/服务依赖边界**：默认本地验收与强制 CI gate（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号——JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）；设备测试与网络/运行时资产资格是显式单独运行，不并入强制 gate。真实订阅/账号 smoke（`realSubscription`/`realCodex`/`realCopilot`/`helixDnsProbe`/sglang 探针等）经 instrumentation 参数 + JUnit Assume 选择性启用，缺参数即 skip（非 fail）、不消耗配额，绝不作为默认必过项。
 
 ## Connector 扩展线收尾
 

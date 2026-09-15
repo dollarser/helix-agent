@@ -6,6 +6,11 @@ import com.helix.core.policy.ApprovalProof
 import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.MintRejectionCode
 
+/** The broker guarantees its wait was cancelled before any executor could start. */
+open class ApprovalWaitCancelledException(
+    message: String,
+) : IllegalStateException(message)
+
 /**
  * Everything the dispatcher needs to know to obtain (and later spend) a typed Approval
  * Proof for one call (roadmap HXA-035; security doc section 7.3).

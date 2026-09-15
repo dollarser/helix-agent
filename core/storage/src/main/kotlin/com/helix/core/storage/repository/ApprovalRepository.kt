@@ -52,6 +52,14 @@ class ApprovalRepository(
 
     fun byToolCall(toolCallId: String): ApprovalEntity? = dao.byToolCall(toolCallId)
 
+    /**
+     * How many approval records were created for this tool call. The broker creates exactly
+     * one record per confirmation-surface presentation, so a count above 1 is direct evidence
+     * the user was asked more than once for the same call (it must stay 1: the HXA-037
+     * bounded retry rides a refund, never a new card).
+     */
+    fun countByToolCall(toolCallId: String): Int = dao.countByToolCall(toolCallId)
+
     /** One-time: throws when a decision already exists. */
     fun decide(
         id: String,
@@ -117,13 +125,15 @@ class ApprovalRepository(
     }
 
     /**
-     * One-time refund of a consumed proof — the storage half of a bounded technical retry
+     * One refund per consumption — the storage half of a bounded technical retry
      * (roadmap HXA-037; doc 11 section 3.3). The dispatcher has already CONFIRMED the
-     * failed attempt was zero-side-effect, so the consumption is annulled and the SAME
-     * typed APPROVED record may be re-minted once. Returns false (and changes nothing)
-     * when the record is not a currently-consumed APPROVED for this exact binding — a
-     * second refund is structurally impossible (SQL guard). The refund never writes a
-     * decision and never extends the record's window.
+     * failed attempt was zero-side-effect, so THIS consumption is annulled and the SAME
+     * typed APPROVED record may be re-minted. Returns false (and changes nothing) when
+     * the record is not a currently-consumed APPROVED for this exact binding — a
+     * double-annulment of the same spend is structurally impossible (SQL guard); a LATER,
+     * new consumption refunds independently (the retry-COUNT bound lives in the
+     * dispatcher's hard cap, not here). The refund never writes a decision and never
+     * extends the record's window.
      */
     fun refund(proof: ApprovalProof): Boolean = dao.refundByBinding(proof.approvalId, proof.bindingHash) == 1
 
