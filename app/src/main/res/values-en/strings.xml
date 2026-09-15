@@ -4,6 +4,19 @@
 
     <!-- HXA-069: English locale. Language option labels are endonyms (identical in every locale). -->
     <string name="settings_language_title">Language</string>
+    <string name="settings_tool_approval_title">Tool approval preferences</string>
+    <string name="settings_tool_approval_search_hint">Search by tool name or provider</string>
+    <string name="settings_tool_approval_empty">No matching tools</string>
+    <string name="settings_tool_approval_state_unset">Unset: follows the default policy</string>
+    <string name="settings_tool_approval_state_allow">Allow: in-scope calls run without asking; high-risk calls still confirm</string>
+    <string name="settings_tool_approval_state_ask">Ask: confirm before each call</string>
+    <string name="settings_tool_approval_state_ask_invalidated">Ask: the stored allow is no longer valid; re-confirm required</string>
+    <string name="settings_tool_approval_state_ask_new_default">Ask: new tools default to asking</string>
+    <string name="settings_tool_approval_state_deny">Deny: hidden from the model; calls are blocked</string>
+    <string name="settings_tool_approval_action_allow">Allow</string>
+    <string name="settings_tool_approval_action_ask">Ask</string>
+    <string name="settings_tool_approval_action_deny">Deny</string>
+    <string name="settings_tool_approval_action_reset">Restore default</string>
     <string name="language_system">Follow system</string>
     <string name="language_zh_cn">简体中文</string>
     <string name="language_en">English</string>

@@ -9,6 +9,7 @@ import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.approval.ToolApprovalPreferenceService
+import com.helix.app.approval.ToolApprovalSettingsModel
 import com.helix.app.audit.AuditLogService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
@@ -409,6 +410,10 @@ internal class DefaultAppContainer(
         ).also { service ->
             service.reconcile(builtInToolIdentities(), appClock.now().toEpochMilli())
         }
+
+    /** HXA-201: the settings screen's tool-approval model over the same registry + preference service. */
+    override val toolApprovalSettings: ToolApprovalSettingsModel =
+        ToolApprovalSettingsModel(toolRegistry, toolApprovalPreferenceService)
 
     /**
      * The trusted (source, name) identities of the built-in tools for the baseline (HXA-200 Gap 2):

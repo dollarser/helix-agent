@@ -78,6 +78,15 @@ interface AppContainer {
      */
     val toolApprovalPreferenceService: ToolApprovalPreferenceService
 
+    /**
+     * HXA-201: the settings screen's read/write model for the standing tool-approval preferences —
+     * one row per registered tool with the effective value the Dispatcher itself re-resolves, plus
+     * the GLOBAL-scope set / restore-default actions. The ONLY approval-preference surface the
+     * settings UI uses (it never reaches the DAO).
+     */
+    val toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel
+        get() = error("Tool approval settings are unavailable in this container")
+
     val connectorService: com.helix.app.connector.ConnectorService
         get() = error("Connector service is unavailable in this container")
 
