@@ -568,6 +568,28 @@ class ToolDispatcherTest {
     }
 
     @Test
+    fun aStopBetweenApprovalAndStartConsumesNothingAndNeverExecutes() {
+        // The user approves and hits stop in the same window: the broker hands back the
+        // Approved acquisition and the turn-stop signal lands BEFORE execution starts.
+        // The dispatcher's pre-start gate wins over the granted approval: Cancelled,
+        // zero side effects, and the proof is NEVER spent (consume runs after the gate).
+        val proof = proofFor("call-1")
+        val cancel = ManualCancel()
+        broker.script(ApprovalAcquisition.Approved(proof))
+        broker.acquireHook = { req -> (req.cancel as? ManualCancel)?.cancelled = true }
+        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(descriptor(), executor)
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), cancel = cancel))
+        assertEquals(ToolDispatchOutcome.Cancelled, outcome)
+        assertEquals("a stop before start must never run the tool", 0, executor.invocations)
+        assertEquals("the granted proof is never spent once the gate stops the call", 0, broker.consumeCalls.size)
+        val event = sink.events.single()
+        assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, event.code)
+        assertNotNull("the acquisition happened before the gate", event.approvalAcquiredAt)
+        assertNull(event.executionStartedAt)
+    }
+
+    @Test
     fun toolFailureSurfacesItsStableDetail() {
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         registerTool(descriptor(), CaptureExecutor { ToolExecutorResult.Failed("disk full") })
@@ -1346,6 +1368,30 @@ class ToolDispatcherTest {
         assertEquals("ws-7", call.workspaceRef)
     }
 
+    @Test
+    fun aPreferenceFlipWhileTheCardIsPendingCannotRewriteThePresentedDecision() {
+        // While the card is pending, the user flips the tool's preference to DENY. The
+        // preference was read at dispatch start — the re-resolution happens BEFORE the
+        // call starts, never again mid-wait (ADR-0052 point 7) — so the presented card's
+        // explicit per-call decision governs. The source is read exactly once.
+        val source = ScriptedPreferenceSource(ToolApprovalPreference.ASK)
+        dispatcher = dispatcherWithPreference(source)
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        broker.acquireHook = { source.preference = ToolApprovalPreference.DENY }
+        registerTool(
+            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+        )
+        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
+        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
+        assertEquals(
+            "the preference is read once, before the card — never re-read while it is pending",
+            1,
+            source.calls.size,
+        )
+        assertEquals(1, broker.consumeCalls.size)
+    }
+
     // ---------------------------------------------------------------------- helpers
 
     private fun tool(name: String): ToolName = ToolName(name)
@@ -1411,9 +1457,13 @@ class ToolDispatcherTest {
             source,
         )
 
-    /** A preference source that records the identity/scope it was asked about, then returns [preference]. */
+    /**
+     * A preference source that records the identity/scope it was asked about, then returns
+     * [preference]. [preference] is mutable so a test can flip it mid-wait (the dispatcher
+     * must not re-read it).
+     */
     private class ScriptedPreferenceSource(
-        private val preference: ToolApprovalPreference?,
+        @Volatile var preference: ToolApprovalPreference?,
     ) : ToolApprovalPreferenceSource {
         data class SourceCall(
             val sourceRef: String,
@@ -1510,6 +1560,9 @@ class ToolDispatcherTest {
         /** When it returns non-null, acquire throws that (the broker's cancel exception). */
         var acquireThrows: (ApprovalRequest) -> Throwable? = { null }
 
+        /** Runs right before a scripted acquisition is returned — a deterministic race seam. */
+        var acquireHook: (ApprovalRequest) -> Unit = {}
+
         /** Forces the un-mintable path (the record's window elapsed in the meantime). */
         var reMintReturnsNull = false
         private val reminted = mutableSetOf<String>()
@@ -1521,6 +1574,7 @@ class ToolDispatcherTest {
         override fun acquire(request: ApprovalRequest): ApprovalAcquisition {
             acquireCalls += request
             acquireThrows(request)?.let { throw it }
+            acquireHook(request)
             check(scripted.isNotEmpty()) { "broker scripted empty" }
             return scripted.removeFirst()
         }

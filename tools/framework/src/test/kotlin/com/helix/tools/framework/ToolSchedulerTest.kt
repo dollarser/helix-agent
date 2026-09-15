@@ -6,6 +6,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
+import com.helix.core.model.ToolApprovalPreference
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -14,14 +15,18 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.policy.DataOrigin
+import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.GrantState
 import com.helix.core.policy.PolicyEngine
+import com.helix.core.policy.ToolApprovalPreferenceSource
+import com.helix.core.policy.ToolApprovalReason
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -470,6 +475,113 @@ class ToolSchedulerTest {
         assertEquals("startedAt must follow queuedAt", true, ran.queuedAt != null && ran.startedAt >= ran.queuedAt)
     }
 
+    // --------------------------- HXA-200 Gap 5: preference flips while a call is queued
+    //
+    // The dispatcher re-resolves the preference LIVE at dispatch start (never at
+    // enqueue), so a flip that lands while the call sits in the queue is honored at the
+    // moment the call starts.
+
+    @Test
+    fun aDenyPreferenceFlippedWhileQueuedBlocksTheCallWithoutACard() {
+        val gate = CountDownLatch(1)
+        register(
+            "q.slow",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    gate.countDown()
+                    Thread.sleep(150)
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "q.victim",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        val source = FlipPreferenceSource(null)
+        val scheduler =
+            ToolScheduler(
+                clock,
+                dispatcherWithPreferenceSource(source),
+                registry,
+                maxConcurrency = 1,
+            )
+        val batchFuture =
+            CompletableFuture.supplyAsync {
+                scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
+            }
+        // The victim is provably still in the queue (concurrency 1, the barrier holds
+        // the only slot); flip its preference UNSET -> DENY now.
+        assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
+        source.preference = ToolApprovalPreference.DENY
+        val batch = batchFuture.join()
+        assertNull(batch.error)
+        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
+        val denied = batch.outcomes[1] as? ToolDispatchOutcome.Denied
+        assertNotNull("a DENY flipped while queued must block the call at start", denied)
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, denied!!.code)
+        assertEquals("the flipped DENY stops the call before any card", 0, broker.acquireCalls.size)
+        assertEquals(0, broker.consumeCalls.size)
+        val row = sink.events.first { it.correlationId == "call-2" }
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, row.code)
+        assertEquals(DecisionSource.USER, row.decisionSource)
+        assertNull(row.executionStartedAt)
+        assertTrue("the queue stamp must survive the flip", row.queuedAt != null && row.startedAt >= row.queuedAt)
+    }
+
+    @Test
+    fun anAskPreferenceFlippedWhileQueuedPresentsACardAtDispatchStart() {
+        val gate = CountDownLatch(1)
+        register(
+            "q.slow",
+            ToolOperationClass.LOCAL_MUTATION,
+            RiskLevel.L0,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    gate.countDown()
+                    Thread.sleep(150)
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            },
+        )
+        register(
+            "q.victim",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        val source = FlipPreferenceSource(null)
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-2", "2".repeat(64))))
+        val scheduler =
+            ToolScheduler(
+                clock,
+                dispatcherWithPreferenceSource(source),
+                registry,
+                maxConcurrency = 1,
+            )
+        val batchFuture =
+            CompletableFuture.supplyAsync {
+                scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
+            }
+        // Policy alone would run the victim card-free; the flip UNSET -> ASK while it is
+        // queued must force exactly one card when it starts.
+        assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
+        source.preference = ToolApprovalPreference.ASK
+        val batch = batchFuture.join()
+        assertNull(batch.error)
+        assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
+        assertTrue(batch.outcomes[1] is ToolDispatchOutcome.Succeeded)
+        assertEquals("the flipped ASK forces exactly one card at start", 1, broker.acquireCalls.size)
+        assertEquals(1, broker.consumeCalls.size)
+        val row = sink.events.first { it.correlationId == "call-2" }
+        assertEquals(DispatchOutcomeCode.SUCCESS, row.code)
+        assertEquals(DecisionSource.USER, row.decisionSource)
+    }
+
     @Test
     fun oneFailingItemNeverCancelsTheOthers() {
         register(
@@ -836,4 +948,37 @@ class ToolSchedulerTest {
 
         override fun isCancelled(): Boolean = cancelled
     }
+
+    /** A preference source the test flips MID-QUEUE: the flip must be honored at dispatch start. */
+    private class FlipPreferenceSource(
+        @Volatile var preference: ToolApprovalPreference?,
+    ) : ToolApprovalPreferenceSource {
+        override fun effectiveFor(
+            sourceRef: String,
+            toolName: String,
+            contractHash: String?,
+            sessionId: String?,
+            workspaceRef: String?,
+        ): EffectiveToolPreference =
+            when (preference) {
+                ToolApprovalPreference.ALLOW -> EffectiveToolPreference.Allow
+                ToolApprovalPreference.ASK -> EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
+                ToolApprovalPreference.DENY -> EffectiveToolPreference.Deny
+                null -> EffectiveToolPreference.Unset
+            }
+    }
+
+    /** A dispatcher over the SAME test broker/registry/sink, with the preference seam wired to [source]. */
+    private fun dispatcherWithPreferenceSource(source: ToolApprovalPreferenceSource): ToolDispatcher =
+        ToolDispatcher(
+            clock,
+            registry,
+            impls,
+            CapabilityCenter(RecordingResolver(usableCaps, clock)),
+            PolicyEngine(clock),
+            broker,
+            sink,
+            { emptySet() },
+            source,
+        )
 }

@@ -3,6 +3,7 @@ package com.helix.app
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ChatHistoryBuilder
+import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.core.model.AgentMode
@@ -12,6 +13,8 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.SystemClock
+import com.helix.core.model.ToolApprovalPreference
+import com.helix.core.model.ToolApprovalPreferenceScope
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
@@ -39,6 +42,7 @@ import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
 import com.helix.tools.framework.ToolScheduler
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -89,6 +93,12 @@ import kotlin.time.Duration.Companion.seconds
  *   PRODUCTION dispatcher's card sink fails closed for a direct dispatch — the card is
  *   built from the chat pipeline's dispatch facts, and a card that cannot be rendered
  *   cannot be approved (UI card rendering is ApprovalFlowDeviceTest's coverage).
+ * - HXA-200 Gap 5 竞态与持久结算: a stop that lands while the call waits for the card
+ *   decision settles durably (audit CANCELLED_BEFORE_START, the record stays PENDING and
+ *   unconsumed, the sibling still settles) — modeled exactly like the production turn
+ *   stop (per-turn CancelSignal + broker.cancel); a preference flip through the real
+ *   service while a call sits queued is honored at dispatch start (DENY stops the call
+ *   before any card).
  */
 @RunWith(AndroidJUnit4::class)
 class ToolSchedulerDeviceTest {
@@ -647,7 +657,9 @@ class ToolSchedulerDeviceTest {
         assertEquals(3, rows.size)
         val aborted = rows.single { it.second.correlationId == ids[2] }
         assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, aborted.second.code)
-        assertTrue(aborted.first["queuedAt"] is JsonPrimitive)
+        // JsonNull IS a JsonPrimitive in kotlinx-serialization — check for the null
+        // value itself so a missing queue stamp cannot pass this assert.
+        assertTrue("the queue stamp survives on the durable row", aborted.first["queuedAt"] !is JsonNull)
         // The started calls still settled SUCCEEDED in their audit rows.
         assertEquals(DispatchOutcomeCode.SUCCESS, rows.single { it.second.correlationId == ids[0] }.second.code)
         assertEquals(DispatchOutcomeCode.SUCCESS, rows.single { it.second.correlationId == ids[1] }.second.code)
@@ -964,5 +976,183 @@ class ToolSchedulerDeviceTest {
         assertEquals("DENIED", recordB.decision)
         assertNotNull("call-1's proof was consumed at execution start", recordA.consumedAt)
         assertNull("call-2 never minted (denied before execution)", recordB.consumedAt)
+    }
+
+    // ------------------------------------------------- HXA-200 Gap 5: race + durable settlement
+
+    @Test
+    fun aTurnStopDuringApprovalWaitSettlesDurablyAndKeepsTheRecordPending() {
+        // A stop that lands while the call is WAITING for the card decision. The
+        // production turn stop does BOTH — it flips the per-turn CancelSignal (the
+        // request's `cancel`) and calls `broker.cancel(id)` for the pending card
+        // (ChatService turnCancels + ChatToolCalls.cancelPendingApproval) — this test
+        // models exactly that, against the real broker over the real Room store.
+        val (broker, dispatcher) = approvalPipeline()
+        val scheduler = ToolScheduler(clock, dispatcher, container.toolPipeline.registry)
+        val siblingId = "tstop-sib-$run"
+        val targetId = "tstop-tgt-$run"
+        val siblingName = "tstop.slow.$run"
+        val targetName = "tstop.approval.$run"
+        val targetRan = AtomicInteger()
+        register(
+            siblingName,
+            ToolOperationClass.LOCAL_MUTATION,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    Thread.sleep(1200)
+                    return ToolExecutorResult.Completed(buildJsonObject { put("tag", "sibling") })
+                }
+            },
+        )
+        registerApprovalTool(targetName) {
+            targetRan.incrementAndGet()
+            ToolExecutorResult.Completed(buildJsonObject { put("tag", "target") })
+        }
+        seedToolCallRow(siblingId, siblingName, Json.parseToJsonElement("{}").let { it as JsonObject })
+        val targetArgs = buildJsonObject { put("path", "/sdcard/helix/tstop-$run.txt") }
+        seedToolCallRow(targetId, targetName, targetArgs)
+        val stop =
+            object : CancelSignal {
+                @Volatile
+                var stopped = false
+
+                override fun isCancelled(): Boolean = stopped
+            }
+        val handle =
+            startBatch(
+                listOf(
+                    request(siblingId, siblingName),
+                    request(targetId, targetName, cancel = stop, args = targetArgs),
+                ),
+                scheduler,
+            )
+        // The target starts only after the exclusive sibling finishes: its record
+        // appears when the broker's wait begins. The stop lands while the wait is pending.
+        val approvalId = approvalIdOf(targetId)
+        stop.stopped = true
+        broker.cancel(approvalId)
+        val batch = handle.join()
+        // The independent sibling still settles durably (a stopped item never cancels
+        // the others).
+        val sibling = batch.settlements[0] as ToolScheduler.BatchSettlement.Outcome
+        assertTrue(sibling.outcome is ToolDispatchOutcome.Succeeded)
+        // The stopped wait propagates the broker's cancel exception as this slot's
+        // cause — the chat layer turns it into the turn's stable CANCELLED terminal.
+        val target = batch.settlements[1] as ToolScheduler.BatchSettlement.Thrown
+        assertTrue(target.cause is ApprovalCancelledException)
+        // Durable audit for BOTH calls: the target settled CANCELLED_BEFORE_START
+        // (binding computed, no proof minted, never started) and the sibling SUCCESS —
+        // a stopped item never cancels the others.
+        val rows = auditRows(setOf(siblingId, targetId))
+        assertEquals(2, rows.size)
+        assertDurableCancelledBeforeStart(rows.first { it.second.correlationId == targetId })
+        assertEquals(
+            DispatchOutcomeCode.SUCCESS,
+            rows.first { it.second.correlationId == siblingId }.second.code,
+        )
+        // The record stays PENDING: a stopped wait is not a decision, the proof is
+        // never consumed, and the user was asked exactly once (never re-asked after a
+        // stop).
+        assertRecordStillPending(targetId)
+        assertEquals("a stopped call must never execute", 0, targetRan.get())
+    }
+
+    /**
+     * The interrupted approval wait settles durably before execution: the row is
+     * CANCELLED_BEFORE_START; the card binding WAS computed (bindingHash set) but the
+     * stop landed while the broker was still waiting — no decision ever landed, so no
+     * proof was ever minted (approvalAcquiredAt stays null) and execution never
+     * started. JsonNull IS a JsonPrimitive in kotlinx-serialization, so the asserts
+     * check the null value itself, never "is JsonPrimitive".
+     */
+    private fun assertDurableCancelledBeforeStart(
+        targetRow: Pair<JsonObject, com.helix.app.approval.DispatchAuditRecord>,
+    ) {
+        assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, targetRow.second.code)
+        assertTrue(
+            "the card binding was computed before the wait was stopped",
+            targetRow.first["bindingHash"] !is JsonNull,
+        )
+        assertTrue(
+            "an interrupted acquisition never mints a proof",
+            targetRow.first["approvalAcquiredAt"] is JsonNull,
+        )
+        assertTrue(
+            "execution never started",
+            targetRow.first["executionStartedAt"] is JsonNull,
+        )
+    }
+
+    /** A stopped approval wait leaves the record pending, undecided, unconsumed and single. */
+    private fun assertRecordStillPending(toolCallId: String) {
+        val record = container.storage.approvals.byToolCall(toolCallId)
+        assertNotNull(record)
+        assertNull("a stopped wait is not a decision", record!!.decision)
+        assertNull("a stopped wait never consumes the proof", record.consumedAt)
+        assertEquals(
+            "exactly one card was ever presented for the call",
+            1,
+            container.storage.approvals.countByToolCall(toolCallId),
+        )
+    }
+
+    @Test
+    fun aPreferenceFlippedWhileQueuedIsHonoredAtDispatchStart() {
+        // The victim's preference is flipped through the REAL service (the same write
+        // path the settings UI uses) while it sits in the queue. The dispatcher
+        // re-resolves the preference live at dispatch start — the flip is honored: DENY
+        // stops the call before any card, with zero side effects.
+        val (_, dispatcher) = approvalPipeline()
+        val scheduler = ToolScheduler(clock, dispatcher, container.toolPipeline.registry)
+        val siblingId = "pflip-sib-$run"
+        val victimId = "pflip-vic-$run"
+        val siblingName = "pflip.slow.$run"
+        val victimName = "pflip.victim.$run"
+        register(
+            siblingName,
+            ToolOperationClass.LOCAL_MUTATION,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    Thread.sleep(1200)
+                    return ToolExecutorResult.Completed(buildJsonObject { put("tag", "sibling") })
+                }
+            },
+        )
+        register(victimName, ToolOperationClass.READ_ONLY, timingExecutor(5, "victim", null))
+        seedToolCallRow(siblingId, siblingName, Json.parseToJsonElement("{}").let { it as JsonObject })
+        seedToolCallRow(victimId, victimName, Json.parseToJsonElement("{}").let { it as JsonObject })
+        val handle =
+            startBatch(
+                listOf(
+                    request(siblingId, siblingName),
+                    request(victimId, victimName),
+                ),
+                scheduler,
+            )
+        // The exclusive sibling holds the batch for 1.2 s: the victim is provably still
+        // queued when the flip lands. sourceRef is the descriptor origin's canonical
+        // form — the SAME identity the dispatcher's re-resolution queries.
+        val sourceRef = descriptorFor(victimName, ToolOperationClass.READ_ONLY).origin.canonicalOf()
+        container.toolApprovalPreferenceService.set(
+            sourceRef,
+            victimName,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.DENY,
+            null,
+            clock.now().toEpochMilli(),
+        )
+        val batch = handle.join()
+        val sibling = batch.settlements[0] as ToolScheduler.BatchSettlement.Outcome
+        assertTrue(sibling.outcome is ToolDispatchOutcome.Succeeded)
+        val victim = batch.settlements[1] as ToolScheduler.BatchSettlement.Outcome
+        val denied = victim.outcome as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, denied.code)
+        assertNull("a preference denial never presents a card", container.storage.approvals.byToolCall(victimId))
+        val rows = auditRows(setOf(siblingId, victimId))
+        assertEquals(2, rows.size)
+        val victimRow = rows.first { it.second.correlationId == victimId }.second
+        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, victimRow.code)
+        assertEquals("USER", victimRow.decisionSource?.name)
     }
 }
