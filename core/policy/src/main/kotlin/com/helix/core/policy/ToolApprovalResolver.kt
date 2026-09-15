@@ -248,14 +248,22 @@ object ToolApprovalResolver {
      *    effective ASK tagged [ToolApprovalReason.ALLOW_INVALIDATED] — distinct from a fresh
      *    [EffectiveToolPreference.Unset], so the runtime says "your ALLOW no longer applies"
      *    rather than "you never set anything" (point 6 + point 8).
-     * 5. When nothing is stored at all, the result is [EffectiveToolPreference.Unset] and the call
-     *    keeps its original policy handling (the clarified point 1: an existing unconfigured tool
-     *    is not forced to ASK — a new-tool default to ASK needs a trusted registration/upgrade
-     *    baseline, not an empty record).
+     * 5. When nothing is stored at all: if [newToolDefault] is true — the trusted
+     *    registration/upgrade baseline marks this tool as newly added in the current build (Gap 2,
+     *    point 1) — the result is an effective ASK tagged [ToolApprovalReason.NEW_DEFAULT];
+     *    otherwise [EffectiveToolPreference.Unset] and the call keeps its original policy handling
+     *    (an existing unconfigured tool is not forced to ASK — the new-tool default needs a trusted
+     *    baseline, not an empty record or a model claim).
+     *
+     * @param newToolDefault true when a trusted registration/upgrade baseline marks this tool as
+     *   newly added in the current build AND the user has configured nothing for it (point 1). The
+     *   caller computes it from the durable baseline; the resolver only consumes the boolean, so
+     *   this stays pure and default-false for callers that have no baseline.
      */
     fun effectivePreference(
         records: List<ToolApprovalPreferenceRecord>,
         currentContractHash: String?,
+        newToolDefault: Boolean = false,
     ): EffectiveToolPreference {
         val live =
             records.filter {
@@ -283,6 +291,10 @@ object ToolApprovalResolver {
         return narrowestEffective
             ?: if (records.any { it.preference == ToolApprovalPreference.ALLOW }) {
                 EffectiveToolPreference.Ask(ToolApprovalReason.ALLOW_INVALIDATED)
+            } else if (newToolDefault) {
+                // Nothing live is stored and the trusted baseline marks the tool new in this build:
+                // the new-tool default to ASK (point 1). An explicit stored choice still wins above.
+                EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT)
             } else {
                 EffectiveToolPreference.Unset
             }

@@ -7,8 +7,14 @@ import com.helix.core.policy.ToolApprovalExposure
 import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.storage.dao.ToolApprovalPreferenceDao
+import com.helix.core.storage.dao.ToolBaselineMetaDao
+import com.helix.core.storage.dao.ToolRegistrationBaselineDao
 import com.helix.core.storage.entity.ToolApprovalPreferenceEntity
+import com.helix.core.storage.entity.ToolBaselineMetaEntity
+import com.helix.core.storage.entity.ToolRegistrationBaselineEntity
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
+import com.helix.core.storage.repository.ToolBaselineIdentity
+import com.helix.core.storage.repository.ToolRegistrationBaselineRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -76,6 +82,11 @@ class ToolApprovalPreferenceServiceTest {
                 .filter { it.sourceRef == sourceRef && it.toolName == toolName }
                 .sortedBy { it.scopeKind } // stable: keeps rowid order within one scopeKind
 
+        override fun countByTool(
+            sourceRef: String,
+            toolName: String,
+        ): Int = rows.values.count { it.sourceRef == sourceRef && it.toolName == toolName }
+
         override fun deleteByScope(
             sourceRef: String,
             toolName: String,
@@ -98,7 +109,49 @@ class ToolApprovalPreferenceServiceTest {
         }
     }
 
-    private fun service() = ToolApprovalPreferenceService(ToolApprovalPreferenceRepository(InMemoryPreferenceDao()))
+    // In-memory fakes of the trusted-baseline DAOs: first-write-wins insertIgnore (an existing
+    // marker/anchor is never re-stamped) plus the bounded reads the resolver's new-tool decision
+    // consumes. This mirrors the Room OnConflictStrategy.IGNORE the real DAOs use.
+    private class InMemoryBaselineDao : ToolRegistrationBaselineDao {
+        private val rows = LinkedHashMap<String, ToolRegistrationBaselineEntity>()
+
+        private fun key(e: ToolRegistrationBaselineEntity) = "${e.sourceRef}|${e.toolName}"
+
+        override fun insertIgnore(entity: ToolRegistrationBaselineEntity) {
+            rows.putIfAbsent(key(entity), entity)
+        }
+
+        override fun firstSeenVersionCode(
+            sourceRef: String,
+            toolName: String,
+        ): Long? =
+            rows.values
+                .firstOrNull { it.sourceRef == sourceRef && it.toolName == toolName }
+                ?.firstSeenVersionCode
+    }
+
+    private class InMemoryMetaDao : ToolBaselineMetaDao {
+        private val rows = LinkedHashMap<String, ToolBaselineMetaEntity>()
+
+        override fun insertIgnore(entity: ToolBaselineMetaEntity) {
+            rows.putIfAbsent(entity.id, entity)
+        }
+
+        override fun byId(id: String): ToolBaselineMetaEntity? = rows[id]
+    }
+
+    /**
+     * A service over fresh in-memory DAOs. [currentVersionCode] defaults to 2; with the baseline
+     * unseeded every tool stays OLD (founding is set to current on the first reconcile, or null
+     * before one), so the existing scope/contract tests see no NEW_DEFAULT — the Gap 2 tests below
+     * seed the baseline explicitly to exercise the upgrade/aging paths.
+     */
+    private fun service(currentVersionCode: Long = 2L) =
+        ToolApprovalPreferenceService(
+            ToolApprovalPreferenceRepository(InMemoryPreferenceDao()),
+            ToolRegistrationBaselineRepository(InMemoryBaselineDao(), InMemoryMetaDao()),
+            currentVersionCode,
+        )
 
     @Test
     fun setThenReadBackCollapsesThroughTheSharedResolver() {
@@ -242,5 +295,149 @@ class ToolApprovalPreferenceServiceTest {
         val effective = service.effectiveFor("builtin", "t", null, "s1", null)
         assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
         assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(effective))
+    }
+
+    // Gap 2 (point 1): the trusted registration/upgrade baseline drives the NEW_DEFAULT default.
+    // These JVM tests exercise the service's fold of the pure ToolBaseline decision + the "never
+    // configured" guard over the in-memory stores; the REAL end-to-end baseline (real Room, a real
+    // app upgrade, restart) is the device test's job (HXA-200 P3).
+
+    @Test
+    fun aFreshInstallRegistersEveryBundledToolAsOldNotNew() {
+        // First trusted reconcile on a fresh database: founding == current, so every bundled tool
+        // first seen now is part of the founding baseline — OLD. A fresh install never forces ASK on
+        // its own tools (point 1 "既有工具 UNSET"); the read seam stays Unset for an unconfigured one.
+        val service = service(currentVersionCode = 2L)
+        service.reconcile(
+            listOf(
+                ToolBaselineIdentity("builtin", "a.tool"),
+                ToolBaselineIdentity("builtin", "b.tool"),
+            ),
+            1000L,
+        )
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            service.effectiveFor("builtin", "a.tool", "h1", "s1", null),
+        )
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            service.effectiveFor("builtin", "b.tool", "h1", "s1", null),
+        )
+    }
+
+    /**
+     * A service at current build 2 over a pre-seeded founding-build-1 baseline (old.tool
+     * firstSeen=1), after the trusted path has registered the build-2 set (which adds new.tool).
+     * The first-write-wins stores are real in-memory fakes, so every read hits them.
+     */
+    private fun upgradeService(): ToolApprovalPreferenceService {
+        val prefDao = InMemoryPreferenceDao()
+        val baselineDao = InMemoryBaselineDao()
+        val metaDao = InMemoryMetaDao()
+        metaDao.insertIgnore(ToolBaselineMetaEntity(ToolBaselineMetaEntity.BASELINE_ROW_ID, 1L, 0L))
+        baselineDao.insertIgnore(
+            ToolRegistrationBaselineEntity(
+                sourceRef = "builtin",
+                toolName = "old.tool",
+                firstSeenVersionCode = 1L,
+                updatedAtEpoch = 0L,
+            ),
+        )
+        val service =
+            ToolApprovalPreferenceService(
+                ToolApprovalPreferenceRepository(prefDao),
+                ToolRegistrationBaselineRepository(baselineDao, metaDao),
+                2L,
+            )
+        service.reconcile(
+            listOf(
+                ToolBaselineIdentity("builtin", "old.tool"),
+                ToolBaselineIdentity("builtin", "new.tool"),
+            ),
+            1000L,
+        )
+        return service
+    }
+
+    @Test
+    fun aToolIntroducedByAnUpgradeDefaultsToNewDefaultUntilConfigured() {
+        val service = upgradeService()
+        // The upgrade-introduced, unconfigured tool resolves to an ASK tagged NEW_DEFAULT...
+        val effective = service.effectiveFor("builtin", "new.tool", "h1", "s1", null)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT), effective)
+        // ...it is stable across a "restart" (the decision depends only on the persisted facts)...
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT),
+            service.effectiveFor("builtin", "new.tool", "h1", "s1", null),
+        )
+        // ...and it is an ASK (a card), not a DENY, so the tool stays exposed to the model (point 4).
+        assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(effective))
+        // The founding tool is OLD and unconfigured: it keeps the original Unset handling, not NEW_DEFAULT.
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            service.effectiveFor("builtin", "old.tool", "h1", "s1", null),
+        )
+    }
+
+    @Test
+    fun aStoredChoiceOverridesTheNewToolDefault() {
+        val service = upgradeService()
+        // A real user choice overrides the new-tool default: an explicit ASK keeps the EXPLICIT tag...
+        service.set(
+            "builtin",
+            "new.tool",
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ASK,
+            null,
+            2000L,
+        )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT),
+            service.effectiveFor("builtin", "new.tool", "h1", "s1", null),
+        )
+        // ...and a live ALLOW makes it card-free (configured → never the new-tool default).
+        service.set(
+            "builtin",
+            "new.tool",
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ALLOW,
+            "h1",
+            3000L,
+        )
+        assertEquals(
+            EffectiveToolPreference.Allow,
+            service.effectiveFor("builtin", "new.tool", "h1", "s1", null),
+        )
+    }
+
+    @Test
+    fun aToolIntroducedInAnEarlierUpgradeBuildHasAgedOutOfNewness() {
+        // Founding build 1; "aged.tool" was introduced at build 2 (firstSeen=2). The app is now build 3.
+        val prefDao = InMemoryPreferenceDao()
+        val baselineDao = InMemoryBaselineDao()
+        val metaDao = InMemoryMetaDao()
+        metaDao.insertIgnore(ToolBaselineMetaEntity(ToolBaselineMetaEntity.BASELINE_ROW_ID, 1L, 0L))
+        baselineDao.insertIgnore(
+            ToolRegistrationBaselineEntity(
+                sourceRef = "builtin",
+                toolName = "aged.tool",
+                firstSeenVersionCode = 2L,
+                updatedAtEpoch = 0L,
+            ),
+        )
+        val service =
+            ToolApprovalPreferenceService(
+                ToolApprovalPreferenceRepository(prefDao),
+                ToolRegistrationBaselineRepository(baselineDao, metaDao),
+                3L,
+            )
+        // isNewDefault(3, 1, 2) is false: the tool is no longer "new in the current build," so an
+        // unconfigured tool resolves Unset (normal handling), NOT NEW_DEFAULT.
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            service.effectiveFor("builtin", "aged.tool", "h1", "s1", null),
+        )
     }
 }

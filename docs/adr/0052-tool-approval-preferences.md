@@ -28,6 +28,12 @@ Superseded by: none
 
 **2026-09-14 澄清（HXA-200 实现时补记，对第 1 点的精确修订）**：原第 1 点“新工具默认 ASK”易被读成“凡未配置即询问”，据此细化为——**既有工具 UNSET 沿用原 Policy**（范围内低风险免询问、L2/L3 仍按策略询问/拒绝），**明确 ASK 才新增询问限制**，**契约/来源变化使 ALLOW 失效回退 ASK**（第 6 点，且回退来源须与“未配置”可区分，不能塌缩成同一个 ASK）。“新增工具默认 ASK”需要一个**可信的工具登记/升级基线**判定“新增”：不能把所有空记录当新工具，也不能依据模型自身声明判断；当前尚无该基线，故空记录解析为 UNSET（沿用原 Policy）。本澄清只细化第 1 点，不改变第 2–8 点。
 
+**2026-09-15 基线机制（HXA-200 Gap 2 实现补记，落实第 1 点“可信登记/升级基线”；不改变第 2–8 点，仅为第 1 点补上此前“尚无”的机制）**：新增两张加性 Room 表，迁移 17→18，升级后均为空（不 seed 任何 ALLOW、不 seed 任何“新工具”标记，未配置用户保留原行为）：
+- `tool_registration_baseline`（每工具一行，主键 `sourceRef + toolName`，即与偏好同一可信身份）存 `firstSeenVersionCode`：该工具**首次被可信登记**时的应用 versionCode。
+- `tool_baseline_meta`（单行）存 `foundingVersionCode`：本设备上基线**首次建立**（首次安装/首次登记）时的 versionCode。
+**可信登记**只由应用自身在内置工具登记/升级时驱动（`ToolApprovalPreferenceService.reconcile`），模型、Skill、MCP/A2A 与 UI 都**不能**写这张基线表——判定“新增”绝不依据模型自身声明，也绝不依据偏好表是否为空。
+**“新增”判定（纯函数）**：`NEW_DEFAULT ⟺ firstSeenVersionCode == currentVersionCode && currentVersionCode > foundingVersionCode`，且该工具当前无任何偏好记录（未配置）。据此：首次安装走“建立基线”路径（`foundingVersionCode == currentVersionCode`，所有工具 `firstSeenVersionCode` 也等于它）→ `currentVersionCode > foundingVersionCode` 不成立 → 全部判为**旧工具 → UNSET**（沿用原 Policy）；一次升级到更高 versionCode 后，首次出现的工具 `firstSeenVersionCode == currentVersionCode > foundingVersionCode` → 判为**新增 → 默认 ASK**（`ToolApprovalReason.NEW_DEFAULT`），而既有工具 `firstSeenVersionCode < currentVersionCode` → 仍为旧工具；该“新增”状态在**同版本重启**中保持稳定（`firstSeenVersionCode` 不变），到下一次升级自动“变旧”。用户一旦显式设置 ALLOW/ASK/DENY，其显式选择优先于新增默认；**恢复默认 = 删除偏好行**（第 5 点，非第四态），使工具回到“未配置 → 按基线判新增/UNSET”。`NEW_DEFAULT` 是 [EffectiveToolPreference.Ask] 的一个来源，走与显式 ASK 相同的运行时卡片路径（仍暴露给模型，只在执行前询问），不新增任何能力/范围/高风险批准。
+
 ## Alternatives considered
 
 - 只做三按钮 UI：不改变实际执行偏好，会误导用户，未选择。

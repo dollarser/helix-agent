@@ -38,6 +38,7 @@ import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
 import com.helix.core.storage.repository.ToolCallRepository
+import com.helix.core.storage.repository.ToolRegistrationBaselineRepository
 import com.helix.core.storage.repository.ToolResultRepository
 import com.helix.core.storage.repository.TurnRepository
 import java.io.File
@@ -72,6 +73,19 @@ class HelixStorage internal constructor(
      */
     val toolApprovalPreferences: ToolApprovalPreferenceRepository by lazy {
         ToolApprovalPreferenceRepository(database.toolApprovalPreferenceDao())
+    }
+
+    /**
+     * The trusted tool-registration/upgrade baseline (HXA-200 Gap 2, ADR-0052 point 1) — the
+     * first-write-wins marker set that lets the resolver tell a tool that is "new in this build"
+     * from one that is merely unconfigured. Written only by the app's trusted registration path;
+     * read by the preference service to produce the new-tool default.
+     */
+    val toolRegistrationBaseline: ToolRegistrationBaselineRepository by lazy {
+        ToolRegistrationBaselineRepository(
+            database.toolRegistrationBaselineDao(),
+            database.toolBaselineMetaDao(),
+        )
     }
     val interactionReceipts: InteractionReceiptRepository by lazy {
         InteractionReceiptRepository(database.interactionReceiptDao())
@@ -187,6 +201,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_14_15,
                 HelixDatabase.MIGRATION_15_16,
                 HelixDatabase.MIGRATION_16_17,
+                HelixDatabase.MIGRATION_17_18,
             )
 
         fun create(context: Context): HelixStorage {

@@ -29,7 +29,9 @@ import com.helix.core.storage.dao.SessionDao
 import com.helix.core.storage.dao.SkillDao
 import com.helix.core.storage.dao.SkillSnapshotDao
 import com.helix.core.storage.dao.ToolApprovalPreferenceDao
+import com.helix.core.storage.dao.ToolBaselineMetaDao
 import com.helix.core.storage.dao.ToolCallDao
+import com.helix.core.storage.dao.ToolRegistrationBaselineDao
 import com.helix.core.storage.dao.ToolResultDao
 import com.helix.core.storage.dao.TurnDao
 import com.helix.core.storage.entity.A2aAgentEntity
@@ -60,7 +62,9 @@ import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.entity.SkillEntity
 import com.helix.core.storage.entity.SkillSnapshotEntity
 import com.helix.core.storage.entity.ToolApprovalPreferenceEntity
+import com.helix.core.storage.entity.ToolBaselineMetaEntity
 import com.helix.core.storage.entity.ToolCallEntity
+import com.helix.core.storage.entity.ToolRegistrationBaselineEntity
 import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
 
@@ -115,11 +119,13 @@ import com.helix.core.storage.entity.TurnEntity
             A2aCapabilityEntity::class,
             A2aTaskEntity::class,
             ToolApprovalPreferenceEntity::class,
+            ToolRegistrationBaselineEntity::class,
+            ToolBaselineMetaEntity::class,
         ],
-    version = 17,
+    version = 18,
     exportSchema = true,
 )
-@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 24 doc 9.1 tables
+@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
 abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionDao(): SessionDao
 
@@ -181,8 +187,14 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun toolApprovalPreferenceDao(): ToolApprovalPreferenceDao
 
+    abstract fun toolRegistrationBaselineDao(): ToolRegistrationBaselineDao
+
+    abstract fun toolBaselineMetaDao(): ToolBaselineMetaDao
+
     companion object {
         const val DATABASE_NAME = "helix.db"
+
+        val MIGRATION_17_18 = HelixMigrations.MIGRATION_17_18
 
         val MIGRATION_16_17 = HelixMigrations.MIGRATION_16_17
 

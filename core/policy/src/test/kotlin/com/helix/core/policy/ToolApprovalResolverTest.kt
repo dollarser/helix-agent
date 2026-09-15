@@ -228,4 +228,99 @@ class ToolApprovalResolverTest {
         // handling (the clarified point 1) — never a fabricated ASK.
         assertEquals(EffectiveToolPreference.Unset, ToolApprovalResolver.effectivePreference(emptyList(), "c1"))
     }
+
+    // Gap 2 (point 1): the NEW_DEFAULT provenance is driven by a trusted registration/upgrade
+    // baseline the caller passes as `newToolDefault`. It only ever turns a NOTHING-STORED outcome
+    // into an Ask tagged NEW_DEFAULT — an explicit stored choice (ALLOW/ASK/DENY) or an
+    // invalidated ALLOW always wins, because those are real user/config signals, not a fresh default.
+
+    @Test
+    fun aNewUnconfiguredToolDefaultsToAnAskTaggedNewDefault() {
+        // Nothing stored + the trusted baseline says "new in this build": the effective preference
+        // is an Ask tagged NEW_DEFAULT (distinct from a fresh Unset), so the resolver cards it.
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT),
+            ToolApprovalResolver.effectivePreference(emptyList(), "c1", newToolDefault = true),
+        )
+    }
+
+    @Test
+    fun theNewToolDefaultIsInertWhenNoBaselineSaysNew() {
+        // The same empty record WITHOUT the baseline flag stays Unset (the clarified point 1): the
+        // new-tool default is never inferred from an empty record alone.
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            ToolApprovalResolver.effectivePreference(emptyList(), "c1", newToolDefault = false),
+        )
+    }
+
+    @Test
+    fun anExplicitAskBeatsTheNewToolDefault() {
+        // The user stored an explicit ASK (in any applicable scope): that is a real choice, so it
+        // wins over the new-tool default and keeps its EXPLICIT tag.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(
+                    ToolApprovalPreference.ASK,
+                    ToolApprovalPreferenceScope.GLOBAL,
+                    null,
+                ),
+            )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT),
+            ToolApprovalResolver.effectivePreference(records, "c1", newToolDefault = true),
+        )
+    }
+
+    @Test
+    fun aLiveAllowBeatsTheNewToolDefault() {
+        // A live, contract-matching stored ALLOW means the user configured the tool: card-free,
+        // never the new-tool default.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(
+                    ToolApprovalPreference.ALLOW,
+                    ToolApprovalPreferenceScope.SESSION,
+                    "c1",
+                ),
+            )
+        assertEquals(
+            EffectiveToolPreference.Allow,
+            ToolApprovalResolver.effectivePreference(records, "c1", newToolDefault = true),
+        )
+    }
+
+    @Test
+    fun aDenyBeatsTheNewToolDefault() {
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(
+                    ToolApprovalPreference.DENY,
+                    ToolApprovalPreferenceScope.GLOBAL,
+                    null,
+                ),
+            )
+        assertEquals(
+            EffectiveToolPreference.Deny,
+            ToolApprovalResolver.effectivePreference(records, "c1", newToolDefault = true),
+        )
+    }
+
+    @Test
+    fun anInvalidatedAllowPrecedesTheNewToolDefault() {
+        // A stored ALLOW a contract change dropped is the ALLOW_INVALIDATED fallback, a stronger and
+        // more specific signal than "new in this build": it wins the tag, not NEW_DEFAULT.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(
+                    ToolApprovalPreference.ALLOW,
+                    ToolApprovalPreferenceScope.GLOBAL,
+                    "stale",
+                ),
+            )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.ALLOW_INVALIDATED),
+            ToolApprovalResolver.effectivePreference(records, "c1", newToolDefault = true),
+        )
+    }
 }

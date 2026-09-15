@@ -50,6 +50,7 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -381,13 +382,46 @@ internal class DefaultAppContainer(
     private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
 
     /**
+     * The app's own versionCode (HXA-200 Gap 2, point 1): the trusted input to the new-tool baseline
+     * decision. Read once from the package manager and folded into the preference service via
+     * [com.helix.core.policy.ToolBaseline], so an upgrade-introduced, unconfigured tool resolves to
+     * an ASK tagged NEW_DEFAULT — and the same build's restart stays stable (the decision is a pure
+     * function of this plus the persisted founding/first-seen codes).
+     */
+    private val currentVersionCode: Long =
+        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
+
+    /**
      * Standing user tool-approval preferences (HXA-200, ADR-0052). The ONLY write path (the future
      * settings screen / approval card / device tests call [set]/[remove]); it is also the live read
      * seam handed to BOTH the [ToolDispatcher] (pre-start re-resolution) and the Registry exposure
-     * filter so they resolve one tool against the same store (point 7).
+     * filter so they resolve one tool against the same store (point 7). Its [ToolApprovalPreferenceService.reconcile]
+     * is likewise the ONLY write path to the trusted new-tool baseline: the built-in tools are
+     * registered first-write-wins under the current build, so a fresh install marks them all OLD
+     * (founding == current) and an upgrade marks only the tools it newly introduced as NEW for this
+     * build (Gap 2, point 1).
      */
     override val toolApprovalPreferenceService: ToolApprovalPreferenceService =
-        ToolApprovalPreferenceService(storage.toolApprovalPreferences)
+        ToolApprovalPreferenceService(
+            storage.toolApprovalPreferences,
+            storage.toolRegistrationBaseline,
+            currentVersionCode,
+        ).also { service ->
+            service.reconcile(builtInToolIdentities(), appClock.now().toEpochMilli())
+        }
+
+    /**
+     * The trusted (source, name) identities of the built-in tools for the baseline (HXA-200 Gap 2):
+     * exactly what the [init] block has registered into [toolRegistry] at construction — the
+     * statically-bundled tools (the flavor-conditional modules register nothing in consumer). Dynamic
+     * MCP/A2A tools register later at connection time and are deliberately NOT part of the founding
+     * baseline (deferred): they resolve UNSET until a trusted path registers them, so an empty record
+     * is never mistaken for "new."
+     */
+    private fun builtInToolIdentities(): List<ToolBaselineIdentity> =
+        toolRegistry.all().map { descriptor ->
+            ToolBaselineIdentity(descriptor.origin.canonicalOf(), descriptor.name.value)
+        }
 
     /**
      * The production approval broker (roadmap HXA-036): pending records with the full

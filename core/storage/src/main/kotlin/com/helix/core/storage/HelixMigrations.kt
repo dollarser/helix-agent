@@ -5,6 +5,36 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v17 -> v18 (HXA-200 Gap 2, ADR-0052 point 1; 2026-09-15 mechanism addendum): adds the trusted
+     * tool-registration/upgrade baseline — `tool_registration_baseline` (one row per trusted tool
+     * identity, its `firstSeenVersionCode`) and `tool_baseline_meta` (the single-row
+     * `foundingVersionCode` anchor). Both are additive and EMPTY on upgrade: no rows are seeded, so
+     * an unconfigured, un-upgraded user has no baseline and every tool stays UNSET (the original
+     * behavior — "new tool default ASK" is never bootstrapped by a migration). Only the trusted app
+     * registration path writes these tables at runtime.
+     */
+    val MIGRATION_17_18 =
+        object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_registration_baseline` (" +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`firstSeenVersionCode` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sourceRef`, `toolName`))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_baseline_meta` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`foundingVersionCode` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+    /**
      * v16 -> v17 (HXA-200, ADR-0052: user tool-approval preferences): adds the
      * `tool_approval_preferences` table — one standing user setting per (tool identity, scope),
      * written only by the user application service, never the model/Skill/MCP/A2A. Additive and

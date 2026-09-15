@@ -79,6 +79,16 @@ class ToolApprovalPreferenceRepository(
     }
 
     /**
+     * Whether the user has stored ANY preference for this tool identity, in ANY scope (HXA-200 Gap
+     * 2). The new-tool default applies only to a tool the user has never configured; a preference
+     * set in a different session still counts as "configured," so this ignores the current context.
+     */
+    fun hasAnyPreference(
+        sourceRef: String,
+        toolName: String,
+    ): Boolean = dao.countByTool(sourceRef, toolName) > 0
+
+    /**
      * The records applicable to one tool identity in a context: the GLOBAL row always, plus the
      * current session's and workspace's rows when present. Rehydrated fail-closed (an unknown
      * stored value throws rather than being guessed). The caller resolves the list with

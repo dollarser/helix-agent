@@ -1,7 +1,9 @@
 package com.helix.app
 
+import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.approval.ToolApprovalPreferenceService
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.ToolApprovalPreference
@@ -12,6 +14,8 @@ import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.ToolApprovalReason
+import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -31,6 +35,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
@@ -56,6 +61,11 @@ import kotlin.time.Duration.Companion.seconds
  * - 跨 scope 优先级 DENY > ASK > ALLOW: an outer DENY is authoritative — a narrower (session)
  *   ALLOW that is still live cannot override it, and the call is blocked (no card) at the
  *   execution boundary (点5).
+ * - 新工具默认 ASK 的可信升级基线 (Gap 2): on real Room with a controllable version code (separate
+ *   database — the production container's code is fixed at the APK's), an upgrade-introduced,
+ *   unconfigured tool resolves to an ASK tagged NEW_DEFAULT; a real user choice overrides it, a
+ *   reset returns to it, and the decision survives a close/reopen "restart" because it is a pure
+ *   function of the persisted first-write-wins baseline (点1, 2026-09-15).
  */
 @RunWith(AndroidJUnit4::class)
 class ToolApprovalPreferenceDeviceTest {
@@ -389,4 +399,126 @@ class ToolApprovalPreferenceDeviceTest {
             container.storage.approvals.byToolCall(callId),
         )
     }
+
+    @Test
+    fun anUpgradeIntroducedToolDefaultsToNewDefaultUntilConfigured() {
+        // HXA-200 Gap 2 (点1, 2026-09-15), on REAL Room with a controllable version code: the
+        // production container's code is fixed at this APK's, so the founding-build -> upgrade
+        // story is driven against a SEPARATE database through the same public repositories and the
+        // SAME [ToolApprovalPreferenceService] the production container constructs. The baseline
+        // is the ONLY source of the NEW_DEFAULT default — no model claim, no "empty record ==
+        // new tool" inference.
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val name = "new-default-baseline-$run.db"
+        val contentDir = File(context.cacheDir, "content-$name")
+        context.deleteDatabase(name)
+        contentDir.deleteRecursively()
+        val storage = HelixStorage.open(context, name, contentDir)
+        try {
+            assertUpgradeBaselineLifecycle(storage)
+            // "Restart" of the same build: close the database — the reopen below is a fresh
+            // instance holding none of the in-memory state.
+        } finally {
+            storage.close()
+        }
+        // The persisted facts alone must reproduce the decision, and the first-write-wins
+        // re-reconcile must NOT re-stamp the markers (firstSeen stays 2, founding stays 1).
+        val reopened = HelixStorage.open(context, name, contentDir)
+        try {
+            val restarted = serviceOn(reopened, 2L)
+            restarted.reconcile(baselineIdentities(), 3_000L)
+            assertNewDefaultStillHolds(reopened, restarted)
+        } finally {
+            reopened.close()
+        }
+        context.deleteDatabase(name)
+        contentDir.deleteRecursively()
+    }
+
+    /**
+     * The founding-build -> upgrade -> configure -> reset story against one real database at
+     * controllable version codes 1 -> 2 (every baseline write and read goes through Room).
+     */
+    private fun assertUpgradeBaselineLifecycle(storage: HelixStorage) {
+        // Founding build (versionCode 1): the trusted startup path registers the bundled set.
+        // firstSeen == founding == current, so a founding tool is OLD — a fresh install never
+        // forces ASK on its own tools (既有工具 UNSET).
+        val founding = serviceOn(storage, 1L)
+        founding.reconcile(listOf(ToolBaselineIdentity("builtin", "apref.baseline.old.$run")), 1_000L)
+        assertEquals(1L, storage.toolRegistrationBaseline.foundingVersionCode())
+        assertEquals(EffectiveToolPreference.Unset, effectiveFrom(founding, "apref.baseline.old.$run"))
+        // Upgrade to build 2: the trusted path re-registers the new build's set, which adds a tool
+        // the founding build did not have. Its marker is stamped firstSeen=2.
+        val upgraded = serviceOn(storage, 2L)
+        upgraded.reconcile(baselineIdentities(), 2_000L)
+        assertEquals(
+            2L,
+            storage.toolRegistrationBaseline.firstSeenVersionCode("builtin", "apref.baseline.new.$run"),
+        )
+        // The upgrade-introduced, unconfigured tool resolves to an ASK tagged NEW_DEFAULT...
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT),
+            effectiveFrom(upgraded, "apref.baseline.new.$run"),
+        )
+        // ...while the founding tool stays Unset (OLD — the upgrade did not introduce it).
+        assertEquals(EffectiveToolPreference.Unset, effectiveFrom(upgraded, "apref.baseline.old.$run"))
+        // A real user choice overrides the new-tool default: a live ALLOW (bound to h1)...
+        upgraded.set(
+            "builtin",
+            "apref.baseline.new.$run",
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ALLOW,
+            "h1",
+            3_000L,
+        )
+        assertEquals(EffectiveToolPreference.Allow, effectiveFrom(upgraded, "apref.baseline.new.$run"))
+        // ...and removing that choice RESETS to the default (a delete, not a fourth state): while
+        // the baseline still says "new in build 2", it is back to Ask(NEW_DEFAULT).
+        upgraded.remove("builtin", "apref.baseline.new.$run", ToolApprovalPreferenceScope.GLOBAL, "")
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT),
+            effectiveFrom(upgraded, "apref.baseline.new.$run"),
+        )
+    }
+
+    /** The read bundle re-run after the close/reopen restart. */
+    private fun assertNewDefaultStillHolds(
+        storage: HelixStorage,
+        service: ToolApprovalPreferenceService,
+    ) {
+        assertEquals(1L, storage.toolRegistrationBaseline.foundingVersionCode())
+        assertEquals(
+            2L,
+            storage.toolRegistrationBaseline.firstSeenVersionCode("builtin", "apref.baseline.new.$run"),
+        )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.NEW_DEFAULT),
+            effectiveFrom(service, "apref.baseline.new.$run"),
+        )
+        assertEquals(EffectiveToolPreference.Unset, effectiveFrom(service, "apref.baseline.old.$run"))
+    }
+
+    /** The tool identities of the test's fictional builds (founding tool + the upgrade's tool). */
+    private fun baselineIdentities() =
+        listOf(
+            ToolBaselineIdentity("builtin", "apref.baseline.old.$run"),
+            ToolBaselineIdentity("builtin", "apref.baseline.new.$run"),
+        )
+
+    /** The one read every assertion here makes: (builtin, tool, contract h1, the seeded session). */
+    private fun effectiveFrom(
+        service: ToolApprovalPreferenceService,
+        toolName: String,
+    ) = service.effectiveFor("builtin", toolName, "h1", sessionId, null)
+
+    /** A preference service over a test-owned [storage] at a CONTROLLABLE app version code. */
+    private fun serviceOn(
+        storage: HelixStorage,
+        currentVersionCode: Long,
+    ) = ToolApprovalPreferenceService(
+        storage.toolApprovalPreferences,
+        storage.toolRegistrationBaseline,
+        currentVersionCode,
+    )
 }

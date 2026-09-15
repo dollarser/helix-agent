@@ -59,6 +59,21 @@ interface ToolApprovalPreferenceDao {
         toolName: String,
     ): List<ToolApprovalPreferenceEntity>
 
+    /**
+     * Whether the user has stored ANY preference for this tool identity, in ANY scope (HXA-200
+     * Gap 2). The new-tool default ([ToolApprovalReason.NEW_DEFAULT]) applies only to a tool the
+     * user has never configured; a preference in a different session still means "configured," so
+     * this deliberately ignores the current session/workspace context.
+     */
+    @Query(
+        "SELECT COUNT(*) FROM tool_approval_preferences " +
+            "WHERE sourceRef = :sourceRef AND toolName = :toolName",
+    )
+    fun countByTool(
+        sourceRef: String,
+        toolName: String,
+    ): Int
+
     /** "Reset to default" is a delete, not a fourth state (ADR-0052 point 5). */
     @Query(
         "DELETE FROM tool_approval_preferences " +
