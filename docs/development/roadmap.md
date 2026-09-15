@@ -60,6 +60,7 @@ HXA-148～151 归入后续专项交付，不再使用未定义的 M14 标签；�
 - HXA-069 验收后，所有新增用户可见文案必须使用资源键并同步补齐简体中文/英文；Tool 名、协议字段、审计类型和稳定错误码不翻译。
 - 开始前按 [ADR 约定](../adr/README.md) 检索同一机制的既有决定；触发 ADR 的任务必须在同一 HXA 中新增、更新或显式取代记录。普通契约内实现不强制制造 ADR。
 - 小模型默认只能起草 `proposed`；`accepted` 不代表已实现，改变既有决定时必须停止并等待授权。
+- 外部 API/真实账号不进默认验收与强制 gate：默认本地门禁（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic；真实订阅/账号/网络 smoke 为可选 profile，经 instrumentation 参数 + JUnit Assume 选择性启用，缺参数即 skip（非 fail）、不消耗配额、不计入默认必过项。设备与网络/运行时资产资格是显式单独运行，详见 [验收矩阵](verification-matrix.md)。
 
 ### 3.1 验收命令不得猜测
 

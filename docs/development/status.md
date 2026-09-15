@@ -63,6 +63,8 @@ HXA-185 已由 Claude 独占模拟器验证完毕（主机门禁+4自测、Goal 
 
 ## Next task
 
+2026-09-15 HXA-200 推进（未整体完成）：按 2026-09-14 澄清保留解析来源——`ToolApprovalResolver` 产出带来源的 `EffectiveToolPreference`（UNSET 沿用原 Policy / EXPLICIT 用户明确 / ALLOW_INVALIDATED 契约失效回退 ASK / NEW_DEFAULT 预留待可信登记升级基线），scope 合并保持 DENY > ASK > ALLOW、窄 scope 不覆盖外层禁止；ADR-0052 已补精确修订（仅第 1 点，不改第 2–8 点）。设备验收（生产 source 接线 + 真实 Room/broker/dispatcher）：新增 `ToolApprovalPreferenceDeviceTest` 4 用例（UNSET-L0 免卡并钉住新工具默认=空记录即 Unset、明确 ASK 强制卡、失效 ALLOW 回退 ASK 卡、跨 scope DENY>ASK>ALLOW），原 `ToolSchedulerDeviceTest` 9 用例免卡回归保持绿；API 29/36 × consumer/developer 共 8 次 gradle 运行全过（每 API 4+9），独占模拟器已在 finally 关闭（证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`、`build/hxa200-device-20260915-105951/`）。剩余三态×风险/模式/能力全矩阵、精确批次、版本/范围/迁移、排队撤销、外部来源碰撞尚未覆盖，故不写整体完成记录。P3 lint 仅被 2 处既有第三方 JGit TrustAll 挡住（HXA-192/ADR-0048 所有方决定），非本切片代码。
+
 Claude 完成原冻结轮次后，按交接执行主机门禁、独占模拟器短测与 FD 对照，再决定新制品长稳。HXA-189 主机门禁已通过，Claude 按复核交接执行新增设备回归；HXA-186～188 有界真机工作已有完成记录，不操作原模拟器，不自动推送；Claude 在途结果独立落盘。
 
 ## Blocked
@@ -96,6 +98,7 @@ Claude 完成原冻结轮次后，按交接执行主机门禁、独占模拟器�
 - **后续功能**：持久 Git Workspace、结构化 Git UI、remote Git/凭据，以及生产子 Agent/Workflow 不在当前实现范围；接受 ADR 不构成实现证据。Connector OAuth、版本管理与市场扩展也不因本轮整理自动启动。
 - **发行**：Standard 完整产品形态是 ADR-0013 的决定；当前 consumer/developer 构建与 CI debug APK 不是签名 release、完整渠道权限申报或商店审核证据。
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
+- **外部 API/服务依赖边界**：默认本地验收与强制 CI gate（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号——JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）；设备测试与网络/运行时资产资格是显式单独运行，不并入强制 gate。真实订阅/账号 smoke（`realSubscription`/`realCodex`/`realCopilot`/`helixDnsProbe`/sglang 探针等）经 instrumentation 参数 + JUnit Assume 选择性启用，缺参数即 skip（非 fail）、不消耗配额，绝不作为默认必过项。
 
 ## Connector 扩展线收尾
 

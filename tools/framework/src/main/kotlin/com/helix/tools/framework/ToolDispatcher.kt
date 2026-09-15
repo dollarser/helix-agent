@@ -25,6 +25,7 @@ import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.PolicyInput
 import com.helix.core.policy.ToolApprovalBlockCode
 import com.helix.core.policy.ToolApprovalPreferenceSource
+import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.ToolApprovalResolution
 import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.policy.ToolCallSource
@@ -429,9 +430,10 @@ class ToolDispatcher(
                 }
             }
 
-            // An in-scope L0/L1 call under an explicit ALLOW proceeds card-free (point 2). A
-            // carried retry proof goes unspent when the live re-resolution no longer needs it.
-            ToolApprovalResolution.AutoProceed -> {
+            // An in-scope L0/L1 call proceeds card-free: either because the effective preference is
+            // unset (the original behavior) or an explicit ALLOW (point 2). A carried retry proof
+            // goes unspent when the live re-resolution no longer needs it.
+            is ToolApprovalResolution.AutoProceed -> {
                 null
             }
         }
@@ -443,9 +445,9 @@ class ToolDispatcher(
      * predates the feature), the policy decision maps 1:1 to its historical outcome so nothing
      * changes for them: an Allow proceeds card-free, a denial stays a policy denial, and
      * RequiresApproval still presents a card. Once a source IS wired, the ONE shared
-     * [ToolApprovalResolver] applies the live preference; an unset user preference still resolves
-     * to the ASK default, which is the point of the feature (new tools default to ASK,
-     * ADR-0052 point 1).
+     * [ToolApprovalResolver] applies the live preference: an unset tool keeps its original policy
+     * handling (card-free for an in-scope low-risk Allow), an explicit ASK — or an ALLOW a contract
+     * change invalidated — forces a card, and a DENY blocks (point 1, as clarified 2026-09-14).
      */
     private fun resolutionFor(
         request: ToolDispatchRequest,
@@ -456,15 +458,19 @@ class ToolDispatcher(
         if (source == null) {
             when (decision) {
                 is PolicyDecision.Deny -> {
-                    ToolApprovalResolution.Blocked(ToolApprovalBlockCode.POLICY_DENIED, decision.detail)
+                    ToolApprovalResolution.Blocked(
+                        ToolApprovalBlockCode.POLICY_DENIED,
+                        decision.detail,
+                        ToolApprovalReason.POLICY,
+                    )
                 }
 
                 PolicyDecision.Allow -> {
-                    ToolApprovalResolution.AutoProceed
+                    ToolApprovalResolution.AutoProceed(reason = ToolApprovalReason.UNSET)
                 }
 
                 is PolicyDecision.RequiresApproval -> {
-                    ToolApprovalResolution.RequiresCard(detail = decision.detail)
+                    ToolApprovalResolution.RequiresCard(detail = decision.detail, reason = ToolApprovalReason.POLICY)
                 }
             }
         } else {

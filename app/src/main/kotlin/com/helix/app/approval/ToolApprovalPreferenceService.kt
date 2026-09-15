@@ -2,6 +2,7 @@ package com.helix.app.approval
 
 import com.helix.core.model.ToolApprovalPreference
 import com.helix.core.model.ToolApprovalPreferenceScope
+import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.ToolApprovalPreferenceSource
 import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
@@ -29,7 +30,7 @@ class ToolApprovalPreferenceService(
         contractHash: String?,
         sessionId: String?,
         workspaceRef: String?,
-    ): ToolApprovalPreference? =
+    ): EffectiveToolPreference =
         ToolApprovalResolver.effectivePreference(
             repository.applicable(sourceRef, toolName, sessionId, workspaceRef),
             contractHash,

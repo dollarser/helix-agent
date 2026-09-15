@@ -2,13 +2,14 @@ package com.helix.app.approval
 
 import com.helix.core.model.ToolApprovalPreference
 import com.helix.core.model.ToolApprovalPreferenceScope
+import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.ToolApprovalExposure
+import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.storage.dao.ToolApprovalPreferenceDao
 import com.helix.core.storage.entity.ToolApprovalPreferenceEntity
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -18,6 +19,11 @@ import org.junit.Test
  * against an in-memory DAO so the set/remove/applicable threading and the shared-resolver collapse
  * are proven without a device; the REAL end-to-end behavior (real Room, Registry exposure,
  * dispatcher pre-start re-resolution, restart/migration) is the device test's job, not this one.
+ *
+ * The read seam now returns the collapsed [EffectiveToolPreference] WITH its provenance: an unset
+ * tool is [EffectiveToolPreference.Unset] (it keeps its original policy handling) while a stored
+ * ALLOW a contract change invalidated is an [EffectiveToolPreference.Ask] tagged
+ * [ToolApprovalReason.ALLOW_INVALIDATED] — the 2026-09-14 clarification to ADR-0052 point 1.
  */
 class ToolApprovalPreferenceServiceTest {
     // In-memory fake of the Room DAO: the unique (source, tool, scopeKind, scopeRef) key, the
@@ -25,8 +31,7 @@ class ToolApprovalPreferenceServiceTest {
     private class InMemoryPreferenceDao : ToolApprovalPreferenceDao {
         private val rows = LinkedHashMap<String, ToolApprovalPreferenceEntity>()
 
-        private fun key(e: ToolApprovalPreferenceEntity): String =
-            "${e.sourceRef}|${e.toolName}|${e.scopeKind}|${e.scopeRef}"
+        private fun key(e: ToolApprovalPreferenceEntity) = "${e.sourceRef}|${e.toolName}|${e.scopeKind}|${e.scopeRef}"
 
         override fun insert(entity: ToolApprovalPreferenceEntity) {
             check(key(entity) !in rows) { "ABORT: duplicate preference row" }
@@ -95,7 +100,8 @@ class ToolApprovalPreferenceServiceTest {
 
     private fun service() = ToolApprovalPreferenceService(ToolApprovalPreferenceRepository(InMemoryPreferenceDao()))
 
-    @Test fun setThenReadBackCollapsesThroughTheSharedResolver() {
+    @Test
+    fun setThenReadBackCollapsesThroughTheSharedResolver() {
         val service = service()
         service.set(
             "builtin",
@@ -107,12 +113,13 @@ class ToolApprovalPreferenceServiceTest {
             1000L,
         )
         assertEquals(
-            ToolApprovalPreference.ALLOW,
+            EffectiveToolPreference.Allow,
             service.effectiveFor("builtin", "time.now", "h1", "s1", null),
         )
     }
 
-    @Test fun anAllowWithoutAContractHashFailsClosed() {
+    @Test
+    fun anAllowWithoutAContractHashFailsClosed() {
         // An ALLOW is bound to the contract it was granted for (point 6). A contract-less ALLOW could
         // never take effect (the resolver drops it at read time), so the write path rejects it instead
         // of persisting a row that silently never authorizes a call.
@@ -122,7 +129,8 @@ class ToolApprovalPreferenceServiceTest {
         }
     }
 
-    @Test fun allowIsInvalidatedWhenTheContractChangesButDenySurvives() {
+    @Test
+    fun allowIsInvalidatedWhenTheContractChangesButDenySurvives() {
         val service = service()
         service.set(
             "builtin",
@@ -134,9 +142,13 @@ class ToolApprovalPreferenceServiceTest {
             1000L,
         )
         // Same contract: the ALLOW is live.
-        assertEquals(ToolApprovalPreference.ALLOW, service.effectiveFor("builtin", "files.write", "h1", "s1", null))
-        // Contract changed: the stored ALLOW falls back to unset (the ASK default lives in the resolver).
-        assertNull(service.effectiveFor("builtin", "files.write", "h2", "s1", null))
+        assertEquals(EffectiveToolPreference.Allow, service.effectiveFor("builtin", "files.write", "h1", "s1", null))
+        // Contract changed: the stored ALLOW falls back to an ASK tagged ALLOW_INVALIDATED — the
+        // clarification keeps this distinct from a fresh Unset so the UI can say "your ALLOW lapsed".
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.ALLOW_INVALIDATED),
+            service.effectiveFor("builtin", "files.write", "h2", "s1", null),
+        )
         // A DENY carries no contract binding, so it stays live across a contract change.
         service.set(
             "builtin",
@@ -148,45 +160,51 @@ class ToolApprovalPreferenceServiceTest {
             2000L,
         )
         assertEquals(
-            ToolApprovalPreference.DENY,
+            EffectiveToolPreference.Deny,
             service.effectiveFor("builtin", "files.write", "anything", "s1", null),
         )
     }
 
-    @Test fun aNarrowerAllowCannotOverrideAnOuterDeny() {
+    @Test
+    fun aNarrowerAllowCannotOverrideAnOuterDeny() {
         val service = service()
         service.set("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "", ToolApprovalPreference.DENY, null, 1L)
         service.set("builtin", "t", ToolApprovalPreferenceScope.SESSION, "s1", ToolApprovalPreference.ALLOW, "h", 2L)
-        assertEquals(ToolApprovalPreference.DENY, service.effectiveFor("builtin", "t", "h", "s1", null))
+        assertEquals(EffectiveToolPreference.Deny, service.effectiveFor("builtin", "t", "h", "s1", null))
     }
 
-    @Test fun aNarrowerPreferenceOtherwiseWins() {
+    @Test
+    fun aNarrowerPreferenceOtherwiseWins() {
         val service = service()
         service.set("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "", ToolApprovalPreference.ALLOW, "h", 1L)
         service.set("builtin", "t", ToolApprovalPreferenceScope.SESSION, "s1", ToolApprovalPreference.DENY, null, 2L)
-        assertEquals(ToolApprovalPreference.DENY, service.effectiveFor("builtin", "t", "h", "s1", null))
+        assertEquals(EffectiveToolPreference.Deny, service.effectiveFor("builtin", "t", "h", "s1", null))
         // Outside that session the GLOBAL ALLOW is what applies.
-        assertEquals(ToolApprovalPreference.ALLOW, service.effectiveFor("builtin", "t", "h", "s2", null))
+        assertEquals(EffectiveToolPreference.Allow, service.effectiveFor("builtin", "t", "h", "s2", null))
     }
 
-    @Test fun aSessionPreferenceIsNotLeakedAcrossSessions() {
+    @Test
+    fun aSessionPreferenceIsNotLeakedAcrossSessions() {
         val service = service()
         service.set("builtin", "t", ToolApprovalPreferenceScope.SESSION, "s1", ToolApprovalPreference.ALLOW, "h", 1L)
-        assertEquals(ToolApprovalPreference.ALLOW, service.effectiveFor("builtin", "t", "h", "s1", null))
-        assertNull(service.effectiveFor("builtin", "t", "h", "s2", null))
+        assertEquals(EffectiveToolPreference.Allow, service.effectiveFor("builtin", "t", "h", "s1", null))
+        // No record is applicable to a different session: it is Unset (the session row never leaks).
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", "h", "s2", null))
     }
 
-    @Test fun removeResetsToUnsetAndFailsClosedWhenAbsent() {
+    @Test
+    fun removeResetsToUnsetAndFailsClosedWhenAbsent() {
         val service = service()
         service.set("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "", ToolApprovalPreference.ASK, null, 1L)
         service.remove("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "")
-        assertNull(service.effectiveFor("builtin", "t", null, "s1", null))
+        assertEquals(EffectiveToolPreference.Unset, service.effectiveFor("builtin", "t", null, "s1", null))
         assertThrows(IllegalArgumentException::class.java) {
             service.remove("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "")
         }
     }
 
-    @Test fun scopeValidationFailsClosed() {
+    @Test
+    fun scopeValidationFailsClosed() {
         val service = service()
         assertThrows(IllegalArgumentException::class.java) {
             service.set(
@@ -204,7 +222,8 @@ class ToolApprovalPreferenceServiceTest {
         }
     }
 
-    @Test fun aStoredDenyIsExposedAsHiddenByDeny() {
+    @Test
+    fun aStoredDenyIsExposedAsHiddenByDeny() {
         // The read seam is the SAME source the Registry exposure filter consumes (ADR-0052 point 7).
         val service = service()
         service.set("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "", ToolApprovalPreference.DENY, null, 1L)
@@ -212,5 +231,16 @@ class ToolApprovalPreferenceServiceTest {
             ToolApprovalExposure.HIDDEN_BY_DENY,
             ToolApprovalResolver.exposure(service.effectiveFor("builtin", "t", null, "s1", null)),
         )
+    }
+
+    @Test
+    fun anExplicitAskIsExposedAndCarriesTheExplicitReason() {
+        // ASK is a runtime restriction (a card), not a removal: the tool stays exposed to the model
+        // and the provenance is EXPLICIT, so the card text can distinguish it from a lapsed ALLOW.
+        val service = service()
+        service.set("builtin", "t", ToolApprovalPreferenceScope.GLOBAL, "", ToolApprovalPreference.ASK, null, 1L)
+        val effective = service.effectiveFor("builtin", "t", null, "s1", null)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
+        assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(effective))
     }
 }

@@ -3,15 +3,16 @@ package com.helix.core.policy
 import com.helix.core.model.ToolApprovalPreference
 import com.helix.core.model.ToolApprovalPreferenceScope
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
  * HXA-200: [ToolApprovalResolver.effectivePreference] — the collapse of the stored per-scope
- * records (GLOBAL/WORKSPACE/SESSION) into the single preference the runtime applies. Pins the
- * ADR-0052 scope rules: DENY at any applicable scope is authoritative (a narrower ALLOW cannot
- * override it), otherwise the narrowest present scope wins, and a stored ALLOW that no longer
- * matches the current contract hash is dropped back to the unset default while DENY/ASK survive.
+ * records (GLOBAL/WORKSPACE/SESSION) into the single effective preference the runtime applies.
+ * Pins the ADR-0052 scope rules: DENY at any applicable scope is authoritative (a narrower ALLOW
+ * cannot override it), otherwise the narrowest present scope wins, and — the 2026-09-14
+ * clarification — a stored ALLOW that no longer matches the current contract hash becomes an
+ * effective ASK tagged [ToolApprovalReason.ALLOW_INVALIDATED] (distinct from [EffectiveToolPreference.Unset],
+ * which is produced only when nothing was ever stored).
  */
 class ToolApprovalPreferenceEffectiveTest {
     private fun record(
@@ -22,7 +23,12 @@ class ToolApprovalPreferenceEffectiveTest {
 
     @Test
     fun `no stored records resolve to unset`() {
-        assertNull(ToolApprovalResolver.effectivePreference(emptyList(), "c1"))
+        // Nothing stored: Unset (the call keeps its original policy handling), NOT an ASK and NOT
+        // the invalidated-ALLOW fallback.
+        assertEquals(
+            EffectiveToolPreference.Unset,
+            ToolApprovalResolver.effectivePreference(emptyList(), "c1"),
+        )
     }
 
     @Test
@@ -32,17 +38,19 @@ class ToolApprovalPreferenceEffectiveTest {
                 listOf(record(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.GLOBAL, "c1")),
                 "c1",
             )
-        assertEquals(ToolApprovalPreference.ALLOW, effective)
+        assertEquals(EffectiveToolPreference.Allow, effective)
     }
 
     @Test
-    fun `a contract change invalidates a stored allow back to unset`() {
+    fun `a contract change invalidates a stored allow to an invalidated ask`() {
+        // The clarified point 6: a stale ALLOW is not "unset" — it is an ASK that carries the
+        // invalidation reason, so the runtime can say "your ALLOW no longer applies".
         val effective =
             ToolApprovalResolver.effectivePreference(
                 listOf(record(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.GLOBAL, "c1")),
                 "c2",
             )
-        assertNull(effective)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.ALLOW_INVALIDATED), effective)
     }
 
     @Test
@@ -52,7 +60,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 listOf(record(ToolApprovalPreference.DENY, ToolApprovalPreferenceScope.GLOBAL)),
                 "anything",
             )
-        assertEquals(ToolApprovalPreference.DENY, effective)
+        assertEquals(EffectiveToolPreference.Deny, effective)
     }
 
     @Test
@@ -65,7 +73,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        assertEquals(ToolApprovalPreference.ASK, effective)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
     }
 
     @Test
@@ -80,7 +88,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 "c1",
             )
         // SESSION is present and narrowest, so it beats the WORKSPACE ASK and the GLOBAL ALLOW.
-        assertEquals(ToolApprovalPreference.ALLOW, effective)
+        assertEquals(EffectiveToolPreference.Allow, effective)
     }
 
     @Test
@@ -93,7 +101,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        assertEquals(ToolApprovalPreference.ALLOW, effective)
+        assertEquals(EffectiveToolPreference.Allow, effective)
     }
 
     @Test
@@ -106,7 +114,7 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        assertEquals(ToolApprovalPreference.DENY, effective)
+        assertEquals(EffectiveToolPreference.Deny, effective)
     }
 
     @Test
@@ -119,7 +127,21 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "c1",
             )
-        assertEquals(ToolApprovalPreference.DENY, effective)
+        // DENY > ALLOW: an outer DENY is authoritative even against a narrower session ALLOW.
+        assertEquals(EffectiveToolPreference.Deny, effective)
+    }
+
+    @Test
+    fun `an outer deny cannot be overridden by a narrower ask`() {
+        val effective =
+            ToolApprovalResolver.effectivePreference(
+                listOf(
+                    record(ToolApprovalPreference.DENY, ToolApprovalPreferenceScope.GLOBAL),
+                    record(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.SESSION),
+                ),
+                "c1",
+            )
+        assertEquals(EffectiveToolPreference.Deny, effective)
     }
 
     @Test
@@ -132,7 +154,8 @@ class ToolApprovalPreferenceEffectiveTest {
                 ),
                 "new",
             )
-        // The GLOBAL ALLOW is dropped (contract "old" != "new"), the SESSION ASK stays.
-        assertEquals(ToolApprovalPreference.ASK, effective)
+        // The GLOBAL ALLOW is dropped (contract "old" != "new"); the live SESSION ASK wins, so the
+        // provenance is an EXPLICIT ask, not the invalidated-ALLOW fallback.
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), effective)
     }
 }

@@ -19,6 +19,7 @@ import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.DataSensitivity
+import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.EgressRequest
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.GrantState
@@ -26,6 +27,7 @@ import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.ToolApprovalPreferenceSource
+import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.UserScope
 import com.helix.core.policy.WorkspaceScope
 import kotlinx.serialization.json.Json
@@ -1244,7 +1246,7 @@ class ToolDispatcherTest {
     @Test
     fun aDenyPreferenceBlocksAnInScopeLowRiskCallBeforeAnyApproval() {
         dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> ToolApprovalPreference.DENY })
+            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Deny })
         val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
         registerTool(
             descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
@@ -1262,8 +1264,11 @@ class ToolDispatcherTest {
 
     @Test
     fun anAskPreferenceForcesACardOnAnInScopeLowRiskCall() {
-        dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> ToolApprovalPreference.ASK })
+        val askSource =
+            ToolApprovalPreferenceSource { _, _, _, _, _ ->
+                EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
+            }
+        dispatcher = dispatcherWithPreference(askSource)
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         registerTool(
             descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
@@ -1279,7 +1284,7 @@ class ToolDispatcherTest {
     @Test
     fun anAllowPreferenceKeepsAnInScopeLowRiskCallCardFree() {
         dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> ToolApprovalPreference.ALLOW })
+            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Allow })
         registerTool(
             descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
@@ -1294,7 +1299,7 @@ class ToolDispatcherTest {
     @Test
     fun aPolicyDenialWinsOverADenyPreference() {
         dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> ToolApprovalPreference.DENY })
+            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Deny })
         registerTool(
             descriptor(requiredCapabilities = setOf(Capability.NOTIFICATION_READ)),
             CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
@@ -1313,7 +1318,7 @@ class ToolDispatcherTest {
     @Test
     fun anAllowPreferenceNeverMintsAWildcardHighRiskProof() {
         dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> ToolApprovalPreference.ALLOW })
+            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Allow })
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         registerTool(
             descriptor(operationClass = ToolOperationClass.LOCAL_MUTATION, baseRisk = RiskLevel.L2),
@@ -1426,9 +1431,14 @@ class ToolDispatcherTest {
             contractHash: String?,
             sessionId: String?,
             workspaceRef: String?,
-        ): ToolApprovalPreference? {
+        ): EffectiveToolPreference {
             calls += SourceCall(sourceRef, toolName, contractHash, sessionId, workspaceRef)
-            return preference
+            return when (preference) {
+                ToolApprovalPreference.ALLOW -> EffectiveToolPreference.Allow
+                ToolApprovalPreference.ASK -> EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
+                ToolApprovalPreference.DENY -> EffectiveToolPreference.Deny
+                null -> EffectiveToolPreference.Unset
+            }
         }
     }
 
