@@ -339,4 +339,54 @@ class ToolApprovalPreferenceDeviceTest {
         assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, denied.code)
         assertNull("a DENY block must not publish a card", container.storage.approvals.byToolCall(callId))
     }
+
+    @Test
+    fun aNarrowerSessionAllowOverridesAGlobalAskCardFree() {
+        // HXA-200 Gap 1 emphasis (全局 ASK + 窄 scope ALLOW), end to end on the PRODUCTION pipeline:
+        // a GLOBAL ASK (a standing "ask before this tool" restriction) plus a NARROWER session ALLOW
+        // that is still live (its contract matches). DENY is the only cross-scope-authoritative
+        // state; for ASK vs ALLOW the narrowest scope wins (point 5), so the session ALLOW preempts
+        // the global ASK and this in-scope L0 call proceeds CARD-FREE — the direct opposite of
+        // anOuterDenyIsNotOverriddenByANarrowerAllow.
+        val descriptor = registerLowRiskTool("apref.askallow.$run")
+        val sourceRef = sourceRefOf(descriptor)
+        val contractHash = descriptor.contractHash.hex
+        container.toolApprovalPreferenceService.set(
+            sourceRef,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ASK,
+            null,
+            System.currentTimeMillis(),
+        )
+        container.toolApprovalPreferenceService.set(
+            sourceRef,
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.SESSION,
+            sessionId,
+            ToolApprovalPreference.ALLOW,
+            contractHash,
+            System.currentTimeMillis(),
+        )
+        val effective =
+            container.toolApprovalPreferenceService.effectiveFor(
+                sourceRef,
+                descriptor.name.value,
+                contractHash,
+                sessionId,
+                null,
+            )
+        assertEquals(EffectiveToolPreference.Allow, effective)
+        val callId = "apref-askallow-call-$run"
+        val outcome = dispatchOnThread(callId, "apref-askallow-turn-$run", descriptor.name.value).join()
+        assertTrue(
+            "a session ALLOW over a global ASK must proceed card-free: $outcome",
+            outcome is ToolDispatchOutcome.Succeeded,
+        )
+        assertNull(
+            "no card may be published for a session-ALLOW-over-global-ASK call",
+            container.storage.approvals.byToolCall(callId),
+        )
+    }
 }

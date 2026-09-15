@@ -1,5 +1,7 @@
 package com.helix.core.policy
 
+import com.helix.core.model.ToolApprovalPreference
+import com.helix.core.model.ToolApprovalPreferenceScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -135,5 +137,95 @@ class ToolApprovalResolverTest {
         )
         assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(EffectiveToolPreference.Allow))
         assertEquals(ToolApprovalExposure.EXPOSE, ToolApprovalResolver.exposure(EffectiveToolPreference.Unset))
+    }
+
+    // Scope-merge (point 5) for the ASK/ALLOW axis: effectivePreference collapses the stored
+    // records for one tool into the single effective preference. DENY is the only
+    // cross-scope-authoritative state; for ASK vs ALLOW the narrowest present scope wins. HXA-200
+    // Gap 1's load-bearing case is a GLOBAL ASK with a NARROWER session ALLOW: the session ALLOW
+    // preempts the global ASK (card-free), the opposite of the DENY case above where the outer
+    // DENY is authoritative.
+
+    @Test
+    fun aNarrowerSessionAllowOverridesAGlobalAsk() {
+        // A standing GLOBAL ASK plus a NARROWER, still-live session ALLOW (matching contract): the
+        // narrowest scope wins, so the effective preference is Allow (not the global ASK). This is
+        // exactly "全局 ASK + 窄 scope ALLOW" — it resolves card-free, not to a card.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.GLOBAL, null),
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.SESSION, "c1"),
+            )
+        assertEquals(EffectiveToolPreference.Allow, ToolApprovalResolver.effectivePreference(records, "c1"))
+    }
+
+    @Test
+    fun aNarrowerSessionAskOverridesAnOuterAllow() {
+        // The mirror image: a GLOBAL ALLOW (live) plus a NARROWER session ASK. The narrower ASK
+        // wins — a session-level restriction tightens a broader standing ALLOW.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.GLOBAL, "c1"),
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.SESSION, null),
+            )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT),
+            ToolApprovalResolver.effectivePreference(records, "c1"),
+        )
+    }
+
+    @Test
+    fun aWorkspaceAskSitsBetweenAGlobalAllowAndASessionDenyFreeCase() {
+        // Global ALLOW + workspace ASK, no session record: the narrowest present scope is the
+        // WORKSPACE ASK (over the GLOBAL ALLOW), so the effective preference is an explicit Ask.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.GLOBAL, "c1"),
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.WORKSPACE, null),
+            )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT),
+            ToolApprovalResolver.effectivePreference(records, "c1"),
+        )
+    }
+
+    @Test
+    fun anOuterDenyBeatsEveryNarrowerAskAndAllow() {
+        // The DENY asymmetry (point 5): an outer GLOBAL DENY is authoritative even over a live,
+        // contract-matching session ALLOW and a workspace ASK. This is the one case where a
+        // narrower record does NOT win.
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.DENY, ToolApprovalPreferenceScope.GLOBAL, null),
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ASK, ToolApprovalPreferenceScope.WORKSPACE, null),
+                ToolApprovalPreferenceRecord(ToolApprovalPreference.ALLOW, ToolApprovalPreferenceScope.SESSION, "c1"),
+            )
+        assertEquals(EffectiveToolPreference.Deny, ToolApprovalResolver.effectivePreference(records, "c1"))
+    }
+
+    @Test
+    fun aStaleAllowWithNoOtherLiveRecordIsAnInvalidatedAsk() {
+        // The only record is an ALLOW whose contract no longer matches: it is dropped by the
+        // liveness filter, but the outcome is an Ask tagged ALLOW_INVALIDATED — NOT a fresh Unset,
+        // so "your ALLOW no longer applies" is distinct from "you never set anything" (points 6, 8).
+        val records =
+            listOf(
+                ToolApprovalPreferenceRecord(
+                    ToolApprovalPreference.ALLOW,
+                    ToolApprovalPreferenceScope.GLOBAL,
+                    "stale",
+                ),
+            )
+        assertEquals(
+            EffectiveToolPreference.Ask(ToolApprovalReason.ALLOW_INVALIDATED),
+            ToolApprovalResolver.effectivePreference(records, "c1"),
+        )
+    }
+
+    @Test
+    fun noStoredRecordAtAllIsUnset() {
+        // Nothing stored: the effective preference is Unset and the call keeps its original policy
+        // handling (the clarified point 1) — never a fabricated ASK.
+        assertEquals(EffectiveToolPreference.Unset, ToolApprovalResolver.effectivePreference(emptyList(), "c1"))
     }
 }
