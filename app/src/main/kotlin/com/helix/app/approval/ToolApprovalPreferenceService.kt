@@ -6,6 +6,7 @@ import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.ToolApprovalPreferenceSource
 import com.helix.core.policy.ToolApprovalResolver
 import com.helix.core.policy.ToolBaseline
+import com.helix.core.policy.ToolPreferenceSnapshot
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
 import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.core.storage.repository.ToolRegistrationBaselineRepository
@@ -45,12 +46,22 @@ class ToolApprovalPreferenceService(
         contractHash: String?,
         sessionId: String?,
         workspaceRef: String?,
-    ): EffectiveToolPreference =
-        ToolApprovalResolver.effectivePreference(
-            repository.applicable(sourceRef, toolName, sessionId, workspaceRef),
-            contractHash,
-            newToolDefault = newToolDefault(sourceRef, toolName),
+    ): EffectiveToolPreference = snapshotFor(sourceRef, toolName, contractHash, sessionId, workspaceRef).effective
+
+    @Synchronized
+    override fun snapshotFor(
+        sourceRef: String,
+        toolName: String,
+        contractHash: String?,
+        sessionId: String?,
+        workspaceRef: String?,
+    ): ToolPreferenceSnapshot {
+        val records = repository.applicable(sourceRef, toolName, sessionId, workspaceRef)
+        return ToolPreferenceSnapshot(
+            ToolApprovalResolver.effectivePreference(records, contractHash, newToolDefault(sourceRef, toolName)),
+            records,
         )
+    }
 
     /**
      * The trusted new-tool default input for [effectiveFor] (HXA-200 Gap 2, point 1). True only when

@@ -93,6 +93,10 @@ data class DispatchAuditEvent(
     val attemptId: Int = 1,
     /** Optional bounded redacted executor metadata (HXA-053); see the class KDoc. */
     val executionDetail: JsonObject? = null,
+    /** Latest evaluation, card presentation, and committed start are separate immutable facts. */
+    val preferenceEvaluated: PreferenceDecisionAudit? = null,
+    val preferencePresented: PreferenceDecisionAudit? = null,
+    val preferenceAtStart: PreferenceDecisionAudit? = null,
 ) {
     init {
         require(correlationId.isNotBlank()) { "correlationId must not be blank" }

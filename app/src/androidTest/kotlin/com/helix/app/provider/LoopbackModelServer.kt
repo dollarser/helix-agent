@@ -254,7 +254,12 @@ internal class LoopbackModelServer(
                 "{\"id\":\"report-call\",\"index\":0,\"type\":\"function\",\"function\":$function}]}," +
                 "\"finish_reason\":\"tool_calls\"}]}\n\ndata: [DONE]\n\n"
         }
-        return if (!forceTextResponses && requestBody.contains("\"tools\"")) OPENAI_TOOL_STREAM else OPENAI_TEXT_STREAM
+        val request =
+            kotlinx.serialization.json.Json.parseToJsonElement(
+                requestBody,
+            ) as kotlinx.serialization.json.JsonObject
+        val tools = request["tools"] as? kotlinx.serialization.json.JsonArray
+        return if (!forceTextResponses && !tools.isNullOrEmpty()) OPENAI_TOOL_STREAM else OPENAI_TEXT_STREAM
     }
 
     /** The Anthropic Messages stream for the request body (tool fixture iff the body offers tools). */

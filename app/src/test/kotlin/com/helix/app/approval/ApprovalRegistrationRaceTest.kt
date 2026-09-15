@@ -62,14 +62,9 @@ class ApprovalRegistrationRaceTest {
                 thread(name = "approval-decide") {
                     decided.set(runCatching { broker.decide("race-approval", ApprovalDecision.APPROVED) })
                 }
-            assertTrue(dao.decided.await(5, TimeUnit.SECONDS))
-            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
-            while (decider.isAlive && decider.state != Thread.State.BLOCKED && System.nanoTime() < deadline) {
-                Thread.sleep(1)
-            }
-            // Old code returns from decide without a slot. Fixed code waits on registration's lock.
-            assertTrue(!decider.isAlive || decider.state == Thread.State.BLOCKED)
+            assertRegistrationBlocks(decider, dao)
             dao.releaseInsert.countDown()
+            assertTrue(dao.decided.await(5, TimeUnit.SECONDS))
             decider.join(5000)
             waiter.join(1000)
             assertTrue("decision was lost between durable insert and wait registration", !waiter.isAlive)
@@ -81,6 +76,18 @@ class ApprovalRegistrationRaceTest {
             decider?.join(5000)
             waiter.join(5000)
         }
+    }
+
+    private fun assertRegistrationBlocks(
+        decider: Thread,
+        dao: PausingInsertDao,
+    ) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (decider.isAlive && decider.state != Thread.State.BLOCKED && System.nanoTime() < deadline) {
+            Thread.sleep(1)
+        }
+        assertTrue(decider.state == Thread.State.BLOCKED)
+        org.junit.Assert.assertNull(dao.byId("race-approval")!!.decision)
     }
 
     private class PausingInsertDao : ApprovalDao {

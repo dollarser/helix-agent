@@ -205,13 +205,14 @@ class ToolApprovalPreferenceDeviceTest {
             }
         t.isDaemon = true
         t.start()
-        return DispatchHandle(latch, outcome, error)
+        return DispatchHandle(latch, outcome, error, t)
     }
 
     private class DispatchHandle(
         val latch: CountDownLatch,
         val outcome: Array<ToolDispatchOutcome?>,
         val error: Array<Throwable?>,
+        val worker: Thread,
     ) {
         fun join(): ToolDispatchOutcome {
             assertTrue("dispatch must finish", latch.await(30, TimeUnit.SECONDS))
@@ -260,6 +261,10 @@ class ToolApprovalPreferenceDeviceTest {
             "no card must be published for an unset card-free call",
             container.storage.approvals.byToolCall(callId),
         )
+        val row = auditFor(callId)
+        assertEquals(ToolApprovalReason.UNSET, row.preferenceAtStart!!.source)
+        assertTrue(row.preferenceAtStart!!.rules.isEmpty())
+        assertNull(row.preferencePresented)
     }
 
     @Test
@@ -328,6 +333,120 @@ class ToolApprovalPreferenceDeviceTest {
         container.chatService.denyApproval(approvalId)
         val outcome = handle.join() as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, outcome.code)
+        val row = auditFor(callId)
+        assertEquals(ToolApprovalReason.ALLOW_INVALIDATED, row.preferencePresented!!.source)
+        assertEquals(
+            false,
+            row.preferencePresented!!
+                .rules
+                .single()
+                .contractValid,
+        )
+    }
+
+    private fun auditFor(callId: String): com.helix.app.approval.DispatchAuditRecord {
+        val row =
+            container.storage.auditEvents
+                .listByCorrelation(callId)
+                .single { it.type == "tool_dispatch" }
+        return requireNotNull(
+            com.helix.app.approval.StorageAuditSink.parseRow(
+                row.id,
+                row.correlationId,
+                row.type,
+                row.actor,
+                row.redactedPayload,
+                row.timestamp,
+            ),
+        )
+    }
+
+    @Test
+    fun interruptedApprovalSettlesAndLateApprovalCannotReviveIt() {
+        val executions =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+        val descriptor = registerLowRiskTool("apref.cancel.$run") { executions.incrementAndGet() }
+        container.toolApprovalPreferenceService.set(
+            sourceRefOf(descriptor),
+            descriptor.name.value,
+            ToolApprovalPreferenceScope.GLOBAL,
+            "",
+            ToolApprovalPreference.ASK,
+            null,
+            System.currentTimeMillis(),
+        )
+        val callId = "apref-cancel-call-$run"
+        val turnId = "apref-cancel-turn-$run"
+        val handle = dispatchOnThread(callId, turnId, descriptor.name.value)
+        val approvalId = approvalIdOf(callId)
+        // Exercise production ChatService dispatch -> scheduler -> broker cancellation -> settlement.
+        container.toolPipeline.broker.cancel(approvalId)
+        assertTrue(handle.latch.await(30, TimeUnit.SECONDS))
+        assertTrue(handle.error[0] is com.helix.app.approval.ApprovalCancelledException)
+        assertEquals(
+            "CANCELLED",
+            container.storage.toolCalls
+                .resolve(callId)
+                .state,
+        )
+        assertEquals(0, executions.get())
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            container.toolPipeline.broker.decide(approvalId, com.helix.core.model.ApprovalDecision.APPROVED)
+        }
+        assertRestartedBrokerRejects(approvalId)
+        val approval = container.storage.approvals.byToolCall(callId)!!
+        assertNull(approval.decision)
+        assertNull(approval.consumedAt)
+        val row = auditFor(callId)
+        assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, row.code)
+        assertEquals("ASK", row.preferencePresented!!.effective)
+        assertNull(row.preferenceAtStart)
+        // Fresh projection uses durable state, never restores a live approval from the PENDING row.
+        val projection =
+            com.helix.app.chat.ChatScreenProjection(
+                container.storage,
+                container.providerService,
+                { _, _ -> "fixture" },
+                { com.helix.app.R.string.turn_stopped },
+            )
+        val restored = projection.toolTimelineFor(sessionId, emptyList()).single { it.callId == callId }
+        assertNull(restored.card)
+        saveRecoveryFixture(callId)
+    }
+
+    private fun saveRecoveryFixture(callId: String) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        assertTrue(
+            context
+                .getSharedPreferences("hxa200-recovery-fixture", Context.MODE_PRIVATE)
+                .edit()
+                .putString(
+                    "call",
+                    callId,
+                ).putString("session", sessionId)
+                .putInt("pid", android.os.Process.myPid())
+                .commit(),
+        )
+    }
+
+    private fun assertRestartedBrokerRejects(approvalId: String) {
+        val restartedBroker =
+            com.helix.app.approval.StorageApprovalBroker(
+                container.storage.approvals,
+                object : com.helix.core.model.Clock {
+                    override fun now() = java.time.Instant.now()
+                },
+                {
+                    java.util.UUID
+                        .randomUUID()
+                        .toString()
+                },
+                { _, _ -> error("must not replay a card") },
+            )
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            restartedBroker.decide(approvalId, com.helix.core.model.ApprovalDecision.APPROVED)
+        }
     }
 
     @Test
@@ -453,6 +572,38 @@ class ToolApprovalPreferenceDeviceTest {
                 .consumedAt,
         )
         assertEquals(1, container.storage.approvals.countByToolCall(callId))
+        assertPendingDenyAudit(callId)
+    }
+
+    private fun assertPendingDenyAudit(callId: String) {
+        val row = auditFor(callId)
+        assertEquals("ASK", row.preferencePresented!!.effective)
+        assertEquals(
+            1L,
+            row.preferencePresented!!
+                .rules
+                .single()
+                .revision,
+        )
+        assertEquals("DENY", row.preferenceEvaluated!!.effective)
+        assertEquals(
+            2L,
+            row.preferenceEvaluated!!
+                .rules
+                .single()
+                .revision,
+        )
+        assertEquals(
+            row.preferencePresented!!
+                .rules
+                .single()
+                .id,
+            row.preferenceEvaluated!!
+                .rules
+                .single()
+                .id,
+        )
+        assertNull(row.preferenceAtStart)
     }
 
     @Test

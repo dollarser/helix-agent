@@ -14,6 +14,16 @@ package com.helix.core.policy
  * (settings / approval card) through the repository.
  */
 fun interface ToolApprovalPreferenceSource {
+    /** Immutable evidence from the SAME read as the effective value, never a second DAO read. */
+    fun snapshotFor(
+        sourceRef: String,
+        toolName: String,
+        contractHash: String?,
+        sessionId: String?,
+        workspaceRef: String?,
+    ): ToolPreferenceSnapshot =
+        ToolPreferenceSnapshot(effectiveFor(sourceRef, toolName, contractHash, sessionId, workspaceRef))
+
     /**
      * Serializes the final preference read and execution-start commitment with preference writes.
      * Mutable implementations must use this same monitor for every write. The action must not
@@ -49,3 +59,8 @@ fun interface ToolApprovalPreferenceSource {
         workspaceRef: String?,
     ): EffectiveToolPreference
 }
+
+data class ToolPreferenceSnapshot(
+    val effective: EffectiveToolPreference,
+    val records: List<ToolApprovalPreferenceRecord> = emptyList(),
+)

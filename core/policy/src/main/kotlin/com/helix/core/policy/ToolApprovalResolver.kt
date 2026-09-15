@@ -100,6 +100,9 @@ data class ToolApprovalPreferenceRecord(
     val preference: ToolApprovalPreference,
     val scope: ToolApprovalPreferenceScope,
     val contractHash: String?,
+    val id: String? = null,
+    val revision: Long? = null,
+    val scopeRef: String? = null,
 )
 
 /**

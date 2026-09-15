@@ -19,6 +19,26 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderConnectionCheckTest {
+    @Test fun trailingUsageDoesNotInvalidateACompletedReply() =
+        runBlocking {
+            val provider =
+                Fixture(
+                    null,
+                    listOf(
+                        ModelEvent.TextDelta("ok"),
+                        ModelEvent.Completed("stop"),
+                        ModelEvent.Usage(10, 2),
+                    ),
+                )
+            org.junit.Assert.assertTrue(ProviderConnectionCheck.run(config, provider, null) is ProbeOutcome.Ok)
+        }
+
+    @Test fun usageWithoutCompletionStillFails() =
+        runBlocking {
+            val provider = Fixture(null, listOf(ModelEvent.TextDelta("ok"), ModelEvent.Usage(10, 2)))
+            org.junit.Assert.assertTrue(ProviderConnectionCheck.run(config, provider, null) is ProbeOutcome.Failed)
+        }
+
     private val config =
         ProviderConfig(
             "fixture",
@@ -69,6 +89,7 @@ class ProviderConnectionCheckTest {
 
     private inner class Fixture(
         private val account: ModelCatalogResult?,
+        private val events: List<ModelEvent> = listOf(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)),
     ) : ModelProvider,
         SubscriptionConnectionProvider {
         var generations = 0
@@ -86,7 +107,7 @@ class ProviderConnectionCheckTest {
         override suspend fun validateConfiguration(): ProviderCheckResult = error("not used")
 
         override fun stream(request: ModelRequest) =
-            flowOf<ModelEvent>(ModelEvent.Error(ModelErrorCode.TRANSPORT, true)).also {
+            flowOf(*events.toTypedArray()).also {
                 generations++
             }
     }

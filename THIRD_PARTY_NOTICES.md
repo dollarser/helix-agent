@@ -4,6 +4,16 @@ Helix source code is licensed under Apache License 2.0. Third-party libraries,
 tools, runtime assets, models, and command-line artifacts retain their own
 licenses and are not relicensed by the Helix project.
 
+## JGit local TLS correction
+
+The app uses Eclipse JGit `6.10.0.202406032230-r` under its upstream EDL-1.0
+(BSD-3-Clause) license. Its original license and notices remain in the dependency.
+Helix replaces only `NoCheckX509TrustManager` with an original implementation that
+rejects both certificate checks, disabling JGit's TrustAll path. This is a locally
+modified artifact, not an unmodified upstream release. The original jar signature
+files are removed from the modified artifact; Maven input verification is retained.
+Source, checksum, modification and build details: [local correction](config/jgit/README.md).
+
 ## Required process
 
 1. Every shipped third-party artifact must be pinned in the version catalog,

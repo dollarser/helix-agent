@@ -32,6 +32,43 @@ import org.junit.Test
  * [ToolApprovalReason.ALLOW_INVALIDATED] — the 2026-09-14 clarification to ADR-0052 point 1.
  */
 class ToolApprovalPreferenceServiceTest {
+    @Test
+    fun auditSnapshotsKeepTheirRuleRevisionAfterUpdatesAndReset() {
+        val service = service()
+        val id =
+            service.set(
+                "builtin",
+                "time.now",
+                ToolApprovalPreferenceScope.SESSION,
+                "s1",
+                ToolApprovalPreference.ASK,
+                null,
+                1000,
+            )
+        val presented = service.snapshotFor("builtin", "time.now", "h1", "s1", null)
+        service.set(
+            "builtin",
+            "time.now",
+            ToolApprovalPreferenceScope.SESSION,
+            "s1",
+            ToolApprovalPreference.DENY,
+            null,
+            2000,
+        )
+        val final = service.snapshotFor("builtin", "time.now", "h1", "s1", null)
+        service.remove("builtin", "time.now", ToolApprovalPreferenceScope.SESSION, "s1")
+        val reset = service.snapshotFor("builtin", "time.now", "h1", "s1", null)
+        assertEquals(id, presented.records.single().id)
+        assertEquals(1L, presented.records.single().revision)
+        assertEquals("s1", presented.records.single().scopeRef)
+        assertEquals(EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT), presented.effective)
+        assertEquals(id, final.records.single().id)
+        assertEquals(2L, final.records.single().revision)
+        assertEquals(EffectiveToolPreference.Deny, final.effective)
+        assertEquals(EffectiveToolPreference.Unset, reset.effective)
+        assertEquals(emptyList<com.helix.core.policy.ToolApprovalPreferenceRecord>(), reset.records)
+    }
+
     // In-memory fake of the Room DAO: the unique (source, tool, scopeKind, scopeRef) key, the
     // rowid-ordered byTool and the delete-count are the three facts the service's paths rely on.
     private class InMemoryPreferenceDao : ToolApprovalPreferenceDao {

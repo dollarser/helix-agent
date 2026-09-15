@@ -258,41 +258,12 @@ class ToolDispatcher(
                 try {
                     runAttempt(request, startedAt, ctx, carriedProof)
                 } catch (t: Throwable) {
-                    // Settle the attempt durably (the audit event) BEFORE rethrowing. The
-                    // honest outcome depends on WHY the stage threw:
-                    // - the turn was stopped while the stage was blocked (the broker's
-                    //   approval wait throws its cancel exception; the cancel gate would
-                    //   have returned Cancelled had it run later) -> Cancelled, the SAME
-                    //   outcome the caller settles durably — audit and settlement agree
-                    //   ("cancelled before start, no side effects");
-                    // - anything else (executor NPE, dependency ISE) -> TOOL_FAILED with
-                    //   unknown side-effect state.
-                    // Neither case retries: the turn is being torn down, or the side-effect
-                    // state is UNKNOWN (the one case a technical retry is forbidden).
-                    val turnStoppedBeforeExecution =
-                        request.cancel.isCancelled() && ctx.executionStartedAt == null
                     ctx.stopped =
                         DispatchContext.StopResult(
-                            if (turnStoppedBeforeExecution) {
-                                ToolDispatchOutcome.Cancelled
-                            } else {
-                                ToolDispatchOutcome.ExecutionFailed(
-                                    DispatchOutcomeCode.TOOL_FAILED,
-                                    // Sanitized (doc 10): the raw message may carry real paths; the
-                                    // exception object itself still propagates for caller logging.
-                                    "unexpected dispatch failure: ${t::class.simpleName}",
-                                )
-                            },
+                            thrownDispatchOutcome(request.cancel, ctx.executionStartedAt, t),
                             DecisionSource.FRAMEWORK,
                         )
-                    try {
-                        finishStop(request, startedAt, ctx)
-                    } catch (auditFailure: Throwable) {
-                        // Fail closed (the audit failure still propagates) but do not LOSE
-                        // the original root cause: keep it as a suppressed exception.
-                        auditFailure.addSuppressed(t)
-                        throw auditFailure
-                    }
+                    auditFailurePreservingCause(t) { finishStop(request, startedAt, ctx) }
                     throw t
                 }
             // The proof THIS attempt acquired (set by the approval stage, which runs
@@ -373,7 +344,9 @@ class ToolDispatcher(
         // it never expands capability, scope or a high-risk approval, and a policy denial always
         // wins (points 2 and 4). With no preference seam wired the decision maps 1:1 to its
         // historical outcome, so pre-feature callers behave exactly as before.
-        val resolution = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        val resolved = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        ctx.preferenceEvaluated = resolved.audit
+        val resolution = resolved.resolution
         return when (resolution) {
             is ToolApprovalResolution.Blocked -> {
                 val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
@@ -549,6 +522,7 @@ class ToolDispatcher(
                 DecisionSource.USER,
             )
         }
+        ctx.preferencePresented = ctx.preferenceEvaluated
         val acquisition =
             approvals.acquire(
                 ApprovalRequest(
@@ -672,7 +646,10 @@ class ToolDispatcher(
                     null
                 } else {
                     proof?.let { approvals.consume(it) }
-                    clock.now().also { ctx.executionStartedAt = it.toEpochMilli() }
+                    clock.now().also {
+                        ctx.executionStartedAt = it.toEpochMilli()
+                        ctx.preferenceAtStart = ctx.preferenceEvaluated
+                    }
                 }
             }
             val started = if (preferenceSource == null) attempt() else preferenceSource.withExecutionStart(attempt)
@@ -704,7 +681,9 @@ class ToolDispatcher(
                 buildDispatchPolicyInput(request, descriptor, capabilities.missing.toSet()),
                 ruleProvider(),
             )
-        val resolution = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        val resolved = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
+        ctx.preferenceEvaluated = resolved.audit
+        val resolution = resolved.resolution
         return if (resolution is ToolApprovalResolution.Blocked) {
             val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
             stopped<Unit>(
@@ -889,6 +868,9 @@ class ToolDispatcher(
                 outputTruncated = ctx.outputTruncated,
                 attemptId = ctx.attemptId,
                 executionDetail = ctx.executionDetail,
+                preferenceEvaluated = ctx.preferenceEvaluated,
+                preferencePresented = ctx.preferencePresented,
+                preferenceAtStart = ctx.preferenceAtStart,
             ),
         )
         return outcome
@@ -980,6 +962,9 @@ class ToolDispatcher(
     /** Per-dispatch mutable state shared by the stage methods (one instance per dispatch). */
     private class DispatchContext {
         /** 1-based attempt number within this dispatch (doc 11 section 3.3 attemptId). */
+        var preferenceEvaluated: PreferenceDecisionAudit? = null
+        var preferencePresented: PreferenceDecisionAudit? = null
+        var preferenceAtStart: PreferenceDecisionAudit? = null
         var attemptId: Int = 1
         var policyDecidedAt: Long? = null
         var riskLevel: RiskLevel? = null

@@ -20,7 +20,7 @@ import com.helix.tools.framework.CancelSignal
  */
 class ApprovalCancelledException(
     approvalId: String,
-) : IllegalStateException("approval wait cancelled: $approvalId")
+) : com.helix.tools.framework.ApprovalWaitCancelledException("approval wait cancelled: $approvalId")
 
 /** The three ways the blocking wait for a user decision can end. */
 private sealed interface WaitOutcome {
@@ -230,9 +230,12 @@ class StorageApprovalBroker(
         approvalId: String,
         decision: ApprovalDecision,
     ) {
-        approvals.decide(approvalId, decision, clock.now().toEpochMilli())
         val wait =
             synchronized(lock) {
+                require(approvalId !in cancelled && waits.containsKey(approvalId)) {
+                    "approval is no longer awaiting a live decision"
+                }
+                approvals.decide(approvalId, decision, clock.now().toEpochMilli())
                 waits.remove(approvalId)
             }
         if (wait != null) {

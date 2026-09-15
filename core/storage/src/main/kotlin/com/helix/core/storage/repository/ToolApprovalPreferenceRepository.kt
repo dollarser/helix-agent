@@ -116,6 +116,9 @@ class ToolApprovalPreferenceRepository(
             preference = ToolApprovalPreference.valueOf(preference),
             scope = ToolApprovalPreferenceScope.valueOf(scopeKind),
             contractHash = contractHash.ifEmpty { null },
+            id = id,
+            revision = revision,
+            scopeRef = scopeRef,
         )
 
     private fun requireValidScope(

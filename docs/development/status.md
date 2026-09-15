@@ -4,6 +4,8 @@
 
 ## Current summary
 
+2026-09-15 HXA-200 已完成本任务范围验收，审计、停止/恢复和JGit门禁问题已修复，见[完成记录](../completion-records/HXA-200.md)。产品链下一项为HXA-201工具设置与审批卡，后端依赖已满足；其他并行HXA状态不变。下方旧复核与gap条目仅为历史证据。
+
 最近的有界真机回归与修复见 [HXA-186](../completion-records/HXA-186.md)、[HXA-187](../completion-records/HXA-187.md)、[HXA-188](../completion-records/HXA-188.md)。[HXA-189](../completion-records/HXA-189.md) 已完成审查复核、源码修复与主机门禁；新增设备用例待 Claude 独占执行。完成记录仅代表各自范围，不等于全部设备/长稳/发布验收。EV-02 的 API36 24h 功能中止（a11y 重尾，非产品），API29 一臂已跑满 25h 出 INCONCLUSIVE（system-Binder 模拟器不可采），两臂均不能记为 24h 门禁全绿。EV-03 应用 24h 资源门禁：隔离复跑 pilot（单开 5558）仍 FAIL_RESOURCE，`128→137`（+9 全落在 `/dev/goldfish_pipe_dprctd` QEMU 虚拟驱动节点，真机无；逐 fd readlink 证实所有真实资源描述符不变），判定**模拟器固有（X 类）**，非应用泄漏、非 3 开 flake，不进 2h/24h，权威 FD 判定需真机；threads/PSS 均在门禁内。
 
 | 最近交付 | 当前状态与证据 |
