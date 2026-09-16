@@ -33,6 +33,26 @@ data class SessionPermissionConfig(
      */
     fun ruleFor(effect: OperationEffect): OperationRule = rules[effect] ?: OperationRule.ASK
 
+    /**
+     * True when this config TIGHTENS [previous] (ADR-PERMISSIONS-001 section 4, HXA-209 D5):
+     * for every operation effect it is at least as strict, and for at least one effect it is
+     * strictly stricter. Strictness is [OperationRule.ALLOW] < [OperationRule.ASK] <
+     * [OperationRule.DENY]. A change that loosens ANY effect is not a tightening even if other
+     * effects get stricter (e.g. FULL_ACCESS reached from WORKSPACE loosens the ASKs back to
+     * ALLOW), and re-saving the identical config tightens nothing — so the tightening notice can
+     * never fire on a no-op save or a loosening.
+     */
+    fun tightens(previous: SessionPermissionConfig): Boolean {
+        var stricter = false
+        for (effect in OperationEffect.values()) {
+            val before = previous.ruleFor(effect).strictness
+            val after = ruleFor(effect).strictness
+            if (after < before) return false
+            if (after > before) stricter = true
+        }
+        return stricter
+    }
+
     companion object {
         /** Version of the rule-set contract this build speaks; bump only on an explicit contract change. */
         const val CURRENT_CONFIG_VERSION = 1
@@ -94,3 +114,12 @@ data class SessionPermissionConfig(
         fun copyPreset(mode: SessionPermissionMode): Map<OperationEffect, OperationRule> = presetRules(mode).toMap()
     }
 }
+
+/** Strictness order for [SessionPermissionConfig.tightens]: ALLOW < ASK < DENY; higher is stricter. */
+private val OperationRule.strictness: Int
+    get() =
+        when (this) {
+            OperationRule.ALLOW -> 0
+            OperationRule.ASK -> 1
+            OperationRule.DENY -> 2
+        }

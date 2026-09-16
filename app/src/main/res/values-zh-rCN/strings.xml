@@ -1010,4 +1010,7 @@
     <string name="settings_perm_effect_remote_business_mutation">远端业务变更</string>
     <string name="settings_perm_effect_device_system_mutation">设备与系统变更</string>
     <string name="settings_perm_effect_command_execution">命令执行</string>
+    <string name="settings_perm_tightened_effective">后续操作已生效</string>
+    <string name="settings_perm_tightened_still_running">仍有 %1$d 个此前启动任务</string>
+    <string name="settings_perm_tightened_stop">停止</string>
 </resources>

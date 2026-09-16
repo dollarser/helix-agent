@@ -32,5 +32,9 @@ projectsEvaluated {
         'app/src/main/kotlin/com/helix/app/MainActivity.kt',
         // D4 (CUSTOM rule editor: copy a preset, per-effect ALLOW/ASK/DENY)
         'app/src/main/kotlin/com/helix/app/ui/SessionPermissionCustomEditor.kt',
+        // D5 (rule-tightening notice: tightens() + running-task count / precise stop)
+        'core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionConfig.kt',
+        'core/policy/src/test/kotlin/com/helix/core/policy/SessionPermissionPolicyTest.kt',
+        'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
     )
 }

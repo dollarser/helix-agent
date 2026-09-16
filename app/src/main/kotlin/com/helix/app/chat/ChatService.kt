@@ -1683,6 +1683,18 @@ class ChatService(
         }
     }
 
+    /**
+     * The still-running (non-terminal, not interrupted) turns in [sessionId] — the "previously
+     * started tasks" left in flight when a session's permission rules tighten (HXA-209 D5). Like
+     * [refreshBackgroundTasks]'s source, this is a synchronous Room read: callers must run it off
+     * the main thread (the settings section wraps it in Dispatchers.IO).
+     */
+    fun runningTurnIdsForSession(sessionId: String): List<String> =
+        BackgroundTaskQuery(storage)
+            .read()
+            .filter { it.sessionId == sessionId && it.running }
+            .map { it.id }
+
     private fun refreshBackgroundTasks() {
         synchronized(turnGate) {
             val tasks = BackgroundTaskQuery(storage).read()

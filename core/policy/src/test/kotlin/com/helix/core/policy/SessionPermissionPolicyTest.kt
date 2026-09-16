@@ -439,4 +439,57 @@ class SessionPermissionPolicyTest {
             assertTrue(expected.message!!.contains("reason"))
         }
     }
+
+    // --- tightening detection (HXA-209 D5) ----------------------------------
+
+    @Test
+    fun `a mode switch to a strictly tighter preset tightens`() {
+        assertTrue(workspace.tightens(fullAccess))
+        assertTrue(readOnly.tightens(workspace))
+        assertTrue(readOnly.tightens(fullAccess))
+    }
+
+    @Test
+    fun `a mode switch that loosens any effect is not a tightening`() {
+        // FULL_ACCESS allows everything, so it never tightens; WORKSPACE is looser than READ_ONLY.
+        assertTrue(!fullAccess.tightens(workspace))
+        assertTrue(!fullAccess.tightens(readOnly))
+        assertTrue(!workspace.tightens(readOnly))
+    }
+
+    @Test
+    fun `re-saving the identical config tightens nothing`() {
+        assertTrue(!workspace.tightens(workspace))
+        assertTrue(!fullAccess.tightens(fullAccess))
+        // Same rule table under the CUSTOM label still tightens nothing.
+        val custom = SessionPermissionConfig.custom(workspace.rules.toMap())
+        assertTrue(!custom.tightens(workspace))
+    }
+
+    @Test
+    fun `a custom edit that tightens one effect tightens`() {
+        val rules = workspace.rules.toMutableMap()
+        rules[OperationEffect.FILE_MUTATION_EXTERNAL] = OperationRule.DENY
+        val after = SessionPermissionConfig.custom(rules)
+        assertTrue(after.tightens(workspace))
+    }
+
+    @Test
+    fun `a custom edit that tightens one effect and loosens another is not a tightening`() {
+        val before =
+            SessionPermissionConfig.custom(
+                mapOf(
+                    OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.ASK,
+                    OperationEffect.COMMAND_EXECUTION to OperationRule.ASK,
+                ),
+            )
+        val after =
+            SessionPermissionConfig.custom(
+                mapOf(
+                    OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY, // ASK -> DENY (tighter)
+                    OperationEffect.COMMAND_EXECUTION to OperationRule.ALLOW, // ASK -> ALLOW (looser)
+                ),
+            )
+        assertTrue(!after.tightens(before))
+    }
 }

@@ -72,6 +72,7 @@ internal fun SessionPermissionSection(
                 onCopyPreset = { controller.copyPresetIntoDraft(it) },
                 onSetRule = { effect, rule -> controller.setDraftRule(effect, rule) },
             )
+            PermissionTighteningNotice(controller, chatService)
         } else {
             Text(
                 stringResource(R.string.settings_perm_session_absent),
@@ -285,11 +286,14 @@ private class SessionPermissionController(
         val id = sessionId ?: return
         scope.launch {
             withContext(Dispatchers.IO) {
+                val before = edit.activeConfigFor(id) ?: edit.appDefault()
+                val now = System.currentTimeMillis()
                 if (mode == SessionPermissionMode.CUSTOM) {
-                    edit.activateCustomDraft(id, System.currentTimeMillis())
+                    edit.activateCustomDraft(id, now)
                 } else {
-                    edit.saveSessionConfig(id, SessionPermissionConfig.of(mode), System.currentTimeMillis())
+                    edit.saveSessionConfig(id, SessionPermissionConfig.of(mode), now)
                 }
+                markTightened((edit.activeConfigFor(id) ?: edit.appDefault()).tightens(before))
             }
             load()
         }
@@ -332,12 +336,14 @@ private class SessionPermissionController(
         val id = sessionId ?: return
         scope.launch {
             withContext(Dispatchers.IO) {
+                val before = edit.activeConfigFor(id) ?: edit.appDefault()
                 edit.saveCustomDraft(
                     id,
                     preset,
                     SessionPermissionConfig.copyPreset(preset),
                     System.currentTimeMillis(),
                 )
+                markTightened((edit.activeConfigFor(id) ?: edit.appDefault()).tightens(before))
             }
             load()
         }
@@ -357,9 +363,89 @@ private class SessionPermissionController(
         val nextRules = current.rules.toMutableMap().apply { this[effect] = rule }
         scope.launch {
             withContext(Dispatchers.IO) {
+                val before = edit.activeConfigFor(id) ?: edit.appDefault()
                 edit.saveCustomDraft(id, current.sourcePreset, nextRules, System.currentTimeMillis())
+                markTightened((edit.activeConfigFor(id) ?: edit.appDefault()).tightens(before))
             }
             load()
+        }
+    }
+
+    /** True while a rule tightening in this session should be surfaced (the notice + precise stop). */
+    val tightened = mutableStateOf(false)
+
+    /** Bumped on each tightening so the notice re-reads the running-task count (0 = none yet). */
+    val tighteningSeq = mutableStateOf(0)
+
+    /** Records whether the just-applied change tightened the session's effective rules (off-main). */
+    private fun markTightened(next: Boolean) {
+        tightened.value = next
+        if (next) tighteningSeq.value += 1
+    }
+
+    /** Dismisses the tightening notice (after the user stops the tasks, or once they are all done). */
+    fun clearTightened() {
+        tightened.value = false
+    }
+}
+
+/**
+ * The HXA-209 rule-tightening notice (ADR-PERMISSIONS-001 section 4). After the session's rules
+ * tighten it says "subsequent operations now take effect" and — for the still-running turns that
+ * started under the looser rules — "there are still N previously started tasks", with a precise
+ * stop. It never claims retroactive revocation: a started process keeps running until it is
+ * stopped, so the only offered action is to stop the specific still-running tasks. The running-task
+ * read is a Room read, run off the main thread.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun PermissionTighteningNotice(
+    controller: SessionPermissionController,
+    chatService: ChatService?,
+) {
+    val sessionId = controller.sessionId
+    val service = chatService
+    val scope = rememberCoroutineScope()
+    val runningCount = remember { mutableStateOf(-1) }
+    LaunchedEffect(controller.tighteningSeq.value, sessionId) {
+        if (controller.tightened.value && sessionId != null && service != null) {
+            withContext(Dispatchers.IO) {
+                runningCount.value = service.runningTurnIdsForSession(sessionId).size
+            }
+        }
+    }
+    if (controller.tightened.value && sessionId != null && service != null) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.settings_perm_tightened_effective))
+            if (runningCount.value > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        stringResource(R.string.settings_perm_tightened_still_running, runningCount.value),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    service.runningTurnIdsForSession(sessionId).forEach { service.stopTask(it) }
+                                }
+                                controller.clearTightened()
+                            }
+                        },
+                        modifier = Modifier.testTag("settings-perm-tightened-stop"),
+                    ) {
+                        Text(stringResource(R.string.settings_perm_tightened_stop))
+                    }
+                }
+            }
         }
     }
 }

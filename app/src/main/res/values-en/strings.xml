@@ -1013,4 +1013,7 @@
     <string name="settings_perm_effect_remote_business_mutation">Remote business changes</string>
     <string name="settings_perm_effect_device_system_mutation">Device and system changes</string>
     <string name="settings_perm_effect_command_execution">Command execution</string>
+    <string name="settings_perm_tightened_effective">Subsequent operations now take effect</string>
+    <string name="settings_perm_tightened_still_running">Previously started tasks still running: %1$d</string>
+    <string name="settings_perm_tightened_stop">Stop</string>
 </resources>
