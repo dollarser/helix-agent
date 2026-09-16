@@ -1289,7 +1289,12 @@ class RoomMigrationFixtureTest {
         }
     }
 
-    /** The legacy three-state preference rows (two DENY, one ASK, one ALLOW) on a v19 file. */
+    /**
+     * The legacy three-state preference rows (two DENY, one ASK, one ALLOW) on a v19 file. Every
+     * row has a DISTINCT (tool, scope) key: the legacy table's unique index on
+     * (sourceRef, toolName, scopeKind, scopeRef) (HXA-200, MIGRATION_16_17) rejects repeats, so
+     * the ASK row keys a different scope from the DENY row for the same tool.
+     */
     private fun SupportSQLiteDatabase.seedLegacyApprovalPreferences() {
         execSQL(
             "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
@@ -1304,7 +1309,7 @@ class RoomMigrationFixtureTest {
         execSQL(
             "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
                 "scopeRef, contractHash, revision, createdAtEpoch, updatedAtEpoch) " +
-                "VALUES ('p-ask-1', 'local', 'bash', 'ASK', 'GLOBAL', '', '', 1, 500, 600)",
+                "VALUES ('p-ask-1', 'local', 'bash', 'ASK', 'SESSION', 's-2', '', 1, 500, 600)",
         )
         execSQL(
             "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
