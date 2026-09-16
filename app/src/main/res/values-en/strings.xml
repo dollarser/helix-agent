@@ -997,4 +997,20 @@
     <string name="settings_perm_tool_enabled">Enabled</string>
     <string name="settings_perm_tool_disabled">Disabled</string>
     <string name="settings_perm_tool_toggle">Toggle</string>
+
+    <!-- HXA-209 D4: CUSTOM rule editor (copy a preset, per-effect ALLOW/ASK/DENY) -->
+    <string name="settings_perm_custom_rules_label">Custom rules</string>
+    <string name="settings_perm_custom_merge_note">When one call carries several operations: if any is Deny the whole call is refused; otherwise if any is Ask there is one approval; only when every operation is Allow is the prompt skipped.</string>
+    <string name="settings_perm_custom_copy_prompt">Copy a preset to start customizing.</string>
+    <string name="settings_perm_custom_based_on">Based on preset: %1$s</string>
+    <string name="settings_perm_rule_allow">Allow</string>
+    <string name="settings_perm_rule_ask">Ask</string>
+    <string name="settings_perm_rule_deny">Deny</string>
+    <string name="settings_perm_effect_file_read_workspace">Read files in the workspace</string>
+    <string name="settings_perm_effect_file_read_external">Read files outside the workspace</string>
+    <string name="settings_perm_effect_file_mutation_workspace">Modify files in the workspace</string>
+    <string name="settings_perm_effect_file_mutation_external">Modify files outside the workspace</string>
+    <string name="settings_perm_effect_remote_business_mutation">Remote business changes</string>
+    <string name="settings_perm_effect_device_system_mutation">Device and system changes</string>
+    <string name="settings_perm_effect_command_execution">Command execution</string>
 </resources>

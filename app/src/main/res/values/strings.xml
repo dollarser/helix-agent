@@ -997,4 +997,20 @@
     <string name="settings_perm_tool_enabled">已启用</string>
     <string name="settings_perm_tool_disabled">已禁用</string>
     <string name="settings_perm_tool_toggle">切换</string>
+
+    <!-- HXA-209 D4: CUSTOM rule editor (copy a preset, per-effect ALLOW/ASK/DENY) -->
+    <string name="settings_perm_custom_rules_label">自定义规则</string>
+    <string name="settings_perm_custom_merge_note">一次调用涉及多个操作时：任一「禁止」即拒绝整次调用；否则任一「询问」只产生一次确认；全部「允许」才免确认。</string>
+    <string name="settings_perm_custom_copy_prompt">复制一个预设以开始自定义。</string>
+    <string name="settings_perm_custom_based_on">基于预设：%1$s</string>
+    <string name="settings_perm_rule_allow">允许</string>
+    <string name="settings_perm_rule_ask">询问</string>
+    <string name="settings_perm_rule_deny">禁止</string>
+    <string name="settings_perm_effect_file_read_workspace">工作区内读取文件</string>
+    <string name="settings_perm_effect_file_read_external">工作区外读取文件</string>
+    <string name="settings_perm_effect_file_mutation_workspace">工作区内修改文件</string>
+    <string name="settings_perm_effect_file_mutation_external">工作区外修改文件</string>
+    <string name="settings_perm_effect_remote_business_mutation">远端业务变更</string>
+    <string name="settings_perm_effect_device_system_mutation">设备与系统变更</string>
+    <string name="settings_perm_effect_command_execution">命令执行</string>
 </resources>

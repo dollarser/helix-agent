@@ -25,9 +25,12 @@ import com.helix.app.R
 import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
 import com.helix.app.tool.ToolPipeline
+import com.helix.core.model.OperationEffect
+import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.policy.SessionPermissionConfig
+import com.helix.core.storage.repository.SessionPermissionDraft
 import com.helix.tools.framework.ToolDescriptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +67,11 @@ internal fun SessionPermissionSection(
         HorizontalDivider(modifier = Modifier.fillMaxWidth())
         if (controller.sessionId != null) {
             PermissionSessionPicker(controller)
+            PermissionCustomEditor(
+                draft = controller.draft.value,
+                onCopyPreset = { controller.copyPresetIntoDraft(it) },
+                onSetRule = { effect, rule -> controller.setDraftRule(effect, rule) },
+            )
         } else {
             Text(
                 stringResource(R.string.settings_perm_session_absent),
@@ -100,8 +108,8 @@ private fun rememberPermissionController(
     val defaultMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionHasStored = remember { mutableStateOf(false) }
-    val sessionHasDraft = remember { mutableStateOf(false) }
     val toolsDisabled = remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    val draft = remember { mutableStateOf<SessionPermissionDraft?>(null) }
     val controller =
         remember(edit, tools, sessionId, scope) {
             SessionPermissionController(
@@ -112,8 +120,8 @@ private fun rememberPermissionController(
                 defaultMode,
                 sessionMode,
                 sessionHasStored,
-                sessionHasDraft,
                 toolsDisabled,
+                draft,
             )
         }
     LaunchedEffect(controller) { controller.load() }
@@ -159,7 +167,7 @@ private fun PermissionSessionPicker(controller: SessionPermissionController) {
             )
         }
     }
-    if (controller.sessionMode.value == SessionPermissionMode.CUSTOM && !controller.sessionHasDraft.value) {
+    if (controller.sessionMode.value == SessionPermissionMode.CUSTOM && controller.draft.value == null) {
         Text(stringResource(R.string.settings_perm_custom_hint), style = MaterialTheme.typography.bodySmall)
     }
     OutlinedButton(onClick = { controller.resetSession() }, Modifier.testTag("settings-perm-reset")) {
@@ -248,8 +256,8 @@ private class SessionPermissionController(
     val defaultMode: MutableState<SessionPermissionMode?>,
     val sessionMode: MutableState<SessionPermissionMode?>,
     val sessionHasStored: MutableState<Boolean>,
-    val sessionHasDraft: MutableState<Boolean>,
     val toolsDisabled: MutableState<Map<String, Boolean>>,
+    val draft: MutableState<SessionPermissionDraft?>,
 ) {
     fun load() {
         scope.launch {
@@ -261,7 +269,7 @@ private class SessionPermissionController(
                 val stored = id?.let { edit.activeConfigFor(it) }
                 sessionMode.value = (stored ?: edit.appDefault()).mode
                 sessionHasStored.value = stored != null
-                sessionHasDraft.value = id?.let { edit.customDraftFor(it) != null } ?: false
+                draft.value = id?.let { edit.customDraftFor(it) }
             }
         }
     }
@@ -313,22 +321,55 @@ private class SessionPermissionController(
             load()
         }
     }
-}
 
-/** The localized label for a mode. Tool/schema names and enum names are never translated. */
-private fun SessionPermissionMode.labelRes(): Int =
-    when (this) {
-        SessionPermissionMode.FULL_ACCESS -> R.string.settings_perm_mode_full_access
-        SessionPermissionMode.WORKSPACE -> R.string.settings_perm_mode_workspace
-        SessionPermissionMode.READ_ONLY -> R.string.settings_perm_mode_read_only
-        SessionPermissionMode.CUSTOM -> R.string.settings_perm_mode_custom
+    /**
+     * Copies a preset into this session's CUSTOM draft (section 4 — "copy a preset then edit
+     * rules"): the preset's fixed rule table is materialized and saved as the draft. The write
+     * service then syncs the active config if the session is already CUSTOM, so the draft and the
+     * active rules never drift.
+     */
+    fun copyPresetIntoDraft(preset: SessionPermissionMode) {
+        val id = sessionId ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                edit.saveCustomDraft(
+                    id,
+                    preset,
+                    SessionPermissionConfig.copyPreset(preset),
+                    System.currentTimeMillis(),
+                )
+            }
+            load()
+        }
     }
+
+    /**
+     * Sets one operation effect's rule in the session's CUSTOM draft (a user change, audited by
+     * the write service). A missing draft is a no-op — there is nothing to edit until a preset
+     * has been copied.
+     */
+    fun setDraftRule(
+        effect: OperationEffect,
+        rule: OperationRule,
+    ) {
+        val id = sessionId ?: return
+        val current = draft.value ?: return
+        val nextRules = current.rules.toMutableMap().apply { this[effect] = rule }
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                edit.saveCustomDraft(id, current.sourcePreset, nextRules, System.currentTimeMillis())
+            }
+            load()
+        }
+    }
+}
 
 /** A stable, collision-free key for a tool identity (source ref + name). */
 private fun toolKey(descriptor: ToolDescriptor): String = descriptor.origin.canonicalOf() + " " + descriptor.name.value
 
-/** The preset modes — the valid new-session defaults (CUSTOM is not a default). */
-private val PRESETS =
+/** The preset modes — the valid new-session defaults (CUSTOM is not a default). Shared with the
+ * CUSTOM editor: a custom draft is copied from one of these presets (never from CUSTOM). */
+internal val PRESETS =
     listOf(
         SessionPermissionMode.FULL_ACCESS,
         SessionPermissionMode.WORKSPACE,

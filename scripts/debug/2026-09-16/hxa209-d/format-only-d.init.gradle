@@ -30,5 +30,7 @@ projectsEvaluated {
         'app/src/main/kotlin/com/helix/app/ui/SessionPermissionSection.kt',
         'app/src/main/kotlin/com/helix/app/ui/SettingsScreen.kt',
         'app/src/main/kotlin/com/helix/app/MainActivity.kt',
+        // D4 (CUSTOM rule editor: copy a preset, per-effect ALLOW/ASK/DENY)
+        'app/src/main/kotlin/com/helix/app/ui/SessionPermissionCustomEditor.kt',
     )
 }
