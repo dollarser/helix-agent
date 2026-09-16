@@ -12,6 +12,7 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 ## Decision
 
 - developer 是单 APK，Subscriptions 与 PRoot 为 Android library，分别在 non-exported :subscriptions/:proot 私有进程中按需运行。consumer 的依赖、manifest、dex、assets/native 制品排除两模块。模块名不决定是否独立 APK。
+- 本轮 isolated UID PRoot 验证未能承载现有 RootFS/工作目录模型；按所有者选择保留共享 UID 架构，不增加统一禁网开关、离线 Shell 或独立 Runtime APK。证据见[可行性记录](../../evidence/development/isolated-proot-feasibility-2026-09-16.md)。
 - 私有进程共享应用 UID、文件系统权限和网络能力。PRoot 是可信开发者执行环境，不是恶意代码沙箱，不保证离线、只读工作区或订阅凭据隔离。QuickJS 使用 isolated UID；生成代码不在主进程执行。
 - 凭据由订阅模块管理，正常 API 不返回 token；同 UID 代码仍可能访问应用数据。可用模式不能虚构运行时隔离，限制写/网络须有真实机制或拒绝无法约束的调用。
 - 冷绑定只由用户验证、修复、登录或获准执行发起，启动应用、切换 Profile、被动 Registry 不启动执行。Runtime 进程不执行主应用 AppContainer/Room 的启动恢复。

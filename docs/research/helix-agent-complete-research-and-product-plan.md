@@ -75,7 +75,7 @@ Turn结束、Goal完成、业务结果正确是三个不同事实。没有结构
 
 权威契约为[会话授权](../adr/permissions/001-session-authorization.md)：工具只有ENABLED/DISABLED；操作授权由FULL_ACCESS、WORKSPACE、READ_ONLY或CUSTOM决定，三个预设都允许Agent工具联网。
 
-CUSTOM按效果与范围合并DENY > ASK > ALLOW；文件修改禁令必须跨write/edit/Shell等途径生效。工具禁网不禁止Provider推理；联网许可也不自动允许读取工作区外文件。特殊删除确认仅针对契约明确的rm命令规则，不推广成所有删除必询问。Chat/Plan模式边界仍独立成立。
+CUSTOM按效果与范围合并DENY > ASK > ALLOW；文件修改禁令必须跨write/edit/Shell等途径生效。统一工具禁网已按所有者取舍移出本轮，保留现有PRoot联网；禁用网络工具不等于阻止Shell联网。联网也不自动允许读取工作区外文件。特殊删除确认仅针对契约明确的rm命令规则，不推广成所有删除必询问。Chat/Plan模式边界仍独立成立。
 
 需要询问的调用才产生精确证明，在执行开始时一次性消费；旧proof不能覆盖新禁用/DENY。规则收紧不伪称撤销已发生效果，已启动任务提供明确停止入口。Plan批准仅绑定审阅版本，不创建未来全部工具的批准。
 

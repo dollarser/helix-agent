@@ -124,7 +124,7 @@ SAF 可能由远端文档服务提供。对 [ADR-PERMISSIONS-001](../permissions
 | --- | --- |
 | 默认目录 | 会话分别拥有稳定目录，创建失败/重启恢复，不强制布局，不靠 ID 难猜保证访问控制 |
 | 与 [ADR-PERMISSIONS-001](../permissions/001-session-authorization.md) 组合 | 四模式、目录内/外、工具禁用、CUSTOM 写入禁止、FULL_ACCESS 交集；无 L2 恒出卡残留 |
-| SAF | 可读/只读/可写、缺少 rename/move、Provider 失联、授权撤销、引用失效、部分写入与工具禁网 |
+| SAF | 可读/只读/可写、缺少 rename/move、Provider 失联、授权撤销、引用失效、部分写入与实际网络不可用 |
 | 执行域 | 本地 Path 的真实 cwd 与映射；SAF 不支持 Shell/Git 时明确显示，不静默使用副本 |
 | 并发与切换 | 两会话共享项目、外部修改冲突、子目录边界、旧队列/卡片/Job、指令刷新与旧产物定位 |
 | 生命周期 | 删除会话不删外部目录；私有目录/产物/备份清理、归档保留、共享引用不误删 |

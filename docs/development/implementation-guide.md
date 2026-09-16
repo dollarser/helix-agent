@@ -37,7 +37,7 @@ docs/development/status.md、roadmap.md、tasks/HXA-209.md，
 
 第一项是 HXA-209，只保留一个活动 checkpoint：
 A. 先建立原生文件、Shell/PRoot、QuickJS、MCP/A2A 的效果与约束矩阵。
-   用可运行证据证明工作目录、CUSTOM禁写、Agent工具禁网及正常任务可用。
+   用可运行证据证明工作目录、CUSTOM禁写及正常任务可用。
    同UID、cwd、readOnlyHint、提示词都不是隔离证据。
    无法约束且可能违反DENY时拒绝；不能全部拒绝后声称Shell支持完成。
 B. A有依据后，按任务的B/C/D/E顺序实现单一授权配置、工具启用/禁用、
@@ -46,7 +46,9 @@ C. 验收覆盖真实副作用与可用性、取消/排队/配置收紧、数据
    API29/36双flavor。失败必须修复，不删除断言或将启用后的失败改成skip。
 
 三个预设均允许Agent工具联网；CUSTOM操作权限是ALLOW/ASK/DENY，
-工具本身只有ENABLED/DISABLED。Provider推理网络不归工具禁网。
+工具本身只有ENABLED/DISABLED。统一禁网已按所有者决定移出本轮范围：
+保留当前Runtime，不新增CUSTOM联网DENY，不为禁网目标拒绝Shell；
+禁用具体网络工具不等于阻止Shell联网。文件/远端写限制仍需落实。
 特殊删除确认只覆盖ADR明确的rm命令规则；Chat/Plan边界仍有效。
 只读/工作目录模式不能靠风险标签或字符串黑名单伪装运行时约束。
 
