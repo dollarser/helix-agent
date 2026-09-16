@@ -36,5 +36,7 @@ projectsEvaluated {
         'core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionConfig.kt',
         'core/policy/src/test/kotlin/com/helix/core/policy/SessionPermissionPolicyTest.kt',
         'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
+        // D7 (host: the canonical tool identity + cross-source availability isolation)
+        'tools/framework/src/test/kotlin/com/helix/tools/framework/SessionToolAvailabilityTest.kt',
     )
 }
