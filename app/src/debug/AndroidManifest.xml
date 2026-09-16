@@ -13,6 +13,5 @@
             android:name="com.helix.app.diagnostics.DiagnosticFailureActivity"
             android:exported="true"
             android:permission="android.permission.DUMP" />
-        <activity android:name="com.helix.app.ui.PreferenceSettingsTestActivity" android:exported="false" />
     </application>
 </manifest>

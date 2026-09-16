@@ -5,6 +5,24 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v20 -> v21 (HXA-209 B4, ADR-PERMISSIONS-001 section 4): drops the three legacy HXA-200
+     * tables — `tool_approval_preferences`, `tool_registration_baseline` and
+     * `tool_baseline_meta`. Their only row conversion (old DENY -> `tool_availability`
+     * DISABLED) already ran in [MIGRATION_19_20]; the remaining ASK/ALLOW rows and the
+     * new-tool baseline markers carry no state in the two-state model, so they are dropped
+     * without conversion. No hidden compatibility mode: the code no longer reads any of
+     * these tables after this step.
+     */
+    val MIGRATION_20_21 =
+        object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `tool_approval_preferences`")
+                db.execSQL("DROP TABLE IF EXISTS `tool_registration_baseline`")
+                db.execSQL("DROP TABLE IF EXISTS `tool_baseline_meta`")
+            }
+        }
+
+    /**
      * v19 -> v20 (HXA-209 B2, ADR-PERMISSIONS-001): the new session-permission storage. Adds
      * `session_permission_configs` (one compiled [SessionPermissionConfig] per session — a
      * LAZY default: no per-session rows are seeded, a missing row means the session uses the
@@ -19,7 +37,7 @@ internal object HelixMigrations {
      * and are NOT converted. The old table's unique index on (sourceRef, toolName, scopeKind,
      * scopeRef) guarantees the selected keys are distinct, so a plain INSERT OR IGNORE is
      * collision-safe (API 29 SQLite 3.22 has no UPSERT). The old `tool_approval_preferences`
-     * table is KEPT until the B4 removal slice drops it.
+     * table is dropped by [MIGRATION_20_21] (HXA-209 B4).
      */
     val MIGRATION_19_20 =
         object : Migration(19, 20) {
@@ -136,8 +154,7 @@ internal object HelixMigrations {
      * `tool_approval_preferences` table — one standing user setting per (tool identity, scope),
      * written only by the user application service, never the model/Skill/MCP/A2A. Additive and
      * empty on upgrade: no ALLOW rows are seeded, so an unconfigured user keeps their original
-     * behavior (ADR-0052 point 1). Mirrors the canonical Room v17 DDL for
-     * [ToolApprovalPreferenceEntity]; the table has no foreign keys (a preference is keyed by the
+     * behavior (ADR-0052 point 1). The table has no foreign keys (a preference is keyed by the
      * stable tool source + name, not a relation to a session/turn/tool-call) and the unique index
      * makes "reset to default" a delete, not a fourth state (point 5).
      */

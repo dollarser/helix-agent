@@ -86,8 +86,7 @@ internal fun ToolTimelineItem(
     }
 }
 
-/** The live approval card wired to the conversation intents (HXA-201 slice 2: the separate
- * "save future preference" path included). */
+/** The live approval card wired to the conversation intents. */
 @Composable
 @Suppress("FunctionName")
 private fun PendingApprovalCard(
@@ -98,9 +97,6 @@ private fun PendingApprovalCard(
         card = card,
         onApprove = { intents.onApproveApproval(card.approvalId) },
         onDeny = { intents.onDenyApproval(card.approvalId) },
-        onSaveFuturePreference = { preference ->
-            intents.onSaveFuturePreference(card, preference)
-        },
     )
 }
 

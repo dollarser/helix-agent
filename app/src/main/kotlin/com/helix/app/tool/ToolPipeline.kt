@@ -4,7 +4,6 @@ import com.helix.app.approval.StorageApprovalBroker
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.DataSensitivity
-import com.helix.core.policy.ToolApprovalPreferenceSource
 import com.helix.extensions.a2a.A2aToolDispatchFacts
 import com.helix.extensions.mcp.McpToolDispatchFacts
 import com.helix.tools.framework.AuditSink
@@ -36,14 +35,7 @@ class ToolPipeline(
     val auditSink: AuditSink,
     val scheduler: ToolScheduler,
     /**
-     * HXA-200 (ADR-0052): the live user tool-approval preference read seam — the SAME instance the
-     * [dispatcher] re-resolves before each call starts. The Registry model-exposure filter reads
-     * it here so a DENY hides the tool before the model sees it, and both surfaces resolve one
-     * tool against the same store (point 7). Null when no preference store is wired.
-     */
-    val preferenceSource: ToolApprovalPreferenceSource? = null,
-    /**
-     * HXA-209 B3 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
+     * HXA-209 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
      * ONE instance the model schema, tools.search, the loaded window and the execution entry
      * all read, so a disable can never be visible on one surface and refused on another.
      * Null when no availability store is wired (everything stays visible).

@@ -541,28 +541,16 @@ class RoomMigrationFixtureTest {
         val storage = HelixStorage.open(context, name, contentDir)
         try {
             val sqlite = storage.database.openHelper.writableDatabase
-            // Upgraded to the live schema: the preference table landed and is EMPTY on upgrade
-            // (no seeded ALLOW — ADR-0052 point 1), and the legacy session row survived.
-            sqlite.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
+            // Upgraded to the live schema: the legacy session row survived.
             sqlite.query("SELECT title FROM sessions WHERE id='s1'").use {
                 assertTrue(it.moveToFirst())
                 assertEquals("S", it.getString(0))
             }
-            // The trusted baseline tables (HXA-200 Gap 2) landed and are EMPTY on upgrade: the
-            // migration seeds NO founding anchor and NO per-tool markers, so the NEW-default
-            // decision has no basis until the app's trusted startup path runs its first reconcile
-            // (no batch "new" marking, no batch ALLOW).
-            sqlite.query("SELECT COUNT(*) FROM tool_registration_baseline").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
-            sqlite.query("SELECT COUNT(*) FROM tool_baseline_meta").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
+            // The legacy HXA-200 tables are DROPPED at v21 (HXA-209 B4, ADR-PERMISSIONS-001
+            // section 4): the production chain leaves no compatibility mode that reads them.
+            assertFalse("tool_approval_preferences" in tables(sqlite))
+            assertFalse("tool_registration_baseline" in tables(sqlite))
+            assertFalse("tool_baseline_meta" in tables(sqlite))
         } finally {
             storage.database.close()
         }
@@ -616,7 +604,8 @@ class RoomMigrationFixtureTest {
                 assertTrue(it.moveToFirst())
                 assertEquals(0, it.getInt(0))
             }
-            // The old table is KEPT until the removal slice drops it (rows consumed, table intact).
+            // The old table is still present at v20 (its rows already consumed into
+            // tool_availability); [MIGRATION_20_21] (HXA-209 B4) drops it.
             db.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
                 assertTrue(it.moveToFirst())
                 assertEquals(4, it.getInt(0))
@@ -626,8 +615,32 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v20ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v20-export.db", 20)
+    fun v20ToV21DropsTheLegacyToolApprovalTables() {
+        val name = "legacy-tool-approval-removal.db"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 20).use { it.seedLegacyToolApprovalTables() }
+        helper.runMigrationsAndValidate(name, 21, true, HelixDatabase.MIGRATION_20_21).use { db ->
+            // All three legacy HXA-200 tables are GONE — no hidden compatibility mode reads them
+            // (ADR-PERMISSIONS-001 section 4).
+            assertTableDropped(db, "tool_approval_preferences")
+            assertTableDropped(db, "tool_registration_baseline")
+            assertTableDropped(db, "tool_baseline_meta")
+            // The surviving intent is byte-for-byte intact: the converted DISABLED rows (the old
+            // DENY rows' effect) and the READ_ONLY app default.
+            db.assertConvertedToolAvailability()
+            db.assertSeededAppDefault()
+            // The v20 session-permission tables survive the drop untouched.
+            db.query("SELECT COUNT(*) FROM session_permission_configs").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v21ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v21-export.db", 21)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -635,7 +648,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v20 schema must match the exported v20 schema",
+                "code-built v21 schema must match the exported v21 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -669,7 +682,7 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 18) —
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 21) —
         // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
         // including the room_master_table identity update). The assertions below verify the
         // 1 -> 2 step specifically; the chain also proves every later migration step applies.
@@ -696,6 +709,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_17_18,
                     HelixDatabase.MIGRATION_18_19,
                     HelixDatabase.MIGRATION_19_20,
+                    HelixDatabase.MIGRATION_20_21,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -1149,23 +1163,12 @@ class RoomMigrationFixtureTest {
         assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
         assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
         assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
-        // The 16 -> 17 step landed (HXA-200, ADR-0052): the live schema carries the user
-        // tool-approval-preference table — empty on upgrade, no seeded ALLOW rows.
-        assertTrue(
-            "v17 upgrade must add tool_approval_preferences",
-            "tool_approval_preferences" in tables(sqlite),
-        )
-        // The 17 -> 18 step landed (HXA-200 Gap 2, ADR-0052 point 1): the live schema carries the
-        // trusted tool-registration/upgrade baseline — the versionCode facts behind the NEW_DEFAULT
-        // default, empty on upgrade (no seeded founding anchor, no per-tool markers).
-        assertTrue(
-            "v18 upgrade must add tool_registration_baseline",
-            "tool_registration_baseline" in tables(sqlite),
-        )
-        assertTrue(
-            "v18 upgrade must add tool_baseline_meta",
-            "tool_baseline_meta" in tables(sqlite),
-        )
+        // The 16 -> 17 and 17 -> 18 steps were SUPERSEDED at v21 (HXA-209 B4): the legacy
+        // tool-approval-preference and new-tool-baseline tables were dropped again, so the full
+        // chain leaves no trace of the removed three-state preference chain.
+        assertFalse("tool_approval_preferences" in tables(sqlite))
+        assertFalse("tool_registration_baseline" in tables(sqlite))
+        assertFalse("tool_baseline_meta" in tables(sqlite))
         // The 19 -> 20 step landed (HXA-209 B2, ADR-PERMISSIONS-001): the live schema carries
         // the new session-permission storage — per-session compiled configs, the two-state tool
         // availability and the single-row app default.
@@ -1178,6 +1181,47 @@ class RoomMigrationFixtureTest {
             "v20 upgrade must add session_permission_defaults",
             "session_permission_defaults" in tables(sqlite),
         )
+    }
+
+    /**
+     * A v20 file in the state a real upgrade has: the legacy preference rows (still present at
+     * v20) plus the state [HelixMigrations.MIGRATION_19_20] produced for them — the converted
+     * DISABLED rows, the seeded app default and the two baseline tables' rows.
+     */
+    private fun SupportSQLiteDatabase.seedLegacyToolApprovalTables() {
+        seedLegacyApprovalPreferences()
+        execSQL(
+            "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                "revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('local', 'bash', 'GLOBAL', '', 'DISABLED', 1, 100, 200)",
+        )
+        execSQL(
+            "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                "revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('local', 'write', 'SESSION', 's-1', 'DISABLED', 1, 300, 400)",
+        )
+        execSQL(
+            "INSERT INTO session_permission_defaults (id, mode, configVersion, revision, " +
+                "updatedAtEpoch) VALUES ('app', 'READ_ONLY', 1, 0, 0)",
+        )
+        execSQL(
+            "INSERT INTO tool_registration_baseline (sourceRef, toolName, firstSeenVersionCode, " +
+                "updatedAtEpoch) VALUES ('local', 'bash', 7, 10)",
+        )
+        execSQL(
+            "INSERT INTO tool_baseline_meta (id, foundingVersionCode, updatedAtEpoch) " +
+                "VALUES ('app', 1, 5)",
+        )
+    }
+
+    /** The legacy table is gone after the drop: any read on it fails with "no such table". */
+    private fun assertTableDropped(
+        db: SupportSQLiteDatabase,
+        table: String,
+    ) {
+        assertThrows(android.database.SQLException::class.java) {
+            db.query("SELECT COUNT(*) FROM $table").use { it.moveToFirst() }
+        }
     }
 
     /** The legacy three-state preference rows (two DENY, one ASK, one ALLOW) on a v19 file. */
@@ -1358,16 +1402,9 @@ class RoomMigrationFixtureTest {
             "a2a_agents",
             "a2a_capabilities",
             "a2a_tasks",
-            // HXA-200 (v16 -> v17, ADR-0052): the user tool-approval-preference table landed in
-            // the live schema. Added here (not in any earlier export) so the export/code drift
-            // guard sees it; a new table added to the schema but not to this set turns this red.
-            "tool_approval_preferences",
-            // HXA-200 Gap 2 (v17 -> v18, ADR-0052 point 1): the trusted tool-registration/upgrade
-            // baseline — the per-tool first-seen markers and the single founding anchor. Empty on
-            // upgrade (the migration seeds no rows), so an existing install never treats a tool as
-            // "new." Both must appear in the live schema for the drift guard to pass.
-            "tool_registration_baseline",
-            "tool_baseline_meta",
+            // The legacy HXA-200 tables (tool_approval_preferences, tool_registration_baseline,
+            // tool_baseline_meta) were DROPPED at v21 (HXA-209 B4): they must NOT appear — a
+            // regression that re-adds them turns this guard red.
             "goal_controls",
             // HXA-209 B2 (v19 -> v20, ADR-PERMISSIONS-001): the session-permission storage —
             // the per-session compiled config, the two-state tool availability and the

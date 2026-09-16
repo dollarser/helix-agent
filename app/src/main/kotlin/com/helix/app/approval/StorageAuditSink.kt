@@ -82,9 +82,6 @@ class StorageAuditSink(
                 // It is one allowlisted top-level key (the nested sub-keys are built by the
                 // executor, not passed through); null (JsonNull) when the tool reports none.
                 "executionDetail",
-                "preferenceEvaluated",
-                "preferencePresented",
-                "preferenceAtStart",
                 // HXA-209 (ADR-PERMISSIONS-001 section 5): the session-permission decision of
                 // the attempt and its at-start recheck — mode version, effects, outcome,
                 // reasons. Null (JsonNull) when the stage did not run.
@@ -95,8 +92,8 @@ class StorageAuditSink(
         /**
          * Builds the redacted payload JSON — allowlist only, no bodies. The shape is
          * STABLE: every [PAYLOAD_KEYS] key is always present (null when the fact was
-         * never produced), so a payload that violates the key set is detectable as
-         * malformed (fail closed in [parseRow]).
+         * never produced). Rows written by older builds may carry now-retired keys (the
+         * HXA-200 preference facts) — [parseRow] tolerates and ignores them.
          */
         fun payload(event: DispatchAuditEvent): String =
             buildJsonObject {
@@ -121,9 +118,6 @@ class StorageAuditSink(
                 // HXA-053: the nested redacted object is emitted as-is when present; a null
                 // fact stays a present-but-null key so the allowlist shape is stable.
                 put("executionDetail", event.executionDetail ?: JsonNull)
-                put("preferenceEvaluated", event.preferenceEvaluated?.let(PreferenceAuditPayload::encode) ?: JsonNull)
-                put("preferencePresented", event.preferencePresented?.let(PreferenceAuditPayload::encode) ?: JsonNull)
-                put("preferenceAtStart", event.preferenceAtStart?.let(PreferenceAuditPayload::encode) ?: JsonNull)
                 put(
                     "sessionPermissionEvaluated",
                     event.sessionPermissionEvaluated?.let(SessionPermissionAuditPayload::encode) ?: JsonNull,
@@ -137,7 +131,10 @@ class StorageAuditSink(
         /**
          * Parses a stored row back into a typed record for the audit page. Returns null
          * (fail closed: the row is hidden, never shown raw) when the row is not a
-         * tool-dispatch event or its payload violates the allowlist shape.
+         * tool-dispatch event or its payload is not a JSON object. Unknown extra keys are
+         * tolerated: HXA-200 rows written before HXA-209 B4 carry preferenceEvaluated /
+         * preferencePresented / preferenceAtStart keys that are no longer produced — such
+         * rows remain readable and the legacy keys are ignored, never reinterpreted.
          */
         fun parseRow(
             id: String,
@@ -167,24 +164,6 @@ class StorageAuditSink(
                         outputHash = obj.optString("outputHash"),
                         startedAt = obj.optLong("startedAt") ?: timestamp,
                         finishedAt = obj.optLong("finishedAt") ?: timestamp,
-                        preferenceEvaluated =
-                            obj["preferenceEvaluated"]?.let {
-                                PreferenceAuditPayload.decode(
-                                    it.toString(),
-                                )
-                            },
-                        preferencePresented =
-                            obj["preferencePresented"]?.let {
-                                PreferenceAuditPayload.decode(
-                                    it.toString(),
-                                )
-                            },
-                        preferenceAtStart =
-                            obj["preferenceAtStart"]?.let {
-                                PreferenceAuditPayload.decode(
-                                    it.toString(),
-                                )
-                            },
                         sessionPermissionEvaluated =
                             obj["sessionPermissionEvaluated"]?.let {
                                 SessionPermissionAuditPayload.decode(
@@ -265,9 +244,6 @@ data class DispatchAuditRecord(
     val outputHash: String? = null,
     val startedAt: Long,
     val finishedAt: Long,
-    val preferenceEvaluated: PreferenceAuditPayload? = null,
-    val preferencePresented: PreferenceAuditPayload? = null,
-    val preferenceAtStart: PreferenceAuditPayload? = null,
     val sessionPermissionEvaluated: SessionPermissionAuditPayload? = null,
     val sessionPermissionAtStart: SessionPermissionAuditPayload? = null,
 ) {

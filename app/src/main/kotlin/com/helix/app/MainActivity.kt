@@ -264,7 +264,6 @@ private fun DestinationScreen(
                 container.fileManager,
                 onNavigation = onOpenDrawer,
                 onProviders = { navController.navigate(ShellDestination.Settings.route) },
-                toolApprovalSettings = container.toolApprovalSettings,
             )
         }
 
@@ -331,7 +330,6 @@ private fun DestinationScreen(
                 container.skillAuthoringService,
                 container.skillInstallationService,
                 chatService = container.chatService,
-                toolApprovalSettings = container.toolApprovalSettings,
             )
         }
 

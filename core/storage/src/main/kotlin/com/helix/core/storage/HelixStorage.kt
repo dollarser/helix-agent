@@ -37,10 +37,8 @@ import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.SessionRepository
 import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
-import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
 import com.helix.core.storage.repository.ToolAvailabilityRepository
 import com.helix.core.storage.repository.ToolCallRepository
-import com.helix.core.storage.repository.ToolRegistrationBaselineRepository
 import com.helix.core.storage.repository.ToolResultRepository
 import com.helix.core.storage.repository.TurnRepository
 import java.io.File
@@ -70,14 +68,6 @@ class HelixStorage internal constructor(
     val approvals: ApprovalRepository by lazy { ApprovalRepository(database.approvalDao()) }
 
     /**
-     * Standing user tool-approval preferences (HXA-200, ADR-0052), distinct from the per-call
-     * [approvals] table. The user application service writes; the Registry and Dispatcher read.
-     */
-    val toolApprovalPreferences: ToolApprovalPreferenceRepository by lazy {
-        ToolApprovalPreferenceRepository(database.toolApprovalPreferenceDao())
-    }
-
-    /**
      * Session permission configurations (HXA-209, ADR-PERMISSIONS-001): the per-session
      * compiled config rows and the app-default row. Written by the user application service;
      * the dispatcher reads [SessionPermissionConfigRepository.forSession] /
@@ -99,18 +89,6 @@ class HelixStorage internal constructor(
         ToolAvailabilityRepository(database.toolAvailabilityDao())
     }
 
-    /**
-     * The trusted tool-registration/upgrade baseline (HXA-200 Gap 2, ADR-0052 point 1) — the
-     * first-write-wins marker set that lets the resolver tell a tool that is "new in this build"
-     * from one that is merely unconfigured. Written only by the app's trusted registration path;
-     * read by the preference service to produce the new-tool default.
-     */
-    val toolRegistrationBaseline: ToolRegistrationBaselineRepository by lazy {
-        ToolRegistrationBaselineRepository(
-            database.toolRegistrationBaselineDao(),
-            database.toolBaselineMetaDao(),
-        )
-    }
     val interactionReceipts: InteractionReceiptRepository by lazy {
         InteractionReceiptRepository(database.interactionReceiptDao())
     }
@@ -236,6 +214,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_17_18,
                 HelixDatabase.MIGRATION_18_19,
                 HelixDatabase.MIGRATION_19_20,
+                HelixDatabase.MIGRATION_20_21,
             )
 
         fun create(context: Context): HelixStorage {

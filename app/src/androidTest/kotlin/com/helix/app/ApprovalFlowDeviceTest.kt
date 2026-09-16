@@ -3,14 +3,23 @@ package com.helix.app
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.approval.ApprovalCancelledException
+import com.helix.app.chat.ChatService
 import com.helix.app.chat.ToolTimelineRow
 import com.helix.app.profile.AdvancedProfileAvailability
+import com.helix.app.provider.LoopbackModelServer
+import com.helix.app.provider.ProviderDraft
+import com.helix.core.model.AgentMode
+import com.helix.core.model.ApprovalDecision
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.NormalizedEndpoint
+import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
+import com.helix.provider.api.CleartextAuthorization
+import com.helix.provider.api.ProbeOutcome
 import com.helix.tools.framework.DispatchOutcomeCode
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.Idempotency
@@ -19,6 +28,7 @@ import com.helix.tools.framework.ToolDispatchOutcome
 import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolOrigin
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -35,6 +45,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -378,9 +389,174 @@ class ApprovalFlowDeviceTest {
     @Test
     fun stopWhilePendingCancelsTheDispatchOnDevice() {
         // A persisted synthetic turn is not an active ChatService run. stop() deliberately
-        // targets the owned active run; use the real model-loop fixture to establish ownership.
-        // It asserts cancellation, zero execution, undecided/unconsumed proof and late-card rejection.
-        ToolPreferenceStopDeviceTest().verifyRealTurnStopAndOldCardRejection()
+        // targets the owned active run; use the real model-loop fixture to establish
+        // ownership. It asserts cancellation, zero execution, undecided/unconsumed proof
+        // and late-card rejection.
+        // HXA-209 B4: the HXA-200 three-state preference that forced the card is gone —
+        // the `echo` tool the fixture model calls is LOCAL_MUTATION, so the platform
+        // classifies it as an UNDETERMINED device mutation and the seeded READ_ONLY
+        // session default resolves it to ASK through the ONE resolver (the same card
+        // mechanism as every other approval). The two-phase restart/recovery protocol
+        // (shared-preferences marker) is re-covered by the session-config recovery
+        // tests; its marker's only consumer was removed with it.
+        runBlocking {
+            val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+            val container = (app as HelixApplication).appContainer
+            val chat = container.chatService
+            val executions = AtomicInteger()
+            registerStopFixtureEcho(container, executions)
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.start()
+                val provider = createStopFixtureProvider(container, server.port)
+                val session = chat.createSession("HXA209 stop fixture", provider, "fixture-model-a")
+                val previous = chat.runControl.value
+                try {
+                    chat.openSession(session)
+                    chat.setMode(AgentMode.ACT)
+                    chat.send("Echo probe.")
+                    stopAwait {
+                        container.storage.turns.listBySession(session).any { turn ->
+                            container.storage.toolCalls.listByTurn(turn.id).any {
+                                container.storage.approvals.byToolCall(it.id) != null
+                            }
+                        }
+                    }
+                    stopAndAssertCancellation(container, chat, session, executions)
+                } finally {
+                    chat.stop()
+                    stopAwait { !chat.screen.value.isSending }
+                    chat.closeSession()
+                    chat.setMode(previous.mode)
+                    container.providerService.delete(provider)
+                }
+            }
+        }
+    }
+
+    /**
+     * The stop half of the fixture: stop the active run while the card is pending and
+     * assert the HXA-200 stop contract — the turn and the blocked call settle CANCELLED,
+     * the tool never executed, the proof stays undecided and unconsumed, and the old
+     * card can never mint.
+     */
+    private fun stopAndAssertCancellation(
+        container: AppContainer,
+        chat: ChatService,
+        session: String,
+        executions: AtomicInteger,
+    ) {
+        val turn =
+            container.storage.turns
+                .listBySession(session)
+                .single()
+        val call =
+            container.storage.toolCalls
+                .listByTurn(turn.id)
+                .single()
+        val approval = requireNotNull(container.storage.approvals.byToolCall(call.id))
+        chat.stop()
+        stopAwait {
+            container.storage.turns
+                .resolve(turn.id)
+                .state == "CANCELLED" &&
+                !chat.screen.value.isSending
+        }
+        assertEquals(
+            "CANCELLED",
+            container.storage.toolCalls
+                .resolve(call.id)
+                .state,
+        )
+        assertEquals(0, executions.get())
+        assertThrows(IllegalArgumentException::class.java) {
+            container.toolPipeline.broker.decide(approval.id, ApprovalDecision.APPROVED)
+        }
+        val stoppedApproval = container.storage.approvals.resolve(approval.id)
+        assertNull(stoppedApproval.decision)
+        assertNull(stoppedApproval.consumedAt)
+    }
+
+    /** Polls [condition] every 25 ms for up to 30 s (the HXA-200 fixture's await, kept local). */
+    private fun stopAwait(condition: () -> Boolean) {
+        val deadline = System.nanoTime() + 30_000_000_000L
+        while (!condition() && System.nanoTime() < deadline) Thread.sleep(25)
+        assertTrue("production state must settle", condition())
+    }
+
+    /**
+     * Registers a fresh version of the `echo` tool the OPENAI_LISTED fixture model always
+     * calls. LOCAL_MUTATION (not READ_ONLY) on purpose: the session-permission stage
+     * classifies it as an UNDETERMINED device mutation, which the seeded READ_ONLY
+     * default resolves to ASK — a card, with no preference to set (HXA-209 B4).
+     */
+    private fun registerStopFixtureEcho(
+        container: AppContainer,
+        executions: AtomicInteger,
+    ) {
+        val nextVersion =
+            (
+                container.toolPipeline.registry
+                    .resolveLatest(ToolName("echo"))
+                    ?.version
+                    ?.value ?: 0
+            ) + 1
+        val descriptor =
+            ToolDescriptor(
+                name = ToolName("echo"),
+                version =
+                    com.helix.core.model
+                        .ToolVersion(nextVersion),
+                description = "Stop fixture",
+                inputSchema = JsonObject(emptyMap()),
+                outputSchema = JsonObject(emptyMap()),
+                operationClass = ToolOperationClass.LOCAL_MUTATION,
+                baseRisk = RiskLevel.L2,
+                timeout = 30.seconds,
+                maxOutputBytes = 4096L,
+                requiredCapabilities = emptySet(),
+                idempotency = Idempotency.IDEMPOTENT,
+                executionTarget = ExecutionTargetType.LOCAL_ANDROID,
+                origin = ToolOrigin.BuiltInOrigin,
+            )
+        container.toolPipeline.registry.register(descriptor)
+        container.toolPipeline.implementations.register(
+            descriptor,
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    executions.incrementAndGet()
+                    return ToolExecutorResult.Completed(JsonObject(emptyMap()))
+                }
+            },
+        )
+    }
+
+    /** The local loopback provider the stop fixture sends through (no account, no network). */
+    private suspend fun createStopFixtureProvider(
+        container: AppContainer,
+        port: Int,
+    ): String {
+        val service = container.providerService
+        val id =
+            service.create(
+                ProviderDraft(
+                    null,
+                    "HXA209 local stop fixture",
+                    ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    NormalizedEndpoint.parse("http://127.0.0.1:$port/v1"),
+                    "fixture-model-a",
+                    "{}",
+                    false,
+                    CleartextAuthorization("127.0.0.1", port),
+                    emptyList(),
+                ),
+                null,
+                cleartextConfirmed = true,
+            )
+        val probe = service.runConnectionTest(id)
+        assertTrue("local fixture probe: $probe", probe is ProbeOutcome.Ok)
+        val capability = service.runCapabilityTest(id)
+        assertTrue("local capability probe: $capability", capability is ProbeOutcome.Ok)
+        return id
     }
 
     companion object {

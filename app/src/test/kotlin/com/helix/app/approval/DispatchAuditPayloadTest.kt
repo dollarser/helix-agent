@@ -27,8 +27,20 @@ import org.junit.Test
 class DispatchAuditPayloadTest {
     @Test
     fun legacyRowsRemainReadableWithoutInventingPreferenceEvidence() {
+        // HXA-209 B4: rows written before the three-state preference was removed CARRY the
+        // preferenceEvaluated/Presented/AtStart keys. parseRow tolerates those unknown keys,
+        // ignores them (the record has no field to reinterpret them into) and the row stays
+        // readable with every current fact intact.
         val current = Json.parseToJsonElement(StorageAuditSink.payload(fullEvent())).jsonObject
-        val legacy = kotlinx.serialization.json.JsonObject(current.filterKeys { !it.startsWith("preference") })
+        val legacy =
+            kotlinx.serialization.json.JsonObject(
+                current.toMutableMap().also {
+                    it["preferenceEvaluated"] = Json.parseToJsonElement("""{"version":1,"effective":"ASK"}""")
+                    it["preferencePresented"] =
+                        Json.parseToJsonElement("""{"version":1,"effective":"ASK","rules":[]}""")
+                    it["preferenceAtStart"] = JsonNull
+                },
+            )
         val row =
             requireNotNull(
                 StorageAuditSink.parseRow(
@@ -41,9 +53,11 @@ class DispatchAuditPayloadTest {
                 ),
             )
         assertTrue(row.complete)
-        assertNull(row.preferenceEvaluated)
-        assertNull(row.preferencePresented)
-        assertNull(row.preferenceAtStart)
+        assertEquals("turn-1", row.turnId)
+        assertEquals("sess-1", row.sessionId)
+        assertEquals(DispatchOutcomeCode.SUCCESS, row.code)
+        // New rows never carry the retired keys.
+        assertFalse(current.keys.any { it.startsWith("preference") })
     }
 
     private fun fullEvent() =

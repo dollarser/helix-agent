@@ -12,6 +12,7 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.model.ToolAvailabilityStates
 import com.helix.core.model.ToolName
+import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.ApprovalProof
 import com.helix.core.policy.CapabilityCenter
@@ -30,6 +31,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -44,7 +46,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * requirement composes its precise reasons into the SAME per-call surface; a clean
  * all-ALLOW footprint proceeds card-free; the rm-rule floor forces a card in every mode;
  * and the pre-start recheck honors a config/availability change that landed in the queue.
- * The unwired dispatcher stays exactly as before (the stage is inert).
+ * HXA-209 B4: the stage is the SINGLE card driver — a wired, session-authorized call is
+ * never stopped or re-asked by the historical L3 default denial or the risk/egress
+ * approval (they stay risk signals and compose into the session's card), while hard-fact
+ * denials stop in every wiring. The unwired dispatcher keeps the historical 1:1 policy
+ * mapping (the legacy fail-closed path for non-session contexts).
  */
 class SessionPermissionStageTest {
     private lateinit var clock: TestClock
@@ -192,9 +198,11 @@ class SessionPermissionStageTest {
     }
 
     @Test
-    fun aPolicyCardKeepsItsOwnDetailOverTheComposedReasons() {
-        // The policy itself demands the card (L2): its detail is shown; the resolver's
-        // reasons stay in the audit but never replace the policy text.
+    fun aPolicyApprovalComposesIntoTheSessionCardWithBothDetails() {
+        // HXA-209 B4 contract: the session stage is the single card driver, but when the
+        // historical risk/egress approval fires for the SAME call its detail composes into
+        // the SAME card — the precise session reasons are never hidden by the policy text
+        // (the B3 behavior of the policy detail replacing them is the documented change).
         val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY))
         val classification =
             CallEffectClassification(
@@ -208,7 +216,15 @@ class SessionPermissionStageTest {
         broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
         assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
         val card = broker.acquireCalls.single()
-        assertTrue("the policy detail wins the card", !card.confirmationDetail.contains("SCOPE_OUTSIDE"))
+        assertTrue(
+            "the policy approval detail is kept in the composed card",
+            card.confirmationDetail.contains("dynamic risk L2 requires per-call approval"),
+        )
+        assertTrue(
+            "the precise session reasons compose into the SAME card",
+            card.confirmationDetail.contains("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"),
+        )
+        assertTrue(card.confirmationDetail, card.confirmationDetail.contains("RISK_LEVEL:"))
         val audit = checkNotNull(sink.events.single().sessionPermissionEvaluated)
         assertEquals(listOf("SCOPE_OUTSIDE:FILE_MUTATION_EXTERNAL"), audit.reasons)
     }
@@ -314,9 +330,177 @@ class SessionPermissionStageTest {
         assertNull(event.sessionPermissionAtStart)
     }
 
+    // ------------------------------- HXA-209 B4: the stage is the single card driver
+
+    @Test
+    fun aSessionAuthorizedL2CallProceedsCardFreeWithTheRiskStillAudited() {
+        // B4: the historical risk approval (完全免确认不是仅 L2 豁免) never re-asks a call
+        // the session mode authorized; the dynamic risk stays in the audit.
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
+        val classification =
+            CallEffectClassification(
+                OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_WORKSPACE)),
+            )
+        val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
+        val executor =
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(TestFixtures.builtIn(name = "fake", baseRisk = RiskLevel.L2), executor)
+        assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
+        assertEquals(1, executor.invocations)
+        assertEquals(0, broker.acquireCalls.size)
+        val event = sink.events.single()
+        assertEquals(RiskLevel.L2, event.riskLevel)
+        assertEquals(
+            SessionPermissionDecisionAudit.OUTCOME_AUTO_PROCEED,
+            checkNotNull(event.sessionPermissionEvaluated).outcome,
+        )
+    }
+
+    @Test
+    fun aBaseL3DenialIsDemotedForAWiredSessionAndStaysHardWhenUnwired() {
+        // B4: the historical L3 default denial is a product default, not an unexecutable
+        // fact — wired, a session-authorized L3 call proceeds (risk audited); unwired, the
+        // historical hard denial keeps stopping (legacy fail-closed).
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
+        val wired =
+            dispatcherWith(
+                source,
+                source,
+                ScriptedClassifier(CallEffectClassification(OperationFootprint())),
+            )
+        registerTool(
+            TestFixtures.builtIn(name = "fake", baseRisk = RiskLevel.L3),
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
+        )
+        assertTrue(wired.dispatch(request()) is ToolDispatchOutcome.Succeeded)
+        assertEquals(RiskLevel.L3, sink.events.single().riskLevel)
+
+        val unwired =
+            ToolDispatcher(clock, registry, impls, center, PolicyEngine(clock), broker, sink, { emptySet() })
+        val denied = unwired.dispatch(request()) as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.POLICY_DENIED, denied.code)
+        assertTrue(denied.detail, denied.detail.contains("L3_DEFAULT_DENY"))
+        assertEquals(DecisionSource.POLICY, sink.events.last().decisionSource)
+    }
+
+    @Test
+    fun aHardFactDenialStopsDespiteFullAccess() {
+        // B4: only the historical L3 default is demoted — hard-fact denials (here the Plan
+        // read-only boundary, ADR: the Chat/Plan boundaries are never relaxed by presets)
+        // stop in every wiring, before the session stage evaluates anything.
+        val source = ScriptedSessionPermission(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
+        val dispatcher =
+            dispatcherWith(
+                source,
+                source,
+                ScriptedClassifier(CallEffectClassification(OperationFootprint())),
+            )
+        val executor =
+            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
+        registerTool(
+            TestFixtures.builtIn(
+                name = "fake",
+                operationClass = ToolOperationClass.LOCAL_MUTATION,
+                baseRisk = RiskLevel.L0,
+            ),
+            executor,
+        )
+        val denied = dispatcher.dispatch(request().copy(mode = AgentMode.PLAN)) as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.POLICY_DENIED, denied.code)
+        assertTrue(denied.detail, denied.detail.contains("PLAN_MODE_NOT_READ_ONLY"))
+        assertEquals(0, executor.invocations)
+        assertEquals(0, broker.acquireCalls.size)
+        assertEquals(DecisionSource.POLICY, sink.events.single().decisionSource)
+        assertNull("a hard-fact denial stops before the session stage", sink.events.single().sessionPermissionEvaluated)
+    }
+
+    @Test
+    fun aDenyAtTheStartGateAfterApprovalLeavesTheProofUnconsumed() {
+        // Kept HXA-200 contract through the new seam: a refusal that lands between the card
+        // and the effect start stops the call — the acquired proof is never consumed.
+        val source =
+            ScriptedSessionPermission(
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+            )
+        val classification =
+            CallEffectClassification(
+                OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_EXTERNAL)),
+            )
+        val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
+        val executor = registerL0Tool()
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        source.configFromStartGate =
+            SessionPermissionConfig.custom(
+                mapOf(OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY),
+            )
+        val denied = dispatcher.dispatch(request()) as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.OPERATION_DENIED, denied.code)
+        assertEquals(1, broker.acquireCalls.size)
+        assertEquals("the refusal stops the start: the proof is never consumed", 0, broker.consumeCalls.size)
+        assertEquals(0, executor.invocations)
+        assertNull(sink.events.single().executionStartedAt)
+    }
+
+    @Test
+    fun aNewAskAtTheStartGateAcquiresOneCardThenCommitsWithTheProof() {
+        // Kept HXA-200 contract through the new seam: a NEW ASK that lands after a card-free
+        // evaluation re-enters the SAME card path at the start gate — one card, one proof,
+        // and the at-start recheck then sees the proof and commits without a second card.
+        val source =
+            ScriptedSessionPermission(
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+            )
+        val classification =
+            CallEffectClassification(
+                OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_EXTERNAL)),
+            )
+        val dispatcher = dispatcherWith(source, source, ScriptedClassifier(classification))
+        val executor = registerL0Tool()
+        source.configFromStartGate =
+            SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE)
+        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
+        assertTrue(dispatcher.dispatch(request()) is ToolDispatchOutcome.Succeeded)
+        assertEquals(1, executor.invocations)
+        assertEquals("exactly one card for the late ASK", 1, broker.acquireCalls.size)
+        assertEquals(1, broker.consumeCalls.size)
+        assertNotNull(
+            "the at-start recheck re-ran the stage with the proof",
+            sink.events.single().sessionPermissionAtStart,
+        )
+    }
+
+    @Test
+    fun aDenyAfterStartDoesNotCancelTheStartedCall() {
+        // Kept HXA-200 contract through the new seam: the live re-read stops calls that
+        // have not started; a config change landing AFTER the start commits never cancels
+        // the running effect (already-started tasks stop on their own, ADR section 4).
+        val source =
+            ScriptedSessionPermission(
+                SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS),
+            )
+        val dispatcher =
+            dispatcherWith(
+                source,
+                source,
+                ScriptedClassifier(CallEffectClassification(OperationFootprint())),
+            )
+        registerL0Tool()
+        val request =
+            request().copy(
+                onExecutionStarting = {
+                    source.config =
+                        SessionPermissionConfig.custom(
+                            mapOf(OperationEffect.FILE_READ_WORKSPACE to OperationRule.DENY),
+                        )
+                },
+            )
+        assertTrue(dispatcher.dispatch(request) is ToolDispatchOutcome.Succeeded)
+        assertEquals(0, broker.acquireCalls.size)
+    }
+
     // -------------------------------------------------------------------- helpers
 
-    /** A dispatcher with exactly the HXA-209 B3 seams wired (the legacy preference seam stays off). */
+    /** A dispatcher with exactly the HXA-209 session seams wired. */
     private fun dispatcherWith(
         source: SessionPermissionSource?,
         availability: ToolAvailabilitySource?,
@@ -331,7 +515,6 @@ class SessionPermissionStageTest {
             broker,
             sink,
             { emptySet() },
-            preferenceSource = null,
             sessionPermissions = source,
             toolAvailability = availability,
             effectClassifier = classifier,

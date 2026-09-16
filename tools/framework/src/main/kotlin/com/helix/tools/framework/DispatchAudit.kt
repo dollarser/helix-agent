@@ -17,7 +17,11 @@ enum class DispatchOutcomeCode {
     BUDGET_EXHAUSTED,
     POLICY_DENIED,
 
-    /** A user DENY preference blocked the tool (HXA-200, ADR-0052); distinct from a policy-engine denial. */
+    /**
+     * A user DENY preference blocked the tool (HXA-200, ADR-0052). The legacy three-state
+     * preference chain is removed (HXA-209 B4): this code is KEPT so that historical audit
+     * rows keep their stable identifier — no new dispatch can produce it.
+     */
     PREFERENCE_DENIED,
 
     /** The user's two-state tool availability disabled the tool (HXA-209, ADR-PERMISSIONS-001 section 1.1). */
@@ -110,10 +114,6 @@ data class DispatchAuditEvent(
     val attemptId: Int = 1,
     /** Optional bounded redacted executor metadata (HXA-053); see the class KDoc. */
     val executionDetail: JsonObject? = null,
-    /** Latest evaluation, card presentation, and committed start are separate immutable facts. */
-    val preferenceEvaluated: PreferenceDecisionAudit? = null,
-    val preferencePresented: PreferenceDecisionAudit? = null,
-    val preferenceAtStart: PreferenceDecisionAudit? = null,
     /** HXA-209 (ADR-PERMISSIONS-001 section 5); see the class KDoc. */
     val sessionPermissionEvaluated: SessionPermissionDecisionAudit? = null,
     val sessionPermissionAtStart: SessionPermissionDecisionAudit? = null,

@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
-import com.helix.app.ui.container
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
 import org.junit.Rule
@@ -38,17 +37,12 @@ class ConnectorUiDeviceTest {
     }
 
     private fun waitForSettingsRows() {
-        // The asynchronous approval list is ABOVE this entry. Its initial empty state
-        // changes the scroll range after recreation, even when Compose is idle.
-        val lastTool =
-            composeRule
-                .container()
-                .toolApprovalSettings
-                .rows()
-                .last()
-                .toolName
+        // HXA-209 B4: the asynchronous tool-approval list that used to sit ABOVE this
+        // entry (its settling changed the scroll range even when Compose was idle) is
+        // gone — the session permission config replaced it. Wait for the connector
+        // section itself to be composed; the sections above it are static.
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("tool-approval-row-$lastTool").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithTag("connector-import").fetchSemanticsNodes().isNotEmpty()
         }
     }
 }

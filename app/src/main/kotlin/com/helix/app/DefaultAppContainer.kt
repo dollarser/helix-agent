@@ -9,9 +9,6 @@ import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.approval.SessionPermissionService
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
-import com.helix.app.approval.ToolApprovalPreferenceService
-import com.helix.app.approval.ToolApprovalSettingsModel
-import com.helix.app.approval.preferenceScopeChoices
 import com.helix.app.audit.AuditLogService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.capability.StorageCapabilityGrantRecorder
@@ -56,7 +53,6 @@ import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
 import com.helix.core.policy.effectiveAvailability
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.core.workspace.ScopeNotAvailable
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -397,62 +393,6 @@ internal class DefaultAppContainer(
     private val approvalCardSink: ApprovalCardSinkHolder = ApprovalCardSinkHolder()
 
     /**
-     * The app's own versionCode (HXA-200 Gap 2, point 1): the trusted input to the new-tool baseline
-     * decision. Read once from the package manager and folded into the preference service via
-     * [com.helix.core.policy.ToolBaseline], so an upgrade-introduced, unconfigured tool resolves to
-     * an ASK tagged NEW_DEFAULT — and the same build's restart stays stable (the decision is a pure
-     * function of this plus the persisted founding/first-seen codes).
-     */
-    private val currentVersionCode: Long =
-        context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
-
-    /**
-     * Standing user tool-approval preferences (HXA-200, ADR-0052). The ONLY write path (the future
-     * settings screen / approval card / device tests call [set]/[remove]); it is also the live read
-     * seam handed to BOTH the [ToolDispatcher] (pre-start re-resolution) and the Registry exposure
-     * filter so they resolve one tool against the same store (point 7). Its [ToolApprovalPreferenceService.reconcile]
-     * is likewise the ONLY write path to the trusted new-tool baseline: the built-in tools are
-     * registered first-write-wins under the current build, so a fresh install marks them all OLD
-     * (founding == current) and an upgrade marks only the tools it newly introduced as NEW for this
-     * build (Gap 2, point 1).
-     */
-    override val toolApprovalPreferenceService: ToolApprovalPreferenceService =
-        ToolApprovalPreferenceService(
-            storage.toolApprovalPreferences,
-            storage.toolRegistrationBaseline,
-            currentVersionCode,
-            sessionWorkspace = { sessionId ->
-                storage.sessions
-                    .list()
-                    .firstOrNull { it.id == sessionId }
-                    ?.let { it.directoryRef ?: APP_SCOPE_ID }
-            },
-        ).also { service ->
-            service.reconcile(builtInToolIdentities(), appClock.now().toEpochMilli())
-        }
-
-    /** HXA-201: the settings screen's tool-approval model over the same registry + preference service. */
-    override val toolApprovalSettings: ToolApprovalSettingsModel =
-        ToolApprovalSettingsModel(
-            toolRegistry,
-            toolApprovalPreferenceService,
-            choices = { preferenceScopeChoices(storage.sessions.list(), APP_SCOPE_ID) },
-        )
-
-    /**
-     * The trusted (source, name) identities of the built-in tools for the baseline (HXA-200 Gap 2):
-     * exactly what the [init] block has registered into [toolRegistry] at construction — the
-     * statically-bundled tools (the flavor-conditional modules register nothing in consumer). Dynamic
-     * MCP/A2A tools register later at connection time and are deliberately NOT part of the founding
-     * baseline (deferred): they resolve UNSET until a trusted path registers them, so an empty record
-     * is never mistaken for "new."
-     */
-    private fun builtInToolIdentities(): List<ToolBaselineIdentity> =
-        toolRegistry.all().map { descriptor ->
-            ToolBaselineIdentity(descriptor.origin.canonicalOf(), descriptor.name.value)
-        }
-
-    /**
      * The production approval broker (roadmap HXA-036): pending records with the full
      * binding hash + 24h window, the UI-decided [decide], and the HXA-034 mint/consume
      * guards as the ONLY path to a typed proof (ADR-0005: no auto-approve path exists).
@@ -515,13 +455,10 @@ internal class DefaultAppContainer(
                             storage.highSensitivityRules.all().map { it.rule }
                         }
                     },
-                    // HXA-200 (ADR-0052): re-resolve the user's stored preference before the call
-                    // starts — the SAME instance the Registry exposure filter reads (point 7).
-                    preferenceSource = toolApprovalPreferenceService,
-                    // HXA-209 B3: the new session-permission stage (config, availability and
-                    // effect classification). Additive in B3 — the preference path above stays
-                    // the first gate; all three seams are wired together (required by the
-                    // dispatcher's init contract).
+                    // HXA-209 (B3 wired, B4 final): the session-permission stage is the single card
+                    // driver — config, availability and effect classification compile to one
+                    // config through one resolver (ADR-PERMISSIONS-001 section 2); all three
+                    // seams are wired together (required by the dispatcher's init contract).
                     sessionPermissions = sessionPermissions,
                     toolAvailability = sessionPermissions,
                     effectClassifier = effectClassifier,
@@ -545,7 +482,6 @@ internal class DefaultAppContainer(
                 broker,
                 auditSink,
                 scheduler,
-                toolApprovalPreferenceService,
                 disabledToolFilter = disabledToolFilter,
             ).also {
                 it.mcpDiscovery.register(toolImplementations)
