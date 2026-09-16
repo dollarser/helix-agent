@@ -1,0 +1,17 @@
+// Narrows the root spotless "kotlin" format to the HXA-209 Phase D files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices are left untouched. (Grows as Phase D
+// files are added.)
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'app/src/main/kotlin/com/helix/app/AppContainer.kt',
+        'app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt',
+        'app/src/main/kotlin/com/helix/app/approval/SessionPermissionEditService.kt',
+        'app/src/test/kotlin/com/helix/app/approval/SessionPermissionEditServiceTest.kt',
+    )
+}

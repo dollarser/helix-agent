@@ -6,6 +6,7 @@ import com.helix.app.a2a.A2aAppService
 import com.helix.app.a2a.A2aStorageBridge
 import com.helix.app.a2a.A2aTaskRunner
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.approval.SessionPermissionService
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
@@ -495,6 +496,25 @@ internal class DefaultAppContainer(
                 it.mcpDiscovery.register(toolImplementations)
             }
         }
+
+    /**
+     * The session-authorization WRITE service (HXA-209 D, ADR-PERMISSIONS-001 section 5): the
+     * settings UI's ONLY path to a mode / rule-set / tool-availability change. It shares the
+     * SAME B2 repositories the read path ([SessionPermissionService]) reads, so a write is
+     * linearized against execution starts by the single-row atomic upsert + monotonic revision
+     * (section 4: an approval WAIT holds no mode write lock). The audit seam appends an
+     * INDEPENDENT config-change row through the repository the read path queries; a storage
+     * failure propagates (section 2: a refused write is never shown as saved).
+     */
+    override val sessionPermissionEdit: SessionPermissionEditService =
+        SessionPermissionEditService(
+            configs = storage.sessionPermissionConfigs,
+            availability = storage.toolAvailability,
+            idGenerator = { idGenerator.next() },
+            appendAudit = { id, correlationId, type, actor, payload, timestamp ->
+                storage.auditEvents.append(id, correlationId, type, actor, payload, timestamp)
+            },
+        )
 
     override val auditLogService: AuditLogService = AuditLogService(storage)
 

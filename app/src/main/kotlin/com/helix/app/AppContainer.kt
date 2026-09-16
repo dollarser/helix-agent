@@ -1,6 +1,7 @@
 package com.helix.app
 
 import com.helix.app.a2a.A2aAppService
+import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.audit.AuditLogService
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
@@ -68,6 +69,15 @@ interface AppContainer {
      * directly (AGENTS: UI never touches the execution layer).
      */
     val toolPipeline: ToolPipeline
+
+    /**
+     * The session-authorization WRITE service (HXA-209 D, ADR-PERMISSIONS-001 section 5): the
+     * settings UI operates through it — never the DAOs. Every change is a USER action that
+     * appends an independent config-change audit event (mode, rule-set version, change time,
+     * binding); a storage failure propagates, so a refused write is never audited or shown as
+     * saved.
+     */
+    val sessionPermissionEdit: SessionPermissionEditService
 
     val connectorService: com.helix.app.connector.ConnectorService
         get() = error("Connector service is unavailable in this container")
