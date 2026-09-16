@@ -978,4 +978,23 @@
     <string name="goal_defaults_summary">模型调用：%1$d · 工具调用：%2$d · 累计 token：%3$d · 总执行（分钟）：%4$d · 单次（分钟）：%5$d</string>
     <string name="goal_defaults_reset">恢复默认值</string>
     <string name="chat_blocked_session_busy">当前会话仍在执行，请等待结束或停止后重试；附件已保留。</string>
+
+    <!-- HXA-209 D3: session authorization settings (mode picker, new-session default, tool list) -->
+    <string name="settings_perm_title">会话授权</string>
+    <string name="settings_perm_default_label">新会话默认模式</string>
+    <string name="settings_perm_mode_full_access">完全访问</string>
+    <string name="settings_perm_mode_workspace">工作区</string>
+    <string name="settings_perm_mode_read_only">只读</string>
+    <string name="settings_perm_mode_custom">自定义</string>
+    <string name="settings_perm_session_label">当前会话模式</string>
+    <string name="settings_perm_session_absent">没有打开的会话；工具可用性为全局设置。</string>
+    <string name="settings_perm_session_using_default">使用默认模式</string>
+    <string name="settings_perm_session_customized">已单独设置</string>
+    <string name="settings_perm_custom_hint">自定义需先复制一个预设并编辑规则。</string>
+    <string name="settings_perm_reset">恢复默认</string>
+    <string name="settings_perm_tools_label">工具可用性（全局）</string>
+    <string name="settings_perm_tools_note">禁用后该工具从所有展示与执行入口消失；启用仅恢复可用性，不恢复逐次询问。</string>
+    <string name="settings_perm_tool_enabled">已启用</string>
+    <string name="settings_perm_tool_disabled">已禁用</string>
+    <string name="settings_perm_tool_toggle">切换</string>
 </resources>

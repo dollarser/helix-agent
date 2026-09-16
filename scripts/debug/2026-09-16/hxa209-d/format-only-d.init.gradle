@@ -26,5 +26,9 @@ projectsEvaluated {
         'app/src/test/kotlin/com/helix/app/approval/SessionPermissionServiceAvailabilityTest.kt',
         'core/storage/src/test/kotlin/com/helix/core/storage/repository/SessionPermissionConfigRepositoryTest.kt',
         'core/storage/src/androidTest/kotlin/com/helix/core/storage/RoomMigrationFixtureTest.kt',
+        // D3 (Settings UI: the session-authorization section + screen wiring)
+        'app/src/main/kotlin/com/helix/app/ui/SessionPermissionSection.kt',
+        'app/src/main/kotlin/com/helix/app/ui/SettingsScreen.kt',
+        'app/src/main/kotlin/com/helix/app/MainActivity.kt',
     )
 }

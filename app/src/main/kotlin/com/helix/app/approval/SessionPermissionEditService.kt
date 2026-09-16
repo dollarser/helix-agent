@@ -193,6 +193,32 @@ class SessionPermissionEditService(
     fun customDraftFor(sessionId: String): SessionPermissionDraft? = configs.customDraftFor(sessionId)
 
     /**
+     * The NEW-SESSION DEFAULT the settings picker shows and edits (section 4 — a preset only;
+     * the write path [setNewSessionDefault] refuses a CUSTOM default). A pure read: no audit row.
+     */
+    fun appDefault(): SessionPermissionConfig = configs.appDefault()
+
+    /**
+     * The stored ACTIVE config for one session, or null when it has no row and so resolves to the
+     * app default — the read seam the settings picker uses to show the session's REAL mode. A
+     * null means "using default", which the UI renders as such rather than a stored mode.
+     */
+    fun activeConfigFor(sessionId: String): SessionPermissionConfig? = configs.forSession(sessionId)
+
+    /**
+     * Whether one tool identity is disabled in the GLOBAL scope — the toggle state of the app-wide
+     * tool list. The two-state model stores DISABLED as a row and ENABLED as its absence, so a
+     * present GLOBAL row means disabled.
+     */
+    fun globalToolDisabled(
+        sourceRef: String,
+        toolName: String,
+    ): Boolean =
+        availability
+            .byTool(sourceRef, toolName)
+            .any { it.scopeKind == ToolAvailabilityScope.GLOBAL.name }
+
+    /**
      * Saves one session's CUSTOM draft — the copied-from preset plus the copied-then-edited rule
      * snapshot (section 4). Persisting the draft does NOT by itself change what the session
      * executes: if the session's active mode is already CUSTOM the active config is synced to the

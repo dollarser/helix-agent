@@ -1,0 +1,351 @@
+package com.helix.app.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.helix.app.R
+import com.helix.app.approval.SessionPermissionEditService
+import com.helix.app.chat.ChatService
+import com.helix.app.tool.ToolPipeline
+import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.ToolAvailabilityScope
+import com.helix.core.policy.SessionPermissionConfig
+import com.helix.tools.framework.ToolDescriptor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+/**
+ * The HXA-209 session-authorization settings section (ADR-PERMISSIONS-001). The UI's ONLY path
+ * to a mode / rule-set / tool-availability change is the [SessionPermissionEditService]
+ * ("UI 经服务操作，不直接写 DAO"); the repositories are read here, always off the main thread
+ * (HelixStorage allows no main-thread queries).
+ *
+ * What it offers and, deliberately, what it does NOT:
+ * - the NEW-SESSION DEFAULT (a preset only — the write service refuses a CUSTOM default);
+ * - the current session's four-mode picker (FULL_ACCESS / WORKSPACE / READ_ONLY / CUSTOM);
+ * - an app-wide (GLOBAL) tool enable/disable list.
+ *
+ * There is NO per-tool ASK or risk-level toggle (the two-state availability model has no ASK to
+ * restore), and a mode switch never re-enables a disabled tool (a pre-existing B2 property — the
+ * mode and the tool rows are independent stores). Every change here produces an independent audit
+ * event via the service.
+ */
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+internal fun SessionPermissionSection(
+    edit: SessionPermissionEditService,
+    toolPipeline: ToolPipeline,
+    chatService: ChatService? = null,
+) {
+    val controller = rememberPermissionController(edit, toolPipeline, chatService)
+    SettingsGroup {
+        Text(stringResource(R.string.settings_perm_title), style = MaterialTheme.typography.titleMedium)
+        PermissionDefaultPicker(controller)
+        HorizontalDivider(modifier = Modifier.fillMaxWidth())
+        if (controller.sessionId != null) {
+            PermissionSessionPicker(controller)
+        } else {
+            Text(
+                stringResource(R.string.settings_perm_session_absent),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        HorizontalDivider(modifier = Modifier.fillMaxWidth())
+        PermissionToolList(controller)
+    }
+}
+
+/**
+ * The section's state + actions, kept out of the composable so the render tree stays a thin list
+ * of pickers. Backed by [SessionPermissionEditService]; every Room read/write runs on IO and any
+ * change re-loads so the UI shows the REAL stored state, never an optimistic guess.
+ */
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun rememberPermissionController(
+    edit: SessionPermissionEditService,
+    toolPipeline: ToolPipeline,
+    chatService: ChatService?,
+): SessionPermissionController {
+    val scope = rememberCoroutineScope()
+    val sessionId =
+        chatService
+            ?.screen
+            ?.collectAsStateWithLifecycle()
+            ?.value
+            ?.openSessionId
+    // In-memory tool identity list — safe to read on the main thread (no Room).
+    val tools = remember(toolPipeline) { toolPipeline.registry.all() }
+    val defaultMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
+    val sessionMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
+    val sessionHasStored = remember { mutableStateOf(false) }
+    val sessionHasDraft = remember { mutableStateOf(false) }
+    val toolsDisabled = remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    val controller =
+        remember(edit, tools, sessionId, scope) {
+            SessionPermissionController(
+                edit,
+                scope,
+                sessionId,
+                tools,
+                defaultMode,
+                sessionMode,
+                sessionHasStored,
+                sessionHasDraft,
+                toolsDisabled,
+            )
+        }
+    LaunchedEffect(controller) { controller.load() }
+    return controller
+}
+
+/** The NEW-SESSION DEFAULT picker — a preset only (the write service refuses a CUSTOM default). */
+@Composable
+@Suppress("FunctionName")
+private fun PermissionDefaultPicker(controller: SessionPermissionController) {
+    Text(stringResource(R.string.settings_perm_default_label))
+    SettingsActions {
+        PRESETS.forEach { mode ->
+            ModeButton(
+                mode = mode,
+                selected = controller.defaultMode.value == mode,
+                testTag = "settings-perm-default-${mode.name}",
+                onClick = { controller.chooseDefault(mode) },
+            )
+        }
+    }
+}
+
+/** The current session's REAL mode: a four-mode picker, its provenance, and a reset-to-default. */
+@Composable
+@Suppress("FunctionName")
+private fun PermissionSessionPicker(controller: SessionPermissionController) {
+    Text(stringResource(R.string.settings_perm_session_label))
+    val provenance =
+        if (controller.sessionHasStored.value) RES_SESSION_CUSTOMIZED else RES_SESSION_USING_DEFAULT
+    Text(
+        stringResource(provenance),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    SettingsActions {
+        ALL_MODES.forEach { mode ->
+            ModeButton(
+                mode = mode,
+                selected = controller.sessionMode.value == mode,
+                testTag = "settings-perm-mode-${mode.name}",
+                onClick = { controller.chooseSessionMode(mode) },
+            )
+        }
+    }
+    if (controller.sessionMode.value == SessionPermissionMode.CUSTOM && !controller.sessionHasDraft.value) {
+        Text(stringResource(R.string.settings_perm_custom_hint), style = MaterialTheme.typography.bodySmall)
+    }
+    OutlinedButton(onClick = { controller.resetSession() }, Modifier.testTag("settings-perm-reset")) {
+        Text(stringResource(R.string.settings_perm_reset))
+    }
+}
+
+/** The app-wide (GLOBAL) tool enable/disable list. */
+@Composable
+@Suppress("FunctionName")
+private fun PermissionToolList(controller: SessionPermissionController) {
+    Text(stringResource(R.string.settings_perm_tools_label))
+    Text(
+        stringResource(R.string.settings_perm_tools_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        controller.tools.forEach { descriptor ->
+            ToolRow(
+                toolName = descriptor.name.value,
+                disabled = controller.toolsDisabled.value[toolKey(descriptor)] == true,
+                testTag = "settings-perm-tool-${descriptor.name.value}",
+                onToggle = { controller.toggleTool(descriptor) },
+            )
+        }
+    }
+}
+
+/** A mode option: the selected one renders filled, the rest outlined. */
+@Composable
+@Suppress("FunctionName")
+private fun ModeButton(
+    mode: SessionPermissionMode,
+    selected: Boolean,
+    testTag: String,
+    onClick: () -> Unit,
+) {
+    val label = stringResource(mode.labelRes())
+    if (selected) {
+        Button(onClick = onClick, modifier = Modifier.testTag(testTag)) { Text(label) }
+    } else {
+        OutlinedButton(onClick = onClick, modifier = Modifier.testTag(testTag)) { Text(label) }
+    }
+}
+
+/** One tool in the app-wide availability list: its name, its state, and the enable/disable toggle. */
+@Composable
+@Suppress("FunctionName")
+private fun ToolRow(
+    toolName: String,
+    disabled: Boolean,
+    testTag: String,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column {
+            Text(toolName)
+            val stateRes = if (disabled) R.string.settings_perm_tool_disabled else R.string.settings_perm_tool_enabled
+            Text(
+                stringResource(stateRes),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        OutlinedButton(onClick = onToggle, modifier = Modifier.testTag(testTag)) {
+            Text(stringResource(R.string.settings_perm_tool_toggle))
+        }
+    }
+}
+
+/**
+ * The section's state + actions. Reads the repositories (via [SessionPermissionEditService]) on
+ * [Dispatchers.IO]; a change writes through the service then re-[load]s, so the UI always shows
+ * the stored state. The state fields are Compose [MutableState] so the pickers track them.
+ */
+private class SessionPermissionController(
+    private val edit: SessionPermissionEditService,
+    private val scope: CoroutineScope,
+    val sessionId: String?,
+    val tools: List<ToolDescriptor>,
+    val defaultMode: MutableState<SessionPermissionMode?>,
+    val sessionMode: MutableState<SessionPermissionMode?>,
+    val sessionHasStored: MutableState<Boolean>,
+    val sessionHasDraft: MutableState<Boolean>,
+    val toolsDisabled: MutableState<Map<String, Boolean>>,
+) {
+    fun load() {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                defaultMode.value = edit.appDefault().mode
+                toolsDisabled.value =
+                    tools.associate { toolKey(it) to edit.globalToolDisabled(it.origin.canonicalOf(), it.name.value) }
+                val id = sessionId
+                val stored = id?.let { edit.activeConfigFor(it) }
+                sessionMode.value = (stored ?: edit.appDefault()).mode
+                sessionHasStored.value = stored != null
+                sessionHasDraft.value = id?.let { edit.customDraftFor(it) != null } ?: false
+            }
+        }
+    }
+
+    fun chooseDefault(mode: SessionPermissionMode) {
+        scope.launch {
+            withContext(Dispatchers.IO) { edit.setNewSessionDefault(mode, System.currentTimeMillis()) }
+            load()
+        }
+    }
+
+    fun chooseSessionMode(mode: SessionPermissionMode) {
+        val id = sessionId ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                if (mode == SessionPermissionMode.CUSTOM) {
+                    edit.activateCustomDraft(id, System.currentTimeMillis())
+                } else {
+                    edit.saveSessionConfig(id, SessionPermissionConfig.of(mode), System.currentTimeMillis())
+                }
+            }
+            load()
+        }
+    }
+
+    fun resetSession() {
+        val id = sessionId ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) { edit.resetSessionToDefault(id, System.currentTimeMillis()) }
+            load()
+        }
+    }
+
+    fun toggleTool(descriptor: ToolDescriptor) {
+        val sourceRef = descriptor.origin.canonicalOf()
+        val toolName = descriptor.name.value
+        val disableNext = toolsDisabled.value[toolKey(descriptor)] != true
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                edit.setToolAvailability(
+                    sourceRef,
+                    toolName,
+                    ToolAvailabilityScope.GLOBAL,
+                    "",
+                    disableNext,
+                    System.currentTimeMillis(),
+                )
+            }
+            load()
+        }
+    }
+}
+
+/** The localized label for a mode. Tool/schema names and enum names are never translated. */
+private fun SessionPermissionMode.labelRes(): Int =
+    when (this) {
+        SessionPermissionMode.FULL_ACCESS -> R.string.settings_perm_mode_full_access
+        SessionPermissionMode.WORKSPACE -> R.string.settings_perm_mode_workspace
+        SessionPermissionMode.READ_ONLY -> R.string.settings_perm_mode_read_only
+        SessionPermissionMode.CUSTOM -> R.string.settings_perm_mode_custom
+    }
+
+/** A stable, collision-free key for a tool identity (source ref + name). */
+private fun toolKey(descriptor: ToolDescriptor): String = descriptor.origin.canonicalOf() + " " + descriptor.name.value
+
+/** The preset modes — the valid new-session defaults (CUSTOM is not a default). */
+private val PRESETS =
+    listOf(
+        SessionPermissionMode.FULL_ACCESS,
+        SessionPermissionMode.WORKSPACE,
+        SessionPermissionMode.READ_ONLY,
+    )
+
+/** All four selectable modes for a session. */
+private val ALL_MODES =
+    listOf(
+        SessionPermissionMode.FULL_ACCESS,
+        SessionPermissionMode.WORKSPACE,
+        SessionPermissionMode.READ_ONLY,
+        SessionPermissionMode.CUSTOM,
+    )
+
+/** The session caption when it carries its own stored config. */
+private val RES_SESSION_CUSTOMIZED = R.string.settings_perm_session_customized
+
+/** The session caption when it resolves to the app default. */
+private val RES_SESSION_USING_DEFAULT = R.string.settings_perm_session_using_default

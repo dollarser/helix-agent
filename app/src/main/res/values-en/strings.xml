@@ -978,4 +978,23 @@
     <string name="artifacts_file_source">Source: %1$s</string>
     <string name="artifacts_file_missing">File no longer exists (it may have been deleted or moved)</string>
     <string name="artifacts_file_unavailable">File currently unavailable</string>
+
+    <!-- HXA-209 D3: session authorization settings (mode picker, new-session default, tool list) -->
+    <string name="settings_perm_title">Session authorization</string>
+    <string name="settings_perm_default_label">Default mode for new sessions</string>
+    <string name="settings_perm_mode_full_access">Full access</string>
+    <string name="settings_perm_mode_workspace">Workspace</string>
+    <string name="settings_perm_mode_read_only">Read-only</string>
+    <string name="settings_perm_mode_custom">Custom</string>
+    <string name="settings_perm_session_label">Current session mode</string>
+    <string name="settings_perm_session_absent">No session is open; tool availability is a global setting.</string>
+    <string name="settings_perm_session_using_default">Using the default mode</string>
+    <string name="settings_perm_session_customized">Set independently</string>
+    <string name="settings_perm_custom_hint">Custom requires copying a preset and editing its rules first.</string>
+    <string name="settings_perm_reset">Reset to default</string>
+    <string name="settings_perm_tools_label">Tool availability (global)</string>
+    <string name="settings_perm_tools_note">Disabling removes the tool from every exposure and execution surface; enabling only restores availability and never a per-call prompt.</string>
+    <string name="settings_perm_tool_enabled">Enabled</string>
+    <string name="settings_perm_tool_disabled">Disabled</string>
+    <string name="settings_perm_tool_toggle">Toggle</string>
 </resources>

@@ -330,6 +330,8 @@ private fun DestinationScreen(
                 container.skillAuthoringService,
                 container.skillInstallationService,
                 chatService = container.chatService,
+                sessionPermissionEdit = container.sessionPermissionEdit,
+                toolPipeline = container.toolPipeline,
             )
         }
 
