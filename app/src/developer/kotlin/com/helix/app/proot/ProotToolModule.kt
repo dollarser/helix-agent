@@ -2,7 +2,10 @@ package com.helix.app.proot
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.helix.app.APP_SCOPE_ID
 import com.helix.app.R
+import com.helix.app.approval.SessionPermissionService
+import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SafetyProfile
@@ -90,6 +93,27 @@ internal object ProotToolModule {
             }
             values
         }
+        // HXA-209 C5: the session authorization for background jobs — the SAME service,
+        // classifier and resolver as the dispatcher's start gate. A new prohibition
+        // (a disable, or a rule now DENYing the operation) refuses the launch BEFORE
+        // submit; the binding store records the session and the config version that
+        // covered this call's approval (ADR sections 4 + 5).
+        val prootWorkspace: (String) -> String? = { sessionId ->
+            storage.sessions
+                .list()
+                .firstOrNull { it.id == sessionId }
+                ?.let { it.directoryRef ?: APP_SCOPE_ID }
+        }
+        val sessionPermissions =
+            SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability, prootWorkspace)
+        val recheck =
+            LinuxSessionPermissionRecheck(
+                sessionPermissions,
+                sessionPermissions,
+                SessionToolEffectClassifier(prootWorkspace),
+                LinuxRunTool.descriptor(),
+            )
+        val bindingStore = ProotJobBindingStore(storage, sessionPermissions::configFor)
         val executor =
             LinuxRunTool.ProductionLinuxExecutor(
                 client = jobClient,
@@ -98,7 +122,8 @@ internal object ProotToolModule {
                 scratchRoot = File(context.filesDir, "proot-jobs"),
                 jobIdProvider = { nextJobId() },
                 knownSecretValues = secretValues,
-                beforeSubmit = ProotJobBindingStore(storage)::record,
+                recheckBeforeSubmit = recheck::check,
+                beforeSubmit = bindingStore::record,
                 persistVerifiedResult = { call, record, archive ->
                     val results =
                         ProotResultStore(

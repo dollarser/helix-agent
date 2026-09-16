@@ -414,14 +414,22 @@ internal class DefaultAppContainer(
             // disabled predicate feeds the model schema, the search window and the execution
             // entry through ToolPipeline.disabledToolFilter, so a disable can never be visible
             // on one surface and refused on another (ADR section 1.1).
-            val sessionPermissions =
-                SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability)
+            // HXA-209 C1/C2: the session's trusted workspace is the ONE workspace anchor for
+            // the availability read — the dispatcher's execution entry and the exposure
+            // predicate both resolve through it, so a WORKSPACE-scope disable can never be
+            // visible on one surface and missed on another (ADR section 1.1).
             val sessionWorkspace: (String) -> String? = { sessionId ->
                 storage.sessions
                     .list()
                     .firstOrNull { it.id == sessionId }
                     ?.let { it.directoryRef ?: APP_SCOPE_ID }
             }
+            val sessionPermissions =
+                SessionPermissionService(
+                    storage.sessionPermissionConfigs,
+                    storage.toolAvailability,
+                    sessionWorkspace,
+                )
             val effectClassifier = SessionToolEffectClassifier(sessionWorkspace)
             val disabledToolFilter: (String, ToolDescriptor) -> Boolean = { sessionId, descriptor ->
                 val states =

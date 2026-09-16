@@ -173,6 +173,36 @@ class SessionToolEffectClassifierTest {
     }
 
     @Test
+    fun extractReadsItsArchiveAndMutatesItsDestination() {
+        // 解压 (HXA-209 C4): the merged source/target read — the archive is READ where it sits,
+        // the destination is MUTATED where it lands; the two scopes do not share an effect.
+        val c =
+            bound.classify(
+                request("""{"source":"scope:ws-1:a.zip","destination":"scope:other-9:out"}"""),
+                descriptor("files.extract"),
+            )
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
+            c.footprint.effects,
+        )
+    }
+
+    @Test
+    fun archiveReadsItsSourceDirectoryAndMutatesItsArchive() {
+        // 归档 (HXA-209 C4): same merged read — the source directory is read, the archive file
+        // is a mutation in its own scope.
+        val c =
+            bound.classify(
+                request("""{"source":"scope:ws-1:dir","destination":"scope:other-9:out.zip"}"""),
+                descriptor("files.archive"),
+            )
+        assertEquals(
+            setOf(OperationEffect.FILE_READ_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
+            c.footprint.effects,
+        )
+    }
+
+    @Test
     fun anUnrecognizedScopeReferencingArgumentOnAMutationToolIsAMutation() {
         val c =
             bound.classify(

@@ -1,5 +1,6 @@
 package com.helix.app.proot
 
+import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.proot.ipc.ProotJobSpec
 import kotlinx.serialization.json.Json
@@ -8,9 +9,24 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
-/** Write-ahead identity only; never authorization or proof that submission succeeded. */
+/**
+ * Write-ahead identity only; never authorization or proof that submission succeeded.
+ *
+ * HXA-209 C5 (ADR section 4 + section 5): the prepared-job row BINDS the background work to
+ * its session and to the authorization configuration that covered its approval — the
+ * session id, the mode and the rule-set [SessionPermissionConfig.configVersion]. The row is
+ * written just before `ProotJobClient.submit`, so it exists for exactly the jobs that are
+ * or become real; the recheck refusal happens BEFORE it and writes nothing.
+ */
 internal class ProotJobBindingStore(
     private val storage: HelixStorage,
+    /**
+     * The live session-config read for the v2 binding row. The default (no config) is for
+     * the RECOVERY PATHS, which only call [resolve] and never [record]; the single writer
+     * (the tool module) passes the live seam so every prepared-job row carries the
+     * authorization version.
+     */
+    private val configFor: (sessionId: String) -> SessionPermissionConfig? = { null },
 ) {
     fun record(
         call: LinuxRunTool.ParsedLinuxCall,
@@ -19,15 +35,7 @@ internal class ProotJobBindingStore(
         val turn = storage.turns.resolve(requireNotNull(call.turnId))
         val stored = requireNotNull(storage.toolCalls.byTurnAndCallId(turn.id, call.toolCallId))
         check(stored.state == "RUNNING")
-        val payload =
-            buildJsonObject {
-                put("version", 1)
-                put("toolCallId", stored.callId)
-                put("turnId", turn.id)
-                put("jobId", spec.jobId)
-                put("executionId", spec.executionId)
-                put("inputManifestSha256", spec.inputManifestSha256)
-            }
+        val payload = jobPreparedPayload(stored.callId, turn.id, turn.sessionId, spec, configFor(turn.sessionId))
         storage.auditEvents.append(
             id = eventId(call.toolCallId),
             correlationId = turn.sessionId,
@@ -42,10 +50,54 @@ internal class ProotJobBindingStore(
         val event = storage.auditEvents.resolve(eventId(toolCallId))
         check(event.type == "proot.job_prepared")
         val payload = Json.parseToJsonElement(event.redactedPayload) as JsonObject
-        check(payload.getValue("version").jsonPrimitive.content == "1")
+        requireVersion(payload)
         check(payload.getValue("toolCallId").jsonPrimitive.content == toolCallId)
         return payload
     }
 
+    /**
+     * Accepts every payload version this build has written. Version 1 (before the
+     * session binding existed) stays resolvable after an app update — the audit rows are
+     * durable and outlive the build that wrote them.
+     */
+    private fun requireVersion(payload: JsonObject) {
+        val version = payload.getValue("version").jsonPrimitive.content
+        check(version in ACCEPTED_VERSIONS) { "unsupported proot job payload version: $version" }
+    }
+
     private fun eventId(toolCallId: String): String = "proot-job-$toolCallId"
+
+    companion object {
+        const val PAYLOAD_VERSION = 2
+
+        private val ACCEPTED_VERSIONS = setOf("1", PAYLOAD_VERSION.toString())
+
+        /**
+         * The redacted payload of one prepared background job (version [PAYLOAD_VERSION]):
+         * the job identity, the session/task it belongs to (ADR section 4: background work
+         * must belong to the session + task) and the authorization configuration version
+         * that covered its approval (section 5). Primitives only — no command, environment
+         * or path. Stateless on purpose: host-testable without a storage instance.
+         */
+        internal fun jobPreparedPayload(
+            toolCallId: String,
+            turnId: String,
+            sessionId: String,
+            spec: ProotJobSpec,
+            config: SessionPermissionConfig?,
+        ): JsonObject =
+            buildJsonObject {
+                put("version", PAYLOAD_VERSION)
+                put("toolCallId", toolCallId)
+                put("turnId", turnId)
+                put("sessionId", sessionId)
+                // Absent session config (unwired seam / missing row): present-but-null keys,
+                // the shape stays stable.
+                put("mode", config?.mode?.name)
+                put("configVersion", config?.configVersion)
+                put("jobId", spec.jobId)
+                put("executionId", spec.executionId)
+                put("inputManifestSha256", spec.inputManifestSha256)
+            }
+    }
 }
