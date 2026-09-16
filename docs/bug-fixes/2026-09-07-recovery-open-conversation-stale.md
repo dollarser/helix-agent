@@ -37,6 +37,6 @@ These result-recovery UI fixtures seed call bindings and are not complete Goal-b
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
-- [Result recovery gap](../development/cli-result-durable-recovery-gap.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
+- [Result recovery gap](../evidence/development/cli-result-durable-recovery-gap.md)
 - [HXA-102](../completion-records/HXA-102.md)

@@ -1,0 +1,62 @@
+[
+  {
+    "source": "scripts/debug/2026-09-16/consolidate-documentation.py",
+    "archive": "build/docs-maintenance-20260916/scripts/consolidate-documentation.py",
+    "sha256": "56e7864698c03ee4b756382cd0908ca2fd0c973be510bea7695c53656770e9cb",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/finish-doc-consolidation.py",
+    "archive": "build/docs-maintenance-20260916/scripts/finish-doc-consolidation.py",
+    "sha256": "e3a13582ebb373e91da8784b4892a3e34049ad43c25fb029e52faffdcad59294",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/fix-doc-validation.py",
+    "archive": "build/docs-maintenance-20260916/scripts/fix-doc-validation.py",
+    "sha256": "3425cc82148d6af8976d2fe9eee115e12bb413b6e417e8b8493729a9625ed8ce",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/fix-sglang-smoke.py",
+    "archive": "build/docs-maintenance-20260916/scripts/fix-sglang-smoke.py",
+    "sha256": "639427f81978c3cba14c61f477a794291ff29d1d199f7f326240b33ccb453cd0",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/normalize-active-task-contracts.py",
+    "archive": "build/docs-maintenance-20260916/scripts/normalize-active-task-contracts.py",
+    "sha256": "95ce5ccd560b47d4e66e4297929eeba67fbe6c105d37a4a139928924509b32d8",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/rebuild-current-adrs.py",
+    "archive": "build/docs-maintenance-20260916/scripts/rebuild-current-adrs.py",
+    "sha256": "528886f73bc0032413a655895305c1cd944e05043456e6d64b5c8e58f71f7c73",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/refine-current-adrs.py",
+    "archive": "build/docs-maintenance-20260916/scripts/refine-current-adrs.py",
+    "sha256": "f57c15675b8fdbebfad24bdb43cf25bbe5ae5d42b7c79bdf8c11c6042cba0dda",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/review-open-hxa.py",
+    "archive": "build/docs-maintenance-20260916/scripts/review-open-hxa.py",
+    "sha256": "a4c57d029bbdb87971c5fc01c316b48ddb499de498ad18d8cd8906c988bf43b4",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/sync-doc-contracts.py",
+    "archive": "build/docs-maintenance-20260916/scripts/sync-doc-contracts.py",
+    "sha256": "ef75123f5b5e0ba2a38d4bb1abb10fee7c9af3ad321aa0a1d6566211ce522577",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  },
+  {
+    "source": "scripts/debug/2026-09-16/sync-hxa-review-index.py",
+    "archive": "build/docs-maintenance-20260916/scripts/sync-hxa-review-index.py",
+    "sha256": "c13c102c750505461cf8bf50144034db92c55a051a169cd8ff1b45156b062e1b",
+    "purpose": "one-time documentation/test edit; not a current execution entry"
+  }
+]

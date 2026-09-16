@@ -60,5 +60,5 @@ publication 仍需在新增 UI 状态时共同审查。新增字段若不从 `up
 
 ## Related records
 
-- [M7 合并与验证进展](../development/m7-non-device-progress.md)
+- [M7 合并与验证进展](../evidence/development/m7-non-device-progress.md)
 - [Tool Scheduler 准入与结算](2026-09-01-tool-scheduler-admission-and-settlement.md)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HXA-200 device acceptance (ADR-0052, 2026-09-14 clarification). Owned exclusive emulators,
+# HXA-200 device acceptance (ADR-PERMISSIONS-003, 2026-09-14 clarification). Owned exclusive emulators,
 # always closed in finally.
 #
 # Runs the two device suites tied to this work, on BOTH flavors (consumer + developer) and BOTH

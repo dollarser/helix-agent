@@ -3,22 +3,22 @@
 > 文档性质：研究、候选需求与重构评审材料，不是新一轮实施授权。
 > 本轮复核：2026-09-13；源码基线为本地 `main` 的 HEAD `0bcd9d34d299974f950094101e5d34c956ebe569` **加当时未提交工作区**。
 > 配套图集：[现状架构与候选演进图](helix-mermaid-architecture-diagrams.md)。
-> 2026-09-14 分类更新：两份材料统一归入 `docs/research/`。下文的“现状/本轮”均指 2026-09-13 的 main 研究快照，不是 Harness 分支的当前实现；源码链接固定到取证结束时的 main 修订。重构收尾以[专项交接](../development/harness-2.0-next-work.md)和[实施状态](../development/status.md)为准。
+> 2026-09-14 分类更新：两份材料统一归入 `docs/research/`。下文的“现状/本轮”均指 2026-09-13 的 main 研究快照，不是 Harness 分支的当前实现；源码链接固定到取证结束时的 main 修订。重构收尾以[专项交接](../development/tasks/HXA-192.md)和[实施状态](../development/status.md)为准。
 
 ## 1. 文档职责、证据与阅读路径
 
 ### 2026-09-14 演进更新：本节优先于历史快照
 
-本次增量基线为 `worktree-harness-2.0` 的 `a4a64039` 加未提交的 HXA-192/193 与并行修复；不是该 commit 单独包含下述能力，也不代表 main 已合入。下文固定源码链接保留历史取证用途；涉及 Runtime 的当前决定按 ADR-0049，日志契约按 accepted ADR-0050、后台/手动终端按 accepted ADR-0051 判断。
+本次增量基线为 `worktree-harness-2.0` 的 `a4a64039` 加未提交的 HXA-192/193 与并行修复；不是该 commit 单独包含下述能力，也不代表 main 已合入。下文固定源码链接保留历史取证用途；涉及 Runtime 的当前决定按 ADR-RUNTIME-001，日志契约按 accepted ADR-RUNTIME-002、后台/手动终端按 accepted ADR-RUNTIME-002 判断。
 
 | 事项 | 当前结论 | 与原方案的关系 |
 | --- | --- | --- |
 | 任务体验、产物与恢复 | 继续复用 Turn/Goal/ToolCall/Job 事实，不建第二套 Task 执行状态 | 保持主方向 |
 | 执行入口统一 | Agent 请求统一准入、取消、观察；手动文件、浏览器和终端各经应用服务 | 修正原稿“所有入口进入 AgentRuntime”的过度归并 |
-| Runtime 打包和权限 | ADR-0049 accepted：developer 单 APK，PRoot/Subscriptions 私有多进程共享主 UID；consumer 排除；QuickJS 仍 isolated UID | 已授权的实质架构变更，不是纯打包优化 |
-| 终端与后台命令 | HXA-194～199 是后续开发计划；PTY、日志 IPC、detached owner 尚未实现，ADR-0050 日志/职责 accepted，ADR-0051 启用 accepted | Developer UX 扩展，不是 Harness 主干收尾门禁 |
+| Runtime 打包和权限 | ADR-RUNTIME-001 accepted：developer 单 APK，PRoot/Subscriptions 私有多进程共享主 UID；consumer 排除；QuickJS 仍 isolated UID | 已授权的实质架构变更，不是纯打包优化 |
+| 终端与后台命令 | HXA-194～199 是后续开发计划；PTY、日志 IPC、detached owner 尚未实现，ADR-RUNTIME-002 日志/职责 accepted，ADR-RUNTIME-002 启用 accepted | Developer UX 扩展，不是 Harness 主干收尾门禁 |
 
-PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据或订阅凭据的 UID 隔离；输入快照仍是一次性 Job 的数据契约。订阅模块仍负责自己的 OAuth/Keystore，正常 API 不返回 token，但共享 UID 不构成对同 UID 代码的凭据保护。生成代码继续在 `:proot` 而非 UI 主进程执行。实现和设备证据见 [单 APK 专项记录](../development/integrated-developer-runtimes.md)，不能用决策接受代替整体验收。
+PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据或订阅凭据的 UID 隔离；输入快照仍是一次性 Job 的数据契约。订阅模块仍负责自己的 OAuth/Keystore，正常 API 不返回 token，但共享 UID 不构成对同 UID 代码的凭据保护。生成代码继续在 `:proot` 而非 UI 主进程执行。实现和设备证据见 [单 APK 专项记录](../evidence/development/integrated-developer-runtimes.md)，不能用决策接受代替整体验收。
 
 本文负责回答：当前有哪些能力、哪些产品问题值得解决、职责如何分配、候选项如何拆分和验收。图集只负责表达调用关系、执行域、状态和恢复流程，不再维护另一套优先级、功能评分或任务清单。
 
@@ -80,10 +80,10 @@ PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据�
 | 浏览器 | [BrowserScreen](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/feature/browser/src/main/kotlin/com/helix/feature/browser/ui/BrowserScreen.kt) 已调用 `TabStrip` 并展示下载区 | 删除“P0 补 tab UI”；持久下载历史、检索、恢复体验分别评估 |
 | 任务与产物 | [当前接口](../development/status.md#current-interfaces)、[HXA-177](../completion-records/HXA-177.md) 已有跨会话任务投影、后台结果回收；工具结果和 Artifact refs 已存在 | Tasks 与产物入口先聚合已有数据，不增加另一套执行状态库 |
 | 配置与审批 | HXA-190/191 已有审批折叠、工具用途摘要、组件安装等工作区增量 | 先验证当前界面剩余摩擦，避免重复实现整个 Capability Center |
-| Goal 完成注释 | [GoalReducer](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/agent/src/main/kotlin/com/helix/core/agent/GoalReducer.kt) 当前已写明 ADR-0040 模型报告完成；复核所指旧完成注释已被并行工作修正 | 删除“立即清理未修缺陷”的重复任务；本轮不改 Kotlin |
-| Goal 预算注释 | 同文件 KDoc 仍有历史 `WakeUsageReported → PAUSED` 描述，而实际预算处理进入 `BLOCKED`，与 [GoalState](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/model/src/main/kotlin/com/helix/core/model/GoalState.kt) 和 ADR-0039 一致 | 图与本文按当前处理绘制；将这处剩余注释漂移作为后续源码维护项，不据旧注释改状态机 |
-| Git | [ADR-0008](../adr/0008-git-workspace-management.md) 已接受，但 [当前限制](../development/status.md#known-limitations) 明确持久 Git Workspace/结构化 UI 未实现 | 离线 Job 中有 Git 不代表持久仓库管理；Git 不进入普通文件体验 P0 |
-| 子 Agent | [ADR-0009](../adr/0009-bounded-local-orchestration.md) 有设计与隔离 Spike，生产 child/Workflow 未启用 | 架构接受不是产品实现证据，也不是本轮实现授权 |
+| Goal 完成注释 | [GoalReducer](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/agent/src/main/kotlin/com/helix/core/agent/GoalReducer.kt) 当前已写明 ADR-GOAL-001 模型报告完成；复核所指旧完成注释已被并行工作修正 | 删除“立即清理未修缺陷”的重复任务；本轮不改 Kotlin |
+| Goal 预算注释 | 同文件 KDoc 仍有历史 `WakeUsageReported → PAUSED` 描述，而实际预算处理进入 `BLOCKED`，与 [GoalState](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/model/src/main/kotlin/com/helix/core/model/GoalState.kt) 和 ADR-GOAL-001 一致 | 图与本文按当前处理绘制；将这处剩余注释漂移作为后续源码维护项，不据旧注释改状态机 |
+| Git | [ADR-WORKSPACE-003](../adr/workspace/003-git-boundaries.md) 已接受，但 [当前限制](../development/status.md#known-limitations) 明确持久 Git Workspace/结构化 UI 未实现 | 离线 Job 中有 Git 不代表持久仓库管理；Git 不进入普通文件体验 P0 |
+| 子 Agent | [ADR-AGENT-004](../adr/agent/004-bounded-delegation.md) 有设计与隔离 Spike，生产 child/Workflow 未启用 | 架构接受不是产品实现证据，也不是本轮实现授权 |
 
 ### 2.2 复核意见的采纳方式
 
@@ -93,7 +93,7 @@ PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据�
 | 优先任务进度、产物、恢复和审批体验 | 采纳；作为现有能力的增量投影，优先验证用户收益 |
 | 统一入口与请求组装 | 有条件采纳；先定义 submit/cancel/observe 所有者和事务，不一次创建八个服务 |
 | Plan、Todo、Act 完成协议 | 调整；先轻量显示与用户审阅，结构化元数据另立契约；不强制每次 Act 调用新工具 |
-| GoalDriver、Schedule、Hooks、Code Mode | GoalDriver 已由 ADR-0053/HXA-208 单独授权；Schedule、Hooks、Code Mode 保持研究 |
+| GoalDriver、Schedule、Hooks、Code Mode | GoalDriver 已由 ADR-GOAL-001/HXA-208 单独授权；Schedule、Hooks、Code Mode 保持研究 |
 | Goal 旧完成注释清理 | 当前工作区已完成，撤回重复动作；保留新发现的预算 KDoc 漂移说明 |
 | 竞品强弱与成熟度评分 | 撤回无逐项依据的分数；改为可验证的研究问题和样本要求 |
 
@@ -103,7 +103,7 @@ PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据�
 
 主要场景是手机上的文件整理、带来源的网页研究、日志/项目分析和有界 Android 操作。Coding 场景先使用已授权 Workspace 与可用执行能力；远程 clone、PR 和持久 Git 不作为现成演示前提。
 
-Standard 继续是面向商店的完整产品，Advanced、构建 flavor 和分发渠道分别表达运行配置、编译接线和发行约束。任务页面、产物与配置优化不能顺带把 Standard 缩成聊天壳；渠道能力差异须有对应政策或审核依据，沿用 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)。
+Standard 继续是面向商店的完整产品，Advanced、构建 flavor 和分发渠道分别表达运行配置、编译接线和发行约束。任务页面、产物与配置优化不能顺带把 Standard 缩成聊天壳；渠道能力差异须有对应政策或审核依据，沿用 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)。
 
 ### 3.1 导航与页面职责
 
@@ -138,7 +138,7 @@ Task 首版是读模型：独立 Turn 以 `turnId` 标识；Goal 以 `goalId` �
 
 恢复摘要分别展示“已确认完成”“待核查”“未开始”。待核查操作先按原 `jobId/taskId`、输入 hash 和结果记录对账；结果未知时提供检查与处置入口。继续创建新的有界执行，已完成调用不重放；结果回收只标记已查看，不自动向其他会话发送或调用模型。
 
-审批默认展示操作目的、真实目标、范围、变更摘要和批准方式，完整字段可展开。Trusted Workspace 和长期规则仅用于既有允许的 L0/动态 L1；L2/L3 仍是精确调用或完整披露的有限批次。不能用“允许本任务”覆盖任务后续未知写入、删除或外发。依据为 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)，[ADR-0005](../adr/0005-standard-advanced-safety-profiles.md) 已被取代。
+审批默认展示操作目的、真实目标、范围、变更摘要和批准方式，完整字段可展开。Trusted Workspace 和长期规则仅用于既有允许的 L0/动态 L1；L2/L3 仍是精确调用或完整披露的有限批次。不能用“允许本任务”覆盖任务后续未知写入、删除或外发。依据为 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)，[ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 已被取代。
 
 ## 4. 渐进重构的职责与契约
 
@@ -155,9 +155,9 @@ Task 首版是读模型：独立 Turn 以 `turnId` 标识；Goal 以 `goalId` �
 | Prompt sections | 内置模板、环境和 Goal 上下文 | 有序、可追溯的内置组件 | 修改 Policy、创建用户授权 |
 | 模型协议 | `ModelProvider` 与各 adapter | 统一内部请求/事件；供应商格式留在 adapter | 执行模型返回的工具 |
 | 工具与授权 | Scheduler、Dispatcher、Capability、Policy、Approval | 保持原管线与证明消费点 | 由模型决定并发安全或批准自己 |
-| Goal 生命周期 | reducer、运行准入、预算及 `GoalRunSettlement` | ADR-0053 的独立激活、连续轮次与模型报告 | 由 UI Todo 或定时回调决定完成 |
+| Goal 生命周期 | reducer、运行准入、预算及 `GoalRunSettlement` | ADR-GOAL-001 的独立激活、连续轮次与模型报告 | 由 UI Todo 或定时回调决定完成 |
 | 任务/产物页面 | 查询、投影与文件引用 | 组合既有事实，增加必要展示元数据 | 独立 Task 执行器或第二套事件存储 |
-| Runtime 生命周期 | QuickJS/PRoot/Subscriptions 的各自 client/supervisor | 按 ADR-0049 保持进程职责、绑定、取消与 Job 对账；QuickJS 仍 isolated UID | 在 UI 主进程运行生成代码；把模块 token 所有权误称 UID 隔离 |
+| Runtime 生命周期 | QuickJS/PRoot/Subscriptions 的各自 client/supervisor | 按 ADR-RUNTIME-001 保持进程职责、绑定、取消与 Job 对账；QuickJS 仍 isolated UID | 在 UI 主进程运行生成代码；把模块 token 所有权误称 UID 隔离 |
 
 ### 4.2 统一执行入口：先明确语义
 
@@ -213,7 +213,7 @@ Helix 首版候选字段：`id/order/scope/source/trust/contentHash/content`。�
 
 需要审批证明时，只有类型化 `APPROVED` 可消费；证明在执行开始阶段消费，排队时取消不得提前消费。开始后取消、超时或异常可能已有副作用，必须持久结算为可确认结果或待核查。验证失败不自动证明“未执行”；只有已确认无副作用才允许原契约内有界技术重试。
 
-订阅 Provider 是模型调用链：`ModelProvider → 订阅客户端 → 私有 Binder/PFD → :subscriptions 进程 → 服务端`。它不放在 ToolDispatcher 的普通执行目标下面；模型返回 ToolCall 后才进入工具管线。developer 当前共享主 UID，token 正常接口不外传是模块契约，不是安全隔离保证；按 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 和 [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 的未被取代部分描述第三方协议适配，不宣称官方 CLI 已在 Android 可用。
+订阅 Provider 是模型调用链：`ModelProvider → 订阅客户端 → 私有 Binder/PFD → :subscriptions 进程 → 服务端`。它不放在 ToolDispatcher 的普通执行目标下面；模型返回 ToolCall 后才进入工具管线。developer 当前共享主 UID，token 正常接口不外传是模块契约，不是安全隔离保证；按 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md) 和 [ADR-PROVIDER-002](../adr/provider/002-subscription-adapters.md) 的未被取代部分描述第三方协议适配，不宣称官方 CLI 已在 Android 可用。
 
 ## 5. 明确的新功能：分别立项，不混入纯重构
 
@@ -237,7 +237,7 @@ Todo 是模型工作记忆，Plan 是方案，Goal 是持久目标。首版可�
 
 普通文件变更预览可从现有操作/hash/输出快照派生，不依赖 Git。预览须绑定真实前后版本，执行前发现输入变化时重新确认，不能用旧 diff 批准新内容。
 
-持久 Git 单独沿 ADR-0008 与后续 HXA 推进：明确权威仓库位置、完整事务、锁与并发、`.git` 一致性、hooks/filter 等隐式执行、空间预算和中断对账。离线 `status/diff/log` 与 `init/add/commit` 的权限分别评估；remote Git、凭据、PR 和联网执行域另行决策，不放进首版文件 UI 增量。
+持久 Git 单独沿 ADR-WORKSPACE-003 与后续 HXA 推进：明确权威仓库位置、完整事务、锁与并发、`.git` 一致性、hooks/filter 等隐式执行、空间预算和中断对账。离线 `status/diff/log` 与 `init/add/commit` 的权限分别评估；remote Git、凭据、PR 和联网执行域另行决策，不放进首版文件 UI 增量。
 
 ### 5.4 文档附件
 
@@ -255,17 +255,17 @@ Share 先补足已支持文本/图片/文件的输入流转：URI 生命周期�
 
 ### 6.1 Goal 完成与现有运行语义
 
-当前采用 [ADR-0040](../adr/0040-model-judged-goal-completion.md)：模型通过当前活动 Goal/Turn 的 `update_goal`（兼容 `goal.report`）提交 `complete/in_progress/blocked`；Harness 在合法 Turn 结算时消费最后有效报告。取消、用户暂停、未决副作用和预算处理优先。没有报告保持可继续，不因缺少证据绑定阻塞；不恢复 ADR-0028 的独立 verifier。
+当前采用 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)：模型通过当前活动 Goal/Turn 的 `update_goal`（兼容 `goal.report`）提交 `complete/in_progress/blocked`；Harness 在合法 Turn 结算时消费最后有效报告。取消、用户暂停、未决副作用和预算处理优先。没有报告保持可继续，不因缺少证据绑定阻塞；不恢复 ADR-GOAL-001 的独立 verifier。
 
 [GoalRunSettlement](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalRunSettlement.kt)、[GoalBlockerResolution](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalBlockerResolution.kt) 与 reducer 共同决定实际行为。普通结束可 park 到 PAUSED；预算不足/未知副作用可 BLOCKED；修复后显式复查转 PAUSED，再由用户 Continue。终态 COMPLETED/FAILED/CANCELLED 不直接重新激活。
 
-[ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md) 的 run/wake/累计预算仍有效；每轮显式继续约束已由 ADR-0053 部分替代，首次激活与中断后恢复仍须用户动作，预算阻塞与用户暂停结合 [ADR-0039](../adr/0039-background-results-and-goal-blockers.md)，完成部分以 ADR-0040 为准。不能只读 ADR-0004 的历史 PAUSED 描述，也不能把某个上游 Driver 的行为直接当成 Helix 当前运行契约。
+[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md) 的 run/wake/累计预算仍有效；每轮显式继续约束已由 ADR-GOAL-001 部分替代，首次激活与中断后恢复仍须用户动作，预算阻塞与用户暂停结合 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)，完成部分以 ADR-GOAL-001 为准。不能只读 ADR-GOAL-001 的历史 PAUSED 描述，也不能把某个上游 Driver 的行为直接当成 Helix 当前运行契约。
 
 ### 6.2 GoalDriver：已验收的行为扩展
 
 2026-09-16 实现及设备证据见[HXA-208](../completion-records/HXA-208.md)。下述边界已落实，不能再列为仅研究或下一轮待做。
 
-2026-09-16 所有者已通过 [ADR-0053](../adr/0053-goal-continuation-activation.md) 授权 [HXA-208](../development/roadmap.md#hxa-208-完整-goal-工具与前后台连续运行)：实现同会话前后台自动续轮和完整 create_goal/get_goal/update_goal，复用现有执行、累计预算、模型报告与恢复。独立激活不是桌面专属机制。Room v19 保存会话归属与编辑版本，激活留在进程内；应用重启不自行恢复。定时及 Channel 激活仍不在本次授权内。
+2026-09-16 所有者已通过 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md) 授权 [HXA-208](../completion-records/HXA-208.md)：实现同会话前后台自动续轮和完整 create_goal/get_goal/update_goal，复用现有执行、累计预算、模型报告与恢复。独立激活不是桌面专属机制。Room v19 保存会话归属与编辑版本，激活留在进程内；应用重启不自行恢复。定时及 Channel 激活仍不在本次授权内。
 
 DeepSeek 的 Driver 在已激活、整体空闲且有剩余轮次时续跑；恢复/分叉不自动重新激活，用户工作与停止影响自动准入。借鉴点是显式运行激活和竞争防护，不是后台常驻承诺。[官方 Driver 契约](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/goal-round-driver/README.md)
 
@@ -318,13 +318,13 @@ WorkManager 周期任务执行时刻受约束和系统优化影响，周期最�
 | 用户禁用/删除 | 撤销未来 occurrence；当前轮如何停止单独明确，已发生副作用保留 |
 | 到期需要 L2/L3 操作 | 等待现有精确审批；调度授权只表达何时尝试任务，不批准未来具体动作 |
 
-平台选型、FGS type/时限、通知权限、Doze、锁屏、OEM、最低支持 API 与 target SDK 的验证矩阵是独立 Spike 交付物。沿用 [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)：没有合法后台路径时保持前台有界执行，不能以 `dataSync` 包装任意长计算。本文不承诺后台准时性或 24/7 存活。
+平台选型、FGS type/时限、通知权限、Doze、锁屏、OEM、最低支持 API 与 target SDK 的验证矩阵是独立 Spike 交付物。沿用 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)：没有合法后台路径时保持前台有界执行，不能以 `dataSync` 包装任意长计算。本文不承诺后台准时性或 24/7 存活。
 
 ### 6.6 子 Agent、Workflow 与跨设备
 
-只读 child 的既有候选边界来自 ADR-0009：深度 1、并发 2、每父 Turn 最多 4 个、父预算、无批准/Secret/可写能力继承。生产启用仍缺收益、资源、真实持久化和设备门禁；不把 Background Tool 或 A2A Client 改名后当 child 实现。
+只读 child 的既有候选边界来自 ADR-AGENT-004：深度 1、并发 2、每父 Turn 最多 4 个、父预算、无批准/Secret/可写能力继承。生产启用仍缺收益、资源、真实持久化和设备门禁；不把 Background Tool 或 A2A Client 改名后当 child 实现。
 
-A2A 继续是用户配置的外部服务，经普通 ToolCall 发起与原 taskId 对账；远端输出不可信，不能反向调用本地工具或继承本地 scope。依据 [ADR-0016](../adr/0016-a2a-client-interoperability.md)，M7 已完成的 Client 契约不需要重启历史 Spike。
+A2A 继续是用户配置的外部服务，经普通 ToolCall 发起与原 taskId 对账；远端输出不可信，不能反向调用本地工具或继承本地 scope。依据 [ADR-A2A-001](../adr/a2a/001-client-interoperability.md)，M7 已完成的 Client 契约不需要重启历史 Spike。
 
 Tasker/Auto.js、Shizuku/ADB、学习型移动 Skill、任意 Workflow、外部 Channel、A2A Server、Web Access/远程控制、桌面配对和 Remote Worker 均保持独立研究或当前范围外。不会因排在“P2/P3”就自动获得实现授权，也不新增占位模块。
 
@@ -334,17 +334,17 @@ Tasker/Auto.js、Shizuku/ADB、学习型移动 Skill、任意 Workflow、外部 
 
 终端是已有本机执行能力的产品化延伸，不替代上下文、运行准入、工具授权和结果恢复主干。HXA-192/193 的相关代码基线先收口；不能为“完成 2.0”强制加入 PTY、多会话或持续后台。任务列表可以聚合 Job 和手动 Session 的展示，但二者必须保留各自身份与状态所有者。
 
-交付拆为三条能力线，具体允许模块和命令由 [终端开发计划](../development/terminal-and-background-execution-plan.md) 维护：
+交付拆为三条能力线，具体允许模块和命令由 [终端开发计划](../architecture/terminal.md) 维护：
 
 - 结果与观察：HXA-194 复用最终结果；HXA-195 新增有界日志、游标、背压和尾部结算。日志预览不自动成为验证产物。
 - 有期限后台 Job：HXA-196 定义 owner 移交、租期、预算、停止和平台拒绝；accepted 只表示启动受理，不代表命令或 Goal 完成。旧同步 Job 的 owner/cancel 与上限不静默改变。
 - 手动交互：HXA-197/198 的 PTY、多会话、单写连接和重连属于用户主动操作；不开放模型向 PTY 输入，不因人工会话存在扩大工具审批。
 
-架构上前台单 PTY 不依赖 detached Job 实现成功；日志、进程组取消和会话身份可复用。执行包与路线图已解除 197 对 196 的硬依赖；前台切片仍需 ADR-0051 对应条件齐备，每次一个 checkpoint，不跳过其独立门禁。HXA-199 负责所选范围的综合验收，不将新增终端能力反向设为既有 Harness 交付条件。
+架构上前台单 PTY 不依赖 detached Job 实现成功；日志、进程组取消和会话身份可复用。执行包与路线图已解除 197 对 196 的硬依赖；前台切片仍需 ADR-RUNTIME-002 对应条件齐备，每次一个 checkpoint，不跳过其独立门禁。HXA-199 负责所选范围的综合验收，不将新增终端能力反向设为既有 Harness 交付条件。
 
-ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最多两个手动会话及异步 Job 默认5/最大30分钟限额。等待须可见可取消，用户关闭会话且进程组回收后释放占用；不能仅凭 prompt 判断无后台子进程。后续更细粒度并发须用体验/设备证据修改契约，不靠提高线程数实现。限额不是 Android 保活保证。
+ADR-RUNTIME-002 已接受初版手动域与 Agent 本地代码/文件变更互斥、最多两个手动会话及异步 Job 默认5/最大30分钟限额。等待须可见可取消，用户关闭会话且进程组回收后释放占用；不能仅凭 prompt 判断无后台子进程。后续更细粒度并发须用体验/设备证据修改契约，不靠提高线程数实现。限额不是 Android 保活保证。
 
-日志和职责已由 [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 接受；后台及手动终端启用留在 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。该终端增量不改变 Goal 完成报告、审批证明和未知副作用不重放；Goal 连续运行另由 ADR-0053/HXA-208 接受。
+日志和职责已由 [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md) 接受；后台及手动终端启用留在 accepted [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。该终端增量不改变 Goal 完成报告、审批证明和未知副作用不重放；Goal 连续运行另由 ADR-GOAL-001/HXA-208 接受。
 
 以下 S0～S4 是讨论批次，**不是 HXA 编号或新授权**。先完成当前已授权工作，再据实际问题选择下一项。每次只推进有明确产出和验收的一小项，不绑定完成整套图中方框。
 
@@ -357,7 +357,7 @@ ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最
 | S2b 执行入口 facade | app admission、TurnCoordinator 调用者 | 至少有需要统一的现有入口，事务契约清楚 | submit 去重、忙碌输入保留、精确取消、持久失败停泊；同一运行状态所有者 |
 | S3a Plan/Todo/变更预览 | UI、范围受限的元数据与文件投影 | S1 用户价值证据；新契约决策 | 版本失效、重启、取消、只读模式边界、计划批准不代替 Tool 审批 |
 | S3b 文档附件 | 附件解析与存储 | 格式范围、依赖/许可证和预算方案 | 文本/页段定位、恶意/加密/损坏输入、取消/大文件、无静默误读 |
-| S3c 持久 Git | 独立 Git HXA，沿 ADR-0008 | 仓库事务/设备证据与明确授权 | 完整性、隐式执行防护、并发/中断、空间与性能；remote Git 单列 |
+| S3c 持久 Git | 独立 Git HXA，沿 ADR-WORKSPACE-003 | 仓库事务/设备证据与明确授权 | 完整性、隐式执行防护、并发/中断、空间与性能；remote Git 单列 |
 | S4 自动化扩展 | 每项独立 ADR/Spike/HXA | GoalDriver、Schedule、Hook、Code Mode 或 child 的明确收益 | 用户激活、停止、预算、权限、跨 UID、平台失败及恢复门禁；不合并成一个 P0 |
 
 ### 7.1 原行动项去向
@@ -371,7 +371,7 @@ ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最
 | HX2-05 Plan | S3a | 先用户审阅，再元数据契约 |
 | HX2-06 Act Completion | S1a/S3a | 显示层区分，本轮不强制新工具 |
 | HX2-07 Task Ledger | S3a | 有需求才增加，避免复制 Goal 状态 |
-| HX2-08 GoalDriver | HXA-208 | ADR-0053 前后台连续和完整模型工具面已完成 HXA-208 专项验收 |
+| HX2-08 GoalDriver | HXA-208 | ADR-GOAL-001 前后台连续和完整模型工具面已完成 HXA-208 专项验收 |
 | PX-01 Tasks / PX-02 Artifacts | S1a/S1b | 增强已有任务和引用投影 |
 | PX-03 Git Diff | S3a/S3c | 普通文件预览与持久 Git 拆分 |
 | PX-04 Capability Center | S1b | 对齐 HXA-190/191，不重复安装/折叠实现 |
@@ -440,7 +440,7 @@ ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最
 
 本版维护原则：优先级只在第 7 节维护，源码事实只在第 2 节维护，状态/调用关系交由图集。新设计进入规范文档前，先对应 HXA/ADR；不把本研究图直接复制成“已实现架构”。
 
-2026-09-13 修订曾保留根目录原路径，导致分类门禁失败；2026-09-14 已按用户要求归入研究分类并修复引用。下表保留原轮次检查结果，归档后的检查见[专项交接](../development/harness-2.0-next-work.md)，不覆盖历史失败记录。
+2026-09-13 修订曾保留根目录原路径，导致分类门禁失败；2026-09-14 已按用户要求归入研究分类并修复引用。下表保留原轮次检查结果，归档后的检查见[专项交接](../development/tasks/HXA-192.md)，不覆盖历史失败记录。
 
 本轮实际检查结果：
 

@@ -37,5 +37,5 @@ The production executor still lacks a durable pre-submit ToolCall-to-Job associa
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

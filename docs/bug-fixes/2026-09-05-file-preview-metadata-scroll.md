@@ -36,4 +36,4 @@ FilesScreenTest.longTextPreviewKeepsTheMetadataReachable 在旧布局报没有 S
 ## Related records
 
 - [HXA-043](../completion-records/HXA-043.md)
-- [main 验证报告](../development/main-merged-verification.md)
+- [main 验证报告](../evidence/development/main-merged-verification.md)

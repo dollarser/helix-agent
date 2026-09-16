@@ -42,4 +42,4 @@ Developer App/test APK、Spotless、Detekt 通过。API 29/36 的 GoalRealComple
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [main 验证报告](../development/main-merged-verification.md)
+- [main 验证报告](../evidence/development/main-merged-verification.md)

@@ -6,7 +6,7 @@ Related HXA: HXA-200
 
 ## Problem
 
-日期：2026-09-15。基线：`fa01dde6`。范围：HXA-200 收尾复核的 C1/C2；沿用 ADR-0052 第 5/7 条，不改变已接受决定。
+日期：2026-09-15。基线：`fa01dde6`。范围：HXA-200 收尾复核的 C1/C2；沿用 ADR-PERMISSIONS-003 第 5/7 条，不改变已接受决定。
 
 代码/测试/复现脚本本地提交：`397608fc`，具名13文件，cached diff/check已核对，未push/merge；共享任务文档及本记录留在工作树，不夹带其他任务文档。
 
@@ -52,6 +52,6 @@ Related HXA: HXA-200
 
 ## Related records
 
-- [收尾复核与201交接](../development/hxa200-closeout-review-and-hxa201-handoff.md)
-- [ADR-0052](../adr/0052-tool-approval-preferences.md)
-- [产品任务包与验收命令](../development/product-completion-and-approval-plan.md)
+- [收尾复核与201交接](2026-09-15-tool-preference-start-boundary.md)
+- [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)
+- [产品任务包与验收命令](../product/task-experience.md)

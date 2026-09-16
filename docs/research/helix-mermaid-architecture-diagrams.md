@@ -3,11 +3,11 @@
 > 文档性质：源码事实视图与候选设计图集，不替代现有架构规范。
 > 核对日期：2026-09-13。基线：本地 `main` HEAD `0bcd9d34d299974f950094101e5d34c956ebe569` 加未提交工作区。
 > 基线 hash、事实修正、候选职责与验收统一见[研究与产品演进方案](helix-agent-complete-research-and-product-plan.md)。
-> 2026-09-14 分类更新：两份材料统一归入 `docs/research/`。下文的“现状/本轮”均指 2026-09-13 的 main 研究快照，不是 Harness 分支的当前实现；源码链接固定到取证结束时的 main 修订。重构收尾以[专项交接](../development/harness-2.0-next-work.md)和[实施状态](../development/status.md)为准。
+> 2026-09-14 分类更新：两份材料统一归入 `docs/research/`。下文的“现状/本轮”均指 2026-09-13 的 main 研究快照，不是 Harness 分支的当前实现；源码链接固定到取证结束时的 main 修订。重构收尾以[专项交接](../development/tasks/HXA-192.md)和[实施状态](../development/status.md)为准。
 
 ## 1. 图例与职责
 
-2026-09-14 增量更新：C2/D 的 Runtime 视图与新增终端候选图按 Harness 工作树 `a4a64039` 加未提交 HXA-192/193 更新；其他固定源码视图仍保留原取证基线。developer 单 APK/shared UID 已由 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 接受，[ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 日志/职责已 accepted，后台/手动终端启用见 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。图中的当前结构不表示已完成全量验收或已合入 main。
+2026-09-14 增量更新：C2/D 的 Runtime 视图与新增终端候选图按 Harness 工作树 `a4a64039` 加未提交 HXA-192/193 更新；其他固定源码视图仍保留原取证基线。developer 单 APK/shared UID 已由 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md) 接受，[ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md) 日志/职责已 accepted，后台/手动终端启用见 accepted [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。图中的当前结构不表示已完成全量验收或已合入 main。
 
 图集负责表达“谁调用谁、谁拥有状态、在哪个执行域运行、何时恢复”。产品优先级、竞品问题和 HXA 拆分只在配套正文维护。图中的组件可以是职责，不要求为每个框创建一个类或模块。
 
@@ -20,7 +20,7 @@
 | 实线 | 所在视图内的调用、数据或状态流，具体含义以边标签为准 |
 | 虚线 | 观察、约束、引用或尚未接入的候选关系；不表示授权继承 |
 
-先读第 2～7 节的现状，再读第 8～10 节的候选/研究。当前状态来源为[实施状态](../development/status.md)；契约需结合[ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)、[ADR-0039](../adr/0039-background-results-and-goal-blockers.md)、[ADR-0040](../adr/0040-model-judged-goal-completion.md)。不能把旧 ADR 的已取代片段或架构伪代码当作当前实现。
+先读第 2～7 节的现状，再读第 8～10 节的候选/研究。当前状态来源为[实施状态](../development/status.md)；契约需结合[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)、[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)、[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)。不能把旧 ADR 的已取代片段或架构伪代码当作当前实现。
 
 ## 2. 现状：应用入口与执行所有权
 
@@ -185,7 +185,7 @@ flowchart LR
     A2ACLIENT <-->|"任务请求 / 不可信结果"| A2A
 ```
 
-依据：[本地执行](../architecture/local-code-execution.md)、[ADR-0007](../adr/0007-companion-runtime-lifecycle.md)、[ADR-0016](../adr/0016-a2a-client-interoperability.md)。这里只表达执行域和请求方向，不把跨网络服务画成拥有本地 Capability 或 Approval 的模块。
+依据：[本地执行](../architecture/local-code-execution.md)、[ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)、[ADR-A2A-001](../adr/a2a/001-client-interoperability.md)。这里只表达执行域和请求方向，不把跨网络服务画成拥有本地 Capability 或 Approval 的模块。
 
 ## 5. 现状：模型 Provider 与订阅进程
 
@@ -216,7 +216,7 @@ flowchart TB
     LOOP -->|"模型返回 ToolCall 后"| DISPATCH
 ```
 
-依据：[订阅 Provider](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/developer/kotlin/com/helix/app/provider/CodexSubscriptionProvider.kt)、[ModelProvider](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/provider/api/src/main/kotlin/com/helix/provider/api/ModelProvider.kt)、[ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md)。订阅凭据不返回主 App；连接检查、目录、能力检测和实际模型调用是不同操作，其成功状态不能互相替代。实现存在不代表本轮真实账号/长回复验收完成。
+依据：[订阅 Provider](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/developer/kotlin/com/helix/app/provider/CodexSubscriptionProvider.kt)、[ModelProvider](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/provider/api/src/main/kotlin/com/helix/provider/api/ModelProvider.kt)、[ADR-PROVIDER-002](../adr/provider/002-subscription-adapters.md)。订阅凭据不返回主 App；连接检查、目录、能力检测和实际模型调用是不同操作，其成功状态不能互相替代。实现存在不代表本轮真实账号/长回复验收完成。
 
 ## 6. 现状：Goal 状态机与完成结算
 
@@ -255,7 +255,7 @@ stateDiagram-v2
     end note
 ```
 
-依据：[GoalState](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/model/src/main/kotlin/com/helix/core/model/GoalState.kt)、[GoalReducer](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/agent/src/main/kotlin/com/helix/core/agent/GoalReducer.kt)、[GoalRunSettlement](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalRunSettlement.kt)、[GoalBlockerResolution](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalBlockerResolution.kt)。预算进入 BLOCKED 按 ADR-0039；模型报告完成按 ADR-0040。reducer 内旧预算 KDoc 的 PAUSED 表述不作为图的依据。
+依据：[GoalState](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/model/src/main/kotlin/com/helix/core/model/GoalState.kt)、[GoalReducer](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/core/agent/src/main/kotlin/com/helix/core/agent/GoalReducer.kt)、[GoalRunSettlement](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalRunSettlement.kt)、[GoalBlockerResolution](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalBlockerResolution.kt)。预算进入 BLOCKED 按 ADR-GOAL-001；模型报告完成按 ADR-GOAL-001。reducer 内旧预算 KDoc 的 PAUSED 表述不作为图的依据。
 
 图 E2 说明报告与真实终态的关系。`goal.report` 执行成功只说明报告已记录，最终完成在 Turn 结算时决定。图是判断摘要，不替代源码分支优先级。
 
@@ -321,7 +321,7 @@ flowchart TB
     ADMIT -->|"不通过"| PAUSED
 ```
 
-依据：[当前恢复边界](../development/status.md#known-limitations)、[ADR-0007](../adr/0007-companion-runtime-lifecycle.md)、[ADR-0039](../adr/0039-background-results-and-goal-blockers.md)。图中 Runtime/A2A 查询路径按各自契约执行；仅凭消息文本、取消请求已发送或文件名存在不能确认副作用。手动文件复制/移动日志有独立恢复协议，不是 Agent run 的 checkpoint，也不承诺断电原子事务或字节续传。
+依据：[当前恢复边界](../development/status.md#known-limitations)、[ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)、[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)。图中 Runtime/A2A 查询路径按各自契约执行；仅凭消息文本、取消请求已发送或文件名存在不能确认副作用。手动文件复制/移动日志有独立恢复协议，不是 Agent run 的 checkpoint，也不承诺断电原子事务或字节续传。
 
 图 G 区分已有提醒与正在执行的前台服务。提醒 worker 没有自动启动模型的边。
 
@@ -349,7 +349,7 @@ flowchart TB
     REC -->|"用户处理后明确继续"| ADMIT
 ```
 
-依据：[ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)、[ADR-0007](../adr/0007-companion-runtime-lifecycle.md)、[Android FGS 启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)。FGS 按全部活跃任务的实际需求管理，单任务等待不应错误停止其他任务所需服务；图省略聚合器细节。平台允许启动服务不等于 ToolCall 已批准，也不保证服务永远存活。
+依据：[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)、[ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)、[Android FGS 启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)。FGS 按全部活跃任务的实际需求管理，单任务等待不应错误停止其他任务所需服务；图省略聚合器细节。平台允许启动服务不等于 ToolCall 已批准，也不保证服务永远存活。
 
 ## 8. 候选：最小职责收敛与任务体验
 
@@ -442,7 +442,7 @@ Plan/Todo 的内部元数据更新不能伪装成任意 READ_ONLY 文件写；�
 
 ## 10. Goal 连续运行与工作流门禁、Code Mode 研究
 
-图 K 的用户激活与连续轮次已由 [ADR-0053](../adr/0053-goal-continuation-activation.md) 授权，并已完成 [HXA-208 验收](../completion-records/HXA-208.md)；它补充持久 Goal 状态机，不替换 Room/预算/审批。Activity 退后台仍由用户启动的 dataSync 服务接续轮次，等待用户和系统限制会停驻。重启不恢复激活；Schedule/Channel 仍是研究，不直接连到执行器。
+图 K 的用户激活与连续轮次已由 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md) 授权，并已完成 [HXA-208 验收](../completion-records/HXA-208.md)；它补充持久 Goal 状态机，不替换 Room/预算/审批。Activity 退后台仍由用户启动的 dataSync 服务接续轮次，等待用户和系统限制会停驻。重启不恢复激活；Schedule/Channel 仍是研究，不直接连到执行器。
 
 ```mermaid
 flowchart TB
@@ -495,7 +495,7 @@ flowchart TB
     CAN -->|"否"| BLOCK
 ```
 
-QuickJS Code Mode 不画成已经存在的工具桥：当前图 C2 的 isolated Service 没有 `helix.files.*` 宿主回调。若要增加，必须另行设计跨 UID 请求身份、审批等待、资源预算、嵌套调用、取消和对账，并重新评审无特权 Host Bridge 的现有边界。生产 child/Workflow 亦不在图 H 中预留空模块，依据 [ADR-0009](../adr/0009-bounded-local-orchestration.md) 的门禁独立评估。
+QuickJS Code Mode 不画成已经存在的工具桥：当前图 C2 的 isolated Service 没有 `helix.files.*` 宿主回调。若要增加，必须另行设计跨 UID 请求身份、审批等待、资源预算、嵌套调用、取消和对账，并重新评审无特权 Host Bridge 的现有边界。生产 child/Workflow 亦不在图 H 中预留空模块，依据 [ADR-AGENT-004](../adr/agent/004-bounded-delegation.md) 的门禁独立评估。
 
 ## 11. 图文维护与校验
 
@@ -534,7 +534,7 @@ flowchart TB
 
 Runtime 仍位于 developer 的私有 `:proot` 进程并共享主 UID。UI detach 只撤销观察/输入连接，不等于结束 Session；主进程死亡后 Job 能否继续，取决于是否已显式移交 owner、剩余预算和合法后台路径。Runtime 死亡后不能恢复原 shell 内存，重新打开必须创建新身份。停止请求不等于副作用已结算。
 
-前台 PTY 与有期限后台 Job 是不同能力，前者不以长期后台可行为前提。手动多会话与 Agent 文件变更的占用/互斥仍须决策，不能通过并行箭头暗示并发授权。范围、依赖和验收只在 [开发计划](../development/terminal-and-background-execution-plan.md) 维护；日志职责见 accepted [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md)，执行扩展边界见 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。
+前台 PTY 与有期限后台 Job 是不同能力，前者不以长期后台可行为前提。手动多会话与 Agent 文件变更的占用/互斥仍须决策，不能通过并行箭头暗示并发授权。范围、依赖和验收只在 [开发计划](../architecture/terminal.md) 维护；日志职责见 accepted [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)，执行扩展边界见 accepted [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。
 
 维护时以源码符号和正文候选编号为锚，不依赖会漂移的行号。每幅图须标明现状/候选/研究、状态所有者、跨域边和失败路径；改变箭头前先确认是否改变运行或授权契约。
 

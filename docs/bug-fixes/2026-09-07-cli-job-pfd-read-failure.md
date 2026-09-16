@@ -38,4 +38,4 @@ CliModelPfdDeviceTest 使用真实 ParcelFileDescriptor 管道：验证有效结
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)
+- [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)

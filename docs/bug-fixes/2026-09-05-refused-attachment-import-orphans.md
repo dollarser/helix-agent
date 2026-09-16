@@ -37,7 +37,7 @@ CASCADE 或 Artifact 删除路径不会看到这份未注册文件。
 
 ## Alternatives considered
 
-- 在复制前按 MIME 或扩展名拒绝：Provider 元数据不可信，会降低 ADR-0014 的字节确认
+- 在复制前按 MIME 或扩展名拒绝：Provider 元数据不可信，会降低 ADR-AGENT-003 的字节确认
   要求，未采用。
 - 让定期配额清理回收 orphan：延后且不确定，正常拒绝路径应当同步承担自己创建的副本。
 - 递归删除 attachment 根目录：目标范围过大，异常布局下可能删除其他导入，不采用。
@@ -58,6 +58,6 @@ CASCADE 或 Artifact 删除路径不会看到这份未注册文件。
 
 ## Related records
 
-- [ADR-0014：会话附件物化](../adr/0014-session-attachment-materialization.md)
+- [ADR-AGENT-003：会话附件物化](../adr/agent/003-attachments.md)
 - [文件工具安全边界](2026-09-02-file-tool-safety-boundaries.md)
 - [HXA-056 完成记录](../completion-records/HXA-056.md)

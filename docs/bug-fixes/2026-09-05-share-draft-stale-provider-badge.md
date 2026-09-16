@@ -37,7 +37,7 @@ badge 只从当前可解析会话计算；无 Provider 或无会话必须发布 
 先在旧实现证明从有 Provider 会话切换至无 Provider 会话时 badge 错误非空；
 修复后还验证分享草稿 badge 与存储 providerId 都为 null。
 `ShareDraftUiDeviceTest` 保留文字、图片预览与未发送断言。
-命令和最终 API 29/36 双 flavor 全量结果见 [main 验证报告](../development/main-merged-verification.md)。
+命令和最终 API 29/36 双 flavor 全量结果见 [main 验证报告](../evidence/development/main-merged-verification.md)。
 
 ## Residual risk
 
@@ -46,5 +46,5 @@ badge 只从当前可解析会话计算；无 Provider 或无会话必须发布 
 ## Related records
 
 - [HXA-056](../completion-records/HXA-056.md)
-- [ADR-0014](../adr/0014-session-attachment-materialization.md)
-- [main 合并后全量验证](../development/main-merged-verification.md)
+- [ADR-AGENT-003](../adr/agent/003-attachments.md)
+- [main 合并后全量验证](../evidence/development/main-merged-verification.md)

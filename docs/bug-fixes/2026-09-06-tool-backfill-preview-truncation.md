@@ -44,5 +44,5 @@ ChatService.toolResultDraft 将完整成功 payload 通过 boundedSummary 截为
 
 ## Related records
 
-- [M10 收尾跟进](../development/m10-closure-followup.md)
+- [M10 收尾跟进](../evidence/development/m10-closure-followup.md)
 - [HXA-037](../completion-records/HXA-037.md)

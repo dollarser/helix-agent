@@ -1,125 +1,26 @@
 # Helix 文档中心
 
-最近接手：[Harness WIP收口与提交记录](development/wip-takeover-2026-09-16.md)（本地验证、剩余外部验收与调试档案）。
-
-本目录按“当前事实、设计规范、开发治理、决策、交付证据、历史记录”分层。目录层级表达文档职责，文件名不再使用 `01`～`12` 的人工顺序编号。
-
-## 从哪里开始
-
-| 你要做什么 | 先读 |
+| 目的 | 入口 |
 | --- | --- |
-| 判断当前做到哪里、下一项是什么 | [实施状态](development/status.md) |
-| 开始或继续一个 HXA | [开发路线](development/roadmap.md)、[验收矩阵](development/verification-matrix.md) |
-| 接手 Harness 重构与体验任务 | [统一实施导航和交接 Prompt](development/harness-implementation-handoff.md) |
-| 配置开发机或设备 | [开发环境](development/environment.md) |
-| 理解产品边界 | [产品需求](product/requirements.md) |
-| 判断目标用户、首发场景和商业模式 | [市场、用户与商业化](product/market-users-and-commercialization.md) |
-| 理解系统与安全边界 | [总体架构](architecture/overview.md)、[安全与发布门禁](security/testing-and-release.md) |
-| 判断是否需要架构决定 | [ADR 约定](adr/README.md) |
-| 查某项交付、Bug 或事故证据 | [完成记录](completion-records/README.md)、[Bug 修复](bug-fixes/README.md)、[Postmortem](postmortems/README.md) |
+| 当前进展与下一步 | [实施状态](development/status.md) |
+| 查找任务与验收范围 | [开发路线](development/roadmap.md) |
+| 交给任意编码 Agent | [实施指南与交接 Prompt](development/implementation-guide.md) |
+| 环境和验证命令 | [开发环境](development/environment.md)、[公共验收规则](development/verification-matrix.md) |
+| 产品和操作体验 | [产品需求](product/requirements.md)、[操作链](product/task-experience.md) |
+| 架构与约束 | [总体架构](architecture/overview.md)、[安全与发布](security/testing-and-release.md) |
+| 当前决定 | [按主题组织的 ADR](adr/README.md) |
+| 已交付结果 | [完成记录索引](completion-records/index.md) |
+| 历史诊断和研究 | [证据索引](evidence/README.md)、`research/` |
 
-编码 Agent 还必须遵守仓库根目录的 [`AGENTS.md`](../AGENTS.md)。
+## 文档职责
 
-## 目录职责
+- `product/`：需求、用户体验、定位和竞品分析；研究结论不直接成为实现要求。
+- `architecture/`：跨模块职责与当前契约；计划功能明确标注交付状态。
+- `adr/`：按主题保存当前有效决定和 proposed 决策，不保留旧编号兼容路径。
+- `development/`：状态、任务索引、公共命令；`tasks/` 只保存未完成任务规格。
+- `completion-records/`：交付时点的命令与证据，不作为今天的运行指令。
+- `evidence/`：验收过程、外部材料和诊断快照，不记录当前 Agent 分工。
+- `research/`、`references/`、`history/`：候选方案、来源和仍有价值的历史材料。
+- `bug-fixes/`、`postmortems/`：缺陷根因、回归与系统性事故教训。
 
-```text
-docs/
-├── product/             产品需求、定位与竞品研究
-├── architecture/        当前规范性架构与专项设计
-├── development/         当前状态、路线、环境、实施与验收
-├── security/            威胁模型、测试和发布门禁
-├── research/            研究快照、候选方案与非规范性图集
-├── references/          外部项目、依赖和许可证边界
-├── adr/                 架构决定及其理由
-├── completion-records/  已完成 HXA 的不可变交付证据
-├── bug-fixes/           非平凡缺陷的根因与回归证据
-├── postmortems/         越过既有安全网的系统性事故复盘
-└── history/             不再充当当前规范、但仍有追溯价值的记录
-```
-
-- [Connector 能力包与迁移](architecture/connector-portability.md)：格式兼容矩阵、导入管理与认证/Runtime 分期。
-
-## 产品
-
-- [产品需求](product/requirements.md)：用户、场景、能力边界和产品验收指标。
-- [竞品分析：决策总览](product/competitive-landscape.md)：竞争格局、Helix 优缺点与产品应对。
-- [直接竞品档案](product/competitive-direct-agents.md)：本机工作台、Coding Agent、DSH/OpenClaw 交付路线。
-- [替代方案与技术参照](product/competitive-alternatives.md)：客户端、远程/云端、GUI、离线与规则自动化。
-- [系统生态与移动协议](product/competitive-platform-ecosystems.md)：HarmonyOS、Android、iOS、OEM 助手与 App 调用机制。
-- [竞品评估与横评计划](product/competitive-evaluation.md)：证据等级、固定任务、指标和结果模板。
-- [竞品证据与材料校正](product/competitive-evidence.md)：来源批次、历史纠错与维护口径。
-- [市场、用户与商业化](product/market-users-and-commercialization.md)：目标用户、购买理由、能力包装、分发与商业化假设。
-
-## 重构研究
-
-- [研究与产品演进候选方案](research/helix-agent-complete-research-and-product-plan.md)：事实复核、产品问题、职责契约与候选批次；不是实施授权。
-- [现状快照与候选演进图](research/helix-mermaid-architecture-diagrams.md)：配套调用、执行域、状态和恢复视图；不替代当前架构规范。
-- [Harness 2.0 收尾与小模型交接](development/harness-2.0-next-work.md)：已解决问题、技术取舍、执行顺序与验收要求。
-- [终端与后台命令开发计划](development/terminal-and-background-execution-plan.md)：HXA-194～199 的职责、依赖、授权决定和可复制验收；尚未实现。
-- [三态审批与产品闭环](development/product-completion-and-approval-plan.md)：HXA-200～206，允许/询问/禁止、任务过程、产物、恢复与能力准备；含小模型启动 Prompt 和本地提交规则。
-- [工作区与能力体验方案](development/workspace-and-capability-experience-plan.md)：直接导航、环境/会话、扩展添加到使用、用户权限语言；补充原任务验收及HXA-207。
-
-## 架构
-
-- [总体架构](architecture/overview.md)：模块、状态机、核心接口、存储和安全不变式。
-- [本地代码执行](architecture/local-code-execution.md)：QuickJS、PRoot 与执行域边界。
-- [Android 平台能力](architecture/android-platform-capabilities.md)：Browser、Files、Accessibility、Root 与 Android 工具。
-- [Provider、MCP、A2A、Skills 与模式](architecture/provider-mcp-skills-modes.md)：Provider、外部工具/Agent 协议、Plan/Goal 和订阅边界。
-- [手机端 Tool 编排](architecture/mobile-tool-orchestration.md)：确定性调度、取消、恢复与受限委托。
-
-## 开发治理
-
-- [大文件与职责审查 2026-09-10](development/large-class-responsibility-audit-2026-09-10.md)：HXA-182 后工作分支的完整生产大文件清单；区分职责拆分、文件组织与应保持集中的状态机，属于快照建议。
-
-- [实施状态](development/status.md)：唯一当前状态源，只维护已验证范围、当前任务、接口和限制。
-- [开发路线](development/roadmap.md)：HXA 的依赖顺序、范围和验收要求。
-- [验收矩阵](development/verification-matrix.md)：每个 HXA 的真实命令、设备与证据。
-- [开发环境](development/environment.md)：JDK、Android SDK、AVD、真机和依赖基线。
-- [小模型实施指南](development/implementation-guide.md)：受限上下文下的任务读取、实现与交接规则。
-- [浏览器与 Autofill 长稳方案](development/browser-autofill-soak-plan.md)：供小模型实施和执行的夹具契约、双 API 24 小时负载、资源门禁与取证步骤；当前为设计，未执行。
-- [待模拟器验证总计划](development/emulator-verification-master-plan.md)：覆盖待测缺口、已测回归、外部条件与真机排除；含EV-00～12执行包和小模型总交接。
-- [全仓优化改进审查 2026-09-06](development/improvement-review-2026-09-06.md)：M0～M10 阶段性完成后的全仓代码/文档快照审查（安全/缺陷/架构/工程/文档问题清单 + 未决事项 + 优先级路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
-- [全仓优化改进审查 2026-09-07](development/improvement-review-2026-09-07.md)：M11/HXA-102 大波开发后的第二轮全仓审查（上轮问题逐条回归核对 + Goal 硬化/M11/core/runtime/app 新代码问题 + 文档治理 + 更新版 P0～P5 路线图）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
-- [全仓优化改进审查 2026-09-10](development/improvement-review-2026-09-10.md)：HXA-147～187 大波开发后的第三轮全仓审查（文档流程/架构/产品 UX/工程实践四维度并行扫描 + 前轮文档治理项抽核；未做 09-07 P0/P1 代码项逐条回归）；一次性快照，当前状态仍以 [实施状态](development/status.md) 为准。
-
-## 安全与外部参考
-
-- [安全、测试与发布门禁](security/testing-and-release.md)：威胁模型、测试矩阵和发布阻断条件。
-- [开源依赖与参考项目](references/open-source-projects.md)：直接依赖、设计参考、禁止复制和许可证复核边界。
-
-## 决策与证据
-
-- [ADR](adr/README.md) 记录决定及理由；`accepted` 不等于已经实现。
-- [完成记录](completion-records/README.md) 记录 HXA 的实际命令、结果、设备和限制。
-- [Bug 修复记录](bug-fixes/README.md) 记录交付后非平凡缺陷的根因、不变式和回归证据。
-- [Postmortem](postmortems/README.md) 仅用于已经越过安全网的系统性事故。
-- [文档复核历史](history/documentation-review.md) 保存跨里程碑复核与取舍，不作为当前状态源。
-
-## 维护规则
-
-1. 同一事实只有一个权威位置；其他文档使用链接，不复制易变化的状态快照。
-2. `development/status.md` 是唯一当前状态源；路线是计划，ADR 是决定，完成记录是证据，三者都不能替代当前状态。
-3. 规范变化同步修复所有相对链接，并运行 `./scripts/check-docs.sh` 与 `git diff --check`。
-4. 历史文件只有在确认没有独有决定、根因或验收证据后才能删除；被取代的 ADR 仍保留并标注 superseded。
-5. 新文件使用小写 kebab-case；HXA、ADR、M0 编号和日期型 Bug 文件保留各自约定格式。
-6. 产品需求和架构文档只定义长期边界，不复制“当前 HXA/已完成范围/下一任务”；需要表达实时实现状态时链接 `development/status.md`。
-7. 分发渠道、构建 flavor 与运行时安全配置是三个独立维度；任何文档不得再把 consumer/developer 直接等同于商店版/完整版。
-
-## UI 参考材料
-
-- [用户提供的会话与文件管理截图](references/ui/README.md)
-
-## 当前专项交接与复核
-
-- [完成记录索引](completion-records/index.md)：自动生成的历史交付导航。
-- [模拟器统一验收计划](development/emulator-verification-master-plan.md)、[HXA-185 Claude 交接](development/hxa185-claude-test-handoff.md)：独占模拟器、长稳轮次与证据入口。
-- [第三轮审查复核](development/improvement-review-2026-09-10-followup.md)：已证实缺陷、纠正结论与发布前待办。
-- [M9 当前非设备进展](development/m9-non-device-progress.md)、[Connector 交接](development/connector-handoff.md)：专项边界；实时汇总仍以 status.md 为准。
-
-### 历史专项执行快照
-
-以下文档保留原轮次证据；其中“进行中”“下一步”只描述当时现场，不能替代当前状态：
-
-- [M7 非设备验证](development/m7-non-device-progress.md)、[验证缺口追踪](development/verification-gaps-progress.md)、[M10 收尾执行](development/m10-closure-followup.md)。
-- [Root 模拟器实验](development/m9-rooted-emulator-experiment.md)、[M11 原交接](development/m11-handoff.md)。
-- [HXA-125](development/hxa-125-progress.md)、[HXA-144](development/hxa-144-progress.md)、[HXA-146](development/hxa-146-progress.md)、[HXA-147](development/hxa147-progress.md)。
+同一信息只保留一个当前入口：状态在 status，范围在任务，命令在公共规则或任务，决定在 ADR，结果在完成记录。旧 Agent 的工作树、模拟器占用和会话分工不约束后续接手。编码须遵守根目录 [AGENTS.md](../AGENTS.md)。

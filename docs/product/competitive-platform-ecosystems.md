@@ -162,7 +162,7 @@ MCP 是外部工具协议，A2A 是用户配置的外部 Agent 任务协议，Sk
 - AppFunctions：官方开放条件变化或 Helix 获正式测试资格后，先核实 caller/provider 身份、设备、权限、取消和进程死亡语义，再由所有者决定是否立新 HXA。
 - 系统语义层对照：对 Intents Kit、AppFunctions、App Intents 使用同一任务检查发现、授权、结果与恢复；不把任一生态注册结果当成 Helix ToolCall Approval。
 
-规范性边界见[Provider 与扩展架构](../architecture/provider-mcp-skills-modes.md)。跨设备、HarmonyOS 客户端、A2A Server 和远程 Worker 不因本调研进入实现范围。
+规范性边界见[Provider 与扩展架构](../architecture/providers.md)。跨设备、HarmonyOS 客户端、A2A Server 和远程 Worker 不因本调研进入实现范围。
 
 ### 5.5 本轮 AppFunctions 复核
 

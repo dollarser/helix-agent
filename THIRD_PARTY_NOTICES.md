@@ -63,4 +63,4 @@ building an unminified release APK does not close this distribution gate.
 - Copyright: The Android Open Source Project; Apache License 2.0.
 - Unmodified library used only for local image EXIF orientation parsing; replaces
   the platform implementation flagged by Android Lint. Metadata is still stripped
-  by bitmap re-encoding, under the existing ADR-0014 bounds.
+  by bitmap re-encoding, under the existing ADR-AGENT-003 bounds.

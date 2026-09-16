@@ -15,9 +15,9 @@ Affected modules: app
 
 ## Root cause
 
-`GoalDurableUsageLedger` 达到预算后将 Goal 改为 PAUSED，但只更新 run 用量，没有关闭 run 或填写 outcome。启动恢复只处理 RUNNING Goal，因此这个已暂停 Goal 的 open run 不会被后续恢复修复；ADR-0004 要求的持久暂停原因在 run 中缺失。
+`GoalDurableUsageLedger` 达到预算后将 Goal 改为 PAUSED，但只更新 run 用量，没有关闭 run 或填写 outcome。启动恢复只处理 RUNNING Goal，因此这个已暂停 Goal 的 open run 不会被后续恢复修复；ADR-GOAL-001 要求的持久暂停原因在 run 中缺失。
 
-同时达到两项时长上限时，ledger 先检查累计时长，与 ADR-0004 的单次 wake 时长优先顺序不同。
+同时达到两项时长上限时，ledger 先检查累计时长，与 ADR-GOAL-001 的单次 wake 时长优先顺序不同。
 
 ## Fix and invariants
 
@@ -43,6 +43,6 @@ consumer Debug Lint、core agent JVM 和 CLI client JVM 回归联合命令 exit 
 
 ## Related records
 
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

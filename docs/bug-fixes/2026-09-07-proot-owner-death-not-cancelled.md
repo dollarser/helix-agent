@@ -11,7 +11,7 @@ Killing the submitting App left its approved shell job running without a valid f
 
 ## Impact
 
-The original job could outlive its owner or remain frozen instead of following ADR-0007 cancellation semantics.
+The original job could outlive its owner or remain frozen instead of following ADR-RUNTIME-001 cancellation semantics.
 
 ## Root cause
 
@@ -35,6 +35,6 @@ Legacy raw submission remains available for compatibility and does not carry an 
 
 ## Related records
 
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
 - [Queued cancellation prerequisite](2026-09-07-proot-pending-cancel-ignored.md)
-- [Result recovery gap](../development/proot-result-durable-recovery-gap.md)
+- [Result recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)

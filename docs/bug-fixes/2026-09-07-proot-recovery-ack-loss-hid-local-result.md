@@ -37,6 +37,6 @@ The lost-response callback is injected; it is not a real Binder process-kill tes
 
 ## Related records
 
-- [Recovery gap](../development/proot-result-durable-recovery-gap.md)
+- [Recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)
 - [Output failure review](2026-09-07-proot-output-failure-missing-review-recovery.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)

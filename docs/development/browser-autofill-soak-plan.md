@@ -4,7 +4,7 @@
 
 全部模拟器任务的范围、前置和交接见[总计划](emulator-verification-master-plan.md)。本文件是EV-02子计划；主App接线连续任务与旧应用资源24小时分别归EV-04/03，不能由模块测试APK替代。
 
-本方案供小模型分步实现测试夹具并执行，目标是判断真实 Activity/WebView 导航和 Autofill 工作量是否造成持续资源累积。它不是全 App、真实模型 API 或真机长稳验收。依据：[当前状态](status.md)、[ADR-0033](../adr/0033-activity-owned-browser-views.md)、[HXA-160](../completion-records/HXA-160.md)、[JNI/Binder 释放证据](native-reference-release-trace.md)。历史测试结果不得当作新一轮结果。
+本方案供小模型分步实现测试夹具并执行，目标是判断真实 Activity/WebView 导航和 Autofill 工作量是否造成持续资源累积。它不是全 App、真实模型 API 或真机长稳验收。依据：[当前状态](status.md)、[ADR-PLATFORM-002](../adr/platform/002-browser-lifecycle.md)、[HXA-160](../completion-records/HXA-160.md)、[JNI/Binder 释放证据](../evidence/development/native-reference-release-trace.md)。历史测试结果不得当作新一轮结果。
 
 ## 1. 目标与执行边界
 
@@ -137,7 +137,7 @@ python3 scripts/diagnostics/run-jni-reference-trace.py SERIAL --count 100
 
 ```text
 请按 docs/development/browser-autofill-soak-plan.md 实施并执行 Helix 浏览器/Autofill 长稳测试。
-先读 AGENTS.md、README.md、status.md、roadmap.md 和 ADR-0033，核实当前源码/工作区/设备。
+先读 AGENTS.md、README.md、status.md、roadmap.md 和 ADR-PLATFORM-002，核实当前源码/工作区/设备。
 本任务不修产品、不换内核、不做真机、不调用付费模型；先登记一个独立测试检查点。
 先完成第2/5节所列缺失夹具和runner，保留旧测试，完成局部门禁和P1故障检测后冻结APK/config。
 依次执行P0～P5；每台同一轮保持一个目标进程与一次instrumentation，禁止循环重启拼时长。

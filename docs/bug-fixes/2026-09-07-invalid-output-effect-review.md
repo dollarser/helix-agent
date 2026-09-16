@@ -37,5 +37,5 @@ The ChatService mapping was source-checked; this change does not add a new devic
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

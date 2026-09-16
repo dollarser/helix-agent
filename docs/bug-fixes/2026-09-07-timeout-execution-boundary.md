@@ -37,5 +37,5 @@ Tests cover JVM submission/deadline behavior, not file-write SIGKILL or a new de
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

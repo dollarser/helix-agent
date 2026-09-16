@@ -42,4 +42,4 @@ Affected modules: `app/src/androidTest`
 ## Related records
 
 - [HXA-072 完成记录](../completion-records/HXA-072.md)
-- [M7 合并与验证进展](../development/m7-non-device-progress.md)
+- [M7 合并与验证进展](../evidence/development/m7-non-device-progress.md)

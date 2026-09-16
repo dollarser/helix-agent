@@ -18,4 +18,4 @@ p=Path('app/src/androidTest/kotlin/com/helix/app/files/ManualSafFileDeviceTest.k
     }
 
 '''+s[pos:];p.write_text(s)
-p=Path('docs/architecture/provider-mcp-skills-modes.md');s=p.read_text().replace('child delegation/JSON Workflow 在 ADR-0009 接受前不可用','child delegation/JSON Workflow 须通过已接受 ADR-0009 的生产启用门禁后才可用');p.write_text(s)
+p=Path('docs/architecture/provider-mcp-skills-modes.md');s=p.read_text().replace('child delegation/JSON Workflow 在 ADR-AGENT-004 接受前不可用','child delegation/JSON Workflow 须通过已接受 ADR-AGENT-004 的生产启用门禁后才可用');p.write_text(s)

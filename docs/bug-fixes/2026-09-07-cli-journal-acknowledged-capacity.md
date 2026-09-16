@@ -19,7 +19,7 @@ CodexModelJobStore.canAcceptNew counted every retained directory against the 128
 
 ## Fix and invariants
 
-Before admission and startup recovery, reclaim only valid terminal records carrying a reconciliation receipt. Remove receipts older than seven days, or the oldest acknowledged records when the entry/metadata budget needs space. Active, unacknowledged and undecodable records remain protected and count against capacity. A failed deletion fails closed. This implements bounded acknowledged tombstones under ADR-0007; seven days is a maximum, not a guaranteed minimum retention period.
+Before admission and startup recovery, reclaim only valid terminal records carrying a reconciliation receipt. Remove receipts older than seven days, or the oldest acknowledged records when the entry/metadata budget needs space. Active, unacknowledged and undecodable records remain protected and count against capacity. A failed deletion fails closed. This implements bounded acknowledged tombstones under ADR-RUNTIME-001; seven days is a maximum, not a guaranteed minimum retention period.
 
 ## Alternatives considered
 
@@ -37,6 +37,6 @@ A journal containing only active or unacknowledged records can still refuse admi
 
 ## Related records
 
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Current TODO](../development/main-optimization-todo.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

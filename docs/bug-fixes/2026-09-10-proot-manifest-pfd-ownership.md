@@ -27,7 +27,7 @@ PfdManifestChannel.readFromStart 的接口承诺消费并关闭 PFD，但旧实�
 
 ## Regression verification
 
-新增 PfdManifestChannelDeviceTest：正常读写、空流、超限写入、超限输入、无效读端五项；断言发生在测试 finally 清理之前，不能由夹具补关掩盖产品泄漏。设备 APK 已编译，尚未执行；独占模拟器执行条件见 [审查复核交接](../development/improvement-review-2026-09-10-followup.md)。主机 PRoot IPC 40项及全量门禁通过，详见 [HXA-189](../completion-records/HXA-189.md)。
+新增 PfdManifestChannelDeviceTest：正常读写、空流、超限写入、超限输入、无效读端五项；断言发生在测试 finally 清理之前，不能由夹具补关掩盖产品泄漏。设备 APK 已编译，尚未执行；独占模拟器执行条件见 [审查复核交接](../evidence/development/improvement-review-2026-09-10-followup.md)。主机 PRoot IPC 40项及全量门禁通过，详见 [HXA-189](../completion-records/HXA-189.md)。
 
 ## Residual risk
 
@@ -36,5 +36,5 @@ Android PFD 关闭行为仍需 API29/36 设备回归；本轮源码修复和 JVM
 ## Related records
 
 - [HXA-083 原 IPC 任务](../completion-records/HXA-083.md)
-- [原审查](../development/improvement-review-2026-09-10.md)
-- [复核与交接](../development/improvement-review-2026-09-10-followup.md)
+- [原审查](../evidence/development/improvement-review-2026-09-10.md)
+- [复核与交接](../evidence/development/improvement-review-2026-09-10-followup.md)

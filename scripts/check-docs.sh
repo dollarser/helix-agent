@@ -34,7 +34,10 @@ required_doc_entries = (
     "architecture/overview.md",
     "architecture/local-code-execution.md",
     "architecture/android-platform-capabilities.md",
-    "architecture/provider-mcp-skills-modes.md",
+    "architecture/providers.md",
+    "architecture/extensions.md",
+    "architecture/agent-modes.md",
+    "architecture/terminal.md",
     "architecture/mobile-tool-orchestration.md",
     "development/status.md",
     "development/roadmap.md",
@@ -83,17 +86,22 @@ roadmap_path = root / "docs" / "development" / "roadmap.md"
 matrix_path = root / "docs" / "development" / "verification-matrix.md"
 roadmap = roadmap_path.read_text(encoding="utf-8")
 matrix = matrix_path.read_text(encoding="utf-8")
-roadmap_ids = re.findall(r"^### (HXA-\d{3})\b", roadmap, re.MULTILINE)
-matrix_ids = re.findall(r"^\| (HXA-\d{3}) \|", matrix, re.MULTILINE)
-
-if len(roadmap_ids) != len(set(roadmap_ids)):
-    errors.append("docs/development/roadmap.md: duplicate HXA task heading")
-if len(matrix_ids) != len(set(matrix_ids)):
-    errors.append("docs/development/verification-matrix.md: duplicate HXA row")
-if set(roadmap_ids) != set(matrix_ids):
-    missing = sorted(set(roadmap_ids) - set(matrix_ids))
-    extra = sorted(set(matrix_ids) - set(roadmap_ids))
-    errors.append(f"HXA matrix mismatch; missing={missing}, extra={extra}")
+roadmap_ids = re.findall(r"^\| (HXA-\d{3}) \|", roadmap, re.MULTILINE)
+if not roadmap_ids or len(roadmap_ids) != len(set(roadmap_ids)):
+    errors.append("docs/development/roadmap.md: missing or duplicate HXA task rows")
+task_dir = root / "docs/development/tasks"
+completed_ids = {p.stem for p in (root / "docs/completion-records").glob("HXA-*.md")}
+completed_ids.update({"HXA-001", "HXA-002", "HXA-003"})
+active_ids = {p.stem for p in task_dir.glob("HXA-*.md")}
+if active_ids != set(roadmap_ids) - completed_ids:
+    errors.append(f"Task inventory mismatch: expected={sorted(set(roadmap_ids)-completed_ids)}, actual={sorted(active_ids)}")
+for task_path in task_dir.glob("HXA-*.md"):
+    task_text = task_path.read_text(encoding="utf-8")
+    for heading in ("范围与验收要求", "验证入口", "交付"):
+        if len(re.findall(rf"^## {heading}$", task_text, re.MULTILINE)) != 1:
+            fail(task_path, f"requires exactly one {heading} section")
+    if not task_text.startswith(f"# {task_path.stem}："):
+        fail(task_path, "task title does not match filename")
 
 required_status_sections = (
     "Completed",

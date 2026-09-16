@@ -20,6 +20,58 @@ claims = module("adr-status-claims")
 
 
 class ReviewGatesTest(unittest.TestCase):
+    def test_adr_gate_checks_topic_ids_links_and_current_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("verify-adr.sh", "adr-status-claims.py"):
+                (scripts / name).write_text(Path(__file__).with_name(name).read_text())
+            for name in ("AGENTS.md", "README.md", "docs/development/status.md",
+                         "docs/development/roadmap.md", "docs/development/implementation-guide.md"):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("")
+            topic = root / "docs/adr/goal"
+            topic.mkdir(parents=True)
+            new = topic / "001-current.md"
+            sections = "\n".join("## " + title + "\nEvidence.\n" for title in (
+                "Context", "Decision", "Alternatives considered", "Consequences",
+                "Verification", "Reconsider when", "References"))
+            def record(identifier, status="accepted"):
+                return (f"# ADR-{identifier}: Fixture\n\nStatus: {status}\nDate: 2026-09-16\n"
+                        f"HXA: HXA-001\nDeciders: Project owner\n\n{sections}")
+            new.write_text(record("GOAL-001"))
+            topic_index = topic / "README.md"
+            topic_index.write_text("accepted [ADR-GOAL-001](001-current.md)\n")
+            provider = root / "docs/adr/provider"
+            provider.mkdir()
+            (provider / "001-current.md").write_text(record("PROVIDER-001"))
+            (provider / "README.md").write_text("accepted [ADR-PROVIDER-001](001-current.md)\n")
+            command = ["bash", str(scripts / "verify-adr.sh")]
+            def run():
+                return subprocess.run(command, capture_output=True, text=True, timeout=15)
+            valid = run()
+            self.assertEqual(0, valid.returncode, valid.stderr)
+            self.assertIn("2 current decision records", valid.stdout)
+            new.write_text(new.read_text() + "\n[Broken](missing.md)\n")
+            self.assertIn("unresolved relative link", run().stderr)
+            new.write_text(record("GOAL-001"))
+            duplicate = topic / "001-duplicate.md"
+            duplicate.write_text(record("GOAL-001"))
+            self.assertIn("ADR identifiers must be unique", run().stderr)
+            duplicate.unlink()
+            new.write_text(record("PROVIDER-001"))
+            self.assertIn("topic/number and title differ", run().stderr)
+            new.write_text(record("GOAL-001"))
+            topic_index.write_text("proposed [ADR-GOAL-001](001-current.md)\n")
+            self.assertIn("topic README must link", run().stderr)
+            topic_index.write_text("accepted [ADR-GOAL-001](001-current.md)\n")
+            new.write_text(record("GOAL-001", "superseded"))
+            self.assertIn("invalid current decision Status", run().stderr)
+            new.write_text(record("GOAL-001") + "\nSupersedes: none\n")
+            self.assertIn("obsolete supersession metadata", run().stderr)
+
     def test_i18n_checks_the_current_worktree_even_under_excluded_parent_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "build/.claude/worktrees/fixture"
@@ -64,10 +116,10 @@ class ReviewGatesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "0001.md").write_text("Status: superseded\n")
-            stale = "accepted [ADR-0001](0001.md)"
+            stale = "accepted [ADR-GOAL-001](0001.md)"
             self.assertEqual(1, len(list(claims.mismatches(stale, root))))
             self.assertEqual([], list(claims.mismatches("历史状态：" + stale, root)))
-            self.assertEqual([], list(claims.mismatches("superseded [ADR-0001](0001.md)", root)))
+            self.assertEqual([], list(claims.mismatches("superseded [ADR-GOAL-001](0001.md)", root)))
 
     def test_index_tracks_noncontiguous_records_and_historical_heading_levels(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,164 +1,43 @@
-# Helix 架构决策记录约定
+# Helix 当前架构决策
 
-ADR（Architecture Decision Record）保存代码、测试和规范文档不适合承载的决策理由：为什么选择当前方向、比较过哪些替代方案、付出什么代价，以及什么证据出现后应重新讨论。ADR 不替代 HXA 任务、架构规范、测试或 `docs/development/status.md`。
+这里只维护当前有效决定和仍有价值的候选方案。过时记录、旧编号、增量补丁说明和版本兼容规则不保留；需要追查决策演变时查看 `v0.0.1` 分支及 Git 历史。没有历史 ADR 目录或旧编号跳转层。
 
-## 1. 权威性和状态
+## 按需求阅读
 
-- 当前行为以生产代码、测试以及 `docs/` 中明确声明的规范性章节为准。
-- ADR 记录决定及其理由，不是“功能已经实现”的证明。`accepted` 只表示决定被接受；实现状态和验收证据写入 HXA 完成记录及 `docs/development/status.md`。
-- ADR 与当前代码或规范冲突时，小模型必须停止并报告具体冲突，不得自行选择一边或静默改写 ADR。
-- 不使用生命周期目录移动文件。移动会破坏引用；所有记录保留稳定路径，状态写在文件头。
-
-允许的状态是：
-
-| 状态 | 含义 |
+| 主题 | 范围 |
 | --- | --- |
-| `proposed` | 候选决定，仍需授权者评审；小模型新建 ADR 的默认状态 |
-| `accepted` | 决定已被明确接受，但不表示代码已经实现 |
-| `rejected` | 候选决定被否决；正文必须保留理由和重新提出条件 |
-| `superseded` | 已被另一 ADR 完全取代；必须链接新 ADR |
+| [Goal](goal/README.md) | 目标生命周期、连续执行、预算与完成 |
+| [Provider](provider/README.md) | 模型选择、元数据与连接验证、订阅适配、任务路由与流式结果 |
+| [权限与审批](permissions/README.md) | 会话授权预设、自定义权限与工具禁用、Chat/Plan 审阅与内置元数据操作、工具执行准入、精确审批与持久审计 |
+| [工作目录与文件](workspace/README.md) | 会话目录、相对路径与内容身份、独立文件管理与传输恢复、Git 仓库一致性与产品边界、独立会话工作目录与外部资源绑定 |
+| [Runtime 与终端](runtime/README.md) | 执行域、打包、生命周期与结果对账、命令日志、后台 Job 与手动终端、QuickJS 隔离执行底座、RootService 依赖与调用边界 |
+| [工具契约](tools/README.md) | 工具描述契约与审批绑定 |
+| [MCP](mcp/README.md) | MCP Client、传输与工具接入 |
+| [Skill](skills/README.md) | Skill 创作、安装与 MCP 配置闭环 |
+| [Connector](connectors/README.md) | Connector 能力包、Connector public-client OAuth、Connector 版本所有权与安装事务、Connector 签名索引与来源 |
+| [A2A](a2a/README.md) | A2A Client 与远端任务对账 |
+| [Agent 执行与上下文](agent/README.md) | Turn 批次协调与持久结算、模型请求上下文与步骤边界压缩、附件快照与请求物化、有界只读委托与工作流边界 |
+| [平台与基础设施](platform/README.md) | 产品完整性与渠道分发、浏览器 View 与逻辑标签生命周期、领域值的严格存储编码 |
 
-不使用 `implemented` 作为 ADR 状态。实现是否完成必须由真实代码、测试、设备证据和 HXA 验收决定。
+## 决策与交付
 
-## 2. 稳定文件名
+- `accepted` 是已授权的设计；实际能力和证据查[实施状态](../development/status.md)、[路线](../development/roadmap.md)及完成记录。
+- `proposed` 仍需决定，不能因整理文档而接受。会话工作目录绑定、工具 descriptor 完整契约和 Connector 扩展保持候选。
+- 会话权限新方案已接受，HXA-209 尚待实现；Goal 按 HXA-208 的范围交付。二者不能共用“全绿”结论。
+- 已授权方案可以要求重构现有代码。实现尚未跟上不是架构冲突，不恢复被废弃的兼容行为；未授权的范围变化才需新的决定。
 
-文件直接放在 `docs/adr/`：
+## 编写与更新
 
-```text
-NNNN-short-kebab-topic.md
-```
+文件为 `<topic>/NNN-short-title.md`，标题为 `ADR-TOPIC-NNN`。编号只在主题内唯一，不映射旧的全局编号。跨主题职责用链接，单个决定不复制到多个目录。
 
-- `NNNN` 是四位、单调递增且不复用的编号，例如 `0001`。
-- 文件创建后不因状态变化而改名或移动。
-- 标题、文件编号和 `ADR-NNNN` 必须一致。
-- ADR 之间及 ADR 到其他仓库文档只使用相对 Markdown 链接；不得写本机绝对路径。
-- `README.md` 不是一条 ADR，不占编号。
+使用 `Status`、`Date`、`HXA`、`Deciders` 字段及 Context、Decision、Alternatives considered、Consequences、Verification、Reconsider when、References 章节。新方案默认 proposed；只有所有者明确授权才 accepted。不要使用 implemented 作为 ADR 状态。
 
-新建前执行：
+同一职责的调整直接收敛现行文本；重要新取舍先以 proposed 评审，授权后合并有效内容并删除失效部分。过时方案只在 Alternatives 中保留有用的“不采用及原因”，不再保留 Supersedes/Superseded by 链或历史副本。删除文档不授权删除用户数据或审计证据。
 
-```bash
-rg -n "<机制、模块、协议或候选方案关键词>" docs/adr docs
-find docs/adr -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.md' | sort
-```
+改变授权、信任、执行域、数据持久化、跨模块契约、核心依赖或发行边界需要明确决策。普通 bug 修复和事实性路径更新不制造新 ADR。任务完成记录链接当前相关决定并说明验收范围；过去的完成记录不能被解释为新方案已通过。
 
-先确认没有覆盖同一决定的现有 ADR，再选择下一个编号。不得并行猜号；发生冲突时重新编号尚未合并的记录。
+依赖名称和选型理由可写入决定，当前确切版本以 catalog/lockfile 为准；不要把一次 Spike 版本或旧测试数量写成永久约束。Verification 区分验收要求与已执行证据，不复制长篇流水账。
 
-## 3. 什么时候必须写 ADR
+## 检查
 
-出现下列任一情况时，当前 HXA 必须新增或取代一条 ADR：
-
-- 改变安全、权限、审批、凭据或信任边界；
-- 选择或更换 native runtime、RootFS、模型协议、持久化方案或跨进程执行底座；
-- 改变跨模块公开契约、数据格式、IPC、签名或更新策略；
-- 引入新的 Maven repository、重要第三方组件，或形成许可证兼容性决定；
-- Spike 在多个可行方案中形成正式结论，尤其是 HXA 原文要求“产出 ADR”时；
-- 推翻、部分替代或完全取代现有 ADR；
-- 作出会约束多个后续 HXA、难以回滚或需要发布者承担长期成本的决定。
-
-下列变更通常不需要 ADR：
-
-- 在既有契约内实现一个 HXA；
-- 不改变行为的格式、拼写、链接或机械重命名；
-- 不改变测试策略的局部测试补充；
-- 不改变架构或外部契约的普通 bug 修复；
-- 只更新 `docs/development/status.md` 中有命令证据支持的进度事实。
-
-拿不准时，小模型应在完成记录中写明疑点并保持 `proposed`，不能为了省事写“无需 ADR”，也不能擅自接受架构决定。
-
-## 4. 小模型权限边界
-
-- 小模型可以搜索、引用和起草 `proposed` ADR。
-- 只有 HXA 明确要求形成决定，或项目所有者/授权审查明确给出结论，并且 ADR 写入相应证据时，才能设置 `accepted` 或 `rejected`。
-- 小模型可以随实现同步事实性引用，例如路径、符号、版本和测试命令；不得借“更新事实”改写原决定、替代方案或历史理由。
-- 如果实现要求改变已接受决定，小模型必须停止实现，创建或建议 `proposed` 的取代 ADR，并等待确认。
-- 不得把设计文档中的未来时态转换成“已实现”结论，也不得为尚未完成的 QuickJS、PRoot、CLI、Root 或 Accessibility 能力伪造验收证据。
-
-## 5. 必需格式
-
-每条 ADR 使用以下模板：
-
-```markdown
-# ADR-NNNN: 简短决定标题
-
-Status: proposed
-Date: YYYY-MM-DD
-HXA: HXA-NNN
-Deciders: pending
-Supersedes: none
-Superseded by: none
-
-## Context
-
-描述不依赖候选方案也成立的问题、约束和已验证事实。区分官方事实、仓库事实、实验结果和推断。
-
-## Decision
-
-写明提议或已接受/否决的决定及适用边界。`accepted` 使用现在时描述决定，不声称尚未实现的能力已经可用。
-
-## Alternatives considered
-
-至少列出一个真实替代方案、没有选择它的原因，以及它在哪些条件下可能更合适。
-
-## Consequences
-
-同时记录收益、代价、迁移影响、后续约束和仍然存在的风险。
-
-## Verification
-
-列出支持决定的真实命令、测试、设备、artifact 或外部依据。尚未执行的项目标为“required before acceptance”，不能写成通过。
-
-## Reconsider when
-
-列出重新讨论的可观察条件，例如关键 Spike 失败、平台政策变化、依赖停止维护或性能/体积超过已批准门限。
-
-## References
-
-- [相关规范](../architecture/overview.md)
-```
-
-规则：
-
-- `Status`、`Date`、`HXA`、`Deciders`、`Supersedes`、`Superseded by` 六个字段必须存在。
-- `accepted`/`rejected`/`superseded` 的 `Deciders` 不能是 `pending`。
-- `Alternatives considered` 不能只写“无”，除非正文解释为什么问题没有可比较方案。
-- `Verification` 必须区分已执行证据与未来验收要求。
-- `rejected` 必须在 `Decision` 中直接说明否决理由，并在 `Reconsider when` 写明重新提出条件。
-
-## 6. 取代和更新
-
-写新 ADR 前必须执行同主题检索：
-
-1. 只是路径、符号、版本或命令漂移：在原 ADR 中最小更新事实性引用，并与代码变更同一任务提交。
-2. 部分改变决定：保留旧 ADR，新增 `proposed` ADR，双方在 References 中交叉链接并写明未被改变的范围。
-3. 完全取代决定：新 ADR 的 `Supersedes` 指向旧 ADR；批准后把旧 ADR 状态改为 `superseded`，并设置互相一致的 `Superseded by`。
-4. 不删除仍有独特理由、替代方案、后果、验证方法或重新提出条件的旧 ADR。
-
-不得通过重写旧 ADR 让历史看起来从未发生过。Git 历史是补充证据，不代替文档中的显式取代关系。
-
-## 7. HXA 交付和门禁
-
-每个 HXA 完成记录必须包含：
-
-```text
-决策记录：ADR-NNNN（链接和状态），或“不适用：<为什么本任务没有形成架构决定>”
-```
-
-HXA-002 提供 `scripts/verify-adr.sh` 并接入 CI，至少检查：
-
-- 文件名、编号和标题一致且编号唯一；
-- 状态属于封闭集合，拒绝 `implemented`；
-- 必需字段和章节存在；
-- `accepted`/`rejected`/`superseded` 不使用 `Deciders: pending`；
-- 仓库内相对链接可解析；
-- `superseded` 和取代方字段互相一致；
-- ADR 不包含本机绝对路径。
-
-脚本只检查机械契约，不用关键词猜测决策质量，也不以禁止 `Plan`、`Acceptance criteria` 等词替代人工审查。
-
-## 8. 当前回填原则
-
-不为了填满目录而批量制造历史 ADR。只有在能从现有规范、代码、测试或项目所有者决定中恢复真实理由时才回填；否则等待对应 Spike/HXA 产生证据：
-
-- HXA-050 的 QuickJS/Zipline 结论在 Spike 后记录，不能提前标为已实现。
-- HXA-111/112 的 CLI 原生/PRoot 底座在 arm64、ABI、运行时和工具拦截证据完成后记录。
-- 已写入 `AGENTS.md` 的禁止项仍是规范约束；rejected ADR 可补充理由和翻案条件，但不能取代这些规则。
+运行 `./scripts/check-all.sh --source`：递归检查主题/编号/标题、状态、字段、章节及本地链接。代码、数据库和设备改动还需对应 HXA 的功能门禁。文档整理不修改验收结论，也不降低现有测试要求。

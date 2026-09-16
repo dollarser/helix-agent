@@ -53,7 +53,7 @@ record.write_text('''# HXA-184 完成记录：谨慎提取与文件/装配整理
 
 不以行数作为完成条件：例如 ToolDispatcher 从1032到935行，WorkspaceArtifactStore从895到752行，JsExecutionClient从674到509行。AppContainer 接口119行，实际组合根 DefaultAppContainer566行，另有两个领域注册文件；不能把接口变短冒充整个装配逻辑消失。D类状态机/协议保持集中。
 
-决策记录：不适用；既有契约内组织代码和修复竞态，未改变权限、Tool schema、IPC、数据库格式、依赖或接受新的架构决定。ADR-0012/0015/0016/0033 等边界保持。
+决策记录：不适用；既有契约内组织代码和修复竞态，未改变权限、Tool schema、IPC、数据库格式、依赖或接受新的架构决定。ADR-PERMISSIONS-003/0015/0016/0033 等边界保持。
 
 ## 扩展回归发现与修复
 

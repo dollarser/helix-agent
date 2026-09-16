@@ -58,7 +58,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 | HTTP/SSE | `com.squareup.okhttp3:okhttp`, `okhttp-sse` | `5.5.0` |
 | JSON | `org.jetbrains.kotlinx:kotlinx-serialization-json` | `1.9.0` |
 | QuickJS | `app.cash.zipline:zipline` | `1.27.0` |
-| 图片 EXIF | `androidx.exifinterface:exifinterface` | `1.4.2`（全量回归修复平台 EXIF Lint，保留 ADR-0014 边界） |
+| 图片 EXIF | `androidx.exifinterface:exifinterface` | `1.4.2`（全量回归修复平台 EXIF Lint，保留 ADR-AGENT-003 边界） |
 | WebView compat | `androidx.webkit:webkit` | `1.17.0` |
 | MCP Client | `io.modelcontextprotocol:kotlin-sdk-client` | `0.15.0` |
 | MCP HTTP engine | `io.ktor:ktor-client-okhttp`, `ktor-client-sse` | `3.5.2` |
@@ -72,7 +72,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 - 不引入 Hilt/Koin；采用手工 `AppContainer`。
 - 不引入 LangChain4j/Semantic Kernel；自研有限 Agent Loop。
 - Provider 流协议直接使用 OkHttp；Ktor 只封装在 MCP module，因为官方 SDK 依赖 Ktor。
-- HXA-077 / accepted ADR-0018 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。API 29/36 运行与真实 App APK/SBOM 验收仍待补齐。
+- HXA-077 / accepted ADR-A2A-001 选择 Helix 自有 `A2aClientFacade` + 既有 OkHttp 5.5.0 / `okhttp-sse` 5.5.0 / kotlinx.serialization 1.9.0 实现最小 A2A v1.0 Client；官方 A2A Java SDK 1.3.1.Final 只保留在 `:spikes:a2a-sdk` 作为 JVM/R8 决策证据，不得进入 production module。API 29/36 运行与真实 App APK/SBOM 验收仍待补齐。
 - 不引入通用 shell/process 库；PRoot Runner 自己封装明确的 argv 和 lifecycle。
 - 不使用已 deprecated 的 `androidx.security:security-crypto` 作为新设计核心；使用 Android Keystore + 明确的加密存储封装。
 - Agent Skills 自行实现 Kotlin parser/loader；官方 `skills-ref` 只作规范 fixture，不作 Android production 依赖。

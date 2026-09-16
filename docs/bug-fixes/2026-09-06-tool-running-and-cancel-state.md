@@ -54,6 +54,6 @@ RUNNING 证明平台已经进入执行边界，不能证明外部副作用完成
 
 ## Related records
 
-- [M10 收尾跟进](../development/m10-closure-followup.md)
+- [M10 收尾跟进](../evidence/development/m10-closure-followup.md)
 - [HXA-037](../completion-records/HXA-037.md)
 - [HXA-053](../completion-records/HXA-053.md)

@@ -40,4 +40,4 @@ GoalEditor 与 GoalReminderControls 将 IllegalStateException 转为本地化错
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

@@ -38,5 +38,5 @@ JVM 新增六项状态机测试，修复前中断取消断言失败。API 34 首
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [主分支优化待办](../development/main-optimization-todo.md)
+- [主分支优化待办](../evidence/development/main-optimization-todo.md)
 - [CLI Job RemoteException](2026-09-07-cli-job-remote-exception.md)

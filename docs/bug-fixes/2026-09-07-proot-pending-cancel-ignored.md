@@ -35,6 +35,6 @@ This does not implement caller Binder death notification; the protocol still nee
 
 ## Related records
 
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Result recovery gap](../development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Result recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)
 - [HXA-102](../completion-records/HXA-102.md)

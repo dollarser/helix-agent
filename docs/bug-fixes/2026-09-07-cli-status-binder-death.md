@@ -40,4 +40,4 @@ RemoteException 不属于 RuntimeException，原有 catch 未覆盖 Binder 的�
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)
+- [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)

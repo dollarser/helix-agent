@@ -9,7 +9,7 @@ for key in ['provider_capabilities_test','provider_capabilities_testing','provid
     pattern=rf'    <string name="{key}">.*?</string>'
     s=re.sub(pattern,re.search(pattern,zh).group(0),s)
 base.write_text(s)
-p=Path('docs/adr/0044-subscription-progress-and-capability-probes.md')
+p=Path('docs/adr/provider/002-subscription-adapters.md')
 s=p.read_text()
 s=s.replace('Codex 日常连接测试依次验证目录/网络、完成前增量、合成 echo 调用与结果回填、内置色块图片理解，以及目录声明的首个显式推理强度。', '2026-09-10 所有者要求拆分：连接测试仅查询目录并完成一次无工具、无图片、默认推理的简短文本请求；能力检测由独立按钮触发，验证完成前增量、合成 echo 调用与结果回填、内置色块图片理解，以及目录声明的首个显式推理强度。连接通过不冒充全部能力通过，尚未检测标记为 CONNECTION_ONLY；能力检测失败不撤销已通过的连接状态。')
 s=s.replace('连接测试会消耗数次合成模型请求，耗时取决于服务端声明的强度数量。', '连接测试只生成一次简短回复；独立能力检测需要多次合成模型请求。')

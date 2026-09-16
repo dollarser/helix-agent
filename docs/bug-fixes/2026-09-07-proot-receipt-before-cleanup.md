@@ -35,6 +35,6 @@ Partial cleanup may already have removed some files when another deletion fails;
 
 ## Related records
 
-- [Result recovery gap](../development/proot-result-durable-recovery-gap.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
+- [Result recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
 - [HXA-102](../completion-records/HXA-102.md)

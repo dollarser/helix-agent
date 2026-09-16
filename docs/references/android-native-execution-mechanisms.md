@@ -4,7 +4,7 @@
 >
 > **目的**：**了解 Android 平台机制本身**。与是否在某款 app（如 Helix）里开放某项能力**无关**——本文只讲机制。
 >
-> **与 Helix 的关系**：Helix 只是这些机制的一个真实落地（独立 UID + PRoot + linker 跳板）。Helix 侧的实现与决策见 [helix-linux-command-integration.md](./helix-linux-command-integration.md) 与权威架构文档 [local-code-execution.md](../architecture/local-code-execution.md)；本文把它们当「在哪里能看到」的指路，不作为论述主线。
+> **与 Helix 的关系**：Helix 只是这些机制的一个真实落地（独立 UID + PRoot + linker 跳板）。Helix 侧的实现与决策见 [helix-linux-command-integration.md](helix-linux-command-integration.md) 与权威架构文档 [local-code-execution.md](../architecture/local-code-execution.md)；本文把它们当「在哪里能看到」的指路，不作为论述主线。
 
 ---
 

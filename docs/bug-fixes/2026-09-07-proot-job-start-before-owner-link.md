@@ -36,5 +36,5 @@ The dead-at-registration test uses a controlled Binder fixture and real runner e
 ## Related records
 
 - [Owner death handling](2026-09-07-proot-owner-death-not-cancelled.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Result recovery gap](../development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Result recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)

@@ -39,5 +39,5 @@ Provider 仍须正确映射协议终止原因；该修复不为未报告完成�
 
 ## Related records
 
-- [M10 收尾跟进](../development/m10-closure-followup.md)
+- [M10 收尾跟进](../evidence/development/m10-closure-followup.md)
 - [HXA-100](../completion-records/HXA-100.md)

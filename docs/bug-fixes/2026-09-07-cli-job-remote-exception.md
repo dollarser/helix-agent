@@ -38,4 +38,4 @@ DeadObjectException 只是 RemoteException 的子类，原 catch 未覆盖其余
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)
+- [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)

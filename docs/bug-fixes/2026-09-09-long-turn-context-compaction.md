@@ -42,6 +42,6 @@ token 仍为保守估算，摘要事实保真仍依赖模型。当前用户输�
 
 ## Related records
 
-- [ADR-0038](../adr/0038-step-boundary-context-compaction.md)
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-AGENT-002](../adr/agent/002-context-compaction.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [原实现 HXA-174](../completion-records/HXA-174.md)

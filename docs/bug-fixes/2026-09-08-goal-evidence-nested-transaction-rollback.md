@@ -23,7 +23,7 @@ Goal evidence checks retain expected validation/IO failures inside the read tran
 
 ## Alternatives considered
 
-Ignoring the mismatch would leave a completed Turn with a RUNNING Goal. Treating the missing file as success violates ADR-0028. Changing every nested storage transaction would affect unrelated write rollback semantics. The scoped helper keeps expected evidence rejection distinct from a failed terminal write.
+Ignoring the mismatch would leave a completed Turn with a RUNNING Goal. Treating the missing file as success violates ADR-GOAL-001. Changing every nested storage transaction would affect unrelated write rollback semantics. The scoped helper keeps expected evidence rejection distinct from a failed terminal write.
 
 ## Regression verification
 
@@ -36,5 +36,5 @@ This is component/transaction acceptance, not physical-device, true process-kill
 ## Related records
 
 - [HXA-102 verification records](../completion-records/HXA-102.md)
-- [ADR-0028 evidence verification contract](../adr/0028-goal-criterion-verification-bindings.md)
-- [Current optimization checklist](../development/main-optimization-todo.md)
+- [ADR-GOAL-001 evidence verification contract](../adr/goal/001-lifecycle-and-completion.md)
+- [Current optimization checklist](../evidence/development/main-optimization-todo.md)

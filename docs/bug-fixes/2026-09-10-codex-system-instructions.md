@@ -44,4 +44,4 @@ Codex 订阅适配器复用了公共 Responses 编码器，将 SYSTEM 作为 inp
 ## Related records
 
 - [当前状态](../development/status.md)
-- [文件上下文决策](../adr/0045-session-relative-file-tools.md)
+- [文件上下文决策](../adr/workspace/001-session-paths.md)

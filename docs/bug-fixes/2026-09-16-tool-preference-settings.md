@@ -28,7 +28,7 @@ Slice 3 仅提供 GLOBAL 写入；审批卡保存 ALLOW 按最新注册描述符
 
 ## Alternatives considered
 
-不扩大 Capability，不调整 ADR-0052 优先级，不用最新契约替代用户审阅契约；不以宽度变化代替 Activity 重建，不删除失败测试。
+不扩大 Capability，不调整 ADR-PERMISSIONS-003 优先级，不用最新契约替代用户审阅契约；不以宽度变化代替 Activity 重建，不删除失败测试。
 
 ## Regression verification
 
@@ -40,6 +40,6 @@ Slice 3 仅提供 GLOBAL 写入；审批卡保存 ALLOW 按最新注册描述符
 
 ## Related records
 
-- [ADR-0052](../adr/0052-tool-approval-preferences.md)
+- [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)
 - [HXA-200 完成记录](../completion-records/HXA-200.md)
-- [本次验收与全套对照](../development/hxa201-acceptance-2026-09-16.md)
+- [本次验收与全套对照](../evidence/development/hxa201-acceptance-2026-09-16.md)

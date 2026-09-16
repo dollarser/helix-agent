@@ -33,10 +33,10 @@ API 34，未修改实现的导航 2 项中 1 项失败；修复后 2/2，再与�
 
 ## Residual risk
 
-后续补充 API 34 实际通知栏节点点击：真实通知打开后选定 Goal 可见，状态/run/Turn 不变，相关组合 7/7；证据见 `build/main-verification/goal-notification-shade-result.json`。这不是全部 API 版本或进程外启动验收；其他 API 设备矩阵仍在整体待办中。完整真实模型流程和 ADR-0028 完成证据契约未在本次解决。真机、长稳未运行。
+后续补充 API 34 实际通知栏节点点击：真实通知打开后选定 Goal 可见，状态/run/Turn 不变，相关组合 7/7；证据见 `build/main-verification/goal-notification-shade-result.json`。这不是全部 API 版本或进程外启动验收；其他 API 设备矩阵仍在整体待办中。完整真实模型流程和 ADR-GOAL-001 完成证据契约未在本次解决。真机、长稳未运行。
 
 ## Related records
 
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

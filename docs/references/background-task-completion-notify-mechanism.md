@@ -134,7 +134,7 @@ caffeinate  60015  -dims  (ppid=1)   ← 已 detach 到 launchd，独立于 app 
 
 **生产 Helix agent 两者都没有产品化：**
 
-- **子 agent（派生子 agent 并行/异步）：没有**生产功能。但有一套**已论证的 spike 原型（ADR-0009 / HXA-105）**，未接产品。
+- **子 agent（派生子 agent 并行/异步）：没有**生产功能。但有一套**已论证的 spike 原型（ADR-AGENT-004 / HXA-105）**，未接产品。
 - **后台 task（派生 + 放手 + 完成自动唤醒）：没有原语。** 最接近的是**同步** A2A 委派 + Goal（用户门控再入）。
 
 Helix 在这两块的态度一致：**重活放在同步 turn 内跑，用持久化 + 通知/用户门控做跨 turn/跨重启的外壳，不做"异步派生 + 自动唤醒"这条自主路径。**
@@ -169,17 +169,17 @@ Helix 在这两块的态度一致：**重活放在同步 turn 内跑，用持久
 | ④ 自动唤醒 | **无**——同步阻塞在 tool call 里，没有"完成 → 唤醒下一 turn" | ❌ |
 | ⑤ 持久化 | `A2aTaskEntity` 状态机 + 每次 update 落库 + **手动** `reconcile`/`cancel` | ✅ 完整 |
 
-#### (C) 子 agent —— ADR-0009 / HXA-105 spike（**未产品化**）
+#### (C) 子 agent —— ADR-AGENT-004 / HXA-105 spike（**未产品化**）
 
 - **生产零引用**：`app/`、`core/`、`tools/`、`extensions/`、`runtime/` 无任何 `.kt` import `spikes.orchestration` 或 `BoundedOrchestration`。
 - **独立 Gradle module**：`:spikes:bounded-orchestration`（`settings.gradle.kts:57`），与 `:spikes:a2a-sdk`、`:spikes:a2a-minimal` 并列，均为实验 spike；`build.gradle.kts:445` 只给它挂 androidTest 依赖（跑自己的验证测试）。
 - **自我定位**（`spikes/bounded-orchestration/.../BoundedOrchestrationSpike.kt`）：
   - `:7` — `HXA-105 experiment only. This module has no dependency on the app or production Tool Registry.`
-  - `:107` — `Admission/recovery model used to falsify ADR-0009 before any product integration.`
-  - → 在接产品**之前**，验证"bounded 子 agent 编排的准入/恢复模型"（ADR-0009）是否成立。
+  - `:107` — `Admission/recovery model used to falsify ADR-AGENT-004 before any product integration.`
+  - → 在接产品**之前**，验证"bounded 子 agent 编排的准入/恢复模型"（ADR-AGENT-004）是否成立。
 - **设计边界已想清**（`SpikeLimits`）：`MAX_DEPTH=1`（子不能再派生子）、`MAX_CONCURRENT=2`、`MAX_CHILDREN_PER_PARENT=4`、`ParentBudget`（model calls / tokens / tool calls / wall time 封顶）、子完成带 `summary + evidenceRefs + trust`、子工具分 `READ_ONLY / MUTATION / EXTERNAL_EFFECT` + L0–L3 动态风险；子状态机 `SPAWNED → RUNNING → COMPLETED / CANCELLED / NEEDS_REVIEW`。
 
-**含义**：Helix 不是没想过子 agent，而是**已用 ADR-0009 把准入/边界论证过、停在 spike 没上产品**。要给 Helix（或你自己的 agent）加子 agent，这个 spike 是现成设计起点——它把 depth 上限、父预算、证据+trust、风险分级这些最难的准入问题都先答了。
+**含义**：Helix 不是没想过子 agent，而是**已用 ADR-AGENT-004 把准入/边界论证过、停在 spike 没上产品**。要给 Helix（或你自己的 agent）加子 agent，这个 spike 是现成设计起点——它把 depth 上限、父预算、证据+trust、风险分级这些最难的准入问题都先答了。
 
 > 另：`CliModelJobClient.submitAndAwait` = 跨 UID Binder 给 Runtime APK（`com.helix.runtime.cli`）提交**模型任务**并同步轮询等待，属模型调用路径，与 agent 的"后台任务/子 agent"不是一回事，排除在外。
 
@@ -187,7 +187,7 @@ Helix 在这两块的态度一致：**重活放在同步 turn 内跑，用持久
 
 | 能力 | Claude Code | Helix agent |
 |---|---|---|
-| 派生子 agent（并行/异步） | ✅ `Agent` 工具 | ❌ 生产没有；**有 ADR-0009 spike 原型** |
+| 派生子 agent（并行/异步） | ✅ `Agent` 工具 | ❌ 生产没有；**有 ADR-AGENT-004 spike 原型** |
 | 后台 task（放手 + 完成自动唤醒） | ✅ `Bash run_in_background` | ❌ 没有；最接近是同步 A2A + Goal(用户门控) |
 | 持久化（组件⑤） | `run-index.json`（agent 侧手写） | **Goal/A2A 产品内建、全量 Room 落库**（更强） |
 
@@ -197,7 +197,7 @@ Helix 在"后台 / 子 agent"上**故意保守**：优先**同步 + 持久化 + 
 
 - 要**长活 / 无人值守连轴跑** → 走 claude.app 那条（自主再入 + 组件⑤持久化 + 启动时对账孤儿任务）。
 - 要**安全边界干净 / 资源可控 / 合规**（后台永不自主执行 model/tool、Doze/掉电不失控）→ Helix 的"同步 + 持久化 + 通知/用户再入"更稳。
-- **子 agent 若要做**，ADR-0009 已把最难的准入问题先答了（depth 上限、父预算、证据+trust、风险分级），可直接作为设计起点。
+- **子 agent 若要做**，ADR-AGENT-004 已把最难的准入问题先答了（depth 上限、父预算、证据+trust、风险分级），可直接作为设计起点。
 
 ---
 

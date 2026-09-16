@@ -8,7 +8,7 @@ p=Path('docs/development/roadmap.md');s=p.read_text()+'''
 
 ### HXA-180 独立文件管理变更能力
 
-状态：planned。所有者授权独立文件管理器的新建、重命名、复制、移动和删除；共享存储及 SAF 按真实权限和 provider 能力提供操作，Agent scope 不自动扩大。允许 app/files/UI、feature/files、core/workspace 必要复用、相关测试/docs/scripts。补充 ADR-0036 的只读首期边界。验收：冲突/越界/撤销/失败源文件保留、双版本主机与独占 API29/36 用户操作、Agent 隔离回归。
+状态：planned。所有者授权独立文件管理器的新建、重命名、复制、移动和删除；共享存储及 SAF 按真实权限和 provider 能力提供操作，Agent scope 不自动扩大。允许 app/files/UI、feature/files、core/workspace 必要复用、相关测试/docs/scripts。补充 ADR-WORKSPACE-002 的只读首期边界。验收：冲突/越界/撤销/失败源文件保留、双版本主机与独占 API29/36 用户操作、Agent 隔离回归。
 
 ### HXA-181 当前规范清理
 

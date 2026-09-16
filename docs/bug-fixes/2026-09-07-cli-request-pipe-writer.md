@@ -40,4 +40,4 @@ CliRequestPipeDeviceTest 覆盖拒绝 256 KiB 上传时无未捕获异常、线�
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [ADR-0007](../adr/0007-companion-runtime-lifecycle.md)
+- [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)

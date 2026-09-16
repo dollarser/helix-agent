@@ -41,6 +41,6 @@ Explicit original-Job reconciliation is exercised through production client/stor
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)
 - [Failure effect semantics](2026-09-07-proot-failure-effect-semantics.md)

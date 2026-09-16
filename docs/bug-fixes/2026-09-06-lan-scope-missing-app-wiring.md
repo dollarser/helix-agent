@@ -45,4 +45,4 @@ Standard 与 metadata 地址仍遵循原策略。
 ## Related records
 
 - [HXA-068](../completion-records/HXA-068.md)
-- [收尾检查点](../development/m10-closure-followup.md)
+- [收尾检查点](../evidence/development/m10-closure-followup.md)

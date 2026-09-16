@@ -39,5 +39,5 @@ The completed-click/backfill boundary is covered. Kill before ToolCall settlemen
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

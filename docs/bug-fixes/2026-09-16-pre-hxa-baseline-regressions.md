@@ -23,7 +23,7 @@ Affected modules: app, core/workspace, config/jgit, dependency configuration
 | --- | --- |
 | 4个图片发送/历史/撤销测试 | 生产`ProviderService.capabilitiesFor(provider, model)`误用异步UI行快照；改从当前持久配置读取能力，保留模型匹配与模型元数据约束。发送前与确认发送时都经过既有检查；缓存未刷新不会误挡，旧测试状态也不覆盖新持久快照的撤销 |
 | 请求剩余token预算 | 系统Prompt分段已经进入真实请求；旧测试仅按4字节用户文本估1token。扩大fixture总预算以容纳真实系统段，并从实际wire messages计算input，仍精确断言输出上限等于剩余额度，保留无输出余量不发请求用例 |
-| Goal单wake超时与重复恢复 | 按ADR-0039区分预算耗尽BLOCKED与普通进程中断PAUSED；继续断言累计预算、未完成预留清零、禁止第三次绕过预算，不恢复旧语义 |
+| Goal单wake超时与重复恢复 | 按ADR-GOAL-001区分预算耗尽BLOCKED与普通进程中断PAUSED；继续断言累计预算、未完成预留清零、禁止第三次绕过预算，不恢复旧语义 |
 | LiveGoalModelReport | 默认缺外部profile应条件跳过，实际本地Goal由同文件loopback用例覆盖；只给一半参数或提供无效参数仍失败，不消耗真实账号配额 |
 | Provider两项界面测试 | 连接检查现在只抓一次目录；第二次显式检查才触发fixture的401。保持失败撤销可选性与阶段/错误文案断言，对齐当前可解释文案 |
 | Artifact列表 | 使用真实当前时间创建新任务fixture并满足结束时间约束，避免1970年的记录落在长LazyColumn可见范围之外；仍验证打开、分享和收集行为 |
@@ -83,8 +83,8 @@ API36第二条包括常规套件与强制存储3+1阶段；原始`am instrument`
 
 ## Residual risk
 
-四象限完整本地套件已通过；当时证据针对保留并行WIP的工作树，不能据此宣称整个产品包已验收。2026-09-16所有者随后授权接手剩余WIP，Runtime标题修正已随所属测试收口，见[接手记录](../development/wip-takeover-2026-09-16.md)。真实账号、物理设备、长稳和单独的重启协议仍按各自profile记录，条件跳过不代表通过。
+四象限完整本地套件已通过；当时证据针对保留并行WIP的工作树，不能据此宣称整个产品包已验收。2026-09-16所有者随后授权接手剩余WIP，Runtime标题修正已随所属测试收口，见[接手记录](../evidence/development/wip-takeover-2026-09-16.md)。真实账号、物理设备、长稳和单独的重启协议仍按各自profile记录，条件跳过不代表通过。
 
 ## Related records
 
-审批建议与新增工作的边界见[审批体验复核](../development/approval-experience-review-2026-09-16.md)。该方案不扩大ALLOW或Plan批准的执行授权。
+审批建议与新增工作的边界见[审批体验复核](../evidence/development/approval-experience-review-2026-09-16.md)。该方案不扩大ALLOW或Plan批准的执行授权。

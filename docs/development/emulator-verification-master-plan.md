@@ -15,7 +15,7 @@
 | C：外部条件项 | 写清启动条件、可执行步骤与阻塞；条件缺失不假绿、不无限重试 |
 | X：模拟器不能关闭的门禁/暂停功能 | 单独列出，不因这轮总计划扩大产品范围 |
 
-依据核对：当前 status 的 In progress 为空，HXA-160已完成；M0～M11本轮功能/非真机短测和HXA-147 UI已收口；HXA-153～160完成的是有界诊断/修复/验证，系统问题和长稳仍开放。HXA-125真实来源包导入已验收，受保护服务仍缺账号。历史恢复阶段“未测”以后续 [HXA-102边界审计](hxa102-boundary-audit.md)、[main验证报告](main-merged-verification.md) 的补验为准。
+依据核对：当前 status 的 In progress 为空，HXA-160已完成；M0～M11本轮功能/非真机短测和HXA-147 UI已收口；HXA-153～160完成的是有界诊断/修复/验证，系统问题和长稳仍开放。HXA-125真实来源包导入已验收，受保护服务仍缺账号。历史恢复阶段“未测”以后续 [HXA-102边界审计](../evidence/development/hxa102-boundary-audit.md)、[main验证报告](../evidence/development/main-merged-verification.md) 的补验为准。
 
 编号 EV-00～EV-12 是本计划的执行包，不是新HXA，也不改变已完成HXA状态。实施夹具时按仓库规则登记所需测试HXA检查点，按依赖持续推进用户授权的完整范围；完成单项不结束任务。本轮只设计，不创建持续Goal。
 
@@ -88,7 +88,7 @@ developer每块另加一次已批准PRoot真实guest读写合成快照、一次C
 | Runtime停用/强停/更新 | 已有跨APK生命周期/升级脚本按影响复验 | 保留原JobID、输出hash、取消与终态，空闲不绑定 | 既有PRoot/CLI已通过部分不重标缺口 |
 | 真实crash/ANR | API36各一次；API29各一次兼容路径 | 系统事件+PID+时间+新进程脱敏读回 | API29无API30+退出信息，验证已有降级摘要 |
 
-crash/ANR已有API34/36实证，归R不是新缺口；使用 `accept-hxa104-process-death.py` 的明确阶段。API29须先核对夹具支持降级，不能原样调用只支持ApplicationExitInfo的验证。恢复强杀矩阵按 [边界审计](hxa102-boundary-audit.md) 选受影响case：模型headers/body、文件发布、JS、browser/UI未结算、MCP/A2A、PRoot/CLI结果/ACK、Goal预算/删除/证据读取。每次真实执行开始→强杀→两次读回，服务执行计数不增加；已有记录不全部无差别重跑。故障注入只在debug测试组件，绝不进入正式24小时段。
+crash/ANR已有API34/36实证，归R不是新缺口；使用 `accept-hxa104-process-death.py` 的明确阶段。API29须先核对夹具支持降级，不能原样调用只支持ApplicationExitInfo的验证。恢复强杀矩阵按 [边界审计](../evidence/development/hxa102-boundary-audit.md) 选受影响case：模型headers/body、文件发布、JS、browser/UI未结算、MCP/A2A、PRoot/CLI结果/ACK、Goal预算/删除/证据读取。每次真实执行开始→强杀→两次读回，服务执行计数不增加；已有记录不全部无差别重跑。故障注入只在debug测试组件，绝不进入正式24小时段。
 
 ## 7. EV-08/09/10/11：平台与有条件项目
 
@@ -118,7 +118,7 @@ crash/ANR已有API34/36实证，归R不是新缺口；使用 `accept-hxa104-proc
 - OEM真实热限/温升/功耗、真机冷启动p95/jank、真实低内存与自然Doze、物理4/16KiB最低设备矩阵。模拟器可验证契约，不替代这些结果。
 - HXA-105真机30分钟收益/资源与生产启用门禁；child/workflow仍未进入产品，本计划不启动新实现。
 - HXA-120～123正式发布物、SBOM/最终签名/applicationId/商店审核；可做EV-11技术预检，不能宣布发布完成。
-- HXA-126/129/130及ADR-0030/31/32未接受的新增功能，不生成“待测已实现能力”。
+- HXA-126/129/130及ADR-CONNECTORS-002/31/32未接受的新增功能，不生成“待测已实现能力”。
 - Chromium/AOSP源码级修补、符号化及系统问题根治：可在EV-02形成证据，不以模拟器24小时通过推断上游已修复。
 
 ## 10. 小模型总执行Prompt

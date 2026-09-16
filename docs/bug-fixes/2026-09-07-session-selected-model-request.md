@@ -39,5 +39,5 @@ The CLI Goal matrix proves initial requests select helix-fixture-wait while the 
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)
