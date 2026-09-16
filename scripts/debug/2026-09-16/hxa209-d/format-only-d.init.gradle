@@ -38,5 +38,9 @@ projectsEvaluated {
         'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
         // D7 (host: the canonical tool identity + cross-source availability isolation)
         'tools/framework/src/test/kotlin/com/helix/tools/framework/SessionToolAvailabilityTest.kt',
+        // D8 (device: the execution entry + the two-phase process-recovery + the effect boundary)
+        'app/src/androidTest/kotlin/com/helix/app/SessionPermissionDeviceTest.kt',
+        'app/src/androidTest/kotlin/com/helix/app/SessionPermissionRecoveryDeviceTest.kt',
+        'app/src/androidTest/kotlin/com/helix/app/ExecutionEffectBoundaryDeviceTest.kt',
     )
 }
