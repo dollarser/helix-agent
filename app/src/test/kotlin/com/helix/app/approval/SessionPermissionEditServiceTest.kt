@@ -8,9 +8,11 @@ import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.dao.SessionPermissionConfigDao
 import com.helix.core.storage.dao.SessionPermissionDefaultsDao
+import com.helix.core.storage.dao.SessionPermissionDraftDao
 import com.helix.core.storage.dao.ToolAvailabilityDao
 import com.helix.core.storage.entity.SessionPermissionConfigEntity
 import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
+import com.helix.core.storage.entity.SessionPermissionDraftEntity
 import com.helix.core.storage.entity.ToolAvailabilityEntity
 import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.ToolAvailabilityRepository
@@ -34,7 +36,7 @@ import org.junit.Test
  * The REAL B2 repositories run over in-memory DAO fakes, and the audit is a recording seam:
  * the contract under test is the service's write orchestration + audit shape, not Room.
  */
-@Suppress("TooManyFunctions") // 9 test methods, each asserting one write/audit contract
+@Suppress("TooManyFunctions") // one test per write/audit contract
 class SessionPermissionEditServiceTest {
     @Test
     fun savingAPresetStoresItAndAuditsTheModeVersionAndRevision() {
@@ -191,10 +193,89 @@ class SessionPermissionEditServiceTest {
         assertTrue(fx.audit.isEmpty())
     }
 
+    @Test
+    fun savingACustomDraftOnAPresetStaysInertAndAuditsTheDraft() {
+        val fx = Fixture()
+        fx.service.saveSessionConfig("s1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 1000L)
+        val rules = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.ASK)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, rules, 2000L)
+        // the session is on a preset, so the draft is stored but NOT applied to the active config
+        assertEquals(SessionPermissionMode.WORKSPACE, fx.configs.forSession("s1")!!.mode)
+        val draft = fx.configs.customDraftFor("s1")
+        assertEquals(SessionPermissionMode.WORKSPACE, draft?.sourcePreset)
+        assertEquals(rules, draft?.rules)
+        val audit = fx.audit[1]
+        assertEquals("custom_draft", audit.action())
+        assertEquals("WORKSPACE", audit.str("mode"))
+        assertEquals("WORKSPACE", audit.str("sourcePreset"))
+        assertEquals("1", audit.str("configVersion"))
+        assertEquals("2000", audit.str("changedAt"))
+    }
+
+    @Test
+    fun savingACustomDraftWhileOnCustomSyncsTheActiveConfig() {
+        val fx = Fixture()
+        val first = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.DENY)
+        fx.service.saveSessionConfig("s1", SessionPermissionConfig.custom(first), 1000L)
+        val second = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.ASK)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, second, 2000L)
+        // already CUSTOM: the draft is applied in place, so the active rules never drift
+        assertEquals(SessionPermissionMode.CUSTOM, fx.configs.forSession("s1")!!.mode)
+        assertEquals(second, fx.configs.forSession("s1")!!.rules)
+        val audit = fx.audit[1]
+        assertEquals("custom_draft", audit.action())
+        assertEquals("CUSTOM", audit.str("mode"))
+        assertEquals("WORKSPACE", audit.str("sourcePreset"))
+    }
+
+    @Test
+    fun readingAMissingDraftIsNullAndProducesNoAudit() {
+        val fx = Fixture()
+        assertNull(fx.service.customDraftFor("s1"))
+        assertTrue(fx.audit.isEmpty())
+    }
+
+    @Test
+    fun activateCustomDraftAppliesTheStoredSnapshotAndAuditsAConfigChange() {
+        val fx = Fixture()
+        val rules = mapOf(OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.DENY)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.READ_ONLY, rules, 1000L)
+        assertTrue(fx.service.activateCustomDraft("s1", 2000L))
+        assertEquals(SessionPermissionMode.CUSTOM, fx.configs.forSession("s1")!!.mode)
+        assertEquals(rules, fx.configs.forSession("s1")!!.rules)
+        val audit = fx.audit[1]
+        assertEquals("session_config", audit.action())
+        assertEquals("CUSTOM", audit.str("mode"))
+    }
+
+    @Test
+    fun activateCustomDraftWithNoDraftIsANoOp() {
+        val fx = Fixture()
+        assertFalse(fx.service.activateCustomDraft("s1", 1000L))
+        assertNull(fx.configs.forSession("s1"))
+        assertTrue(fx.audit.isEmpty())
+    }
+
+    @Test
+    fun savingACustomDraftDoesNotReEnableADisabledTool() {
+        val fx = Fixture()
+        fx.service.setToolAvailability("built-in", "fs.write", ToolAvailabilityScope.SESSION, "s1", true, 1000L)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, emptyMap(), 2000L)
+        // a mode/draft change never touches tool availability — the tool stays disabled
+        assertEquals(
+            ToolAvailabilityState.DISABLED,
+            fx.availability.statesFor("built-in", "fs.write", "s1", null).session,
+        )
+    }
+
     /** The real B2 repositories over in-memory DAO fakes + a recording audit seam. */
     private class Fixture {
         val configs =
-            SessionPermissionConfigRepository(FakeSessionPermissionConfigDao(), FakeSessionPermissionDefaultsDao())
+            SessionPermissionConfigRepository(
+                FakeSessionPermissionConfigDao(),
+                FakeSessionPermissionDefaultsDao(),
+                FakeSessionPermissionDraftDao(),
+            )
         val availability = ToolAvailabilityRepository(FakeToolAvailabilityDao())
         val audit = mutableListOf<AuditRecord>()
         private var seq = 0
@@ -294,5 +375,17 @@ class SessionPermissionEditServiceTest {
         }
 
         override fun byId(id: String): SessionPermissionDefaultsEntity? = rows[id]
+    }
+
+    private class FakeSessionPermissionDraftDao : SessionPermissionDraftDao {
+        private val rows = LinkedHashMap<String, SessionPermissionDraftEntity>()
+
+        override fun insert(entity: SessionPermissionDraftEntity) {
+            rows[entity.sessionId] = entity
+        }
+
+        override fun bySession(sessionId: String): SessionPermissionDraftEntity? = rows[sessionId]
+
+        override fun deleteBySession(sessionId: String): Int = rows.remove(sessionId)?.let { 1 } ?: 0
     }
 }

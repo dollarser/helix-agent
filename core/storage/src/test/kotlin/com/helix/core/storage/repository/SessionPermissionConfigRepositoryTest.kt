@@ -8,8 +8,10 @@ import com.helix.core.storage.assertThrows
 import com.helix.core.storage.assertThrowsAny
 import com.helix.core.storage.dao.SessionPermissionConfigDao
 import com.helix.core.storage.dao.SessionPermissionDefaultsDao
+import com.helix.core.storage.dao.SessionPermissionDraftDao
 import com.helix.core.storage.entity.SessionPermissionConfigEntity
 import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
+import com.helix.core.storage.entity.SessionPermissionDraftEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -17,7 +19,8 @@ import org.junit.Test
 class SessionPermissionConfigRepositoryTest {
     private val configDao = FakeSessionPermissionConfigDao()
     private val defaultsDao = FakeSessionPermissionDefaultsDao()
-    private val repository = SessionPermissionConfigRepository(configDao, defaultsDao)
+    private val draftDao = FakeSessionPermissionDraftDao()
+    private val repository = SessionPermissionConfigRepository(configDao, defaultsDao, draftDao)
 
     @Test
     fun missingSessionRowMeansNoStoredConfig() {
@@ -121,6 +124,51 @@ class SessionPermissionConfigRepositoryTest {
             repository.setAppDefault(SessionPermissionMode.CUSTOM, 10L)
         }
     }
+
+    @Test
+    fun missingSessionRowMeansNoStoredDraft() {
+        assertNull(repository.customDraftFor("session-1"))
+    }
+
+    @Test
+    fun setCustomDraftStoresTheCopiedSnapshotAndStaysInert() {
+        val snapshot =
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE).toMutableMap().apply {
+                put(OperationEffect.REMOTE_BUSINESS_MUTATION, OperationRule.ASK)
+            }
+        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE, snapshot, 100L)
+        val draft = repository.customDraftFor("session-1")
+        assertEquals(SessionPermissionMode.WORKSPACE, draft?.sourcePreset)
+        assertEquals(snapshot, draft?.rules)
+        assertEquals(SessionPermissionConfig.CURRENT_CONFIG_VERSION, draft?.configVersion)
+        assertEquals(100L, draft?.updatedAtEpoch)
+        // Inert: saving the draft does not create or touch the ACTIVE config row.
+        assertNull(repository.forSession("session-1"))
+    }
+
+    @Test
+    fun setCustomDraftKeepsTheCreationTimeAndAdvancesTheUpdate() {
+        repository.setCustomDraft("session-1", SessionPermissionMode.READ_ONLY, emptyMap(), 100L)
+        repository.setCustomDraft("session-1", SessionPermissionMode.READ_ONLY, emptyMap(), 200L)
+        val row = draftDao.rows.values.single()
+        assertEquals(100L, row.createdAtEpoch)
+        assertEquals(200L, row.updatedAtEpoch)
+    }
+
+    @Test
+    fun setCustomDraftRejectsACustomSourcePreset() {
+        assertThrows("copied from a preset, not from CUSTOM") {
+            repository.setCustomDraft("session-1", SessionPermissionMode.CUSTOM, emptyMap(), 100L)
+        }
+        assertNull(repository.customDraftFor("session-1"))
+    }
+
+    @Test
+    fun clearCustomDraftRemovesTheRow() {
+        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE, emptyMap(), 100L)
+        repository.clearCustomDraft("session-1")
+        assertNull(repository.customDraftFor("session-1"))
+    }
 }
 
 private class FakeSessionPermissionConfigDao : SessionPermissionConfigDao {
@@ -143,4 +191,16 @@ private class FakeSessionPermissionDefaultsDao : SessionPermissionDefaultsDao {
     }
 
     override fun byId(id: String): SessionPermissionDefaultsEntity? = rows[id]
+}
+
+private class FakeSessionPermissionDraftDao : SessionPermissionDraftDao {
+    val rows = mutableMapOf<String, SessionPermissionDraftEntity>()
+
+    override fun insert(entity: SessionPermissionDraftEntity) {
+        rows[entity.sessionId] = entity
+    }
+
+    override fun bySession(sessionId: String): SessionPermissionDraftEntity? = rows[sessionId]
+
+    override fun deleteBySession(sessionId: String): Int = if (rows.remove(sessionId) != null) 1 else 0
 }

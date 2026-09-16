@@ -1,11 +1,15 @@
 package com.helix.core.storage.repository
 
+import com.helix.core.model.OperationEffect
+import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.dao.SessionPermissionConfigDao
 import com.helix.core.storage.dao.SessionPermissionDefaultsDao
+import com.helix.core.storage.dao.SessionPermissionDraftDao
 import com.helix.core.storage.entity.SessionPermissionConfigEntity
 import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
+import com.helix.core.storage.entity.SessionPermissionDraftEntity
 
 /**
  * Stored session permission configurations (HXA-209, ADR-PERMISSIONS-001 section 2 step 4).
@@ -22,6 +26,7 @@ import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
 class SessionPermissionConfigRepository(
     private val dao: SessionPermissionConfigDao,
     private val defaults: SessionPermissionDefaultsDao,
+    private val drafts: SessionPermissionDraftDao,
 ) {
     /** The stored config for one session, or null when the session uses the app default. */
     fun forSession(sessionId: String): SessionPermissionConfig? {
@@ -107,6 +112,62 @@ class SessionPermissionConfigRepository(
         return revision
     }
 
+    /**
+     * The stored CUSTOM draft for one session, or null when the session has none yet (the
+     * settings UI reads this to populate the editor and to restore the draft when CUSTOM is
+     * re-selected — ADR section 4). A missing draft is not an error: it simply means the user
+     * has not copied a preset into a custom snapshot for this session.
+     */
+    fun customDraftFor(sessionId: String): SessionPermissionDraft? {
+        val entity = drafts.bySession(sessionId) ?: return null
+        return SessionPermissionDraft(
+            sourcePreset = SessionPermissionMode.valueOf(entity.sourcePreset),
+            rules = SessionPermissionRulesCodec.decode(entity.rulesJson),
+            configVersion = entity.configVersion,
+            updatedAtEpoch = entity.updatedAtEpoch,
+        )
+    }
+
+    /**
+     * Stores (or updates) one session's CUSTOM draft: the copied-from preset plus the
+     * copied-then-edited rule snapshot (ADR section 4). This is a UI write — it does NOT touch
+     * the ACTIVE config row, so a draft saved while the session is on a preset stays INERT
+     * (re-select CUSTOM to apply it). The source preset must be a preset (never CUSTOM — a
+     * draft is copied from a preset, not from another custom). The rule table is encoded
+     * deterministically, so the stored text is the canonical snapshot.
+     */
+    fun setCustomDraft(
+        sessionId: String,
+        sourcePreset: SessionPermissionMode,
+        rules: Map<OperationEffect, OperationRule>,
+        nowEpochMillis: Long,
+    ) {
+        require(sourcePreset != SessionPermissionMode.CUSTOM) {
+            "a custom draft is copied from a preset, not from CUSTOM: $sourcePreset"
+        }
+        val existing = drafts.bySession(sessionId)
+        drafts.insert(
+            SessionPermissionDraftEntity(
+                sessionId = sessionId,
+                sourcePreset = sourcePreset.name,
+                rulesJson = SessionPermissionRulesCodec.encode(rules),
+                configVersion = SessionPermissionConfig.CURRENT_CONFIG_VERSION,
+                createdAtEpoch = existing?.createdAtEpoch ?: nowEpochMillis,
+                updatedAtEpoch = nowEpochMillis,
+            ),
+        )
+    }
+
+    /** Removes one session's CUSTOM draft — a "no custom snapshot yet" state, not a stored null. */
+    fun clearCustomDraft(sessionId: String) {
+        drafts.deleteBySession(sessionId)
+    }
+
+    /**
+     * [SessionPermissionConfig]s the UI may write: a CUSTOM snapshot (any rule table) or one of
+     * the presets carrying EXACTLY its own rule table — the repository is the single place that
+     * decision lives, so the UI cannot store an edited table under a preset name.
+     */
     private fun requireValidConfig(config: SessionPermissionConfig) {
         if (config.mode == SessionPermissionMode.CUSTOM) {
             return

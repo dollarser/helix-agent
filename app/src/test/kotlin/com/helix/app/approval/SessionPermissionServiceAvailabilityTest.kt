@@ -7,9 +7,11 @@ import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.policy.effectiveAvailability
 import com.helix.core.storage.dao.SessionPermissionConfigDao
 import com.helix.core.storage.dao.SessionPermissionDefaultsDao
+import com.helix.core.storage.dao.SessionPermissionDraftDao
 import com.helix.core.storage.dao.ToolAvailabilityDao
 import com.helix.core.storage.entity.SessionPermissionConfigEntity
 import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
+import com.helix.core.storage.entity.SessionPermissionDraftEntity
 import com.helix.core.storage.entity.ToolAvailabilityEntity
 import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.ToolAvailabilityRepository
@@ -144,7 +146,11 @@ class SessionPermissionServiceAvailabilityTest {
         val workspaces = mutableMapOf<String, String>()
         val availability = ToolAvailabilityRepository(FakeToolAvailabilityDao())
         val configs =
-            SessionPermissionConfigRepository(FakeSessionPermissionConfigDao(), FakeSessionPermissionDefaultsDao())
+            SessionPermissionConfigRepository(
+                FakeSessionPermissionConfigDao(),
+                FakeSessionPermissionDefaultsDao(),
+                FakeSessionPermissionDraftDao(),
+            )
         val service = SessionPermissionService(configs, availability) { sessionId -> workspaces[sessionId] }
 
         fun disableAt(
@@ -236,5 +242,17 @@ class SessionPermissionServiceAvailabilityTest {
         }
 
         override fun byId(id: String): SessionPermissionDefaultsEntity? = rows[id]
+    }
+
+    private class FakeSessionPermissionDraftDao : SessionPermissionDraftDao {
+        private val rows = LinkedHashMap<String, SessionPermissionDraftEntity>()
+
+        override fun insert(entity: SessionPermissionDraftEntity) {
+            rows[entity.sessionId] = entity
+        }
+
+        override fun bySession(sessionId: String): SessionPermissionDraftEntity? = rows[sessionId]
+
+        override fun deleteBySession(sessionId: String): Int = rows.remove(sessionId)?.let { 1 } ?: 0
     }
 }

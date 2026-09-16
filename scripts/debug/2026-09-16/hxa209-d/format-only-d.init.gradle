@@ -9,9 +9,22 @@ projectsEvaluated {
         throw new GradleException('spotless kotlin format not found')
     }
     kotlin.target(
+        // D1 (committed 05d18c71)
         'app/src/main/kotlin/com/helix/app/AppContainer.kt',
         'app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt',
         'app/src/main/kotlin/com/helix/app/approval/SessionPermissionEditService.kt',
         'app/src/test/kotlin/com/helix/app/approval/SessionPermissionEditServiceTest.kt',
+        // D2 main (core/storage: the additive CUSTOM-draft table + repository methods)
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixMigrations.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixStorage.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionPermissionDraftDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/entity/SessionPermissionDraftEntity.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionPermissionConfigRepository.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionPermissionDraft.kt',
+        // D2 tests (host + device)
+        'app/src/test/kotlin/com/helix/app/approval/SessionPermissionServiceAvailabilityTest.kt',
+        'core/storage/src/test/kotlin/com/helix/core/storage/repository/SessionPermissionConfigRepositoryTest.kt',
+        'core/storage/src/androidTest/kotlin/com/helix/core/storage/RoomMigrationFixtureTest.kt',
     )
 }

@@ -1,10 +1,13 @@
 package com.helix.app.approval
 
+import com.helix.core.model.OperationEffect
+import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.repository.SessionPermissionConfigRepository
+import com.helix.core.storage.repository.SessionPermissionDraft
 import com.helix.core.storage.repository.ToolAvailabilityRepository
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -183,12 +186,72 @@ class SessionPermissionEditService(
     }
 
     /**
+     * The stored CUSTOM draft for one session, or null when it has none yet — the read seam the
+     * settings editor uses to repopulate the snapshot. A pure read: it produces no audit row
+     * (section 5 — a change is audited, a read is not).
+     */
+    fun customDraftFor(sessionId: String): SessionPermissionDraft? = configs.customDraftFor(sessionId)
+
+    /**
+     * Saves one session's CUSTOM draft — the copied-from preset plus the copied-then-edited rule
+     * snapshot (section 4). Persisting the draft does NOT by itself change what the session
+     * executes: if the session's active mode is already CUSTOM the active config is synced to the
+     * new draft (so the draft and the active rules never drift); otherwise the draft stays INERT
+     * (re-select CUSTOM to apply it). A user change, so it produces an independent
+     * `session_permission_change` audit (action `custom_draft`). Storage failures propagate.
+     */
+    fun saveCustomDraft(
+        sessionId: String,
+        sourcePreset: SessionPermissionMode,
+        rules: Map<OperationEffect, OperationRule>,
+        nowEpochMillis: Long,
+    ) {
+        configs.setCustomDraft(sessionId, sourcePreset, rules, nowEpochMillis)
+        val active = configs.forSession(sessionId) ?: configs.appDefault()
+        if (active.mode == SessionPermissionMode.CUSTOM) {
+            configs.setForSession(sessionId, SessionPermissionConfig.custom(rules), nowEpochMillis)
+        }
+        appendAudit(
+            idGenerator(),
+            sessionId,
+            TYPE,
+            ACTOR,
+            Change(
+                action = ACTION_CUSTOM_DRAFT,
+                changedAt = nowEpochMillis,
+                mode = active.mode.name,
+                configVersion = SessionPermissionConfig.CURRENT_CONFIG_VERSION,
+                sourcePreset = sourcePreset.name,
+            ).encode(),
+            nowEpochMillis,
+        )
+    }
+
+    /**
+     * Re-selects CUSTOM for one session: applies the stored draft as the ACTIVE config
+     * (section 4 — "re-selecting CUSTOM restores it"). Returns true when a draft existed and was
+     * applied; false when the session has no custom snapshot yet (the UI keeps the editor open to
+     * copy a preset first). When it applies, it goes through [saveSessionConfig], so it is
+     * audited as a `session_config` change and linearized against execution starts like any mode
+     * switch.
+     */
+    fun activateCustomDraft(
+        sessionId: String,
+        nowEpochMillis: Long,
+    ): Boolean {
+        val draft = configs.customDraftFor(sessionId) ?: return false
+        saveSessionConfig(sessionId, SessionPermissionConfig.custom(draft.rules), nowEpochMillis)
+        return true
+    }
+
+    /**
      * The redacted inputs of one authorization CHANGE: the action, the resulting mode +
-     * rule-set version (when a mode/rule change), the store revision (when one was produced)
-     * and, for a tool change, the tool name, the new state and the scope. The binding is the
-     * row's correlationId, not repeated here. Enum names and a timestamp only — no tool
-     * arguments, scope paths or bodies. [encode] always emits every key (JsonNull where a field
-     * does not apply), so a reader of either row shape never sees a missing field.
+     * rule-set version (when a mode/rule change), the store revision (when one was produced),
+     * the source preset (when a CUSTOM draft is saved) and, for a tool change, the tool name,
+     * the new state and the scope. The binding is the row's correlationId, not repeated here.
+     * Enum names and a timestamp only — no tool arguments, scope paths or bodies. [encode]
+     * always emits every key (JsonNull where a field does not apply), so a reader of either row
+     * shape never sees a missing field.
      */
     private data class Change(
         val action: String,
@@ -199,6 +262,7 @@ class SessionPermissionEditService(
         val toolName: String? = null,
         val toolState: String? = null,
         val scope: String? = null,
+        val sourcePreset: String? = null,
     ) {
         fun encode(): String =
             buildJsonObject {
@@ -211,6 +275,7 @@ class SessionPermissionEditService(
                 put("toolName", toolName?.let(::JsonPrimitive) ?: JsonNull)
                 put("toolState", toolState?.let(::JsonPrimitive) ?: JsonNull)
                 put("scope", scope?.let(::JsonPrimitive) ?: JsonNull)
+                put("sourcePreset", sourcePreset?.let(::JsonPrimitive) ?: JsonNull)
             }.toString()
 
         private companion object {
@@ -226,6 +291,8 @@ class SessionPermissionEditService(
         const val ACTOR = "user"
 
         const val ACTION_SESSION_CONFIG = "session_config"
+
+        const val ACTION_CUSTOM_DRAFT = "custom_draft"
 
         const val ACTION_RESET = "reset_to_default"
 

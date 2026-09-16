@@ -69,14 +69,16 @@ class HelixStorage internal constructor(
 
     /**
      * Session permission configurations (HXA-209, ADR-PERMISSIONS-001): the per-session
-     * compiled config rows and the app-default row. Written by the user application service;
-     * the dispatcher reads [SessionPermissionConfigRepository.forSession] /
-     * [SessionPermissionConfigRepository.appDefault].
+     * compiled config rows, the app-default row and the per-session CUSTOM draft (the
+     * copied-then-edited snapshot that survives a preset switch). Written by the user
+     * application service; the dispatcher reads [SessionPermissionConfigRepository.forSession]
+     * / [SessionPermissionConfigRepository.appDefault].
      */
     val sessionPermissionConfigs: SessionPermissionConfigRepository by lazy {
         SessionPermissionConfigRepository(
             database.sessionPermissionConfigDao(),
             database.sessionPermissionDefaultsDao(),
+            database.sessionPermissionDraftDao(),
         )
     }
 
@@ -215,6 +217,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_18_19,
                 HelixDatabase.MIGRATION_19_20,
                 HelixDatabase.MIGRATION_20_21,
+                HelixDatabase.MIGRATION_21_22,
             )
 
         fun create(context: Context): HelixStorage {

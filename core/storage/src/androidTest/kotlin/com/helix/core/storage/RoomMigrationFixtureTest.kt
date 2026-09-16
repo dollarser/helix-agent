@@ -639,8 +639,66 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v21ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v21-export.db", 21)
+    fun v21ToV22AddsTheCustomDraftTableAndKeepsExistingRows() {
+        val name = "custom-draft-addition.db"
+        context.deleteDatabase(name)
+        // A v21 file in the state a real upgrade has: one session with a stored CUSTOM config,
+        // one disabled tool and the app default. The sessions row keeps the config FK consistent.
+        helper.createDatabase(name, 21).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s-1','session one',10)")
+            db.execSQL(
+                "INSERT INTO session_permission_configs (sessionId, mode, rulesJson, configVersion, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('s-1', 'CUSTOM', '{}', 1, 3, 100, 200)",
+            )
+            db.execSQL(
+                "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('local', 'bash', 'SESSION', 's-1', 'DISABLED', 2, 300, 400)",
+            )
+            db.execSQL(
+                "INSERT INTO session_permission_defaults (id, mode, configVersion, revision, " +
+                    "updatedAtEpoch) VALUES ('app', 'WORKSPACE', 1, 5, 900)",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 22, true, HelixDatabase.MIGRATION_21_22).use { db ->
+            // The additive table is PRESENT and EMPTY — an upgrade seeds no draft rows.
+            assertTrue(
+                "v22 upgrade must add session_permission_drafts",
+                "session_permission_drafts" in tables(db),
+            )
+            db.query("SELECT COUNT(*) FROM session_permission_drafts").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            // The pre-existing v21 rows survive byte-for-byte — the migration only ADDS a
+            // table, it rewrites nothing.
+            db
+                .query(
+                    "SELECT mode, configVersion, revision FROM session_permission_configs " +
+                        "WHERE sessionId = 's-1'",
+                ).use {
+                    assertTrue(it.moveToFirst())
+                    assertEquals("CUSTOM", it.getString(0))
+                    assertEquals(1, it.getInt(1))
+                    assertEquals(3, it.getInt(2))
+                    assertFalse(it.moveToNext())
+                }
+            db.query("SELECT state FROM tool_availability WHERE toolName = 'bash'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("DISABLED", it.getString(0))
+            }
+            db.query("SELECT mode FROM session_permission_defaults WHERE id = 'app'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("WORKSPACE", it.getString(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v22ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v22-export.db", 22)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -648,7 +706,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v21 schema must match the exported v21 schema",
+                "code-built v22 schema must match the exported v22 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -682,7 +740,7 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 21) —
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 22) —
         // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
         // including the room_master_table identity update). The assertions below verify the
         // 1 -> 2 step specifically; the chain also proves every later migration step applies.
@@ -710,6 +768,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_18_19,
                     HelixDatabase.MIGRATION_19_20,
                     HelixDatabase.MIGRATION_20_21,
+                    HelixDatabase.MIGRATION_21_22,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -1181,6 +1240,12 @@ class RoomMigrationFixtureTest {
             "v20 upgrade must add session_permission_defaults",
             "session_permission_defaults" in tables(sqlite),
         )
+        // The 21 -> 22 step landed (HXA-209 D2): the live schema carries the additive
+        // CUSTOM-draft table (the copied-from preset plus the copied-then-edited rule snapshot).
+        assertTrue(
+            "v22 upgrade must add session_permission_drafts",
+            "session_permission_drafts" in tables(sqlite),
+        )
     }
 
     /**
@@ -1413,6 +1478,10 @@ class RoomMigrationFixtureTest {
             "session_permission_configs",
             "tool_availability",
             "session_permission_defaults",
+            // HXA-209 D2 (v21 -> v22): the additive CUSTOM-draft table — the copied-from
+            // preset plus the copied-then-edited rule snapshot. A UI/provenance concern
+            // invisible to the execution path, so it has no linearization revision.
+            "session_permission_drafts",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

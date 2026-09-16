@@ -5,6 +5,32 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v21 -> v22 (HXA-209 D, ADR-PERMISSIONS-001 section 4): adds `session_permission_drafts` —
+     * the per-session CUSTOM permission draft, kept SEPARATE from `session_permission_configs` so
+     * a switch to a preset leaves the user's copied-then-edited snapshot INACTIVE (not deleted)
+     * and re-selecting CUSTOM restores it. Additive and EMPTY on upgrade: no draft rows are
+     * seeded (a session has no custom snapshot until the user makes one). The single foreign key
+     * cascades with the session. API 29 SQLite 3.22 — a plain CREATE TABLE, no upsert.
+     */
+    val MIGRATION_21_22 =
+        object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_drafts` (" +
+                        "`sessionId` TEXT NOT NULL, " +
+                        "`sourcePreset` TEXT NOT NULL, " +
+                        "`rulesJson` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sessionId`), " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE)",
+                )
+            }
+        }
+
+    /**
      * v20 -> v21 (HXA-209 B4, ADR-PERMISSIONS-001 section 4): drops the three legacy HXA-200
      * tables — `tool_approval_preferences`, `tool_registration_baseline` and
      * `tool_baseline_meta`. Their only row conversion (old DENY -> `tool_availability`
