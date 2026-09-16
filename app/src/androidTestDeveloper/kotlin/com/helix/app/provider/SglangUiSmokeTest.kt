@@ -2,11 +2,14 @@ package com.helix.app.provider
 
 import android.util.Log
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,11 +17,15 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.ui.container
 import com.helix.app.ui.deleteEditableProviders
+import com.helix.app.ui.editableProviderTag
+import com.helix.app.ui.editableProviderText
 import com.helix.app.ui.navigateTo
 import com.helix.app.ui.resetDeterministicUiState
+import com.helix.provider.api.CapabilitySource
+import com.helix.provider.api.ProviderCapabilities
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -31,18 +38,15 @@ import java.net.URL
 import java.net.UnknownHostException
 
 /**
- * Requires explicit `realSelfHosted=true`; default runs never contact host model services.
  * HXA-059 real-endpoint smoke (developer instrumented test, companion of
  * [SelfHostedSmokeTest]): the provider model auto-discovery full UI chain against the
  * dev-machine SGLang server (HXA-056 environment: `10.0.2.2:30008/v1`, empty key).
  *
- * Assumption-guarded like [SelfHostedSmokeTest]: when no sglang service listens on the
- * bridge the test is SKIPPED with a reason instead of failing — the smoke records
- * absence, it does not fake success.
+ * Default runs skip before contacting external services. With realSelfHosted=true,
+ * an unavailable endpoint, invalid catalog or failed probe FAILS rather than skipping.
  *
- * The flow: create the provider (the server's REAL model id — the five-phase probe
- * streams with the stored model, so a placeholder would 404 on the real server) →
- * connection test PASSES → the row surfaces 「后端可用模型 (N)」 with the real id as a
+ * The flow: create the provider with the real model id → connection test PASSES →
+ * explicit capability detection persists a PROBED snapshot → the row surfaces 「后端可用模型 (N)」 with the real id as a
  * chip → selecting the chip opens the edit form, which is SAVED (never auto-saved) →
  * the persisted row model is the selected id. Cleanup deletes the provider.
  *
@@ -87,12 +91,12 @@ class SglangUiSmokeTest {
     fun modelDiscoveryAgainstTheRealSglangEndpoint() {
         // --- pre-check (guard): the server's model list, straight over the bridge ---
         val body = fetchText("http://$host:$PORT/v1/models")
-        assumeTrue(
-            "no sglang service on $host:$PORT — smoke skipped (start sglang on the dev machine)",
+        assertTrue(
+            "no sglang service on $host:$PORT — explicitly enabled smoke requires the endpoint",
             body != null,
         )
         val models = modelIds(requireNotNull(body))
-        assumeTrue("sglang /v1/models returned no parseable model id — smoke skipped", models.isNotEmpty())
+        assertTrue("sglang /v1/models returned no parseable model id", models.isNotEmpty())
         smokeModel = requireNotNull(models.firstOrNull())
         smokeCount = models.size
         Log.d(
@@ -114,47 +118,90 @@ class SglangUiSmokeTest {
         composeRule.onNodeWithTag("provider-form-endpoint").performTextInput(endpoint)
         composeRule.onNodeWithTag("provider-form-model").performTextClearance()
         composeRule.onNodeWithTag("provider-form-model").performTextInput(smokeModel)
-        composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
-        composeRule.onNodeWithTag("provider-form-save").performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
-        }
-        composeRule.onNodeWithText(NAME).assertIsDisplayed()
+        // The IME is still open after the text inputs — see confirmCleartextAndSave.
+        confirmCleartextAndSave()
+        composeRule.onNodeWithText(NAME).performScrollTo().assertIsDisplayed()
 
-        // --- the five-phase connection test PASSES against the real server (generous
-        // budget: real 27B text/tool/vision generations, not a loopback fixture) ---
-        composeRule.onNodeWithTag("provider-test").performClick()
+        // --- connection and capability detection are separate user actions.
+        // Row tags are scoped to the editable row under test: the retained
+        // runtime-managed fixture rows carry the same tags on their own rows. ---
+        composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         awaitPassingProbe()
-        composeRule.onNodeWithTag("provider-status-passed").assertIsDisplayed()
-        Log.d(TAG, "sglang UI smoke: five-phase connection test PASSED against $endpoint")
+        composeRule
+            .onNode(editableProviderTag("provider-status-passed"))
+            .performScrollTo()
+            .assertIsDisplayed()
+        Log.d(TAG, "sglang UI smoke: connection test PASSED against $endpoint")
+        assertEquals(CapabilitySource.CONNECTION_ONLY, currentCapabilities().source)
+        composeRule.onNode(editableProviderTag("provider-capabilities")).performScrollTo().performClick()
+        composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
+            composeRule.onAllNodes(editableProviderTag("provider-capability-result")).fetchSemanticsNodes().isNotEmpty()
+        }
+        val capabilities = currentCapabilities()
+        assertEquals("capability detection must persist a real probe", CapabilitySource.PROBED, capabilities.source)
+        assertTrue("streaming must be proved", capabilities.streaming)
+        assertTrue("tool calls must be proved", capabilities.toolCalls)
+        assertTrue("image acceptance must be proved", capabilities.vision)
+        Log.d(TAG, "sglang UI smoke: capability snapshot=${ProviderCapabilities.toJsonString(capabilities)}")
 
         // --- the row surfaces the REAL backend list ---
-        composeRule.onNodeWithTag("provider-models-section").assertIsDisplayed()
-        composeRule.onNodeWithText("后端可用模型 ($smokeCount)").assertIsDisplayed()
+        composeRule.onNode(editableProviderTag("provider-models-section")).performScrollTo().assertIsDisplayed()
+        composeRule.onNode(editableProviderText("后端可用模型 ($smokeCount)")).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(smokeModel).assertExists()
         Log.d(TAG, "sglang UI smoke: 后端可用模型 ($smokeCount) surfaces $smokeModel")
 
         // --- chip → edit form → SAVE (never auto-saved) → the persisted row model ---
-        composeRule.onNodeWithTag("provider-model-chip-0").performClick()
+        composeRule.onNode(editableProviderTag("provider-model-chip-0")).performScrollTo().performClick()
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("provider-cleartext-confirm").performClick()
-        composeRule.onNodeWithTag("provider-form-save").performClick()
-        composeRule.waitUntil(10_000) {
-            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
-        }
-        composeRule.onNodeWithText("模型：$smokeModel", substring = true).assertIsDisplayed()
+        confirmCleartextAndSave()
+        composeRule.onNodeWithText("模型：$smokeModel", substring = true).performScrollTo().assertIsDisplayed()
         Log.d(TAG, "sglang UI smoke: chip prefill saved — row persists 模型：$smokeModel")
     }
 
     // --- helpers (mirror SelfHostedSmokeTest's guard/fetch pattern) -------------------------
 
-    /** Plain-HTTP GET (pre-check only); null when unreachable or non-2xx. */
+    /** Confirms the cleartext checkbox and saves the form, waiting for the dialog to close.
+     *
+     * performScrollTo before the click: with the IME still open after the text inputs, the
+     * keyboard can cover the checkbox and swallow the coordinate click (the same shape
+     * ProviderModelDiscoveryUiTest's createProvider uses for this control). The confirm click
+     * only schedules the recomposition that enables save — drain it with assertIsOn before
+     * clicking (a disabled Button swallows the save click and the dialog stays open), the
+     * same synchronization ProviderModelDiscoveryUiTest/OllamaUiRoundTripTest use.
+     */
+    private fun confirmCleartextAndSave() {
+        composeRule
+            .onNodeWithTag("provider-cleartext-confirm")
+            .performScrollTo()
+            .performClick()
+        composeRule.onNodeWithTag("provider-cleartext-confirm").assertIsOn()
+        composeRule.onNodeWithTag("provider-form-save").assertIsEnabled().performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodesWithTag("provider-form-dialog").fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    private fun currentCapabilities(): ProviderCapabilities =
+        requireNotNull(
+            composeRule
+                .container()
+                .providerService.rows.value
+                .single { it.displayName == NAME }
+                .capabilities,
+        )
+
+    /** Wait only for the editable provider under test, never a managed provider's status. */
     private fun awaitPassingProbe() {
+        // Scoped to the editable row under test: the retained runtime-managed fixture rows keep
+        // their own probe state (e.g. an account-gated AUTH failure) and must not end the wait.
         composeRule.waitUntil(PROBE_BUDGET_MILLIS) {
-            composeRule.onAllNodesWithTag("provider-status-passed").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithTag("provider-status-failed").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(editableProviderTag("provider-status-passed")).fetchSemanticsNodes().isNotEmpty() ||
+                composeRule
+                    .onAllNodes(editableProviderTag("provider-status-failed"))
+                    .fetchSemanticsNodes()
+                    .isNotEmpty()
         }
         val status =
             composeRule
