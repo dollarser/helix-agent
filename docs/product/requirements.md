@@ -274,7 +274,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 用户授权由确定性规则解析，模型和外部内容不能自授权。需要询问时生成精确、一次性证明，在执行开始时消费；新的 DENY 不能被旧证明覆盖。特殊递归删除确认限明确解析的 rm -rf dir。Plan 审阅不授予全部工具权限。
 
-规范见[会话授权](../adr/permissions/001-session-authorization.md)、[执行审计](../adr/permissions/003-dispatch-and-audit.md)；HXA-209 是未完成实现，不把本需求当上线证明。工具清单中的风险标签是效果分类，询问行为统一按此处和 ADR 判定。
+规范见[会话授权](../adr/permissions/001-session-authorization.md)、[执行审计](../adr/permissions/003-dispatch-and-audit.md)；HXA-209 已按[完成记录](../completion-records/HXA-209.md)交付，完成记录不等于签名发行或全量发布验收。工具清单中的风险标签是效果分类，询问行为统一按此处和 ADR 判定。
 
 ### 5.6 Workspace
 

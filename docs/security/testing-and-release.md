@@ -1,6 +1,6 @@
 # 授权、安全与发布验收
 
-本页定义横向边界，决策细节见[会话授权](../adr/permissions/001-session-authorization.md)、[模式限制](../adr/permissions/002-review-modes.md)、[执行与审计](../adr/permissions/003-dispatch-and-audit.md)。已接受方案和已交付行为分别从[状态](../development/status.md)核对；HXA-209 未完成前不得声明新预设已经生效。
+本页定义横向边界，决策细节见[会话授权](../adr/permissions/001-session-authorization.md)、[模式限制](../adr/permissions/002-review-modes.md)、[执行与审计](../adr/permissions/003-dispatch-and-audit.md)。已接受方案和已交付行为分别从[状态](../development/status.md)核对；HXA-209 新预设已按[完成记录](../completion-records/HXA-209.md)交付并生效。
 
 ## 信任与权限
 

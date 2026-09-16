@@ -83,9 +83,9 @@ flowchart TB
 
 队列取消、审批等待取消和执行后的未知副作用均需留存结果。审批通过不等于执行已开始；证明在执行开始时消费。恢复不可把未知结果自动重放成成功。
 
-## 5. 已接受待交付：HXA-209 会话授权
+## 5. 已交付：HXA-209 会话授权
 
-依据 [ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 与 [HXA-209](../development/tasks/HXA-209.md)。这不是当前旧 resolver 已完成迁移的证明。应先证明执行域能落实限制，再接入预设和自定义策略。
+依据 [ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 与 [HXA-209 完成记录](../completion-records/HXA-209.md)。HXA-209 已交付：先以执行域效果矩阵证明工作目录/CUSTOM 禁写可约束，再接入统一 resolver 与预设/自定义策略。
 
 ```mermaid
 flowchart TB

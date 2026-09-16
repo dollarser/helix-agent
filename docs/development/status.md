@@ -6,23 +6,23 @@
 
 所有已交付 HXA 见[完成记录索引](../completion-records/index.md)，M0 见[工程基线](../completion-records/M0.md)。记录的完成只限各自范围。
 
-最近完成：HXA-200 审批审计/恢复，HXA-201 设置/UI，HXA-208 完整 Goal 工具与前后台连续运行。基线回归及 thinking/startup 修复见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[连接/启动修复](../bug-fixes/2026-09-16-main-thinking-and-startup.md)。不重做这些任务，不将旧三态验收用作新授权方案证明。
+最近完成：HXA-209 会话授权预设、工具禁用与自定义权限（含工具二态与 CUSTOM 效果限制，见[完成记录](../completion-records/HXA-209.md)），HXA-208 完整 Goal 工具与前后台连续运行，HXA-201 设置/UI，HXA-200 审批审计/恢复。基线回归及 thinking/startup 修复见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[连接/启动修复](../bug-fixes/2026-09-16-main-thinking-and-startup.md)。不重做这些任务，不将旧三态验收用作新授权方案证明。
 
 收尾补验：SGLang UI smoke已修复，在API29/36 developer真实端点各1项通过，本地表单各4项通过；默认profile各1项明确跳过，见[修复与证据](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md)。这不关闭192/193的其他范围。
 
 ## In progress
 
-本轮已完成文档治理与SGLang基线收尾，并验证 HXA-209 网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，按所有者选择保留当前 Runtime、撤下统一禁网要求；不是禁网功能完成。见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)。HXA-209 A 切片：四个执行域的效果边界矩阵与证据已建立，rm 命令规则与 45 个契约测试实现并当日全绿，宿主侧套件当日新跑通过，见[执行域效果边界与证据矩阵](../evidence/development/2026-09-16-hxa209-execution-domain-matrix.md)；B–E（单一授权配置/接线/UI/文档收口）尚未实现。27项分为：6项收尾验收、12项待实现、2项集成验收、3项待决策、4项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做；本轮没有补写任何功能完成记录。
+本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。当前无并行 in-flight 功能，下一活动 checkpoint 为 HXA-192 的 Plan 授权联动收口。26 项未闭合义务分为：6 项收尾验收、11 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做。
 
 ## Next task
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 
-- **首个实施切片：HXA-209 A（执行域可行性）**。先证明工作目录/CUSTOM禁写可约束且正常任务可用，再铺配置/UI。不得为了209提前把全部终端功能一起实现。
-- **随后收口192并推进核心体验**：192补Plan审阅到执行及209联动；202补已有任务页的跨页面路径，203产物、204恢复、205首次准备、207扩展闭环；191独立做深色主题与会话搜索，206汇总核心验收。
-- **执行环境独立链**：193补干净资产/升级/CI；194命令详情→195实时日志，之后196后台Job与197手动PTY→198多会话，199验收终端。前台PTY不等待后台Job。
-- **条件允许时收尾**：094/095 Root、190真实订阅、125受保护Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按120→122→121→123，不自动开始外部提交。
-- 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动HXA-210；Connector候选及工具descriptor候选不因整理而接受。
+- **活动 checkpoint：HXA-192 Plan 授权联动收口**。209 已交付（见[完成记录](../completion-records/HXA-209.md)）；192 补 Plan 审阅到执行及其与 209 预设的联动，不重做已有能力，不提前实现终端。
+- **核心体验**：202 补已有任务页的跨页面路径，203 产物、204 恢复、205 首次准备、207 扩展闭环；191 独立做深色主题与会话搜索，206 汇总核心验收。
+- **执行环境独立链**：193 补干净资产/升级/CI；194 命令详情→195 实时日志，之后 196 后台 Job 与 197 手动 PTY→198 多会话，199 验收终端。前台 PTY 不等待后台 Job。
+- **条件允许时收尾**：094/095 Root、190 真实订阅、125 受保护 Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按 120→122→121→123，不自动开始外部提交。
+- 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 候选及工具 descriptor 候选不因整理而接受。
 
 ## Blocked
 

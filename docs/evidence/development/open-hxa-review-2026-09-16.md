@@ -34,7 +34,7 @@
 | [HXA-205](../../development/tasks/HXA-205.md) | 待实现 | 吸收191首次引导；与194命令详情分开，覆盖真实初始化/修复而非又做Runtime打包。 |
 | [HXA-206](../../development/tasks/HXA-206.md) | 集成验收 | 删除工具级ASK/ALLOW/DENY固定用例，使用工具二态+预设/CUSTOM；终端全套由199负责。 |
 | [HXA-207](../../development/tasks/HXA-207.md) | 待实现 | 不依赖126/129/130未来OAuth或市场；不复用201旧三态UI；已有导入服务继续复用。 |
-| [HXA-209](../../development/tasks/HXA-209.md) | 待实现 | 保持主优先级；不等待未来PTY/后台Job才交付现有入口，未来入口在196/197接线时继承契约。 |
+| [HXA-209](../../completion-records/HXA-209.md) | 待实现 | 保持主优先级；不等待未来PTY/后台Job才交付现有入口，未来入口在196/197接线时继承契约。 |
 
 ## 关键源码与证据
 

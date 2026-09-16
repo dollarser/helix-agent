@@ -26,7 +26,7 @@
 | 任务与产物 | [TasksScreen](../../app/src/main/kotlin/com/helix/app/ui/TasksScreen.kt)、[ArtifactsScreen](../../app/src/main/kotlin/com/helix/app/ui/ArtifactsScreen.kt) 已有 | 202/203/204补直接导航、实际可用性、恢复交互，不重建任务库 |
 | MCP 与浏览器 | [McpToolDiscovery](../../app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt) 已有发现；[BrowserScreen](../../feature/browser/src/main/kotlin/com/helix/feature/browser/ui/BrowserScreen.kt) 已有标签与下载区 | 207完善添加到使用闭环；浏览器后续优化须具体描述，不能再写“补tab UI” |
 | Goal | [HXA-208](../completion-records/HXA-208.md) 交付完整模型工具与前后台连续运行；[GoalDriver](../../core/agent/src/main/kotlin/com/helix/core/agent/GoalDriver.kt) 已有 | Schedule、Channel、Hooks不因此自动获得授权；不把GoalDriver放回候选清单 |
-| 授权 | 200/201的规则、审计和设置有交付证据；[ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 是当前已接受目标 | [HXA-209](../development/tasks/HXA-209.md) 尚待实现；旧三态工具偏好不是新方案验收证据 |
+| 授权 | 200/201的规则、审计和设置有交付证据；[ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 是当前已接受目标 | [HXA-209](../completion-records/HXA-209.md) 已交付；旧三态工具偏好不是新方案验收证据 |
 | 执行域 | developer 单APK内置PRoot/Subscriptions，私有进程共享UID；QuickJS isolated UID | [HXA-193](../development/tasks/HXA-193.md) 收口资产/升级/CI，不重做单APK接线；同UID不承诺凭据、文件或网络隔离 |
 | Git | [GitWorkspaceReader](../../app/src/main/kotlin/com/helix/app/git/GitWorkspaceReader.kt)、[GitStatusScreen](../../app/src/main/kotlin/com/helix/app/ui/GitStatusScreen.kt) 已有只读状态/diff | 不据此宣称完整仓库写操作、远端认证、clone/PR闭环；普通文件交付不依赖远程Git |
 | 终端 | 同步Job与最终结果已有；[终端设计](../architecture/terminal.md) 已接受 | 194～199仍需命令详情、实时日志、后台owner、PTY、多会话与专项验收；Goal续轮不等于这些功能 |
@@ -46,7 +46,7 @@
 | 出错后不知道能否重试 | 历史恢复、结果对账、用户继续、新调用重试分别表达 | [204](../development/tasks/HXA-204.md) |
 | 环境未准备好 | 按目标展示模型、目录、系统能力与Runtime的下一步；被动浏览不启动执行 | [205](../development/tasks/HXA-205.md) |
 | 扩展安装后不会用 | 来源预览→启用→真实调用→禁用/修复，连接成功不冒充业务成功 | [207](../development/tasks/HXA-207.md) |
-| 审批太碎或规则难懂 | 会话预设与工具启用分别设置，显示生效范围和未停止的旧任务 | [209](../development/tasks/HXA-209.md) |
+| 审批太碎或规则难懂 | 会话预设与工具启用分别设置，显示生效范围和未停止的旧任务 | [209](../completion-records/HXA-209.md) |
 | 手机界面难检索、夜间难用 | 系统主题/深色与会话历史搜索；不重复已有审批折叠 | [191](../development/tasks/HXA-191.md) |
 
 手动文件管理、浏览器、安装/修复各有独立应用服务，不必建立Agent Turn。手动授权不会自动扩大模型工具权限。任务页面从Turn/Goal/ToolCall/Job派生，不创建第二套执行状态机；标题不是任务身份。

@@ -44,4 +44,4 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 - [安全与发布](../security/testing-and-release.md)：授权、审计与验收。
 - [用户操作链](../product/task-experience.md)：工作区、输出、变更和恢复之间的导航。
 
-HXA-209 会话授权、HXA-194～199 终端链及 proposed Workspace binding 不能仅凭本图声明已实现；入口与剩余验收在[路线](../development/roadmap.md)。
+HXA-194～199 终端链与 proposed Workspace binding 不能仅凭本图声明已实现；HXA-209 会话授权已按[完成记录](../completion-records/HXA-209.md)交付。入口与剩余验收在[路线](../development/roadmap.md)。
