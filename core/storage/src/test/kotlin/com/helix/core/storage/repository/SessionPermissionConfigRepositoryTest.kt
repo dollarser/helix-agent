@@ -126,6 +126,32 @@ class SessionPermissionConfigRepositoryTest {
     }
 
     @Test
+    fun changingTheAppDefaultLeavesASessionWithAStoredConfigUntouched() {
+        // an existing session pinned an explicit config
+        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 10L)
+        // a later change to the new-session default must not rewrite it
+        repository.setAppDefault(SessionPermissionMode.READ_ONLY, 20L)
+        assertEquals(SessionPermissionMode.WORKSPACE, repository.forSession("session-1")?.mode)
+        assertEquals(
+            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE),
+            repository.forSession("session-1")?.rules,
+        )
+    }
+
+    @Test
+    fun aSessionWithoutAStoredConfigResolvesToTheCurrentAppDefault() {
+        // fresh install: no default row, no session row -> compiled READ_ONLY
+        assertNull(repository.forSession("session-new"))
+        assertEquals(SessionPermissionMode.READ_ONLY, repository.appDefault().mode)
+        // the new-session default is changed to WORKSPACE
+        repository.setAppDefault(SessionPermissionMode.WORKSPACE, 20L)
+        // a session that never stored its own config still has no row, so it now resolves
+        // to the NEW default — the default reaches only sessions without a stored config
+        assertNull(repository.forSession("session-new"))
+        assertEquals(SessionPermissionMode.WORKSPACE, repository.appDefault().mode)
+    }
+
+    @Test
     fun missingSessionRowMeansNoStoredDraft() {
         assertNull(repository.customDraftFor("session-1"))
     }
