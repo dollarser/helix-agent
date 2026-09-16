@@ -6,6 +6,7 @@ import com.helix.app.a2a.A2aAppService
 import com.helix.app.a2a.A2aStorageBridge
 import com.helix.app.a2a.A2aTaskRunner
 import com.helix.app.allfiles.AllFilesModule
+import com.helix.app.approval.SessionPermissionService
 import com.helix.app.approval.StorageApprovalBroker
 import com.helix.app.approval.StorageAuditSink
 import com.helix.app.approval.ToolApprovalPreferenceService
@@ -43,14 +44,17 @@ import com.helix.app.runcontrol.PersistedRunControlStore
 import com.helix.app.runcontrol.PlatformDeviceResourceProbe
 import com.helix.app.runcontrol.RunControlStore
 import com.helix.app.tool.ApprovalCardSinkHolder
+import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
 import com.helix.core.model.SystemClock
+import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.LiveEgressRules
 import com.helix.core.policy.PolicyEngine
+import com.helix.core.policy.effectiveAvailability
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.ToolBaselineIdentity
 import com.helix.core.workspace.ScopeNotAvailable
@@ -73,6 +77,7 @@ import com.helix.tools.android.EgressPolicy
 import com.helix.tools.android.EgressPolicyProvider
 import com.helix.tools.browser.BrowserTools
 import com.helix.tools.framework.TimeNowTool
+import com.helix.tools.framework.ToolDescriptor
 import com.helix.tools.framework.ToolDispatcher
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
@@ -464,6 +469,31 @@ internal class DefaultAppContainer(
                     },
                 )
             val auditSink = StorageAuditSink(storage.auditEvents) { idGenerator.next() }
+            // HXA-209 B3: the additive session-permission + tool-availability path. ONE service
+            // instance backs both dispatcher seams (config + availability), and the shared
+            // disabled predicate feeds the model schema, the search window and the execution
+            // entry through ToolPipeline.disabledToolFilter, so a disable can never be visible
+            // on one surface and refused on another (ADR section 1.1).
+            val sessionPermissions =
+                SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability)
+            val sessionWorkspace: (String) -> String? = { sessionId ->
+                storage.sessions
+                    .list()
+                    .firstOrNull { it.id == sessionId }
+                    ?.let { it.directoryRef ?: APP_SCOPE_ID }
+            }
+            val effectClassifier = SessionToolEffectClassifier(sessionWorkspace)
+            val disabledToolFilter: (String, ToolDescriptor) -> Boolean = { sessionId, descriptor ->
+                val states =
+                    sessionPermissions.statesFor(
+                        descriptor.origin.canonicalOf(),
+                        descriptor.name.value,
+                        sessionId,
+                        sessionWorkspace(sessionId),
+                    )
+                effectiveAvailability(states.global, states.workspace, states.session) !=
+                    ToolAvailabilityState.DISABLED
+            }
             val dispatcher =
                 ToolDispatcher(
                     clock = appClock,
@@ -488,6 +518,13 @@ internal class DefaultAppContainer(
                     // HXA-200 (ADR-0052): re-resolve the user's stored preference before the call
                     // starts — the SAME instance the Registry exposure filter reads (point 7).
                     preferenceSource = toolApprovalPreferenceService,
+                    // HXA-209 B3: the new session-permission stage (config, availability and
+                    // effect classification). Additive in B3 — the preference path above stays
+                    // the first gate; all three seams are wired together (required by the
+                    // dispatcher's init contract).
+                    sessionPermissions = sessionPermissions,
+                    toolAvailability = sessionPermissions,
+                    effectClassifier = effectClassifier,
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
@@ -509,6 +546,7 @@ internal class DefaultAppContainer(
                 auditSink,
                 scheduler,
                 toolApprovalPreferenceService,
+                disabledToolFilter = disabledToolFilter,
             ).also {
                 it.mcpDiscovery.register(toolImplementations)
             }

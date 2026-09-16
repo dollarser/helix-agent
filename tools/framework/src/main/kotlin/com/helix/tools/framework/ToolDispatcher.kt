@@ -7,6 +7,7 @@ import com.helix.core.model.Hex
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
 import com.helix.core.model.Sha256
+import com.helix.core.model.ToolAvailabilityState
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.policy.ApprovalBinding
@@ -17,12 +18,22 @@ import com.helix.core.policy.EgressRequest
 import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.NetworkOriginScope
+import com.helix.core.policy.PermissionDenyCode
+import com.helix.core.policy.PermissionReason
+import com.helix.core.policy.PermissionReasonCode
 import com.helix.core.policy.PolicyDecision
 import com.helix.core.policy.PolicyEngine
+import com.helix.core.policy.PolicyEvaluation
+import com.helix.core.policy.SessionPermissionResolution
+import com.helix.core.policy.SessionPermissionResolver
+import com.helix.core.policy.SessionPermissionSource
 import com.helix.core.policy.ToolApprovalBlockCode
 import com.helix.core.policy.ToolApprovalPreferenceSource
 import com.helix.core.policy.ToolApprovalResolution
+import com.helix.core.policy.ToolAvailabilitySource
 import com.helix.core.policy.UserScope
+import com.helix.core.policy.WorkspaceScope
+import com.helix.core.policy.effectiveAvailability
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import java.security.MessageDigest
@@ -188,8 +199,14 @@ sealed interface ToolDispatchOutcome {
  *
  * Fail closed: a throwing [AuditSink] or [CapabilityCenter] propagates — a dispatch that
  * cannot be audited or capability-checked is not a successful dispatch (AGENTS.md).
+ *
+ * Suppression notes: one method per pipeline stage — the security pipeline is one class by
+ * design (splitting fragments it). LongParameterList: the HXA-209 B3 seams add three
+ * parameters to the SAME constructor — one seam per pipeline input. LargeClass: the stage
+ * functions keep their decision and their audit in one place; the HXA-209 B4 removal of
+ * the legacy preference path shrinks the class again.
  */
-@Suppress("TooManyFunctions") // one method per pipeline stage; splitting fragments the security pipeline
+@Suppress("TooManyFunctions", "LongParameterList", "LargeClass")
 class ToolDispatcher(
     private val clock: Clock,
     private val registry: ToolRegistry,
@@ -207,7 +224,27 @@ class ToolDispatcher(
      * is queued is re-read before this call starts (point 7).
      */
     private val preferenceSource: ToolApprovalPreferenceSource? = null,
+    /**
+     * HXA-209 (ADR-PERMISSIONS-001 section 2): the live read seam for the session authorization
+     * config. Null (the default) means the session permission stage is INERT — the dispatcher
+     * behaves exactly as before (the stage only ever restricts, so an unwired stage never
+     * expands anything). When wired, every call is classified through [effectClassifier] into
+     * the single [SessionPermissionResolver] AFTER the hard gates; a refusal (tool disable or a
+     * DENY rule) stops the call before any approval surface (section 2 step 2) and an approval
+     * requirement composes into the SAME per-call card. The historical preference stage below
+     * it stays until HXA-209 B4 removes it.
+     */
+    private val sessionPermissions: SessionPermissionSource? = null,
+    private val toolAvailability: ToolAvailabilitySource? = null,
+    private val effectClassifier: ToolEffectClassifier? = null,
 ) {
+    init {
+        val wired = sessionPermissions != null
+        require((toolAvailability != null) == wired && (effectClassifier != null) == wired) {
+            "the session permission seams must be wired together (or not at all)"
+        }
+    }
+
     private val deadlineRunner = ToolDeadlineRunner(clock, EXECUTOR_SERVICE)
 
     private val deniedLock = Any()
@@ -323,6 +360,8 @@ class ToolDispatcher(
      * stops the retry. If the policy no longer requires approval the carried proof goes
      * unspent (it expires with its record; it is never consumed).
      */
+    @Suppress("ReturnCount") // one fail-closed early return per refusal; the carried-proof and
+    // composed-card outcomes are distinct and each must stay legible
     private fun policyStage(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
@@ -373,34 +412,166 @@ class ToolDispatcher(
             }
 
             is ToolApprovalResolution.RequiresCard -> {
+                // HXA-209 (ADR section 2 step 2/4): the session permission stage runs before the
+                // card is composed — a refusal (tool disable, DENY rule) outranks the card and
+                // stops the dispatch before any surface; an approval requirement composes its
+                // precise reasons into the SAME per-call surface.
+                val permission = sessionPermissionResolution(request, descriptor, ctx)
+                if (ctx.stopped != null) return null
                 // L2/L3 or high-sensitivity egress always cards (the policy's detail is shown); an
                 // ASK preference now ALSO forces a card on a policy Allow (point 3) — an explicit
                 // ALLOW is the only card-free path for an in-scope low-risk call. Both present the
                 // SAME per-call surface; a preference-forced card (no policy detail) shows the
                 // resolver's note instead.
                 val detail =
-                    (policy.decision as? PolicyDecision.RequiresApproval)?.detail ?: resolution.detail
-                if (carriedProof != null) {
-                    ctx.approvalAcquiredAt = clock.now().toEpochMilli()
-                    ctx.attemptProof = carriedProof
-                    carriedProof
-                } else {
-                    acquireApproval(
-                        request,
-                        descriptor,
-                        PolicyDecision.RequiresApproval(detail),
-                        ctx,
-                        policy.matchedEgressRule,
-                    )
-                }
+                    (policy.decision as? PolicyDecision.RequiresApproval)?.detail
+                        ?: (permission as? SessionPermissionResolution.RequiresApproval)?.let {
+                            composedPermissionDetail(it, policy)
+                        }
+                        ?: resolution.detail
+                acquireOrCarry(request, descriptor, detail, ctx, carriedProof, policy.matchedEgressRule)
             }
 
             // An in-scope L0/L1 call proceeds card-free: either because the effective preference is
             // unset (the original behavior) or an explicit ALLOW (point 2). A carried retry proof
             // goes unspent when the live re-resolution no longer needs it.
             is ToolApprovalResolution.AutoProceed -> {
-                null
+                // HXA-209 B3: the session permission stage can force a card on an otherwise
+                // card-free call (the chosen mode asks for this operation class); a refusal stops
+                // before any surface (section 2 step 2).
+                val permission = sessionPermissionResolution(request, descriptor, ctx)
+                if (ctx.stopped != null) return null
+                if (permission is SessionPermissionResolution.RequiresApproval) {
+                    val detail =
+                        (policy.decision as? PolicyDecision.RequiresApproval)?.detail
+                            ?: composedPermissionDetail(permission, policy)
+                    acquireOrCarry(request, descriptor, detail, ctx, carriedProof, policy.matchedEgressRule)
+                } else {
+                    null
+                }
             }
+        }
+    }
+
+    /**
+     * Presents the per-call card for [detail] — or, for a bounded technical retry, spends the
+     * carried re-minted proof WITHOUT re-presenting (doc 11 section 3.3). Shared by the
+     * policy/preference card path and the HXA-209 session-permission card path: ONE surface,
+     * ONE record, one action fingerprint.
+     */
+    private fun acquireOrCarry(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+        detail: String,
+        ctx: DispatchContext,
+        carriedProof: ApprovalProof?,
+        matchedEgressRule: HighSensitivityRule?,
+    ): ApprovalProof? {
+        if (carriedProof != null) {
+            ctx.approvalAcquiredAt = clock.now().toEpochMilli()
+            ctx.attemptProof = carriedProof
+            return carriedProof
+        }
+        return acquireApproval(
+            request,
+            descriptor,
+            PolicyDecision.RequiresApproval(detail),
+            ctx,
+            matchedEgressRule,
+        )
+    }
+
+    /**
+     * HXA-209 B3 (ADR section 2 step 4): the session permission stage for one call. Inert (null)
+     * when the seams are unwired. Otherwise the two-state tool availability is re-read LIVE
+     * (disabled at any scope → stop before any card), the call's effect footprint is classified
+     * by the wired [ToolEffectClassifier] and the ONE [SessionPermissionResolver] decides: a
+     * denial is a stop (no card, no proof), an approval requirement is returned for the caller
+     * to compose into the per-call card. The decision audit is recorded on [ctx] on every live
+     * evaluation — the at-start recheck runs through this same method.
+     */
+    @Suppress("ReturnCount") // unwired seam, tool disable, policy stop and the live resolution
+    // are distinct decisions; collapsing them hides the audit boundary
+    private fun sessionPermissionResolution(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+        ctx: DispatchContext,
+    ): SessionPermissionResolution? {
+        val source = sessionPermissions ?: return null
+        if (effectiveToolAvailability(request, descriptor) == ToolAvailabilityState.DISABLED) {
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(
+                    DispatchOutcomeCode.TOOL_DISABLED,
+                    "tool ${descriptor.name.value} is disabled for this session and its scope",
+                ),
+                DecisionSource.USER,
+            )
+            return null
+        }
+        val classifier =
+            effectClassifier ?: error("the effect classifier is unwired while the session permission stage is wired")
+        val config = source.configFor(request.sessionId)
+        val classification = classifier.classify(request, descriptor)
+        val resolution =
+            SessionPermissionResolver.resolve(config, classification.footprint, classification.rmCommandHit)
+        ctx.sessionPermissionEvaluated =
+            SessionPermissionDecisionAudit.from(config, classification, resolution)
+        if (resolution is SessionPermissionResolution.Denied) {
+            stopped<Unit>(
+                ctx,
+                ToolDispatchOutcome.Denied(
+                    denialCode(resolution.code),
+                    "session permission denied: ${resolution.reasons.describe()}",
+                ),
+                DecisionSource.USER,
+            )
+            return null
+        }
+        return resolution
+    }
+
+    /**
+     * The live two-state availability of one tool identity (ADR section 1.1): outer disable
+     * always wins, else the narrowest explicit state, default ENABLED.
+     */
+    private fun effectiveToolAvailability(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+    ): ToolAvailabilityState {
+        val source = toolAvailability ?: return ToolAvailabilityState.ENABLED
+        val states =
+            source.statesFor(
+                sourceRef = descriptor.origin.canonicalOf(),
+                toolName = descriptor.name.value,
+                sessionId = request.sessionId,
+                workspaceRef = (request.scope as? WorkspaceScope)?.workspaceId,
+            )
+        return effectiveAvailability(states.global, states.workspace, states.session)
+    }
+
+    /** The stable audit codes for a session-permission denial (HXA-209 B3). */
+    private fun denialCode(code: PermissionDenyCode): DispatchOutcomeCode =
+        when (code) {
+            PermissionDenyCode.HARD_POLICY, PermissionDenyCode.TOOL_DISABLED -> DispatchOutcomeCode.POLICY_DENIED
+            PermissionDenyCode.OPERATION_DENIED -> DispatchOutcomeCode.OPERATION_DENIED
+            PermissionDenyCode.OPERATION_DENIED_DOMAIN -> DispatchOutcomeCode.OPERATION_DENIED_DOMAIN
+        }
+
+    /**
+     * The card text for a session-permission approval (ADR section 2 step 4): the resolver's
+     * precise reasons plus the RISK_LEVEL composed here (not by the resolver). The composed
+     * text never claims an auto-approval — the approval is the user's precise one-time decision
+     * (section 5).
+     */
+    private fun composedPermissionDetail(
+        permission: SessionPermissionResolution.RequiresApproval,
+        policy: PolicyEvaluation,
+    ): String {
+        val composed = permission.reasons + PermissionReason(PermissionReasonCode.RISK_LEVEL)
+        val risk = policy.dynamicRisk.name
+        return composed.joinToString("; ") { reason ->
+            if (reason.code == PermissionReasonCode.RISK_LEVEL) "RISK_LEVEL:$risk" else reason.reasonToken()
         }
     }
 
@@ -642,13 +813,17 @@ class ToolDispatcher(
             val attempt: () -> Instant? = {
                 if (request.cancel.isCancelled()) {
                     stopped(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
-                } else if (preferenceSource != null && !mayStart(request, descriptor, proof, ctx)) {
+                } else if (
+                    (preferenceSource != null || sessionPermissions != null) &&
+                    !mayStart(request, descriptor, proof, ctx)
+                ) {
                     null
                 } else {
                     proof?.let { approvals.consume(it) }
                     clock.now().also {
                         ctx.executionStartedAt = it.toEpochMilli()
                         ctx.preferenceAtStart = ctx.preferenceEvaluated
+                        ctx.sessionPermissionAtStart = ctx.sessionPermissionEvaluated
                     }
                 }
             }
@@ -661,6 +836,8 @@ class ToolDispatcher(
         return null
     }
 
+    @Suppress("ReturnCount") // one fail-closed early return per check: the contract drift, the
+    // live permission stop and the missing-proof refusal must each stay explicit
     private fun mayStart(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
@@ -684,6 +861,15 @@ class ToolDispatcher(
         val resolved = resolveToolApproval(request, descriptor, policy.decision, preferenceSource)
         ctx.preferenceEvaluated = resolved.audit
         val resolution = resolved.resolution
+        // HXA-209 B3 (ADR section 2 step 2): the session permission stage is re-run LIVE right
+        // before the effect begins — a mode change, a new DENY or a tool disable that landed
+        // while the call sat in the queue is honored, never silently waived. A refusal stops
+        // the start (the stage returns null when it stops — the stop must win over the
+        // legacy checks below); an approval requirement is satisfied only by the exact proof
+        // already acquired (the recheck through the same stage keeps the at-start audit fact).
+        val permission = sessionPermissionResolution(request, descriptor, ctx)
+        if (ctx.stopped != null) return false
+        if (permission is SessionPermissionResolution.RequiresApproval && proof == null) return false
         return if (resolution is ToolApprovalResolution.Blocked) {
             val policyDenied = resolution.code == ToolApprovalBlockCode.POLICY_DENIED
             stopped<Unit>(
@@ -871,6 +1057,8 @@ class ToolDispatcher(
                 preferenceEvaluated = ctx.preferenceEvaluated,
                 preferencePresented = ctx.preferencePresented,
                 preferenceAtStart = ctx.preferenceAtStart,
+                sessionPermissionEvaluated = ctx.sessionPermissionEvaluated,
+                sessionPermissionAtStart = ctx.sessionPermissionAtStart,
             ),
         )
         return outcome
@@ -965,6 +1153,10 @@ class ToolDispatcher(
         var preferenceEvaluated: PreferenceDecisionAudit? = null
         var preferencePresented: PreferenceDecisionAudit? = null
         var preferenceAtStart: PreferenceDecisionAudit? = null
+
+        /** HXA-209 B3: the session-permission decision facts (evaluation and at-start recheck). */
+        var sessionPermissionEvaluated: SessionPermissionDecisionAudit? = null
+        var sessionPermissionAtStart: SessionPermissionDecisionAudit? = null
         var attemptId: Int = 1
         var policyDecidedAt: Long? = null
         var riskLevel: RiskLevel? = null

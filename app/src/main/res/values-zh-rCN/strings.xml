@@ -106,6 +106,9 @@
     <string name="approval_code_command">代码/命令</string>
     <string name="approval_code_invalid_arguments">参数不符合注册 Schema</string>
     <string name="approval_code_invalid_output">输出不符合注册 Schema</string>
+    <string name="approval_code_tool_disabled">工具已被本会话及作用域禁用</string>
+    <string name="approval_code_operation_denied">会话权限拒绝:禁止的操作</string>
+    <string name="approval_code_operation_denied_domain">会话权限拒绝:可能涉及禁止的领域</string>
     <string name="approval_code_no_implementation">无已注册实现</string>
     <string name="approval_code_policy_denied">策略拒绝</string>
     <string name="approval_code_preference_denied">用户禁止了该工具</string>

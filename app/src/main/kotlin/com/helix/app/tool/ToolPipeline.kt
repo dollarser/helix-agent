@@ -42,10 +42,19 @@ class ToolPipeline(
      * tool against the same store (point 7). Null when no preference store is wired.
      */
     val preferenceSource: ToolApprovalPreferenceSource? = null,
+    /**
+     * HXA-209 B3 (ADR-PERMISSIONS-001 section 1.1): the shared disabled-tool predicate — the
+     * ONE instance the model schema, tools.search, the loaded window and the execution entry
+     * all read, so a disable can never be visible on one surface and refused on another.
+     * Null when no availability store is wired (everything stays visible).
+     */
+    val disabledToolFilter: ((sessionId: String, descriptor: ToolDescriptor) -> Boolean)? = null,
 ) {
     internal val mcpDiscovery =
         com.helix.app.mcp
-            .McpToolDiscovery(registry)
+            .McpToolDiscovery(registry) { sessionId, descriptor ->
+                disabledToolFilter?.invoke(sessionId, descriptor) ?: true
+            }
 
     private var mcpFactsProvider:
         ((String, String, ToolDescriptor, JsonObject, DataSensitivity) -> McpToolDispatchFacts?)? = null

@@ -210,6 +210,10 @@ internal class ChatRequestAssembler(
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
             .filter { !hiddenByDenyPreference(it, sessionId) }
+            // HXA-209 B3 (ADR section 1.1): a disabled tool leaves the model schema through the
+            // SAME shared predicate the execution entry refuses with — visible() applies it too,
+            // but the schema list is the last gate before truncation and must not drift.
+            .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
             .filter {
                 it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
             }.sortedBy { if (it.name.value in com.helix.app.goal.GoalLifecycleTools.names) 0 else 1 }

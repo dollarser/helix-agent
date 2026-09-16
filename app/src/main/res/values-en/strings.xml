@@ -108,6 +108,9 @@
     <string name="approval_code_command">Code/command</string>
     <string name="approval_code_invalid_arguments">Arguments do not match the registered schema</string>
     <string name="approval_code_invalid_output">Output does not match the registered schema</string>
+    <string name="approval_code_tool_disabled">The tool is disabled for this session and its scope</string>
+    <string name="approval_code_operation_denied">Denied by session permission: forbidden operation</string>
+    <string name="approval_code_operation_denied_domain">Denied by session permission: may touch a forbidden domain</string>
     <string name="approval_code_no_implementation">No registered implementation</string>
     <string name="approval_code_policy_denied">Denied by policy</string>
     <string name="approval_code_preference_denied">Blocked by the user\'s DENY preference</string>

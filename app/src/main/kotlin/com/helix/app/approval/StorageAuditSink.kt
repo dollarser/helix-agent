@@ -85,6 +85,11 @@ class StorageAuditSink(
                 "preferenceEvaluated",
                 "preferencePresented",
                 "preferenceAtStart",
+                // HXA-209 (ADR-PERMISSIONS-001 section 5): the session-permission decision of
+                // the attempt and its at-start recheck — mode version, effects, outcome,
+                // reasons. Null (JsonNull) when the stage did not run.
+                "sessionPermissionEvaluated",
+                "sessionPermissionAtStart",
             )
 
         /**
@@ -119,6 +124,14 @@ class StorageAuditSink(
                 put("preferenceEvaluated", event.preferenceEvaluated?.let(PreferenceAuditPayload::encode) ?: JsonNull)
                 put("preferencePresented", event.preferencePresented?.let(PreferenceAuditPayload::encode) ?: JsonNull)
                 put("preferenceAtStart", event.preferenceAtStart?.let(PreferenceAuditPayload::encode) ?: JsonNull)
+                put(
+                    "sessionPermissionEvaluated",
+                    event.sessionPermissionEvaluated?.let(SessionPermissionAuditPayload::encode) ?: JsonNull,
+                )
+                put(
+                    "sessionPermissionAtStart",
+                    event.sessionPermissionAtStart?.let(SessionPermissionAuditPayload::encode) ?: JsonNull,
+                )
             }.toString()
 
         /**
@@ -169,6 +182,18 @@ class StorageAuditSink(
                         preferenceAtStart =
                             obj["preferenceAtStart"]?.let {
                                 PreferenceAuditPayload.decode(
+                                    it.toString(),
+                                )
+                            },
+                        sessionPermissionEvaluated =
+                            obj["sessionPermissionEvaluated"]?.let {
+                                SessionPermissionAuditPayload.decode(
+                                    it.toString(),
+                                )
+                            },
+                        sessionPermissionAtStart =
+                            obj["sessionPermissionAtStart"]?.let {
+                                SessionPermissionAuditPayload.decode(
                                     it.toString(),
                                 )
                             },
@@ -243,6 +268,8 @@ data class DispatchAuditRecord(
     val preferenceEvaluated: PreferenceAuditPayload? = null,
     val preferencePresented: PreferenceAuditPayload? = null,
     val preferenceAtStart: PreferenceAuditPayload? = null,
+    val sessionPermissionEvaluated: SessionPermissionAuditPayload? = null,
+    val sessionPermissionAtStart: SessionPermissionAuditPayload? = null,
 ) {
     /** True when every mandatory display fact parsed (the page hides rows that fail). */
     val complete: Boolean

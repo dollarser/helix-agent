@@ -4,6 +4,7 @@ import com.helix.core.model.RiskLevel
 import com.helix.tools.framework.DecisionSource
 import com.helix.tools.framework.DispatchAuditEvent
 import com.helix.tools.framework.DispatchOutcomeCode
+import com.helix.tools.framework.SessionPermissionDecisionAudit
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
@@ -195,6 +196,89 @@ class DispatchAuditPayloadTest {
         assertNull(StorageAuditSink.parseRow("r", "c", StorageAuditSink.TYPE, "x", "not-json", 0L))
         // A JSON array is not an object payload: hidden, never rendered raw.
         assertNull(StorageAuditSink.parseRow("r", "c", StorageAuditSink.TYPE, "x", "[1,2]", 0L))
+    }
+
+    // HXA-209 B3: the per-invocation session-permission decisions (evaluation + at-start
+    // recheck) round-trip through the same allowlist as redacted rows.
+    @Test
+    fun sessionPermissionDecisionsRoundTripAsRedactedRows() {
+        val evaluated =
+            SessionPermissionDecisionAudit(
+                mode = "WORKSPACE",
+                configVersion = 1,
+                effects = listOf("FILE_MUTATION_WORKSPACE"),
+                undeterminedEffects = emptyList(),
+                rmCommandHit = false,
+                outcome = SessionPermissionDecisionAudit.OUTCOME_REQUIRES_APPROVAL,
+                reasons = listOf("OPERATION_ASK:FILE_MUTATION_WORKSPACE"),
+            )
+        val atStart =
+            evaluated.copy(
+                outcome = SessionPermissionDecisionAudit.OUTCOME_AUTO_PROCEED,
+                reasons = emptyList(),
+            )
+        val event = fullEvent().copy(sessionPermissionEvaluated = evaluated, sessionPermissionAtStart = atStart)
+        val record =
+            requireNotNull(
+                StorageAuditSink.parseRow(
+                    "r",
+                    "c",
+                    StorageAuditSink.TYPE,
+                    "dispatcher",
+                    StorageAuditSink.payload(event),
+                    1_000L,
+                ),
+            )
+        assertTrue(record.complete)
+        assertEquals(SessionPermissionAuditPayload.from(evaluated), record.sessionPermissionEvaluated)
+        assertEquals(SessionPermissionAuditPayload.from(atStart), record.sessionPermissionAtStart)
+        // A bare event keeps the present-but-null keys; the record fields are null.
+        val bare =
+            requireNotNull(
+                StorageAuditSink.parseRow(
+                    "r",
+                    "c",
+                    StorageAuditSink.TYPE,
+                    "dispatcher",
+                    StorageAuditSink.payload(fullEvent()),
+                    1_000L,
+                ),
+            )
+        assertNull(bare.sessionPermissionEvaluated)
+        assertNull(bare.sessionPermissionAtStart)
+    }
+
+    @Test
+    fun malformedSessionPermissionRowsParseToNullNotRawStrings() {
+        // A hand-corrupted nested decision (wrong version) decodes to null — hidden, never raw.
+        val corrupted =
+            kotlinx.serialization.json.JsonObject(
+                Json
+                    .parseToJsonElement(StorageAuditSink.payload(fullEvent()))
+                    .jsonObject
+                    .toMutableMap()
+                    .also {
+                        it["sessionPermissionEvaluated"] =
+                            Json.parseToJsonElement(
+                                """{"version":9,"mode":"WORKSPACE","configVersion":1,"effects":[],""" +
+                                    """"undeterminedEffects":[],"rmCommandHit":false,"outcome":"DENIED",""" +
+                                    """"reasons":[]}""",
+                            )
+                    },
+            )
+        val record =
+            requireNotNull(
+                StorageAuditSink.parseRow(
+                    "r",
+                    "c",
+                    StorageAuditSink.TYPE,
+                    "dispatcher",
+                    corrupted.toString(),
+                    1_000L,
+                ),
+            )
+        assertNull(record.sessionPermissionEvaluated)
+        assertNull(record.sessionPermissionAtStart)
     }
 
     @Test

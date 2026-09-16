@@ -137,4 +137,38 @@ class McpToolDiscoveryTest {
         assertEquals(ToolExecutorResult.Cancelled, implementations.resolve(search.name, ToolVersion(1)).execute(call))
         assertEquals(listOf(search), discovery.visible("session", registry.all()))
     }
+
+    // HXA-209 B3: the shared availability predicate (the same lambda the execution entry uses)
+    // also gates discovery — a disabled remote tool is neither searchable nor visible, and a
+    // disable that lands after a search removes it from the loaded window.
+    @Test
+    fun aDisabledToolLeavesSearchAndTheVisibleWindow() {
+        catalog(3)
+        val disabled = mutableSetOf("mcp.catalog.tool_1")
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor.name.value !in disabled }
+        assertEquals(
+            listOf("mcp.catalog.tool_0", "mcp.catalog.tool_2"),
+            filtered.search("session", "catalog", 8).map { it.name.value },
+        )
+        val visible = filtered.visible("session", registry.all()).map { it.name.value }
+        assertFalse(visible.contains("mcp.catalog.tool_1"))
+        assertTrue(visible.contains("tools.search"))
+        assertTrue(visible.containsAll(listOf("mcp.catalog.tool_0", "mcp.catalog.tool_2")))
+    }
+
+    @Test
+    fun aDisableLandedAfterSearchRemovesItFromTheWindow() {
+        catalog(3)
+        val disabled = mutableSetOf<String>()
+        val filtered = McpToolDiscovery(registry) { _, descriptor -> descriptor.name.value !in disabled }
+        assertEquals(listOf("mcp.catalog.tool_1"), filtered.search("session", "tool_1", 1).map { it.name.value })
+        disabled += "mcp.catalog.tool_1"
+        val visible = filtered.visible("session", registry.all()).map { it.name.value }
+        assertFalse(
+            "a disable landing after the search removes the loaded window",
+            visible.contains("mcp.catalog.tool_1"),
+        )
+        assertTrue(visible.contains("tools.search"))
+        assertTrue(filtered.search("session", "tool_1", 1).isEmpty())
+    }
 }

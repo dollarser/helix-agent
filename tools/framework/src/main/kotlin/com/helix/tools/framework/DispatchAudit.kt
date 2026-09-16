@@ -19,6 +19,16 @@ enum class DispatchOutcomeCode {
 
     /** A user DENY preference blocked the tool (HXA-200, ADR-0052); distinct from a policy-engine denial. */
     PREFERENCE_DENIED,
+
+    /** The user's two-state tool availability disabled the tool (HXA-209, ADR-PERMISSIONS-001 section 1.1). */
+    TOOL_DISABLED,
+
+    /** The session permission resolver denied a DETERMINED classified operation (a DENY rule hit). */
+    OPERATION_DENIED,
+
+    /** The session permission resolver denied fail-closed: an UNDETERMINED effect touched a DENY rule. */
+    OPERATION_DENIED_DOMAIN,
+
     SAME_TURN_DENIED,
     APPROVAL_PENDING,
     APPROVAL_DENIED,
@@ -68,6 +78,13 @@ enum class DecisionSource {
  * applied limits, terminal JS status; doc 03 section 4.8). It carries hashes/sizes/limits only,
  * NEVER a body, and is null for tools that report none. The storage sink allowlists it as one
  * stable key so the payload shape stays detectable (an absent fact is a null, not a missing key).
+ *
+ * [sessionPermissionEvaluated] / [sessionPermissionAtStart] (HXA-209, ADR-PERMISSIONS-001
+ * section 5): the session-permission decision of this attempt — the mode version, the
+ * classified effects, the rm-rule hit, the outcome and the precise reasons, plus the recheck
+ * that ran when the effect was about to begin (a mode change or a tool disable that landed
+ * while the call sat in the queue is recorded, not silently honored). Null when the session
+ * permission stage did not run (stage unwired, or the dispatch stopped before it).
  */
 data class DispatchAuditEvent(
     val correlationId: String,
@@ -97,6 +114,9 @@ data class DispatchAuditEvent(
     val preferenceEvaluated: PreferenceDecisionAudit? = null,
     val preferencePresented: PreferenceDecisionAudit? = null,
     val preferenceAtStart: PreferenceDecisionAudit? = null,
+    /** HXA-209 (ADR-PERMISSIONS-001 section 5); see the class KDoc. */
+    val sessionPermissionEvaluated: SessionPermissionDecisionAudit? = null,
+    val sessionPermissionAtStart: SessionPermissionDecisionAudit? = null,
 ) {
     init {
         require(correlationId.isNotBlank()) { "correlationId must not be blank" }
