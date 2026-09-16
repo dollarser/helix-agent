@@ -2,6 +2,10 @@
 
 2026-09-15 HXA-200 最终验收通过，命令、测试数量、API/进程证据及剩余产品边界见[完成记录](../completion-records/HXA-200.md)。下方早期阻断与gap条目为历史证据，不能再将已修复的审计/恢复/JGit列为当前200阻断。
 
+2026-09-15 C1/C2后续修复与当前验证见[修复记录](../bug-fixes/2026-09-15-tool-preference-start-boundary.md)；以下收尾复核结论属于修复前快照。两项修复不自动关闭其他HXA-200矩阵或JGit门禁。
+
+2026-09-15 HXA-200 收尾复核：下方六个gap条目保留历史执行证据，不代表符合全部ADR契约。已确认跨scope ASK被ALLOW覆盖、审批等待后DENY未阻止执行，任务不可关闭；具体修复门禁和API覆盖缺口见[收尾复核与201交接](hxa200-closeout-review-and-hxa201-handoff.md)。本轮未重新运行功能测试。
+
 基线日期：2026-09-03。命令来自 Gradle 9.5.0 / AGP 9.3.2 工程的真实
 `projects` 与 `tasks --all` 输出。每个 HXA 开始前必须确认对应命令仍存在；若模块、
 variant 或 source set 改名，先更新本矩阵，再实现功能。
@@ -16,7 +20,7 @@ variant 或 source set 改名，先更新本矩阵，再实现功能。
 - developer 当前承载最完整能力，是开发阶段主要验收对象；涉及 Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。HXA-120～123 再把真实渠道要求映射为 artifact，不能从 flavor 名推导产品能力。
 - 每个HXA开工前清理已知必过本地主机/设备门禁失败；“继承失败”是归因，不是豁免。修复后保留原场景并重跑，禁止删测试或用skip代替失败修复；外部profile沿用下述显式启用边界。
 - 真机/外部服务验收必须记录设备、API、ABI、服务版本和实际结果，不能用构建成功替代。
-- 外部 API/真实账号依赖不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）保持无网络、无真实账号，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。真实订阅/账号/网络 smoke（`realSelfHosted`（Ollama/sglang，默认不探测宿主）/`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；运行后须按上一行记录设备/版本/实际结果。
+- 外部业务服务不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）**不依赖外部业务服务、真实账号或付费调用**，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。边界三分（2026-09-15 措辞修订：原「无网络」）：① 构建时的一次性依赖下载（Gradle/AGP/Maven，lockfile+verification 固定版本）允许联网；② 本机运行的测试服务器（MockWebServer、本机测试服务等）是本地验收的合法组成；③ 触达真实外部服务的 smoke（`realSelfHosted`（Ollama/sglang，默认不探测宿主）/`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；**显式启用后失败即失败，不得伪装成 skip/assume**，运行后须按上一行记录设备/版本/实际结果。
 - Release、APK 内容和许可证总门禁始终追加第 4 节命令。
 
 ## 2. M0 任务命令（已完成）
@@ -344,6 +348,39 @@ HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻�
 
 | HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
 | HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |
+| HXA-192 | Harness 2.0 迁移、门禁与集成 | 进行中：[执行包及真实命令](harness-2.0-next-work.md)；CLI 162 / storage 89 主机及迁移 SQL 通过，spotless/detekt 过、lint 剩 2 项 JGit 阻断；独占设备 Room 28/28 + Plan 4/4（各 API）通过，完整 check-all fail-fast 于 JGit lint；ADR-0048 架构已接受，启用门禁（UI 级用户闭环 + 审阅不 mint 审批的设备证明）未完成；核心切片已 commit `0d52eae7` |
+| HXA-193 | developer 单 APK 内置 Runtime | 实现/专项验证完成：[记录](integrated-developer-runtimes.md)；API29/36各32项、库host6项、四APK与排除门通过；全量门禁、CI资产准备、真实账号与发行未闭合 |
+
+## 终端与后台命令计划（尚未执行）
+
+准确命令、允许模块和新增测试定义见 [专项计划 G1～G4](terminal-and-background-execution-plan.md#6-命令矩阵与设备纪律)。以下设备类是待开发项，零测试不算通过。
+
+| HXA | 验证范围 | 状态 / 命令组 |
+| --- | --- | --- |
+| HXA-194 | 结果详情、取消/未知/过期、旋转、consumer 入口；新增 CommandExecutionDetailsDeviceTest | planned；G1/G2 + 新增设备类 |
+| HXA-195 | 日志游标/背压/配额/兼容；新增 ProotLogStreamDeviceTest | planned；G1/G2/G3；按 accepted ADR-0050，不等待 PTY/后台 |
+| HXA-196 | 租期/预算/owner 死亡/后台拒绝；新增 ProotDetachedJobDeviceTest + 真机 HOME/锁屏 | planned；G1～G4；ADR-0051已接受，平台启用证据待验证 |
+| HXA-197 | REPL/resize/Ctrl-C/切页/进程死亡；新增 ProotTerminalSessionDeviceTest | planned；G1/G2/G3；依赖195及 ADR-0051 前台条款接受，不依赖196完成 |
+| HXA-198 | 双会话/单写连接/互斥/重连/资源回收；新增 ProotMultiSessionDeviceTest | planned；G1～G4 |
+| HXA-199 | 全场景、升级、consumer APK 排除、专项 owned-runner、实际用户验收 | planned；G1～G4 + 全部新增设备类；不以旧32场景替代 |
+
+## 三态审批与产品闭环（尚未执行）
+
+命令与新增设备类见 [产品任务包 P1～P3](product-completion-and-approval-plan.md)。新增类必须真实执行，零测试或编译通过不算设备验收；双API29/36及双flavor，Runtime专属子集单列。
+
+| HXA | 核心验收 | 命令/状态 |
+| --- | --- | --- |
+| HXA-200 | 三态×风险/模式/能力、精确批次、版本/范围/迁移/排队撤销；ToolApprovalPreferenceDeviceTest | in progress（2026-09-15）：来源保留（UNSET/EXPLICIT/ALLOW_INVALIDATED/NEW_DEFAULT 预留）+ ADR-0052 第 1 点修订已落地；已验证 `ToolApprovalPreferenceDeviceTest` 4 用例 + `ToolSchedulerDeviceTest` 9 用例，API29/36×consumer/developer 共 8 次运行全过（独占模拟器 finally 关闭，证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`）；P1/P2 通过；Gap 6 真实旧库迁移已落地（commit `ad5b9912`：修复 `MIGRATION_16_17` 未注册的生产启动崩溃 + fixture 同步 v17 + 2 新设备用例「加性迁移空表/唯一键」+「生产 open 真实 v16 库」，API29 `RoomMigrationFixtureTest` 30/30）；Gap 1 三态×风险/模式/能力已落地（commit `79fd7d85`：`effectivePreference` scope 合并 6 主机用例 + 全局 ASK + 会话 ALLOW 端到端免卡 1 设备用例，`:core:policy:test` 20/20 + `ToolApprovalPreferenceDeviceTest` 5/5，consumer+developer）；Gap 2 NEW_DEFAULT 可信登记/升级基线已落地（commit `c63172a0`：Room 17→18 加性两空表 first-write-wins + 纯决策 `ToolBaseline.isNewDefault` + `reconcile` 唯一写路径/容器启动登记 built-in 工具，`ToolBaselineTest` 8 + resolver 新 6 + service 新 4 主机用例，API29 `RoomMigrationFixtureTest` 31/31 + `ToolApprovalPreferenceDeviceTest` 6/6 consumer+developer，含 NEW_DEFAULT 全生命周期/重启用例）；Gap 3 ALLOW 契约失效/范围不匹配/外部来源同名碰撞已落地（commit `0ca65b4a`：契约失效此前已钉死，新增 3 主机用例 + 2 设备用例——GLOBAL ASK + 会话 A 的 ALLOW 对会话 B 的 dispatch 仍出卡、真实 Room 外部来源同名不继承 built-in ALLOW/DENY，`ToolApprovalPreferenceServiceTest` 17/17 + `ToolApprovalPreferenceDeviceTest` 8/8 consumer+developer）；Gap 4 精确本次/批次证明复用已落地（commit `ea91efe6`：`countByToolCall` 重复询问证据 + 「one refund per consumption」语义钉死，2 主机用例 + `ApprovalProofLifecycleTest` 7/7 真实 Room + `ToolSchedulerDeviceTest` 11/11 consumer+developer，含「重试从同一记录 re-mint、恰好一张卡」与「不同参数不覆盖兄弟调用」2 新例）；Gap 5 审批等待/排队竞态 + 持久结算已落地（commit `fa01dde6`：主机 dispatcher 2——approval 与 start 之间的 stop 不消费证明 / 呈现中翻转不改写决策 + 恰好一次读，主机 scheduler 2——QUEUED 翻转 dispatch start 生效 DENY 无卡 / ASK 恰好一张卡，设备 2——真实 broker 等待期间 turn stop 持久结算 Thrown + 记录 PENDING 单卡 + 兄弟正常结算 / 真实服务 QUEUED 翻转 → PREFERENCE_DENIED 零卡片，`ToolDispatcherTest` 62/62 + `ToolSchedulerTest` 19/19 + `ToolSchedulerDeviceTest` 13/13 consumer+developer；顺带修正 JsonNull-is-JsonPrimitive 的 null 检查）；**六个 gap 全部落地**——整体完成记录待共享验收文档提交归属协调，JGit 第三方 lint 2 项保持独立阻断记录（不 suppress），HXA 不关闭 |
+| HXA-201 | 设置与执行一致、三语言/大字体/旧卡、真实Activity重建与跨进程恢复；Settings16/Lifecycle1及200回归 | completed；P1/P2/P3、四象限272次通过；[证据及全套18项基线失败](hxa201-acceptance-2026-09-16.md) |
+| HXA-202 | 跨会话导航/精确停止/后台返回/不伪造进度；TaskJourneyDeviceTest | planned；P1/P3 |
+| HXA-203 | 同名跨scope/打开导出/撤权/大文件/失败；ArtifactDeliveryDeviceTest | planned；P1/P3，存储变更加P2 |
+| HXA-204 | 断网/认证/进程死亡/重复恢复/不重放；RecoveryJourneyDeviceTest | planned；P1/P3 |
+| HXA-205 | 新旧配置/离线/初始化修复/双flavor；CapabilityReadinessDeviceTest | planned；P1/P3 + 193相关Runtime子集 |
+| HXA-206 | 固定完整任务、实际结果、失败/跳过计数、独占runner | planned；P1/P2/P3 + check-all + 全新增设备类 |
+
+| HXA-207 | Skill/MCP导入、预览变更、连接但未启用、实际调用、三态、禁用/重启/修复；ExtensionJourneyDeviceTest | planned；P1/P2/P3按范围 + extensions:skills/test、extensions:mcp/test及双API双flavor；[精确命令](workspace-and-capability-experience-plan.md) |
+
+201～206和194～199补充 [体验方案](workspace-and-capability-experience-plan.md) 的工作区/终端/输出/变更直达、环境中断修复、多会话与用户语言验收；阶段未实现时不能用其他测试替代。
 
 ## HXA-201 验收结论（2026-09-16）
 

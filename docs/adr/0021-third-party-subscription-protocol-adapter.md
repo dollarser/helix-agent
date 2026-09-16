@@ -9,6 +9,9 @@ Superseded by: none
 
 ## Context
 
+> 2026-09-14：[ADR-0049](0049-integrated-developer-runtimes.md) 改为 developer 单 APK 私有进程，部分取代下文 APK/UID/离线与安装方式约束；其余授权、生命周期与发行约束保留。旧实验结果仅适用于原形态。
+
+
 M11 只允许官方 CLI 在独立 UID 中持有订阅凭据。`dsh-plugin-subscriptions` 提供另一条路线：
 它不运行 Codex CLI 或 Claude Code，而是复用相应 OAuth client identity，自行交换、刷新并把
 access/refresh token 写入 DSH 私有 `auth.json`，随后直接调用 ChatGPT Codex backend 或

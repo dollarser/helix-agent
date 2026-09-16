@@ -9,6 +9,9 @@ Superseded by: none
 
 ## Context
 
+> 2026-09-14：[ADR-0049](0049-integrated-developer-runtimes.md) 改为 developer 单 APK 私有进程，部分取代下文 APK/UID/离线与安装方式约束；其余授权、生命周期与发行约束保留。旧实验结果仅适用于原形态。
+
+
 [ADR-0005](0005-standard-advanced-safety-profiles.md)建立了 `STANDARD`/`ADVANCED` 两级配置、consumer/developer 正交边界、精确出网规则和不可绕过的工具安全管线。项目随后把首要用户调整为开发者与 Android 自动化高级用户。项目所有者进一步要求评估长期工具授权、Trusted Workspace、自动批准、Full Access、模型自授权，以及未来兼容 Tasker/Auto.js、Shizuku/ADB 的 Android 可行性。
 
 Android 可以持久保存 SAF tree grant、应用内 scope/rule，也可由用户长期启用 All-files、Accessibility 或 Root 能力；这些系统/应用状态使“减少重复确认”可实现。Tasker 有标准 Android 插件协议；Auto.js 类脚本依赖特定 JavaScript 引擎、Android API、Accessibility、屏幕捕获、Root 和第三方模块，只能通过独立兼容 Runtime 分阶段覆盖。Shizuku 可让普通应用经用户启动的高权限服务调用系统 API；Android 11+ 无线调试提供配对码/二维码流程。它们证明候选能力在 Android 上有实现路径，不证明任意设备、OEM 或任意脚本都能兼容。
@@ -88,6 +91,10 @@ Advanced 支持以下长期或集中授权形式：
 - 用户研究证明 Trusted Workspace 与精确批量批准仍无法满足高级用户任务完成率，需要新的授权表达。
 
 ## References
+
+- [ADR-0052 三态审批偏好（accepted）](0052-tool-approval-preferences.md)：部分扩展用户设置和显式ASK行为，ALLOW不放开本ADR的精确高风险边界。
+
+- [ADR-0051 手动终端授权（accepted）](0051-terminal-runtime-enablement.md)：已接受人工输入契约，模型工具审批规则不变；生产启用仍须设备门禁。
 
 - [产品需求](../product/requirements.md)
 - [Android 平台能力](../architecture/android-platform-capabilities.md)

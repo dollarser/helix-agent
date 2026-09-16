@@ -1,13 +1,16 @@
 # ADR-0047: 主包内置独立组件安装包
 
-Status: accepted
+Status: superseded
 Date: 2026-09-10
 HXA: HXA-190
 Deciders: Project owner（明确要求主 App 内置 Subscriptions 和 PRoot 安装包，点击安装）
 Supersedes: none
-Superseded by: none
+Superseded by: [ADR-0049](0049-integrated-developer-runtimes.md)
 
 ## Context
+
+> 2026-09-14：[ADR-0049](0049-integrated-developer-runtimes.md) 改为 developer 单 APK 私有进程，部分取代下文 APK/UID/离线与安装方式约束；其余授权、生命周期与发行约束保留。旧实验结果仅适用于原形态。
+
 
 现有 Subscriptions 与 PRoot 是独立 APK/UID。用户要求主 App 提供其安装包及点击安装入口，降低首次安装的分发成本。当前 developer 已接入两类客户端，consumer 没有对应客户端和能力接线；本轮不改变渠道能力矩阵。
 

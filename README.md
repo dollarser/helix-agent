@@ -2,7 +2,7 @@
 
 Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agent，首要面向开发者与效率用户。模型可通过网络 API 或用户配置的自建模型服务调用，但 Agent Runtime、权限判断、工具调用、浏览器、文件工作区、代码执行、审批和审计均在手机上运行。
 
-当前目标是让一个 Helix 产品同时覆盖 Google Play、国内 Android 应用商店和官网直接分发：所有安装默认运行完整的 `STANDARD`，需要时在同一安装内显式进入 `ADVANCED`。渠道 artifact 只按提交时的真实政策做最小能力差异，不把 Standard 做成聊天壳或能力阉割版；PRoot/CLI 仍是按需 companion Runtime。远程 Worker、云端沙箱、桌面配对与 HarmonyOS 客户端暂不实现。
+当前目标是让一个 Helix 产品同时覆盖 Google Play、国内 Android 应用商店和官网直接分发：所有安装默认运行完整的 `STANDARD`，需要时在 developer 安装内显式进入 `ADVANCED`。developer 单 APK 内置 Subscriptions 和 PRoot，在私有进程按需运行并共享主应用 UID；consumer 不包含这两个组件。PRoot 是可信开发者执行环境，不承诺离线或主应用数据隔离，见 [ADR-0049](docs/adr/0049-integrated-developer-runtimes.md)。渠道 artifact 仍按真实要求保留其他能力。远程 Worker、云端沙箱、桌面配对与 HarmonyOS 客户端暂不实现。
 
 ## 文档入口
 
