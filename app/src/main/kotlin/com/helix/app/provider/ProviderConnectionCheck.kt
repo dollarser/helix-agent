@@ -21,12 +21,21 @@ internal object ProviderConnectionCheck {
     ): ProbeOutcome {
         val accountCatalog = (provider as? SubscriptionConnectionProvider)?.connectionCatalog()
         val catalog = accountCatalog ?: provider.listModels()
-        if (catalog is ModelCatalogResult.Failed) {
-            return ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
-        }
-        if (accountCatalog is ModelCatalogResult.Listed && accountCatalog.models.isNotEmpty()) {
-            return connected(previous, catalog)
-        }
+        val shortCircuit: ProbeOutcome? =
+            when {
+                catalog is ModelCatalogResult.Failed -> {
+                    ProbeOutcome.Failed(2, catalog.code, catalog.detail, catalog.retryable)
+                }
+
+                accountCatalog is ModelCatalogResult.Listed && accountCatalog.models.isNotEmpty() -> {
+                    connected(previous, catalog)
+                }
+
+                else -> {
+                    null
+                }
+            }
+        if (shortCircuit != null) return shortCircuit
         // Exactly one ordinary, short generation. No tools, images or explicit effort.
         val events =
             provider
@@ -38,13 +47,15 @@ internal object ProviderConnectionCheck {
                     ),
                 ).toList()
         val error = events.filterIsInstance<ModelEvent.Error>().firstOrNull()
-        if (error != null) return ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
-        if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
+        return if (error != null) {
+            ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
+        } else if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
             events.filterIsInstance<ModelEvent.TextDelta>().none { it.text.isNotBlank() }
         ) {
-            return ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)
+            ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)
+        } else {
+            connected(previous, catalog)
         }
-        return connected(previous, catalog)
     }
 
     private fun connected(

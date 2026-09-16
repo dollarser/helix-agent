@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
+import com.helix.app.provider.requireSelfHostedSmoke
 import com.helix.core.model.ModelRole
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -32,6 +33,7 @@ import java.net.URL
 import java.net.UnknownHostException
 
 /**
+ * Requires explicit `realSelfHosted=true`; default runs never contact host model services.
  * HXA-028 developer instrumented UI round-trip against the dev-machine Ollama
  * server (provider doc 2.5, emulator host bridge `10.0.2.2`): the WHOLE user
  * path through the production UI —
@@ -58,6 +60,7 @@ class OllamaUiRoundTripTest {
 
     @Before
     fun setUp() {
+        requireSelfHostedSmoke()
         val version = fetchText("http://$HOST:$PORT/api/version")
         assumeTrue(
             "no Ollama on the emulator host bridge $HOST:$PORT — UI round-trip skipped " +

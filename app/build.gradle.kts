@@ -1,3 +1,5 @@
+import java.security.MessageDigest
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -40,6 +42,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -70,6 +73,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
     implementation(project(":core:model"))
     implementation(project(":core:agent"))
     implementation(project(":core:policy"))
@@ -132,6 +136,8 @@ dependencies {
     // HXA-084: the job E2E packs the input archive with the shared core codec.
     add("developerImplementation", project(":runtime:proot-core"))
     add("developerImplementation", project(":runtime:cli-client"))
+    add("developerImplementation", project(":runtime:cli-app"))
+    add("developerImplementation", project(":runtime:proot-app"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -191,43 +197,60 @@ configurations.all {
     }
 }
 
-// Package matching outputs as a generated asset source, including lint/model task dependencies.
-abstract class BundleRuntimeApks : DefaultTask() {
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val subscriptionApks: ConfigurableFileCollection
-
-    @get:InputFiles
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val prootApks: ConfigurableFileCollection
-
-    @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
-
-    @TaskAction
-    fun bundle() {
-        val directory = outputDirectory.dir("companions").get().asFile
-        check(directory.mkdirs() || directory.isDirectory)
-        subscriptionApks.files.single().copyTo(directory.resolve("subscriptions.apk"), overwrite = true)
-        prootApks.files.single().copyTo(directory.resolve("proot.apk"), overwrite = true)
+androidComponents {
+    onVariants(selector().withFlavor("distribution" to "developer")) { variant ->
+        variant.packaging.jniLibs.useLegacyPackaging
+            .set(true)
     }
 }
 
-androidComponents {
-    onVariants(selector().withFlavor("distribution" to "developer")) { variant ->
-        val buildType = requireNotNull(variant.buildType)
-        val title = buildType.replaceFirstChar { it.uppercase() }
-        val copy =
-            tasks.register<BundleRuntimeApks>("embed${variant.name.replaceFirstChar { it.uppercase() }}Runtimes") {
-                dependsOn(":runtime:cli-app:assemble$title", ":runtime:proot-app:assemble$title")
-                outputDirectory.set(layout.buildDirectory.dir("generated/runtimeAssets/${variant.name}"))
-                subscriptionApks.from(
-                    rootProject.fileTree("runtime/cli-app/build/outputs/apk/$buildType") { include("*.apk") },
-                )
-                prootApks.from(
-                    rootProject.fileTree("runtime/proot-app/build/outputs/apk/$buildType") { include("*.apk") },
-                )
+// Consumer builds do not depend on these generated runtime inputs.
+abstract class VerifyDeveloperRuntimeAssets : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val assetsDirectory: DirectoryProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val nativeLoader: RegularFileProperty
+
+    @get:OutputFile
+    abstract val stamp: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val runtimeAssets = assetsDirectory.get().asFile
+        val lock = groovy.json.JsonSlurper().parse(runtimeAssets.resolve("runtime-lock.json")) as Map<*, *>
+        val rootfs = (lock["components"] as List<*>).map { it as Map<*, *> }.single { it["id"] == "alpine-rootfs" }
+        val archiveName = (rootfs["url"] as String).substringAfterLast('/').removeSuffix(".gz")
+        val archive = runtimeAssets.resolve("rootfs/$archiveName")
+        val required =
+            listOf("proot/proot", "proot/loader", "proot/lib/libtalloc.so.2", "proot/lib/libandroid-shmem.so")
+        check(archive.isFile && required.all { runtimeAssets.resolve(it).isFile }) {
+            "Developer runtime inputs missing; run scripts/build-proot-assets.sh before building developer."
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+        archive.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            var count = input.read(buffer)
+            while (count >= 0) {
+                digest.update(buffer, 0, count)
+                count = input.read(buffer)
             }
-        variant.sources.assets?.addGeneratedSourceDirectory(copy) { it.outputDirectory }
+        }
+        val sha = digest.digest().joinToString("") { "%02x".format(it) }
+        check(sha == rootfs["sha256"]) { "Developer RootFS differs from runtime-lock.json" }
+        val runtimeAssetStamp = stamp.get().asFile
+        runtimeAssetStamp.parentFile.mkdirs()
+        runtimeAssetStamp.writeText(sha + "\n")
     }
+}
+val verifyDeveloperRuntimeAssets =
+    tasks.register<VerifyDeveloperRuntimeAssets>("verifyDeveloperRuntimeAssets") {
+        assetsDirectory.set(rootProject.file("runtime/proot-app/src/main/assets/runtime"))
+        nativeLoader.set(rootProject.file("runtime/proot-app/src/main/jniLibs/arm64-v8a/libhelix_loader.so"))
+        stamp.set(layout.buildDirectory.file("runtime-verification/inputs.sha256"))
+    }
+tasks.matching { it.name.startsWith("preDeveloper") && it.name.endsWith("Build") }.configureEach {
+    dependsOn(verifyDeveloperRuntimeAssets)
 }

@@ -72,7 +72,11 @@ internal object SubscriptionProviderContractCheck {
         val app =
             androidx.test.core.app.ApplicationProvider
                 .getApplicationContext<com.helix.app.HelixApplication>()
-        val bytes = java.io.File(app.filesDir, "workspaces/app/${artifact.relativePath}").readBytes()
+        val path =
+            com.helix.core.workspace.FileScopePath
+                .fromModelReference(artifact.relativePath)
+        assertEquals("app", path.scopeId)
+        val bytes = java.io.File(app.filesDir, "workspaces/app/${path.relativePath}").readBytes()
         assertEquals(
             artifact.sha256,
             com.helix.core.storage.content.FileContentStore

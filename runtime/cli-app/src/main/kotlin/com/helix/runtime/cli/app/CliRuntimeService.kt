@@ -20,6 +20,7 @@ class CliRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        SubscriptionRuntimeEnvironment.initialize(this)
         initializeNetworkForeground()
         val vault = CliSubscriptionCredentialVault(this)
         val oauth by lazy { CodexLoginController(vault, oauthTransport.value) }

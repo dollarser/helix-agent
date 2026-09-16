@@ -1,5 +1,7 @@
 # Helix 本地代码执行架构
 
+> 当前打包与信任边界以 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 为准：developer 内置 Subscriptions/PRoot，私有进程共享主 UID；consumer 不包含两组件。下文原 companion 独立 APK/UID、离线承诺及对应旧验收只作为历史设计，不能用来证明新形态安全隔离。Binder/PFD、授权、取消与不盲目重放仍有效。
+
 ## 1. 目标与分层
 
 Helix 需要允许 Agent 临时生成代码解决长尾任务，但不同代码需要不同执行环境。

@@ -100,7 +100,14 @@ class ConversationComposerDeviceTest {
             ) {
                 MaterialTheme {
                     Column(Modifier.width(320.dp)) {
-                        ConversationComposer("", {}, false, false, ComposerActions({}, {}, {}, {}), goalMode = true)
+                        ConversationComposer(
+                            "A goal to execute",
+                            {},
+                            false,
+                            false,
+                            ComposerActions({}, {}, {}, {}),
+                            goalMode = true,
+                        )
                     }
                 }
             }
@@ -177,7 +184,13 @@ class ConversationComposerDeviceTest {
         val model = compose.onNodeWithTag("chat-model-menu").getUnclippedBoundsInRoot()
         val reasoning = compose.onNodeWithTag("chat-reasoning-menu").getUnclippedBoundsInRoot()
         assertTrue(model.right <= reasoning.left)
-        assertEquals("Options remain on the same row", model.top, reasoning.top)
+        // CenterVertically may round odd-height controls to adjacent physical pixels.
+        assertEquals(
+            "Options remain centered on the same row",
+            (model.top.value + model.bottom.value) / 2,
+            (reasoning.top.value + reasoning.bottom.value) / 2,
+            1f / compose.density.density,
+        )
         compose.onNodeWithTag("chat-copy-input").assertDoesNotExist()
         compose.onNodeWithTag("chat-mode-menu").performScrollTo().assertIsDisplayed()
         assertEquals(modeBefore.top, compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot().top)

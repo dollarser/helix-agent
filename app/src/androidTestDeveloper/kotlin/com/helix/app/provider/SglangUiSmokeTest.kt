@@ -31,6 +31,7 @@ import java.net.URL
 import java.net.UnknownHostException
 
 /**
+ * Requires explicit `realSelfHosted=true`; default runs never contact host model services.
  * HXA-059 real-endpoint smoke (developer instrumented test, companion of
  * [SelfHostedSmokeTest]): the provider model auto-discovery full UI chain against the
  * dev-machine SGLang server (HXA-056 environment: `10.0.2.2:30008/v1`, empty key).
@@ -59,6 +60,7 @@ class SglangUiSmokeTest {
 
     @Before
     fun setUp() {
+        requireSelfHostedSmoke()
         composeRule.resetDeterministicUiState()
         deleteEditableProviders(composeRule.container())
     }

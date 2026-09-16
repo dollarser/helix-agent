@@ -21,7 +21,7 @@
     <string name="codex_device_network_error">Codex device %1$s network failure (%2$s); no credentials were saved.</string>
     <string name="codex_logout_action">Delete local login credentials</string>
     <string name="codex_login_cancel_action">Cancel current login</string>
-    <string name="codex_login_logged_in">Signed in; the Helix main app cannot read the token.</string>
+    <string name="codex_login_logged_in">Signed in; credentials are managed by the built-in subscription component.</string>
     <string name="codex_login_logged_out">Signed out.</string>
     <string name="codex_login_waiting">Waiting for browser authorization; expires in three minutes.</string>
     <string name="codex_login_preparing">Checking the OpenAI login connection.</string>
@@ -43,7 +43,7 @@
     <string name="copilot_open_browser">Open GitHub verification page</string>
     <string name="copilot_cancel">Cancel current login</string>
     <string name="copilot_logout">Delete Copilot login credentials</string>
-    <string name="copilot_logged_in">Signed in and Copilot entitlement verified; the main app cannot read the token.</string>
+    <string name="copilot_logged_in">Signed in and Copilot entitlement verified; credentials are managed by the built-in subscription component.</string>
     <string name="copilot_logged_out">Signed out of Copilot.</string>
     <string name="copilot_preparing">Requesting a device code from GitHub.</string>
     <string name="copilot_user_code">Device Code: %1$s\nOpen: %2$s</string>
@@ -59,7 +59,7 @@
     <string name="claude_login_action">Sign in to Claude in browser</string>
     <string name="claude_login_cancel">Cancel current login</string>
     <string name="claude_logout_action">Delete Claude login credentials</string>
-    <string name="claude_login_logged_in">Signed in and Claude Code subscription entitlement verified; the main app cannot read the token.</string>
+    <string name="claude_login_logged_in">Signed in and Claude Code subscription entitlement verified; credentials are managed by the built-in subscription component.</string>
     <string name="claude_login_logged_out">Signed out of Claude.</string>
     <string name="claude_login_waiting">Waiting for browser authorization; expires in three minutes.</string>
     <string name="claude_login_success">Login and Claude Code subscription entitlement verified (%1$s); credentials are stored in the Runtime vault.</string>
@@ -79,7 +79,7 @@
     <string name="grok_copy_url">Copy Grok verification URL</string>
     <string name="grok_cancel">Cancel current login</string>
     <string name="grok_logout">Delete Grok login credentials</string>
-    <string name="grok_logged_in">Signed in and paid Grok entitlement verified; the main app cannot read the token.</string>
+    <string name="grok_logged_in">Signed in and paid Grok entitlement verified; credentials are managed by the built-in subscription component.</string>
     <string name="grok_logged_out">Signed out of Grok.</string>
     <string name="grok_preparing">Requesting a device code from xAI.</string>
     <string name="grok_user_code">Device Code: %1$s\nOpen: %2$s</string>
@@ -102,7 +102,7 @@
     <string name="grok_browser_error">Unable to open the verification page; use the URL shown in this screen.</string>
     <string name="copilot_copy_code">Copy Copilot device code</string>
     <string name="copilot_copy_url">Copy Copilot verification URL</string>
-    <string name="runtime_home_help">Choose a subscription service to manage sign-in. Credentials stay in this separate app and are never exposed to the Helix main app.</string>
+    <string name="runtime_home_help">Choose a subscription service to manage sign-in. Credentials are managed by the built-in subscription component. Developer scripts share its app UID; this is not credential isolation.</string>
     <string name="subscription_app_name">Helix Subscriptions</string>
     <string name="subscription_back">Back</string>
     <string name="subscription_dns_title">Network settings · DNS</string>

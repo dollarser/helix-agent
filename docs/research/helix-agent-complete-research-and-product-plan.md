@@ -7,6 +7,19 @@
 
 ## 1. 文档职责、证据与阅读路径
 
+### 2026-09-14 演进更新：本节优先于历史快照
+
+本次增量基线为 `worktree-harness-2.0` 的 `a4a64039` 加未提交的 HXA-192/193 与并行修复；不是该 commit 单独包含下述能力，也不代表 main 已合入。下文固定源码链接保留历史取证用途；涉及 Runtime 的当前决定按 ADR-0049，日志契约按 accepted ADR-0050、后台/手动终端按 accepted ADR-0051 判断。
+
+| 事项 | 当前结论 | 与原方案的关系 |
+| --- | --- | --- |
+| 任务体验、产物与恢复 | 继续复用 Turn/Goal/ToolCall/Job 事实，不建第二套 Task 执行状态 | 保持主方向 |
+| 执行入口统一 | Agent 请求统一准入、取消、观察；手动文件、浏览器和终端各经应用服务 | 修正原稿“所有入口进入 AgentRuntime”的过度归并 |
+| Runtime 打包和权限 | ADR-0049 accepted：developer 单 APK，PRoot/Subscriptions 私有多进程共享主 UID；consumer 排除；QuickJS 仍 isolated UID | 已授权的实质架构变更，不是纯打包优化 |
+| 终端与后台命令 | HXA-194～199 是后续开发计划；PTY、日志 IPC、detached owner 尚未实现，ADR-0050 日志/职责 accepted，ADR-0051 启用 accepted | Developer UX 扩展，不是 Harness 主干收尾门禁 |
+
+PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据或订阅凭据的 UID 隔离；输入快照仍是一次性 Job 的数据契约。订阅模块仍负责自己的 OAuth/Keystore，正常 API 不返回 token，但共享 UID 不构成对同 UID 代码的凭据保护。生成代码继续在 `:proot` 而非 UI 主进程执行。实现和设备证据见 [单 APK 专项记录](../development/integrated-developer-runtimes.md)，不能用决策接受代替整体验收。
+
 本文负责回答：当前有哪些能力、哪些产品问题值得解决、职责如何分配、候选项如何拆分和验收。图集只负责表达调用关系、执行域、状态和恢复流程，不再维护另一套优先级、功能评分或任务清单。
 
 | 材料 | 唯一职责 | 使用边界 |
@@ -144,7 +157,7 @@ Task 首版是读模型：独立 Turn 以 `turnId` 标识；Goal 以 `goalId` �
 | 工具与授权 | Scheduler、Dispatcher、Capability、Policy、Approval | 保持原管线与证明消费点 | 由模型决定并发安全或批准自己 |
 | Goal 生命周期 | reducer、运行准入、预算及 `GoalRunSettlement` | 保留显式继续和模型报告契约 | 由 UI Todo 或定时回调决定完成 |
 | 任务/产物页面 | 查询、投影与文件引用 | 组合既有事实，增加必要展示元数据 | 独立 Task 执行器或第二套事件存储 |
-| Runtime 生命周期 | QuickJS/PRoot/Subscriptions 的各自 client/supervisor | 保持 UID、绑定、取消与 Job 对账 | 放回主 App 执行代码或读取订阅凭据 |
+| Runtime 生命周期 | QuickJS/PRoot/Subscriptions 的各自 client/supervisor | 按 ADR-0049 保持进程职责、绑定、取消与 Job 对账；QuickJS 仍 isolated UID | 在 UI 主进程运行生成代码；把模块 token 所有权误称 UID 隔离 |
 
 ### 4.2 统一执行入口：先明确语义
 
@@ -200,7 +213,7 @@ Helix 首版候选字段：`id/order/scope/source/trust/contentHash/content`。�
 
 需要审批证明时，只有类型化 `APPROVED` 可消费；证明在执行开始阶段消费，排队时取消不得提前消费。开始后取消、超时或异常可能已有副作用，必须持久结算为可确认结果或待核查。验证失败不自动证明“未执行”；只有已确认无副作用才允许原契约内有界技术重试。
 
-订阅 Provider 是模型调用链：`ModelProvider → 订阅客户端 → Binder/PFD → Helix Subscriptions UID → 服务端`。它不放在 ToolDispatcher 的普通执行目标下面；模型返回 ToolCall 后才进入工具管线。订阅凭据留在独立 UID，按 [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 描述第三方协议适配，不宣称官方 CLI 已在 Android 可用。
+订阅 Provider 是模型调用链：`ModelProvider → 订阅客户端 → 私有 Binder/PFD → :subscriptions 进程 → 服务端`。它不放在 ToolDispatcher 的普通执行目标下面；模型返回 ToolCall 后才进入工具管线。developer 当前共享主 UID，token 正常接口不外传是模块契约，不是安全隔离保证；按 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 和 [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md) 的未被取代部分描述第三方协议适配，不宣称官方 CLI 已在 Android 可用。
 
 ## 5. 明确的新功能：分别立项，不混入纯重构
 
@@ -314,6 +327,22 @@ A2A 继续是用户配置的外部服务，经普通 ToolCall 发起与原 taskI
 Tasker/Auto.js、Shizuku/ADB、学习型移动 Skill、任意 Workflow、外部 Channel、A2A Server、Web Access/远程控制、桌面配对和 Remote Worker 均保持独立研究或当前范围外。不会因排在“P2/P3”就自动获得实现授权，也不新增占位模块。
 
 ## 7. 候选实施顺序与验收
+
+### 终端能力在 2.0 中的位置
+
+终端是已有本机执行能力的产品化延伸，不替代上下文、运行准入、工具授权和结果恢复主干。HXA-192/193 的相关代码基线先收口；不能为“完成 2.0”强制加入 PTY、多会话或持续后台。任务列表可以聚合 Job 和手动 Session 的展示，但二者必须保留各自身份与状态所有者。
+
+交付拆为三条能力线，具体允许模块和命令由 [终端开发计划](../development/terminal-and-background-execution-plan.md) 维护：
+
+- 结果与观察：HXA-194 复用最终结果；HXA-195 新增有界日志、游标、背压和尾部结算。日志预览不自动成为验证产物。
+- 有期限后台 Job：HXA-196 定义 owner 移交、租期、预算、停止和平台拒绝；accepted 只表示启动受理，不代表命令或 Goal 完成。旧同步 Job 的 owner/cancel 与上限不静默改变。
+- 手动交互：HXA-197/198 的 PTY、多会话、单写连接和重连属于用户主动操作；不开放模型向 PTY 输入，不因人工会话存在扩大工具审批。
+
+架构上前台单 PTY 不依赖 detached Job 实现成功；日志、进程组取消和会话身份可复用。执行包与路线图已解除 197 对 196 的硬依赖；前台切片仍需 ADR-0051 对应条件齐备，每次一个 checkpoint，不跳过其独立门禁。HXA-199 负责所选范围的综合验收，不将新增终端能力反向设为既有 Harness 交付条件。
+
+ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最多两个手动会话及异步 Job 默认5/最大30分钟限额。等待须可见可取消，用户关闭会话且进程组回收后释放占用；不能仅凭 prompt 判断无后台子进程。后续更细粒度并发须用体验/设备证据修改契约，不靠提高线程数实现。限额不是 Android 保活保证。
+
+日志和职责已由 [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 接受；后台及手动终端启用留在 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。Goal 显式继续、完成报告、审批证明和未知副作用不重放均不变。
 
 以下 S0～S4 是讨论批次，**不是 HXA 编号或新授权**。先完成当前已授权工作，再据实际问题选择下一项。每次只推进有明确产出和验收的一小项，不绑定完成整套图中方框。
 

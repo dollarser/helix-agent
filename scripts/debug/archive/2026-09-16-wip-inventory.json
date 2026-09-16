@@ -1,0 +1,312 @@
+{
+  "baseline": "0422c78b",
+  "provenance": "Untracked debug scripts and raw logs from the 2026-09-14 to 2026-09-16 WIP sessions",
+  "archive": "build/wip-takeover-20260916/historical-debug/",
+  "purpose": "Historical evidence only; not executable against the current source tree",
+  "files": [
+    {
+      "original_path": "scripts/debug/2026-09-14/accept-bounded-design-decisions.py",
+      "sha256": "3b6a16c4ba93f2ca6e20e3aae19bdc991fe7a99bda267b75c1e4c95978dd1cc1"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/accept-terminal-enablement.py",
+      "sha256": "ec05b38f04ff00df5e72edfb413c721a8716333eb8c835924302e9b802aee632"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/assembles.log",
+      "sha256": "f3247c2e837e9c8bf4665111ea04146aa07fc4839a2289e22c462301df6772b5"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/check-artifact-migration.py",
+      "sha256": "832d2f9d318d1157052770ba2a631add4853b8eb066fe6c5d21716f24d1ab12b"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/finish-integrated-copy.py",
+      "sha256": "5db0b2fa7f3593279db59e99ddaecab7099edefa8a236ec64c92a48ccb56d938"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/integrate-developer-runtimes.py",
+      "sha256": "427769801c0739ca74144c7625acc1972e476c7173387feb0a1f518174f57a4d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/liblint.log",
+      "sha256": "7f1cbd8941aff7943864e03114c66dac48e816bc0c5668cc6a49be41f0ca713c"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/lint-gate-2.log",
+      "sha256": "82273a39db0b81c45b5ffa96238774604b09a657a33f37659ac572b9f6857d23"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/lint-gate.log",
+      "sha256": "d76a433ddd596ecae94fa20ad5d5e97e2e71d01621a6c4476a30135cbc45fa3a"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/missing-runtime-inputs.init.gradle",
+      "sha256": "cb9bf680af37f4af6a45ec61ddd37d73d61989e2b48b00f6cfb958b1d30049e0"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/p3-assemble.log",
+      "sha256": "92b4b6f09910061844f4d9703365d0b71473a8faaeb2d98a3148d4753ff35abb"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/p3-lint.log",
+      "sha256": "ab5497b01a2bf82cd6880185103477b2d2f0b8e71c59ebc3b1caede2797784a6"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/re-run-migration-device.sh",
+      "sha256": "6012830877e7ad6f21001b6be34f9d94635b6593e75df1ab79d7b9af2b576c3d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/restore-pinned-runtime-assets.py",
+      "sha256": "c5451594968906428f8f86106005b78eb5edf04119694f3e57871d71079c44f5"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/run-r3-device-regression.sh",
+      "sha256": "e21b717766eedd1ae65b268b7e2e83a28283809af11e114baab2702d9c657c6d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/split-runtime-test-scenarios.py",
+      "sha256": "5cc8074bb56ac80a6916a5f7b5db90a2f703630ea9a141999edffe24aee210b4"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/summarize-review-evidence.py",
+      "sha256": "f33c2f2f0c70cc1247ad5acbec3e3a99c0bc11d19c7ced39e8787e81dadab7bf"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/summarize-runtime-validation.py",
+      "sha256": "0ff187f99c8132cf80b9772db849ca7b678d19f0978c799ee482ff61a96053fd"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/sync-bounded-decision-docs.py",
+      "sha256": "097451dc96f83c408b315ce53b75df4744da03855e4a2696abc0759059c79682"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/sync-decision-status.py",
+      "sha256": "5d6e82a4bd3fbd40b4270dd1c89a258304b0741c1996259fd2bff2ae54a6985d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/tests-lint-spotless.log",
+      "sha256": "954130a59a45b194cece8c9c4b1df9767371bd64195a47bc0a866f88155f8525"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/unit-tests.log",
+      "sha256": "826c7f7ffc32df09f94a436a61bacfe3e1c5613a2efb8ca2d6c4137ece9f002d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/update-integrated-contracts.py",
+      "sha256": "73bab09073cb9dfbefd8ae7da1d22d341403411b14bd1211c21cb49db142a94d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-14/update-runtime-gates-and-copy.py",
+      "sha256": "aea4523ea5e4b681b9fd5ae69cea352a169a81e081f7023413b07a9d1ca4e0f1"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/add-audit-device-tests.py",
+      "sha256": "bc8e2484a64000b8637c7b2024560c4a0fffd85bf4700bc58829b5bd8dc2361f"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/add-hxa201-tests.py",
+      "sha256": "4956d034043dc6bec8d8e59d3d7e4c2c43ca1ee70020db0f6f9065f92d5b48d0"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/add-preference-audit.py",
+      "sha256": "66d8aadf284eba27f53e67caefd70c27979e241cfb557a46d8c1a9d5bf486653"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/add-process-restart-runner.py",
+      "sha256": "c7317e4a13ee3551fefdd24c78b3132818a5c7f671667d60430129802cc018e6"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/add-real-card-save-test.py",
+      "sha256": "fbe8dc4213c376cdc8520ba829c90d1c436600efed859569caddeea055bd4bd7"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/close-hxa200-docs.py",
+      "sha256": "ab42dfe1d56b5b166e1bef6a8d043a20167f8cb8f00021f0134acd6251f0e748"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/ensure-fresh-device-xml.py",
+      "sha256": "5c926a745f70f709b63ae687fa0c9591510df4ce26a4b694142015e5d407d1a6"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extend-audit-runner.py",
+      "sha256": "0a72989cf020f2aa2b50d9592b4dafffc8226f3c9aa4e061c5312cf04b34218d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-apref-resolution.py",
+      "sha256": "a5a9d7795f6a2dfd505c391f1278a11498b66b5c7fc3c639ed77b3a4c8d65b35"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-dispatch-failure-classification.py",
+      "sha256": "33f328c0289d1903038741b777e287a93c02f7d408f53bcfe3dc07d2e4725b23"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-dispatch-policy-input.py",
+      "sha256": "a26d3c0414e4e1b317bfa483b8741d0fe5ae665f3f5a31900c8cfa289f33ac35"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-dispatch-throw-audit.py",
+      "sha256": "634023c31ce4819fcaaa5b98511d41ef18623b24efd4f75b0231a86567cd0a6d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-recovery-phase-check.py",
+      "sha256": "c7a38c17f2bf1d6ee2a674a67028b03986550486e25000a2a4d28a018fa85a5d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/extract-stop-assertions.py",
+      "sha256": "fe88735d5b67336551de47b9e65309bc7e4fefeae0468cb5d9e4effff1398c0d"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/finalize-hxa201-comments.py",
+      "sha256": "a95c93dd63a4e7308fa11947e3f89e7cd3f5c6753ed1970aa41be098624ab712"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/fix-apref-test-contracts.py",
+      "sha256": "2db1bbd8718a069fa44b1f4f4fbb499dc47543ce6a7359c76d8e7de114ebc34b"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/fix-hxa201-card-locale.py",
+      "sha256": "04386914dfe58169ecf3fe01336647c013370290ac782f2a53a7f576636dfbc3"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/fix-hxa201-dark-fixture.py",
+      "sha256": "163ef0b2814a4244240c62c81e528347a7422ded11a8b75d6784097c41732302"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/fix-hxa201-ui-races.py",
+      "sha256": "0c4e48eed36f5c26707b9ee2424ab4a6e889ab22683552e853a0e7e243ee9766"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/fix-owned-turn-stop-fixture.py",
+      "sha256": "77081bc028e03ebbc5e0a8c1713514c71c19935321ea4da7e3b7d8bfce3bb208"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/format-stop-fixture.py",
+      "sha256": "738f481b850e3444888e9312e1ab98721a96d4e83eb1f4bdb77620dd751c5814"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/implement-hxa201-closeout.py",
+      "sha256": "37deb2d32a6e305984142bcf3d873b3f5a11ed285601dc625e6eafca5d77847b"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/implement-hxa201-ui.py",
+      "sha256": "e32f1c9ce94e1a6d3dc7feda58aeecd9bb33394c7851bfba80be4e0bcfb7dbab"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/inspect-jgit-trustall.py",
+      "sha256": "88df9170cd8e7f402162e18a335f6719691dc2d12a6977889efba220fce028f2"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/preserve-chat-test-activity-owner.py",
+      "sha256": "97e801df39e470d94eb417be694fc6412d05caae8ce0d50395dac282014eb639"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/profile-apref-restart.py",
+      "sha256": "11be0d1e284a3aac1cee268b505075ab374d5b3cf65cdae9bf77f49e88e571d2"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/refine-audit-tests.py",
+      "sha256": "46711d84318b644d0ef5f4d7bc173039080fed66a3a80913f087c0bf4c98d093"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/refine-hxa201-evidence.py",
+      "sha256": "610d007c2a5ab31f0c054d4afd092c714fbd736bb8163c56030280c96372283a"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/refine-preference-codec.py",
+      "sha256": "10ff444027ef8c7692a1865290ffd4e79337fc29cfb7ce679164fde63a229813"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/run-apref-device-regression-rerun.stdout.log",
+      "sha256": "8b6d73d1422db2b48e3790fdb1b5c00a1cae116d090790aa0b87d3da2a62f648"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/run-apref-device-regression.stdout.log",
+      "sha256": "b1b09b3b4c11c3449adf0cbe129f5d010948ec4df55ea0af1bd829da22a4e4c3"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/stage-hxa200-closeout.py",
+      "sha256": "9897ea5054ea5fb6d9802348cf135816848042b4eb725e6eda4815d8c8513b29"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/stage-hxa200-state-notes.py",
+      "sha256": "7616679dde1b5faea4fd3cd5560f521dd30434d756cd39f4c83a5373c0b56f17"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/strengthen-workspace-proof.py",
+      "sha256": "e6ee4048ecbc268884ad9be6868230ed2c7f05a477a70e4f90935b0c29b40ea9"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-15/write-hxa200-record.py",
+      "sha256": "d327e431c590ecc57481994992645c1bcc0e0f2cb4ed48b45fcc3ab5013c1cee"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/adapt-jgit-streams.py",
+      "sha256": "7af46685642cd09c4a1c6d3593d56aa80e5e6d1c5372555350a738163949023b"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/finalize-hxa201-baseline-evidence.py",
+      "sha256": "42e5c11f36536673b11865772e742f5254b9cefaf8c320b1081219c41ffba469"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/finalize-hxa201-docs.py",
+      "sha256": "a4e99b9acff5ab689dfa6e99f379d8d1227a3fd35f428cb552282cb8312d5528"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/fix-baseline-fixtures.py",
+      "sha256": "ce3c7793afb33410b68cfeafdae0d9285e371969ee4424be52b430c16aff619a"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/fix-manual-permission-lifecycle.py",
+      "sha256": "868baac6223844bc9c63ac3058854973a5ea075ee37753a2d8aab92cffc87a2a"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/fix-missing-preference-session.py",
+      "sha256": "ccb960fb9b0dbfb609414525750b54981d90f1d5047d80f4ad0e1ddc1bc1de29"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/fix-stop-fixture-registration.py",
+      "sha256": "9293d7af9f8660f36f1138cb293f03ae2ca3e1e7f20885a6880fb4cff6016287"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/fix-suite-ordering.py",
+      "sha256": "a0bd4dbaa52f7e30620c23a147e1658b93947404506b72cb2c1ff90c12596411"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/inspect-desugar.py",
+      "sha256": "8c12f86f1435b0251c21c93347b9a5b602c30e87524249c07344ec5c3ae157d2"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/inspect-java-compat.py",
+      "sha256": "aeadfd502f795fd2248509c387c6d1997757dc3dc4c5d4e1cfc7ae235c5eb5c0"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/inspect-jgit-upgrade.py",
+      "sha256": "1c80a8c58c834c08547fb073f072dcea77625228ecfeb54e1f938eace7d5cea9"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/inspect-owned-diff.py",
+      "sha256": "874023738e6df325038f13f08959794d659799337f410212e648ca01c3b734e4"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/prepare-owned-index.py",
+      "sha256": "0cf46e2474c094eb0391fd4cc33127f8c18941495b48e1ce93d99cafe72f4642"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/refine-baseline-fixes.py",
+      "sha256": "5837a7ea4479f96fa258aa8961eff0b440720ee7551865bb5d69baa3e19b90b2"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/stage-hxa201-shared-code.py",
+      "sha256": "052d76751fd1e4fec1aa48a19e196c2d4d671b3927e46f8193061fc7262b9aec"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/stage-hxa201-task-records.py",
+      "sha256": "2d7ecc78bdeacf52a50a5be1bf6aefc81e722d06de1953e1d3e5d5881da98701"
+    },
+    {
+      "original_path": "scripts/debug/2026-09-16/upgrade-jgit.py",
+      "sha256": "fb9273e400ae3db8f0a62b7e7b7dfaea1282b5dc3611e7f47d09b5b38b3d9512"
+    }
+  ]
+}

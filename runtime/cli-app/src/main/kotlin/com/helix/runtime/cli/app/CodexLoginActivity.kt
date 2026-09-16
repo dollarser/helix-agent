@@ -29,6 +29,7 @@ class CodexLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SubscriptionRuntimeEnvironment.initialize(this)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpCodexOAuthTransport()
         deviceTransport = OkHttpCodexDeviceTransport()

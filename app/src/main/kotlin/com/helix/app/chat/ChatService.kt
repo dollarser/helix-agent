@@ -324,10 +324,16 @@ class ChatService(
     private val turnLiveFrames = TurnLiveFrames()
 
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
-    // (sendNow): @Volatile so a fresh open is never invisible to a racing send (a lost
-    // write would silently drop the user's message with no UI feedback).
-    @Volatile
-    private var openSessionId: String? = null
+    // (sendNow): atomic visibility keeps fresh opens visible to racing sends, and
+    // compare-and-set prevents a stale failed lookup from clearing a newer selection.
+    private val openSession =
+        java.util.concurrent.atomic
+            .AtomicReference<String?>(null)
+    private var openSessionId: String?
+        get() = openSession.get()
+        set(value) {
+            openSession.set(value)
+        }
 
     @Volatile
     private var pendingSend: String? = null
@@ -1354,30 +1360,7 @@ class ChatService(
         // (b) the message_attachments bindings [TurnCoordinator.start] persists IN the turn's
         // transaction. An image BINDS THE NORMALIZED ARTIFACT (the bytes that leave) — the raw
         // artifact stays registered but unbound (local save/preview source).
-        val blocks =
-            materialized.mapIndexed { index, m ->
-                when (m) {
-                    is AttachmentMaterialization.Text -> {
-                        AttachmentContextBlock.Text(m, staged[index].relativePath)
-                    }
-
-                    is AttachmentMaterialization.Image -> {
-                        AttachmentContextBlock.Image(
-                            fileName = m.fileName,
-                            mediaType = m.mediaType,
-                            sha256 = m.sha256,
-                            sizeBytes = m.sizeBytes,
-                            width = m.width,
-                            height = m.height,
-                        )
-                    }
-
-                    else -> {
-                        // Unreachable (the gate returns only Text/Image in Ready) — fail closed.
-                        error("non-materializable attachment reached the send path")
-                    }
-                }
-            }
+        val blocks = attachmentContextBlocks(materialized, staged)
         val bindings =
             staged.map { entry ->
                 MessageAttachmentRepository.Binding(
@@ -1412,6 +1395,39 @@ class ChatService(
         }
         refreshScreen()
     }
+
+    /**
+     * The model-visible attachment context blocks for a Ready egress (in staged order): text
+     * blocks carry the bounded content, image blocks describe the NORMALIZED artifact (the bytes
+     * that travel as the message's image parts). A non-materializable entry is unreachable (the
+     * gate returns only Text/Image in Ready) — fail closed if that invariant ever changes.
+     */
+    private fun attachmentContextBlocks(
+        materialized: List<AttachmentMaterialization>,
+        staged: List<StagedAttachmentEntry>,
+    ): List<AttachmentContextBlock> =
+        materialized.mapIndexed { index, m ->
+            when (m) {
+                is AttachmentMaterialization.Text -> {
+                    AttachmentContextBlock.Text(m, staged[index].relativePath)
+                }
+
+                is AttachmentMaterialization.Image -> {
+                    AttachmentContextBlock.Image(
+                        fileName = m.fileName,
+                        mediaType = m.mediaType,
+                        sha256 = m.sha256,
+                        sizeBytes = m.sizeBytes,
+                        width = m.width,
+                        height = m.height,
+                    )
+                }
+
+                else -> {
+                    error("non-materializable attachment reached the send path")
+                }
+            }
+        }
 
     /** A staged entry as the gate's input — the real paths cross into hashing/probing only. */
     private fun StagedAttachmentEntry.toStagedAttachment() =
@@ -1917,31 +1933,48 @@ class ChatService(
                 return null
             }
             val (coordinator, effectiveControl) = started
-            // The worker waits behind this gate until its active-turn entry and initial UI are
-            // published. Without the gate, a fast scheduler can begin streaming before register;
-            // stop() in that window cannot find the job and silently fails to cancel the turn.
-            val startGate = CompletableDeferred<Unit>()
-            val job =
-                workScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                    runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
-                }
-            var published = false
-            try {
-                sessionTurnAdmission.register(sessionId, job, turnId)
-                // The turn is live now — open its per-turn live-frame channel so its frames stream to
-                // [AgentTurnHost.observeTurnFrames] observers regardless of the open session (HX2-01 §2c).
-                turnLiveFrames.open(turnId)
-                if (openSessionId == sessionId) {
-                    refreshScreen() // publish the committed user message before the model may emit or wait
-                    publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
-                }
-                published = true
-            } finally {
-                if (!published) job.cancel()
-                startGate.complete(Unit)
-            }
-            return turnId
+            return launchAndPublishTurn(sessionId, turnId, coordinator, providerId, retryTurnId, effectiveControl)
         }
+    }
+
+    /**
+     * Launches the turn's worker behind a start gate, registers its admission, opens its live-frame
+     * channel and publishes the initial UI — cancelling the job if publication fails before the gate
+     * completes. Split from [launchTurn] (which keeps the turn-start owner/sequence); this unit owns
+     * the worker / register / publish / cancel handshake.
+     */
+    private fun launchAndPublishTurn(
+        sessionId: String,
+        turnId: String,
+        coordinator: TurnCoordinator,
+        providerId: String,
+        retryTurnId: String?,
+        effectiveControl: RunControlConfig,
+    ): String {
+        // The worker waits behind this gate until its active-turn entry and initial UI are
+        // published. Without the gate, a fast scheduler can begin streaming before register;
+        // stop() in that window cannot find the job and silently fails to cancel the turn.
+        val startGate = CompletableDeferred<Unit>()
+        val job =
+            workScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl)
+            }
+        var published = false
+        try {
+            sessionTurnAdmission.register(sessionId, job, turnId)
+            // The turn is live now — open its per-turn live-frame channel so its frames stream to
+            // [AgentTurnHost.observeTurnFrames] observers regardless of the open session (HX2-01 §2c).
+            turnLiveFrames.open(turnId)
+            if (openSessionId == sessionId) {
+                refreshScreen() // publish the committed user message before the model may emit or wait
+                publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
+            }
+            published = true
+        } finally {
+            if (!published) job.cancel()
+            startGate.complete(Unit)
+        }
+        return turnId
     }
 
     /**
@@ -2176,7 +2209,8 @@ class ChatService(
         return if (runCatching { storage.sessions.resolve(id) }.isSuccess) {
             id
         } else {
-            openSessionId = null
+            // A stale lookup must not close a newer user-selected session.
+            openSession.compareAndSet(id, null)
             null
         }
     }
@@ -2184,7 +2218,7 @@ class ChatService(
     private fun refreshScreen() {
         refreshBackgroundTasks()
         sessionDraft?.takeIf { it.session.id == openSessionId }?.let { draft ->
-            _screen.value =
+            val refreshed =
                 EMPTY_SCREEN.copy(
                     sessions = _sessions.value,
                     openSessionId = draft.session.id,
@@ -2195,36 +2229,52 @@ class ChatService(
                     directoryRef = draft.session.directoryRef,
                     pendingAttachments = draft.attachments.map { PendingAttachmentUi(it.id, it.name, it.size, true) },
                 )
+            _screen.update { if (openSessionId == draft.session.id) refreshed else it }
             return
         }
-        val sessionId = resolvableOpenSessionId()
-        val turns = sessionId?.let { id -> storage.turns.listBySession(id) }.orEmpty()
-        val lastTurn = turns.lastOrNull()
-        // Refreshes race with targeted UI publications (for example an attachment refusal).
-        // Build from the value observed by StateFlow's atomic update so a refresh can never
-        // restore an older blocked/disclosure/streaming snapshot over a newer publication.
-        _screen.update { current ->
-            ChatScreenState(
-                sessions = _sessions.value,
-                openSessionId = sessionId,
-                preparingDraft = preparingDraft,
-                sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
-                directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
-                // A null badge is authoritative for an unbound session, not a missing refresh.
-                badge = sessionId?.let { projection.badgeFor(it) },
-                messages = projection.messagesFor(sessionId, current),
-                contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
-                toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
-                subscriptionRecoveries = subscriptionRecoveriesFor(storage, sessionId, current.subscriptionRecoveries),
-                activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
-                turns = turns.map { projection.turnUiFor(it, null) },
-                pendingDisclosure = current.pendingDisclosure,
-                blockedReason = current.blockedReason,
-                retryTargetTurnId = projection.retryTargetFor(sessionId),
-                pendingAttachments = stagedAttachmentsUi(),
-                shareDraftText = shareDraftText,
-                taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
-            )
+        refreshPersistedScreen()
+    }
+
+    private fun refreshPersistedScreen() {
+        // Session deletion can race terminal publication. Keep existence and all
+        // dependent projections in one Room snapshot, not separate check/read calls.
+        storage.withTransaction {
+            val sessionId = resolvableOpenSessionId()
+            val turns = sessionId?.let { id -> storage.turns.listBySession(id) }.orEmpty()
+            val lastTurn = turns.lastOrNull()
+            // Refreshes race with targeted UI publications (for example an attachment refusal).
+            // Build from the value observed by StateFlow's atomic update so a refresh can never
+            // restore an older blocked/disclosure/streaming snapshot over a newer publication.
+            _screen.update { current ->
+                val refreshed =
+                    ChatScreenState(
+                        sessions = _sessions.value,
+                        openSessionId = sessionId,
+                        preparingDraft = preparingDraft,
+                        sessionTitle = sessionId?.let { storage.sessions.resolve(it).title }.orEmpty(),
+                        directoryRef = sessionId?.let { storage.sessions.resolve(it).directoryRef },
+                        // A null badge is authoritative for an unbound session, not a missing refresh.
+                        badge = sessionId?.let { projection.badgeFor(it) },
+                        messages = projection.messagesFor(sessionId, current),
+                        contextUsage = ChatContextProjection.read(storage, sessionId, providerService),
+                        toolTimeline = projection.toolTimelineFor(sessionId, current.toolTimeline),
+                        subscriptionRecoveries =
+                            subscriptionRecoveriesFor(
+                                storage,
+                                sessionId,
+                                current.subscriptionRecoveries,
+                            ),
+                        activeTurn = lastTurn?.let { projection.turnUiFor(it, current.activeTurn?.streamingText) },
+                        turns = turns.map { projection.turnUiFor(it, null) },
+                        pendingDisclosure = current.pendingDisclosure,
+                        blockedReason = current.blockedReason,
+                        retryTargetTurnId = projection.retryTargetFor(sessionId),
+                        pendingAttachments = stagedAttachmentsUi(),
+                        shareDraftText = shareDraftText,
+                        taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
+                    )
+                if (openSessionId == sessionId) refreshed else current
+            }
         }
     }
 

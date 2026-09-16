@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
 }
 
 android {
@@ -7,11 +7,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.helix.runtime.cli"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

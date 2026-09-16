@@ -197,7 +197,7 @@ class ProotJobNotificationDeviceTest {
     fun theStopReceiverIsExportedBehindTheSignaturePermission() {
         // The APP package (the test runs under <app>.test): the registration
         // and the permission declaration live in the app manifest.
-        val appPackage = com.helix.runtime.proot.ipc.ProotRuntimeProtocol.RUNTIME_PACKAGE
+        val appPackage = context.packageName
         val pm = context.packageManager
         val info =
             pm.getReceiverInfo(

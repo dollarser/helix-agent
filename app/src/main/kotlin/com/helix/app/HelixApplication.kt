@@ -50,9 +50,9 @@ class HelixApplication : Application() {
     @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         super.onCreate()
-        // Android also creates this Application in QuickJS's isolated UID. It must not
-        // read host preferences/Room or start host diagnostics and recovery there.
-        if (Process.isIsolated()) return
+        // Android also creates this Application in isolated QuickJS and private Runtime
+        // processes. Only the main process owns host diagnostics, Room and recovery.
+        if (Process.isIsolated() || getProcessName() != packageName) return
         processDiagnostics = ProcessDiagnostics.install(this)
         Thread(
             {

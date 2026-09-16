@@ -423,7 +423,7 @@ class ProotJobE2eDeviceTest {
 @Suppress("SwallowedException")
 private fun companionAppInfo(context: Context): ApplicationInfo? =
     try {
-        context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0).applicationInfo
+        context.packageManager.getPackageInfo(context.packageName, 0).applicationInfo
     } catch (e: PackageManager.NameNotFoundException) {
         null
     }

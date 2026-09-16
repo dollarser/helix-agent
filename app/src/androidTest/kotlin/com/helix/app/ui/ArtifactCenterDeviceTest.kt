@@ -4,10 +4,14 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import com.helix.app.MainActivity
 import com.helix.core.model.TurnState
 import com.helix.core.workspace.FileScopePath
@@ -38,13 +42,13 @@ class ArtifactCenterDeviceTest {
             val turnId = "turn-${UUID.randomUUID()}"
             storage.withTransaction {
                 storage.sessions.create(sessionId, "Artifact fixture", null, null, 1000)
-                storage.turns.start(id = turnId, sessionId = sessionId, startedAt = 2000)
+                storage.turns.start(id = turnId, sessionId = sessionId, startedAt = System.currentTimeMillis())
                 // Walk the turn to a terminal COMPLETED state via valid transitions only.
                 var turn = storage.turns.resolve(turnId)
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
                 turn = storage.turns.updateState(turn, TurnState.WAITING_MODEL, 0, null, null)
                 turn = storage.turns.updateState(turn, TurnState.RECEIVING_MODEL, 0, null, null)
-                storage.turns.updateState(turn, TurnState.COMPLETED, 0, 3000, null)
+                storage.turns.updateState(turn, TurnState.COMPLETED, 0, System.currentTimeMillis(), null)
                 storage.messages.append(
                     "m-user-${UUID.randomUUID()}",
                     sessionId,
@@ -67,8 +71,10 @@ class ArtifactCenterDeviceTest {
             compose.onNodeWithTag("screen-artifacts").assertExists()
 
             compose.waitUntil(10_000) {
-                compose.onAllNodesWithTag("artifact-row-$turnId").fetchSemanticsNodes().isNotEmpty()
+                container.chatService.backgroundTasks.value
+                    .any { it.id == turnId }
             }
+            compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("artifact-row-$turnId"))
             // The leaf tags sit under the clickable card, so they come from the unmerged tree.
             compose
                 .onNodeWithTag("artifact-title-$turnId", useUnmergedTree = true)
@@ -79,13 +85,7 @@ class ArtifactCenterDeviceTest {
 
             // Opening the result loads the persisted summary: Share enables only once the result
             // is present, and Collect is offered because this finished turn is not yet collected.
-            compose.onNodeWithTag("artifact-view-$turnId", useUnmergedTree = true).performClick()
-            compose.waitUntil(5_000) {
-                compose
-                    .onAllNodesWithTag("artifact-share-$turnId", useUnmergedTree = true)
-                    .fetchSemanticsNodes()
-                    .isNotEmpty()
-            }
+            openResult(turnId)
             compose.onNodeWithTag("artifact-share-$turnId", useUnmergedTree = true).assertIsEnabled()
             compose.onNodeWithTag("artifact-open-$turnId", useUnmergedTree = true).assertIsDisplayed()
             compose.onNodeWithTag("artifact-collect-$turnId", useUnmergedTree = true).assertIsEnabled()
@@ -94,6 +94,22 @@ class ArtifactCenterDeviceTest {
             compose.onNodeWithTag("artifact-close-$turnId", useUnmergedTree = true).performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("screen-artifacts").assertExists()
+        }
+    }
+
+    private fun openResult(turnId: String) {
+        compose
+            .onNodeWithTag(
+                "artifact-view-$turnId",
+                useUnmergedTree = true,
+            ).performScrollTo()
+            .assertIsDisplayed()
+            .performClick()
+        compose.waitUntil(5_000) {
+            compose
+                .onAllNodesWithTag("artifact-share-$turnId", useUnmergedTree = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         }
     }
 

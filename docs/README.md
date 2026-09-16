@@ -1,5 +1,7 @@
 # Helix 文档中心
 
+最近接手：[Harness WIP收口与提交记录](development/wip-takeover-2026-09-16.md)（本地验证、剩余外部验收与调试档案）。
+
 本目录按“当前事实、设计规范、开发治理、决策、交付证据、历史记录”分层。目录层级表达文档职责，文件名不再使用 `01`～`12` 的人工顺序编号。
 
 ## 从哪里开始
@@ -8,6 +10,7 @@
 | --- | --- |
 | 判断当前做到哪里、下一项是什么 | [实施状态](development/status.md) |
 | 开始或继续一个 HXA | [开发路线](development/roadmap.md)、[验收矩阵](development/verification-matrix.md) |
+| 接手 Harness 重构与体验任务 | [统一实施导航和交接 Prompt](development/harness-implementation-handoff.md) |
 | 配置开发机或设备 | [开发环境](development/environment.md) |
 | 理解产品边界 | [产品需求](product/requirements.md) |
 | 判断目标用户、首发场景和商业模式 | [市场、用户与商业化](product/market-users-and-commercialization.md) |
@@ -52,6 +55,9 @@ docs/
 - [研究与产品演进候选方案](research/helix-agent-complete-research-and-product-plan.md)：事实复核、产品问题、职责契约与候选批次；不是实施授权。
 - [现状快照与候选演进图](research/helix-mermaid-architecture-diagrams.md)：配套调用、执行域、状态和恢复视图；不替代当前架构规范。
 - [Harness 2.0 收尾与小模型交接](development/harness-2.0-next-work.md)：已解决问题、技术取舍、执行顺序与验收要求。
+- [终端与后台命令开发计划](development/terminal-and-background-execution-plan.md)：HXA-194～199 的职责、依赖、授权决定和可复制验收；尚未实现。
+- [三态审批与产品闭环](development/product-completion-and-approval-plan.md)：HXA-200～206，允许/询问/禁止、任务过程、产物、恢复与能力准备；含小模型启动 Prompt 和本地提交规则。
+- [工作区与能力体验方案](development/workspace-and-capability-experience-plan.md)：直接导航、环境/会话、扩展添加到使用、用户权限语言；补充原任务验收及HXA-207。
 
 ## 架构
 

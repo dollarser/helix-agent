@@ -33,7 +33,7 @@ Plan 模式不提供通过一次审批临时放行 L2/L3 读取的路径。需�
 - 收益：只读效应和数据敏感度均有独立门控；Plan 不会因工具错误标注或敏感 scope 而暴露 L2/L3 读取。
 - 代价：Plan 无法自行完成需要高敏感证据的调研，必须提示用户切换模式。
 - 后续约束：HXA-032/033 落地真实动态风险计算后，`ModePolicy` 必须消费其结果；MCP annotation、Skill 指令和静态 `baseRisk` 都不能降低动态风险。
-- class 门后续扩展：审阅模式额外放行闭合的内置 `METADATA` 类别（如 `plan.submit`），见 [ADR-0048](0048-review-modes-admit-built-in-metadata-class.md)（proposed）；该扩展不改变本 ADR 的风险上限决定。
+- class 门由 accepted [ADR-0048](0048-review-modes-admit-built-in-metadata-class.md) 部分扩展：额外准入闭合内置 METADATA，保留本 ADR 风险上限及其余约束。集成验收仍须完成，不等于已合入 main。
 - UI 必须把“因操作类别拒绝”和“因动态风险拒绝”显示为不同原因，避免用户误以为只需重新授权文件即可放行写操作。
 
 ## Verification

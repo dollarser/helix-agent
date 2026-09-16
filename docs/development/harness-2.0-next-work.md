@@ -1,5 +1,11 @@
 # Harness 2.0 收尾与小模型交接
 
+> 2026-09-16 接手更新：所有者已授权本任务接手并提交本工作树剩余WIP，不再等待原并行所有方。完整本地主机/构建/lint/制品门禁已通过；原27 detekt、12 lint、2项JGit阻断均为历史结果。HXA-200/201已完成；其他任务按各自剩余验收判断。依赖允许为兼容性与维护升级，须同步版本锁、验证材料和设备证据。当前证据与提交范围见[WIP接手记录](wip-takeover-2026-09-16.md)，下文旧基线/未提交/失败数字只保留追溯用途。
+
+新接手先读[统一实施导航与交接 Prompt](harness-implementation-handoff.md)。本文保留 HXA-192 收尾规格及历史证据，不承担所有后续任务的调度；本地提交授权同样覆盖已批准的 HXA-207 独立切片。
+
+> 2026-09-14 补充：Harness 工作树已实施 [HXA-193 单 APK Runtime](integrated-developer-runtimes.md)，当前组件形态以 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 为准。继续本包时使用新的 `scripts/verify-integrated-runtimes.py` 设备入口和双主 APK 产物门。门禁现状（R1+R4 实测）：`spotlessCheck` 与 `detekt` 已通过——原 27 项 detekt 债按行为保持重构清零，本轮再把迁移夹具拆分引入的 1 项 LongMethod（提取 `approvalColumns`/`assertLaterMigrationStepsLanded`）与 Plan 设备测试的一处格式清零；App lint 仅剩 2 项第三方 JGit `TrustAllX509TrustManager`（既定阻断项，未擅自豁免或降 TLS）。完整 `check-all.sh --all` 按 fail-fast 记录：`source_checks` 通过，`build_checks` 通过 spotless/detekt/test 后在 `lint` 因上述 2 项 JGit 停止，`assembles`/`check-lockfiles`/`artifact_checks` 未达。CI 资产准备已接线，本地归档输入和 360 ELF gate 通过；Docker 重建因旧 xz-libs 版本不在镜像索引而失败。合并前发布锁定 RootFS 并配置 `HELIX_ROOTFS_ARCHIVE_URL`，或恢复原包快照；不得擅自更新 lock。本轮未运行远端 CI。
+
 更新时间：2026-09-14。本文是 HXA-192 的专项执行计划与本轮证据快照；实时状态仍以 [status](status.md) 为准，不能据本文把整个重构或发布记为完成。
 
 ## 1. 工作区与材料职责
@@ -40,7 +46,7 @@
 
 - “不是 Priority 2 新增”不等于“与 Harness 无关”。`GitWorkspaceReader`、`ProjectInstructionsReader`、Git UI 和产物文案就在 Harness 交付范围内。
 - 不在“重构整个 main / 放宽门禁 / 暂缓全部工作”之间选。采用局部 API 兼容修复、具体职责提取、定点回归，再执行原门禁；禁止全局 baseline、排除模块或跳过测试。
-- ADR-0048 的候选方向可继续验证，但不先改 `accepted` 或伪造 HXA 完成记录。已明确其部分扩展 ADR-0003、内部元数据是持久副作用、普通 Plan 可文本结束、计划审阅不是工具审批等边界；该 ADR 目前仍为 proposed，归入 HXA-192。源代码已存在不替代接受证据。
+- ADR-0048 已于 2026-09-14 接受有界架构契约，部分扩展 ADR-0003；普通 Plan 可文本结束，内部元数据是真实持久副作用，计划审阅不代替工具审批。原集成要求仍是启用/完成门禁，不伪造完成记录。
 - JGit 的 `TrustAllX509TrustManager` 检测不是虚构：当前锁定 jar 的 `NoCheckX509TrustManager` 两个校验方法确实直接 return；`TransportHttp` 存在 `sslVerify=false` 路径。Helix 当前只调用本地 status/diff，尚未证明所有配置/制品下不可达，因此本轮不放行扫描。R1 给出局部处理要求。
 
 ### 2.4 国际化门禁假通过
@@ -51,11 +57,30 @@
 
 ## 3. 小模型执行包：按 R1 → R2 → R3 → R4
 
+### Git 本地提交授权（2026-09-14 更新）
+
+所有者后续明确要求扩充任务：[HXA-200～206 产品闭环包](product-completion-and-approval-plan.md) 同样适用以下本地提交授权与具名暂存纪律；不抢占当前收尾或夹带并行修改。
+
+所有者已明确允许小模型提交 Git 代码。本授权覆盖 HXA-192/193 收尾和 HXA-194～199 已获实施授权的切片，替代原“不提交”要求；不接受 proposed ADR，也不授权 push、合并 main、发布或改写历史。
+
+每个独立切片通过对应验证后，可自主本地 commit，无需重复确认。先记录 HEAD、`git status --short` 和已有暂存内容；使用具名路径或明确 hunk 暂存，禁止 `git add .`。既有补丁仅在归属明确、属于任务且已审查验证时纳入；无法分离的并行修改保留并报告，不 reset/stash 他人工作。
+
+提交前检查 `git diff --cached --stat`、`git diff --cached`、`git diff --cached --check` 并执行切片门禁，不纳入 secrets、原始日志、机器路径或下载资产。全局已知失败不必阻止已验证的独立修复提交，但须记录失败，不宣称 HXA 完成。提交后报告 hash、范围、验证和剩余 dirty paths；本地提交不等于推送、合并或整体验收。
+
 一次只推进一个包。每包先记录基线，再改允许的路径，按真实日志回填证据。R1～R4 是 HXA-192 的子步骤，不是新 HXA，也不关闭其他在途 HXA-190/191。
+
+### Git 提交记录（R4，2026-09-14）
+
+已按上述授权本地提交 HXA-192 的**可分离、已验证核心切片**（commit `0d52eae7`，5 文件，具名路径暂存、禁 `git add .`；提交前 `git diff --cached --stat` 恰 5 文件、`--check` 无空白错误，无 secrets/机器路径/原始日志）：
+`app/src/main/kotlin/com/helix/app/plan/PlanTools.kt`（plan.submit v1→v2 文本结束契约）、`app/src/test/kotlin/com/helix/app/plan/PlanToolsTest.kt`（v2 精确期望）、`app/src/androidTest/kotlin/com/helix/app/plan/PlanSubmitIntegrationDeviceTest.kt`（新增生产管线设备集成测试）、`core/storage/src/main/kotlin/com/helix/core/storage/HelixMigrations.kt`（MIGRATION_15_16：删索引→全量加前缀→重建索引）、`core/storage/src/androidTest/kotlin/com/helix/core/storage/RoomMigrationFixtureTest.kt`（4 路径 v15→16 夹具 + 1→16 链补 MIGRATION_15_16 + `approvalColumns`/`assertLaterMigrationStepsLanded` 两个 helper）。
+
+**未纳入本轮提交（保留在工作树，不 reset/stash）：** R1 的 detekt 27 项清零、i18n 门禁修复、CLI 旧契约测试修复（散在 `app/src/main/**`、`tools/**`、`runtime/**`，与 HXA-193 runtime 改动部分同文件，须逐 hunk 核验归属后单独提交）；ADR-0048/0003、研究归档、本交接与 status/roadmap/matrix（文档更新，随多任务 WIP 待提交；ADR-0048 正文链接依赖研究归档，不宜与代码切片分离）；`scripts/debug/2026-09-14/`（含 `ANDROID_HOME=/Users/dollars/...` 机器路径，§3 不纳入）；HXA-193 runtime 与 HXA-194~199 文档/CI/lockfile/README（非本 HXA 范围）。
+
+**这不是整体验收：** 完整 `check-all.sh --all` 未全绿（JGit 2 项 `TrustAllX509TrustManager` 阻断项属独立决策，§3.1 不擅自 suppress；27 detekt 债在未提交的 R1 文件里），`build_checks` 在 `lint` 后 fail-fast，`assembles`/`check-lockfiles`/`artifact_checks` 未达。HXA-192 未关闭（ADR-0048 启用门禁：UI 级用户闭环、审阅不 mint 审批的设备证明仍缺）。本地 commit ≠ 推送/合并/发布/验收。
 
 ### R1：清现有主机门禁
 
-允许：下表对应实现、直接调用处、相应测试/资源和必要的局部 lint 配置。禁止无关职责搬迁、依赖升级与整仓 suppression。
+允许：下表对应实现、直接调用处、相应测试/资源和必要的局部 lint 配置。禁止无关职责搬迁与整仓 suppression；依赖可按2026-09-16授权升级并补齐兼容性验证。
 
 | 子项 | 已明确的实现方向 | 验收 |
 | --- | --- | --- |
@@ -83,7 +108,7 @@ Detekt 起点包括 `SensitiveFieldClassifier`、`WriteTool`、`FilesCopyTool/Fi
 1. 检索并修正 `PlanTools` 的 `ONLY way to finish Plan mode` 和对应 prompt/UI：普通调研允许文本完成，用户需要可审阅的版本化计划时才提交结构化计划。若变更已绑定 descriptor 文本/契约，遵守既有 Tool version 规则并更新精确期望。
 2. 用生产 Registry/过滤/Dispatcher 和真实 Room 串起 `plan.submit`；模型可以用合成 Provider，不能用 Fake PlanRepository 或手工插入 plan/audit 行冒充集成。断言归属、版本、READY 行及 tool call/audit 结果均一致。
 3. 覆盖取消前/写入后的持久结果、同一调用不重复插入、外部来源不能声明 METADATA、伪造 session/Turn/Goal 参数被拒绝；审阅计划后文件写入仍通过正常 Policy/Approval。不要顺手改 Goal 完成和继续语义。
-4. 将证据补入 ADR-0048 的 Verification，保持 required-before-acceptance 与已执行结果分开。没有收到可追溯的接受结论前，保留 proposed；R1/R3 的独立验证不需要为此停下。
+4. ADR-0048 架构已接受，无需重复请求接受；将真实集成证据补入 Verification，严格区分已执行与仍待启用门禁。R1/R3 独立工作继续。
 
 命令：`./gradlew :core:agent:test :core:policy:test :tools:framework:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:compileConsumerDebugAndroidTestKotlin :app:compileDeveloperDebugAndroidTestKotlin`。真实 Room/Dispatcher 设备集成在 R3 运行，不能用编译通过替代。
 
@@ -103,10 +128,10 @@ Detekt 起点包括 `SensitiveFieldClassifier`、`WriteTool`、`FilesCopyTool/Fi
 
 前提：R1～R3 证据齐全；尚有未知副作用/迁移失败时不得关闭。
 
-1. ADR-0048 获授权接受后记录 Deciders、理由、证据，并同步其部分扩展的规范章节；否则显式列为整合阻断，不假设研究文档已授权模式改变。
+1. 核对 accepted ADR-0048 的有界契约与规范同步；完成其仍未通过的生产启用/集成门禁，未通过不得关闭 HXA-192。
 2. 执行原 `./scripts/check-all.sh --all`；按 fail-fast 行为记录哪一步实际执行。不可用旧的局部绿灯覆盖当前完整门禁。
 3. HXA-192 完成记录、status、roadmap、matrix 同步；记录源码、主机、设备、架构接受和发布验证五类证据，各自不足单列。执行完成记录索引脚本和 docs/ADR/i18n/secrets/diff 门禁。
-4. 合入 main 前重新比较双方 HEAD 与 dirty paths，只整合有明确归属的改动；本轮已有同内容文档修改，避免重复覆盖。提交/推送/合并按后续明确授权执行，分别报告事实。未合入、未推送或未验收不能写成完成。
+4. 按上述授权分切片本地提交。推送/合并仍待单独授权；合入 main 前重新比较双方 HEAD 与 dirty paths，只整合归属明确的改动，避免覆盖同内容文档及并行工作。分别报告提交、推送、合并和验收，不将本地 commit 写成已集成。
 
 ## 4. 本轮实际证据
 
@@ -119,15 +144,16 @@ Detekt 起点包括 `SensitiveFieldClassifier`、`WriteTool`、`FilesCopyTool/Fi
 | `:core:storage:testDebugUnitTest` | 89 tests，0 failure/error/skip |
 | `:core:storage:compileDebugAndroidTestKotlin` | 通过；未运行设备 |
 | `python3 scripts/debug/2026-09-14/check-artifact-migration.py` | 旧 SQL/朴素全量 UPDATE 负对照成立；生产迁移的四条路径、元数据、唯一约束及附件 FK 通过 |
-| `spotlessCheck` | 通过 |
-| `detekt` | 未通过，27 项；本轮修改的 Kotlin 文件无报告项 |
-| lint | 已分析原 17 错报告；五项缺翻译已修，完整 lint 未重跑，剩余数量由 R1 实测，不能直接减法宣称已绿 |
+| `detekt` | 通过（0 项）：原 27 项按行为保持重构清零；迁移夹具拆分引入的 1 项 LongMethod 经提取 `approvalColumns`/`assertLaterMigrationStepsLanded` 两个 helper 清零 |
+| `spotlessCheck` | 通过（Plan 设备测试一处 ktlint 折行经 `spotlessApply` 清零，无逻辑改动） |
+| 六项 lint（Debug/Release × consumer/developer） | 已跑：非第三方 15 项清零（API 级读取、三处 Composable 命名、五缺翻译、复数/UnusedResources/UseKtx/ObsoleteSdkInt）；剩 2 项第三方 JGit `TrustAllX509TrustManager`（既定阻断项，未 suppress、未降 TLS） |
 | `python3 scripts/test-review-gates.py` | 5 项通过，含嵌套 checkout 国际化漏扫回归 |
 | `check-i18n.sh` | main 1075、Harness 1193 个资源 key 实际校验通过 |
 | `check-all.sh --source`、`git diff --check` | 两个工作区均通过；main 394 / Harness 395 篇文档，47 / 48 条 ADR，5 项脚本回归及真实资源 key 校验通过 |
 | `:app:processConsumerDebugResources :app:processDeveloperDebugResources` | 补齐翻译后双 flavor 资源处理通过 |
-| Android Room / Plan 设备集成、完整 `check-all --all` | 未执行，留给 R2～R4；不声明已可合并/发布 |
+| Android Room / Plan 设备集成 | 已通过：独占 `Helix_API_36`+`Helix_API_29`（自建、已关闭），`RoomMigrationFixtureTest` 各 28/28、`PlanSubmitIntegrationDeviceTest` 各 4/4，0 failure/error/skip（日志 `build/r3-device-*/`、`build/r3-mig-rerun-*/`） |
+| 完整 `check-all.sh --all` | `source_checks` 通过；`build_checks` 过 spotless/detekt/test 后在 `:app:lintConsumerDebug` 因 2 项 JGit `TrustAllX509TrustManager` fail-fast（GATE_EXIT=1）；`assembles`/`check-lockfiles`/`artifact_checks` 未达。核心切片已本地 commit `0d52eae7`；不声明已可合并/发布 |
 
 ## 5. 可直接交给小模型的启动说明
 
-在 `worktree-harness-2.0` 继续 HXA-192。先读 README、status、roadmap 中 HXA-192 和本文，核对工作树并保留当前未提交补丁；不要重做已修复的 CLI 测试与 v16 迁移。先执行 R1 的 API 兼容和 lint 子项，再按新 SARIF 局部处理 Detekt。每次只做一个有明确验收的小切片；通过后推进 R2、R3，最后 R4。不得先把 ADR-0048 改 accepted、跳过测试或放宽全局门禁。遇到具体架构接受/外部分发历史缺口，记录精确阻断及已准备好的证据，继续不依赖它的工作；不要重新索要已经授权的常规修复权限。
+在 `worktree-harness-2.0` 继续 HXA-192。先读 README、status、roadmap 和本文，保留既有补丁，核查后不重复修复。按 R1→R2→R3→R4 推进；ADR-0048 已接受架构，但其真实集成和普通文本 Plan 修正仍须验证。不得跳过测试或放宽全局门禁。验证通过的独立切片按上述授权本地 commit；不推送合并。遇到ADR-0051 尚未满足的启用条件 或外部条件时只暂停依赖项，继续独立工作。

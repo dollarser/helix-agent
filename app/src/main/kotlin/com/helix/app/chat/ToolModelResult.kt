@@ -25,8 +25,10 @@ internal object ToolModelResult {
                 Json.parseToJsonElement(payload) as? JsonObject
             } catch (_: IllegalArgumentException) {
                 null
-            } ?: return payload
+            }
         // Never slice serialized JSON or recursively remove user content with matching keys.
-        return JsonObject(document.filterKeys { it !in excluded }).toString()
+        return document
+            ?.let { JsonObject(it.filterKeys { key -> key !in excluded }).toString() }
+            ?: payload
     }
 }

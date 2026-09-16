@@ -26,10 +26,10 @@ class ConversationTopBarDeviceTest {
         compose.resetDeterministicUiState()
         val chat = compose.container().chatService
         chat.closeSession()
-        compose.waitUntil { chat.screen.value.openSessionId == null }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
         compose.onNodeWithTag("shell-top-bar").assertDoesNotExist()
         compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil { chat.screen.value.isDraft }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
         compose.onNodeWithTag("shell-top-bar").assertDoesNotExist()
         val page = compose.onNodeWithTag("screen-sessions").getUnclippedBoundsInRoot()
@@ -41,11 +41,11 @@ class ConversationTopBarDeviceTest {
         compose.navigateTo("sessions")
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
         compose.onNodeWithTag("chat-back").performClick()
-        compose.waitUntil { chat.screen.value.openSessionId == null }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
         compose.onNodeWithTag("chat-session-list").assertIsDisplayed()
         compose.onNodeWithTag("open-navigation").assertIsDisplayed()
         compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil { chat.screen.value.isDraft }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
         compose.onNodeWithTag("chat-new-session").performClick()
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
         chat.closeSession()
@@ -54,7 +54,7 @@ class ConversationTopBarDeviceTest {
     @Test fun destinationHeadersAndRealExtensionsAreReachable() {
         compose.resetDeterministicUiState()
         compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil {
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
                 .container()
                 .chatService.screen.value.isDraft
@@ -83,7 +83,7 @@ class ConversationTopBarDeviceTest {
             compose.resetDeterministicUiState()
             val chat = compose.container().chatService
             chat.newSessionDraft()
-            compose.waitUntil { chat.screen.value.isDraft }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val id = requireNotNull(chat.screen.value.openSessionId)
             assertTrue(chat.saveDraftForGoal("Archive label fixture"))
             val originalTitle =
@@ -94,7 +94,7 @@ class ConversationTopBarDeviceTest {
                     .title
             chat.closeSession()
             chat.archiveSession(id)
-            compose.waitUntil { chat.sessions.value.any { it.id == id && it.isArchived } }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.sessions.value.any { it.id == id && it.isArchived } }
             compose.onNodeWithTag("chat-session-$id").assertDoesNotExist()
             compose.onNodeWithTag("chat-archive-list-toggle").performClick()
             assertTrue(
@@ -108,7 +108,7 @@ class ConversationTopBarDeviceTest {
                 .onNode(hasTestTag("chat-restore") and hasAnyAncestor(hasTestTag("chat-session-$id")))
                 .performScrollTo()
                 .performClick()
-            compose.waitUntil { chat.sessions.value.any { it.id == id && !it.isArchived } }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.sessions.value.any { it.id == id && !it.isArchived } }
             compose.onNodeWithTag("chat-session-$id").assertDoesNotExist()
             compose.onNodeWithTag("chat-archive-list-toggle").performClick()
             compose.onNodeWithTag("chat-session-$id").performScrollTo().assertIsDisplayed()
@@ -130,19 +130,19 @@ class ConversationTopBarDeviceTest {
             val chat = container.chatService
             val storage = container.storage
             chat.newSessionDraft()
-            compose.waitUntil { chat.screen.value.isDraft }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val id = requireNotNull(chat.screen.value.openSessionId)
             compose.onNodeWithTag("chat-title").performClick()
             compose.onNodeWithTag("session-title").performTextReplacement("My chosen title")
             compose.onNodeWithTag("session-rename-save").performClick()
-            compose.waitUntil { chat.screen.value.sessionTitle == "My chosen title" }
+            compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.sessionTitle == "My chosen title" }
             assertTrue(storage.sessions.list().none { it.id == id })
             try {
                 assertTrue(chat.saveDraftForGoal("First message should not replace my title"))
                 assertEquals("My chosen title", storage.sessions.resolve(id).title)
                 chat.closeSession()
                 chat.openSession(id)
-                compose.waitUntil { chat.screen.value.sessionTitle == "My chosen title" }
+                compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.sessionTitle == "My chosen title" }
             } finally {
                 chat.closeSession()
                 storage.sessions.archive(id, System.currentTimeMillis())

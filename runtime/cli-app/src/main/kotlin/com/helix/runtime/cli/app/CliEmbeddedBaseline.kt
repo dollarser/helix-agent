@@ -24,7 +24,11 @@ object CliEmbeddedBaseline {
                 .serializer(),
             buildJsonObject {
                 put("protocolVersion", CliRuntimeProtocol.VERSION)
-                put("runtimeVersion", BuildConfig.VERSION_NAME)
+                put(
+                    "runtimeVersion",
+                    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                        ?: error("host version missing"),
+                )
                 put("abi", lock.abi)
                 put("lockSha256", CliRuntimeLockCodec.sha256(lock))
                 put("bundledArtifactCount", lock.artifacts.count { it.bundled })

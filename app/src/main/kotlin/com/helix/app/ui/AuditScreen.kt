@@ -263,45 +263,7 @@ private fun FilterSelect(
 @Composable
 @Suppress("FunctionName")
 private fun AuditRow(record: com.helix.app.approval.DispatchAuditRecord) {
-    val codeLabel =
-        record.code?.let { stringResource(ApprovalUiMapper.codeLabel(it)) }
-            ?: stringResource(R.string.audit_unknown_code)
-    val riskLabel =
-        record.risk?.let { stringResource(ApprovalUiMapper.riskLabel(it)) }
-            ?: stringResource(R.string.audit_unknown)
-    val sourceLabel =
-        record.decisionSource?.let { stringResource(ApprovalUiMapper.sourceLabel(it)) }
-            ?: stringResource(R.string.audit_unknown)
-    val lines =
-        buildList {
-            add(
-                stringResource(
-                    R.string.audit_row_summary,
-                    codeLabel,
-                    record.toolName ?: "?",
-                    record.toolVersion ?: "?",
-                    riskLabel,
-                ),
-            )
-            add(
-                stringResource(
-                    R.string.audit_row_session_turn,
-                    record.sessionId ?: "?",
-                    record.turnId ?: "?",
-                ),
-            )
-            add(
-                stringResource(
-                    R.string.audit_row_decision_times,
-                    sourceLabel,
-                    record.startedAt,
-                    record.finishedAt,
-                ),
-            )
-            if (record.correlationId.isNotBlank()) {
-                add(stringResource(R.string.audit_row_correlation, record.correlationId))
-            }
-        }
+    val lines = auditLines(record)
     var details by remember(record.id) { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxWidth().testTag("audit-row-${record.id}"),
@@ -330,6 +292,49 @@ private fun AuditRow(record: com.helix.app.approval.DispatchAuditRecord) {
                     Text(line, style = MaterialTheme.typography.bodySmall)
                 }
             }
+        }
+    }
+}
+
+/** The localized audit-detail lines (safe label mapping; never raw exception text). */
+@Composable
+private fun auditLines(record: com.helix.app.approval.DispatchAuditRecord): List<String> {
+    val code =
+        record.code?.let { stringResource(ApprovalUiMapper.codeLabel(it)) }
+            ?: stringResource(R.string.audit_unknown_code)
+    val risk =
+        record.risk?.let { stringResource(ApprovalUiMapper.riskLabel(it)) }
+            ?: stringResource(R.string.audit_unknown)
+    val source =
+        record.decisionSource?.let { stringResource(ApprovalUiMapper.sourceLabel(it)) }
+            ?: stringResource(R.string.audit_unknown)
+    return buildList {
+        add(
+            stringResource(
+                R.string.audit_row_summary,
+                code,
+                record.toolName ?: "?",
+                record.toolVersion ?: "?",
+                risk,
+            ),
+        )
+        add(
+            stringResource(
+                R.string.audit_row_session_turn,
+                record.sessionId ?: "?",
+                record.turnId ?: "?",
+            ),
+        )
+        add(
+            stringResource(
+                R.string.audit_row_decision_times,
+                source,
+                record.startedAt,
+                record.finishedAt,
+            ),
+        )
+        if (record.correlationId.isNotBlank()) {
+            add(stringResource(R.string.audit_row_correlation, record.correlationId))
         }
     }
 }

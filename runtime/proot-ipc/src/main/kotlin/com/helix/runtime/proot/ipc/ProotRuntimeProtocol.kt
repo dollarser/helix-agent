@@ -31,7 +31,7 @@ object ProotRuntimeProtocol {
      */
     const val PERMISSION_BIND = "com.helix.permission.BIND_PROOT_RUNTIME"
 
-    /** Companion package (independent applicationId/UID, section 6.6). */
+    /** Historical companion identity. Production binds context.packageName under ADR-0049. */
     const val RUNTIME_PACKAGE = "com.helix.runtime.proot"
 
     /** Bound-only service; cold-started by an explicit [android.content.ComponentName] bind. */

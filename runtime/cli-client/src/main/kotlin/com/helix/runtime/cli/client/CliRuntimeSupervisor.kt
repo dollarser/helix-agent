@@ -111,7 +111,7 @@ class CliRuntimeSupervisor(
             }
         val intent =
             Intent().setComponent(
-                ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS),
+                ComponentName(context.packageName, CliRuntimeProtocol.SERVICE_CLASS),
             )
         bindCause(intent, connection)?.let { return CliRuntimeConnection.Refused(it) }
         val connected =
@@ -154,16 +154,27 @@ class CliRuntimeSupervisor(
     }
 
     private fun localCause(checkStopped: Boolean = true): CliRuntimeVerification.Cause? {
-        val info =
-            packageInfo(CliRuntimeProtocol.RUNTIME_PACKAGE)
-                ?: return CliRuntimeVerification.Cause.NOT_INSTALLED
-        val app = info.applicationInfo
+        val service =
+            try {
+                context.packageManager.getServiceInfo(
+                    ComponentName(context.packageName, CliRuntimeProtocol.SERVICE_CLASS),
+                    PackageManager.MATCH_DISABLED_COMPONENTS,
+                )
+            } catch (_: PackageManager.NameNotFoundException) {
+                null
+            }
+        val info = packageInfo(context.packageName)
+        val app = info?.applicationInfo
         return when {
-            app == null -> {
+            service == null || app == null -> {
                 CliRuntimeVerification.Cause.NOT_INSTALLED
             }
 
-            !app.enabled -> {
+            !app.enabled || !service.enabled || service.exported -> {
+                CliRuntimeVerification.Cause.DISABLED
+            }
+
+            service.processName != "${context.packageName}:subscriptions" -> {
                 CliRuntimeVerification.Cause.DISABLED
             }
 

@@ -113,7 +113,7 @@ class GitWorkspaceReader(
                 formatter.format(staged)
             }
             formatter.flush()
-            return out.toString(Charsets.UTF_8)
+            return out.toByteArray().toString(Charsets.UTF_8)
         }
     }
 

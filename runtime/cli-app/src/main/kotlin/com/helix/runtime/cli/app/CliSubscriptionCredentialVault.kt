@@ -56,7 +56,7 @@ internal interface CliSecretStore {
     fun contains(name: String): Boolean
 }
 
-/** Token vault owned exclusively by the CLI Runtime application UID. */
+/** Token vault owned by the subscription module; same-UID developer code is trusted (ADR-0049). */
 internal class CliSubscriptionCredentialVault(
     private val store: CliSecretStore,
 ) {

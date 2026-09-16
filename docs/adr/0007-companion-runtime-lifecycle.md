@@ -9,6 +9,9 @@ Superseded by: none
 
 ## Context
 
+> 2026-09-14：[ADR-0049](0049-integrated-developer-runtimes.md) 改为 developer 单 APK 私有进程，部分取代下文 APK/UID/离线与安装方式约束；其余授权、生命周期与发行约束保留。旧实验结果仅适用于原形态。
+
+
 PRoot 和 CLI 必须使用独立 applicationId/UID 才能隔离 RootFS、Job、网络权限和官方 CLI 凭据。独立 APK 不等于用户必须先打开第二个应用，也不等于 Runtime 进程必须常驻。Android 的 bound service 可以通过显式 Intent 和 `BIND_AUTO_CREATE` 在需要时创建目标 Service 进程；最后一个客户端解绑后，纯 bound service 可以被系统销毁。
 
 只规定独立 UID、signature permission 和 Binder/PFD 数据流仍不足以指导实现：小模型可能要求用户先打开 Runtime、把“进程存活”当作可用条件、依赖普通后台 Service 长期执行、在 Binder 断连后自动重放命令，或用不匹配的 `dataSync` 前台服务类型为任意 Shell/CLI 计算保活。这些做法分别破坏产品体验、Android 生命周期约束或副作用恢复边界。
@@ -70,6 +73,8 @@ PRoot/CLI Runtime 采用以下共同生命周期契约：
 - 分发渠道或 Android 平台禁止当前跨 APK Service、前台服务类型或 companion 安装方式。
 
 ## References
+
+- [ADR-0050 日志与职责（accepted）](0050-terminal-sessions-and-detached-jobs.md) 保持当前 owner/cancel；[ADR-0051 后台/终端启用（accepted）](0051-terminal-runtime-enablement.md) 已接受扩展，启用检查仍待执行。
 
 - [总体架构](../architecture/overview.md)
 - [本地代码执行方案](../architecture/local-code-execution.md)

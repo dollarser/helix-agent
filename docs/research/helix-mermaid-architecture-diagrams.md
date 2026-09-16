@@ -7,6 +7,8 @@
 
 ## 1. 图例与职责
 
+2026-09-14 增量更新：C2/D 的 Runtime 视图与新增终端候选图按 Harness 工作树 `a4a64039` 加未提交 HXA-192/193 更新；其他固定源码视图仍保留原取证基线。developer 单 APK/shared UID 已由 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 接受，[ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 日志/职责已 accepted，后台/手动终端启用见 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。图中的当前结构不表示已完成全量验收或已合入 main。
+
 图集负责表达“谁调用谁、谁拥有状态、在哪个执行域运行、何时恢复”。产品优先级、竞品问题和 HXA 拆分只在配套正文维护。图中的组件可以是职责，不要求为每个框创建一个类或模块。
 
 | 标记 | 含义 |
@@ -158,7 +160,7 @@ flowchart TB
 
 依据：[ToolDispatcher.executeStage](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDispatcher.kt)、[ToolScheduler](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/tools/framework/src/main/kotlin/com/helix/tools/framework/ToolScheduler.kt)、[工具编排](../architecture/mobile-tool-orchestration.md)。外部副作用不处于 Room transaction 内；验证失败或持久化失败不得推断副作用不存在。只有已确认无副作用的失败才可能按原契约有限重试。
 
-图 C2 区分工具执行域与外部工具服务。QuickJS 没有特权 Host Bridge，PRoot 不挂载真实 Workspace。MCP/A2A 的请求由本地适配器发起，远端输出不可信，A2A 服务不是 Helix Remote Worker。
+图 C2 区分工具执行域与外部工具服务。QuickJS 没有特权 Host Bridge；PRoot 一次性 Job 保留输入快照，但共享 UID 后不承诺真实 Workspace、主数据或网络隔离。MCP/A2A 的请求由本地适配器发起，远端输出不可信，A2A 服务不是 Helix Remote Worker。
 
 ```mermaid
 flowchart LR
@@ -167,7 +169,7 @@ flowchart LR
     JSCLIENT["【现】QuickJS client"]
     JS["【现】非导出 isolated Service<br/>系统分配 UID / 无特权桥"]
     PROOTCLIENT["【现】PRoot client"]
-    PROOT["【现】独立 PRoot APK / UID<br/>离线 Job 快照"]
+    PROOT["【现】developer 内置 :proot 私有进程<br/>共享主 UID / 可信开发者 Job"]
     MCPCLIENT["【现】本地 MCP Tool adapter"]
     MCP["【外部】用户启用的 MCP 服务"]
     A2ACLIENT["【现】本地 A2A Tool adapter<br/>原 taskId 查询 / 订阅 / 取消"]
@@ -176,7 +178,7 @@ flowchart LR
     DISPATCH --> JSCLIENT
     JSCLIENT <-->|"Binder / 有界输入输出"| JS
     DISPATCH --> PROOTCLIENT
-    PROOTCLIENT <-->|"签名保护 Binder / PFD"| PROOT
+    PROOTCLIENT <-->|"固定私有组件 Binder / PFD"| PROOT
     DISPATCH --> MCPCLIENT
     MCPCLIENT <-->|"工具请求 / 不可信结果"| MCP
     DISPATCH --> A2ACLIENT
@@ -185,9 +187,9 @@ flowchart LR
 
 依据：[本地执行](../architecture/local-code-execution.md)、[ADR-0007](../adr/0007-companion-runtime-lifecycle.md)、[ADR-0016](../adr/0016-a2a-client-interoperability.md)。这里只表达执行域和请求方向，不把跨网络服务画成拥有本地 Capability 或 Approval 的模块。
 
-## 5. 现状：模型 Provider 与订阅 UID
+## 5. 现状：模型 Provider 与订阅进程
 
-图 D 把订阅模型链与普通工具链分开。`Helix Subscriptions` 的内部代码仍位于 `runtime/cli-*`；其第三方协议适配不等于官方 CLI 在 Android 直接运行。
+图 D 把订阅模型链与普通工具链分开。`Helix Subscriptions` 的内部代码仍位于 `runtime/cli-*`；其第三方协议适配不等于官方 CLI 在 Android 直接运行。developer 的订阅与 PRoot 均共享主 UID；正常 API 不返回 token 是模块所有权契约，不是对同 UID 代码的隔离。consumer 不包含这两个 Runtime；QuickJS 的 isolated UID 不变。
 
 ```mermaid
 flowchart TB
@@ -197,8 +199,8 @@ flowchart TB
     SERVER["【外部】用户选择的模型 API"]
     SUB["【现】订阅 ModelProvider facade"]
     CLIENT["【现】订阅客户端<br/>CliModelJobClient / Supervisor"]
-    IPC["【现】签名保护 Binder / PFD<br/>输入快照 / 事件 / Job 对账"]
-    UID["【现】Helix Subscriptions 独立 UID<br/>自有 OAuth grant / 刷新 / 协议适配"]
+    IPC["【现】固定私有组件 Binder / PFD<br/>输入快照 / 事件 / Job 对账"]
+    UID["【现】:subscriptions 私有进程 / 共享主 UID<br/>模块自有 OAuth grant / 刷新 / 协议适配"]
     REMOTE["【外部】订阅服务端"]
     DISPATCH["【现】Tool Scheduler / Dispatcher"]
 
@@ -491,10 +493,47 @@ QuickJS Code Mode 不画成已经存在的工具桥：当前图 C2 的 isolated 
 
 ## 11. 图文维护与校验
 
+### 终端候选视图：观察、后台 Job 与手动会话
+
+下图全部新增边均为候选，不表示 HXA-194～199 已实施。现有 Job 的精确审批、快照和最终归档保持；手动 Session 不伪装为 Turn，也不由模型获取交互写入权限。
+
+```mermaid
+flowchart TB
+    MODEL["【现】模型 ToolCall"]
+    DISPATCH["【现】Dispatcher / Policy / Approval"]
+    USER["用户主动打开 developer 终端"]
+    UI["【候】命令详情 / 手动终端 UI"]
+    APP["【候】应用服务<br/>origin / 身份绑定 / 观察与取消"]
+    CLIENT["【候】PRoot client / 版本化 IPC"]
+    JOB["【现】一次性 Job<br/>【候】显式 detached owner / 有期限租期"]
+    PTY["【候】手动 PTY Session<br/>generation / 单写连接 / 资源限制"]
+    LOG["【候】Runtime 日志 spool<br/>序号 / 游标 / 配额 / 背压"]
+    END["持久结算<br/>成功 / 失败 / 取消 / 未知副作用"]
+    LOST["Runtime 丢失：LOST / INTERRUPTED<br/>保留输出，不重放命令"]
+    MODEL --> DISPATCH
+    DISPATCH -.->|"按新契约提交，实际开始消费精确证明"| CLIENT
+    USER -.-> UI
+    UI -.->|"用户输入或查询意图"| APP
+    APP -.-> CLIENT
+    CLIENT -.-> JOB
+    CLIENT -.->|"仅人工来源，不提供模型写入接口"| PTY
+    JOB -.-> LOG
+    PTY -.-> LOG
+    LOG -.->|"有界读取"| CLIENT
+    JOB -.-> END
+    PTY -.->|"退出 / 关闭 / 超时"| END
+    JOB -.->|"进程丢失，按原身份对账"| LOST
+    PTY -.-> LOST
+```
+
+Runtime 仍位于 developer 的私有 `:proot` 进程并共享主 UID。UI detach 只撤销观察/输入连接，不等于结束 Session；主进程死亡后 Job 能否继续，取决于是否已显式移交 owner、剩余预算和合法后台路径。Runtime 死亡后不能恢复原 shell 内存，重新打开必须创建新身份。停止请求不等于副作用已结算。
+
+前台 PTY 与有期限后台 Job 是不同能力，前者不以长期后台可行为前提。手动多会话与 Agent 文件变更的占用/互斥仍须决策，不能通过并行箭头暗示并发授权。范围、依赖和验收只在 [开发计划](../development/terminal-and-background-execution-plan.md) 维护；日志职责见 accepted [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md)，执行扩展边界见 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。
+
 维护时以源码符号和正文候选编号为锚，不依赖会漂移的行号。每幅图须标明现状/候选/研究、状态所有者、跨域边和失败路径；改变箭头前先确认是否改变运行或授权契约。
 
 校验分三层：Mermaid 语法与渲染、相对链接与目录、人工对照源码/ADR 的语义检查。渲染通过不证明架构已实现；源码结构存在不证明真实账号、OEM/Doze 或完整恢复验收通过。
 
-本轮使用 Mermaid CLI `11.17.0` 完成全部 14 张图的 SVG 渲染，并抽查图 A/C/E/F/K 的可视输出。产物保存在本机忽略目录 `build/docs-refinement-2026-09-13/`；完整检查结果见[正文](helix-agent-complete-research-and-product-plan.md#9-维护与本轮检查边界)。
+2026-09-13 历史版本使用 Mermaid CLI `11.17.0` 完成当时全部 14 张图的 SVG 渲染，并抽查图 A/C/E/F/K。产物位于忽略目录 `build/docs-refinement-2026-09-13/`；不作为本次更新图的渲染证据。本次更新执行源码文档门禁和差异检查，没有重新进行图形渲染或设备验证。
 
-本次保留用户指定文件路径，因此仍受正文第 9 节说明的 `docs/` 根目录分类门禁阻塞；不为图集放宽全仓库检查。未来归档时按现状/候选职责决定归属并更新引用，不直接覆盖现有 `architecture/overview.md` 或新增一整套重叠的规范文档。
+两份材料现已归入 `docs/research/`，原根目录分类问题属于历史记录。本文保持研究图集职责，不直接覆盖 `architecture/overview.md`，也不以候选图替代生产规范。

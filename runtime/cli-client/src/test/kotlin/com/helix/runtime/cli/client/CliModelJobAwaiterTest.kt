@@ -63,12 +63,37 @@ class CliModelJobAwaiterTest {
         val calls = mutableListOf<Int>()
         val awaiter =
             CliModelJobAwaiter(clock = { now }, pause = { now += it }) { code ->
+                check(calls.size < 3) { "deadline did not stop polling" }
                 calls += code
                 CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, running)
             }
-        assertEquals(AwaitOutcome.TimedOut, awaiter.await(accepted, 0L, 1L))
+        assertEquals(AwaitOutcome.TimedOut, awaiter.await(accepted, 1L, 1L))
         assertEquals(
-            listOf(CliRuntimeProtocol.TRANSACTION_JOB_QUERY, CliRuntimeProtocol.TRANSACTION_JOB_CANCEL),
+            listOf(
+                CliRuntimeProtocol.TRANSACTION_JOB_QUERY,
+                CliRuntimeProtocol.TRANSACTION_JOB_QUERY,
+                CliRuntimeProtocol.TRANSACTION_JOB_CANCEL,
+            ),
+            calls,
+        )
+    }
+
+    @Test fun zeroTimeoutWaitsForTerminalWithoutAnImplicitDeadline() {
+        var now = 0L
+        val calls = mutableListOf<Int>()
+        val awaiter =
+            CliModelJobAwaiter(clock = { now }, pause = { now += 1_000_000L }) { code ->
+                check(calls.size < 3) { "unexpected retry" }
+                calls += code
+                CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, if (now == 0L) running else terminal)
+            }
+        assertEquals(AwaitOutcome.Terminal(terminal), awaiter.await(accepted, 0L, 1L))
+        assertEquals(
+            listOf(
+                CliRuntimeProtocol.TRANSACTION_JOB_QUERY,
+                CliRuntimeProtocol.TRANSACTION_JOB_QUERY,
+                CliRuntimeProtocol.TRANSACTION_JOB_FETCH_RESULT,
+            ),
             calls,
         )
     }
@@ -81,7 +106,7 @@ class CliModelJobAwaiterTest {
                 CliModelWireResult(CliRuntimeProtocol.REPLY_JOB_STATE, running)
             }
         try {
-            assertEquals(AwaitOutcome.TimedOut, awaiter.await(accepted, 100L, 1L))
+            assertEquals(AwaitOutcome.TimedOut, awaiter.await(accepted, 0L, 1L))
             assertTrue(Thread.currentThread().isInterrupted)
             assertEquals(
                 listOf(CliRuntimeProtocol.TRANSACTION_JOB_QUERY, CliRuntimeProtocol.TRANSACTION_JOB_CANCEL),

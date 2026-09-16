@@ -33,7 +33,10 @@ class ProotResultStoreDeviceTest {
             file.writeBytes(original)
             assertEquals(file, store.readLocal("turn", "call"))
             val relative = file.relativeTo(root).invariantSeparatorsPath
-            assertEquals(listOf(relative), storage.deleteSessionPermanently("session").unreferencedWorkspacePaths)
+            assertEquals(
+                listOf("scope:app:$relative"),
+                storage.deleteSessionPermanently("session").unreferencedWorkspacePaths,
+            )
         }
     }
 

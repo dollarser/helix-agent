@@ -41,7 +41,7 @@ class SystemPermissionsNavigationDeviceTest {
     fun missingProviderOffersSettingsNavigation() {
         compose.resetDeterministicUiState()
         deleteEditableProviders(compose.container())
-        compose.waitUntil {
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
                 .container()
                 .providerService.rows.value
@@ -49,7 +49,7 @@ class SystemPermissionsNavigationDeviceTest {
         }
         val chat = compose.container().chatService
         chat.closeSession()
-        compose.waitUntil { chat.screen.value.openSessionId == null }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
         compose.onNodeWithTag("chat-setup-provider").performScrollTo().performClick()
         compose.onNodeWithTag("screen-settings").assertIsDisplayed()
     }

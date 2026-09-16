@@ -233,7 +233,7 @@ internal fun HelixApp(container: AppContainer) {
                 ) {
                     repository.destinations.forEach { destination ->
                         composable(destination.route) {
-                            destinationScreen(
+                            DestinationScreen(
                                 destination,
                                 container,
                                 navController,
@@ -249,7 +249,7 @@ internal fun HelixApp(container: AppContainer) {
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
-private fun destinationScreen(
+private fun DestinationScreen(
     destination: ShellDestination,
     container: AppContainer,
     navController: NavController,

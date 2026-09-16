@@ -98,44 +98,8 @@ internal fun ProviderRow(
                 )
             }
         }
-        // HXA-059: the backend model list, carried out of the LAST PASSED
-        // connection test only. A failed/untested row shows no section at all;
-        // a passed row without a list gets the explicit manual-entry hint.
-        // Selecting a chip PREFILLS the edit form (never auto-saves).
-        if (row.status is ConnectionTestStatus.Passed && !row.managedExternally) {
-            val models = row.backendModels
-            if (models.isNullOrEmpty()) {
-                Text(
-                    stringResource(R.string.provider_models_unsupported_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("provider-models-unsupported"),
-                )
-            } else {
-                BackendModelsSection(
-                    models = models,
-                    onModelSelected = { id -> actions.onEdit(id) },
-                )
-            }
-        }
-        capabilityOutcome?.let { outcome ->
-            Text(
-                when (outcome) {
-                    is com.helix.provider.api.ProbeOutcome.Ok -> {
-                        stringResource(R.string.provider_capabilities_passed)
-                    }
-
-                    is com.helix.provider.api.ProbeOutcome.Failed -> {
-                        stringResource(
-                            R.string.provider_capabilities_failed,
-                            stringResource(ConnectionTestMapping.codeLabel(outcome.code)),
-                        )
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.testTag("provider-capability-result"),
-            )
-        }
+        // HXA-059: the backend model list + the capability probe result (see the section helper).
+        ProviderModelsAndCapability(row = row, actions = actions, capabilityOutcome = capabilityOutcome)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
                 onClick = actions.onTest,
@@ -303,3 +267,53 @@ private fun statusDetail(row: ProviderRowUi): String? =
             )
         }
     }
+
+/**
+ * The backend-model list (carried out of the last passed connection test) and the capability
+ * probe result for a provider row. Split from [ProviderRow] to keep each section a focused unit.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun ProviderModelsAndCapability(
+    row: ProviderRowUi,
+    actions: ProviderRowActions,
+    capabilityOutcome: com.helix.provider.api.ProbeOutcome?,
+) {
+    // HXA-059: the backend model list is carried out of the LAST PASSED connection test only. A
+    // failed/untested row shows no section; a passed row without a list gets the manual-entry hint.
+    // Selecting a chip PREFILLS the edit form (never auto-saves).
+    if (row.status is ConnectionTestStatus.Passed && !row.managedExternally) {
+        val models = row.backendModels
+        if (models.isNullOrEmpty()) {
+            Text(
+                stringResource(R.string.provider_models_unsupported_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("provider-models-unsupported"),
+            )
+        } else {
+            BackendModelsSection(
+                models = models,
+                onModelSelected = { id -> actions.onEdit(id) },
+            )
+        }
+    }
+    capabilityOutcome?.let { outcome ->
+        Text(
+            when (outcome) {
+                is com.helix.provider.api.ProbeOutcome.Ok -> {
+                    stringResource(R.string.provider_capabilities_passed)
+                }
+
+                is com.helix.provider.api.ProbeOutcome.Failed -> {
+                    stringResource(
+                        R.string.provider_capabilities_failed,
+                        stringResource(ConnectionTestMapping.codeLabel(outcome.code)),
+                    )
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("provider-capability-result"),
+        )
+    }
+}

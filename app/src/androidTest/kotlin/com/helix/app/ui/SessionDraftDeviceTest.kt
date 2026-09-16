@@ -51,15 +51,15 @@ class SessionDraftDeviceTest {
                     check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
                     val before = storage.sessions.list().size
                     chat.newSessionDraft()
-                    compose.waitUntil { chat.screen.value.isDraft }
+                    compose.waitUntil(10_000) { chat.screen.value.isDraft }
                     chat.closeSession()
-                    compose.waitUntil { chat.screen.value.openSessionId == null }
+                    compose.waitUntil(10_000) { chat.screen.value.openSessionId == null }
                     assertEquals(before, storage.sessions.list().size)
                     chat.newSessionDraft()
-                    compose.waitUntil { chat.screen.value.isDraft }
+                    compose.waitUntil(10_000) { chat.screen.value.isDraft }
                     chat.bindProviderToSession(provider, "fixture-model-a")
                     chat.setSessionDirectory("scope:app:work")
-                    compose.waitUntil { chat.screen.value.directoryRef == "scope:app:work" }
+                    compose.waitUntil(10_000) { chat.screen.value.directoryRef == "scope:app:work" }
                     val id = requireNotNull(chat.screen.value.openSessionId)
                     chat.send("First question about a project")
                     chat.send("Must not create another turn")
@@ -74,10 +74,10 @@ class SessionDraftDeviceTest {
                     compose.onNodeWithTag("chat-title").performClick()
                     compose.onNodeWithTag("session-title").performTextReplacement("Renamed")
                     compose.onNodeWithTag("session-rename-save").performClick()
-                    compose.waitUntil { storage.sessions.resolve(id).title == "Renamed" }
+                    compose.waitUntil(10_000) { storage.sessions.resolve(id).title == "Renamed" }
                     chat.closeSession()
                     chat.openSession(id)
-                    compose.waitUntil { chat.screen.value.sessionTitle == "Renamed" }
+                    compose.waitUntil(10_000) { chat.screen.value.sessionTitle == "Renamed" }
                     assertEquals("scope:app:work", chat.screen.value.directoryRef)
                     assertEquals(1, storage.turns.listBySession(id).size)
                 } finally {

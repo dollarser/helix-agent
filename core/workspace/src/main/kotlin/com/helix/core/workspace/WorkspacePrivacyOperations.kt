@@ -19,6 +19,7 @@ internal class WorkspacePrivacyOperations(
         val target = resolveContained(path, root)
         val privateArtifact =
             path.relativePath.startsWith(".helix/subscription-results/") ||
+                path.relativePath.startsWith(".helix/proot-results/") ||
                 path.relativePath.startsWith(".helix/goal-evidence/")
         require(WorkspaceLayout.regionOf(path.relativePath) in WorkspaceLayout.regions || privateArtifact) {
             "privacy deletion is limited to workspace data regions and owned artifact directories"

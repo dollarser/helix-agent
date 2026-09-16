@@ -11,12 +11,8 @@ import android.content.Intent
  * process-group kill, terminal CANCELLED record, notification removed on the
  * terminal path.
  *
- * exported=true is REQUIRED for the PendingIntent to resolve (an implicit
- * broadcast to a non-exported receiver is not deliverable), and the
- * SIGNATURE-level permission (the same one that guards the service and the
- * repair activity) restricts senders to the same signed set: the main app and
- * the developer test APK. A job cancel is the only effect; there is no
- * capability minting here (no job submission, no file access, no state read).
+ * ADR-0049: the explicit immutable PendingIntent targets a non-exported receiver
+ * in the same application and runtime process. It can only cancel an existing job.
  */
 class ProotJobStopReceiver : BroadcastReceiver() {
     override fun onReceive(

@@ -2,7 +2,6 @@ package com.helix.app
 
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 
 /**
  * The system share sheet → Helix adapter (P0-B PX-06 / HXA-056): turns a share INTENT into a
@@ -82,31 +81,8 @@ object ShareIntentDraft {
     private fun streamUri(intent: Intent): String? {
         val data =
             intent.getStringExtra(Intent.EXTRA_STREAM) ?: intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-        return data?.toString() ?: legacyStreamUri(intent)
+        return data?.toString()
     }
-
-    /**
-     * API < 29: some senders ship EXTRA_STREAM as a raw Parcelable, which
-     * `getParcelableExtra` can't cast. Reads it reflectively (no class literal → no crash) and
-     * yields the FIRST reference only; a malformed shape yields null (a broken share, never an
-     * exception).
-     */
-    @Suppress("SwallowedException", "TooGenericExceptionCaught", "NestedBlockDepth")
-    private fun legacyStreamUri(intent: Intent): String? =
-        if (Build.VERSION.SDK_INT < 29) {
-            try {
-                val raw = intent.extras?.get(Intent.EXTRA_STREAM) ?: return null
-                when (raw) {
-                    is Uri -> raw.toString()
-                    is Array<*> -> raw.firstOrNull { it is Uri }?.let { (it as Uri).toString() }
-                    else -> null
-                }
-            } catch (_: Throwable) {
-                null
-            }
-        } else {
-            null
-        }
 
     /** The ACTION_SEND_MULTIPLE reference array (EXTRA_STREAM as a Uri[]), or empty. */
     private fun streamUris(intent: Intent): List<String> =

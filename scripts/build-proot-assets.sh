@@ -5,6 +5,8 @@
 #
 # Usage:
 #   scripts/build-proot-assets.sh                # verify + build + place (lock must exist)
+#   HELIX_ROOTFS_ARCHIVE=/path/to/locked.tar scripts/build-proot-assets.sh
+#                                               # verify archived raw tar instead of Docker
 #   scripts/build-proot-assets.sh --generate-lock  # first run: fetch pinned upstreams,
 #                                                    # measure, WRITE the lock, then verify
 #
@@ -108,8 +110,10 @@ fetch_component() { # <id>
 extract_deb() { # <deb> <out-dir>
     local deb="$1" out="$2"
     mkdir -p "$out"
-    tar -xf "$deb" -C "$out"
-    tar -xJf "$out/data.tar.xz" -C "$out"
+    # GNU tar cannot unpack the outer ar container of a .deb. Both macOS and
+    # the Linux CI asset runner use libarchive's bsdtar for this step.
+    bsdtar -xf "$deb" -C "$out"
+    bsdtar -xJf "$out/data.tar.xz" -C "$out"
     rm -f "$out/control.tar.xz" "$out/data.tar.xz" "$out/debian-binary" 2>/dev/null || true
 }
 
@@ -141,7 +145,7 @@ for c in lock['components']:
     fi
     # The base image is pinned by DIGEST (recorded in licenses/ALPINE-README.md): the tag
     # is a moving name, the digest is the provenance. Fail closed on mismatch.
-    local image_tag="alpine:$(apk_branch_version)"
+    local image_tag="alpine@${ALPINE_IMAGE_DIGEST}"
     if ! docker image inspect "$image_tag" >/dev/null 2>&1; then
         docker pull "$image_tag"
     fi
@@ -164,7 +168,7 @@ for c in lock['components']:
     # Docker Desktop (macOS) corrupts large files written through the bind mount
     # (observed: busybox `tar` short read / apk "I/O error" on the same volume).
     # Only the small log files use the bind mount.
-    docker run --rm \
+    if docker run --rm \
         -e HELIX_ALPINE_MIRROR="$mirror" \
         -e HELIX_ALPINE_BRANCH="$branch" \
         -v "$workdir/rootfs-out:/out" "$image_tag" sh -c '
@@ -200,7 +204,19 @@ tar cf - \
     --exclude=./proc --exclude=./sys --exclude=./dev \
     --exclude=./out --exclude=./.dockerenv \
     -C / .
-' > "$workdir/rootfs-out/rootfs-raw.tar"
+' > "$workdir/rootfs-out/rootfs-raw.tar"; then
+        :
+    else
+        local container_status=$?
+        printf 'RootFS container failed with exit %s; package diagnostics follow.\n' "$container_status" >&2
+        local diagnostic
+        for diagnostic in "$workdir/rootfs-out/apk-update.log" "$workdir/rootfs-out/apk-install.log"; do
+            if [[ -f "$diagnostic" ]]; then
+                tail -80 "$diagnostic" >&2
+            fi
+        done
+        return "$container_status"
+    fi
     printf 'rootfs built: %s (pinned: %s)\n' "$(size_of "$workdir/rootfs-out/rootfs-raw.tar")" "$pin_spec"
     # Full read-back of the streamed tar: the Docker VM has transient I/O glitches that
     # truncate archives mid-stream (observed); fail closed and rerun the build rather
@@ -289,11 +305,21 @@ print(' '.join(c['id'] for c in lock['components']))
     pfx="$(prefix_dir "$workdir/x-shmem")"
     cp "$pfx/lib/libandroid-shmem.so" "$workdir/proot-assets/lib/libandroid-shmem.so"
 
-    build_rootfs
-    # The RAW deterministic tar is the authoritative embedded archive (what the lock
-    # pins and what AGP stores in the APK); the gz is a reproducible build artifact.
-    python3 "$project_root/scripts/deterministic_tar.py" \
-        "$workdir/rootfs-out/rootfs-raw.tar" "$workdir/alpine-rootfs.tar.gz" "$workdir/alpine-rootfs.tar"
+    if [[ -n "${HELIX_ROOTFS_ARCHIVE:-}" ]]; then
+        if [[ "$mode" != "verify" ]]; then
+            printf 'An archived RootFS cannot be used to generate a new lock.\n' >&2
+            exit 1
+        fi
+        # Validate below before unpacking. A moving package mirror is not a durable
+        # archive; CI may supply the exact previously published raw tar instead.
+        cp "$HELIX_ROOTFS_ARCHIVE" "$workdir/alpine-rootfs.tar"
+    else
+        build_rootfs
+        # The RAW deterministic tar is the authoritative embedded archive (what the lock
+        # pins and what AGP stores in the APK); the gz is a reproducible build artifact.
+        python3 "$project_root/scripts/deterministic_tar.py" \
+            "$workdir/rootfs-out/rootfs-raw.tar" "$workdir/alpine-rootfs.tar.gz" "$workdir/alpine-rootfs.tar"
+    fi
 
     if [[ "$mode" == "generate" ]]; then
         write_lock
@@ -311,8 +337,10 @@ print(' '.join(c['id'] for c in lock['components']))
         exit 1
     fi
     printf 'rootfs archive verified: sha256=%s size=%s\n' "$actual" "$(size_of "$workdir/alpine-rootfs.tar")"
-    printf 'gz build artifact: sha256=%s size=%s\n' \
-        "$(sha256_of "$workdir/alpine-rootfs.tar.gz")" "$(size_of "$workdir/alpine-rootfs.tar.gz")"
+    if [[ -f "$workdir/alpine-rootfs.tar.gz" ]]; then
+        printf 'gz build artifact: sha256=%s size=%s\n' \
+            "$(sha256_of "$workdir/alpine-rootfs.tar.gz")" "$(size_of "$workdir/alpine-rootfs.tar.gz")"
+    fi
 
     run_asset_gate
     place_assets

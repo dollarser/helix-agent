@@ -208,7 +208,7 @@ object ApprovalUiMapper {
         }
         // PRoot (HXA-085, doc local-code-execution §6.5): the FULL explicit script
         // (审批 UI 必须展示完整 script) or the argv line, the deadline, and the fixed
-        // offline boundary (no network switch exists for this target).
+        // execution boundary. ADR-0049's v2 PRoot shares host network permissions.
         val script = stringArg(arguments, "script")?.takeIf { it.isNotBlank() }
         val argv = (arguments["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
         return when {
@@ -220,7 +220,7 @@ object ApprovalUiMapper {
                     inputSourceArgs = filesSource(arguments["files"]).args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
-                    online = false,
+                    online = descriptor.version.value >= 2,
                 )
             }
 
@@ -232,7 +232,7 @@ object ApprovalUiMapper {
                     inputSourceArgs = filesSource(arguments["files"]).args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
-                    online = false,
+                    online = descriptor.version.value >= 2,
                 )
             }
 
@@ -339,7 +339,7 @@ object ApprovalUiMapper {
      * 高敏出网规则的卡片行 (roadmap HXA-036: 高敏出网规则单独标为有界 Policy 规则): the
      * live rule that already satisfies the card's egress is shown as a BOUNDED rule — its
      * exact binding (target / origin / category / scope) and validity window — never as a
-     * general approval credential (ADR-0005). Null when the call has no covered rule.
+     * general approval credential (ADR-0012). Null when the call has no covered rule.
      * The display line is a string-resource ID + stable binding args (HXA-069).
      */
     fun boundedRuleUi(rule: HighSensitivityRule?): BoundedRuleUi? {

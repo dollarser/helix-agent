@@ -1,36 +1,41 @@
-# Locked JGit TLS correction
+# JGit Android compatibility and TLS correction
 
-The app applies `reject-insecure-tls.gradle.kts` to JGit
-`org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r`, original SHA256
-`43f92f3adb681a5f3006b979e8d341c12a8cfd8029f287c42bcf0a80377565ae`.
+The app uses `org.eclipse.jgit:org.eclipse.jgit:7.8.0.202609011348-r`, verified
+upstream SHA256 `cc63976f92e8058d05a543f320a6237accf2f17b745ab20946f246ac0b54dfd6`.
+This upgrades the previous 6.10.0 version. Upstream POM dependencies are
+JavaEWAH 1.2.3, slf4j-api 2.0.18 and commons-codec 1.22.1, resolved normally.
+The app also enables Google's NIO core-library desugaring 2.1.5.
 
-The Helix-authored replacement preserves the binary class and method signatures of
-`org.eclipse.jgit.transport.http.NoCheckX509TrustManager`, but both certificate
-checks throw `CertificateException`. Calls asking to disable TLS verification fail;
-normal trust-manager selection and local status/diff code are unchanged. This is
-not a dependency upgrade, lint suppression, or assertion that unsafe code is unreachable.
+JGit 7.8 still invokes Java stream methods unavailable on Android API 29.
+Standard desugaring provides `transferTo`, but does not supply all of
+`readNBytes`/`readAllBytes`. The local artifact transform redirects those exact
+virtual calls on `InputStream` and `SilentFileInputStream` to the Helix-authored
+`AndroidInputStreams.java` helper, preserving caller-owned streams, EOF, range
+validation and IO failure propagation. It does not change Git algorithms or
+copy upstream implementation source. Unaffected class bytes remain unchanged.
+The helper is an explicit transform input so source changes invalidate its cache.
 
-A Gradle artifact transform compiles only this replacement with the build JDK,
-checks the original artifact checksum, and changes only that class. Other jar entries,
-including upstream license/notice files, retain their original bytes. Upstream jar
-signature files are removed because they cannot authenticate a locally changed jar.
-The original verified Maven artifact/cache is untouched. ZIP ordering/timestamps
-are normalized. Any upstream checksum change fails the build pending review.
+The existing Helix replacement of
+`org.eclipse.jgit.transport.http.NoCheckX509TrustManager` remains fail-closed:
+both certificate checks throw `CertificateException`. Normal certificate
+verification is not bypassed, and lint findings are not suppressed.
 
-Only the JGit jar is resolved through the locked non-transitive `helixJgit`
-configuration. Its three pinned upstream POM dependencies remain ordinary app
-dependencies and participate in the existing version conflict resolution. This
-avoids injecting duplicate file jars or changing AGP's own classpath attributes.
-The app lockfile changes only JGit's configuration membership; no resolved
-dependency version is upgraded.
+The transform verifies the Maven artifact hash, compiles the two original Helix
+helpers with the build JDK, and rewrites only the named TLS class and matching
+stream call sites using ASM 9.8. It adds the stream helper and preserves upstream
+license/notice entries. Upstream JAR signatures are removed because they cannot
+authenticate modified bytes; ZIP ordering/timestamps are deterministic. The
+original Maven artifact/cache is untouched. A new upstream checksum requires
+review and fresh device tests; version locks support reproducibility, not a ban
+on compatible upgrades.
 
-JGit's upstream licensing remains applicable to the distributed library; this
-replacement source is original Helix code. Distribute this correction description
-with the project's third-party notices and retain the original upstream source link:
-https://github.com/eclipse-jgit/jgit/tree/v6.10.0.202406032230-r
+Verification includes helper boundary/IO tests and the actual Git status/stage/
+diff device journey on supported APIs. An upgrade is not accepted on compilation
+alone. The latest full-suite evidence is recorded in the development status.
 
-Mechanism reference: https://docs.gradle.org/current/userguide/artifact_transforms.html
+Upstream license obligations remain applicable; distribute this correction
+notice with the third-party notices and retain the upstream source reference:
+https://github.com/eclipse-jgit/jgit/tree/v7.8.0.202609011348-r
 
-This does not authorize remote Git, filter execution, credential helpers, or changes
-to the accepted Git product scope. A future legitimate use of `http.sslVerify=false`
-requires an explicit new decision; it must not restore TrustAll silently.
+This does not authorize new Git operations, remote credentials or automatic
+filter/hook execution. Restoring TrustAll requires an explicit new decision.

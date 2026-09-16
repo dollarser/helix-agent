@@ -16,6 +16,7 @@ class WorkspacePrivacyArtifactTest {
         val store = WorkspaceArtifactStore(ScopeRootResolver { root })
         for (name in listOf(
             ".helix/subscription-results/job_123.json",
+            ".helix/proot-results/job_123.zip",
             ".helix/goal-evidence/proof.txt",
             "output/result.txt",
         )) {
@@ -35,6 +36,7 @@ class WorkspacePrivacyArtifactTest {
             ".helix/metadata.json",
             ".helix/executions/state.json",
             ".helix/subscription-results-other/a.json",
+            ".helix/proot-results-other/a.zip",
         )) {
             val target = root.resolve(name)
             Files.createDirectories(target.parent)

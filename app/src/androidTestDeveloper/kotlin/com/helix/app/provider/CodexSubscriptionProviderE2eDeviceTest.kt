@@ -8,6 +8,7 @@ import com.helix.app.internal.PrefsLineStore
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.storage.repository.ProviderConfigSpec
 import com.helix.provider.api.ProbeOutcome
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,9 +21,9 @@ class CodexSubscriptionProviderE2eDeviceTest {
     @Test fun claudeAccountUsesItsOwnExplicitActivity() =
         runBlocking {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
-            val intent = SubscriptionProviderModule.accountIntent(SubscriptionProviderModule.CLAUDE_ID)
+            val intent = SubscriptionProviderModule.accountIntent(app, SubscriptionProviderModule.CLAUDE_ID)
             assertEquals("com.helix.runtime.cli.app.ClaudeLoginActivity", intent.component?.className)
-            assertEquals("com.helix.runtime.cli", intent.component?.packageName)
+            assertEquals(app.packageName, intent.component?.packageName)
             assertEquals(
                 ManagedProviderAccountResult.OPENED,
                 app.appContainer.providerService.openManagedAccount(SubscriptionProviderModule.CLAUDE_ID),
@@ -57,7 +58,12 @@ class CodexSubscriptionProviderE2eDeviceTest {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             assertEquals(
                 "com.helix.runtime.cli.app.CopilotLoginActivity",
-                SubscriptionProviderModule.accountIntent(SubscriptionProviderModule.COPILOT_ID).component?.className,
+                SubscriptionProviderModule
+                    .accountIntent(
+                        app,
+                        SubscriptionProviderModule.COPILOT_ID,
+                    ).component
+                    ?.className,
             )
             assertEquals(
                 ManagedProviderAccountResult.OPENED,
@@ -70,7 +76,7 @@ class CodexSubscriptionProviderE2eDeviceTest {
             val app = ApplicationProvider.getApplicationContext<HelixApplication>()
             assertEquals(
                 "com.helix.runtime.cli.app.GrokLoginActivity",
-                SubscriptionProviderModule.accountIntent(SubscriptionProviderModule.GROK_ID).component?.className,
+                SubscriptionProviderModule.accountIntent(app, SubscriptionProviderModule.GROK_ID).component?.className,
             )
             assertEquals(
                 ManagedProviderAccountResult.OPENED,
@@ -98,6 +104,10 @@ class CodexSubscriptionProviderE2eDeviceTest {
                     ),
                 )
                 val probe = container.providerService.runConnectionTest(providerId)
+                if (providerId == SubscriptionProviderModule.CODEX_ID) {
+                    verifyNoAccountCodexFixture(container, providerId, probe)
+                    return@runBlocking
+                }
                 assertTrue(probe is ProbeOutcome.Ok)
                 val row =
                     container.providerService.rows.value
@@ -128,4 +138,38 @@ class CodexSubscriptionProviderE2eDeviceTest {
                 container.providerService.refresh()
             }
         }
+
+    private suspend fun verifyNoAccountCodexFixture(
+        container: com.helix.app.AppContainer,
+        providerId: String,
+        probe: ProbeOutcome,
+    ) {
+        // Codex now probes its authenticated catalog and tool/vision support. The
+        // text-only no-account fixture must not falsely advertise those capabilities.
+        assertTrue("No-account catalog probe must fail: $probe", probe is ProbeOutcome.Failed)
+        val events =
+            container.providerService
+                .modelProviderFor(providerId)
+                .stream(
+                    com.helix.core.model.ModelRequest(
+                        "helix-fixture",
+                        listOf(
+                            com.helix.core.model
+                                .ModelMessage(com.helix.core.model.ModelRole.USER, "hello"),
+                        ),
+                    ),
+                ).toList()
+        assertTrue(
+            events.contains(
+                com.helix.core.model.ModelEvent
+                    .TextDelta("HELIX_OK"),
+            ),
+        )
+        assertTrue(
+            events.contains(
+                com.helix.core.model.ModelEvent
+                    .Completed("stop"),
+            ),
+        )
+    }
 }

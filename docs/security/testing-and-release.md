@@ -1,5 +1,7 @@
 # Helix 安全、测试与发布门禁
 
+> 当前打包与信任边界以 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 为准：developer 内置 Subscriptions/PRoot，私有进程共享主 UID；consumer 不包含两组件。下文原 companion 独立 APK/UID、离线承诺及对应旧验收只作为历史设计，不能用来证明新形态安全隔离。Binder/PFD、授权、取消与不盲目重放仍有效。
+
 ## 1. 安全目标
 
 Helix 的核心风险不是“模型回答不够好”，而是模型、网页、通知或文件中的不可信文本诱导 App 使用真实手机权限。安全目标：

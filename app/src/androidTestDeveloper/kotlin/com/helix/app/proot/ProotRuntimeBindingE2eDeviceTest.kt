@@ -88,14 +88,14 @@ class ProotRuntimeBindingE2eDeviceTest {
         assertEquals(listOf("handshake", "jobs", "stdio"), descriptor.capabilities)
         // Independently read the installed APK's pinned asset, not a pre-MCP-stdio
         // historical digest or the handshake's own manifest response.
-        val companionContext = context.createPackageContext(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0)
+        val companionContext = context.createPackageContext(context.packageName, 0)
         val embeddedLock =
             companionContext.assets.open("runtime/runtime-lock.json").bufferedReader().use {
                 RuntimeLockCodec.parse(it.readText())
             }
         assertEquals(RuntimeLockCodec.sha256Hex(embeddedLock), descriptor.lockSha256)
         val versionName =
-            context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0).versionName
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
         assertEquals(versionName, descriptor.runtimeVersion)
         // The verified descriptor is persisted as the anchor.
         val anchor = VerifiedRuntimeStore(context).load()
@@ -177,7 +177,7 @@ class ProotRuntimeBindingE2eDeviceTest {
                 Intent()
                     .setComponent(
                         ComponentName(
-                            ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                            context.packageName,
                             ProotRuntimeProtocol.SERVICE_CLASS,
                         ),
                     ).putExtra(ProotRuntimeProtocol.EXTRA_DEBUG_NULL_BIND, true)
@@ -283,7 +283,7 @@ class ProotRuntimeBindingE2eDeviceTest {
 @Suppress("SwallowedException")
 private fun companionAppInfo(context: Context): ApplicationInfo? =
     try {
-        context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0).applicationInfo
+        context.packageManager.getPackageInfo(context.packageName, 0).applicationInfo
     } catch (e: PackageManager.NameNotFoundException) {
         null
     }

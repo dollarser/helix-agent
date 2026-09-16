@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
 import android.os.Process
-import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import java.security.MessageDigest
 
 /**
@@ -27,9 +26,10 @@ object ProotCallerVerifier {
     fun verify(
         context: Context,
         callingUid: Int,
-        allowedPackages: Set<String> = ProotRuntimeProtocol.MAIN_APP_PACKAGES,
+        allowedPackages: Set<String> = setOf(context.packageName),
         expectedCertSha256s: List<String> = selfCertSha256s(context),
     ): Boolean {
+        if (callingUid != Process.myUid()) return false
         val pm = context.packageManager
         val packages = pm.getPackagesForUid(callingUid)
         if (packages == null || packages.size != 1) return false

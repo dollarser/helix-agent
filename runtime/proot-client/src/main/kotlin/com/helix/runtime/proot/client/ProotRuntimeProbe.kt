@@ -41,9 +41,9 @@ interface ProotRuntimeProbe {
  */
 class PackageManagerProotRuntimeProbe(
     private val context: Context,
-    private val packageName: String = ProotRuntimeProtocol.RUNTIME_PACKAGE,
+    private val packageName: String = context.packageName,
 ) : ProotRuntimeProbe {
-    override fun isInstalled(): Boolean = packageInfo() != null
+    override fun isInstalled(): Boolean = packageInfo() != null && serviceInfo() != null
 
     override fun isStopped(): Boolean = stoppedFlag() ?: false
 
@@ -54,9 +54,21 @@ class PackageManagerProotRuntimeProbe(
     }
 
     override fun isEnabled(): Boolean {
-        val info = packageInfo() ?: return false
-        return info.applicationInfo?.enabled ?: false
+        val info = packageInfo()
+        val service = serviceInfo() ?: return false
+        return info?.applicationInfo?.enabled == true && service.enabled && !service.exported &&
+            service.processName == "$packageName:proot"
     }
+
+    private fun serviceInfo() =
+        try {
+            context.packageManager.getServiceInfo(
+                android.content.ComponentName(packageName, ProotRuntimeProtocol.SERVICE_CLASS),
+                PackageManager.MATCH_DISABLED_COMPONENTS,
+            )
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
 
     override fun signingCertificateSha256s(): List<String> {
         val info = packageInfo() ?: return emptyList()

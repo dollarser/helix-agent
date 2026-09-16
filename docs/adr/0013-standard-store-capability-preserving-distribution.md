@@ -9,6 +9,9 @@ Superseded by: none
 
 ## Context
 
+> 2026-09-14：[ADR-0049](0049-integrated-developer-runtimes.md) 改为 developer 单 APK 私有进程，部分取代下文 APK/UID/离线与安装方式约束；其余授权、生命周期与发行约束保留。旧实验结果仅适用于原形态。
+
+
 [ADR-0006](0006-single-direct-main-package.md)把 developer 变体定位为直接分发的唯一完整主应用，把 consumer 定位为未来商店、企业或合规渠道的严格裁剪产物。该做法容易把运行时 `STANDARD` 错误等同于“低能力版”，并让尚未核验的安全或审核假设提前决定产品能力。
 
 项目所有者现明确要求：`STANDARD` 的产品边界应能面向 Google Play 和国内 Android 应用商店，同时保留尽可能完整的用户价值；不能只因为安全偏好、命名惯例或未经证实的审核猜测删除能力。`STANDARD`/`ADVANCED` 是运行时体验和授权模型，商店/官网是分发渠道，Gradle flavor 是打包机制，三者不能互相替代。

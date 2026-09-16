@@ -108,7 +108,7 @@ class ProotUpdateLifecycleDeviceTest {
         val info =
             pm.getActivityInfo(
                 android.content.ComponentName(
-                    ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                    context.packageName,
                     ProotRuntimeProtocol.LEGAL_ACTIVITY_CLASS,
                 ),
                 0,
@@ -171,7 +171,7 @@ class ProotUpdateLifecycleDeviceTest {
                 .Intent()
                 .setComponent(
                     android.content.ComponentName(
-                        ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                        context.packageName,
                         ProotRuntimeProtocol.LEGAL_ACTIVITY_CLASS,
                     ),
                 ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),

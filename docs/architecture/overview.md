@@ -1,5 +1,7 @@
 # Helix 总体架构（Android 单机版）
 
+> 当前打包与信任边界以 [ADR-0049](../adr/0049-integrated-developer-runtimes.md) 为准：developer 内置 Subscriptions/PRoot，私有进程共享主 UID；consumer 不包含两组件。下文原 companion 独立 APK/UID、离线承诺及对应旧验收只作为历史设计，不能用来证明新形态安全隔离。Binder/PFD、授权、取消与不盲目重放仍有效。
+
 文档状态：Baseline 1.4
 基线日期：2026-09-03
 
@@ -248,6 +250,8 @@ interface ToolExecutor {
 ## 5. Agent 模式与状态机
 
 ### 5.1 模式边界
+
+内置 METADATA 架构契约已由 [ADR-0048（accepted）](../adr/0048-review-modes-admit-built-in-metadata-class.md) 部分扩展 ADR-0003；保持 Chat L0/Plan L1 风险上限和外部来源不可声明。普通调研允许文本结束，结构化计划不是强制步骤。生产 Registry/Dispatcher/真实 Room/audit 集成仍须按 [HXA-192](../development/harness-2.0-next-work.md) 验收，接受不等于已启用、已合入或已发布。
 
 | 模式 | 允许行为 |
 | --- | --- |

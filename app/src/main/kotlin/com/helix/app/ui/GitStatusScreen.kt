@@ -85,14 +85,14 @@ internal fun GitStatusScreenDestination() {
             }
 
             GitWorkspaceResult.NotARepository -> {
-                stateText(
+                StateText(
                     Modifier.testTag("git-not-repo"),
                     stringResource(R.string.git_not_a_repo),
                 )
             }
 
             is GitWorkspaceResult.Error -> {
-                stateText(Modifier.testTag("git-error"), stringResource(R.string.git_error_title) + "：" + r.message)
+                StateText(Modifier.testTag("git-error"), stringResource(R.string.git_error_title) + "：" + r.message)
             }
 
             is GitWorkspaceResult.Ready -> {
@@ -107,7 +107,7 @@ internal fun GitStatusScreenDestination() {
 /** A centered, padded single-paragraph honest state (non-repo / error / clean). */
 @Composable
 @Suppress("FunctionName")
-private fun stateText(
+private fun StateText(
     modifier: Modifier,
     text: String,
 ) {
@@ -145,7 +145,7 @@ private fun GitReadyContent(
             )
         }
         if (status.isClean) {
-            stateText(Modifier.testTag("git-clean"), stringResource(R.string.git_clean))
+            StateText(Modifier.testTag("git-clean"), stringResource(R.string.git_clean))
         } else {
             GitChangeList(status, onOpen)
         }
@@ -165,15 +165,15 @@ private fun GitChangeList(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (status.staged.isNotEmpty()) {
-            item(key = "h-staged") { sectionLabel(stringResource(R.string.git_staged)) }
+            item(key = "h-staged") { SectionLabel(stringResource(R.string.git_staged)) }
             items(status.staged, key = GitChange::id) { GitChangeRow(it, onOpen) }
         }
         if (status.unstaged.isNotEmpty()) {
-            item(key = "h-unstaged") { sectionLabel(stringResource(R.string.git_unstaged)) }
+            item(key = "h-unstaged") { SectionLabel(stringResource(R.string.git_unstaged)) }
             items(status.unstaged, key = GitChange::id) { GitChangeRow(it, onOpen) }
         }
         if (status.untracked.isNotEmpty()) {
-            item(key = "h-untracked") { sectionLabel(stringResource(R.string.git_untracked)) }
+            item(key = "h-untracked") { SectionLabel(stringResource(R.string.git_untracked)) }
             items(status.untracked, key = GitChange::id) { GitChangeRow(it, onOpen) }
         }
     }
@@ -182,7 +182,7 @@ private fun GitChangeList(
 /** A small overline labeling a change group. */
 @Composable
 @Suppress("FunctionName")
-private fun sectionLabel(label: String) {
+private fun SectionLabel(label: String) {
     Text(
         label,
         style = MaterialTheme.typography.labelLarge,

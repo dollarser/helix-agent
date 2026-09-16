@@ -15,22 +15,24 @@ internal object CodexSmokeStream {
         var remaining = MAX_STREAM_BYTES
         while (remaining > 0) {
             val newline = source.indexOf('\n'.code.toByte(), 0, remaining + 1)
-            if (newline < 0 && source.buffer.size > remaining) throw CodexSmokeException("response-too-large")
+            if (newline < 0 && source.buffer.size > remaining) responseTooLarge()
             val count = if (newline >= 0) newline + 1 else source.buffer.size
             if (count == 0L) break
-            if (count > remaining) throw CodexSmokeException("response-too-large")
+            if (count > remaining) responseTooLarge()
             remaining -= count
-            val event = parseEvent(source.readUtf8(count).trimEnd('\n', '\r')) ?: continue
-            if (accept(event, text)) {
+            val event = parseEvent(source.readUtf8(count).trimEnd('\n', '\r'))
+            if (event != null && accept(event, text)) {
                 // SSE completion is the end of this request; the server need not close the socket.
                 val normalized = text.toString().trim()
                 if (normalized != EXPECTED_TEXT) throw CodexSmokeException("unexpected-output")
                 return normalized
             }
         }
-        if (remaining == 0L) throw CodexSmokeException("response-too-large")
+        if (remaining == 0L) responseTooLarge()
         throw CodexSmokeException("response-incomplete")
     }
+
+    private fun responseTooLarge(): Nothing = throw CodexSmokeException("response-too-large")
 
     private fun parseEvent(line: String): JsonObject? {
         val data = line.takeIf { it.startsWith("data:") }?.removePrefix("data:")?.trim()
