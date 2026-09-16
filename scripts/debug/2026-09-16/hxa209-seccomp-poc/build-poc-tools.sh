@@ -20,3 +20,7 @@ mkdir -p "$OUT"
 "$CLANG" -O2 -Wall -Wextra -static -o "$OUT/netprobe" scripts/debug/2026-09-16/hxa209-seccomp-poc/netprobe.c
 file "$OUT/guard" "$OUT/filterprobe" "$OUT/diag" "$OUT/netprobe"
 shasum -a 256 "$OUT/guard" "$OUT/filterprobe" "$OUT/diag" "$OUT/netprobe"
+
+for name in fdprobe delegation-probe; do
+  "$CLANG" -O2 -Wall -Wextra -Werror -o "$OUT/$name" "scripts/debug/2026-09-16/hxa209-seccomp-poc/$name.c"
+done

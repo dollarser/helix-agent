@@ -25,5 +25,6 @@ done
 "$adb" -s "$serial" shell "chmod 700 $p/*; sha256sum $p/*"
 "$adb" -s "$serial" shell "$p/diag"
 "$adb" -s "$serial" shell "$p/filterprobe"
-"$adb" -s "$serial" shell "$p/guard /system/bin/sh -c 'echo exec-inheritance-ok; $p/netprobe'"
+"$adb" -s "$serial" shell "echo synthetic > $p/input; $p/guard /system/bin/sh -c 'echo exec-inheritance-ok; $p/netprobe' < $p/input > $p/output 2>&1"
+"$adb" -s "$serial" shell "cat $p/output"
 "$adb" -s "$serial" shell "rm -rf $p"
