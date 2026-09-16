@@ -12,7 +12,7 @@
 
 ## In progress
 
-本轮已完成文档治理与SGLang基线收尾，并验证 HXA-209 网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，按所有者选择保留当前 Runtime、撤下统一禁网要求；不是禁网功能完成。见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)。27项分为：6项收尾验收、12项待实现、2项集成验收、3项待决策、4项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做；本轮没有补写任何功能完成记录。
+本轮已完成文档治理与SGLang基线收尾，并验证 HXA-209 网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，按所有者选择保留当前 Runtime、撤下统一禁网要求；不是禁网功能完成。见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)。HXA-209 A 切片：四个执行域的效果边界矩阵与证据已建立，rm 命令规则与 45 个契约测试实现并当日全绿，宿主侧套件当日新跑通过，见[执行域效果边界与证据矩阵](../evidence/development/2026-09-16-hxa209-execution-domain-matrix.md)；B–E（单一授权配置/接线/UI/文档收口）尚未实现。27项分为：6项收尾验收、12项待实现、2项集成验收、3项待决策、4项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做；本轮没有补写任何功能完成记录。
 
 ## Next task
 
