@@ -9,6 +9,8 @@ Superseded by: none
 
 ## Context
 
+2026-09-16 增量：[ADR-0053](0053-goal-continuation-activation.md) 经所有者授权部分替代“每个 run 必须显式继续”，加入用户激活后的前后台连续轮次及完整模型 Goal 工具；本 ADR 的累计预算、异常和进程恢复约束保留。以下首版描述作为决策历史。
+
 [HXA-013](../development/roadmap.md) 要求实现 Goal reducer：Goal 状态、验收条件、模型/工具/token/时长/重试预算、checkpoint、`INPUT_REQUIRED`；首版只有用户显式继续创建新 run；预算耗尽不得完成；只有 verifier evidence 可满足 criterion。
 
 规范给出的是状态与约束，不是事件/运行模型：

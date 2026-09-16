@@ -22,8 +22,8 @@ data class GoalStep(
  *
  * Design decisions (recorded in the HXA-013 completion record; the ADR-0039/0040 evolution is
  * noted inline):
- * - A run (created by an explicit `Continued`) contains wakes. A wake ends by: normal Turn
- *   completion (`RunFinished` -> PAUSED, awaiting the next explicit wake), budget exhaustion
+ * - A run (created by an admitted `Continued`) contains wakes. A wake ends by: normal Turn
+ *   completion (`RunFinished` -> PAUSED, then ADR-0053 may admit an activated successor), budget exhaustion
  *   (`WakeUsageReported` -> BLOCKED with `BudgetExhausted(limit)`; ADR-0039: a missing budget
  *   is a blocker that must be resolved, not a plain park), input need (-> INPUT_REQUIRED), or
  *   failure (`WakeFailed`: retry within budget stays RUNNING, otherwise FAILED).
@@ -32,7 +32,7 @@ data class GoalStep(
  *   (The `GoalState` machine has no RUNNING -> RUNNING edge, so retries are wake-level: the
  *   goal state stays RUNNING while the coordinator re-tries the wake.)
  * - BLOCKED (ADR-0039) is a durable state that cannot be Continued directly: the recorded
- *   dependency is resolved first (`BlockerResolved` -> PAUSED, then an explicit `Continued`
+ *   dependency is resolved first (`BlockerResolved` -> PAUSED, then an admitted `Continued`
  *   starts the run).
  * - `CompleteRequested` completes a RUNNING goal: settlement has already consumed the model's
  *   completion report after the execution gates (terminal turn, no unsettled side effects, no
@@ -272,7 +272,7 @@ object GoalReducer {
         // only meaningful update, so a reduction below usage in ANY of the six dimensions —
         // including maxRetries vs state.retries — is ignored.
         val acceptable =
-            (state.state in setOf(GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)) &&
+            (state.state in setOf(GoalState.READY, GoalState.PAUSED, GoalState.INPUT_REQUIRED, GoalState.BLOCKED)) &&
                 budgets.maxModelCalls >= state.modelCalls &&
                 budgets.maxToolCalls >= state.toolCalls &&
                 budgets.maxTotalTokens >= state.totalTokens &&

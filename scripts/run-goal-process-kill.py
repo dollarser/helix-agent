@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--serial", required=True, help="Dedicated emulator serial; the app process will be killed")
 parser.add_argument("--adb", default=shutil.which("adb"))
 parser.add_argument("--output", type=pathlib.Path, help="Evidence directory; use a new directory to preserve prior runs")
+parser.add_argument("--package", choices=["com.helix.agent", "com.helix.agent.developer"], default="com.helix.agent")
 args = parser.parse_args()
 if not args.adb:
     parser.error("adb is not on PATH; pass --adb")
@@ -20,7 +21,7 @@ base=[adb,'-s',args.serial]
 verify_emulator_signal_control(base)
 api=int(subprocess.check_output(base+['shell','getprop','ro.build.version.sdk'], text=True).strip())
 cls='com.helix.app.chat.GoalProcessKillDeviceTest'
-runner='com.helix.agent.test/com.helix.app.HelixAndroidJUnitRunner'
+runner=args.package+'.test/com.helix.app.HelixAndroidJUnitRunner'
 records=[]
 for phase in ['control','prepare','recover-prepare','recover-final']:
     cmd=base+['shell','am','instrument','-w','-r','-e','class',cls,'-e','goal.kill.phase',phase,runner]
@@ -38,9 +39,9 @@ for phase in ['control','prepare','recover-prepare','recover-final']:
                 raise RuntimeError(f'{phase}: no durable ready marker; see {path}')
             ready_at=time.monotonic()
             pid=match.group(1)
-            active=subprocess.check_output(base+['shell','pidof','com.helix.agent'],text=True).split()
+            active=subprocess.check_output(base+['shell','pidof',args.package],text=True).split()
             assert pid in active,(pid,active)
-            kill_emulator_app(base, 'com.helix.agent', pid)
+            kill_emulator_app(base, args.package, pid)
             process.wait(timeout=15)
             assert 'shortMsg=Process crashed.' in path.read_text(), path.read_text()
             records.append(dict(phase=phase,pid=int(pid),signal='SIGKILL',signalAuthority='emulator host su 0',readyToKillSeconds=time.monotonic()-ready_at,exit=process.returncode,log=path.name))

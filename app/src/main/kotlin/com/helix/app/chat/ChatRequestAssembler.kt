@@ -210,8 +210,9 @@ internal class ChatRequestAssembler(
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
             .filter { !hiddenByDenyPreference(it, sessionId) }
-            .filter { it.name.value != "goal.report" || control.mode == AgentMode.GOAL }
-            .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
+            .filter {
+                it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
+            }.sortedBy { if (it.name.value in com.helix.app.goal.GoalLifecycleTools.names) 0 else 1 }
             .take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
     }

@@ -52,10 +52,19 @@ class GoalModelCancellationDeviceTest {
                 chat.openSession(session)
                 await { chat.screen.value.openSessionId == session }
                 chat.setMode(AgentMode.GOAL)
-                chat.setTurnBudgets(TurnBudgets(3, 4, 10000, 128, 10000))
+                // This fixture tests socket cancellation, not the size of the developer tool catalog.
+                chat.setTurnBudgets(TurnBudgets(3, 4, 32000, 128, 10000))
                 server.holdChatStreams.set(true)
                 chat.continueGoal(goal, "Reply with a short plain text result.")
-                await { server.heldStreams.get() == 1 }
+                try {
+                    await { server.heldStreams.get() == 1 }
+                } catch (error: AssertionError) {
+                    throw AssertionError(
+                        "Model admission failed: blocked=${chat.screen.value.blockedReason}; " +
+                            "turns=${container.storage.turns.listBySession(session).map { it.state to it.errorCode }}",
+                        error,
+                    )
+                }
                 if (rotate) verifyGoalRotation(container, goal, session, server)
                 if (disconnect) requireNotNull(server.heldSocket.get()).close()
                 if (stop) chat.stop()

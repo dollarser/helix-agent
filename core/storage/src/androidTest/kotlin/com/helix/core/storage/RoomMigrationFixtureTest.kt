@@ -22,6 +22,7 @@ import com.helix.core.storage.criteria.StoredCriterion
 import com.helix.core.storage.mapping.StoredGoal
 import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -34,7 +35,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v18ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v19ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -523,7 +524,7 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun productionOpenMigratesAV16DatabaseToV18() {
+    fun productionOpenMigratesAV16DatabaseToV19() {
         val name = "prod-upgrade-v16.db"
         val contentDir = File(context.cacheDir, "content-$name")
         context.deleteDatabase(name)
@@ -568,8 +569,43 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v18ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v18-export.db", 18)
+    fun v18ToV19PreservesOwnershipWithoutActivatingOrStagingWork() {
+        val name = "goal-control-v19.db"
+        helper.createDatabase(name, 18).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s','Goal fixture',1)")
+            db.execSQL(
+                "INSERT INTO goals(id,objective,criteria,budgets,state,correlationId,runCount,modelCalls," +
+                    "toolCalls,totalTokens,runTimeMillis,currentWakeMillis,retries) " +
+                    "VALUES ('g','fixture','[]','{}','PAUSED','c',1,1,0,10,0,0,0)",
+            )
+            db.execSQL(
+                "INSERT INTO goal_runs(id,goalId,wakeReason,outcome,startedAt,endedAt,modelCalls,toolCalls,tokens) " +
+                    "VALUES ('r','g','USER_OPEN','RUN_FINISHED',1,2,1,0,10)",
+            )
+            db.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s','COMPLETED',0,1)")
+            db.execSQL("INSERT INTO goal_turn_bindings(turnId,runId) VALUES ('t','r')")
+        }
+        helper.runMigrationsAndValidate(name, 19, true, HelixDatabase.MIGRATION_18_19).use { db ->
+            db.query("SELECT goalId,sessionId,revision,pendingTurnId,pendingJson FROM goal_controls").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals("g", row.getString(0))
+                assertEquals("s", row.getString(1))
+                assertEquals(0L, row.getLong(2))
+                assertTrue(row.isNull(3) && row.isNull(4))
+                assertFalse(row.moveToNext())
+            }
+            db.query("SELECT state,totalTokens FROM goals WHERE id='g'").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals("PAUSED", row.getString(0))
+                assertEquals(10L, row.getLong(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v19ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v19-export.db", 19)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -577,7 +613,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v18 schema must match the exported v18 schema",
+                "code-built v19 schema must match the exported v19 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -636,6 +672,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_15_16,
                     HelixDatabase.MIGRATION_16_17,
                     HelixDatabase.MIGRATION_17_18,
+                    HelixDatabase.MIGRATION_18_19,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -1227,6 +1264,7 @@ class RoomMigrationFixtureTest {
             // "new." Both must appear in the live schema for the drift guard to pass.
             "tool_registration_baseline",
             "tool_baseline_meta",
+            "goal_controls",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

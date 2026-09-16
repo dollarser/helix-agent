@@ -22,6 +22,7 @@ import kotlin.time.Duration.Companion.seconds
 /** Model-owned semantic report. The host validates ownership, never certifies its truth. */
 internal object GoalReportTool {
     const val NAME = "goal.report"
+    const val UPDATE_NAME = "update_goal"
     private val schema =
         Json
             .parseToJsonElement(
@@ -40,9 +41,18 @@ internal object GoalReportTool {
         implementations: ToolImplementationRegistry,
         storage: HelixStorage,
     ) {
+        registerName(NAME, registry, implementations, storage)
+    }
+
+    private fun registerName(
+        name: String,
+        registry: ToolRegistry,
+        implementations: ToolImplementationRegistry,
+        storage: HelixStorage,
+    ) {
         val descriptor =
             ToolDescriptor(
-                name = ToolName(NAME),
+                name = ToolName(name),
                 version = ToolVersion(1),
                 description =
                     """
@@ -105,7 +115,7 @@ internal data class GoalModelReport(
 @Suppress("ReturnCount") // Reject stale, unsuccessful or malformed reports before consumption.
 internal fun HelixStorage.goalModelReport(turnId: String): GoalModelReport? {
     val call = toolCalls.listByTurn(turnId).lastOrNull() ?: return null
-    if (call.name != GoalReportTool.NAME || call.state != "COMPLETED") return null
+    if (call.name !in setOf(GoalReportTool.NAME, GoalReportTool.UPDATE_NAME) || call.state != "COMPLETED") return null
     val result = toolResults.byToolCall(call.id) ?: return null
     if (result.status != "SUCCEEDED" || !result.verified) return null
     val args = Json.parseToJsonElement(call.argsJson).jsonObject

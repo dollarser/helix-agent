@@ -233,8 +233,11 @@ internal class LoopbackModelServer(
 
     @Volatile var goalReportStatus: String? = null
 
+    @Volatile var scriptedChat: ((String) -> String)? = null
+
     @Suppress("ReturnCount") // Independent report, tool-probe and plain-text fixture responses.
     private fun chatStream(requestBody: String): String {
+        scriptedChat?.let { return it(requestBody) }
         if (reasoningOnlyResponses) {
             return "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking\"}," +
                 "\"finish_reason\":null}]}\n\n" +

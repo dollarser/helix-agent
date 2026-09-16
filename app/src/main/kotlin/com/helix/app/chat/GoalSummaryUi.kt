@@ -19,6 +19,8 @@ internal data class GoalSummaryUi(
     val canContinue: Boolean,
     val canEditBudgets: Boolean,
     val canDelete: Boolean = false,
+    val revision: Long = 0,
+    val canEditObjective: Boolean = false,
 )
 
 internal data class GoalStatusUi(
@@ -56,6 +58,10 @@ internal class GoalSummaryQuery(
         return snapshot
     }
 
+    private fun canEditObjective(goal: com.helix.core.storage.mapping.StoredGoal): Boolean =
+        goal.planId == null && goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED") &&
+            storage.goalControls.find(goal.id)?.pendingTurnId == null
+
     private fun readAll(): List<GoalSummaryUi> =
         storage.goals.list().map { entity ->
             val goal = storage.goals.resolve(entity.id)
@@ -74,8 +80,12 @@ internal class GoalSummaryQuery(
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
                 canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
-                goal.state in setOf("PAUSED", "INPUT_REQUIRED", "BLOCKED"),
-                goal.state != "RUNNING" && runs.none { it.endedAt == null },
+                goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED") &&
+                    storage.goalControls.find(goal.id)?.pendingTurnId == null,
+                goal.state != "RUNNING" && runs.none { it.endedAt == null } &&
+                    storage.goalControls.find(goal.id)?.pendingTurnId == null,
+                storage.goalControls.find(goal.id)?.revision ?: 0,
+                canEditObjective(goal),
             )
         }
 
@@ -87,6 +97,8 @@ internal class GoalSummaryQuery(
                 ).mapNotNull { storage.goalTurnBindings.byTurn(it.id)?.runId }
                 .toSet()
         return storage.goals.list().mapNotNull { entity ->
+            val owner = storage.goalControls.find(entity.id)?.sessionId
+            if (owner != null && owner != sessionId) return@mapNotNull null
             val runs = storage.goalRuns.listByGoal(entity.id)
             if (runs.isNotEmpty() && runs.none { it.id in runIds }) return@mapNotNull null
             val goal = storage.goals.resolve(entity.id)
@@ -114,8 +126,12 @@ internal class GoalSummaryQuery(
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
                 canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
-                goal.state in setOf("PAUSED", "INPUT_REQUIRED", "BLOCKED"),
-                goal.state != "RUNNING" && runs.none { it.endedAt == null },
+                goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED") &&
+                    storage.goalControls.find(goal.id)?.pendingTurnId == null,
+                goal.state != "RUNNING" && runs.none { it.endedAt == null } &&
+                    storage.goalControls.find(goal.id)?.pendingTurnId == null,
+                storage.goalControls.find(goal.id)?.revision ?: 0,
+                canEditObjective(goal),
             )
         }
     }

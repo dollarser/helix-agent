@@ -93,7 +93,7 @@ PRoot 现为可信开发者执行环境，不再承诺强制离线、主数据�
 | 优先任务进度、产物、恢复和审批体验 | 采纳；作为现有能力的增量投影，优先验证用户收益 |
 | 统一入口与请求组装 | 有条件采纳；先定义 submit/cancel/observe 所有者和事务，不一次创建八个服务 |
 | Plan、Todo、Act 完成协议 | 调整；先轻量显示与用户审阅，结构化元数据另立契约；不强制每次 Act 调用新工具 |
-| GoalDriver、Schedule、Hooks、Code Mode | 移入研究；列出激活、预算、停止、跨 UID 和平台准入问题 |
+| GoalDriver、Schedule、Hooks、Code Mode | GoalDriver 已由 ADR-0053/HXA-208 单独授权；Schedule、Hooks、Code Mode 保持研究 |
 | Goal 旧完成注释清理 | 当前工作区已完成，撤回重复动作；保留新发现的预算 KDoc 漂移说明 |
 | 竞品强弱与成熟度评分 | 撤回无逐项依据的分数；改为可验证的研究问题和样本要求 |
 
@@ -155,7 +155,7 @@ Task 首版是读模型：独立 Turn 以 `turnId` 标识；Goal 以 `goalId` �
 | Prompt sections | 内置模板、环境和 Goal 上下文 | 有序、可追溯的内置组件 | 修改 Policy、创建用户授权 |
 | 模型协议 | `ModelProvider` 与各 adapter | 统一内部请求/事件；供应商格式留在 adapter | 执行模型返回的工具 |
 | 工具与授权 | Scheduler、Dispatcher、Capability、Policy、Approval | 保持原管线与证明消费点 | 由模型决定并发安全或批准自己 |
-| Goal 生命周期 | reducer、运行准入、预算及 `GoalRunSettlement` | 保留显式继续和模型报告契约 | 由 UI Todo 或定时回调决定完成 |
+| Goal 生命周期 | reducer、运行准入、预算及 `GoalRunSettlement` | ADR-0053 的独立激活、连续轮次与模型报告 | 由 UI Todo 或定时回调决定完成 |
 | 任务/产物页面 | 查询、投影与文件引用 | 组合既有事实，增加必要展示元数据 | 独立 Task 执行器或第二套事件存储 |
 | Runtime 生命周期 | QuickJS/PRoot/Subscriptions 的各自 client/supervisor | 按 ADR-0049 保持进程职责、绑定、取消与 Job 对账；QuickJS 仍 isolated UID | 在 UI 主进程运行生成代码；把模块 token 所有权误称 UID 隔离 |
 
@@ -255,19 +255,21 @@ Share 先补足已支持文本/图片/文件的输入流转：URI 生命周期�
 
 ### 6.1 Goal 完成与现有运行语义
 
-当前采用 [ADR-0040](../adr/0040-model-judged-goal-completion.md)：模型通过当前活动 Goal/Turn 的 `goal.report` 提交 `complete/in_progress/blocked`；Harness 在合法 Turn 结算时消费最后有效报告。取消、用户暂停、未决副作用和预算处理优先。没有报告保持可继续，不因缺少证据绑定阻塞；不恢复 ADR-0028 的独立 verifier。
+当前采用 [ADR-0040](../adr/0040-model-judged-goal-completion.md)：模型通过当前活动 Goal/Turn 的 `update_goal`（兼容 `goal.report`）提交 `complete/in_progress/blocked`；Harness 在合法 Turn 结算时消费最后有效报告。取消、用户暂停、未决副作用和预算处理优先。没有报告保持可继续，不因缺少证据绑定阻塞；不恢复 ADR-0028 的独立 verifier。
 
 [GoalRunSettlement](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalRunSettlement.kt)、[GoalBlockerResolution](https://github.com/dollarser/helix-agent/blob/27b643e895591464d88ea71d48528635768bfd60/app/src/main/kotlin/com/helix/app/chat/GoalBlockerResolution.kt) 与 reducer 共同决定实际行为。普通结束可 park 到 PAUSED；预算不足/未知副作用可 BLOCKED；修复后显式复查转 PAUSED，再由用户 Continue。终态 COMPLETED/FAILED/CANCELLED 不直接重新激活。
 
-[ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md) 的 run/wake/累计预算和显式唤醒约束仍有效，预算阻塞与用户暂停结合 [ADR-0039](../adr/0039-background-results-and-goal-blockers.md)，完成部分以 ADR-0040 为准。不能只读 ADR-0004 的历史 PAUSED 描述，也不能把某个上游 Driver 的行为直接当成 Helix 当前运行契约。
+[ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md) 的 run/wake/累计预算仍有效；每轮显式继续约束已由 ADR-0053 部分替代，首次激活与中断后恢复仍须用户动作，预算阻塞与用户暂停结合 [ADR-0039](../adr/0039-background-results-and-goal-blockers.md)，完成部分以 ADR-0040 为准。不能只读 ADR-0004 的历史 PAUSED 描述，也不能把某个上游 Driver 的行为直接当成 Helix 当前运行契约。
 
-### 6.2 GoalDriver：自动跨 Turn 是行为扩展
+### 6.2 GoalDriver：已验收的行为扩展
 
-拆分“目标生命周期”和“是否发起下一轮”有价值，但自动续跑、定时或 Channel 触发会改变显式 Continue 语义。仅抽取既有用户准入逻辑可以是重构；增加自动触发需另行授权的取代/补充 ADR。
+2026-09-16 实现及设备证据见[HXA-208](../completion-records/HXA-208.md)。下述边界已落实，不能再列为仅研究或下一轮待做。
+
+2026-09-16 所有者已通过 [ADR-0053](../adr/0053-goal-continuation-activation.md) 授权 [HXA-208](../development/roadmap.md#hxa-208-完整-goal-工具与前后台连续运行)：实现同会话前后台自动续轮和完整 create_goal/get_goal/update_goal，复用现有执行、累计预算、模型报告与恢复。独立激活不是桌面专属机制。Room v19 保存会话归属与编辑版本，激活留在进程内；应用重启不自行恢复。定时及 Channel 激活仍不在本次授权内。
 
 DeepSeek 的 Driver 在已激活、整体空闲且有剩余轮次时续跑；恢复/分叉不自动重新激活，用户工作与停止影响自动准入。借鉴点是显式运行激活和竞争防护，不是后台常驻承诺。[官方 Driver 契约](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/goal/goal-round-driver/README.md)
 
-后续设计必须具体回答以下问题，当前尚未实现：
+以下为本次 HXA-208 的实施和验收边界，验收状态以完成记录为准：
 
 | 问题 | 候选要求 |
 | --- | --- |
@@ -342,7 +344,7 @@ Tasker/Auto.js、Shizuku/ADB、学习型移动 Skill、任意 Workflow、外部 
 
 ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最多两个手动会话及异步 Job 默认5/最大30分钟限额。等待须可见可取消，用户关闭会话且进程组回收后释放占用；不能仅凭 prompt 判断无后台子进程。后续更细粒度并发须用体验/设备证据修改契约，不靠提高线程数实现。限额不是 Android 保活保证。
 
-日志和职责已由 [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 接受；后台及手动终端启用留在 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。Goal 显式继续、完成报告、审批证明和未知副作用不重放均不变。
+日志和职责已由 [ADR-0050](../adr/0050-terminal-sessions-and-detached-jobs.md) 接受；后台及手动终端启用留在 accepted [ADR-0051](../adr/0051-terminal-runtime-enablement.md)。该终端增量不改变 Goal 完成报告、审批证明和未知副作用不重放；Goal 连续运行另由 ADR-0053/HXA-208 接受。
 
 以下 S0～S4 是讨论批次，**不是 HXA 编号或新授权**。先完成当前已授权工作，再据实际问题选择下一项。每次只推进有明确产出和验收的一小项，不绑定完成整套图中方框。
 
@@ -369,7 +371,7 @@ ADR-0051 已接受初版手动域与 Agent 本地代码/文件变更互斥、最
 | HX2-05 Plan | S3a | 先用户审阅，再元数据契约 |
 | HX2-06 Act Completion | S1a/S3a | 显示层区分，本轮不强制新工具 |
 | HX2-07 Task Ledger | S3a | 有需求才增加，避免复制 Goal 状态 |
-| HX2-08 GoalDriver | S4 | 自动续跑需单独决策 |
+| HX2-08 GoalDriver | HXA-208 | ADR-0053 前后台连续和完整模型工具面已完成 HXA-208 专项验收 |
 | PX-01 Tasks / PX-02 Artifacts | S1a/S1b | 增强已有任务和引用投影 |
 | PX-03 Git Diff | S3a/S3c | 普通文件预览与持久 Git 拆分 |
 | PX-04 Capability Center | S1b | 对齐 HXA-190/191，不重复安装/折叠实现 |

@@ -4,6 +4,29 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    val MIGRATION_18_19 =
+        object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goal_controls` (`goalId` TEXT NOT NULL, " +
+                        "`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, " +
+                        "`pendingTurnId` TEXT, `pendingJson` TEXT, " +
+                        "PRIMARY KEY(`goalId`), FOREIGN KEY(`goalId`) REFERENCES `goals`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE, FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_goal_controls_sessionId` ON `goal_controls` (`sessionId`)",
+                )
+                db.execSQL(
+                    "INSERT INTO goal_controls(goalId,sessionId,revision,pendingTurnId,pendingJson) " +
+                        "SELECT r.goalId, MIN(t.sessionId), 0, NULL, NULL FROM goal_runs r " +
+                        "JOIN goal_turn_bindings b ON b.runId=r.id JOIN turns t ON t.id=b.turnId " +
+                        "GROUP BY r.goalId HAVING COUNT(DISTINCT t.sessionId)=1",
+                )
+            }
+        }
+
     /**
      * v17 -> v18 (HXA-200 Gap 2, ADR-0052 point 1; 2026-09-15 mechanism addendum): adds the trusted
      * tool-registration/upgrade baseline — `tool_registration_baseline` (one row per trusted tool

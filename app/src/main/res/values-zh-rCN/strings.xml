@@ -612,7 +612,7 @@
     <string name="chat_mode_chat_explanation">Chat：默认不提供工具；显式开启后也只提供 L0 只读工具。</string>
     <string name="chat_mode_plan_explanation">Plan：只读调研；仅提供动态风险不高于 L1 的 READ_ONLY 工具。</string>
     <string name="chat_mode_act_explanation">Act：完成当前交互任务；所有工具仍经过 Policy、Approval、预算和审计。</string>
-    <string name="chat_mode_goal_explanation">Goal：创建或选择持久目标，检查预算后显式继续；回复结束不等于目标完成。</string>
+    <string name="chat_mode_goal_explanation">Goal：发送目标后，按预算连续推进，离开界面也可继续，直到完成、阻塞或停止。停止或系统中断后需手动继续；每轮结束不等于完成。</string>
     <string name="chat_tools_enable">为 Chat 显式开启 L0 只读工具</string>
     <string name="chat_tools_disable">关闭 Chat 工具</string>
     <string name="chat_budget_summary">本 Turn 上限 — 步数：%1$d，模型调用：%2$d，输出 token：%3$d，总 token：%4$d</string>
@@ -636,10 +636,11 @@
     <string name="goal_continue_unavailable">暂时无法继续此 Goal，请检查状态、所属会话和剩余预算</string>
     <string name="goal_time_window_expired">Goal 计时检查点已过期，已停止执行。请检查状态后继续</string>
     <string name="goal_manage">目标</string>
-    <string name="goal_explicit_continue">在输入框发送任务即可创建 Goal；继续会恢复当前目标，修改预算只会保存。模型报告进展与完成情况。</string>
+    <string name="goal_explicit_continue">发送任务即可创建 Goal；继续后自动推进，支持后台运行。停止或重启后需再次继续。修改预算只会保存，模型负责报告完成。</string>
     <string name="goal_usage">模型 %1$d/%2$d · 工具 %3$d/%4$d · token %5$d/%6$d · 时间 %7$d/%8$d 秒</string>
     <string name="goal_continue">继续</string>
     <string name="goal_edit_budgets">调整预算</string>
+    <string name="goal_edit_objective">编辑目标</string>
     <string name="goal_close">关闭</string>
     <string name="goal_save">保存</string>
     <string name="goal_model_limit">累计模型调用上限</string>
@@ -815,6 +816,7 @@
     <string name="background_task_pausing">正在暂停，等待执行结算</string>
     <string name="goal_state_blocked">已阻塞</string>
     <string name="goal_user_paused">用户已暂停，可点击继续恢复</string>
+    <string name="goal_system_paused">系统中断了后台运行；打开应用后可继续，已完成操作不会重放。</string>
     <string name="goal_blocked_review">存在尚未确定的执行结果，请先检查并处理。</string>
     <string name="goal_blocked_context">上下文容量不足，请先压缩会话或调整模型与上下文设置。</string>
     <string name="goal_blocked_budget">剩余预算不足，请调整预算后重新检查。</string>

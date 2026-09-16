@@ -357,7 +357,7 @@ data class Goal(
 
 `GoalBudgets` 至少包含最大模型调用、工具调用、累计 token、运行时长、单次唤醒时长和失败重试次数。Goal 模式不扩大权限：L2/L3 仍逐次审批；权限撤销、目标包变化和不明确副作用会暂停为 `INPUT_REQUIRED`。
 
-首版只有用户显式继续才创建新 `goal_run`。WorkManager 可在 `nextCheckpoint` 附近发提醒通知，但不得在后台调用模型/工具，且调度可被 Doze、强制停止和系统限制延迟。`wakeReason` 记录 `USER_OPEN`、`NOTIFICATION_ACTION` 等真实来源。
+按 [ADR-0053](../adr/0053-goal-continuation-activation.md)，用户启动的连续 Goal 在本轮正常结算、仍未完成且预算有余量时自动创建下一 `goal_run`；离开 Activity 后由已启动的 dataSync 前台服务跨轮接续。每次准入重验激活与前轮 ID，停止和新用户消息撤销旧请求。等待用户、异常、预算耗尽、系统拒绝和超时停止推进；进程死亡/强停后不自动重新激活。WorkManager 仍只发可延迟提醒，不启动模型。`FOREGROUND_CONTINUATION` 指用户启动的前台服务连续执行来源，不要求 Activity 可见。
 
 Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循环。单个 Turn 内的安全 Tool 并发由[手机端 Tool 编排](mobile-tool-orchestration.md)的确定性 scheduler 负责，不改变 Goal 预算或审批。后期 child delegation 不是第五种用户模式：它只是父 Act/Goal 内部的只读执行单元，必须共享父预算，且须通过已接受 ADR-0009 的生产启用门禁后才可用。A2A Client 也不是第五种模式；它是父 Turn 发起的外部网络 ToolCall，不等于内部 child，也不取得本机执行权。
 
@@ -366,14 +366,14 @@ Goal 是唯一跨轮自治原语，不另外实现 ralph/fresh-agent 无限循�
 ```text
 DRAFT → READY → RUNNING
                  ├─ INPUT_REQUIRED ─┐
-                 ├─ PAUSED ─────────┴─► RUNNING（仅用户显式继续）
+                 ├─ PAUSED ─────────┴─► RUNNING（用户继续或已激活的正常轮次交接）
                  ├─ BLOCKED ──► PAUSED（解决依赖并重新检查）
                  ├─ COMPLETED
                  ├─ FAILED
                  └─ CANCELLED
 ```
 
-恢复边（`INPUT_REQUIRED → RUNNING`、`PAUSED → RUNNING`）由用户显式 Continue 触发。BLOCKED 必须先解决阻碍并重新检查转 PAUSED，不能直接继续；预算耗尽不是完成。原因来自持久 run outcome 与 audit。模型使用当前 Goal 的 `goal.report` 报告 complete/in_progress/blocked；正常 Turn 结算且没有用户暂停、取消或未决副作用时，宿主消费当前轮最后有效报告。普通回复结束不等于 Goal 完成，也不因缺少证据绑定而阻塞。宿主检查执行约束，模型判断自然语言目标，详见 [ADR-0040](../adr/0040-model-judged-goal-completion.md)。
+异常/输入等待/恢复后的继续由用户触发；已激活正常轮次可自动经过 PAUSED 进入下一 run。BLOCKED 必须先解决阻碍并重新检查，预算耗尽不是完成。模型先 `get_goal` 读取 id/revision，再 `update_goal` 报告 complete/in_progress/blocked；`goal.report` 保持兼容。宿主在正常结算且无暂停、取消、未决副作用时消费当前轮最后有效报告，完成语义仍由模型判断（[ADR-0040](../adr/0040-model-judged-goal-completion.md)）。`create_goal` 及目标、预算、active/paused 编辑需要当前用户直接请求，按版本暂存并在当前轮结算后生效；自动续轮不能引用历史用户消息重新获得编辑权限。
 
 ## 7. 数据模型扩展
 
@@ -414,7 +414,7 @@ Room 表和规范性关键字段只在 [总体方案 §9.1](overview.md#91-room-
 
 ### Goal 阻塞与暂停更新（HXA-177）
 
-[ADR-0039](../adr/0039-background-results-and-goal-blockers.md) 部分替代早期 PAUSED 三义：BLOCKED 记录待解决依赖，禁止直接 Continued；宿主在用户修复动作后复查，满足门槛才转 PAUSED，后续显式继续创建新 run。用户暂停保留原 Turn 的实际终态与暂停请求；Goal 不因暂停而取消。预算与证据仍跨 run 保留。此增量不增加自动续跑或子 Agent。
+[ADR-0039](../adr/0039-background-results-and-goal-blockers.md) 部分替代早期 PAUSED 三义：BLOCKED 记录待解决依赖，禁止直接 Continued；宿主在用户修复动作后复查，满足门槛才转 PAUSED，后续显式继续创建新 run。用户暂停保留原 Turn 的实际终态与暂停请求；Goal 不因暂停而取消。预算与证据仍跨 run 保留。ADR-0039 本身不增加自动续跑或子 Agent；后续 ADR-0053/HXA-208 已单独授权同会话前后台连续运行，恢复仍不自动激活。
 
 ### HXA-178 模型报告替代强制绑定
 

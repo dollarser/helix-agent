@@ -92,6 +92,14 @@ internal class GoalRunCoordinator(
         var started: StartedGoalTurn? = null
         storage.withTransaction {
             val previous = storage.goals.resolve(request.goalId).toRuntimeGoal()
+            if (com.helix.core.agent.GoalDriver.admit(
+                    previous,
+                    request.wakeReason,
+                    com.helix.core.agent.GoalWakePolicy.FOREGROUND,
+                ) !is com.helix.core.agent.GoalRunAdmission.Admitted
+            ) {
+                return@withTransaction
+            }
             val step = GoalReducer.reduce(previous, GoalEvent.Continued(request.wakeReason))
             val effect = step.effects.filterIsInstance<GoalEffect.StartRun>().singleOrNull()
             if (effect != null && !storage.goalTurnBindings.hasUnresolvedCalls(request.goalId)) {
@@ -120,9 +128,14 @@ internal class GoalRunCoordinator(
     fun updateBudgets(
         goalId: String,
         budgets: GoalBudgets,
+        expectedRevision: Long? = null,
     ): Boolean {
         var changed = false
         storage.withTransaction {
+            val control = storage.goalControls.find(goalId)
+            if (control?.pendingJson != null) return@withTransaction
+            if (expectedRevision != null && (control?.revision ?: 0L) != expectedRevision) return@withTransaction
+            if (storage.goals.find(goalId) == null) return@withTransaction
             val step =
                 GoalReducer.reduce(
                     storage.goals.resolve(goalId).toRuntimeGoal(),
@@ -130,6 +143,7 @@ internal class GoalRunCoordinator(
                 )
             if (!step.ignored) {
                 storage.goals.updateGoal(step.state.toStoredGoal())
+                if (control != null) check(storage.goalControls.settle(goalId, control.revision) == 1)
                 audit(step.state, "goal.budgets_updated")
                 changed = true
             }

@@ -1219,3 +1219,11 @@ M13 是独立扩展线；编号不要求首版等待 M12 发布。HXA-124 复用
 状态：planned。复用已完成124/127与201/202/204/205入口，允许app Skill/MCP/Connector应用服务、能力UI、extensions/skills、extensions/mcp及测试/docs；串联发现/导入、说明、连接验证、用户启用、任务使用、结果与停用/修复。实际全局/会话范围如实展示，不新增OAuth、在线市场或共享版本生命周期，不重复126/129/130。
 
 验收：产品包P1/P2/P3按范围与 `./gradlew :extensions:skills:test :extensions:mcp:test`，新增ExtensionJourneyDeviceTest双API双flavor独占设备测试；具体失败场景、命令与步骤见体验方案。允许验证后具名本地commit，不push/合并/发布。
+
+### HXA-208 完整 Goal 工具与前后台连续运行
+
+状态：completed（本任务范围）；2026-09-16 所有者明确要求依据 DSH 完善 Goal、离开前台也继续，并本次完成 create/edit 及依赖功能。决策 [ADR-0053](../adr/0053-goal-continuation-activation.md)。允许 core/agent、core/storage、app Goal/Chat/foreground/UI、关联测试/scripts/docs；保留单一 AgentRuntime、Room、累计预算与逐调用授权。
+
+交付：同会话激活和前轮准入、停止/新输入抢占、FGS 跨轮接续和拒绝/超时收口；create_goal/get_goal/update_goal、用户来源、会话归属、编辑 CAS 和安全结算；UI 编辑与恢复；Room 18→19 迁移，旧 goal.report 兼容。进程恢复不重新激活，不重放未知副作用；定时和外部 Channel 不获得新启动权限。
+
+验收命令：`./scripts/check-all.sh --all`；`./gradlew :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest :core:storage:assembleDebugAndroidTest`。独占 runner `python3 scripts/debug/2026-09-16/run-pre-hxa-regressions.py --class com.helix.app.chat.GoalContinuationDeviceTest,com.helix.app.ui.GoalLifecycleFlowDeviceTest,com.helix.app.ui.GoalModelReportFlowDeviceTest,com.helix.app.chat.GoalModelCancellationDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest` 跑 API29/36 × 双 flavor；RoomMigrationFixtureTest 另用独占设备跑完整链。补充真实 SIGKILL、新消息抢占、最近目标选择和 FGS 拒绝验收已通过；完整可复跑入口 `bash scripts/debug/2026-09-16/run-goal-acceptance.sh`，见[完成记录](../completion-records/HXA-208.md)及[分批证据](hxa208-goal-acceptance-2026-09-16.md)。允许验证后具名本地提交，不 push/合并。

@@ -379,6 +379,7 @@ HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻�
 | HXA-206 | 固定完整任务、实际结果、失败/跳过计数、独占runner | planned；P1/P2/P3 + check-all + 全新增设备类 |
 
 | HXA-207 | Skill/MCP导入、预览变更、连接但未启用、实际调用、三态、禁用/重启/修复；ExtensionJourneyDeviceTest | planned；P1/P2/P3按范围 + extensions:skills/test、extensions:mcp/test及双API双flavor；[精确命令](workspace-and-capability-experience-plan.md) |
+| HXA-208 | 完整 Goal 模型工具、编辑 CAS、停止/恢复、前后台跨轮 FGS、Room19 | completed；check-all --all、四象限专项/真实SIGKILL、Room全链均过；[完成记录](../completion-records/HXA-208.md)及[分批证据](hxa208-goal-acceptance-2026-09-16.md) |
 
 201～206和194～199补充 [体验方案](workspace-and-capability-experience-plan.md) 的工作区/终端/输出/变更直达、环境中断修复、多会话与用户语言验收；阶段未实现时不能用其他测试替代。
 

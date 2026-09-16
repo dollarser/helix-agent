@@ -96,10 +96,26 @@ private suspend fun runGoalReportFlow(
                 emptyList(),
                 GoalBudgets(10, 10, 100000, 300000, 240000, 0),
             )
-        chat.continueGoal(
-            goal,
-            "Answer 2 + 2. This is the entire task. " +
-                "Report your Goal status using goal.report, then answer briefly.",
+        container.agentRuntime.submit(
+            com.helix.core.agent.SubmitTurnCommand(
+                session =
+                    com.helix.core.model
+                        .SessionId(session),
+                providerId =
+                    com.helix.core.model
+                        .ProviderId(provider),
+                mode = com.helix.core.model.AgentMode.GOAL,
+                text = "Answer 2 + 2. Report your Goal status using goal.report, then answer briefly.",
+                budgets = chat.runControl.value.budgets,
+                goalId =
+                    com.helix.core.model
+                        .GoalId(goal),
+                clientRequestId =
+                    java.util.UUID
+                        .randomUUID()
+                        .toString(),
+                continuousGoal = false,
+            ),
         )
         compose.waitUntil(180000) {
             storage.goalRuns

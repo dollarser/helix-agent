@@ -111,6 +111,7 @@ class HelixStorage internal constructor(
 
     val plans: PlanRepository by lazy { PlanRepository(database.planDao()) }
     val goals: GoalRepository by lazy { GoalRepository(database.goalDao()) }
+    val goalControls: com.helix.core.storage.dao.GoalControlDao by lazy { database.goalControlDao() }
     val goalTurnBindings: GoalTurnBindingRepository by lazy { GoalTurnBindingRepository(database.goalTurnBindingDao()) }
     val goalUsageReservations: GoalUsageReservationRepository by lazy {
         GoalUsageReservationRepository(database.goalUsageReservationDao())
@@ -157,6 +158,13 @@ class HelixStorage internal constructor(
         val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
         database.runInTransaction {
             require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
+            goalControls.bySession(sessionId).forEach { control ->
+                val goal = goals.resolve(control.goalId)
+                check(goal.state != "RUNNING" && goalRuns.listOpenByGoal(goal.id).isEmpty())
+                auditEvents.deleteByCorrelations(listOf(goal.correlationId, goal.id))
+                goals.delete(goal.id)
+                goal.planId?.takeIf { goals.countByPlan(it) == 0 }?.let(plans::delete)
+            }
             database.interactionReceiptDao().deleteBySession(sessionId)
             database.auditEventDao().deleteForSession(sessionId)
             check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
@@ -202,6 +210,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_15_16,
                 HelixDatabase.MIGRATION_16_17,
                 HelixDatabase.MIGRATION_17_18,
+                HelixDatabase.MIGRATION_18_19,
             )
 
         fun create(context: Context): HelixStorage {

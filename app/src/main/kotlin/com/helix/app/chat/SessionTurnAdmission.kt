@@ -18,6 +18,8 @@ import kotlinx.coroutines.Job
 internal class SessionTurnAdmission {
     private val activeBySession = java.util.concurrent.ConcurrentHashMap<String, ActiveTurn>()
 
+    fun activeTurns(): List<ActiveTurn> = activeBySession.values.filter { it.job.isActive }
+
     /** True when [sessionId] already has an in-flight (not yet completed) turn. */
     fun hasActive(sessionId: String): Boolean = activeBySession[sessionId]?.job?.isActive == true
 

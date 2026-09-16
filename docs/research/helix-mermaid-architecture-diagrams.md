@@ -237,7 +237,7 @@ stateDiagram-v2
     RUNNING --> CANCELLED: 取消且按当前结算规则收口
     INPUT_REQUIRED --> RUNNING: 用户补充后显式继续 / 准入及预算通过
     INPUT_REQUIRED --> CANCELLED: 用户取消
-    PAUSED --> RUNNING: 用户显式继续 / 准入及预算通过
+    PAUSED --> RUNNING: 用户继续或已激活的正常轮次 / 前轮身份与预算通过
     PAUSED --> BLOCKED: 发现实际阻塞
     PAUSED --> CANCELLED: 用户取消
     BLOCKED --> PAUSED: 用户修复后显式复查 / 无未决调用且预算可启动
@@ -440,23 +440,29 @@ flowchart TB
 
 Plan/Todo 的内部元数据更新不能伪装成任意 READ_ONLY 文件写；必须绑定当前会话、版本、大小和来源。Act 摘要缺失不直接记任务失败，不强制每个简单操作多调用一次 `turn.report`。
 
-## 10. 研究：自动续跑、工作流门禁与 Code Mode
+## 10. Goal 连续运行与工作流门禁、Code Mode 研究
 
-图 K 是**未接入的研究模型**，不是当前 Goal 状态机。自动轮次要改变显式 Continue 语义，先完成正文第 6 节所列决策。候选 activation 在重启后默认关闭，Schedule/Channel 不能直接连到执行器。
+图 K 的用户激活与连续轮次已由 [ADR-0053](../adr/0053-goal-continuation-activation.md) 授权，并已完成 [HXA-208 验收](../completion-records/HXA-208.md)；它补充持久 Goal 状态机，不替换 Room/预算/审批。Activity 退后台仍由用户启动的 dataSync 服务接续轮次，等待用户和系统限制会停驻。重启不恢复激活；Schedule/Channel 仍是研究，不直接连到执行器。
 
 ```mermaid
 flowchart TB
     USER["用户明确开启连续运行"]
-    ACTIVE["【研】运行激活状态<br/>与持久 Goal 生命周期分离"]
-    DRIVER["【研】GoalDriver<br/>仅空闲且激活时预约一轮"]
+    ACTIVE["【实 HXA-208】进程内运行激活<br/>与持久 Goal 生命周期分离"]
+    DRIVER["【实 HXA-208】GoalDriver<br/>空闲、激活、前轮正常结算"]
     SOURCE["【研】Schedule / Channel 候选事件"]
     SOURCEGATE["【研】来源授权 / occurrence 去重<br/>Android 平台可行性准入"]
-    ADMISSION["【研】轮次准入<br/>Goal 版本 / 预算 / 用户消息竞争"]
-    COMMIT["【研】提交轮次身份后才开始<br/>复用现有 Turn 和 Tool 管线"]
+    ADMISSION["轮次准入<br/>激活与前轮 ID / 预算 / 用户消息竞争"]
+    COMMIT["持久提交 Turn 后执行<br/>后台交接保持 dataSync 服务"]
     STOP["用户停止 / 新输入抢占"]
-    DISARM["【研】撤销未启动预约 / 关闭准入<br/>取消当前轮并保留结算"]
+    DISARM["撤销未启动预约 / 关闭准入<br/>取消当前轮并保留结算"]
     RESTORE["进程恢复"]
-    OFF["【研】未激活<br/>只恢复事实，等待用户动作"]
+    OFF["未激活<br/>只恢复事实，等待用户动作"]
+    MODEL["【实】模型 create_goal / get_goal / update_goal"]
+    DISPATCH["原 Dispatcher / Policy / 审计"]
+    META["【实】GoalLifecycleService / Room19<br/>用户请求来源、归属、CAS、待结算编辑"]
+    MODEL --> DISPATCH --> META
+    META -->|"用户要求创建或恢复"| ACTIVE
+    META -.->|"持久目标与预算"| ADMISSION
     USER --> ACTIVE --> DRIVER
     SOURCE -.-> SOURCEGATE
     SOURCEGATE -.-> ACTIVE

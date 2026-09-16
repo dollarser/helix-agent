@@ -11,7 +11,10 @@ internal class GoalDeletionCoordinator(
         GoalReminderReconciler.serialized {
             storage.withTransaction {
                 val goal = storage.goals.resolveEntity(goalId)
-                check(goal.state != "RUNNING" && storage.goalRuns.listByGoal(goalId).none { it.endedAt == null }) {
+                check(
+                    goal.state != "RUNNING" && storage.goalRuns.listByGoal(goalId).none { it.endedAt == null } &&
+                        storage.goalControls.find(goalId)?.pendingTurnId == null,
+                ) {
                     "GOAL_ACTIVE_STOP_REQUIRED"
                 }
                 cancelReminder(goalId)

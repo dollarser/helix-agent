@@ -102,6 +102,7 @@ internal fun GoalDialog(
                         ),
                     )
                     GoalCriterionDescriptions(row.criteria)
+                    GoalObjectiveEditor(service, row, controlsBusy) { revision++ }
                     TextButton(
                         enabled = row.canContinue && !controlsBusy,
                         onClick = {
@@ -290,6 +291,7 @@ private fun goalStateLabel(state: String): Int =
 private fun goalPauseLabel(outcome: String?): Int? =
     when {
         outcome == "USER_PAUSED" -> R.string.goal_user_paused
+        outcome?.startsWith("SYSTEM_PAUSED(") == true -> R.string.goal_system_paused
         outcome == "RUN_FINISHED" -> R.string.goal_pause_run_finished
         outcome == "INTERRUPTED" -> R.string.goal_pause_interrupted
         outcome?.startsWith("BUDGET_EXHAUSTED(") == true -> R.string.model_error_goal_budget_limit

@@ -6,6 +6,8 @@ Harness 新接手统一读取[实施导航与交接 Prompt](harness-implementati
 
 ## Current summary
 
+2026-09-16 HXA-208 已完成本范围验收：完整 Goal 模型创建/读取/编辑、前后台跨轮、停止/新输入抢占、CAS/预算/恢复与 Room19 已落地；完整本地主机门禁、四象限专项、真实进程终止和迁移链通过。见[完成记录](../completion-records/HXA-208.md)与[验收证据](hxa208-goal-acceptance-2026-09-16.md)。不重做该任务，不把定时/外部自动激活或真实账号长稳列为已实现。
+
 2026-09-16 main差异复核：修复v0.0.1指出的reasoning-only连接误判及容器首次访问线程竞态；按main的ADR-0049保留私有Runtime进程排除，不整提交覆盖。双flavor主机回归及API29/36四象限专项8/8通过、0跳过；存储分阶段验收保留。见[修复记录](../bug-fixes/2026-09-16-main-thinking-and-startup.md)，不代表真实SGLang或全部设备重验。
 
 2026-09-16 main集成：所有者授权将Harness `69182f53` 合入main并退役重复工作树，冲突以Harness为准；必要本地证据及Runtime资产已复制并逐文件校验。验证、归档位置与退役步骤见[main集成记录](harness-main-integration-2026-09-16.md)。下文“未合并”“只在Harness”的表述保留历史含义；未推送，外部/发行验收未因此完成。

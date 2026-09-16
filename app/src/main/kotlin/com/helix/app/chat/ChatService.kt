@@ -250,6 +250,8 @@ class ChatService(
     private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
     private val _backgroundTasks = MutableStateFlow<List<BackgroundTaskUi>>(emptyList())
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
+    private val transportState = MutableStateFlow<TurnState?>(null)
+    val foregroundTransportState: StateFlow<TurnState?> = transportState
     private val goalDashboardState = MutableStateFlow<List<GoalSummaryUi>>(emptyList())
     internal val goalDashboard: StateFlow<List<GoalSummaryUi>> = goalDashboardState
     private val planDashboardState = MutableStateFlow<List<PlanRowUi>>(emptyList())
@@ -312,6 +314,115 @@ class ChatService(
 
     /** Serializes per-session turn admission (one active turn per session). */
     private val turnGate = Any()
+    private val goalContinuation = GoalContinuationDriver(storage)
+
+    private data class GoalUserRequest(
+        val sessionId: String,
+        val text: String,
+        val providerId: String,
+        val control: RunControlConfig,
+        val providerSnapshot: String,
+    )
+
+    private val goalUserRequests = mutableMapOf<String, GoalUserRequest>()
+    private val goalLifecycle by lazy {
+        com.helix.app.goal.GoalLifecycleService(
+            storage,
+            clock,
+            idGenerator,
+            authorize = { call, quote ->
+                goalUserRequests[call.turnId]
+                    ?.takeIf {
+                        it.sessionId == call.sessionId && it.text.contains(quote)
+                    }?.control
+                    ?.goalBudgets
+            },
+            staged = { session, turn, goal, activate ->
+                if (activate == false) goalContinuation.disarmGoal(session, goal)
+                if (activate == true) {
+                    val request = requireNotNull(goalUserRequests[turn])
+                    goalContinuation.prepare(
+                        session,
+                        goal,
+                        request.providerId,
+                        request.control,
+                        turn,
+                        request.providerSnapshot,
+                    )
+                }
+            },
+            armed = goalContinuation::isArmed,
+        )
+    }
+
+    internal fun executeGoalTool(
+        call: com.helix.tools.framework.ExecutableToolCall,
+    ): com.helix.tools.framework.ToolExecutorResult = synchronized(turnGate) { goalLifecycle.execute(call) }
+
+    internal suspend fun editGoalObjective(
+        goalId: String,
+        revision: Long,
+        objective: String,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            synchronized(turnGate) {
+                val session = openSessionId ?: return@synchronized false
+                var changed = false
+                storage.withTransaction {
+                    val goal = storage.goals.find(goalId) ?: return@withTransaction
+                    val owner =
+                        storage.goalControls.find(goalId)?.sessionId
+                            ?: storage.goalTurnBindings.sessionForGoal(goalId)
+                    if (owner != null && owner != session) return@withTransaction
+                    goalLifecycle.bind(goalId, session)
+                    val control = requireNotNull(storage.goalControls.find(goalId))
+                    val editable =
+                        goal.planId == null &&
+                            goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED")
+                    val valid =
+                        objective.isNotBlank() &&
+                            objective.length <= com.helix.core.agent.Goal.MAX_OBJECTIVE_LENGTH
+                    val unchanged = control.revision == revision && control.pendingJson == null
+                    if (unchanged && editable && valid) {
+                        storage.goals.updateObjective(goalId, objective)
+                        check(storage.goalControls.settle(goalId, revision) == 1)
+                        storage.auditEvents.append(
+                            idGenerator(),
+                            goal.correlationId,
+                            "goal.objective_updated",
+                            "USER",
+                            """{"revision":${revision + 1}}""",
+                            clock.now().toEpochMilli(),
+                        )
+                        changed = true
+                    }
+                }
+                changed
+            }
+        }
+
+    fun stopContinuousGoals(systemReason: String? = null) {
+        val turns =
+            synchronized(turnGate) {
+                goalContinuation.disarmAll()
+                goalUserRequests.clear()
+                sessionTurnAdmission.activeTurns().map { it.turnId }
+            }
+        workScope.launch {
+            turns.forEach { turn ->
+                if (storage.goalTurnBindings.byTurn(turn) != null) {
+                    stopTask(turn, pause = true, systemReason = systemReason)
+                }
+            }
+            refreshBackgroundTasks()
+        }
+    }
+
+    private fun revokeGoalIntent(sessionId: String) {
+        goalContinuation.disarm(sessionId)
+        goalUserRequests.entries.removeAll { it.value.sessionId == sessionId }
+    }
+
     private val sessionTurnAdmission = SessionTurnAdmission()
 
     /**
@@ -322,6 +433,7 @@ class ChatService(
      * only live turns and cannot grow without bound.
      */
     private val turnLiveFrames = TurnLiveFrames()
+    private val systemStops = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
     // (sendNow): atomic visibility keeps fresh opens visible to racing sends, and
@@ -602,7 +714,10 @@ class ChatService(
 
     /** Fail closed before an irreversible privacy erase; active work must be stopped first. */
     fun preparePermanentDeletion(sessionId: String) {
-        check(sessionTurnAdmission.activeTurn(sessionId) == null) { "SESSION_ACTIVE_STOP_REQUIRED" }
+        synchronized(turnGate) {
+            check(sessionTurnAdmission.activeTurn(sessionId) == null) { "SESSION_ACTIVE_STOP_REQUIRED" }
+            revokeGoalIntent(sessionId)
+        }
         if (openSessionId == sessionId) {
             openSessionId = null
             clearStagedAttachments()
@@ -937,8 +1052,9 @@ class ChatService(
     internal suspend fun updateGoalBudgets(
         goalId: String,
         budgets: GoalBudgets,
+        expectedRevision: Long? = null,
     ): Boolean {
-        val changed = goals.updateGoalBudgets(goalId, budgets)
+        val changed = goals.updateGoalBudgets(goalId, budgets, expectedRevision)
         refreshTaskDashboards()
         return changed
     }
@@ -1069,14 +1185,18 @@ class ChatService(
 
     @Suppress("ReturnCount") // explicit draft admission guards
     fun send(text: String) {
+        if (!validHumanInput(text)) return
+        val requestedSession = openSessionId
+        if (requestedSession != null) synchronized(turnGate) { revokeGoalIntent(requestedSession) }
         if (preparingDraft) return
         val draft = sessionDraft
         if (draft == null) {
-            workScope.launch { sendNow(text) }
+            workScope.launch {
+                if (requestedSession != null) yieldToHumanInput(requestedSession)
+                if (openSessionId == requestedSession) sendNow(text)
+            }
             return
         }
-        if (text.length > MAX_MODEL_TEXT_CHARS || '\u0000' in text) return
-        if (text.isBlank() && draft.attachments.isEmpty()) return
         if (!drafts.beginPreparation(draft.session.id)) return
         _screen.update { it.copy(preparingDraft = true) }
         workScope.launch {
@@ -1090,6 +1210,20 @@ class ChatService(
                 refreshScreen()
             }
         }
+    }
+
+    private fun validHumanInput(text: String): Boolean {
+        val maxText =
+            if (runControlStore.current.mode == AgentMode.GOAL) {
+                com.helix.core.agent.Goal.MAX_OBJECTIVE_LENGTH
+            } else {
+                MAX_MODEL_TEXT_CHARS
+            }
+        val validText = text.length <= maxText && '\u0000' !in text
+        val hasContent =
+            text.isNotBlank() || stagedAttachments.isNotEmpty() ||
+                !sessionDraft?.attachments.isNullOrEmpty()
+        return validText && hasContent
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod") // one fail-closed early return per gate condition
@@ -1168,6 +1302,20 @@ class ChatService(
                 applyEgressDecision(outcome.decision, staged, text, providerId, target, goalId)
             }
         }
+    }
+
+    private suspend fun yieldToHumanInput(sessionId: String) {
+        val active =
+            synchronized(turnGate) {
+                val running = sessionTurnAdmission.activeTurn(sessionId) ?: return@synchronized null
+                if (storage.goalTurnBindings.byTurn(running.turnId) == null) return@synchronized null
+                storage.turns.requestPause(running.turnId, clock.now().toEpochMilli())
+                turnCancels[running.turnId]?.cancel()
+                toolCalls.cancelPendingApproval(running.turnId)
+                running.job.cancel()
+                running
+            }
+        active?.job?.join()
     }
 
     /**
@@ -1511,15 +1659,24 @@ class ChatService(
     fun stopTask(
         turnId: String,
         pause: Boolean = false,
+        systemReason: String? = null,
     ) {
         workScope.launch {
             val task = storage.turns.resolve(turnId)
+            synchronized(turnGate) {
+                goalContinuation.disarmTurn(task.sessionId, turnId)
+                goalUserRequests.remove(turnId)
+            }
             val active = sessionTurnAdmission.activeTurn(task.sessionId) ?: return@launch
             if (active.turnId != turnId) return@launch
+            if (systemReason != null) {
+                require(systemReason in setOf("FGS_START_REJECTED", "FGS_TIMEOUT", "FGS_SERVICE_LOST"))
+            }
             if (pause) {
                 if (storage.goalTurnBindings.byTurn(turnId) == null) return@launch
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
             }
+            if (systemReason != null) systemStops[turnId] = systemReason
             turnCancels[turnId]?.cancel()
             toolCalls.cancelPendingApproval(turnId)
             active.job.cancel()
@@ -1527,7 +1684,14 @@ class ChatService(
     }
 
     private fun refreshBackgroundTasks() {
-        _backgroundTasks.value = BackgroundTaskQuery(storage).read()
+        synchronized(turnGate) {
+            val tasks = BackgroundTaskQuery(storage).read()
+            _backgroundTasks.value = tasks
+            transportState.value = tasks
+                .firstOrNull {
+                    it.state in com.helix.app.foreground.DataSyncForegroundController.TRANSPORT_ACTIVE
+                }?.state ?: if (goalContinuation.hasHandoff) TurnState.BUILDING_CONTEXT else null
+        }
     }
 
     /**
@@ -1565,6 +1729,7 @@ class ChatService(
 
     fun stop() {
         val sessionId = openSessionId ?: return
+        synchronized(turnGate) { revokeGoalIntent(sessionId) }
         val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
         turnCancels[active.turnId]?.cancel()
         toolCalls.cancelPendingApproval(active.turnId)
@@ -1712,6 +1877,9 @@ class ChatService(
         goalId: String?,
         attachments: List<AttachmentBindingIntent>,
         control: RunControlConfig,
+        continuousGoal: Boolean,
+        goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
+        directUserRequest: Boolean,
     ): String? =
         launchTurn(
             text = text,
@@ -1729,6 +1897,9 @@ class ChatService(
             requestedSessionId = sessionId,
             controlOverride = control,
             clientRequestId = clientRequestId,
+            continuousGoal = continuousGoal,
+            continuation = goalContinuation,
+            directUserRequest = directUserRequest,
         )
 
     /**
@@ -1741,9 +1912,23 @@ class ChatService(
      * silently no-oped. The turn exists: the adapter pre-checks [persistedPhase] before calling
      * this.
      */
+    override suspend fun revokeGoalContinuation(turnId: String) =
+        withContext(Dispatchers.IO) {
+            synchronized(turnGate) {
+                val task = storage.turns.find(turnId)
+                if (task != null) goalContinuation.disarmTurn(task.sessionId, turnId)
+                goalUserRequests.remove(turnId)
+                Unit
+            }
+        }
+
     override suspend fun cancelTurn(turnId: String): TurnCancelOutcome =
         withContext(Dispatchers.IO) {
             val task = storage.turns.resolve(turnId)
+            synchronized(turnGate) {
+                goalContinuation.disarmTurn(task.sessionId, turnId)
+                goalUserRequests.remove(turnId)
+            }
             val active = sessionTurnAdmission.activeTurn(task.sessionId)
             if (active != null && active.turnId == turnId) {
                 turnCancels[turnId]?.cancel()
@@ -1848,6 +2033,9 @@ class ChatService(
                     // re-drive) dedups to the turn it already started; every other entry point is a
                     // fresh intent and gets a fresh id.
                     clientRequestId = clientRequestId ?: idGenerator(),
+                    continuousGoal = control.mode == AgentMode.GOAL || goalId != null,
+                    goalBudgets = control.goalBudgets,
+                    directUserRequest = retryTurnId == null && !text.isNullOrBlank(),
                 ),
             )
             // A turn row was committed and its loop launched: the start truly happened.
@@ -1862,7 +2050,7 @@ class ChatService(
 
     // one fail-closed return per guard (session, snapshot, turn gate); one branch per guard plus
     // the idempotency dedup check (HX2-01 §2e)
-    @Suppress("ReturnCount", "CyclomaticComplexMethod")
+    @Suppress("ReturnCount", "CyclomaticComplexMethod", "LongMethod") // One atomic admission/activation transaction.
     private suspend fun launchTurn(
         text: String?,
         providerId: String,
@@ -1872,6 +2060,9 @@ class ChatService(
         requestedSessionId: String? = null,
         controlOverride: RunControlConfig? = null,
         clientRequestId: String,
+        continuousGoal: Boolean = false,
+        continuation: com.helix.core.agent.GoalContinuationRequest? = null,
+        directUserRequest: Boolean = false,
     ): String? {
         // The unified AgentRuntime (HX2-01) starts turns for an explicit session with an explicit
         // per-turn control; the in-session send path passes neither and falls back to the open
@@ -1896,6 +2087,7 @@ class ChatService(
             }
         val inputFingerprint = TurnInputFingerprint.of(text, attachmentBindings)
         synchronized(turnGate) {
+            if (continuation != null && !goalContinuation.admits(sessionId, goalId, continuation, snapshot)) return null
             // Persistent submit-dedup (research doc section 34): a re-drive with the same session +
             // input returns the started turn; a diverged session or input is a conflict (refused).
             when (val dedup = resolveSubmitDedup(clientRequestId, sessionId, inputFingerprint)) {
@@ -1927,12 +2119,56 @@ class ChatService(
                     clientRequestId,
                     inputFingerprint,
                 )
-            val started = startCoordinatorForTurn(spec, goalId, control)
+            var preparedGoalId: String? = null
+            var preparedTurn: Pair<TurnCoordinator, RunControlConfig>? = null
+            storage.withTransaction {
+                val effectiveGoalId =
+                    goalId ?: if (control.mode == AgentMode.GOAL && !text.isNullOrBlank()) {
+                        goalLifecycle
+                            .current(sessionId)
+                            ?.takeIf {
+                                it.state !in setOf("COMPLETED", "FAILED", "CANCELLED")
+                            }?.id ?: GoalSummaryQuery(storage)
+                            .forSession(sessionId)
+                            .firstOrNull {
+                                it.status.state !in setOf("COMPLETED", "FAILED", "CANCELLED") &&
+                                    storage.goalTurnBindings.sessionForGoal(it.id) == sessionId
+                            }?.id ?: GoalRunCoordinator(storage, clock, idGenerator)
+                            .create(text, emptyList(), control.goalBudgets)
+                    } else {
+                        null
+                    }
+                if (effectiveGoalId != null) goalLifecycle.bind(effectiveGoalId, sessionId)
+                val wakeReason =
+                    if (continuation == null) {
+                        com.helix.core.agent.GoalWakeReason.USER_OPEN
+                    } else {
+                        com.helix.core.agent.GoalWakeReason.FOREGROUND_CONTINUATION
+                    }
+                preparedGoalId = effectiveGoalId
+                preparedTurn = startCoordinatorForTurn(spec, effectiveGoalId, control, wakeReason)
+            }
+            val effectiveGoalId = preparedGoalId
+            val started = preparedTurn
             if (started == null) {
                 setBlocked(str(R.string.goal_continue_unavailable))
                 return null
             }
             val (coordinator, effectiveControl) = started
+            if (directUserRequest && !text.isNullOrBlank()) {
+                goalUserRequests[turnId] = GoalUserRequest(sessionId, text, providerId, control, snapshot)
+            }
+            if (continuousGoal && effectiveGoalId != null) {
+                goalContinuation.started(
+                    sessionId,
+                    effectiveGoalId,
+                    providerId,
+                    control,
+                    turnId,
+                    continuation,
+                    snapshot,
+                )
+            }
             return launchAndPublishTurn(sessionId, turnId, coordinator, providerId, retryTurnId, effectiveControl)
         }
     }
@@ -2036,11 +2272,12 @@ class ChatService(
         spec: TurnStartSpec,
         goalId: String?,
         control: RunControlConfig,
+        wakeReason: com.helix.core.agent.GoalWakeReason,
     ): Pair<TurnCoordinator, RunControlConfig>? {
         val goalStart =
             goalId?.let {
                 GoalRunCoordinator(storage, clock, idGenerator).start(
-                    GoalTurnStart(it, com.helix.core.agent.GoalWakeReason.USER_OPEN, spec, control.budgets),
+                    GoalTurnStart(it, wakeReason, spec, control.budgets),
                 )
             }
         if (goalId != null && goalStart == null) return null
@@ -2135,8 +2372,16 @@ class ChatService(
         outcome: ModelStreamTerminal,
     ) {
         val turnId = coordinator.id
-        coordinator.terminalize(outcome)
-        endTurnSettlement(turnId)
+        val settledOutcome = systemStops.remove(turnId)?.let { outcome.copy(errorCode = it) } ?: outcome
+        // Reserve the next round before publishing idle, keeping the user-started FGS alive.
+        val continuation =
+            synchronized(turnGate) {
+                coordinator.terminalize(settledOutcome)
+                endTurnSettlement(turnId)
+                goalLifecycle.settle(turnId)
+                goalUserRequests.remove(turnId)
+                goalContinuation.next(sessionId, turnId)
+            }
         // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
         // user reacting immediately cannot hit the still-active coroutine's completion gap.
         sessionTurnAdmission.complete(sessionId, turnId)
@@ -2159,6 +2404,25 @@ class ChatService(
         }
         refreshScreen()
         syncGoalReminderForTurn(turnId)
+        if (continuation != null) scheduleGoalContinuation(sessionId, turnId, continuation)
+    }
+
+    @Suppress("TooGenericExceptionCaught") // Background boundary must release its FGS handoff on every failure.
+    private fun scheduleGoalContinuation(sessionId: String, turnId: String, command: SubmitTurnCommand) {
+        workScope.launch {
+            try {
+                agentRuntime.submit(command)
+            } catch (cancel: CancellationException) {
+                synchronized(turnGate) { goalContinuation.disarmTurn(sessionId, turnId) }
+                throw cancel
+            } catch (error: Exception) {
+                synchronized(turnGate) { goalContinuation.disarmTurn(sessionId, turnId) }
+                Log.e(TAG, "Goal continuation stopped before admission", error)
+            } finally {
+                synchronized(turnGate) { goalContinuation.finishHandoff(sessionId, turnId) }
+                refreshBackgroundTasks()
+            }
+        }
     }
 
     /**

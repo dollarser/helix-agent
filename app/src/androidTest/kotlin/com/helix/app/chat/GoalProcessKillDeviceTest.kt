@@ -92,6 +92,17 @@ class GoalProcessKillDeviceTest {
         turnId: String,
     ) {
         val started = requireNotNull(coordinator(storage).start(request(goalId, turnId)))
+        if (storage.goalControls.find(goalId) == null) {
+            storage.goalControls.insert(
+                com.helix.core.storage.entity
+                    .GoalControlEntity(goalId, "session", 0, null, null),
+            )
+        }
+        val revision = requireNotNull(storage.goalControls.find(goalId)).revision
+        assertEquals(
+            1,
+            storage.goalControls.stage(goalId, revision, turnId, """{"objective":"Must not survive interruption"}"""),
+        )
         assertTrue(GoalTimeBudget(storage, clock(2_000), started.runId).start())
         assertTrue(
             GoalUsageReservations(storage).reserve(
@@ -117,6 +128,9 @@ class GoalProcessKillDeviceTest {
         val goal = storage.goals.resolve(goalId)
         // ADR-0039: exhaustion blocks continuation; interruption alone remains resumable.
         assertEquals(if (runs == 2) "BLOCKED" else "PAUSED", goal.state)
+        assertNull(storage.goalControls.find(goalId)?.pendingJson)
+        assertEquals("Bound interrupted execution", goal.objective)
+        assertTrue(!GoalContinuationDriver(storage).isArmed("session", goalId))
         assertEquals(runs * 5_000L, goal.runTimeMillis)
         assertEquals(runs * 100L, goal.totalTokens)
         assertEquals(runs, goal.modelCalls)

@@ -34,6 +34,9 @@ internal interface AgentTurnHost {
         goalId: String?,
         attachments: List<AttachmentBindingIntent> = emptyList(),
         control: RunControlConfig,
+        continuousGoal: Boolean = false,
+        goalContinuation: com.helix.core.agent.GoalContinuationRequest? = null,
+        directUserRequest: Boolean = false,
     ): String?
 
     /**
@@ -47,6 +50,9 @@ internal interface AgentTurnHost {
      * turn — the adapter pre-checks the rest.
      */
     suspend fun cancelTurn(turnId: String): TurnCancelOutcome
+
+    /** Revoke a queued successor even when the addressed predecessor is already terminal. */
+    suspend fun revokeGoalContinuation(turnId: String)
 
     /**
      * The turn's LIVE frame stream (research doc section 34; HX2-01 §2c): [TurnUi] frames whose

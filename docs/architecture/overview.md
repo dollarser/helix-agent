@@ -262,7 +262,7 @@ interface ToolExecutor {
 
 Tool Registry 在构建模型请求前同时按 mode、Capability、user scope 和 execution target 过滤。不可用工具不进入本次模型工具表。Plan 只允许 `operationClass=READ_ONLY` 或闭合的内置 `METADATA` 类别（如 `plan.submit`），不能用 `baseRisk <= L1` 代替这个 class 判断；因此 L1 的新建文件、HTTP 请求和页面动作仍不可用。Plan 对放行类别的工具同时施加动态风险上限：动态风险升到 L2/L3 的读取（如读取 Root 日志、敏感联系人）在 Plan 同样不可用——operation class 是主判断，风险上限不替代 class 判断。
 
-Goal 的首版唤醒源只有用户显式继续（打开 Goal/点击通知）。可选 WorkManager 只在 `nextCheckpoint` 附近发出提醒，不在后台发起模型请求或工具调用；Doze、强制停止和系统调度均可延迟/取消提醒，UI 不得将检查点显示为精确定时器。
+Goal 按 [ADR-0053](../adr/0053-goal-continuation-activation.md) 支持用户激活后的同会话连续轮次，包括 Activity 退后台后的 dataSync 服务接续。自动准入需要进程内激活、精确前轮、正常结算和剩余预算；停止、异常及进程恢复解除激活。WorkManager 只在 `nextCheckpoint` 附近提醒，不自动激活；Doze、强停和系统调度仍可延迟/取消提醒。完整模型 Goal 工具面和版本化编辑复用 Room、既有预算与审批。
 
 ### 5.2 Turn 状态
 
@@ -500,6 +500,7 @@ Safety Profile 不是 Tool 参数或模型可见的可写 Capability。切换 Pr
 | `goals` / `goal_runs` | objective, criteria, budgets, state, planId, planHash, nextCheckpoint, correlationId, 累计计数器（runCount/modelCalls/toolCalls/totalTokens/runTimeMillis/currentWakeMillis/retries，ADR-0004）, lastWakeReason, error, finishReason / goalId, wakeReason, outcome, startedAt, endedAt, wakeDurationMillis, modelCalls, toolCalls, tokens | 持久目标与唤醒记录；PAUSED/BLOCKED 原因使用稳定 outcome + 同事务 audit 表达，不只依赖进程内 effect |
 | `goal_turn_bindings` | turnId（主键，外键到 turns）, runId（索引，外键到 goal_runs） | ADR-0004 run/wake 的持久关联；一个 run 可含多个 Turn，一个 Turn 仅属于一个 run。创建 Turn 时同事务绑定，仅开放的 RUNNING Goal run 可接受绑定，同一 Goal 不跨会话；旧 Turn 不猜测回填。删除 Turn/run 级联删除关联 |
 | `goal_usage_reservations` | id（主键）, runId（索引，外键到 goal_runs）, kind, reservedTokens, reservedMillis, state, chargedTokens, chargedMillis | HXA-102 执行前预算预留；PENDING 占用可用额度，SETTLED 保存已知结算，INTERRUPTED 保存恢复时计入的预留值。仅保存计数，不存请求正文或凭据；run 删除时级联删除。预留准入、用量结算与恢复分别在事务中执行，不授权副作用或重放 |
+| `goal_controls` | goalId（主键、外键）, sessionId（索引、外键）, revision, pendingTurnId, pendingJson | HXA-208/Room19：Goal 会话归属、CAS 编辑及待结算元数据；当前 Turn 成功结算后原子应用，失败/恢复丢弃；不持久保存自动激活许可 |
 | `mcp_servers` / `mcp_capabilities` | transport, endpointRef/commandRef, authAlias, enabled, trustState / serverId, protocolVersion, kind, name, schemaHash, enabled | MCP 配置和快照 |
 | `a2a_agents` / `a2a_capabilities` / `a2a_tasks` | endpointRef, authAlias, enabled, cardHash / agentId, interface, protocolVersion, skillId, skillHash, inputModes, outputModes, enabled / toolCallId, agentId, taskId, contextId, snapshotHash, inputHash, state, lastEventSequence | A2A Agent Card/Skill 快照与远端 Task 对账；HXA-077 接受方案后才可落 schema |
 | `skills` / `skill_snapshots` | name, source, version, rootRef, contentHash, enabled / runId, skillId, contentHash, catalogEntry | Skill 渐进加载和固定版本 |
@@ -547,7 +548,7 @@ All files access 通过系统设置授权后仍要求用户在 Helix 内选择 r
 - `NotificationListenerService`：只在用户开启系统权限后工作；Provider 层返回 `PermissionMissing`，不能返回空列表冒充成功。
 - Calendar：优先使用系统 Intent 生成用户可见草稿；直接 Provider 写入属于 L2。
 - 文件：Workspace 为默认；支持 SAF 和用户主动开启的 `MANAGE_EXTERNAL_STORAGE`，但 Tool 仅能访问 Helix scope。
-- 后台：WorkManager 用于可延期维护和 Goal 提醒，不用于精确唤醒或未经用户继续的 Agent 执行。前台服务只覆盖用户主动发起、正在执行且符合平台用途的 Provider/MCP 传输或本地文件处理，基线声明 `foregroundServiceType="dataSync"`、`FOREGROUND_SERVICE` 和 `FOREGROUND_SERVICE_DATA_SYNC`。等待审批/人工输入时停止服务；实现 `Service.onTimeout()` 并在 Android 15+ 共享的 6 小时/24 小时限额前结束。不得用前台服务把 Goal 变成无人值守循环。强制停止后无法自恢复。
+- 后台：WorkManager 用于可延期维护和 Goal 提醒，不用于精确唤醒或未经用户继续的 Agent 执行。前台服务只覆盖用户主动发起、正在执行且符合平台用途的 Provider/MCP 传输或本地文件处理，基线声明 `foregroundServiceType="dataSync"`、`FOREGROUND_SERVICE` 和 `FOREGROUND_SERVICE_DATA_SYNC`。等待审批/人工输入时停止服务；实现 `Service.onTimeout()` 并在 Android 15+ 共享的 6 小时/24 小时限额前结束。ADR-0053 允许用户激活后由同一服务衔接 Goal 下一轮；轮间不撤销服务，等待人工、系统拒绝/超时和用户停止则停驻，强制停止后无法自恢复。
 - 浏览器：System WebView + AndroidX WebKit；不可信页面无永久 privileged JS bridge。按 [ADR-0033](../adr/0033-activity-owned-browser-views.md)，Activity 持有惰性 WebView owner，应用控制器仅弱绑定并保留逻辑标签；后台保留 View，真正销毁后显式导航，旧 owner 不得释放新 View。
 - Accessibility：用户从系统设置开启，目标包 allowlist、限时 session、节点 token 和停止入口；敏感系统/支付/认证界面拒绝。
 - Root：用户明确触发 libsu Root 请求；高层只读工具优先，`root.exec` 默认不对 Agent 开放。

@@ -38,7 +38,7 @@ status 中190/191属于其他在途工作；不要因其列在 In progress 就�
 
 - 125真实服务账号、122发行、189剩余设备及真机长稳继续沿用原任务，独立验收；fixture不替代真实账号、OEM或长稳。
 - 126/129/130仍有 proposed 决策与外部条件；207仅复用既有来源和生命周期行为，不提前实现这些范围。
-- Goal自动续跑、Schedule、Hooks、Code Mode与子Agent仍是研究或另行启用范围，不借体验任务开工。
+- Goal 前后台连续运行及完整模型工具由所有者另行授权 ADR-0053/HXA-208，按其专项证据接手，不重做或借体验任务扩大唤醒来源；Schedule、Hooks、Code Mode 与子 Agent 仍属研究或另行启用范围。
 - ADR-0048/0049/0050/0051/0052已接受，不再重复请求接受；这不免除其实现/启用验收。新决策默认proposed。
 
 ## 4. 每个切片的交付格式
@@ -64,7 +64,7 @@ status 中190/191属于其他在途工作；不要因其列在 In progress 就�
 
 遵循 accepted ADR：developer 单 APK 的 Subscriptions/PRoot 私有进程共享主 UID，consumer 排除，QuickJS 仍 isolated UID；不声称 PRoot 隔离主应用秘密。允许/询问/禁止是真实用户偏好，ALLOW不授予系统能力、scope或通配高风险审批；Plan审阅不批准全部工具。取消/恢复保留持久结算，不盲目重放。已有架构决定无需重复确认，但后台/PTY的平台和组件启用证据不能省略。
 
-只实施已批准范围，不开展新 OAuth/市场/版本生命周期、Goal自动续跑、Schedule、Hooks、Code Mode或子Agent。常规可逆实现自主完成；出现真实新架构决策或缺少外部条件时，给出具体证据及可继续的工作。
+只实施已批准范围，不开展新 OAuth/市场/版本生命周期、Goal 的定时/外部自动激活、Schedule、Hooks、Code Mode或子Agent。常规可逆实现自主完成；出现真实新架构决策或缺少外部条件时，给出具体证据及可继续的工作。
 
 按专项运行实际验证。设备测试只用自己启动的独占模拟器，拒绝已有serial，finally关闭自己的进程；调试脚本先保存，原始产物放ignored build。编译、dry-run、零测试或skip均不等于设备验收。不要以fixture声称真实账号或发行通过。
 

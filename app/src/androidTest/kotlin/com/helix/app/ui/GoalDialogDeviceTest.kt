@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
@@ -66,6 +67,7 @@ class GoalDialogDeviceTest {
             }
             val id = requireNotNull(goalId)
             assertNotStarted(storage, id, sessionId)
+            editObjective(service, storage, id)
             compose.onNodeWithTag("goal-continue-$id").performScrollTo().performClick()
             compose.waitUntil(10_000) { service.screen.value.blockedReason != null }
             compose.runOnIdle {
@@ -80,6 +82,19 @@ class GoalDialogDeviceTest {
             goalId?.let(storage.goals::delete)
             storage.sessions.archive(sessionId, System.currentTimeMillis())
         }
+    }
+
+    private fun editObjective(
+        service: com.helix.app.chat.ChatService,
+        storage: com.helix.core.storage.HelixStorage,
+        id: String,
+    ) {
+        compose.onNodeWithTag("goal-objective-edit-$id").performScrollTo().performClick()
+        compose.onNodeWithTag("goal-objective-$id").performScrollTo().performTextReplacement("Edited objective")
+        compose.onNodeWithTag("goal-objective-save-$id").performScrollTo().performClick()
+        compose.waitUntil(10_000) { storage.goals.resolve(id).objective == "Edited objective" }
+        assertEquals(1L, storage.goalControls.find(id)?.revision)
+        assertEquals(false, kotlinx.coroutines.runBlocking { service.editGoalObjective(id, 0, "Stale") })
     }
 
     private fun assertNotStarted(

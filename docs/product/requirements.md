@@ -225,7 +225,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-AGENT-005 | P0 | 失败不伪装成功 | 完成态必须有模型 final 或经验证产物 |
 | FR-AGENT-006 | P1 | 进程重启恢复 | `RUNNING` 变为 `INTERRUPTED`，由用户恢复 |
 | FR-AGENT-007 | P0 | Plan 模式 | 只能调用只读工具，输出版本化 PlanArtifact |
-| FR-AGENT-008 | P1 | Goal 模式 | 持久目标、验收条件、预算、检查点和人工输入状态 |
+| FR-AGENT-008 | P1 | Goal 模式 | 持久目标、预算、检查点和人工输入状态；用户激活后前后台跨轮推进，create_goal/get_goal/update_goal 支持创建、读取、目标/预算编辑和暂停恢复；取消、系统中断及重启停驻，见 ADR-0053 |
 | FR-AGENT-009 | P1 | Goal 模型完成判断 | 模型依据工作结果报告完成及理由；Harness 检查任务归属、正常结算、取消和未决副作用，不强制证据绑定，见 ADR-0040 |
 | FR-AGENT-010 | P0 | Context Builder | 来源/信任标记、确定性 token 预算、大结果 Artifact 引用；不截断当前工具/审批契约 |
 
@@ -433,7 +433,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 27. 恶意 Skill zip 路径穿越和压缩炸弹被拒绝。
 28. A2A Agent Card/Skill 或 endpoint 变化后旧工具与审批失效；SSE 断线、取消或重启只对账原 task ID，远端结果不能触发本机未审批动作。
 29. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
-30. Goal 预算耗尽进入暂停/失败而非完成，重启后不重复副作用。
+30. Goal 预算耗尽进入 BLOCKED，调整预算后显式恢复；用户暂停与系统中断停驻，重启不重新激活或重复副作用。
 31. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
 32. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
 33. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。

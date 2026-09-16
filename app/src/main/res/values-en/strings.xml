@@ -614,7 +614,7 @@
     <string name="chat_mode_chat_explanation">Chat: no tools by default; explicit opt-in exposes only L0 read-only tools.</string>
     <string name="chat_mode_plan_explanation">Plan: read-only research; exposes only READ_ONLY tools with dynamic risk up to L1.</string>
     <string name="chat_mode_act_explanation">Act: completes this interactive task; every tool still passes Policy, Approval, budgets, and audit.</string>
-    <string name="chat_mode_goal_explanation">Goal: create or choose a persistent goal, review its budget, and explicitly continue. Replies do not mark the goal complete.</string>
+    <string name="chat_mode_goal_explanation">Goal: send an objective to keep working within its budget including while the app is in the background, until completion, blocking or stop. Resume explicitly after a stop or system interruption.</string>
     <string name="chat_tools_enable">Enable L0 read-only tools for Chat</string>
     <string name="chat_tools_disable">Disable Chat tools</string>
     <string name="chat_budget_summary">Turn limits — steps: %1$d, model calls: %2$d, output tokens: %3$d, total tokens: %4$d</string>
@@ -638,10 +638,11 @@
     <string name="goal_continue_unavailable">This Goal cannot continue. Check its state, session, and remaining budget.</string>
     <string name="goal_time_window_expired">The Goal timing checkpoint expired and execution stopped. Review its state before continuing.</string>
     <string name="goal_manage">Goals</string>
-    <string name="goal_explicit_continue">Send a task from the composer to create a Goal. Continue resumes it; budget edits only save. The model reports progress and completion.</string>
+    <string name="goal_explicit_continue">Send a task to create a Goal. Continue enables automatic rounds, including in the background. Stop or restarting requires another explicit continue. Budget edits only save; the model reports completion.</string>
     <string name="goal_usage">Model %1$d/%2$d · Tools %3$d/%4$d · Tokens %5$d/%6$d · Time (s): %7$d/%8$d</string>
     <string name="goal_continue">Continue</string>
     <string name="goal_edit_budgets">Edit budgets</string>
+    <string name="goal_edit_objective">Edit objective</string>
     <string name="goal_close">Close</string>
     <string name="goal_save">Save</string>
     <string name="goal_model_limit">Lifetime model call limit</string>
@@ -817,6 +818,7 @@
     <string name="background_task_pausing">Pausing; settling execution</string>
     <string name="goal_state_blocked">Blocked</string>
     <string name="goal_user_paused">Paused by you; Continue resumes the goal</string>
+    <string name="goal_system_paused">Background execution was interrupted by the system. Reopen and continue; settled actions are not replayed.</string>
     <string name="goal_blocked_review">Some execution outcomes are uncertain. Inspect and reconcile them first.</string>
     <string name="goal_blocked_context">Context capacity is insufficient. Compact the conversation or adjust the model and context settings.</string>
     <string name="goal_blocked_budget">Insufficient remaining budget. Adjust the budget, then recheck.</string>

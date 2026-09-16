@@ -26,6 +26,9 @@ internal class GoalRunSettlement(
         }
     }
 
+    private fun pauseOutcome(errorCode: String?): String =
+        errorCode?.takeIf { it.startsWith("FGS_") }?.let { "SYSTEM_PAUSED($it)" } ?: "USER_PAUSED"
+
     private fun settleBoundTurn(
         turnId: String,
         runId: String,
@@ -56,7 +59,7 @@ internal class GoalRunSettlement(
             } else if (report?.status == "blocked") {
                 GoalEvent.Blocked to "BLOCKED(MODEL_REPORTED)"
             } else if (!uncertain && paused) {
-                GoalEvent.RunFinished to "USER_PAUSED"
+                GoalEvent.RunFinished to pauseOutcome(turn.errorCode)
             } else {
                 decision(goal.correlationId, state, turn.errorCode, uncertain)
             }

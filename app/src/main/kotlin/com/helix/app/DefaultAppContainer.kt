@@ -192,7 +192,13 @@ internal class DefaultAppContainer(
 
     private val dataSyncLauncher = AndroidForegroundServiceLauncher(context.applicationContext)
 
-    private val dataSyncController = DataSyncForegroundController(dataSyncLauncher)
+    private val dataSyncController =
+        DataSyncForegroundController(dataSyncLauncher) {
+            chatService.stopContinuousGoals("FGS_START_REJECTED")
+            chatService.backgroundTasks.value.filter { it.running && it.goalId == null }.forEach {
+                chatService.stopTask(it.id, systemReason = "FGS_START_REJECTED")
+            }
+        }
 
     private val toolRegistry: ToolRegistry = ToolRegistry()
 
@@ -295,6 +301,8 @@ internal class DefaultAppContainer(
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        com.helix.app.goal.GoalLifecycleTools
+            .register(toolRegistry, toolImplementations) { chatService.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool
             .register(toolRegistry, toolImplementations, storage)
         // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
@@ -606,13 +614,8 @@ internal class DefaultAppContainer(
                 }
             }
             appScope.launch {
-                it.backgroundTasks.collect { tasks ->
-                    dataSyncController.onTurnState(
-                        tasks
-                            .firstOrNull { task ->
-                                task.state in DataSyncForegroundController.TRANSPORT_ACTIVE
-                            }?.state,
-                    )
+                it.foregroundTransportState.collect { state ->
+                    dataSyncController.onTurnState(state)
                 }
             }
         }

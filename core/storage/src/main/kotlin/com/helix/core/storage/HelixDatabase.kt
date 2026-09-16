@@ -121,12 +121,15 @@ import com.helix.core.storage.entity.TurnEntity
             ToolApprovalPreferenceEntity::class,
             ToolRegistrationBaselineEntity::class,
             ToolBaselineMetaEntity::class,
+            com.helix.core.storage.entity.GoalControlEntity::class,
         ],
-    version = 18,
+    version = 19,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
 abstract class HelixDatabase : RoomDatabase() {
+    abstract fun goalControlDao(): com.helix.core.storage.dao.GoalControlDao
+
     abstract fun sessionDao(): SessionDao
 
     abstract fun messageDao(): MessageDao
@@ -192,6 +195,7 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun toolBaselineMetaDao(): ToolBaselineMetaDao
 
     companion object {
+        val MIGRATION_18_19 = HelixMigrations.MIGRATION_18_19
         const val DATABASE_NAME = "helix.db"
 
         val MIGRATION_17_18 = HelixMigrations.MIGRATION_17_18
