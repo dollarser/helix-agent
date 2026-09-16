@@ -229,10 +229,18 @@ internal class LoopbackModelServer(
     /** The OpenAI-compatible stream for the request body (tool fixture iff the body offers tools). */
     var forceTextResponses = false
 
+    @Volatile var reasoningOnlyResponses = false
+
     @Volatile var goalReportStatus: String? = null
 
     @Suppress("ReturnCount") // Independent report, tool-probe and plain-text fixture responses.
     private fun chatStream(requestBody: String): String {
+        if (reasoningOnlyResponses) {
+            return "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"thinking\"}," +
+                "\"finish_reason\":null}]}\n\n" +
+                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"length\"}]}\n\n" +
+                "data: [DONE]\n\n"
+        }
         val report = goalReportStatus
         if (report != null) {
             if (requestBody.contains("\"role\":\"tool\"")) return OPENAI_TEXT_STREAM

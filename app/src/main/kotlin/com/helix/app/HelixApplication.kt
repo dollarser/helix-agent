@@ -10,7 +10,16 @@ import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {
-    val appContainer: AppContainer by lazy { DefaultAppContainer(this) }
+    private val containerInitialization by lazy {
+        check(!Process.isIsolated() && getProcessName() == packageName) {
+            "AppContainer belongs to the main process"
+        }
+        BackgroundInitialization("helix-container-init") { DefaultAppContainer(this) }
+    }
+
+    /** Room initialization always runs off main, even when an Activity wins first access. */
+    val appContainer: AppContainer
+        get() = containerInitialization.await()
 
     private lateinit var processDiagnostics: ProcessDiagnostics
 
@@ -54,6 +63,8 @@ class HelixApplication : Application() {
         // processes. Only the main process owns host diagnostics, Room and recovery.
         if (Process.isIsolated() || getProcessName() != packageName) return
         processDiagnostics = ProcessDiagnostics.install(this)
+        // Schedule before recovery/UI access, preserving the private Runtime process guard.
+        containerInitialization
         Thread(
             {
                 try {

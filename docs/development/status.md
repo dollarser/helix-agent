@@ -6,6 +6,8 @@ Harness 新接手统一读取[实施导航与交接 Prompt](harness-implementati
 
 ## Current summary
 
+2026-09-16 main差异复核：修复v0.0.1指出的reasoning-only连接误判及容器首次访问线程竞态；按main的ADR-0049保留私有Runtime进程排除，不整提交覆盖。双flavor主机回归及API29/36四象限专项8/8通过、0跳过；存储分阶段验收保留。见[修复记录](../bug-fixes/2026-09-16-main-thinking-and-startup.md)，不代表真实SGLang或全部设备重验。
+
 2026-09-16 main集成：所有者授权将Harness `69182f53` 合入main并退役重复工作树，冲突以Harness为准；必要本地证据及Runtime资产已复制并逐文件校验。验证、归档位置与退役步骤见[main集成记录](harness-main-integration-2026-09-16.md)。下文“未合并”“只在Harness”的表述保留历史含义；未推送，外部/发行验收未因此完成。
 
 2026-09-16 WIP接手：所有者已授权本任务接手并提交此前保留的实现和文档，含单APK Runtime、测试语言修正与门禁重构；不再等待原并行所有方。完整`check-all.sh --all`通过，Runtime专项API29/36各2通过、0跳过，见[接手记录](wip-takeover-2026-09-16.md)。下方192/193的旧27 detekt、12 lint、JGit阻断和“待所有方提交”均为历史状态。Plan用户闭环、远端CI资产来源、真实账号及发行仍分别记录，未因此关闭整个192/193。

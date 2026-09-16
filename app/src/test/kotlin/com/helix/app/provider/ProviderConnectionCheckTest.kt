@@ -19,6 +19,53 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ProviderConnectionCheckTest {
+    @Test fun reasoningOnlyCompletedStreamProvesConnection() =
+        runBlocking {
+            val provider =
+                Fixture(
+                    null,
+                    listOf(
+                        ModelEvent.ReasoningDelta("thinking"),
+                        ModelEvent.Completed("length"),
+                        ModelEvent.Usage(10, 16),
+                    ),
+                )
+            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Ok
+            assertEquals(CapabilitySource.CONNECTION_ONLY, result.capabilities.source)
+            assertEquals(1, provider.generations)
+        }
+
+    @Test fun emptyWhitespaceAndUnfinishedReasoningFailProtocol() =
+        runBlocking {
+            val invalid =
+                listOf(
+                    listOf(ModelEvent.Completed("stop")),
+                    listOf(ModelEvent.ReasoningDelta(" "), ModelEvent.Completed("length")),
+                    listOf(ModelEvent.ReasoningDelta("thinking"), ModelEvent.Usage(10, 16)),
+                    listOf(ModelEvent.Completed("stop"), ModelEvent.ReasoningDelta("late")),
+                )
+            for (events in invalid) {
+                val result = ProviderConnectionCheck.run(config, Fixture(null, events), null) as ProbeOutcome.Failed
+                assertEquals(ModelErrorCode.PROTOCOL, result.code)
+                assertEquals(3, result.phase)
+            }
+        }
+
+    @Test fun errorAfterReasoningIsNotAConnectedResult() =
+        runBlocking {
+            val provider =
+                Fixture(
+                    null,
+                    listOf(
+                        ModelEvent.ReasoningDelta("thinking"),
+                        ModelEvent.Completed("length"),
+                        ModelEvent.Error(ModelErrorCode.TRANSPORT, true),
+                    ),
+                )
+            val result = ProviderConnectionCheck.run(config, provider, null) as ProbeOutcome.Failed
+            assertEquals(ModelErrorCode.TRANSPORT, result.code)
+        }
+
     @Test fun trailingUsageDoesNotInvalidateACompletedReply() =
         runBlocking {
             val provider =

@@ -50,13 +50,22 @@ internal object ProviderConnectionCheck {
         return if (error != null) {
             ProbeOutcome.Failed(3, error.code, "connection reply failed", error.retryable)
         } else if (events.lastOrNull { it !is ModelEvent.Usage } !is ModelEvent.Completed ||
-            events.filterIsInstance<ModelEvent.TextDelta>().none { it.text.isNotBlank() }
+            events.none { it.hasGeneratedContent() }
         ) {
             ProbeOutcome.Failed(3, ModelErrorCode.PROTOCOL, "connection reply incomplete", false)
         } else {
             connected(previous, catalog)
         }
     }
+
+    // Thinking backends may spend this probe's entire token budget on reasoning. This
+    // proves connectivity, not visible-answer quality or optional tool capabilities.
+    private fun ModelEvent.hasGeneratedContent(): Boolean =
+        when (this) {
+            is ModelEvent.TextDelta -> text.isNotBlank()
+            is ModelEvent.ReasoningDelta -> text.isNotBlank()
+            else -> false
+        }
 
     private fun connected(
         previous: ProviderCapabilities?,
