@@ -4,6 +4,80 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    /**
+     * v19 -> v20 (HXA-209 B2, ADR-PERMISSIONS-001): the new session-permission storage. Adds
+     * `session_permission_configs` (one compiled [SessionPermissionConfig] per session — a
+     * LAZY default: no per-session rows are seeded, a missing row means the session uses the
+     * app default), `tool_availability` (the two-state tool availability per identity + scope,
+     * replacing the old three-state preference model at its scope), and the single-row
+     * `session_permission_defaults` (seeded READ_ONLY: the app default on an upgraded install
+     * is the safest preset, ADR section 1).
+     *
+     * The ONLY row conversion: every old `tool_approval_preferences` row with
+     * `preference = 'DENY'` becomes a `tool_availability` row with state `DISABLED` at the same
+     * scope (a denied tool is an unavailable tool). ASK/ALLOW rows carry no availability state
+     * and are NOT converted. The old table's unique index on (sourceRef, toolName, scopeKind,
+     * scopeRef) guarantees the selected keys are distinct, so a plain INSERT OR IGNORE is
+     * collision-safe (API 29 SQLite 3.22 has no UPSERT). The old `tool_approval_preferences`
+     * table is KEPT until the B4 removal slice drops it.
+     */
+    val MIGRATION_19_20 =
+        object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_configs` (" +
+                        "`sessionId` TEXT NOT NULL, " +
+                        "`mode` TEXT NOT NULL, " +
+                        "`rulesJson` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sessionId`), " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_availability` (" +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`scopeKind` TEXT NOT NULL, " +
+                        "`scopeRef` TEXT NOT NULL, " +
+                        "`state` TEXT NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sourceRef`, `toolName`, `scopeKind`, `scopeRef`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tool_availability_tool` " +
+                        "ON `tool_availability` (`sourceRef`, `toolName`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_defaults` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`mode` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO `tool_availability` " +
+                        "(`sourceRef`, `toolName`, `scopeKind`, `scopeRef`, `state`, `revision`, " +
+                        "`createdAtEpoch`, `updatedAtEpoch`) " +
+                        "SELECT `sourceRef`, `toolName`, `scopeKind`, `scopeRef`, 'DISABLED', 1, " +
+                        "`createdAtEpoch`, `updatedAtEpoch` " +
+                        "FROM `tool_approval_preferences` WHERE `preference` = 'DENY'",
+                )
+                db.execSQL(
+                    "INSERT INTO `session_permission_defaults` " +
+                        "(`id`, `mode`, `configVersion`, `revision`, `updatedAtEpoch`) " +
+                        "VALUES ('app', 'READ_ONLY', 1, 0, 0)",
+                )
+            }
+        }
+
     val MIGRATION_18_19 =
         object : Migration(18, 19) {
             override fun migrate(db: SupportSQLiteDatabase) {

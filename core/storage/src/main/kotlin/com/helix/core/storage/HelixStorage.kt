@@ -33,10 +33,12 @@ import com.helix.core.storage.repository.ModelCallRepository
 import com.helix.core.storage.repository.PlanRepository
 import com.helix.core.storage.repository.ProviderConfigRepository
 import com.helix.core.storage.repository.RuntimeInstallRepository
+import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.SessionRepository
 import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
 import com.helix.core.storage.repository.ToolApprovalPreferenceRepository
+import com.helix.core.storage.repository.ToolAvailabilityRepository
 import com.helix.core.storage.repository.ToolCallRepository
 import com.helix.core.storage.repository.ToolRegistrationBaselineRepository
 import com.helix.core.storage.repository.ToolResultRepository
@@ -73,6 +75,28 @@ class HelixStorage internal constructor(
      */
     val toolApprovalPreferences: ToolApprovalPreferenceRepository by lazy {
         ToolApprovalPreferenceRepository(database.toolApprovalPreferenceDao())
+    }
+
+    /**
+     * Session permission configurations (HXA-209, ADR-PERMISSIONS-001): the per-session
+     * compiled config rows and the app-default row. Written by the user application service;
+     * the dispatcher reads [SessionPermissionConfigRepository.forSession] /
+     * [SessionPermissionConfigRepository.appDefault].
+     */
+    val sessionPermissionConfigs: SessionPermissionConfigRepository by lazy {
+        SessionPermissionConfigRepository(
+            database.sessionPermissionConfigDao(),
+            database.sessionPermissionDefaultsDao(),
+        )
+    }
+
+    /**
+     * Two-state tool availability per identity + scope (HXA-209, ADR-PERMISSIONS-001 section
+     * 1.1); the dispatcher and every exposure surface read through
+     * [ToolAvailabilityRepository.statesFor].
+     */
+    val toolAvailability: ToolAvailabilityRepository by lazy {
+        ToolAvailabilityRepository(database.toolAvailabilityDao())
     }
 
     /**
@@ -211,6 +235,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_16_17,
                 HelixDatabase.MIGRATION_17_18,
                 HelixDatabase.MIGRATION_18_19,
+                HelixDatabase.MIGRATION_19_20,
             )
 
         fun create(context: Context): HelixStorage {

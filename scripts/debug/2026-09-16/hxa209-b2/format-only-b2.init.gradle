@@ -1,0 +1,31 @@
+// Narrows the root spotless "kotlin" format to the HXA-209 B2 files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices (e.g. the parallel-session probe
+// tests) are left untouched.
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'core/model/src/main/kotlin/com/helix/core/model/ToolAvailabilityScope.kt',
+        'core/model/src/main/kotlin/com/helix/core/model/ToolAvailabilityStates.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/entity/SessionPermissionConfigEntity.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/entity/ToolAvailabilityEntity.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/entity/SessionPermissionDefaultsEntity.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionPermissionConfigDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/ToolAvailabilityDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/SessionPermissionDefaultsDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionPermissionRulesCodec.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/SessionPermissionConfigRepository.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/ToolAvailabilityRepository.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixMigrations.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixDatabase.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/HelixStorage.kt',
+        'core/storage/src/test/kotlin/com/helix/core/storage/repository/SessionPermissionRulesCodecTest.kt',
+        'core/storage/src/test/kotlin/com/helix/core/storage/repository/SessionPermissionConfigRepositoryTest.kt',
+        'core/storage/src/test/kotlin/com/helix/core/storage/repository/ToolAvailabilityRepositoryTest.kt',
+        'core/storage/src/androidTest/kotlin/com/helix/core/storage/RoomMigrationFixtureTest.kt',
+    )
+}

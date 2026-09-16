@@ -26,9 +26,12 @@ import com.helix.core.storage.dao.PlanDao
 import com.helix.core.storage.dao.ProviderConfigDao
 import com.helix.core.storage.dao.RuntimeInstallDao
 import com.helix.core.storage.dao.SessionDao
+import com.helix.core.storage.dao.SessionPermissionConfigDao
+import com.helix.core.storage.dao.SessionPermissionDefaultsDao
 import com.helix.core.storage.dao.SkillDao
 import com.helix.core.storage.dao.SkillSnapshotDao
 import com.helix.core.storage.dao.ToolApprovalPreferenceDao
+import com.helix.core.storage.dao.ToolAvailabilityDao
 import com.helix.core.storage.dao.ToolBaselineMetaDao
 import com.helix.core.storage.dao.ToolCallDao
 import com.helix.core.storage.dao.ToolRegistrationBaselineDao
@@ -59,9 +62,12 @@ import com.helix.core.storage.entity.PlanStepEntity
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.entity.RuntimeInstallEntity
 import com.helix.core.storage.entity.SessionEntity
+import com.helix.core.storage.entity.SessionPermissionConfigEntity
+import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
 import com.helix.core.storage.entity.SkillEntity
 import com.helix.core.storage.entity.SkillSnapshotEntity
 import com.helix.core.storage.entity.ToolApprovalPreferenceEntity
+import com.helix.core.storage.entity.ToolAvailabilityEntity
 import com.helix.core.storage.entity.ToolBaselineMetaEntity
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.entity.ToolRegistrationBaselineEntity
@@ -122,8 +128,11 @@ import com.helix.core.storage.entity.TurnEntity
             ToolRegistrationBaselineEntity::class,
             ToolBaselineMetaEntity::class,
             com.helix.core.storage.entity.GoalControlEntity::class,
+            SessionPermissionConfigEntity::class,
+            ToolAvailabilityEntity::class,
+            SessionPermissionDefaultsEntity::class,
         ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
@@ -194,7 +203,15 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun toolBaselineMetaDao(): ToolBaselineMetaDao
 
+    abstract fun sessionPermissionConfigDao(): SessionPermissionConfigDao
+
+    abstract fun toolAvailabilityDao(): ToolAvailabilityDao
+
+    abstract fun sessionPermissionDefaultsDao(): SessionPermissionDefaultsDao
+
     companion object {
+        val MIGRATION_19_20 = HelixMigrations.MIGRATION_19_20
+
         val MIGRATION_18_19 = HelixMigrations.MIGRATION_18_19
         const val DATABASE_NAME = "helix.db"
 
