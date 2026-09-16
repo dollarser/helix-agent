@@ -31,7 +31,7 @@ class VerifiedRuntimeStore(
     constructor(context: Context) : this(File(context.filesDir, FILE_NAME))
 
     companion object {
-        const val FILE_NAME = "proot-runtime/verified-runtime.json"
+        const val FILE_NAME = "proot-runtime/verified-integrated-runtime.json"
     }
 
     data class Entry(

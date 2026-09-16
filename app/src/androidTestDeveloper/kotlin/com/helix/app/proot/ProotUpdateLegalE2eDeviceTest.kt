@@ -89,17 +89,17 @@ class ProotUpdateLegalE2eDeviceTest {
     }
 
     @Test
-    fun theLegalPageActivityIsExportedBehindTheSignaturePermission() {
+    fun theLegalPageActivityIsPrivateToTheHostApplication() {
         val info =
             context.packageManager.getActivityInfo(
                 ComponentName(
-                    ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                    context.packageName,
                     ProotRuntimeProtocol.LEGAL_ACTIVITY_CLASS,
                 ),
                 0,
             )
-        assertTrue("the legal page must be exported for the main app's explicit intent", info.exported)
-        assertEquals(ProotRuntimeProtocol.PERMISSION_BIND, info.permission)
+        org.junit.Assert.assertFalse("the legal page is internal", info.exported)
+        assertEquals("${context.packageName}:proot", info.processName)
     }
 
     @Test
@@ -218,7 +218,7 @@ class ProotUpdateLegalE2eDeviceTest {
             require(
                 context.bindService(
                     Intent().setComponent(
-                        ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, ProotRuntimeProtocol.SERVICE_CLASS),
+                        ComponentName(context.packageName, ProotRuntimeProtocol.SERVICE_CLASS),
                     ),
                     connection,
                     Context.BIND_AUTO_CREATE,
@@ -262,7 +262,7 @@ class ProotUpdateLegalE2eDeviceTest {
     @Suppress("SwallowedException")
     private fun companionInstalled(context: Context): Boolean =
         try {
-            context.packageManager.getPackageInfo(ProotRuntimeProtocol.RUNTIME_PACKAGE, 0)
+            context.packageManager.getPackageInfo(context.packageName, 0)
             true
         } catch (e: PackageManager.NameNotFoundException) {
             false
@@ -272,7 +272,7 @@ class ProotUpdateLegalE2eDeviceTest {
         val appInfo =
             runCatching {
                 context.packageManager.getApplicationInfo(
-                    ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                    context.packageName,
                     0,
                 )
             }.getOrNull()

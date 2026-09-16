@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
 }
 
 android {
@@ -7,11 +7,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.helix.runtime.proot"
         minSdk = 29
-        targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // HXA-084: the native getpagesize() seam (src/main/cpp).
         externalNativeBuild {
@@ -47,7 +43,7 @@ android {
         lintConfig = rootProject.file("config/lint/lint.xml")
     }
 
-    // HXA-084: the job's exec hook (libexec_hook.so) must be EXECUTABLE by the
+    // The job's native loader (libhelix_loader.so) must be EXECUTABLE by the
     // system linker at runtime; with on-demand extraction (the AGP default) it is
     // never materialized as a file. Extracting at install places it in the APK
     // install dir (apk_data_file: execute + execute_no_trans are granted to

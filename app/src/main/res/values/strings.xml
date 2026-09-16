@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
 
     <!-- HXA-069: base/primary locale is Simplified Chinese. values-en and values-zh-rCN must keep
@@ -63,7 +63,7 @@
     <string name="empty_settings">模型 Provider 和本地配置将在 M2 实现。</string>
     <string name="empty_audit">工具执行审计记录将在 M3 实现。</string>
     <string name="empty_not_enabled">%1$s功能尚未启用</string>
-    <string name="settings_title">设置</string>
+    <string name="settings_title" tools:keep="true" tools:ignore="UnusedResources">设置</string>
     <string name="settings_safety_section">安全配置</string>
     <string name="settings_current_advanced">当前：Advanced</string>
     <string name="settings_current_standard">当前：Standard（默认）</string>
@@ -73,7 +73,7 @@
     <string name="settings_consumer_standard_only">此安装包使用 Standard，不提供 Advanced 切换入口。可用能力以当前设置中列出的选项为准。</string>
     <string name="settings_advanced_confirm_title">切换到 Advanced — 风险说明</string>
     <string name="settings_advanced_confirm_ok">我已了解，确认切换</string>
-    <string name="profile_advanced_risk_summary">切换为 Advanced 本身不授予任何能力：不会自动申请系统权限、不会安装 Runtime、不会请求 Root、不会连接新的网络端点，也不会扩大可用工具。\n\nAdvanced 开放的是受控的高级能力（All-files、Accessibility、离线 PRoot、Root、精确局域网 origin 等）。每项能力默认关闭，仍需由用户单独启用、限定 scope，并可立即撤销。\n\n两个配置共用的安全内核不变：模型不能自我授权；schema 验证、Policy、逐次审批、审计与撤销规则在 Advanced 下不被关闭或降级。</string>
+    <string name="profile_advanced_risk_summary">切换为 Advanced 本身不授予任何能力：不会自动申请系统权限、不会安装 Runtime、不会请求 Root、不会连接新的网络端点，也不会扩大可用工具。\n\nAdvanced 开放的是受控的高级能力（All-files、Accessibility、内置 PRoot、Root、精确局域网 origin 等）。每项能力默认关闭，仍需由用户单独启用、限定 scope，并可立即撤销。\n\n两个配置共用的安全内核不变：模型不能自我授权；schema 验证、Policy、逐次审批、审计与撤销规则在 Advanced 下不被关闭或降级。</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">消息为空：请输入内容或至少选择一个可发送的附件</string>
@@ -129,7 +129,7 @@
     <string name="approval_input_inline_json">内联 JSON 值（%1$s 字节）</string>
     <string name="approval_input_source">输入来源</string>
     <string name="approval_limits_value">超时 %1$s s · 内存 %2$s MiB · 输出上限 %3$s KiB · 并发 1</string>
-    <string name="approval_limits_proot">超时 %1$s s（进程组 kill）· 输出上限 8 MiB · 联网：否（Runtime 无 INTERNET 权限）</string>
+    <string name="approval_limits_proot">超时 %1$s s（停止进程组）· 输出上限 8 MiB · 可访问网络和 Helix 私有数据；请只批准信任的命令</string>
     <string name="approval_input_proot_files">%1$s 个文件（快照复制，不挂载真实 Workspace）</string>
     <string name="approval_network_origin">网络 origin</string>
     <string name="approval_no">否</string>
@@ -572,7 +572,7 @@
     <string name="provider_models_shown_summary">共 %1$d 个，显示前 %2$d</string>
     <string name="provider_models_unsupported_hint">后端未提供模型列表，请手动输入</string>
     <string name="settings_proot_title">PRoot Runtime</string>
-    <string name="settings_proot_status">状态：%1$s（离线执行域，无 INTERNET；只随同签名 Runtime APK 更新，无应用内自更新；Advanced/LAN scope 均不能为其联网）</string>
+    <string name="settings_proot_status">状态：%1$s（内置开发者运行环境，随 Helix 更新；与主应用共享数据和网络权限，不是安全沙箱）</string>
     <string name="settings_proot_verify">验证 Runtime</string>
     <string name="settings_proot_repair">修复 Runtime</string>
     <string name="settings_proot_legal">许可证与来源</string>
@@ -834,7 +834,6 @@
     <string name="tasks_kind_turn">对话任务</string>
     <string name="tasks_kind_goal">目标</string>
     <string name="tasks_kind_plan">计划</string>
-    <string name="tasks_need_approval">等待审批</string>
     <string name="tasks_need_input">等待输入</string>
     <string name="tasks_need_blocker">等待解除阻塞</string>
     <string name="tasks_plan_ready">计划待审阅</string>
@@ -867,7 +866,9 @@
     <string name="cap_status_needs_permission">需要授权</string>
     <string name="cap_status_off">未开启</string>
     <string name="cap_status_unavailable">不可用</string>
-    <string name="cap_status_connected">%1$d 个已连接</string>
+    <plurals name="cap_status_connected">
+        <item quantity="other">%1$d 个已连接</item>
+    </plurals>
     <string name="cap_what_label">它能做什么</string>
     <string name="cap_why_label">为什么需要</string>
     <string name="cap_scope_label">当前范围</string>
@@ -903,7 +904,7 @@
     <string name="cap_accessibility_scope">需在系统设置手动开启；仅 developer 版声明服务。</string>
     <string name="cap_runtime_what">在 Linux 沙箱内运行命令行工具。</string>
     <string name="cap_runtime_why">执行需要 Linux 环境的任务。</string>
-    <string name="cap_runtime_scope">独立 companion 应用，需安装并验证；consumer 版不可用。</string>
+    <string name="cap_runtime_scope">Developer 内置组件，需初始化并验证；共享主应用权限，consumer 不包含。</string>
     <string name="cap_root_what">以系统权限执行受控操作。</string>
     <string name="cap_root_why">少数设备级操作需要 root。</string>
     <string name="cap_root_scope">需设备已 root 且用户当场确认；consumer 版不可用。</string>
@@ -979,7 +980,7 @@
     <string name="tool_purpose_run">执行代码</string>
     <string name="tool_purpose_execute">执行操作</string>
     <string name="conn_connection_only">连接已通过 · 能力未检测</string>
-    <string name="conn_subscription_transport">订阅连接失败。请检查网络、DNS 或代理；若独立应用的极小测试通过，请打开 Helix Subscriptions 后回此重试，排查本地组件连接。此错误不能单独证明登录过期。</string>
+    <string name="conn_subscription_transport">订阅连接失败。请检查网络、DNS 或代理，并在内置订阅设置中验证连接后重试。此错误不能单独证明登录过期。</string>
     <string name="audit_details_show">查看审计详情</string>
     <string name="audit_details_hide">收起详情</string>
     <string name="goal_settings_title">Goal 运行设置</string>

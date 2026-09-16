@@ -152,21 +152,24 @@ private class FakeA2aTaskDao : A2aTaskDao {
         expectedDeliveryState: String,
     ): Int {
         val current = rows[toolCallId] ?: return 0
-        if (current.lastEventSequence != expectedSequence || current.updatedAtEpochMillis != expectedUpdatedAt ||
+        val sequenceOrTimestampDrifted =
+            current.lastEventSequence != expectedSequence ||
+                current.updatedAtEpochMillis != expectedUpdatedAt
+        val stateOrDeliveryDrifted =
             current.state != expectedState || current.deliveryState != expectedDeliveryState
-        ) {
-            return 0
+        val mismatched = sequenceOrTimestampDrifted || stateOrDeliveryDrifted
+        if (!mismatched) {
+            rows[toolCallId] =
+                current.copy(
+                    taskId = taskId,
+                    contextId = contextId,
+                    lastEventSequence = sequence,
+                    lastEventId = eventId,
+                    state = state,
+                    deliveryState = deliveryState,
+                    updatedAtEpochMillis = updatedAt,
+                )
         }
-        rows[toolCallId] =
-            current.copy(
-                taskId = taskId,
-                contextId = contextId,
-                lastEventSequence = sequence,
-                lastEventId = eventId,
-                state = state,
-                deliveryState = deliveryState,
-                updatedAtEpochMillis = updatedAt,
-            )
-        return 1
+        return if (mismatched) 0 else 1
     }
 }

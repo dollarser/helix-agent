@@ -87,33 +87,38 @@ class SubscriptionModelStreamTest {
     }
 
     @Test
-    fun exactByteLimitFinishesNormally() {
+    fun formerByteLimitFinishesNormally() {
         val decoder = CountingDecoder()
-        assertEquals(emptyList<ModelEvent>(), read(CodexSubscriptionModel.MAX_STREAM_BYTES.toInt(), decoder))
+        assertEquals(emptyList<ModelEvent>(), read(2 * 1024 * 1024, decoder))
+        assertEquals(2 * 1024 * 1024, decoder.bytesRead)
         assertEquals(1, decoder.finishes)
     }
 
     @Test
-    fun excessiveBytesFailWithoutFinishingPartialStream() {
+    fun bytesBeyondTheFormerCapReachTheDecoderAndFinish() {
         val decoder = CountingDecoder()
-        assertProtocolFailure(read(CodexSubscriptionModel.MAX_STREAM_BYTES.toInt() + 1, decoder))
-        assertEquals(0, decoder.finishes)
+        assertEquals(emptyList<ModelEvent>(), read(2 * 1024 * 1024 + 1, decoder))
+        assertEquals(2 * 1024 * 1024 + 1, decoder.bytesRead)
+        assertEquals(1, decoder.finishes)
     }
 
     @Test
-    fun excessiveFeedEventsDiscardPartialResultsAndDoNotFinish() {
-        val decoder = CountingDecoder(feedEvents = CodexSubscriptionModel.MAX_EVENTS + 1)
-        assertProtocolFailure(read(1, decoder))
-        assertEquals(0, decoder.finishes)
+    fun feedEventsBeyondTheFormerCapPreserveOrderAndFinish() {
+        val decoder = CountingDecoder(feedEvents = 2049)
+        assertEquals(List(2049) { ModelEvent.TextDelta("feed-$it") }, read(1, decoder))
+        assertEquals(1, decoder.finishes)
     }
 
     @Test
-    fun exactEventLimitIsAcceptedButFinishOverflowIsRejected() {
-        val exact = CountingDecoder(feedEvents = CodexSubscriptionModel.MAX_EVENTS)
-        assertEquals(CodexSubscriptionModel.MAX_EVENTS, read(1, exact).size)
+    fun finishEventsAppendToTheEntirePreviewBeyondTheFormerCap() {
+        val exact = CountingDecoder(feedEvents = 2048)
+        assertEquals(List(2048) { ModelEvent.TextDelta("feed-$it") }, read(1, exact))
         assertEquals(1, exact.finishes)
-        val overflow = CountingDecoder(feedEvents = CodexSubscriptionModel.MAX_EVENTS, finishEvents = 1)
-        assertProtocolFailure(read(1, overflow))
+        val overflow = CountingDecoder(feedEvents = 2048, finishEvents = 1)
+        assertEquals(
+            List(2048) { ModelEvent.TextDelta("feed-$it") } + ModelEvent.TextDelta("finish-0"),
+            read(1, overflow),
+        )
         assertEquals(1, overflow.finishes)
     }
 
@@ -131,22 +136,21 @@ class SubscriptionModelStreamTest {
             .build()
             .use { readSubscriptionEvents(it, decoder) }
 
-    private fun assertProtocolFailure(events: List<ModelEvent>) {
-        assertEquals(listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false)), events)
-    }
-
     private class CountingDecoder(
         private val feedEvents: Int = 0,
         private val finishEvents: Int = 0,
     ) : StreamDecoder {
         var finishes = 0
+        var bytesRead = 0
 
-        override fun feed(chunk: ByteArray): List<ModelEvent> =
-            List(feedEvents) { ModelEvent.Error(ModelErrorCode.SERVER_ERROR, false) }
+        override fun feed(chunk: ByteArray): List<ModelEvent> {
+            bytesRead += chunk.size
+            return List(feedEvents) { ModelEvent.TextDelta("feed-$it") }
+        }
 
         override fun finish(): List<ModelEvent> {
             finishes++
-            return List(finishEvents) { ModelEvent.Error(ModelErrorCode.SERVER_ERROR, false) }
+            return List(finishEvents) { ModelEvent.TextDelta("finish-$it") }
         }
     }
 }

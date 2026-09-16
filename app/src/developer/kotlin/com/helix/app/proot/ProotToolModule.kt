@@ -23,9 +23,7 @@ import java.io.File
  * [com.helix.app.profile.AdvancedProfileAvailability]).
  *
  * Owns the cold-bind [ProotRuntimeSupervisor] + [ProotJobClient] and registers the
- * `code.linux.run` tool (L2 CODE_EXECUTION, per-call approval, offline, no INTERNET —
- * neither the Advanced profile nor a LAN scope can add it; the Runtime APK declares
- * no INTERNET permission).
+ * `code.linux.run` tool (L2 CODE_EXECUTION, per-call approval, shared host UID and network permissions under ADR-0049).
  *
  * ADR-0007 guarantees kept here:
  * - `registerTools` does NO bind and starts NO process: it wires registries only.
@@ -83,8 +81,8 @@ internal object ProotToolModule {
         store = workspaceStore
         // The screening snapshot: the CURRENT secret VALUES of this installation, read
         // on every execution (not cached — a value rotated mid-session is still
-        // screened by equality at submit time). The Runtime never gains SecretStore
-        // access; the screen runs in the main process before the wire.
+        // screened by equality at submit time). This screen is not UID isolation;
+        // it runs in the main process before the wire.
         secretValues = {
             val values = mutableSetOf<String>()
             for (alias in storage.secrets.aliases()) {

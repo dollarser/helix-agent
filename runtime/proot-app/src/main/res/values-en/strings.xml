@@ -39,13 +39,10 @@
     <string name="proot_legal_page_title">PRoot Runtime — Licenses and sources</string>
     <string name="proot_legal_page_subtitle">(Offline page; all content comes from assets embedded in the APK)</string>
     <string-array name="proot_legal_offline_notice">
-        <item>Offline notice:</item>
-        <item>· PRoot Runtime has no network permission (the companion does not declare INTERNET).</item>
-        <item>  It does not access the network or download content while running.</item>
-        <item>· Runtime is updated only with the same-signature Runtime APK using build-pinned assets.</item>
-        <item>  No executable, RootFS, or package is downloaded on the device.</item>
-        <item>· This page is fully readable offline from assets embedded in the APK.</item>
-        <item>  Source URLs below are build provenance only and are never accessed at runtime.</item>
+        <item>Built-in runtime:</item>
+        <item>PRoot shares Helix data and network permissions; run only trusted commands.</item>
+        <item>RootFS and native runtime updates ship with Helix. This is not a security sandbox.</item>
+        <item>This page reads embedded license and source information without network access.</item>
     </string-array>
     <string name="proot_legal_manifest_title">Build manifest (runtime-lock.json):</string>
     <string name="proot_legal_fingerprint">· Canonical lock fingerprint (SHA-256): %1$s</string>

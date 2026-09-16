@@ -216,8 +216,8 @@ class LinuxRunToolTest {
         val e = ui!!
         // The FULL script (审批 UI 必须展示完整 script), not truncated.
         assertEquals("git log -1 && echo done", e.code)
-        // Offline: the Runtime has no INTERNET permission.
-        assertFalse(e.online)
+        // ADR-0049: the integrated runtime shares the developer app network permission.
+        assertTrue(e.online)
         // The limits line names the fixed deadline + the offline boundary.
         // (HXA-069 localization merge: the card fields are string-resource IDs +
         // args resolved by the UI; the JVM test asserts the resource wiring.)
@@ -247,7 +247,7 @@ class LinuxRunToolTest {
                 .codeExecutionUi(d, args)
         assertTrue(ui != null)
         assertEquals("python3 -c print(1)", ui!!.code)
-        assertFalse(ui.online)
+        assertTrue(ui.online)
         assertEquals(ApprovalCardUi.NO_INPUT, ui.inputSourceRes)
     }
 

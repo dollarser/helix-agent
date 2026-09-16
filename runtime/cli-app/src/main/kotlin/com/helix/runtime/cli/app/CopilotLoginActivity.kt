@@ -20,6 +20,7 @@ class CopilotLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SubscriptionRuntimeEnvironment.initialize(this)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpCopilotDeviceTransport()
         controller = CopilotLoginController(vault, transport)

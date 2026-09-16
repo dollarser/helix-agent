@@ -1,58 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries>
-        <package android:name="com.helix.agent" />
-        <package android:name="com.helix.agent.developer" />
-    </queries>
-
-    <permission
-        android:name="com.helix.permission.BIND_CLI_RUNTIME"
-        android:protectionLevel="signature" />
-
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-
-    <application
-        android:name="com.helix.runtime.cli.app.SubscriptionsApplication"
-        android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="false"
-        android:icon="@drawable/ic_helix"
-        android:label="@string/subscription_app_name"
-        android:theme="@style/Theme.Helix.Subscription"
-        android:supportsRtl="true">
-        <activity android:name="com.helix.runtime.cli.app.SubscriptionNetworkSettingsActivity" android:exported="false" />
-        <activity android:name="com.helix.runtime.cli.app.CliRuntimeHomeActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name="com.helix.runtime.cli.app.CodexLoginActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-        </activity>
-        <activity
-            android:name="com.helix.runtime.cli.app.CopilotLoginActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-        </activity>
-        <activity
-            android:name="com.helix.runtime.cli.app.ClaudeLoginActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-        </activity>
-        <activity
-            android:name="com.helix.runtime.cli.app.GrokLoginActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-        </activity>
-        <service
-            android:name="com.helix.runtime.cli.app.CliRuntimeService"
-            android:foregroundServiceType="dataSync"
-            android:exported="true"
-            android:permission="com.helix.permission.BIND_CLI_RUNTIME" />
+    <application>
+        <activity android:name="com.helix.runtime.cli.app.SubscriptionNetworkSettingsActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.CliRuntimeHomeActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.CodexLoginActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.CopilotLoginActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.ClaudeLoginActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <activity android:name="com.helix.runtime.cli.app.GrokLoginActivity"
+            android:process=":subscriptions" android:exported="false"
+            android:theme="@style/Theme.Helix.Subscription" android:launchMode="singleTask" />
+        <service android:name="com.helix.runtime.cli.app.CliRuntimeService"
+            android:process=":subscriptions" android:exported="false"
+            android:foregroundServiceType="dataSync" />
     </application>
 </manifest>

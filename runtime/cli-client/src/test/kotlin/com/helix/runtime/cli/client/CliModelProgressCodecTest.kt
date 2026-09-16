@@ -14,15 +14,17 @@ class CliModelProgressCodecTest {
         assertThrows(IllegalArgumentException::class.java) { CliModelEventCodec.decode(bytes) }
     }
 
-    @Test fun previewRejectsTerminalsAndOversizedSequences() {
+    @Test fun previewRejectsTerminalsAndDurableFormat() {
         assertThrows(IllegalArgumentException::class.java) {
             CliModelProgressCodec.encode(listOf(ModelEvent.Completed("stop")))
         }
         assertThrows(IllegalArgumentException::class.java) {
             CliModelProgressCodec.decode(CliModelEventCodec.encode(listOf(ModelEvent.Completed("stop"))))
         }
-        assertThrows(IllegalArgumentException::class.java) {
-            CliModelProgressCodec.encode(List(2049) { ModelEvent.TextDelta("x") })
-        }
+    }
+
+    @Test fun previewBeyondTheFormerEventCapRoundTripsWithoutTruncation() {
+        val events = List(2049) { ModelEvent.TextDelta("delta-$it") }
+        assertEquals(events, CliModelProgressCodec.decode(CliModelProgressCodec.encode(events)))
     }
 }

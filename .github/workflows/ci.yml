@@ -13,7 +13,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  runtime-assets:
+    # Build the existing arm64 Docker/Alpine pipeline natively; no Docker daemon
+    # is assumed on the macOS Android build runner. The content lock is unchanged.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Configure JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Configure Android SDK for the JVM asset gate
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+      - name: Install asset build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libarchive-tools
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Build and verify locked runtime assets
+        env:
+          HELIX_ROOTFS_ARCHIVE_URL: ${{ vars.HELIX_ROOTFS_ARCHIVE_URL }}
+        run: |
+          if [ -n "$HELIX_ROOTFS_ARCHIVE_URL" ]; then
+            export HELIX_ROOTFS_ARCHIVE="$RUNNER_TEMP/helix-locked-rootfs.tar"
+            curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
+              --max-time 600 --output "$HELIX_ROOTFS_ARCHIVE" "$HELIX_ROOTFS_ARCHIVE_URL"
+          fi
+          ./scripts/build-proot-assets.sh
+      - name: Transfer verified runtime inputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: locked-runtime-inputs
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            runtime/proot-app/src/main/assets/runtime/proot
+            runtime/proot-app/src/main/assets/runtime/rootfs
+
   verify:
+    needs: runtime-assets
     runs-on: macos-15
     # Headroom for the per-module Debug/Release lint tasks (warningsAsErrors) on a cold runner.
     timeout-minutes: 60
@@ -49,16 +90,26 @@ jobs:
       - name: Verify source contracts
         run: ./scripts/check-all.sh --source
 
+      - name: Receive locked runtime inputs from this workflow
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: locked-runtime-inputs
+          path: runtime/proot-app/src/main/assets/runtime
+
+      - name: Verify runtime inputs before building APKs
+        run: ./gradlew :app:verifyDeveloperRuntimeAssets
+
       - name: Verify tests, lint, locks and debug/release builds
         run: ./scripts/check-all.sh --build
 
       - name: Upload debug APKs
         # Debug-signed build artifacts for installation (development use, not for
         # distribution). retention-days: 1 keeps storage in the free 2 GB tier
-        # regardless of push volume (~68 MB per run). Uploaded right after the
+        # across routine runs. Uploaded right after the
         # build so the APKs survive even if a later gate step fails. The bundle
         # contains one direct-distribution main-app candidate (developer), one
-        # restricted-channel boundary artifact (consumer), and two companions.
+        # restricted-channel boundary artifact (consumer). Runtime libraries are
+        # linked into developer and are not additional installable applications.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (node24)
         with:
           name: helix-apks-${{ github.sha }}
@@ -66,8 +117,6 @@ jobs:
           path: |
             app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
             app/build/outputs/apk/developer/debug/app-developer-debug.apk
-            runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
-            runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
 
       - name: Describe debug APK roles
         run: |
@@ -78,8 +127,7 @@ jobs:
             '| --- | --- |' \
             '| `app-developer-debug.apk` | Current direct-distribution Helix main-app candidate; defaults to Standard |' \
             '| `app-consumer-debug.apk` | Restricted-channel/variant-boundary artifact; not the default user download |' \
-            '| `proot-app-debug.apk` | Optional PRoot companion Runtime |' \
-            '| `cli-app-debug.apk` | Optional experimental CLI companion Runtime |' \
+            '> Subscriptions and PRoot are built into developer; there are no companion APKs.' \
             '' \
             '> Debug-signed development artifacts only; not release evidence.' \
             >> "$GITHUB_STEP_SUMMARY"

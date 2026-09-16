@@ -73,7 +73,7 @@ total_keys = 0
 base_files = sorted(
     p
     for p in root.glob("**/src/main/res/values/strings.xml")
-    if "/build/" not in p.as_posix() and "/.claude/" not in p.as_posix()
+    if not {"build", ".claude"}.intersection(p.relative_to(root).parts)
 )
 for base_file in base_files:
     res_root = base_file.parent.parent  # <module>/src/main/res

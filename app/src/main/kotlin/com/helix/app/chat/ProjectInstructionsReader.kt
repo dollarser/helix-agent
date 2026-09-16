@@ -41,7 +41,17 @@ private fun sourceFor(
         val relative = if (scope.relativePath.isEmpty()) name else "${scope.relativePath}/$name"
         val real: Path = resolveFileScopePath(FileScopePath(scope.scopeId, relative), rootResolver)
         if (Files.isRegularFile(real)) {
-            val bytes = Files.newInputStream(real).use { it.readNBytes(MAX_INSTRUCTION_BYTES) }
+            val bytes =
+                Files.newInputStream(real).use { stream ->
+                    val buffer = ByteArray(MAX_INSTRUCTION_BYTES)
+                    var offset = 0
+                    var count = stream.read(buffer, offset, buffer.size)
+                    while (count != -1 && offset < buffer.size) {
+                        offset += count
+                        count = stream.read(buffer, offset, buffer.size - offset)
+                    }
+                    buffer.copyOf(offset)
+                }
             ProjectInstructions.Source(name, bytes.decodeToString())
         } else {
             null

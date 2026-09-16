@@ -14,44 +14,28 @@ internal object ToolPurpose {
         name: String,
         arguments: String,
     ): String {
-        val action =
-            when {
-                name == "write" -> {
-                    R.string.tool_purpose_write
-                }
-
-                name == "edit" -> {
-                    R.string.tool_purpose_edit
-                }
-
-                name == "read" || name.endsWith(".read") || name.endsWith(".read_resource") -> {
-                    R.string.tool_purpose_read
-                }
-
-                name.endsWith(".list") || name.endsWith(".stat") || name.endsWith(".info") ||
-                    name.endsWith(".status") || name.endsWith(".query") -> {
-                    R.string.tool_purpose_inspect
-                }
-
-                name.endsWith(".find") || name.endsWith(".search") -> {
-                    R.string.tool_purpose_search
-                }
-
-                name.startsWith("browser.") || name.startsWith("ui.") -> {
-                    R.string.tool_purpose_interact
-                }
-
-                name == "bash" || name == "code.javascript.run" -> {
-                    R.string.tool_purpose_run
-                }
-
-                else -> {
-                    R.string.tool_purpose_execute
-                }
-            }
-        val label = stringResource(action)
+        val label = stringResource(actionRes(name))
         return target(arguments)?.let { "$label · $it" } ?: label
     }
+
+    private fun actionRes(name: String): Int =
+        when {
+            name == "write" -> R.string.tool_purpose_write
+            name == "edit" -> R.string.tool_purpose_edit
+            isRead(name) -> R.string.tool_purpose_read
+            isInspect(name) -> R.string.tool_purpose_inspect
+            name.endsWith(".find") || name.endsWith(".search") -> R.string.tool_purpose_search
+            name.startsWith("browser.") || name.startsWith("ui.") -> R.string.tool_purpose_interact
+            name == "bash" || name == "code.javascript.run" -> R.string.tool_purpose_run
+            else -> R.string.tool_purpose_execute
+        }
+
+    private fun isRead(name: String): Boolean =
+        name == "read" || name.endsWith(".read") || name.endsWith(".read_resource")
+
+    private fun isInspect(name: String): Boolean =
+        name.endsWith(".list") || name.endsWith(".stat") || name.endsWith(".info") ||
+            name.endsWith(".status") || name.endsWith(".query")
 
     fun target(arguments: String): String? {
         val fields =

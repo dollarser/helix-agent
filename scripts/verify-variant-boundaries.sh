@@ -12,12 +12,10 @@ fi
 
 readonly consumer_apk="$project_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 readonly developer_apk="$project_root/app/build/outputs/apk/developer/debug/app-developer-debug.apk"
-readonly proot_apk="$project_root/runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk"
-readonly cli_apk="$project_root/runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk"
 readonly sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
 readonly apkanalyzer_bin="$sdk_root/cmdline-tools/latest/bin/apkanalyzer"
 
-for required_file in "$consumer_apk" "$developer_apk" "$proot_apk" "$cli_apk" "$apkanalyzer_bin"; do
+for required_file in "$consumer_apk" "$developer_apk" "$apkanalyzer_bin"; do
     if [[ ! -e "$required_file" ]]; then
         printf 'Missing required artifact: %s\n' "$required_file" >&2
         exit 1
@@ -37,8 +35,6 @@ assert_application_id() {
 
 assert_application_id "$consumer_apk" "com.helix.agent"
 assert_application_id "$developer_apk" "com.helix.agent.developer"
-assert_application_id "$proot_apk" "com.helix.runtime.proot"
-assert_application_id "$cli_apk" "com.helix.runtime.cli"
 
 readonly developer_markers=(
     HELIX_DEVELOPER_ONLY_APP
@@ -93,6 +89,8 @@ readonly developer_projects=(
     tools:root
     runtime:proot-client
     runtime:cli-client
+    runtime:cli-app
+    runtime:proot-app
 )
 
 for dependency in "${developer_projects[@]}"; do
@@ -106,14 +104,6 @@ for dependency in "${developer_projects[@]}"; do
     fi
 done
 
-if "$apkanalyzer_bin" manifest permissions "$proot_apk" | grep -Fq 'android.permission.INTERNET'; then
-    printf 'PRoot Runtime must not request INTERNET\n' >&2
-    exit 1
-fi
-
-if ! "$apkanalyzer_bin" manifest permissions "$cli_apk" | grep -Fq 'android.permission.INTERNET'; then
-    printf 'CLI Runtime must request INTERNET\n' >&2
-    exit 1
-fi
+python3 "$project_root/scripts/verify-integrated-runtime-apks.py"
 
 printf 'Variant boundary verification passed.\n'

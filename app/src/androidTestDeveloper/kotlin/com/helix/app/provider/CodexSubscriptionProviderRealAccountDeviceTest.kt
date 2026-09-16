@@ -35,31 +35,7 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
                     "copilot" -> SubscriptionProviderModule.COPILOT_ID
                     else -> error("unsupported real-account smoke provider")
                 }
-            val runtimeState =
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    com.helix.runtime.cli.client
-                        .CliRuntimeSupervisor(app)
-                        .verify()
-                }
-            InstrumentationRegistry.getInstrumentation().sendStatus(
-                0,
-                android.os.Bundle().apply {
-                    putString("stream", "runtime=$runtimeState\n")
-                },
-            )
-            if (InstrumentationRegistry.getArguments().getString("runtimeForeground") == "true") {
-                app.startActivity(
-                    android.content
-                        .Intent()
-                        .setComponent(
-                            android.content.ComponentName(
-                                "com.helix.runtime.cli",
-                                "com.helix.runtime.cli.app.CliRuntimeHomeActivity",
-                            ),
-                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-                Thread.sleep(1000)
-            }
+            verifyAndReportRuntimeState(app)
             val probe = container.providerService.runConnectionTest(providerId)
             assertTrue("subscription probe failed safely: $probe", probe is ProbeOutcome.Ok)
             if (InstrumentationRegistry.getArguments().getString("probeOnly") == "true") return@runBlocking
@@ -98,6 +74,39 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
                 container.runControlStore.setReasoning(previous.reasoning)
             }
         }
+
+    /**
+     * Verifies the CLI runtime for the real-account smoke, streams its state to the instrumentation
+     * output, and (opt-in via the runtimeForeground argument) brings the runtime app to the
+     * foreground for manual observation. Setup only — no assertions live here.
+     */
+    private suspend fun verifyAndReportRuntimeState(app: HelixApplication) {
+        val runtimeState =
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.helix.runtime.cli.client
+                    .CliRuntimeSupervisor(app)
+                    .verify()
+            }
+        InstrumentationRegistry.getInstrumentation().sendStatus(
+            0,
+            android.os.Bundle().apply {
+                putString("stream", "runtime=$runtimeState\n")
+            },
+        )
+        if (InstrumentationRegistry.getArguments().getString("runtimeForeground") == "true") {
+            app.startActivity(
+                android.content
+                    .Intent()
+                    .setComponent(
+                        android.content.ComponentName(
+                            "com.helix.runtime.cli",
+                            "com.helix.runtime.cli.app.CliRuntimeHomeActivity",
+                        ),
+                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+            Thread.sleep(1000)
+        }
+    }
 
     private fun assertCompletion(
         container: com.helix.app.AppContainer,

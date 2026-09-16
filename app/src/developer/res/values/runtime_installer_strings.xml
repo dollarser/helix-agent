@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="bundled_runtime_title">内置组件</string>
-    <string name="bundled_runtime_note">安装包随主应用提供，无需下载。安装或更新需系统确认；PRoot 安装后请初始化并验证。</string>
-    <string name="bundled_subscriptions">安装 / 更新 Subscriptions</string>
-    <string name="bundled_proot">安装 / 更新 PRoot</string>
-    <string name="bundled_install_working">正在准备安装包…</string>
-    <string name="bundled_install_failed">无法安装：安装包缺失、损坏、签名不匹配或系统不允许。请确认主应用与组件来自同一发行版本。</string>
-    <string name="bundled_install_permission">请允许 Helix 安装应用，返回后继续安装。</string>
-    <string name="bundled_install_continue">继续安装</string>
+    <string name="bundled_runtime_title">内置运行组件</string>
+    <string name="bundled_runtime_note">Developer 已内置订阅与 PRoot，无需另装应用。旧组件账号需重新登录，PRoot 需初始化并验证；旧任务不会自动重放。PRoot 与 Helix 共享数据和网络权限，请只执行信任的命令。</string>
+    <string name="bundled_subscriptions">订阅账号与网络设置</string>
+    <string name="bundled_proot">初始化或修复 PRoot</string>
 </resources>

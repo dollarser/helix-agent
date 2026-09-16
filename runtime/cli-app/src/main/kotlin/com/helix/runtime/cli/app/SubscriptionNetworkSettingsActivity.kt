@@ -13,7 +13,7 @@ import java.util.Date
 
 /** Manual Runtime-owned configuration; no exported mutation intent or model-facing tool. */
 class SubscriptionNetworkSettingsActivity : Activity() {
-    private val settings get() = (application as SubscriptionsApplication).dnsSettings
+    private val settings get() = SubscriptionRuntimeEnvironment.initialize(this)
     private lateinit var host: EditText
     private lateinit var addresses: EditText
     private lateinit var duration: Spinner

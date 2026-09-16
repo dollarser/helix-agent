@@ -19,6 +19,7 @@ class GrokLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SubscriptionRuntimeEnvironment.initialize(this)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpGrokDeviceTransport()
         controller = GrokLoginController(vault, transport)

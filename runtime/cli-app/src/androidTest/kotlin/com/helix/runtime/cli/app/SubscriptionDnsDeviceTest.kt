@@ -18,9 +18,9 @@ class SubscriptionDnsDeviceTest {
             InstrumentationRegistry.getArguments().getString("helixDnsProbe") == "true",
         )
         val target = InstrumentationRegistry.getInstrumentation().targetContext
-        val app = target.applicationContext as SubscriptionsApplication
+        val settings = SubscriptionRuntimeEnvironment.initialize(target)
         assertTrue(android.os.Process.myUid() != 0)
-        assertNotNull(app.dnsSettings.lookup("chatgpt.com"))
+        assertNotNull(settings.lookup("chatgpt.com"))
         assertFalse(File("/system/etc/hosts").readText().contains("chatgpt.com"))
         val client =
             OkHttpClient

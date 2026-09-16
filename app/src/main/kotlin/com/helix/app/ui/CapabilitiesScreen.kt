@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -37,8 +38,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.connector.ConnectorService
@@ -93,7 +96,7 @@ internal fun CapabilitiesScreenDestination(
                 openSystemSettings(
                     context,
                     Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.parse("package:${context.packageName}"),
+                    "package:${context.packageName}".toUri(),
                 )
             },
             onOpenAccessibility = { openSystemSettings(context, Settings.ACTION_ACCESSIBILITY_SETTINGS, null) },
@@ -144,7 +147,7 @@ private fun CapabilityRowView(
 ) {
     val statusText =
         when {
-            row.mcpCount != null -> stringResource(R.string.cap_status_connected, row.mcpCount)
+            row.mcpCount != null -> pluralStringResource(R.plurals.cap_status_connected, row.mcpCount, row.mcpCount)
             row.customStatus != null -> row.customStatus
             else -> stringResource(row.statusRes)
         }
@@ -228,7 +231,12 @@ private fun CapabilityActions(
             "notifications" -> {
                 listOf(
                     CapAction("test", R.string.cap_action_test, callbacks.onTestNotification),
-                    grantOrDisable(Manifest.permission.POST_NOTIFICATIONS),
+                    if (Build.VERSION.SDK_INT < 33) {
+                        // Notifications need no runtime permission below API 33; only the system toggle.
+                        CapAction("disable", R.string.cap_action_disable, callbacks.onOpenAppDetails)
+                    } else {
+                        grantOrDisable(Manifest.permission.POST_NOTIFICATIONS)
+                    },
                 )
             }
 
@@ -299,7 +307,9 @@ private fun buildCapabilityRows(
         standardRow("accessibility", accessibility, accessibility = true),
         customRow("runtime", prootGrant, prootLabel, null, R.string.cap_status_ready),
         standardRow("root", root),
-        customRow("mcp", mcpGrant, null, mcpCount, R.string.cap_status_connected),
+        // mcpCount is non-null, so the row always shows the "N connected" plural; statusRes is
+        // only a defensive fallback for the (impossible) null-count case.
+        customRow("mcp", mcpGrant, null, mcpCount, R.string.cap_status_unavailable),
     )
 }
 

@@ -42,13 +42,10 @@
     <string name="proot_legal_page_title">PRoot Runtime — 许可证与来源</string>
     <string name="proot_legal_page_subtitle">（离线页面；内容全部来自 APK 内嵌资产）</string>
     <string-array name="proot_legal_offline_notice">
-        <item>离线声明：</item>
-        <item>· PRoot Runtime 无任何网络权限（companion 包不声明 INTERNET），</item>
-        <item>  执行期间不联网、不下载任何内容。</item>
-        <item>· Runtime 只随同签名的 Runtime APK 更新（构建期固定资产，</item>
-        <item>  设备上不在线下载 executable / RootFS / 包）。</item>
-        <item>· 本页内容全部来自 APK 内嵌资产，离线可读；以下来源 URL</item>
-        <item>  仅为构建期来源记录，运行时永不访问。</item>
+        <item>内置运行环境：</item>
+        <item>PRoot 与 Helix 共享数据和网络权限，请只执行信任的命令。</item>
+        <item>RootFS 与原生运行组件随 Helix 更新；此环境不是安全沙箱。</item>
+        <item>本页离线读取内嵌许可证与来源信息。</item>
     </string-array>
     <string name="proot_legal_manifest_title">构建清单（runtime-lock.json）：</string>
     <string name="proot_legal_fingerprint">· 规范 lock 指纹 (SHA-256): %1$s</string>

@@ -24,6 +24,7 @@ class ClaudeLoginActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SubscriptionRuntimeEnvironment.initialize(this)
         vault = CliSubscriptionCredentialVault(this)
         transport = OkHttpClaudeOAuthTransport()
         controller = ClaudeLoginController(vault, transport)

@@ -5,6 +5,8 @@ object CliRuntimeProtocol {
     const val VERSION = 1
     const val DESCRIPTOR = "com.helix.runtime.cli.ICliRuntimeService/1"
     const val PERMISSION = "com.helix.permission.BIND_CLI_RUNTIME"
+
+    // Historical companion identity only. Production binds context.packageName (ADR-0049).
     const val RUNTIME_PACKAGE = "com.helix.runtime.cli"
     const val SERVICE_CLASS = "com.helix.runtime.cli.app.CliRuntimeService"
     const val CODEX_LOGIN_ACTIVITY = "com.helix.runtime.cli.app.CodexLoginActivity"

@@ -26,6 +26,11 @@ import java.io.File
 import java.security.MessageDigest
 
 /**
+ * ADR-0049: this class runs in the minimal library test APK, which has no INTERNET
+ * or storage permission. It tests that host's permissions and default PRoot path
+ * mapping, not production developer isolation. The developer app shares UID and
+ * network permissions; IntegratedRuntimeDeviceTest verifies that distinct contract.
+ *
  * HXA-086 isolation acceptance (roadmap §12: "Runtime 不能读主 App dataDir、
  * 共享存储或联网"): the guest's visible universe is the chroot tree + the
  * binds the runner sets up (`/dev`, `/proc`, the job's `/tmp`, the job's
@@ -208,7 +213,10 @@ class ProotIsolationDeviceTest {
     @Test
     fun theCompanionPackageDeclaresNoInternetOrStoragePermissions() {
         val info =
-            context.packageManager.getPackageInfo(context.packageName, 0)
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                android.content.pm.PackageManager.GET_PERMISSIONS,
+            )
         val declared = info.requestedPermissions ?: emptyArray()
         assertFalse("INTERNET must not be declared: $declared", "android.permission.INTERNET" in declared)
         val storagePermissions =

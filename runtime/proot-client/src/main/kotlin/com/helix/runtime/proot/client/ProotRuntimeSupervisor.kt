@@ -103,7 +103,7 @@ class ProotRuntimeSupervisor(
             }
         val intent =
             Intent().setComponent(
-                ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, ProotRuntimeProtocol.SERVICE_CLASS),
+                ComponentName(context.packageName, ProotRuntimeProtocol.SERVICE_CLASS),
             )
 
         // A different signing key cannot hold the signature-level bind permission:
@@ -274,7 +274,7 @@ class ProotRuntimeSupervisor(
         val intent =
             Intent()
                 .setComponent(
-                    ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, activityClass),
+                    ComponentName(context.packageName, activityClass),
                 ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (extraName != null && extraValue) {
             intent.putExtra(extraName, true)

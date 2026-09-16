@@ -2,23 +2,19 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-apk="$repo_root/runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk"
+apk="$repo_root/app/build/outputs/apk/developer/debug/app-developer-debug.apk"
 build_tools="${ANDROID_HOME:?ANDROID_HOME is required}/build-tools/36.0.0"
 
 test -f "$apk"
 permissions="$($build_tools/aapt2 dump permissions "$apk")"
 printf '%s\n' "$permissions" | grep -F "android.permission.INTERNET" >/dev/null
-if printf '%s\n' "$permissions" | grep -Eq 'MANAGE_EXTERNAL_STORAGE|BIND_ACCESSIBILITY_SERVICE|ACCESS_SUPERUSER'; then
-    echo "CLI Runtime gained a forbidden Android permission" >&2
-    exit 1
-fi
-
+# Same UID permissions are checked by the final integrated APK gate (ADR-0049).
 manifest="$($build_tools/aapt2 dump xmltree "$apk" --file AndroidManifest.xml)"
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CodexLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CopilotLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
-printf '%s\n' "$manifest" | grep -F 'com.helix.permission.BIND_CLI_RUNTIME' >/dev/null
+python3 "$repo_root/scripts/verify-integrated-runtime-apks.py"
 
 copilot="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotSubscriptionModel.kt"
 test "$(rg -F 'https://api.githubcopilot.com/chat/completions' "$copilot" | wc -l | tr -d ' ')" = 1
@@ -75,26 +71,24 @@ if rg -l 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_
     exit 1
 fi
 supervisor="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliRuntimeSupervisor.kt"
-rg -F 'ComponentName(CliRuntimeProtocol.RUNTIME_PACKAGE, CliRuntimeProtocol.SERVICE_CLASS)' "$supervisor" >/dev/null
+rg -F 'ComponentName(context.packageName, CliRuntimeProtocol.SERVICE_CLASS)' "$supervisor" >/dev/null
 rg -F 'fun visibleUiCause(): CliRuntimeVerification.Cause? = localCause(checkStopped = false)' "$supervisor" >/dev/null
 rg -F 'Context.BIND_AUTO_CREATE' "$supervisor" >/dev/null
 rg -F 'context.unbindService(connection)' "$supervisor" >/dev/null
 rg -F 'ApplicationInfo.FLAG_STOPPED' "$supervisor" >/dev/null
 app_manifest="$repo_root/app/src/developer/AndroidManifest.xml"
-rg -F '<package android:name="com.helix.runtime.cli" />' "$app_manifest" >/dev/null
-rg -F '<uses-permission android:name="com.helix.permission.BIND_CLI_RUNTIME" />' "$app_manifest" >/dev/null
 
 developer_provider="$repo_root/app/src/developer/kotlin/com/helix/app/provider/CodexSubscriptionProvider.kt"
 developer_module="$repo_root/app/src/developer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
 consumer_module="$repo_root/app/src/consumer/kotlin/com/helix/app/provider/SubscriptionProviderModule.kt"
-rg -F 'CodexSubscriptionProvider(context, config)' "$developer_module" >/dev/null
-rg -U 'ComponentName\(\s*CliRuntimeProtocol\.RUNTIME_PACKAGE,\s*when\s*\(providerId\)' "$developer_module" >/dev/null
+rg -F 'CodexSubscriptionProvider(context, config, imageSource = imageSource)' "$developer_module" >/dev/null
+rg -U 'ComponentName\(\s*context\.packageName,\s*when\s*\(providerId\)' "$developer_module" >/dev/null
 rg -F 'CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY' "$developer_module" >/dev/null
 rg -F 'CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"' "$developer_module" >/dev/null
 rg -F 'toolCalls = false' "$developer_module" >/dev/null
 rg -F 'vision = false' "$developer_module" >/dev/null
 rg -F 'CliModelJobClient' "$developer_provider" >/dev/null
-rg -U 'override fun create\(\s*context: Context,\s*config: ProviderConfig,?\s*\): ModelProvider\? = null' "$consumer_module" >/dev/null
+rg -U 'override fun create\(\s*context: Context,\s*config: ProviderConfig,\s*imageSource: \(\(\) -> VisionImageSource\)\?,\s*\): ModelProvider\? = null' "$consumer_module" >/dev/null
 rg -F 'ManagedProviderAccountResult.NOT_SUPPORTED' "$consumer_module" >/dev/null
 consumer_apk="$repo_root/app/build/outputs/apk/consumer/debug/app-consumer-debug.apk"
 test -f "$consumer_apk"

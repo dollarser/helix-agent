@@ -33,51 +33,59 @@ class CodexRealAccountDiagnosticTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val vault = CliSubscriptionCredentialVault(context)
         for (legacy in listOf(true, false)) {
-            val client =
-                OkHttpClient
-                    .Builder()
-                    .dns(BoundedDnsCache())
-                    .addInterceptor { chain ->
-                        var request = chain.request()
-                        if (legacy) {
-                            val buffer = okio.Buffer()
-                            request.body!!.writeTo(buffer)
-                            val body = Json.parseToJsonElement(buffer.readUtf8()) as JsonObject
-                            val inputs = body.getValue("input") as JsonArray
-                            val system =
-                                Json.parseToJsonElement(
-                                    """{"type":"message","role":"system","content":[
-                        {"type":"input_text","text":"Reply exactly HELIX_OK"}]}""",
-                                )
-                            val old =
-                                JsonObject(
-                                    body.minus("instructions") + ("input" to JsonArray(listOf(system) + inputs)),
-                                )
-                            val payload = old.toString().toRequestBody(CodexSubscriptionModel.JSON)
-                            request = request.newBuilder().post(payload).build()
-                        }
-                        val response = chain.proceed(request)
-                        val body = if (response.isSuccessful) "" else response.peekBody(8192).string()
-                        val signals =
-                            listOf("system", "instructions", "context", "token", "unsupported", "role")
-                                .filter { body.contains(it, true) }
-                        report("legacy=$legacy HTTP=${response.code} signals=$signals")
-                        response
-                    }.build()
-            OkHttpCodexOAuthTransport().use { transport ->
-                CodexSubscriptionModel(vault, CodexLoginController(vault, transport), client).use { model ->
-                    val request =
-                        plain().copy(
-                            messages =
-                                listOf(
-                                    ModelMessage(ModelRole.SYSTEM, "Reply exactly HELIX_OK"),
-                                    ModelMessage(ModelRole.USER, "Reply exactly HELIX_OK"),
-                                ),
-                        )
-                    val events = model.run(request).events
-                    if (!legacy) {
-                        assertTrue("instructions request failed", events.lastOrNull() is ModelEvent.Completed)
+            runCompatibilityCase(legacy, vault)
+        }
+    }
+
+    /** One legacy/instructions wire-compatibility case. Split from the test to bound block depth. */
+    private fun runCompatibilityCase(
+        legacy: Boolean,
+        vault: CliSubscriptionCredentialVault,
+    ) {
+        val client =
+            OkHttpClient
+                .Builder()
+                .dns(BoundedDnsCache())
+                .addInterceptor { chain ->
+                    var request = chain.request()
+                    if (legacy) {
+                        val buffer = okio.Buffer()
+                        request.body!!.writeTo(buffer)
+                        val body = Json.parseToJsonElement(buffer.readUtf8()) as JsonObject
+                        val inputs = body.getValue("input") as JsonArray
+                        val system =
+                            Json.parseToJsonElement(
+                                """{"type":"message","role":"system","content":[
+                    {"type":"input_text","text":"Reply exactly HELIX_OK"}]}""",
+                            )
+                        val old =
+                            JsonObject(
+                                body.minus("instructions") + ("input" to JsonArray(listOf(system) + inputs)),
+                            )
+                        val payload = old.toString().toRequestBody(CodexSubscriptionModel.JSON)
+                        request = request.newBuilder().post(payload).build()
                     }
+                    val response = chain.proceed(request)
+                    val body = if (response.isSuccessful) "" else response.peekBody(8192).string()
+                    val signals =
+                        listOf("system", "instructions", "context", "token", "unsupported", "role")
+                            .filter { body.contains(it, true) }
+                    report("legacy=$legacy HTTP=${response.code} signals=$signals")
+                    response
+                }.build()
+        OkHttpCodexOAuthTransport().use { transport ->
+            CodexSubscriptionModel(vault, CodexLoginController(vault, transport), client).use { model ->
+                val request =
+                    plain().copy(
+                        messages =
+                            listOf(
+                                ModelMessage(ModelRole.SYSTEM, "Reply exactly HELIX_OK"),
+                                ModelMessage(ModelRole.USER, "Reply exactly HELIX_OK"),
+                            ),
+                    )
+                val events = model.run(request).events
+                if (!legacy) {
+                    assertTrue("instructions request failed", events.lastOrNull() is ModelEvent.Completed)
                 }
             }
         }

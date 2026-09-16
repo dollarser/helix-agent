@@ -284,36 +284,37 @@ class CliRuntimeManifestDeviceTest {
     private fun credentialFile(provider: CliSubscriptionProvider) =
         File(context.filesDir, "subscription-secrets/subscription-${provider.wireId}.enc")
 
-    @Test fun serviceIsExportedAndSignatureProtected() {
+    @Test fun serviceIsPrivateAndRunsInTheSubscriptionProcess() {
         val info =
             context.packageManager.getServiceInfo(
                 ComponentName(context, CliRuntimeService::class.java),
                 PackageManager.GET_META_DATA,
             )
-        assertTrue(info.exported)
-        assertEquals(CliRuntimeProtocol.PERMISSION, info.permission)
-        assertNotNull(context.packageManager.getPermissionInfo(CliRuntimeProtocol.PERMISSION, 0))
+        assertFalse(info.exported)
+        assertEquals("${context.packageName}:subscriptions", info.processName)
     }
 
     @Test fun copilotLoginIsAnExplicitVisibleActivity() {
         val info = context.packageManager.getActivityInfo(ComponentName(context, CopilotLoginActivity::class.java), 0)
-        assertTrue(info.exported)
+        assertFalse(info.exported)
     }
 
     @Test fun claudeLoginIsAnExplicitVisibleActivity() {
         val info = context.packageManager.getActivityInfo(ComponentName(context, ClaudeLoginActivity::class.java), 0)
-        assertTrue(info.exported)
+        assertFalse(info.exported)
     }
 
     @Test fun grokLoginIsAnExplicitVisibleActivity() {
         val info = context.packageManager.getActivityInfo(ComponentName(context, GrokLoginActivity::class.java), 0)
-        assertTrue(info.exported)
+        assertFalse(info.exported)
     }
 
     @Test fun permissionSurfaceIsNetworkOnly() {
         val info = context.packageManager.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
         val requested = info.requestedPermissions?.toSet().orEmpty()
-        assertEquals(setOf(Manifest.permission.INTERNET), requested)
+        // Minimal library host, not the developer distribution's shared permission set.
+        assertTrue(requested.contains(Manifest.permission.INTERNET))
+        assertTrue(requested.contains(Manifest.permission.FOREGROUND_SERVICE))
         assertFalse(requested.contains(Manifest.permission.MANAGE_EXTERNAL_STORAGE))
         assertFalse(requested.contains(Manifest.permission.BIND_ACCESSIBILITY_SERVICE))
     }

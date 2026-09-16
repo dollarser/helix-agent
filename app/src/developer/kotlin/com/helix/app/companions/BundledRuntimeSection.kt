@@ -21,11 +21,15 @@ internal fun BundledRuntimeSection() {
         Text(stringResource(R.string.bundled_runtime_title), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.bundled_runtime_note), style = MaterialTheme.typography.bodySmall)
         SettingsActions {
-            val entries = listOf("subscriptions" to R.string.bundled_subscriptions, "proot" to R.string.bundled_proot)
-            entries.forEach { (id, label) ->
+            val entries =
+                listOf(
+                    com.helix.runtime.cli.app.CliRuntimeHomeActivity::class.java to R.string.bundled_subscriptions,
+                    com.helix.runtime.proot.app.ProotRepairActivity::class.java to R.string.bundled_proot,
+                )
+            entries.forEach { (activity, label) ->
                 OutlinedButton({
                     context.startActivity(
-                        Intent(context, BundledRuntimeInstallActivity::class.java).putExtra("runtime", id),
+                        Intent(context, activity),
                     )
                 }) { Text(stringResource(label)) }
             }

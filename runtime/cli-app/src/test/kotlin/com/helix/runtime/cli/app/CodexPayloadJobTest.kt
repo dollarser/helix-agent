@@ -15,6 +15,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
@@ -120,12 +121,19 @@ class CodexPayloadJobTest {
         }
     }
 
-    @Test fun payloadQuotaIncludesIncomingRequest() {
+    @Test fun largePayloadDoesNotImposeTheRemovedByteQuotaOnNewRequests() {
         val root = Files.createTempDirectory("codex-payload").toFile()
-        val store = CodexPayloadJobStore(root)
-        val payloadDir = root.resolve("provider-v1/codex-model-jobs/existing").apply { mkdirs() }
-        payloadDir.resolve("events.json").writeBytes(ByteArray((CodexPayloadJobStore.MAX_PAYLOAD_BYTES - 1).toInt()))
-        assertFalse(store.canAcceptNew(request.size))
+        try {
+            val store = CodexPayloadJobStore(root)
+            val payloadDir = root.resolve("provider-v1/codex-model-jobs/existing").apply { mkdirs() }
+            // A sparse fixture crosses the former 64 MiB cap without allocating it on the heap.
+            RandomAccessFile(payloadDir.resolve("events.json"), "rw").use { it.setLength(64L * 1024L * 1024L + 1L) }
+            assertTrue(store.canAcceptNew(request.size))
+            assertFalse(store.canAcceptNew(0))
+            assertFalse(store.canAcceptNew(-1))
+        } finally {
+            root.deleteRecursively()
+        }
     }
 
     @Test fun existingPayloadLayoutRemainsReadableAfterReopen() {

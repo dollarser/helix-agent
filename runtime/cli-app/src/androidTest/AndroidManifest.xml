@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Library instrumentation is its own test host; production version comes from the Helix APK. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:versionCode="1" android:versionName="0.1.0">
+    <application>
+        <!-- The clipboard unit scenario needs a local Activity callback. Cross-process
+             production pages are verified by IntegratedRuntimeUiDeviceTest in :app. -->
+        <activity android:name="com.helix.runtime.cli.app.CodexLoginActivity"
+            android:process="${applicationId}" tools:replace="android:process" />
+    </application>
+</manifest>

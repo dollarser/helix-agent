@@ -11,6 +11,7 @@ import android.widget.TextView
 class CliRuntimeHomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SubscriptionRuntimeEnvironment.initialize(this)
         title = getString(R.string.subscription_app_name)
         val column =
             LinearLayout(this).apply {

@@ -90,7 +90,7 @@ class DataSyncForegroundService : Service() {
     private fun startAsForeground() {
         startForeground(
             NOTIFICATION_ID,
-            buildNotification(),
+            buildDataSyncNotification(this),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
     }
@@ -112,39 +112,6 @@ class DataSyncForegroundService : Service() {
         transportRequested.set(false)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-    }
-
-    private fun buildNotification(): Notification {
-        val stopIntent = Intent(this, DataSyncForegroundService::class.java).setAction(ACTION_STOP)
-        val stopAction =
-            NotificationCompat.Action
-                .Builder(
-                    0,
-                    getString(R.string.data_sync_action_stop),
-                    PendingIntent.getService(
-                        this,
-                        1,
-                        stopIntent,
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                    ),
-                ).build()
-        val contentIntent =
-            PendingIntent.getActivity(
-                this,
-                0,
-                Intent(this, MainActivity::class.java),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
-        return NotificationCompat
-            .Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle(getString(R.string.data_sync_notification_title))
-            .setContentText(getString(R.string.data_sync_notification_text))
-            .setOngoing(true)
-            .setContentIntent(contentIntent)
-            .addAction(stopAction)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
     }
 
     companion object {
@@ -199,4 +166,40 @@ internal fun ensureDataSyncChannel(context: Context) {
         channel.description = context.getString(R.string.data_sync_channel_description)
         manager.createNotificationChannel(channel)
     }
+}
+
+/** The ongoing dataSync notification (explicit stop action + reopen intent); pure context build. */
+private fun buildDataSyncNotification(context: Context): Notification {
+    val stopIntent =
+        Intent(context, DataSyncForegroundService::class.java)
+            .setAction(DataSyncForegroundService.ACTION_STOP)
+    val stopAction =
+        NotificationCompat.Action
+            .Builder(
+                0,
+                context.getString(R.string.data_sync_action_stop),
+                PendingIntent.getService(
+                    context,
+                    1,
+                    stopIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                ),
+            ).build()
+    val contentIntent =
+        PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+    return NotificationCompat
+        .Builder(context, DataSyncForegroundService.CHANNEL_ID)
+        .setSmallIcon(android.R.drawable.ic_lock_lock)
+        .setContentTitle(context.getString(R.string.data_sync_notification_title))
+        .setContentText(context.getString(R.string.data_sync_notification_text))
+        .setOngoing(true)
+        .setContentIntent(contentIntent)
+        .addAction(stopAction)
+        .setCategory(NotificationCompat.CATEGORY_SERVICE)
+        .build()
 }

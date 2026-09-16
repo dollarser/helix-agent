@@ -64,22 +64,10 @@ enum class LinuxRuntimeGate {
  *   ("每次审批"); a generic L2 — no Trusted Workspace / batch / auto-run path can mint
  *   approval for it (ADR-0012: generic L2 stays bound to exact ToolCalls).
  * - [ExecutionTargetType.LOCAL_PROOT]: the Policy Engine's `ISOLATED_RUNTIME_REQUIRES_ADVANCED`
- *   denial is the STANDARD-profile gate (ADR-0005); the framework's `lane:proot` serializes
+ *   denial is the STANDARD-profile gate (ADR-0012); the framework's `lane:proot` serializes
  *   executions to single concurrency and CODE_EXECUTION is exclusive — two Linux calls
  *   never run in parallel and never overlap a file tool's effect window.
- * - NO INTERNET, ever: the Runtime APK declares no INTERNET permission; NEITHER the
- *   Advanced profile NOR a LAN scope can add it (§6.1 product boundary — the descriptor
- *   has no network switch because there is none).
- * - The input is a bounded, explicit snapshot: `files` are workspace references COPIED
- *   into the job input archive; the real Workspace directory is NEVER mounted. The output
- *   comes back as a hash-verified archive; only the explicitly requested `output`
- *   reference receives the verified `result.txt` (the Runtime never writes the Workspace).
- * - Secret inheritance is impossible by construction: `environment` is screened in the
- *   MAIN process by [ProotEnvScreen] (allowlist + secret-name pattern + KNOWN SecretStore
- *   values + auth-structure shapes) before the wire; the Runtime gains no SecretStore
- *   access and inherits neither the main process environment nor Provider credentials.
- * - The executor NEVER replays: a binder loss after submission settles from the journal
- *   by job id (query/reconcile only) or reports a stable INTERRUPTED failure.
+ * - ADR-0049: trusted developer execution shares app data and network permissions.
  */
 object LinuxRunTool {
     const val NAME: String = "code.linux.run"
@@ -91,7 +79,7 @@ object LinuxRunTool {
      */
     internal const val MIN_JOB_DEADLINE_MS: Long = 1_000L
 
-    const val VERSION: Int = 1
+    const val VERSION: Int = 2
 
     /** Fixed execution budget; the model may lower (per call) but never raise it. */
     const val DEFAULT_DEADLINE_SECONDS: Long = 60
@@ -120,9 +108,9 @@ object LinuxRunTool {
             name = ToolName(NAME),
             version = ToolVersion(VERSION),
             description =
-                "Run ONE Linux command in the offline PRoot Runtime (separate app, NO " +
-                    "network, no access to app data outside the explicit `files` input " +
-                    "snapshot). `argv` runs a program with arguments; `script` runs an " +
+                "Run ONE trusted Linux command in a private developer process sharing Helix app permissions. " +
+                    "It can access the network and app-private data; PRoot is not a security sandbox. " +
+                    "`files` controls snapshot import, not OS access. `argv` runs a program; `script` runs an " +
                     "explicit shell script in /bin/sh (shell syntax only when genuinely " +
                     "needed). Output: verified stdout/stderr, the exit code, and the " +
                     "imported result file when `output` is set. Requires the ADVANCED " +

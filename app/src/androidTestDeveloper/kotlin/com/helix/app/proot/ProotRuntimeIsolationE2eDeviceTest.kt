@@ -266,7 +266,7 @@ class ProotRuntimeIsolationE2eDeviceTest {
         try {
             ctx.packageManager
                 .getPackageInfo(
-                    com.helix.runtime.proot.ipc.ProotRuntimeProtocol.RUNTIME_PACKAGE,
+                    context.packageName,
                     0,
                 ).applicationInfo
         } catch (e: PackageManager.NameNotFoundException) {

@@ -2,7 +2,6 @@ package com.helix.runtime.proot.app
 
 import android.content.ComponentName
 import android.content.Intent
-import android.content.pm.PermissionInfo
 import android.os.Parcel
 import android.os.Process
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,32 +38,30 @@ class ProotRuntimeBindingDeviceTest {
     private fun readText(path: String): String = assets.open(path).bufferedReader().use { it.readText() }
 
     @Test
-    fun theManifestDeclaresTheSignaturePermissionAndExportsServiceAndActivity() {
+    fun theManifestDeclaresPrivateRuntimeComponents() {
         val pm = targetContext.packageManager
-        val permission = pm.getPermissionInfo(ProotRuntimeProtocol.PERMISSION_BIND, 0)
-        assertEquals(PermissionInfo.PROTECTION_SIGNATURE, permission.protectionLevel)
 
         val service =
             pm.getServiceInfo(
-                ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, ProotRuntimeProtocol.SERVICE_CLASS),
+                ComponentName(targetContext.packageName, ProotRuntimeProtocol.SERVICE_CLASS),
                 0,
             )
-        assertTrue("service must be exported for cross-APK binds", service.exported)
-        assertEquals(ProotRuntimeProtocol.PERMISSION_BIND, service.permission)
+        assertFalse("runtime service is private", service.exported)
+        assertEquals("${targetContext.packageName}:proot", service.processName)
 
         val activity =
             pm.getActivityInfo(
-                ComponentName(ProotRuntimeProtocol.RUNTIME_PACKAGE, ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS),
+                ComponentName(targetContext.packageName, ProotRuntimeProtocol.REPAIR_ACTIVITY_CLASS),
                 0,
             )
-        assertTrue("repair activity must be exported for the explicit user-gated entry", activity.exported)
-        assertEquals(ProotRuntimeProtocol.PERMISSION_BIND, activity.permission)
+        assertFalse("repair activity is private", activity.exported)
+        assertEquals("${targetContext.packageName}:proot", activity.processName)
 
         val launchers =
             pm.queryIntentActivities(
                 Intent(Intent.ACTION_MAIN)
                     .addCategory(Intent.CATEGORY_LAUNCHER)
-                    .setPackage(ProotRuntimeProtocol.RUNTIME_PACKAGE),
+                    .setPackage(targetContext.packageName),
                 0,
             )
         assertTrue("the companion has NO launcher activity (ADR-0007)", launchers.isEmpty())

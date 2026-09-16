@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
-import com.helix.runtime.cli.client.CliRuntimeProtocol
 import java.security.MessageDigest
 
 object CliCallerVerifier {
@@ -13,8 +12,9 @@ object CliCallerVerifier {
         context: Context,
         callingUid: Int,
     ): Boolean {
+        if (callingUid != android.os.Process.myUid()) return false
         val packages = context.packageManager.getPackagesForUid(callingUid) ?: return false
-        if (packages.size != 1 || packages.single() !in CliRuntimeProtocol.MAIN_APP_PACKAGES) return false
+        if (packages.size != 1 || packages.single() != context.packageName) return false
         val caller = certificates(context.packageManager, packages.single()) ?: return false
         val own = certificates(context.packageManager, context.packageName) ?: return false
         val expected = own.map(::digest).toSet()

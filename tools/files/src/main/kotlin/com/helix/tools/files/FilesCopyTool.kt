@@ -75,7 +75,8 @@ object FilesCopyTool {
                 val dstRegion = filesMutateToolsUserRegionOf(destination)
                 if (dstRegion == null) {
                     return ToolExecutorResult.Failed(
-                        "destination must be a user file or directory, outside .helix/: ${destination.toModelReference()}",
+                        "destination must be a user file or directory, " +
+                            "outside .helix/: ${destination.toModelReference()}",
                     )
                 }
                 return try {

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression checks for generated project and completion inventories."""
 import importlib.util
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,6 +20,38 @@ claims = module("adr-status-claims")
 
 
 class ReviewGatesTest(unittest.TestCase):
+    def test_i18n_checks_the_current_worktree_even_under_excluded_parent_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "build/.claude/worktrees/fixture"
+            scripts = root / "scripts"
+            scripts.mkdir(parents=True)
+            checker = Path(__file__).with_name("check-i18n.sh").read_text()
+            (scripts / "check-i18n.sh").write_text(checker)
+            chat = root / "app/src/main/kotlin/com/helix/app/chat/ChatService.kt"
+            chat.parent.mkdir(parents=True)
+            chat.write_text("// no diagnostic sink in this fixture\n")
+            resources = root / "app/src/main/res"
+            for locale in ("values", "values-en", "values-zh-rCN"):
+                (resources / locale).mkdir(parents=True)
+                content = '<resources><string name="fixture">Hello</string></resources>'
+                (resources / locale / "strings.xml").write_text(
+                    "<resources/>" if locale == "values-en" else content
+                )
+            # Exclusions still apply to nested worktrees and generated files INSIDE the root.
+            for excluded in ("build", ".claude/worktrees/other"):
+                nested = root / excluded / "app/src/main/res/values/strings.xml"
+                nested.parent.mkdir(parents=True)
+                nested.write_text('<resources><string name="nested">Skip</string></resources>')
+            command = ["bash", str(scripts / "check-i18n.sh")]
+            missing = subprocess.run(command, capture_output=True, text=True, timeout=15)
+            self.assertNotEqual(0, missing.returncode)
+            self.assertIn("keys missing from app/src/main/res/values-en", missing.stderr)
+            self.assertNotIn("nested", missing.stderr)
+            (resources / "values-en/strings.xml").write_text(content)
+            complete = subprocess.run(command, capture_output=True, text=True, timeout=15)
+            self.assertEqual(0, complete.returncode, complete.stderr)
+            self.assertIn("1 resource keys in parity", complete.stdout)
+
     def test_project_inventory_tracks_new_modules_and_excludes_comments(self):
         self.assertEqual([":app", ":core:new"], inventory.projects('include(":app", /* old */ ":core:new",)'))
 

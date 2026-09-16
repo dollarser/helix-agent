@@ -72,7 +72,7 @@
     <string name="settings_consumer_standard_only">This build uses Standard and has no Advanced switch. Available capabilities are listed in its settings.</string>
     <string name="settings_advanced_confirm_title">Switch to Advanced — risk notice</string>
     <string name="settings_advanced_confirm_ok">I understand, confirm switch</string>
-    <string name="profile_advanced_risk_summary">Switching to Advanced itself grants no capability: it requests no system permission, installs no Runtime, requests no Root, connects to no new network endpoint, and widens no available tools.\n\nAdvanced opens controlled advanced capabilities (All-files, Accessibility, offline PRoot, Root, precise LAN origin, and so on). Each capability remains off by default, must be enabled and scoped by the user, and can be revoked immediately.\n\nThe shared security core is unchanged: the model cannot self-authorize; schema validation, Policy, per-use approval, audit and revocation rules are never disabled or downgraded under Advanced.</string>
+    <string name="profile_advanced_risk_summary">Switching to Advanced itself grants no capability: it requests no system permission, installs no Runtime, requests no Root, connects to no new network endpoint, and widens no available tools.\n\nAdvanced opens controlled advanced capabilities (All-files, Accessibility, built-in PRoot, Root, precise LAN origin, and so on). Each capability remains off by default, must be enabled and scoped by the user, and can be revoked immediately.\n\nThe shared security core is unchanged: the model cannot self-authorize; schema validation, Policy, per-use approval, audit and revocation rules are never disabled or downgraded under Advanced.</string>
 
     <!-- HXA-069: domain string resources (zh/en parity checked by scripts/check-i18n.sh) -->
     <string name="admission_empty_message">Empty message: type something or select at least one sendable attachment.</string>
@@ -128,7 +128,7 @@
     <string name="approval_input_inline_json">Inline JSON value (%1$s bytes)</string>
     <string name="approval_input_source">Input source</string>
     <string name="approval_limits_value">Timeout %1$s s · memory %2$s MiB · output limit %3$s KiB · concurrency 1</string>
-    <string name="approval_limits_proot">Timeout %1$s s (process-group kill) · output limit 8 MiB · network: no (runtime has no INTERNET permission)</string>
+    <string name="approval_limits_proot">Timeout %1$s s (stop process group) · Output limit 8 MiB · Can access network and Helix private data; approve only trusted commands</string>
     <string name="approval_input_proot_files">%1$s files (snapshot copy, real Workspace never mounted)</string>
     <string name="approval_network_origin">Network origin</string>
     <string name="approval_no">No</string>
@@ -571,7 +571,7 @@
     <string name="provider_models_shown_summary">Showing first %2$d of %1$d</string>
     <string name="provider_models_unsupported_hint">Backend did not provide a model list; enter one manually</string>
     <string name="settings_proot_title">PRoot Runtime</string>
-    <string name="settings_proot_status">Status: %1$s (offline execution domain, no INTERNET; updated only with a same-signature Runtime APK; no in-app self-update; neither Advanced nor a LAN scope can give it network access)</string>
+    <string name="settings_proot_status">Status: %1$s (built into Developer and updated with Helix; shares app data and network permissions, not a security sandbox)</string>
     <string name="settings_proot_verify">Verify Runtime</string>
     <string name="settings_proot_repair">Repair Runtime</string>
     <string name="settings_proot_legal">Licenses and sources</string>
@@ -833,7 +833,6 @@
     <string name="tasks_kind_turn">Chat task</string>
     <string name="tasks_kind_goal">Goal</string>
     <string name="tasks_kind_plan">Plan</string>
-    <string name="tasks_need_approval">Waiting for approval</string>
     <string name="tasks_need_input">Waiting for input</string>
     <string name="tasks_need_blocker">Waiting to unblock</string>
     <string name="tasks_plan_ready">Plan awaiting review</string>
@@ -866,7 +865,10 @@
     <string name="cap_status_needs_permission">Needs permission</string>
     <string name="cap_status_off">Off</string>
     <string name="cap_status_unavailable">Unavailable</string>
-    <string name="cap_status_connected">%1$d connected</string>
+    <plurals name="cap_status_connected">
+        <item quantity="one">%1$d connected</item>
+        <item quantity="other">%1$d connected</item>
+    </plurals>
     <string name="cap_what_label">What it enables</string>
     <string name="cap_why_label">Why needed</string>
     <string name="cap_scope_label">Current scope</string>
@@ -902,7 +904,7 @@
     <string name="cap_accessibility_scope">Enable it manually in system settings; only the developer build declares the service.</string>
     <string name="cap_runtime_what">Run command-line tools inside a Linux sandbox.</string>
     <string name="cap_runtime_why">Run tasks that require a Linux environment.</string>
-    <string name="cap_runtime_scope">A separate companion app that must be installed and verified; unavailable in the consumer build.</string>
+    <string name="cap_runtime_scope">Built into Developer; initialize and verify before use. Shares app permissions. Excluded from consumer.</string>
     <string name="cap_root_what">Perform controlled operations with system privileges.</string>
     <string name="cap_root_why">A few device-level operations require root.</string>
     <string name="cap_root_scope">Requires a rooted device and on-the-spot user consent; unavailable in the consumer build.</string>
@@ -973,7 +975,7 @@
     <string name="tool_purpose_run">Run code</string>
     <string name="tool_purpose_execute">Perform operation</string>
     <string name="conn_connection_only">Connected · capabilities not checked</string>
-    <string name="conn_subscription_transport">Subscription connection failed. Check network/DNS/proxy settings. If the standalone test passes, open Helix Subscriptions and retry here to check the local component connection. This error alone does not establish login expiry.</string>
+    <string name="conn_subscription_transport">Subscription connection failed. Check network, DNS or proxy and verify the connection in subscription settings before retrying. This error alone does not prove the login has expired.</string>
     <string name="audit_details_show">View audit details</string>
     <string name="audit_details_hide">Hide details</string>
     <string name="goal_settings_title">Goal execution settings</string>
@@ -981,4 +983,9 @@
     <string name="goal_defaults_summary">Model calls: %1$d · Tool calls: %2$d · Total tokens: %3$d · Execution (min): %4$d · Per run (min): %5$d</string>
     <string name="goal_defaults_reset">Reset defaults</string>
     <string name="chat_blocked_session_busy">This conversation is still running. Wait or stop it before retrying. Attachments are retained.</string>
+    <string name="artifacts_files_section">Delivered files</string>
+    <string name="artifacts_results_section">Task results</string>
+    <string name="artifacts_file_source">Source: %1$s</string>
+    <string name="artifacts_file_missing">File no longer exists (it may have been deleted or moved)</string>
+    <string name="artifacts_file_unavailable">File currently unavailable</string>
 </resources>

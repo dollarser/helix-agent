@@ -159,11 +159,14 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
             is ProviderCheckResult.Failed -> ProbeOutcome.Failed(1, result.code, result.detail, result.retryable)
         }
 
-    fun accountIntent(providerId: String = CODEX_ID): Intent =
+    fun accountIntent(
+        context: Context,
+        providerId: String = CODEX_ID,
+    ): Intent =
         Intent()
             .setComponent(
                 ComponentName(
-                    CliRuntimeProtocol.RUNTIME_PACKAGE,
+                    context.packageName,
                     when (providerId) {
                         CODEX_ID -> CliRuntimeProtocol.CODEX_LOGIN_ACTIVITY
                         CLAUDE_ID -> "com.helix.runtime.cli.app.ClaudeLoginActivity"
@@ -183,7 +186,7 @@ internal object SubscriptionProviderModule : SubscriptionProviderIntegration {
             ManagedProviderAccountResult.RUNTIME_UNAVAILABLE
         } else {
             try {
-                context.startActivity(accountIntent(providerId))
+                context.startActivity(accountIntent(context, providerId))
                 ManagedProviderAccountResult.OPENED
             } catch (_: RuntimeException) {
                 ManagedProviderAccountResult.RUNTIME_UNAVAILABLE
