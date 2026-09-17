@@ -1,8 +1,5 @@
 package com.helix.app.ui
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -31,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +47,7 @@ import com.helix.app.chat.ChatService
 import com.helix.app.chat.MessageUi
 import com.helix.app.files.FileManagerService
 import com.helix.core.model.TurnState
-import com.helix.core.workspace.FileScopePath
+import com.helix.core.workspace.WorkspaceLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -68,6 +66,7 @@ import kotlinx.coroutines.withContext
 internal fun ArtifactsScreenDestination(
     container: AppContainer,
     onOpenSession: (String) -> Unit,
+    onOpenTask: (String) -> Unit = {},
 ) {
     val service = container.chatService
     val fileManager = container.fileManager
@@ -124,7 +123,13 @@ internal fun ArtifactsScreenDestination(
         ArtifactResultDialog(service, s, { onOpenSession(s.sessionId) }, { selected = null })
     }
     selectedFile?.let { f ->
-        ArtifactFileDialog(fileManager, f, { onOpenSession(f.sessionId) }, { selectedFile = null })
+        ArtifactFileDialog(
+            fileManager,
+            f,
+            { onOpenSession(f.sessionId) },
+            if (f.turnId != null) onOpenTask else null,
+            { selectedFile = null },
+        )
     }
 }
 
@@ -182,29 +187,15 @@ internal fun ArtifactFileRowView(
     }
 }
 
-/** The file view's load outcome, checked against the REAL file at open (never the row alone). */
-private sealed interface ArtifactFilePreviewState {
-    data object Loading : ArtifactFilePreviewState
-
-    /** The file is gone (deleted / moved / trash-purged) — an honest invalidation reason. */
-    data object Missing : ArtifactFilePreviewState
-
-    /** The file could not be inspected at all (scope unavailable, I/O failure). */
-    data object Failed : ArtifactFilePreviewState
-
-    data class Ready(
-        val meta: FileManagerService.FileMeta,
-        val text: String?,
-        val imageBytes: ByteArray,
-    ) : ArtifactFilePreviewState
-}
-
 /**
- * The file view for one real artifact row: re-checks the file at open (a row outlives its
- * file — the file can be trashed or edited independently), then shows an in-app bounded
- * preview through the SAME facade the Files page uses (never a raw path to the model) plus
- * honest actions — Share (text only, ACTION_SEND) and Open (the source session). Never
- * mutates the file. Shared with the Tasks dashboard's task-artifact dialog (HXA-202).
+ * The file view for one real artifact row (HXA-203): re-checks the file at open (a row
+ * outlives its file — the file can be trashed or edited independently; a revoked SAF grant
+ * is its own honest state), shows a bounded preview through the SAME facade the Files page
+ * uses, and offers the real delivery actions — Export (the same SAF pipeline the Files page
+ * uses, outcome from the pipeline alone), Open with another app, Share (text only) and the
+ * two ownership links: the source session and the producing task. Never mutates the file
+ * and never claims an outcome that did not happen. Shared with the Tasks dashboard's
+ * task-artifact dialog (HXA-202).
  */
 @Composable
 @Suppress("FunctionName")
@@ -212,129 +203,184 @@ internal fun ArtifactFileDialog(
     fileManager: FileManagerService,
     row: ArtifactRowUi,
     onOpenSession: () -> Unit,
+    onOpenTask: ((String) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    var state by remember(row.id) { mutableStateOf<ArtifactFilePreviewState>(ArtifactFilePreviewState.Loading) }
+    val coroutineScope = rememberCoroutineScope()
+    val availabilityState = remember(row.id) { mutableStateOf<ArtifactAvailability>(ArtifactAvailability.Loading) }
+    val exportStateHolder = remember(row.id) { mutableStateOf<ArtifactExportState>(ArtifactExportState.Idle) }
+    val exportCancelFlag = remember(row.id) { mutableStateOf(false) }
+    val externalState = remember(row.id) { mutableStateOf<ArtifactExternalOpenResult?>(null) }
+    val scopePath = remember(row.id) { row.parsedScopePath() }
+    // Only workspace files inside an exportable region get the in-app export path; SAF-scope
+    // artifacts go through the "open with another app" staging instead (fail-closed, no
+    // silent scope crossing).
+    val exportable =
+        scopePath?.let { p -> !row.isSafScope && WorkspaceLayout.regionOf(p.relativePath) != null } ?: false
+
     LaunchedEffect(row.id) {
-        state =
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val scopePath = FileScopePath.fromModelReference(row.relativePath)
-                    val scopeId = scopePath.scopeId
-                    val relPath = scopePath.relativePath
-                    val meta = fileManager.fileInfo(scopeId, relPath)
-                    if (meta.sizeBytes < 0) {
-                        ArtifactFilePreviewState.Missing
-                    } else {
-                        ArtifactFilePreviewState.Ready(
-                            meta = meta,
-                            text = if (meta.isText) fileManager.previewText(scopeId, relPath) else null,
-                            imageBytes =
-                                if (meta.mimeType.startsWith("image/")) {
-                                    fileManager.previewImageBytes(scopeId, relPath)
-                                } else {
-                                    ByteArray(0)
-                                },
-                        )
-                    }
-                }.getOrElse { ArtifactFilePreviewState.Failed }
-            }
+        availabilityState.value = withContext(Dispatchers.IO) { inspectArtifactAvailability(fileManager, row) }
     }
+    val exportPicker =
+        artifactExportPicker(coroutineScope, fileManager, row, exportCancelFlag, exportStateHolder)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(row.fileName) },
-        text = { ArtifactFilePreviewBody(row, state) },
+        text = {
+            ArtifactFileDialogContent(row, availabilityState.value, exportStateHolder.value, externalState.value)
+        },
         confirmButton = {
-            val shareText = (state as? ArtifactFilePreviewState.Ready)?.text
-            TextButton(
-                enabled = shareText != null,
-                modifier = Modifier.testTag("artifact-file-share-${row.id}"),
-                onClick = { sharePlainText(context, shareText!!) },
-            ) {
-                Text(stringResource(R.string.artifacts_share))
-            }
+            ArtifactFilePrimaryActions(
+                context,
+                row,
+                availabilityState.value,
+                exportStateHolder.value,
+                exportable,
+                onExportClick = {
+                    externalState.value = null
+                    exportStateHolder.value = ArtifactExportState.Idle
+                    exportPicker.launch(row.fileName)
+                },
+                onCancelExport = { exportCancelFlag.value = true },
+            )
         },
         dismissButton = {
-            Row {
-                TextButton(onClick = onOpenSession, modifier = Modifier.testTag("artifact-file-open-${row.id}")) {
-                    Text(stringResource(R.string.artifacts_open))
-                }
-                TextButton(onClick = onDismiss, modifier = Modifier.testTag("artifact-file-close-${row.id}")) {
-                    Text(stringResource(R.string.goal_close))
-                }
-            }
+            ArtifactFileSecondaryActions(
+                row,
+                canOpenExternal = scopePath != null && availabilityState.value is ArtifactAvailability.Ready,
+                onOpenExternal =
+                    scopePath?.let { p ->
+                        artifactExternalOpener(
+                            context,
+                            coroutineScope,
+                            fileManager,
+                            p.scopeId,
+                            p.relativePath,
+                            externalState,
+                        )
+                    } ?: {},
+                onOpenTask,
+                onOpenSession,
+                onDismiss,
+            )
         },
         modifier = Modifier.testTag("artifact-file-dialog"),
     )
 }
 
-/** The dialog body: size + type, then the honest state — missing, unavailable, or a preview. */
+/**
+ * The dialog body: size + type, then the honest availability state — revoked, missing,
+ * unavailable, or the [ArtifactReadyPreview] with a change banner and an explicit
+ * truncation marker (HXA-203: 缺文件、撤权、内容变化分别显示，截断可见).
+ */
 @Composable
 @Suppress("FunctionName")
-private fun ArtifactFilePreviewBody(
+internal fun ArtifactFilePreviewBody(
     row: ArtifactRowUi,
-    state: ArtifactFilePreviewState,
+    state: ArtifactAvailability,
 ) {
     Column(
         Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         when (val s = state) {
-            ArtifactFilePreviewState.Loading -> {
+            ArtifactAvailability.Loading -> {
                 Text(stringResource(R.string.egress_loading))
             }
 
-            ArtifactFilePreviewState.Missing -> {
+            ArtifactAvailability.Missing -> {
                 Text(
                     stringResource(R.string.artifacts_file_missing),
                     modifier = Modifier.testTag("artifact-file-missing"),
                 )
             }
 
-            ArtifactFilePreviewState.Failed -> {
+            ArtifactAvailability.Revoked -> {
+                Text(
+                    stringResource(R.string.artifacts_file_revoked),
+                    modifier = Modifier.testTag("artifact-file-revoked"),
+                )
+            }
+
+            ArtifactAvailability.Failed -> {
                 Text(
                     stringResource(R.string.artifacts_file_unavailable),
                     modifier = Modifier.testTag("artifact-file-unavailable"),
                 )
             }
 
-            is ArtifactFilePreviewState.Ready -> {
-                Text(
-                    "${stringResource(R.string.files_info_size, formatSize(s.meta.sizeBytes))} · " +
-                        stringResource(R.string.files_info_type, s.meta.mimeType),
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.testTag("artifact-file-info"),
-                )
-                val bitmap =
-                    s.imageBytes.takeIf { it.isNotEmpty() }?.let {
-                        BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
-                    }
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap,
-                        contentDescription = row.fileName,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 200.dp)
-                                .testTag("artifact-file-image"),
-                    )
-                } else if (s.text != null) {
-                    Text(
-                        s.text,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.testTag("artifact-file-preview").padding(4.dp),
-                    )
-                } else {
-                    Text(
-                        stringResource(R.string.files_no_preview),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
+            is ArtifactAvailability.Ready -> {
+                ArtifactReadyPreview(row, s)
             }
         }
+    }
+}
+
+/**
+ * The ready file's content: size + type, the change banner (only on a POSITIVE size/hash
+ * mismatch with the task's record), then an image, a bounded text preview with an explicit
+ * truncation marker, or the no-preview hint with the two real escape routes (HXA-203).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun ArtifactReadyPreview(
+    row: ArtifactRowUi,
+    ready: ArtifactAvailability.Ready,
+) {
+    Text(
+        "${stringResource(R.string.files_info_size, formatSize(ready.meta.sizeBytes))} · " +
+            stringResource(R.string.files_info_type, ready.meta.mimeType),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("artifact-file-info"),
+    )
+    if (ready.changed) {
+        Text(
+            stringResource(R.string.artifacts_file_changed),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("artifact-file-changed"),
+        )
+    }
+    val bitmap =
+        ready.imageBytes.takeIf { it.isNotEmpty() }?.let {
+            BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap()
+        }
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = row.fileName,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 200.dp)
+                    .testTag("artifact-file-image"),
+        )
+    } else if (ready.text != null) {
+        // The marker sits ABOVE the preview: below a 64 KiB monospace block inside the
+        // dialog's bounded scroll column it would be off-screen and the truncation invisible.
+        if (ready.textTruncated) {
+            Text(
+                stringResource(R.string.artifacts_file_preview_truncated),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag("artifact-file-preview-truncated"),
+            )
+        }
+        Text(
+            ready.text,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            modifier = Modifier.testTag("artifact-file-preview").padding(4.dp),
+        )
+    } else {
+        Text(
+            stringResource(R.string.files_no_preview),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Text(
+            stringResource(R.string.artifacts_file_no_preview_hint),
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -471,21 +517,3 @@ private fun statusResFor(state: TurnState): Int =
         TurnState.CANCELLED -> R.string.artifacts_state_cancelled
         else -> R.string.artifacts_state_interrupted
     }
-
-/** A plain-text ACTION_SEND chooser; no share target in a fixture stays put (fail closed). */
-@Suppress("SwallowedException")
-private fun sharePlainText(
-    context: Context,
-    text: String,
-) {
-    val intent =
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-    try {
-        context.startActivity(Intent.createChooser(intent, null))
-    } catch (_: ActivityNotFoundException) {
-        // No share target resolves in the fixture: staying on the page is the correct outcome.
-    }
-}

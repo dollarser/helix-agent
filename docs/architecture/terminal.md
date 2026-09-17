@@ -26,7 +26,7 @@ developer 用户主动开启可信 USER 入口，人工按键不逐字符出审�
 
 | 顺序 | 任务 |
 | --- | --- |
-| 命令详情与结果入口 | [HXA-194](../development/tasks/HXA-194.md) |
+| 命令详情与结果入口 | [HXA-194](../completion-records/HXA-194.md) |
 | 日志观察 | [HXA-195](../development/tasks/HXA-195.md) |
 | 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
 | 单手动终端 | [HXA-197](../development/tasks/HXA-197.md) |

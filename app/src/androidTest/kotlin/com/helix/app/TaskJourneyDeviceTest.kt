@@ -4,11 +4,13 @@ import android.app.Application
 import android.content.Context
 import android.os.Process
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -174,9 +176,7 @@ class TaskJourneyDeviceTest {
         val before = journeyCounts(storage)
         assertEquals("the fixture goal must start unactivated", 0, before.draftRuns)
         compose.navigateTo("tasks")
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("tasks-goal-$GOAL_DRAFT").fetchSemanticsNodes().isNotEmpty()
-        }
+        scrollToTask("tasks-goal-$GOAL_DRAFT")
         compose.onNodeWithTag("tasks-goal-open-$GOAL_DRAFT").performScrollTo().performClick()
         compose.waitForIdle()
         stopAwait { chat.screen.value.openSessionId == SESSION_A }
@@ -462,11 +462,17 @@ class TaskJourneyDeviceTest {
     // ---------- dashboard UI helpers ----------
 
     private fun waitTurnRowsVisible(turnIds: List<String>) {
+        turnIds.forEach { scrollToTask("tasks-turn-$it") }
+    }
+
+    private fun scrollToTask(tag: String) {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            turnIds.all { turnId ->
-                compose.onAllNodesWithTag("tasks-turn-$turnId").fetchSemanticsNodes().isNotEmpty()
-            }
+            compose.onAllNodesWithTag("screen-tasks").fetchSemanticsNodes().isNotEmpty()
         }
+        // The full suite leaves other history ahead of these rows. LazyColumn only
+        // composes visible items; waiting for every fixture row at once cannot work.
+        compose.onNodeWithTag("screen-tasks").performScrollToNode(hasTestTag(tag))
+        compose.onNodeWithTag(tag).assertIsDisplayed()
     }
 
     private fun assertOpenOwnChatPage(
@@ -474,6 +480,7 @@ class TaskJourneyDeviceTest {
         sessionId: String,
         chat: ChatService,
     ) {
+        scrollToTask("tasks-turn-$turnId")
         compose.onNodeWithTag("tasks-turn-open-$turnId").performScrollTo().performClick()
         compose.waitForIdle()
         stopAwait { chat.screen.value.openSessionId == sessionId }
@@ -504,6 +511,7 @@ class TaskJourneyDeviceTest {
         keep: List<String>,
         absent: List<String>,
     ) {
+        scrollToTask("tasks-turn-$TURN_A")
         compose.onNodeWithTag("tasks-turn-artifacts-$TURN_A").performScrollTo().performClick()
         compose.waitForIdle()
         assertArtifactDialogRows(keep, absent)
@@ -514,6 +522,7 @@ class TaskJourneyDeviceTest {
         keep: List<String>,
         absent: List<String>,
     ) {
+        scrollToTask("tasks-goal-$goalId")
         compose.onNodeWithTag("tasks-goal-artifacts-$goalId").performScrollTo().performClick()
         compose.waitForIdle()
         assertArtifactDialogRows(keep, absent)
@@ -607,6 +616,10 @@ class TaskJourneyDeviceTest {
         try {
             chat.stopTask(turn.id)
             stopAwait { storage.turns.resolve(turn.id).state == "CANCELLED" }
+            // The observer's 1 ms poller may lag the main thread on a slow device: the
+            // ordering claim is checked only after the observer itself has recorded the
+            // terminal transition, so a starved iteration can never drop the final state.
+            stopAwait { states.contains("CANCELLED") }
             val cancellingIndex = states.indexOf("CANCELLING")
             val cancelledIndex = states.indexOf("CANCELLED")
             assertTrue(

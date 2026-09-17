@@ -21,7 +21,7 @@ import org.junit.runner.RunWith
 
 /** Production ChatService/OkHttp/decoder admission and cancellation against a held local SSE socket. */
 @RunWith(AndroidJUnit4::class)
-class GoalModelCancellationDeviceTest {
+class GoalModelCancellationDeviceTest : com.helix.app.test.ForegroundDeviceTestHost() {
     @Test fun explicitStopClosesModelSocketAndGoalRun() = exercise(stop = true)
 
     @Test fun wakeTimeLimitClosesModelSocketAndBlocksGoal() = exercise(stop = false)

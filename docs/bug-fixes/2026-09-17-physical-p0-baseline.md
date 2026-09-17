@@ -3,11 +3,11 @@
 Status: fixed
 Date: 2026-09-17
 Related HXA: HXA-094, HXA-095
-Affected modules: app
+Affected modules: app, tools/framework
 
 ## Problem
 
-Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合。当前最终全套验收进行中。
+Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合。已在独立修复分支完成最终普通套件与存储权限分阶段验收；用户在批次 A 完成后授权整合到 main。
 
 ## Impact
 
@@ -26,6 +26,14 @@ Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合�
 - Goal 附件单轮绑定夹具：显式使用一次模型调用预算，避免自动续跑与 `.single()` 断言竞争；READY Goal 的预算编辑断言同步当前契约。
 - 内置 METADATA 被效果分类器误归为设备修改，触发意外审批。修复为闭合内置元数据空外部效果；Policy 的模式、来源及会话约束仍先执行。
 - 调用在排队时已经取消，却先进入审批 Broker，可能等待无意义审批。schema 校验后即检查取消并持久结算，执行前取消复检仍保留；JVM 断言无卡、无 proof、无执行。
+
+- 任务列表使用 LazyColumn，完整套件的其他历史会使固定夹具行不在可视区；逐项滚动定位，不要求多行同时组合，不删除历史。
+- Runtime 集成测试错误地假设从未验证过；显式暂存/清空验证锚点并恢复，PRoot 作业各自初始化锁定资产，不依赖测试类顺序。此前大量 `JOB_FAILED` 的实际原因是 `no active runtime install`。
+- 默认 CLI 持久化测试意外调用真实模型；改用 Runtime 已有离线模型夹具。无账号目录测试注入固定 AUTH 目录结果，模型运输仍走真实 Runtime，不读取或清除设备账号。成功结果必须先验证再显式 ACK；进程死亡后仅有界重查，不重交作业。
+- Goal 生命周期与报告测试显式指定足够预算并恢复原配置，防止其他界面测试保存的小预算导致 `TOKEN_BUDGET_LIMIT`；不放宽生产预算。
+- Plan 弹窗开启/关闭是异步状态更新，等待对应语义节点出现/消失后断言。
+- 真机存储权限需分普通拒绝、授予、重启撤销三阶段；包级 AppOp 不能覆盖现有 UID 级 allow，脚本分别保存、切换、恢复两级值。OEM 不给 shell 管理 AppOps 权限时，仅使用用户已批准的本 App Root 身份调整本 App 的这一项权限。
+- HXA-194 已提交基线的命令投影拆为输入事实、状态计算与输出展示，补损坏归档/未知/过期/失败回归；补齐 ArtifactDao fake 的新查询方法与 Compose 命名/格式门禁，不 suppress 新门禁失败。
 
 ## Fix and invariants
 
@@ -47,8 +55,37 @@ Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合�
 - Plan 生产管线：修复分类与取消后，`build/p0-integration-20260917/plan-submit-fixed.log`，4 PASS / 0 FAIL。
 - 完整套件首次诊断：`build/p0-full-20260917-134417/`，522 项中仅结束 286 项（236 PASS / 35 SKIP / 15 FAIL），安全锁屏后主动终止，不能作为全套验收。暴露的旅程种子依赖、Goal 旧断言、前台服务权限与 Plan 分类问题已修；UI 层无 Compose hierarchy 的失败需解锁后重验，不能未经复测归因环境。
 - 存储完整设备套件：`build/p0-integration-20260917/storage-device.log`，62 PASS / 0 FAIL。
-- 最终主机全门禁重跑尚未通过：`build/p0-integration-20260917/check-all-final-retry.log` 的 5 项 detekt 全位于并行 HXA-194 新增 `CommandResultProjection.kt`，不修改或夹带该进行中的文件；P0 自身复杂度问题已修。不得以早先的 `--all` 通过替代本次最终门禁。
-- 最终完整真机运行等待用户解锁；原充电亮屏设置已恢复为 0。runner 现先检查锁屏，临时亮屏设置在 finally 恢复；不关闭安全锁屏。
+- 早期主机全门禁重跑未通过：`build/p0-integration-20260917/check-all-final-retry.log` 的 5 项 detekt 全位于并行 HXA-194 新增 `CommandResultProjection.kt`，不修改或夹带该进行中的文件；P0 自身复杂度问题已修。不得以早先的 `--all` 通过替代本次最终门禁。
+- 早期完整真机运行曾等待用户解锁；原充电亮屏设置已恢复为 0。runner 现先检查锁屏，临时亮屏设置在 finally 恢复；不关闭安全锁屏。
+
+## 解锁后的复验
+
+- 固定独立验收工作树，保留 main 的并行 WIP；随后纳入 HXA-194 已提交导航 `73e574f6`，处理命令投影接口冲突。
+- 首轮全套 `build/p0-full-20260917-141113/`：431 PASS / 68 SKIP / 23 FAIL，仅诊断；无 Activity 用例曾人工唤回，不能作为无人干预验收。
+- 分阶段诊断 `build/p0-full-20260917-142558/`：普通阶段 442 PASS / 68 SKIP / 9 FAIL，授予 3 PASS，撤销 1 FAIL。上述原因已修；后台预算失败后的 OEM 挂起曾人工唤回，同样只保留诊断证据。
+- 最终固定源码 `e5091a8a`，`python3 scripts/debug/2026-09-17/p0/run-device.py <serial> full`：`build/p0-full-20260917-144124/` 普通阶段 **450 PASS / 69 SKIP / 0 FAIL**（519 项，约 579 秒）；存储 granted **3/3**、revoked **1/1**，全部真实执行，无人工唤回介入。
+- `python3 scripts/debug/2026-09-17/p0/run-device.py <serial> storage`：`build/p0-storage-20260917-145248/` 授予态 **9/9**（含 All-files 六项）、新进程撤权 **1/1**，0 skip / 0 fail。普通阶段因无存储授权跳过的 All-files 正向用例在此实测通过；阶段重复项不重复计作独立用例。
+- `JAVA_HOME=<JDK17> ANDROID_HOME=<SDK> bash scripts/check-all.sh --all`：`build/p0-resume/final2-host.log` **exit 0**。覆盖源码、detekt、spotless、完整 lintDebug/Release 与双 flavor lint、JVM test、构建、依赖锁和 APK 边界。App consumer 582、developer 616 项，各 4 项既有条件跳过，0 failure/error；命令投影新增四项边界单测包含在内。
+- 最终 Root 真实 App Dispatcher 工具链：`build/p0-root-app-20260917-145355/`，**1/1 PASS**，0 skip / 0 fail；沿用用户已批准的 App Root 策略，测试包拒绝策略未改。
+- 69 项条件跳过仍保持显式：外部账号/端点/材料、专用 kill/restart、长稳等 profile 不自动启用。本轮不把这些项目或 soak 的单纯 JUnit 返回声明为通过。
+
+## 批次 A 整合
+
+- 用户在批次 A（202→194→203）完成后授权合回 main。本轮以 main `99ea39c7` 与修复分支 `8a923ca9` 为整合基线；本地整合，不 push、不发布。
+- 保留 main 的 HXA-194/203 命令详情、产物交付与导航实现，命令投影沿用 `CommandResultFacts`。P0 的四项边界回归独立为 `CommandResultBoundaryTest`，保留 main 原有 `CommandResultProjectionTest` 全部用例。
+- 保留 P0 的 Goal/Runtime/存储测试隔离与恢复修复；TaskJourney 合并双方的独立种子、列表滚动及取消观察同步修复。归档读取按已知异常分类记录，不吞掉任意异常。
+- 整合首轮 consumer/API36 的产物交付 9/9，命令详情 2/4；两个超时都在会话工具行定位。测试等待已被 LazyColumn 移出组合的较早节点，改为等待生产投影后按稳定 tag 滚动定位，仍断言正确来源与无新增执行。失败证据完整保留在 `build/p0-batch-a-integration-run1-failed/`。
+- main 的并行会话投影、文档研究与未跟踪脚本不属于本次整合范围，保持原状。
+- 上述 OnePlus API35 真机证据绑定 `e5091a8a`；本次没有连接真机，不将旧证据冒充整合后真机重跑。新的主机与模拟器整合验证见下方记录。
+- 验收证据保留在修复工作树的 ignored `build/`，不删除该工作树；APK SHA 与源码基线见各轮证据。未来源码修改后须按影响补验。
+
+### 整合后的验证结果
+
+- `JAVA_HOME=<JDK17> ANDROID_HOME=<SDK> bash scripts/check-all.sh --all`：`build/p0-resume/batch-a-merge-host-final.log`，**exit 0**。App consumer 609 项、developer 643 项，各 4 项既有条件跳过，0 failure/error；包含完整 lintDebug/Release、双 flavor lint、构建、依赖锁与 APK 边界。
+- `:app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest`：`build/p0-resume/batch-a-merge-test-apks-retry.log`，BUILD SUCCESSFUL。
+- `ANDROID_HOME=<SDK> sh scripts/debug/2026-09-17/p0/run-batch-a-matrix.sh`：**exit 0 / overall=0**，`build/p0-batch-a-integration/` 与 `build/p0-resume/batch-a-device-matrix.log`。API29/36 × consumer/developer，8 次正式运行共 **82 PASS / 0 FAIL**：ArtifactDelivery 9×4、CommandExecutionDetails 4×4、developer CommandResultBrowse 3×2、TaskJourney 6×4。每象限的 TaskJourney 另有落盘后真实进程死亡准备阶段，未将预期死亡阶段记作通过用例。
+- 每轮独占模拟器、拒绝已有 serial、finally 关闭自有进程；终轮 `adb devices` 为空。每轮 `artifacts.json` 保存 APK SHA；`build/p0-resume/batch-a-integration-source.json` 保存双方父提交和整合代码差异 SHA。
+- 文档收尾另通过 `check-all.sh --source`。本次门禁针对独立工作树中的整合源码，不包含 main 的并行未提交 WIP，也不关闭 HXA-206 或外部 profile。
 
 ## Residual risk
 

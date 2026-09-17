@@ -52,6 +52,7 @@ class ProotRuntimeIsolationE2eDeviceTest {
 
     @Before
     fun warm() {
+        ensureInstalledRuntime(context)
         org.junit.Assume.assumeTrue(
             "companion not installed — install runtime/proot-app/.../proot-app-debug.apk",
             companionInstalled(context),

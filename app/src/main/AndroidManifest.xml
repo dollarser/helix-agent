@@ -19,6 +19,16 @@
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- HXA-203: the artifact dialog's "open with another app" reports an honest no-viewer
+         state via an explicit resolveActivity pre-check (the framework chooser would swallow
+         the no-target case as an empty screen); on API 30+ package visibility, that check is
+         truthful only with this declaration. The chooser itself lists all handlers either way. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
     <application
         android:requestLegacyExternalStorage="true"
         android:name=".HelixApplication"

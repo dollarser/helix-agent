@@ -28,7 +28,7 @@ import org.junit.runner.RunWith
  * it. The 6 h / 24 h bound itself is a pure predicate pinned in [DataSyncForegroundControllerTest].
  */
 @RunWith(AndroidJUnit4::class)
-class DataSyncForegroundServiceDeviceTest {
+class DataSyncForegroundServiceDeviceTest : com.helix.app.test.ForegroundDeviceTestHost() {
     @Before
     fun stopAnyPreviousFixtureService() {
         stopFixtureService()

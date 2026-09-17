@@ -107,6 +107,12 @@ class GoalLifecycleFlowDeviceTest {
                 chat.openSession(session)
                 await { chat.screen.value.openSessionId == session }
                 chat.setMode(mode)
+                // This lifecycle fixture owns its model/tool budget; earlier UI tests
+                // may intentionally persist a tiny token limit.
+                chat.setTurnBudgets(
+                    com.helix.core.model
+                        .TurnBudgets(16, 16, 65536, 4096, 100000),
+                )
                 chat.send("Please create a goal and answer 2 + 2.")
                 await { DataSyncForegroundService.runningInstance.get() != null }
                 val firstService = DataSyncForegroundService.runningInstance.get()
@@ -176,6 +182,7 @@ class GoalLifecycleFlowDeviceTest {
                 await { chat.backgroundTasks.value.none { it.sessionId == session && it.running } }
                 chat.closeSession()
                 chat.setMode(previous.mode)
+                chat.setTurnBudgets(previous.budgets)
                 container.providerService.delete(provider)
             }
         }

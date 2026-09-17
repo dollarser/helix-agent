@@ -66,21 +66,24 @@ class CliRuntimeHandshakeE2eDeviceTest {
     @Test fun fixedModelJobIsDurableAndNeverBlindlyResubmitted() {
         val client = CliModelJobClient(CliRuntimeSupervisor(context))
         val jobId = nextJobId()
-        val awaited = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        val awaited = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertTrue(awaited is CliModelJobClient.AwaitOutcome.Terminal)
         val record = (awaited as CliModelJobClient.AwaitOutcome.Terminal).record
-        assertEquals(CliModelJobState.FAILED, record.state)
-        val duplicate = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        assertEquals(CliModelJobState.SUCCEEDED, record.state)
+        val duplicate = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(record, (duplicate as CliModelJobClient.AwaitOutcome.Terminal).record)
         assertEquals(null, record.reconciledAtEpochMillis)
-        val reconciled = (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record
+        val observed = client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok
+        assertEquals(record, observed.record)
+        assertEquals(awaited.events, observed.events)
+        // Explicitly discard the verified synthetic result, then acknowledge its identity.
+        val reconciled = (client.acknowledgeResult(observed.record) as CliModelJobClient.StateOutcome.Ok).record
         assertTrue(reconciled.reconciledAtEpochMillis != null)
         assertEquals(record, reconciled.copy(reconciledAtEpochMillis = null))
         client.debugKillRuntime()
-        Thread.sleep(200)
-        assertEquals(reconciled, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
+        assertEquals(reconciled, awaitRuntimeState { client.query(jobId) }.record)
         assertEquals(reconciled, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record)
-        val repeated = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        val repeated = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(reconciled, (repeated as CliModelJobClient.AwaitOutcome.Terminal).record)
         assertTrue(client.query("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
         assertTrue(client.cancel("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
@@ -124,8 +127,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
         )
         assertEquals(null, result.record.reconciledAtEpochMillis)
         client.debugKillRuntime()
-        Thread.sleep(200)
-        val recovered = client.fetchResult(jobId) as CliModelJobClient.StateOutcome.Ok
+        val recovered = awaitRuntimeState { client.fetchResult(jobId) }
         assertEquals(result.events, recovered.events)
         assertEquals(result.record.requestSha256, recovered.record.requestSha256)
         assertEquals(result.record.outputSha256, recovered.record.outputSha256)

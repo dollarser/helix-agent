@@ -22,14 +22,14 @@
 | [HXA-191](../../development/tasks/HXA-191.md) | 待实现 | 审批折叠已归201，Goal创建归208，首次配置归205；这里只保留主题与会话/历史检索。 |
 | [HXA-192](../../completion-records/HXA-192.md) | 收尾验收 | 门禁修复/主分支集成不再当未做项；PlanSubmitIntegrationDeviceTest不等于用户审阅执行闭环。 |
 | [HXA-193](../../development/tasks/HXA-193.md) | 收尾验收 | 单APK生产接线已存在；不重做UID改造，不再以help输出当执行证据。 |
-| [HXA-194](../../development/tasks/HXA-194.md) | 待实现 | 保留独立详情页；202只做跨页面导航，不重复实现命令结果模型。 |
+| [HXA-194](../../completion-records/HXA-194.md) | 已交付 | 保留独立详情页；202只做跨页面导航，不重复实现命令结果模型。 |
 | [HXA-195](../../development/tasks/HXA-195.md) | 待实现 | 已有最终结果不是流式日志；不等后台Job和PTY组件决定。 |
 | [HXA-196](../../development/tasks/HXA-196.md) | 待实现 | Goal后台续轮已归208；这里是独立进程owner/租期/日志/对账，不强制所有启动出卡。 |
 | [HXA-197](../../development/tasks/HXA-197.md) | 待实现 | 人工终端范围已接受；剩余是PTY组件许可证和真实目录映射，不重审整份ADR。 |
 | [HXA-198](../../development/tasks/HXA-198.md) | 待实现 | 多会话范围已接受；不再写等待手动并发ADR接受，不开放模型PTY输入。 |
 | [HXA-199](../../development/tasks/HXA-199.md) | 集成验收 | 保留终端性能、后台真机和恢复集合，不与206重复建设另一套执行器或全产品验收。 |
 | [HXA-202](../../completion-records/HXA-202.md) | 已交付 | TasksScreen与dashboard已存在；任务到会话/命令/产物的路径中，任务导航与状态投影已交付，命令详情与产物交付分属194/203，不重建任务列表。 |
-| [HXA-203](../../development/tasks/HXA-203.md) | 待实现 | ArtifactsScreen、scope与导出基础已存在；不扩成通用文档解析或远程Git项目。 |
+| [HXA-203](../../completion-records/HXA-203.md) | 已交付 | 产物交付闭环按四象限矩阵与批次A出口旅程交付（四态可用性、变更横幅、管线导出/取消、无查看器外部打开、返回产生任务）；不扩成通用文档解析或远程Git项目。 |
 | [HXA-204](../../development/tasks/HXA-204.md) | 待实现 | 恢复展示和显式操作是增量；不重做Goal/审批状态机，不用统一resume覆盖不同副作用状态。 |
 | [HXA-205](../../development/tasks/HXA-205.md) | 待实现 | 吸收191首次引导；与194命令详情分开，覆盖真实初始化/修复而非又做Runtime打包。 |
 | [HXA-206](../../development/tasks/HXA-206.md) | 集成验收 | 删除工具级ASK/ALLOW/DENY固定用例，使用工具二态+预设/CUSTOM；终端全套由199负责。 |

@@ -42,7 +42,7 @@ class ChatCompactionFlowDeviceTest {
 
     @Test fun summaryCannotBypassTheModelCallBudget() = exercise(manual = false, calls = 1)
 
-    @Test fun goalSummarySpendsGoalBudgetAndParksWithoutAnUnrequestedWake() = exercise(manual = false, goal = true)
+    @Test fun goalSummarySpendsGoalBudgetAndStopsAtTheSharedLimit() = exercise(manual = false, goal = true)
 
     @Test fun failedSummaryRetriesOnceThroughTheRealProviderAndKeepsAccounting() =
         exercise(manual = false, failSummary = true)
@@ -109,7 +109,7 @@ class ChatCompactionFlowDeviceTest {
                             "Keep constraints and verify",
                             listOf("Verified result"),
                             com.helix.core.model
-                                .GoalBudgets(20, 20, 200000, 600000, 300000, 1),
+                                .GoalBudgets(2, 20, 200000, 600000, 300000, 1),
                         )
                     } else {
                         null
@@ -145,7 +145,8 @@ class ChatCompactionFlowDeviceTest {
                     assertTrue(!server.failNextSummary.get())
                 }
                 if (goalId != null) {
-                    assertEquals("PAUSED", storage.goals.resolve(goalId).state)
+                    compose.waitUntil(10_000) { storage.goals.resolve(goalId).state == "BLOCKED" }
+                    assertEquals(2, storage.goals.resolve(goalId).modelCalls)
                     assertTrue(
                         "Goal calls=${storage.goals.resolve(goalId).modelCalls}, error=${turn.errorCode}",
                         storage.goals.resolve(goalId).modelCalls >= 2,
