@@ -90,10 +90,14 @@ jobs:
           # the action's legacy `tools` default.
           packages: ""
 
-      - name: Install Android platform
+      - name: Install Android platform and native toolchain
         # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
         # verify-variant-boundaries.sh on a cold runner.
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" \
+            "cmdline-tools;latest" "ndk;28.2.13676358" "cmake;3.31.6"
+          "$ANDROID_HOME/cmake/3.31.6/bin/cmake" --version
+          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
 
       - name: Install repository validation tools
         env:

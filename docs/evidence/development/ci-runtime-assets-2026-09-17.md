@@ -30,3 +30,9 @@
 [运行35237161334](https://github.com/dollarser/helix-agent/actions/runs/35237161334) 对应 `556b5095`。runtime-assets 成功：SDK初始化、公开归档下载与锁定hash、Linux扫描到的664个ELF校验及artifact传输均通过。macOS也完成SDK初始化，但源码门禁因 `check-secrets: ripgrep (rg) is required and not installed; refusing to pass.` 退出1；文档、ADR和国际化此前已通过。原来依赖开发机已装rg，workflow未声明此工具。
 
 现为macOS增加显式安装/检查ripgrep的步骤，不改Secret检查或将缺工具视为跳过。远端完整验证仍须在后续运行通过；不同宿主的ELF扫描计数不冒充相同文件遍历行为，归档身份以一致的SHA-256为准。
+
+## 原生工具链补齐
+
+[运行35237839838](https://github.com/dollarser/helix-agent/actions/runs/35237839838) 对应 `997677d1`。两个job的SDK设置、资产管线、源码门禁通过，主机测试及完整lint/静态检查的第一条Gradle命令通过（20m19s）。后续APK构建在proot-app的arm64-v8a/x86_64 CMake配置失败：`[CXX1300] CMake '3.31.6' was not found in SDK, PATH, or by cmake.dir property.`
+
+项目已固定CMake 3.31.6与NDK 28.2.13676358，原workflow却只装platform/build-tools，依赖开发机或runner预装工具。当前SDK可用包列表再次确认该版本存在；workflow改为显式安装并在测试前检查可执行文件和NDK元数据，不改项目版本、不移除ABI或跳过原生构建。完整远端结果仍按后续运行判定。
