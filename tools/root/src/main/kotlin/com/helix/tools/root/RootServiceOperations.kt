@@ -3,11 +3,15 @@ package com.helix.tools.root
 import android.content.Context
 import android.content.pm.PackageManager
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.util.concurrent.TimeUnit
 
 internal class RootServiceOperations(
-    private val context: Context,
+    // Nullable so the pure-JVM process-scan path can be exercised without an Android
+    // context; operations that need the context fail closed when it is absent.
+    private val context: Context?,
+    private val procRoot: File = File("/proc"),
 ) {
     fun execute(request: RootOperationRequest): RootOperationResult =
         try {
@@ -42,7 +46,8 @@ internal class RootServiceOperations(
 
     private fun packageInfo(request: RootOperationRequest.PackageInfo): RootOperationResult {
         require(PACKAGE_NAME.matches(request.packageName)) { "ROOT_PACKAGE_INVALID" }
-        val info = context.packageManager.getPackageInfo(request.packageName, 0)
+        val packageManager = context?.packageManager ?: return RootOperationResult.Failed("ROOT_CONTEXT_MISSING")
+        val info = packageManager.getPackageInfo(request.packageName, 0)
         val app = requireNotNull(info.applicationInfo)
         return RootOperationResult.Package(
             RootPackageRecord(request.packageName, app.uid, app.sourceDir.orEmpty(), info.versionName),
@@ -52,7 +57,7 @@ internal class RootServiceOperations(
     private fun processList(request: RootOperationRequest.ProcessList): RootOperationResult {
         require(request.limit in 1..RootTools.MAX_PROCESSES)
         val records =
-            File("/proc")
+            procRoot
                 .listFiles()
                 .orEmpty()
                 .asSequence()
@@ -64,19 +69,36 @@ internal class RootServiceOperations(
         return RootOperationResult.Processes(records)
     }
 
-    @Suppress("ReturnCount") // malformed or racing /proc fields are individually skipped
-    private fun readProcess(dir: File): RootProcessRecord? {
-        val pid = dir.name.toIntOrNull() ?: return null
+    // A process can die between the /proc listing and the per-entry read (or the entry can be
+    // malformed); racing or unreadable entries are skipped individually so a live scan never
+    // fails the whole operation.
+    private fun readProcess(dir: File): RootProcessRecord? =
+        try {
+            val pid = dir.name.toIntOrNull()
+            readProcessRecord(dir, pid)
+        } catch (_: IOException) {
+            null
+        } catch (_: SecurityException) {
+            null
+        }
+
+    private fun readProcessRecord(
+        dir: File,
+        pid: Int?,
+    ): RootProcessRecord? {
         val status = File(dir, "status").readLines().take(64)
-        val name = status.firstOrNull { it.startsWith("Name:\t") }?.substringAfter('\t')?.take(256) ?: return null
+        val name =
+            status
+                .firstOrNull { it.startsWith("Name:\t") }
+                ?.substringAfter('\t')
+                ?.take(256)
         val uid =
             status
                 .firstOrNull { it.startsWith("Uid:\t") }
                 ?.substringAfter('\t')
                 ?.substringBefore('\t')
                 ?.toIntOrNull()
-                ?: return null
-        return RootProcessRecord(pid, uid, name)
+        return if (pid != null && uid != null && name != null) RootProcessRecord(pid, uid, name) else null
     }
 
     private fun logRead(request: RootOperationRequest.LogRead): RootOperationResult {
