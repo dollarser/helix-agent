@@ -52,12 +52,14 @@ internal fun TasksScreen(
     service: ChatService,
     fileManager: FileManagerService,
     onOpenSession: (String) -> Unit,
+    onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 ) {
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
     val goals by service.goalDashboard.collectAsStateWithLifecycle()
     val plans by service.planDashboard.collectAsStateWithLifecycle()
     var selectedPlan by remember { mutableStateOf<String?>(null) }
     var resultTurn by remember { mutableStateOf<String?>(null) }
+    var commandTurn by remember { mutableStateOf<String?>(null) }
     var artifactsQuery by remember { mutableStateOf<TaskArtifactsQuery?>(null) }
 
     // Entry refresh: facts written while the app was closed (or by another process) become
@@ -69,7 +71,7 @@ internal fun TasksScreen(
 
     // One modal dialog at a time, rendered in place of the list; the shared flows keep the
     // row data live underneath.
-    if (resultTurn != null || selectedPlan != null || artifactsQuery != null) {
+    if (resultTurn != null || selectedPlan != null || commandTurn != null || artifactsQuery != null) {
         when {
             resultTurn != null -> {
                 TaskResultDialog(service, requireNotNull(resultTurn)) { resultTurn = null }
@@ -79,6 +81,19 @@ internal fun TasksScreen(
                 // The review dialog's decisions go through the service, which refreshes the
                 // plan feed itself — no screen-side revision bump needed.
                 PlanReviewDialog(service, requireNotNull(selectedPlan)) { selectedPlan = null }
+            }
+
+            commandTurn != null -> {
+                // HXA-194: the turn's commands list; opening a call navigates to the
+                // details page (the dialog dismisses, the list is re-read per open).
+                TurnCommandListDialog(
+                    service,
+                    requireNotNull(commandTurn),
+                    onOpenCommandDetail = { turnId, callId ->
+                        commandTurn = null
+                        onOpenCommandDetail(turnId, callId)
+                    },
+                ) { commandTurn = null }
             }
 
             else -> {
@@ -101,6 +116,7 @@ internal fun TasksScreen(
         onOpenSession,
         { resultTurn = it },
         { selectedPlan = it },
+        { commandTurn = it },
         { artifactsQuery = it },
     )
 }
@@ -114,6 +130,7 @@ private fun TasksRowList(
     onOpenSession: (String) -> Unit,
     onShowResult: (String) -> Unit,
     onReviewPlan: (String) -> Unit,
+    onShowCommands: (String) -> Unit,
     onShowArtifacts: (TaskArtifactsQuery) -> Unit,
 ) {
     if (rows.isEmpty()) {
@@ -143,6 +160,7 @@ private fun TasksRowList(
                         onOpenSession,
                         onShowResult,
                         onReviewPlan,
+                        onShowCommands,
                         onShowArtifacts,
                     )
                 }
@@ -159,6 +177,7 @@ private fun TasksRowView(
     onOpenSession: (String) -> Unit,
     onShowResult: (String) -> Unit,
     onReviewPlan: (String) -> Unit,
+    onShowCommands: (String) -> Unit,
     onShowArtifacts: (TaskArtifactsQuery) -> Unit,
 ) {
     Column(Modifier.testTag(row.testTag)) {
@@ -182,11 +201,21 @@ private fun TasksRowView(
                             { service.stopTask(row.task.id) },
                             Modifier.testTag("tasks-turn-cancel-${row.task.id}"),
                         ) { Text(stringResource(R.string.background_task_cancel)) }
+                        // HXA-194: a running command's details show its status only —
+                        // the output is viewable after the command ends.
+                        TextButton(
+                            { onShowCommands(row.task.id) },
+                            Modifier.testTag("tasks-turn-command-${row.task.id}"),
+                        ) { Text(stringResource(R.string.tasks_turn_command)) }
                     } else {
                         TextButton(
                             { onShowResult(row.task.id) },
                             Modifier.testTag("tasks-turn-result-${row.task.id}"),
                         ) { Text(stringResource(R.string.background_task_result)) }
+                        TextButton(
+                            { onShowCommands(row.task.id) },
+                            Modifier.testTag("tasks-turn-command-${row.task.id}"),
+                        ) { Text(stringResource(R.string.tasks_turn_command)) }
                         TextButton(
                             { onShowArtifacts(TaskArtifactsQuery(turnId = row.task.id, goalId = null)) },
                             Modifier.testTag("tasks-turn-artifacts-${row.task.id}"),

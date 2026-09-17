@@ -77,6 +77,14 @@ internal fun ToolTimelineItem(
                 )
             }
         }
+        if (row.toolName in com.helix.app.proot.COMMAND_TOOL_NAMES) {
+            // HXA-194: the command details entry from the tool row — a read-only
+            // navigation, visible for every state (a running command shows status only).
+            TextButton(
+                onClick = { intents.onOpenCommandDetail(row.turnId, row.callId) },
+                modifier = Modifier.testTag("command-detail-${row.callId}"),
+            ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+        }
         if (row.prootRecoveryAvailable) {
             ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
         }

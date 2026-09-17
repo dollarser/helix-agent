@@ -49,6 +49,7 @@ internal object CommandResultBrowser {
                 argsJson = call.argsJson,
                 callState = call.state,
                 turnState = turn.state,
+                sessionId = turn.sessionId,
                 resultStatus = result?.status,
                 resultSummary = result?.summary,
                 resultContent = result?.let { storage.toolResults.readContent(it) },

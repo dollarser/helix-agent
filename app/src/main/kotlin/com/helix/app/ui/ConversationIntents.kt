@@ -33,4 +33,6 @@ data class ConversationIntents(
     val onRecoverProot: (String, String) -> Unit = { _, _ -> },
     val onRetryProotAck: (String, String) -> Unit = { _, _ -> },
     val onInspectProot: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    /** HXA-194: open a command call's read-only details page from its tool row. */
+    val onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 )

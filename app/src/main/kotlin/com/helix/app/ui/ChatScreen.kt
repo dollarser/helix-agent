@@ -37,6 +37,7 @@ fun ChatScreen(
     fileManager: com.helix.app.files.FileManagerService? = null,
     onNavigation: () -> Unit = {},
     onProviders: () -> Unit = {},
+    onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -120,6 +121,7 @@ fun ChatScreen(
                         onRetryProotAck = chatService::retryProotAcknowledgement,
                         onInspectSubscription = chatService::inspectInterruptedSubscription,
                         onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
+                        onOpenCommandDetail = onOpenCommandDetail,
                     ),
             )
         }

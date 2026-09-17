@@ -12,6 +12,7 @@ class CommandResultProjectionTest {
             "{}",
             "COMPLETED",
             "COMPLETED",
+            "session",
             "SUCCESS",
             null,
             """{"state":"SUCCEEDED","exitCode":0,"stdout":"verified","stderr":""}""",

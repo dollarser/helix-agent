@@ -67,6 +67,8 @@ data class CommandResultView(
     val commandText: String,
     val callState: String,
     val turnState: String,
+    /** The session the command ran under (the return-source target). */
+    val sessionId: String,
     /** The workspace scope the command ran under. */
     val scopeLabel: String,
     val binding: CommandJobBindingFacts?,
@@ -81,4 +83,13 @@ data class CommandResultView(
     val acknowledged: Boolean?,
     /** Terminal result with no output at all: gets its own display line. */
     val noOutput: Boolean,
+)
+
+/** One command row of the task page's command list (HXA-194 entry from the task row). */
+data class CommandEntry(
+    val callId: String,
+    val toolName: String,
+    val commandText: String,
+    val state: String,
+    val turnState: String,
 )
