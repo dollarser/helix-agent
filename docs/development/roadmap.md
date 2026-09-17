@@ -211,7 +211,7 @@
 | HXA-199 | 集成验收 | 终端专项集成与交付 | [任务规格](tasks/HXA-199.md) |
 | HXA-200 | 已交付 | 三态审批偏好与执行解析 | [交付证据](../completion-records/HXA-200.md) |
 | HXA-201 | 已交付 | 工具设置与审批卡 | [交付证据](../completion-records/HXA-201.md) |
-| HXA-202 | 待实现 | 任务过程与跨页面操作导航 | [任务规格](tasks/HXA-202.md) |
+| HXA-202 | 已交付 | 任务过程与跨页面操作导航 | [交付证据](../completion-records/HXA-202.md) |
 | HXA-203 | 待实现 | 产物可用性与文件交付闭环 | [任务规格](tasks/HXA-203.md) |
 | HXA-204 | 待实现 | 跨执行域错误与恢复交互 | [任务规格](tasks/HXA-204.md) |
 | HXA-205 | 待实现 | 首次配置与能力准备修复 | [任务规格](tasks/HXA-205.md) |

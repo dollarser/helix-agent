@@ -28,7 +28,7 @@
 | [HXA-197](../../development/tasks/HXA-197.md) | 待实现 | 人工终端范围已接受；剩余是PTY组件许可证和真实目录映射，不重审整份ADR。 |
 | [HXA-198](../../development/tasks/HXA-198.md) | 待实现 | 多会话范围已接受；不再写等待手动并发ADR接受，不开放模型PTY输入。 |
 | [HXA-199](../../development/tasks/HXA-199.md) | 集成验收 | 保留终端性能、后台真机和恢复集合，不与206重复建设另一套执行器或全产品验收。 |
-| [HXA-202](../../development/tasks/HXA-202.md) | 待实现 | TasksScreen与dashboard已存在；补任务到会话/命令/产物/恢复的路径，不重建任务列表。 |
+| [HXA-202](../../completion-records/HXA-202.md) | 已交付 | TasksScreen与dashboard已存在；任务到会话/命令/产物的路径中，任务导航与状态投影已交付，命令详情与产物交付分属194/203，不重建任务列表。 |
 | [HXA-203](../../development/tasks/HXA-203.md) | 待实现 | ArtifactsScreen、scope与导出基础已存在；不扩成通用文档解析或远程Git项目。 |
 | [HXA-204](../../development/tasks/HXA-204.md) | 待实现 | 恢复展示和显式操作是增量；不重做Goal/审批状态机，不用统一resume覆盖不同副作用状态。 |
 | [HXA-205](../../development/tasks/HXA-205.md) | 待实现 | 吸收191首次引导；与194命令详情分开，覆盖真实初始化/修复而非又做Runtime打包。 |
