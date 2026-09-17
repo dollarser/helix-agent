@@ -959,6 +959,17 @@
     <string name="artifacts_file_source">来源：%1$s</string>
     <string name="artifacts_file_missing">文件已不存在（可能已被删除或移动）</string>
     <string name="artifacts_file_unavailable">文件暂不可用</string>
+    <string name="artifacts_file_revoked">授权已撤销，文件不可用</string>
+    <string name="artifacts_file_changed">文件内容已变化（与任务记录不一致）</string>
+    <string name="artifacts_file_preview_truncated">预览仅显示文件开头</string>
+    <string name="artifacts_file_no_preview_hint">该格式无法预览，可导出或用其他应用打开</string>
+    <string name="artifacts_open_task">查看任务</string>
+    <string name="artifacts_export_cancel">取消导出</string>
+    <string name="artifacts_exported">已导出</string>
+    <string name="artifacts_open_external">用其他应用打开</string>
+    <string name="artifacts_open_external_launched">已用其他应用打开</string>
+    <string name="artifacts_open_external_no_viewer">没有应用可打开该文件</string>
+    <string name="artifacts_open_external_failed">用其他应用打开失败</string>
 
     <!-- P0-B: Git status / diff / changed files (doc section 29) -->
     <string name="nav_git">Git</string>
