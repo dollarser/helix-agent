@@ -77,14 +77,7 @@ internal fun ToolTimelineItem(
                 )
             }
         }
-        if (row.toolName in com.helix.app.proot.COMMAND_TOOL_NAMES) {
-            // HXA-194: the command details entry from the tool row — a read-only
-            // navigation, visible for every state (a running command shows status only).
-            TextButton(
-                onClick = { intents.onOpenCommandDetail(row.turnId, row.callId) },
-                modifier = Modifier.testTag("command-detail-${row.callId}"),
-            ) { Text(stringResource(R.string.chat_tool_command_detail)) }
-        }
+        CommandDetailEntry(row, intents)
         if (row.prootRecoveryAvailable) {
             ProotRecoveryActions(row, intents.onInspectProot, intents.onRecoverProot, intents.onRetryProotAck)
         }
@@ -106,6 +99,24 @@ private fun PendingApprovalCard(
         onApprove = { intents.onApproveApproval(card.approvalId) },
         onDeny = { intents.onDenyApproval(card.approvalId) },
     )
+}
+
+/**
+ * HXA-194: the command details entry from the tool row — a read-only navigation, visible
+ * for every state of a command call (a running command shows status only on the page).
+ */
+@Composable
+@Suppress("FunctionName")
+private fun CommandDetailEntry(
+    row: com.helix.app.chat.ToolTimelineRow,
+    intents: ConversationIntents,
+) {
+    if (row.toolName in com.helix.app.proot.COMMAND_TOOL_NAMES) {
+        TextButton(
+            onClick = { intents.onOpenCommandDetail(row.turnId, row.callId) },
+            modifier = Modifier.testTag("command-detail-${row.callId}"),
+        ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+    }
 }
 
 @Composable

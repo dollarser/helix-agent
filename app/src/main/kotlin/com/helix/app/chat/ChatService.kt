@@ -1691,7 +1691,8 @@ class ChatService(
         callId: String,
     ): com.helix.app.proot.CommandResultView? =
         withContext(Dispatchers.IO) {
-            com.helix.app.proot.CommandResultBrowser.browse(storage, turnId, callId)
+            com.helix.app.proot.CommandResultBrowser
+                .browse(storage, turnId, callId)
         }
 
     /**
