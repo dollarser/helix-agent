@@ -1108,6 +1108,18 @@ class ChatService(
     internal suspend fun executeApprovedPlan(
         binding: PlanExecutionBinding,
         budgets: com.helix.core.model.GoalBudgets,
+    ): String? = withContext(Dispatchers.IO) { executeApprovedPlanOnIo(binding, budgets) }
+
+    // The plan-review dialog calls [executeApprovedPlan] from a Compose coroutine scope (the main
+    // dispatcher), but the whole body is Room I/O — the session and provider-gate reads, the
+    // plan->EXECUTING transaction, the first-turn start — and HelixStorage refuses database work on
+    // the main thread. Hopping to IO is the same self-dispatch reviewPlan / approvePlan /
+    // revisePlan apply to their Room calls, and it matches the chat-send path, which runs this same
+    // submitTurn -> launchTurn on workScope (IO).
+    @Suppress("ReturnCount", "SwallowedException")
+    private suspend fun executeApprovedPlanOnIo(
+        binding: PlanExecutionBinding,
+        budgets: com.helix.core.model.GoalBudgets,
     ): String? {
         val providerId = currentSession()?.providerId
         if (providerId == null) {
