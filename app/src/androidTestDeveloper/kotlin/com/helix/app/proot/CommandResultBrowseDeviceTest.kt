@@ -171,24 +171,35 @@ class CommandResultBrowseDeviceTest {
         assertNull("browse must not surface or set acknowledgement state", archive.acknowledged)
     }
 
-    /** The page shows the archive OVER the persisted content, the files and the binding identity. */
+    /** The page shows the archive over the persisted content, long streams, files and binding. */
     @Test
     fun detailPageShowsTheVerifiedArchiveOverThePersistedContent() {
         compose.resetDeterministicUiState()
         compose.navigateTo("tasks")
         openCommandDetailFromTasks()
+        // The page reads its facts asynchronously; the state tag only exists once that
+        // read has resolved, so wait for it before asserting the projection.
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("command-detail-state-succeeded").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("command-detail-state-succeeded").assertIsDisplayed()
         compose.onNodeWithTag("command-detail-command").assertTextContains("cat out.txt")
         // Archive precedence: the stale persisted stdout must NOT be the displayed stream.
+        // Compose ui-test 1.11.4's default assertTextContains matches the FULL text value
+        // (substring = false), so assert the entire 48-line stream: both ends present and
+        // nothing dropped proves the long content laid out into the scrolling column.
         compose.onNodeWithTag("command-detail-stdout").assertTextContains(ARCHIVE_STDOUT)
         compose.onNodeWithTag("command-detail-stderr").assertTextContains(ARCHIVE_STDERR)
         compose.onNodeWithTag("command-detail-exit").assertIsDisplayed()
-        // The archive's file row: tagged per path because the command line also contains
-        // "out.txt" and the row text carries size/hash suffixes.
-        compose.onNodeWithTag("command-detail-file-out.txt").assertIsDisplayed()
-        compose.onNodeWithText(JOB_ID, substring = true).assertIsDisplayed()
-        compose.onNodeWithText(EXECUTION_ID, substring = true).assertIsDisplayed()
-        compose.onNodeWithText(INPUT_MANIFEST, substring = true).assertIsDisplayed()
+        // The archive's file row and the binding lines sit BELOW the long streams in the
+        // scrolling column, so each must be scrolled into view before a display assert —
+        // that is the acceptance list's scrollability clause. The file row is tagged per
+        // path because the command line also contains "out.txt" and the row text carries
+        // size/hash suffixes.
+        compose.onNodeWithTag("command-detail-file-out.txt").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(JOB_ID, substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(EXECUTION_ID, substring = true).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(INPUT_MANIFEST, substring = true).performScrollTo().assertIsDisplayed()
         assertTrue(
             "streams are present, so no no-output line",
             compose.onAllNodesWithTag("command-detail-no-output").fetchSemanticsNodes().isEmpty(),
@@ -212,6 +223,9 @@ class CommandResultBrowseDeviceTest {
         )
         compose.navigateTo("tasks")
         openCommandDetailFromTasks()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("command-detail-state-succeeded").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithTag("command-detail-stdout").assertTextContains(ARCHIVE_STDOUT)
         compose.runOnUiThread { compose.activity.recreate() }
         compose.waitForIdle()
@@ -288,8 +302,12 @@ class CommandResultBrowseDeviceTest {
         private const val CALL = "hxa194-dev-call"
         private const val JOB_ID = "job_194a00000001"
         private const val EXECUTION_ID = "execution-194"
-        private const val ARCHIVE_STDOUT = "archived stdout from the verified job"
-        private const val ARCHIVE_STDERR = "archived stderr from the verified job"
+
+        // Long multi-line streams: the details page must lay out a realistic archive
+        // volume in its scrolling column (the acceptance list's layout clause).
+        val ARCHIVE_STDOUT: String =
+            (1..48).joinToString("\n") { "archived stdout line $it from the verified job" }
+        val ARCHIVE_STDERR: String = "archived stderr from the verified job".repeat(24)
         private val INPUT_MANIFEST = "b".repeat(64)
     }
 }
