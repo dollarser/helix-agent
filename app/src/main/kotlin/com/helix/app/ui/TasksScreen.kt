@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,17 +24,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
-import com.helix.app.chat.BackgroundTaskUi
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.GoalSummaryUi
-import com.helix.app.chat.PlanRowUi
-import com.helix.core.model.TurnState
 
 /**
  * The cross-session task dashboard (P0-B, doc section 13): background turns, persistent
- * goals and review-required plans bucketed into running / needs-you / completed / failed.
- * A turn bound to a goal renders as the goal row (one row per unit of work); the "needs
- * you" bucket aggregates the doc's approval / input / blocker / plan-review waits.
+ * goals and review-required plans bucketed into running / needs-you / cancelling /
+ * completed / failed. A turn bound to a goal renders as the goal row (one row per unit
+ * of work); the row's live-turn facts keep the current turn's approval wait, cancellation
+ * and needs-review visible while the goal aggregates it. The bucketing itself is the pure
+ * projection [tasksDashboardRows] in TasksDashboard.kt over the persisted facts.
  *
  * All three feeds are live StateFlows the service refreshes after every write (turn-state
  * changes, goal and plan mutations), so the screen observes the persistent facts directly —
@@ -107,25 +104,6 @@ internal fun TasksScreen(
     }
 }
 
-/**
- * One row per unit of work: a turn bound to a visible goal is deduplicated into the goal
- * row; only READY (review-required) plans enter the queue.
- */
-private fun tasksDashboardRows(
-    tasks: List<BackgroundTaskUi>,
-    goals: List<GoalSummaryUi>,
-    plans: List<PlanRowUi>,
-): List<TasksRow> {
-    val goalById: Map<String, GoalSummaryUi> = goals.associateBy { it.id }
-    return buildList {
-        tasks
-            .filter { it.goalId == null || !goalById.containsKey(it.goalId) }
-            .forEach { add(TasksRow.Turn(it)) }
-        goals.forEach { add(TasksRow.Goal(it)) }
-        plans.filter { it.state == "READY" }.forEach { add(TasksRow.Plan(it)) }
-    }
-}
-
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 private fun TasksRowView(
@@ -181,91 +159,3 @@ private fun TasksRowView(
         }
     }
 }
-
-private enum class TasksBucket(
-    @StringRes val titleRes: Int,
-) {
-    RUNNING(R.string.tasks_bucket_running),
-    NEEDS_YOU(R.string.tasks_bucket_needs_you),
-    COMPLETED(R.string.tasks_bucket_completed),
-    FAILED(R.string.tasks_bucket_failed),
-}
-
-private sealed interface TasksRow {
-    val key: String
-    val testTag: String
-    val bucket: TasksBucket
-    val title: String
-    val kindRes: Int
-    val statusRes: Int
-
-    data class Turn(
-        val task: BackgroundTaskUi,
-    ) : TasksRow {
-        override val key: String get() = "turn-${task.id}"
-        override val testTag: String get() = "tasks-turn-${task.id}"
-        override val title: String get() = task.title
-        override val kindRes: Int get() = R.string.tasks_kind_turn
-        override val bucket: TasksBucket
-            get() =
-                when (task.state) {
-                    TurnState.COMPLETED -> TasksBucket.COMPLETED
-                    TurnState.FAILED, TurnState.CANCELLED -> TasksBucket.FAILED
-                    TurnState.WAITING_APPROVAL -> TasksBucket.NEEDS_YOU
-                    else -> TasksBucket.RUNNING
-                }
-
-        override val statusRes: Int
-            get() =
-                when {
-                    task.outcome == "USER_PAUSED" -> R.string.goal_state_paused
-
-                    task.outcome?.startsWith("BLOCKED(") == true ||
-                        task.outcome?.startsWith("BUDGET_EXHAUSTED(") == true -> R.string.goal_state_blocked
-
-                    else -> taskStateLabel(task.state)
-                }
-    }
-
-    data class Goal(
-        val goal: GoalSummaryUi,
-    ) : TasksRow {
-        override val key: String get() = "goal-${goal.id}"
-        override val testTag: String get() = "tasks-goal-${goal.id}"
-        override val title: String get() = goal.objective
-        override val kindRes: Int get() = R.string.tasks_kind_goal
-        override val bucket: TasksBucket
-            get() =
-                when (goal.status.state) {
-                    "COMPLETED" -> TasksBucket.COMPLETED
-                    "FAILED", "CANCELLED" -> TasksBucket.FAILED
-                    "INPUT_REQUIRED", "BLOCKED", "READY", "DRAFT" -> TasksBucket.NEEDS_YOU
-                    else -> TasksBucket.RUNNING
-                }
-
-        override val statusRes: Int get() = tasksGoalStateLabel(goal.status.state)
-    }
-
-    data class Plan(
-        val plan: PlanRowUi,
-    ) : TasksRow {
-        override val key: String get() = "plan-${plan.id}"
-        override val testTag: String get() = "tasks-plan-${plan.id}"
-        override val title: String get() = plan.objective
-        override val kindRes: Int get() = R.string.tasks_kind_plan
-        override val bucket: TasksBucket get() = TasksBucket.NEEDS_YOU
-        override val statusRes: Int get() = R.string.tasks_plan_ready
-    }
-}
-
-private fun tasksGoalStateLabel(state: String): Int =
-    when (state) {
-        "RUNNING" -> R.string.goal_state_running
-        "PAUSED" -> R.string.goal_state_paused
-        "INPUT_REQUIRED" -> R.string.tasks_need_input
-        "BLOCKED" -> R.string.tasks_need_blocker
-        "COMPLETED" -> R.string.goal_state_completed
-        "FAILED" -> R.string.goal_state_failed
-        "CANCELLED" -> R.string.goal_state_cancelled
-        else -> R.string.goal_state_ready
-    }

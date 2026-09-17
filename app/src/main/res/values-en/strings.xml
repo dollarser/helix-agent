@@ -820,12 +820,16 @@
     <string name="tasks_bucket_needs_you">Needs you</string>
     <string name="tasks_bucket_completed">Completed</string>
     <string name="tasks_bucket_failed">Failed / Cancelled</string>
+    <string name="tasks_bucket_cancelling">Cancelling</string>
     <string name="tasks_kind_turn">Chat task</string>
     <string name="tasks_kind_goal">Goal</string>
     <string name="tasks_kind_plan">Plan</string>
     <string name="tasks_need_input">Waiting for input</string>
     <string name="tasks_need_blocker">Waiting to unblock</string>
     <string name="tasks_plan_ready">Plan awaiting review</string>
+    <string name="tasks_state_cancelling">Cancelling; waiting for the run to settle.</string>
+    <string name="tasks_state_awaiting_approval">Awaiting approval</string>
+    <string name="tasks_state_needs_review">Interrupted; check before continuing.</string>
     <string name="plan_review">Review</string>
     <string name="plan_review_title">Plan review</string>
     <string name="plan_review_objective">Objective</string>

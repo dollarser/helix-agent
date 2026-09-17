@@ -17,6 +17,12 @@ internal data class GoalSummaryUi(
     val budgets: GoalBudgets,
     val usage: GoalUsageUi,
     val canContinue: Boolean,
+    /**
+     * Durable unknown-side-effect fact: a tool call on a turn bound to this goal is
+     * NEEDS_REVIEW or INTERRUPTED (HXA-202). The Tasks dashboard shows "needs review"
+     * only from this fact, never from a failure in general.
+     */
+    val hasUnresolvedCalls: Boolean,
     val canEditBudgets: Boolean,
     val canDelete: Boolean = false,
     val revision: Long = 0,
@@ -72,6 +78,7 @@ internal class GoalSummaryQuery(
                     .reduce(runtime, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
                     .effects
                     .any { it is GoalEffect.StartRun }
+            val unresolvedCalls = storage.goalTurnBindings.hasUnresolvedCalls(entity.id)
             GoalSummaryUi(
                 goal.id,
                 goal.objective,
@@ -79,7 +86,8 @@ internal class GoalSummaryQuery(
                 goal.criteria.map { it.description },
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
-                canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
+                canStart && !unresolvedCalls && runs.none { it.endedAt == null },
+                unresolvedCalls,
                 goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED") &&
                     storage.goalControls.find(goal.id)?.pendingTurnId == null,
                 goal.state != "RUNNING" && runs.none { it.endedAt == null } &&
@@ -126,6 +134,9 @@ internal class GoalSummaryQuery(
                 goal.budgets,
                 GoalUsageUi(goal.modelCalls, goal.toolCalls, goal.totalTokens, goal.runTimeMillis),
                 canStart && !storage.goalTurnBindings.hasUnresolvedCalls(goal.id) && runs.none { it.endedAt == null },
+                // The cross-session "needs review" projection is a Tasks-dashboard concern;
+                // the session-scoped view renders goal state directly and does not carry it.
+                false,
                 goal.state in setOf("READY", "PAUSED", "INPUT_REQUIRED", "BLOCKED") &&
                     storage.goalControls.find(goal.id)?.pendingTurnId == null,
                 goal.state != "RUNNING" && runs.none { it.endedAt == null } &&

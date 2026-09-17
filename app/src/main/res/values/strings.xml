@@ -821,12 +821,16 @@
     <string name="tasks_bucket_needs_you">需要你</string>
     <string name="tasks_bucket_completed">已完成</string>
     <string name="tasks_bucket_failed">失败或取消</string>
+    <string name="tasks_bucket_cancelling">取消中</string>
     <string name="tasks_kind_turn">对话任务</string>
     <string name="tasks_kind_goal">目标</string>
     <string name="tasks_kind_plan">计划</string>
     <string name="tasks_need_input">等待输入</string>
     <string name="tasks_need_blocker">等待解除阻塞</string>
     <string name="tasks_plan_ready">计划待审阅</string>
+    <string name="tasks_state_cancelling">正在取消，等待结算</string>
+    <string name="tasks_state_awaiting_approval">等待审批</string>
+    <string name="tasks_state_needs_review">执行中断，待核查</string>
     <string name="plan_review">审阅</string>
     <string name="plan_review_title">计划审阅</string>
     <string name="plan_review_objective">目标</string>
