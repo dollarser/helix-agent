@@ -1681,6 +1681,43 @@ class ChatService(
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forGoal(goalId) }
 
     /**
+     * HXA-194: one command call's details, projected from persisted facts ONLY — a pure
+     * read. Opening, re-opening or rotating the details page never starts, replays,
+     * submits or acknowledges anything; the explicit reconciliation stays the existing
+     * session entry (查看结果).
+     */
+    internal suspend fun commandResult(
+        turnId: String,
+        callId: String,
+    ): com.helix.app.proot.CommandResultView? =
+        withContext(Dispatchers.IO) {
+            com.helix.app.proot.CommandResultBrowser.browse(storage, turnId, callId)
+        }
+
+    /**
+     * HXA-194: the turn's command calls (the Linux command tools) for the task page's
+     * command list entry. A pure read — never starts or continues anything.
+     */
+    internal suspend fun turnCommands(turnId: String): List<com.helix.app.proot.CommandEntry> =
+        withContext(Dispatchers.IO) {
+            val turn = storage.turns.resolve(turnId)
+            storage.toolCalls
+                .listByTurn(turnId)
+                .filter { it.name in com.helix.app.proot.COMMAND_TOOL_NAMES }
+                .map { call ->
+                    com.helix.app.proot.CommandEntry(
+                        call.callId,
+                        call.name,
+                        com.helix.app.proot
+                            .CommandResultProjection
+                            .commandTextFromArgs(call.argsJson),
+                        call.state,
+                        turn.state,
+                    )
+                }
+        }
+
+    /**
      * A stale card cannot stop a newer Turn in the same session. Pause is Goal-only.
      * On the stable-ID match it durably persists CANCELLING before signalling the
      * cancellation (HXA-202 slice 3), so the Tasks dashboard shows "cancelling, awaiting
