@@ -830,6 +830,8 @@
     <string name="tasks_state_cancelling">Cancelling; waiting for the run to settle.</string>
     <string name="tasks_state_awaiting_approval">Awaiting approval</string>
     <string name="tasks_state_needs_review">Interrupted; check before continuing.</string>
+    <string name="tasks_artifacts">Artifacts</string>
+    <string name="tasks_artifacts_empty">No file artifacts from this task yet</string>
     <string name="plan_review">Review</string>
     <string name="plan_review_title">Plan review</string>
     <string name="plan_review_objective">Objective</string>

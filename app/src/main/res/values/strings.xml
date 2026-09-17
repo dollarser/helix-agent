@@ -831,6 +831,8 @@
     <string name="tasks_state_cancelling">正在取消，等待结算</string>
     <string name="tasks_state_awaiting_approval">等待审批</string>
     <string name="tasks_state_needs_review">执行中断，待核查</string>
+    <string name="tasks_artifacts">产物</string>
+    <string name="tasks_artifacts_empty">该任务未产生文件产物</string>
     <string name="plan_review">审阅</string>
     <string name="plan_review_title">计划审阅</string>
     <string name="plan_review_objective">目标</string>

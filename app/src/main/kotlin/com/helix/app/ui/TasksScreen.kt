@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
+import com.helix.app.files.FileManagerService
 
 /**
  * The cross-session task dashboard (P0-B, doc section 13): background turns, persistent
@@ -34,14 +35,22 @@ import com.helix.app.chat.ChatService
  * and needs-review visible while the goal aggregates it. The bucketing itself is the pure
  * projection [tasksDashboardRows] in TasksDashboard.kt over the persisted facts.
  *
+ * Every row is located by its stable ID (turn / goal / plan) — never by title, so two
+ * same-titled tasks in different sessions stay separate rows and each opens ITS session.
+ * The Goal entry both selects its owning session and actually switches to the chat page
+ * (HXA-202 slice 2); a turn's artifacts are read by real ownership through
+ * [TaskArtifactsDialog], never the truncated global window. Opening, refreshing and
+ * observing this screen starts or continues nothing.
+ *
  * All three feeds are live StateFlows the service refreshes after every write (turn-state
  * changes, goal and plan mutations), so the screen observes the persistent facts directly —
  * no re-query on entry or after local actions.
  */
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 internal fun TasksScreen(
     service: ChatService,
+    fileManager: FileManagerService,
     onOpenSession: (String) -> Unit,
 ) {
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
@@ -49,6 +58,7 @@ internal fun TasksScreen(
     val plans by service.planDashboard.collectAsStateWithLifecycle()
     var selectedPlan by remember { mutableStateOf<String?>(null) }
     var resultTurn by remember { mutableStateOf<String?>(null) }
+    var artifactsQuery by remember { mutableStateOf<TaskArtifactsQuery?>(null) }
 
     // Entry refresh: facts written while the app was closed (or by another process) become
     // visible on open; afterwards the shared flows stay live.
@@ -57,19 +67,55 @@ internal fun TasksScreen(
         service.refreshTaskDashboardsNow()
     }
 
-    if (resultTurn != null) {
-        TaskResultDialog(service, requireNotNull(resultTurn)) { resultTurn = null }
-        return
-    }
-    if (selectedPlan != null) {
-        // The review dialog's decisions go through the service, which refreshes the plan
-        // feed itself — no screen-side revision bump needed.
-        PlanReviewDialog(service, requireNotNull(selectedPlan)) { selectedPlan = null }
+    // One modal dialog at a time, rendered in place of the list; the shared flows keep the
+    // row data live underneath.
+    if (resultTurn != null || selectedPlan != null || artifactsQuery != null) {
+        when {
+            resultTurn != null -> {
+                TaskResultDialog(service, requireNotNull(resultTurn)) { resultTurn = null }
+            }
+
+            selectedPlan != null -> {
+                // The review dialog's decisions go through the service, which refreshes the
+                // plan feed itself — no screen-side revision bump needed.
+                PlanReviewDialog(service, requireNotNull(selectedPlan)) { selectedPlan = null }
+            }
+
+            else -> {
+                val query = requireNotNull(artifactsQuery)
+                TaskArtifactsDialog(
+                    service,
+                    fileManager,
+                    query.turnId,
+                    query.goalId,
+                    onOpenSession,
+                ) { artifactsQuery = null }
+            }
+        }
         return
     }
 
-    val rows = tasksDashboardRows(tasks, goals, plans)
+    TasksRowList(
+        tasksDashboardRows(tasks, goals, plans),
+        service,
+        onOpenSession,
+        { resultTurn = it },
+        { selectedPlan = it },
+        { artifactsQuery = it },
+    )
+}
 
+/** The dashboard list itself: the buckets with their rows, or the honest empty state. */
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun TasksRowList(
+    rows: List<TasksRow>,
+    service: ChatService,
+    onOpenSession: (String) -> Unit,
+    onShowResult: (String) -> Unit,
+    onReviewPlan: (String) -> Unit,
+    onShowArtifacts: (TaskArtifactsQuery) -> Unit,
+) {
     if (rows.isEmpty()) {
         Column(Modifier.fillMaxSize().testTag("screen-tasks")) {
             Text(stringResource(R.string.tasks_empty), Modifier.padding(24.dp).testTag("tasks-empty"))
@@ -95,8 +141,9 @@ internal fun TasksScreen(
                         row,
                         service,
                         onOpenSession,
-                        { resultTurn = it },
-                        { selectedPlan = it },
+                        onShowResult,
+                        onReviewPlan,
+                        onShowArtifacts,
                     )
                 }
             }
@@ -112,6 +159,7 @@ private fun TasksRowView(
     onOpenSession: (String) -> Unit,
     onShowResult: (String) -> Unit,
     onReviewPlan: (String) -> Unit,
+    onShowArtifacts: (TaskArtifactsQuery) -> Unit,
 ) {
     Column(Modifier.testTag(row.testTag)) {
         Row(
@@ -139,14 +187,28 @@ private fun TasksRowView(
                             { onShowResult(row.task.id) },
                             Modifier.testTag("tasks-turn-result-${row.task.id}"),
                         ) { Text(stringResource(R.string.background_task_result)) }
+                        TextButton(
+                            { onShowArtifacts(TaskArtifactsQuery(turnId = row.task.id, goalId = null)) },
+                            Modifier.testTag("tasks-turn-artifacts-${row.task.id}"),
+                        ) { Text(stringResource(R.string.tasks_artifacts)) }
                     }
                 }
 
                 is TasksRow.Goal -> {
+                    // The Goal entry selects its owning session AND switches to the chat
+                    // page (HXA-202 slice 2): the reminder stays an observation, never a
+                    // Continued, and the navigation goes to the session the goal owns.
                     TextButton(
-                        { service.openGoalReminder(row.goal.id) },
+                        {
+                            service.openGoalReminder(row.goal.id)
+                            row.goal.sessionId?.let(onOpenSession)
+                        },
                         Modifier.testTag("tasks-goal-open-${row.goal.id}"),
                     ) { Text(stringResource(R.string.background_task_open)) }
+                    TextButton(
+                        { onShowArtifacts(TaskArtifactsQuery(turnId = null, goalId = row.goal.id)) },
+                        Modifier.testTag("tasks-goal-artifacts-${row.goal.id}"),
+                    ) { Text(stringResource(R.string.tasks_artifacts)) }
                 }
 
                 is TasksRow.Plan -> {
@@ -159,3 +221,9 @@ private fun TasksRowView(
         }
     }
 }
+
+/** Where the task-artifact read points: a turn's own rows, or a goal's bound-turn union. */
+private data class TaskArtifactsQuery(
+    val turnId: String?,
+    val goalId: String?,
+)

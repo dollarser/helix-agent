@@ -1667,6 +1667,19 @@ class ChatService(
             projection.messagesFor(turn.sessionId, EMPTY_SCREEN).filter { it.turnId == turnId }
         }
 
+    /**
+     * The turn's artifact file rows by REAL ownership (HXA-202 slice 2): the rows the turn's
+     * tools actually wrote. A pure read — the Tasks page must find the task's files without
+     * the artifact center's truncated global window, and without starting or continuing
+     * anything.
+     */
+    internal suspend fun taskArtifactsForTurn(turnId: String): List<ArtifactRowUi> =
+        withContext(Dispatchers.IO) { ArtifactQuery(storage).forTurn(turnId) }
+
+    /** The goal's artifact file rows: the union of every turn bound to the goal (HXA-202). */
+    internal suspend fun taskArtifactsForGoal(goalId: String): List<ArtifactRowUi> =
+        withContext(Dispatchers.IO) { ArtifactQuery(storage).forGoal(goalId) }
+
     /** A stale card cannot stop a newer Turn in the same session. Pause is Goal-only. */
     fun stopTask(
         turnId: String,

@@ -46,6 +46,14 @@ interface ArtifactDao {
     fun listBySession(sessionId: String): List<ArtifactEntity>
 
     /**
+     * The artifacts of one turn by REAL ownership (HXA-202): the rows whose `turnId` is the
+     * turn that last wrote them. Unlike [recent] there is no cross-session truncation, so a
+     * task's files are never lost behind the artifact center's window.
+     */
+    @Query("SELECT * FROM artifacts WHERE turnId = :turnId ORDER BY rowid ASC")
+    fun listByTurn(turnId: String): List<ArtifactEntity>
+
+    /**
      * The newest-registered artifacts across sessions (the artifact center's files section,
      * doc 02 §8). `rowid` is registration order: a re-write refreshes the row in place and
      * keeps its position (upsert, not delete+insert), so the list orders by FIRST write of

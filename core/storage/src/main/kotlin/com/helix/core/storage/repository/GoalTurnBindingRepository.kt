@@ -17,5 +17,8 @@ class GoalTurnBindingRepository(
 
     fun sessionForGoal(goalId: String): String? = dao.sessionsForGoal(goalId).singleOrNull()
 
+    /** All turns bound to the goal, in turn-start order (HXA-202 task-artifact query). */
+    fun turnsForGoal(goalId: String): List<String> = dao.turnsForGoal(goalId)
+
     fun byTurn(turnId: String): GoalTurnBindingEntity? = dao.byTurn(turnId)
 }

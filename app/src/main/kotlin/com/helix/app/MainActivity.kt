@@ -272,6 +272,7 @@ private fun DestinationScreen(
         ShellDestination.Tasks -> {
             TasksScreen(
                 container.chatService,
+                container.fileManager,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
                     navController.navigate(ShellDestination.Sessions.route) {

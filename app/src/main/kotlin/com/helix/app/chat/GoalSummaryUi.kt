@@ -27,6 +27,11 @@ internal data class GoalSummaryUi(
     val canDelete: Boolean = false,
     val revision: Long = 0,
     val canEditObjective: Boolean = false,
+    /**
+     * The session that owns this goal in the control registry — the Tasks dashboard's Goal
+     * entry navigates to it (HXA-202). Null only when the goal has no control row.
+     */
+    val sessionId: String? = null,
 )
 
 internal data class GoalStatusUi(
@@ -79,6 +84,7 @@ internal class GoalSummaryQuery(
                     .effects
                     .any { it is GoalEffect.StartRun }
             val unresolvedCalls = storage.goalTurnBindings.hasUnresolvedCalls(entity.id)
+            val ownerSession = storage.goalControls.find(entity.id)?.sessionId
             GoalSummaryUi(
                 goal.id,
                 goal.objective,
@@ -94,6 +100,7 @@ internal class GoalSummaryQuery(
                     storage.goalControls.find(goal.id)?.pendingTurnId == null,
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
+                sessionId = ownerSession,
             )
         }
 
@@ -143,6 +150,7 @@ internal class GoalSummaryQuery(
                     storage.goalControls.find(goal.id)?.pendingTurnId == null,
                 storage.goalControls.find(goal.id)?.revision ?: 0,
                 canEditObjective(goal),
+                sessionId = owner,
             )
         }
     }

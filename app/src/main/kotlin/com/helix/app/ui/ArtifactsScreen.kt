@@ -145,11 +145,12 @@ private fun SectionHeader(
 /**
  * One real artifact file row (doc 02 §8): the file name, size and type from the `artifacts`
  * row plus the source session's title. Tapping opens the file view (availability re-checked
- * there at open — the row outlives the file).
+ * there at open — the row outlives the file). Shared with the Tasks dashboard's task-artifact
+ * dialog (HXA-202).
  */
 @Composable
 @Suppress("FunctionName")
-private fun ArtifactFileRowView(
+internal fun ArtifactFileRowView(
     row: ArtifactRowUi,
     onOpen: () -> Unit,
 ) {
@@ -203,11 +204,11 @@ private sealed interface ArtifactFilePreviewState {
  * file — the file can be trashed or edited independently), then shows an in-app bounded
  * preview through the SAME facade the Files page uses (never a raw path to the model) plus
  * honest actions — Share (text only, ACTION_SEND) and Open (the source session). Never
- * mutates the file.
+ * mutates the file. Shared with the Tasks dashboard's task-artifact dialog (HXA-202).
  */
 @Composable
 @Suppress("FunctionName")
-private fun ArtifactFileDialog(
+internal fun ArtifactFileDialog(
     fileManager: FileManagerService,
     row: ArtifactRowUi,
     onOpenSession: () -> Unit,
