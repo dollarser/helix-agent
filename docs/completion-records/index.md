@@ -87,6 +87,8 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-091 | [HXA-091 UI snapshot/token（完成记录）](HXA-091.md) |
 | HXA-092 | [HXA-092 UI actions（完成记录）](HXA-092.md) |
 | HXA-093 | [HXA-093 Accessibility 攻击/恢复测试（完成记录）](HXA-093.md) |
+| HXA-094 | [HXA-094：Root 依赖与授权生命周期验收](HXA-094.md) |
+| HXA-095 | [HXA-095：Root 高层工具作用域与失权验收](HXA-095.md) |
 | HXA-096 | [HXA-096 Root L3 控制台（完成记录）](HXA-096.md) |
 | HXA-097 | [HXA-097 Android UI Skill（完成记录）](HXA-097.md) |
 | HXA-099 | [HXA-099 模式、预算与资源降级运行控制（完成记录）](HXA-099.md) |

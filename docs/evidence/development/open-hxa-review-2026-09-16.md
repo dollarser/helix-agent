@@ -8,8 +8,8 @@
 
 | HXA | 分类 | 判断 |
 | --- | --- | --- |
-| [HXA-094](../../development/tasks/HXA-094.md) | 收尾验收 | RootAccessController、libsu依赖与HXA-188已有证据；删除重新做依赖Spike的要求。 |
-| [HXA-095](../../development/tasks/HXA-095.md) | 收尾验收 | Root工具已存在；与094分工为工具scope/数据/撤权后的实际调用，不重复做连接底座。 |
+| [HXA-094](../../completion-records/HXA-094.md) | 收尾验收 | RootAccessController、libsu依赖与HXA-188已有证据；删除重新做依赖Spike的要求。 |
+| [HXA-095](../../completion-records/HXA-095.md) | 收尾验收 | Root工具已存在；与094分工为工具scope/数据/撤权后的实际调用，不重复做连接底座。 |
 | [HXA-120](../../development/tasks/HXA-120.md) | 发行队列 | 不是重做flavor；审计选定渠道的最终包与能力，政策在实施时查官方资料。 |
 | [HXA-121](../../development/tasks/HXA-121.md) | 发行队列 | 与206/199复用同一候选版本证据；额外负责真机、签名包和发布材料，不重复造产品功能。 |
 | [HXA-122](../../development/tasks/HXA-122.md) | 发行队列 | 旧主/companion同签名与安装顺序已过期；仅主应用身份、包内组件、数据升级/降级边界。 |

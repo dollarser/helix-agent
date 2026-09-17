@@ -17,6 +17,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -79,6 +81,7 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
                 "minPriority" to JsonPrimitive("I"),
             )
         assertTrue(logs.getValue("lines").jsonArray.size <= 20)
+        assertRealLogcatRedaction(logs)
 
         val escaped =
             execute(
@@ -94,6 +97,53 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
         val afterCrash = execute(RootTools.PROCESS_LIST)
         assertTrue(afterCrash is ToolExecutorResult.Failed)
         assertEquals(RootSessionState.LOST, sessions.status().state)
+        assertStaleCallsAndUserCloseAfterLoss()
+    }
+
+    /** HXA-095: stale calls and a user close after loss stay fail-closed without a new Root request. */
+    private fun assertStaleCallsAndUserCloseAfterLoss() {
+        // A stale call after loss must not trigger a new Root request. The loss already
+        // expired the session (expire -> onClose -> access.disconnect), so the grant is reset
+        // to UNAVAILABLE: never REQUESTING/GRANTED, no RootService, and no shell. Under this
+        // run's pre-approved policy an automatic request would move the grant toward
+        // REQUESTING/GRANTED and reopen a shell.
+        val staleAfterLoss =
+            execute(
+                RootTools.FILE_READ,
+                "scopeId" to JsonPrimitive(SYSTEM_ETC_SCOPE),
+                "relativePath" to JsonPrimitive("hosts"),
+            )
+        assertTrue(staleAfterLoss is ToolExecutorResult.Failed)
+        assertEquals(RootGrantState.UNAVAILABLE, access.status().grant)
+        assertNull(access.rootServiceProcessIdForTest())
+        assertNull(Shell.getCachedShell())
+
+        // The user disconnect closes the session and the underlying access; the stale scope is
+        // rejected with a stable code and no Root request follows.
+        sessions.close()
+        assertEquals(RootSessionState.INACTIVE, sessions.status().state)
+        assertEquals(RootGrantState.UNAVAILABLE, access.status().grant)
+        val afterUserClose =
+            execute(
+                RootTools.FILE_READ,
+                "scopeId" to JsonPrimitive(SYSTEM_ETC_SCOPE),
+                "relativePath" to JsonPrimitive("hosts"),
+            )
+        assertEquals("ROOT_SESSION_INACTIVE", (afterUserClose as ToolExecutorResult.Failed).detail)
+        assertNull(Shell.getCachedShell())
+    }
+
+    /** HXA-095: redaction applies to real device logcat, not only fixtures. */
+    private fun assertRealLogcatRedaction(logs: JsonObject) {
+        // A credential-shaped assignment may only survive as the redaction placeholder, and a
+        // raw Bearer token must never cross the tool output boundary.
+        logs.getValue("lines").jsonArray.forEach { line ->
+            val text = line.jsonPrimitive.content
+            assertFalse("raw Bearer token crossed the tool output boundary", rawBearer.containsMatchIn(text))
+            credentialValue.findAll(text).forEach { match ->
+                assertEquals("<redacted>", match.groupValues[1])
+            }
+        }
     }
 
     private fun completed(
@@ -133,5 +183,9 @@ class RootHighLevelToolsDeviceTest : RootDeviceTestHost() {
         const val SYSTEM_ETC_SCOPE = "system-etc"
         const val WAIT_TIMEOUT_MS = 30_000L
         const val POLL_INTERVAL_MS = 50L
+
+        /** Mirrors RootTools.redactLog: the value half of a credential-shaped assignment. */
+        val credentialValue = Regex("(?i)(?:api[_-]?key|token|password|secret)\\s*[:=]\\s*([^\\s,;]+)")
+        val rawBearer = Regex("(?i)Bearer\\s+[A-Za-z0-9._~+/=-]+")
     }
 }
