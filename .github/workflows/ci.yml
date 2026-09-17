@@ -95,6 +95,15 @@ jobs:
         # verify-variant-boundaries.sh on a cold runner.
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
 
+      - name: Install repository validation tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            brew install ripgrep
+          fi
+          rg --version
+
       - name: Verify source contracts
         run: ./scripts/check-all.sh --source
 

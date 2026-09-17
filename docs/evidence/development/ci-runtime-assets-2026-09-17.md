@@ -24,3 +24,9 @@
 - 使用 `HELIX_ROOTFS_ARCHIVE=<本地锁定raw-tar> ./scripts/build-proot-assets.sh`：exit 0；三个Termux包重新下载并校验、归档hash匹配、360个ELF全部通过aarch64/16 KiB门禁并完成资产放置。源文件位于现有主工作树的忽略资产目录，不入 Git；日志为 `build/ci-investigation/archived-assets.log`。这是已知归档的资产准备验证，不是从滚动镜像重建成功或干净远端下载证明。
 
 所有者随后授权推送验证。修复分支 `codex/ci-sdk-bootstrap` 已推送；[锁定资产预发布](https://github.com/dollarser/helix-agent/releases/tag/runtime-assets-20260917) 提供上述 raw tar、runtime-lock 与来源/许可证说明，不是应用发行。`HELIX_ROOTFS_ARCHIVE_URL` 配置为该版本固定资产地址，下载仍经过原有 hash 与 ELF 门禁。当前快照记录到远端准备完成，CI最终结果以修复分支的实际 Actions 为准，不预先声明通过；HXA-193 升级恢复和其他设备验收仍独立开放。
+
+## 首次修复分支远端验证
+
+[运行35237161334](https://github.com/dollarser/helix-agent/actions/runs/35237161334) 对应 `556b5095`。runtime-assets 成功：SDK初始化、公开归档下载与锁定hash、Linux扫描到的664个ELF校验及artifact传输均通过。macOS也完成SDK初始化，但源码门禁因 `check-secrets: ripgrep (rg) is required and not installed; refusing to pass.` 退出1；文档、ADR和国际化此前已通过。原来依赖开发机已装rg，workflow未声明此工具。
+
+现为macOS增加显式安装/检查ripgrep的步骤，不改Secret检查或将缺工具视为跳过。远端完整验证仍须在后续运行通过；不同宿主的ELF扫描计数不冒充相同文件遍历行为，归档身份以一致的SHA-256为准。
