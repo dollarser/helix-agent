@@ -41,6 +41,9 @@ class IntegratedRuntimeDeviceTest {
         )
         val legacy = File(context.filesDir, "proot-runtime/verified-runtime.json")
         assertFalse("Use an owned fresh emulator", legacy.exists())
+        val verified = VerifiedRuntimeStore(context)
+        val previous = verified.load()
+        verified.clear()
         val legacyContent = writeValidLegacyAnchor(context, legacy)
         try {
             assertNull(VerifiedRuntimeStore(context).load())
@@ -82,6 +85,7 @@ class IntegratedRuntimeDeviceTest {
             assertEquals(legacyContent, legacy.readText())
         } finally {
             legacy.delete()
+            if (previous != null) verified.save(previous)
         }
     }
 

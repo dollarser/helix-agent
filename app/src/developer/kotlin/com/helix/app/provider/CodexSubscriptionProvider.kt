@@ -191,7 +191,7 @@ internal fun interface SubscriptionJobExecutor {
     ): CliModelJobClient.AwaitOutcome = execute(request)
 }
 
-private class RuntimeSubscriptionJobExecutor(
+internal class RuntimeSubscriptionJobExecutor(
     private val context: Context,
     private val platform: CliModelProvider,
     private val imageSource: (() -> VisionImageSource)?,

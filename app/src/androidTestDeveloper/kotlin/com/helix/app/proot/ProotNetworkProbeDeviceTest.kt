@@ -23,7 +23,11 @@ class ProotNetworkProbeDeviceTest {
         val input = File(root, "input").apply { writeText("synthetic input") }
         val observations = File(root, "observations.txt")
         observations.writeText("uid=${Process.myUid()}\n")
-        fun run(name: String, vararg arguments: String): Pair<Int, String> {
+
+        fun run(
+            name: String,
+            vararg arguments: String,
+        ): Pair<Int, String> {
             val binary = File(root, name)
             assertTrue("Missing staged probe: $name", binary.isFile)
             val output = File(root, "$name.log")

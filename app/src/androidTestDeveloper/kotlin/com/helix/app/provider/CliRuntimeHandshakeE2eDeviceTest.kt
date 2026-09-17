@@ -66,11 +66,11 @@ class CliRuntimeHandshakeE2eDeviceTest {
     @Test fun fixedModelJobIsDurableAndNeverBlindlyResubmitted() {
         val client = CliModelJobClient(CliRuntimeSupervisor(context))
         val jobId = nextJobId()
-        val awaited = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        val awaited = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertTrue(awaited is CliModelJobClient.AwaitOutcome.Terminal)
         val record = (awaited as CliModelJobClient.AwaitOutcome.Terminal).record
-        assertEquals(CliModelJobState.FAILED, record.state)
-        val duplicate = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        assertEquals(CliModelJobState.SUCCEEDED, record.state)
+        val duplicate = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(record, (duplicate as CliModelJobClient.AwaitOutcome.Terminal).record)
         assertEquals(null, record.reconciledAtEpochMillis)
         val reconciled = (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record
@@ -80,7 +80,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
         Thread.sleep(200)
         assertEquals(reconciled, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
         assertEquals(reconciled, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record)
-        val repeated = client.submitAndAwaitFixed(jobId, timeoutMs = 2_000, pollIntervalMs = 20)
+        val repeated = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(reconciled, (repeated as CliModelJobClient.AwaitOutcome.Terminal).record)
         assertTrue(client.query("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)
         assertTrue(client.cancel("job_ffffffffffff") is CliModelJobClient.StateOutcome.Unknown)

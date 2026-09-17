@@ -63,6 +63,9 @@ class TasksDashboardDeviceTest {
 
             compose.onNodeWithTag("tasks-plan-review-$planId").performClick()
             compose.waitForIdle()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("plan-review-$planId").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("plan-review-$planId").assertExists()
             compose.onNodeWithTag("plan-execute-$planId").assertExists()
             compose.onNodeWithTag("plan-revise-$planId").assertExists()

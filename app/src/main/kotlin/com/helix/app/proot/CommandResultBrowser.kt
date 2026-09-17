@@ -13,7 +13,6 @@ import kotlinx.coroutines.withContext
  * replay, submit or acknowledge anything.
  */
 internal object CommandResultBrowser {
-
     suspend fun browse(
         storage: HelixStorage,
         turnId: String,
@@ -28,12 +27,9 @@ internal object CommandResultBrowser {
         turnId: String,
         callId: String,
     ): CommandResultView? {
-        val turn =
-            runCatching { storage.turns.resolve(turnId) }.getOrNull()
-                ?: return null
-        val call =
-            storage.toolCalls.byTurnAndCallId(turnId, callId)
-                ?: return null
+        val turn = runCatching { storage.turns.resolve(turnId) }.getOrNull()
+        val call = storage.toolCalls.byTurnAndCallId(turnId, callId)
+        if (turn == null || call == null) return null
         val scopeLabel =
             runCatching { storage.sessions.resolve(turn.sessionId) }
                 .getOrNull()
@@ -47,16 +43,18 @@ internal object CommandResultBrowser {
                 CommandBrowseFacts(null, null, false)
             }
         return CommandResultProjection.project(
-            callId = call.callId,
-            toolName = call.name,
-            argsJson = call.argsJson,
-            callState = call.state,
-            turnState = turn.state,
-            resultStatus = result?.status,
-            resultSummary = result?.summary,
-            resultContent = result?.let { storage.toolResults.readContent(it) },
-            browse = browse,
-            scopeLabel = scopeLabel,
+            CommandResultInput(
+                callId = call.callId,
+                toolName = call.name,
+                argsJson = call.argsJson,
+                callState = call.state,
+                turnState = turn.state,
+                resultStatus = result?.status,
+                resultSummary = result?.summary,
+                resultContent = result?.let { storage.toolResults.readContent(it) },
+                browse = browse,
+                scopeLabel = scopeLabel,
+            ),
         )
     }
 }

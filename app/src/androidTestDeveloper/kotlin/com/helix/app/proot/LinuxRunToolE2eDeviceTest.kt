@@ -62,6 +62,7 @@ class LinuxRunToolE2eDeviceTest {
 
     @Before
     fun warm() {
+        ensureInstalledRuntime(context)
         assumeTrue(
             "companion not installed — install runtime/proot-app/.../proot-app-debug.apk",
             companionInstalled(context),

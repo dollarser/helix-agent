@@ -1,6 +1,6 @@
 package com.helix.app.proot
 
-/**
+/*
  * The command details page (HXA-194) reads ONLY persisted facts: the tool call, its settled
  * result row, the prepared-job binding audit row and the locally persisted, integrity-checked
  * result archive. Browsing never binds the Runtime, never submits and never acknowledges —

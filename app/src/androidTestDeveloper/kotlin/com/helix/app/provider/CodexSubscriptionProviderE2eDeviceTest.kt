@@ -103,11 +103,11 @@ class CodexSubscriptionProviderE2eDeviceTest {
                         capabilitySnapshot = original.capabilitySnapshot,
                     ),
                 )
-                val probe = container.providerService.runConnectionTest(providerId)
                 if (providerId == SubscriptionProviderModule.CODEX_ID) {
-                    verifyNoAccountCodexFixture(container, providerId, probe)
+                    verifyNoAccountCodexFixture(app)
                     return@runBlocking
                 }
+                val probe = container.providerService.runConnectionTest(providerId)
                 assertTrue(probe is ProbeOutcome.Ok)
                 val row =
                     container.providerService.rows.value
@@ -139,17 +139,38 @@ class CodexSubscriptionProviderE2eDeviceTest {
             }
         }
 
-    private suspend fun verifyNoAccountCodexFixture(
-        container: com.helix.app.AppContainer,
-        providerId: String,
-        probe: ProbeOutcome,
-    ) {
-        // Codex now probes its authenticated catalog and tool/vision support. The
-        // text-only no-account fixture must not falsely advertise those capabilities.
+    private suspend fun verifyNoAccountCodexFixture(app: HelixApplication) {
+        // Control only the catalog dependency; model transport still uses the real
+        // private Runtime and its existing offline fixture. Never inspect an account.
+        val row =
+            app.appContainer.storage.providerConfigs
+                .resolve(SubscriptionProviderModule.CODEX_ID)
+        val config =
+            com.helix.provider.api.ProviderConfig.fromStorage(
+                row.id,
+                row.displayName,
+                row.protocol,
+                row.endpoint,
+                "helix-fixture",
+                row.headersJson,
+                row.secretAlias,
+                row.capabilitySnapshot,
+            )
+        val provider =
+            CodexSubscriptionProvider(
+                config,
+                RuntimeSubscriptionJobExecutor(app, com.helix.runtime.cli.client.CliModelProvider.CODEX, null),
+                {
+                    com.helix.runtime.cli.client.CliModelCatalog.Failed(
+                        com.helix.core.model.ModelErrorCode.AUTH,
+                        false,
+                    )
+                },
+            )
+        val probe = SubscriptionProviderModule.probe(config, provider)
         assertTrue("No-account catalog probe must fail: $probe", probe is ProbeOutcome.Failed)
         val events =
-            container.providerService
-                .modelProviderFor(providerId)
+            provider
                 .stream(
                     com.helix.core.model.ModelRequest(
                         "helix-fixture",

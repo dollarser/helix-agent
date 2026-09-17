@@ -18,8 +18,8 @@ import com.helix.runtime.proot.ipc.ProotRuntimeAvailability
 import com.helix.runtime.proot.ipc.UnavailableCause
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
-import java.io.File
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 
 /**
  * The PRoot capability module (HXA-085): the DEVELOPER flavor's side of the per-variant
@@ -193,7 +193,7 @@ internal object ProotToolModule {
                         payload.getValue("inputManifestSha256").jsonPrimitive.content,
                     )
                 }
-            ?: return CommandBrowseFacts(null, null, false)
+                ?: return CommandBrowseFacts(null, null, false)
         return try {
             val file =
                 ProotResultStore(
@@ -212,7 +212,14 @@ internal object ProotToolModule {
                     false,
                 )
             }
-        } catch (e: Exception) {
+        } catch (error: java.io.IOException) {
+            android.util.Log.w("CommandResultBrowser", "Local archive read failed", error)
+            CommandBrowseFacts(binding, null, true)
+        } catch (error: IllegalStateException) {
+            android.util.Log.w("CommandResultBrowser", "Local archive verification failed", error)
+            CommandBrowseFacts(binding, null, true)
+        } catch (error: IllegalArgumentException) {
+            android.util.Log.w("CommandResultBrowser", "Local archive format invalid", error)
             CommandBrowseFacts(binding, null, true)
         }
     }
