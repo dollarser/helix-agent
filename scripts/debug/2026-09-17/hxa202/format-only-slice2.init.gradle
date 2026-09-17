@@ -1,0 +1,23 @@
+// Narrows the root spotless "kotlin" format to the HXA-202 slice 2 files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices are left untouched.
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'app/src/main/kotlin/com/helix/app/ui/TasksScreen.kt',
+        'app/src/main/kotlin/com/helix/app/ui/TaskArtifactsDialog.kt',
+        'app/src/main/kotlin/com/helix/app/ui/ArtifactsScreen.kt',
+        'app/src/main/kotlin/com/helix/app/chat/GoalSummaryUi.kt',
+        'app/src/main/kotlin/com/helix/app/chat/ArtifactRowUi.kt',
+        'app/src/main/kotlin/com/helix/app/chat/ChatService.kt',
+        'app/src/main/kotlin/com/helix/app/MainActivity.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/ArtifactDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/dao/GoalTurnBindingDao.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/ArtifactRepository.kt',
+        'core/storage/src/main/kotlin/com/helix/core/storage/repository/GoalTurnBindingRepository.kt',
+    )
+}

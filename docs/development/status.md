@@ -14,13 +14,15 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）；工作树中的 Root 等并行改动需现场核对所有权，不属于本批交付。21 项未闭合义务分为：3 项收尾验收、9 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做。
+本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。20 项未闭合义务分为：3 项收尾验收、8 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
+
+批次 B 开发前的本地收尾、验证范围与 Claude Code 交接见[2026-09-17 准备记录](../evidence/development/batch-b-readiness-2026-09-17.md)。HXA-204/205 已按顺序切片明确交付边界；JSONL 导出仍 proposed、待独立立项，不随本批自动实现。
 
 - **活动 checkpoint：批次B HXA-204 跨执行域错误与恢复交互**（205随后，193配套收尾）。批次A已全部交付：202（见[完成记录](../completion-records/HXA-202.md)）、194（见[完成记录](../completion-records/HXA-194.md)）、203（见[完成记录](../completion-records/HXA-203.md)），批次出口用户路径证据（会话→任务→命令详情/产物→来源）完整；209 与 192 已交付（见[完成记录](../completion-records/HXA-209.md)、[完成记录](../completion-records/HXA-192.md)）。不重做已有能力，不提前实现完整终端。
 - **后续批次**：204→205（193配套收尾），再195→207→191，最后206核心集成验收。191可在任务边界穿插；优先级、真实依赖及批次出口统一见[路线](roadmap.md#执行顺序与依赖)。从当前批次开始积累206用户路径证据，不等最后才设计验收。

@@ -36,6 +36,7 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 
 ## 专项契约
 
+- [执行引擎详解与对比研究](../research/execution-engine-comparison.md)：当前生产调用链、Codex/DSH/Claude Code 参照与端侧补足建议；研究不新增实现授权。
 - [Provider](providers.md)：模型协议、连接检测与订阅通路。
 - [Agent 模式与 Goal](agent-modes.md)：运行准入、完成与上下文。
 - [执行域](local-code-execution.md)：同 UID 私有进程与 isolated UID 的真实边界。

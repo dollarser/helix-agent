@@ -1,0 +1,9 @@
+// HXA-202 slice 5 debugging: dump the project registry state at task-selection time.
+gradle.projectsEvaluated {
+    def runtime = rootProject.project(":runtime")
+    println("REG-DUMP :runtime subproject paths = " + runtime.subprojects*.path)
+    def byPath = rootProject.project(":runtime:cli-app")
+    println("REG-DUMP project(':runtime:cli-app') resolved = " + byPath.path)
+    println("REG-DUMP root projects count = " + gradle.rootProject.rootProject.allprojects.size())
+    println("REG-DUMP cli-app in allprojects = " + gradle.rootProject.rootProject.allprojects.any { it.path == ":runtime:cli-app" })
+}

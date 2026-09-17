@@ -1,0 +1,10 @@
+// Prints the pinned detekt CLI runtime classpath so it can be invoked directly
+// against a single historical file (HXA-209 B3 gate triage).
+projectsEvaluated {
+    def files = rootProject.configurations.detektCli.files
+    rootProject.tasks.register('printDetektCp') {
+        doLast {
+            println files.join(File.pathSeparator)
+        }
+    }
+}

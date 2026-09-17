@@ -16,7 +16,7 @@
 | [Skill](skills/README.md) | Skill 创作、安装与 MCP 配置闭环 |
 | [Connector](connectors/README.md) | Connector 能力包、Connector public-client OAuth、Connector 版本所有权与安装事务、Connector 签名索引与来源 |
 | [A2A](a2a/README.md) | A2A Client 与远端任务对账 |
-| [Agent 执行与上下文](agent/README.md) | Turn 批次协调与持久结算、模型请求上下文与步骤边界压缩、附件快照与请求物化、有界只读委托与工作流边界 |
+| [Agent 执行与上下文](agent/README.md) | Turn 批次协调与持久结算、模型请求上下文与步骤边界压缩、附件快照与请求物化、有界只读委托与工作流边界、按会话 JSONL 导出候选 |
 | [平台与基础设施](platform/README.md) | 产品完整性与渠道分发、浏览器 View 与逻辑标签生命周期、领域值的严格存储编码 |
 
 ## 决策与交付

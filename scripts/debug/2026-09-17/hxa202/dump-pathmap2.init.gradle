@@ -1,0 +1,30 @@
+// HXA-202 slice 5 debugging: probe getProject/findProject with colon-form keys and inspect Path equality.
+gradle.projectsEvaluated {
+    try {
+        def root = rootProject as org.gradle.api.internal.project.ProjectInternal
+        def bpr = root.owner.owner.projects
+        ['runtime/cli-app', ':runtime:cli-app', 'runtime:cli-app', ':runtime/cli-app', 'app', ':app'].each { s ->
+            try {
+                def st = bpr.findProject(org.gradle.util.Path.path(s))
+                println("ST5 findProject('${s}') = " + (st != null ? ("OK path=" + st.projectPath) : "NULL"))
+            } catch (Throwable t) {
+                println("ST5 findProject('${s}') THREW: " + t)
+            }
+        }
+        // key class + equality probes
+        def f = bpr.class.declaredFields.find { it.name == 'projectsByPath' }
+        f.accessible = true
+        def m = (java.util.Map) f.get(bpr)
+        def keyCli = m.keySet().find { it.toString() == ':runtime:cli-app' }
+        println("ST5 stored key class=" + keyCli.getClass().name + " value=" + (m.get(keyCli) != null ? m.get(keyCli).projectPath : "null"))
+        println("ST5 Path.path('':runtime:cli-app') == storedKey? " + (org.gradle.util.Path.path(':runtime:cli-app').equals(keyCli)))
+        println("ST5 storedKey.toString()='" + keyCli.toString() + "' segmentCount=" + keyCli.segmentCount + " name=" + keyCli.name)
+        // what does the ProjectState expose as key-ish paths?
+        def cliProj = rootProject.project(":runtime:cli-app") as org.gradle.api.internal.project.ProjectInternal
+        def st = cliProj.owner
+        println("ST5 cli state projectPath='" + st.projectPath + "' identityPath='" + st.identityPath + "' componentId=" + st.componentIdentifier)
+        println("ST5 Path equality identityPath==key? " + st.identityPath.equals(keyCli) + " projectPath==key? " + st.projectPath.equals(keyCli))
+    } catch (Throwable t) {
+        println("ST5 error: " + t)
+    }
+}

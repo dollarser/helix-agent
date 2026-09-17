@@ -114,7 +114,7 @@ internal class ChatScreenProjection(
             null -> str(R.string.tool_state_unknown)
         }
 
-    /** The open session's persisted messages as UI rows (blank assistant rows drop out). */
+    /** Conversation text only; tool protocol rows are shown through the collapsed tool timeline. */
     fun messagesFor(
         sessionId: String?,
         screen: ChatScreenState,
