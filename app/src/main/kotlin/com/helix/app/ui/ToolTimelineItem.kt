@@ -40,18 +40,7 @@ internal fun ToolTimelineItem(
                 .padding(horizontal = 4.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                stringResource(R.string.chat_tool_row, row.toolName),
-                style = MaterialTheme.typography.labelMedium,
-            )
-            Text(
-                row.stateLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("tool-row-state-${row.callId}"),
-            )
-        }
+        ToolTimelineHeading(row)
         Text(
             ToolPurpose.text(row.toolName, row.requestSummary),
             style = MaterialTheme.typography.bodySmall,
@@ -91,6 +80,23 @@ internal fun ToolTimelineItem(
         row.card?.takeIf { details || it.state == com.helix.app.approval.ApprovalCardState.PENDING }?.let { card ->
             PendingApprovalCard(card, intents)
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            stringResource(R.string.chat_tool_row, row.toolName),
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Text(
+            row.stateLabel,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("tool-row-state-${row.callId}"),
+        )
     }
 }
 

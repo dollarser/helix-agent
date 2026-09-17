@@ -49,8 +49,10 @@ import com.helix.app.proot.CommandResultView
  */
 internal const val COMMAND_DETAIL_ROUTE = "command-detail/{turnId}/{callId}"
 
-internal fun commandDetailRoute(turnId: String, callId: String): String =
-    "command-detail/$turnId/$callId"
+internal fun commandDetailRoute(
+    turnId: String,
+    callId: String,
+): String = "command-detail/$turnId/$callId"
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
@@ -154,25 +156,7 @@ internal fun CommandResultDetailScreen(
                             modifier = Modifier.testTag("command-detail-exit"),
                         )
                     }
-                    if (v.noOutput) {
-                        Text(
-                            stringResource(R.string.command_detail_no_output),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.testTag("command-detail-no-output"),
-                        )
-                    }
-                    if (v.truncated) {
-                        Text(
-                            stringResource(R.string.command_detail_truncated),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    if (v.stdout.isNotBlank()) {
-                        streamSection(R.string.command_detail_stdout, v.stdout, "command-detail-stdout")
-                    }
-                    if (v.stderr.isNotBlank()) {
-                        streamSection(R.string.command_detail_stderr, v.stderr, "command-detail-stderr")
-                    }
+                    CommandOutputSections(v)
                     v.acknowledged?.let { acknowledged ->
                         Text(
                             stringResource(
@@ -229,6 +213,30 @@ internal fun CommandResultDetailScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun CommandOutputSections(v: CommandResultView) {
+    if (v.noOutput) {
+        Text(
+            stringResource(R.string.command_detail_no_output),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("command-detail-no-output"),
+        )
+    }
+    if (v.truncated) {
+        Text(
+            stringResource(R.string.command_detail_truncated),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    if (v.stdout.isNotBlank()) {
+        streamSection(R.string.command_detail_stdout, v.stdout, "command-detail-stdout")
+    }
+    if (v.stderr.isNotBlank()) {
+        streamSection(R.string.command_detail_stderr, v.stderr, "command-detail-stderr")
     }
 }
 

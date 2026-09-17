@@ -73,12 +73,15 @@ class CliRuntimeHandshakeE2eDeviceTest {
         val duplicate = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(record, (duplicate as CliModelJobClient.AwaitOutcome.Terminal).record)
         assertEquals(null, record.reconciledAtEpochMillis)
-        val reconciled = (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record
+        val observed = client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok
+        assertEquals(record, observed.record)
+        assertEquals(awaited.events, observed.events)
+        // Explicitly discard the verified synthetic result, then acknowledge its identity.
+        val reconciled = (client.acknowledgeResult(observed.record) as CliModelJobClient.StateOutcome.Ok).record
         assertTrue(reconciled.reconciledAtEpochMillis != null)
         assertEquals(record, reconciled.copy(reconciledAtEpochMillis = null))
         client.debugKillRuntime()
-        Thread.sleep(200)
-        assertEquals(reconciled, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
+        assertEquals(reconciled, awaitRuntimeState { client.query(jobId) }.record)
         assertEquals(reconciled, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).record)
         val repeated = client.submitAndAwait(jobId, fixture(), timeoutMs = 10_000, pollIntervalMs = 20)
         assertEquals(reconciled, (repeated as CliModelJobClient.AwaitOutcome.Terminal).record)
@@ -124,8 +127,7 @@ class CliRuntimeHandshakeE2eDeviceTest {
         )
         assertEquals(null, result.record.reconciledAtEpochMillis)
         client.debugKillRuntime()
-        Thread.sleep(200)
-        val recovered = client.fetchResult(jobId) as CliModelJobClient.StateOutcome.Ok
+        val recovered = awaitRuntimeState { client.fetchResult(jobId) }
         assertEquals(result.events, recovered.events)
         assertEquals(result.record.requestSha256, recovered.record.requestSha256)
         assertEquals(result.record.outputSha256, recovered.record.outputSha256)
