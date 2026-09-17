@@ -28,6 +28,10 @@ jobs:
           java-version: "17"
       - name: Configure Android SDK for the JVM asset gate
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          # The action defaults to the retired `tools` package. This job needs
+          # only sdkmanager; install the specific platform below.
+          packages: ""
       - name: Install asset build tools
         run: |
           sudo apt-get update
@@ -81,6 +85,10 @@ jobs:
 
       - name: Configure Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1 (node24)
+        with:
+          # Keep package installation explicit in the next step; never request
+          # the action's legacy `tools` default.
+          packages: ""
 
       - name: Install Android platform
         # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for

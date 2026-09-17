@@ -1,0 +1,26 @@
+# 远端 CI 与 Runtime 资产复核
+
+日期：2026-09-17。关联 [HXA-193](../../development/tasks/HXA-193.md)。此记录区分远端失败、本地修正和未执行的远端复验，不关闭 HXA。
+
+## 最新远端失败
+
+[运行35049947368](https://github.com/dollarser/helix-agent/actions/runs/35049947368) 对应 main `bcc2a6dcd5b04bc96d43d729bafd5f065b867986`。runtime-assets 在 Configure Android SDK for the JVM asset gate 失败，后续资产构建和 verify job 都未执行。日志为 `sdkmanager tools` 后的 `Warning: Failed to find package 'tools'`，退出1。
+
+锁定的 setup-android action 的 [action.yml](https://github.com/android-actions/setup-android/blob/40fd30fb8d7440372e1316f5d1809ec01dcd3699/action.yml) 默认 packages 为 `tools platform-tools`；[源码](https://github.com/android-actions/setup-android/blob/40fd30fb8d7440372e1316f5d1809ec01dcd3699/src/main.ts) 对输入分词、过滤空项后逐包安装。两个 job 显式配置 `packages: ""`，只由原有后续 sdkmanager 步骤安装所需 platform/build-tools/platform-tools。没有跳过 SDK license、资产门禁或 APK 检查，也没有升级 action。
+
+查询时远端 main 比本地准备基线 `0400162c` 少56个提交；最近远端失败不能代表新版本代码测试失败。仓库变量列表为空，也没有现有 Release 可供选取锁定归档；后续状态可能变化，发布前须重新核对。
+
+## 独立的 RootFS 阻塞
+
+在新建工作树运行默认 `./scripts/build-proot-assets.sh`：三个 Termux 包下载及哈希通过，但 Docker 重建退出2。当前镜像索引仅选择 `xz-libs-5.8.4-r0`，冲突为 `world[xz-libs=5.8.3-r0]`。这次重新复现了历史资产来源问题，但它不是上述远端运行的直接失败点。
+
+现存锁定 raw tar 大小137287680字节，SHA-256为 `674aa3ac68200bfe67b01964573fce2c6780c726fe23ca640e998337cf47f509`，与 runtime-lock.json 一致。优先交付已有锁定归档并设置现有 `HELIX_ROOTFS_ARCHIVE_URL`，可保持已验收 Runtime 字节不变；若选择依赖升级，则必须另做 lock/许可证/设备验证，不以修改 hash 掩盖来源问题。
+
+## 本地验证与交付边界
+
+- `ruby scripts/debug/2026-09-17/validate-ci-yaml.rb`：workflow YAML 解析通过。
+- `./scripts/check-all.sh --source`、`git diff --check`：通过。
+- 默认资产重建如上失败，日志保存在忽略的 `build/ci-investigation/default-assets.log`；未删失败场景或放宽校验。
+- 使用 `HELIX_ROOTFS_ARCHIVE=<本地锁定raw-tar> ./scripts/build-proot-assets.sh`：exit 0；三个Termux包重新下载并校验、归档hash匹配、360个ELF全部通过aarch64/16 KiB门禁并完成资产放置。源文件位于现有主工作树的忽略资产目录，不入 Git；日志为 `build/ci-investigation/archived-assets.log`。这是已知归档的资产准备验证，不是从滚动镜像重建成功或干净远端下载证明。
+
+后续远端操作应一起收口：发布上述匹配的 raw tar、配置仓库变量、推送审查后的代码并触发 CI，再检查 runtime-assets 和 verify 两个 job。当前尚未发布资产、配置变量、推送或重跑远端；HXA-193 升级恢复和其他设备验收仍独立开放。
