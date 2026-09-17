@@ -12,6 +12,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelStreamStateTest {
+    @Test fun unknownUsageIncludesPartialToolArguments() {
+        val state = ModelStreamState()
+        state.apply(ModelEvent.TextDelta("text"))
+        state.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call"), "write"))
+        state.apply(ModelEvent.ToolArgumentsDelta(0, "partial arguments"))
+        assertEquals(21L, state.outputSizeBytes)
+        assertTrue(state.finishedToolCalls.isEmpty())
+    }
+
     @Test fun providerRetryabilityRemainsDistinctFromTheErrorCategory() {
         listOf(true, false).forEach { retryable ->
             val state = ModelStreamState()
@@ -38,7 +47,7 @@ class ModelStreamStateTest {
             if (partial.isNotEmpty()) state.apply(ModelEvent.TextDelta(partial))
             state.apply(ModelEvent.Completed("length"))
             assertEquals(TurnState.FAILED, state.terminal(cancelled = false).state)
-            assertEquals("TOKEN_BUDGET_LIMIT", state.terminal(cancelled = false).errorCode)
+            assertEquals("OUTPUT_TOKEN_LIMIT", state.terminal(cancelled = false).errorCode)
             assertEquals(partial, state.text)
         }
     }

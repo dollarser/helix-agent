@@ -193,7 +193,13 @@ internal class ChatToolCalls(
 
     override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
 
-    override fun toolResultDraft(settled: SettledCall): TurnMessageDraft = messageEncoder.toolResultDraft(settled)
+    override fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
+        val reader = toolPipeline.registry.all().firstOrNull { it.name.value == ToolResultReadTool.NAME }
+        val session = settled.resultReference?.substringBefore('/')?.let { storage.turns.resolve(it).sessionId }
+        val enabled =
+            reader != null && session != null && (toolPipeline.disabledToolFilter?.invoke(session, reader) ?: true)
+        return messageEncoder.toolResultDraft(settled, enabled)
+    }
 
     // --------------------------------------------------------------------------------
     // HXA-036: tool call processing (model tool calls -> dispatcher -> timeline)

@@ -14,12 +14,8 @@ internal object ModelCallUsage {
         CallTokenAccount(
             callId = ModelCallId(callId),
             requestBytes = TurnBudgetTracker.requestSizeBytes(request),
-            responseBytes =
-                stream.text
-                    .toByteArray(Charsets.UTF_8)
-                    .size
-                    .toLong(),
-            inputTokens = stream.inputTokens,
+            responseBytes = stream.outputSizeBytes,
+            inputTokens = stream.inputTokens ?: ModelInputEstimate.of(request).total,
             outputTokens = stream.outputTokens,
         )
 

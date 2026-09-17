@@ -273,9 +273,14 @@ internal fun ConversationSection(
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier.testTag("chat-turn-error"),
                         )
+                        turn.budgetDetail?.let { Text(it, modifier = Modifier.testTag("chat-budget-detail")) }
                         if (screen.retryTargetTurnId != null) {
                             TextButton(onClick = intents.onRetry, modifier = Modifier.testTag("chat-retry")) {
-                                Text(stringResource(R.string.chat_retry))
+                                Text(
+                                    stringResource(
+                                        if (turn.continueFromResults) R.string.budget_continue else R.string.chat_retry,
+                                    ),
+                                )
                             }
                         }
                     }

@@ -1055,4 +1055,19 @@
     <string name="settings_perm_tightened_effective">后续操作已生效</string>
     <string name="settings_perm_tightened_still_running">仍有 %1$d 个此前启动任务</string>
     <string name="settings_perm_tightened_stop">停止</string>
+    <string name="budget_total_help">累计用量会叠加每次模型调用的输入和输出，包括重复发送的历史和摘要；它不是上下文窗口，也不等于实际费用。</string>
+    <string name="budget_custom_active">当前使用自定义请求上限；任务过早停止时，请检查高级限制。</string>
+    <string name="budget_advanced">高级请求限制</string>
+    <string name="budget_auto_input">自动管理输入容量</string>
+    <string name="budget_input_help">自动模式结合模型窗口、输出余量与平台上限。自定义输入上限包含指令、工具定义、历史和图片；设得过小会让短对话也无法继续。</string>
+    <string name="budget_calls_help">一个工具轮可包含多个调用。模型调用次数还包括摘要；先达到的上限会停止本轮。</string>
+    <string name="budget_recommended">恢复推荐预算</string>
+    <string name="budget_saved">已保存。对新轮次生效；运行中的轮次和已有 Goal 保留原有上限。</string>
+    <string name="budget_input_limit">达到单次输入上限。请在设置中提高上限或启用自动输入容量；已完成的工具结果仍保留。</string>
+    <string name="budget_output_limit">模型达到输出上限。可提高输出额度，或从已保存结果继续。</string>
+    <string name="budget_total_limit">本轮累计 token 额度已用尽。结果已保留；明确继续可启动新的有界轮次。</string>
+    <string name="budget_message_limit">保留的消息数量超过请求上限，请先压缩历史再继续。</string>
+    <string name="budget_continue">从已有结果继续</string>
+    <string name="budget_continue_prompt">请依据当前对话和已结算的工具结果继续未完成的任务。先核对已完成的工作，再决定剩余步骤；不要仅因上一轮停止就重复已完成的操作。工具执行成功本身不代表任务结果已验证正确。</string>
+    <string name="budget_request_detail">压缩前任务上下文估算：输入 %1$d / %2$d token。指令 %3$d，工具定义 %4$d，历史与结果 %5$d，图片 %6$d。当时累计已用 %7$d / %8$d token。用量校准后准入输入 %9$d，上下文窗口 %10$d。</string>
 </resources>

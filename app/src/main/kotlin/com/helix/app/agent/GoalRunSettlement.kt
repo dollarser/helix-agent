@@ -127,7 +127,7 @@ internal class GoalRunSettlement(
                 GoalEvent.RunFinished to "RUN_FINISHED"
             }
 
-            errorCode == "CONTEXT_WINDOW_LIMIT" -> {
+            errorCode in com.helix.app.runcontrol.BudgetStopReasons.capacity -> {
                 GoalEvent.Blocked to "BLOCKED(CONTEXT_WINDOW_LIMIT)"
             }
 
@@ -147,13 +147,6 @@ internal class GoalRunSettlement(
         }
 
     private companion object {
-        val TURN_LIMITS =
-            setOf(
-                "MODEL_CALL_LIMIT",
-                "TOKEN_BUDGET_LIMIT",
-                "TOOL_STEP_LIMIT",
-                "GOAL_BUDGET_LIMIT",
-                "CONTEXT_WINDOW_LIMIT",
-            )
+        val TURN_LIMITS = com.helix.app.runcontrol.BudgetStopReasons.turn + "GOAL_BUDGET_LIMIT"
     }
 }

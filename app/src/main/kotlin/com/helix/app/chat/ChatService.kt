@@ -1691,7 +1691,8 @@ class ChatService(
         callId: String,
     ): com.helix.app.proot.CommandResultView? =
         withContext(Dispatchers.IO) {
-            com.helix.app.proot.CommandResultBrowser.browse(storage, turnId, callId)
+            com.helix.app.proot.CommandResultBrowser
+                .browse(storage, turnId, callId)
         }
 
     /**
@@ -1897,6 +1898,12 @@ class ChatService(
         workScope.launch {
             val targetTurnId = _screen.value.retryTargetTurnId ?: return@launch
             val session = currentSession() ?: return@launch
+            val stopped = storage.turns.resolve(targetTurnId)
+            if (stopped.sessionId != session.id) return@launch
+            val continueResults = BudgetContinuation.eligible(storage, stopped)
+            if (BudgetContinuation.blocksRetry(storage, stopped, continueResults)) {
+                return@launch
+            }
             val turnId =
                 RetryMessageSource.resolve(
                     targetTurnId,
@@ -1940,6 +1947,23 @@ class ChatService(
                     }
                 }
             }
+            submitCheckedRetry(providerId, turnId, continueResults)
+        }
+    }
+
+    /** Called only after attachment and session checks; Goal keeps its existing activation path. */
+    private suspend fun submitCheckedRetry(
+        providerId: String,
+        turnId: String,
+        continueResults: Boolean,
+    ) {
+        if (continueResults) {
+            submitTurn(
+                text = str(R.string.budget_continue_prompt),
+                providerId = providerId,
+                isBudgetContinuation = true,
+            )
+        } else {
             val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
             submitTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
         }
@@ -2103,6 +2127,7 @@ class ChatService(
         attachments: List<AttachmentBindingIntent> = emptyList(),
         goalId: String? = null,
         clientRequestId: String? = null,
+        isBudgetContinuation: Boolean = false,
     ): Boolean {
         val session = currentSession() ?: return false
         val control = runControlStore.current
@@ -2125,7 +2150,7 @@ class ChatService(
                     clientRequestId = clientRequestId ?: idGenerator(),
                     continuousGoal = control.mode == AgentMode.GOAL || goalId != null,
                     goalBudgets = control.goalBudgets,
-                    directUserRequest = retryTurnId == null && !text.isNullOrBlank(),
+                    directUserRequest = !isBudgetContinuation && retryTurnId == null && !text.isNullOrBlank(),
                 ),
             )
             // A turn row was committed and its loop launched: the start truly happened.

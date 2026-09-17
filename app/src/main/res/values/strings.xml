@@ -1058,4 +1058,19 @@
     <string name="settings_perm_tightened_effective">后续操作已生效</string>
     <string name="settings_perm_tightened_still_running">仍有 %1$d 个此前启动任务</string>
     <string name="settings_perm_tightened_stop">停止</string>
+    <string name="budget_total_help">Total usage adds the input and output of every model call, including repeated history and summaries. It is not the context window or an exact price.</string>
+    <string name="budget_custom_active">Custom request limits are active. Review Advanced limits if work stops early.</string>
+    <string name="budget_advanced">Advanced request limits</string>
+    <string name="budget_auto_input">Automatic input capacity</string>
+    <string name="budget_input_help">Automatic uses the model window, output reserve and platform ceiling. A custom input cap includes instructions, tool definitions, history and images; reducing it can stop even short conversations.</string>
+    <string name="budget_calls_help">One tool round can contain multiple calls. Model calls also include summaries; whichever limit is reached first stops the turn.</string>
+    <string name="budget_recommended">Restore recommended budgets</string>
+    <string name="budget_saved">Saved. Applies to new turns; running turns and existing Goals keep their current limits.</string>
+    <string name="budget_input_limit">The single-request input cap was reached. Increase it or use automatic input capacity in Settings. Saved tool results are retained.</string>
+    <string name="budget_output_limit">The model reached its output limit. Increase the output allowance or continue from the saved results.</string>
+    <string name="budget_total_limit">This turn used its total token allowance. Saved results are retained; explicitly continue to start a new bounded turn.</string>
+    <string name="budget_message_limit">The retained message count exceeds the request limit. Compact history before continuing.</string>
+    <string name="budget_continue">Continue from saved results</string>
+    <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
+    <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
 </resources>

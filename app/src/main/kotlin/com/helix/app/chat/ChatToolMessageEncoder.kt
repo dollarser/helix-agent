@@ -42,7 +42,10 @@ internal class ChatToolMessageEncoder(
      * task-relevant fields of the Dispatcher's size-bounded payload. Full output remains
      * in tool_results; model projection never slices content or continuation tokens.
      */
-    fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
+    fun toolResultDraft(
+        settled: SettledCall,
+        readerEnabled: Boolean = false,
+    ): TurnMessageDraft {
         val status: String
         val summary: String
         when (val o = settled.outcome) {
@@ -51,7 +54,14 @@ internal class ChatToolMessageEncoder(
                 // Mainline key-stripping (file tools) and the branch's structured test line
                 // (exec tools) are disjoint by tool name; composing them keeps both.
                 summary =
-                    withTestSummary(settled.toolName, ToolModelResult.project(settled.toolName, o.result.payload))
+                    withTestSummary(
+                        settled.toolName,
+                        ToolModelResult.project(
+                            settled.toolName,
+                            o.result.payload,
+                            settled.resultReference.takeIf { readerEnabled },
+                        ),
+                    )
             }
 
             is ToolDispatchOutcome.Denied -> {

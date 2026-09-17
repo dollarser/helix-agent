@@ -1,6 +1,7 @@
 package com.helix.app.chat
 
 import com.helix.app.R
+import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderBadgeUi
@@ -10,6 +11,10 @@ import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.TurnEntity
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.longOrNull
 
 /** Repository-to-UI projection; live cards and streaming state remain owned by ChatService. */
 internal class ChatScreenProjection(
@@ -117,8 +122,15 @@ internal class ChatScreenProjection(
         if (sessionId == null) return screen.messages
         return storage.messages
             .listBySession(sessionId)
-            .filter { it.kind != ContextCompaction.KIND }
-            .mapNotNull { entity ->
+            .filter {
+                it.role in setOf(ModelRole.USER.name, ModelRole.ASSISTANT.name) &&
+                    it.kind !in
+                    setOf(
+                        ContextCompaction.KIND,
+                        ChatHistoryBuilder.KIND_TOOL_CALLS,
+                        ChatHistoryBuilder.KIND_TOOL_RESULT,
+                    )
+            }.mapNotNull { entity ->
                 val content = storage.messages.readContent(entity)
                 if (content.isNullOrBlank() && entity.role != ModelRole.USER.name) {
                     null
@@ -150,7 +162,34 @@ internal class ChatScreenProjection(
             streamingText = if (state.isTerminal) null else previousStreamingText,
             errorLabel = entity.errorCode?.let { code -> str(modelTerminalCodeRes(code)) },
             retryable = state == TurnState.FAILED,
+            continueFromResults = BudgetContinuation.eligible(storage, entity),
+            budgetDetail = budgetDetail(entity),
         )
+    }
+
+    @Suppress("ReturnCount") // Missing/legacy diagnostic fields must omit the detail, not break chat rendering.
+    private fun budgetDetail(entity: TurnEntity): String? {
+        if (entity.errorCode !in com.helix.app.runcontrol.BudgetStopReasons.turn) return null
+        val call = storage.modelCalls.listByTurn(entity.id).lastOrNull() ?: return null
+        val event =
+            storage.auditEvents.listByCorrelation(call.id).lastOrNull { it.type == "budget.request" } ?: return null
+        val fields =
+            runCatching { Json.parseToJsonElement(event.redactedPayload).jsonObject }.getOrNull() ?: return null
+        val keys =
+            listOf(
+                "input",
+                "inputLimit",
+                "instructions",
+                "tools",
+                "history",
+                "images",
+                "used",
+                "totalLimit",
+                "admissionInput",
+                "window",
+            )
+        val numbers = keys.map { (fields[it] as? JsonPrimitive)?.longOrNull?.takeIf { n -> n >= 0 } ?: return null }
+        return strings(R.string.budget_request_detail, numbers.toTypedArray())
     }
 
     /** Latest failed turn, shown as retryable only when its bound Goal permits an explicit continuation. */
@@ -163,7 +202,8 @@ internal class ChatScreenProjection(
                     ?.takeIf { turn ->
                         val binding = storage.goalTurnBindings.byTurn(turn.id)
                         if (binding == null) {
-                            true
+                            turn.errorCode !in com.helix.app.runcontrol.BudgetStopReasons.turn ||
+                                BudgetContinuation.eligible(storage, turn)
                         } else {
                             val goalId = storage.goalRuns.resolve(binding.runId).goalId
                             GoalSummaryQuery(storage).forSession(id).any { it.id == goalId && it.canContinue }

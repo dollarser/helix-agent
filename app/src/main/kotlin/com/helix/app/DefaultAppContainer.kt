@@ -303,6 +303,8 @@ internal class DefaultAppContainer(
         AllFilesModule.init(context)
         // The first real tool (HXA-035): `time.now` — the canonical L0 no-approval path.
         TimeNowTool.register(toolRegistry, toolImplementations, appClock)
+        com.helix.app.chat.ToolResultReadTool
+            .register(toolRegistry, toolImplementations, storage)
         com.helix.app.goal.GoalLifecycleTools
             .register(toolRegistry, toolImplementations) { chatService.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool

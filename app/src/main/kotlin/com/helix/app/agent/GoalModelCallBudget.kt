@@ -1,7 +1,6 @@
 package com.helix.app.agent
 
 import com.helix.app.recovery.GoalUsageReservations
-import com.helix.core.agent.TokenEstimator
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalState
 import com.helix.core.model.ModelRequest
@@ -26,7 +25,7 @@ internal class GoalModelCallBudget(
                 val run = storage.goalRuns.resolve(binding.runId)
                 val goal = storage.goals.resolve(run.goalId)
                 val held = storage.goalUsageReservations.pendingForRun(run.id).sumOf { it.reservedTokens }
-                val input = TokenEstimator.estimateTokens(TurnBudgetTracker.requestSizeBytes(request))
+                val input = ModelInputEstimate.of(request).total
                 val output =
                     minOf(
                         request.maxOutputTokens ?: Long.MAX_VALUE,

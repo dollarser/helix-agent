@@ -157,6 +157,23 @@ internal class TurnCoordinator private constructor(
 
     fun currentStream(): ModelStreamState = runtime.currentStream()
 
+    /** Metadata only: request limits and compaction outcomes survive process death. */
+    fun recordDiagnostic(
+        type: String,
+        payload: String,
+    ) {
+        require(type in setOf("budget.request", "budget.admitted", "budget.result", "context.compaction"))
+        require(payload.length <= 512)
+        storage.auditEvents.append(
+            idGenerator(),
+            runtime.snapshot().modelCallId,
+            type,
+            "agent",
+            payload,
+            clock.now().toEpochMilli(),
+        )
+    }
+
     fun beginModelStream(compacting: Boolean = false): ModelStreamState {
         summaryStream = compacting
         val current = runtime.snapshot()

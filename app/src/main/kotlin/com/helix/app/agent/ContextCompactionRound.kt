@@ -48,10 +48,15 @@ internal class ContextCompactionRound(
             request.maxOutputTokens
     }
 
-    private fun fits(request: ChatContextRequest): Boolean =
-        pressure(request) <= settings.window &&
-            pressure(request) - request.maxOutputTokens <= control.budgets.maxInputTokens &&
-            request.messages.size <= ModelRequest.MAX_MESSAGES
+    fun admissionInput(request: ChatContextRequest): Long = pressure(request) - request.maxOutputTokens
+
+    private fun capacityFailure(request: ChatContextRequest): String? =
+        when {
+            request.messages.size > ModelRequest.MAX_MESSAGES -> "CONTEXT_MESSAGE_LIMIT"
+            pressure(request) - request.maxOutputTokens > control.budgets.maxInputTokens -> "INPUT_TOKEN_LIMIT"
+            pressure(request) > settings.window -> "CONTEXT_WINDOW_LIMIT"
+            else -> null
+        }
 
     data class Prepared(
         val request: ModelRequest?,
@@ -84,7 +89,7 @@ internal class ContextCompactionRound(
         val code =
             when {
                 manual && plan == null -> "CONTEXT_NOT_COMPACTABLE"
-                plan == null && !fits(bounded) -> "CONTEXT_WINDOW_LIMIT"
+                plan == null -> capacityFailure(bounded)
                 else -> null
             }
         return Prepared(
@@ -103,6 +108,15 @@ internal class ContextCompactionRound(
         notice: String,
     ): ModelStreamTerminal? {
         val failure = validationFailure(plan, stream, decision)
+        coordinator.recordDiagnostic(
+            "context.compaction",
+            kotlinx.serialization.json
+                .buildJsonObject {
+                    put("version", kotlinx.serialization.json.JsonPrimitive(1))
+                    put("code", kotlinx.serialization.json.JsonPrimitive(failure?.errorCode ?: "COMPLETED"))
+                    put("attempt", kotlinx.serialization.json.JsonPrimitive(attempts))
+                }.toString(),
+        )
         if (failure != null) return recover(plan, stream, failure, coordinator, nextId)
         currentCoroutineContext().ensureActive()
         coordinator.commitCompaction(plan, if (manual) null else nextId, if (manual) notice else null)
@@ -170,7 +184,7 @@ internal class ContextCompactionRound(
         failures++
         val original = requireNotNull(beforeSummary)
         if (failures > 1 || attempts >= 2) {
-            if (!fits(original)) return ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT")
+            capacityFailure(original)?.let { return ModelStreamTerminal(TurnState.FAILED, it) }
             bypassAt = original.inputTokens()
         }
         coordinator.commitCompaction(plan, nextId, failureReason = requireNotNull(failure.errorCode))
