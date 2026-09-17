@@ -33,7 +33,7 @@ ADR-PERMISSIONS-003第8条要求记录生效偏好、来源、规则/修订及�
 
 这些证据说明不能宣称危险代码已消除；并不证明Helix当前执行路径触发了不安全TLS。旧release制品未重新构建，不作为当前release结论。证据保存在 `build/hxa200-acceptance-jgit/`。
 
-按后续工作R1独立完成恶意Git配置、网络触达、filter/transport调用边界及debug/release制品验证，再决定隔离/替换/受控修补方案。不能使用全局TrustAll suppression或未经验证的依赖升级冒充修复。若选择局部豁免，必须先证明不可达并遵循该任务的决策约束。
+历史 R1 的当前任务归属为 [HXA-206](../../development/tasks/HXA-206.md)（现有只读 Git 边界验收），不属于已完成的 HXA-192 Plan 闭环。按该范围独立完成恶意Git配置、网络触达、filter/transport调用边界及debug/release制品验证，再决定隔离/替换/受控修补方案。不能使用全局TrustAll suppression或未经验证的依赖升级冒充修复。若选择局部豁免，必须先证明不可达并遵循该任务的决策约束。
 
 ## 复现与交接
 
