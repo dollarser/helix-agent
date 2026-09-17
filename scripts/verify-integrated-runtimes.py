@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HXA-193: run the 32-case integrated runtime suite on a new owned emulator."""
+"""HXA-193: run the 35-case integrated runtime suite on a new owned emulator."""
 import argparse
 from pathlib import Path
 import subprocess
@@ -11,6 +11,7 @@ CASES = [
     "com.helix.app.proot.LinuxRunToolE2eDeviceTest",
     "com.helix.app.provider.CodexSubscriptionProviderE2eDeviceTest",
     "com.helix.app.provider.CliRuntimeRunningRecoveryDeviceTest",
+    "com.helix.app.proot.UpgradeRecoveryDeviceTest",
     "com.helix.app.proot.ProotRuntimeBindingE2eDeviceTest#aProcessDeathIsDeadObjectAndTheColdRebindRecovers",
     "com.helix.app.proot.ProotRuntimeBindingE2eDeviceTest#aNullOnBindIsAnImmediateBindRefusedNotATimeout",
     "com.helix.app.proot.ProotJobE2eDeviceTest",
