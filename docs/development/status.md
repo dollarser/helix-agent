@@ -40,7 +40,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Current interfaces
 
-- **本工作树的上下文/预算优化**：聊天正文不再重复工具协议；大成功结果可按会话只读分页；上下文、Turn 与 Goal 使用统一输入估算；预算维度与压缩诊断分别保留；普通预算停止可明确从已有结果新建有界 Turn。已有自定义额度不自动更改，Goal 与未知副作用恢复路径保留。设计见 [ADR-AGENT-006](../adr/agent/006-model-data-budget-boundaries.md)，定向验收与分支基线限制见[修复记录](../bug-fixes/2026-09-17-context-budget-tool-projection.md)；不代表主分支已合并或真机 P0 已关闭。
+- **上下文/预算优化**：聊天正文不再重复工具协议；大成功结果可按会话只读分页；上下文、Turn 与 Goal 使用统一输入估算；预算维度与压缩诊断分别保留；普通预算停止可明确从已有结果新建有界 Turn。已有自定义额度不自动更改，Goal 与未知副作用恢复路径保留。设计见 [ADR-AGENT-006](../adr/agent/006-model-data-budget-boundaries.md)，定向验收及与批次 A/P0 的整合证据见[修复记录](../bug-fixes/2026-09-17-context-budget-tool-projection.md)；专项模拟器回归不替代新版本的真机验收。
 
 - **聊天与装配**：`ChatService` 保留应用入口及运行协调，草稿、请求组装、附件重试、界面投影、工具调用与结算已有独立组件；`AppContainer` 接口与 `DefaultAppContainer` 组合根分离。资源与可变状态仍由原所有者管理，拆文件不产生第二套状态源。详见 HXA-179/183/184。
 - **Goal 与后台任务**：Goal 采用 ADR-GOAL-001；暂停可由用户继续，blocked 表示不能主动继续。后台能力是有界工具任务及结果回收，生产子 Agent、Agent graph 和声明式 Workflow 尚未实现；ADR-AGENT-004 的只读 Spike 不等于产品启用。

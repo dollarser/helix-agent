@@ -73,8 +73,6 @@ class ArtifactVisionImageSourceTest {
 
             override fun byId(id: String): ArtifactEntity? = rows[id]
 
-            override fun listByTurn(turnId: String): List<ArtifactEntity> = rows.values.filter { it.turnId == turnId }
-
             override fun listBySession(sessionId: String): List<ArtifactEntity> =
                 rows.values.filter { it.sessionId == sessionId }
 

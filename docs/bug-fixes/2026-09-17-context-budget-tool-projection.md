@@ -38,7 +38,7 @@ Affected modules: app（agent、chat、runcontrol、UI），无数据库迁移
 
 ## Regression verification
 
-隔离分支 `codex/context-budget-ux` 基于 `73e574f6`。主分支并行 HXA-194 工作未纳入此修复；测试使用自建临时 Room/内容目录、离线 WireClient 与专属模拟器。
+独立切片最初基于 `73e574f6`；合并前按所有者要求整合 main `584adf9d` 的批次 A/P0 修复。测试使用自建临时 Room/内容目录、离线 WireClient 与专属模拟器。下述原切片设备证据与后续整合主机证据分开记录。
 
 - `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest`：consumer 584 项（580 passed、4 条件跳过），developer 618 项（614 passed、4 条件跳过）。覆盖统一估算、预算原因、整数边界、缺 usage 的工具参数、Unicode 多页无损恢复与未知格式保留。
 - `./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest`：双 flavor 应用与测试 APK 构建通过。
@@ -50,9 +50,11 @@ Affected modules: app（agent、chat、runcontrol、UI），无数据库迁移
 
 私有日志位于忽略的 `build/context-budget/`；统计脚本为 `scripts/debug/2026-09-17/summarize-context-budget.py`，同时比较继承问题文件与分支起点的字节一致性。未运行或宣称完整产品 `--all` / 真机 P0 通过。
 
+整合 main `584adf9d` 后，合并检查发现双方分别补齐的 fake DAO `listByTurn` 被 Git 合成了重复声明；去重后运行 `./gradlew spotlessCheck detekt :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug lintDebug lintConsumerDebug lintDeveloperDebug --continue --console=plain` 全部通过。consumer 615 项（611 passed、4 跳过），developer 649 项（645 passed、4 跳过）；原切片继承的静态检查问题已随 main 修复消除。源检查亦通过，证据位于 `build/context-budget-merge/`。此次合并未重做真机/模拟器全套，不将此前设备结果描述为整合后的新验收。
+
 ## Residual risk
 
-- 本分支基线的 HXA-194 文件已有 Detekt/Spotless/Compose 命名问题，不能宣称全量门禁通过；这些文件保持与分支起点一致，不在本次用户授权切片中重做并行工作。完整主机/真机 P0 收尾仍查[实施状态](../development/status.md)。
+- 原切片基线的 HXA-194 静态检查阻挡已在整合最新 main 后关闭；完整产品、真机与发行验收边界仍查[实施状态](../development/status.md)，不把本次主机专项等同 `--all` 或新一轮真机全套。
 - 未安装覆盖用户真机，未调用付费模型，未做 OEM/Doze/长稳验收。模拟器与离线生产请求测试不是实际模型任务成功证明。
 - 继续是有界新 Turn，不是同 Turn 指令 checkpoint，也不保证模型语义层绝不重复动作。输入估算仍有 tokenizer/视觉差异；用户已关闭自动压缩或设定过小容量时仍可能停止。
 - 原工具输出最大 8 MiB；分页读取每次校验原内容，不是流式随机读取。禁用读取工具后已存在的引用可能无法继续读取；不绕过用户禁用。
