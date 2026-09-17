@@ -2,8 +2,12 @@ package com.helix.app
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -135,7 +139,9 @@ class GoalReminderNavigationDeviceTest {
         objective: String,
     ) {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
             automation.grantRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
         }
         val scheduler =
@@ -187,13 +193,38 @@ class GoalReminderNavigationDeviceTest {
                 val candidates = notificationNodes(root).filter { it.text?.contains(label) == true }
                 matches = candidates.size
                 val matching = candidates.firstOrNull()
-                var node = matching
-                while (node != null && !node.isClickable) node = node.parent
-                clicked = node?.performAction(AccessibilityNodeInfo.ACTION_CLICK) == true
+                clicked = matching?.takeIf { it.isVisibleToUser }?.let(::tapNotificationNode) == true
             }
             if (!clicked) Thread.sleep(100)
         }
         assertTrue("Own notification was not clickable: package=$observedPackage matches=$matches", clicked)
+    }
+
+    // OEM containers can consume ACTION_CLICK without opening their content Intent.
+    private fun tapNotificationNode(node: AccessibilityNodeInfo): Boolean {
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        val now = android.os.SystemClock.uptimeMillis()
+
+        fun touch(action: Int): Boolean {
+            val event =
+                MotionEvent.obtain(
+                    now,
+                    android.os.SystemClock.uptimeMillis(),
+                    action,
+                    bounds.exactCenterX(),
+                    bounds.exactCenterY(),
+                    0,
+                )
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            return try {
+                automation.injectInputEvent(event, true)
+            } finally {
+                event.recycle()
+            }
+        }
+        return touch(MotionEvent.ACTION_DOWN) && touch(MotionEvent.ACTION_UP)
     }
 
     private fun awaitVisibleObjective(objective: String) {

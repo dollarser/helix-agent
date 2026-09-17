@@ -72,6 +72,9 @@ internal class GoalLifecycleService(
         goalId: String,
         sessionId: String,
     ) {
+        // Reject a stale/deleted Goal through the caller's normal domain-error path,
+        // before a control-row insert can fail with an uncaught Room foreign-key error.
+        storage.goals.resolve(goalId)
         val existing = storage.goalControls.find(goalId)
         if (existing == null) {
             require(storage.goalTurnBindings.sessionForGoal(goalId).let { it == null || it == sessionId })

@@ -44,6 +44,9 @@ class SessionToolEffectClassifier(
     /** The session's bound workspace scope id (`session.directoryRef ?: APP_SCOPE_ID`), or null. */
     private val sessionWorkspace: (sessionId: String) -> String?,
 ) : ToolEffectClassifier {
+    private fun isBuiltInMetadata(descriptor: ToolDescriptor): Boolean =
+        descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.operationClass == ToolOperationClass.METADATA
+
     override fun classify(
         request: ToolDispatchRequest,
         descriptor: ToolDescriptor,
@@ -72,6 +75,12 @@ class SessionToolEffectClassifier(
 
                     name in FILE_MUTATION_TOOLS -> {
                         fileFootprint(name, request.args, request.sessionId, readTool = false)
+                    }
+
+                    isBuiltInMetadata(descriptor) -> {
+                        // Closed session metadata is admitted by Policy, not device mutation.
+                        // The registry forbids external tools from claiming METADATA.
+                        CallEffectClassification(OperationFootprint())
                     }
 
                     descriptor.operationClass == ToolOperationClass.READ_ONLY -> {

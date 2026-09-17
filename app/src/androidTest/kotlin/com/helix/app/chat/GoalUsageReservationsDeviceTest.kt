@@ -58,7 +58,8 @@ class GoalUsageReservationsDeviceTest {
                 )
             val draft = query.forSession("session").single { it.id == ready }
             assertTrue(draft.canContinue)
-            assertFalse(draft.canEditBudgets)
+            assertEquals("READY", draft.status.state)
+            assertTrue(draft.canEditBudgets)
             assertTrue(draft.canDelete)
         }
 

@@ -549,6 +549,9 @@ class ToolDispatcherTest {
         assertEquals(ToolDispatchOutcome.Cancelled, outcome)
         assertEquals(0, executor.invocations)
         assertEquals("nothing started, so the proof is never spent", 0, broker.consumeCalls.size)
+        assertTrue("a pre-cancelled call must never present a card", broker.acquireCalls.isEmpty())
+        assertNull(sink.events.single().approvalAcquiredAt)
+        assertNull(sink.events.single().executionStartedAt)
         assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, sink.events.single().code)
     }
 

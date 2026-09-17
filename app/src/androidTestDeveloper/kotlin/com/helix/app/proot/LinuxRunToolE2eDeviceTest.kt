@@ -444,6 +444,7 @@ class LinuxRunToolE2eDeviceTest {
                         .lowercase()
             },
             knownSecretValues = { knownSecretValues },
+            recheckBeforeSubmit = { null },
             persistVerifiedResult = persistVerifiedResult,
             beforeSubmit = beforeSubmit,
         )

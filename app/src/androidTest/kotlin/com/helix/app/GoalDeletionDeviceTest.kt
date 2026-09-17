@@ -3,6 +3,7 @@ package com.helix.app
 import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,6 +17,7 @@ import com.helix.app.goal.GoalDeletionCoordinator
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderReconciler
 import com.helix.app.goal.GoalReminderScheduler
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.SystemClock
@@ -32,7 +34,7 @@ import java.io.File
 import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
-class GoalDeletionDeviceTest {
+class GoalDeletionDeviceTest : ForegroundDeviceTestHost() {
     private val clock = SystemClock()
     private val budgets = GoalBudgets(2, 4, 1000, 60000, 10000, 0)
 
@@ -42,7 +44,9 @@ class GoalDeletionDeviceTest {
         val storage = app.appContainer.storage
         val scheduler = GoalReminderScheduler.create(app)
         val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            app.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
             InstrumentationRegistry
                 .getInstrumentation()
                 .uiAutomation

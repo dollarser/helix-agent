@@ -334,6 +334,11 @@ class ToolDispatcher(
         carriedProof: ApprovalProof?,
     ): ToolDispatchOutcome {
         val descriptor = validateStage(request, ctx)
+        if (descriptor != null && request.cancel.isCancelled()) {
+            // A queued call already stopped by its owner must never create an approval wait.
+            stopped<Unit>(ctx, ToolDispatchOutcome.Cancelled, DecisionSource.FRAMEWORK)
+            return finishStop(request, startedAt, ctx)
+        }
         val proof =
             if (descriptor != null) policyStage(request, descriptor, ctx, carriedProof) else null
         return when {

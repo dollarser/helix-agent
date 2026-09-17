@@ -10,13 +10,15 @@
 
 收尾补验：SGLang UI smoke已修复，在API29/36 developer真实端点各1项通过，本地表单各4项通过；默认profile各1项明确跳过，见[修复与证据](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md)。这不关闭192/193的其他范围。
 
-Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。独立分支交付，非 main 全量集成通过。
+Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。已通过 `32788bf8` 合入 main，真实 App Root 工具链复核 1/1；历史 11 项失败已在 49/49 定向回归中通过。完整真机回归发现的其他问题正在收尾，见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)，尚未声明全套通过。
 
 ## In progress
 
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。下一活动 checkpoint 为 HXA-194 的命令详情与现有结果导航；工作树中的 Root 等并行改动需现场核对所有权，不属于 192/209 交付。23 项未闭合义务分为：3 项收尾验收、11 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做。
 
 ## Next task
+
+基线优先：本轮 [P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 尚未关闭；解锁后重跑 UI 全套，并在并行 HXA-194 文件稳定后重新通过完整主机门禁。不得用专项通过替代这一基线。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 
@@ -50,7 +52,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 这里只列仍有效的范围限制和验收缺口；已修复缺陷、旧测试数量和机制演进保留在完成记录，不再列为当前故障。
 
 - **系统与长稳**：应用侧释放路径和短回归已有证据。模拟器侧 24 小时长稳已按可采维度跑完：EV-02 两臂完成（API36 a11y 重尾归因 + API29 功能满绿，system-Binder 模拟器不可采）；EV-03 应用 FD 门禁为模拟器固有 goldfish 节点（X 类，非应用泄漏）。但**系统 JNI/Binder 根因仍 open，权威资源/Binder 门禁需真机**（模拟器无法关闭 goldfish FD 与 UID-proxy Binder 两维）。见 [释放路径调查](../evidence/development/native-reference-release-trace.md)、[浏览器引用验证](../evidence/development/browser-controller-reference-verification.md) 与 [优化待办](../evidence/development/main-optimization-todo.md)。
-- **Root 真机**：094/095 在 OnePlus API35 完成专项验收；其他 OEM、Doze/热压力与长稳随发行矩阵继续。历史全套 11 项失败仍保留，专项证据不替代全套门禁；详见两项完成记录。
+- **Root 真机**：094/095 在 OnePlus API35 完成专项验收；其他 OEM、Doze/热压力与长稳随发行矩阵继续。历史 11 项失败的定向回归已通过；全套新增失败修复后的 UI 重验等待真机解锁，详见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。专项证据仍不替代全套门禁。
 - **设备覆盖**：API29/36 模拟器及历史 API34/35、16 KiB 模拟器证据不替代物理低内存、OEM、热压力、Doze、安全锁屏和 Root grant/revoke/loss 验收；x86_64 静态制品证据也不等于实际运行。
 - **文件恢复**：HXA-182 实现显式对账恢复，不承诺字节偏移续传、断电事务、自动后台队列或跨 Provider 原子事务；既有 picker 导入/导出及旧版无日志暂存不在该恢复管线内。目标/备份变化时保留人工核查，云盘厂商与全部中断阶段仍需外部设备验收。
 - **模型与附件**：导入成功不等于模型理解。图片受实际模型视觉能力与端上预算约束；既有文本/图片管线不代表任意文档、音视频解析或 OCR 已实现。真实服务可用性与连接参数需要按服务当前状态验证。

@@ -51,6 +51,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -86,6 +87,15 @@ import kotlin.time.Duration.Companion.seconds
 @Suppress("TooManyFunctions") // one method per journey facet plus the shared fixture helpers
 class TaskJourneyDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Before
+    fun prepareStandaloneJourney() {
+        // Ordinary JUnit order is unspecified. Only a normal run seeds its fixture;
+        // restart verification must observe the existing persisted rows without repair.
+        if (recoveryPhase() == null) {
+            seedJourneyHistory(ApplicationProvider.getApplicationContext(), containerFromApp())
+        }
+    }
 
     /**
      * Seed the journey history with FIXED ids (no per-run suffix so both phases address the

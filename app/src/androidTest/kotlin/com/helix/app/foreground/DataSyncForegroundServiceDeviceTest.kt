@@ -151,10 +151,12 @@ class DataSyncForegroundServiceDeviceTest {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             return
         }
-        InstrumentationRegistry
-            .getInstrumentation()
-            .uiAutomation
-            .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            InstrumentationRegistry
+                .getInstrumentation()
+                .uiAutomation
+                .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
         assertTrue(
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
                 PackageManager.PERMISSION_GRANTED,

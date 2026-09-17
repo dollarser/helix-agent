@@ -12,6 +12,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
@@ -59,7 +60,7 @@ import java.util.UUID
  * touched and no real path ever crosses into UI/logs/audit/model state.
  */
 @RunWith(AndroidJUnit4::class)
-class ChatServiceAttachmentRetryDeviceTest {
+class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
     /** The fake SAF uri -> the local file it serves (uri is never a real path). */
     private val sourceFiles = HashMap<String, File>()
 

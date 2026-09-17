@@ -71,6 +71,14 @@ class SessionToolEffectClassifierTest {
     }
 
     @Test
+    fun builtInPlanMetadataDoesNotInventDeviceMutation() {
+        val result = bound.classify(request(), descriptor("plan.submit", ToolOperationClass.METADATA))
+        assertTrue(result.footprint.effects.isEmpty())
+        assertTrue(result.footprint.undeterminedEffects.isEmpty())
+        assertFalse(result.rmCommandHit)
+    }
+
+    @Test
     fun quickJsIsSandboxedCommandExecutionOnly() {
         val c =
             bound.classify(request(), descriptor("code.javascript.run", ToolOperationClass.CODE_EXECUTION))
