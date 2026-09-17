@@ -109,7 +109,7 @@ flowchart TB
 
 ## 6. 已实现：执行域与 Provider 链路
 
-developer 的 PRoot、Subscriptions 是同 APK、同 UID 的私有进程；consumer 不打包这些组件。进程隔离不等于 UID 权限隔离。QuickJS 仍是独立 isolated UID，无特权主机桥。依据 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)；资产、干净 CI 与升级验收仍见 [HXA-193](../development/tasks/HXA-193.md)。
+developer 的 PRoot、Subscriptions 是同 APK、同 UID 的私有进程；consumer 不打包这些组件。进程隔离不等于 UID 权限隔离。QuickJS 仍是独立 isolated UID，无特权主机桥。依据 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)；资产、干净 CI 与升级验收仍见 [HXA-193](../completion-records/HXA-193.md)。
 
 ```mermaid
 flowchart LR
