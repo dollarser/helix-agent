@@ -77,4 +77,41 @@ class TurnCoordinatorTest {
         assertEquals("model-2", runtime.snapshot().modelCallId)
         assertEquals(TurnState.FAILED, runtime.snapshot().phase)
     }
+
+    // HXA-202 slice 3: the stop path persists CANCELLING before the settlement transaction,
+    // so a late failure or completion outcome must settle as the user's cancellation.
+    @Test
+    fun lateOutcomeAfterDurableCancellingSettlesAsCancelled() {
+        val cancelling = TurnState.CANCELLING.name
+        assertEquals(
+            ModelStreamTerminal(TurnState.CANCELLED, "INTERNAL"),
+            TurnCoordinator.settleOutcomeAfterCancelling(
+                ModelStreamTerminal(TurnState.FAILED, "INTERNAL"),
+                cancelling,
+            ),
+        )
+        assertEquals(
+            ModelStreamTerminal(TurnState.CANCELLED, "GOAL_TIME_WINDOW_EXPIRED"),
+            TurnCoordinator.settleOutcomeAfterCancelling(
+                ModelStreamTerminal(TurnState.FAILED, "GOAL_TIME_WINDOW_EXPIRED"),
+                cancelling,
+            ),
+        )
+        assertEquals(
+            ModelStreamTerminal(TurnState.CANCELLED, null),
+            TurnCoordinator.settleOutcomeAfterCancelling(
+                ModelStreamTerminal(TurnState.COMPLETED, null),
+                cancelling,
+            ),
+        )
+    }
+
+    @Test
+    fun cleanCancelledOutcomeAndUnrelatedStatesPassThroughUnchanged() {
+        val outcome = ModelStreamTerminal(TurnState.CANCELLED, null)
+        assertEquals(outcome, TurnCoordinator.settleOutcomeAfterCancelling(outcome, TurnState.CANCELLING.name))
+        val failed = ModelStreamTerminal(TurnState.FAILED, "INTERNAL")
+        assertEquals(failed, TurnCoordinator.settleOutcomeAfterCancelling(failed, TurnState.RUNNING_TOOL.name))
+        assertEquals(failed, TurnCoordinator.settleOutcomeAfterCancelling(failed, TurnState.CREATED.name))
+    }
 }

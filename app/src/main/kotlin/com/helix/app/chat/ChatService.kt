@@ -1680,7 +1680,12 @@ class ChatService(
     internal suspend fun taskArtifactsForGoal(goalId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forGoal(goalId) }
 
-    /** A stale card cannot stop a newer Turn in the same session. Pause is Goal-only. */
+    /**
+     * A stale card cannot stop a newer Turn in the same session. Pause is Goal-only.
+     * On the stable-ID match it durably persists CANCELLING before signalling the
+     * cancellation (HXA-202 slice 3), so the Tasks dashboard shows "cancelling, awaiting
+     * settlement" until the single settlement transaction commits the terminal state.
+     */
     fun stopTask(
         turnId: String,
         pause: Boolean = false,
@@ -1700,6 +1705,17 @@ class ChatService(
             if (pause) {
                 if (storage.goalTurnBindings.byTurn(turnId) == null) return@launch
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
+            }
+            // HXA-202 slice 3: persist CANCELLING as soon as the stable-ID match passes, so
+            // the Tasks dashboard shows "cancelling, awaiting settlement" from here until
+            // the single settlement transaction commits the terminal state. The transition
+            // is only legal from live states: an already-settled turn keeps its conclusion,
+            // a recovered (INTERRUPTED) turn settles straight to CANCELLED, and a repeated
+            // stop finds CANCELLING already durable and does nothing here.
+            val live = storage.turns.resolve(turnId)
+            if (TurnState.valueOf(live.state).canTransitionTo(TurnState.CANCELLING)) {
+                storage.turns.updateState(live, TurnState.CANCELLING, live.stepCount, null, null)
+                publishTurn(TurnUi(turnId, TurnState.CANCELLING, null, null, false))
             }
             if (systemReason != null) systemStops[turnId] = systemReason
             turnCancels[turnId]?.cancel()
