@@ -23,7 +23,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun unknownUsageUsesNonZeroByteEstimateAndAccumulates() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 2, 100, 100, 2))
+        val tracker = TurnBudgetTracker(TurnBudgets(2, 2, 100, 100, 18))
         val request = request("1234")
         assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request).decision)
         val stream = ModelStreamState().also { it.apply(ModelEvent.TextDelta("1234")) }
@@ -33,13 +33,13 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun outputIsBoundByInputEstimateAndRemainingTotalBeforeTransport() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 3, 100, 100, 20))
+        val tracker = TurnBudgetTracker(TurnBudgets(2, 3, 100, 100, 50))
         val first = requireNotNull(tracker.prepareCall(request("1234").copy(maxOutputTokens = 100)).request)
-        assertEquals(19L, first.maxOutputTokens)
+        assertEquals(33L, first.maxOutputTokens)
         val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 10)) }
         assertTrue(tracker.finishCall("first", first, stream))
         val second = requireNotNull(tracker.prepareCall(request("1234")).request)
-        assertEquals(8L, second.maxOutputTokens)
+        assertEquals(22L, second.maxOutputTokens)
     }
 
     @Test
@@ -50,7 +50,7 @@ class TurnBudgetTrackerTest {
 
     @Test
     fun noOutputHeadroomRejectsWithoutSpendingTheModelCall() {
-        val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 2))
+        val tracker = TurnBudgetTracker(TurnBudgets(2, 1, 100, 100, 18))
         val refused = tracker.prepareCall(request("12345678"))
         assertEquals(TurnBudgetTracker.BeginDecision.TOKEN_LIMIT, refused.decision)
         assertEquals(null, refused.request)

@@ -1,6 +1,6 @@
 # Connector 能力包与迁移设计
 
-日期：2026-09-05。里程碑：M13。任务：[HXA-124](../development/roadmap.md)。决策：[ADR-0023](../adr/0023-connector-portable-bundles.md)（accepted）。本页区分公开格式、用户调研观察、当前实现与后续产品方向；不把第三方平台登录态、许可证或服务权益当作可导出资产。
+日期：2026-09-05。里程碑：M13。任务：[HXA-124](../development/roadmap.md)。决策：[ADR-CONNECTORS-001](../adr/connectors/001-portable-bundles.md)（accepted）。本页区分公开格式、用户调研观察、当前实现与后续产品方向；不把第三方平台登录态、许可证或服务权益当作可导出资产。
 
 ## 1. 设计结论
 
@@ -42,11 +42,11 @@ flowchart TD
 | HTTPS Streamable HTTP | 保存端点；用户单独配置 bearer、测试连接、选择工具 | OAuth 自动登录、legacy SSE 自动转换 |
 | Skill 正文、references、assets、scripts | 固定快照，沿用 Skill validator；复杂 metadata 在 Connector 导入时转为 JSON 字符串并保存原文备份；脚本不在安装时执行 | macOS/Windows 脚本和 Linux 二进制自动适配 Android |
 | Codex `.app.json` / 平台 app ID | 诊断“需新连接” | 用平台 app ID 找到通用服务 URL、复制平台凭据 |
-| stdio / CLI | 显式诊断需要 Android Runtime 适配 | 把带网络/凭据的 CLI 放到离线 PRoot；任意 npm 安装 |
+| stdio / CLI | 显式诊断需要 Android Runtime 适配 | 把同 UID PRoot 描述为凭据或网络隔离沙箱；未核验依赖和许可证的任意安装 |
 | headers、OAuth、env bearer | 不拷贝值，只记录需要配置认证 | 迁移源账号 token、Cookie 或订阅权益 |
 | hooks / rules / agents / commands | 报告不支持，不执行、不作为特权指令注入 | 等价复刻源 host 的策略和角色体系 |
 
-2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 于 2026-09-08 补充用户提供的 GitHub/可灵真实市场包，QwenWork 另有用户提供的真实参考包；样本验收见 [HXA-125 进展](../development/hxa-125-progress.md)，均不称为官方认证。
+2026-09-05 已读取 WorkBuddy 官方[连接器规范](https://open.workbuddy.cn/docs/connector)正文：公开包使用 `connector-meta.json`、`mcp.json` / `cli.json` 和可选 Skills；这不是 Codex/Claude manifest 的统一格式。已补齐 `streamableHttp` 传输别名和 `staticHeaders` 的独立认证提示；元信息、CLI、OAuth/token 表单与 host 版本条件没有据此获得运行兼容。QwenWork 的[扩展说明](https://docs.qwenwork.ai/features/extensions)说明产品概念，未提供本任务可验证的稳定导出 schema。WorkBuddy 于 2026-09-08 补充用户提供的 GitHub/可灵真实市场包，QwenWork 另有用户提供的真实参考包；样本验收见 [HXA-125 进展](../evidence/development/hxa-125-progress.md)，均不称为官方认证。
 
 ## 4. 当前实现契约
 
@@ -64,15 +64,15 @@ MCP 原始 headers/环境变量不进入持久记录。首版仅迁移无 userin
 
 QwenWork 用户参考包已支持 `qwenwork.mcp/v1 → dynamic.servers`；新增元数据适配保留 `references/helix-import/original-SKILL.md.txt`，普通 Skill metadata 字符串约定不变。源 policy 不转为本地授权，CLI 依赖只展示。
 
-HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../development/hxa-125-progress.md)。
+HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../evidence/development/hxa-125-progress.md)。
 
 ## 5. 后续分期
 
-M13 尚未完成；HXA-125 已开始，公开来源与匿名 SDK 验证见[进展记录](../development/hxa-125-progress.md)。以下 HXA-126～130 均为 planned。具体范围见 roadmap §18。
+M13 尚未完成；HXA-125 已开始，公开来源与匿名 SDK 验证见[进展记录](../evidence/development/hxa-125-progress.md)。以下 HXA-126～130 均为 planned。具体范围见 roadmap §18。
 
 1. **HXA-126 OAuth 登录层**：另立 ADR，定义独立 Android public client、浏览器回调、state/PKCE、issuer/resource 绑定、refresh/revoke、进程死亡恢复；不复制 Codex/Claude/QwenWork/WorkBuddy 凭据。需至少两家真实 MCP server 测试账号。
 2. **HXA-127 大 catalog 渐进发现**：catalog/搜索 → 当前轮加载有限 schema → Dispatcher。风险与并发仍由平台计算，defer_loading 仅为提示；tool schema 更新撤销旧批准。
-3. **HXA-128 CLI/stdio 可移植运行时 Spike**：区分无网离线工具与需要联网/认证的 CLI；按 HXA-073、M11 实际底座重用独立 Runtime 和生命周期。对每个 CLI 锁定版本、ABI、许可证、依赖与工具拦截，不把安装成功当功能验收。
+3. **HXA-128 CLI/stdio 可移植运行时 Spike**：区分无网离线工具与需要联网/认证的 CLI；按 HXA-073、M11 实际底座重用当前私有进程 Runtime 和生命周期。对每个 CLI 锁定版本、ABI、许可证、依赖与工具拦截，不把安装成功当功能验收。
 4. **HXA-129 完整 bundle 生命周期**：connector 级会话 scope、工具/Skill 原子视图、更新 diff 与 rollback、可恢复安装 journal、显式依赖图。先解决共享 Skill 的所有权，避免一个包停用另一个包仍需的组件。
 5. **HXA-130 市场设计**：在用户本地导入路径稳定后再加签名索引、固定版本与来源审查。市场可信度不能升级 ToolCall 的权限。
 

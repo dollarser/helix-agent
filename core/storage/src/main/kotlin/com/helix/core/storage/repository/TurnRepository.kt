@@ -4,6 +4,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.storage.dao.TurnDao
 import com.helix.core.storage.entity.TurnEntity
 
+@Suppress("TooManyFunctions") // Typed Turn persistence operations, including nullable cancellation lookup.
 class TurnRepository(
     private val dao: TurnDao,
 ) {
@@ -39,6 +40,8 @@ class TurnRepository(
 
         return entity ?: throw IllegalArgumentException("turn not found: $id")
     }
+
+    fun find(id: String): TurnEntity? = dao.byId(id)
 
     fun listBySession(sessionId: String): List<TurnEntity> = dao.listBySession(sessionId)
 

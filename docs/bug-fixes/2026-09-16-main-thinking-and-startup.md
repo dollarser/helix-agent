@@ -25,7 +25,7 @@ thinking 后端可能被错误标记连接失败；冷启动容器访问存在�
 ## Fix and invariants
 
 - 普通连接探测接受非空白 TextDelta 或 ReasoningDelta；仍要求完成事件，完成后仅允许 Usage，任何 Error 都失败。空白 reasoning、无输出、缺少 Completed 和完成后继续输出均失败。只记录 CONNECTION_ONLY，不推断回答质量或额外能力。
-- 使用 FutureTask 将容器工厂固定到后台线程，所有读取共享一次初始化的结果/原始异常。Application 提前调度；即使 UI 首次访问，也不能在 UI 线程执行工厂。保留 ADR-0049 的主进程判断，QuickJS 和私有 Runtime 不初始化主容器/恢复。
+- 使用 FutureTask 将容器工厂固定到后台线程，所有读取共享一次初始化的结果/原始异常。Application 提前调度；即使 UI 首次访问，也不能在 UI 线程执行工厂。保留 ADR-RUNTIME-001 的主进程判断，QuickJS 和私有 Runtime 不初始化主容器/恢复。
 订阅认证短路和现有阶段编号保持原契约。
 
 ## Alternatives considered
@@ -47,10 +47,10 @@ thinking 后端可能被错误标记连接失败；冷启动容器访问存在�
 
 保留同步 getter：首次读取仍可能等待初始化，此修复不是异步启动界面或启动耗时优化，也不宣称消除了所有 ANR 风险。
 
-真实 Qwen/SGLang 服务未在本轮请求中提供或运行；历史 smoke 结论不替代此次真实服务验收。外部 profile 保留 opt-in，已知协议缺陷进入默认本地回归。
+原修复轮次未提供或运行真实 Qwen/SGLang；该历史边界保持。后续已在API29/36完成真实端点连接与能力检测的自动化验收，见[SGLang补验记录](2026-09-16-sglang-smoke-synchronization.md)。它补齐特定端点的外部证据，不扩大为所有Provider或长稳通过。外部profile保留opt-in。
 
 ## Related records
 
-- [main 集成记录](../development/harness-main-integration-2026-09-16.md)
-- [Runtime 进程决定](../adr/0049-integrated-developer-runtimes.md)
+- [main 集成记录](../evidence/development/harness-main-integration-2026-09-16.md)
+- [Runtime 进程决定](../adr/runtime/001-execution-domains.md)
 - [本地基线与存储分阶段验证](2026-09-16-pre-hxa-baseline-regressions.md)

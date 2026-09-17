@@ -14,6 +14,32 @@ import org.junit.Test
  * run at all) is the one decision the reducer does not make.
  */
 class GoalDriverTest {
+    @Test
+    fun continuousPolicyAllowsServiceContinuationButNeverAmbientWake() {
+        val goal = pausedGoal()
+        assertTrue(
+            GoalDriver.admit(
+                goal,
+                GoalWakeReason.FOREGROUND_CONTINUATION,
+                GoalWakePolicy.FOREGROUND,
+            ) is GoalRunAdmission.Admitted,
+        )
+        assertTrue(
+            GoalDriver.admit(
+                goal,
+                GoalWakeReason.SCHEDULED_CHECKPOINT,
+                GoalWakePolicy.FOREGROUND,
+            ) is GoalRunAdmission.Rejected,
+        )
+        assertTrue(
+            GoalDriver.admit(
+                goal,
+                GoalWakeReason.CHANNEL_EVENT,
+                GoalWakePolicy.FOREGROUND,
+            ) is GoalRunAdmission.Rejected,
+        )
+    }
+
     // --- goal-state builders (kept out of GoalFixtures to avoid top-level name clashes) ---
 
     private fun readyGoal(budgets: GoalBudgets = GoalFixtures.budgets()): Goal =

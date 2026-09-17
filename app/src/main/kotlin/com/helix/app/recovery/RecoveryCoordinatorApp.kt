@@ -76,6 +76,15 @@ class RecoveryCoordinatorApp(
         val appliedTurns = mutableListOf<TurnApplied>()
         val appliedGoals = mutableListOf<GoalApplied>()
         storage.withTransaction {
+            storage.goalControls.allPending().forEach { control ->
+                check(storage.goalControls.settle(control.goalId, control.revision) == 1)
+                audit(
+                    storage.goals.resolve(control.goalId).correlationId,
+                    "goal.edit_interrupted",
+                    """{"revision":${control.revision}}""",
+                    now,
+                )
+            }
             plan.interruptedTurns.forEach { interrupt ->
                 appliedTurns += applyTurnInterruption(interrupt, now)
             }

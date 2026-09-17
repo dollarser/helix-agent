@@ -7,7 +7,7 @@ Affected modules: CLI journal, result protocol, subscription recovery UI
 
 ## Problem
 
-Unacknowledged terminal CLI results retained payloads indefinitely. ADR-0007 requires a thirty-day evidence limit followed by an evidence-expired marker, while prohibiting replay.
+Unacknowledged terminal CLI results retained payloads indefinitely. ADR-RUNTIME-001 requires a thirty-day evidence limit followed by an evidence-expired marker, while prohibiting replay.
 
 ## Impact
 
@@ -39,6 +39,6 @@ The expiry interval was accelerated by aging only the owned synthetic Job metada
 
 ## Related records
 
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Current TODO](../development/main-optimization-todo.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

@@ -55,6 +55,8 @@ data class TurnUi(
     val streamingText: String?,
     val errorLabel: String?,
     val retryable: Boolean,
+    val continueFromResults: Boolean = false,
+    val budgetDetail: String? = null,
 )
 
 /**

@@ -45,7 +45,7 @@ HXA-160记录的根级lintDebug命令确实成功，但日志没有App的flavor 
 
 这两个脚本仅修短测结果归档/判断，不是完整长稳runner，不宣称实现APK安装身份校验、72设备小时或EV-00～12验收。正式长稳仍需先按计划补齐夹具、冻结产物和pilot。
 
-决策记录：不适用；不改变ADR-0033、生产浏览器生命周期、权限、依赖或外部协议。
+决策记录：不适用；不改变ADR-PLATFORM-002、生产浏览器生命周期、权限、依赖或外部协议。
 
 最终设备验收：专用API29/WebView91与API36/WebView133各三次Autofill单例通过；完整浏览器各38项=36通过、2既有opt-in跳过、零失败；两API的ConversationComposer/ModeLayout/FilesScreen/MainActivity组合各11项通过、零skip。短测runner完整套件结果保留INCOMPLETE及精确skip身份，不伪造38项执行通过。
 

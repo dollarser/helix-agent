@@ -35,6 +35,6 @@ UI integration and process-kill windows remain open. This is process recovery gr
 
 ## Related records
 
-- [Result recovery gap](../development/proot-result-durable-recovery-gap.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
+- [Result recovery gap](../evidence/development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
 - [HXA-102](../completion-records/HXA-102.md)

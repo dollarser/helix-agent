@@ -45,4 +45,4 @@ API36 的 `FilesScreenTest.previewsTextFileWithHashInfo` 在完整套件和独�
 ## Related records
 
 - [HXA-180](../completion-records/HXA-180.md)
-- [文件管理决定](../adr/0041-manual-file-management-mutations.md)
+- [文件管理决定](../adr/workspace/002-manual-files-and-recovery.md)

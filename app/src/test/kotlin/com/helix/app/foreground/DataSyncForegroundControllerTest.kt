@@ -15,6 +15,39 @@ import java.util.concurrent.atomic.AtomicInteger
  * [DataSyncForegroundServiceDeviceTest]; these tests lock the decision against a recording fake.
  */
 class DataSyncForegroundControllerTest {
+    @Test
+    fun servicePromotionRefusalUsesTheSameStopBoundary() {
+        var rejected = 0
+        assertFalse(tryForegroundStart({ throw SecurityException("fixture") }, { rejected++ }))
+        assertFalse(tryForegroundStart({ error("fixture quota") }, { rejected++ }))
+        assertTrue(tryForegroundStart({}, { rejected++ }))
+        assertEquals(2, rejected)
+    }
+
+    @Test
+    fun systemRefusalCancelsOnceAndDoesNotSpinUntilWorkBecomesIdle() {
+        val starts = AtomicInteger()
+        val failures = AtomicInteger()
+        val launcher =
+            object : ForegroundServiceLauncher {
+                override fun start() {
+                    starts.incrementAndGet()
+                    error("background start refused")
+                }
+
+                override fun stop() = Unit
+            }
+        val controller = DataSyncForegroundController(launcher) { failures.incrementAndGet() }
+        controller.onTurnState(TurnState.WAITING_MODEL)
+        controller.onTurnState(TurnState.RECEIVING_MODEL)
+        assertEquals(1, starts.get())
+        assertEquals(1, failures.get())
+        controller.onTurnState(null)
+        controller.onTurnState(TurnState.BUILDING_CONTEXT)
+        assertEquals(2, starts.get())
+        assertEquals(2, failures.get())
+    }
+
     private class RecordingLauncher : ForegroundServiceLauncher {
         val starts = AtomicInteger()
         val stops = AtomicInteger()

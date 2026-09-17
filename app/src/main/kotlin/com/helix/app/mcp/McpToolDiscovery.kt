@@ -25,6 +25,12 @@ import kotlin.time.Duration.Companion.seconds
 /** Exposure cache only: discovery cannot register remote tools or authorize their execution. */
 internal class McpToolDiscovery(
     private val registry: ToolRegistry,
+    /**
+     * HXA-209 B3: the shared disabled-tool predicate (ADR section 1.1) — the SAME instance the
+     * model schema and the execution entry use, so a disable is removed from search and the
+     * loaded window at the same moment it is refused at the dispatcher.
+     */
+    private val availability: (sessionId: String, descriptor: ToolDescriptor) -> Boolean = { _, _ -> true },
 ) {
     private val loaded = LinkedHashMap<String, List<ToolDescriptor>>(16, 0.75f, true)
 
@@ -41,6 +47,7 @@ internal class McpToolDiscovery(
             latest()
                 .filter { descriptor ->
                     descriptor.origin is ToolOrigin.McpOrigin &&
+                        availability(sessionId, descriptor) &&
                         words.all {
                             it in "${descriptor.name.value} ${descriptor.description}".lowercase()
                         }
@@ -57,10 +64,12 @@ internal class McpToolDiscovery(
         sessionId: String,
         admitted: List<ToolDescriptor>,
     ): List<ToolDescriptor> {
-        val selected = loaded[sessionId].orEmpty().filter { it in admitted }
+        val selected = loaded[sessionId].orEmpty().filter { it in admitted && availability(sessionId, it) }
         loaded[sessionId]?.let { loaded[sessionId] = selected }
-        val mcp = admitted.filter { it.origin is ToolOrigin.McpOrigin }
-        val local = admitted.filter { it.origin !is ToolOrigin.McpOrigin }
+        // A disable that landed while a tool was in the session window removes it here too —
+        // the window replacement re-reads the same shared predicate (ADR section 1.1).
+        val mcp = admitted.filter { it.origin is ToolOrigin.McpOrigin && availability(sessionId, it) }
+        val local = admitted.filter { it.origin !is ToolOrigin.McpOrigin && availability(sessionId, it) }
         val discovery = local.filter { it.name.value == "tools.search" }
         // ChatService truncates this list to the model limit. Keep discovery and its
         // current results reachable even when other admitted tools fill that budget.

@@ -5,6 +5,147 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
     /**
+     * v21 -> v22 (HXA-209 D, ADR-PERMISSIONS-001 section 4): adds `session_permission_drafts` —
+     * the per-session CUSTOM permission draft, kept SEPARATE from `session_permission_configs` so
+     * a switch to a preset leaves the user's copied-then-edited snapshot INACTIVE (not deleted)
+     * and re-selecting CUSTOM restores it. Additive and EMPTY on upgrade: no draft rows are
+     * seeded (a session has no custom snapshot until the user makes one). The single foreign key
+     * cascades with the session. API 29 SQLite 3.22 — a plain CREATE TABLE, no upsert.
+     */
+    val MIGRATION_21_22 =
+        object : Migration(21, 22) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_drafts` (" +
+                        "`sessionId` TEXT NOT NULL, " +
+                        "`sourcePreset` TEXT NOT NULL, " +
+                        "`rulesJson` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sessionId`), " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE)",
+                )
+            }
+        }
+
+    /**
+     * v20 -> v21 (HXA-209 B4, ADR-PERMISSIONS-001 section 4): drops the three legacy HXA-200
+     * tables — `tool_approval_preferences`, `tool_registration_baseline` and
+     * `tool_baseline_meta`. Their only row conversion (old DENY -> `tool_availability`
+     * DISABLED) already ran in [MIGRATION_19_20]; the remaining ASK/ALLOW rows and the
+     * new-tool baseline markers carry no state in the two-state model, so they are dropped
+     * without conversion. No hidden compatibility mode: the code no longer reads any of
+     * these tables after this step.
+     */
+    val MIGRATION_20_21 =
+        object : Migration(20, 21) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `tool_approval_preferences`")
+                db.execSQL("DROP TABLE IF EXISTS `tool_registration_baseline`")
+                db.execSQL("DROP TABLE IF EXISTS `tool_baseline_meta`")
+            }
+        }
+
+    /**
+     * v19 -> v20 (HXA-209 B2, ADR-PERMISSIONS-001): the new session-permission storage. Adds
+     * `session_permission_configs` (one compiled [SessionPermissionConfig] per session — a
+     * LAZY default: no per-session rows are seeded, a missing row means the session uses the
+     * app default), `tool_availability` (the two-state tool availability per identity + scope,
+     * replacing the old three-state preference model at its scope), and the single-row
+     * `session_permission_defaults` (seeded READ_ONLY: the app default on an upgraded install
+     * is the safest preset, ADR section 1).
+     *
+     * The ONLY row conversion: every old `tool_approval_preferences` row with
+     * `preference = 'DENY'` becomes a `tool_availability` row with state `DISABLED` at the same
+     * scope (a denied tool is an unavailable tool). ASK/ALLOW rows carry no availability state
+     * and are NOT converted. The old table's unique index on (sourceRef, toolName, scopeKind,
+     * scopeRef) guarantees the selected keys are distinct, so a plain INSERT OR IGNORE is
+     * collision-safe (API 29 SQLite 3.22 has no UPSERT). The old `tool_approval_preferences`
+     * table is dropped by [MIGRATION_20_21] (HXA-209 B4).
+     */
+    val MIGRATION_19_20 =
+        object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_configs` (" +
+                        "`sessionId` TEXT NOT NULL, " +
+                        "`mode` TEXT NOT NULL, " +
+                        "`rulesJson` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sessionId`), " +
+                        "FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `tool_availability` (" +
+                        "`sourceRef` TEXT NOT NULL, " +
+                        "`toolName` TEXT NOT NULL, " +
+                        "`scopeKind` TEXT NOT NULL, " +
+                        "`scopeRef` TEXT NOT NULL, " +
+                        "`state` TEXT NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`createdAtEpoch` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`sourceRef`, `toolName`, `scopeKind`, `scopeRef`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_tool_availability_tool` " +
+                        "ON `tool_availability` (`sourceRef`, `toolName`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `session_permission_defaults` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`mode` TEXT NOT NULL, " +
+                        "`configVersion` INTEGER NOT NULL, " +
+                        "`revision` INTEGER NOT NULL, " +
+                        "`updatedAtEpoch` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`))",
+                )
+                db.execSQL(
+                    "INSERT OR IGNORE INTO `tool_availability` " +
+                        "(`sourceRef`, `toolName`, `scopeKind`, `scopeRef`, `state`, `revision`, " +
+                        "`createdAtEpoch`, `updatedAtEpoch`) " +
+                        "SELECT `sourceRef`, `toolName`, `scopeKind`, `scopeRef`, 'DISABLED', 1, " +
+                        "`createdAtEpoch`, `updatedAtEpoch` " +
+                        "FROM `tool_approval_preferences` WHERE `preference` = 'DENY'",
+                )
+                db.execSQL(
+                    "INSERT INTO `session_permission_defaults` " +
+                        "(`id`, `mode`, `configVersion`, `revision`, `updatedAtEpoch`) " +
+                        "VALUES ('app', 'READ_ONLY', 1, 0, 0)",
+                )
+            }
+        }
+
+    val MIGRATION_18_19 =
+        object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `goal_controls` (`goalId` TEXT NOT NULL, " +
+                        "`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, " +
+                        "`pendingTurnId` TEXT, `pendingJson` TEXT, " +
+                        "PRIMARY KEY(`goalId`), FOREIGN KEY(`goalId`) REFERENCES `goals`(`id`) ON UPDATE NO ACTION " +
+                        "ON DELETE CASCADE, FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_goal_controls_sessionId` ON `goal_controls` (`sessionId`)",
+                )
+                db.execSQL(
+                    "INSERT INTO goal_controls(goalId,sessionId,revision,pendingTurnId,pendingJson) " +
+                        "SELECT r.goalId, MIN(t.sessionId), 0, NULL, NULL FROM goal_runs r " +
+                        "JOIN goal_turn_bindings b ON b.runId=r.id JOIN turns t ON t.id=b.turnId " +
+                        "GROUP BY r.goalId HAVING COUNT(DISTINCT t.sessionId)=1",
+                )
+            }
+        }
+
+    /**
      * v17 -> v18 (HXA-200 Gap 2, ADR-0052 point 1; 2026-09-15 mechanism addendum): adds the trusted
      * tool-registration/upgrade baseline — `tool_registration_baseline` (one row per trusted tool
      * identity, its `firstSeenVersionCode`) and `tool_baseline_meta` (the single-row
@@ -39,8 +180,7 @@ internal object HelixMigrations {
      * `tool_approval_preferences` table — one standing user setting per (tool identity, scope),
      * written only by the user application service, never the model/Skill/MCP/A2A. Additive and
      * empty on upgrade: no ALLOW rows are seeded, so an unconfigured user keeps their original
-     * behavior (ADR-0052 point 1). Mirrors the canonical Room v17 DDL for
-     * [ToolApprovalPreferenceEntity]; the table has no foreign keys (a preference is keyed by the
+     * behavior (ADR-0052 point 1). The table has no foreign keys (a preference is keyed by the
      * stable tool source + name, not a relation to a session/turn/tool-call) and the unique index
      * makes "reset to default" a delete, not a fourth state (point 5).
      */

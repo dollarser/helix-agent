@@ -37,5 +37,5 @@ The injected exception follows actual publication but is not a device SIGKILL or
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

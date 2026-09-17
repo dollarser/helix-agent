@@ -42,5 +42,5 @@ Affected modules: app
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [main 验证报告](../development/main-merged-verification.md)
-- [ADR-0028](../adr/0028-goal-criterion-verification-bindings.md)
+- [main 验证报告](../evidence/development/main-merged-verification.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)

@@ -1,7 +1,6 @@
 package com.helix.app.agent
 
 import com.helix.core.agent.PromptSnapshot
-import com.helix.core.agent.TokenEstimator
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.ModelToolSchema
@@ -32,29 +31,5 @@ internal data class ChatContextRequest(
             reasoning = reasoning,
         )
 
-    fun inputTokens(): Long =
-        TokenEstimator.estimateTokens(
-            messages.sumOf { message ->
-                message.text
-                    .toByteArray()
-                    .size
-                    .toLong() +
-                    message.toolCalls.sumOf {
-                        it.argumentsJson
-                            .toByteArray()
-                            .size
-                            .toLong()
-                    }
-            } +
-                tools.sumOf {
-                    it.description
-                        .toByteArray()
-                        .size
-                        .toLong() +
-                        it.inputSchemaJson
-                            .toByteArray()
-                            .size
-                            .toLong()
-                },
-        ) + messages.size * 16L + tools.size * 32L + messages.sumOf { it.images.size * 2048L }
+    fun inputTokens(): Long = ModelInputEstimate.of(messages, tools).total
 }

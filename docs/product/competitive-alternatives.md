@@ -43,7 +43,7 @@ Termux 路线的优势是能力上限高、现有 CLI 生态可直接利用；�
 - `termux-setup-storage`、All-files、Termux:API、PRoot bind mount 等能力容易汇聚到同一长寿命环境；
 - OAuth/API Key 通常由各 CLI 自持，跨 CLI 搬运 token 不应成为集成方案。
 
-Helix 的 E2C 当前采用独立 UID 的第三方订阅协议适配实验，并非在 Android 完整运行官方 CLI；凭据由 Runtime 自持，主 App 通过有界协议使用模型服务。官方 CLI 路线受平台可行性限制，现行决定见 [ADR-0021](../adr/0021-third-party-subscription-protocol-adapter.md)。订阅登录、实际模型调用、服务商支持与商店分发是不同证据，不能互相替代。
+Helix 的 E2C 当前采用独立 UID 的第三方订阅协议适配实验，并非在 Android 完整运行官方 CLI；凭据由 Runtime 自持，主 App 通过有界协议使用模型服务。官方 CLI 路线受平台可行性限制，现行决定见 [ADR-PROVIDER-002](../adr/provider/002-subscription-adapters.md)。订阅登录、实际模型调用、服务商支持与商店分发是不同证据，不能互相替代。
 
 Termux 与 PRoot 也不能作为同类产品直接二选一：Termux 是原生 Android 命令行环境、终端和包生态，不能与底层兼容工具直接比较用户量；PRoot 是可嵌入独立 Runtime 的 Linux RootFS 兼容层，系统调用拦截可能增加文件密集任务开销，具体性能需同机测量，且自身不提供安全隔离。对 Helix，外部 Termux 更适合研发 Spike/专家自带环境，正式 E2 路线仍采用固定资产、无网、独立 UID 的 PRoot companion；常用能力优先 E0 原生 Tool，避免为所有任务支付 PRoot 开销。完整功能、社区、用户量、性能、许可证和集成路径比较见[本地代码执行方案 §6.2](../architecture/local-code-execution.md#62-termux-与-proot-对比及集成结论)。
 

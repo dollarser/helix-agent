@@ -37,6 +37,6 @@ The model is scripted and recovery controls are rendered in a Compose fixture us
 
 ## Related records
 
-- [Recovery work](../development/proot-result-durable-recovery-gap.md)
+- [Recovery work](../evidence/development/proot-result-durable-recovery-gap.md)
 - [ACK response loss](2026-09-07-proot-recovery-ack-loss-hid-local-result.md)
-- [Goal semantics](../adr/0004-goal-run-wake-budget-semantics.md)
+- [Goal semantics](../adr/goal/001-lifecycle-and-completion.md)

@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +20,7 @@ import com.helix.app.goal.GoalReminderPublication
 import com.helix.app.goal.GoalReminderScheduler
 import com.helix.app.goal.GoalReminderWorker
 import com.helix.app.goal.ensureReminderChannel
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.agent.Checkpoint
 import kotlinx.coroutines.awaitCancellation
 import org.junit.Assert.assertFalse
@@ -32,7 +34,7 @@ import java.util.concurrent.TimeUnit
 
 /** Real WorkManager state and NotificationManager effects with a deliberately late publication actor. */
 @RunWith(AndroidJUnit4::class)
-class GoalReminderPublicationDeviceTest {
+class GoalReminderPublicationDeviceTest : ForegroundDeviceTestHost() {
     @Test
     fun cancelledWorkCannotPublishFromALateActor() =
         withFixture { fixture ->
@@ -105,7 +107,9 @@ class GoalReminderPublicationDeviceTest {
         val request = OneTimeWorkRequestBuilder<ReminderPublicationWaitingWorker>().build()
 
         fun start() {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
                 InstrumentationRegistry
                     .getInstrumentation()
                     .uiAutomation

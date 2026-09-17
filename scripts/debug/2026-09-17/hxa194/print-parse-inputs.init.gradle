@@ -1,0 +1,14 @@
+gradle.projectsEvaluated {
+    def app = rootProject.project(':app')
+    def t = app.tasks.findByName('parseDeveloperDebugLocalResources')
+    if (t != null) {
+        t.doFirst {
+            def f = rootProject.file('build/hxa194-parse-inputs.txt')
+            f.text = ''
+            t.inputs.files.each { fi ->
+                fi.eachFile { ff -> f.append(ff.absolutePath + '\n') }
+            }
+            logger.lifecycle('PARSE_INPUT_DUMP_DONE')
+        }
+    }
+}

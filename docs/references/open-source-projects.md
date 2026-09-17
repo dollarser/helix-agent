@@ -229,7 +229,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 | 小而稳定的工具集合、扩展协议 | M3 Tool Registry/Policy/Approval；M7 MCP/A2A/Skills；扩展描述、Agent Card 和远端结果永远不能授权 |
 | repo map、渐进上下文和可复现编辑 | HXA-016 Context Builder + M4 Workspace；确定性裁剪、ArtifactRef、scope 与原子写后验证 |
 | diff/审批/测试反馈闭环 | HXA-034～036 approval proof/timeline；Dispatcher 变更后 verifier；verification matrix 的真实命令 |
-| session checkpoint、恢复和去重 | Turn/Goal/Room + ADR-0004；不明确副作用停泊；PRoot/CLI 使用 ADR-0007 jobId journal |
+| session checkpoint、恢复和去重 | Turn/Goal/Room + ADR-GOAL-001；不明确副作用停泊；PRoot/CLI 使用 ADR-RUNTIME-001 jobId journal |
 | 可插拔架构与 invariants | 只在编译期/注册表内采用强类型 adapter；运行时插件、MCP annotation、Skill 指令不能改变 Policy |
 
 采用上述项目的代码、协议包或登录方式仍会触发第 8 节依赖审查；改变 Helix 安全/IPC/持久化/扩展边界时仍必须按 ADR 约定决策。“参考过某 Agent”不是跳过当前 HXA、测试或授权的理由。

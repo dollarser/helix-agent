@@ -1,0 +1,23 @@
+// Narrows the root spotless "kotlin" format to the HXA-209 C files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices are left untouched. (Grows as Phase C
+// files are added; the Phase C commit includes this script.)
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt',
+        'app/src/main/kotlin/com/helix/app/approval/SessionPermissionService.kt',
+        'app/src/test/kotlin/com/helix/app/approval/SessionPermissionServiceAvailabilityTest.kt',
+        'app/src/test/kotlin/com/helix/app/tool/SessionToolEffectClassifierTest.kt',
+        'app/src/testDeveloper/kotlin/com/helix/app/proot/LinuxSessionPermissionRecheckTest.kt',
+        'app/src/developer/kotlin/com/helix/app/proot/LinuxSessionPermissionRecheck.kt',
+        'app/src/developer/kotlin/com/helix/app/proot/LinuxJobExecution.kt',
+        'app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt',
+        'app/src/developer/kotlin/com/helix/app/proot/ProotJobBindingStore.kt',
+        'app/src/developer/kotlin/com/helix/app/proot/ProotToolModule.kt',
+    )
+}

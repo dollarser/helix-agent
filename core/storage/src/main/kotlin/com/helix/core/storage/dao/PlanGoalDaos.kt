@@ -63,6 +63,12 @@ interface PlanDao {
 
 @Dao
 interface GoalDao {
+    @Query("UPDATE goals SET objective = :objective WHERE id = :id")
+    fun updateObjective(
+        id: String,
+        objective: String,
+    ): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(goal: GoalEntity)
 

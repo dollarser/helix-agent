@@ -51,4 +51,4 @@ Android 10 用户无法可靠扫描或导入本地 Skill；即使已有 Skill �
 
 - [HXA-076 完成记录](../completion-records/HXA-076.md)
 - [此前同类 API 29 Java 方法缺陷](2026-09-03-jvm-stdlib-calls-missing-on-api29.md)
-- [M7 合并与验证进展](../development/m7-non-device-progress.md)
+- [M7 合并与验证进展](../evidence/development/m7-non-device-progress.md)

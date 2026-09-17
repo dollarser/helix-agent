@@ -48,4 +48,4 @@ Debug 组件不进入 Release；普通 suite 的 host-only 验证使用显式 ph
 ## Related records
 
 - [HXA-104](../completion-records/HXA-104.md)
-- [M10 收尾跟进](../development/m10-closure-followup.md)
+- [M10 收尾跟进](../evidence/development/m10-closure-followup.md)

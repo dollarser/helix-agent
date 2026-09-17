@@ -62,5 +62,5 @@ HXA-069 建立国际化门禁时，MCP/A2A production UI 尚未合入；扫描�
 ## Related records
 
 - [HXA-069 完成记录](../completion-records/HXA-069.md)
-- [M7 合并与验证进展](../development/m7-non-device-progress.md)
-- [Provider、MCP、A2A、Skills 和模式方案](../architecture/provider-mcp-skills-modes.md)
+- [M7 合并与验证进展](../evidence/development/m7-non-device-progress.md)
+- [Provider、MCP、A2A、Skills 和模式方案](../architecture/providers.md)

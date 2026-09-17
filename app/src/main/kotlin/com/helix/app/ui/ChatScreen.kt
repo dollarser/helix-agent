@@ -8,14 +8,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.chat.ChatService
 import com.helix.app.provider.ProviderService
-import kotlinx.coroutines.launch
 
 /**
  * The chat UI (HXA-028). Two views over the service's observable state:
@@ -39,9 +37,8 @@ fun ChatScreen(
     fileManager: com.helix.app.files.FileManagerService? = null,
     onNavigation: () -> Unit = {},
     onProviders: () -> Unit = {},
-    toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel? = null,
+    onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 ) {
-    var preferenceNotice by remember { mutableStateOf<Int?>(null) }
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
     val profile by chatService.profile.collectAsStateWithLifecycle()
@@ -53,9 +50,6 @@ fun ChatScreen(
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
-    // HXA-201: the approval card's "save future preference" write is suspend (it hops to the
-    // IO dispatcher; Room forbids the main thread) — launch from the composition's scope.
-    val scope = rememberCoroutineScope()
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
     LaunchedEffect(screen.openSessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
@@ -75,13 +69,6 @@ fun ChatScreen(
             .imePadding()
             .testTag("screen-sessions"),
     ) {
-        preferenceNotice?.let {
-            androidx.compose.material3.Text(
-                androidx.compose.ui.res
-                    .stringResource(it),
-                modifier = Modifier.testTag("chat-preference-save-notice"),
-            )
-        }
         if (screen.openSessionId == null) {
             SessionListSection(
                 sessions = sessions,
@@ -122,19 +109,6 @@ fun ChatScreen(
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
-                        onSaveFuturePreference = { card, preference ->
-                            scope.launch {
-                                preferenceNotice =
-                                    savePreferenceNotice {
-                                        toolApprovalSettings?.setPreferenceFor(
-                                            card.sourceRef,
-                                            card.toolName,
-                                            preference,
-                                            card.contractHash,
-                                        )
-                                    }
-                            }
-                        },
                         onStageAttachment = { chatService.stageAttachment(it) },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
                         onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
@@ -147,6 +121,7 @@ fun ChatScreen(
                         onRetryProotAck = chatService::retryProotAcknowledgement,
                         onInspectSubscription = chatService::inspectInterruptedSubscription,
                         onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
+                        onOpenCommandDetail = onOpenCommandDetail,
                     ),
             )
         }

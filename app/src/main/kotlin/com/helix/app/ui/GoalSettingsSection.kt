@@ -101,7 +101,7 @@ internal fun GoalSettingsSection(
             if (row == null) {
                 store.setGoalBudgets(budgets)
             } else {
-                check(requireNotNull(service).updateGoalBudgets(row.id, budgets))
+                check(requireNotNull(service).updateGoalBudgets(row.id, budgets, row.revision))
             }
             open = false
             revision++

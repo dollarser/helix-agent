@@ -51,7 +51,7 @@ WebView client 未实现 `onRenderProcessGone`；destroy 路径还创建了无 h
 ## Regression verification
 
 `CodeJavascriptRunDeviceTest` 的四项失败在修复后 consumer/API 36、developer/API 29
-均通过；最终完整矩阵见 [本轮验证报告](../development/main-merged-verification.md)。
+均通过；最终完整矩阵见 [本轮验证报告](../evidence/development/main-merged-verification.md)。
 `ImageNormalizerDeviceTest.oversizedEncodedPngUsesTheDownscaleLadder` 使用固定随机图片，
 先证明旧代码 BUDGET_EXCEEDED，再在 API 29/36 证明缩图后成功；另两项覆盖 WebP 与 EXIF。
 `BrowserSecurityDeviceTest` 在 API 29/36 实际终止 renderer 并验证 retry 使用新 view。
@@ -67,4 +67,4 @@ WebView client 未实现 `onRenderProcessGone`；destroy 路径还创建了无 h
 - [HXA-053](../completion-records/HXA-053.md)
 - [HXA-055](../completion-records/HXA-055.md)
 - [HXA-103](../completion-records/HXA-103.md)
-- [main 合并后全量验证](../development/main-merged-verification.md)
+- [main 合并后全量验证](../evidence/development/main-merged-verification.md)

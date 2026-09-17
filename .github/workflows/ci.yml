@@ -28,6 +28,10 @@ jobs:
           java-version: "17"
       - name: Configure Android SDK for the JVM asset gate
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+        with:
+          # The action defaults to the retired `tools` package. This job needs
+          # only sdkmanager; install the specific platform below.
+          packages: ""
       - name: Install asset build tools
         run: |
           sudo apt-get update
@@ -81,11 +85,28 @@ jobs:
 
       - name: Configure Android SDK
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1 (node24)
+        with:
+          # Keep package installation explicit in the next step; never request
+          # the action's legacy `tools` default.
+          packages: ""
 
-      - name: Install Android platform
+      - name: Install Android platform and native toolchain
         # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
         # verify-variant-boundaries.sh on a cold runner.
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" "cmdline-tools;latest"
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" \
+            "cmdline-tools;latest" "ndk;28.2.13676358" "cmake;3.31.6"
+          "$ANDROID_HOME/cmake/3.31.6/bin/cmake" --version
+          test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"
+
+      - name: Install repository validation tools
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            brew install ripgrep
+          fi
+          rg --version
 
       - name: Verify source contracts
         run: ./scripts/check-all.sh --source

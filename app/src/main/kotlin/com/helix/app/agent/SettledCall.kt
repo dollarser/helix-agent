@@ -12,4 +12,5 @@ internal data class SettledCall(
     val callId: String,
     val toolName: String,
     val outcome: ToolDispatchOutcome,
+    val resultReference: String? = null,
 )

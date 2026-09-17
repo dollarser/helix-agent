@@ -32,7 +32,7 @@ Related HXA: HXA-190
 | PRoot 输出 pump 未结束即生成成功结果 | 存在。capture 发布后不可再变更，只有实际 EOF 才是完整输出；读取失败/未结束不能落 SUCCEEDED，仍存活的管道所属进程组终止。未证明所有 OEM 的 kill/pipe 时延已解决。 |
 | 明文密码字段漏判 | 成立于 type=text 且 name/placeholder 明示 password/passwd/密码。主机与 live JS 同步分类，快照不读取这些字段值；普通 password 链接和邮编框不因此拒绝。启发式不是任意页面敏感性识别的完备证明。 |
 | share 与正在物化的 draft 竞争 | share 等待当前 preparation 结束再切换，不丢弃 incoming share。 |
-| GoalReducer 旧 verifier 注释 | 成立。按 ADR-0040 更正；不修改完成/预算/Continue 语义。 |
+| GoalReducer 旧 verifier 注释 | 成立。按 ADR-GOAL-001 更正；不修改完成/预算/Continue 语义。 |
 
 ## Alternatives considered
 
@@ -42,7 +42,7 @@ Related HXA: HXA-190
 | TurnReducer 零调用意味着删掉或生产跑错 | 两者不能由该事实推出。BatchTurnRuntime KDoc 明确说明串行 M1 reducer 与生产并发 batch 不同；本轮不删历史测试、不替换状态机。 |
 | app 行数/导入 storage 就是 P1 | 属于耦合与维护成本，行数没有容量上限；应用组合层使用 repository/entity 不自动违反模块依赖。职责与存储抽象迁移交给重构分支。 |
 | DAO 直接加 LIMIT | 不采用。会话和未决恢复记录不能静默截断；需按 checkpoint、稳定游标、工具配对设计分页并测大数据量。现有证据不足以声称发生 OOM。 |
-| 每步图片 hash 重验可省略 | 当前附件授权绑定要求每次发送/恢复前复验（ADR-0014）；缓存优化须证明文件变化能使缓存失效，不能直接移除。 |
+| 每步图片 hash 重验可省略 | 当前附件授权绑定要求每次发送/恢复前复验（ADR-AGENT-003）；缓存优化须证明文件变化能使缓存失效，不能直接移除。 |
 | SSE 没有边界测试 | 过度概括。ChatSseReaderTest、AnthropicSseReaderTest、ResponsesSseParserTest 与 Wire 测试存在。UTF-8 非法字节和 JSON 的 escaped surrogate 是不同问题；跨协议合并需先固定差异用例。 |
 | Long→Int 现在会回绕 | 当前 ToolDescriptor 强制输出上限 8 MiB，未成立；未来改变 cap 时再同步类型。 |
 | 孤儿审批卡 error 一定使 App 崩溃 | 未成立为直接崩溃结论。broker 在 cardSink 异常时清理 wait slot 并抛到执行边界；保持无法真实展示的卡不可批准。 |
@@ -69,4 +69,4 @@ PRoot watchdog 的 kill sweep 队头等待、线程池 close 后的完成时序�
 
 ## Related records
 
-参考：[Android ServiceConnection](https://developer.android.com/reference/android/content/ServiceConnection)、[ADR-0007](../adr/0007-companion-runtime-lifecycle.md)、[ADR-0040](../adr/0040-model-judged-goal-completion.md)。
+参考：[Android ServiceConnection](https://developer.android.com/reference/android/content/ServiceConnection)、[ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)、[ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)。

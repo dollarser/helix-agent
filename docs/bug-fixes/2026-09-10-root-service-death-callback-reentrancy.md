@@ -46,7 +46,7 @@ libsu 6.0.0 的连接清理在遍历 ArrayMap 时先通知断开，再由迭代�
 
 ## Related records
 
-- [原HXA-094任务](../development/roadmap.md#hxa-094-libsu-spike-与依赖审计)
-- [ADR-0019](../adr/0019-libsu-root-service-dependency.md)
+- [原HXA-094任务](../completion-records/HXA-094.md)
+- [ADR-RUNTIME-004](../adr/runtime/004-root-service.md)
 - [libsu RootServiceManager](https://github.com/topjohnwu/libsu/blob/6.0.0/service/src/main/java/com/topjohnwu/superuser/internal/RootServiceManager.java)
 - [libsu RootService Executor 接口](https://github.com/topjohnwu/libsu/blob/6.0.0/service/src/main/java/com/topjohnwu/superuser/ipc/RootService.java)

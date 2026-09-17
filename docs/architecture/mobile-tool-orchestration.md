@@ -7,7 +7,7 @@
 
 Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，但手机端的约束不同：内存、CPU、热量、电池、后台存活和网络费用都更紧，且 Android 权限、Accessibility、Root 与独立 Runtime 不能抽象成桌面 shell 的单一“sandbox level”。因此优先实现可证明的安全与恢复原语，而不是追求最大并发或 Agent 数量。
 
-本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 accepted [ADR-0009](../adr/0009-bounded-local-orchestration.md)决定。M7 的 A2A Client 是普通外部网络 ToolCall，不是内部 child/peer 编排；其边界由 accepted [ADR-0016](../adr/0016-a2a-client-interoperability.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
+本文件只定义推荐路线，不把未来功能写成当前实现。核心单 Agent Tool Loop 归 HXA-030～037；有界委托与声明式 Workflow 由 HXA-105 和 accepted [ADR-AGENT-004](../adr/agent/004-bounded-delegation.md)决定。M7 的 A2A Client 是普通外部网络 ToolCall，不是内部 child/peer 编排；其边界由 accepted [ADR-A2A-001](../adr/a2a/001-client-interoperability.md)决定。远程 Worker、云端任务舰队仍不在当前范围。
 
 ## 2. 采纳矩阵
 
@@ -20,16 +20,16 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | 分阶段 timing、decision source、correlation ID | **首版采纳** | 记录 queue/approval/execution/verification 时间和 Policy/User/Recovery 来源，不记录敏感正文 | HXA-035/037 |
 | 结构化用户提问与迟到 receipt 拒绝 | **采纳** | 问题绑定 turn/request/version；已取消、已回答或状态变化后的答复不生效；提问不代替审批 | HXA-036/037 |
 | 上下文预算、确定性截断/压缩 | **已选方向，继续强化** | 复用 Context Builder；只压缩已持久化内容，保留 hash/ref/trust，不能丢当前审批参数 | HXA-016/037/102 |
-| 持久 Goal、预算、检查点 | **已采纳** | 复用 ADR-0004；不再另造 ralph/无限自治循环 | HXA-013/015/102 |
-| 子 Agent 树、fork、完成回流 | **后期受限采纳** | 首版候选仅 Advanced 的只读委托：深度 1、并发 2、每 Turn 最多 4 个 child，共享父预算 | HXA-105 / ADR-0009 |
+| 持久 Goal、预算、检查点 | **已采纳** | 复用 ADR-GOAL-001；不再另造 ralph/无限自治循环 | HXA-013/015/102 |
+| 子 Agent 树、fork、完成回流 | **后期受限采纳** | 首版候选仅 Advanced 的只读委托：深度 1、并发 2、每 Turn 最多 4 个 child，共享父预算 | HXA-105 / ADR-AGENT-004 |
 | Agent 间任意通信、递归群体编排 | **不采纳首版** | 只允许 parent ↔ child 的结构化任务/结果，不开放 peer 消息和递归派生 | HXA-105 |
-| Workflow pipeline/parallel/phase | **只采纳声明式子集** | 若 Spike 成立，使用有版本 JSON DAG；节点仍经过 Dispatcher，不执行用户/模型提供的编排脚本 | HXA-105 / ADR-0009 |
+| Workflow pipeline/parallel/phase | **只采纳声明式子集** | 若 Spike 成立，使用有版本 JSON DAG；节点仍经过 Dispatcher，不执行用户/模型提供的编排脚本 | HXA-105 / ADR-AGENT-004 |
 | 可执行 JS/Starlark Policy/Workflow DSL | **不采纳** | Policy 使用封闭类型和代码审查过的规则；Skill/模型不能安装策略代码 | — |
 | self-modification/Agent 自挂插件 | **不采纳** | 扩展只能由用户导入并验证的 MCP/A2A/Skill 提供，不能修改安全内核或 Tool Registry 所有权 | — |
 | sandbox escalation retry | **不照搬** | 不因失败扩大 Android 权限、scope、网络或切换到低隔离 target；target/参数变化生成新审批。只允许零副作用、同 envelope、同/更强隔离的有界技术重试 | HXA-035/037 |
 | deferred network approval（先连接/发送后补批） | **禁止** | DNS/连接/发送前完成 origin、数据类别、scope 和审批；网络失败不能变成授权 | HXA-033/035/066 |
 | 本地创建云端任务、轮询并 apply diff | **当前不采纳** | 属于 Remote Worker/云端执行与数据出境，需未来新执行目标、威胁模型和 ADR | — |
-| A2A 外部 Agent Client | **M7 已接受，未实现** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力 | HXA-077～079 / ADR-0016 |
+| A2A 外部 Agent Client | **M7 已接受，未实现** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力 | HXA-077～079 / ADR-A2A-001 |
 | 跨会话 memories | **延后且默认关闭** | 必须用户可见、可删、按数据类别授权；Secret 与高敏原文不得自动沉淀 | future ADR |
 
 ## 3. 首版确定性 Tool Scheduler
@@ -62,7 +62,7 @@ data class EffectFootprint(
 - Scheduler 为每个调用保留独立 typed outcome 或异常原因；首个异常只用于 Turn 级传播，不能替其他槽位分类。无法证明未产生副作用的 contract throw 进入 `NEEDS_REVIEW`，同批或并发批次重复 `toolCallId` 在准入前失败关闭。
 - 内存压力、前后台切换或热限制可以降低并发到 1，但不能提高审批权限或改变结果顺序。
 
-生产聊天由 [ADR-0010](../adr/0010-batch-turn-coordinator.md)的唯一 application `TurnCoordinator` 持有当前 ModelCall/stream checkpoint 和 batch aggregate phase。模型工具步骤、固定顺序回填、下一 ModelCall 与 Turn 回环使用明确事务边界；外部 Tool 副作用不进入 Room transaction，也不因持久化失败盲目重放。
+生产聊天由 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md)的唯一 application `TurnCoordinator` 持有当前 ModelCall/stream checkpoint 和 batch aggregate phase。模型工具步骤、固定顺序回填、下一 ModelCall 与 Turn 回环使用明确事务边界；外部 Tool 副作用不进入 Room transaction，也不因持久化失败盲目重放。
 
 ### 3.3 Attempt 与重试
 
@@ -89,7 +89,7 @@ data class EffectFootprint(
 - 首版只有 parent → child 任务、parent → child cancel 和 child → parent structured result；不提供 peer-to-peer 消息、递归派生或后台无限续话。
 - Agent graph、状态、父子关系、预算占用和 completion result 持久化。完成消息带 source/trust/hash/evidence refs，不能把 child 自述当 verifier 证据。
 
-ADR-0009 已接受架构约束；这部分生产实现须先明确独立 HXA 范围，并通过 ADR 的生产启用门禁；不得因为参考工具已有 subagent API 就提前加入普通 Agent 工具表。
+ADR-AGENT-004 已接受架构约束；这部分生产实现须先明确独立 HXA 范围，并通过 ADR 的生产启用门禁；不得因为参考工具已有 subagent API 就提前加入普通 Agent 工具表。
 
 ## 6. 声明式 Workflow（后期候选）
 
@@ -99,7 +99,7 @@ ADR-0009 已接受架构约束；这部分生产实现须先明确独立 HXA 范
 
 ## 7. 发布阻断条件
 
-- 任一 L2/L3 调用在没有对应 Approval Proof 时执行。
+- 任一调用未经当前规则授权而执行，或需要询问的调用未取得精确 Approval Proof 就执行。
 - 并行结果按完成顺序而非模型 call sequence 进入上下文，导致同一 fixture 非确定。
 - 未启动调用在取消/崩溃后消失，或恢复时被自动重放。
 - 调度失败后回退到更低隔离执行域，或自动扩大权限/scope/origin。

@@ -38,5 +38,5 @@ The fixture creates persisted failed/review state; it is not a full Goal failure
 ## Related records
 
 - [Runtime transfer classification](2026-09-07-proot-transfer-failure-discarded-terminal-success.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Recovery work](../development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Recovery work](../evidence/development/proot-result-durable-recovery-gap.md)

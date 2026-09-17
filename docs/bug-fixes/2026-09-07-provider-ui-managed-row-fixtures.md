@@ -39,6 +39,6 @@ SGLang/Ollama UI callers compile with the new helper; their real-service UI beha
 
 ## Related records
 
-- [Main verification](../development/main-merged-verification.md)
-- [Current TODO](../development/main-optimization-todo.md)
+- [Main verification](../evidence/development/main-merged-verification.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

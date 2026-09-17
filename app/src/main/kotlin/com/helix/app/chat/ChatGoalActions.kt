@@ -70,8 +70,9 @@ internal class ChatGoalActions(
     suspend fun updateGoalBudgets(
         goalId: String,
         budgets: com.helix.core.model.GoalBudgets,
+        expectedRevision: Long? = null,
     ): Boolean =
         kotlinx.coroutines.withContext(Dispatchers.IO) {
-            GoalRunCoordinator(storage, clock, idGenerator).updateBudgets(goalId, budgets)
+            GoalRunCoordinator(storage, clock, idGenerator).updateBudgets(goalId, budgets, expectedRevision)
         }
 }

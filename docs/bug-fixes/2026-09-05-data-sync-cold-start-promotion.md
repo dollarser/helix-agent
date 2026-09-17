@@ -36,4 +36,4 @@ DataSyncForegroundServiceDeviceTest.rapidStartAndStopDoesNotLeaveAPendingForegro
 ## Related records
 
 - [HXA-066](../completion-records/HXA-066.md)
-- [main 验证报告](../development/main-merged-verification.md)
+- [main 验证报告](../evidence/development/main-merged-verification.md)

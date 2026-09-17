@@ -18,7 +18,7 @@ Status: completed
 
 ## 机制替换
 
-决策记录：按所有者“按主流机制实现，完全抛弃旧方案”的授权，接受 [ADR-0040](../adr/0040-model-judged-goal-completion.md)，替代 ADR-0028 的全局强制绑定验证。模型通过内置 `goal.report(status, summary)` 报告 complete / in_progress / blocked；语义完成由模型判断，Harness 负责当前 Goal/Turn 归属、合法执行、持久化及正常结算。模型报告会误判，不把完成标记宣传为独立认证。
+决策记录：按所有者“按主流机制实现，完全抛弃旧方案”的授权，接受 [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)，替代 ADR-GOAL-001 的全局强制绑定验证。模型通过内置 `goal.report(status, summary)` 报告 complete / in_progress / blocked；语义完成由模型判断，Harness 负责当前 Goal/Turn 归属、合法执行、持久化及正常结算。模型报告会误判，不把完成标记宣传为独立认证。
 
 正常 Turn 结束时，仅消费当前轮最后一项工具调用中的成功、已验证报告；后续工具会使较早报告失效。取消、用户暂停、预算中止和未决副作用优先。无报告或 in_progress 保持 PAUSED，可继续；blocked 保留原因，修复后显式重新检查转 PAUSED。裸文本“完成”不是控制信号。Goal 指令从当前持久绑定重新组装，压缩后仍可用。
 
@@ -65,7 +65,7 @@ git diff --check
 - 旧验证器移除产生的未使用资源/残留测试同步清理；旧“必须填写条件”断言按可选补充要求的新契约替换。
 - 扩大设备回归发现后台列表在 Goal 删除中途分次读取 run，可能崩溃；任务和 Goal 摘要改为事务快照，增加并发读取/删除回归。
 - 相同 startedAt 的多个 run 以前选中第一条；现在按 DAO 的 startedAt,rowid 顺序取最后一条，覆盖旧报告不跨轮与最新上下文阻塞优先。
-- 旧 wake 时间预算测试仍期待 PAUSED，按 ADR-0039 的预算 BLOCKED 契约修正，同时保留 socket 关闭、用量和无重放断言。
+- 旧 wake 时间预算测试仍期待 PAUSED，按 ADR-GOAL-001 的预算 BLOCKED 契约修正，同时保留 socket 关闭、用量和无重放断言。
 - API29 的后台 UI 夹具只等待 Turn 落盘便点击结果，偶发早于任务列表发布；改为等待该任务终态出现在 UI 数据流，再执行点击。未放宽产品断言或使用固定延时。
 
 ## 交付边界
@@ -73,9 +73,9 @@ git diff --check
 修改位于 phone-chat-polish 工作树，尚未提交、合入 main、推送或安装真机。系统 JNI/Binder 根因、多天长稳和外部账号验收保持原有独立状态，本记录不声明它们完成。
 '''
 Path('docs/completion-records/HXA-178.md').write_text(record)
-p=Path('docs/development/status.md');s=p.read_text().replace('HXA-178 进行中：按所有者明确要求以模型报告替换强制 Goal 证据验证，见 ADR-0040。','无。HXA-178 已完成：模型报告替换强制 Goal 证据验证；主机门禁、双 API 回归、迁移与真实模型通过，见 [完成记录](../completion-records/HXA-178.md)。').replace('本批授权 HXA-173～177 已完成','本批授权 HXA-173～178 已完成').replace('HXA-161～177 尚未提交','HXA-161～178 尚未提交');p.write_text(s)
-p=Path('docs/development/roadmap.md');s=p.read_text().replace('状态：in progress。允许 app、core/model、core/agent、core/storage、相关测试、docs、scripts/debug。完全替代 ADR-0028','状态：completed，见 [完成记录](../completion-records/HXA-178.md)。允许 app、core/model、core/agent、core/storage、相关测试、docs、scripts/debug。完全替代 ADR-0028');p.write_text(s)
+p=Path('docs/development/status.md');s=p.read_text().replace('HXA-178 进行中：按所有者明确要求以模型报告替换强制 Goal 证据验证，见 ADR-GOAL-001。','无。HXA-178 已完成：模型报告替换强制 Goal 证据验证；主机门禁、双 API 回归、迁移与真实模型通过，见 [完成记录](../completion-records/HXA-178.md)。').replace('本批授权 HXA-173～177 已完成','本批授权 HXA-173～178 已完成').replace('HXA-161～177 尚未提交','HXA-161～178 尚未提交');p.write_text(s)
+p=Path('docs/development/roadmap.md');s=p.read_text().replace('状态：in progress。允许 app、core/model、core/agent、core/storage、相关测试、docs、scripts/debug。完全替代 ADR-GOAL-001','状态：completed，见 [完成记录](../completion-records/HXA-178.md)。允许 app、core/model、core/agent、core/storage、相关测试、docs、scripts/debug。完全替代 ADR-GOAL-001');p.write_text(s)
 p=Path('docs/development/verification-matrix.md');s=p.read_text().replace('| HXA-178 | 模型报告/状态归属/取消与预算/迁移/无绑定完成 | 进行中 |','| HXA-178 | 模型报告/状态归属/取消与预算/迁移/无绑定完成 | 主机门禁通过；双 API 各79、迁移各24、真实模型及最终复核3通过，见完成记录 |');p.write_text(s)
-p=Path('docs/adr/0040-model-judged-goal-completion.md');s=p.read_text().replace('所有者明确授权作为接受依据，实施验收尚未完成。要求模型报告/跨会话/取消/预算/失败/旧绑定迁移、无绑定完成与 UI/真实模型测试；主机、双版本构建、独占模拟器与文档门禁。','所有者明确授权作为接受依据。实现与主机、双版本、独占 API29/36、旧库迁移、真实 SGLang 和文档验收已完成，见 [HXA-178](../completion-records/HXA-178.md)。模型报告/跨会话/取消/预算/失败/旧绑定迁移、无绑定完成和历史报告隔离均有回归证据。');p.write_text(s)
-p=Path('docs/completion-records/HXA-177.md');s=p.read_text().replace('Status: completed','Status: completed\n\n后续变更：本记录中的 Goal 强制绑定完成机制已由 [HXA-178](HXA-178.md) / ADR-0040 替代，以下保留当时验收历史。',1);p.write_text(s)
+p=Path('docs/adr/goal/001-lifecycle-and-completion.md');s=p.read_text().replace('所有者明确授权作为接受依据，实施验收尚未完成。要求模型报告/跨会话/取消/预算/失败/旧绑定迁移、无绑定完成与 UI/真实模型测试；主机、双版本构建、独占模拟器与文档门禁。','所有者明确授权作为接受依据。实现与主机、双版本、独占 API29/36、旧库迁移、真实 SGLang 和文档验收已完成，见 [HXA-178](../completion-records/HXA-178.md)。模型报告/跨会话/取消/预算/失败/旧绑定迁移、无绑定完成和历史报告隔离均有回归证据。');p.write_text(s)
+p=Path('docs/completion-records/HXA-177.md');s=p.read_text().replace('Status: completed','Status: completed\n\n后续变更：本记录中的 Goal 强制绑定完成机制已由 [HXA-178](HXA-178.md) / ADR-GOAL-001 替代，以下保留当时验收历史。',1);p.write_text(s)
 print('HXA-178 completion recorded from passing evidence')

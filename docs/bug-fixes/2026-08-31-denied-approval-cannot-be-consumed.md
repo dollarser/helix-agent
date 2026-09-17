@@ -43,4 +43,4 @@ Affected modules: `core:model`, `core:storage`, `core:policy`
 
 - [HXA-014 完成后安全加固](../completion-records/HXA-014.md#完成后安全加固2026-08-31)
 - [HXA-034 Approval Proof 完成记录](../completion-records/HXA-034.md)
-- [ADR-0005 Standard/Advanced 安全边界](../adr/0005-standard-advanced-safety-profiles.md)
+- [ADR-PERMISSIONS-001 Standard/Advanced 安全边界](../adr/permissions/001-session-authorization.md)

@@ -13,4 +13,4 @@ p=Path('core/agent/src/test/kotlin/com/helix/core/agent/GoalModelCompletionTest.
 
 '''+s[idx:];p.write_text(s)
 p=Path('app/src/main/kotlin/com/helix/app/goal/GoalReportContext.kt');s=p.read_text().replace('        Success criteria:','        Additional requirements (if any):');p.write_text(s)
-p=Path('docs/adr/0040-model-judged-goal-completion.md');s=p.read_text().replace('开放目标无需手工绑定','只填写目标即可创建，补充要求为可选描述。开放目标无需手工绑定');p.write_text(s)
+p=Path('docs/adr/goal/001-lifecycle-and-completion.md');s=p.read_text().replace('开放目标无需手工绑定','只填写目标即可创建，补充要求为可选描述。开放目标无需手工绑定');p.write_text(s)

@@ -4,9 +4,7 @@ import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.TurnContextAssembler
-import com.helix.app.automation.AutomationModule
 import com.helix.app.provider.ProviderService
-import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.tool.ToolPipeline
 import com.helix.core.agent.ModePolicy
@@ -19,11 +17,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.ModelToolSchema
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.VisionLimits
-import com.helix.core.policy.ToolApprovalExposure
-import com.helix.core.policy.ToolApprovalResolver
-import com.helix.core.policy.WorkspaceScope
 import com.helix.core.storage.HelixStorage
-import com.helix.tools.framework.ToolDescriptor
 
 /**
  * The single context-construction system (HX2-03; the doc section 34 ContextEngine entry):
@@ -209,38 +203,22 @@ internal class ChatRequestAssembler(
                 }
         return toolPipeline.mcpDiscovery
             .visible(sessionId, admitted)
-            .filter { !hiddenByDenyPreference(it, sessionId) }
-            .filter { it.name.value != "goal.report" || control.mode == AgentMode.GOAL }
-            .sortedBy { if (it.name.value == "goal.report") 0 else 1 }
-            .take(ModelRequest.MAX_TOOLS)
+            // HXA-209 (ADR section 1.1): a disabled tool leaves the model schema through the
+            // SAME shared predicate the execution entry refuses with — visible() applies it too,
+            // but the schema list is the last gate before truncation and must not drift.
+            .filter { toolPipeline.disabledToolFilter?.invoke(sessionId, it) ?: true }
+            .filter {
+                it.name.value !in com.helix.app.goal.GoalLifecycleTools.names || control.mode != AgentMode.PLAN
+            }.sortedBy {
+                if (it.name.value in com.helix.app.goal.GoalLifecycleTools.names ||
+                    it.name.value == ToolResultReadTool.NAME
+                ) {
+                    0
+                } else {
+                    1
+                }
+            }.take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
-    }
-
-    /**
-     * HXA-200 (ADR-0052 point 4): a tool the user has DENYed is hidden before the model sees it.
-     * Reads through the SAME [ToolPipeline.preferenceSource] the dispatcher re-resolves before a
-     * call starts and collapses it with the SAME [ToolApprovalResolver], so exposure and execution
-     * can never disagree on one tool (point 7). The workspace scope is bound the same way the
-     * dispatcher does (RootModule scope, else AutomationModule scope), so both surfaces resolve the
-     * same tool against the same workspace (point 7). With no preference seam wired this is a no-op.
-     */
-    private fun hiddenByDenyPreference(
-        descriptor: ToolDescriptor,
-        sessionId: String,
-    ): Boolean {
-        val source = toolPipeline.preferenceSource ?: return false
-        val toolName = descriptor.name.value
-        val scope = RootModule.scopeFor(toolName) ?: AutomationModule.scopeFor(toolName)
-        val workspaceId = (scope as? WorkspaceScope)?.workspaceId
-        val preference =
-            source.effectiveFor(
-                sourceRef = descriptor.origin.canonicalOf(),
-                toolName = toolName,
-                contractHash = descriptor.contractHash.hex,
-                sessionId = sessionId,
-                workspaceRef = workspaceId,
-            )
-        return ToolApprovalResolver.exposure(preference) == ToolApprovalExposure.HIDDEN_BY_DENY
     }
 
     /**

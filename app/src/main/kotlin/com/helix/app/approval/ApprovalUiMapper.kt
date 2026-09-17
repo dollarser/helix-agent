@@ -137,27 +137,92 @@ object ApprovalUiMapper {
      * string-resource IDs (HXA-069).
      * The complexity is the exhaustive label table for the closed enum — one branch per
      * code, no logic (a new code without a label is a compile error). */
-    @Suppress("CyclomaticComplexMethod")
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     fun codeLabel(code: DispatchOutcomeCode): Int =
         when (code) {
-            DispatchOutcomeCode.UNKNOWN_TOOL -> R.string.approval_code_unknown_tool
-            DispatchOutcomeCode.NO_IMPLEMENTATION -> R.string.approval_code_no_implementation
-            DispatchOutcomeCode.INVALID_ARGUMENTS -> R.string.approval_code_invalid_arguments
-            DispatchOutcomeCode.BUDGET_EXHAUSTED -> R.string.model_error_goal_budget_limit
-            DispatchOutcomeCode.POLICY_DENIED -> R.string.approval_code_policy_denied
-            DispatchOutcomeCode.PREFERENCE_DENIED -> R.string.approval_code_preference_denied
-            DispatchOutcomeCode.SAME_TURN_DENIED -> R.string.approval_code_same_turn_denied
-            DispatchOutcomeCode.APPROVAL_PENDING -> R.string.approval_code_approval_pending
-            DispatchOutcomeCode.APPROVAL_DENIED -> R.string.approval_code_approval_denied
-            DispatchOutcomeCode.APPROVAL_EXPIRED -> R.string.approval_code_approval_expired
-            DispatchOutcomeCode.APPROVAL_CONSUMED -> R.string.approval_code_approval_consumed
-            DispatchOutcomeCode.APPROVAL_NOT_FOUND -> R.string.approval_code_approval_not_found
-            DispatchOutcomeCode.CANCELLED_BEFORE_START -> R.string.approval_code_cancelled_before_start
-            DispatchOutcomeCode.SUCCESS -> R.string.approval_code_success
-            DispatchOutcomeCode.TIMEOUT -> R.string.approval_code_timeout
-            DispatchOutcomeCode.CANCELLED_AFTER_START -> R.string.approval_code_cancelled_after_start
-            DispatchOutcomeCode.TOOL_FAILED -> R.string.approval_code_tool_failed
-            DispatchOutcomeCode.INVALID_OUTPUT -> R.string.approval_code_invalid_output
+            DispatchOutcomeCode.UNKNOWN_TOOL -> {
+                R.string.approval_code_unknown_tool
+            }
+
+            DispatchOutcomeCode.NO_IMPLEMENTATION -> {
+                R.string.approval_code_no_implementation
+            }
+
+            DispatchOutcomeCode.INVALID_ARGUMENTS -> {
+                R.string.approval_code_invalid_arguments
+            }
+
+            DispatchOutcomeCode.BUDGET_EXHAUSTED -> {
+                R.string.model_error_goal_budget_limit
+            }
+
+            DispatchOutcomeCode.POLICY_DENIED -> {
+                R.string.approval_code_policy_denied
+            }
+
+            DispatchOutcomeCode.PREFERENCE_DENIED -> {
+                R.string.approval_code_preference_denied
+            }
+
+            DispatchOutcomeCode.SAME_TURN_DENIED -> {
+                R.string.approval_code_same_turn_denied
+            }
+
+            DispatchOutcomeCode.APPROVAL_PENDING -> {
+                R.string.approval_code_approval_pending
+            }
+
+            DispatchOutcomeCode.APPROVAL_DENIED -> {
+                R.string.approval_code_approval_denied
+            }
+
+            DispatchOutcomeCode.APPROVAL_EXPIRED -> {
+                R.string.approval_code_approval_expired
+            }
+
+            DispatchOutcomeCode.APPROVAL_CONSUMED -> {
+                R.string.approval_code_approval_consumed
+            }
+
+            DispatchOutcomeCode.APPROVAL_NOT_FOUND -> {
+                R.string.approval_code_approval_not_found
+            }
+
+            DispatchOutcomeCode.CANCELLED_BEFORE_START -> {
+                R.string.approval_code_cancelled_before_start
+            }
+
+            DispatchOutcomeCode.SUCCESS -> {
+                R.string.approval_code_success
+            }
+
+            DispatchOutcomeCode.TIMEOUT -> {
+                R.string.approval_code_timeout
+            }
+
+            DispatchOutcomeCode.CANCELLED_AFTER_START -> {
+                R.string.approval_code_cancelled_after_start
+            }
+
+            DispatchOutcomeCode.TOOL_FAILED -> {
+                R.string.approval_code_tool_failed
+            }
+
+            DispatchOutcomeCode.INVALID_OUTPUT -> {
+                R.string.approval_code_invalid_output
+            }
+
+            DispatchOutcomeCode.TOOL_DISABLED -> {
+                R.string.approval_code_tool_disabled
+            }
+
+            DispatchOutcomeCode.OPERATION_DENIED -> {
+                R.string.approval_code_operation_denied
+            }
+
+            DispatchOutcomeCode.OPERATION_DENIED_DOMAIN -> {
+                R.string.approval_code_operation_denied_domain
+            }
         }
 
     /** 决策来源: a string-resource ID (HXA-069). */

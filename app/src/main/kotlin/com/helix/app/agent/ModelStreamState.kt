@@ -41,6 +41,17 @@ internal class ModelStreamState(
     val text: String
         get() = textBuffer.toString()
 
+    val outputSizeBytes: Long
+        get() =
+            text.toByteArray().size.toLong() +
+                calls.values.sumOf {
+                    it.arguments
+                        .toString()
+                        .toByteArray()
+                        .size
+                        .toLong()
+                }
+
     val finishedToolCalls: List<BufferedModelToolCall>
         get() =
             calls.entries
@@ -142,7 +153,7 @@ internal class ModelStreamState(
 
             is ModelEvent.Completed -> {
                 completed = true
-                if (event.finishReason == "length") protocolFailure("TOKEN_BUDGET_LIMIT")
+                if (event.finishReason == "length") protocolFailure("OUTPUT_TOKEN_LIMIT")
             }
 
             is ModelEvent.ReasoningDelta -> {

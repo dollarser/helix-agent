@@ -15,8 +15,11 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 import java.time.Instant
 
 class RootToolsTest {
@@ -102,6 +105,9 @@ class RootToolsTest {
     @Test
     fun inactiveSessionAndRootServiceFailureNeverBecomeSuccess() {
         assertTrue(execute(RootTools.PROCESS_LIST, buildJsonObject {}) is ToolExecutorResult.Failed)
+        // HXA-095: a rejected call must not reach the Root port at all, so it can never
+        // trigger a Root request or a system capability probe.
+        assertTrue("a rejected call must never reach the Root port", port.requests.isEmpty())
         sessions.start()
         port.next = RootOperationResult.Failed("ROOT_SERVICE_LOST")
         val failed = execute(RootTools.PROCESS_LIST, buildJsonObject {}) as ToolExecutorResult.Failed
@@ -123,6 +129,39 @@ class RootToolsTest {
                 it.contains("command", ignoreCase = true) || it.contains("secret", ignoreCase = true) ||
                     it.contains("token", ignoreCase = true)
             },
+        )
+    }
+
+    @Test
+    fun processListSkipsEntriesThatDieOrAreMalformedDuringTheScan() {
+        // A real /proc scan races with the system: a process can exit between the directory
+        // listing and the per-entry read (its `status` file vanishes), and some entries can be
+        // malformed. The scan must skip those individually instead of failing the whole tool.
+        val procRoot =
+            Files.createTempDirectory("hxa095-proc").toFile().apply {
+                deleteOnExit()
+            }
+        val live = File(procRoot, "123").apply { mkdirs() }
+        File(live, "status").writeText("Name:\tinit\nPid:\t123\nUid:\t0\t0\t0\t0\n")
+        val live2 = File(procRoot, "456").apply { mkdirs() }
+        File(live2, "status").writeText("Name:\tsurfaceflinger\nPid:\t456\nUid:\t1000\t1000\t1000\t1000\n")
+        // Process that died after the listing: numeric dir, but no `status` file.
+        File(procRoot, "789").mkdirs()
+        // Malformed entry: readable `status` but missing the Name/Uid fields.
+        File(File(procRoot, "321").apply { mkdirs() }, "status").writeText("nothing: useful\n")
+        // Non-numeric entry: filtered out before reading.
+        File(procRoot, "self").mkdirs()
+
+        val operations = RootServiceOperations(null, procRoot)
+        val result = operations.execute(RootOperationRequest.ProcessList(100))
+        val processes = result as? RootOperationResult.Processes
+        assertNotNull("a racing entry must not fail the whole scan", processes)
+        assertEquals(
+            listOf(
+                RootProcessRecord(123, 0, "init"),
+                RootProcessRecord(456, 1000, "surfaceflinger"),
+            ),
+            processes?.records,
         )
     }
 

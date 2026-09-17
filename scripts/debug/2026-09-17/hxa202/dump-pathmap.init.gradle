@@ -1,0 +1,47 @@
+// HXA-202 slice 5 debugging: enumerate all path lookups in BuildProjectRegistry and reflect its internal map.
+gradle.projectsEvaluated {
+    try {
+        def root = rootProject as org.gradle.api.internal.project.ProjectInternal
+        def buildState = root.owner.owner
+        def bpr = buildState.projects
+        println("ST4 bpr impl class = " + bpr.class.name)
+        def missing = []
+        def found = []
+        rootProject.allprojects.each { p ->
+            def rel = p.path.substring(1)
+            def st
+            try {
+                st = bpr.findProject(org.gradle.util.Path.path(rel))
+            } catch (Throwable t) {
+                st = 'THREW ' + t
+            }
+            (st == null ? missing : found) << rel
+        }
+        println("ST4 findProject OK count=" + found.size() + " MISSING=" + missing)
+        // reflect the map field(s) of the registry impl
+        bpr.class.declaredFields.each { f ->
+            try {
+                f.accessible = true
+                def val = f.get(bpr)
+                if (val instanceof java.util.Map) {
+                    def m = (java.util.Map) val
+                    println("ST4 field " + f.name + " (" + f.type.simpleName + ") size=" + m.size())
+                    def keys = m.keySet().collect { it.toString() }
+                    println("ST4   keys missing runtime/cli-app? " + !keys.any { it.contains('cli-app') })
+                    println("ST4   cli keys = " + keys.findAll { it.contains('cli') })
+                    m.each { k, v ->
+                        if (k.toString().contains('cli-app')) {
+                            println("ST4   ENTRY key=" + k + " (" + (k.getClass().simpleName) + ") -> " + (v == null ? "null" : ("path=" + (v.hasMethod('getProjectPath') ? v.getProjectPath() : v))))
+                        }
+                    }
+                } else {
+                    println("ST4 field " + f.name + " (" + f.type.simpleName + ") = " + val?.class?.simpleName)
+                }
+            } catch (Throwable t) {
+                println("ST4 field " + f.name + " read failed: " + t)
+            }
+        }
+    } catch (Throwable t) {
+        println("ST4 error: " + t)
+    }
+}

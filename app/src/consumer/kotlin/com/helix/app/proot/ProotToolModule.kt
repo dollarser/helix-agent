@@ -29,6 +29,18 @@ internal object ProotToolModule {
         error("PRoot recovery is unavailable in this distribution")
     }
 
+    /**
+     * HXA-194 read-only browse seam (consumer side): the build ships no PRoot capability,
+     * so a browse yields empty facts and never throws — the details page can only ever
+     * show persisted tool-call facts, and no execution entry is reachable.
+     */
+    @Suppress("UnusedParameter")
+    fun browseCommandResult(
+        storage: HelixStorage,
+        turnId: String,
+        callId: String,
+    ): CommandBrowseFacts = CommandBrowseFacts(null, null, false)
+
     /** No-op seam: the consumer build ships no PRoot capability. */
     @Suppress("UnusedParameter")
     fun registerTools(

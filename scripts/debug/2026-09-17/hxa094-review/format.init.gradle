@@ -1,0 +1,7 @@
+projectsEvaluated {
+    rootProject.extensions.findByName('spotless').formats.get('kotlin').target(
+        'tools/root/src/androidTest/kotlin/com/helix/tools/root/LibsuRootAccessDeviceTest.kt',
+        'tools/root/src/main/kotlin/com/helix/tools/root/RootServiceOperations.kt',
+        'app/src/androidTestDeveloper/kotlin/com/helix/app/root/*.kt'
+    )
+}

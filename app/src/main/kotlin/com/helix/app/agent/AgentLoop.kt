@@ -91,7 +91,7 @@ internal class AgentLoop(
      * Every model step gets its own `model_calls` row; every tool call gets its durable
      * outcome through the dispatcher (cancel/recovery invariants — doc 11 section 7).
      */
-    @Suppress("ReturnCount") // one early return per terminal condition of the loop (cancel / non-completed / budget)
+    @Suppress("ReturnCount", "LongMethod") // One ordered loop owns admission, accounting and durable settlement.
     suspend fun runToolLoop(
         sessionId: String,
         coordinator: TurnCoordinator,
@@ -106,13 +106,30 @@ internal class AgentLoop(
         var toolRounds = 0
         val budgetTracker = TurnBudgetTracker(control.budgets)
         val goalBudget = GoalModelCallBudget(storage, clock)
+        val window = providerService.contextSettings(providerId, context.model).window
         while (true) {
             goalTimes[turnId]?.checkActive()
             if (turnCancels[turnId]?.isCancelled() == true) {
                 return ModelStreamTerminal(TurnState.CANCELLED, null)
             }
+            coordinator.recordDiagnostic(
+                "budget.request",
+                RequestBudgetDiagnostics.request(
+                    context,
+                    control.budgets,
+                    window,
+                    budgetTracker,
+                    compactionRound.admissionInput(context),
+                ),
+            )
             val prepared = compactionRound.prepare(context)
-            prepared.failure?.let { return it }
+            prepared.failure?.let {
+                coordinator.recordDiagnostic(
+                    "budget.result",
+                    RequestBudgetDiagnostics.result(it.errorCode, null, budgetTracker),
+                )
+                return it
+            }
             val compaction = prepared.plan
             val admission =
                 ModelLoopAdmission.prepare(
@@ -122,12 +139,30 @@ internal class AgentLoop(
                     budgetTracker,
                     goalBudget,
                 )
-            admission.failure?.let { return it }
+            admission.failure?.let {
+                coordinator.recordDiagnostic(
+                    "budget.result",
+                    RequestBudgetDiagnostics.result(it.errorCode, null, budgetTracker),
+                )
+                return it
+            }
             val request = requireNotNull(admission.request)
+            coordinator.recordDiagnostic(
+                "budget.admitted",
+                RequestBudgetDiagnostics.admitted(
+                    request,
+                    compaction != null,
+                ),
+            )
             // The per-request prompt record commits inside collectModelStream, before the wire call.
             val acc = collectModelStream(coordinator, provider, request, compaction == null, context.prompt)
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
-            admission.finish(acc)?.let { return it }
+            val accountingFailure = admission.finish(acc)
+            coordinator.recordDiagnostic(
+                "budget.result",
+                RequestBudgetDiagnostics.result(accountingFailure?.errorCode ?: decision.errorCode, acc, budgetTracker),
+            )
+            accountingFailure?.let { return it }
             if (compaction != null) {
                 compactionRound
                     .finish(
@@ -145,6 +180,10 @@ internal class AgentLoop(
                 compactionRound.observe(context, acc.inputTokens)
                 when (val round = runToolRound(coordinator, acc, toolRounds, control)) {
                     is ToolRoundLimit -> {
+                        coordinator.recordDiagnostic(
+                            "budget.result",
+                            RequestBudgetDiagnostics.result("TOOL_STEP_LIMIT", acc, budgetTracker),
+                        )
                         return ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT")
                     }
 
@@ -225,7 +264,11 @@ internal class AgentLoop(
         val settled = toolExecutor.runToolBatch(turn, turnId, localBatch.calls, coordinator, control)
         val nextCallId = idGenerator()
         coordinator.openNextModelCall(
-            settled.map { toolExecutor.toolResultDraft(it.copy(callId = localBatch.wireId(it.callId))) },
+            settled.map {
+                toolExecutor.toolResultDraft(
+                    it.copy(callId = localBatch.wireId(it.callId), resultReference = "$turnId/${it.callId}"),
+                )
+            },
             nextCallId,
         )
         return ToolRoundContinued(toolRounds + 1)

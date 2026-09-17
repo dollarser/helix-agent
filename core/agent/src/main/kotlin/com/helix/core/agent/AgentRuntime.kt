@@ -90,14 +90,28 @@ data class SubmitTurnCommand(
     val retryTurnId: TurnId? = null,
     val attachments: List<AttachmentBindingIntent> = emptyList(),
     val clientRequestId: String,
+    val continuousGoal: Boolean = false,
+    val goalContinuation: GoalContinuationRequest? = null,
+    val goalBudgets: com.helix.core.model.GoalBudgets? = null,
+    val directUserRequest: Boolean = false,
 ) {
     init {
+        require(goalContinuation == null || !directUserRequest) { "automatic continuation is not a human request" }
+        require(goalContinuation == null || (continuousGoal && goalId != null && mode == AgentMode.GOAL)) {
+            "continuation requires an activated bound Goal"
+        }
         require(text != null || goalId != null || retryTurnId != null) {
             "a turn needs a driver: user text, a bound goal, or a retryTurnId (none provided)"
         }
         require(clientRequestId.isNotBlank()) { "clientRequestId must not be blank" }
     }
 }
+
+/** Live driver claim, not user authority. The host validates it against its current activation. */
+data class GoalContinuationRequest(
+    val activationId: String,
+    val previousTurnId: String,
+)
 
 /**
  * One attachment the turn's user message binds (HX2-01): which artifact (an image's NORMALIZED

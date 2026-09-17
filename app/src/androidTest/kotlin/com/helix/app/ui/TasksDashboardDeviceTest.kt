@@ -63,12 +63,18 @@ class TasksDashboardDeviceTest {
 
             compose.onNodeWithTag("tasks-plan-review-$planId").performClick()
             compose.waitForIdle()
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("plan-review-$planId").fetchSemanticsNodes().isNotEmpty()
+            }
             compose.onNodeWithTag("plan-review-$planId").assertExists()
             compose.onNodeWithTag("plan-execute-$planId").assertExists()
             compose.onNodeWithTag("plan-revise-$planId").assertExists()
             compose.onNodeWithTag("plan-cancel-$planId").performClick()
             compose.waitForIdle()
 
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("plan-review-$planId").fetchSemanticsNodes().isEmpty()
+            }
             compose.onNodeWithTag("plan-review-$planId").assertDoesNotExist()
             compose.waitUntil(10_000) {
                 compose.onAllNodesWithTag("tasks-plan-$planId").fetchSemanticsNodes().isEmpty()

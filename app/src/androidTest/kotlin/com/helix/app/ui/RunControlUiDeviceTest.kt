@@ -63,10 +63,31 @@ class RunControlSettingsUiDeviceTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
+    fun recommendedValuesDiscardUnsavedEditsAndRestoreAutomaticInput() {
+        composeRule.resetDeterministicUiState()
+        composeRule.navigateTo("settings")
+        replace("budget-total", "20000")
+        composeRule.onNodeWithTag("budget-recommended").performScrollTo().performClick()
+        composeRule.onNodeWithTag("budget-save").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        check(
+            composeRule
+                .container()
+                .runControlStore.current.budgets == TurnBudgetBounds.DEFAULT,
+        )
+        composeRule.onNodeWithTag("budget-advanced").performScrollTo().performClick()
+        composeRule.onNodeWithTag("budget-input").assertDoesNotExist()
+        composeRule.onNodeWithTag("budget-saved").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
     fun boundedBudgetsPersistAcrossActivityRecreation() {
         composeRule.resetDeterministicUiState()
         composeRule.navigateTo("settings")
         composeRule.onNodeWithTag("settings-turn-budgets").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag("budget-steps").assertDoesNotExist()
+        composeRule.onNodeWithTag("budget-advanced").performScrollTo().performClick()
+        composeRule.onNodeWithTag("budget-auto-input").performScrollTo().performClick()
         replace("budget-steps", "7")
         replace("budget-calls", "6")
         replace("budget-input", "12000")

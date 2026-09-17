@@ -36,5 +36,5 @@ The new test uses real descriptors and runner execution within the Runtime test 
 ## Related records
 
 - [Retained archive fix](2026-09-07-proot-result-missing-runtime-archive.md)
-- [Runtime lifecycle](../adr/0007-companion-runtime-lifecycle.md)
-- [Open recovery work](../development/proot-result-durable-recovery-gap.md)
+- [Runtime lifecycle](../adr/runtime/001-execution-domains.md)
+- [Open recovery work](../evidence/development/proot-result-durable-recovery-gap.md)

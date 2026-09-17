@@ -1,7 +1,7 @@
 # Helix 产品需求（Android 单机版）
 
-文档状态：Baseline 1.5
-基线日期：2026-09-03
+文档状态：当前产品需求；具体交付以实施状态和任务验收为准
+整理日期：2026-09-16
 目标读者：产品负责人、Android 开发者、测试人员、编码 Agent
 
 ## 1. 产品定义
@@ -48,7 +48,7 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 - 未经确认自动发送消息、邮件或公开内容。
 - 从模型响应中下载并加载 DEX/APK/native library。
 - 手机端完整 Android SDK/Gradle 构建环境。
-- 多 Agent 群体/递归编排、Agent 间任意 peer 通信；M7 只允许 Helix 作为单一 Client 向用户启用的 A2A Agent 发起有界任务，后期内部 child delegation 仍只允许 HXA-105/ADR-0009 评估 Advanced 的深度 1 只读方案。
+- 多 Agent 群体/递归编排、Agent 间任意 peer 通信；M7 只允许 Helix 作为单一 Client 向用户启用的 A2A Agent 发起有界任务，后期内部 child delegation 仍只允许 HXA-105/ADR-AGENT-004 评估 Advanced 的深度 1 只读方案。
 - 云端任务舰队、远程 diff apply、可执行 Workflow/Policy DSL、Agent 自修改或自行挂载插件。
 - MCP Server 托管。
 - 当前 M7 不实现 A2A Server 托管、手机 webhook/push callback、远端 Agent 直接调用 Helix Tool，以及远端 Agent 获得本机 Capability/Approval/Secret；FUT-A2A-001～003 可在独立路线/ADR 后逐步提升。
@@ -98,12 +98,12 @@ Helix 是运行在 Android 手机上的个人执行型 Agent。用户用文字�
 
 ### 3.1 两级安全配置
 
-目标用户不直接等于安全配置。Helix 采用 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)定义的两级运行时边界：
+目标用户不直接等于安全配置。Helix 采用 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)定义的两级运行时边界：
 
 | 配置 | 默认与可用范围 | 产品要求 |
 | --- | --- | --- |
 | `STANDARD` | 所有安装默认；Google Play、国内 Android 应用商店和官网的完整产品形态 | 完整核心任务能力、低配置默认；可按目标渠道保留 All-files、Accessibility、解释脚本等允许能力；高敏数据和系统能力按需启用，不因抽象安全偏好预先裁剪 |
-| `ADVANCED` | 在渠道政策和 artifact 能力允许时显式开启；当前 developer 变体承载最完整实现 | 分能力启用；可开放 Root、离线 PRoot/CLI、Agent UI 自动化、精确 LAN origin 和开发者控制台；每项有 scope、状态、停止和撤销 |
+| `ADVANCED` | 在渠道政策和 artifact 能力允许时显式开启；当前 developer 变体承载最完整实现 | 分能力启用；可开放 Root、PRoot/CLI、Agent UI 自动化、精确 LAN origin 和开发者控制台；每项有 scope、状态、停止和撤销 |
 
 `consumer/developer` 是当前编译期机制，`STANDARD/ADVANCED` 是运行时 Policy/体验边界，Google Play/国内商店/官网是分发渠道，三者不能合并为一个开关。所有主应用首次启动为 `STANDARD`；切换 `ADVANCED` 不自动申请系统权限、不安装 Runtime、不请求 Root、不连接新端点。
 
@@ -111,7 +111,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 产品优先级以能力和任务完成率为主，而不是以审批数量或安全功能数量为主。Advanced 用户负责选择 Provider、开启能力、限定 scope、备份重要数据并承担自己确认的操作后果；Helix 负责不伪造结果、不隐瞒执行目标与数据去向、不在用户关闭能力后继续执行，也不允许模型替用户开启权限或产生批准。
 
-分发遵循 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)：用户获取的是同一个 Helix 产品，普通用户直接使用完整 Standard，高级用户在同一安装内进入 Advanced，不因运行配置更换 applicationId。当前 consumer/developer 只是工程打包机制；最终 channel/flavor/applicationId 由 HXA-122 结合签名和升级证据决定。
+分发遵循 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)：用户获取的是同一个 Helix 产品，普通用户直接使用完整 Standard，高级用户在同一安装内进入 Advanced，不因运行配置更换 applicationId。当前 consumer/developer 只是工程打包机制；最终 channel/flavor/applicationId 由 HXA-122 结合签名和升级证据决定。
 
 ## 4. 核心用户旅程
 
@@ -146,7 +146,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 1. 用户在设置中阅读风险说明并启用开发者变体能力。
 2. 用户安装与 Helix 同签名的独立 PRoot Runtime APK，并点击一次“验证 Runtime”完成零 Job 的签名/协议/ABI 握手；Runtime 安装固定版本、带哈希的 Alpine RootFS。
 3. Agent 提议一条命令及其目录、超时、环境变量和输入快照。
-4. 用户批准后，主 App 按需冷启动/绑定独立 UID 的 PRoot Runtime，并把 Workspace 输入副本传入；用户不需要预先打开或保持 Runtime 应用在前台。
+4. 用户批准后，主 App 按需冷绑定 developer 包内、同 UID 私有进程的 PRoot Runtime，并把 Workspace 输入副本传入；用户不需要预先打开或保持 Runtime 应用在前台。
 5. 结果被截断、结构化并写入审计日志；空闲后解绑，Runtime 进程可以被系统回收。
 6. 若执行中断或 Runtime 被强制停止，Helix 显示中断原因和“修复 Runtime”入口，不自动重复执行命令。
 
@@ -210,7 +210,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-LLM-005 | P1 | 多 Provider 切换 | 会话记录协议、Provider/Model 和能力快照 |
 | FR-LLM-006 | P1 | 常用厂商模板与自建服务 | SGLang/Ollama 真机连接；不硬编码模型名 |
 | FR-LLM-007 | P1 | 上下文裁剪 | 永不截断待执行工具参数和审批上下文 |
-| FR-LLM-008 | P2 | 第三方订阅协议 Provider | 官方 CLI 路线停止；独立 UID 持有 token，developer/Advanced 与 API Key Provider 统一选择，consumer 关闭 |
+| FR-LLM-008 | P2 | 第三方订阅协议 Provider | 官方 CLI 路线停止；订阅模块持有 token（同 UID，不构成凭据隔离），developer/Advanced 与 API Key Provider 统一选择，consumer 关闭 |
 | FR-LLM-009 | P0 | Provider 数据去向分类 | 按实际 endpoint 标记本机、已授权局域网、公有云或未知远端；不按 Ollama/SGLang 等模板名猜测 |
 | FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝 |
 
@@ -225,8 +225,8 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | FR-AGENT-005 | P0 | 失败不伪装成功 | 完成态必须有模型 final 或经验证产物 |
 | FR-AGENT-006 | P1 | 进程重启恢复 | `RUNNING` 变为 `INTERRUPTED`，由用户恢复 |
 | FR-AGENT-007 | P0 | Plan 模式 | 只能调用只读工具，输出版本化 PlanArtifact |
-| FR-AGENT-008 | P1 | Goal 模式 | 持久目标、验收条件、预算、检查点和人工输入状态 |
-| FR-AGENT-009 | P1 | Goal 模型完成判断 | 模型依据工作结果报告完成及理由；Harness 检查任务归属、正常结算、取消和未决副作用，不强制证据绑定，见 ADR-0040 |
+| FR-AGENT-008 | P1 | Goal 模式 | 持久目标、预算、检查点和人工输入状态；用户激活后前后台跨轮推进，create_goal/get_goal/update_goal 支持创建、读取、目标/预算编辑和暂停恢复；取消、系统中断及重启停驻，见 ADR-GOAL-001 |
+| FR-AGENT-009 | P1 | Goal 模型完成判断 | 模型依据工作结果报告完成及理由；Harness 检查任务归属、正常结算、取消和未决副作用，不强制证据绑定，见 ADR-GOAL-001 |
 | FR-AGENT-010 | P0 | Context Builder | 来源/信任标记、确定性 token 预算、大结果 Artifact 引用；不截断当前工具/审批契约 |
 
 ### 5.4 工具系统
@@ -249,7 +249,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | `files.mkdir` | P0 | L1 | 禁止越界 |
 | `files.copy` | P1 | L1/L2 | 目标冲突和跨 scope 必须显式策略 |
 | `files.move` | P1 | L2 | 默认审批 |
-| `files.delete` | P1 | L2 | 每次审批，优先进入 Helix 回收站 |
+| `files.delete` | P1 | L2 | 按会话规则解析授权，优先进入 Helix 回收站 |
 | `http.fetch` | P1 | L1 | 默认 GET；Standard 仅公网；Advanced 仅可访问用户预建的精确 LAN/loopback origin scope；metadata 和凭据转发始终拒绝 |
 | `code.javascript.run` | P0 | L2 | 必须展示代码并审批 |
 | `bash` | P1 | L2 | 仅独立 PRoot Runtime；每次展示 script/argv |
@@ -265,21 +265,16 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | `android.share` / `android.app_info` | P1 | L1 | 分享先预览；应用信息有界 |
 | `clipboard.read` / `clipboard.write` | P1 | L1/L2 | 仅前台可见会话；敏感内容和跨 App 外发升级 |
 | `calendar.prepare_event` | P1 | L1 | 生成草稿 |
-| `calendar.commit_event` | P1 | L2 | 每次审批 |
+| `calendar.commit_event` | P1 | L2 | 按会话规则解析授权 |
 | `notifications.query` | P1 | L1 | 权限、应用和时间范围受限 |
 
-### 5.5 审批与风险
+### 5.5 会话授权与效果限制
 
-| 等级 | 定义 | 默认行为 |
-| --- | --- | --- |
-| L0 | 只读且数据不离开本机 | 可自动执行，仍记审计 |
-| L1 | 有限读取、联网或可恢复写入 | 首次或作用域变化时审批 |
-| L2 | 删除、覆盖、执行代码、外部写入 | 每次展示参数并审批 |
-| L3 | Root 写入、通用 Root 命令、权限边界变化或不可逆高影响动作 | 默认拒绝；仅明确的开发者控制台流程逐次确认 |
+目标界面使用工具启用/禁用及 FULL_ACCESS、WORKSPACE、READ_ONLY、CUSTOM 会话预设；前三种允许 Agent 工具联网。CUSTOM 可按效果 ALLOW/ASK/DENY，禁写同时约束 Shell；工具本身不再保存 ASK 状态。模式规则、scope 和能力共同决定是否询问，风险等级用于解释效果，不再单独决定 L2/L3 恒出卡。
 
-审批决定只对“工具名/版本/schema hash + 参数摘要 + scope + 会话 + 执行目标 + 短期页面/UI token + 一次执行”有效。MVP 不提供永久允许生成代码。
+用户授权由确定性规则解析，模型和外部内容不能自授权。需要询问时生成精确、一次性证明，在执行开始时消费；新的 DENY 不能被旧证明覆盖。特殊递归删除确认限明确解析的 rm -rf dir。Plan 审阅不授予全部工具权限。
 
-只有明确的用户批准决定能生成并消费 `ApprovalProof`。拒绝决定可以记录为已处理，但不能被消费为执行授权；并发消费最多一个批准凭证成功。Advanced 可按 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)保存精确数据发送规则、Trusted Workspace 和动态风险不高于 L1 的有界工具规则；通用 L2/L3、生成代码、Shell/Root 命令、删除覆盖和敏感 UI 操作不能永久放行。模型、MCP、A2A、Skill、网页和脚本均不能自授权。
+规范见[会话授权](../adr/permissions/001-session-authorization.md)、[执行审计](../adr/permissions/003-dispatch-and-audit.md)；HXA-209 已按[完成记录](../completion-records/HXA-209.md)交付，完成记录不等于签名发行或全量发布验收。工具清单中的风险标签是效果分类，询问行为统一按此处和 ADR 判定。
 
 ### 5.6 Workspace
 
@@ -349,7 +344,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 - All-files、Accessibility、解释脚本、Tasker 等能力优先通过核心用途声明、显著披露、用户同意和渠道审核保留；只有明确政策条款或真实审核结果要求时，才对受影响渠道做最小替换或移除。
 - Google Play 当前不允许使用 Accessibility 自主发起、规划并执行 UI 动作；Play artifact 只提供审核允许的确定性、用户可理解自动化。该限制不扩展为官网或其他合法渠道的永久 Standard 限制。
 - Google Play 若以文件/文档管理核心用途申报 All-files，产品首页、商店描述和真实功能必须一致；未获批准时回退 SAF/MediaStore，但保留完整文件工作台。
-- PRoot/CLI binary 仍位于独立 APK/UID。某商店不接受 companion 或 Root 不可用时，只让对应 Capability 不可用，不删除其他 Standard 能力。
+- PRoot/Subscriptions 在 developer 单 APK 的私有进程内，consumer 排除组件制品；渠道限制只影响对应 Capability，不删除无关能力。
 - 当前 consumer/developer flavor 和 applicationId 保持工程事实；HXA-122 决定稳定主 ID、渠道命名与升级路径，不能仅靠文档宣称跨 ID 原地升级。
 - 未安装 Runtime、未 Root、未开启 All-files/Accessibility、未配置 MCP 或未连接并启用 A2A Agent 时，相关工具不进入模型工具表，其余能力正常运行。
 - “以上架为目标”不等于保证第三方审核通过；只有真实提交、审核通过和可下载证据才能标记为已上架。每个国内目标商店在提交时单独核验，不套用 Google Play 或其他商店结论。
@@ -360,7 +355,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 | --- | --- | --- |
 | NFR-001 | 正确性 | 固定 40 条支持场景端到端成功率至少 80% |
 | NFR-002 | 工具可靠性 | 确定性工具在有效输入上的成功率至少 95% |
-| NFR-003 | 安全 | 自动化测试中未审批 L2/L3 执行次数为 0 |
+| NFR-003 | 安全 | 自动化测试中未经当前规则授权的执行次数为 0，明确 DENY 与工具禁用不可绕过 |
 | NFR-004 | 恢复 | Activity 重建、进程终止后无已提交消息丢失 |
 | NFR-005 | 性能 | 非模型 UI 操作 P95 小于 200 ms；冷启动目标小于 2.5 s |
 | NFR-006 | 稳定性 | 24 小时交互测试无未处理崩溃、无 Agent Loop 泄漏 |
@@ -433,7 +428,7 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 27. 恶意 Skill zip 路径穿越和压缩炸弹被拒绝。
 28. A2A Agent Card/Skill 或 endpoint 变化后旧工具与审批失效；SSE 断线、取消或重启只对账原 task ID，远端结果不能触发本机未审批动作。
 29. Plan 模式调用 `write`、`bash`、`browser.click` 或 `ui.click` 被拒绝。
-30. Goal 预算耗尽进入暂停/失败而非完成，重启后不重复副作用。
+30. Goal 预算耗尽进入 BLOCKED，调整预算后显式恢复；用户暂停与系统中断停驻，重启不重新激活或重复副作用。
 31. Ollama/SGLang 不支持某协议字段时明确降级，不静默丢 ToolCall。
 32. PRoot/CLI 已安装但进程未运行且从未手动打开时，批准 Job 能冷绑定并完成握手；空闲回收后下一 Job 仍可执行。
 33. Runtime 在 RUNNING/terminal commit 边界被杀后只按 jobId 对账；未知结果进入 `INTERRUPTED`，命令不重复执行。
@@ -469,13 +464,13 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 - 纳入需求：A2A v1.0 Client、Agent Card/Skill 发现与启用、`a2a.<agent>.<skill>` Tool bridge、持久 Task/Artifact/流式事件、断线对账和 Android API 29/36/R8 Spike；规划为 HXA-077～079。
 - 产品边界：A2A 与 MCP 互补而非替代；Helix 仍是本机父 Agent，A2A endpoint 是用户配置的外部服务，不是 `ExecutionTarget`/远程 Worker。M7 不托管 A2A Server/webhook，不开放远端直接 ToolCall、任意 peer 通信、递归多 Agent 或凭据/批准继承；这是首阶段边界而非永久否定。后续可按“前台 LAN Server → 用户自备 VPN/隧道/relay → proposal 型反向调用 → 单独决定有界远端 scope”演进。
 - 阶段理由：普通手机的公网入站受 NAT/动态网络和 Android 后台生命周期约束；递归编排还需要预算、循环、级联取消和恢复合同。Advanced 用户可以承担网络入口与外部基础设施的选择责任，但不能替代可达性、任务状态和重复副作用语义。
-- 决定状态：项目所有者于 2026-09-04 接受 ADR-0016 的 Client-only 产品、协议和信任边界。实现仍未开始：尚无 A2A module、SDK/transport 决定、生产代码或设备验收；HXA-077 必须先产出可行实现证据。
+- 决定状态：项目所有者于 2026-09-04 接受 ADR-A2A-001 的 Client-only 产品、协议和信任边界。实现仍未开始：尚无 A2A module、SDK/transport 决定、生产代码或设备验收；HXA-077 必须先产出可行实现证据。
 
 ### 2026-09-02：未来自动化兼容与 Advanced 授权
 
 - 所有者请求：未来兼容任意 Tasker/Auto.js 脚本；把 Shizuku/ADB 保留为可能支持但暂不实现；为 Advanced 增加长期工具授权、Trusted Workspace、自动批准、Full Access 与模型自授权。
 - 纳入需求：Tasker 官方插件桥接、任意来源 Auto.js 脚本导入与兼容诊断、独立兼容 Runtime、Shizuku/无线 ADB 未来研究；Trusted Workspace、动态风险不高于 L1 的有界长期工具规则、精确批量批准和作为文件 scope 的 `Full Workspace Access`。
-- 未纳入：模型自授权、全局自动批准、全局 Full Access，以及 L2/L3 的永久 wildcard 放行。原因是这些方案无法把真实手机上的高影响调用绑定到用户的精确授权，并违反项目不可变安全内核；它们已在 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)作为被拒绝替代方案留档。
+- 会话级显式授权按 ADR-PERMISSIONS-001 与 HXA-209 实施；允许用户选择完整访问，不允许模型自授权，不把同 UID 执行域描述成沙箱。
 - 实现状态：本次仅修改需求、架构和决定记录；没有新增 Runtime、Tasker/Auto.js/Shizuku/ADB 代码，也没有把候选能力分配给当前 HXA。
 
 ### 2026-09-03：会话附件范围
@@ -489,4 +484,4 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 - 所有者决定：Standard 以 Google Play 和国内 Android 应用商店上架为产品边界，不为抽象安全偏好或未经核验的准则限制过多能力。
 - 纳入需求：Standard 成为完整核心产品；All-files、Accessibility、解释脚本等优先通过核心用途声明、披露、同意和审核保留；渠道仅因明确政策或真实审核反馈做最小差异。
 - 外部硬约束：Google Play 当前禁止 Accessibility 驱动的 Agent 自主规划执行，但允许狭窄、用户可理解的确定性自动化；外部 DEX/JAR/native executable 下载也受禁止。这些限制只作用于相关渠道，不扩大成所有 Standard 版本的永久限制。
-- 证据边界：上架是明确目标，不是已完成事实；只有真实提交、审核通过和可下载记录才能声称已上架。分发决定见 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)。
+- 证据边界：上架是明确目标，不是已完成事实；只有真实提交、审核通过和可下载记录才能声称已上架。分发决定见 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)。

@@ -108,8 +108,7 @@ class CliRuntimeRunningRecoveryDeviceTest {
             Thread.sleep(100)
             if (kill) client.debugKillRuntime() else client.cancel(jobId)
             running.get(10, java.util.concurrent.TimeUnit.SECONDS)
-            Thread.sleep(200)
-            val record = (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record
+            val record = awaitRuntimeState { client.query(jobId) }.record
             assertEquals(if (kill) CliModelJobState.INTERRUPTED else CliModelJobState.CANCELLED, record.state)
             assertEquals(record, (client.query(jobId) as CliModelJobClient.StateOutcome.Ok).record)
             assertEquals(null, (client.reconcile(jobId) as CliModelJobClient.StateOutcome.Ok).events)

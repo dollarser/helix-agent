@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import com.helix.app.goal.GoalReminderPayload
 import com.helix.app.goal.GoalReminderScheduler
 import com.helix.app.goal.GoalReminderWorker
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.agent.Checkpoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -30,7 +31,7 @@ import org.junit.runner.RunWith
  * process-recovery instrumentation fixture belongs to HXA-015.
  */
 @RunWith(AndroidJUnit4::class)
-class GoalReminderTest {
+class GoalReminderTest : ForegroundDeviceTestHost() {
     @Test
     fun collidingGoalHashesKeepSeparateNotificationsAndPendingIntents() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -168,10 +169,12 @@ class GoalReminderTest {
             // "Unknown permission" on the minSdk (29) device.
             return
         }
-        InstrumentationRegistry
-            .getInstrumentation()
-            .uiAutomation
-            .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            InstrumentationRegistry
+                .getInstrumentation()
+                .uiAutomation
+                .grantRuntimePermission(context.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
         assertTrue(
             "POST_NOTIFICATIONS not granted for tests",
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==

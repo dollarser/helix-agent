@@ -280,7 +280,7 @@ P2 高权限：ui.*, root.*
 | Shizuku | 用户使用 Root 或 ADB 启动 Shizuku 服务，Helix 作为 client 绑定并跟踪 Binder 生命周期 | unavailable/denied/granted/lost 分开；服务状态不授予 ToolCall，断连不盲目重放 |
 | 无线 ADB | Android 11+ 由用户启用无线调试并通过配对码/二维码建立连接；本机 client 需要单独评估 native 依赖、密钥和前台生命周期 | 不自动打开开发者选项、不静默配对；按 Android 版本/OEM 实测，用户可撤销，配对不等于全局 Full Access |
 
-“兼容任意 Tasker/Auto.js 脚本”只能作为长期方向。可验收合同必须拆为导入、解析、API、权限、执行和行为六层；某脚本可导入不代表它能在当前 Runtime、ROM 与目标 App 上正确执行。授权边界遵循 [ADR-0012](../adr/0012-capability-first-advanced-grants.md)。
+“兼容任意 Tasker/Auto.js 脚本”只能作为长期方向。可验收合同必须拆为导入、解析、API、权限、执行和行为六层；某脚本可导入不代表它能在当前 Runtime、ROM 与目标 App 上正确执行。授权边界遵循 [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)。
 
 ## 9. 主要官方依据
 

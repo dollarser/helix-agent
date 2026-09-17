@@ -46,5 +46,5 @@ Subscriptions 极小测试失败只显示 `job-failed / HTTP none`，无法区�
 ## Related records
 
 - [当前状态](../development/status.md)
-- [DNS 设置](../development/subscription-dns-overrides.md)
+- [DNS 设置](../evidence/development/subscription-dns-overrides.md)
 - 脚本位于 `scripts/debug/2026-09-10/`；机器日志位于忽略的 `build/debug/2026-09-10/subscription-error-recovery/`。

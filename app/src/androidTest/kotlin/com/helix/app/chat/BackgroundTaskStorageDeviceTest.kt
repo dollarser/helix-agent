@@ -6,6 +6,7 @@ import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.recovery.RecoveryCoordinatorApp
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -21,7 +22,7 @@ import org.junit.Test
 import java.time.Instant
 import java.util.UUID
 
-class BackgroundTaskStorageDeviceTest {
+class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
     private val clock =
         object : Clock {
             override fun now(): Instant = Instant.ofEpochMilli(2000)

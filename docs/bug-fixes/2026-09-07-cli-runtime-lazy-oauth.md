@@ -39,5 +39,5 @@ The successful cold/debug recovery matrix does not establish paid-account networ
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

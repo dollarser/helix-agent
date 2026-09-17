@@ -1,0 +1,48 @@
+// HXA-202 slice 5 debugging: compare ProjectStateRegistry against the live tree at task-selection time.
+gradle.projectsEvaluated {
+    try {
+        def runtimeProj = rootProject.project(":runtime") as org.gradle.api.internal.project.ProjectInternal
+        def cliProj = rootProject.project(":runtime:cli-app") as org.gradle.api.internal.project.ProjectInternal
+        def psr = null
+        try { psr = runtimeProj.services.getServicesOf(org.gradle.api.internal.project.ProjectStateRegistry).first() } catch (Throwable t1) {
+            try { psr = (runtimeProj.services as org.gradle.api.internal.services.DefaultServiceRegistryFactory).getSharedServices().getServicesOf(org.gradle.api.internal.project.ProjectStateRegistry).first() } catch (Throwable t2) {
+                println("ST-DUMP registry reach attempts: " + t1 + " / " + t2)
+            }
+        }
+        def liveRuntime = runtimeProj.projectState
+        def liveCli = cliProj.projectState
+        println("ST-DUMP live :runtime state id=" + System.identityHashCode(liveRuntime) + " path='" + liveRuntime.path + "'")
+        println("ST-DUMP live :runtime children = " + liveRuntime.getChildProjects()*.name)
+        println("ST-DUMP live cli-app state id=" + System.identityHashCode(liveCli) + " path='" + liveCli.path
+            + "' parentPath=" + (liveCli.parent ? liveCli.parent.path : null)
+            + " inParentChildren? " + liveRuntime.getChildProjects().any { it.name == 'cli-app' })
+        if (psr != null) {
+            println("ST-DUMP registry class = " + psr.class.name)
+            def regRuntime = psr.getState('runtime')
+            println("ST-DUMP registry 'runtime' state id=" + System.identityHashCode(regRuntime)
+                + " sameAsLive? " + regRuntime.is(liveRuntime))
+            try {
+                def regCli = psr.getState('runtime/cli-app')
+                println("ST-DUMP registry 'runtime/cli-app' = " + (regCli != null ? ("id=" + System.identityHashCode(regCli) + " sameAsLive=" + regCli.is(liveCli) + " path=" + regCli.path) : "NULL"))
+            } catch (Throwable t) {
+                println("ST-DUMP registry getState('runtime/cli-app') THREW: " + t)
+            }
+            try {
+                def rootState = psr.getState('')
+                def all = rootState == null ? [] : rootState.getAllProjects()
+                println("ST-DUMP registry root allProjects size = " + all.size())
+                def missing = all.findAll { !it.path.startsWith('runtime') }
+                println("ST-DUMP registry runtime-prefixed = " + all.findAll { it.path.startsWith('runtime') }*.path)
+            } catch (Throwable t) {
+                println("ST-DUMP root walk failed: " + t)
+            }
+        }
+        def mismatch = rootProject.allprojects.collect { p ->
+            def st = (p as org.gradle.api.internal.project.ProjectInternal).projectState
+            (st.path != p.path) ? (p.path + " -> state.path=" + st.path) : null
+        }.findAll { it != null }
+        println("ST-DUMP live/state path mismatches = " + (mismatch ?: "none"))
+    } catch (Throwable t) {
+        println("ST-DUMP error: " + t)
+    }
+}

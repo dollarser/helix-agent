@@ -2,7 +2,7 @@
 
 Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agent，首要面向开发者与效率用户。模型可通过网络 API 或用户配置的自建模型服务调用，但 Agent Runtime、权限判断、工具调用、浏览器、文件工作区、代码执行、审批和审计均在手机上运行。
 
-当前目标是让一个 Helix 产品同时覆盖 Google Play、国内 Android 应用商店和官网直接分发：所有安装默认运行完整的 `STANDARD`，需要时在 developer 安装内显式进入 `ADVANCED`。developer 单 APK 内置 Subscriptions 和 PRoot，在私有进程按需运行并共享主应用 UID；consumer 不包含这两个组件。PRoot 是可信开发者执行环境，不承诺离线或主应用数据隔离，见 [ADR-0049](docs/adr/0049-integrated-developer-runtimes.md)。渠道 artifact 仍按真实要求保留其他能力。远程 Worker、云端沙箱、桌面配对与 HarmonyOS 客户端暂不实现。
+当前目标是让一个 Helix 产品同时覆盖 Google Play、国内 Android 应用商店和官网直接分发：所有安装默认运行完整的 `STANDARD`，需要时在 developer 安装内显式进入 `ADVANCED`。developer 单 APK 内置 Subscriptions 和 PRoot，在私有进程按需运行并共享主应用 UID；consumer 不包含这两个组件。PRoot 是可信开发者执行环境，不承诺离线或主应用数据隔离，见 [ADR-RUNTIME-001](docs/adr/runtime/001-execution-domains.md)。渠道 artifact 仍按真实要求保留其他能力。远程 Worker、云端沙箱、桌面配对与 HarmonyOS 客户端暂不实现。
 
 ## 文档入口
 
@@ -11,7 +11,7 @@ Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agen
 - [当前实施状态](docs/development/status.md)：唯一当前状态源。
 - [产品需求](docs/product/requirements.md)与[市场、用户和商业化分析](docs/product/market-users-and-commercialization.md)：能力范围、目标用户、首发场景和商业假设。
 - [开发路线](docs/development/roadmap.md)与[验收矩阵](docs/development/verification-matrix.md)：HXA 的范围与验收。
-- [总体架构](docs/architecture/overview.md)与[Provider、MCP、A2A、Skills 和模式方案](docs/architecture/provider-mcp-skills-modes.md)：规范性设计与扩展协议边界。
+- [总体架构](docs/architecture/overview.md)与[Provider](docs/architecture/providers.md)、[扩展](docs/architecture/extensions.md)与[模式](docs/architecture/agent-modes.md)：规范性设计与扩展协议边界。
 - [完成记录](docs/completion-records/README.md)、[Bug 修复](docs/bug-fixes/README.md)与[ADR](docs/adr/README.md)：交付证据、缺陷根因与决策理由。
 
 当前已验证范围、`In progress`、`Next task` 和能力限制只在[当前实施状态](docs/development/status.md)维护；本 README 不复制随 HXA 变化的快照。
@@ -22,8 +22,8 @@ Helix 是一个 Android 优先、能力优先、手机本地执行的个人 Agen
 - 原生 Tools、QuickJS、PRoot 与 CLI 分属不同执行域；本机执行不等于在主进程执行，也不等于虚拟机。
 - 文件管理器可独立于模型与会话使用；手动文件权限不自动成为 Agent 的可用范围。
 - 所有工具进入同一条 schema、Capability、Policy、Approval、执行、验证与审计管线；系统权限或 Runtime 权限不能替代 ToolCall 授权。
-- `STANDARD` 是各分发渠道的完整产品形态，`ADVANCED` 在同一产品内开放额外能力；Trusted Workspace、有界长期规则与精确批量批准的边界见 [ADR-0012](docs/adr/0012-capability-first-advanced-grants.md)。
-- 分发渠道、构建 flavor 与运行时安全配置互不等同；能力保留的分发决定见 [ADR-0013](docs/adr/0013-standard-store-capability-preserving-distribution.md)。
+- `STANDARD` 是各分发渠道的完整产品形态，`ADVANCED` 在同一产品内开放额外能力；当前授权设计与旧实现边界见[权限与审批](docs/adr/permissions/README.md)：实现与验收范围以[当前状态](docs/development/status.md)和[HXA-209 完成记录](docs/completion-records/HXA-209.md)为准。
+- 分发渠道、构建 flavor 与运行时安全配置互不等同；能力保留的分发决定见 [ADR-PLATFORM-001](docs/adr/platform/001-distribution.md)。
 - 远程 Worker、云端沙箱、桌面配对、HarmonyOS、自动支付和无人确认的对外发送不在当前范围；M7 的 A2A 仅作为用户配置的远程 Agent Client，不把远端 Agent 变成 Helix Worker，也不开放 A2A Server、递归多 Agent 或任意 peer 通信；Tasker/Auto.js 与 Shizuku/ADB 仅是未排期研究候选。
 
 具体技术选型、模块边界、applicationId、Runtime 生命周期和未来能力以[架构文档](docs/architecture/overview.md)、[产品需求](docs/product/requirements.md)及[有效 ADR](docs/adr/README.md)为准，避免在入口文档重复维护。

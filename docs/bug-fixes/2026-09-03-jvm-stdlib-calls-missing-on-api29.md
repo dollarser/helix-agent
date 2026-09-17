@@ -78,7 +78,7 @@ Affected modules: `core:workspace`, `app`
 收益不对称。JVM 模块无法被 lint 覆盖的问题，desugaring 只解决 `java.*` 这一类，
 不解决"没有静态检查"本身。
 
-**抬高 `minSdk` 到 30/31。** 拒绝：放弃 Android 10 用户，与 ADR-0013 的完整产品形态
+**抬高 `minSdk` 到 30/31。** 拒绝：放弃 Android 10 用户，与 ADR-PLATFORM-001 的完整产品形态
 定位冲突；与 `RENAME COLUMN` 记录中拒绝的理由相同。
 
 **重写 `listDir`/`ReadWindow`（DirectoryStream / FileChannel）。** 拒绝：改变既有

@@ -12,6 +12,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
@@ -59,9 +60,72 @@ import java.util.UUID
  * touched and no real path ever crosses into UI/logs/audit/model state.
  */
 @RunWith(AndroidJUnit4::class)
-class ChatServiceAttachmentRetryDeviceTest {
+class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
     /** The fake SAF uri -> the local file it serves (uri is never a real path). */
     private val sourceFiles = HashMap<String, File>()
+
+    @Test
+    @Suppress("LongMethod") // Production send, failure, explicit continuation and wire assertions share one fixture.
+    fun budgetContinuationSendsSavedHistoryInsteadOfReplayingTheOriginalRequest() {
+        val requests = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val fixture =
+            newFixture(ApplicationProvider.getApplicationContext(), observeRequest = {
+                requests.add(it.body!!.toString(Charsets.UTF_8))
+            })
+        try {
+            openSessionWithStagedAttachment(fixture, "unchanged attachment")
+            sendToDisclosure(fixture)
+            confirmUntilTurnFails(fixture)
+            Thread.sleep(SETTLE_MILLIS)
+            val stopped =
+                fixture.storage.turns
+                    .listBySession(SESSION_ID)
+                    .single()
+            fixture.storage.messages.append(
+                "settled-note",
+                SESSION_ID,
+                stopped.id,
+                "ASSISTANT",
+                "TEXT",
+                "COMPLETED_WORK_SENTINEL",
+            )
+            fixture.storage.turns.updateState(
+                stopped,
+                TurnState.FAILED,
+                stopped.stepCount,
+                stopped.endedAt,
+                "TURN_TOTAL_TOKEN_LIMIT",
+            )
+            fixture.service.openSession(SESSION_ID)
+            await(fixture, "continuation becomes available") {
+                fixture.service.screen.value.activeTurn
+                    ?.continueFromResults ==
+                    true
+            }
+            fixture.service.retry()
+            await(fixture, "new turn sends the retained result") { requests.size >= 2 }
+            val outgoing = requests.last()
+            assertTrue("saved completed work must be in the wire request", outgoing.contains("COMPLETED_WORK_SENTINEL"))
+            assertTrue("explicit continuation must replace replay", outgoing.contains("已结算的工具结果"))
+            val turns = fixture.storage.turns.listBySession(SESSION_ID)
+            assertEquals(2, turns.size)
+            assertEquals("TURN_TOTAL_TOKEN_LIMIT", turns.first().errorCode)
+            await(fixture, "continued turn settles") {
+                fixture.storage.turns.listBySession(SESSION_ID).all {
+                    it.state ==
+                        "FAILED"
+                }
+            }
+            assertEquals(
+                2,
+                fixture.storage.messages
+                    .listBySession(SESSION_ID)
+                    .count { it.role == "USER" },
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
 
     @Test
     fun busySessionRetainsApprovedAttachmentsAndRestoresTheUnsentText() {
@@ -412,6 +476,7 @@ class ChatServiceAttachmentRetryDeviceTest {
             kotlinx.coroutines.CoroutineScope(
                 kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
             ),
+        observeRequest: (WireRequest) -> Unit = {},
     ): Fixture {
         val suffix = UUID.randomUUID().toString()
         val storage =
@@ -420,7 +485,7 @@ class ChatServiceAttachmentRetryDeviceTest {
         val staging = stagingFor(workspaceRoot)
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
-        val providerService = providerService(storage, lineStore, statusStore, suffix)
+        val providerService = providerService(storage, lineStore, statusStore, suffix, observeRequest)
         val providerSpec = seedProvider(storage, statusStore)
         val app = context.applicationContext as HelixApplication
         // HXA-069: ChatService is pure JVM and resolves its emitted string-resource IDs through the
@@ -470,6 +535,7 @@ class ChatServiceAttachmentRetryDeviceTest {
         lineStore: InMemoryLineStore,
         statusStore: ProviderTestStatusStore,
         suffix: String,
+        observeRequest: (WireRequest) -> Unit,
     ): ProviderService =
         ProviderService(
             storage = storage,
@@ -478,8 +544,10 @@ class ChatServiceAttachmentRetryDeviceTest {
                     credentials = CredentialLookup { ProviderFactory.NO_KEY_PLACEHOLDER },
                     wire =
                         object : WireClient {
-                            override suspend fun open(request: WireRequest): WireResponse =
+                            override suspend fun open(request: WireRequest): WireResponse {
+                                observeRequest(request)
                                 throw IOException("device test: the wire is disabled — no network")
+                            }
                         },
                     imageSource = {
                         com.helix.app.provider.VisionImageSource {

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def mismatches(text: str, directory: Path):
-    pattern = re.compile(r"\b(accepted|proposed|rejected|superseded)\s+\[ADR-\d{4}\]\(([^)]+)\)")
+    pattern = re.compile(r"\b(accepted|proposed|rejected|superseded)\s+\[ADR-[A-Z0-9]+-\d{3}\]\(([^)]+)\)")
     for number, line in enumerate(text.splitlines(), 1):
         # A deliberately marked historical statement is not a claim of current status.
         if "历史状态" in line or "当时" in line:
@@ -27,6 +27,8 @@ def main():
         paths.extend((root / "docs" / folder).glob("*.md"))
     for name in ["status.md", "roadmap.md", "implementation-guide.md"]:
         paths.append(root / "docs/development" / name)
+    paths.extend((root / "docs/adr").rglob("README.md"))
+    paths.extend((root / "docs/development/tasks").glob("*.md"))
     failures = []
     for path in paths:
         for line, message in mismatches(path.read_text(), path.parent):

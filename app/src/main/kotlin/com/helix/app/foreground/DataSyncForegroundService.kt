@@ -37,12 +37,14 @@ class DataSyncForegroundService : Service() {
         ensureDataSyncChannel(this)
         // A short turn can stop the service before onStartCommand is dispatched.
         // Satisfy startForegroundService immediately, including that cold-start race.
-        startAsForeground()
+        if (!startAsForeground()) return
         runningInstance.set(this)
     }
 
     override fun onDestroy() {
-        runningInstance.compareAndSet(this, null)
+        if (runningInstance.compareAndSet(this, null) && transportRequested.getAndSet(false)) {
+            stopTasks("FGS_SERVICE_LOST")
+        }
         super.onDestroy()
     }
 
@@ -52,7 +54,7 @@ class DataSyncForegroundService : Service() {
         startId: Int,
     ): Int {
         latestStartId = startId
-        startAsForeground()
+        if (!startAsForeground()) return START_NOT_STICKY
         if (intent?.action == ACTION_STOP) {
             transportRequested.set(false)
             stopTasks()
@@ -73,27 +75,33 @@ class DataSyncForegroundService : Service() {
         startId: Int,
         fgsType: Int,
     ) {
-        stopTasks()
+        stopTasks("FGS_TIMEOUT")
         stopDataSync()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun stopTasks() {
+    private fun stopTasks(systemReason: String? = null) {
         val app = application as com.helix.app.HelixApplication
         val chat = app.appContainer.chatService
-        chat.backgroundTasks.value.filter { it.running }.forEach { task ->
-            chat.stopTask(task.id, pause = task.goalId != null)
+        chat.stopContinuousGoals(systemReason)
+        chat.backgroundTasks.value.filter { it.running && it.goalId == null }.forEach { task ->
+            chat.stopTask(task.id, systemReason = systemReason)
         }
     }
 
-    private fun startAsForeground() {
-        startForeground(
-            NOTIFICATION_ID,
-            buildDataSyncNotification(this),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-        )
-    }
+    private fun startAsForeground(): Boolean =
+        tryForegroundStart({
+            startForeground(
+                NOTIFICATION_ID,
+                buildDataSyncNotification(this),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        }, {
+            transportRequested.set(false)
+            stopTasks("FGS_START_REJECTED")
+            stopSelf()
+        })
 
     internal fun requestTransportStop() {
         Handler(Looper.getMainLooper()).post {

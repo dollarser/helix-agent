@@ -38,6 +38,6 @@ SummaryOutputBudget 分离目标摘要长度与最多 4096 的调用额度，后
 
 ## Related records
 
-- [工具返回梳理](../development/builtin-tool-result-review-2026-09-10.md)
-- [ADR-0038](../adr/0038-step-boundary-context-compaction.md)
-- [ADR-0043](../adr/0043-server-driven-model-metadata.md)
+- [工具返回梳理](../evidence/development/builtin-tool-result-review-2026-09-10.md)
+- [ADR-AGENT-002](../adr/agent/002-context-compaction.md)
+- [ADR-PROVIDER-001](../adr/provider/001-models-and-connection.md)

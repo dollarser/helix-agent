@@ -61,6 +61,15 @@ data class GoalWakePolicy(
     val permittedSources: Set<GoalWakeReason>,
 ) {
     companion object {
+        /** ADR-0053: host must additionally validate live activation and the predecessor Turn. */
+        val FOREGROUND: GoalWakePolicy =
+            GoalWakePolicy(
+                setOf(
+                    GoalWakeReason.USER_OPEN,
+                    GoalWakeReason.NOTIFICATION_ACTION,
+                    GoalWakeReason.FOREGROUND_CONTINUATION,
+                ),
+            )
         val V1: GoalWakePolicy =
             GoalWakePolicy(
                 setOf(GoalWakeReason.USER_OPEN, GoalWakeReason.NOTIFICATION_ACTION),

@@ -15,6 +15,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.SafetyProfile
@@ -66,7 +67,7 @@ import java.util.zip.ZipOutputStream
  * the normalized artifact's verified bytes may reach the recorded request.
  */
 @RunWith(AndroidJUnit4::class)
-class AttachmentE2eDeviceTest {
+class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     companion object {
         private const val SESSION_ID = "session-e2e"
         private const val PROVIDER_ID = "prov-e2e"
@@ -91,27 +92,14 @@ class AttachmentE2eDeviceTest {
             val goalId = fixtureGoal(fixture)
             fixture.wire.script(sseResponse(textAnswerStream("first")), sseResponse(textAnswerStream("second")))
             fixture.service.continueGoal(goalId, "First check")
-            await(fixture, "first Goal run settles") { turnIsTerminal(fixture) }
-            assertEquals(
-                1,
-                fixture.storage.goals
-                    .resolve(goalId)
-                    .modelCalls,
-            )
-            assertEquals(
-                14L,
-                fixture.storage.goals
-                    .resolve(goalId)
-                    .totalTokens,
-            )
-            assertEquals(
-                "PAUSED",
-                fixture.storage.goals
-                    .resolve(goalId)
-                    .state,
-            )
-            fixture.service.continueGoal(goalId, "Continue check")
-            await(fixture, "second Goal run settles") { fixture.wire.callCount == 2 && turnIsTerminal(fixture) }
+            // Explicit Continue activates the production driver. Both bounded rounds must
+            // settle without a second user action, and usage persists across their boundary.
+            await(fixture, "continuous Goal exhausts its two-round model budget") {
+                fixture.wire.callCount == 2 && turnIsTerminal(fixture) &&
+                    fixture.storage.goals
+                        .resolve(goalId)
+                        .state == "BLOCKED"
+            }
             assertEquals(
                 2,
                 fixture.storage.goals
@@ -130,6 +118,11 @@ class AttachmentE2eDeviceTest {
                     .listByGoal(goalId)
                     .size,
             )
+            fixture.storage.goalRuns.listByGoal(goalId).forEach { run ->
+                assertEquals(1, run.modelCalls)
+                assertEquals(14L, run.tokens)
+                assertNotNull(run.endedAt)
+            }
             fixture.service.continueGoal(goalId, "No remaining calls")
             await(fixture, "exhausted Goal refuses Continue") { fixture.service.screen.value.blockedReason != null }
             assertEquals(2, fixture.wire.callCount)
@@ -192,7 +185,7 @@ class AttachmentE2eDeviceTest {
         val fixture = newFixture(vision = false)
         try {
             await(fixture, "session opens") { fixture.service.screen.value.openSessionId == SESSION_ID }
-            val goalId = fixtureGoal(fixture)
+            val goalId = fixtureGoal(fixture, maxModelCalls = 1)
             stageTextAttachment(fixture, "Synthetic Goal input")
             fixture.wire.script(sseResponse(textAnswerStream("checked")))
             fixture.service.continueGoal(goalId, "Check attachment")
@@ -263,13 +256,16 @@ class AttachmentE2eDeviceTest {
         }
     }
 
-    private fun fixtureGoal(fixture: Fixture): String =
+    private fun fixtureGoal(
+        fixture: Fixture,
+        maxModelCalls: Int = 2,
+    ): String =
         kotlinx.coroutines.runBlocking {
             fixture.service.createGoal(
                 "Check synthetic output",
                 listOf("Verified output"),
                 com.helix.core.model
-                    .GoalBudgets(2, 4, 100_000, 60_000, 10_000, 0),
+                    .GoalBudgets(maxModelCalls, 4, 100_000, 60_000, 10_000, 0),
             )
         }
 
@@ -325,6 +321,7 @@ class AttachmentE2eDeviceTest {
                     .isEmpty(),
             )
             assertEquals(0, fixture.wire.callCount)
+            assertNull(fixture.storage.goalControls.find("missing-goal"))
         } finally {
             settleAndClose(fixture)
         }
@@ -1396,12 +1393,71 @@ class AttachmentE2eDeviceTest {
             storage = storage,
             providerService = providerService,
             profileStore = FixedStandardProfileStore,
-            toolPipeline = app.appContainer.toolPipeline,
+            toolPipeline = fixtureToolPipeline(app, storage),
             idGenerator = { "id-${UUID.randomUUID()}" },
             scope = serviceScope,
             attachmentStaging = stagingFor(workspaceRoot),
             visionSessionBinder = imageSource::bindSession,
             strings = { resId, args -> zh.getString(resId, *args) },
+        )
+    }
+
+    /** Keep authorization, approval foreign keys and audit in the same fixture database. */
+    private fun fixtureToolPipeline(
+        app: HelixApplication,
+        storage: HelixStorage,
+    ): com.helix.app.tool.ToolPipeline {
+        val shared = app.appContainer.toolPipeline
+        val clock =
+            com.helix.core.model
+                .SystemClock()
+        val broker =
+            com.helix.app.approval.StorageApprovalBroker(
+                approvals = storage.approvals,
+                clock = clock,
+                idGenerator = { UUID.randomUUID().toString() },
+                cardSink = { _, _ -> error("Read-only attachment fixture unexpectedly requested approval") },
+            )
+        val audit =
+            com.helix.app.approval
+                .StorageAuditSink(storage.auditEvents) { UUID.randomUUID().toString() }
+        val workspace: (String) -> String? = { sessionId ->
+            storage.sessions
+                .list()
+                .firstOrNull { it.id == sessionId }
+                ?.let { it.directoryRef ?: "app" }
+        }
+        val permissions =
+            com.helix.app.approval.SessionPermissionService(
+                storage.sessionPermissionConfigs,
+                storage.toolAvailability,
+                workspace,
+            )
+        val dispatcher =
+            com.helix.tools.framework.ToolDispatcher(
+                clock = clock,
+                registry = shared.registry,
+                implementations = shared.implementations,
+                capabilityCenter = app.appContainer.capabilityCenter,
+                policyEngine =
+                    com.helix.core.policy
+                        .PolicyEngine(clock),
+                approvals = broker,
+                audit = audit,
+                sessionPermissions = permissions,
+                toolAvailability = permissions,
+                effectClassifier =
+                    com.helix.app.tool
+                        .SessionToolEffectClassifier(workspace),
+            )
+        return com.helix.app.tool.ToolPipeline(
+            shared.registry,
+            shared.implementations,
+            dispatcher,
+            broker,
+            audit,
+            com.helix.tools.framework
+                .ToolScheduler(clock, dispatcher, shared.registry),
         )
     }
 
@@ -1563,7 +1619,11 @@ class AttachmentE2eDeviceTest {
             "timed out waiting for: $what (blockedReason=${s.blockedReason}, " +
                 "pendingDisclosure=${s.pendingDisclosure != null}, " +
                 "pendingAttachments=${s.pendingAttachments.size}, " +
-                "isSending=${s.isSending}, wireCalls=${fixture.wire.callCount})",
+                "isSending=${s.isSending}, wireCalls=${fixture.wire.callCount}, " +
+                "turns=${fixture.storage.turns.listBySession(SESSION_ID)}, " +
+                "messages=${fixture.storage.messages.listBySession(
+                    SESSION_ID,
+                ).map { fixture.storage.messages.readContent(it) }})",
         )
     }
 

@@ -4,7 +4,7 @@ for p in [*Path('app/src').glob('*/kotlin/com/helix/app/proot/ProotGoalArtifacts
  if p.exists(): (archive/(str(p).replace('/','__')+'.txt')).write_bytes(p.read_bytes());p.unlink()
 p=Path('core/agent/src/main/kotlin/com/helix/core/agent/Criterion.kt');p.write_text('''package com.helix.core.agent
 
-/** User-described success criterion. Its semantic assessment belongs to the model (ADR-0040). */
+/** User-described success criterion. Its semantic assessment belongs to the model (ADR-GOAL-001). */
 data class Criterion(val id: String, val description: String) {
     init {
         require(id.length in 1..MAX_ID_LENGTH && id.all { it in ID_CHARS })

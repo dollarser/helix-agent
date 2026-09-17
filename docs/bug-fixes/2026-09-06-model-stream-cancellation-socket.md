@@ -39,6 +39,6 @@ OkHttpWireClient.open 使用阻塞 execute，正文直接阻塞 source.read。�
 
 ## Related records
 
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

@@ -38,13 +38,23 @@ internal class AppAgentRuntime(
                 retryTurnId = command.retryTurnId?.value,
                 goalId = command.goalId?.value,
                 attachments = command.attachments,
+                continuousGoal = command.continuousGoal,
+                goalContinuation = command.goalContinuation,
+                directUserRequest = command.directUserRequest,
                 control =
-                    RunControlConfig(command.mode, command.chatToolsEnabled, command.budgets, command.reasoning),
+                    RunControlConfig(
+                        command.mode,
+                        command.chatToolsEnabled,
+                        command.budgets,
+                        command.reasoning,
+                        command.goalBudgets ?: com.helix.app.runcontrol.GoalBudgetDefaults.VALUE,
+                    ),
             ) ?: throw TurnStartBlocked()
         return TurnId(turnId)
     }
 
     override suspend fun cancel(turnId: TurnId): CancelResult {
+        host.revokeGoalContinuation(turnId.value)
         val phase = host.persistedPhase(turnId.value)
         return when {
             phase == null -> {

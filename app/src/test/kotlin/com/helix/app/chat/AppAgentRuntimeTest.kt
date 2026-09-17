@@ -124,9 +124,12 @@ class AppAgentRuntimeTest {
 
     @Test
     fun cancelOfATerminalTurnIsAlreadyTerminal() {
-        val runtime = AppAgentRuntime(host().apply { phase = TurnState.CANCELLED })
+        val fake = host().apply { phase = TurnState.CANCELLED }
+        val runtime = AppAgentRuntime(fake)
         val result = runBlocking { runtime.cancel(turnId) }
         assertTrue(result is CancelResult.AlreadyTerminal && result.phase == TurnState.CANCELLED)
+        assertEquals(listOf("t1"), fake.revoked)
+        assertTrue(fake.cancelled.isEmpty())
     }
 
     @Test
@@ -270,6 +273,7 @@ class AppAgentRuntimeTest {
         var assistantText: String? = null
         var frames: List<TurnUi> = emptyList()
         val cancelled = mutableListOf<String>()
+        val revoked = mutableListOf<String>()
         val startedTurns = mutableListOf<String>() // turn ids actually started (a dedup hit adds none)
         private val claimedClientIds = HashMap<String, String>()
 
@@ -282,6 +286,9 @@ class AppAgentRuntimeTest {
             goalId: String?,
             attachments: List<AttachmentBindingIntent>,
             control: RunControlConfig,
+            continuousGoal: Boolean,
+            goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
+            directUserRequest: Boolean,
         ): String? {
             // Mirror the production host (HX2-01 §2e): idempotent by clientRequestId — a re-driven
             // start carrying an already-claimed id returns the existing turn, never a second.
@@ -294,6 +301,10 @@ class AppAgentRuntimeTest {
                 startedTurns += nextStartTurnId!!
             }
             return nextStartTurnId
+        }
+
+        override suspend fun revokeGoalContinuation(turnId: String) {
+            revoked += turnId
         }
 
         override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {

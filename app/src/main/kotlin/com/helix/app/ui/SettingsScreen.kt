@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.automation.AutomationModule
 import com.helix.app.egress.EgressRuleSection
 import com.helix.app.profile.AdvancedProfileAvailability
@@ -33,6 +34,7 @@ import com.helix.app.proot.ProotToolModule
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.tool.ToolPipeline
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.repository.HighSensitivityRuleRepository
 
@@ -66,7 +68,8 @@ fun SettingsScreen(
     skillAuthoringService: com.helix.app.skills.SkillAuthoringService? = null,
     skillInstallationService: com.helix.app.skills.SkillInstallationService? = null,
     chatService: com.helix.app.chat.ChatService? = null,
-    toolApprovalSettings: com.helix.app.approval.ToolApprovalSettingsModel,
+    sessionPermissionEdit: SessionPermissionEditService? = null,
+    toolPipeline: ToolPipeline? = null,
 ) {
     val profile by profileStore.flow.collectAsStateWithLifecycle()
     var riskDialogOpen by remember { mutableStateOf(false) }
@@ -147,7 +150,8 @@ fun SettingsScreen(
 
         SettingsGroup { RunControlSettingsSection(runControlStore) }
         SettingsGroup { GoalSettingsSection(runControlStore, chatService) }
-        SettingsGroup { ToolApprovalSettingsSection(toolApprovalSettings) }
+
+        SessionPermissionSectionHost(sessionPermissionEdit, toolPipeline, chatService)
 
         skillAuthoringService?.let {
             com.helix.app.skills
@@ -178,6 +182,23 @@ fun SettingsScreen(
         },
         onDismiss = { riskDialogOpen = false },
     )
+}
+
+/**
+ * The HXA-209 session-authorization section, rendered only when both the write service and the
+ * tool pipeline are present (production always wires both; preview/test hosts may omit them).
+ * The null-guard lives HERE so the [SettingsScreen] body stays a plain, branch-free section list.
+ */
+@Composable
+@Suppress("FunctionName")
+private fun SessionPermissionSectionHost(
+    sessionPermissionEdit: SessionPermissionEditService?,
+    toolPipeline: ToolPipeline?,
+    chatService: com.helix.app.chat.ChatService?,
+) {
+    if (sessionPermissionEdit != null && toolPipeline != null) {
+        SessionPermissionSection(sessionPermissionEdit, toolPipeline, chatService)
+    }
 }
 
 /**

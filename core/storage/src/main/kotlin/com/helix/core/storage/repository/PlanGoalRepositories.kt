@@ -98,6 +98,14 @@ enum class PlanLifecycleState {
 class GoalRepository(
     private val dao: GoalDao,
 ) {
+    fun updateObjective(
+        id: String,
+        objective: String,
+    ) {
+        require(objective.isNotBlank() && objective.length <= MAX_OBJECTIVE_LENGTH)
+        require(dao.updateObjective(id, objective) == 1)
+    }
+
     fun save(goal: StoredGoal): GoalEntity {
         require(goal.objective.isNotBlank() && goal.objective.length <= MAX_OBJECTIVE_LENGTH) {
             "objective must be 1..$MAX_OBJECTIVE_LENGTH non-blank chars"
@@ -160,7 +168,7 @@ class GoalRepository(
     }
 
     private companion object {
-        const val MAX_OBJECTIVE_LENGTH = 1024
+        const val MAX_OBJECTIVE_LENGTH = 16_384
     }
 }
 

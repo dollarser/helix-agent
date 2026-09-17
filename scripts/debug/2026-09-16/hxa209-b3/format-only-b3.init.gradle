@@ -1,0 +1,29 @@
+// Narrows the root spotless "kotlin" format to the HXA-209 B3 files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices are left untouched.
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionSource.kt',
+        'tools/framework/src/main/kotlin/com/helix/tools/framework/SessionPermissionStage.kt',
+        'tools/framework/src/main/kotlin/com/helix/tools/framework/DispatchAudit.kt',
+        'tools/framework/src/main/kotlin/com/helix/tools/framework/ToolDispatcher.kt',
+        'tools/framework/src/test/kotlin/com/helix/tools/framework/SessionPermissionStageTest.kt',
+        'app/src/main/kotlin/com/helix/app/approval/SessionPermissionService.kt',
+        'app/src/main/kotlin/com/helix/app/approval/SessionPermissionAuditPayload.kt',
+        'app/src/main/kotlin/com/helix/app/approval/StorageAuditSink.kt',
+        'app/src/main/kotlin/com/helix/app/approval/ApprovalUiMapper.kt',
+        'app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt',
+        'app/src/main/kotlin/com/helix/app/tool/ToolPipeline.kt',
+        'app/src/main/kotlin/com/helix/app/tool/SessionToolEffectClassifier.kt',
+        'app/src/main/kotlin/com/helix/app/chat/ChatRequestAssembler.kt',
+        'app/src/main/kotlin/com/helix/app/DefaultAppContainer.kt',
+        'app/src/test/kotlin/com/helix/app/mcp/McpToolDiscoveryTest.kt',
+        'app/src/test/kotlin/com/helix/app/approval/DispatchAuditPayloadTest.kt',
+        'app/src/test/kotlin/com/helix/app/tool/SessionToolEffectClassifierTest.kt',
+    )
+}

@@ -31,4 +31,4 @@ import com.helix.tools.framework.ToolSchemaValidator''');idx=s.index('    privat
         }
 
 '''+s[idx:];p.write_text(s)
-p=Path('docs/architecture/provider-mcp-skills-modes.md');s=p.read_text().replace('验收条件仍需要 Helix 可验证证据。','Helix 模型应结合实际结果判断目标完成，远端状态不直接控制本机 Goal（ADR-0040）；本机工具副作用仍由工具验证器核实。').replace('持续推进有验收条件的目标','持续推进目标，可附补充要求');p.write_text(s)
+p=Path('docs/architecture/provider-mcp-skills-modes.md');s=p.read_text().replace('验收条件仍需要 Helix 可验证证据。','Helix 模型应结合实际结果判断目标完成，远端状态不直接控制本机 Goal（ADR-GOAL-001）；本机工具副作用仍由工具验证器核实。').replace('持续推进有验收条件的目标','持续推进目标，可附补充要求');p.write_text(s)

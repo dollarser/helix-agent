@@ -2,7 +2,7 @@
 
 > **本文档定位**：Helix 侧——现在能跑什么代码、为什么这么隔离、如何在「**不开放给 agent 工具面**」的前提下集成一个跑 Linux 命令的能力，以及 PRoot 在代码里的实现细节。
 >
-> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](./android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../architecture/local-code-execution.md)（尤其 §6 PRoot 方案、§6.2 Termux 对比、§6.3 运行时组成）。
+> **前置阅读**：Android 机制本身（SELinux 双权限 `execute` / `execute_no_trans`、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）见 [android-native-execution-mechanisms.md](android-native-execution-mechanisms.md)。权威架构见 [local-code-execution.md](../architecture/local-code-execution.md)（尤其 §6 PRoot 方案、§6.2 Termux 对比、§6.3 运行时组成）。
 >
 > **性质**：参考性说明，**不是** ADR；与权威文档 / 代码冲突时以后者为准。
 
@@ -41,11 +41,11 @@
 - 两层隔离：
   - **物理隔离**：独立签名 companion APK/UID + 无 `INTERNET` + pinned sha256 rootfs + 有界 I/O（Binder/PFD 快照 IPC）。
   - **逻辑隔离**：capability/policy engine + 风险分级 L0–L4 + 逐调用审批 + 一次性消费 + 审计。
-- [ADR-0012](../adr/0012-capability-first-advanced-grants.md) 的**不可变安全内核**：无模型自授权、无全局自动批准、无全局 Full Access、无 L2/L3 长期放行。
+- [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md) 的**不可变安全内核**：无模型自授权、无全局自动批准、无全局 Full Access、无 L2/L3 长期放行。
 
 ---
 
-## 4. 最大化信任 / 权限（ADR-0012 允许的最大范围）
+## 4. 最大化信任 / 权限（ADR-PERMISSIONS-003 允许的最大范围）
 
 - 两个运行时配置：`STANDARD`（所有安装默认）/ `ADVANCED`（**仅 developer** 变体、用户显式开启）。
 - **Trusted Workspace**：自动执行仅限 **L0 + 动态风险 ≤ L1**；覆盖/删除/代码执行/跨 scope 外发或风险达 L2/L3 时不匹配该规则。
@@ -59,7 +59,7 @@
 
 ## 5. 不开放给 agent、纯 app 内部跑 Linux 命令
 
-**结论：能，而且这是更干净、更安全的设计。**（Android 侧三种底座各自怎么跑、要不要跳板，机制见 [android-native-execution-mechanisms.md](./android-native-execution-mechanisms.md)。）
+**结论：能，而且这是更干净、更安全的设计。**（Android 侧三种底座各自怎么跑、要不要跳板，机制见 [android-native-execution-mechanisms.md](android-native-execution-mechanisms.md)。）
 
 - **关键点**：「不给 agent 调」= 命令来源从「模型输出」变成「你自己的受信 Kotlin 代码」→ **prompt-injection 面消失**。这是它比「薄封装给模型调」更安全的根本原因。
 - **怎么挡在 agent 外**：agent 只看到注册进 `ToolRegistry` 的 `ToolDescriptor`。你的命令执行器若只是自己代码里的一个 `ProcessBuilder` / `Runtime.exec` 调用、**不注册成工具**，模型就看不到、也调不到。架构上天然解耦。
@@ -117,9 +117,9 @@
 
 ## 参考
 
-- [android-native-execution-mechanisms.md](./android-native-execution-mechanisms.md)（Android 机制：SELinux 双权限、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）
+- [android-native-execution-mechanisms.md](android-native-execution-mechanisms.md)（Android 机制：SELinux 双权限、linker64 跳板、toybox/busybox、PRoot、Termux、爆炸半径）
 - [docs/architecture/local-code-execution.md](../architecture/local-code-execution.md)（权威；§6 PRoot 方案、§6.2 Termux 对比、§6.3 运行时组成）
-- [docs/adr/0012-capability-first-advanced-grants.md](../adr/0012-capability-first-advanced-grants.md)（能力优先的授权边界与不可变安全内核）
+- [docs/adr/permissions/003-dispatch-and-audit.md](../adr/permissions/003-dispatch-and-audit.md)（能力优先的授权边界与不可变安全内核）
 - `runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotJobRunner.kt`（启动链 + SELinux 注释）
 - `app/src/developer/kotlin/com/helix/app/proot/LinuxRunTool.kt`、`runtime/quickjs/src/main/kotlin/com/helix/runtime/quickjs/tool/CodeJavascriptRunTool.kt`、`app/src/developer/kotlin/com/helix/app/root/RootModule.kt`
 - `runtime/proot-core/src/main/kotlin/com/helix/runtime/proot/core/RuntimeBaseline.kt`（基线包）

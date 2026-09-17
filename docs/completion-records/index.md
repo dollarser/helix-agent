@@ -43,7 +43,7 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-046 | [HXA-046 完成记录：文件管理 UI（浏览、排序、多选、预览、冲突、长操作进度/取消、trash 与分享）](HXA-046.md) |
 | HXA-047 | [HXA-047 完成记录：`files.archive`/`files.extract`（受限 zip/tar 创建与解压，Zip Slip/symlink/膨胀比防御）](HXA-047.md) |
 | HXA-048 | [HXA-048 完成记录：全项目审查后续收敛（ChatService 每会话 turn 模型、删除 WorkspacePath 死代码、记录维持现状项）](HXA-048.md) |
-| HXA-049 | [HXA-049 完成记录：会话附件导入、持久化与文本输入（ADR-0014 首批 UTF-8 txt/md/csv/json 文本附件）](HXA-049.md) |
+| HXA-049 | [HXA-049 完成记录：会话附件导入、持久化与文本输入（ADR-AGENT-003 首批 UTF-8 txt/md/csv/json 文本附件）](HXA-049.md) |
 | HXA-050 | [HXA-050 完成记录：Zipline Spike（M5，QuickJS 关键能力验证）](HXA-050.md) |
 | HXA-051 | [HXA-051 完成记录：QuickJS 生产执行协议（M5，isolated Service/Binder）](HXA-051.md) |
 | HXA-052 | [HXA-052 完成记录：QuickJS JS ABI 与限制（M5，IIFE wrapper）](HXA-052.md) |
@@ -62,7 +62,7 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-065 | [HXA-065 完成记录：通知和日历（`notifications.query` + `calendar.prepare_event`/`calendar.commit_event` 3 个工具经纯 JVM `:tools:android` 端口 fail-closed 映射 + Context-backed 生产端口，日历先草稿再 commit）](HXA-065.md) |
 | HXA-066 | [HXA-066 完成记录：HTTP fetch 与前台任务（`http.fetch` 工具 + 纯 JVM `SsrfAddressPolicy` 端口 + 原始 socket transport，逐跳 origin/DNS/IP/peer/scope 再校验 + dataSync 前台服务 / `onTimeout(int,int)` 超限自停 / 6h·24h 限额谓词 / 通知停止）](HXA-066.md) |
 | HXA-067 | [HXA-067 完成记录：语音输入（`ACTION_RECOGNIZE_SPEECH` 系统识别 Activity 把**用户主动**录音转为**可编辑草稿**：纯 JVM `VoiceInputMapper` 4 态决策 + `SpeechRecognitionLauncher` Android seam + ChatScreen「语音」按钮；**不后台常驻监听**、识别文本进 composer 绝不自动发送、按系统 locale 启动）](HXA-067.md) |
-| HXA-068 | [HXA-068 完成记录：Advanced 有界出网规则管理（ADR-0005/0012：高敏出网规则的有界**类型化持久化** + 列表/创建/撤销 UI + Profile/存储 **fail-closed 闸门**；仅 developer/Advanced 可创建、consumer/Standard 永无入口；规则严格绑定 Provider/MCP ID + 规范 origin + scope + 固定 TTL，无通配符/滑动续期/"全部允许"；经 `ruleProvider` 接入 Policy Engine，进程重启后重水化仍精确匹配）](HXA-068.md) |
+| HXA-068 | [HXA-068 完成记录：Advanced 有界出网规则管理（ADR-PERMISSIONS-001/0012：高敏出网规则的有界**类型化持久化** + 列表/创建/撤销 UI + Profile/存储 **fail-closed 闸门**；仅 developer/Advanced 可创建、consumer/Standard 永无入口；规则严格绑定 Provider/MCP ID + 规范 origin + scope + 固定 TTL，无通配符/滑动续期/"全部允许"；经 `ruleProvider` 接入 Policy Engine，进程重启后重水化仍精确匹配）](HXA-068.md) |
 | HXA-069 | [HXA-069 国际化与 App 语言切换（完成记录）](HXA-069.md) |
 | HXA-070 | [HXA-070 MCP Kotlin SDK Android Spike 完成记录](HXA-070.md) |
 | HXA-071 | [HXA-071 MCP Server 配置和握手（完成记录）](HXA-071.md) |
@@ -87,6 +87,8 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-091 | [HXA-091 UI snapshot/token（完成记录）](HXA-091.md) |
 | HXA-092 | [HXA-092 UI actions（完成记录）](HXA-092.md) |
 | HXA-093 | [HXA-093 Accessibility 攻击/恢复测试（完成记录）](HXA-093.md) |
+| HXA-094 | [HXA-094：Root 依赖与授权生命周期验收](HXA-094.md) |
+| HXA-095 | [HXA-095：Root 高层工具作用域与失权验收](HXA-095.md) |
 | HXA-096 | [HXA-096 Root L3 控制台（完成记录）](HXA-096.md) |
 | HXA-097 | [HXA-097 Android UI Skill（完成记录）](HXA-097.md) |
 | HXA-099 | [HXA-099 模式、预算与资源降级运行控制（完成记录）](HXA-099.md) |
@@ -168,5 +170,11 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-187 | [HXA-187：QuickJS 真机冻结诊断与测试宿主修复](HXA-187.md) |
 | HXA-188 | [HXA-188：真机浏览器冻结、后台恢复与 Root 崩溃修复](HXA-188.md) |
 | HXA-189 | [HXA-189：第三轮审查复核、PFD 释放与权限入口修复](HXA-189.md) |
+| HXA-192 | [HXA-192：Plan 审阅到执行的用户闭环验收](HXA-192.md) |
+| HXA-194 | [HXA-194：命令详情与现有结果导航](HXA-194.md) |
 | HXA-200 | [HXA-200：三态审批偏好、审计与恢复验收](HXA-200.md) |
 | HXA-201 | [HXA-201：工具设置与审批卡](HXA-201.md) |
+| HXA-202 | [HXA-202：任务过程与跨页面操作导航](HXA-202.md) |
+| HXA-203 | [HXA-203：产物可用性与文件交付闭环](HXA-203.md) |
+| HXA-208 | [HXA-208：完整 Goal 工具与前后台连续运行](HXA-208.md) |
+| HXA-209 | [HXA-209：会话授权预设、工具禁用与自定义权限](HXA-209.md) |

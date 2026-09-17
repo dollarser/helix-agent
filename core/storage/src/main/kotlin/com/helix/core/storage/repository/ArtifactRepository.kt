@@ -95,6 +95,9 @@ class ArtifactRepository(
 
     fun listBySession(sessionId: String): List<ArtifactEntity> = dao.listBySession(sessionId)
 
+    /** The turn's own artifact rows by real ownership (HXA-202); no cross-session truncation. */
+    fun listByTurn(turnId: String): List<ArtifactEntity> = dao.listByTurn(turnId)
+
     /** Cross-session newest-first listing (artifact center files section). */
     fun recent(limit: Int): List<ArtifactEntity> = dao.recent(limit)
 

@@ -435,6 +435,7 @@ class ProotLifecycleE2eDeviceTest {
                         .lowercase()
             },
             knownSecretValues = { emptySet() },
+            recheckBeforeSubmit = { null },
             persistVerifiedResult = { _, _, _ -> }, // Direct fixture has no session-owned archive.
             beforeSubmit = { _, _ -> }, // Direct client fixture has no persisted ToolCall.
         )

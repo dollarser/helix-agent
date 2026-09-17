@@ -45,9 +45,9 @@ Codex 模型请求保留连接 20 秒、写入 20 秒；读取与总调用时间
 
 ## Residual risk
 
-真实模型完成率与设备交互仍由所有者人工验收。后续 ADR-0045 已将文件路径进一步改为会话相对路径，三目录前缀不再是普通文件的强制要求；本记录中的旧批次描述只代表当时交付。
+真实模型完成率与设备交互仍由所有者人工验收。后续 ADR-WORKSPACE-001 已将文件路径进一步改为会话相对路径，三目录前缀不再是普通文件的强制要求；本记录中的旧批次描述只代表当时交付。
 
 ## Related records
 
-- [ADR-0045](../adr/0045-session-relative-file-tools.md)
+- [ADR-WORKSPACE-001](../adr/workspace/001-session-paths.md)
 - [当前状态](../development/status.md)

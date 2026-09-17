@@ -1,0 +1,37 @@
+// HXA-202 slice 5 debugging: dump the BuildProjectRegistry + BuildState layer that resolveTaskName/resolveProject consult.
+gradle.projectsEvaluated {
+    try {
+        def root = rootProject as org.gradle.api.internal.project.ProjectInternal
+        def buildState = root.owner.owner
+        println("ST3 buildState identityPath=" + buildState.identityPath + " parent=" + buildState.parent + " implicit=" + buildState.isImplicitBuild() + " projectsLoaded=" + buildState.isProjectsLoaded() + " projectsCreated=" + buildState.isProjectsCreated())
+        def bpr = buildState.projects
+        println("ST3 bpr rootProject: path=" + bpr.rootProject.projectPath + " name=" + bpr.rootProject.name)
+        def all = bpr.allProjects
+        println("ST3 bpr allProjects size=" + all.size())
+        println("ST3 bpr runtime-prefixed = " + all.collect { it.projectPath }.findAll { it.toString().startsWith(':runtime') }.sort())
+        try {
+            def st = bpr.findProject(org.gradle.util.Path.path('runtime/cli-app'))
+            println("ST3 findProject('runtime/cli-app') = " + (st != null ? ("path=" + st.projectPath) : "NULL"))
+        } catch (Throwable t) {
+            println("ST3 findProject('runtime/cli-app') THREW: " + t)
+        }
+        try {
+            def st2 = bpr.getProject(org.gradle.util.Path.path('runtime/cli-app'))
+            println("ST3 getProject('runtime/cli-app') = " + (st2 != null ? ("path=" + st2.projectPath) : "NULL"))
+        } catch (Throwable t) {
+            println("ST3 getProject('runtime/cli-app') THREW: " + t)
+        }
+        def rt = bpr.rootProject.getChildProjects().find { it.name == 'runtime' }
+        println("ST3 bpr root children=" + bpr.rootProject.getChildProjects()*.name)
+        println("ST3 bpr runtime children=" + (rt != null ? rt.getChildProjects()*.name : "NO runtime child"))
+        def gm = buildState.mutableModel
+        def defProj = gm.defaultProject as org.gradle.api.internal.project.ProjectInternal
+        println("ST3 mutableModel.defaultProject=" + defProj.path + " owner.path=" + defProj.owner.projectPath + " sameAsBprRoot=" + defProj.owner.is(bpr.rootProject))
+        def parentState = buildState.parent
+        if (parentState != null) {
+            println("ST3 PARENT BUILD exists: " + parentState.identityPath)
+        }
+    } catch (Throwable t) {
+        println("ST3 error: " + t)
+    }
+}

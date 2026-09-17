@@ -39,24 +39,31 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
 import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
+import com.helix.app.ui.COMMAND_DETAIL_ROUTE
 import com.helix.app.ui.CapabilitiesScreenDestination
 import com.helix.app.ui.ChatScreen
+import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
 import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.GitStatusScreenDestination
 import com.helix.app.ui.SettingsScreen
+import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
+import com.helix.app.ui.commandDetailRoute
+import com.helix.app.ui.tasksTurnRoute
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
@@ -241,6 +248,56 @@ internal fun HelixApp(container: AppContainer) {
                             )
                         }
                     }
+                    // HXA-194: the command details page — its OWN route, not one of the drawer's
+                    // destinations: the back button (and the system back) return to exactly
+                    // the page the detail was opened from (the task page or the chat tool row).
+                    composable(
+                        COMMAND_DETAIL_ROUTE,
+                        arguments =
+                            listOf(
+                                navArgument("turnId") { type = NavType.StringType },
+                                navArgument("callId") { type = NavType.StringType },
+                            ),
+                    ) { entry ->
+                        CommandResultDetailScreen(
+                            container.chatService,
+                            requireNotNull(entry.arguments?.getString("turnId")),
+                            requireNotNull(entry.arguments?.getString("callId")),
+                            onBack = { navController.popBackStack() },
+                            onOpenSession = { sessionId ->
+                                container.chatService.openSession(sessionId)
+                                navController.navigate(ShellDestination.Sessions.route) {
+                                    launchSingleTop = true
+                                }
+                            },
+                        )
+                    }
+                    // HXA-203: "return to the producing task" — the task dashboard's own route
+                    // (same pattern as command details): it lands on the turn's result dialog
+                    // and system back returns to the page the artifact row was opened from.
+                    composable(
+                        TASKS_TURN_ROUTE,
+                        arguments =
+                            listOf(
+                                navArgument("turnId") { type = NavType.StringType },
+                            ),
+                    ) { entry ->
+                        TasksScreen(
+                            container.chatService,
+                            container.fileManager,
+                            onOpenSession = { sessionId ->
+                                container.chatService.openSession(sessionId)
+                                navController.navigate(ShellDestination.Sessions.route) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onOpenCommandDetail = { turnId, callId ->
+                                navController.navigate(commandDetailRoute(turnId, callId))
+                            },
+                            initialTurnId = requireNotNull(entry.arguments?.getString("turnId")),
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
             }
         }
@@ -264,7 +321,9 @@ private fun DestinationScreen(
                 container.fileManager,
                 onNavigation = onOpenDrawer,
                 onProviders = { navController.navigate(ShellDestination.Settings.route) },
-                toolApprovalSettings = container.toolApprovalSettings,
+                onOpenCommandDetail = { turnId, callId ->
+                    navController.navigate(commandDetailRoute(turnId, callId))
+                },
             )
         }
 
@@ -273,11 +332,17 @@ private fun DestinationScreen(
         ShellDestination.Tasks -> {
             TasksScreen(
                 container.chatService,
+                container.fileManager,
                 onOpenSession = { sessionId ->
                     container.chatService.openSession(sessionId)
                     navController.navigate(ShellDestination.Sessions.route) {
                         launchSingleTop = true
                     }
+                },
+                // HXA-194: the task page's command entry opens the details page; the system
+                // back from there returns to the tasks dashboard.
+                onOpenCommandDetail = { turnId, callId ->
+                    navController.navigate(commandDetailRoute(turnId, callId))
                 },
             )
         }
@@ -292,6 +357,11 @@ private fun DestinationScreen(
                     navController.navigate(ShellDestination.Sessions.route) {
                         launchSingleTop = true
                     }
+                },
+                // HXA-203: an artifact's "view task" action returns to the turn that wrote
+                // it, through the dedicated tasks-turn route (system back pops back here).
+                onOpenTask = { turnId ->
+                    navController.navigate(tasksTurnRoute(turnId))
                 },
             )
         }
@@ -331,7 +401,8 @@ private fun DestinationScreen(
                 container.skillAuthoringService,
                 container.skillInstallationService,
                 chatService = container.chatService,
-                toolApprovalSettings = container.toolApprovalSettings,
+                sessionPermissionEdit = container.sessionPermissionEdit,
+                toolPipeline = container.toolPipeline,
             )
         }
 

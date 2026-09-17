@@ -35,10 +35,10 @@ API 34：GoalCheckpointDeviceTest 与原提醒/删除/并发用例合计 11/11�
 
 ## Residual risk
 
-WorkManager 历史可能被系统清理；旧版本记录也没有检查点 tag。无法确认成功时保留 ADR-0004 的过期补发行为。通知发布与 Worker 成功记录不是跨系统事务，不能保证 exactly-once。真机、长稳和完整通知 UI 尚未在本组验收。
+WorkManager 历史可能被系统清理；旧版本记录也没有检查点 tag。无法确认成功时保留 ADR-GOAL-001 的过期补发行为。通知发布与 Worker 成功记录不是跨系统事务，不能保证 exactly-once。真机、长稳和完整通知 UI 尚未在本组验收。
 
 ## Related records
 
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

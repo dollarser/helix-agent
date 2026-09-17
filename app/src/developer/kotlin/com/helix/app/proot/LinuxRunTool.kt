@@ -326,6 +326,8 @@ object LinuxRunTool {
     data class ParsedLinuxCall(
         val toolCallId: String,
         val turnId: String?,
+        /** The trusted dispatch session (HXA-209 C5: the background-job authorization recheck). */
+        val sessionId: String? = null,
         val command: ProotJobCommand,
         val cwd: String,
         val environment: Map<String, String>,
@@ -448,6 +450,7 @@ object LinuxRunTool {
             ParsedLinuxCall(
                 toolCallId = call.toolCallId,
                 turnId = call.turnId,
+                sessionId = call.sessionId,
                 command = command,
                 cwd = cwd,
                 environment = environment,
@@ -499,6 +502,7 @@ object LinuxRunTool {
         scratchRoot: File,
         jobIdProvider: () -> String,
         knownSecretValues: () -> Set<String>,
+        recheckBeforeSubmit: (ParsedLinuxCall) -> ToolExecutorResult?,
         beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
         persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
     ) : LinuxExecutor by LinuxJobExecution(
@@ -508,6 +512,7 @@ object LinuxRunTool {
             scratchRoot,
             jobIdProvider,
             knownSecretValues,
+            recheckBeforeSubmit,
             beforeSubmit,
             persistVerifiedResult,
         )

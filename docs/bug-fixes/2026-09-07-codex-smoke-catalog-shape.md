@@ -38,5 +38,5 @@ Runtime JVM 96/96、零跳过，模块 Lint、Debug 构建、Release Kotlin 编�
 ## Related records
 
 - [HXA-102](../completion-records/HXA-102.md)
-- [主分支优化待办](../development/main-optimization-todo.md)
+- [主分支优化待办](../evidence/development/main-optimization-todo.md)
 - [响应完成状态修复](2026-09-07-codex-smoke-stream-completion.md)

@@ -24,7 +24,8 @@ internal class ModelLoopAdmission(
             val code =
                 when (admission.decision) {
                     TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT -> "MODEL_CALL_LIMIT"
-                    TurnBudgetTracker.BeginDecision.TOKEN_LIMIT -> "TOKEN_BUDGET_LIMIT"
+                    TurnBudgetTracker.BeginDecision.INPUT_LIMIT -> "INPUT_TOKEN_LIMIT"
+                    TurnBudgetTracker.BeginDecision.TOKEN_LIMIT -> "TURN_TOTAL_TOKEN_LIMIT"
                     TurnBudgetTracker.BeginDecision.ALLOWED -> null
                 }
             if (code != null) return ModelLoopAdmission(null, failed(code))
@@ -33,6 +34,7 @@ internal class ModelLoopAdmission(
                     ?: return ModelLoopAdmission(null, failed("GOAL_BUDGET_LIMIT"))
             return ModelLoopAdmission(prepared, null) { stream ->
                 goalBudget.finish(turnId, callId, prepared, stream)
+                val withinTurnBudget = turnBudget.finishCall(callId, prepared, stream)
                 when {
                     stream.finishedToolCalls.isNotEmpty() &&
                         !goalBudget.canContinue(
@@ -40,7 +42,7 @@ internal class ModelLoopAdmission(
                         )
                     -> failed("GOAL_BUDGET_LIMIT")
 
-                    !turnBudget.finishCall(callId, prepared, stream) -> failed("TOKEN_BUDGET_LIMIT")
+                    !withinTurnBudget -> failed(requireNotNull(turnBudget.lastFailureCode))
 
                     else -> null
                 }

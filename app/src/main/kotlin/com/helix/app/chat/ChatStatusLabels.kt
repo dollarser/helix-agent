@@ -34,6 +34,10 @@ internal class ChatStatusLabels(
         when (errorCode) {
             "CONTEXT_NOT_COMPACTABLE", "CONTEXT_NO_GAIN" -> R.string.context_not_compactable
             "CONTEXT_WINDOW_LIMIT" -> R.string.context_window_limit
+            "CONTEXT_MESSAGE_LIMIT" -> R.string.budget_message_limit
+            "INPUT_TOKEN_LIMIT" -> R.string.budget_input_limit
+            "OUTPUT_TOKEN_LIMIT" -> R.string.budget_output_limit
+            "TURN_TOTAL_TOKEN_LIMIT" -> R.string.budget_total_limit
             "CONTEXT_SUMMARY_INVALID" -> R.string.context_summary_invalid
             ModelStreamState.REFUSAL -> R.string.model_refused
             ModelStreamState.TOOL_STREAM_TRUNCATED -> R.string.model_error_tool_stream_truncated

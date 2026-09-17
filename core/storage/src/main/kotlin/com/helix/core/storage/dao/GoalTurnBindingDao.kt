@@ -53,6 +53,17 @@ interface GoalTurnBindingDao {
     )
     fun sessionsForGoal(goalId: String): List<String>
 
+    /**
+     * Every turn ever bound to [goalId], in turn-start order (HXA-202): the task-artifact
+     * query walks these by real ownership instead of a truncated global listing.
+     */
+    @Query(
+        "SELECT b.turnId FROM goal_turn_bindings b " +
+            "JOIN goal_runs r ON r.id = b.runId JOIN turns t ON t.id = b.turnId " +
+            "WHERE r.goalId = :goalId ORDER BY t.startedAt ASC",
+    )
+    fun turnsForGoal(goalId: String): List<String>
+
     /** Admission and insert share one transaction, including when nested inside Turn creation. */
     @Transaction
     fun bind(

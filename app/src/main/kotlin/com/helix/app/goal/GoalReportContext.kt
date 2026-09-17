@@ -106,7 +106,9 @@ private const val IDENTITY =
         "based on actual work and checks."
 
 private const val PROTOCOL =
-    "Before your final response, call goal.report with complete, in_progress or blocked and a concrete summary.\n" +
+    "Read current goal, id and revision with get_goal before updating. Before your final response, call update_goal " +
+        "(goal.report is compatible) with complete, in_progress or blocked and a concrete summary.\n" +
+        "An activated Goal may continue in another round after in_progress; a round ending is not task completion.\n" +
         "Report complete only after all requested work is finished. Mention checks, deliverables and limitations.\n" +
         "Report in_progress if useful work remains; use blocked only if external help is required " +
         "and you cannot proceed.\n" +

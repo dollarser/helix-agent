@@ -26,8 +26,10 @@ interface ForegroundServiceLauncher {
  */
 class DataSyncForegroundController(
     private val launcher: ForegroundServiceLauncher,
+    private val onUnavailable: () -> Unit = {},
 ) {
     private var foreground = false
+    private var rejected = false
 
     /**
      * Driven from the aggregate task collector (main dispatcher); guarded anyway because a StateFlow
@@ -36,13 +38,23 @@ class DataSyncForegroundController(
     @Synchronized
     fun onTurnState(state: TurnState?) {
         val wantForeground = state != null && state in TRANSPORT_ACTIVE
-        if (wantForeground && !foreground) {
-            launcher.start()
-            foreground = true
+        if (!wantForeground) rejected = false
+        if (wantForeground && !foreground && !rejected) {
+            startTransport()
         } else if (!wantForeground && foreground) {
             launcher.stop()
             foreground = false
         }
+    }
+
+    private fun startTransport() {
+        foreground = tryForegroundStart(launcher::start, ::rejectTransport)
+    }
+
+    private fun rejectTransport() {
+        rejected = true
+        launcher.stop()
+        onUnavailable()
     }
 
     companion object {
@@ -84,3 +96,17 @@ object DataSyncLimitPolicy {
         limitMs: Long = DATA_SYNC_LIMIT_MS,
     ): Boolean = nowMs - startedAtMs >= limitMs
 }
+
+/** Both startForegroundService and the later Service promotion can be refused by Android. */
+@Suppress("SwallowedException") // The caller parks work and records the platform refusal.
+internal fun tryForegroundStart(start: () -> Unit, rejected: () -> Unit): Boolean =
+    try {
+        start()
+        true
+    } catch (error: IllegalStateException) {
+        rejected()
+        false
+    } catch (error: SecurityException) {
+        rejected()
+        false
+    }

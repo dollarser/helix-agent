@@ -10,7 +10,7 @@ paths += [p for p in Path('app/src').rglob('*.kt') if p.stem in test_names and '
 for p in paths:
  if p.exists():
   target=archive/(str(p).replace('/','__')+'.txt');target.write_bytes(p.read_bytes());p.unlink()
-(archive/'README.md').write_text('# Retired Goal verifier sources\n\nHXA-178 / ADR-0040 replaces this feature at the owner request. These inert source snapshots preserve the old implementation and its tests for historical review. They are not active tests or supported code. New model-report, lifecycle, migration and device tests cover the replacement contract. Never execute these snapshots.\n')
+(archive/'README.md').write_text('# Retired Goal verifier sources\n\nHXA-178 / ADR-GOAL-001 replaces this feature at the owner request. These inert source snapshots preserve the old implementation and its tests for historical review. They are not active tests or supported code. New model-report, lifecycle, migration and device tests cover the replacement contract. Never execute these snapshots.\n')
 p=Path('app/src/main/kotlin/com/helix/app/ui/GoalDialog.kt');s=p.read_text().replace('    var evidenceGoal by remember { mutableStateOf<String?>(null) }\n','')
 a=s.index('    if (evidenceGoal != null) {');b=s.index('        GoalEditor(',a);s=s[:a]+'    if (creating || editing != null) {\n'+s[b:]
 a=s.index('                        Text(stringResource(R.string.goal_criteria_progress');b=s.index('                        TextButton(',a);s=s[:a]+'                        GoalCriterionDescriptions(row.criteria)\n'+s[b:]

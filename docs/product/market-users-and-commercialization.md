@@ -186,7 +186,7 @@ Helix 可承接的是需求，不是直接兼容所有脚本：
 | Helix | 不伪造能力或结果；不在用户关闭能力后继续执行；展示真实目标、scope 和数据去向；保留停止入口和任务结果；不允许模型替用户开启权限或生成用户批准 |
 | 模型/Provider | 提供建议和 ToolCall；其输出默认可能错误，不获得设备权限或用户身份 |
 
-Advanced 的体验目标是减少无意义摩擦，而不是把用户责任伪装成产品免责。[ADR-0012](../adr/0012-capability-first-advanced-grants.md)已接受 Trusted Workspace、动态风险不高于 L1 的有界长期规则和精确批量批准；`Full Workspace Access` 只表示较宽的用户所选文件 scope。模型自授权、全局自动批准和 L2/L3 永久放行仍被拒绝。
+Advanced 的体验目标是减少无意义摩擦，而不是把用户责任伪装成产品免责。[ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)已接受 Trusted Workspace、动态风险不高于 L1 的有界长期规则和精确批量批准；`Full Workspace Access` 只表示较宽的用户所选文件 scope。模型自授权、全局自动批准和 L2/L3 永久放行仍被拒绝。
 
 ## 7. 产品体验建议
 
@@ -265,7 +265,7 @@ Pro 候选价值：多 Workspace、SAF/All-files 完整 UI、Browser Agent、高
 
 ### 9.1 冷启动渠道
 
-- Google Play 与国内 Android 应用商店：Standard 作为完整产品提交，按 [ADR-0013](../adr/0013-standard-store-capability-preserving-distribution.md)只做有政策证据的最小渠道差异；
+- Google Play 与国内 Android 应用商店：Standard 作为完整产品提交，按 [ADR-PLATFORM-001](../adr/platform/001-distribution.md)只做有政策证据的最小渠道差异；
 - GitHub：源码、release、路线、可复现 demo 和 issue 反馈；
 - 官网：一句话定位、能力矩阵、安装方式和短视频；
 - 酷安、V2EX、开发者社区：发布真实任务演示，不用概念宣传；

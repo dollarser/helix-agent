@@ -21,7 +21,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
-import com.helix.core.model.TurnState
 
 /** Viewing and collecting are explicit UI actions, never model input or a replay. */
 @Composable
@@ -114,13 +113,3 @@ internal fun BackgroundTaskDialog(
         confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.goal_close)) } },
     )
 }
-
-internal fun taskStateLabel(state: TurnState): Int =
-    when (state) {
-        TurnState.COMPLETED -> R.string.goal_state_completed
-        TurnState.FAILED -> R.string.goal_state_failed
-        TurnState.CANCELLED -> R.string.goal_state_cancelled
-        TurnState.INTERRUPTED -> R.string.goal_pause_interrupted
-        TurnState.WAITING_APPROVAL -> R.string.goal_state_input
-        else -> R.string.goal_state_running
-    }

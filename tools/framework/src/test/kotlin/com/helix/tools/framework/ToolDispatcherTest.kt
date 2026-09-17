@@ -8,7 +8,6 @@ import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderId
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
-import com.helix.core.model.ToolApprovalPreference
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -19,15 +18,12 @@ import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.policy.DataOrigin
 import com.helix.core.policy.DataSensitivity
-import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.EgressRequest
 import com.helix.core.policy.EgressTarget
 import com.helix.core.policy.GrantState
 import com.helix.core.policy.HighSensitivityRule
 import com.helix.core.policy.MintRejectionCode
 import com.helix.core.policy.PolicyEngine
-import com.helix.core.policy.ToolApprovalPreferenceSource
-import com.helix.core.policy.ToolApprovalReason
 import com.helix.core.policy.UserScope
 import com.helix.core.policy.WorkspaceScope
 import kotlinx.serialization.json.Json
@@ -553,6 +549,9 @@ class ToolDispatcherTest {
         assertEquals(ToolDispatchOutcome.Cancelled, outcome)
         assertEquals(0, executor.invocations)
         assertEquals("nothing started, so the proof is never spent", 0, broker.consumeCalls.size)
+        assertTrue("a pre-cancelled call must never present a card", broker.acquireCalls.isEmpty())
+        assertNull(sink.events.single().approvalAcquiredAt)
+        assertNull(sink.events.single().executionStartedAt)
         assertEquals(DispatchOutcomeCode.CANCELLED_BEFORE_START, sink.events.single().code)
     }
 
@@ -1263,177 +1262,6 @@ class ToolDispatcherTest {
         assertEquals(DispatchOutcomeCode.TOOL_FAILED, sink.events.single().code)
     }
 
-    // ------------------------------------- HXA-200 (ADR-0052) preference re-resolution
-
-    @Test
-    fun aDenyPreferenceBlocksAnInScopeLowRiskCallBeforeAnyApproval() {
-        dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Deny })
-        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            executor,
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        val denied = outcome as ToolDispatchOutcome.Denied
-        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, denied.code)
-        assertEquals("a DENY preference stops the executor before it runs", 0, executor.invocations)
-        assertEquals("a DENY preference stops the call before the approval stage", 0, broker.acquireCalls.size)
-        assertEquals(0, broker.consumeCalls.size)
-        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
-        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, sink.events.single().code)
-    }
-
-    @Test
-    fun anAskPreferenceForcesACardOnAnInScopeLowRiskCall() {
-        val askSource =
-            ToolApprovalPreferenceSource { _, _, _, _, _ ->
-                EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
-            }
-        dispatcher = dispatcherWithPreference(askSource)
-        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals("ASK forces the per-call card even on a policy-allow call", 1, broker.acquireCalls.size)
-        assertEquals(1, broker.consumeCalls.size)
-        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
-    }
-
-    @Test
-    fun anAllowPreferenceKeepsAnInScopeLowRiskCallCardFree() {
-        dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Allow })
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals("an explicit ALLOW keeps an in-scope low-risk call card-free", 0, broker.acquireCalls.size)
-        assertEquals(0, broker.consumeCalls.size)
-        assertEquals(DecisionSource.POLICY, sink.events.single().decisionSource)
-    }
-
-    @Test
-    fun aPolicyDenialWinsOverADenyPreference() {
-        dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Deny })
-        registerTool(
-            descriptor(requiredCapabilities = setOf(Capability.NOTIFICATION_READ)),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        val denied = outcome as ToolDispatchOutcome.Denied
-        assertEquals(
-            "the policy denial is recorded, not the preference",
-            DispatchOutcomeCode.POLICY_DENIED,
-            denied.code,
-        )
-        assertEquals(DecisionSource.POLICY, sink.events.single().decisionSource)
-        assertEquals(0, broker.acquireCalls.size)
-    }
-
-    @Test
-    fun anAllowPreferenceNeverMintsAWildcardHighRiskProof() {
-        dispatcher =
-            dispatcherWithPreference(ToolApprovalPreferenceSource { _, _, _, _, _ -> EffectiveToolPreference.Allow })
-        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.LOCAL_MUTATION, baseRisk = RiskLevel.L2),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        assertTrue(outcome is ToolDispatchOutcome.Succeeded)
-        assertEquals("ALLOW does not mint a wildcard high-risk proof: L2 still cards", 1, broker.acquireCalls.size)
-        assertEquals(1, broker.consumeCalls.size)
-        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
-    }
-
-    @Test
-    fun theDispatcherReadsThePreferenceLiveWithTheToolIdentityAndScope() {
-        val source = ScriptedPreferenceSource(ToolApprovalPreference.ALLOW)
-        dispatcher = dispatcherWithPreference(source)
-        val d = descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0)
-        registerTool(d, CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) })
-        dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs(), scope = WorkspaceScope("ws-7")))
-        val call = source.calls.first()
-        assertEquals("built-in", call.sourceRef)
-        assertEquals("fake", call.toolName)
-        assertEquals(d.contractHash.hex, call.contractHash)
-        assertEquals("session-1", call.sessionId)
-        assertEquals("ws-7", call.workspaceRef)
-    }
-
-    @Test
-    fun aDenyWhileTheCardIsPendingBlocksTheApprovedCallBeforeConsumption() {
-        val source = ScriptedPreferenceSource(ToolApprovalPreference.ASK)
-        dispatcher = dispatcherWithPreference(source)
-        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
-        broker.acquireHook = { source.preference = ToolApprovalPreference.DENY }
-        val executor = CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) }
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            executor,
-        )
-        val outcome = dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs()))
-        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, (outcome as ToolDispatchOutcome.Denied).code)
-        assertEquals(2, source.calls.size)
-        assertEquals(1, broker.acquireCalls.size)
-        assertEquals(0, broker.consumeCalls.size)
-        assertEquals(0, executor.calls.size)
-        assertNull(sink.events.single().executionStartedAt)
-    }
-
-    @Test
-    fun aNewAskAtTheStartGateAcquiresOneProofOutsideTheGate() {
-        var reads = 0
-        val source =
-            ToolApprovalPreferenceSource { _, _, _, _, _ ->
-                reads++
-                if (reads == 1) {
-                    EffectiveToolPreference.Allow
-                } else {
-                    EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
-                }
-            }
-        dispatcher = dispatcherWithPreference(source)
-        broker.acquireHook = {
-            assertFalse("approval must not hold the start gate", Thread.holdsLock(source))
-        }
-        broker.script(ApprovalAcquisition.Approved(proofFor("call-1")))
-        val executor =
-            CaptureExecutor {
-                assertFalse("execution must not hold the start gate", Thread.holdsLock(source))
-                ToolExecutorResult.Completed(emptyObject())
-            }
-        registerTool(descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0), executor)
-        assertTrue(dispatcher.dispatch(request(tool("fake"), version(1), emptyArgs())) is ToolDispatchOutcome.Succeeded)
-        assertEquals(1, broker.acquireCalls.size)
-        assertEquals(1, broker.consumeCalls.size)
-        assertEquals(1, executor.calls.size)
-        assertEquals(DecisionSource.USER, sink.events.single().decisionSource)
-    }
-
-    @Test
-    fun aDenyAfterStartDoesNotCancelTheStartedCall() {
-        val source = ScriptedPreferenceSource(ToolApprovalPreference.ALLOW)
-        dispatcher = dispatcherWithPreference(source)
-        registerTool(
-            descriptor(operationClass = ToolOperationClass.READ_ONLY, baseRisk = RiskLevel.L0),
-            CaptureExecutor { ToolExecutorResult.Completed(emptyObject()) },
-        )
-        val request =
-            request(tool("fake"), version(1), emptyArgs()).copy(
-                onExecutionStarting = { source.preference = ToolApprovalPreference.DENY },
-            )
-        assertTrue(dispatcher.dispatch(request) is ToolDispatchOutcome.Succeeded)
-        assertEquals(0, broker.acquireCalls.size)
-    }
-
     // ---------------------------------------------------------------------- helpers
 
     private fun tool(name: String): ToolName = ToolName(name)
@@ -1483,55 +1311,6 @@ class ToolDispatcherTest {
     ) {
         registry.register(d)
         impls.register(d, executor)
-    }
-
-    /** A dispatcher with the HXA-200 preference seam wired to [source] (null = the legacy path). */
-    private fun dispatcherWithPreference(source: ToolApprovalPreferenceSource?): ToolDispatcher =
-        ToolDispatcher(
-            clock,
-            registry,
-            impls,
-            CapabilityCenter(RecordingResolver(usableCaps, clock)),
-            PolicyEngine(clock),
-            broker,
-            sink,
-            { emptySet() },
-            source,
-        )
-
-    /**
-     * A preference source that records the identity/scope it was asked about, then returns
-     * [preference]. [preference] is mutable so a test can flip it mid-wait (the dispatcher
-     * must re-read it before committing execution).
-     */
-    private class ScriptedPreferenceSource(
-        @Volatile var preference: ToolApprovalPreference?,
-    ) : ToolApprovalPreferenceSource {
-        data class SourceCall(
-            val sourceRef: String,
-            val toolName: String,
-            val contractHash: String?,
-            val sessionId: String?,
-            val workspaceRef: String?,
-        )
-
-        val calls = mutableListOf<SourceCall>()
-
-        override fun effectiveFor(
-            sourceRef: String,
-            toolName: String,
-            contractHash: String?,
-            sessionId: String?,
-            workspaceRef: String?,
-        ): EffectiveToolPreference {
-            calls += SourceCall(sourceRef, toolName, contractHash, sessionId, workspaceRef)
-            return when (preference) {
-                ToolApprovalPreference.ALLOW -> EffectiveToolPreference.Allow
-                ToolApprovalPreference.ASK -> EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
-                ToolApprovalPreference.DENY -> EffectiveToolPreference.Deny
-                null -> EffectiveToolPreference.Unset
-            }
-        }
     }
 
     // One parameter per request fact the tests exercise.

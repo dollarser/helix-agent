@@ -37,6 +37,6 @@ ToolDispatchRequest 新增可信宿主的剩余执行时间回调。Dispatcher �
 
 ## Related records
 
-- [ADR-0004](../adr/0004-goal-run-wake-budget-semantics.md)
+- [ADR-GOAL-001](../adr/goal/001-lifecycle-and-completion.md)
 - [HXA-102](../completion-records/HXA-102.md)
-- [当前待办](../development/main-optimization-todo.md)
+- [当前待办](../evidence/development/main-optimization-todo.md)

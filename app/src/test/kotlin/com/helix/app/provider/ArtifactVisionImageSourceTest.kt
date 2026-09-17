@@ -76,6 +76,8 @@ class ArtifactVisionImageSourceTest {
             override fun listBySession(sessionId: String): List<ArtifactEntity> =
                 rows.values.filter { it.sessionId == sessionId }
 
+            override fun listByTurn(turnId: String): List<ArtifactEntity> = rows.values.filter { it.turnId == turnId }
+
             // LinkedHashMap keeps registration order: reversed = the SQL rowid DESC.
             override fun recent(limit: Int): List<ArtifactEntity> = rows.values.reversed().take(limit)
 

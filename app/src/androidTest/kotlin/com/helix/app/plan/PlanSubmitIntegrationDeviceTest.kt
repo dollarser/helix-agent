@@ -353,7 +353,7 @@ class PlanSubmitIntegrationDeviceTest {
             )
         val scheduler = ToolScheduler(clock, container.toolPipeline.dispatcher, container.toolPipeline.registry)
         val batch = runBatch(listOf(request), scheduler)
-        assertNull(batch.error)
+        batch.error?.let { throw AssertionError("cancel settlement failed", it) }
         assertTrue(batch.outcomes.single() is ToolDispatchOutcome.Cancelled)
         // Cancelled before the executor ran: no plan row, but a durable CANCELLED_BEFORE_START.
         assertEquals(

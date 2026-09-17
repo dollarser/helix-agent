@@ -103,7 +103,7 @@ data class Goal(
             runTimeMillis < budgets.maxDurationMillis && budgets.maxWakeDurationMillis > 0
 
     companion object {
-        const val MAX_OBJECTIVE_LENGTH = 1024
+        const val MAX_OBJECTIVE_LENGTH = 16_384
         const val MAX_CRITERIA = 32
 
         fun initial(

@@ -14,13 +14,6 @@ data class ConversationIntents(
     val onDismissBlocked: () -> Unit,
     val onApproveApproval: (String) -> Unit,
     val onDenyApproval: (String) -> Unit,
-    /** HXA-201: save a standing GLOBAL preference (允许/询问/禁止) from a pending approval
-     * card — separate from the one-time approve/deny of the pending call itself.
-     */
-    val onSaveFuturePreference: (
-        com.helix.app.approval.ApprovalCardUi,
-        com.helix.core.model.ToolApprovalPreference,
-    ) -> Unit = { _, _ -> },
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
     /** HXA-056: bind a tested provider to the open (provider-free) draft session. */
@@ -40,4 +33,6 @@ data class ConversationIntents(
     val onRecoverProot: (String, String) -> Unit = { _, _ -> },
     val onRetryProotAck: (String, String) -> Unit = { _, _ -> },
     val onInspectProot: (String, String, Boolean) -> Unit = { _, _, _ -> },
+    /** HXA-194: open a command call's read-only details page from its tool row. */
+    val onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
 )

@@ -4,9 +4,12 @@ import com.helix.core.model.AgentMode
 import com.helix.core.model.Capability
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.OperationEffect
+import com.helix.core.model.OperationRule
 import com.helix.core.model.RiskLevel
 import com.helix.core.model.SafetyProfile
-import com.helix.core.model.ToolApprovalPreference
+import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.ToolAvailabilityStates
 import com.helix.core.model.ToolName
 import com.helix.core.model.ToolOperationClass
 import com.helix.core.model.ToolVersion
@@ -15,11 +18,12 @@ import com.helix.core.policy.CapabilityCenter
 import com.helix.core.policy.CapabilityGrant
 import com.helix.core.policy.CapabilityResolver
 import com.helix.core.policy.DataOrigin
-import com.helix.core.policy.EffectiveToolPreference
 import com.helix.core.policy.GrantState
+import com.helix.core.policy.OperationFootprint
 import com.helix.core.policy.PolicyEngine
-import com.helix.core.policy.ToolApprovalPreferenceSource
-import com.helix.core.policy.ToolApprovalReason
+import com.helix.core.policy.SessionPermissionConfig
+import com.helix.core.policy.SessionPermissionSource
+import com.helix.core.policy.ToolAvailabilitySource
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -34,6 +38,7 @@ import org.junit.Before
 import org.junit.Test
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -137,24 +142,34 @@ class ToolSchedulerTest {
 
     @Test
     fun resultsComeBackInCallOrderEvenWhenCompletionIsOutOfOrder() {
-        // call-1 is the SLOW one: it finishes LAST, but its result must be FIRST.
+        // Hold call-1 until both later calls have recorded settlement, independent
+        // of host load or thread start order. Its returned result must still be first.
+        val laterCallsSettled = CountDownLatch(2)
+        sink.afterRecord = { event ->
+            if (event.correlationId in setOf("call-2", "call-3")) laterCallsSettled.countDown()
+        }
         register(
             "r.slow",
             ToolOperationClass.READ_ONLY,
             RiskLevel.L0,
-            TimingExecutor(150, json("""{"i":1}"""), AtomicInteger(), AtomicInteger()),
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    assertTrue("later calls must settle", laterCallsSettled.await(10, TimeUnit.SECONDS))
+                    return ToolExecutorResult.Completed(json("""{"i":1}"""))
+                }
+            },
         )
         register(
             "r.fast1",
             ToolOperationClass.READ_ONLY,
             RiskLevel.L0,
-            TimingExecutor(20, json("""{"i":2}"""), AtomicInteger(), AtomicInteger()),
+            TimingExecutor(0, json("""{"i":2}"""), AtomicInteger(), AtomicInteger()),
         )
         register(
             "r.fast2",
             ToolOperationClass.READ_ONLY,
             RiskLevel.L0,
-            TimingExecutor(20, json("""{"i":3}"""), AtomicInteger(), AtomicInteger()),
+            TimingExecutor(0, json("""{"i":3}"""), AtomicInteger(), AtomicInteger()),
         )
         val scheduler = ToolScheduler(clock, dispatcher, registry)
         val calls = listOf(call("call-1", "r.slow"), call("call-2", "r.fast1"), call("call-3", "r.fast2"))
@@ -166,8 +181,8 @@ class ToolSchedulerTest {
             batch.outcomes.map { (it as ToolDispatchOutcome.Succeeded).result.payload },
         )
         // The completion order was NOT the call order (proves the barrier re-ordered):
-        val completedOrder = sink.events.sortedBy { it.finishedAt }.map { it.correlationId }
-        assertTrue("the slow call must finish last: $completedOrder", completedOrder.last() == "call-1")
+        val completedOrder = sink.events.map { it.correlationId }
+        assertEquals(listOf("call-2", "call-3", "call-1"), completedOrder)
     }
 
     // ------------------------------------------------------------------ concurrency rules
@@ -475,14 +490,14 @@ class ToolSchedulerTest {
         assertEquals("startedAt must follow queuedAt", true, ran.queuedAt != null && ran.startedAt >= ran.queuedAt)
     }
 
-    // --------------------------- HXA-200 Gap 5: preference flips while a call is queued
+    // ----------------- HXA-209 B4: the session config flips while a call is queued
     //
-    // The dispatcher re-resolves the preference LIVE at dispatch start (never at
-    // enqueue), so a flip that lands while the call sits in the queue is honored at the
-    // moment the call starts.
+    // The dispatcher re-resolves the session permission config LIVE at dispatch start
+    // (never at enqueue), so a flip that lands while the call sits in the queue is
+    // honored at the moment the call starts (ADR section 2: the same ONE resolver).
 
     @Test
-    fun aDenyPreferenceFlippedWhileQueuedBlocksTheCallWithoutACard() {
+    fun aDenyConfigFlippedWhileQueuedBlocksTheCallWithoutACard() {
         val gate = CountDownLatch(1)
         register(
             "q.slow",
@@ -502,11 +517,11 @@ class ToolSchedulerTest {
             RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
-        val source = FlipPreferenceSource(null)
+        val source = FlipConfigSource(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
         val scheduler =
             ToolScheduler(
                 clock,
-                dispatcherWithPreferenceSource(source),
+                dispatcherWithSessionSource(source),
                 registry,
                 maxConcurrency = 1,
             )
@@ -515,26 +530,29 @@ class ToolSchedulerTest {
                 scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
             }
         // The victim is provably still in the queue (concurrency 1, the barrier holds
-        // the only slot); flip its preference UNSET -> DENY now.
+        // the only slot); flip its session mode FULL_ACCESS -> a DENY on its effect now.
         assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
-        source.preference = ToolApprovalPreference.DENY
+        source.config =
+            SessionPermissionConfig.custom(
+                mapOf(OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY),
+            )
         val batch = batchFuture.join()
         assertNull(batch.error)
         assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
         val denied = batch.outcomes[1] as? ToolDispatchOutcome.Denied
         assertNotNull("a DENY flipped while queued must block the call at start", denied)
-        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, denied!!.code)
+        assertEquals(DispatchOutcomeCode.OPERATION_DENIED, denied!!.code)
         assertEquals("the flipped DENY stops the call before any card", 0, broker.acquireCalls.size)
         assertEquals(0, broker.consumeCalls.size)
         val row = sink.events.first { it.correlationId == "call-2" }
-        assertEquals(DispatchOutcomeCode.PREFERENCE_DENIED, row.code)
+        assertEquals(DispatchOutcomeCode.OPERATION_DENIED, row.code)
         assertEquals(DecisionSource.USER, row.decisionSource)
         assertNull(row.executionStartedAt)
         assertTrue("the queue stamp must survive the flip", row.queuedAt != null && row.startedAt >= row.queuedAt)
     }
 
     @Test
-    fun anAskPreferenceFlippedWhileQueuedPresentsACardAtDispatchStart() {
+    fun anAskConfigFlippedWhileQueuedPresentsACardAtDispatchStart() {
         val gate = CountDownLatch(1)
         register(
             "q.slow",
@@ -554,12 +572,12 @@ class ToolSchedulerTest {
             RiskLevel.L0,
             TimingExecutor(1, json("{}"), AtomicInteger(), AtomicInteger()),
         )
-        val source = FlipPreferenceSource(null)
+        val source = FlipConfigSource(SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS))
         broker.script(ApprovalAcquisition.Approved(ApprovalProof("call-2", "2".repeat(64))))
         val scheduler =
             ToolScheduler(
                 clock,
-                dispatcherWithPreferenceSource(source),
+                dispatcherWithSessionSource(source),
                 registry,
                 maxConcurrency = 1,
             )
@@ -567,10 +585,10 @@ class ToolSchedulerTest {
             CompletableFuture.supplyAsync {
                 scheduler.scheduleBatch(listOf(call("call-1", "q.slow"), call("call-2", "q.victim")))
             }
-        // Policy alone would run the victim card-free; the flip UNSET -> ASK while it is
-        // queued must force exactly one card when it starts.
+        // Policy alone would run the victim card-free; the flip FULL_ACCESS -> WORKSPACE
+        // while it is queued must force exactly one card when it starts.
         assertTrue("the barrier call must start", gate.await(5, TimeUnit.SECONDS))
-        source.preference = ToolApprovalPreference.ASK
+        source.config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE)
         val batch = batchFuture.join()
         assertNull(batch.error)
         assertTrue(batch.outcomes[0] is ToolDispatchOutcome.Succeeded)
@@ -935,10 +953,12 @@ class ToolSchedulerTest {
     }
 
     private class RecordingSink : AuditSink {
-        val events = mutableListOf<DispatchAuditEvent>()
+        val events = CopyOnWriteArrayList<DispatchAuditEvent>()
+        var afterRecord: (DispatchAuditEvent) -> Unit = {}
 
         override fun record(event: DispatchAuditEvent) {
             events += event
+            afterRecord(event)
         }
     }
 
@@ -949,27 +969,32 @@ class ToolSchedulerTest {
         override fun isCancelled(): Boolean = cancelled
     }
 
-    /** A preference source the test flips MID-QUEUE: the flip must be honored at dispatch start. */
-    private class FlipPreferenceSource(
-        @Volatile var preference: ToolApprovalPreference?,
-    ) : ToolApprovalPreferenceSource {
-        override fun effectiveFor(
+    /** A session source the test flips MID-QUEUE: the flip must be honored at dispatch start. */
+    private class FlipConfigSource(
+        @Volatile var config: SessionPermissionConfig,
+    ) : SessionPermissionSource,
+        ToolAvailabilitySource {
+        override fun configFor(sessionId: String): SessionPermissionConfig = config
+
+        override fun statesFor(
             sourceRef: String,
             toolName: String,
-            contractHash: String?,
             sessionId: String?,
             workspaceRef: String?,
-        ): EffectiveToolPreference =
-            when (preference) {
-                ToolApprovalPreference.ALLOW -> EffectiveToolPreference.Allow
-                ToolApprovalPreference.ASK -> EffectiveToolPreference.Ask(ToolApprovalReason.EXPLICIT)
-                ToolApprovalPreference.DENY -> EffectiveToolPreference.Deny
-                null -> EffectiveToolPreference.Unset
-            }
+        ): ToolAvailabilityStates = ToolAvailabilityStates()
     }
 
-    /** A dispatcher over the SAME test broker/registry/sink, with the preference seam wired to [source]. */
-    private fun dispatcherWithPreferenceSource(source: ToolApprovalPreferenceSource): ToolDispatcher =
+    /** Every call in this file carries the one effect the flip configs react to. */
+    private class FixedClassifier : ToolEffectClassifier {
+        override fun classify(
+            request: ToolDispatchRequest,
+            descriptor: ToolDescriptor,
+        ): CallEffectClassification =
+            CallEffectClassification(OperationFootprint(effects = setOf(OperationEffect.FILE_MUTATION_EXTERNAL)))
+    }
+
+    /** A dispatcher over the SAME test broker/registry/sink, with the session seams wired to [source]. */
+    private fun dispatcherWithSessionSource(source: FlipConfigSource): ToolDispatcher =
         ToolDispatcher(
             clock,
             registry,
@@ -979,6 +1004,8 @@ class ToolSchedulerTest {
             broker,
             sink,
             { emptySet() },
-            source,
+            sessionPermissions = source,
+            toolAvailability = source,
+            effectClassifier = FixedClassifier(),
         )
 }

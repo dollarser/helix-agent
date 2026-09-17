@@ -70,6 +70,8 @@ try:
         (out/f'{api}-{flavor}-{phase}-{name}').write_bytes(data)
       if result.returncode or failures or (expected is not None and passed!=expected) or (expected_skips is not None and skips!=expected_skips) or passed==0 or 'INSTRUMENTATION_CODE: -1' not in raw:
        raise RuntimeError('Device matrix failed: see raw status and logcat')
+     if '--goal-kill' in sys.argv:
+      run([sys.executable,'scripts/run-goal-process-kill.py','--serial',serial,'--adb',adb,'--package',package,'--output',str(out/f'{api}-{flavor}-goal-kill')])
    finally:
     child.terminate()
     try:child.wait(timeout=20)

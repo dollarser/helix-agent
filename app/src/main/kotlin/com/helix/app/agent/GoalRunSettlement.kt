@@ -26,6 +26,9 @@ internal class GoalRunSettlement(
         }
     }
 
+    private fun pauseOutcome(errorCode: String?): String =
+        errorCode?.takeIf { it.startsWith("FGS_") }?.let { "SYSTEM_PAUSED($it)" } ?: "USER_PAUSED"
+
     private fun settleBoundTurn(
         turnId: String,
         runId: String,
@@ -56,7 +59,7 @@ internal class GoalRunSettlement(
             } else if (report?.status == "blocked") {
                 GoalEvent.Blocked to "BLOCKED(MODEL_REPORTED)"
             } else if (!uncertain && paused) {
-                GoalEvent.RunFinished to "USER_PAUSED"
+                GoalEvent.RunFinished to pauseOutcome(turn.errorCode)
             } else {
                 decision(goal.correlationId, state, turn.errorCode, uncertain)
             }
@@ -124,7 +127,7 @@ internal class GoalRunSettlement(
                 GoalEvent.RunFinished to "RUN_FINISHED"
             }
 
-            errorCode == "CONTEXT_WINDOW_LIMIT" -> {
+            errorCode in com.helix.app.runcontrol.BudgetStopReasons.capacity -> {
                 GoalEvent.Blocked to "BLOCKED(CONTEXT_WINDOW_LIMIT)"
             }
 
@@ -144,13 +147,6 @@ internal class GoalRunSettlement(
         }
 
     private companion object {
-        val TURN_LIMITS =
-            setOf(
-                "MODEL_CALL_LIMIT",
-                "TOKEN_BUDGET_LIMIT",
-                "TOOL_STEP_LIMIT",
-                "GOAL_BUDGET_LIMIT",
-                "CONTEXT_WINDOW_LIMIT",
-            )
+        val TURN_LIMITS = com.helix.app.runcontrol.BudgetStopReasons.turn + "GOAL_BUDGET_LIMIT"
     }
 }

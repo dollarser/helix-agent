@@ -13,4 +13,4 @@ p=Path('docs/development/status.md');s=p.read_text().replace('HXA-180 正在完�
 '''+s[b:];p.write_text(s)
 p=Path('docs/development/roadmap.md');s=p.read_text();a=s.index('### HXA-180');s=s[:a]+s[a:].replace('状态：in progress','状态：completed').replace('状态：planned','状态：completed');p.write_text(s)
 p=Path('docs/development/verification-matrix.md');s=p.read_text().replace('| 进行中，当前状态见 status |','| 已完成，见 [HXA-180](../completion-records/HXA-180.md)：主机/双API各18/预览复跑 |',1).replace('| 进行中，当前状态见 status |','| 全部通过，见 [HXA-181](../completion-records/HXA-181.md) |',1);p.write_text(s)
-p=Path('docs/adr/0041-manual-file-management-mutations.md');s=p.read_text().replace('具体实现与验收以完成记录为准。','实现与主机、双 API 验收已完成，见 [HXA-180](../completion-records/HXA-180.md)。');p.write_text(s)
+p=Path('docs/adr/workspace/002-manual-files-and-recovery.md');s=p.read_text().replace('具体实现与验收以完成记录为准。','实现与主机、双 API 验收已完成，见 [HXA-180](../completion-records/HXA-180.md)。');p.write_text(s)

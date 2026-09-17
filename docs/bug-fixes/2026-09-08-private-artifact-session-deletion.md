@@ -42,5 +42,5 @@ API29/36 的四平台完整 Chat 测试每 API 4 个方法，各遍历四个平�
 ## Related records
 
 - [HXA-102 完成记录](../completion-records/HXA-102.md)
-- [CLI 结果恢复专题](../development/cli-result-durable-recovery-gap.md)
-- [当前收口待办](../development/main-optimization-todo.md)
+- [CLI 结果恢复专题](../evidence/development/cli-result-durable-recovery-gap.md)
+- [当前收口待办](../evidence/development/main-optimization-todo.md)

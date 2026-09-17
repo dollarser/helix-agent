@@ -37,5 +37,5 @@ This verifies dispatcher behavior with an actual blocked JVM worker, not device 
 
 ## Related records
 
-- [Current TODO](../development/main-optimization-todo.md)
+- [Current TODO](../evidence/development/main-optimization-todo.md)
 - [HXA-102](../completion-records/HXA-102.md)

@@ -1,0 +1,16 @@
+// Narrows the root spotless "kotlin" format to the three HXA-209 B1 files so
+// `spotlessKotlinApply` reformats only them. The full-project spotlessCheck gate
+// is unchanged; files owned by other slices (e.g. the parallel-session probe
+// tests) are left untouched.
+projectsEvaluated {
+    def spotless = rootProject.extensions.findByName('spotless')
+    def kotlin = spotless.formats.get('kotlin')
+    if (kotlin == null) {
+        throw new GradleException('spotless kotlin format not found')
+    }
+    kotlin.target(
+        'core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionConfig.kt',
+        'core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionResolver.kt',
+        'core/policy/src/test/kotlin/com/helix/core/policy/SessionPermissionPolicyTest.kt',
+    )
+}

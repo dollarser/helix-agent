@@ -157,6 +157,23 @@ internal class TurnCoordinator private constructor(
 
     fun currentStream(): ModelStreamState = runtime.currentStream()
 
+    /** Metadata only: request limits and compaction outcomes survive process death. */
+    fun recordDiagnostic(
+        type: String,
+        payload: String,
+    ) {
+        require(type in setOf("budget.request", "budget.admitted", "budget.result", "context.compaction"))
+        require(payload.length <= 512)
+        storage.auditEvents.append(
+            idGenerator(),
+            runtime.snapshot().modelCallId,
+            type,
+            "agent",
+            payload,
+            clock.now().toEpochMilli(),
+        )
+    }
+
     fun beginModelStream(compacting: Boolean = false): ModelStreamState {
         summaryStream = compacting
         val current = runtime.snapshot()
@@ -326,11 +343,17 @@ internal class TurnCoordinator private constructor(
         runtime.closeSummary(nextModelCallId)
     }
 
-    /** Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal. */
+    /**
+     * Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal.
+     * Once the stop path has persisted CANCELLING, [settleOutcomeAfterCancelling] keeps the
+     * cancellation as the conclusion — the state machine otherwise rejects any other
+     * terminal edge out of CANCELLING.
+     */
     fun terminalize(outcome: ModelStreamTerminal) {
         val current = runtime.snapshot()
         val stream = runtime.currentStream()
         val endedAt = clock.now().toEpochMilli()
+        var settled = outcome
         storage.withTransaction {
             if (!current.modelCallClosed && !summaryStream && stream.text.isNotBlank()) {
                 storage.messages.append(
@@ -343,21 +366,22 @@ internal class TurnCoordinator private constructor(
                 )
             }
             var turn = storage.turns.resolve(turnId)
-            if (outcome.state == TurnState.CANCELLED && turn.state != TurnState.CANCELLING.name) {
+            settled = settleOutcomeAfterCancelling(outcome, turn.state)
+            if (settled.state == TurnState.CANCELLED && turn.state != TurnState.CANCELLING.name) {
                 turn = storage.turns.updateState(turn, TurnState.CANCELLING, current.modelStep, null, null)
             }
-            storage.turns.updateState(turn, outcome.state, current.modelStep, endedAt, outcome.errorCode)
+            storage.turns.updateState(turn, settled.state, current.modelStep, endedAt, settled.errorCode)
             if (!current.modelCallClosed) {
                 storage.modelCalls.update(
                     storage.modelCalls.resolve(current.modelCallId),
-                    callState(outcome.state),
+                    callState(settled.state),
                     stream.usageJson,
                     null,
                 )
             }
             GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
         }
-        runtime.terminalize(outcome.state)
+        runtime.terminalize(settled.state)
     }
 
     private fun transitionPersisted(
@@ -373,6 +397,23 @@ internal class TurnCoordinator private constructor(
         private const val CALL_CANCELLED = "CANCELLED"
         private const val CALL_FAILED = "FAILED"
         const val AUDIT_PROMPT_ASSEMBLED = "prompt.assembled"
+
+        /**
+         * HXA-202 slice 3: once the turn row is durably CANCELLING (persisted by the stop
+         * path), the user's cancellation IS the conclusion — a late failure or completion
+         * outcome must not overwrite it. The state machine admits only CANCELLING to
+         * CANCELLED, so any other terminal outcome is settled as CANCELLED. The error code
+         * is kept for diagnostics (e.g. FGS stops still settle SYSTEM_PAUSED at the goal).
+         */
+        internal fun settleOutcomeAfterCancelling(
+            outcome: ModelStreamTerminal,
+            persistedState: String,
+        ): ModelStreamTerminal =
+            if (persistedState == TurnState.CANCELLING.name && outcome.state != TurnState.CANCELLED) {
+                outcome.copy(state = TurnState.CANCELLED)
+            } else {
+                outcome
+            }
 
         fun start(
             storage: HelixStorage,

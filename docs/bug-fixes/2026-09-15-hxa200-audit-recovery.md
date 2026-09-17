@@ -6,7 +6,7 @@ Related HXA: HXA-200
 
 ## Problem
 
-ADR-0052第8条所需的偏好、来源和规则修订没有进入持久审计；停止后的迟到批准还能改变旧记录。验收还发现Broker单独取消时，调用结算CANCELLED而审计记录TOOL_FAILED。
+ADR-PERMISSIONS-003第8条所需的偏好、来源和规则修订没有进入持久审计；停止后的迟到批准还能改变旧记录。验收还发现Broker单独取消时，调用结算CANCELLED而审计记录TOOL_FAILED。
 
 ## Impact
 
@@ -38,7 +38,7 @@ HXA-201工具设置与审批卡产品界面仍属于独立任务；本次不宣�
 
 ## Related records
 
-- [ADR-0052](../adr/0052-tool-approval-preferences.md)
+- [ADR-PERMISSIONS-003](../adr/permissions/003-dispatch-and-audit.md)
 - [先前C1/C2修复](2026-09-15-tool-preference-start-boundary.md)
-- [整体验收复核](../development/hxa200-acceptance-2026-09-15.md)
+- [整体验收复核](../evidence/development/hxa200-acceptance-2026-09-15.md)
 - [JGit构建补丁](../../config/jgit/README.md)

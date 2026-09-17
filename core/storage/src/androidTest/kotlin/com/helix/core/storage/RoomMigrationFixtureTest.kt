@@ -22,6 +22,7 @@ import com.helix.core.storage.criteria.StoredCriterion
 import com.helix.core.storage.mapping.StoredGoal
 import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -34,7 +35,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v18ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v20ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -523,7 +524,7 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun productionOpenMigratesAV16DatabaseToV18() {
+    fun productionOpenMigratesAV16DatabaseToV19() {
         val name = "prod-upgrade-v16.db"
         val contentDir = File(context.cacheDir, "content-$name")
         context.deleteDatabase(name)
@@ -540,36 +541,164 @@ class RoomMigrationFixtureTest {
         val storage = HelixStorage.open(context, name, contentDir)
         try {
             val sqlite = storage.database.openHelper.writableDatabase
-            // Upgraded to the live schema: the preference table landed and is EMPTY on upgrade
-            // (no seeded ALLOW — ADR-0052 point 1), and the legacy session row survived.
-            sqlite.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
+            // Upgraded to the live schema: the legacy session row survived.
             sqlite.query("SELECT title FROM sessions WHERE id='s1'").use {
                 assertTrue(it.moveToFirst())
                 assertEquals("S", it.getString(0))
             }
-            // The trusted baseline tables (HXA-200 Gap 2) landed and are EMPTY on upgrade: the
-            // migration seeds NO founding anchor and NO per-tool markers, so the NEW-default
-            // decision has no basis until the app's trusted startup path runs its first reconcile
-            // (no batch "new" marking, no batch ALLOW).
-            sqlite.query("SELECT COUNT(*) FROM tool_registration_baseline").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
-            sqlite.query("SELECT COUNT(*) FROM tool_baseline_meta").use {
-                assertTrue(it.moveToFirst())
-                assertEquals(0, it.getInt(0))
-            }
+            // The legacy HXA-200 tables are DROPPED at v21 (HXA-209 B4, ADR-PERMISSIONS-001
+            // section 4): the production chain leaves no compatibility mode that reads them.
+            assertFalse("tool_approval_preferences" in tables(sqlite))
+            assertFalse("tool_registration_baseline" in tables(sqlite))
+            assertFalse("tool_baseline_meta" in tables(sqlite))
         } finally {
             storage.database.close()
         }
     }
 
     @Test
-    fun v18ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v18-export.db", 18)
+    fun v18ToV19PreservesOwnershipWithoutActivatingOrStagingWork() {
+        val name = "goal-control-v19.db"
+        helper.createDatabase(name, 18).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s','Goal fixture',1)")
+            db.execSQL(
+                "INSERT INTO goals(id,objective,criteria,budgets,state,correlationId,runCount,modelCalls," +
+                    "toolCalls,totalTokens,runTimeMillis,currentWakeMillis,retries) " +
+                    "VALUES ('g','fixture','[]','{}','PAUSED','c',1,1,0,10,0,0,0)",
+            )
+            db.execSQL(
+                "INSERT INTO goal_runs(id,goalId,wakeReason,outcome,startedAt,endedAt,modelCalls,toolCalls,tokens) " +
+                    "VALUES ('r','g','USER_OPEN','RUN_FINISHED',1,2,1,0,10)",
+            )
+            db.execSQL("INSERT INTO turns(id,sessionId,state,stepCount,startedAt) VALUES ('t','s','COMPLETED',0,1)")
+            db.execSQL("INSERT INTO goal_turn_bindings(turnId,runId) VALUES ('t','r')")
+        }
+        helper.runMigrationsAndValidate(name, 19, true, HelixDatabase.MIGRATION_18_19).use { db ->
+            db.query("SELECT goalId,sessionId,revision,pendingTurnId,pendingJson FROM goal_controls").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals("g", row.getString(0))
+                assertEquals("s", row.getString(1))
+                assertEquals(0L, row.getLong(2))
+                assertTrue(row.isNull(3) && row.isNull(4))
+                assertFalse(row.moveToNext())
+            }
+            db.query("SELECT state,totalTokens FROM goals WHERE id='g'").use { row ->
+                assertTrue(row.moveToFirst())
+                assertEquals("PAUSED", row.getString(0))
+                assertEquals(10L, row.getLong(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v19ToV20ConvertsDenyPreferencesAndSeedsReadonlyDefault() {
+        val name = "session-permission-v20.db"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 19).use { it.seedLegacyApprovalPreferences() }
+        helper.runMigrationsAndValidate(name, 20, true, HelixDatabase.MIGRATION_19_20).use { db ->
+            db.assertConvertedToolAvailability()
+            db.assertSeededAppDefault()
+            // The per-session config table is LAZY: no rows are seeded for existing sessions.
+            db.query("SELECT COUNT(*) FROM session_permission_configs").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            // The old table is still present at v20 (its rows already consumed into
+            // tool_availability); [MIGRATION_20_21] (HXA-209 B4) drops it.
+            db.query("SELECT COUNT(*) FROM tool_approval_preferences").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(4, it.getInt(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v20ToV21DropsTheLegacyToolApprovalTables() {
+        val name = "legacy-tool-approval-removal.db"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 20).use { it.seedLegacyToolApprovalTables() }
+        helper.runMigrationsAndValidate(name, 21, true, HelixDatabase.MIGRATION_20_21).use { db ->
+            // All three legacy HXA-200 tables are GONE — no hidden compatibility mode reads them
+            // (ADR-PERMISSIONS-001 section 4).
+            assertTableDropped(db, "tool_approval_preferences")
+            assertTableDropped(db, "tool_registration_baseline")
+            assertTableDropped(db, "tool_baseline_meta")
+            // The surviving intent is byte-for-byte intact: the converted DISABLED rows (the old
+            // DENY rows' effect) and the READ_ONLY app default.
+            db.assertConvertedToolAvailability()
+            db.assertSeededAppDefault()
+            // The v20 session-permission tables survive the drop untouched.
+            db.query("SELECT COUNT(*) FROM session_permission_configs").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v21ToV22AddsTheCustomDraftTableAndKeepsExistingRows() {
+        val name = "custom-draft-addition.db"
+        context.deleteDatabase(name)
+        // A v21 file in the state a real upgrade has: one session with a stored CUSTOM config,
+        // one disabled tool and the app default. The sessions row keeps the config FK consistent.
+        helper.createDatabase(name, 21).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('s-1','session one',10)")
+            db.execSQL(
+                "INSERT INTO session_permission_configs (sessionId, mode, rulesJson, configVersion, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('s-1', 'CUSTOM', '{}', 1, 3, 100, 200)",
+            )
+            db.execSQL(
+                "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                    "revision, createdAtEpoch, updatedAtEpoch) " +
+                    "VALUES ('local', 'bash', 'SESSION', 's-1', 'DISABLED', 2, 300, 400)",
+            )
+            db.execSQL(
+                "INSERT INTO session_permission_defaults (id, mode, configVersion, revision, " +
+                    "updatedAtEpoch) VALUES ('app', 'WORKSPACE', 1, 5, 900)",
+            )
+        }
+        helper.runMigrationsAndValidate(name, 22, true, HelixDatabase.MIGRATION_21_22).use { db ->
+            // The additive table is PRESENT and EMPTY — an upgrade seeds no draft rows.
+            assertTrue(
+                "v22 upgrade must add session_permission_drafts",
+                "session_permission_drafts" in tables(db),
+            )
+            db.query("SELECT COUNT(*) FROM session_permission_drafts").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            // The pre-existing v21 rows survive byte-for-byte — the migration only ADDS a
+            // table, it rewrites nothing.
+            db
+                .query(
+                    "SELECT mode, configVersion, revision FROM session_permission_configs " +
+                        "WHERE sessionId = 's-1'",
+                ).use {
+                    assertTrue(it.moveToFirst())
+                    assertEquals("CUSTOM", it.getString(0))
+                    assertEquals(1, it.getInt(1))
+                    assertEquals(3, it.getInt(2))
+                    assertFalse(it.moveToNext())
+                }
+            db.query("SELECT state FROM tool_availability WHERE toolName = 'bash'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("DISABLED", it.getString(0))
+            }
+            db.query("SELECT mode FROM session_permission_defaults WHERE id = 'app'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("WORKSPACE", it.getString(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v22ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v22-export.db", 22)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -577,7 +706,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v18 schema must match the exported v18 schema",
+                "code-built v22 schema must match the exported v22 schema",
                 expectedTables().sorted(),
                 code.tables.sorted(),
             )
@@ -611,7 +740,7 @@ class RoomMigrationFixtureTest {
                 "VALUES ('approval-mig-2', 'toolcall-mig-2', '${"q".repeat(64)}', 'APPROVED', 10, 20)",
         )
         db.close()
-        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 18) —
+        // Room opens the v1 file and applies the FULL committed chain (1 -> ... -> 22) —
         // the exact production path (HelixStorage.ALL_MIGRATIONS registers the same set;
         // including the room_master_table identity update). The assertions below verify the
         // 1 -> 2 step specifically; the chain also proves every later migration step applies.
@@ -636,6 +765,10 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_15_16,
                     HelixDatabase.MIGRATION_16_17,
                     HelixDatabase.MIGRATION_17_18,
+                    HelixDatabase.MIGRATION_18_19,
+                    HelixDatabase.MIGRATION_19_20,
+                    HelixDatabase.MIGRATION_20_21,
+                    HelixDatabase.MIGRATION_21_22,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase
@@ -1089,23 +1222,145 @@ class RoomMigrationFixtureTest {
         assertTrue("v6 upgrade must add a2a_agents", "a2a_agents" in tables(sqlite))
         assertTrue("v6 upgrade must add a2a_capabilities", "a2a_capabilities" in tables(sqlite))
         assertTrue("v7 upgrade must add a2a_tasks", "a2a_tasks" in tables(sqlite))
-        // The 16 -> 17 step landed (HXA-200, ADR-0052): the live schema carries the user
-        // tool-approval-preference table — empty on upgrade, no seeded ALLOW rows.
+        // The 16 -> 17 and 17 -> 18 steps were SUPERSEDED at v21 (HXA-209 B4): the legacy
+        // tool-approval-preference and new-tool-baseline tables were dropped again, so the full
+        // chain leaves no trace of the removed three-state preference chain.
+        assertFalse("tool_approval_preferences" in tables(sqlite))
+        assertFalse("tool_registration_baseline" in tables(sqlite))
+        assertFalse("tool_baseline_meta" in tables(sqlite))
+        // The 19 -> 20 step landed (HXA-209 B2, ADR-PERMISSIONS-001): the live schema carries
+        // the new session-permission storage — per-session compiled configs, the two-state tool
+        // availability and the single-row app default.
         assertTrue(
-            "v17 upgrade must add tool_approval_preferences",
-            "tool_approval_preferences" in tables(sqlite),
+            "v20 upgrade must add session_permission_configs",
+            "session_permission_configs" in tables(sqlite),
         )
-        // The 17 -> 18 step landed (HXA-200 Gap 2, ADR-0052 point 1): the live schema carries the
-        // trusted tool-registration/upgrade baseline — the versionCode facts behind the NEW_DEFAULT
-        // default, empty on upgrade (no seeded founding anchor, no per-tool markers).
+        assertTrue("v20 upgrade must add tool_availability", "tool_availability" in tables(sqlite))
         assertTrue(
-            "v18 upgrade must add tool_registration_baseline",
-            "tool_registration_baseline" in tables(sqlite),
+            "v20 upgrade must add session_permission_defaults",
+            "session_permission_defaults" in tables(sqlite),
         )
+        // The 21 -> 22 step landed (HXA-209 D2): the live schema carries the additive
+        // CUSTOM-draft table (the copied-from preset plus the copied-then-edited rule snapshot).
         assertTrue(
-            "v18 upgrade must add tool_baseline_meta",
-            "tool_baseline_meta" in tables(sqlite),
+            "v22 upgrade must add session_permission_drafts",
+            "session_permission_drafts" in tables(sqlite),
         )
+    }
+
+    /**
+     * A v20 file in the state a real upgrade has: the legacy preference rows (still present at
+     * v20) plus the state [HelixMigrations.MIGRATION_19_20] produced for them — the converted
+     * DISABLED rows, the seeded app default and the two baseline tables' rows.
+     */
+    private fun SupportSQLiteDatabase.seedLegacyToolApprovalTables() {
+        seedLegacyApprovalPreferences()
+        execSQL(
+            "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                "revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('local', 'bash', 'GLOBAL', '', 'DISABLED', 1, 100, 200)",
+        )
+        execSQL(
+            "INSERT INTO tool_availability (sourceRef, toolName, scopeKind, scopeRef, state, " +
+                "revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('local', 'write', 'SESSION', 's-1', 'DISABLED', 1, 300, 400)",
+        )
+        execSQL(
+            "INSERT INTO session_permission_defaults (id, mode, configVersion, revision, " +
+                "updatedAtEpoch) VALUES ('app', 'READ_ONLY', 1, 0, 0)",
+        )
+        execSQL(
+            "INSERT INTO tool_registration_baseline (sourceRef, toolName, firstSeenVersionCode, " +
+                "updatedAtEpoch) VALUES ('local', 'bash', 7, 10)",
+        )
+        execSQL(
+            "INSERT INTO tool_baseline_meta (id, foundingVersionCode, updatedAtEpoch) " +
+                "VALUES ('app', 1, 5)",
+        )
+    }
+
+    /** The legacy table is gone after the drop: any read on it fails with "no such table". */
+    private fun assertTableDropped(
+        db: SupportSQLiteDatabase,
+        table: String,
+    ) {
+        assertThrows(android.database.SQLException::class.java) {
+            db.query("SELECT COUNT(*) FROM $table").use { it.moveToFirst() }
+        }
+    }
+
+    /**
+     * The legacy three-state preference rows (two DENY, one ASK, one ALLOW) on a v19 file. Every
+     * row has a DISTINCT (tool, scope) key: the legacy table's unique index on
+     * (sourceRef, toolName, scopeKind, scopeRef) (HXA-200, MIGRATION_16_17) rejects repeats, so
+     * the ASK row keys a different scope from the DENY row for the same tool.
+     */
+    private fun SupportSQLiteDatabase.seedLegacyApprovalPreferences() {
+        execSQL(
+            "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
+                "scopeRef, contractHash, revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('p-deny-1', 'local', 'bash', 'DENY', 'GLOBAL', '', '', 1, 100, 200)",
+        )
+        execSQL(
+            "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
+                "scopeRef, contractHash, revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('p-deny-2', 'local', 'write', 'DENY', 'SESSION', 's-1', '', 2, 300, 400)",
+        )
+        execSQL(
+            "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
+                "scopeRef, contractHash, revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('p-ask-1', 'local', 'bash', 'ASK', 'SESSION', 's-2', '', 1, 500, 600)",
+        )
+        execSQL(
+            "INSERT INTO tool_approval_preferences (id, sourceRef, toolName, preference, scopeKind, " +
+                "scopeRef, contractHash, revision, createdAtEpoch, updatedAtEpoch) " +
+                "VALUES ('p-allow-1', 'local', 'read', 'ALLOW', 'WORKSPACE', 'w-1', 'hash', 1, 700, 800)",
+        )
+    }
+
+    /**
+     * ONLY the DENY identities convert, at the same scope, as DISABLED rows with the original
+     * timestamps preserved; ASK/ALLOW rows carry no availability state and produce no rows.
+     */
+    private fun SupportSQLiteDatabase.assertConvertedToolAvailability() {
+        query(
+            "SELECT sourceRef, toolName, scopeKind, scopeRef, state, revision, createdAtEpoch, " +
+                "updatedAtEpoch FROM tool_availability ORDER BY toolName",
+        ).use { rows ->
+            assertTrue(rows.moveToFirst())
+            assertEquals("local", rows.getString(0))
+            assertEquals("bash", rows.getString(1))
+            assertEquals("GLOBAL", rows.getString(2))
+            assertEquals("", rows.getString(3))
+            assertEquals("DISABLED", rows.getString(4))
+            assertEquals(1L, rows.getLong(5))
+            assertEquals(100L, rows.getLong(6))
+            assertEquals(200L, rows.getLong(7))
+            assertTrue(rows.moveToNext())
+            assertEquals("write", rows.getString(1))
+            assertEquals("SESSION", rows.getString(2))
+            assertEquals("s-1", rows.getString(3))
+            assertEquals("DISABLED", rows.getString(4))
+            assertEquals(300L, rows.getLong(6))
+            assertEquals(400L, rows.getLong(7))
+            assertFalse(rows.moveToNext())
+        }
+    }
+
+    /** The app default is seeded READ_ONLY at revision 0 — the safest preset on an upgrade. */
+    private fun SupportSQLiteDatabase.assertSeededAppDefault() {
+        query(
+            "SELECT id, mode, configVersion, revision, updatedAtEpoch " +
+                "FROM session_permission_defaults",
+        ).use {
+            assertTrue(it.moveToFirst())
+            assertEquals("app", it.getString(0))
+            assertEquals("READ_ONLY", it.getString(1))
+            assertEquals(1, it.getInt(2))
+            assertEquals(0L, it.getLong(3))
+            assertEquals(0L, it.getLong(4))
+            assertFalse(it.moveToNext())
+        }
     }
 
     private fun schemaFacts(sqlite: SupportSQLiteDatabase): SchemaFacts {
@@ -1217,16 +1472,21 @@ class RoomMigrationFixtureTest {
             "a2a_agents",
             "a2a_capabilities",
             "a2a_tasks",
-            // HXA-200 (v16 -> v17, ADR-0052): the user tool-approval-preference table landed in
-            // the live schema. Added here (not in any earlier export) so the export/code drift
-            // guard sees it; a new table added to the schema but not to this set turns this red.
-            "tool_approval_preferences",
-            // HXA-200 Gap 2 (v17 -> v18, ADR-0052 point 1): the trusted tool-registration/upgrade
-            // baseline — the per-tool first-seen markers and the single founding anchor. Empty on
-            // upgrade (the migration seeds no rows), so an existing install never treats a tool as
-            // "new." Both must appear in the live schema for the drift guard to pass.
-            "tool_registration_baseline",
-            "tool_baseline_meta",
+            // The legacy HXA-200 tables (tool_approval_preferences, tool_registration_baseline,
+            // tool_baseline_meta) were DROPPED at v21 (HXA-209 B4): they must NOT appear — a
+            // regression that re-adds them turns this guard red.
+            "goal_controls",
+            // HXA-209 B2 (v19 -> v20, ADR-PERMISSIONS-001): the session-permission storage —
+            // the per-session compiled config, the two-state tool availability and the
+            // single-row app default. All three must appear in the live schema for the drift
+            // guard to pass.
+            "session_permission_configs",
+            "tool_availability",
+            "session_permission_defaults",
+            // HXA-209 D2 (v21 -> v22): the additive CUSTOM-draft table — the copied-from
+            // preset plus the copied-then-edited rule snapshot. A UI/provenance concern
+            // invisible to the execution path, so it has no linearization revision.
+            "session_permission_drafts",
         )
 
     private fun tables(sqlite: SupportSQLiteDatabase): Set<String> {

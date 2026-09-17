@@ -36,6 +36,7 @@ internal class LinuxJobExecution(
     private val scratchRoot: File,
     private val jobIdProvider: () -> String,
     private val knownSecretValues: () -> Set<String>,
+    private val recheckBeforeSubmit: (ParsedLinuxCall) -> ToolExecutorResult?,
     private val beforeSubmit: (ParsedLinuxCall, ProotJobSpec) -> Unit,
     private val persistVerifiedResult: (ParsedLinuxCall, ProotJobRecord, File) -> Unit,
 ) : LinuxExecutor {
@@ -181,6 +182,12 @@ internal class LinuxJobExecution(
                 maxOutputBytes = 8L * 1024L * 1024L,
                 inputManifestSha256 = inputSha,
             )
+        // HXA-209 C5 (ADR section 4): the not-yet-launched recheck — the session
+        // authorization may have tightened since this call was approved. Only a disable
+        // or a DENY rule (a new prohibition) refuses the launch here. Nothing is
+        // submitted yet: the refusal is side-effect-free, with no journal entry and no
+        // binding record written.
+        recheckBeforeSubmit(call)?.let { return it }
         // Persist identity before any submit transaction; failure here prevents submission.
         beforeSubmit(call, spec)
         // 4) Submit: PFDs handed to the client; it owns them in EVERY outcome.

@@ -98,6 +98,54 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
         }
     }
 
+    /**
+     * HXA-094: after the controller closes a dead connection the OS state must follow the
+     * in-memory state — the shell process and its process group are gone. The observation
+     * shell below is an explicit request on the owner-approved policy for this test package,
+     * never an automatic rebind of the dead connection.
+     */
+    @Test
+    fun e_serviceDeathLeavesNoProcessOrProcessGroup() {
+        assumeTrue(InstrumentationRegistry.getArguments().getString(EXPECTED_ROOT_ARGUMENT) == "granted")
+        val rootAccess = newAccess()
+        assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
+        awaitStatus(rootAccess) { it.service == RootServiceState.CONNECTED }
+        val deadPid = requireNotNull(rootAccess.rootServiceProcessIdForTest())
+        // The test process's own SELinux domain cannot read the su domain's /proc entry, so
+        // the process group is observed through the live root shell before the death.
+        val processGroup =
+            requireNotNull(
+                Shell
+                    .cmd("cat /proc/$deadPid/stat")
+                    .exec()
+                    .out
+                    .joinToString(" ")
+                    .substringAfterLast(')')
+                    .trim()
+                    .split(' ')
+                    .getOrNull(2)
+                    ?.toIntOrNull(),
+            )
+
+        assertTrue(Shell.cmd("kill -9 $deadPid").exec().isSuccess)
+        val lost = awaitStatus(rootAccess) { it.grant == RootGrantState.LOST }
+        assertEquals(RootServiceState.DISCONNECTED, lost.service)
+        assertNull(rootAccess.rootServiceProcessIdForTest())
+        awaitCachedShellClosed()
+
+        val probe = Shell.cmd("test -d /proc/$deadPid; echo -n $?").exec()
+        assertEquals("1", probe.out.joinToString("").trim())
+        val groupMembers =
+            Shell.cmd("ps -A -o PID,PGID | awk -v g=\"$processGroup\" 'NR > 1 && $2 == g'").exec()
+        assertEquals(
+            "process group $processGroup still has members after service death",
+            "",
+            groupMembers.out.joinToString("\n").trim(),
+        )
+        // Close the observation shell explicitly; the subject connection is already closed.
+        Shell.getShell().close()
+    }
+
     private fun verifyGrantedRootServiceAndLoss(
         rootAccess: LibsuRootAccess,
         killService: Boolean,
@@ -111,10 +159,45 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
         if (killService) {
             val kill = Shell.cmd("kill -9 $rootProcessId").exec()
             assertTrue(kill.isSuccess)
+        } else {
+            awaitOwnerRevocation()
+            // Manager policy changes deny FUTURE requests; no portable passive revocation
+            // signal exists for an already-open shell. The production background boundary
+            // closes it, then a fresh explicit request must observe the changed policy.
+            rootAccess.onAppBackgrounded()
         }
         val lost = awaitStatus(rootAccess) { it.grant == RootGrantState.LOST }
         assertEquals(RootServiceState.DISCONNECTED, lost.service)
         assertNull(rootAccess.rootServiceProcessIdForTest())
+        if (!killService) {
+            awaitCachedShellClosed()
+            assertEquals(RootRequestStatus.STARTED, rootAccess.requestRoot())
+            val denied = awaitTerminalStatus(rootAccess)
+            assertEquals(RootGrantState.DENIED, denied.grant)
+            assertEquals(RootServiceState.DISCONNECTED, denied.service)
+        }
+    }
+
+    private fun awaitOwnerRevocation() {
+        val files = ApplicationProvider.getApplicationContext<android.content.Context>().filesDir
+        val ready = files.resolve("hxa094-revoke-ready")
+        val confirmed = files.resolve("hxa094-revoke-confirmed")
+        confirmed.delete()
+        ready.writeText(
+            android.os.Process
+                .myPid()
+                .toString(),
+        )
+        try {
+            val deadline = SystemClock.elapsedRealtime() + REVOCATION_TIMEOUT_MS
+            while (!confirmed.exists() && SystemClock.elapsedRealtime() < deadline) {
+                SystemClock.sleep(POLL_INTERVAL_MS)
+            }
+            assertTrue("owner must revoke test package in manager, then confirm via host marker", confirmed.exists())
+        } finally {
+            ready.delete()
+            confirmed.delete()
+        }
     }
 
     private fun awaitTerminalStatus(rootAccess: LibsuRootAccess): RootAccessStatus =
@@ -154,6 +237,9 @@ class LibsuRootAccessDeviceTest : RootDeviceTestHost() {
 
     private companion object {
         const val EXPECTED_ROOT_ARGUMENT = "hxa094ExpectedRoot"
+
+        // Human-operated manager policy changes can cross chat turn boundaries.
+        const val REVOCATION_TIMEOUT_MS = 1_800_000L
         const val WAIT_TIMEOUT_MS = 30_000L
         const val SHELL_CLOSE_TIMEOUT_MS = 5_000L
         const val SHELL_CLOSED_STABILITY_MS = 500L

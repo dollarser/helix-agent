@@ -20,7 +20,7 @@ schema 的可选字符串允许空值，执行解析却拒绝；通用错误没�
 
 ## Fix and invariants
 
-write v3 将空白可选 hash 当作未提供；非空非法值返回字段专属错误，不猜测替换值；合法非空值原样进入原子写入校验，文件不存在或版本不同都失败。新建文件不要求 hash，覆盖仍要求 overwrite，edit 的必需 hash 不放宽。版本变更使旧精确契约批准不能被复用；沿用 ADR-0045 的变更契约版本策略。
+write v3 将空白可选 hash 当作未提供；非空非法值返回字段专属错误，不猜测替换值；合法非空值原样进入原子写入校验，文件不存在或版本不同都失败。新建文件不要求 hash，覆盖仍要求 overwrite，edit 的必需 hash 不放宽。版本变更使旧精确契约批准不能被复用；沿用 ADR-WORKSPACE-001 的变更契约版本策略。
 
 会话直接展示简短工具行：名称、从操作和目标提取的用途、真实状态。参数/结果默认隐藏，点击查看详情；不展示文件正文作为用途，也不虚构模型意图。待审批与需恢复的操作保留。完整审计和模型返回不受 UI 改动影响。
 
@@ -38,5 +38,5 @@ hash 是读取时文件内容的版本指纹，不能保证生成的内容在业
 
 ## Related records
 
-- [ADR-0045](../adr/0045-session-relative-file-tools.md)
-- [工具结果清单](../development/builtin-tool-result-review-2026-09-10.md)
+- [ADR-WORKSPACE-001](../adr/workspace/001-session-paths.md)
+- [工具结果清单](../evidence/development/builtin-tool-result-review-2026-09-10.md)

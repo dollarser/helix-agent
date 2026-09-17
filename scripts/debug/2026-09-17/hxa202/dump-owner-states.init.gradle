@@ -1,0 +1,30 @@
+// HXA-202 slice 5 debugging: dump the ProjectState owner hierarchy — the exact layer DefaultBuildTaskSelector walks.
+gradle.projectsEvaluated {
+    try {
+        def root = rootProject as org.gradle.api.internal.project.ProjectInternal
+        def owner = root.owner
+        println("ST2 root owner: path=" + owner.projectPath + " name=" + owner.name + " children(" + owner.getChildProjects().size() + ")=" + owner.getChildProjects()*.name)
+        def rtState = owner.getChildProjects().find { it.name == 'runtime' }
+        if (rtState == null) {
+            println("ST2 'runtime' NOT AMONG ROOT OWNER CHILDREN")
+        } else {
+            println("ST2 walk-found 'runtime': path=" + rtState.projectPath + " created=" + rtState.isCreated() + " children=" + rtState.getChildProjects()*.name)
+            def cliState = rtState.getChildProjects().find { it.name == 'cli-app' }
+            println("ST2 cli-app in walk children? " + (cliState != null ? ("path=" + cliState.projectPath) : "NO — selection will fail here"))
+        }
+        def rtProj = rootProject.project(":runtime") as org.gradle.api.internal.project.ProjectInternal
+        def cliProj = rootProject.project(":runtime:cli-app") as org.gradle.api.internal.project.ProjectInternal
+        println("ST2 rtProj.owner: path=" + rtProj.owner.projectPath + " children=" + rtProj.owner.getChildProjects()*.name)
+        println("ST2 walk-runtime is rtProj.owner? " + (rtState != null && rtState.is(rtProj.owner)))
+        println("ST2 cliProj.owner: path=" + cliProj.owner.projectPath + " parentPath=" + (cliProj.owner.parent != null ? cliProj.owner.parent.projectPath : "null") + " created=" + cliProj.owner.isCreated())
+        def allMismatches = rootProject.allprojects.collect { p ->
+            def o = (p as org.gradle.api.internal.project.ProjectInternal).owner
+            (o.projectPath.toString() != p.path) ? (p.path + " -> owner=" + o.projectPath) : null
+        }.findAll { it != null }
+        println("ST2 live-project/owner path mismatches = " + (allMismatches ?: "none"))
+        def dupChildren = owner.getChildProjects().groupBy { it.name }.collect { k, v -> (v.size() > 1) ? (k + " x" + v.size()) : null }.findAll { it != null }
+        println("ST2 duplicate root child names = " + (dupChildren ?: "none"))
+    } catch (Throwable t) {
+        println("ST2 error: " + t)
+    }
+}

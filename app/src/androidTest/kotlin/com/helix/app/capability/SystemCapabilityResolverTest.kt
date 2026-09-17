@@ -125,7 +125,9 @@ class SystemCapabilityResolverTest {
 
         // a live state change must be visible on the very next check — the audit rows written by
         // the baseline check must never be served (缓存不代替执行时检查)
-        automation.grantRuntimePermission(packageName, Manifest.permission.POST_NOTIFICATIONS)
+        if (!systemSaysGranted) {
+            automation.grantRuntimePermission(packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
         assertEquals(GrantState.GRANTED, center.check(Capability.NOTIFICATION_READ).state)
 
         // leave granted: GoalReminderTest (HXA-013) depends on it

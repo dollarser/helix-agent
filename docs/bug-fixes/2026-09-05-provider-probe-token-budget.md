@@ -43,4 +43,4 @@ SGLang 真实 UI 连接测试偶发在最小工具调用阶段失败；此前 AP
 ## Related records
 
 - [HXA-025](../completion-records/HXA-025.md)
-- [main 验证报告](../development/main-merged-verification.md)
+- [main 验证报告](../evidence/development/main-merged-verification.md)

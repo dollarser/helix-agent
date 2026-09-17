@@ -1,387 +1,101 @@
-# Helix 验收命令矩阵
+# 验收规则与公共命令
 
-2026-09-15 HXA-200 最终验收通过，命令、测试数量、API/进程证据及剩余产品边界见[完成记录](../completion-records/HXA-200.md)。下方早期阻断与gap条目为历史证据，不能再将已修复的审计/恢复/JGit列为当前200阻断。
-
-2026-09-15 C1/C2后续修复与当前验证见[修复记录](../bug-fixes/2026-09-15-tool-preference-start-boundary.md)；以下收尾复核结论属于修复前快照。两项修复不自动关闭其他HXA-200矩阵或JGit门禁。
-
-2026-09-15 HXA-200 收尾复核：下方六个gap条目保留历史执行证据，不代表符合全部ADR契约。已确认跨scope ASK被ALLOW覆盖、审批等待后DENY未阻止执行，任务不可关闭；具体修复门禁和API覆盖缺口见[收尾复核与201交接](hxa200-closeout-review-and-hxa201-handoff.md)。本轮未重新运行功能测试。
-
-基线日期：2026-09-03。命令来自 Gradle 9.5.0 / AGP 9.3.2 工程的真实
-`projects` 与 `tasks --all` 输出。每个 HXA 开始前必须确认对应命令仍存在；若模块、
-variant 或 source set 改名，先更新本矩阵，再实现功能。
-
-## 1. 通用约定
-
-- API30+完整本地设备门禁包含宿主存储阶段：`RequiresStorageHostPhase`的3个场景从常规进程移到授权阶段执行，并追加撤权后新进程验证（3+1，缺阶段失败）；Android变更`MANAGE_EXTERNAL_STORAGE`可结束应用，不能在同一instrumentation内改权限后继续断言。命令与证据见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)。
-
-- 所有 Gradle 命令从仓库根目录执行，并且只使用 `./gradlew`。
-- JVM 行无需设备；Android 行需要 `adb devices` 中存在已授权设备或模拟器。
-- consumer 仪器测试验证共享功能与当前编译边界；修改共享逻辑、consumer route/manifest 或变体边界时必须运行对应 consumer task，但 consumer 不预设为最终商店包。
-- developer 当前承载最完整能力，是开发阶段主要验收对象；涉及 Standard/Advanced、All-files、Accessibility、Root 或 Runtime client 时必须运行对应 developer task。HXA-120～123 再把真实渠道要求映射为 artifact，不能从 flavor 名推导产品能力。
-- 每个HXA开工前清理已知必过本地主机/设备门禁失败；“继承失败”是归因，不是豁免。修复后保留原场景并重跑，禁止删测试或用skip代替失败修复；外部profile沿用下述显式启用边界。
-- 真机/外部服务验收必须记录设备、API、ABI、服务版本和实际结果，不能用构建成功替代。
-- 外部业务服务不进默认 gate：强制本地验收（`scripts/check-all.sh --source/--build`、P1/P2/P3）**不依赖外部业务服务、真实账号或付费调用**，JVM `test` 全 hermetic（MockWebServer/内存 fake/断言常量，不拨号）。边界三分（2026-09-15 措辞修订：原「无网络」）：① 构建时的一次性依赖下载（Gradle/AGP/Maven，lockfile+verification 固定版本）允许联网；② 本机运行的测试服务器（MockWebServer、本机测试服务等）是本地验收的合法组成；③ 触达真实外部服务的 smoke（`realSelfHosted`（Ollama/sglang，默认不探测宿主）/`realSubscription`/`realCodex`/`realCopilot`/`realCopilotCatalog`/`helixDnsProbe`/sglang 探针等）是显式单独运行，经 instrumentation 参数 + JUnit Assume 选择性启用：缺参数即 skip（非 fail）、不消耗配额、绝不作为默认必过项；**显式启用后失败即失败，不得伪装成 skip/assume**，运行后须按上一行记录设备/版本/实际结果。
-- Release、APK 内容和许可证总门禁始终追加第 4 节命令。
-
-## 2. M0 任务命令（已完成）
-
-| 任务 | 可复制命令 | 环境与预期证据 |
-| --- | --- | --- |
-| HXA-001 | `./gradlew projects`<br>`./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug`<br>`./gradlew :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug`<br>`./gradlew test`<br>`./scripts/verify-variant-boundaries.sh` | 无设备；四个 debug APK、28 项目、四个 applicationId、consumer 无 developer marker、依赖图裁剪、根 `LICENSE` |
-| HXA-002 | `./gradlew spotlessCheck detekt test lintConsumerDebug lintDeveloperDebug`<br>`./scripts/check-lockfiles.sh`<br>`./scripts/check-secrets.sh`<br>`./scripts/verify-adr.sh`<br>`./scripts/check-docs.sh`<br>`git diff --check` | 无设备；格式、静态检查、Lint、依赖锁、secret、ADR、文档契约、wrapper 与 verification metadata 门禁 |
-| HXA-003 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest`<br>`./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug`<br>`./gradlew :app:connectedConsumerDebugAndroidTest` | 最后一行需 API 36 模拟器；七个 route、手工 `AppContainer`、consumer APK 可启动 |
-
-## 3. 后续 HXA 命令
-
-表中 Gradle task 均已存在。任务实现时必须把测试放进对应 task 的标准 source set，
-不能另建无人执行的测试目录。
-
-### M1：领域、Plan/Goal 与持久化
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-010 | `./gradlew :core:model:test` | 无 |
-| HXA-011 | `./gradlew :core:agent:test` | 无 |
-| HXA-012 | `./gradlew :core:agent:test` | 无 |
-| HXA-013 | `./gradlew :core:agent:test :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；提醒/恢复 |
-| HXA-014 | `./gradlew :core:storage:testDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest`；Room migration fixture |
-| HXA-015 | `./gradlew :core:agent:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；进程恢复 fixture |
-| HXA-016 | `./gradlew :core:agent:test` | 无 |
-
-### M2：Provider
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-020 | `./gradlew :core:model:test :provider:api:test :core:storage:testDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；Android Keystore（真机/模拟器执行，非 fake） |
-| HXA-021 | `./gradlew :core:model:test :provider:api:test` | 无（纯 JVM 契约；契约落位 core:model 共享内核，core:agent 仅依赖它） |
-| HXA-022 | `./gradlew :provider:openai-responses:test` | 本地流 fixture |
-| HXA-023 | `./gradlew :provider:openai-chat:test` | 本地流 fixture |
-| HXA-024 | `./gradlew :provider:anthropic:test` | 本地流 fixture |
-| HXA-025 | `./gradlew :provider:api:test :provider:catalog:test` | `./gradlew :app:connectedConsumerDebugAndroidTest`；手工连接另记 |
-| HXA-026 | `./gradlew :provider:catalog:test` | 无 |
-| HXA-027 | `./gradlew :provider:openai-chat:test` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；真机 Ollama/SGLang |
-| HXA-028 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:lintConsumerDebug :app:lintDeveloperDebug` | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；consumer 仅 Standard、developer 默认 Standard、切换 Advanced 零权限/网络副作用 |
-
-### M3：Tool、Policy、Approval 与 Capability
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-030 | `./gradlew :tools:framework:test` | 无 |
-| HXA-031 | `./gradlew :tools:framework:test` | 无 |
-| HXA-032 | `./gradlew :core:policy:test :tools:framework:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-033 | `./gradlew :core:policy:test` | 无 |
-| HXA-034 | `./gradlew :core:policy:test :core:storage:testDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest`；DENIED/过期不可生成或消费 Approval Proof，并发仅一个批准消费成功 |
-| HXA-035 | `./gradlew :tools:framework:test` | 无 |
-| HXA-036 | `./gradlew :app:testConsumerDebugUnitTest :app:lintConsumerDebug` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-037 | `./gradlew :tools:framework:test :core:agent:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；并发读/排他屏障/固定回填顺序/receipt/取消/恢复/资源降级 |
-| HXA-038 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest spotlessCheck detekt :app:lintConsumerDebug` | 无；纯 JVM characterization，不改变设备行为 |
-| HXA-039 | `./gradlew :core:agent:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；批量工具乱序结算/逐调用审批/取消/进程死亡/恢复等价性 |
-
-### M4：Workspace 与文件
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-040 | `./gradlew :core:workspace:test` | 无 |
-| HXA-041 | `./gradlew :core:workspace:test` | 磁盘满/中断 fixture |
-| HXA-042 | `./gradlew :tools:files:test :tools:framework:test :core:workspace:test` | 无；首个业务工具注册前证明安全 descriptor 变化强制新 version/新 binding，或按 accepted ADR 验证完整 contract hash |
-| HXA-043 | `./gradlew :tools:files:test :core:workspace:test` | 无 |
-| HXA-044 | `./gradlew :feature:files:testDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest`；恶意 ContentProvider |
-| HXA-045 | `./gradlew :feature:files-allfiles:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；专用设备 |
-| HXA-046 | `./gradlew :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-047 | `./gradlew :tools:files:test` | Zip Slip/膨胀比 fixture |
-| HXA-048 | `./gradlew :core:workspace:test :tools:files:test :app:testConsumerDebugUnitTest spotlessCheck detekt` | `./gradlew :app:connectedConsumerDebugAndroidTest`；ChatService 单会话并发/取消、大目录 list/search 边界 |
-| HXA-049 | `./gradlew :core:model:test :core:agent:test :core:storage:testDebugUnitTest :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :core:storage:connectedDebugAndroidTest :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；Room migration、恶意 ContentProvider、picker/恢复/hash/egress binding |
-
-### M5：QuickJS
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-050 | `./gradlew :runtime:quickjs:testDebugUnitTest :runtime:quickjs:assembleDebug` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest`；API 29/36、arm64/x86_64 |
-| HXA-051 | `./gradlew :runtime:quickjs:testDebugUnitTest` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest` |
-| HXA-052 | `./gradlew :runtime:quickjs:testDebugUnitTest` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest` |
-| HXA-053 | `./gradlew :runtime:quickjs:testDebugUnitTest :tools:framework:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-054 | `./gradlew :runtime:quickjs:testDebugUnitTest` | `./gradlew :runtime:quickjs:connectedDebugAndroidTest`；真机崩溃/内存/取消 |
-
-### M5A：多模态附件
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-055 | `./gradlew :core:model:test :provider:openai-responses:test :provider:openai-chat:test :provider:anthropic:test :app:testConsumerDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；API 29/36 与低内存真机图片归一化、能力门控、取消/恢复 |
-| HXA-056 | `./gradlew :core:agent:test :core:storage:testDebugUnitTest :provider:openai-responses:test :provider:openai-chat:test :provider:anthropic:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest spotlessCheck detekt` | `./gradlew :app:connectedConsumerDebugAndroidTest`；文本/图片 picker+share E2E、进程回收、脱敏、UTF-16/文档/音频/视频统一拒绝；另记至少一个真实 vision endpoint smoke |
-
-### M5B：文件工作台剩余闭环
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-057 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :tools:files:test :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；恶意 ContentProvider、persisted grant 重启/撤销/只读/跨 scope |
-| HXA-058 | `./gradlew :core:workspace:test :feature:files:testDebugUnitTest :app:testConsumerDebugUnitTest` | `./gradlew :feature:files:connectedDebugAndroidTest :app:connectedConsumerDebugAndroidTest`；导入导出冲突、部分流、磁盘满、取消、进程回收与结果校验 |
-| HXA-059 | `./gradlew :provider:api:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；模型列表带出/点选预填/手输、`Unsupported`/`Failed` 两态、超大列表有界、本地 SGLang 真环境 smoke |
-
-### M6：浏览器、Android 工具与国际化
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-060 | `./gradlew :feature:browser:testDebugUnitTest` | `./gradlew :feature:browser:connectedDebugAndroidTest` |
-| HXA-061 | `./gradlew :feature:browser:testDebugUnitTest` | `./gradlew :feature:browser:connectedDebugAndroidTest`；恶意页面 |
-| HXA-062 | `./gradlew :tools:browser:testDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :feature:browser:connectedDebugAndroidTest` |
-| HXA-063 | `./gradlew :feature:browser:testDebugUnitTest` | `./gradlew :feature:browser:connectedDebugAndroidTest` |
-| HXA-064 | `./gradlew :tools:android:testDebugUnitTest` | `./gradlew :tools:android:connectedDebugAndroidTest` |
-| HXA-065 | `./gradlew :tools:android:testDebugUnitTest` | `./gradlew :tools:android:connectedDebugAndroidTest` |
-| HXA-066 | `./gradlew :tools:android:testDebugUnitTest :core:policy:test` | `./gradlew :tools:android:connectedDebugAndroidTest`；DNS rebinding/redirect/peer/scope 与 Standard/Advanced 网络边界 |
-| HXA-067 | `./gradlew :app:testConsumerDebugUnitTest :feature:browser:testDebugUnitTest` | `./gradlew :app:connectedConsumerDebugAndroidTest`；语音识别 unavailable/denied/cancel/error、草稿不自动发送 |
-| HXA-068 | `./gradlew :app:testDeveloperDebugUnitTest :core:policy:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；规则创建/撤销/到期/重启/时钟回拨/切回 Standard，consumer 无入口 |
-| HXA-069 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest lintConsumerDebug lintDeveloperDebug` + `scripts/check-i18n.sh`（生产源码 CJK 字符串字面量硬编码扫描 + base/`values-en`/`values-zh-rCN` 翻译键一致性门禁；注释与测试排除） | `./gradlew :app:connectedConsumerDebugAndroidTest :app:connectedDeveloperDebugAndroidTest`；API 29/36 跟随系统/简体中文/English、Activity/进程重建、API 33+ App languages 同步、通知与关键界面；验证 Provider/Tool/审计稳定字段不受 locale 影响 |
-
-### M7：MCP、A2A 与 Skills
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-070 | `./gradlew :extensions:mcp:test`<br>`./scripts/check-mcp-android-spike.sh`<br>`./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease --no-configuration-cache` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :app:connectedDeveloperDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.mcp.McpAndroidSpikeDeviceTest --no-configuration-cache`；API 29/36 本地 fixture，initialize/ping、协商版本 header、缺失 wire `protocolVersion` fail-closed、取消后会话复用、关闭后全新 facade 重连、SSE 断线 + `Last-Event-ID` 重连、1 MiB 响应、HTTP 401、TLS handshake 中断、bearer + 精确 loopback/DNS pinning、非 SSE JSON 及 SSE 单事件 16 MiB wire ceiling，以及 `MainActivity` onStop/onStart 前后台切换期间 session 可用性；release 命令当前产出 unsigned artifact，签名/SBOM/notice 按 M12 发布矩阵执行 |
-| HXA-071 | `./gradlew :extensions:mcp:test` | 恶意 schema/result fixture |
-| HXA-072 | `./gradlew :extensions:mcp:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-073 | `./gradlew :extensions:mcp:test :runtime:proot-ipc:testDebugUnitTest :runtime:proot-client:testDebugUnitTest :runtime:proot-app:testDebugUnitTest :app:testDeveloperDebugUnitTest`<br>`ALPINE_MIRROR=<mirror> bash scripts/build-proot-assets.sh` | API 29/36：companion `ProotJobRunnerDeviceTest,ProotRuntimeBindingDeviceTest` 各 18/18；`:app:connectedDeveloperDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.proot.ProotJobE2eDeviceTest --no-configuration-cache` 各 8/8、0 skip；锁定 argv/指纹、严格 stdout JSON-RPC、独立 bounded stderr、环境筛选、进程组取消与 Job 对账 |
-| HXA-074 | `./gradlew :extensions:skills:test` | 无 |
-| HXA-075 | `./gradlew :extensions:skills:test :tools:framework:test` | 无 |
-| HXA-076 | `./gradlew :app:testConsumerDebugUnitTest :extensions:mcp:test :extensions:skills:test` | `./gradlew :app:connectedConsumerDebugAndroidTest` |
-| HXA-077 | `./gradlew :spikes:a2a-sdk:testDebugUnitTest :spikes:a2a-minimal:testDebugUnitTest` + `./scripts/check-a2a-sdk-android-spike.sh` + `./scripts/check-a2a-minimal-android-spike.sh` + `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :spikes:a2a-minimal:connectedDebugAndroidTest`；两端各 3/3：JSON-RPC/HTTP+JSON/SSE/取消/同 Task 重连/1 MiB/Bearer/HTTP 401/TLS failure/cleartext 与解析边界；物理真机、签名产物及完整 SBOM/notice 归 M12 |
-| HXA-078 | `./gradlew :extensions:a2a:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :app:connectedConsumerDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.helix.app.a2a.A2aDiscoveryDeviceTest`；两端各 2/2：真实 public/extended Card、Secret alias、版本/接口/Skill snapshot、401/非 JSON/超大 Card、hash 变化后 Room + Registry 同步撤销 |
-| HXA-079 | `./gradlew :extensions:a2a:test :tools:framework:test :core:storage:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest` | `A2aTaskRunnerDeviceTest` 在专用 API 29/36 arm64-v8a 模拟器各 2/2；本地 fixture 覆盖 stream/cancel/restart/GetTask/Artifact 幂等复用与篡改拒绝/不明确送达不重发/远端反向调用拒绝 |
-
-### M8：PRoot Runtime
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-080 | `./gradlew :runtime:proot-app:testDebugUnitTest :runtime:proot-app:assembleDebug` | manifest/lock schema fixture；无真机要求 |
-| HXA-081 | `./gradlew :runtime:proot-app:testDebugUnitTest :runtime:proot-app:assembleDebug` | 真机验证固定资产 hash/ABI/license/ELF alignment 与三类体积 |
-| HXA-082 | `./gradlew :runtime:proot-app:testDebugUnitTest` | `./gradlew :runtime:proot-app:connectedDebugAndroidTest`；安装/smoke/原子激活/回滚 |
-| HXA-083 | `./gradlew :runtime:proot-client:testDebugUnitTest :runtime:proot-app:testDebugUnitTest` | `./gradlew :runtime:proot-app:connectedDebugAndroidTest`；签名权限/跨 UID/冷绑定/空闲回收/Binder death/用户触发修复入口 |
-| HXA-084 | `./gradlew :runtime:proot-app:testDebugUnitTest` | `./gradlew :runtime:proot-app:connectedDebugAndroidTest`；runner 超时/取消/洪泛/job journal/断连对账/后台生命周期 |
-| HXA-085 | `./gradlew :tools:files:test :runtime:proot-client:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；bash Tool/审批/Runtime 状态/禁止回退 |
-| HXA-086 | `./gradlew :runtime:proot-app:testDebugUnitTest :runtime:proot-client:testDebugUnitTest` | 4 KiB/16 KiB 真机 Python/Node/Git/ripgrep；kill/Doze/强制停止/通知/可选 wake lock |
-| HXA-087 | `./gradlew :runtime:proot-app:testDebugUnitTest :runtime:proot-app:assembleDebug` | `./gradlew :runtime:proot-app:connectedDebugAndroidTest`；同签名更新/回滚/卸载/法律页 |
-| HXA-088 | `./gradlew :core:workspace:test :runtime:proot-app:testDebugUnitTest :runtime:proot-client:testDebugUnitTest` | `./gradlew :runtime:proot-app:connectedDebugAndroidTest`；三种仓库权威方案 Spike、snapshot/kill/并发/恶意 Git fixture，产出并决定 ADR-0008；不测试 remote Git |
-
-### M9：Accessibility 与 Root
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-090 | `./gradlew :tools:automation:testDebugUnitTest` | `./gradlew :tools:automation:connectedDebugAndroidTest`；专用自动化设备 |
-| HXA-091 | `./gradlew :tools:automation:testDebugUnitTest` | `./gradlew :tools:automation:connectedDebugAndroidTest`；敏感界面拒绝 |
-| HXA-092 | `./gradlew :tools:automation:testDebugUnitTest` | `./gradlew :tools:automation:connectedDebugAndroidTest`；包/窗口切换/停止 |
-| HXA-093 | `./gradlew :tools:automation:testDebugUnitTest` | `./gradlew :tools:automation:connectedDebugAndroidTest`；检查点/快速批准/敏感界面/恢复 |
-| HXA-094 | `./gradlew :tools:root:testDebugUnitTest` | `./gradlew :tools:root:connectedDebugAndroidTest`；libsu/JitPack 依赖证据、Root grant/loss/crash 与 Profile 切换不触发 `su` |
-| HXA-095 | `./gradlew :tools:root:testDebugUnitTest` | `./gradlew :tools:root:connectedDebugAndroidTest`；scope/失权/崩溃 |
-| HXA-096 | `./gradlew :app:testDeveloperDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；确认无普通 `root.exec` |
-| HXA-097 | `./gradlew :app:testDeveloperDebugUnitTest :tools:automation:testDebugUnitTest :tools:root:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest` |
-
-### M10：单机硬化
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-099 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :core:agent:test :tools:framework:test` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；Mode/预算 UI、低内存/后台/热信号只降并发、重启与边界值 |
-| HXA-100 | `./gradlew test` | 固定场景集；记录模型/工具版本和证据 |
-| HXA-101 | `./gradlew test` | 攻击语料集，不调用真实付费模型 |
-| HXA-102 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 真机低内存/后台/Doze/进程回收；持久化 pause reason、有界 usage checkpoint、反复 crash/墙钟回拨不增加预算、不重放副作用 |
-| HXA-103 | `./gradlew lintConsumerRelease lintDeveloperRelease test` | API 29/36 模拟器与 API 34+/36 真机 |
-| HXA-104 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease` | `./scripts/verify-variant-boundaries.sh`；APK 权限/内容/ABI/体积 |
-| HXA-105 | `./gradlew :core:agent:test :tools:framework:test :core:storage:testDebugUnitTest` | `./gradlew :app:connectedDeveloperDebugAndroidTest`；只读 child depth/cap/父预算/无审批凭证/恢复/温升与 JSON DAG Spike，产出并决定 ADR-0009 |
-
-### M11：官方 CLI 隔离实验
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-110 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug`<br>`./scripts/check-cli-runtime-lock.sh`<br>`$ANDROID_HOME/build-tools/36.0.0/aapt2 dump permissions runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 arm64-v8a 固定 artifact 来源/hash/license/terms/版本、独立 UID、仅 INTERNET、signature-protected 冷绑定 Service manifest；HXA-110 只锁 metadata，不打包或运行 CLI executable |
-| HXA-111 | `./gradlew :runtime:cli-client:testDebugUnitTest :runtime:cli-app:testDebugUnitTest`<br>`./scripts/verify-codex-android-spike.sh` | `ANDROID_SERIAL=<api29-or-36> ./scripts/verify-codex-android-spike.sh`；先判定官方 Android 支持门禁；门禁失败时停止打包并明确列出未执行的登录/退出/跨 UID/Activity 冷绑定证据 |
-| HXA-112 | `./gradlew :runtime:cli-app:testDebugUnitTest`<br>`./scripts/check-cli-runtime-lock.sh`<br>`./scripts/verify-claude-android-spike.sh` | `ANDROID_SERIAL=<api29-or-36> ./scripts/verify-claude-android-spike.sh`；先判定官方 Android 支持与 loader 门禁；失败时停止打包并明确列出未执行的登录/取消/输出限制/恶意工作区/工具拦截/进程死亡对账证据 |
-| HXA-113 | `./gradlew :runtime:cli-client:testDebugUnitTest :app:testDeveloperDebugUnitTest :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-lock.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 Runtime 明确报告 unsupported/未注册且 APK 仍无 executable；因 HXA-111/112 平台门禁失败，不存在可执行 Job，`jobId` 查询/不重放与内置工具代理明确为未执行证据，Act/Goal Provider 注册必须 fail closed |
-
-### M11A：第三方订阅协议适配器研究
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-114 | `./scripts/audit-dsh-subscriptions-spike.sh <installed-plugin-dir>`<br>`./scripts/check-lockfiles.sh`<br>`./scripts/check-secrets.sh`<br>`./scripts/check-docs.sh`<br>`./scripts/verify-adr.sh` | 只读源码/metadata 与官方文档核验；禁止读取真实 auth store、登录或模型请求。记录插件版本/hash、访问日期、token owner、官方 CLI 身份、Android/job 协议缺口与 ADR 状态 |
-| HXA-115 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-lock.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 Runtime UID 私有 Keystore vault round-trip/覆盖/logout/篡改 fail closed，Binder status 只有登录布尔状态且不含 token |
-| HXA-116 | `./scripts/audit-dsh-subscriptions-spike.sh <installed-plugin-dir>`<br>`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache` | 本地 `0.7.0` 与 npm tarball/integrity 无差异；核验四 provider 与官方文档；API 29/36 arm64-v8a 验证四 provider vault 隔离和 redacted status，且 `agentBackendState=NOT_REGISTERED` |
-| HXA-117 | `./scripts/verify-copilot-sdk-android-spike.sh`<br>`./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-lock.sh` | `ANDROID_SERIAL=<api29-or-36> ./scripts/verify-copilot-sdk-android-spike.sh` 与 `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 arm64-v8a 必须证明官方 glibc/musl runtime 的直接 Android loader 结果。门禁失败即停止打包，OAuth/模型/工具/jobId 项明确记为未执行，不得误报通过 |
-| HXA-118 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 PKCE/state、loopback callback、取消/超时/失败、token 轮换与 logout，status 仍仅 redacted。真实账号登录单列人工侧载证据；未登录不得阻止代码级验收，不得执行模型请求 |
-| HXA-119 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 device code、interval/slow_down、取消/超时/拒绝、交换失败不落盘、vault/logout 与 redacted status。固定身份只允许 ADR-0026 的非官方个人侧载实验；不得执行模型请求 |
-| HXA-137 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证随机 loopback、PKCE/state、取消/超时/失败、refresh/logout、Free/未知资格不落盘与 redacted status。真实 Free 账号验证授权页升级门禁或授权后资格拒绝；不得执行模型请求 |
-| HXA-138 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证官方 Device Code endpoint、URL/code、interval/slow_down、取消/过期/拒绝、refresh/logout、Free/X Basic/未知 tier 不落盘与 redacted status；不得调用模型/proxy |
-| HXA-139 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证 Codex 官方匿名 Device Code endpoint、PKCE、poll 网络恢复、取消/过期/失败不落盘与前台剪贴板；真人 Codex 账号只验证 Runtime 私有 vault，不调用模型。Grok 验证 code/URL 分别复制及稳定拒绝原因 |
-| HXA-140 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | `ANDROID_SERIAL=<api29-or-36> ./gradlew :runtime:cli-app:connectedDebugAndroidTest --no-configuration-cache`；API 29/36 验证固定无工具请求及客户端边界。另在有真实 Codex 订阅 vault 的独占 API 36 arm64-v8a 模拟器，从 Runtime 可见 UI 主动执行一次固定 `HELIX_OK` smoke；记录实际模型与结果，不读取 token。Provider/Tool/Job 仍不得注册 |
-| HXA-141 | `./gradlew :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | JVM 覆盖成功、失败、journal 边界、取消迟到结果、同 jobId 重复/请求 hash 冲突与进程恢复 `INTERRUPTED` 不重放；API 29/36 继续执行 CLI Runtime 全量设备套件。真实 Codex 账号从可见 UI 执行一次，确认私有 journal 只有模型 ID/输出 hash，无 token/account id/正文。跨 APK Provider/Job 仍不得注册 |
-| HXA-142 | `./gradlew :runtime:cli-client:test :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | 证明供应商分发授权是独立 fail-closed 注册门禁；即使 Android/工具控制/jobId 三项均为真，授权缺失仍不得注册。确认 consumer 不依赖 `cli-client`、Provider catalog 无 CLI/订阅 adapter，CLI APK 仍无任意 prompt 或跨 APK模型 Job transaction |
-| HXA-143 | `./gradlew :runtime:cli-client:test :app:testDeveloperDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | 同一完整技术 evidence 在 `DEVELOPER_ADVANCED` 可忽略供应商授权，在 `CONSUMER_STORE` 缺授权必须拒绝；当前不完整 evidence 仍不可注册。consumer 不依赖 `cli-client`，本 HXA 不新增 Provider 或模型 transaction |
-| HXA-131 | `./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | client/runtime 共用唯一 protocol/permission/ComponentName/status 上限和 deadline；companion status binder 继续编译并使用共享契约；不得出现第二份协议或模型 Job transaction |
-| HXA-132 | `./gradlew :runtime:cli-client:test :runtime:cli-client:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | 在 API 29/36 arm64-v8a 安装 developer App、test APK 与 Runtime，运行 `CliRuntimeHandshakeE2eDeviceTest`：分别验证 `NOT_INSTALLED`、正常握手、`DISABLED`、`FORCE_STOPPED`；正常握手后无活动 Service binding，force-stop 后启动主 App 不得拉起 Runtime。不得出现模型 Job、Provider 或 token 通道 |
-| HXA-133 | `./gradlew :runtime:cli-client:test :runtime:cli-client:lintDebug :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | API 29/36 arm64-v8a 运行 `CliRuntimeHandshakeE2eDeviceTest#fixedModelJobIsDurableAndNeverBlindlyResubmitted`：无凭据时形成持久 `FAILED`，相同 jobId 返回同一记录，未知 query/cancel 稳定，debug Binder death 后只 query 原记录且不重跑；journal 不含 token/account/正文，终态后无活动 binding。仍不得传任意 prompt/输出或注册 Provider |
-| HXA-134 | `./gradlew :runtime:cli-client:test :runtime:cli-client:lintDebug :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug :runtime:cli-app:lintDebug :app:testDeveloperDebugUnitTest :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | API 29/36 arm64-v8a 运行 HXA-133 回归及 `CliRuntimeHandshakeE2eDeviceTest#modelPayloadUsesPfdAndIsDeletedAfterReconcile`：严格有界 `ModelRequest` 经 PFD 提交，统一 `ModelEvent` 经 PFD 对账且 hash 一致；reconcile 后 request/event 正文删除，redacted record 不含 token/account/正文，最终无活动 binding。Provider/对话/Dispatcher/Audit 仍未接入 |
-| HXA-135 | `./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | API 29/36 arm64-v8a 运行 `CodexSubscriptionProviderE2eDeviceTest#developerProviderUsesTheNormalModelContract`：developer 受管理 Provider 注册/测试后可由普通 Session 选择，经 `ChatService` 完成并持久化 Turn/model-call/message；能力保持 tool/vision false，终态无 binding。consumer APK DEX 不含订阅 Provider/cli-client。真实订阅调用可复用 HXA-140/141 的 Runtime 证据，但本 HXA 若未重跑必须明确记录 |
-| HXA-136 | `./gradlew :runtime:cli-client:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug :runtime:cli-app:testDebugUnitTest :runtime:cli-app:assembleDebug --no-configuration-cache`<br>`./scripts/check-cli-runtime-boundary.sh` | API 29/36 arm64-v8a 运行 `CodexSubscriptionProviderE2eDeviceTest#managedAccountOpensTheExplicitRuntimeUi`，含 Runtime force-stop 后用户入口恢复，并确认无持续 binding；consumer APK 无入口/cli-client。另在用户于独占 API 36 arm64-v8a 模拟器完成 Runtime 登录后，以 `-e realSubscription true` 显式运行 `CodexSubscriptionProviderRealAccountDeviceTest#realSubscriptionCompletesThroughHelixChat`，记录模型、固定 prompt hash、`HELIX_OK`、Turn/model-call 和空闲解绑 |
-
-| HXA-144 | `./gradlew :runtime:cli-client:test :runtime:cli-app:testDebugUnitTest :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:cli-app:assembleDebug :app:assembleDeveloperDebugAndroidTest :app:lintDeveloperDebug --no-configuration-cache`；`./scripts/check-cli-runtime-boundary.sh` 与通用门禁。已通过；Runtime R8：`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true` | API 29/36 执行 `CodexSubscriptionProviderE2eDeviceTest#claudeProviderUsesTheNormalModelContract`、`#developerProviderUsesTheNormalModelContract` 和 `CliRuntimeHandshakeE2eDeviceTest#claudePayloadSurvivesDisconnectAndIsDeletedAfterReconcile`、`#modelPayloadUsesPfdAndIsDeletedAfterReconcile`；另通过混合版本、运行中取消/断连及账号入口；完整命令和 hash 见 [完成记录](../completion-records/HXA-144.md)。Claude 真实付费调用未核实 |
-
-| HXA-145 | roadmap 的 cli-app/cli-client/app JVM、双变体构建与 lint；`:runtime:cli-app:assembleRelease -Phelix.cli.r8=true`；通用门禁与 `check-cli-runtime-boundary.sh` | API 29/36 `CodexSubscriptionProviderE2eDeviceTest#grokProviderUsesTheNormalModelContract`、Grok 账号入口/运行中取消与断连/PFD 回归；真实付费调用未核实 |
-| HXA-146 | roadmap 的 JVM/双变体构建/lint，Runtime R8；通用脚本与 APK 边界全通过 | API 29/36 Copilot 普通 Provider/账号入口/运行中取消与断连/PFD，以及 Codex/Claude/Grok 回归每台 7/7；API 36 当前真实账号 Claude Haiku 4.5 普通 probe/Chat 1/1，见 [完成记录](../completion-records/HXA-146.md) |
-| HXA-147 | roadmap 所列 App 双变体 JVM/主测试包、根 lintDebug/lintRelease、Spotless/Detekt、i18n/docs/ADR/diff 检查 | API29/36 精确 UI 类列表与安装 hash；新回复滚动与上翻保持、长文本、小屏/大字体/可访问性、中英文、审批停止恢复和真实模型关键流程；研究来源和适用差异入 docs；已按 [HXA-147](../completion-records/HXA-147.md) 分项验收，快照与排除边界独立记录 |
-
-### M12：商店与官网多渠道发布
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-120 | `./gradlew lintConsumerRelease lintDeveloperRelease test` | 第 4 节全部 release/供应链门禁；Google Play/国内商店/官网逐渠道 capability/manifest/SDK/listing/降级矩阵，每项差异有明确政策或审核依据 |
-| HXA-121 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | API 29/34+/36 真机；各渠道 Standard 核心任务矩阵、Standard/Advanced 组合、SBOM/notice/hash/权限/数据流；Play Accessibility 仅确定性自动化且无外部 executable 下载 |
-| HXA-122 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease` | 稳定产品 applicationId、flavor/channel 命名、离线签名、同 ID 升级/回滚、companion 签名握手；不同 ID 不冒充原地升级 |
-| HXA-123 | `./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease` | Google Play 与首批国内商店提交包/声明/视频/隐私材料；分别记录准备、提交、审核、拒绝或通过证据，不以构建成功声称上架 |
-
-### M13 Connector 可迁移能力包
-
-| 任务 | JVM/构建命令 | Android/外部验收 |
-| --- | --- | --- |
-| HXA-124 | `./gradlew :extensions:skills:test :extensions:mcp:test :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest :app:assembleConsumerDebug :app:assembleDeveloperDebug --no-configuration-cache`；`python3 -m unittest discover -s scripts/tests -p test_export_codex_mcp.py` | `./gradlew :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-124-connectors.sh <serial>`；API 29/36（显式选定设备；含跨进程两阶段恢复）；真实第三方服务需独立测试账号 |
-| HXA-125 | `python3 scripts/fetch-hxa-125-samples.py`；`HELIX_CONNECTOR_ACCEPTANCE_DIR="$PWD/app/build/outputs/hxa-125-samples" ./gradlew :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorExternalAcceptanceTest" --rerun --no-configuration-cache`；公开来源 hash、生产 reader 解析及真实 SDK 匿名只读调用；用户样本：`HELIX_CONNECTOR_SAMPLE_ZIP="<sample.zip>" ./gradlew :app:testConsumerDebugUnitTest --tests "com.helix.app.connector.ConnectorSuppliedArchiveTest" --rerun --no-configuration-cache` | `./gradlew :app:assembleConsumerDebug :app:assembleConsumerDebugAndroidTest --no-configuration-cache` + `./scripts/accept-hxa-125-connectors.sh <dedicated-serial>`；API 29/36 匿名服务真实 App/Dispatcher 与跨进程恢复；用户参考包：`./scripts/accept-hxa-125-sample.sh <dedicated-serial> <sample.zip>`，断言原包 4 Skill / 2 endpoints 安装、原文保留及禁用默认；不等于 CLI 业务兼容；WorkBuddy GitHub/可灵真实包：`bash scripts/accept-hxa-125-workbuddy.sh <serial> <prepared-sample-directory>`，核对4个Skill及全部引用文件；bearer 服务拒绝/厂商撤销仍需账号，不以导入测试替代 |
-| HXA-126 | proposed design；`./scripts/check-docs.sh`、`./scripts/verify-adr.sh` 通过；见 [ADR-0030](../adr/0030-connector-public-client-oauth.md) | 未实现/未验收；OAuth 方案待 ADR-0030 审查及两家真实 MCP 服务账号/redirect 条件；文档门禁不替代功能或真实服务证据 |
-| HXA-127 | 双 flavor JVM/构建、spotless/detekt/lintDebug；500 工具合成 catalog 与模式/替换/取消边界 | [已完成](../completion-records/HXA-127.md)：6 项专项 JVM，API29/36 各 3 项发现/安装 UI；真实厂商 catalog 未冒充验收 |
-| HXA-128 | [只读清单及固定底座评估](connector-stdio-portability.md)；extensions:mcp:test、developer 测试 APK 构建 | 已完成有界 Spike，API29/36 各 4 项 stdio 回归；外部 CLI 无可执行资产，不宣称新增支持 |
-| HXA-129 | proposed design；`./scripts/check-docs.sh`、`./scripts/verify-adr.sh` 通过；见 [ADR-0031](../adr/0031-connector-version-ownership-journal.md) | 未实现/未验收；版本所有权与恢复 journal 待 ADR-0031 审查；文档门禁不替代功能或真实服务证据 |
-| HXA-130 | proposed design；`./scripts/check-docs.sh`、`./scripts/verify-adr.sh` 通过；见 [ADR-0032](../adr/0032-connector-offline-signed-index.md) | 未实现/未验收；离线签名索引方案待 ADR-0032 审查及 HXA-129 完成；文档门禁不替代功能或真实服务证据 |
-
-## 4. 跨任务发布门禁
+## 默认门禁
 
 ```bash
-./gradlew spotlessCheck detekt
-./gradlew test
-./gradlew lintConsumerRelease lintDeveloperRelease
-./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease
-./gradlew :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
-./scripts/check-lockfiles.sh
-./scripts/check-secrets.sh
-./scripts/verify-adr.sh
-./scripts/verify-variant-boundaries.sh
+./scripts/check-all.sh --source
+./scripts/check-all.sh --all
 git diff --check
 ```
 
-当前 debug APK 路径：
+`--source` 只验证文档、脚本契约、国际化与 Secret；不证明功能实现。`--all` 的实际构建/测试/制品范围以脚本为准，设备、真实账号与长稳另行执行。依赖下载允许联网，本机 fixture 服务合法；默认测试不访问真实业务服务、不依赖账号或付费配额。外部 smoke 须显式启用，条件不足记 skip，启用后失败必须记 fail，不能改成 skip。
 
-```text
-app/build/outputs/apk/consumer/debug/app-consumer-debug.apk
-app/build/outputs/apk/developer/debug/app-developer-debug.apk
-runtime/proot-app/build/outputs/apk/debug/proot-app-debug.apk
-runtime/cli-app/build/outputs/apk/debug/cli-app-debug.apk
+每个下一 HXA 先检查已知基线失败，保留并修复场景，不能因为“非本次新增”忽略必过门禁。依赖可为兼容性升级，但必须固定可复现版本、锁文件、来源和许可证。
+
+## 任务验收入口
+
+[任务索引](roadmap.md)链接每个未完成任务的范围、测试与附加要求；完成记录保存实际命令、exit code、测试数、跳过原因、设备与剩余限制。本页不再维护第二张任务状态表。
+
+## 产品公共命令 P1/P2/P3
+
+仓库根执行，先配置仓库要求的JDK17/Android SDK。下列是待实施任务的命令，不是本轮已通过结果。
+
+P1（每任务）：
+
+```bash
+./scripts/check-all.sh --source
+./gradlew spotlessCheck detekt
+git diff --check
 ```
 
+P2（审批与存储）：
 
-## 内置 Skill 创作与安装助手（ADR-0029 accepted）
+```bash
+./gradlew :core:model:test :core:policy:test :core:agent:test :tools:framework:test :core:storage:testDebugUnitTest
+./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest
+./gradlew :core:storage:assembleDebugAndroidTest :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
+```
 
-| HXA | 验证边界 |
-| --- | --- |
-| HXA-148 | Skill Creator/草稿预览：合法与非法格式、scope边界、取消/恢复、真实模型生成校验及 API29/36 中英文大字体；已通过，见 [完成记录](../completion-records/HXA-148.md) |
-| HXA-149 | Skill Installer：hash绑定审批、篡改拒绝、禁用默认、重复安装/中断恢复、Plan禁写及真实样本；已通过，见 [完成记录](../completion-records/HXA-149.md) |
-| HXA-150 | MCP Installer：配置预览/安装、凭据隔离、禁用默认、连接选择与断连，真实账号另列；已通过，见 [完成记录](../completion-records/HXA-150.md) |
+P3（产品UI/构建，200/201也需执行）：
 
-| HXA-151 | 原生操作状态收敛：重复点击、失败重试、取消与旧预览失效；双 flavor JVM、构建/质量门禁及 API29/36 三个安装/创建页面测试 |
+```bash
+./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest
+./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
+./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug
+python3 scripts/debug/2026-09-09/run-owned-emulator.py --help
+```
 
-| HXA-152 | 测试 APK 的 WebView/Autofill 独立对照、GC/Binder 采样与 API29/36 短时证据；不替代生产修复或长稳验收 |
+新增设备类放标准app androidTest source set；涉及Runtime的developer专属子集分开。实现者按runner实际参数保存日期脚本，API29/36分别启动新独占模拟器，不借已有serial；finally只结束自有进程。测试名称不存在/零执行/跳过不能算通过。数据库变更还要运行真实新迁移类；脚本写出最终命令、测试数、exit code与日志路径。
 
-| HXA-153 | 已完成 [引用配对与释放路径追踪](native-reference-release-trace.md)：API29/36 各 400 轮双对照、1000 轮 Binder 干预；独立 NDK 编译通过。生产缺陷仍 open，GC 干预不计稳定性验收 |
+## 终端公共命令 G1/G2/G3/G4
 
-共同设计见 [ADR-0029](../adr/0029-skill-and-mcp-authoring-installation.md)，具体命令与脚本建立要求见 [roadmap](roadmap.md)。
+先设置仓库要求的 JDK 17/Android SDK，核实 task 存在。以下命令从仓库根执行，新增测试类必须在对应 HXA 落入现有 source set；不存在时不能选择它后接受“0 tests”。
 
-| HXA-154 | [生产路径核实](browser-controller-reference-verification.md) 完成：API29/36 六路径各 400 轮目标引用零残留；JVM 116、设备安全各 9 项及构建/lint/静态检查通过；原生正对照仍检出残留，不等于原生问题关闭 |
+**G1：源码与格式（每阶段）**
 
-| HXA-155 | API29/36 真实 HTTP 慢响应取消、后台恢复与 Activity 重建；各 100 轮 JNI 追踪、请求计数和浏览器 JVM/构建/lint 门禁 |
+```bash
+./scripts/check-all.sh --source
+./gradlew spotlessCheck detekt
+git diff --check
+```
 
-| HXA-156 | 状态/产品研究文档指定路径审核、来源批次与研究边界、内部链接、docs/ADR/secrets/diff 门禁；不声称竞品实测 |
+**G2：主机/编译（按修改范围运行；195～199 全部运行）**
 
-## 后续 bug 修复
+```bash
+./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest
+./gradlew :runtime:proot-core:test :runtime:proot-ipc:testDebugUnitTest :runtime:proot-client:testDebugUnitTest :runtime:proot-app:testDebugUnitTest
+./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest
+./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug :runtime:proot-app:lintDebug :runtime:proot-client:lintDebug
+```
 
-| HXA | 验证命令 | 实际结果与边界 |
-| --- | --- | --- |
-| HXA-157 | 双 flavor app JVM、assembleDebug、spotlessCheck、detekt、lintDebug；精确命令见 [完成记录](../completion-records/HXA-157.md) | 旧代码 2 项回归失败，修复后专项 8 项通过；consumer 336 / developer 360 项，失败/错误 0，各 4 项既有外部测试跳过；未重跑设备或长稳 |
-| HXA-158 | 浏览器 JVM/测试 APK、双 flavor app 构建、spotless/detekt/browser lint、双 API JNI/设备回归；精确命令见 [完成记录](../completion-records/HXA-158.md) | 未使用宿主引用残留 480→0；116 JVM；每台设备 27 通过/2 opt-in skip；系统缺陷、24h/真机仍开放 |
-| HXA-159 | 双 flavor app JVM/构建、browser tools JVM、consumer 测试 APK、spotless/detekt/lintDebug；API29/36 文件/附件/恢复/审批/发现回归；精确命令见 [完成记录](../completion-records/HXA-159.md) | 职责重构；Context 迁移仅分析，未作为 Autofill 验收；设备最终结果与首次预览超时分开记录 |
-| HXA-160 | Activity owner/旧回调/JS 结果、真实 AutofillService 填写保存/重建/撤销；双 API 浏览器/MainActivity 与 JNI/Binder 有界对照；双 flavor JVM/build、完整 lint/静态与文档门禁 | ADR-0033；保留惰性分配，系统根因、长稳、真机分别记录 |
-| HXA-161 | provider JVM、双 flavor app JVM、Developer APK/测试 APK；spotless/detekt/双 flavor app lint、i18n/docs/ADR；专用模拟器输入区/菜单/停止/Goal 及真机 SGLang 参数、键盘布局 | API36 8 项通过；真机 API34 中/高请求和键盘通过，见 [完成记录](../completion-records/HXA-161.md)；不覆盖历史 PROTOCOL 根因、长稳或完整真机验收 |
-| HXA-162 | 双 app JVM/构建/lint、spotless/detekt；API36 7 项复制/输入/停止回归 | [完成记录](../completion-records/HXA-162.md)；时间线 JVM 保证旧记录顺序 |
-| HXA-163 | storage JVM/迁移、双 app JVM/构建/lint；API36 草稿/标题/目录/列表 | UI 9/9、迁移 22/22；[完成记录](../completion-records/HXA-163.md) |
-| HXA-164 | 双 app JVM/构建/lint；API36 等待模型时消息可见、Markdown/复制/停止/草稿回归 | 10 个不同设备用例通过，真机显示核实；[完成记录](../completion-records/HXA-164.md) |
-| HXA-165 | 双 app JVM/构建/lint；API36 导航/窄屏/大字体/附件/复制/草稿/停止 | 11/11，真机键盘及附件入口核实；[完成记录](../completion-records/HXA-165.md) |
-| HXA-166 | storage/双 app JVM/构建/lint；API36 模型选择/跨 Provider/请求模型/活动拒绝/窄屏 | 9/9，真机模型菜单核实；[完成记录](../completion-records/HXA-166.md) |
-| HXA-167 | 双 app JVM/构建/lint；API36 单行/窄屏/大字体/横向滑动/模型/停止 | 8 个不同用例通过，最终 Composer 4/4；[完成记录](../completion-records/HXA-167.md) |
-| HXA-168 | 双 app JVM/构建/lint；API36 顶部去重/导航/新建/窄屏/模型/停止 | 10/10，真机标题与椭圆选项核实；[完成记录](../completion-records/HXA-168.md) |
-| HXA-169 | 双 app JVM/构建/lint；API36 独立主菜单/标题改名/草稿保留/窄屏与回归 | 12/12，真机菜单和改名入口核实；[完成记录](../completion-records/HXA-169.md) |
-| HXA-170 | 双 app JVM/构建/lint；API36 六路由同高顶栏/扩展真实入口/归档状态/会话回归 | 14/14，真机文件与扩展布局及归档状态核实；[完成记录](../completion-records/HXA-170.md) |
-| HXA-171 | 双 app JVM/构建/lint；API36 无模型手动文件管理/搜索/选择/返回/原文件操作与导航回归 | 17/17，1.8 倍字体 3/3，真机首页/目录核实；[完成记录](../completion-records/HXA-171.md) |
-| HXA-172 | 双 app JVM/构建/lint；API36 归档分离、共享存储入口、上下文圆环及文件/输入区回归 | 23/23；双 app JVM/构建/lint 和真机核实通过；[完成记录](../completion-records/HXA-172.md) |
-| HXA-173 | 双 flavor 构建/lint、归档恢复与共享根目录授权/撤销、文件 UI 回归 | 双 flavor 权限/归档、真实系统授权返回和真机核实通过；[完成记录](../completion-records/HXA-173.md) |
-| HXA-174 | core/provider/app JVM、自动/手动摘要、取消/拒绝/预算/恢复、真实模型与 Provider 设置 UI | Developer 39、Consumer 17 个不同 flavor/用例通过（联合 HXA-173）；主机与真实模型通过；[完成记录](../completion-records/HXA-174.md) |
-| HXA-175 | 脚本归档/独占进程；双 app 主机、系统栏修复前后、紧凑圆环/复制/输入区 | 140 份历史脚本、主机与 API36 双版本 32/32 通过，真机安装/布局核实；[完成记录](../completion-records/HXA-175.md) |
-| HXA-176 | 长 Turn 步骤/新轮首请求、收益/容量/用量、摘要重试记账、Goal 暂停/继续/恢复 | Developer 43/43、Consumer 42/42，主机及真实模型三轮通过；[完成记录](../completion-records/HXA-176.md) |
+变更 storage 或 agent 时追加 `./gradlew :core:storage:testDebugUnitTest :core:storage:assembleDebugAndroidTest :core:agent:test`，并用独占设备执行新迁移测试。实际任务形态以实现前查询结果为准；若漂移先修矩阵，不跳过。
 
-| HXA-177 | 跨会话后台/服务、精确停止、回收持久化、BLOCKED 门控/预算/恢复、数据库迁移 | 双 flavor 57/57 + 双 API 迁移 23/23，主机门禁通过；[完成记录](../completion-records/HXA-177.md) |
+**G3：Runtime 回归与新增设备类**
 
-| HXA-178 | 模型报告/状态归属/取消与预算/迁移/无绑定完成 | 主机门禁通过；双 API 各79、迁移各24、真实模型及最终复核3通过，见完成记录 |
+```bash
+python3 scripts/verify-integrated-runtimes.py --avd Helix_API_29 --port 5622 --output build/terminal-api29-fresh
+python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --output build/terminal-api36-fresh
+python3 scripts/debug/2026-09-09/run-owned-emulator.py --help
+```
 
-| HXA-179 | 完整主机门禁；独立 API29/36 工具/审批/附件/Goal/后台/压缩 | 各107/107；[完成记录](../completion-records/HXA-179.md) |
-| HXA-180 | 独立文件管理：目录/冲突/失败恢复/取消/权限/Agent隔离；双 API UI与SAF | 已完成，见 [HXA-180](../completion-records/HXA-180.md)：主机/双API各18/预览复跑 |
-| HXA-181 | 当前规范去过时描述、历史保留、docs/ADR/i18n/secrets/diff | 全部通过，见 [HXA-181](../completion-records/HXA-181.md) |
-| HXA-182 | 双 app JVM、构建/测试 APK、Spotless/Detekt/lint、独占 API29/36 文件/聊天和发布中进程死亡后的 UI 恢复、docs/ADR/i18n/secrets | 双 app JVM 727通过/8条件跳过、双 API 各47/47及静态/文档门禁通过，见 [HXA-182](../completion-records/HXA-182.md) |
-| HXA-183 | 七项职责拆分；双 app/PRoot JVM、构建/lint、草稿并发和构造期观察、独占 API29/36 聊天/Provider/文件/Goal/压缩/后台及跨 APK PRoot 生命周期/归档/ACK、文档门禁 | 主机897通过/8条件跳过，双API各145项app及PRoot生命周期/归档/ACK通过；见 [HXA-183](../completion-records/HXA-183.md) |
-| HXA-184 | B11/C15 职责与装配整理；全仓 JVM/lint、独占双 API 存储/文件/浏览器/QuickJS/Android/自动化与 app 集成 | 主机2788通过/8条件跳过；独占双API app各163与六库/Accessibility恢复通过，见 [HXA-184](../completion-records/HXA-184.md) |
-| HXA-185 | 合并后长稳夹具适配与失败取证：EV-04 新 Goal 机制（model-report-user-pause-v1）、PSS 单位、Autofill 独立探针与失败取证、WebView 身份解析、FD 五臂阶段对照 | 已完成，见 [HXA-185](../completion-records/HXA-185.md)：主机门禁+4自测 PASS、Goal 双flavor 16/16、Autofill 短项 1/1+6/6（pilot 按设计 INCONCLUSIVE）、FD五臂 5/5（归因锁资源门/设备路径，goldfish 主导）、24h ON API36 = FAIL_FUNCTIONAL（API36 系统 WebView a11y 重尾 cycle 55，非产品，新 10s probe 按设计取证，24h 门禁未触及） |
-| HXA-186 | API35 真机隔离 App/存储/文件/浏览器/QuickJS 回归 | App48、存储50、文件38通过；浏览器和QuickJS停滞未收口，见 [记录](../completion-records/HXA-186.md) |
-| HXA-187 | QuickJS冻结诊断、回收证据与绑定早退清理 | JVM85与API35真机77项通过；生产10秒限额不变，见 [记录](../completion-records/HXA-187.md) |
+前两行只执行既有 32 场景，不包含本包新增测试，不能充作新增功能验收。实现者按 help 的实际参数为本 HXA 新类保存启动脚本到 `scripts/debug/YYYY-MM-DD/`，使用 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`。每次新 output、未占用端口与新建独占模拟器进程；禁止借用现存 serial，finally 只清理自有进程。AVD 名/端口不适用时按本机状态显式替换并记录。
 
-| HXA-188 | 真机浏览器整套、实际 HOME/锁屏 Chat/Goal 恢复、Root 授权与服务丢失/只读边界 | 浏览器36通过/2条件跳过；实际后台3通过；Root6通过/1条件跳过，独立grant/deny各1通过，见 [HXA-188](../completion-records/HXA-188.md) |
+**G4：集成/产物**
 
-| HXA-189 | 审查逐条复核；PFD释放、权限/导航/文案、文档/CI门禁 | [HXA-189记录](../completion-records/HXA-189.md)：主机2788通过/8条件跳过、构建/lint/脚本通过；新增设备用例未执行 |
+```bash
+./gradlew :app:assembleConsumerRelease :app:assembleDeveloperRelease
+./scripts/check-all.sh --artifacts
+python3 scripts/verify-integrated-runtime-apks.py --build-type release
+./scripts/check-all.sh
+```
 
-## HXA-185 验证结果（2026-09-10）
+正式 consumer 边界需扩展最终 APK/dex/native 检查到新增终端组件；不能只隐藏按钮。不得删除测试或放宽 detekt/lint 使门禁变绿；兼容性升级可以更新资产 lock，但必须重新核验来源、哈希、许可证和设备兼容性。RootFS 资产来源遵循 [HXA-193 记录](../evidence/development/integrated-developer-runtimes.md)。
 
-由 Claude 独占模拟器执行完毕，见 [完成记录](../completion-records/HXA-185.md) 与 本地忽略制品 `build/emulator-verification/run-index.json`（`HXA185-*` 14 条）。主机门禁 + 4 项 runner 自测 PASS；Goal 短项双 flavor 各 16/16；Autofill 短项 `OK (1)`+`OK (6)`，pilot on/off 按设计 INCONCLUSIVE（该深度不施加 24h 门禁）；FD 五臂 5/5（归因透镜，锁增长在资源门/设备路径，goldfish 主导，非泄漏判定）；**24h（p3）ON API36 = FAIL_FUNCTIONAL**（API36 系统 WebView a11y 节点暴露重尾，cycle 55，非产品；新 10s probe 按设计更早暴露 + `device-autofill-failure.json` 确证，未加宽到 100s、未改产品；24h 资源门禁未触及，2h 窗口资源有界）。更宽 EV-02 正式 2×24h 的 **API29** 一臂已由 Claude 独占模拟器**跑完 = INCONCLUSIVE（非失败）**（方案第 11 行 API29+36 各一次）：独占 emulator-5584（AVD `Helix_EV_Repair_API29`，p3 ON，WebView 91.0.4472.114，冻结制品 `b9382e97…`）跑满整段 90006s（~25h）、615/615 cycle 全 ok、单 pid 1665、零 a11y 失败 → **a11y 节点暴露重尾确认 API36 系统 WebView 特有（非产品/夹具/金鱼缸）**；FD/threads/PSS 三可采样维度均在 24h 门禁内（FD+5/thread+4/PSS+14.7MB vs +8/+16/+96MB），唯 PSS +0.52MB/h 缓升未平台化（观察项非泄漏判定）。整体 INCONCLUSIVE 因 system-Binder（UID-proxy）模拟器物理不可采（结构性，重跑不变；正式判定需真机 X 类），见 本机忽略产物 `../../build/emulator-verification/ev02-autofill-soak/p3-api29-on-24h-ev02-1-result.md` 与 run-index `ev02-p3-api29-on-1`。至此 EV-02 正式 2×24h 两臂齐，共同产出归因而非"24h 门禁 PASS"。
+## 设备、恢复与发布
 
-## HXA-186 真机有界执行
-
-API35 OnePlus：App48、存储50、文件38通过；浏览器连续创建/销毁与QuickJS超时停滞未关闭，部分通过不代表套件全绿。见 [执行记录](../completion-records/HXA-186.md)。
-
-HXA-186 QuickJS状态已被 [HXA-187](../completion-records/HXA-187.md) 的冻结诊断与77项通过结果更新；原失败证据保留。
-
-| HXA-190 | Codex目录/能力/协议与CLI安装 | 进行中：主机、真实账号合成请求与安装恢复；保留凭据UID边界 |
-| HXA-191 | 配置引导、审批折叠、主题、会话搜索 | 授权待执行：主机/UI/空态/取消与恢复 |
-| HXA-192 | Harness 2.0 迁移、门禁与集成 | 进行中：[执行包及真实命令](harness-2.0-next-work.md)；CLI 162 / storage 89 主机及迁移 SQL 通过，spotless/detekt 过、lint 剩 2 项 JGit 阻断；独占设备 Room 28/28 + Plan 4/4（各 API）通过，完整 check-all fail-fast 于 JGit lint；ADR-0048 架构已接受，启用门禁（UI 级用户闭环 + 审阅不 mint 审批的设备证明）未完成；核心切片已 commit `0d52eae7` |
-| HXA-193 | developer 单 APK 内置 Runtime | 实现/专项验证完成：[记录](integrated-developer-runtimes.md)；API29/36各32项、库host6项、四APK与排除门通过；全量门禁、CI资产准备、真实账号与发行未闭合 |
-
-## 终端与后台命令计划（尚未执行）
-
-准确命令、允许模块和新增测试定义见 [专项计划 G1～G4](terminal-and-background-execution-plan.md#6-命令矩阵与设备纪律)。以下设备类是待开发项，零测试不算通过。
-
-| HXA | 验证范围 | 状态 / 命令组 |
-| --- | --- | --- |
-| HXA-194 | 结果详情、取消/未知/过期、旋转、consumer 入口；新增 CommandExecutionDetailsDeviceTest | planned；G1/G2 + 新增设备类 |
-| HXA-195 | 日志游标/背压/配额/兼容；新增 ProotLogStreamDeviceTest | planned；G1/G2/G3；按 accepted ADR-0050，不等待 PTY/后台 |
-| HXA-196 | 租期/预算/owner 死亡/后台拒绝；新增 ProotDetachedJobDeviceTest + 真机 HOME/锁屏 | planned；G1～G4；ADR-0051已接受，平台启用证据待验证 |
-| HXA-197 | REPL/resize/Ctrl-C/切页/进程死亡；新增 ProotTerminalSessionDeviceTest | planned；G1/G2/G3；依赖195及 ADR-0051 前台条款接受，不依赖196完成 |
-| HXA-198 | 双会话/单写连接/互斥/重连/资源回收；新增 ProotMultiSessionDeviceTest | planned；G1～G4 |
-| HXA-199 | 全场景、升级、consumer APK 排除、专项 owned-runner、实际用户验收 | planned；G1～G4 + 全部新增设备类；不以旧32场景替代 |
-
-## 三态审批与产品闭环（尚未执行）
-
-命令与新增设备类见 [产品任务包 P1～P3](product-completion-and-approval-plan.md)。新增类必须真实执行，零测试或编译通过不算设备验收；双API29/36及双flavor，Runtime专属子集单列。
-
-| HXA | 核心验收 | 命令/状态 |
-| --- | --- | --- |
-| HXA-200 | 三态×风险/模式/能力、精确批次、版本/范围/迁移/排队撤销；ToolApprovalPreferenceDeviceTest | in progress（2026-09-15）：来源保留（UNSET/EXPLICIT/ALLOW_INVALIDATED/NEW_DEFAULT 预留）+ ADR-0052 第 1 点修订已落地；已验证 `ToolApprovalPreferenceDeviceTest` 4 用例 + `ToolSchedulerDeviceTest` 9 用例，API29/36×consumer/developer 共 8 次运行全过（独占模拟器 finally 关闭，证据 `scripts/debug/2026-09-15/run-apref-device-regression.sh`）；P1/P2 通过；Gap 6 真实旧库迁移已落地（commit `ad5b9912`：修复 `MIGRATION_16_17` 未注册的生产启动崩溃 + fixture 同步 v17 + 2 新设备用例「加性迁移空表/唯一键」+「生产 open 真实 v16 库」，API29 `RoomMigrationFixtureTest` 30/30）；Gap 1 三态×风险/模式/能力已落地（commit `79fd7d85`：`effectivePreference` scope 合并 6 主机用例 + 全局 ASK + 会话 ALLOW 端到端免卡 1 设备用例，`:core:policy:test` 20/20 + `ToolApprovalPreferenceDeviceTest` 5/5，consumer+developer）；Gap 2 NEW_DEFAULT 可信登记/升级基线已落地（commit `c63172a0`：Room 17→18 加性两空表 first-write-wins + 纯决策 `ToolBaseline.isNewDefault` + `reconcile` 唯一写路径/容器启动登记 built-in 工具，`ToolBaselineTest` 8 + resolver 新 6 + service 新 4 主机用例，API29 `RoomMigrationFixtureTest` 31/31 + `ToolApprovalPreferenceDeviceTest` 6/6 consumer+developer，含 NEW_DEFAULT 全生命周期/重启用例）；Gap 3 ALLOW 契约失效/范围不匹配/外部来源同名碰撞已落地（commit `0ca65b4a`：契约失效此前已钉死，新增 3 主机用例 + 2 设备用例——GLOBAL ASK + 会话 A 的 ALLOW 对会话 B 的 dispatch 仍出卡、真实 Room 外部来源同名不继承 built-in ALLOW/DENY，`ToolApprovalPreferenceServiceTest` 17/17 + `ToolApprovalPreferenceDeviceTest` 8/8 consumer+developer）；Gap 4 精确本次/批次证明复用已落地（commit `ea91efe6`：`countByToolCall` 重复询问证据 + 「one refund per consumption」语义钉死，2 主机用例 + `ApprovalProofLifecycleTest` 7/7 真实 Room + `ToolSchedulerDeviceTest` 11/11 consumer+developer，含「重试从同一记录 re-mint、恰好一张卡」与「不同参数不覆盖兄弟调用」2 新例）；Gap 5 审批等待/排队竞态 + 持久结算已落地（commit `fa01dde6`：主机 dispatcher 2——approval 与 start 之间的 stop 不消费证明 / 呈现中翻转不改写决策 + 恰好一次读，主机 scheduler 2——QUEUED 翻转 dispatch start 生效 DENY 无卡 / ASK 恰好一张卡，设备 2——真实 broker 等待期间 turn stop 持久结算 Thrown + 记录 PENDING 单卡 + 兄弟正常结算 / 真实服务 QUEUED 翻转 → PREFERENCE_DENIED 零卡片，`ToolDispatcherTest` 62/62 + `ToolSchedulerTest` 19/19 + `ToolSchedulerDeviceTest` 13/13 consumer+developer；顺带修正 JsonNull-is-JsonPrimitive 的 null 检查）；**六个 gap 全部落地**——整体完成记录待共享验收文档提交归属协调，JGit 第三方 lint 2 项保持独立阻断记录（不 suppress），HXA 不关闭 |
-| HXA-201 | 设置与执行一致、三语言/大字体/旧卡、真实Activity重建与跨进程恢复；Settings16/Lifecycle1及200回归 | completed；P1/P2/P3、四象限272次通过；[证据及全套18项基线失败](hxa201-acceptance-2026-09-16.md) |
-| HXA-202 | 跨会话导航/精确停止/后台返回/不伪造进度；TaskJourneyDeviceTest | planned；P1/P3 |
-| HXA-203 | 同名跨scope/打开导出/撤权/大文件/失败；ArtifactDeliveryDeviceTest | planned；P1/P3，存储变更加P2 |
-| HXA-204 | 断网/认证/进程死亡/重复恢复/不重放；RecoveryJourneyDeviceTest | planned；P1/P3 |
-| HXA-205 | 新旧配置/离线/初始化修复/双flavor；CapabilityReadinessDeviceTest | planned；P1/P3 + 193相关Runtime子集 |
-| HXA-206 | 固定完整任务、实际结果、失败/跳过计数、独占runner | planned；P1/P2/P3 + check-all + 全新增设备类 |
-
-| HXA-207 | Skill/MCP导入、预览变更、连接但未启用、实际调用、三态、禁用/重启/修复；ExtensionJourneyDeviceTest | planned；P1/P2/P3按范围 + extensions:skills/test、extensions:mcp/test及双API双flavor；[精确命令](workspace-and-capability-experience-plan.md) |
-
-201～206和194～199补充 [体验方案](workspace-and-capability-experience-plan.md) 的工作区/终端/输出/变更直达、环境中断修复、多会话与用户语言验收；阶段未实现时不能用其他测试替代。
-
-## HXA-201 验收结论（2026-09-16）
-
-本任务范围completed；P1/P2/P3及API29/36双flavor四象限272次通过，真实Activity重建与不同PID恢复均通过。完整API29 consumer套件仍有18项基线复现失败，未宣称全产品通过。见[完成记录](../completion-records/HXA-201.md)和[逐项证据](hxa201-acceptance-2026-09-16.md)。
+- 每次运行启动自有独占模拟器，记录 PID/serial/AVD/API/ABI，拒绝借用已有实例，finally 只关闭本次进程。测试脚本先保存至 scripts/debug 日期目录，输出放忽略的 build。
+- API29/36 × consumer/developer 是涉及产品/授权公共能力的基本矩阵；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。
+- 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
+- 取消、拒绝、未知副作用、数据迁移、损坏、低空间与并发竞态按任务要求测试。未知结果只对账，不靠重放验证成功。
+- 新测试类尚未实现时写明待实现；0 tests 或跳过不能完成验收。构建成功不等于功能、账户或安全验收。
+- Release 追加签名、升级/回退、制品排除、SBOM/notice、权限申报与真实渠道证据，见[安全与发布](../security/testing-and-release.md)。

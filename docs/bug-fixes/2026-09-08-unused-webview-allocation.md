@@ -36,5 +36,5 @@ WebViewTabHost 在构造时无条件创建 WebView，即使调用者只销毁宿
 ## Related records
 
 - [HXA-158](../completion-records/HXA-158.md)
-- [规避与方案评估](../development/native-reference-mitigation.md)
-- [JNI/Binder 释放路径](../development/native-reference-release-trace.md)
+- [规避与方案评估](../evidence/development/native-reference-mitigation.md)
+- [JNI/Binder 释放路径](../evidence/development/native-reference-release-trace.md)
