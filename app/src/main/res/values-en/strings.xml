@@ -1020,6 +1020,17 @@
     <string name="artifacts_file_source">Source: %1$s</string>
     <string name="artifacts_file_missing">File no longer exists (it may have been deleted or moved)</string>
     <string name="artifacts_file_unavailable">File currently unavailable</string>
+    <string name="artifacts_file_revoked">Authorization was revoked; the file is unavailable</string>
+    <string name="artifacts_file_changed">File content changed since the task recorded it</string>
+    <string name="artifacts_file_preview_truncated">Preview shows the beginning of the file only</string>
+    <string name="artifacts_file_no_preview_hint">This format cannot be previewed; export it or open it with another app</string>
+    <string name="artifacts_open_task">View task</string>
+    <string name="artifacts_export_cancel">Cancel export</string>
+    <string name="artifacts_exported">Exported</string>
+    <string name="artifacts_open_external">Open with another app</string>
+    <string name="artifacts_open_external_launched">Opened with another app</string>
+    <string name="artifacts_open_external_no_viewer">No app can open this file</string>
+    <string name="artifacts_open_external_failed">Opening with another app failed</string>
 
     <!-- HXA-209 D3: session authorization settings (mode picker, new-session default, tool list) -->
     <string name="settings_perm_title">Session authorization</string>

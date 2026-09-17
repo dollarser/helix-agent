@@ -15,64 +15,122 @@ import kotlinx.serialization.json.longOrNull
  * start, replay or acknowledge anything.
  */
 object CommandResultProjection {
-    fun project(input: CommandResultInput): CommandResultView =
-        with(input) {
+    fun project(
+        callId: String,
+        toolName: String,
+        argsJson: String,
+        facts: CommandResultFacts,
+        browse: CommandBrowseFacts,
+        scopeLabel: String,
+    ): CommandResultView {
+        val content = facts.resultContent?.let(::parseContent)
+        val state =
             if (browse.archiveReadFailed) {
-                return@with CommandResultView(
-                    callId,
-                    toolName,
-                    commandTextFromArgs(argsJson),
-                    callState,
-                    turnState,
-                    sessionId,
-                    scopeLabel,
-                    browse.binding,
-                    CommandDetailState.READ_FAILED,
-                    null,
-                    null,
-                    "",
-                    "",
-                    false,
-                    emptyList(),
-                    null,
-                    false,
+                // A persisted record claiming an archive that no longer verifies: the
+                // page shows the distinct read-failed state and no streams at all.
+                CommandDetailState.READ_FAILED
+            } else {
+                resolveState(facts, content)
+            }
+        val streams =
+            if (browse.archiveReadFailed) {
+                OutputStreams("", "", false, emptyList(), null)
+            } else {
+                val archive = browse.archive
+                OutputStreams(
+                    stdout = archive?.stdout ?: content?.stdout.orEmpty(),
+                    stderr = archive?.stderr ?: content?.stderr.orEmpty(),
+                    truncated = archive?.truncated ?: false,
+                    files = archive?.files.orEmpty(),
+                    acknowledged = archive?.acknowledged,
                 )
             }
-            val content = resultContent?.let(::parseContent)
-            val streams = browse.archive
-            val stdout = streams?.stdout ?: content?.stdout.orEmpty()
-            val stderr = streams?.stderr ?: content?.stderr.orEmpty()
-            val files = streams?.files.orEmpty()
-            val truncated = (streams?.truncated ?: false)
-            val acknowledged = streams?.acknowledged
+        return CommandResultView(
+            callId,
+            toolName,
+            commandTextFromArgs(argsJson),
+            facts.callState,
+            facts.turnState,
+            facts.sessionId,
+            scopeLabel,
+            browse.binding,
+            state,
+            resolveExitCode(state, content, facts.resultSummary),
+            detailFor(state, facts.resultSummary),
+            streams.stdout,
+            streams.stderr,
+            streams.truncated,
+            streams.files,
+            streams.acknowledged,
+            hasNoVisibleOutput(state, streams),
+        )
+    }
 
-            val state = resultState(callState, turnState, resultStatus, resultSummary, content?.state)
-            val exitCode = exitCode(state, content, resultSummary)
-            val noOutput =
-                state != CommandDetailState.RUNNING &&
-                    stdout.isBlank() && stderr.isBlank() && files.isEmpty()
-            return@with CommandResultView(
-                callId,
-                toolName,
-                commandTextFromArgs(argsJson),
-                callState,
-                turnState,
-                sessionId,
-                scopeLabel,
-                browse.binding,
-                state,
-                exitCode,
-                resultSummary.takeIf { state in DETAIL_STATES },
-                stdout,
-                stderr,
-                truncated,
-                files,
-                acknowledged,
-                noOutput,
-            )
+    /**
+     * The settled display state: a call that is still in flight inside a live turn shows
+     * status only; otherwise the call state — and, where the result row exists, its
+     * contents — decide. The projection never guesses an outcome the persisted facts do
+     * not prove.
+     */
+    private fun resolveState(
+        facts: CommandResultFacts,
+        content: ContentStreams?,
+    ): CommandDetailState =
+        when {
+            !isSettled(facts.callState) && !isTerminalTurn(facts.turnState) -> {
+                CommandDetailState.RUNNING
+            }
+
+            facts.callState == "COMPLETED" -> {
+                when (content?.state) {
+                    "SUCCEEDED" -> CommandDetailState.SUCCEEDED
+
+                    // A completed call whose result content is missing or not a
+                    // succeeded record: the persisted facts do not prove the outcome.
+                    else -> CommandDetailState.UNKNOWN
+                }
+            }
+
+            facts.callState == "CANCELLED" -> {
+                CommandDetailState.CANCELLED
+            }
+
+            facts.callState == "DENIED" -> {
+                CommandDetailState.DENIED
+            }
+
+            facts.resultStatus == null -> {
+                CommandDetailState.UNKNOWN
+            }
+
+            // FAILED / NEEDS_REVIEW / INTERRUPTED: the persisted detail line
+            // distinguishes the expired-evidence and unknown-outcome findings.
+            else -> {
+                summarizeOutcome(facts.resultSummary)
+            }
         }
 
-    private fun exitCode(
+    private fun summarizeOutcome(summary: String?): CommandDetailState =
+        when {
+            summary != null && summary.contains("evidence expired") -> {
+                CommandDetailState.EVIDENCE_EXPIRED
+            }
+
+            summary != null &&
+                (
+                    summary.contains("no longer knows") ||
+                        summary.contains("result is unknown")
+                ) -> {
+                CommandDetailState.UNKNOWN
+            }
+
+            else -> {
+                CommandDetailState.FAILED
+            }
+        }
+
+    /** SUCCEEDED reads the code from the persisted record; FAILED from its detail line. */
+    private fun resolveExitCode(
         state: CommandDetailState,
         content: ContentStreams?,
         summary: String?,
@@ -83,8 +141,8 @@ object CommandResultProjection {
             }
 
             CommandDetailState.FAILED -> {
-                summary
-                    ?.let { EXIT_CODE_IN_TEXT.find(it) }
+                EXIT_CODE_IN_TEXT
+                    .find(summary.orEmpty())
                     ?.groupValues
                     ?.get(1)
                     ?.toIntOrNull()
@@ -95,59 +153,47 @@ object CommandResultProjection {
             }
         }
 
-    private fun resultState(
-        callState: String,
-        turnState: String,
-        resultStatus: String?,
-        resultSummary: String?,
-        contentState: String?,
-    ): CommandDetailState =
-        when {
-            !isSettled(callState) && !isTerminalTurn(turnState) -> {
-                CommandDetailState.RUNNING
-            }
-
-            callState == "COMPLETED" -> {
-                if (contentState ==
-                    "SUCCEEDED"
-                ) {
-                    CommandDetailState.SUCCEEDED
-                } else {
-                    CommandDetailState.UNKNOWN
-                }
-            }
-
-            callState == "CANCELLED" -> {
-                CommandDetailState.CANCELLED
-            }
-
-            callState == "DENIED" -> {
-                CommandDetailState.DENIED
-            }
-
-            resultStatus == null -> {
-                CommandDetailState.UNKNOWN
-            }
-
-            else -> {
-                failureState(resultSummary.orEmpty())
-            }
-        }
-
-    private fun failureState(summary: String): CommandDetailState =
-        when {
-            "evidence expired" in summary -> CommandDetailState.EVIDENCE_EXPIRED
-            "no longer knows" in summary || "result is unknown" in summary -> CommandDetailState.UNKNOWN
-            else -> CommandDetailState.FAILED
-        }
-
-    private val DETAIL_STATES =
-        setOf(
+    /** Only findings that carry a persisted explanation line show it. */
+    private fun detailFor(
+        state: CommandDetailState,
+        summary: String?,
+    ): String? =
+        when (state) {
             CommandDetailState.FAILED,
             CommandDetailState.UNKNOWN,
             CommandDetailState.EVIDENCE_EXPIRED,
             CommandDetailState.CANCELLED,
-        )
+            -> {
+                summary
+            }
+
+            else -> {
+                null
+            }
+        }
+
+    /**
+     * A terminal result whose persisted facts show no streams and no files gets its own
+     * "no output" line; a still-running command (output viewable after it ends) and the
+     * read-failed state never do.
+     */
+    private fun hasNoVisibleOutput(
+        state: CommandDetailState,
+        streams: OutputStreams,
+    ): Boolean {
+        val terminalState =
+            state != CommandDetailState.RUNNING && state != CommandDetailState.READ_FAILED
+        val blankStreams = streams.stdout.isBlank() && streams.stderr.isBlank()
+        return terminalState && blankStreams && streams.files.isEmpty()
+    }
+
+    private data class OutputStreams(
+        val stdout: String,
+        val stderr: String,
+        val truncated: Boolean,
+        val files: List<ProotRecoveredFile>,
+        val acknowledged: Boolean?,
+    )
 
     private data class ContentStreams(
         val state: String?,
@@ -172,9 +218,13 @@ object CommandResultProjection {
      * by newlines, or the `command`/`script` string, or the raw arguments when neither.
      */
     fun commandTextFromArgs(argsJson: String): String {
-        val obj = runCatching { Json.parseToJsonElement(argsJson) as? JsonObject }.getOrNull() ?: return argsJson
-        val commands = (obj["command"] as? JsonArray)?.takeIf { it.isNotEmpty() }
-        return commands?.joinToString("\n") { (it as? JsonPrimitive)?.content.orEmpty() }
+        val obj =
+            runCatching { Json.parseToJsonElement(argsJson) as? JsonObject }
+                .getOrNull()
+                ?: return argsJson
+        val commandArray = (obj["command"] as? JsonArray)?.takeIf { it.isNotEmpty() }
+        return commandArray
+            ?.joinToString("\n") { (it as? JsonPrimitive)?.content.orEmpty() }
             ?: (obj["command"] as? JsonPrimitive)?.content
             ?: (obj["script"] as? JsonPrimitive)?.content
             ?: argsJson
@@ -192,18 +242,3 @@ object CommandResultProjection {
 
     private val EXIT_CODE_IN_TEXT = Regex("exit code (\\d+)")
 }
-
-/** Persisted call facts used by the read-only projection. */
-data class CommandResultInput(
-    val callId: String,
-    val toolName: String,
-    val argsJson: String,
-    val callState: String,
-    val turnState: String,
-    val sessionId: String,
-    val resultStatus: String?,
-    val resultSummary: String?,
-    val resultContent: String?,
-    val browse: CommandBrowseFacts,
-    val scopeLabel: String,
-)

@@ -2,6 +2,8 @@ package com.helix.app.chat
 
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.ArtifactEntity
+import com.helix.core.workspace.FileScopePath
+import com.helix.feature.files.SafGrantStore
 
 /**
  * One row of the artifact center's files section (doc 02 §8): a file the agent's tools actually
@@ -10,6 +12,9 @@ import com.helix.core.storage.entity.ArtifactEntity
  * (the path's last segment); [sessionTitle] is the source session's title, null when the
  * session is gone; [turnId] is the turn that last wrote the file (the row's identity is
  * stable per (sessionId, relativePath), so a re-write keeps the row and refreshes it).
+ * [sha256] is the hash the task recorded at write time — the basis for the "content changed
+ * since the task ran" verdict (HXA-203); [isSafScope] distinguishes user-granted SAF files
+ * (no in-app export path) from workspace files.
  */
 internal data class ArtifactRowUi(
     val id: String,
@@ -18,8 +23,10 @@ internal data class ArtifactRowUi(
     val fileName: String,
     val mediaType: String,
     val sizeBytes: Long,
+    val sha256: String?,
     val turnId: String?,
     val sessionTitle: String?,
+    val isSafScope: Boolean,
 )
 
 /**
@@ -68,15 +75,22 @@ internal class ArtifactQuery(
 
     private fun query(limit: Int): List<ArtifactRowUi> = storage.artifacts.recent(limit).map(::toRow)
 
-    private fun toRow(entity: ArtifactEntity): ArtifactRowUi =
-        ArtifactRowUi(
+    private fun toRow(entity: ArtifactEntity): ArtifactRowUi {
+        val scopePath = runCatching { FileScopePath.fromModelReference(entity.relativePath) }.getOrNull()
+        // The display name is the SCOPE-RELATIVE path's last segment: a SAF reference has no
+        // path separator of its own (`scope:<scopeId>:<name>`), so the model reference's own
+        // tail would leak the whole reference into the name (HXA-203 device acceptance).
+        return ArtifactRowUi(
             entity.id,
             entity.sessionId,
             entity.relativePath,
-            entity.relativePath.substringAfterLast('/'),
+            (scopePath?.relativePath ?: entity.relativePath).substringAfterLast('/'),
             entity.mediaType,
             entity.size,
+            entity.sha256,
             entity.turnId,
             runCatching { storage.sessions.resolve(entity.sessionId) }.getOrNull()?.title,
+            scopePath?.scopeId.orEmpty().startsWith(SafGrantStore.SCOPE_ID_PREFIX),
         )
+    }
 }

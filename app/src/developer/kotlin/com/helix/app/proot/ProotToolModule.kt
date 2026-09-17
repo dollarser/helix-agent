@@ -2,6 +2,7 @@ package com.helix.app.proot
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.util.Log
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionService
@@ -177,7 +178,12 @@ internal object ProotToolModule {
      * present) is verified in place and previewed. `archiveReadFailed` is true only when
      * a persisted record claims an archive that no longer verifies. The explicit
      * reconciliation stays [recoverInterruptedResult] behind the existing session entry.
+     *
+     * Any read failure (missing file, corrupt zip, manifest mismatch) must surface as the
+     * read-failed projection, never as a crash — the details page is a pure read, so the
+     * catch deliberately covers every failure layer of the local read.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun browseCommandResult(
         storage: HelixStorage,
         turnId: String,
@@ -213,13 +219,13 @@ internal object ProotToolModule {
                 )
             }
         } catch (error: java.io.IOException) {
-            android.util.Log.w("CommandResultBrowser", "Local archive read failed", error)
+            Log.w("ProotToolModule", "Local archive read failed", error)
             CommandBrowseFacts(binding, null, true)
         } catch (error: IllegalStateException) {
-            android.util.Log.w("CommandResultBrowser", "Local archive verification failed", error)
+            Log.w("ProotToolModule", "Local archive verification failed", error)
             CommandBrowseFacts(binding, null, true)
         } catch (error: IllegalArgumentException) {
-            android.util.Log.w("CommandResultBrowser", "Local archive format invalid", error)
+            Log.w("ProotToolModule", "Local archive format invalid", error)
             CommandBrowseFacts(binding, null, true)
         }
     }

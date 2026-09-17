@@ -55,7 +55,7 @@ internal fun commandDetailRoute(
 ): String = "command-detail/$turnId/$callId"
 
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName")
 internal fun CommandResultDetailScreen(
     service: ChatService,
     turnId: String,
@@ -110,115 +110,93 @@ internal fun CommandResultDetailScreen(
         val v = view ?: return
         Box(Modifier.weight(1f)) {
             SelectionContainer {
-                Column(
-                    Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        stringResource(stateTextRes(v.state)),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier =
-                            Modifier.testTag("command-detail-state-${v.state.name.lowercase()}"),
-                    )
-                    if (v.state == CommandDetailState.RUNNING) {
-                        Text(
-                            stringResource(R.string.command_detail_running_note),
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.command_detail_command),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    Text(
-                        v.commandText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.testTag("command-detail-command"),
-                    )
-                    v.detail?.let { detail ->
-                        Text(
-                            stringResource(R.string.command_detail_detail_label),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Text(
-                            detail,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.testTag("command-detail-detail"),
-                        )
-                    }
-                    v.exitCode?.let { exitCode ->
-                        Text(
-                            stringResource(R.string.command_detail_exit_code, exitCode),
-                            modifier = Modifier.testTag("command-detail-exit"),
-                        )
-                    }
-                    CommandOutputSections(v)
-                    v.acknowledged?.let { acknowledged ->
-                        Text(
-                            stringResource(
-                                if (acknowledged) {
-                                    R.string.command_detail_acknowledged
-                                } else {
-                                    R.string.command_detail_not_acknowledged
-                                },
-                            ),
-                        )
-                    }
-                    if (v.files.isNotEmpty()) {
-                        Text(
-                            stringResource(R.string.command_detail_files),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        v.files.forEach { file ->
-                            Text(
-                                "${file.path} · ${file.size} B · sha256 ${file.sha256.take(12)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontFamily = FontFamily.Monospace,
-                            )
-                        }
-                    }
-                    v.binding?.let { binding ->
-                        Text(
-                            stringResource(R.string.command_detail_binding),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Text(
-                            stringResource(R.string.command_detail_job, binding.jobId),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                        Text(
-                            stringResource(R.string.command_detail_execution, binding.executionId),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                        Text(
-                            stringResource(R.string.command_detail_manifest, binding.inputManifestSha256),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.command_detail_scope, v.scopeLabel),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                    TextButton(
-                        { onOpenSession(v.sessionId) },
-                        Modifier.testTag("command-detail-open-session"),
-                    ) { Text(stringResource(R.string.command_detail_open_session)) }
-                }
+                CommandDetailBody(v, onOpenSession)
             }
         }
     }
 }
 
+/**
+ * The page's scrollable content: every section is a straight rendering of the projected
+ * [CommandResultView] — nothing here writes state, so recomposition after rotation or
+ * re-entry shows the same facts.
+ */
 @Composable
 @Suppress("FunctionName")
-private fun CommandOutputSections(v: CommandResultView) {
+private fun CommandDetailBody(
+    v: CommandResultView,
+    onOpenSession: (String) -> Unit,
+) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SummarySection(v)
+        OutcomeSection(v)
+        OutputSection(v)
+        BindingSection(v)
+        Text(
+            stringResource(R.string.command_detail_scope, v.scopeLabel),
+            style = MaterialTheme.typography.bodySmall,
+        )
+        TextButton(
+            { onOpenSession(v.sessionId) },
+            Modifier.testTag("command-detail-open-session"),
+        ) { Text(stringResource(R.string.command_detail_open_session)) }
+    }
+}
+
+/** The state headline, the running note, the command itself and its detail line. */
+@Composable
+@Suppress("FunctionName")
+private fun SummarySection(v: CommandResultView) {
+    Text(
+        stringResource(stateTextRes(v.state)),
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.testTag("command-detail-state-${v.state.name.lowercase()}"),
+    )
+    if (v.state == CommandDetailState.RUNNING) {
+        Text(
+            stringResource(R.string.command_detail_running_note),
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    Text(
+        stringResource(R.string.command_detail_command),
+        style = MaterialTheme.typography.labelLarge,
+    )
+    Text(
+        v.commandText,
+        style = MaterialTheme.typography.bodySmall,
+        fontFamily = FontFamily.Monospace,
+        modifier = Modifier.testTag("command-detail-command"),
+    )
+    v.detail?.let { detail ->
+        Text(
+            stringResource(R.string.command_detail_detail_label),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Text(
+            detail,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("command-detail-detail"),
+        )
+    }
+}
+
+/** The settled-outcome lines: exit code, the no-output notice and the truncation notice. */
+@Composable
+@Suppress("FunctionName")
+private fun OutcomeSection(v: CommandResultView) {
+    v.exitCode?.let { exitCode ->
+        Text(
+            stringResource(R.string.command_detail_exit_code, exitCode),
+            modifier = Modifier.testTag("command-detail-exit"),
+        )
+    }
     if (v.noOutput) {
         Text(
             stringResource(R.string.command_detail_no_output),
@@ -232,11 +210,69 @@ private fun CommandOutputSections(v: CommandResultView) {
             style = MaterialTheme.typography.bodySmall,
         )
     }
+}
+
+/** The persisted streams (archive over content), their acknowledgement state and files. */
+@Composable
+@Suppress("FunctionName")
+private fun OutputSection(v: CommandResultView) {
     if (v.stdout.isNotBlank()) {
         StreamSection(R.string.command_detail_stdout, v.stdout, "command-detail-stdout")
     }
     if (v.stderr.isNotBlank()) {
         StreamSection(R.string.command_detail_stderr, v.stderr, "command-detail-stderr")
+    }
+    v.acknowledged?.let { acknowledged ->
+        Text(
+            stringResource(
+                if (acknowledged) {
+                    R.string.command_detail_acknowledged
+                } else {
+                    R.string.command_detail_not_acknowledged
+                },
+            ),
+        )
+    }
+    if (v.files.isNotEmpty()) {
+        Text(
+            stringResource(R.string.command_detail_files),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        v.files.forEach { file ->
+            Text(
+                "${file.path} · ${file.size} B · sha256 ${file.sha256.take(12)}",
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.testTag("command-detail-file-${file.path}"),
+            )
+        }
+    }
+}
+
+/** The prepared-job binding identity, present only when the audit trail proves it. */
+@Composable
+@Suppress("FunctionName")
+private fun BindingSection(v: CommandResultView) {
+    v.binding?.let { binding ->
+        Text(
+            stringResource(R.string.command_detail_binding),
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Text(
+            stringResource(R.string.command_detail_job, binding.jobId),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+        )
+        Text(
+            stringResource(R.string.command_detail_execution, binding.executionId),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+        )
+        Text(
+            stringResource(R.string.command_detail_manifest, binding.inputManifestSha256),
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+        )
     }
 }
 

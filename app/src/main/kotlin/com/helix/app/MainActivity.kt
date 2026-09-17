@@ -60,8 +60,10 @@ import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.GitStatusScreenDestination
 import com.helix.app.ui.SettingsScreen
+import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
 import com.helix.app.ui.commandDetailRoute
+import com.helix.app.ui.tasksTurnRoute
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
 import kotlinx.coroutines.launch
@@ -270,6 +272,32 @@ internal fun HelixApp(container: AppContainer) {
                             },
                         )
                     }
+                    // HXA-203: "return to the producing task" — the task dashboard's own route
+                    // (same pattern as command details): it lands on the turn's result dialog
+                    // and system back returns to the page the artifact row was opened from.
+                    composable(
+                        TASKS_TURN_ROUTE,
+                        arguments =
+                            listOf(
+                                navArgument("turnId") { type = NavType.StringType },
+                            ),
+                    ) { entry ->
+                        TasksScreen(
+                            container.chatService,
+                            container.fileManager,
+                            onOpenSession = { sessionId ->
+                                container.chatService.openSession(sessionId)
+                                navController.navigate(ShellDestination.Sessions.route) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onOpenCommandDetail = { turnId, callId ->
+                                navController.navigate(commandDetailRoute(turnId, callId))
+                            },
+                            initialTurnId = requireNotNull(entry.arguments?.getString("turnId")),
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
                 }
             }
         }
@@ -329,6 +357,11 @@ private fun DestinationScreen(
                     navController.navigate(ShellDestination.Sessions.route) {
                         launchSingleTop = true
                     }
+                },
+                // HXA-203: an artifact's "view task" action returns to the turn that wrote
+                // it, through the dedicated tasks-turn route (system back pops back here).
+                onOpenTask = { turnId ->
+                    navController.navigate(tasksTurnRoute(turnId))
                 },
             )
         }

@@ -27,8 +27,9 @@ internal object CommandResultBrowser {
         turnId: String,
         callId: String,
     ): CommandResultView? {
-        val turn = runCatching { storage.turns.resolve(turnId) }.getOrNull()
-        val call = storage.toolCalls.byTurnAndCallId(turnId, callId)
+        val turn =
+            runCatching { storage.turns.resolve(turnId) }.getOrNull()
+        val call = turn?.let { storage.toolCalls.byTurnAndCallId(turnId, callId) }
         if (turn == null || call == null) return null
         val scopeLabel =
             runCatching { storage.sessions.resolve(turn.sessionId) }
@@ -43,19 +44,20 @@ internal object CommandResultBrowser {
                 CommandBrowseFacts(null, null, false)
             }
         return CommandResultProjection.project(
-            CommandResultInput(
-                callId = call.callId,
-                toolName = call.name,
-                argsJson = call.argsJson,
-                callState = call.state,
-                turnState = turn.state,
-                sessionId = turn.sessionId,
-                resultStatus = result?.status,
-                resultSummary = result?.summary,
-                resultContent = result?.let { storage.toolResults.readContent(it) },
-                browse = browse,
-                scopeLabel = scopeLabel,
-            ),
+            callId = call.callId,
+            toolName = call.name,
+            argsJson = call.argsJson,
+            facts =
+                CommandResultFacts(
+                    callState = call.state,
+                    turnState = turn.state,
+                    sessionId = turn.sessionId,
+                    resultStatus = result?.status,
+                    resultSummary = result?.summary,
+                    resultContent = result?.let { storage.toolResults.readContent(it) },
+                ),
+            browse = browse,
+            scopeLabel = scopeLabel,
         )
     }
 }

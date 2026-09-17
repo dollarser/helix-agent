@@ -7,7 +7,7 @@ Affected modules: app, tools/framework
 
 ## Problem
 
-Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合。已在独立修复分支完成最终普通套件与存储权限分阶段验收；按用户要求暂不合回 main。
+Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合。已在独立修复分支完成最终普通套件与存储权限分阶段验收；用户在批次 A 完成后授权整合到 main。
 
 ## Impact
 
@@ -69,12 +69,23 @@ Root 已验收分支需要集成；历史 API35 全套 11 项失败仍未闭合�
 - 最终 Root 真实 App Dispatcher 工具链：`build/p0-root-app-20260917-145355/`，**1/1 PASS**，0 skip / 0 fail；沿用用户已批准的 App Root 策略，测试包拒绝策略未改。
 - 69 项条件跳过仍保持显式：外部账号/端点/材料、专用 kill/restart、长稳等 profile 不自动启用。本轮不把这些项目或 soak 的单纯 JUnit 返回声明为通过。
 
-## 交付与后续整合
+## 批次 A 整合
 
-- 按用户 2026-09-17 的选择，保留 `codex/p0-verification` 独立分支，不合回 main、不 push，不改动 main 的并行 HXA-194/209 WIP。
-- 已包含 main 已提交的 HXA-194 导航 `73e574f6`。修复提交为 `3e134aab`、`75c05244`、`e5091a8a`，合并协调提交 `0528e427`；本记录与脚本补验扩展另随收尾提交落盘。
-- 后续先保存 HXA-194 WIP 再整合此分支。命令投影现接收 `CommandResultInput`，保留新增 `sessionId`；并行同名 `CommandResultProjectionTest` 必须合并双方用例，不能选择一方覆盖。其他重叠文件包括 Browser/Detail、ProotToolModule、ChatService 和命令 UI；本轮没有消费或提交 main 的未完成切片。
-- 验收证据位于本分支工作树的 ignored `build/`；APK SHA 与源码基线见每轮 `manifest.json`。源码修改后这些记录不能替代新验证。
+- 用户在批次 A（202→194→203）完成后授权合回 main。本轮以 main `99ea39c7` 与修复分支 `8a923ca9` 为整合基线；本地整合，不 push、不发布。
+- 保留 main 的 HXA-194/203 命令详情、产物交付与导航实现，命令投影沿用 `CommandResultFacts`。P0 的四项边界回归独立为 `CommandResultBoundaryTest`，保留 main 原有 `CommandResultProjectionTest` 全部用例。
+- 保留 P0 的 Goal/Runtime/存储测试隔离与恢复修复；TaskJourney 合并双方的独立种子、列表滚动及取消观察同步修复。归档读取按已知异常分类记录，不吞掉任意异常。
+- 整合首轮 consumer/API36 的产物交付 9/9，命令详情 2/4；两个超时都在会话工具行定位。测试等待已被 LazyColumn 移出组合的较早节点，改为等待生产投影后按稳定 tag 滚动定位，仍断言正确来源与无新增执行。失败证据完整保留在 `build/p0-batch-a-integration-run1-failed/`。
+- main 的并行会话投影、文档研究与未跟踪脚本不属于本次整合范围，保持原状。
+- 上述 OnePlus API35 真机证据绑定 `e5091a8a`；本次没有连接真机，不将旧证据冒充整合后真机重跑。新的主机与模拟器整合验证见下方记录。
+- 验收证据保留在修复工作树的 ignored `build/`，不删除该工作树；APK SHA 与源码基线见各轮证据。未来源码修改后须按影响补验。
+
+### 整合后的验证结果
+
+- `JAVA_HOME=<JDK17> ANDROID_HOME=<SDK> bash scripts/check-all.sh --all`：`build/p0-resume/batch-a-merge-host-final.log`，**exit 0**。App consumer 609 项、developer 643 项，各 4 项既有条件跳过，0 failure/error；包含完整 lintDebug/Release、双 flavor lint、构建、依赖锁与 APK 边界。
+- `:app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest`：`build/p0-resume/batch-a-merge-test-apks-retry.log`，BUILD SUCCESSFUL。
+- `ANDROID_HOME=<SDK> sh scripts/debug/2026-09-17/p0/run-batch-a-matrix.sh`：**exit 0 / overall=0**，`build/p0-batch-a-integration/` 与 `build/p0-resume/batch-a-device-matrix.log`。API29/36 × consumer/developer，8 次正式运行共 **82 PASS / 0 FAIL**：ArtifactDelivery 9×4、CommandExecutionDetails 4×4、developer CommandResultBrowse 3×2、TaskJourney 6×4。每象限的 TaskJourney 另有落盘后真实进程死亡准备阶段，未将预期死亡阶段记作通过用例。
+- 每轮独占模拟器、拒绝已有 serial、finally 关闭自有进程；终轮 `adb devices` 为空。每轮 `artifacts.json` 保存 APK SHA；`build/p0-resume/batch-a-integration-source.json` 保存双方父提交和整合代码差异 SHA。
+- 文档收尾另通过 `check-all.sh --source`。本次门禁针对独立工作树中的整合源码，不包含 main 的并行未提交 WIP，也不关闭 HXA-206 或外部 profile。
 
 ## Residual risk
 

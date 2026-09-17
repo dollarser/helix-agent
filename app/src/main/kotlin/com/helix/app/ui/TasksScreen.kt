@@ -1,10 +1,12 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +29,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.files.FileManagerService
+
+/**
+ * HXA-203: the dedicated "return to the producing task" route (the same pattern as the
+ * command-details route): its own backstack entry, so system back returns to the page the
+ * artifact row was opened from, and the dashboard lands on that turn's result dialog.
+ */
+internal const val TASKS_TURN_ROUTE = "tasks-turn/{turnId}"
+
+internal fun tasksTurnRoute(turnId: String): String = "tasks-turn/$turnId"
 
 /**
  * The cross-session task dashboard (P0-B, doc section 13): background turns, persistent
@@ -45,6 +57,9 @@ import com.helix.app.files.FileManagerService
  * All three feeds are live StateFlows the service refreshes after every write (turn-state
  * changes, goal and plan mutations), so the screen observes the persistent facts directly —
  * no re-query on entry or after local actions.
+ *
+ * [initialTurnId] (HXA-203) opens that turn's result dialog on entry — the landing of the
+ * [TASKS_TURN_ROUTE] route; [onBack] shows the back bar (system back also pops the route).
  */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
@@ -53,14 +68,21 @@ internal fun TasksScreen(
     fileManager: FileManagerService,
     onOpenSession: (String) -> Unit,
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
+    initialTurnId: String? = null,
+    onBack: (() -> Unit)? = null,
 ) {
+    val selectedPlanState = remember { mutableStateOf<String?>(null) }
+    val resultTurnState = remember { mutableStateOf<String?>(null) }
+    val commandTurnState = remember { mutableStateOf<String?>(null) }
+    val artifactsQueryState = remember { mutableStateOf<TaskArtifactsQuery?>(null) }
+    var selectedPlan by selectedPlanState
+    var resultTurn by resultTurnState
+    var commandTurn by commandTurnState
+    var artifactsQuery by artifactsQueryState
+
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
     val goals by service.goalDashboard.collectAsStateWithLifecycle()
     val plans by service.planDashboard.collectAsStateWithLifecycle()
-    var selectedPlan by remember { mutableStateOf<String?>(null) }
-    var resultTurn by remember { mutableStateOf<String?>(null) }
-    var commandTurn by remember { mutableStateOf<String?>(null) }
-    var artifactsQuery by remember { mutableStateOf<TaskArtifactsQuery?>(null) }
 
     // Entry refresh: facts written while the app was closed (or by another process) become
     // visible on open; afterwards the shared flows stay live.
@@ -69,56 +91,112 @@ internal fun TasksScreen(
         service.refreshTaskDashboardsNow()
     }
 
+    // HXA-203: arriving from an artifact's "view task" action lands on that turn's result
+    // dialog (its persisted result or the honest missing state); the route's back pops back
+    // to the page the row was opened from.
+    LaunchedEffect(initialTurnId) {
+        initialTurnId?.let { resultTurn = it }
+    }
+
     // One modal dialog at a time, rendered in place of the list; the shared flows keep the
     // row data live underneath.
-    if (listOf(resultTurn, selectedPlan, commandTurn, artifactsQuery).any { it != null }) {
-        when {
-            resultTurn != null -> {
-                TaskResultDialog(service, requireNotNull(resultTurn)) { resultTurn = null }
-            }
-
-            selectedPlan != null -> {
-                // The review dialog's decisions go through the service, which refreshes the
-                // plan feed itself — no screen-side revision bump needed.
-                PlanReviewDialog(service, requireNotNull(selectedPlan)) { selectedPlan = null }
-            }
-
-            commandTurn != null -> {
-                // HXA-194: the turn's commands list; opening a call navigates to the
-                // details page (the dialog dismisses, the list is re-read per open).
-                TurnCommandListDialog(
-                    service,
-                    requireNotNull(commandTurn),
-                    onOpenCommandDetail = { turnId, callId ->
-                        commandTurn = null
-                        onOpenCommandDetail(turnId, callId)
-                    },
-                ) { commandTurn = null }
-            }
-
-            else -> {
-                val query = requireNotNull(artifactsQuery)
-                TaskArtifactsDialog(
-                    service,
-                    fileManager,
-                    query.turnId,
-                    query.goalId,
-                    onOpenSession,
-                ) { artifactsQuery = null }
-            }
-        }
+    val openDialog =
+        listOfNotNull(resultTurn, selectedPlan, commandTurn, artifactsQuery).isNotEmpty()
+    if (openDialog) {
+        TaskModals(
+            service,
+            fileManager,
+            onOpenSession,
+            onOpenCommandDetail,
+            resultTurnState,
+            selectedPlanState,
+            commandTurnState,
+            artifactsQueryState,
+        )
         return
     }
 
-    TasksRowList(
-        tasksDashboardRows(tasks, goals, plans),
-        service,
-        onOpenSession,
-        { resultTurn = it },
-        { selectedPlan = it },
-        { commandTurn = it },
-        { artifactsQuery = it },
-    )
+    Column(Modifier.fillMaxSize()) {
+        if (onBack != null) TasksTurnBackBar(onBack)
+        Box(Modifier.fillMaxSize()) {
+            TasksRowList(
+                tasksDashboardRows(tasks, goals, plans),
+                service,
+                onOpenSession,
+                { resultTurn = it },
+                { selectedPlan = it },
+                { commandTurn = it },
+                { artifactsQuery = it },
+            )
+        }
+    }
+}
+
+/**
+ * The dashboard's modal dialogs (one at a time, rendered in place of the list): the turn
+ * result, the plan review, the turn command list and the task artifacts. The shared flows
+ * keep the row data live underneath.
+ */
+@Composable
+@Suppress("FunctionName", "LongParameterList")
+private fun TaskModals(
+    service: ChatService,
+    fileManager: FileManagerService,
+    onOpenSession: (String) -> Unit,
+    onOpenCommandDetail: (String, String) -> Unit,
+    resultTurn: MutableState<String?>,
+    selectedPlan: MutableState<String?>,
+    commandTurn: MutableState<String?>,
+    artifactsQuery: MutableState<TaskArtifactsQuery?>,
+) {
+    when {
+        resultTurn.value != null -> {
+            TaskResultDialog(service, requireNotNull(resultTurn.value)) { resultTurn.value = null }
+        }
+
+        selectedPlan.value != null -> {
+            // The review dialog's decisions go through the service, which refreshes the
+            // plan feed itself — no screen-side revision bump needed.
+            PlanReviewDialog(service, requireNotNull(selectedPlan.value)) { selectedPlan.value = null }
+        }
+
+        commandTurn.value != null -> {
+            // HXA-194: the turn's commands list; opening a call navigates to the
+            // details page (the dialog dismisses, the list is re-read per open).
+            TurnCommandListDialog(
+                service,
+                requireNotNull(commandTurn.value),
+                onOpenCommandDetail = { turnId, callId ->
+                    commandTurn.value = null
+                    onOpenCommandDetail(turnId, callId)
+                },
+            ) { commandTurn.value = null }
+        }
+
+        else -> {
+            val query = requireNotNull(artifactsQuery.value)
+            TaskArtifactsDialog(
+                service,
+                fileManager,
+                query.turnId,
+                query.goalId,
+                onOpenSession,
+            ) { artifactsQuery.value = null }
+        }
+    }
+}
+
+/** The [TASKS_TURN_ROUTE] landing's back bar; system back pops the route the same way. */
+@Composable
+@Suppress("FunctionName")
+private fun TasksTurnBackBar(onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp).testTag("tasks-turn-back-bar"),
+    ) {
+        TextButton(onClick = onBack, modifier = Modifier.testTag("tasks-turn-back")) {
+            Text(stringResource(R.string.command_detail_back))
+        }
+    }
 }
 
 /** The dashboard list itself: the buckets with their rows, or the honest empty state. */
@@ -192,7 +270,14 @@ private fun TasksRowView(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (row) {
                 is TasksRow.Turn -> {
-                    TurnTaskActions(row, service, onOpenSession, onShowResult, onShowCommands, onShowArtifacts)
+                    TurnRowActions(
+                        row,
+                        service,
+                        onOpenSession,
+                        onShowResult,
+                        onShowCommands,
+                        onShowArtifacts,
+                    )
                 }
 
                 is TasksRow.Goal -> {
@@ -223,9 +308,21 @@ private fun TasksRowView(
     }
 }
 
+/** Where the task-artifact read points: a turn's own rows, or a goal's bound-turn union. */
+private data class TaskArtifactsQuery(
+    val turnId: String?,
+    val goalId: String?,
+)
+
+/**
+ * The turn row's actions: open the owning session always; a running turn offers cancel and
+ * the command list (a running command's details show status only — the output is viewable
+ * after the command ends); a settled turn offers result, commands and artifacts (HXA-194:
+ * the command list entry is the task page's path into the command details page).
+ */
 @Composable
 @Suppress("FunctionName")
-private fun TurnTaskActions(
+private fun TurnRowActions(
     row: TasksRow.Turn,
     service: ChatService,
     onOpenSession: (String) -> Unit,
@@ -242,8 +339,6 @@ private fun TurnTaskActions(
             { service.stopTask(row.task.id) },
             Modifier.testTag("tasks-turn-cancel-${row.task.id}"),
         ) { Text(stringResource(R.string.background_task_cancel)) }
-        // HXA-194: a running command's details show its status only —
-        // the output is viewable after the command ends.
         TextButton(
             { onShowCommands(row.task.id) },
             Modifier.testTag("tasks-turn-command-${row.task.id}"),
@@ -263,9 +358,3 @@ private fun TurnTaskActions(
         ) { Text(stringResource(R.string.tasks_artifacts)) }
     }
 }
-
-/** Where the task-artifact read points: a turn's own rows, or a goal's bound-turn union. */
-private data class TaskArtifactsQuery(
-    val turnId: String?,
-    val goalId: String?,
-)

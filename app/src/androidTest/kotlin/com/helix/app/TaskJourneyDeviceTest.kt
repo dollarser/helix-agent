@@ -616,6 +616,10 @@ class TaskJourneyDeviceTest {
         try {
             chat.stopTask(turn.id)
             stopAwait { storage.turns.resolve(turn.id).state == "CANCELLED" }
+            // The observer's 1 ms poller may lag the main thread on a slow device: the
+            // ordering claim is checked only after the observer itself has recorded the
+            // terminal transition, so a starved iteration can never drop the final state.
+            stopAwait { states.contains("CANCELLED") }
             val cancellingIndex = states.indexOf("CANCELLING")
             val cancelledIndex = states.indexOf("CANCELLED")
             assertTrue(

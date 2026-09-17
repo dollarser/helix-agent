@@ -1,11 +1,9 @@
 package com.helix.app.proot
 
-/*
- * The command details page (HXA-194) reads ONLY persisted facts: the tool call, its settled
- * result row, the prepared-job binding audit row and the locally persisted, integrity-checked
- * result archive. Browsing never binds the Runtime, never submits and never acknowledges —
- * the explicit reconciliation stays the existing session entry (`查看结果`).
- */
+// The command details page (HXA-194) reads ONLY persisted facts: the tool call, its settled
+// result row, the prepared-job binding audit row and the locally persisted, integrity-checked
+// result archive. Browsing never binds the Runtime, never submits and never acknowledges —
+// the explicit reconciliation stays the existing session entry (`查看结果`).
 
 /** The Linux command tools whose calls carry a command result (the developer proot tools). */
 val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run")
@@ -57,6 +55,20 @@ data class CommandBrowseFacts(
     val binding: CommandJobBindingFacts?,
     val archive: ProotRecoveredOutput?,
     val archiveReadFailed: Boolean,
+)
+
+/**
+ * The persisted facts of one command call as the details page may read them: the call and
+ * turn states plus the call's owning session and its settled result row (all nullable —
+ * a settled call can lack its result row, and the page must say "unknown", not guess).
+ */
+data class CommandResultFacts(
+    val callState: String,
+    val turnState: String,
+    val sessionId: String,
+    val resultStatus: String?,
+    val resultSummary: String?,
+    val resultContent: String?,
 )
 
 /** One command's detail, projected from persisted facts (never re-executed). */
