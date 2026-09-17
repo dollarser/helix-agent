@@ -19,6 +19,7 @@ import com.helix.runtime.proot.ipc.UnavailableCause
 import com.helix.tools.framework.ToolImplementationRegistry
 import com.helix.tools.framework.ToolRegistry
 import java.io.File
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * The PRoot capability module (HXA-085): the DEVELOPER flavor's side of the per-variant
@@ -167,6 +168,53 @@ internal object ProotToolModule {
         return ProotResultPreview
             .read(archive.file, File(appContext.cacheDir, "proot-preview"))
             .copy(acknowledged = if (localOnly) null else archive.acknowledged)
+    }
+
+    /**
+     * HXA-194 read-only browse of one command call's persisted facts (the command details
+     * page). NEVER binds the Runtime, submits or acknowledges: the prepared-job binding
+     * row is read straight from the audit trail, and the locally persisted archive (when
+     * present) is verified in place and previewed. `archiveReadFailed` is true only when
+     * a persisted record claims an archive that no longer verifies. The explicit
+     * reconciliation stays [recoverInterruptedResult] behind the existing session entry.
+     */
+    fun browseCommandResult(
+        storage: HelixStorage,
+        turnId: String,
+        callId: String,
+    ): CommandBrowseFacts {
+        val binding =
+            runCatching { ProotJobBindingStore(storage).resolve(callId) }
+                .getOrNull()
+                ?.let { payload ->
+                    CommandJobBindingFacts(
+                        payload.getValue("jobId").jsonPrimitive.content,
+                        payload.getValue("executionId").jsonPrimitive.content,
+                        payload.getValue("inputManifestSha256").jsonPrimitive.content,
+                    )
+                }
+            ?: return CommandBrowseFacts(null, null, false)
+        return try {
+            val file =
+                ProotResultStore(
+                    storage,
+                    File(appContext.filesDir, "workspaces/app"),
+                    File(appContext.cacheDir, "proot-results"),
+                ).readLocal(turnId, callId)
+            if (file == null) {
+                CommandBrowseFacts(binding, null, false)
+            } else {
+                CommandBrowseFacts(
+                    binding,
+                    ProotResultPreview
+                        .read(file, File(appContext.cacheDir, "proot-preview"))
+                        .copy(acknowledged = null),
+                    false,
+                )
+            }
+        } catch (e: Exception) {
+            CommandBrowseFacts(binding, null, true)
+        }
     }
 
     fun availabilityGate(): LinuxRuntimeGate {
