@@ -94,3 +94,9 @@ bash scripts/check-all.sh --source
 bash scripts/check-all.sh --artifacts
 git diff --check
 ```
+
+## 建议 status 更新（供协调者整合，本执行者不直接改全局 status/roadmap/index）
+
+- HXA-193 标记为完成（本任务范围：包内 Runtime 可复现资产与升级验收），注明外部边界：默认滚动镜像 Docker 重建仍缺锁定 `xz-libs 5.8.3-r0`（上游镜像状态，不阻塞；持久路径为已验证的锁定固定归档）。
+- 完成记录：`docs/completion-records/HXA-193.md`（Completed 索引与 `completion-records/index.md` 由协调者维护）。
+- 文档契约：完成记录落地后，活动任务文件 `docs/development/tasks/HXA-193.md` 已由后续文档修复提交删除（`check-docs.sh` 要求活动任务集合 = roadmap − 已完成记录）；原任务文件内的收口记录摘要以本证据文档为准。
