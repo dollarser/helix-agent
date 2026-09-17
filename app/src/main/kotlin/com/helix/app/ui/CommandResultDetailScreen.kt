@@ -233,17 +233,17 @@ private fun CommandOutputSections(v: CommandResultView) {
         )
     }
     if (v.stdout.isNotBlank()) {
-        streamSection(R.string.command_detail_stdout, v.stdout, "command-detail-stdout")
+        StreamSection(R.string.command_detail_stdout, v.stdout, "command-detail-stdout")
     }
     if (v.stderr.isNotBlank()) {
-        streamSection(R.string.command_detail_stderr, v.stderr, "command-detail-stderr")
+        StreamSection(R.string.command_detail_stderr, v.stderr, "command-detail-stderr")
     }
 }
 
 /** One output stream section: the section header + the bounded monospace content. */
 @Composable
 @Suppress("FunctionName")
-private fun streamSection(
+private fun StreamSection(
     @androidx.annotation.StringRes headerRes: Int,
     content: String,
     contentTag: String,

@@ -23,12 +23,13 @@ lock = (Path(tempfile.gettempdir()) / ('helix-p0-device-' + args.serial + '.lock
 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
 previous_awake = subprocess.check_output(adb + ['shell', 'settings', 'get', 'global', 'stay_on_while_plugged_in'], text=True).strip()
 previous_storage = None
+previous_storage_uid = None
 
-def set_storage_mode(mode):
+def set_storage_mode(mode, uid=False):
     assert mode in {'allow', 'ignore', 'deny', 'default', 'foreground'}
     # This OEM withholds MANAGE_APP_OPS_MODES from adb shell. Use only the
     # already authorized app Root identity and only this app's storage AppOp.
-    command = 'cmd appops set com.helix.agent.developer MANAGE_EXTERNAL_STORAGE ' + mode
+    command = 'cmd appops set ' + ('--uid ' if uid else '') + 'com.helix.agent.developer MANAGE_EXTERNAL_STORAGE ' + mode
     subprocess.run(adb + ['shell', 'run-as', 'com.helix.agent.developer', 'su', '-c', command], check=True)
 
 try:
@@ -58,7 +59,9 @@ try:
     if args.phase == 'full':
         package = 'com.helix.agent.developer'
         raw = subprocess.check_output(adb + ['shell', 'appops', 'get', package, 'MANAGE_EXTERNAL_STORAGE'], text=True)
-        match = re.search(r'MANAGE_EXTERNAL_STORAGE: (\w+)', raw)
+        uid_match = re.search(r'Uid mode: MANAGE_EXTERNAL_STORAGE: (\w+)', raw)
+        previous_storage_uid = uid_match.group(1) if uid_match else 'default'
+        match = re.search(r'^MANAGE_EXTERNAL_STORAGE: (\w+)', raw, re.M)
         previous_storage = match.group(1) if match else 'default'
         phases = [
             ('normal', ['-e', 'notAnnotation', 'com.helix.app.ui.RequiresStorageHostPhase']),
@@ -71,6 +74,7 @@ try:
         if args.phase == 'full':
             subprocess.run(adb + ['shell', 'am', 'force-stop', package], check=True)
             set_storage_mode('allow' if phase == 'granted' else 'ignore')
+            set_storage_mode('allow' if phase == 'granted' else 'ignore', uid=True)
         command = adb + ['shell', 'am', 'instrument', '-w', '-r', *phase_options,
                          'com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner']
         (output / (phase + '-command.json')).write_text(json.dumps(command, indent=2))
@@ -90,6 +94,7 @@ finally:
     if previous_storage is not None:
         subprocess.run(adb + ['shell', 'am', 'force-stop', 'com.helix.agent.developer'], check=False)
         set_storage_mode(previous_storage)
+        set_storage_mode(previous_storage_uid, uid=True)
     if previous_awake == 'null':
         subprocess.run(adb + ['shell', 'settings', 'delete', 'global', 'stay_on_while_plugged_in'], check=False)
     else:

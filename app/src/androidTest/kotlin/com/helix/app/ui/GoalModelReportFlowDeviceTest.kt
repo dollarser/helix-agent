@@ -106,7 +106,9 @@ private suspend fun runGoalReportFlow(
                         .ProviderId(provider),
                 mode = com.helix.core.model.AgentMode.GOAL,
                 text = "Answer 2 + 2. Report your Goal status using goal.report, then answer briefly.",
-                budgets = chat.runControl.value.budgets,
+                budgets =
+                    com.helix.core.model
+                        .TurnBudgets(16, 16, 65536, 4096, 100000),
                 goalId =
                     com.helix.core.model
                         .GoalId(goal),
