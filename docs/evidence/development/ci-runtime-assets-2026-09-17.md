@@ -36,3 +36,11 @@
 [运行35237839838](https://github.com/dollarser/helix-agent/actions/runs/35237839838) 对应 `997677d1`。两个job的SDK设置、资产管线、源码门禁通过，主机测试及完整lint/静态检查的第一条Gradle命令通过（20m19s）。后续APK构建在proot-app的arm64-v8a/x86_64 CMake配置失败：`[CXX1300] CMake '3.31.6' was not found in SDK, PATH, or by cmake.dir property.`
 
 项目已固定CMake 3.31.6与NDK 28.2.13676358，原workflow却只装platform/build-tools，依赖开发机或runner预装工具。当前SDK可用包列表再次确认该版本存在；workflow改为显式安装并在测试前检查可执行文件和NDK元数据，不改项目版本、不移除ABI或跳过原生构建。完整远端结果仍按后续运行判定。
+
+## 并发测试夹具修正
+
+[运行35241184230](https://github.com/dollarser/helix-agent/actions/runs/35241184230) 对应 `a92a374a`。CMake/NDK安装与预检通过，但tools:framework的178项测试中，`resultsComeBackInCallOrderEvenWhenCompletionIsOutOfOrder` 在断言慢调用最后结算处失败。此前“结果按调用顺序返回”断言没有失败。
+
+原夹具用150ms/20ms sleep制造完成乱序，繁忙runner不保证线程在该窗口内启动/完成；RecordingSink又以非线程安全MutableList接收并发事件。修正仅限测试：首调用等待其余两次审计记录完成的CountDownLatch，记录器改用CopyOnWriteArrayList。保留并加强断言：实际结算顺序必须2→3→1，而返回结果仍1→2→3；有界等待防止回归造成挂死。不修改生产调度器、不删除测试或增加忽略规则。
+
+本地 `./gradlew :tools:framework:test spotlessCheck detekt --console=plain` 通过；原始报告保留在 `build/ci-investigation/framework-suite-xml`。独立JVM重复入口 `bash scripts/debug/2026-09-17/repeat-scheduler-order.sh` 已执行成功，10/10轮通过；逐轮强制执行同一测试任务，不以Gradle缓存命中算重复验证。
