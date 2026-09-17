@@ -10,7 +10,7 @@
 
 收尾补验：SGLang UI smoke已修复，在API29/36 developer真实端点各1项通过，本地表单各4项通过；默认profile各1项明确跳过，见[修复与证据](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md)。这不关闭192/193的其他范围。
 
-Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。已通过 `32788bf8` 合入 main，真实 App Root 工具链复核 1/1；历史 11 项失败已在 49/49 定向回归中通过。完整真机回归发现的其他问题正在收尾，见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)，尚未声明全套通过。
+Root 专项收尾：094/095 已通过 `32788bf8` 合入 main。历史 11 项失败及后续 P0 基线已在独立分支 `codex/p0-verification` 修复：完整普通真机套件 450 PASS / 69 条件 SKIP / 0 FAIL，存储授权/撤权补验 10/10，全主机门禁 exit 0。按用户选择暂不合回 main；详见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。
 
 ## In progress
 
@@ -18,7 +18,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Next task
 
-基线优先：本轮 [P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 尚未关闭；解锁后重跑 UI 全套，并在并行 HXA-194 文件稳定后重新通过完整主机门禁。不得用专项通过替代这一基线。
+基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已在独立修复分支验收。main 的并行 HXA-194 WIP 尚未整合这些修复，不能把本分支证据声明为 main 全量通过；整合后复核重叠改动与相关回归，再推进下一 HXA。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 
@@ -52,7 +52,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 这里只列仍有效的范围限制和验收缺口；已修复缺陷、旧测试数量和机制演进保留在完成记录，不再列为当前故障。
 
 - **系统与长稳**：应用侧释放路径和短回归已有证据。模拟器侧 24 小时长稳已按可采维度跑完：EV-02 两臂完成（API36 a11y 重尾归因 + API29 功能满绿，system-Binder 模拟器不可采）；EV-03 应用 FD 门禁为模拟器固有 goldfish 节点（X 类，非应用泄漏）。但**系统 JNI/Binder 根因仍 open，权威资源/Binder 门禁需真机**（模拟器无法关闭 goldfish FD 与 UID-proxy Binder 两维）。见 [释放路径调查](../evidence/development/native-reference-release-trace.md)、[浏览器引用验证](../evidence/development/browser-controller-reference-verification.md) 与 [优化待办](../evidence/development/main-optimization-todo.md)。
-- **Root 真机**：094/095 在 OnePlus API35 完成专项验收；其他 OEM、Doze/热压力与长稳随发行矩阵继续。历史 11 项失败的定向回归已通过；全套新增失败修复后的 UI 重验等待真机解锁，详见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。专项证据仍不替代全套门禁。
+- **Root 真机**：094/095 在 OnePlus API35 完成专项验收。历史 11 项失败与完整普通真机基线修复已在独立分支通过，尚未合回 main；专用进程死亡协议、其他 OEM、Doze/热压力、真实账号与长稳仍按各自 profile 验收。见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。
 - **设备覆盖**：API29/36 模拟器及历史 API34/35、16 KiB 模拟器证据不替代物理低内存、OEM、热压力、Doze、安全锁屏和 Root grant/revoke/loss 验收；x86_64 静态制品证据也不等于实际运行。
 - **文件恢复**：HXA-182 实现显式对账恢复，不承诺字节偏移续传、断电事务、自动后台队列或跨 Provider 原子事务；既有 picker 导入/导出及旧版无日志暂存不在该恢复管线内。目标/备份变化时保留人工核查，云盘厂商与全部中断阶段仍需外部设备验收。
 - **模型与附件**：导入成功不等于模型理解。图片受实际模型视觉能力与端上预算约束；既有文本/图片管线不代表任意文档、音视频解析或 OCR 已实现。真实服务可用性与连接参数需要按服务当前状态验证。

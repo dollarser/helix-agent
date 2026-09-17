@@ -11,7 +11,7 @@ import subprocess
 
 parser = argparse.ArgumentParser()
 parser.add_argument('serial')
-parser.add_argument('phase', choices=['focused', 'full', 'root-app'])
+parser.add_argument('phase', choices=['focused', 'full', 'root-app', 'storage'])
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[4]
 output = root / 'build' / ('p0-' + args.phase + '-' + datetime.now().strftime('%Y%m%d-%H%M%S'))
@@ -56,7 +56,7 @@ try:
         options = ['-e', 'class', 'com.helix.app.root.RootLifecycleDeviceTest#realAppDispatcherHonorsRootScopeAndToolDisable',
                    '-e', 'hxa094ExpectedRoot', 'granted']
     phases = [('normal', options)]
-    if args.phase == 'full':
+    if args.phase in ('full', 'storage'):
         package = 'com.helix.agent.developer'
         raw = subprocess.check_output(adb + ['shell', 'appops', 'get', package, 'MANAGE_EXTERNAL_STORAGE'], text=True)
         uid_match = re.search(r'Uid mode: MANAGE_EXTERNAL_STORAGE: (\w+)', raw)
@@ -65,13 +65,15 @@ try:
         previous_storage = match.group(1) if match else 'default'
         phases = [
             ('normal', ['-e', 'notAnnotation', 'com.helix.app.ui.RequiresStorageHostPhase']),
-            ('granted', ['-e', 'class', 'com.helix.app.ui.ManualSharedFileDeviceTest,com.helix.app.ui.SharedStorageDeviceTest#grantedRootNavigationKeepsAgentScopeSeparate,com.helix.app.ui.SharedStorageDeviceTest#revokingAppOpRemovesTheManualRootWithoutGrantingAgentAccess', '-e', 'hxaStoragePhase', 'granted']),
+            ('granted', ['-e', 'class', 'com.helix.app.allfiles.AllFilesDeviceTest,com.helix.app.ui.ManualSharedFileDeviceTest,com.helix.app.ui.SharedStorageDeviceTest#grantedRootNavigationKeepsAgentScopeSeparate,com.helix.app.ui.SharedStorageDeviceTest#revokingAppOpRemovesTheManualRootWithoutGrantingAgentAccess', '-e', 'hxaStoragePhase', 'granted']),
             ('revoked', ['-e', 'class', 'com.helix.app.ui.SharedStorageDeviceTest#revokingAppOpRemovesTheManualRootWithoutGrantingAgentAccess', '-e', 'hxaStoragePhase', 'revoked']),
         ]
+    if args.phase == 'storage':
+        phases = phases[1:]
     print(output, flush=True)
     all_results = []
     for phase, phase_options in phases:
-        if args.phase == 'full':
+        if args.phase in ('full', 'storage'):
             subprocess.run(adb + ['shell', 'am', 'force-stop', package], check=True)
             set_storage_mode('allow' if phase == 'granted' else 'ignore')
             set_storage_mode('allow' if phase == 'granted' else 'ignore', uid=True)
