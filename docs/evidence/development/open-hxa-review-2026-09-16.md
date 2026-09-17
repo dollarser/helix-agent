@@ -22,7 +22,7 @@
 | [HXA-191](../../development/tasks/HXA-191.md) | 待实现 | 审批折叠已归201，Goal创建归208，首次配置归205；这里只保留主题与会话/历史检索。 |
 | [HXA-192](../../completion-records/HXA-192.md) | 收尾验收 | 门禁修复/主分支集成不再当未做项；PlanSubmitIntegrationDeviceTest不等于用户审阅执行闭环。 |
 | [HXA-193](../../development/tasks/HXA-193.md) | 收尾验收 | 单APK生产接线已存在；不重做UID改造，不再以help输出当执行证据。 |
-| [HXA-194](../../development/tasks/HXA-194.md) | 待实现 | 保留独立详情页；202只做跨页面导航，不重复实现命令结果模型。 |
+| [HXA-194](../../completion-records/HXA-194.md) | 已交付 | 保留独立详情页；202只做跨页面导航，不重复实现命令结果模型。 |
 | [HXA-195](../../development/tasks/HXA-195.md) | 待实现 | 已有最终结果不是流式日志；不等后台Job和PTY组件决定。 |
 | [HXA-196](../../development/tasks/HXA-196.md) | 待实现 | Goal后台续轮已归208；这里是独立进程owner/租期/日志/对账，不强制所有启动出卡。 |
 | [HXA-197](../../development/tasks/HXA-197.md) | 待实现 | 人工终端范围已接受；剩余是PTY组件许可证和真实目录映射，不重审整份ADR。 |
