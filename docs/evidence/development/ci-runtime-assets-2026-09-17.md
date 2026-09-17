@@ -23,4 +23,4 @@
 - 默认资产重建如上失败，日志保存在忽略的 `build/ci-investigation/default-assets.log`；未删失败场景或放宽校验。
 - 使用 `HELIX_ROOTFS_ARCHIVE=<本地锁定raw-tar> ./scripts/build-proot-assets.sh`：exit 0；三个Termux包重新下载并校验、归档hash匹配、360个ELF全部通过aarch64/16 KiB门禁并完成资产放置。源文件位于现有主工作树的忽略资产目录，不入 Git；日志为 `build/ci-investigation/archived-assets.log`。这是已知归档的资产准备验证，不是从滚动镜像重建成功或干净远端下载证明。
 
-后续远端操作应一起收口：发布上述匹配的 raw tar、配置仓库变量、推送审查后的代码并触发 CI，再检查 runtime-assets 和 verify 两个 job。当前尚未发布资产、配置变量、推送或重跑远端；HXA-193 升级恢复和其他设备验收仍独立开放。
+所有者随后授权推送验证。修复分支 `codex/ci-sdk-bootstrap` 已推送；[锁定资产预发布](https://github.com/dollarser/helix-agent/releases/tag/runtime-assets-20260917) 提供上述 raw tar、runtime-lock 与来源/许可证说明，不是应用发行。`HELIX_ROOTFS_ARCHIVE_URL` 配置为该版本固定资产地址，下载仍经过原有 hash 与 ELF 门禁。当前快照记录到远端准备完成，CI最终结果以修复分支的实际 Actions 为准，不预先声明通过；HXA-193 升级恢复和其他设备验收仍独立开放。
