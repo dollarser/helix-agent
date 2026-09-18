@@ -28,7 +28,7 @@ internal class BackgroundJobActions(
             .launch {
                 try {
                     val outcome = execute(job, action) { !isActive }
-                    mutableState.value = BackgroundJobActionUi(job.callId, action, false, outcome)
+                    mutableState.value = BackgroundJobActionUi(job.callId, action, true, outcome)
                     refresh()
                 } catch (error: CancellationException) {
                     throw error

@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BackgroundJobActionsTest {
@@ -29,6 +30,7 @@ class BackgroundJobActionsTest {
             yield()
             actions.submit(original, BackgroundJobAction.COLLECT)
             assertEquals(1, executions)
+            assertTrue(requireNotNull(actions.state.value).busy)
             refreshed.complete(Unit)
             yield()
             actions.submit(original, BackgroundJobAction.CANCEL)
