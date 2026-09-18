@@ -149,6 +149,48 @@ class ExecutionOwnershipTest {
         assertFalse(executed)
     }
 
+    @Test fun reconciliationCannotRaceLauncherOrUseAnotherGeneration() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use {
+            assertTrue(it.retain(owner))
+            assertNull(gate.acquireReconciliation(owner))
+        }
+        assertNull(gate.acquireReconciliation(owner.copy(generation = "stale")))
+        requireNotNull(gate.acquireReconciliation(owner)).use {
+            assertNull(gate.acquireReconciliation(owner))
+            assertFalse(gate.settle(owner))
+            assertNull(gate.acquire("writer"))
+        }
+        assertEquals(owner, gate.retainedOwner())
+    }
+
+    @Test fun settlementKeepsAdmissionUntilResultImporterExits() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
+        val reconciliation = requireNotNull(gate.acquireReconciliation(owner))
+        assertTrue(reconciliation.settle())
+        assertNull(gate.retainedOwner())
+        assertNull(gate.acquire("racing-writer"))
+        reconciliation.close()
+        reconciliation.close()
+        assertThrows(IllegalStateException::class.java) { reconciliation.settle() }
+        requireNotNull(gate.acquire("next-writer")).close()
+    }
+
+    @Test fun failedResultSettlementKeepsDurableOwnerForRetry() {
+        val store = MemoryStore()
+        val gate = ExecutionOwnership(store)
+        requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
+        requireNotNull(gate.acquireReconciliation(owner)).use {
+            store.failWrite = true
+            assertThrows(IOException::class.java) { it.settle() }
+        }
+        assertNull(gate.acquire("writer"))
+        store.failWrite = false
+        requireNotNull(gate.acquireReconciliation(owner)).use { assertTrue(it.settle()) }
+        requireNotNull(gate.acquire("writer")).close()
+    }
+
     private fun call() =
         ExecutableToolCall(
             toolCallId = "call",

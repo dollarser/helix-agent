@@ -31,6 +31,7 @@ class ExecutionOwnership(
 
     private val lock = Any()
     private val active = mutableMapOf<String, Boolean>()
+    private var reconciling = false
 
     /** Existing scheduler still decides parallelism between ordinary calls. */
     fun acquire(
@@ -40,10 +41,22 @@ class ExecutionOwnership(
         synchronized(lock) {
             require(callId.isNotBlank())
             check(callId !in active) { "execution admission identity already active" }
-            if (store.read() != null) return@synchronized null
+            if (reconciling || store.read() != null) return@synchronized null
             if (active.isNotEmpty() && (exclusive || active.values.any { it })) return@synchronized null
             active[callId] = exclusive
             Permit(callId)
+        }
+
+    /**
+     * Trusted host reconciliation only, after resolving the original session/call binding.
+     * Keep admission across terminal proof and output import. Never derive this exemption
+     * from a tool name, model arguments, or a read-only effect declaration.
+     */
+    fun acquireReconciliation(owner: Owner): ReconciliationPermit? =
+        synchronized(lock) {
+            if (active.isNotEmpty() || reconciling || store.read() != owner) return@synchronized null
+            reconciling = true
+            ReconciliationPermit(owner)
         }
 
     /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
@@ -92,9 +105,32 @@ class ExecutionOwnership(
         synchronized(lock) {
             // A query can race the write-ahead holder BEFORE submission. "Not found" then
             // does not authorize releasing a launcher that can still submit afterwards.
-            if (active.isNotEmpty()) return@synchronized false
+            if (active.isNotEmpty() || reconciling) return@synchronized false
             store.compareAndSet(owner, null)
         }
+
+    inner class ReconciliationPermit internal constructor(
+        private val owner: Owner,
+    ) : AutoCloseable {
+        private var closed = false
+
+        /** Call only after terminal proof and durable result settlement/import. */
+        fun settle(): Boolean =
+            synchronized(lock) {
+                check(!closed) { "reconciliation admission already closed" }
+                store.compareAndSet(owner, null)
+            }
+
+        /** Failure/uncertainty keeps the durable owner; release only this host operation. */
+        override fun close() {
+            synchronized(lock) {
+                if (!closed) {
+                    reconciling = false
+                    closed = true
+                }
+            }
+        }
+    }
 
     inner class Permit internal constructor(
         private val callId: String,
