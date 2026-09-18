@@ -27,7 +27,7 @@ import com.helix.core.model.TurnState
 //   no operation; an unparseable tool-call state is treated as pending review.
 
 /** The seven user-visible error classes (HXA-204), plus NONE for turns with no blocker. */
-internal enum class RecoveryBlockClass {
+enum class RecoveryBlockClass {
     NONE,
     AUTH,
     NETWORK,
@@ -45,7 +45,7 @@ internal enum class RecoveryBlockClass {
  * existing results) and plain failed-turn retries alike — both create a NEW call, never a
  * resume of the old one.
  */
-internal enum class RecoveryOperation {
+enum class RecoveryOperation {
     RECONNECT,
     QUERY_RESULT,
     GRANT_PERMISSION,
@@ -54,7 +54,7 @@ internal enum class RecoveryOperation {
 }
 
 /** One persisted tool_call row of the turn (identity, name, state). */
-internal data class ToolCallFact(
+data class ToolCallFact(
     val callId: String,
     val toolName: String,
     val state: String,
@@ -80,7 +80,7 @@ internal data class RecoveryFacts(
 )
 
 /** The read-only recovery summary the UI renders. */
-internal data class RecoverySummary(
+data class RecoverySummary(
     val blockClass: RecoveryBlockClass,
     val operations: List<RecoveryOperation>,
     val nextOperation: RecoveryOperation?,

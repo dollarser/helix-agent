@@ -1084,4 +1084,15 @@
     <string name="budget_continue">Continue from saved results</string>
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
+    <string name="recovery_reason_unknown">执行已中断，结果未知：只对账，不重放</string>
+    <string name="recovery_reason_cancelled">已取消：不会自动继续</string>
+    <string name="recovery_completed">已完成动作：%1$s</string>
+    <string name="recovery_denied">已拒绝动作：%1$s</string>
+    <string name="recovery_pending">待核查副作用：%1$s</string>
+    <string name="recovery_artifacts">可用产物：%1$d</string>
+    <string name="recovery_next">下一操作：%1$s</string>
+    <string name="recovery_btn_reconnect">重新连接</string>
+    <string name="recovery_btn_query">查询结果</string>
+    <string name="recovery_btn_grant">补充权限</string>
+    <string name="recovery_btn_continue">继续 Goal</string>
 </resources>

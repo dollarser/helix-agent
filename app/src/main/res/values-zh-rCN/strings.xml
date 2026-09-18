@@ -1081,4 +1081,15 @@
     <string name="budget_continue">从已有结果继续</string>
     <string name="budget_continue_prompt">请依据当前对话和已结算的工具结果继续未完成的任务。先核对已完成的工作，再决定剩余步骤；不要仅因上一轮停止就重复已完成的操作。工具执行成功本身不代表任务结果已验证正确。</string>
     <string name="budget_request_detail">压缩前任务上下文估算：输入 %1$d / %2$d token。指令 %3$d，工具定义 %4$d，历史与结果 %5$d，图片 %6$d。当时累计已用 %7$d / %8$d token。用量校准后准入输入 %9$d，上下文窗口 %10$d。</string>
+    <string name="recovery_reason_unknown">执行已中断，结果未知：只对账，不重放</string>
+    <string name="recovery_reason_cancelled">已取消：不会自动继续</string>
+    <string name="recovery_completed">已完成动作：%1$s</string>
+    <string name="recovery_denied">已拒绝动作：%1$s</string>
+    <string name="recovery_pending">待核查副作用：%1$s</string>
+    <string name="recovery_artifacts">可用产物：%1$d</string>
+    <string name="recovery_next">下一操作：%1$s</string>
+    <string name="recovery_btn_reconnect">重新连接</string>
+    <string name="recovery_btn_query">查询结果</string>
+    <string name="recovery_btn_grant">补充权限</string>
+    <string name="recovery_btn_continue">继续 Goal</string>
 </resources>

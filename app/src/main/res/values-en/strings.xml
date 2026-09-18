@@ -1084,4 +1084,15 @@
     <string name="budget_continue">Continue from saved results</string>
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
+    <string name="recovery_reason_unknown">Execution was interrupted; the result is unknown. Reconcile only — it is never replayed.</string>
+    <string name="recovery_reason_cancelled">Cancelled: it will not continue automatically.</string>
+    <string name="recovery_completed">Completed actions: %1$s</string>
+    <string name="recovery_denied">Refused actions: %1$s</string>
+    <string name="recovery_pending">Side effects to verify: %1$s</string>
+    <string name="recovery_artifacts">Available artifacts: %1$d</string>
+    <string name="recovery_next">Next action: %1$s</string>
+    <string name="recovery_btn_reconnect">Reconnect</string>
+    <string name="recovery_btn_query">Query result</string>
+    <string name="recovery_btn_grant">Grant permission</string>
+    <string name="recovery_btn_continue">Continue goal</string>
 </resources>
