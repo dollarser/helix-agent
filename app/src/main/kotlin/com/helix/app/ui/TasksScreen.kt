@@ -81,6 +81,7 @@ internal fun TasksScreen(
     var artifactsQuery by artifactsQueryState
 
     val tasks by service.backgroundTasks.collectAsStateWithLifecycle()
+    val jobs by service.backgroundJobs.collectAsStateWithLifecycle()
     val goals by service.goalDashboard.collectAsStateWithLifecycle()
     val plans by service.planDashboard.collectAsStateWithLifecycle()
 
@@ -120,13 +121,14 @@ internal fun TasksScreen(
         if (onBack != null) TasksTurnBackBar(onBack)
         Box(Modifier.fillMaxSize()) {
             TasksRowList(
-                tasksDashboardRows(tasks, goals, plans),
+                tasksDashboardRows(tasks, goals, plans, jobs),
                 service,
                 onOpenSession,
                 { resultTurn = it },
                 { selectedPlan = it },
                 { commandTurn = it },
                 { artifactsQuery = it },
+                onOpenCommandDetail,
             )
         }
     }
@@ -210,6 +212,7 @@ private fun TasksRowList(
     onReviewPlan: (String) -> Unit,
     onShowCommands: (String) -> Unit,
     onShowArtifacts: (TaskArtifactsQuery) -> Unit,
+    onOpenCommandDetail: (String, String) -> Unit,
 ) {
     if (rows.isEmpty()) {
         Column(Modifier.fillMaxSize().testTag("screen-tasks")) {
@@ -240,6 +243,7 @@ private fun TasksRowList(
                         onReviewPlan,
                         onShowCommands,
                         onShowArtifacts,
+                        onOpenCommandDetail,
                     )
                 }
             }
@@ -257,6 +261,7 @@ private fun TasksRowView(
     onReviewPlan: (String) -> Unit,
     onShowCommands: (String) -> Unit,
     onShowArtifacts: (TaskArtifactsQuery) -> Unit,
+    onOpenCommandDetail: (String, String) -> Unit,
 ) {
     Column(Modifier.testTag(row.testTag)) {
         Row(
@@ -267,8 +272,22 @@ private fun TasksRowView(
             Text(stringResource(row.kindRes), style = MaterialTheme.typography.labelSmall)
         }
         Text(stringResource(row.statusRes), style = MaterialTheme.typography.bodySmall)
+        if (row is BackgroundJobRow && row.job.settlementPending) {
+            Text(stringResource(R.string.tasks_job_pending), Modifier.testTag("tasks-job-pending-${row.job.callId}"))
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (row) {
+                is BackgroundJobRow -> {
+                    TextButton(
+                        { onOpenSession(row.job.sessionId) },
+                        Modifier.testTag("tasks-job-open-${row.job.callId}"),
+                    ) { Text(stringResource(R.string.background_task_open)) }
+                    TextButton(
+                        { onOpenCommandDetail(row.job.turnId, row.job.callId) },
+                        Modifier.testTag("tasks-job-detail-${row.job.callId}"),
+                    ) { Text(stringResource(R.string.chat_tool_command_detail)) }
+                }
+
                 is TasksRow.Turn -> {
                     TurnRowActions(
                         row,

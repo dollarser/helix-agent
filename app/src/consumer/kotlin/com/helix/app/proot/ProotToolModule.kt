@@ -25,6 +25,9 @@ internal object ProotToolModule {
     @Suppress("UnusedParameter")
     fun observeCommandLog(binding: CommandJobBindingFacts) = kotlinx.coroutines.flow.emptyFlow<CommandLiveOutput>()
 
+    @Suppress("UnusedParameter")
+    fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> = emptyList()
+
     val inspectInterruptedJob: (HelixStorage, String, String, Boolean) -> ProotRecoveryReport = { _, _, _, _ ->
         error("PRoot recovery is unavailable in this distribution")
     }

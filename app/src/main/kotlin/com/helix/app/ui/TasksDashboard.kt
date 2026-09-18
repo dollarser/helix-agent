@@ -220,6 +220,7 @@ internal fun tasksDashboardRows(
     tasks: List<BackgroundTaskUi>,
     goals: List<GoalSummaryUi>,
     plans: List<PlanRowUi>,
+    jobs: List<com.helix.app.proot.BackgroundJobUi> = emptyList(),
 ): List<TasksRow> {
     val goalById: Map<String, GoalSummaryUi> = goals.associateBy { it.id }
     val liveTurnByGoal =
@@ -233,6 +234,7 @@ internal fun tasksDashboardRows(
             .forEach { add(TasksRow.Turn(it)) }
         goals.forEach { goal -> add(TasksRow.Goal(goal, liveTurnByGoal[goal.id])) }
         plans.filter { it.state == "READY" }.forEach { add(TasksRow.Plan(it)) }
+        jobs.distinctBy { it.callId }.forEach { add(BackgroundJobRow(it)) }
     }
 }
 

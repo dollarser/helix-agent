@@ -54,7 +54,9 @@ internal object CommandResultBrowser {
                     sessionId = turn.sessionId,
                     resultStatus = result?.status,
                     resultSummary = result?.summary,
-                    resultContent = result?.let { storage.toolResults.readContent(it) },
+                    // A missing body is not a new execution or a UI crash. Independent terminal
+                    // receipts/archives remain readable; otherwise the projection says unknown.
+                    resultContent = result?.let { runCatching { storage.toolResults.readContent(it) }.getOrNull() },
                 ),
             browse = browse,
             scopeLabel = scopeLabel,

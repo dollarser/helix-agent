@@ -268,6 +268,8 @@ class ChatService(
     private var searchJob: Job? = null
     private val _backgroundTasks = MutableStateFlow<List<BackgroundTaskUi>>(emptyList())
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
+    private val backgroundJobsState = MutableStateFlow<List<com.helix.app.proot.BackgroundJobUi>>(emptyList())
+    internal val backgroundJobs: StateFlow<List<com.helix.app.proot.BackgroundJobUi>> = backgroundJobsState
     private val transportState = MutableStateFlow<TurnState?>(null)
     val foregroundTransportState: StateFlow<TurnState?> = transportState
     private val goalDashboardState = MutableStateFlow<List<GoalSummaryUi>>(emptyList())
@@ -1905,6 +1907,9 @@ class ChatService(
         synchronized(turnGate) {
             val tasks = BackgroundTaskQuery(storage).read()
             _backgroundTasks.value = tasks
+            backgroundJobsState.value =
+                com.helix.app.proot.ProotToolModule
+                    .backgroundJobs(storage)
             transportState.value = tasks
                 .firstOrNull {
                     it.state in com.helix.app.foreground.DataSyncForegroundController.TRANSPORT_ACTIVE

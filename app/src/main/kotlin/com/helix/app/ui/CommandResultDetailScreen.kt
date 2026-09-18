@@ -169,7 +169,7 @@ private fun CommandDetailBody(
 @Suppress("FunctionName")
 private fun SummarySection(v: CommandResultView) {
     Text(
-        stringResource(stateTextRes(v.state)),
+        stringResource(commandDetailStateLabel(v.state)),
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.testTag("command-detail-state-${v.state.name.lowercase()}"),
     )
@@ -319,7 +319,7 @@ private fun StreamSection(
 }
 
 /** The distinct user-visible line per display state (HXA-194: every value its own text). */
-private fun stateTextRes(state: CommandDetailState): Int =
+internal fun commandDetailStateLabel(state: CommandDetailState): Int =
     when (state) {
         CommandDetailState.RUNNING -> R.string.command_detail_state_running
         CommandDetailState.SUBMITTED -> R.string.command_detail_state_submitted

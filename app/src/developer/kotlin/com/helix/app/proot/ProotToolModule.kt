@@ -259,6 +259,9 @@ internal object ProotToolModule {
         } catch (error: IllegalArgumentException) {
             Log.w("ProotToolModule", "Local archive format invalid", error)
             CommandBrowseFacts(binding, null, true)
+        } catch (error: com.helix.runtime.proot.ipc.ProotIpcException) {
+            Log.w("ProotToolModule", "Local Job identity invalid", error)
+            CommandBrowseFacts(binding, null, true)
         }
     }
 
@@ -274,6 +277,8 @@ internal object ProotToolModule {
     }
 
     fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)
+
+    fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> = DetachedJobDashboard.read(storage)
 
     fun availabilityGate(): LinuxRuntimeGate {
         val cause = supervisor.checkLocalState()

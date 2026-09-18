@@ -232,6 +232,40 @@ class TasksDashboardProjectionTest {
         plans: List<PlanRowUi> = emptyList(),
     ): List<TasksRow> = tasksDashboardRows(tasks.toList(), goals, plans)
 
+    @Test
+    fun completedGoalDoesNotHideItsPendingJobOrMergeSameTitledSessions() {
+        val job =
+            com.helix.app.proot.BackgroundJobUi(
+                "original",
+                "turn-1",
+                "session-1",
+                "Same title",
+                com.helix.app.proot.CommandDetailState.SUCCEEDED,
+                true,
+            )
+        val rows =
+            tasksDashboardRows(
+                listOf(task(state = TurnState.COMPLETED, goalId = "goal-1")),
+                listOf(goal(state = "COMPLETED")),
+                emptyList(),
+                listOf(job, job.copy(callId = "other", sessionId = "session-2")),
+            )
+        assertEquals(3, rows.size)
+        assertEquals(TasksBucket.COMPLETED, goalRow(rows).bucket)
+        assertEquals(
+            setOf("job-original", "job-other"),
+            rows.filterIsInstance<BackgroundJobRow>().map { it.key }.toSet(),
+        )
+        rows.filterIsInstance<BackgroundJobRow>().forEach { assertEquals(TasksBucket.NEEDS_YOU, it.bucket) }
+        assertEquals(TasksBucket.COMPLETED, BackgroundJobRow(job.copy(settlementPending = false)).bucket)
+        assertEquals(
+            TasksBucket.FAILED,
+            BackgroundJobRow(
+                job.copy(state = com.helix.app.proot.CommandDetailState.CANCELLED, settlementPending = false),
+            ).bucket,
+        )
+    }
+
     private fun turnRow(rows: List<TasksRow>): TasksRow.Turn = rows.filterIsInstance<TasksRow.Turn>().single()
 
     private fun goalRow(rows: List<TasksRow>): TasksRow.Goal = rows.filterIsInstance<TasksRow.Goal>().single()

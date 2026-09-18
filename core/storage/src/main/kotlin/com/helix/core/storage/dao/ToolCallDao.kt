@@ -23,6 +23,21 @@ interface ToolCallDao {
         callId: String,
     ): ToolCallEntity?
 
+    /** Pending background work survives the recent-Turn window; settled history stays bounded. */
+    @Query(
+        "SELECT c.* FROM tool_calls c WHERE c.name = 'code.linux.job.start' " +
+            "AND EXISTS (SELECT 1 FROM audit_events p WHERE p.id = 'proot-job-' || c.callId " +
+            "AND p.type = 'proot.job_prepared' AND p.actor = 'platform') " +
+            "AND (((c.state NOT IN ('FAILED', 'DENIED') OR EXISTS " +
+            "(SELECT 1 FROM audit_events t WHERE t.id = 'proot-terminal-' || c.callId " +
+            "AND t.type = 'proot.job_terminal' AND t.actor = 'platform')) AND NOT EXISTS " +
+            "(SELECT 1 FROM audit_events s WHERE s.id = 'proot-settled-' || c.callId " +
+            "AND s.type = 'proot.job_settled' AND s.actor = 'platform')) " +
+            "OR c.id IN (SELECT id FROM tool_calls WHERE name = 'code.linux.job.start' " +
+            "ORDER BY rowid DESC LIMIT :recentLimit)) ORDER BY c.rowid DESC",
+    )
+    fun detachedJobCandidates(recentLimit: Int): List<ToolCallEntity>
+
     @Query("UPDATE tool_calls SET state = :state WHERE id = :id")
     fun updateState(
         id: String,
