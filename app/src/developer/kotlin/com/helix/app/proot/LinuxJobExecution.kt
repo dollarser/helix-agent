@@ -48,6 +48,12 @@ internal class LinuxJobExecution(
         isCancelled: () -> Boolean,
     ): ToolExecutorResult {
         if (isCancelled()) return ToolExecutorResult.Cancelled
+        val budget =
+            RuntimeSubmissionBudget(
+                call.deadlineEpochMs,
+                System.currentTimeMillis(),
+                android.os.SystemClock.elapsedRealtime(),
+            )
         val gateState = gate()
         if (gateState != LinuxRuntimeGate.READY) {
             return failed(
@@ -64,7 +70,7 @@ internal class LinuxJobExecution(
             return failed("the job scratch area is unavailable.", "SCRATCH_FAILED")
         }
         return try {
-            runJob(call, isCancelled, scratch)
+            runJob(call, isCancelled, scratch, budget)
         } finally {
             @Suppress("SwallowedException")
             try {
@@ -125,6 +131,7 @@ internal class LinuxJobExecution(
         call: ParsedLinuxCall,
         isCancelled: () -> Boolean,
         scratch: File,
+        budget: RuntimeSubmissionBudget,
     ): ToolExecutorResult {
         if (isCancelled()) return ToolExecutorResult.Cancelled
         // 1) Input snapshot: every listed file, read THROUGH THE STORE (containment-
@@ -167,8 +174,11 @@ internal class LinuxJobExecution(
         //    createdAt + deadlineMs as the kill deadline), so pass the REMAINING
         //    approved window, not the absolute epoch: the companion's watchdog then
         //    kills the process group exactly when the approval-BOUND deadline lapses.
-        val remainingMs =
-            (call.deadlineEpochMs - System.currentTimeMillis()).coerceIn(1_000L, 3_600_000L)
+        if (isCancelled()) return ToolExecutorResult.Cancelled
+        val remainingMs = budget.remainingMillis(android.os.SystemClock.elapsedRealtime())
+        if (remainingMs == 0L) {
+            return failed("the execution budget expired before submission.", "BUDGET_EXHAUSTED_BEFORE_SUBMIT")
+        }
         val spec =
             ProotJobSpec(
                 executionId =
@@ -192,18 +202,32 @@ internal class LinuxJobExecution(
         beforeSubmit(call, spec)
         // 4) Submit: PFDs handed to the client; it owns them in EVERY outcome.
         val outputZip = File(scratch, "output.zip")
-        val inputPfd =
-            android.os.ParcelFileDescriptor.open(
-                inputZip,
-                android.os.ParcelFileDescriptor.MODE_READ_ONLY,
-            )
-        val outputPfd =
-            android.os.ParcelFileDescriptor.open(
-                outputZip,
-                android.os.ParcelFileDescriptor.MODE_CREATE or android.os.ParcelFileDescriptor.MODE_WRITE_ONLY or
-                    android.os.ParcelFileDescriptor.MODE_TRUNCATE,
-            )
-        when (val submit = client.submit(spec, inputPfd, outputPfd)) {
+        val outputMode =
+            android.os.ParcelFileDescriptor.MODE_CREATE or android.os.ParcelFileDescriptor.MODE_WRITE_ONLY or
+                android.os.ParcelFileDescriptor.MODE_TRUNCATE
+        val submit =
+            android.os.ParcelFileDescriptor
+                .open(
+                    inputZip,
+                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
+                ).use { inputPfd ->
+                    android.os.ParcelFileDescriptor
+                        .open(
+                            outputZip,
+                            outputMode,
+                        ).use { outputPfd ->
+                            client.submit(spec, inputPfd, outputPfd) {
+                                if (isCancelled()) {
+                                    0L
+                                } else {
+                                    budget.remainingMillis(
+                                        android.os.SystemClock.elapsedRealtime(),
+                                    )
+                                }
+                            }
+                        }
+                }
+        when (submit) {
             is ProotJobClient.SubmitOutcome.Unavailable -> {
                 return submissionFailure(submit.cause)
             }

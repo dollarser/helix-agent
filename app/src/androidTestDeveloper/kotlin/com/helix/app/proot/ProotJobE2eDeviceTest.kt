@@ -32,6 +32,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
@@ -119,6 +120,8 @@ class ProotJobE2eDeviceTest {
                 )
             val accepted =
                 client.submit(spec, inputPfd, outputPfd) as ProotJobClient.SubmitOutcome.Accepted
+            assertFalse("submit must close its input descriptor", inputPfd.fileDescriptor.valid())
+            assertFalse("submit must close its output descriptor", outputPfd.fileDescriptor.valid())
             assertEquals(jobId, accepted.record.jobId)
 
             // Poll for the terminal state through the client (cold binds each poll).
@@ -181,7 +184,10 @@ class ProotJobE2eDeviceTest {
                         ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_WRITE_ONLY or
                             ParcelFileDescriptor.MODE_TRUNCATE,
                     )
-                return client.submit(spec, inputPfd, outputPfd)
+                return client.submit(spec, inputPfd, outputPfd).also {
+                    assertFalse("accepted/duplicate input must close", inputPfd.fileDescriptor.valid())
+                    assertFalse("accepted/duplicate output must close", outputPfd.fileDescriptor.valid())
+                }
             }
 
             val first = submit(spec)
@@ -190,6 +196,40 @@ class ProotJobE2eDeviceTest {
             assertTrue("resubmit must be a duplicate: $duplicate", duplicate is ProotJobClient.SubmitOutcome.Duplicate)
             assertEquals(jobId, (duplicate as ProotJobClient.SubmitOutcome.Duplicate).record.jobId)
             Unit
+        }
+    }
+
+    @Test
+    fun expiredSubmissionAfterBindingClosesDescriptorsWithoutStartingAJob() {
+        runOnWorker {
+            val (archive, inputSha) = buildInputArchive(emptyMap())
+            val spec =
+                ProotJobSpec(
+                    executionId = "exec-budget-${nextJobId()}",
+                    jobId = nextJobId(),
+                    command = ProotJobCommand.Argv(listOf("/bin/sh", "-c", "echo SHOULD_NOT_RUN")),
+                    relativeWorkingDirectory = "",
+                    environment = emptyMap(),
+                    deadlineMs = 60_000L,
+                    maxOutputBytes = 1_048_576L,
+                    inputManifestSha256 = inputSha,
+                )
+            val input = ParcelFileDescriptor.open(archive, ParcelFileDescriptor.MODE_READ_ONLY)
+            val outputFile = File(scratchDir("expired"), "output.zip")
+            val output =
+                ParcelFileDescriptor.open(
+                    outputFile,
+                    ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_WRITE_ONLY,
+                )
+            val result = client.submit(spec, input, output) { 0L }
+            assertEquals(
+                ProotJobClient.SubmitOutcome.Rejected(ProotJobRefusal.BUDGET_EXHAUSTED_BEFORE_SUBMIT),
+                result,
+            )
+            assertFalse(input.fileDescriptor.valid())
+            assertFalse(output.fileDescriptor.valid())
+            assertEquals(ProotJobClient.JobStateOutcome.Unknown, client.query(spec.jobId))
+            assertEquals(0L, outputFile.length())
         }
     }
 

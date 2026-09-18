@@ -31,8 +31,10 @@ import com.helix.runtime.proot.ipc.UnavailableCause
  *
  * All methods block; call them off the main thread.
  */
+@Suppress("TooManyFunctions") // Job transport and its bounded decoding helpers share one channel.
 class ProotJobClient(
     private val supervisor: ProotRuntimeSupervisor,
+    private val monotonicMillis: () -> Long = android.os.SystemClock::elapsedRealtime,
 ) {
     private companion object {
         val processOwner = android.os.Binder()
@@ -101,76 +103,109 @@ class ProotJobClient(
     // ------------------------------------------------------------------ submit
 
     /**
-     * Submits [spec]. The caller OWNS both PFDs from this call: the server
-     * closes its copy in every outcome (accepted, duplicate, rejected); on an
-     * UNDELIVERED submission (bind refused, dead binder) this method closes
-     * the client-side copies too, so the caller's ownership promise holds
-     * either way. The caught wire/death exceptions ARE the answer (a stable
+     * Takes ownership of both PFDs in every outcome, including connection exceptions.
+     * Parcel/Binder transfers independent descriptors to the server; closing the
+     * client copies after the transaction does not close the server's output stream.
+     * The caught wire/death exceptions ARE the answer (a stable
      * cause); nothing is lost by mapping them instead of rethrowing.
      */
-    @Suppress("SwallowedException")
     fun submit(
         spec: ProotJobSpec,
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
-    ): SubmitOutcome {
-        val connection = supervisor.openConnection()
-        if (connection is ProotConnection.Refused) {
+        remainingBudgetMillis: (() -> Long)? = null,
+    ): SubmitOutcome =
+        try {
+            submitOwned(spec, inputPfd, outputPfd, remainingBudgetMillis)
+        } finally {
             inputPfd.closeQuietly()
             outputPfd.closeQuietly()
+        }
+
+    private fun submitOwned(
+        spec: ProotJobSpec,
+        inputPfd: ParcelFileDescriptor,
+        outputPfd: ParcelFileDescriptor,
+        remainingBudgetMillis: (() -> Long)?,
+    ): SubmitOutcome {
+        val started = monotonicMillis()
+        val connection = supervisor.openConnection()
+        if (connection is ProotConnection.Refused) {
             return SubmitOutcome.Unavailable(connection.cause)
         }
         val binder = (connection as ProotConnection.Opened).binder
         return try {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken(ProotRuntimeProtocol.INTERFACE_DESCRIPTOR)
-                data.writeStrongBinder(processOwner)
-                ProotJobWire.writeSpec(data, spec, inputPfd, outputPfd)
-                binder.transact(ProotRuntimeProtocol.TX_JOB_SUBMIT_OWNED, data, reply, 0)
-                val (status, payload) = ProotJobWire.readJobReply(reply)
-                when (status) {
-                    ProotRuntimeProtocol.REPLY_JOB_ACCEPTED -> {
-                        SubmitOutcome.Accepted(decodeRecord(payload)).also {
-                            ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
-                        }
-                    }
-
-                    ProotRuntimeProtocol.REPLY_JOB_DUPLICATE -> {
-                        SubmitOutcome.Duplicate(decodeRecord(payload)).also {
-                            ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
-                        }
-                    }
-
-                    ProotRuntimeProtocol.REPLY_JOB_REJECTED -> {
-                        SubmitOutcome.Rejected(refusalOf(payload))
-                    }
-
-                    // A production companion always has a job handler; this reply
-                    // means the peer is not the expected implementation.
-                    ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE -> {
-                        SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
-                    }
-
-                    else -> {
-                        SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
-                    }
+            val now = monotonicMillis()
+            val remaining =
+                if (now <
+                    started
+                ) {
+                    0L
+                } else {
+                    minOf(
+                        spec.deadlineMs - (now - started),
+                        remainingBudgetMillis?.invoke() ?: spec.deadlineMs,
+                    )
                 }
-            } catch (e: ProotIpcException) {
-                inputPfd.closeQuietly()
-                outputPfd.closeQuietly()
-                SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
-            } catch (e: DeadObjectException) {
-                inputPfd.closeQuietly()
-                outputPfd.closeQuietly()
-                SubmitOutcome.Unavailable(UnavailableCause.DEAD_OBJECT)
-            } finally {
-                data.recycle()
-                reply.recycle()
+            if (remaining < 1_000L) {
+                SubmitOutcome.Rejected(ProotJobRefusal.BUDGET_EXHAUSTED_BEFORE_SUBMIT)
+            } else {
+                transmitSubmit(binder, spec.copy(deadlineMs = remaining), inputPfd, outputPfd)
             }
         } finally {
             supervisor.closeConnection()
+        }
+    }
+
+    @Suppress("SwallowedException")
+    private fun transmitSubmit(
+        binder: IBinder,
+        spec: ProotJobSpec,
+        inputPfd: ParcelFileDescriptor,
+        outputPfd: ParcelFileDescriptor,
+    ): SubmitOutcome {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        return try {
+            data.writeInterfaceToken(ProotRuntimeProtocol.INTERFACE_DESCRIPTOR)
+            data.writeStrongBinder(processOwner)
+            ProotJobWire.writeSpec(data, spec, inputPfd, outputPfd)
+            binder.transact(ProotRuntimeProtocol.TX_JOB_SUBMIT_OWNED, data, reply, 0)
+            val (status, payload) = ProotJobWire.readJobReply(reply)
+            when (status) {
+                ProotRuntimeProtocol.REPLY_JOB_ACCEPTED -> {
+                    SubmitOutcome.Accepted(decodeRecord(payload)).also {
+                        ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
+                    }
+                }
+
+                ProotRuntimeProtocol.REPLY_JOB_DUPLICATE -> {
+                    SubmitOutcome.Duplicate(decodeRecord(payload)).also {
+                        ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
+                    }
+                }
+
+                ProotRuntimeProtocol.REPLY_JOB_REJECTED -> {
+                    SubmitOutcome.Rejected(refusalOf(payload))
+                }
+
+                // A production companion always has a job handler; this reply
+                // means the peer is not the expected implementation.
+                ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE -> {
+                    SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
+                }
+
+                else -> {
+                    SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
+                }
+            }
+        } catch (e: ProotIpcException) {
+            SubmitOutcome.Unavailable(UnavailableCause.PROTOCOL_MISMATCH)
+        } catch (e: DeadObjectException) {
+            SubmitOutcome.Unavailable(UnavailableCause.DEAD_OBJECT)
+        } finally {
+            data.recycle()
+            reply.recycle()
         }
     }
 
