@@ -1,6 +1,6 @@
 # HXA-191 深色主题切片证据：统一跟随系统主题与四象限设备验收（2026-09-18）
 
-本记录属于 HXA-191「深色主题」轮（接续「会话搜索」切片，worktree `Helix-theme-191`，分支 `codex/hxa-191-dark-theme`，基线 `5bfce200`）。本轮**只交付 HXA-191 的「深色主题」部分**，并对**已合并的会话搜索**做回归；与上一轮会话搜索（[切片证据](hxa-191-session-search-2026-09-18.md)）合起来，**HXA-191 两部分均交付并本地验收**，故本轮写完成记录 [`completion-records/HXA-191.md`](../../completion-records/HXA-191.md)。
+本记录属于 HXA-191「深色主题」轮（接续「会话搜索」切片，worktree `Helix-theme-191`，分支 `codex/hxa-191-dark-theme`，基线 `5bfce200`）。本轮**只交付 HXA-191 的「深色主题」部分**，并对**已合并的会话搜索**做回归；与上一轮会话搜索（[切片证据](hxa-191-session-search-2026-09-18.md)）合起来，**HXA-191 两部分均交付并本地验收**，故本轮写完成记录 [`evidence/development/hxa-191-delivery-review-2026-09-18.md`](../../evidence/development/hxa-191-delivery-review-2026-09-18.md)。
 
 ## 结论
 
@@ -80,7 +80,7 @@
 - **不强制改写外部网页配色**：浏览器目的地只验证其在当前主题下**可操作**，不改写被加载网页的颜色（超范围）。
 - **对话框覆盖方式**：对话框是**树内** M3 `AlertDialog`，随 `HelixTheme` 的两个组合根一起翻转（显式接线，非「M3 默认跟随系统」）；具名测试**未单独**对某对话框做在设备断言（`composeSurfaceColorMatchesCurrentSystemMode` 的整壳 surface 颜色断言已覆盖对话框所展示的同一 Compose 根，属可接受的次要缺口，非缺陷）。
 - **判据选择**：具名测试以「已解析属性断言 + 采样真实渲染像素」为权威（API 36 edge-to-edge 下窗口 `statusBarColor` 由系统合成、裸读不具判别意义）；`mFullConfiguration` 的 `night` token 与 appearance flag（`apr=LIGHT_STATUS_BARS`，API36 light 有 / dark 无）是**可 grep、可翻转**的在设备补充证明（旧稿称「API36 裸 `LIGHT_STATUS_BARS` grep 为空」**不成立**，已更正，见[命令与结果](#命令与结果全部实际执行)）。
-- **`check-all --source` 预期红（3 项，均协调者整合项）**：(a) 新增 `docs/completion-records/HXA-191.md` 触发 `generate-completion-index.py --check` 的 `Completion index is stale`；(b) 任务清单、(c) `docs/development/status.md` 尚未含 HXA-191。按约束「公共 status/roadmap/index 由协调者最终整合」，本执行者**不重算 index、不改 status/roadmap**；仅在此登记（修复命令见下）。
+- **`check-all --source` 预期红（3 项，均协调者整合项）**：(a) 新增 `docs/evidence/development/hxa-191-delivery-review-2026-09-18.md` 触发 `generate-completion-index.py --check` 的 `Completion index is stale`；(b) 任务清单、(c) `docs/development/status.md` 尚未含 HXA-191。按约束「公共 status/roadmap/index 由协调者最终整合」，本执行者**不重算 index、不改 status/roadmap**；仅在此登记（修复命令见下）。
 - **具名测试与矩阵运行 APK 一致性**：本轮交付源码经 P1 修复（`@Suppress("LongMethod")` 编译期 lint 提示 + 删除未用助手）后重建 androidTest APK 再跑矩阵，避免「矩阵跑的 APK ≠ 提交的源码」；APK mtime 新于源码，哈希见[制品身份](#制品身份本轮实际安装检查对象sha-256)。
 - 无真实付费账号、无真实用户会话数据（设备测试仅用自造 fixture）；API29/36 模拟器不代替真机长稳/OEM。
 

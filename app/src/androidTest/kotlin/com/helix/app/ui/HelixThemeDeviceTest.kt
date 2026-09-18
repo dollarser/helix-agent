@@ -13,10 +13,12 @@ import com.helix.app.R
 import com.helix.app.language.AppLanguage
 import com.helix.app.language.AppLanguageStore
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +65,14 @@ class HelixThemeDeviceTest {
 
     private val appContext: Context
         get() = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+
+    @Before
+    fun requireRequestedSystemMode() {
+        if (recoveryPhase() == "setup") return
+        val expected = InstrumentationRegistry.getArguments().getString("expectedNight") ?: return
+        require(expected == "yes" || expected == "no")
+        assertEquals("The requested night mode must actually be active", expected == "yes", currentSystemIsNight())
+    }
 
     @After
     fun restorePinnedLanguage() {

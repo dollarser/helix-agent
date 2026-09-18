@@ -122,7 +122,8 @@ def main():
                     raise RuntimeError(f"theme setup ({mode}) did not write a durable pid marker")
 
                 verify = device("shell", "am", "instrument", "-w", "-e", "class", theme_class,
-                                "-e", "recoveryPhase", "verify", runner, timeout=900, check=False)
+                                "-e", "recoveryPhase", "verify", "-e", "expectedNight", night,
+                                runner, timeout=900, check=False)
                 (out / f"{mode}-instrument.txt").write_text(verify)
                 print(f"[{mode}] " + (verify.splitlines()[-1] if verify.splitlines() else ""), flush=True)
 

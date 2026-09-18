@@ -11,7 +11,7 @@
 - **无 schema 变更 = 已验证的缺失**：`MessageDao.contentSearchCandidates(limit)` 是新增只读 JOIN 查询（`ORDER BY s.createdAt DESC, m.sequence DESC LIMIT :limit`），不改任何表/索引/迁移文件；`HelixStorage` 仅新增只读 `sessionSearch` 仓储入口。候选 = 任何非空且有 `contentRef` 的正文；内容匹配是仓储（非查询）职责。
 - **不在 Compose 主线程扫全量历史**：`ChatService.searchSessions` 先写查询态、`workScope` 200ms 防抖后再扫描、一次性写回（query+hits+scanned+skipped+truncated）；范围行（`chat-session-search-scope`）显式呈现「已检索 N 条正文」，不默默只搜当前页；截断时 `truncated` 置位并呈现范围。
 - 诊断链（runs 1–7）：UI 片段行偶发不 compose 的根因是 `ChatScreen` 用 `collectAsStateWithLifecycle()` + v2 compose 规则 `EmptyActivity` 跳板在后台化 activity 时冻结收集——**测试框架产物，非 app 缺陷**。改以进程级 `ChatService.sessionSearch`（命中行渲染的真源，跳板无法重置）为片段主证，UI 以命中行 + 范围行为辅证；**不改 `collectAsState()`**（会改变 app 电池/功耗行为，超范围）。
-- **HXA-191 整体仍 INCOMPLETE**：深色主题未做；本轮不写 `docs/completion-records/HXA-191.md`，不 push/合并/发布，不修改全局 status/roadmap/index（建议更新见文末，供协调者整合）。
+- **HXA-191 整体仍 INCOMPLETE**：深色主题未做；本轮不写 `docs/evidence/development/hxa-191-delivery-review-2026-09-18.md`，不 push/合并/发布，不修改全局 status/roadmap/index（建议更新见文末，供协调者整合）。
 
 ## 本轮新增测试（实现要求，非既有证据）
 
@@ -98,7 +98,7 @@ git diff --check
 
 ## 建议 status 更新（供协调者整合，本执行者不直接改全局 status/roadmap/index）
 
-- **HXA-191 保持「待实现 / INCOMPLETE」**：搜索切片已交付并验收（本证据），但深色主题未做，不满足整体验收；**不写 `docs/completion-records/HXA-191.md`**。
+- **HXA-191 保持「待实现 / INCOMPLETE」**：搜索切片已交付并验收（本证据），但深色主题未做，不满足整体验收；**不写 `docs/evidence/development/hxa-191-delivery-review-2026-09-18.md`**。
 - 搜索切片的验收证据以本文件 `docs/evidence/development/hxa-191-session-search-2026-09-18.md` 为准；`docs/development/tasks/HXA-191.md` 的 `## 交付` 之后已附本切片记录。
 - 协调者待整合的既有文档残留（本执行者不直接改，仅在此登记 + 建议）：
   - `docs/development/roadmap.md:205` HXA-193 链接指向已删除的 `tasks/HXA-193.md` → 建议改指 `../development/tasks/HXA-193.md`；

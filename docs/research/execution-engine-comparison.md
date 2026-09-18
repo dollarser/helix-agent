@@ -250,7 +250,7 @@ CC 的 subagents 将任务放到独立上下文，hooks 在指定生命周期执
 - 已交付 [HXA-204](../completion-records/HXA-204.md) / [HXA-205](../completion-records/HXA-205.md)：跨执行域恢复与首次准备修复。
 - 已交付 [HXA-195](../completion-records/HXA-195.md)：一次性 Job 的有界实时输出，包含命令结束前的真实页面验收；不代表后台 Job 或 PTY。
 - [HXA-196～199 的终端链](../architecture/terminal.md)：有期限后台 Job、用户手动 PTY、重连及综合验收。
-- [HXA-207](../development/tasks/HXA-207.md)：现有 Skill/MCP/Connector 从添加到实际调用、禁用与修复。
+- [HXA-207](../completion-records/HXA-207.md)：现有 Skill/MCP/Connector 从添加到实际调用、禁用与修复。
 
 202 已有跨页面任务导航，209 已有会话授权，176 已有长 Turn 压缩；不将它们重新列为从零待实现。具体执行顺序仍由 status/roadmap 决定，本文不越过当前基线门禁。
 
