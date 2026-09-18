@@ -30,7 +30,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Next task
 
-196 最近切片：Tasks 原 Job 行的人工查询/停止/收取已补实际页面旅程，覆盖生产 Dispatcher 启动、成功导入、取消后待结算及 CUSTOM DENY 后恢复原结果；不新增模型 ToolCall/Turn。最新完整主机门禁与 API29/36 developer 页面 **6/6** 通过；前轮 Job **66/66** 保留原范围。剩余模型循环/Goal 绑定及进程死亡恢复产品旅程；真机 G4 仍无当前设备证据。具体证据与边界见 [196 最新任务记录](tasks/HXA-196.md)。196 仍为唯一进行中的 checkpoint。
+196 最近切片：已验证本机脚本 Provider → 真实模型循环/Goal/Dispatcher/Runtime 的后台结算：收取前不能报告完成；Turn 先结束时保留原 run，人工收取后只结算并暂停，不产生新 Turn。最新完整主机门禁及 API29/36 developer Goal 旅程 **4/4** 通过；前轮 Tasks 人工操作 **6/6**、Job **66/66** 保留各自范围。剩余主进程/Runtime 死亡后的产品恢复；真机 G4 仍无当前设备证据。具体证据与边界见 [196 最新任务记录](tasks/HXA-196.md)。196 仍为唯一进行中的 checkpoint。
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
