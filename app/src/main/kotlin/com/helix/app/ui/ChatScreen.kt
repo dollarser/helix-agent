@@ -41,6 +41,7 @@ fun ChatScreen(
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
+    val sessionSearch by chatService.sessionSearch.collectAsStateWithLifecycle()
     val profile by chatService.profile.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
@@ -72,6 +73,7 @@ fun ChatScreen(
         if (screen.openSessionId == null) {
             SessionListSection(
                 sessions = sessions,
+                search = sessionSearch,
                 onNavigation = onNavigation,
                 onNew = { chatService.newSessionDraft() },
                 onProviders = onProviders,
@@ -81,6 +83,7 @@ fun ChatScreen(
                 onArchive = { chatService.archiveSession(it) },
                 onRestore = chatService::restoreSession,
                 onTasks = { tasksOpen = true },
+                onSearch = { chatService.searchSessions(it) },
             )
         } else {
             ConversationSection(

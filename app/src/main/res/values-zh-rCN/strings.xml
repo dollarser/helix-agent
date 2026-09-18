@@ -770,6 +770,13 @@
     <string name="chat_archived_list">已归档会话</string>
     <string name="chat_active_list">返回会话列表</string>
     <string name="chat_empty_archive">暂无已归档会话</string>
+    <string name="chat_session_search_hint">搜索会话与消息</string>
+    <string name="chat_session_search_clear">清除</string>
+    <string name="chat_session_search_empty">没有匹配的会话</string>
+    <string name="chat_session_search_scoped">已检索最近 %1$d 条消息正文</string>
+    <string name="chat_session_search_truncated">更早的消息未检索（结果仅限最近历史）</string>
+    <string name="chat_session_search_group_active">进行中</string>
+    <string name="chat_session_search_group_archived">已归档</string>
     <string name="files_shared">共享存储</string>
     <string name="files_shared_detail">浏览共享存储根目录，未授权时申请权限</string>
     <string name="chat_context_title">上下文窗口</string>

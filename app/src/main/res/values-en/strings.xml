@@ -772,6 +772,13 @@
     <string name="chat_archived_list">Archived sessions</string>
     <string name="chat_active_list">Back to sessions</string>
     <string name="chat_empty_archive">No archived sessions</string>
+    <string name="chat_session_search_hint">Search sessions and messages</string>
+    <string name="chat_session_search_clear">Clear</string>
+    <string name="chat_session_search_empty">No matching sessions</string>
+    <string name="chat_session_search_scoped">Searched %1$d of the most recent message bodies</string>
+    <string name="chat_session_search_truncated">Older messages were not searched (results limited to recent history)</string>
+    <string name="chat_session_search_group_active">Active</string>
+    <string name="chat_session_search_group_archived">Archived</string>
     <string name="files_shared">Shared storage</string>
     <string name="files_shared_detail">Browse the shared-storage root; request permission when needed</string>
     <string name="chat_context_title">Context window</string>

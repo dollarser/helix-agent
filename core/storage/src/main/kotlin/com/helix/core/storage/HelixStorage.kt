@@ -35,6 +35,7 @@ import com.helix.core.storage.repository.ProviderConfigRepository
 import com.helix.core.storage.repository.RuntimeInstallRepository
 import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.SessionRepository
+import com.helix.core.storage.repository.SessionSearchRepository
 import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
 import com.helix.core.storage.repository.ToolAvailabilityRepository
@@ -58,6 +59,14 @@ class HelixStorage internal constructor(
 ) {
     val sessions: SessionRepository by lazy { SessionRepository(database.sessionDao()) }
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
+
+    /**
+     * Read-only session/history search (HXA-191 slice): bounded title + message-body
+     * matching over the existing rows and content store; the caller runs it off the UI thread.
+     */
+    val sessionSearch: SessionSearchRepository by lazy {
+        SessionSearchRepository(database.sessionDao(), database.messageDao(), contentStore)
+    }
     val messageAttachments: MessageAttachmentRepository by lazy {
         MessageAttachmentRepository(database.messageAttachmentDao())
     }
