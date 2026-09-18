@@ -5,11 +5,13 @@ import com.helix.app.ui.RecoverySummary
 import com.helix.app.ui.recoverySummary
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * HXA-204 slice 2: executes the panel operations. Each operation keeps its OWN identity and
@@ -33,8 +35,15 @@ internal class TurnRecoveryActions(
 ) {
     private val mutex = Mutex()
 
-    /** Auth/network repair: the user fixes the provider, then starts a NEW call — no re-submit. */
-    fun reconnect(turnId: String) = execute(turnId, RecoveryOperation.RECONNECT) { _, _ -> onOpenSettings() }
+    /**
+     * Auth/network repair: the user fixes the provider, then starts a NEW call — no re-submit.
+     * The navigation to the repair surface hops to the main thread (this service runs on its
+     * IO scope) so the NavController back-stack lifecycle is driven on the main thread.
+     */
+    fun reconnect(turnId: String) =
+        execute(turnId, RecoveryOperation.RECONNECT) { _, _ ->
+            withContext(Dispatchers.Main.immediate) { onOpenSettings() }
+        }
 
     /**
      * Unknown result: reconcile only. Inspect the parked proot jobs read-only (developer
@@ -52,7 +61,9 @@ internal class TurnRecoveryActions(
 
     /** Capability repair: the user grants the missing permission, then a NEW call exercises it. */
     fun grantPermission(turnId: String) =
-        execute(turnId, RecoveryOperation.GRANT_PERMISSION) { _, _ -> onOpenSettings() }
+        execute(turnId, RecoveryOperation.GRANT_PERMISSION) { _, _ ->
+            withContext(Dispatchers.Main.immediate) { onOpenSettings() }
+        }
 
     /** The bound Goal's own explicit continue path — its admission was just re-verified. */
     fun continueGoal(turnId: String) =
@@ -74,7 +85,7 @@ internal class TurnRecoveryActions(
     private fun execute(
         turnId: String,
         operation: RecoveryOperation,
-        body: (RecoverySummary, TurnRecoverySource) -> Unit,
+        body: suspend (RecoverySummary, TurnRecoverySource) -> Unit,
     ) {
         workScope.launch {
             mutex.withLock {
