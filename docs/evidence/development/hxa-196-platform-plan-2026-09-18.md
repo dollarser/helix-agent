@@ -71,3 +71,21 @@ bash scripts/debug/2026-09-18/run-196-runtime-regression.sh
 局部单测、完整 lint、Debug/Release 构建、35 个依赖锁均已通过。新增租期/启动取消单测 5 项通过。最终 APK 检查修正了 SDK 解码差异：`apkanalyzer` 对 `specialUse` 输出 `0x40000000`，按同一精确位值校验，不放宽类型要求。Debug 与 Release 边界均通过，debug-only 探针未进入 consumer 或 developerRelease。
 
 最终 `./scripts/check-all.sh --all` exit 0（`build/hxa196-final-gates.log`）；`python3 scripts/verify-integrated-runtime-apks.py --build-type release` exit 0。忽略目录另保留首次完整运行及 APK 枚举修正复验日志 `build/hxa196-full-gates.log`、`build/hxa196-artifact-gates.log`、`build/hxa196-release-boundaries.log`。未运行 196 新代码的远端 CI；前述 main 全绿只证明基线。
+
+## 提交前取消的持久化补修
+
+核心切片 `01209bee` 后复核发现：取消先于实际提交时，内存 gate 已阻止启动，但清理尚未提交的 owner 后，同一身份重试仍可能被当作新请求。现改为先预留 journal 容量，取消胜出时写入无进程的 CANCELLED 终态，保留绑定和 terminalCommit；清理不删除该结果，后续重试只返回原终态。新增 JVM 用例从新建 store 重新读取并检查幂等取消，租期/取消专项合计 6 项。
+
+补修后的固定制品重新执行：
+
+```sh
+./gradlew :runtime:proot-app:testDebugUnitTest :runtime:proot-core:test detekt :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest
+bash scripts/debug/2026-09-18/run-196-cancel-regression.sh
+bash scripts/debug/2026-09-18/run-196-runtime-regression.sh hxa196-cancel-regression
+./scripts/check-all.sh --all
+python3 scripts/verify-integrated-runtime-apks.py --build-type release
+```
+
+全部 exit 0。API29/36 各 7 项行为 + 1 项探针准备通过（35.252 / 81.536 秒），宿主独立主进程死亡检查通过；旧 Runtime 各 35/35（73.391 / 92.524 秒）。四个独占模拟器正常退出。四组 app SHA-256 均为 `e339100b8653e0485efa6d5cd95ff152e2128a95281d1b7207028a7ab25ae0eb`，test 哈希与上轮相同。日志在 `build/hxa196-cancel-*`；这是最终核心实现证据，不将前述首轮制品冒充补修后的制品。
+
+产品工具注册、会话授权/预算接线、任务投影以及真机 HOME/锁屏/Doze 仍未关闭。模拟器成功不证明 Android force-stop 后继续执行，也不改变 Runtime 死亡不重放的契约。

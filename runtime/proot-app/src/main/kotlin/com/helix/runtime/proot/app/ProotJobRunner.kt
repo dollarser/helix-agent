@@ -113,7 +113,12 @@ class ProotJobRunner private constructor(
 
     @Synchronized
     internal fun reserveDetached(jobId: String): Boolean {
-        if (detachedReservation != null || store.activeJobIds().isNotEmpty()) return false
+        // Reserve journal capacity before an owner can persist a pre-start cancellation.
+        if (detachedReservation != null || store.activeJobIds().isNotEmpty() ||
+            !store.pruneAndBudgetAvailable(System.currentTimeMillis())
+        ) {
+            return false
+        }
         detachedReservation = jobId
         return true
     }
@@ -678,16 +683,10 @@ class ProotJobRunner private constructor(
     @Synchronized
     private fun publishTerminal(record: ProotJobRecord) {
         if (store.load(record.jobId)?.state?.isTerminal == true) return
-        val state =
-            when {
-                cancellationFlags[record.jobId]?.get() == true -> ProotJobState.CANCELLED
-                record.jobId in expiredLeases -> ProotJobState.TIMED_OUT
-                else -> record.state
-            }
         store.put(
-            record.copy(
-                state = state,
-                terminalAtEpochMs = maxOf(record.createdAtEpochMs, requireNotNull(record.terminalAtEpochMs)),
+            record.withStopReason(
+                cancelled = cancellationFlags[record.jobId]?.get() == true,
+                leaseExpired = record.jobId in expiredLeases,
             ),
         )
     }
@@ -824,6 +823,20 @@ class ProotJobRunner private constructor(
 
     fun sweepOrphans() = sweepProotOrphans(store, ::killProcessGroup)
 }
+
+private fun ProotJobRecord.withStopReason(
+    cancelled: Boolean,
+    leaseExpired: Boolean,
+): ProotJobRecord =
+    copy(
+        state =
+            when {
+                cancelled -> ProotJobState.CANCELLED
+                leaseExpired -> ProotJobState.TIMED_OUT
+                else -> state
+            },
+        terminalAtEpochMs = maxOf(createdAtEpochMs, requireNotNull(terminalAtEpochMs)),
+    )
 
 private fun sha256Of(bytes: ByteArray): String =
     MessageDigest

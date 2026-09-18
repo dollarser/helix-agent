@@ -94,7 +94,7 @@ class ProotDetachedJobService : Service() {
 
     override fun onDestroy() {
         admission?.let {
-            it.gate.cancel { runner.cancel(it.record.binding.jobId) }
+            it.gate.cancel { runner.cancel(it.record.binding.jobId) ?: store.cancelUnsubmitted(it.record) }
             runner.releaseDetached(it.record.binding.jobId)
             it.ready.countDown()
         }
@@ -254,7 +254,7 @@ class ProotDetachedJobService : Service() {
                 if (current == null) {
                     runner.cancel(binding.jobId)
                 } else {
-                    current.gate.cancel { runner.cancel(binding.jobId) }
+                    current.gate.cancel { runner.cancel(binding.jobId) ?: store.cancelUnsubmitted(current.record) }
                 }
             } else {
                 runner.query(binding.jobId)

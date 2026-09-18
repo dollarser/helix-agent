@@ -4,7 +4,9 @@ import android.util.AtomicFile
 import com.helix.runtime.proot.core.DetachedLease
 import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.ProotJobCommand
+import com.helix.runtime.proot.ipc.ProotJobRecord
 import com.helix.runtime.proot.ipc.ProotJobSpec
+import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -22,6 +24,22 @@ internal class DetachedJobStore(
         val lease: DetachedLease,
         val requestHash: String,
     )
+
+    /** Keep a terminal identity even when cancellation wins before runner submission. */
+    fun cancelUnsubmitted(owner: Record): ProotJobRecord {
+        jobs.load(owner.binding.jobId)?.let { return it }
+        val cancelled =
+            ProotJobRecord(
+                jobId = owner.binding.jobId,
+                executionId = owner.binding.executionId,
+                inputManifestSha256 = owner.binding.inputManifestSha256,
+                state = ProotJobState.CANCELLED,
+                createdAtEpochMs = owner.lease.startedAtEpochMs,
+                terminalAtEpochMs = maxOf(owner.lease.startedAtEpochMs, System.currentTimeMillis()),
+            )
+        jobs.put(cancelled)
+        return cancelled
+    }
 
     fun discardUnsubmitted(jobId: String) {
         if (jobs.load(jobId) != null) return
