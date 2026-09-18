@@ -213,7 +213,7 @@
 | HXA-201 | 已交付 | 工具设置与审批卡 | [交付证据](../completion-records/HXA-201.md) |
 | HXA-202 | 已交付 | 任务过程与跨页面操作导航 | [交付证据](../completion-records/HXA-202.md) |
 | HXA-203 | 已交付 | 产物可用性与文件交付闭环 | [交付证据](../completion-records/HXA-203.md) |
-| HXA-204 | 待实现 | 跨执行域错误与恢复交互 | [任务规格](tasks/HXA-204.md) |
+| HXA-204 | 已交付 | 跨执行域错误与恢复交互 | [交付证据](../completion-records/HXA-204.md) |
 | HXA-205 | 待实现 | 首次配置与能力准备修复 | [任务规格](tasks/HXA-205.md) |
 | HXA-206 | 集成验收 | 核心产品闭环综合验收 | [任务规格](tasks/HXA-206.md) |
 | HXA-207 | 待实现 | 现有扩展来源的添加到使用闭环 | [任务规格](tasks/HXA-207.md) |

@@ -179,7 +179,7 @@ CC 的 subagents 将任务放到独立上下文，hooks 在指定生命周期执
 
 - 已交付 [HXA-194](../completion-records/HXA-194.md)：命令详情及现有结果导航，保留回归。
 - 已交付 [HXA-203](../completion-records/HXA-203.md)：产物可用性、打开/导出和来源任务，保留回归。
-- 下一批 [HXA-204](../development/tasks/HXA-204.md) / [HXA-205](../development/tasks/HXA-205.md)：跨执行域恢复与首次准备修复。
+- 下一批 [HXA-204](../completion-records/HXA-204.md) / [HXA-205](../development/tasks/HXA-205.md)：跨执行域恢复与首次准备修复。
 - [HXA-195](../development/tasks/HXA-195.md)：有界实时输出；运行中状态不冒充实时日志。
 - [HXA-196～199 的终端链](../architecture/terminal.md)：有期限后台 Job、用户手动 PTY、重连及综合验收。
 - [HXA-207](../development/tasks/HXA-207.md)：现有 Skill/MCP/Connector 从添加到实际调用、禁用与修复。
