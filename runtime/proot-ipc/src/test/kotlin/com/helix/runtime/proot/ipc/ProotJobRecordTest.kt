@@ -55,6 +55,38 @@ class ProotJobRecordTest {
     }
 
     @Test
+    fun monotonicDurationIsCommittedAndLegacyIdentityIsPreserved() {
+        val legacy = succeeded()
+        val record = legacy.copy(elapsedDurationMs = 3_500)
+        val encoded = ProotJobRecordCodec.encode(record)
+        assertEquals(record, ProotJobRecordCodec.parse(encoded))
+        assertTrue(legacy.terminalCommit != record.terminalCommit)
+        assertThrows(ProotIpcException::class.java) {
+            ProotJobRecordCodec.parse(encoded.replace("3500", "3501"))
+        }
+        assertTrue(ProotJobRecordCodec.encode(legacy).contains("\"schemaVersion\":1"))
+        assertEquals(
+            legacy.terminalCommit,
+            ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(legacy)).terminalCommit,
+        )
+    }
+
+    @Test
+    fun durationRequiresATerminalRecordAndAnExplicitVersion() {
+        assertThrows(IllegalArgumentException::class.java) { pending().copy(elapsedDurationMs = 0) }
+        assertThrows(IllegalArgumentException::class.java) { succeeded().copy(elapsedDurationMs = -1) }
+        val encoded = ProotJobRecordCodec.encode(succeeded().copy(elapsedDurationMs = 3_500))
+        assertThrows(ProotIpcException::class.java) {
+            ProotJobRecordCodec.parse(encoded.replace("\"schemaVersion\":2", "\"schemaVersion\":1"))
+        }
+        assertThrows(ProotIpcException::class.java) {
+            ProotJobRecordCodec.parse(
+                ProotJobRecordCodec.encode(succeeded()).replace("\"schemaVersion\":1", "\"schemaVersion\":2"),
+            )
+        }
+    }
+
+    @Test
     fun outputCountersUseTheExecutionCapRatherThanTheJournalDocumentSize() {
         val pressure = succeeded().copy(stdoutBytes = 3145728, stderrBytes = 3145728)
         assertEquals(pressure, ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(pressure)))

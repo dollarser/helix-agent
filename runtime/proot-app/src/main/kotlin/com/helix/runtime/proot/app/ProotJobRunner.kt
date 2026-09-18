@@ -110,6 +110,7 @@ class ProotJobRunner private constructor(
     private val liveJobs = ConcurrentHashMap<String, LiveJob>()
     private val cancellationFlags = ConcurrentHashMap<String, AtomicBoolean>()
     private val owners = ProotJobOwners()
+    private val executionWindows = ConcurrentHashMap<String, JobExecutionWindow>()
     private val expiredLeases = ConcurrentHashMap.newKeySet<String>()
     private var detachedReservation: String? = null
 
@@ -225,6 +226,7 @@ class ProotJobRunner private constructor(
                 createdAtEpochMs = now,
             )
         store.put(pending)
+        executionWindows[spec.jobId] = window
         cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
         if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
         jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd, window) }
@@ -511,6 +513,7 @@ class ProotJobRunner private constructor(
             liveJobs.remove(spec.jobId)
             cancellationFlags.remove(spec.jobId, cancelRequested)
             expiredLeases.remove(spec.jobId)
+            executionWindows.remove(spec.jobId)
             owners.release(spec.jobId)
         }
     }
@@ -688,10 +691,13 @@ class ProotJobRunner private constructor(
     private fun publishTerminal(record: ProotJobRecord) {
         if (store.load(record.jobId)?.state?.isTerminal == true) return
         store.put(
-            record.withStopReason(
-                cancelled = cancellationFlags[record.jobId]?.get() == true,
-                leaseExpired = record.jobId in expiredLeases,
-            ),
+            record
+                .copy(
+                    elapsedDurationMs = executionWindows[record.jobId]?.elapsedMs(SystemClock.elapsedRealtime()),
+                ).withStopReason(
+                    cancelled = cancellationFlags[record.jobId]?.get() == true,
+                    leaseExpired = record.jobId in expiredLeases,
+                ),
         )
     }
 
@@ -762,41 +768,6 @@ class ProotJobRunner private constructor(
             }
             Thread.sleep(100L)
         }
-    }
-
-    /** /proc descendant BFS (host view; PRoot children are real host processes). */
-    @Suppress("SwallowedException", "LoopWithTooManyJumpStatements", "TooGenericExceptionCaught")
-    private fun processTree(rootPid: Int): Set<Int> {
-        val result = linkedSetOf<Int>()
-        var frontier = listOf(rootPid)
-        var depth = 0
-        while (frontier.isNotEmpty() && depth < 16) {
-            depth++
-            val next = mutableListOf<Int>()
-            File("/proc")
-                .listFiles()
-                ?.filter { it.name.all { c -> c in '0'..'9' } }
-                ?.forEach { entry ->
-                    val pid = entry.name.toIntOrNull() ?: return@forEach
-                    val stat =
-                        try {
-                            File(entry, "stat").readText()
-                        } catch (e: Exception) {
-                            // an unreadable /proc entry is not one of ours: skip it
-                            return@forEach
-                        }
-                    // ppid is field 4; the comm field (2) may contain spaces, so
-                    // split from the LAST ')'.
-                    val closeParen = stat.lastIndexOf(')')
-                    val fields = stat.substring(closeParen + 2).trim().split(" ")
-                    if (fields.size > 1 && fields[1].toIntOrNull() in frontier) {
-                        result += pid
-                        next += pid
-                    }
-                }
-            frontier = next
-        }
-        return result
     }
 
     /** Persists the process identity for the orphan sweep (`pid=` / `startTicks=` lines). */

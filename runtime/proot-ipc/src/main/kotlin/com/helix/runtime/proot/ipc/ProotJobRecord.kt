@@ -60,6 +60,8 @@ data class ProotJobRecord(
     val outputManifestSha256: String? = null,
     val reconciledAtEpochMs: Long? = null,
     val evidenceExpired: Boolean = false,
+    /** Admission through terminal publication in one Runtime incarnation; null means unknown. */
+    val elapsedDurationMs: Long? = null,
 ) {
     init {
         ProotJobRecordCodec.checkJobId(jobId)
@@ -77,6 +79,7 @@ data class ProotJobRecord(
                     outputManifestSha256.all { it in '0'..'9' || it in 'a'..'f' },
             ) { "outputManifestSha256 is not canonical lowercase hex" }
         }
+        require(elapsedDurationMs == null || (state.isTerminal && elapsedDurationMs >= 0))
         if (state.isTerminal) {
             require(terminalAtEpochMs != null && terminalAtEpochMs >= createdAtEpochMs) {
                 "terminal record needs a consistent terminalAtEpochMs"
@@ -125,7 +128,7 @@ data class ProotJobRecord(
         require(state.isTerminal) { "not terminal" }
         val obj =
             buildJsonObject {
-                put("schemaVersion", ProotJobRecordCodec.SUPPORTED_SCHEMA_VERSION)
+                put("schemaVersion", if (elapsedDurationMs == null) 1 else 2)
                 put("jobId", jobId)
                 put("executionId", executionId)
                 put("inputManifestSha256", inputManifestSha256)
@@ -136,6 +139,7 @@ data class ProotJobRecord(
                 put("truncated", truncated)
                 if (outputManifestSha256 != null) put("outputManifestSha256", outputManifestSha256)
                 put("terminalAtEpochMs", terminalAtEpochMs)
+                if (elapsedDurationMs != null) put("elapsedDurationMs", elapsedDurationMs)
             }
         return obj.toString()
     }
@@ -154,7 +158,7 @@ data class ProotJobRecord(
  * entry is a protocol failure, never a trusted proof.
  */
 object ProotJobRecordCodec {
-    const val SUPPORTED_SCHEMA_VERSION: Int = 1
+    const val SUPPORTED_SCHEMA_VERSION: Int = 2
 
     private const val JOB_ID_PREFIX = "job_"
     private const val JOB_ID_HEX_LENGTH = 12
@@ -199,7 +203,14 @@ object ProotJobRecordCodec {
             "evidenceExpired",
         )
     private val OPTIONAL_KEYS =
-        setOf("terminalAtEpochMs", "exitCode", "outputManifestSha256", "terminalCommit", "reconciledAtEpochMs")
+        setOf(
+            "terminalAtEpochMs",
+            "exitCode",
+            "outputManifestSha256",
+            "terminalCommit",
+            "reconciledAtEpochMs",
+            "elapsedDurationMs",
+        )
 
     // One throw per distinct schema violation; the parse is a single strict
     // read of a bounded document (long by necessity, not to be fragmented).
@@ -220,9 +231,12 @@ object ProotJobRecordCodec {
         REQUIRED_KEYS.filter { it !in obj.keys }.forEach { key ->
             throw ProotIpcException("job record is missing required key: $key")
         }
-        val schemaVersion = long(obj, "schemaVersion").toInt()
-        if (schemaVersion != SUPPORTED_SCHEMA_VERSION) {
+        val schemaVersion = long(obj, "schemaVersion")
+        if (schemaVersion !in 1L..SUPPORTED_SCHEMA_VERSION.toLong()) {
             throw ProotIpcException("unsupported job record schemaVersion: $schemaVersion")
+        }
+        if ((schemaVersion == 2L) != ("elapsedDurationMs" in obj)) {
+            throw ProotIpcException("elapsedDurationMs requires schemaVersion 2")
         }
         val state = ProotJobState.fromWire(string(obj, "state"))
         val jobId = string(obj, "jobId")
@@ -249,6 +263,7 @@ object ProotJobRecordCodec {
                     outputManifest,
                     reconciledAt,
                     bool(obj, "evidenceExpired"),
+                    obj["elapsedDurationMs"]?.let { long(obj, "elapsedDurationMs") },
                 )
             } catch (e: IllegalArgumentException) {
                 throw ProotIpcException("job record is incoherent: ${e.message?.take(120)}")
@@ -292,7 +307,7 @@ object ProotJobRecordCodec {
     fun encode(record: ProotJobRecord): String {
         val obj =
             buildJsonObject {
-                put("schemaVersion", SUPPORTED_SCHEMA_VERSION)
+                put("schemaVersion", if (record.elapsedDurationMs == null) 1 else 2)
                 put("jobId", record.jobId)
                 put("executionId", record.executionId)
                 put("inputManifestSha256", record.inputManifestSha256)
@@ -314,6 +329,7 @@ object ProotJobRecordCodec {
                     put("reconciledAtEpochMs", record.reconciledAtEpochMs)
                 }
                 put("evidenceExpired", record.evidenceExpired)
+                if (record.elapsedDurationMs != null) put("elapsedDurationMs", record.elapsedDurationMs)
             }
         return json.encodeToString(JsonObject.serializer(), obj)
     }

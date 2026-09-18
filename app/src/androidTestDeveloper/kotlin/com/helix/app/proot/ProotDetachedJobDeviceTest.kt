@@ -48,6 +48,7 @@ class ProotDetachedJobDeviceTest {
         val extracted = File(job.directory, "verified")
         assertEquals(record.outputManifestSha256, ZipJobExtractor.extract(job.output, extracted).manifestSha256)
         assertEquals("DETACHED_OK", File(extracted, "stdout.txt").readText())
+        assertTrue(requireNotNull(record.elapsedDurationMs) >= 2_000)
     }
 
     @Test fun duplicateDoesNotRestartOrRenewAndForeignBindingCannotObserveOrCancel() {
@@ -67,7 +68,9 @@ class ProotDetachedJobDeviceTest {
         val job = fixture("sleep 60")
         val start = android.os.SystemClock.elapsedRealtime()
         assertTrue(job.submit(client, budgetMs = 3_000).accepted)
-        assertEquals(ProotJobState.TIMED_OUT, client.awaitTerminal(job.binding).state)
+        val record = client.awaitTerminal(job.binding)
+        assertEquals(ProotJobState.TIMED_OUT, record.state)
+        assertTrue(requireNotNull(record.elapsedDurationMs) in 1_000..15_000)
         assertTrue(android.os.SystemClock.elapsedRealtime() - start < 15_000)
     }
 
@@ -150,7 +153,9 @@ class ProotDetachedJobDeviceTest {
             reply.recycle()
             supervisor.closeConnection()
         }
-        assertEquals(ProotJobState.ORPHANED, client.awaitTerminal(job.binding).state)
+        val orphan = client.awaitTerminal(job.binding)
+        assertEquals(ProotJobState.ORPHANED, orphan.state)
+        assertEquals(null, orphan.elapsedDurationMs)
         assertEquals(ProotRuntimeProtocol.REPLY_JOB_DUPLICATE, job.submit(client).status)
     }
 

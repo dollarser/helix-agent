@@ -19,6 +19,13 @@ class JobExecutionWindowTest {
         assertEquals(2_999L, JobExecutionWindow(Long.MAX_VALUE - 1, 3_000).remainingMs(Long.MAX_VALUE))
     }
 
+    @Test fun elapsedIncludesOverrunAndDoesNotInventTimeAfterClockReset() {
+        val window = JobExecutionWindow(100, 3_000)
+        assertEquals(3_500L, window.elapsedMs(3_600))
+        assertEquals(null, window.elapsedMs(99))
+        assertEquals(Long.MAX_VALUE, JobExecutionWindow(0, 1).elapsedMs(Long.MAX_VALUE))
+    }
+
     @Test fun invalidWindowsAreRejected() {
         assertThrows(IllegalArgumentException::class.java) { JobExecutionWindow(-1, 1) }
         assertThrows(IllegalArgumentException::class.java) { JobExecutionWindow(0, 0) }
