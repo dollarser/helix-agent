@@ -163,10 +163,11 @@ object PlanTools {
         implementations: ToolImplementationRegistry,
         plans: PlanRepository,
         idGenerator: () -> String,
+        decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
         val descriptor = descriptor()
         registry.register(descriptor)
-        implementations.register(descriptor, executor(plans, idGenerator))
+        implementations.register(descriptor, decorate(executor(plans, idGenerator)))
     }
 
     // --- argument projection: schema-validated JSON -> the validated domain type ---

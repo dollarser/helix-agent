@@ -40,8 +40,9 @@ internal object GoalReportTool {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         storage: HelixStorage,
+        decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
-        registerName(NAME, registry, implementations, storage)
+        registerName(NAME, registry, implementations, storage, decorate)
     }
 
     private fun registerName(
@@ -49,6 +50,7 @@ internal object GoalReportTool {
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         storage: HelixStorage,
+        decorate: (ToolExecutor) -> ToolExecutor,
     ) {
         val descriptor =
             ToolDescriptor(
@@ -77,30 +79,45 @@ internal object GoalReportTool {
         registry.register(descriptor)
         implementations.register(
             descriptor,
-            object : ToolExecutor {
-                @Suppress("ReturnCount") // Explicit ownership and cancellation rejection boundaries.
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-                    val binding = call.turnId?.let { storage.goalTurnBindings.byTurn(it) }
-                    val run = binding?.let { storage.goalRuns.resolve(it.runId) }
-                    val active = run != null && run.endedAt == null
-                    val owned =
-                        binding != null &&
-                            call.turnId?.let { storage.turns.resolve(it).sessionId == call.sessionId } == true
-                    val running = run?.let { storage.goals.resolve(it.goalId).state == "RUNNING" } == true
-                    if (!active || !owned || !running) {
-                        return ToolExecutorResult.Failed("No active Goal for this request", sideEffectFree = true)
+            decorate(
+                object : ToolExecutor {
+                    @Suppress("ReturnCount") // Explicit ownership and cancellation rejection boundaries.
+                    override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                        if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                        val binding = call.turnId?.let { storage.goalTurnBindings.byTurn(it) }
+                        val run = binding?.let { storage.goalRuns.resolve(it.runId) }
+                        val active = run != null && run.endedAt == null
+                        val owned =
+                            binding != null &&
+                                call.turnId?.let { storage.turns.resolve(it).sessionId == call.sessionId } == true
+                        val running = run?.let { storage.goals.resolve(it.goalId).state == "RUNNING" } == true
+                        if (!active || !owned || !running) {
+                            return ToolExecutorResult.Failed("No active Goal for this request", sideEffectFree = true)
+                        }
+                        if (call.args
+                                .getValue("status")
+                                .jsonPrimitive.content == "complete" &&
+                            storage.goalUsageReservations.pendingForRun(requireNotNull(run).id).any {
+                                it.kind ==
+                                    "TIME_LEASE"
+                            }
+                        ) {
+                            return ToolExecutorResult.Failed(
+                                "Collect the pending Job before reporting completion",
+                                sideEffectFree = true,
+                            )
+                        }
+                        if (call.args
+                                .getValue("summary")
+                                .jsonPrimitive.content
+                                .isBlank()
+                        ) {
+                            return ToolExecutorResult.Failed("Provide a nonblank summary", sideEffectFree = true)
+                        }
+                        return ToolExecutorResult.Completed(call.args)
                     }
-                    if (call.args
-                            .getValue("summary")
-                            .jsonPrimitive.content
-                            .isBlank()
-                    ) {
-                        return ToolExecutorResult.Failed("Provide a nonblank summary", sideEffectFree = true)
-                    }
-                    return ToolExecutorResult.Completed(call.args)
-                }
-            },
+                },
+            ),
         )
     }
 }

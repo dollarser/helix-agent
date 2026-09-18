@@ -7,7 +7,7 @@ import sys
 
 root = Path(__file__).resolve().parents[3]
 prefix = sys.argv[1]
-expected = int(sys.argv[2]) if len(sys.argv) > 2 else 44
+expected = int(sys.argv[2]) if len(sys.argv) > 2 else 62
 if expected <= 0:
     raise SystemExit("Expected test count must be positive")
 rows = []

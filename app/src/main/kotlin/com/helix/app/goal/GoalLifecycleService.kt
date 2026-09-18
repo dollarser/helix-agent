@@ -121,6 +121,34 @@ internal class GoalLifecycleService(
         return snapshot(storage.goals.resolve(id))
     }
 
+    private fun report(
+        call: ExecutableToolCall,
+        id: String,
+        status: String?,
+    ): JsonObject {
+        require(status in setOf("complete", "in_progress", "blocked")) { "Provide a change or report" }
+        require(
+            call.args["summary"]
+                ?.jsonPrimitive
+                ?.content
+                ?.isNotBlank() == true,
+        ) { "Provide a summary" }
+        val binding = storage.goalTurnBindings.byTurn(requireNotNull(call.turnId))
+        require(
+            binding != null &&
+                storage.goalRuns.resolve(binding.runId).let {
+                    it.goalId == id && it.endedAt == null
+                },
+        ) { "Reports require this turn's active Goal" }
+        require(
+            status != "complete" ||
+                storage.goalUsageReservations
+                    .pendingForRun(binding.runId)
+                    .none { it.kind == "TIME_LEASE" },
+        ) { "Collect the pending Job before reporting completion" }
+        return call.args
+    }
+
     private fun update(call: ExecutableToolCall): JsonObject {
         val id =
             call.args
@@ -141,23 +169,7 @@ internal class GoalLifecycleService(
         require(goal.state !in TERMINAL) { "Goal is terminal; create a new Goal" }
         val status = call.args["status"]?.jsonPrimitive?.content
         val edit = "objective" in call.args || "budgets" in call.args || status in setOf("active", "paused")
-        if (!edit) {
-            require(status in setOf("complete", "in_progress", "blocked")) { "Provide a change or report" }
-            require(
-                call.args["summary"]
-                    ?.jsonPrimitive
-                    ?.content
-                    ?.isNotBlank() == true,
-            ) { "Provide a summary" }
-            val binding = storage.goalTurnBindings.byTurn(requireNotNull(call.turnId))
-            require(
-                binding != null &&
-                    storage.goalRuns.resolve(binding.runId).let {
-                        it.goalId == id && it.endedAt == null
-                    },
-            ) { "Reports require this turn's active Goal" }
-            return call.args
-        }
+        if (!edit) return report(call, id, status)
         requireUser(call)
         require(status == null || status in setOf("active", "paused")) { "Report separately from editing" }
         require(goal.planId == null || "objective" !in call.args) { "Edit and review the bound plan first" }

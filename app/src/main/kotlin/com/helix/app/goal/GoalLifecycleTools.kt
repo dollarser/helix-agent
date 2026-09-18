@@ -46,6 +46,7 @@ internal object GoalLifecycleTools {
     fun register(
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
+        decorate: (ToolExecutor) -> ToolExecutor = { it },
         execute: (ExecutableToolCall) -> ToolExecutorResult,
     ) {
         val descriptions =
@@ -90,9 +91,11 @@ internal object GoalLifecycleTools {
             registry.register(descriptor)
             implementations.register(
                 descriptor,
-                object : ToolExecutor {
-                    override fun execute(call: ExecutableToolCall): ToolExecutorResult = execute.invoke(call)
-                },
+                decorate(
+                    object : ToolExecutor {
+                        override fun execute(call: ExecutableToolCall): ToolExecutorResult = execute.invoke(call)
+                    },
+                ),
             )
         }
     }

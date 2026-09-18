@@ -76,6 +76,7 @@ internal object TodoWriteTool {
     fun register(
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
+        decorate: (ToolExecutor) -> ToolExecutor = { it },
     ) {
         val descriptor =
             ToolDescriptor(
@@ -105,21 +106,23 @@ internal object TodoWriteTool {
         registry.register(descriptor)
         implementations.register(
             descriptor,
-            object : ToolExecutor {
-                @Suppress("ReturnCount") // cancellation boundary + the fail-closed validation exit
-                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                    if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-                    return try {
-                        ledgerFromArgs(call.args)
-                        // The echo IS the model-visible result: the normalized ledger it just wrote.
-                        ToolExecutorResult.Completed(call.args)
-                    } catch (e: IllegalArgumentException) {
-                        // Nothing was persisted by this executor; the dispatcher's row only
-                        // records the failed call. The stable label is model-visible.
-                        ToolExecutorResult.Failed(e.message ?: "the task list is invalid", sideEffectFree = true)
+            decorate(
+                object : ToolExecutor {
+                    @Suppress("ReturnCount") // cancellation boundary + the fail-closed validation exit
+                    override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                        if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                        return try {
+                            ledgerFromArgs(call.args)
+                            // The echo IS the model-visible result: the normalized ledger it just wrote.
+                            ToolExecutorResult.Completed(call.args)
+                        } catch (e: IllegalArgumentException) {
+                            // Nothing was persisted by this executor; the dispatcher's row only
+                            // records the failed call. The stable label is model-visible.
+                            ToolExecutorResult.Failed(e.message ?: "the task list is invalid", sideEffectFree = true)
+                        }
                     }
-                }
-            },
+                },
+            ),
         )
     }
 

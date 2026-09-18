@@ -95,9 +95,35 @@ class ExecutionOwnership(
                 when {
                     call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
                     executor is ControlExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
+                    executor is MetadataExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
                     else -> runOrdinary(executor, call, exclusive)
                 }
         }
+
+    /** Trusted composition only: closed session metadata, never a descriptor-based exemption. */
+    fun metadataExecutor(executor: ToolExecutor): ToolExecutor = MetadataExecutor(executor)
+
+    private inner class MetadataExecutor(
+        private val delegate: ToolExecutor,
+    ) : ToolExecutor {
+        override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+            ToolExecutorResult.Failed("Metadata requires its host execution guard.", sideEffectFree = true)
+
+        fun runGuarded(
+            call: ExecutableToolCall,
+            host: ExecutionOwnership,
+        ): ToolExecutorResult {
+            check(host === this@ExecutionOwnership) { "metadata belongs to another admission host" }
+            if (call.sessionId.isNullOrBlank() || call.turnId.isNullOrBlank()) {
+                return ToolExecutorResult.Failed(
+                    "Metadata requires trusted session and turn context.",
+                    sideEffectFree = true,
+                )
+            }
+            // No execution permit or owner mutation: the bound metadata implementation keeps its own validation.
+            return delegate.execute(call)
+        }
+    }
 
     private fun runOrdinary(
         executor: ToolExecutor,

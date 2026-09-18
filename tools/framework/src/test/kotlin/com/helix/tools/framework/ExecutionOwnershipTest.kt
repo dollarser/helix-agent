@@ -261,6 +261,60 @@ class ExecutionOwnershipTest {
         assertThrows(IllegalStateException::class.java) { gate.releaseUnsubmittedForCall("start", owner) }
     }
 
+    @Test fun explicitMetadataExecutorLeavesRetainedOwnershipUntouched() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { assertTrue(it.retain(owner)) }
+        var calls = 0
+        val implementation =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    calls++
+                    return ToolExecutorResult.Completed(buildJsonObject {})
+                }
+            }
+        val metadata = gate.metadataExecutor(implementation)
+        val bound = call().copy(sessionId = "session", turnId = "turn")
+        assertTrue(metadata.execute(bound) is ToolExecutorResult.Failed)
+        assertTrue(gate.guard(metadata).execute(bound) is ToolExecutorResult.Completed)
+        requireNotNull(gate.acquireReconciliation(owner)).use {
+            assertTrue(gate.guard(metadata).execute(bound) is ToolExecutorResult.Completed)
+        }
+        assertEquals(2, calls)
+        assertEquals(owner, gate.retainedOwner())
+        assertNull(gate.acquire("ordinary-write"))
+        assertTrue(
+            gate.guard(implementation).execute(bound.copy(toolName = "goal.report")) is ToolExecutorResult.Failed,
+        )
+    }
+
+    @Test fun metadataWrapperRequiresItsHostBindingAndCancellationChecks() {
+        val gate = ExecutionOwnership(MemoryStore())
+        var calls = 0
+        val metadata =
+            gate.metadataExecutor(
+                object : ToolExecutor {
+                    override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                        calls++
+                        return ToolExecutorResult.Completed(buildJsonObject {})
+                    }
+                },
+            )
+        assertTrue(gate.guard(metadata).execute(call()) is ToolExecutorResult.Failed)
+        val bound = call().copy(sessionId = "session", turnId = "turn")
+        assertThrows(
+            IllegalStateException::class.java,
+        ) { ExecutionOwnership(MemoryStore()).guard(metadata).execute(bound) }
+        val cancelled =
+            bound.copy(
+                cancel =
+                    object : CancelSignal {
+                        override fun isCancelled() = true
+                    },
+            )
+        assertEquals(ToolExecutorResult.Cancelled, gate.guard(metadata).execute(cancelled))
+        assertEquals(0, calls)
+    }
+
     private fun call() =
         ExecutableToolCall(
             toolCallId = "call",

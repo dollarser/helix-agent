@@ -29,6 +29,8 @@ developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会
 
 `collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 仍需恢复审查，不能凭一次查询释放占用。旧同步 `bash`/`code.linux.run` 继续返回同步结果。
 
+后台占用期间，宿主显式包装的 Goal、Plan、Todo 内置 executor 可继续处理绑定会话/Turn 的元数据。这个准入不按工具名称或自报 READ_ONLY/METADATA 自动授予，不修改 owner，也不绕过 Dispatcher 权限和各工具的绑定/取消校验。存在 pending 后台时间租期时，`goal.report` 与 `update_goal` 可以上报进度，不能提前上报 complete；先收取原 Job，再检查目标并报告完成。
+
 ## 手动终端与多会话
 
 developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。

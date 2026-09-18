@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.goal.GoalLifecycleService
+import com.helix.app.goal.GoalLifecycleTools
 import com.helix.app.goal.GoalReportTool
 import com.helix.app.goal.goalModelReport
+import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.ExecutionTargetType
@@ -18,6 +21,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.tools.framework.CancelSignal
 import com.helix.tools.framework.ExecutableToolCall
+import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
 import com.helix.tools.framework.ToolExecutorResult
 import com.helix.tools.framework.ToolImplementationRegistry
@@ -265,6 +269,97 @@ class GoalModelReportDeviceTest {
             NoCancellation,
             "s",
             "t",
+        )
+
+    @Test fun metadataReportWorksDuringJobButCompletionWaitsForCollection() =
+        fixture { s, goal, start ->
+            val owner = metadataOwner()
+            val implementations = ToolImplementationRegistry()
+            GoalReportTool.register(ToolRegistry(), implementations, s, owner::metadataExecutor)
+            val executor = owner.guard(implementations.resolve(ToolName("goal.report"), ToolVersion(1)))
+            val reservations = GoalUsageReservations(s)
+            assertTrue(
+                reservations.reserve(
+                    GoalUsageReservations.Request(
+                        "lease",
+                        start.runId,
+                        GoalUsageReservations.Kind.TIME_LEASE,
+                        millis = 1_000,
+                    ),
+                ),
+            )
+            assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Failed)
+            val progress =
+                executableReport().copy(
+                    args =
+                        buildJsonObject {
+                            put("status", "in_progress")
+                            put("summary", "Waiting for original Job")
+                        },
+                )
+            assertTrue(executor.execute(progress) is ToolExecutorResult.Completed)
+            assertTrue(executor.execute(progress.copy(sessionId = "foreign")) is ToolExecutorResult.Failed)
+            assertNull(owner.acquire("file-write"))
+            reservations.checkpointLease("lease", 100, 2000, terminal = true)
+            assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Completed)
+            report(s, "t", "complete")
+            start.coordinator.beginModelStream()
+            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            assertEquals("COMPLETED", s.goals.resolve(goal).state)
+            assertTrue(owner.retainedOwner() != null)
+        }
+
+    @Test fun lifecycleMetadataReadsAndReportsWithoutClosingPendingJob() =
+        fixture { s, goal, start ->
+            val owner = metadataOwner()
+            val service = GoalLifecycleService(s, clock, ::id, { _, _ -> null }, { _, _, _, _ -> })
+            service.bind(goal, "s")
+            val implementations = ToolImplementationRegistry()
+            GoalLifecycleTools.register(ToolRegistry(), implementations, owner::metadataExecutor, service::execute)
+            val read = owner.guard(implementations.resolve(ToolName("get_goal"), ToolVersion(1)))
+            assertTrue(
+                read.execute(executableReport().copy(toolName = "get_goal", args = buildJsonObject {}))
+                    is ToolExecutorResult.Completed,
+            )
+            assertTrue(
+                GoalUsageReservations(s).reserve(
+                    GoalUsageReservations.Request(
+                        "lease",
+                        start.runId,
+                        GoalUsageReservations.Kind.TIME_LEASE,
+                        millis = 1_000,
+                    ),
+                ),
+            )
+            val update = owner.guard(implementations.resolve(ToolName("update_goal"), ToolVersion(1)))
+            val call =
+                executableReport().copy(
+                    toolName = "update_goal",
+                    args =
+                        buildJsonObject {
+                            put("id", goal)
+                            put("expected_revision", requireNotNull(s.goalControls.find(goal)).revision)
+                            put("status", "complete")
+                            put("summary", "Cannot complete while Job is pending")
+                        },
+                )
+            assertTrue(update.execute(call) is ToolExecutorResult.Failed)
+            assertNull(s.goalRuns.resolve(start.runId).endedAt)
+            assertTrue(owner.retainedOwner() != null)
+        }
+
+    private fun metadataOwner(): ExecutionOwnership =
+        ExecutionOwnership(
+            object : ExecutionOwnership.Store {
+                private val owner = ExecutionOwnership.Owner("job-execution", "job-generation")
+
+                override fun read() = owner
+
+                override fun compareAndSet(
+                    expected: ExecutionOwnership.Owner?,
+                    replacement: ExecutionOwnership.Owner?,
+                ): Boolean = error("Metadata cannot mutate the execution owner")
+            },
         )
 
     private fun report(

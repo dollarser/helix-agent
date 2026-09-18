@@ -312,18 +312,24 @@ internal class DefaultAppContainer(
         com.helix.app.chat.ToolResultReadTool
             .register(toolRegistry, toolImplementations, storage)
         com.helix.app.goal.GoalLifecycleTools
-            .register(toolRegistry, toolImplementations) { chatService.executeGoalTool(it) }
+            .register(
+                toolRegistry,
+                toolImplementations,
+                executionOwnership::metadataExecutor,
+            ) { chatService.executeGoalTool(it) }
         com.helix.app.goal.GoalReportTool
-            .register(toolRegistry, toolImplementations, storage)
+            .register(toolRegistry, toolImplementations, storage, executionOwnership::metadataExecutor)
         // HX2-05: `plan.submit` — Plan mode's structured termination tool; persists the
         // versioned PlanArtifact REVIEW_REQUIRED through the same repository the review
         // loop (ChatService.planReview) drives.
         com.helix.app.plan.PlanTools
-            .register(toolRegistry, toolImplementations, storage.plans, { idGenerator.next() })
+            .register(toolRegistry, toolImplementations, storage.plans, {
+                idGenerator.next()
+            }, executionOwnership::metadataExecutor)
         // HX2-07: `todo.write` — the model's working-memory ledger; read-only L0 echo whose
         // durable record is the dispatcher's own tool-call row (like `goal.report`).
         com.helix.app.todo.TodoWriteTool
-            .register(toolRegistry, toolImplementations)
+            .register(toolRegistry, toolImplementations, executionOwnership::metadataExecutor)
         // HXA-095: developer registers only the five high-level Root reads; consumer is a
         // flavor-local no-op and therefore has neither libsu classes nor Root descriptors.
         RootModule.register(context, appClock, toolRegistry, toolImplementations)
