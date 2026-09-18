@@ -176,7 +176,7 @@ class MainActivity : ComponentActivity() {
 internal fun HelixApp(container: AppContainer) {
     var noticeDismissed by remember { mutableStateOf(container.firstLaunch.noticeSeen) }
     if (!noticeDismissed) {
-        MaterialTheme {
+        HelixTheme {
             FirstLaunchNoticeScreen(
                 onContinue = {
                     container.firstLaunch.markSeen()
@@ -199,7 +199,7 @@ internal fun HelixApp(container: AppContainer) {
         repository.destinations.firstOrNull { it.route == currentRoute }
             ?: repository.initialDestination
 
-    MaterialTheme {
+    HelixTheme {
         ModalNavigationDrawer(
             drawerState = drawerState,
             drawerContent = {
