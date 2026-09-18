@@ -25,7 +25,7 @@
 
 ## 后续执行边界
 
-下一任务为 [HXA-204](../../completion-records/HXA-204.md)，完整验收后继续 [HXA-205](../../development/tasks/HXA-205.md)。采用[统一交接](../../development/implementation-guide.md)，独立 worktree、本地具名提交，不推送、合并或发布。每个新 HXA 仍需核对当前代码与设备基线，已知失败先修；不得把本记录当成未来变更的测试结果。
+下一任务为 [HXA-204](../../completion-records/HXA-204.md)，完整验收后继续 [HXA-205](../../completion-records/HXA-205.md)。采用[统一交接](../../development/implementation-guide.md)，独立 worktree、本地具名提交，不推送、合并或发布。每个新 HXA 仍需核对当前代码与设备基线，已知失败先修；不得把本记录当成未来变更的测试结果。
 
 本轮开始时没有连接真机，因此最新制品真机回归、OEM/Doze/热压力和系统 JNI/Binder 证据仍开放。HXA-193 的干净资产重建、远端 CI、升级恢复以及190/125真实账号范围保持原分类；不阻塞没有这些外部依赖的恢复/UI开发，实际影响构建或初始化的故障仍须先解决。
 
