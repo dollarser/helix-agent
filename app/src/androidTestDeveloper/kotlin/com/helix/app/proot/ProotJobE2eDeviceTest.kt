@@ -381,6 +381,55 @@ class ProotJobE2eDeviceTest {
         }
     }
 
+    @Test
+    fun inputPreparationCannotLaunchAfterItsExecutionWindowExpires() {
+        runOnWorker {
+            val (archive, hash) = buildInputArchive(emptyMap())
+            val jobId = nextJobId()
+            val output = File(scratchDir("expired-preparation"), "output.zip")
+            val pipe = android.os.ParcelFileDescriptor.createPipe()
+            try {
+                val spec =
+                    ProotJobSpec(
+                        executionId = "exec-$jobId",
+                        jobId = jobId,
+                        command = ProotJobCommand.Script("printf MUST_NOT_LAUNCH"),
+                        relativeWorkingDirectory = "",
+                        environment = emptyMap(),
+                        deadlineMs = 3_000,
+                        maxOutputBytes = 1_024,
+                        inputManifestSha256 = hash,
+                    )
+                val reply =
+                    client.submit(
+                        spec,
+                        pipe[0],
+                        android.os.ParcelFileDescriptor.open(
+                            output,
+                            android.os.ParcelFileDescriptor.MODE_CREATE or
+                                android.os.ParcelFileDescriptor.MODE_WRITE_ONLY,
+                        ),
+                    )
+                assertTrue(reply is ProotJobClient.SubmitOutcome.Accepted)
+                // The Runtime is waiting for input. Spend the entire admitted window before EOF.
+                Thread.sleep(3_500)
+                android.os.ParcelFileDescriptor.AutoCloseOutputStream(pipe[1]).use { writer ->
+                    archive.inputStream().use { it.copyTo(writer) }
+                }
+                val terminal = client.awaitTerminal(jobId, pollIntervalMs = 100, timeoutMs = 15_000)
+                val record = (terminal as ProotJobClient.AwaitOutcome.Terminal).record
+                assertEquals(com.helix.runtime.proot.ipc.ProotJobState.TIMED_OUT, record.state)
+                assertEquals(null, record.exitCode)
+                assertEquals(0L, record.stdoutBytes)
+                assertEquals(0L, output.length())
+            } finally {
+                pipe.forEach { it.close() }
+                client.cancel(jobId)
+            }
+            Unit
+        }
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private fun screenOrThrow(environment: Map<String, String>): Map<String, String> {

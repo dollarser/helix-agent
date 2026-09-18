@@ -2,7 +2,9 @@ package com.helix.runtime.proot.app
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import com.helix.runtime.proot.core.JobArchiveException
+import com.helix.runtime.proot.core.JobExecutionWindow
 import com.helix.runtime.proot.core.JobZipWriter
 import com.helix.runtime.proot.core.RootFsInstaller
 import com.helix.runtime.proot.core.ZipJobExtractor
@@ -32,8 +34,8 @@ import java.util.concurrent.atomic.AtomicReference
  * - ONE job executor thread runs each job's full lifecycle (extract -> launch ->
  *   wait -> output archive -> terminal record); jobs never interleave, so the
  *   journal needs no in-process locking.
- * - ONE watchdog thread enforces the hard deadline: past `createdAt +
- *   deadlineMs` the job's process GROUP is killed (the job launches under the
+ * - ONE watchdog thread enforces the hard deadline: past the monotonic admission
+ *   window the job's process GROUP is killed (the job launches under the
  *   host `/system/bin/setsid`, so its pgid equals its pid — verified on device)
  *   and the job ends TIMED_OUT.
  * - Cancel is the same group kill ending in CANCELLED; the main app never
@@ -147,7 +149,7 @@ class ProotJobRunner private constructor(
         val cancelRequested: AtomicBoolean,
         val deadlineHit: AtomicBoolean,
         val outputLimitHit: AtomicBoolean,
-        val deadlineEpochMs: Long,
+        val executionWindow: JobExecutionWindow,
         val watchdog: ScheduledFuture<*>,
     )
 
@@ -186,6 +188,7 @@ class ProotJobRunner private constructor(
         owner: android.os.IBinder?,
         detached: Boolean = false,
     ): ProotJobSubmitResult {
+        val window = JobExecutionWindow(SystemClock.elapsedRealtime(), spec.deadlineMs)
         val now = System.currentTimeMillis()
         val entries = store.entries()
         val existing = entries[spec.jobId]
@@ -224,7 +227,7 @@ class ProotJobRunner private constructor(
         store.put(pending)
         cancellationFlags.putIfAbsent(spec.jobId, AtomicBoolean(false))
         if (owner != null) owners.watch(spec.jobId, owner) { cancel(spec.jobId) }
-        jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd) }
+        jobExecutor.submit { runJob(spec, pending, inputPfd, outputPfd, window) }
         return ProotJobSubmitResult.Accepted(pending)
     }
 
@@ -252,6 +255,7 @@ class ProotJobRunner private constructor(
         pending: ProotJobRecord,
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
+        executionWindow: JobExecutionWindow,
     ) {
         val cancelRequested = cancellationFlags.getValue(spec.jobId)
         val log = logs?.open(spec.jobId)
@@ -285,10 +289,7 @@ class ProotJobRunner private constructor(
             }
             inputArchive.delete()
 
-            if (cancelRequested.get() || spec.jobId in expiredLeases) {
-                terminalCancelled(pending, outputPfd, null)
-                return
-            }
+            if (stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow)) return
 
             // 2) The runtime must be active (installed + activated, HXA-082).
             val installId =
@@ -377,11 +378,7 @@ class ProotJobRunner private constructor(
                 builder.environment()["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
             }
 
-            val deadline = pending.createdAtEpochMs + spec.deadlineMs
-            if (cancelRequested.get() || spec.jobId in expiredLeases) {
-                terminalCancelled(pending, outputPfd, null)
-                return
-            }
+            if (stopBeforeLaunch(pending, outputPfd, cancelRequested, executionWindow)) return
             val deadlineHit = AtomicBoolean(false)
             val outputBudget = OutputBudget(spec.maxOutputBytes)
             val stderrBudget = StreamOutputBudget(outputBudget, spec.maxStderrBytes)
@@ -427,11 +424,11 @@ class ProotJobRunner private constructor(
                     cancelRequested = cancelRequested,
                     deadlineHit = deadlineHit,
                     outputLimitHit = outputBudget.hitLimit,
-                    deadlineEpochMs = deadline,
+                    executionWindow = executionWindow,
                     watchdog =
                         watchdogExecutor.scheduleWithFixedDelay(
                             {
-                                if (System.currentTimeMillis() >= deadline) {
+                                if (executionWindow.remainingMs(SystemClock.elapsedRealtime()) == 0L) {
                                     deadlineHit.set(true)
                                     killProcessGroup(childPid)
                                 }
@@ -449,7 +446,11 @@ class ProotJobRunner private constructor(
 
             // 5) Wait (bounded: the watchdog's group kill is the primary deadline
             //    enforcement; the +30s margin covers a stuck kill).
-            var exited = process.waitFor(spec.deadlineMs + 30_000L, TimeUnit.MILLISECONDS)
+            var exited =
+                process.waitFor(
+                    executionWindow.remainingMs(SystemClock.elapsedRealtime()) + 30_000L,
+                    TimeUnit.MILLISECONDS,
+                )
             if (!exited) {
                 deadlineHit.set(true)
                 killProcessGroup(childPid)
@@ -531,22 +532,25 @@ class ProotJobRunner private constructor(
         )
     }
 
-    @Suppress("SwallowedException") // the PFD must close in EVERY outcome
-
-    private fun terminalCancelled(
+    /** User cancellation wins a simultaneous expiry; neither path launches a process. */
+    private fun stopBeforeLaunch(
         pending: ProotJobRecord,
         outputPfd: ParcelFileDescriptor,
-        exitCode: Int?,
-    ) {
+        cancelRequested: AtomicBoolean,
+        window: JobExecutionWindow,
+    ): Boolean {
+        val cancelled = cancelRequested.get()
+        val expired = pending.jobId in expiredLeases || window.remainingMs(SystemClock.elapsedRealtime()) == 0L
+        if (!cancelled && !expired) return false
         outputPfd.close()
         ProotJobNotification.cancel(context, pending.jobId)
         publishTerminal(
             pending.copy(
-                state = ProotJobState.CANCELLED,
+                state = if (cancelled) ProotJobState.CANCELLED else ProotJobState.TIMED_OUT,
                 terminalAtEpochMs = System.currentTimeMillis(),
-                exitCode = exitCode,
             ),
         )
+        return true
     }
 
     @Suppress("SwallowedException") // the PFD must close in EVERY outcome
@@ -720,9 +724,9 @@ class ProotJobRunner private constructor(
     private var persistMetaError: String? = null
 
     private fun enforceDeadlines() {
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
         liveJobs.forEach { (_, live) ->
-            if (now >= live.deadlineEpochMs) {
+            if (live.executionWindow.remainingMs(now) == 0L) {
                 live.deadlineHit.set(true)
                 killProcessGroup(live.pid)
             }
