@@ -583,6 +583,15 @@ class ChatService(
         .GoalDetachedBudget(storage, clock, goalTimes::get, idGenerator)
         .reject(sessionId, turnId, executionId)
 
+    internal fun settleDetachedJobBudget(
+        sessionId: String,
+        turnId: String,
+        executionId: String,
+        terminalElapsedMs: Long?,
+    ) = com.helix.app.agent
+        .GoalDetachedBudget(storage, clock, goalTimes::get, idGenerator)
+        .settle(sessionId, turnId, executionId, terminalElapsedMs)
+
     private val turnCancels = java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>()
 
     init {

@@ -86,6 +86,32 @@ class ProotJobRecordTest {
         }
     }
 
+    @Test fun terminalMonotonicStampIsCommittedWithoutRewritingLegacyVersions() {
+        val timed = succeeded().copy(elapsedDurationMs = 3_500, terminalElapsedMs = 8_500)
+        assertEquals(timed, ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(timed)))
+        assertTrue(ProotJobRecordCodec.encode(timed).contains("\"schemaVersion\":3"))
+        assertThrows(ProotIpcException::class.java) {
+            ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(timed).replace("8500", "8501"))
+        }
+        val legacy = timed.copy(terminalElapsedMs = null)
+        assertTrue(ProotJobRecordCodec.encode(legacy).contains("\"schemaVersion\":2"))
+        assertEquals(
+            legacy.terminalCommit,
+            ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(legacy)).terminalCommit,
+        )
+    }
+
+    @Test fun terminalStampRequiresDurationAndCannotPredateItsRuntimeAdmission() {
+        assertThrows(IllegalArgumentException::class.java) { succeeded().copy(terminalElapsedMs = 8_500) }
+        assertThrows(IllegalArgumentException::class.java) {
+            succeeded().copy(elapsedDurationMs = 3_500, terminalElapsedMs = 3_499)
+        }
+        val legacy = ProotJobRecordCodec.encode(succeeded().copy(elapsedDurationMs = 3_500))
+        assertThrows(ProotIpcException::class.java) {
+            ProotJobRecordCodec.parse(legacy.replace("\"schemaVersion\":2", "\"schemaVersion\":3"))
+        }
+    }
+
     @Test
     fun outputCountersUseTheExecutionCapRatherThanTheJournalDocumentSize() {
         val pressure = succeeded().copy(stdoutBytes = 3145728, stderrBytes = 3145728)

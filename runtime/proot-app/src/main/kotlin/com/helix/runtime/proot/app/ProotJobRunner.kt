@@ -690,10 +690,13 @@ class ProotJobRunner private constructor(
     @Synchronized
     private fun publishTerminal(record: ProotJobRecord) {
         if (store.load(record.jobId)?.state?.isTerminal == true) return
+        val now = SystemClock.elapsedRealtime()
+        val elapsed = executionWindows[record.jobId]?.elapsedMs(now)
         store.put(
             record
                 .copy(
-                    elapsedDurationMs = executionWindows[record.jobId]?.elapsedMs(SystemClock.elapsedRealtime()),
+                    elapsedDurationMs = elapsed,
+                    terminalElapsedMs = now.takeIf { elapsed != null },
                 ).withStopReason(
                     cancelled = cancellationFlags[record.jobId]?.get() == true,
                     leaseExpired = record.jobId in expiredLeases,

@@ -91,6 +91,21 @@ class GoalUsageReservations(
         return changed
     }
 
+    /** Resolve only this unknown Job allocation, without consuming unrelated pending model/tool work. */
+    fun recoverLease(
+        id: String,
+        atMillis: Long,
+    ) {
+        storage.withTransaction {
+            val reservation = requireNotNull(storage.goalUsageReservations.byId(id))
+            require(reservation.kind == Kind.TIME_LEASE.name)
+            if (reservation.state == "PENDING") {
+                val total = Math.addExact(reservation.reservedMillis, reservation.chargedMillis ?: 0L)
+                applyLease(reservation, total, atMillis, interrupted = true, terminal = true)
+            }
+        }
+    }
+
     /** Unknown in-flight work consumes its reservation once. No offline wall time or execution replay. */
     fun recoverRun(
         runId: String,

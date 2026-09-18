@@ -136,6 +136,114 @@ class GoalDetachedBudgetDeviceTest {
             )
         }
 
+    @Test fun jobAfterTurnUsesItsActualTerminalStampInsteadOfTheLaterQueryTime() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            f.bridge.prepare("session", "turn", "execution", 8_000)
+            f.now = 800
+            f.timer.finish()
+            f.live = false
+            f.now = 100_000
+            f.bridge.settle("session", "turn", "execution", 2_100)
+            assertEquals(2_000L, f.used())
+            f.bridge.settle("session", "turn", "execution", 2_100)
+            assertEquals(2_000L, f.used())
+        }
+
+    @Test fun turnAfterJobPreservesTheAlreadyChargedUnion() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            f.bridge.prepare("session", "turn", "execution", 8_000)
+            f.now = 2_100
+            assertTrue(f.timer.pulse())
+            f.now = 3_100
+            f.timer.finish()
+            f.live = false
+            f.bridge.settle("session", "turn", "execution", 800)
+            assertEquals(3_000L, f.used())
+        }
+
+    @Test fun activeTurnReturnsToOrdinaryClockAndLaterRunSettlementIsRetryable() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            f.bridge.prepare("session", "turn", "execution", 8_000)
+            f.now = 1_600
+            f.bridge.settle("session", "turn", "execution", 800)
+            assertEquals(1_500L, f.used())
+            assertEquals(
+                "TIME",
+                f.storage.goalUsageReservations
+                    .pendingForRun(f.runId)
+                    .single()
+                    .kind,
+            )
+            f.timer.finish()
+            f.live = false
+            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLING, 0, null, null)
+            f.storage.turns.updateState(f.storage.turns.resolve("turn"), TurnState.CANCELLED, 0, 2_000, null)
+            f.bridge.settle("session", "turn", "execution", 800)
+            assertNotNull(
+                f.storage.goalRuns
+                    .resolve(f.runId)
+                    .endedAt,
+            )
+            assertEquals(1_500L, f.used())
+        }
+
+    @Test fun unknownJobTimeConsumesOnlyItsRemainingReservationOnce() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            f.bridge.prepare("session", "turn", "execution", 8_000)
+            val reservations =
+                com.helix.app.recovery
+                    .GoalUsageReservations(f.storage)
+            assertTrue(
+                reservations.reserve(
+                    com.helix.app.recovery.GoalUsageReservations.Request(
+                        "other-model",
+                        f.runId,
+                        com.helix.app.recovery.GoalUsageReservations.Kind.MODEL,
+                        tokens = 20,
+                    ),
+                ),
+            )
+            f.now = 800
+            f.timer.finish()
+            f.live = false
+            f.now = 100_000
+            f.bridge.settle("session", "turn", "execution", null)
+            assertEquals(8_000L, f.used())
+            assertEquals(
+                "INTERRUPTED",
+                f.storage.goalUsageReservations
+                    .byId("proot-lease-execution")
+                    ?.state,
+            )
+            assertEquals(
+                "other-model",
+                f.storage.goalUsageReservations
+                    .pendingForRun(f.runId)
+                    .single()
+                    .id,
+            )
+            f.bridge.settle("session", "turn", "execution", null)
+            assertEquals(8_000L, f.used())
+        }
+
+    @Test fun anIncoherentTerminalClockCannotReleaseTheLease() =
+        Fixture().use { f ->
+            assertTrue(f.timer.start())
+            f.bridge.prepare("session", "turn", "execution", 8_000)
+            assertThrows(IllegalStateException::class.java) { f.bridge.settle("session", "turn", "execution", 99) }
+            assertEquals(
+                "TIME_LEASE",
+                f.storage.goalUsageReservations
+                    .pendingForRun(f.runId)
+                    .single()
+                    .kind,
+            )
+        }
+
     private class Fixture : AutoCloseable {
         private val context = ApplicationProvider.getApplicationContext<Context>()
         private val name = "goal-detached-${UUID.randomUUID()}"

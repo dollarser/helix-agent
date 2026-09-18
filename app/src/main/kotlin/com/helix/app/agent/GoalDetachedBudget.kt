@@ -52,17 +52,51 @@ internal class GoalDetachedBudget(
         return allocation?.durationMs ?: 0
     }
 
-    /** Called only by the original launcher for a proven no-start outcome, in its live process. */
-    @Suppress("ReturnCount") // No Goal, no allocation and an already settled allocation need no further accounting.
+    /** Original live launcher only; the Job is proven not to have started. */
     fun reject(
         sessionId: String,
         turnId: String,
         executionId: String,
+    ) = settle(sessionId, turnId, executionId, monotonicMillis())
+
+    /** Caller must verify the original Job terminal and finish its result effects before this step. */
+    fun settle(
+        sessionId: String,
+        turnId: String,
+        executionId: String,
+        terminalElapsedMs: Long?,
     ) {
+        val allocation = allocation(sessionId, turnId, executionId)
+        if (allocation != null) {
+            check(terminalElapsedMs == null || terminalElapsedMs >= allocation.startedElapsedMs) {
+                "Job terminal clock predates its host allocation"
+            }
+            if (timerFor(turnId)?.completeLease(allocation) != true) {
+                val reservations = GoalUsageReservations(storage)
+                if (terminalElapsedMs == null) {
+                    reservations.recoverLease(allocation.id, clock.now().toEpochMilli())
+                } else {
+                    reservations.checkpointLease(
+                        allocation.id,
+                        terminalElapsedMs - allocation.startedElapsedMs,
+                        clock.now().toEpochMilli(),
+                        terminal = true,
+                    )
+                }
+            }
+        }
+        // Retry run settlement even if a previous attempt already settled its lease.
+        if (TurnState.valueOf(storage.turns.resolve(turnId).state).isTerminal) {
+            GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+        }
+    }
+
+    @Suppress("ReturnCount") // No Goal, no allocation and a settled allocation carry no remaining lease.
+    private fun allocation(sessionId: String, turnId: String, executionId: String): GoalLeaseAllocation? {
         check(storage.turns.resolve(turnId).sessionId == sessionId)
-        val binding = storage.goalTurnBindings.byTurn(turnId) ?: return
-        val reservation = storage.goalUsageReservations.byId(reservationId(executionId)) ?: return
-        if (reservation.state != "PENDING") return
+        val binding = storage.goalTurnBindings.byTurn(turnId) ?: return null
+        val reservation = storage.goalUsageReservations.byId(reservationId(executionId)) ?: return null
+        if (reservation.state != "PENDING") return null
         check(reservation.runId == binding.runId && reservation.kind == "TIME_LEASE")
         val event = storage.auditEvents.resolve(eventId(executionId))
         check(event.correlationId == sessionId && event.type == "proot.goal_lease_prepared")
@@ -70,24 +104,12 @@ internal class GoalDetachedBudget(
         check(payload.getValue("version").jsonPrimitive.content == "1")
         check(payload.getValue("turnId").jsonPrimitive.content == turnId)
         check(payload.getValue("runId").jsonPrimitive.content == binding.runId)
-        val allocation =
-            GoalLeaseAllocation(
-                reservation.id,
-                binding.runId,
-                payload.getValue("startedElapsedMs").jsonPrimitive.long,
-                payload.getValue("durationMs").jsonPrimitive.long,
-            )
-        if (timerFor(turnId)?.completeLease(allocation) != true) {
-            // The Turn may have returned/cancelled while the live executor was unwinding.
-            val elapsed = monotonicMillis() - allocation.startedElapsedMs
-            check(elapsed >= 0) { "no-start accounting cannot cross a clock reset" }
-            GoalUsageReservations(
-                storage,
-            ).checkpointLease(reservation.id, elapsed, clock.now().toEpochMilli(), terminal = true)
-        }
-        if (TurnState.valueOf(storage.turns.resolve(turnId).state).isTerminal) {
-            GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
-        }
+        return GoalLeaseAllocation(
+            reservation.id,
+            binding.runId,
+            payload.getValue("startedElapsedMs").jsonPrimitive.long,
+            payload.getValue("durationMs").jsonPrimitive.long,
+        )
     }
 
     private fun reservationId(executionId: String) = "proot-lease-$executionId"
