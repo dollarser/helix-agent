@@ -23,6 +23,7 @@ import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -61,10 +62,22 @@ class DetachedJobCollectionDeviceTest {
             assertEquals(f.owner, f.ownership.retainedOwner())
             assertNull(f.ownership.acquire("unrelated-writer"))
             assertEquals(0, settled)
+            val pending =
+                requireNotNull(
+                    CommandResultBrowser.browseSync(f.storage, f.job.binding.turnId, f.job.binding.toolCallId),
+                )
+            assertEquals(CommandDetailState.SUCCEEDED, pending.state)
+            assertTrue(pending.settlementPending)
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
             assertNull(f.ownership.retainedOwner())
             assertEquals(2, attempts)
             assertEquals(1, settled)
+            val collected =
+                requireNotNull(
+                    CommandResultBrowser.browseSync(f.storage, f.job.binding.turnId, f.job.binding.toolCallId),
+                )
+            assertEquals(CommandDetailState.SUCCEEDED, collected.state)
+            assertFalse(collected.settlementPending)
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
             assertEquals(2, attempts)
         }
@@ -89,11 +102,13 @@ class DetachedJobCollectionDeviceTest {
             assertEquals(0, imports)
             assertThrows(IOException::class.java) { first.execute(f.call) }
             assertEquals(f.owner, f.ownership.retainedOwner())
+            assertFalse(requireNotNull(DetachedJobObservationStore(f.storage).read(f.job.binding)).settled)
             val reloaded = f.ownership.guard(collector().executor())
             assertTrue(reloaded.execute(f.call) is ToolExecutorResult.Completed)
             assertEquals(1, imports)
             assertEquals(2, settlements)
             assertNull(f.ownership.retainedOwner())
+            assertTrue(requireNotNull(DetachedJobObservationStore(f.storage).read(f.job.binding)).settled)
         }
     }
 

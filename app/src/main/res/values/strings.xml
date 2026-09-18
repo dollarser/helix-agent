@@ -865,6 +865,8 @@
     <string name="command_detail_title">命令详情</string>
     <string name="command_detail_not_found">未找到该命令</string>
     <string name="command_detail_state_running">执行中</string>
+    <string name="command_detail_state_submitted">已提交，当前执行状态待查询</string>
+    <string name="command_detail_settlement_pending">后台任务尚未完成结果结算。Turn 结束不代表命令完成；请在原会话查询或收取结果。</string>
     <string name="command_detail_state_succeeded">成功</string>
     <string name="command_detail_state_failed">失败</string>
     <string name="command_detail_state_cancelled">已取消</string>

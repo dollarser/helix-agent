@@ -179,6 +179,13 @@ private fun SummarySection(v: CommandResultView) {
             style = MaterialTheme.typography.bodySmall,
         )
     }
+    if (v.settlementPending) {
+        Text(
+            stringResource(R.string.command_detail_settlement_pending),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag("command-detail-settlement-pending"),
+        )
+    }
     Text(
         stringResource(R.string.command_detail_command),
         style = MaterialTheme.typography.labelLarge,
@@ -315,6 +322,7 @@ private fun StreamSection(
 private fun stateTextRes(state: CommandDetailState): Int =
     when (state) {
         CommandDetailState.RUNNING -> R.string.command_detail_state_running
+        CommandDetailState.SUBMITTED -> R.string.command_detail_state_submitted
         CommandDetailState.SUCCEEDED -> R.string.command_detail_state_succeeded
         CommandDetailState.FAILED -> R.string.command_detail_state_failed
         CommandDetailState.CANCELLED -> R.string.command_detail_state_cancelled

@@ -29,6 +29,7 @@ internal class DetachedJobCollection(
     private val settleBudget: (DetachedJobBinding, ProotJobRecord) -> Unit,
 ) {
     private val bindings = ProotJobBindingStore(storage)
+    private val observations = DetachedJobObservationStore(storage)
     private val jobs = DetachedJobClient(context)
     private val results = ProotResultClient(ProotRuntimeSupervisor(context))
     private val store =
@@ -55,6 +56,7 @@ internal class DetachedJobCollection(
                 ?: return failure("JOB_RESULT_UNAVAILABLE: query the original job again.")
         check(record.jobId == binding.jobId && record.executionId == binding.executionId)
         check(record.inputManifestSha256 == binding.inputManifestSha256)
+        observations.observe(binding, record)
         if (!record.state.isTerminal || record.state == ProotJobState.ORPHANED) {
             return failure("JOB_NOT_SETTLEABLE: the original execution is running or requires review.")
         }
@@ -75,6 +77,7 @@ internal class DetachedJobCollection(
             }
         receipt?.let { check(it.terminalCommit == record.terminalCommit && it.reconciledAtEpochMs != null) }
         check(permit == null || permit.settle()) { "original execution ownership changed" }
+        observations.settled(binding, record)
         return ToolExecutorResult.Completed(
             buildJsonObject {
                 put("originalCallId", binding.toolCallId)

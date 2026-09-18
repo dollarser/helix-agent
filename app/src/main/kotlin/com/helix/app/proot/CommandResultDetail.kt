@@ -6,12 +6,15 @@ package com.helix.app.proot
 // the explicit reconciliation stays the existing session entry (`查看结果`).
 
 /** The Linux command tools whose calls carry a command result (the developer proot tools). */
-val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run")
+val COMMAND_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run", "code.linux.job.start")
 
 /** The display state of one command result; every value gets its own user-visible text. */
 enum class CommandDetailState {
     /** The turn is still in flight: status only — output is viewable AFTER the command ends. */
     RUNNING,
+
+    /** Submission succeeded; a passive page cannot establish whether the process is still running. */
+    SUBMITTED,
 
     /** The job finished with the verified terminal record. */
     SUCCEEDED,
@@ -55,6 +58,14 @@ data class CommandBrowseFacts(
     val binding: CommandJobBindingFacts?,
     val archive: ProotRecoveredOutput?,
     val archiveReadFailed: Boolean,
+    val detached: DetachedCommandFacts? = null,
+)
+
+/** Immutable Runtime terminal observation, separate from host output and budget settlement. */
+data class DetachedCommandFacts(
+    val state: String,
+    val exitCode: Int?,
+    val settled: Boolean,
 )
 
 /**
@@ -95,6 +106,7 @@ data class CommandResultView(
     val acknowledged: Boolean?,
     /** Terminal result with no output at all: gets its own display line. */
     val noOutput: Boolean,
+    val settlementPending: Boolean = false,
 )
 
 /** One command row of the task page's command list (HXA-194 entry from the task row). */

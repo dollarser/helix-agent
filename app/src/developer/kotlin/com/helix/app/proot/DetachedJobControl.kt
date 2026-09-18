@@ -17,6 +17,7 @@ internal class DetachedJobControl(
     private val query: (DetachedJobBinding) -> DetachedJobClient.Reply,
     private val cancel: (DetachedJobBinding) -> DetachedJobClient.Reply,
     private val ownership: ExecutionOwnership,
+    private val observe: (DetachedJobBinding, ProotJobRecord) -> Unit = { _, _ -> },
 ) {
     fun executor(stop: Boolean): ToolExecutor =
         ownership.controlExecutor(
@@ -33,6 +34,7 @@ internal class DetachedJobControl(
                     )
                 } else {
                     check(binding.matches(record)) { "Runtime returned another job" }
+                    observe(binding, record)
                     ToolExecutorResult.Completed(
                         buildJsonObject {
                             put("originalCallId", binding.toolCallId)
@@ -58,7 +60,13 @@ internal class DetachedJobControl(
         ): DetachedJobControl {
             val bindings = ProotJobBindingStore(storage)
             val client = DetachedJobClient(context)
-            return DetachedJobControl(bindings::resolveDetached, client::query, client::cancel, ownership)
+            return DetachedJobControl(
+                bindings::resolveDetached,
+                client::query,
+                client::cancel,
+                ownership,
+                DetachedJobObservationStore(storage)::observe,
+            )
         }
     }
 

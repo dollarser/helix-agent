@@ -231,6 +231,7 @@ internal object ProotToolModule {
                 }
                 ?: return CommandBrowseFacts(null, null, false)
         return try {
+            val detached = detachedCommandFacts(storage, turnId, callId)
             val file =
                 ProotResultStore(
                     storage,
@@ -238,7 +239,7 @@ internal object ProotToolModule {
                     File(appContext.cacheDir, "proot-results"),
                 ).readLocal(turnId, callId)
             if (file == null) {
-                CommandBrowseFacts(binding, null, false)
+                CommandBrowseFacts(binding, null, false, detached)
             } else {
                 CommandBrowseFacts(
                     binding,
@@ -246,6 +247,7 @@ internal object ProotToolModule {
                         .read(file, File(appContext.cacheDir, "proot-preview"))
                         .copy(acknowledged = null),
                     false,
+                    detached,
                 )
             }
         } catch (error: java.io.IOException) {
@@ -258,6 +260,17 @@ internal object ProotToolModule {
             Log.w("ProotToolModule", "Local archive format invalid", error)
             CommandBrowseFacts(binding, null, true)
         }
+    }
+
+    private fun detachedCommandFacts(
+        storage: HelixStorage,
+        turnId: String,
+        callId: String,
+    ): DetachedCommandFacts? {
+        if (storage.toolCalls.byTurnAndCallId(turnId, callId)?.name != "code.linux.job.start") return null
+        val sessionId = storage.turns.resolve(turnId).sessionId
+        val original = ProotJobBindingStore(storage).resolveDetached(sessionId, callId)
+        return DetachedJobObservationStore(storage).read(original)
     }
 
     fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)

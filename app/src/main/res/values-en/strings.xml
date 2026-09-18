@@ -864,6 +864,8 @@
     <string name="command_detail_title">Command details</string>
     <string name="command_detail_not_found">Command not found</string>
     <string name="command_detail_state_running">Running</string>
+    <string name="command_detail_state_submitted">Submitted; current execution status needs a query</string>
+    <string name="command_detail_settlement_pending">This background job still needs result settlement. An ended turn does not mean the command finished. Query or collect its result in the original session.</string>
     <string name="command_detail_state_succeeded">Succeeded</string>
     <string name="command_detail_state_failed">Failed</string>
     <string name="command_detail_state_cancelled">Cancelled</string>

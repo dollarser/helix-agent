@@ -24,14 +24,7 @@ object CommandResultProjection {
         scopeLabel: String,
     ): CommandResultView {
         val content = facts.resultContent?.let(::parseContent)
-        val state =
-            if (browse.archiveReadFailed) {
-                // A persisted record claiming an archive that no longer verifies: the
-                // page shows the distinct read-failed state and no streams at all.
-                CommandDetailState.READ_FAILED
-            } else {
-                resolveState(facts, content)
-            }
+        val state = displayState(toolName, facts, browse, content)
         val streams =
             if (browse.archiveReadFailed) {
                 OutputStreams("", "", false, emptyList(), null)
@@ -55,16 +48,51 @@ object CommandResultProjection {
             scopeLabel,
             browse.binding,
             state,
-            resolveExitCode(state, content, facts.resultSummary),
-            detailFor(state, facts.resultSummary),
+            if (browse.detached !=
+                null
+            ) {
+                browse.detached.exitCode
+            } else {
+                resolveExitCode(state, content, facts.resultSummary)
+            },
+            detailFor(state, facts.resultSummary.takeIf { browse.detached == null }),
             streams.stdout,
             streams.stderr,
             streams.truncated,
             streams.files,
             streams.acknowledged,
-            hasNoVisibleOutput(state, streams),
+            hasNoVisibleOutput(state, streams) &&
+                !DetachedCommandProjection.pending(
+                    toolName,
+                    facts.callState,
+                    content?.accepted == true,
+                    browse.detached,
+                ),
+            DetachedCommandProjection.pending(toolName, facts.callState, content?.accepted == true, browse.detached),
         )
     }
+
+    private fun displayState(
+        toolName: String,
+        facts: CommandResultFacts,
+        browse: CommandBrowseFacts,
+        content: ContentStreams?,
+    ): CommandDetailState =
+        when {
+            browse.archiveReadFailed -> {
+                CommandDetailState.READ_FAILED
+            }
+
+            toolName == "code.linux.job.start" -> {
+                DetachedCommandProjection.state(facts, content?.accepted == true, browse.detached) {
+                    resolveState(facts, content)
+                }
+            }
+
+            else -> {
+                resolveState(facts, content)
+            }
+        }
 
     /**
      * The settled display state: a call that is still in flight inside a live turn shows
@@ -77,7 +105,8 @@ object CommandResultProjection {
         content: ContentStreams?,
     ): CommandDetailState =
         when {
-            !isSettled(facts.callState) && !isTerminalTurn(facts.turnState) -> {
+            !isSettled(facts.callState) &&
+                !runCatching { TurnState.valueOf(facts.turnState).isTerminal }.getOrDefault(true) -> {
                 CommandDetailState.RUNNING
             }
 
@@ -182,7 +211,8 @@ object CommandResultProjection {
         streams: OutputStreams,
     ): Boolean {
         val terminalState =
-            state != CommandDetailState.RUNNING && state != CommandDetailState.READ_FAILED
+            state != CommandDetailState.RUNNING && state != CommandDetailState.READ_FAILED &&
+                state != CommandDetailState.SUBMITTED
         val blankStreams = streams.stdout.isBlank() && streams.stderr.isBlank()
         return terminalState && blankStreams && streams.files.isEmpty()
     }
@@ -200,6 +230,7 @@ object CommandResultProjection {
         val exitCode: Int?,
         val stdout: String,
         val stderr: String,
+        val accepted: Boolean,
     )
 
     private fun parseContent(content: String): ContentStreams? =
@@ -210,6 +241,7 @@ object CommandResultProjection {
                 exitCode = (obj["exitCode"] as? JsonPrimitive)?.longOrNull?.toInt(),
                 stdout = (obj["stdout"] as? JsonPrimitive)?.content.orEmpty(),
                 stderr = (obj["stderr"] as? JsonPrimitive)?.content.orEmpty(),
+                accepted = (obj["accepted"] as? JsonPrimitive)?.content == "true",
             )
         }.getOrNull()
 
@@ -236,9 +268,6 @@ object CommandResultProjection {
                 .valueOf(callState)
                 .isTerminal
         }.getOrDefault(false)
-
-    private fun isTerminalTurn(turnState: String): Boolean =
-        runCatching { TurnState.valueOf(turnState).isTerminal }.getOrDefault(true)
 
     private val EXIT_CODE_IN_TEXT = Regex("exit code (\\d+)")
 }

@@ -214,6 +214,41 @@ class CommandExecutionDetailsDeviceTest {
         assertEquals(before, fixtureFacts(storage))
     }
 
+    /** A persisted submission fixture proves navigation semantics, not real background execution. */
+    @Test
+    fun submittedJobOutlivesItsTurnWithoutBrowsingStartingOrSettlingAnything() {
+        val storage = containerFromApp().storage
+        val callId = "$TURN-detached"
+        if (storage.toolCalls.byTurnAndCallId(TURN, callId) == null) {
+            storage.toolCalls.append(
+                callId,
+                TURN,
+                callId,
+                "code.linux.job.start",
+                "1",
+                """{"script":"sleep 30"}""",
+                "COMPLETED",
+            )
+            storage.toolResults.append(
+                "$callId-result",
+                callId,
+                "SUCCEEDED",
+                "Submission accepted",
+                """{"accepted":true,"state":"RUNNING","executionComplete":false}""",
+            )
+        }
+        val before = fixtureFacts(storage)
+        compose.resetDeterministicUiState()
+        compose.navigateTo("tasks")
+        openCommandDetailFromTasks(callId)
+        compose.onNodeWithTag("command-detail-state-submitted").assertIsDisplayed()
+        compose.onNodeWithTag("command-detail-settlement-pending").assertIsDisplayed()
+        assertTrue(compose.onAllNodesWithTag("command-detail-no-output").fetchSemanticsNodes().isEmpty())
+        assertNoExecutionSurface(callId)
+        backToDashboard()
+        assertEquals(before, fixtureFacts(storage))
+    }
+
     /** 返回会话 from the page switches to the owning session — even when it is not the open one. */
     @Test
     fun openSessionFromTheDetailPageSwitchesToTheOwningSession() {
@@ -225,7 +260,7 @@ class CommandExecutionDetailsDeviceTest {
         compose.navigateTo("tasks")
         waitTurnRowVisible(TURN)
         openCommandDetailFromTasks(CALL_SUCCEEDED)
-        compose.onNodeWithTag("command-detail-open-session").performClick()
+        compose.onNodeWithTag("command-detail-open-session").performScrollTo().performClick()
         compose.waitForIdle()
         stopAwait { chat.screen.value.openSessionId == SESSION }
         compose.onNodeWithTag("screen-sessions").assertIsDisplayed()
@@ -314,7 +349,8 @@ class CommandExecutionDetailsDeviceTest {
 
     private fun waitDetailScreenVisible() {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("screen-command-detail").fetchSemanticsNodes().isNotEmpty()
+            // The shell exists before the IO-backed projection resolves. Wait for actual content.
+            compose.onAllNodesWithTag("command-detail-command").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
