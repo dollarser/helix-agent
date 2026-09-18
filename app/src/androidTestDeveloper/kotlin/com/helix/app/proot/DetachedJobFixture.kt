@@ -52,6 +52,8 @@ internal class DetachedJobFixture(
     fun submit(
         client: DetachedJobClient,
         budgetMs: Long = spec.deadlineMs,
+        remainingBudget: () -> Long = { budgetMs },
+        isCancelled: () -> Boolean = { false },
     ): DetachedJobClient.Reply =
         client.submit(
             binding,
@@ -59,5 +61,7 @@ internal class DetachedJobFixture(
             budgetMs,
             ParcelFileDescriptor.open(input, ParcelFileDescriptor.MODE_READ_ONLY),
             ParcelFileDescriptor.open(output, ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_WRITE_ONLY),
+            remainingBudget,
+            isCancelled,
         )
 }

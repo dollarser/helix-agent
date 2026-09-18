@@ -2,6 +2,7 @@ package com.helix.app.proot
 
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
+import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.ProotJobSpec
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,11 +32,24 @@ internal class ProotJobBindingStore(
     fun record(
         call: LinuxRunTool.ParsedLinuxCall,
         spec: ProotJobSpec,
+    ) = recordPrepared(call, spec, detached = false)
+
+    fun recordDetached(
+        call: LinuxRunTool.ParsedLinuxCall,
+        spec: ProotJobSpec,
+    ) = recordPrepared(call, spec, detached = true)
+
+    private fun recordPrepared(
+        call: LinuxRunTool.ParsedLinuxCall,
+        spec: ProotJobSpec,
+        detached: Boolean,
     ) {
         val turn = storage.turns.resolve(requireNotNull(call.turnId))
+        check(call.sessionId == turn.sessionId) { "job session does not match its turn" }
         val stored = requireNotNull(storage.toolCalls.byTurnAndCallId(turn.id, call.toolCallId))
         check(stored.state == "RUNNING")
-        val payload = jobPreparedPayload(stored.callId, turn.id, turn.sessionId, spec, configFor(turn.sessionId))
+        val payload =
+            jobPreparedPayload(stored.callId, turn.id, turn.sessionId, spec, configFor(turn.sessionId), detached)
         storage.auditEvents.append(
             id = eventId(call.toolCallId),
             correlationId = turn.sessionId,
@@ -55,6 +69,18 @@ internal class ProotJobBindingStore(
         return payload
     }
 
+    /** Resolve only by an original call ID and the trusted current session, never model-supplied job fields. */
+    fun resolveDetached(
+        sessionId: String,
+        toolCallId: String,
+    ): DetachedJobBinding {
+        val binding = detachedBinding(resolve(toolCallId), sessionId, toolCallId)
+        val turn = storage.turns.resolve(binding.turnId)
+        check(turn.sessionId == sessionId) { "job turn belongs to another session" }
+        check(storage.toolCalls.byTurnAndCallId(turn.id, toolCallId) != null) { "original job call missing" }
+        return binding
+    }
+
     /**
      * Accepts every payload version this build has written. Version 1 (before the
      * session binding existed) stays resolvable after an app update — the audit rows are
@@ -70,7 +96,26 @@ internal class ProotJobBindingStore(
     companion object {
         const val PAYLOAD_VERSION = 2
 
-        private val ACCEPTED_VERSIONS = setOf("1", PAYLOAD_VERSION.toString())
+        private val ACCEPTED_VERSIONS = setOf("1", PAYLOAD_VERSION.toString(), "3")
+
+        internal fun detachedBinding(
+            payload: JsonObject,
+            sessionId: String,
+            toolCallId: String,
+        ): DetachedJobBinding {
+            check(payload.getValue("version").jsonPrimitive.content == "3") { "not a detached job binding" }
+            check(payload.getValue("executionMode").jsonPrimitive.content == "DETACHED")
+            check(payload.getValue("sessionId").jsonPrimitive.content == sessionId) { "job belongs to another session" }
+            check(payload.getValue("toolCallId").jsonPrimitive.content == toolCallId) { "original call does not match" }
+            return DetachedJobBinding(
+                sessionId,
+                payload.getValue("turnId").jsonPrimitive.content,
+                toolCallId,
+                payload.getValue("jobId").jsonPrimitive.content,
+                payload.getValue("executionId").jsonPrimitive.content,
+                payload.getValue("inputManifestSha256").jsonPrimitive.content,
+            )
+        }
 
         /**
          * The redacted payload of one prepared background job (version [PAYLOAD_VERSION]):
@@ -85,9 +130,11 @@ internal class ProotJobBindingStore(
             sessionId: String,
             spec: ProotJobSpec,
             config: SessionPermissionConfig?,
+            detached: Boolean = false,
         ): JsonObject =
             buildJsonObject {
-                put("version", PAYLOAD_VERSION)
+                put("version", if (detached) 3 else PAYLOAD_VERSION)
+                if (detached) put("executionMode", "DETACHED")
                 put("toolCallId", toolCallId)
                 put("turnId", turnId)
                 put("sessionId", sessionId)

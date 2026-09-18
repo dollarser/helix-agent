@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Invoke through with-host-slot.py. Runtime setup uses the repository's locked assets.
+set -euo pipefail
+cd "$(dirname "$0")/../../.."
+prefix="${1:?new evidence prefix}"
+./scripts/check-all.sh --all
+./gradlew :app:assembleDeveloperDebugAndroidTest
+bash scripts/debug/2026-09-18/run-job-submission-regression.sh "$prefix"
+python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" 19

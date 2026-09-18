@@ -40,20 +40,27 @@ class DetachedJobClient(
         remainingBudgetMs: Long,
         input: ParcelFileDescriptor,
         output: ParcelFileDescriptor,
+        remainingBudget: () -> Long = { remainingBudgetMs },
+        isCancelled: () -> Boolean = { false },
     ): Reply {
         val started = SystemClock.elapsedRealtime()
         return input.use {
             output.use {
                 require(binding.matches(spec))
+                if (isCancelled()) return cancelledBeforeSubmit()
                 request(binding, DetachedJobProtocol.SUBMIT) { data ->
+                    if (isCancelled()) throw SubmissionRefused("CANCELLED_BEFORE_SUBMIT")
                     val remaining =
-                        DetachedLease.remainingSubmissionMillis(
-                            spec.deadlineMs,
-                            remainingBudgetMs,
-                            started,
-                            SystemClock.elapsedRealtime(),
+                        minOf(
+                            remainingBudget().coerceAtLeast(0),
+                            DetachedLease.remainingSubmissionMillis(
+                                spec.deadlineMs,
+                                remainingBudgetMs,
+                                started,
+                                SystemClock.elapsedRealtime(),
+                            ),
                         )
-                    if (remaining == 0L) throw SubmissionWindowExpired()
+                    if (remaining < DetachedLease.MIN_MS) throw SubmissionRefused("BUDGET_EXHAUSTED_BEFORE_SUBMIT")
                     data.writeLong(remaining)
                     ProotJobWire.writeSpec(data, spec, input, output)
                 }
@@ -131,8 +138,8 @@ class DetachedJobClient(
                     ),
             )
             return Reply(status, record, if (status == ProotRuntimeProtocol.REPLY_JOB_REJECTED) payload else null)
-        } catch (_: SubmissionWindowExpired) {
-            return Reply(ProotRuntimeProtocol.REPLY_JOB_REJECTED, null, "BUDGET_EXHAUSTED_BEFORE_SUBMIT")
+        } catch (refused: SubmissionRefused) {
+            return Reply(ProotRuntimeProtocol.REPLY_JOB_REJECTED, null, refused.code)
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             return unavailable()
@@ -148,5 +155,10 @@ class DetachedJobClient(
     private fun unavailable() =
         Reply(ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE, null, "UNAVAILABLE_QUERY_ORIGINAL_JOB")
 
-    private class SubmissionWindowExpired : RuntimeException()
+    private fun cancelledBeforeSubmit() =
+        Reply(ProotRuntimeProtocol.REPLY_JOB_REJECTED, null, "CANCELLED_BEFORE_SUBMIT")
+
+    private class SubmissionRefused(
+        val code: String,
+    ) : RuntimeException()
 }

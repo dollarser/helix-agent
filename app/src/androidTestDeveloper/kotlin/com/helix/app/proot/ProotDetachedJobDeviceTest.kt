@@ -79,6 +79,30 @@ class ProotDetachedJobDeviceTest {
         assertEquals(null, client.query(job.binding).record)
     }
 
+    @Test fun cancellationDuringBindingPreventsSubmission() {
+        val job = fixture("printf MUST_NOT_RUN")
+        var checks = 0
+        val reply = job.submit(client, isCancelled = { ++checks >= 2 })
+        assertEquals("CANCELLED_BEFORE_SUBMIT", reply.refusal)
+        assertEquals(ProotRuntimeProtocol.REPLY_JOB_REJECTED, reply.status)
+        assertEquals(2, checks)
+        assertEquals(null, client.query(job.binding).record)
+    }
+
+    @Test fun liveBudgetRecheckAfterBindingPreventsSubmission() {
+        val job = fixture("printf MUST_NOT_RUN")
+        var checked = false
+        val reply =
+            job.submit(client, remainingBudget = {
+                checked = true
+                999L
+            })
+        assertTrue(checked)
+        assertEquals("BUDGET_EXHAUSTED_BEFORE_SUBMIT", reply.refusal)
+        assertEquals(ProotRuntimeProtocol.REPLY_JOB_REJECTED, reply.status)
+        assertEquals(null, client.query(job.binding).record)
+    }
+
     @Test fun cancellationIsDurableAndIdempotent() {
         val job = fixture("printf BEGIN; sleep 60")
         assertTrue(job.submit(client).accepted)
