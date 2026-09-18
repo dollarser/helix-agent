@@ -75,6 +75,16 @@ class ExecutionOwnership(
             store.compareAndSet(null, owner)
         }
 
+    /** Trusted launcher only, after a definitive no-submit/no-start result; its live permit still excludes writers. */
+    fun releaseUnsubmittedForCall(
+        callId: String,
+        owner: Owner,
+    ): Boolean =
+        synchronized(lock) {
+            check(active[callId] == true && active.size == 1) { "original exclusive launcher is not active" }
+            store.compareAndSet(owner, null)
+        }
+
     /** Acquire inside the executor thread, so a deadline cannot release a still-running effect. */
     fun guard(
         executor: ToolExecutor,

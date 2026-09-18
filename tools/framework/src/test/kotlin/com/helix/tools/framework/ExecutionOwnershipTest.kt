@@ -248,6 +248,19 @@ class ExecutionOwnershipTest {
         assertEquals(ToolExecutorResult.Cancelled, gate.guard(control).execute(cancelled))
     }
 
+    @Test fun provenNoStartReleasesOnlyTheOriginalLiveLauncher() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use {
+            assertTrue(it.retain(owner))
+            assertFalse(gate.releaseUnsubmittedForCall("start", owner.copy(generation = "foreign")))
+            assertThrows(IllegalStateException::class.java) { gate.releaseUnsubmittedForCall("other", owner) }
+            assertTrue(gate.releaseUnsubmittedForCall("start", owner))
+            assertNull(gate.acquire("writer"))
+        }
+        requireNotNull(gate.acquire("writer")).close()
+        assertThrows(IllegalStateException::class.java) { gate.releaseUnsubmittedForCall("start", owner) }
+    }
+
     private fun call() =
         ExecutableToolCall(
             toolCallId = "call",

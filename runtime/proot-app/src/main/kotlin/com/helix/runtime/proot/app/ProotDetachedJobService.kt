@@ -212,10 +212,10 @@ class ProotDetachedJobService : Service() {
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             settleFailedSubmission(binding, handedOff)
-            reject(reply, ProotJobRefusal.BACKGROUND_UNAVAILABLE)
+            writeSubmissionFailure(reply, handedOff)
         } catch (_: Exception) {
             settleFailedSubmission(binding, handedOff)
-            reject(reply, ProotJobRefusal.BACKGROUND_UNAVAILABLE)
+            writeSubmissionFailure(reply, handedOff)
         } finally {
             if (!handedOff) {
                 input.close()
@@ -361,3 +361,13 @@ private fun writeDuplicate(
         writeRecord(reply, ProotRuntimeProtocol.REPLY_JOB_DUPLICATE, record)
     }
 }
+
+/** A failure after handoff may already have effects; never advertise it as a no-start refusal. */
+private fun writeSubmissionFailure(
+    reply: Parcel,
+    handedOff: Boolean,
+) = ProotJobWire.writeJobReply(
+    reply,
+    if (handedOff) ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE else ProotRuntimeProtocol.REPLY_JOB_REJECTED,
+    if (handedOff) "SUBMISSION_UNKNOWN" else ProotJobRefusal.BACKGROUND_UNAVAILABLE.wire,
+)
