@@ -12,11 +12,19 @@ source_checks() {
     ./scripts/check-secrets.sh
 }
 
-build_checks() {
-    ./gradlew spotlessCheck detekt test lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
-    ./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
+analysis_checks() {
+    ./gradlew spotlessCheck detekt lintDebug lintRelease lintConsumerDebug lintDeveloperDebug lintConsumerRelease lintDeveloperRelease
+}
+
+test_build_checks() {
+    ./gradlew test :app:assembleConsumerDebug :app:assembleDeveloperDebug :runtime:proot-app:assembleDebug :runtime:cli-app:assembleDebug \
         :app:assembleConsumerRelease :app:assembleDeveloperRelease :runtime:proot-app:assembleRelease :runtime:cli-app:assembleRelease
     ./scripts/check-lockfiles.sh
+}
+
+build_checks() {
+    analysis_checks
+    test_build_checks
 }
 
 artifact_checks() {
@@ -26,8 +34,10 @@ artifact_checks() {
 
 case "${1:---all}" in
     --source) source_checks ;;
+    --analysis) analysis_checks ;;
+    --tests-build) test_build_checks ;;
     --build) build_checks ;;
     --artifacts) artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks ;;
-    *) printf 'Usage: %s [--source|--build|--artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--source|--analysis|--tests-build|--build|--artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac
