@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   HXA-191 dark-theme variant of Theme.Helix (see ../values/themes.xml for the light
-  baseline). The Compose shell already follows the system dark mode through Material3's
-  default MaterialTheme colorScheme; this platform theme makes the WINDOW match it so the
-  system bars and the pre-Compose window background are correct in dark mode too:
+  baseline). This is the ANDROID WINDOW side of the system-following theme. The COMPOSE side is
+  wired explicitly in Theme.kt (HelixTheme): material3 1.4's MaterialTheme composable does NOT
+  read the system night mode — a bare MaterialTheme {} resolves to a FIXED light colorScheme — so
+  HelixTheme selects the dark/light scheme from isSystemInDarkTheme() at both composition roots.
+  This platform theme makes the WINDOW match that scheme so the system bars and the pre-Compose
+  window background are correct in dark mode too:
 
   - parent android:Theme.Material.NoActionBar (the dark platform theme) supplies a dark
     window background, so there is no light flash before Compose draws;

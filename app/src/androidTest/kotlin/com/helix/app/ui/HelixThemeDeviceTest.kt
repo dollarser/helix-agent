@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.os.Process
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -19,30 +20,41 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 import kotlin.math.pow
 
 /**
  * HXA-191 dark-theme gate — a NAMED device test for the unified, system-following light/dark
- * theme and its system bars. The Compose shell already follows Material 3's default color scheme
- * (dark in dark mode); this test pins the ANDROID WINDOW side that was previously hard-coded
- * light: the platform `Theme.Helix` (values) and its `values-night` variant must make the
- * status/navigation bars, the light-status-bar flag and the pre-Compose window background track
- * the real system night mode.
+ * theme, its system bars, and the ACTUAL rendered Compose colors.
  *
- * The owning emulator script drives the REAL system night mode (`cmd uimode night yes/no`) and
- * the system font scale, then runs this class twice per mode with the two-phase restart protocol
+ * Both sides of the theme must track the real system night mode, and each is pinned here:
+ *  - THE COMPOSE SIDE: material3 1.4's `MaterialTheme` composable does NOT read the system night
+ *    mode — a bare `MaterialTheme {}` resolves to the static `LocalColorScheme` default, which is
+ *    `lightColorScheme()`, i.e. a FIXED light scheme (verified against the material3 1.4.0 bytes:
+ *    no material3 class references `isSystemInDarkTheme` / `uiMode`). The app therefore wraps both
+ *    composition roots (the first-launch notice and the main shell) in [HelixTheme], which selects
+ *    the scheme EXPLICITLY from `isSystemInDarkTheme()`. `composeSurfaceColorMatchesCurrentSystemMode`
+ *    proves this on-device by sampling the real rendered pixels: the full-bleed, opaque Compose
+ *    Scaffold surface must be dark in night mode and light in day mode. Because that surface is
+ *    opaque and covers the whole content area, the window background never shows through it — so
+ *    this is a true Compose-color assertion, not a window read.
+ *  - THE ANDROID WINDOW SIDE: the platform `Theme.Helix` (values) and its `values-night` variant
+ *    make the status/navigation bars, the light-status-bar flag and the pre-Compose window
+ *    background track the system night mode.
+ *
+ * The owning emulator script drives the REAL system night mode (`cmd uimode night yes/no`) and the
+ * system font scale, then runs this class twice per mode with the two-phase restart protocol
  * (`recoveryPhase=setup` records the process identity and kills the process; `recoveryPhase=verify`
- * asserts a new process re-derives the theme). Every assertion reads the RESOLVED theme
- * attributes of the running activity, so it is deterministic and independent of API-level
- * edge-to-edge enforcement — which on API 36 forces the composited status bar transparent and
- * would make a raw `statusBarColor` dumpsys read misleading. The owning script separately records
- * the real `dumpsys window` appearance flag (`LIGHT_STATUS_BARS`) as the on-device proof the
- * window applied the flag.
+ * asserts a new process re-derives the theme). The window-side assertions read the RESOLVED theme
+ * attributes of the running activity, so they are deterministic and independent of API-level
+ * edge-to-edge enforcement — which on API 36 forces the composited status bar transparent and would
+ * make a raw `statusBarColor` dumpsys read misleading. The owning script separately records the real
+ * `dumpsys window` appearance as the on-device proof the window applied the flag.
  *
- * Facets: the mode contract (bars + flag + window background + WCAG contrast), activity rebuild
- * (rotation equivalent on the portrait-locked AVD), a real process restart, operability across the
- * main / files / tasks / authorization / browser / settings destinations, and stability across the
- * three app languages.
+ * Facets: the mode contract (bars + flag + window background + WCAG contrast), the ACTUAL rendered
+ * Compose surface color, activity rebuild (rotation equivalent on the portrait-locked AVD), a real
+ * process restart, operability across the main / files / tasks / authorization / browser / settings
+ * destinations, and stability across the three app languages.
  */
 @RunWith(AndroidJUnit4::class)
 @Suppress("TooManyFunctions", "LongMethod") // one method per facet; LongMethod = resolved-attribute contract
@@ -73,6 +85,35 @@ class HelixThemeDeviceTest {
         rebuild()
         rebuild()
         assertThemeMatchesSystemMode()
+    }
+
+    @Test
+    fun composeSurfaceColorMatchesCurrentSystemMode() {
+        assumeTrue(recoveryPhase() != "setup")
+        compose.resetDeterministicUiState()
+        compose.waitForIdle()
+        val night = currentSystemIsNight()
+        // Two consecutive identical frames so we never assert on a mid-animation frame.
+        val bitmap = stableScreenshot()
+        try {
+            // The central content band is the full-bleed, OPAQUE Compose Scaffold surface: the
+            // window background never shows through it, so these pixels ARE the Compose colors.
+            val median = medianLuminance(bitmap, x0 = 0.15f, x1 = 0.85f, y0 = 0.35f, y1 = 0.65f)
+            if (night) {
+                assertTrue(
+                    "Compose surface must render DARK in night mode (median luminance $median)",
+                    median < 0.4,
+                )
+            } else {
+                assertTrue(
+                    "Compose surface must render LIGHT in day mode (median luminance $median)",
+                    median > 0.6,
+                )
+            }
+            saveSurfaceEvidence(bitmap, if (night) "night" else "day")
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     // ---------- real process restart ----------
@@ -136,6 +177,79 @@ class HelixThemeDeviceTest {
     }
 
     // ---------- helpers ----------
+
+    /** True when the running activity's configuration reports the real system night mode. */
+    private fun currentSystemIsNight(): Boolean {
+        val uiMode = compose.activity.resources.configuration.uiMode
+        return (uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+    }
+
+    /**
+     * Captures the real composited display (`UiDevice.takeScreenshot`) until two consecutive frames
+     * are identical, so a mid-transition / mid-animation frame is never asserted on.
+     */
+    private fun stableScreenshot(): Bitmap {
+        var last =
+            requireNotNull(
+                InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot(),
+            )
+        repeat(9) {
+            val frame =
+                requireNotNull(
+                    InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot(),
+                )
+            if (frame.sameAs(last)) {
+                last.recycle()
+                return frame
+            }
+            last.recycle()
+            last = frame
+        }
+        return last
+    }
+
+    /**
+     * Perceived brightness (0 = black, 1 = white) of the pixels in the [x0,x1]×[y0,y1] fraction of
+     * [bitmap], sampled on a fixed grid so the work stays bounded at any device resolution. Returns
+     * the MEDIAN, which is robust to the minority of foreground text/icon pixels drawn on the
+     * surface.
+     */
+    private fun medianLuminance(
+        bitmap: Bitmap,
+        x0: Float,
+        x1: Float,
+        y0: Float,
+        y1: Float,
+    ): Double {
+        val left = (x0 * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+        val right = (x1 * bitmap.width).toInt().coerceIn(left + 1, bitmap.width - 1)
+        val top = (y0 * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+        val bottom = (y1 * bitmap.height).toInt().coerceIn(top + 1, bitmap.height - 1)
+        val cols = 24
+        val rows = 32
+        val values = ArrayList<Double>(cols * rows)
+        for (row in 0 until rows) {
+            val y = top + (bottom - top) * row / rows
+            for (col in 0 until cols) {
+                val x = left + (right - left) * col / cols
+                values.add(luminance(bitmap.getPixel(x, y)))
+            }
+        }
+        values.sort()
+        return values[values.size / 2]
+    }
+
+    /** Persists the exact asserted frame so the on-device Compose color is inspectable outside. */
+    private fun saveSurfaceEvidence(
+        bitmap: Bitmap,
+        mode: String,
+    ) {
+        File(compose.activity.cacheDir, "hxa191-theme")
+            .apply { mkdirs() }
+            .resolve("compose-surface-$mode.png")
+            .outputStream()
+            .use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 
     private fun assertPresent(tag: String) {
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
