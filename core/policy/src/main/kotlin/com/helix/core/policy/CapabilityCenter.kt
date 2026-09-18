@@ -34,6 +34,14 @@ class CapabilityCenter(
     }
 
     /**
+     * Read-only resolution (HXA-205 readiness view): resolves [capability] against the real
+     * system state but records NO audit row. A passive page refresh has no side effects —
+     * unlike [check] this is not an execution-time gate, so it is deliberately not auditable;
+     * it answers the user-facing "what can I do right now" question without writing.
+     */
+    fun resolveOnly(capability: Capability): CapabilityGrant = resolver.resolve(capability)
+
+    /**
      * Execution-time check for a tool's `requiredCapabilities` set: every capability is resolved
      * live and [CapabilityEvaluation.missing] lists the ones that are not usable.
      */

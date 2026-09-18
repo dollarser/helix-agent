@@ -8,12 +8,12 @@ class ShellRepositoryTest {
     private val repository: ShellRepository = FakeShellRepository()
 
     @Test
-    fun `shell exposes exactly eleven unique routes`() {
+    fun `shell exposes exactly twelve unique routes`() {
         // P0-B added the Tasks dashboard, the Artifact Center, the Git status page and the
-        // Capabilities panel.
-        assertEquals(11, repository.destinations.size)
+        // Capabilities panel; HXA-205 added the Capability Readiness view.
+        assertEquals(12, repository.destinations.size)
         assertEquals(
-            11,
+            12,
             repository.destinations
                 .map(ShellDestination::route)
                 .toSet()
@@ -29,6 +29,7 @@ class ShellRepositoryTest {
                 "browser",
                 "extensions",
                 "capabilities",
+                "readiness",
                 "permissions",
                 "settings",
                 "audit",

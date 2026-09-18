@@ -52,6 +52,7 @@ import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.COMMAND_DETAIL_ROUTE
 import com.helix.app.ui.CapabilitiesScreenDestination
+import com.helix.app.ui.CapabilityReadinessScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
@@ -384,6 +385,20 @@ private fun DestinationScreen(
                 },
                 onOpenExtensions = {
                     navController.navigate(ShellDestination.Extensions.route) {
+                        launchSingleTop = true
+                    }
+                },
+            )
+        }
+
+        // HXA-205: the Capability Readiness view — aggregate model / workspace / capability /
+        // runtime state and give the next action per goal. Read-only; a cold bind or repair
+        // happens only on an explicit user click (passive entry never binds or logs in).
+        ShellDestination.Readiness -> {
+            CapabilityReadinessScreen(
+                container,
+                onOpenSettings = {
+                    navController.navigate(ShellDestination.Settings.route) {
                         launchSingleTop = true
                     }
                 },
