@@ -381,7 +381,12 @@ object LinuxRunTool {
     }
 
     @Suppress("LongMethod", "CyclomaticComplexMethod", "ComplexCondition", "ReturnCount")
-    fun parsed(call: ExecutableToolCall): ParsedResult {
+    fun parsed(
+        call: ExecutableToolCall,
+        defaultDeadlineSeconds: Long = DEFAULT_DEADLINE_SECONDS,
+        maximumDeadlineSeconds: Long = DEFAULT_DEADLINE_SECONDS,
+        clampToCallDeadline: Boolean = true,
+    ): ParsedResult {
         val args = call.args
         val argv = (args["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
         val script = (args["script"] as? JsonPrimitive)?.content
@@ -430,12 +435,12 @@ object LinuxRunTool {
         // model's optional `timeoutSeconds` — never extended past the approved window.
         val perCallMs =
             (args["timeoutSeconds"] as? JsonPrimitive)?.longOrNull?.let {
-                if (it in 1..DEFAULT_DEADLINE_SECONDS) {
+                if (it in 1..maximumDeadlineSeconds) {
                     it * 1000L
                 } else {
-                    return ParsedResult.ParseFailure("invalid `timeoutSeconds`: must be 1..$DEFAULT_DEADLINE_SECONDS")
+                    return ParsedResult.ParseFailure("invalid `timeoutSeconds`: must be 1..$maximumDeadlineSeconds")
                 }
-            } ?: DEFAULT_DEADLINE_SECONDS * 1000L
+            } ?: defaultDeadlineSeconds * 1000L
         if (call.deadline.toEpochMilli() < System.currentTimeMillis() + MIN_JOB_DEADLINE_MS) {
             return ParsedResult.ParseFailure(
                 "the approval deadline has already passed — the call must be re-approved as a NEW ToolCall",
@@ -445,7 +450,12 @@ object LinuxRunTool {
         // per-call `timeoutSeconds` window — never extended past either, always in the
         // future at submit time (the wire invariant).
         val deadlineEpochMs =
-            call.deadline.toEpochMilli().coerceAtMost(System.currentTimeMillis() + perCallMs)
+            if (clampToCallDeadline) {
+                call.deadline.toEpochMilli().coerceAtMost(System.currentTimeMillis() + perCallMs)
+            } else {
+                // Detached lease is bound by its own approved argument, not the short submit-call timeout.
+                System.currentTimeMillis() + perCallMs
+            }
         return ParsedResult.Ok(
             ParsedLinuxCall(
                 toolCallId = call.toolCallId,

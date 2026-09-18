@@ -53,11 +53,11 @@ class SessionToolEffectClassifier(
     ): CallEffectClassification {
         val name = descriptor.name.value
         return when (name) {
-            LINUX_RUN -> {
+            LINUX_RUN, LINUX_JOB_START -> {
                 linuxClassification(request.args)
             }
 
-            QUICKJS_RUN -> {
+            LINUX_JOB_CANCEL, QUICKJS_RUN -> {
                 CallEffectClassification(
                     OperationFootprint(effects = setOf(OperationEffect.COMMAND_EXECUTION)),
                 )
@@ -189,6 +189,8 @@ class SessionToolEffectClassifier(
 
     companion object {
         const val LINUX_RUN: String = "code.linux.run"
+        const val LINUX_JOB_START: String = "code.linux.job.start"
+        const val LINUX_JOB_CANCEL: String = "code.linux.job.cancel"
 
         const val QUICKJS_RUN: String = "code.javascript.run"
 

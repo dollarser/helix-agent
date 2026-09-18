@@ -112,6 +112,7 @@ internal class GoalTimeBudget(
     fun transferToLease(
         id: String,
         requestedMillis: Long,
+        persist: (GoalLeaseAllocation) -> Unit = {},
     ): GoalLeaseAllocation? {
         require(id.isNotBlank() && requestedMillis in 1_000..GoalUsageReservations.MAX_LEASE_MILLIS)
         val current = window ?: return null
@@ -135,6 +136,7 @@ internal class GoalTimeBudget(
                         ),
                     )
                 if (!admitted) throw LeaseAdmissionRefused()
+                persist(allocation)
             }
         } catch (_: LeaseAdmissionRefused) {
             return null

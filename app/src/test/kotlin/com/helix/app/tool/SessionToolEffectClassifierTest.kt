@@ -70,6 +70,19 @@ class SessionToolEffectClassifierTest {
         assertEquals(linuxUndetermined, plain.footprint.undeterminedEffects)
     }
 
+    @Test fun detachedStartUsesShellEffectsWhileBoundCancelAddsNoNewArbitraryCommand() {
+        val start =
+            bound.classify(
+                request("""{"script":"rm -rf /tmp/x","leaseSeconds":300}"""),
+                descriptor("code.linux.job.start", ToolOperationClass.CODE_EXECUTION),
+            )
+        assertTrue(start.rmCommandHit)
+        assertEquals(linuxUndetermined, start.footprint.undeterminedEffects)
+        val cancel = bound.classify(request(), descriptor("code.linux.job.cancel", ToolOperationClass.LOCAL_MUTATION))
+        assertEquals(setOf(OperationEffect.COMMAND_EXECUTION), cancel.footprint.effects)
+        assertTrue(cancel.footprint.undeterminedEffects.isEmpty())
+    }
+
     @Test
     fun builtInPlanMetadataDoesNotInventDeviceMutation() {
         val result = bound.classify(request(), descriptor("plan.submit", ToolOperationClass.METADATA))

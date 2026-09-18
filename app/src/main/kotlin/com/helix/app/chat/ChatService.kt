@@ -564,6 +564,25 @@ class ChatService(
 
     /** Per-turn cancel signals handed to the dispatcher (the stop button sets them). */
     private val goalTimes = java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>()
+
+    internal fun prepareDetachedJobBudget(
+        sessionId: String,
+        turnId: String,
+        executionId: String,
+        millis: Long,
+    ): Long =
+        com.helix.app.agent
+            .GoalDetachedBudget(storage, clock, goalTimes::get, idGenerator)
+            .prepare(sessionId, turnId, executionId, millis)
+
+    internal fun rejectDetachedJobBudget(
+        sessionId: String,
+        turnId: String,
+        executionId: String,
+    ) = com.helix.app.agent
+        .GoalDetachedBudget(storage, clock, goalTimes::get, idGenerator)
+        .reject(sessionId, turnId, executionId)
+
     private val turnCancels = java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>()
 
     init {
