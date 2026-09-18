@@ -278,6 +278,26 @@ class ChatService(
     internal val artifactFiles: StateFlow<List<ArtifactRowUi>> = artifactFilesState
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
+    /**
+     * Where the panel's RECONNECT / GRANT_PERMISSION buttons navigate: the provider and
+     * permission repair screen. Wired by the UI layer; the service holds no NavController.
+     */
+    internal var recoverySettingsNavigation: (() -> Unit)? = null
+
+    /** HXA-204 slice 2: the panel operations — each keeps its own identity and admission. */
+    private val turnRecovery =
+        TurnRecoveryActions(
+            storage,
+            workScope,
+            _screen,
+            { sessionId -> projection.retryTargetFor(sessionId) },
+            { recoverySettingsNavigation?.invoke() },
+            ::continueGoal,
+            ::retry,
+            ::inspectInterruptedProot,
+            ::refreshScreen,
+        )
+
     private val reminderGoalState = MutableStateFlow<String?>(null)
     internal val reminderGoal: StateFlow<String?> = reminderGoalState.asStateFlow()
 
@@ -1933,6 +1953,17 @@ class ChatService(
         callId: String,
     ) = recovery.retryProotAcknowledgement(turnId, callId)
 
+    /** HXA-204 slice 2: the turn recovery panel operations (own identity, re-checked admission). */
+    fun recoveryReconnect(turnId: String) = turnRecovery.reconnect(turnId)
+
+    fun recoveryQueryResult(turnId: String) = turnRecovery.queryResult(turnId)
+
+    fun recoveryGrantPermission(turnId: String) = turnRecovery.grantPermission(turnId)
+
+    fun recoveryContinueGoal(turnId: String) = turnRecovery.continueGoal(turnId)
+
+    fun recoveryRetryNewCall(turnId: String) = turnRecovery.retryNewCall(turnId)
+
     fun approveApproval(approvalId: String) = toolCalls.approveApproval(approvalId)
 
     fun denyApproval(approvalId: String) = toolCalls.denyApproval(approvalId)
@@ -2704,6 +2735,7 @@ class ChatService(
             // Build from the value observed by StateFlow's atomic update so a refresh can never
             // restore an older blocked/disclosure/streaming snapshot over a newer publication.
             _screen.update { current ->
+                val retryTarget = projection.retryTargetFor(sessionId)
                 val refreshed =
                     ChatScreenState(
                         sessions = _sessions.value,
@@ -2726,7 +2758,16 @@ class ChatService(
                         turns = turns.map { projection.turnUiFor(it, null) },
                         pendingDisclosure = current.pendingDisclosure,
                         blockedReason = current.blockedReason,
-                        retryTargetTurnId = projection.retryTargetFor(sessionId),
+                        retryTargetTurnId = retryTarget,
+                        recoveryPanels =
+                            sessionId
+                                ?.let { id ->
+                                    recoveryPanelsFor(
+                                        loadTurnRecoverySources(storage, id, includeTurnId = retryTarget),
+                                        retryTarget,
+                                    )
+                                }.orEmpty(),
+                        recoveryBusy = current.recoveryBusy,
                         pendingAttachments = stagedAttachmentsUi(),
                         shareDraftText = shareDraftText,
                         taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),

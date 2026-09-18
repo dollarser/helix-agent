@@ -51,6 +51,9 @@ fun ChatScreen(
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
+    // HXA-204 slice 2: the recovery panel's RECONNECT / GRANT_PERMISSION buttons repair in the
+    // providers screen — keep the service's navigation target current on every recomposition.
+    chatService.recoverySettingsNavigation = onProviders
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
     LaunchedEffect(screen.openSessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
@@ -108,7 +111,6 @@ fun ChatScreen(
                         },
                         onStop = { chatService.stop() },
                         onCompact = chatService::compactContext,
-                        onRetry = { chatService.retry() },
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
@@ -124,6 +126,11 @@ fun ChatScreen(
                         onRetryProotAck = chatService::retryProotAcknowledgement,
                         onInspectSubscription = chatService::inspectInterruptedSubscription,
                         onRecoverSubscriptionResult = chatService::recoverInterruptedSubscriptionResult,
+                        onRecoveryReconnect = chatService::recoveryReconnect,
+                        onRecoveryQueryResult = chatService::recoveryQueryResult,
+                        onRecoveryGrantPermission = chatService::recoveryGrantPermission,
+                        onRecoveryContinueGoal = chatService::recoveryContinueGoal,
+                        onRecoveryRetry = chatService::recoveryRetryNewCall,
                         onOpenCommandDetail = onOpenCommandDetail,
                     ),
             )

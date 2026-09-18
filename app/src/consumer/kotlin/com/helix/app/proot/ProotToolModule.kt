@@ -1,6 +1,7 @@
 package com.helix.app.proot
 
 import android.content.Context
+import com.helix.app.readiness.RuntimeReadiness
 import com.helix.core.model.SafetyProfile
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
@@ -86,6 +87,13 @@ internal object ProotToolModule {
     /** Unreachable in the consumer build. */
     @Suppress("FunctionOnlyReturningConstant")
     fun verifyStatusLabel(): String = "unavailable"
+
+    /**
+     * Flavor-neutral runtime readiness (HXA-205): the consumer build ships no PRoot capability,
+     * so the readiness view reports it honestly unavailable (and never offers a LINUX goal).
+     */
+    @Suppress("FunctionOnlyReturningConstant")
+    fun runtimeReadiness(): RuntimeReadiness = RuntimeReadiness.NOT_AVAILABLE
 
     /** The profile the Advanced section of the settings UI is rendered under (never binds). */
     fun advancedActive(profile: SafetyProfile): Boolean = profile == SafetyProfile.ADVANCED

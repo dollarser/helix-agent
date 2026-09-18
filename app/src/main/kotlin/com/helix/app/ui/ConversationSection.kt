@@ -246,6 +246,23 @@ internal fun ConversationSection(
                         )
                     }
                 }
+                // HXA-204 slice 2: the settled turn's recovery panel (the active turn's panel is
+                // emitted separately below — never both, or the list keys collide).
+                val pastPanel =
+                    if (entry.key != screen.activeTurn?.id) screen.recoveryPanels[entry.key] else null
+                if (pastPanel != null) {
+                    item(key = "recovery-${entry.key}") {
+                        TurnRecoveryPanel(
+                            panel = pastPanel,
+                            busy = screen.recoveryBusy,
+                            onReconnect = intents.onRecoveryReconnect,
+                            onQueryResult = intents.onRecoveryQueryResult,
+                            onGrantPermission = intents.onRecoveryGrantPermission,
+                            onContinueGoal = intents.onRecoveryContinueGoal,
+                            onRetry = intents.onRecoveryRetry,
+                        )
+                    }
+                }
             }
             val turn = screen.activeTurn
             if (turn != null && (!turn.state.isTerminal || turn.state == TurnState.CANCELLED)) {
@@ -274,15 +291,25 @@ internal fun ConversationSection(
                             modifier = Modifier.testTag("chat-turn-error"),
                         )
                         turn.budgetDetail?.let { Text(it, modifier = Modifier.testTag("chat-budget-detail")) }
-                        if (screen.retryTargetTurnId != null) {
-                            TextButton(onClick = intents.onRetry, modifier = Modifier.testTag("chat-retry")) {
-                                Text(
-                                    stringResource(
-                                        if (turn.continueFromResults) R.string.budget_continue else R.string.chat_retry,
-                                    ),
-                                )
-                            }
-                        }
+                    }
+                }
+            }
+            // HXA-204 slice 2: the active turn's recovery panel (FAILED shows the retry inside
+            // it under the same `chat-retry` identity; INTERRUPTED / CANCELLED explain their
+            // outcome and offer their own operations).
+            if (turn != null) {
+                val activePanel = screen.recoveryPanels[turn.id]
+                if (activePanel != null) {
+                    item(key = "recovery-${turn.id}") {
+                        TurnRecoveryPanel(
+                            panel = activePanel,
+                            busy = screen.recoveryBusy,
+                            onReconnect = intents.onRecoveryReconnect,
+                            onQueryResult = intents.onRecoveryQueryResult,
+                            onGrantPermission = intents.onRecoveryGrantPermission,
+                            onContinueGoal = intents.onRecoveryContinueGoal,
+                            onRetry = intents.onRecoveryRetry,
+                        )
                     }
                 }
             }

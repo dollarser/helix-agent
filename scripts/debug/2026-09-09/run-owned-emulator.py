@@ -72,6 +72,9 @@ def run(args):
             # Confirm the newly launched instance, never attach to a borrowed device.
             if args.avd not in device("emu", "avd", "name").splitlines():
                 raise RuntimeError("AVD identity mismatch")
+            if args.airplane_mode:
+                device("shell", "svc", "wifi", "disable")
+                device("shell", "svc", "data", "disable")
             device("shell", "wm", "size", "1080x2400")
             device("shell", "wm", "density", "420")
             if args.reverse_port:
@@ -152,6 +155,8 @@ if __name__ == "__main__":
     parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--grant-shared-storage", action="store_true")
+    parser.add_argument("--airplane-mode", action="store_true",
+                        help="Cut the network (disable wifi + data) for the offline scenario")
     parser.add_argument("--instrument-arg", action="append", default=[])
     parser.add_argument("--after-script", help="Run a checked Python follow-up on this owned serial before teardown")
     run(parser.parse_args())

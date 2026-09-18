@@ -64,7 +64,6 @@ class ModeLayoutDeviceTest {
             onBack = {},
             onSend = {},
             onStop = {},
-            onRetry = {},
             onDismissBlocked = {},
             onApproveApproval = {},
             onDenyApproval = {},

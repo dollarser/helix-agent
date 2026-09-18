@@ -34,8 +34,14 @@ extensions.configure<SpotlessExtension> {
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {
-        target("*.gradle.kts", "**/*.gradle.kts")
-        targetExclude("**/build/**")
+        // Exclude generated directories during traversal, before parallel compilers
+        // replace their outputs; subtracting a second target tree scans them first.
+        target(
+            fileTree(projectDir) {
+                include("*.gradle.kts", "**/*.gradle.kts")
+                exclude("**/build/**")
+            },
+        )
         ktlint(libs.versions.ktlint.get())
     }
     format("misc") {

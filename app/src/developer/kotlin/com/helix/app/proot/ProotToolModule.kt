@@ -6,6 +6,7 @@ import android.util.Log
 import com.helix.app.APP_SCOPE_ID
 import com.helix.app.R
 import com.helix.app.approval.SessionPermissionService
+import com.helix.app.readiness.RuntimeReadiness
 import com.helix.app.tool.SessionToolEffectClassifier
 import com.helix.core.model.IdGenerator
 import com.helix.core.model.RandomIdGenerator
@@ -263,6 +264,19 @@ internal object ProotToolModule {
             }
         }
     }
+
+    /**
+     * The flavor-neutral runtime readiness (HXA-205 readiness view): the LIVE [availabilityGate]
+     * mapped to the flavor-neutral [RuntimeReadiness] enum. Bind-free, exactly like
+     * [verifyStatusLabel] — passive entry of the readiness view reads it without a cold bind.
+     */
+    fun runtimeReadiness(): RuntimeReadiness =
+        when (availabilityGate()) {
+            LinuxRuntimeGate.READY -> RuntimeReadiness.READY
+            LinuxRuntimeGate.NOT_INSTALLED -> RuntimeReadiness.NOT_INSTALLED
+            LinuxRuntimeGate.NOT_VERIFIED -> RuntimeReadiness.NOT_VERIFIED
+            LinuxRuntimeGate.DISABLED_OR_FORCED_STOPPED -> RuntimeReadiness.DISABLED_OR_FORCED_STOPPED
+        }
 
     /**
      * The user-click "验证 Runtime" action (the ONLY zero-Job bind): a fresh cold bind +

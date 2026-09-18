@@ -178,7 +178,7 @@ flowchart TB
 
 ## 8. 已实现的恢复原则与待补体验
 
-恢复界面仍需 [HXA-204](../development/tasks/HXA-204.md) 收口，但底层恢复必须区分四件事，不能只有一条笼统的 resume 箭头。
+恢复界面仍需 [HXA-204](../completion-records/HXA-204.md) 收口，但底层恢复必须区分四件事，不能只有一条笼统的 resume 箭头。
 
 ```mermaid
 flowchart TB

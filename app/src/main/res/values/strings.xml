@@ -48,6 +48,25 @@
     <string name="empty_settings">模型 Provider 和本地配置将在 M2 实现。</string>
     <string name="empty_audit">工具执行审计记录将在 M3 实现。</string>
     <string name="empty_not_enabled">%1$s功能尚未启用</string>
+    <string name="nav_readiness">准备</string>
+    <string name="empty_readiness">准备页将按目标汇总模型、工作区、系统能力与 Runtime 状态，并给出下一步操作。</string>
+    <string name="readiness_lead">按你的目标查看准备状态，并完成初始化或修复。进入本页不会自动启动 Runtime 或登录。</string>
+    <string name="readiness_goal_label">当前目标</string>
+    <string name="readiness_goal_chat">对话</string>
+    <string name="readiness_goal_files">文件</string>
+    <string name="readiness_goal_browser">浏览器</string>
+    <string name="readiness_goal_linux">Linux 运行时</string>
+    <string name="readiness_item_model">模型连接</string>
+    <string name="readiness_item_workspace">工作区</string>
+    <string name="readiness_item_web">网页浏览</string>
+    <string name="readiness_item_runtime">PRoot 运行时</string>
+    <string name="readiness_state_ready">已就绪</string>
+    <string name="readiness_state_missing">待准备</string>
+    <string name="readiness_state_unavailable">当前不可用</string>
+    <string name="readiness_next_action">下一步</string>
+    <string name="readiness_action_add_model">配置模型</string>
+    <string name="readiness_action_verify_runtime">验证 Runtime</string>
+    <string name="readiness_action_repair_runtime">修复 Runtime</string>
     <string name="settings_title" tools:keep="true" tools:ignore="UnusedResources">设置</string>
     <string name="settings_safety_section">安全配置</string>
     <string name="settings_current_advanced">当前：Advanced</string>
@@ -1093,4 +1112,15 @@
     <string name="chat_session_search_skipped">跳过 %1$d 条不可读或超出大小限制的正文</string>
     <string name="command_detail_running_note">实时输出为有界预览；最终结果以命令结束后的记录为准。</string>
     <string name="command_log_unavailable">实时输出暂不可用；已有预览保留，命令状态与最终结果单独更新。</string>
+    <string name="recovery_reason_unknown">执行已中断，结果未知：只对账，不重放</string>
+    <string name="recovery_reason_cancelled">已取消：不会自动继续</string>
+    <string name="recovery_completed">已完成动作：%1$s</string>
+    <string name="recovery_denied">已拒绝动作：%1$s</string>
+    <string name="recovery_pending">待核查副作用：%1$s</string>
+    <string name="recovery_artifacts">可用产物：%1$d</string>
+    <string name="recovery_next">下一操作：%1$s</string>
+    <string name="recovery_btn_reconnect">重新连接</string>
+    <string name="recovery_btn_query">查询结果</string>
+    <string name="recovery_btn_grant">补充权限</string>
+    <string name="recovery_btn_continue">继续 Goal</string>
 </resources>

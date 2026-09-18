@@ -117,6 +117,14 @@ data class ChatScreenState(
     val blockedReason: String?,
     /** The latest FAILED turn eligible for retry; a bound Goal must permit explicit continuation. */
     val retryTargetTurnId: String?,
+    /**
+     * The open session's recovery panels keyed by turn id (HXA-204 slice 2): a read-only
+     * projection of persisted facts per settled turn; at most one panel carries the retry
+     * admission.
+     */
+    val recoveryPanels: Map<String, TurnRecoveryPanelUi> = emptyMap(),
+    /** In-flight explicit recovery operations, keyed "turnId:OPERATION" (HXA-204 slice 2). */
+    val recoveryBusy: Set<String> = emptySet(),
     /** The open session's staged attachments (in-memory, local until an explicit send — ADR-0014 §5). */
     val pendingAttachments: List<PendingAttachmentUi> = emptyList(),
     /**
