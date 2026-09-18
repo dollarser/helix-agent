@@ -58,6 +58,17 @@ class TurnRecoveryPanelTest {
     }
 
     @Test
+    fun aSupersededFailureKeepsItsFactsButLosesTheRetryAdmission() {
+        val panels =
+            recoveryPanelsFor(listOf(source("t1").copy(supersededByCompleted = true)), "t1")
+        val panel = panels["t1"]!!
+        // The existing `chat-retry` visibility rule: a later successful result moves the
+        // conversation past the failure, so the panel keeps its facts but no retry button.
+        assertFalse(panel.retryAllowed)
+        assertTrue(RecoveryOperation.RETRY_NEW_CALL in panel.summary.operations)
+    }
+
+    @Test
     fun interruptedTurnPanelIsQueryOnlyWithUnknownResult() {
         val panels = recoveryPanelsFor(listOf(source("t1", turnState = "INTERRUPTED")), null)
         val panel = panels["t1"]!!

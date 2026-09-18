@@ -37,7 +37,6 @@ class RunControlModeUiDeviceTest {
                             onBack = {},
                             onSend = {},
                             onStop = {},
-                            onRetry = {},
                             onDismissBlocked = {},
                             onApproveApproval = {},
                             onDenyApproval = {},

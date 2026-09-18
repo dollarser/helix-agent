@@ -79,7 +79,6 @@ private fun timelineIntents() =
         onBack = {},
         onSend = {},
         onStop = {},
-        onRetry = {},
         onDismissBlocked = {},
         onApproveApproval = {},
         onDenyApproval = {},

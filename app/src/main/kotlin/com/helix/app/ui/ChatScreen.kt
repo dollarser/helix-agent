@@ -108,7 +108,6 @@ fun ChatScreen(
                         },
                         onStop = { chatService.stop() },
                         onCompact = chatService::compactContext,
-                        onRetry = { chatService.retry() },
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },

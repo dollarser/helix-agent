@@ -7,6 +7,7 @@ import com.helix.app.ui.ToolCallFact
 import com.helix.app.ui.recoverySummary
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.entity.TurnEntity
 
 /**
  * HXA-204 slice 2: one settled turn's recovery panel as rendered in the chat conversation.
@@ -30,12 +31,20 @@ internal data class TurnRecoverySource(
     val goalId: String?,
     val goalObjective: String?,
     val facts: RecoveryFacts,
+    /**
+     * A later COMPLETED turn in the session has moved the conversation past this failure;
+     * the existing `chat-retry` visibility rule keeps the retry button hidden in that case
+     * (later CANCELLED / INTERRUPTED turns do NOT supersede).
+     */
+    val supersededByCompleted: Boolean = false,
 )
 
 /**
  * Pure: maps [sources] to the panels the UI renders, keyed by turn id. A turn gets a panel
  * only when its projected summary is blocked; the retry operation belongs to the single
- * admitted [retryTargetTurnId], never duplicated across panels.
+ * admitted [retryTargetTurnId] — and only while that failure has not been superseded by a
+ * later successful result (the existing `chat-retry` visibility rule), never duplicated
+ * across panels.
  */
 internal fun recoveryPanelsFor(
     sources: List<TurnRecoverySource>,
@@ -49,7 +58,10 @@ internal fun recoveryPanelsFor(
                 turnId = source.turnId,
                 turnState = source.facts.turnState,
                 summary = summary,
-                retryAllowed = retryTargetTurnId != null && retryTargetTurnId == source.turnId,
+                retryAllowed =
+                    retryTargetTurnId != null &&
+                        retryTargetTurnId == source.turnId &&
+                        !source.supersededByCompleted,
                 goalId = source.goalId,
                 goalObjective = source.goalObjective,
             )
@@ -86,19 +98,23 @@ private fun readTurnRecoverySources(
     limit: Int,
     includeTurnId: String?,
 ): List<TurnRecoverySource> {
+    val allTurns = storage.turns.listBySession(sessionId)
     val settled =
-        storage.turns
-            .listBySession(sessionId)
-            .filter { turn ->
-                turn.state in
-                    setOf(
-                        TurnState.FAILED.name,
-                        TurnState.INTERRUPTED.name,
-                        TurnState.CANCELLED.name,
-                    )
-            }
+        allTurns.filter { turn ->
+            turn.state in
+                setOf(
+                    TurnState.FAILED.name,
+                    TurnState.INTERRUPTED.name,
+                    TurnState.CANCELLED.name,
+                )
+        }
     val extra = includeTurnId?.let { id -> settled.firstOrNull { it.id == id } }
     val window = (settled.takeLast(limit) + listOfNotNull(extra)).distinctBy { it.id }
+    // A later successful result moves the conversation past an earlier failure: the retry
+    // button follows the existing visibility rule and hides then; later CANCELLED /
+    // INTERRUPTED turns do NOT supersede.
+    val lastCompletedIndex = allTurns.indexOfLast { it.state == TurnState.COMPLETED.name }
+    val turnIndexById = allTurns.withIndex().associate { (i, t) -> t.id to i }
     // One Goal query per refresh, shared by every bound turn in the window.
     val goals =
         if (window.any { storage.goalTurnBindings.byTurn(it.id) != null }) {
@@ -107,33 +123,48 @@ private fun readTurnRecoverySources(
             emptyMap()
         }
     return window.map { turn ->
-        val binding = storage.goalTurnBindings.byTurn(turn.id)
-        val goalId = binding?.let { storage.goalRuns.resolve(it.runId).goalId }
-        val goal = goalId?.let { goals[it] }
-        // Pre-filter before the O(session) eligibility scan: only budget-code FAILED turns pay it.
-        val budgetEligible =
-            turn.state == TurnState.FAILED.name &&
-                turn.errorCode in BudgetStopReasons.turn &&
-                BudgetContinuation.eligible(storage, turn)
-        TurnRecoverySource(
-            turnId = turn.id,
-            goalId = goalId,
-            goalObjective = goal?.objective,
-            facts =
-                RecoveryFacts(
-                    turnState = turn.state,
-                    turnErrorCode = turn.errorCode,
-                    toolCalls =
-                        storage.toolCalls
-                            .listByTurn(turn.id)
-                            .map { call -> ToolCallFact(call.callId, call.name, call.state) },
-                    userPaused = turn.pauseRequestedAt != null,
-                    goalBound = binding != null,
-                    goalState = goal?.status?.state,
-                    goalContinuable = goal?.canContinue == true,
-                    budgetContinuationEligible = budgetEligible,
-                    artifactIds = storage.artifacts.listByTurn(turn.id).map { it.id },
-                ),
+        recoverySourceFor(
+            storage,
+            turn,
+            goals,
+            (turnIndexById[turn.id] ?: -1) < lastCompletedIndex,
         )
     }
+}
+
+private fun recoverySourceFor(
+    storage: HelixStorage,
+    turn: TurnEntity,
+    goals: Map<String, GoalSummaryUi>,
+    supersededByCompleted: Boolean,
+): TurnRecoverySource {
+    val binding = storage.goalTurnBindings.byTurn(turn.id)
+    val goalId = binding?.let { storage.goalRuns.resolve(it.runId).goalId }
+    val goal = goalId?.let { goals[it] }
+    // Pre-filter before the O(session) eligibility scan: only budget-code FAILED turns pay it.
+    val budgetEligible =
+        turn.state == TurnState.FAILED.name &&
+            turn.errorCode in BudgetStopReasons.turn &&
+            BudgetContinuation.eligible(storage, turn)
+    return TurnRecoverySource(
+        turnId = turn.id,
+        goalId = goalId,
+        goalObjective = goal?.objective,
+        facts =
+            RecoveryFacts(
+                turnState = turn.state,
+                turnErrorCode = turn.errorCode,
+                toolCalls =
+                    storage.toolCalls
+                        .listByTurn(turn.id)
+                        .map { call -> ToolCallFact(call.callId, call.name, call.state) },
+                userPaused = turn.pauseRequestedAt != null,
+                goalBound = binding != null,
+                goalState = goal?.status?.state,
+                goalContinuable = goal?.canContinue == true,
+                budgetContinuationEligible = budgetEligible,
+                artifactIds = storage.artifacts.listByTurn(turn.id).map { it.id },
+            ),
+        supersededByCompleted = supersededByCompleted,
+    )
 }

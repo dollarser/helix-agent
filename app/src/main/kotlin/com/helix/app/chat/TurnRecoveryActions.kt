@@ -86,11 +86,18 @@ internal class TurnRecoveryActions(
                             .singleOrNull { it.turnId == turnId }
                     }
                 val summary = source?.let { recoverySummary(it.facts) }
+                // The render-time retry admission (retryAllowed) is re-earned here: a late
+                // successful result settling between render and click supersedes the failure
+                // and must void the retry, exactly as the panel button would have disappeared.
                 val admitted =
                     source != null &&
                         summary != null &&
                         summary.blocked &&
-                        operation in summary.operations
+                        operation in summary.operations &&
+                        (
+                            operation != RecoveryOperation.RETRY_NEW_CALL ||
+                                !source.supersededByCompleted
+                        )
                 if (admitted) {
                     setBusy(turnId, operation, true)
                     try {
