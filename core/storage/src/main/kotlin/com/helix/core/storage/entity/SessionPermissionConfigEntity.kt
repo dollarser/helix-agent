@@ -9,9 +9,8 @@ import androidx.room.PrimaryKey
  * ADR-PERMISSIONS-001 section 2 step 4): the single compiled
  * [com.helix.core.policy.SessionPermissionConfig] shape — a [mode] plus the materialized rule
  * table in [rulesJson]. Presets are stored as their FIXED rule snapshot (the preset's own
- * table); CUSTOM as the user's explicit copied-then-edited snapshot. A missing row means the
- * session uses the APP DEFAULT (lazy default — no per-session rows are seeded by the
- * migration).
+ * table); CUSTOM as the user's explicit copied-then-edited snapshot. Session creation and
+ * v23 migration materialize the default; future app-default edits never change this row.
  *
  * [rulesJson] is the deterministic flat object produced by
  * [com.helix.core.storage.repository.SessionPermissionRulesCodec]. [configVersion] is the

@@ -177,6 +177,13 @@ class ProviderConfigAndSecretStoreTest {
         store.put(alias, "first")
         store.put(alias, "second")
         assertEquals("second", store.get(alias))
+        val encrypted = storeDirectory("overwrite").resolve("${alias.value}.enc")
+        val permissions =
+            android.system.Os
+                .stat(encrypted.path)
+                .st_mode and 511
+        assertEquals(384, permissions) // 0600: atomic replacement preserves the prepared file's mode.
+        assertFalse(storeDirectory("overwrite").listFiles()!!.any { it.name.endsWith(".tmp") })
         store.delete(alias)
         assertFalse(store.contains(alias))
         store.delete(alias) // idempotent

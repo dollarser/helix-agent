@@ -76,16 +76,17 @@ class AndroidKeystoreSecretStore internal constructor(
         // authentication then rejects (the secret is lost, not leaked). The content
         // store already does this (FileContentStore); align.
         val tmp = File(directory, "${target.name}-${java.util.UUID.randomUUID()}.tmp")
-        FileOutputStream(tmp).use { out ->
-            out.write(iv)
-            out.write(ciphertext)
-        }
-        Os.chmod(tmp.path, OsConstants.S_IRUSR or OsConstants.S_IWUSR)
-        if (!tmp.renameTo(target)) {
-            // Same-directory rename normally succeeds; fall back to atomic-enough copy.
-            tmp.copyTo(target, overwrite = true)
+        try {
+            FileOutputStream(tmp).use { out ->
+                out.write(iv)
+                out.write(ciphertext)
+                out.fd.sync()
+            }
+            Os.chmod(tmp.path, OsConstants.S_IRUSR or OsConstants.S_IWUSR)
+            // Same-directory POSIX rename either replaces atomically or leaves the old secret intact.
+            Os.rename(tmp.path, target.path)
+        } finally {
             tmp.delete()
-            require(target.isFile) { "failed to persist secret file: ${target.name}" }
         }
     }
 

@@ -32,9 +32,12 @@ import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.repository.SessionPermissionDraft
 import com.helix.tools.framework.ToolDescriptor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -63,6 +66,9 @@ internal fun SessionPermissionSection(
     val controller = rememberPermissionController(edit, toolPipeline, chatService)
     SettingsGroup {
         Text(stringResource(R.string.settings_perm_title), style = MaterialTheme.typography.titleMedium)
+        if (controller.failed.value) {
+            Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
+        }
         PermissionDefaultPicker(controller)
         HorizontalDivider(modifier = Modifier.fillMaxWidth())
         if (controller.sessionId != null) {
@@ -260,8 +266,26 @@ private class SessionPermissionController(
     val toolsDisabled: MutableState<Map<String, Boolean>>,
     val draft: MutableState<SessionPermissionDraft?>,
 ) {
-    fun load() {
+    val failed = mutableStateOf(false)
+    private val edits = Mutex()
+
+    private fun perform(block: suspend () -> Unit) {
         scope.launch {
+            edits.withLock {
+                try {
+                    block()
+                    failed.value = false
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    failed.value = true
+                }
+            }
+        }
+    }
+
+    fun load() {
+        perform {
             withContext(Dispatchers.IO) {
                 defaultMode.value = edit.appDefault().mode
                 toolsDisabled.value =
@@ -276,7 +300,7 @@ private class SessionPermissionController(
     }
 
     fun chooseDefault(mode: SessionPermissionMode) {
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) { edit.setNewSessionDefault(mode, System.currentTimeMillis()) }
             load()
         }
@@ -284,7 +308,7 @@ private class SessionPermissionController(
 
     fun chooseSessionMode(mode: SessionPermissionMode) {
         val id = sessionId ?: return
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) {
                 val before = edit.activeConfigFor(id) ?: edit.appDefault()
                 val now = System.currentTimeMillis()
@@ -301,7 +325,7 @@ private class SessionPermissionController(
 
     fun resetSession() {
         val id = sessionId ?: return
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) { edit.resetSessionToDefault(id, System.currentTimeMillis()) }
             load()
         }
@@ -310,9 +334,9 @@ private class SessionPermissionController(
     fun toggleTool(descriptor: ToolDescriptor) {
         val sourceRef = descriptor.origin.canonicalOf()
         val toolName = descriptor.name.value
-        val disableNext = toolsDisabled.value[toolKey(descriptor)] != true
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) {
+                val disableNext = !edit.globalToolDisabled(sourceRef, toolName)
                 edit.setToolAvailability(
                     sourceRef,
                     toolName,
@@ -334,7 +358,7 @@ private class SessionPermissionController(
      */
     fun copyPresetIntoDraft(preset: SessionPermissionMode) {
         val id = sessionId ?: return
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) {
                 val before = edit.activeConfigFor(id) ?: edit.appDefault()
                 edit.saveCustomDraft(
@@ -359,12 +383,10 @@ private class SessionPermissionController(
         rule: OperationRule,
     ) {
         val id = sessionId ?: return
-        val current = draft.value ?: return
-        val nextRules = current.rules.toMutableMap().apply { this[effect] = rule }
-        scope.launch {
+        perform {
             withContext(Dispatchers.IO) {
                 val before = edit.activeConfigFor(id) ?: edit.appDefault()
-                edit.saveCustomDraft(id, current.sourcePreset, nextRules, System.currentTimeMillis())
+                edit.setCustomRule(id, effect, rule, System.currentTimeMillis())
                 markTightened((edit.activeConfigFor(id) ?: edit.appDefault()).tightens(before))
             }
             load()

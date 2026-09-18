@@ -34,6 +34,7 @@ import kotlinx.serialization.json.put
  * out of a save — nothing is audited when the write fails, and there is no catch-all success
  * path the UI could mistake for "saved".
  */
+@Suppress("TooManyFunctions") // One transactional entry per user permission command plus read projections.
 class SessionPermissionEditService(
     private val configs: SessionPermissionConfigRepository,
     private val availability: ToolAvailabilityRepository,
@@ -46,6 +47,7 @@ class SessionPermissionEditService(
         payload: String,
         timestamp: Long,
     ) -> Unit,
+    private val transaction: (() -> Unit) -> Unit = { it() },
 ) {
     /**
      * Saves (or updates) the ACTIVE config for one session; returns the new revision. The
@@ -57,35 +59,36 @@ class SessionPermissionEditService(
         sessionId: String,
         config: SessionPermissionConfig,
         nowEpochMillis: Long,
-    ): Long {
-        val revision = configs.setForSession(sessionId, config, nowEpochMillis)
-        appendAudit(
-            idGenerator(),
-            sessionId,
-            TYPE,
-            ACTOR,
-            Change(
-                action = ACTION_SESSION_CONFIG,
-                changedAt = nowEpochMillis,
-                mode = config.mode.name,
-                configVersion = config.configVersion,
-                revision = revision,
-            ).encode(),
-            nowEpochMillis,
-        )
-        return revision
-    }
+    ): Long =
+        atomic {
+            val revision = configs.setForSession(sessionId, config, nowEpochMillis)
+            appendAudit(
+                idGenerator(),
+                sessionId,
+                TYPE,
+                ACTOR,
+                Change(
+                    action = ACTION_SESSION_CONFIG,
+                    changedAt = nowEpochMillis,
+                    mode = config.mode.name,
+                    configVersion = config.configVersion,
+                    revision = revision,
+                ).encode(),
+                nowEpochMillis,
+            )
+            return@atomic revision
+        }
 
     /**
-     * "Back to the app default" for one session: a row delete, not a stored fourth state.
+     * "Back to the app default" stores a fixed snapshot of the current default.
      * The audit records the mode the session now resolves to (the app default). Storage
      * failures propagate.
      */
     fun resetSessionToDefault(
         sessionId: String,
         nowEpochMillis: Long,
-    ) {
-        configs.resetToDefault(sessionId)
+    ) = atomic {
+        configs.resetToDefault(sessionId, nowEpochMillis)
         appendAudit(
             idGenerator(),
             sessionId,
@@ -110,24 +113,25 @@ class SessionPermissionEditService(
     fun setNewSessionDefault(
         mode: SessionPermissionMode,
         nowEpochMillis: Long,
-    ): Long {
-        val revision = configs.setAppDefault(mode, nowEpochMillis)
-        appendAudit(
-            idGenerator(),
-            APP_DEFAULT_CORRELATION,
-            TYPE,
-            ACTOR,
-            Change(
-                action = ACTION_APP_DEFAULT,
-                changedAt = nowEpochMillis,
-                mode = mode.name,
-                configVersion = configs.appDefault().configVersion,
-                revision = revision,
-            ).encode(),
-            nowEpochMillis,
-        )
-        return revision
-    }
+    ): Long =
+        atomic {
+            val revision = configs.setAppDefault(mode, nowEpochMillis)
+            appendAudit(
+                idGenerator(),
+                APP_DEFAULT_CORRELATION,
+                TYPE,
+                ACTOR,
+                Change(
+                    action = ACTION_APP_DEFAULT,
+                    changedAt = nowEpochMillis,
+                    mode = mode.name,
+                    configVersion = configs.appDefault().configVersion,
+                    revision = revision,
+                ).encode(),
+                nowEpochMillis,
+            )
+            return@atomic revision
+        }
 
     /**
      * Enables or disables ONE tool identity in ONE scope; returns whether the stored state
@@ -144,46 +148,54 @@ class SessionPermissionEditService(
         scopeRef: String,
         disabled: Boolean,
         nowEpochMillis: Long,
-    ): Boolean {
-        val changed =
-            if (disabled) {
-                availability.set(sourceRef, toolName, scope, scopeRef, ToolAvailabilityState.DISABLED, nowEpochMillis)
-                true
-            } else {
-                val present =
-                    availability
-                        .byTool(sourceRef, toolName)
-                        .any { it.scopeKind == scope.name && it.scopeRef == scopeRef }
-                if (present) {
-                    availability.remove(sourceRef, toolName, scope, scopeRef)
+    ): Boolean =
+        atomic {
+            val changed =
+                if (disabled) {
+                    availability.set(
+                        sourceRef,
+                        toolName,
+                        scope,
+                        scopeRef,
+                        ToolAvailabilityState.DISABLED,
+                        nowEpochMillis,
+                    )
                     true
                 } else {
-                    false
+                    val present =
+                        availability
+                            .byTool(sourceRef, toolName)
+                            .any { it.scopeKind == scope.name && it.scopeRef == scopeRef }
+                    if (present) {
+                        availability.remove(sourceRef, toolName, scope, scopeRef)
+                        true
+                    } else {
+                        false
+                    }
                 }
+            if (changed) {
+                appendAudit(
+                    idGenerator(),
+                    scopeRef.ifBlank { GLOBAL_CORRELATION },
+                    TYPE,
+                    ACTOR,
+                    Change(
+                        action = ACTION_TOOL_AVAILABILITY,
+                        changedAt = nowEpochMillis,
+                        toolName = toolName,
+                        toolState =
+                            if (disabled) {
+                                ToolAvailabilityState.DISABLED.name
+                            } else {
+                                ToolAvailabilityState.ENABLED.name
+                            },
+                        scope = scope.name,
+                    ).encode(),
+                    nowEpochMillis,
+                )
             }
-        if (changed) {
-            appendAudit(
-                idGenerator(),
-                scopeRef.ifBlank { GLOBAL_CORRELATION },
-                TYPE,
-                ACTOR,
-                Change(
-                    action = ACTION_TOOL_AVAILABILITY,
-                    changedAt = nowEpochMillis,
-                    toolName = toolName,
-                    toolState =
-                        if (disabled) {
-                            ToolAvailabilityState.DISABLED.name
-                        } else {
-                            ToolAvailabilityState.ENABLED.name
-                        },
-                    scope = scope.name,
-                ).encode(),
-                nowEpochMillis,
-            )
+            return@atomic changed
         }
-        return changed
-    }
 
     /**
      * The stored CUSTOM draft for one session, or null when it has none yet — the read seam the
@@ -231,7 +243,7 @@ class SessionPermissionEditService(
         sourcePreset: SessionPermissionMode,
         rules: Map<OperationEffect, OperationRule>,
         nowEpochMillis: Long,
-    ) {
+    ) = atomic {
         configs.setCustomDraft(sessionId, sourcePreset, rules, nowEpochMillis)
         val active = configs.forSession(sessionId) ?: configs.appDefault()
         if (active.mode == SessionPermissionMode.CUSTOM) {
@@ -264,10 +276,28 @@ class SessionPermissionEditService(
     fun activateCustomDraft(
         sessionId: String,
         nowEpochMillis: Long,
-    ): Boolean {
-        val draft = configs.customDraftFor(sessionId) ?: return false
-        saveSessionConfig(sessionId, SessionPermissionConfig.custom(draft.rules), nowEpochMillis)
-        return true
+    ): Boolean =
+        atomic {
+            val draft = configs.customDraftFor(sessionId) ?: return@atomic false
+            saveSessionConfig(sessionId, SessionPermissionConfig.custom(draft.rules), nowEpochMillis)
+            return@atomic true
+        }
+
+    /** Applies one rule against the latest durable draft, in the same transaction as its audit. */
+    fun setCustomRule(
+        sessionId: String,
+        effect: OperationEffect,
+        rule: OperationRule,
+        nowEpochMillis: Long,
+    ) = atomic {
+        val draft = requireNotNull(configs.customDraftFor(sessionId)) { "custom draft missing" }
+        saveCustomDraft(sessionId, draft.sourcePreset, draft.rules + (effect to rule), nowEpochMillis)
+    }
+
+    private fun <T> atomic(block: () -> T): T {
+        var result: Result<T>? = null
+        transaction { result = Result.success(block()) }
+        return checkNotNull(result).getOrThrow()
     }
 
     /**

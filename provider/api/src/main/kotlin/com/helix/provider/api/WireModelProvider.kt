@@ -192,6 +192,10 @@ public abstract class WireModelProvider(
                             retryable,
                         )
                     }
+                } catch (e: SocketTimeoutException) {
+                    ioFailure(ModelErrorCode.TIMEOUT, e)
+                } catch (e: IOException) {
+                    ioFailure(ModelErrorCode.TRANSPORT, e)
                 } finally {
                     body.close()
                 }

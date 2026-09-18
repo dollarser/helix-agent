@@ -89,6 +89,9 @@ internal fun FilesScreenLayout(
                     }
                 }
 
+                if (listingTruncated && !trashOpen) {
+                    Text(str(R.string.files_listing_partial), modifier = Modifier.testTag("files-listing-partial"))
+                }
                 HorizontalDivider()
 
                 // Body: the trash panel, or the directory listing (list / grid).

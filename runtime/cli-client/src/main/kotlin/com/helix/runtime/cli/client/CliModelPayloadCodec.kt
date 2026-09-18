@@ -271,12 +271,14 @@ object CliModelEventCodec {
 
     fun encode(events: List<ModelEvent>): ByteArray {
         require(events.isNotEmpty())
-        val bytes =
-            buildJsonObject {
-                put("version", 1)
-                put("events", buildJsonArray { events.forEach { add(encodeEvent(it)) } })
-            }.toString().encodeToByteArray()
-        return bytes
+        val output = java.io.ByteArrayOutputStream()
+        output.write("{\"version\":1,\"events\":[".encodeToByteArray())
+        events.forEachIndexed { index, event ->
+            if (index > 0) output.write(','.code)
+            output.write(encodeEvent(event).toString().encodeToByteArray())
+        }
+        output.write("]}".encodeToByteArray())
+        return output.toByteArray()
     }
 
     fun decode(bytes: ByteArray): List<ModelEvent> {
@@ -290,7 +292,7 @@ object CliModelEventCodec {
         return events
     }
 
-    internal fun encodeEvent(event: ModelEvent): JsonObject =
+    fun encodeEvent(event: ModelEvent): JsonObject =
         buildJsonObject {
             when (event) {
                 is ModelEvent.TextDelta -> {
@@ -345,7 +347,7 @@ object CliModelEventCodec {
             }
         }
 
-    internal fun decodeEvent(element: kotlinx.serialization.json.JsonElement): ModelEvent {
+    fun decodeEvent(element: kotlinx.serialization.json.JsonElement): ModelEvent {
         val obj = element.jsonObject
         val type = obj.getValue("type").jsonPrimitive.content
         require(obj.keys.all { it in EVENT_KEYS.getValue(type) })

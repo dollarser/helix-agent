@@ -5,6 +5,8 @@ import com.helix.core.storage.entity.SessionEntity
 
 class SessionRepository(
     private val dao: SessionDao,
+    private val transaction: (() -> Unit) -> Unit = { it() },
+    private val snapshotPermissions: (String, Long) -> Unit = { _, _ -> },
 ) {
     fun create(
         id: String,
@@ -16,7 +18,10 @@ class SessionRepository(
         require(title.isNotBlank()) { "session title must not be blank" }
         require(createdAt >= 0) { "createdAt must be >= 0" }
         val entity = SessionEntity(id, title, providerId, modelId, createdAt, null)
-        dao.insert(entity)
+        transaction {
+            dao.insert(entity)
+            snapshotPermissions(id, createdAt)
+        }
         return entity
     }
 

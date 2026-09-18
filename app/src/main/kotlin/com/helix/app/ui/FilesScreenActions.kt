@@ -360,14 +360,42 @@ internal class FilesScreenActions(
         }
     }
 
+    fun grantTree(uri: android.net.Uri) {
+        scope.launch {
+            try {
+                val name =
+                    withContext(Dispatchers.IO) {
+                        val treeName =
+                            uri.lastPathSegment?.let { android.net.Uri.decode(it) }
+                                ?: str(R.string.files_saf_directory_fallback)
+                        safTree.grant(uri.toString(), treeName).displayName
+                    }
+                state.replaceSources(withContext(Dispatchers.IO) { fileManager.sources() })
+                state.status = str(R.string.files_saf_granted, name)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                state.status = str(R.string.common_operation_failed)
+            }
+        }
+    }
+
     fun revokeScope(source: com.helix.feature.files.SafTreeSource) {
         with(state) {
             scope.launch {
-                withContext(Dispatchers.IO) {
-                    safTree.revoke(source.scopeId)
-                    sources = fileManager.sources()
+                try {
+                    val updated =
+                        withContext(Dispatchers.IO) {
+                            safTree.revoke(source.scopeId)
+                            fileManager.sources()
+                        }
+                    replaceSources(updated)
+                    status = str(R.string.files_saf_removed, source.displayName)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    status = str(R.string.common_operation_failed)
                 }
-                status = str(R.string.files_saf_removed, source.displayName)
             }
         }
     }

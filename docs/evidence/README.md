@@ -3,6 +3,7 @@
 这些文件记录当时的结果、限制或外部材料，不是当前任务指令。当前进展见[实施状态](../development/status.md)，待完成范围见[路线](../development/roadmap.md)。旧工作树、设备 serial、所有方和命令仅用于解释证据，不能直接复用。
 
 - [import-materials](connectors/import-materials.md)
+- [2026-09-18 审查复核与修复优先级](development/review-followup-2026-09-18.md)
 - [account-connection-and-settings-layout-2026-09-10](development/account-connection-and-settings-layout-2026-09-10.md)
 - [approval-experience-review-2026-09-16](development/approval-experience-review-2026-09-16.md)
 - [browser-context-options](development/browser-context-options.md)

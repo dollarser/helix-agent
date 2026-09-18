@@ -53,6 +53,38 @@ class FileManagerServiceTest {
     private fun sha256Hex(b: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(b).joinToString("") { "%02x".format(it) }
 
+    @Test
+    fun largeDirectoryReportsThatSortingAndSearchArePartial() {
+        repeat(501) { index -> Files.write(real("work/item-$index"), byteArrayOf(1)) }
+        val listing = service.listing(scopeId, "work", SortKey.SIZE)
+        assertEquals(500, listing.entries.size)
+        assertTrue(listing.truncated)
+        assertFalse(service.listing(scopeId, "input").truncated)
+    }
+
+    @Test
+    fun removingSelectedSourceClearsLocationAndPendingActions() {
+        val state =
+            com.helix.app.ui
+                .FilesScreenState(service)
+        val workspace = state.sources.first()
+        val removed = workspace.copy(scopeId = "removed", displayName = "Removed")
+        state.replaceSources(listOf(workspace, removed))
+        state.openLocation(removed.scopeId, "private/path")
+        val entry = FileManagerService.FileEntry("a", "private/path/a", false, 1L, 1L)
+        state.openFile = entry
+        state.renameTarget = entry
+        state.selected = setOf(entry.relativePath)
+        state.permanentDelete = listOf(entry.relativePath)
+        state.replaceSources(listOf(workspace))
+        assertEquals(workspace, state.currentSource)
+        assertEquals("", state.currentPath)
+        assertTrue(state.selected.isEmpty())
+        assertNull(state.openFile)
+        assertNull(state.renameTarget)
+        assertNull(state.permanentDelete)
+    }
+
     private fun real(relative: String): Path = scopeRoot.resolve(relative)
 
     /** Seeds a file into the workspace layout (creating parents) via the store's atomic write. */

@@ -20,16 +20,18 @@ internal fun FilesDirectoryEffects(
             LaunchedEffect(selectedScopeId, currentPath, sortKey, reloadTick, trashOpen) {
                 if (trashOpen) return@LaunchedEffect
                 loadError = null
+                listingTruncated = false
                 entries = emptyList()
                 selected = emptySet()
                 searchQuery = ""
                 val result =
                     withContext(Dispatchers.IO) {
-                        runCatching { fileManager.list(selectedScopeId, currentPath, sortKey) }
+                        runCatching { fileManager.listing(selectedScopeId, currentPath, sortKey) }
                     }
                 result.fold(
                     onSuccess = {
-                        entries = it
+                        entries = it.entries
+                        listingTruncated = it.truncated
                         selected = emptySet()
                     },
                     onFailure = { loadError = it.message ?: str(R.string.files_read_directory_error) },

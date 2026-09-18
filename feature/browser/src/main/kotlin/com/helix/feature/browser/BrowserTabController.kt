@@ -75,6 +75,9 @@ class BrowserTabController(
 
     // ---------------------------------------------------------------- commands
 
+    /** Expected UI capacity refusal, without creating a tab or throwing. */
+    fun tryNewTab(): String? = if (state.tabs.size < maxTabs) newTab() else null
+
     /** Creates a blank tab, selects it, and returns its id. Fails at [maxTabs]. */
     fun newTab(): String {
         check(state.tabs.size < maxTabs) { "tab limit reached: $maxTabs" }

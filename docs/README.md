@@ -8,7 +8,7 @@
 | 环境和验证命令 | [开发环境](development/environment.md)、[公共验收规则](development/verification-matrix.md) |
 | 产品和操作体验 | [产品需求](product/requirements.md)、[操作链](product/task-experience.md) |
 | 架构与约束 | [总体架构](architecture/overview.md)、[安全与发布](security/testing-and-release.md) |
-| 执行引擎与端侧差距 | [Helix 与 Codex、DSH、Claude Code 对比](research/execution-engine-comparison.md) |
+| 执行引擎与端侧差距 | [Helix 与 Codex、DSH、Claude Code 对比](research/execution-engine-comparison.md)（调用链、Runtime 边界、模型数据、预算与补足方向） |
 | 工具曝光与能力复用优化 | [优化方向建议](research/tool-exposure-optimization.md)（未立项） |
 | 当前决定 | [按主题组织的 ADR](adr/README.md) |
 | 已交付结果 | [完成记录索引](completion-records/index.md) |

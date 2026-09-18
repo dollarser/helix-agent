@@ -1123,4 +1123,6 @@
     <string name="recovery_btn_query">查询结果</string>
     <string name="recovery_btn_grant">补充权限</string>
     <string name="recovery_btn_continue">继续 Goal</string>
+    <string name="common_operation_failed">操作未完成，请重试；设置以重新读取的结果为准</string>
+    <string name="files_listing_partial">目录内容较多，仅显示部分条目；排序和搜索仅针对已显示内容</string>
 </resources>

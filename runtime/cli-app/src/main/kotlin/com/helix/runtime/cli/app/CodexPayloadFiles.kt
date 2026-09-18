@@ -35,6 +35,14 @@ internal class CodexPayloadFiles(
         requireDeleted(file(jobId, "$OUTPUT.tmp"))
     }
 
+    /** Reject malformed payload paths before committing the acknowledgement. */
+    fun validateCleanup(jobId: String) {
+        listOf(REQUEST, OUTPUT, "$REQUEST.tmp", "$OUTPUT.tmp").forEach { name ->
+            val target = file(jobId, name)
+            require(!target.exists() || target.isFile) { "payload cleanup path is not a file" }
+        }
+    }
+
     fun payloadBytes(): Long =
         jobs
             .walkTopDown()

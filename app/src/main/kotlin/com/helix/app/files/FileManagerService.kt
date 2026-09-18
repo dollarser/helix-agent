@@ -220,9 +220,21 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
         sort: SortKey = SortKey.NAME,
-    ): List<FileEntry> {
-        if (isSaf(scopeId)) return safList(scopeId, relativePath, sort)
-        val names = store.listDir(FileScopePath(scopeId, relativePath), MAX_LIST_ENTRIES).entries
+    ): List<FileEntry> = listing(scopeId, relativePath, sort).entries
+
+    data class DirectoryListing(
+        val entries: List<FileEntry>,
+        val truncated: Boolean,
+    )
+
+    fun listing(
+        scopeId: String,
+        relativePath: String,
+        sort: SortKey = SortKey.NAME,
+    ): DirectoryListing {
+        if (isSaf(scopeId)) return DirectoryListing(safList(scopeId, relativePath, sort), false)
+        val listed = store.listDir(FileScopePath(scopeId, relativePath), MAX_LIST_ENTRIES)
+        val names = listed.entries
         val atWorkspaceRoot = scopeId == workspaceScopeId && relativePath.isEmpty()
         val visible = if (atWorkspaceRoot) names.filter { it != WorkspaceLayout.HELIX } else names
         val entries =
@@ -231,7 +243,7 @@ class FileManagerService(
                 val s = store.stat(FileScopePath(scopeId, rel))
                 FileEntry(name, rel, s.isDirectory, s.sizeBytes, s.mtimeEpochMillis)
             }
-        return entries.sortedWith(comparatorFor(sort))
+        return DirectoryListing(entries.sortedWith(comparatorFor(sort)), listed.truncated)
     }
 
     /**

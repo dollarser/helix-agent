@@ -17,6 +17,30 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class BrowserActivityLifecycleDeviceTest {
     @Test
+    fun repeatedNewTabAtCapacityDoesNotCrashAndCanRecoverAfterClose() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val controller = (activity.application as HelixApplication).appContainer.browser
+                controller.state.value.tabs
+                    .toList()
+                    .forEach { controller.closeTab(it.id) }
+                repeat(8) { assertTrue(controller.tryNewTab() != null) }
+                repeat(3) { assertNull(controller.tryNewTab()) }
+                assertEquals(8, controller.state.value.tabs.size)
+                controller.closeTab(
+                    controller.state.value.tabs
+                        .first()
+                        .id,
+                )
+                assertTrue(controller.tryNewTab() != null)
+                controller.state.value.tabs
+                    .toList()
+                    .forEach { controller.closeTab(it.id) }
+            }
+        }
+    }
+
+    @Test
     fun mainActivityRecreationPreservesOnlyLogicalTabsUntilExplicitNavigation() {
         lateinit var controller: BrowserController
         lateinit var firstView: WebView

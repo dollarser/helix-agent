@@ -87,7 +87,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 Homebrew 安装 JDK 17 后，在 shell 配置中使用可移植路径，不写具体用户名：
 
 ```bash
-export JAVA_HOME="$(../brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
+export JAVA_HOME="$(brew --prefix openjdk@17)/libexec/openjdk.jdk/Contents/Home"
 export ANDROID_HOME="${HOME}/Library/Android/sdk"
 export ANDROID_SDK_ROOT="${ANDROID_HOME}"
 export PATH="${JAVA_HOME}/bin:${ANDROID_HOME}/platform-tools:${ANDROID_HOME}/emulator:${ANDROID_HOME}/cmdline-tools/latest/bin:${PATH}"
@@ -383,7 +383,7 @@ libsu 目前使用 JitPack，因此 M9 允许唯一例外，并限制 group：
 
 ```kotlin
 exclusiveContent {
-    forRepository { maven(../"https:/jitpack.io") }
+    forRepository { maven("https://jitpack.io") }
     filter { includeGroup(../"com.github.topjohnwu.libsu") }
 }
 ```
@@ -399,9 +399,9 @@ Runtime APK：:runtime:proot-app:assembleDebug / assembleRelease
 CLI Runtime APK：:runtime:cli-app:assembleDebug / assembleRelease
 ```
 
-主 App developer 包含高级能力和 Runtime IPC client，但不包含 PRoot/RootFS/CLI binary。`runtime:proot-app` 是无 INTERNET 的独立 APK/UID；`runtime:cli-app` 是有 INTERNET、无 All-files/Accessibility/Root 的独立 APK/UID。CI 分别验证权限和禁止内容。
+developer APK 内置 PRoot/RootFS 与订阅 Runtime 模块，通过非导出的 `:proot`、`:subscriptions` 私有进程按需运行；这些进程共享主 App UID、数据访问和网络权限，不是独立 APK，也不提供离线或凭据隔离保证。consumer 排除这些模块，QuickJS 仍使用 isolated UID。CI 验证最终 APK 的组件、进程及制品边界，契约见 [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)。
 
-发布角色与 Gradle 名称分开：Standard 是 Google Play、国内 Android 应用商店与官网的完整产品；当前 consumer/developer 只用于开发和边界测试，不预设哪个等于最终商店包。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名/channel 决定不得机械重命名。PRoot/CLI APK 是按需 companion，不得出现在“选择主应用版本”的 UI 中。
+发布角色与 Gradle 名称分开：Standard 是 Google Play、国内 Android 应用商店与官网的完整产品；当前 consumer/developer 只用于开发和边界测试，不预设哪个等于最终商店包。开发、CI 和路径继续使用现有 flavor 名，未经 HXA-122 的 applicationId/签名/channel 决定不得机械重命名。`proot-app` / `cli-app` 是现有模块名称，不表示需要用户另外安装 Runtime APK。
 
 applicationId 基线：`consumer=com.helix.agent`、`developer=com.helix.agent.developer`、`runtime:proot-app=com.helix.runtime.proot`、`runtime:cli-app=com.helix.runtime.cli`。变体使用 `developerImplementation` + `src/developer` 隔离 `feature:files-allfiles`、`tools:automation`、`tools:root`、`runtime:proot-client`、`runtime:cli-client`，不仅依赖运行时 feature flag 隐藏 consumer 入口。
 
@@ -504,7 +504,7 @@ adb install -r app/build/outputs/apk/developer/debug/app-developer-debug.apk
 
 consumer 当前用于共享能力与编译边界 smoke，需要验证时单独安装 `app-consumer-debug.apk`；它不是已经确定的 Google Play/国内商店产品包，最终渠道 artifact 由 HXA-120～123 决定。
 
-PRoot/CLI 是可选 companion。需要测试时，先安装与主 App 同签名证书构建的所需 Runtime APK，再安装 developer 主 App；启动时执行协议、版本和签名握手。不测试高级 Runtime 时只安装主 App，不要求普通用户预装 companion。不要为调试关闭签名校验。
+测试 PRoot/CLI 时安装 developer 主 APK，按对应用例触发验证、修复、登录或已授权 Job，私有 Runtime 再冷绑定；不另外安装 companion APK。普通启动、切换 Advanced 或被动刷新不得启动 Runtime。不要为调试绕过组件身份、协议或版本校验。
 
 不要把 `adb shell pm grant` 当正常用户权限流程。权限必须从产品 UI 引导用户在系统界面授予。
 

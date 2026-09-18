@@ -30,7 +30,7 @@ internal object CliModelProgressClient {
                     requireNotNull(
                         reply.readParcelable<ParcelFileDescriptor>(ParcelFileDescriptor::class.java.classLoader),
                     )
-                val bytes = CliPfdChannel.read(pipe)
+                val bytes = CliPfdChannel.read(pipe, CliModelProgressCodec.MAX_BATCH_BYTES)
                 require(cliPayloadSha256(bytes) == hash)
                 CliModelProgressCodec.decode(bytes)
             }

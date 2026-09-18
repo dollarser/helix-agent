@@ -64,6 +64,13 @@ class BrowserController(
 
     // ---------------------------------------------------------------- tab commands
 
+    fun tryNewTab(): String? {
+        val id = tabs.tryNewTab() ?: return null
+        hosts.values.forEach { it.cancelDialogs() }
+        publish()
+        return id
+    }
+
     fun newTab(): String {
         val id = tabs.newTab()
         hosts.values.forEach { it.cancelDialogs() }

@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import android.content.ContentResolver
 import android.net.Uri
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -54,6 +55,24 @@ class FilesImportExportUiTest {
         val trash = wsRoot.resolve(".helix").resolve("trash")
         trash.deleteRecursively()
         trash.mkdirs()
+    }
+
+    @Test
+    fun removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions() {
+        val source = container.safTree.grant(TransferTestDocumentsProvider.treeUri(), "Removal fixture")
+        composeRule.navigateTo("files")
+        waitTag("files-home-source-${source.scopeId}")
+        composeRule.onNodeWithTag("files-home-source-${source.scopeId}").performClick()
+        waitTag("files-source-current")
+        composeRule.onNodeWithTag("files-controls-open").performClick()
+        composeRule.onNodeWithTag("files-saf-open").performClick()
+        waitTag("files-saf-remove-${source.scopeId}")
+        composeRule.onNodeWithTag("files-saf-remove-${source.scopeId}").performClick()
+        composeRule.onNodeWithTag("files-saf-close").performClick()
+        waitTag("files-home-source-app")
+        composeRule.onNodeWithTag("files-home-source-app").performClick()
+        waitTag("files-entry-work")
+        composeRule.onNodeWithTag("files-source-current").assertTextContains("Workspace", substring = true)
     }
 
     // ── 导入 dialog: 来源 / 目标 / 冲突策略 / 取消 ────────────────────────────────────────

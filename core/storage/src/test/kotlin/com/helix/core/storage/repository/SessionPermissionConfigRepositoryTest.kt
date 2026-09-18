@@ -88,11 +88,14 @@ class SessionPermissionConfigRepositoryTest {
     }
 
     @Test
-    fun resetToDefaultDeletesTheRowAndOnlyOnce() {
+    fun resetToDefaultStoresAnIndependentSnapshot() {
         repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 100L)
         repository.resetToDefault("session-1")
-        assertNull(repository.forSession("session-1"))
-        assertThrows("a second reset has no row to delete") { repository.resetToDefault("session-1") }
+        assertEquals(SessionPermissionMode.READ_ONLY, repository.forSession("session-1")?.mode)
+        repository.setAppDefault(SessionPermissionMode.FULL_ACCESS, 200L)
+        assertEquals(SessionPermissionMode.READ_ONLY, repository.forSession("session-1")?.mode)
+        repository.resetToDefault("session-1", 300L)
+        assertEquals(SessionPermissionMode.FULL_ACCESS, repository.forSession("session-1")?.mode)
     }
 
     @Test
@@ -139,14 +142,13 @@ class SessionPermissionConfigRepositoryTest {
     }
 
     @Test
-    fun aSessionWithoutAStoredConfigResolvesToTheCurrentAppDefault() {
+    fun readingTheNewSessionDefaultDoesNotMaterializeAnySession() {
         // fresh install: no default row, no session row -> compiled READ_ONLY
         assertNull(repository.forSession("session-new"))
         assertEquals(SessionPermissionMode.READ_ONLY, repository.appDefault().mode)
         // the new-session default is changed to WORKSPACE
         repository.setAppDefault(SessionPermissionMode.WORKSPACE, 20L)
-        // a session that never stored its own config still has no row, so it now resolves
-        // to the NEW default — the default reaches only sessions without a stored config
+        // This repository read alone creates no session. SessionRepository snapshots on creation.
         assertNull(repository.forSession("session-new"))
         assertEquals(SessionPermissionMode.WORKSPACE, repository.appDefault().mode)
     }

@@ -4,6 +4,35 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    /** Freeze the currently effective default for legacy sessions without changing explicit choices. */
+    val MIGRATION_22_23 =
+        object : Migration(22, 23) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val mode =
+                    db.query("SELECT mode FROM session_permission_defaults WHERE id = 'app'").use {
+                        if (it.moveToFirst()) {
+                            com.helix.core.model.SessionPermissionMode
+                                .valueOf(it.getString(0))
+                        } else {
+                            com.helix.core.model.SessionPermissionMode.READ_ONLY
+                        }
+                    }
+                require(mode != com.helix.core.model.SessionPermissionMode.CUSTOM)
+                val config =
+                    com.helix.core.policy.SessionPermissionConfig
+                        .of(mode)
+                val rules =
+                    com.helix.core.storage.repository.SessionPermissionRulesCodec
+                        .encode(config.rules)
+                db.execSQL(
+                    "INSERT OR IGNORE INTO session_permission_configs " +
+                        "(sessionId, mode, rulesJson, configVersion, revision, createdAtEpoch, updatedAtEpoch) " +
+                        "SELECT id, ?, ?, ?, 1, createdAt, createdAt FROM sessions",
+                    arrayOf<Any>(mode.name, rules, config.configVersion),
+                )
+            }
+        }
+
     /**
      * v21 -> v22 (HXA-209 D, ADR-PERMISSIONS-001 section 4): adds `session_permission_drafts` —
      * the per-session CUSTOM permission draft, kept SEPARATE from `session_permission_configs` so

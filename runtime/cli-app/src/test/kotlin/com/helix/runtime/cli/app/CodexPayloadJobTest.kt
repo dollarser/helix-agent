@@ -171,6 +171,43 @@ class CodexPayloadJobTest {
         assertArrayEquals(output, store.loadOutput(record.jobId))
     }
 
+    @Test fun unsubmittedRequestsAreReclaimedWithoutDeletingUnknownEvidence() {
+        val root = Files.createTempDirectory("codex-unsubmitted").toFile()
+        val jobs = root.resolve("provider-v1/codex-model-jobs")
+        val orphan = jobs.resolve("job_134000000007").apply { mkdirs() }
+        orphan.resolve("request.json").writeBytes(request)
+        val unknown = jobs.resolve("job_134000000008").apply { mkdirs() }
+        unknown.resolve("unknown-evidence").writeText("retain")
+        CodexPayloadJobStore(root).recoverInterrupted(10L)
+        assertFalse(orphan.exists())
+        assertTrue(unknown.resolve("unknown-evidence").isFile)
+    }
+
+    @Test fun resultWriteFailureSettlesFailedAndReleasesTheRunner() {
+        val root = Files.createTempDirectory("codex-output-failure").toFile()
+        val id = "job_134000000009"
+        val store = CodexPayloadJobStore(root)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        CodexPayloadJobRunner(store, {
+            entered.countDown()
+            release.await(5, TimeUnit.SECONDS)
+            CodexModelExecution("model", listOf(ModelEvent.Completed("stop")))
+        }, { release.countDown() }).use { runner ->
+            runner.submit(id, hash, request)
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            root
+                .resolve("provider-v1/codex-model-jobs/$id/events.json")
+                .apply { mkdirs() }
+                .resolve("keep")
+                .writeText("occupied")
+            release.countDown()
+            assertEquals(CliModelJobState.FAILED, await(runner, id).state)
+            val next = runner.submit("job_134000000010", hash, request)
+            assertTrue(next is CodexPayloadSubmit.Accepted)
+        }
+    }
+
     private fun await(
         runner: CodexPayloadJobRunner,
         jobId: String,

@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,18 +40,7 @@ fun FilesScreen(
             val treePicker =
                 rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
                     if (uri != null) {
-                        scope.launch {
-                            // The picker's tree URI is stored model-opaquely (doc 10); the display name is a
-                            // best-effort root folder name, sanitized by the store. Never logged.
-                            val name =
-                                withContext(Dispatchers.IO) {
-                                    val lastSegment = uri.lastPathSegment?.let { Uri.decode(it) }
-                                    val treeName = lastSegment ?: str(R.string.files_saf_directory_fallback)
-                                    safTree.grant(uri.toString(), treeName).displayName
-                                }
-                            sources = withContext(Dispatchers.IO) { fileManager.sources() }
-                            status = str(R.string.files_saf_granted, name)
-                        }
+                        grantTree(uri)
                     }
                 }
             val importFilePicker =

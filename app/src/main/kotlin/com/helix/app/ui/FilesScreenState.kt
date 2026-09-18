@@ -33,6 +33,7 @@ internal class FilesScreenState(
     var reloadTick by mutableIntStateOf(0)
     var entries by mutableStateOf<List<FileEntry>>(emptyList())
     var loadError by mutableStateOf<String?>(null)
+    var listingTruncated by mutableStateOf(false)
     var selected by mutableStateOf<Set<String>>(emptySet())
     var status by mutableStateOf<String?>(null)
     var batchFailures by mutableStateOf<List<BatchItem>>(emptyList())
@@ -70,6 +71,25 @@ internal class FilesScreenState(
     val exportCancel = AtomicBoolean(false)
     var exportSources by mutableStateOf<List<SafTreeSource>>(emptyList())
     var exportFile by mutableStateOf<FileEntry?>(null)
+
+    fun replaceSources(updated: List<FileSource>) {
+        require(updated.isNotEmpty())
+        if (updated.none { it.scopeId == selectedScopeId }) {
+            openLocation(updated.first().scopeId)
+            entries = emptyList()
+            openFile = null
+            renameTarget = null
+            copyMove = null
+            permanentDelete = null
+            conflictTarget = null
+            newFolderOpen = false
+            exportFile = null
+            exportOpen = false
+            importOpen = false
+            homeOpen = true
+        }
+        sources = updated
+    }
 
     fun openLocation(
         scopeId: String,

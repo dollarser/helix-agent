@@ -16,9 +16,9 @@ import com.helix.core.storage.entity.SessionPermissionDraftEntity
  * The single write path for the per-session [SessionPermissionConfig] rows and the app-default
  * row; the dispatcher reads through [forSession]/[appDefault] and never mutates the store.
  *
- * A missing per-session row is a lazy default: the session uses [appDefault] (a fresh install
- * compiles to READ_ONLY). No rows are seeded per session. [setForSession] upserts under the
- * session id and advances the revision; [resetToDefault] deletes the row. Presets are stored
+ * Session creation and v23 migration materialize a fixed default snapshot. [setForSession]
+ * upserts under the session id and advances the revision; [resetToDefault] stores today's
+ * default without inheriting future edits. Production changes run in a caller transaction. Presets are stored
  * as their FIXED rule table — a preset mode carrying any other table is rejected (to edit
  * rules, copy into a CUSTOM snapshot). Rehydration is fail-closed: an unknown stored mode or
  * rule table throws rather than being guessed.
@@ -28,7 +28,7 @@ class SessionPermissionConfigRepository(
     private val defaults: SessionPermissionDefaultsDao,
     private val drafts: SessionPermissionDraftDao,
 ) {
-    /** The stored config for one session, or null when the session uses the app default. */
+    /** The stored config, or null for an identity not yet materialized as a session. */
     fun forSession(sessionId: String): SessionPermissionConfig? {
         val entity = dao.bySession(sessionId) ?: return null
         return SessionPermissionConfig(
@@ -65,11 +65,12 @@ class SessionPermissionConfigRepository(
         return revision
     }
 
-    /** "Back to the app default" for one session: a row delete, not a stored fourth state. */
-    fun resetToDefault(sessionId: String) {
-        require(dao.deleteBySession(sessionId) == 1) {
-            "no stored permission config for session $sessionId"
-        }
+    /** Reset to a fixed snapshot; later default edits never change this session. */
+    fun resetToDefault(
+        sessionId: String,
+        nowEpochMillis: Long = 0L,
+    ) {
+        setForSession(sessionId, appDefault(), nowEpochMillis)
     }
 
     /**

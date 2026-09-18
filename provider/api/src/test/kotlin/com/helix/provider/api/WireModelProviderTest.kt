@@ -324,6 +324,26 @@ class WireModelProviderTest {
     // --- listModels ----------------------------------------------------------
 
     @Test
+    fun modelListBodyReadFailureIsMappedAndClosed() =
+        runBlocking {
+            var closed = false
+            val body =
+                object : WireBody {
+                    override suspend fun bytes(): ByteArray = throw IOException("body read failed")
+
+                    override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) = error("unused")
+
+                    override fun close() {
+                        closed = true
+                    }
+                }
+            val provider = TestProvider(config(), { "x" }, FakeWire { WireResponse(200, emptyMap(), body) })
+            val result = provider.listModels() as ModelCatalogResult.Failed
+            assertEquals(ModelErrorCode.TRANSPORT, result.code)
+            assertTrue(closed)
+        }
+
+    @Test
     fun modelListParsesOpenAiShape() =
         runBlocking {
             val wire = FakeWire { okJson("{\"data\":[{\"id\":\"a\"},{\"id\":\"b\"}]}") }

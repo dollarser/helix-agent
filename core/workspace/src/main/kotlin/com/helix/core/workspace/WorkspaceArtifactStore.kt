@@ -11,7 +11,6 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.security.MessageDigest
 import java.util.UUID
-import java.util.stream.Collectors
 
 /**
  * The single production facade for workspace file persistence (HXA-041).
@@ -345,17 +344,32 @@ class WorkspaceArtifactStore(
         if (!Files.exists(dir) || !Files.isDirectory(dir)) {
             throw FileNotFoundException("not a directory: ${path.toModelReference()}")
         }
-        val names =
-            Files.list(dir).use { stream ->
-                // Collectors.toList(), NOT Stream.toList(): that default method is Java 16 /
-                // Android API 31+ and throws NoSuchMethodError on API 29 devices (minSdk 29).
-                stream
-                    .sorted()
-                    .map { it.fileName.toString() }
-                    .collect(Collectors.toList())
+        require(maxEntries >= 0)
+        val names = java.util.PriorityQueue<String>(compareByDescending { it })
+        var truncated = false
+        Files.list(dir).use { stream ->
+            stream.forEach { entry ->
+                val name = entry.fileName.toString()
+                if (names.size < maxEntries) {
+                    names.add(name)
+                } else {
+                    truncated = true
+                    retainEarlierName(names, name, maxEntries)
+                }
             }
-        val page = if (maxEntries >= names.size) names else names.subList(0, maxEntries)
-        return ListResult(page, names.size > maxEntries)
+        }
+        return ListResult(names.sorted(), truncated)
+    }
+
+    private fun retainEarlierName(
+        names: java.util.PriorityQueue<String>,
+        name: String,
+        limit: Int,
+    ) {
+        if (limit > 0 && name < names.peek()) {
+            names.poll()
+            names.add(name)
+        }
     }
 
     /**

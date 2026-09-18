@@ -236,8 +236,11 @@ internal class CliRuntimeServiceBinder(
                     writeEnd,
                     payload,
                 )
-            }.onSuccess { if (consume) runner.finishReconcile(prepared.record) }
-                .onFailure { writeEnd.close() }
+                if (consume) runner.finishReconcile(prepared.record)
+            }.onFailure {
+                android.util.Log.w("HelixSubscriptionIo", "phase=reconcile settlement_failed")
+                runCatching { writeEnd.close() }
+            }
         }, "cli-result-${prepared.record.jobId}").start()
     }
 

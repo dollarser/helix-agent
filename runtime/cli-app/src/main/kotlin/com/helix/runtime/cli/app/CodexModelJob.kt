@@ -57,6 +57,13 @@ internal class CodexModelJobStore(
         expireEvidence(now)
         pruneAcknowledged(now)
         jobs.listFiles()?.filter { it.isDirectory }?.forEach { dir ->
+            if (!File(dir, "record.json").exists()) {
+                val owned = setOf("request.json", "request.json.tmp", "record.json.tmp")
+                if (dir.listFiles()?.all { it.isFile && it.name in owned } == true) {
+                    check(dir.deleteRecursively()) { "unsubmitted request cleanup failed" }
+                }
+                return@forEach
+            }
             val record = runCatching { load(dir.name) }.getOrNull() ?: return@forEach
             if (!record.state.terminal) {
                 put(record.copy(state = CodexModelJobState.INTERRUPTED, terminalAtEpochMillis = now))

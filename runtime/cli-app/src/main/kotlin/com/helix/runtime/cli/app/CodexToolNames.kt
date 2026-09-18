@@ -38,10 +38,11 @@ internal class CodexToolNames(
         )
 
     fun decode(events: List<ModelEvent>): List<ModelEvent> {
-        if (events.filterIsInstance<ModelEvent.ToolCallStarted>().any { originals[it.name] !in allowed }) {
+        if (events.any { it is ModelEvent.ToolCallStarted && originals[it.name] !in allowed }) {
+            (events as? java.io.Closeable)?.close()
             return listOf(ModelEvent.Error(ModelErrorCode.PROTOCOL, false))
         }
-        return events.map { event ->
+        return MappedModelEvents(events) { event ->
             if (event is ModelEvent.ToolCallStarted) event.copy(name = originals.getValue(event.name)) else event
         }
     }

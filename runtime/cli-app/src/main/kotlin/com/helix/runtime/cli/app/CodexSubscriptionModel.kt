@@ -30,6 +30,7 @@ internal class CodexSubscriptionModel(
     private val oauth: CodexLoginController,
     client: OkHttpClient = OkHttpClient.Builder().dns(BoundedDnsCache()).build(),
     images: List<CliImageSnapshot> = emptyList(),
+    private val eventDirectory: java.io.File? = null,
 ) : Closeable {
     private val cancelled =
         java.util.concurrent.atomic
@@ -85,6 +86,7 @@ internal class CodexSubscriptionModel(
                         http,
                         ResponsesStreamDecoder(),
                         onReadFailure = { failure, eventCount -> reportTransportFailure("body", failure, eventCount) },
+                        eventDirectory = eventDirectory,
                     ) { onEvents(names.decode(it)) },
                 ),
             )

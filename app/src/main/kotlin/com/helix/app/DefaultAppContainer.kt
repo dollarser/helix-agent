@@ -511,6 +511,7 @@ internal class DefaultAppContainer(
     override val sessionPermissionEdit: SessionPermissionEditService =
         SessionPermissionEditService(
             configs = storage.sessionPermissionConfigs,
+            transaction = storage::withTransaction,
             availability = storage.toolAvailability,
             idGenerator = { idGenerator.next() },
             appendAudit = { id, correlationId, type, actor, payload, timestamp ->

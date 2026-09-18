@@ -12,6 +12,8 @@ import kotlinx.serialization.json.put
 
 /** Separate preview format: empty is valid, terminal events are forbidden. */
 object CliModelProgressCodec {
+    const val MAX_BATCH_BYTES = 128 * 1024
+
     fun encode(events: List<ModelEvent>): ByteArray {
         checkEvents(events)
         val bytes =
@@ -19,11 +21,12 @@ object CliModelProgressCodec {
                 put("version", 1)
                 put("events", buildJsonArray { events.forEach { add(CliModelEventCodec.encodeEvent(it)) } })
             }.toString().toByteArray()
+        require(bytes.size <= MAX_BATCH_BYTES) { "progress batch exceeds transport limit" }
         return bytes
     }
 
     fun decode(bytes: ByteArray): List<ModelEvent> {
-        require(bytes.isNotEmpty())
+        require(bytes.isNotEmpty() && bytes.size <= MAX_BATCH_BYTES)
         val root = Json.parseToJsonElement(bytes.decodeToString(throwOnInvalidSequence = true)).jsonObject
         require(root.keys == setOf("version", "events") && root.getValue("version").jsonPrimitive.long == 1L)
         val rows = root.getValue("events").jsonArray

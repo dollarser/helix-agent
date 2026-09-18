@@ -1123,4 +1123,6 @@
     <string name="recovery_btn_query">Query result</string>
     <string name="recovery_btn_grant">Grant permission</string>
     <string name="recovery_btn_continue">Continue goal</string>
+    <string name="common_operation_failed">Operation failed. Retry and check the reloaded settings.</string>
+    <string name="files_listing_partial">Partial directory listing. Sorting and search apply only to displayed entries.</string>
 </resources>

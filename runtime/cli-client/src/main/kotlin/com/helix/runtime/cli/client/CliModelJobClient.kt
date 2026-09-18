@@ -71,7 +71,7 @@ class CliModelJobClient(
                     requestSha256,
                     payload,
                 )
-            val delivered = ArrayList<ModelEvent>()
+            val delivered = CliEventPrefix()
             var progressSupported = onProgress != null
             CliModelJobAwaiter(readProgress = {
                 if (progressSupported) {
@@ -79,7 +79,7 @@ class CliModelJobClient(
                     if (chunk == null) {
                         progressSupported = false
                     } else if (chunk.isNotEmpty()) {
-                        delivered.addAll(chunk)
+                        delivered.append(chunk)
                         onProgress?.invoke(chunk)
                     }
                 }
@@ -87,7 +87,7 @@ class CliModelJobClient(
                 transactOn(connection.binder, code, jobId, null, null)
             }.await(submitted, timeoutMs, pollIntervalMs).let { outcome ->
                 if (outcome is AwaitOutcome.Terminal && outcome.events?.lastOrNull() is ModelEvent.Completed &&
-                    outcome.events.take(delivered.size) != delivered
+                    !delivered.matches(outcome.events)
                 ) {
                     AwaitOutcome.Unavailable(CliRuntimeVerification.Cause.HANDSHAKE_FAILED)
                 } else {

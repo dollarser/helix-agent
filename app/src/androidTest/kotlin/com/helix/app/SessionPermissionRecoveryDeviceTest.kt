@@ -8,7 +8,6 @@ import com.helix.core.model.SessionPermissionMode
 import com.helix.core.policy.SessionPermissionConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -17,12 +16,10 @@ import org.junit.runner.RunWith
  * process death (not a re-seed). The owned runner (scripts/debug/2026-09-16/hxa209-d8) drives the
  * two-phase protocol: phase `setup` persists a stored config + a no-config session, writes this
  * process's pid to the durable `no_backup/recovery-device-pid` marker, and kills the process;
- * phase `verify` (a fresh process, installed once so the data is not uninstalled between phases)
- * asserts the pid actually changed, the stored config survived, and the no-config session was NOT
- * spuriously materialized. Run with no phase argument it is a normal in-process regression.
+ * phase `verify` asserts the pid changed and both explicit and creation-time snapshots survived.
+ * Run with no phase argument it is a normal in-process regression.
  *
- * Recovery activates nothing: a restart neither re-derives a stored config nor invents one for a
- * session that never stored a config.
+ * Recovery activates nothing and does not replace creation-time snapshots with new defaults.
  */
 @RunWith(AndroidJUnit4::class)
 class SessionPermissionRecoveryDeviceTest {
@@ -39,6 +36,7 @@ class SessionPermissionRecoveryDeviceTest {
         val context = ApplicationProvider.getApplicationContext<android.app.Application>()
         val container = (context as HelixApplication).appContainer
         val marker = context.noBackupFilesDir.resolve("recovery-device-pid")
+        val defaultMarker = context.noBackupFilesDir.resolve("recovery-permission-snapshot")
         val phase = InstrumentationRegistry.getArguments().getString("recoveryPhase")
         if (phase != "verify") {
             // Persist the state that must survive the restart.
@@ -56,6 +54,9 @@ class SessionPermissionRecoveryDeviceTest {
                 now,
             )
             // The durable identity of THIS process, readable after the kill via run-as.
+            defaultMarker.writeText(
+                requireNotNull(container.sessionPermissionEdit.activeConfigFor(bareSession)).mode.name,
+            )
             marker.writeText(Process.myPid().toString())
             if (phase == "setup") {
                 Process.killProcess(Process.myPid())
@@ -75,16 +76,20 @@ class SessionPermissionRecoveryDeviceTest {
                 SessionPermissionMode.WORKSPACE,
                 container.sessionPermissionEdit.activeConfigFor(storedSession)?.mode,
             )
-            // A session that never stored a config is still row-less: recovery did not invent one.
-            assertNull(
-                "recovery must not materialize a stored config for a bare session",
-                container.sessionPermissionEdit.activeConfigFor(bareSession),
+            assertEquals(
+                "creation-time permission snapshot survives recovery",
+                defaultMarker.readText(),
+                container.sessionPermissionEdit
+                    .activeConfigFor(bareSession)
+                    ?.mode
+                    ?.name,
             )
         } finally {
             if (container.sessionPermissionEdit.activeConfigFor(storedSession) != null) {
                 container.sessionPermissionEdit.resetSessionToDefault(storedSession, System.currentTimeMillis())
             }
             marker.delete()
+            defaultMarker.delete()
         }
     }
 }

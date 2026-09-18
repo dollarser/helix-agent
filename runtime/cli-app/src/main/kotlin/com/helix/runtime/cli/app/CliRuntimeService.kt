@@ -21,6 +21,7 @@ class CliRuntimeService : Service() {
     override fun onCreate() {
         super.onCreate()
         SubscriptionRuntimeEnvironment.initialize(this)
+        clearModelEventSpool(java.io.File(cacheDir, "model-events"))
         initializeNetworkForeground()
         val vault = CliSubscriptionCredentialVault(this)
         val oauth by lazy { CodexLoginController(vault, oauthTransport.value) }
@@ -61,7 +62,7 @@ class CliRuntimeService : Service() {
                     activeModel.compareAndSet(model, null)
                 }
             }
-            val model = CodexSubscriptionModel(vault, oauth, images = envelope.images).also(activeModel::set)
+            val model = codexModel(vault, oauth, envelope.images).also(activeModel::set)
             try {
                 model.use { it.run(request, onEvents) }
             } finally {
@@ -76,6 +77,12 @@ class CliRuntimeService : Service() {
                 cancelExecution = { activeModel.getAndSet(null)?.close() },
             )
     }
+
+    private fun codexModel(
+        vault: CliSubscriptionCredentialVault,
+        oauth: CodexLoginController,
+        images: List<com.helix.runtime.cli.client.CliImageSnapshot>,
+    ) = CodexSubscriptionModel(vault, oauth, images = images, eventDirectory = java.io.File(cacheDir, "model-events"))
 
     private fun initializeNetworkForeground() {
         networkForeground =
@@ -162,4 +169,8 @@ class CliRuntimeService : Service() {
         if (copilotTransport.isInitialized()) copilotTransport.value.close()
         super.onDestroy()
     }
+}
+
+private fun clearModelEventSpool(directory: java.io.File) {
+    check(!directory.exists() || directory.deleteRecursively()) { "stale model event cleanup failed" }
 }

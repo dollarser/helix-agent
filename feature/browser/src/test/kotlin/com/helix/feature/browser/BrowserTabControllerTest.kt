@@ -9,6 +9,17 @@ import org.junit.Test
 
 class BrowserTabControllerTest {
     @Test
+    fun uiCapacityRefusalPreservesSelectionAndAllowsRetryAfterClose() {
+        val controller = BrowserTabController(maxTabs = 1)
+        val first = controller.tryNewTab()!!
+        assertNull(controller.tryNewTab())
+        assertEquals(first, controller.state().selectedId)
+        assertEquals(1, controller.state().tabs.size)
+        controller.closeTab(first)
+        assertTrue(controller.tryNewTab() != null)
+    }
+
+    @Test
     fun releasingPagesRetiresHistoryAndTokensButPreservesLogicalTabs() {
         val controller = BrowserTabController()
         val id = controller.newTab()

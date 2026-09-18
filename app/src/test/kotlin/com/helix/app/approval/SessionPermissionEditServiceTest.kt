@@ -94,11 +94,11 @@ class SessionPermissionEditServiceTest {
     }
 
     @Test
-    fun resetToDefaultDeletesTheRowAndAuditsTheResultingDefaultMode() {
+    fun resetToDefaultStoresSnapshotAndAuditsTheResultingDefaultMode() {
         val fx = Fixture()
         fx.service.saveSessionConfig("s1", SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS), 1000L)
         fx.service.resetSessionToDefault("s1", 2000L)
-        assertNull(fx.configs.forSession("s1"))
+        assertEquals(SessionPermissionMode.READ_ONLY, fx.configs.forSession("s1")?.mode)
         // the session now resolves to the (unset) app default: READ_ONLY
         val audit = fx.audit[1]
         assertEquals("reset_to_default", audit.action())

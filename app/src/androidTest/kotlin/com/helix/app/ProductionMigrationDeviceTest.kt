@@ -53,6 +53,39 @@ class ProductionMigrationDeviceTest {
     }
 
     @Test
+    fun permissionSnapshotsFreezeLegacyDefaultAndSurviveReopen() {
+        val old = helper.createDatabase(V1_DB, 22)
+        old.execSQL("INSERT INTO sessions (id,title,createdAt) VALUES ('legacy','legacy',1)")
+        old.execSQL(
+            "INSERT INTO session_permission_defaults (id,mode,configVersion,revision,updatedAtEpoch) " +
+                "VALUES ('app','WORKSPACE',1,1,1)",
+        )
+        old.close()
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        var storage = HelixStorage.open(context, V1_DB, contentDir)
+        try {
+            assertEquals(
+                com.helix.core.model.SessionPermissionMode.WORKSPACE,
+                storage.sessionPermissionConfigs.forSession("legacy")?.mode,
+            )
+            storage.sessionPermissionConfigs.setAppDefault(com.helix.core.model.SessionPermissionMode.FULL_ACCESS, 2L)
+            storage.sessions.create("future", "future", null, null, 3L)
+            storage.close()
+            storage = HelixStorage.open(context, V1_DB, contentDir)
+            assertEquals(
+                com.helix.core.model.SessionPermissionMode.WORKSPACE,
+                storage.sessionPermissionConfigs.forSession("legacy")?.mode,
+            )
+            assertEquals(
+                com.helix.core.model.SessionPermissionMode.FULL_ACCESS,
+                storage.sessionPermissionConfigs.forSession("future")?.mode,
+            )
+        } finally {
+            storage.close()
+        }
+    }
+
+    @Test
     fun openUpgradesAV1DatabaseThroughTheProductionBuilder() {
         val digest1 = digestOf("x")
         val v1 = helper.createDatabase(V1_DB, 1)

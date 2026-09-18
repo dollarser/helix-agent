@@ -195,7 +195,7 @@ private fun TabStrip(
                 }
             }
         }
-        TextButton(onClick = { controller.newTab() }, modifier = Modifier.testTag("browser-tab-new")) {
+        TextButton(onClick = { controller.tryNewTab() }, modifier = Modifier.testTag("browser-tab-new")) {
             Text("＋")
         }
     }
