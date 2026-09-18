@@ -28,6 +28,13 @@ internal object ProotToolModule {
     @Suppress("UnusedParameter")
     fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> = emptyList()
 
+    @Suppress("UnusedParameter")
+    fun performBackgroundJobAction(
+        job: BackgroundJobUi,
+        action: BackgroundJobAction,
+        cancelled: () -> Boolean,
+    ): BackgroundJobActionOutcome = BackgroundJobActionOutcome.FAILED
+
     val inspectInterruptedJob: (HelixStorage, String, String, Boolean) -> ProotRecoveryReport = { _, _, _, _ ->
         error("PRoot recovery is unavailable in this distribution")
     }

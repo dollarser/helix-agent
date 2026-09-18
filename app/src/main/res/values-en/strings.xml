@@ -1129,4 +1129,14 @@
     <string name="recovery_btn_continue">Continue goal</string>
     <string name="common_operation_failed">Operation failed. Retry and check the reloaded settings.</string>
     <string name="files_listing_partial">Partial directory listing. Sorting and search apply only to displayed entries.</string>
+    <string name="tasks_job_query">Query</string>
+    <string name="tasks_job_cancel">Request stop</string>
+    <string name="tasks_job_collect">Collect result</string>
+    <string name="tasks_job_action_busy">Working…</string>
+    <string name="tasks_job_active">The command is still running or queued.</string>
+    <string name="tasks_job_stop_requested">Stop requested; awaiting Runtime confirmation.</string>
+    <string name="tasks_job_terminal_pending">The command has ended. Its result can be collected.</string>
+    <string name="tasks_job_settled">Result collected and settled.</string>
+    <string name="tasks_job_executor_busy">Execution resources are busy. Try again later.</string>
+    <string name="tasks_job_action_failed">The operation did not complete. Check command details before retrying.</string>
 </resources>

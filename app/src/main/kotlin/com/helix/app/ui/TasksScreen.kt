@@ -272,8 +272,8 @@ private fun TasksRowView(
             Text(stringResource(row.kindRes), style = MaterialTheme.typography.labelSmall)
         }
         Text(stringResource(row.statusRes), style = MaterialTheme.typography.bodySmall)
-        if (row is BackgroundJobRow && row.job.settlementPending) {
-            Text(stringResource(R.string.tasks_job_pending), Modifier.testTag("tasks-job-pending-${row.job.callId}"))
+        if (row is BackgroundJobRow) {
+            JobRowControls(row, service)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when (row) {
@@ -332,6 +332,19 @@ private data class TaskArtifactsQuery(
     val turnId: String?,
     val goalId: String?,
 )
+
+@Composable
+@Suppress("FunctionName")
+private fun JobRowControls(
+    row: BackgroundJobRow,
+    service: ChatService,
+) {
+    if (row.job.settlementPending) {
+        Text(stringResource(R.string.tasks_job_pending), Modifier.testTag("tasks-job-pending-${row.job.callId}"))
+    }
+    val action by service.backgroundJobAction.collectAsStateWithLifecycle()
+    BackgroundJobControls(row.job, action, service::performBackgroundJobAction)
+}
 
 /**
  * The turn row's actions: open the owning session always; a running turn offers cancel and

@@ -51,6 +51,7 @@ internal object ProotToolModule {
     private lateinit var supervisor: ProotRuntimeSupervisor
     private lateinit var jobClient: ProotJobClient
     private lateinit var idGenerator: IdGenerator
+    private lateinit var userJobActions: DetachedJobUserActions
     private var store: WorkspaceArtifactStore? = null
     private var secretValues: () -> Set<String> = { emptySet() }
     private val jobSeq =
@@ -98,12 +99,7 @@ internal object ProotToolModule {
         // (a disable, or a rule now DENYing the operation) refuses the launch BEFORE
         // submit; the binding store records the session and the config version that
         // covered this call's approval (ADR sections 4 + 5).
-        val prootWorkspace: (String) -> String? = { sessionId ->
-            storage.sessions
-                .list()
-                .firstOrNull { it.id == sessionId }
-                ?.let { it.directoryRef ?: APP_SCOPE_ID }
-        }
+        val prootWorkspace: (String) -> String? = { sessionId -> workspaceFor(storage, sessionId) }
         val sessionPermissions =
             SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability, prootWorkspace)
         val recheck =
@@ -140,18 +136,28 @@ internal object ProotToolModule {
                 },
             )
         LinuxRunTool.register(registry, implementations, executor)
-        DetachedJobRegistration.register(
-            context,
-            storage,
-            workspaceStore,
-            registry,
-            implementations,
-            ownership,
-            chat,
-            { availabilityGate() },
-            secretValues,
-        )
+        userJobActions =
+            DetachedJobRegistration.register(
+                context,
+                storage,
+                workspaceStore,
+                registry,
+                implementations,
+                ownership,
+                chat,
+                { availabilityGate() },
+                secretValues,
+            )
     }
+
+    private fun workspaceFor(
+        storage: HelixStorage,
+        sessionId: String,
+    ): String? =
+        storage.sessions
+            .list()
+            .firstOrNull { it.id == sessionId }
+            ?.let { it.directoryRef ?: APP_SCOPE_ID }
 
     private fun currentSecretValues(storage: HelixStorage): Set<String> {
         val values = mutableSetOf<String>()
@@ -279,6 +285,12 @@ internal object ProotToolModule {
     fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)
 
     fun backgroundJobs(storage: HelixStorage): List<BackgroundJobUi> = DetachedJobDashboard.read(storage)
+
+    fun performBackgroundJobAction(
+        job: BackgroundJobUi,
+        action: BackgroundJobAction,
+        cancelled: () -> Boolean,
+    ): BackgroundJobActionOutcome = userJobActions.perform(job, action, cancelled)
 
     fun availabilityGate(): LinuxRuntimeGate {
         val cause = supervisor.checkLocalState()

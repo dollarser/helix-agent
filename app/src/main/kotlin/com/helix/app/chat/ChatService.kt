@@ -270,6 +270,21 @@ class ChatService(
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
     private val backgroundJobsState = MutableStateFlow<List<com.helix.app.proot.BackgroundJobUi>>(emptyList())
     internal val backgroundJobs: StateFlow<List<com.helix.app.proot.BackgroundJobUi>> = backgroundJobsState
+    private val jobActions =
+        com.helix.app.proot.BackgroundJobActions(
+            workScope,
+            com.helix.app.proot.ProotToolModule::performBackgroundJobAction,
+        ) {
+            refreshBackgroundTasks()
+            refreshTaskDashboards()
+        }
+    internal val backgroundJobAction = jobActions.state
+
+    internal fun performBackgroundJobAction(
+        job: com.helix.app.proot.BackgroundJobUi,
+        action: com.helix.app.proot.BackgroundJobAction,
+    ) = jobActions.submit(job, action)
+
     private val transportState = MutableStateFlow<TurnState?>(null)
     val foregroundTransportState: StateFlow<TurnState?> = transportState
     private val goalDashboardState = MutableStateFlow<List<GoalSummaryUi>>(emptyList())

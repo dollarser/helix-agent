@@ -33,6 +33,14 @@ class DetachedJobRegistrationDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun registeredExecutorsUseRealChatBudgetAndImportOriginalOutput() {
+        registeredJob(false)
+    }
+
+    @Test fun userActionsCollectOriginalResultWithoutCreatingToolCalls() {
+        registeredJob(true)
+    }
+
+    private fun registeredJob(manual: Boolean) {
         val context = ApplicationProvider.getApplicationContext<HelixApplication>()
         ensureInstalledRuntime(context)
         val storage = context.appContainer.storage
@@ -43,10 +51,11 @@ class DetachedJobRegistrationDeviceTest {
         val registry = ToolRegistry()
         val implementations = ToolImplementationRegistry()
         var budgetAccesses = 0
-        DetachedJobRegistration.register(context, storage, workspace, registry, implementations, owner, {
-            budgetAccesses++
-            context.appContainer.chatService
-        }, { LinuxRuntimeGate.READY }, { emptySet() })
+        val userActions =
+            DetachedJobRegistration.register(context, storage, workspace, registry, implementations, owner, {
+                budgetAccesses++
+                context.appContainer.chatService
+            }, { LinuxRuntimeGate.READY }, { emptySet() })
         assertEquals(0, budgetAccesses)
         storage.sessions.create(id, "Registered detached job", null, null, 1)
         storage.sessionPermissionConfigs.setForSession(
@@ -55,12 +64,7 @@ class DetachedJobRegistrationDeviceTest {
             1,
         )
         storage.turns.start(id, id, 2)
-        val args =
-            buildJsonObject {
-                put("script", "printf registered-result > result.txt")
-                put("output", "scope:app:output/result.txt")
-                put("leaseSeconds", 10)
-            }
+        val args = originalArguments()
         storage.toolCalls.append(id, id, id, DetachedJobTools.START, "1", args.toString(), "RUNNING")
         val start =
             ExecutableToolCall(
@@ -75,7 +79,12 @@ class DetachedJobRegistrationDeviceTest {
                 id,
             )
         try {
-            exercise(implementations, owner, start, root)
+            if (manual) {
+                exerciseUserActions(implementations, owner, start, root, userActions)
+                assertEquals(1, storage.toolCalls.listByTurn(id).size)
+            } else {
+                exercise(implementations, owner, start, root)
+            }
             assertEquals(2, budgetAccesses)
         } finally {
             val binding = ProotJobBindingStore(storage).resolveDetached(id, id)
@@ -86,6 +95,13 @@ class DetachedJobRegistrationDeviceTest {
             root.deleteRecursively()
         }
     }
+
+    private fun originalArguments() =
+        buildJsonObject {
+            put("script", "printf registered-result > result.txt")
+            put("output", "scope:app:output/result.txt")
+            put("leaseSeconds", 10)
+        }
 
     private fun exercise(
         implementations: ToolImplementationRegistry,
@@ -131,4 +147,37 @@ class DetachedJobRegistrationDeviceTest {
         owner: ExecutionOwnership,
         call: ExecutableToolCall,
     ) = owner.guard(registry.resolve(ToolName(call.toolName), ToolVersion(1))).execute(call)
+
+    private fun exerciseUserActions(
+        implementations: ToolImplementationRegistry,
+        owner: ExecutionOwnership,
+        start: ExecutableToolCall,
+        root: File,
+        actions: DetachedJobUserActions,
+    ) {
+        assertTrue(execute(implementations, owner, start) is ToolExecutorResult.Completed)
+        val job =
+            BackgroundJobUi(
+                start.toolCallId,
+                requireNotNull(start.turnId),
+                requireNotNull(start.sessionId),
+                "Original Job",
+                CommandDetailState.SUBMITTED,
+                true,
+            )
+        val until = android.os.SystemClock.elapsedRealtime() + 20_000
+        var result = BackgroundJobActionOutcome.ACTIVE
+        while (result == BackgroundJobActionOutcome.ACTIVE && android.os.SystemClock.elapsedRealtime() < until) {
+            result = actions.perform(job, BackgroundJobAction.QUERY) { false }
+            if (result == BackgroundJobActionOutcome.ACTIVE) Thread.sleep(100)
+        }
+        assertEquals(BackgroundJobActionOutcome.TERMINAL_PENDING, result)
+        assertTrue(owner.retainedOwner() != null)
+        assertEquals(
+            BackgroundJobActionOutcome.SETTLED,
+            actions.perform(job, BackgroundJobAction.COLLECT) { false },
+        )
+        assertEquals("registered-result", File(root, "output/result.txt").readText())
+        assertNull(owner.retainedOwner())
+    }
 }

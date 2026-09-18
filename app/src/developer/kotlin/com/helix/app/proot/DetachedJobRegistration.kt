@@ -29,7 +29,7 @@ internal object DetachedJobRegistration {
         chat: () -> ChatService,
         gate: () -> LinuxRuntimeGate,
         secrets: () -> Set<String>,
-    ) {
+    ): DetachedJobUserActions {
         val workspaceFor: (String) -> String? = { session ->
             storage.sessions
                 .list()
@@ -70,6 +70,15 @@ internal object DetachedJobRegistration {
             registry.register(descriptor)
             implementations.register(descriptor, executor)
         }
+        return DetachedJobUserActions(
+            storage,
+            ownership,
+            mapOf(
+                BackgroundJobAction.QUERY to control.executor(false),
+                BackgroundJobAction.CANCEL to control.executor(true),
+                BackgroundJobAction.COLLECT to collection.executor(),
+            ),
+        )
     }
 
     @Suppress("LongParameterList") // Shares the same composition inputs without a second service container.
