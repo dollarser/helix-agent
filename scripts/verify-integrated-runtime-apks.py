@@ -14,6 +14,7 @@ A = "{http://schemas.android.com/apk/res/android}"
 COMPONENTS = {
     "com.helix.runtime.cli.app.CliRuntimeService": ("service", ":subscriptions"),
     "com.helix.runtime.proot.app.ProotRuntimeService": ("service", ":proot"),
+    "com.helix.runtime.proot.app.ProotDetachedJobService": ("service", ":proot"),
     "com.helix.runtime.proot.app.ProotJobStopReceiver": ("receiver", ":proot"),
 }
 for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActivity",
@@ -45,6 +46,15 @@ def verify(flavor, build_type):
     quickjs = [element for element in app.findall("service") if element.get(A + "isolatedProcess") == "true"]
     assert quickjs and all(element.get(A + "exported") == "false" for element in quickjs)
     permissions = {element.get(A + "name") for element in manifest.findall("uses-permission")}
+    assert ("android.permission.FOREGROUND_SERVICE_SPECIAL_USE" in permissions) == developer
+    probe = "com.helix.app.proot.DetachedOwnerProbeActivity"
+    assert (probe in components) == (developer and build_type == "debug"), "debug owner-death probe leaked"
+    if developer:
+        detached = components["com.helix.runtime.proot.app.ProotDetachedJobService"]
+        # apkanalyzer decodes this framework flag numerically on some SDK versions.
+        service_type = detached.get(A + "foregroundServiceType")
+        assert service_type == "specialUse" or int(service_type, 0) == 0x40000000
+        assert detached.find("property[@" + A + "name='android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE']") is not None
     assert "android.permission.REQUEST_INSTALL_PACKAGES" not in permissions
     launchers = app.findall(".//category[@" + A + "name='android.intent.category.LAUNCHER']")
     assert len(launchers) == 1, f"{flavor} has extra launcher"
@@ -54,6 +64,7 @@ def verify(flavor, build_type):
         for asset in ("assets/runtime/runtime-lock.json", "assets/cli/cli-runtime-lock.json"):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
+        assert (b"Lcom/helix/app/proot/DetachedOwnerProbeActivity;" in dex) == (developer and build_type == "debug")
         for namespace in (b"Lcom/helix/runtime/cli/", b"Lcom/helix/runtime/proot/"):
             assert (namespace in dex) == developer, f"wrong {flavor} dex {namespace}"
         native = [name for name in names if name.endswith("/libhelix_loader.so")]

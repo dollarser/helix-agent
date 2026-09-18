@@ -120,6 +120,9 @@ enum class ProotJobRefusal(
 
     /** The Runtime has no active installation (not installed / not activated). */
     RUNTIME_NOT_READY("RUNTIME_NOT_READY"),
+    BACKGROUND_UNAVAILABLE("BACKGROUND_UNAVAILABLE"),
+    EXECUTION_BUSY("EXECUTION_BUSY"),
+    CANCELLED_BEFORE_START("CANCELLED_BEFORE_START"),
 }
 
 /**

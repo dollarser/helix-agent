@@ -2,9 +2,16 @@
 <!-- ADR-0049: private developer services share the host UID. PRoot is not an offline sandbox. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <application>
         <service android:name="com.helix.runtime.proot.app.ProotRuntimeService"
             android:process=":proot" android:exported="false" />
+        <service android:name="com.helix.runtime.proot.app.ProotDetachedJobService"
+            android:process=":proot" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-authorized developer command with visible stop action and a non-renewable execution lease" />
+        </service>
         <receiver android:name="com.helix.runtime.proot.app.ProotJobStopReceiver"
             android:process=":proot" android:exported="false" />
         <activity android:name="com.helix.runtime.proot.app.ProotRepairActivity"
