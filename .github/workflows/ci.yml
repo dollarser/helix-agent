@@ -23,6 +23,13 @@ jobs:
           fetch-depth: 0
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Install source validation tools
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes ripgrep
+          fi
+          rg --version
       - name: Verify source contracts
         run: ./scripts/ci-run-gate.sh --source
       - name: Check change-range whitespace
