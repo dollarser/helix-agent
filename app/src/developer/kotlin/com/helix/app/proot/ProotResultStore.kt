@@ -102,7 +102,7 @@ internal class ProotResultStore(
         callId: String,
     ): JsonObject {
         val call = requireNotNull(storage.toolCalls.byTurnAndCallId(turnId, callId))
-        check(call.name in setOf("bash", "code.linux.run"))
+        check(call.name in setOf("bash", "code.linux.run", DetachedJobTools.START))
         val binding = ProotJobBindingStore(storage).resolve(callId)
         check(binding.getValue("turnId").jsonPrimitive.content == turnId)
         return binding
