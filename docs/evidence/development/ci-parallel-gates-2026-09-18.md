@@ -33,4 +33,20 @@ bash -n scripts/check-all.sh scripts/ci-run-gate.sh
 ./scripts/ci-run-gate.sh --source
 ```
 
-均 exit 0。夹具确认完整任务集合、本地与分片命令一致、Gradle 失败码 17、锁检查失败码 19、日志/耗时保存及未知模式拒绝；这不是实际 Gradle 构建的替代品。修改后的工作流还须经过 actionlint 和远端实际运行，性能数据以该运行更新，不预先宣称提速比例。
+均 exit 0。夹具确认完整任务集合、本地与分片命令一致、Gradle 失败码 17、锁检查失败码 19、日志/耗时保存及未知模式拒绝；这不是实际 Gradle 构建的替代品。官方发行的 actionlint 1.7.12（下载后核对官方 SHA-256 清单）检查 exit 0。
+
+## 优化后远端实跑
+
+[PR #2](https://github.com/dollarser/helix-agent/pull/2) 的 `74c11806` 在[运行 35318616570](https://github.com/dollarser/helix-agent/actions/runs/35318616570) 全部 completed/success：
+
+| job | 实测耗时 |
+| --- | --- |
+| source | 25 秒 |
+| runtime-assets | 2 分 29 秒 |
+| android (analysis) | 2 分 47 秒 |
+| android (tests-build) | 4 分 6 秒 |
+| verify | 4 秒 |
+
+从首个 job 开始到最后一个结束共 **7 分 18 秒**。本轮复用了前次 main 构建的 Gradle 缓存，且生产源码未变，不能将相对 40 分 12 秒的全部差值归因于并行化，也不承诺冷缓存同样耗时。可确认的是双分片同时运行、原检查集合全部通过、诊断与 APK 制品上传成功；本地/CI 门禁契约一致。
+
+首次运行 35318494875 因 Ubuntu 缺少 ripgrep 在源码门禁明确失败；资产与 Android job 均跳过，`verify` 仍失败。补齐显式安装后上述重跑通过。这同时留下了依赖失败/跳过不被汇总成成功的真实证据。
