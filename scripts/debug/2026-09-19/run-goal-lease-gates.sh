@@ -5,7 +5,7 @@ cd "$(dirname "$0")/../../.."
 prefix="${1:?new evidence prefix}"
 ./scripts/check-all.sh --all
 ./gradlew :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
-port=5654
+port="${2:-5654}"
 for api in 29 36; do
   for flavor in consumer developer; do
     package="com.helix.agent"
@@ -15,7 +15,7 @@ for api in 29 36; do
       --apk "app/build/outputs/apk/${flavor}/debug/app-${flavor}-debug.apk" \
       --test-apk "app/build/outputs/apk/androidTest/${flavor}/debug/app-${flavor}-debug-androidTest.apk" \
       --runner "${package}.test/com.helix.app.HelixAndroidJUnitRunner" \
-      --classes com.helix.app.chat.GoalTimeLeaseDeviceTest,com.helix.app.chat.GoalUsageReservationsDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest \
+      --classes com.helix.app.chat.GoalLeaseClockDeviceTest,com.helix.app.chat.GoalTimeLeaseDeviceTest,com.helix.app.chat.GoalUsageReservationsDeviceTest,com.helix.app.chat.GoalRunCoordinatorDeviceTest \
       --output "build/${prefix}-${flavor}-api${api}" --timeout 600
     port=$((port + 2))
   done
