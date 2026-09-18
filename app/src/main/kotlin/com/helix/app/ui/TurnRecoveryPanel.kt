@@ -89,7 +89,7 @@ private fun RecoveryPanelFacts(panel: TurnRecoveryPanelUi) {
             },
             summary.nextOperation?.let {
                 "recovery-next-$turnId" to
-                    stringResource(R.string.recovery_next, OperationLabel(it, summary.budgetContinuationEligible))
+                    stringResource(R.string.recovery_next, operationLabel(it, summary.budgetContinuationEligible))
             },
         )
     reason?.let { (text, isError) ->
@@ -211,9 +211,8 @@ private fun RecoveryButton(
     }
 }
 
-@Suppress("FunctionName")
 @Composable
-private fun OperationLabel(
+private fun operationLabel(
     operation: RecoveryOperation,
     budgetContinuationEligible: Boolean,
 ): String =
