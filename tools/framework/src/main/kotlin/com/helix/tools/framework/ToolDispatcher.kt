@@ -232,6 +232,8 @@ class ToolDispatcher(
     private val sessionPermissions: SessionPermissionSource? = null,
     private val toolAvailability: ToolAvailabilitySource? = null,
     private val effectClassifier: ToolEffectClassifier? = null,
+    /** Application-wide execution ownership; independent of capability and authorization. */
+    private val executionOwnership: ExecutionOwnership? = null,
 ) {
     init {
         val wired = sessionPermissions != null
@@ -739,7 +741,21 @@ class ToolDispatcher(
         val execStart = commitExecutionStart(request, proof, ctx) ?: return finishStop(request, startedAt, ctx)
         request.onExecutionStarting()
         val call = buildCall(request, descriptor, execStart)
-        val result = deadlineRunner.executeWithinDeadline(executor, call)
+        val guardedExecutor =
+            executionOwnership?.guard(
+                executor,
+                exclusive =
+                    EffectFootprintBuilder
+                        .build(
+                            descriptor,
+                            request.args,
+                            request.executionTarget,
+                            request.scope,
+                            request.egress,
+                            NoResourceKeys,
+                        ).exclusive,
+            ) ?: executor
+        val result = deadlineRunner.executeWithinDeadline(guardedExecutor, call)
         // HXA-053: capture the executor's optional redacted metadata (QuickJS doc 03 §4.8)
         // for the audit event. TimedOut/Cancelled carry no executor metadata (they are
         // data objects); only Completed and Failed may report one.

@@ -1,9 +1,9 @@
 # ADR-AGENT-005: 按会话导出 JSONL 执行记录
 
-Status: proposed
+Status: accepted
 Date: 2026-09-17
-HXA: 待立项（需求与导出契约评审，不绑定现有任务）
-Deciders: pending（Project owner 已提出需求，本文具体设计待接受）
+HXA: HXA-211
+Deciders: Project owner（2026-09-18 授权在当前会话实施会话 JSONL 导出；沿用本 ADR 的单会话、只读快照边界）
 
 ## Context
 
@@ -13,7 +13,7 @@ Deciders: pending（Project owner 已提出需求，本文具体设计待接受�
 
 ## Decision
 
-本方案为 proposed。新增用户主动发起的单会话 JSONL 导出，覆盖 consumer/developer 均具备的会话存储；不依赖 PRoot、Root、订阅账号或模型调用。实施前登记独立任务，不将本需求并入命令详情、文件产物导出或生产子 Agent 接线。
+新增用户主动发起的单会话 JSONL 导出，覆盖 consumer/developer 均具备的会话存储；不依赖 PRoot、Root、订阅账号或模型调用。实施登记为独立 HXA-211，不将本需求并入命令详情、文件产物导出或生产子 Agent 接线。accepted 表示实施授权，不表示功能已交付。
 
 ### 1. 内容范围与事实来源
 

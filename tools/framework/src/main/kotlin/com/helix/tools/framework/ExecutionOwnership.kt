@@ -1,0 +1,125 @@
+package com.helix.tools.framework
+
+/**
+ * Application-owned admission shared by tools and manual Runtime entry points.
+ * A retained owner survives its launching call; only reconciliation releases it.
+ * This is not authorization, a job state machine, or a timer that assumes effects ended.
+ * One application-process instance must cover every entry point using the same store.
+ */
+class ExecutionOwnership(
+    private val store: Store,
+) {
+    data class Owner(
+        val executionId: String,
+        val generation: String,
+    ) {
+        init {
+            require(executionId.isNotBlank() && generation.isNotBlank())
+        }
+    }
+
+    /** Persist only execution identity. Runtime remains the owner of execution state. */
+    interface Store {
+        fun read(): Owner?
+
+        /** Durable compare-and-set; false means another owner won, failure must throw. */
+        fun compareAndSet(
+            expected: Owner?,
+            replacement: Owner?,
+        ): Boolean
+    }
+
+    private val lock = Any()
+    private val active = mutableMapOf<String, Boolean>()
+
+    /** Existing scheduler still decides parallelism between ordinary calls. */
+    fun acquire(
+        callId: String,
+        exclusive: Boolean = true,
+    ): Permit? =
+        synchronized(lock) {
+            require(callId.isNotBlank())
+            check(callId !in active) { "execution admission identity already active" }
+            if (store.read() != null) return@synchronized null
+            if (active.isNotEmpty() && (exclusive || active.values.any { it })) return@synchronized null
+            active[callId] = exclusive
+            Permit(callId)
+        }
+
+    /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
+    fun retainedOwner(): Owner? = synchronized(lock) { store.read() }
+
+    /** Trusted launching executor transfers its currently held exclusive admission before IPC. */
+    fun retainForCall(
+        callId: String,
+        owner: Owner,
+    ): Boolean =
+        synchronized(lock) {
+            check(callId in active) { "execution admission is not active" }
+            if (active.size != 1 || active[callId] != true) return@synchronized false
+            val current = store.read()
+            if (current != null) return@synchronized current == owner
+            store.compareAndSet(null, owner)
+        }
+
+    /** Acquire inside the executor thread, so a deadline cannot release a still-running effect. */
+    fun guard(
+        executor: ToolExecutor,
+        exclusive: Boolean = true,
+    ): ToolExecutor =
+        object : ToolExecutor {
+            override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
+                val permit = acquire(call.toolCallId, exclusive)
+                return if (permit == null) {
+                    ToolExecutorResult.Failed(
+                        "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
+                        sideEffectFree = true,
+                    )
+                } else {
+                    permit.use {
+                        if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
+                    }
+                }
+            }
+        }
+
+    /**
+     * Called only by trusted reconciliation after the original execution is proven stopped.
+     * An old result cannot release a newer generation, even when an execution ID is reused.
+     */
+    fun settle(owner: Owner): Boolean =
+        synchronized(lock) {
+            // A query can race the write-ahead holder BEFORE submission. "Not found" then
+            // does not authorize releasing a launcher that can still submit afterwards.
+            if (active.isNotEmpty()) return@synchronized false
+            store.compareAndSet(owner, null)
+        }
+
+    inner class Permit internal constructor(
+        private val callId: String,
+    ) : AutoCloseable {
+        private var closed = false
+
+        /**
+         * Write-ahead transfer before detached/PTY submission. Requires sole admission;
+         * callers must also hold the scheduler's exclusive footprint for this transfer.
+         * A failed/uncertain submit keeps the durable owner until explicit reconciliation.
+         */
+        fun retain(owner: Owner): Boolean =
+            synchronized(lock) {
+                check(!closed) { "execution admission already closed" }
+                retainForCall(callId, owner)
+            }
+
+        /** Closing a launching call never releases its retained execution. */
+        override fun close() {
+            synchronized(lock) {
+                if (!closed) {
+                    active.remove(callId)
+                    closed = true
+                }
+            }
+        }
+    }
+}

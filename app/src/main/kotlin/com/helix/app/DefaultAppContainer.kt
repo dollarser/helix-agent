@@ -96,6 +96,12 @@ internal class DefaultAppContainer(
 
     override val storage: HelixStorage = HelixStorage.create(context)
 
+    private val executionOwnership =
+        com.helix.tools.framework.ExecutionOwnership(
+            com.helix.app.proot
+                .ExecutionOwnershipStore(java.io.File(appContext.filesDir, "execution-admission/owner")),
+        )
+
     private val lineStore = PrefsLineStore(context, PREFS_NAME)
 
     override val profileStore: SafetyProfileStore =
@@ -473,6 +479,7 @@ internal class DefaultAppContainer(
                     sessionPermissions = sessionPermissions,
                     toolAvailability = sessionPermissions,
                     effectClassifier = effectClassifier,
+                    executionOwnership = executionOwnership,
                 )
             // The deterministic scheduler (roadmap HXA-037; doc 11 section 3): default total
             // concurrency 2, hard cap 4 before real-device evidence. The resource gate is
