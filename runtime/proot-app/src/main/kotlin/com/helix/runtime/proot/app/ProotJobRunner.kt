@@ -108,6 +108,38 @@ class ProotJobRunner private constructor(
     private val liveJobs = ConcurrentHashMap<String, LiveJob>()
     private val cancellationFlags = ConcurrentHashMap<String, AtomicBoolean>()
     private val owners = ProotJobOwners()
+    private val expiredLeases = ConcurrentHashMap.newKeySet<String>()
+    private var detachedReservation: String? = null
+
+    @Synchronized
+    internal fun reserveDetached(jobId: String): Boolean {
+        // Reserve journal capacity before an owner can persist a pre-start cancellation.
+        if (detachedReservation != null || store.activeJobIds().isNotEmpty() ||
+            !store.pruneAndBudgetAvailable(System.currentTimeMillis())
+        ) {
+            return false
+        }
+        detachedReservation = jobId
+        return true
+    }
+
+    @Synchronized
+    internal fun releaseDetached(jobId: String) {
+        if (detachedReservation == jobId) detachedReservation = null
+    }
+
+    @Synchronized
+    internal fun expireDetached(jobId: String) {
+        if (store.load(jobId)?.state?.isTerminal != false) return
+        expiredLeases.add(jobId)
+        liveJobs[jobId]?.let { killProcessGroup(it.pid) }
+    }
+
+    internal fun submitDetached(
+        spec: ProotJobSpec,
+        input: ParcelFileDescriptor,
+        output: ParcelFileDescriptor,
+    ): ProotJobSubmitResult = submitWithOwner(spec, input, output, null, detached = true)
 
     private class LiveJob(
         val pid: Int,
@@ -152,6 +184,7 @@ class ProotJobRunner private constructor(
         inputPfd: ParcelFileDescriptor,
         outputPfd: ParcelFileDescriptor,
         owner: android.os.IBinder?,
+        detached: Boolean = false,
     ): ProotJobSubmitResult {
         val now = System.currentTimeMillis()
         val entries = store.entries()
@@ -168,6 +201,12 @@ class ProotJobRunner private constructor(
             inputPfd.close()
             outputPfd.close()
             return ProotJobSubmitResult.Duplicate(sameExecution)
+        }
+        val reservationMatches = if (detached) detachedReservation == spec.jobId else detachedReservation == null
+        if (!reservationMatches) {
+            inputPfd.close()
+            outputPfd.close()
+            return ProotJobSubmitResult.Rejected(ProotJobRefusal.EXECUTION_BUSY)
         }
         if (!store.pruneAndBudgetAvailable(now)) {
             inputPfd.close()
@@ -246,7 +285,7 @@ class ProotJobRunner private constructor(
             }
             inputArchive.delete()
 
-            if (cancelRequested.get()) {
+            if (cancelRequested.get() || spec.jobId in expiredLeases) {
                 terminalCancelled(pending, outputPfd, null)
                 return
             }
@@ -339,6 +378,10 @@ class ProotJobRunner private constructor(
             }
 
             val deadline = pending.createdAtEpochMs + spec.deadlineMs
+            if (cancelRequested.get() || spec.jobId in expiredLeases) {
+                terminalCancelled(pending, outputPfd, null)
+                return
+            }
             val deadlineHit = AtomicBoolean(false)
             val outputBudget = OutputBudget(spec.maxOutputBytes)
             val stderrBudget = StreamOutputBudget(outputBudget, spec.maxStderrBytes)
@@ -399,7 +442,7 @@ class ProotJobRunner private constructor(
                         ),
                 )
             liveJobs[spec.jobId] = live
-            if (cancelRequested.get()) killProcessGroup(childPid)
+            if (cancelRequested.get() || spec.jobId in expiredLeases) killProcessGroup(childPid)
             // The 通知停止 surface (HXA-086): a plain (non-FGS) notification with a
             // stop action for the lifetime of the RUNNING state.
             ProotJobNotification.postRunning(context, spec.jobId)
@@ -466,6 +509,7 @@ class ProotJobRunner private constructor(
             live?.watchdog?.cancel(false)
             liveJobs.remove(spec.jobId)
             cancellationFlags.remove(spec.jobId, cancelRequested)
+            expiredLeases.remove(spec.jobId)
             owners.release(spec.jobId)
         }
     }
@@ -479,7 +523,7 @@ class ProotJobRunner private constructor(
         outputPfd.close()
         ProotJobNotification.cancel(context, pending.jobId)
         store.deletePayload(pending.jobId)
-        store.put(
+        publishTerminal(
             pending.copy(
                 state = ProotJobState.INPUT_INVALID,
                 terminalAtEpochMs = System.currentTimeMillis(),
@@ -496,7 +540,7 @@ class ProotJobRunner private constructor(
     ) {
         outputPfd.close()
         ProotJobNotification.cancel(context, pending.jobId)
-        store.put(
+        publishTerminal(
             pending.copy(
                 state = ProotJobState.CANCELLED,
                 terminalAtEpochMs = System.currentTimeMillis(),
@@ -515,7 +559,7 @@ class ProotJobRunner private constructor(
     ) {
         outputPfd.close()
         ProotJobNotification.cancel(context, pending.jobId)
-        store.put(
+        publishTerminal(
             pending.copy(
                 state = ProotJobState.FAILED,
                 terminalAtEpochMs = System.currentTimeMillis(),
@@ -594,7 +638,7 @@ class ProotJobRunner private constructor(
             // already closed by AutoCloseOutputStream
         }
         ProotJobNotification.cancel(context, pending.jobId)
-        store.put(
+        publishTerminal(
             pending.copy(
                 state = finalState,
                 terminalAtEpochMs = now,
@@ -619,6 +663,7 @@ class ProotJobRunner private constructor(
 
     override fun query(jobId: String): ProotJobRecord? = store.load(jobId)
 
+    @Synchronized
     @Suppress("ReturnCount")
     override fun cancel(jobId: String): ProotJobRecord? {
         val record = store.load(jobId) ?: return null
@@ -632,6 +677,18 @@ class ProotJobRunner private constructor(
         // A PENDING job (not yet launched) is cancelled via the flag the job
         // thread checks between phases and ends CANCELLED.
         return store.load(jobId)
+    }
+
+    /** Cancellation and terminal publication share a linearization point, including archive time. */
+    @Synchronized
+    private fun publishTerminal(record: ProotJobRecord) {
+        if (store.load(record.jobId)?.state?.isTerminal == true) return
+        store.put(
+            record.withStopReason(
+                cancelled = cancellationFlags[record.jobId]?.get() == true,
+                leaseExpired = record.jobId in expiredLeases,
+            ),
+        )
     }
 
     @Suppress("ReturnCount")
@@ -764,60 +821,22 @@ class ProotJobRunner private constructor(
         }
     }
 
-    /**
-     * Orphan sweep (service (re)start, job thread): every PENDING/RUNNING record
-     * is terminal ORPHANED. Its process group is killed ONLY when /proc proves
-     * the pid still holds the SAME process (matching starttime ticks) — a
-     * reused pid is never touched. A sweep failure for one job must not stop
-     * the sweep; the /proc scan is nested by nature.
-     */
-    @Suppress(
-        "TooGenericExceptionCaught",
-        "SwallowedException",
-        "NestedBlockDepth",
-        "LoopWithTooManyJumpStatements",
-    )
-    fun sweepOrphans() {
-        store.prune(System.currentTimeMillis())
-        store.activeJobIds().forEach { jobId ->
-            val record = store.load(jobId) ?: return@forEach
-            if (record.state.isTerminal) return@forEach
-            val procMeta = File(store.jobDir(jobId), "proc.txt")
-            if (procMeta.isFile) {
-                try {
-                    val lines = procMeta.readLines().associate { it.substringBefore('=') to it.substringAfter('=') }
-                    val pid = lines["pid"]?.toIntOrNull()
-                    val startTicks = lines["startTicks"].orEmpty()
-                    if (pid != null && startTicks.isNotEmpty()) {
-                        val statFile = File("/proc/$pid/stat")
-                        if (statFile.isFile) {
-                            val stat = statFile.readText()
-                            val closeParen = stat.lastIndexOf(')')
-                            val fields = stat.substring(closeParen + 2).trim().split(" ")
-                            if (fields.size > 19 && fields[19] == startTicks) {
-                                // The SAME process is still alive from the old incarnation:
-                                // it is a true orphan — kill its group, then ORPHANED.
-                                killProcessGroup(pid)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // meta unreadable: the record still goes ORPHANED; nothing is killed.
-                }
-            }
-            try {
-                store.put(
-                    record.copy(
-                        state = ProotJobState.ORPHANED,
-                        terminalAtEpochMs = System.currentTimeMillis(),
-                    ),
-                )
-            } catch (e: Exception) {
-                // one bad record does not stop the sweep
-            }
-        }
-    }
+    fun sweepOrphans() = sweepProotOrphans(store, ::killProcessGroup)
 }
+
+private fun ProotJobRecord.withStopReason(
+    cancelled: Boolean,
+    leaseExpired: Boolean,
+): ProotJobRecord =
+    copy(
+        state =
+            when {
+                cancelled -> ProotJobState.CANCELLED
+                leaseExpired -> ProotJobState.TIMED_OUT
+                else -> state
+            },
+        terminalAtEpochMs = maxOf(createdAtEpochMs, requireNotNull(terminalAtEpochMs)),
+    )
 
 private fun sha256Of(bytes: ByteArray): String =
     MessageDigest

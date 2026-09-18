@@ -119,7 +119,7 @@ class ProotJobStore(
         if (current.reconciledAtEpochMs == null && !current.evidenceExpired) {
             require(current.state.isTerminal)
             val files = requireNotNull(jobDir(jobId).listFiles())
-            files.filter { it.name != RECORD_FILE }.forEach {
+            files.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }.forEach {
                 check(
                     it.deleteRecursively(),
                 ) { "payload cleanup failed" }
@@ -132,7 +132,7 @@ class ProotJobStore(
     fun deletePayload(jobId: String) {
         jobDir(jobId)
             .listFiles()
-            ?.filter { it.name != RECORD_FILE }
+            ?.filter { it.name != RECORD_FILE && it.name != DetachedJobStore.FILE_NAME }
             ?.forEach { it.deleteRecursively() }
     }
 
