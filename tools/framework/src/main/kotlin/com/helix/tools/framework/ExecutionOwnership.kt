@@ -81,21 +81,65 @@ class ExecutionOwnership(
         exclusive: Boolean = true,
     ): ToolExecutor =
         object : ToolExecutor {
-            override fun execute(call: ExecutableToolCall): ToolExecutorResult {
-                if (call.cancel.isCancelled()) return ToolExecutorResult.Cancelled
-                val permit = acquire(call.toolCallId, exclusive)
-                return if (permit == null) {
-                    ToolExecutorResult.Failed(
-                        "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
-                        sideEffectFree = true,
-                    )
-                } else {
-                    permit.use {
-                        if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
-                    }
+            override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+                when {
+                    call.cancel.isCancelled() -> ToolExecutorResult.Cancelled
+                    executor is ControlExecutor -> executor.runGuarded(call, this@ExecutionOwnership)
+                    else -> runOrdinary(executor, call, exclusive)
                 }
+        }
+
+    private fun runOrdinary(
+        executor: ToolExecutor,
+        call: ExecutableToolCall,
+        exclusive: Boolean,
+    ): ToolExecutorResult {
+        val permit =
+            acquire(call.toolCallId, exclusive)
+                ?: return ToolExecutorResult.Failed(
+                    "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
+                    sideEffectFree = true,
+                )
+        return permit.use {
+            if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
+        }
+    }
+
+    /** Only trusted platform wiring supplies the binding resolver; model metadata cannot opt in. */
+    fun controlExecutor(
+        resolve: (ExecutableToolCall) -> Owner,
+        execute: (ExecutableToolCall, ReconciliationPermit?) -> ToolExecutorResult,
+    ): ToolExecutor = ControlExecutor(resolve, execute)
+
+    private inner class ControlExecutor(
+        private val resolve: (ExecutableToolCall) -> Owner,
+        private val action: (ExecutableToolCall, ReconciliationPermit?) -> ToolExecutorResult,
+    ) : ToolExecutor {
+        override fun execute(call: ExecutableToolCall): ToolExecutorResult =
+            ToolExecutorResult.Failed("Runtime control requires execution admission.", sideEffectFree = true)
+
+        fun runGuarded(
+            call: ExecutableToolCall,
+            host: ExecutionOwnership,
+        ): ToolExecutorResult {
+            check(host === this@ExecutionOwnership) { "control belongs to another admission host" }
+            val original = resolve(call)
+            val retained = retainedOwner()
+            return if (retained == null) {
+                acquire(call.toolCallId)?.use { invoke(call, null) } ?: busy()
+            } else {
+                acquireReconciliation(original)?.use { invoke(call, it) } ?: busy()
             }
         }
+
+        private fun invoke(
+            call: ExecutableToolCall,
+            permit: ReconciliationPermit?,
+        ): ToolExecutorResult = if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else action(call, permit)
+
+        private fun busy() =
+            ToolExecutorResult.Failed("EXECUTION_BUSY: original Runtime owner is unavailable.", sideEffectFree = true)
+    }
 
     /**
      * Called only by trusted reconciliation after the original execution is proven stopped.

@@ -191,6 +191,63 @@ class ExecutionOwnershipTest {
         requireNotNull(gate.acquire("writer")).close()
     }
 
+    @Test fun boundControlKeepsOriginalOwnerUntilExplicitSettlement() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { it.retain(owner) }
+        val control =
+            gate.controlExecutor({ owner }) { _, permit ->
+                assertNull(gate.acquire("writer"))
+                assertTrue(requireNotNull(permit).settle())
+                assertNull(gate.acquire("writer-after-settlement"))
+                ToolExecutorResult.Completed(buildJsonObject {})
+            }
+        assertTrue(control.execute(call()) is ToolExecutorResult.Failed)
+        assertEquals(owner, gate.retainedOwner())
+        assertTrue(gate.guard(control).execute(call()) is ToolExecutorResult.Completed)
+        requireNotNull(gate.acquire("writer")).close()
+    }
+
+    @Test fun foreignControlNeverRunsAndQueryFailureKeepsOriginalOwner() {
+        val gate = ExecutionOwnership(MemoryStore())
+        requireNotNull(gate.acquire("start")).use { it.retain(owner) }
+        val foreign =
+            gate.controlExecutor({ owner.copy(generation = "foreign") }) { _, _ ->
+                error("foreign control executed")
+            }
+        assertTrue(gate.guard(foreign).execute(call()) is ToolExecutorResult.Failed)
+        val failed = gate.controlExecutor({ owner }) { _, _ -> throw IOException("IPC unavailable") }
+        assertThrows(IOException::class.java) { gate.guard(failed).execute(call()) }
+        assertEquals(owner, gate.retainedOwner())
+        requireNotNull(gate.acquireReconciliation(owner)).close()
+    }
+
+    @Test fun alreadySettledControlStillUsesOrdinaryAdmission() {
+        val gate = ExecutionOwnership(MemoryStore())
+        val control =
+            gate.controlExecutor({ owner }) { _, permit ->
+                assertNull(permit)
+                assertNull(gate.acquire("writer"))
+                ToolExecutorResult.Completed(buildJsonObject {})
+            }
+        assertTrue(gate.guard(control).execute(call()) is ToolExecutorResult.Completed)
+        requireNotNull(gate.acquire("writer")).close()
+    }
+
+    @Test fun aControlCannotRunThroughAnotherHostOrAfterCancellation() {
+        val gate = ExecutionOwnership(MemoryStore())
+        val otherHost = ExecutionOwnership(MemoryStore())
+        val control = gate.controlExecutor({ owner }) { _, _ -> error("control entered") }
+        assertThrows(IllegalStateException::class.java) { otherHost.guard(control).execute(call()) }
+        val cancelled =
+            call().copy(
+                cancel =
+                    object : CancelSignal {
+                        override fun isCancelled() = true
+                    },
+            )
+        assertEquals(ToolExecutorResult.Cancelled, gate.guard(control).execute(cancelled))
+    }
+
     private fun call() =
         ExecutableToolCall(
             toolCallId = "call",
