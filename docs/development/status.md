@@ -12,7 +12,7 @@
 
 Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。已通过 `32788bf8` 合入 main，真实 App Root 工具链复核 1/1；历史 11 项失败已在 49/49 定向回归中通过。P0 独立修复基线的真机普通套件 450 PASS / 69 条件跳过 / 0 FAIL，存储分阶段及 Root 工具链另验通过；批次 A 整合证据与范围见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。条件跳过、长稳及发行项不算通过。
 
-会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 的深色主题仍待实现。193 新增历史数据夹具恢复证据，实际覆盖升级仍待补，不标整体完成。整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
+会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 的深色主题仍待实现。193 已补 API29/36 实际旧版→新版 debug APK 覆盖安装，会话/配置/结果保留及旧锚不激活通过，见[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)；默认镜像重建边界仍未闭合，不标整体完成。前次整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
 
 ## In progress
 
@@ -22,7 +22,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 
-CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 仍有升级恢复与默认镜像重建边界，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)。
+CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 选定旧/新 debug APK 的覆盖升级已补验，仍有默认镜像重建边界，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)与[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 
