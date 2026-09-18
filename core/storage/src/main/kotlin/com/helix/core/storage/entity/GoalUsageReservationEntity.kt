@@ -23,8 +23,10 @@ data class GoalUsageReservationEntity(
     val runId: String,
     val kind: String,
     val reservedTokens: Long,
+    /** Unconsumed hold for pending TIME_LEASE rows; original reservation for other kinds. */
     val reservedMillis: Long,
     val state: String,
     val chargedTokens: Long?,
+    /** TIME_LEASE checkpoints accumulate usage here while the row is still pending. */
     val chargedMillis: Long?,
 )

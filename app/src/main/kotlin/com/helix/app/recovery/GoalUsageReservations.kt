@@ -9,7 +9,7 @@ import com.helix.core.storage.mapping.StoredGoal
 class GoalUsageReservations(
     private val storage: HelixStorage,
 ) {
-    enum class Kind { MODEL, TOOL, TIME }
+    enum class Kind { MODEL, TOOL, TIME, TIME_LEASE }
 
     data class Request(
         val id: String,
@@ -65,14 +65,49 @@ class GoalUsageReservations(
         return changed
     }
 
+    /**
+     * One cumulative clock covers both the active Turn and its detached Job. Repeated/older
+     * observations never charge twice; terminal proof releases only the unspent capacity.
+     * Callers must compute the union of execution intervals, not sum overlapping timers.
+     */
+    fun checkpointLease(
+        id: String,
+        observedMillis: Long,
+        atMillis: Long,
+        terminal: Boolean = false,
+    ): Boolean {
+        require(observedMillis >= 0)
+        var changed = false
+        storage.withTransaction {
+            val reservation = requireNotNull(storage.goalUsageReservations.byId(id))
+            require(reservation.kind == Kind.TIME_LEASE.name)
+            if (reservation.state == "PENDING" &&
+                (terminal || observedMillis > (reservation.chargedMillis ?: 0L))
+            ) {
+                applyLease(reservation, observedMillis, atMillis, interrupted = false, terminal)
+                changed = true
+            }
+        }
+        return changed
+    }
+
     /** Unknown in-flight work consumes its reservation once. No offline wall time or execution replay. */
     fun recoverRun(
         runId: String,
         atMillis: Long,
+        includeLeases: Boolean = true,
     ) {
         storage.withTransaction {
             storage.goalUsageReservations.pendingForRun(runId).forEach {
-                apply(it, it.reservedTokens, it.reservedMillis, atMillis, interrupted = true)
+                if (it.kind != Kind.TIME_LEASE.name || includeLeases) {
+                    val millis =
+                        if (it.kind == Kind.TIME_LEASE.name) {
+                            Math.addExact(it.reservedMillis, it.chargedMillis ?: 0L)
+                        } else {
+                            it.reservedMillis
+                        }
+                    apply(it, it.reservedTokens, millis, atMillis, interrupted = true)
+                }
             }
         }
     }
@@ -87,6 +122,10 @@ class GoalUsageReservations(
         val kind = Kind.valueOf(reservation.kind)
         require(tokens >= 0 && millis >= 0)
         require(kind == Kind.MODEL || tokens == 0L)
+        if (kind == Kind.TIME_LEASE) {
+            applyLease(reservation, millis, atMillis, interrupted, terminal = true)
+            return
+        }
         require(kind == Kind.TIME || millis == 0L)
         val run = storage.goalRuns.resolve(reservation.runId)
         var trailingMillis = millis
@@ -107,7 +146,7 @@ class GoalUsageReservations(
             when (kind) {
                 Kind.MODEL -> GoalDurableUsageLedger.Boundary.MODEL
                 Kind.TOOL -> GoalDurableUsageLedger.Boundary.TOOL
-                Kind.TIME -> GoalDurableUsageLedger.Boundary.HEARTBEAT
+                Kind.TIME, Kind.TIME_LEASE -> GoalDurableUsageLedger.Boundary.HEARTBEAT
             }
         GoalDurableUsageLedger(storage).checkpoint(
             run.goalId,
@@ -123,6 +162,51 @@ class GoalUsageReservations(
         )
     }
 
+    private fun applyLease(
+        reservation: GoalUsageReservationEntity,
+        observedMillis: Long,
+        atMillis: Long,
+        interrupted: Boolean,
+        terminal: Boolean,
+    ) {
+        val charged = reservation.chargedMillis ?: 0L
+        val total = maxOf(charged, observedMillis)
+        var delta = total - charged
+        val remaining = (reservation.reservedMillis - delta).coerceAtLeast(0L)
+        val run = storage.goalRuns.resolve(reservation.runId)
+        val ledger = GoalDurableUsageLedger(storage)
+        // Keep the owner pending through all chunks, including observed cancellation overrun.
+        while (delta > GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS) {
+            ledger.checkpoint(
+                run.goalId,
+                run.id,
+                GoalDurableUsageLedger.Boundary.HEARTBEAT,
+                GoalDurableUsageLedger.Delta(durationMillis = GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS),
+                atMillis,
+            )
+            delta -= GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS
+        }
+        storage.goalUsageReservations.checkpointLease(reservation.id, remaining, total)
+        if (terminal) storage.goalUsageReservations.settle(reservation.id, interrupted, 0, total)
+        ledger.checkpoint(
+            run.goalId,
+            run.id,
+            GoalDurableUsageLedger.Boundary.HEARTBEAT,
+            GoalDurableUsageLedger.Delta(durationMillis = delta),
+            atMillis,
+        )
+    }
+
+    private fun ownsClock(
+        pending: List<GoalUsageReservationEntity>,
+        request: Request,
+    ): Boolean =
+        when (request.kind) {
+            Kind.TIME_LEASE -> pending.none { it.kind in setOf(Kind.TIME.name, Kind.TIME_LEASE.name) }
+            Kind.TIME -> pending.none { it.kind == Kind.TIME_LEASE.name }
+            else -> true
+        }
+
     private fun fits(
         goal: StoredGoal,
         pending: List<GoalUsageReservationEntity>,
@@ -132,7 +216,7 @@ class GoalUsageReservations(
         val tools = pending.count { it.kind == Kind.TOOL.name }.toLong() + if (request.kind == Kind.TOOL) 1 else 0
         val tokens = pending.sumOf { it.reservedTokens }
         val millis = pending.sumOf { it.reservedMillis }
-        return goal.modelCalls < goal.budgets.maxModelCalls &&
+        return ownsClock(pending, request) && goal.modelCalls < goal.budgets.maxModelCalls &&
             goal.toolCalls < goal.budgets.maxToolCalls &&
             goal.totalTokens < goal.budgets.maxTotalTokens &&
             goal.currentWakeMillis < goal.budgets.maxWakeDurationMillis &&
@@ -146,8 +230,15 @@ class GoalUsageReservations(
 
     private fun validate(request: Request) {
         require(request.id.isNotBlank() && request.runId.isNotBlank())
-        require(request.tokens >= 0 && request.millis in 0..GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS)
+        val maximum =
+            if (request.kind == Kind.TIME_LEASE) MAX_LEASE_MILLIS else GoalDurableUsageLedger.MAX_UNACCOUNTED_MILLIS
+        require(request.tokens >= 0 && request.millis in 0..maximum)
         require((request.kind == Kind.MODEL) == (request.tokens > 0))
-        require((request.kind == Kind.TIME) == (request.millis > 0))
+        require((request.kind in setOf(Kind.TIME, Kind.TIME_LEASE)) == (request.millis > 0))
+    }
+
+    companion object {
+        // ADR-RUNTIME-002 maximum non-renewable background allocation; not the heartbeat crash window.
+        const val MAX_LEASE_MILLIS: Long = 30 * 60 * 1_000L
     }
 }

@@ -18,6 +18,16 @@ interface GoalUsageReservationDao {
     fun pendingForRun(runId: String): List<GoalUsageReservationEntity>
 
     @Query(
+        "UPDATE goal_usage_reservations SET reservedMillis = :remainingMillis, chargedMillis = :chargedMillis " +
+            "WHERE id = :id AND state = 'PENDING' AND kind = 'TIME_LEASE'",
+    )
+    fun checkpointLease(
+        id: String,
+        remainingMillis: Long,
+        chargedMillis: Long,
+    ): Int
+
+    @Query(
         "UPDATE goal_usage_reservations SET state = :state, chargedTokens = :tokens, chargedMillis = :millis " +
             "WHERE id = :id AND state = 'PENDING'",
     )

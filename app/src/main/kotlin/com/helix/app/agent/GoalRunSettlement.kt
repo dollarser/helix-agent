@@ -38,7 +38,8 @@ internal class GoalRunSettlement(
         require(state.isTerminal) { "Goal settlement requires a terminal Turn" }
         com.helix.app.recovery
             .GoalUsageReservations(storage)
-            .recoverRun(runId, clock.now().toEpochMilli())
+            .recoverRun(runId, clock.now().toEpochMilli(), includeLeases = false)
+        if (storage.goalUsageReservations.pendingForRun(runId).any { it.kind == "TIME_LEASE" }) return
         val run = storage.goalRuns.resolve(runId)
         val goal = storage.goals.resolve(run.goalId).toRuntimeGoal()
         // Ledger budget closure and repeated terminal notifications must preserve the first outcome.
