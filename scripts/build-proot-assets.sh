@@ -4,7 +4,8 @@
 # embedded into the Runtime APK assets).
 #
 # Usage:
-#   scripts/build-proot-assets.sh                # verify + build + place (lock must exist)
+#   scripts/build-proot-assets.sh                # download locked archive + verify + place
+#   scripts/build-proot-assets.sh --rebuild-rootfs # explicitly rebuild from mutable mirrors
 #   HELIX_ROOTFS_ARCHIVE=/path/to/locked.tar scripts/build-proot-assets.sh
 #                                               # verify archived raw tar instead of Docker
 #   scripts/build-proot-assets.sh --generate-lock  # first run: fetch pinned upstreams,
@@ -14,16 +15,16 @@
 #   1. Fetch every component URL from runtime-lock.json into the workdir (curl, pinned).
 #   2. Verify SHA-256 + size of each download against the lock.
 #   3. Extract the PRoot binary + loader + Termux libraries from the .debs (bsdtar).
-#   4. Build the Alpine rootfs in Docker (pinned apk versions from the lock), clean
-#      Docker artifacts, tar it.
-#   5. Deterministically repack the rootfs (scripts/deterministic_tar.py) → stable bytes.
+#   4. Download the published locked RootFS (or use an explicit local archive).
+#      --rebuild-rootfs / --generate-lock opt into Docker + mutable package mirrors.
+#   5. For explicit rebuilds, deterministically repack the rootfs → stable bytes.
 #   6. Run the Kotlin asset gate (./gradlew :runtime:proot-core:assetGate) over EVERY ELF:
 #      16 KiB PT_LOAD alignment + aarch64 ABI (the same checker the installer reuses).
 #   7. Verify the final RAW tar hash against the lock (or write it in --generate-lock
 #      mode); the .tar.gz is a reproducible build artifact whose hash is only logged.
 #   8. Place assets into runtime/proot-app/src/main/assets/runtime/ (proot/, rootfs/).
 #
-# Requirements: curl, bsdtar (macOS `tar`), python3, docker (Linux daemon), JDK 17
+# Requirements: curl, bsdtar (macOS `tar`), python3, JDK 17; Docker only for rebuilds.
 # (JAVA_HOME), the repo's Gradle wrapper. Nothing here runs on a device.
 
 set -euo pipefail
@@ -40,9 +41,11 @@ readonly ALPINE_IMAGE_DIGEST="sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e6
 # HXA-073 published the current rootfs lock from this repository snapshot. Exact package
 # versions are not sufficient to reproduce bytes after another mutable mirror advances, as the
 # official CDN demonstrated in the verification-gap run. Keep the transport origin explicit and
-# stable by default; callers may override it only for diagnosis, and Alpine signatures plus the
+# explicit for rebuilds; callers may override it for diagnosis, and Alpine signatures plus the
 # final raw-tar hash still fail closed.
 readonly CANONICAL_ALPINE_MIRROR="https://mirrors.aliyun.com/alpine"
+# Transport for the already published content lock; integrity always comes from runtime-lock.
+readonly ROOTFS_ARCHIVE_URL="https://github.com/dollarser/helix-agent/releases/download/runtime-assets-20260917/alpine-minirootfs-3.22.5-aarch64.tar"
 
 if [[ -z "${JAVA_HOME:-}" && -x /opt/homebrew/opt/openjdk@17/bin/java ]]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"
@@ -61,8 +64,20 @@ workdir="$(mktemp -d "${TMPDIR:-/tmp}/helix-proot-assets.XXXXXX")"
 trap 'rm -rf "$workdir"' EXIT
 
 mode="verify"
-if [[ "${1:-}" == "--generate-lock" ]]; then
-    mode="generate"
+rebuild=false
+case "${1:-}" in
+    "") ;;
+    --rebuild-rootfs) rebuild=true ;;
+    --generate-lock) mode="generate"; rebuild=true ;;
+    *) printf 'Unknown option: %s\n' "$1" >&2; exit 2 ;;
+esac
+if [[ $# -gt 1 ]]; then
+    printf 'Expected at most one option.\n' >&2
+    exit 2
+fi
+if [[ "$rebuild" == true && ( -n "${HELIX_ROOTFS_ARCHIVE:-}" || -n "${HELIX_ROOTFS_ARCHIVE_URL:-}" ) ]]; then
+    printf 'Explicit rebuild cannot be combined with an archive override.\n' >&2
+    exit 2
 fi
 
 component_field() { # component_field <id> <field>
@@ -313,6 +328,11 @@ print(' '.join(c['id'] for c in lock['components']))
         # Validate below before unpacking. A moving package mirror is not a durable
         # archive; CI may supply the exact previously published raw tar instead.
         cp "$HELIX_ROOTFS_ARCHIVE" "$workdir/alpine-rootfs.tar"
+    elif [[ "$rebuild" == false ]]; then
+        printf 'RootFS source: locked published archive (not a mirror rebuild)\n'
+        curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
+            --max-time 600 --output "$workdir/alpine-rootfs.tar" \
+            "${HELIX_ROOTFS_ARCHIVE_URL:-$ROOTFS_ARCHIVE_URL}"
     else
         build_rootfs
         # The RAW deterministic tar is the authoritative embedded archive (what the lock
@@ -328,10 +348,12 @@ print(' '.join(c['id'] for c in lock['components']))
     # Final archive integrity against the (possibly just written) lock. The lock pins
     # the RAW tar — the exact bytes the device reads from the APK. The gz hash is a
     # build-artifact log line, not a lock value.
-    local expected actual
+    local expected actual expected_size actual_size
     expected="$(component_field alpine-rootfs sha256)"
     actual="$(sha256_of "$workdir/alpine-rootfs.tar")"
-    if [[ "$actual" != "$expected" ]]; then
+    expected_size="$(component_field alpine-rootfs size)"
+    actual_size="$(size_of "$workdir/alpine-rootfs.tar")"
+    if [[ "$actual" != "$expected" || "$actual_size" != "$expected_size" ]]; then
         printf 'rootfs archive hash mismatch: actual=%s expected=%s\n' "$actual" "$expected" >&2
         printf 're-run with --generate-lock to publish the measured values, or restore the lock\n' >&2
         exit 1

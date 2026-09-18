@@ -23,11 +23,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--avd", required=True)
     parser.add_argument("--port", type=int, required=True)
+    parser.add_argument("--memory-mb", type=int, choices=(2048, 4096), default=2048)
+    parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--output", required=True, help="New output directory; never reuses existing evidence")
     args = parser.parse_args()
     subprocess.run([
         sys.executable, str(ROOT / "scripts/debug/2026-09-09/run-owned-emulator.py"),
         "--avd", args.avd, "--port", str(args.port), "--output", args.output,
+        "--memory-mb", str(args.memory_mb), "--cores", str(args.cores),
         "--apk", str(ROOT / "app/build/outputs/apk/developer/debug/app-developer-debug.apk"),
         "--test-apk", str(ROOT / "app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk"),
         "--runner", "com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner",

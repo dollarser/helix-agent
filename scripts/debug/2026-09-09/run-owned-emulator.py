@@ -41,7 +41,8 @@ def run(args):
     (output / "artifacts.json").write_text(json.dumps(artifacts, indent=2))
     command = [str(sdk / "emulator/emulator"), "-avd", args.avd, "-port", str(args.port),
                "-read-only", "-no-window", "-no-audio", "-no-snapshot", "-no-boot-anim",
-               "-memory", "2048", "-cores", "2", "-gpu", "swiftshader_indirect"]
+               "-memory", str(args.memory_mb), "-cores", str(args.cores), "-gpu", "swiftshader_indirect"]
+    (output / "emulator-config.json").write_text(json.dumps({"memoryMb": args.memory_mb, "cores": args.cores}))
     with (output / "emulator.log").open("w") as log:
         process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         (output / "owner.json").write_text(json.dumps({"pid": process.pid, "serial": serial,
@@ -147,6 +148,8 @@ if __name__ == "__main__":
     parser.add_argument("--runner", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--timeout", type=int, default=900)
+    parser.add_argument("--memory-mb", type=int, choices=(2048, 4096), default=2048)
+    parser.add_argument("--cores", type=int, choices=(2, 4), default=2)
     parser.add_argument("--reverse-port", type=int)
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--instrument-arg", action="append", default=[])

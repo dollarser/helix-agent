@@ -20,7 +20,7 @@ developer 用户主动开启可信 USER 入口，人工按键不逐字符出审�
 
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 
-环境首次准备与修复归[HXA-205](../development/tasks/HXA-205.md)，包内Runtime资产/升级收尾归[HXA-193](../development/tasks/HXA-193.md)，不与命令详情混成一个任务。
+环境首次准备与修复归[HXA-205](../development/tasks/HXA-205.md)，包内Runtime资产/升级收尾归[HXA-193](../completion-records/HXA-193.md)，不与命令详情混成一个任务。
 
 ## 实施与验收
 

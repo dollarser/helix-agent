@@ -40,13 +40,7 @@ jobs:
       - name: Build and verify locked runtime assets
         env:
           HELIX_ROOTFS_ARCHIVE_URL: ${{ vars.HELIX_ROOTFS_ARCHIVE_URL }}
-        run: |
-          if [ -n "$HELIX_ROOTFS_ARCHIVE_URL" ]; then
-            export HELIX_ROOTFS_ARCHIVE="$RUNNER_TEMP/helix-locked-rootfs.tar"
-            curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
-              --max-time 600 --output "$HELIX_ROOTFS_ARCHIVE" "$HELIX_ROOTFS_ARCHIVE_URL"
-          fi
-          ./scripts/build-proot-assets.sh
+        run: ./scripts/build-proot-assets.sh
       - name: Transfer verified runtime inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

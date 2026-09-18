@@ -12,24 +12,24 @@
 
 Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。已通过 `32788bf8` 合入 main，真实 App Root 工具链复核 1/1；历史 11 项失败已在 49/49 定向回归中通过。P0 独立修复基线的真机普通套件 450 PASS / 69 条件跳过 / 0 FAIL，存储分阶段及 Root 工具链另验通过；批次 A 整合证据与范围见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。条件跳过、长稳及发行项不算通过。
 
-会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 的深色主题仍待实现。193 已补 API29/36 实际旧版→新版 debug APK 覆盖安装，会话/配置/结果保留及旧锚不激活通过，见[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)；默认镜像重建边界仍未闭合，不标整体完成。前次整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
+会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 的深色主题仍待实现。193 已补 API29/36 实际旧版→新版 debug APK 覆盖安装，会话/配置/结果保留及旧锚不激活通过，见[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)；默认入口已改用固定归档并通过双 API Runtime 与完整主机门禁，见[193完成记录](../completion-records/HXA-193.md)；显式旧包镜像重建仍失败，不作为通过项。前次整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
 
 ## In progress
 
-本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。20 项未闭合义务分为：3 项收尾验收、8 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
+本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。19 项未闭合义务分为：2 项收尾验收、8 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 
-CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 选定旧/新 debug APK 的覆盖升级已补验，仍有默认镜像重建边界，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)与[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)。
+CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 选定旧/新 debug APK 的覆盖升级已补验，默认资产准备已收尾；显式旧包重建的供应边界仍保留，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)与[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 
 批次 B 开发前的本地收尾、验证范围与 Claude Code 交接见[2026-09-17 准备记录](../evidence/development/batch-b-readiness-2026-09-17.md)。HXA-204/205 已按顺序切片明确交付边界；JSONL 导出仍 proposed、待独立立项，不随本批自动实现。
 
-- **活动 checkpoint：批次B HXA-204 跨执行域错误与恢复交互**（205随后，193配套收尾）。批次A已全部交付：202（见[完成记录](../completion-records/HXA-202.md)）、194（见[完成记录](../completion-records/HXA-194.md)）、203（见[完成记录](../completion-records/HXA-203.md)），批次出口用户路径证据（会话→任务→命令详情/产物→来源）完整；209 与 192 已交付（见[完成记录](../completion-records/HXA-209.md)、[完成记录](../completion-records/HXA-192.md)）。不重做已有能力，不提前实现完整终端。
-- **后续批次**：204→205（193配套收尾），再195→207→191，最后206核心集成验收。191可在任务边界穿插；优先级、真实依赖及批次出口统一见[路线](roadmap.md#执行顺序与依赖)。从当前批次开始积累206用户路径证据，不等最后才设计验收。
+- **活动 checkpoint：批次B HXA-204 跨执行域错误与恢复交互**（205随后）；193已完成当前锁定资产准备与升级验收。批次A已全部交付：202（见[完成记录](../completion-records/HXA-202.md)）、194（见[完成记录](../completion-records/HXA-194.md)）、203（见[完成记录](../completion-records/HXA-203.md)），批次出口用户路径证据（会话→任务→命令详情/产物→来源）完整；209 与 192 已交付（见[完成记录](../completion-records/HXA-209.md)、[完成记录](../completion-records/HXA-192.md)）。不重做已有能力，不提前实现完整终端。
+- **后续批次**：204→205（193已收尾），再195→207→191，最后206核心集成验收。191可在任务边界穿插；优先级、真实依赖及批次出口统一见[路线](roadmap.md#执行顺序与依赖)。从当前批次开始积累206用户路径证据，不等最后才设计验收。
 - **执行环境后续**：196后台Job与197手动PTY→198多会话→199终端验收；197不等待196。193资产/升级/CI、194命令详情、195实时输出不跟随完整终端后移。
 - **条件允许时收尾**：190 真实订阅、125 受保护 Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按 120→122→121→123，不自动开始外部提交。
 - 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 候选及工具 descriptor 候选不因整理而接受。
@@ -68,3 +68,5 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 - **发行**：Standard 完整产品形态是 ADR-PLATFORM-001 的决定；当前 consumer/developer 构建与 CI debug APK 不是签名 release、完整渠道权限申报或商店审核证据。
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
 - **外部依赖边界**：默认门禁不依赖真实业务服务、账号或付费调用；显式 profile 的缺参跳过不算通过，启用后失败如实记录。构建下载、本地测试服务器与外部 smoke 的边界统一见[公共验收规则](verification-matrix.md)。
+
+本轮并行所有权：Claude Code 继续204→205；Codex在193收尾后推进195，独立worktree，先Runtime日志协议再详情展示，不重写204恢复逻辑。

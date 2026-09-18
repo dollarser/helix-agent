@@ -27,7 +27,7 @@
 | MCP 与浏览器 | [McpToolDiscovery](../../app/src/main/kotlin/com/helix/app/mcp/McpToolDiscovery.kt) 已有发现；[BrowserScreen](../../feature/browser/src/main/kotlin/com/helix/feature/browser/ui/BrowserScreen.kt) 已有标签与下载区 | 207完善添加到使用闭环；浏览器后续优化须具体描述，不能再写“补tab UI” |
 | Goal | [HXA-208](../completion-records/HXA-208.md) 交付完整模型工具与前后台连续运行；[GoalDriver](../../core/agent/src/main/kotlin/com/helix/core/agent/GoalDriver.kt) 已有 | Schedule、Channel、Hooks不因此自动获得授权；不把GoalDriver放回候选清单 |
 | 授权 | 200/201的规则、审计和设置有交付证据；[ADR-PERMISSIONS-001](../adr/permissions/001-session-authorization.md) 是当前已接受目标 | [HXA-209](../completion-records/HXA-209.md) 已交付；旧三态工具偏好不是新方案验收证据 |
-| 执行域 | developer 单APK内置PRoot/Subscriptions，私有进程共享UID；QuickJS isolated UID | [HXA-193](../development/tasks/HXA-193.md) 收口资产/升级/CI，不重做单APK接线；同UID不承诺凭据、文件或网络隔离 |
+| 执行域 | developer 单APK内置PRoot/Subscriptions，私有进程共享UID；QuickJS isolated UID | [HXA-193](../completion-records/HXA-193.md) 收口资产/升级/CI，不重做单APK接线；同UID不承诺凭据、文件或网络隔离 |
 | Git | [GitWorkspaceReader](../../app/src/main/kotlin/com/helix/app/git/GitWorkspaceReader.kt)、[GitStatusScreen](../../app/src/main/kotlin/com/helix/app/ui/GitStatusScreen.kt) 已有只读状态/diff | 不据此宣称完整仓库写操作、远端认证、clone/PR闭环；普通文件交付不依赖远程Git |
 | 终端 | 同步Job与最终结果已有；[终端设计](../architecture/terminal.md) 已接受 | 194～199仍需命令详情、实时日志、后台owner、PTY、多会话与专项验收；Goal续轮不等于这些功能 |
 | Provider验证 | [SGLang补验](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md) 有指定端点的自动化证据 | 连接、能力、真实任务和全部供应商覆盖分别统计；不扩大成所有账号/模型已验收 |

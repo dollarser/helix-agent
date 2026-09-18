@@ -1,6 +1,6 @@
 # HXA-193 收口证据：升级恢复验证与完整本地验收（2026-09-18）
 
-> 整合审查修正：下文为原执行者交付快照。当前仅确认构造历史数据后的Runtime冷启动恢复，不含实际旧APK覆盖升级；原 completed/闭合声明不作为完整HXA验收，HXA-193保持待收尾，见[任务](../../development/tasks/HXA-193.md)。
+> 整合审查修正：下文为原执行者交付快照。当前仅确认构造历史数据后的Runtime冷启动恢复，不含实际旧APK覆盖升级；原 completed/闭合声明不作为完整HXA验收，HXA-193保持待收尾，见[任务](../../completion-records/HXA-193.md)。
 
 本记录属于 HXA-193 收口轮（第二个执行者，worktree `Helix-runtime-search`，分支 `codex/runtime-closeout-session-search`，基线 `c33cb893`）。前序 CI 现场复核见 [ci-runtime-assets-2026-09-17](ci-runtime-assets-2026-09-17.md)；本轮聚焦该记录留下的两项开放项中的可执行部分：**升级后已有用户数据/配置/结果/旧验证锚的恢复验证**，并补齐实际 CI 最终状态与本地全门禁。
 

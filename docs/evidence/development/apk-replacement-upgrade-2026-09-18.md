@@ -1,6 +1,6 @@
 # 实际旧 APK 覆盖升级补验（2026-09-18）
 
-关联：[HXA-193](../../development/tasks/HXA-193.md)、[原恢复专项与审查修正](hxa-193-upgrade-recovery-2026-09-18.md)。
+关联：[HXA-193](../../completion-records/HXA-193.md)、[原恢复专项与审查修正](hxa-193-upgrade-recovery-2026-09-18.md)。
 
 ## 为什么此前未执行
 
