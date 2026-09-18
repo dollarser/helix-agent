@@ -1,10 +1,12 @@
 package com.helix.runtime.cli.app
 
-import com.helix.runtime.cli.client.CliModelEventCodec
-import com.helix.runtime.cli.client.CliModelRequestCodec
 import java.io.File
 import java.io.FileOutputStream
+import java.io.OutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
+@Suppress("TooManyFunctions") // Request, streaming output, publication and cleanup share one payload owner.
 internal class CodexPayloadFiles(
     private val jobs: File,
 ) {
@@ -22,6 +24,14 @@ internal class CodexPayloadFiles(
         jobId: String,
         bytes: ByteArray,
     ) = atomicWrite(file(jobId, OUTPUT), bytes)
+
+    fun writeOutput(
+        jobId: String,
+        publish: (() -> Unit) -> Unit,
+        write: (OutputStream) -> Unit,
+    ) = atomicWrite(file(jobId, OUTPUT), publish, write)
+
+    fun openOutput(jobId: String): java.io.FileInputStream? = file(jobId, OUTPUT).takeIf(File::isFile)?.inputStream()
 
     fun loadOutput(jobId: String): ByteArray? =
         file(jobId, OUTPUT).takeIf(File::isFile)?.readBytes()?.also {
@@ -55,20 +65,34 @@ internal class CodexPayloadFiles(
         bytes: ByteArray,
     ) {
         require(bytes.isNotEmpty())
+        atomicWrite(target) { it.write(bytes) }
+    }
+
+    private fun atomicWrite(
+        target: File,
+        publish: (() -> Unit) -> Unit = { it() },
+        write: (OutputStream) -> Unit,
+    ) {
         require(target.parentFile?.mkdirs() == true || target.parentFile?.isDirectory == true)
         val tmp = File(target.parentFile, "${target.name}.tmp")
-        FileOutputStream(tmp).use { out ->
-            out.write(bytes)
-            out.flush()
-            out.fd.sync()
+        try {
+            FileOutputStream(tmp).use { out ->
+                write(out)
+                out.flush()
+                out.fd.sync()
+            }
+            publish {
+                require(tmp.length() > 0)
+                Files.move(
+                    tmp.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
+        } finally {
+            if (tmp.exists()) check(tmp.delete()) { "failed to remove unpublished payload" }
         }
-        require(
-            tmp.renameTo(target) ||
-                runCatching {
-                    tmp.copyTo(target, overwrite = true)
-                    tmp.delete()
-                }.isSuccess,
-        )
     }
 
     private fun requireDeleted(target: File) {

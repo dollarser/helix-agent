@@ -202,6 +202,7 @@ internal class CliRuntimeServiceBinder(
         reply.writeInt(0)
     }
 
+    @Suppress("TooGenericExceptionCaught") // Release file and pipe ownership on every setup failure, then rethrow.
     private fun writeReconcile(
         reply: Parcel,
         runner: CodexPayloadJobRunner,
@@ -224,24 +225,31 @@ internal class CliRuntimeServiceBinder(
             writeRecord(reply, CliRuntimeProtocol.REPLY_JOB_STATE, record)
             return
         }
-        val (readEnd, writeEnd) = ParcelFileDescriptor.createPipe()
-        reply.writeInt(CliRuntimeProtocol.REPLY_JOB_STATE)
-        reply.writeString(CliModelJobRecordCodec.encode(prepared.record))
-        reply.writeInt(1)
-        reply.writeParcelable(readEnd, 0)
-        readEnd.close()
-        Thread({
-            runCatching {
-                CliPfdChannel.write(
-                    writeEnd,
-                    payload,
-                )
-                if (consume) runner.finishReconcile(prepared.record)
-            }.onFailure {
-                android.util.Log.w("HelixSubscriptionIo", "phase=reconcile settlement_failed")
-                runCatching { writeEnd.close() }
-            }
-        }, "cli-result-${prepared.record.jobId}").start()
+        var pipe: Array<ParcelFileDescriptor>? = null
+        try {
+            pipe = ParcelFileDescriptor.createPipe()
+            val (readEnd, writeEnd) = pipe
+            reply.writeInt(CliRuntimeProtocol.REPLY_JOB_STATE)
+            reply.writeString(CliModelJobRecordCodec.encode(prepared.record))
+            reply.writeInt(1)
+            reply.writeParcelable(readEnd, 0)
+            readEnd.close()
+            Thread({
+                runCatching {
+                    payload.use { input ->
+                        ParcelFileDescriptor.AutoCloseOutputStream(writeEnd).use { input.copyTo(it) }
+                    }
+                    if (consume) runner.finishReconcile(prepared.record)
+                }.onFailure {
+                    android.util.Log.w("HelixSubscriptionIo", "phase=reconcile settlement_failed")
+                    runCatching { writeEnd.close() }
+                }
+            }, "cli-result-${prepared.record.jobId}").start()
+        } catch (failure: Exception) {
+            payload.close()
+            pipe?.forEach { runCatching { it.close() } }
+            throw failure
+        }
     }
 
     private companion object {

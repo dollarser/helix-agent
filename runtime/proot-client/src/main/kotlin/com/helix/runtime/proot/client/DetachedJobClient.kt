@@ -8,6 +8,8 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
+import com.helix.runtime.proot.core.DetachedLease
 import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.DetachedJobProtocol
 import com.helix.runtime.proot.ipc.ProotJobRecord
@@ -38,16 +40,26 @@ class DetachedJobClient(
         remainingBudgetMs: Long,
         input: ParcelFileDescriptor,
         output: ParcelFileDescriptor,
-    ): Reply =
-        input.use {
+    ): Reply {
+        val started = SystemClock.elapsedRealtime()
+        return input.use {
             output.use {
                 require(binding.matches(spec))
                 request(binding, DetachedJobProtocol.SUBMIT) { data ->
-                    data.writeLong(remainingBudgetMs)
+                    val remaining =
+                        DetachedLease.remainingSubmissionMillis(
+                            spec.deadlineMs,
+                            remainingBudgetMs,
+                            started,
+                            SystemClock.elapsedRealtime(),
+                        )
+                    if (remaining == 0L) throw SubmissionWindowExpired()
+                    data.writeLong(remaining)
                     ProotJobWire.writeSpec(data, spec, input, output)
                 }
             }
         }
+    }
 
     fun query(binding: DetachedJobBinding): Reply = request(binding, DetachedJobProtocol.QUERY)
 
@@ -119,6 +131,8 @@ class DetachedJobClient(
                     ),
             )
             return Reply(status, record, if (status == ProotRuntimeProtocol.REPLY_JOB_REJECTED) payload else null)
+        } catch (_: SubmissionWindowExpired) {
+            return Reply(ProotRuntimeProtocol.REPLY_JOB_REJECTED, null, "BUDGET_EXHAUSTED_BEFORE_SUBMIT")
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
             return unavailable()
@@ -133,4 +147,6 @@ class DetachedJobClient(
 
     private fun unavailable() =
         Reply(ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE, null, "UNAVAILABLE_QUERY_ORIGINAL_JOB")
+
+    private class SubmissionWindowExpired : RuntimeException()
 }

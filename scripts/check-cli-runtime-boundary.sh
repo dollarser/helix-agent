@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'printf "Subscription Runtime boundary failed at line %s\n" "$LINENO" >&2' ERR
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 apk="$repo_root/app/build/outputs/apk/developer/debug/app-developer-debug.apk"
@@ -60,13 +61,19 @@ request_pipe="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cl
 awaiter="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobAwaiter.kt"
 rg -F 'CliModelJobWire.transact' "$client" >/dev/null
 rg -F 'CliModelJobAwaiter' "$client" >/dev/null
-rg -F 'CliPfdChannel.read' "$wire" >/dev/null
+event_stream="$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelEventStream.kt"
+rg -F 'ParcelFileDescriptor.AutoCloseInputStream(output)' "$wire" >/dev/null
+rg -F 'CliModelEventStream.readVerified' "$wire" >/dev/null
+rg -F 'DigestInputStream(input, digest)' "$event_stream" >/dev/null
+rg -F 'output hash mismatch' "$event_stream" >/dev/null
+rg -F 'model event terminal mismatch' "$event_stream" >/dev/null
 rg -F 'CliRequestPipe(payload, jobId)' "$wire" >/dev/null
 rg -F 'CliPfdChannel.write' "$request_pipe" >/dev/null
 rg -F 'TRANSACTION_JOB_CANCEL' "$awaiter" >/dev/null
 rg -F 'reconciledAtEpochMillis' "$repo_root/runtime/cli-client/src/main/kotlin/com/helix/runtime/cli/client/CliModelJobRecord.kt" >/dev/null
 rg -F 'put("store", false)' "$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CodexSubscriptionModel.kt" >/dev/null
-if rg -l 'accessToken|refreshToken|accountId|authorization' "$client" "$payload_codec" "$wire" "$request_pipe" "$awaiter"; then
+if rg -l 'accessToken|refreshToken|accountId|authorization' \
+    "$client" "$payload_codec" "$wire" "$event_stream" "$request_pipe" "$awaiter"; then
     echo "credential material escaped into the main-app model IPC" >&2
     exit 1
 fi

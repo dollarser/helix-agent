@@ -24,6 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
+@Suppress("TooManyFunctions") // Separate device cases for admission, ownership, budget, cancellation and recovery.
 class ProotDetachedJobDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val context get() = ApplicationProvider.getApplicationContext<HelixApplication>()
@@ -68,6 +69,14 @@ class ProotDetachedJobDeviceTest {
         assertTrue(job.submit(client, budgetMs = 3_000).accepted)
         assertEquals(ProotJobState.TIMED_OUT, client.awaitTerminal(job.binding).state)
         assertTrue(android.os.SystemClock.elapsedRealtime() - start < 15_000)
+    }
+
+    @Test fun exhaustedClientBudgetDoesNotSubmitOrCreateAJob() {
+        val job = fixture("printf MUST_NOT_RUN")
+        val reply = job.submit(client, budgetMs = 999)
+        assertEquals(ProotRuntimeProtocol.REPLY_JOB_REJECTED, reply.status)
+        assertEquals("BUDGET_EXHAUSTED_BEFORE_SUBMIT", reply.refusal)
+        assertEquals(null, client.query(job.binding).record)
     }
 
     @Test fun cancellationIsDurableAndIdempotent() {

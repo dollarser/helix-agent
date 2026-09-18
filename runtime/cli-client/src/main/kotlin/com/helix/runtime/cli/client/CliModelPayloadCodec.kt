@@ -270,15 +270,23 @@ object CliModelEventCodec {
     const val MAX_EVENTS = 2048
 
     fun encode(events: List<ModelEvent>): ByteArray {
-        require(events.isNotEmpty())
         val output = java.io.ByteArrayOutputStream()
+        encodeTo(events, output)
+        return output.toByteArray()
+    }
+
+    /** Writes one event at a time; callers retain ownership of the destination stream. */
+    fun encodeTo(
+        events: List<ModelEvent>,
+        output: java.io.OutputStream,
+    ) {
+        require(events.isNotEmpty())
         output.write("{\"version\":1,\"events\":[".encodeToByteArray())
         events.forEachIndexed { index, event ->
             if (index > 0) output.write(','.code)
             output.write(encodeEvent(event).toString().encodeToByteArray())
         }
         output.write("]}".encodeToByteArray())
-        return output.toByteArray()
     }
 
     fun decode(bytes: ByteArray): List<ModelEvent> {

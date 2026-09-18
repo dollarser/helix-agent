@@ -59,6 +59,40 @@ internal class CodexPayloadJobStore(
 
     fun loadOutput(jobId: String): ByteArray? = payloads.loadOutput(jobId)
 
+    fun writeEvents(
+        jobId: String,
+        events: List<ModelEvent>,
+        publish: (() -> Unit) -> Unit,
+    ): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        payloads.writeOutput(jobId, publish) { output ->
+            CliModelEventCodec.encodeTo(events, java.security.DigestOutputStream(output, digest))
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /** The opened inode survives a concurrent ACK cleanup; no full payload copy is retained. */
+    @Suppress("TooGenericExceptionCaught") // Close the descriptor on every failure, then rethrow unchanged.
+    fun openVerifiedOutput(record: CliModelJobRecord): java.io.InputStream? {
+        val input = payloads.openOutput(record.jobId) ?: return null
+        try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            var count = input.read(buffer)
+            while (count != -1) {
+                digest.update(buffer, 0, count)
+                count = input.read(buffer)
+            }
+            require(input.channel.position() > 0)
+            require(digest.digest().joinToString("") { "%02x".format(it) } == record.outputSha256)
+            input.channel.position(0)
+            return input
+        } catch (failure: Exception) {
+            input.close()
+            throw failure
+        }
+    }
+
     fun finishReconcile(
         record: CliModelJobRecord,
         now: Long,
@@ -96,9 +130,10 @@ internal sealed interface CodexPayloadSubmit {
 
 internal data class CodexReconcile(
     val record: CliModelJobRecord,
-    val payload: ByteArray?,
+    val payload: java.io.InputStream?,
 )
 
+@Suppress("TooManyFunctions") // Submission, publication, cancellation and result acknowledgement share one lock.
 internal class CodexPayloadJobRunner(
     private val store: CodexPayloadJobStore,
     private val execute: (ByteArray) -> CodexModelExecution,
@@ -194,7 +229,7 @@ internal class CodexPayloadJobRunner(
             val record = store.load(jobId) ?: return@synchronized null
             val payload =
                 if (record.state == CliModelJobState.SUCCEEDED && record.reconciledAtEpochMillis == null) {
-                    store.loadOutput(jobId)?.also { require(sha256(it) == record.outputSha256) }
+                    store.openVerifiedOutput(record)
                 } else {
                     null
                 }
@@ -251,7 +286,10 @@ internal class CodexPayloadJobRunner(
             }.mapCatching { execution ->
                 // Malformed output must settle this job, not leave the runner permanently busy.
                 try {
-                    execution to CliModelEventCodec.encode(execution.events)
+                    execution.model to
+                        store.writeEvents(pending.jobId, execution.events) { publish ->
+                            publishIfRunning(pending.jobId, publish)
+                        }
                 } finally {
                     (execution.events as? java.io.Closeable)?.close()
                 }
@@ -259,15 +297,14 @@ internal class CodexPayloadJobRunner(
         synchronized(lock) {
             val live = store.load(pending.jobId)
             if (live != null && !live.state.terminal && result.isSuccess) {
-                val (execution, output) = result.getOrThrow()
+                val (model, outputHash) = result.getOrThrow()
                 try {
-                    store.putOutput(live.jobId, output)
                     store.put(
                         live.copy(
                             state = CliModelJobState.SUCCEEDED,
                             terminalAtEpochMillis = clock(),
-                            model = execution.model,
-                            outputSha256 = sha256(output),
+                            model = model,
+                            outputSha256 = outputHash,
                         ),
                     )
                 } catch (failure: Exception) {
@@ -283,6 +320,15 @@ internal class CodexPayloadJobRunner(
                 activeJobId = null
                 progress.clear()
             }
+        }
+    }
+
+    private fun publishIfRunning(
+        jobId: String,
+        publish: () -> Unit,
+    ) {
+        synchronized(lock) {
+            if (store.load(jobId)?.state?.terminal == false) publish()
         }
     }
 

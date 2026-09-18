@@ -5,6 +5,15 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class DetachedLeaseTest {
+    @Test fun bindingTimeSpendsBothRequestedLeaseAndCallerBudget() {
+        assertEquals(298_000, DetachedLease.remainingSubmissionMillis(300_000, Long.MAX_VALUE, 10, 2_010))
+        assertEquals(1_000, DetachedLease.remainingSubmissionMillis(300_000, 3_000, 10, 2_010))
+        assertEquals(0, DetachedLease.remainingSubmissionMillis(300_000, 3_000, 10, 2_011))
+        assertEquals(0, DetachedLease.remainingSubmissionMillis(300_000, 999, 10, 10))
+        assertEquals(0, DetachedLease.remainingSubmissionMillis(300_000, Long.MAX_VALUE, 10, 9))
+        assertEquals(0, DetachedLease.remainingSubmissionMillis(300_000, Long.MAX_VALUE, 0, Long.MAX_VALUE))
+    }
+
     @Test fun defaultIsFiveMinutesAndBudgetOnlyTightens() {
         val lease = DetachedLease.create("generation", 100, 200, remainingBudgetMs = 900_000)
         assertEquals(300_000, lease.durationMs)

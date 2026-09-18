@@ -66,19 +66,16 @@ internal object CliModelJobWire {
             } else {
                 null
             }
-        val eventPayload =
+        val events =
             if (record != null && reply.readInt() == 1) {
                 val output =
                     reply.readParcelable<ParcelFileDescriptor>(ParcelFileDescriptor::class.java.classLoader)
                         ?: return CliModelWireResult()
-                CliPfdChannel.read(output)
+                ParcelFileDescriptor.AutoCloseInputStream(output).use { input ->
+                    CliModelEventStream.readVerified(input, requireNotNull(record.outputSha256))
+                }
             } else {
                 null
-            }
-        val events =
-            eventPayload?.let {
-                require(record?.outputSha256 == cliPayloadSha256(it))
-                CliModelEventCodec.decode(it)
             }
         return if (status in Replies.RECORD_REPLIES &&
             record == null

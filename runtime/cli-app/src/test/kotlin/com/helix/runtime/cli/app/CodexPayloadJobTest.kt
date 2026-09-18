@@ -81,12 +81,63 @@ class CodexPayloadJobTest {
             val terminal = await(runner, "job_134000000001")
             assertEquals(CliModelJobState.SUCCEEDED, terminal.state)
             val prepared = runner.prepareReconcile(terminal.jobId)!!
-            assertEquals(events, CliModelEventCodec.decode(prepared.payload!!))
+            assertEquals(events, prepared.payload!!.use { CliModelEventCodec.decode(it.readBytes()) })
             val reconciled = runner.finishReconcile(prepared.record)
             assertNotNull(reconciled.reconciledAtEpochMillis)
             assertEquals(null, runner.prepareReconcile(terminal.jobId)?.payload)
         }
         assertFalse(root.walkTopDown().any { it.name == "request.json" || it.name == "events.json" })
+    }
+
+    @Test fun openedResultRemainsReadableAfterAcknowledgementUnlinksPayload() {
+        val root = Files.createTempDirectory("codex-open-result").toFile()
+        val events = listOf<ModelEvent>(ModelEvent.TextDelta("preserved"), ModelEvent.Completed("stop"))
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), { CodexModelExecution("model", events) }, {}).use { runner ->
+            val id = "job_134000000011"
+            runner.submit(id, hash, request)
+            await(runner, id)
+            val prepared = requireNotNull(runner.prepareReconcile(id))
+            requireNotNull(prepared.payload).use { input ->
+                runner.finishReconcile(prepared.record)
+                assertEquals(events, CliModelEventCodec.decode(input.readBytes()))
+            }
+            assertEquals(null, runner.prepareReconcile(id)?.payload)
+        }
+    }
+
+    @Test fun cancellationDuringEncodingCannotRepublishAnAcknowledgedPayload() {
+        val root = Files.createTempDirectory("codex-cancel-encoding").toFile()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val closed = CountDownLatch(1)
+        val events =
+            object : AbstractList<ModelEvent>(), java.io.Closeable {
+                override val size = 1
+
+                override fun get(index: Int): ModelEvent {
+                    entered.countDown()
+                    check(release.await(5, TimeUnit.SECONDS))
+                    return ModelEvent.Completed("stop")
+                }
+
+                override fun close() {
+                    closed.countDown()
+                }
+            }
+        CodexPayloadJobRunner(CodexPayloadJobStore(root), { CodexModelExecution("model", events) }, {}).use { runner ->
+            val id = "job_134000000012"
+            runner.submit(id, hash, request)
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            try {
+                val cancelled = requireNotNull(runner.cancel(id))
+                runner.finishReconcile(cancelled)
+            } finally {
+                release.countDown()
+            }
+            assertTrue(closed.await(2, TimeUnit.SECONDS))
+            assertEquals(CliModelJobState.CANCELLED, runner.query(id)?.state)
+            assertFalse(root.walkTopDown().any { it.name == "events.json" || it.name == "events.json.tmp" })
+        }
     }
 
     @Test fun hashMismatchDoesNotCreateARecord() {

@@ -32,6 +32,20 @@ data class DetachedLease(
         const val DEFAULT_MS = 300_000L
         const val MAX_MS = 1_800_000L
 
+        /** Binding/handshake time spends the caller's window; never round an expired window up. */
+        fun remainingSubmissionMillis(
+            requestedMs: Long,
+            budgetMs: Long,
+            startedMs: Long,
+            nowMs: Long,
+        ): Long {
+            require(requestedMs in MIN_MS..MAX_MS)
+            require(startedMs >= 0)
+            if (nowMs < startedMs || budgetMs < MIN_MS) return 0
+            val remaining = minOf(requestedMs, budgetMs) - (nowMs - startedMs)
+            return if (remaining >= MIN_MS) remaining else 0
+        }
+
         fun create(
             generation: String,
             epochMs: Long,

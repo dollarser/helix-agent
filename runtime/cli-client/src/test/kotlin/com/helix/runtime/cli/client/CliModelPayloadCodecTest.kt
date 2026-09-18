@@ -12,6 +12,47 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class CliModelPayloadCodecTest {
+    @Test fun streamingEncodingKeepsWireBytesAndDoesNotBatchTheWholeResult() {
+        val sample = listOf(ModelEvent.TextDelta("你好\n\"hello\""), ModelEvent.Completed("stop"))
+        val bytes = java.io.ByteArrayOutputStream()
+        CliModelEventCodec.encodeTo(sample, bytes)
+        org.junit.Assert.assertArrayEquals(CliModelEventCodec.encode(sample), bytes.toByteArray())
+        assertEquals(sample, CliModelEventCodec.decode(bytes.toByteArray()))
+        var reads = 0
+        val events =
+            object : AbstractList<ModelEvent>() {
+                override val size = 20_001
+
+                override fun get(index: Int): ModelEvent {
+                    reads++
+                    return if (index == size - 1) {
+                        ModelEvent.Completed("stop")
+                    } else {
+                        ModelEvent.TextDelta("x".repeat(1024))
+                    }
+                }
+            }
+        var written = 0L
+        val sink =
+            object : java.io.OutputStream() {
+                override fun write(value: Int) {
+                    written++
+                }
+
+                override fun write(
+                    buffer: ByteArray,
+                    offset: Int,
+                    length: Int,
+                ) {
+                    org.junit.Assert.assertTrue("event encoding must not aggregate the result", length < 2048)
+                    written += length
+                }
+            }
+        CliModelEventCodec.encodeTo(events, sink)
+        assertEquals(events.size, reads)
+        org.junit.Assert.assertTrue(written > 20L * 1024 * 1024)
+    }
+
     @Test fun providerEnvelopeSeparatesIdenticalModelsAndPreservesLegacyCodex() {
         val request = ModelRequest("shared-model", listOf(ModelMessage(ModelRole.USER, "hello")))
         val codex = CliModelRequestCodec.encode(request)
