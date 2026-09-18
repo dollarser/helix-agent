@@ -4,6 +4,8 @@
 
 - [import-materials](connectors/import-materials.md)
 - [2026-09-18 审查复核与修复优先级](development/review-followup-2026-09-18.md)
+- [2026-09-18 授权与 Runtime 修复、分支收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)
+- [HXA-196 平台与核心切片](development/hxa-196-platform-plan-2026-09-18.md)
 - [account-connection-and-settings-layout-2026-09-10](development/account-connection-and-settings-layout-2026-09-10.md)
 - [approval-experience-review-2026-09-16](development/approval-experience-review-2026-09-16.md)
 - [browser-context-options](development/browser-context-options.md)

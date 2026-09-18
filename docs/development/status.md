@@ -18,17 +18,19 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-所有者已指定先推进 **HXA-196 平台验证与核心实现**，覆盖此前“下一候选 207”的默认顺序。独立分支已实现租期、私有前台 owner、幂等提交/取消与恢复查询；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。196 尚未关闭，207 仍未启动。
+所有者已指定先推进 **HXA-196 平台验证与核心实现**，覆盖此前“下一候选 207”的默认顺序。租期、私有前台 owner、幂等提交/取消与恢复查询已合入本地 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。196 尚未关闭，207 仍未启动。
 
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，下一候选任务为 HXA-207（尚未启动）。16 项未闭合义务分为：2 项收尾验收、5 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
 
-2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)。不恢复 ADR 已撤销的订阅累计配额；合并后的设备与主机证据单独记录。
+2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
 所有者明确 **207/191/206 本轮只写计划，不实施**，后续交接 Claude Code，见[交接计划](claude-handoff-207-191-206.md)。207 与 191 可在文件所有权明确的独立工作树并行，206 等二者完成并整合后执行。
 
-远端 CI 收尾已完成：main `3f5039e4` 的 [35312238290](https://github.com/dollarser/helix-agent/actions/runs/35312238290) 全绿。后续 CI 并行与诊断优化见[记录](../evidence/development/ci-parallel-gates-2026-09-18.md)，优化分支的验证与 main 基线分开记账。
+本轮合并后完整主机门禁通过；API29/36 × consumer/developer 修复/Runtime 定向矩阵共 244 项 instrumentation（含 2 项探针准备），另有 2 次独立主进程死亡检查通过，独占设备全部正常退出。此证据不等于 206 全产品验收，详见上述收敛记录。
+
+远端 CI 历史收尾已完成：main `3f5039e4` 的 [35312238290](https://github.com/dollarser/helix-agent/actions/runs/35312238290) 全绿。CI 并行与诊断优化已合入本地 main，见[记录](../evidence/development/ci-parallel-gates-2026-09-18.md)；本轮未 push，优化分支/旧 main 的远端结果不代表本次合并提交的远端验证。
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 

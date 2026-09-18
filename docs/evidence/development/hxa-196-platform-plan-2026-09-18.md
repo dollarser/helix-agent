@@ -89,3 +89,7 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 全部 exit 0。API29/36 各 7 项行为 + 1 项探针准备通过（35.252 / 81.536 秒），宿主独立主进程死亡检查通过；旧 Runtime 各 35/35（73.391 / 92.524 秒）。四个独占模拟器正常退出。四组 app SHA-256 均为 `e339100b8653e0485efa6d5cd95ff152e2128a95281d1b7207028a7ab25ae0eb`，test 哈希与上轮相同。日志在 `build/hxa196-cancel-*`；这是最终核心实现证据，不将前述首轮制品冒充补修后的制品。
 
 产品工具注册、会话授权/预算接线、任务投影以及真机 HOME/锁屏/Doze 仍未关闭。模拟器成功不证明 Android force-stop 后继续执行，也不改变 Runtime 死亡不重放的契约。
+
+## main 整合复验
+
+同日以 `32de8e8d` 合入本地 main，并整合授权/页面/订阅 Runtime 修复与 CI 优化。合并后 developer API29/36 各执行 59 项（16 项修复、35 项既有 Runtime、7 项 detached 行为及 1 项死亡探针准备），独立主进程死亡检查均通过，原 Runtime/Job 保持并完成；制品身份、完整门禁与四象限范围见[收敛记录](../../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。这次是新合并制品证据，仍不关闭上述产品/真机边界。
