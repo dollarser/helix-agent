@@ -772,6 +772,13 @@
     <string name="chat_archived_list">Archived sessions</string>
     <string name="chat_active_list">Back to sessions</string>
     <string name="chat_empty_archive">No archived sessions</string>
+    <string name="chat_session_search_hint">Search sessions and messages</string>
+    <string name="chat_session_search_clear">Clear</string>
+    <string name="chat_session_search_empty">No matching sessions</string>
+    <string name="chat_session_search_scoped">Searched %1$d of the most recent message bodies</string>
+    <string name="chat_session_search_truncated">Search or results limited; some history or matches may be omitted</string>
+    <string name="chat_session_search_group_active">Active</string>
+    <string name="chat_session_search_group_archived">Archived</string>
     <string name="files_shared">Shared storage</string>
     <string name="files_shared_detail">Browse the shared-storage root; request permission when needed</string>
     <string name="chat_context_title">Context window</string>
@@ -1084,4 +1091,5 @@
     <string name="budget_continue">Continue from saved results</string>
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
+    <string name="chat_session_search_skipped">Unavailable or oversized messages skipped: %1$d</string>
 </resources>

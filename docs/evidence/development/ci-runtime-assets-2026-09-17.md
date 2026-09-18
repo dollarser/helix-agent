@@ -1,8 +1,8 @@
 # 远端 CI 与 Runtime 资产复核
 
-日期：2026-09-17。关联 [HXA-193](../../development/tasks/HXA-193.md)。此记录区分远端失败、本地修正和未执行的远端复验，不关闭 HXA。
+日期：2026-09-17。关联 [HXA-193](../../development/tasks/HXA-193.md)。此记录区分历史失败、修正、已通过的远端复验与剩余验收，不关闭 HXA。
 
-## 最新远端失败
+## 初始远端失败
 
 [运行35049947368](https://github.com/dollarser/helix-agent/actions/runs/35049947368) 对应 main `bcc2a6dcd5b04bc96d43d729bafd5f065b867986`。runtime-assets 在 Configure Android SDK for the JVM asset gate 失败，后续资产构建和 verify job 都未执行。日志为 `sdkmanager tools` 后的 `Warning: Failed to find package 'tools'`，退出1。
 
@@ -44,3 +44,13 @@
 原夹具用150ms/20ms sleep制造完成乱序，繁忙runner不保证线程在该窗口内启动/完成；RecordingSink又以非线程安全MutableList接收并发事件。修正仅限测试：首调用等待其余两次审计记录完成的CountDownLatch，记录器改用CopyOnWriteArrayList。保留并加强断言：实际结算顺序必须2→3→1，而返回结果仍1→2→3；有界等待防止回归造成挂死。不修改生产调度器、不删除测试或增加忽略规则。
 
 本地 `./gradlew :tools:framework:test spotlessCheck detekt --console=plain` 通过；原始报告保留在 `build/ci-investigation/framework-suite-xml`。独立JVM重复入口 `bash scripts/debug/2026-09-17/repeat-scheduler-order.sh` 已执行成功，10/10轮通过；逐轮强制执行同一测试任务，不以Gradle缓存命中算重复验证。
+
+## 最终验证与开发基线收口（2026-09-18）
+
+[运行35242909407](https://github.com/dollarser/helix-agent/actions/runs/35242909407) 在提交 `437f8d4972a85c737bea1baca5eb9b9675eef5f0` 全部通过：runtime-assets 2m49s，verify 35m23s。源码、主机测试、静态检查、全部 lint、依赖锁、Debug/Release 构建、APK 边界与空白检查通过；Debug APK 与 locked-runtime-inputs 均上传。此前各节的待复验描述为对应轮次的历史状态。
+
+[PR #1](https://github.com/dollarser/helix-agent/pull/1) 已合入远端 main，合并提交 `036171286a87a9874ed69d3152c26b09d773ed0f`；合并树与上述已验证 head 一致。本地 main 与批次 B 开发基线均已同步。main push 触发的独立运行按 Actions 实际状态记录，不把 PR 运行称作 main 运行。
+
+SDK/NDK/CMake/rg 已在耗时检查前显式准备与检查。本轮不继续拆分构建任务或改变缓存策略；35m23s 是整体验证耗时，尚没有充分阶段测量证明拆分收益。后续 CI 提效单独处理，不阻塞批次 B。
+
+HXA-193 仍保留升级后数据/结果/验证状态恢复，以及默认滚动镜像无法按旧锁重建的边界。固定归档下载准备通过不等于源码重建通过；真实账号、真机长稳和签名发行也未由本轮关闭。

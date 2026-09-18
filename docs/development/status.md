@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-09-17。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
+更新：2026-09-18。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
 
 ## Completed
 
@@ -12,6 +12,8 @@
 
 Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与真实 App 工具链已验收，见 [HXA-094](../completion-records/HXA-094.md)、[HXA-095](../completion-records/HXA-095.md)。已通过 `32788bf8` 合入 main，真实 App Root 工具链复核 1/1；历史 11 项失败已在 49/49 定向回归中通过。P0 独立修复基线的真机普通套件 450 PASS / 69 条件跳过 / 0 FAIL，存储分阶段及 Root 工具链另验通过；批次 A 整合证据与范围见 [P0 基线修复](../bug-fixes/2026-09-17-physical-p0-baseline.md)。条件跳过、长稳及发行项不算通过。
 
+会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 的深色主题仍待实现。193 新增历史数据夹具恢复证据，实际覆盖升级仍待补，不标整体完成。整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
+
 ## In progress
 
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。20 项未闭合义务分为：3 项收尾验收、8 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
@@ -19,6 +21,8 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 ## Next task
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
+
+CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 仍有升级恢复与默认镜像重建边界，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)。
 
 大型开发按[统一交接Prompt](implementation-guide.md)交接；具名切片可本地提交，不push/合并/发布。
 

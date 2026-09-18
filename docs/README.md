@@ -9,6 +9,7 @@
 | 产品和操作体验 | [产品需求](product/requirements.md)、[操作链](product/task-experience.md) |
 | 架构与约束 | [总体架构](architecture/overview.md)、[安全与发布](security/testing-and-release.md) |
 | 执行引擎与端侧差距 | [Helix 与 Codex、DSH、Claude Code 对比](research/execution-engine-comparison.md) |
+| 工具曝光与能力复用优化 | [优化方向建议](research/tool-exposure-optimization.md)（未立项） |
 | 当前决定 | [按主题组织的 ADR](adr/README.md) |
 | 已交付结果 | [完成记录索引](completion-records/index.md) |
 | 历史诊断和研究 | [证据索引](evidence/README.md)、`research/` |

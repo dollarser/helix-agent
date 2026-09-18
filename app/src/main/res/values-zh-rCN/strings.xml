@@ -770,6 +770,13 @@
     <string name="chat_archived_list">已归档会话</string>
     <string name="chat_active_list">返回会话列表</string>
     <string name="chat_empty_archive">暂无已归档会话</string>
+    <string name="chat_session_search_hint">搜索会话与消息</string>
+    <string name="chat_session_search_clear">清除</string>
+    <string name="chat_session_search_empty">没有匹配的会话</string>
+    <string name="chat_session_search_scoped">已检索最近 %1$d 条消息正文</string>
+    <string name="chat_session_search_truncated">检索范围或结果数量受限，部分历史或匹配未显示</string>
+    <string name="chat_session_search_group_active">进行中</string>
+    <string name="chat_session_search_group_archived">已归档</string>
     <string name="files_shared">共享存储</string>
     <string name="files_shared_detail">浏览共享存储根目录，未授权时申请权限</string>
     <string name="chat_context_title">上下文窗口</string>
@@ -1081,4 +1088,5 @@
     <string name="budget_continue">从已有结果继续</string>
     <string name="budget_continue_prompt">请依据当前对话和已结算的工具结果继续未完成的任务。先核对已完成的工作，再决定剩余步骤；不要仅因上一轮停止就重复已完成的操作。工具执行成功本身不代表任务结果已验证正确。</string>
     <string name="budget_request_detail">压缩前任务上下文估算：输入 %1$d / %2$d token。指令 %3$d，工具定义 %4$d，历史与结果 %5$d，图片 %6$d。当时累计已用 %7$d / %8$d token。用量校准后准入输入 %9$d，上下文窗口 %10$d。</string>
+    <string name="chat_session_search_skipped">跳过 %1$d 条不可读或超出大小限制的正文</string>
 </resources>

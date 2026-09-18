@@ -35,6 +35,33 @@ data class SessionRowUi(
     }
 }
 
+/** One session hit of the service's bounded session search (HXA-191 slice). */
+data class SessionSearchHitUi(
+    val sessionId: String,
+    val title: String,
+    val isArchived: Boolean,
+    val matchesTitle: Boolean,
+    val matchesMessage: Boolean,
+    val messageSnippet: String?,
+)
+
+/**
+ * The observable outcome of the service-owned session search (HXA-191 slice). [query] is
+ * the trimmed query being shown ("" = not searching); [scannedMessages] and
+ * [skippedMessages] state the explicit scope of the bounded message-body scan, and
+ * [truncated] marks that older messages were not searched — never an implicit "this page
+ * only".
+ */
+data class SessionSearchUiState(
+    val query: String = "",
+    val hits: List<SessionSearchHitUi> = emptyList(),
+    val scannedMessages: Int = 0,
+    val skippedMessages: Int = 0,
+    val truncated: Boolean = false,
+) {
+    val isSearching: Boolean get() = query.isNotEmpty()
+}
+
 /** One persisted message (role "user"/"assistant"; content already resolved). */
 data class MessageUi(
     val id: String,

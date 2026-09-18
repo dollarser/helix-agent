@@ -61,6 +61,7 @@ import com.helix.core.policy.NetworkOriginScope
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.core.storage.repository.SessionSearchMatchKind
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentClassifier
 import com.helix.feature.files.AttachmentImportResult
@@ -79,7 +80,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,6 +98,9 @@ import kotlin.jvm.Volatile
 
 /** The artifact center's files section is a digest, not the file manager (that is the Files page). */
 private const val ARTIFACT_FILES_LIMIT = 50
+
+/** Session-search debounce: one bounded scan per pause of typing, on the service's IO scope. */
+private const val SEARCH_DEBOUNCE_MILLIS = 200L
 
 /**
  * The chat service (HXA-028): owns the chat send path end to end. The UI
@@ -248,6 +256,16 @@ class ChatService(
     private fun egressRejectedLabel(code: String): String = labels.egressRejectedLabel(code)
 
     private val _sessions = MutableStateFlow<List<SessionRowUi>>(emptyList())
+
+    /**
+     * Bounded session/history search (HXA-191 slice): service-owned state — the UI observes,
+     * it holds no Job (doc 02 section 12). The scan runs on [workScope] (IO by default),
+     * never on the Compose main thread.
+     */
+    private val _sessionSearch = MutableStateFlow(SessionSearchUiState())
+    val sessionSearch: StateFlow<SessionSearchUiState> = _sessionSearch.asStateFlow()
+
+    private var searchJob: Job? = null
     private val _backgroundTasks = MutableStateFlow<List<BackgroundTaskUi>>(emptyList())
     val backgroundTasks: StateFlow<List<BackgroundTaskUi>> = _backgroundTasks
     private val transportState = MutableStateFlow<TurnState?>(null)
@@ -564,6 +582,64 @@ class ChatService(
                 }
     }
 
+    /**
+     * Bounded session/history search (HXA-191 slice). A blank query clears the search;
+     * otherwise the query is reflected in the state immediately, the previous pass is
+     * cancelled, and one bounded scan runs on [workScope] after a short debounce. The
+     * result states its own scope (scanned/skipped/truncated) so the UI never implies
+     * "only the current page" was searched.
+     */
+    @Synchronized
+    fun searchSessions(rawQuery: String) {
+        val query = rawQuery
+        searchJob?.cancel()
+        searchJob = null
+        if (query.isBlank()) {
+            _sessionSearch.value = SessionSearchUiState()
+            return
+        }
+        // The list's search field is controlled by this state, so the typed query must be
+        // reflected before the debounced scan completes: a stale [query] would let the next
+        // recomposition pull the field back and cancel the in-flight scan.
+        // Clear old hits so they cannot appear to match the new query.
+        _sessionSearch.value = SessionSearchUiState(query = query)
+        searchJob =
+            workScope.launch {
+                delay(SEARCH_DEBOUNCE_MILLIS)
+                val context = currentCoroutineContext()
+                val result = storage.sessionSearch.search(query, checkActive = { context.ensureActive() })
+                synchronized(this@ChatService) {
+                    context.ensureActive()
+                    _sessionSearch.value =
+                        SessionSearchUiState(
+                            query = query,
+                            hits =
+                                result.hits.map { hit ->
+                                    SessionSearchHitUi(
+                                        sessionId = hit.sessionId,
+                                        title = hit.sessionTitle,
+                                        isArchived = hit.isArchived,
+                                        matchesTitle = hit.matchedKinds.contains(SessionSearchMatchKind.TITLE),
+                                        matchesMessage = hit.matchedKinds.contains(SessionSearchMatchKind.MESSAGE),
+                                        messageSnippet = hit.messageSnippet,
+                                    )
+                                },
+                            scannedMessages = result.scannedMessages,
+                            skippedMessages = result.skippedMessages,
+                            truncated = result.truncated,
+                        )
+                }
+            }
+    }
+
+    /** Clears the search: the session list returns to its normal state. */
+    @Synchronized
+    fun clearSessionSearch() {
+        searchJob?.cancel()
+        searchJob = null
+        _sessionSearch.value = SessionSearchUiState()
+    }
+
     private val sessionDraft: SessionDraft? get() = drafts.current
     private val preparingDraft: Boolean get() = drafts.preparing
 
@@ -587,6 +663,7 @@ class ChatService(
         if (!drafts.open(entity)) return
         openSessionId = entity.id
         clearStagedAttachments()
+        clearSessionSearch()
         shareDraftText = null
         workScope.launch { refreshScreen() }
     }
@@ -693,6 +770,7 @@ class ChatService(
         drafts.clear()
         openSessionId = id
         clearStagedAttachments()
+        clearSessionSearch()
         shareDraftText = null // a draft pre-fill belongs to the session it opened for (HXA-056)
         workScope.launch { refreshScreen() }
     }
@@ -708,6 +786,7 @@ class ChatService(
         drafts.clear()
         openSessionId = null
         clearStagedAttachments()
+        clearSessionSearch()
         shareDraftText = null
         workScope.launch { refreshScreen() }
     }

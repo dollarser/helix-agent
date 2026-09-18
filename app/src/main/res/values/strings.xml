@@ -773,6 +773,13 @@
     <string name="chat_archived_list">已归档会话</string>
     <string name="chat_active_list">返回会话列表</string>
     <string name="chat_empty_archive">暂无已归档会话</string>
+    <string name="chat_session_search_hint">搜索会话与消息</string>
+    <string name="chat_session_search_clear">清除</string>
+    <string name="chat_session_search_empty">没有匹配的会话</string>
+    <string name="chat_session_search_scoped">已检索最近 %1$d 条消息正文</string>
+    <string name="chat_session_search_truncated">检索范围或结果数量受限，部分历史或匹配未显示</string>
+    <string name="chat_session_search_group_active">进行中</string>
+    <string name="chat_session_search_group_archived">已归档</string>
     <string name="files_shared">共享存储</string>
     <string name="files_shared_detail">浏览共享存储根目录，未授权时申请权限</string>
     <string name="chat_context_title">上下文窗口</string>
@@ -1084,4 +1091,5 @@
     <string name="budget_continue">Continue from saved results</string>
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
+    <string name="chat_session_search_skipped">跳过 %1$d 条不可读或超出大小限制的正文</string>
 </resources>
