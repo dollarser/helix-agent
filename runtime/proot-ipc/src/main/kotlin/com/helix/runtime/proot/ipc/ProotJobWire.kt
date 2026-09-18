@@ -43,6 +43,10 @@ data class ProotJobSpec(
     /** Per-stream stderr cap; the combined [maxOutputBytes] cap still applies. */
     val maxStderrBytes: Long = maxOutputBytes,
 ) {
+    companion object {
+        const val MAX_OUTPUT_BYTES = 64L * 1024L * 1024L
+    }
+
     init {
         ProotJobRecordCodec.checkExecutionId(executionId)
         ProotJobRecordCodec.checkJobId(jobId)
@@ -68,7 +72,7 @@ data class ProotJobSpec(
             "environment entry out of bounds"
         }
         require(deadlineMs in 1_000L..3_600_000L) { "deadlineMs out of bounds" }
-        require(maxOutputBytes in 1_024L..(64L * 1024L * 1024L)) { "maxOutputBytes out of bounds" }
+        require(maxOutputBytes in 1_024L..MAX_OUTPUT_BYTES) { "maxOutputBytes out of bounds" }
         require(maxStderrBytes in 1_024L..maxOutputBytes) { "maxStderrBytes out of bounds" }
         stdinRelativePath?.let { path ->
             require(path.length in 1..256) { "stdinRelativePath too long" }

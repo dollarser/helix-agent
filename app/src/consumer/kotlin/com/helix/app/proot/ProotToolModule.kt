@@ -21,6 +21,9 @@ import com.helix.tools.framework.ToolRegistry
 internal object ProotToolModule {
     const val AVAILABLE: Boolean = false
 
+    @Suppress("UnusedParameter")
+    fun observeCommandLog(binding: CommandJobBindingFacts) = kotlinx.coroutines.flow.emptyFlow<CommandLiveOutput>()
+
     val inspectInterruptedJob: (HelixStorage, String, String, Boolean) -> ProotRecoveryReport = { _, _, _, _ ->
         error("PRoot recovery is unavailable in this distribution")
     }

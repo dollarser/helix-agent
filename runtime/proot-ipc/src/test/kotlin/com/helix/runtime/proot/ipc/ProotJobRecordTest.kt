@@ -8,6 +8,7 @@ package com.helix.runtime.proot.ipc
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -51,6 +52,18 @@ class ProotJobRecordTest {
         val parsed = ProotJobRecordCodec.parse(encoded)
         assertEquals(succeeded(), parsed)
         assertEquals(succeeded().terminalCommit, parsed.terminalCommit)
+    }
+
+    @Test
+    fun outputCountersUseTheExecutionCapRatherThanTheJournalDocumentSize() {
+        val pressure = succeeded().copy(stdoutBytes = 3145728, stderrBytes = 3145728)
+        assertEquals(pressure, ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(pressure)))
+        val maximum = succeeded().copy(stdoutBytes = ProotJobSpec.MAX_OUTPUT_BYTES, stderrBytes = 0)
+        assertEquals(maximum, ProotJobRecordCodec.parse(ProotJobRecordCodec.encode(maximum)))
+        assertTrue(ProotJobRecordCodec.encode(maximum).length < 1024)
+        assertThrows(IllegalArgumentException::class.java) { maximum.copy(stderrBytes = 1) }
+        assertThrows(IllegalArgumentException::class.java) { maximum.copy(stdoutBytes = -1) }
+        assertThrows(IllegalArgumentException::class.java) { maximum.copy(stderrBytes = Long.MAX_VALUE) }
     }
 
     @Test

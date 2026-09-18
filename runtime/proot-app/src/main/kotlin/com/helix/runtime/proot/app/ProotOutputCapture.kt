@@ -64,6 +64,7 @@ internal class StreamOutputBudget(
  */
 internal class BoundedCapture(
     private val budget: CaptureBudget,
+    private val onChunk: (ByteArray, Int) -> Unit = { _, _ -> },
     private val onLimit: () -> Unit = {},
 ) {
     private val buffer = java.io.ByteArrayOutputStream()
@@ -90,7 +91,10 @@ internal class BoundedCapture(
                 val allow = budget.take(n)
                 synchronized(buffer) {
                     if (finished) return
-                    if (allow > 0) buffer.write(chunk, 0, allow)
+                    if (allow > 0) {
+                        buffer.write(chunk, 0, allow)
+                        onChunk(chunk, allow)
+                    }
                 }
                 if (allow < n) {
                     budget.hitLimit.set(true)

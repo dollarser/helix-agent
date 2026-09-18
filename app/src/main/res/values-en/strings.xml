@@ -852,7 +852,6 @@
     <string name="command_detail_state_unknown">Result unknown</string>
     <string name="command_detail_state_evidence_expired">Runtime result evidence expired</string>
     <string name="command_detail_state_read_failed">Result could not be read</string>
-    <string name="command_detail_running_note">Command is running; its output will be viewable once it ends</string>
     <string name="command_detail_command">Command</string>
     <string name="command_detail_detail_label">Detail</string>
     <string name="command_detail_exit_code">Exit code %1$d</string>
@@ -1092,4 +1091,6 @@
     <string name="budget_continue_prompt">Continue the unfinished task using the existing conversation and settled tool results. Check completed work before deciding what remains; do not repeat completed actions merely because the previous turn stopped. Tool execution success alone is not proof that the requested result is correct.</string>
     <string name="budget_request_detail">Task context input estimate before compaction (tokens): %1$d / %2$d. Instructions: %3$d; tool definitions: %4$d; history/results: %5$d; images: %6$d. Total used at that point: %7$d / %8$d. Input after usage calibration: %9$d; context window: %10$d.</string>
     <string name="chat_session_search_skipped">Unavailable or oversized messages skipped: %1$d</string>
+    <string name="command_detail_running_note">Live output is a bounded preview. The completed command record is authoritative.</string>
+    <string name="command_log_unavailable">Live output is unavailable. The preview is retained; command status and final results update separately.</string>
 </resources>

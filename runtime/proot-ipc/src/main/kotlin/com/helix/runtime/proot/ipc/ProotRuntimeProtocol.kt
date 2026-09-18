@@ -120,6 +120,7 @@ object ProotRuntimeProtocol {
 
     /** Submit with a process death token; unsupported peers must not receive a legacy retry. */
     const val TX_JOB_SUBMIT_OWNED = IBinder.FIRST_CALL_TRANSACTION + 8
+    const val TX_JOB_LOG_READ = IBinder.FIRST_CALL_TRANSACTION + 9
     const val MAX_RESULT_ARCHIVE_BYTES = 136L * 1024L * 1024L
 
     /** Job reply: the record was accepted and starts (or already started). */

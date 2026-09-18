@@ -183,7 +183,7 @@ val projectDependencies =
         // handshake descriptor codec, bounded PFD manifest channel); proot-client (main app) and
         // proot-app (companion) both bundle it.
         ":runtime:proot-ipc" to listOf(":runtime:proot-core"),
-        ":runtime:proot-client" to listOf(":core:model", ":runtime:proot-ipc"),
+        ":runtime:proot-client" to listOf(":core:model", ":runtime:proot-ipc", ":runtime:proot-core"),
         ":runtime:cli-client" to listOf(":core:model"),
         ":tools:framework" to listOf(":core:model", ":core:policy"),
         // HXA-064: the android. and clipboard. tools sit on the tools:framework contract, same

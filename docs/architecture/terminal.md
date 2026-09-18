@@ -12,6 +12,8 @@ Runtime 管理进程组、PTY、日志和退出事实；应用服务管理来源
 
 日志读取绑定 Job/generation、stream 和游标，重复读取幂等，跨 Job 拒绝；缺口与截断可见。慢 UI 不阻塞进程 drain，UTF-8 支持跨批解码。初始限制为每批 32 KiB、每 Job UI 缓存 256 KiB、每 Job spool 4 MiB、总 spool 16 MiB，调整须压力证据。日志预览不替代最终产物哈希与退出状态。
 
+一次性 PRoot Job 的实现通过新日志事务提供 8 KiB 数据分片，整个 Parcel 限制 32 KiB；每 Job 另有 16 分片队列与 4096 分片索引上限。详情页仅复用已批准提交获得的 Binder 观察，不冷启动 Runtime；进程死亡后预览失效，最终结果仍走原有对账。分片不进入模型消息或工具结果，consumer 不包含 Runtime 日志实现。具体实现及资源边界见[有界日志证据](../evidence/development/bounded-command-logs-2026-09-18.md)。
+
 异步租期默认 5 分钟、最大 30 分钟并受其他剩余预算限制，不自动续租。主进程死亡能否继续取决于已有后台 owner 与系统允许的路径；否则取消或对账。重启不复建 shell 内存、不重放命令。
 
 ## 手动终端与多会话
@@ -27,7 +29,7 @@ developer 用户主动开启可信 USER 入口，人工按键不逐字符出审�
 | 顺序 | 任务 |
 | --- | --- |
 | 命令详情与结果入口 | [HXA-194](../completion-records/HXA-194.md) |
-| 日志观察 | [HXA-195](../development/tasks/HXA-195.md) |
+| 日志观察（一次性 Job 已交付） | [HXA-195](../completion-records/HXA-195.md) |
 | 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
 | 单手动终端 | [HXA-197](../development/tasks/HXA-197.md) |
 | 多会话 | [HXA-198](../development/tasks/HXA-198.md) |

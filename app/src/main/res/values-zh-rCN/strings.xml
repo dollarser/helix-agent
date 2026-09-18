@@ -850,7 +850,6 @@
     <string name="command_detail_state_unknown">结果未知</string>
     <string name="command_detail_state_evidence_expired">运行环境证据已过期</string>
     <string name="command_detail_state_read_failed">结果读取失败</string>
-    <string name="command_detail_running_note">命令执行中，输出将在结束后展示</string>
     <string name="command_detail_command">命令</string>
     <string name="command_detail_detail_label">说明</string>
     <string name="command_detail_exit_code">退出码 %1$d</string>
@@ -1089,4 +1088,6 @@
     <string name="budget_continue_prompt">请依据当前对话和已结算的工具结果继续未完成的任务。先核对已完成的工作，再决定剩余步骤；不要仅因上一轮停止就重复已完成的操作。工具执行成功本身不代表任务结果已验证正确。</string>
     <string name="budget_request_detail">压缩前任务上下文估算：输入 %1$d / %2$d token。指令 %3$d，工具定义 %4$d，历史与结果 %5$d，图片 %6$d。当时累计已用 %7$d / %8$d token。用量校准后准入输入 %9$d，上下文窗口 %10$d。</string>
     <string name="chat_session_search_skipped">跳过 %1$d 条不可读或超出大小限制的正文</string>
+    <string name="command_detail_running_note">实时输出为有界预览；最终结果以命令结束后的记录为准。</string>
+    <string name="command_log_unavailable">实时输出暂不可用；已有预览保留，命令状态与最终结果单独更新。</string>
 </resources>

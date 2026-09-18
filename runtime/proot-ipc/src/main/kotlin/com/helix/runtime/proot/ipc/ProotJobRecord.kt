@@ -68,8 +68,9 @@ data class ProotJobRecord(
             "inputManifestSha256 is not canonical lowercase hex"
         }
         require(createdAtEpochMs in 0..Long.MAX_VALUE) { "createdAtEpochMs out of bounds" }
-        require(stdoutBytes in 0..ProotJobRecordCodec.MAX_FIELD_BYTES) { "stdoutBytes out of bounds" }
-        require(stderrBytes in 0..ProotJobRecordCodec.MAX_FIELD_BYTES) { "stderrBytes out of bounds" }
+        require(stdoutBytes in 0..ProotJobSpec.MAX_OUTPUT_BYTES) { "stdoutBytes out of bounds" }
+        require(stderrBytes in 0..ProotJobSpec.MAX_OUTPUT_BYTES) { "stderrBytes out of bounds" }
+        require(stdoutBytes + stderrBytes <= ProotJobSpec.MAX_OUTPUT_BYTES) { "combined output out of bounds" }
         if (outputManifestSha256 != null) {
             require(
                 outputManifestSha256.length == 64 &&
@@ -154,9 +155,6 @@ data class ProotJobRecord(
  */
 object ProotJobRecordCodec {
     const val SUPPORTED_SCHEMA_VERSION: Int = 1
-
-    /** Bounded field budget shared by journal metadata (1 MiB cap lives in the store). */
-    const val MAX_FIELD_BYTES: Long = 1L * 1024L * 1024L
 
     private const val JOB_ID_PREFIX = "job_"
     private const val JOB_ID_HEX_LENGTH = 12

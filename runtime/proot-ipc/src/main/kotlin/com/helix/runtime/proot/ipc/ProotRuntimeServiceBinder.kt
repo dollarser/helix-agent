@@ -115,6 +115,7 @@ class ProotRuntimeServiceBinder(
                 ProotRuntimeProtocol.TX_JOB_RECONCILE,
                 ProotRuntimeProtocol.TX_JOB_FETCH_RESULT,
                 ProotRuntimeProtocol.TX_JOB_ACK_RESULT,
+                ProotRuntimeProtocol.TX_JOB_LOG_READ,
             )
     }
 
@@ -142,6 +143,10 @@ class ProotRuntimeServiceBinder(
         try {
             data.enforceInterface(ProotRuntimeProtocol.INTERFACE_DESCRIPTOR)
             when (code) {
+                ProotRuntimeProtocol.TX_JOB_LOG_READ -> {
+                    readLog(handler, data, reply)
+                }
+
                 ProotRuntimeProtocol.TX_JOB_SUBMIT -> {
                     jobSubmit(handler, data, reply)
                 }
@@ -211,6 +216,21 @@ class ProotRuntimeServiceBinder(
                 ProotJobRefusal.INVALID_SPEC.wire,
             )
         }
+    }
+
+    private fun readLog(
+        handler: ProotJobHandler,
+        data: Parcel,
+        reply: Parcel,
+    ) {
+        require(data.readInt() == ProotLogWire.VERSION)
+        val jobId = readJobId(data)
+        val hash = requireNotNull(data.readString())
+        require(hash.matches(Regex("[0-9a-f]{64}")))
+        val cursor = data.readString()
+        require(cursor == null || cursor.length <= 256)
+        require(data.dataAvail() == 0)
+        ProotLogWire.write(reply, (handler as? ProotLogHandler)?.readLog(jobId, hash, cursor))
     }
 
     private fun writeResultArchive(

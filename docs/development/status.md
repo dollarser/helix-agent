@@ -6,6 +6,8 @@
 
 所有已交付 HXA 见[完成记录索引](../completion-records/index.md)，M0 见[工程基线](../completion-records/M0.md)。记录的完成只限各自范围。
 
+本轮独立交付：HXA-193 默认锁定资产准备已收尾；HXA-195 一次性 Job 有界实时日志与详情页已完成，API29/36 各新增6项与既有35项通过、完整主机门禁通过，见[195完成记录](../completion-records/HXA-195.md)。同时修复大输出字节计数导致错误 FAILED 的问题；不包含后台 Job/PTY 或真机长稳。
+
 最近完成：HXA-203 产物可用性与文件交付闭环（四态可用性、变更横幅、管线导出与运行中取消、无查看器外部打开、返回产生任务、四象限矩阵与批次A出口旅程，见[完成记录](../completion-records/HXA-203.md)），HXA-194 命令详情与现有结果导航（只读投影、档案优先于过期持久化输出、任务页/工具行真实入口与返回来源、四象限旅程与 202 入口回归，见[完成记录](../completion-records/HXA-194.md)），HXA-202 任务过程与跨页面操作导航（六类状态只读投影、跨会话稳定 ID 定位、CANCELLING 持久结算、四象限旅程与两阶段进程恢复，见[完成记录](../completion-records/HXA-202.md)），HXA-192 Plan 审阅到执行的用户闭环验收与 HXA-209 授权联动（四象限设备与主机 --all，见[完成记录](../completion-records/HXA-192.md)），HXA-209 会话授权预设、工具禁用与自定义权限（含工具二态与 CUSTOM 效果限制，见[完成记录](../completion-records/HXA-209.md)），HXA-208 完整 Goal 工具与前后台连续运行，HXA-201 设置/UI，HXA-200 审批审计/恢复。基线回归及 thinking/startup 修复见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[连接/启动修复](../bug-fixes/2026-09-16-main-thinking-and-startup.md)。不重做这些任务，不将旧三态验收用作新授权方案证明。
 
 收尾补验：SGLang UI smoke已修复，在API29/36 developer真实端点各1项通过，本地表单各4项通过；默认profile各1项明确跳过，见[修复与证据](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md)。这不关闭192/193的其他范围。
@@ -16,7 +18,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。19 项未闭合义务分为：2 项收尾验收、8 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
+本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，下一活动 checkpoint 为批次B HXA-204 的跨执行域错误与恢复交互（205随后）。18 项未闭合义务分为：2 项收尾验收、7 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
 
@@ -29,7 +31,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 批次 B 开发前的本地收尾、验证范围与 Claude Code 交接见[2026-09-17 准备记录](../evidence/development/batch-b-readiness-2026-09-17.md)。HXA-204/205 已按顺序切片明确交付边界；JSONL 导出仍 proposed、待独立立项，不随本批自动实现。
 
 - **活动 checkpoint：批次B HXA-204 跨执行域错误与恢复交互**（205随后）；193已完成当前锁定资产准备与升级验收。批次A已全部交付：202（见[完成记录](../completion-records/HXA-202.md)）、194（见[完成记录](../completion-records/HXA-194.md)）、203（见[完成记录](../completion-records/HXA-203.md)），批次出口用户路径证据（会话→任务→命令详情/产物→来源）完整；209 与 192 已交付（见[完成记录](../completion-records/HXA-209.md)、[完成记录](../completion-records/HXA-192.md)）。不重做已有能力，不提前实现完整终端。
-- **后续批次**：204→205（193已收尾），再195→207→191，最后206核心集成验收。191可在任务边界穿插；优先级、真实依赖及批次出口统一见[路线](roadmap.md#执行顺序与依赖)。从当前批次开始积累206用户路径证据，不等最后才设计验收。
+- **后续批次**：204→205（193已收尾），再207→191（195已独立交付），最后206核心集成验收。191可在任务边界穿插；优先级、真实依赖及批次出口统一见[路线](roadmap.md#执行顺序与依赖)。从当前批次开始积累206用户路径证据，不等最后才设计验收。
 - **执行环境后续**：196后台Job与197手动PTY→198多会话→199终端验收；197不等待196。193资产/升级/CI、194命令详情、195实时输出不跟随完整终端后移。
 - **条件允许时收尾**：190 真实订阅、125 受保护 Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按 120→122→121→123，不自动开始外部提交。
 - 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 候选及工具 descriptor 候选不因整理而接受。
@@ -69,4 +71,4 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
 - **外部依赖边界**：默认门禁不依赖真实业务服务、账号或付费调用；显式 profile 的缺参跳过不算通过，启用后失败如实记录。构建下载、本地测试服务器与外部 smoke 的边界统一见[公共验收规则](verification-matrix.md)。
 
-本轮并行所有权：Claude Code 继续204→205；Codex在193收尾后推进195，独立worktree，先Runtime日志协议再详情展示，不重写204恢复逻辑。
+本轮并行所有权：Claude Code 继续204→205；Codex已在独立worktree完成193收尾与195，具名本地提交，未push或合并main，不重写204恢复逻辑。整合时保留Claude Code当前进度与改动。

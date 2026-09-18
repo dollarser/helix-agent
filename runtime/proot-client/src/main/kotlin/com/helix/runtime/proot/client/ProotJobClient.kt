@@ -132,11 +132,15 @@ class ProotJobClient(
                 val (status, payload) = ProotJobWire.readJobReply(reply)
                 when (status) {
                     ProotRuntimeProtocol.REPLY_JOB_ACCEPTED -> {
-                        SubmitOutcome.Accepted(decodeRecord(payload))
+                        SubmitOutcome.Accepted(decodeRecord(payload)).also {
+                            ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
+                        }
                     }
 
                     ProotRuntimeProtocol.REPLY_JOB_DUPLICATE -> {
-                        SubmitOutcome.Duplicate(decodeRecord(payload))
+                        SubmitOutcome.Duplicate(decodeRecord(payload)).also {
+                            ProotLogConnections.remember(it.record.jobId, it.record.inputManifestSha256, binder)
+                        }
                     }
 
                     ProotRuntimeProtocol.REPLY_JOB_REJECTED -> {

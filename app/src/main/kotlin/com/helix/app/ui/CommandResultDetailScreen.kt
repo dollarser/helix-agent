@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.chat.ChatService
 import com.helix.app.proot.CommandDetailState
+import com.helix.app.proot.CommandLiveOutput
+import com.helix.app.proot.CommandLogObserver
 import com.helix.app.proot.CommandResultView
+import kotlinx.coroutines.delay
 
 /**
  * HXA-194: the command details page (独立详情页). It renders ONE command call's
@@ -39,8 +42,8 @@ import com.helix.app.proot.CommandResultView
  * acknowledges NOTHING; the explicit reconciliation stays the existing session entry
  * (查看结果), which this page never duplicates.
  *
- * A still-running command shows its status only ("输出在命令结束后展示") — no live log
- * (real-time logs belong to HXA-195). Long outputs are scrollable and bounded.
+ * HXA-195 adds a bounded, read-only preview of an already running command. The
+ * observer never starts the Runtime; the final archive remains authoritative.
  *
  * The route is its OWN NavHost entry (not one of the drawer's [com.helix.app.ShellDestination]
  * destinations): the system back returns to exactly the page the detail was opened from —
@@ -68,13 +71,15 @@ internal fun CommandResultDetailScreen(
     // A pure read on every composition of this (turnId, callId) pair — a rotation or
     // re-entry re-projects the SAME persisted facts; it cannot start anything.
     LaunchedEffect(turnId, callId) {
-        view =
-            service.commandResult(turnId, callId)
-                ?: run {
-                    notFound = true
-                    null
-                }
+        do {
+            view = service.commandResult(turnId, callId)
+            notFound = view == null
+            if (view?.state != CommandDetailState.RUNNING) break
+            delay(500)
+        } while (true)
     }
+    val running = view?.state == CommandDetailState.RUNNING
+    val live = rememberLiveOutput(view)
     Column(
         Modifier
             .fillMaxSize()
@@ -110,7 +115,13 @@ internal fun CommandResultDetailScreen(
         val v = view ?: return
         Box(Modifier.weight(1f)) {
             SelectionContainer {
-                CommandDetailBody(v, onOpenSession)
+                val shown =
+                    if (v.state == CommandDetailState.RUNNING && live != null) {
+                        v.copy(stdout = live.stdout, stderr = live.stderr, truncated = live.truncated)
+                    } else {
+                        v
+                    }
+                CommandDetailBody(shown, live?.unavailable == true && running, onOpenSession)
             }
         }
     }
@@ -125,6 +136,7 @@ internal fun CommandResultDetailScreen(
 @Suppress("FunctionName")
 private fun CommandDetailBody(
     v: CommandResultView,
+    logUnavailable: Boolean,
     onOpenSession: (String) -> Unit,
 ) {
     Column(
@@ -135,6 +147,9 @@ private fun CommandDetailBody(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         SummarySection(v)
+        if (logUnavailable) {
+            Text(stringResource(R.string.command_log_unavailable), Modifier.testTag("command-log-unavailable"))
+        }
         OutcomeSection(v)
         OutputSection(v)
         BindingSection(v)
@@ -308,3 +323,14 @@ private fun stateTextRes(state: CommandDetailState): Int =
         CommandDetailState.EVIDENCE_EXPIRED -> R.string.command_detail_state_evidence_expired
         CommandDetailState.READ_FAILED -> R.string.command_detail_state_read_failed
     }
+
+@Composable
+private fun rememberLiveOutput(view: CommandResultView?): CommandLiveOutput? {
+    val binding = view?.binding
+    val running = view?.state == CommandDetailState.RUNNING
+    var live by remember(view?.callId) { mutableStateOf<CommandLiveOutput?>(null) }
+    LaunchedEffect(binding, running) {
+        if (binding != null && running) CommandLogObserver.observe(binding).collect { live = it }
+    }
+    return live
+}

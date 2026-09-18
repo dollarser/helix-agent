@@ -230,6 +230,8 @@ internal object ProotToolModule {
         }
     }
 
+    fun observeCommandLog(binding: CommandJobBindingFacts) = CommandLogReader.observe(binding)
+
     fun availabilityGate(): LinuxRuntimeGate {
         val cause = supervisor.checkLocalState()
         return when {

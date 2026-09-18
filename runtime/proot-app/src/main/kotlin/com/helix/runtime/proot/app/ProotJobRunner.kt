@@ -57,7 +57,8 @@ class ProotJobRunner private constructor(
     private val context: Context,
 ) : ProotJobHandler,
     com.helix.runtime.proot.ipc.ProotJobResultHandler,
-    com.helix.runtime.proot.ipc.ProotOwnedJobHandler {
+    com.helix.runtime.proot.ipc.ProotOwnedJobHandler,
+    com.helix.runtime.proot.ipc.ProotLogHandler {
     companion object {
         private val holder = AtomicReference<ProotJobRunner>()
 
@@ -76,6 +77,23 @@ class ProotJobRunner private constructor(
     }
 
     private val store = ProotJobStore(ProotRuntimeInstaller.runtimeRoot(context))
+    private val logs by lazy {
+        runCatching {
+            com.helix.runtime.proot.core
+                .JobLogSpool(File(context.cacheDir, "job-log-preview"))
+        }.onFailure { android.util.Log.w("ProotJobRunner", "Log preview unavailable", it) }
+            .getOrNull()
+    }
+
+    override fun readLog(
+        jobId: String,
+        inputManifestSha256: String,
+        cursor: String?,
+    ): com.helix.runtime.proot.core.JobLogPage? {
+        val record = store.load(jobId) ?: return null
+        require(record.inputManifestSha256 == inputManifestSha256) { "Log binding mismatch" }
+        return logs?.read(jobId, cursor)
+    }
 
     private val jobExecutor =
         Executors.newSingleThreadExecutor { r ->
@@ -197,6 +215,7 @@ class ProotJobRunner private constructor(
         outputPfd: ParcelFileDescriptor,
     ) {
         val cancelRequested = cancellationFlags.getValue(spec.jobId)
+        val log = logs?.open(spec.jobId)
         var live: LiveJob? = null
         try {
             // 1) Extract + re-verify the input archive (untrusted bytes: central
@@ -339,8 +358,16 @@ class ProotJobRunner private constructor(
                 terminalFailed(pending, outputPfd, null, "cannot identify the child pid")
                 return
             }
-            val stdout = BoundedCapture(outputBudget) { killProcessGroup(childPid) }
-            val stderr = BoundedCapture(stderrBudget) { killProcessGroup(childPid) }
+            val stdout =
+                BoundedCapture(
+                    outputBudget,
+                    { bytes, count -> log?.offer(1, bytes, count) },
+                ) { killProcessGroup(childPid) }
+            val stderr =
+                BoundedCapture(
+                    stderrBudget,
+                    { bytes, count -> log?.offer(2, bytes, count) },
+                ) { killProcessGroup(childPid) }
             val stdoutReader = Thread { process.inputStream.use { stdout.drain(it) } }
             val stderrReader = Thread { process.errorStream.use { stderr.drain(it) } }
             stdoutReader.start()
@@ -397,6 +424,7 @@ class ProotJobRunner private constructor(
                 stderrReader.join(5_000L)
                 stdout.finish()
                 stderr.finish()
+                log?.finish(true)
                 terminal(pending, outputPfd, ProotJobState.TIMED_OUT, null, stdout, stderr)
                 return
             }
@@ -404,6 +432,7 @@ class ProotJobRunner private constructor(
             stderrReader.join(5_000L)
             stdout.finish()
             stderr.finish()
+            log?.finish(stdout.truncated || stderr.truncated || !stdout.complete || !stderr.complete)
             // A child may retain the pipe after its parent exits. Never publish a successful
             // truncated snapshot while a pump is still waiting; stop the remaining group.
             if (stdoutReader.isAlive || stderrReader.isAlive) killProcessGroup(childPid)
@@ -420,6 +449,7 @@ class ProotJobRunner private constructor(
                 }
             terminal(pending, outputPfd, state, process.exitValue(), stdout, stderr)
         } catch (e: Exception) {
+            log?.finish(true)
             // An unexpected lifecycle failure is a terminal FAILED with the process
             // exit when there was one — never a crash of the companion.
             val exit =
@@ -432,6 +462,7 @@ class ProotJobRunner private constructor(
                 }
             terminalFailed(pending, outputPfd, exit, "lifecycle failure: ${e.message?.take(120)}")
         } finally {
+            log?.finish()
             live?.watchdog?.cancel(false)
             liveJobs.remove(spec.jobId)
             cancellationFlags.remove(spec.jobId, cancelRequested)
