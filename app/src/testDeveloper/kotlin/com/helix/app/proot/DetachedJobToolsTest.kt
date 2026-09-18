@@ -30,6 +30,15 @@ class DetachedJobToolsTest {
                 .jsonPrimitive.content,
         )
         assertEquals(ToolOperationClass.READ_ONLY, DetachedJobTools.control(false).operationClass)
+        assertEquals(ToolOperationClass.LOCAL_MUTATION, DetachedJobTools.collect().operationClass)
+        assertEquals(
+            setOf("originalCallId"),
+            DetachedJobTools
+                .collect()
+                .inputSchema
+                .getValue("properties")
+                .jsonObject.keys,
+        )
         assertEquals(ToolOperationClass.LOCAL_MUTATION, DetachedJobTools.control(true).operationClass)
         assertEquals(
             setOf("originalCallId"),

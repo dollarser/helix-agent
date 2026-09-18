@@ -373,6 +373,8 @@ internal class DefaultAppContainer(
             toolImplementations,
             workspaceStore,
             storage,
+            executionOwnership,
+            { chatService },
         )
         // HXA-062: the browser.* tools (open/navigate/back/forward/reload/find/click/type/
         // scroll/screenshot). The bridge runs the fixed, versioned scripts against the
@@ -439,7 +441,10 @@ internal class DefaultAppContainer(
                     storage.toolAvailability,
                     sessionWorkspace,
                 )
-            val effectClassifier = SessionToolEffectClassifier(sessionWorkspace)
+            val effectClassifier =
+                SessionToolEffectClassifier(sessionWorkspace) { sessionId, callId ->
+                    ProotToolModule.originalDetachedOutput(storage, sessionId, callId)
+                }
             val disabledToolFilter: (String, ToolDescriptor) -> Boolean = { sessionId, descriptor ->
                 val states =
                     sessionPermissions.statesFor(

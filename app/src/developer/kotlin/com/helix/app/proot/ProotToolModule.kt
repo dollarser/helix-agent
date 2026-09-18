@@ -75,12 +75,15 @@ internal object ProotToolModule {
      * Wires the tool (called once from the container's init, developer flavor only).
      * NO bind, NO process start, NO availability probe: the gate runs per execution.
      */
+    @Suppress("LongParameterList")
     fun registerTools(
         context: Context,
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
+        ownership: com.helix.tools.framework.ExecutionOwnership,
+        chat: () -> com.helix.app.chat.ChatService,
     ) {
         wireForTest(context)
         idGenerator = RandomIdGenerator()
@@ -89,13 +92,7 @@ internal object ProotToolModule {
         // on every execution (not cached — a value rotated mid-session is still
         // screened by equality at submit time). This screen is not UID isolation;
         // it runs in the main process before the wire.
-        secretValues = {
-            val values = mutableSetOf<String>()
-            for (alias in storage.secrets.aliases()) {
-                runCatching { storage.secrets.get(alias) }.onSuccess { values += it }
-            }
-            values
-        }
+        secretValues = { currentSecretValues(storage) }
         // HXA-209 C5: the session authorization for background jobs — the SAME service,
         // classifier and resolver as the dispatcher's start gate. A new prohibition
         // (a disable, or a rule now DENYing the operation) refuses the launch BEFORE
@@ -142,9 +139,41 @@ internal object ProotToolModule {
                     Unit
                 },
             )
-        LinuxRunTool.register(registry, implementations) { call, isCancelled ->
-            executor.execute(call, isCancelled)
+        LinuxRunTool.register(registry, implementations, executor)
+        DetachedJobRegistration.register(
+            context,
+            storage,
+            workspaceStore,
+            registry,
+            implementations,
+            ownership,
+            chat,
+            { availabilityGate() },
+            secretValues,
+        )
+    }
+
+    private fun currentSecretValues(storage: HelixStorage): Set<String> {
+        val values = mutableSetOf<String>()
+        for (alias in storage.secrets.aliases()) {
+            runCatching { storage.secrets.get(alias) }.onSuccess { values += it }
         }
+        return values
+    }
+
+    fun originalDetachedOutput(
+        storage: HelixStorage,
+        sessionId: String,
+        callId: String,
+    ): String? {
+        val binding = ProotJobBindingStore(storage).resolveDetached(sessionId, callId)
+        val call = requireNotNull(storage.toolCalls.byTurnAndCallId(binding.turnId, callId))
+        check(call.name == DetachedJobTools.START)
+        return kotlinx.serialization.json.Json
+            .parseToJsonElement(call.argsJson)
+            .let { it as kotlinx.serialization.json.JsonObject }["output"]
+            ?.jsonPrimitive
+            ?.content
     }
 
     /**

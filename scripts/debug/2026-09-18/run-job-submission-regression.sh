@@ -10,7 +10,7 @@ for api in 29 36; do
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
     --runner com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner \
-    --classes com.helix.app.proot.ProotJobE2eDeviceTest,com.helix.app.proot.ProotDetachedJobDeviceTest,com.helix.app.proot.DetachedJobControlDeviceTest,com.helix.app.proot.DetachedJobLaunchDeviceTest,com.helix.app.proot.DetachedJobCollectionDeviceTest \
+    --classes com.helix.app.proot.ProotJobE2eDeviceTest,com.helix.app.proot.ProotDetachedJobDeviceTest,com.helix.app.proot.DetachedJobControlDeviceTest,com.helix.app.proot.DetachedJobLaunchDeviceTest,com.helix.app.proot.DetachedJobCollectionDeviceTest,com.helix.app.proot.DetachedJobRegistrationDeviceTest \
     --output "build/${prefix}-api${api}" --timeout 600
   port=$((port + 2))
 done

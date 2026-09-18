@@ -269,6 +269,39 @@ class SessionToolEffectClassifierTest {
         }
     }
 
+    @Test fun detachedCollectionUsesTrustedOriginalTargetNotModelReplacement() {
+        val classifier =
+            SessionToolEffectClassifier({ "ws-1" }) { session, call ->
+                assertEquals("session-1", session)
+                assertEquals("original", call)
+                "scope:ws-1:output/original.txt"
+            }
+        val result =
+            classifier.classify(
+                request("""{"originalCallId":"original","output":"scope:foreign:x"}"""),
+                descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION),
+            )
+        assertEquals(setOf(OperationEffect.FILE_MUTATION_WORKSPACE), result.footprint.effects)
+        assertTrue(result.footprint.undeterminedEffects.isEmpty())
+    }
+
+    @Test fun detachedCollectionWithoutHostResolverCannotClaimNoEffects() {
+        val result = bound.classify(request(), descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION))
+        assertEquals(
+            setOf(OperationEffect.FILE_MUTATION_WORKSPACE, OperationEffect.FILE_MUTATION_EXTERNAL),
+            result.footprint.undeterminedEffects,
+        )
+        val noOutput = SessionToolEffectClassifier({ "ws-1" }) { _, _ -> null }
+        assertTrue(
+            noOutput
+                .classify(
+                    request("""{"originalCallId":"original"}"""),
+                    descriptor("code.linux.job.collect", ToolOperationClass.LOCAL_MUTATION),
+                ).footprint.all
+                .isEmpty(),
+        )
+    }
+
     private fun request(args: String = "{}"): ToolDispatchRequest =
         ToolDispatchRequest(
             toolCallId = "call-1",

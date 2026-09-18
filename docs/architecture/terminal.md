@@ -16,6 +16,19 @@ Runtime 管理进程组、PTY、日志和退出事实；应用服务管理来源
 
 异步租期默认 5 分钟、最大 30 分钟并受其他剩余预算限制，不自动续租。主进程死亡能否继续取决于已有后台 owner 与系统允许的路径；否则取消或对账。重启不复建 shell 内存、不重放命令。
 
+## 后台 Job 工具入口
+
+developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会话权限、限制与审计执行；注册不会冷绑定 Runtime。当前实现和仍待验收的产品边界见 [HXA-196](../development/tasks/HXA-196.md)。
+
+| 工具 | 参数与行为 |
+| --- | --- |
+| `code.linux.job.start` | 复用 Linux 命令、输入及原 output；`leaseSeconds` 默认 300、最大 1800。返回 accepted 和 originalCallId，不代表执行成功。 |
+| `code.linux.job.status` | 仅 originalCallId；只查询可信当前会话的原 Job，不续租、不导入。 |
+| `code.linux.job.cancel` | 仅 originalCallId；幂等取消原 Job，终态仍需收取结算。 |
+| `code.linux.job.collect` | 仅 originalCallId；取得原终态与归档，按原 output 及当前授权导入、结算预算与占用。失败重试此入口，不重新启动命令。 |
+
+`collect` 与只读查询分开。其文件效果由宿主查询原绑定和持久 ToolCall 参数决定，不信任收取请求提供替代路径；新 DENY、原工具禁用及撤销的 scope 会阻止延后写入。成功导入回执持久化后，重复收取不覆盖后续用户修改。未知/orphan 仍需恢复审查，不能凭一次查询释放占用。旧同步 `bash`/`code.linux.run` 继续返回同步结果。
+
 ## 手动终端与多会话
 
 developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。

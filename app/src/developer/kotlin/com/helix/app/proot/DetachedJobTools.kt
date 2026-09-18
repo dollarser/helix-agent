@@ -20,6 +20,7 @@ internal object DetachedJobTools {
     const val START = "code.linux.job.start"
     const val STATUS = "code.linux.job.status"
     const val CANCEL = "code.linux.job.cancel"
+    const val COLLECT = "code.linux.job.collect"
     private val resultSchema = buildJsonObject { put("type", "object") }
 
     fun start(): ToolDescriptor {
@@ -88,6 +89,15 @@ internal object DetachedJobTools {
             timeout = 30.seconds,
             maxOutputBytes = 4_096,
             idempotency = Idempotency.IDEMPOTENT,
+        )
+
+    fun collect(): ToolDescriptor =
+        control(true).copy(
+            name = ToolName(COLLECT),
+            description =
+                "Collect this session's original terminal Job, import only its originally approved output target, " +
+                    "and settle it. Retry collection after an import failure; never restart the command.",
+            timeout = 120.seconds,
         )
 
     fun parsed(call: ExecutableToolCall): LinuxRunTool.ParsedResult {

@@ -46,16 +46,25 @@ internal object ProotToolModule {
     ): CommandBrowseFacts = CommandBrowseFacts(null, null, false)
 
     /** No-op seam: the consumer build ships no PRoot capability. */
-    @Suppress("UnusedParameter")
+    @Suppress("UnusedParameter", "LongParameterList")
     fun registerTools(
         context: Context,
         registry: ToolRegistry,
         implementations: ToolImplementationRegistry,
         workspaceStore: WorkspaceArtifactStore,
         storage: HelixStorage,
+        ownership: com.helix.tools.framework.ExecutionOwnership,
+        chat: () -> com.helix.app.chat.ChatService,
     ) {
         // No-op: the consumer build ships no PRoot capability.
     }
+
+    @Suppress("UnusedParameter")
+    fun originalDetachedOutput(
+        storage: HelixStorage,
+        sessionId: String,
+        callId: String,
+    ): String? = error("Detached Jobs are unavailable in this distribution")
 
     /** Unreachable in the consumer build (`AVAILABLE == false` guards all call sites). */
     @Suppress("FunctionOnlyReturningConstant")

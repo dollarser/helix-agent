@@ -3,5 +3,5 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 prefix="${1:?new evidence prefix}"
-bash scripts/debug/2026-09-19/run-detached-control-gates.sh "${prefix}-jobs" 31 5658
+bash scripts/debug/2026-09-19/run-detached-control-gates.sh "${prefix}-jobs" 32 5658
 bash scripts/debug/2026-09-19/run-linux-output-regression.sh "${prefix}-sync"

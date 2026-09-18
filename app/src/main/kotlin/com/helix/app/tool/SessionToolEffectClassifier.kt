@@ -13,6 +13,7 @@ import com.helix.tools.framework.ToolOrigin
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * The app's [ToolEffectClassifier] (HXA-209 B3, ADR-PERMISSIONS-001 section 2 step 4,
@@ -43,7 +44,10 @@ import kotlinx.serialization.json.JsonPrimitive
 class SessionToolEffectClassifier(
     /** The session's bound workspace scope id (`session.directoryRef ?: APP_SCOPE_ID`), or null. */
     private val sessionWorkspace: (sessionId: String) -> String?,
+    private val originalJobOutput: ((sessionId: String, callId: String) -> String?)?,
 ) : ToolEffectClassifier {
+    constructor(sessionWorkspace: (String) -> String?) : this(sessionWorkspace, null)
+
     private fun isBuiltInMetadata(descriptor: ToolDescriptor): Boolean =
         descriptor.origin == ToolOrigin.BuiltInOrigin && descriptor.operationClass == ToolOperationClass.METADATA
 
@@ -57,6 +61,10 @@ class SessionToolEffectClassifier(
                 linuxClassification(request.args)
             }
 
+            LINUX_JOB_COLLECT -> {
+                collectedOutput(request)
+            }
+
             LINUX_JOB_CANCEL, QUICKJS_RUN -> {
                 CallEffectClassification(
                     OperationFootprint(effects = setOf(OperationEffect.COMMAND_EXECUTION)),
@@ -64,46 +72,83 @@ class SessionToolEffectClassifier(
             }
 
             else -> {
-                when {
-                    descriptor.origin is ToolOrigin.McpOrigin || descriptor.origin is ToolOrigin.A2aOrigin -> {
-                        undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
-                    }
-
-                    name in FILE_READ_TOOLS -> {
-                        fileFootprint(name, request.args, request.sessionId, readTool = true)
-                    }
-
-                    name in FILE_MUTATION_TOOLS -> {
-                        fileFootprint(name, request.args, request.sessionId, readTool = false)
-                    }
-
-                    isBuiltInMetadata(descriptor) -> {
-                        // Closed session metadata is admitted by Policy, not device mutation.
-                        // The registry forbids external tools from claiming METADATA.
-                        CallEffectClassification(OperationFootprint())
-                    }
-
-                    descriptor.operationClass == ToolOperationClass.READ_ONLY -> {
-                        CallEffectClassification(OperationFootprint())
-                    }
-
-                    name.startsWith(BROWSER_PREFIX) -> {
-                        undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
-                    }
-
-                    name == HTTP_FETCH -> {
-                        CallEffectClassification(OperationFootprint())
-                    }
-
-                    descriptor.operationClass == ToolOperationClass.NETWORK -> {
-                        undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
-                    }
-
-                    else -> {
-                        undetermined(OperationEffect.DEVICE_SYSTEM_MUTATION)
-                    }
-                }
+                classifyOther(request, descriptor)
             }
+        }
+    }
+
+    private fun classifyOther(
+        request: ToolDispatchRequest,
+        descriptor: ToolDescriptor,
+    ): CallEffectClassification {
+        val name = descriptor.name.value
+        return when {
+            descriptor.origin is ToolOrigin.McpOrigin || descriptor.origin is ToolOrigin.A2aOrigin -> {
+                undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
+            }
+
+            name in FILE_READ_TOOLS -> {
+                fileFootprint(name, request.args, request.sessionId, readTool = true)
+            }
+
+            name in FILE_MUTATION_TOOLS -> {
+                fileFootprint(name, request.args, request.sessionId, readTool = false)
+            }
+
+            isBuiltInMetadata(descriptor) -> {
+                // Closed session metadata is admitted by Policy, not device mutation.
+                // The registry forbids external tools from claiming METADATA.
+                CallEffectClassification(OperationFootprint())
+            }
+
+            descriptor.operationClass == ToolOperationClass.READ_ONLY -> {
+                CallEffectClassification(OperationFootprint())
+            }
+
+            name.startsWith(BROWSER_PREFIX) -> {
+                undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
+            }
+
+            name == HTTP_FETCH -> {
+                CallEffectClassification(OperationFootprint())
+            }
+
+            descriptor.operationClass == ToolOperationClass.NETWORK -> {
+                undetermined(OperationEffect.REMOTE_BUSINESS_MUTATION)
+            }
+
+            else -> {
+                undetermined(OperationEffect.DEVICE_SYSTEM_MUTATION)
+            }
+        }
+    }
+
+    private fun collectedOutput(request: ToolDispatchRequest): CallEffectClassification {
+        val resolver = originalJobOutput
+        return if (resolver == null) {
+            CallEffectClassification(
+                OperationFootprint(
+                    undeterminedEffects =
+                        setOf(
+                            OperationEffect.FILE_MUTATION_WORKSPACE,
+                            OperationEffect.FILE_MUTATION_EXTERNAL,
+                        ),
+                ),
+            )
+        } else {
+            val callId =
+                request.args
+                    .getValue("originalCallId")
+                    .jsonPrimitive.content
+            val output = resolver(request.sessionId, callId)
+            val scope = output?.let { FileScopePath.fromModelReference(it).scopeId }
+            val effects =
+                when {
+                    scope == null -> emptySet()
+                    scope == sessionWorkspace(request.sessionId) -> setOf(OperationEffect.FILE_MUTATION_WORKSPACE)
+                    else -> setOf(OperationEffect.FILE_MUTATION_EXTERNAL)
+                }
+            CallEffectClassification(OperationFootprint(effects))
         }
     }
 
@@ -191,6 +236,7 @@ class SessionToolEffectClassifier(
         const val LINUX_RUN: String = "code.linux.run"
         const val LINUX_JOB_START: String = "code.linux.job.start"
         const val LINUX_JOB_CANCEL: String = "code.linux.job.cancel"
+        const val LINUX_JOB_COLLECT: String = "code.linux.job.collect"
 
         const val QUICKJS_RUN: String = "code.javascript.run"
 
