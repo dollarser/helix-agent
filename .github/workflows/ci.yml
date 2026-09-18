@@ -13,7 +13,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Verify source contracts
+        run: ./scripts/ci-run-gate.sh --source
+      - name: Check change-range whitespace
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            base="$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)"
+          elif [ -n "$PUSH_BEFORE" ] && git cat-file -e "$PUSH_BEFORE^{commit}" 2>/dev/null; then
+            base="$PUSH_BEFORE"
+          else
+            base="$(git hash-object -t tree /dev/null)"
+          fi
+          git diff --check "$base" HEAD
+      - name: Save source diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-source-${{ github.sha }}
+          retention-days: 1
+          if-no-files-found: ignore
+          path: build/ci/
+
   runtime-assets:
+    needs: source
     # Build the existing arm64 Docker/Alpine pipeline natively; no Docker daemon
     # is assumed on the macOS Android build runner. The content lock is unchanged.
     runs-on: ubuntu-24.04-arm
@@ -51,22 +85,19 @@ jobs:
             runtime/proot-app/src/main/assets/runtime/proot
             runtime/proot-app/src/main/assets/runtime/rootfs
 
-  verify:
+  android:
     needs: runtime-assets
     runs-on: macos-15
-    # Headroom for the per-module Debug/Release lint tasks (warningsAsErrors) on a cold runner.
+    # Two bounded shards overlap lint with tests/packaging. No gate is removed.
+    strategy:
+      fail-fast: false
+      matrix:
+        gate: [analysis, tests-build]
     timeout-minutes: 60
 
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          # Full history so the whitespace check below can diff the actual change range
-          # (merge base on PRs, HEAD~1 on pushes) instead of an always-clean worktree.
-          fetch-depth: 0
-
-      - name: Validate Gradle Wrapper
-        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0 (node24)
 
       - name: Configure JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -102,9 +133,6 @@ jobs:
           fi
           rg --version
 
-      - name: Verify source contracts
-        run: ./scripts/check-all.sh --source
-
       - name: Receive locked runtime inputs from this workflow
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -114,10 +142,11 @@ jobs:
       - name: Verify runtime inputs before building APKs
         run: ./gradlew :app:verifyDeveloperRuntimeAssets
 
-      - name: Verify tests, lint, locks and debug/release builds
-        run: ./scripts/check-all.sh --build
+      - name: Run ${{ matrix.gate }} gate
+        run: ./scripts/ci-run-gate.sh --${{ matrix.gate }}
 
       - name: Upload debug APKs
+        if: matrix.gate == 'tests-build'
         # Debug-signed build artifacts for installation (development use, not for
         # distribution). retention-days: 1 keeps storage in the free 2 GB tier
         # across routine runs. Uploaded right after the
@@ -134,6 +163,7 @@ jobs:
             app/build/outputs/apk/developer/debug/app-developer-debug.apk
 
       - name: Describe debug APK roles
+        if: matrix.gate == 'tests-build'
         run: |
           printf '%s\n' \
             '## Debug APK artifact roles' \
@@ -148,15 +178,36 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
 
       - name: Verify APK boundaries
-        run: ./scripts/check-all.sh --artifacts
+        if: matrix.gate == 'tests-build'
+        run: ./scripts/ci-run-gate.sh --artifacts
 
-      - name: Check whitespace
-        # `git diff --check` on a fresh checkout inspects an always-empty worktree diff and
-        # can never fail; check the actual change range instead (merge base on PRs,
-        # the last commit on pushes).
+      - name: Save gate diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-${{ matrix.gate }}-${{ github.sha }}
+          retention-days: 1
+          if-no-files-found: ignore
+          path: |
+            build/ci/
+            **/build/test-results/**/*.xml
+            **/build/reports/lint-results*.xml
+            build/reports/detekt/
+
+  # Keep the existing required check name. Skips, cancellation and either failed
+  # shard must fail the aggregate instead of leaving a misleading green result.
+  verify:
+    if: always()
+    needs: [source, runtime-assets, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every gate
+        env:
+          SOURCE_RESULT: ${{ needs.source.result }}
+          ASSETS_RESULT: ${{ needs.runtime-assets.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
         run: |
-          if [ -n "$GITHUB_BASE_REF" ] && git rev-parse --verify "origin/$GITHUB_BASE_REF" >/dev/null 2>&1; then
-            git diff --check "$(git merge-base "origin/$GITHUB_BASE_REF" HEAD)" HEAD
-          else
-            git diff --check HEAD~1 HEAD
-          fi
+          test "$SOURCE_RESULT" = success
+          test "$ASSETS_RESULT" = success
+          test "$ANDROID_RESULT" = success

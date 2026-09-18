@@ -22,6 +22,8 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Next task
 
+远端 CI 收尾已完成：main `3f5039e4` 的 [35312238290](https://github.com/dollarser/helix-agent/actions/runs/35312238290) 全绿。后续 CI 并行与诊断优化见[记录](../evidence/development/ci-parallel-gates-2026-09-18.md)，优化分支的验证与 main 基线分开记账。
+
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 
 CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的两个远端任务全绿，合并提交 `03617128` 内容一致。批次 B 已同步此基线。HXA-193 选定旧/新 debug APK 的覆盖升级已补验，默认资产准备已收尾；显式旧包重建的供应边界仍保留，见[CI证据](../evidence/development/ci-runtime-assets-2026-09-17.md)与[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)。
@@ -70,4 +72,4 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
 - **外部依赖边界**：默认门禁不依赖真实业务服务、账号或付费调用；显式 profile 的缺参跳过不算通过，启用后失败如实记录。构建下载、本地测试服务器与外部 smoke 的边界统一见[公共验收规则](verification-matrix.md)。
 
-本轮整合：Codex的193/195与Claude Code的204/205合入本地main；未推送或发布。完整主机门禁通过，合并后设备矩阵102通过、2条件跳过、0失败，见[合并验证记录](../evidence/development/merged-193-195-204-205-2026-09-18.md)。分支原有证据与本次合并后验证分开记录；Claude工作区未提交脚本原样保留。
+本轮整合：Codex的193/195与Claude Code的204/205已合入并推送 main，远端 CI 全绿，未发布。完整主机门禁通过，合并后设备矩阵102通过、2条件跳过、0失败，见[合并验证记录](../evidence/development/merged-193-195-204-205-2026-09-18.md)及后续[远端收尾](../evidence/development/ci-parallel-gates-2026-09-18.md)。分支原有证据与本次合并后验证分开记录；Claude工作区未提交脚本原样保留。
