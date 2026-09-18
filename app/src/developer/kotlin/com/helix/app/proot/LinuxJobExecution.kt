@@ -4,10 +4,7 @@ import com.helix.app.proot.LinuxRunTool.LinuxExecutor
 import com.helix.app.proot.LinuxRunTool.MAX_IMPORT_BYTES
 import com.helix.app.proot.LinuxRunTool.ParsedLinuxCall
 import com.helix.app.proot.LinuxRunTool.failed
-import com.helix.app.proot.LinuxRunTool.sha256Hex
-import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
-import com.helix.core.workspace.WorkspaceLayout
 import com.helix.runtime.proot.client.ProotEnvScreen
 import com.helix.runtime.proot.client.ProotJobClient
 import com.helix.runtime.proot.core.JobArchiveException
@@ -355,14 +352,14 @@ internal class LinuxJobExecution(
         var outputImported = false
         var outputSha = ""
         call.outputReference?.let { reference ->
-            val imported = importResult(extraction, expectedManifestSha, scratch)
+            val imported = LinuxOutputImport.read(extraction, expectedManifestSha, File(scratch, "extracted"))
             if (imported == null) {
                 // The job SUCCEEDED but wrote no `result.txt` (or the result exceeded
                 // the import cap): the streams are still reported; the import simply
                 // did not happen. A missing file is a finding, not a failure.
             } else {
                 try {
-                    importInto(reference, imported)
+                    LinuxOutputImport.write(store, reference, imported)
                 } catch (e: IllegalArgumentException) {
                     return failed(
                         "the result could not be imported into the Workspace: ${e.message?.take(120)}",
@@ -393,59 +390,6 @@ internal class LinuxJobExecution(
                     put("deadlineMs", JsonPrimitive(call.deadlineEpochMs))
                 },
         )
-    }
-
-    /**
-     * Imports the verified result file into the Workspace: the region is the file's OWN
-     * region (the store enforces containment); the model may point at work/ or output/ —
-     * the Runtime never writes anywhere, only the verified result file is imported,
-     * through the store.
-     */
-    private fun importInto(
-        reference: String,
-        imported: Pair<ByteArray, String>,
-    ) {
-        val path =
-            try {
-                FileScopePath.fromModelReference(reference)
-            } catch (e: IllegalArgumentException) {
-                throw IllegalArgumentException(
-                    "invalid `output` reference: ${e.message?.take(120)}",
-                    e,
-                )
-            }
-        val region =
-            path.relativePath
-                .split('/')
-                .firstOrNull()
-                ?.takeIf { it in WorkspaceLayout.regions }
-                ?: throw IllegalArgumentException("no region for ${path.relativePath}")
-        store.writeArtifact(path, imported.first, region)
-    }
-
-    /**
-     * Imports the verified `result.txt`: present in the extraction, size-capped, and its
-     * hash equal to the manifest entry's hash (the manifest itself was hash-verified
-     * against the terminal record). Returns (bytes, sha) or null.
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException", "ReturnCount")
-    private fun importResult(
-        extraction: ZipJobExtractor.Extraction,
-        expectedManifestSha: String,
-        scratch: File,
-    ): Pair<ByteArray, String>? {
-        val extractedDir = File(scratch, "extracted")
-        val file = File(extractedDir, "result.txt")
-        if (!file.isFile) return null
-        if (file.length() > MAX_IMPORT_BYTES) return null
-        val bytes = Files.readAllBytes(file.toPath())
-        val sha = sha256Hex(bytes)
-        // Defense in depth on top of the whole-manifest hash check already performed:
-        // the extracted manifest's own entry for result.txt must match the bytes.
-        if (extraction.manifestSha256 != expectedManifestSha) return null
-        val entry = extraction.manifest.entries.firstOrNull { it.path == "result.txt" } ?: return null
-        if (entry.sha256 != sha || entry.size != bytes.size.toLong()) return null
-        return bytes to sha
     }
 
     /**

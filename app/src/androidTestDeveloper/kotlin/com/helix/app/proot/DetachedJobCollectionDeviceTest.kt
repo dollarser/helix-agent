@@ -4,8 +4,16 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.core.app.ApplicationProvider
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
+import com.helix.app.approval.SessionPermissionService
 import com.helix.core.model.ExecutionTargetType
+import com.helix.core.model.OperationEffect
+import com.helix.core.model.OperationRule
+import com.helix.core.model.SessionPermissionMode
+import com.helix.core.model.ToolAvailabilityScope
+import com.helix.core.model.ToolAvailabilityState
+import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.runtime.proot.ipc.ProotJobState
 import com.helix.tools.framework.ExecutableToolCall
@@ -107,6 +115,51 @@ class DetachedJobCollectionDeviceTest {
         }
     }
 
+    @Test fun realOutputImportHonorsNewDenialAndRetriesTheOriginalTarget() {
+        ensureInstalledRuntime(context)
+        Fixture(context, output = "scope:app:output/original.txt").use { f ->
+            finish(f)
+            f.storage.sessionPermissionConfigs.setForSession(
+                f.job.binding.sessionId,
+                SessionPermissionConfig.custom(mapOf(OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.DENY)),
+                1,
+            )
+            val executor = f.outputCollector()
+            assertThrows(IllegalStateException::class.java) { executor.execute(f.call) }
+            assertTrue(!f.outputFile.exists())
+            assertEquals(f.owner, f.ownership.retainedOwner())
+            f.storage.sessionPermissionConfigs.setForSession(
+                f.job.binding.sessionId,
+                SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+                2,
+            )
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+            assertEquals("collection-proof", f.outputFile.readText())
+            assertNull(f.ownership.retainedOwner())
+            f.outputFile.writeText("later user edit")
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+            assertEquals("later user edit", f.outputFile.readText())
+        }
+    }
+
+    @Test fun disabledOriginalToolCannotApplyDeferredOutput() {
+        ensureInstalledRuntime(context)
+        Fixture(context, output = "scope:app:output/original.txt").use { f ->
+            finish(f)
+            f.storage.toolAvailability.set(
+                DetachedJobTools.start().origin.canonicalOf(),
+                DetachedJobTools.START,
+                ToolAvailabilityScope.SESSION,
+                f.job.binding.sessionId,
+                ToolAvailabilityState.DISABLED,
+                1,
+            )
+            assertThrows(IllegalStateException::class.java) { f.outputCollector().execute(f.call) }
+            assertTrue(!f.outputFile.exists())
+            assertEquals(f.owner, f.ownership.retainedOwner())
+        }
+    }
+
     private fun finish(
         f: Fixture,
         expected: ProotJobState = ProotJobState.SUCCEEDED,
@@ -125,6 +178,7 @@ class DetachedJobCollectionDeviceTest {
     private class Fixture(
         private val context: HelixApplication,
         script: String = "printf collection-proof > result.txt",
+        output: String? = null,
     ) : AutoCloseable {
         val job = DetachedJobFixture(context, script)
         private val name = "bound-control-${UUID.randomUUID()}"
@@ -170,7 +224,7 @@ class DetachedJobCollectionDeviceTest {
                 binding.toolCallId,
                 DetachedJobTools.START,
                 "1",
-                "{}",
+                buildJsonObject { if (output != null) put("output", output) }.toString(),
                 "RUNNING",
             )
             ProotJobBindingStore(storage).recordDetached(
@@ -188,6 +242,19 @@ class DetachedJobCollectionDeviceTest {
                 job.spec,
             )
             requireNotNull(ownership.acquire("launch")).use { check(it.retain(owner)) }
+        }
+
+        val outputFile get() = File(root, "workspace/output/original.txt")
+
+        fun outputCollector(): com.helix.tools.framework.ToolExecutor {
+            val workspace = WorkspaceArtifactStore({ File(root, "workspace").toPath() })
+            File(root, "workspace").mkdirs()
+            workspace.ensureLayout("app")
+            val permissions =
+                SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability) { "app" }
+            val output = DetachedJobOutput(storage, workspace, permissions, { "app" }, File(root, "import"))
+            val collector = DetachedJobCollection(context, storage, ownership, output::apply, { _, _ -> })
+            return ownership.guard(collector.executor())
         }
 
         override fun close() {

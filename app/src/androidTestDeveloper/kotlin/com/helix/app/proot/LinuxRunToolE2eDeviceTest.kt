@@ -172,6 +172,8 @@ class LinuxRunToolE2eDeviceTest {
             val call =
                 ExecutableToolCall(
                     toolCallId = "tc-linux-e2e-" + nextId(),
+                    sessionId = "session",
+                    turnId = "turn",
                     toolName = LinuxRunTool.NAME,
                     toolVersion = "1",
                     args = args,
@@ -349,6 +351,7 @@ class LinuxRunToolE2eDeviceTest {
                     var jobId: String? = null
                     var damaged = false
                     var submits = 0
+                    val observer = ProotJobClient(ProotRuntimeSupervisor(context))
                     val executor =
                         productionExecutor(
                             e2eWorkspaceStore(),
@@ -362,6 +365,8 @@ class LinuxRunToolE2eDeviceTest {
                     val call =
                         ExecutableToolCall(
                             toolCallId = "tc-output-failure-" + nextId(),
+                            sessionId = "session",
+                            turnId = "turn",
                             toolName = LinuxRunTool.NAME,
                             toolVersion = "1",
                             args =
@@ -382,9 +387,11 @@ class LinuxRunToolE2eDeviceTest {
                                 object : CancelSignal {
                                     override fun isCancelled(): Boolean {
                                         val id = jobId
-                                        if (id != null && !damaged) {
+                                        if (id != null && !damaged &&
+                                            observer.query(id) is ProotJobClient.JobStateOutcome.Ok
+                                        ) {
                                             assertTrue(
-                                                jobClient.awaitTerminal(id, timeoutMs = 60_000L) is
+                                                observer.awaitTerminal(id, timeoutMs = 60_000L) is
                                                     ProotJobClient.AwaitOutcome.Terminal,
                                             )
                                             val output = scratch.last().walkTopDown().single { it.name == "output.zip" }

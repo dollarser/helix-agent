@@ -42,7 +42,7 @@ internal class NormalProotResultFixture(
         spec: ProotJobSpec,
     ) {
         storage.toolCalls.append("stored", "turn", call.toolCallId, "code.linux.run", "1", "{}", "RUNNING")
-        ProotJobBindingStore(storage).record(call.copy(turnId = "turn"), spec)
+        ProotJobBindingStore(storage).record(call, spec)
     }
 
     fun persist(

@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../../.."
 prefix="${1:?new evidence prefix}"
-expected="${2:-29}"
+expected="${2:-31}"
 port="${3:-5674}"
 ./scripts/check-all.sh --all
 ./gradlew :app:assembleDeveloperDebugAndroidTest
