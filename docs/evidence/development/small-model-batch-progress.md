@@ -12,8 +12,8 @@
 
 | 工作包 | 内容概要 | 状态 | 交付提交 SHA | 验证结果 |
 | :--- | :--- | :--- | :--- | :--- |
-| **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | 待提交 | 12/12 单元测试通过，CLI 验证通过 |
-| **B** | HXA-199 证据汇总与报告准备 | **NOT_STARTED** | - | - |
+| **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | `3e3c6040` | 12/12 单元测试通过，CLI 验证通过 |
+| **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | 待提交 | 8/8 单元测试通过，CLI 验证通过 |
 | **C** | 过期交接文档收敛、用户帮助草稿 | **NOT_STARTED** | - | - |
 | **D** | HXA-198 UI 设计、状态/操作表、测试映射 | **NOT_STARTED** | - | - |
 
@@ -34,3 +34,19 @@
   - `python3 scripts/verify-product-journeys.py --manifest scripts/fixtures/acceptance/valid_fixture_manifest.json --output build/test_206_out` -> Exit Code 0, 生成 `report.json` 与 `report.md`
 - **边界说明**：
   - 仅包含 HXA-206 场景映射、校验脚本与测试夹具；不包含真实 Android 设备测试执行，不标记 HXA-206 整体完成。
+
+---
+
+## 工作包 B 执行详情
+
+- **文件修改与新增**：
+  - 新增 `scripts/verify-terminal-runtime.py`（终端专项场景与压力边界验证脚本）
+  - 新增 `scripts/fixtures/acceptance/valid_terminal_fixture_manifest.json`（终端夹具）
+  - 新增 `scripts/tests/test_terminal_reports.py`（8 项单元测试）
+  - 新增 `docs/evidence/development/hxa-199-preparation.md`（终端证据与长稳边界契约文档）
+- **验证命令与结果**：
+  - `python3 scripts/verify-terminal-runtime.py --help` -> Exit Code 0
+  - `python3 -m unittest discover -s scripts/tests -p 'test_terminal_reports.py'` -> 8 tests passed, Exit Code 0
+  - `python3 scripts/verify-terminal-runtime.py --manifest scripts/fixtures/acceptance/valid_terminal_fixture_manifest.json --output build/test_199_out` -> Exit Code 0, 生成 `report.json` 与 `report.md`
+- **边界说明**：
+  - 双会话场景标记为 `WAITING_CORE`，保持 `INCOMPLETE` 报告状态；5 项硬件与长稳压力测试显式列为待验；不触发两小时长任务，不关闭 HXA-199 整体验收。

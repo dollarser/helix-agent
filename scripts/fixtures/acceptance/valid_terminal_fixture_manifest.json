@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "scope": "HXA-199",
+  "commit_sha": "d5645774ded2dd0af453987f760ea886aca493dc",
+  "mode": "fixture",
+  "api": 36,
+  "flavor": "developer",
+  "device_lifecycle": {
+    "owner_pid": 12346,
+    "closed": true,
+    "details": {
+      "runner": "synthetic_terminal_fixture_runner"
+    }
+  },
+  "counts": {
+    "expected": 13,
+    "executed": 13,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 6
+  },
+  "scenes": [
+    {
+      "scene_id": "realtime_logs_and_stop",
+      "test_class": "com.helix.app.proot.ProotLogStreamDeviceTest",
+      "test_method": "logStreamDeliversBoundedChunksAndHonorsCancel",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/log_stream.json",
+      "metrics": {
+        "first_packet_ms": 120,
+        "cancel_delay_ms": 45
+      }
+    },
+    {
+      "scene_id": "background_reclaim",
+      "test_class": "com.helix.app.proot.ProotDetachedJobDeviceTest",
+      "test_method": "budgetTightensLeaseAndTerminatesTheProcess",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/reclaim.json",
+      "metrics": {
+        "lease_duration_ms": 3000
+      }
+    },
+    {
+      "scene_id": "single_terminal_repl",
+      "test_class": "com.helix.app.proot.TerminalHostJourneyDeviceTest",
+      "test_method": "prepareOrdinaryProcessJourney",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/single_terminal.json",
+      "metrics": {
+        "cold_start_ms": 350
+      }
+    },
+    {
+      "scene_id": "dual_session_pty",
+      "test_class": "com.helix.app.proot.ProotMultiSessionDeviceTest",
+      "test_method": "plannedDualSessionPty",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/dual_session.json",
+      "skip_reason": "WAITING_CORE: HXA-198 dual-session core not yet delivered"
+    },
+    {
+      "scene_id": "page_switch_reconnect",
+      "test_class": "com.helix.app.proot.ProotTerminalUiDeviceTest",
+      "test_method": "pageSwitchReconnectPreservesSession",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/reconnect.json",
+      "metrics": {
+        "reconnect_ms": 80
+      }
+    },
+    {
+      "scene_id": "process_death_reconciliation",
+      "test_class": "com.helix.app.proot.ProotOwnerProcessKillDeviceTest",
+      "test_method": "processDeathReconcilesWithoutReplay",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/process_death.json",
+      "metrics": {
+        "reconciled": true
+      }
+    },
+    {
+      "scene_id": "legacy_data_upgrade",
+      "test_class": "com.helix.app.proot.ApkReplacementUpgradeDeviceTest",
+      "test_method": "apkReplacementPreservesStoredResults",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/upgrade.json",
+      "metrics": {
+        "retained": true
+      }
+    },
+    {
+      "scene_id": "consumer_exclusion",
+      "test_class": "com.helix.app.proot.IntegratedRuntimeDeviceTest",
+      "test_method": "consumerExcludesProotAndCli",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/consumer.json",
+      "metrics": {
+        "excluded": true
+      }
+    },
+    {
+      "scene_id": "detach_idle_30m",
+      "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+      "test_method": "detachIdle30m",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/stress_detach.json",
+      "skip_reason": "Pending dedicated 30-minute idle physical run"
+    },
+    {
+      "scene_id": "full_lease_2h",
+      "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+      "test_method": "fullLease2h",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/stress_lease.json",
+      "skip_reason": "Pending dedicated 2-hour lease physical run"
+    },
+    {
+      "scene_id": "runtime_lease_expiration",
+      "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+      "test_method": "runtimeLeaseExpiration",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/stress_expire.json",
+      "skip_reason": "Pending long-running expiration physical run"
+    },
+    {
+      "scene_id": "oem_doze_thermal_pressure",
+      "test_class": "com.helix.app.runcontrol.ResourcePressureDeviceTest",
+      "test_method": "oemDozeThermalPressure",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/stress_thermal.json",
+      "skip_reason": "Pending physical OEM hardware test"
+    },
+    {
+      "scene_id": "real_16k_pagesize",
+      "test_class": "com.helix.app.proot.IntegratedRuntimeDeviceTest",
+      "test_method": "real16kPageSize",
+      "status": "skipped",
+      "source_ref": "evidence/synthetic/stress_16k.json",
+      "skip_reason": "Pending physical 16 KiB page-size device"
+    }
+  ]
+}
