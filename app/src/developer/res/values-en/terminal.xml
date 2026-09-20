@@ -15,4 +15,8 @@
     <string name="terminal_output_failed">Output connection failed. Leave and reconnect to the original session.</string>
     <string name="terminal_output_gap">Older output was discarded. The display restarted from retained content.</string>
     <string name="terminal_directory">Starting directory: Workspace / %1$s</string>
+    <string name="terminal_tab_title">Terminal %1$d</string>
+    <string name="terminal_new_tab">New terminal</string>
+    <string name="terminal_capacity_full">Maximum 2 terminal sessions reached</string>
+    <string name="terminal_observer_mode">Current connection is in read-only observer mode</string>
 </resources>

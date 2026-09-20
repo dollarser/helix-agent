@@ -61,6 +61,62 @@ internal fun ManualTerminalScreen(
                         ),
                 ) { Text(stringResource(R.string.terminal_keyboard)) }
             }
+            if (state.sessions.isNotEmpty()) {
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
+                    state.sessions.forEachIndexed { index, sess ->
+                        val active = sess.sessionId == state.activeSessionId
+                        TextButton(
+                            onClick = { model.switchSession(sess.sessionId) },
+                            modifier = Modifier.testTag("terminal-tab-$index"),
+                        ) {
+                            Text(
+                                text = "${stringResource(R.string.terminal_tab_title, index + 1)} [${sess.phase}]",
+                                style =
+                                    if (active) {
+                                        MaterialTheme.typography.titleSmall
+                                    } else {
+                                        MaterialTheme.typography.bodyMedium
+                                    },
+                                color =
+                                    if (active) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
+                            )
+                        }
+                    }
+                    if (state.sessions.size < 2) {
+                        TextButton(
+                            onClick = { model.open(directoryToStart = directory) },
+                            enabled = !state.busy,
+                            modifier = Modifier.testTag("terminal-new-session"),
+                        ) {
+                            Text(stringResource(R.string.terminal_new_tab))
+                        }
+                    }
+                }
+            }
+            if (state.errorMessage != null) {
+                Text(
+                    text =
+                        if (state.errorMessage == "CAPACITY_FULL") {
+                            stringResource(R.string.terminal_capacity_full)
+                        } else {
+                            state.errorMessage.orEmpty()
+                        },
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("terminal-capacity-error").padding(horizontal = 8.dp),
+                )
+            }
+            if (!state.isWriter && state.connection != null) {
+                Text(
+                    text = stringResource(R.string.terminal_observer_mode),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.testTag("terminal-observer-banner").padding(horizontal = 8.dp),
+                )
+            }
             Text(stringResource(R.string.terminal_title), style = MaterialTheme.typography.titleMedium)
             val initialDirectory =
                 state.session
@@ -134,10 +190,16 @@ internal fun ManualTerminalScreen(
             }
             val connection = state.connection
             if (connection != null) {
-                ManualTerminalViewport(connection, keyboard, Modifier.weight(1f), onEnded = { model.refresh() })
+                ManualTerminalViewport(
+                    connection,
+                    keyboard && state.isWriter,
+                    Modifier.weight(1f),
+                    onEnded = { model.refresh() },
+                )
             } else {
                 Text(stringResource(R.string.terminal_detached), Modifier.padding(8.dp))
             }
+
         }
     }
     if (licenses) TerminalLicenses { licenses = false }

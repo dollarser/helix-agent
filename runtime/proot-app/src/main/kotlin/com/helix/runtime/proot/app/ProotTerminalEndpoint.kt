@@ -14,7 +14,7 @@ internal class ProotTerminalEndpoint(
     private val host: ProotTerminalHost,
 ) : Binder() {
     private val connections = ProotJobOwners()
-    private var connectedKey: PtySessionKey? = null
+    private val connectionSessions = mutableMapOf<String, String>()
 
     @Suppress("TooGenericExceptionCaught")
     override fun onTransact(
@@ -93,7 +93,15 @@ internal class ProotTerminalEndpoint(
         val record =
             when (code) {
                 Wire.STOP -> host.stop(key)
-                Wire.ACK -> host.acknowledge(key).also { if (connectedKey == key) connections.close() }
+                Wire.ACK -> {
+                    val ack = host.acknowledge(key)
+                    val tokensForSession = connectionSessions.filterValues { it == key.sessionId }.keys.toList()
+                    for (t in tokensForSession) {
+                        connections.release(t)
+                        connectionSessions.remove(t)
+                    }
+                    ack
+                }
                 else -> host.query(key)
             }
         return PtySessionReply(record, outcome = if (record == null) "NOT_FOUND" else "OK")
@@ -108,10 +116,13 @@ internal class ProotTerminalEndpoint(
         val live = host.live(key)
         val token = live.attach()
         if (token != null) {
-            connectedKey = key
-            host.activity(attached = true)
+            connectionSessions[token] = key.sessionId
+            host.activity(key.sessionId, attached = true)
             connections.watch(token, owner) {
-                synchronized(host) { if (live.detach(token)) host.activity(attached = false) }
+                synchronized(host) {
+                    connectionSessions.remove(token)
+                    if (live.detach(token)) host.activity(key.sessionId, attached = false)
+                }
             }
         }
         return PtySessionReply(live.record, token, outcome = if (token == null) "WRITER_BUSY" else "OK")
@@ -124,8 +135,9 @@ internal class ProotTerminalEndpoint(
         val token = token(data)
         empty(data)
         val live = host.live(key)
+        connectionSessions.remove(token)
         val removed = live.detach(token)
-        if (removed) host.activity(attached = false)
+        if (removed) host.activity(key.sessionId, attached = false)
         connections.release(token)
         return PtySessionReply(live.record, outcome = if (removed) "OK" else "DETACHED")
     }
@@ -139,9 +151,10 @@ internal class ProotTerminalEndpoint(
         empty(data)
         val live = host.live(key)
         val admission = live.write(token, bytes)
-        if (admission == PtyInputConnection.Admission.ACCEPTED) host.activity()
+        if (admission == PtyInputConnection.Admission.ACCEPTED) host.activity(key.sessionId)
         return PtySessionReply(live.record, outcome = admission.name)
     }
+
 
     private fun resize(
         key: PtySessionKey,

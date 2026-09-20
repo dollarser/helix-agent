@@ -15,4 +15,8 @@
     <string name="terminal_output_failed">输出连接中断。请离开并重新连接原会话。</string>
     <string name="terminal_output_gap">部分旧输出已丢弃，显示从保留内容重新开始。</string>
     <string name="terminal_directory">起始目录：Workspace / %1$s</string>
+    <string name="terminal_tab_title">终端 %1$d</string>
+    <string name="terminal_new_tab">新建终端</string>
+    <string name="terminal_capacity_full">已达到最大并发终端数（最多 2 个）</string>
+    <string name="terminal_observer_mode">当前连接为只读观察模式</string>
 </resources>

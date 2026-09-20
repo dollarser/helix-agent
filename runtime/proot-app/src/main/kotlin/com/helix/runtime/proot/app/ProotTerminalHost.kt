@@ -12,15 +12,15 @@ import com.helix.runtime.proot.ipc.PtySessionReply
 import java.io.File
 import java.util.UUID
 
-/** One live manual execution in the private Runtime; observation cannot create a shell. */
+/** Up to two live manual executions in the private Runtime; observation cannot create a shell. */
 internal class ProotTerminalHost(
     private val context: Context,
 ) {
     private val generation = UUID.randomUUID().toString()
     private val store = PtySessionStore(File(context.filesDir, "terminal-sessions"))
     private val runner = ProotJobRunner.get(context)
-    private var current: ProotPtySession? = null
-    private var attached = false
+    private val sessions = mutableMapOf<String, ProotPtySession>()
+    private val attachedSessions = mutableSetOf<String>()
     private var lastActivity = SystemClock.elapsedRealtime()
 
     @Synchronized
@@ -39,9 +39,15 @@ internal class ProotTerminalHost(
             return PtySessionReply(query(key), outcome = "DUPLICATE")
         }
         val records = store.records()
-        if (current != null || records.any { !it.reconciled }) return PtySessionReply(null, outcome = "START_REFUSED")
+        val activeRecords = records.filter { !it.reconciled }
+        if (sessions.size >= MAX_SESSIONS || activeRecords.size >= MAX_SESSIONS) {
+            return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
+        }
         if (records.size >= PtySessionStore.MAX_ENTRIES) {
-            check(store.removeReconciled(records.minBy { it.origin.createdAtEpochMs }))
+            val toRemove = records.filter { it.reconciled }.minByOrNull { it.origin.createdAtEpochMs }
+            if (toRemove != null) {
+                check(store.removeReconciled(toRemove))
+            }
         }
         val launch =
             try {
@@ -73,8 +79,8 @@ internal class ProotTerminalHost(
                 runner.releaseDetached(reservation(key))
                 throw failure
             }
-        current = session
-        attached = false
+        sessions[key.sessionId] = session
+        attachedSessions.add(key.sessionId)
         lastActivity = now
         // A failed foreground promotion is settled by the live worker without calling the launcher.
         val promoted =
@@ -90,7 +96,7 @@ internal class ProotTerminalHost(
 
     @Synchronized
     fun query(key: PtySessionKey): PtySessionRecord? {
-        val live = current?.takeIf { key.matches(it.record) }
+        val live = sessions[key.sessionId]?.takeIf { key.matches(it.record) }
         if (live != null) return live.record
         return store.read(key.sessionId)?.let { old ->
             require(key.matches(old))
@@ -107,17 +113,23 @@ internal class ProotTerminalHost(
     }
 
     @Synchronized
-    fun live(key: PtySessionKey): ProotPtySession = checkNotNull(current?.takeIf { key.matches(it.record) })
+    fun live(key: PtySessionKey): ProotPtySession =
+        checkNotNull(sessions[key.sessionId]?.takeIf { key.matches(it.record) })
 
     @Synchronized
-    fun activity(attached: Boolean? = null) {
-        if (attached != null) this.attached = attached
+    fun activity(
+        sessionId: String? = null,
+        attached: Boolean? = null,
+    ) {
+        if (sessionId != null && attached != null) {
+            if (attached) attachedSessions.add(sessionId) else attachedSessions.remove(sessionId)
+        }
         lastActivity = SystemClock.elapsedRealtime()
     }
 
     @Synchronized
     fun stop(key: PtySessionKey): PtySessionRecord? {
-        current?.takeIf { key.matches(it.record) }?.stop(PtySessionRecord.StopReason.USER)
+        sessions[key.sessionId]?.takeIf { key.matches(it.record) }?.stop(PtySessionRecord.StopReason.USER)
         return query(key)
     }
 
@@ -127,7 +139,10 @@ internal class ProotTerminalHost(
         check(record.stopProof != null)
         val acknowledged = record.acknowledge()
         if (record != acknowledged) check(store.compareAndSet(record, acknowledged))
-        if (current?.record?.origin == record.origin) current = null
+        if (sessions[key.sessionId]?.record?.origin == record.origin) {
+            sessions.remove(key.sessionId)
+            attachedSessions.remove(key.sessionId)
+        }
         runner.releaseDetached(reservation(key))
         // Retain the acknowledgement so a lost reply cannot turn an idempotent ACK into NOT_FOUND.
         return acknowledged
@@ -135,32 +150,37 @@ internal class ProotTerminalHost(
 
     @Synchronized
     fun tick(): Boolean {
-        val session = current ?: return false
-        return when {
-            session.record.stopProof != null -> {
-                val origin = session.record.origin
-                runner.releaseDetached(
-                    reservation(PtySessionKey(origin.sessionId, origin.generation, origin.executionId)),
-                )
-                false
-            }
-
-            session.record.phase == PtySessionRecord.Phase.UNKNOWN -> {
-                false
-            }
-
-            else -> {
-                if (!attached && SystemClock.elapsedRealtime() - lastActivity >= PtySessionProtocol.IDLE_MS) {
-                    session.stop(PtySessionRecord.StopReason.IDLE)
+        if (sessions.isEmpty()) return false
+        var anyActive = false
+        val now = SystemClock.elapsedRealtime()
+        for ((id, session) in sessions.toList()) {
+            when {
+                session.record.stopProof != null -> {
+                    val origin = session.record.origin
+                    runner.releaseDetached(
+                        reservation(PtySessionKey(origin.sessionId, origin.generation, origin.executionId)),
+                    )
                 }
-                true
+
+                session.record.phase == PtySessionRecord.Phase.UNKNOWN -> {
+                    // Not counted as active, does not prevent teardown
+                }
+
+                else -> {
+                    if (!attachedSessions.contains(id) && now - lastActivity >= PtySessionProtocol.IDLE_MS) {
+                        session.stop(PtySessionRecord.StopReason.IDLE)
+                    } else {
+                        anyActive = true
+                    }
+                }
             }
         }
+        return anyActive
     }
 
     @Synchronized
     fun destroy() {
-        current?.stop(PtySessionRecord.StopReason.USER)
+        sessions.values.forEach { it.stop(PtySessionRecord.StopReason.USER) }
     }
 
     private fun bootCount(): Int? =
@@ -170,4 +190,8 @@ internal class ProotTerminalHost(
         }
 
     private fun reservation(key: PtySessionKey): String = "pty-${key.sessionId}"
+
+    companion object {
+        const val MAX_SESSIONS = 2
+    }
 }

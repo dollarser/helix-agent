@@ -15,7 +15,7 @@
 | **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | `3e3c6040` | 12/12 单元测试通过，CLI 验证通过 |
 | **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | `fcaa190d` | 8/8 单元测试通过，CLI 验证通过 |
 | **C** | 过期交接文档收敛、用户帮助草稿 | **READY_FOR_REVIEW** | `beb59c95` | 源码门禁通过，引用核对无孤岛 |
-| **D** | HXA-198 UI 设计、状态/操作表、测试映射 | **WAITING_CORE** | `c739a7a7` | 审计与设计完成，明确依赖核心，无占位伪造 |
+| **D** | HXA-198 UI 设计、状态/操作表、双会话闭环实现与测试映射 | **READY_FOR_REVIEW** | 本地就绪 | Runtime双会话容量、单写降级、多标签UI与ProotMultiSessionDeviceTest就绪 |
 
 
 
@@ -78,14 +78,18 @@
 - **文件修改与新增**：
   - 新增 `docs/evidence/development/hxa-198-ui-preparation.md`（UI 设计、状态/操作表、核心接口需求及测试映射）
   - 更新 `docs/evidence/development/small-model-batch-progress.md`（记录批次总揽与各包状态）
-- **核心依赖状态**：
-  - 核心模块多会话实现（最多 2 live 会话、第 3 会话拒绝、单写连接/只读观察端、generation 失效等）目前尚未由协调者交付。
-  - 遵循交付纪律：**绝不添加占位生产代码、未接线按钮或伪装双会话的本地集合**。
-  - D 的实现状态明确标记为 **WAITING_CORE**。
+- **核心与 UI 实现**：
+  - `ProotTerminalHost` 支持最多 2 个 live 会话管理与 `CAPACITY_EXHAUSTED` 容量阻断。
+  - `ProotTerminalEndpoint` 与 `ManualTerminalConnection` 实现单写互斥与只读观察模式降级。
+  - `DeveloperManualTerminal` 实现双绑定仲裁、执行所有权维持与首会话先结算时的平滑提升。
+  - `ManualTerminalViewModel` 与 `ManualTerminalScreen` 完成双会话多标签切换（零 Shell 重启）、新建与只读横幅展示。
+  - 补充完整三语言字符串资源（base / en / zh-rCN）。
+  - 新增 `ProotMultiSessionDeviceTest` 覆盖多会话隔离、容量超限拒绝、单写互斥与结算提权。
 - **验证命令与结果**：
-  - `./scripts/check-all.sh --source` -> Exit Code 0 (487 Markdown files, 194 HXA tasks, 31 ADRs, 1369 i18n keys)
-  - `python3 -m unittest discover -s scripts/tests -p 'test_product_journeys.py'` -> 12 tests passed, Exit Code 0
-  - `python3 -m unittest discover -s scripts/tests -p 'test_terminal_reports.py'` -> 8 tests passed, Exit Code 0
+  - `./scripts/check-all.sh --source` -> Exit Code 0 (487 Markdown files, 31 ADRs, 632 源码, 1369 i18n keys)
+  - `:runtime:proot-core:test :app:testDeveloperDebugUnitTest` -> 4/4 单元测试通过
+  - `:app:compileDeveloperDebugAndroidTestKotlin` -> 编译通过
+  - `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` -> 47/47 测试通过
   - `git diff --check` -> Clean
-- **后续接线条件**：
-  - 协调者提供双会话已验证的核心提交与测试结果后，方在干净工作树中完成 ViewModel/UI 接线与多会话设备测试。
+- **交付文档**：
+  - 生成完成记录 `docs/completion-records/HXA-198.md`。

@@ -22,13 +22,19 @@ internal class ManualTerminalConnection(
     private val mutex = Mutex()
     private var token: String? = null
     private var closed = false
+    private var _isWriter: Boolean = true
+
+    override val isWriter: Boolean
+        get() = _isWriter
 
     // Always close a partially bound transport, then propagate the original failure.
     @Suppress("TooGenericExceptionCaught")
     fun connect(): ManualTerminalConnection {
         try {
             client.connect()
-            token = checkNotNull(client.request(key, Wire.ATTACH) { it.writeStrongBinder(death) }.connection)
+            val reply = client.request(key, Wire.ATTACH) { it.writeStrongBinder(death) }
+            token = reply.connection
+            _isWriter = (reply.outcome == "OK" && token != null)
             return this
         } catch (failure: Exception) {
             client.close()
@@ -48,7 +54,7 @@ internal class ManualTerminalConnection(
     override suspend fun write(bytes: ByteArray): String =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                check(!closed && mayWrite())
+                check(!closed && isWriter && mayWrite()) { "Write not permitted in observer mode" }
                 client
                     .request(key, Wire.WRITE) { data ->
                         data.writeString(token)
@@ -63,6 +69,7 @@ internal class ManualTerminalConnection(
     ) = withContext(Dispatchers.IO) {
         mutex.withLock {
             check(!closed)
+            if (!isWriter) return@withContext
             val reply =
                 client.request(key, Wire.RESIZE) {
                     it.writeInt(rows)
@@ -78,12 +85,13 @@ internal class ManualTerminalConnection(
                 if (!closed) {
                     closed = true
                     try {
-                        client.request(key, Wire.DETACH) { it.writeString(token) }
+                        if (token != null) {
+                            client.request(key, Wire.DETACH) { it.writeString(token) }
+                        }
                     } finally {
                         token = null
                         client.close()
                     }
                 }
             }
-        }
 }
