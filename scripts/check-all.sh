@@ -6,6 +6,7 @@ cd "$project_root"
 
 source_checks() {
     python3 scripts/test-review-gates.py
+    python3 -m unittest discover -s scripts/tests -p 'test_ci_*.py'
     python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
@@ -23,6 +24,17 @@ test_build_checks() {
     ./scripts/check-lockfiles.sh
 }
 
+debug_analysis_checks() {
+    ./gradlew spotlessCheck detekt lintDebug lintConsumerDebug lintDeveloperDebug
+}
+
+debug_test_build_checks() {
+    # Retain every existing test; only release lint/packaging is omitted.
+    ./gradlew test \
+        :app:assembleConsumerDebug :app:assembleDeveloperDebug
+    ./scripts/check-lockfiles.sh
+}
+
 build_checks() {
     analysis_checks
     test_build_checks
@@ -30,15 +42,17 @@ build_checks() {
 
 artifact_checks() {
     ./scripts/verify-variant-boundaries.sh
-    ./scripts/check-cli-runtime-boundary.sh
+    ./scripts/check-cli-runtime-boundary.sh --skip-integrated-apk-scan
 }
 
 case "${1:---all}" in
     --source) source_checks ;;
     --analysis) analysis_checks ;;
+    --debug-analysis) debug_analysis_checks ;;
+    --debug-tests-build) debug_test_build_checks ;;
     --tests-build) test_build_checks ;;
     --build) build_checks ;;
     --artifacts) artifact_checks ;;
     --all) source_checks; build_checks; artifact_checks ;;
-    *) printf 'Usage: %s [--source|--analysis|--tests-build|--build|--artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s [--source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac

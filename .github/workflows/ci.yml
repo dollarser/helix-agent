@@ -1,12 +1,21 @@
 name: Android CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Verification scope
+        type: choice
+        options: [full, debug]
+        default: full
+        required: true
   pull_request:
   push:
     branches: [main]
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -14,6 +23,8 @@ concurrency:
 
 jobs:
   source:
+    outputs:
+      scope: ${{ steps.plan.outputs.scope }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -21,6 +32,11 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+      - name: Select verification scope
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/plan.py
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Install source validation tools
@@ -55,8 +71,8 @@ jobs:
 
   runtime-assets:
     needs: source
-    # Build the existing arm64 Docker/Alpine pipeline natively; no Docker daemon
-    # is assumed on the macOS Android build runner. The content lock is unchanged.
+    if: needs.source.outputs.scope != 'source'
+    # Fetch locked published assets, then retain extraction and ELF/ABI checks.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
@@ -67,6 +83,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Configure Gradle for asset verification
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Restore locked downloads
+        id: downloads
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/helix-runtime-downloads
+          key: runtime-downloads-v1-${{ hashFiles('**/runtime-lock.json', 'scripts/build-proot-assets.sh', 'scripts/ci/fetch_locked_asset.py') }}
       - name: Configure Android SDK for the JVM asset gate
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
         with:
@@ -80,8 +104,15 @@ jobs:
           sdkmanager "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build and verify locked runtime assets
         env:
+          HELIX_RUNTIME_DOWNLOAD_CACHE: ${{ runner.temp }}/helix-runtime-downloads
           HELIX_ROOTFS_ARCHIVE_URL: ${{ vars.HELIX_ROOTFS_ARCHIVE_URL }}
         run: ./scripts/build-proot-assets.sh
+      - name: Save verified downloads
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && steps.downloads.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/helix-runtime-downloads
+          key: ${{ steps.downloads.outputs.cache-primary-key }}
       - name: Transfer verified runtime inputs
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -93,9 +124,10 @@ jobs:
             runtime/proot-app/src/main/assets/runtime/rootfs
 
   android:
-    needs: runtime-assets
+    needs: [source, runtime-assets]
+    if: needs.source.outputs.scope != 'source'
     runs-on: macos-15
-    # Two bounded shards overlap lint with tests/packaging. No gate is removed.
+    # Overlap analysis and packaging within the selected verification scope.
     strategy:
       fail-fast: false
       matrix:
@@ -150,7 +182,15 @@ jobs:
         run: ./gradlew :app:verifyDeveloperRuntimeAssets
 
       - name: Run ${{ matrix.gate }} gate
-        run: ./scripts/ci-run-gate.sh --${{ matrix.gate }}
+        env:
+          CI_SCOPE: ${{ needs.source.outputs.scope }}
+          CI_GATE: ${{ matrix.gate }}
+        run: |
+          case "$CI_SCOPE" in
+            debug) ./scripts/ci-run-gate.sh "--debug-$CI_GATE" ;;
+            full) ./scripts/ci-run-gate.sh "--$CI_GATE" ;;
+            *) exit 2 ;;
+          esac
 
       - name: Upload debug APKs
         if: matrix.gate == 'tests-build'
@@ -201,20 +241,19 @@ jobs:
             **/build/reports/lint-results*.xml
             build/reports/detekt/
 
-  # Keep the existing required check name. Skips, cancellation and either failed
-  # shard must fail the aggregate instead of leaving a misleading green result.
+  # Preserve the required check; only the planned source-only skips are accepted.
   verify:
     if: always()
     needs: [source, runtime-assets, android]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      - name: Require every gate
+      - name: Check out verification policy
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Require selected gates
         env:
+          CI_SCOPE: ${{ needs.source.outputs.scope }}
           SOURCE_RESULT: ${{ needs.source.result }}
           ASSETS_RESULT: ${{ needs.runtime-assets.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
-        run: |
-          test "$SOURCE_RESULT" = success
-          test "$ASSETS_RESULT" = success
-          test "$ANDROID_RESULT" = success
+        run: python3 scripts/ci/plan.py --verify

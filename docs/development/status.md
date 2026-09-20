@@ -18,17 +18,19 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
+当前推进 CI 分层优化；后续 HXA 只做计划，排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机验收本次跳过，不记通过。
+
 HXA-197 单个手动 PTY 已交付，见[完成记录](../completion-records/HXA-197.md)。本轮修复快速逐键输入丢字符，补齐关闭页面后的 1 MiB 以上输出、超限输入、Ctrl-C、运行中租期，以及普通应用主进程/Runtime 死亡和实际重启对账。完整主机门禁、双 API 各 49/49、独立恢复旅程 2/2 通过；准备测试另计，详见[最终证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。未把 30 分钟 idle、长租期、OEM/Doze/热压或真实 16 KiB 设备计为通过，这些继续归 199。
 
 HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/HXA-211.md)。完整主机门禁、存储/应用导出 JVM 19 项、独立解析器 7 项、应用四象限 36 项与存储设备 16 项通过；覆盖实际 DocumentsUI、窄屏大字体、真实进程中断、取消和资源上限。具体制品与边界见[最终证据](../evidence/development/hxa-211-export-progress-2026-09-20.md)。191、197 已完成；196 本地实现和模拟器阶段已收敛，真机 HOME/锁屏/Doze 保留待验，不记整体完成。
 
-2026-09-19 所有者建立持续开发 Goal，并于 2026-09-20 更新范围：完成 **196 后台 Job → 191 主题收尾 → 197 单手动 PTY → [211 会话 JSONL 导出](../completion-records/HXA-211.md)**，随后只生成 **198、199、206 产品集成验收的任务计划**，不直接实施这三项。191、197、211 已交付，196 真机未验，本次按所有者指示跳过；198／199／206 分切片交接计划已写入各任务文件，等待后续实施。每次仅一个 HXA 进行中，进入下一项前解决强制门禁的已知失败。外部设备或账号缺口独立记录，不计为通过；不阻断无该依赖的独立工作。191/207 的具名交付已整合到当前分支。
+2026-09-19 所有者建立持续开发 Goal，并于 2026-09-20 更新范围：完成 **196 后台 Job → 191 主题收尾 → 197 单手动 PTY → [211 会话 JSONL 导出](../completion-records/HXA-211.md)**，随后只生成 **198、199、206 产品集成验收的任务计划**，不直接实施这三项。191、197、211 已交付，196 真机未验，本次按所有者指示跳过；198／199／206 分切片交接计划已写入各任务文件，等待后续实施。每次仅一个 HXA 进行中，进入下一项前解决强制门禁的已知失败。外部设备或账号缺口独立记录，不计为通过；不阻断无该依赖的独立工作。191/207 的具名交付已整合到 main。
 
 196 已完成 developer 四工具注册、持久执行占用、Goal 预算、原结果导入、独立 Tasks 行及人工查询/取消/收取入口；consumer 不注册。模型/Goal/Dispatcher/Runtime 旅程及终态结果跨主进程恢复已有设备证据，pending 租期禁止提前报告完成。历史投影、Tasks、Runtime、Goal 矩阵保留在 [196 任务记录](tasks/HXA-196.md)，不作为最新源码的全量重跑证明。当前仍不是完整后台产品验收。
 
-所有者已授权继续剩余任务。**HXA-196** 的租期、私有前台 owner、幂等提交/取消与恢复查询已合入并推送 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。当前独立工作树补订阅终态流式传输与后台提交扣时，见[Runtime 修复](../bug-fixes/2026-09-18-runtime-streaming-terminal-and-lease.md)；已接入执行线程占用和持久身份机制，完整主机门禁与四象限定向 20 项通过，见[执行占用切片](../evidence/development/hxa-196-execution-ownership-2026-09-18.md)。当前独立工作树已完成异步工具与预算/结果回收组合，尚未合并或推送；剩余验收见上，不能将当前切片视为完整后台功能。
+所有者已授权继续剩余任务。**HXA-196** 的租期、私有前台 owner、幂等提交/取消与恢复查询已合入并推送 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。当前独立工作树补订阅终态流式传输与后台提交扣时，见[Runtime 修复](../bug-fixes/2026-09-18-runtime-streaming-terminal-and-lease.md)；已接入执行线程占用和持久身份机制，完整主机门禁与四象限定向 20 项通过，见[执行占用切片](../evidence/development/hxa-196-execution-ownership-2026-09-18.md)。异步工具与预算/结果回收组合已合并并推送 main；剩余验收见上，不能将当前切片视为完整后台功能。
 
-**207 与 191 的具名提交已合入当前 Runtime 产品分支。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。合并后完整主机门禁、定向设备 62 项通过和 18 项条件跳过见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；**按 2026-09-20 最新范围，206 本轮只整理计划，交接后再实施**。
+**207 与 191 的具名提交已合入 main。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。合并后完整主机门禁、定向设备 62 项通过和 18 项条件跳过见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；**按 2026-09-20 最新范围，206 本轮只整理计划，交接后再实施**。
 
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，HXA-207 已交付，191 已交付。13 项未闭合义务分为：3 项收尾验收、1 项待实现、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
@@ -42,11 +44,11 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
-所有者已在 main 远端 CI 通过后授权 Claude 实施 207/191，原“只写计划”的执行限制不再适用于二者。范围与文件所有权沿用[交接计划](claude-handoff-207-191-206.md)；206 已获 2026-09-19 后续授权，按上述持续 Goal 顺序执行。
+所有者已在 main 远端 CI 通过后授权 Claude 实施 207/191，原“只写计划”的执行限制不再适用于二者。范围与文件所有权沿用[交接计划](claude-handoff-207-191-206.md)；206 按 2026-09-20 最新指示仅保留计划，等待后续启动。
 
 本轮合并后完整主机门禁通过；API29/36 × consumer/developer 修复/Runtime 定向矩阵共 244 项 instrumentation（含 2 项探针准备），另有 2 次独立主进程死亡检查通过，独占设备全部正常退出。此证据不等于 206 全产品验收，详见上述收敛记录。
 
-远端 CI 收尾已完成：main `5bfce200` 已推送，[35331054907](https://github.com/dollarser/helix-agent/actions/runs/35331054907) 的 source、runtime-assets、两条 Android 门禁与 verify 全绿，包含前次合并的 CI 并行与诊断优化。当前独立工作树后续变更尚未推送，不借用此结果宣称新提交通过远端验证。
+远端 CI 收尾已完成：main `5bfce200` 已推送，[35331054907](https://github.com/dollarser/helix-agent/actions/runs/35331054907) 的 source、runtime-assets、两条 Android 门禁与 verify 全绿，包含前次合并的 CI 并行与诊断优化。此为历史验证；优化前最新 main `382674c3` 的 [35515226699](https://github.com/dollarser/helix-agent/actions/runs/35515226699) 五个 job 已全部成功，CI 调整需单独重新验证。
 
 基线优先：[P0 真机收尾](../bug-fixes/2026-09-17-physical-p0-baseline.md) 已完成固定源码验收，并与批次 A 整合。后续 HXA 开始前仍须核对当前源码与并行改动，解决新的强制门禁失败；历史证据不代替修改后的验证。
 

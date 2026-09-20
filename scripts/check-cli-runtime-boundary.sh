@@ -15,7 +15,11 @@ printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CodexLoginActivit
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.CopilotLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.ClaudeLoginActivity' >/dev/null
 printf '%s\n' "$manifest" | grep -F 'com.helix.runtime.cli.app.GrokLoginActivity' >/dev/null
-python3 "$repo_root/scripts/verify-integrated-runtime-apks.py"
+case "${1:-}" in
+    "") python3 "$repo_root/scripts/verify-integrated-runtime-apks.py" ;;
+    --skip-integrated-apk-scan) ;; # check-all already ran the same scanner in the variant gate.
+    *) echo "Unknown Runtime boundary option: $1" >&2; exit 2 ;;
+esac
 
 copilot="$repo_root/runtime/cli-app/src/main/kotlin/com/helix/runtime/cli/app/CopilotSubscriptionModel.kt"
 test "$(rg -F 'https://api.githubcopilot.com/chat/completions' "$copilot" | wc -l | tr -d ' ')" = 1

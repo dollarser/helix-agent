@@ -146,7 +146,7 @@ sdkmanager --list_installed
 
 ### 5.1 每次 PR
 
-- 当前无设备 CI：JVM unit tests、Spotless、Detekt、双变体 Lint、四个 M0 APK、依赖/变体/文档扫描。
+- 当前无设备 CI：按变更分档执行源码检查、JVM unit tests、Spotless、Detekt、双 flavor Lint/APK、依赖/制品扫描，见 [CI 分层](ci.md)。
 - 含 Android UI、生命周期、Room migration 或平台能力改动的 PR：在合并前增加 API 36 instrumentation 证据；可先使用开发机 AVD，远端 emulator job 建立后再强制自动运行。
 - 当前 Apple Silicon 开发机使用 API 36 arm64-v8a AVD；Linux CI 可使用 x86_64。报告必须写真实 ABI，不能把一种架构的结果冒充另一种。
 
@@ -543,22 +543,9 @@ M8 开始前再启用：
 
 ## 11. 当前 CI 与后续扩展
 
-当前 [Android CI](../../.github/workflows/ci.yml) 已实现：
+当前 [Android CI](../../.github/workflows/ci.yml) 按变更选择 source、debug、full，具体门禁、缓存、手动完整验证和证据见 [CI 分层](ci.md)。Action 固定 commit SHA；当前制品是 consumer/developer 两个主 App Debug APK，PRoot/订阅 Runtime 内置于 developer，不再是额外 Runtime APK。
 
-```text
-checkout
-→ verify Gradle Wrapper
-→ JDK 17 / Android SDK 36
-→ Spotless / Detekt / unit tests / 双变体 Lint
-→ 四个 M0 debug APK
-→ dependency lock / secret / ADR / 文档契约扫描
-→ 主 App 变体和两个 Runtime APK 边界扫描
-→ git diff --check
-```
-
-workflow 的 action 均固定到 commit SHA。2026-08-31 `main` 已推送到 GitHub：最早 1 次 Android CI 失败后，依赖验证/Action 版本修复带来 3 次连续成功；最新成功运行是 [33364284426](https://github.com/dollarser/helix-agent/actions/runs/33364284426)，并生成保留 1 天的 debug APK bundle。当前远端 workflow 仍不运行 emulator/真机；HXA-003 的 API 36 arm64-v8a instrumentation 证据来自本机，不能由远端构建替代。
-
-后续扩展：API 29/36 instrumentation、dependency/SBOM 报告、WebView/MCP/A2A fixture、基准 fixture、RootFS/CLI manifest 链接检查。CI 缓存不包含 secret、Runtime home 或真实 Provider/A2A 响应。只有在对应能力进入实现后才加入专项 job，不提前加入永远空跑的占位流水线。
+远端 CI 不运行模拟器、真机或付费模型；HXA 设备、真实账号和发行验收分别执行。CI 缓存不包含 secret、Runtime home 或真实 Provider/A2A 响应。不要用源码检查通过推断 Android 构建通过，也不要用 Debug 档代替 HXA 完整主机门禁。
 
 ## 12. 版本升级流程
 

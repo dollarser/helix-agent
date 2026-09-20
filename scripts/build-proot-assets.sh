@@ -100,6 +100,16 @@ sha256_of() {
 
 size_of() { stat -f%z "$1" 2>/dev/null || stat -c%s "$1"; }
 
+# Optional CI cache contains raw downloads, never trust it instead of the content lock.
+fetch_locked() { # <url> <destination> <sha256> <size>
+    local cache_args=()
+    if [[ -n "${HELIX_RUNTIME_DOWNLOAD_CACHE:-}" ]]; then
+        cache_args=(--cache "$HELIX_RUNTIME_DOWNLOAD_CACHE")
+    fi
+    python3 "$project_root/scripts/ci/fetch_locked_asset.py" \
+        --url "$1" --destination "$2" --sha256 "$3" --size "$4" ${cache_args[@]+"${cache_args[@]}"}
+}
+
 # --- 1+2. fetch and verify every downloadable component ----------------------
 
 fetch_component() { # <id>
@@ -108,7 +118,7 @@ fetch_component() { # <id>
     sha="$(component_field "$id" sha256)"
     size="$(component_field "$id" size)"
     dest="$workdir/$(basename "$url")"
-    curl -sfL --retry 3 --max-time 600 -o "$dest" "$url"
+    fetch_locked "$url" "$dest" "$sha" "$size"
     local actual_sha actual_size
     actual_sha="$(sha256_of "$dest")"
     actual_size="$(size_of "$dest")"
@@ -330,9 +340,8 @@ print(' '.join(c['id'] for c in lock['components']))
         cp "$HELIX_ROOTFS_ARCHIVE" "$workdir/alpine-rootfs.tar"
     elif [[ "$rebuild" == false ]]; then
         printf 'RootFS source: locked published archive (not a mirror rebuild)\n'
-        curl --fail --location --proto '=https' --proto-redir '=https' --retry 3 \
-            --max-time 600 --output "$workdir/alpine-rootfs.tar" \
-            "${HELIX_ROOTFS_ARCHIVE_URL:-$ROOTFS_ARCHIVE_URL}"
+        fetch_locked "${HELIX_ROOTFS_ARCHIVE_URL:-$ROOTFS_ARCHIVE_URL}" "$workdir/alpine-rootfs.tar" \
+            "$(component_field alpine-rootfs sha256)" "$(component_field alpine-rootfs size)"
     else
         build_rootfs
         # The RAW deterministic tar is the authoritative embedded archive (what the lock
