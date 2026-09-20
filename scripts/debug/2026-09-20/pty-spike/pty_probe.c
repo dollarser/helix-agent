@@ -50,10 +50,29 @@ static int exchange(int fd, const char *input, const char *expected) {
 }
 
 JNIEXPORT jstring JNICALL
-Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls) {
+Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, jstring install, jstring loader) {
     (void)cls;
     const char *failure = "open PTY";
     char diagnostic[1200];
+    char proot[4096], rootfs[4096], workspace[4096], tmp[4096];
+    char ld_env[4096], loader_env[4096], tmp_env[4096];
+    const char *base = (*env)->GetStringUTFChars(env, install, NULL);
+    if (!base) return NULL;
+    const char *exe_loader = (*env)->GetStringUTFChars(env, loader, NULL);
+    if (!exe_loader) { (*env)->ReleaseStringUTFChars(env, install, base); return NULL; }
+    int valid = strlen(base) < 3900 && strlen(exe_loader) < 3900;
+    if (valid) {
+        snprintf(proot, sizeof(proot), "%s/bin/proot", base);
+        snprintf(rootfs, sizeof(rootfs), "%s/rootfs", base);
+        snprintf(workspace, sizeof(workspace), "%s/pty-workspace:/workspace", base);
+        snprintf(tmp, sizeof(tmp), "%s/pty-tmp:/tmp", base);
+        snprintf(ld_env, sizeof(ld_env), "LD_LIBRARY_PATH=%s/bin/lib", base);
+        snprintf(loader_env, sizeof(loader_env), "PROOT_LOADER=%s", exe_loader);
+        snprintf(tmp_env, sizeof(tmp_env), "PROOT_TMP_DIR=%s/pty-tmp", base);
+    }
+    (*env)->ReleaseStringUTFChars(env, install, base);
+    (*env)->ReleaseStringUTFChars(env, loader, exe_loader);
+    if (!valid) return (*env)->NewStringUTF(env, "Runtime path too long");
     int master = posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC);
     pid_t child = -1;
     int status = 0;
@@ -81,8 +100,11 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls) {
         for (int target = 0; target <= 2; target++) if (dup2(fd, target) < 0) _exit(123);
         if (fd > 2) close(fd);
         close(master);
-        char *const argv[] = {"/system/bin/sh", "-i", NULL};
-        char *const vars[] = {"PATH=/system/bin", "TERM=xterm-256color", "PS1=probe> ", NULL};
+        char *const argv[] = {"/system/bin/linker64", proot, "-r", rootfs,
+                             "-b", "/dev", "-b", "/proc", "-b", workspace,
+                             "-b", tmp, "-w", "/workspace", "/bin/sh", "-i", NULL};
+        char *const vars[] = {"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                             "TERM=xterm-256color", "PS1=probe> ", ld_env, loader_env, tmp_env, NULL};
         execve(argv[0], argv, vars);
         _exit(124);
     }
@@ -99,15 +121,17 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls) {
     failure = "resize";
     if (ioctl(master, TIOCSWINSZ, &size) || !exchange(master, "stty size\n", "37 101\r\n")) goto done;
     failure = "foreground command ownership";
+    const pid_t shell_group = tcgetpgrp(master);
+    if (shell_group <= 0) goto done;
     const char command[] = "sleep 30\n";
     if (write(master, command, sizeof(command) - 1) != sizeof(command) - 1) goto done;
     pid_t foreground = -1;
     for (int i = 0; i < 100; i++) {
         foreground = tcgetpgrp(master);
-        if (foreground > 0 && foreground != child) break;
+        if (foreground > 0 && foreground != shell_group) break;
         usleep(10000);
     }
-    if (foreground <= 0 || foreground == child) goto done;
+    if (foreground <= 0 || foreground == shell_group) goto done;
     failure = "Ctrl-C returns shell prompt";
     if (!exchange(master, "\003", "")) goto done;
     failure = "Ctrl-C status and shell survival";

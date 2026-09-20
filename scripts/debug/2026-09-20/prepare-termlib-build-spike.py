@@ -28,6 +28,7 @@ android {
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.31.6" } }
     useLibrary("android.test.runner")
     useLibrary("android.test.base")
+    packaging { jniLibs { useLegacyPackaging = true } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -36,6 +37,7 @@ android {
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("org.connectbot:termlib:0.2.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 }
 dependencyLocking { lockAllConfigurations() }
 ''',
@@ -74,11 +76,19 @@ sources = Path(__file__).resolve().parent / "pty-spike"
 for name, destination in {
     "pty_probe.c": "src/main/cpp/pty_probe.c",
     "PtyProbeService.java": "src/main/java/com/helix/spike/termlib/PtyProbeService.java",
+    "PtyRuntime.kt": "src/main/java/com/helix/spike/termlib/PtyRuntime.kt",
     "PtyProbeTest.java": "src/androidTest/java/com/helix/spike/termlib/PtyProbeTest.java",
 }.items():
     target = root / destination
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(sources / name, target)
+repo = Path(__file__).resolve().parents[3]
+shutil.copytree(repo / "runtime/proot-core/src/main/kotlin", root / "src/main/java", dirs_exist_ok=True)
+installer = root / "src/main/java/com/helix/runtime/proot/app/ProotRuntimeInstaller.kt"
+installer.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(repo / "runtime/proot-app/src/main/kotlin/com/helix/runtime/proot/app/ProotRuntimeInstaller.kt", installer)
+shutil.copytree(repo / "runtime/proot-app/src/main/assets", root / "src/main/assets", dirs_exist_ok=True)
+shutil.copytree(repo / "runtime/proot-app/src/main/jniLibs", root / "src/main/jniLibs", dirs_exist_ok=True)
 (root / "src/main/cpp/CMakeLists.txt").write_text('''cmake_minimum_required(VERSION 3.22)
 project(pty_probe C)
 add_library(pty_probe SHARED pty_probe.c)

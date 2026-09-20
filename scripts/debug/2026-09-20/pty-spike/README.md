@@ -1,8 +1,8 @@
 # HXA-197 私有进程 PTY 可行性探针
 
-本目录是 Helix 自写的诊断源码，不参与生产构建。父级 `prepare-termlib-build-spike.py` 将它复制到忽略的 `build/hxa197-termlib-build-spike`。组件编译探针与本 PTY 探针在同一 APK 中，但 PTY 测试不调用 termlib，不证明渲染或 PRoot 已接线。
+本目录是 Helix 自写的诊断源码，不参与生产构建。父级 `prepare-termlib-build-spike.py` 将它复制到忽略的 `build/hxa197-termlib-build-spike`，并复制工程当前的 proot-core、Android 安装器、锁定资产和已包内 loader。组件编译探针与本 PTY 探针在同一 APK 中，但 PTY 测试不调用 termlib，不证明渲染或产品已接线。
 
-使用 `posix_openpt`、`fork`、`setsid`、`TIOCSCTTY`、`dup2` 与 `execve` 启动系统 shell。child 的 fork/exec 之间不调用 JVM；Service 非导出、运行于 `:pty`，测试校验 PID 与 instrumentation 主进程不同。失败路径终止并回收直接子进程/进程组，关闭 master。它不是生产会话管理器，不接受任意命令参数，也不暴露 Agent 工具。
+使用 `posix_openpt`、`fork`、`setsid`、`TIOCSCTTY`、`dup2` 与 `execve` 启动 shell（早期为系统 shell，当前为锁定 PRoot 内的 Alpine shell）。child 的 fork/exec 之间不调用 JVM；Service 非导出、运行于 `:pty`，测试校验 PID 与 instrumentation 主进程不同。失败路径终止并回收直接子进程/进程组，关闭 master。它不是生产会话管理器，不接受任意命令参数，也不暴露 Agent 工具。
 
 ## 执行
 
@@ -39,4 +39,12 @@ v6 暴露旧探针把读取次数误作时间预算，逐字符回显可能提�
 
 最终 v8 双 API 各 1/1，证据 `build/hxa197-pty-api29-v8`（5626）、`build/hxa197-pty-api36-v8`（5628），模拟器均正常退出。主 APK SHA-256 `e953695056d8e3a5ed067c2a6b6605c3129e6ee66d6f2eec82862b6cc8acfd31`，测试 APK `3d6f7ed4b6f940ca55e7bf8be47271cf61d9fd15dbe40435b3197acb371ae0b7`。
 
-后续须测试生产选定的 PRoot shell、行编辑/REPL、后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。
+## 锁定 PRoot 补验（proot-v3）
+
+`PtyRuntime` 使用当前生产 RootFsInstaller、RuntimeLock 与 ProotRuntimeInstaller 在探针自己的数据目录安装资产，校验 APK 中可执行 loader 与安装后锁定 loader 的哈希一致。没有 adb 代解包、借用另一个应用的安装状态或 Root 权限。JNI 在 fork 前构造有限长度的路径，复用 `/system/bin/linker64`、PRoot、LD_LIBRARY_PATH、PROOT_LOADER、PROOT_TMP_DIR 启动链，并映射探针私有临时目录和 Workspace；不证明产品真实 Workspace 映射。
+
+首次 PRoot 运行到 Ctrl-C 时失败：直接子 PID 是 tracer，不能用它判断 shell 前台组是否已切换。改为在提示符后读取 `tcgetpgrp` 保存 shell 的真实组，再等待命令的不同前台组。修正后同一组语义检查在 API29/36 各 1/1，通过中文、状态保持、resize、Ctrl-C 状态 130、命令 PID 回收、shell 存活及 EOF 后 tracer 回收。仍使用探针固定提示符/关闭行编辑的设置。
+
+最终证据 `build/hxa197-pty-proot-api29-v3`（5632）、`build/hxa197-pty-proot-api36-v3`（5634），均正常关闭。主 APK SHA-256 `7c47bb6f8bcab0b775a43c0a99ef48455c55dee107493090e39586440041af2f`，测试 APK `362612027dac70b32adf47450f54c3314115b6024efca0a86a38f9cd6dbea0c8`。构建命令同上；安装器首次增加 serialization 依赖时仅在独立探针内生成锁/校验 metadata，生产文件未改变。
+
+后续须测试行编辑/REPL、后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。
