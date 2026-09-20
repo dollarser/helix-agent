@@ -31,4 +31,12 @@ API36 本次使用 `Helix191_API36`、5620 和 `build/hxa197-pty-api36-v5`。run
 
 v1/v2 到 EOF 时超时；v3/v4 增加提示符等待后暴露系统 mksh 配置覆盖 PS1，且 `stty -echo` 报错。v5 移除该不成立的设置，启动后显式设置 PS1 并关闭 shell 行编辑模式，等待命令输出后的提示符才发送下一项。这是**规范模式的内核 PTY 探针**，不能据此声称默认交互编辑已验收。原失败证据保留于 build 目录。
 
-后续须测试生产选定的 PRoot shell、行编辑/REPL、Ctrl-C、后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。
+## Ctrl-C 补验（v8）
+
+新增 `sleep 30` 前台命令，先通过 `tcgetpgrp` 确认终端前台已离开 shell，才发送字节 `0x03`。随后等待 shell 提示符，检查 `$?=130`、原环境变量仍在、前台命令 PID 已不存在，再执行 EOF 并回收 shell。不是直接向命令 PID 发送 SIGINT 来替代键盘输入。
+
+v6 暴露旧探针把读取次数误作时间预算，逐字符回显可能提前耗尽次数；现已改用 CLOCK_MONOTONIC 的 10 秒期限。v7 显示 `^C` 但命令不结束；v8 在 fork 后、exec 前清空子进程信号屏蔽集合，并将 INT/QUIT/TERM/HUP/CHLD/PIPE/TSTP/TTIN/TTOU 恢复默认，双 API 通过。这一对照支持继承的宿主信号状态是问题来源，但没有分别隔离 mask 与 handler 的贡献。父 JVM 不改动信号状态。
+
+最终 v8 双 API 各 1/1，证据 `build/hxa197-pty-api29-v8`（5626）、`build/hxa197-pty-api36-v8`（5628），模拟器均正常退出。主 APK SHA-256 `e953695056d8e3a5ed067c2a6b6605c3129e6ee66d6f2eec82862b6cc8acfd31`，测试 APK `3d6f7ed4b6f940ca55e7bf8be47271cf61d9fd15dbe40435b3197acb371ae0b7`。
+
+后续须测试生产选定的 PRoot shell、行编辑/REPL、后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。

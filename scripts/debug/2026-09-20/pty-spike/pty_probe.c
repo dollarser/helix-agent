@@ -9,10 +9,16 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 /* Feasibility probe only. The shell is in a private Android service's UID/domain. */
 static char last_output[1024];
+static long long monotonic_millis(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
 static int exchange(int fd, const char *input, const char *expected) {
     size_t size = strlen(input), sent = 0, used = 0;
     char output[32768] = {0};
@@ -22,13 +28,15 @@ static int exchange(int fd, const char *input, const char *expected) {
         if (n <= 0) return 0;
         sent += (size_t)n;
     }
-    for (int attempt = 0; attempt < 100; attempt++) {
+    const long long deadline = monotonic_millis() + 10000;
+    while (monotonic_millis() < deadline) {
         struct pollfd ready = {.fd = fd, .events = POLLIN};
         int result = poll(&ready, 1, 100);
         if (result < 0 && errno == EINTR) continue;
         if (result < 0) return 0;
         if (result == 0) continue;
         ssize_t n = read(fd, output + used, sizeof(output) - used - 1);
+        if (n < 0 && errno == EINTR) continue;
         if (n <= 0) return 0;
         used += (size_t)n;
         output[used] = 0;
@@ -58,6 +66,15 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls) {
     child = fork();
     if (child == 0) {
         /* No JVM, allocation, or logging after fork in the multithreaded host. */
+        sigset_t unblocked;
+        sigemptyset(&unblocked);
+        if (sigprocmask(SIG_SETMASK, &unblocked, NULL)) _exit(125);
+        struct sigaction action = {.sa_handler = SIG_DFL};
+        sigemptyset(&action.sa_mask);
+        const int reset[] = {SIGINT, SIGQUIT, SIGTERM, SIGHUP, SIGCHLD, SIGPIPE,
+                             SIGTSTP, SIGTTIN, SIGTTOU};
+        for (unsigned i = 0; i < sizeof(reset) / sizeof(reset[0]); i++)
+            if (sigaction(reset[i], &action, NULL)) _exit(126);
         if (setsid() < 0) _exit(121);
         int fd = open(slave, O_RDWR);
         if (fd < 0 || ioctl(fd, TIOCSCTTY, 0) < 0) _exit(122);
@@ -81,6 +98,22 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls) {
     size.ws_row = 37; size.ws_col = 101;
     failure = "resize";
     if (ioctl(master, TIOCSWINSZ, &size) || !exchange(master, "stty size\n", "37 101\r\n")) goto done;
+    failure = "foreground command ownership";
+    const char command[] = "sleep 30\n";
+    if (write(master, command, sizeof(command) - 1) != sizeof(command) - 1) goto done;
+    pid_t foreground = -1;
+    for (int i = 0; i < 100; i++) {
+        foreground = tcgetpgrp(master);
+        if (foreground > 0 && foreground != child) break;
+        usleep(10000);
+    }
+    if (foreground <= 0 || foreground == child) goto done;
+    failure = "Ctrl-C returns shell prompt";
+    if (!exchange(master, "\003", "")) goto done;
+    failure = "Ctrl-C status and shell survival";
+    if (!exchange(master, "printf 'INT_%s_%s\\n' \"$?\" \"$PROBE\"\n", "INT_130_ready\r\n")) goto done;
+    failure = "foreground process reaped";
+    if (kill(foreground, 0) == 0 || errno != ESRCH) goto done;
     failure = "EOF exit";
     if (write(master, "\004", 1) != 1) goto done;
     for (int i = 0; i < 100; i++) {
@@ -106,5 +139,5 @@ done:
         snprintf(diagnostic, sizeof(diagnostic), "%s; output=%s", failure, last_output);
         failure = diagnostic;
     }
-    return (*env)->NewStringUTF(env, failure ? failure : "OK: tty, UTF-8, cwd/env, resize, EOF");
+    return (*env)->NewStringUTF(env, failure ? failure : "OK: tty, UTF-8, cwd/env, resize, Ctrl-C, EOF");
 }

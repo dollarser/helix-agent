@@ -26,7 +26,7 @@ public final class PtyProbeTest extends InstrumentationTestCase {
             try {
                 assertTrue(binder.transact(1, request, reply, 0));
                 assertTrue("Must execute in private service", reply.readInt() != android.os.Process.myPid());
-                assertEquals("OK: tty, UTF-8, cwd/env, resize, EOF", reply.readString());
+                assertEquals("OK: tty, UTF-8, cwd/env, resize, Ctrl-C, EOF", reply.readString());
             } finally { request.recycle(); reply.recycle(); }
         } finally { context.unbindService(listener); }
     }
