@@ -79,4 +79,14 @@ renderer-v2 出现 `NoSuchMethodError`：组件工厂签名包含 Compose `Color
 
 固定源码 `TerminalEmulator` 无公开 close/dispose；实现以 `TerminalNative(this)` 建立 native 实例，C++ `NewGlobalRef(callbacks)` 持有 emulator，析构时才 DeleteGlobalRef。内部 TerminalNative 有 close/finalize，但公开调用方无法按会话关闭；Compose 的 DisposableEffect 只隐藏 IME。此引用链不能靠公开 API 或默认 GC 实现可核验的会话释放。当前测试仅创建一个 emulator，结束 owned 进程不等于证明会话资源回收；尚未做堆增长量测。
 
-下一步评估固定源码的显式释放修正及设备回归，然后才采纳组件。不要在生产用反射访问内部字段或把每次关闭终端变成杀主应用进程。后续还有主进程/服务死亡、detach/attach、组件输入/渲染与资源压力、产品目录映射与租期接线。
+## 固定源码显式释放补丁（close-component-v3）
+
+先执行父级准备脚本，再执行 `prepare-termlib-close-probe.py`。后者校验原 tar SHA，解包到忽略目录，保留 Apache-2.0 与 bundled MIT 许可证，以唯一锚点应用本地修正；不修改发布 AAR、不反射内部字段、不导入源码到生产模块。独立构建改用 `:patched-terminal`，Kotlin/Compose 插件固定 2.3.21，graphics 作为公开 API 依赖。生成锁与校验 metadata 的命令仍仅作用于独立工程。
+
+补丁增加 public `close()`：约定调用方先停止生产者并移除视图，在 callback looper 调用；排空已接收键盘任务，在 damage lock 下关闭图片策略、清除该 Handler 的回调和图片缓存、关闭 native；后续显示快照看到 closed 即返回。重复 close 幂等，关闭后 native 输入明确拒绝。这个约定不承诺调用方继续并发输入时仍能自动建立关闭边界，生产 owner 必须履行停止/卸载顺序。
+
+新增 `TerminalCloseProbeTest` 连续创建并关闭 20 个对象，检查两次 close、关闭后写入拒绝和全部弱引用进入 ReferenceQueue。首次用 get() 轮询弱引用留下 1 个暂时存活对象；改为不读取 referent 的队列统计后全部回收，阈值没有放宽。其余 native 解析与 PTY 3 项同步回归。
+
+最终双 API 各 **4/4**，证据 `build/hxa197-close-component-api29-v3`（5656）、`build/hxa197-close-component-api36-v3`（5658），同 APK、模拟器正常退出。主 APK SHA-256 `c2fc48143ae0a080b49959a1f9f2e2b8096bf9bf943edd133f15dd92e705da27`，测试 APK `5b63b00d8b57c3bf03be9d12cfdb9020b1f3a1dd54aff4aad92c44a6af798f2c`。编译与 API29/36 回收通过，不是长稳内存增长、真实视图卸载或多线程关闭压力验收。
+
+原始 0.2.1 的 public API 缺口仍存在，补丁版本尚未生产采纳；补丁验证不是宣称 Maven AAR 已修复。下一步验证实际 Compose 视图、IME、detach/attach 与关闭顺序，然后完成组件/目录/租期契约及生产接线。
