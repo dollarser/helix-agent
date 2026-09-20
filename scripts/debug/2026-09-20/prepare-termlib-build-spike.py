@@ -36,6 +36,8 @@ android {
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
+    // Color is in termlib's public factory signature but published as runtime-only.
+    implementation("androidx.compose.ui:ui-graphics")
     implementation("org.connectbot:termlib:0.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 }
@@ -46,6 +48,7 @@ dependencyLocking { lockAllConfigurations() }
     <application android:label="Terminal probe">
         <uses-library android:name="android.test.runner" android:required="false" />
         <service android:name=".PtyProbeService" android:exported="false" android:process=":pty" />
+        <activity android:name=".RendererProbeActivity" android:exported="false" />
     </application>
 </manifest>
 ''',
@@ -77,6 +80,8 @@ for name, destination in {
     "pty_probe.c": "src/main/cpp/pty_probe.c",
     "PtyProbeService.java": "src/main/java/com/helix/spike/termlib/PtyProbeService.java",
     "PtyRuntime.kt": "src/main/java/com/helix/spike/termlib/PtyRuntime.kt",
+    "RendererProbeActivity.java": "src/main/java/com/helix/spike/termlib/RendererProbeActivity.java",
+    "RendererProbeTest.kt": "src/androidTest/java/com/helix/spike/termlib/RendererProbeTest.kt",
     "PtyProbeTest.java": "src/androidTest/java/com/helix/spike/termlib/PtyProbeTest.java",
 }.items():
     target = root / destination

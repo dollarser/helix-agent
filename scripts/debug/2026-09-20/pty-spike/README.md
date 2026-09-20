@@ -67,4 +67,16 @@ v6 暴露旧探针把读取次数误作时间预算，逐字符回显可能提�
 
 **生产接线限制：**只杀最初进程组不能证明交互终端无后台执行；异常 tracer/服务死亡必须保留未知执行与占用，直到可信对账。探针的枚举是活 tracer、受控单个后台作业的可行性证据，不是完整生产清理算法；仍需稳定身份/start-time 绑定、扫描/并发派生边界、超时升级、异常死亡及独立真实 owner 回归。主动另建 session 的任意程序未覆盖，不作“任意后代全部回收”承诺。不要扩写这段同步探针作为生产 Binder 会话服务。
 
-后续还有主进程/服务死亡、detach/attach、组件输入/渲染与资源压力、产品目录映射与租期接线。
+## 组件 native 解析与 OSC（renderer-v3）
+
+新增 `RendererProbeTest`：真实创建固定版 termlib emulator，逐字节输入含中文的 OSC 133 命令输出，读取最终内容核对 UTF-8；在有焦点的 Activity 中设置非敏感剪贴板哨兵，输入 OSC 52 写入和查询，等待实际主线程队列处理后确认剪贴板未改变；核对 resize 的公开尺寸。Activity 只是获得系统剪贴板访问所需焦点，不是终端 Compose 界面。
+
+renderer-v2 出现 `NoSuchMethodError`：组件工厂签名包含 Compose `Color`，但 Maven 将 graphics 发布为 runtime-only；缺少编译类型时，探针生成了 boxed `create$default` 调用，与 AAR 中实际 `create-0quPzfM$default` 不符。显式加入同 BOM 的 graphics 编译依赖后，renderer-v3 双 API 通过。独立探针的 Kotlin 编译器由 AGP 提供（锁记录 2.2.10），不将它冒充主工程 Kotlin 2.3.21/Compose 完整迁移验收。
+
+最终 API29/36 各 **3/3**（组件解析 1 + PTY 2），证据 `build/hxa197-renderer-api29-v3`（5650）、`build/hxa197-renderer-api36-v3`（5652），同 APK，模拟器正常退出。主 APK SHA-256 `df60c788a77119269fcb8c6ff5ab1e6730a136a6f41046d6b69884ace2162dbb`，测试 APK `5c6d915b6cf5a687b0a9c0f4c201572f6a92a09f81ac2c8bc8d8b2917bfc6705`。这些通过不证明可视渲染、软键盘、长输出资源压力或释放正确。
+
+## 组件释放是接入前待修项
+
+固定源码 `TerminalEmulator` 无公开 close/dispose；实现以 `TerminalNative(this)` 建立 native 实例，C++ `NewGlobalRef(callbacks)` 持有 emulator，析构时才 DeleteGlobalRef。内部 TerminalNative 有 close/finalize，但公开调用方无法按会话关闭；Compose 的 DisposableEffect 只隐藏 IME。此引用链不能靠公开 API 或默认 GC 实现可核验的会话释放。当前测试仅创建一个 emulator，结束 owned 进程不等于证明会话资源回收；尚未做堆增长量测。
+
+下一步评估固定源码的显式释放修正及设备回归，然后才采纳组件。不要在生产用反射访问内部字段或把每次关闭终端变成杀主应用进程。后续还有主进程/服务死亡、detach/attach、组件输入/渲染与资源压力、产品目录映射与租期接线。
