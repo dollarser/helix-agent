@@ -8,6 +8,7 @@ enum class BackgroundJobActionOutcome {
     STOP_REQUESTED,
     TERMINAL_PENDING,
     SETTLED,
+    MISSING_RESULT_SETTLED,
     BUSY,
     REVIEW_REQUIRED,
     REBOOT_REQUIRED,

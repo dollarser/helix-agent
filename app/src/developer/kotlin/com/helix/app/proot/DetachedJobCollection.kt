@@ -28,12 +28,13 @@ internal class DetachedJobCollection(
     private val storage: HelixStorage,
     private val ownership: ExecutionOwnership,
     private val applyOutput: (DetachedJobBinding, ProotJobRecord, File?) -> Unit,
-    private val settleBudget: (DetachedJobBinding, ProotJobRecord) -> Unit,
+    private val settleBudget: (DetachedJobBinding, ProotJobRecord?) -> Unit,
 ) {
     private val bindings = ProotJobBindingStore(storage)
     private val observations = DetachedJobObservationStore(storage)
     private val jobs = DetachedJobClient(context)
     private val currentBoot = { DetachedJobBootProof.current(context) }
+    private val missing = DetachedJobMissingCollection(storage, currentBoot) { settleBudget(it, null) }
     private val results = ProotResultClient(ProotRuntimeSupervisor(context))
     private val store =
         ProotResultStore(
@@ -54,9 +55,8 @@ internal class DetachedJobCollection(
         permit: ExecutionOwnership.ReconciliationPermit?,
     ): ToolExecutorResult {
         val binding = binding(call)
-        val record =
-            jobs.query(binding).record
-                ?: return failure("JOB_RESULT_UNAVAILABLE: query the original job again.")
+        val reply = jobs.query(binding)
+        val record = reply.record ?: return missing.collect(binding, reply.status, call.cancel, permit)
         check(record.jobId == binding.jobId && record.executionId == binding.executionId)
         check(record.inputManifestSha256 == binding.inputManifestSha256)
         observations.observe(binding, record)

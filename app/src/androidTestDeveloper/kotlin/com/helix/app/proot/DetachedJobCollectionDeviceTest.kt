@@ -11,11 +11,13 @@ import com.helix.core.model.OperationRule
 import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.ToolAvailabilityScope
 import com.helix.core.model.ToolAvailabilityState
+import com.helix.core.model.TurnState
 import com.helix.core.policy.SessionPermissionConfig
 import com.helix.core.storage.HelixStorage
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.runtime.proot.ipc.ProotJobState
+import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.ExecutionOwnership
 import com.helix.tools.framework.NoCancellation
@@ -188,6 +190,75 @@ class DetachedJobCollectionDeviceTest {
             record = client.query(f.job.binding).record
         }
         assertEquals(expected, record?.state)
+    }
+
+    @Test fun missingRecordNeedsRebootAndKeepsOwnershipWhenBudgetSettlementFails() {
+        Fixture(context).use { f ->
+            var boot = 1
+            var status = ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND
+            var failBudget = true
+            val collector =
+                DetachedJobMissingCollection(f.storage, { boot }) {
+                    if (failBudget) throw IOException("injected settlement failure")
+                }
+            val executor =
+                f.ownership.guard(
+                    f.ownership.controlExecutor(
+                        resolve = { f.owner },
+                        execute = { call, permit -> collector.collect(f.job.binding, status, call.cancel, permit) },
+                    ),
+                )
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Failed)
+            f.storage.turns.updateState(
+                f.storage.turns.resolve(f.job.binding.turnId),
+                TurnState.INTERRUPTED,
+                0,
+                3,
+                null,
+            )
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Failed)
+            assertEquals(f.owner, f.ownership.retainedOwner())
+            boot = 2
+            status = ProotRuntimeProtocol.REPLY_JOB_UNAVAILABLE
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Failed)
+            assertEquals(f.owner, f.ownership.retainedOwner())
+            status = ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND
+            assertThrows(IOException::class.java) { executor.execute(f.call) }
+            assertEquals(f.owner, f.ownership.retainedOwner())
+            assertNull(DetachedJobObservationStore(f.storage).read(f.job.binding))
+            failBudget = false
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+            assertNull(f.ownership.retainedOwner())
+            assertEquals(
+                DetachedCommandFacts("UNKNOWN", null, true),
+                DetachedJobObservationStore(f.storage).read(f.job.binding),
+            )
+            assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)
+        }
+    }
+
+    @Test fun cancelledMissingCollectionDoesNotConsumeBudgetOrReleaseOwnership() {
+        Fixture(context).use { f ->
+            val collector = DetachedJobMissingCollection(f.storage, { 2 }) { error("must not settle") }
+            val executor =
+                f.ownership.guard(
+                    f.ownership.controlExecutor(
+                        resolve = { f.owner },
+                        execute = { _, permit ->
+                            collector.collect(
+                                f.job.binding,
+                                ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND,
+                                object : com.helix.tools.framework.CancelSignal {
+                                    override fun isCancelled() = true
+                                },
+                                permit,
+                            )
+                        },
+                    ),
+                )
+            assertEquals(ToolExecutorResult.Cancelled, executor.execute(f.call))
+            assertEquals(f.owner, f.ownership.retainedOwner())
+        }
     }
 
     private class Fixture(

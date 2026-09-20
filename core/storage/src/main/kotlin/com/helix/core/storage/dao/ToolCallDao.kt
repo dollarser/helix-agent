@@ -32,7 +32,9 @@ interface ToolCallDao {
             "(SELECT 1 FROM audit_events t WHERE t.id = 'proot-terminal-' || c.callId " +
             "AND t.type = 'proot.job_terminal' AND t.actor = 'platform')) AND NOT EXISTS " +
             "(SELECT 1 FROM audit_events s WHERE s.id = 'proot-settled-' || c.callId " +
-            "AND s.type = 'proot.job_settled' AND s.actor = 'platform')) " +
+            "AND s.type = 'proot.job_settled' AND s.actor = 'platform') AND NOT EXISTS " +
+            "(SELECT 1 FROM audit_events d WHERE d.id = 'proot-disposed-' || c.callId " +
+            "AND d.type = 'proot.job_disposed' AND d.actor = 'platform')) " +
             "OR c.id IN (SELECT id FROM tool_calls WHERE name = 'code.linux.job.start' " +
             "ORDER BY rowid DESC LIMIT :recentLimit)) ORDER BY c.rowid DESC",
     )

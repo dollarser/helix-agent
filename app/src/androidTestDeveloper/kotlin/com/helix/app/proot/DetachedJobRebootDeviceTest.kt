@@ -9,7 +9,9 @@ import com.helix.app.MainActivity
 import com.helix.app.provider.ScriptedTaskModelServer
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.runtime.proot.client.DetachedJobClient
+import com.helix.runtime.proot.ipc.DetachedJobBinding
 import com.helix.runtime.proot.ipc.ProotJobState
+import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,6 +29,7 @@ class DetachedJobRebootDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val marker get() = File(app.noBackupFilesDir, "detached-reboot.properties")
+    private val missingRecord get() = InstrumentationRegistry.getArguments().getString("missingRecord") == "true"
 
     @Test fun rebootAllowsOriginalOrphanSettlementWithoutOutputOrReplay() =
         runBlocking {
@@ -86,7 +89,7 @@ class DetachedJobRebootDeviceTest {
         val binding = ProotJobBindingStore(storage).resolveDetached(session, facts.getProperty("call"))
         assertTrue(DetachedJobBootProof.canSettle(storage, binding, null, DetachedJobBootProof.current(app)))
         val client = DetachedJobClient(app)
-        compose.waitUntil(15_000) { client.query(binding).record?.state == ProotJobState.ORPHANED }
+        prepareOriginalRecord(binding, client)
         val run = storage.goalRuns.listByGoal(facts.getProperty("goal")).single()
         val lease = requireNotNull(storage.goalUsageReservations.byId("proot-lease-${binding.executionId}"))
         assertEquals("INTERRUPTED", lease.state)
@@ -102,7 +105,15 @@ class DetachedJobRebootDeviceTest {
         assertEquals(2, storage.toolCalls.listByTurn(facts.getProperty("turn")).size)
         assertFalse(File(app.filesDir, "workspaces/app/output/${facts.getProperty("output")}").exists())
         assertFalse(DetachedJobDashboard.read(storage).single { it.callId == job.callId }.settlementPending)
-        assertEquals(ProotJobState.ORPHANED, client.query(binding).record?.state)
+        if (missingRecord) {
+            assertEquals(ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND, client.query(binding).status)
+            assertEquals(
+                CommandDetailState.UNKNOWN,
+                DetachedJobDashboard.read(storage).single { it.callId == job.callId }.state,
+            )
+        } else {
+            assertEquals(ProotJobState.ORPHANED, client.query(binding).record?.state)
+        }
         marker.delete()
     }
 
@@ -113,6 +124,25 @@ class DetachedJobRebootDeviceTest {
             val action = chat.backgroundJobAction.value
             action?.callId == job.callId && !action.busy
         }
-        assertEquals(BackgroundJobActionOutcome.SETTLED, chat.backgroundJobAction.value?.outcome)
+        val expected =
+            if (missingRecord) {
+                BackgroundJobActionOutcome.MISSING_RESULT_SETTLED
+            } else {
+                BackgroundJobActionOutcome.SETTLED
+            }
+        assertEquals(expected, chat.backgroundJobAction.value?.outcome)
+    }
+
+    private fun prepareOriginalRecord(
+        binding: DetachedJobBinding,
+        client: DetachedJobClient,
+    ) {
+        if (missingRecord) {
+            // Synthetic Job only, after real reboot: remove evidence without inventing a Runtime terminal.
+            check(File(app.filesDir, "runtime/jobs/${binding.jobId}/record.json").delete())
+            assertEquals(ProotRuntimeProtocol.REPLY_JOB_NOT_FOUND, client.query(binding).status)
+        } else {
+            compose.waitUntil(15_000) { client.query(binding).record?.state == ProotJobState.ORPHANED }
+        }
     }
 }

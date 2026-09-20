@@ -61,7 +61,7 @@ data class CommandBrowseFacts(
     val detached: DetachedCommandFacts? = null,
 )
 
-/** Immutable Runtime terminal observation, separate from host output and budget settlement. */
+/** Runtime observation or explicit host disposition, separate from output and budget settlement. */
 data class DetachedCommandFacts(
     val state: String,
     val exitCode: Int?,

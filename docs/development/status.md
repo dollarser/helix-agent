@@ -34,7 +34,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 运行中主进程死亡已完成有效验证：普通应用页面在 Act 模式启动 Job，宿主只杀主 PID，原 Runtime PID 与 boot_id 不变，原 Job 完成后两次收取无重放。最新完整主机门禁通过；双 API 最终旅程 **2/2**，准备 **2/2** 单列。该证据替代会因 instrumentation 收尾杀包而失真的诊断方式；仅覆盖普通 Act 会话，Goal 计费和 OEM 真机边界不扩大。详见 [196 任务记录](tasks/HXA-196.md)。
 
-196 下一步：原 Runtime 记录缺失的对账边界；真机 G4 继续独立待验。并行交付中的三工具实现因效果分类、错误/取消回执和缺少持久占用/Goal 结算问题未直接采纳，main 未提交修改保留，见[交接复核](../evidence/development/hxa-196-handoff-review-2026-09-20.md)。196 仍为唯一进行中的 checkpoint。
+196 已补齐原 Runtime 记录缺失出口：明确 NOT_FOUND、原 Turn 终态或 INTERRUPTED 且真实重启证据成立后，收取结算预算并解除占用，保留 UNKNOWN 和结果丢失提示，不生成终态或重跑。最新完整主机门禁通过，双 API 实际重启缺失记录验证 **2/2**、收取/Goal/Runtime 死亡回归 **20/20**。真机 G4 继续独立待验。并行交付中的三工具实现因效果分类、错误/取消回执和缺少持久占用/Goal 结算问题未直接采纳，main 未提交修改保留，见[交接复核](../evidence/development/hxa-196-handoff-review-2026-09-20.md)。196 仍为唯一进行中的 checkpoint，下一步核对本地收口与外部待验清单。
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 

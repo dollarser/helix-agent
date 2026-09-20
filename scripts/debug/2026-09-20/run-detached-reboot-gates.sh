@@ -4,6 +4,12 @@ set -euo pipefail
 cd "$(dirname "$0")/../../.."
 prefix="${1:?new evidence prefix}"
 port="${2:-5676}"
+missing=()
+case "${4:-normal}" in
+  normal) ;;
+  missing) missing=(--instrument-arg missingRecord=true) ;;
+  *) exit 2 ;;
+esac
 case "${3:-all}" in
   all) ./scripts/check-all.sh --all; ./gradlew :app:assembleDeveloperDebugAndroidTest ;;
   --devices-only) ;; # Only after gates/build passed for these unchanged APKs.
@@ -18,6 +24,7 @@ for api in 29 36; do
     --recovery-setup-class com.helix.app.proot.DetachedJobRebootDeviceTest --reboot-after-setup \
     --classes com.helix.app.proot.DetachedJobRebootDeviceTest \
     --instrument-arg recoveryPhase=verify \
+    "${missing[@]}" \
     --output "build/${prefix}-api${api}" --timeout 600
   port=$((port + 2))
   python3 scripts/debug/2026-09-09/run-owned-emulator.py \
@@ -25,9 +32,9 @@ for api in 29 36; do
     --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
     --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
     --runner com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner \
-    --classes com.helix.app.proot.DetachedGoalJourneyDeviceTest,com.helix.app.proot.DetachedGoalRuntimeDeathDeviceTest \
+    --classes com.helix.app.proot.DetachedJobCollectionDeviceTest,com.helix.app.proot.DetachedGoalJourneyDeviceTest,com.helix.app.proot.DetachedGoalRuntimeDeathDeviceTest \
     --output "build/${prefix}-control-api${api}" --timeout 600
   port=$((port + 2))
 done
 python3 scripts/debug/2026-09-18/summarize-job-submission.py "$prefix" 1
-python3 scripts/debug/2026-09-18/summarize-job-submission.py "${prefix}-control" 3
+python3 scripts/debug/2026-09-18/summarize-job-submission.py "${prefix}-control" 10

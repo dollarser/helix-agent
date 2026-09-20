@@ -92,7 +92,11 @@ internal class DetachedJobUserActions(
         return when {
             action == BackgroundJobAction.COLLECT &&
                 (output["settlementPending"] as? JsonPrimitive)?.content == "false" -> {
-                BackgroundJobActionOutcome.SETTLED
+                if ((output["evidenceMissing"] as? JsonPrimitive)?.content == "true") {
+                    BackgroundJobActionOutcome.MISSING_RESULT_SETTLED
+                } else {
+                    BackgroundJobActionOutcome.SETTLED
+                }
             }
 
             state == "ORPHANED" -> {

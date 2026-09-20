@@ -55,7 +55,7 @@ internal object DetachedJobRegistration {
                     binding.sessionId,
                     binding.turnId,
                     binding.executionId,
-                    record.terminalElapsedMs,
+                    record?.terminalElapsedMs,
                 )
             }
         val control = DetachedJobControl.create(context, storage, ownership)

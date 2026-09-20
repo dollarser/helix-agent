@@ -42,6 +42,16 @@ internal class DetachedJobObservationStore(
     }
 
     fun read(binding: DetachedJobBinding): DetachedCommandFacts? {
+        event(binding, "disposed")?.let {
+            val payload = Json.parseToJsonElement(it.redactedPayload).jsonObject
+            check(payload.getValue("executionId").jsonPrimitive.content == binding.executionId)
+            check(payload.getValue("reason").jsonPrimitive.content == "RECORD_MISSING_AFTER_REBOOT")
+            return DetachedCommandFacts("UNKNOWN", null, true)
+        }
+        return readTerminal(binding)
+    }
+
+    private fun readTerminal(binding: DetachedJobBinding): DetachedCommandFacts? {
         val terminal = event(binding, "terminal") ?: return null
         val payload = Json.parseToJsonElement(terminal.redactedPayload).jsonObject
         check(payload.getValue("version").jsonPrimitive.content == "1")
@@ -53,6 +63,26 @@ internal class DetachedJobObservationStore(
             payload["exitCode"]?.jsonPrimitive?.intOrNull,
             settled != null,
         )
+    }
+
+    fun disposed(
+        binding: DetachedJobBinding,
+        boot: Int,
+    ) {
+        // Stable receipt does not change when a later retry runs after another reboot.
+        storage.withTransaction {
+            if (event(binding, "disposed") == null) {
+                appendOnce(
+                    binding,
+                    "disposed",
+                    buildJsonObject {
+                        put("executionId", binding.executionId)
+                        put("bootCount", boot)
+                        put("reason", "RECORD_MISSING_AFTER_REBOOT")
+                    }.toString(),
+                )
+            }
+        }
     }
 
     private fun appendOnce(

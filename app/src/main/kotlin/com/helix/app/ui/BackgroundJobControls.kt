@@ -53,6 +53,7 @@ private fun BackgroundJobActionOutcome.label() =
         BackgroundJobActionOutcome.STOP_REQUESTED -> R.string.tasks_job_stop_requested
         BackgroundJobActionOutcome.TERMINAL_PENDING -> R.string.tasks_job_terminal_pending
         BackgroundJobActionOutcome.SETTLED -> R.string.tasks_job_settled
+        BackgroundJobActionOutcome.MISSING_RESULT_SETTLED -> R.string.tasks_job_missing_result_settled
         BackgroundJobActionOutcome.BUSY -> R.string.tasks_job_executor_busy
         BackgroundJobActionOutcome.FAILED -> R.string.tasks_job_action_failed
         BackgroundJobActionOutcome.REVIEW_REQUIRED -> R.string.tasks_job_review_required
