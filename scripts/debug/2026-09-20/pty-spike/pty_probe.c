@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
@@ -53,8 +54,30 @@ static int exchange(int fd, const char *input, const char *expected) {
     return exchange_prompt(fd, input, expected, "probe> ");
 }
 
+/* Probe closure: retain the tracer while terminating its session's job groups. */
+static int stop_session_jobs(pid_t session) {
+    DIR *processes = opendir("/proc");
+    if (!processes) return 0;
+    struct dirent *entry;
+    int success = 1;
+    while ((entry = readdir(processes)) != NULL) {
+        char *end;
+        long number = strtol(entry->d_name, &end, 10);
+        if (*end || number <= 0) continue;
+        pid_t pid = (pid_t)number;
+        if (getsid(pid) != session) continue;
+        pid_t group = getpgid(pid);
+        if (group <= 0 || group == session) continue;
+        /* Recheck session before using the observed group; no shared-UID sweep. */
+        if (getsid(pid) != session || getpgid(pid) != group) continue;
+        if (kill(-group, SIGKILL) && errno != ESRCH) { success = 0; break; }
+    }
+    closedir(processes);
+    return success;
+}
+
 JNIEXPORT jstring JNICALL
-Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, jstring install, jstring loader) {
+Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, jstring install, jstring loader, jboolean close_background) {
     (void)cls;
     const char *failure = "open PTY";
     char diagnostic[1200];
@@ -79,6 +102,8 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, j
     if (!valid) return (*env)->NewStringUTF(env, "Runtime path too long");
     int master = posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC);
     pid_t child = -1;
+    pid_t other_owner = -1;
+    pid_t background = -1;
     int status = 0;
     if (master < 0) goto done;
     if (grantpt(master) || unlockpt(master)) goto done;
@@ -154,6 +179,44 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, j
     if (!exchange(master, "\004", "")) goto done;
     failure = "shell state after Python";
     if (!exchange(master, "printf 'AFTER_%s\\n' \"$PROBE\"\n", "AFTER_ready\r\n")) goto done;
+    if (close_background) {
+        failure = "background start";
+        if (!exchange(master, "sleep 30 & printf 'BG_%s_END\\n' \"$!\"\n", "_END\r\n")) goto done;
+        char *pid_marker = strstr(last_output, "\nBG_");
+        if (!pid_marker) goto done;
+        background = (pid_t)strtol(pid_marker + 4, NULL, 10);
+        failure = "background belongs to PTY session with distinct job group";
+        if (background <= 0 || getsid(background) != child || getpgid(background) == child) goto done;
+        failure = "other owner creation";
+        other_owner = fork();
+        if (other_owner == 0) {
+            close(master);
+            if (setsid() < 0) _exit(127);
+            for (;;) pause();
+        }
+        if (other_owner < 0) goto done;
+        for (int i = 0; i < 100 && getsid(other_owner) != other_owner; i++) usleep(10000);
+        if (getsid(other_owner) != other_owner) goto done;
+        failure = "explicit close session job groups";
+        if (!stop_session_jobs(child)) goto done;
+        pid_t waited = 0;
+        const long long close_deadline = monotonic_millis() + 3000;
+        while (monotonic_millis() < close_deadline) {
+            waited = waitpid(child, &status, WNOHANG);
+            if (waited == child || (waited < 0 && errno != EINTR)) break;
+            usleep(10000);
+        }
+        if (waited != child) goto done;
+        child = -1;
+        failure = "background survived terminal close";
+        for (int i = 0; i < 200 && kill(background, 0) == 0; i++) usleep(10000);
+        if (kill(background, 0) == 0 || errno != ESRCH) goto done;
+        background = -1;
+        failure = "other owner was killed";
+        if (kill(other_owner, 0) || waitpid(other_owner, &status, WNOHANG) != 0) goto done;
+        failure = NULL;
+        goto done;
+    }
     failure = "EOF exit";
     if (write(master, "\004", 1) != 1) goto done;
     for (int i = 0; i < 100; i++) {
@@ -169,15 +232,22 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, j
     }
     failure = "EOF timeout after 1s";
 done:
+    if (background > 0 && child > 0 && getsid(background) == child) kill(background, SIGKILL);
     if (child > 0) {
         kill(-child, SIGKILL);
         kill(child, SIGKILL);
         while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
     }
     if (master >= 0) close(master);
+    if (other_owner > 0) {
+        kill(other_owner, SIGKILL);
+        while (waitpid(other_owner, &status, 0) < 0 && errno == EINTR) {}
+    }
     if (failure && failure != diagnostic) {
         snprintf(diagnostic, sizeof(diagnostic), "%s; output=%s", failure, last_output);
         failure = diagnostic;
     }
-    return (*env)->NewStringUTF(env, failure ? failure : "OK: tty, UTF-8, edit, cwd/env, resize, Ctrl-C, Python REPL, EOF");
+    const char *success = close_background ? "OK: background close, other owner alive" :
+        "OK: tty, UTF-8, edit, cwd/env, resize, Ctrl-C, Python REPL, EOF";
+    return (*env)->NewStringUTF(env, failure ? failure : success);
 }

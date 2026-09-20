@@ -8,15 +8,15 @@ import android.os.Parcel;
 
 public final class PtyProbeService extends Service {
     static { System.loadLibrary("pty_probe"); }
-    private static native String runProbe(String install, String loader);
+    private static native String runProbe(String install, String loader, boolean closeBackground);
 
     @Override public IBinder onBind(Intent intent) {
         return new Binder() {
             @Override protected boolean onTransact(int code, Parcel data, Parcel reply, int flags) {
-                if (code != 1) return false;
+                if (code != 1 && code != 2) return false;
                 reply.writeInt(android.os.Process.myPid());
                 String[] runtime = PtyRuntime.prepare(PtyProbeService.this);
-                reply.writeString(runProbe(runtime[0], runtime[1]));
+                reply.writeString(runProbe(runtime[0], runtime[1], code == 2));
                 return true;
             }
         };

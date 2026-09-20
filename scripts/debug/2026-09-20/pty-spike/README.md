@@ -53,4 +53,18 @@ v6 暴露旧探针把读取次数误作时间预算，逐字符回显可能提�
 
 相同 APK 在 API29/36 各 1/1 通过，同时重新覆盖 resize/Ctrl-C/EOF。证据 `build/hxa197-pty-repl-api29-v1`（5636）、`build/hxa197-pty-repl-api36-v1`（5638），两个 emulator 均正常退出。主 APK SHA-256 `17206529767aba9cf88d57e3ff86378bacb99005039dabd66e4669394d969b2d`，测试 APK `d7da5e6d0f87eb42571af60ccbe6a7a2fbbd2a29955d0481202963706b044281`。
 
-这证明 PTY 字节输入和真实程序交互，不证明 Android IME、可视终端和屏幕重建。后续须测试后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。
+这证明 PTY 字节输入和真实程序交互，不证明 Android IME、可视终端和屏幕重建。
+
+## 后台作业与显式关闭（close-v3）
+
+新增独立用例：在交互 shell 提示符启动 `sleep 30 &`，核验 PID 属于该 PTY 的内核 session，但作业进程组与 tracer 不同；另 fork 一个独立 session 的哨兵，关闭终端后它必须仍活着。它是内核进程隔离检查，不是完整生产 Job owner 交叉验收。
+
+- close-v1 向 tracer 组发 SIGKILL：tracer 消失，但后台作业仍在，测试失败。
+- close-v2 向 tracer 组发 SIGTERM：在 3 秒期限内未完成关闭，测试失败。
+- close-v3 保留 tracer，枚举当前内核 session 中的作业组，发送信号前重查 PID 的 session/group；跳过 tracer 自身组，终止作业后等待 tracer 退出，再验证后台 PID 不存在。独立哨兵必须仍存活，由测试 finally 另行终止并 waitpid。两个已观察到的失败不删除。
+
+最终 API29/36 各 **2/2**（原交互/EOF 用例和新增关闭用例），证据 `build/hxa197-pty-close-api29-v3`（5644）、`build/hxa197-pty-close-api36-v3`（5646），同 APK、模拟器正常退出。主 APK SHA-256 `77d0da9d77cdedf5e0f0c86af5fc9a8c4245572a7caa86941f70b8f73db9664e`，测试 APK `fcce6b276cfd97a4ad1685d56c1876d6b90a23d30bd49904893ee22012fc996c`。
+
+**生产接线限制：**只杀最初进程组不能证明交互终端无后台执行；异常 tracer/服务死亡必须保留未知执行与占用，直到可信对账。探针的枚举是活 tracer、受控单个后台作业的可行性证据，不是完整生产清理算法；仍需稳定身份/start-time 绑定、扫描/并发派生边界、超时升级、异常死亡及独立真实 owner 回归。主动另建 session 的任意程序未覆盖，不作“任意后代全部回收”承诺。不要扩写这段同步探针作为生产 Binder 会话服务。
+
+后续还有主进程/服务死亡、detach/attach、组件输入/渲染与资源压力、产品目录映射与租期接线。

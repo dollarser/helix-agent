@@ -12,6 +12,14 @@ import java.util.concurrent.TimeUnit;
 
 public final class PtyProbeTest extends InstrumentationTestCase {
     public void testPrivateProcessPty() throws Exception {
+        runProbe(1, "OK: tty, UTF-8, edit, cwd/env, resize, Ctrl-C, Python REPL, EOF");
+    }
+
+    public void testCloseReapsBackgroundWithoutKillingOtherOwner() throws Exception {
+        runProbe(2, "OK: background close, other owner alive");
+    }
+
+    private void runProbe(int code, String expected) throws Exception {
         Context context = getInstrumentation().getTargetContext();
         ArrayBlockingQueue<IBinder> connection = new ArrayBlockingQueue<>(1);
         ServiceConnection listener = new ServiceConnection() {
@@ -24,9 +32,9 @@ public final class PtyProbeTest extends InstrumentationTestCase {
             assertNotNull(binder);
             Parcel request = Parcel.obtain(), reply = Parcel.obtain();
             try {
-                assertTrue(binder.transact(1, request, reply, 0));
+                assertTrue(binder.transact(code, request, reply, 0));
                 assertTrue("Must execute in private service", reply.readInt() != android.os.Process.myPid());
-                assertEquals("OK: tty, UTF-8, edit, cwd/env, resize, Ctrl-C, Python REPL, EOF", reply.readString());
+                assertEquals(expected, reply.readString());
             } finally { request.recycle(); reply.recycle(); }
         } finally { context.unbindService(listener); }
     }
