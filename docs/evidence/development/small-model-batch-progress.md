@@ -14,8 +14,10 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | `3e3c6040` | 12/12 单元测试通过，CLI 验证通过 |
 | **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | `fcaa190d` | 8/8 单元测试通过，CLI 验证通过 |
-| **C** | 过期交接文档收敛、用户帮助草稿 | **READY_FOR_REVIEW** | 待提交 | 源码门禁通过，引用核对无孤岛 |
-| **D** | HXA-198 UI 设计、状态/操作表、测试映射 | **NOT_STARTED** | - | - |
+| **C** | 过期交接文档收敛、用户帮助草稿 | **READY_FOR_REVIEW** | `beb59c95` | 源码门禁通过，引用核对无孤岛 |
+| **D** | HXA-198 UI 设计、状态/操作表、测试映射 | **WAITING_CORE** | `9d7435db` | 审计与设计完成，明确依赖核心，无占位伪造 |
+
+
 
 
 ---
@@ -67,3 +69,22 @@
   - `git diff --check` -> Clean
 - **边界说明**：
   - 不擅自修改 status.md 与 roadmap.md 的完成状态或任务总数（保持 13 项未闭合义务），将建议整理并交协调者统驭。
+
+---
+
+## 工作包 D 执行详情
+
+- **文件修改与新增**：
+  - 新增 `docs/evidence/development/hxa-198-ui-preparation.md`（UI 设计、状态/操作表、核心接口需求及测试映射）
+  - 更新 `docs/evidence/development/small-model-batch-progress.md`（记录批次总揽与各包状态）
+- **核心依赖状态**：
+  - 核心模块多会话实现（最多 2 live 会话、第 3 会话拒绝、单写连接/只读观察端、generation 失效等）目前尚未由协调者交付。
+  - 遵循交付纪律：**绝不添加占位生产代码、未接线按钮或伪装双会话的本地集合**。
+  - D 的实现状态明确标记为 **WAITING_CORE**。
+- **验证命令与结果**：
+  - `./scripts/check-all.sh --source` -> Exit Code 0 (487 Markdown files, 194 HXA tasks, 31 ADRs, 1369 i18n keys)
+  - `python3 -m unittest discover -s scripts/tests -p 'test_product_journeys.py'` -> 12 tests passed, Exit Code 0
+  - `python3 -m unittest discover -s scripts/tests -p 'test_terminal_reports.py'` -> 8 tests passed, Exit Code 0
+  - `git diff --check` -> Clean
+- **后续接线条件**：
+  - 协调者提供双会话已验证的核心提交与测试结果后，方在干净工作树中完成 ViewModel/UI 接线与多会话设备测试。
