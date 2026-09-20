@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Prepare an isolated compile-only probe; does not add a production dependency."""
+"""Prepare isolated renderer compilation and private-process PTY feasibility probes."""
 from pathlib import Path
+import shutil
 
 root = Path(__file__).resolve().parents[3] / "build/hxa197-termlib-build-spike"
 files = {
@@ -21,7 +22,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "probe"
+        testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
+    ndkVersion = "28.2.13676358"
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.31.6" } }
+    useLibrary("android.test.runner")
+    useLibrary("android.test.base")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -35,7 +41,10 @@ dependencyLocking { lockAllConfigurations() }
 ''',
     "gradle.properties": "android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8\n",
     "src/main/AndroidManifest.xml": '''<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Terminal compile probe" />
+    <application android:label="Terminal probe">
+        <uses-library android:name="android.test.runner" android:required="false" />
+        <service android:name=".PtyProbeService" android:exported="false" android:process=":pty" />
+    </application>
 </manifest>
 ''',
     "src/main/java/com/helix/spike/termlib/ApiProbe.java": '''package com.helix.spike.termlib;
@@ -61,3 +70,18 @@ for name, content in files.items():
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content)
 print(root)
+sources = Path(__file__).resolve().parent / "pty-spike"
+for name, destination in {
+    "pty_probe.c": "src/main/cpp/pty_probe.c",
+    "PtyProbeService.java": "src/main/java/com/helix/spike/termlib/PtyProbeService.java",
+    "PtyProbeTest.java": "src/androidTest/java/com/helix/spike/termlib/PtyProbeTest.java",
+}.items():
+    target = root / destination
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(sources / name, target)
+(root / "src/main/cpp/CMakeLists.txt").write_text('''cmake_minimum_required(VERSION 3.22)
+project(pty_probe C)
+add_library(pty_probe SHARED pty_probe.c)
+target_compile_options(pty_probe PRIVATE -Wall -Wextra -Werror)
+target_link_options(pty_probe PRIVATE -Wl,-z,max-page-size=16384)
+''')
