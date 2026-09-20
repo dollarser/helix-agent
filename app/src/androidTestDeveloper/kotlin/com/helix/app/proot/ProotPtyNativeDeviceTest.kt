@@ -28,6 +28,10 @@ class ProotPtyNativeDeviceTest {
 
     @Test fun nativeBoundsRejectWithoutCorruptingIoAndSignalExitIsReported() = probe(4)
 
+    @Test fun shellExitCleansBackgroundAndDetachedJobsWithoutKillingAnotherOwner() = probe(5)
+
+    @Test fun explicitProotQuitCleansForegroundBackgroundAndDetachedJobs() = probe(6)
+
     private fun probe(code: Int) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val connected = CountDownLatch(1)

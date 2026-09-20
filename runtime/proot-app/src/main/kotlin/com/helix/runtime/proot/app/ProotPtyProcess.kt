@@ -63,6 +63,14 @@ internal class ProotPtyProcess private constructor(
         ProotPtyNative.killInitialGroup(pid)
     }
 
+    /** Ask a ready PRoot tracer to stop its tracees; caller must still observe and reconcile exit. */
+    @Synchronized
+    fun requestProotExit() {
+        requireWorker()
+        check(!reaped) { "PTY leader already reaped" }
+        ProotPtyNative.requestProotExit(pid)
+    }
+
     @Synchronized
     fun closeMaster() {
         requireWorker()
@@ -162,6 +170,8 @@ internal object ProotPtyNative {
     external fun reap(pid: Int): Int
 
     external fun killInitialGroup(pid: Int)
+
+    external fun requestProotExit(pid: Int)
 
     external fun foregroundGroup(fd: Int): Int
 

@@ -2,8 +2,6 @@ package com.helix.runtime.proot.app
 
 import android.content.Context
 import android.os.SystemClock
-import android.system.ErrnoException
-import android.system.Os
 import android.system.OsConstants
 import com.helix.runtime.proot.core.InstallOutcome
 import com.helix.runtime.proot.core.PtyInputConnection
@@ -25,6 +23,7 @@ internal class PtyNativeJourney(
             listOf(
                 "/system/bin/linker64",
                 File(install, "bin/proot").path,
+                "--kill-on-exit",
                 "-r",
                 File(install, "rootfs").path,
                 "-b",
@@ -54,7 +53,7 @@ internal class PtyNativeJourney(
     }
 
     fun interactive() {
-        useProcess(startInteractive()) { process ->
+        usePtyProcess(startInteractive()) { process ->
             val channel = Channel(process)
             channel.until(PROMPT)
             channel.exchange("test -t 0 && test -t 1 && printf 'TTY_%s\\n' YES\n", "TTY_YES")
@@ -67,29 +66,81 @@ internal class PtyNativeJourney(
             channel.exchange("printf 'STATE_%s_%s\\n' \"\$PTY_VALUE\" \"\$PWD\"\n", "STATE_保留🙂_/tmp")
             val shell = process.foregroundGroup()
             channel.send("sleep 30\n".toByteArray())
-            await { process.foregroundGroup() != shell }
+            awaitPty { process.foregroundGroup() != shell }
             val foreground = process.foregroundGroup()
             channel.send(byteArrayOf(3))
             channel.until(PROMPT)
             channel.exchange("printf 'EXIT_%s\\n' \"\$?\"\n", "EXIT_130")
-            await { !exists(foreground) }
+            awaitPty { !ptyExists(foreground) }
             channel.exchange("python3 -q\n", "", ">>> ")
             channel.exchange("value=6*7; print('NATIVE_%s_中文🙂' % value)\n", "NATIVE_42_中文🙂", ">>> ")
             channel.send(byteArrayOf(4))
             channel.until(PROMPT)
             channel.send(byteArrayOf(4))
-            await { process.pollExit() != null }
+            awaitPty { process.pollExit() != null }
             check(process.pollExit() == 0)
         }
     }
 
+    fun prootClosure(quit: Boolean) {
+        usePtyProcess(
+            ProotPtyProcess.spawn(listOf("/system/bin/sh", "-c", "exec /system/bin/sleep 120"), emptyMap()),
+        ) { sentinel ->
+            usePtyProcess(startInteractive()) { process ->
+                val channel = Channel(process)
+                channel.until(PROMPT)
+                val shellGroup = process.foregroundGroup()
+                channel.send(
+                    (
+                        "rm -f /tmp/pty-detached.pid; sleep 30 & bg=\$!; " +
+                            "python3 -c \"import os,time; os._exit(0) if os.fork() else None; os.setsid(); " +
+                            "open('/tmp/pty-detached.pid','w').write(str(os.getpid())); time.sleep(30)\" & " +
+                            "while [ ! -s /tmp/pty-detached.pid ]; do sleep 0.01; done; " +
+                            "printf 'JOBS_%s_%s\\n' \"\$bg\" \"\$(cat /tmp/pty-detached.pid)\"\n"
+                    ).toByteArray(),
+                )
+                val response = channel.until("JOBS_", PROMPT)
+                val match = checkNotNull(Regex("JOBS_([0-9]+)_([0-9]+)").find(response))
+                val background = match.groupValues[1].toInt()
+                val detached = match.groupValues[2].toInt()
+                check(ptyExists(background) && ptyExists(detached))
+                check(ptyProcessFields(background)[2].toInt() != shellGroup)
+                check(ptyProcessFields(detached)[3].toInt() == detached)
+                var foreground: Int? = null
+                if (quit) {
+                    channel.send("sleep 30\n".toByteArray())
+                    awaitPty { process.foregroundGroup() != shellGroup }
+                    foreground = process.foregroundGroup()
+                    process.requestProotExit()
+                } else {
+                    channel.send(byteArrayOf(4))
+                }
+                awaitPty { process.pollExit() != null }
+                check(checkNotNull(process.pollExit()) in 0..255) { "PRoot did not exit through its event loop" }
+                awaitPty {
+                    !ptyExists(
+                        background,
+                    ) && !ptyExists(detached) && foreground?.let { !ptyExists(it) } != false
+                }
+                check(sentinel.pollExit() == null)
+                println(
+                    "Native PTY closure quit=$quit exit=${process.pollExit()} " +
+                        "backgroundGone=true detachedGone=true sentinelAlive=true",
+                )
+            }
+        }
+    }
+
     fun failedExec() {
-        useProcess(ProotPtyProcess.spawn(listOf("/helix-missing-executable"), emptyMap())) { process ->
+        val journal = PtyNativeFailureJournal(context)
+        usePtyProcess(ProotPtyProcess.spawn(listOf("/helix-missing-executable"), emptyMap())) { process ->
+            journal.spawned(process.pid)
             Channel(process).until("Helix PTY exec failed")
-            await { process.pollExit() != null }
+            awaitPty { process.pollExit() != null }
             check(process.pollExit() == 127)
             val tail = ByteArray(8192)
-            await { process.read(tail) == -1 }
+            awaitPty { process.read(tail) == -1 }
+            journal.failedExecFinished(checkNotNull(process.pollExit()))
         }
     }
 
@@ -108,13 +159,13 @@ internal class PtyNativeJourney(
                 "probe",
                 "参数🙂",
             )
-        useProcess(ProotPtyProcess.spawn(args, emptyMap())) { process ->
+        usePtyProcess(ProotPtyProcess.spawn(args, emptyMap())) { process ->
             check(runCatching { process.resize(513, 80) }.exceptionOrNull() is IllegalArgumentException)
             check(runCatching { process.read(ByteArray(8193)) }.exceptionOrNull() is IllegalArgumentException)
             check(runCatching { process.write(byteArrayOf(1), 1, 1) }.exceptionOrNull() is IllegalArgumentException)
             Channel(process).until("ARG_参数🙂")
             process.killInitialGroup()
-            await { process.pollExit() != null }
+            awaitPty { process.pollExit() != null }
             check(process.pollExit() == 256 + OsConstants.SIGKILL)
         }
     }
@@ -150,8 +201,8 @@ internal class PtyNativeJourney(
     }
 
     private fun cycle() {
-        useProcess(ProotPtyProcess.spawn(listOf("/system/bin/sh", "-c", "exit 0"), emptyMap())) { process ->
-            await { process.pollExit() != null }
+        usePtyProcess(ProotPtyProcess.spawn(listOf("/system/bin/sh", "-c", "exit 0"), emptyMap())) { process ->
+            awaitPty { process.pollExit() != null }
             check(process.pollExit() == 0)
             check(process.reap() == 0)
             check(process.reap() == 0)
@@ -159,6 +210,7 @@ internal class PtyNativeJourney(
             process.closeMaster()
             check(runCatching { process.read(ByteArray(8)) }.exceptionOrNull() is IllegalStateException)
             check(runCatching { process.killInitialGroup() }.exceptionOrNull() is IllegalStateException)
+            check(runCatching { process.requestProotExit() }.exceptionOrNull() is IllegalStateException)
         }
     }
 
@@ -182,34 +234,6 @@ internal class PtyNativeJourney(
         return install to loader
     }
 
-    private fun useProcess(
-        process: ProotPtyProcess,
-        action: (ProotPtyProcess) -> Unit,
-    ) {
-        try {
-            action(process)
-        } finally {
-            try {
-                if (process.pollExit() == null) {
-                    process.killInitialGroup()
-                    await { process.pollExit() != null }
-                }
-                process.reap()
-            } finally {
-                process.closeMaster()
-            }
-        }
-    }
-
-    private fun exists(pid: Int): Boolean =
-        try {
-            Os.kill(pid, 0)
-            true
-        } catch (failure: ErrnoException) {
-            if (failure.errno != OsConstants.ESRCH) throw failure
-            false
-        }
-
     private class Channel(
         private val process: ProotPtyProcess,
     ) {
@@ -231,7 +255,7 @@ internal class PtyNativeJourney(
             check(input.offer(writer, bytes) == PtyInputConnection.Admission.ACCEPTED)
             val chunk = checkNotNull(input.poll())
             var offset = 0
-            await {
+            awaitPty {
                 offset += process.write(chunk, offset, chunk.size - offset)
                 offset == chunk.size
             }
@@ -249,10 +273,10 @@ internal class PtyNativeJourney(
         fun until(
             expected: String,
             prompt: String = "",
-        ) {
+        ): String {
             val received = ByteArrayOutputStream()
             val bytes = ByteArray(8192)
-            await {
+            awaitPty {
                 val count = process.read(bytes)
                 check(count >= 0) { "Unexpected PTY EOF: ${received.toString("UTF-8").takeLast(256)}" }
                 output.append(bytes, count)
@@ -265,18 +289,11 @@ internal class PtyNativeJourney(
                 val start = text.indexOf(expected)
                 start >= 0 && text.indexOf(prompt, start + expected.length) >= 0
             }
+            return received.toString("UTF-8")
         }
     }
 
     companion object {
         private const val PROMPT = "helix-native> "
-
-        private fun await(condition: () -> Boolean) {
-            val deadline = SystemClock.elapsedRealtime() + 15000
-            while (!condition()) {
-                check(SystemClock.elapsedRealtime() < deadline) { "Native PTY deadline exceeded" }
-                SystemClock.sleep(5)
-            }
-        }
     }
 }

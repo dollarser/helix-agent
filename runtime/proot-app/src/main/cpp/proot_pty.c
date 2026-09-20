@@ -225,3 +225,11 @@ Java_com_helix_runtime_proot_app_ProotPtyNative_reap(JNIEnv *env, jobject self, 
     if (result < 0) { io_error(env, errno); return -1; }
     return WIFEXITED(status) ? WEXITSTATUS(status) : 256 + WTERMSIG(status);
 }
+
+JNIEXPORT void JNICALL
+Java_com_helix_runtime_proot_app_ProotPtyNative_requestProotExit(JNIEnv *env, jobject self, jint pid) {
+    (void)self;
+    if (pid <= 1) { fail(env, "java/lang/IllegalArgumentException", "Invalid PTY pid"); return; }
+    /* The wrapper retains this child PID. This is a request, never a stopped-tree receipt. */
+    if (kill(pid, SIGQUIT) < 0) io_error(env, errno);
+}
