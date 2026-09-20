@@ -20,6 +20,8 @@ def passed(output):
 
 
 def run(args):
+    if args.reboot_after_setup and not args.recovery_setup_class:
+        raise ValueError("Reboot recovery requires a setup class")
     sdk = Path(os.environ["ANDROID_HOME"])
     adb = str(sdk / "platform-tools/adb")
     serial = f"emulator-{args.port}"
@@ -100,6 +102,25 @@ def run(args):
                 if not old_pid.isdigit():
                     raise RuntimeError("Missing durable setup process identity")
                 (output / "process-stop.txt").write_text("Process.killProcess at publication; previous pid=" + old_pid)
+                if args.reboot_after_setup:
+                    before = device("shell", "cat", "/proc/sys/kernel/random/boot_id").strip()
+                    if not re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", before):
+                        raise RuntimeError("Missing original kernel boot identity")
+                    device("reboot")
+                    device("wait-for-device", timeout=180)
+                    deadline = time.monotonic() + 180
+                    while time.monotonic() < deadline:
+                        try:
+                            after = device("shell", "cat", "/proc/sys/kernel/random/boot_id", timeout=10).strip()
+                            ready = device("shell", "getprop", "sys.boot_completed", timeout=10).strip()
+                            if re.fullmatch(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", after) and after != before and ready == "1":
+                                break
+                        except subprocess.CalledProcessError:
+                            pass
+                        time.sleep(2)
+                    else:
+                        raise TimeoutError("Owned emulator did not complete a new boot")
+                    (output / "reboot.json").write_text(json.dumps({"before": before, "after": after}))
             extras = []
             for argument in args.instrument_arg:
                 key, value = argument.split("=", 1)
@@ -148,6 +169,7 @@ if __name__ == "__main__":
     parser.add_argument("--test-apk", required=True)
     parser.add_argument("--classes", required=True)
     parser.add_argument("--recovery-setup-class")
+    parser.add_argument("--reboot-after-setup", action="store_true")
     parser.add_argument("--runner", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--timeout", type=int, default=900)

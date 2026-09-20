@@ -38,7 +38,7 @@ internal object DetachedJobRegistration {
         }
         val permissions =
             SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability, workspaceFor)
-        val bindings = ProotJobBindingStore(storage, permissions::configFor)
+        val bindings = ProotJobBindingStore(storage, permissions::configFor) { DetachedJobBootProof.current(context) }
         val recheck =
             LinuxSessionPermissionRecheck(
                 permissions,

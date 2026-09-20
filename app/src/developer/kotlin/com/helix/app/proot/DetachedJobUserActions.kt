@@ -82,6 +82,7 @@ internal class DetachedJobUserActions(
         if (output == null) {
             val detail = (result as? ToolExecutorResult.Failed)?.detail.orEmpty()
             return when {
+                detail.startsWith("JOB_REBOOT_REQUIRED:") -> BackgroundJobActionOutcome.REBOOT_REQUIRED
                 detail.startsWith("JOB_REQUIRES_REVIEW:") -> BackgroundJobActionOutcome.REVIEW_REQUIRED
                 detail.startsWith("EXECUTION_BUSY:") -> BackgroundJobActionOutcome.BUSY
                 else -> BackgroundJobActionOutcome.FAILED

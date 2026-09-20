@@ -28,6 +28,7 @@ internal class ProotJobBindingStore(
      * authorization version.
      */
     private val configFor: (sessionId: String) -> SessionPermissionConfig? = { null },
+    private val bootCount: () -> Int? = { null },
 ) {
     fun record(
         call: LinuxRunTool.ParsedLinuxCall,
@@ -50,6 +51,15 @@ internal class ProotJobBindingStore(
         check(stored.state == "RUNNING")
         val payload =
             jobPreparedPayload(stored.callId, turn.id, turn.sessionId, spec, configFor(turn.sessionId), detached)
+                .let { prepared ->
+                    if (!detached) {
+                        prepared
+                    } else {
+                        JsonObject(
+                            prepared + buildJsonObject { put("bootCount", bootCount()) },
+                        )
+                    }
+                }
         storage.auditEvents.append(
             id = eventId(call.toolCallId),
             correlationId = turn.sessionId,

@@ -10,6 +10,7 @@ enum class BackgroundJobActionOutcome {
     SETTLED,
     BUSY,
     REVIEW_REQUIRED,
+    REBOOT_REQUIRED,
     FAILED,
 }
 

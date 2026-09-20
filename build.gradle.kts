@@ -29,8 +29,12 @@ dependencyLocking {
 
 extensions.configure<SpotlessExtension> {
     kotlin {
-        target("**/src/**/*.kt")
-        targetExclude("**/build/**")
+        target(
+            fileTree(projectDir) {
+                include("**/src/**/*.kt")
+                exclude("**/build/**")
+            },
+        )
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {

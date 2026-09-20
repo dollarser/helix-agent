@@ -16,6 +16,7 @@ import com.helix.tools.framework.ToolExecutor
 import com.helix.tools.framework.ToolExecutorResult
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -32,6 +33,7 @@ internal class DetachedJobCollection(
     private val bindings = ProotJobBindingStore(storage)
     private val observations = DetachedJobObservationStore(storage)
     private val jobs = DetachedJobClient(context)
+    private val currentBoot = { DetachedJobBootProof.current(context) }
     private val results = ProotResultClient(ProotRuntimeSupervisor(context))
     private val store =
         ProotResultStore(
@@ -58,13 +60,13 @@ internal class DetachedJobCollection(
         check(record.jobId == binding.jobId && record.executionId == binding.executionId)
         check(record.inputManifestSha256 == binding.inputManifestSha256)
         observations.observe(binding, record)
-        if (record.state == ProotJobState.ORPHANED) {
+        if (requiresReview(binding, record)) {
             // Unknown execution consumes its original lease once; it never proves the process stopped.
             // An active Turn still owns its shared heartbeat; do not complete that live clock as proven stopped.
             if (TurnState.valueOf(storage.turns.resolve(binding.turnId).state).isTerminal) {
                 settleBudget(binding, record)
             }
-            return failure("JOB_REQUIRES_REVIEW: execution interrupted; original ownership remains retained.")
+            return failure(DetachedJobBootProof.reviewReason(currentBoot()))
         }
         if (!record.state.isTerminal) {
             return failure("JOB_NOT_SETTLEABLE: the original execution is running.")
@@ -115,6 +117,15 @@ internal class DetachedJobCollection(
                 return store.persist(binding.turnId, binding.toolCallId, record, input)
             }
         }
+    }
+
+    private fun requiresReview(
+        binding: DetachedJobBinding,
+        record: ProotJobRecord,
+    ): Boolean {
+        if (record.state != ProotJobState.ORPHANED) return false
+        val original = bindings.resolve(binding.toolCallId)["bootCount"]?.jsonPrimitive?.intOrNull
+        return !DetachedJobBootProof.canSettle(storage, binding, original, currentBoot())
     }
 
     private fun hasReceipt(

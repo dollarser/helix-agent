@@ -109,7 +109,13 @@ class DetachedGoalRuntimeDeathDeviceTest {
             val state = chat.backgroundJobAction.value
             state?.callId == job.callId && !state.busy
         }
-        assertEquals(BackgroundJobActionOutcome.REVIEW_REQUIRED, chat.backgroundJobAction.value?.outcome)
+        val expected =
+            if (action == BackgroundJobAction.COLLECT) {
+                BackgroundJobActionOutcome.REBOOT_REQUIRED
+            } else {
+                BackgroundJobActionOutcome.REVIEW_REQUIRED
+            }
+        assertEquals(expected, chat.backgroundJobAction.value?.outcome)
     }
 
     private fun killRuntime() {
