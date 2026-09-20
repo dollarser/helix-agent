@@ -47,4 +47,10 @@ v6 暴露旧探针把读取次数误作时间预算，逐字符回显可能提�
 
 最终证据 `build/hxa197-pty-proot-api29-v3`（5632）、`build/hxa197-pty-proot-api36-v3`（5634），均正常关闭。主 APK SHA-256 `7c47bb6f8bcab0b775a43c0a99ef48455c55dee107493090e39586440041af2f`，测试 APK `362612027dac70b32adf47450f54c3314115b6024efca0a86a38f9cd6dbea0c8`。构建命令同上；安装器首次增加 serialization 依赖时仅在独立探针内生成锁/校验 metadata，生产文件未改变。
 
-后续须测试行编辑/REPL、后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。
+## 行编辑与真实 Python REPL（repl-v1）
+
+当前探针已撤掉 `set +o emacs; set +o vi`，保留 Alpine shell 的正常行编辑，只设置可识别提示符。输入含实际 DEL 字节的命令，将 `oX` 编辑为 `ok` 后执行，检查最终输出。随后真正启动包内 `python3 -q`，等待 Python 提示符，分次输入赋值和带中文的打印命令；验证变量保持与结果 42，Ctrl-D 离开 Python 后验证原 shell 的环境变量，再 Ctrl-D 退出 shell。没有以 `python -c` 或 mock REPL 代替。
+
+相同 APK 在 API29/36 各 1/1 通过，同时重新覆盖 resize/Ctrl-C/EOF。证据 `build/hxa197-pty-repl-api29-v1`（5636）、`build/hxa197-pty-repl-api36-v1`（5638），两个 emulator 均正常退出。主 APK SHA-256 `17206529767aba9cf88d57e3ff86378bacb99005039dabd66e4669394d969b2d`，测试 APK `d7da5e6d0f87eb42571af60ccbe6a7a2fbbd2a29955d0481202963706b044281`。
+
+这证明 PTY 字节输入和真实程序交互，不证明 Android IME、可视终端和屏幕重建。后续须测试后台子进程、退出后无遗留、主进程/服务死亡、detach/attach、组件输入/渲染及资源压力；不要扩写这段同步探针作为生产 Binder 会话服务。

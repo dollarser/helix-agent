@@ -19,7 +19,7 @@ static long long monotonic_millis(void) {
     clock_gettime(CLOCK_MONOTONIC, &now);
     return (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
 }
-static int exchange(int fd, const char *input, const char *expected) {
+static int exchange_prompt(int fd, const char *input, const char *expected, const char *prompt) {
     size_t size = strlen(input), sent = 0, used = 0;
     char output[32768] = {0};
     while (sent < size) {
@@ -43,10 +43,14 @@ static int exchange(int fd, const char *input, const char *expected) {
         snprintf(last_output, sizeof(last_output), "%s", output);
         /* Wait for shell readiness, not merely a foreground child's output. */
         char *marker = strstr(output, expected);
-        if (marker && strstr(marker + strlen(expected), "probe> ")) return 1;
+        if (marker && strstr(marker + strlen(expected), prompt)) return 1;
         if (used == sizeof(output) - 1) return 0;
     }
     return 0;
+}
+
+static int exchange(int fd, const char *input, const char *expected) {
+    return exchange_prompt(fd, input, expected, "probe> ");
 }
 
 JNIEXPORT jstring JNICALL
@@ -112,7 +116,9 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, j
     if (child < 0) goto done;
     /* Split markers prevent echoed command text from masquerading as shell output. */
     failure = "TTY and persistent state";
-    if (!exchange(master, "PS1='probe> '; set +o emacs; set +o vi; test -t 0 && test -t 1 && export PROBE=ready; cd /; printf 'TTY_%s\\n' \"$PROBE\"\n", "TTY_ready\r\n")) goto done;
+    if (!exchange(master, "PS1='probe> '; test -t 0 && test -t 1 && export PROBE=ready; cd /; printf 'TTY_%s\\n' \"$PROBE\"\n", "TTY_ready\r\n")) goto done;
+    failure = "interactive shell backspace";
+    if (!exchange(master, "printf 'EDIT_%s\\n' oX\177k\n", "EDIT_ok\r\n")) goto done;
     failure = "UTF-8 and cwd/env persistence";
     if (!exchange(master, "printf 'STATE_%s_%s_中文\\n' \"$PROBE\" \"$PWD\"\n", "STATE_ready_/_中文\r\n")) goto done;
     failure = "initial dimensions";
@@ -138,6 +144,16 @@ Java_com_helix_spike_termlib_PtyProbeService_runProbe(JNIEnv *env, jclass cls, j
     if (!exchange(master, "printf 'INT_%s_%s\\n' \"$?\" \"$PROBE\"\n", "INT_130_ready\r\n")) goto done;
     failure = "foreground process reaped";
     if (kill(foreground, 0) == 0 || errno != ESRCH) goto done;
+    failure = "Python REPL startup";
+    if (!exchange_prompt(master, "python3 -q\n", "", ">>> ")) goto done;
+    failure = "Python REPL persistent variable";
+    if (!exchange_prompt(master, "value = 6 * 7\n", "", ">>> ")) goto done;
+    failure = "Python REPL output";
+    if (!exchange_prompt(master, "print('REPL_' + str(value) + '_中文')\n", "REPL_42_中文\r\n", ">>> ")) goto done;
+    failure = "Python EOF returns shell";
+    if (!exchange(master, "\004", "")) goto done;
+    failure = "shell state after Python";
+    if (!exchange(master, "printf 'AFTER_%s\\n' \"$PROBE\"\n", "AFTER_ready\r\n")) goto done;
     failure = "EOF exit";
     if (write(master, "\004", 1) != 1) goto done;
     for (int i = 0; i < 100; i++) {
@@ -163,5 +179,5 @@ done:
         snprintf(diagnostic, sizeof(diagnostic), "%s; output=%s", failure, last_output);
         failure = diagnostic;
     }
-    return (*env)->NewStringUTF(env, failure ? failure : "OK: tty, UTF-8, cwd/env, resize, Ctrl-C, EOF");
+    return (*env)->NewStringUTF(env, failure ? failure : "OK: tty, UTF-8, edit, cwd/env, resize, Ctrl-C, Python REPL, EOF");
 }
