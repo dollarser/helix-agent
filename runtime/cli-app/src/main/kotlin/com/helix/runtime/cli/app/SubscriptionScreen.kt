@@ -76,6 +76,9 @@ internal object SubscriptionScreen {
                 Button(activity).apply {
                     text = "‹"
                     textSize = 28f
+                    includeFontPadding = false
+                    setPadding(0, 0, 0, 0)
+                    gravity = Gravity.CENTER
                     contentDescription = activity.getString(R.string.subscription_back)
                     setTextColor(context.getColor(R.color.subscription_primary))
                     background =

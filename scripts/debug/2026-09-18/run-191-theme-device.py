@@ -46,7 +46,7 @@ def main():
     test_apk = f"app/build/outputs/apk/androidTest/{variant}/debug/app-{variant}-debug-androidTest.apk"
     runner = f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner"
     theme_class = "com.helix.app.ui.HelixThemeDeviceTest"
-    verify_classes = theme_class
+    verify_classes = theme_class + ",com.helix.app.ui.ThemeDialogDeviceTest"
     if variant == "developer":
         verify_classes += ",com.helix.app.proot.SubscriptionThemeDeviceTest"
     app_pkg = f"com.helix.agent{suffix}"
@@ -135,6 +135,15 @@ def main():
                                 runner, timeout=900, check=False)
                 (out / f"{mode}-instrument.txt").write_text(verify)
                 print(f"[{mode}] " + (verify.splitlines()[-1] if verify.splitlines() else ""), flush=True)
+                # Preserve synthetic screenshots and remote window facts before owned teardown.
+                evidence_dirs = ["hxa191-theme"]
+                if variant == "developer":
+                    evidence_dirs.append("subscription-theme")
+                with (out / f"{mode}-rendered-evidence.tar").open("wb") as archive:
+                    subprocess.run(
+                        [ADB, "-s", serial, "exec-out", "run-as", app_pkg,
+                         "tar", "-cf", "-", "-C", "cache", *evidence_dirs],
+                        stdout=archive, stderr=subprocess.PIPE, timeout=60, check=True)
 
                 # On-device appearance proof WITH THE APP IN THE FOREGROUND. Post-instrument the
                 # test's activity is destroyed, so a bare dumpsys would show the test splash

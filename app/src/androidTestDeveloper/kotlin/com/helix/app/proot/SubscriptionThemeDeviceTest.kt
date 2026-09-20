@@ -45,6 +45,7 @@ class SubscriptionThemeDeviceTest {
             context.startActivity(Intent(context, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             awaitTitle(title)
             assertPagePalette("${activity.simpleName}-$night")
+            SubscriptionWindowTheme.verify(activity.name, night)
         }
     }
 
@@ -52,7 +53,7 @@ class SubscriptionThemeDeviceTest {
         val deadline = android.os.SystemClock.elapsedRealtime() + 10_000
         var matched = false
         while (!matched && android.os.SystemClock.elapsedRealtime() < deadline) {
-            val frame = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            val frame = stableFrame()
             try {
                 matched = matchesPalette(frame)
                 if (matched) saveFrame(frame, name)
@@ -62,6 +63,22 @@ class SubscriptionThemeDeviceTest {
             if (!matched) Thread.sleep(100)
         }
         assertTrue("Actual subscription content has wrong palette: $name", matched)
+    }
+
+    private fun stableFrame(): Bitmap {
+        var previous = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+        var unchanged = 0
+        val deadline = android.os.SystemClock.elapsedRealtime() + 5_000
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(100)
+            val frame = requireNotNull(instrumentation.uiAutomation.takeScreenshot())
+            unchanged = if (frame.sameAs(previous)) unchanged + 1 else 0
+            previous.recycle()
+            if (unchanged >= 3) return frame
+            previous = frame
+        }
+        previous.recycle()
+        error("Subscription rendering did not stabilize")
     }
 
     private fun saveFrame(
