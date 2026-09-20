@@ -14,7 +14,8 @@ if sys.argv[2:] and not runtime_only:
 spec = importlib.util.spec_from_file_location("runtime_suite", root / "scripts/verify-integrated-runtimes.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-subprocess.run(["./gradlew", ":app:assembleDeveloperDebugAndroidTest", ":app:assembleConsumerDebugAndroidTest"],
+subprocess.run(["./gradlew", ":app:assembleDeveloperDebug", ":app:assembleConsumerDebug",
+                ":app:assembleDeveloperDebugAndroidTest", ":app:assembleConsumerDebugAndroidTest"],
                cwd=root, check=True)
 for api, port, locale in ((29, 5584, "zh"), (36, 5586, "en")):
     subprocess.run([

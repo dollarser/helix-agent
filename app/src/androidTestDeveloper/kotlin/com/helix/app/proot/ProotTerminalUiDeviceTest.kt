@@ -124,6 +124,79 @@ class ProotTerminalUiDeviceTest {
         }
     }
 
+    @Test
+    @Suppress("LongMethod")
+    fun closedPageReconnectsAfterOutputOverflowAndRejectsOversizedInput() {
+        ensureInstalledRuntime(context)
+        val previous = container.profileStore.profile
+        val terminal = checkNotNull(container.manualTerminal)
+        val relative = "terminal-pressure-${UUID.randomUUID()}"
+        val workspace = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+        container.profileStore.switchTo(SafetyProfile.ADVANCED)
+        val intent =
+            Intent(context, ManualTerminalActivity::class.java)
+                .putExtra(ManualTerminalActivity.DIRECTORY, relative)
+        try {
+            var original = ""
+            ActivityScenario.launch<ManualTerminalActivity>(intent).use { first ->
+                awaitNode("terminal-start")
+                compose.onNodeWithTag("terminal-start").performClick()
+                awaitNode("terminal-viewport")
+                awaitPhase("RUNNING")
+                original = runBlocking { terminal.query().sessionId }
+                send(
+                    first,
+                    "export KEEP=after_close; python3 -c \"import sys,time; " +
+                        "open('started','w').write('yes'); time.sleep(1); " +
+                        "sys.stdout.write('中文'*180000); sys.stdout.flush(); " +
+                        "open('finished','w').write('yes')\"; " +
+                        "printf '\\033[32mTAIL_READY\\033[0m\\n'\n",
+                )
+                awaitFile(workspace, "started", "yes")
+            }
+            // No UI reader remains. A bounded ring must keep draining rather than block the child.
+            awaitFile(workspace, "finished", "yes")
+            assertEquals(original, runBlocking { terminal.query().sessionId })
+            ActivityScenario.launch<ManualTerminalActivity>(intent).use { second ->
+                awaitNode("terminal-connect")
+                compose.onNodeWithTag("terminal-connect").performClick()
+                awaitNode("terminal-viewport")
+                awaitNode("terminal-output-gap")
+                visibleGlyphs("terminal-overflow.png")
+                send(second, "printf \"%s\" \"\$KEEP\" > reconnected.txt\n")
+                awaitFile(workspace, "reconnected.txt", "after_close")
+                assertEquals(original, runBlocking { terminal.query().sessionId })
+                send(second, "x".repeat(8193))
+                awaitNode("terminal-input-error")
+                compose.onNodeWithTag("terminal-key-3").performClick()
+                send(second, "sh -c 'echo $$ > foreground.pid; exec sleep 120'\n")
+                val pidFile = File(workspace, "foreground.pid")
+                compose.waitUntil(10_000) { pidFile.exists() }
+                val pid = pidFile.readText().trim().toInt()
+                require(pid > 1)
+                compose.waitUntil(5000) { File("/proc/$pid/cmdline").readText().contains("sleep") }
+                compose.onNodeWithTag("terminal-key-3").performClick()
+                send(second, "printf '%s' \"$?\" > interrupted.txt\n")
+                awaitFile(workspace, "interrupted.txt", "130")
+                compose.waitUntil(5000) { !File("/proc/$pid").exists() }
+                compose.onNodeWithTag("terminal-stop").performClick()
+                awaitPhase("STOPPED")
+                compose.onNodeWithTag("terminal-settle").performClick()
+                compose.waitUntil(10_000) { runBlocking { !terminal.hasSession() } }
+            }
+        } finally {
+            runBlocking {
+                if (terminal.hasSession()) {
+                    terminal.stop()
+                    withTimeout(15_000) { while (!terminal.query().canSettle) delay(50) }
+                    terminal.settle()
+                }
+            }
+            container.profileStore.switchTo(previous)
+            workspace.deleteRecursively()
+        }
+    }
+
     private fun awaitPhase(phase: String) {
         compose.waitUntil(10_000) {
             compose

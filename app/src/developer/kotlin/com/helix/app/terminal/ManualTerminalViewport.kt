@@ -34,17 +34,13 @@ import org.connectbot.terminal.TerminalEmulatorFactory
 
 /** Bounded UI transport; accepted input is never automatically replayed after a failed IPC. */
 private class TerminalInput {
-    val bytes = Channel<ByteArray>(4)
+    val bytes = TerminalInputQueue()
     val sizes = Channel<Pair<Int, Int>>(Channel.CONFLATED)
     val failed = MutableStateFlow(false)
 
     fun offer(value: ByteArray) {
         if (value.isEmpty()) return
-        if (value.size > MAX_CHUNK || !bytes.trySend(value.copyOf()).isSuccess) failed.value = true
-    }
-
-    companion object {
-        const val MAX_CHUNK = 8192
+        if (!bytes.offer(value)) failed.value = true
     }
 }
 
@@ -64,8 +60,15 @@ internal fun ManualTerminalViewport(
             input.failed.value = true
             input.bytes.close()
         }) {
-            for (bytes in input.bytes) {
-                if (connection.write(bytes) != "ACCEPTED") input.failed.value = true
+            while (input.bytes.ready
+                    .receiveCatching()
+                    .isSuccess
+            ) {
+                var bytes = input.bytes.poll()
+                while (bytes != null) {
+                    if (connection.write(bytes) != "ACCEPTED") input.failed.value = true
+                    bytes = input.bytes.poll()
+                }
             }
         }
     }

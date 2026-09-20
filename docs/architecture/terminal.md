@@ -49,7 +49,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。`PtyInputBuffer` 管理字节边界，写入连接校验与进程关闭由会话 owner 承担，不作为授权来源。
 
-`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已接入产品 Binder 与终端 UI；UI 另有最多四个 8 KiB 输入块的队列，拒绝或未知结果不自动重发。
+`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已接入产品 Binder 与终端 UI。UI 另有 32 KiB 固定字节环，合并逐键小事件，每次最多发送 8 KiB，另有一个在途块；单次超过 8 KiB 或超过剩余容量时整块拒绝。容量不按 IME 的碎片事件数计算，避免快速逐键输入过早拥塞。拒绝或未知结果不自动重发，页面关闭时丢弃尚未提交的 UI 输入。
 
 生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；产品会话及渲染页面已调用该组件。
 
@@ -68,7 +68,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 | 命令详情与结果入口 | [HXA-194](../completion-records/HXA-194.md) |
 | 日志观察（一次性 Job 已交付） | [HXA-195](../completion-records/HXA-195.md) |
 | 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
-| 单手动终端 | [HXA-197](../development/tasks/HXA-197.md) |
+| 单手动终端 | [HXA-197](../completion-records/HXA-197.md) |
 | 多会话 | [HXA-198](../development/tasks/HXA-198.md) |
 | 综合验收 | [HXA-199](../development/tasks/HXA-199.md) |
 
@@ -83,4 +83,4 @@ developer 文件管理器的 Workspace 目录提供“打开终端”；打开�
 
 页面显示起始 Workspace 目录、Runtime 阶段、停止原因和退出状态，提供键盘、Ctrl-C/Tab/Esc/Ctrl-D、停止和结算。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
 
-中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产进程死亡、长输出/粘贴压力、实际运行长命令的租期终止及 idle/OEM/长稳仍单列，不能从页面成功推导整个 197 完成。
+中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；idle/完整长租期、OEM/Doze/长稳和真实 16 KiB 设备仍归 199 专项。

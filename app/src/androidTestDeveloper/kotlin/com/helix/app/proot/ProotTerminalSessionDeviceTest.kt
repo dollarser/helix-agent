@@ -91,6 +91,57 @@ class ProotTerminalSessionDeviceTest {
         }
     }
 
+    @Test
+    fun leaseTerminatesAnAlreadyRunningLongCommandBeforeSettlement() {
+        ensureInstalledRuntime(context)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            runBlocking {
+                val previous = container.profileStore.profile
+                val terminal = checkNotNull(container.manualTerminal)
+                val relative = "terminal-lease-${UUID.randomUUID()}"
+                val directory = File(context.filesDir, "workspaces/app/$relative").apply { check(mkdirs()) }
+                try {
+                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    terminal.start(relative, leaseMs = 7000)
+                    val connection = terminal.attach()
+                    try {
+                        awaitText(connection, "helix> ")
+                        assertEquals(
+                            "ACCEPTED",
+                            connection.write("sh -c 'echo $$ > child.pid; exec sleep 120'\n".toByteArray()),
+                        )
+                        val pidFile = File(directory, "child.pid")
+                        withTimeout(4000) { while (!pidFile.exists()) delay(25) }
+                        val pid = pidFile.readText().trim().toInt()
+                        require(pid > 1)
+                        val cmdline = File("/proc/$pid/cmdline")
+                        withTimeout(4000) { while (!cmdline.readText().contains("sleep")) delay(25) }
+                        assertEquals("RUNNING", terminal.query().phase)
+                        verifyRetainedAdmission()
+                        val stopped = awaitStopped(terminal)
+                        assertEquals("LEASE_EXPIRED", stopped.stopReason)
+                        assertTrue(stopped.canSettle)
+                        assertFalse("Lease left the long command alive", File("/proc/$pid").exists())
+                        assertTrue(terminal.hasSession())
+                        verifyRetainedAdmission()
+                    } finally {
+                        connection.detach()
+                    }
+                    terminal.settle()
+                    assertFalse(terminal.hasSession())
+                } finally {
+                    if (terminal.hasSession()) {
+                        terminal.stop()
+                        awaitStopped(terminal)
+                        terminal.settle()
+                    }
+                    container.profileStore.switchTo(previous)
+                    directory.deleteRecursively()
+                }
+            }
+        }
+    }
+
     private suspend fun exerciseConnections(
         terminal: ManualTerminal,
         directory: File,
