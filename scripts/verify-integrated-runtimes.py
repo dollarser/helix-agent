@@ -16,6 +16,7 @@ CASES = [
     "com.helix.app.proot.ProotRuntimeBindingE2eDeviceTest#aNullOnBindIsAnImmediateBindRefusedNotATimeout",
     "com.helix.app.proot.ProotJobE2eDeviceTest",
     "com.helix.app.proot.IntegratedRuntimeUiDeviceTest",
+    "com.helix.app.proot.ProotPtyNativeDeviceTest",
 ]
 
 

@@ -49,6 +49,11 @@ def verify(flavor, build_type):
     assert ("android.permission.FOREGROUND_SERVICE_SPECIAL_USE" in permissions) == developer
     probe = "com.helix.app.proot.DetachedOwnerProbeActivity"
     assert (probe in components) == (developer and build_type == "debug"), "debug owner-death probe leaked"
+    pty_probe = "com.helix.runtime.proot.app.PtyNativeProbeService"
+    assert (pty_probe in components) == (developer and build_type == "debug"), "debug PTY probe leaked"
+    if pty_probe in components:
+        assert components[pty_probe].get(A + "exported") == "false"
+        assert components[pty_probe].get(A + "process") in (":proot", package + ":proot")
     if developer:
         detached = components["com.helix.runtime.proot.app.ProotDetachedJobService"]
         # apkanalyzer decodes this framework flag numerically on some SDK versions.
@@ -65,6 +70,7 @@ def verify(flavor, build_type):
             assert (asset in names) == developer, f"wrong {flavor} asset {asset}"
         dex = b"".join(archive.read(name) for name in names if name.endswith(".dex"))
         assert (b"Lcom/helix/app/proot/DetachedOwnerProbeActivity;" in dex) == (developer and build_type == "debug")
+        assert (b"Lcom/helix/runtime/proot/app/PtyNativeProbeService;" in dex) == (developer and build_type == "debug")
         for namespace in (b"Lcom/helix/runtime/cli/", b"Lcom/helix/runtime/proot/"):
             assert (namespace in dex) == developer, f"wrong {flavor} dex {namespace}"
         native = [name for name in names if name.endswith("/libhelix_loader.so")]

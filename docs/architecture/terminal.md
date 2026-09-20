@@ -49,6 +49,8 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。当前 `PtyInputBuffer` 只管理字节边界，当前写入连接校验与进程关闭由会话 owner 接线承担，不作为授权来源。
 
+生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；目前只有 debug 固定旅程调用，产品会话与渲染尚未接线。
+
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 
 环境首次准备与修复归[HXA-205](../completion-records/HXA-205.md)，包内Runtime资产/升级收尾归[HXA-193](../completion-records/HXA-193.md)，不与命令详情混成一个任务。
