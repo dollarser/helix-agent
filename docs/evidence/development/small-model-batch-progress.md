@@ -13,9 +13,10 @@
 | 工作包 | 内容概要 | 状态 | 交付提交 SHA | 验证结果 |
 | :--- | :--- | :--- | :--- | :--- |
 | **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | `3e3c6040` | 12/12 单元测试通过，CLI 验证通过 |
-| **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | 待提交 | 8/8 单元测试通过，CLI 验证通过 |
-| **C** | 过期交接文档收敛、用户帮助草稿 | **NOT_STARTED** | - | - |
+| **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | `fcaa190d` | 8/8 单元测试通过，CLI 验证通过 |
+| **C** | 过期交接文档收敛、用户帮助草稿 | **READY_FOR_REVIEW** | 待提交 | 源码门禁通过，引用核对无孤岛 |
 | **D** | HXA-198 UI 设计、状态/操作表、测试映射 | **NOT_STARTED** | - | - |
+
 
 ---
 
@@ -50,3 +51,19 @@
   - `python3 scripts/verify-terminal-runtime.py --manifest scripts/fixtures/acceptance/valid_terminal_fixture_manifest.json --output build/test_199_out` -> Exit Code 0, 生成 `report.json` 与 `report.md`
 - **边界说明**：
   - 双会话场景标记为 `WAITING_CORE`，保持 `INCOMPLETE` 报告状态；5 项硬件与长稳压力测试显式列为待验；不触发两小时长任务，不关闭 HXA-199 整体验收。
+
+---
+
+## 工作包 C 执行详情
+
+- **文件修改与新增**：
+  - 修改 `docs/development/claude-handoff-207-191-206.md`（澄清 207/191 已交付合入，防止重复开发，链接到 small-model-handoff.md）
+  - 修改 `docs/development/implementation-guide.md`（将交接 prompt 更新为通用当前模板，注明既有批次均已交付合入）
+  - 新增 `docs/evidence/development/small-model-docs-review.md`（记录 status/roadmap 事实冲突与协调者最小修正建议，撰写面向用户的单终端帮助与双终端待交付草稿）
+  - 更新 `docs/evidence/development/small-model-batch-progress.md`（更新进度跟踪）
+- **验证命令与结果**：
+  - 检查引用关联，被更新入口均有明确去向与历史说明
+  - `./scripts/check-all.sh --source` -> Exit Code 0 (486 Markdown files, 194 HXA tasks, 31 ADRs, 1369 i18n keys)
+  - `git diff --check` -> Clean
+- **边界说明**：
+  - 不擅自修改 status.md 与 roadmap.md 的完成状态或任务总数（保持 13 项未闭合义务），将建议整理并交协调者统驭。
