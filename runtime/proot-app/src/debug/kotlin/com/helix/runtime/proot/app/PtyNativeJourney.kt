@@ -6,7 +6,7 @@ import android.system.ErrnoException
 import android.system.Os
 import android.system.OsConstants
 import com.helix.runtime.proot.core.InstallOutcome
-import com.helix.runtime.proot.core.PtyInputBuffer
+import com.helix.runtime.proot.core.PtyInputConnection
 import com.helix.runtime.proot.core.PtyOutputBuffer
 import com.helix.runtime.proot.core.RootFsInstaller
 import java.io.ByteArrayOutputStream
@@ -63,6 +63,7 @@ internal class PtyNativeJourney(
             process.resize(37, 101)
             channel.exchange("stty size\n", "37 101")
             channel.exchange("export PTY_VALUE='保留🙂'; cd /tmp; printf 'SET_%s\\n' YES\n", "SET_YES")
+            channel.reconnect()
             channel.exchange("printf 'STATE_%s_%s\\n' \"\$PTY_VALUE\" \"\$PWD\"\n", "STATE_保留🙂_/tmp")
             val shell = process.foregroundGroup()
             channel.send("sleep 30\n".toByteArray())
@@ -212,12 +213,22 @@ internal class PtyNativeJourney(
     private class Channel(
         private val process: ProotPtyProcess,
     ) {
-        private val input = PtyInputBuffer()
+        private val input = PtyInputConnection()
+        private var writer = checkNotNull(input.attach())
         private val output = PtyOutputBuffer("native-probe", "generation")
         private var cursor: String? = null
 
+        fun reconnect() {
+            val previous = writer
+            check(input.attach() == null)
+            check(input.detach(previous))
+            writer = checkNotNull(input.attach())
+            check(!input.detach(previous))
+            check(input.offer(previous, "exit\n".toByteArray()) == PtyInputConnection.Admission.DETACHED)
+        }
+
         fun send(bytes: ByteArray) {
-            check(input.offer(bytes) == PtyInputBuffer.Admission.ACCEPTED)
+            check(input.offer(writer, bytes) == PtyInputConnection.Admission.ACCEPTED)
             val chunk = checkNotNull(input.poll())
             var offset = 0
             await {
