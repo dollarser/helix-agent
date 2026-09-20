@@ -80,10 +80,11 @@ internal class DetachedJobUserActions(
         val output =
             (result as? ToolExecutorResult.Completed)?.output as? JsonObject
         if (output == null) {
-            return if (result is ToolExecutorResult.Failed && result.detail.startsWith("EXECUTION_BUSY:")) {
-                BackgroundJobActionOutcome.BUSY
-            } else {
-                BackgroundJobActionOutcome.FAILED
+            val detail = (result as? ToolExecutorResult.Failed)?.detail.orEmpty()
+            return when {
+                detail.startsWith("JOB_REQUIRES_REVIEW:") -> BackgroundJobActionOutcome.REVIEW_REQUIRED
+                detail.startsWith("EXECUTION_BUSY:") -> BackgroundJobActionOutcome.BUSY
+                else -> BackgroundJobActionOutcome.FAILED
             }
         }
         val state = (output["state"] as? JsonPrimitive)?.content
@@ -93,7 +94,11 @@ internal class DetachedJobUserActions(
                 BackgroundJobActionOutcome.SETTLED
             }
 
-            state == "ORPHANED" || state == null -> {
+            state == "ORPHANED" -> {
+                BackgroundJobActionOutcome.REVIEW_REQUIRED
+            }
+
+            state == null -> {
                 BackgroundJobActionOutcome.FAILED
             }
 

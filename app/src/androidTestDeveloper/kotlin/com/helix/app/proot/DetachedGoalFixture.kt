@@ -71,7 +71,10 @@ internal class DetachedGoalFixture(
         container.chatService.openSession(session)
     }
 
-    suspend fun submit(collectInModel: Boolean = true) {
+    suspend fun submit(
+        collectInModel: Boolean = true,
+        script: String = "sleep 1; printf goal-result > result.txt",
+    ) {
         goal =
             container.chatService.createGoal(
                 "Produce the original Job result",
@@ -82,7 +85,7 @@ internal class DetachedGoalFixture(
             listOf(
                 ScriptedTaskModelServer.Step(DetachedJobTools.START) {
                     buildJsonObject {
-                        put("script", "sleep 1; printf goal-result > result.txt")
+                        put("script", script)
                         put("output", "scope:app:output/${output.name}")
                         put("leaseSeconds", 20)
                     }.toString()

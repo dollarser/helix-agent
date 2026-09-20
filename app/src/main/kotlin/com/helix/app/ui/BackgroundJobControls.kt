@@ -55,4 +55,5 @@ private fun BackgroundJobActionOutcome.label() =
         BackgroundJobActionOutcome.SETTLED -> R.string.tasks_job_settled
         BackgroundJobActionOutcome.BUSY -> R.string.tasks_job_executor_busy
         BackgroundJobActionOutcome.FAILED -> R.string.tasks_job_action_failed
+        BackgroundJobActionOutcome.REVIEW_REQUIRED -> R.string.tasks_job_review_required
     }

@@ -2,6 +2,7 @@ package com.helix.app.proot
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
+import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.runtime.proot.client.DetachedJobClient
 import com.helix.runtime.proot.client.ProotResultClient
@@ -57,8 +58,16 @@ internal class DetachedJobCollection(
         check(record.jobId == binding.jobId && record.executionId == binding.executionId)
         check(record.inputManifestSha256 == binding.inputManifestSha256)
         observations.observe(binding, record)
-        if (!record.state.isTerminal || record.state == ProotJobState.ORPHANED) {
-            return failure("JOB_NOT_SETTLEABLE: the original execution is running or requires review.")
+        if (record.state == ProotJobState.ORPHANED) {
+            // Unknown execution consumes its original lease once; it never proves the process stopped.
+            // An active Turn still owns its shared heartbeat; do not complete that live clock as proven stopped.
+            if (TurnState.valueOf(storage.turns.resolve(binding.turnId).state).isTerminal) {
+                settleBudget(binding, record)
+            }
+            return failure("JOB_REQUIRES_REVIEW: execution interrupted; original ownership remains retained.")
+        }
+        if (!record.state.isTerminal) {
+            return failure("JOB_NOT_SETTLEABLE: the original execution is running.")
         }
         if (!hasReceipt(binding, record)) {
             val archive = if (record.state == ProotJobState.SUCCEEDED) archive(binding, record) else null
