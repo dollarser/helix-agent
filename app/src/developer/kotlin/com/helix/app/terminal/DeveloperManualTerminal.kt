@@ -231,4 +231,5 @@ internal fun terminalState(reply: com.helix.runtime.proot.ipc.PtySessionReply): 
         record.stopReason?.name,
         record.exitStatus,
         record.stopProof != null,
+    )
 }
