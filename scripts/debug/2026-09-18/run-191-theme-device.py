@@ -46,6 +46,9 @@ def main():
     test_apk = f"app/build/outputs/apk/androidTest/{variant}/debug/app-{variant}-debug-androidTest.apk"
     runner = f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner"
     theme_class = "com.helix.app.ui.HelixThemeDeviceTest"
+    verify_classes = theme_class
+    if variant == "developer":
+        verify_classes += ",com.helix.app.proot.SubscriptionThemeDeviceTest"
     app_pkg = f"com.helix.agent{suffix}"
     out = Path(out_s)
 
@@ -127,7 +130,7 @@ def main():
                 if not marker.isdigit():
                     raise RuntimeError(f"theme setup ({mode}) did not write a durable pid marker")
 
-                verify = device("shell", "am", "instrument", "-w", "-e", "class", theme_class,
+                verify = device("shell", "am", "instrument", "-w", "-e", "class", verify_classes,
                                 "-e", "recoveryPhase", "verify", "-e", "expectedNight", night,
                                 runner, timeout=900, check=False)
                 (out / f"{mode}-instrument.txt").write_text(verify)

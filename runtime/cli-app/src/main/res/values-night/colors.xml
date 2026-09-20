@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="subscription_background">#FF1C1B1F</color>
+    <color name="subscription_surface">#FF2B2930</color>
+    <color name="subscription_text">#FFE6E1E5</color>
+    <color name="subscription_primary">#FFD0BCFF</color>
+    <color name="subscription_muted">#FF938F99</color>
+    <color name="subscription_ripple">#22D0BCFF</color>
+</resources>

@@ -3,9 +3,9 @@
   HXA-191 dark-theme variant of Theme.Helix.Subscription (see ../values/themes.xml for the
   light baseline). This is the ANDROID WINDOW side for the developer subscription / login face
   (a native-View shell in the :subscriptions process, NOT a Compose surface): it makes the window
-  background and the status/navigation bars track the system dark mode. The face's native View
-  content colors are a documented residual boundary (not night-aware in this Compose-centric
-  slice). Values are the Material3 dark counterparts of the light ones:
+  background and the status/navigation bars track the system dark mode. Native View content
+  resolves its matching palette from values-night/colors.xml. Values are the Material3 dark
+  counterparts of the light ones:
   - parent android:Theme.Material.NoActionBar (dark) -> dark window background;
   - colorAccent #6750A4 (light primary) -> #D0BCFF (dark primary);
   - surface #FFFBFE (light) -> #1C1B1F (dark) for window/status/navigation bars;

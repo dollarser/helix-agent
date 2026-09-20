@@ -2,6 +2,7 @@ package com.helix.runtime.cli.app
 
 import android.app.Activity
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
@@ -15,12 +16,6 @@ import android.widget.TextView
 
 /** Shared native presentation; authentication state and actions remain owned by each login page. */
 internal object SubscriptionScreen {
-    private const val BACKGROUND = 0xFFFFFBFE.toInt()
-    private const val SURFACE = 0xFFF3EDF7.toInt()
-    private const val TEXT = 0xFF1D1B20.toInt()
-    private const val PRIMARY = 0xFF6750A4.toInt()
-    private const val MUTED = 0xFF79747E.toInt()
-
     @Suppress("DEPRECATION") // Native WindowInsets accessors also support API 29.
     fun show(
         activity: Activity,
@@ -33,7 +28,7 @@ internal object SubscriptionScreen {
         val shell =
             LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                setBackgroundColor(BACKGROUND)
+                setBackgroundColor(context.getColor(R.color.subscription_background))
                 setOnApplyWindowInsetsListener { view, insets ->
                     view.setPadding(
                         insets.systemWindowInsetLeft,
@@ -55,8 +50,13 @@ internal object SubscriptionScreen {
             },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f),
         )
-        activity.window.decorView.systemUiVisibility =
-            View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        val lightFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        val night =
+            activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+        val decor = activity.window.decorView
+        decor.systemUiVisibility =
+            (decor.systemUiVisibility and lightFlags.inv()) or (if (night) 0 else lightFlags)
         activity.setContentView(shell)
         shell.requestApplyInsets()
     }
@@ -77,8 +77,13 @@ internal object SubscriptionScreen {
                     text = "‹"
                     textSize = 28f
                     contentDescription = activity.getString(R.string.subscription_back)
-                    setTextColor(PRIMARY)
-                    background = RippleDrawable(ColorStateList.valueOf(SURFACE), null, shape(BACKGROUND, dp(24)))
+                    setTextColor(context.getColor(R.color.subscription_primary))
+                    background =
+                        RippleDrawable(
+                            ColorStateList.valueOf(context.getColor(R.color.subscription_surface)),
+                            null,
+                            shape(context.getColor(R.color.subscription_background), dp(24)),
+                        )
                     setOnClickListener { activity.finish() }
                 },
                 LinearLayout.LayoutParams(dp(48), dp(48)),
@@ -88,7 +93,7 @@ internal object SubscriptionScreen {
             TextView(activity).apply {
                 text = activity.title
                 textSize = 20f
-                setTextColor(TEXT)
+                setTextColor(context.getColor(R.color.subscription_text))
                 setTypeface(typeface, Typeface.BOLD)
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
@@ -108,9 +113,9 @@ internal object SubscriptionScreen {
             val view = content.getChildAt(index)
             if (view is TextView) {
                 view.textSize = 16f
-                view.setTextColor(TEXT)
+                view.setTextColor(view.context.getColor(R.color.subscription_text))
                 view.setPadding(dp(16), dp(12), dp(16), dp(12))
-                view.background = shape(SURFACE, dp(16))
+                view.background = shape(view.context.getColor(R.color.subscription_surface), dp(16))
                 if (view is Button) {
                     view.isAllCaps = false
                     view.minHeight = dp(48)
@@ -118,14 +123,17 @@ internal object SubscriptionScreen {
                     view.backgroundTintList = null
                     view.background =
                         RippleDrawable(
-                            ColorStateList.valueOf(0x226750A4),
-                            shape(SURFACE, dp(24)),
+                            ColorStateList.valueOf(view.context.getColor(R.color.subscription_ripple)),
+                            shape(view.context.getColor(R.color.subscription_surface), dp(24)),
                             null,
                         )
                     view.setTextColor(
                         ColorStateList(
                             arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
-                            intArrayOf(MUTED, PRIMARY),
+                            intArrayOf(
+                                view.context.getColor(R.color.subscription_muted),
+                                view.context.getColor(R.color.subscription_primary),
+                            ),
                         ),
                     )
                 } else {
