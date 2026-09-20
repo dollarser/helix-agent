@@ -437,7 +437,12 @@ private fun DestinationScreen(
         // sources (Workspace, always; developer all-files roots, read-only)
         // + HXA-058: the import/export entries over the HXA-044 pipelines.
         ShellDestination.Files -> {
-            FilesScreen(container.fileManager, container.safTree, container.featureFiles)
+            FilesScreen(
+                container.fileManager,
+                container.safTree,
+                container.featureFiles,
+                container.manualTerminal != null,
+            )
         }
 
         // HXA-060: the minimal hardened WebView browser.

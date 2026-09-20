@@ -21,6 +21,14 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 197 首片手动终端采用应用 Workspace 内实际目录直接映射 `/workspace`，不提前启用独立会话目录绑定。手动租期默认两小时、最大八小时，不自动续期；断开连接后三十分钟空闲回收。停止记录独立于可删除的 Runtime 安装目录，环境维护与执行互斥。页面、模型和 Agent Goal 不持有 Runtime 进程资源；具体交付与设备边界以 197 任务记录为准。
 - 196/197 的宿主执行准入共用一个应用进程实例。普通执行许可随真实 executor 退出释放，不随超时/取消回执提前释放；异步/手动 owner 在提交前以原子写保存执行身份，调用返回不清除，只由原身份的终态对账释放。持久准入文件只保存身份，不复制 Runtime 的阶段、日志或结果，也不是新的授权来源；读取损坏/写入失败不能按空闲处理。生产控制入口仍须按原 session/turn/call/job 绑定校验，不能凭 owner 身份获得执行权限。
 
+### HXA-197 渲染组件与构建兼容
+
+采用 ConnectBot termlib **0.2.1**（固定 tag commit `27e024fccb2d722b47c57f5da1b4da9bca477b68`）作为 developer 专用显示/输入组件；它不拥有 PTY 或执行许可。Apache-2.0 与 bundled libvterm MIT 文本、归属及修改说明随应用打包，并在终端页面可查看。
+
+`:runtime:terminal-renderer` 从校验过的发布 sources JAR 编译 Kotlin，应用已通过独立设备探针的显式 close 补丁；native 库与资源来自同版本 AAR，不同时打包其原始 classes.jar。构建校验固定 SHA-256，源码只生成到 build 目录。关闭顺序为停止输入/输出生产者、卸载视图、在 callback looper 释放 emulator；依赖版本更新必须复核补丁与制品。
+
+组件要求 compileSdk 37；本次明确升级 compileSdk 至 37、Compose BOM 至 2026.09.00，保持 targetSdk 36 和 minSdk 29。CI 同时保留用于既有兼容探针的 API36 SDK。原生 ABI 为 arm64-v8a/x86_64；16 KiB ELF/ZIP 静态检查和真实 16 KiB 设备运行分别记账。OSC 自动剪贴板、图片及链接自动打开不启用，模型不获得终端输入能力。生产页面验收以 197 任务和证据为准，构建接线不代表验收完成。
+
 ## Alternatives considered
 
 通用持久 shell 替代全部 Job 会破坏身份与结算；仅最终输出不足以支持交互；每个按键做 Tool Approval 无法形成可用终端。

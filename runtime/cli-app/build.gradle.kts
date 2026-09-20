@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace = "com.helix.runtime.cli.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 29

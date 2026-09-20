@@ -77,7 +77,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libarchive-tools
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Build and verify locked runtime assets
         env:
           HELIX_ROOTFS_ARCHIVE_URL: ${{ vars.HELIX_ROOTFS_ARCHIVE_URL }}
@@ -126,7 +126,7 @@ jobs:
         # cmdline-tools;latest keeps `cmdline-tools/latest/bin/apkanalyzer` available for
         # verify-variant-boundaries.sh on a cold runner.
         run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools" \
+          sdkmanager "platforms;android-36" "platforms;android-37.0" "build-tools;36.0.0" "platform-tools" \
             "cmdline-tools;latest" "ndk;28.2.13676358" "cmake;3.31.6"
           "$ANDROID_HOME/cmake/3.31.6/bin/cmake" --version
           test -f "$ANDROID_HOME/ndk/28.2.13676358/source.properties"

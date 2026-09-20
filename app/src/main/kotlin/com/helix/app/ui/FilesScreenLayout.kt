@@ -32,6 +32,7 @@ internal fun FilesScreenLayout(
     state: FilesScreenState,
     actions: FilesScreenActions,
     onPermissions: () -> Unit,
+    openTerminal: ((String) -> Unit)? = null,
 ) {
     if (state.homeOpen) {
         FilesHome(state, actions, onPermissions)
@@ -45,6 +46,13 @@ internal fun FilesScreenLayout(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 FilesLocationBar(state, actions)
+                if (selectedScopeId == "app" && !trashOpen && openTerminal != null) {
+                    TextButton(onClick = {
+                        openTerminal(currentPath.ifBlank { "." })
+                    }, modifier = Modifier.testTag("files-open-terminal")) {
+                        Text(str(R.string.terminal_open))
+                    }
+                }
 
                 // 长操作进度/取消 + 状态 + 部分失败清单.
                 if (batchBusy) {

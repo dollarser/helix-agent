@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">Manual terminal</string>
+    <string name="terminal_licenses">Component licenses</string>
+    <string name="terminal_keyboard">Keyboard</string>
+    <string name="terminal_shared_workspace">Starts in this Workspace directory; shares the app UID. Leaving detaches; the default lease stops after two hours.</string>
+    <string name="terminal_failed">Operation did not complete. Query the original session; start and input are not retried. Starting and input require Advanced and a prepared Runtime.</string>
+    <string name="terminal_start">Start session</string>
+    <string name="terminal_connect">Connect</string>
+    <string name="terminal_stop">Stop session</string>
+    <string name="terminal_settle">Settle and close</string>
+    <string name="terminal_refresh">Query status</string>
+    <string name="terminal_detached">Disconnected. Leaving does not stop the session. Reconnect to view retained output.</string>
+    <string name="terminal_input_rejected">Some input was rejected or its outcome is unknown. It was not resent. Check the terminal before entering more.</string>
+    <string name="terminal_output_failed">Output connection failed. Leave and reconnect to the original session.</string>
+    <string name="terminal_output_gap">Older output was discarded. The display restarted from retained content.</string>
+    <string name="terminal_directory">Starting directory: Workspace / %1$s</string>
+</resources>

@@ -27,12 +27,12 @@ CLI/SDK Android 打包路线已停止；当前第三方订阅协议适配器 APK
 | Android Gradle Plugin | 9.3.2 | 9.3 当前补丁版；修复 9.3 lint/JDK 17 问题 |
 | Gradle Wrapper | 9.5.0 | AGP 9.3 最低/默认 |
 | Kotlin Android plugin | 2.3.21 | Android 官方 AGP 9.3 示例组合 |
-| compileSdk | 36 | 使用稳定 Android 16 API |
+| compileSdk | 37 | HXA-197 termlib 0.2.1 要求；targetSdk 仍为 36 |
 | targetSdk | 36 | 与 compile 基线一致 |
 | minSdk | 29 | 统一 scoped storage 时代行为，降低兼容分支 |
 | SDK Build Tools | 36.0.0 | AGP 9.3 默认 |
 | NDK | 28.2.13676358 | AGP 9.3 默认；native/PRoot 准备 |
-| Compose BOM | 2026.06.01 | 最新验证可与 compileSdk 36 共用的稳定 BOM；2026.08.00 中 Compose 1.12 要求 compileSdk 37 |
+| Compose BOM | 2026.09.00 | HXA-197 显式兼容升级；具体设备范围见任务证据 |
 | Java/Kotlin bytecode | 17 | 与 JDK 基线一致 |
 
 官方依据：
@@ -49,7 +49,7 @@ M0 已按下表创建 `gradle/libs.versions.toml`。当前构建和 lockfile 是
 
 | 能力 | 依赖 | 基线 |
 | --- | --- | --- |
-| Compose | `androidx.compose:compose-bom` | `2026.06.01` |
+| Compose | `androidx.compose:compose-bom` | `2026.09.00` |
 | Lifecycle | `androidx.lifecycle:lifecycle-*` | `2.10.0` |
 | Activity Compose | `androidx.activity:activity-compose` | `1.13.0` |
 | Navigation Compose | `androidx.navigation:navigation-compose` | `2.9.8` |
@@ -106,6 +106,7 @@ sdkmanager \
   "cmdline-tools;latest" \
   "platform-tools" \
   "platforms;android-36" \
+  "platforms;android-37.0" \
   "build-tools;36.0.0" \
   "ndk;28.2.13676358" \
   "cmake;3.31.6"
@@ -622,7 +623,7 @@ git diff --check
 | 有多个设备，测试跑错目标 | 用 `adb devices -l` 确认目标，在当前终端临时设置 `ANDROID_SERIAL` 后再运行 connected test。 |
 | 共享模拟器上安装失败或测试类突然不存在 | 停止继续覆盖安装，确认设备是否被其他任务占用，并核对主包、test APK、companion、applicationId 和 provider authority；无法确认空闲时改用独立 AVD。 |
 | AVD 无法启动或极慢 | 核对镜像 ABI 与主机架构，优先冷启动并检查可用磁盘/虚拟化；不要把 x86_64 结果记录成 arm64 证据。 |
-| 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；当前基线保持 compileSdk 36，不在普通功能任务中升级 SDK。 |
+| 依赖突然要求 compileSdk 37 | 先检查 version catalog、lockfile 和依赖 diff；197 已显式升级 compileSdk 37，targetSdk 仍为 36；不得绕过依赖 metadata。 |
 | Gradle 输出 Kotlin 2.3.20，但 catalog 是 2.3.21 | 前者是 Gradle 自带 Kotlin，后者才是项目 Kotlin plugin；以 catalog 和 resolved dependency 为准。 |
 | Unit test 通过但功能仍异常 | 查看当前 HXA 的 verification matrix；涉及 Android/Room/WebView/权限/Runtime 时补跑指定设备测试和真实边界 fixture。 |
 | instrumentation 报 `Failed to inject touch input` | `androidx.compose.ui.test` 的误导包装，真实原因在紧跟的 `Reason:` 行，多为 `could not find any node`（目标不在组合树里）而非输入注入失败；按 `Reason` 定位，最常见是 AVD 分辨率太小把 provider 行内容压出可视区（见 5.3），先修正分辨率再重跑，不要当输入注入 bug 排查。 |

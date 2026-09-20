@@ -1,0 +1,6 @@
+ConnectBot termlib 0.2.1
+https://github.com/connectbot/termlib
+Commit 27e024fccb2d722b47c57f5da1b4da9bca477b68
+Apache-2.0; bundled libvterm by Paul Evans, MIT.
+Helix modification: explicit emulator close after producers stop and view detaches; drain keyboard commands, clear callbacks and release native resources.
+Published source and native artifacts are SHA-256 verified by the module build.

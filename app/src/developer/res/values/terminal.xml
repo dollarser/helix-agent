@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="terminal_title">手动终端</string>
+    <string name="terminal_licenses">组件许可证</string>
+    <string name="terminal_keyboard">键盘</string>
+    <string name="terminal_shared_workspace">从当前 Workspace 目录启动；与应用共享 UID。关闭页面仅断开，默认两小时后停止。</string>
+    <string name="terminal_failed">操作未完成。请查询原会话状态；不会自动重试启动或输入。启动和输入需 Advanced 且 Runtime 已准备。</string>
+    <string name="terminal_start">启动会话</string>
+    <string name="terminal_connect">连接原会话</string>
+    <string name="terminal_stop">停止会话</string>
+    <string name="terminal_settle">结算并关闭</string>
+    <string name="terminal_refresh">查询状态</string>
+    <string name="terminal_detached">未连接。离开页面不会终止会话；可重新连接查看保留输出。</string>
+    <string name="terminal_input_rejected">部分输入未接收或结果未知，未自动重发。请核对终端内容后再输入。</string>
+    <string name="terminal_output_failed">输出连接中断。请离开并重新连接原会话。</string>
+    <string name="terminal_output_gap">部分旧输出已丢弃，显示从保留内容重新开始。</string>
+    <string name="terminal_directory">起始目录：Workspace / %1$s</string>
+</resources>

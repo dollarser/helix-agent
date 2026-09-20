@@ -46,6 +46,7 @@ include(
     ":feature:files",
     ":feature:files-allfiles",
     ":runtime:quickjs",
+    ":runtime:terminal-renderer",
     ":runtime:proot-core",
     ":runtime:proot-ipc",
     ":runtime:proot-client",

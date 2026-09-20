@@ -44,6 +44,11 @@ def verify(flavor, build_type):
         assert component.get(A + "exported") == "false", f"exported {name}"
         assert component.get(A + "process") in (suffix, package + suffix), f"wrong process {name}"
         assert component.get(A + "isolatedProcess", "false") == "false", f"unsupported isolated runtime {name}"
+    terminal = components.get("com.helix.app.terminal.ManualTerminalActivity")
+    assert (terminal is not None) == developer
+    if terminal is not None:
+        assert terminal.get(A + "exported") == "false"
+        assert terminal.get(A + "process") in (None, package), "terminal UI must stay in main process"
     quickjs = [element for element in app.findall("service") if element.get(A + "isolatedProcess") == "true"]
     assert quickjs and all(element.get(A + "exported") == "false" for element in quickjs)
     permissions = {element.get(A + "name") for element in manifest.findall("uses-permission")}
@@ -75,6 +80,10 @@ def verify(flavor, build_type):
         assert (b"Lcom/helix/runtime/proot/app/PtyNativeProbeService;" in dex) == (developer and build_type == "debug")
         for namespace in (b"Lcom/helix/runtime/cli/", b"Lcom/helix/runtime/proot/"):
             assert (namespace in dex) == developer, f"wrong {flavor} dex {namespace}"
+        assert (b"Lorg/connectbot/terminal/" in dex) == developer
+        for asset in ("NOTICE.txt", "Apache-2.0.txt", "libvterm-MIT.txt"):
+            assert ("assets/terminal-licenses/" + asset in names) == developer
+        assert any(name.endswith("/libjni_cb_term.so") for name in names) == developer
         native = [name for name in names if name.endswith("/libhelix_loader.so")]
         assert bool(native) == developer, f"wrong {flavor} PRoot native payload"
         if developer:

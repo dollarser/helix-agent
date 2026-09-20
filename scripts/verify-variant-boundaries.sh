@@ -91,6 +91,7 @@ readonly developer_projects=(
     runtime:cli-client
     runtime:cli-app
     runtime:proot-app
+    runtime:terminal-renderer
 )
 
 for dependency in "${developer_projects[@]}"; do

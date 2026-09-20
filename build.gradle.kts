@@ -240,7 +240,7 @@ subprojects {
 
             extensions.configure<LibraryExtension> {
                 namespace = androidLibraries.getValue(path)
-                compileSdk = 36
+                compileSdk = 37
 
                 defaultConfig {
                     minSdk = 29
@@ -436,9 +436,8 @@ subprojects {
                 dependencies.add("implementation", a2aHttpAndroidDependency.get())
             }
             if (path == ":spikes:a2a-minimal") {
-                // Match the production :extensions:a2a resolution below: compileSdk 36 cannot
-                // consume OkHttp 5.5's Android AAR (which declares compileSdk 37), while the
-                // JVM artifact is the Android-compatible API surface Helix already verifies.
+                // Match the production JVM artifact verified by :extensions:a2a.
+                // The HXA-197 renderer SDK upgrade does not change network transport variants.
                 configurations.configureEach {
                     resolutionStrategy.dependencySubstitution {
                         substitute(module("com.squareup.okhttp3:okhttp"))
@@ -458,9 +457,7 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
             }
             if (path == ":extensions:a2a") {
-                // OkHttp's Android platform selector publishes an AAR requiring compileSdk 37.
-                // Helix is pinned to compileSdk 36 and uses only the JVM-compatible OkHttp API,
-                // matching the production app's established HXA-027 substitution.
+                // Retain the production app's established HXA-027 JVM OkHttp variant.
                 configurations.configureEach {
                     resolutionStrategy.dependencySubstitution {
                         substitute(module("com.squareup.okhttp3:okhttp"))

@@ -45,13 +45,13 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
 
-PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务与 Binder 已接线，渲染页面尚未完成。
+PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务、Binder 和 developer 渲染页面已接线；页面遇到缺口会换用新的解析器并提示。
 
 手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。`PtyInputBuffer` 管理字节边界，写入连接校验与进程关闭由会话 owner 承担，不作为授权来源。
 
-`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已接入产品 Binder，终端 UI 仍待接线。
+`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已接入产品 Binder 与终端 UI；UI 另有最多四个 8 KiB 输入块的队列，拒绝或未知结果不自动重发。
 
-生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；产品会话已调用该组件，渲染页面尚未接线。
+生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；产品会话及渲染页面已调用该组件。
 
 `PtySessionRecord`/`PtySessionStore` 已提供 Runtime 单写的持久身份和有界原子 CAS。启动意图先于 fork，未保存 PID 的中断也保持未知；停止证明与对账分开，未知/损坏记录不按空闲处理。生产会话 owner 已接线；记录本身不释放应用执行占用，宿主仍须按原身份对账。关闭方向复用锁定 PRoot 的 `--kill-on-exit` 与 SIGQUIT 清理 tracee，发送成功仍不等于停止；具体实现及设备边界见[生命周期切片](../evidence/development/hxa-197-session-lifecycle-2026-09-20.md)。
 
@@ -73,3 +73,14 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 | 综合验收 | [HXA-199](../development/tasks/HXA-199.md) |
 
 公共 G1～G4 命令在[验收规则](../development/verification-matrix.md)，具体失败、取消、日志边界与恢复用例在对应任务，不在多个计划里复制状态。
+
+
+## 手动终端页面
+
+developer 文件管理器的 Workspace 目录提供“打开终端”；打开页面只检查本地会话绑定，用户明确启动或连接才接触 Runtime。页面通过 `ManualTerminal` 应用接口使用私有会话，不直接持有 PTY、PID 或执行许可。已有会话必须先结算，不能因切换目录另开 shell。
+
+`ManualTerminalActivity` 在主进程且不导出；ConnectBot termlib 0.2.1 经固定制品校验和显式 close 补丁后在 `:runtime:terminal-renderer` 构建，consumer 不包含组件/native/专用页面。许可证与修改说明在页面可查看，版本与构建决定见 [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。
+
+页面显示起始 Workspace 目录、Runtime 阶段、停止原因和退出状态，提供键盘、Ctrl-C/Tab/Esc/Ctrl-D、停止和结算。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
+
+中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产进程死亡、长输出/粘贴压力、实际运行长命令的租期终止及 idle/OEM/长稳仍单列，不能从页面成功推导整个 197 完成。

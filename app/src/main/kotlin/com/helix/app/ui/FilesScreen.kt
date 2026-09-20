@@ -27,6 +27,7 @@ fun FilesScreen(
     fileManager: FileManagerService,
     safTree: SafTreeScopeService,
     featureFiles: FeatureFiles,
+    terminalAvailable: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -63,7 +64,7 @@ fun FilesScreen(
             FilesDirectoryEffects(state, actions)
             FilesPreviewEffects(state, actions)
             FilesScopeEffects(state, actions)
-            FilesRecoverableLayout(state, actions, openSharedStorage)
+            FilesRecoverableLayout(state, actions, openSharedStorage, terminalAvailable)
             state.FilesPreviewDialog(actions)
             FilesMutationDialogs(state, actions)
             FilesImportDialog(
@@ -84,9 +85,20 @@ private fun FilesRecoverableLayout(
     state: FilesScreenState,
     actions: FilesScreenActions,
     openSharedStorage: () -> Unit,
+    terminalAvailable: Boolean,
 ) {
+    val context = LocalContext.current
+    val openTerminal: ((String) -> Unit)? =
+        if (terminalAvailable) {
+            { directory ->
+                com.helix.app.terminal.ManualTerminalModule
+                    .open(context, directory)
+            }
+        } else {
+            null
+        }
     Column(Modifier.fillMaxSize()) {
         FilesRecoveryPanel(actions)
-        Box(Modifier.weight(1f)) { FilesScreenLayout(state, actions, openSharedStorage) }
+        Box(Modifier.weight(1f)) { FilesScreenLayout(state, actions, openSharedStorage, openTerminal) }
     }
 }

@@ -1,7 +1,8 @@
 [versions]
 agp = "9.3.2"
 kotlin = "2.3.21"
-compose-bom = "2026.06.01"
+compose-bom = "2026.09.00"
+termlib = "0.2.1"
 activity = "1.13.0"
 lifecycle = "2.10.0"
 navigation = "2.9.8"
@@ -31,8 +32,13 @@ detekt = "1.23.8"
 ktlint = "1.8.0"
 
 [libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.18.0" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version = "1.7.1" }
+material = { module = "com.google.android.material:material", version = "1.14.0" }
 desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar-jdk-libs" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }

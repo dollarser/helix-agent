@@ -9,7 +9,7 @@ apply(from = rootProject.file("config/jgit/reject-insecure-tls.gradle.kts"))
 
 android {
     namespace = "com.helix.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.helix.agent"
@@ -73,6 +73,7 @@ android {
 }
 
 dependencies {
+    "developerImplementation"(project(":runtime:terminal-renderer"))
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
     implementation(project(":core:model"))
     implementation(project(":core:agent"))
@@ -181,14 +182,9 @@ dependencies {
     androidTestImplementation(project(":provider:openai-chat"))
 }
 
-// HXA-027: OkHttp 5's platform selector resolves to the `okhttp-android` artifact
-// for Android consumers, which requires compileSdk 37; this project is pinned to
-// compileSdk 36 (M0 baseline). The `okhttp-jvm` artifact is the same library as
-// plain JVM bytecode (no Android-specific parts), so the app's configurations
-// substitute the platform selector with the JVM variant instead of a platform
-// bump. The provider:api module itself keeps the normal selector (its consumers
-// are JVM and resolve okhttp-jvm natively). When HXA-028 wires the provider
-// stack into the production app, this substitution covers that classpath too.
+// Retain the established HXA-027 JVM OkHttp resolution across the HXA-197 SDK upgrade.
+// Changing the renderer's compileSdk does not authorize an unrelated network transport migration.
+
 configurations.all {
     resolutionStrategy.dependencySubstitution {
         // catalog-pinned version (same as provider:api resolves); only the artifact changes
