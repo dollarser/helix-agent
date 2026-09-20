@@ -1,9 +1,12 @@
 package com.helix.app.proot
 
+import com.helix.app.approval.ApprovalUiMapper
 import com.helix.core.model.ExecutionTargetType
 import com.helix.core.model.ToolOperationClass
 import com.helix.tools.framework.ExecutableToolCall
 import com.helix.tools.framework.NoCancellation
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -15,6 +18,26 @@ import org.junit.Test
 import java.time.Instant
 
 class DetachedJobToolsTest {
+    @Test fun versionOneBackgroundJobApprovalShowsSharedNetworkForScriptAndArgv() {
+        val descriptor = DetachedJobTools.start()
+        assertEquals(1, descriptor.version.value)
+        val script =
+            requireNotNull(
+                ApprovalUiMapper.codeExecutionUi(descriptor, buildJsonObject { put("script", "printf hello") }),
+            )
+        val argv =
+            requireNotNull(
+                ApprovalUiMapper.codeExecutionUi(
+                    descriptor,
+                    buildJsonObject { put("argv", buildJsonArray { add(JsonPrimitive("pwd")) }) },
+                ),
+            )
+        assertTrue(script.online)
+        assertTrue(argv.online)
+        assertEquals("printf hello", script.code)
+        assertEquals("pwd", argv.code)
+    }
+
     @Test fun leaseSchemaIsSeparateFromTheSubmitDeadlineAndControlOnlyAcceptsOriginalCallId() {
         val start = DetachedJobTools.start()
         assertEquals("code.linux.job.start", start.name.value)

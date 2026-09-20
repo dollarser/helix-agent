@@ -196,7 +196,7 @@ class LinuxRunToolTest {
     // ------------------------------------------------------------------ approval card
 
     @Test
-    fun approvalCardShowsTheFullScriptOfflineAndTheSnapshotSource() {
+    fun approvalCardShowsTheFullScriptOnlineAndTheSnapshotSource() {
         val d = LinuxRunTool.descriptor()
         val args =
             buildJsonObject {
@@ -216,9 +216,9 @@ class LinuxRunToolTest {
         val e = ui!!
         // The FULL script (审批 UI 必须展示完整 script), not truncated.
         assertEquals("git log -1 && echo done", e.code)
-        // ADR-0049: the integrated runtime shares the developer app network permission.
+        // ADR-RUNTIME-001: the runtime shares the developer app network permission.
         assertTrue(e.online)
-        // The limits line names the fixed deadline + the offline boundary.
+        // The limits line names the fixed deadline and execution boundary.
         // (HXA-069 localization merge: the card fields are string-resource IDs +
         // args resolved by the UI; the JVM test asserts the resource wiring.)
         assertEquals(R.string.approval_limits_proot, e.limitsRes)

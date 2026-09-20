@@ -247,9 +247,9 @@ object ApprovalUiMapper {
 
     /**
      * The code-execution section (doc 03 §5) for a CODE_EXECUTION tool: the FULL code, its
-     * SHA-256 short digest, the input SOURCE + size (not the body), the fixed "联网：否"
-     * flag, and the applied §4.1 limits. Null for every other operation class and when there
-     * is no `code` argument to show. Pure/JVM-testable like the rest of the mapper.
+     * SHA-256 short digest, the input SOURCE + size (not the body), the execution domain
+     * network boundary, and applied limits. Null for every other operation class and when
+     * there is no code, script or argv to show. Pure/JVM-testable like the rest of the mapper.
      */
     @Suppress("ReturnCount") // one early-exit per source shape (QuickJS / PRoot-script / PRoot-argv)
     fun codeExecutionUi(
@@ -273,7 +273,8 @@ object ApprovalUiMapper {
         }
         // PRoot (HXA-085, doc local-code-execution §6.5): the FULL explicit script
         // (审批 UI 必须展示完整 script) or the argv line, the deadline, and the fixed
-        // execution boundary. ADR-0049's v2 PRoot shares host network permissions.
+        // execution boundary. ADR-RUNTIME-001 PRoot shares host network permissions;
+        // tool schema versions do not determine the execution domain network boundary.
         val script = stringArg(arguments, "script")?.takeIf { it.isNotBlank() }
         val argv = (arguments["argv"] as? JsonArray)?.map { (it as JsonPrimitive).content }
         return when {
@@ -285,7 +286,7 @@ object ApprovalUiMapper {
                     inputSourceArgs = filesSource(arguments["files"]).args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
-                    online = descriptor.version.value >= 2,
+                    online = descriptor.executionTarget == ExecutionTargetType.LOCAL_PROOT,
                 )
             }
 
@@ -297,7 +298,7 @@ object ApprovalUiMapper {
                     inputSourceArgs = filesSource(arguments["files"]).args,
                     limitsRes = prootLimitsLabel(arguments).res,
                     limitsArgs = prootLimitsLabel(arguments).args,
-                    online = descriptor.version.value >= 2,
+                    online = descriptor.executionTarget == ExecutionTargetType.LOCAL_PROOT,
                 )
             }
 
