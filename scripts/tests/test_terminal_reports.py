@@ -59,10 +59,11 @@ class TestTerminalReportsVerification(unittest.TestCase):
     def test_missing_mandatory_terminal_scene(self):
         data = copy.deepcopy(self.base_data)
         # Remove dual_session_pty
+        removed = [s for s in data["scenes"] if s["scene_id"] == "dual_session_pty"][0]
         data["scenes"] = [s for s in data["scenes"] if s["scene_id"] != "dual_session_pty"]
         data["counts"]["expected"] -= 1
         data["counts"]["executed"] -= 1
-        data["counts"]["skipped"] -= 1
+        data["counts"][removed["status"]] -= 1
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             m = self.write_manifest(data, tmp_path)

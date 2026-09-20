@@ -15,9 +15,9 @@
   "counts": {
     "expected": 13,
     "executed": 13,
-    "passed": 7,
+    "passed": 8,
     "failed": 0,
-    "skipped": 6
+    "skipped": 5
   },
   "scenes": [
     {
@@ -54,10 +54,13 @@
     {
       "scene_id": "dual_session_pty",
       "test_class": "com.helix.app.proot.ProotMultiSessionDeviceTest",
-      "test_method": "plannedDualSessionPty",
-      "status": "skipped",
+      "test_method": "dualSessionsRunConcurrentlyAndIsolateWorkspaces",
+      "status": "passed",
       "source_ref": "evidence/synthetic/dual_session.json",
-      "skip_reason": "WAITING_CORE: HXA-198 dual-session core not yet delivered"
+      "metrics": {
+        "concurrency_limit": 2,
+        "isolation_verified": true
+      }
     },
     {
       "scene_id": "page_switch_reconnect",
