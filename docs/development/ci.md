@@ -26,8 +26,10 @@ source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner；�
 
 ## 验证与使用
 
+手动完整验证：`gh workflow run ci.yml --ref main -f scope=full`；手动 Debug：`gh workflow run ci.yml --ref main -f scope=debug`。同一 ref 的新运行会取消旧运行，应等待前一轮完成再触发。
+
 本地新增命令：`./scripts/check-all.sh --debug-analysis`、`./scripts/check-all.sh --debug-tests-build`；`--all` 保持完整语义。CI 策略单测覆盖取消后文档推送、来源/基线筛选、失败和跳过聚合、缓存损坏与网络失败。修改 CI 本身自动走 full。
 
 调整前基线：[382674c3 / 35515226699](https://github.com/dollarser/helix-agent/actions/runs/35515226699)，总时长约 16 分 40 秒；source 22 秒、资产 2 分 39 秒、analysis 9 分 26 秒、tests-build 13 分 23 秒，两个 Android 分片并行。耗时依赖 runner 与缓存冷热，不能把不同档位的时长差当作同等覆盖加速比例。
 
-新流水线验证以实际运行记录为准；全量、手动 Debug 和纯文档路径分别验收。后续工作排序见[工作计划](next-work-plan.md)。
+新流水线的实际命令、结果和未验边界见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)。后续工作排序见[工作计划](next-work-plan.md)。

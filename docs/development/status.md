@@ -18,7 +18,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-当前推进 CI 分层优化；后续 HXA 只做计划，排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机验收本次跳过，不记通过。
+CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；后续 HXA 只做计划，排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机验收本次跳过，不记通过。
 
 HXA-197 单个手动 PTY 已交付，见[完成记录](../completion-records/HXA-197.md)。本轮修复快速逐键输入丢字符，补齐关闭页面后的 1 MiB 以上输出、超限输入、Ctrl-C、运行中租期，以及普通应用主进程/Runtime 死亡和实际重启对账。完整主机门禁、双 API 各 49/49、独立恢复旅程 2/2 通过；准备测试另计，详见[最终证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。未把 30 分钟 idle、长租期、OEM/Doze/热压或真实 16 KiB 设备计为通过，这些继续归 199。
 
@@ -28,7 +28,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 196 已完成 developer 四工具注册、持久执行占用、Goal 预算、原结果导入、独立 Tasks 行及人工查询/取消/收取入口；consumer 不注册。模型/Goal/Dispatcher/Runtime 旅程及终态结果跨主进程恢复已有设备证据，pending 租期禁止提前报告完成。历史投影、Tasks、Runtime、Goal 矩阵保留在 [196 任务记录](tasks/HXA-196.md)，不作为最新源码的全量重跑证明。当前仍不是完整后台产品验收。
 
-所有者已授权继续剩余任务。**HXA-196** 的租期、私有前台 owner、幂等提交/取消与恢复查询已合入并推送 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。当前独立工作树补订阅终态流式传输与后台提交扣时，见[Runtime 修复](../bug-fixes/2026-09-18-runtime-streaming-terminal-and-lease.md)；已接入执行线程占用和持久身份机制，完整主机门禁与四象限定向 20 项通过，见[执行占用切片](../evidence/development/hxa-196-execution-ownership-2026-09-18.md)。异步工具与预算/结果回收组合已合并并推送 main；剩余验收见上，不能将当前切片视为完整后台功能。
+所有者已授权继续剩余任务。**HXA-196** 的租期、私有前台 owner、幂等提交/取消与恢复查询已合入并推送 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。已整合订阅终态流式传输与后台提交扣时修复，见[Runtime 修复](../bug-fixes/2026-09-18-runtime-streaming-terminal-and-lease.md)；已接入执行线程占用和持久身份机制，完整主机门禁与四象限定向 20 项通过，见[执行占用切片](../evidence/development/hxa-196-execution-ownership-2026-09-18.md)。异步工具与预算/结果回收组合已合并并推送 main；剩余验收见上，不能将当前切片视为完整后台功能。
 
 **207 与 191 的具名提交已合入 main。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。合并后完整主机门禁、定向设备 62 项通过和 18 项条件跳过见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；**按 2026-09-20 最新范围，206 本轮只整理计划，交接后再实施**。
 
@@ -40,7 +40,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 191 最终主题矩阵通过：developer 双 API 深浅模式 **32/32**；consumer **28/28** 且最终主/测试 APK 哈希与验收时一致。已覆盖真实对话框、六个订阅页面配色与实际系统栏标志，修复大字体返回箭头裁切；完整主机门禁通过，见 [191 记录](../completion-records/HXA-191.md)。API29 使用自有模拟器 root shell 设置被锁定的系统夜间模式，没有赋予应用权限。最终搜索 UI/真实进程恢复 32/32、Room 16/16 通过，191 已关闭。197 的单终端、实际进程死亡对账、页面退出重连、输出/输入压力和运行中租期验收已完成，211 会话 JSONL 导出也已交付，后续交接计划已写入 198／199／206 任务文件。主题与搜索是应用能力，不新增 Agent 工具。
 
-196 已补齐原 Runtime 记录缺失出口：明确 NOT_FOUND、原 Turn 终态或 INTERRUPTED 且真实重启证据成立后，收取结算预算并解除占用，保留 UNKNOWN 和结果丢失提示，不生成终态或重跑。最新完整主机门禁通过，双 API 实际重启缺失记录验证 **2/2**、收取/Goal/Runtime 死亡回归 **20/20**。真机继续独立待验。并行交付中的三工具实现因效果分类、错误/取消回执和缺少持久占用/Goal 结算问题未直接采纳，main 未提交修改保留，见[交接复核](../evidence/development/hxa-196-handoff-review-2026-09-20.md)。
+196 已补齐原 Runtime 记录缺失出口：明确 NOT_FOUND、原 Turn 终态或 INTERRUPTED 且真实重启证据成立后，收取结算预算并解除占用，保留 UNKNOWN 和结果丢失提示，不生成终态或重跑。最新完整主机门禁通过，双 API 实际重启缺失记录验证 **2/2**、收取/Goal/Runtime 死亡回归 **20/20**。真机继续独立待验。并行交付中的三工具实现因效果分类、错误/取消回执和缺少持久占用/Goal 结算问题未直接采纳，旧 WIP 已在分支收敛时按实际差异取舍，历史原因见[交接复核](../evidence/development/hxa-196-handoff-review-2026-09-20.md)。
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
