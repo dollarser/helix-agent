@@ -103,6 +103,11 @@ internal fun ConversationSection(
             FlowRow {
                 if (!screen.isDraft) {
                     TextButton(intents.onRename) { Text(stringResource(R.string.chat_rename)) }
+                    intents.onExport?.let { export ->
+                        TextButton(export, modifier = Modifier.testTag("session-export-open")) {
+                            Text(stringResource(R.string.session_export_title))
+                        }
+                    }
                 }
                 TextButton(intents.onDirectory, enabled = !screen.isSending) {
                     Text(stringResource(R.string.chat_directory))

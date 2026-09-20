@@ -10,6 +10,7 @@ import androidx.room.migration.Migration
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.export.SessionExportRepository
 import com.helix.core.storage.repository.A2aAgentRepository
 import com.helix.core.storage.repository.A2aCapabilityRepository
 import com.helix.core.storage.repository.A2aTaskRepository
@@ -63,6 +64,7 @@ class HelixStorage internal constructor(
         }
     }
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
+    val sessionExports: SessionExportRepository by lazy { SessionExportRepository(database, contentStore) }
 
     /**
      * Read-only session/history search (HXA-191 slice): bounded title + message-body

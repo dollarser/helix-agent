@@ -56,6 +56,9 @@ interface AppContainer {
 
     val chatService: ChatService
 
+    val sessionExport: com.helix.app.export.SessionExportService?
+        get() = null
+
     /**
      * The unified agent entry point (research doc section 34; HX2-01). Every producer (Chat /
      * Goal / Share / Voice / Widget / Channel) drives an agent turn ONLY through this — never the

@@ -17,5 +17,12 @@
             android:exported="true" />
         <provider android:name="com.helix.app.test.ManualFilesTestProvider"
             android:authorities="${applicationId}.manualfiles" android:exported="true" />
+        <provider android:name="com.helix.app.test.SessionExportTestProvider"
+            android:authorities="${applicationId}.sessionexport" android:exported="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS" android:grantUriPermissions="true">
+            <intent-filter><action android:name="android.content.action.DOCUMENTS_PROVIDER" /></intent-filter>
+        </provider>
+        <provider android:name="com.helix.app.test.SessionExportControlProvider"
+            android:authorities="${applicationId}.sessionexportcontrol" android:exported="true" />
     </application>
 </manifest>

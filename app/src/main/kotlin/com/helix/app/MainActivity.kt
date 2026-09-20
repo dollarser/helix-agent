@@ -320,6 +320,7 @@ private fun DestinationScreen(
                 container.providerService,
                 container.privacyDeletionService,
                 container.fileManager,
+                sessionExport = container.sessionExport,
                 onNavigation = onOpenDrawer,
                 onProviders = { navController.navigate(ShellDestination.Settings.route) },
                 onOpenCommandDetail = { turnId, callId ->

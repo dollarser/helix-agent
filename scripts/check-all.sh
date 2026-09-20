@@ -6,6 +6,7 @@ cd "$project_root"
 
 source_checks() {
     python3 scripts/test-review-gates.py
+    python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh

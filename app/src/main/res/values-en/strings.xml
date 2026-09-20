@@ -1143,4 +1143,14 @@
     <string name="tasks_job_review_required">Execution was interrupted; stopping is unconfirmed. Execution ownership is retained. Check command details.</string>
     <string name="tasks_job_reboot_required">Restart the device, then collect the result again to confirm the old command has stopped and release execution ownership. The command will not run again.</string>
     <string name="terminal_open">Open terminal</string>
+    <string name="session_export_title">Export session JSONL</string>
+    <string name="session_export_scope">Includes this session’s messages, calls, results, compaction and usage. Large content is referenced, so this is not a complete backup. Known credentials are sanitized, but anonymity is not guaranteed. Cloud destinations may sync online.</string>
+    <string name="session_export_choose">Choose destination</string>
+    <string name="session_export_cancel">Cancel export</string>
+    <string name="session_export_close">Close</string>
+    <string name="session_export_progress">Preparing or writing; bytes written: %1$d</string>
+    <string name="session_export_complete">Exported and file closed. Cloud synchronization may still be pending.</string>
+    <string name="session_export_cancelled">Cancelled. An incomplete file may remain if the destination could not be cleaned up.</string>
+    <string name="session_export_failed">Export incomplete. Check storage space and destination permissions. An incomplete file may remain.</string>
+    <string name="session_export_interrupted">The previous export was interrupted and was not retried. Cleanup was attempted; an incomplete destination file may remain.</string>
 </resources>

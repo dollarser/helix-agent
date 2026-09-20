@@ -95,6 +95,12 @@ internal class DefaultAppContainer(
     override val shellRepository: ShellRepository = FakeShellRepository()
 
     override val storage: HelixStorage = HelixStorage.create(context)
+    override val sessionExport =
+        com.helix.app.export.SessionExportService(
+            context,
+            storage.sessionExports,
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown",
+        )
 
     private val executionOwnership =
         com.helix.tools.framework.ExecutionOwnership(

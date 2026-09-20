@@ -26,6 +26,7 @@ data class ConversationIntents(
     val onNavigation: () -> Unit = {},
     val onManageGoal: () -> Unit = {},
     val onRename: () -> Unit = {},
+    val onExport: (() -> Unit)? = null,
     val onDirectory: () -> Unit = {},
     val onRecoverSubscriptionResult: (String, String) -> Unit = { _, _ -> },
     val onInspectSubscription: (String, String, Boolean) -> Unit = { _, _, _ -> },

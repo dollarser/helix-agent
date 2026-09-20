@@ -1143,4 +1143,14 @@
     <string name="tasks_job_review_required">执行已中断，停止状态尚未确认。执行占用仍保留，请查看命令详情。</string>
     <string name="tasks_job_reboot_required">请重启设备后再次收取结果，以确认旧命令已停止并解除执行占用。原命令不会重跑。</string>
     <string name="terminal_open">打开终端</string>
+    <string name="session_export_title">导出会话 JSONL</string>
+    <string name="session_export_scope">包含本会话消息、调用、结果、压缩记录和用量。大内容仅保留引用，文件不是完整备份。已知凭据会净化，但不保证匿名；选择云盘可能同步到网络。</string>
+    <string name="session_export_choose">选择保存位置</string>
+    <string name="session_export_cancel">取消导出</string>
+    <string name="session_export_close">关闭</string>
+    <string name="session_export_progress">正在准备或写入，已写入 %1$d 字节</string>
+    <string name="session_export_complete">已导出，文件已关闭。这不代表云盘已完成同步。</string>
+    <string name="session_export_cancelled">已取消。若目标无法清理，可能留有不完整文件。</string>
+    <string name="session_export_failed">导出未完成。请检查存储空间和目标权限；可能留有不完整文件。</string>
+    <string name="session_export_interrupted">上次导出未完成，未自动重试。已尝试清理；目标位置可能留有不完整文件。</string>
 </resources>

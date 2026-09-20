@@ -29,7 +29,8 @@ import com.helix.app.provider.ProviderService
  * disclosure.
  */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+// Explicit application-service dependencies at the screen boundary.
+@Suppress("FunctionName", "LongMethod", "LongParameterList")
 fun ChatScreen(
     chatService: ChatService,
     providerService: ProviderService,
@@ -38,6 +39,7 @@ fun ChatScreen(
     onNavigation: () -> Unit = {},
     onProviders: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
+    sessionExport: com.helix.app.export.SessionExportService? = null,
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -51,6 +53,11 @@ fun ChatScreen(
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
+    var exportSessionId by androidx.compose.runtime.saveable
+        .rememberSaveable { mutableStateOf<String?>(null) }
+    exportSessionId?.let { id ->
+        if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
+    }
     // HXA-204 slice 2: the recovery panel's RECONNECT / GRANT_PERMISSION buttons repair in the
     // providers screen — keep the service's navigation target current on every recomposition.
     chatService.recoverySettingsNavigation = onProviders
@@ -104,6 +111,7 @@ fun ChatScreen(
                         onTasks = { tasksOpen = true },
                         onNew = { chatService.newSessionDraft() },
                         onRename = { renameId = screen.openSessionId },
+                        onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
                         onDirectory = { directoryOpen = true },
                         onSend = {
                             chatService.send(input.trim())

@@ -260,6 +260,8 @@ subprojects {
             }
 
             if (path == ":core:storage") {
+                // HXA-211 exports an explicit JSONL projection; reuse the pinned tree codec.
+                dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 pluginManager.apply("com.google.devtools.ksp")
                 // Room schema export goes into the androidTest assets so the migration
                 // fixture (HXA-014) can load the committed v1 schema. The Room 2.8 helper

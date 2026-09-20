@@ -261,6 +261,13 @@ object ForbiddenContentGuard {
         return null
     }
 
+    /** Export reuses the same known-credential patterns without changing egress decisions. */
+    fun redactKnownCredentials(text: String): String {
+        // A PEM header match identifies a secret whose remaining lines must not survive the replacement.
+        if (text.contains("-----BEGIN ") && text.contains("PRIVATE KEY-----")) return "[redacted: private key]"
+        return PATTERNS.fold(text) { result, pattern -> pattern.replace(result, "[redacted: credential]") }
+    }
+
     private val PATTERNS: List<Regex> =
         listOf(
             // OpenAI / OpenAI-compatible family keys (sk-, incl. sk-ant- Anthropic).
