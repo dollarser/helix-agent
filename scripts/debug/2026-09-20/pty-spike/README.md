@@ -104,3 +104,8 @@ renderer-v2 出现 `NoSuchMethodError`：组件工厂签名包含 Compose `Color
 复现：按上述固定源码 close 准备顺序构建（首次更新独立工程锁/校验 metadata），沿用 owned runner 参数，将 classes 设为 `com.helix.spike.termlib.TerminalViewProbeTest,com.helix.spike.termlib.TerminalCloseProbeTest,com.helix.spike.termlib.RendererProbeTest,com.helix.spike.termlib.PtyProbeTest`，增加 `--after-script scripts/debug/2026-09-20/capture-terminal-probe.py`，选择空闲端口和新输出目录。使用共享 host slot；view-v11 构建 `assembleDebug assembleDebugAndroidTest` 成功。
 
 仍待生产工作：实际 renderer↔PTY 有界传输、长输出/粘贴压力、Activity 重建、会话 owner/异常死亡/关闭对账、Workspace 映射及人工租期契约。当前只是候选组件设备证据，不是 HXA-197 完成或生产 SDK/Compose 升级证明。
+
+
+## 源码目录与完整门禁
+
+探针现位于 `src/main`、`src/androidTest` 的真实包目录，准备脚本仍复制到独立忽略工程，不加入生产构建。目录整理后完整主工程静态检查通过；重新构建后的双 API 各 5/5，命令、SHA 与门禁修复见[缓冲切片记录](../../../../docs/evidence/development/hxa-197-bounded-io-2026-09-20.md)。回收诊断局部标记显式 GC 的测试用途，20 个对象全部回收的要求未变。

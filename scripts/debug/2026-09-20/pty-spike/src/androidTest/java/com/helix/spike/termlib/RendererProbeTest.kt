@@ -9,10 +9,11 @@ import org.connectbot.terminal.TerminalEmulatorFactory
 
 class RendererProbeTest : InstrumentationTestCase() {
     fun testNativeParserSplitUtf8AndOscClipboardIgnored() {
-        val activity = instrumentation.startActivitySync(
-            Intent(instrumentation.targetContext, RendererProbeActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        )
+        val activity =
+            instrumentation.startActivitySync(
+                Intent(instrumentation.targetContext, RendererProbeActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
         try {
             await { activity.hasWindowFocus() }
             val clipboard = activity.getSystemService(ClipboardManager::class.java)
@@ -20,8 +21,9 @@ class RendererProbeTest : InstrumentationTestCase() {
                 clipboard.setPrimaryClip(ClipData.newPlainText("probe", "unchanged-terminal-probe"))
             }
             val terminal = TerminalEmulatorFactory.create()
-            val sequence = "\u001b]133;A\u0007probe> \u001b]133;B\u0007echo\r\n" +
-                "\u001b]133;C\u0007结果中文42\r\n\u001b]133;D;0\u0007"
+            val sequence =
+                "\u001b]133;A\u0007probe> \u001b]133;B\u0007echo\r\n" +
+                    "\u001b]133;C\u0007结果中文42\r\n\u001b]133;D;0\u0007"
             sequence.toByteArray(Charsets.UTF_8).forEach { terminal.writeInput(byteArrayOf(it)) }
             await { terminal.getLastCommandOutput()?.contains("结果中文42") == true }
             terminal.writeInput("\u001b]52;c;Y2hhbmdlZA==\u0007".toByteArray())
@@ -29,7 +31,13 @@ class RendererProbeTest : InstrumentationTestCase() {
             // Callback posts are enqueued by writeInput; drain the actual main queue.
             instrumentation.waitForIdleSync()
             instrumentation.runOnMainSync {
-                assertEquals("unchanged-terminal-probe", clipboard.primaryClip?.getItemAt(0)?.text?.toString())
+                assertEquals(
+                    "unchanged-terminal-probe",
+                    clipboard.primaryClip
+                        ?.getItemAt(0)
+                        ?.text
+                        ?.toString(),
+                )
             }
             terminal.resize(37, 101)
             assertEquals(37, terminal.dimensions.rows)

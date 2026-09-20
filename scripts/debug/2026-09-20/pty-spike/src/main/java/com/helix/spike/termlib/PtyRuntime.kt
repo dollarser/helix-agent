@@ -15,13 +15,20 @@ object PtyRuntime {
         val root = ProotRuntimeInstaller.runtimeRoot(context)
         val lock = ProotRuntimeInstaller.loadEmbeddedLock(context)
         if (RootFsInstaller.currentActive(root) == null) {
-            val result = RootFsInstaller.install(ProotRuntimeInstaller.buildInstallRequest(
-                context, lock, Os.sysconf(OsConstants._SC_PAGESIZE), System.currentTimeMillis(),
-            ))
+            val result =
+                RootFsInstaller.install(
+                    ProotRuntimeInstaller.buildInstallRequest(
+                        context,
+                        lock,
+                        Os.sysconf(OsConstants._SC_PAGESIZE),
+                        System.currentTimeMillis(),
+                    ),
+                )
             check(result is InstallOutcome.Success) { "Runtime installation failed: $result" }
         }
         val install = File(root, checkNotNull(RootFsInstaller.currentActive(root)).installId)
         val loader = File(context.applicationInfo.nativeLibraryDir, "libhelix_loader.so")
+
         fun digest(file: File) = MessageDigest.getInstance("SHA-256").digest(file.readBytes()).toList()
         check(loader.isFile && digest(loader) == digest(File(install, "bin/loader")))
         File(install, "pty-tmp").mkdirs()

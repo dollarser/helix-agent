@@ -89,7 +89,7 @@ for name, destination in {
 }.items():
     target = root / destination
     target.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(sources / name, target)
+    shutil.copyfile(sources / destination, target)
 repo = Path(__file__).resolve().parents[3]
 shutil.copytree(repo / "runtime/proot-core/src/main/kotlin", root / "src/main/java", dirs_exist_ok=True)
 installer = root / "src/main/java/com/helix/runtime/proot/app/ProotRuntimeInstaller.kt"

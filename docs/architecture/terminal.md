@@ -45,6 +45,10 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
 
+PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务、Binder 与渲染接线尚未完成。
+
+手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。当前 `PtyInputBuffer` 只管理字节边界，当前写入连接校验与进程关闭由会话 owner 接线承担，不作为授权来源。
+
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 
 环境首次准备与修复归[HXA-205](../completion-records/HXA-205.md)，包内Runtime资产/升级收尾归[HXA-193](../completion-records/HXA-193.md)，不与命令详情混成一个任务。

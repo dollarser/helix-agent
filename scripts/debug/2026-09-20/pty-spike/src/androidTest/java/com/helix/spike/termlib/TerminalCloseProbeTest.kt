@@ -2,13 +2,15 @@ package com.helix.spike.termlib
 
 import android.os.SystemClock
 import android.test.InstrumentationTestCase
-import java.lang.ref.WeakReference
-import java.lang.ref.ReferenceQueue
 import org.connectbot.terminal.TerminalEmulator
 import org.connectbot.terminal.TerminalEmulatorFactory
+import java.lang.ref.ReferenceQueue
+import java.lang.ref.WeakReference
 
 /** Copied only by the fixed-source close probe, never compiled against the unpatched AAR. */
 class TerminalCloseProbeTest : InstrumentationTestCase() {
+    // Reclamation probe: GC is the operation under test, never production cleanup.
+    @Suppress("ExplicitGarbageCollectionCall")
     fun testClosedTerminalsReleaseNativeCallbackRoots() {
         val queue = ReferenceQueue<TerminalEmulator>()
         val references = List(20) { createAndClose(queue) }

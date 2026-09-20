@@ -16,10 +16,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 class TerminalViewProbeTest : InstrumentationTestCase() {
     fun testViewImeChineseCommitAndDetachAttach() {
         instrumentation.uiAutomation.executeShellCommand("settings put secure show_ime_with_hard_keyboard 1").close()
-        val activity = instrumentation.startActivitySync(
-            Intent(instrumentation.targetContext, TerminalViewProbeActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-        ) as TerminalViewProbeActivity
+        val activity =
+            instrumentation.startActivitySync(
+                Intent(instrumentation.targetContext, TerminalViewProbeActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            ) as TerminalViewProbeActivity
         try {
             await { activity.hasWindowFocus() && activity.terminal.dimensions.columns > 0 }
             instrumentation.waitForIdleSync()
@@ -53,15 +54,17 @@ class TerminalViewProbeTest : InstrumentationTestCase() {
         }
     }
 
-    private fun findInput(view: View): View? {
-        if (view.javaClass.simpleName == "ImeInputView") return view
-        if (view is ViewGroup) for (index in 0 until view.childCount) {
-            findInput(view.getChildAt(index))?.let { return it }
+    private fun findInput(view: View): View? =
+        when {
+            view.javaClass.simpleName == "ImeInputView" -> view
+            view is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findInput(view.getChildAt(it)) }
+            else -> null
         }
-        return null
-    }
 
-    private fun screenshot(activity: TerminalViewProbeActivity, name: String) {
+    private fun screenshot(
+        activity: TerminalViewProbeActivity,
+        name: String,
+    ) {
         var bitmap = instrumentation.uiAutomation.takeScreenshot()
         var stable = 0
         val deadline = SystemClock.elapsedRealtime() + 8000
@@ -89,11 +92,15 @@ class TerminalViewProbeTest : InstrumentationTestCase() {
         file.outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        val greenPixels = pixels.count { pixel ->
-            Color.green(pixel) > 80 && Color.green(pixel) > Color.red(pixel) * 1.5 &&
-                Color.green(pixel) > Color.blue(pixel) * 1.5
-        }
-        println("Terminal screenshot $name: greenPixels=$greenPixels hardware=${activity.window.decorView.isHardwareAccelerated}")
+        val greenPixels =
+            pixels.count { pixel ->
+                Color.green(pixel) > 80 && Color.green(pixel) > Color.red(pixel) * 1.5 &&
+                    Color.green(pixel) > Color.blue(pixel) * 1.5
+            }
+        println(
+            "Terminal screenshot $name: greenPixels=$greenPixels " +
+                "hardware=${activity.window.decorView.isHardwareAccelerated}",
+        )
         bitmap.recycle()
         assertTrue("Missing green terminal glyphs in $name", greenPixels > 40)
     }
@@ -101,7 +108,10 @@ class TerminalViewProbeTest : InstrumentationTestCase() {
     private fun imeVisible(activity: TerminalViewProbeActivity): Boolean {
         val visible = AtomicBoolean()
         instrumentation.runOnMainSync {
-            visible.set(ViewCompat.getRootWindowInsets(activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true)
+            visible.set(
+                ViewCompat.getRootWindowInsets(activity.window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) ==
+                    true,
+            )
         }
         return visible.get()
     }
