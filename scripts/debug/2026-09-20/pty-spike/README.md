@@ -90,3 +90,17 @@ renderer-v2 出现 `NoSuchMethodError`：组件工厂签名包含 Compose `Color
 最终双 API 各 **4/4**，证据 `build/hxa197-close-component-api29-v3`（5656）、`build/hxa197-close-component-api36-v3`（5658），同 APK、模拟器正常退出。主 APK SHA-256 `c2fc48143ae0a080b49959a1f9f2e2b8096bf9bf943edd133f15dd92e705da27`，测试 APK `5b63b00d8b57c3bf03be9d12cfdb9020b1f3a1dd54aff4aad92c44a6af798f2c`。编译与 API29/36 回收通过，不是长稳内存增长、真实视图卸载或多线程关闭压力验收。
 
 原始 0.2.1 的 public API 缺口仍存在，补丁版本尚未生产采纳；补丁验证不是宣称 Maven AAR 已修复。下一步验证实际 Compose 视图、IME、detach/attach 与关闭顺序，然后完成组件/目录/租期契约及生产接线。
+
+## Compose 视图、IME 与卸载（view-v11）
+
+`TerminalViewProbeActivity` 使用与 Helix 相同的 `Theme.Material.Light.NoActionBar` 基础主题、系统栏/IME 边距和明确的浅色状态栏标志。`TerminalViewProbeTest` 显示真实组件和软键盘，经实际 `InputConnection.commitText` 提交中文并核对 UTF-8 回调；卸载视图后输入合成内容，再挂载核对画面保留。它不连接 PTY，中文提交不是人工拼音键盘操作，也不证明 Activity 重建或进程恢复。
+
+仅检查 callback 会产生假绿：组件的 IME 回调表示显示/隐藏请求，不保证系统键盘已显示，dispose 后也不保证回调更新。因此测试读取真实 `WindowInsetsCompat.Type.ime()`；稳定截图检查绿色字形，并在稳定布局后核对终端不覆盖系统栏/键盘。合成输出隐藏闪烁光标，避免将正常闪烁误判为布局不稳定。截图由 `capture-terminal-probe.py` 从测试缓存归档，无用户内容。
+
+保留的失败：view-v3 在卸载后等待旧 IME callback 超时；v4 键盘截图未实际显示；v5 API36 虽然断言通过，Compose 区域却全黑。v6 加入字形检查后准确失败，硬件加速为 true；v7 单独切换到上述应用基础主题后字形恢复，但键盘动画/光标导致截图不稳定；v8 双 API 通过，人工审图仍发现 API36 系统栏遮挡。v9 增加边距及布局检查，API36 的过早主线程断言导致测试进程退出；v10 将检查移到稳定画面后并在测试线程断言，双 API 通过；v11 补齐状态栏文字对比度并重新验证。没有通过关闭硬件加速、跳过测试或仅检查回调掩盖黑屏。
+
+最终 view-v11 API29/36 各 **5/5**（视图 1、释放 1、解析 1、PTY 2），同 APK，owned emulator 正常退出。证据目录 `build/hxa197-view-api29-v11`（5558）、`build/hxa197-view-api36-v11`（5556），含 instrumentation、边距/字形计数、截图和退出记录；已人工检查两 API 的键盘与重新挂载截图。主 APK SHA-256 `1ad4cdbccf02b0fb636a181efa83e47a8d5d64504f8e80c3d60dbf99cbcfbd4d`，测试 APK `a348e83e23b64a43bb95c21cdf9eb9a601bc7f8bffa4dc639c27cf43daa99089`。
+
+复现：按上述固定源码 close 准备顺序构建（首次更新独立工程锁/校验 metadata），沿用 owned runner 参数，将 classes 设为 `com.helix.spike.termlib.TerminalViewProbeTest,com.helix.spike.termlib.TerminalCloseProbeTest,com.helix.spike.termlib.RendererProbeTest,com.helix.spike.termlib.PtyProbeTest`，增加 `--after-script scripts/debug/2026-09-20/capture-terminal-probe.py`，选择空闲端口和新输出目录。使用共享 host slot；view-v11 构建 `assembleDebug assembleDebugAndroidTest` 成功。
+
+仍待生产工作：实际 renderer↔PTY 有界传输、长输出/粘贴压力、Activity 重建、会话 owner/异常死亡/关闭对账、Workspace 映射及人工租期契约。当前只是候选组件设备证据，不是 HXA-197 完成或生产 SDK/Compose 升级证明。

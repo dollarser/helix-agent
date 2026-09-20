@@ -88,11 +88,21 @@ build.write_text(build.read_text().replace(
     '''plugins {
     id("com.android.application") version "9.3.2"
     id("org.jetbrains.kotlin.jvm") version "2.3.21" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.3.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.3.21"
 }''',
 ).replace(
     'implementation("org.connectbot:termlib:0.2.1")', 'implementation(project(":patched-terminal"))',
+).replace(
+    'dependencies {', '''dependencies {
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.compose.foundation:foundation")''',
+).replace(
+    'namespace = "com.helix.spike.termlib"', 'namespace = "com.helix.spike.termlib"\n    buildFeatures { compose = true }',
 ))
 tests = project / "src/androidTest/java/com/helix/spike/termlib"
 shutil.copyfile(Path(__file__).parent / "pty-spike/TerminalCloseProbeTest.kt", tests / "TerminalCloseProbeTest.kt")
+shutil.copyfile(Path(__file__).parent / "pty-spike/TerminalViewProbeTest.kt", tests / "TerminalViewProbeTest.kt")
+shutil.copyfile(Path(__file__).parent / "pty-spike/TerminalViewProbeActivity.kt", project / "src/main/java/com/helix/spike/termlib/TerminalViewProbeActivity.kt")
+manifest = project / "src/main/AndroidManifest.xml"
+manifest.write_text(manifest.read_text().replace("</application>", '<activity android:name=".TerminalViewProbeActivity" android:exported="false" android:windowSoftInputMode="adjustResize" /></application>'))
 print("Prepared fixed-source lifecycle patch in ignored build directory")

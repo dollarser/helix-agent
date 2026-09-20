@@ -76,6 +76,8 @@ for name, content in files.items():
     target.write_text(content)
 print(root)
 (root / "src/androidTest/java/com/helix/spike/termlib/TerminalCloseProbeTest.kt").unlink(missing_ok=True)
+(root / "src/androidTest/java/com/helix/spike/termlib/TerminalViewProbeTest.kt").unlink(missing_ok=True)
+(root / "src/main/java/com/helix/spike/termlib/TerminalViewProbeActivity.kt").unlink(missing_ok=True)
 sources = Path(__file__).resolve().parent / "pty-spike"
 for name, destination in {
     "pty_probe.c": "src/main/cpp/pty_probe.c",
