@@ -19,7 +19,7 @@ class PtyNativeProbeService : Service() {
                 reply: Parcel?,
                 flags: Int,
             ): Boolean {
-                if (code !in 1..6) return super.onTransact(code, data, reply, flags)
+                if (code !in 1..7) return super.onTransact(code, data, reply, flags)
                 check(getCallingUid() == Process.myUid())
                 data.enforceInterface("com.helix.runtime.proot.PtyNativeProbe")
                 check(data.dataAvail() == 0)
@@ -42,6 +42,7 @@ class PtyNativeProbeService : Service() {
                 4 -> probe.signalAndLimits()
                 5 -> probe.prootClosure(quit = false)
                 6 -> probe.prootClosure(quit = true)
+                7 -> PtySessionWorkerJourney(this).run(probe::startInteractive)
             }
             "OK"
         } catch (failure: Exception) {

@@ -15,7 +15,7 @@ import java.security.MessageDigest
 internal class PtyNativeJourney(
     private val context: Context,
 ) {
-    private fun startInteractive(): ProotPtyProcess {
+    fun startInteractive(): ProotPtyProcess {
         val (install, loader) = prepare()
         val workspace = File(install, "native-pty-workspace").apply { mkdirs() }
         val temporary = File(install, "native-pty-tmp").apply { mkdirs() }

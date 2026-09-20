@@ -50,3 +50,21 @@
 两 API 最终主 APK SHA-256 均为 `05b3bfdbc0fd3f53b5c60985f838dc18ad19b1e02698e6f5a7a9381ce4bbec71`，测试 APK 均为 `d74278c13f4d9c1d77cdcbe532b332d6d17ef70ee9a0f04bf2b18eef954d3fa0`。合计 86/86；两种关闭场景在两 API 的 tracer exit 均为 0，前台命令（主动关闭场景）、后台与 detached PID 消失，哨兵仍存活。原生 PTY 12 项包含于这 86 项，不重复计数。
 
 新增关闭两项后，公共 Runtime suite 为每 API 43 项，其中原生 PTY 6 项。arm64-v8a/x86_64 release `libproot_native.so` 全部 LOAD 段保持 `0x4000` 对齐，记录 `build/hxa197-session-<abi>-elf-v2.txt`；不是 16 KiB 设备运行证据。完整产品终端、真实账号、OEM/Doze/长稳仍未因此验收。
+
+## Runtime 会话工作线程接线
+
+新增 `ProotPtySession`，将持久记录、单写输入连接、有界输出和原生进程接到同一个后台工作线程。创建时先保存 STARTING；启动前取消产生 NEVER_STARTED；fork 后保存 PID/start ticks；部分写保留当前块未写后缀。detach 不终止 shell，输出持续 drain，resize 合并为最新尺寸。deadline 到期请求停止，不自动续期；产品默认租期与空闲策略仍待服务接线确定。
+
+主动关闭先保存原因并关闭输入，观察原 PRoot PID 的 SIGQUIT handler 已安装后请求清理。仅锁定 PRoot `--kill-on-exit` 的正常事件循环退出可用于进程树停止证明；退出后继续读取到 EOF，防止末尾输出丢失。异常或关闭超时保留 UNKNOWN，fallback 杀初始组不产生停止证明，也不释放宿主执行占用。调用方必须提供该固定 PRoot 启动路径；本内部 worker 不是任意 executable 的通用退出证明器。
+
+新设备用例实际通过 worker 验证：启动前取消不调用 launcher、单连接互斥、旧连接输入拒绝、断开重连后环境保留、31×93 resize、USER 停止原因和持久退出证明。它由 debug 私有服务调用生产 worker，**尚非产品 Service/Binder、应用执行 owner 或页面入口接线**。租期到期、I/O 故障与真实进程死亡仍需后续用例，不能由本次通过推定。
+
+验证（经共享主机锁，独占模拟器正常关闭）：
+
+- `./gradlew detekt :app:assembleDeveloperDebug :app:assembleDeveloperDebugAndroidTest`：最终 `build/hxa197-worker-build-v3.log` exit 0。
+- `./scripts/check-all.sh --all` 后 `./gradlew :app:assembleDeveloperDebugAndroidTest`：最终 `build/hxa197-worker-all-v3.log` exit 0。此前类复杂度/函数数量与提取函数签名错误均已修正，未放宽检查。
+- `python3 scripts/verify-integrated-runtimes.py --avd Helix191_API29 --port 5582 --output build/hxa197-worker-api29-v1`：44/44，42.095 秒，owned exit 0。
+- `python3 scripts/verify-integrated-runtimes.py --avd Helix191_API36 --port 5584 --output build/hxa197-worker-api36-v1`：44/44，67.483 秒，owned exit 0。
+- 两 API 主 APK SHA-256 均为 `7ac496d3353bfdb981bdbbcbc1df532952c9b600cabc9675e3b2b8ad0e03f0ba`；测试 APK 为 `8ea12859ab8512be805f61b79eb802e73d457a6fafd9e5bedcaa1b1c42fa855a`。
+
+88 项含既有 Runtime 回归，新增 worker 旅程仅每 API 一项，不称为 88 项终端新功能验收。197 保持未完成；下一步接正式私有服务、应用执行占用与终端页面，不扩大基础探针范围。

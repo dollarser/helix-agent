@@ -78,7 +78,7 @@ python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --o
 python3 scripts/debug/2026-09-09/run-owned-emulator.py --help
 ```
 
-前两行执行既有 Runtime 回归（2026-09-20 当前 43 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。实现者按 help 的实际参数为本 HXA 新类保存启动脚本到 `scripts/debug/YYYY-MM-DD/`，使用 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`。每次新 output、未占用端口与新建独占模拟器进程；禁止借用现存 serial，finally 只清理自有进程。AVD 名/端口不适用时按本机状态显式替换并记录。
+前两行执行既有 Runtime 回归（2026-09-20 当前 44 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。实现者按 help 的实际参数为本 HXA 新类保存启动脚本到 `scripts/debug/YYYY-MM-DD/`，使用 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`。每次新 output、未占用端口与新建独占模拟器进程；禁止借用现存 serial，finally 只清理自有进程。AVD 名/端口不适用时按本机状态显式替换并记录。
 
 **G4：集成/产物**
 

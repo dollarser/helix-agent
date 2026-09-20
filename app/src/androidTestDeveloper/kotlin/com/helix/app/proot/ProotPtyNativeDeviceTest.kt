@@ -32,6 +32,8 @@ class ProotPtyNativeDeviceTest {
 
     @Test fun explicitProotQuitCleansForegroundBackgroundAndDetachedJobs() = probe(6)
 
+    @Test fun sessionWorkerDrainsReconnectsResizesAndPersistsUserStop() = probe(7)
+
     private fun probe(code: Int) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val connected = CountDownLatch(1)
