@@ -103,8 +103,14 @@ def main():
             device("install", "-r", str(out / "app.apk"), timeout=180)
             device("install", "-r", str(out / "test.apk"), timeout=180)
 
+            # API29's image locks night mode: ordinary shell lacks MODIFY_DAY_NIGHT_MODE.
+            # Use the owned test emulator's root shell only; no app permission/config override.
+            ui_state = device("shell", "dumpsys", "uimode")
+            (out / "initial-uimode.txt").write_text(ui_state)
+            night_command = ("su", "0", "cmd") if "mNightModeLocked=true" in ui_state else ("cmd",)
+
             for mode, night, font in (("light", "no", "1.0"), ("dark", "yes", "1.3")):
-                device("shell", "cmd", "uimode", "night", night)
+                device("shell", *night_command, "uimode", "night", night)
                 (out / f"{mode}-uimode.txt").write_text(device("shell", "cmd", "uimode", "night"))
                 device("shell", "settings", "put", "system", "font_scale", font)
                 (out / f"{mode}-font_scale.txt").write_text(
