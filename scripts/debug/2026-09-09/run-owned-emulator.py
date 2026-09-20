@@ -93,7 +93,7 @@ def run(args):
                         device("shell", "pm", "grant", app_package, "android.permission." + permission)
             if args.recovery_setup_class:
                 setup = device("shell", "am", "instrument", "-w", "-e", "class", args.recovery_setup_class,
-                               "-e", "recoveryPhase", "setup", args.runner, timeout=args.timeout)
+                               "-e", "recoveryPhase", args.recovery_setup_phase, args.runner, timeout=args.timeout)
                 (output / "recovery-setup.txt").write_text(setup)
                 if "process crashed" not in setup.lower():
                     raise RuntimeError("Recovery setup did not reach the expected process death")
@@ -121,6 +121,11 @@ def run(args):
                     else:
                         raise TimeoutError("Owned emulator did not complete a new boot")
                     (output / "reboot.json").write_text(json.dumps({"before": before, "after": after}))
+            if args.between_recovery_script:
+                if not args.recovery_setup_class:
+                    raise ValueError("Recovery follow-up requires a setup class")
+                subprocess.run(["python3", args.between_recovery_script, serial, str(output)],
+                               check=True, timeout=args.timeout)
             extras = []
             for argument in args.instrument_arg:
                 key, value = argument.split("=", 1)
@@ -169,6 +174,8 @@ if __name__ == "__main__":
     parser.add_argument("--test-apk", required=True)
     parser.add_argument("--classes", required=True)
     parser.add_argument("--recovery-setup-class")
+    parser.add_argument("--recovery-setup-phase", default="setup", choices=("setup", "setup-running"))
+    parser.add_argument("--between-recovery-script")
     parser.add_argument("--reboot-after-setup", action="store_true")
     parser.add_argument("--runner", required=True)
     parser.add_argument("--output", required=True)

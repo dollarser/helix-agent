@@ -32,6 +32,8 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Next task
 
+运行中主进程死亡测试仍未通过：API29 的 instrumentation crash 收尾会执行包级 force-stop，同时杀死 Runtime，已从 ActivityManager 日志确认。不能将 ORPHANED 归因于产品后台存活缺陷，也不能算主进程独立死亡验收。下一步改用普通应用页面启动 + 宿主杀主 PID，instrumentation 仅作准备和最终核验；诊断 profile 保留失败断言，证据见 [196 任务记录](tasks/HXA-196.md)。
+
 196 下一步：运行中主进程死亡而不重启设备的产品旅程，以及原 Runtime 记录缺失的对账边界；真机 G4 继续独立待验。并行交付中的三工具实现因效果分类、错误/取消回执和缺少持久占用/Goal 结算问题未直接采纳，main 未提交修改保留，见[交接复核](../evidence/development/hxa-196-handoff-review-2026-09-20.md)。196 仍为唯一进行中的 checkpoint。
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。

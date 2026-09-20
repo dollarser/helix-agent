@@ -10,6 +10,8 @@ import com.helix.app.provider.ScriptedTaskModelServer
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.SafetyProfile
 import com.helix.runtime.proot.client.DetachedJobClient
+import com.helix.runtime.proot.ipc.DetachedJobBinding
+import com.helix.runtime.proot.ipc.ProotJobState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -28,40 +30,45 @@ class DetachedGoalRecoveryDeviceTest {
     private val app get() = ApplicationProvider.getApplicationContext<HelixApplication>()
     private val marker get() = File(app.noBackupFilesDir, "detached-goal-recovery.properties")
 
-    @Test fun originalTerminalResultSurvivesHostDeathWithoutReplayOrDoubleCharge() =
+    @Test fun originalJobSurvivesHostDeathWithoutReplayOrDoubleCharge() =
         runBlocking {
             val phase = InstrumentationRegistry.getArguments().getString("recoveryPhase")
             assumeTrue("Requires the owned two-phase recovery runner", phase != null)
-            require(phase in setOf("setup", "verify"))
-            if (phase == "setup") setup() else verify()
+            require(phase in setOf("setup", "setup-running", "verify"))
+            if (phase == "verify") verify() else setup(phase == "setup-running")
         }
 
-    private suspend fun setup() {
+    private suspend fun setup(running: Boolean) {
         compose.resetDeterministicUiState()
         ScriptedTaskModelServer().use { server ->
             server.start()
             val f = DetachedGoalFixture(app, server)
             f.prepare()
             compose.waitUntil(10_000) { f.container.chatService.screen.value.openSessionId == f.session }
-            f.submit(collectInModel = false)
+            f.submit(
+                collectInModel = false,
+                script = "sleep ${if (running) 12 else 1}; printf goal-result >> result.txt",
+            )
             compose.waitUntil(30_000) {
                 f.storage.turns
                     .resolve(f.turn)
                     .state == "COMPLETED"
             }
-            f.originalResult()
+            if (!running) f.originalResult()
             val job = DetachedJobDashboard.read(f.storage).single { it.sessionId == f.session }
             val binding = ProotJobBindingStore(f.storage).resolveDetached(f.session, job.callId)
             val record = requireNotNull(DetachedJobClient(app).query(binding).record)
+            if (running) assertEquals(ProotJobState.RUNNING, record.state)
             val facts =
                 Properties().apply {
                     setProperty("session", f.session)
                     setProperty("goal", f.goal)
                     setProperty("turn", f.turn)
                     setProperty("call", job.callId)
-                    setProperty("lease", requireNotNull(f.leaseId))
+                    setProperty("job", binding.jobId)
+                    setProperty("lease", "proot-lease-${binding.executionId}")
                     setProperty("output", f.output.name)
-                    setProperty("commit", requireNotNull(record.terminalCommit))
+                    setProperty("commit", record.terminalCommit.orEmpty())
                 }
             marker.outputStream().use {
                 facts.store(it, "Synthetic recovery fixture")
@@ -92,8 +99,7 @@ class DetachedGoalRecoveryDeviceTest {
         assertEquals("PAUSED", storage.goals.resolve(goal).state)
         assertNotNull(ExecutionOwnershipStore(File(app.filesDir, "execution-admission/owner")).read())
         val binding = ProotJobBindingStore(storage).resolveDetached(session, facts.getProperty("call"))
-        val record = requireNotNull(DetachedJobClient(app).query(binding).record)
-        assertEquals(facts.getProperty("commit"), record.terminalCommit)
+        verifyOriginalResult(facts, binding)
         val job = DetachedJobDashboard.read(storage).single { it.callId == binding.toolCallId }
         assertTrue(job.settlementPending)
         repeat(2) { collect(job) }
@@ -122,5 +128,23 @@ class DetachedGoalRecoveryDeviceTest {
             action?.callId == job.callId && !action.busy
         }
         assertEquals(BackgroundJobActionOutcome.SETTLED, chat.backgroundJobAction.value?.outcome)
+    }
+
+    private fun verifyOriginalResult(
+        facts: Properties,
+        binding: DetachedJobBinding,
+    ) {
+        val client = DetachedJobClient(app)
+        compose.waitUntil(30_000) {
+            client
+                .query(binding)
+                .record
+                ?.state
+                ?.isTerminal == true
+        }
+        val record = requireNotNull(client.query(binding).record)
+        assertEquals(ProotJobState.SUCCEEDED, record.state)
+        val priorCommit = facts.getProperty("commit")
+        if (priorCommit.isNotEmpty()) assertEquals(priorCommit, record.terminalCommit)
     }
 }
