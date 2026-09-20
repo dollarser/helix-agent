@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "scope": "HXA-206",
+  "commit_sha": "d5645774ded2dd0af453987f760ea886aca493dc",
+  "mode": "fixture",
+  "api": 36,
+  "flavor": "developer",
+  "device_lifecycle": {
+    "owner_pid": 12345,
+    "closed": true,
+    "details": {
+      "runner": "synthetic_fixture_runner"
+    }
+  },
+  "counts": {
+    "expected": 6,
+    "executed": 6,
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "scenes": [
+    {
+      "scene_id": "read_modify_artifact",
+      "test_class": "com.helix.app.TaskJourneyDeviceTest",
+      "test_method": "taskArtifactsDialogListsByRealOwnership",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/read_modify.json",
+      "metrics": {
+        "user_steps": 4,
+        "duplicate_prompts": 0,
+        "artifact_openable": true,
+        "recovery_side_effects": 0
+      }
+    },
+    {
+      "scene_id": "authorization_presets_custom",
+      "test_class": "com.helix.app.PermissionAtomicityDeviceTest",
+      "test_method": "customPolicyRulesEvaluateWithoutSideEffects",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/auth.json",
+      "metrics": {
+        "user_steps": 2,
+        "duplicate_prompts": 0,
+        "artifact_openable": null,
+        "recovery_side_effects": 0
+      }
+    },
+    {
+      "scene_id": "cancel_reboot_recovery",
+      "test_class": "com.helix.app.RecoveryJourneyDeviceTest",
+      "test_method": "recoveryFactsSurviveProcessDeathWithoutReexecution",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/recovery.json",
+      "metrics": {
+        "user_steps": 3,
+        "duplicate_prompts": 0,
+        "artifact_openable": null,
+        "recovery_side_effects": 0
+      }
+    },
+    {
+      "scene_id": "plan_search_theme_mcp",
+      "test_class": "com.helix.app.ExtensionJourneyDeviceTest",
+      "test_method": "mcpToolWorkflowFollowsStandardLifecycle",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/extensions.json",
+      "metrics": {
+        "user_steps": 5,
+        "duplicate_prompts": 0,
+        "artifact_openable": null,
+        "recovery_side_effects": 0
+      }
+    },
+    {
+      "scene_id": "session_export_jsonl",
+      "test_class": "com.helix.app.export.SessionExportJourneyDeviceTest",
+      "test_method": "writesAndClosesActualDocumentWithCompleteTailAndStableMessageIdentity",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/export.json",
+      "metrics": {
+        "user_steps": 3,
+        "duplicate_prompts": 0,
+        "artifact_openable": true,
+        "recovery_side_effects": 0
+      }
+    },
+    {
+      "scene_id": "git_r1_readonly",
+      "test_class": "com.helix.app.files.ImportExportFacadeDeviceTest",
+      "test_method": "gitStatusDiffRejectsMaliciousConfig",
+      "status": "passed",
+      "source_ref": "evidence/synthetic/git.json",
+      "metrics": {
+        "user_steps": 2,
+        "duplicate_prompts": 0,
+        "artifact_openable": null,
+        "recovery_side_effects": 0
+      }
+    }
+  ]
+}
