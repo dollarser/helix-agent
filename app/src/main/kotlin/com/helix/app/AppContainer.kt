@@ -38,6 +38,9 @@ internal const val APP_SCOPE_ID = "app"
  * section 16).
  */
 interface AppContainer {
+    val manualTerminal: com.helix.app.terminal.ManualTerminal?
+        get() = null
+
     val shellRepository: ShellRepository
 
     val storage: HelixStorage

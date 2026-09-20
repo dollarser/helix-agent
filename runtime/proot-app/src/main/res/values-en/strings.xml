@@ -54,4 +54,6 @@
     <string name="proot_legal_patches">· Patches: %1$d (%2$s)</string>
     <string name="proot_legal_packages">· Included packages (%1$d):</string>
     <string name="proot_legal_license_section">—— Full license text: %1$s (line count: %2$d; embedded offline) ——</string>
+    <string name="proot_terminal_title">Manual terminal</string>
+    <string name="proot_terminal_running">Terminal is running. Close it when finished.</string>
 </resources>

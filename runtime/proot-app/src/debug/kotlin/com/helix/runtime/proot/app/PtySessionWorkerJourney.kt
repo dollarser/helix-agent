@@ -30,7 +30,7 @@ internal class PtySessionWorkerJourney(
                 now + 30_000,
             )
         val session = ProotPtySession(PtySessionRecord(origin), store, launch)
-        verifyPrelaunchCancellation(store, origin, launch)
+        verifyNoForkOutcomes(store, origin, launch)
         session.start()
         try {
             val first = checkNotNull(session.attach())
@@ -63,24 +63,41 @@ internal class PtySessionWorkerJourney(
         }
     }
 
-    private fun verifyPrelaunchCancellation(
+    private fun verifyNoForkOutcomes(
         store: PtySessionStore,
         origin: PtySessionOrigin,
         launch: () -> ProotPtyProcess,
     ) {
-        val cancelled = origin.copy(sessionId = UUID.randomUUID().toString())
-        var launched = false
-        val session =
-            ProotPtySession(PtySessionRecord(cancelled), store) {
-                launched = true
-                launch()
-            }
-        session.stop(PtySessionRecord.StopReason.USER)
-        session.start()
-        awaitPty { session.record.phase == PtySessionRecord.Phase.STOPPED }
-        check(!launched && session.record.stopProof == PtySessionRecord.StopProof.NEVER_STARTED)
-        check(store.compareAndSet(session.record, session.record.acknowledge()))
-        check(store.removeReconciled(session.record.acknowledge()))
+        for (reason in listOf(
+            PtySessionRecord.StopReason.USER,
+            PtySessionRecord.StopReason.START_FAILED,
+            PtySessionRecord.StopReason.LEASE_EXPIRED,
+        )) {
+            val cancelled =
+                origin.copy(
+                    sessionId = UUID.randomUUID().toString(),
+                    deadlineElapsedMs =
+                        if (reason == PtySessionRecord.StopReason.LEASE_EXPIRED) {
+                            SystemClock.elapsedRealtime() + 1
+                        } else {
+                            origin.deadlineElapsedMs
+                        },
+                )
+            var launched = false
+            val session =
+                ProotPtySession(PtySessionRecord(cancelled), store) {
+                    launched = true
+                    launch()
+                }
+            if (reason == PtySessionRecord.StopReason.USER) session.stop(reason)
+            if (reason == PtySessionRecord.StopReason.LEASE_EXPIRED) Thread.sleep(10)
+            session.start(allowLaunch = reason != PtySessionRecord.StopReason.START_FAILED)
+            awaitPty { session.record.phase == PtySessionRecord.Phase.STOPPED }
+            check(!launched && session.record.stopProof == PtySessionRecord.StopProof.NEVER_STARTED)
+            check(session.record.stopReason == reason)
+            check(store.compareAndSet(session.record, session.record.acknowledge()))
+            check(store.removeReconciled(session.record.acknowledge()))
+        }
     }
 
     private fun awaitText(

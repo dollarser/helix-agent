@@ -107,6 +107,13 @@ internal class DefaultAppContainer(
     override val profileStore: SafetyProfileStore =
         PersistedSafetyProfileStore(lineStore, AdvancedProfileAvailability.ADVANCED_AVAILABLE)
 
+    override val manualTerminal =
+        com.helix.app.terminal.ManualTerminalModule.create(
+            appContext,
+            executionOwnership,
+            profileStore,
+        )
+
     override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
     override val lanScopeStore =
         com.helix.app.network.LanScopeStore(

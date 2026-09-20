@@ -17,6 +17,7 @@ CASES = [
     "com.helix.app.proot.ProotJobE2eDeviceTest",
     "com.helix.app.proot.IntegratedRuntimeUiDeviceTest",
     "com.helix.app.proot.ProotPtyNativeDeviceTest",
+    "com.helix.app.proot.ProotTerminalSessionDeviceTest",
 ]
 
 

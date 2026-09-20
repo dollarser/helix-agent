@@ -12,6 +12,11 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-authorized developer command with visible stop action and a non-renewable execution lease" />
         </service>
+        <service android:name="com.helix.runtime.proot.app.ProotTerminalService"
+            android:process=":proot" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started interactive terminal with visible stop action and bounded lifetime" />
+        </service>
         <receiver android:name="com.helix.runtime.proot.app.ProotJobStopReceiver"
             android:process=":proot" android:exported="false" />
         <activity android:name="com.helix.runtime.proot.app.ProotRepairActivity"

@@ -35,4 +35,9 @@ internal class ProotJobOwners {
     fun release(job: String) {
         links.remove(job)?.let { (owner, death) -> owner.unlinkToDeath(death, 0) }
     }
+
+    @Synchronized
+    fun close() {
+        links.keys.toList().forEach(::release)
+    }
 }

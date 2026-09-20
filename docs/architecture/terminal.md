@@ -45,15 +45,17 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
 
-PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务、Binder 与渲染接线尚未完成。
+PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务与 Binder 已接线，渲染页面尚未完成。
 
-手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。当前 `PtyInputBuffer` 只管理字节边界，当前写入连接校验与进程关闭由会话 owner 接线承担，不作为授权来源。
+手动输入缓冲最多 32 KiB/64 块，每块最多 8 KiB，整块接受或返回拥塞，不截短粘贴。单个 native writer 另持有至多一个在途块并处理部分写入；接受只代表入队，通信不确定时不自动重发。关闭缓冲拒绝新输入并返回待丢弃字节数，不能据此证明在途输入或 shell 已停止。`PtyInputBuffer` 管理字节边界，写入连接校验与进程关闭由会话 owner 承担，不作为授权来源。
 
-`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已在固定设备旅程连接实际 native I/O，产品 Binder/UI 仍待接线。
+`PtyInputConnection` 在同一 Session/generation 内串行处理连接与输入准入，只允许一个写连接，不隐式抢占。detach 撤销之后的输入，不丢弃此前已接收的队列，也不结束 shell；重连使用新标识，旧连接的延迟 detach/输入不影响继任者。队列跨重连保留其总量限制。close 拒绝全部连接并清空待写队列，但不证明在途 native 输入或进程已停止。该连接标识只是进程内写资格，应用服务仍须校验可信 USER 与原 Session；当前已接入产品 Binder，终端 UI 仍待接线。
 
-生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；目前只有 debug 固定旅程调用，产品会话与渲染尚未接线。
+生产 `ProotPtyProcess` 已提供私有 Runtime 的原生 PTY I/O、resize 和退出观察/回收。读写有界且串行处理 FD 生命周期；观察退出保留原 PID，完成对账再回收。初始组终止不是全部后台作业停止证明，不能据此释放持久 owner。真实 PRoot 及重复关闭证据见[原生 I/O 切片](../evidence/development/hxa-197-native-io-2026-09-20.md)；产品会话已调用该组件，渲染页面尚未接线。
 
-`PtySessionRecord`/`PtySessionStore` 已提供 Runtime 单写的持久身份和有界原子 CAS。启动意图先于 fork，未保存 PID 的中断也保持未知；停止证明与对账分开，未知/损坏记录不按空闲处理。生产会话 owner 尚未接线，记录本身不释放应用执行占用。关闭方向复用锁定 PRoot 的 `--kill-on-exit` 与 SIGQUIT 清理 tracee，发送成功仍不等于停止；具体实现及设备边界见[生命周期切片](../evidence/development/hxa-197-session-lifecycle-2026-09-20.md)。
+`PtySessionRecord`/`PtySessionStore` 已提供 Runtime 单写的持久身份和有界原子 CAS。启动意图先于 fork，未保存 PID 的中断也保持未知；停止证明与对账分开，未知/损坏记录不按空闲处理。生产会话 owner 已接线；记录本身不释放应用执行占用，宿主仍须按原身份对账。关闭方向复用锁定 PRoot 的 `--kill-on-exit` 与 SIGQUIT 清理 tracee，发送成功仍不等于停止；具体实现及设备边界见[生命周期切片](../evidence/development/hxa-197-session-lifecycle-2026-09-20.md)。
+
+产品路径为 `AppContainer.manualTerminal` → developer 应用服务 → 私有 `ProotTerminalService` → `ProotPtySession`。开启前转移共享执行占用，consumer 不装配入口；原身份 ACK 后才释放占用。只直接映射应用 Workspace 中的实际目录，手动租期默认两小时、最大八小时，断开后三十分钟空闲回收。终端元数据独立于 Runtime 安装目录保存；修复/回滚/删除与执行互斥。服务接线与尚未完成的页面/恢复范围见[产品会话证据](../evidence/development/hxa-197-product-session-2026-09-20.md)。
 
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 

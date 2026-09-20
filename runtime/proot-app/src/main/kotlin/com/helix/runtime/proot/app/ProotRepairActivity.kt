@@ -189,7 +189,7 @@ class ProotRepairActivity : Activity() {
                             ProotNative.pageSizeBytes(),
                             System.currentTimeMillis(),
                         )
-                    RootFsInstaller.install(request)
+                    ProotRuntimeMaintenance.run(this) { RootFsInstaller.install(request) }
                 }
             runOnUiThread {
                 busy = false
@@ -215,10 +215,12 @@ class ProotRepairActivity : Activity() {
         Thread {
             val outcome: RollbackOutcome =
                 runCatching {
-                    RootFsInstaller.activateRollback(
-                        ProotRuntimeInstaller.runtimeRoot(this),
-                        System.currentTimeMillis(),
-                    )
+                    ProotRuntimeMaintenance.run(this) {
+                        RootFsInstaller.activateRollback(
+                            ProotRuntimeInstaller.runtimeRoot(this),
+                            System.currentTimeMillis(),
+                        )
+                    }
                 }.fold(
                     onSuccess = { it },
                     onFailure = { RollbackOutcome.Failed(it.message ?: getString(R.string.proot_unknown_error)) },
@@ -265,11 +267,12 @@ class ProotRepairActivity : Activity() {
         statusView.append("\n" + getString(R.string.proot_remove_progress))
         Thread {
             val result =
-                runCatching { ProotRuntimeRemoval.remove(File(filesDir, "runtime")) }
-                    .fold(
-                        onSuccess = { it },
-                        onFailure = { ProotRuntimeRemoval.Result(false, false, null) },
-                    )
+                runCatching {
+                    ProotRuntimeMaintenance.run(this) { ProotRuntimeRemoval.remove(File(filesDir, "runtime")) }
+                }.fold(
+                    onSuccess = { it },
+                    onFailure = { ProotRuntimeRemoval.Result(false, false, null) },
+                )
             runOnUiThread {
                 busy = false
                 if (result.removed) {

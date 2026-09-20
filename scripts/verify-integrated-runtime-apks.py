@@ -15,6 +15,7 @@ COMPONENTS = {
     "com.helix.runtime.cli.app.CliRuntimeService": ("service", ":subscriptions"),
     "com.helix.runtime.proot.app.ProotRuntimeService": ("service", ":proot"),
     "com.helix.runtime.proot.app.ProotDetachedJobService": ("service", ":proot"),
+    "com.helix.runtime.proot.app.ProotTerminalService": ("service", ":proot"),
     "com.helix.runtime.proot.app.ProotJobStopReceiver": ("receiver", ":proot"),
 }
 for activity in ("CodexLoginActivity", "CopilotLoginActivity", "ClaudeLoginActivity",
@@ -55,11 +56,12 @@ def verify(flavor, build_type):
         assert components[pty_probe].get(A + "exported") == "false"
         assert components[pty_probe].get(A + "process") in (":proot", package + ":proot")
     if developer:
-        detached = components["com.helix.runtime.proot.app.ProotDetachedJobService"]
-        # apkanalyzer decodes this framework flag numerically on some SDK versions.
-        service_type = detached.get(A + "foregroundServiceType")
-        assert service_type == "specialUse" or int(service_type, 0) == 0x40000000
-        assert detached.find("property[@" + A + "name='android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE']") is not None
+        for service in ("ProotDetachedJobService", "ProotTerminalService"):
+            owner = components["com.helix.runtime.proot.app." + service]
+            # apkanalyzer decodes this framework flag numerically on some SDK versions.
+            service_type = owner.get(A + "foregroundServiceType")
+            assert service_type == "specialUse" or int(service_type, 0) == 0x40000000
+            assert owner.find("property[@" + A + "name='android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE']") is not None
     assert "android.permission.REQUEST_INSTALL_PACKAGES" not in permissions
     launchers = app.findall(".//category[@" + A + "name='android.intent.category.LAUNCHER']")
     assert len(launchers) == 1, f"{flavor} has extra launcher"

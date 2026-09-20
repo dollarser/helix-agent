@@ -31,11 +31,11 @@ internal class ProotPtySession(
     }
 
     /** Exactly once, after the service has acquired its lifetime and execution ownership. */
-    fun start() {
+    fun start(allowLaunch: Boolean = true) {
         synchronized(lock) {
             check(!started) { "PTY worker already submitted" }
             started = true
-            worker.execute(::run)
+            worker.execute { run(allowLaunch) }
             worker.shutdown()
         }
     }
@@ -74,11 +74,14 @@ internal class ProotPtySession(
     }
 
     @Suppress("TooGenericExceptionCaught")
-    private fun run() {
+    private fun run(allowLaunch: Boolean) {
         var process: ProotPtyProcess? = null
         try {
             synchronized(lock) {
-                if (record.phase == PtySessionRecord.Phase.CLOSING) {
+                if (SystemClock.elapsedRealtime() >= record.origin.deadlineElapsedMs) {
+                    update(record.requestStop(PtySessionRecord.StopReason.LEASE_EXPIRED))
+                }
+                if (!allowLaunch || record.phase == PtySessionRecord.Phase.CLOSING) {
                     update(record.neverStarted())
                     return
                 }
