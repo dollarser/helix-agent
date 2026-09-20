@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HXA-193: run the 35-case integrated runtime suite on a new owned emulator."""
+"""Run the integrated runtime suite on a new owned emulator; see CASES for scope."""
 import argparse
 from pathlib import Path
 import subprocess
