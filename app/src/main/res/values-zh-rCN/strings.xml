@@ -1210,4 +1210,21 @@
     <string name="marketplace_item_sql_assistant_name">SQL &amp; 数据库助手</string>
     <string name="marketplace_item_sql_assistant_summary">安全只读 SQL 查询与数据库结构探查技能。</string>
     <string name="marketplace_item_sql_assistant_desc">提供严谨的数据库结构探查规范，支持安全解释执行计划与生成只读分析查询。</string>
+    <string name="marketplace_search_placeholder">搜索扩展或标签…</string>
+    <string name="marketplace_search_clear">清空搜索</string>
+    <string name="marketplace_action_enable">启用</string>
+    <string name="marketplace_action_disable">停用</string>
+    <string name="marketplace_action_uninstall">卸载</string>
+    <string name="marketplace_uninstall_title">卸载扩展</string>
+    <string name="marketplace_uninstall_confirm">确定要卸载 %s 吗？已保存的连接凭据也将被一并移除。</string>
+    <string name="marketplace_item_gitlab_name">GitLab 项目协同</string>
+    <string name="marketplace_item_gitlab_summary">GitLab 仓库、Issue 与合并请求操作支持。</string>
+    <string name="marketplace_item_gitlab_desc">通过 MCP 协议连接 GitLab API，检索代码仓库、管理 Issue 并跟踪合并请求。</string>
+    <string name="marketplace_item_gitlab_auth_hint">需要具有 api 权限的 GitLab Personal Access Token</string>
+    <string name="marketplace_item_system_assistant_name">系统与设备诊断助手</string>
+    <string name="marketplace_item_system_assistant_summary">安全只读模式的系统环境、资源与设备状态诊断指南。</string>
+    <string name="marketplace_item_system_assistant_desc">引导安全排查内存使用、存储余量、网络连通性及平台能力，不执行任何高危破坏性指令。</string>
+    <string name="marketplace_item_workspace_organizer_name">工作区与文档整理助手</string>
+    <string name="marketplace_item_workspace_organizer_summary">引导项目目录结构规划、文档分类与工作空间梳理。</string>
+    <string name="marketplace_item_workspace_organizer_desc">遵循标准架构模式组织文件目录结构、维护文档索引及制品命名规范。</string>
 </resources>

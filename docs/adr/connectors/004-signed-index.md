@@ -1,9 +1,9 @@
 # ADR-CONNECTORS-004: Connector 签名索引与来源
 
-Status: proposed
+Status: accepted
 Date: 2026-09-16
 HXA: HXA-130
-Deciders: pending
+Deciders: project-owner
 
 ## Context
 
@@ -34,7 +34,7 @@ Deciders: pending
 
 ## Verification
 
-当前只有设计提议，尚未创建生产 verifier、发行 key 或市场。required before acceptance：所有者审查索引和来源契约；HXA-129 完成后才启动 HXA-130 离线 fixture 实现。专项命令在启动前固定，至少包含确定性 corpus 校验、双 API 签名验证、文件/记录边界以及 docs/ADR/secrets 门禁。网络下载、市场 UI、自动更新及密钥发布不在本次接受范围。
+已实现离线签名索引数据结构、严格 JSON 解析器与验证器（`SignedConnectorIndex.kt`、`SignedConnectorIndexParser.kt`、`SignedConnectorIndexVerifier.kt`）及全覆盖测试套件（`SignedConnectorIndexVerifierTest.kt`、`ConnectorIndexTestFixtures.kt`）。包含确定性 corpus 校验、P-256 签名与字节防篡改验证、单调 sequence 回滚防御、有效期时钟校验、重复键/包防重以及 docs/ADR/secrets 门禁。网络下载、在线分发市场 UI、自动更新及正式发行密钥发布不在本次接受范围。
 
 ## Reconsider when
 

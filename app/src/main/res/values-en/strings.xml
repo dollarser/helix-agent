@@ -1213,4 +1213,21 @@
     <string name="marketplace_item_sql_assistant_name">SQL &amp; Database Assistant</string>
     <string name="marketplace_item_sql_assistant_summary">Skill for safe read-only SQL queries and schema investigation.</string>
     <string name="marketplace_item_sql_assistant_desc">Provides structured rules for inspecting schemas, explaining query plans, and generating deterministic read-only queries safely.</string>
+    <string name="marketplace_search_placeholder">Search extensions or tags…</string>
+    <string name="marketplace_search_clear">Clear search</string>
+    <string name="marketplace_action_enable">Enable</string>
+    <string name="marketplace_action_disable">Disable</string>
+    <string name="marketplace_action_uninstall">Uninstall</string>
+    <string name="marketplace_uninstall_title">Uninstall Extension</string>
+    <string name="marketplace_uninstall_confirm">Are you sure you want to uninstall %s? Stored credentials will also be removed.</string>
+    <string name="marketplace_item_gitlab_name">GitLab Workspace</string>
+    <string name="marketplace_item_gitlab_summary">GitLab project, repository, issues and merge request operations.</string>
+    <string name="marketplace_item_gitlab_desc">Connect to GitLab API to inspect repositories, manage issues, and track merge requests using MCP protocol.</string>
+    <string name="marketplace_item_gitlab_auth_hint">Requires GitLab Personal Access Token with api scope</string>
+    <string name="marketplace_item_system_assistant_name">System Diagnostics</string>
+    <string name="marketplace_item_system_assistant_summary">Safe read-only Android environment and device diagnostics guide.</string>
+    <string name="marketplace_item_system_assistant_desc">Guide inspection of memory, storage, network status, and platform capabilities without executing destructive commands.</string>
+    <string name="marketplace_item_workspace_organizer_name">Workspace Organizer</string>
+    <string name="marketplace_item_workspace_organizer_summary">Guide structured file tree layout and markdown document organization.</string>
+    <string name="marketplace_item_workspace_organizer_desc">Provide clear patterns for organizing directory structures, documentation indexes, and artifact naming conventions.</string>
 </resources>

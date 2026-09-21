@@ -161,5 +161,89 @@ object MarketplaceCatalog {
                     4. Explain query execution plans and index usage clearly.
                     """.trimIndent(),
             ),
+            MarketplaceItem(
+                id = "gitlab-workspace",
+                nameRes = R.string.marketplace_item_gitlab_name,
+                type = MarketplaceItemType.CONNECTOR,
+                summaryRes = R.string.marketplace_item_gitlab_summary,
+                descriptionRes = R.string.marketplace_item_gitlab_desc,
+                author = "GitLab / MCP",
+                authRequirement = MarketplaceAuthRequirement.BEARER_TOKEN,
+                authHintRes = R.string.marketplace_item_gitlab_auth_hint,
+                tags = listOf("gitlab", "git", "issues", "code", "mcp"),
+                targetConnectorName = "gitlab-connector",
+                payload =
+                    """
+                    {
+                      "name": "gitlab-connector",
+                      "mcpServers": {
+                        "gitlab": {
+                          "url": "https://gitlab.com/api/v4/mcp",
+                          "headers": {
+                            "Authorization": "Bearer placeholder"
+                          }
+                        }
+                      }
+                    }
+                    """.trimIndent(),
+            ),
+            MarketplaceItem(
+                id = "system-assistant",
+                nameRes = R.string.marketplace_item_system_assistant_name,
+                type = MarketplaceItemType.SKILL,
+                summaryRes = R.string.marketplace_item_system_assistant_summary,
+                descriptionRes = R.string.marketplace_item_system_assistant_desc,
+                author = "Helix Official",
+                authRequirement = MarketplaceAuthRequirement.LOCAL,
+                tags = listOf("system", "diagnostics", "android", "device"),
+                targetSkillName = "system-assistant",
+                targetConnectorName = "system-assistant-skill",
+                payload =
+                    """
+                    ---
+                    name: system-assistant
+                    description: Safe read-only Android environment and device diagnostics guide.
+                    license: Apache-2.0
+                    metadata:
+                      helix.built-in-version: "1"
+                    ---
+                    # System & device diagnostics assistant
+
+                    Guide system troubleshooting safely:
+                    1. Prioritize non-destructive environment inspection (memory, storage, battery, connectivity).
+                    2. Explain Android platform security boundaries and sandbox constraints clearly.
+                    3. Never recommend unverified shell execution or arbitrary file modifications.
+                    4. Format diagnostic output into clean, human-readable summaries.
+                    """.trimIndent(),
+            ),
+            MarketplaceItem(
+                id = "workspace-organizer",
+                nameRes = R.string.marketplace_item_workspace_organizer_name,
+                type = MarketplaceItemType.SKILL,
+                summaryRes = R.string.marketplace_item_workspace_organizer_summary,
+                descriptionRes = R.string.marketplace_item_workspace_organizer_desc,
+                author = "Helix Official",
+                authRequirement = MarketplaceAuthRequirement.LOCAL,
+                tags = listOf("workspace", "files", "organizer", "docs"),
+                targetSkillName = "workspace-organizer",
+                targetConnectorName = "workspace-organizer-skill",
+                payload =
+                    """
+                    ---
+                    name: workspace-organizer
+                    description: Guide structured file tree layout and markdown document organization.
+                    license: Apache-2.0
+                    metadata:
+                      helix.built-in-version: "1"
+                    ---
+                    # Workspace & documentation organizer
+
+                    Guide file tree management safely:
+                    1. Analyze workspace structure read-only before proposing reorganization.
+                    2. Maintain consistent documentation conventions, indexes, and frontmatter.
+                    3. Prevent accidental deletion of user artifacts or project source files.
+                    4. Provide clear relative path structures aligned with Helix architecture.
+                    """.trimIndent(),
+            ),
         )
 }

@@ -17,7 +17,7 @@
 | [HXA-125](../../development/tasks/HXA-125.md) | 收尾验收 | 已有导入与匿名样本不重做；只补缺失真实认证、拒绝、撤销、重连证据。 |
 | [HXA-126](../../development/tasks/HXA-126.md) | 待决策 | 真实OAuth产品尚未接受，不排入当前实施主链；不要求等所有125厂商完成才做方案。 |
 | [HXA-129](../../development/tasks/HXA-129.md) | 待决策 | 与207的现有安装/禁用闭环区分；只有新增共享所有权与版本journal才归本任务。 |
-| [HXA-130](../../development/tasks/HXA-130.md) | 待决策 | 纯离线格式fixture可准备；不因为依赖129而阻止文档审查，也不提前开发市场后端。 |
+| [HXA-130](../../completion-records/HXA-130.md) | 已交付 | 纯离线格式与ECDSA P-256验签器已实现并通过全覆盖单元测试；不添加在线市场运行时。 |
 | [HXA-190](../../development/tasks/HXA-190.md) | 收尾验收 | 旧APK安装、文件路径、压缩和主题大包拆出；本任务只收口订阅行为与剩余服务证据。 |
 | [HXA-191](../../completion-records/HXA-191.md) | 待实现 | 审批折叠已归201，Goal创建归208，首次配置归205；这里只保留主题与会话/历史检索。 |
 | [HXA-192](../../completion-records/HXA-192.md) | 收尾验收 | 门禁修复/主分支集成不再当未做项；PlanSubmitIntegrationDeviceTest不等于用户审阅执行闭环。 |

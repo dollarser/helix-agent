@@ -10,7 +10,7 @@ class MarketplaceCatalogTest {
     @Test
     fun catalogItemsAreWellFormedAndUnique() {
         val items = MarketplaceCatalog.items()
-        assertTrue("Catalog should not be empty", items.isNotEmpty())
+        assertTrue("Catalog should contain at least 9 curated items", items.size >= 9)
 
         val ids = items.map { it.id }
         org.junit.Assert.assertEquals("IDs must be unique", ids.distinct().size, ids.size)

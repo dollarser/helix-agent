@@ -79,6 +79,45 @@ class MarketplaceService(
             }
         }
 
+    fun findInstalled(item: MarketplaceItem): InstalledConnector? {
+        val targetName =
+            item.targetConnectorName ?: when (item.type) {
+                MarketplaceItemType.SKILL -> "${item.id}-skill"
+                else -> item.id
+            }
+        return connectorService.list().firstOrNull { record ->
+            record.name == targetName || record.name == item.id
+        }
+    }
+
+    fun uninstall(item: MarketplaceItem) {
+        findInstalled(item)?.let { connectorService.remove(it) }
+    }
+
+    fun disable(item: MarketplaceItem) {
+        val installed = findInstalled(item) ?: return
+        when (item.type) {
+            MarketplaceItemType.SKILL -> {
+                installed.skills.forEach { key ->
+                    connectorService.setSkillEnabled(key, false)
+                }
+            }
+
+            MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
+                installed.endpoints.forEach { endpoint ->
+                    connectorService.disable(endpoint)
+                }
+            }
+        }
+    }
+
+    fun enableSkill(item: MarketplaceItem) {
+        val installed = findInstalled(item) ?: return
+        installed.skills.forEach { key ->
+            connectorService.setSkillEnabled(key, true)
+        }
+    }
+
     fun setSkillEnabled(
         skillName: String,
         enabled: Boolean,

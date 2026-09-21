@@ -10,7 +10,7 @@
 
 本轮整合交付：HXA-204跨执行域恢复与HXA-205首次准备已交付（见[204记录](../completion-records/HXA-204.md)、[205记录](../completion-records/HXA-205.md)）；HXA-193 默认锁定资产准备已收尾；HXA-195 一次性 Job 有界实时日志与详情页已完成，API29/36 各新增6项与既有35项通过、完整主机门禁通过，见[195完成记录](../completion-records/HXA-195.md)。同时修复大输出字节计数导致错误 FAILED 的问题；不包含后台 Job/PTY 或真机长稳。
 
-最近完成：HXA-212 内置扩展市场与典型目录（精选目录、类型筛选、端侧一键安装与生命周期恢复，见[212完成记录](../completion-records/HXA-212.md)），HXA-203 产物可用性与文件交付闭环（四态可用性、变更横幅、管线导出与运行中取消、无查看器外部打开、返回产生任务、四象限矩阵与批次A出口旅程，见[完成记录](../completion-records/HXA-203.md)），HXA-194 命令详情与现有结果导航（只读投影、档案优先于过期持久化输出、任务页/工具行真实入口与返回来源、四象限旅程与 202 入口回归，见[完成记录](../completion-records/HXA-194.md)），HXA-202 任务过程与跨页面操作导航（六类状态只读投影、跨会话稳定 ID 定位、CANCELLING 持久结算、四象限旅程与两阶段进程恢复，见[完成记录](../completion-records/HXA-202.md)），HXA-192 Plan 审阅到执行的用户闭环验收与 HXA-209 授权联动（四象限设备与主机 --all，见[完成记录](../completion-records/HXA-192.md)），HXA-209 会话授权预设、工具禁用与自定义权限（含工具二态与 CUSTOM 效果限制，见[完成记录](../completion-records/HXA-209.md)），HXA-208 完整 Goal 工具与前后台连续运行，HXA-201 设置/UI，HXA-200 审批审计/恢复。基线回归及 thinking/startup 修复见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[连接/启动修复](../bug-fixes/2026-09-16-main-thinking-and-startup.md)。不重做这些任务，不将旧三态验收用作新授权方案证明。
+最近完成：HXA-130 Connector 签名索引与来源验证（离线索引格式、ECDSA P-256 分离签名解析与防回滚验证器，见[130完成记录](../completion-records/HXA-130.md)），HXA-212 内置扩展市场与典型目录（精选目录、类型筛选、端侧一键安装与生命周期恢复，见[212完成记录](../completion-records/HXA-212.md)），HXA-203 产物可用性与文件交付闭环（四态可用性、变更横幅、管线导出与运行中取消、无查看器外部打开、返回产生任务、四象限矩阵与批次A出口旅程，见[完成记录](../completion-records/HXA-203.md)），HXA-194 命令详情与现有结果导航（只读投影、档案优先于过期持久化输出、任务页/工具行真实入口与返回来源、四象限旅程与 202 入口回归，见[完成记录](../completion-records/HXA-194.md)），HXA-202 任务过程与跨页面操作导航（六类状态只读投影、跨会话稳定 ID 定位、CANCELLING 持久结算、四象限旅程与两阶段进程恢复，见[完成记录](../completion-records/HXA-202.md)），HXA-192 Plan 审阅到执行的用户闭环验收与 HXA-209 授权联动（四象限设备与主机 --all，见[完成记录](../completion-records/HXA-192.md)），HXA-209 会话授权预设、工具禁用与自定义权限（含工具二态与 CUSTOM 效果限制，见[完成记录](../completion-records/HXA-209.md)），HXA-208 完整 Goal 工具与前后台连续运行，HXA-201 设置/UI，HXA-200 审批审计/恢复。基线回归及 thinking/startup 修复见[基线修复](../bug-fixes/2026-09-16-pre-hxa-baseline-regressions.md)与[连接/启动修复](../bug-fixes/2026-09-16-main-thinking-and-startup.md)。不重做这些任务，不将旧三态验收用作新授权方案证明。
 
 收尾补验：SGLang UI smoke已修复，在API29/36 developer真实端点各1项通过，本地表单各4项通过；默认profile各1项明确跳过，见[修复与证据](../bug-fixes/2026-09-16-sglang-smoke-synchronization.md)。这不关闭192/193的其他范围。
 
@@ -75,7 +75,6 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 | HXA-125 受保护 Connector 服务验收 | WorkBuddy 来源样本已补齐；仍需独立测试账号验证凭据无效、权限拒绝、厂商撤销和重连；匿名服务与 fixture 不替代这些证据 |
 | HXA-126 外部验收 | [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) 已接受；仍缺两家独立服务账号、App 注册与 redirect 条件，动态注册未交付 |
 | HXA-129 | [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 待审查 |
-| HXA-130 | [ADR-CONNECTORS-004](../adr/connectors/004-signed-index.md) 待审查；生产安装集成依赖129，纯离线格式fixture可准备，市场运行时未授权 |
 | Claude / Grok 真实付费调用 | 账号不可用，按所有者决定暂缓；本地与设备夹具通过不代表真实账号验收 |
 | 发布验收 | HXA-122 尚待稳定 applicationId、渠道命名、升级路径与签名发行决策 |
 
