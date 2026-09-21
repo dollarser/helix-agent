@@ -20,8 +20,11 @@ class MarketplaceCatalogTest {
         for (item in items) {
             assertTrue("ID must be valid", item.id.isNotBlank())
             assertTrue("Name res must be valid", item.nameRes != 0)
+            assertTrue("Summary res must be valid", item.summaryRes != 0)
+            assertTrue("Description res must be valid", item.descriptionRes != 0)
             assertTrue("Author must be valid", item.author.isNotBlank())
             assertTrue("Tags must not be empty", item.tags.isNotEmpty())
+            assertNotNull("Target connector name must be set", item.targetConnectorName)
 
             when (item.type) {
                 MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {

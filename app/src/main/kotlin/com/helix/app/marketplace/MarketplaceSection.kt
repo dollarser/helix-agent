@@ -48,6 +48,7 @@ fun MarketplaceSection(
     var statusMap by remember { mutableStateOf<Map<String, MarketplaceItemStatus>>(emptyMap()) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
     var isActionError by remember { mutableStateOf(false) }
+    var installingId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(refreshTrigger) {
         withContext(Dispatchers.IO) {
@@ -122,7 +123,10 @@ fun MarketplaceSection(
             MarketplaceItemCard(
                 item = item,
                 status = status,
+                isInstalling = installingId == item.id,
                 onInstall = {
+                    if (installingId != null) return@MarketplaceItemCard
+                    installingId = item.id
                     scope.launch {
                         try {
                             withContext(Dispatchers.IO) {
@@ -134,6 +138,8 @@ fun MarketplaceSection(
                         } catch (_: Exception) {
                             actionMessage = failMsg
                             isActionError = true
+                        } finally {
+                            installingId = null
                         }
                     }
                 },
@@ -148,6 +154,7 @@ fun MarketplaceSection(
 private fun MarketplaceItemCard(
     item: MarketplaceItem,
     status: MarketplaceItemStatus,
+    isInstalling: Boolean = false,
     onInstall: () -> Unit,
     onConfigure: (() -> Unit)? = null,
 ) {
@@ -230,14 +237,21 @@ private fun MarketplaceItemCard(
                     MarketplaceItemStatus.NOT_INSTALLED -> {
                         Button(
                             onClick = onInstall,
+                            enabled = !isInstalling,
                             modifier = Modifier.testTag("marketplace-install-${item.id}"),
                         ) {
-                            Text(stringResource(R.string.marketplace_action_install))
+                            Text(
+                                if (isInstalling) {
+                                    stringResource(R.string.marketplace_action_installing)
+                                } else {
+                                    stringResource(R.string.marketplace_action_install)
+                                },
+                            )
                         }
                     }
 
                     MarketplaceItemStatus.INSTALLED_INACTIVE -> {
-                        if (onConfigure != null && item.authRequirement != MarketplaceAuthRequirement.NONE) {
+                        if (onConfigure != null) {
                             Button(onClick = onConfigure) {
                                 Text(stringResource(R.string.marketplace_action_configure))
                             }

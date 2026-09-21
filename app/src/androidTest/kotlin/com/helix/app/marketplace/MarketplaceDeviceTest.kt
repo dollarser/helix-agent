@@ -43,6 +43,7 @@ class MarketplaceDeviceTest {
             } finally {
                 skillInstalled?.let { container.connectorService.remove(it) }
             }
+            assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(codeReview))
         } finally {
             installed?.let { container.connectorService.remove(it) }
         }

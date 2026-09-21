@@ -19,8 +19,11 @@ class MarketplaceService(
         when (item.type) {
             MarketplaceItemType.SKILL -> {
                 val name = item.targetSkillName ?: item.id
+                val connectorName = item.targetConnectorName ?: "${item.id}-skill"
+                val connector = connectorService.list().firstOrNull { it.name == connectorName }
                 val matched = skillRepository.list().firstOrNull { it.key.name == name }
                 when {
+                    connector == null -> MarketplaceItemStatus.NOT_INSTALLED
                     matched == null -> MarketplaceItemStatus.NOT_INSTALLED
                     matched.enabled -> MarketplaceItemStatus.ACTIVE
                     else -> MarketplaceItemStatus.INSTALLED_INACTIVE
@@ -41,7 +44,7 @@ class MarketplaceService(
             }
         }
 
-    fun install(item: MarketplaceItem): InstalledConnector? =
+    fun install(item: MarketplaceItem): InstalledConnector =
         when (item.type) {
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 val reader = ConnectorPackageReader()
@@ -51,34 +54,28 @@ class MarketplaceService(
 
             MarketplaceItemType.SKILL -> {
                 val name = item.targetSkillName ?: item.id
-                val existing = skillRepository.list().firstOrNull { it.key.name == name }
-                if (existing != null) {
-                    skillRepository.setEnabled(existing.key, true, SkillEnablementScope.GLOBAL)
-                    null
-                } else {
-                    val skillBytes = item.payload.toByteArray(Charsets.UTF_8)
-                    val bundle =
-                        ConnectorPackage(
-                            name = item.targetConnectorName ?: "${item.id}-skill",
-                            source = "MARKETPLACE",
-                            contentHash = sha256(skillBytes),
-                            endpoints = emptyList(),
-                            skills =
-                                listOf(
-                                    ConnectorSkill(
-                                        directory = name,
-                                        files = mapOf("SKILL.md" to skillBytes),
-                                    ),
+                val skillBytes = item.payload.toByteArray(Charsets.UTF_8)
+                val bundle =
+                    ConnectorPackage(
+                        name = item.targetConnectorName ?: "${item.id}-skill",
+                        source = "MARKETPLACE",
+                        contentHash = sha256(skillBytes),
+                        endpoints = emptyList(),
+                        skills =
+                            listOf(
+                                ConnectorSkill(
+                                    directory = name,
+                                    files = mapOf("SKILL.md" to skillBytes),
                                 ),
-                            diagnostics = emptyList(),
-                        )
-                    val installed = connectorService.install(bundle)
-                    val skillKey = installed.skills.firstOrNull()
-                    if (skillKey != null) {
-                        connectorService.setSkillEnabled(skillKey, true)
-                    }
-                    installed
+                            ),
+                        diagnostics = emptyList(),
+                    )
+                val installed = connectorService.install(bundle)
+                val skillKey = installed.skills.firstOrNull()
+                if (skillKey != null) {
+                    connectorService.setSkillEnabled(skillKey, true)
                 }
+                installed
             }
         }
 

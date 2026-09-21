@@ -1182,6 +1182,7 @@
     <string name="marketplace_status_inactive">未激活/待配置</string>
     <string name="marketplace_status_active">已启用</string>
     <string name="marketplace_action_install">一键安装</string>
+    <string name="marketplace_action_installing">正在安装…</string>
     <string name="marketplace_action_configure">去配置</string>
     <string name="marketplace_auth_none">免鉴权</string>
     <string name="marketplace_auth_bearer">需要 Token</string>

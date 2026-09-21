@@ -113,6 +113,7 @@ object MarketplaceCatalog {
                 authRequirement = MarketplaceAuthRequirement.LOCAL,
                 tags = listOf("code", "review", "security", "quality"),
                 targetSkillName = "code-review",
+                targetConnectorName = "code-review-skill",
                 payload =
                     """
                     ---
@@ -141,6 +142,7 @@ object MarketplaceCatalog {
                 authRequirement = MarketplaceAuthRequirement.LOCAL,
                 tags = listOf("sql", "database", "query", "schema"),
                 targetSkillName = "sql-assistant",
+                targetConnectorName = "sql-assistant-skill",
                 payload =
                     """
                     ---

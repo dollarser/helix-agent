@@ -1185,6 +1185,7 @@
     <string name="marketplace_status_inactive">Needs config</string>
     <string name="marketplace_status_active">Active</string>
     <string name="marketplace_action_install">Install</string>
+    <string name="marketplace_action_installing">Installing…</string>
     <string name="marketplace_action_configure">Configure</string>
     <string name="marketplace_auth_none">No auth required</string>
     <string name="marketplace_auth_bearer">Requires Bearer token</string>
