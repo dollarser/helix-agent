@@ -142,12 +142,26 @@ class ConnectorService(
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
         requireOwned(endpoint)
         val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
+        val isSlack =
+            endpoint.endpoint.url
+                .lowercase()
+                .contains("slack.com")
+        val isCustomScheme = !redirectUri.startsWith("http://") && !redirectUri.startsWith("https://")
+        val extraParams = mutableMapOf<String, String>()
+        val paramScope: String
+        if (isSlack && isCustomScheme) {
+            extraParams["user_scope"] = scope
+            paramScope = ""
+        } else {
+            paramScope = scope
+        }
         return coordinator.prepareAuthorization(
             serverId = endpoint.id,
             clientId = clientId,
             metadata = metadata,
-            scope = scope,
+            scope = paramScope,
             redirectUri = redirectUri,
+            extraParams = extraParams,
         )
     }
 
