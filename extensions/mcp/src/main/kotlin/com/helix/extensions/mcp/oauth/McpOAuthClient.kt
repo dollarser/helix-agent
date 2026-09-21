@@ -292,8 +292,13 @@ class McpOAuthClient(
             element["access_token"]?.jsonPrimitive?.content
                 ?: authedUser?.get("access_token")?.jsonPrimitive?.content
                 ?: throw McpOAuthException("Missing access_token in token response")
-        val tokenType = element["token_type"]?.jsonPrimitive?.content ?: "Bearer"
-        val expiresIn = element["expires_in"]?.jsonPrimitive?.longOrNull
+        val tokenType =
+            element["token_type"]?.jsonPrimitive?.content
+                ?: authedUser?.get("token_type")?.jsonPrimitive?.content
+                ?: "Bearer"
+        val expiresIn =
+            element["expires_in"]?.jsonPrimitive?.longOrNull
+                ?: authedUser?.get("expires_in")?.jsonPrimitive?.longOrNull
         val refreshToken =
             element["refresh_token"]?.jsonPrimitive?.content
                 ?: authedUser?.get("refresh_token")?.jsonPrimitive?.content

@@ -134,6 +134,43 @@ class McpOAuthClientTest {
         }
 
     @Test
+    fun exchangeCodeHandlesSlackAuthedUserTokens() =
+        runBlocking {
+            val client = McpOAuthClient(allowAllGate)
+            server.setTokenResponse(
+                """
+                {
+                    "ok": true,
+                    "app_id": "A0C34BUD58D",
+                    "authed_user": {
+                        "id": "U0C391PQ5FU",
+                        "scope": "channels:read,users:read,chat:write",
+                        "access_token": "xoxe.xoxp-mock-slack-user-token",
+                        "token_type": "user",
+                        "refresh_token": "xoxe-mock-slack-refresh-token",
+                        "expires_in": 43200
+                    },
+                    "team": {"id": "T0C2TNVAAVD", "name": "Helix"}
+                }
+                """.trimIndent(),
+            )
+
+            val tokens =
+                client.exchangeCode(
+                    tokenEndpoint = "${server.baseUrl}/token",
+                    clientId = "slack-client",
+                    redirectUri = "helix://oauth/callback",
+                    code = "mock-slack-code",
+                    codeVerifier = "some-verifier-123456789012345678901234567890",
+                )
+
+            assertEquals("xoxe.xoxp-mock-slack-user-token", tokens.accessToken)
+            assertEquals("xoxe-mock-slack-refresh-token", tokens.refreshToken)
+            assertEquals(43200L, tokens.expiresInSeconds)
+            assertEquals("channels:read,users:read,chat:write", tokens.scope)
+        }
+
+    @Test
     fun exchangeCodeFailsOnErrorResponse() =
         runBlocking {
             val client = McpOAuthClient(allowAllGate)
