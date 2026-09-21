@@ -43,9 +43,6 @@ internal class ProotTerminalHost(
         if (sessions.size >= MAX_SESSIONS || activeRecords.size >= MAX_SESSIONS) {
             return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
         }
-        if (sessions.values.any { it.record.origin.workspace == workspace && it.record.stopProof == null }) {
-            return PtySessionReply(null, outcome = "START_REFUSED")
-        }
         pruneReconciledRecords(store, records)
         val launch =
             prepareLaunch(context, workspace, key.sessionId)

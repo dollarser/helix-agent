@@ -90,7 +90,7 @@ class ProotMultiSessionDeviceTest {
     }
 
     @Test
-    fun thirdSessionCreationRejectedWhenCapacityExhausted() {
+    fun sameDirectorySessionsAllowedButThirdSessionRejected() {
         ensureInstalledRuntime(context)
         ActivityScenario.launch(MainActivity::class.java).use {
             runBlocking {
@@ -105,7 +105,7 @@ class ProotMultiSessionDeviceTest {
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
-                    val s2 = terminal.start(rel2, 30_000)
+                    val s2 = terminal.start(rel1, 30_000)
                     assertEquals(2, terminal.sessions().size)
 
                     // 3rd session creation must fail
@@ -413,6 +413,7 @@ private object MultiSessionTestSupport {
         }
         val finalFds = File("/proc/self/fd").listFiles()?.size ?: -1
         val finalThreads = File("/proc/self/task").listFiles()?.size ?: Thread.activeCount()
+        println("HXA198_SOAK pids=$observedPids fd=$initialFds->$finalFds threads=$initialThreads->$finalThreads")
         if (initialFds > 0 && finalFds > 0) {
             val fdDelta = finalFds - initialFds
             assertTrue(

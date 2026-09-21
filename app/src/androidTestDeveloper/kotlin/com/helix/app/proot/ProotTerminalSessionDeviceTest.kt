@@ -42,7 +42,13 @@ class ProotTerminalSessionDeviceTest {
                     terminal.start(relative, 30_000)
                     assertTrue(terminal.hasSession())
                     verifyRetainedAdmission()
+                    val second = terminal.start(relative, 30_000)
                     assertTrue(runCatching { terminal.start(relative) }.isFailure)
+                    terminal.stop(second.sessionId)
+                    withTimeout(10_000) {
+                        while (!terminal.query(second.sessionId).canSettle) delay(25)
+                    }
+                    terminal.settle(second.sessionId)
                     assertTrue(runCatching { terminal.settle() }.isFailure)
                     exerciseConnections(terminal, directory)
                     terminal.stop()

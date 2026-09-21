@@ -75,12 +75,6 @@ internal class DeveloperManualTerminal(
                 val root = File(context.filesDir, "workspaces/app").canonicalFile
                 val workspace = File(root, relativeDirectory).canonicalFile
                 require(workspace.isDirectory && workspace.toPath().startsWith(root.toPath()))
-                validateWorkspaceNotActive(
-                    context,
-                    listOfNotNull(binding1.read(), binding2.read()),
-                    workspace,
-                    relativeDirectory,
-                )
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
 
@@ -255,25 +249,6 @@ private fun selectTargetBinding(
         binding2.read() == null -> binding2 to false
         else -> error("Manual terminal capacity exhausted (max 2 sessions)")
     }
-
-private fun validateWorkspaceNotActive(
-    context: Context,
-    activeOwners: List<ExecutionOwnership.Owner>,
-    workspace: File,
-    relativeDirectory: String,
-) {
-    if (activeOwners.isEmpty()) return
-    PtySessionClient(context).use { client ->
-        client.connect()
-        for (activeOwner in activeOwners) {
-            val reply = client.request(ptyKey(activeOwner), Wire.QUERY)
-            val origin = reply.record?.origin
-            if (origin != null && origin.workspace == workspace.path) {
-                error("Workspace already has an active terminal session: $relativeDirectory")
-            }
-        }
-    }
-}
 
 private fun launchSession(
     context: Context,
