@@ -563,6 +563,23 @@ internal class DefaultAppContainer(
             toolPipeline.installMcpFactsProvider(service::dispatchFacts)
         }
 
+    override val mcpOAuthCoordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator by lazy {
+        val gate =
+            com.helix.extensions.mcp.McpSsrfEndpointGate(
+                { profileStore.profile },
+                lanScopeStore::current,
+            )
+        val oauthClient =
+            com.helix.extensions.mcp.oauth
+                .McpOAuthClient(gate)
+        val attemptStore =
+            com.helix.app.mcp.oauth.McpOAuthAttemptStore(
+                java.io.File(context.filesDir, "mcp_oauth_attempts"),
+            )
+        com.helix.app.mcp.oauth
+            .McpOAuthCoordinator(storage.secrets, attemptStore, oauthClient)
+    }
+
     override val connectorService by lazy {
         com.helix.app.connector
             .ConnectorService(context, storage, mcpService, skillImportService, skillRepository)

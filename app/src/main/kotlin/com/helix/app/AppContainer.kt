@@ -92,6 +92,8 @@ interface AppContainer {
         get() = error("Connector service is unavailable in this container")
 
     val mcpService: McpAppService
+    val mcpOAuthCoordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator?
+        get() = null
 
     val a2aService: A2aAppService
 

@@ -10,8 +10,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
-class McpNetworkPermit internal constructor(
-    internal val host: String,
+class McpNetworkPermit(
+    val host: String,
     addresses: List<ByteArray>,
 ) {
     private val addressCopies = addresses.map(ByteArray::copyOf)
