@@ -5,7 +5,7 @@
 | 当前进展与下一步 | [实施状态](development/status.md) |
 | 查找任务与验收范围 | [开发路线](development/roadmap.md) |
 | 交给任意编码 Agent | [实施指南与交接 Prompt](development/implementation-guide.md) |
-| 下一批交接 Claude Code | [207 / 191 → 206 实施计划](development/claude-handoff-207-191-206.md) |
+| 小模型工作包指导 | [小模型工作包指导](development/small-model-handoff.md) |
 | 环境和验证命令 | [开发环境](development/environment.md)、[公共验收规则](development/verification-matrix.md) |
 | 产品和操作体验 | [产品需求](product/requirements.md)、[操作链](product/task-experience.md) |
 | 架构与约束 | [总体架构](architecture/overview.md)、[安全与发布](security/testing-and-release.md) |

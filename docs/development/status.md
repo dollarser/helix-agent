@@ -44,7 +44,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
-所有者已在 main 远端 CI 通过后授权 Claude 实施 207/191，原“只写计划”的执行限制不再适用于二者。范围与文件所有权沿用[交接计划](claude-handoff-207-191-206.md)；206 按 2026-09-20 最新指示仅保留计划，等待后续启动。
+207 与 191 经所有者授权实施后已全部交付并合入 main。小模型当前按 [small-model-handoff.md](small-model-handoff.md) 推进 206 场景与校验脚本、199 终端报告准备、文档收敛及 198 UI 准备；完整 206 与 199 最终验收等待协调者统驭。
 
 本轮合并后完整主机门禁通过；API29/36 × consumer/developer 修复/Runtime 定向矩阵共 244 项 instrumentation（含 2 项探针准备），另有 2 次独立主进程死亡检查通过，独占设备全部正常退出。此证据不等于 206 全产品验收，详见上述收敛记录。
 
