@@ -38,6 +38,39 @@ class GitWorkspaceReaderTest {
     }
 
     @Test
+    fun `configured filters cannot execute in root or nested directory reads`() {
+        val root = tmp.newFolder("hostile")
+        initRepo(root).use { git ->
+            File(root, "nested").mkdirs()
+            File(root, "nested/data.txt").writeText("before\n")
+            git.add().addFilepattern("nested/data.txt").call()
+            git
+                .commit()
+                .setMessage("nested")
+                .setAuthor("t", "t@example.com")
+                .setCommitter("t", "t@example.com")
+                .call()
+            File(root, "a.txt").writeText("one\nchanged\n")
+            File(root, "nested/data.txt").writeText("before\nchanged\n")
+            File(root, ".gitattributes").writeText("*.txt filter=hostile\n")
+            git.repository.config.apply {
+                setString("filter", "hostile", "clean", "echo invoked > executed; cat")
+                setString("filter", "hostile", "smudge", "echo invoked > executed; cat")
+                setBoolean("filter", "hostile", "required", true)
+                save()
+            }
+            val config = File(root, ".git/config").readText()
+            val reader = GitWorkspaceReader(root)
+            val status = reader.readStatus()
+            assertTrue("Unexpected status: $status", status is GitWorkspaceResult.Ready)
+            assertTrue(reader.diffFor("a.txt").contains("+changed"))
+            assertTrue(reader.diffFor("nested/data.txt").contains("+changed"))
+            assertFalse(File(root, "executed").exists())
+            assertEquals(config, File(root, ".git/config").readText())
+        }
+    }
+
+    @Test
     fun `an empty directory is not a repository`() {
         val root = tmp.newFolder("ws")
         assertEquals(GitWorkspaceResult.NotARepository, GitWorkspaceReader(root).readStatus())

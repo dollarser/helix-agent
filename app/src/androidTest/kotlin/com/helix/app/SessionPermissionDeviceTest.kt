@@ -350,6 +350,32 @@ class SessionPermissionDeviceTest {
     }
 
     @Test
+    fun customDenyStopsAtTheExecutionEntryWithoutCardOrSideEffect() {
+        val executions = AtomicInteger()
+        registerFreshTool(executions)
+        val rules =
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.FULL_ACCESS).toMutableMap().apply {
+                put(OperationEffect.DEVICE_SYSTEM_MUTATION, OperationRule.DENY)
+            }
+        container.sessionPermissionEdit.saveSessionConfig(
+            sessionId,
+            SessionPermissionConfig.custom(rules),
+            System.currentTimeMillis(),
+        )
+        val callId = "sp-custom-deny-$run"
+        val outcome = dispatchOnThread(callId, "sp-custom-deny-turn-$run").join()
+        assertTrue("Expected denial through production Dispatcher, got $outcome", outcome is ToolDispatchOutcome.Denied)
+        assertEquals(0, executions.get())
+        assertNull(container.storage.approvals.byToolCall(callId))
+        assertEquals(
+            ToolCallState.DENIED.name,
+            container.storage.toolCalls
+                .resolve(callId)
+                .state,
+        )
+    }
+
+    @Test
     fun presetsAndCustomResolveThroughOneResolverWithDenyDominating() {
         // A CUSTOM table copied from WORKSPACE: the workspace-write tightened to DENY, command
         // execution held at ASK (the workspace read stays ALLOW from the preset).

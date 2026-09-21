@@ -4,6 +4,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.diff.DiffEntry
 import org.eclipse.jgit.diff.DiffFormatter
 import org.eclipse.jgit.lib.Repository
+import org.eclipse.jgit.submodule.SubmoduleWalk.IgnoreSubmoduleMode
 import java.io.ByteArrayOutputStream
 import java.io.File
 
@@ -51,7 +52,7 @@ class GitWorkspaceReader(
         locate()?.let { repoDir -> runCatching { diffOf(repoDir, path) }.getOrDefault("") } ?: ""
 
     private fun readStatusOf(repoDir: File): GitStatus =
-        Git.open(repoDir).use { git ->
+        openReadOnly(repoDir).use { git ->
             val branch = runCatching { git.repository.branch }.getOrDefault("(none)")
             GitStatus(branch, toChanges(git))
         }
@@ -59,7 +60,7 @@ class GitWorkspaceReader(
     private fun toChanges(git: Git): List<GitChange> {
         // JGit's worktree-vs-index diff lists untracked files as added, so pull them out of the
         // unstaged set and report them only under untracked (they have no staged/unstaged meaning).
-        val untrackedPaths = git.status().call().untracked
+        val untrackedPaths = readUntracked(git)
         val staged =
             if (hasCommit(git.repository)) {
                 git
@@ -73,6 +74,7 @@ class GitWorkspaceReader(
         val unstaged =
             git
                 .diff()
+                .setNewTree(ReadOnlyGitTree(git.repository))
                 .call()
                 .filter { !untrackedPaths.contains(it.newPath) }
                 .map { entryToChange(it, GitChangeArea.UNSTAGED) }
@@ -86,39 +88,53 @@ class GitWorkspaceReader(
         repoDir: File,
         path: String,
     ): String {
-        Git.open(repoDir).use { git ->
-            val out = ByteArrayOutputStream()
-            val formatter = DiffFormatter(out)
-            formatter.setRepository(git.repository)
-            formatter.setContext(5)
-            val untrackedPaths = git.status().call().untracked
+        openReadOnly(repoDir).use { git ->
+            val untrackedPaths = readUntracked(git)
             val unstaged =
                 git
                     .diff()
+                    .setNewTree(ReadOnlyGitTree(git.repository))
                     .call()
                     .filter { !untrackedPaths.contains(it.newPath) }
                     .filter { it.newPath == path || it.oldPath == path }
             if (unstaged.isNotEmpty()) {
                 val renderer = WorktreeDiffRenderer(repoDir)
-                unstaged.forEach { out.write(renderer.render(git.repository, it).toByteArray(Charsets.UTF_8)) }
-            } else if (hasCommit(git.repository)) {
-                val staged =
+                return unstaged.joinToString("") { renderer.render(git.repository, it) }
+            }
+            val staged =
+                if (hasCommit(git.repository)) {
                     git
                         .diff()
                         .setCached(true)
                         .call()
                         .filter { it.newPath == path || it.oldPath == path }
-                // Staged (index vs HEAD) pairs live entirely in the object database, so the
-                // formatter needs no worktree-side materialization and stays read-only as is.
+                } else {
+                    emptyList()
+                }
+            val out = ByteArrayOutputStream()
+            DiffFormatter(out).use { formatter ->
+                formatter.setRepository(git.repository)
+                formatter.setContext(5)
+                // Staged pairs live entirely in the object database, without worktree writes.
                 formatter.format(staged)
+                formatter.flush()
+                return out.toByteArray().toString(Charsets.UTF_8)
             }
-            formatter.flush()
-            return out.toByteArray().toString(Charsets.UTF_8)
         }
     }
 
     /** True when the repository has at least one commit (an unborn `HEAD` resolves to `null`). */
     private fun hasCommit(repo: Repository): Boolean = runCatching { repo.resolve("HEAD") }.getOrNull() != null
+
+    private fun openReadOnly(directory: File): Git = Git.open(directory, ReadOnlyGitFileSystem())
+
+    private fun readUntracked(git: Git): Set<String> =
+        git
+            .status()
+            .setWorkingTreeIt(ReadOnlyGitTree(git.repository))
+            .setIgnoreSubmodules(IgnoreSubmoduleMode.ALL)
+            .call()
+            .untracked
 
     private fun entryToChange(
         entry: DiffEntry,

@@ -2,6 +2,8 @@
 
 更新：2026-09-21。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
 
+本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。本轮为本地提交，未自动推送、main 合并或发布。
+
 ## Completed
 
 所有已交付 HXA 见[完成记录索引](../completion-records/index.md)，M0 见[工程基线](../completion-records/M0.md)。记录的完成只限各自范围。
@@ -18,7 +20,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型的206场景/统计、199报告和双终端实现已合入main；198普通应用主进程死亡与页面路径已完成收口，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。199/206尚未完成最终验收。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机验收本次跳过，不记通过。
+CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型准备与198双终端已整合，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。本轮206本地核心范围已完成，199只剩物理专项；验收分支尚未合入 main 或跑远端 CI。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机缺口不记通过。
 
 HXA-197 单个手动 PTY 已交付，见[完成记录](../completion-records/HXA-197.md)。本轮修复快速逐键输入丢字符，补齐关闭页面后的 1 MiB 以上输出、超限输入、Ctrl-C、运行中租期，以及普通应用主进程/Runtime 死亡和实际重启对账。完整主机门禁、双 API 各 49/49、独立恢复旅程 2/2 通过；准备测试另计，详见[最终证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。未把 30 分钟 idle、长租期、OEM/Doze/热压或真实 16 KiB 设备计为通过，这些继续归 199。
 
@@ -30,7 +32,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 所有者已授权继续剩余任务。**HXA-196** 的租期、私有前台 owner、幂等提交/取消与恢复查询已合入并推送 main；平台/核心验证及未接入产品的边界见[196 切片记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。已整合订阅终态流式传输与后台提交扣时修复，见[Runtime 修复](../bug-fixes/2026-09-18-runtime-streaming-terminal-and-lease.md)；已接入执行线程占用和持久身份机制，完整主机门禁与四象限定向 20 项通过，见[执行占用切片](../evidence/development/hxa-196-execution-ownership-2026-09-18.md)。异步工具与预算/结果回收组合已合并并推送 main；剩余验收见上，不能将当前切片视为完整后台功能。
 
-**207 与 191 的具名提交已合入 main。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。合并后完整主机门禁、定向设备 62 项通过和 18 项条件跳过见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；**按 2026-09-20 最新范围，206 本轮只整理计划，交接后再实施**。
+**207 与 191 的具名提交已合入 main。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。历史定向矩阵见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；206 后续已获实施授权并完成，不再受当时“仅规划”限制。
 
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，HXA-207 已交付，191 已交付。12 项未闭合义务分为：3 项收尾验收、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
@@ -44,7 +46,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 2026-09-18 审查修复已落代码：会话权限快照与 v23 迁移、权限修改/审计事务和并发编辑、SAF 来源移除、浏览器标签超限、目录截断提示、模型列表读取失败及订阅 Runtime 有界预览/落盘/失败结算。原问题与取舍见[审查复核](../evidence/development/review-followup-2026-09-18.md)，实施与验收见[修复收敛记录](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。不恢复 ADR 已撤销的订阅累计配额；终态完整结果物化与真机资源压力仍有验证边界。
 
-207 与 191 经所有者授权实施后已全部交付并合入 main。小模型准备切片与198双终端已整合；206场景校验和199报告工具保留为准备交付；完整 206 与 199 最终验收等待协调者统驭。
+207 与 191 经所有者授权实施后已全部交付并合入 main。小模型准备切片与198双终端已整合；206的完成由本轮实际执行支持，199报告工具与模拟器证据不替代物理专项。
 
 本轮合并后完整主机门禁通过；API29/36 × consumer/developer 修复/Runtime 定向矩阵共 244 项 instrumentation（含 2 项探针准备），另有 2 次独立主进程死亡检查通过，独占设备全部正常退出。此证据不等于 206 全产品验收，详见上述收敛记录。
 
@@ -58,7 +60,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 
 批次 B 开发前的本地收尾、验证范围与 Claude Code 交接见[2026-09-17 准备记录](../evidence/development/batch-b-readiness-2026-09-17.md)。HXA-204/205 已按顺序切片明确交付边界；JSONL 导出已由所有者在本会话授权实施，已由独立 HXA-211 交付，见[完成记录](../completion-records/HXA-211.md)。
 
-- **后续计划：[198](../completion-records/HXA-198.md) 双终端已交付，[199](tasks/HXA-199.md)／[206](tasks/HXA-206.md) 准备就绪**；191、197、211 已交付，196 真机验收按所有者指示本次跳过，未计通过。193、195、204、205 均已交付，各任务证据与范围见完成记录。
+- **后续计划：[206](../completion-records/HXA-206.md) 本地核心范围已交付，[199](tasks/HXA-199.md) 待物理设备**；191、197、198、211 已交付，196 真机历史豁免未计通过。193、195、204、205 均已交付，各任务证据与范围见完成记录。
 - **执行环境后续**：196后台Job与197手动PTY→198多会话→199终端验收；197不等待196。193资产/升级/CI、194命令详情、195实时输出不跟随完整终端后移。
 - **条件允许时收尾**：190 真实订阅、125 受保护 Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按 120→122→121→123，不自动开始外部提交。
 - 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 候选及工具 descriptor 候选不因整理而接受。
@@ -67,6 +69,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 
 | 项目 | 缺少条件 / 决策 |
 | --- | --- |
+| HXA-199 终端物理专项 | OEM/HOME/安全锁屏/Doze/热压/物理长稳与真实 16 KiB 设备未提供；双 API 模拟器、实际默认时长、覆盖升级及普通双 shell 恢复已验，不重复用模拟器替代真机 |
 | HXA-125 受保护 Connector 服务验收 | WorkBuddy 来源样本已补齐；仍需独立测试账号验证凭据无效、权限拒绝、厂商撤销和重连；匿名服务与 fixture 不替代这些证据 |
 | HXA-126 / HXA-129 | [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) / [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 待审查；HXA-126 还需两家独立服务账号与 redirect 条件 |
 | HXA-130 | [ADR-CONNECTORS-004](../adr/connectors/004-signed-index.md) 待审查；生产安装集成依赖129，纯离线格式fixture可准备，市场运行时未授权 |

@@ -32,6 +32,7 @@ from acceptance_reports import (
     safe_load_json,
     verify_source_evidence,
 )
+from owned_acceptance import add_owned_arguments, collect_from_arguments, verify_manifest_batch
 
 HXA_199_MANDATORY_SCENES: Set[str] = {
     "realtime_logs_and_stop",
@@ -189,6 +190,8 @@ def verify_terminal_runtime(manifest_path: Path, output_dir: Path) -> int:
         exit_code=2,
     )
 
+    verify_manifest_batch(data, manifest_dir)
+
     # 5. Mandatory scenes coverage
     missing_mandatory = HXA_199_MANDATORY_SCENES - seen_scene_ids
     require(
@@ -301,11 +304,16 @@ def main() -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--manifest", type=Path, required=True, help="Path to terminal manifest JSON file")
+    parser.add_argument("--manifest", type=Path, help="Path to terminal manifest JSON file")
+    add_owned_arguments(parser)
     parser.add_argument("--output", type=Path, required=True, help="Output directory to write report.json and report.md")
     args = parser.parse_args()
 
     try:
+        if args.owned_run:
+            return collect_from_arguments(args)
+        require(args.manifest is not None, "Specify --manifest or --owned-run")
+        require(args.expected_methods is None, "--expected-methods requires --owned-run")
         return verify_terminal_runtime(args.manifest, args.output)
     except EvidenceError as e:
         sys.stderr.write(f"ERROR: {e}\n")

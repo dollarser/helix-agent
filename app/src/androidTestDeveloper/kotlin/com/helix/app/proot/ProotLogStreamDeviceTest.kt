@@ -32,6 +32,7 @@ import com.helix.runtime.proot.ipc.ProotJobCommand
 import com.helix.runtime.proot.ipc.ProotJobSpec
 import com.helix.runtime.proot.ipc.ProotLogWire
 import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -146,11 +147,15 @@ class ProotLogStreamDeviceTest {
     }
 
     @Test fun cancellationKeepsTailAndRejectsCrossJobOrWrongBinding() {
+        val startNanos = System.nanoTime()
         val job = start("printf 'TAIL_BEFORE_CANCEL'; sleep 60")
         val page = awaitPage(job, null)
+        val firstPacketMs = (System.nanoTime() - startNanos) / 1_000_000
         assertNull(logs.read(job.id, "f".repeat(64), null))
+        val cancelNanos = System.nanoTime()
         client.cancel(job.id)
         val terminal = client.awaitTerminal(job.id, timeoutMs = 30000) as ProotJobClient.AwaitOutcome.Terminal
+        val cancellationMs = (System.nanoTime() - cancelNanos) / 1_000_000
         assertEquals("CANCELLED", terminal.record.state.name)
         var tail: JobLogPage
         val deadline = System.nanoTime() + 10_000_000_000L
@@ -163,6 +168,16 @@ class ProotLogStreamDeviceTest {
         awaitPage(next, null)
         assertNull(logs.read(next.id, next.hash, page.cursor))
         assertEquals("TAIL_BEFORE_CANCEL", page.bytes.decodeToString())
+        android.util.Log.i(
+            "HelixAcceptance",
+            JSONObject()
+                .put("test_class", javaClass.name)
+                .put("test_method", "cancellationKeepsTailAndRejectsCrossJobOrWrongBinding")
+                .put(
+                    "metrics",
+                    JSONObject().put("first_packet_ms", firstPacketMs).put("cancellation_ms", cancellationMs),
+                ).toString(),
+        )
     }
 
     @Test fun binderDeathMakesPreviewUnavailableWithoutRebindingOrReplay() {

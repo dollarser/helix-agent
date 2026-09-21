@@ -112,9 +112,13 @@ class ProotTerminalSessionDeviceTest {
                     val connection = terminal.attach()
                     try {
                         awaitText(connection, "helix> ")
+                        // Publish only after echo has closed the file; exists() alone can see an empty redirection.
                         assertEquals(
                             "ACCEPTED",
-                            connection.write("sh -c 'echo $$ > child.pid; exec sleep 120'\n".toByteArray()),
+                            connection.write(
+                                "sh -c 'echo $$ > child.pid.tmp; mv child.pid.tmp child.pid; exec sleep 120'\n"
+                                    .toByteArray(),
+                            ),
                         )
                         val pidFile = File(directory, "child.pid")
                         withTimeout(4000) { while (!pidFile.exists()) delay(25) }

@@ -8,6 +8,9 @@ source_checks() {
     python3 scripts/test-review-gates.py
     python3 -m unittest discover -s scripts/tests -p 'test_ci_*.py'
     python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
+    python3 -m unittest discover -s scripts/tests -p test_terminal_reports.py
+    python3 -m unittest discover -s scripts/tests -p test_product_journeys.py
+    python3 -m unittest discover -s scripts/tests -p test_owned_acceptance.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh

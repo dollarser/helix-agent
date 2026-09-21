@@ -32,7 +32,7 @@
 | [HXA-203](../../completion-records/HXA-203.md) | 已交付 | 产物交付闭环按四象限矩阵与批次A出口旅程交付（四态可用性、变更横幅、管线导出/取消、无查看器外部打开、返回产生任务）；不扩成通用文档解析或远程Git项目。 |
 | [HXA-204](../../completion-records/HXA-204.md) | 待实现 | 恢复展示和显式操作是增量；不重做Goal/审批状态机，不用统一resume覆盖不同副作用状态。 |
 | [HXA-205](../../completion-records/HXA-205.md) | 已交付 | 吸收191首次引导；与194命令详情分开，覆盖真实初始化/修复而非又做Runtime打包。 |
-| [HXA-206](../../development/tasks/HXA-206.md) | 集成验收 | 删除工具级ASK/ALLOW/DENY固定用例，使用工具二态+预设/CUSTOM；终端全套由199负责。 |
+| [HXA-206](../../completion-records/HXA-206.md) | 集成验收（后续已交付） | 删除工具级ASK/ALLOW/DENY固定用例，使用工具二态+预设/CUSTOM；终端全套由199负责。 |
 | [HXA-207](../../completion-records/HXA-207.md) | 待实现 | 不依赖126/129/130未来OAuth或市场；不复用201旧三态UI；已有导入服务继续复用。 |
 | [HXA-209](../../completion-records/HXA-209.md) | 待实现 | 保持主优先级；不等待未来PTY/后台Job才交付现有入口，未来入口在196/197接线时继承契约。 |
 

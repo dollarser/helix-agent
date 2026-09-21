@@ -64,7 +64,7 @@ class TestProductJourneysVerification(unittest.TestCase):
             self.assertEqual(r["identity"]["scope"], "HXA-206")
             self.assertEqual(r["counts"]["passed"], 6)
 
-    def test_valid_real_mode(self):
+    def test_synthetic_evidence_cannot_be_promoted_to_real(self):
         data = copy.deepcopy(self.base_data)
         data["mode"] = "real"
         data["app_apk_sha256"] = "a" * 64
@@ -73,11 +73,8 @@ class TestProductJourneysVerification(unittest.TestCase):
             tmp_path = Path(tmp)
             m = self.write_manifest(data, tmp_path)
             out = tmp_path / "out"
-            code = verify_product_journeys(m, out)
-            self.assertEqual(code, 0)
-            with (out / "report.json").open("r") as f:
-                r = json.load(f)
-            self.assertEqual(r["verdict"], "PASS")
+            with self.assertRaises(EvidenceError):
+                verify_product_journeys(m, out)
 
     def test_failed_scene_returns_exit_code_1(self):
         data = copy.deepcopy(self.base_data)
