@@ -137,16 +137,48 @@ class ConnectorService(
         endpoint: InstalledEndpoint,
         clientId: String,
         scope: String = "",
+        redirectUri: String = com.helix.app.mcp.oauth.McpOAuthCoordinator.DEFAULT_REDIRECT_URI,
     ): com.helix.app.mcp.oauth.McpOAuthPreparedAuth {
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
         requireOwned(endpoint)
-        val metadata = coordinator.discoverMetadata(endpoint.endpoint.url)
+        val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
         return coordinator.prepareAuthorization(
             serverId = endpoint.id,
             clientId = clientId,
             metadata = metadata,
             scope = scope,
+            redirectUri = redirectUri,
         )
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun resolveOAuthMetadata(
+        coordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator,
+        endpointUrl: String,
+    ): com.helix.extensions.mcp.oauth.McpOAuthServerMetadata {
+        val lower = endpointUrl.lowercase()
+        return when {
+            lower.contains("slack.com") -> {
+                com.helix.extensions.mcp.oauth.McpOAuthServerMetadata(
+                    issuer = "https://slack.com",
+                    authorizationEndpoint = "https://slack.com/oauth/v2/authorize",
+                    tokenEndpoint = "https://slack.com/api/oauth.v2.access",
+                    revocationEndpoint = "https://slack.com/api/auth.test",
+                )
+            }
+
+            lower.contains("github.com") -> {
+                com.helix.extensions.mcp.oauth.McpOAuthServerMetadata(
+                    issuer = "https://github.com",
+                    authorizationEndpoint = "https://github.com/login/oauth/authorize",
+                    tokenEndpoint = "https://github.com/login/oauth/access_token",
+                )
+            }
+
+            else -> {
+                coordinator.discoverMetadata(endpointUrl)
+            }
+        }
     }
 
     suspend fun testOAuth(endpoint: InstalledEndpoint): McpHandshakeSnapshot {

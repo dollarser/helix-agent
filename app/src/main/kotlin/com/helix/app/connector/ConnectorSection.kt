@@ -375,6 +375,16 @@ private fun OAuthAuthSection(
     val scope = rememberCoroutineScope()
     var clientId by remember(endpoint.id) { mutableStateOf("") }
     var scopeText by remember(endpoint.id) { mutableStateOf("") }
+    val defaultRedirect =
+        if (endpoint.endpoint.url
+                .lowercase()
+                .contains("slack.com")
+        ) {
+            "https://ngrok-free.app/slack/oauth_redirect"
+        } else {
+            "helix://oauth/callback"
+        }
+    var redirectUri by remember(endpoint.id) { mutableStateOf(defaultRedirect) }
     var connecting by remember(endpoint.id) { mutableStateOf(false) }
 
     if (hasOAuth) {
@@ -419,8 +429,14 @@ private fun OAuthAuthSection(
             singleLine = true,
             label = { Text(stringResource(R.string.connector_oauth_scope)) },
         )
+        OutlinedTextField(
+            value = redirectUri,
+            onValueChange = { redirectUri = it },
+            singleLine = true,
+            label = { Text("Redirect URI") },
+        )
         OutlinedButton(
-            enabled = !busy && clientId.isNotBlank(),
+            enabled = !busy && clientId.isNotBlank() && redirectUri.isNotBlank(),
             onClick = {
                 scope.launch {
                     connecting = true
@@ -428,7 +444,7 @@ private fun OAuthAuthSection(
                     try {
                         val prepared =
                             withContext(Dispatchers.IO) {
-                                service.prepareOAuth(endpoint, clientId, scopeText)
+                                service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
                             }
                         val intent =
                             Intent(Intent.ACTION_VIEW, android.net.Uri.parse(prepared.authUri)).apply {

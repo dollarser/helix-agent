@@ -276,13 +276,30 @@ class McpOAuthClient(
 
     private fun parseTokens(body: String): McpOAuthTokens {
         val element = json.parseToJsonElement(body).jsonObject
+        val isOk = element["ok"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: true
+        if (!isOk) {
+            val error = element["error"]?.jsonPrimitive?.content ?: "OAuth token request returned not ok"
+            throw McpOAuthException(message = error, errorCode = error)
+        }
+
+        val authedUser =
+            try {
+                element["authed_user"]?.jsonObject
+            } catch (_: Exception) {
+                null
+            }
         val accessToken =
             element["access_token"]?.jsonPrimitive?.content
+                ?: authedUser?.get("access_token")?.jsonPrimitive?.content
                 ?: throw McpOAuthException("Missing access_token in token response")
         val tokenType = element["token_type"]?.jsonPrimitive?.content ?: "Bearer"
         val expiresIn = element["expires_in"]?.jsonPrimitive?.longOrNull
-        val refreshToken = element["refresh_token"]?.jsonPrimitive?.content
-        val scope = element["scope"]?.jsonPrimitive?.content
+        val refreshToken =
+            element["refresh_token"]?.jsonPrimitive?.content
+                ?: authedUser?.get("refresh_token")?.jsonPrimitive?.content
+        val scope =
+            element["scope"]?.jsonPrimitive?.content
+                ?: authedUser?.get("scope")?.jsonPrimitive?.content
 
         return McpOAuthTokens(
             accessToken = accessToken,
