@@ -7,6 +7,8 @@ import com.helix.extensions.mcp.McpNetworkPermit
 import com.helix.extensions.mcp.oauth.McpOAuthClient
 import com.helix.extensions.mcp.oauth.McpOAuthServerMetadata
 import com.sun.net.httpserver.HttpServer
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -160,6 +162,64 @@ class McpOAuthCoordinatorTest {
             assertTrue(outcome.vendorRevoked)
             assertFalse(secretStore.contains(tokenAlias))
             assertFalse(secretStore.contains(refreshAlias))
+        }
+
+    @Test
+    fun hasTokenReflectsSecretStoreState() =
+        runBlocking {
+            assertFalse(coordinator.hasToken("slack-mcp"))
+            val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
+            secretStore.put(tokenAlias, "test-token")
+            assertTrue(coordinator.hasToken("slack-mcp"))
+
+            coordinator.revokeAndClear(
+                serverId = "slack-mcp",
+                clientId = "client-id",
+                revocationEndpoint = null,
+            )
+            assertFalse(coordinator.hasToken("slack-mcp"))
+        }
+
+    @Test
+    fun eventsFlowEmitsOnCallback() =
+        runBlocking {
+            var emitted: McpOAuthResult? = null
+            val job =
+                launch {
+                    coordinator.events.collect { emitted = it }
+                }
+
+            val prepared =
+                coordinator.prepareAuthorization(
+                    serverId = "slack-mcp",
+                    clientId = "client-id-xyz",
+                    metadata =
+                        McpOAuthServerMetadata(
+                            issuer = mockServer.baseUrl,
+                            authorizationEndpoint = "${mockServer.baseUrl}/authorize",
+                            tokenEndpoint = "${mockServer.baseUrl}/token",
+                        ),
+                    scope = "channels:read",
+                )
+
+            mockServer.setTokenResponse(
+                """
+                {
+                    "access_token": "flow-token-123",
+                    "token_type": "Bearer"
+                }
+                """.trimIndent(),
+            )
+
+            val callbackUrl = "helix://oauth/mcp/callback?code=flow-code-456&state=${prepared.state}"
+            coordinator.handleCallback(callbackUrl)
+
+            delay(50)
+            job.cancel()
+
+            assertTrue(emitted is McpOAuthResult.Success)
+            assertEquals("slack-mcp", (emitted as McpOAuthResult.Success).serverId)
+            assertEquals("flow-token-123", (emitted as McpOAuthResult.Success).tokens.accessToken)
         }
 
     private class InMemorySecretStore : SecretStore {

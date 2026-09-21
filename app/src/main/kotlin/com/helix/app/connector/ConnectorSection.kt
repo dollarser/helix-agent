@@ -1,5 +1,6 @@
 package com.helix.app.connector
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -19,11 +20,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
+import com.helix.app.mcp.oauth.McpOAuthResult
 import com.helix.app.ui.rememberImportActionState
 import com.helix.extensions.mcp.McpHandshakeSnapshot
 import com.helix.extensions.skills.connector.ConnectorPackage
@@ -174,6 +177,8 @@ fun ConnectorSection(service: ConnectorService) {
     }
 }
 
+private enum class EndpointAuthMode { BEARER, OAUTH }
+
 @Composable
 // Independent UI event callbacks preserve cancellation.
 @Suppress("FunctionName", "LongMethod", "ThrowsCount", "CyclomaticComplexMethod")
@@ -182,32 +187,31 @@ private fun EndpointRow(
     endpoint: InstalledEndpoint,
 ) {
     val scope = rememberCoroutineScope()
+    var authMode by remember(endpoint.id) {
+        mutableStateOf(
+            if (service.hasOAuthToken(endpoint)) EndpointAuthMode.OAUTH else EndpointAuthMode.BEARER,
+        )
+    }
+    var hasOAuth by remember(endpoint.id) { mutableStateOf(service.hasOAuthToken(endpoint)) }
+    var oauthError by remember(endpoint.id) { mutableStateOf<String?>(null) }
     var bearer by remember(endpoint.id) { mutableStateOf("") }
     var snapshot by remember(endpoint.id) { mutableStateOf<McpHandshakeSnapshot?>(null) }
     var selection by remember(endpoint.id) { mutableStateOf(emptySet<String>()) }
     var active by remember(endpoint.id) { mutableStateOf(service.enabled(endpoint)) }
     var busy by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("${endpoint.endpoint.name}: ${endpoint.endpoint.url}")
-        Text(stringResource(if (active) R.string.connector_active else R.string.connector_inactive))
-        OutlinedTextField(
-            value = bearer,
-            onValueChange = { bearer = it },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            label = { Text(stringResource(R.string.connector_bearer)) },
-        )
-        OutlinedButton(enabled = !busy, onClick = {
-            scope.launch {
+
+    LaunchedEffect(endpoint.id) {
+        service.oauthCoordinator?.events?.collect { result ->
+            if (result is McpOAuthResult.Success && result.serverId == endpoint.id) {
+                hasOAuth = true
+                oauthError = null
                 busy = true
                 failed = false
                 snapshot = null
                 selection = emptySet()
-                val credential = bearer
-                bearer = ""
                 try {
-                    snapshot = withContext(Dispatchers.IO) { service.test(endpoint, credential) }
+                    snapshot = withContext(Dispatchers.IO) { service.testOAuth(endpoint) }
                 } catch (cancel: CancellationException) {
                     throw cancel
                 } catch (_: Exception) {
@@ -216,8 +220,91 @@ private fun EndpointRow(
                     active = service.enabled(endpoint)
                     busy = false
                 }
+            } else if (result is McpOAuthResult.Failure) {
+                oauthError = result.message
             }
-        }) { Text(stringResource(R.string.connector_test)) }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("${endpoint.endpoint.name}: ${endpoint.endpoint.url}")
+        Text(stringResource(if (active) R.string.connector_active else R.string.connector_inactive))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                enabled = authMode != EndpointAuthMode.BEARER && !busy,
+                onClick = { authMode = EndpointAuthMode.BEARER },
+            ) {
+                Text(stringResource(R.string.connector_auth_mode_bearer))
+            }
+            OutlinedButton(
+                enabled = authMode != EndpointAuthMode.OAUTH && !busy,
+                onClick = { authMode = EndpointAuthMode.OAUTH },
+            ) {
+                Text(stringResource(R.string.connector_auth_mode_oauth))
+            }
+        }
+
+        if (authMode == EndpointAuthMode.BEARER) {
+            OutlinedTextField(
+                value = bearer,
+                onValueChange = { bearer = it },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                label = { Text(stringResource(R.string.connector_bearer)) },
+            )
+            OutlinedButton(enabled = !busy, onClick = {
+                scope.launch {
+                    busy = true
+                    failed = false
+                    snapshot = null
+                    selection = emptySet()
+                    val credential = bearer
+                    bearer = ""
+                    try {
+                        snapshot = withContext(Dispatchers.IO) { service.test(endpoint, credential) }
+                    } catch (cancel: CancellationException) {
+                        throw cancel
+                    } catch (_: Exception) {
+                        failed = true
+                    } finally {
+                        active = service.enabled(endpoint)
+                        busy = false
+                    }
+                }
+            }) { Text(stringResource(R.string.connector_test)) }
+        } else {
+            OAuthAuthSection(
+                service = service,
+                endpoint = endpoint,
+                hasOAuth = hasOAuth,
+                busy = busy,
+                onHasOAuthChange = { hasOAuth = it },
+                onTestOAuth = {
+                    scope.launch {
+                        busy = true
+                        failed = false
+                        snapshot = null
+                        selection = emptySet()
+                        try {
+                            snapshot = withContext(Dispatchers.IO) { service.testOAuth(endpoint) }
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (_: Exception) {
+                            failed = true
+                        } finally {
+                            active = service.enabled(endpoint)
+                            busy = false
+                        }
+                    }
+                },
+                onError = { oauthError = it },
+            )
+        }
+
+        oauthError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
         snapshot?.let { result ->
             result.metadata.tools.forEach { tool ->
                 Row {
@@ -267,7 +354,104 @@ private fun EndpointRow(
                 }
             }) { Text(stringResource(R.string.connector_disable)) }
         }
-        if (failed) Text(stringResource(R.string.connector_connection_failed), color = MaterialTheme.colorScheme.error)
+        if (failed) {
+            Text(stringResource(R.string.connector_connection_failed), color = MaterialTheme.colorScheme.error)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
+private fun OAuthAuthSection(
+    service: ConnectorService,
+    endpoint: InstalledEndpoint,
+    hasOAuth: Boolean,
+    busy: Boolean,
+    onHasOAuthChange: (Boolean) -> Unit,
+    onTestOAuth: () -> Unit,
+    onError: (String?) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var clientId by remember(endpoint.id) { mutableStateOf("") }
+    var scopeText by remember(endpoint.id) { mutableStateOf("") }
+    var connecting by remember(endpoint.id) { mutableStateOf(false) }
+
+    if (hasOAuth) {
+        Text(
+            stringResource(R.string.connector_oauth_connected),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(enabled = !busy, onClick = onTestOAuth) {
+                Text(stringResource(R.string.connector_test))
+            }
+            OutlinedButton(
+                enabled = !busy,
+                onClick = {
+                    scope.launch {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                service.revokeOAuth(endpoint, clientId)
+                            }
+                            onHasOAuthChange(false)
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (e: Exception) {
+                            onError(e.message)
+                        }
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.connector_oauth_disconnect))
+            }
+        }
+    } else {
+        OutlinedTextField(
+            value = clientId,
+            onValueChange = { clientId = it },
+            singleLine = true,
+            label = { Text(stringResource(R.string.connector_oauth_client_id)) },
+        )
+        OutlinedTextField(
+            value = scopeText,
+            onValueChange = { scopeText = it },
+            singleLine = true,
+            label = { Text(stringResource(R.string.connector_oauth_scope)) },
+        )
+        OutlinedButton(
+            enabled = !busy && clientId.isNotBlank(),
+            onClick = {
+                scope.launch {
+                    connecting = true
+                    onError(null)
+                    try {
+                        val prepared =
+                            withContext(Dispatchers.IO) {
+                                service.prepareOAuth(endpoint, clientId, scopeText)
+                            }
+                        val intent =
+                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(prepared.authUri)).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                        context.startActivity(intent)
+                    } catch (cancel: CancellationException) {
+                        throw cancel
+                    } catch (e: Exception) {
+                        connecting = false
+                        onError(e.message)
+                    }
+                }
+            },
+        ) {
+            Text(stringResource(R.string.connector_oauth_connect))
+        }
+        if (connecting) {
+            Text(
+                stringResource(R.string.connector_oauth_connecting),
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 

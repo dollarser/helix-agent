@@ -75,7 +75,7 @@ class McpOAuthException(
 ) : RuntimeException(message, cause)
 
 class McpOAuthClient(
-    private val endpointGate: McpEndpointGate,
+    val endpointGate: McpEndpointGate,
     private val okHttpClient: OkHttpClient = defaultHttpClient(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }

@@ -1,14 +1,19 @@
 package com.helix.app.mcp.oauth
 
 import android.net.Uri
+import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.SecretAlias
 import com.helix.core.storage.SecretStore
 import com.helix.extensions.mcp.oauth.McpOAuthAuthRequest
 import com.helix.extensions.mcp.oauth.McpOAuthClient
+import com.helix.extensions.mcp.oauth.McpOAuthDiscovery
 import com.helix.extensions.mcp.oauth.McpOAuthPkce
 import com.helix.extensions.mcp.oauth.McpOAuthRevocationResult
 import com.helix.extensions.mcp.oauth.McpOAuthServerMetadata
 import com.helix.extensions.mcp.oauth.McpOAuthTokens
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import java.util.UUID
 
 sealed class McpOAuthResult {
@@ -34,6 +39,16 @@ class McpOAuthCoordinator(
     private val attemptStore: McpOAuthAttemptStore,
     private val oauthClient: McpOAuthClient,
 ) {
+    private val _events = MutableSharedFlow<McpOAuthResult>(extraBufferCapacity = 16)
+    val events: SharedFlow<McpOAuthResult> = _events.asSharedFlow()
+
+    fun hasToken(serverId: String): Boolean = secretStore.contains(SecretAlias(tokenAlias(serverId)))
+
+    suspend fun discoverMetadata(endpointUrl: String): McpOAuthServerMetadata {
+        val normalized = NormalizedEndpoint.parse(endpointUrl)
+        return McpOAuthDiscovery(oauthClient.endpointGate).discover(normalized)
+    }
+
     /**
      * Prepares an OAuth authorization attempt: generates PKCE and state,
      * persists attempt, and constructs the browser URL.
@@ -94,8 +109,14 @@ class McpOAuthCoordinator(
      */
     suspend fun handleCallback(uri: Uri): McpOAuthResult = handleCallback(uri.toString())
 
-    @Suppress("ReturnCount", "TooGenericExceptionCaught")
     suspend fun handleCallback(callbackUrl: String): McpOAuthResult {
+        val outcome = executeCallback(callbackUrl)
+        _events.tryEmit(outcome)
+        return outcome
+    }
+
+    @Suppress("ReturnCount", "TooGenericExceptionCaught")
+    private suspend fun executeCallback(callbackUrl: String): McpOAuthResult {
         val queryParams = parseQueryParams(callbackUrl)
         val state =
             queryParams["state"]

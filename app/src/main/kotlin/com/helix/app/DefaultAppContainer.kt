@@ -582,7 +582,14 @@ internal class DefaultAppContainer(
 
     override val connectorService by lazy {
         com.helix.app.connector
-            .ConnectorService(context, storage, mcpService, skillImportService, skillRepository)
+            .ConnectorService(
+                context,
+                storage,
+                mcpService,
+                skillImportService,
+                skillRepository,
+                mcpOAuthCoordinator,
+            )
     }
 
     override val a2aService: A2aAppService =

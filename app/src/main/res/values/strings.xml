@@ -605,6 +605,14 @@
     <string name="connector_active">工具已启用</string>
     <string name="connector_inactive">工具未激活，请测试连接并选择工具</string>
     <string name="connector_bearer">Bearer token（已有凭据可留空）</string>
+    <string name="connector_auth_mode_bearer">Bearer Token</string>
+    <string name="connector_auth_mode_oauth">OAuth 2.0 (PKCE)</string>
+    <string name="connector_oauth_connect">OAuth 登录</string>
+    <string name="connector_oauth_disconnect">断开并撤销</string>
+    <string name="connector_oauth_connected">OAuth 2.0 已授权</string>
+    <string name="connector_oauth_client_id">Client ID</string>
+    <string name="connector_oauth_scope">Scope（可选，空格分隔）</string>
+    <string name="connector_oauth_connecting">等待浏览器授权返回…</string>
     <string name="connector_test">测试连接</string>
     <string name="connector_enable">启用所选工具</string>
     <string name="connector_disable">停用工具</string>

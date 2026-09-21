@@ -604,6 +604,14 @@
     <string name="connector_active">Tools enabled</string>
     <string name="connector_inactive">Tools inactive. Test the connection and select tools.</string>
     <string name="connector_bearer">Bearer token (leave blank to reuse)</string>
+    <string name="connector_auth_mode_bearer">Bearer token</string>
+    <string name="connector_auth_mode_oauth">OAuth 2.0 (PKCE)</string>
+    <string name="connector_oauth_connect">Connect with OAuth</string>
+    <string name="connector_oauth_disconnect">Disconnect &amp; revoke</string>
+    <string name="connector_oauth_connected">OAuth 2.0 authorized</string>
+    <string name="connector_oauth_client_id">Client ID</string>
+    <string name="connector_oauth_scope">Scope (optional, space-separated)</string>
+    <string name="connector_oauth_connecting">Waiting for browser authorization…</string>
     <string name="connector_test">Test connection</string>
     <string name="connector_enable">Enable selected tools</string>
     <string name="connector_disable">Disable tools</string>
