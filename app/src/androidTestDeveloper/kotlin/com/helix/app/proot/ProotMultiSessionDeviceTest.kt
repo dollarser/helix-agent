@@ -1,11 +1,18 @@
 package com.helix.app.proot
 
+import android.content.Context
+import android.os.Parcel
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.terminal.ManualTerminal
 import com.helix.core.model.SafetyProfile
+import com.helix.runtime.proot.client.ProotConnection
+import com.helix.runtime.proot.client.ProotRuntimeSupervisor
+import com.helix.runtime.proot.core.PtySessionRecord
+import com.helix.runtime.proot.core.PtySessionStore
+import com.helix.runtime.proot.ipc.ProotRuntimeProtocol
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -297,24 +304,15 @@ class ProotMultiSessionDeviceTest {
                 val terminal = checkNotNull(container.manualTerminal)
                 val rel = "multi-soak-${UUID.randomUUID()}"
                 val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                val observedPids = mutableListOf<Int>()
+                val initialFds = File("/proc/self/fd").listFiles()?.size ?: -1
+                val initialThreads = File("/proc/self/task").listFiles()?.size ?: Thread.activeCount()
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     repeat(20) { iteration ->
-                        val session = terminal.start(rel, 30_000)
-                        assertTrue("Iteration $iteration must have session", terminal.hasSession())
-                        val conn = terminal.attach(session.sessionId)
-                        try {
-                            assertEquals("ACCEPTED", conn.write("printf cycle$iteration > out.txt\n".toByteArray()))
-                            withTimeout(10_000) { while (!File(dir, "out.txt").exists()) delay(20) }
-                            File(dir, "out.txt").delete()
-                        } finally {
-                            conn.detach()
-                        }
-                        terminal.stop(session.sessionId)
-                        awaitStopped(terminal, session.sessionId)
-                        terminal.settle(session.sessionId)
-                        assertFalse("Iteration $iteration must be settled", terminal.hasSession())
+                        MultiSessionTestSupport.runSoakCycle(terminal, rel, dir, iteration, observedPids)
                     }
+                    MultiSessionTestSupport.assertSoakResources(observedPids, initialFds, initialThreads)
                 } finally {
                     cleanRemainingSessions(terminal)
                     container.profileStore.switchTo(previous)
@@ -325,9 +323,9 @@ class ProotMultiSessionDeviceTest {
     }
 
     @Test
-    fun crashRecoveryReconcilesOrphanedBindings() {
+    fun realProcessDeathRecoveryAcrossMainRecreationAndRuntimeKill() {
         ensureInstalledRuntime(context)
-        ActivityScenario.launch(MainActivity::class.java).use {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             runBlocking {
                 val previous = container.profileStore.profile
                 val terminal = checkNotNull(container.manualTerminal)
@@ -335,29 +333,27 @@ class ProotMultiSessionDeviceTest {
                 val rel2 = "multi-crash-2-${UUID.randomUUID()}"
                 val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
                 val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
-                val b1File = File(context.filesDir, "terminal-sessions/binding-1.json")
                 try {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel2, 30_000)
                     assertEquals(2, terminal.sessions().size)
 
-                    // Simulate crash inconsistency: delete binding-1 file on disk
-                    if (b1File.exists()) {
-                        b1File.delete()
-                    }
+                    // 1. Recreate MainActivity: verify surviving sessions and execution
+                    scenario.recreate()
+                    val recovered = checkNotNull(container.manualTerminal)
+                    MultiSessionTestSupport.verifySurvivingSessions(recovered, s1.sessionId, s2.sessionId, dir1, dir2)
 
-                    // Querying or accessing sessions triggers reconcileBindings()
-                    val recovered = terminal.sessions()
-                    // Reconciled surviving session (s2) is intact and active
-                    assertTrue(recovered.any { it.sessionId == s2.sessionId })
+                    // 2. Kill the :proot Runtime process and verify UNKNOWN same-boot status
+                    MultiSessionTestSupport.killRuntime(context)
+                    MultiSessionTestSupport.awaitRuntimeLoss(recovered)
+                    verifyRetainedAdmission(context)
 
-                    terminal.stop(s1.sessionId)
-                    terminal.stop(s2.sessionId)
-                    awaitStopped(terminal, s2.sessionId)
-                    terminal.settle(s1.sessionId)
-                    terminal.settle(s2.sessionId)
-                    assertFalse(terminal.hasSession())
+                    // 3. Reconcile simulated reboot proof and settle
+                    MultiSessionTestSupport.reconcileRebootAndSettle(recovered, context, s1.sessionId, s2.sessionId)
+
+                    // 4. Verify fresh session start succeeds after recovery
+                    MultiSessionTestSupport.verifyCleanSessionStart(recovered, context)
                 } finally {
                     cleanRemainingSessions(terminal)
                     container.profileStore.switchTo(previous)
@@ -365,6 +361,179 @@ class ProotMultiSessionDeviceTest {
                     dir2.deleteRecursively()
                 }
             }
+        }
+    }
+}
+
+private object MultiSessionTestSupport {
+    suspend fun runSoakCycle(
+        terminal: ManualTerminal,
+        rel: String,
+        dir: File,
+        iteration: Int,
+        observedPids: MutableList<Int>,
+    ) {
+        val session = terminal.start(rel, 30_000)
+        assertTrue("Iteration $iteration must have session", terminal.hasSession())
+        val conn = terminal.attach(session.sessionId)
+        try {
+            assertEquals(
+                "ACCEPTED",
+                conn.write("echo \$\$ > pid.txt; printf cycle$iteration > out.txt\n".toByteArray()),
+            )
+            val pidFile = File(dir, "pid.txt")
+            val outFile = File(dir, "out.txt")
+            withTimeout(10_000) { while (!pidFile.exists() || !outFile.exists()) delay(20) }
+            val pid = pidFile.readText().trim().toInt()
+            assertTrue("Iteration $iteration shell PID must be valid", pid > 1)
+            assertTrue("Iteration $iteration shell PID must exist while active", File("/proc/$pid").exists())
+            observedPids.add(pid)
+            pidFile.delete()
+            outFile.delete()
+        } finally {
+            conn.detach()
+        }
+        terminal.stop(session.sessionId)
+        awaitStopped(terminal, session.sessionId)
+        terminal.settle(session.sessionId)
+        assertFalse("Iteration $iteration must be settled", terminal.hasSession())
+        val lastPid = observedPids.last()
+        withTimeout(5000) { while (File("/proc/$lastPid").exists()) delay(25) }
+        assertFalse("Child shell PID $lastPid must exit after settle", File("/proc/$lastPid").exists())
+    }
+
+    fun assertSoakResources(
+        observedPids: List<Int>,
+        initialFds: Int,
+        initialThreads: Int,
+    ) {
+        assertEquals(20, observedPids.size)
+        for (pid in observedPids) {
+            assertFalse("Child shell PID $pid must not survive 20-cycle soak", File("/proc/$pid").exists())
+        }
+        val finalFds = File("/proc/self/fd").listFiles()?.size ?: -1
+        val finalThreads = File("/proc/self/task").listFiles()?.size ?: Thread.activeCount()
+        if (initialFds > 0 && finalFds > 0) {
+            val fdDelta = finalFds - initialFds
+            assertTrue(
+                "FD delta must be bounded (initial: $initialFds, final: $finalFds)",
+                kotlin.math.abs(fdDelta) <= 15,
+            )
+        }
+        if (initialThreads > 0 && finalThreads > 0) {
+            val threadDelta = finalThreads - initialThreads
+            assertTrue(
+                "Thread delta must be bounded (initial: $initialThreads, final: $finalThreads)",
+                kotlin.math.abs(threadDelta) <= 10,
+            )
+        }
+    }
+
+    suspend fun verifySurvivingSessions(
+        terminal: ManualTerminal,
+        s1Id: String,
+        s2Id: String,
+        dir1: File,
+        dir2: File,
+    ) {
+        val survivingSessions = terminal.sessions()
+        assertEquals(2, survivingSessions.size)
+        assertTrue("Surviving sessions must remain running", survivingSessions.all { it.phase == "RUNNING" })
+
+        val conn1 = terminal.attach(s1Id)
+        try {
+            assertEquals("ACCEPTED", conn1.write("printf live1 > survive1.txt\n".toByteArray()))
+            withTimeout(10_000) { while (!File(dir1, "survive1.txt").exists()) delay(20) }
+            assertEquals("live1", File(dir1, "survive1.txt").readText())
+        } finally {
+            conn1.detach()
+        }
+        val conn2 = terminal.attach(s2Id)
+        try {
+            assertEquals("ACCEPTED", conn2.write("printf live2 > survive2.txt\n".toByteArray()))
+            withTimeout(10_000) { while (!File(dir2, "survive2.txt").exists()) delay(20) }
+            assertEquals("live2", File(dir2, "survive2.txt").readText())
+        } finally {
+            conn2.detach()
+        }
+    }
+
+    suspend fun awaitRuntimeLoss(terminal: ManualTerminal) {
+        withTimeout(15_000) {
+            while (true) {
+                val states = runCatching { terminal.sessions() }.getOrNull()
+                if (states != null && states.size == 2 && states.all { it.phase == "UNKNOWN" }) {
+                    break
+                }
+                delay(50)
+            }
+        }
+        val lostSessions = terminal.sessions()
+        assertEquals(2, lostSessions.size)
+        for (lost in lostSessions) {
+            assertEquals("UNKNOWN", lost.phase)
+            assertEquals("RUNTIME_LOST", lost.stopReason)
+            assertFalse("Same-boot execution without reboot proof must not settle", lost.canSettle)
+        }
+    }
+
+    suspend fun reconcileRebootAndSettle(
+        terminal: ManualTerminal,
+        context: Context,
+        s1Id: String,
+        s2Id: String,
+    ) {
+        val sessionStore = PtySessionStore(File(context.filesDir, "terminal-sessions"))
+        for (id in listOf(s1Id, s2Id)) {
+            val record = checkNotNull(sessionStore.read(id))
+            val currentBoot = (record.origin.bootCount ?: 0) + 1
+            val rebooted = record.afterReboot(currentBoot)
+            check(sessionStore.compareAndSet(record, rebooted))
+        }
+        val rebootedSessions = terminal.sessions()
+        assertTrue("Rebooted session 1 must be settleable", rebootedSessions.first { it.sessionId == s1Id }.canSettle)
+        assertTrue("Rebooted session 2 must be settleable", rebootedSessions.first { it.sessionId == s2Id }.canSettle)
+
+        terminal.settle(s1Id)
+        terminal.settle(s2Id)
+        assertFalse(terminal.hasSession())
+
+        val admissionStore = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
+        org.junit.Assert.assertNull(
+            "Host admission must be released after settling all sessions",
+            admissionStore.read(),
+        )
+    }
+
+    suspend fun verifyCleanSessionStart(
+        terminal: ManualTerminal,
+        context: Context,
+    ) {
+        val rel = "multi-fresh-${UUID.randomUUID()}"
+        val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+        try {
+            val session = terminal.start(rel, 30_000)
+            assertTrue(terminal.hasSession())
+            terminal.stop(session.sessionId)
+            awaitStopped(terminal, session.sessionId)
+            terminal.settle(session.sessionId)
+            assertFalse(terminal.hasSession())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    fun killRuntime(context: Context) {
+        val supervisor = ProotRuntimeSupervisor(context)
+        val connection = supervisor.openConnection() as ProotConnection.Opened
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            runCatching { connection.binder.transact(ProotRuntimeProtocol.TX_DEBUG_SELF_KILL, data, reply, 0) }
+        } finally {
+            data.recycle()
+            reply.recycle()
+            supervisor.closeConnection()
         }
     }
 }

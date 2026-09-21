@@ -11,7 +11,7 @@
 | **实时日志与停止** | `app/src/androidTestDeveloper/.../ProotLogStreamDeviceTest.kt` | HXA-195 完成记录 | 首包延迟 (ms)、取消延迟 (ms)，窗口 0~10s | - |
 | **后台 Job 回收** | `app/src/androidTestDeveloper/.../ProotDetachedJobDeviceTest.kt` | HXA-196 完成记录 | 租期收紧 (ms)、退出码对账 | 物理真机长稳独立单列 |
 | **单终端 REPL** | `app/src/androidTestDeveloper/.../TerminalHostJourneyDeviceTest.kt` | HXA-197 完成记录 | 冷启动 (ms)、1 MiB 缓冲区吞吐 | - |
-| **双会话 PTY** | `app/src/androidTestDeveloper/.../ProotMultiSessionDeviceTest.kt` | HXA-198 完成记录 | 独立 cwd/env、互斥单写入者、容量上限 2 | - |
+| **双会话 PTY** | `app/src/androidTestDeveloper/.../ProotMultiSessionDeviceTest.kt` | HXA-198 任务规格与测试 | 独立 cwd/env、互斥单写入者、容量上限 2 | - |
 | **切页与重连** | `app/src/androidTestDeveloper/.../ProotTerminalUiDeviceTest.kt` | HXA-197 完成记录 | 重连恢复延迟 (ms)、generation 校验 | - |
 | **主进程 / Runtime 死亡** | `app/src/androidTestDeveloper/.../ProotOwnerProcessKillDeviceTest.kt` | HXA-197 完成记录 | 真实 PID 死亡、ORPHANED 标记、无重放 | - |
 | **旧数据升级迁移** | `app/src/androidTestDeveloper/.../ApkReplacementUpgradeDeviceTest.kt` | HXA-193 完成记录 | 数据库 Room v22→v23 迁移、持久结果保留 | - |
@@ -38,7 +38,7 @@
 - 支持 `--help`（明确标明 owned-device 调度接线为后续集成职责）。
 - 校验 8 大终端必跑场景及 5 大长稳硬件边界。
 - 校验虚假时长或虚假页大小：若 `full_lease_2h` 时长不足 7200 秒、`detach_idle_30m` 不足 1800 秒或 `real_16k_pagesize` 不为 16384 字节，立即拒绝并报错。
-- 双会话 PTY 场景已由 HXA-198 完成交付并绑定 `ProotMultiSessionDeviceTest::dualSessionsRunConcurrentlyAndIsolateWorkspaces`，8 项必跑终端场景全部通过；5 项物理硬件/长稳边界如实保留 `skipped`，生成 `FIXTURE_INCOMPLETE`。
+- 双会话 PTY 场景绑定 HXA-198 的 `ProotMultiSessionDeviceTest::dualSessionsRunConcurrentlyAndIsolateWorkspaces`，8 项必跑终端场景全部通过；5 项物理硬件/长稳边界如实保留 `skipped`，生成 `FIXTURE_INCOMPLETE`。
 
 执行与自测命令：
 ```bash

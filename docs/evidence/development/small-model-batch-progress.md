@@ -53,7 +53,7 @@
   - `python3 -m unittest discover -s scripts/tests -p 'test_terminal_reports.py'` -> 8 tests passed, Exit Code 0
   - `python3 scripts/verify-terminal-runtime.py --manifest scripts/fixtures/acceptance/valid_terminal_fixture_manifest.json --output build/test_199_out` -> Exit Code 0, 生成 `report.json` 与 `report.md`
 - **边界说明**：
-  - 双会话场景已随 HXA-198 交付绑定 `ProotMultiSessionDeviceTest`，8 项终端场景全部通过；5 项物理硬件与长稳压力测试显式列为待验并保持 `FIXTURE_INCOMPLETE` 报告状态；不触发两小时长任务，不关闭 HXA-199 整体验收。
+  - 双会话场景绑定 HXA-198 的 `ProotMultiSessionDeviceTest`，8 项终端场景全部通过；5 项物理硬件与长稳压力测试显式列为待验并保持 `FIXTURE_INCOMPLETE` 报告状态；不触发两小时长任务，不关闭 HXA-199 整体验收。
 
 ---
 
@@ -92,4 +92,4 @@
   - `python3 -m unittest discover -s scripts/tests -p 'test_*.py'` -> 47/47 测试通过
   - `git diff --check` -> Clean
 - **交付文档**：
-  - 生成完成记录 `docs/completion-records/HXA-198.md`。
+  - 待协调者审查与真实验收完成后生成正式完成记录 `docs/completion-records/HXA-198.md`。
