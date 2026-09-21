@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.TerminalHostJourneyDeviceTest",
+  "test_method": "prepareOrdinaryProcessJourney",
+  "status": "passed",
+  "metrics": {
+    "cold_start_ms": 350
+  }
+}

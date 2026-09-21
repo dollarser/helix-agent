@@ -1,0 +1,6 @@
+{
+  "test_class": "com.helix.app.proot.IntegratedRuntimeDeviceTest",
+  "test_method": "real16kPageSize",
+  "status": "skipped",
+  "skip_reason": "Pending physical 16 KiB page-size device"
+}

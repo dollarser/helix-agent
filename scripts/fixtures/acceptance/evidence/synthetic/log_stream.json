@@ -1,0 +1,9 @@
+{
+  "test_class": "com.helix.app.proot.ProotLogStreamDeviceTest",
+  "test_method": "logStreamDeliversBoundedChunksAndHonorsCancel",
+  "status": "passed",
+  "metrics": {
+    "first_packet_ms": 120,
+    "cancel_delay_ms": 45
+  }
+}

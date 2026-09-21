@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.ProotOwnerProcessKillDeviceTest",
+  "test_method": "processDeathReconcilesWithoutReplay",
+  "status": "passed",
+  "metrics": {
+    "reconciled": true
+  }
+}

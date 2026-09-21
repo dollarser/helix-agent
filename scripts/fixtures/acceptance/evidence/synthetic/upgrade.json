@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.ApkReplacementUpgradeDeviceTest",
+  "test_method": "apkReplacementPreservesStoredResults",
+  "status": "passed",
+  "metrics": {
+    "retained": true
+  }
+}

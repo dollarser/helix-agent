@@ -1,0 +1,6 @@
+{
+  "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+  "test_method": "detachIdle30m",
+  "status": "skipped",
+  "skip_reason": "Pending dedicated 30-minute idle physical run"
+}

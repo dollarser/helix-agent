@@ -30,6 +30,7 @@ from acceptance_reports import (
     build_markdown_report,
     require,
     safe_load_json,
+    verify_source_evidence,
 )
 
 HXA_199_MANDATORY_SCENES: Set[str] = {
@@ -158,6 +159,15 @@ def verify_terminal_runtime(manifest_path: Path, output_dir: Path) -> int:
             metrics=metrics,
         )
         sr.validate()
+        verify_source_evidence(
+            source_ref=sr.source_ref,
+            base_dir=manifest_dir,
+            mode=identity.mode,
+            declared_status=status,
+            test_class=sr.test_class,
+            test_method=sr.test_method,
+            metrics=metrics,
+        )
         scenes.append(sr)
 
         if sr.status == "passed":
@@ -194,15 +204,19 @@ def verify_terminal_runtime(manifest_path: Path, output_dir: Path) -> int:
     if counts.failed > 0:
         verdict = "FAIL"
         exit_code = 1
-    elif has_incomplete_core or counts.skipped > 0 or pending_stress:
-        verdict = "INCOMPLETE" if identity.mode == "real" else "FIXTURE_INCOMPLETE"
-        exit_code = 0
     elif identity.mode == "fixture":
-        verdict = "FIXTURE_ONLY"
+        if has_incomplete_core or counts.skipped > 0 or pending_stress:
+            verdict = "FIXTURE_INCOMPLETE"
+        else:
+            verdict = "FIXTURE_ONLY"
         exit_code = 0
-    else:
-        verdict = "PASS"
-        exit_code = 0
+    else:  # mode == "real"
+        if has_incomplete_core or counts.skipped > 0 or pending_stress or missing_mandatory:
+            verdict = "INCOMPLETE"
+            exit_code = 1
+        else:
+            verdict = "PASS"
+            exit_code = 0
 
     # 7. Output Generation
     output_dir.mkdir(parents=True, exist_ok=True)

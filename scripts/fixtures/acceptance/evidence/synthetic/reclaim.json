@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.ProotDetachedJobDeviceTest",
+  "test_method": "budgetTightensLeaseAndTerminatesTheProcess",
+  "status": "passed",
+  "metrics": {
+    "lease_duration_ms": 3000
+  }
+}

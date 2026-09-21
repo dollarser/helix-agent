@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,11 @@ class TestTerminalReportsVerification(unittest.TestCase):
         p = tmp_dir / "manifest.json"
         with p.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+        ev_src = self.fixtures_dir / "evidence"
+        if ev_src.exists():
+            ev_dst = tmp_dir / "evidence"
+            if not ev_dst.exists():
+                shutil.copytree(ev_src, ev_dst)
         return p
 
     def test_help_flag(self):
@@ -154,6 +160,37 @@ class TestTerminalReportsVerification(unittest.TestCase):
                 verify_terminal_runtime(m, out)
             self.assertEqual(ctx.exception.exit_code, 2)
             self.assertIn("closed=True", str(ctx.exception))
+
+    def test_terminal_real_pass_with_declared_metrics_and_failed_log_rejected(self):
+        data = copy.deepcopy(self.base_data)
+        data.update(
+            mode="real",
+            commit_sha="a" * 40,
+            app_apk_sha256="b" * 64,
+            test_apk_sha256="c" * 64,
+            device_lifecycle={"owner_pid": 12345, "closed": True},
+        )
+        for s in data["scenes"]:
+            s.update(status="passed", skip_reason=None)
+            s.setdefault("metrics", {}).update(duration_seconds=7200, page_size_bytes=16384)
+        data["counts"].update(
+            expected=len(data["scenes"]),
+            executed=len(data["scenes"]),
+            passed=len(data["scenes"]),
+            failed=0,
+            skipped=0,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "actual-failure.log").write_text("FAILURES!!!\nTests run: 1, Failures: 1\nINSTRUMENTATION_CODE: 0\n")
+            for scene in data["scenes"]:
+                scene["source_ref"] = "actual-failure.log"
+            m = self.write_manifest(data, tmp_path)
+            out = tmp_path / "out"
+            with self.assertRaises(EvidenceError) as ctx:
+                verify_terminal_runtime(m, out)
+            self.assertEqual(ctx.exception.exit_code, 2)
+            self.assertIn("contains failure", str(ctx.exception))
 
 
 if __name__ == "__main__":

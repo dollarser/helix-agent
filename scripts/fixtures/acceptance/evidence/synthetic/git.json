@@ -1,0 +1,11 @@
+{
+  "test_class": "com.helix.app.files.ImportExportFacadeDeviceTest",
+  "test_method": "gitStatusDiffRejectsMaliciousConfig",
+  "status": "passed",
+  "metrics": {
+    "user_steps": 2,
+    "duplicate_prompts": 0,
+    "artifact_openable": null,
+    "recovery_side_effects": 0
+  }
+}

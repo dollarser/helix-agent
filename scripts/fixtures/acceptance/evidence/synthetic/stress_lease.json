@@ -1,0 +1,6 @@
+{
+  "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+  "test_method": "fullLease2h",
+  "status": "skipped",
+  "skip_reason": "Pending dedicated 2-hour lease physical run"
+}

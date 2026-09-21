@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,6 +34,11 @@ class TestProductJourneysVerification(unittest.TestCase):
         p = tmp_dir / "manifest.json"
         with p.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+        ev_src = self.fixtures_dir / "evidence"
+        if ev_src.exists():
+            ev_dst = tmp_dir / "evidence"
+            if not ev_dst.exists():
+                shutil.copytree(ev_src, ev_dst)
         return p
 
     def test_help_flag(self):
@@ -196,6 +202,62 @@ class TestProductJourneysVerification(unittest.TestCase):
                 safe_load_json(Path("../outside.json"), base_dir=base)
             self.assertEqual(ctx.exception.exit_code, 2)
             self.assertIn("escapes", str(ctx.exception))
+
+    def test_real_pass_despite_failed_raw_log_rejected(self):
+        data = copy.deepcopy(self.base_data)
+        data.update(
+            mode="real",
+            commit_sha="a" * 40,
+            app_apk_sha256="b" * 64,
+            test_apk_sha256="c" * 64,
+            device_lifecycle={"owner_pid": 12345, "closed": True},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "actual-failure.log").write_text("FAILURES!!!\nTests run: 1, Failures: 1\nINSTRUMENTATION_CODE: 0\n")
+            for scene in data["scenes"]:
+                scene["source_ref"] = "actual-failure.log"
+                scene["status"] = "passed"
+            m = self.write_manifest(data, tmp_path)
+            out = tmp_path / "out"
+            with self.assertRaises(EvidenceError) as ctx:
+                verify_product_journeys(m, out)
+            self.assertEqual(ctx.exception.exit_code, 2)
+            self.assertIn("contains failure", str(ctx.exception))
+
+    def test_missing_expected_executions_rejected(self):
+        data = copy.deepcopy(self.base_data)
+        data["counts"]["expected"] += 10
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            m = self.write_manifest(data, tmp_path)
+            out = tmp_path / "out"
+            with self.assertRaises(EvidenceError) as ctx:
+                verify_product_journeys(m, out)
+            self.assertEqual(ctx.exception.exit_code, 2)
+            self.assertIn("Count mismatch", str(ctx.exception))
+
+    def test_all_mandatory_skipped_returns_nonzero(self):
+        data = copy.deepcopy(self.base_data)
+        data.update(
+            mode="real",
+            commit_sha="a" * 40,
+            app_apk_sha256="b" * 64,
+            test_apk_sha256="c" * 64,
+            device_lifecycle={"owner_pid": 12345, "closed": True},
+        )
+        for s in data["scenes"]:
+            s.update(status="skipped", skip_reason="not run")
+        data["counts"].update(passed=0, skipped=len(data["scenes"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            m = self.write_manifest(data, tmp_path)
+            out = tmp_path / "out"
+            code = verify_product_journeys(m, out)
+            self.assertEqual(code, 1)
+            with (out / "report.json").open("r", encoding="utf-8") as f:
+                rep = json.load(f)
+            self.assertEqual(rep["verdict"], "INCOMPLETE")
 
 
 if __name__ == "__main__":

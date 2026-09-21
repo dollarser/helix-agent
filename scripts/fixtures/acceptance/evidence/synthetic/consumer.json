@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.IntegratedRuntimeDeviceTest",
+  "test_method": "consumerExcludesProotAndCli",
+  "status": "passed",
+  "metrics": {
+    "excluded": true
+  }
+}

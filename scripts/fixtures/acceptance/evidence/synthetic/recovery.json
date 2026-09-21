@@ -1,0 +1,11 @@
+{
+  "test_class": "com.helix.app.RecoveryJourneyDeviceTest",
+  "test_method": "recoveryFactsSurviveProcessDeathWithoutReexecution",
+  "status": "passed",
+  "metrics": {
+    "user_steps": 3,
+    "duplicate_prompts": 0,
+    "artifact_openable": null,
+    "recovery_side_effects": 0
+  }
+}

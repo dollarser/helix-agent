@@ -1,0 +1,9 @@
+{
+  "test_class": "com.helix.app.proot.ProotMultiSessionDeviceTest",
+  "test_method": "dualSessionsRunConcurrentlyAndIsolateWorkspaces",
+  "status": "passed",
+  "metrics": {
+    "concurrency_limit": 2,
+    "isolation_verified": true
+  }
+}

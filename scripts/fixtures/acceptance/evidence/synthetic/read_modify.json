@@ -1,0 +1,11 @@
+{
+  "test_class": "com.helix.app.TaskJourneyDeviceTest",
+  "test_method": "taskArtifactsDialogListsByRealOwnership",
+  "status": "passed",
+  "metrics": {
+    "user_steps": 4,
+    "duplicate_prompts": 0,
+    "artifact_openable": true,
+    "recovery_side_effects": 0
+  }
+}

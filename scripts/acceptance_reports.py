@@ -8,11 +8,24 @@ Standard library only.
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional, Set
 
 SCHEMA_VERSION = 1
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MiB
 MAX_ENTRIES = 10000
+
+FAILURE_PATTERNS = [
+    re.compile(r"\bFAILURES!!!\b"),
+    re.compile(r"INSTRUMENTATION_RESULT:\s*stream=.*FAILURES", re.IGNORECASE),
+    re.compile(r"INSTRUMENTATION_STATUS:\s*failure\b", re.IGNORECASE),
+    re.compile(r"INSTRUMENTATION_STATUS_CODE:\s*-[12]\b"),
+    re.compile(r"Tests run:\s*\d+,\s*Failures:\s*[1-9]\d*"),
+    re.compile(r"Tests run:\s*\d+,\s*Failures:\s*\d+,\s*Errors:\s*[1-9]\d*"),
+    re.compile(r"\bProcess crashed\b", re.IGNORECASE),
+    re.compile(r"\bFATAL EXCEPTION\b", re.IGNORECASE),
+    re.compile(r"\bjava\.lang\.AssertionError\b"),
+]
 
 
 class EvidenceError(ValueError):
@@ -75,6 +88,90 @@ def safe_load_json(file_path: Path, base_dir: Optional[Path] = None, max_bytes: 
     return data
 
 
+def verify_source_evidence(
+    source_ref: str,
+    base_dir: Path,
+    mode: str,
+    declared_status: str,
+    test_class: str,
+    test_method: str,
+    metrics: Optional[Dict[str, Any]] = None,
+) -> None:
+    require(bool(source_ref and source_ref.strip()), f"Empty source_ref for {test_class}::{test_method}", exit_code=2)
+    ref_path = safe_resolve_path(source_ref, base_dir=base_dir)
+    if not ref_path.is_file():
+        if mode == "real":
+            raise EvidenceError(f"Evidence file missing in real mode: {ref_path}", exit_code=2)
+        return
+
+    size = ref_path.stat().st_size
+    require(size <= MAX_FILE_BYTES, f"Evidence file {ref_path} exceeds {MAX_FILE_BYTES} bytes", exit_code=2)
+    raw_bytes = ref_path.read_bytes()
+    raw_text = raw_bytes.decode("utf-8", errors="replace")
+
+    for pat in FAILURE_PATTERNS:
+        match = pat.search(raw_text)
+        if match:
+            if declared_status == "passed":
+                raise EvidenceError(
+                    f"Scene {test_class}::{test_method} claims passed but evidence '{source_ref}' contains failure: '{match.group(0)}'",
+                    exit_code=2,
+                )
+
+    ev_data = None
+    if ref_path.suffix == ".json":
+        try:
+            ev_data = json.loads(raw_text)
+        except Exception as e:
+            raise EvidenceError(f"Invalid JSON in evidence file {ref_path}: {e}", exit_code=2)
+
+        if isinstance(ev_data, dict):
+            status = str(ev_data.get("status", "")).lower()
+            verdict = str(ev_data.get("verdict", "")).lower()
+            if status in ("failed", "fail", "error") or verdict in ("failed", "fail", "error"):
+                if declared_status == "passed":
+                    raise EvidenceError(
+                        f"Scene {test_class}::{test_method} claims passed but evidence has status='{status}'/verdict='{verdict}'",
+                        exit_code=2,
+                    )
+            if ev_data.get("failures", 0) > 0 or ev_data.get("errors", 0) > 0:
+                if declared_status == "passed":
+                    raise EvidenceError(
+                        f"Scene {test_class}::{test_method} claims passed but evidence reports failures/errors > 0",
+                        exit_code=2,
+                    )
+
+            if metrics and isinstance(ev_data.get("metrics"), dict):
+                ev_metrics = ev_data["metrics"]
+                for k, v in metrics.items():
+                    if k in ev_metrics:
+                        if isinstance(v, (int, float)) and isinstance(ev_metrics[k], (int, float)):
+                            if k.endswith("duration_seconds") and ev_metrics[k] < v:
+                                raise EvidenceError(f"Evidence metric {k}={ev_metrics[k]} below required {v}", exit_code=2)
+                            elif not k.endswith("duration_seconds") and ev_metrics[k] != v:
+                                raise EvidenceError(f"Evidence metric {k}={ev_metrics[k]} does not match required {v}", exit_code=2)
+
+    if mode == "real" and declared_status == "passed":
+        if ref_path.suffix == ".json" and isinstance(ev_data, dict):
+            found = False
+            if ev_data.get("test_method") == test_method or ev_data.get("method") == test_method:
+                found = True
+            elif "cases" in ev_data and isinstance(ev_data["cases"], list):
+                for c in ev_data["cases"]:
+                    if isinstance(c, dict) and c.get("method") == test_method:
+                        found = True
+                        break
+            elif test_method in raw_text:
+                found = True
+            require(found, f"Evidence {source_ref} does not contain test_method '{test_method}'", exit_code=2)
+        else:
+            require(
+                test_method in raw_text or test_class in raw_text,
+                f"Evidence {source_ref} does not contain record for {test_class}::{test_method}",
+                exit_code=2,
+            )
+
+
 @dataclass
 class BatchIdentity:
     schema_version: int
@@ -89,11 +186,29 @@ class BatchIdentity:
     def validate(self):
         require(self.schema_version == SCHEMA_VERSION, f"Unsupported schema version: {self.schema_version}")
         require(bool(self.scope and self.scope.strip()), "Missing or empty scope")
-        require(bool(self.commit_sha and len(self.commit_sha.strip()) >= 7), "Invalid or missing commit_sha")
         require(self.mode in ("real", "fixture"), f"Mode must be 'real' or 'fixture', got: {self.mode}")
         if self.mode == "real":
-            require(bool(self.app_apk_sha256), "Real mode requires app_apk_sha256")
-            require(bool(self.test_apk_sha256), "Real mode requires test_apk_sha256")
+            require(
+                bool(self.commit_sha and len(self.commit_sha.strip()) == 40 and all(c in "0123456789abcdefABCDEF" for c in self.commit_sha.strip())),
+                "Real mode requires full 40-character hex commit_sha",
+            )
+            require(
+                bool(self.app_apk_sha256 and len(self.app_apk_sha256) == 64 and all(c in "0123456789abcdefABCDEF" for c in self.app_apk_sha256)),
+                "Real mode requires full 64-character hex app_apk_sha256",
+            )
+            require(
+                bool(self.test_apk_sha256 and len(self.test_apk_sha256) == 64 and all(c in "0123456789abcdefABCDEF" for c in self.test_apk_sha256)),
+                "Real mode requires full 64-character hex test_apk_sha256",
+            )
+        else:
+            require(
+                bool(self.commit_sha and 7 <= len(self.commit_sha.strip()) <= 40 and all(c in "0123456789abcdefABCDEF" for c in self.commit_sha.strip())),
+                "Invalid or non-hex commit_sha",
+            )
+        if self.api is not None:
+            require(isinstance(self.api, int) and 21 <= self.api <= 36, f"Invalid Android API level: {self.api}")
+        if self.flavor is not None:
+            require(isinstance(self.flavor, str) and self.flavor in ("developer", "consumer"), f"Invalid flavor: {self.flavor}")
 
 
 @dataclass
@@ -104,7 +219,7 @@ class DeviceLifecycle:
 
     def validate(self, mode: str):
         if mode == "real":
-            require(self.owner_pid is not None and self.owner_pid > 0, "Real mode requires valid owner_pid")
+            require(isinstance(self.owner_pid, int) and self.owner_pid > 0, "Real mode requires valid owner_pid")
             require(self.closed is True, "Real mode requires closed=True for owned runner lifecycle")
 
 
@@ -136,19 +251,19 @@ class TestCounts:
     skipped: int
 
     def validate(self):
-        require(self.expected >= 0, "expected count must be non-negative")
-        require(self.executed >= 0, "executed count must be non-negative")
-        require(self.passed >= 0, "passed count must be non-negative")
-        require(self.failed >= 0, "failed count must be non-negative")
-        require(self.skipped >= 0, "skipped count must be non-negative")
+        require(isinstance(self.expected, int) and self.expected >= 0, "expected count must be non-negative integer")
+        require(isinstance(self.executed, int) and self.executed >= 0, "executed count must be non-negative integer")
+        require(isinstance(self.passed, int) and self.passed >= 0, "passed count must be non-negative integer")
+        require(isinstance(self.failed, int) and self.failed >= 0, "failed count must be non-negative integer")
+        require(isinstance(self.skipped, int) and self.skipped >= 0, "skipped count must be non-negative integer")
         require(self.executed > 0, "Zero test executions detected; cannot validate acceptance")
         require(
             self.executed == self.passed + self.failed + self.skipped,
             f"Count mismatch: executed ({self.executed}) != passed ({self.passed}) + failed ({self.failed}) + skipped ({self.skipped})",
         )
         require(
-            self.expected >= self.executed,
-            f"Count mismatch: expected ({self.expected}) < executed ({self.executed})",
+            self.expected == self.executed,
+            f"Count mismatch: expected ({self.expected}) != executed ({self.executed})",
         )
 
 

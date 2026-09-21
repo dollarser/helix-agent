@@ -1,0 +1,8 @@
+{
+  "test_class": "com.helix.app.proot.ProotTerminalUiDeviceTest",
+  "test_method": "pageSwitchReconnectPreservesSession",
+  "status": "passed",
+  "metrics": {
+    "reconnect_ms": 80
+  }
+}

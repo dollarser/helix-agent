@@ -1,0 +1,6 @@
+{
+  "test_class": "com.helix.app.proot.DetachedJobControlDeviceTest",
+  "test_method": "runtimeLeaseExpiration",
+  "status": "skipped",
+  "skip_reason": "Pending long-running expiration physical run"
+}
