@@ -379,12 +379,7 @@ private fun OAuthAuthSection(
             .contains("slack.com")
     val defaultClientId = if (isSlack) "12095777350999.12106402447285" else ""
     val defaultScope = if (isSlack) "channels:read,users:read,chat:write" else ""
-    val defaultRedirect =
-        if (isSlack) {
-            "https://ngrok-free.app/slack/oauth_redirect"
-        } else {
-            "helix://oauth/callback"
-        }
+    val defaultRedirect = "helix://oauth/callback"
     var clientId by remember(endpoint.id) { mutableStateOf(defaultClientId) }
     var scopeText by remember(endpoint.id) { mutableStateOf(defaultScope) }
     var redirectUri by remember(endpoint.id) { mutableStateOf(defaultRedirect) }
