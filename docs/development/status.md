@@ -2,7 +2,7 @@
 
 更新：2026-09-21。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
 
-本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。本轮为本地提交，未自动推送、main 合并或发布。
+本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。验收与提交快检优化已通过 `995c9baf` 合入并推送 main；远端验证见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)，未发布。
 
 ## Completed
 
@@ -20,7 +20,9 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型准备与198双终端已整合，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。本轮206本地核心范围已完成，199只剩物理专项；验收分支尚未合入 main 或跑远端 CI。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机缺口不记通过。
+HXA-126 OAuth 候选已按所有者要求复核并同步最新 main，但完整门禁在 i18n 失败；另有回调路径/凭据绑定、SecretStore 与刷新生命周期问题，暂未合入 main。既有定向 JVM 测试通过不覆盖这些阻塞，详见[合并前复核](../evidence/development/hxa-126-merge-review-2026-09-21.md)。
+
+CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型准备与198双终端已整合，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。本轮206本地核心范围已完成，199只剩物理专项；验收分支及快检优化已合入并推送 main，本轮远端结果见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机缺口不记通过。
 
 HXA-197 单个手动 PTY 已交付，见[完成记录](../completion-records/HXA-197.md)。本轮修复快速逐键输入丢字符，补齐关闭页面后的 1 MiB 以上输出、超限输入、Ctrl-C、运行中租期，以及普通应用主进程/Runtime 死亡和实际重启对账。完整主机门禁、双 API 各 49/49、独立恢复旅程 2/2 通过；准备测试另计，详见[最终证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。未把 30 分钟 idle、长租期、OEM/Doze/热压或真实 16 KiB 设备计为通过，这些继续归 199。
 
