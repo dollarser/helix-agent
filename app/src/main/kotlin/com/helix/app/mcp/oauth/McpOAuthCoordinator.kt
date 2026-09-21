@@ -34,6 +34,7 @@ data class McpOAuthPreparedAuth(
     val attemptId: String,
 )
 
+@Suppress("TooManyFunctions")
 class McpOAuthCoordinator(
     private val secretStore: SecretStore,
     private val attemptStore: McpOAuthAttemptStore,
@@ -147,24 +148,54 @@ class McpOAuthCoordinator(
                     codeVerifier = attempt.codeVerifier,
                 )
 
-            // Save tokens to SecretStore
-            val tokenAlias = SecretAlias(tokenAlias(attempt.serverId))
-            secretStore.put(tokenAlias, tokens.accessToken)
-
-            val refreshToken = tokens.refreshToken
-            if (!refreshToken.isNullOrBlank()) {
-                val refreshAlias = SecretAlias(refreshAlias(attempt.serverId))
-                secretStore.put(refreshAlias, refreshToken)
-            }
-
-            McpOAuthResult.Success(
-                serverId = attempt.serverId,
-                tokens = tokens,
-            )
+            saveTokens(attempt.serverId, tokens)
         } catch (e: Exception) {
             McpOAuthResult.Failure("OAuth token exchange failed: ${e.message}")
         }
     }
+
+    /**
+     * Saves tokens into SecretStore and notifies listeners.
+     */
+    fun saveTokens(
+        serverId: String,
+        tokens: McpOAuthTokens,
+    ): McpOAuthResult.Success {
+        val tokenAlias = SecretAlias(tokenAlias(serverId))
+        secretStore.put(tokenAlias, tokens.accessToken)
+
+        val refreshToken = tokens.refreshToken
+        if (!refreshToken.isNullOrBlank()) {
+            val refreshAlias = SecretAlias(refreshAlias(serverId))
+            secretStore.put(refreshAlias, refreshToken)
+        }
+
+        val outcome = McpOAuthResult.Success(serverId = serverId, tokens = tokens)
+        _events.tryEmit(outcome)
+        return outcome
+    }
+
+    suspend fun requestDeviceAuth(
+        deviceEndpoint: String,
+        clientId: String,
+        scope: String = "",
+    ): com.helix.extensions.mcp.oauth.McpDeviceCodeResponse =
+        oauthClient.requestDeviceCode(
+            deviceEndpoint = deviceEndpoint,
+            clientId = clientId,
+            scope = scope,
+        )
+
+    suspend fun pollDeviceTokenOnce(
+        tokenEndpoint: String,
+        clientId: String,
+        deviceCode: String,
+    ): com.helix.extensions.mcp.oauth.McpDevicePollResult =
+        oauthClient.pollDeviceTokenOnce(
+            tokenEndpoint = tokenEndpoint,
+            clientId = clientId,
+            deviceCode = deviceCode,
+        )
 
     /**
      * Revokes token at vendor endpoint and clears local credentials.

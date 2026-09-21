@@ -186,6 +186,7 @@ class ConnectorService(
                     issuer = "https://github.com",
                     authorizationEndpoint = "https://github.com/login/oauth/authorize",
                     tokenEndpoint = "https://github.com/login/oauth/access_token",
+                    deviceAuthorizationEndpoint = "https://github.com/login/device/code",
                 )
             }
 
@@ -193,6 +194,55 @@ class ConnectorService(
                 coordinator.discoverMetadata(endpointUrl)
             }
         }
+    }
+
+    suspend fun getOAuthMetadata(endpoint: InstalledEndpoint): com.helix.extensions.mcp.oauth.McpOAuthServerMetadata {
+        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
+        requireOwned(endpoint)
+        return resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
+    }
+
+    suspend fun requestDeviceCode(
+        endpoint: InstalledEndpoint,
+        clientId: String,
+        scope: String = "",
+    ): com.helix.extensions.mcp.oauth.McpDeviceCodeResponse {
+        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
+        requireOwned(endpoint)
+        val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
+        val deviceEndpoint =
+            requireNotNull(metadata.deviceAuthorizationEndpoint) {
+                "Device authorization endpoint not supported by ${endpoint.endpoint.url}"
+            }
+        return coordinator.requestDeviceAuth(
+            deviceEndpoint = deviceEndpoint,
+            clientId = clientId,
+            scope = scope,
+        )
+    }
+
+    suspend fun pollDeviceTokenOnce(
+        endpoint: InstalledEndpoint,
+        clientId: String,
+        deviceCode: String,
+    ): com.helix.extensions.mcp.oauth.McpDevicePollResult {
+        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
+        requireOwned(endpoint)
+        val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
+        return coordinator.pollDeviceTokenOnce(
+            tokenEndpoint = metadata.tokenEndpoint,
+            clientId = clientId,
+            deviceCode = deviceCode,
+        )
+    }
+
+    fun completeDeviceAuth(
+        endpoint: InstalledEndpoint,
+        tokens: com.helix.extensions.mcp.oauth.McpOAuthTokens,
+    ): com.helix.app.mcp.oauth.McpOAuthResult.Success {
+        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
+        requireOwned(endpoint)
+        return coordinator.saveTokens(endpoint.id, tokens)
     }
 
     suspend fun testOAuth(endpoint: InstalledEndpoint): McpHandshakeSnapshot {

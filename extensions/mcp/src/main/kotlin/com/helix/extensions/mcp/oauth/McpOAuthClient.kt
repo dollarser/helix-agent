@@ -74,6 +74,7 @@ class McpOAuthException(
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
 
+@Suppress("TooManyFunctions")
 class McpOAuthClient(
     val endpointGate: McpEndpointGate,
     private val okHttpClient: OkHttpClient = defaultHttpClient(),
@@ -223,6 +224,150 @@ class McpOAuthClient(
                     statusCode = -1,
                     message = e.message,
                 )
+            }
+        }
+
+    /**
+     * Requests a device code from device authorization endpoint (RFC 8628).
+     */
+    @Suppress("LongMethod")
+    suspend fun requestDeviceCode(
+        deviceEndpoint: String,
+        clientId: String,
+        scope: String = "",
+    ): McpDeviceCodeResponse =
+        withContext(Dispatchers.IO) {
+            val normalized = NormalizedEndpoint.parse(deviceEndpoint)
+            val permit = endpointGate.authorize(normalized)
+            val client =
+                okHttpClient
+                    .newBuilder()
+                    .followRedirects(false)
+                    .followSslRedirects(false)
+                    .proxy(Proxy.NO_PROXY)
+                    .dns(
+                        Dns { hostname ->
+                            if (hostname != permit.host) {
+                                throw UnknownHostException("Unexpected host in Device OAuth request")
+                            }
+                            permit.pinnedAddresses(hostname)
+                        },
+                    ).build()
+
+            val formBuilder =
+                FormBody
+                    .Builder()
+                    .add("client_id", clientId)
+            if (scope.isNotBlank()) {
+                formBuilder.add("scope", scope)
+            }
+
+            val request =
+                Request
+                    .Builder()
+                    .url(deviceEndpoint)
+                    .header("Accept", "application/json")
+                    .post(formBuilder.build())
+                    .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body.string()
+                require(body.length <= MAX_TOKEN_RESPONSE_BYTES) { "Device authorization response too large" }
+                val element = json.parseToJsonElement(body).jsonObject
+                val error = element["error"]?.jsonPrimitive?.content
+                if (error != null) {
+                    val desc = element["error_description"]?.jsonPrimitive?.content ?: error
+                    throw McpOAuthException(message = desc, errorCode = error)
+                }
+
+                val deviceCode =
+                    element["device_code"]?.jsonPrimitive?.content
+                        ?: throw McpOAuthException("Missing device_code in response")
+                val userCode =
+                    element["user_code"]?.jsonPrimitive?.content
+                        ?: throw McpOAuthException("Missing user_code in response")
+                val verificationUri =
+                    element["verification_uri"]?.jsonPrimitive?.content
+                        ?: throw McpOAuthException("Missing verification_uri in response")
+                val expiresIn = element["expires_in"]?.jsonPrimitive?.longOrNull ?: 900L
+                val interval = element["interval"]?.jsonPrimitive?.longOrNull ?: 5L
+
+                McpDeviceCodeResponse(
+                    deviceCode = deviceCode,
+                    userCode = userCode,
+                    verificationUri = verificationUri,
+                    expiresInSeconds = expiresIn,
+                    intervalSeconds = interval,
+                )
+            }
+        }
+
+    /**
+     * Single poll attempt for device token (RFC 8628).
+     */
+    suspend fun pollDeviceTokenOnce(
+        tokenEndpoint: String,
+        clientId: String,
+        deviceCode: String,
+    ): McpDevicePollResult =
+        withContext(Dispatchers.IO) {
+            val normalized = NormalizedEndpoint.parse(tokenEndpoint)
+            val permit = endpointGate.authorize(normalized)
+            val client =
+                okHttpClient
+                    .newBuilder()
+                    .followRedirects(false)
+                    .followSslRedirects(false)
+                    .proxy(Proxy.NO_PROXY)
+                    .dns(
+                        Dns { hostname ->
+                            if (hostname != permit.host) {
+                                throw UnknownHostException("Unexpected host in Device OAuth poll")
+                            }
+                            permit.pinnedAddresses(hostname)
+                        },
+                    ).build()
+
+            val formBody =
+                FormBody
+                    .Builder()
+                    .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
+                    .add("client_id", clientId)
+                    .add("device_code", deviceCode)
+                    .build()
+
+            val request =
+                Request
+                    .Builder()
+                    .url(tokenEndpoint)
+                    .header("Accept", "application/json")
+                    .post(formBody)
+                    .build()
+
+            client.newCall(request).execute().use { response ->
+                val body = response.body.string()
+                require(body.length <= MAX_TOKEN_RESPONSE_BYTES) { "Token response too large" }
+                val element = json.parseToJsonElement(body).jsonObject
+                val error = element["error"]?.jsonPrimitive?.content
+                if (error != null) {
+                    when (error) {
+                        "authorization_pending" -> {
+                            McpDevicePollResult.Pending
+                        }
+
+                        "slow_down" -> {
+                            McpDevicePollResult.SlowDown
+                        }
+
+                        else -> {
+                            val desc = element["error_description"]?.jsonPrimitive?.content ?: error
+                            McpDevicePollResult.Error(desc, error)
+                        }
+                    }
+                } else {
+                    val tokens = parseTokens(body)
+                    McpDevicePollResult.Success(tokens)
+                }
             }
         }
 

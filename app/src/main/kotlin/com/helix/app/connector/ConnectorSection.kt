@@ -245,14 +245,26 @@ private fun EndpointRow(
             }
         }
 
+        val isGitHub =
+            endpoint.endpoint.url
+                .lowercase()
+                .contains("github.com")
         if (authMode == EndpointAuthMode.BEARER) {
+            val bearerLabel =
+                if (isGitHub) "Personal Access Token (PAT)" else stringResource(R.string.connector_bearer)
             OutlinedTextField(
                 value = bearer,
                 onValueChange = { bearer = it },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
-                label = { Text(stringResource(R.string.connector_bearer)) },
+                label = { Text(bearerLabel) },
             )
+            if (isGitHub) {
+                Text(
+                    "GitHub PAT (Classic: ghp_... 或 Fine-grained: github_pat_...)，可在 github.com/settings/tokens 生成",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             OutlinedButton(enabled = !busy, onClick = {
                 scope.launch {
                     busy = true
@@ -361,7 +373,7 @@ private fun EndpointRow(
 }
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught")
+@Suppress("FunctionName", "LongMethod", "TooGenericExceptionCaught", "CyclomaticComplexMethod", "ThrowsCount")
 private fun OAuthAuthSection(
     service: ConnectorService,
     endpoint: InstalledEndpoint,
@@ -377,13 +389,32 @@ private fun OAuthAuthSection(
         endpoint.endpoint.url
             .lowercase()
             .contains("slack.com")
-    val defaultClientId = if (isSlack) "12095777350999.12106402447285" else ""
-    val defaultScope = if (isSlack) "channels:read,users:read,chat:write" else ""
+    val isGitHub =
+        endpoint.endpoint.url
+            .lowercase()
+            .contains("github.com")
+    val defaultClientId =
+        when {
+            isSlack -> "12095777350999.12106402447285"
+            isGitHub -> "Ov23li9qRQNManazs4Er"
+            else -> ""
+        }
+    val defaultScope =
+        when {
+            isSlack -> "channels:read,users:read,chat:write"
+            isGitHub -> "repo,read:user"
+            else -> ""
+        }
     val defaultRedirect = "helix://oauth/callback"
     var clientId by remember(endpoint.id) { mutableStateOf(defaultClientId) }
     var scopeText by remember(endpoint.id) { mutableStateOf(defaultScope) }
     var redirectUri by remember(endpoint.id) { mutableStateOf(defaultRedirect) }
     var connecting by remember(endpoint.id) { mutableStateOf(false) }
+    var deviceCodeResp by remember(endpoint.id) {
+        mutableStateOf<com.helix.extensions.mcp.oauth.McpDeviceCodeResponse?>(null)
+    }
+    var devicePolling by remember(endpoint.id) { mutableStateOf(false) }
+    var pollingJob by remember(endpoint.id) { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
     if (hasOAuth) {
         Text(
@@ -414,6 +445,17 @@ private fun OAuthAuthSection(
                 Text(stringResource(R.string.connector_oauth_disconnect))
             }
         }
+    } else if (isGitHub && deviceCodeResp != null) {
+        GitHubDeviceCodeCard(
+            resp = deviceCodeResp!!,
+            devicePolling = devicePolling,
+            onCancel = {
+                pollingJob?.cancel()
+                pollingJob = null
+                devicePolling = false
+                deviceCodeResp = null
+            },
+        )
     } else {
         OutlinedTextField(
             value = clientId,
@@ -427,38 +469,87 @@ private fun OAuthAuthSection(
             singleLine = true,
             label = { Text(stringResource(R.string.connector_oauth_scope)) },
         )
-        OutlinedTextField(
-            value = redirectUri,
-            onValueChange = { redirectUri = it },
-            singleLine = true,
-            label = { Text("Redirect URI") },
-        )
-        OutlinedButton(
-            enabled = !busy && clientId.isNotBlank() && redirectUri.isNotBlank(),
-            onClick = {
-                scope.launch {
-                    connecting = true
-                    onError(null)
-                    try {
-                        val prepared =
-                            withContext(Dispatchers.IO) {
-                                service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
+        if (!isGitHub) {
+            OutlinedTextField(
+                value = redirectUri,
+                onValueChange = { redirectUri = it },
+                singleLine = true,
+                label = { Text("Redirect URI") },
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (isGitHub) {
+                OutlinedButton(
+                    enabled = !busy && !devicePolling && clientId.isNotBlank(),
+                    onClick = {
+                        scope.launch {
+                            onError(null)
+                            devicePolling = true
+                            try {
+                                val resp =
+                                    withContext(Dispatchers.IO) {
+                                        service.requestDeviceCode(endpoint, clientId, scopeText)
+                                    }
+                                deviceCodeResp = resp
+                                pollingJob =
+                                    scope.launch {
+                                        pollDeviceTokenUntilFinished(
+                                            service = service,
+                                            endpoint = endpoint,
+                                            clientId = clientId,
+                                            resp = resp,
+                                            onSuccess = { tokens ->
+                                                withContext(Dispatchers.IO) {
+                                                    service.completeDeviceAuth(endpoint, tokens)
+                                                }
+                                                deviceCodeResp = null
+                                                devicePolling = false
+                                            },
+                                            onError = {
+                                                onError(it)
+                                                devicePolling = false
+                                            },
+                                        )
+                                    }
+                            } catch (cancel: CancellationException) {
+                                throw cancel
+                            } catch (e: Exception) {
+                                devicePolling = false
+                                onError(e.message)
                             }
-                        val intent =
-                            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(prepared.authUri)).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                        context.startActivity(intent)
-                    } catch (cancel: CancellationException) {
-                        throw cancel
-                    } catch (e: Exception) {
-                        connecting = false
-                        onError(e.message)
-                    }
+                        }
+                    },
+                ) {
+                    Text("Device Flow (免Secret)")
                 }
-            },
-        ) {
-            Text(stringResource(R.string.connector_oauth_connect))
+            }
+            OutlinedButton(
+                enabled = !busy && clientId.isNotBlank() && (isGitHub || redirectUri.isNotBlank()),
+                onClick = {
+                    scope.launch {
+                        connecting = true
+                        onError(null)
+                        try {
+                            val prepared =
+                                withContext(Dispatchers.IO) {
+                                    service.prepareOAuth(endpoint, clientId, scopeText, redirectUri)
+                                }
+                            val intent =
+                                Intent(Intent.ACTION_VIEW, android.net.Uri.parse(prepared.authUri)).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                            context.startActivity(intent)
+                        } catch (cancel: CancellationException) {
+                            throw cancel
+                        } catch (e: Exception) {
+                            connecting = false
+                            onError(e.message)
+                        }
+                    }
+                },
+            ) {
+                Text(if (isGitHub) "Web OAuth" else stringResource(R.string.connector_oauth_connect))
+            }
         }
         if (connecting) {
             Text(
@@ -485,4 +576,93 @@ private fun diagnosticText(code: String): String {
             else -> R.string.connector_diag_unsupported
         }
     return stringResource(resource, code)
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun GitHubDeviceCodeCard(
+    resp: com.helix.extensions.mcp.oauth.McpDeviceCodeResponse,
+    devicePolling: Boolean,
+    onCancel: () -> Unit,
+) {
+    val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("GitHub 设备验证码 (Device Code):", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            resp.userCode,
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    clipboardManager.setText(
+                        androidx.compose.ui.text
+                            .AnnotatedString(resp.userCode),
+                    )
+                    val intent =
+                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(resp.verificationUri)).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                    context.startActivity(intent)
+                },
+            ) {
+                Text("复制验证码并打开 GitHub")
+            }
+            OutlinedButton(onClick = onCancel) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        }
+        if (devicePolling) {
+            Text("正在等待在 GitHub 页面上授权...", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Suppress("TooGenericExceptionCaught")
+private suspend fun pollDeviceTokenUntilFinished(
+    service: ConnectorService,
+    endpoint: InstalledEndpoint,
+    clientId: String,
+    resp: com.helix.extensions.mcp.oauth.McpDeviceCodeResponse,
+    onSuccess: suspend (com.helix.extensions.mcp.oauth.McpOAuthTokens) -> Unit,
+    onError: (String?) -> Unit,
+) {
+    var interval = resp.intervalSeconds.coerceAtLeast(5L)
+    val expireAt = System.currentTimeMillis() + resp.expiresInSeconds * 1000L
+    var finished = false
+    while (!finished && System.currentTimeMillis() < expireAt) {
+        kotlinx.coroutines.delay(interval * 1000L)
+        try {
+            val pollResult =
+                withContext(Dispatchers.IO) {
+                    service.pollDeviceTokenOnce(endpoint, clientId, resp.deviceCode)
+                }
+            when (pollResult) {
+                is com.helix.extensions.mcp.oauth.McpDevicePollResult.Success -> {
+                    onSuccess(pollResult.tokens)
+                    finished = true
+                }
+
+                is com.helix.extensions.mcp.oauth.McpDevicePollResult.SlowDown -> {
+                    interval += 5L
+                }
+
+                is com.helix.extensions.mcp.oauth.McpDevicePollResult.Pending -> {
+                    // Continue polling
+                }
+
+                is com.helix.extensions.mcp.oauth.McpDevicePollResult.Error -> {
+                    onError(pollResult.message)
+                    finished = true
+                }
+            }
+        } catch (cancel: CancellationException) {
+            throw cancel
+        } catch (e: Exception) {
+            onError(e.message)
+            finished = true
+        }
+    }
 }

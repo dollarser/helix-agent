@@ -31,6 +31,8 @@ data class McpOAuthServerMetadata(
     val revocationEndpoint: String? = null,
     @SerialName("registration_endpoint")
     val registrationEndpoint: String? = null,
+    @SerialName("device_authorization_endpoint")
+    val deviceAuthorizationEndpoint: String? = null,
     @SerialName("scopes_supported")
     val scopesSupported: List<String> = emptyList(),
     @SerialName("code_challenge_methods_supported")
