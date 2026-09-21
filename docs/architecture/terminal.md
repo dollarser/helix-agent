@@ -69,7 +69,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 | 日志观察（一次性 Job 已交付） | [HXA-195](../completion-records/HXA-195.md) |
 | 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
 | 单手动终端 | [HXA-197](../completion-records/HXA-197.md) |
-| 多会话 | [HXA-198](../completion-records/HXA-198.md) |
+| 多会话 | [HXA-198](../development/tasks/HXA-198.md) |
 | 综合验收 | [HXA-199](../development/tasks/HXA-199.md) |
 
 公共 G1～G4 命令在[验收规则](../development/verification-matrix.md)，具体失败、取消、日志边界与恢复用例在对应任务，不在多个计划里复制状态。

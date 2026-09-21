@@ -215,7 +215,7 @@
 | HXA-195 | 已交付 | 有界日志协议与实时输出 | [交付证据](../completion-records/HXA-195.md) |
 | HXA-196 | 收尾验收 | 有租期的独立后台命令 Job（真机待验） | [任务规格](tasks/HXA-196.md) |
 | HXA-197 | 已交付 | 单个手动 PTY 终端 | [交付证据](../completion-records/HXA-197.md) |
-| HXA-198 | 已交付 | 手动终端多会话与重连 | [交付证据](../completion-records/HXA-198.md) |
+| HXA-198 | 待实现 | 手动终端多会话与重连 | [任务规格](tasks/HXA-198.md) |
 | HXA-199 | 集成验收 | 终端专项集成与交付 | [任务规格](tasks/HXA-199.md) |
 | HXA-200 | 已交付 | 三态审批偏好与执行解析 | [交付证据](../completion-records/HXA-200.md) |
 | HXA-201 | 已交付 | 工具设置与审批卡 | [交付证据](../completion-records/HXA-201.md) |

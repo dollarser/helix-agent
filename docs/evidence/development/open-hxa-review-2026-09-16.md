@@ -26,7 +26,7 @@
 | [HXA-195](../../completion-records/HXA-195.md) | 待实现（本次复核时） | 已有最终结果不是流式日志；不等后台Job和PTY组件决定。后续交付见链接记录。 |
 | [HXA-196](../../development/tasks/HXA-196.md) | 待实现 | Goal后台续轮已归208；这里是独立进程owner/租期/日志/对账，不强制所有启动出卡。 |
 | [HXA-197](../../completion-records/HXA-197.md) | 待实现 | 人工终端范围已接受；剩余是PTY组件许可证和真实目录映射，不重审整份ADR。 |
-| [HXA-198](../../completion-records/HXA-198.md) | 待实现 | 多会话范围已接受；不再写等待手动并发ADR接受，不开放模型PTY输入。 |
+| [HXA-198](../../development/tasks/HXA-198.md) | 待实现 | 多会话范围已接受；不再写等待手动并发ADR接受，不开放模型PTY输入。 |
 | [HXA-199](../../development/tasks/HXA-199.md) | 集成验收 | 保留终端性能、后台真机和恢复集合，不与206重复建设另一套执行器或全产品验收。 |
 | [HXA-202](../../completion-records/HXA-202.md) | 已交付 | TasksScreen与dashboard已存在；任务到会话/命令/产物的路径中，任务导航与状态投影已交付，命令详情与产物交付分属194/203，不重建任务列表。 |
 | [HXA-203](../../completion-records/HXA-203.md) | 已交付 | 产物交付闭环按四象限矩阵与批次A出口旅程交付（四态可用性、变更横幅、管线导出/取消、无查看器外部打开、返回产生任务）；不扩成通用文档解析或远程Git项目。 |

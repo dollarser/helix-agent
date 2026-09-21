@@ -15,7 +15,7 @@
 | **A** | HXA-206 场景映射、报告契约、统计脚本及测试 | **READY_FOR_REVIEW** | `3e3c6040` | 12/12 单元测试通过，CLI 验证通过 |
 | **B** | HXA-199 证据汇总与报告准备 | **READY_FOR_REVIEW** | `fcaa190d` | 8/8 单元测试通过，CLI 验证通过 |
 | **C** | 过期交接文档收敛、用户帮助草稿 | **READY_FOR_REVIEW** | `beb59c95` | 源码门禁通过，引用核对无孤岛 |
-| **D** | HXA-198 UI 设计、状态/操作表、双会话闭环实现与测试映射 | **READY_FOR_REVIEW** | 本地就绪 | Runtime双会话容量、单写降级、多标签UI与ProotMultiSessionDeviceTest就绪 |
+| **D** | HXA-198 UI 设计、状态/操作表、双会话闭环实现与测试映射 | **REWORK_IN_PROGRESS** | 返修进行中 | 依审查报告修复底层准入、逐会话idle、持久提升事务与Detekt静态门禁 |
 
 
 
