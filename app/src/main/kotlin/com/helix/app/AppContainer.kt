@@ -41,6 +41,9 @@ interface AppContainer {
     val manualTerminal: com.helix.app.terminal.ManualTerminal?
         get() = null
 
+    val executionOwnership: com.helix.tools.framework.ExecutionOwnership?
+        get() = null
+
     val shellRepository: ShellRepository
 
     val storage: HelixStorage

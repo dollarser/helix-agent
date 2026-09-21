@@ -71,21 +71,16 @@ internal class DeveloperManualTerminal(
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
                 reconcileBindings()
-                val targetBinding: ExecutionOwnershipStore
-                val isPrimary: Boolean
-                if (binding1.read() == null) {
-                    targetBinding = binding1
-                    isPrimary = true
-                } else if (binding2.read() == null) {
-                    targetBinding = binding2
-                    isPrimary = false
-                } else {
-                    error("Manual terminal capacity exhausted (max 2 sessions)")
-                }
-
+                val (targetBinding, isPrimary) = selectTargetBinding(binding1, binding2)
                 val root = File(context.filesDir, "workspaces/app").canonicalFile
                 val workspace = File(root, relativeDirectory).canonicalFile
                 require(workspace.isDirectory && workspace.toPath().startsWith(root.toPath()))
+                validateWorkspaceNotActive(
+                    context,
+                    listOfNotNull(binding1.read(), binding2.read()),
+                    workspace,
+                    relativeDirectory,
+                )
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
                 val key = ptyKey(owner)
 
@@ -93,36 +88,22 @@ internal class DeveloperManualTerminal(
                     checkNotNull(ownership.acquire("manual-${key.sessionId}")) { "Execution is busy" }.use { permit ->
                         check(targetBinding.compareAndSet(null, owner))
                         check(permit.retain(owner))
-                        PtySessionClient(context).use { client ->
-                            client.connect()
-                            val reply =
-                                client.request(key, Wire.START) { data ->
-                                    data.writeString(workspace.path)
-                                    data.writeLong(leaseMs)
-                                }
-                            if (reply.outcome == "START_REFUSED" || reply.outcome == "CAPACITY_EXHAUSTED") {
-                                check(ownership.releaseUnsubmittedForCall("manual-${key.sessionId}", owner))
-                                check(targetBinding.compareAndSet(owner, null))
-                                error("Manual terminal was not started (${reply.outcome}); check Runtime readiness")
-                            }
-                            terminalState(reply)
-                        }
-                    }
-                } else {
-                    check(targetBinding.compareAndSet(null, owner))
-                    PtySessionClient(context).use { client ->
-                        client.connect()
-                        val reply =
-                            client.request(key, Wire.START) { data ->
-                                data.writeString(workspace.path)
-                                data.writeLong(leaseMs)
-                            }
+                        val reply = launchSession(context, key, workspace, leaseMs)
                         if (reply.outcome == "START_REFUSED" || reply.outcome == "CAPACITY_EXHAUSTED") {
+                            check(ownership.releaseUnsubmittedForCall("manual-${key.sessionId}", owner))
                             check(targetBinding.compareAndSet(owner, null))
                             error("Manual terminal was not started (${reply.outcome}); check Runtime readiness")
                         }
                         terminalState(reply)
                     }
+                } else {
+                    check(targetBinding.compareAndSet(null, owner))
+                    val reply = launchSession(context, key, workspace, leaseMs)
+                    if (reply.outcome == "START_REFUSED" || reply.outcome == "CAPACITY_EXHAUSTED") {
+                        check(targetBinding.compareAndSet(owner, null))
+                        error("Manual terminal was not started (${reply.outcome}); check Runtime readiness")
+                    }
+                    terminalState(reply)
                 }
             }
         }
@@ -185,9 +166,15 @@ internal class DeveloperManualTerminal(
                 mutex.withLock {
                     check(profile.profile == SafetyProfile.ADVANCED)
                     val (_, owner) = findOwner(sessionId)
-                    ManualTerminalConnection(context, ptyKey(owner)) {
-                        profile.profile == SafetyProfile.ADVANCED
-                    }.connect().also { acquired = it }
+                    val conn =
+                        ManualTerminalConnection(context, ptyKey(owner)) {
+                            profile.profile == SafetyProfile.ADVANCED
+                        }.connect()
+                    acquired = conn
+                    if (sessionId == null) {
+                        check(conn.isWriter) { "Writer is busy" }
+                    }
+                    conn
                 }
             }
         } catch (failure: Exception) {
@@ -257,4 +244,46 @@ internal fun terminalState(reply: com.helix.runtime.proot.ipc.PtySessionReply): 
         record.exitStatus,
         record.stopProof != null,
     )
+}
+
+private fun selectTargetBinding(
+    binding1: ExecutionOwnershipStore,
+    binding2: ExecutionOwnershipStore,
+): Pair<ExecutionOwnershipStore, Boolean> =
+    when {
+        binding1.read() == null -> binding1 to true
+        binding2.read() == null -> binding2 to false
+        else -> error("Manual terminal capacity exhausted (max 2 sessions)")
+    }
+
+private fun validateWorkspaceNotActive(
+    context: Context,
+    activeOwners: List<ExecutionOwnership.Owner>,
+    workspace: File,
+    relativeDirectory: String,
+) {
+    if (activeOwners.isEmpty()) return
+    PtySessionClient(context).use { client ->
+        client.connect()
+        for (activeOwner in activeOwners) {
+            val reply = client.request(ptyKey(activeOwner), Wire.QUERY)
+            val origin = reply.record?.origin
+            if (origin != null && origin.workspace == workspace.path) {
+                error("Workspace already has an active terminal session: $relativeDirectory")
+            }
+        }
+    }
+}
+
+private fun launchSession(
+    context: Context,
+    key: PtySessionKey,
+    workspace: File,
+    leaseMs: Long,
+) = PtySessionClient(context).use { client ->
+    client.connect()
+    client.request(key, Wire.START) { data ->
+        data.writeString(workspace.path)
+        data.writeLong(leaseMs)
+    }
 }

@@ -43,6 +43,9 @@ internal class ProotTerminalHost(
         if (sessions.size >= MAX_SESSIONS || activeRecords.size >= MAX_SESSIONS) {
             return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
         }
+        if (sessions.values.any { it.record.origin.workspace == workspace && it.record.stopProof == null }) {
+            return PtySessionReply(null, outcome = "START_REFUSED")
+        }
         pruneReconciledRecords(store, records)
         val launch =
             prepareLaunch(context, workspace, key.sessionId)
@@ -153,7 +156,9 @@ internal class ProotTerminalHost(
 
                 else -> {
                     val lastAct = sessionActivity[id] ?: session.record.origin.startedAtElapsedMs
-                    if (!attachedSessions.contains(id) && now - lastAct >= PtySessionProtocol.IDLE_MS) {
+                    if (now >= session.record.origin.deadlineElapsedMs) {
+                        session.stop(PtySessionRecord.StopReason.LEASE_EXPIRED)
+                    } else if (!attachedSessions.contains(id) && now - lastAct >= PtySessionProtocol.IDLE_MS) {
                         session.stop(PtySessionRecord.StopReason.IDLE)
                     } else {
                         anyActive = true

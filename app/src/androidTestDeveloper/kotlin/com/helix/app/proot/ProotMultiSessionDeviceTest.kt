@@ -193,7 +193,7 @@ class ProotMultiSessionDeviceTest {
                     container.profileStore.switchTo(SafetyProfile.ADVANCED)
                     val s1 = terminal.start(rel1, 30_000)
                     val s2 = terminal.start(rel2, 30_000)
-                    verifyRetainedAdmission()
+                    verifyRetainedAdmission(context)
 
                     // Stop and settle session 1
                     terminal.stop(s1.sessionId)
@@ -208,7 +208,7 @@ class ProotMultiSessionDeviceTest {
                     assertEquals("RUNNING", surviving.first().phase)
 
                     // Admission must still be retained for session 2
-                    verifyRetainedAdmission()
+                    verifyRetainedAdmission(context)
 
                     // Session 2 can execute commands normally
                     val conn2 = terminal.attach(s2.sessionId)
@@ -235,50 +235,183 @@ class ProotMultiSessionDeviceTest {
         }
     }
 
-    private suspend fun cleanRemainingSessions(terminal: ManualTerminal) {
-        for (session in terminal.sessions()) {
-            runCatching { terminal.stop(session.sessionId) }
-            runCatching { awaitStopped(terminal, session.sessionId) }
-            runCatching { terminal.settle(session.sessionId) }
-        }
-    }
+    @Test
+    fun agentJobMutualExclusionAndAdmissionRelease() {
+        ensureInstalledRuntime(context)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            runBlocking {
+                val previous = container.profileStore.profile
+                val terminal = checkNotNull(container.manualTerminal)
+                val rel = "multi-agent-${UUID.randomUUID()}"
+                val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                val ownership = checkNotNull(container.executionOwnership)
+                try {
+                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    val session = terminal.start(rel, 30_000)
 
-    private fun verifyRetainedAdmission() {
-        val store = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
-        checkNotNull(store.read())
-        val competing =
-            com.helix.tools.framework
-                .ExecutionOwnership(store)
-        check(competing.acquire("competing-local-write") == null)
-    }
+                    // 1. Manual terminal holds admission -> competing agent acquire must be rejected
+                    org.junit.Assert.assertNull(
+                        "Agent cannot acquire execution while terminal is active",
+                        ownership.acquire("agent-call"),
+                    )
 
-    private suspend fun awaitText(
-        connection: ManualTerminal.Connection,
-        expected: String,
-    ) {
-        withTimeout(10_000) {
-            while (!connection
-                    .read(null)
-                    .bytes
-                    .toString(Charsets.UTF_8)
-                    .contains(expected)
-            ) {
-                delay(25)
+                    // 2. Stop and settle manual terminal -> admission is released
+                    terminal.stop(session.sessionId)
+                    awaitStopped(terminal, session.sessionId)
+                    terminal.settle(session.sessionId)
+                    assertFalse(terminal.hasSession())
+
+                    // 3. Agent acquires exclusive permit -> terminal start must be refused
+                    val agentPermit = checkNotNull(ownership.acquire("agent-call"))
+                    try {
+                        assertTrue(
+                            "Terminal start must fail while agent holds admission",
+                            runCatching { terminal.start(rel, 30_000) }.isFailure,
+                        )
+                    } finally {
+                        // 4. Release/cancel agent permit -> terminal can start again
+                        agentPermit.close()
+                    }
+
+                    val nextSession = terminal.start(rel, 30_000)
+                    assertTrue(terminal.hasSession())
+                    terminal.stop(nextSession.sessionId)
+                    awaitStopped(terminal, nextSession.sessionId)
+                    terminal.settle(nextSession.sessionId)
+                    assertFalse(terminal.hasSession())
+                } finally {
+                    cleanRemainingSessions(terminal)
+                    container.profileStore.switchTo(previous)
+                    dir.deleteRecursively()
+                }
             }
         }
     }
 
-    private suspend fun awaitStopped(
-        terminal: ManualTerminal,
-        sessionId: String,
-    ): ManualTerminal.State =
-        withTimeout(10_000) {
-            var state = terminal.query(sessionId)
-            while (!state.canSettle) {
-                check(state.phase != "UNKNOWN") { "Unexpected unknown terminal session: $sessionId" }
-                delay(25)
-                state = terminal.query(sessionId)
+    @Test
+    fun twentyCycleLifecycleSoak() {
+        ensureInstalledRuntime(context)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            runBlocking {
+                val previous = container.profileStore.profile
+                val terminal = checkNotNull(container.manualTerminal)
+                val rel = "multi-soak-${UUID.randomUUID()}"
+                val dir = File(context.filesDir, "workspaces/app/$rel").apply { check(mkdirs()) }
+                try {
+                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    repeat(20) { iteration ->
+                        val session = terminal.start(rel, 30_000)
+                        assertTrue("Iteration $iteration must have session", terminal.hasSession())
+                        val conn = terminal.attach(session.sessionId)
+                        try {
+                            assertEquals("ACCEPTED", conn.write("printf cycle$iteration > out.txt\n".toByteArray()))
+                            withTimeout(10_000) { while (!File(dir, "out.txt").exists()) delay(20) }
+                            File(dir, "out.txt").delete()
+                        } finally {
+                            conn.detach()
+                        }
+                        terminal.stop(session.sessionId)
+                        awaitStopped(terminal, session.sessionId)
+                        terminal.settle(session.sessionId)
+                        assertFalse("Iteration $iteration must be settled", terminal.hasSession())
+                    }
+                } finally {
+                    cleanRemainingSessions(terminal)
+                    container.profileStore.switchTo(previous)
+                    dir.deleteRecursively()
+                }
             }
-            state
         }
+    }
+
+    @Test
+    fun crashRecoveryReconcilesOrphanedBindings() {
+        ensureInstalledRuntime(context)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            runBlocking {
+                val previous = container.profileStore.profile
+                val terminal = checkNotNull(container.manualTerminal)
+                val rel1 = "multi-crash-1-${UUID.randomUUID()}"
+                val rel2 = "multi-crash-2-${UUID.randomUUID()}"
+                val dir1 = File(context.filesDir, "workspaces/app/$rel1").apply { check(mkdirs()) }
+                val dir2 = File(context.filesDir, "workspaces/app/$rel2").apply { check(mkdirs()) }
+                val b1File = File(context.filesDir, "terminal-sessions/binding-1.json")
+                try {
+                    container.profileStore.switchTo(SafetyProfile.ADVANCED)
+                    val s1 = terminal.start(rel1, 30_000)
+                    val s2 = terminal.start(rel2, 30_000)
+                    assertEquals(2, terminal.sessions().size)
+
+                    // Simulate crash inconsistency: delete binding-1 file on disk
+                    if (b1File.exists()) {
+                        b1File.delete()
+                    }
+
+                    // Querying or accessing sessions triggers reconcileBindings()
+                    val recovered = terminal.sessions()
+                    // Reconciled surviving session (s2) is intact and active
+                    assertTrue(recovered.any { it.sessionId == s2.sessionId })
+
+                    terminal.stop(s1.sessionId)
+                    terminal.stop(s2.sessionId)
+                    awaitStopped(terminal, s2.sessionId)
+                    terminal.settle(s1.sessionId)
+                    terminal.settle(s2.sessionId)
+                    assertFalse(terminal.hasSession())
+                } finally {
+                    cleanRemainingSessions(terminal)
+                    container.profileStore.switchTo(previous)
+                    dir1.deleteRecursively()
+                    dir2.deleteRecursively()
+                }
+            }
+        }
+    }
 }
+
+private suspend fun cleanRemainingSessions(terminal: ManualTerminal) {
+    for (session in terminal.sessions()) {
+        runCatching { terminal.stop(session.sessionId) }
+        runCatching { awaitStopped(terminal, session.sessionId) }
+        runCatching { terminal.settle(session.sessionId) }
+    }
+}
+
+private fun verifyRetainedAdmission(context: android.content.Context) {
+    val store = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
+    checkNotNull(store.read())
+    val competing =
+        com.helix.tools.framework
+            .ExecutionOwnership(store)
+    check(competing.acquire("competing-local-write") == null)
+}
+
+private suspend fun awaitText(
+    connection: ManualTerminal.Connection,
+    expected: String,
+) {
+    withTimeout(10_000) {
+        while (!connection
+                .read(null)
+                .bytes
+                .toString(Charsets.UTF_8)
+                .contains(expected)
+        ) {
+            delay(25)
+        }
+    }
+}
+
+private suspend fun awaitStopped(
+    terminal: ManualTerminal,
+    sessionId: String,
+): ManualTerminal.State =
+    withTimeout(10_000) {
+        var state = terminal.query(sessionId)
+        while (!state.canSettle) {
+            check(state.phase != "UNKNOWN") { "Unexpected unknown terminal session: $sessionId" }
+            delay(25)
+            state = terminal.query(sessionId)
+        }
+        state
+    }

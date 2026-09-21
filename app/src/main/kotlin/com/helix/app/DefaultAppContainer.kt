@@ -102,7 +102,7 @@ internal class DefaultAppContainer(
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "unknown",
         )
 
-    private val executionOwnership =
+    override val executionOwnership =
         com.helix.tools.framework.ExecutionOwnership(
             com.helix.app.proot
                 .ExecutionOwnershipStore(java.io.File(appContext.filesDir, "execution-admission/owner")),
