@@ -594,6 +594,13 @@ internal class DefaultAppContainer(
             )
     }
 
+    override val marketplaceService by lazy {
+        com.helix.app.marketplace.MarketplaceService(
+            connectorService,
+            skillRepository,
+        )
+    }
+
     override val a2aService: A2aAppService =
         A2aAppService(
             storage = A2aStorageBridge(storage),

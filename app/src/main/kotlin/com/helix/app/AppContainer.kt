@@ -103,6 +103,9 @@ interface AppContainer {
     val skillInstallationService: com.helix.app.skills.SkillInstallationService?
         get() = null
 
+    val marketplaceService: com.helix.app.marketplace.MarketplaceService?
+        get() = null
+
     val skillAuthoringService: com.helix.app.skills.SkillAuthoringService?
         get() = null
 

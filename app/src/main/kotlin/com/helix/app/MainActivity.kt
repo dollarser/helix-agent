@@ -427,6 +427,7 @@ private fun DestinationScreen(
                 container.skillAuthoringService,
                 container.skillInstallationService,
                 container.connectorService,
+                container.marketplaceService,
             )
         }
 
