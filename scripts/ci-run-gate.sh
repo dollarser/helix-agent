@@ -3,8 +3,8 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 case "${1:-}" in
-    --source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts) gate="${1#--}" ;;
-    *) echo "Usage: $0 --source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts" >&2; exit 2 ;;
+    --source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts) gate="${1#--}" ;;
+    *) echo "Usage: $0 --source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--artifacts|--release-artifacts" >&2; exit 2 ;;
 esac
 mkdir -p build/ci
 started=$SECONDS

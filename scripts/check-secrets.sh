@@ -3,7 +3,11 @@ set -euo pipefail
 
 readonly project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-readonly secret_pattern='(?<![A-Za-z0-9_-])(sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{20,}|hf_[A-Za-z0-9]{20,}|npm_[A-Za-z0-9]{20,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)'
+readonly secret_patterns="$project_root/scripts/secret-pattern.txt"
+if [ ! -s "$secret_patterns" ]; then
+    printf 'check-secrets: secret patterns missing or empty; refusing to pass.\n' >&2
+    exit 1
+fi
 
 if ! command -v rg >/dev/null 2>&1; then
     printf 'check-secrets: ripgrep (rg) is required and not installed; refusing to pass.\n' >&2
@@ -23,7 +27,7 @@ rg \
     --glob '!/.gradle/**' \
     --glob '!**/build/**' \
     --glob '!scripts/check-secrets.sh' \
-    "$secret_pattern" \
+    --file "$secret_patterns" \
     "$project_root" >/dev/null 2>&1
 scan_rc=$?
 set -e

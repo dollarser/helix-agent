@@ -226,7 +226,13 @@ jobs:
 
       - name: Verify APK boundaries
         if: matrix.gate == 'tests-build'
-        run: ./scripts/ci-run-gate.sh --artifacts
+        env:
+          CI_SCOPE: ${{ needs.source.outputs.scope }}
+        run: |
+          ./scripts/ci-run-gate.sh --artifacts
+          if [ "$CI_SCOPE" = full ]; then
+            ./scripts/ci-run-gate.sh --release-artifacts
+          fi
 
       - name: Save gate diagnostics
         if: always()

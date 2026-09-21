@@ -19,7 +19,8 @@ class CiPlanTest(unittest.TestCase):
     def test_release_configuration_native_and_unknown_require_full(self):
         for path in ['app/build.gradle.kts', 'app/src/main/AndroidManifest.xml', 'gradle/libs.versions.toml',
                      'app/src/release/res/values/strings.xml', 'app/src/consumerRelease/kotlin/Main.kt', 'runtime/src/main/cpp/pty.cpp',
-                     'app/gradle.lockfile', 'scripts/check-all.sh', '.github/workflows/ci.yml', 'new.file']:
+                     'app/gradle.lockfile', 'scripts/check-all.sh', '.github/workflows/ci.yml',
+                     '.githooks/pre-commit', 'scripts/secret-pattern.txt', 'new.file']:
             with self.subTest(path=path):
                 self.assertEqual('full', ci.classify([path]))
         self.assertEqual('full', ci.classify([]))
