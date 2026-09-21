@@ -38,20 +38,20 @@ Slack 特有规则采用[官方 PKCE 说明](https://docs.slack.dev/authenticati
 - `./scripts/check-all.sh --all`：exit 0；完整 source、spotless、detekt、各变体 lint、JVM、Debug/Release 组装和 APK 边界通过。最终日志保存在工作树 `build/oauth-merge-review/`。双 flavor 测试 APK 组装通过。
 - JVM：consumer 707 项（4 skip）、developer 752 项（4 skip）、MCP 52 项（0 skip），均 0 failure/error。OAuth 子集为 app 每 flavor 22 项、MCP 15 项，全部通过；skip 没有计入通过数。
 - `run-oauth-boundary-probe.py --output build/oauth-merge-review/probe-fixed`：exit 0；实际编译类验证 `consumeReturnedNull=true`、`unrelatedJsonSurvived=true`，保存源码/类 SHA256，原失败日志未覆盖。
-- `accept-hxa-126-oauth.py --output build/oauth-device-acceptance-unique-ports`：exit 0；四组每组 OAuth 5 项 + Connector 5 项全部通过，包含真实 Android Keystore、杀进程后新 PID 恢复及一次性消费。每组均启动并关闭自有模拟器，原始 APK、测试 APK 和 PID/逐方法报告保留在该目录。
+- `accept-hxa-126-oauth.py --output build/oauth-device-acceptance-21c1f5da`：exit 0；四组每组 OAuth 5 项 + Connector 5 项全部通过，包含真实 Android Keystore、杀进程后新 PID 恢复及一次性消费。每组均启动并关闭自有模拟器，原始 APK、测试 APK 和 PID/逐方法报告保留在该目录。
 
 | 设备批次 | 通过 | App APK SHA256 |
 | --- | --- | --- |
-| consumer-api29 | 10/10，0 skip | `853e86f326a1e4174287cc1690346a34675f86958dbeb12bd0dbc6a49a344de8` |
-| consumer-api36 | 10/10，0 skip | `853e86f326a1e4174287cc1690346a34675f86958dbeb12bd0dbc6a49a344de8` |
-| developer-api29 | 10/10，0 skip | `844c5ab46618410a621e87c963ca2616235f20b3b5309039c95f1b3a1e3deeee` |
-| developer-api36 | 10/10，0 skip | `844c5ab46618410a621e87c963ca2616235f20b3b5309039c95f1b3a1e3deeee` |
+| consumer-api29 | 10/10，0 skip | `92f030a5f6179bf717f90159adf0f37827066c37d36adafa0acec984264e202b` |
+| consumer-api36 | 10/10，0 skip | `92f030a5f6179bf717f90159adf0f37827066c37d36adafa0acec984264e202b` |
+| developer-api29 | 10/10，0 skip | `da411c3ed157a3abae74b46349e91f9e8f06c6ebe5945ae292648eddd703bb5a` |
+| developer-api36 | 10/10，0 skip | `da411c3ed157a3abae74b46349e91f9e8f06c6ebe5945ae292648eddd703bb5a` |
 
 扩展回归独立运行 `run-acceptance-matrix.py --scope 206 --group extensions --group extensions-restart --output build/oauth-extension-regression`。普通批次 consumer 每 API 为 5 pass/7 skip，developer 每 API 为 10 pass/2 skip；0 failure。7 项 skip 包括 consumer 不允许 loopback 的 5 项及独立阶段的 2 项；后两项在各自 seed/recover 批次实际通过，四组均验证新 PID。严格汇总器保留 `DEVICE_BATCH_INCOMPLETE` / exit 1，不将条件 skip 改成通过；不据此重新声明整套 HXA-206 验收。
 
-首次混合设备批次因上述 skip 标为 incomplete，随后独立分组。首次相邻批次复用端口被“拒绝现有设备”保护拦下；runner 改为每批独立端口，未借用现有模拟器，也未修改产品测试的断言或跳过条件。主机复核遇到一次并行 D8 `Java heap space`，保留 `merge-gate.log`；使用 `GRADLE_OPTS="-Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.daemon=false"` 重跑同一完整门禁，日志为 `merge-gate-bounded.log`，未跳过 Release 或测试。最终主机复核仅额外去掉 MCP bridge 中重复的同一条禁用检查；保留原有检查，设备 APK 身份以上表为准。
+首次混合设备批次因上述 skip 标为 incomplete，随后独立分组。首次相邻批次复用端口被“拒绝现有设备”保护拦下；runner 改为每批独立端口，未借用现有模拟器，也未修改产品测试的断言或跳过条件。主机复核遇到一次并行 D8 `Java heap space`，保留 `merge-gate.log`；使用 `GRADLE_OPTS="-Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.daemon=false"` 重跑同一完整门禁，日志为 `merge-gate-bounded.log`，未跳过 Release 或测试。最终主机复核去掉 MCP bridge 中重复的同一条禁用检查后，再用最终 APK 完整重跑四组 OAuth/Connector 核心矩阵，仍为 40/40；设备 APK 身份以上表为准。
 
-远端合并/CI 证据在推送后补录；尚不能用本地主机或设备结果代替远端 CI。
+修复提交 `21c1f5dae8860a90f0bece5749dd01712843f311` 已快进合入 main 并推送，远端 ref 已核对一致。[本次完整 CI](https://github.com/dollarser/helix-agent/actions/runs/35592414406) 已完成 `success`，head SHA 与修复提交一致，source、runtime-assets、analysis、tests-build、verify 五项任务全部成功。最终证据更新只修改本记录，不改变已验收的产品代码。
 
 ## Residual risk
 
