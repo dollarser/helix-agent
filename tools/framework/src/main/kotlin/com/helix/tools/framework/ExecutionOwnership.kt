@@ -62,6 +62,20 @@ class ExecutionOwnership(
     /** Read-only projection. It never starts a Runtime, renews a lease, or clears a holder. */
     fun retainedOwner(): Owner? = synchronized(lock) { store.read() }
 
+    /**
+     * Atomically transfers retained ownership from [expected] to [replacement].
+     * Returns true if successful, false if expected owner does not match or admission is active.
+     */
+    fun transferRetained(
+        expected: Owner,
+        replacement: Owner,
+    ): Boolean =
+        synchronized(lock) {
+            if (active.isNotEmpty() || reconciling) return@synchronized false
+            if (store.read() != expected) return@synchronized false
+            store.compareAndSet(expected, replacement)
+        }
+
     /** Trusted launching executor transfers its currently held exclusive admission before IPC. */
     fun retainForCall(
         callId: String,
@@ -122,22 +136,6 @@ class ExecutionOwnership(
             }
             // No execution permit or owner mutation: the bound metadata implementation keeps its own validation.
             return delegate.execute(call)
-        }
-    }
-
-    private fun runOrdinary(
-        executor: ToolExecutor,
-        call: ExecutableToolCall,
-        exclusive: Boolean,
-    ): ToolExecutorResult {
-        val permit =
-            acquire(call.toolCallId, exclusive)
-                ?: return ToolExecutorResult.Failed(
-                    "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
-                    sideEffectFree = true,
-                )
-        return permit.use {
-            if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
         }
     }
 
@@ -237,5 +235,21 @@ class ExecutionOwnership(
                 }
             }
         }
+    }
+}
+
+private fun ExecutionOwnership.runOrdinary(
+    executor: ToolExecutor,
+    call: ExecutableToolCall,
+    exclusive: Boolean,
+): ToolExecutorResult {
+    val permit =
+        acquire(call.toolCallId, exclusive)
+            ?: return ToolExecutorResult.Failed(
+                "EXECUTION_BUSY: reconcile or stop the existing Runtime execution before retrying.",
+                sideEffectFree = true,
+            )
+    return permit.use {
+        if (call.cancel.isCancelled()) ToolExecutorResult.Cancelled else executor.execute(call)
     }
 }

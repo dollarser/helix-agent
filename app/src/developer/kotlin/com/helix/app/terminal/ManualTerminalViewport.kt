@@ -99,6 +99,7 @@ internal fun ManualTerminalViewport(
             listOf("Ctrl-C" to 3, "Tab" to 9, "Esc" to 27, "Ctrl-D" to 4).forEach { (label, value) ->
                 TextButton(
                     onClick = { input.offer(byteArrayOf(value.toByte())) },
+                    enabled = connection.isWriter,
                     modifier = Modifier.testTag("terminal-key-$value"),
                 ) {
                     Text(label)
@@ -109,7 +110,7 @@ internal fun ManualTerminalViewport(
             val emulator =
                 remember {
                     TerminalEmulatorFactory.create(
-                        onKeyboardInput = input::offer,
+                        onKeyboardInput = if (connection.isWriter) input::offer else { _ -> },
                         onResize = { input.sizes.trySend(it.rows.coerceIn(1, 512) to it.columns.coerceIn(1, 512)) },
                     )
                 }

@@ -27,21 +27,13 @@ interface ManualTerminal {
         leaseMs: Long = 7_200_000,
     ): State
 
-    suspend fun query(): State
+    suspend fun query(sessionId: String? = null): State
 
-    suspend fun query(sessionId: String?): State = query()
+    suspend fun stop(sessionId: String? = null): State
 
-    suspend fun stop(): State
+    suspend fun settle(sessionId: String? = null)
 
-    suspend fun stop(sessionId: String?): State = stop()
-
-    suspend fun settle()
-
-    suspend fun settle(sessionId: String?) = settle()
-
-    suspend fun attach(): Connection
-
-    suspend fun attach(sessionId: String?): Connection = attach()
+    suspend fun attach(sessionId: String? = null): Connection
 
     interface Connection {
         val isWriter: Boolean get() = true

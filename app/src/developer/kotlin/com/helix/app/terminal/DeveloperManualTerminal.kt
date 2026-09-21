@@ -25,22 +25,37 @@ internal class DeveloperManualTerminal(
     private val binding2 = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/manual-terminal-2"))
     private val mutex = Mutex()
 
-    private fun bindings() = listOf(binding1, binding2)
+    private fun reconcileBindings() {
+        val retained = ownership.retainedOwner()
+        val b1 = binding1.read()
+        val b2 = binding2.read()
+        if (b1 != null && b2 != null && b1 == b2) {
+            binding2.compareAndSet(b2, null)
+        } else if (retained != null && b2 == retained && b1 != retained) {
+            if (binding1.compareAndSet(b1, retained)) {
+                binding2.compareAndSet(retained, null)
+            }
+        }
+    }
 
     override suspend fun hasSession(): Boolean =
         withContext(Dispatchers.IO) {
-            binding1.read() != null || binding2.read() != null
+            mutex.withLock {
+                reconcileBindings()
+                binding1.read() != null || binding2.read() != null
+            }
         }
 
     override suspend fun sessions(): List<ManualTerminal.State> =
         withContext(Dispatchers.IO) {
             mutex.withLock {
-                val owners = bindings().mapNotNull { it.read() }
+                reconcileBindings()
+                val owners = listOfNotNull(binding1.read(), binding2.read())
                 if (owners.isEmpty()) return@withContext emptyList()
                 PtySessionClient(context).use { client ->
                     client.connect()
                     owners.mapNotNull { owner ->
-                        val reply = client.request(key(owner), Wire.QUERY)
+                        val reply = client.request(ptyKey(owner), Wire.QUERY)
                         reply.record?.let { terminalState(reply) }
                     }
                 }
@@ -55,6 +70,7 @@ internal class DeveloperManualTerminal(
             mutex.withLock {
                 check(profile.profile == SafetyProfile.ADVANCED) { "Manual terminal requires Advanced" }
                 require(leaseMs in 1000..Wire.MAX_LEASE_MS)
+                reconcileBindings()
                 val targetBinding: ExecutionOwnershipStore
                 val isPrimary: Boolean
                 if (binding1.read() == null) {
@@ -71,7 +87,7 @@ internal class DeveloperManualTerminal(
                 val workspace = File(root, relativeDirectory).canonicalFile
                 require(workspace.isDirectory && workspace.toPath().startsWith(root.toPath()))
                 val owner = ExecutionOwnership.Owner(UUID.randomUUID().toString(), UUID.randomUUID().toString())
-                val key = key(owner)
+                val key = ptyKey(owner)
 
                 if (isPrimary) {
                     checkNotNull(ownership.acquire("manual-${key.sessionId}")) { "Execution is busy" }.use { permit ->
@@ -111,25 +127,20 @@ internal class DeveloperManualTerminal(
             }
         }
 
-    override suspend fun query(): ManualTerminal.State = query(sessionId = null)
-
     override suspend fun query(sessionId: String?): ManualTerminal.State = operation(Wire.QUERY, sessionId)
-
-    override suspend fun stop(): ManualTerminal.State = stop(sessionId = null)
 
     override suspend fun stop(sessionId: String?): ManualTerminal.State = operation(Wire.STOP, sessionId)
 
-    override suspend fun settle() = settle(sessionId = null)
-
-    override suspend fun settle(sessionId: String?) =
+    override suspend fun settle(sessionId: String?) {
         withContext(Dispatchers.IO) {
             mutex.withLock {
+                reconcileBindings()
                 val (targetBinding, owner) = findOwner(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    val observed = client.request(key(owner), Wire.QUERY)
+                    val observed = client.request(ptyKey(owner), Wire.QUERY)
                     check(observed.record?.stopProof != null) { "Execution not proven stopped" }
-                    val ack = client.request(key(owner), Wire.ACK)
+                    val ack = client.request(ptyKey(owner), Wire.ACK)
                     check(ack.record?.reconciled == true)
 
                     if (targetBinding == binding2) {
@@ -138,12 +149,16 @@ internal class DeveloperManualTerminal(
                         // binding1 is being settled.
                         val remainingOwner = binding2.read()
                         if (remainingOwner != null) {
-                            // Promote remaining session to binding1 and swap retained admission
-                            val admissionStore =
-                                ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
-                            admissionStore.compareAndSet(owner, remainingOwner)
-                            check(binding1.compareAndSet(owner, remainingOwner))
-                            check(binding2.compareAndSet(remainingOwner, null))
+                            // Atomic promotion protocol:
+                            check(ownership.transferRetained(owner, remainingOwner)) {
+                                "Failed to transfer retained ownership"
+                            }
+                            check(binding1.compareAndSet(owner, remainingOwner)) {
+                                "Failed to promote remaining session to binding1"
+                            }
+                            check(binding2.compareAndSet(remainingOwner, null)) {
+                                "Failed to clear binding2"
+                            }
                         } else {
                             // No other session, settle the entire host admission
                             val retained = ownership.retainedOwner()
@@ -151,18 +166,16 @@ internal class DeveloperManualTerminal(
                                 val reconciliation =
                                     checkNotNull(ownership.acquireReconciliation(owner)) { "Reconciliation busy" }
                                 reconciliation.use { permit ->
-                                    check(permit.settle())
+                                    check(permit.settle()) { "Failed to settle retained ownership" }
                                 }
                             }
-                            check(binding1.compareAndSet(owner, null))
+                            check(binding1.compareAndSet(owner, null)) { "Failed to clear binding1" }
                         }
                     }
                 }
             }
         }
-
-    @Suppress("TooGenericExceptionCaught")
-    override suspend fun attach(): ManualTerminal.Connection = attach(sessionId = null)
+    }
 
     @Suppress("TooGenericExceptionCaught")
     override suspend fun attach(sessionId: String?): ManualTerminal.Connection {
@@ -172,7 +185,7 @@ internal class DeveloperManualTerminal(
                 mutex.withLock {
                     check(profile.profile == SafetyProfile.ADVANCED)
                     val (_, owner) = findOwner(sessionId)
-                    ManualTerminalConnection(context, key(owner)) {
+                    ManualTerminalConnection(context, ptyKey(owner)) {
                         profile.profile == SafetyProfile.ADVANCED
                     }.connect().also { acquired = it }
                 }
@@ -196,31 +209,43 @@ internal class DeveloperManualTerminal(
                 val (_, owner) = findOwner(sessionId)
                 PtySessionClient(context).use { client ->
                     client.connect()
-                    terminalState(client.request(key(owner), code))
+                    terminalState(client.request(ptyKey(owner), code))
                 }
             }
         }
 
     private fun findOwner(sessionId: String?): Pair<ExecutionOwnershipStore, ExecutionOwnership.Owner> {
-        if (sessionId != null) {
-            for (binding in bindings()) {
-                val owner = binding.read()
-                if (owner != null && owner.executionId == sessionId) {
-                    return binding to owner
+        reconcileBindings()
+        val b1 = binding1.read()
+        val b2 = binding2.read()
+        val pair =
+            when {
+                sessionId != null -> {
+                    when {
+                        b1?.executionId == sessionId -> binding1 to b1
+                        b2?.executionId == sessionId -> binding2 to b2
+                        else -> error("Terminal session not found: $sessionId")
+                    }
+                }
+
+                b1 != null -> {
+                    binding1 to b1
+                }
+
+                b2 != null -> {
+                    binding2 to b2
+                }
+
+                else -> {
+                    error("No active terminal session")
                 }
             }
-            error("Terminal session not found: $sessionId")
-        }
-        for (binding in bindings()) {
-            val owner = binding.read()
-            if (owner != null) return binding to owner
-        }
-        error("No active terminal session")
+        return pair
     }
-
-    private fun key(owner: ExecutionOwnership.Owner): PtySessionKey =
-        PtySessionKey(owner.executionId, owner.generation, owner.executionId)
 }
+
+private fun ptyKey(owner: ExecutionOwnership.Owner): PtySessionKey =
+    PtySessionKey(owner.executionId, owner.generation, owner.executionId)
 
 internal fun terminalState(reply: com.helix.runtime.proot.ipc.PtySessionReply): ManualTerminal.State {
     val record = checkNotNull(reply.record) { reply.outcome }

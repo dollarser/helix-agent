@@ -21,7 +21,7 @@ internal class ProotTerminalHost(
     private val runner = ProotJobRunner.get(context)
     private val sessions = mutableMapOf<String, ProotPtySession>()
     private val attachedSessions = mutableSetOf<String>()
-    private var lastActivity = SystemClock.elapsedRealtime()
+    private val sessionActivity = mutableMapOf<String, Long>()
 
     @Synchronized
     // Pre-launch refusals differ from an uncertain submitted execution.
@@ -43,20 +43,11 @@ internal class ProotTerminalHost(
         if (sessions.size >= MAX_SESSIONS || activeRecords.size >= MAX_SESSIONS) {
             return PtySessionReply(null, outcome = "CAPACITY_EXHAUSTED")
         }
-        if (records.size >= PtySessionStore.MAX_ENTRIES) {
-            val toRemove = records.filter { it.reconciled }.minByOrNull { it.origin.createdAtEpochMs }
-            if (toRemove != null) {
-                check(store.removeReconciled(toRemove))
-            }
-        }
+        pruneReconciledRecords(store, records)
         val launch =
-            try {
-                ProotTerminalLaunch(context, workspace, key.sessionId)
-            } catch (failure: Exception) {
-                android.util.Log.w("ManualPty", "Manual terminal preparation failed", failure)
-                return PtySessionReply(null, outcome = "START_REFUSED")
-            }
-        if (!runner.reserveDetached(reservation(key))) return PtySessionReply(null, outcome = "START_REFUSED")
+            prepareLaunch(context, workspace, key.sessionId)
+                ?: return PtySessionReply(null, outcome = "START_REFUSED")
+        if (!runner.reserveManualTerminal(key.sessionId)) return PtySessionReply(null, outcome = "START_REFUSED")
         val now = SystemClock.elapsedRealtime()
         val initial =
             PtySessionRecord(
@@ -66,7 +57,7 @@ internal class ProotTerminalHost(
                     key.executionId,
                     launch.workspace.path,
                     generation,
-                    bootCount(),
+                    bootCount(context),
                     System.currentTimeMillis(),
                     now,
                     Math.addExact(now, leaseMs),
@@ -76,20 +67,12 @@ internal class ProotTerminalHost(
             try {
                 ProotPtySession(initial, store, launch::spawn)
             } catch (failure: Exception) {
-                runner.releaseDetached(reservation(key))
+                runner.releaseManualTerminal(key.sessionId)
                 throw failure
             }
         sessions[key.sessionId] = session
-        attachedSessions.add(key.sessionId)
-        lastActivity = now
-        // A failed foreground promotion is settled by the live worker without calling the launcher.
-        val promoted =
-            try {
-                foreground()
-            } catch (failure: Exception) {
-                android.util.Log.w("ManualPty", "Manual terminal promotion failed", failure)
-                false
-            }
+        sessionActivity[key.sessionId] = now
+        val promoted = tryForeground(foreground)
         session.start(allowLaunch = promoted)
         return PtySessionReply(session.record)
     }
@@ -101,7 +84,7 @@ internal class ProotTerminalHost(
         return store.read(key.sessionId)?.let { old ->
             require(key.matches(old))
             var next = old.runtimeLost()
-            val boot = bootCount()
+            val boot = bootCount(context)
             val originalBoot = next.origin.bootCount
             val rebooted = originalBoot != null && boot != null && boot > originalBoot
             if (next.stopProof == null && rebooted) {
@@ -121,10 +104,13 @@ internal class ProotTerminalHost(
         sessionId: String? = null,
         attached: Boolean? = null,
     ) {
-        if (sessionId != null && attached != null) {
-            if (attached) attachedSessions.add(sessionId) else attachedSessions.remove(sessionId)
+        val now = SystemClock.elapsedRealtime()
+        if (sessionId != null) {
+            sessionActivity[sessionId] = now
+            if (attached != null) {
+                if (attached) attachedSessions.add(sessionId) else attachedSessions.remove(sessionId)
+            }
         }
-        lastActivity = SystemClock.elapsedRealtime()
     }
 
     @Synchronized
@@ -142,8 +128,9 @@ internal class ProotTerminalHost(
         if (sessions[key.sessionId]?.record?.origin == record.origin) {
             sessions.remove(key.sessionId)
             attachedSessions.remove(key.sessionId)
+            sessionActivity.remove(key.sessionId)
         }
-        runner.releaseDetached(reservation(key))
+        runner.releaseManualTerminal(key.sessionId)
         // Retain the acknowledgement so a lost reply cannot turn an idempotent ACK into NOT_FOUND.
         return acknowledged
     }
@@ -157,9 +144,7 @@ internal class ProotTerminalHost(
             when {
                 session.record.stopProof != null -> {
                     val origin = session.record.origin
-                    runner.releaseDetached(
-                        reservation(PtySessionKey(origin.sessionId, origin.generation, origin.executionId)),
-                    )
+                    runner.releaseManualTerminal(origin.sessionId)
                 }
 
                 session.record.phase == PtySessionRecord.Phase.UNKNOWN -> {
@@ -167,7 +152,8 @@ internal class ProotTerminalHost(
                 }
 
                 else -> {
-                    if (!attachedSessions.contains(id) && now - lastActivity >= PtySessionProtocol.IDLE_MS) {
+                    val lastAct = sessionActivity[id] ?: session.record.origin.startedAtElapsedMs
+                    if (!attachedSessions.contains(id) && now - lastAct >= PtySessionProtocol.IDLE_MS) {
                         session.stop(PtySessionRecord.StopReason.IDLE)
                     } else {
                         anyActive = true
@@ -183,15 +169,46 @@ internal class ProotTerminalHost(
         sessions.values.forEach { it.stop(PtySessionRecord.StopReason.USER) }
     }
 
-    private fun bootCount(): Int? =
-        Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1).takeIf {
-            it >=
-                0
-        }
-
-    private fun reservation(key: PtySessionKey): String = "pty-${key.sessionId}"
-
     companion object {
         const val MAX_SESSIONS = 2
     }
 }
+
+private fun pruneReconciledRecords(
+    store: PtySessionStore,
+    records: List<PtySessionRecord>,
+) {
+    if (records.size >= PtySessionStore.MAX_ENTRIES) {
+        val toRemove = records.filter { it.reconciled }.minByOrNull { it.origin.createdAtEpochMs }
+        if (toRemove != null) {
+            check(store.removeReconciled(toRemove))
+        }
+    }
+}
+
+@Suppress("TooGenericExceptionCaught")
+private fun prepareLaunch(
+    context: Context,
+    workspace: String,
+    sessionId: String,
+): ProotTerminalLaunch? =
+    try {
+        ProotTerminalLaunch(context, workspace, sessionId)
+    } catch (failure: Exception) {
+        android.util.Log.w("ManualPty", "Manual terminal preparation failed", failure)
+        null
+    }
+
+@Suppress("TooGenericExceptionCaught")
+private fun tryForeground(foreground: () -> Boolean): Boolean =
+    try {
+        foreground()
+    } catch (failure: Exception) {
+        android.util.Log.w("ManualPty", "Manual terminal promotion failed", failure)
+        false
+    }
+
+private fun bootCount(context: Context): Int? =
+    Settings.Global.getInt(context.contentResolver, Settings.Global.BOOT_COUNT, -1).takeIf {
+        it >= 0
+    }

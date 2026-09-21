@@ -315,6 +315,39 @@ class ExecutionOwnershipTest {
         assertEquals(0, calls)
     }
 
+    @Test
+    fun transferRetainedAtomicallySwapsOwnerWhenMatchingAndExcludesActiveAdmission() {
+        val store = MemoryStore()
+        val gate = ExecutionOwnership(store)
+        requireNotNull(gate.acquire("launch")).use {
+            assertTrue(it.retain(owner))
+        }
+        assertEquals(owner, gate.retainedOwner())
+
+        val replacement = ExecutionOwnership.Owner("second-exec", "second-gen")
+        val wrongOwner = ExecutionOwnership.Owner("wrong-exec", "wrong-gen")
+
+        // Mismatch fails
+        assertFalse(gate.transferRetained(wrongOwner, replacement))
+        assertEquals(owner, gate.retainedOwner())
+
+        // Reconciling admission prevents transfer
+        requireNotNull(gate.acquireReconciliation(owner)).use {
+            assertFalse(gate.transferRetained(owner, replacement))
+        }
+
+        // Matching owner with no active admission succeeds
+        assertTrue(gate.transferRetained(owner, replacement))
+        assertEquals(replacement, gate.retainedOwner())
+        assertNull(gate.acquire("writer"))
+
+        // Storage failure propagates
+        store.failWrite = true
+        assertThrows(IOException::class.java) {
+            gate.transferRetained(replacement, owner)
+        }
+    }
+
     private fun call() =
         ExecutableToolCall(
             toolCallId = "call",

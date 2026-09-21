@@ -59,7 +59,7 @@ internal class ManualTerminalViewModel(
                     return@action
                 }
                 val newSession = terminal.start(directoryToStart)
-                detach()
+                detachConnection(mutable)
                 val all = terminal.sessions()
                 mutable.value =
                     mutable.value.copy(
@@ -81,7 +81,7 @@ internal class ManualTerminalViewModel(
     fun switchSession(sessionId: String) =
         action {
             if (mutable.value.activeSessionId == sessionId && mutable.value.connection != null) return@action
-            detach()
+            detachConnection(mutable)
             val all = terminal.sessions()
             val target = all.find { it.sessionId == sessionId } ?: terminal.query(sessionId)
             mutable.value =
@@ -131,7 +131,7 @@ internal class ManualTerminalViewModel(
             val targetId = sessionId ?: mutable.value.activeSessionId
             if (targetId != null) {
                 if (mutable.value.activeSessionId == targetId) {
-                    detach()
+                    detachConnection(mutable)
                 }
                 terminal.settle(targetId)
                 val remaining = terminal.sessions()
@@ -149,11 +149,7 @@ internal class ManualTerminalViewModel(
             }
         }
 
-    fun dismissError() {
-        mutable.value = mutable.value.copy(errorMessage = null)
-    }
-
-    fun disconnect() = action { detach() }
+    fun disconnect() = action { detachConnection(mutable) }
 
     @Suppress("TooGenericExceptionCaught") // Only reads; one outstanding query, no input/start replay.
     suspend fun observe(connection: ManualTerminal.Connection) {
@@ -203,13 +199,6 @@ internal class ManualTerminalViewModel(
             )
     }
 
-    private suspend fun detach() {
-        val connection = mutable.value.connection
-        mutable.value = mutable.value.copy(connection = null)
-        connection?.detach()
-    }
-
-
     @Suppress("TooGenericExceptionCaught") // Surface failure; never retry ambiguous input or start.
     private fun action(block: suspend () -> Unit) {
         viewModelScope.launch {
@@ -232,7 +221,7 @@ internal class ManualTerminalViewModel(
     override fun onCleared() {
         cleanup.launch {
             try {
-                mutex.withLock { detach() }
+                mutex.withLock { detachConnection(mutable) }
             } catch (failure: Exception) {
                 android.util.Log.w("HelixTerminal", "Detach failed; retained session needs explicit query", failure)
                 // The persisted session is deliberately retained for explicit query/settlement.
@@ -241,4 +230,10 @@ internal class ManualTerminalViewModel(
             }
         }
     }
+}
+
+private suspend fun detachConnection(mutable: MutableStateFlow<TerminalPageState>) {
+    val connection = mutable.value.connection
+    mutable.value = mutable.value.copy(connection = null)
+    connection?.detach()
 }

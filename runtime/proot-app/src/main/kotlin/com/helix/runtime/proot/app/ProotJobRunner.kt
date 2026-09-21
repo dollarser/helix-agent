@@ -62,6 +62,8 @@ class ProotJobRunner private constructor(
     com.helix.runtime.proot.ipc.ProotOwnedJobHandler,
     com.helix.runtime.proot.ipc.ProotLogHandler {
     companion object {
+        const val MAX_MANUAL_TERMINALS = 2
+        const val MANUAL_TERMINAL_PREFIX = "pty-"
         private val holder = AtomicReference<ProotJobRunner>()
 
         /** Process-wide singleton: the service may rebind, but one process = one runner. */
@@ -113,22 +115,47 @@ class ProotJobRunner private constructor(
     private val executionWindows = ConcurrentHashMap<String, JobExecutionWindow>()
     private val expiredLeases = ConcurrentHashMap.newKeySet<String>()
     private var detachedReservation: String? = null
+    private val manualTerminalReservations = ConcurrentHashMap.newKeySet<String>()
+
+    private fun isExecutionAvailable(): Boolean =
+        store.activeJobIds().isEmpty() && store.pruneAndBudgetAvailable(System.currentTimeMillis())
 
     @Synchronized
     internal fun reserveDetached(jobId: String): Boolean {
-        // Reserve journal capacity before an owner can persist a pre-start cancellation.
-        if (detachedReservation != null || store.activeJobIds().isNotEmpty() ||
-            !store.pruneAndBudgetAvailable(System.currentTimeMillis())
-        ) {
-            return false
+        if (jobId.startsWith(MANUAL_TERMINAL_PREFIX)) {
+            return reserveManualTerminal(jobId.removePrefix(MANUAL_TERMINAL_PREFIX))
         }
-        detachedReservation = jobId
-        return true
+        val canReserve =
+            detachedReservation == null &&
+                manualTerminalReservations.isEmpty() &&
+                isExecutionAvailable()
+        if (canReserve) {
+            detachedReservation = jobId
+        }
+        return canReserve
     }
 
     @Synchronized
     internal fun releaseDetached(jobId: String) {
+        if (jobId.startsWith(MANUAL_TERMINAL_PREFIX)) {
+            releaseManualTerminal(jobId.removePrefix(MANUAL_TERMINAL_PREFIX))
+            return
+        }
         if (detachedReservation == jobId) detachedReservation = null
+    }
+
+    @Synchronized
+    internal fun reserveManualTerminal(sessionId: String): Boolean {
+        val canReserve =
+            detachedReservation == null &&
+                manualTerminalReservations.size < MAX_MANUAL_TERMINALS &&
+                isExecutionAvailable()
+        return canReserve && manualTerminalReservations.add(sessionId)
+    }
+
+    @Synchronized
+    internal fun releaseManualTerminal(sessionId: String) {
+        manualTerminalReservations.remove(sessionId)
     }
 
     @Synchronized
@@ -206,7 +233,9 @@ class ProotJobRunner private constructor(
             outputPfd.close()
             return ProotJobSubmitResult.Duplicate(sameExecution)
         }
-        val reservationMatches = if (detached) detachedReservation == spec.jobId else detachedReservation == null
+        val reservationMatches =
+            (if (detached) detachedReservation == spec.jobId else detachedReservation == null) &&
+                manualTerminalReservations.isEmpty()
         if (!reservationMatches) {
             inputPfd.close()
             outputPfd.close()
@@ -417,7 +446,7 @@ class ProotJobRunner private constructor(
 
             // 4) The process identity is persisted for the orphan sweep (the
             //    starttime guard makes pid reuse harmless).
-            persistProcessMeta(spec.jobId, childPid)
+            persistProcessMeta(store, spec.jobId, childPid)
 
             live =
                 LiveJob(
@@ -728,10 +757,6 @@ class ProotJobRunner private constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught") // a failing check is a skipped tick, not a crash
-    @Volatile
-    private var persistMetaError: String? = null
-
     private fun enforceDeadlines() {
         val now = SystemClock.elapsedRealtime()
         liveJobs.forEach { (_, live) ->
@@ -742,64 +767,68 @@ class ProotJobRunner private constructor(
         }
     }
 
-    /**
-     * Kills the job's process GROUP (setsid made pgid == pid), then sweeps the
-     * /proc descendant tree (a grandchild that re-parented mid-kill must not
-     * outlive the job).
-     */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException") // kill failures are retried by the tree sweep
-
-    private fun killProcessGroup(pid: Int) {
-        try {
-            Runtime.getRuntime().exec(arrayOf("kill", "-9", "-$pid")).waitFor(2_000L, TimeUnit.MILLISECONDS)
-        } catch (e: Exception) {
-            // No group (or already dead): the tree pass below still cleans up.
-        }
-        repeat(2) {
-            val descendants = processTree(pid)
-            if (descendants.isEmpty()) return
-            descendants.forEach { d ->
-                try {
-                    Runtime
-                        .getRuntime()
-                        .exec(
-                            arrayOf("kill", "-9", d.toString()),
-                        ).waitFor(1_000L, TimeUnit.MILLISECONDS)
-                } catch (e: Exception) {
-                    // gone already
-                }
-            }
-            Thread.sleep(100L)
-        }
-    }
-
-    /** Persists the process identity for the orphan sweep (`pid=` / `startTicks=` lines). */
-    @Suppress("SwallowedException", "TooGenericExceptionCaught")
-    private fun persistProcessMeta(
-        jobId: String,
-        pid: Int,
-    ) {
-        val startTicks =
-            try {
-                val stat = File("/proc/$pid/stat").readText()
-                val closeParen = stat.lastIndexOf(')')
-                val fields = stat.substring(closeParen + 2).trim().split(" ")
-                // starttime is field 22 (index 19 after the state field at index 1).
-                fields.getOrNull(19).orEmpty()
-            } catch (e: Exception) {
-                // no readable stat: no starttime proof, so the sweep will not kill
-                ""
-            }
-        try {
-            File(store.jobDir(jobId), "proc.txt").writeText("pid=$pid\nstartTicks=$startTicks\n")
-        } catch (e: Exception) {
-            // Without the meta the sweep cannot prove ownership: it still ends the
-            // job ORPHANED, it simply never kills.
-            persistMetaError = "process meta write failed: ${e.javaClass.simpleName}"
-        }
-    }
-
     fun sweepOrphans() = sweepProotOrphans(store, ::killProcessGroup)
+}
+
+@Suppress("TooGenericExceptionCaught") // a failing check is a skipped tick, not a crash
+@Volatile
+private var persistMetaError: String? = null
+
+/**
+ * Kills the job's process GROUP (setsid made pgid == pid), then sweeps the
+ * /proc descendant tree (a grandchild that re-parented mid-kill must not
+ * outlive the job).
+ */
+@Suppress("TooGenericExceptionCaught", "SwallowedException") // kill failures are retried by the tree sweep
+private fun killProcessGroup(pid: Int) {
+    try {
+        Runtime.getRuntime().exec(arrayOf("kill", "-9", "-$pid")).waitFor(2_000L, TimeUnit.MILLISECONDS)
+    } catch (e: Exception) {
+        // No group (or already dead): the tree pass below still cleans up.
+    }
+    repeat(2) {
+        val descendants = processTree(pid)
+        if (descendants.isEmpty()) return
+        descendants.forEach { d ->
+            try {
+                Runtime
+                    .getRuntime()
+                    .exec(
+                        arrayOf("kill", "-9", d.toString()),
+                    ).waitFor(1_000L, TimeUnit.MILLISECONDS)
+            } catch (e: Exception) {
+                // gone already
+            }
+        }
+        Thread.sleep(100L)
+    }
+}
+
+/** Persists the process identity for the orphan sweep (`pid=` / `startTicks=` lines). */
+@Suppress("SwallowedException", "TooGenericExceptionCaught")
+private fun persistProcessMeta(
+    store: ProotJobStore,
+    jobId: String,
+    pid: Int,
+) {
+    val startTicks =
+        try {
+            val stat = File("/proc/$pid/stat").readText()
+            val closeParen = stat.lastIndexOf(')')
+            val fields = stat.substring(closeParen + 2).trim().split(" ")
+            // starttime is field 22 (index 19 after the state field at index 1).
+            fields.getOrNull(19).orEmpty()
+        } catch (e: Exception) {
+            // no readable stat: no starttime proof, so the sweep will not kill
+            ""
+        }
+    try {
+        File(store.jobDir(jobId), "proc.txt").writeText("pid=$pid\nstartTicks=$startTicks\n")
+    } catch (e: Exception) {
+        // Without the meta the sweep cannot prove ownership: it still ends the
+        // job ORPHANED, it simply never kills.
+        persistMetaError = "process meta write failed: ${e.javaClass.simpleName}"
+    }
 }
 
 private fun ProotJobRecord.withStopReason(

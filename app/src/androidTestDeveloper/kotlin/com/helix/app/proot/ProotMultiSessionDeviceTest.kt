@@ -246,7 +246,9 @@ class ProotMultiSessionDeviceTest {
     private fun verifyRetainedAdmission() {
         val store = ExecutionOwnershipStore(File(context.filesDir, "execution-admission/owner"))
         checkNotNull(store.read())
-        val competing = com.helix.tools.framework.ExecutionOwnership(store)
+        val competing =
+            com.helix.tools.framework
+                .ExecutionOwnership(store)
         check(competing.acquire("competing-local-write") == null)
     }
 
@@ -255,7 +257,12 @@ class ProotMultiSessionDeviceTest {
         expected: String,
     ) {
         withTimeout(10_000) {
-            while (!connection.read(null).bytes.toString(Charsets.UTF_8).contains(expected)) {
+            while (!connection
+                    .read(null)
+                    .bytes
+                    .toString(Charsets.UTF_8)
+                    .contains(expected)
+            ) {
                 delay(25)
             }
         }

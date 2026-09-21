@@ -92,7 +92,10 @@ internal class ProotTerminalEndpoint(
         empty(data)
         val record =
             when (code) {
-                Wire.STOP -> host.stop(key)
+                Wire.STOP -> {
+                    host.stop(key)
+                }
+
                 Wire.ACK -> {
                     val ack = host.acknowledge(key)
                     val tokensForSession = connectionSessions.filterValues { it == key.sessionId }.keys.toList()
@@ -102,7 +105,10 @@ internal class ProotTerminalEndpoint(
                     }
                     ack
                 }
-                else -> host.query(key)
+
+                else -> {
+                    host.query(key)
+                }
             }
         return PtySessionReply(record, outcome = if (record == null) "NOT_FOUND" else "OK")
     }
@@ -154,7 +160,6 @@ internal class ProotTerminalEndpoint(
         if (admission == PtyInputConnection.Admission.ACCEPTED) host.activity(key.sessionId)
         return PtySessionReply(live.record, outcome = admission.name)
     }
-
 
     private fun resize(
         key: PtySessionKey,
