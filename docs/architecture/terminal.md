@@ -55,7 +55,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 `PtySessionRecord`/`PtySessionStore` 已提供 Runtime 单写的持久身份和有界原子 CAS。启动意图先于 fork，未保存 PID 的中断也保持未知；停止证明与对账分开，未知/损坏记录不按空闲处理。生产会话 owner 已接线；记录本身不释放应用执行占用，宿主仍须按原身份对账。关闭方向复用锁定 PRoot 的 `--kill-on-exit` 与 SIGQUIT 清理 tracee，发送成功仍不等于停止；具体实现及设备边界见[生命周期切片](../evidence/development/hxa-197-session-lifecycle-2026-09-20.md)。
 
-产品路径为 `AppContainer.manualTerminal` → developer 应用服务 → 私有 `ProotTerminalService` → `ProotPtySession`。开启前转移共享执行占用，consumer 不装配入口；原身份 ACK 后才释放占用。只直接映射应用 Workspace 中的实际目录，手动租期默认两小时、最大八小时，断开后三十分钟空闲回收。终端元数据独立于 Runtime 安装目录保存；修复/回滚/删除与执行互斥。服务接线与尚未完成的页面/恢复范围见[产品会话证据](../evidence/development/hxa-197-product-session-2026-09-20.md)。
+产品路径为 `AppContainer.manualTerminal` → developer 应用服务 → 私有 `ProotTerminalService` → `ProotPtySession`。开启前转移共享执行占用，consumer 不装配入口；原身份 ACK 后才释放占用。只直接映射应用 Workspace 中的实际目录，手动租期默认两小时、最大八小时，断开后三十分钟空闲回收。终端元数据独立于 Runtime 安装目录保存；修复/回滚/删除与执行互斥。早期服务接线见[产品会话证据](../evidence/development/hxa-197-product-session-2026-09-20.md)，最终页面/恢复交付见下方当前章节。
 
 手动终端独立规定租期与空闲回收，不套 Goal 预算。接线前验证 PTY/native/rendering 版本和许可证；前台 PTY 可独立验收，不等待后台 Job。
 
@@ -83,4 +83,10 @@ developer 文件管理器的 Workspace 目录提供“打开终端”；打开�
 
 页面显示起始 Workspace 目录、Runtime 阶段、停止原因和退出状态，提供键盘、Ctrl-C/Tab/Esc/Ctrl-D、停止和结算。连接期间单个只读观察循环更新状态；断开、终态或 UNKNOWN 后停止，不自动续租、重放输入或重启 shell。Activity 重建保留应用连接；离开页面撤销连接，原执行与持久占用由 Runtime/应用服务继续管理。视图卸载后在 callback looper 释放 emulator；输出和渲染不进入模型上下文。
 
-中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；idle/完整长租期、OEM/Doze/长稳和真实 16 KiB 设备仍归 199 专项。
+中文 IME、真实 REPL、原目录写入、重建后的环境保留及停止结算已取得产品页面证据，见[页面接线验收](../evidence/development/hxa-197-terminal-page-2026-09-20.md)。生产主进程/Runtime 死亡与重启对账、长输出/超限输入、实际运行长命令的租期终止已通过双 API，见[收口证据](../evidence/development/hxa-197-recovery-closeout-2026-09-20.md)。197 单终端范围已完成；199 已补 API36 独占模拟器的实际 30 分钟脱离回收及默认两小时完整运行中到期，见[专项记录](../evidence/development/acceptance-199-206-2026-09-21.md)。OEM/Doze/热压/物理长稳和真实 16 KiB 设备仍待 199 验收，模拟器测量不替代这些条件。
+
+### 使用与停止
+
+在 developer 的 Workspace 目录选择“打开终端”，再明确开始会话；已有会话选择“连接”即可保留原 shell 的目录和环境。需要第二个 shell 时使用“新建终端”，最多保留两个未结算会话。手动终端不是 Agent 输入接口，其屏幕输出不会自动发送给模型。
+
+返回其他页面会断开输入连接，不等于停止命令；脱离后持续输出不会延长三十分钟 idle 期限，总租期也不会自动续期。需要结束时选择“停止会话”，看到停止证明后再“结算并关闭”，释放占用。到期或空闲回收后同样需要显式结算；若显示 UNKNOWN，按原身份对账，不能把重新输入命令当作恢复。进程死亡后能否连接取决于原 Runtime/shell 是否仍存活，设备重启不会恢复原 shell 内存。

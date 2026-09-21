@@ -16,6 +16,8 @@ git diff --check
 
 [任务索引](roadmap.md)链接每个未完成任务的范围、测试与附加要求；完成记录保存实际命令、exit code、测试数、跳过原因、设备与剩余限制。本页不再维护第二张任务状态表。
 
+199/206 的共享实际执行入口为 `scripts/debug/2026-09-21/run-acceptance-matrix.py`，在共享 host slot 下复用 owned runner；`verify-terminal-runtime.py` / `verify-product-journeys.py` 的 `--owned-run` 只验证已有批次证据，`DEVICE_BATCH_PASS` 不表示整项任务通过。完整源码/制品/设备与真机边界见[本轮验收记录](../evidence/development/acceptance-199-206-2026-09-21.md)。
+
 ## 产品公共命令 P1/P2/P3
 
 仓库根执行，先配置仓库要求的JDK17/Android SDK。下列是待实施任务的命令，不是本轮已通过结果。

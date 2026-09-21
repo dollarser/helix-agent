@@ -114,12 +114,18 @@ for name in ("first", "second"):
     subprocess.run(base + ["shell", "run-as", package, "sh", "-c",
                           shlex.quote("cat > " + workspace + name + ".sh")],
                    input=script, text=True, check=True, timeout=10)
+device("shell", "am", "force-stop", package)
 launch_terminal()
+cold_pid = subprocess.run(base + ["shell", "pidof", package + ":proot"], capture_output=True, text=True, timeout=10)
+assert cold_pid.returncode == 1 and not cold_pid.stdout.strip(), "Passive navigation cold-bound the Runtime"
+cold_started = time.monotonic()
 click("Start session")
 wait_for(state, lambda text: "RUNNING" in text)
+cold_running_ms = round((time.monotonic() - cold_started) * 1000)
 keyboard()
 command(". first.sh")
 first_pid = wait_for(lambda: read("first.pid"), lambda text: text.isdigit())
+cold_shell_roundtrip_ms = round((time.monotonic() - cold_started) * 1000)
 device("shell", "input", "keyevent", "4")
 click("New terminal")
 wait_for(state, lambda text: "Terminal 2 [RUNNING]" in text)
@@ -171,5 +177,7 @@ for name in ("manual-terminal", "owner"):
     "shellPids": [first_pid, second_pid], "bootId": boot,
     "identityHashes": original, "startsPerShell": [1, 1],
     "bothOriginalShellsReconnected": True, "finalAdmissionReleased": True,
+    "coldStartUiRunningMs": cold_running_ms, "coldStartUiShellRoundtripMs": cold_shell_roundtrip_ms,
+    "coldStartIncludesHostUiAutomation": True, "runtimeAbsentBeforeStart": True,
 }, indent=2))
 print("PASS dual-terminal ordinary main-process death, no replay, explicit settlement")

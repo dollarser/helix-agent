@@ -16,7 +16,7 @@ MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MiB
 MAX_ENTRIES = 10000
 
 FAILURE_PATTERNS = [
-    re.compile(r"\bFAILURES!!!\b"),
+    re.compile(r"\bFAILURES!!!"),
     re.compile(r"INSTRUMENTATION_RESULT:\s*stream=.*FAILURES", re.IGNORECASE),
     re.compile(r"INSTRUMENTATION_STATUS:\s*failure\b", re.IGNORECASE),
     re.compile(r"INSTRUMENTATION_STATUS_CODE:\s*-[12]\b"),
@@ -120,10 +120,7 @@ def verify_source_evidence(
 
     ev_data = None
     if ref_path.suffix == ".json":
-        try:
-            ev_data = json.loads(raw_text)
-        except Exception as e:
-            raise EvidenceError(f"Invalid JSON in evidence file {ref_path}: {e}", exit_code=2)
+        ev_data = safe_load_json(ref_path, base_dir=base_dir)
 
         if isinstance(ev_data, dict):
             status = str(ev_data.get("status", "")).lower()
@@ -153,23 +150,38 @@ def verify_source_evidence(
 
     if mode == "real" and declared_status == "passed":
         if ref_path.suffix == ".json" and isinstance(ev_data, dict):
-            found = False
-            if ev_data.get("test_method") == test_method or ev_data.get("method") == test_method:
-                found = True
-            elif "cases" in ev_data and isinstance(ev_data["cases"], list):
-                for c in ev_data["cases"]:
-                    if isinstance(c, dict) and c.get("method") == test_method:
-                        found = True
-                        break
-            elif test_method in raw_text:
-                found = True
-            require(found, f"Evidence {source_ref} does not contain test_method '{test_method}'", exit_code=2)
+            require(ev_data.get("test_class") == test_class and ev_data.get("test_method") == test_method,
+                    f"Evidence {source_ref} lacks exact class/method identity")
+            require(ev_data.get("status") == "passed", f"Evidence {source_ref} lacks passed status")
+            raw_ref = ev_data.get("raw_log_ref")
+            require(isinstance(raw_ref, str) and bool(raw_ref), f"Evidence {source_ref} lacks raw_log_ref")
+            raw_path = safe_resolve_path(raw_ref, base_dir=ref_path.parent)
+            require(raw_path.suffix != ".json", "Raw instrumentation evidence must be text, not another claim")
+            verify_source_evidence(str(raw_path), base_dir, mode, declared_status, test_class, test_method)
+            emitted = []
+            for line in raw_path.read_text().splitlines():
+                if "HelixAcceptance:" in line:
+                    candidate = json.loads(line.split("HelixAcceptance:", 1)[1].strip(),
+                                           object_pairs_hook=unique_object_hook)
+                    if candidate.get("test_class") == test_class and candidate.get("test_method") == test_method:
+                        emitted.append(candidate.get("metrics"))
+            for key, value in (metrics or {}).items():
+                require(ev_data.get("metrics", {}).get(key) == value,
+                        f"Evidence lacks matching measured metric {key}")
+                require(len(emitted) == 1 and isinstance(emitted[0], dict) and emitted[0].get(key) == value,
+                        f"Raw test log lacks matching measured metric {key}")
         else:
+            identity = re.escape(f"{test_method}({test_class})")
+            started = re.findall(r"TestRunner:\s*started:\s*" + identity + r"\s*$", raw_text, re.M)
+            finished = re.findall(r"TestRunner:\s*finished:\s*" + identity + r"\s*$", raw_text, re.M)
+            unsuccessful = re.search(r"TestRunner:\s*(?:failed|assumption failed|ignored):\s*" + identity,
+                                     raw_text)
             require(
-                test_method in raw_text or test_class in raw_text,
-                f"Evidence {source_ref} does not contain record for {test_class}::{test_method}",
+                len(started) == 1 and len(finished) == 1 and not unsuccessful,
+                f"Evidence {source_ref} lacks one successful TestRunner record for {test_class}::{test_method}",
                 exit_code=2,
             )
+            require(not metrics, "Measured metrics require structured evidence linked to the raw test log")
 
 
 @dataclass
@@ -219,7 +231,7 @@ class DeviceLifecycle:
 
     def validate(self, mode: str):
         if mode == "real":
-            require(isinstance(self.owner_pid, int) and self.owner_pid > 0, "Real mode requires valid owner_pid")
+            require(type(self.owner_pid) is int and self.owner_pid > 0, "Real mode requires valid owner_pid")
             require(self.closed is True, "Real mode requires closed=True for owned runner lifecycle")
 
 
@@ -251,11 +263,11 @@ class TestCounts:
     skipped: int
 
     def validate(self):
-        require(isinstance(self.expected, int) and self.expected >= 0, "expected count must be non-negative integer")
-        require(isinstance(self.executed, int) and self.executed >= 0, "executed count must be non-negative integer")
-        require(isinstance(self.passed, int) and self.passed >= 0, "passed count must be non-negative integer")
-        require(isinstance(self.failed, int) and self.failed >= 0, "failed count must be non-negative integer")
-        require(isinstance(self.skipped, int) and self.skipped >= 0, "skipped count must be non-negative integer")
+        require(type(self.expected) is int and self.expected >= 0, "expected count must be non-negative integer")
+        require(type(self.executed) is int and self.executed >= 0, "executed count must be non-negative integer")
+        require(type(self.passed) is int and self.passed >= 0, "passed count must be non-negative integer")
+        require(type(self.failed) is int and self.failed >= 0, "failed count must be non-negative integer")
+        require(type(self.skipped) is int and self.skipped >= 0, "skipped count must be non-negative integer")
         require(self.executed > 0, "Zero test executions detected; cannot validate acceptance")
         require(
             self.executed == self.passed + self.failed + self.skipped,

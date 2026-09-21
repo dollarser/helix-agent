@@ -10,7 +10,7 @@
 
 1. **已交付**：[HXA-207](../completion-records/HXA-207.md) 扩展添加到使用闭环（含安装、启用、权限与三语言）。
 2. **已交付**：[HXA-191](../completion-records/HXA-191.md) 深色主题与会话搜索（含系统日夜切换与双 API 验证）。
-3. **当前准备阶段**：[HXA-206](tasks/HXA-206.md) 核心产品闭环综合验收目前处于场景映射、结果校验/统计脚本与报告契约准备阶段（见 [HXA-206 准备文档](../evidence/development/hxa-206-preparation.md) 与 `scripts/verify-product-journeys.py`），全量产品运行与最终验收待协调者统一调度。
+3. **后续已交付**：[HXA-206](../completion-records/HXA-206.md) 已由协调者完成本地核心产品验收；[准备文档](../evidence/development/hxa-206-preparation.md)保留为历史，不重新启动准备工作。物理设备、外部账号及发行边界见当前状态。
 
 本文件保留下方 207/191/206 原始设计规格作为历史证据与验收基线对照，新接手者请直接遵循 [small-model-handoff.md](small-model-handoff.md)。
 

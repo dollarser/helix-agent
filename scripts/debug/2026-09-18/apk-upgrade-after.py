@@ -9,6 +9,9 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from owned_acceptance import split_recovery_log, test_records
+
 serial, output_arg = sys.argv[1:]
 output = Path(output_arg).resolve()
 owner = json.loads((output / 'owner.json').read_text())
@@ -36,6 +39,8 @@ def installed(label):
 
 old_hash = installed('old')
 assert old_hash == digest(output / 'app.apk'), 'old APK identity differs'
+old_pid = int(device('shell', 'run-as', package, 'cat', 'no_backup/apk-upgrade-evidence/pid').strip())
+(output / 'upgrade-seed-pid.txt').write_text(str(old_pid))
 new_app = output / 'new-app.apk'
 new_test = output / 'new-test.apk'
 shutil.copyfile(os.environ['HELIX_UPGRADE_NEW_APK'], new_app)
@@ -46,10 +51,24 @@ assert digest(new_app) != old_hash, 'requires distinct old/new production APKs'
 (output / 'replace-test.txt').write_text(device('install', '-r', str(new_test)))
 new_hash = installed('new')
 assert new_hash == digest(new_app), 'installed new APK identity differs'
+device('logcat', '-b', 'all', '-c')
 result = device('shell', 'am', 'instrument', '-w', '-e', 'class',
     'com.helix.app.proot.ApkReplacementUpgradeDeviceTest', '-e', 'upgradePhase', 'verify',
     package + '.test/com.helix.app.HelixAndroidJUnitRunner')
 (output / 'upgrade-verification.txt').write_text(result)
+raw = device('logcat', '-d', '-s', 'TestRunner')
+(output / 'upgrade-verification-all-phases.txt').write_text(raw)
+raw, prior = split_recovery_log(raw, old_pid)
+(output / 'upgrade-verification-logcat.txt').write_text(raw)
+(output / 'upgrade-seed-tail.txt').write_text(prior)
+(output / 'upgrade-log-phases.json').write_text(json.dumps({
+    'seedPid': old_pid, 'identitySource': 'upgrade-seed-pid.txt',
+    'allPhasesSha256': digest(output / 'upgrade-verification-all-phases.txt'),
+    'verificationSha256': digest(output / 'upgrade-verification-logcat.txt'),
+}, indent=2))
+records = test_records(raw)
+assert set(records) == {'com.helix.app.proot.ApkReplacementUpgradeDeviceTest#dataAndRuntimeEvidenceSurviveApkReplacement'}
+assert all(row['status'] == 'passed' for row in records.values()), 'Upgrade method did not pass'
 if not re.search(r'^OK \(1 test\)', result, re.M) or any(x in result for x in ['FAILURES!!!', 'Process crashed', 'INSTRUMENTATION_FAILED']):
     raise RuntimeError(result)
 (output / 'upgrade-result.json').write_text(json.dumps({

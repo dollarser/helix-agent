@@ -216,14 +216,14 @@
 | HXA-196 | 收尾验收 | 有租期的独立后台命令 Job（真机待验） | [任务规格](tasks/HXA-196.md) |
 | HXA-197 | 已交付 | 单个手动 PTY 终端 | [交付证据](../completion-records/HXA-197.md) |
 | HXA-198 | 已交付 | 手动终端多会话与重连 | [交付证据](../completion-records/HXA-198.md) |
-| HXA-199 | 集成验收 | 终端专项集成与交付 | [任务规格](tasks/HXA-199.md) |
+| HXA-199 | 待物理验收 | 终端专项集成与交付 | [任务规格](tasks/HXA-199.md) |
 | HXA-200 | 已交付 | 三态审批偏好与执行解析 | [交付证据](../completion-records/HXA-200.md) |
 | HXA-201 | 已交付 | 工具设置与审批卡 | [交付证据](../completion-records/HXA-201.md) |
 | HXA-202 | 已交付 | 任务过程与跨页面操作导航 | [交付证据](../completion-records/HXA-202.md) |
 | HXA-203 | 已交付 | 产物可用性与文件交付闭环 | [交付证据](../completion-records/HXA-203.md) |
 | HXA-204 | 已交付 | 跨执行域错误与恢复交互 | [交付证据](../completion-records/HXA-204.md) |
 | HXA-205 | 已交付 | 首次配置与能力准备修复 | [交付证据](../completion-records/HXA-205.md) |
-| HXA-206 | 集成验收 | 核心产品闭环综合验收 | [任务规格](tasks/HXA-206.md) |
+| HXA-206 | 已交付 | 核心产品闭环综合验收 | [交付证据](../completion-records/HXA-206.md) |
 | HXA-207 | 已交付 | 现有扩展来源的添加到使用闭环 | [交付证据](../completion-records/HXA-207.md) |
 | HXA-208 | 已交付 | 完整 Goal 工具与前后台连续运行 | [交付证据](../completion-records/HXA-208.md) |
 | HXA-209 | 已交付 | 会话授权预设、工具禁用与自定义权限 | [交付证据](../completion-records/HXA-209.md) |

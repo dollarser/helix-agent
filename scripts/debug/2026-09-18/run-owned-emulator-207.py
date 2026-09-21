@@ -10,7 +10,11 @@ import signal
 import shutil
 import socket
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from owned_acceptance import split_recovery_log
 
 
 def passed(output):
@@ -76,11 +80,23 @@ def run(args):
             # Confirm the newly launched instance, never attach to a borrowed device.
             if args.avd not in device("emu", "avd", "name").splitlines():
                 raise RuntimeError("AVD identity mismatch")
+            (output / "device.json").write_text(json.dumps({
+                "api": int(device("shell", "getprop", "ro.build.version.sdk").strip()),
+                "model": device("shell", "getprop", "ro.product.model").strip(),
+                "pageSize": int(device("shell", "getconf", "PAGESIZE").strip()),
+                "kind": "owned-emulator",
+            }, indent=2))
             if args.airplane_mode:
                 device("shell", "svc", "wifi", "disable")
                 device("shell", "svc", "data", "disable")
             device("shell", "wm", "size", "1080x2400")
             device("shell", "wm", "density", "420")
+            if args.night_mode:
+                api = int(device("shell", "getprop", "ro.build.version.sdk").strip())
+                prefix = ("shell", "su", "0") if api == 29 else ("shell",)
+                device(*prefix, "cmd", "uimode", "night", args.night_mode)
+                device("shell", "settings", "put", "system", "font_scale", "1.3" if args.night_mode == "yes" else "1.0")
+                (output / "system-theme.txt").write_text(device("shell", "dumpsys", "uimode"))
             if args.reverse_port:
                 device("reverse", f"tcp:{args.reverse_port}", f"tcp:{args.reverse_port}")
             device("install", "-r", str(output / "app.apk"), timeout=120)
@@ -100,7 +116,7 @@ def run(args):
                 if "process crashed" not in setup.lower():
                     raise RuntimeError("Recovery setup did not reach the expected process death")
                 app_package = args.runner.split("/", 1)[0].removesuffix(".test")
-                old_pid = device("shell", "run-as", app_package, "cat", "no_backup/recovery-device-pid").strip()
+                old_pid = device("shell", "run-as", app_package, "cat", args.recovery_pid_file).strip()
                 if not old_pid.isdigit():
                     raise RuntimeError("Missing durable setup process identity")
                 (output / "process-stop.txt").write_text("Process.killProcess at publication; previous pid=" + old_pid)
@@ -108,10 +124,45 @@ def run(args):
             for argument in args.instrument_arg:
                 key, value = argument.split("=", 1)
                 extras.extend(["-e", key, value])
-            result = device("shell", "am", "instrument", "-w", "-e", "class", args.classes, *extras,
-                            args.runner, timeout=args.timeout)
-            (output / "test-logcat.txt").write_text(device("logcat", "-d", "-t", "20000", "-s", "TestRunner", "System.out", "HelixChat", "HelixFilePreview"))
+            (output / "setup-logcat.txt").write_text(device("logcat", "-d", "-t", "20000"))
+            # API29 retained setup TestRunner lines in system when only the default
+            # buffer was cleared; keep the entire previous phase in setup-logcat.txt.
+            device("logcat", "-b", "all", "-c")
+            # Stream selected tags while the suite runs. A post-run ring-buffer tail can
+            # silently lose early method starts in a noisy Runtime suite.
+            with (output / "test-logcat.txt").open("w") as test_log:
+                capture = subprocess.Popen([adb, "-s", serial, "logcat", "-v", "threadtime", "-s",
+                                            "TestRunner", "System.out", "HelixChat", "HelixFilePreview",
+                                            "HelixAcceptance"], stdout=test_log, stderr=subprocess.STDOUT)
+                try:
+                    result = device("shell", "am", "instrument", "-w", "-e", "class", args.classes, *extras,
+                                    args.runner, timeout=args.timeout)
+                    capture_deadline = time.monotonic() + 5
+                    while capture.poll() is None and time.monotonic() < capture_deadline:
+                        if "TestRunner: run finished:" in (output / "test-logcat.txt").read_text():
+                            break
+                        time.sleep(.1)
+                finally:
+                    capture.terminate()
+                    try:
+                        capture.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        capture.kill()
+                        capture.wait(timeout=10)
             (output / "instrumentation.txt").write_text(result)
+            if args.recovery_setup_class:
+                raw_path = output / "test-logcat.txt"
+                raw = raw_path.read_text()
+                current, prior = split_recovery_log(raw, int(old_pid))
+                (output / "test-logcat-all-phases.txt").write_text(raw)
+                (output / "setup-late-logcat.txt").write_text(prior)
+                raw_path.write_text(current)
+                (output / "log-phase-boundary.json").write_text(json.dumps({
+                    "setupPid": int(old_pid), "identitySource": "process-stop.txt",
+                    "allPhasesSha256": hashlib.sha256(raw.encode()).hexdigest(),
+                    "verificationSha256": hashlib.sha256(current.encode()).hexdigest(),
+                    "setupTailSha256": hashlib.sha256(prior.encode()).hexdigest(),
+                }, indent=2))
             print(result, flush=True)
             if not passed(result):
                 (output / "failure-logcat.txt").write_text(device("logcat", "-d"))
@@ -152,6 +203,8 @@ if __name__ == "__main__":
     parser.add_argument("--test-apk", required=True)
     parser.add_argument("--classes", required=True)
     parser.add_argument("--recovery-setup-class")
+    parser.add_argument("--recovery-pid-file", default="no_backup/recovery-device-pid",
+                        help="Durable setup-process identity written by the selected recovery test")
     parser.add_argument("--runner", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--timeout", type=int, default=900)
@@ -161,6 +214,7 @@ if __name__ == "__main__":
     parser.add_argument("--grant-shared-storage", action="store_true")
     parser.add_argument("--airplane-mode", action="store_true",
                         help="Cut the network (disable wifi + data) for the offline scenario")
+    parser.add_argument("--night-mode", choices=("yes", "no"), help="Owned emulator system mode; dark also uses font scale 1.3")
     parser.add_argument("--instrument-arg", action="append", default=[])
     parser.add_argument("--after-script", help="Run a checked Python follow-up on this owned serial before teardown")
     run(parser.parse_args())

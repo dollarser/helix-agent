@@ -7,7 +7,11 @@ cd "$project_root"
 source_checks() {
     python3 scripts/test-review-gates.py
     python3 -m unittest discover -s scripts/tests -p 'test_ci_*.py'
+    python3 -m unittest discover -s scripts/tests -p test_staged_gate.py
     python3 -m unittest discover -s scripts/tests -p test_session_export_validator.py
+    python3 -m unittest discover -s scripts/tests -p test_terminal_reports.py
+    python3 -m unittest discover -s scripts/tests -p test_product_journeys.py
+    python3 -m unittest discover -s scripts/tests -p test_owned_acceptance.py
     ./scripts/check-docs.sh
     ./scripts/verify-adr.sh
     ./scripts/check-i18n.sh
@@ -45,6 +49,10 @@ artifact_checks() {
     ./scripts/check-cli-runtime-boundary.sh --skip-integrated-apk-scan
 }
 
+release_artifact_checks() {
+    python3 scripts/verify-integrated-runtime-apks.py --build-type release
+}
+
 case "${1:---all}" in
     --source) source_checks ;;
     --analysis) analysis_checks ;;
@@ -53,6 +61,7 @@ case "${1:---all}" in
     --tests-build) test_build_checks ;;
     --build) build_checks ;;
     --artifacts) artifact_checks ;;
-    --all) source_checks; build_checks; artifact_checks ;;
-    *) printf 'Usage: %s [--source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--all]\n' "$0" >&2; exit 2 ;;
+    --release-artifacts) release_artifact_checks ;;
+    --all) source_checks; build_checks; artifact_checks; release_artifact_checks ;;
+    *) printf 'Usage: %s [--source|--analysis|--tests-build|--debug-analysis|--debug-tests-build|--build|--artifacts|--release-artifacts|--all]\n' "$0" >&2; exit 2 ;;
 esac
