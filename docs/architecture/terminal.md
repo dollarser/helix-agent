@@ -43,7 +43,7 @@ Tasks 另有按原调用 ID 定位的后台命令行，链接原会话和命令�
 
 ## 手动终端与多会话
 
-developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。首片单 live PTY，后续最多两个；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
+developer 用户主动开启可信 USER 入口，人工按键不逐字符出审批卡；模型、MCP、Skill、网页不能凭 session ID 写入 PTY。最多两个 live 手动会话；每 Session 同时仅一个写入连接，支持 detach/attach。共享 UID 与文件系统，手动执行和 Agent 本地代码/文件修改互斥；人工多会话不证明未知效果可并发。
 
 PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期输出缓冲最多 256 KiB，每次追加/读取最多 8 KiB，游标绑定 Session/generation；读端落后于保留窗口时明确返回缺口，UI 必须重建解析器/显示并提示丢失内容，不能把不完整转义序列直接拼接到旧状态。EOF 仅表示输出已排空，不证明进程组已停止，也不释放持久占用。主机实现见 `PtyOutputBuffer`；生产服务、Binder 和 developer 渲染页面已接线；页面遇到缺口会换用新的解析器并提示。
 
@@ -69,7 +69,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 | 日志观察（一次性 Job 已交付） | [HXA-195](../completion-records/HXA-195.md) |
 | 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
 | 单手动终端 | [HXA-197](../completion-records/HXA-197.md) |
-| 多会话 | [HXA-198](../development/tasks/HXA-198.md) |
+| 多会话 | [HXA-198](../completion-records/HXA-198.md) |
 | 综合验收 | [HXA-199](../development/tasks/HXA-199.md) |
 
 公共 G1～G4 命令在[验收规则](../development/verification-matrix.md)，具体失败、取消、日志边界与恢复用例在对应任务，不在多个计划里复制状态。
@@ -77,7 +77,7 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 
 ## 手动终端页面
 
-developer 文件管理器的 Workspace 目录提供“打开终端”；打开页面只检查本地会话绑定，用户明确启动或连接才接触 Runtime。页面通过 `ManualTerminal` 应用接口使用私有会话，不直接持有 PTY、PID 或执行许可。已有会话必须先结算，不能因切换目录另开 shell。
+developer 文件管理器的 Workspace 目录提供“打开终端”；打开页面查询已有会话状态；只有用户明确新建才启动 shell，选择已有标签连接原会话。页面通过 `ManualTerminal` 应用接口使用私有会话，不直接持有 PTY、PID 或执行许可。“新建终端”可在当前目录启动第二个独立 shell；两个会话可以使用同一目录，共享文件但各自维护 cwd/env 与输出。达到两个未结算会话时必须先停止并结算其中一个才能新建。
 
 `ManualTerminalActivity` 在主进程且不导出；ConnectBot termlib 0.2.1 经固定制品校验和显式 close 补丁后在 `:runtime:terminal-renderer` 构建，consumer 不包含组件/native/专用页面。许可证与修改说明在页面可查看，版本与构建决定见 [ADR-RUNTIME-002](../adr/runtime/002-terminal-and-jobs.md)。
 

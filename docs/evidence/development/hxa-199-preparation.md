@@ -38,7 +38,7 @@
 - 支持 `--help`（明确标明 owned-device 调度接线为后续集成职责）。
 - 校验 8 大终端必跑场景及 5 大长稳硬件边界。
 - 校验虚假时长或虚假页大小：若 `full_lease_2h` 时长不足 7200 秒、`detach_idle_30m` 不足 1800 秒或 `real_16k_pagesize` 不为 16384 字节，立即拒绝并报错。
-- 双会话 PTY 场景绑定 HXA-198 的 `ProotMultiSessionDeviceTest::dualSessionsRunConcurrentlyAndIsolateWorkspaces`，8 项必跑终端场景全部通过；5 项物理硬件/长稳边界如实保留 `skipped`，生成 `FIXTURE_INCOMPLETE`。
+- 双会话 PTY 场景绑定 HXA-198 的 `ProotMultiSessionDeviceTest::dualSessionsRunConcurrentlyAndIsolateWorkspaces`，8 项合成夹具终端场景校验通过（不是8项设备旅程通过）；5 项物理硬件/长稳边界如实保留 `skipped`，生成 `FIXTURE_INCOMPLETE`。
 
 执行与自测命令：
 ```bash

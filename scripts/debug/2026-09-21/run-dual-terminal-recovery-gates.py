@@ -6,7 +6,7 @@ import sys
 
 root = Path(__file__).resolve().parents[3]
 prefix = sys.argv[1]
-for api, port in ((29, 5584), (36, 5586)):
+for api, port in ((29, 5594), (36, 5596)):
     subprocess.run([
         sys.executable, "scripts/debug/2026-09-18/run-owned-emulator-207.py",
         "--avd", f"Helix191_API{api}", "--port", str(port), "--memory-mb", "4096", "--cores", "4",

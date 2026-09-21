@@ -59,8 +59,8 @@ class ProotMultiSessionDeviceTest {
                         assertEquals("ACCEPTED", conn1.write("printf s1_content > out1.txt\n".toByteArray()))
                         assertEquals("ACCEPTED", conn2.write("printf s2_content > out2.txt\n".toByteArray()))
 
-                        withTimeout(10_000) { while (!File(dir1, "out1.txt").exists()) delay(25) }
-                        withTimeout(10_000) { while (!File(dir2, "out2.txt").exists()) delay(25) }
+                        awaitFileContent(File(dir1, "out1.txt"), "s1_content")
+                        awaitFileContent(File(dir2, "out2.txt"), "s2_content")
 
                         assertEquals("s1_content", File(dir1, "out1.txt").readText())
                         assertEquals("s2_content", File(dir2, "out2.txt").readText())
@@ -160,7 +160,7 @@ class ProotMultiSessionDeviceTest {
 
                     // Writer can write
                     assertEquals("ACCEPTED", writerConn.write("printf writer_ok > ok.txt\n".toByteArray()))
-                    withTimeout(10_000) { while (!File(dir, "ok.txt").exists()) delay(25) }
+                    awaitFileContent(File(dir, "ok.txt"), "writer_ok")
                     assertEquals("writer_ok", File(dir, "ok.txt").readText())
 
                     // Detach writer -> subsequent attach can become writer
@@ -221,7 +221,7 @@ class ProotMultiSessionDeviceTest {
                     val conn2 = terminal.attach(s2.sessionId)
                     try {
                         assertEquals("ACCEPTED", conn2.write("printf surviving > alive.txt\n".toByteArray()))
-                        withTimeout(10_000) { while (!File(dir2, "alive.txt").exists()) delay(25) }
+                        awaitFileContent(File(dir2, "alive.txt"), "surviving")
                         assertEquals("surviving", File(dir2, "alive.txt").readText())
                     } finally {
                         conn2.detach()
@@ -444,7 +444,7 @@ private object MultiSessionTestSupport {
         val conn1 = terminal.attach(s1Id)
         try {
             assertEquals("ACCEPTED", conn1.write("printf live1 > survive1.txt\n".toByteArray()))
-            withTimeout(10_000) { while (!File(dir1, "survive1.txt").exists()) delay(20) }
+            awaitFileContent(File(dir1, "survive1.txt"), "live1")
             assertEquals("live1", File(dir1, "survive1.txt").readText())
         } finally {
             conn1.detach()
@@ -452,7 +452,7 @@ private object MultiSessionTestSupport {
         val conn2 = terminal.attach(s2Id)
         try {
             assertEquals("ACCEPTED", conn2.write("printf live2 > survive2.txt\n".toByteArray()))
-            withTimeout(10_000) { while (!File(dir2, "survive2.txt").exists()) delay(20) }
+            awaitFileContent(File(dir2, "survive2.txt"), "live2")
             assertEquals("live2", File(dir2, "survive2.txt").readText())
         } finally {
             conn2.detach()
@@ -585,3 +585,12 @@ private suspend fun awaitStopped(
         }
         state
     }
+
+private suspend fun awaitFileContent(
+    file: File,
+    expected: String,
+) {
+    withTimeout(10_000) {
+        while (!file.exists() || file.readText() != expected) delay(25)
+    }
+}
