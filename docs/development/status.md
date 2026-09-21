@@ -20,7 +20,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
-HXA-126 OAuth 候选已按所有者要求复核并同步最新 main，但完整门禁在 i18n 失败；另有回调路径/凭据绑定、SecretStore 与刷新生命周期问题，暂未合入 main。既有定向 JVM 测试通过不覆盖这些阻塞，详见[合并前复核](../evidence/development/hxa-126-merge-review-2026-09-21.md)。
+HXA-126 已由所有者授权修复并整合预注册 public-client OAuth 切片；合并前缺陷与当前验证见[修复记录](../bug-fixes/2026-09-21-connector-oauth-merge.md)。保留两家真实服务与动态注册未完成范围，不提前关闭任务。
 
 CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型准备与198双终端已整合，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。本轮206本地核心范围已完成，199只剩物理专项；验收分支及快检优化已合入并推送 main，本轮远端结果见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机缺口不记通过。
 
@@ -65,7 +65,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 - **后续计划：[206](../completion-records/HXA-206.md) 本地核心范围已交付，[199](tasks/HXA-199.md) 待物理设备**；191、197、198、211 已交付，196 真机历史豁免未计通过。193、195、204、205 均已交付，各任务证据与范围见完成记录。
 - **执行环境后续**：196后台Job与197手动PTY→198多会话→199终端验收；197不等待196。193资产/升级/CI、194命令详情、195实时输出不跟随完整终端后移。
 - **条件允许时收尾**：190 真实订阅、125 受保护 Connector；其外部设备/账号项不阻塞无依赖的本地功能。发行按 120→122→121→123，不自动开始外部提交。
-- 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 候选及工具 descriptor 候选不因整理而接受。
+- 会话独立目录仍为 proposed [ADR-WORKSPACE-004](../adr/workspace/004-workspace-binding.md)，不自动启动 HXA-210；Connector 版本/索引候选及工具 descriptor 候选不因整理而接受。
 
 ## Blocked
 
@@ -73,7 +73,8 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 | --- | --- |
 | HXA-199 终端物理专项 | OEM/HOME/安全锁屏/Doze/热压/物理长稳与真实 16 KiB 设备未提供；双 API 模拟器、实际默认时长、覆盖升级及普通双 shell 恢复已验，不重复用模拟器替代真机 |
 | HXA-125 受保护 Connector 服务验收 | WorkBuddy 来源样本已补齐；仍需独立测试账号验证凭据无效、权限拒绝、厂商撤销和重连；匿名服务与 fixture 不替代这些证据 |
-| HXA-126 / HXA-129 | [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) / [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 待审查；HXA-126 还需两家独立服务账号与 redirect 条件 |
+| HXA-126 外部验收 | [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) 已接受；仍缺两家独立服务账号、App 注册与 redirect 条件，动态注册未交付 |
+| HXA-129 | [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 待审查 |
 | HXA-130 | [ADR-CONNECTORS-004](../adr/connectors/004-signed-index.md) 待审查；生产安装集成依赖129，纯离线格式fixture可准备，市场运行时未授权 |
 | Claude / Grok 真实付费调用 | 账号不可用，按所有者决定暂缓；本地与设备夹具通过不代表真实账号验收 |
 | 发布验收 | HXA-122 尚待稳定 applicationId、渠道命名、升级路径与签名发行决策 |
@@ -98,7 +99,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 - **设备覆盖**：API29/36 模拟器及历史 API34/35、16 KiB 模拟器证据不替代物理低内存、OEM、热压力、Doze、安全锁屏和 Root grant/revoke/loss 验收；x86_64 静态制品证据也不等于实际运行。
 - **文件恢复**：HXA-182 实现显式对账恢复，不承诺字节偏移续传、断电事务、自动后台队列或跨 Provider 原子事务；既有 picker 导入/导出及旧版无日志暂存不在该恢复管线内。目标/备份变化时保留人工核查，云盘厂商与全部中断阶段仍需外部设备验收。
 - **模型与附件**：导入成功不等于模型理解。图片受实际模型视觉能力与端上预算约束；既有文本/图片管线不代表任意文档、音视频解析或 OCR 已实现。真实服务可用性与连接参数需要按服务当前状态验证。
-- **后续功能**：已有只读 Git 状态/diff 界面；完整持久仓库写操作、remote Git/凭据，以及生产子 Agent/Workflow 尚未据此交付；接受 ADR 不构成实现证据。Connector OAuth、版本管理与市场扩展也不因本轮整理自动启动。
+- **后续功能**：已有只读 Git 状态/diff 界面；完整持久仓库写操作、remote Git/凭据，以及生产子 Agent/Workflow 尚未据此交付；接受 ADR 不构成实现证据。Connector OAuth 已按所有者授权整合本地切片、保留外部验收；版本管理与市场扩展未据此启动。
 - **发行**：Standard 完整产品形态是 ADR-PLATFORM-001 的决定；当前 consumer/developer 构建与 CI debug APK 不是签名 release、完整渠道权限申报或商店审核证据。
 - **测试条件跳过**：HXA-184 的 8 项 JVM 跳过需要 supplied Connector/WorkBuddy 与外部验收材料；每台设备的 2 项浏览器跳过需要显式长稳/诊断参数。均未计为通过，具体条件见 HXA-184。
 - **外部依赖边界**：默认门禁不依赖真实业务服务、账号或付费调用；显式 profile 的缺参跳过不算通过，启用后失败如实记录。构建下载、本地测试服务器与外部 smoke 的边界统一见[公共验收规则](verification-matrix.md)。

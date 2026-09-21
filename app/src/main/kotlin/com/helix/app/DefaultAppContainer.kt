@@ -555,6 +555,7 @@ internal class DefaultAppContainer(
     override val mcpService: McpAppService =
         McpAppService(
             storage = McpStorageBridge(storage),
+            prepareCredential = { config -> mcpOAuthCoordinator.prepareCredential(config) },
             profile = { profileStore.profile },
             lanScopes = lanScopeStore::current,
             registry = toolRegistry,
@@ -575,9 +576,10 @@ internal class DefaultAppContainer(
         val attemptStore =
             com.helix.app.mcp.oauth.McpOAuthAttemptStore(
                 java.io.File(context.filesDir, "mcp_oauth_attempts"),
+                storage.secrets,
             )
         com.helix.app.mcp.oauth
-            .McpOAuthCoordinator(storage.secrets, attemptStore, oauthClient)
+            .McpOAuthCoordinator(storage.secrets, attemptStore, oauthClient, context.packageName)
     }
 
     override val connectorService by lazy {

@@ -6,6 +6,8 @@ import com.helix.app.mcp.McpAppService
 import com.helix.core.model.SecretAlias
 import com.helix.core.storage.HelixStorage
 import com.helix.extensions.mcp.McpHandshakeSnapshot
+import com.helix.extensions.mcp.oauth.McpOAuthVendor
+import com.helix.extensions.mcp.oauth.mcpOAuthVendor
 import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
@@ -131,21 +133,21 @@ class ConnectorService(
         return mcp.testConnection(endpoint.id)
     }
 
+    val oauthRedirectUri: String get() = requireNotNull(oauthCoordinator).defaultRedirectUri
+
     fun hasOAuthToken(endpoint: InstalledEndpoint): Boolean = oauthCoordinator?.hasToken(endpoint.id) == true
 
     suspend fun prepareOAuth(
         endpoint: InstalledEndpoint,
         clientId: String,
         scope: String = "",
-        redirectUri: String = com.helix.app.mcp.oauth.McpOAuthCoordinator.DEFAULT_REDIRECT_URI,
+        redirectUri: String = oauthRedirectUri,
     ): com.helix.app.mcp.oauth.McpOAuthPreparedAuth {
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
         requireOwned(endpoint)
+        disable(endpoint)
         val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
-        val isSlack =
-            endpoint.endpoint.url
-                .lowercase()
-                .contains("slack.com")
+        val isSlack = mcpOAuthVendor(endpoint.endpoint.url) == McpOAuthVendor.SLACK
         val isCustomScheme = !redirectUri.startsWith("http://") && !redirectUri.startsWith("https://")
         val extraParams = mutableMapOf<String, String>()
         val paramScope: String
@@ -162,6 +164,7 @@ class ConnectorService(
             scope = paramScope,
             redirectUri = redirectUri,
             extraParams = extraParams,
+            resource = endpoint.endpoint.url,
         )
     }
 
@@ -169,19 +172,18 @@ class ConnectorService(
     private suspend fun resolveOAuthMetadata(
         coordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator,
         endpointUrl: String,
-    ): com.helix.extensions.mcp.oauth.McpOAuthServerMetadata {
-        val lower = endpointUrl.lowercase()
-        return when {
-            lower.contains("slack.com") -> {
+    ): com.helix.extensions.mcp.oauth.McpOAuthServerMetadata =
+        when (mcpOAuthVendor(endpointUrl)) {
+            McpOAuthVendor.SLACK -> {
                 com.helix.extensions.mcp.oauth.McpOAuthServerMetadata(
                     issuer = "https://slack.com",
                     authorizationEndpoint = "https://slack.com/oauth/v2/authorize",
                     tokenEndpoint = "https://slack.com/api/oauth.v2.access",
-                    revocationEndpoint = "https://slack.com/api/auth.test",
+                    revocationEndpoint = "https://slack.com/api/auth.revoke",
                 )
             }
 
-            lower.contains("github.com") -> {
+            McpOAuthVendor.GITHUB -> {
                 com.helix.extensions.mcp.oauth.McpOAuthServerMetadata(
                     issuer = "https://github.com",
                     authorizationEndpoint = "https://github.com/login/oauth/authorize",
@@ -194,7 +196,6 @@ class ConnectorService(
                 coordinator.discoverMetadata(endpointUrl)
             }
         }
-    }
 
     suspend fun getOAuthMetadata(endpoint: InstalledEndpoint): com.helix.extensions.mcp.oauth.McpOAuthServerMetadata {
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
@@ -210,39 +211,21 @@ class ConnectorService(
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
         requireOwned(endpoint)
         val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
-        val deviceEndpoint =
-            requireNotNull(metadata.deviceAuthorizationEndpoint) {
-                "Device authorization endpoint not supported by ${endpoint.endpoint.url}"
-            }
-        return coordinator.requestDeviceAuth(
-            deviceEndpoint = deviceEndpoint,
-            clientId = clientId,
-            scope = scope,
-        )
+        disable(endpoint)
+        return coordinator.requestDeviceAuth(endpoint.id, metadata, endpoint.endpoint.url, clientId, scope)
     }
 
     suspend fun pollDeviceTokenOnce(
         endpoint: InstalledEndpoint,
-        clientId: String,
-        deviceCode: String,
+        state: String,
     ): com.helix.extensions.mcp.oauth.McpDevicePollResult {
-        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
         requireOwned(endpoint)
-        val metadata = resolveOAuthMetadata(coordinator, endpoint.endpoint.url)
-        return coordinator.pollDeviceTokenOnce(
-            tokenEndpoint = metadata.tokenEndpoint,
-            clientId = clientId,
-            deviceCode = deviceCode,
-        )
+        return requireNotNull(oauthCoordinator).pollDeviceTokenOnce(endpoint.id, endpoint.endpoint.url, state)
     }
 
-    fun completeDeviceAuth(
-        endpoint: InstalledEndpoint,
-        tokens: com.helix.extensions.mcp.oauth.McpOAuthTokens,
-    ): com.helix.app.mcp.oauth.McpOAuthResult.Success {
-        val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
+    fun cancelOAuth(endpoint: InstalledEndpoint) {
         requireOwned(endpoint)
-        return coordinator.saveTokens(endpoint.id, tokens)
+        oauthCoordinator?.cancel(endpoint.id)
     }
 
     suspend fun testOAuth(endpoint: InstalledEndpoint): McpHandshakeSnapshot {
@@ -264,19 +247,11 @@ class ConnectorService(
         return mcp.testConnection(endpoint.id)
     }
 
-    suspend fun revokeOAuth(
-        endpoint: InstalledEndpoint,
-        clientId: String,
-        revocationEndpoint: String? = null,
-    ): com.helix.extensions.mcp.oauth.McpOAuthRevocationResult {
+    suspend fun revokeOAuth(endpoint: InstalledEndpoint): com.helix.extensions.mcp.oauth.McpOAuthRevocationResult {
         requireOwned(endpoint)
         disable(endpoint)
         val coordinator = requireNotNull(oauthCoordinator) { "OAuth coordinator not available" }
-        return coordinator.revokeAndClear(
-            serverId = endpoint.id,
-            clientId = clientId,
-            revocationEndpoint = revocationEndpoint,
-        )
+        return coordinator.revokeAndClear(endpoint.id)
     }
 
     @Synchronized
@@ -299,7 +274,7 @@ class ConnectorService(
                 endpoint.endpoint.url,
                 alias.value.takeIf { bearer.isNotBlank() || endpoint.endpoint.needsCredential },
             )
-        } else if (bearer.isNotBlank() && existing.authAlias == null) {
+        } else if (bearer.isNotBlank()) {
             storage.mcpServers.replaceAuthAlias(endpoint.id, alias.value)
         }
         mcp.disable(endpoint.id)
@@ -341,6 +316,7 @@ class ConnectorService(
         current.endpoints.forEach { endpoint ->
             disable(endpoint)
             storage.secrets.delete(SecretAlias(endpoint.id))
+            oauthCoordinator?.clearLocal(endpoint.id)
         }
         val otherKeys = list().filter { it.id != record.id }.flatMap { it.skills }.toSet()
         current.skills.filter { it !in otherKeys }.forEach { setSkillEnabled(it, false) }

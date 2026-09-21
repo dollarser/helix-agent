@@ -2,9 +2,11 @@
 
 日期：2026-09-21。所有者要求合并 `codex/hxa-126-connector-oauth`。本记录区分合并授权、源码问题及实际验收，不将已有提交数量视为交付证明。
 
-## 当前结论
+## 当时结论（修复前快照）
 
 尚未将 OAuth 功能合入 main。候选原始 HEAD 为 `7c618e0e`（包含 GitHub Device Authorization 的最新提交），已无冲突合入 main `995c9baf`，形成候选 `dd40563d`。这只是 main → OAuth 的基线同步；没有反向合并、推送 OAuth 或删除工作树。
+
+后续所有者已授权修复并合并；最新结果见[修复记录](../../bug-fixes/2026-09-21-connector-oauth-merge.md)。以下保留当时失败证据。
 
 ## 已确认的合并阻塞
 

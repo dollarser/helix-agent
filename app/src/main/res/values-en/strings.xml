@@ -1161,4 +1161,16 @@
     <string name="session_export_cancelled">Cancelled. An incomplete file may remain if the destination could not be cleaned up.</string>
     <string name="session_export_failed">Export incomplete. Check storage space and destination permissions. An incomplete file may remain.</string>
     <string name="session_export_interrupted">The previous export was interrupted and was not retried. Cleanup was attempted; an incomplete destination file may remain.</string>
+    <string name="connector_github_pat_hint">Create a classic or fine-grained token at github.com/settings/tokens.</string>
+    <string name="connector_device_flow">Device login (no client secret)</string>
+    <string name="connector_device_code">GitHub device code</string>
+    <string name="connector_device_open">Copy code and open GitHub</string>
+    <string name="connector_device_waiting">Waiting for authorization on GitHub…</string>
+    <string name="connector_github_pat">Personal access token (PAT)</string>
+    <string name="connector_web_oauth">Browser login</string>
+    <string name="connector_oauth_redirect">Redirect URI</string>
+    <string name="connector_oauth_revoked">Local credentials cleared; service confirmed revocation.</string>
+    <string name="connector_oauth_local_cleared">Local credentials cleared. Service revocation was not confirmed.</string>
+    <string name="connector_oauth_callback_success">Connector login completed.</string>
+    <string name="connector_oauth_callback_failure">Connector login failed. Return to the connector and retry.</string>
 </resources>

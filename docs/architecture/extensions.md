@@ -21,4 +21,4 @@
 
 A2A 仅为客户端互操作，不是 Helix Worker，也不继承本地 Secret、scope 或批准。远端任务身份、取消和 Artifact 应持久化，未知结果先对账。网络、认证和 Runtime 依赖失败要提供可定位的修复入口，不把安装成功当真实任务成功。
 
-Connector OAuth、安装所有权、签名索引 ADR 当前为 proposed；对应实现必须等待显式接受。具体未完成工作见[路线](../development/roadmap.md)，不沿用旧 Agent 交接中的任务顺序。
+Connector OAuth 已由所有者明确授权修复并整合，见 accepted ADR-CONNECTORS-002；真实服务验收仍开放。安装所有权与签名索引 ADR 仍为 proposed，对应实现必须等待显式接受。具体未完成工作见[路线](../development/roadmap.md)，不沿用旧 Agent 交接中的任务顺序。

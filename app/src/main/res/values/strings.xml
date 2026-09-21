@@ -1161,4 +1161,16 @@
     <string name="session_export_cancelled">已取消。若目标无法清理，可能留有不完整文件。</string>
     <string name="session_export_failed">导出未完成。请检查存储空间和目标权限；可能留有不完整文件。</string>
     <string name="session_export_interrupted">上次导出未完成，未自动重试。已尝试清理；目标位置可能留有不完整文件。</string>
+    <string name="connector_github_pat_hint">Create a classic or fine-grained token at github.com/settings/tokens.</string>
+    <string name="connector_device_flow">Device login (no client secret)</string>
+    <string name="connector_device_code">GitHub device code</string>
+    <string name="connector_device_open">Copy code and open GitHub</string>
+    <string name="connector_device_waiting">Waiting for authorization on GitHub…</string>
+    <string name="connector_github_pat">Personal access token (PAT)</string>
+    <string name="connector_web_oauth">Browser login</string>
+    <string name="connector_oauth_redirect">Redirect URI</string>
+    <string name="connector_oauth_revoked">Local credentials cleared; service confirmed revocation.</string>
+    <string name="connector_oauth_local_cleared">Local credentials cleared. Service revocation was not confirmed.</string>
+    <string name="connector_oauth_callback_success">Connector login completed.</string>
+    <string name="connector_oauth_callback_failure">Connector login failed. Return to the connector and retry.</string>
 </resources>

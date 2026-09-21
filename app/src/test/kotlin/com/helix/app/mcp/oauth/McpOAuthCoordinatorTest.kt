@@ -42,7 +42,7 @@ class McpOAuthCoordinatorTest {
     fun setUp() {
         mockServer = MockOAuthServer()
         secretStore = InMemorySecretStore()
-        attemptStore = McpOAuthAttemptStore(tempFolder.newFolder("attempts"))
+        attemptStore = McpOAuthAttemptStore(tempFolder.newFolder("attempts"), secretStore)
         val client = McpOAuthClient(allowAllGate)
         coordinator = McpOAuthCoordinator(secretStore, attemptStore, client)
     }
@@ -116,13 +116,14 @@ class McpOAuthCoordinatorTest {
             assertTrue(result is McpOAuthResult.Success)
             val success = result as McpOAuthResult.Success
             assertEquals("slack-mcp", success.serverId)
-            assertEquals("xoxb-mock-token", success.tokens.accessToken)
+            assertEquals("xoxb-mock-token", secretStore.get(SecretAlias("mcp.slack-mcp.oauth.token")))
 
             // Verify saved in SecretStore
             val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
             val refreshAlias = SecretAlias("mcp.slack-mcp.oauth.refresh")
             assertEquals("xoxb-mock-token", secretStore.get(tokenAlias))
-            assertEquals("xoxr-mock-refresh", secretStore.get(refreshAlias))
+            assertFalse(secretStore.contains(refreshAlias))
+            assertTrue(secretStore.get(SecretAlias("mcp.slack-mcp.oauth.binding")).contains("xoxr-mock-refresh"))
 
             // Replay attempt must fail (one-time consumption)
             val replayResult = coordinator.handleCallback(callbackUrl)
@@ -147,16 +148,30 @@ class McpOAuthCoordinatorTest {
         runBlocking {
             val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
             val refreshAlias = SecretAlias("mcp.slack-mcp.oauth.refresh")
-            secretStore.put(tokenAlias, "token-to-revoke")
-            secretStore.put(refreshAlias, "refresh-to-revoke")
+            val prepared =
+                coordinator.prepareAuthorization(
+                    "slack-mcp",
+                    "client-id",
+                    McpOAuthServerMetadata(
+                        mockServer.baseUrl,
+                        "${mockServer.baseUrl}/authorize",
+                        "${mockServer.baseUrl}/token",
+                        "${mockServer.baseUrl}/revoke",
+                    ),
+                    "read",
+                )
+            mockServer.setTokenResponse("""{"access_token":"token-to-revoke","refresh_token":"refresh-to-revoke"}""")
+            assertTrue(
+                coordinator.handleCallback(
+                    "helix://oauth/mcp/callback?state=${prepared.state}&code=fixture",
+                ) is McpOAuthResult.Success,
+            )
 
             mockServer.setRevokeStatus(200)
 
             val outcome =
                 coordinator.revokeAndClear(
                     serverId = "slack-mcp",
-                    clientId = "client-id",
-                    revocationEndpoint = "${mockServer.baseUrl}/revoke",
                 )
 
             assertTrue(outcome.vendorRevoked)
@@ -170,12 +185,10 @@ class McpOAuthCoordinatorTest {
             assertFalse(coordinator.hasToken("slack-mcp"))
             val tokenAlias = SecretAlias("mcp.slack-mcp.oauth.token")
             secretStore.put(tokenAlias, "test-token")
-            assertTrue(coordinator.hasToken("slack-mcp"))
+            assertFalse(coordinator.hasToken("slack-mcp")) // Legacy unbound tokens require login.
 
             coordinator.revokeAndClear(
                 serverId = "slack-mcp",
-                clientId = "client-id",
-                revocationEndpoint = null,
             )
             assertFalse(coordinator.hasToken("slack-mcp"))
         }
@@ -219,7 +232,7 @@ class McpOAuthCoordinatorTest {
 
             assertTrue(emitted is McpOAuthResult.Success)
             assertEquals("slack-mcp", (emitted as McpOAuthResult.Success).serverId)
-            assertEquals("flow-token-123", (emitted as McpOAuthResult.Success).tokens.accessToken)
+            assertEquals("flow-token-123", secretStore.get(SecretAlias("mcp.slack-mcp.oauth.token")))
         }
 
     private class InMemorySecretStore : SecretStore {

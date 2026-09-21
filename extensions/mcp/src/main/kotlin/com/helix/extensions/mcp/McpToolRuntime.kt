@@ -13,6 +13,7 @@ class McpToolRuntime(
     private val endpointGate: McpEndpointGate,
     private val clientName: String,
     private val clientVersion: String,
+    private val prepareCredential: suspend (McpServerConfig) -> Unit = {},
 ) {
     init {
         require(clientName.isNotBlank()) { "clientName must not be blank" }
@@ -33,6 +34,8 @@ class McpToolRuntime(
                 withTimeout(remainingMillis) {
                     val permit = endpointGate.authorize(config.endpoint)
                     ensureNotCancelled(call.cancel.isCancelled(), "credential lookup")
+                    prepareCredential(config)
+                    ensureNotCancelled(call.cancel.isCancelled(), "credential refresh")
                     val bearer =
                         config.bearerSecretAlias?.let { alias ->
                             credentials.lookup(alias).also(::requireBearerCredential)

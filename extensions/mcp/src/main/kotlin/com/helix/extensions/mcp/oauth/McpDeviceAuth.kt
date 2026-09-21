@@ -9,6 +9,7 @@ data class McpDeviceCodeResponse(
     val verificationUri: String,
     val expiresInSeconds: Long,
     val intervalSeconds: Long,
+    val attemptState: String = "",
 )
 
 sealed interface McpDevicePollResult {

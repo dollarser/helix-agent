@@ -15,7 +15,7 @@ class McpOAuthAttemptStoreTest {
     @Test
     fun attemptIsSavedAndConsumedExactlyOnce() {
         val dir = tempFolder.newFolder("attempts")
-        val store = McpOAuthAttemptStore(dir)
+        val store = McpOAuthAttemptStore(dir, OAuthTestSecrets())
 
         val state = "test-state-123456"
         val attempt =
@@ -49,7 +49,7 @@ class McpOAuthAttemptStoreTest {
     @Test
     fun expiredAttemptReturnsNullAndCleanupDeletesExpired() {
         val dir = tempFolder.newFolder("attempts")
-        val store = McpOAuthAttemptStore(dir)
+        val store = McpOAuthAttemptStore(dir, OAuthTestSecrets())
 
         val expiredState = "expired-state"
         val validState = "valid-state"
@@ -103,7 +103,7 @@ class McpOAuthAttemptStoreTest {
     @Test
     fun cancelAttemptDeletesFile() {
         val dir = tempFolder.newFolder("attempts")
-        val store = McpOAuthAttemptStore(dir)
+        val store = McpOAuthAttemptStore(dir, OAuthTestSecrets())
 
         val state = "state-to-cancel"
         val attempt =

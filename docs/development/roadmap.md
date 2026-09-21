@@ -159,7 +159,7 @@
 | HXA-123 | 发行队列 | 选定渠道提交准备与审核证据 | [任务规格](tasks/HXA-123.md) |
 | HXA-124 | 已交付 | Connector 调研、插件导入与管理 | [交付证据](../completion-records/HXA-124.md) |
 | HXA-125 | 收尾验收 | Connector 受保护服务与来源验收 | [任务规格](tasks/HXA-125.md) |
-| HXA-126 | 待决策 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
+| HXA-126 | 进行中 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
 | HXA-127 | 已交付 | 大 catalog 渐进工具发现 | [交付证据](../completion-records/HXA-127.md) |
 | HXA-128 | 已交付 | CLI/stdio Connector 可移植性 Spike | [交付证据](../completion-records/HXA-128.md) |
 | HXA-129 | 待决策 | Connector 所有权、版本与安装事务 | [任务规格](tasks/HXA-129.md) |

@@ -9,7 +9,12 @@ class OAuthAttemptBoundaryProbe {
         Path victim = root.resolve("unrelated.json");
         Files.writeString(victim, "{\"fixture\":true}");
         Class<?> storeType = Class.forName("com.helix.app.mcp.oauth.McpOAuthAttemptStore");
-        Object store = storeType.getConstructor(java.io.File.class).newInstance(attempts.toFile());
+        Class<?> secretType = Class.forName("com.helix.core.storage.SecretStore");
+        Object secrets = java.lang.reflect.Proxy.newProxyInstance(secretType.getClassLoader(),
+                new Class<?>[]{secretType}, (proxy, method, values) -> {
+                    throw new AssertionError("Invalid state must not access secrets");
+                });
+        Object store = storeType.getConstructor(java.io.File.class, secretType).newInstance(attempts.toFile(), secrets);
         Object result = storeType.getMethod("consumeAttempt", String.class, long.class)
                 .invoke(store, "../unrelated", 1L);
         System.out.println("candidate=" + args[1]);

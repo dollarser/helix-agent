@@ -5,15 +5,17 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import com.helix.app.HelixApplication
+import com.helix.app.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
  * SingleTask Activity handling OAuth callbacks redirected from system browser:
- * Scheme: helix://oauth/mcp/callback?code=...&state=...
+ * The installed applicationId is the URI scheme; coordinator validates the full callback binding.
  * ADR-CONNECTORS-002: One-time consumption, PKCE exchange, and secure storage in SecretStore.
  */
 class McpOAuthCallbackActivity : Activity() {
@@ -27,6 +29,11 @@ class McpOAuthCallbackActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -58,7 +65,7 @@ class McpOAuthCallbackActivity : Activity() {
                     Toast
                         .makeText(
                             this@McpOAuthCallbackActivity,
-                            "MCP OAuth connected: ${result.serverId}",
+                            getString(R.string.connector_oauth_callback_success),
                             Toast.LENGTH_SHORT,
                         ).show()
                 }
@@ -67,7 +74,7 @@ class McpOAuthCallbackActivity : Activity() {
                     Toast
                         .makeText(
                             this@McpOAuthCallbackActivity,
-                            "MCP OAuth failed: ${result.message}",
+                            getString(R.string.connector_oauth_callback_failure),
                             Toast.LENGTH_LONG,
                         ).show()
                 }

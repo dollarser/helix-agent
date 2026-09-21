@@ -23,10 +23,11 @@ class McpAppService(
     private val registry: ToolRegistry,
     private val implementations: ToolImplementationRegistry,
     lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
+    private val prepareCredential: suspend (McpServerConfig) -> Unit = {},
 ) {
     private val endpointGate = McpSsrfEndpointGate(profile, lanScopes)
     private val handshake = McpHandshakeService(storage.credentials(), endpointGate, "Helix", "1")
-    private val runtime = McpToolRuntime(storage.credentials(), endpointGate, "Helix", "1")
+    private val runtime = McpToolRuntime(storage.credentials(), endpointGate, "Helix", "1", prepareCredential)
     private val activeBridges = ConcurrentHashMap<String, McpDynamicToolBridge>()
     private val trackers = ConcurrentHashMap<String, McpSessionCheckpointTracker>()
     private val pendingSummaries = ConcurrentHashMap<String, PendingSend>()
@@ -38,7 +39,11 @@ class McpAppService(
         authAlias: String?,
     ): McpServerConfig = storage.registerDisabled(id, endpoint, authAlias)
 
-    suspend fun testConnection(id: String): McpHandshakeSnapshot = handshake.testConnection(storage.load(id))
+    suspend fun testConnection(id: String): McpHandshakeSnapshot {
+        val config = storage.load(id)
+        prepareCredential(config)
+        return handshake.testConnection(config)
+    }
 
     /** User action after reviewing the test snapshot and exact tool selection. */
     @Suppress("TooGenericExceptionCaught") // any failed registration must roll persisted enablement back closed

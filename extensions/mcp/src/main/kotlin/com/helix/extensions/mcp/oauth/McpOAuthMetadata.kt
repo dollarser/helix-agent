@@ -2,7 +2,6 @@ package com.helix.extensions.mcp.oauth
 
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.extensions.mcp.McpEndpointGate
-import com.helix.extensions.mcp.McpNetworkPermit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -15,7 +14,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import java.io.IOException
 import java.net.Proxy
 import java.net.UnknownHostException
 import java.time.Duration
@@ -53,66 +51,94 @@ class McpOAuthDiscovery(
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    /**
-     * Discovers authorization server metadata per RFC 8414.
-     * Checks endpoint authorization via [endpointGate] to enforce SSRF policy.
-     */
+    /** Resource metadata selects the issuer; each response is bounded and each origin passes the existing gate. */
     suspend fun discover(baseEndpoint: NormalizedEndpoint): McpOAuthServerMetadata =
         withContext(Dispatchers.IO) {
-            val permit = endpointGate.authorize(baseEndpoint)
-            val client =
-                okHttpClient
-                    .newBuilder()
-                    .followRedirects(false)
-                    .followSslRedirects(false)
-                    .proxy(Proxy.NO_PROXY)
-                    .dns(
-                        Dns { hostname ->
-                            if (hostname != permit.host) {
-                                throw UnknownHostException("Unexpected host in OAuth discovery")
-                            }
-                            permit.pinnedAddresses(hostname)
-                        },
-                    ).build()
-
-            // Try RFC 8414 /.well-known/oauth-authorization-server,
-            // fallback to OpenID /.well-known/openid-configuration
-            val candidatePaths =
+            val resourcePaths =
                 listOf(
-                    "/.well-known/oauth-authorization-server",
-                    "/.well-known/openid-configuration",
-                )
-
-            var lastError: Exception? = null
-            for (path in candidatePaths) {
-                val discoveryUrl = "${baseEndpoint.origin}$path"
-                val request =
-                    Request
-                        .Builder()
-                        .url(discoveryUrl)
-                        .header("Accept", "application/json")
-                        .get()
-                        .build()
-
-                try {
-                    client.newCall(request).execute().use { response ->
-                        if (response.isSuccessful) {
-                            val body = response.body.string()
-                            require(body.length <= MAX_METADATA_BYTES) {
-                                "Discovery metadata exceeds max bytes"
-                            }
-                            return@withContext parseMetadata(body)
-                        }
+                    "/.well-known/oauth-protected-resource" + baseEndpoint.path,
+                    "/.well-known/oauth-protected-resource",
+                ).distinct()
+            var issuer: String? = null
+            for (path in resourcePaths) {
+                val body = fetch(baseEndpoint.origin + path)
+                if (body != null) {
+                    val root = json.parseToJsonElement(body).jsonObject
+                    val resource = requireNotNull(root["resource"]?.jsonPrimitive?.content)
+                    require(NormalizedEndpoint.parse(resource).full == baseEndpoint.full) {
+                        "OAuth resource mismatch"
                     }
-                } catch (e: IOException) {
-                    lastError = e
+                    issuer =
+                        root["authorization_servers"]
+                            ?.jsonArray
+                            ?.firstOrNull()
+                            ?.jsonPrimitive
+                            ?.content
+                    require(!issuer.isNullOrBlank()) { "Missing authorization server" }
+                    break
                 }
             }
-            throw IOException(
-                "Failed to discover OAuth metadata for ${baseEndpoint.origin}: ${lastError?.message}",
-                lastError,
-            )
+            val expectedIssuer = NormalizedEndpoint.parse(issuer ?: baseEndpoint.origin)
+            val candidates =
+                listOf(
+                    expectedIssuer.origin + "/.well-known/oauth-authorization-server" + expectedIssuer.path,
+                    expectedIssuer.full.trimEnd('/') + "/.well-known/openid-configuration",
+                ).distinct()
+            var metadata: McpOAuthServerMetadata? = null
+            for (url in candidates) {
+                val body = fetch(url)
+                if (body != null) {
+                    metadata = parseMetadata(body)
+                    require(NormalizedEndpoint.parse(metadata.issuer).full == expectedIssuer.full) {
+                        "OAuth issuer mismatch"
+                    }
+                    require(metadata.supportsS256()) { "PKCE S256 unsupported" }
+                    val endpoints =
+                        listOfNotNull(
+                            metadata.authorizationEndpoint,
+                            metadata.tokenEndpoint,
+                            metadata.revocationEndpoint,
+                            metadata.deviceAuthorizationEndpoint,
+                        )
+                    endpoints.forEach { endpoint ->
+                        endpointGate.authorize(NormalizedEndpoint.parse(endpoint))
+                    }
+                    break
+                }
+            }
+            requireNotNull(metadata) { "OAuth metadata unavailable" }
         }
+
+    private suspend fun fetch(url: String): String? {
+        val endpoint = NormalizedEndpoint.parse(url)
+        val permit = endpointGate.authorize(endpoint)
+        val client =
+            okHttpClient
+                .newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .proxy(Proxy.NO_PROXY)
+                .dns(
+                    Dns { hostname ->
+                        if (hostname != permit.host) throw UnknownHostException("Unexpected OAuth metadata host")
+                        permit.pinnedAddresses(hostname)
+                    },
+                ).build()
+        val request =
+            Request
+                .Builder()
+                .url(url)
+                .header("Accept", "application/json")
+                .build()
+        return client.newCall(request).oauthResponse().use { response ->
+            if (response.code == 404) {
+                null
+            } else {
+                require(response.isSuccessful) { "OAuth metadata HTTP ${response.code}" }
+                response.body.oauthText(MAX_METADATA_BYTES)
+            }
+        }
+    }
 
     private fun parseMetadata(jsonStr: String): McpOAuthServerMetadata {
         val root = json.parseToJsonElement(jsonStr).jsonObject
@@ -142,6 +168,7 @@ class McpOAuthDiscovery(
             tokenEndpoint = tokenEp,
             revocationEndpoint = revokeEp,
             registrationEndpoint = regEp,
+            deviceAuthorizationEndpoint = root["device_authorization_endpoint"]?.jsonPrimitive?.content,
             scopesSupported = scopes,
             codeChallengeMethodsSupported = methods,
         )

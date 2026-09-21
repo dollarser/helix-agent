@@ -145,9 +145,9 @@ class McpOAuthClientTest {
                     "authed_user": {
                         "id": "U0C391PQ5FU",
                         "scope": "channels:read,users:read,chat:write",
-                        "access_token": "xoxe.xoxp-mock-slack-user-token",
+                        "access_token": "mock-slack-user-token",
                         "token_type": "user",
-                        "refresh_token": "xoxe-mock-slack-refresh-token",
+                        "refresh_token": "mock-slack-refresh-token",
                         "expires_in": 43200
                     },
                     "team": {"id": "T0C2TNVAAVD", "name": "Helix"}
@@ -164,8 +164,8 @@ class McpOAuthClientTest {
                     codeVerifier = "some-verifier-123456789012345678901234567890",
                 )
 
-            assertEquals("xoxe.xoxp-mock-slack-user-token", tokens.accessToken)
-            assertEquals("xoxe-mock-slack-refresh-token", tokens.refreshToken)
+            assertEquals("mock-slack-user-token", tokens.accessToken)
+            assertEquals("mock-slack-refresh-token", tokens.refreshToken)
             assertEquals(43200L, tokens.expiresInSeconds)
             assertEquals("channels:read,users:read,chat:write", tokens.scope)
         }
@@ -189,11 +189,12 @@ class McpOAuthClientTest {
                     }
                 }
             assertEquals("invalid_grant", exception.errorCode)
-            assertTrue(exception.message!!.contains("Code expired"))
+            assertTrue(exception.message!!.contains("HTTP 400"))
+            assertTrue(!exception.message!!.contains("Code expired"))
         }
 
     @Test
-    fun refreshTokenSucceedsAndDeduplicatesConcurrentCalls() =
+    fun independentRefreshExchangesReturnServerResults() =
         runBlocking {
             val client = McpOAuthClient(allowAllGate)
             server.setTokenResponse(

@@ -1,12 +1,12 @@
 package com.helix.app.mcp.oauth
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.long
+import com.helix.core.model.SecretAlias
+import com.helix.core.storage.SecretStore
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.LinkOption
+import java.nio.file.StandardCopyOption
 
 data class McpOAuthAttempt(
     val attemptId: String,
@@ -17,116 +17,177 @@ data class McpOAuthAttempt(
     val redirectUri: String,
     val scope: String,
     val state: String,
-    val codeVerifier: String,
+    val codeVerifier: String = "",
     val createdAtMs: Long,
     val expiresAtMs: Long,
+    val resource: String = issuer,
+    val revocationEndpoint: String? = null,
 ) {
-    fun isExpired(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs > expiresAtMs
+    fun isExpired(nowMs: Long = System.currentTimeMillis()): Boolean = nowMs >= expiresAtMs || nowMs < createdAtMs
 
     companion object {
-        const val DEFAULT_TTL_MS = 10 * 60 * 1000L // 10 minutes
+        const val DEFAULT_TTL_MS = 10 * 60 * 1000L
     }
 }
 
-object McpOAuthAttemptCodec {
-    fun encode(attempt: McpOAuthAttempt): String =
-        buildJsonObject {
-            put("attemptId", JsonPrimitive(attempt.attemptId))
-            put("serverId", JsonPrimitive(attempt.serverId))
-            put("issuer", JsonPrimitive(attempt.issuer))
-            put("tokenEndpoint", JsonPrimitive(attempt.tokenEndpoint))
-            put("clientId", JsonPrimitive(attempt.clientId))
-            put("redirectUri", JsonPrimitive(attempt.redirectUri))
-            put("scope", JsonPrimitive(attempt.scope))
-            put("state", JsonPrimitive(attempt.state))
-            put("codeVerifier", JsonPrimitive(attempt.codeVerifier))
-            put("createdAtMs", JsonPrimitive(attempt.createdAtMs))
-            put("expiresAtMs", JsonPrimitive(attempt.expiresAtMs))
-        }.toString()
-
-    fun decode(jsonStr: String): McpOAuthAttempt {
-        val root = Json.parseToJsonElement(jsonStr).jsonObject
-        return McpOAuthAttempt(
-            attemptId = root.getValue("attemptId").jsonPrimitive.content,
-            serverId = root.getValue("serverId").jsonPrimitive.content,
-            issuer = root.getValue("issuer").jsonPrimitive.content,
-            tokenEndpoint = root.getValue("tokenEndpoint").jsonPrimitive.content,
-            clientId = root.getValue("clientId").jsonPrimitive.content,
-            redirectUri = root.getValue("redirectUri").jsonPrimitive.content,
-            scope = root.getValue("scope").jsonPrimitive.content,
-            state = root.getValue("state").jsonPrimitive.content,
-            codeVerifier = root.getValue("codeVerifier").jsonPrimitive.content,
-            createdAtMs = root.getValue("createdAtMs").jsonPrimitive.long,
-            expiresAtMs = root.getValue("expiresAtMs").jsonPrimitive.long,
-        )
-    }
-}
-
+/** One app-process owner; atomic claim also prevents two store instances consuming the same attempt. */
+@Suppress("TooManyFunctions") // One owner for atomic claim and temporary-secret cleanup.
 class McpOAuthAttemptStore(
     private val directory: File,
+    private val secrets: SecretStore,
 ) {
+    private val aliasPrefix =
+        "oauth.attempt." +
+            java.security.MessageDigest
+                .getInstance("SHA-256")
+                .digest(directory.canonicalPath.toByteArray(Charsets.UTF_8))
+                .take(8)
+                .joinToString("") { "%02x".format(it) } + "."
+
     init {
-        directory.mkdirs()
+        check(directory.isDirectory || directory.mkdirs())
     }
 
-    /**
-     * Saves an attempt atomically to [directory] named `<state>.json`.
-     */
+    @Synchronized
     fun saveAttempt(attempt: McpOAuthAttempt) {
-        val file = File(directory, "${attempt.state}.json")
-        val tempFile = File(directory, "${attempt.state}.json.tmp")
-        val content = McpOAuthAttemptCodec.encode(attempt)
-        tempFile.writeText(content)
-        if (!tempFile.renameTo(file)) {
-            tempFile.copyTo(file, overwrite = true)
-            tempFile.delete()
+        require(validState(attempt.state)) { "Invalid OAuth state" }
+        require(attempt.codeVerifier.isNotBlank())
+        val target = file(attempt.state)
+        require(!target.exists()) { "OAuth attempt already exists" }
+        val temporary = File.createTempFile("attempt-", ".tmp", directory)
+        try {
+            secrets.put(verifierAlias(attempt.state), attempt.codeVerifier)
+            FileOutputStream(temporary).use { stream ->
+                stream.write(McpOAuthAttemptCodec.encode(attempt).toByteArray(Charsets.UTF_8))
+                stream.fd.sync()
+            }
+            Files.move(temporary.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            temporary.delete()
+            if (!target.exists()) secrets.delete(verifierAlias(attempt.state))
         }
     }
 
-    /**
-     * Consumes an attempt by [state] (One-Time-Consumption per ADR-CONNECTORS-002).
-     * The file is immediately deleted to prevent replay attacks.
-     * Returns null if not found or expired.
-     */
+    @Synchronized
+    @Suppress("ReturnCount") // Reject malformed, missing and expired attempts before consumption.
+    fun peekAttempt(
+        state: String,
+        nowMs: Long = System.currentTimeMillis(),
+    ): McpOAuthAttempt? {
+        if (!validState(state)) return null
+        val attempt = read(file(state), state) ?: return null
+        if (attempt.isExpired(nowMs)) {
+            cancelAttempt(state)
+            return null
+        }
+        return attempt
+    }
+
+    @Synchronized
+    @Suppress("ReturnCount") // Distinguish failed validation from a lost atomic claim.
     fun consumeAttempt(
         state: String,
         nowMs: Long = System.currentTimeMillis(),
     ): McpOAuthAttempt? {
-        val file = File(directory, "$state.json")
-        if (!file.exists()) return null
+        if (peekAttempt(state, nowMs) == null) return null
+        val claimed = File(directory, "$state.${java.util.UUID.randomUUID()}.claimed")
         return try {
-            val content = file.readText()
-            file.delete()
-            val attempt = McpOAuthAttemptCodec.decode(content)
-            if (attempt.isExpired(nowMs)) null else attempt
-        } catch (_: Exception) {
-            file.delete()
+            Files.move(file(state).toPath(), claimed.toPath(), StandardCopyOption.ATOMIC_MOVE)
+            val attempt = read(claimed, state) ?: return null
+            attempt.copy(codeVerifier = secrets.get(verifierAlias(state)))
+        } catch (_: java.nio.file.NoSuchFileException) {
+            null
+        } finally {
+            if (claimed.exists()) {
+                Files.delete(claimed.toPath())
+                secrets.delete(verifierAlias(state))
+            }
+        }
+    }
+
+    fun verifier(state: String): String {
+        require(peekAttempt(state) != null)
+        return secrets.get(verifierAlias(state))
+    }
+
+    @Synchronized
+    fun cancelAttempt(state: String) {
+        if (!validState(state)) return
+        Files.deleteIfExists(file(state).toPath())
+        secrets.delete(verifierAlias(state))
+    }
+
+    @Synchronized
+    fun cancelServer(serverId: String) {
+        directory.listFiles().orEmpty().filter { it.name.endsWith(".json") }.forEach { candidate ->
+            val state = candidate.name.removeSuffix(".json")
+            if (validState(state) && read(candidate, state)?.serverId == serverId) cancelAttempt(state)
+        }
+    }
+
+    @Synchronized
+    fun cleanupExpired(nowMs: Long = System.currentTimeMillis()) {
+        directory
+            .listFiles()
+            .orEmpty()
+            .filter {
+                it.name.endsWith(".json") || it.name.endsWith(".claimed")
+            }.forEach { candidate ->
+                val state = candidate.name.substringBefore('.')
+                if (validState(state) && read(candidate, state)?.isExpired(nowMs) != false) {
+                    Files.deleteIfExists(candidate.toPath())
+                    secrets.delete(verifierAlias(state))
+                }
+            }
+        val pending =
+            directory
+                .listFiles()
+                .orEmpty()
+                .map { it.name.substringBefore('.') }
+                .toSet()
+        secrets.aliases().filter { it.value.startsWith(aliasPrefix) }.forEach { alias ->
+            if (alias.value.removePrefix(aliasPrefix) !in pending) secrets.delete(alias)
+        }
+    }
+
+    private fun read(
+        candidate: File,
+        state: String,
+    ): McpOAuthAttempt? {
+        if (!Files.isRegularFile(candidate.toPath(), LinkOption.NOFOLLOW_LINKS)) return null
+        return try {
+            require(candidate.length() <= MAX_ATTEMPT_BYTES)
+            val bytes = candidate.readOAuthAttemptBytes(MAX_ATTEMPT_BYTES)
+            require(bytes.size <= MAX_ATTEMPT_BYTES)
+            McpOAuthAttemptCodec.decode(bytes.toString(Charsets.UTF_8)).takeIf { it.state == state }
+        } catch (_: java.io.FileNotFoundException) {
+            null
+        } catch (_: NoSuchElementException) {
+            null
+        } catch (_: IllegalArgumentException) {
             null
         }
     }
 
-    fun cancelAttempt(state: String) {
-        File(directory, "$state.json").delete()
-    }
+    private fun file(state: String): File = File(directory, "$state.json")
 
-    fun cleanupExpired(nowMs: Long = System.currentTimeMillis()) {
-        directory.listFiles()?.filter { it.name.endsWith(".json") }?.forEach { file ->
-            cleanIfExpired(file, nowMs)
-        }
-    }
+    private fun verifierAlias(state: String): SecretAlias = SecretAlias("$aliasPrefix$state")
 
-    private fun cleanIfExpired(
-        file: File,
-        nowMs: Long,
-    ) {
-        try {
-            val content = file.readText()
-            val attempt = McpOAuthAttemptCodec.decode(content)
-            if (attempt.isExpired(nowMs)) {
-                file.delete()
-            }
-        } catch (_: Exception) {
-            file.delete()
-        }
+    private fun validState(state: String): Boolean = state.matches(Regex("[A-Za-z0-9_-]{1,96}"))
+
+    companion object {
+        private const val MAX_ATTEMPT_BYTES = 16_384
     }
 }
+
+private fun File.readOAuthAttemptBytes(limit: Int): ByteArray =
+    inputStream().use { input ->
+        val buffer = ByteArray(limit + 1)
+        var offset = 0
+        while (offset < buffer.size) {
+            val count = input.read(buffer, offset, buffer.size - offset)
+            if (count == -1) break
+            offset += count
+        }
+        buffer.copyOf(offset)
+    }

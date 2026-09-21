@@ -2,9 +2,8 @@ package com.helix.extensions.mcp.oauth
 
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.extensions.mcp.McpEndpointGate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -22,7 +21,6 @@ import java.net.URLEncoder
 import java.net.UnknownHostException
 import java.nio.charset.StandardCharsets
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 
 @Serializable
 data class McpOAuthTokens(
@@ -80,7 +78,6 @@ class McpOAuthClient(
     private val okHttpClient: OkHttpClient = defaultHttpClient(),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val singleFlightLocks = ConcurrentHashMap<String, Mutex>()
 
     /**
      * Constructs the authorization URL to be opened in an external system browser.
@@ -91,6 +88,20 @@ class McpOAuthClient(
         require(request.redirectUri.isNotBlank()) { "redirectUri must not be blank" }
         require(request.state.isNotBlank()) { "state must not be blank" }
         require(request.codeChallenge.isNotBlank()) { "codeChallenge must not be blank" }
+        require(request.codeChallengeMethod == "S256")
+        require(
+            request.extraParams.keys.none {
+                it in
+                    setOf(
+                        "state",
+                        "redirect_uri",
+                        "client_id",
+                        "response_type",
+                        "code_challenge",
+                        "code_challenge_method",
+                    )
+            },
+        )
 
         val params =
             mutableListOf(
@@ -125,6 +136,7 @@ class McpOAuthClient(
         redirectUri: String,
         code: String,
         codeVerifier: String,
+        resource: String? = null,
     ): McpOAuthTokens =
         withContext(Dispatchers.IO) {
             val formBody =
@@ -135,13 +147,14 @@ class McpOAuthClient(
                     .add("redirect_uri", redirectUri)
                     .add("code", code)
                     .add("code_verifier", codeVerifier)
+                    .apply { if (resource != null) add("resource", resource) }
                     .build()
 
             executeTokenRequest(tokenEndpoint, formBody)
         }
 
     /**
-     * Refreshes access token with single-flight deduplication.
+     * Exchanges a refresh token. The durable credential owner serializes and deduplicates refreshes.
      */
     suspend fun refreshToken(
         tokenEndpoint: String,
@@ -149,9 +162,7 @@ class McpOAuthClient(
         refreshToken: String,
     ): McpOAuthTokens =
         withContext(Dispatchers.IO) {
-            val lockKey = "$tokenEndpoint#$clientId#$refreshToken"
-            val lock = singleFlightLocks.computeIfAbsent(lockKey) { Mutex() }
-            lock.withLock {
+            run {
                 val formBody =
                     FormBody
                         .Builder()
@@ -176,8 +187,7 @@ class McpOAuthClient(
         tokenTypeHint: String = "access_token",
     ): McpOAuthRevocationResult =
         withContext(Dispatchers.IO) {
-            val normalized = NormalizedEndpoint.parse(revocationEndpoint)
-            val permit = endpointGate.authorize(normalized)
+            val permit = endpointGate.authorize(NormalizedEndpoint.parse(revocationEndpoint))
             val client =
                 okHttpClient
                     .newBuilder()
@@ -196,10 +206,13 @@ class McpOAuthClient(
             val formBody =
                 FormBody
                     .Builder()
-                    .add("client_id", clientId)
                     .add("token", token)
-                    .add("token_type_hint", tokenTypeHint)
-                    .build()
+                    .apply {
+                        if (revocationEndpoint != "https://slack.com/api/auth.revoke") {
+                            add("client_id", clientId)
+                            add("token_type_hint", tokenTypeHint)
+                        }
+                    }.build()
 
             val request =
                 Request
@@ -210,14 +223,16 @@ class McpOAuthClient(
                     .build()
 
             try {
-                client.newCall(request).execute().use { response ->
-                    val bodyStr = response.body.string()
+                client.newCall(request).oauthResponse().use { response ->
+                    val bodyStr = response.body.oauthText(MAX_TOKEN_RESPONSE_BYTES)
                     McpOAuthRevocationResult(
-                        vendorRevoked = response.isSuccessful,
+                        vendorRevoked = response.isSuccessful && revocationAcknowledged(bodyStr),
                         statusCode = response.code,
-                        message = bodyStr.take(MAX_ERROR_BYTES),
+                        message = null,
                     )
                 }
+            } catch (cancel: CancellationException) {
+                throw cancel
             } catch (e: Exception) {
                 McpOAuthRevocationResult(
                     vendorRevoked = false,
@@ -226,6 +241,13 @@ class McpOAuthClient(
                 )
             }
         }
+
+    private fun revocationAcknowledged(body: String): Boolean =
+        body.isBlank() || json
+            .parseToJsonElement(body)
+            .jsonObject["ok"]
+            ?.jsonPrimitive
+            ?.content != "false"
 
     /**
      * Requests a device code from device authorization endpoint (RFC 8628).
@@ -270,13 +292,14 @@ class McpOAuthClient(
                     .post(formBuilder.build())
                     .build()
 
-            client.newCall(request).execute().use { response ->
-                val body = response.body.string()
+            client.newCall(request).oauthResponse().use { response ->
+                val body = response.body.oauthText(MAX_TOKEN_RESPONSE_BYTES)
                 require(body.length <= MAX_TOKEN_RESPONSE_BYTES) { "Device authorization response too large" }
+                require(response.isSuccessful) { "OAuth HTTP ${response.code}" }
                 val element = json.parseToJsonElement(body).jsonObject
                 val error = element["error"]?.jsonPrimitive?.content
                 if (error != null) {
-                    val desc = element["error_description"]?.jsonPrimitive?.content ?: error
+                    val desc = "Authorization server rejected request"
                     throw McpOAuthException(message = desc, errorCode = error)
                 }
 
@@ -289,8 +312,10 @@ class McpOAuthClient(
                 val verificationUri =
                     element["verification_uri"]?.jsonPrimitive?.content
                         ?: throw McpOAuthException("Missing verification_uri in response")
+                require(NormalizedEndpoint.parse(verificationUri).scheme == "https") { "Invalid verification URI" }
                 val expiresIn = element["expires_in"]?.jsonPrimitive?.longOrNull ?: 900L
                 val interval = element["interval"]?.jsonPrimitive?.longOrNull ?: 5L
+                require(expiresIn in 1..3600 && interval in 1..3600) { "Invalid device authorization lifetime" }
 
                 McpDeviceCodeResponse(
                     deviceCode = deviceCode,
@@ -344,8 +369,8 @@ class McpOAuthClient(
                     .post(formBody)
                     .build()
 
-            client.newCall(request).execute().use { response ->
-                val body = response.body.string()
+            client.newCall(request).oauthResponse().use { response ->
+                val body = response.body.oauthText(MAX_TOKEN_RESPONSE_BYTES)
                 require(body.length <= MAX_TOKEN_RESPONSE_BYTES) { "Token response too large" }
                 val element = json.parseToJsonElement(body).jsonObject
                 val error = element["error"]?.jsonPrimitive?.content
@@ -360,11 +385,12 @@ class McpOAuthClient(
                         }
 
                         else -> {
-                            val desc = element["error_description"]?.jsonPrimitive?.content ?: error
+                            val desc = "Authorization server rejected request"
                             McpDevicePollResult.Error(desc, error)
                         }
                     }
                 } else {
+                    require(response.isSuccessful) { "OAuth HTTP ${response.code}" }
                     val tokens = parseTokens(body)
                     McpDevicePollResult.Success(tokens)
                 }
@@ -400,15 +426,15 @@ class McpOAuthClient(
                 .post(formBody)
                 .build()
 
-        client.newCall(request).execute().use { response ->
-            val body = response.body.string()
+        client.newCall(request).oauthResponse().use { response ->
+            val body = response.body.oauthText(MAX_TOKEN_RESPONSE_BYTES)
             require(body.length <= MAX_TOKEN_RESPONSE_BYTES) {
                 "Token response exceeds maximum allowed bytes"
             }
 
             if (!response.isSuccessful) {
                 val errorCode = parseErrorCode(body)
-                val errorDesc = parseErrorDescription(body) ?: body.take(MAX_ERROR_BYTES)
+                val errorDesc = "Authorization server rejected request"
                 throw McpOAuthException(
                     message = "OAuth token request failed with HTTP ${response.code}: $errorDesc",
                     errorCode = errorCode,
@@ -466,17 +492,6 @@ class McpOAuthClient(
             json
                 .parseToJsonElement(body)
                 .jsonObject["error"]
-                ?.jsonPrimitive
-                ?.content
-        } catch (_: Exception) {
-            null
-        }
-
-    private fun parseErrorDescription(body: String): String? =
-        try {
-            json
-                .parseToJsonElement(body)
-                .jsonObject["error_description"]
                 ?.jsonPrimitive
                 ?.content
         } catch (_: Exception) {
