@@ -6,6 +6,7 @@
 
 - accepted [ADR-CONNECTORS-001](001-portable-bundles.md)：Connector 能力包
 - accepted [ADR-CONNECTORS-002](002-oauth.md)：Connector public-client OAuth；HXA-126 外部验收未完成
+- accepted [ADR-CONNECTORS-005](005-curated-marketplace.md)：内置精选扩展市场与端侧安装契约
 
 ## 候选方案（不作为实现授权）
 

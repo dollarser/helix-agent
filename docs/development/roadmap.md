@@ -228,3 +228,4 @@
 | HXA-208 | 已交付 | 完整 Goal 工具与前后台连续运行 | [交付证据](../completion-records/HXA-208.md) |
 | HXA-209 | 已交付 | 会话授权预设、工具禁用与自定义权限 | [交付证据](../completion-records/HXA-209.md) |
 | HXA-211 | 已交付 | 按会话导出 JSONL 执行记录 | [交付证据](../completion-records/HXA-211.md) |
+| HXA-212 | 已交付 | 内置扩展市场与典型目录 | [交付证据](../completion-records/HXA-212.md) |
