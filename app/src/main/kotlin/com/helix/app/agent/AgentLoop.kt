@@ -106,7 +106,8 @@ internal class AgentLoop(
         var toolRounds = 0
         val budgetTracker = TurnBudgetTracker(control.budgets)
         val goalBudget = GoalModelCallBudget(storage, clock)
-        val window = providerService.contextSettings(providerId, context.model).window
+        val contextSettings = providerService.contextSettings(providerId, context.model)
+        val window = contextSettings.window
         while (true) {
             goalTimes[turnId]?.checkActive()
             if (turnCancels[turnId]?.isCancelled() == true) {
@@ -120,6 +121,7 @@ internal class AgentLoop(
                     window,
                     budgetTracker,
                     compactionRound.admissionInput(context),
+                    contextSettings.windowSource,
                 ),
             )
             val prepared = compactionRound.prepare(context)

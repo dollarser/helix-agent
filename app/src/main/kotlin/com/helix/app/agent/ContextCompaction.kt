@@ -26,7 +26,6 @@ internal object ContextCompaction {
     const val MAX_SUMMARY_CHARS = 16_384
     private const val SUMMARY_OUTPUT = 2048L
     private const val ENVELOPE_RESERVE = 2048L
-    private const val PERCENT = 100
 
     data class Checkpoint(
         val coveredThrough: Long,
@@ -49,7 +48,7 @@ internal object ContextCompaction {
         rows: List<MessageEntity>,
     ): Checkpoint? =
         rows.lastOrNull { it.kind == KIND }?.let { row ->
-            val json = Json.parseToJsonElement(requireNotNull(storage.messages.readContent(row))).jsonObject
+            val json = Json.parseToJsonElement(requireNotNull(ContextHistory.read(storage, row))).jsonObject
             val through = requireNotNull(json["coveredThrough"]).jsonPrimitive.long
             val summary = requireNotNull(json["summary"]).jsonPrimitive.content
             require(
@@ -91,7 +90,7 @@ internal object ContextCompaction {
     fun pressure(request: ChatContextRequest): Long = request.inputTokens() + request.maxOutputTokens
 
     /** Prefer old history, then settled current steps; preserve current input and the latest tool batch. */
-    @Suppress("ReturnCount") // No trigger, incompatible retry ordering, or a planned checkpoint are distinct exits.
+    @Suppress("ReturnCount", "LongParameterList") // Planning binds the current request, scope and measured input scale.
     fun plan(
         storage: HelixStorage,
         sessionId: String,
@@ -100,19 +99,19 @@ internal object ContextCompaction {
         settings: ProviderContextSettings,
         force: Boolean,
         currentTurnId: String,
+        inputScale: Double = 1.0,
     ): Plan? {
+        require(inputScale.isFinite() && inputScale >= 1.0)
         val input =
             maxOf(request.inputTokens(), ContextPressure.inputFloor(storage, sessionId, currentTurnId, request.model))
-        val nearWindow = input + request.maxOutputTokens >= settings.window * settings.triggerPercent / PERCENT
-        val overInput =
-            request.inputTokens() > control.budgets.maxInputTokens
-        val messageLimit = request.messages.size >= ModelRequest.MAX_MESSAGES - 16
-        val automaticTrigger = settings.autoCompact && (nearWindow || overInput || messageLimit)
-        if (!force && !automaticTrigger) return null
-        val rows = storage.messages.listBySession(sessionId)
-        val previous = checkpoint(storage, rows)
-        val history = retained(rows, previous)
-        val groups = ContextSegments.candidates(storage, history, currentTurnId)
+        if (!force &&
+            !ContextCapacity.shouldCompact(request, settings, control.budgets.maxInputTokens, input)
+        ) {
+            return null
+        }
+        val snapshot = ContextHistory.load(storage, sessionId)
+        val previous = snapshot.checkpoint
+        val history = snapshot.rows
         val selected = mutableListOf<MessageEntity>()
         val prefix = StringBuilder()
         previous?.let { prefix.append(summaryMessage(it).text).append('\n') }
@@ -120,18 +119,24 @@ internal object ContextCompaction {
             SummaryOutputBudget.forRequest(request.inputTokens(), control.budgets.maxOutputTokens, settings.window)
         val reserve = minOf(ENVELOPE_RESERVE, settings.window / 4)
         val inputLimit =
-            minOf(
-                settings.window - summaryOutput.allowance - reserve,
-                control.budgets.maxInputTokens - reserve,
-            )
+            (
+                minOf(
+                    settings.window - summaryOutput.allowance - reserve,
+                    control.budgets.maxInputTokens - reserve,
+                ) / inputScale
+            ).toLong()
         var through: Long? = null
-        for (turn in groups) {
+        var prefixBytes = TokenEstimator.utf8Bytes(prefix.toString())
+        for (turn in ContextSegments.candidates(storage, history, currentTurnId)) {
             val serialized = turn.joinToString("\n") { serializeRow(storage, it) }
-            if (TokenEstimator.estimateTokens((prefix.toString() + serialized).toByteArray().size.toLong()) >
-                inputLimit
-            ) {
+            val groupBytes = TokenEstimator.utf8Bytes(serialized) + 1
+            val byteLimit =
+                minOf(inputLimit * TokenEstimator.CONSERVATIVE_BYTES_PER_TOKEN, ContextHistory.MAX_BODY_BYTES.toLong())
+            if (groupBytes > byteLimit - prefixBytes) {
+                if (selected.isEmpty()) throw ContextCapacityException("CONTEXT_SEGMENT_LIMIT")
                 break
             }
+            prefixBytes += groupBytes
             prefix.append(serialized).append('\n')
             selected.addAll(turn)
             through = maxOf(previous?.coveredThrough ?: 0, turn.last().sequence)
@@ -163,7 +168,7 @@ internal object ContextCompaction {
             put("id", row.id)
             put("role", row.role)
             put("kind", row.kind)
-            put("content", storage.messages.readContent(row).orEmpty())
+            put("content", ContextHistory.read(storage, row).orEmpty())
             put("attachmentCount", storage.messageAttachments.listByMessage(row.id).size)
         }.toString()
 
@@ -177,7 +182,7 @@ internal object ContextCompaction {
         sourceCallId: String,
     ) {
         require(summary.isNotBlank() && summary.length <= MAX_SUMMARY_CHARS)
-        val previous = checkpoint(storage, storage.messages.listBySession(sessionId))
+        val previous = ContextHistory.checkpoint(storage, sessionId)
         require(
             previous == null || plan.coveredThrough > previous.coveredThrough ||
                 (

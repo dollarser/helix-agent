@@ -18,6 +18,13 @@ data class ProviderContextSettings(
 
     val window: Long get() = listOfNotNull(manualWindow, serverWindow).minOrNull() ?: DEFAULT_WINDOW
 
+    val windowSource: String get() =
+        when {
+            serverWindow != null && (manualWindow == null || serverWindow <= manualWindow) -> "provider"
+            manualWindow != null -> "manual"
+            else -> "fallback"
+        }
+
     fun withDetectedWindow(detected: Long?): ProviderContextSettings =
         if (detected == null) this else copy(serverWindow = detected)
 

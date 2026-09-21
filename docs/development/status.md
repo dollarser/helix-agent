@@ -1,6 +1,8 @@
 # 当前实施状态
 
-更新：2026-09-21。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
+更新：2026-09-22。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
+
+压缩机制补强已在独立 `codex/context-compaction` 分支完成本地验证：摘要与普通请求统一容量准入，保留同模型用量校准，历史元数据分页及活跃正文读取有界，取消/检查点语义保留，窗口默认值明确标为估算。完整主机门禁与四象限压缩/Goal 定向设备 196/196 通过，见[修复与验证记录](../bug-fixes/2026-09-22-context-compaction-admission.md)。未合入 main、未推送；并行 marketplace 工作保留。真实模型 token 偏差、物理设备内存峰值仍不在本轮验证范围。
 
 本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。验收与提交快检优化已通过 `995c9baf` 合入并推送 main；远端验证见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)，未发布。
 

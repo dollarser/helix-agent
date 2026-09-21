@@ -17,6 +17,21 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY sequence ASC")
     fun listBySession(sessionId: String): List<MessageEntity>
 
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND sequence > :after ORDER BY sequence ASC LIMIT :limit",
+    )
+    fun pageAfter(
+        sessionId: String,
+        after: Long,
+        limit: Int,
+    ): List<MessageEntity>
+
+    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND kind = :kind ORDER BY sequence DESC LIMIT 1")
+    fun latestOfKind(
+        sessionId: String,
+        kind: String,
+    ): MessageEntity?
+
     @Query("SELECT COALESCE(MAX(sequence), -1) FROM messages WHERE sessionId = :sessionId")
     fun maxSequence(sessionId: String): Long
 

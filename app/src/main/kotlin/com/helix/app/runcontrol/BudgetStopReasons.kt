@@ -2,7 +2,14 @@ package com.helix.app.runcontrol
 
 /** Stable reasons shared by the engine, durable Goal settlement and continuation UI. */
 object BudgetStopReasons {
-    val capacity = setOf("INPUT_TOKEN_LIMIT", "CONTEXT_WINDOW_LIMIT", "CONTEXT_MESSAGE_LIMIT")
+    val capacity =
+        setOf(
+            "INPUT_TOKEN_LIMIT",
+            "CONTEXT_WINDOW_LIMIT",
+            "CONTEXT_MESSAGE_LIMIT",
+            "CONTEXT_MATERIALIZATION_LIMIT",
+            "CONTEXT_SEGMENT_LIMIT",
+        )
     val turn =
         capacity +
             setOf(

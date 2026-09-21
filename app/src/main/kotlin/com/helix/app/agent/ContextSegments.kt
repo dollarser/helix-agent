@@ -15,7 +15,7 @@ internal object ContextSegments {
                 row.turnId,
                 row.role,
                 row.kind,
-                storage.messages.readContent(row),
+                ContextHistory.read(storage, row),
                 row.id,
             ),
         ),

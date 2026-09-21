@@ -25,6 +25,7 @@ internal object RequestBudgetDiagnostics {
         window: Long,
         tracker: TurnBudgetTracker,
         admissionInput: Long = context.inputTokens(),
+        windowSource: String = "unspecified",
     ): String {
         val estimate = ModelInputEstimate.of(context.messages, context.tools)
         return buildJsonObject {
@@ -40,6 +41,7 @@ internal object RequestBudgetDiagnostics {
             put("inputLimit", budgets.maxInputTokens)
             put("outputLimit", minOf(context.maxOutputTokens, window / 4))
             put("window", window)
+            put("windowSource", windowSource)
             put("used", tracker.consumedTokens)
             put("totalLimit", budgets.maxTotalTokens)
             put("calls", tracker.consumedCalls)

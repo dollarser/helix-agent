@@ -76,6 +76,17 @@ internal class ChatRequestAssembler(
         sessionId: String,
         control: RunControlConfig,
         prompt: String,
+    ): Boolean =
+        try {
+            contextFitsChecked(sessionId, control, prompt)
+        } catch (_: com.helix.app.agent.ContextCapacityException) {
+            false
+        }
+
+    private suspend fun contextFitsChecked(
+        sessionId: String,
+        control: RunControlConfig,
+        prompt: String,
     ): Boolean {
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         val model = storage.sessions.resolve(sessionId).modelId ?: config.model
@@ -92,16 +103,14 @@ internal class ChatRequestAssembler(
                 com.helix.core.model.ReasoningEffort.OFF,
                 system,
             )
-        val window =
-            providerService.contextSettingsStore
-                .read(
-                    config.id,
-                    config.endpoint.full,
-                    model,
-                ).window
-        return request.messages.size <= ModelRequest.MAX_MESSAGES &&
-            request.inputTokens() <= control.budgets.maxInputTokens &&
-            request.inputTokens() + request.maxOutputTokens <= window
+        val window = providerService.contextSettings(config.id, model).window
+        return com.helix.app.agent.ContextCapacity.failure(
+            request.messages.size,
+            request.inputTokens(),
+            minOf(request.maxOutputTokens, window / 4),
+            control.budgets.maxInputTokens,
+            window,
+        ) == null
     }
 
     /**
@@ -238,20 +247,22 @@ internal class ChatRequestAssembler(
         retryTurnId: String?,
         system: PromptSnapshot,
     ): List<ModelMessage> {
-        val allRows = storage.messages.listBySession(sessionId)
-        val checkpoint = ContextCompaction.checkpoint(storage, allRows)
+        val snapshot =
+            com.helix.app.agent.ContextHistory
+                .load(storage, sessionId)
+        val checkpoint = snapshot.checkpoint
         val rows =
-            ContextCompaction
-                .retained(allRows, checkpoint)
-                .map {
-                    ChatHistoryBuilder.PersistedRow(
-                        turnId = it.turnId,
-                        role = it.role,
-                        kind = it.kind,
-                        content = storage.messages.readContent(it),
-                        messageId = it.id,
-                    )
-                }
+            snapshot.rows.map {
+                ChatHistoryBuilder.PersistedRow(
+                    turnId = it.turnId,
+                    role = it.role,
+                    kind = it.kind,
+                    content =
+                        com.helix.app.agent.ContextHistory
+                            .read(storage, it),
+                    messageId = it.id,
+                )
+            }
         val historyRows = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
         val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows)
         // USER rows that produce a message: non-blank content (the builder's own rule) — the

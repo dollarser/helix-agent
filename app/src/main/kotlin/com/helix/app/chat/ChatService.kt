@@ -2595,6 +2595,8 @@ class ChatService(
                     agentLoop.runToolLoop(sessionId, coordinator, providerId, retryTurnId, control)
                 }
             terminalize(sessionId, coordinator, decision)
+        } catch (e: com.helix.app.agent.ContextCapacityException) {
+            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.FAILED, e.code))
         } catch (e: GoalTimeLimitException) {
             turnCancels[turnId]?.cancel()
             terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.FAILED, e.code))
