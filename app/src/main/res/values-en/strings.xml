@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="chat_artifacts_count">Session outputs (%1$d)</string>
+    <string name="chat_artifacts_title">Session outputs</string>
+    <string name="chat_artifacts_back">Back to outputs</string>
     <string name="session_fork_action">Branch from here</string>
     <string name="session_fork_title">%1$s · Branch</string>
     <string name="session_fork_failed">Cannot create a complete branch here. Choose an earlier complete message. The original conversation is preserved.</string>
@@ -1298,4 +1301,10 @@
     <string name="session_input_steer_current">Supplement to the current response</string>
     <string name="session_input_appended_history">Added to history; not included in a request yet</string>
     <string name="session_input_appended_request">Included in a request (local record only)</string>
+    <string name="chat_composer_options">Response options</string>
+    <string name="chat_ledger_summary">Completed: %1$d/%2$d · Blocked: %3$d</string>
+    <string name="nav_group_conversations">Conversations</string>
+    <string name="nav_group_work">Work</string>
+    <string name="nav_group_extensions">Extensions</string>
+    <string name="nav_group_settings">Settings and management</string>
 </resources>

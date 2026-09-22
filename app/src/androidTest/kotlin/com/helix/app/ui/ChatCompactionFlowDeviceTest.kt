@@ -116,8 +116,10 @@ class ChatCompactionFlowDeviceTest {
                     }
                 if (manual) {
                     compose.navigateTo("sessions")
+                    compose.onNodeWithTag("chat-composer-options").performClick()
                     compose.onNodeWithTag("chat-context-window").performScrollTo().performClick()
                     compose.onNodeWithTag("context-compact-now").performClick()
+                    compose.onNodeWithTag("chat-composer-options-close").performClick()
                 } else {
                     if (goalId != null) {
                         chat.continueGoal(goalId, "Continue with the current request.")

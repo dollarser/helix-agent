@@ -42,6 +42,7 @@ import kotlinx.coroutines.launch
 /** Renders one conversation from observable state and explicit UI intents. */
 
 @Composable
+// Explicit observable state, user intents and an optional application-owned presentation slot.
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun ConversationSection(
     screen: ChatScreenState,
@@ -53,6 +54,7 @@ internal fun ConversationSection(
     intents: ConversationIntents,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
     composerStatus: @Composable () -> Unit = {},
+    artifacts: @Composable () -> Unit = {},
 ) {
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
@@ -119,9 +121,6 @@ internal fun ConversationSection(
             ModeControlSection(runControl, screen.isSending, intents)
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
-                        Text(stringResource(R.string.chat_back_to_sessions))
-                    }
                     Text(
                         if (profile == SafetyProfile.ADVANCED) {
                             stringResource(R.string.chat_profile_advanced)
@@ -214,7 +213,7 @@ internal fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
-        TaskLedgerCard(screen.taskLedger)
+        TaskLedgerCard(screen.taskLedger, screen.openSessionId)
         if (screen.isFork) {
             Text(
                 stringResource(R.string.session_fork_notice),
@@ -336,6 +335,7 @@ internal fun ConversationSection(
                 }
             }
         }
+        artifacts()
         if (screen.pendingAttachments.isNotEmpty()) {
             Column(
                 modifier =

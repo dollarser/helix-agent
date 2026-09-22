@@ -49,12 +49,22 @@ internal fun ConversationComposer(
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
-        ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                modelSelector?.invoke()
-                ContextWindowIndicator(contextUsage, onCompact, canCompact)
-            }
-        }, reasoningOptions = reasoningOptions)
+        ComposerToolbar(
+            mode,
+            onMode,
+            reasoning,
+            reasoningSupported,
+            onReasoning,
+            isSending,
+            modelSelector,
+            reasoningOptions = reasoningOptions,
+            trailingOptions = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
+                    ContextWindowIndicator(contextUsage, onCompact, canCompact)
+                }
+            },
+        )
         Row(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,

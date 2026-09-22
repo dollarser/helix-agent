@@ -97,7 +97,7 @@ private fun editableProviderRow() =
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     onNodeWithTag("open-navigation").performClick()
     waitForIdle()
-    onNodeWithTag("navigation-$route").performClick()
+    onNodeWithTag("navigation-$route").performScrollTo().performClick()
     waitForIdle()
     waitUntil(10_000) { !onNodeWithTag("navigation-$route").isDisplayed() }
 }

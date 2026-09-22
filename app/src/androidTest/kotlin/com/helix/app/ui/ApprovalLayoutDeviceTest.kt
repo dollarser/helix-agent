@@ -40,7 +40,12 @@ class ApprovalLayoutDeviceTest {
 
     @Test fun chineseLongApprovalKeepsBothActionsReachable() = verify(AppLanguage.ZH_CN)
 
-    private fun verify(language: AppLanguage) {
+    @Test fun collapsedToolStillShowsPendingApprovalActions() = verify(AppLanguage.ZH_CN, inTimeline = true)
+
+    private fun verify(
+        language: AppLanguage,
+        inTimeline: Boolean = false,
+    ) {
         val context =
             AppLanguageStore.wrapForLocale(
                 InstrumentationRegistry.getInstrumentation().targetContext,
@@ -62,11 +67,14 @@ class ApprovalLayoutDeviceTest {
                             .height(400.dp)
                             .verticalScroll(rememberScrollState())
                             .testTag("approval-viewport"),
-                    ) { ApprovalCard(card, { approved++ }, { denied++ }) }
+                    ) {
+                        ApprovalLayoutContent(card, inTimeline, { approved++ }, { denied++ })
+                    }
                 }
             }
         }
         compose.onNodeWithTag("approval-card-args").assertDoesNotExist()
+        if (inTimeline) compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
         compose.onNodeWithTag("approval-details-layout").performScrollTo().performClick()
         compose
             .onNodeWithTag(
@@ -86,6 +94,37 @@ class ApprovalLayoutDeviceTest {
             assertEquals(1, approved)
             assertEquals(1, denied)
         }
+    }
+}
+
+@androidx.compose.runtime.Composable
+@Suppress("FunctionName")
+private fun ApprovalLayoutContent(
+    card: ApprovalCardUi,
+    inTimeline: Boolean,
+    onApprove: () -> Unit,
+    onDeny: () -> Unit,
+) {
+    if (inTimeline) {
+        ToolTimelineItem(
+            com.helix.app.chat
+                .ToolTimelineRow("turn", "call", "write", "{}", "待审批", null, card),
+            ConversationIntents(
+                onBack = {},
+                onSend = {},
+                onStop = {},
+                onDismissBlocked = {},
+                onApproveApproval = { onApprove() },
+                onDenyApproval = { onDeny() },
+                onStageAttachment = {},
+                onRemoveAttachment = {},
+                onBindProvider = {},
+                onSetMode = {},
+                onSetChatTools = {},
+            ),
+        )
+    } else {
+        ApprovalCard(card, onApprove, onDeny)
     }
 }
 

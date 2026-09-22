@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -60,6 +59,7 @@ import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.GitStatusScreenDestination
+import com.helix.app.ui.GroupedNavigation
 import com.helix.app.ui.SettingsScreen
 import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
@@ -204,27 +204,12 @@ internal fun HelixApp(container: AppContainer) {
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet {
-                    Text(
-                        text = "Helix",
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 24.dp),
-                    )
-                    repository.destinations.forEach { destination ->
-                        NavigationDrawerItem(
-                            label = { Text(stringResource(destination.titleRes)) },
-                            selected = destination.route == currentRoute,
-                            onClick = {
-                                navController.navigate(destination.route) {
-                                    launchSingleTop = true
-                                    popUpTo(repository.initialDestination.route)
-                                }
-                                scope.launch { drawerState.close() }
-                            },
-                            modifier =
-                                Modifier
-                                    .padding(horizontal = 12.dp)
-                                    .testTag("navigation-${destination.route}"),
-                        )
+                    GroupedNavigation(repository.destinations, currentRoute) { destination ->
+                        navController.navigate(destination.route) {
+                            launchSingleTop = true
+                            popUpTo(repository.initialDestination.route)
+                        }
+                        scope.launch { drawerState.close() }
                     }
                 }
             },

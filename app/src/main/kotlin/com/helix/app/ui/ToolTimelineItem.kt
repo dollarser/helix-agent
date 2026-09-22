@@ -1,10 +1,15 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,8 +18,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
@@ -37,19 +45,11 @@ internal fun ToolTimelineItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
+                .padding(8.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
-        ToolTimelineHeading(row)
-        Text(
-            ToolPurpose.text(row.toolName, row.requestSummary),
-            style = MaterialTheme.typography.bodySmall,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        )
-        TextButton(onClick = { details = !details }, modifier = Modifier.testTag("tool-details-${row.callId}")) {
-            Text(stringResource(if (details) R.string.tool_details_hide else R.string.tool_details_show))
-        }
+        ToolTimelineSummary(row, details) { details = !details }
         if (details) {
             ExpandableSummary(
                 stringResource(R.string.chat_tool_request, row.requestSummary),
@@ -72,6 +72,33 @@ internal fun ToolTimelineItem(
         }
         row.card?.takeIf { details || it.state == com.helix.app.approval.ApprovalCardState.PENDING }?.let { card ->
             PendingApprovalCard(card, intents)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolTimelineSummary(
+    row: com.helix.app.chat.ToolTimelineRow,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            ToolTimelineHeading(row)
+            Text(
+                ToolPurpose.text(row.toolName, row.requestSummary),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+        }
+        IconButton(onClick = onToggle, modifier = Modifier.testTag("tool-details-${row.callId}")) {
+            Icon(
+                painterResource(R.drawable.ic_expand_summary),
+                stringResource(if (expanded) R.string.tool_details_hide else R.string.tool_details_show),
+                modifier = Modifier.rotate(if (expanded) 180f else 0f),
+            )
         }
     }
 }

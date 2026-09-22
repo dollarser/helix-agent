@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="chat_artifacts_count">本会话产物 (%1$d)</string>
+    <string name="chat_artifacts_title">本会话产物</string>
+    <string name="chat_artifacts_back">返回产物列表</string>
     <string name="session_fork_action">从这里新建分支</string>
     <string name="session_fork_title">%1$s · 分支</string>
     <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>
@@ -1298,4 +1301,10 @@
     <string name="session_input_steer_current">当前回复的补充输入</string>
     <string name="session_input_appended_history">已加入历史，尚未纳入请求</string>
     <string name="session_input_appended_request">已纳入请求（仅本地记录）</string>
+    <string name="chat_composer_options">回复选项</string>
+    <string name="chat_ledger_summary">已完成 %1$d/%2$d · 阻塞 %3$d 项</string>
+    <string name="nav_group_conversations">会话</string>
+    <string name="nav_group_work">工作</string>
+    <string name="nav_group_extensions">扩展</string>
+    <string name="nav_group_settings">设置与管理</string>
 </resources>

@@ -109,6 +109,7 @@ class BackgroundTaskFlowDeviceTest {
                         assertTrue(chat.backgroundTasks.value.any { it.id == firstTurn && it.running })
                         compose.waitUntil(10000) { DataSyncForegroundService.runningInstance.get() != null }
                         if (goalId != null) {
+                            compose.onNodeWithTag("chat-conversation-details").performClick()
                             compose.onNodeWithTag("background-tasks-open").performClick()
                             compose.onNodeWithTag("task-pause-$firstTurn").performClick()
                             compose.waitUntil(10000) { storage.goals.resolve(goalId).state == "PAUSED" }
@@ -135,6 +136,7 @@ class BackgroundTaskFlowDeviceTest {
                             compose.waitUntil(10000) {
                                 chat.backgroundTasks.value.any { it.id == done.id && !it.running }
                             }
+                            compose.onNodeWithTag("chat-conversation-details").performClick()
                             compose.onNodeWithTag("background-tasks-open").performClick()
                             compose.onNodeWithTag("task-tab-1").performClick()
                             compose.onNodeWithTag("task-result-${done.id}").performClick()

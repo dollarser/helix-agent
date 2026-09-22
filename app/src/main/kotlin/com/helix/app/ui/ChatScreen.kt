@@ -336,6 +336,9 @@ fun ChatScreen(
                     }
                 },
                 bindableProviders = providerRows.filter { it.chatSelectable },
+                artifacts = {
+                    ConversationArtifacts(chatService, fileManager, screen)
+                },
                 intents =
                     ConversationIntents(
                         onBack = { navigateAfterSave(chatService::closeSession) },

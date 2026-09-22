@@ -8,7 +8,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -160,7 +160,7 @@ internal fun ArtifactFilePrimaryActions(
     onExportClick: () -> Unit,
     onCancelExport: () -> Unit,
 ) {
-    Row {
+    FlowRow {
         if (exportable) {
             TextButton(
                 enabled = exportState !is ArtifactExportState.Running,
@@ -212,7 +212,7 @@ internal fun ArtifactFileSecondaryActions(
     onOpenSession: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    Row {
+    FlowRow {
         if (canOpenExternal) {
             TextButton(
                 modifier = Modifier.testTag("artifact-file-open-external-${row.id}"),
