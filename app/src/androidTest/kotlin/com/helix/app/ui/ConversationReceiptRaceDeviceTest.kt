@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import android.net.Uri
+import android.view.KeyEvent
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeTimeoutException
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
+import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
@@ -351,8 +353,7 @@ class ConversationReceiptRaceDeviceTest {
                     .performTextReplacement(DISMISSED_REVISION_TEXT)
                 androidx.test.espresso.Espresso
                     .closeSoftKeyboard()
-                androidx.test.espresso.Espresso
-                    .pressBack()
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
                 compose.waitUntil(WAIT_MILLIS) {
                     revisionInputCount() == 0 && storage.composerDrafts.get(session)?.text == DISMISSED_REVISION_TEXT
                 }
@@ -366,8 +367,7 @@ class ConversationReceiptRaceDeviceTest {
                 compose.waitUntil(WAIT_MILLIS) {
                     chat.screen.value.openSessionId == session && revisionInputCount() == 1
                 }
-                androidx.test.espresso.Espresso
-                    .pressBack()
+                InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
                 compose.waitUntil(WAIT_MILLIS) { revisionInputCount() == 0 }
 
                 compose
