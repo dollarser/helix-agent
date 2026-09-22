@@ -261,34 +261,27 @@ internal class ChatToolCalls(
         var settlementFailure: Exception? = null
         val settled =
             prepareds.map { p ->
-                if (p.preSettled != null) {
-                    // Malformed BEFORE the dispatcher (invalid name / non-object args):
-                    // persistRejectedToolCall already wrote row + result + audit.
-                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = false)
-                    SettledCall(p.callId, p.toolNameRaw, p.preSettled)
-                } else {
-                    val settlement = batch.settlements[slot++]
-                    val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-                    val unknown =
-                        (thrown != null && thrown !is ApprovalCancelledException) ||
-                            (
-                                (settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
-                                    as? ToolDispatchOutcome.ExecutionFailed
-                            )?.requiresReview == true
-                    val outcome =
-                        when (settlement) {
-                            is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
-                            is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
-                        }
-                    try {
-                        outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
-                        coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
-                    } catch (failure: Exception) {
-                        val first = settlementFailure
-                        if (first == null) settlementFailure = failure else first.addSuppressed(failure)
-                    }
-                    SettledCall(p.callId, p.toolNameRaw, outcome)
+                val settlement = if (p.preSettled == null) batch.settlements[slot++] else null
+                val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
+                val unknown =
+                    (thrown != null && thrown !is ApprovalCancelledException) ||
+                        ((settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
+                            as? ToolDispatchOutcome.ExecutionFailed)?.requiresReview == true
+                val outcome = p.preSettled ?: when (settlement) {
+                    is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
+                    is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
+                    null -> error("Missing scheduled settlement")
                 }
+                try {
+                    if (p.preSettled == null) {
+                        outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
+                    }
+                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
+                } catch (failure: Exception) {
+                    val first = settlementFailure
+                    if (first == null) settlementFailure = failure else first.addSuppressed(failure)
+                }
+                SettledCall(p.callId, p.toolNameRaw, outcome)
             }
         settlementFailure?.let { failure ->
             batch.firstError?.let(failure::addSuppressed)
