@@ -24,7 +24,7 @@
 | `5ed83257` | 旧UI和Autofill测试处理 | 当前readiness polling/socket取消处理替代旧JS workaround，AdaptiveFileControls被重构取代；无独立生产补丁待合并 |
 | `bc9b7741` | M11重叠备份 | 诊断字节一致；LAN scope和Exif在当前模块/装配中保留，旧ADR/Runtime术语不能覆盖现行设计 |
 
-未发现必须再合并的独立生产修复。7份stash保留为历史恢复点，未apply/drop；保留备份不代表开发未完成，也不应用“当前blob不同”作为恢复旧实现的理由。详细本地核对记录在ignored `build/document-review-convergence/stash-audit.md`。
+未发现必须再合并的独立生产修复。文档整理已提交为 `b808d8b6`；随后经所有者授权，逐个核对上述完整SHA并删除全部7份冗余stash，清理后stash列表为空，未apply任何旧内容。不应用“当前blob不同”作为恢复旧实现的理由。详细本地核对记录在ignored `build/document-review-convergence/stash-audit.md`，该记录描述删除前的审查状态。
 
 ## 分支与工作区
 
