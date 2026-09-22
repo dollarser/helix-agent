@@ -22,4 +22,5 @@ data class ComposerDraftEntity(
     val clientRequestId: String,
     val text: String,
     val attachmentIdsJson: String,
+    val revisedMessageId: String? = null,
 )

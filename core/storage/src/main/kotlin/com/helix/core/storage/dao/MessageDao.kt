@@ -7,6 +7,7 @@ import androidx.room.Query
 import com.helix.core.storage.entity.MessageEntity
 
 @Dao
+@Suppress("TooManyFunctions") // One table exposes both effective history and retained revision evidence.
 interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(message: MessageEntity)
@@ -14,11 +15,12 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE id = :id")
     fun byId(id: String): MessageEntity?
 
-    @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY sequence ASC")
+    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND supersededBy IS NULL ORDER BY sequence ASC")
     fun listBySession(sessionId: String): List<MessageEntity>
 
     @Query(
-        "SELECT * FROM messages WHERE sessionId = :sessionId AND sequence > :after ORDER BY sequence ASC LIMIT :limit",
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND supersededBy IS NULL " +
+            "AND sequence > :after ORDER BY sequence ASC LIMIT :limit",
     )
     fun pageAfter(
         sessionId: String,
@@ -26,11 +28,43 @@ interface MessageDao {
         limit: Int,
     ): List<MessageEntity>
 
-    @Query("SELECT * FROM messages WHERE sessionId = :sessionId AND kind = :kind ORDER BY sequence DESC LIMIT 1")
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND (:includeSuperseded OR supersededBy IS NULL) " +
+            "AND kind = :kind ORDER BY sequence DESC LIMIT 1",
+    )
     fun latestOfKind(
         sessionId: String,
         kind: String,
+        includeSuperseded: Boolean = false,
     ): MessageEntity?
+
+    @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND role = 'USER' " +
+            "AND supersededBy IS NULL ORDER BY sequence DESC LIMIT 1",
+    )
+    fun latestUser(sessionId: String): MessageEntity?
+
+    @Query(
+        "UPDATE messages SET supersededBy = :requestId WHERE sessionId = :sessionId " +
+            "AND sequence >= :from AND supersededBy IS NULL",
+    )
+    fun supersedeFrom(
+        sessionId: String,
+        from: Long,
+        requestId: String,
+    )
+
+    @Query("SELECT * FROM messages WHERE sessionId = :sessionId ORDER BY sequence ASC")
+    fun allRevisions(sessionId: String): List<MessageEntity>
+
+    @Query(
+        "SELECT DISTINCT turnId FROM messages WHERE sessionId = :sessionId " +
+            "AND supersededBy IS NOT NULL AND turnId IS NOT NULL",
+    )
+    fun supersededTurns(sessionId: String): List<String>
+
+    @Query("SELECT supersededBy FROM messages WHERE turnId = :turnId AND supersededBy IS NOT NULL LIMIT 1")
+    fun supersededRequest(turnId: String): String?
 
     @Query("SELECT COALESCE(MAX(sequence), -1) FROM messages WHERE sessionId = :sessionId")
     fun maxSequence(sessionId: String): Long
@@ -49,7 +83,7 @@ interface MessageDao {
     @Query(
         "SELECT m.* FROM messages m " +
             "INNER JOIN sessions s ON s.id = m.sessionId " +
-            "WHERE m.contentRef IS NOT NULL " +
+            "WHERE m.contentRef IS NOT NULL AND m.supersededBy IS NULL " +
             "ORDER BY s.createdAt DESC, m.sequence DESC " +
             "LIMIT :limit",
     )

@@ -4,6 +4,14 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    val MIGRATION_24_25 =
+        object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN supersededBy TEXT")
+                db.execSQL("ALTER TABLE composer_drafts ADD COLUMN revisedMessageId TEXT")
+            }
+        }
+
     /** Add only unsent composer state; existing messages/turns and authorization stay unchanged. */
     val MIGRATION_23_24 =
         object : Migration(23, 24) {

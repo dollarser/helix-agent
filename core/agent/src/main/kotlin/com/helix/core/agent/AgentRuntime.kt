@@ -94,6 +94,7 @@ data class SubmitTurnCommand(
     val goalContinuation: GoalContinuationRequest? = null,
     val goalBudgets: com.helix.core.model.GoalBudgets? = null,
     val directUserRequest: Boolean = false,
+    val revisedMessageId: String? = null,
 ) {
     init {
         require(goalContinuation == null || !directUserRequest) { "automatic continuation is not a human request" }

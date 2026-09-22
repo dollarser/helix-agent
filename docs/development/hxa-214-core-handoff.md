@@ -22,6 +22,10 @@
 5. Stop 绑定渲染时的 Turn ID，不在异步任务中重新选择当前 Turn。按钮状态与取消中的真实持久阶段一致。
 6. 完成任务规格要求的三个产品测试类、scope214 runner 和普通应用 seed/kill/recover；核心测试使用数据库关闭重开，仅证明存储恢复。
 
+## 与215修订草稿整合
+
+215沿本核心基线新增可选 `ChatSubmission.revisedMessageId`，Room v25在既有草稿中保存该目标，同时给消息增加 `supersededBy`。后续合并UI时必须保留字段：非空目标交由 `MessageRevisionDialog` 及其修订回执处理，不能当作普通新消息恢复、清空或重新生成提交身份；普通composer也不能覆盖已有修订草稿。不要再占用迁移24→25。`accept-conversation-interaction.py` 当前只实现scope215；214执行者应扩展独立scope214，不覆盖已有215验收。215不关闭本任务的普通composer接线及产品验收。
+
 旧 `send` / `confirmSend` / `cancelPendingSend` 入口仍用于未迁移的页面。附件发送被拒时保留旧页面的一次性恢复；新持久草稿路径不得依赖该无 revision 的恢复字段。`Rejected.reason` 暂时包含新内部错误码和原有本地化 gate 提示，接线时须映射内部错误码，保留已有用户提示，不能将所有 reason 当成原始码展示。
 
 ## 验证与交付
@@ -32,7 +36,7 @@
 
 ## UI 接线与产品交付状态（Antigravity）
 
-UI 执行范围（条目 1～6）已全部实现并完成本地全量验证：
+以下为 UI 分支原交接说明，不构成当前整合验收：本轮复核发现即时编辑身份、附件变更持久化与普通进程恢复证据缺口，正在收敛修复；最终结果以新的完成/整合记录为准。原分支实现包括：
 1. **输入与草稿持久化**：`ChatScreen` 通过 `rememberSaveable` 维护 `composerRevision` 与 `clientRequestId`；会话切换通过 `chatService.loadComposerDraft` 异步加载草稿；输入变化采用 500ms 有界防抖通过 `chatService.saveComposerDraft` 落盘；`Lifecycle.Event.ON_PAUSE` 触发同步冲刷；新建未持久化的草稿会话时，通过 `chatService.materializeDraftSession()` 预建物化，严格遵循 Room v24 外键级联约束。
 2. **发送回执与输入区保留**：移除了发送时立即清空输入的旧逻辑；保留快照并等待 `sendSubmission` Deferred 回执。仅在收到 `Accepted` 且会话及版本与当前快照一致时，清空输入区并调用 `chatService.acknowledgeSubmission`；对 `PendingConfirmation` 与 `Rejected` 保留输入，并由 `ChatSubmissionErrorMapper` 将内部拒收码映射为 3 语友好文案。
 3. **运行中编辑与忙碌门禁**：`ConversationComposer` 中输入框在发送中保持 `enabled = true`，允许就地起草后续内容；发送动作严格受 `isSending` / `isBusy` 门禁约束；保持现有 Goal 流程与 revision 保护。

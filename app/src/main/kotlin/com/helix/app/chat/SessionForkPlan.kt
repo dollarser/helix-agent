@@ -26,7 +26,9 @@ internal data class SessionForkPlan(
             checkActive: () -> Unit,
         ): SessionForkPlan {
             val target = storage.messages.resolve(messageId)
-            require(target.sessionId == sessionId && target.kind != KIND) { "FORK_TARGET" }
+            require(
+                target.sessionId == sessionId && target.kind != KIND && target.supersededBy == null,
+            ) { "FORK_TARGET" }
             val rows = prefix(storage, sessionId, target.sequence, checkActive)
             val checkpointRow = rows.lastOrNull { it.kind == ContextCompaction.KIND }
             val checkpoint = ContextCompaction.checkpoint(storage, listOfNotNull(checkpointRow))

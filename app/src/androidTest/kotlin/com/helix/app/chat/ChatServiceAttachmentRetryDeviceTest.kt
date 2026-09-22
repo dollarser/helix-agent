@@ -32,6 +32,7 @@ import com.helix.provider.api.ProviderCapabilities
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Assert.assertEquals
@@ -435,6 +436,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 val receipt = first.await()
                 assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
                 assertEquals(receipt, second.await())
+                assertEquals(receipt, fixture.service.acceptedComposerReceipt(draft))
                 assertEquals(
                     1,
                     fixture.storage.turns
@@ -573,15 +575,117 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         )
     }
 
-    /**
-     * Gives the service's turn jobs a beat to release their storage handles before the isolated
-     * Room database closes (a late write would surface as a background exception on the IO pool
-     * after the assertions already ran).
-     */
+    /** Join every fixture-owned service job before closing Room; a fixed sleep cannot settle a Turn. */
     private fun settleAndClose(fixture: Fixture) {
-        Thread.sleep(SETTLE_MILLIS)
+        kotlinx.coroutines.runBlocking {
+            kotlinx.coroutines.withTimeout(AWAIT_TIMEOUT_MILLIS) { fixture.job.cancelAndJoin() }
+        }
         fixture.storage.close()
     }
+
+    @Test
+    @Suppress("LongMethod") // Egress cancel, confirm and receipt replay form one journey.
+    fun latestRevisionKeepsSessionRechecksAttachmentsAndDeduplicatesConfirm() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                openSessionWithStagedAttachment(fixture, "keep attachment")
+                sendToDisclosure(fixture)
+                confirmUntilTurnFails(fixture)
+                Thread.sleep(SETTLE_MILLIS)
+                val target =
+                    fixture.storage.messages
+                        .latestUser(SESSION_ID)!!
+                        .id
+                assertTrue(
+                    fixture.service.saveComposerDraft(ChatSubmission(SESSION_ID, 0, "empty-composer", ""), null),
+                )
+                val draft = fixture.service.prepareLatestRevision(SESSION_ID, target).await()!!
+                assertEquals("帮我总结这个附件", draft.text)
+                assertTrue(
+                    !fixture.service
+                        .saveComposerDraftAsync(
+                            draft.copy(
+                                revision = draft.revision + 1,
+                                clientRequestId = "plain-overwrite",
+                                revisedMessageId = null,
+                            ),
+                            draft.revision,
+                        ).await(),
+                )
+                assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
+                val changed = fixture.service.saveRevisionText(draft, "corrected request").await()!!
+                assertEquals(
+                    ChatSubmissionOutcome.PendingConfirmation,
+                    fixture.service
+                        .sendSubmission(changed)
+                        .await()
+                        .outcome,
+                )
+                fixture.service.cancelSubmission(changed).await()
+                assertEquals(
+                    target,
+                    fixture.storage.messages
+                        .latestUser(SESSION_ID)!!
+                        .id,
+                )
+                assertEquals(
+                    ChatSubmissionOutcome.PendingConfirmation,
+                    fixture.service
+                        .sendSubmission(changed)
+                        .await()
+                        .outcome,
+                )
+                val receipt = fixture.service.confirmSubmission(changed).await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+                assertEquals(receipt, fixture.service.confirmSubmission(changed).await())
+                assertEquals(SESSION_ID, fixture.service.screen.value.openSessionId)
+                assertEquals(
+                    2,
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .size,
+                )
+                assertEquals(
+                    changed.clientRequestId,
+                    fixture.storage.messages
+                        .resolve(target)
+                        .supersededBy,
+                )
+                val replacement = fixture.storage.messages.latestUser(SESSION_ID)!!
+                assertEquals(
+                    1,
+                    fixture.storage.messageAttachments
+                        .listByMessage(replacement.id)
+                        .size,
+                )
+                assertTrue(fixture.service.acknowledgeSubmission(receipt))
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
+    fun draftAttachmentRestoreIsBoundToItsSessionAndRechecksBytes() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                openSessionWithStagedAttachment(fixture, "restore original bytes")
+                val ids = fixture.service.currentStagedAttachmentIds(SESSION_ID)
+                assertEquals(1, ids.size)
+                assertEquals(ids, fixture.service.restoreDraftAttachments("another-session", ids))
+                assertEquals(ids, fixture.service.currentStagedAttachmentIds(SESSION_ID))
+                assertTrue(fixture.service.restoreDraftAttachments(SESSION_ID, ids).isEmpty())
+                val entry = fixture.storage.artifacts.resolve(ids.single())
+                val file =
+                    File(fixture.workspaceRoot, FileScopePath.fromModelReference(entry.relativePath).relativePath)
+                file.writeText("changed bytes")
+                assertEquals(ids, fixture.service.restoreDraftAttachments(SESSION_ID, ids))
+                assertTrue(fixture.service.currentStagedAttachmentIds(SESSION_ID).isEmpty())
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
 
     /** One isolated service stack per test: real Room + real files, fake SAF + fake wire. */
     private data class Fixture(
@@ -589,6 +693,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         val service: ChatService,
         val providerSpec: ProviderConfigSpec,
         val workspaceRoot: File,
+        val job: kotlinx.coroutines.Job,
     )
 
     private fun newFixture(
@@ -629,7 +734,13 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 scope = scope,
                 strings = { resId, args -> zh.getString(resId, *args) },
             )
-        return Fixture(storage, service, providerSpec, workspaceRoot)
+        return Fixture(
+            storage,
+            service,
+            providerSpec,
+            workspaceRoot,
+            requireNotNull(scope.coroutineContext[kotlinx.coroutines.Job]),
+        )
     }
 
     /** The one-shot SAF import pipeline + workspace staging rooted at [workspaceRoot] (no real path). */

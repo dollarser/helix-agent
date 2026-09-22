@@ -300,6 +300,7 @@ class AppAgentRuntimeTest {
             continuousGoal: Boolean,
             goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
             directUserRequest: Boolean,
+            revisedMessageId: String?,
         ): String? {
             // Mirror the production host (HX2-01 §2e): idempotent by clientRequestId — a re-driven
             // start carrying an already-claimed id returns the existing turn, never a second.

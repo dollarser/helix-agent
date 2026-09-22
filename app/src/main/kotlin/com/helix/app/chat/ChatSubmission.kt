@@ -7,6 +7,7 @@ data class ChatSubmission(
     val clientRequestId: String,
     val text: String,
     val attachmentIds: List<String> = emptyList(),
+    val revisedMessageId: String? = null,
 ) {
     init {
         require(sessionId.isNotBlank() && clientRequestId.isNotBlank())
@@ -41,6 +42,7 @@ internal fun ChatSubmission.toDraftEntity() =
         kotlinx.serialization.json
             .JsonArray(attachmentIds.map { kotlinx.serialization.json.JsonPrimitive(it) })
             .toString(),
+        revisedMessageId,
     )
 
 internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): ChatSubmission {
@@ -56,5 +58,6 @@ internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): C
         ids.map {
             (it as kotlinx.serialization.json.JsonPrimitive).content
         },
+        revisedMessageId,
     )
 }

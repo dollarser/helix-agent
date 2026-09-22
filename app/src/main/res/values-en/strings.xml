@@ -1249,4 +1249,17 @@
     <string name="chat_submission_rejected_confirmation_changed">Confirmation expired or target changed; please resend.</string>
     <string name="chat_submission_rejected_turn_not_accepted">Could not start turn; please try again.</string>
     <string name="chat_draft_attachment_missing">Some attachments in this draft could not be restored. Please re-attach them.</string>
+    <string name="message_revision_action">Edit and resend</string>
+    <string name="message_revision_title">Revise last message</string>
+    <string name="message_revision_note">Regenerate in this conversation. Previous versions remain in the export. File and external changes are not undone. Original attachments are retained and checked again.</string>
+    <string name="message_revision_unavailable">Cannot edit yet. Resolve the existing draft or confirmation, and check that the message and attachments are available.</string>
+    <string name="message_revision_failed">Revision was not accepted. The draft is retained. Check model settings, attachments and task status, then retry.</string>
+    <string name="message_revision_busy">Stop the current task and wait for it to settle before resending.</string>
+    <string name="message_revision_saving">Saving draft…</string>
+    <string name="message_revision_saved">Draft saved</string>
+    <string name="message_revision_save_failed">Draft not saved. Try again.</string>
+    <string name="message_revision_discard">Discard edit</string>
+    <string name="message_revision_stop">Stop current task</string>
+    <string name="message_revision_send">Send revision</string>
+    <string name="chat_draft_remove_missing">Remove unavailable attachments</string>
 </resources>

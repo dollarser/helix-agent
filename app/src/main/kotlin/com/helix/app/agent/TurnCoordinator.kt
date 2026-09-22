@@ -26,6 +26,7 @@ internal data class TurnStartSpec(
     // turn row atomically with the turn so the client-request id survives a restart.
     val clientRequestId: String? = null,
     val inputFingerprint: String? = null,
+    val revisedMessageId: String? = null,
 )
 
 internal enum class BatchCallResolution {
@@ -423,6 +424,17 @@ internal class TurnCoordinator private constructor(
         ): TurnCoordinator {
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
+                spec.revisedMessageId?.let {
+                    require(spec.userText != null && spec.goalRunId == null)
+                    require(
+                        storage.turns.listBySession(spec.sessionId).all { row ->
+                            TurnState.valueOf(row.state).isTerminal
+                        },
+                    ) {
+                        "REVISION_SESSION_BUSY"
+                    }
+                    storage.messages.reviseLatest(spec.sessionId, it, requireNotNull(spec.clientRequestId))
+                }
                 // The receipt (clientRequestId + inputFingerprint) commits WITH the turn row (research
                 // doc section 34): a restart can no longer let the same id re-start a second turn.
                 var turn =

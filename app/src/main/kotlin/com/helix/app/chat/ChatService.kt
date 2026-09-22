@@ -734,9 +734,12 @@ class ChatService(
             stagedAttachments.size == attachments.size
         }
 
-    private fun saveSessionDraft(text: String): List<DraftAttachment>? {
+    private fun saveSessionDraft(
+        text: String,
+        expectedSessionId: String? = openSessionId,
+    ): List<DraftAttachment>? {
         val attachments =
-            drafts.persist(openSessionId, text, str(R.string.chat_attachment_button)) { row ->
+            drafts.persist(expectedSessionId, text, str(R.string.chat_attachment_button)) { row ->
                 storage.withTransaction {
                     storage.sessions.create(row.id, row.title, row.providerId, row.modelId, row.createdAt)
                     storage.sessions.updateDetails(row.id, row.title, row.directoryRef)
@@ -1074,8 +1077,9 @@ class ChatService(
     }
 
     @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // one fail-closed return per stage
-    private suspend fun stageAttachmentNow(uri: String) {
-        val sessionId = openSessionId
+    private suspend fun stageAttachmentNow(uri: String, expectedSessionId: String? = openSessionId) {
+        val sessionId = expectedSessionId
+        if (openSessionId != sessionId) return
         if (sessionId == null) {
             setBlocked(str(R.string.chat_blocked_no_open_session))
             return
@@ -1356,7 +1360,10 @@ class ChatService(
 
     private var pendingGoalId: String? = null
     private val submissionGate = Mutex()
-    private var pendingSubmission: ChatSubmission? = null
+
+    @Volatile private var pendingSubmission: ChatSubmission? = null
+
+    fun pendingComposerSubmission(): ChatSubmission? = pendingSubmission
 
     /**
      * The send intent. Order (fail-closed, user-visible):
@@ -1393,25 +1400,51 @@ class ChatService(
                 val previous = storage.turns.resolveByClientRequestId(request.clientRequestId)
                 val existing = storage.composerDrafts.get(request.sessionId)
                 // A draft cannot retroactively claim an already-used request ID with new content.
-                if (previous == null || existing?.toSubmission() == request) {
+                val unusedOrIdentical = previous == null || existing?.toSubmission() == request
+                val sameDraftKind = existing == null || existing.revisedMessageId == request.revisedMessageId
+                if (unusedOrIdentical && sameDraftKind) {
                     saved = storage.composerDrafts.save(request.toDraftEntity(), expectedRevision)
                 }
             }
             saved
         }
 
+    /** A dispatched save survives cancellation of the screen awaiting its result. */
+    fun saveComposerDraftAsync(
+        request: ChatSubmission,
+        expectedRevision: Long?,
+    ): kotlinx.coroutines.Deferred<Boolean> = workScope.async { saveComposerDraft(request, expectedRevision) }
+
     suspend fun loadComposerDraft(sessionId: String): ChatSubmission? =
         withContext(Dispatchers.IO) {
             storage.composerDrafts.get(sessionId)?.toSubmission()
         }
 
+    /** Recovers a durable receipt without admitting or replaying any model/tool work. */
+    suspend fun acceptedComposerReceipt(request: ChatSubmission): ChatSubmissionReceipt? =
+        withContext(Dispatchers.IO) {
+            val outcome = completedSubmission(request) as? ChatSubmissionOutcome.Accepted
+            outcome?.let { ChatSubmissionReceipt(request, it) }
+        }
+
     /** Materializes a transient draft session so it exists in storage before saving composer drafts. */
-    suspend fun materializeDraftSession(): String? =
+    suspend fun materializeDraftSession(expectedSessionId: String): String? =
         withContext(workScope.coroutineContext) {
-            val draft = sessionDraft ?: return@withContext openSessionId
+            if (storage.sessions.find(expectedSessionId) != null) return@withContext expectedSessionId
+            if (openSessionId != expectedSessionId) return@withContext null
+            val draft = sessionDraft ?: return@withContext expectedSessionId
             val id = draft.session.id
-            val attachments = saveSessionDraft("") ?: return@withContext null
-            attachments.forEach { stageAttachmentNow(it.uri) }
+            if (id != expectedSessionId || !drafts.beginPreparation(id)) return@withContext null
+            try {
+                val attachments = saveSessionDraft("", id) ?: return@withContext null
+                for (attachment in attachments) {
+                    if (openSessionId != id) return@withContext null
+                    stageAttachmentNow(attachment.uri, id)
+                }
+            } finally {
+                drafts.finishPreparation()
+                refreshScreen()
+            }
             id
         }
 
@@ -1419,9 +1452,12 @@ class ChatService(
      * Restores staged attachments from persisted artifacts for a recovered composer draft.
      * Reconstructs and re-verifies staged snapshots; returns the list of missing/unverifiable artifact IDs.
      */
-    suspend fun restoreDraftAttachments(attachmentIds: List<String>): List<String> =
+    suspend fun restoreDraftAttachments(
+        sessionId: String,
+        attachmentIds: List<String>,
+    ): List<String> =
         withContext(Dispatchers.IO) {
-            val sessionId = openSessionId ?: return@withContext attachmentIds
+            if (openSessionId != sessionId) return@withContext attachmentIds
             val missing = mutableListOf<String>()
             val restored = mutableListOf<StagedAttachmentEntry>()
             for (id in attachmentIds) {
@@ -1441,9 +1477,12 @@ class ChatService(
             missing
         }
 
-    fun currentStagedAttachmentIds(): List<String> =
+    fun currentStagedAttachmentIds(expectedSessionId: String? = null): List<String> =
         synchronized(stagedLock) {
-            stagedAttachments.map { it.artifactId }
+            stagedAttachments
+                .filter {
+                    expectedSessionId == null || it.sessionId == expectedSessionId
+                }.map { it.artifactId }
         }
 
     /** CAS acknowledgement: an old receipt cannot clear an edited draft or another session. */
@@ -1454,6 +1493,98 @@ class ChatService(
             val turn = storage.turns.resolveByClientRequestId(request.clientRequestId)
             if (turn?.id != accepted.turnId || turn.sessionId != request.sessionId) return@withContext false
             storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
+        }
+
+    /** Opens or restores the latest-user edit draft without changing history or stopping work. */
+    fun prepareLatestRevision(
+        sessionId: String,
+        messageId: String,
+    ): kotlinx.coroutines.Deferred<ChatSubmission?> =
+        workScope.async {
+            submissionGate.withLock {
+                try {
+                    require(openSessionId == sessionId && pendingSubmission == null)
+                    require(storage.messages.latestUser(sessionId)?.id == messageId)
+                    var saved = loadComposerDraft(sessionId)
+                    if (saved?.revisedMessageId == null && saved?.text?.isEmpty() == true &&
+                        saved.attachmentIds.isEmpty()
+                    ) {
+                        storage.composerDrafts.clear(sessionId, saved.revision, saved.clientRequestId)
+                        saved = loadComposerDraft(sessionId)
+                    }
+                    require(saved == null || saved.revisedMessageId == messageId)
+                    val source = MessageRevisionSource(storage, attachmentStaging)
+                    val restored = source.attachments(sessionId, messageId)
+                    require(
+                        stagedAttachments.isEmpty() ||
+                            stagedAttachments.map { it.artifactId } == restored.map { it.artifactId },
+                    )
+                    val draft =
+                        saved ?: ChatSubmission(
+                            sessionId,
+                            0,
+                            idGenerator(),
+                            source.text(messageId, restored.size),
+                            restored.map { it.artifactId },
+                            messageId,
+                        )
+                    if (saved == null) require(saveComposerDraft(draft, null))
+                    require(openSessionId == sessionId)
+                    synchronized(stagedLock) { stagedAttachments = restored }
+                    refreshScreen()
+                    draft
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    setBlocked(str(R.string.message_revision_unavailable))
+                    null
+                }
+            }
+        }
+
+    fun saveRevisionText(
+        request: ChatSubmission,
+        text: String,
+    ): kotlinx.coroutines.Deferred<ChatSubmission?> =
+        workScope.async {
+            submissionGate.withLock {
+                val current = loadComposerDraft(request.sessionId) ?: return@withLock null
+                if (current.revisedMessageId != request.revisedMessageId ||
+                    current.revisedMessageId == null
+                ) {
+                    return@withLock null
+                }
+                if (current.text == text) return@withLock current
+                if (text.length > MAX_MODEL_TEXT_CHARS || '\u0000' in text) return@withLock null
+                val next = current.copy(revision = current.revision + 1, clientRequestId = idGenerator(), text = text)
+                if (saveComposerDraft(next, current.revision)) next else null
+            }
+        }
+
+    /** Read-only receipt recovery after a disclosure or recreation; never sends another request. */
+    suspend fun acceptedRevision(request: ChatSubmission): Boolean =
+        withContext(Dispatchers.IO) {
+            val outcome = completedSubmission(request) ?: return@withContext false
+            if (outcome !is ChatSubmissionOutcome.Accepted) return@withContext false
+            acknowledgeSubmission(ChatSubmissionReceipt(request, outcome))
+            true
+        }
+
+    /** Discards only this edit snapshot, leaving all historical messages and newer drafts intact. */
+    fun discardRevision(request: ChatSubmission): kotlinx.coroutines.Deferred<Boolean> =
+        workScope.async {
+            submissionGate.withLock {
+                if (request.revisedMessageId == null) return@withLock false
+                val cleared = storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
+                if (cleared && openSessionId == request.sessionId) {
+                    if (pendingSubmission == request) cancelPendingSend()
+                    synchronized(stagedLock) {
+                        stagedAttachments = stagedAttachments.filterNot { it.artifactId in request.attachmentIds }
+                    }
+                    refreshScreen()
+                }
+                cleared
+            }
         }
 
     /** Legacy producer; UI integration should retain the identity and await [sendSubmission]. */
@@ -1520,6 +1651,15 @@ class ChatService(
                 refreshScreen()
             }
         }
+        if (request.revisedMessageId != null) {
+            if (storage.messages.latestUser(request.sessionId)?.id != request.revisedMessageId) {
+                return ChatSubmissionOutcome.Rejected("REVISION_TARGET_CHANGED")
+            }
+            if (storage.turns.listBySession(request.sessionId).any { !TurnState.valueOf(it.state).isTerminal }) {
+                return ChatSubmissionOutcome.Rejected("REVISION_SESSION_BUSY")
+            }
+            return sendNow(request.text, submission = request)
+        }
         synchronized(turnGate) { revokeGoalIntent(request.sessionId) }
         yieldToHumanInput(request.sessionId)
         if (openSessionId != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
@@ -1531,7 +1671,7 @@ class ChatService(
         val saved = storage.composerDrafts.get(request.sessionId)?.toSubmission()
         val samePlainInput =
             request.attachmentIds.isEmpty() &&
-                turn.inputFingerprint == TurnInputFingerprint.of(request.text, emptyList())
+                turn.inputFingerprint == TurnInputFingerprint.of(request.text, emptyList(), request.revisedMessageId)
         return if (turn.sessionId == request.sessionId && (samePlainInput || saved == request)) {
             ChatSubmissionOutcome.Accepted(turn.id)
         } else {
@@ -2333,6 +2473,7 @@ class ChatService(
         continuousGoal: Boolean,
         goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
         directUserRequest: Boolean,
+        revisedMessageId: String?,
     ): String? =
         launchTurn(
             text = text,
@@ -2353,6 +2494,7 @@ class ChatService(
             continuousGoal = continuousGoal,
             continuation = goalContinuation,
             directUserRequest = directUserRequest,
+            revisedMessageId = revisedMessageId,
         )
 
     /**
@@ -2489,10 +2631,17 @@ class ChatService(
         clientRequestId: String? = null,
         isBudgetContinuation: Boolean = false,
         expectedSessionId: String? = null,
+        revisedMessageId: String? = null,
     ): Boolean {
         val session = currentSession() ?: return false
         if (expectedSessionId != null && session.id != expectedSessionId) return false
-        val control = runControlStore.current
+        val currentControl = runControlStore.current
+        val control =
+            if (revisedMessageId != null && currentControl.mode == AgentMode.GOAL) {
+                currentControl.copy(mode = AgentMode.CHAT)
+            } else {
+                currentControl
+            }
         return try {
             agentRuntime.submit(
                 SubmitTurnCommand(
@@ -2510,6 +2659,7 @@ class ChatService(
                     // re-drive) dedups to the turn it already started; every other entry point is a
                     // fresh intent and gets a fresh id.
                     clientRequestId = clientRequestId ?: idGenerator(),
+                    revisedMessageId = revisedMessageId,
                     continuousGoal = control.mode == AgentMode.GOAL || goalId != null,
                     goalBudgets = control.goalBudgets,
                     directUserRequest = !isBudgetContinuation && retryTurnId == null && !text.isNullOrBlank(),
@@ -2545,6 +2695,7 @@ class ChatService(
                 goalId = goalId,
                 clientRequestId = submission.clientRequestId,
                 expectedSessionId = submission.sessionId,
+                revisedMessageId = submission.revisedMessageId,
             )
         if (!started) return ChatSubmissionOutcome.Rejected("TURN_NOT_ACCEPTED")
         val turn = requireNotNull(storage.turns.resolveByClientRequestId(submission.clientRequestId))
@@ -2566,6 +2717,7 @@ class ChatService(
         continuousGoal: Boolean = false,
         continuation: com.helix.core.agent.GoalContinuationRequest? = null,
         directUserRequest: Boolean = false,
+        revisedMessageId: String? = null,
     ): String? {
         // The unified AgentRuntime (HX2-01) starts turns for an explicit session with an explicit
         // per-turn control; the in-session send path passes neither and falls back to the open
@@ -2588,7 +2740,7 @@ class ChatService(
                 setBlocked(str(R.string.chat_blocked_provider_state_changed))
                 return null
             }
-        val inputFingerprint = TurnInputFingerprint.of(text, attachmentBindings)
+        val inputFingerprint = TurnInputFingerprint.of(text, attachmentBindings, revisedMessageId)
         synchronized(turnGate) {
             if (continuation != null && !goalContinuation.admits(sessionId, goalId, continuation, snapshot)) return null
             // Persistent submit-dedup (research doc section 34): a re-drive with the same session +
@@ -2602,6 +2754,11 @@ class ChatService(
             // a turn in another session must never make this send vanish.
             if (sessionTurnAdmission.hasActive(sessionId)) {
                 setBlocked(str(R.string.chat_blocked_session_busy))
+                return null
+            }
+            val isGoalOrRetry =
+                goalId != null || continuousGoal || control.mode == AgentMode.GOAL || retryTurnId != null
+            if (revisedMessageId != null && isGoalOrRetry) {
                 return null
             }
             val liveSession = storage.sessions.resolve(sessionId)
@@ -2621,6 +2778,7 @@ class ChatService(
                     attachmentBindings,
                     clientRequestId,
                     inputFingerprint,
+                    revisedMessageId,
                 )
             var preparedGoalId: String? = null
             var preparedTurn: Pair<TurnCoordinator, RunControlConfig>? = null
@@ -2657,6 +2815,7 @@ class ChatService(
                 setBlocked(str(R.string.goal_continue_unavailable))
                 return null
             }
+            if (revisedMessageId != null) revokeGoalIntent(sessionId)
             val (coordinator, effectiveControl) = started
             if (directUserRequest && !text.isNullOrBlank()) {
                 goalUserRequests[turnId] = GoalUserRequest(sessionId, text, providerId, control, snapshot)
@@ -2753,6 +2912,7 @@ class ChatService(
         attachmentBindings: List<MessageAttachmentRepository.Binding>,
         clientRequestId: String,
         inputFingerprint: String,
+        revisedMessageId: String?,
     ): TurnStartSpec =
         TurnStartSpec(
             sessionId,
@@ -2763,6 +2923,7 @@ class ChatService(
             attachmentBindings,
             clientRequestId = clientRequestId,
             inputFingerprint = inputFingerprint,
+            revisedMessageId = revisedMessageId,
         )
 
     /**
@@ -3009,7 +3170,12 @@ class ChatService(
         // dependent projections in one Room snapshot, not separate check/read calls.
         storage.withTransaction {
             val sessionId = resolvableOpenSessionId()
-            val turns = sessionId?.let { id -> storage.turns.listBySession(id) }.orEmpty()
+            val turns =
+                sessionId
+                    ?.let { id ->
+                        val superseded = storage.messages.supersededTurns(id)
+                        storage.turns.listBySession(id).filterNot { it.id in superseded }
+                    }.orEmpty()
             val lastTurn = turns.lastOrNull()
             // Refreshes race with targeted UI publications (for example an attachment refusal).
             // Build from the value observed by StateFlow's atomic update so a refresh can never
@@ -3052,7 +3218,10 @@ class ChatService(
                         shareDraftText = shareDraftText,
                         taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
                         isFork =
-                            sessionId?.let { storage.messages.latestOfKind(it, SessionForkPlan.KIND) != null } == true,
+                            sessionId?.let {
+                                storage.messages.latestOfKind(it, SessionForkPlan.KIND, includeSuperseded = true) !=
+                                    null
+                            } == true,
                     )
                 if (openSessionId == sessionId) refreshed else current
             }

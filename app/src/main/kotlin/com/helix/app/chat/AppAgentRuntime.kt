@@ -33,6 +33,7 @@ internal class AppAgentRuntime(
             host.startTurn(
                 sessionId = command.session.value,
                 clientRequestId = command.clientRequestId,
+                revisedMessageId = command.revisedMessageId,
                 text = command.text,
                 providerId = command.providerId.value,
                 retryTurnId = command.retryTurnId?.value,

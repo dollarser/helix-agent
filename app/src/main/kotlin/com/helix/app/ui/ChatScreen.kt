@@ -1,9 +1,13 @@
 package com.helix.app.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,19 +18,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
 import com.helix.app.chat.ChatService
-import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionErrorMapper
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.UUID
+import kotlinx.coroutines.withContext
 
 /**
  * The chat UI (HXA-028). Two views over the service's observable state:
@@ -64,14 +70,13 @@ fun ChatScreen(
     val context = LocalContext.current
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
-    var input by rememberSaveable { mutableStateOf("") }
-    var composerRevision by rememberSaveable { mutableStateOf(0L) }
-    var clientRequestId by rememberSaveable { mutableStateOf(UUID.randomUUID().toString()) }
-    var lastSavedText by rememberSaveable { mutableStateOf("") }
-    var lastSavedRevision by rememberSaveable { mutableStateOf<Long?>(null) }
-    var isSendingSubmission by remember { mutableStateOf(false) }
-    var activeSubmission by remember { mutableStateOf<ChatSubmission?>(null) }
-    var currentSessionId by rememberSaveable { mutableStateOf<String?>(null) }
+    val sessionId = screen.openSessionId
+    val buffer =
+        rememberSaveable(sessionId, saver = ConversationDraftBuffer.Saver) {
+            ConversationDraftBuffer(sessionId ?: "closed-composer")
+        }
+    var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
+    var editorEpoch by remember(sessionId) { mutableStateOf(0) }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
@@ -79,166 +84,146 @@ fun ChatScreen(
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
     }
-    // HXA-204 slice 2: the recovery panel's RECONNECT / GRANT_PERMISSION buttons repair in the
-    // providers screen — keep the service's navigation target current on every recomposition.
     chatService.recoverySettingsNavigation = onProviders
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
-    LaunchedEffect(screen.openSessionId, reminderGoal) { goalsOpen = reminderGoal != null }
+    LaunchedEffect(sessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
-    val handleReceipt: (ChatSubmissionReceipt, ChatSubmission) -> Unit = { receipt, submission ->
-        when (val outcome = receipt.outcome) {
-            is ChatSubmissionOutcome.Accepted -> {
-                if (screen.openSessionId == submission.sessionId && composerRevision == submission.revision) {
-                    input = ""
-                    composerRevision = 0L
-                    clientRequestId = UUID.randomUUID().toString()
-                    lastSavedText = ""
-                    lastSavedRevision = null
-                    activeSubmission = null
-                }
-                scope.launch {
-                    chatService.acknowledgeSubmission(receipt)
+    val saveBuffer: suspend () -> Boolean = {
+        buffer.persist(chatService::materializeDraftSession, chatService::loadComposerDraft) { request, expected ->
+            chatService.saveComposerDraftAsync(request, expected).await()
+        }
+    }
+    val flushBuffer: () -> Unit = {
+        // A lifecycle callback requests a flush; it is not a synchronous durability guarantee.
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            withContext(NonCancellable) { saveBuffer() }
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { flushBuffer() }
+    DisposableEffect(buffer) { onDispose { flushBuffer() } }
+
+    LaunchedEffect(buffer, editorEpoch) {
+        if (sessionId == null) return@LaunchedEffect
+        if (!buffer.initialize(chatService::loadComposerDraft)) return@LaunchedEffect
+        buffer.restore {
+            val revision = buffer.revisionMessageId
+            if (revision != null) {
+                val draft = chatService.loadComposerDraft(sessionId)
+                if (draft != null && !chatService.acceptedRevision(draft)) {
+                    editMessageId = revision
+                } else {
+                    buffer.initialize(chatService::loadComposerDraft)
                 }
             }
+            if (buffer.revisionMessageId == null) {
+                val receipt = chatService.acceptedComposerReceipt(buffer.value)
+                if (receipt != null) {
+                    buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+                }
+                if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
+                    val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
+                    buffer.restoredAttachments(missing)
+                } else {
+                    val live = chatService.screen.value
+                    if (live.openSessionId == sessionId && live.isDraft && live.pendingAttachments.isNotEmpty()) {
+                        chatService.materializeDraftSession(sessionId)
+                    }
+                    buffer.restoredAttachments(emptyList())
+                    buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+                }
+                val shared =
+                    chatService.screen.value
+                        .takeIf { it.openSessionId == sessionId }
+                        ?.shareDraftText
+                if (shared != null) {
+                    buffer.edit(shared)
+                    chatService.consumeShareDraftText()
+                }
+            }
+        }
+    }
+    LaunchedEffect(buffer, screen.pendingAttachments, buffer.attachmentsReady, buffer.sending, editMessageId) {
+        if (sessionId != null && buffer.attachmentsReady && editMessageId == null) {
+            buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+        }
+    }
+    LaunchedEffect(buffer, buffer.value, buffer.saved, buffer.ready, buffer.sending, editMessageId) {
+        if (sessionId == null || editMessageId != null) return@LaunchedEffect
+        if (!buffer.ready || buffer.sending || !buffer.dirty) return@LaunchedEffect
+        delay(500)
+        withContext(NonCancellable) { saveBuffer() }
+    }
+    LaunchedEffect(sessionId, screen.shareDraftText, buffer.ready) {
+        if (buffer.ready && buffer.revisionMessageId == null) {
+            screen.shareDraftText?.let {
+                buffer.edit(it)
+                chatService.consumeShareDraftText()
+            }
+        }
+    }
+    editMessageId?.let { messageId ->
+        sessionId?.let { id ->
+            MessageRevisionDialog(chatService, id, messageId, screen) {
+                editMessageId = null
+                editorEpoch += 1
+            }
+        }
+    }
 
-            is ChatSubmissionOutcome.PendingConfirmation -> {
-                // Input is retained; screen.pendingDisclosure will render DisclosureDialog.
+    val handleReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
+        when (val outcome = receipt.outcome) {
+            is ChatSubmissionOutcome.Accepted -> {
+                buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+            }
+
+            ChatSubmissionOutcome.PendingConfirmation -> {
+                Unit
             }
 
             is ChatSubmissionOutcome.Rejected -> {
-                val mapped = ChatSubmissionErrorMapper.mapReason(outcome.reason, context)
-                if (mapped != null) {
-                    chatService.showBlockedReason(mapped)
+                if (chatService.screen.value.openSessionId == receipt.submission.sessionId) {
+                    ChatSubmissionErrorMapper.mapReason(outcome.reason, context)?.let(chatService::showBlockedReason)
                 }
             }
         }
     }
-
-    val saveCurrentDraftNow: suspend () -> Unit = {
-        val sessionId = screen.openSessionId
-        if (sessionId != null && input != lastSavedText && !isSendingSubmission) {
-            if (screen.isDraft) {
-                chatService.materializeDraftSession()
-            }
-            val expected = lastSavedRevision
-            val nextRev = expected?.plus(1L) ?: 0L
-            val nextReqId = UUID.randomUUID().toString()
-            val stagedIds = chatService.currentStagedAttachmentIds()
-            val submission = ChatSubmission(sessionId, nextRev, nextReqId, input, stagedIds)
-            val saved = chatService.saveComposerDraft(submission, expected)
-            if (saved) {
-                lastSavedText = input
-                lastSavedRevision = nextRev
-                composerRevision = nextRev
-                clientRequestId = nextReqId
-            }
-        }
-    }
-
-    LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
-        scope.launch { saveCurrentDraftNow() }
-    }
-
-    LaunchedEffect(input, screen.openSessionId) {
-        val sessionId = screen.openSessionId ?: return@LaunchedEffect
-        if (input == lastSavedText || isSendingSubmission) return@LaunchedEffect
-        delay(500)
-        saveCurrentDraftNow()
-    }
-
-    LaunchedEffect(screen.openSessionId) {
-        val newSessionId = screen.openSessionId
-        val oldSessionId = currentSessionId
-        if (oldSessionId != null && oldSessionId != newSessionId && input != lastSavedText) {
-            val expected = lastSavedRevision
-            val nextRev = expected?.plus(1L) ?: 0L
-            val nextReqId = UUID.randomUUID().toString()
-            val stagedIds = chatService.currentStagedAttachmentIds()
-            chatService.saveComposerDraft(
-                ChatSubmission(oldSessionId, nextRev, nextReqId, input, stagedIds),
-                expected,
-            )
-        }
-        currentSessionId = newSessionId
-        if (newSessionId == null) {
-            input = ""
-            composerRevision = 0L
-            clientRequestId = UUID.randomUUID().toString()
-            lastSavedText = ""
-            lastSavedRevision = null
-            activeSubmission = null
-            return@LaunchedEffect
-        }
-        val draft = chatService.loadComposerDraft(newSessionId)
-        if (draft != null) {
-            input = draft.text
-            composerRevision = draft.revision
-            clientRequestId = draft.clientRequestId
-            lastSavedText = draft.text
-            lastSavedRevision = draft.revision
-            if (draft.attachmentIds.isNotEmpty()) {
-                val missing = chatService.restoreDraftAttachments(draft.attachmentIds)
-                if (missing.isNotEmpty()) {
-                    chatService.showBlockedReason(context.getString(R.string.chat_draft_attachment_missing))
-                }
-            }
-        } else {
-            input = ""
-            composerRevision = 0L
-            clientRequestId = UUID.randomUUID().toString()
-            lastSavedText = ""
-            lastSavedRevision = null
-        }
-    }
-
-    // HXA-056: a shared-in text draft pre-fills the composer ONCE (one-shot consume — a later
-    // session switch or re-share re-arms it, never a stale text lands in a new conversation).
-    LaunchedEffect(screen.openSessionId, screen.shareDraftText) {
-        val draft = screen.shareDraftText
-        if (draft != null) {
-            input = draft
-            val nextRev = lastSavedRevision?.plus(1L) ?: 0L
-            composerRevision = nextRev
-            clientRequestId = UUID.randomUUID().toString()
-            chatService.consumeShareDraftText()
-        }
-    }
-
     val onSendAction: () -> Unit = {
-        val sessionId = screen.openSessionId
-        if (sessionId != null && !isSendingSubmission) {
+        val available = buffer.editable && buffer.canSubmit && !screen.isSending
+        if (sessionId != null && available) {
+            // Capture the editor's identity before the first suspension, including attachment selection.
+            buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+            buffer.edit(buffer.value.text.trim())
+            val intent = buffer.value
+            buffer.sending = true
             scope.launch {
-                isSendingSubmission = true
                 try {
-                    if (screen.isDraft) {
-                        chatService.materializeDraftSession()
-                    }
-                    val stagedIds = chatService.currentStagedAttachmentIds()
-                    val trimmedInput = input.trim()
-                    val submission =
-                        if (trimmedInput != lastSavedText || lastSavedRevision == null) {
-                            val expected = lastSavedRevision
-                            val nextRev = expected?.plus(1L) ?: 0L
-                            val nextReqId = UUID.randomUUID().toString()
-                            val sub = ChatSubmission(sessionId, nextRev, nextReqId, trimmedInput, stagedIds)
-                            chatService.saveComposerDraft(sub, expected)
-                            lastSavedText = trimmedInput
-                            lastSavedRevision = nextRev
-                            composerRevision = nextRev
-                            clientRequestId = nextReqId
-                            sub
-                        } else {
-                            ChatSubmission(sessionId, composerRevision, clientRequestId, trimmedInput, stagedIds)
+                    val saved =
+                        buffer.persist(chatService::materializeDraftSession, chatService::loadComposerDraft, intent) {
+                            request,
+                            expected,
+                            ->
+                            chatService.saveComposerDraftAsync(request, expected).await()
                         }
-                    activeSubmission = submission
-                    val receipt = chatService.sendSubmission(submission).await()
-                    handleReceipt(receipt, submission)
+                    if (saved) {
+                        val request = buffer.saved
+                        if (request != null && request.clientRequestId == intent.clientRequestId) {
+                            handleReceipt(chatService.sendSubmission(request).await())
+                        }
+                    }
                 } finally {
-                    isSendingSubmission = false
+                    buffer.sending = false
                 }
             }
         }
     }
+    val input = buffer.value.text
+    val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
+        scope.launch {
+            val canLeave = buffer.revisionMessageId != null || saveBuffer()
+            if (canLeave && chatService.screen.value.openSessionId == sessionId) navigate()
+        }
+    }
+    BackHandler(enabled = sessionId != null) { navigateAfterSave(chatService::closeSession) }
 
     Column(
         Modifier
@@ -267,15 +252,47 @@ fun ChatScreen(
                 profile = profile,
                 runControl = runControl,
                 input = input,
-                onInput = { input = it },
+                onInput = buffer::edit,
+                composerAvailability =
+                    ComposerAvailability(
+                        input = buffer.editable && editMessageId == null,
+                        attachments = !buffer.sending && screen.pendingDisclosure == null,
+                        delivery = buffer.editable && buffer.canSubmit,
+                    ),
+                composerStatus = {
+                    val showStatus = buffer.dirty || buffer.saved != null || buffer.failed
+                    if (buffer.revisionMessageId == null && showStatus) {
+                        Text(
+                            stringResource(
+                                when {
+                                    buffer.failed -> R.string.message_revision_save_failed
+                                    buffer.dirty -> R.string.message_revision_saving
+                                    else -> R.string.message_revision_saved
+                                },
+                            ),
+                            modifier = Modifier.testTag("chat-draft-status"),
+                        )
+                    }
+                    if (buffer.failed) {
+                        TextButton(onClick = { if (buffer.editable) flushBuffer() else editorEpoch += 1 }) {
+                            Text(stringResource(R.string.chat_retry))
+                        }
+                    }
+                    if (buffer.missingAttachments.isNotEmpty()) {
+                        Text(stringResource(R.string.chat_draft_attachment_missing))
+                        TextButton(onClick = buffer::discardMissingAttachments) {
+                            Text(stringResource(R.string.chat_draft_remove_missing))
+                        }
+                    }
+                },
                 bindableProviders = providerRows.filter { it.chatSelectable },
                 intents =
                     ConversationIntents(
-                        onBack = { chatService.closeSession() },
-                        onNavigation = onNavigation,
+                        onBack = { navigateAfterSave(chatService::closeSession) },
+                        onNavigation = { navigateAfterSave(onNavigation) },
                         onManageGoal = { goalsOpen = true },
                         onTasks = { tasksOpen = true },
-                        onNew = { chatService.newSessionDraft() },
+                        onNew = { navigateAfterSave { chatService.newSessionDraft() } },
                         onRename = { renameId = screen.openSessionId },
                         onExport = sessionExport?.let { { exportSessionId = screen.openSessionId } },
                         onDirectory = { directoryOpen = true },
@@ -283,11 +300,29 @@ fun ChatScreen(
                         onStop = { chatService.stop() },
                         onStopTurn = { turnId -> chatService.stop(turnId) },
                         onCompact = chatService::compactContext,
-                        onFork = chatService::forkFromMessage,
+                        onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
+                        onEditLatest = { messageId ->
+                            scope.launch {
+                                if (saveBuffer()) editMessageId = messageId
+                            }
+                        },
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },
-                        onStageAttachment = { chatService.stageAttachment(it) },
+                        onStageAttachment = { uri ->
+                            scope.launch {
+                                buffer.restore {
+                                    val materialized =
+                                        sessionId != null &&
+                                            chatService.materializeDraftSession(sessionId) == sessionId
+                                    if (materialized &&
+                                        chatService.screen.value.openSessionId == sessionId
+                                    ) {
+                                        chatService.stageAttachment(uri)
+                                    }
+                                }
+                            }
+                        },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
                         onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
                         onSelectModel = chatService::selectSessionModel,
@@ -318,15 +353,9 @@ fun ChatScreen(
                 goalsOpen = false
                 chatService.dismissGoalReminder()
             },
-            onContinued = {
-                if (input.isNotBlank()) {
-                    input = ""
-                    composerRevision = 0L
-                    clientRequestId = UUID.randomUUID().toString()
-                    lastSavedText = ""
-                    lastSavedRevision = null
-                }
-            },
+            // Goal continuation has no durable receipt yet. Preserve the composer instead of
+            // treating a fire-and-forget action (or a refusal) as successful consumption.
+            onContinued = {},
             onSettings = onProviders,
             selectedGoalId = reminderGoal,
             onDeleteGoal = { id ->
@@ -364,23 +393,17 @@ fun ChatScreen(
         DisclosureDialog(
             summary = summary,
             onConfirm = {
-                val sub = activeSubmission
-                if (sub != null) {
-                    scope.launch {
-                        val receipt = chatService.confirmSubmission(sub).await()
-                        handleReceipt(receipt, sub)
-                    }
+                val pending = chatService.pendingComposerSubmission()
+                if (pending != null) {
+                    scope.launch { handleReceipt(chatService.confirmSubmission(pending).await()) }
                 } else {
                     chatService.confirmSend()
                 }
             },
             onDismiss = {
-                val sub = activeSubmission
-                if (sub != null) {
-                    scope.launch {
-                        val receipt = chatService.cancelSubmission(sub).await()
-                        handleReceipt(receipt, sub)
-                    }
+                val pending = chatService.pendingComposerSubmission()
+                if (pending != null) {
+                    scope.launch { handleReceipt(chatService.cancelSubmission(pending).await()) }
                 } else {
                     chatService.cancelPendingSend()
                 }

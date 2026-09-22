@@ -40,7 +40,8 @@ internal class ChatScreenProjection(
         // screen does not render the timeline, so this is invisible there and the overlay
         // is restored verbatim when the session reopens.
         if (sessionId == null) return liveRows
-        val sessionTurns = storage.turns.listBySession(sessionId)
+        val superseded = storage.messages.supersededTurns(sessionId)
+        val sessionTurns = storage.turns.listBySession(sessionId).filterNot { it.id in superseded }
         val persisted =
             sessionTurns
                 .flatMap { turn ->
@@ -198,7 +199,7 @@ internal class ChatScreenProjection(
             ?.let { id ->
                 storage.turns
                     .listBySession(id)
-                    .lastOrNull { it.state == TurnState.FAILED.name }
+                    .lastOrNull { it.state == TurnState.FAILED.name && it.id !in storage.messages.supersededTurns(id) }
                     ?.takeIf { turn ->
                         val binding = storage.goalTurnBindings.byTurn(turn.id)
                         if (binding == null) {

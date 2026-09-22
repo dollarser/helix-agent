@@ -46,6 +46,7 @@ internal fun ConversationComposer(
     canCompact: Boolean = false,
     reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
     turnState: TurnState? = null,
+    availability: ComposerAvailability = ComposerAvailability(),
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
@@ -58,7 +59,11 @@ internal fun ConversationComposer(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,
         ) {
-            IconButton(actions.onVoice, enabled = !isSending, modifier = Modifier.testTag("chat-voice")) {
+            IconButton(
+                actions.onVoice,
+                enabled = !isSending && availability.input,
+                modifier = Modifier.testTag("chat-voice"),
+            ) {
                 Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
             }
             OutlinedTextField(
@@ -66,9 +71,13 @@ internal fun ConversationComposer(
                 onValueChange = onInput,
                 modifier = Modifier.weight(1f).testTag("chat-input"),
                 placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = true,
+                enabled = availability.input,
                 trailingIcon = {
-                    IconButton(actions.onAttach, enabled = !isSending, modifier = Modifier.testTag("chat-attach")) {
+                    IconButton(
+                        actions.onAttach,
+                        enabled = availability.canAttach(isSending),
+                        modifier = Modifier.testTag("chat-attach"),
+                    ) {
                         Icon(
                             painterResource(R.drawable.ic_chat_attach),
                             stringResource(R.string.chat_attachment_button),
@@ -87,17 +96,13 @@ internal fun ConversationComposer(
             val sendEnabled = input.isNotBlank() || (!goalMode && hasAttachments)
             IconButton(
                 onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = if (isSending) stopEnabled else sendEnabled,
+                enabled = if (isSending) stopEnabled else sendEnabled && availability.delivery,
                 modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
             ) {
                 Icon(
                     painterResource(if (isSending) R.drawable.ic_composer_stop else R.drawable.ic_composer_send),
                     stringResource(
-                        when {
-                            isSending -> R.string.chat_stop
-                            goalMode -> R.string.common_send
-                            else -> R.string.common_send
-                        },
+                        if (isSending) R.string.chat_stop else R.string.common_send,
                     ),
                 )
             }

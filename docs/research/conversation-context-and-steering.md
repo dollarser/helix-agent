@@ -70,9 +70,9 @@ Helix 已将用户界面与模型请求分开投影，但没有各保存一份�
 | 决策提案 | 开发任务 | 交付职责 |
 | --- | --- | --- |
 | [ADR-AGENT-008](../adr/agent/008-user-input-delivery.md) | [HXA-214](../development/tasks/HXA-214.md)、[HXA-216](../development/tasks/HXA-216.md) | 回执/停止修复；普通发送默认 Queue、显式 Steer，统一 Goal/普通 Turn |
-| [ADR-AGENT-009](../adr/agent/009-edit-and-resend.md) | [HXA-215](../development/tasks/HXA-215.md) | 以目标之前的完整历史创建分支并重发修改内容 |
+| [ADR-AGENT-009](../adr/agent/009-edit-and-resend.md) | [HXA-215](../completion-records/HXA-215.md) | 最新消息按所有者新指令在原会话修订（已交付）；更早消息编辑以后再从修改位置fork |
 | [ADR-AGENT-010](../adr/agent/010-request-context-manifest.md) | [HXA-217](../development/tasks/HXA-217.md) | 轻量请求来源记录与 JSONL；详情页和详细诊断延期 |
 
-三份 ADR 均为 proposed；本轮交付需求，不执行新功能。默认顺序214→215→216→217，215与216技术上仅共享214前置，但默认串行规避 chat/UI/storage 冲突。依赖、实施/接受门槛、实际状态以[任务索引](../development/roadmap.md)和[实施状态](../development/status.md)为准。
+ADR-AGENT-009已接受并完成215分支交付；008/010仍为proposed。默认顺序214→215→216→217，215与216技术上仅共享214前置，但默认串行规避 chat/UI/storage 冲突。依赖、实施/接受门槛、实际状态以[任务索引](../development/roadmap.md)和[实施状态](../development/status.md)为准。
 
 现行 Goal ADR 的“新输入解除激活”是旧有效契约，008 明确列出接受时的同步修订要求；研究中解释该路径不等于推荐继续保留它。新方案不新增场景规划器、子 Agent、云端 Worker、常驻服务或任意文件回滚。

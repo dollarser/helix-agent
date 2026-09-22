@@ -12,12 +12,14 @@
 - accepted [ADR-AGENT-006](006-model-data-budget-boundaries.md)：模型结果投影、预算诊断与明确继续
 - accepted [ADR-AGENT-007](007-session-fork.md)：用户主动按消息创建会话分支，交付见 [HXA-213](../../completion-records/HXA-213.md)。
 
+- accepted [ADR-AGENT-009](009-edit-and-resend.md)：最新用户消息在原会话修订重发；对应 HXA-215。更早历史编辑以后按修改位置 fork。
+
 ## 待接受的开发提案
 
 - proposed [ADR-AGENT-008](008-user-input-delivery.md)：统一发送回执、停止、Queue/Steer 与 Goal 输入调度；对应 HXA-214/216。
-- proposed [ADR-AGENT-009](009-edit-and-resend.md)：编辑用户消息并创建新分支重发；对应 HXA-215。
-- proposed [ADR-AGENT-010](010-request-context-manifest.md)：轻量请求来源记录与 JSONL；请求时保存最小依据、读取时解析引用，详情页与详细诊断延期；对应 HXA-217。
 
-本轮仅设计需求；接受008时须同步修改 Goal 与 Turn 的有效条款，不能把研究建议视为已生效契约。
+- proposed [ADR-AGENT-010](010-request-context-manifest.md)：轻量请求来源记录与 JSONL；详情页和详细诊断延期；对应 HXA-217。
+
+009 已按所有者最新指令接受并实施；008/010 仍为提案。接受008时须同步修改 Goal 与 Turn 的有效条款，不能把研究建议视为已生效契约。
 
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](../workspace/README.md)，不把一个主题的许可推导成另一个主题的授权。

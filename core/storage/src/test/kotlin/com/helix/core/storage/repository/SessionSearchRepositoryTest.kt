@@ -338,6 +338,31 @@ class SessionSearchRepositoryTest {
             rows += message
         }
 
+        override fun supersededRequest(turnId: String): String? =
+            rows.firstOrNull { it.turnId == turnId && it.supersededBy != null }?.supersededBy
+
+        override fun latestUser(sessionId: String): MessageEntity? =
+            listBySession(sessionId).lastOrNull { it.role == "USER" && it.supersededBy == null }
+
+        override fun supersedeFrom(
+            sessionId: String,
+            from: Long,
+            requestId: String,
+        ) {
+            rows.replaceAll {
+                if (it.sessionId == sessionId && it.sequence >= from && it.supersededBy == null) {
+                    it.copy(supersededBy = requestId)
+                } else {
+                    it
+                }
+            }
+        }
+
+        override fun allRevisions(sessionId: String): List<MessageEntity> = rows.filter { it.sessionId == sessionId }
+
+        override fun supersededTurns(sessionId: String): List<String> =
+            rows.filter { it.sessionId == sessionId && it.supersededBy != null }.mapNotNull { it.turnId }.distinct()
+
         override fun byId(id: String): MessageEntity? = rows.firstOrNull { it.id == id }
 
         override fun listBySession(sessionId: String): List<MessageEntity> =
@@ -352,7 +377,11 @@ class SessionSearchRepositoryTest {
         override fun latestOfKind(
             sessionId: String,
             kind: String,
-        ): MessageEntity? = listBySession(sessionId).lastOrNull { it.kind == kind }
+            includeSuperseded: Boolean,
+        ): MessageEntity? =
+            rows.lastOrNull {
+                it.sessionId == sessionId && it.kind == kind && (includeSuperseded || it.supersededBy == null)
+            }
 
         override fun maxSequence(sessionId: String): Long =
             rows.filter { it.sessionId == sessionId }.maxOfOrNull { it.sequence } ?: -1L
@@ -364,7 +393,7 @@ class SessionSearchRepositoryTest {
 
         override fun contentSearchCandidates(limit: Int): List<MessageEntity> =
             rows
-                .filter { it.contentRef != null }
+                .filter { it.contentRef != null && it.supersededBy == null }
                 .sortedWith(
                     compareByDescending<MessageEntity> { sessions.byId(it.sessionId)?.createdAt ?: 0L }
                         .thenByDescending { it.sequence },

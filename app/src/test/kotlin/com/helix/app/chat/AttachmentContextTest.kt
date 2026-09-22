@@ -17,6 +17,20 @@ import org.junit.Test
  * returned unchanged (no pure-text regression).
  */
 class AttachmentContextTest {
+    @Test
+    fun revisionRestoresAuthoredPrefixAndRejectsAmbiguousAttachmentMarkers() {
+        val text = "Keep trailing space \n"
+        val body = AttachmentContext.buildUserMessageContent(text, listOf(block("attachment", false)))
+        assertEquals(text, AttachmentContext.authoredPrefix(body, 1))
+        assertEquals(body, AttachmentContext.authoredPrefix(body, 0))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            AttachmentContext.authoredPrefix("$body\n\n$body", 1)
+        }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            AttachmentContext.authoredPrefix("missing attachment", 1)
+        }
+    }
+
     private val sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     private val relativePath = "input/attachments/att_test123/notes.txt"
 
