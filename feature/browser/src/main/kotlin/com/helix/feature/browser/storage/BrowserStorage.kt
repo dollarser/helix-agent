@@ -16,7 +16,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.io.File
-import java.io.IOException
 import java.util.UUID
 
 /**
@@ -272,32 +271,12 @@ class BrowserStorage(
 
     // ---------------------------------------------------------------- IO helpers
 
-    private fun readFileSafe(file: File): String? {
-        if (!file.exists()) return null
-        return try {
-            file.readText()
-        } catch (
-            @Suppress("SwallowedException") e: IOException,
-        ) {
-            null
-        }
-    }
+    private val files = BrowserFileStore()
+
+    private fun readFileSafe(file: File): String? = files.read(file)
 
     private fun writeFileSafe(
         file: File,
         content: String,
-    ) {
-        val temp = File(baseDir, "${file.name}.tmp")
-        try {
-            temp.writeText(content)
-            if (!temp.renameTo(file)) {
-                temp.copyTo(file, overwrite = true)
-                temp.delete()
-            }
-        } catch (
-            @Suppress("SwallowedException") e: IOException,
-        ) {
-            temp.delete()
-        }
-    }
+    ) = files.write(file, content)
 }

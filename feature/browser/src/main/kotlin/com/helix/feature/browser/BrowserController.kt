@@ -28,10 +28,18 @@ import com.helix.feature.browser.storage.HistoryItem
 import com.helix.feature.browser.storage.SpeedDial
 import com.helix.feature.browser.storage.UserScript
 import com.helix.feature.browser.webview.WebViewTabHost
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.lang.ref.WeakReference
 import java.net.URL
 
@@ -69,7 +77,7 @@ class BrowserController(
 
     val storage = BrowserStorage(appContext)
     val adBlock = AdBlockEngine()
-    val userScripts = UserScriptEngine(storage.loadUserScripts())
+    val userScripts = UserScriptEngine(emptyList())
 
     private val tabs = BrowserTabController()
     private var ownerBinding = WeakReference<BrowserViewOwner>(null)
@@ -86,24 +94,19 @@ class BrowserController(
     /** The download queue; newly requested items are appended at the end. */
     val downloads: StateFlow<List<DownloadItem>> = downloadQueue.downloads
 
-    private val _preferences =
-        MutableStateFlow(
-            storage.loadPreferences().also {
-                adBlock.enabled = it.adBlockEnabled
-            },
-        )
+    private val _preferences = MutableStateFlow(BrowserPreferences())
     val preferences: StateFlow<BrowserPreferences> = _preferences.asStateFlow()
 
-    private val _bookmarks = MutableStateFlow(storage.loadBookmarks())
+    private val _bookmarks = MutableStateFlow(emptyList<Bookmark>())
     val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
 
-    private val _history = MutableStateFlow(storage.loadHistory())
+    private val _history = MutableStateFlow(emptyList<HistoryItem>())
     val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
 
-    private val _speedDials = MutableStateFlow(storage.loadSpeedDials())
+    private val _speedDials = MutableStateFlow(emptyList<SpeedDial>())
     val speedDials: StateFlow<List<SpeedDial>> = _speedDials.asStateFlow()
 
-    private val _scripts = MutableStateFlow(storage.loadUserScripts())
+    private val _scripts = MutableStateFlow(emptyList<UserScript>())
     val scripts: StateFlow<List<UserScript>> = _scripts.asStateFlow()
 
     private val _findState = MutableStateFlow(FindInPageState())
@@ -522,131 +525,162 @@ class BrowserController(
 
     // ---------------------------------------------------------------- Bookmarks & History & Speed Dials
 
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val persistenceMutex = Mutex()
+    private val _storageFailure = MutableStateFlow(false)
+    val storageFailure: StateFlow<Boolean> = _storageFailure.asStateFlow()
+    private var storageReady = false
+
+    init {
+        persistenceScope.launch {
+            persistenceMutex.withLock {
+                try {
+                    _preferences.value = withContext(Dispatchers.IO) { storage.loadPreferences() }
+                    _bookmarks.value = withContext(Dispatchers.IO) { storage.loadBookmarks() }
+                    _history.value = withContext(Dispatchers.IO) { storage.loadHistory() }
+                    _speedDials.value = withContext(Dispatchers.IO) { storage.loadSpeedDials() }
+                    _scripts.value = withContext(Dispatchers.IO) { storage.loadUserScripts() }
+                    adBlock.enabled = _preferences.value.adBlockEnabled
+                    userScripts.updateScripts(_scripts.value)
+                    hosts.values.forEach { it.setNoImageMode(_preferences.value.noImageMode) }
+                    storageReady = true
+                } catch (_: IOException) {
+                    _storageFailure.value = true
+                } catch (_: IllegalArgumentException) {
+                    _storageFailure.value = true
+                }
+            }
+        }
+    }
+
+    fun dismissStorageFailure() {
+        _storageFailure.value = false
+    }
+
+    private fun <T> editStored(
+        state: MutableStateFlow<T>,
+        save: (T) -> Unit,
+        update: (T) -> T,
+        after: (T) -> Unit = {},
+    ) {
+        persistenceScope.launch {
+            persistenceMutex.withLock {
+                if (!storageReady) {
+                    _storageFailure.value = true
+                    return@withLock
+                }
+                try {
+                    val updated = update(state.value)
+                    withContext(Dispatchers.IO) { save(updated) }
+                    state.value = updated
+                    after(updated)
+                } catch (_: IOException) {
+                    _storageFailure.value = true
+                } catch (_: IllegalArgumentException) {
+                    _storageFailure.value = true
+                }
+            }
+        }
+    }
+
     fun addBookmark(
         title: String,
         url: String,
     ) {
         if (url.isBlank() || url == BrowserTabController.ABOUT_BLANK) return
-        val current = _bookmarks.value
-        if (current.any { it.url == url }) return
-        val updated = current + Bookmark(title = title.ifBlank { url }, url = url)
-        _bookmarks.value = updated
-        storage.saveBookmarks(updated)
+        editStored(_bookmarks, storage::saveBookmarks, { current ->
+            if (current.any { it.url == url }) {
+                current
+            } else {
+                current + Bookmark(title = title.ifBlank { url }.take(2048), url = url)
+            }
+        })
     }
 
-    fun removeBookmark(id: String) {
-        val updated = _bookmarks.value.filterNot { it.id == id }
-        _bookmarks.value = updated
-        storage.saveBookmarks(updated)
-    }
+    fun removeBookmark(id: String) =
+        editStored(_bookmarks, storage::saveBookmarks, {
+            it.filterNot { row -> row.id == id }
+        })
 
     fun isBookmarked(url: String): Boolean = _bookmarks.value.any { it.url == url }
 
     fun addHistory(
         title: String,
         url: String,
-    ) {
-        val current = _history.value.toMutableList()
-        current.removeAll { it.url == url }
-        current.add(0, HistoryItem(title = title.ifBlank { url }, url = url))
-        val trimmed = if (current.size > 500) current.take(500) else current
-        _history.value = trimmed
-        storage.saveHistory(trimmed)
-    }
+    ) = editStored(_history, storage::saveHistory, {
+        (
+            listOf(HistoryItem(title = title.ifBlank { url }.take(2048), url = url)) +
+                it.filterNot { row -> row.url == url }
+        ).take(500)
+    })
 
-    fun removeHistory(id: String) {
-        val updated = _history.value.filterNot { it.id == id }
-        _history.value = updated
-        storage.saveHistory(updated)
-    }
+    fun removeHistory(id: String) = editStored(_history, storage::saveHistory, { it.filterNot { row -> row.id == id } })
 
-    fun clearBrowsingHistory() {
-        _history.value = emptyList()
-        storage.saveHistory(emptyList())
-    }
+    fun clearBrowsingHistory() = editStored(_history, storage::saveHistory, { emptyList() })
 
     fun addSpeedDial(
         title: String,
         url: String,
-    ) {
-        val iconText = title.take(2).uppercase().ifBlank { "W" }
-        val updated = _speedDials.value + SpeedDial(title = title, url = url, iconText = iconText)
-        _speedDials.value = updated
-        storage.saveSpeedDials(updated)
-    }
+    ) = editStored(_speedDials, storage::saveSpeedDials, {
+        it + SpeedDial(title = title.take(2048), url = url, iconText = title.take(2).uppercase().ifBlank { "W" })
+    })
 
-    fun removeSpeedDial(id: String) {
-        val updated = _speedDials.value.filterNot { it.id == id }
-        _speedDials.value = updated
-        storage.saveSpeedDials(updated)
-    }
-
-    // ---------------------------------------------------------------- User Scripts
-
-    fun saveUserScript(script: UserScript) {
-        val current = _scripts.value.toMutableList()
-        val index = current.indexOfFirst { it.id == script.id }
-        if (index >= 0) {
-            current[index] = script
-        } else {
-            current.add(script)
-        }
-        _scripts.value = current
-        storage.saveUserScripts(current)
-        userScripts.updateScripts(current)
-    }
-
-    fun deleteUserScript(id: String) {
-        val updated = _scripts.value.filterNot { it.id == id }
-        _scripts.value = updated
-        storage.saveUserScripts(updated)
-        userScripts.updateScripts(updated)
-    }
-
-    fun toggleUserScript(id: String) {
-        val updated =
-            _scripts.value.map {
-                if (it.id == id) it.copy(enabled = !it.enabled) else it
+    fun removeSpeedDial(id: String) =
+        editStored(_speedDials, storage::saveSpeedDials, {
+            it.filterNot { row ->
+                row.id ==
+                    id
             }
-        _scripts.value = updated
-        storage.saveUserScripts(updated)
-        userScripts.updateScripts(updated)
-    }
+        })
 
-    // ---------------------------------------------------------------- Preferences & Tools
+    fun saveUserScript(script: UserScript) =
+        editStored(_scripts, storage::saveUserScripts, {
+            require(script.code.toByteArray().size <= 256 * 1024)
+            it.filterNot { row -> row.id == script.id } + script
+        }, userScripts::updateScripts)
 
-    fun setSearchEngine(id: String) {
-        val updated = _preferences.value.copy(searchEngineId = id)
-        _preferences.value = updated
-        storage.savePreferences(updated)
-    }
+    fun deleteUserScript(id: String) =
+        editStored(
+            _scripts,
+            storage::saveUserScripts,
+            { it.filterNot { row -> row.id == id } },
+            userScripts::updateScripts,
+        )
 
-    fun toggleAdBlock(): Boolean {
-        val newEnabled = !_preferences.value.adBlockEnabled
-        val updated = _preferences.value.copy(adBlockEnabled = newEnabled)
-        _preferences.value = updated
-        adBlock.enabled = newEnabled
-        storage.savePreferences(updated)
-        return newEnabled
-    }
+    fun toggleUserScript(id: String) =
+        editStored(
+            _scripts,
+            storage::saveUserScripts,
+            { it.map { row -> if (row.id == id) row.copy(enabled = !row.enabled) else row } },
+            userScripts::updateScripts,
+        )
 
-    fun toggleNoImageMode(): Boolean {
-        val newEnabled = !_preferences.value.noImageMode
-        val updated = _preferences.value.copy(noImageMode = newEnabled)
-        _preferences.value = updated
-        hosts.values.forEach { it.setNoImageMode(newEnabled) }
-        storage.savePreferences(updated)
-        return newEnabled
-    }
+    fun setSearchEngine(id: String) =
+        editStored(_preferences, storage::savePreferences, { it.copy(searchEngineId = id) })
 
-    fun toggleNightMode(): Boolean {
-        val newEnabled = !_preferences.value.nightMode
-        val updated = _preferences.value.copy(nightMode = newEnabled)
-        _preferences.value = updated
-        hosts.values.forEach { it.setNightMode(newEnabled) }
-        storage.savePreferences(updated)
-        return newEnabled
-    }
+    fun toggleAdBlock() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(adBlockEnabled = !it.adBlockEnabled) },
+            { adBlock.enabled = it.adBlockEnabled },
+        )
+
+    fun toggleNoImageMode() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(noImageMode = !it.noImageMode) },
+            { prefs -> hosts.values.forEach { it.setNoImageMode(prefs.noImageMode) } },
+        )
+
+    fun toggleNightMode() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(nightMode = !it.nightMode) },
+            { prefs -> hosts.values.forEach { it.setNightMode(prefs.nightMode) } },
+        )
 
     fun injectEruda(id: String) {
         if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
@@ -817,6 +851,13 @@ class BrowserController(
             created.userScriptEngine = userScripts
             created.isNightMode = { _preferences.value.nightMode }
             created.setNoImageMode(_preferences.value.noImageMode)
+            created.setDesktopMode(
+                tabs
+                    .state()
+                    .tabs
+                    .first { it.id == id }
+                    .isDesktopMode,
+            )
             if (!owner.resumed) created.pause()
             created
         }

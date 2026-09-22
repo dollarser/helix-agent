@@ -142,7 +142,7 @@ fun BrowserTabSwitcher(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Incognito New Tab
-                    TextButton(onClick = {
+                    TextButton(enabled = state.tabs.size < BrowserTabController.DEFAULT_MAX_TABS, onClick = {
                         onNewTab(true)
                         onDismiss()
                     }) {
@@ -160,7 +160,7 @@ fun BrowserTabSwitcher(
                                 .size(44.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.primary)
-                                .clickable {
+                                .clickable(enabled = state.tabs.size < BrowserTabController.DEFAULT_MAX_TABS) {
                                     onNewTab(false)
                                     onDismiss()
                                 }.testTag("browser-tab-new"),

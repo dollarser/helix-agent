@@ -266,9 +266,14 @@ internal class WebViewTabHost(
             }
         }
 
+    private var noImageMode = false
+    private var desktopMode = false
+
     private fun createView(context: Context): WebView =
         WebView(context).also { view ->
             applyHardenedSettings(view.settings)
+            view.settings.blockNetworkImage = noImageMode
+            if (desktopMode) view.settings.userAgentString = DESKTOP_UA
             view.settings.setSupportMultipleWindows(false) // 不允许页面弹出新窗口（doc 09 §3.2）
             view.webViewClient = client
             view.webChromeClient = chromeClient
@@ -400,15 +405,15 @@ internal class WebViewTabHost(
 
     fun clearCache() = withCreatedView { clearCache(true) }
 
-    fun setDesktopMode(enabled: Boolean) =
-        withCreatedView {
-            settings.userAgentString = if (enabled) DESKTOP_UA else null
-        }
+    fun setDesktopMode(enabled: Boolean) {
+        desktopMode = enabled
+        withCreatedView { settings.userAgentString = if (enabled) DESKTOP_UA else null }
+    }
 
-    fun setNoImageMode(enabled: Boolean) =
-        withCreatedView {
-            settings.blockNetworkImage = enabled
-        }
+    fun setNoImageMode(enabled: Boolean) {
+        noImageMode = enabled
+        withCreatedView { settings.blockNetworkImage = enabled }
+    }
 
     fun setNightMode(enabled: Boolean) =
         withCreatedView {

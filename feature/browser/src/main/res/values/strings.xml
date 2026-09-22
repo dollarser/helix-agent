@@ -66,11 +66,11 @@
     <string name="browser_url_copied">链接已复制</string>
     <string name="browser_bookmark_added">已添加书签</string>
     <string name="browser_tab_switcher_title">标签页管理</string>
-    <string name="browser_tab_incognito">无痕浏览</string>
+    <string name="browser_tab_incognito">不记录历史（共享站点数据）</string>
     <string name="browser_tab_close_all">关闭全部</string>
     <string name="browser_find_placeholder">在网页中查找…</string>
     <string name="browser_find_no_matches">无匹配</string>
-    <string name="browser_scripts_title">用户脚本 (Tampermonkey)</string>
+    <string name="browser_scripts_title">用户脚本</string>
     <string name="browser_add_script">添加脚本</string>
     <string name="browser_edit_script">编辑脚本</string>
     <string name="browser_script_name">脚本名称</string>
@@ -95,4 +95,5 @@
     <string name="browser_context_download_image">下载图片</string>
     <string name="browser_suggestion_bookmark">书签</string>
     <string name="browser_suggestion_history">历史</string>
+    <string name="browser_storage_failed">浏览器数据保存失败，已保留原有数据。</string>
 </resources>

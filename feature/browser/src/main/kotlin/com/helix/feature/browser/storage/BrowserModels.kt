@@ -33,7 +33,7 @@ data class SpeedDial(
 )
 
 /**
- * A user-configured JavaScript script injected into matching web pages (Tampermonkey style).
+ * A user-configured page script; no isolated world or Tampermonkey API compatibility is provided.
  */
 data class UserScript(
     val id: String = UUID.randomUUID().toString(),

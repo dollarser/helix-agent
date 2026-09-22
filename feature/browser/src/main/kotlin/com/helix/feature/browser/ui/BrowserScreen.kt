@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -92,6 +93,13 @@ fun BrowserScreen(controller: BrowserController) {
     var sourceDialogContent by remember { mutableStateOf<String?>(null) }
     var readerDialogContent by remember { mutableStateOf<Pair<String, String>?>(null) }
     val contextMenu by controller.contextMenu.collectAsState()
+    val storageFailure by controller.storageFailure.collectAsState()
+    LaunchedEffect(storageFailure) {
+        if (storageFailure) {
+            Toast.makeText(context, R.string.browser_storage_failed, Toast.LENGTH_LONG).show()
+            controller.dismissStorageFailure()
+        }
+    }
 
     // SAF Destination Picker for Downloads
     val onChooseSaveLocation = rememberDownloadSaveLauncher(controller)
@@ -157,14 +165,14 @@ fun BrowserScreen(controller: BrowserController) {
                 urlText = urlText,
                 onUrlChange = { urlText = it },
                 onSubmitUrl = {
-                    val tabId = selected?.id ?: controller.newTab()
-                    controller.smartNavigate(tabId, urlText)
+                    val tabId = selected?.id ?: controller.tryNewTab()
+                    tabId?.let { controller.smartNavigate(it, urlText) }
                 },
                 onReload = { selected?.let { controller.reload(it.id) } },
                 onStop = { selected?.let { controller.stop(it.id) } },
                 onHome = {
-                    val tabId = selected?.id ?: controller.newTab()
-                    controller.navigate(tabId, BrowserTabController.ABOUT_BLANK)
+                    val tabId = selected?.id ?: controller.tryNewTab()
+                    tabId?.let { controller.navigate(it, BrowserTabController.ABOUT_BLANK) }
                 },
             )
 
@@ -173,8 +181,8 @@ fun BrowserScreen(controller: BrowserController) {
                     suggestions = suggestions,
                     onSelectSuggestion = { chosenUrl ->
                         urlText = chosenUrl
-                        val tabId = selected?.id ?: controller.newTab()
-                        controller.navigate(tabId, chosenUrl)
+                        val tabId = selected?.id ?: controller.tryNewTab()
+                        tabId?.let { controller.navigate(it, chosenUrl) }
                     },
                 )
             }
@@ -194,8 +202,8 @@ fun BrowserScreen(controller: BrowserController) {
                             blockedAdsCount = blockedAdsCount,
                             onSearchEngineSelect = { controller.setSearchEngine(it) },
                             onOpenUrl = { targetUrl ->
-                                val tabId = selected?.id ?: controller.newTab()
-                                controller.navigate(tabId, targetUrl)
+                                val tabId = selected?.id ?: controller.tryNewTab()
+                                tabId?.let { controller.navigate(it, targetUrl) }
                             },
                             onAddSpeedDial = { title, url -> controller.addSpeedDial(title, url) },
                             onRemoveSpeedDial = { controller.removeSpeedDial(it) },
@@ -252,8 +260,8 @@ fun BrowserScreen(controller: BrowserController) {
                 onBack = { selected?.let { controller.goBack(it.id) } },
                 onForward = { selected?.let { controller.goForward(it.id) } },
                 onHome = {
-                    val tabId = selected?.id ?: controller.newTab()
-                    controller.navigate(tabId, BrowserTabController.ABOUT_BLANK)
+                    val tabId = selected?.id ?: controller.tryNewTab()
+                    tabId?.let { controller.navigate(it, BrowserTabController.ABOUT_BLANK) }
                 },
                 onTabsClick = { showTabSwitcher = true },
                 onMenuClick = { showMenuSheet = true },
@@ -266,7 +274,7 @@ fun BrowserScreen(controller: BrowserController) {
                 state = state,
                 onSelectTab = { controller.select(it) },
                 onCloseTab = { controller.closeTab(it) },
-                onNewTab = { isIncognito -> controller.newTab(isIncognito) },
+                onNewTab = { isIncognito -> controller.tryNewTab(isIncognito) },
                 onCloseAllTabs = { controller.closeAllTabs() },
                 onDismiss = { showTabSwitcher = false },
             )
@@ -290,12 +298,6 @@ fun BrowserScreen(controller: BrowserController) {
                             }
                         } else {
                             controller.addBookmark(tab.title ?: tab.url, tab.url)
-                            Toast
-                                .makeText(
-                                    context,
-                                    context.getString(R.string.browser_bookmark_added),
-                                    Toast.LENGTH_SHORT,
-                                ).show()
                         }
                     }
                 },
@@ -388,8 +390,8 @@ fun BrowserScreen(controller: BrowserController) {
                 bookmarks = bookmarks,
                 history = history,
                 onSelectUrl = { targetUrl ->
-                    val tabId = selected?.id ?: controller.newTab()
-                    controller.navigate(tabId, targetUrl)
+                    val tabId = selected?.id ?: controller.tryNewTab()
+                    tabId?.let { controller.navigate(it, targetUrl) }
                     showBookmarksHistory = false
                 },
                 onDeleteBookmark = { controller.removeBookmark(it) },
@@ -606,8 +608,8 @@ private fun ContextMenuDialog(
                     is ContextMenuData.Link -> {
                         TextButton(
                             onClick = {
-                                val id = controller.newTab()
-                                controller.navigate(id, menu.url)
+                                val id = controller.tryNewTab()
+                                id?.let { controller.navigate(it, menu.url) }
                                 onDismiss()
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -644,8 +646,8 @@ private fun ContextMenuDialog(
                     is ContextMenuData.Image -> {
                         TextButton(
                             onClick = {
-                                val id = controller.newTab()
-                                controller.navigate(id, menu.imageUrl)
+                                val id = controller.tryNewTab()
+                                id?.let { controller.navigate(it, menu.imageUrl) }
                                 onDismiss()
                             },
                             modifier = Modifier.fillMaxWidth(),
