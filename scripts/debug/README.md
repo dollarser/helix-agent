@@ -22,7 +22,7 @@ automation and third-party JavaScript bundled in generated reports are excluded.
 Example, from the repository root with `ANDROID_HOME` set:
 
 ```sh
-python3 scripts/debug/2026-09-09/run-owned-emulator.py \
+python3 scripts/run-owned-emulator.py \
   --avd YOUR_INACTIVE_AVD --port 5598 \
   --apk app/build/outputs/apk/developer/debug/app-developer-debug.apk \
   --test-apk app/build/outputs/apk/androidTest/developer/debug/app-developer-debug-androidTest.apk \
@@ -51,3 +51,10 @@ and `run-manual-files-regression.sh` for their device suites, and choose a fresh
 folder. The manual file suite uses `--grant-shared-storage` before instrumentation:
 changing that permission from inside a running test can terminate its process.
 Failed runs additionally retain synthetic-device logcat and a UI hierarchy dump.
+
+## Stable entry points
+
+Reusable runners now live under `scripts/`; see [supported tools](../README.md).
+The former dated runner paths are compatibility shims, not duplicate implementations.
+New references should use the stable paths. Existing inert archives remain tracked;
+ignored output directories are not a substitute for preserving reproduction tools.

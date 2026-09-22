@@ -53,9 +53,6 @@ include(
     ":runtime:proot-app",
     ":runtime:cli-client",
     ":runtime:cli-app",
-    ":spikes:a2a-sdk",
-    ":spikes:a2a-minimal",
-    ":spikes:bounded-orchestration",
     ":tools:framework",
     ":tools:android",
     ":tools:automation",
@@ -64,3 +61,12 @@ include(
     ":tools:root",
     ":testing",
 )
+
+// Experiments are reproducible on demand; full verification explicitly enables them.
+if (providers.gradleProperty("includeSpikes").orNull == "true") {
+    include(
+        ":spikes:a2a-sdk",
+        ":spikes:a2a-minimal",
+        ":spikes:bounded-orchestration",
+    )
+}

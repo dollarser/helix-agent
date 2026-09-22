@@ -1,9 +1,13 @@
 package com.helix.app.ui
 
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.printToLog
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
@@ -20,6 +24,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.util.UUID
 
+@Suppress("LongMethod") // Full UI journeys keep their setup, interaction and payload assertions together.
 class SessionForkFlowDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
@@ -51,7 +56,8 @@ class SessionForkFlowDeviceTest {
                     chat.openSession(source)
                     chat.setMode(AgentMode.CHAT)
                     compose.waitUntil(10_000) { chat.screen.value.messages.size == 3 }
-                    compose.onNodeWithTag("chat-fork-$target").performScrollTo().performClick()
+                    compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$target"))
+                    compose.onNodeWithTag("chat-fork-$target").performClick()
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
                     val branch = requireNotNull(chat.screen.value.openSessionId)
                     compose.onNodeWithTag("session-fork-notice").assertExists()
@@ -118,12 +124,29 @@ class SessionForkFlowDeviceTest {
             storage.messages.append(UUID.randomUUID().toString(), source, null, "ASSISTANT", "TOOL_CALLS", "invalid")
             storage.messages.append(last, source, null, "ASSISTANT", "TEXT", "after corrupt protocol")
             chat.openSession(source)
-            compose.waitUntil(10_000) { chat.screen.value.messages.size == 2 }
-            compose.onNodeWithTag("chat-fork-$last").performScrollTo().performClick()
+            compose.waitUntil(10_000) {
+                chat.screen.value.openSessionId == source &&
+                    chat.screen.value.messages
+                        .map { it.id } == listOf(first, last)
+            }
+            try {
+                compose.waitUntil(
+                    10_000,
+                ) { compose.onAllNodesWithTag("chat-timeline").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$last"))
+            } catch (error: AssertionError) {
+                compose.onAllNodes(isRoot(), useUnmergedTree = true).printToLog("ForkBaseline")
+                throw error
+            }
+            compose.onNodeWithTag("chat-fork-$last").performClick()
             compose.waitUntil(10_000) { chat.screen.value.blockedReason != null }
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("chat-blocked-reason").fetchSemanticsNodes().size == 1
+            }
             assertEquals(source, chat.screen.value.openSessionId)
             compose.onNodeWithTag("chat-blocked-reason").assertExists()
-            compose.onNodeWithTag("chat-fork-$first").performScrollTo().performClick()
+            compose.onNodeWithTag("chat-timeline").performScrollToNode(hasTestTag("chat-fork-$first"))
+            compose.onNodeWithTag("chat-fork-$first").performClick()
             compose.waitUntil(10_000) { chat.screen.value.openSessionId != source && chat.screen.value.isFork }
             assertEquals(
                 "safe prefix",

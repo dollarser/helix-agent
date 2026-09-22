@@ -194,7 +194,10 @@ private fun MarketplaceSearchBar(
         singleLine = true,
         trailingIcon = {
             if (query.isNotEmpty()) {
-                TextButton(onClick = { onQueryChange("") }) {
+                TextButton(
+                    onClick = { onQueryChange("") },
+                    modifier = Modifier.testTag("marketplace-search-clear"),
+                ) {
                     Text(stringResource(R.string.marketplace_search_clear))
                 }
             }
@@ -208,7 +211,7 @@ private fun MarketplaceFilterRow(
     selectedFilter: MarketplaceItemType?,
     onSelectFilter: (MarketplaceItemType?) -> Unit,
 ) {
-    Row(
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -325,7 +328,7 @@ private fun MarketplaceItemCard(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod")
 private fun MarketplaceItemActionsRow(
     item: MarketplaceItem,
     status: MarketplaceItemStatus,
@@ -341,6 +344,7 @@ private fun MarketplaceItemActionsRow(
     ) {
         OutlinedButton(
             onClick = onToggleExpand,
+            modifier = Modifier.testTag("marketplace-expand-${item.id}"),
         ) {
             Text(
                 if (expanded) {
@@ -370,7 +374,10 @@ private fun MarketplaceItemActionsRow(
 
             MarketplaceItemStatus.INSTALLED_INACTIVE -> {
                 if (actions.onConfigure != null) {
-                    Button(onClick = actions.onConfigure) {
+                    Button(
+                        onClick = actions.onConfigure,
+                        modifier = Modifier.testTag("marketplace-configure-${item.id}"),
+                    ) {
                         Text(stringResource(R.string.marketplace_action_configure))
                     }
                 } else {
@@ -472,14 +479,14 @@ private fun MarketplaceInstalledActionRow(
         if (status == MarketplaceItemStatus.ACTIVE) {
             OutlinedButton(
                 onClick = onDisable,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("marketplace-disable-${item.id}"),
             ) {
                 Text(stringResource(R.string.marketplace_action_disable))
             }
         } else if (item.type == MarketplaceItemType.SKILL) {
             Button(
                 onClick = onEnableSkill,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag("marketplace-enable-${item.id}"),
             ) {
                 Text(stringResource(R.string.marketplace_action_enable))
             }
@@ -488,14 +495,14 @@ private fun MarketplaceInstalledActionRow(
         OutlinedButton(
             onClick = onInstall,
             enabled = !isInstalling,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag("marketplace-reinstall-${item.id}"),
         ) {
             Text(stringResource(R.string.marketplace_action_reinstall))
         }
 
         OutlinedButton(
             onClick = onUninstall,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).testTag("marketplace-uninstall-${item.id}"),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
         ) {
             Text(stringResource(R.string.marketplace_action_uninstall))
@@ -519,13 +526,17 @@ private fun UninstallConfirmDialog(
         confirmButton = {
             Button(
                 onClick = onConfirm,
+                modifier = Modifier.testTag("marketplace-uninstall-confirm"),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
             ) {
                 Text(stringResource(R.string.marketplace_action_uninstall))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("marketplace-uninstall-cancel"),
+            ) {
                 Text(stringResource(R.string.session_export_close))
             }
         },

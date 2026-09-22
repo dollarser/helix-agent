@@ -357,4 +357,56 @@ class ChatCompletionsRequestEncoderTest {
         assertEquals("tool", tool["role"]?.jsonPrimitive?.content)
         assertEquals("call_a1", tool["tool_call_id"]?.jsonPrimitive?.content)
     }
+
+    @Test
+    fun toolResultsThenUserTailPreservesRoleOrderAndCallPairing() {
+        val step =
+            ModelMessage(
+                role = ModelRole.ASSISTANT,
+                text = "checking",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(ToolCallId("call_a1"), ToolName("time.now"), "{\"tz\":\"UTC\"}"),
+                        AssistantToolCall(ToolCallId("call_b2"), ToolName("file.read"), "{\"path\":\"a.txt\"}"),
+                    ),
+            )
+        val request =
+            ModelRequest(
+                model = "gpt-test",
+                messages =
+                    listOf(
+                        ModelMessage(ModelRole.USER, "now?"),
+                        step,
+                        ModelMessage(
+                            ModelRole.TOOL,
+                            "1700000000",
+                            toolCallId = ToolCallId("call_a1"),
+                            toolName = ToolName("time.now"),
+                        ),
+                        ModelMessage(
+                            ModelRole.TOOL,
+                            "content",
+                            toolCallId = ToolCallId("call_b2"),
+                            toolName = ToolName("file.read"),
+                        ),
+                        ModelMessage(
+                            ModelRole.USER,
+                            "Follow up",
+                            images = listOf(ImageReference(ArtifactRef("art.data"), "image/png")),
+                        ),
+                    ),
+            )
+        val msgs = messages(parsed(encoder.encode(request)))
+        assertEquals(
+            listOf("user", "assistant", "tool", "tool", "user"),
+            msgs.map { str(it.jsonObject, "role") },
+        )
+        assertEquals(listOf("call_a1", "call_b2"), msgs.slice(2..3).map { str(it.jsonObject, "tool_call_id") })
+        val tail = msgs[4].jsonObject
+        val content = tail["content"]!!.jsonArray
+        assertEquals(listOf("text", "image_url"), content.map { str(it.jsonObject, "type") })
+        assertEquals("Follow up", str(content[0].jsonObject, "text"))
+        val image = content[1].jsonObject["image_url"]!!.jsonObject
+        assertEquals("data:image/png;base64,aW1hZ2U=", str(image, "url"))
+    }
 }

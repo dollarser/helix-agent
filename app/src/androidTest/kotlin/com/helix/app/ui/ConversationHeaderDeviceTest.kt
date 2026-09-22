@@ -7,12 +7,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
@@ -22,6 +24,27 @@ import org.junit.Test
 
 class ConversationHeaderDeviceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun longDetailsRemainScrollableAndClosingDoesNotCreateASession() {
+        var created = 0
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                MaterialTheme {
+                    AdaptiveConversationHeader("Session", {}, { created++ }) {
+                        Column {
+                            repeat(30) { index -> Text("Setting $index", Modifier.testTag("setting-$index")) }
+                        }
+                    }
+                }
+            }
+        }
+        compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithTag("setting-29").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("chat-conversation-details-close").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("setting-29").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, created) }
+    }
 
     @Test fun narrowHeaderRetainsNavigationAndDetailsAtLargeFont() {
         var back = 0
@@ -46,7 +69,7 @@ class ConversationHeaderDeviceTest {
                 }
             }
         }
-        listOf("open-navigation", "chat-back", "chat-new-session", "chat-conversation-details").forEach { tag ->
+        listOf("open-navigation", "chat-back", "chat-conversation-details").forEach { tag ->
             compose.onNodeWithTag(tag).assertIsDisplayed()
             val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
             assertTrue(bounds.left >= 0.dp && bounds.right <= 240.dp)
@@ -55,19 +78,27 @@ class ConversationHeaderDeviceTest {
                 bounds.right - bounds.left >= 48.dp && bounds.bottom - bounds.top >= 48.dp,
             )
         }
+        val title = compose.onNodeWithTag("chat-title").getUnclippedBoundsInRoot()
+        assertTrue("Secondary actions must leave a usable title", title.right - title.left >= 80.dp)
+        compose.onNodeWithTag("chat-new-session").assertDoesNotExist()
+        compose.onNodeWithTag("background-tasks-open").assertDoesNotExist()
+        compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("open-navigation").performClick()
         compose.onNodeWithTag("chat-title").performClick()
         compose.onNodeWithTag("chat-back").performClick()
-        compose.onNodeWithTag("chat-new-session").performClick()
         compose.runOnIdle {
             assertEquals(1, navigations)
             assertEquals(1, renames)
             assertEquals(1, back)
-            assertEquals(1, created)
+            assertEquals(0, created)
         }
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithText("Session settings fixture").assertIsDisplayed()
         compose.onNodeWithTag("chat-conversation-details-close").performClick()
+        compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
+        compose.onNodeWithTag("chat-conversation-details").performClick()
+        compose.onNodeWithTag("chat-new-session").performClick()
+        compose.runOnIdle { assertEquals(1, created) }
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("background-tasks-open").assertIsDisplayed().performClick()

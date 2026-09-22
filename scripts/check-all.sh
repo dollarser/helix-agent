@@ -4,6 +4,9 @@ set -euo pipefail
 readonly project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"
 
+# Full gates retain experiment coverage even though ordinary builds exclude it.
+export ORG_GRADLE_PROJECT_includeSpikes=true
+
 source_checks() {
     python3 scripts/test-review-gates.py
     python3 -m unittest discover -s scripts/tests -p 'test_ci_*.py'

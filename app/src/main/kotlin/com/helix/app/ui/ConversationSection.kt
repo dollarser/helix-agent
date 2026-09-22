@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 /** Renders one conversation from observable state and explicit UI intents. */
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
+// Explicit observable state, user intents and an optional application-owned presentation slot.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun ConversationSection(
     screen: ChatScreenState,
     profile: SafetyProfile,
@@ -51,6 +52,9 @@ internal fun ConversationSection(
     onInput: (String) -> Unit,
     bindableProviders: List<ProviderRowUi>,
     intents: ConversationIntents,
+    composerAvailability: ComposerAvailability = ComposerAvailability(),
+    composerStatus: @Composable () -> Unit = {},
+    artifacts: @Composable () -> Unit = {},
 ) {
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
@@ -117,9 +121,6 @@ internal fun ConversationSection(
             ModeControlSection(runControl, screen.isSending, intents)
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
-                        Text(stringResource(R.string.chat_back_to_sessions))
-                    }
                     Text(
                         if (profile == SafetyProfile.ADVANCED) {
                             stringResource(R.string.chat_profile_advanced)
@@ -212,7 +213,7 @@ internal fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
-        TaskLedgerCard(screen.taskLedger)
+        TaskLedgerCard(screen.taskLedger, screen.openSessionId)
         if (screen.isFork) {
             Text(
                 stringResource(R.string.session_fork_notice),
@@ -242,7 +243,15 @@ internal fun ConversationSection(
                 }
             }
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
-                items(entry.messages.filter { it.role == "user" }, key = { it.id }) { MessageRow(it, intents.onFork) }
+                items(entry.messages.filter { it.role == "user" }, key = { it.id }) {
+                    MessageRow(
+                        it,
+                        intents.onFork,
+                        intents.onEditLatest?.takeIf { _ ->
+                            it.id == screen.messages.lastOrNull { message -> message.role == "user" }?.id
+                        },
+                    )
+                }
                 item(key = "operations-${entry.key}") {
                     TurnOperations(entry, intents)
                 }
@@ -326,6 +335,7 @@ internal fun ConversationSection(
                 }
             }
         }
+        artifacts()
         if (screen.pendingAttachments.isNotEmpty()) {
             Column(
                 modifier =
@@ -374,6 +384,7 @@ internal fun ConversationSection(
                         .testTag("chat-voice-notice"),
             )
         }
+        composerStatus()
         ConversationComposer(
             input = input,
             onInput = onInput,
@@ -400,6 +411,8 @@ internal fun ConversationSection(
             reasoningSupported = screen.badge?.reasoningSupported == true,
             reasoningOptions = screen.badge?.reasoningEfforts.orEmpty(),
             onReasoning = intents.onSetReasoning,
+            turnState = screen.activeTurn?.state,
+            availability = composerAvailability,
             actions =
                 ComposerActions(
                     onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
@@ -416,7 +429,14 @@ internal fun ConversationSection(
                         }
                     },
                     onSend = intents.onSend,
-                    onStop = intents.onStop,
+                    onStop = {
+                        val turnId = screen.activeTurn?.id
+                        if (turnId != null && intents.onStopTurn != null) {
+                            intents.onStopTurn.invoke(turnId)
+                        } else {
+                            intents.onStop()
+                        }
+                    },
                 ),
         )
     }

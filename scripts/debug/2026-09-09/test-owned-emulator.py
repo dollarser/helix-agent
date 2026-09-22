@@ -22,7 +22,7 @@ class RunnerTest(unittest.TestCase):
     @patch.object(owned.subprocess, "check_output", return_value="List of devices attached\nemulator-5598\tdevice\n")
     def test_existing_serial_is_never_borrowed(self, check_output, launch):
         with self.assertRaisesRegex(RuntimeError, "Refusing existing device"):
-            owned.run(SimpleNamespace(port=5598))
+            owned.run(SimpleNamespace(port=5598, reboot_after_setup=False))
         launch.assert_not_called()
 
 

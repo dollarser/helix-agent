@@ -41,6 +41,35 @@ internal class GoalContinuationDriver(
 
     val hasHandoff: Boolean get() = handoffs.isNotEmpty()
 
+    fun handoffOwner(sessionId: String): String? = handoffs[sessionId]
+
+    fun hasActivation(sessionId: String): Boolean = active.containsKey(sessionId)
+
+    /** User successors do not replace the Goal predecessor or mint a new activation. */
+    fun resumeEligible(sessionId: String): SubmitTurnCommand? =
+        active[sessionId]?.let { next(sessionId, it.lastTurnId) }
+
+    /** Keep the existing foreground handoff while an admitted user successor is scheduled. */
+    fun reserveUserHandoff(
+        sessionId: String,
+        turnId: String,
+    ) {
+        handoffs[sessionId] = turnId
+    }
+
+    /** Reserve before publishing idle; asynchronous drain rechecks eligibility before submission. */
+    fun reserveEligibleHandoff(
+        sessionId: String,
+        ownerTurnId: String,
+    ) {
+        val activation = active[sessionId] ?: return
+        if (eligible(activation)) {
+            handoffs[sessionId] = ownerTurnId
+        } else {
+            disarm(sessionId)
+        }
+    }
+
     fun isArmed(
         sessionId: String,
         goalId: String,
@@ -121,7 +150,7 @@ internal class GoalContinuationDriver(
             disarm(sessionId)
             return null
         }
-        handoffs[sessionId] = turnId
+        handoffs.putIfAbsent(sessionId, turnId)
         return SubmitTurnCommand(
             session = SessionId(sessionId),
             providerId = ProviderId(activation.providerId),

@@ -41,15 +41,15 @@
 
 在任务文件记录剩余范围，在完成记录记录证据，在 status 更新当前结论。临时现场信息留在执行记录，不进入长期规范。一次性交接完成后删除其独立指令文件；独有证据迁入 evidence 或完成/缺陷记录。
 
-大型开发交接 Prompt（批次 A/B/C 即 HXA-202/194/203/204/205/195/207/191，以及 HXA-197 单终端与 HXA-211 会话导出均已交付合入 main，见各完成记录；当前小模型工作包统一遵从 `docs/development/small-model-handoff.md`，以下为通用执行入口模板，任务正文是范围与验收的唯一入口）：
+通用开发交接 Prompt（目标 HXA 的任务规格是范围与验收的入口）：
 
 ```text
 你接手 Helix 当前授权任务包。先读 AGENTS.md、README.md、docs/development/status.md、
 roadmap.md、相关任务规格文件、公共验收规则及相关当前 ADR。
 在独立 worktree 工作；核实 HEAD、工作树、已有基线日志与设备，不 reset/stash 清场。
-已交付任务（如 202/194/203/204/205/195/207/191/197/211）见完成记录，不重做旧任务；
+已交付任务见完成记录，不重做旧任务；
 proposed ADR 与接口草案不作为实现授权。
-若执行小模型准备工作包，严格按 docs/development/small-model-handoff.md 约束执行。
+具体工作顺序见 docs/development/next-work-plan.md；不沿用历史交接的分工。
 
 先检查完整主机门禁及任务基线；已知必过失败先复现修复，不以旧记录代替当前执行。
 复用 Tasks、Goal、Turn、Artifact 与现有对账，不增加第二套持久恢复状态机。

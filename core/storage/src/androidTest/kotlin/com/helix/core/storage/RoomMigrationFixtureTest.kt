@@ -69,6 +69,52 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
+    fun v24ToV25PreservesUnrevisedHistoryAndDraft() {
+        val name = "latest-revision-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 24).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('old','Original',1)")
+            db.execSQL("INSERT INTO messages(id,sessionId,role,kind,sequence) VALUES ('m','old','USER','TEXT',0)")
+            db.execSQL("INSERT INTO composer_drafts VALUES ('old',0,'request','private draft','[]')")
+        }
+        helper.runMigrationsAndValidate(name, 25, true, HelixDatabase.MIGRATION_24_25).use { db ->
+            db.query("SELECT supersededBy FROM messages WHERE id='m'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+            }
+            db.query("SELECT text,revisedMessageId FROM composer_drafts WHERE sessionId='old'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("private draft", it.getString(0))
+                assertTrue(it.isNull(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
+    fun v23ToV24AddsEmptyComposerDraftsAndCascadesSessionDeletion() {
+        val name = "composer-draft-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 23).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('old','Original',1)")
+        }
+        helper.runMigrationsAndValidate(name, 24, true, HelixDatabase.MIGRATION_23_24).use { db ->
+            db.query("SELECT COUNT(*) FROM composer_drafts").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+            db.execSQL("PRAGMA foreign_keys=ON")
+            db.execSQL("INSERT INTO composer_drafts VALUES ('old',0,'request','private draft','[]')")
+            db.execSQL("DELETE FROM sessions WHERE id='old'")
+            db.query("SELECT COUNT(*) FROM composer_drafts").use {
+                assertTrue(it.moveToFirst())
+                assertEquals(0, it.getInt(0))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
     fun v9ToV10PreservesSessionsAndAddsOptionalDirectory() {
         val name = "session-directory-migration"
         context.deleteDatabase(name)
@@ -697,8 +743,8 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v22ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v22-export.db", 22)
+    fun v26ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v26-export.db", 26)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -706,8 +752,8 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v22 schema must match the exported v22 schema",
-                expectedTables().sorted(),
+                "code-built v26 schema must match the exported v26 schema",
+                (expectedTables() + listOf("composer_drafts", "session_inputs", "session_input_attachments")).sorted(),
                 code.tables.sorted(),
             )
             assertEquals(
@@ -727,6 +773,7 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
+    @Suppress("LongMethod") // Exercise the full production migration chain from the original v1 fixture.
     fun v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals() {
         val db = helper.createDatabase(MIGRATION_DB, 1)
         // The v1 fixture does not enforce FKs on this raw connection, so the approvals rows
@@ -770,6 +817,9 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_20_21,
                     HelixDatabase.MIGRATION_21_22,
                     HelixDatabase.MIGRATION_22_23,
+                    HelixDatabase.MIGRATION_23_24,
+                    HelixDatabase.MIGRATION_24_25,
+                    HelixDatabase.MIGRATION_25_26,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase

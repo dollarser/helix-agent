@@ -33,6 +33,8 @@ class SessionRepository(
 
     fun list(): List<SessionEntity> = dao.list()
 
+    fun find(id: String): SessionEntity? = dao.byId(id)
+
     fun updateDetails(
         id: String,
         title: String,

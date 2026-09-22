@@ -27,8 +27,8 @@ UTF-8，无 BOM；每个物理行是一个 JSON object，以 LF 结束，包括�
 | --- | --- | --- |
 | `header` | 唯一 | `snapshotId`、`capturedAt`、`appVersion`、快照/引用/排序/内容策略及固定上限 |
 | `session` | 唯一 | `id,title,providerId,modelId,createdAt,archivedAt`；Provider/模型标识是身份，不导出配置对象 |
-| `turn` | `startedAt,id` | `id,sessionId,state,stepCount,startedAt,endedAt,errorCode`；终止原因仅来自持久状态/错误码，不猜测活动 Turn 的未来结局 |
-| `message` | 原 `sequence,id` | `id,sessionId,turnId,role,kind,contentId,sequence`；保留压缩前原历史和 checkpoint 消息 |
+| `turn` | `startedAt,id` | `id,sessionId,state,stepCount,startedAt,endedAt,errorCode,clientRequestId`；终止原因仅来自持久状态/错误码，不猜测活动 Turn 的未来结局 |
+| `message` | 原 `sequence,id` | `id,sessionId,turnId,role,kind,contentId,sequence,supersededBy`；保留压缩前原历史、被修订的旧版本和 checkpoint 消息；非空 `supersededBy` 指向替代请求的 `turn.clientRequestId`，该消息不属于当前有效上下文 |
 | `model_call` | `id` | `id,turnId,state,requestId,promptFingerprint,promptSections,provider,usage`；Provider 只含已保存的 `displayName/model`，无 endpoint；未保存时间/finishReason 明确 unknown |
 | `tool_call` | `id` | `id,turnId,callId,name,version,argsJson,argsHash,state`；当前存储没有模型 FK/调用顺序，`modelCallId=null`，关联与顺序标记 `not_persisted` |
 | `tool_result` | `id` | `id,toolCallId,status,summary,contentId,verified`；不把未结算/UNKNOWN 改成成功 |

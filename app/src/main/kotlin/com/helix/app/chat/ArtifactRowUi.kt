@@ -55,6 +55,20 @@ internal class ArtifactQuery(
         return snapshot
     }
 
+    /** Session ownership, not the global recent window; input attachments are not outputs. */
+    fun forSession(sessionId: String): List<ArtifactRowUi> {
+        var snapshot = emptyList<ArtifactRowUi>()
+        storage.withTransaction {
+            snapshot =
+                storage.artifacts
+                    .listBySession(sessionId)
+                    .filter { it.turnId != null }
+                    .asReversed()
+                    .map(::toRow)
+        }
+        return snapshot
+    }
+
     /**
      * The artifacts of a GOAL by real ownership (HXA-202 slice 2): the union of every
      * turn bound to the goal, in turn-start order. A goal row hides its bound turns from

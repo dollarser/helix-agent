@@ -15,3 +15,22 @@
 历史验收脚本保持路径以供完成记录复现，不因为归档整理破坏旧命令。一次性编辑脚本禁止在最终源码重复执行。测试须显式选择自建、独占设备；不能使用其他任务启动的模拟器，用完关闭自建实例。`__pycache__/` 已由全局 gitignore 规则忽略，不提交解释器缓存。
 
 Release 构建验证不等于签名发行、R8 行为验证、完整 SBOM/许可证验收或商店审核。CI 保留独立的提交区间 whitespace 检查。
+
+## Stable validation runners
+
+Reusable entry points live directly in `scripts/`; logs and generated evidence belong in ignored `build/` directories.
+
+- `with-host-slot.py -- COMMAND`: serialize heavy builds and owned device runs across worktrees.
+- `run-owned-emulator.py`: general exclusive emulator runner.
+- `run-owned-acceptance-emulator.py`: acceptance runner with recovery/result collection support.
+- `run-acceptance-matrix.py`: product/terminal batches; task-specific fixture helpers remain under dated paths until separately promoted.
+
+Use `--help` for runner arguments. Dated entry points remain compatibility shims for historical commands and imports. Do not borrow an existing emulator. Successful helper tests do not constitute device acceptance.
+
+`scripts/debug/` contains three different kinds of material: compatibility entries/current diagnostics, one-time implementation provenance, and inert `.py.txt`/`.sh.txt` archives. Consult its README before execution. Do not blanket-ignore or remove dated directories. Promote supported utilities here; remove obsolete one-off scripts only after checking references and recording their source commit. Keep newly generated outputs in `build/`, not beside scripts.
+
+## Experimental Gradle projects
+
+Ordinary Gradle builds exclude the three `spikes` modules. To reproduce experiments use `./gradlew -PincludeSpikes=true ...`, including for historical commands that name a Spike project. `check-all.sh`, `check-lockfiles.sh`, and the two A2A Spike check scripts enable them explicitly, so full verification retains existing tests and dependency locks. `gradle-projects.py` inventories all declared projects, including optional experiments, for lock verification.
+
+Spike sources and historical evidence remain tracked. This changes default project participation, not product capability or experimental acceptance. No measured build-time improvement is claimed. The `:testing` module retains its four fixed-evaluation checks; moving it merely to reduce module count is not part of this cleanup.

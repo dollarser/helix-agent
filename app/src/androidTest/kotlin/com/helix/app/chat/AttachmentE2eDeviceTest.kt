@@ -457,7 +457,9 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 }
             val estimatedInput =
                 com.helix.core.agent.TokenEstimator
-                    .estimateTokens(inputBytes)
+                    .estimateTokens(inputBytes) +
+                    // ModelInputEstimate adds the conservative 16-token envelope per message.
+                    messages.length() * 16L
             assertTrue("system sections must count toward input", estimatedInput > 1)
             assertEquals(20_000L - estimatedInput, body.getLong("max_tokens"))
             assertEquals(
@@ -634,6 +636,134 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             assertTrue(
                 "the history request must re-carry the image data URL",
                 fixture.wire.lastRequestBody.contains(expectedDataUrl),
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun imageDraftRestoreReusesTheVerifiedNormalizedArtifactAcrossRepeatedRecovery() {
+        val fixture = newFixture(vision = true)
+        try {
+            stageImageAttachment(fixture)
+            val rawId =
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+                    .id
+            val before = fixture.storage.artifacts.listBySession(SESSION_ID)
+            val normalized = before.single { it.relativePath.contains("normalized.") }
+            val normalizedId = normalized.id
+            val normalizedFile =
+                fixture.workspaceRoot
+                    .toPath()
+                    .resolve(FileScopePath.fromModelReference(normalized.relativePath).relativePath)
+                    .toFile()
+            val normalizedHash = FileContentStore.sha256Hex(normalizedFile)
+
+            assertTrue(
+                "the first image draft recovery must succeed",
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.restoreDraftAttachments(SESSION_ID, listOf(rawId)).isEmpty()
+                },
+            )
+            assertTrue(
+                "recovery must be idempotent",
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.restoreDraftAttachments(SESSION_ID, listOf(rawId)).isEmpty()
+                },
+            )
+
+            val after = fixture.storage.artifacts.listBySession(SESSION_ID)
+            assertEquals(
+                "recovery must not register another normalized row",
+                before.map { it.id },
+                after.map { it.id },
+            )
+            assertEquals(normalizedId, after.single { it.relativePath.contains("normalized.") }.id)
+            assertEquals(normalizedHash, FileContentStore.sha256Hex(normalizedFile))
+            assertEquals(
+                rawId,
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+                    .id,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun tamperedNormalizedArtifactFailsClosedWithoutOverwritingItsSnapshot() {
+        val fixture = newFixture(vision = true)
+        try {
+            stageImageAttachment(fixture)
+            val rawId =
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+                    .id
+            val normalized =
+                fixture.storage.artifacts.listBySession(SESSION_ID).single {
+                    it.relativePath.contains("normalized.")
+                }
+            val normalizedFile =
+                fixture.workspaceRoot
+                    .toPath()
+                    .resolve(FileScopePath.fromModelReference(normalized.relativePath).relativePath)
+                    .toFile()
+            normalizedFile.appendBytes(byteArrayOf(0, 1, 2))
+
+            assertTrue(
+                "raw draft recovery remains local even when normalized bytes are tampered",
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.restoreDraftAttachments(SESSION_ID, listOf(rawId)).isEmpty()
+                },
+            )
+            fixture.service.send("不要发送被篡改的图片")
+            await(fixture, "tampered normalized image is blocked") {
+                fixture.service.screen.value.blockedReason != null
+            }
+            assertEquals("tampered image must not reach the wire", 0, fixture.wire.callCount)
+            assertEquals(
+                "the normalized artifact row must be preserved",
+                normalized.id,
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .single {
+                        it.relativePath.contains("normalized.")
+                    }.id,
+            )
+        } finally {
+            settleAndClose(fixture)
+        }
+    }
+
+    @Test
+    fun imageDraftRestoreRejectsARequestForAnotherSession() {
+        val fixture = newFixture(vision = true)
+        try {
+            stageImageAttachment(fixture)
+            val rawId =
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+                    .id
+            val result =
+                kotlinx.coroutines.runBlocking {
+                    fixture.service.restoreDraftAttachments("another-session", listOf(rawId))
+                }
+            assertEquals(listOf(rawId), result)
+            assertEquals(
+                "cross-session recovery must not replace live staging",
+                rawId,
+                fixture.service.screen.value.pendingAttachments
+                    .single()
+                    .id,
+            )
+            assertEquals(
+                2,
+                fixture.storage.artifacts
+                    .listBySession(SESSION_ID)
+                    .size,
             )
         } finally {
             settleAndClose(fixture)

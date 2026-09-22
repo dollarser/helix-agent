@@ -36,6 +36,20 @@ import kotlin.concurrent.thread
 
 /** Real Room relations; synthetic data only. Final content and SAF delivery have separate tests. */
 class SessionExportSnapshotDeviceTest {
+    @Test fun revisedHistoryRemainsExportableWithItsReplacementRequestId() =
+        fixture { database, directory ->
+            seed(database)
+            database.messageDao().supersedeFrom("selected", 0, "replacement-request")
+            assertTrue(database.messageDao().listBySession("selected").isEmpty())
+            SessionExportSnapshotter(database).capture("selected", directory) {}.use { snapshot ->
+                val rows = snapshot.file.readLines().map { Json.parseToJsonElement(it).jsonObject }
+                val message = rows.single { it["recordId"]?.jsonPrimitive?.content == "message:message" }
+                val data = message.getValue("data").jsonObject
+                assertEquals("replacement-request", data.getValue("supersededBy").jsonPrimitive.content)
+                assertTrue(rows.any { it["recordId"]?.jsonPrimitive?.content == "tool_result:result" })
+            }
+        }
+
     @Test fun crossSessionAndDeletedCheckpointReferencesAreMarkedWithoutExportingTheirTargets() =
         fixture { database, directory ->
             seed(database)

@@ -1,9 +1,9 @@
 # ADR-AGENT-008: 统一用户输入交付与停止语义
 
-Status: proposed
+Status: accepted
 Date: 2026-09-22
 HXA: HXA-214, HXA-216
-Deciders: Project owner（本轮授权设计开发需求；提案不表示实现或验收）
+Deciders: Project owner（2026-09-22 明确授权按既定顺序开发，并要求不等待前批验证完成直接启动后续216；接受设计不表示实现或验收）
 
 ## Context
 
@@ -54,7 +54,7 @@ Steer 使用原 Turn 模式、模型和预算；其中的直接用户来源绑�
 
 ### 与现行决定的关系及接受动作
 
-本提案拟替换 [ADR-GOAL-001](../goal/001-lifecycle-and-completion.md) 中“停止和新输入先解除旧激活，再安全结算当前轮”的**新输入**部分；显式停止和进程死亡规则保留。拟补充 [ADR-AGENT-001](001-turn-coordination.md) 的批次边界输入与终局竞争契约。提案接受时须同一文档提交收敛这两份有效 ADR，并更新 Goal/Agent 主题入口；接受前 HXA-216 不以“bug 修复”绕过现行契约。
+本决定替换 [ADR-GOAL-001](../goal/001-lifecycle-and-completion.md) 中“停止和新输入先解除旧激活，再安全结算当前轮”的**新输入**部分；显式停止和进程死亡规则保留。同时补充 [ADR-AGENT-001](001-turn-coordination.md) 的批次边界输入与终局竞争契约。本次同一文档提交收敛这两份有效 ADR 与 Goal/Agent 主题入口。HXA-216 在独立工作树实施，交付前仍须完成各切片和联合验收；不把设计接受或前批局部通过记为功能已实现。
 
 HXA-214 只修复草稿回执和停止一致性，不提前改变 Goal 新输入行为，不要求先接受新增队列表。它可先作为现有已接受契约的修复实施。
 
@@ -72,11 +72,11 @@ HXA-214 只修复草稿回执和停止一致性，不提前改变 Goal 新输入
 
 ## Verification
 
-[HXA-214](../../development/tasks/HXA-214.md) 与 [HXA-216](../../development/tasks/HXA-216.md) 定义实现、切片与验收。必须覆盖 Turn 结束竞争、审批等待、批次配对、FIFO、撤回消费竞争、容量失败、稳定身份取消、Goal 续跑优先级和真实主进程死亡，loopback 核对实际请求；仅有队列 UI 或 Room 重开不算完成。当前无新增功能验收。
+[HXA-214](../../completion-records/HXA-214.md) 与 [HXA-216](../../completion-records/HXA-216.md) 记录实现与验收。必须覆盖 Turn 结束竞争、审批等待、批次配对、FIFO、撤回消费竞争、容量失败、稳定身份取消、Goal 续跑优先级和真实主进程死亡，loopback 核对实际请求；仅有队列 UI 或 Room 重开不算完成。214现行回执/停止修复与216新增Queue/Steer已分别完成本地验收，外部账号/OEM及main远端CI不由此替代。
 
 ## Reconsider when
 
-确有需求将默认改为 Steer、增加偏好、跨会话调度、定时发送或 Provider 原生流中注入时，以独立证据评审；不扩展本提案。
+确有需求将默认改为 Steer、增加偏好、跨会话调度、定时发送或 Provider 原生流中注入时，以独立证据评审；不扩展本决定。
 
 ## References
 

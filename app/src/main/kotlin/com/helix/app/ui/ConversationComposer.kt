@@ -24,6 +24,7 @@ import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.TurnState
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
@@ -44,19 +45,35 @@ internal fun ConversationComposer(
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
     reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
+    turnState: TurnState? = null,
+    availability: ComposerAvailability = ComposerAvailability(),
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
-        ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                modelSelector?.invoke()
-                ContextWindowIndicator(contextUsage, onCompact, canCompact)
-            }
-        }, reasoningOptions = reasoningOptions)
+        ComposerToolbar(
+            mode,
+            onMode,
+            reasoning,
+            reasoningSupported,
+            onReasoning,
+            isSending,
+            modelSelector,
+            reasoningOptions = reasoningOptions,
+            trailingOptions = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
+                    ContextWindowIndicator(contextUsage, onCompact, canCompact)
+                }
+            },
+        )
         Row(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,
         ) {
-            IconButton(actions.onVoice, enabled = !isSending, modifier = Modifier.testTag("chat-voice")) {
+            IconButton(
+                actions.onVoice,
+                enabled = availability.input,
+                modifier = Modifier.testTag("chat-voice"),
+            ) {
                 Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
             }
             OutlinedTextField(
@@ -64,9 +81,13 @@ internal fun ConversationComposer(
                 onValueChange = onInput,
                 modifier = Modifier.weight(1f).testTag("chat-input"),
                 placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = !isSending,
+                enabled = availability.input,
                 trailingIcon = {
-                    IconButton(actions.onAttach, enabled = !isSending, modifier = Modifier.testTag("chat-attach")) {
+                    IconButton(
+                        actions.onAttach,
+                        enabled = availability.canAttach(),
+                        modifier = Modifier.testTag("chat-attach"),
+                    ) {
                         Icon(
                             painterResource(R.drawable.ic_chat_attach),
                             stringResource(R.string.chat_attachment_button),
@@ -81,21 +102,25 @@ internal fun ConversationComposer(
                     ),
                 maxLines = 5,
             )
+            val sendEnabled = input.isNotBlank() || ((!goalMode || isSending) && hasAttachments)
             IconButton(
-                onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = isSending || input.isNotBlank() || (!goalMode && hasAttachments),
-                modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
+                onClick = actions.onSend,
+                enabled = sendEnabled && availability.delivery,
+                modifier = Modifier.testTag("chat-send"),
             ) {
                 Icon(
-                    painterResource(if (isSending) R.drawable.ic_composer_stop else R.drawable.ic_composer_send),
-                    stringResource(
-                        when {
-                            isSending -> R.string.chat_stop
-                            goalMode -> R.string.common_send
-                            else -> R.string.common_send
-                        },
-                    ),
+                    painterResource(R.drawable.ic_composer_send),
+                    stringResource(R.string.common_send),
                 )
+            }
+        }
+        if (isSending) {
+            IconButton(
+                onClick = actions.onStop,
+                enabled = turnState != TurnState.CANCELLING,
+                modifier = Modifier.align(Alignment.End).testTag("chat-stop"),
+            ) {
+                Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
             }
         }
     }

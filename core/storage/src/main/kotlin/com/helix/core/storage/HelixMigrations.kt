@@ -4,6 +4,28 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object HelixMigrations {
+    val MIGRATION_24_25 =
+        object : Migration(24, 25) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN supersededBy TEXT")
+                db.execSQL("ALTER TABLE composer_drafts ADD COLUMN revisedMessageId TEXT")
+            }
+        }
+
+    /** Add only unsent composer state; existing messages/turns and authorization stay unchanged. */
+    val MIGRATION_23_24 =
+        object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `composer_drafts` (" +
+                        "`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, " +
+                        "`clientRequestId` TEXT NOT NULL, `text` TEXT NOT NULL, `attachmentIdsJson` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+            }
+        }
+
     /** Freeze the currently effective default for legacy sessions without changing explicit choices. */
     val MIGRATION_22_23 =
         object : Migration(22, 23) {

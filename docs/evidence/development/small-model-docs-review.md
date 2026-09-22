@@ -1,5 +1,7 @@
 # 小模型文档收敛与终端用户帮助草稿
 
+> 历史材料（2026-09-22 已核对）：此页是准备批次的审查与帮助草案；下文针对旧状态页和交接入口的修改建议已被收敛，不能再次应用。当前入口见[实施指南](../../development/implementation-guide.md)，历史归属见[交接汇总](completed-handoffs-2026-09-22.md)。
+
 本文档为小模型工作包 C（`docs/development/small-model-handoff.md` 第 5 节）交付物。
 内容包含：
 1. 事实冲突清单与协调者最小修正建议（不改动 status/roadmap/完成记录的状态与任务总数）；
@@ -19,16 +21,16 @@
   同文档第 21、23、25、27、33 行均已明确记录：207（扩展添加到使用闭环）与 191（深色主题与会话搜索）已全部完成并通过四象限测试合并入 `main`（见 `docs/completion-records/HXA-207.md` 与 `docs/completion-records/HXA-191.md`）。第 47 行属于开发前交接期的历史残留陈述。
 - **最小修正建议**：
   将第 47 行更新为已交付结论，例如建议文本（目标指向 `docs/development/small-model-handoff.md`）：
-  > “207 与 191 经所有者授权实施后已全部交付并合入 main。小模型当前按 [small-model-handoff.md](../../development/small-model-handoff.md) 推进 206 场景与校验脚本、199 终端报告准备、文档收敛及 198 UI 准备；完整 206 与 199 最终验收等待协调者统驭。”
+  > “207 与 191 经所有者授权实施后已全部交付并合入 main。小模型当前按 [small-model-handoff.md](completed-handoffs-2026-09-22.md) 推进 206 场景与校验脚本、199 终端报告准备、文档收敛及 198 UI 准备；完整 206 与 199 最终验收等待协调者统驭。”
 
 ### 2. `docs/README.md` 第 8 行交接链接过时
 
 - **现状描述**：
-  `docs/README.md` 索引表第 8 行链接当前指向：`[207 / 191 → 206 实施计划](../../development/claude-handoff-207-191-206.md)`。
+  `docs/README.md` 索引表第 8 行链接当前指向：`[207 / 191 → 206 实施计划](completed-handoffs-2026-09-22.md)`。
 - **事实冲突**：
   207 和 191 已完成，继续指向“207/191→206”容易误导后续开发者以为 207/191 尚未实施。
 - **最小修正建议**：
-  更新索引行文，将目标指向 [小模型工作包指导](../../development/small-model-handoff.md)（含 206/199/198 准备）。
+  更新索引行文，将目标指向 [小模型工作包指导](completed-handoffs-2026-09-22.md)（含 206/199/198 准备）。
 
 
 ### 3. `docs/development/roadmap.md` 批次 C 状态呈现不一致

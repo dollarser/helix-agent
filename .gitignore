@@ -22,3 +22,7 @@ runtime/proot-app/src/main/assets/runtime/rootfs/
 # Python verification runners generate local bytecode caches.
 __pycache__/
 *.py[cod]
+# Generated logs belong in build/; also guard accidental logs elsewhere.
+*.log
+# Personal editor state; shared tasks/settings are not blanket-ignored.
+.vscode/*.local.json

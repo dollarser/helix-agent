@@ -76,6 +76,7 @@ class RecoveryCoordinatorApp(
         val appliedTurns = mutableListOf<TurnApplied>()
         val appliedGoals = mutableListOf<GoalApplied>()
         storage.withTransaction {
+            storage.sessionInputs.parkAllPending("PROCESS_INTERRUPTED", now)
             storage.goalControls.allPending().forEach { control ->
                 check(storage.goalControls.settle(control.goalId, control.revision) == 1)
                 audit(

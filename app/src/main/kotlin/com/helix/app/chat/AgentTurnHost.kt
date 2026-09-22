@@ -37,6 +37,7 @@ internal interface AgentTurnHost {
         continuousGoal: Boolean = false,
         goalContinuation: com.helix.core.agent.GoalContinuationRequest? = null,
         directUserRequest: Boolean = false,
+        revisedMessageId: String? = null,
     ): String?
 
     /**
@@ -46,13 +47,10 @@ internal interface AgentTurnHost {
      * non-terminal turn with NO live loop (a parked / INTERRUPTED turn) is settled straight to
      * CANCELLED ([TurnCancelOutcome.DiscardedParked]). The adapter maps StoppedLive to
      * [com.helix.core.agent.CancelResult.StopAccepted] and DiscardedParked to
-     * [com.helix.core.agent.CancelResult.Cancelled]. Only called for an existing, non-terminal
-     * turn — the adapter pre-checks the rest.
+     * [com.helix.core.agent.CancelResult.Cancelled]. Called for every existing turn: a durable
+     * terminal may still own pending delivery, which the host checks atomically before stopping it.
      */
     suspend fun cancelTurn(turnId: String): TurnCancelOutcome
-
-    /** Revoke a queued successor even when the addressed predecessor is already terminal. */
-    suspend fun revokeGoalContinuation(turnId: String)
 
     /**
      * The turn's LIVE frame stream (research doc section 34; HX2-01 §2c): [TurnUi] frames whose
@@ -88,6 +86,11 @@ internal class TurnStartBlocked(
  * [cancelTurn] override is a public member and may not expose an internal return type.
  */
 sealed interface TurnCancelOutcome {
+    /** The loop completed while cancellation was being admitted. */
+    data class AlreadyTerminal(
+        val phase: TurnState,
+    ) : TurnCancelOutcome
+
     /** A live loop existed and was cancelled; it unwinds to CANCELLED. */
     data object StoppedLive : TurnCancelOutcome
 

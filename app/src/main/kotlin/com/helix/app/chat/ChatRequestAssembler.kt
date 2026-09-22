@@ -96,7 +96,7 @@ internal class ChatRequestAssembler(
             ChatContextRequest(
                 model,
                 system.modelMessages() +
-                    persistedHistory(sessionId, null, system) +
+                    persistedHistory(sessionId, null, system).messages +
                     ModelMessage(ModelRole.USER, prompt),
                 tools,
                 control.budgets.maxOutputTokens,
@@ -127,14 +127,15 @@ internal class ChatRequestAssembler(
         val tools = modelTools(sessionId, control)
         val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
         val history = persistedHistory(sessionId, retryTurnId, system)
-        require(history.lastOrNull()?.role == ModelRole.USER) {
+        require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
-            messages = history,
+            messages = history.messages,
+            sourceMessageIds = history.messageIds,
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
@@ -162,14 +163,15 @@ internal class ChatRequestAssembler(
         val tools = modelTools(sessionId, control)
         val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
         val history = persistedHistory(sessionId, null, system)
-        require(history.lastOrNull()?.role == ModelRole.TOOL) {
-            "a back-fill request must end with the tool results"
+        require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
+            "a continuation must end with settled tool results or a user input"
         }
         val config = providerService.storedConfig(sessionProviderId(sessionId))
         visionSessionBinder(sessionId)
         return ChatContextRequest(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
-            messages = history,
+            messages = history.messages,
+            sourceMessageIds = history.messageIds,
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
@@ -242,11 +244,16 @@ internal class ChatRequestAssembler(
      * [VisionLimits.MAX_TOTAL_BASE64_PER_REQUEST_BYTES] — the strictest provider request-size
      * bound — and an over-budget conversation fails closed with an actionable error.
      */
+    private data class History(
+        val messages: List<ModelMessage>,
+        val messageIds: Set<String>,
+    )
+
     private suspend fun persistedHistory(
         sessionId: String,
         retryTurnId: String?,
         system: PromptSnapshot,
-    ): List<ModelMessage> {
+    ): History {
         val snapshot =
             com.helix.app.agent.ContextHistory
                 .load(storage, sessionId)
@@ -285,13 +292,15 @@ internal class ChatRequestAssembler(
                     message
                 }
             }
-        return system.modelMessages() +
-            if (checkpoint == null) {
-                restored
-            } else {
-                restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
-                    restored.filter { it.role != ModelRole.SYSTEM }
-            }
+        val selected =
+            system.modelMessages() +
+                if (checkpoint == null) {
+                    restored
+                } else {
+                    restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
+                        restored.filter { it.role != ModelRole.SYSTEM }
+                }
+        return History(selected, userRows.mapNotNull { it.messageId }.toSet())
     }
 
     private fun sessionProviderId(sessionId: String): String =

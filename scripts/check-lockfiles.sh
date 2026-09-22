@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export ORG_GRADLE_PROJECT_includeSpikes=true
 
 readonly project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_root"

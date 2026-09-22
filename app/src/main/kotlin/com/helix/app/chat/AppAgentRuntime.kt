@@ -33,6 +33,7 @@ internal class AppAgentRuntime(
             host.startTurn(
                 sessionId = command.session.value,
                 clientRequestId = command.clientRequestId,
+                revisedMessageId = command.revisedMessageId,
                 text = command.text,
                 providerId = command.providerId.value,
                 retryTurnId = command.retryTurnId?.value,
@@ -54,27 +55,14 @@ internal class AppAgentRuntime(
     }
 
     override suspend fun cancel(turnId: TurnId): CancelResult {
-        host.revokeGoalContinuation(turnId.value)
         val phase = host.persistedPhase(turnId.value)
-        return when {
-            phase == null -> {
-                CancelResult.NotFound
-            }
-
-            phase.isTerminal -> {
-                CancelResult.AlreadyTerminal(phase)
-            }
-
-            // A non-terminal turn is cancelled for real — and the result says what kind of
-            // cancel it is: a stopped LIVE turn settles asynchronously when its unwind reaches
-            // the terminal (StopAccepted); a DISCARDED PARKED turn is already settled in
-            // CANCELLED before the host returns (Cancelled — a parked turn is not no-oped).
-            else -> {
-                when (host.cancelTurn(turnId.value)) {
-                    TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
-                    TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
-                }
-            }
+        if (phase == null) return CancelResult.NotFound
+        // The durable terminal can precede release of the live owner or its successor handoff.
+        // Only the host can atomically stop that delivery without revoking a newer Turn's Goal.
+        return when (val outcome = host.cancelTurn(turnId.value)) {
+            is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
+            TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
+            TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
         }
     }
 

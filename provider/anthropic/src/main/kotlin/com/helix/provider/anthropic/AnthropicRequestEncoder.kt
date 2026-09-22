@@ -113,7 +113,7 @@ public class AnthropicRequestEncoder(
             buildJsonObject {
                 put("model", request.model)
                 put("max_tokens", maxTokensOf(request))
-                val system = systemOf(request)
+                val system = systemPromptOf(request)
                 if (system != null) put("system", system)
                 putJsonArray("messages") {
                     messageRuns(request.messages).forEach { run ->
@@ -143,12 +143,6 @@ public class AnthropicRequestEncoder(
         return body.toString()
     }
 
-    private fun systemOf(request: ModelRequest): String? =
-        request.messages
-            .filter { it.role == ModelRole.SYSTEM }
-            .joinToString("\n\n") { it.text }
-            .ifEmpty { null }
-
     /**
      * Splits the message sequence into runs: a run is either one
      * USER/ASSISTANT/SYSTEM message or a maximal run of consecutive TOOL
@@ -156,13 +150,13 @@ public class AnthropicRequestEncoder(
      * SYSTEM messages are dropped (top-level `system` field).
      */
     private fun messageRuns(messages: List<ModelMessage>): List<Run> {
-        val runs = ArrayList<Run>()
+        val rawRuns = ArrayList<Run>()
         var toolRun = ArrayList<ModelMessage>()
         for (message in messages) {
             when (message.role) {
                 ModelRole.SYSTEM -> {
                     if (toolRun.isNotEmpty()) {
-                        runs += Run.tool(toolRun)
+                        rawRuns += Run.tool(toolRun)
                         toolRun = ArrayList()
                     }
                 }
@@ -173,16 +167,47 @@ public class AnthropicRequestEncoder(
 
                 else -> {
                     if (toolRun.isNotEmpty()) {
-                        runs += Run.tool(toolRun)
+                        rawRuns += Run.tool(toolRun)
                         toolRun = ArrayList()
                     }
-                    runs += Run.single(message)
+                    rawRuns += Run.single(message)
                 }
             }
         }
-        if (toolRun.isNotEmpty()) runs += Run.tool(toolRun)
+        if (toolRun.isNotEmpty()) rawRuns += Run.tool(toolRun)
+        val runs = mergeAdjacentUserRuns(rawRuns)
         validateOrdering(runs)
         return runs
+    }
+
+    /**
+     * Anthropic has one role alternation at the wire boundary. Consecutive user messages are
+     * therefore one user turn; a completed tool-result run may be followed by one or more user
+     * messages, with the tool-result blocks kept first. A user run followed by a tool run is not
+     * merged, so an invalid/incomplete tool batch still fails the alternation check.
+     */
+    private fun mergeAdjacentUserRuns(rawRuns: List<Run>): List<Run> {
+        val merged = ArrayList<Run>()
+        for (run in rawRuns) {
+            val previous = merged.lastOrNull()
+            var mergedWithPrevious = false
+            if (previous != null && previous.kind == ModelRole.USER && run.kind == ModelRole.USER) {
+                if (previous.toolResults != null && run.toolResults == null) {
+                    validateToolResultsForTrailingUser(
+                        merged.getOrNull(merged.lastIndex - 1)?.single,
+                        previous.toolResults,
+                    )
+                    merged[merged.lastIndex] = previous.withTrailingUsers(run.userMessages)
+                    mergedWithPrevious = true
+                }
+                if (!mergedWithPrevious && previous.toolResults == null && run.toolResults == null) {
+                    merged[merged.lastIndex] = previous.withTrailingUsers(run.userMessages)
+                    mergedWithPrevious = true
+                }
+            }
+            if (!mergedWithPrevious) merged += run
+        }
+        return merged
     }
 
     /**
@@ -216,19 +241,29 @@ public class AnthropicRequestEncoder(
                 put("role", "user")
                 putJsonArray("content") {
                     run.toolResults.forEach { result ->
-                        add(
-                            buildJsonObject {
-                                put("type", "tool_result")
-                                put("tool_use_id", result.toolCallId!!.value)
-                                put("content", result.text)
-                            },
-                        )
+                        addToolResultBlock(result)
+                    }
+                    run.userMessages.forEach { user ->
+                        addTextBlock(user.text)
+                        user.images.forEach { image -> addImageBlock(image, resolver) }
                     }
                 }
             }
         } else {
             // A non-tool run always carries its single message.
-            messageElement(run.single!!, resolver)
+            if (run.single != null) {
+                messageElement(run.single, resolver)
+            } else {
+                buildJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        run.userMessages.forEach { user ->
+                            addTextBlock(user.text)
+                            user.images.forEach { image -> addImageBlock(image, resolver) }
+                        }
+                    }
+                }
+            }
         }
 
     private fun messageElement(
@@ -273,6 +308,17 @@ public class AnthropicRequestEncoder(
         )
     }
 
+    /** A tool result block, kept before any trailing user content in the same turn. */
+    private fun JsonArrayBuilder.addToolResultBlock(result: ModelMessage) {
+        add(
+            buildJsonObject {
+                put("type", "tool_result")
+                put("tool_use_id", result.toolCallId!!.value)
+                put("content", result.text)
+            },
+        )
+    }
+
     /** A `tool_use` content block for one assistant tool call (HXA-037 back-fill). */
     private fun JsonArrayBuilder.addToolUseBlock(call: AssistantToolCall) {
         // HXA-037 back-fill: the assistant's tool calls become `tool_use` blocks in the
@@ -308,11 +354,15 @@ public class AnthropicRequestEncoder(
         val kind: ModelRole,
         val single: ModelMessage?,
         val toolResults: List<ModelMessage>?,
+        val userMessages: List<ModelMessage>,
     ) {
-        companion object {
-            fun single(message: ModelMessage): Run = Run(message.role, message, null)
+        fun withTrailingUsers(users: List<ModelMessage>): Run = Run(kind, null, toolResults, userMessages + users)
 
-            fun tool(messages: List<ModelMessage>): Run = Run(ModelRole.USER, null, messages)
+        companion object {
+            fun single(message: ModelMessage): Run =
+                Run(message.role, message, null, if (message.role == ModelRole.USER) listOf(message) else emptyList())
+
+            fun tool(messages: List<ModelMessage>): Run = Run(ModelRole.USER, null, messages, emptyList())
         }
     }
 
@@ -335,6 +385,24 @@ public class AnthropicRequestEncoder(
             )
     }
 }
+
+/** A steering tail is accepted only after the complete immediately preceding tool batch. */
+private fun validateToolResultsForTrailingUser(
+    assistant: ModelMessage?,
+    results: List<ModelMessage>,
+) {
+    val expected = assistant?.toolCalls?.map { it.id.value }
+    val actual = results.map { it.toolCallId?.value }
+    require(assistant?.role == ModelRole.ASSISTANT && expected != null && expected == actual) {
+        "a trailing user requires complete tool results for the preceding assistant turn"
+    }
+}
+
+private fun systemPromptOf(request: ModelRequest): String? =
+    request.messages
+        .filter { it.role == ModelRole.SYSTEM }
+        .joinToString("\n\n") { it.text }
+        .ifEmpty { null }
 
 /** The wire `max_tokens`: the request's bound, else the protocol default. */
 private fun maxTokensOf(request: ModelRequest): Long =

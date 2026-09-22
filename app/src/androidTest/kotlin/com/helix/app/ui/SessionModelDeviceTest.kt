@@ -69,7 +69,7 @@ class SessionModelDeviceTest {
                 try {
                     check(service.runConnectionTest(provider) is ProbeOutcome.Ok)
                     check(service.runConnectionTest(alternate) is ProbeOutcome.Ok)
-                    chat.newSessionDraft()
+                    compose.onNodeWithTag("chat-new-session").performClick()
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
                     chat.selectSessionModel(provider, "fixture-model-b")
                     compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {

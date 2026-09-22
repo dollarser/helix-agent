@@ -3,22 +3,32 @@ package com.helix.app.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.helix.app.R
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 
-/** All present and future composer options share one horizontally scrollable row. */
 @Composable
 @Suppress("FunctionName")
 internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
@@ -30,6 +40,7 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
     )
 }
 
+/** Only mode and model stay in the composer; secondary controls share a bounded sheet. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(
@@ -43,17 +54,30 @@ internal fun ComposerToolbar(
     reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
     trailingOptions: @Composable () -> Unit = {},
 ) {
-    ComposerOptionRow {
-        ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
-        modelSelector?.let { model -> ComposerOptionPill { model() } }
-        ComposerOptionPill {
-            ComposerReasoningMenu(reasoning, reasoningSupported && !isSending, onReasoning, efforts = reasoningOptions)
+    var options by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+            ComposerOptionRow {
+                ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
+                modelSelector?.let { model -> ComposerOptionPill { model() } }
+            }
         }
-        trailingOptions()
+        IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {
+            Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_composer_options))
+        }
+    }
+    if (options) {
+        ConversationSheet(
+            stringResource(R.string.chat_composer_options),
+            "chat-composer-options",
+            { options = false },
+        ) {
+            ComposerReasoningMenu(reasoning, reasoningSupported && !isSending, onReasoning, efforts = reasoningOptions)
+            trailingOptions()
+        }
     }
 }
 
-/** New option controls use this pill inside ComposerOptionRow. */
 @Composable
 @Suppress("FunctionName")
 internal fun ComposerOptionPill(content: @Composable () -> Unit) {

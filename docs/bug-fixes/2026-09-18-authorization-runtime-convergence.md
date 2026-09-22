@@ -101,8 +101,8 @@ python3 scripts/debug/2026-09-18/run-review-merged-device.py developer 36 5682 b
 
 196 平台/核心进入 main 不代表产品完成：生产异步工具注册、会话授权/预算适配、任务投影及结果导入/重查仍待独立接线；真机 HOME/锁屏/Doze 缺当前设备证据，HXA-196 保持未完成。同步 `code.linux.run` 语义没有改成异步 accepted。详见[196 核心记录](../evidence/development/hxa-196-platform-plan-2026-09-18.md)。
 
-所有者指定 207/191/206 本轮仅写计划，见[Claude Code 交接计划](../development/claude-handoff-207-191-206.md)。207/191 可独立开展，206 等二者整合后执行。真实账号、OEM 长稳和发行继续独立记账。
+2026-09-18 本轮对 207/191/206 仅写计划；三项后来已完成，归属见[已完成交接汇总](../evidence/development/completed-handoffs-2026-09-22.md)。本记录不再作为待开发指令。真实账号、OEM 长稳和发行继续独立记账。
 
 ## Related records
 
-[审查复核](../evidence/development/review-followup-2026-09-18.md)、[196 核心实现](../evidence/development/hxa-196-platform-plan-2026-09-18.md)、[后续交接计划](../development/claude-handoff-207-191-206.md)。
+[审查复核](../evidence/development/review-followup-2026-09-18.md)、[196 核心实现](../evidence/development/hxa-196-platform-plan-2026-09-18.md)、[已完成交接汇总](../evidence/development/completed-handoffs-2026-09-22.md)。

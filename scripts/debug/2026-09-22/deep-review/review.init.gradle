@@ -1,0 +1,12 @@
+// Review-only test sources. No production source set or dependency change.
+gradle.projectsEvaluated {
+    def reviewOutput = rootProject.providers.gradleProperty('reviewOutput').getOrElse('build/deep-review')
+    [':core:agent': 'agent', ':tools:framework': 'framework', ':provider:openai-chat': 'provider'].each { name, folder ->
+        def p = rootProject.project(name)
+        p.extensions.getByName('kotlin').sourceSets.getByName('test').kotlin.srcDir(
+            rootProject.file("${reviewOutput}/sources/${folder}"))
+    }
+    rootProject.project(':core:storage').tasks.named('compileDebugUnitTestKotlin').configure {
+        source(rootProject.file("${reviewOutput}/sources/storage"))
+    }
+}

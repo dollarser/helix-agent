@@ -261,6 +261,64 @@ class ContextCompactionDeviceTest {
         }
     }
 
+    @Test fun completedManualSummaryCanContinueWithAcceptedSteeringWithoutSavingSummaryAsChatText() {
+        withStorage { storage ->
+            val coordinator = seed(storage)
+            val plan =
+                requireNotNull(
+                    ContextCompaction.plan(
+                        storage,
+                        "s",
+                        request(storage),
+                        control,
+                        ProviderContextSettings(),
+                        true,
+                        coordinator.id,
+                    ),
+                )
+            val stream = coordinator.beginModelStream(compacting = true)
+            stream.apply(ModelEvent.TextDelta("Compact continuity notes."))
+            stream.apply(ModelEvent.Completed("stop"))
+            val accepted =
+                storage.sessionInputs.accept(
+                    com.helix.core.storage.repository.SessionInputSpec(
+                        "manual-steer",
+                        "s",
+                        com.helix.core.storage.repository.SessionInputDelivery.STEER,
+                        coordinator.id,
+                        0,
+                        "Use the compacted context",
+                        emptyList(),
+                        com.helix.core.storage.repository
+                            .InputConfiguration("provider", "model", "ACT", "fingerprint"),
+                        2_000,
+                    ),
+                ) as com.helix.core.storage.repository.SessionInputAcceptResult.Accepted
+            coordinator.commitCompaction(plan, null, "Compacted")
+            assertEquals(
+                com.helix.app.agent.ResponseInputBoundary.RECHECK,
+                coordinator.completeResponseOrContinue(null, "after-manual"),
+            )
+            val draft =
+                com.helix.app.agent
+                    .TurnSteeringDraft(accepted.record, "Use the compacted context", emptyList())
+            assertEquals(
+                com.helix.app.agent.ResponseInputBoundary.CONTINUED,
+                coordinator.completeResponseOrContinue(draft, "after-manual"),
+            )
+            assertEquals(TurnState.WAITING_MODEL, coordinator.snapshot().phase)
+            assertTrue(
+                storage.messages.listBySession("s").none {
+                    it.kind == "TEXT" && storage.messages.readContent(it) == "Compact continuity notes."
+                },
+            )
+            assertEquals(
+                "Use the compacted context",
+                storage.messages.readContent(storage.messages.listBySession("s").last()),
+            )
+        }
+    }
+
     private fun seed(storage: HelixStorage): TurnCoordinator {
         storage.sessions.create("s", "Compaction fixture", null, null, 1000)
         repeat(3) { index ->

@@ -258,10 +258,12 @@ class AnthropicRequestEncoderTest {
     }
 
     @Test
-    fun consecutiveUserMessagesRejected() {
+    fun consecutiveUserMessagesMergeIntoOneWireTurn() {
         val request = ModelRequest("claude-test", listOf(user("One"), user("Two")))
-        val e = assertThrows(IllegalArgumentException::class.java) { encoder.encode(request) }
-        assertTrue(e.message!!.contains("alternation"))
+        val messages = arr(parsed(encoder.encode(request)), "messages")
+        assertEquals(1, messages.size)
+        val content = arr(messages[0].jsonObject, "content")
+        assertEquals(listOf("One", "Two"), content.map { str(it.jsonObject, "text") })
     }
 
     @Test
@@ -273,15 +275,108 @@ class AnthropicRequestEncoderTest {
     }
 
     @Test
-    fun userTurnAfterToolRunRejected() {
-        // After the merged tool run (a user turn), another user turn violates
-        // alternation: the assistant reply must come first (next model call).
+    fun trailingUserAfterToolRunIsMergedAfterToolResults() {
         val request =
             ModelRequest(
                 "claude-test",
-                listOf(user("Look"), assistant("Reading"), tool("toolu_1", "read", "x"), user("More")),
+                listOf(
+                    user("Look"),
+                    ModelMessage(
+                        ModelRole.ASSISTANT,
+                        "Reading",
+                        toolCalls =
+                            listOf(
+                                AssistantToolCall(ToolCallId("toolu_1"), ToolName("read"), "{\"path\":\"a.txt\"}"),
+                            ),
+                    ),
+                    tool("toolu_1", "read", "x"),
+                    ModelMessage(
+                        ModelRole.USER,
+                        "More",
+                        images = listOf(ImageReference(ArtifactRef("art.b64"), "image/png")),
+                    ),
+                ),
+            )
+        val messages = arr(parsed(encoder.encode(request)), "messages")
+        assertEquals(3, messages.size)
+        val content = arr(messages[2].jsonObject, "content")
+        assertEquals(3, content.size)
+        assertEquals("tool_result", str(content[0].jsonObject, "type"))
+        assertEquals("toolu_1", str(content[0].jsonObject, "tool_use_id"))
+        assertEquals("text", str(content[1].jsonObject, "type"))
+        assertEquals("More", str(content[1].jsonObject, "text"))
+        assertEquals("image", str(content[2].jsonObject, "type"))
+    }
+
+    @Test
+    fun userInsertedBetweenToolResultsRejected() {
+        // A steering USER cannot split a still-open consecutive tool-result batch.
+        val request =
+            ModelRequest(
+                "claude-test",
+                listOf(
+                    user("Look"),
+                    assistant("Reading"),
+                    tool("toolu_1", "read", "x"),
+                    user("More"),
+                    tool("toolu_2", "read", "y"),
+                ),
             )
         assertThrows(IllegalArgumentException::class.java) { encoder.encode(request) }
+    }
+
+    @Test
+    fun multipleUsersAfterToolRunStayOrderedBeforeNextAssistant() {
+        val step =
+            ModelMessage(
+                ModelRole.ASSISTANT,
+                "Reading",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(ToolCallId("toolu_1"), ToolName("read"), "{\"path\":\"a.txt\"}"),
+                    ),
+            )
+        val request =
+            ModelRequest(
+                "claude-test",
+                listOf(
+                    user("Look"),
+                    step,
+                    tool("toolu_1", "read", "x"),
+                    user("More"),
+                    user("And more"),
+                    assistant("Next answer"),
+                    user("Final request"),
+                ),
+            )
+        val messages = arr(parsed(encoder.encode(request)), "messages")
+        assertEquals(5, messages.size)
+        val merged = arr(messages[2].jsonObject, "content")
+        assertEquals(listOf("tool_result", "text", "text"), merged.map { str(it.jsonObject, "type") })
+        assertEquals(listOf("More", "And more"), merged.drop(1).map { str(it.jsonObject, "text") })
+        assertEquals("assistant", str(messages[3].jsonObject, "role"))
+        assertEquals("Final request", str(messages[4].jsonObject, "content"))
+    }
+
+    @Test
+    fun trailingUserAfterIncompleteToolResultsRejected() {
+        val step =
+            ModelMessage(
+                ModelRole.ASSISTANT,
+                "Reading",
+                toolCalls =
+                    listOf(
+                        AssistantToolCall(ToolCallId("toolu_a"), ToolName("read"), "{\"path\":\"a.txt\"}"),
+                        AssistantToolCall(ToolCallId("toolu_b"), ToolName("read"), "{\"path\":\"b.txt\"}"),
+                    ),
+            )
+        val request =
+            ModelRequest(
+                "claude-test",
+                listOf(user("Look"), step, tool("toolu_a", "read", "x"), user("More")),
+            )
+        val error = assertThrows(IllegalArgumentException::class.java) { encoder.encode(request) }
+        assertTrue(error.message!!.contains("complete tool results"))
     }
 
     @Test

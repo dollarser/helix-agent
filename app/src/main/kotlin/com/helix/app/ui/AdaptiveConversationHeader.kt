@@ -2,16 +2,11 @@ package com.helix.app.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,9 +28,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
-/** Keep the conversation usable when persistent details would consume a small viewport. */
+/** Navigation and the current title stay visible; task and session actions open on demand. */
 @Composable
-@Suppress("FunctionName", "LongMethod") // The adaptive header keeps one Compose layout scope.
+@Suppress("FunctionName", "LongMethod")
 internal fun AdaptiveConversationHeader(
     summary: String,
     onBack: () -> Unit,
@@ -46,75 +41,54 @@ internal fun AdaptiveConversationHeader(
     content: @Composable () -> Unit,
 ) {
     var details by remember { mutableStateOf(false) }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val compact = maxWidth < 360.dp
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("chat-header"),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            onNavigation?.let { navigate ->
-                IconButton(navigate, modifier = Modifier.size(48.dp).testTag("open-navigation")) {
-                    NavigationMenuIcon()
-                }
-            }
-            Box(
-                Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .clickable(enabled = onRename != null, onClickLabel = stringResource(R.string.chat_rename)) {
-                        onRename?.invoke()
-                    }.padding(horizontal = 4.dp)
-                    .testTag("chat-title"),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                Text(
-                    summary,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (!compact) {
-                TextButton(onTasks, modifier = Modifier.testTag("background-tasks-open")) {
-                    Text(stringResource(R.string.background_tasks))
-                }
-            }
-            IconButton(onBack, modifier = Modifier.size(48.dp).testTag("chat-back")) {
-                Icon(painterResource(R.drawable.ic_chat_sessions), stringResource(R.string.chat_back_to_sessions))
-            }
-            IconButton(onNew, modifier = Modifier.size(48.dp).testTag("chat-new-session")) {
-                Icon(painterResource(R.drawable.ic_chat_new), stringResource(R.string.chat_new_session))
-            }
-            IconButton({ details = true }, modifier = Modifier.size(48.dp).testTag("chat-conversation-details")) {
-                Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_conversation_details))
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("chat-header"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        onNavigation?.let { navigate ->
+            IconButton(navigate, modifier = Modifier.size(48.dp).testTag("open-navigation")) {
+                NavigationMenuIcon()
             }
         }
-        if (details) {
-            AlertDialog(
-                onDismissRequest = { details = false },
-                title = { Text(stringResource(R.string.chat_conversation_details)) },
-                text = {
-                    Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
-                        if (compact) {
-                            TextButton(
-                                {
-                                    details = false
-                                    onTasks()
-                                },
-                                modifier = Modifier.testTag("background-tasks-open"),
-                            ) {
-                                Text(stringResource(R.string.background_tasks))
-                            }
-                        }
-                        content()
-                    }
-                },
-                confirmButton = {
-                    TextButton({ details = false }, modifier = Modifier.testTag("chat-conversation-details-close")) {
-                        Text(stringResource(R.string.chat_details_close))
-                    }
-                },
-            )
+        Box(
+            Modifier
+                .weight(1f)
+                .heightIn(min = 48.dp)
+                .clickable(enabled = onRename != null, onClickLabel = stringResource(R.string.chat_rename)) {
+                    onRename?.invoke()
+                }.padding(horizontal = 4.dp)
+                .testTag("chat-title"),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(summary, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        IconButton(onBack, modifier = Modifier.size(48.dp).testTag("chat-back")) {
+            Icon(painterResource(R.drawable.ic_chat_sessions), stringResource(R.string.chat_back_to_sessions))
+        }
+        IconButton({ details = true }, modifier = Modifier.size(48.dp).testTag("chat-conversation-details")) {
+            Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_conversation_details))
+        }
+    }
+    if (details) {
+        ConversationSheet(
+            stringResource(R.string.chat_conversation_details),
+            "chat-conversation-details",
+            { details = false },
+        ) {
+            TextButton({
+                details = false
+                onNew()
+            }, modifier = Modifier.testTag("chat-new-session")) {
+                Icon(painterResource(R.drawable.ic_chat_new), null, Modifier.padding(end = 8.dp))
+                Text(stringResource(R.string.chat_new_session))
+            }
+            TextButton({
+                details = false
+                onTasks()
+            }, modifier = Modifier.testTag("background-tasks-open")) {
+                Text(stringResource(R.string.background_tasks))
+            }
+            content()
         }
     }
 }
