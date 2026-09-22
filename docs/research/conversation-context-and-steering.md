@@ -69,7 +69,7 @@ Helix 已将用户界面与模型请求分开投影，但没有各保存一份�
 
 | 决策提案 | 开发任务 | 交付职责 |
 | --- | --- | --- |
-| [ADR-AGENT-008](../adr/agent/008-user-input-delivery.md) | [HXA-214](../completion-records/HXA-214.md)、[HXA-216](../development/tasks/HXA-216.md) | 回执/停止修复；普通发送默认 Queue、显式 Steer，统一 Goal/普通 Turn |
+| [ADR-AGENT-008](../adr/agent/008-user-input-delivery.md) | [HXA-214](../completion-records/HXA-214.md)、[HXA-216](../completion-records/HXA-216.md) | 回执/停止修复；普通发送默认 Queue、显式 Steer，统一 Goal/普通 Turn |
 | [ADR-AGENT-009](../adr/agent/009-edit-and-resend.md) | [HXA-215](../completion-records/HXA-215.md) | 最新消息按所有者新指令在原会话修订（已交付）；更早消息编辑以后再从修改位置fork |
 | [ADR-AGENT-010](../adr/agent/010-request-context-manifest.md) | [HXA-217](../development/tasks/HXA-217.md) | 轻量请求来源记录与 JSONL；详情页和详细诊断延期 |
 

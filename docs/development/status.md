@@ -28,9 +28,9 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Planned：对话交互优化
 
-214普通 composer、发送回执与统一停止已[交付](../completion-records/HXA-214.md)，[215最新消息会话内修订](../completion-records/HXA-215.md)已与其联合收敛；ADR-AGENT-009已接受。更早历史编辑继续按修改位置fork。所有者已授权216在独立 `codex/hxa-216-input-delivery` 分支推进；默认排队/显式转向仍以该分支的设计、实现及独立验收为准，不倒算为214能力。217仍为需求，见[Agent ADR入口](../adr/agent/README.md)。
+214普通 composer、发送回执与统一停止已[交付](../completion-records/HXA-214.md)，[215最新消息会话内修订](../completion-records/HXA-215.md)已与其联合收敛；ADR-AGENT-009已接受。更早历史编辑继续按修改位置fork。[216默认排队/显式转向](../completion-records/HXA-216.md)已独立完成本地验收，不倒算为214能力。217仍为需求及格式成本准备，见[Agent ADR入口](../adr/agent/README.md)。
 
-四项新增规格独立于历史12项未闭合义务，其中214/215本期范围已完成联合本地验收。其他外部设备、账号、发行缺口不变；main整合与远端CI结果见[联合证据](../evidence/development/conversation-convergence-2026-09-22.md)。
+四项新增规格独立于历史12项未闭合义务，其中214/215完成联合本地验收，216完成独立本地验收。其他外部设备、账号、发行缺口不变；214/215整合边界见[联合证据](../evidence/development/conversation-convergence-2026-09-22.md)，未执行的main整合和远端CI不得记为通过。
 
 ## In progress
 
@@ -54,7 +54,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 ## Next task
 
-[HXA-216](tasks/HXA-216.md) 已获所有者授权，ADR-AGENT-008 已接受，独立 `codex/hxa-216-input-delivery` 分支已实现 Queue/Steer、Goal调度、输入面板及恢复，完整主机与设备联合门禁进行中，尚未关闭任务。其后顺序为 **129 → 217**：129已补源码审查和实施准备，先接受 ADR-CONNECTORS-003；217按轻量来源记录范围执行。214/215交付及整合不变式见[完成记录](../completion-records/HXA-214.md)与[交接](hxa-214-core-handoff.md)；具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。
+[HXA-216](../completion-records/HXA-216.md) 已在独立 `codex/hxa-216-input-delivery` 分支完成 Queue/Steer、Goal调度、输入面板及恢复：完整主机门禁通过，四象限功能/普通进程恢复及双API存储共464设备JUnit通过，含16次普通主进程SIGKILL旅程。仅本地交付，未合main或推送。其后顺序为 **129 → 217**：129已补源码审查和实施准备，先接受 ADR-CONNECTORS-003；217已完成主机格式成本预评估，Android成本与生产接线仍待实施。具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。
 
 ## 已整合能力的历史验收边界
 

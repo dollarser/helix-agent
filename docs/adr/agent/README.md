@@ -21,6 +21,6 @@
 
 - proposed [ADR-AGENT-010](010-request-context-manifest.md)：轻量请求来源记录与 JSONL；详情页和详细诊断延期；对应 HXA-217。
 
-009已交付；008按所有者后续开发授权接受，Goal与Turn有效条款已同步，216正在独立实施且尚未验收。010仍为提案。
+009已交付；008按所有者后续开发授权接受，Goal与Turn有效条款已同步，[216已完成本地验收](../../completion-records/HXA-216.md)，main整合与远端CI独立记账。010仍为提案，已进行主机格式成本预评估。
 
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](../workspace/README.md)，不把一个主题的许可推导成另一个主题的授权。
