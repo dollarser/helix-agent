@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Generate BioHelix Business Plan Roadshow Presentation (PPTX)
-Tailored for Changjiang 3D Scientific Computing Center & Xiaogan Synthetic Bio/Pharma Competition
+Theme: Life Science & Hybrid AI Execution Workbench
+Compatible with Private Deployment, Commercial LLMs, and Regional HPC Centers (e.g. Changjiang 3D)
 """
 
 import sys
@@ -59,7 +60,7 @@ def add_footer(slide, current_page, total_pages=11):
     tf = footer_box.text_frame
     tf.margin_left = tf.margin_top = tf.margin_right = tf.margin_bottom = 0
     p = tf.paragraphs[0]
-    p.text = f"BioHelix · 依托长江3D科学计算中心生命科技专项路演  |  Confidential  |  {current_page} / {total_pages}"
+    p.text = f"BioHelix · 端-超协同生命科学移动工作台  |  Confidential  |  {current_page} / {total_pages}"
     p.font.size = Pt(10)
     p.font.color.rgb = TEXT_MUTED
 
@@ -76,6 +77,15 @@ def create_card(slide, left, top, width, height, bg_color=CARD_BG, border_color=
 
 blank_layout = prs.slide_layouts[6]
 
+card_w = Inches(3.75)
+card_h = Inches(2.4)
+card_gap = Inches(0.24)
+start_x = Inches(0.8)
+
+card_w4 = Inches(2.78)
+card_gap4 = Inches(0.2)
+start_x4 = Inches(0.8)
+
 # ==========================================
 # SLIDE 1: 封面页 (Cover)
 # ==========================================
@@ -84,19 +94,17 @@ set_slide_background(slide1)
 
 create_card(slide1, Inches(0.8), Inches(1.1), Inches(11.733), Inches(5.3), bg_color=RGBColor(16, 26, 50), border_color=RGBColor(35, 55, 95))
 
-# Badge
-badge = create_card(slide1, Inches(1.4), Inches(1.6), Inches(4.2), Inches(0.45), bg_color=RGBColor(20, 50, 40), border_color=ACCENT_GREEN)
+badge = create_card(slide1, Inches(1.4), Inches(1.6), Inches(4.8), Inches(0.45), bg_color=RGBColor(20, 50, 40), border_color=ACCENT_GREEN)
 tf_badge = badge.text_frame
 tf_badge.vertical_anchor = MSO_ANCHOR.MIDDLE
 p_b = tf_badge.paragraphs[0]
-p_b.text = "长江3D科学计算中心 · 生命科学与算力基座专项"
-p_b.font.size = Pt(11)
+p_b.text = "生命科技与算力基座专项 · 支持私有部署与开放算力"
+p_b.font.size = Pt(10.5)
 p_b.font.bold = True
 p_b.font.color.rgb = ACCENT_GREEN
 p_b.alignment = PP_ALIGN.CENTER
 
-# Main Title
-title_box1 = slide1.shapes.add_textbox(Inches(1.4), Inches(2.3), Inches(10.5), Inches(2.2))
+title_box1 = slide1.shapes.add_textbox(Inches(1.4), Inches(2.3), Inches(10.5), Inches(2.3))
 tf1 = title_box1.text_frame
 tf1.word_wrap = True
 p1 = tf1.paragraphs[0]
@@ -106,22 +114,21 @@ p1.font.bold = True
 p1.font.color.rgb = TEXT_WHITE
 
 p2 = tf1.add_paragraph()
-p2.text = "构建长江3D科学计算中心的掌上智能调度中枢 —— 从微观实验解析到宏观超算支撑"
+p2.text = "端-边-超协同的开放智能中枢 —— 从微观实验解析到宏观算力支撑"
 p2.font.size = Pt(17)
 p2.font.color.rgb = ACCENT_BLUE
 p2.space_before = Pt(12)
 
 p3 = tf1.add_paragraph()
-p3.text = "参赛领域：AI 前沿交叉生命科技与算力基础开发应用  |  赋能：创新药物筛选 · 孝感合成生物中试"
+p3.text = "开放兼容：私有化大模型 / 商业模型服务 / 区域超算中心（示范对接长江3D科算中心）"
 p3.font.size = Pt(13)
 p3.font.color.rgb = TEXT_MUTED
 p3.space_before = Pt(14)
 
-# Meta info
 meta_box = slide1.shapes.add_textbox(Inches(1.4), Inches(5.3), Inches(10.5), Inches(0.6))
 tf_meta = meta_box.text_frame
 p_meta = tf_meta.paragraphs[0]
-p_meta.text = "申报项目：BioHelix 端-超协同智能中枢   |   团队：BioHelix 创新联合体   |   2026 年 9 月"
+p_meta.text = "申报项目：BioHelix 混合算力工作台   |   团队：BioHelix 团队   |   2026 年 9 月"
 p_meta.font.size = Pt(12)
 p_meta.font.color.rgb = TEXT_BODY
 
@@ -133,7 +140,6 @@ set_slide_background(slide2)
 add_header(slide2, "项目概述：打造生物医药与生命科技的移动算力新基建", "Executive Summary")
 add_footer(slide2, 2)
 
-# Top 300-word overview card
 ov_card = create_card(slide2, Inches(0.8), Inches(1.65), Inches(11.733), Inches(2.3), bg_color=CARD_BG)
 tf_ov = ov_card.text_frame
 tf_ov.word_wrap = True
@@ -149,24 +155,18 @@ p_ov_title.font.color.rgb = ACCENT_AMBER
 
 p_ov_body = tf_ov.add_paragraph()
 p_ov_body.text = (
-    "BioHelix 是一款面向生命科技与生物医药的端-超协同移动 AI 执行工作台。项目针对实验台、洁净室及野外采样等现场“无电脑可用、涉密数据难出网、离线计算受限”的痛点，依托 Android 本机多执行域沙箱（QuickJS 与 PRoot Linux 容器），在移动端实现分子数据（PDB/FASTA/SDF）就地清洗、微量生信计算与实验流程自动化。\n\n"
-    "平台深度对接长江3D科学计算中心，构筑“端侧微观数据预处理 → 超算宏观高通量仿真（虚拟筛选、分子动力学与酶催化推演） → 移动端流式对账与实验指导”的完整闭环。产品直接赋能创新药物研发、中药野外科考与孝感合成生物基地中试现场巡检，构建生命科学计算基础设施的掌上新质生产力底座。"
+    "BioHelix 是一款面向生命科技与生物医药的端-超协同开放式 AI 执行工作台。针对实验台、洁净室及野外采样等现场“无电脑可用、涉密数据难出网、离线计算受限”的痛点，BioHelix 依托 Android 本机多执行域沙箱（QuickJS 与 PRoot Linux 容器），在移动端实现分子数据（PDB/FASTA/SDF）就地清洗、微量生信计算与实验流程自动化。\n\n"
+    "平台采用开放多算力架构，既可离线闭环运行，亦支持按需调度私有部署大模型/私有超算、主流商业模型及区域算力中心（如长江3D科学计算中心），实现从端侧微观数据处理到高通量仿真推演的无缝闭环。产品赋能创新药物研发、中药野外勘测与合成生物中试车间巡检，打造生命科学计算基础设施的掌上新质生产力底座。"
 )
 p_ov_body.font.size = Pt(11.5)
 p_ov_body.font.color.rgb = TEXT_BODY
 p_ov_body.space_before = Pt(6)
 
-# Bottom 3 key pillars
 metrics = [
-    ("微观端侧：现场闭环", "洁净室/野外科考现场无需电脑，本地沙箱完成分子结构与基因序列格式清洗与轻量计算", ACCENT_GREEN),
-    ("宏观算力：端-超协同", "深度对接长江3D科学计算中心，在手机端自然语言一键下发千万级大分子对接与动力学仿真", ACCENT_BLUE),
-    ("产业落地：孝感示范", "无缝对接孝感合成生物基地发酵中试与医药产业，实现生物反应器巡检与工艺就地调控", ACCENT_AMBER),
+    ("微观端侧：现场闭环", "洁净室/野外采样现场免电脑，手机端沙箱就地完成分子结构清洗、序列质控与轻量生信计算", ACCENT_GREEN),
+    ("宏观算力：开放协同", "支持私有化大模型集群、商业前沿 API 与公共超算中心按需调度，打破算力孤岛", ACCENT_BLUE),
+    ("产业落地：车间赋能", "深度服务合成生物中试发酵现场与创新药物筛选，助力工艺调控与产业化转化", ACCENT_AMBER),
 ]
-
-card_w = Inches(3.75)
-card_h = Inches(2.4)
-card_gap = Inches(0.24)
-start_x = Inches(0.8)
 
 for i, (m_title, m_desc, m_color) in enumerate(metrics):
     x = start_x + i * (card_w + card_gap)
@@ -190,17 +190,17 @@ for i, (m_title, m_desc, m_color) in enumerate(metrics):
     p_md.space_before = Pt(10)
 
 # ==========================================
-# SLIDE 3: 行业痛点与大赛契合
+# SLIDE 3: 行业痛点与发展机遇
 # ==========================================
 slide3 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide3)
-add_header(slide3, "行业痛点：生物医药研发“重计算在超算，真实验在现场”的断层", "Market Problem")
+add_header(slide3, "行业痛点：生物医药研发“重计算在后台，真实验在现场”的断层", "Market Problem")
 add_footer(slide3, 3)
 
 pain_points = [
-    ("痛点一：实验现场缺乏计算工具", "场景断层", "P2/P3 洁净室、生物反应器车间、野外采样区严禁或无法携带笨重电脑，科研人员在实验台前无法即时调用生信计算与对比文献。"),
-    ("痛点二：超算算力调度割裂与滞后", "调度断层", "长江3D科学计算中心算力极其强大，但科研人员离开工位就无法掌握任务队列、监控收敛日志，出现排队报错无法第一时间响应。"),
-    ("痛点三：涉密数据与弱网外业困境", "安全断层", "核心候选药物与菌株序列涉及重大利益，严禁上传公网商业模型；野外中药科考弱网无网环境下，依赖云端运算的系统彻底瘫痪。"),
+    ("痛点一：实验现场缺乏计算工具", "场景断层", "P2/P3 洁净室、生物反应器车间、野外采样区严禁或无法携带笨重电脑，科研人员在实验台前无法即时处理数据与调用计算。"),
+    ("痛点二：异构算力孤岛与交互滞后", "调度断层", "私有集群、商业大模型与超算中心彼此割裂。科研人员离开工位即失联，排队状态难掌握，缺乏随时可用的统一调度入口。"),
+    ("痛点三：涉密数据与弱网外业困境", "安全断层", "先导化合物与基因序列高度敏感，机构禁止未经脱敏上传公共云；野外中药勘探弱网环境下，纯云端依赖系统彻底瘫痪。"),
 ]
 
 for i, (p_title, p_tag, p_desc) in enumerate(pain_points):
@@ -237,13 +237,13 @@ tf_opp.word_wrap = True
 tf_opp.margin_left = Inches(0.3)
 tf_opp.margin_top = Inches(0.2)
 p_opp = tf_opp.paragraphs[0]
-p_opp.text = "破局解法：BioHelix 深度契合大赛赛道（三）—— 构建端-超协同的生命科学计算基础设施"
+p_opp.text = "破局解法：BioHelix 契合大赛赛道（三）—— 打造端-边-超协同的生命科学计算基础设施"
 p_opp.font.size = Pt(13.5)
 p_opp.font.bold = True
 p_opp.font.color.rgb = ACCENT_GREEN
 
 p_opp_sub = tf_opp.add_paragraph()
-p_opp_sub.text = "打通从“移动端微观实验数据清洗”到“长江3D科学计算中心宏观算力仿真”的最后一公里，将超级算力直达实验第一线！"
+p_opp_sub.text = "打通从“移动端微观实验数据清洗”到“宏观异构算力仿真”的最后一公里，将超级算力直达实验第一线！"
 p_opp_sub.font.size = Pt(11.5)
 p_opp_sub.font.color.rgb = TEXT_BODY
 p_opp_sub.space_before = Pt(4)
@@ -253,14 +253,14 @@ p_opp_sub.space_before = Pt(4)
 # ==========================================
 slide4 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide4)
-add_header(slide4, "产品方案：BioHelix —— 长江3D科学计算中心的掌上智能调度中枢", "Solution")
+add_header(slide4, "产品方案：BioHelix —— 面向生命科学的开放式移动 AI 工作台", "Solution")
 add_footer(slide4, 4)
 
 pillars = [
-    ("01 移动端微观数据本地闭环", "支持 SAF 与本地存储授权，内置 Biopython/RDKit，可在手机端就地解析 PDB、FASTA、SDF 结构，进行格式校验、拓扑属性计算与实验日志原子化记录。"),
-    ("02 长江3D科算中心一键调度", "自研 Tool Dispatcher 内置 HPC 适配器。科学家用自然语言即可一键下发分子对接、分子动力学模拟或酶催化推演，自动编译作业脚本提交集群。"),
-    ("03 实时流式终端与长任务对账", "长任务计算过程通过 PTY 终端流式回传手机，实时查看能量最小化、RMSD 收敛曲线；断网或杀进程后支持 Room 状态自动对账，绝不盲目重放。"),
-    ("04 涉密新药数据 100% 物理隔离", "轻量规则进 QuickJS isolated 沙箱，重度编译进 PRoot 容器，核心实验资产不出端；支持直连局域网私有大模型与专属计算集群。"),
+    ("01 移动端微观数据本地闭环", "支持 SAF 授权与本地存储，内置 Biopython/RDKit，可在手机端就地解析 PDB、FASTA、SDF 格式，完成分子特征提取与实验记录原子化归档。"),
+    ("02 开放式混合算力调度中枢", "自研 Tool Dispatcher 内置开放适配器：既可连接机构私有部署大模型（Ollama/vLLM），亦可调用商业 API，并支持调度长江3D科算中心等高性能集群。"),
+    ("03 实时流式终端与长任务对账", "高通量模拟过程通过 PTY 终端流式回传手机，实时掌握能量收敛与结合能曲线；断网或切后台后支持 Room 状态机自动对账，杜绝未知副作用重放。"),
+    ("04 涉密新药数据物理分级隔离", "实验规则进 QuickJS isolated 沙箱，重度编译进 PRoot 容器，核心实验资产不出端；支持全离线模式与企业私有局域网直连，保障知识产权安全。"),
 ]
 
 for i, (pil_title, pil_desc) in enumerate(pillars):
@@ -293,7 +293,7 @@ for i, (pil_title, pil_desc) in enumerate(pillars):
 # ==========================================
 slide5 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide5)
-add_header(slide5, "技术架构：端-超协同、物理隔离沙箱与高可靠生信调度", "Technology Architecture")
+add_header(slide5, "技术架构：端-超协同、物理隔离沙箱与开放算力抽象", "Technology Architecture")
 add_footer(slide5, 5)
 
 # Left Column
@@ -311,11 +311,11 @@ p_lt.font.bold = True
 p_lt.font.color.rgb = ACCENT_GREEN
 
 arch_layers = [
-    ("移动交互层 (Touch UI)", "面向生信实验优化，支持 3D 分子轻量预览、Diff 比对、实时 Pty 输出"),
-    ("协同中枢 (Coordinator)", "任务意图解析、多模态附件还原、生信上下文组装与作业生命周期管理"),
-    ("调度管线 (Dispatcher)", "Schema 校验 -> 生信权限门禁 -> 策略评估 -> 超算 HPC 适配下发"),
+    ("移动交互层 (Touch UI)", "触控优化界面，支持分子结构轻量预览、Diff 比对与实时 Pty 输出"),
+    ("协同中枢 (Coordinator)", "统一 Agent 循环，多模态数据输入，生信上下文组装与作业状态追踪"),
+    ("调度管线 (Dispatcher)", "Schema 校验 -> 权限门禁 -> 策略评估 -> 开放算力 HPC / API 适配"),
     ("端侧隔离域 (Edge Runtimes)", "QuickJS 独立 UID 沙箱 (微规则) + PRoot 容器化 Linux (Biopython/RDKit)"),
-    ("超算集群 (Changjiang 3D HPC)", "对接长江3D科学计算中心，承载万核级分子对接、动力学模拟与大模型"),
+    ("异构算力池 (Hybrid Compute)", "私有化集群 (vLLM/Slurm) + 商业模型服务 + 公共超算 (如长江3D科算中心)"),
 ]
 
 for l_name, l_desc in arch_layers:
@@ -340,15 +340,15 @@ tf_right.margin_right = Inches(0.3)
 tf_right.margin_top = Inches(0.3)
 
 p_rt = tf_right.paragraphs[0]
-p_rt.text = "生信场景核心技术壁垒"
+p_rt.text = "核心技术壁垒与架构创新"
 p_rt.font.size = Pt(16)
 p_rt.font.bold = True
 p_rt.font.color.rgb = ACCENT_BLUE
 
 moats = [
-    ("免 Root 容器化生信环境移植", "攻克 Android 系统底层限制，在普通商用手机上免 Root 稳定运行 Linux 生信运行时与 C++ 化学信息学动态库。"),
-    ("长江3D科算中心流式调度协议", "创新设计端-超轻量安全代理协议，毫秒级下发 Slurm/PBS 作业脚本，并通过 PFD/Binder 安全通道回传监控流。"),
-    ("涉密级防泄漏与确定性审计", "杜绝任何模型幻觉引发的数据误篡改，所有文件变动支持原子级 Trash 恢复与 Room 数据库全周期合规审计。"),
+    ("免 Root 容器化生信环境移植", "在商用 Android 手机上免 Root 稳定运行 Linux 生信工具链与 C++ 扩展，兼顾移动安全性与专业计算能力。"),
+    ("异构算力统一抽象与流式调度", "设计通用 HPC/API 调度协议，适配 Slurm 作业、局域网私有模型与商业大模型，实现双向流式通信与收敛监控。"),
+    ("确定性审计与高可用对账引擎", "基于 Room 数据库构建确定性状态机，保障实验记录不可篡改，异常中断可自愈，杜绝模型幻觉导致的数据误删。"),
 ]
 
 for m_name, m_desc in moats:
@@ -366,7 +366,7 @@ for m_name, m_desc in moats:
     p_m2.space_before = Pt(4)
 
 # ==========================================
-# SLIDE 6: 科算应用场景 (契合四大赛道)
+# SLIDE 6: 科算应用场景 (契合大赛赛道)
 # ==========================================
 slide6 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide6)
@@ -374,10 +374,10 @@ add_header(slide6, "科算应用：全方位赋能新药研发、合成生物与
 add_footer(slide6, 6)
 
 sci_apps = [
-    ("场景一：创新药物与中药野外科考", "领域一：新药/中药", "野外道地药材与植物采样无网环境下，手机离线识别物种并进行图谱初筛；联网后一键向长江3D科算中心提交靶点对接，反向推演活性成分。"),
-    ("场景二：孝感合成生物基地中试巡检", "领域二：生物制造", "在孝感中试车间，巡检人员手持终端读取发酵罐传感器数据，本地评估溶氧与pH；调用3D科算中心酶动力学模型秒级推演补料调控方案。"),
-    ("场景三：端-超协同生命计算基础设施", "领域三：主申报赛道", "为高校与药企打造新一代生信工作台，实验科学家在洁净室内随手唤醒超算集群，完成微观参数到宏观万核仿真的秒级闭环。"),
-    ("场景四：智能医疗器械与精准医疗", "领域四：智能器械", "对接便携床旁检验设备（POCT），移动端就地完成原始电生理/光谱信号降噪，联动3D科算中心大模型提供多模态精准辅助诊断。"),
+    ("场景一：创新药物与中药野外勘测", "领域一：新药/中药", "野外道地药材与植物采样无网环境下，手机离线识别物种并进行图谱初筛；联网后联动私有/商业模型或超算进行靶点反向筛选。"),
+    ("场景二：合成生物中试发酵车间巡检", "领域二：生物制造", "在孝感等中试车间，巡检人员手持终端读取生物反应器数据，本地评估溶氧与pH；调用酶动力学模型秒级生成补料优化方案。"),
+    ("场景三：端-超协同生命计算基础设施", "领域三：主申报赛道", "为高校与药企打造新一代移动生信工作台，实验科学家在洁净室内随时唤醒算力，完成微观参数到宏观万核仿真的秒级闭环。"),
+    ("场景四：智能医疗器械与精准医疗", "领域四：智能器械", "对接便携床旁检验设备（POCT），移动端就地完成原始电生理/光谱信号降噪，联动私有化大模型提供多模态精准辅助诊断。"),
 ]
 
 for i, (s_title, s_tag, s_desc) in enumerate(sci_apps):
@@ -423,20 +423,20 @@ biz_models = [
     ("科研/高校免费版", "构建学术生态与用户漏斗", [
         "全功能生信文件管理与格式转换",
         "标准微量计算与本地离线沙箱",
-        "基础科研工作流与文献提取模板",
+        "支持接入用户自有 API (BYOK)",
         "渗透全国生物医药高校与课题组",
     ], CARD_BORDER, TEXT_WHITE),
     ("Pro 生信专业版", "面向专业工程师与研究员", [
         "PRoot 完整生信 Linux 容器持续自愈",
-        "长江3D科算中心高速作业调度通道",
+        "多通道异构算力一键调度与管理",
         "实时长任务终端 (PTY) 与无损恢复",
         "支持个人买断与年度维护订阅",
     ], ACCENT_GREEN, ACCENT_GREEN),
-    ("孝感基地与企业套件", "面向基地中试车间与涉密药企", [
-        "孝感合成生物基地发酵巡检专属插件",
-        "药企涉密局域网私有超算与大模型接入",
-        "生物反应器工业协议与传感器直连",
-        "提供机构级合规审计与现场运维保障",
+    ("基地与企业定制套件", "面向中试车间与涉密药企", [
+        "合成生物发酵反应器巡检专属插件",
+        "药企涉密局域网私有模型与超算直连",
+        "生物传感与工业现场协议软硬件协同",
+        "提供机构级合规审计与现场技术保障",
     ], ACCENT_BLUE, ACCENT_BLUE),
 ]
 
@@ -469,23 +469,19 @@ for i, (bm_title, bm_sub, bm_items, border_c, title_c) in enumerate(biz_models):
         p_bi.space_before = Pt(12)
 
 # ==========================================
-# SLIDE 8: 落地规划与长江3D科算中心协同
+# SLIDE 8: 落地规划与生态协同
 # ==========================================
 slide8 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide8)
-add_header(slide8, "落地规划：与长江3D科算中心及孝感基地共筑产业标杆", "Roadmap & Milestones")
+add_header(slide8, "落地规划：扎实的技术演进与标杆示范基地建设", "Roadmap & Milestones")
 add_footer(slide8, 8)
 
 milestones = [
     ("Phase 1: 端侧沙箱就绪", "已就绪验证", "● 完成 Android 多执行域与安全沙箱\n● 成功跑通移动端 Biopython/RDKit\n● 交付 SAF 生信文件读写与原子写入\n● 验证离线单机数据清洗闭环"),
-    ("Phase 2: 3D科算深度对接", "大赛签约期 (1-3月)", "● 深度对接长江3D科学计算中心 API\n● 跑通移动端一键下发分子对接与仿真\n● 交付流式 PTY 终端与收敛日志推流\n● 联合举办生信移动工作台内测"),
+    ("Phase 2: 算力中心示范对接", "大赛推进期 (1-3月)", "● 示范对接长江3D科学计算中心 API\n● 打通私有化模型 (vLLM) 移动端调度\n● 交付流式 PTY 终端与收敛日志推流\n● 开启高校生信实验室小范围封闭内测"),
     ("Phase 3: 孝感基地中试试点", "产业试点期 (4-8月)", "● 进驻孝感合成生物制造基地开展试点\n● 部署生物反应器中试掌上巡检方案\n● 联合中医药机构实测野外离线采样\n● 推出首个生命科技商业化订阅包"),
-    ("Phase 4: 全行业规模化繁荣", "规模推广期 (9-18月)", "● 接入 100+ 款主流生信/制药工具链\n● 打造生命科学移动算力调度事实标准\n● 覆盖全国 100+ 重点医药高校与药企\n● 实现端-超协同生态规模化盈利"),
+    ("Phase 4: 全行业规模化繁荣", "规模推广期 (9-18月)", "● 接入 100+ 款主流生信/制药工具链\n● 打造生命科学移动算力调度通用标准\n● 覆盖全国 100+ 重点医药高校与药企\n● 实现端-超协同生态规模化盈利"),
 ]
-
-card_w4 = Inches(2.78)
-card_gap4 = Inches(0.2)
-start_x4 = Inches(0.8)
 
 for i, (m_title, m_time, m_content) in enumerate(milestones):
     x = start_x4 + i * (card_w4 + card_gap4)
@@ -515,7 +511,7 @@ for i, (m_title, m_time, m_content) in enumerate(milestones):
     p_mc.space_before = Pt(14)
 
 # ==========================================
-# SLIDE 9: 核心团队与技术壁垒
+# SLIDE 9: 核心团队与竞争优势
 # ==========================================
 slide9 = prs.slides.add_slide(blank_layout)
 set_slide_background(slide9)
@@ -523,9 +519,9 @@ add_header(slide9, "核心团队与竞争优势：跨界融合的底层工程与
 add_footer(slide9, 9)
 
 team_members = [
-    ("移动系统与容器底层专家", "联合创始人 / 系统架构师", "前头部科技企业系统架构专家，深耕 Linux 容器化、Android 内核及多进程 IPC 通信，主导过大规模移动沙箱与底层虚拟化工程项目。"),
-    ("计算生物学与 AI 制药专家", "联合创始人 / AI 科学家", "知名药企与生物计算实验室背景，精通分子对接、高通量分子动力学模拟算法与超算集群调度，发表多篇生信高水平论文。"),
-    ("生物制造与外业场景专家", "产品与产业化负责人", "具备大型生物化工中试发酵车间实战管理与重大科研外业科考实施经验，深刻理解实验现场与工业车间的严苛需求。"),
+    ("移动系统与容器底层专家", "联合创始人 / 系统架构师", "前知名科技企业系统底层工程师，深耕 Linux 容器化、Android 内核及多进程 IPC 通信，主导过大规模移动沙箱与底层虚拟化工程项目。"),
+    ("计算生物学与 AI 算法专家", "联合创始人 / 生信科学家", "知名药企与计算生物实验室背景，精通分子对接、高通量分子动力学模拟算法与异构算力集群调度，具备扎实的生信实战经验。"),
+    ("生物制造与外业场景专家", "产品与产业化负责人", "具备大型生物化工中试发酵车间工艺经验与重大科研外业科考实操背景，深刻理解湿实验台与生产车间的痛点需求。"),
 ]
 
 for i, (t_role, t_title, t_desc) in enumerate(team_members):
@@ -562,16 +558,16 @@ tf_mb.margin_left = Inches(0.3)
 tf_mb.margin_top = Inches(0.2)
 
 p_mbt = tf_mb.paragraphs[0]
-p_mbt.text = "差异化竞争壁垒：端-超协同稀缺性 + 在地化产业强绑定"
+p_mbt.text = "差异化竞争壁垒：端-超协同稀缺性 + 开放中立算力架构"
 p_mbt.font.size = Pt(15)
 p_mbt.font.bold = True
 p_mbt.font.color.rgb = ACCENT_GREEN
 
 p_mbb = tf_mb.add_paragraph()
 p_mbb.text = (
-    "1. 全球稀缺的端-超协同移动基座：打破传统超算必须绑死电脑桌面的宿命，让超级算力真正渗透进湿实验台与发酵车间；\n"
-    "2. 极高工程门槛的免 Root 生信沙箱：在 Android 体系下安全调谐容器化生信环境，兼具高安全合规与专业生信计算能力；\n"
-    "3. 长江3D科算中心与孝感基地的深度赋能：依托区域顶尖算力与产业化基地，构建不可复制的产学研用落地闭环。"
+    "1. 全球稀缺的端-超协同移动基座：打破传统超算必须绑死电脑桌面的宿命，让高通量算力真正渗透进湿实验台与发酵车间；\n"
+    "2. 极高工程门槛的免 Root 生信沙箱：在商用 Android 系统下安全调谐容器化生信环境，兼具高安全合规与专业生信计算能力；\n"
+    "3. 中立开放的混合算力体系：不绑定特定供应商，全面支持私有化部署大模型、商业 API 与公共超算中心，具备广阔商业空间。"
 )
 p_mbb.font.size = Pt(11.5)
 p_mbb.font.color.rgb = TEXT_BODY
@@ -589,7 +585,6 @@ card_fin_l = create_card(slide10, Inches(0.8), Inches(1.65), Inches(5.75), Inche
 tf_fl = card_fin_l.text_frame
 tf_fl.word_wrap = True
 tf_fl.margin_left = Inches(0.3)
-tf_fl.margin_right = Inches(0.3)
 tf_fl.margin_top = Inches(0.3)
 
 p_flt = tf_fl.paragraphs[0]
@@ -600,9 +595,9 @@ p_flt.font.color.rgb = ACCENT_GREEN
 
 fin_items = [
     ("融资轮次与诉求", "寻求天使轮 / 种子轮股权融资，出让 10% - 15% 股权"),
-    ("长江3D科算中心算力支持", "申请接入 3D 科算中心开放节点，联合开发分子动力学与生信流式调度专属通道"),
-    ("孝感生物制造场景入驻", "申请进驻孝感合成生物制造基地，实地部署发酵罐智能巡检试点"),
-    ("55% 资金投向技术研发", "端-超协同调度优化、移动端 3D 分子低功耗流式渲染与轻量量化模型"),
+    ("长江3D科算中心算力对接", "申请作为首批标杆应用对接 3D 科算中心，打通端-超算力流式通道"),
+    ("孝感生物制造基地场景入驻", "申请进驻孝感合成生物制造基地，实地部署发酵罐智能巡检试点"),
+    ("55% 资金投向技术研发", "端-超协同调度优化、移动端 3D 分子低功耗流式渲染与生信工具适配"),
 ]
 
 for fi_title, fi_desc in fin_items:
@@ -622,7 +617,6 @@ card_fin_r = create_card(slide10, Inches(6.8), Inches(1.65), Inches(5.733), Inch
 tf_fr = card_fin_r.text_frame
 tf_fr.word_wrap = True
 tf_fr.margin_left = Inches(0.3)
-tf_fr.margin_right = Inches(0.3)
 tf_fr.margin_top = Inches(0.3)
 
 p_frt = tf_fr.paragraphs[0]
@@ -632,8 +626,8 @@ p_frt.font.bold = True
 p_frt.font.color.rgb = ACCENT_BLUE
 
 milestone_targets = [
-    ("长江3D算力消耗", "实现年度调度长江3D科算中心 500,000+ 核时，成为科算中心标杆应用案例"),
-    ("孝感中试示范", "在孝感合成生物基地落地 2 家以上示范车间，助力中试周期缩短 30% 以上"),
+    ("异构算力通道打通", "全面兼容 Slurm/PBS 集群、局域网私有大模型与主流商业 API，形成通用调度标准"),
+    ("孝感基地中试示范", "在孝感合成生物制造基地落地示范车间，助力发酵异常预警与中试优化"),
     ("用户与科研合作", "覆盖 30+ 所高校生物医药国家重点实验室，激活 10,000+ 名生信科研人员"),
     ("商业订阅验证", "实现月度经常性收入 (MRR) 突破 50 万元人民币，构建正向商业造血循环"),
 ]
@@ -671,7 +665,7 @@ p_e1.font.bold = True
 p_e1.font.color.rgb = TEXT_WHITE
 
 p_e2 = tf_end.add_paragraph()
-p_e2.text = "BioHelix —— 赋能长江3D科学计算中心，助力孝感生物制造腾飞"
+p_e2.text = "BioHelix —— 开放连接端侧沙箱、私有化算力与前沿大模型"
 p_e2.font.size = Pt(18)
 p_e2.font.color.rgb = ACCENT_GREEN
 p_e2.space_before = Pt(12)
