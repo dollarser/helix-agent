@@ -3,20 +3,27 @@ package com.helix.feature.browser.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +45,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.helix.feature.browser.BrowserController
 import com.helix.feature.browser.BrowserTab
 import com.helix.feature.browser.BrowserTabController
+import com.helix.feature.browser.ContextMenuData
 import com.helix.feature.browser.DownloadItem
+import com.helix.feature.browser.DownloadRequest
 import com.helix.feature.browser.DownloadStatus
 import com.helix.feature.browser.LoadError
 import com.helix.feature.browser.R
@@ -82,6 +91,7 @@ fun BrowserScreen(controller: BrowserController) {
     var showUserScripts by remember { mutableStateOf(false) }
     var sourceDialogContent by remember { mutableStateOf<String?>(null) }
     var readerDialogContent by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val contextMenu by controller.contextMenu.collectAsState()
 
     // SAF Destination Picker for Downloads
     val onChooseSaveLocation = rememberDownloadSaveLauncher(controller)
@@ -89,7 +99,8 @@ fun BrowserScreen(controller: BrowserController) {
     // BackHandler: priority back stack
     val isAnyModalOpen =
         showTabSwitcher || showMenuSheet || showBookmarksHistory ||
-            showUserScripts || sourceDialogContent != null || readerDialogContent != null
+            showUserScripts || sourceDialogContent != null || readerDialogContent != null ||
+            contextMenu != null
     val canGoBackInTab = selected != null && selected.canGoBack
     val isNotOnHome = selected != null && selected.url != BrowserTabController.ABOUT_BLANK
 
@@ -97,6 +108,7 @@ fun BrowserScreen(controller: BrowserController) {
         enabled = isAnyModalOpen || findState.isSearching || canGoBackInTab || isNotOnHome,
     ) {
         when {
+            contextMenu != null -> controller.clearContextMenu()
             showTabSwitcher -> showTabSwitcher = false
             showMenuSheet -> showMenuSheet = false
             showBookmarksHistory -> showBookmarksHistory = false
@@ -108,6 +120,29 @@ fun BrowserScreen(controller: BrowserController) {
             isNotOnHome -> controller.navigate(checkNotNull(selected).id, BrowserTabController.ABOUT_BLANK)
         }
     }
+
+    val isTyping =
+        urlText.isNotBlank() && urlText != selected?.url &&
+            urlText != BrowserTabController.ABOUT_BLANK
+    val suggestions =
+        remember(urlText, bookmarks, history, isTyping) {
+            if (!isTyping) {
+                emptyList()
+            } else {
+                val q = urlText.trim().lowercase()
+                val bms =
+                    bookmarks
+                        .filter { it.title.lowercase().contains(q) || it.url.lowercase().contains(q) }
+                        .take(3)
+                        .map { Triple(it.title, it.url, true) }
+                val hists =
+                    history
+                        .filter { it.title.lowercase().contains(q) || it.url.lowercase().contains(q) }
+                        .take(4)
+                        .map { Triple(it.title, it.url, false) }
+                (bms + hists).distinctBy { it.second }.take(5)
+            }
+        }
 
     Box(
         modifier =
@@ -132,6 +167,17 @@ fun BrowserScreen(controller: BrowserController) {
                     controller.navigate(tabId, BrowserTabController.ABOUT_BLANK)
                 },
             )
+
+            if (suggestions.isNotEmpty()) {
+                OmniboxSuggestions(
+                    suggestions = suggestions,
+                    onSelectSuggestion = { chosenUrl ->
+                        urlText = chosenUrl
+                        val tabId = selected?.id ?: controller.newTab()
+                        controller.navigate(tabId, chosenUrl)
+                    },
+                )
+            }
 
             // 2. Central Web Content or Via-style Home Page
             Box(
@@ -265,6 +311,21 @@ fun BrowserScreen(controller: BrowserController) {
                             ).show()
                     }
                 },
+                onShareUrl = {
+                    selected?.url?.let { currentUrl ->
+                        if (currentUrl.isNotBlank() && currentUrl != BrowserTabController.ABOUT_BLANK) {
+                            val sendIntent =
+                                Intent(Intent.ACTION_SEND).apply {
+                                    putExtra(Intent.EXTRA_TEXT, currentUrl)
+                                    if (!selected.title.isNullOrBlank()) {
+                                        putExtra(Intent.EXTRA_SUBJECT, selected.title)
+                                    }
+                                    type = "text/plain"
+                                }
+                            context.startActivity(Intent.createChooser(sendIntent, null))
+                        }
+                    }
+                },
                 onOpenBookmarks = {
                     bookmarksHistoryInitialTab = 0
                     showBookmarksHistory = true
@@ -360,6 +421,15 @@ fun BrowserScreen(controller: BrowserController) {
                 title = title,
                 content = content,
                 onDismiss = { readerDialogContent = null },
+            )
+        }
+
+        contextMenu?.let { menu ->
+            ContextMenuDialog(
+                menu = menu,
+                context = context,
+                controller = controller,
+                onDismiss = { controller.clearContextMenu() },
             )
         }
     }
@@ -503,6 +573,172 @@ private fun ClearRow(controller: BrowserController) {
             modifier = Modifier.testTag("browser-clear-history"),
         ) {
             Text(stringResource(R.string.browser_clear_history), fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName", "LongMethod")
+private fun ContextMenuDialog(
+    menu: ContextMenuData,
+    context: Context,
+    controller: BrowserController,
+    onDismiss: () -> Unit,
+) {
+    val title =
+        when (menu) {
+            is ContextMenuData.Link -> menu.url
+            is ContextMenuData.Image -> menu.imageUrl
+        }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleSmall,
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                when (menu) {
+                    is ContextMenuData.Link -> {
+                        TextButton(
+                            onClick = {
+                                val id = controller.newTab()
+                                controller.navigate(id, menu.url)
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_open_in_new_tab))
+                        }
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("URL", menu.url))
+                                Toast.makeText(context, R.string.browser_url_copied, Toast.LENGTH_SHORT).show()
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_copy_link))
+                        }
+                        TextButton(
+                            onClick = {
+                                val sendIntent =
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        putExtra(Intent.EXTRA_TEXT, menu.url)
+                                        type = "text/plain"
+                                    }
+                                context.startActivity(Intent.createChooser(sendIntent, null))
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_share_link))
+                        }
+                    }
+
+                    is ContextMenuData.Image -> {
+                        TextButton(
+                            onClick = {
+                                val id = controller.newTab()
+                                controller.navigate(id, menu.imageUrl)
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_view_image))
+                        }
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("Image URL", menu.imageUrl))
+                                Toast.makeText(context, R.string.browser_url_copied, Toast.LENGTH_SHORT).show()
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_copy_image_url))
+                        }
+                        TextButton(
+                            onClick = {
+                                controller.requestDownload(
+                                    DownloadRequest(
+                                        url = menu.imageUrl,
+                                        suggestedName = "image_${System.currentTimeMillis()}.png",
+                                        mimeType = "image/*",
+                                        contentLength = -1L,
+                                    ),
+                                )
+                                onDismiss()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.browser_context_download_image))
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.browser_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun OmniboxSuggestions(
+    suggestions: List<Triple<String, String, Boolean>>,
+    onSelectSuggestion: (String) -> Unit,
+) {
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 6.dp,
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+            suggestions.forEach { (title, url, isBm) ->
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectSuggestion(url) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (isBm) "★" else "🕒",
+                        fontSize = 14.sp,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = url,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
         }
     }
 }

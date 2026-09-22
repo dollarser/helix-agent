@@ -86,4 +86,13 @@
     <string name="browser_reader_title">阅读模式</string>
     <string name="browser_source_title">网页源代码</string>
     <string name="browser_search_engine">默认搜索引擎</string>
+    <string name="browser_menu_share">分享</string>
+    <string name="browser_context_open_in_new_tab">在新标签页打开</string>
+    <string name="browser_context_copy_link">复制链接地址</string>
+    <string name="browser_context_share_link">分享链接</string>
+    <string name="browser_context_view_image">查看图片</string>
+    <string name="browser_context_copy_image_url">复制图片链接</string>
+    <string name="browser_context_download_image">下载图片</string>
+    <string name="browser_suggestion_bookmark">书签</string>
+    <string name="browser_suggestion_history">历史</string>
 </resources>

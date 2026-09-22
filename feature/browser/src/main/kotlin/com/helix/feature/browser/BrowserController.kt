@@ -109,6 +109,13 @@ class BrowserController(
     private val _findState = MutableStateFlow(FindInPageState())
     val findState: StateFlow<FindInPageState> = _findState.asStateFlow()
 
+    private val _contextMenu = MutableStateFlow<ContextMenuData?>(null)
+    val contextMenu: StateFlow<ContextMenuData?> = _contextMenu.asStateFlow()
+
+    fun clearContextMenu() {
+        _contextMenu.value = null
+    }
+
     val adBlockedCount: StateFlow<Long> = adBlock.blockedCount
 
     // ---------------------------------------------------------------- tab commands
@@ -797,6 +804,11 @@ class BrowserController(
                         override fun onDownloadRequest(request: DownloadRequest) {
                             if (!live()) return
                             requestDownload(request)
+                        }
+
+                        override fun onContextMenu(contextMenu: ContextMenuData) {
+                            if (!live()) return
+                            _contextMenu.value = contextMenu
                         }
                     },
                     canShowDialogs = { live() && owner.resumed && owner.available && state.value.selectedId == id },

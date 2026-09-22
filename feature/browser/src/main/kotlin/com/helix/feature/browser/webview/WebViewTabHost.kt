@@ -23,6 +23,7 @@ import com.helix.feature.browser.BrowserSecuritySpec
 import com.helix.feature.browser.BrowserTabListener
 import com.helix.feature.browser.BrowserUrlDecision
 import com.helix.feature.browser.BrowserUrlPolicy
+import com.helix.feature.browser.ContextMenuData
 import com.helix.feature.browser.DownloadRequest
 import com.helix.feature.browser.engine.AdBlockEngine
 import com.helix.feature.browser.engine.UserScriptEngine
@@ -285,6 +286,36 @@ internal class WebViewTabHost(
                     ),
                 )
             }
+            view.setOnLongClickListener {
+                val hit = view.hitTestResult
+                when (hit.type) {
+                    WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                        val linkUrl = hit.extra
+                        if (!linkUrl.isNullOrBlank()) {
+                            listener.onContextMenu(ContextMenuData.Link(linkUrl))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    WebView.HitTestResult.IMAGE_TYPE,
+                    WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE,
+                    -> {
+                        val imgUrl = hit.extra
+                        if (!imgUrl.isNullOrBlank()) {
+                            listener.onContextMenu(ContextMenuData.Image(imgUrl))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
+            }
         }
 
     /** The ONLY loadUrl entry point in this class. */
@@ -429,6 +460,7 @@ internal class WebViewTabHost(
             (view.parent as? ViewGroup)?.removeView(view)
             view.webChromeClient = null
             view.setDownloadListener(null)
+            view.setOnLongClickListener(null)
             view.destroy()
         }
     }

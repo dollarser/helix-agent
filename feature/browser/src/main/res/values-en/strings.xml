@@ -86,4 +86,13 @@
     <string name="browser_reader_title">Reader Mode</string>
     <string name="browser_source_title">Page Source</string>
     <string name="browser_search_engine">Default Search Engine</string>
+    <string name="browser_menu_share">Share</string>
+    <string name="browser_context_open_in_new_tab">Open in New Tab</string>
+    <string name="browser_context_copy_link">Copy Link Address</string>
+    <string name="browser_context_share_link">Share Link</string>
+    <string name="browser_context_view_image">View Image</string>
+    <string name="browser_context_copy_image_url">Copy Image URL</string>
+    <string name="browser_context_download_image">Download Image</string>
+    <string name="browser_suggestion_bookmark">Bookmark</string>
+    <string name="browser_suggestion_history">History</string>
 </resources>

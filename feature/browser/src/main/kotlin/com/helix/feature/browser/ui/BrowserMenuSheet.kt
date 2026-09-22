@@ -57,6 +57,7 @@ fun BrowserMenuSheet(
     isBookmarked: Boolean,
     onToggleBookmark: () -> Unit,
     onCopyUrl: () -> Unit,
+    onShareUrl: () -> Unit,
     onOpenBookmarks: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenDownloads: () -> Unit,
@@ -101,7 +102,7 @@ fun BrowserMenuSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Quick Top Action Bar: Bookmark, Copy, Dismiss
+            // Quick Top Action Bar: Bookmark, Copy, Share, Dismiss
             Row(
                 modifier =
                     Modifier
@@ -125,6 +126,14 @@ fun BrowserMenuSheet(
                     label = stringResource(R.string.browser_menu_copy_url),
                     onClick = {
                         onCopyUrl()
+                        onDismiss()
+                    },
+                )
+                QuickTopAction(
+                    icon = "↗",
+                    label = stringResource(R.string.browser_menu_share),
+                    onClick = {
+                        onShareUrl()
                         onDismiss()
                     },
                 )
