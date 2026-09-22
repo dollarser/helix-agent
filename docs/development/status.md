@@ -32,6 +32,8 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## In progress
 
+本分支已交付 [HXA-218第一批UI重构](../completion-records/HXA-218.md)：会话详情与回复选项按需展开、任务/工具摘要和导航分组。完整主机、四象限UI 144/144及双API面板补充检查8/8通过；仅为独立工作树本地交付，未合入main。214～217尚未整合到本分支，产物就地预览及快捷引用留待后续切片。
+
 HXA-126 已由所有者授权修复并整合预注册 public-client OAuth 切片；合并前缺陷与当前验证见[修复记录](../bug-fixes/2026-09-21-connector-oauth-merge.md)。保留两家真实服务与动态注册未完成范围，不提前关闭任务。
 
 CI 分层优化已合入 main，完整远端五个 job 通过，见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)；小模型准备与198双终端已整合，见[整合记录](../evidence/development/hxa-198-main-integration-2026-09-21.md)。本轮206本地核心范围已完成，199只剩物理专项；验收分支及快检优化已合入并推送 main，本轮远端结果见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)。排序与分工见[工作计划](next-work-plan.md)。main 已整合 191、197、207、211 及 196 当前实现；196 真机缺口不记通过。

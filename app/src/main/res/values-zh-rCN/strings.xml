@@ -1235,4 +1235,10 @@
     <string name="context_materialization_limit">会话内容超过设备上的上下文整理上限。请携带必要引用新建会话；原历史仍保留。</string>
     <string name="context_segment_limit">一段完整历史或工具步骤超过当前摘要容量。请调整上下文或输入上限，或携带大结果引用新建会话。原历史仍保留。</string>
     <string name="context_window_fallback">模型未提供上下文窗口，当前按 %1$d token 估算；可手动设置。</string>
+    <string name="chat_composer_options">回复选项</string>
+    <string name="chat_ledger_summary">已完成 %1$d/%2$d · 阻塞 %3$d 项</string>
+    <string name="nav_group_conversations">会话</string>
+    <string name="nav_group_work">工作</string>
+    <string name="nav_group_extensions">扩展</string>
+    <string name="nav_group_settings">设置与管理</string>
 </resources>

@@ -117,9 +117,6 @@ internal fun ConversationSection(
             ModeControlSection(runControl, screen.isSending, intents)
             Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = intents.onBack, modifier = Modifier.testTag("chat-back")) {
-                        Text(stringResource(R.string.chat_back_to_sessions))
-                    }
                     Text(
                         if (profile == SafetyProfile.ADVANCED) {
                             stringResource(R.string.chat_profile_advanced)
@@ -212,7 +209,7 @@ internal fun ConversationSection(
                 TextButton(onClick = intents.onDismissBlocked) { Text(stringResource(R.string.chat_blocked_dismiss)) }
             }
         }
-        TaskLedgerCard(screen.taskLedger)
+        TaskLedgerCard(screen.taskLedger, screen.openSessionId)
         if (screen.isFork) {
             Text(
                 stringResource(R.string.session_fork_notice),

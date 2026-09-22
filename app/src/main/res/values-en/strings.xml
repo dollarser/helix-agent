@@ -1238,4 +1238,10 @@
     <string name="context_materialization_limit">Conversation content exceeds the on-device preparation limit. Start a new conversation with the necessary references; the original history is preserved.</string>
     <string name="context_segment_limit">A complete history or tool step is too large to summarize within the current limits. Adjust the context/input limit or start a new conversation with references to large results. History is preserved.</string>
     <string name="context_window_fallback">The model has not reported its context window. Estimated token limit: %1$d. You can set the window manually.</string>
+    <string name="chat_composer_options">Response options</string>
+    <string name="chat_ledger_summary">Completed: %1$d/%2$d · Blocked: %3$d</string>
+    <string name="nav_group_conversations">Conversations</string>
+    <string name="nav_group_work">Work</string>
+    <string name="nav_group_extensions">Extensions</string>
+    <string name="nav_group_settings">Settings and management</string>
 </resources>

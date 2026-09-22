@@ -1,9 +1,11 @@
 package com.helix.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
@@ -63,15 +65,30 @@ class TaskLedgerProgressDeviceTest {
             try {
                 chat.openSession(sessionId)
                 compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.taskLedger.size == 4 }
-                compose.onNodeWithTag("chat-ledger").assertIsDisplayed()
-                compose.onNodeWithTag("chat-ledger-title").assertTextEquals("任务进度").assertIsDisplayed()
-                compose.onNodeWithTag("chat-ledger-item-in_progress-0").assertIsDisplayed()
-                compose.onNodeWithTag("chat-ledger-item-todo-1").assertIsDisplayed()
-                compose.onNodeWithTag("chat-ledger-item-done-2").assertIsDisplayed()
-                compose.onNodeWithTag("chat-ledger-item-blocked-3").assertIsDisplayed()
+                verifyLedgerSummaryAndDetails()
             } finally {
                 chat.closeSession()
                 storage.sessions.archive(sessionId, System.currentTimeMillis())
             }
         }
+
+    private fun verifyLedgerSummaryAndDetails() {
+        compose.onNodeWithTag("chat-ledger").assertIsDisplayed()
+        compose
+            .onNodeWithTag(
+                "chat-ledger-title",
+                useUnmergedTree = true,
+            ).assertTextEquals("任务进度")
+            .assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger").assertTextContains("已完成 1/4 · 阻塞 1 项")
+        compose.onNodeWithTag("chat-ledger-item-blocked-3").assertDoesNotExist()
+        compose.onNodeWithTag("chat-ledger").performClick()
+        compose.onNodeWithTag("chat-ledger-item-in_progress-0").assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger-item-todo-1").assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger-item-done-2").assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger-item-blocked-3").assertIsDisplayed()
+        compose.onNodeWithTag("chat-ledger-details-close").performClick()
+        compose.onNodeWithTag("chat-ledger-item-blocked-3").assertDoesNotExist()
+        compose.onNodeWithTag("chat-ledger").assertTextContains("已完成 1/4 · 阻塞 1 项")
+    }
 }
