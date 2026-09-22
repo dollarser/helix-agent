@@ -213,6 +213,13 @@ internal fun ConversationSection(
             }
         }
         TaskLedgerCard(screen.taskLedger)
+        if (screen.isFork) {
+            Text(
+                stringResource(R.string.session_fork_notice),
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(horizontal = 12.dp).testTag("session-fork-notice"),
+            )
+        }
         val emptyConversation =
             screen.activeTurn == null &&
                 listOf(screen.messages, screen.toolTimeline, screen.subscriptionRecoveries, screen.taskLedger)
@@ -235,11 +242,11 @@ internal fun ConversationSection(
                 }
             }
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
-                items(entry.messages.filter { it.role == "user" }, key = { it.id }) { MessageRow(it) }
+                items(entry.messages.filter { it.role == "user" }, key = { it.id }) { MessageRow(it, intents.onFork) }
                 item(key = "operations-${entry.key}") {
                     TurnOperations(entry, intents)
                 }
-                items(entry.messages.filter { it.role != "user" }, key = { it.id }) { MessageRow(it) }
+                items(entry.messages.filter { it.role != "user" }, key = { it.id }) { MessageRow(it, intents.onFork) }
                 val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {

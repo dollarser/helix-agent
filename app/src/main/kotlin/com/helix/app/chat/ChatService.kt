@@ -807,6 +807,52 @@ class ChatService(
             id
         }
 
+    private val forkBusy =
+        java.util.concurrent.atomic
+            .AtomicBoolean(false)
+
+    /** User-only history branching. A fresh session uses the current new-session authorization default. */
+    suspend fun forkSession(
+        sessionId: String,
+        messageId: String,
+    ): String =
+        withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val context = kotlin.coroutines.coroutineContext
+            val id = idGenerator()
+            val title =
+                storage.sessions
+                    .resolve(sessionId)
+                    .title
+                    .take(160)
+            val branchTitle = str(R.string.session_fork_title, title)
+            SessionFork(storage).create(sessionId, messageId, id, branchTitle, clock.now().toEpochMilli()) {
+                context.ensureActive()
+            }
+            refreshSessionsNow()
+            id
+        }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") // UI boundary: safe failure, never exception bodies.
+    fun forkFromMessage(messageId: String) {
+        val source = openSessionId ?: return
+        if (!forkBusy.compareAndSet(false, true)) return
+        workScope.launch {
+            try {
+                val id = forkSession(source, messageId)
+                if (openSessionId == source) {
+                    dismissBlocked()
+                    openSession(id)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (openSessionId == source) setBlocked(str(R.string.session_fork_failed))
+            } finally {
+                forkBusy.set(false)
+            }
+        }
+    }
+
     @Suppress("SwallowedException") // archive race (already archived/gone): the persisted state is the truth
     fun archiveSession(id: String) {
         workScope.launch {
@@ -2821,6 +2867,8 @@ class ChatService(
                         pendingAttachments = stagedAttachmentsUi(),
                         shareDraftText = shareDraftText,
                         taskLedger = sessionId?.let { TaskLedgerProjection.forSession(storage, it) }.orEmpty(),
+                        isFork =
+                            sessionId?.let { storage.messages.latestOfKind(it, SessionForkPlan.KIND) != null } == true,
                     )
                 if (openSessionId == sessionId) refreshed else current
             }

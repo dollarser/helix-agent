@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="session_fork_action">从这里新建分支</string>
+    <string name="session_fork_title">%1$s · 分支</string>
+    <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>
+    <string name="session_fork_notice">已继承所选位置之前的完整历史。权限使用新会话默认值；文件未复制或回滚，原会话任务独立运行。</string>
 
     <!-- HXA-069: base/primary locale is Simplified Chinese. values-en and values-zh-rCN must keep
          this exact key set (checked by scripts/check-i18n.sh). -->

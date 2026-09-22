@@ -43,6 +43,24 @@ class MessageRepository(
         return entity ?: throw IllegalArgumentException("message not found: $id")
     }
 
+    /** Copy immutable history references only, never the source execution identity. Caller owns the transaction. */
+    fun copyHistory(
+        source: MessageEntity,
+        id: String,
+        sessionId: String,
+    ): MessageEntity {
+        val copied =
+            source.copy(
+                id = id,
+                sessionId = sessionId,
+                turnId = null,
+                sequence =
+                    dao.maxSequence(sessionId) + 1,
+            )
+        dao.insert(copied)
+        return copied
+    }
+
     fun listBySession(sessionId: String): List<MessageEntity> = dao.listBySession(sessionId)
 
     fun pageAfter(

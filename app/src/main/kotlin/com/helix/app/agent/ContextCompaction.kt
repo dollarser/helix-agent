@@ -79,7 +79,7 @@ internal object ContextCompaction {
         checkpoint: Checkpoint?,
     ): List<MessageEntity> =
         rows.filter {
-            it.kind != KIND &&
+            it.kind != KIND && it.kind != com.helix.app.chat.SessionForkPlan.KIND &&
                 (
                     checkpoint == null || it.sequence > checkpoint.coveredThrough ||
                         it.id in checkpoint.preservedMessageIds ||

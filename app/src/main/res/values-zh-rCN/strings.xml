@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Helix</string>
+    <string name="session_fork_action">从这里新建分支</string>
+    <string name="session_fork_title">%1$s · 分支</string>
+    <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>
+    <string name="session_fork_notice">已继承所选位置之前的完整历史。权限使用新会话默认值；文件未复制或回滚，原会话任务独立运行。</string>
     <string name="settings_language_title">语言</string>
     <string name="language_system">跟随系统</string>
     <string name="language_zh_cn">简体中文</string>

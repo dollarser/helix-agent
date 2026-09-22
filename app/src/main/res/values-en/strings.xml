@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="session_fork_action">Branch from here</string>
+    <string name="session_fork_title">%1$s · Branch</string>
+    <string name="session_fork_failed">Cannot create a complete branch here. Choose an earlier complete message. The original conversation is preserved.</string>
+    <string name="session_fork_notice">Inherited complete history through the selected point. New-session permission defaults apply. Files are not copied or reverted; original tasks run independently.</string>
 
     <!-- HXA-069: English locale. Language option labels are endonyms (identical in every locale). -->
     <string name="settings_language_title">Language</string>
