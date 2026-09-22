@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True, help="New output directory; never reuses existing evidence")
     args = parser.parse_args()
     subprocess.run([
-        sys.executable, str(ROOT / "scripts/debug/2026-09-09/run-owned-emulator.py"),
+        sys.executable, str(ROOT / "scripts/run-owned-emulator.py"),
         "--avd", args.avd, "--port", str(args.port), "--output", args.output,
         "--memory-mb", str(args.memory_mb), "--cores", str(args.cores),
         "--apk", str(ROOT / "app/build/outputs/apk/developer/debug/app-developer-debug.apk"),

@@ -22,7 +22,7 @@ from owned_acceptance import collect_owned, test_records
 
 spec = importlib.util.spec_from_file_location(
     "acceptance_matrix",
-    ROOT / "scripts/debug/2026-09-21/run-acceptance-matrix.py",
+    ROOT / "scripts/run-acceptance-matrix.py",
 )
 matrix = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(matrix)
@@ -254,7 +254,7 @@ def main():
                 package = f"com.helix.agent{suffix}"
                 command = [
                     sys.executable,
-                    "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+                    "scripts/run-owned-acceptance-emulator.py",
                     "--avd",
                     f"Helix191_API{api}",
                     "--port",
@@ -381,7 +381,7 @@ def main():
             storage_apk = "core/storage/build/outputs/apk/androidTest/debug/storage-debug-androidTest.apk"
             command = [
                 sys.executable,
-                "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+                "scripts/run-owned-acceptance-emulator.py",
                 "--avd",
                 f"Helix191_API{api}",
                 "--port",

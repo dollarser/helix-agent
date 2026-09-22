@@ -6,6 +6,7 @@
 
 - [import-materials](connectors/import-materials.md)
 - [2026-09-22 文档、审查与遗留内容收敛](development/document-review-convergence-2026-09-22.md)
+- [2026-09-22 脚本入口与实验构建整理](development/repository-hygiene-2026-09-22.md)
 - [2026-09-18 审查复核与修复优先级](development/review-followup-2026-09-18.md)
 - [2026-09-18 授权与 Runtime 修复、分支收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)
 - [HXA-196 平台与核心切片](development/hxa-196-platform-plan-2026-09-18.md)

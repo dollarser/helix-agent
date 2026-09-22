@@ -16,7 +16,7 @@ git diff --check
 
 [任务索引](roadmap.md)链接每个未完成任务的范围、测试与附加要求；完成记录保存实际命令、exit code、测试数、跳过原因、设备与剩余限制。本页不再维护第二张任务状态表。
 
-199/206 的共享实际执行入口为 `scripts/debug/2026-09-21/run-acceptance-matrix.py`，在共享 host slot 下复用 owned runner；`verify-terminal-runtime.py` / `verify-product-journeys.py` 的 `--owned-run` 只验证已有批次证据，`DEVICE_BATCH_PASS` 不表示整项任务通过。完整源码/制品/设备与真机边界见[本轮验收记录](../evidence/development/acceptance-199-206-2026-09-21.md)。
+199/206 的共享实际执行入口为 `scripts/run-acceptance-matrix.py`，在共享 host slot 下复用 owned runner；`verify-terminal-runtime.py` / `verify-product-journeys.py` 的 `--owned-run` 只验证已有批次证据，`DEVICE_BATCH_PASS` 不表示整项任务通过。完整源码/制品/设备与真机边界见[本轮验收记录](../evidence/development/acceptance-199-206-2026-09-21.md)。
 
 ## 产品公共命令 P1/P2/P3
 
@@ -44,7 +44,7 @@ P3（产品UI/构建，200/201也需执行）：
 ./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest
 ./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
 ./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug
-python3 scripts/debug/2026-09-09/run-owned-emulator.py --help
+python3 scripts/run-owned-emulator.py --help
 ```
 
 新增设备类放标准app androidTest source set；涉及Runtime的developer专属子集分开。实现者按runner实际参数保存日期脚本，API29/36分别启动新独占模拟器，不借已有serial；finally只结束自有进程。测试名称不存在/零执行/跳过不能算通过。数据库变更还要运行真实新迁移类；脚本写出最终命令、测试数、exit code与日志路径。
@@ -77,7 +77,7 @@ git diff --check
 ```bash
 python3 scripts/verify-integrated-runtimes.py --avd Helix_API_29 --port 5622 --output build/terminal-api29-fresh
 python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --output build/terminal-api36-fresh
-python3 scripts/debug/2026-09-09/run-owned-emulator.py --help
+python3 scripts/run-owned-emulator.py --help
 ```
 
 前两行执行既有 Runtime 回归（2026-09-20 当前 47 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。实现者按 help 的实际参数为本 HXA 新类保存启动脚本到 `scripts/debug/YYYY-MM-DD/`，使用 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`。每次新 output、未占用端口与新建独占模拟器进程；禁止借用现存 serial，finally 只清理自有进程。AVD 名/端口不适用时按本机状态显式替换并记录。
