@@ -1238,4 +1238,15 @@
     <string name="context_materialization_limit">Conversation content exceeds the on-device preparation limit. Start a new conversation with the necessary references; the original history is preserved.</string>
     <string name="context_segment_limit">A complete history or tool step is too large to summarize within the current limits. Adjust the context/input limit or start a new conversation with references to large results. History is preserved.</string>
     <string name="context_window_fallback">The model has not reported its context window. Estimated token limit: %1$d. You can set the window manually.</string>
+    <string name="chat_submission_rejected_admission_failed">Message submission could not be admitted. Please try again later.</string>
+    <string name="chat_submission_rejected_session_changed">Session changed; message was not sent.</string>
+    <string name="chat_submission_rejected_confirmation_pending">A confirmation is already pending. Please complete or dismiss it first.</string>
+    <string name="chat_submission_rejected_invalid_input">Input is empty or invalid. Please check your message.</string>
+    <string name="chat_submission_rejected_preparing_draft">Draft is being prepared, please wait.</string>
+    <string name="chat_submission_rejected_draft_changed">The draft was updated; please review and resend.</string>
+    <string name="chat_submission_rejected_attachment_prep_failed">Attachment preparation failed. Please re-add the attachment.</string>
+    <string name="chat_submission_rejected_request_id_reused">Request ID already used or conflicted; please resend.</string>
+    <string name="chat_submission_rejected_confirmation_changed">Confirmation expired or target changed; please resend.</string>
+    <string name="chat_submission_rejected_turn_not_accepted">Could not start turn; please try again.</string>
+    <string name="chat_draft_attachment_missing">Some attachments in this draft could not be restored. Please re-attach them.</string>
 </resources>

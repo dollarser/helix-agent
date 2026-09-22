@@ -57,6 +57,47 @@ class ConversationDraftRecoveryDeviceTest {
         }
     }
 
+    @Test fun processRestartPreservesDraftIdentityAndContent() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val phase =
+            androidx.test.platform.app.InstrumentationRegistry
+                .getArguments()
+                .getString("draft.kill.phase") ?: "control"
+        val name = "composer-process-kill.db"
+        val root = File(context.filesDir, "composer-process-kill")
+        val marker = File(context.cacheDir, "draft-kill-session.txt")
+        val testDraft = ChatSubmission("recovered-session", 1L, "req-recovered", "Text to recover across process death")
+
+        if (phase == "control" || phase == "seed") {
+            context.deleteDatabase(name)
+            root.deleteRecursively()
+            root.mkdirs()
+            HelixStorage.open(context, name, root).useStorage { storage ->
+                storage.sessions.create("recovered-session", "Recovered Session", null, null, 1)
+                val initial = ChatSubmission("recovered-session", 0L, "req-init", "Initial text")
+                assertTrue(storage.composerDrafts.save(initial.toDraftEntity(), null))
+                assertTrue(storage.composerDrafts.save(testDraft.toDraftEntity(), 0L))
+            }
+            marker.writeText("recovered-session")
+        }
+
+        if (phase == "control" || phase == "recover") {
+            val sessionId = marker.readText().trim()
+            HelixStorage.open(context, name, root).useStorage { storage ->
+                val draft = storage.composerDrafts.get(sessionId)?.toSubmission()
+                assertEquals(testDraft, draft)
+                assertTrue(storage.messages.listBySession(sessionId).isEmpty())
+                assertTrue(storage.turns.listBySession(sessionId).isEmpty())
+            }
+        }
+
+        if (phase == "control" || phase == "recover") {
+            context.deleteDatabase(name)
+            root.deleteRecursively()
+            marker.delete()
+        }
+    }
+
     private fun HelixStorage.useStorage(block: (HelixStorage) -> Unit) =
         try {
             block(this)

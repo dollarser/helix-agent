@@ -9,6 +9,7 @@ data class ConversationIntents(
     val onBack: () -> Unit,
     val onSend: () -> Unit,
     val onStop: () -> Unit,
+    val onStopTurn: ((String) -> Unit)? = null,
     val onCompact: () -> Unit = {},
     val onFork: ((String) -> Unit)? = null,
     val onDismissBlocked: () -> Unit,

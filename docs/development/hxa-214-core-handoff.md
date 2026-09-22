@@ -29,3 +29,19 @@
 核心切片已完成本地验证：全量主机门禁通过，API29/36 × consumer/developer 应用回归 160/160，独立 Room 迁移 72/72，失败/跳过均为 0。命令、制品 hash 和日志见[验证记录](../evidence/development/hxa-214-core-2026-09-22.md)。
 
 核心回归入口为 `scripts/debug/2026-09-22/accept-hxa214-core.py`，存储入口为同目录 `accept-hxa214-storage.py`。它们与完整 `accept-conversation-interaction.py --scope 214` 不同，不能替代完整 214 交付门禁。基线为 `645fa680`；本轮只提交独立分支，不合并或推送。后续合入新 main 时需按实际差异复核，不把本分支证据直接称为新 main 验收。
+
+## UI 接线与产品交付状态（Antigravity）
+
+UI 执行范围（条目 1～6）已全部实现并完成本地全量验证：
+1. **输入与草稿持久化**：`ChatScreen` 通过 `rememberSaveable` 维护 `composerRevision` 与 `clientRequestId`；会话切换通过 `chatService.loadComposerDraft` 异步加载草稿；输入变化采用 500ms 有界防抖通过 `chatService.saveComposerDraft` 落盘；`Lifecycle.Event.ON_PAUSE` 触发同步冲刷；新建未持久化的草稿会话时，通过 `chatService.materializeDraftSession()` 预建物化，严格遵循 Room v24 外键级联约束。
+2. **发送回执与输入区保留**：移除了发送时立即清空输入的旧逻辑；保留快照并等待 `sendSubmission` Deferred 回执。仅在收到 `Accepted` 且会话及版本与当前快照一致时，清空输入区并调用 `chatService.acknowledgeSubmission`；对 `PendingConfirmation` 与 `Rejected` 保留输入，并由 `ChatSubmissionErrorMapper` 将内部拒收码映射为 3 语友好文案。
+3. **运行中编辑与忙碌门禁**：`ConversationComposer` 中输入框在发送中保持 `enabled = true`，允许就地起草后续内容；发送动作严格受 `isSending` / `isBusy` 门禁约束；保持现有 Goal 流程与 revision 保护。
+4. **附件恢复与安全校验**：草稿加载时通过 `restoreDraftAttachments` 从底层 artifact 重建并通过 `StagedAttachmentProcessor.restoreEntry` 重新校验挂载快照；缺失附件安全保留草稿文本并弹出不可用告警。
+5. **Turn ID 绑定的显式 Stop**：`ConversationSection` 传入 `turn.id`，UI 将停止动作绑定到具体渲染的 Turn ID，向 `ChatService.stop(explicitTurnId)` 发起取消；`ConversationComposer` 中的停止按钮在 `TurnState.CANCELLING` 时置灰禁用。
+6. **产品测试与验收 Runner**：
+   - 新增 `ChatSubmissionReceiptDeviceTest`（5 用例）：拒绝保留、接收清空与 CAS 确认、会话切换隔离、旧回执隔离、幂等去重。
+   - 新增 `ConversationStopConsistencyDeviceTest`（2 用例）：显式 turn ID 停止及 Tasks 联动取消一致性、过期 turn ID 停止隔离。
+   - 补充 `ConversationDraftRecoveryDeviceTest`：`processRestartPreservesDraftIdentityAndContent`（持久化草稿进程重建恢复验证）。
+   - 更新 `ConversationComposerDeviceTest`：验证发送中输入框可编辑。
+   - 新增 `scripts/accept-conversation-interaction.py --scope 214` 自动化验收脚本（覆盖 11 类 56 个设备测试方法）。
+

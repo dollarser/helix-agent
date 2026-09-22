@@ -78,7 +78,8 @@ class ConversationComposerDeviceTest {
             sending.value = true
         }
         assertFits("chat-stop")
-        listOf("chat-input", "chat-attach", "chat-voice").forEach {
+        compose.onNodeWithTag("chat-input").assertIsEnabled()
+        listOf("chat-attach", "chat-voice").forEach {
             compose.onNodeWithTag(it).assertIsNotEnabled()
         }
         compose.onNodeWithTag("chat-send").assertDoesNotExist()

@@ -24,6 +24,7 @@ import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.TurnState
 
 @Composable
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
@@ -44,6 +45,7 @@ internal fun ConversationComposer(
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
     reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
+    turnState: TurnState? = null,
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         ComposerToolbar(mode, onMode, reasoning, reasoningSupported, onReasoning, isSending, {
@@ -64,7 +66,7 @@ internal fun ConversationComposer(
                 onValueChange = onInput,
                 modifier = Modifier.weight(1f).testTag("chat-input"),
                 placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
-                enabled = !isSending,
+                enabled = true,
                 trailingIcon = {
                     IconButton(actions.onAttach, enabled = !isSending, modifier = Modifier.testTag("chat-attach")) {
                         Icon(
@@ -81,9 +83,11 @@ internal fun ConversationComposer(
                     ),
                 maxLines = 5,
             )
+            val stopEnabled = turnState != TurnState.CANCELLING
+            val sendEnabled = input.isNotBlank() || (!goalMode && hasAttachments)
             IconButton(
                 onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = isSending || input.isNotBlank() || (!goalMode && hasAttachments),
+                enabled = if (isSending) stopEnabled else sendEnabled,
                 modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
             ) {
                 Icon(

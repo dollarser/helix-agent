@@ -400,6 +400,7 @@ internal fun ConversationSection(
             reasoningSupported = screen.badge?.reasoningSupported == true,
             reasoningOptions = screen.badge?.reasoningEfforts.orEmpty(),
             onReasoning = intents.onSetReasoning,
+            turnState = screen.activeTurn?.state,
             actions =
                 ComposerActions(
                     onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
@@ -416,7 +417,14 @@ internal fun ConversationSection(
                         }
                     },
                     onSend = intents.onSend,
-                    onStop = intents.onStop,
+                    onStop = {
+                        val turnId = screen.activeTurn?.id
+                        if (turnId != null && intents.onStopTurn != null) {
+                            intents.onStopTurn.invoke(turnId)
+                        } else {
+                            intents.onStop()
+                        }
+                    },
                 ),
         )
     }

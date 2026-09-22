@@ -1405,6 +1405,47 @@ class ChatService(
             storage.composerDrafts.get(sessionId)?.toSubmission()
         }
 
+    /** Materializes a transient draft session so it exists in storage before saving composer drafts. */
+    suspend fun materializeDraftSession(): String? =
+        withContext(workScope.coroutineContext) {
+            val draft = sessionDraft ?: return@withContext openSessionId
+            val id = draft.session.id
+            val attachments = saveSessionDraft("") ?: return@withContext null
+            attachments.forEach { stageAttachmentNow(it.uri) }
+            id
+        }
+
+    /**
+     * Restores staged attachments from persisted artifacts for a recovered composer draft.
+     * Reconstructs and re-verifies staged snapshots; returns the list of missing/unverifiable artifact IDs.
+     */
+    suspend fun restoreDraftAttachments(attachmentIds: List<String>): List<String> =
+        withContext(Dispatchers.IO) {
+            val sessionId = openSessionId ?: return@withContext attachmentIds
+            val missing = mutableListOf<String>()
+            val restored = mutableListOf<StagedAttachmentEntry>()
+            for (id in attachmentIds) {
+                val entry = stagingProcessor.restoreEntry(id, sessionId)
+                if (entry != null) {
+                    restored.add(entry)
+                } else {
+                    missing.add(id)
+                }
+            }
+            synchronized(stagedLock) {
+                if (openSessionId == sessionId) {
+                    stagedAttachments = restored
+                }
+            }
+            refreshScreen()
+            missing
+        }
+
+    fun currentStagedAttachmentIds(): List<String> =
+        synchronized(stagedLock) {
+            stagedAttachments.map { it.artifactId }
+        }
+
     /** CAS acknowledgement: an old receipt cannot clear an edited draft or another session. */
     suspend fun acknowledgeSubmission(receipt: ChatSubmissionReceipt): Boolean =
         withContext(Dispatchers.IO) {
@@ -2105,9 +2146,13 @@ class ChatService(
         workScope.launch { refreshTaskDashboards() }
     }
 
-    fun stop() {
-        val turnId = _screen.value.activeTurn?.id ?: return
+    fun stop(explicitTurnId: String? = null) {
+        val turnId = explicitTurnId ?: _screen.value.activeTurn?.id ?: return
         workScope.launch { stopTurn(turnId) }
+    }
+
+    fun showBlockedReason(reason: String) {
+        setBlocked(reason)
     }
 
     fun inspectInterruptedSubscription(

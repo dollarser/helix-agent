@@ -122,6 +122,63 @@ internal class StagedAttachmentProcessor(
         )
     }
 
+    /** Reconstructs and re-verifies a staged snapshot from persisted artifact facts. */
+    @Suppress("ReturnCount")
+    fun restoreEntry(
+        artifactId: String,
+        sessionId: String,
+    ): StagedAttachmentEntry? {
+        val artifact =
+            try {
+                storage.artifacts.resolve(artifactId)
+            } catch (_: Exception) {
+                return null
+            }
+        if (artifact.sessionId != sessionId) return null
+        val scopePath =
+            try {
+                FileScopePath.fromModelReference(artifact.relativePath)
+            } catch (_: Exception) {
+                return null
+            }
+        val realPath =
+            try {
+                attachmentStaging.resolveWorkspacePath(scopePath)
+            } catch (_: Exception) {
+                return null
+            }
+        val file = realPath.toFile()
+        if (!file.isFile || file.length() != artifact.size ||
+            com.helix.core.storage.content.FileContentStore
+                .sha256Hex(file) != artifact.sha256
+        ) {
+            return null
+        }
+        val isImage = artifact.mediaType.startsWith("image/")
+        val normalized =
+            if (isImage) {
+                normalizeStagedImage(realPath, scopePath, sessionId, artifact.mediaType)
+            } else {
+                null
+            }
+        return StagedAttachmentEntry(
+            sessionId = sessionId,
+            artifactId = artifactId,
+            fileName = realPath.fileName.toString(),
+            sizeBytes = artifact.size,
+            boundSha256 = artifact.sha256,
+            relativePath = scopePath.relativePath,
+            file = realPath,
+            normalizedArtifactId = normalized?.id,
+            normalizedSha256 = normalized?.sha256,
+            normalizedFile = normalized?.file,
+            normalizedWidth = normalized?.width ?: 0,
+            normalizedHeight = normalized?.height ?: 0,
+            normalizedMediaType = normalized?.mediaType,
+            imageSendError = normalized?.failureReason,
+        )
+    }
+
     /** The registered facts of one successfully normalized staged image (all nulls + a reason on failure). */
     private class NormalizedStagedImage(
         val id: String?,

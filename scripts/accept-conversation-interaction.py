@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Run conversation interaction product acceptance (scope 214) on four owned API/flavor instances.
+
+Invoke under with-host-slot after debug app/test APK assembly.
+"""
+import argparse
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+from owned_acceptance import collect_owned
+
+spec = importlib.util.spec_from_file_location(
+    "acceptance_matrix",
+    ROOT / "scripts/debug/2026-09-21/run-acceptance-matrix.py",
+)
+matrix = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(matrix)
+
+SCOPES = {
+    "214": [
+        "com.helix.app.chat.ChatSubmissionReceiptDeviceTest",
+        "com.helix.app.chat.ConversationStopConsistencyDeviceTest",
+        "com.helix.app.chat.ConversationDraftRecoveryDeviceTest",
+        "com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest",
+        "com.helix.app.ui.ChatStopProgressDeviceTest",
+        "com.helix.app.ui.ConversationComposerDeviceTest",
+        "com.helix.app.ui.TasksDashboardDeviceTest",
+        "com.helix.app.chat.GoalRunCoordinatorDeviceTest",
+        "com.helix.app.chat.GoalUsageReservationsDeviceTest",
+        "com.helix.app.chat.GoalTurnBindingDeviceTest",
+        "com.helix.app.ApprovalFlowDeviceTest",
+    ],
+}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scope", required=True, choices=list(SCOPES.keys()))
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--api", type=int, choices=(29, 36), action="append")
+    parser.add_argument("--flavor", choices=("consumer", "developer"), action="append")
+    args = parser.parse_args()
+
+    args.output.mkdir(parents=True, exist_ok=False)
+    classes = SCOPES[args.scope]
+    outcomes = []
+    port = 5740
+    for flavor in args.flavor or ("consumer", "developer"):
+        for api in args.api or (29, 36):
+            label = f"{flavor}-api{api}"
+            expected, sources = matrix.methods_for(classes, flavor)
+            (args.output / f"{label}-expected.json").write_text(
+                json.dumps({"methods": expected, "sources": sources}, indent=2)
+            )
+            target = args.output / label
+            suffix = ".developer" if flavor == "developer" else ""
+            command = [
+                sys.executable,
+                "scripts/debug/2026-09-18/run-owned-emulator-207.py",
+                "--avd",
+                f"Helix191_API{api}",
+                "--port",
+                str(port),
+                "--memory-mb",
+                "4096",
+                "--cores",
+                "4",
+                "--apk",
+                f"app/build/outputs/apk/{flavor}/debug/app-{flavor}-debug.apk",
+                "--test-apk",
+                f"app/build/outputs/apk/androidTest/{flavor}/debug/app-{flavor}-debug-androidTest.apk",
+                "--runner",
+                f"com.helix.agent{suffix}.test/com.helix.app.HelixAndroidJUnitRunner",
+                "--classes",
+                ",".join(classes),
+                "--output",
+                str(target),
+                "--timeout",
+                "1200",
+            ]
+            print(f"Starting {label}: {len(expected)} methods across {len(classes)} classes", flush=True)
+            with (args.output / f"{label}.log").open("w") as log:
+                result = subprocess.run(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+            report = collect_owned(target, expected) if result.returncode == 0 else {"exit": result.returncode}
+            (args.output / f"{label}-report.json").write_text(json.dumps(report, indent=2))
+            outcomes.append(
+                {
+                    "batch": label,
+                    "exit": result.returncode,
+                    "verdict": report.get("verdict"),
+                    "counts": report.get("counts"),
+                }
+            )
+            (args.output / "batches.json").write_text(json.dumps(outcomes, indent=2))
+            print(outcomes[-1], flush=True)
+            port += 2
+            if result.returncode or report.get("verdict") != "DEVICE_BATCH_PASS":
+                return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
