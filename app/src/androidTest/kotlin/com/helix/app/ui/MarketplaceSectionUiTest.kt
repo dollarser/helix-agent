@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -69,27 +71,32 @@ class MarketplaceSectionUiTest {
             val expectedTitle = if (language == "zh-CN") "扩展市场" else "Marketplace"
             val expectedSkillFilter = if (language == "zh-CN") "技能" else "Skills"
             compose.onNodeWithText(expectedTitle).assertIsDisplayed()
-            compose.onNodeWithText(expectedSkillFilter).assertIsDisplayed()
+            compose.onNodeWithTag("marketplace-filter-skill").assertTextContains(expectedSkillFilter)
             compose.onNodeWithTag("marketplace-section").assertIsDisplayed()
             compose.onNodeWithTag("marketplace-search-input").assertIsDisplayed()
 
-            compose.onNodeWithTag("marketplace-filter-skill").performClick()
+            compose
+                .onNodeWithTag("marketplace-filter-skill")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
             compose.waitForIdle()
+            compose.onNodeWithTag("marketplace-filter-skill").assertIsSelected()
             compose.onNodeWithTag("marketplace-item-code-review").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("marketplace-item-gitlab-workspace").assertDoesNotExist()
 
-            compose.onNodeWithTag("marketplace-filter-all").performClick()
+            compose.onNodeWithTag("marketplace-filter-all").performScrollTo().performClick()
             compose.waitForIdle()
-            compose.onNodeWithTag("marketplace-search-input").performTextInput("gitlab")
+            compose.onNodeWithTag("marketplace-search-input").performScrollTo().performTextInput("gitlab")
             compose.waitForIdle()
-            compose.onNodeWithTag("marketplace-item-gitlab-workspace").assertIsDisplayed()
+            compose.onNodeWithTag("marketplace-item-gitlab-workspace").performScrollTo().assertIsDisplayed()
             compose.onNodeWithTag("marketplace-item-cloudflare-docs").assertDoesNotExist()
 
-            compose.onNodeWithTag("marketplace-search-clear", useUnmergedTree = true).performClick()
+            compose.onNodeWithTag("marketplace-search-clear", useUnmergedTree = true).performScrollTo().performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("marketplace-expand-cloudflare-docs").performScrollTo().performClick()
             compose.waitForIdle()
-            compose.onNodeWithTag("marketplace-install-cloudflare-docs").assertIsDisplayed()
+            compose.onNodeWithTag("marketplace-install-cloudflare-docs").performScrollTo().assertIsDisplayed()
         } finally {
             service.uninstall(cloudflare)
         }

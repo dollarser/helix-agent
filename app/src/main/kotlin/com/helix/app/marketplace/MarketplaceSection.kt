@@ -211,7 +211,7 @@ private fun MarketplaceFilterRow(
     selectedFilter: MarketplaceItemType?,
     onSelectFilter: (MarketplaceItemType?) -> Unit,
 ) {
-    Row(
+    FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
