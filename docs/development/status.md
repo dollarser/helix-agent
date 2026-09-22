@@ -22,6 +22,12 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 会话搜索切片已整合：标题/消息正文有界只读搜索、归档命中、清空与打开结果；HXA-191 已完成主题与搜索最终四象限，见[完成记录](../completion-records/HXA-191.md)。193 已补 API29/36 实际旧版→新版 debug APK 覆盖安装，会话/配置/结果保留及旧锚不激活通过，见[覆盖升级补验](../evidence/development/apk-replacement-upgrade-2026-09-18.md)；默认入口已改用固定归档并通过双 API Runtime 与完整主机门禁，见[193完成记录](../completion-records/HXA-193.md)；显式旧包镜像重建仍失败，不作为通过项。前次整合修正及验证见[整合记录](../evidence/development/integration-193-191-2026-09-18.md)。
 
+## Planned：对话交互优化
+
+2026-09-22 所有者授权将调研收敛为需求，尚未执行代码实现。新增 [214](tasks/HXA-214.md)（P0发送回执/草稿/停止修复）→ [215](tasks/HXA-215.md)（P1编辑分支重发）→ [216](tasks/HXA-216.md)（P1统一Queue/Steer）→ [217](tasks/HXA-217.md)（P2请求清单/JSONL）。默认普通发送排队、显式选择转向，发送本身不自动取消Goal；对应三份 proposed 见[Agent ADR入口](../adr/agent/README.md)。215～217实施前接受对应提案；008接受时同步修订Goal新输入条款。214可先按既有契约修复，不偷跑队列。
+
+新增4项设计任务独立于历史12项未闭合义务；不重复开发已交付213/211，不关闭外部设备、账号和发行缺口。文档门禁只证明规格一致，不能当作发送/编辑/转向已上线。当前仍在独立fork分支，未合main、未推送。
+
 ## In progress
 
 HXA-126 已由所有者授权修复并整合预注册 public-client OAuth 切片；合并前缺陷与当前验证见[修复记录](../bug-fixes/2026-09-21-connector-oauth-merge.md)。保留两家真实服务与动态注册未完成范围，不提前关闭任务。
@@ -40,7 +46,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 **207 与 191 的具名提交已合入 main。** 207 的扩展旅程交付见[完成记录](../completion-records/HXA-207.md)，fixture 与 consumer 条件跳过仍按原边界保留。191 已完成 API29 真实深色、订阅内容/系统栏及对话框验收，见[完成记录](../completion-records/HXA-191.md)；[分支交付陈述](../evidence/development/hxa-191-delivery-review-2026-09-18.md)保留为证据，不作为整体完成记录。历史定向矩阵见[整合验证](../evidence/development/merged-191-207-runtime-2026-09-18.md)；206 后续已获实施授权并完成，不再受当时“仅规划”限制。
 
-本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，HXA-207 已交付，191 已交付。12 项未闭合义务分为：3 项收尾验收、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
+本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，HXA-207 已交付，191 已交付。该次历史复核的12 项未闭合义务分为：3 项收尾验收、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
 
