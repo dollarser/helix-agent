@@ -16,7 +16,7 @@
 
 - proposed [ADR-AGENT-008](008-user-input-delivery.md)：统一发送回执、停止、Queue/Steer 与 Goal 输入调度；对应 HXA-214/216。
 - proposed [ADR-AGENT-009](009-edit-and-resend.md)：编辑用户消息并创建新分支重发；对应 HXA-215。
-- proposed [ADR-AGENT-010](010-request-context-manifest.md)：有界请求来源清单与 JSONL；对应 HXA-217。
+- proposed [ADR-AGENT-010](010-request-context-manifest.md)：轻量请求来源记录与 JSONL；请求时保存最小依据、读取时解析引用，详情页与详细诊断延期；对应 HXA-217。
 
 本轮仅设计需求；接受008时须同步修改 Goal 与 Turn 的有效条款，不能把研究建议视为已生效契约。
 
