@@ -131,6 +131,12 @@ def open_session(title):
 def enter_and_send(text):
     field = wait_node(lambda node: node.get("class") == "android.widget.EditText", "composer")
     tap(field)
+    # ADB key injection can precede Compose focus/IME attachment after the tap.
+    # Wait for the observed editor focus; keep the exact text assertion below.
+    wait_node(
+        lambda node: node.get("class") == "android.widget.EditText" and node.get("focused") == "true",
+        "composer-focused",
+    )
     adb("shell", "input", "text", text)
     wait_node(lambda node: node.get("class") == "android.widget.EditText" and node.get("text") == text, "typed")
     send = wait_node(lambda node: (node.get("content-desc") or "") in ("发送", "Send"), "send")

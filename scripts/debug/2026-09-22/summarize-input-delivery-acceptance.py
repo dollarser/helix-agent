@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-def summarize(root: Path) -> dict:
+def summarize(roots: list[Path]) -> dict:
     scenarios = ("pending", "appended", "http-in-flight", "cancelling")
     labels = []
     for flavor in ("consumer", "developer"):
@@ -14,14 +14,16 @@ def summarize(root: Path) -> dict:
             labels.append(f"{flavor}-api{api}-regression")
             labels.extend(f"{flavor}-api{api}-216-{scenario}-recovery" for scenario in scenarios)
     labels.extend(f"storage-api{api}" for api in (29, 36))
-    batches = json.loads((root / "batches.json").read_text())
-    if len(batches) != len(labels):
-        raise ValueError("Matrix is incomplete")
     totals = {"regression": 0, "recovery_seed": 0, "recovery_verify": 0, "storage": 0}
     journeys = []
     artifacts = {}
     reports = {}
     for label in labels:
+        # A later explicitly supplied run replaces a prior result, including failures.
+        # Never fall back from a failing latest report to an older passing report.
+        root = next((item for item in reversed(roots) if (item / f"{label}-report.json").exists()), None)
+        if root is None:
+            raise ValueError(f"Matrix is incomplete: {label}")
         report_path = root / f"{label}-report.json"
         report = json.loads(report_path.read_text())
         if report["verdict"] != "DEVICE_BATCH_PASS":
@@ -55,15 +57,15 @@ def summarize(root: Path) -> dict:
             journeys.append({"batch": label, "beforePid": normal["beforePid"], "afterPid": normal["afterPid"]})
         else:
             totals["storage" if label.startswith("storage-") else "regression"] += counts["passed"]
-        reports[label] = hashlib.sha256(report_path.read_bytes()).hexdigest()
+        reports[label] = {"path": str(report_path), "sha256": hashlib.sha256(report_path.read_bytes()).hexdigest()}
     return {"scope": "HXA-216 device matrix only; host and external gates are separate",
             "counts": totals, "totalPassed": sum(totals.values()), "journeys": journeys,
-            "artifacts": artifacts, "reportSha256": reports}
+            "artifacts": artifacts, "reports": reports}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("matrix", type=Path)
+    parser.add_argument("matrix", type=Path, nargs="+", help="Original run followed by explicit replacement runs")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     result = summarize(args.matrix)
