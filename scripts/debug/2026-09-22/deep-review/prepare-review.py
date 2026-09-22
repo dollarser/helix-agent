@@ -29,10 +29,10 @@ baseline.write_text(json.dumps(snapshot, indent=2) + "\n")
 (out / "head.txt").write_bytes(subprocess.check_output(["git", "rev-parse", "HEAD"]))
 copies = {
     "app/src/main/kotlin/com/helix/app/chat/SessionTurnAdmission.kt": "agent/SessionTurnAdmission.kt",
-    str(base.relative_to(root) / "AdmissionReviewProbe.kt"): "agent/AdmissionReviewProbe.kt",
-    str(base.relative_to(root) / "SchedulerReviewProbe.kt"): "framework/SchedulerReviewProbe.kt",
-    str(base.relative_to(root) / "StorageReviewProbe.kt"): "storage/StorageReviewProbe.kt",
-    str(base.relative_to(root) / "ProviderReviewProbe.kt"): "provider/ProviderReviewProbe.kt",
+    str(base.relative_to(root) / "AdmissionReviewProbe.kt.txt"): "agent/AdmissionReviewProbe.kt",
+    str(base.relative_to(root) / "SchedulerReviewProbe.kt.txt"): "framework/SchedulerReviewProbe.kt",
+    str(base.relative_to(root) / "StorageReviewProbe.kt.txt"): "storage/StorageReviewProbe.kt",
+    str(base.relative_to(root) / "ProviderReviewProbe.kt.txt"): "provider/ProviderReviewProbe.kt",
 }
 for source, target in copies.items():
     if not (root / source).is_file():

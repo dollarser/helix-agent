@@ -14,3 +14,5 @@
 - `architecture-scan.py`：清点显式模块依赖和 app 顶层包 import 强连通分量；不是 Gradle variant 解析或运行调用图。
 
 运行命令、结果与未覆盖边界统一记录于深度报告。重新检验另一源码版本时，应使用新的独立输出目录/快照；不要覆盖原始基线伪装成“无代码变化”。
+
+Probe sources are stored as `.kt.txt` diagnostic templates, outside normal production source scanning. `prepare-review.py` copies them byte-for-byte to `.kt` files in ignored build/ for the explicit probe test tasks; no diagnostic test is removed.
