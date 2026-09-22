@@ -2,7 +2,7 @@
 
 更新：2026-09-22。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
 
-HXA-215最新消息会话内修订已在独立 `codex/hxa-215-revision` 完成：全量主机门禁、四象限应用回归/普通进程恢复及双API存储共424项设备JUnit通过，另4次普通主进程编辑/保存/杀PID/重启旅程通过。见[完成记录](../completion-records/HXA-215.md)。未合入main或推送；不代表214普通composer接线完成。
+HXA-215最新消息会话内修订已在独立 `codex/hxa-215-revision` 完成：全量主机门禁、四象限应用回归/普通进程恢复及双API存储共424项设备JUnit通过，另4次普通主进程编辑/保存/杀PID/重启旅程通过。见[完成记录](../completion-records/HXA-215.md)。随后已与214联合完成本地验收，记录同步到216开发分支；main整合与推送仍独立记账。
 
 HXA-213 会话 fork 已在独立 `codex/session-fork` 分支交付：消息旁“从这里新建分支”，保留完整前缀、适用压缩摘要与附件引用，使用新会话权限默认值，不复制执行/Goal/审批，不回滚文件。完整主机门禁及 API29/36 × 双 flavor 定向设备 **244/244** 通过，见[完成记录](../completion-records/HXA-213.md)。已随压缩补强及 marketplace 一起整合到本地 main（8bd2d177）；本轮验证见下方收敛记录，未推送。
 
@@ -54,7 +54,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 ## Next task
 
-[HXA-216](tasks/HXA-216.md) 已获所有者授权，在独立 `codex/hxa-216-input-delivery` 分支推进输入交付设计与核心实现，并同步收敛 ADR-AGENT-008 和 Goal 条款。其后顺序为 **129 → 217**：129先接受 ADR-CONNECTORS-003，217按轻量来源记录范围执行。214/215交付及整合不变式见[完成记录](../completion-records/HXA-214.md)与[交接](hxa-214-core-handoff.md)；具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。
+[HXA-216](tasks/HXA-216.md) 已获所有者授权，ADR-AGENT-008 已接受，独立 `codex/hxa-216-input-delivery` 分支已实现 Queue/Steer、Goal调度、输入面板及恢复，完整主机与设备联合门禁进行中，尚未关闭任务。其后顺序为 **129 → 217**：129已补源码审查和实施准备，先接受 ADR-CONNECTORS-003；217按轻量来源记录范围执行。214/215交付及整合不变式见[完成记录](../completion-records/HXA-214.md)与[交接](hxa-214-core-handoff.md)；具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。
 
 ## 已整合能力的历史验收边界
 
