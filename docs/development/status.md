@@ -20,11 +20,11 @@
 - [HXA-196](tasks/HXA-196.md)：后台 Job 与结果回收已有实现；普通 Act 主进程死亡、缺失记录对账与预算释放已有证据。2026-09-20 所有者豁免当次 HOME/锁屏/Doze 真机验收，不计为通过，也不替代其他任务的物理验收。
 - [HXA-199](tasks/HXA-199.md)：双 API、实际 30 分钟脱离/默认两小时租期、双 shell 恢复及覆盖升级已验，剩物理专项与收口。
 
-结构治理见[结构审查](../research/project-structure-and-engine-review.md)。[深度复审](../research/execution-engine-deep-review-2026-09-22.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束仍需安排修复，R4/R8按收窄后的证据处理。本轮仅评估，未实施这些修复。
+结构治理见[结构审查](../research/project-structure-and-engine-review.md)。[深度复审](../research/execution-engine-deep-review-2026-09-22.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合（完整主机门禁及最终四象限80项通过），见[修复记录](../bug-fixes/2026-09-22-engine-browser-convergence.md)。R4仍需实际竞态证据，R8完整终局通知故障注入作为P2后续项。
 
 ## Next task
 
-先收敛已复核的引擎维护项（R2/R3，R6故障注入及修复，R7可并行），再按[工作计划](next-work-plan.md)推进 **129（接受设计后）→ 217（接受设计后）**。不因文档评估将待修项标记完成。
+本地引擎及浏览器已整合验收；后续按[工作计划](next-work-plan.md)推进 **129（接受设计后）→ 217（接受设计后）**。不因文档评估将待修项标记完成。
 
 - 129 先接受 ADR-CONNECTORS-003，再做安全替换、最小安装归属及会话独立启停；市场当前先卸载再安装的成功路径不证明失败保留。
 - 217 先接受 ADR-AGENT-010，再补 Kotlin/Room 成本、来源记录和 JSONL 兼容实现；主机格式预评估不替代 Android 或生产验收。

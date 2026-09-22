@@ -16,3 +16,5 @@
 运行命令、结果与未覆盖边界统一记录于深度报告。重新检验另一源码版本时，应使用新的独立输出目录/快照；不要覆盖原始基线伪装成“无代码变化”。
 
 Probe sources are stored as `.kt.txt` diagnostic templates, outside normal production source scanning. `prepare-review.py` copies them byte-for-byte to `.kt` files in ignored build/ for the explicit probe test tasks; no diagnostic test is removed.
+
+After the engine convergence fixes, the R2/R3/R7 fault-reproduction assertions describe the historical `9a9b25dd` baseline, not current acceptance. Use the production ToolScheduler/Provider tests and ToolSettlementRecoveryDeviceTest for the fixed behavior; do not interpret a historical diagnostic assertion failure as a product regression.
