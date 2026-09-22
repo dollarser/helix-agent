@@ -16,6 +16,47 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConversationDraftBufferTest {
+    @Test fun changingDeliveryKeepsTextAndCreatesANewPersistedIntent() =
+        runBlocking {
+            val fixture = Fixture()
+            val buffer = fixture.open()
+            buffer.edit("follow up")
+            assertTrue(fixture.save(buffer))
+            val original = requireNotNull(buffer.saved)
+            buffer.delivery(com.helix.core.storage.repository.SessionInputDelivery.STEER, "active-turn")
+            assertNotEquals(original.clientRequestId, buffer.value.clientRequestId)
+            assertEquals("follow up", buffer.value.text)
+            assertTrue(buffer.dirty)
+            assertTrue(fixture.save(buffer))
+            assertEquals("active-turn", fixture.disk?.expectedTurnId)
+            assertEquals(com.helix.core.storage.repository.SessionInputDelivery.STEER, fixture.disk?.delivery)
+        }
+
+    @Test fun queuedReceiptClearsOnlyItsDraftAndResetsDeliveryForNextInput() =
+        runBlocking {
+            val fixture = Fixture()
+            val buffer = fixture.open()
+            buffer.edit("adjust")
+            buffer.delivery(com.helix.core.storage.repository.SessionInputDelivery.STEER, "turn")
+            assertTrue(fixture.save(buffer))
+            val submitted = requireNotNull(buffer.saved)
+            buffer.accepted(
+                ChatSubmissionReceipt(
+                    submitted,
+                    ChatSubmissionOutcome.Enqueued(submitted.clientRequestId),
+                ),
+                {
+                    fixture.disk = null
+                    true
+                },
+                { fixture.disk },
+            )
+            assertEquals("", buffer.value.text)
+            assertEquals(com.helix.core.storage.repository.SessionInputDelivery.QUEUE, buffer.value.delivery)
+            assertNull(buffer.value.expectedTurnId)
+            assertNull(buffer.saved)
+        }
+
     @Test fun persistenceExceptionsKeepTheDraftAndCanBeRetried() =
         runBlocking {
             val fixture = Fixture()

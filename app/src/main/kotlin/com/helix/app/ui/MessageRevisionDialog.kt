@@ -130,7 +130,7 @@ internal fun MessageRevisionDialog(
                                 Unit
                             }
 
-                            is ChatSubmissionOutcome.Rejected -> {
+                            is ChatSubmissionOutcome.Rejected, is ChatSubmissionOutcome.Enqueued -> {
                                 error = R.string.message_revision_failed
                             }
                         }

@@ -5,5 +5,5 @@ internal data class ComposerAvailability(
     val delivery: Boolean = true,
     val attachments: Boolean = true,
 ) {
-    fun canAttach(isSending: Boolean): Boolean = !isSending && input && attachments
+    fun canAttach(): Boolean = input && attachments
 }

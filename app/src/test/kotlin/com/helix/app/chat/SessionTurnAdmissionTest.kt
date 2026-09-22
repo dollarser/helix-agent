@@ -1,6 +1,13 @@
 package com.helix.app.chat
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -15,6 +22,38 @@ import org.junit.Test
  * exhaustive per-session concurrency/cancel end-to-end behavior remains in the instrumented column.
  */
 class SessionTurnAdmissionTest {
+    @Test fun cancellationRetainsAdmissionUntilNonCancellableSettlementFinishes() =
+        runBlocking {
+            val admission = SessionTurnAdmission()
+            val settling = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val job =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        withContext(NonCancellable) {
+                            settling.complete(Unit)
+                            release.await()
+                        }
+                    }
+                }
+            admission.register("session", job, "turn")
+            try {
+                job.cancel()
+                settling.await()
+                assertFalse(job.isActive)
+                assertFalse(job.isCompleted)
+                assertTrue(admission.hasActive("session"))
+                assertEquals("turn", admission.activeTurn("session")?.turnId)
+                assertEquals(1, admission.activeTurns().size)
+            } finally {
+                release.complete(Unit)
+                job.join()
+            }
+            assertFalse(admission.hasActive("session"))
+        }
+
     @Test
     fun admitsFirstTurnAndKeepsItActiveForThatSession() {
         val admission = SessionTurnAdmission()

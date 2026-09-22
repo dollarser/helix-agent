@@ -52,6 +52,17 @@ internal class ConversationDraftBuffer(
         value = value.copy(text = text, clientRequestId = newId())
     }
 
+    fun delivery(
+        delivery: com.helix.core.storage.repository.SessionInputDelivery,
+        expectedTurnId: String?,
+    ) {
+        if (sending || revisionMessageId != null) return
+        require((delivery == com.helix.core.storage.repository.SessionInputDelivery.STEER) == (expectedTurnId != null))
+        if (value.delivery == delivery && value.expectedTurnId == expectedTurnId) return
+        edited = true
+        value = value.copy(delivery = delivery, expectedTurnId = expectedTurnId, clientRequestId = newId())
+    }
+
     fun attachments(ids: List<String>) {
         if (!attachmentsReady || sending || revisionMessageId != null) return
         val retained =
@@ -209,7 +220,8 @@ internal class ConversationDraftBuffer(
             clientRequestId == other.clientRequestId &&
             text == other.text &&
             attachmentIds == other.attachmentIds &&
-            revisedMessageId == other.revisedMessageId
+            revisedMessageId == other.revisedMessageId &&
+            delivery == other.delivery && expectedTurnId == other.expectedTurnId
 
     companion object {
         val Saver =
@@ -238,6 +250,8 @@ internal class ConversationDraftBuffer(
                         value.text,
                         Json.encodeToString(value.attachmentIds),
                         value.revisedMessageId.orEmpty(),
+                        value.delivery.name,
+                        value.expectedTurnId.orEmpty(),
                     ),
                 )
             }
@@ -252,6 +266,9 @@ internal class ConversationDraftBuffer(
                 parts[3],
                 Json.decodeFromString(parts[4]),
                 parts[5].ifEmpty { null },
+                com.helix.core.storage.repository.SessionInputDelivery
+                    .valueOf(parts.getOrNull(6) ?: "QUEUE"),
+                parts.getOrNull(7)?.ifEmpty { null },
             )
         }
     }

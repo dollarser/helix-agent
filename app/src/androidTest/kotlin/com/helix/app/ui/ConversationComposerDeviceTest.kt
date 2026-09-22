@@ -77,12 +77,13 @@ class ConversationComposerDeviceTest {
             assertEquals(1, sends)
             sending.value = true
         }
-        assertFits("chat-stop")
+        assertFits("chat-stop", "chat-send", "chat-input")
         compose.onNodeWithTag("chat-input").assertIsEnabled()
         listOf("chat-attach", "chat-voice").forEach {
-            compose.onNodeWithTag(it).assertIsNotEnabled()
+            compose.onNodeWithTag(it).assertIsEnabled()
         }
-        compose.onNodeWithTag("chat-send").assertDoesNotExist()
+        compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(2, sends) }
         compose.onNodeWithTag("chat-stop").performClick()
         compose.runOnIdle {
             assertEquals(1, stops)
@@ -117,6 +118,28 @@ class ConversationComposerDeviceTest {
         val attach = compose.onNodeWithTag("chat-attach").getUnclippedBoundsInRoot()
         assertTrue("Attachment label should fit one line", attach.bottom - attach.top < 72.dp)
         compose.onNodeWithTag("chat-send").assertIsEnabled()
+    }
+
+    @Test fun attachmentOnlySupplementIsEnabledDuringGoalButNotForNewObjective() {
+        val sending = mutableStateOf(false)
+        var sends = 0
+        compose.setContent {
+            MaterialTheme {
+                ConversationComposer(
+                    "",
+                    {},
+                    sending.value,
+                    true,
+                    ComposerActions({}, {}, { sends++ }, {}),
+                    goalMode = true,
+                )
+            }
+        }
+        compose.onNodeWithTag("chat-send").assertIsNotEnabled()
+        compose.runOnIdle { sending.value = true }
+        compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(1, sends) }
+        compose.onNodeWithTag("chat-stop").assertIsEnabled()
     }
 
     @Test fun reasoningSelectionIsExplicitAndLockedDuringGeneration() {

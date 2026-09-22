@@ -31,6 +31,7 @@ internal class AgentLoop(
     private val strings: (Int, Array<out Any>) -> String,
     private val refreshScreen: () -> Unit,
     private val applyEvent: (com.helix.core.model.ModelEvent, ModelStreamState, String) -> Unit,
+    private val inputDelivery: TurnInputDelivery? = null,
 ) {
     private fun str(
         resId: Int,
@@ -90,8 +91,9 @@ internal class AgentLoop(
      *
      * Every model step gets its own `model_calls` row; every tool call gets its durable
      * outcome through the dispatcher (cancel/recovery invariants — doc 11 section 7).
+     * One loop retains the budget tracker across compaction, tool batches and user steering.
      */
-    @Suppress("ReturnCount", "LongMethod") // One ordered loop owns admission, accounting and durable settlement.
+    @Suppress("ReturnCount", "LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth")
     suspend fun runToolLoop(
         sessionId: String,
         coordinator: TurnCoordinator,
@@ -102,7 +104,8 @@ internal class AgentLoop(
         val turnId = coordinator.id
         val provider = providerService.modelProviderFor(providerId)
         var context = contextAssembler.build(sessionId, retryTurnId, control)
-        val compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
+        var manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
+        var compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
         var toolRounds = 0
         val budgetTracker = TurnBudgetTracker(control.budgets)
         val goalBudget = GoalModelCallBudget(storage, clock)
@@ -112,6 +115,9 @@ internal class AgentLoop(
             goalTimes[turnId]?.checkActive()
             if (turnCancels[turnId]?.isCancelled() == true) {
                 return ModelStreamTerminal(TurnState.CANCELLED, null)
+            }
+            if (!manualCommandPending && appendQueuedSteering(sessionId, coordinator)) {
+                context = contextAssembler.buildBackfill(sessionId, control)
             }
             coordinator.recordDiagnostic(
                 "budget.request",
@@ -157,7 +163,16 @@ internal class AgentLoop(
                 ),
             )
             // The per-request prompt record commits inside collectModelStream, before the wire call.
-            val acc = collectModelStream(coordinator, provider, request, compaction == null, context.prompt)
+            val acc =
+                collectModelStream(
+                    coordinator,
+                    provider,
+                    request,
+                    compaction == null,
+                    context.prompt,
+                    sessionId,
+                    if (compaction == null) context.sourceMessageIds else emptySet(),
+                )
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
             val accountingFailure = admission.finish(acc)
             coordinator.recordDiagnostic(
@@ -166,15 +181,25 @@ internal class AgentLoop(
             )
             accountingFailure?.let { return it }
             if (compaction != null) {
-                compactionRound
-                    .finish(
-                        compaction,
-                        acc,
-                        decision,
-                        coordinator,
-                        idGenerator(),
-                        str(R.string.context_compacted),
-                    )?.let { return it }
+                val finished =
+                    compactionRound
+                        .finish(
+                            compaction,
+                            acc,
+                            decision,
+                            coordinator,
+                            idGenerator(),
+                            str(R.string.context_compacted),
+                        )
+                if (finished != null) {
+                    if (finished.state != TurnState.COMPLETED) return finished
+                    finishResponseOrReturn(sessionId, coordinator, finished)?.let { return it }
+                    context = contextAssembler.buildBackfill(sessionId, control)
+                    manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
+                    // The explicit compaction command has finished; the accepted user input is
+                    // an ordinary request in this same Turn, retaining its budget tracker.
+                    compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
+                }
                 refreshScreen()
                 context = contextAssembler.rebuild(sessionId, retryTurnId, control, context)
             } else {
@@ -195,11 +220,65 @@ internal class AgentLoop(
                     }
 
                     else -> {
-                        return decision
+                        finishResponseOrReturn(sessionId, coordinator, decision)?.let { return it }
+                        context = contextAssembler.buildBackfill(sessionId, control)
                     }
                 }
             }
         }
+    }
+
+    private suspend fun appendQueuedSteering(
+        sessionId: String,
+        coordinator: TurnCoordinator,
+    ): Boolean {
+        var updated = false
+        val delivery = inputDelivery
+        if (delivery != null) {
+            var remaining = 32
+            while (remaining-- > 0) {
+                val input = delivery.prepareSteering(sessionId, coordinator.id) ?: break
+                updated = coordinator.appendSteeringBeforeRequest(input) || updated
+            }
+        }
+        return updated
+    }
+
+    private suspend fun finishResponseOrReturn(
+        sessionId: String,
+        coordinator: TurnCoordinator,
+        decision: ModelStreamTerminal,
+    ): ModelStreamTerminal? =
+        if (inputDelivery == null) {
+            decision
+        } else {
+            when (finishResponse(sessionId, coordinator)) {
+                ResponseInputBoundary.CANCELLED -> {
+                    ModelStreamTerminal(TurnState.CANCELLED, null)
+                }
+
+                ResponseInputBoundary.TERMINAL -> {
+                    decision.copy(state = coordinator.snapshot().phase)
+                }
+
+                else -> {
+                    refreshScreen()
+                    null
+                }
+            }
+        }
+
+    private suspend fun finishResponse(
+        sessionId: String,
+        coordinator: TurnCoordinator,
+    ): ResponseInputBoundary {
+        var boundary: ResponseInputBoundary
+        do {
+            val steering = inputDelivery?.prepareSteering(sessionId, coordinator.id)
+            boundary = coordinator.completeResponseOrContinue(steering, idGenerator())
+            if (boundary == ResponseInputBoundary.RECHECK) kotlinx.coroutines.yield()
+        } while (boundary == ResponseInputBoundary.RECHECK)
+        return boundary
     }
 
     private suspend fun collectModelStream(
@@ -208,12 +287,23 @@ internal class AgentLoop(
         request: ModelRequest,
         publishText: Boolean = true,
         prompt: PromptSnapshot? = null,
+        sessionId: String,
+        sourceMessageIds: Set<String>,
     ): ModelStreamState {
         // Per-request prompt record (research doc section 4.4): commits to THIS model-call row
         // plus its audit event before the wire call; summary calls carry no record.
         coordinator.recordPromptSnapshot(prompt, !publishText)
         val acc = coordinator.beginModelStream(compacting = !publishText)
         goalTimes[coordinator.id]?.checkActive()
+        if (publishText) {
+            coordinator.recordInputRequestStarted(sourceMessageIds)
+            inputDelivery?.requestStarting(
+                sessionId,
+                coordinator.id,
+                coordinator.snapshot().modelCallId,
+                sourceMessageIds,
+            )
+        }
         kotlinx.coroutines.withContext(
             com.helix.app.provider
                 .LocalModelCallContext(coordinator.id, coordinator.snapshot().modelCallId),

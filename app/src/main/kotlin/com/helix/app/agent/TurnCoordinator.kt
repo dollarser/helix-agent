@@ -28,7 +28,17 @@ internal data class TurnStartSpec(
     val clientRequestId: String? = null,
     val inputFingerprint: String? = null,
     val revisedMessageId: String? = null,
+    val inputRevision: Long? = null,
 )
+
+/** Materialized and checked outside the transaction; identity is rechecked before consuming. */
+internal data class TurnSteeringDraft(
+    val input: com.helix.core.storage.repository.SessionInputRecord,
+    val content: String,
+    val attachments: List<MessageAttachmentRepository.Binding>,
+)
+
+internal enum class ResponseInputBoundary { RECHECK, CONTINUED, TERMINAL, CANCELLED }
 
 internal enum class BatchCallResolution {
     PENDING,
@@ -302,6 +312,129 @@ internal class TurnCoordinator private constructor(
         runtime.advanceModelCall(nextModelCallId)
     }
 
+    /** Only WAITING_MODEL is a pre-request input boundary, after the full prior batch settled. */
+    fun appendSteeringBeforeRequest(draft: TurnSteeringDraft): Boolean {
+        require(runtime.snapshot().phase == TurnState.WAITING_MODEL)
+        var appended = false
+        storage.withTransaction {
+            requireNotCancelling()
+            if (currentSteeringMatches(draft)) {
+                appendSteering(draft)
+                appended = true
+            }
+        }
+        return appended
+    }
+
+    /**
+     * Linearizes accepted Steer against a final answer. A newly accepted head not represented by
+     * the caller's checked snapshot requests revalidation; it cannot be lost to a final commit.
+     */
+    fun completeResponseOrContinue(
+        prepared: TurnSteeringDraft?,
+        nextModelCallId: String,
+    ): ResponseInputBoundary {
+        val current = runtime.snapshot()
+        require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
+        require((summaryStream && current.modelCallClosed) || (!summaryStream && !current.modelCallClosed))
+        var boundary = ResponseInputBoundary.TERMINAL
+        var committedTerminal: ModelStreamTerminal? = null
+        storage.withTransaction {
+            val turn = storage.turns.resolve(turnId)
+            val head = storage.sessionInputs.headSteer(sessionId, turnId)
+            val pending = head?.state == com.helix.core.storage.repository.SessionInputState.PENDING
+            if (turn.state == TurnState.CANCELLING.name) {
+                // The host owns stop-reason settlement. Do not preempt its durable error code.
+                boundary = ResponseInputBoundary.CANCELLED
+            } else if (pending) {
+                if (prepared == null || !currentSteeringMatches(prepared)) {
+                    boundary = ResponseInputBoundary.RECHECK
+                } else {
+                    val stream = runtime.currentStream()
+                    if (!current.modelCallClosed && stream.text.isNotBlank()) {
+                        storage.messages.append(
+                            idGenerator(),
+                            sessionId,
+                            turnId,
+                            ModelRole.ASSISTANT.name,
+                            ChatHistoryBuilder.KIND_TEXT,
+                            stream.text,
+                        )
+                    }
+                    if (!current.modelCallClosed) {
+                        storage.modelCalls.update(
+                            storage.modelCalls.resolve(current.modelCallId),
+                            CALL_COMPLETED,
+                            stream.usageJson,
+                            null,
+                        )
+                    }
+                    appendSteering(prepared)
+                    val building =
+                        storage.turns.updateState(
+                            turn,
+                            TurnState.BUILDING_CONTEXT,
+                            current.modelStep + 1,
+                            null,
+                            null,
+                        )
+                    storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
+                    storage.turns.updateState(building, TurnState.WAITING_MODEL, current.modelStep + 1, null, null)
+                    boundary = ResponseInputBoundary.CONTINUED
+                }
+            } else {
+                committedTerminal = persistTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+            }
+        }
+        if (boundary == ResponseInputBoundary.CONTINUED) runtime.closeSummary(nextModelCallId)
+        committedTerminal?.let { runtime.terminalize(it.state) }
+        return boundary
+    }
+
+    private fun currentSteeringMatches(draft: TurnSteeringDraft): Boolean {
+        val current = storage.sessionInputs.headSteer(sessionId, turnId) ?: return false
+        return current.state == com.helix.core.storage.repository.SessionInputState.PENDING &&
+            current.inputId == draft.input.inputId && current.revision == draft.input.revision &&
+            current.configuration == draft.input.configuration && current.expectedTurnId == turnId
+    }
+
+    private fun appendSteering(draft: TurnSteeringDraft) {
+        val message =
+            storage.messages.append(
+                idGenerator(),
+                sessionId,
+                turnId,
+                ModelRole.USER.name,
+                ChatHistoryBuilder.KIND_TEXT,
+                draft.content,
+            )
+        if (draft.attachments.isNotEmpty()) storage.messageAttachments.bind(message.id, draft.attachments)
+        check(
+            storage.sessionInputs.markAppended(
+                draft.input.inputId,
+                draft.input.revision,
+                turnId,
+                message.id,
+                clock.now().toEpochMilli(),
+            ),
+        ) { "Input consumption changed during its transaction" }
+    }
+
+    /** Called only for source messages actually selected after capacity admission, before streaming. */
+    fun recordInputRequestStarted(messageIds: Set<String>) {
+        storage.withTransaction {
+            requireNotCancelling()
+            val callId = runtime.snapshot().modelCallId
+            storage.sessionInputs
+                .appendedForMessages(turnId, messageIds)
+                .filter {
+                    it.requestModelCallId == null
+                }.forEach {
+                    check(storage.sessionInputs.markRequestStarted(it.inputId, callId, clock.now().toEpochMilli()))
+                }
+        }
+    }
+
     /** A completed summary is durable before the next request replaces any history. */
     fun commitCompaction(
         plan: ContextCompaction.Plan,
@@ -363,37 +496,43 @@ internal class TurnCoordinator private constructor(
      */
     fun terminalize(outcome: ModelStreamTerminal) {
         val current = runtime.snapshot()
+        if (current.phase.isTerminal) return
+        var settled = outcome
+        storage.withTransaction { settled = persistTerminal(outcome) }
+        runtime.terminalize(settled.state)
+    }
+
+    /** Caller owns the outermost transaction; no in-memory phase changes before its commit. */
+    private fun persistTerminal(outcome: ModelStreamTerminal): ModelStreamTerminal {
+        val current = runtime.snapshot()
         val stream = runtime.currentStream()
         val endedAt = clock.now().toEpochMilli()
-        var settled = outcome
-        storage.withTransaction {
-            if (!current.modelCallClosed && !summaryStream && stream.text.isNotBlank()) {
-                storage.messages.append(
-                    idGenerator(),
-                    sessionId,
-                    turnId,
-                    ModelRole.ASSISTANT.name,
-                    ChatHistoryBuilder.KIND_TEXT,
-                    stream.text,
-                )
-            }
-            var turn = storage.turns.resolve(turnId)
-            settled = settleOutcomeAfterCancelling(outcome, turn.state)
-            if (settled.state == TurnState.CANCELLED && turn.state != TurnState.CANCELLING.name) {
-                turn = storage.turns.updateState(turn, TurnState.CANCELLING, current.modelStep, null, null)
-            }
-            storage.turns.updateState(turn, settled.state, current.modelStep, endedAt, settled.errorCode)
-            if (!current.modelCallClosed) {
-                storage.modelCalls.update(
-                    storage.modelCalls.resolve(current.modelCallId),
-                    callState(settled.state),
-                    stream.usageJson,
-                    null,
-                )
-            }
-            GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+        if (!current.modelCallClosed && !summaryStream && stream.text.isNotBlank()) {
+            storage.messages.append(
+                idGenerator(),
+                sessionId,
+                turnId,
+                ModelRole.ASSISTANT.name,
+                ChatHistoryBuilder.KIND_TEXT,
+                stream.text,
+            )
         }
-        runtime.terminalize(settled.state)
+        var turn = storage.turns.resolve(turnId)
+        val settled = settleOutcomeAfterCancelling(outcome, turn.state)
+        if (settled.state == TurnState.CANCELLED && turn.state != TurnState.CANCELLING.name) {
+            turn = storage.turns.updateState(turn, TurnState.CANCELLING, current.modelStep, null, null)
+        }
+        storage.turns.updateState(turn, settled.state, current.modelStep, endedAt, settled.errorCode)
+        if (!current.modelCallClosed) {
+            storage.modelCalls.update(
+                storage.modelCalls.resolve(current.modelCallId),
+                callState(settled.state),
+                stream.usageJson,
+                null,
+            )
+        }
+        GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+        return settled
     }
 
     private fun transitionPersisted(
@@ -469,20 +608,7 @@ internal class TurnCoordinator private constructor(
                 spec.goalRunId?.let { storage.goalTurnBindings.bind(spec.turnId, it) }
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
                 if (spec.userText != null || spec.attachments.isNotEmpty()) {
-                    val message =
-                        storage.messages.append(
-                            idGenerator(),
-                            spec.sessionId,
-                            spec.turnId,
-                            ModelRole.USER.name,
-                            ChatHistoryBuilder.KIND_TEXT,
-                            spec.userText.orEmpty(),
-                        )
-                    // An attachment-only send still needs a message row to own the bindings; the
-                    // bind pairs with the insert in this transaction (ADR-0014).
-                    if (spec.attachments.isNotEmpty()) {
-                        storage.messageAttachments.bind(message.id, spec.attachments)
-                    }
+                    appendInitialInput(storage, spec, idGenerator(), now)
                 }
                 storage.modelCalls.append(
                     spec.firstModelCallId,
@@ -501,6 +627,36 @@ internal class TurnCoordinator private constructor(
                 spec.providerSnapshot,
                 BatchTurnRuntime(spec.firstModelCallId),
             )
+        }
+
+        /** Invoked inside the Turn creation transaction, including attachment-only submissions. */
+        private fun appendInitialInput(
+            storage: HelixStorage,
+            spec: TurnStartSpec,
+            messageId: String,
+            now: Long,
+        ) {
+            val message =
+                storage.messages.append(
+                    messageId,
+                    spec.sessionId,
+                    spec.turnId,
+                    ModelRole.USER.name,
+                    ChatHistoryBuilder.KIND_TEXT,
+                    spec.userText.orEmpty(),
+                )
+            if (spec.attachments.isNotEmpty()) storage.messageAttachments.bind(message.id, spec.attachments)
+            spec.inputRevision?.let { revision ->
+                check(
+                    storage.sessionInputs.markAppended(
+                        requireNotNull(spec.clientRequestId),
+                        revision,
+                        spec.turnId,
+                        message.id,
+                        now,
+                    ),
+                ) { "Input changed before Turn creation" }
+            }
         }
 
         private fun callState(turn: TurnState): String =

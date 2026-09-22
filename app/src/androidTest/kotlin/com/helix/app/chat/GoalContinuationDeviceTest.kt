@@ -43,6 +43,58 @@ class GoalContinuationDeviceTest {
     private val limits = TurnBudgets(5, 10, 800, 800, 5_000)
     private val ids = { UUID.randomUUID().toString() }
 
+    @Test fun userSuccessorPreservesGoalPredecessorUntilExplicitStop() =
+        fixture { storage ->
+            val coordinator = GoalRunCoordinator(storage, clock, ids)
+            val goal = coordinator.create("Finish work", emptyList(), budgets)
+            val first =
+                requireNotNull(
+                    coordinator.start(
+                        GoalTurnStart(
+                            goal,
+                            GoalWakeReason.USER_OPEN,
+                            TurnStartSpec("session", "goal-first", "goal-model", "snapshot", "work"),
+                            limits,
+                        ),
+                    ),
+                )
+            val driver = GoalContinuationDriver(storage)
+            val control =
+                RunControlConfig(
+                    mode = AgentMode.GOAL,
+                    chatToolsEnabled = false,
+                    budgets = limits,
+                    goalBudgets = budgets,
+                )
+            driver.started("session", goal, "provider", control, "goal-first", null, "snapshot")
+            first.coordinator.beginModelStream()
+            first.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            driver.reserveUserHandoff("session", "goal-first")
+            val user = turn(storage, "user-successor")
+            driver.finishHandoff("session", "goal-first")
+            user.beginModelStream()
+            user.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            driver.reserveEligibleHandoff("session", "user-successor")
+            assertNull(driver.next("session", "user-successor"))
+            assertTrue(driver.hasActivation("session"))
+            val resumed = requireNotNull(driver.resumeEligible("session"))
+            assertEquals("goal-first", resumed.goalContinuation?.previousTurnId)
+            assertEquals(goal, resumed.goalId?.value)
+            assertEquals("user-successor", driver.handoffOwner("session"))
+            val claim = requireNotNull(resumed.goalContinuation)
+            assertTrue(driver.admits("session", goal, claim, "snapshot"))
+            driver.finishHandoff("session", "goal-first")
+            assertEquals("user-successor", driver.handoffOwner("session"))
+            driver.finishHandoff("session", "user-successor")
+            assertFalse(driver.hasHandoff)
+            assertTrue(driver.hasActivation("session"))
+            driver.reserveEligibleHandoff("session", "user-successor")
+            driver.disarm("session")
+            assertFalse(driver.admits("session", goal, claim, "snapshot"))
+            assertNull(driver.resumeEligible("session"))
+            assertFalse(driver.hasHandoff)
+        }
+
     @Test fun settledRoundContinuesWithoutActivityAndStopInvalidatesQueuedClaim() =
         fixture { storage ->
             val coordinator = GoalRunCoordinator(storage, clock, ids)

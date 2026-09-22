@@ -61,7 +61,7 @@ internal fun ConversationComposer(
         ) {
             IconButton(
                 actions.onVoice,
-                enabled = !isSending && availability.input,
+                enabled = availability.input,
                 modifier = Modifier.testTag("chat-voice"),
             ) {
                 Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
@@ -75,7 +75,7 @@ internal fun ConversationComposer(
                 trailingIcon = {
                     IconButton(
                         actions.onAttach,
-                        enabled = availability.canAttach(isSending),
+                        enabled = availability.canAttach(),
                         modifier = Modifier.testTag("chat-attach"),
                     ) {
                         Icon(
@@ -92,19 +92,25 @@ internal fun ConversationComposer(
                     ),
                 maxLines = 5,
             )
-            val stopEnabled = turnState != TurnState.CANCELLING
-            val sendEnabled = input.isNotBlank() || (!goalMode && hasAttachments)
+            val sendEnabled = input.isNotBlank() || ((!goalMode || isSending) && hasAttachments)
             IconButton(
-                onClick = if (isSending) actions.onStop else actions.onSend,
-                enabled = if (isSending) stopEnabled else sendEnabled && availability.delivery,
-                modifier = Modifier.testTag(if (isSending) "chat-stop" else "chat-send"),
+                onClick = actions.onSend,
+                enabled = sendEnabled && availability.delivery,
+                modifier = Modifier.testTag("chat-send"),
             ) {
                 Icon(
-                    painterResource(if (isSending) R.drawable.ic_composer_stop else R.drawable.ic_composer_send),
-                    stringResource(
-                        if (isSending) R.string.chat_stop else R.string.common_send,
-                    ),
+                    painterResource(R.drawable.ic_composer_send),
+                    stringResource(R.string.common_send),
                 )
+            }
+        }
+        if (isSending) {
+            IconButton(
+                onClick = actions.onStop,
+                enabled = turnState != TurnState.CANCELLING,
+                modifier = Modifier.align(Alignment.End).testTag("chat-stop"),
+            ) {
+                Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
             }
         }
     }

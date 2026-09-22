@@ -8,6 +8,9 @@ data class ChatSubmission(
     val text: String,
     val attachmentIds: List<String> = emptyList(),
     val revisedMessageId: String? = null,
+    val delivery: com.helix.core.storage.repository.SessionInputDelivery =
+        com.helix.core.storage.repository.SessionInputDelivery.QUEUE,
+    val expectedTurnId: String? = null,
 ) {
     init {
         require(sessionId.isNotBlank() && clientRequestId.isNotBlank())
@@ -15,7 +18,7 @@ data class ChatSubmission(
     }
 }
 
-/** Only Accepted permits clearing the matching composer revision. No result grants tool approval. */
+/** Accepted or Enqueued permits clearing the matching composer revision. No result grants tool approval. */
 data class ChatSubmissionReceipt(
     val submission: ChatSubmission,
     val outcome: ChatSubmissionOutcome,
@@ -24,6 +27,10 @@ data class ChatSubmissionReceipt(
 sealed interface ChatSubmissionOutcome {
     data class Accepted(
         val turnId: String,
+    ) : ChatSubmissionOutcome
+
+    data class Enqueued(
+        val inputId: String,
     ) : ChatSubmissionOutcome
 
     data object PendingConfirmation : ChatSubmissionOutcome
@@ -43,6 +50,8 @@ internal fun ChatSubmission.toDraftEntity() =
             .JsonArray(attachmentIds.map { kotlinx.serialization.json.JsonPrimitive(it) })
             .toString(),
         revisedMessageId,
+        delivery.name,
+        expectedTurnId,
     )
 
 internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): ChatSubmission {
@@ -59,5 +68,8 @@ internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): C
             (it as kotlinx.serialization.json.JsonPrimitive).content
         },
         revisedMessageId,
+        com.helix.core.storage.repository.SessionInputDelivery
+            .valueOf(delivery),
+        expectedTurnId,
     )
 }

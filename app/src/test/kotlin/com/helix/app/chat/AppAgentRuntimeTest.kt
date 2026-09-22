@@ -118,8 +118,10 @@ class AppAgentRuntimeTest {
 
     @Test
     fun cancelOfAnUnknownTurnIsNotFound() {
-        val runtime = AppAgentRuntime(host())
+        val fake = host()
+        val runtime = AppAgentRuntime(fake)
         assertTrue(runBlocking { runtime.cancel(turnId) } is CancelResult.NotFound)
+        assertTrue(fake.cancelled.isEmpty())
     }
 
     @Test
@@ -128,8 +130,17 @@ class AppAgentRuntimeTest {
         val runtime = AppAgentRuntime(fake)
         val result = runBlocking { runtime.cancel(turnId) }
         assertTrue(result is CancelResult.AlreadyTerminal && result.phase == TurnState.CANCELLED)
-        assertEquals(listOf("t1"), fake.revoked)
-        assertTrue(fake.cancelled.isEmpty())
+        assertEquals(listOf("t1"), fake.cancelled)
+    }
+
+    @Test
+    fun completedTurnStillReachesHostForAtomicQueueAndHandoffStop() {
+        val fake = host().apply { phase = TurnState.COMPLETED }
+
+        val result = runBlocking { AppAgentRuntime(fake).cancel(turnId) }
+
+        assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), result)
+        assertEquals(listOf("t1"), fake.cancelled)
     }
 
     @Test
@@ -141,6 +152,7 @@ class AppAgentRuntimeTest {
             }
         val result = runBlocking { AppAgentRuntime(fake).cancel(turnId) }
         assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), result)
+        assertEquals(listOf("t1"), fake.cancelled)
     }
 
     @Test
@@ -284,7 +296,6 @@ class AppAgentRuntimeTest {
         var assistantText: String? = null
         var frames: List<TurnUi> = emptyList()
         val cancelled = mutableListOf<String>()
-        val revoked = mutableListOf<String>()
         val startedTurns = mutableListOf<String>() // turn ids actually started (a dedup hit adds none)
         private val claimedClientIds = HashMap<String, String>()
 
@@ -315,19 +326,24 @@ class AppAgentRuntimeTest {
             return nextStartTurnId
         }
 
-        override suspend fun revokeGoalContinuation(turnId: String) {
-            revoked += turnId
-        }
-
         var terminalDuringCancel: TurnState? = null
 
         override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {
-            terminalDuringCancel?.let { return TurnCancelOutcome.AlreadyTerminal(it) }
             cancelled += turnId
+            terminalDuringCancel?.let { return TurnCancelOutcome.AlreadyTerminal(it) }
             // Mirror the host: a parked (INTERRUPTED) turn is discarded, a live one stopped.
             return when (phase) {
-                TurnState.INTERRUPTED -> TurnCancelOutcome.DiscardedParked
-                else -> TurnCancelOutcome.StoppedLive
+                TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED -> {
+                    TurnCancelOutcome.AlreadyTerminal(requireNotNull(phase))
+                }
+
+                TurnState.INTERRUPTED -> {
+                    TurnCancelOutcome.DiscardedParked
+                }
+
+                else -> {
+                    TurnCancelOutcome.StoppedLive
+                }
             }
         }
 

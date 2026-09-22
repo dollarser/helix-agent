@@ -70,6 +70,10 @@ class HelixStorage internal constructor(
     }
 
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
+    val sessionInputs by lazy {
+        com.helix.core.storage.repository
+            .SessionInputRepository(database, contentStore)
+    }
     val sessionExports: SessionExportRepository by lazy { SessionExportRepository(database, contentStore) }
 
     /**
@@ -180,6 +184,7 @@ class HelixStorage internal constructor(
         require(sessionId.isNotBlank()) { "sessionId must not be blank" }
         val messageRefs = database.messageDao().contentRefsBySession(sessionId)
         val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
+        val inputRefs = database.sessionInputDao().contentRefsBySession(sessionId)
         val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
         database.runInTransaction {
             require(database.sessionDao().byId(sessionId) != null) { "session not found: $sessionId" }
@@ -195,10 +200,11 @@ class HelixStorage internal constructor(
             check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
         }
         val deletedBodies =
-            (messageRefs + resultRefs).distinct().mapNotNull { encoded ->
+            (messageRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
                 val stillReferenced =
                     database.messageDao().countByContentRef(encoded) > 0 ||
-                        database.toolResultDao().countByContentRef(encoded) > 0
+                        database.toolResultDao().countByContentRef(encoded) > 0 ||
+                        database.sessionInputDao().countByContentRef(encoded) > 0
                 if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null
             }
         val unreferencedPaths = artifactPaths.distinct().filter { database.artifactDao().countByRelativePath(it) == 0 }
@@ -242,6 +248,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_22_23,
                 HelixDatabase.MIGRATION_23_24,
                 HelixDatabase.MIGRATION_24_25,
+                HelixDatabase.MIGRATION_25_26,
             )
 
         fun create(context: Context): HelixStorage {

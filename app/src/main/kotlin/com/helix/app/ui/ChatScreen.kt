@@ -78,6 +78,7 @@ fun ChatScreen(
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     var dismissedRevisionId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     var editorEpoch by remember(sessionId) { mutableStateOf(0) }
+    var inputQueueEpoch by remember(sessionId) { mutableStateOf(0) }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
     var tasksOpen by remember { mutableStateOf(false) }
@@ -105,6 +106,7 @@ fun ChatScreen(
     val acceptOrdinaryReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
         if (receipt.submission.revisedMessageId == null) {
             buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+            inputQueueEpoch += 1
         }
     }
 
@@ -201,7 +203,7 @@ fun ChatScreen(
 
     val handleReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
         when (val outcome = receipt.outcome) {
-            is ChatSubmissionOutcome.Accepted -> {
+            is ChatSubmissionOutcome.Accepted, is ChatSubmissionOutcome.Enqueued -> {
                 acceptOrdinaryReceipt(receipt)
             }
 
@@ -217,7 +219,7 @@ fun ChatScreen(
         }
     }
     val onSendAction: () -> Unit = {
-        val available = buffer.editable && buffer.canSubmit && !screen.isSending
+        val available = buffer.editable && buffer.canSubmit && screen.pendingDisclosure == null
         if (sessionId != null && available) {
             // Capture the editor's identity before the first suspension, including attachment selection.
             buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
@@ -289,6 +291,25 @@ fun ChatScreen(
                         delivery = buffer.editable && buffer.canSubmit,
                     ),
                 composerStatus = {
+                    sessionId?.let { id ->
+                        SessionInputQueuePanel(
+                            chatService,
+                            id,
+                            listOf(
+                                inputQueueEpoch,
+                                screen.activeTurn?.id,
+                                screen.activeTurn?.state,
+                                screen.messages.size,
+                            ),
+                        )
+                    }
+                    SessionInputDeliverySelector(
+                        delivery = buffer.value.delivery,
+                        expectedTurnId = buffer.value.expectedTurnId,
+                        activeTurnId = screen.activeTurn?.takeIf { !it.state.isTerminal }?.id,
+                        enabled = buffer.editable && !buffer.sending && screen.pendingDisclosure == null,
+                        onSelect = buffer::delivery,
+                    )
                     val showStatus = buffer.dirty || buffer.saved != null || buffer.failed
                     if (buffer.revisionMessageId == null && showStatus) {
                         Text(
@@ -442,7 +463,22 @@ fun ChatScreen(
                         }
                     }
                 } else {
-                    chatService.confirmSend()
+                    val queued = chatService.pendingSessionInputResume()
+                    if (queued != null) {
+                        scope.launch {
+                            val outcome = chatService.confirmSessionInputResume(queued.first, queued.second).await()
+                            if (outcome is ChatSubmissionOutcome.Rejected) {
+                                ChatSubmissionErrorMapper
+                                    .mapReason(
+                                        outcome.reason,
+                                        context,
+                                    )?.let(chatService::showBlockedReason)
+                            }
+                            inputQueueEpoch += 1
+                        }
+                    } else {
+                        chatService.confirmSend()
+                    }
                 }
             },
             onDismiss = {
@@ -450,7 +486,15 @@ fun ChatScreen(
                 if (pending != null) {
                     scope.launch { handleReceipt(chatService.cancelSubmission(pending).await()) }
                 } else {
-                    chatService.cancelPendingSend()
+                    val queued = chatService.pendingSessionInputResume()
+                    if (queued != null) {
+                        scope.launch {
+                            chatService.cancelSessionInputResume(queued.first, queued.second).await()
+                            inputQueueEpoch += 1
+                        }
+                    } else {
+                        chatService.cancelPendingSend()
+                    }
                 }
             },
         )

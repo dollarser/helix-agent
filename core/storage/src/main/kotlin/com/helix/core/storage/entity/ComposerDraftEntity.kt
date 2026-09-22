@@ -1,5 +1,6 @@
 package com.helix.core.storage.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -23,4 +24,6 @@ data class ComposerDraftEntity(
     val text: String,
     val attachmentIdsJson: String,
     val revisedMessageId: String? = null,
+    @ColumnInfo(defaultValue = "'QUEUE'") val delivery: String = "QUEUE",
+    val expectedTurnId: String? = null,
 )

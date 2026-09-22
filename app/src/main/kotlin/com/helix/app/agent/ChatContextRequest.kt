@@ -21,6 +21,8 @@ internal data class ChatContextRequest(
     val maxOutputTokens: Long,
     val reasoning: ReasoningEffort,
     val prompt: PromptSnapshot? = null,
+    /** Transient identity of persisted rows actually selected; never another saved payload. */
+    val sourceMessageIds: Set<String> = emptySet(),
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(

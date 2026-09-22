@@ -4,8 +4,9 @@ import kotlinx.coroutines.Job
 
 /**
  * Per-session in-flight turn admission (HXA-048). Holds at most ONE active turn per session: a
- * second send into a session that already has an in-flight turn is refused, while a turn in one
- * session never blocks a turn in another. This is the documented "one active turn per session"
+ * second Turn cannot start while that session has an in-flight turn. HXA-216 retains new user
+ * input in its separate delivery queue; a turn in one session never blocks a turn in another.
+ * This is the documented "one active turn per session"
  * model — the previous single global job made a send in session B vanish (silently dropped) while
  * session A's turn ran, breaking the "the send must never vanish" invariant the send path relies on.
  *
@@ -18,10 +19,10 @@ import kotlinx.coroutines.Job
 internal class SessionTurnAdmission {
     private val activeBySession = java.util.concurrent.ConcurrentHashMap<String, ActiveTurn>()
 
-    fun activeTurns(): List<ActiveTurn> = activeBySession.values.filter { it.job.isActive }
+    fun activeTurns(): List<ActiveTurn> = activeBySession.values.filter { !it.job.isCompleted }
 
     /** True when [sessionId] already has an in-flight (not yet completed) turn. */
-    fun hasActive(sessionId: String): Boolean = activeBySession[sessionId]?.job?.isActive == true
+    fun hasActive(sessionId: String): Boolean = activeBySession[sessionId]?.job?.isCompleted == false
 
     /**
      * Records [job] (turn [turnId]) as [sessionId]'s in-flight turn. When [job] completes the entry
@@ -36,12 +37,12 @@ internal class SessionTurnAdmission {
         val active = ActiveTurn(job, turnId)
         activeBySession[sessionId] = active
         job.invokeOnCompletion {
-            if (activeBySession[sessionId] === active) activeBySession.remove(sessionId)
+            activeBySession.remove(sessionId, active)
         }
     }
 
     /** [sessionId]'s in-flight turn (its [Job] to cancel and turn id to find the cancel signal). */
-    fun activeTurn(sessionId: String): ActiveTurn? = activeBySession[sessionId]?.takeIf { it.job.isActive }
+    fun activeTurn(sessionId: String): ActiveTurn? = activeBySession[sessionId]?.takeIf { !it.job.isCompleted }
 
     /**
      * Releases [sessionId] once [turnId]'s durable terminal state has been written, before the
