@@ -65,7 +65,9 @@ class MarketplaceService(
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 val reader = ConnectorPackageReader()
                 val bundle = reader.readJson(item.payload.toByteArray(Charsets.UTF_8))
-                connectorService.install(bundle)
+                connectorService.install(
+                    bundle.copy(name = item.targetConnectorName ?: item.id, source = "MARKETPLACE"),
+                )
             }
 
             MarketplaceItemType.SKILL -> {

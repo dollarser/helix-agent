@@ -2,11 +2,13 @@
 
 更新：2026-09-22。此页只维护当前结论、下一步和未闭合边界。具体测试数字与过程见证据，不从历史 commit/设备推断当前现场。
 
-HXA-213 会话 fork 已在独立 `codex/session-fork` 分支交付：消息旁“从这里新建分支”，保留完整前缀、适用压缩摘要与附件引用，使用新会话权限默认值，不复制执行/Goal/审批，不回滚文件。完整主机门禁及 API29/36 × 双 flavor 定向设备 **244/244** 通过，见[完成记录](../completion-records/HXA-213.md)。分支基于下面的压缩补强，未合并 main、未推送；并行 marketplace 工作保持独立。
+HXA-213 会话 fork 已在独立 `codex/session-fork` 分支交付：消息旁“从这里新建分支”，保留完整前缀、适用压缩摘要与附件引用，使用新会话权限默认值，不复制执行/Goal/审批，不回滚文件。完整主机门禁及 API29/36 × 双 flavor 定向设备 **244/244** 通过，见[完成记录](../completion-records/HXA-213.md)。已随压缩补强及 marketplace 一起整合到本地 main（8bd2d177）；本轮验证见下方收敛记录，未推送。
 
-压缩机制补强已在独立 `codex/context-compaction` 分支完成本地验证：摘要与普通请求统一容量准入，保留同模型用量校准，历史元数据分页及活跃正文读取有界，取消/检查点语义保留，窗口默认值明确标为估算。完整主机门禁与四象限压缩/Goal 定向设备 196/196 通过，见[修复与验证记录](../bug-fixes/2026-09-22-context-compaction-admission.md)。未合入 main、未推送；并行 marketplace 工作保留。真实模型 token 偏差、物理设备内存峰值仍不在本轮验证范围。
+压缩机制补强已在独立 `codex/context-compaction` 分支完成本地验证：摘要与普通请求统一容量准入，保留同模型用量校准，历史元数据分页及活跃正文读取有界，取消/检查点语义保留，窗口默认值明确标为估算。完整主机门禁与四象限压缩/Goal 定向设备 196/196 通过，见[修复与验证记录](../bug-fixes/2026-09-22-context-compaction-admission.md)。已整合到本地 main，未推送；分支测试数字保留为原验证范围。真实模型 token 偏差、物理设备内存峰值仍不在本轮验证范围。
 
 本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。验收与提交快检优化已通过 `995c9baf` 合入并推送 main；远端验证见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)，未发布。
+
+本轮分支收敛：市场/签名索引、压缩、会话 fork、Connector 会话启停与对话交互规划已整合到本地 main；修复市场安装名称导致状态误判后，完整主机门禁与四象限设备 276/276 通过，详见[收敛记录](../evidence/development/branch-integration-2026-09-22.md)。后续开发顺序见[工作计划](next-work-plan.md)，不把 proposed 设计计为功能交付。
 
 ## Completed
 
@@ -26,7 +28,7 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 2026-09-22 所有者授权将调研收敛为需求，尚未执行代码实现。新增 [214](tasks/HXA-214.md)（P0发送回执/草稿/停止修复）→ [215](tasks/HXA-215.md)（P1编辑分支重发）→ [216](tasks/HXA-216.md)（P1统一Queue/Steer）→ [217](tasks/HXA-217.md)（P2请求清单/JSONL）。默认普通发送排队、显式选择转向，发送本身不自动取消Goal；对应三份 proposed 见[Agent ADR入口](../adr/agent/README.md)。215～217实施前接受对应提案；008接受时同步修订Goal新输入条款。214可先按既有契约修复，不偷跑队列。
 
-新增4项设计任务独立于历史12项未闭合义务；不重复开发已交付213/211，不关闭外部设备、账号和发行缺口。文档门禁只证明规格一致，不能当作发送/编辑/转向已上线。当前仍在独立fork分支，未合main、未推送。
+新增4项设计任务独立于历史12项未闭合义务；不重复开发已交付213/211，不关闭外部设备、账号和发行缺口。文档门禁只证明规格一致，不能当作发送/编辑/转向已上线。需求文档已合入本地 main，尚未实现或推送。
 
 ## In progress
 
@@ -49,6 +51,10 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 本轮交付 HXA-209 会话授权（四象限设备与主机 `--all` 全绿，见[完成记录](../completion-records/HXA-209.md)）与 HXA-192 的 Plan 审阅→执行闭环及 209 授权联动（见[完成记录](../completion-records/HXA-192.md)），并按所有者决定处理网络执行域候选：同 APK isolated UID 不直接支持现有 PRoot 的 RootFS/工作目录，保留当前 Runtime、撤下统一禁网要求，具体工具禁用与文件/远端写限制仍有效（见[验证记录](../evidence/development/isolated-proot-feasibility-2026-09-16.md)）。批次A（202/194/203）已交付，批次B HXA-204/205 与 HXA-195 已交付，HXA-207 已交付，191 已交付。该次历史复核的12 项未闭合义务分为：3 项收尾验收、2 项集成验收、3 项待决策、4 项发行队列，分类与依赖见[任务索引](roadmap.md)。有代码无完整验收不等于从零待做，proposed 且未立项的方案不计入任务数。
 
 ## Next task
+
+本轮整合验证完成后，先实施 [HXA-214](tasks/HXA-214.md) 的发送回执、草稿保留及停止一致性。同步审查 ADR-CONNECTORS-003，接受后按 [HXA-129](tasks/HXA-129.md) 完成安全替换和会话独立启停；再推进 215 → 216 → 217。具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。本次只规划，不自动启动新功能。
+
+## 已整合能力的历史验收边界
 
 运行中主进程死亡已完成有效验证：普通应用页面在 Act 模式启动 Job，宿主只杀主 PID，原 Runtime PID 与 boot_id 不变，原 Job 完成后两次收取无重放。最新完整主机门禁通过；双 API 最终旅程 **2/2**，准备 **2/2** 单列。该证据替代会因 instrumentation 收尾杀包而失真的诊断方式；仅覆盖普通 Act 会话，Goal 计费和 OEM 真机边界不扩大。详见 [196 任务记录](tasks/HXA-196.md)。
 

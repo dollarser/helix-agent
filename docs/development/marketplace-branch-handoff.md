@@ -3,7 +3,7 @@
 更新日期：2026-09-22  
 当前分支：`codex/marketplace-catalog`  
 分支基线：`main` (包含已交付的 HXA-126 OAuth 核心层)  
-当前状态：**已完成全部开发、测试、多语言与全量 CI 门禁（1287/1287 PASS），随时可合并入 main**
+当前状态：**已于 2026-09-22 整合到本地 main（8bd2d177），未推送。下文测试数字为原分支交接声明，本轮实际验证见[收敛记录](../evidence/development/branch-integration-2026-09-22.md)。**
 
 ---
 

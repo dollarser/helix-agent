@@ -52,6 +52,29 @@ class MarketplaceDeviceTest {
     }
 
     @Test
+    fun allRemoteCatalogItemsKeepTheirIdentityThroughInstallAndRemoval() {
+        service.items().filter { it.type != MarketplaceItemType.SKILL }.forEach { item ->
+            assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(item))
+            val installed = service.install(item)
+            try {
+                assertEquals(item.targetConnectorName ?: item.id, installed.name)
+                assertEquals("MARKETPLACE", installed.source)
+                assertEquals(installed.id, service.findInstalled(item)?.id)
+                assertEquals(MarketplaceItemStatus.INSTALLED_INACTIVE, service.status(item))
+                assertEquals(installed.id, service.install(item).id)
+            } finally {
+                service.uninstall(item)
+                // Clean up even when the market lookup is the failing behavior.
+                container.connectorService.list().firstOrNull { it.id == installed.id }?.let {
+                    container.connectorService.remove(it)
+                }
+            }
+            assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(item))
+            assertTrue(container.connectorService.list().none { it.id == installed.id })
+        }
+    }
+
+    @Test
     fun marketplaceSupportsDowngradeAndVersionReplacement() {
         val items = service.items()
         val codeReview = items.first { it.id == "code-review" }

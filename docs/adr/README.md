@@ -14,7 +14,7 @@
 | [工具契约](tools/README.md) | 工具描述契约与审批绑定 |
 | [MCP](mcp/README.md) | MCP Client、传输与工具接入 |
 | [Skill](skills/README.md) | Skill 创作、安装与 MCP 配置闭环 |
-| [Connector](connectors/README.md) | Connector 能力包、Connector public-client OAuth、Connector 版本所有权与安装事务、Connector 签名索引与来源 |
+| [Connector](connectors/README.md) | Connector 能力包、Connector public-client OAuth、Connector 安全替换、安装归属与会话启停、Connector 签名索引与来源 |
 | [A2A](a2a/README.md) | A2A Client 与远端任务对账 |
 | [Agent 执行与上下文](agent/README.md) | Turn 批次协调与持久结算、模型请求上下文与步骤边界压缩、附件快照与请求物化、有界只读委托与工作流边界、按会话 JSONL 导出、fork，以及待接受的输入交付/编辑重发/请求清单 |
 | [平台与基础设施](platform/README.md) | 产品完整性与渠道分发、浏览器 View 与逻辑标签生命周期、领域值的严格存储编码 |
@@ -22,7 +22,7 @@
 ## 决策与交付
 
 - `accepted` 是已授权的设计；实际能力和证据查[实施状态](../development/status.md)、[路线](../development/roadmap.md)及完成记录。
-- `proposed` 仍需决定，不能因整理文档而接受。会话工作目录绑定、工具 descriptor 完整契约和 Connector 版本/索引扩展保持候选。
+- `proposed` 仍需决定，不能因整理文档而接受。会话工作目录绑定、工具 descriptor 完整契约和 Connector 安全替换/会话启停保持候选；签名索引已接受并交付离线范围。
 - 会话权限新方案已接受并由 HXA-209 交付（见[完成记录](../completion-records/HXA-209.md)）；Goal 按 HXA-208 的范围交付。二者不能共用“全绿”结论。
 - 已授权方案可以要求重构现有代码。实现尚未跟上不是架构冲突，不恢复被废弃的兼容行为；未授权的范围变化才需新的决定。
 
