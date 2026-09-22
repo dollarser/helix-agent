@@ -22,6 +22,10 @@
 5. Stop 绑定渲染时的 Turn ID，不在异步任务中重新选择当前 Turn。按钮状态与取消中的真实持久阶段一致。
 6. 完成任务规格要求的三个产品测试类、scope214 runner 和普通应用 seed/kill/recover；核心测试使用数据库关闭重开，仅证明存储恢复。
 
+## 与215修订草稿整合
+
+215沿本核心基线新增可选 `ChatSubmission.revisedMessageId`，Room v25在既有草稿中保存该目标，同时给消息增加 `supersededBy`。后续合并UI时必须保留字段：非空目标交由 `MessageRevisionDialog` 及其修订回执处理，不能当作普通新消息恢复、清空或重新生成提交身份；普通composer也不能覆盖已有修订草稿。不要再占用迁移24→25。`accept-conversation-interaction.py` 当前只实现scope215；214执行者应扩展独立scope214，不覆盖已有215验收。215不关闭本任务的普通composer接线及产品验收。
+
 旧 `send` / `confirmSend` / `cancelPendingSend` 入口仍用于未迁移的页面。附件发送被拒时保留旧页面的一次性恢复；新持久草稿路径不得依赖该无 revision 的恢复字段。`Rejected.reason` 暂时包含新内部错误码和原有本地化 gate 提示，接线时须映射内部错误码，保留已有用户提示，不能将所有 reason 当成原始码展示。
 
 ## 验证与交付

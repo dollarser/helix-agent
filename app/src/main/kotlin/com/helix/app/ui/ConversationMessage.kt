@@ -53,10 +53,11 @@ internal fun CopyTextButton(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod")
 internal fun MessageRow(
     message: MessageUi,
     onFork: ((String) -> Unit)? = null,
+    onEdit: ((String) -> Unit)? = null,
 ) {
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
@@ -97,6 +98,14 @@ internal fun MessageRow(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CopyTextButton(message.content, "chat-copy-${message.id}")
+                if (isUser && onEdit != null) {
+                    TextButton(
+                        onClick = { onEdit(message.id) },
+                        modifier = Modifier.testTag("chat-edit-${message.id}"),
+                    ) {
+                        Text(stringResource(R.string.message_revision_action))
+                    }
+                }
                 if (onFork != null) {
                     TextButton(
                         onClick = { onFork(message.id) },

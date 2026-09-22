@@ -241,6 +241,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_21_22,
                 HelixDatabase.MIGRATION_22_23,
                 HelixDatabase.MIGRATION_23_24,
+                HelixDatabase.MIGRATION_24_25,
             )
 
         fun create(context: Context): HelixStorage {

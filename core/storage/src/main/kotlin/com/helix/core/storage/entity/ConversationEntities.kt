@@ -61,6 +61,7 @@ data class MessageEntity(
     val kind: String,
     val contentRef: String?,
     val sequence: Long,
+    val supersededBy: String? = null,
 )
 
 /**

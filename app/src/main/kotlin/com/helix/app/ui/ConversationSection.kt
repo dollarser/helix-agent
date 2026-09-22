@@ -242,7 +242,15 @@ internal fun ConversationSection(
                 }
             }
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
-                items(entry.messages.filter { it.role == "user" }, key = { it.id }) { MessageRow(it, intents.onFork) }
+                items(entry.messages.filter { it.role == "user" }, key = { it.id }) {
+                    MessageRow(
+                        it,
+                        intents.onFork,
+                        intents.onEditLatest?.takeIf { _ ->
+                            it.id == screen.messages.lastOrNull { message -> message.role == "user" }?.id
+                        },
+                    )
+                }
                 item(key = "operations-${entry.key}") {
                     TurnOperations(entry, intents)
                 }

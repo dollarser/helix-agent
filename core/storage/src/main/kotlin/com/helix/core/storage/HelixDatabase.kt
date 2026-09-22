@@ -127,7 +127,7 @@ import com.helix.core.storage.entity.TurnEntity
             SessionPermissionDraftEntity::class,
             com.helix.core.storage.entity.ComposerDraftEntity::class,
         ],
-    version = 24,
+    version = 25,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
@@ -205,6 +205,7 @@ abstract class HelixDatabase : RoomDatabase() {
     companion object {
         val MIGRATION_21_22 = HelixMigrations.MIGRATION_21_22
         val MIGRATION_22_23 = HelixMigrations.MIGRATION_22_23
+        val MIGRATION_24_25 = HelixMigrations.MIGRATION_24_25
         val MIGRATION_23_24 = HelixMigrations.MIGRATION_23_24
 
         val MIGRATION_20_21 = HelixMigrations.MIGRATION_20_21

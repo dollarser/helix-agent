@@ -30,7 +30,7 @@ import com.helix.app.provider.ProviderService
  */
 @Composable
 // Explicit application-service dependencies at the screen boundary.
-@Suppress("FunctionName", "LongMethod", "LongParameterList")
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 fun ChatScreen(
     chatService: ChatService,
     providerService: ProviderService,
@@ -49,6 +49,20 @@ fun ChatScreen(
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
+    var editMessageId by androidx.compose.runtime.saveable.rememberSaveable(screen.openSessionId) {
+        mutableStateOf<String?>(null)
+    }
+    LaunchedEffect(screen.openSessionId) {
+        val saved = screen.openSessionId?.let { chatService.loadComposerDraft(it) }
+        if (saved?.revisedMessageId != null && !chatService.acceptedRevision(saved)) {
+            editMessageId = saved.revisedMessageId
+        }
+    }
+    editMessageId?.let { messageId ->
+        screen.openSessionId?.let { sessionId ->
+            MessageRevisionDialog(chatService, sessionId, messageId, screen) { editMessageId = null }
+        }
+    }
     var input by remember(screen.openSessionId) { mutableStateOf("") }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
@@ -120,6 +134,7 @@ fun ChatScreen(
                         onStop = { chatService.stop() },
                         onCompact = chatService::compactContext,
                         onFork = chatService::forkFromMessage,
+                        onEditLatest = { editMessageId = it },
                         onDismissBlocked = { chatService.dismissBlocked() },
                         onApproveApproval = { chatService.approveApproval(it) },
                         onDenyApproval = { chatService.denyApproval(it) },

@@ -69,6 +69,29 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
+    fun v24ToV25PreservesUnrevisedHistoryAndDraft() {
+        val name = "latest-revision-migration"
+        context.deleteDatabase(name)
+        helper.createDatabase(name, 24).use { db ->
+            db.execSQL("INSERT INTO sessions(id,title,createdAt) VALUES ('old','Original',1)")
+            db.execSQL("INSERT INTO messages(id,sessionId,role,kind,sequence) VALUES ('m','old','USER','TEXT',0)")
+            db.execSQL("INSERT INTO composer_drafts VALUES ('old',0,'request','private draft','[]')")
+        }
+        helper.runMigrationsAndValidate(name, 25, true, HelixDatabase.MIGRATION_24_25).use { db ->
+            db.query("SELECT supersededBy FROM messages WHERE id='m'").use {
+                assertTrue(it.moveToFirst())
+                assertTrue(it.isNull(0))
+            }
+            db.query("SELECT text,revisedMessageId FROM composer_drafts WHERE sessionId='old'").use {
+                assertTrue(it.moveToFirst())
+                assertEquals("private draft", it.getString(0))
+                assertTrue(it.isNull(1))
+            }
+        }
+        context.deleteDatabase(name)
+    }
+
+    @Test
     fun v23ToV24AddsEmptyComposerDraftsAndCascadesSessionDeletion() {
         val name = "composer-draft-migration"
         context.deleteDatabase(name)
@@ -720,8 +743,8 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v24ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v24-export.db", 24)
+    fun v25ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v25-export.db", 25)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -729,7 +752,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v24 schema must match the exported v24 schema",
+                "code-built v25 schema must match the exported v25 schema",
                 (expectedTables() + "composer_drafts").sorted(),
                 code.tables.sorted(),
             )
@@ -795,6 +818,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_21_22,
                     HelixDatabase.MIGRATION_22_23,
                     HelixDatabase.MIGRATION_23_24,
+                    HelixDatabase.MIGRATION_24_25,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase

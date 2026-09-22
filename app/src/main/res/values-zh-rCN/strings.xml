@@ -1235,4 +1235,16 @@
     <string name="context_materialization_limit">会话内容超过设备上的上下文整理上限。请携带必要引用新建会话；原历史仍保留。</string>
     <string name="context_segment_limit">一段完整历史或工具步骤超过当前摘要容量。请调整上下文或输入上限，或携带大结果引用新建会话。原历史仍保留。</string>
     <string name="context_window_fallback">模型未提供上下文窗口，当前按 %1$d token 估算；可手动设置。</string>
+    <string name="message_revision_action">编辑并重发</string>
+    <string name="message_revision_title">修订最后一条消息</string>
+    <string name="message_revision_note">在当前会话重新生成。旧版本保留在导出记录中；已发生的文件和外部操作不会撤销。原附件会保留并重新检查。</string>
+    <string name="message_revision_unavailable">暂时无法编辑：请先处理已有草稿或确认，并检查原消息和附件是否仍可用。</string>
+    <string name="message_revision_failed">尚未接收修订，草稿已保留。请检查模型设置、附件和任务状态后重试。</string>
+    <string name="message_revision_busy">请先停止当前任务并等待结算，再发送修订。</string>
+    <string name="message_revision_saving">正在保存草稿…</string>
+    <string name="message_revision_saved">草稿已保存</string>
+    <string name="message_revision_save_failed">草稿未保存，请重试</string>
+    <string name="message_revision_discard">放弃修改</string>
+    <string name="message_revision_stop">停止当前任务</string>
+    <string name="message_revision_send">发送修订</string>
 </resources>

@@ -37,6 +37,7 @@ internal interface AgentTurnHost {
         continuousGoal: Boolean = false,
         goalContinuation: com.helix.core.agent.GoalContinuationRequest? = null,
         directUserRequest: Boolean = false,
+        revisedMessageId: String? = null,
     ): String?
 
     /**

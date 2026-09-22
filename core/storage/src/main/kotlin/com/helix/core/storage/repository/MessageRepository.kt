@@ -5,6 +5,7 @@ import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.dao.MessageDao
 import com.helix.core.storage.entity.MessageEntity
 
+@Suppress("TooManyFunctions") // Effective-history and retained-evidence operations share one repository.
 class MessageRepository(
     private val dao: MessageDao,
     private val contentStore: ContentStore,
@@ -32,7 +33,17 @@ class MessageRepository(
             } else {
                 contentStore.write(content).toStorageString()
             }
-        val entity = MessageEntity(id, sessionId, turnId, role, kind, contentRef, sequence)
+        val entity =
+            MessageEntity(
+                id,
+                sessionId,
+                turnId,
+                role,
+                kind,
+                contentRef,
+                sequence,
+                supersededBy = turnId?.let { dao.supersededRequest(it) },
+            )
         dao.insert(entity)
         return entity
     }
@@ -61,6 +72,23 @@ class MessageRepository(
         return copied
     }
 
+    fun supersededTurns(sessionId: String): Set<String> = dao.supersededTurns(sessionId).toSet()
+
+    fun latestUser(sessionId: String): MessageEntity? = dao.latestUser(sessionId)
+
+    fun allRevisions(sessionId: String): List<MessageEntity> = dao.allRevisions(sessionId)
+
+    /** Caller owns the transaction with replacement Turn creation; history is retained for audit. */
+    fun reviseLatest(
+        sessionId: String,
+        messageId: String,
+        requestId: String,
+    ) {
+        val target = requireNotNull(dao.latestUser(sessionId)) { "REVISION_TARGET_CHANGED" }
+        require(target.id == messageId) { "REVISION_TARGET_CHANGED" }
+        dao.supersedeFrom(sessionId, target.sequence, requestId)
+    }
+
     fun listBySession(sessionId: String): List<MessageEntity> = dao.listBySession(sessionId)
 
     fun pageAfter(
@@ -75,7 +103,8 @@ class MessageRepository(
     fun latestOfKind(
         sessionId: String,
         kind: String,
-    ): MessageEntity? = dao.latestOfKind(sessionId, kind)
+        includeSuperseded: Boolean = false,
+    ): MessageEntity? = dao.latestOfKind(sessionId, kind, includeSuperseded)
 
     fun readContentBounded(
         message: MessageEntity,

@@ -17,6 +17,7 @@ internal object TurnInputFingerprint {
     fun of(
         text: String?,
         attachments: List<MessageAttachmentRepository.Binding>,
+        revisedMessageId: String? = null,
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
         digest.update(text.orEmpty().toByteArray(Charsets.UTF_8))
@@ -26,6 +27,10 @@ internal object TurnInputFingerprint {
             digest.update(SEPARATOR)
             digest.update(binding.boundSha256.toByteArray(Charsets.UTF_8))
             digest.update(SEPARATOR)
+        }
+        if (revisedMessageId != null) {
+            digest.update("revision:".toByteArray(Charsets.UTF_8))
+            digest.update(revisedMessageId.toByteArray(Charsets.UTF_8))
         }
         return digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
     }
