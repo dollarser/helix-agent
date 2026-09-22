@@ -13,6 +13,8 @@ package com.helix.feature.browser
 internal interface BrowserTabListener {
     fun onPageStarted(url: String)
 
+    fun onProgressChanged(progress: Int) {}
+
     fun onPageFinished(
         url: String,
         title: String?,
