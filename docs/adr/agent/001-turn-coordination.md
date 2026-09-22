@@ -1,8 +1,8 @@
 # ADR-AGENT-001: Turn 批次协调与持久结算
 
 Status: accepted
-Date: 2026-09-16
-HXA: HXA-011, HXA-039
+Date: 2026-09-22
+HXA: HXA-011, HXA-039, HXA-216
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -16,6 +16,8 @@ Turn、模型调用和工具调用是不同持久化粒度，取消与恢复需�
 仅平台能证明不冲突的只读调用有界并发，模型结果按原调用顺序持久化并回填。每次流开始前更新当前 ModelCall checkpoint，取消/异常读取当前身份，不能误关上一轮调用。
 
 最终 assistant 文本、Turn 终局、仍打开的 ModelCall 终局原子提交；工具步骤的模型结算与 tool-call 消息同事务，全部结果结算后按序回填并创建下一次请求。外部副作用不放数据库事务，事务失败不重放。
+
+用户输入交付按 [ADR-AGENT-008](008-user-input-delivery.md)：Queue 在正常终局释放执行槽后按FIFO交付；Steer 仅在整批工具结果结算后或正常回答终局协调点追加USER。Steer接收与终局提交在同一持久事务边界竞争，接收在先则继续原Turn及预算，终局在先则明确目标过期，不静默转投新Turn。历史追加、消费映射与所绑定Turn/message一起提交；模型请求启动另记，不能把已追加历史或创建ModelCall行当作已经发送。显式停止事务同时停泊旧输入，进程恢复不自动交付。216设计已接受，现行实现迁移及功能证据仍按任务记录。
 
 每个异常槽位保留自身异常与结果；重复 toolCallId 在执行前拒绝。无法证明未发生副作用的执行契约异常进入 NEEDS_REVIEW。Repository 拒绝非法跳转，进程死亡使用明确的 interrupted 结算入口，不另建串行兼容 reducer 决定生产调度。
 
