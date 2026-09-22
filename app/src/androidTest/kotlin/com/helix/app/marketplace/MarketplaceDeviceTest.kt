@@ -50,4 +50,41 @@ class MarketplaceDeviceTest {
 
         assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(cloudflare))
     }
+
+    @Test
+    fun marketplaceSupportsDowngradeAndVersionReplacement() {
+        val items = service.items()
+        val codeReview = items.first { it.id == "code-review" }
+        val initial = service.install(codeReview)
+        assertNotNull(initial)
+
+        try {
+            assertEquals(MarketplaceItemStatus.ACTIVE, service.status(codeReview))
+
+            // Simulate an older / alternative version of the same target skill item (downgrade)
+            val olderPayload =
+                """
+                ---
+                name: code-review
+                description: An older version of code review skill
+                version: 0.9.0
+                ---
+                Legacy instructions for code review.
+                """.trimIndent()
+            val downgradedItem = codeReview.copy(payload = olderPayload)
+
+            val downgradedInstalled = service.install(downgradedItem)
+            assertNotNull(downgradedInstalled)
+            assertEquals(MarketplaceItemStatus.ACTIVE, service.status(downgradedItem))
+
+            // The older version has cleanly replaced the previous one without leaving duplicate dangling records
+            val targetName = codeReview.targetConnectorName ?: "${codeReview.id}-skill"
+            val matchedConnectors = container.connectorService.list().filter { it.name == targetName }
+            assertEquals(1, matchedConnectors.size)
+            assertEquals(downgradedInstalled.id, matchedConnectors.single().id)
+        } finally {
+            service.uninstall(codeReview)
+        }
+        assertEquals(MarketplaceItemStatus.NOT_INSTALLED, service.status(codeReview))
+    }
 }

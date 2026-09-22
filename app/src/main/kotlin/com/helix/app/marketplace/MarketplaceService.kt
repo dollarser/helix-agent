@@ -44,8 +44,24 @@ class MarketplaceService(
             }
         }
 
-    fun install(item: MarketplaceItem): InstalledConnector =
-        when (item.type) {
+    fun install(item: MarketplaceItem): InstalledConnector {
+        val existing = findInstalled(item)
+        if (existing != null) {
+            val contentHash =
+                when (item.type) {
+                    MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
+                        ConnectorPackageReader().readJson(item.payload.toByteArray(Charsets.UTF_8)).contentHash
+                    }
+
+                    MarketplaceItemType.SKILL -> {
+                        sha256(item.payload.toByteArray(Charsets.UTF_8))
+                    }
+                }
+            if (existing.hash != contentHash) {
+                uninstall(item)
+            }
+        }
+        return when (item.type) {
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 val reader = ConnectorPackageReader()
                 val bundle = reader.readJson(item.payload.toByteArray(Charsets.UTF_8))
@@ -78,6 +94,7 @@ class MarketplaceService(
                 installed
             }
         }
+    }
 
     fun findInstalled(item: MarketplaceItem): InstalledConnector? {
         val targetName =

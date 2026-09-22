@@ -17,7 +17,7 @@ Deciders: project-owner
 - 签名候选为 P-256/SHA-256 ECDSA，公钥采用 SPKI、签名采用 DER；选择 Android 既有可验证算法，避免为单一市场功能升级依赖。API29/36 的 provider/编码边界须在正式实现前实测，不仅凭宿主 openssl 成功。
 - 索引含 publisherId、keyId、单调 sequence、issuedAt/expiresAt，以及 packageId、固定 version、source URL、archive SHA-256、字节大小、声明许可证、notice/source 链接、兼容性要求。条目只能使用固定版本和内容地址，不接受 latest、任意镜像回退或内嵌脚本。
 - 信任根独立于下载索引，由发行方批准的公钥或用户明确导入的 key fingerprint 建立；索引不能自带新 key 并自动获得信任。发布密钥不进入源码、APK 或普通 CI 日志。初版测试 key 明确标为 fixture，不进入生产 allowlist。
-- 原始签名验证通过后才解析和展示为已验证来源；签名失败、过期、未知 key、回退 sequence 均不自动安装。时钟不可用时标记无法确认有效期，不把缓存当最新。
+- 原始签名验证通过后才解析和展示为已验证来源；签名失败、过期、未知 key 均拒绝。系统不限制降级安装：当检测到 sequence 回退或安装旧版本时，默认允许降级安装（allowDowngrade = true，验证结果中返回 isDowngrade 标记以备审计追踪）；调用方亦可显式传参强制拦截回滚。时钟不可用时标记无法确认有效期，不把缓存当最新。
 - 更新只生成 HXA-129 的固定 hash 差异预览；用户确认后才安装，签名不是 enablement、Tool Approval 或许可证合规证明。
 - 许可证检查区分声明、文本是否可取得、资产/依赖实际义务是否审核。缺许可证或无法绑定来源的条目保持不可发布；不因为源仓库有 MIT 文件就给所有 bundled CLI 推定 MIT。
 - 离线 fixture 覆盖有效签名、改动一字节、错误 key、损坏签名/编码、过期、sequence 回退、重复 package/version、hash/size 不匹配及未知字段/版本。只用自建合成包，不拷贝第三方业务代码或凭据。
@@ -34,7 +34,7 @@ Deciders: project-owner
 
 ## Verification
 
-已实现离线签名索引数据结构、严格 JSON 解析器与验证器（`SignedConnectorIndex.kt`、`SignedConnectorIndexParser.kt`、`SignedConnectorIndexVerifier.kt`）及全覆盖测试套件（`SignedConnectorIndexVerifierTest.kt`、`ConnectorIndexTestFixtures.kt`）。包含确定性 corpus 校验、P-256 签名与字节防篡改验证、单调 sequence 回滚防御、有效期时钟校验、重复键/包防重以及 docs/ADR/secrets 门禁。网络下载、在线分发市场 UI、自动更新及正式发行密钥发布不在本次接受范围。
+已实现离线签名索引数据结构、严格 JSON 解析器与验证器（`SignedConnectorIndex.kt`、`SignedConnectorIndexParser.kt`、`SignedConnectorIndexVerifier.kt`）及全覆盖测试套件（`SignedConnectorIndexVerifierTest.kt`、`ConnectorIndexTestFixtures.kt`）。包含确定性 corpus 校验、P-256 签名与字节防篡改验证、允许降级安装（带 isDowngrade 审计标记与可配置严格拦截）、有效期时钟校验、重复键/包防重以及 docs/ADR/secrets 门禁。网络下载、在线分发市场 UI、自动更新及正式发行密钥发布不在本次接受范围。
 
 ## Reconsider when
 

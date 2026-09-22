@@ -129,7 +129,7 @@ class SignedConnectorIndexVerifierTest {
     }
 
     @Test
-    fun sequenceEqualOrSmallerThanLastKnown_failsSequenceRegression() {
+    fun sequenceEqualOrSmallerThanLastKnown_withDowngradeDisallowed_failsSequenceRegression() {
         val json = ConnectorIndexTestFixtures.sampleValidIndexJson(sequence = 10)
         val bytes = json.toByteArray(Charsets.UTF_8)
         val sig = SignedConnectorIndexVerifier.sign(bytes, ConnectorIndexTestFixtures.TEST_FIXTURE_KEY_PAIR.private)
@@ -140,6 +140,7 @@ class SignedConnectorIndexVerifierTest {
                 signatureDer = sig,
                 trustedKeys = trustedKeys,
                 lastKnownSequence = 10,
+                allowDowngrade = false,
             )
         assertTrue(equalResult is ConnectorIndexVerificationResult.Failure)
         assertEquals(
@@ -153,12 +154,36 @@ class SignedConnectorIndexVerifierTest {
                 signatureDer = sig,
                 trustedKeys = trustedKeys,
                 lastKnownSequence = 11,
+                allowDowngrade = false,
             )
         assertTrue(smallerResult is ConnectorIndexVerificationResult.Failure)
         assertEquals(
             FailureReason.SEQUENCE_REGRESSION,
             (smallerResult as ConnectorIndexVerificationResult.Failure).reason,
         )
+    }
+
+    @Test
+    fun downgradeInstallation_isNotRestrictedByDefault() {
+        val json = ConnectorIndexTestFixtures.sampleValidIndexJson(sequence = 5)
+        val bytes = json.toByteArray(Charsets.UTF_8)
+        val sig = SignedConnectorIndexVerifier.sign(bytes, ConnectorIndexTestFixtures.TEST_FIXTURE_KEY_PAIR.private)
+
+        val result =
+            verifier.verify(
+                rawJsonBytes = bytes,
+                signatureDer = sig,
+                trustedKeys = trustedKeys,
+                lastKnownSequence = 10,
+            )
+
+        assertTrue(
+            "Downgrade installation should succeed by default",
+            result is ConnectorIndexVerificationResult.Success,
+        )
+        val success = result as ConnectorIndexVerificationResult.Success
+        assertEquals(5L, success.index.sequence)
+        assertTrue("isDowngrade flag should be true for downgrade index", success.isDowngrade)
     }
 
     @Test

@@ -38,6 +38,7 @@ data class ConnectorIndex(
 sealed interface ConnectorIndexVerificationResult {
     data class Success(
         val index: ConnectorIndex,
+        val isDowngrade: Boolean = false,
     ) : ConnectorIndexVerificationResult
 
     data class Failure(

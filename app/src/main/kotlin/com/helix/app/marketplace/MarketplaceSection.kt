@@ -303,6 +303,8 @@ private fun MarketplaceItemCard(
                 MarketplaceExpandedDetails(
                     item = item,
                     status = status,
+                    isInstalling = isInstalling,
+                    onInstall = actions.onInstall,
                     onDisable = actions.onDisable,
                     onEnableSkill = actions.onEnableSkill,
                     onUninstall = actions.onUninstallRequested,
@@ -393,10 +395,12 @@ private fun MarketplaceItemActionsRow(
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongParameterList")
 private fun MarketplaceExpandedDetails(
     item: MarketplaceItem,
     status: MarketplaceItemStatus,
+    isInstalling: Boolean = false,
+    onInstall: () -> Unit,
     onDisable: () -> Unit,
     onEnableSkill: () -> Unit,
     onUninstall: () -> Unit,
@@ -441,6 +445,8 @@ private fun MarketplaceExpandedDetails(
         MarketplaceInstalledActionRow(
             item = item,
             status = status,
+            isInstalling = isInstalling,
+            onInstall = onInstall,
             onDisable = onDisable,
             onEnableSkill = onEnableSkill,
             onUninstall = onUninstall,
@@ -453,6 +459,8 @@ private fun MarketplaceExpandedDetails(
 private fun MarketplaceInstalledActionRow(
     item: MarketplaceItem,
     status: MarketplaceItemStatus,
+    isInstalling: Boolean = false,
+    onInstall: () -> Unit,
     onDisable: () -> Unit,
     onEnableSkill: () -> Unit,
     onUninstall: () -> Unit,
@@ -475,6 +483,14 @@ private fun MarketplaceInstalledActionRow(
             ) {
                 Text(stringResource(R.string.marketplace_action_enable))
             }
+        }
+
+        OutlinedButton(
+            onClick = onInstall,
+            enabled = !isInstalling,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(stringResource(R.string.marketplace_action_reinstall))
         }
 
         OutlinedButton(

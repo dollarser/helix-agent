@@ -1218,6 +1218,7 @@
     <string name="marketplace_action_enable">Enable</string>
     <string name="marketplace_action_disable">Disable</string>
     <string name="marketplace_action_uninstall">Uninstall</string>
+    <string name="marketplace_action_reinstall">Reinstall</string>
     <string name="marketplace_uninstall_title">Uninstall Extension</string>
     <string name="marketplace_uninstall_confirm">Are you sure you want to uninstall %s? Stored credentials will also be removed.</string>
     <string name="marketplace_item_gitlab_name">GitLab Workspace</string>

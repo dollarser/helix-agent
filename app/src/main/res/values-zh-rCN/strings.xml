@@ -1215,6 +1215,7 @@
     <string name="marketplace_action_enable">启用</string>
     <string name="marketplace_action_disable">停用</string>
     <string name="marketplace_action_uninstall">卸载</string>
+    <string name="marketplace_action_reinstall">重新安装</string>
     <string name="marketplace_uninstall_title">卸载扩展</string>
     <string name="marketplace_uninstall_confirm">确定要卸载 %s 吗？已保存的连接凭据也将被一并移除。</string>
     <string name="marketplace_item_gitlab_name">GitLab 项目协同</string>

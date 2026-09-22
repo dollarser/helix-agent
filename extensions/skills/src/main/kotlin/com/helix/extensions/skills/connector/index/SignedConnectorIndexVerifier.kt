@@ -13,7 +13,8 @@ import java.security.SignatureException
  * 2. Strict canonical JSON parsing (depth <= 32, no duplicate keys, known schema version).
  * 3. Package entry bounds and format (fixed versions, content hashes, valid HTTPS URLs).
  * 4. Trusted public key resolution by keyId.
- * 5. Monotonic sequence verification to prevent rollback attacks.
+ * 5. Monotonic sequence verification: does not restrict downgrade installation by default
+ *    (allowDowngrade = true marks isDowngrade = true); callers can reject with allowDowngrade = false.
  * 6. Expiration and validity window checks when clock is available.
  * 7. ECDSA P-256 / SHA-256 detached signature over the exact raw JSON bytes.
  */
@@ -25,6 +26,7 @@ class SignedConnectorIndexVerifier {
         trustedKeys: Map<String, PublicKey>,
         lastKnownSequence: Long? = null,
         currentTimeSeconds: Long? = null,
+        allowDowngrade: Boolean = true,
     ): ConnectorIndexVerificationResult {
         if (rawJsonBytes.size > ConnectorIndexConstants.MAX_INDEX_BYTES) {
             return ConnectorIndexVerificationResult.Failure(
@@ -52,11 +54,15 @@ class SignedConnectorIndexVerifier {
                     "Key ID '${index.keyId}' is not present in trusted keys",
                 )
 
+        var isDowngrade = false
         if (lastKnownSequence != null && index.sequence <= lastKnownSequence) {
-            return ConnectorIndexVerificationResult.Failure(
-                FailureReason.SEQUENCE_REGRESSION,
-                "Sequence ${index.sequence} is not strictly greater than last known sequence $lastKnownSequence",
-            )
+            if (!allowDowngrade) {
+                return ConnectorIndexVerificationResult.Failure(
+                    FailureReason.SEQUENCE_REGRESSION,
+                    "Sequence ${index.sequence} is not strictly greater than last known sequence $lastKnownSequence",
+                )
+            }
+            isDowngrade = true
         }
 
         if (currentTimeSeconds != null) {
@@ -77,7 +83,7 @@ class SignedConnectorIndexVerifier {
         val signatureVerified = verifyCryptoSignature(rawJsonBytes, signatureDer, publicKey)
         return when (signatureVerified) {
             is CryptoResult.Valid -> {
-                ConnectorIndexVerificationResult.Success(index)
+                ConnectorIndexVerificationResult.Success(index, isDowngrade = isDowngrade)
             }
 
             is CryptoResult.InvalidEncoding -> {
