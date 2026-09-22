@@ -10,7 +10,7 @@ HXA-213 会话 fork 已在独立 `codex/session-fork` 分支交付：消息旁�
 
 本轮收口：独立 `codex/acceptance-199-206` 分支从 `215b7d81` 完成 [206 本地核心产品验收](../completion-records/HXA-206.md)，四象限、同 fixture 基线对照、Git R1 debug/release 与完整主机门禁通过。199 的实际 30 分钟脱离/默认两小时租约、双 API Runtime/日志/Job/双终端、普通页面恢复及覆盖升级已验；物理 OEM/HOME/锁屏/Doze/热压与真实 16 KiB 设备未提供，199 保持未完成。证据及条件跳过见[本轮记录](../evidence/development/acceptance-199-206-2026-09-21.md)。验收与提交快检优化已通过 `995c9baf` 合入并推送 main；远端验证见[整合记录](../evidence/development/ci-staged-gate-integration-2026-09-21.md)，未发布。
 
-本轮分支收敛：市场/签名索引、压缩、会话 fork、Connector 会话启停与对话交互规划已整合到本地 main；修复市场安装名称导致状态误判后，完整主机门禁与四象限设备 276/276 通过，详见[收敛记录](../evidence/development/branch-integration-2026-09-22.md)。后续开发顺序见[工作计划](next-work-plan.md)，不把 proposed 设计计为功能交付。
+本轮分支收敛：市场/签名索引、压缩、会话 fork，以及 Connector 会话启停和对话交互的规划已整合到本地 main；会话启停实现仍归待实施的 HXA-129。修复市场安装名称导致状态误判后，完整主机门禁与四象限设备 276/276 通过，详见[收敛记录](../evidence/development/branch-integration-2026-09-22.md)。后续开发顺序见[工作计划](next-work-plan.md)，不把 proposed 设计计为功能交付。
 
 ## Completed
 
@@ -28,9 +28,9 @@ Root 专项收尾：OnePlus API35 真机生命周期、重建、撤权/拒绝与
 
 ## Planned：对话交互优化
 
-214核心已交付，普通composer/UI接线仍按[214任务](tasks/HXA-214.md)推进；[215最新消息会话内修订](../completion-records/HXA-215.md)已按所有者授权完成，ADR-AGENT-009已接受。更早历史编辑以后按修改位置fork。216/217仍为需求，见[Agent ADR入口](../adr/agent/README.md)。拟议的默认排队/显式转向尚未启用；008接受时须同步修订Goal新输入条款。
+214普通 composer、发送回执与统一停止已[交付](../completion-records/HXA-214.md)，[215最新消息会话内修订](../completion-records/HXA-215.md)已与其联合收敛；ADR-AGENT-009已接受。更早历史编辑继续按修改位置fork。所有者已授权216在独立 `codex/hxa-216-input-delivery` 分支推进；默认排队/显式转向仍以该分支的设计、实现及独立验收为准，不倒算为214能力。217仍为需求，见[Agent ADR入口](../adr/agent/README.md)。
 
-四项新增规格独立于历史12项未闭合义务，其中215本期范围已完成。其他外部设备、账号、发行缺口不变；215分支验证不代表已合入main、远端CI通过或214全任务完成。
+四项新增规格独立于历史12项未闭合义务，其中214/215本期范围已完成联合本地验收。其他外部设备、账号、发行缺口不变；main整合与远端CI结果见[联合证据](../evidence/development/conversation-convergence-2026-09-22.md)。
 
 ## In progress
 
@@ -54,7 +54,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 ## Next task
 
-[HXA-214](tasks/HXA-214.md) 核心已获所有者授权，在 `codex/hxa-214-core` 独立实施；回执、按会话持久草稿和稳定 Turn ID 停止接口见[核心交接](hxa-214-core-handoff.md)。UI 接线与普通应用进程死亡验收仍未交付，不将核心验证当作全任务完成。其后同步审查 ADR-CONNECTORS-003，接受后按 [HXA-129](tasks/HXA-129.md) 完成安全替换和会话独立启停；再推进216 → 217；215最新修订已独立完成，整合时遵循核心交接中的修订草稿边界。具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准，216/217尚未启动。
+[HXA-216](tasks/HXA-216.md) 已获所有者授权，在独立 `codex/hxa-216-input-delivery` 分支推进输入交付设计与核心实现，并同步收敛 ADR-AGENT-008 和 Goal 条款。其后顺序为 **129 → 217**：129先接受 ADR-CONNECTORS-003，217按轻量来源记录范围执行。214/215交付及整合不变式见[完成记录](../completion-records/HXA-214.md)与[交接](hxa-214-core-handoff.md)；具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。
 
 ## 已整合能力的历史验收边界
 

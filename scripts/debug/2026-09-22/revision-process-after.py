@@ -56,10 +56,20 @@ def wait_text(text, label):
     raise RuntimeError('UI text not found: ' + repr(choices))
 
 def open_session(title):
-    adb('shell', 'am', 'start', '-n', package + '/com.helix.app.MainActivity')
-    time.sleep(1)
-    # A freshly-started process lands on the session list; select the durable session.
-    tap(wait_text(title, 'session-list'))
+    failure = None
+    for attempt in range(2):
+        adb('shell', 'am', 'start', '-W', '-n', package + '/com.helix.app.MainActivity')
+        time.sleep(1)
+        try:
+            # ActivityManager can briefly retain the killed task on API36 and report
+            # that the launch was delivered even though Launcher is still visible.
+            session = wait_text(title, f'session-list-{attempt}')
+        except RuntimeError as error:
+            failure = error
+            continue
+        tap(session)
+        return
+    raise failure or RuntimeError('Could not start the normal application activity')
 
 open_session('REVISION-RECOVERY')
 tap(wait_text('RECOVER-DRAFT-215', 'normal-editor-before'))
