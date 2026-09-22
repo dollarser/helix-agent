@@ -72,7 +72,7 @@ HXA-214 只修复草稿回执和停止一致性，不提前改变 Goal 新输入
 
 ## Verification
 
-[HXA-214](../../development/tasks/HXA-214.md) 与 [HXA-216](../../development/tasks/HXA-216.md) 定义实现、切片与验收。必须覆盖 Turn 结束竞争、审批等待、批次配对、FIFO、撤回消费竞争、容量失败、稳定身份取消、Goal 续跑优先级和真实主进程死亡，loopback 核对实际请求；仅有队列 UI 或 Room 重开不算完成。当前无新增功能验收。
+[HXA-214](../../completion-records/HXA-214.md) 与 [HXA-216](../../development/tasks/HXA-216.md) 定义实现、切片与验收。必须覆盖 Turn 结束竞争、审批等待、批次配对、FIFO、撤回消费竞争、容量失败、稳定身份取消、Goal 续跑优先级和真实主进程死亡，loopback 核对实际请求；仅有队列 UI 或 Room 重开不算完成。214现行回执/停止修复已交付；新增Queue/Steer仍以216验收为准。
 
 ## Reconsider when
 
