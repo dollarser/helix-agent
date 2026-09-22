@@ -52,7 +52,7 @@ HXA-211 会话 JSONL 导出已交付，见[完成记录](../completion-records/H
 
 ## Next task
 
-本轮整合验证完成后，先实施 [HXA-214](tasks/HXA-214.md) 的发送回执、草稿保留及停止一致性。同步审查 ADR-CONNECTORS-003，接受后按 [HXA-129](tasks/HXA-129.md) 完成安全替换和会话独立启停；再推进 215 → 216 → 217。具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准。本次只规划，不自动启动新功能。
+[HXA-214](tasks/HXA-214.md) 核心已获所有者授权，在 `codex/hxa-214-core` 独立实施；回执、按会话持久草稿和稳定 Turn ID 停止接口见[核心交接](hxa-214-core-handoff.md)。UI 接线与普通应用进程死亡验收仍未交付，不将核心验证当作全任务完成。其后同步审查 ADR-CONNECTORS-003，接受后按 [HXA-129](tasks/HXA-129.md) 完成安全替换和会话独立启停；再推进 215 → 216 → 217。具体切片、设计门槛与资源分工以[工作计划](next-work-plan.md)为准，其他新功能尚未启动。
 
 ## 已整合能力的历史验收边界
 

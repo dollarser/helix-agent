@@ -133,6 +133,17 @@ class AppAgentRuntimeTest {
     }
 
     @Test
+    fun completionWinningCancellationReturnsActualTerminalOutcome() {
+        val fake =
+            host().apply {
+                phase = TurnState.WAITING_MODEL
+                terminalDuringCancel = TurnState.COMPLETED
+            }
+        val result = runBlocking { AppAgentRuntime(fake).cancel(turnId) }
+        assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), result)
+    }
+
+    @Test
     fun cancelOfALiveTurnReportsStopAccepted() {
         // A live turn receives the stop and settles asynchronously when its unwind reaches the
         // terminal — the result is StopAccepted (the stop was accepted), not Cancelled (which
@@ -307,7 +318,10 @@ class AppAgentRuntimeTest {
             revoked += turnId
         }
 
+        var terminalDuringCancel: TurnState? = null
+
         override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {
+            terminalDuringCancel?.let { return TurnCancelOutcome.AlreadyTerminal(it) }
             cancelled += turnId
             // Mirror the host: a parked (INTERRUPTED) turn is discarded, a live one stopped.
             return when (phase) {

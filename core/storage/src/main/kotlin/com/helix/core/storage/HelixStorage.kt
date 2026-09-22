@@ -63,6 +63,12 @@ class HelixStorage internal constructor(
             sessionPermissionConfigs.setForSession(id, sessionPermissionConfigs.appDefault(), timestamp)
         }
     }
+    val composerDrafts by lazy {
+        com.helix.core.storage.repository.ComposerDraftRepository(
+            database.composerDraftDao(),
+        )
+    }
+
     val messages: MessageRepository by lazy { MessageRepository(database.messageDao(), contentStore) }
     val sessionExports: SessionExportRepository by lazy { SessionExportRepository(database, contentStore) }
 
@@ -234,6 +240,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_20_21,
                 HelixDatabase.MIGRATION_21_22,
                 HelixDatabase.MIGRATION_22_23,
+                HelixDatabase.MIGRATION_23_24,
             )
 
         fun create(context: Context): HelixStorage {

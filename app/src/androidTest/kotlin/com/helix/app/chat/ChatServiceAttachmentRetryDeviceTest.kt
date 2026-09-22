@@ -386,6 +386,127 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         }
     }
 
+    @Test
+    fun submissionReceiptPreservesRejectedDraftAndCannotClearAnotherSession() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                fixture.storage.sessions.create(SESSION_ID, "Draft", null, null, 1)
+                fixture.service.openSession(SESSION_ID)
+                val draft = ChatSubmission(SESSION_ID, 0, "missing-provider", "keep this draft")
+                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                val receipt = fixture.service.sendSubmission(draft).await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Rejected)
+                assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
+                assertTrue(!fixture.service.acknowledgeSubmission(receipt))
+                fixture.storage.sessions.create("other", "Other", null, null, 2)
+                fixture.service.openSession("other")
+                assertEquals(
+                    "SESSION_CHANGED",
+                    (
+                        fixture.service
+                            .sendSubmission(draft)
+                            .await()
+                            .outcome as
+                            ChatSubmissionOutcome.Rejected
+                    ).reason,
+                )
+                assertTrue(
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .isEmpty(),
+                )
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
+    fun acceptedReceiptIsIdempotentAndOldRevisionCannotClearNewDraft() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                fixture.storage.sessions.create(SESSION_ID, "Draft", PROVIDER_ID, "model-x", 1)
+                fixture.service.openSession(SESSION_ID)
+                val draft = ChatSubmission(SESSION_ID, 0, "same-intent", "hello")
+                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                val first = fixture.service.sendSubmission(draft)
+                val second = fixture.service.sendSubmission(draft)
+                val receipt = first.await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Accepted)
+                assertEquals(receipt, second.await())
+                assertEquals(
+                    1,
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .size,
+                )
+                val newer = draft.copy(revision = 1, clientRequestId = "next-intent", text = "new input")
+                assertTrue(fixture.service.saveComposerDraft(newer, 0))
+                assertTrue(!fixture.service.acknowledgeSubmission(receipt))
+                assertEquals(newer, fixture.service.loadComposerDraft(SESSION_ID))
+                assertTrue(
+                    fixture.service
+                        .sendSubmission(draft.copy(text = "different"))
+                        .await()
+                        .outcome is
+                        ChatSubmissionOutcome.Rejected,
+                )
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
+    @Test
+    fun confirmationReceiptBindsDraftAndDoesNotClearUntilCommitted() =
+        kotlinx.coroutines.runBlocking {
+            val fixture = newFixture(ApplicationProvider.getApplicationContext())
+            try {
+                openSessionWithStagedAttachment(fixture, "safe local file")
+                val ids =
+                    fixture.service.screen.value.pendingAttachments
+                        .map { it.id }
+                val draft = ChatSubmission(SESSION_ID, 0, "confirmed-intent", "summarize file", ids)
+                assertTrue(fixture.service.saveComposerDraft(draft, null))
+                val pending = fixture.service.sendSubmission(draft).await()
+                assertEquals(ChatSubmissionOutcome.PendingConfirmation, pending.outcome)
+                assertTrue(!fixture.service.acknowledgeSubmission(pending))
+                assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
+                val wrong = fixture.service.confirmSubmission(draft.copy(revision = 1)).await()
+                assertTrue(wrong.outcome is ChatSubmissionOutcome.Rejected)
+                assertTrue(
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .isEmpty(),
+                )
+                val staleCancel = fixture.service.cancelSubmission(draft.copy(revision = 1)).await()
+                assertEquals("CONFIRMATION_CHANGED", (staleCancel.outcome as ChatSubmissionOutcome.Rejected).reason)
+                val cancelled = fixture.service.cancelSubmission(draft).await()
+                assertEquals("USER_CANCELLED", (cancelled.outcome as ChatSubmissionOutcome.Rejected).reason)
+                assertEquals(draft, fixture.service.loadComposerDraft(SESSION_ID))
+                assertEquals(
+                    ChatSubmissionOutcome.PendingConfirmation,
+                    fixture.service
+                        .sendSubmission(draft)
+                        .await()
+                        .outcome,
+                )
+                val accepted = fixture.service.confirmSubmission(draft).await()
+                assertTrue(accepted.outcome is ChatSubmissionOutcome.Accepted)
+                assertEquals(accepted, fixture.service.confirmSubmission(draft).await())
+                assertEquals(
+                    1,
+                    fixture.storage.turns
+                        .listBySession(SESSION_ID)
+                        .size,
+                )
+                assertTrue(fixture.service.acknowledgeSubmission(accepted))
+                assertNull(fixture.service.loadComposerDraft(SESSION_ID))
+            } finally {
+                settleAndClose(fixture)
+            }
+        }
+
     /** Creates the session, opens it, stages one text attachment and returns the durable artifact file. */
     private fun openSessionWithStagedAttachment(
         fixture: Fixture,

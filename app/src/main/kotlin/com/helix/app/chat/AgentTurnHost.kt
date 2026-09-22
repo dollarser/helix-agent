@@ -88,6 +88,11 @@ internal class TurnStartBlocked(
  * [cancelTurn] override is a public member and may not expose an internal return type.
  */
 sealed interface TurnCancelOutcome {
+    /** The loop completed while cancellation was being admitted. */
+    data class AlreadyTerminal(
+        val phase: TurnState,
+    ) : TurnCancelOutcome
+
     /** A live loop existed and was cancelled; it unwinds to CANCELLED. */
     data object StoppedLive : TurnCancelOutcome
 

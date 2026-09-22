@@ -82,6 +82,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -93,6 +94,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.jvm.Volatile
 
@@ -529,16 +532,6 @@ class ChatService(
     private var pendingAttachmentIds: List<String> = emptyList()
 
     /**
-     * HX2-01 §2e: the stable client-request id for the open [pendingSend]'s submission. Generated
-     * ONCE when the egress confirmation is created and carried through the (possibly re-driven)
-     * confirm, so a double-confirm that re-drives the same pending send dedups to the single turn
-     * it started — the read-and-clear of [pendingSend] is a liveness guard, not an atomic one, so
-     * this id is what actually collapses a racing re-drive. Cleared everywhere [pendingSend] is.
-     */
-    @Volatile
-    private var pendingClientRequestId: String? = null
-
-    /**
      * HXA-056: the shared-in TEXT draft awaiting a one-shot composer pre-fill (set by
      * [acceptShareDraft], cleared by [consumeShareDraftText] and whenever the open session
      * changes — a draft belongs to the session it was opened for, never to a later one).
@@ -878,6 +871,7 @@ class ChatService(
     fun openSession(id: String) {
         dismissGoalReminder()
         if (preparingDraft) return
+        cancelPendingSend()
         drafts.clear()
         openSessionId = id
         clearStagedAttachments()
@@ -894,6 +888,7 @@ class ChatService(
     fun closeSession() {
         dismissGoalReminder()
         if (preparingDraft) return
+        cancelPendingSend()
         drafts.clear()
         openSessionId = null
         clearStagedAttachments()
@@ -1360,6 +1355,8 @@ class ChatService(
     }
 
     private var pendingGoalId: String? = null
+    private val submissionGate = Mutex()
+    private var pendingSubmission: ChatSubmission? = null
 
     /**
      * The send intent. Order (fail-closed, user-visible):
@@ -1385,32 +1382,119 @@ class ChatService(
         send(ContextCompaction.COMMAND)
     }
 
-    @Suppress("ReturnCount") // explicit draft admission guards
-    fun send(text: String) {
-        if (!validHumanInput(text)) return
-        val requestedSession = openSessionId
-        if (requestedSession != null) synchronized(turnGate) { revokeGoalIntent(requestedSession) }
-        if (preparingDraft) return
-        val draft = sessionDraft
-        if (draft == null) {
-            workScope.launch {
-                if (requestedSession != null) yieldToHumanInput(requestedSession)
-                if (openSessionId == requestedSession) sendNow(text)
+    /** Durable composer API for persisted sessions; never writes messages or starts model work. */
+    suspend fun saveComposerDraft(
+        request: ChatSubmission,
+        expectedRevision: Long?,
+    ): Boolean =
+        withContext(Dispatchers.IO) {
+            var saved = false
+            storage.withTransaction {
+                val previous = storage.turns.resolveByClientRequestId(request.clientRequestId)
+                val existing = storage.composerDrafts.get(request.sessionId)
+                // A draft cannot retroactively claim an already-used request ID with new content.
+                if (previous == null || existing?.toSubmission() == request) {
+                    saved = storage.composerDrafts.save(request.toDraftEntity(), expectedRevision)
+                }
             }
-            return
+            saved
         }
-        if (!drafts.beginPreparation(draft.session.id)) return
-        _screen.update { it.copy(preparingDraft = true) }
-        workScope.launch {
+
+    suspend fun loadComposerDraft(sessionId: String): ChatSubmission? =
+        withContext(Dispatchers.IO) {
+            storage.composerDrafts.get(sessionId)?.toSubmission()
+        }
+
+    /** CAS acknowledgement: an old receipt cannot clear an edited draft or another session. */
+    suspend fun acknowledgeSubmission(receipt: ChatSubmissionReceipt): Boolean =
+        withContext(Dispatchers.IO) {
+            val accepted = receipt.outcome as? ChatSubmissionOutcome.Accepted ?: return@withContext false
+            val request = receipt.submission
+            val turn = storage.turns.resolveByClientRequestId(request.clientRequestId)
+            if (turn?.id != accepted.turnId || turn.sessionId != request.sessionId) return@withContext false
+            storage.composerDrafts.clear(request.sessionId, request.revision, request.clientRequestId)
+        }
+
+    /** Legacy producer; UI integration should retain the identity and await [sendSubmission]. */
+    fun send(text: String) {
+        val sessionId = openSessionId ?: return
+        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), text, stagedAttachments.map { it.artifactId }))
+    }
+
+    /** Service-owned admission survives caller cancellation; never reads an outcome from UI state. */
+    fun sendSubmission(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> {
+        val snapshot = request.copy(attachmentIds = request.attachmentIds.toList())
+        return workScope.async {
+            submissionGate.withLock {
+                val outcome = submissionAttempt { admitSubmission(snapshot) }
+                ChatSubmissionReceipt(snapshot, outcome)
+            }
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    private suspend fun submissionAttempt(block: suspend () -> ChatSubmissionOutcome): ChatSubmissionOutcome =
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            ChatSubmissionOutcome.Rejected("ADMISSION_FAILED")
+        }
+
+    @Suppress("ReturnCount", "CyclomaticComplexMethod") // Explicit identity and draft admission guards.
+    private suspend fun admitSubmission(request: ChatSubmission): ChatSubmissionOutcome {
+        if (openSessionId != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        completedSubmission(request)?.let { return it }
+        if (pendingSubmission != null) {
+            return if (pendingSubmission == request) {
+                ChatSubmissionOutcome.PendingConfirmation
+            } else {
+                ChatSubmissionOutcome.Rejected("CONFIRMATION_PENDING")
+            }
+        }
+        if (!validHumanInput(request.text)) return ChatSubmissionOutcome.Rejected("INVALID_INPUT")
+        if (preparingDraft) return ChatSubmissionOutcome.Rejected("PREPARING_DRAFT")
+        if (request.attachmentIds != stagedAttachments.map { it.artifactId }) {
+            return ChatSubmissionOutcome.Rejected("ATTACHMENTS_CHANGED")
+        }
+        val storedDraft = storage.composerDrafts.get(request.sessionId)
+        if (storedDraft != null && storedDraft.toSubmission() != request) {
+            return ChatSubmissionOutcome.Rejected("DRAFT_CHANGED")
+        }
+        val draft = sessionDraft
+        if (draft != null) {
+            if (!drafts.beginPreparation(draft.session.id)) return ChatSubmissionOutcome.Rejected("PREPARING_DRAFT")
+            _screen.update { it.copy(preparingDraft = true) }
             try {
-                val attachments = saveSessionDraft(text) ?: return@launch
+                val attachments =
+                    saveSessionDraft(request.text)
+                        ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
                 attachments.forEach { stageAttachmentNow(it.uri) }
-                if (stagedAttachments.size != attachments.size) return@launch
-                sendNow(text)
+                if (stagedAttachments.size != attachments.size) {
+                    return ChatSubmissionOutcome.Rejected("ATTACHMENT_PREPARATION_FAILED")
+                }
             } finally {
                 drafts.finishPreparation()
                 refreshScreen()
             }
+        }
+        synchronized(turnGate) { revokeGoalIntent(request.sessionId) }
+        yieldToHumanInput(request.sessionId)
+        if (openSessionId != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        return sendNow(request.text, submission = request)
+    }
+
+    private fun completedSubmission(request: ChatSubmission): ChatSubmissionOutcome? {
+        val turn = storage.turns.resolveByClientRequestId(request.clientRequestId) ?: return null
+        val saved = storage.composerDrafts.get(request.sessionId)?.toSubmission()
+        val samePlainInput =
+            request.attachmentIds.isEmpty() &&
+                turn.inputFingerprint == TurnInputFingerprint.of(request.text, emptyList())
+        return if (turn.sessionId == request.sessionId && (samePlainInput || saved == request)) {
+            ChatSubmissionOutcome.Accepted(turn.id)
+        } else {
+            ChatSubmissionOutcome.Rejected("REQUEST_ID_ALREADY_USED")
         }
     }
 
@@ -1429,40 +1513,40 @@ class ChatService(
     }
 
     @Suppress("ReturnCount", "CyclomaticComplexMethod") // one fail-closed early return per gate condition
-    private suspend fun sendNow(text: String, goalId: String? = null) {
+    private suspend fun sendNow(
+        text: String,
+        goalId: String? = null,
+        submission: ChatSubmission? = null,
+    ): ChatSubmissionOutcome {
         if (text.length > MAX_MODEL_TEXT_CHARS || text.indexOf('\u0000') >= 0) {
-            setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
         }
         val staged = stagedAttachments
         // An attachment-only send is valid (ADR-0014 §5): blank text is admitted while
         // staged attachments ride the send; blank text with nothing staged is still the
         // empty-send block of today.
         if (text.isBlank() && (staged.isEmpty() || runControlStore.current.mode == AgentMode.GOAL)) {
-            setBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_message_invalid, MAX_MODEL_TEXT_CHARS))
         }
-        val session = currentSession() ?: return
+        val session = currentSession() ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        val request = submission ?: ChatSubmission(session.id, 0, idGenerator(), text, staged.map { it.artifactId })
+        if (session.id != request.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
         val providerId =
             session.providerId ?: run {
-                setBlocked(str(R.string.chat_blocked_no_provider_bound))
-                return
+                return submissionBlocked(str(R.string.chat_blocked_no_provider_bound))
             }
         if (!providerService.chatSelectable(providerId)) {
-            setBlocked(str(R.string.chat_blocked_provider_untested))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_provider_untested))
         }
         if (!providerService.isCleartextPermitted(providerId)) {
-            setBlocked(str(R.string.chat_blocked_cleartext_http))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_cleartext_http))
         }
         val target = providerService.egressTargetFor(providerId)
         // HXA-055, before the gate: a staged image whose on-device normalization failed at
         // staging is local-only (save/preview) — block with the actionable reason, and no
         // raw bytes may ever reach the wire as a fallback.
         staged.firstNotNullOfOrNull { it.imageSendError }?.let { reason ->
-            setBlocked(reason)
-            return
+            return submissionBlocked(reason)
         }
         // HXA-055 (ADR-0014 §4): an image leaves ONLY when the target provider's vision
         // capability is CONFIRMED — a real probe (connection test phase 5) or a user-visible
@@ -1479,10 +1563,9 @@ class ChatService(
                     ?.vision
                     ?: false
             if (!visionConfirmed) {
-                setBlocked(
+                return submissionBlocked(
                     str(R.string.chat_blocked_vision_unconfirmed),
                 )
-                return
             }
         }
         // The single admission choke point (ADR-0014 §5): the fail-closed attachment gate
@@ -1493,15 +1576,15 @@ class ChatService(
         // call exactly (no regression).
         val gate = AttachmentSendGate.evaluate(staged.map { it.toStagedAttachment() }, credentialScan)
         val outcome = AttachmentSendAdmission.admit(gate, text, target, strings)
-        when (outcome) {
+        return when (outcome) {
             is AttachmentSendAdmission.Outcome.Blocked -> {
                 // The staged attachments STAY pending: the user removes the problem file
                 // and re-sends — a gate block is never a silent drop.
-                setBlocked(outcome.reason)
+                submissionBlocked(outcome.reason)
             }
 
             is AttachmentSendAdmission.Outcome.Egress -> {
-                applyEgressDecision(outcome.decision, staged, text, providerId, target, goalId)
+                applyEgressDecision(outcome.decision, staged, text, providerId, target, goalId, request)
             }
         }
     }
@@ -1527,7 +1610,7 @@ class ChatService(
      * BINDS the approval to the exact [target] shown in the dialog (the staged attachments
      * STAY pending; the confirm path re-materializes them). Rejected blocks.
      */
-    @Suppress("ReturnCount") // one fail-closed early return per decision
+    @Suppress("ReturnCount", "LongParameterList") // The immutable submission binds the existing egress gates.
     private suspend fun applyEgressDecision(
         decision: EgressDisclosure.Decision,
         staged: List<StagedAttachmentEntry>,
@@ -1535,20 +1618,21 @@ class ChatService(
         providerId: String,
         target: EgressDisclosure.EgressTarget,
         goalId: String?,
-    ) {
-        when (decision) {
+        submission: ChatSubmission,
+    ): ChatSubmissionOutcome {
+        if (openSessionId != submission.sessionId) return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        return when (decision) {
             EgressDisclosure.Decision.Proceed -> {
                 if (staged.isNotEmpty()) {
                     // Unreachable by construction; fail closed so a staged file is never
                     // silently dropped from the outgoing request.
-                    setBlocked(str(R.string.chat_blocked_egress_unconfirmed))
-                    return
+                    return submissionBlocked(str(R.string.chat_blocked_egress_unconfirmed))
                 }
                 // A pure-text Proceed carries NO attachments, so it clears none: the staged
                 // list is already empty (the snapshot above), and a file picked in the microsecond
                 // since that snapshot is the user's for the NEXT send — a send is never a silent
                 // drop. (The confirm path clears exactly the approved set, not the live list.)
-                submitTurn(text = text, providerId = providerId, goalId = goalId)
+                submitMessageTurn(submission, text, providerId, goalId)
             }
 
             is EgressDisclosure.Decision.Confirm -> {
@@ -1563,52 +1647,65 @@ class ChatService(
                 pendingAttachmentIds = staged.map { it.artifactId }
                 // HX2-01 §2e: one stable id for this pending submission, carried through a possibly
                 // re-driven confirm so a double-confirm dedups to the single turn it started.
-                pendingClientRequestId = idGenerator()
+                pendingSubmission = submission
                 _screen.update { it.copy(pendingDisclosure = decision.summary, blockedReason = null) }
+                ChatSubmissionOutcome.PendingConfirmation
             }
 
             is EgressDisclosure.Decision.Rejected -> {
-                setBlocked(egressRejectedLabel(decision.reason))
+                submissionBlocked(egressRejectedLabel(decision.reason))
             }
         }
     }
 
     /** The user confirmed the high-sensitivity disclosure for [pendingSend]. */
     fun confirmSend() {
-        workScope.launch { confirmSendNow() }
+        val request = pendingSubmission ?: return
+        confirmSubmission(request)
     }
 
+    fun confirmSubmission(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> =
+        workScope.async {
+            submissionGate.withLock {
+                val outcome =
+                    completedSubmission(request)
+                        ?: if (pendingSubmission != request || openSessionId != request.sessionId) {
+                            ChatSubmissionOutcome.Rejected("CONFIRMATION_CHANGED")
+                        } else {
+                            submissionAttempt { confirmSendNow(request) }
+                        }
+                ChatSubmissionReceipt(request, outcome)
+            }
+        }
+
     @Suppress("ReturnCount", "SwallowedException", "TooGenericExceptionCaught") // fail-closed gate checks
-    private suspend fun confirmSendNow() {
-        val text = pendingSend ?: return
+    private suspend fun confirmSendNow(request: ChatSubmission): ChatSubmissionOutcome {
+        val text = pendingSend ?: return ChatSubmissionOutcome.Rejected("CONFIRMATION_CHANGED")
         val goalId = pendingGoalId
         // Capture the stable client-request id with the pending state it belongs to (HX2-01 §2e):
         // a possibly-re-driven confirm carries the same id, so the runtime dedups to the single
         // turn it started.
-        val clientRequestId = pendingClientRequestId
         // Capture the approved target AND attachment set BEFORE clearing the pending state: the
         // binding checks below compare the LIVE target and the CURRENT staged set against exactly
         // what the dialog showed.
         val approvedTarget = pendingEgress
         val approvedAttachmentIds = pendingAttachmentIds
-        val session = currentSession() ?: return
-        val providerId = session.providerId ?: return
+        val session = currentSession() ?: return ChatSubmissionOutcome.Rejected("SESSION_CHANGED")
+        val providerId = session.providerId ?: return ChatSubmissionOutcome.Rejected("NO_PROVIDER")
+        pendingSubmission = null
         pendingGoalId = null
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
-        pendingClientRequestId = null
         _screen.update { it.copy(pendingDisclosure = null) }
         // Fail-closed re-check (the gate already ran when the disclosure was
         // shown): a provider re-test/revocation between the dialog and this
         // confirmation must not open a wire path the user has not approved.
         if (!providerService.chatSelectable(providerId)) {
-            setBlocked(str(R.string.chat_blocked_provider_untested))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_provider_untested))
         }
         if (!providerService.isCleartextPermitted(providerId)) {
-            setBlocked(str(R.string.chat_blocked_cleartext_http))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_cleartext_http))
         }
         // ADR-0014 §5: the approval bound a SPECIFIC egress target (provider + origin).
         // A provider edit/re-test that moved the endpoint between the dialog and this
@@ -1619,20 +1716,18 @@ class ChatService(
                 providerService.egressTargetFor(providerId)
             } catch (e: Exception) {
                 // The provider row vanished between the dialog and this tap: fail closed.
-                setBlocked(str(R.string.chat_blocked_egress_target_changed))
-                return
+                return submissionBlocked(str(R.string.chat_blocked_egress_target_changed))
             }
         if (
             approvedTarget == null ||
             approvedTarget.providerId != liveTarget.providerId ||
             approvedTarget.origin != liveTarget.origin
         ) {
-            setBlocked(str(R.string.chat_blocked_egress_target_changed))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_egress_target_changed))
         }
         // Delegate the staged-attachment handling (enumeration drift check + re-verify + launch);
         // a pure-text pending (no staged) takes the exact pre-attachment path (no regression).
-        confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget, goalId, clientRequestId)
+        return confirmStagedSend(text, providerId, approvedAttachmentIds, liveTarget, goalId, request)
     }
 
     /**
@@ -1651,8 +1746,8 @@ class ChatService(
         approvedAttachmentIds: List<String>,
         liveTarget: EgressDisclosure.EgressTarget,
         goalId: String?,
-        clientRequestId: String?,
-    ) {
+        submission: ChatSubmission,
+    ): ChatSubmissionOutcome {
         val staged = stagedAttachments
         // ADR-0014 §5: the user approved a SPECIFIC enumerated set of attachments — the dialog
         // listed exactly [approvedAttachmentIds]. If the staged set has since changed, a file
@@ -1662,25 +1757,24 @@ class ChatService(
         // send. A pure-text pending has both empty, so this passes and the path below is
         // byte-identical to pre-attachment (no regression). The staged attachments STAY pending.
         if (staged.map { it.artifactId } != approvedAttachmentIds) {
-            setBlocked(str(R.string.chat_blocked_attachments_changed))
-            return
+            return submissionBlocked(str(R.string.chat_blocked_attachments_changed))
         }
         if (staged.isEmpty()) {
-            submitTurn(text = text, providerId = providerId, goalId = goalId, clientRequestId = clientRequestId)
-            return
+            return submitMessageTurn(submission, text, providerId, goalId)
         }
         // HXA-055: a staged image whose on-device normalization failed at staging time is
         // local-only (save/preview) — the send is blocked with the actionable reason, and no
         // raw bytes may ever reach the wire as a fallback.
         staged.firstNotNullOfOrNull { it.imageSendError }?.let { reason ->
-            setBlocked(reason)
-            return
+            return submissionBlocked(reason)
         }
         // RE-VERIFY before the user-approved egress goes out: re-hash every staged file
         // against its bound snapshot (images: the NORMALIZED artifact, the bytes that leave)
         // AND re-scan the FULL content for credential shapes — fail closed if any file
         // changed, vanished or carries a credential in the meantime.
-        val materialized = reVerifyStagedForEgress(staged, text, liveTarget) ?: return
+        val materialized =
+            reVerifyStagedForEgress(staged, text, liveTarget)
+                ?: return ChatSubmissionOutcome.Rejected("ATTACHMENT_VERIFICATION_FAILED")
         // HXA-055 (ADR-0014 §4): an image leaves ONLY when the target provider's vision
         // capability is CONFIRMED — a real probe (the connection test's phase 5) or a
         // user-visible manual declaration. Unconfirmed vision blocks with an actionable
@@ -1698,10 +1792,9 @@ class ChatService(
                     ?.vision
                     ?: false
             if (!visionConfirmed) {
-                setBlocked(
+                return submissionBlocked(
                     str(R.string.chat_blocked_vision_unconfirmed),
                 )
-                return
             }
         }
         // Ready: the gate's attachments are in staged order — pair each with its staged entry
@@ -1727,23 +1820,25 @@ class ChatService(
         // bindings in the turn's transaction and returns whether the start was admitted. The
         // approved attachments are consumed only on an admitted start; a refused start restores
         // the text as a draft (a send is never a silent drop).
-        val started =
-            submitTurn(
+        val outcome =
+            submitMessageTurn(
+                submission = submission,
                 text = AttachmentContext.buildUserMessageContent(text, blocks),
                 providerId = providerId,
                 attachments = bindings.map { AttachmentBindingIntent(it.artifactId, it.boundSha256) },
                 goalId = goalId,
-                clientRequestId = clientRequestId,
             )
-        if (started) {
+        if (outcome is ChatSubmissionOutcome.Accepted) {
             // Only consume attachments after the user message and its bindings are durable.
             synchronized(stagedLock) {
                 stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
             }
-        } else {
+        } else if (openSessionId == submission.sessionId && storage.composerDrafts.get(submission.sessionId) == null) {
+            // Compatibility for the old composer until it consumes typed receipts.
             shareDraftText = text
         }
         refreshScreen()
+        return outcome
     }
 
     /**
@@ -1825,12 +1920,27 @@ class ChatService(
         return null
     }
 
+    /** A stale disclosure cannot cancel a newer session/revision's pending request. */
+    fun cancelSubmission(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> =
+        workScope.async {
+            submissionGate.withLock {
+                val outcome =
+                    if (pendingSubmission == request) {
+                        cancelPendingSend()
+                        ChatSubmissionOutcome.Rejected("USER_CANCELLED")
+                    } else {
+                        ChatSubmissionOutcome.Rejected("CONFIRMATION_CHANGED")
+                    }
+                ChatSubmissionReceipt(request, outcome)
+            }
+        }
+
     fun cancelPendingSend() {
+        pendingSubmission = null
         pendingGoalId = null
         pendingSend = null
         pendingEgress = null
         pendingAttachmentIds = emptyList()
-        pendingClientRequestId = null
         _screen.update { it.copy(pendingDisclosure = null) }
     }
 
@@ -1920,13 +2030,6 @@ class ChatService(
         systemReason: String? = null,
     ) {
         workScope.launch {
-            val task = storage.turns.resolve(turnId)
-            synchronized(turnGate) {
-                goalContinuation.disarmTurn(task.sessionId, turnId)
-                goalUserRequests.remove(turnId)
-            }
-            val active = sessionTurnAdmission.activeTurn(task.sessionId) ?: return@launch
-            if (active.turnId != turnId) return@launch
             if (systemReason != null) {
                 require(systemReason in setOf("FGS_START_REJECTED", "FGS_TIMEOUT", "FGS_SERVICE_LOST"))
             }
@@ -1934,23 +2037,14 @@ class ChatService(
                 if (storage.goalTurnBindings.byTurn(turnId) == null) return@launch
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
             }
-            // HXA-202 slice 3: persist CANCELLING as soon as the stable-ID match passes, so
-            // the Tasks dashboard shows "cancelling, awaiting settlement" from here until
-            // the single settlement transaction commits the terminal state. The transition
-            // is only legal from live states: an already-settled turn keeps its conclusion,
-            // a recovered (INTERRUPTED) turn settles straight to CANCELLED, and a repeated
-            // stop finds CANCELLING already durable and does nothing here.
-            val live = storage.turns.resolve(turnId)
-            if (TurnState.valueOf(live.state).canTransitionTo(TurnState.CANCELLING)) {
-                storage.turns.updateState(live, TurnState.CANCELLING, live.stepCount, null, null)
-                publishTurn(TurnUi(turnId, TurnState.CANCELLING, null, null, false))
-            }
             if (systemReason != null) systemStops[turnId] = systemReason
-            turnCancels[turnId]?.cancel()
-            toolCalls.cancelPendingApproval(turnId)
-            active.job.cancel()
+            stopTurn(turnId)
         }
     }
+
+    /** Stable-ID entry shared by chat, Tasks and the runtime; never resolves a newer live turn. */
+    suspend fun stopTurn(turnId: String): com.helix.core.agent.CancelResult =
+        withContext(Dispatchers.IO) { agentRuntime.cancel(TurnId(turnId)) }
 
     /**
      * The still-running (non-terminal, not interrupted) turns in [sessionId] — the "previously
@@ -2012,12 +2106,8 @@ class ChatService(
     }
 
     fun stop() {
-        val sessionId = openSessionId ?: return
-        synchronized(turnGate) { revokeGoalIntent(sessionId) }
-        val active = sessionTurnAdmission.activeTurn(sessionId) ?: return
-        turnCancels[active.turnId]?.cancel()
-        toolCalls.cancelPendingApproval(active.turnId)
-        active.job.cancel()
+        val turnId = _screen.value.activeTurn?.id ?: return
+        workScope.launch { stopTurn(turnId) }
     }
 
     fun inspectInterruptedSubscription(
@@ -2240,52 +2330,73 @@ class ChatService(
             }
         }
 
+    @Suppress("LongMethod") // Durable state and cancellation signals share one turn gate.
     override suspend fun cancelTurn(turnId: String): TurnCancelOutcome =
-        withContext(Dispatchers.IO) {
-            val task = storage.turns.resolve(turnId)
-            synchronized(turnGate) {
-                goalContinuation.disarmTurn(task.sessionId, turnId)
-                goalUserRequests.remove(turnId)
-            }
-            val active = sessionTurnAdmission.activeTurn(task.sessionId)
-            if (active != null && active.turnId == turnId) {
-                turnCancels[turnId]?.cancel()
-                active.job.cancel()
-                TurnCancelOutcome.StoppedLive
-            } else {
-                // No live loop: a non-terminal turn without one is a parked (INTERRUPTED) turn.
-                // Discard it straight to CANCELLED — the model's only direct-to-CANCELLED edge.
-                // updateState validates the transition, so a turn not in a discardable state fails
-                // closed (throws) instead of being silently marked cancelled. The terminal write
-                // and the goal settlement commit in ONE transaction — the same unified settlement
-                // the live unwind commits in [TurnCoordinator.terminalize]: a parked goal was
-                // already recovered to PAUSED at process restart, so [GoalRunSettlement.settle]
-                // is a guarded no-op there, kept so both paths settle identically.
-                storage.withTransaction {
-                    val current = storage.turns.resolve(turnId)
-                    storage.turns.updateState(
-                        turn = current,
-                        state = TurnState.CANCELLED,
-                        stepCount = current.stepCount,
-                        endedAt = clock.now().toEpochMilli(),
-                        errorCode = null,
-                    )
-                    GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            val outcome =
+                synchronized(turnGate) {
+                    val task = storage.turns.resolve(turnId)
+                    goalContinuation.disarmTurn(task.sessionId, turnId)
+                    goalUserRequests.remove(turnId)
+                    val active = sessionTurnAdmission.activeTurn(task.sessionId)?.takeIf { it.turnId == turnId }
+                    lateinit var result: TurnCancelOutcome
+                    storage.withTransaction {
+                        val current = storage.turns.resolve(turnId)
+                        val phase = TurnState.valueOf(current.state)
+                        result =
+                            when {
+                                phase.isTerminal -> {
+                                    TurnCancelOutcome.AlreadyTerminal(phase)
+                                }
+
+                                active != null -> {
+                                    if (phase != TurnState.CANCELLING) {
+                                        storage.turns.updateState(
+                                            current,
+                                            TurnState.CANCELLING,
+                                            current.stepCount,
+                                            null,
+                                            null,
+                                        )
+                                    }
+                                    TurnCancelOutcome.StoppedLive
+                                }
+
+                                else -> {
+                                    // Only a recovered INTERRUPTED turn admits direct discard.
+                                    storage.turns.updateState(
+                                        current,
+                                        TurnState.CANCELLED,
+                                        current.stepCount,
+                                        clock.now().toEpochMilli(),
+                                        null,
+                                    )
+                                    GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
+                                    TurnCancelOutcome.DiscardedParked
+                                }
+                            }
+                    }
+                    if (result == TurnCancelOutcome.StoppedLive) {
+                        // The cancellation intent is committed before signalling any in-flight work.
+                        publishTurn(TurnUi(turnId, TurnState.CANCELLING, null, null, false))
+                        turnCancels[turnId]?.cancel()
+                        toolCalls.cancelPendingApproval(turnId)
+                        active?.job?.cancel()
+                    }
+                    result
                 }
+            if (outcome == TurnCancelOutcome.DiscardedParked) {
                 endTurnSettlement(turnId)
-                // Deliver the terminal to this turn's live-frame observers too: a parked turn was
-                // started (its flow is open) but never went through terminalize, so without this
-                // emit an [AgentTurnHost.observeTurnFrames] subscriber would hang for it.
                 turnLiveFrames.emit(
                     turnId,
                     TurnUi(turnId, TurnState.CANCELLED, null, terminalLabel(TurnState.CANCELLED, null), false),
                 )
-                // Same post-settlement surface as the live unwind: the page refresh (a parked
-                // turn may be the open session's last row) and the goal reminder sync.
-                refreshScreen()
-                syncGoalReminderForTurn(turnId)
-                TurnCancelOutcome.DiscardedParked
             }
+            // Read current facts rather than publishing a stale CANCELLING over a fast terminal.
+            refreshScreen()
+            refreshBackgroundTasks()
+            syncGoalReminderForTurn(turnId)
+            outcome
         }
 
     /**
@@ -2323,7 +2434,7 @@ class ChatService(
      * session refused has ALREADY surfaced its safe blocked state inside [launchTurn], so the
      * adapter's [TurnStartBlocked] is swallowed — it is a second signal, never the first.
      */
-    @Suppress("SwallowedException") // the refused start already surfaced its own safe blocked state
+    @Suppress("SwallowedException", "ReturnCount") // Session binding is checked before the existing runtime gate.
     private suspend fun submitTurn(
         text: String?,
         providerId: String,
@@ -2332,8 +2443,10 @@ class ChatService(
         goalId: String? = null,
         clientRequestId: String? = null,
         isBudgetContinuation: Boolean = false,
+        expectedSessionId: String? = null,
     ): Boolean {
         val session = currentSession() ?: return false
+        if (expectedSessionId != null && session.id != expectedSessionId) return false
         val control = runControlStore.current
         return try {
             agentRuntime.submit(
@@ -2365,6 +2478,32 @@ class ChatService(
             // must react to a start that did not happen — it is never the first.
             false
         }
+    }
+
+    private fun submissionBlocked(reason: String): ChatSubmissionOutcome.Rejected {
+        setBlocked(reason)
+        return ChatSubmissionOutcome.Rejected(reason)
+    }
+
+    private suspend fun submitMessageTurn(
+        submission: ChatSubmission,
+        text: String,
+        providerId: String,
+        goalId: String?,
+        attachments: List<AttachmentBindingIntent> = emptyList(),
+    ): ChatSubmissionOutcome {
+        val started =
+            submitTurn(
+                text,
+                providerId,
+                attachments = attachments,
+                goalId = goalId,
+                clientRequestId = submission.clientRequestId,
+                expectedSessionId = submission.sessionId,
+            )
+        if (!started) return ChatSubmissionOutcome.Rejected("TURN_NOT_ACCEPTED")
+        val turn = requireNotNull(storage.turns.resolveByClientRequestId(submission.clientRequestId))
+        return ChatSubmissionOutcome.Accepted(turn.id)
     }
 
     // one fail-closed return per guard (session, snapshot, turn gate); one branch per guard plus

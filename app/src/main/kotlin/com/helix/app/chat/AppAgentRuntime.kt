@@ -70,7 +70,8 @@ internal class AppAgentRuntime(
             // the terminal (StopAccepted); a DISCARDED PARKED turn is already settled in
             // CANCELLED before the host returns (Cancelled — a parked turn is not no-oped).
             else -> {
-                when (host.cancelTurn(turnId.value)) {
+                when (val outcome = host.cancelTurn(turnId.value)) {
+                    is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
                     TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
                     TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
                 }
