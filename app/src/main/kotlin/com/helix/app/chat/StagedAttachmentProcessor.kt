@@ -1,9 +1,11 @@
 package com.helix.app.chat
 
+import android.graphics.BitmapFactory
 import com.helix.app.R
 import com.helix.core.model.AttachmentClassification
 import com.helix.core.model.VisionLimits
 import com.helix.core.storage.HelixStorage
+import com.helix.core.workspace.ContentProbe
 import com.helix.core.workspace.FileScopePath
 import com.helix.feature.files.AttachmentImportResult
 import com.helix.feature.files.ImageNormalizer
@@ -207,6 +209,20 @@ internal class StagedAttachmentProcessor(
         rawMediaType: String,
     ): NormalizedStagedImage {
         val stagingDir = rawFile.parent ?: return failedStagedNormalization()
+        val normalizedRelative =
+            normalizedRelativePath(scopePath, rawMediaType) ?: return failedStagedNormalization()
+
+        // Restoration must be idempotent. The normalized row is durable beside the raw row, so
+        // re-running the normalizer would write the same fixed path and ABORT on the unique
+        // (sessionId, relativePath) index. Reuse it only after re-checking every persisted fact;
+        // a tampered/missing normalized snapshot is a closed failure, never an overwrite of an
+        // artifact that may already be bound by a message.
+        storage.artifacts
+            .findBySessionAndPath(sessionId, normalizedRelative.toModelReference())
+            ?.let { existing ->
+                return verifyExistingNormalizedImage(existing, normalizedRelative)
+                    ?: failedStagedNormalization()
+            }
         val outcome =
             try {
                 ImageNormalizer.normalize(rawFile, rawMediaType, stagingDir)
@@ -222,13 +238,9 @@ internal class StagedAttachmentProcessor(
         }
         // The normalizer wrote `normalized.<ext>` into the RAW file's staging directory —
         // derive the scope-relative path from the raw one (same dir, fixed file name).
-        val dirRel = scopePath.relativePath.substringBeforeLast('/')
         val ext = normalizedPath.fileName?.toString()?.substringAfterLast('.', missingDelimiterValue = "") ?: ""
-        val normalizedRelative =
-            runCatching {
-                FileScopePath(scopePath.scopeId, "$dirRel/normalized.$ext")
-            }.getOrNull()
-        if (normalizedRelative == null || ext.isEmpty()) {
+        val expectedName = normalizedRelative.relativePath.substringAfterLast('/')
+        if (ext.isEmpty() || normalizedPath.fileName?.toString() != expectedName) {
             deleteQuietly(normalizedPath)
             return failedStagedNormalization()
         }
@@ -252,9 +264,9 @@ internal class StagedAttachmentProcessor(
                         sha256 = ok.image.sha256,
                         file = normalizedPath.toFile(),
                     ).id
-            } catch (e: IllegalArgumentException) {
-                // The register re-verifies the bytes; a mismatch deletes nothing (the row is
-                // absent) and the normalization is treated as failed (fail closed).
+            } catch (e: Exception) {
+                // The register re-verifies the bytes. A concurrent restore may also win the
+                // unique-path race; never let either case crash recovery or replace its row.
                 return failedStagedNormalization()
             }
         return NormalizedStagedImage(
@@ -264,6 +276,68 @@ internal class StagedAttachmentProcessor(
             ok.image.width,
             ok.image.height,
             ok.image.mediaType,
+            null,
+        )
+    }
+
+    /** Returns the fixed normalized path selected by [ImageNormalizer] for the raw media type. */
+    private fun normalizedRelativePath(
+        scopePath: FileScopePath,
+        rawMediaType: String,
+    ): FileScopePath? {
+        val ext =
+            when (rawMediaType) {
+                "image/png" -> "png"
+                "image/webp" -> "webp"
+                "image/gif" -> "png"
+                else -> "jpg"
+            }
+        val dirRel = scopePath.relativePath.substringBeforeLast('/', missingDelimiterValue = "")
+        val relative = if (dirRel.isEmpty()) "normalized.$ext" else "$dirRel/normalized.$ext"
+        return runCatching { FileScopePath(scopePath.scopeId, relative) }.getOrNull()
+    }
+
+    /** Re-verifies an existing normalized snapshot before reusing it after process recovery. */
+    @Suppress("ReturnCount")
+    private fun verifyExistingNormalizedImage(
+        artifact: com.helix.core.storage.entity.ArtifactEntity,
+        normalizedRelative: FileScopePath,
+    ): NormalizedStagedImage? {
+        if (artifact.mediaType !in VisionLimits.NORMALIZED_MEDIA_TYPES ||
+            artifact.size <= 0L ||
+            artifact.size > VisionLimits.MAX_NORMALIZED_RAW_BYTES
+        ) {
+            return null
+        }
+        val file =
+            runCatching { attachmentStaging.resolveWorkspacePath(normalizedRelative) }
+                .getOrNull() ?: return null
+        if (!Files.isRegularFile(file)) return null
+        val actualSize = runCatching { Files.size(file) }.getOrNull() ?: return null
+        if (actualSize != artifact.size) return null
+        val actualHash =
+            runCatching {
+                com.helix.core.storage.content.FileContentStore
+                    .sha256Hex(file.toFile())
+            }.getOrNull()
+        if (actualHash != artifact.sha256) return null
+        val actualMediaType = runCatching { ContentProbe.probe(file).mimeType }.getOrNull()
+        if (actualMediaType != artifact.mediaType) return null
+        val dimensions =
+            runCatching {
+                BitmapFactory.Options().also { options ->
+                    options.inJustDecodeBounds = true
+                    BitmapFactory.decodeFile(file.toString(), options)
+                }
+            }.getOrNull() ?: return null
+        if (!VisionLimits.normalizedEdgeFits(dimensions.outWidth, dimensions.outHeight)) return null
+        return NormalizedStagedImage(
+            artifact.id,
+            artifact.sha256,
+            file,
+            dimensions.outWidth,
+            dimensions.outHeight,
+            artifact.mediaType,
             null,
         )
     }

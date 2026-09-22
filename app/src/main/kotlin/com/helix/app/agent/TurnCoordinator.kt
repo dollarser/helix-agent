@@ -6,6 +6,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import kotlinx.coroutines.CancellationException
 
 /** A bounded message that becomes model-visible only after its Room row commits. */
 internal data class TurnMessageDraft(
@@ -229,6 +230,7 @@ internal class TurnCoordinator private constructor(
         val current = runtime.snapshot()
         require(current.phase == TurnState.RUNNING_TOOL)
         storage.withTransaction {
+            requireNotCancelling()
             storage.modelCalls.update(
                 storage.modelCalls.resolve(current.modelCallId),
                 CALL_COMPLETED,
@@ -272,9 +274,13 @@ internal class TurnCoordinator private constructor(
     ) {
         runtime.requireBatchSettled()
         val current = runtime.snapshot()
+        var cancelled = false
         storage.withTransaction {
             var turn = storage.turns.resolve(turnId)
-            turn = storage.turns.updateState(turn, TurnState.RECORDING_TOOL_RESULT, current.modelStep, null, null)
+            cancelled = turn.state == TurnState.CANCELLING.name
+            if (!cancelled) {
+                turn = storage.turns.updateState(turn, TurnState.RECORDING_TOOL_RESULT, current.modelStep, null, null)
+            }
             messages.forEach { message ->
                 storage.messages.append(
                     idGenerator(),
@@ -285,10 +291,14 @@ internal class TurnCoordinator private constructor(
                     message.content,
                 )
             }
-            turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, current.modelStep, null, null)
-            storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
-            storage.turns.updateState(turn, TurnState.WAITING_MODEL, current.modelStep, null, null)
+            if (!cancelled) {
+                turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, current.modelStep, null, null)
+                storage.modelCalls.append(nextModelCallId, turnId, providerSnapshot, CALL_RUNNING)
+                storage.turns.updateState(turn, TurnState.WAITING_MODEL, current.modelStep, null, null)
+            }
         }
+        // Tool outcomes remain model-visible, but a durable stop never opens another request.
+        if (cancelled) throw CancellationException("Turn cancellation was persisted")
         runtime.advanceModelCall(nextModelCallId)
     }
 
@@ -307,6 +317,7 @@ internal class TurnCoordinator private constructor(
         require(!current.modelCallClosed && current.batchCalls.isEmpty())
         require(nextModelCallId == null || nextModelCallId.isNotBlank())
         storage.withTransaction {
+            requireNotCancelling()
             if (failureReason == null) {
                 ContextCompaction.persist(
                     storage,
@@ -389,7 +400,17 @@ internal class TurnCoordinator private constructor(
         state: TurnState,
         step: Int,
     ) {
-        storage.turns.updateState(storage.turns.resolve(turnId), state, step, null, null)
+        storage.withTransaction {
+            val turn = requireNotCancelling()
+            storage.turns.updateState(turn, state, step, null, null)
+        }
+    }
+
+    /** Call inside the same transaction as the write: the stop intent precedes its coroutine signal. */
+    private fun requireNotCancelling(): com.helix.core.storage.entity.TurnEntity {
+        val turn = storage.turns.resolve(turnId)
+        if (turn.state == TurnState.CANCELLING.name) throw CancellationException("Turn cancellation was persisted")
+        return turn
     }
 
     companion object {
