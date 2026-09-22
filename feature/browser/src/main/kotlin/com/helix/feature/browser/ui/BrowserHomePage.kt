@@ -313,7 +313,7 @@ private fun AddSpeedDialDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text("名称") },
+                    label = { Text(stringResource(R.string.browser_saved_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -321,7 +321,7 @@ private fun AddSpeedDialDialog(
                 OutlinedTextField(
                     value = url,
                     onValueChange = { url = it },
-                    label = { Text("网址 (如 https://...)") },
+                    label = { Text(stringResource(R.string.browser_saved_url)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

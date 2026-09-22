@@ -96,4 +96,13 @@
     <string name="browser_suggestion_bookmark">书签</string>
     <string name="browser_suggestion_history">历史</string>
     <string name="browser_storage_failed">浏览器数据保存失败，已保留原有数据。</string>
+    <string name="browser_search_saved">搜索书签或历史…</string>
+    <string name="browser_saved_name">名称</string>
+    <string name="browser_saved_url">网址 (如 https://…)</string>
+    <string name="browser_bookmarked">已加书签</string>
+    <string name="browser_add_bookmark">加书签</string>
+    <string name="browser_reader_empty">未能提取到文章正文内容</string>
+    <string name="browser_new_tab_label">新标签页</string>
+    <string name="browser_scripts_empty">暂无用户脚本，点击右上角添加</string>
+    <string name="browser_downloads_empty">暂无下载</string>
 </resources>

@@ -91,7 +91,8 @@ fun BrowserBottomBar(
                     Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .clickable { onTabsClick() },
+                        .clickable { onTabsClick() }
+                        .testTag("browser-tabs"),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
@@ -119,6 +120,7 @@ fun BrowserBottomBar(
                 text = "☰",
                 enabled = true,
                 onClick = onMenuClick,
+                testTag = "browser-menu",
             )
         }
     }
@@ -129,8 +131,8 @@ private fun BottomBarItem(
     text: String,
     enabled: Boolean,
     onClick: () -> Unit,
-    testTag: String? = null,
     modifier: Modifier = Modifier,
+    testTag: String? = null,
 ) {
     val alpha = if (enabled) 1f else 0.3f
     val contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha)

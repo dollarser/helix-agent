@@ -16,7 +16,7 @@ data class SearchEngine(
 object SearchEngines {
     val GOOGLE = SearchEngine("google", "Google", "https://www.google.com/search?q=%s")
     val BING = SearchEngine("bing", "Bing", "https://www.bing.com/search?q=%s")
-    val BAIDU = SearchEngine("baidu", "百度", "https://www.baidu.com/s?wd=%s")
+    val BAIDU = SearchEngine("baidu", "Baidu", "https://www.baidu.com/s?wd=%s")
     val DUCKDUCKGO = SearchEngine("duckduckgo", "DuckDuckGo", "https://duckduckgo.com/?q=%s")
 
     val ALL = listOf(GOOGLE, BING, BAIDU, DUCKDUCKGO)

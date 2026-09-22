@@ -115,7 +115,14 @@ fun BrowserMenuSheet(
             ) {
                 QuickTopAction(
                     icon = if (isBookmarked) "★" else "☆",
-                    label = if (isBookmarked) "已加书签" else "加书签",
+                    label =
+                        if (isBookmarked) {
+                            stringResource(
+                                R.string.browser_bookmarked,
+                            )
+                        } else {
+                            stringResource(R.string.browser_add_bookmark)
+                        },
                     onClick = {
                         onToggleBookmark()
                         onDismiss()

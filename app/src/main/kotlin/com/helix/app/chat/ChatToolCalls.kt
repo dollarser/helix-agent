@@ -262,16 +262,13 @@ internal class ChatToolCalls(
         val settled =
             prepareds.map { p ->
                 val settlement = if (p.preSettled == null) batch.settlements[slot++] else null
-                val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
-                val unknown =
-                    (thrown != null && thrown !is ApprovalCancelledException) ||
-                        ((settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
-                            as? ToolDispatchOutcome.ExecutionFailed)?.requiresReview == true
-                val outcome = p.preSettled ?: when (settlement) {
-                    is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
-                    is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
-                    null -> error("Missing scheduled settlement")
-                }
+                val unknown = requiresSettlementReview(settlement)
+                val outcome =
+                    p.preSettled ?: when (settlement) {
+                        is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
+                        is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
+                        null -> error("Missing scheduled settlement")
+                    }
                 try {
                     if (p.preSettled == null) {
                         outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
@@ -297,6 +294,15 @@ internal class ChatToolCalls(
             throw error
         }
         return settled
+    }
+
+    private fun requiresSettlementReview(settlement: ToolScheduler.BatchSettlement?): Boolean {
+        val thrown = (settlement as? ToolScheduler.BatchSettlement.Thrown)?.cause
+        return (thrown != null && thrown !is ApprovalCancelledException) ||
+            (
+                (settlement as? ToolScheduler.BatchSettlement.Outcome)?.outcome
+                    as? ToolDispatchOutcome.ExecutionFailed
+            )?.requiresReview == true
     }
 
     /** One prepared tool call: the persisted row + dispatch request, or a pre-settled rejection. */

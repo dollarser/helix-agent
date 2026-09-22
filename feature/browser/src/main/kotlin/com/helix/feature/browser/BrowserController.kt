@@ -239,10 +239,16 @@ class BrowserController(
         if (url.isNotBlank() && ownerBinding.get()?.available != true) {
             return BrowserOpenResult("", "", "", "browser-host-unavailable")
         }
-        val id = newTab()
-        return when (val result = if (url.isBlank()) null else navigateOutcome(id, url)) {
-            is BrowserNavResult.Started -> BrowserOpenResult(id, result.url, result.origin)
-            else -> BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
+        val id = tryNewTab()
+        return if (id ==
+            null
+        ) {
+            BrowserOpenResult("", "", "", "tab-limit-reached")
+        } else {
+            when (val result = if (url.isBlank()) null else navigateOutcome(id, url)) {
+                is BrowserNavResult.Started -> BrowserOpenResult(id, result.url, result.origin)
+                else -> BrowserOpenResult(id, BrowserTabController.ABOUT_BLANK, BrowserOrigin.ABOUT_BLANK)
+            }
         }
     }
 

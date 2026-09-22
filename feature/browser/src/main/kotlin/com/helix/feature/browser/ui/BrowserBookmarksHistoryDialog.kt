@@ -52,7 +52,6 @@ import java.util.Locale
  */
 @Composable
 fun BrowserBookmarksHistoryDialog(
-    initialTab: Int = 0,
     bookmarks: List<Bookmark>,
     history: List<HistoryItem>,
     onSelectUrl: (String) -> Unit,
@@ -61,6 +60,7 @@ fun BrowserBookmarksHistoryDialog(
     onClearAllHistory: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    initialTab: Int = 0,
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(initialTab) }
     var searchQuery by remember { mutableStateOf("") }
@@ -135,7 +135,7 @@ fun BrowserBookmarksHistoryDialog(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("搜索书签或历史…") },
+                placeholder = { Text(stringResource(R.string.browser_search_saved)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
             )

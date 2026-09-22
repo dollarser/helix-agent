@@ -142,10 +142,15 @@ fun BrowserTabSwitcher(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // Incognito New Tab
-                    TextButton(enabled = state.tabs.size < BrowserTabController.DEFAULT_MAX_TABS, onClick = {
-                        onNewTab(true)
-                        onDismiss()
-                    }) {
+                    TextButton(
+                        modifier = Modifier.testTag("browser-tab-new-no-history"),
+                        enabled =
+                            state.tabs.size < BrowserTabController.DEFAULT_MAX_TABS,
+                        onClick = {
+                            onNewTab(true)
+                            onDismiss()
+                        },
+                    ) {
                         Text(
                             text = "🕶️ " + stringResource(R.string.browser_tab_incognito),
                             fontSize = 13.sp,
@@ -259,7 +264,7 @@ private fun TabCard(
                 Text(
                     text =
                         if (tab.url == BrowserTabController.ABOUT_BLANK) {
-                            "新标签页"
+                            stringResource(R.string.browser_new_tab_label)
                         } else {
                             tab.url
                         },

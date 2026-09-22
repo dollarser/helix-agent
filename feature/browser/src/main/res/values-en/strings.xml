@@ -41,7 +41,7 @@
     <string name="browser_search_or_type_url">Search or enter address</string>
     <string name="browser_quick_access">Quick Access</string>
     <string name="browser_add_shortcut">Add Shortcut</string>
-    <string name="browser_ads_blocked_count">%1$d ads blocked</string>
+    <string name="browser_ads_blocked_count">Ads blocked: %1$d</string>
     <string name="browser_back">Back</string>
     <string name="browser_forward">Forward</string>
     <string name="browser_home">Home</string>
@@ -96,4 +96,13 @@
     <string name="browser_suggestion_bookmark">Bookmark</string>
     <string name="browser_suggestion_history">History</string>
     <string name="browser_storage_failed">Could not save browser data. Previous data was kept.</string>
+    <string name="browser_search_saved">Search bookmarks or history…</string>
+    <string name="browser_saved_name">Name</string>
+    <string name="browser_saved_url">URL (for example https://…)</string>
+    <string name="browser_bookmarked">Bookmarked</string>
+    <string name="browser_add_bookmark">Add bookmark</string>
+    <string name="browser_reader_empty">No article content could be extracted</string>
+    <string name="browser_new_tab_label">New tab</string>
+    <string name="browser_scripts_empty">No user scripts. Use Add to create one.</string>
+    <string name="browser_downloads_empty">No downloads</string>
 </resources>

@@ -93,7 +93,7 @@ fun BrowserUserScriptsDialog(
             if (scripts.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "暂无用户脚本，点击右上角添加",
+                        text = stringResource(R.string.browser_scripts_empty),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

@@ -79,7 +79,20 @@ class RecoveryCoordinatorApp(
             // A local settlement failure can precede a successfully persisted Turn failure.
             // Reconcile those children too; a terminal parent is not proof of settled effects.
             storage.toolCalls.unsettledUnderTerminalTurns().forEach { call ->
-                storage.toolCalls.updateState(call, ToolCallState.NEEDS_REVIEW)
+                val neverStarted = call.state in setOf("PENDING", "AWAITING_APPROVAL")
+                storage.toolCalls.updateState(
+                    call,
+                    if (neverStarted) ToolCallState.CANCELLED else ToolCallState.NEEDS_REVIEW,
+                )
+                if (neverStarted && storage.toolResults.byToolCall(call.id) == null) {
+                    storage.toolResults.append(
+                        UUID.randomUUID().toString(),
+                        call.id,
+                        "CANCELLED",
+                        "Cancelled before execution during recovery",
+                        null,
+                    )
+                }
                 val reservation = "goal-tool:${call.callId}"
                 if (storage.goalUsageReservations.byId(reservation) != null) {
                     GoalUsageReservations(storage).settle(reservation, 0, 0, now)

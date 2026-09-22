@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -68,6 +69,7 @@ import com.helix.feature.browser.engine.SearchEngines
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 fun BrowserScreen(controller: BrowserController) {
     val context = LocalContext.current
+    val urlCopiedMessage = stringResource(R.string.browser_url_copied)
     val state by controller.state.collectAsState()
     val downloads by controller.downloads.collectAsState()
     val preferences by controller.preferences.collectAsState()
@@ -88,7 +90,8 @@ fun BrowserScreen(controller: BrowserController) {
     var showTabSwitcher by remember { mutableStateOf(false) }
     var showMenuSheet by remember { mutableStateOf(false) }
     var showBookmarksHistory by remember { mutableStateOf(false) }
-    var bookmarksHistoryInitialTab by remember { mutableStateOf(0) }
+    var bookmarksHistoryInitialTab by remember { mutableIntStateOf(0) }
+    var showDownloads by remember { mutableStateOf(false) }
     var showUserScripts by remember { mutableStateOf(false) }
     var sourceDialogContent by remember { mutableStateOf<String?>(null) }
     var readerDialogContent by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -107,7 +110,7 @@ fun BrowserScreen(controller: BrowserController) {
     // BackHandler: priority back stack
     val isAnyModalOpen =
         showTabSwitcher || showMenuSheet || showBookmarksHistory ||
-            showUserScripts || sourceDialogContent != null || readerDialogContent != null ||
+            showDownloads || showUserScripts || sourceDialogContent != null || readerDialogContent != null ||
             contextMenu != null
     val canGoBackInTab = selected != null && selected.canGoBack
     val isNotOnHome = selected != null && selected.url != BrowserTabController.ABOUT_BLANK
@@ -120,6 +123,7 @@ fun BrowserScreen(controller: BrowserController) {
             showTabSwitcher -> showTabSwitcher = false
             showMenuSheet -> showMenuSheet = false
             showBookmarksHistory -> showBookmarksHistory = false
+            showDownloads -> showDownloads = false
             showUserScripts -> showUserScripts = false
             sourceDialogContent != null -> sourceDialogContent = null
             readerDialogContent != null -> readerDialogContent = null
@@ -280,6 +284,22 @@ fun BrowserScreen(controller: BrowserController) {
             )
         }
 
+        if (showDownloads) {
+            AlertDialog(
+                onDismissRequest = { showDownloads = false },
+                text = {
+                    if (downloads.isEmpty()) {
+                        Text(stringResource(R.string.browser_downloads_empty))
+                    } else {
+                        DownloadsPanel(downloads, controller, onChooseSaveLocation)
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showDownloads = false }) { Text(stringResource(android.R.string.ok)) }
+                },
+            )
+        }
+
         if (showMenuSheet) {
             val isCurrentBookmarked =
                 remember(selected?.url, bookmarks) {
@@ -308,7 +328,7 @@ fun BrowserScreen(controller: BrowserController) {
                         Toast
                             .makeText(
                                 context,
-                                context.getString(R.string.browser_url_copied),
+                                urlCopiedMessage,
                                 Toast.LENGTH_SHORT,
                             ).show()
                     }
@@ -337,8 +357,7 @@ fun BrowserScreen(controller: BrowserController) {
                     showBookmarksHistory = true
                 },
                 onOpenDownloads = {
-                    // Downloads are shown in DownloadsPanel
-                    Toast.makeText(context, "下载管理", Toast.LENGTH_SHORT).show()
+                    showDownloads = true
                 },
                 onStartFindInPage = {
                     selected?.let { controller.findInPage(it.id, "") }

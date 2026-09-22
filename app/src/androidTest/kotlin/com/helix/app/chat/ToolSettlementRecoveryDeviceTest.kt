@@ -115,6 +115,8 @@ class ToolSettlementRecoveryDeviceTest {
     fun terminalParentDoesNotHideUnsettledChildrenAfterReopen() =
         Fixture().use { f ->
             f.call("lost")
+            val queued = f.call("queued")
+            f.storage.toolCalls.updateState(queued, ToolCallState.PENDING)
             f.call("saved")
             f.persist("saved")
             val turn = f.storage.turns.resolve("turn")
@@ -135,14 +137,26 @@ class ToolSettlementRecoveryDeviceTest {
             )
             assertNotNull(f.storage.toolResults.byToolCall("saved"))
             assertEquals(
-                2,
+                "CANCELLED",
+                f.storage.toolCalls
+                    .resolve("queued")
+                    .state,
+            )
+            assertEquals(
+                "CANCELLED",
+                f.storage.toolResults
+                    .byToolCall("queued")
+                    ?.status,
+            )
+            assertEquals(
+                3,
                 f.storage.goals
                     .resolve(f.goalId)
                     .toolCalls,
             )
             RecoveryCoordinatorApp(f.storage, f.clock).recover()
             assertEquals(
-                2,
+                3,
                 f.storage.goals
                     .resolve(f.goalId)
                     .toolCalls,

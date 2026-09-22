@@ -78,7 +78,7 @@ fun BrowserReaderView(
                     }
 
                     Text(
-                        text = content.ifBlank { "未能提取到文章正文内容" },
+                        text = content.ifBlank { stringResource(R.string.browser_reader_empty) },
                         fontSize = 16.sp,
                         lineHeight = 26.sp,
                         color = MaterialTheme.colorScheme.onBackground,
