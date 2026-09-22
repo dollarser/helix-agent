@@ -16,7 +16,7 @@ internal object ContextPressure {
         val calls =
             previousTurn?.let { storage.modelCalls.listByTurn(it.id) }.orEmpty() +
                 storage.modelCalls.listByTurn(currentTurnId)
-        val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession(sessionId))
+        val checkpoint = ContextHistory.checkpoint(storage, sessionId)
         val boundary = calls.indexOfFirst { it.id == checkpoint?.sourceCallId }
         val eligible = if (boundary >= 0) calls.drop(boundary + 1) else calls
         val call = eligible.lastOrNull { it.state == "COMPLETED" && it.usage != null } ?: return 0

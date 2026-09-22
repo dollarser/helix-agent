@@ -30,33 +30,30 @@ internal class ContextCompactionRound(
         request: ChatContextRequest,
         actualInput: Long?,
     ) {
-        observedEstimate = request.inputTokens()
-        observedInput = actualInput ?: observedEstimate
+        if (actualInput != null || observedEstimate == 0L) {
+            observedEstimate = request.inputTokens()
+            observedInput = actualInput ?: observedEstimate
+        }
         attempts = 0
         failures = 0
     }
 
-    private fun pressure(request: ChatContextRequest): Long {
-        val estimate = request.inputTokens()
-        val calibrated =
-            if (observedEstimate > 0) {
-                (estimate.toDouble() * maxOf(1.0, observedInput.toDouble() / observedEstimate)).toLong()
-            } else {
-                estimate
-            }
-        return maxOf(calibrated, ContextPressure.inputFloor(storage, sessionId, turnId, request.model)) +
-            request.maxOutputTokens
+    private val inputScale: Double
+        get() = if (observedEstimate > 0) maxOf(1.0, observedInput.toDouble() / observedEstimate) else 1.0
+
+    fun admissionInput(request: ChatContextRequest): Long {
+        val calibrated = (request.inputTokens() * inputScale).toLong()
+        return maxOf(calibrated, ContextPressure.inputFloor(storage, sessionId, turnId, request.model))
     }
 
-    fun admissionInput(request: ChatContextRequest): Long = pressure(request) - request.maxOutputTokens
-
     private fun capacityFailure(request: ChatContextRequest): String? =
-        when {
-            request.messages.size > ModelRequest.MAX_MESSAGES -> "CONTEXT_MESSAGE_LIMIT"
-            pressure(request) - request.maxOutputTokens > control.budgets.maxInputTokens -> "INPUT_TOKEN_LIMIT"
-            pressure(request) > settings.window -> "CONTEXT_WINDOW_LIMIT"
-            else -> null
-        }
+        ContextCapacity.failure(
+            request.messages.size,
+            admissionInput(request),
+            request.maxOutputTokens,
+            control.budgets.maxInputTokens,
+            settings.window,
+        )
 
     data class Prepared(
         val request: ModelRequest?,
@@ -67,19 +64,26 @@ internal class ContextCompactionRound(
     fun prepare(request: ChatContextRequest): Prepared {
         val bounded = request.copy(maxOutputTokens = minOf(request.maxOutputTokens, settings.window / 4))
         val calibratedTrigger = shouldCompact(bounded)
+        var planningFailure: String? = null
         val plan =
-            if (shouldAttempt(bounded)) {
-                ContextCompaction
-                    .plan(
-                        storage,
-                        sessionId,
-                        bounded,
-                        control,
-                        settings,
-                        manual || calibratedTrigger,
-                        turnId,
-                    )?.let { it.copy(request = it.request.copy(reasoning = summaryReasoning)) }
-            } else {
+            try {
+                if (shouldAttempt(bounded)) {
+                    ContextCompaction
+                        .plan(
+                            storage,
+                            sessionId,
+                            bounded,
+                            control,
+                            settings,
+                            manual || calibratedTrigger,
+                            turnId,
+                            inputScale,
+                        )?.let { it.copy(request = it.request.copy(reasoning = summaryReasoning)) }
+                } else {
+                    null
+                }
+            } catch (failure: ContextCapacityException) {
+                planningFailure = failure.code
                 null
             }
         if (plan != null) {
@@ -87,10 +91,16 @@ internal class ContextCompactionRound(
             beforeSummary = bounded
         }
         val code =
-            when {
-                manual && plan == null -> "CONTEXT_NOT_COMPACTABLE"
-                plan == null -> capacityFailure(bounded)
-                else -> null
+            if (plan == null) {
+                ContextCapacity.withoutSummary(manual, planningFailure, capacityFailure(bounded))
+            } else {
+                ContextCapacity.forSummary(
+                    plan.request,
+                    observedInput,
+                    observedEstimate,
+                    control.budgets,
+                    settings.window,
+                )
             }
         return Prepared(
             if (code == null) plan?.request ?: bounded.modelRequest() else null,
@@ -120,8 +130,7 @@ internal class ContextCompactionRound(
         if (failure != null) return recover(plan, stream, failure, coordinator, nextId)
         currentCoroutineContext().ensureActive()
         coordinator.commitCompaction(plan, if (manual) null else nextId, if (manual) notice else null)
-        observedInput = 0
-        observedEstimate = 0
+        // Checkpoint removes the old absolute usage floor; retain the same-model calibration scale.
         return if (manual) decision else null
     }
 
@@ -130,14 +139,8 @@ internal class ContextCompactionRound(
         return attempts < 2 && !bypass
     }
 
-    private fun shouldCompact(request: ChatContextRequest): Boolean {
-        val total = pressure(request)
-        return settings.autoCompact &&
-            (
-                total >= settings.window * settings.triggerPercent / 100 ||
-                    total - request.maxOutputTokens > control.budgets.maxInputTokens
-            )
-    }
+    private fun shouldCompact(request: ChatContextRequest): Boolean =
+        ContextCapacity.shouldCompact(request, settings, control.budgets.maxInputTokens, admissionInput(request))
 
     private fun validationFailure(
         plan: ContextCompaction.Plan,

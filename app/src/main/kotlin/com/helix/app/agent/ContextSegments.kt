@@ -15,7 +15,7 @@ internal object ContextSegments {
                 row.turnId,
                 row.role,
                 row.kind,
-                storage.messages.readContent(row),
+                ContextHistory.read(storage, row),
                 row.id,
             ),
         ),
@@ -35,8 +35,9 @@ internal object ContextSegments {
         val old =
             history
                 .takeWhile { it.turnId !in protected }
-                .filter { it.turnId != null && it.role != ModelRole.SYSTEM.name }
-        if (old.isNotEmpty()) return settledGroups(storage, old)
+                .filter { it.role != ModelRole.SYSTEM.name }
+        val oldGroups = inheritedPrefix(storage, old)
+        if (oldGroups.isNotEmpty()) return oldGroups
         val stepRows = history.filter { it.role in setOf(ModelRole.ASSISTANT.name, ModelRole.TOOL.name) }
         val steps = settledGroups(storage, stepRows.filter { it.turnId == currentTurn })
         // Keep the newest complete step and all pending batches; current input stays verbatim.
@@ -48,6 +49,17 @@ internal object ContextSegments {
         } else {
             settledGroups(storage, stepRows.filter { it.turnId == previousTurn }).dropLast(1)
         }
+    }
+
+    /** Turn-free fork history remains compactable, while its latest tool batch and tail stay verbatim. */
+    private fun inheritedPrefix(
+        storage: HelixStorage,
+        rows: List<MessageEntity>,
+    ): List<List<MessageEntity>> {
+        val groups = settledGroups(storage, rows)
+        if (rows.lastOrNull()?.turnId != null || groups.isEmpty()) return groups
+        val lastTool = groups.indexOfLast { group -> group.any { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS } }
+        return groups.take(if (lastTool >= 0) lastTool else groups.lastIndex)
     }
 
     private fun settledGroups(

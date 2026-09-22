@@ -145,6 +145,7 @@ data class ChatScreenState(
      * from its latest successful `todo.write` call; empty when the model has not kept one.
      */
     val taskLedger: List<LedgerItemUi> = emptyList(),
+    val isFork: Boolean = false,
 ) {
     val isSending: Boolean
         get() =

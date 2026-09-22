@@ -38,7 +38,7 @@ internal fun ProviderContextDialog(
     var model by remember(row.id) { mutableStateOf(row.model) }
     var modelMenu by remember { mutableStateOf(false) }
     var settings by remember(row.id, model) { mutableStateOf(ProviderContextSettings()) }
-    var window by remember(row.id, model) { mutableStateOf("200000") }
+    var window by remember(row.id, model) { mutableStateOf(ProviderContextSettings.DEFAULT_WINDOW.toString()) }
     var ratio by remember(row.id, model) { mutableStateOf("80") }
     var automaticWindow by remember(row.id, model) { mutableStateOf(true) }
     var loading by remember { mutableStateOf(true) }
@@ -85,6 +85,9 @@ internal fun ProviderContextDialog(
                         settings.serverWindow?.toString() ?: stringResource(R.string.chat_context_unknown),
                     ),
                 )
+                if (automaticWindow && settings.serverWindow == null) {
+                    Text(stringResource(R.string.context_window_fallback, settings.window))
+                }
                 Row {
                     Checkbox(
                         automaticWindow,

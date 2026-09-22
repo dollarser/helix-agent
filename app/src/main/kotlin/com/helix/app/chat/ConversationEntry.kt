@@ -10,6 +10,8 @@ internal data class ConversationEntry(
 
 internal fun conversationEntries(screen: ChatScreenState): List<ConversationEntry> {
     val keys = linkedSetOf<String>()
+    // Inherited history has no live execution identity; it precedes newly executed Turns.
+    screen.messages.takeWhile { it.turnId == null }.forEach { keys += "message-${it.id}" }
     screen.turns.forEach { keys += it.id }
     screen.messages.forEach { keys += it.turnId ?: "message-${it.id}" }
     screen.toolTimeline.forEach { keys += it.turnId }

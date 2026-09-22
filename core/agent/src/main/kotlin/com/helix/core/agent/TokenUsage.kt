@@ -40,6 +40,40 @@ data class TokenUsage(
 object TokenEstimator {
     const val CONSERVATIVE_BYTES_PER_TOKEN = 4L
 
+    /** Exact JVM UTF-8 byte length without allocating a second copy of the text. */
+    fun utf8Bytes(text: String): Long {
+        var count = 0L
+        var index = 0
+        while (index < text.length) {
+            val char = text[index++]
+            count +=
+                when {
+                    char.code < 0x80 -> {
+                        1
+                    }
+
+                    char.code < 0x800 -> {
+                        2
+                    }
+
+                    char.isHighSurrogate() && index < text.length && text[index].isLowSurrogate() -> {
+                        index++
+                        4
+                    }
+
+                    char.isSurrogate() -> {
+                        1
+                    }
+
+                    // JVM UTF-8 replaces an unpaired surrogate with '?'.
+                    else -> {
+                        3
+                    }
+                }
+        }
+        return count
+    }
+
     fun estimateTokens(byteCount: Long): Long {
         require(byteCount >= 0) { "byteCount must be >= 0" }
         return (byteCount + CONSERVATIVE_BYTES_PER_TOKEN - 1) / CONSERVATIVE_BYTES_PER_TOKEN

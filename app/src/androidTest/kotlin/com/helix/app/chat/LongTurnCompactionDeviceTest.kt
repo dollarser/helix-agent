@@ -348,6 +348,122 @@ class LongTurnCompactionDeviceTest {
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
         }
 
+    @Test fun measuredInputScaleSelectsASmallerSummaryBeforeAdmission() =
+        withStorage { storage ->
+            val current = start(storage)
+            repeat(4) { batch(storage, current.id, it) }
+            val original = request(storage)
+            val uncalibrated =
+                requireNotNull(
+                    ContextCompactionRound(
+                        storage,
+                        "s",
+                        current.id,
+                        control,
+                        settings,
+                        false,
+                    ).prepare(original).plan,
+                )
+            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            round.observe(original, original.inputTokens() * 2)
+            val prepared = round.prepare(original)
+            assertNull(prepared.failure)
+            val plan = requireNotNull(prepared.plan)
+            assertTrue(plan.coveredThrough < uncalibrated.coveredThrough)
+            assertTrue(
+                com.helix.app.agent.ModelInputEstimate
+                    .of(requireNotNull(prepared.request))
+                    .total * 2 +
+                    requireNotNull(prepared.request).maxOutputTokens!! <= settings.window,
+            )
+            assertNull(
+                com.helix.app.agent.ContextHistory
+                    .checkpoint(storage, "s"),
+            )
+            val stream = current.beginModelStream(true)
+            stream.apply(ModelEvent.TextDelta("ORANGE-42; preserve originals; last tool result pending verification."))
+            stream.apply(ModelEvent.Completed("stop"))
+            assertNull(runBlocking { round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted") })
+            val rebuilt = request(storage)
+            assertTrue(round.admissionInput(rebuilt) >= rebuilt.inputTokens() * 2)
+            round.observe(rebuilt, null)
+            assertTrue(round.admissionInput(rebuilt) >= rebuilt.inputTokens() * 2)
+        }
+
+    @Test fun indivisibleSegmentReportsCapacityWithoutDroppingItsToolResults() =
+        withStorage { storage ->
+            val current = start(storage)
+            repeat(3) { batch(storage, current.id, it) }
+            val original = request(storage)
+            val round =
+                ContextCompactionRound(
+                    storage,
+                    "s",
+                    current.id,
+                    control,
+                    ProviderContextSettings(manualWindow = 1024),
+                    true,
+                )
+            val prepared = round.prepare(original)
+            assertEquals("CONTEXT_SEGMENT_LIMIT", prepared.failure?.errorCode)
+            assertNull(prepared.request)
+            assertEquals(original.messages, request(storage).messages)
+            assertNull(
+                com.helix.app.agent.ContextHistory
+                    .checkpoint(storage, "s"),
+            )
+        }
+
+    @Test fun cancelledSummaryIsReplannedOnTheNextTurnWithoutPublishingPartialText() =
+        withStorage { storage ->
+            val current = start(storage)
+            repeat(4) { batch(storage, current.id, it) }
+            val original = request(storage)
+            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val plan = requireNotNull(round.prepare(original).plan)
+            val stream = current.beginModelStream(true)
+            stream.apply(ModelEvent.TextDelta("incomplete summary"))
+            val cancelled = ModelStreamTerminal(TurnState.CANCELLED, null)
+            assertEquals(cancelled, runBlocking { round.finish(plan, stream, cancelled, current, next(), "Compacted") })
+            current.terminalize(cancelled)
+            assertNull(
+                com.helix.app.agent.ContextHistory
+                    .checkpoint(storage, "s"),
+            )
+            assertEquals(original.messages, request(storage).messages)
+            val resumed = start(storage)
+            assertNotNull(
+                ContextCompactionRound(storage, "s", resumed.id, control, settings, false)
+                    .prepare(request(storage))
+                    .plan,
+            )
+        }
+
+    @Test fun stoppingAfterPublicationKeepsTheCompletedCheckpoint() =
+        withStorage { storage ->
+            val current = start(storage)
+            repeat(4) { batch(storage, current.id, it) }
+            val round = ContextCompactionRound(storage, "s", current.id, control, settings, false)
+            val plan = requireNotNull(round.prepare(request(storage)).plan)
+            val stream = current.beginModelStream(true)
+            stream.apply(ModelEvent.TextDelta("ORANGE-42; no deletion. Last result still needs verification."))
+            stream.apply(ModelEvent.Completed("stop"))
+            assertNull(runBlocking { round.finish(plan, stream, stream.terminal(false), current, next(), "Compacted") })
+            val published =
+                requireNotNull(
+                    com.helix.app.agent.ContextHistory
+                        .checkpoint(storage, "s"),
+                )
+            current.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            assertEquals(
+                published,
+                com.helix.app.agent.ContextHistory
+                    .load(storage, "s")
+                    .checkpoint,
+            )
+            assertTrue(request(storage).messages.any { it.text.contains("ORANGE-42") })
+        }
+
     private fun start(storage: HelixStorage) =
         TurnCoordinator.start(
             storage,

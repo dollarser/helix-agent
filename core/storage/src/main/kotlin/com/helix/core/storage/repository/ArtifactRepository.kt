@@ -95,6 +95,18 @@ class ArtifactRepository(
 
     fun listBySession(sessionId: String): List<ArtifactEntity> = dao.listBySession(sessionId)
 
+    /** Own the existing reference in a fork; no file is copied or newly verified. Materialization rechecks its hash. */
+    fun copyReference(
+        sourceId: String,
+        id: String,
+        sessionId: String,
+    ): ArtifactEntity {
+        val source = resolve(sourceId)
+        val copied = source.copy(id = id, sessionId = sessionId, turnId = null)
+        dao.insert(copied)
+        return copied
+    }
+
     /** The turn's own artifact rows by real ownership (HXA-202); no cross-session truncation. */
     fun listByTurn(turnId: String): List<ArtifactEntity> = dao.listByTurn(turnId)
 

@@ -7,3 +7,7 @@
 - accepted [ADR-GOAL-001](001-lifecycle-and-completion.md)：目标生命周期、连续执行、预算与完成
 
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](../workspace/README.md)，不把一个主题的许可推导成另一个主题的授权。
+
+## 输入交互待调整
+
+proposed [ADR-AGENT-008](../agent/008-user-input-delivery.md)拟将普通发送统一为排队/转向，不再仅因新输入暂停 Goal；现行001在提案接受前不变，实施与回归归 HXA-216。显式停止及死亡后的激活撤销仍保留。

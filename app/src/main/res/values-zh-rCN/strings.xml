@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Helix</string>
+    <string name="session_fork_action">从这里新建分支</string>
+    <string name="session_fork_title">%1$s · 分支</string>
+    <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>
+    <string name="session_fork_notice">已继承所选位置之前的完整历史。权限使用新会话默认值；文件未复制或回滚，原会话任务独立运行。</string>
     <string name="settings_language_title">语言</string>
     <string name="language_system">跟随系统</string>
     <string name="language_zh_cn">简体中文</string>
@@ -1228,4 +1232,7 @@
     <string name="marketplace_item_workspace_organizer_name">工作区与文档整理助手</string>
     <string name="marketplace_item_workspace_organizer_summary">引导项目目录结构规划、文档分类与工作空间梳理。</string>
     <string name="marketplace_item_workspace_organizer_desc">遵循标准架构模式组织文件目录结构、维护文档索引及制品命名规范。</string>
+    <string name="context_materialization_limit">会话内容超过设备上的上下文整理上限。请携带必要引用新建会话；原历史仍保留。</string>
+    <string name="context_segment_limit">一段完整历史或工具步骤超过当前摘要容量。请调整上下文或输入上限，或携带大结果引用新建会话。原历史仍保留。</string>
+    <string name="context_window_fallback">模型未提供上下文窗口，当前按 %1$d token 估算；可手动设置。</string>
 </resources>

@@ -10,6 +10,7 @@ data class ConversationIntents(
     val onSend: () -> Unit,
     val onStop: () -> Unit,
     val onCompact: () -> Unit = {},
+    val onFork: ((String) -> Unit)? = null,
     val onDismissBlocked: () -> Unit,
     val onApproveApproval: (String) -> Unit,
     val onDenyApproval: (String) -> Unit,

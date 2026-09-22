@@ -57,7 +57,7 @@ internal object ChatContextProjection {
         val turn = storage.turns.listBySession(session.id).lastOrNull()
         val call = turn?.let { storage.modelCalls.listByTurn(it.id).lastOrNull() }
         val input = call?.let { inputFor(it.providerSnapshot, it.usage, config.endpoint, model) }
-        val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession(session.id))
+        val checkpoint = ContextHistory.checkpoint(storage, session.id)
         val compactedInput = checkpoint?.takeIf { it.sourceCallId == call?.id && input != null }?.estimatedInputTokens
         return ChatContextUsage(compactedInput ?: input?.takeIf { it >= 0 }, window, compactedInput != null)
     }

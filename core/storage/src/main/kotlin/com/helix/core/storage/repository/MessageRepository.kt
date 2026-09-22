@@ -43,7 +43,44 @@ class MessageRepository(
         return entity ?: throw IllegalArgumentException("message not found: $id")
     }
 
+    /** Copy immutable history references only, never the source execution identity. Caller owns the transaction. */
+    fun copyHistory(
+        source: MessageEntity,
+        id: String,
+        sessionId: String,
+    ): MessageEntity {
+        val copied =
+            source.copy(
+                id = id,
+                sessionId = sessionId,
+                turnId = null,
+                sequence =
+                    dao.maxSequence(sessionId) + 1,
+            )
+        dao.insert(copied)
+        return copied
+    }
+
     fun listBySession(sessionId: String): List<MessageEntity> = dao.listBySession(sessionId)
+
+    fun pageAfter(
+        sessionId: String,
+        after: Long,
+        limit: Int,
+    ): List<MessageEntity> {
+        require(limit in 1..256)
+        return dao.pageAfter(sessionId, after, limit)
+    }
+
+    fun latestOfKind(
+        sessionId: String,
+        kind: String,
+    ): MessageEntity? = dao.latestOfKind(sessionId, kind)
+
+    fun readContentBounded(
+        message: MessageEntity,
+        maxBytes: Int,
+    ): String? = message.contentRef?.let { contentStore.readBounded(ContentRef.parse(it), maxBytes) }
 
     fun readContent(message: MessageEntity): String? {
         val ref = message.contentRef ?: return null

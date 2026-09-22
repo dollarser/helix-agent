@@ -33,6 +33,8 @@ internal class ChatStatusLabels(
     fun modelTerminalCodeRes(errorCode: String?): Int =
         when (errorCode) {
             "CONTEXT_NOT_COMPACTABLE", "CONTEXT_NO_GAIN" -> R.string.context_not_compactable
+            "CONTEXT_MATERIALIZATION_LIMIT" -> R.string.context_materialization_limit
+            "CONTEXT_SEGMENT_LIMIT" -> R.string.context_segment_limit
             "CONTEXT_WINDOW_LIMIT" -> R.string.context_window_limit
             "CONTEXT_MESSAGE_LIMIT" -> R.string.budget_message_limit
             "INPUT_TOKEN_LIMIT" -> R.string.budget_input_limit

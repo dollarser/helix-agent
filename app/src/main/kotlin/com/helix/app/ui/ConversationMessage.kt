@@ -54,7 +54,10 @@ internal fun CopyTextButton(
 
 @Composable
 @Suppress("FunctionName")
-internal fun MessageRow(message: MessageUi) {
+internal fun MessageRow(
+    message: MessageUi,
+    onFork: ((String) -> Unit)? = null,
+) {
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
         Column(
@@ -92,7 +95,17 @@ internal fun MessageRow(message: MessageUi) {
                     }
                 }
             }
-            CopyTextButton(message.content, "chat-copy-${message.id}")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CopyTextButton(message.content, "chat-copy-${message.id}")
+                if (onFork != null) {
+                    TextButton(
+                        onClick = { onFork(message.id) },
+                        modifier = Modifier.testTag("chat-fork-${message.id}"),
+                    ) {
+                        Text(stringResource(R.string.session_fork_action))
+                    }
+                }
+            }
         }
     }
 }

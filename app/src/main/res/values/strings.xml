@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="session_fork_action">从这里新建分支</string>
+    <string name="session_fork_title">%1$s · 分支</string>
+    <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>
+    <string name="session_fork_notice">已继承所选位置之前的完整历史。权限使用新会话默认值；文件未复制或回滚，原会话任务独立运行。</string>
 
     <!-- HXA-069: base/primary locale is Simplified Chinese. values-en and values-zh-rCN must keep
          this exact key set (checked by scripts/check-i18n.sh). -->
@@ -1231,4 +1235,7 @@
     <string name="marketplace_item_workspace_organizer_name">Workspace Organizer</string>
     <string name="marketplace_item_workspace_organizer_summary">Guide structured file tree layout and markdown document organization.</string>
     <string name="marketplace_item_workspace_organizer_desc">Provide clear patterns for organizing directory structures, documentation indexes, and artifact naming conventions.</string>
+    <string name="context_materialization_limit">Conversation content exceeds the on-device preparation limit. Start a new conversation with the necessary references; the original history is preserved.</string>
+    <string name="context_segment_limit">A complete history or tool step is too large to summarize within the current limits. Adjust the context/input limit or start a new conversation with references to large results. History is preserved.</string>
+    <string name="context_window_fallback">The model has not reported its context window. Estimated token limit: %1$d. You can set the window manually.</string>
 </resources>

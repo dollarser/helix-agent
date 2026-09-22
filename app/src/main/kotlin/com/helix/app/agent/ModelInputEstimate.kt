@@ -25,15 +25,9 @@ internal data class ModelInputEstimate(
             fun textTokens(rows: List<ModelMessage>): Long =
                 TokenEstimator.estimateTokens(
                     rows.sumOf { row ->
-                        row.text
-                            .toByteArray()
-                            .size
-                            .toLong() +
+                        TokenEstimator.utf8Bytes(row.text) +
                             row.toolCalls.sumOf {
-                                it.argumentsJson
-                                    .toByteArray()
-                                    .size
-                                    .toLong()
+                                TokenEstimator.utf8Bytes(it.argumentsJson)
                             }
                     },
                 ) + rows.size * 16L
@@ -42,10 +36,7 @@ internal data class ModelInputEstimate(
                 textTokens(messages.filter { it.role != ModelRole.SYSTEM }),
                 TokenEstimator.estimateTokens(
                     tools.sumOf {
-                        it.description
-                            .toByteArray()
-                            .size
-                            .toLong() + it.inputSchemaJson.toByteArray().size
+                        TokenEstimator.utf8Bytes(it.description) + TokenEstimator.utf8Bytes(it.inputSchemaJson)
                     },
                 ) + tools.size * 32L,
                 messages.sumOf { it.images.size * 2048L },

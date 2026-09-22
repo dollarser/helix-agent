@@ -343,6 +343,17 @@ class SessionSearchRepositoryTest {
         override fun listBySession(sessionId: String): List<MessageEntity> =
             rows.filter { it.sessionId == sessionId }.sortedBy { it.sequence }
 
+        override fun pageAfter(
+            sessionId: String,
+            after: Long,
+            limit: Int,
+        ): List<MessageEntity> = listBySession(sessionId).filter { it.sequence > after }.take(limit)
+
+        override fun latestOfKind(
+            sessionId: String,
+            kind: String,
+        ): MessageEntity? = listBySession(sessionId).lastOrNull { it.kind == kind }
+
         override fun maxSequence(sessionId: String): Long =
             rows.filter { it.sessionId == sessionId }.maxOfOrNull { it.sequence } ?: -1L
 
