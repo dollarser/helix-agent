@@ -27,7 +27,10 @@ def main():
     parser.add_argument("--capture", action="store_true", help="Capture synthetic Chinese UI fixtures")
     parser.add_argument("--first-port", type=int, default=5740)
     parser.add_argument("--visual-only", action="store_true", help="Run the four production navigation/sheet checks for screenshot review")
+    parser.add_argument("--artifacts-only", action="store_true", help="Focus on conversation previews and the existing artifact center")
     args = parser.parse_args()
+    if args.visual_only and args.artifacts_only:
+        parser.error("choose only one focused suite")
     batches = len(args.api or (29, 36)) * len(args.flavor or ("consumer", "developer"))
     if args.first_port % 2 or not 5554 <= args.first_port <= 5750 - 2 * (batches - 1):
         parser.error("all console ports must be even and within the owned runner's 5554..5750 range")
@@ -40,9 +43,12 @@ def main():
         "BackgroundTaskFlowDeviceTest", "ApprovalLayoutDeviceTest",
         "ChatCompactionFlowDeviceTest", "ChatStopProgressDeviceTest",
         "SessionForkFlowDeviceTest",
+        "ConversationArtifactsDeviceTest", "ArtifactCenterDeviceTest",
     )]
     if args.visual_only:
         classes = ["com.helix.app.ui.ConversationTopBarDeviceTest"]
+    if args.artifacts_only:
+        classes = ["com.helix.app.ui.ConversationArtifactsDeviceTest", "com.helix.app.ui.ArtifactCenterDeviceTest"]
     outcomes = []
     port = args.first_port
     for flavor in args.flavor or ("consumer", "developer"):

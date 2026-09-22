@@ -248,3 +248,4 @@
 | HXA-216 | 待决策 | 普通 Turn 与 Goal 统一排队和转向 | [任务规格](tasks/HXA-216.md) |
 | HXA-217 | 待决策 | 请求上下文清单与 JSONL 可追踪性 | [任务规格](tasks/HXA-217.md) |
 | HXA-218 | 已交付 | 会话工作台 UI 与交互重构（第一批） | [交付证据](../completion-records/HXA-218.md) |
+| HXA-219 | 已交付 | 产物就地预览 | [交付证据](../completion-records/HXA-219.md) |

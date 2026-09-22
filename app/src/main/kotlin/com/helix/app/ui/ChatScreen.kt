@@ -103,6 +103,9 @@ fun ChatScreen(
                 input = input,
                 onInput = { input = it },
                 bindableProviders = providerRows.filter { it.chatSelectable },
+                artifacts = {
+                    ConversationArtifacts(chatService, fileManager, screen)
+                },
                 intents =
                     ConversationIntents(
                         onBack = { chatService.closeSession() },

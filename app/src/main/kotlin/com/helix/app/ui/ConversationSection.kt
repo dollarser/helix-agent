@@ -42,7 +42,8 @@ import kotlinx.coroutines.launch
 /** Renders one conversation from observable state and explicit UI intents. */
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
+// Explicit observable state, user intents and an optional application-owned presentation slot.
+@Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun ConversationSection(
     screen: ChatScreenState,
     profile: SafetyProfile,
@@ -51,6 +52,7 @@ internal fun ConversationSection(
     onInput: (String) -> Unit,
     bindableProviders: List<ProviderRowUi>,
     intents: ConversationIntents,
+    artifacts: @Composable () -> Unit = {},
 ) {
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
@@ -323,6 +325,7 @@ internal fun ConversationSection(
                 }
             }
         }
+        artifacts()
         if (screen.pendingAttachments.isNotEmpty()) {
             Column(
                 modifier =

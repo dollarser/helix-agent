@@ -167,10 +167,15 @@ class ArtifactCenterDeviceTest {
                 .assertTextEquals(name)
             compose
                 .onNodeWithTag("artifact-file-meta-$artifactId", useUnmergedTree = true)
+                .performScrollTo()
                 .assertIsDisplayed()
 
             // The file exists: in-app text preview and Share enabled.
-            compose.onNodeWithTag("artifact-file-row-$artifactId").performClick()
+            compose
+                .onNodeWithTag("artifact-file-row-$artifactId")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
             compose.waitUntil(5_000) {
                 compose
                     .onAllNodesWithTag("artifact-file-preview", useUnmergedTree = true)
@@ -182,12 +187,19 @@ class ArtifactCenterDeviceTest {
                 .assertIsEnabled()
             compose
                 .onNodeWithTag("artifact-file-close-$artifactId", useUnmergedTree = true)
+                .assertIsDisplayed()
                 .performClick()
             compose.waitForIdle()
+            compose.onNodeWithTag("artifact-file-dialog").assertDoesNotExist()
 
             // The row outlives the file: after deletion, honest invalidation, Share disabled.
             check(file.delete())
-            compose.onNodeWithTag("artifact-file-row-$artifactId").performClick()
+            compose
+                .onNodeWithTag("artifact-file-row-$artifactId")
+                .performScrollTo()
+                .assertIsDisplayed()
+                .performClick()
+            compose.onNodeWithTag("artifact-file-close-$artifactId", useUnmergedTree = true).assertIsDisplayed()
             compose.waitUntil(5_000) {
                 compose
                     .onAllNodesWithTag("artifact-file-missing", useUnmergedTree = true)

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="chat_artifacts_count">本会话产物 (%1$d)</string>
+    <string name="chat_artifacts_title">本会话产物</string>
+    <string name="chat_artifacts_back">返回产物列表</string>
     <string name="session_fork_action">从这里新建分支</string>
     <string name="session_fork_title">%1$s · 分支</string>
     <string name="session_fork_failed">无法从此处建立完整分支。请选择更早的完整消息；原会话已保留。</string>

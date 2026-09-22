@@ -1866,6 +1866,9 @@ class ChatService(
     internal suspend fun taskArtifactsForTurn(turnId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forTurn(turnId) }
 
+    internal suspend fun conversationArtifacts(sessionId: String): List<ArtifactRowUi> =
+        withContext(Dispatchers.IO) { ArtifactQuery(storage).forSession(sessionId) }
+
     /** The goal's artifact file rows: the union of every turn bound to the goal (HXA-202). */
     internal suspend fun taskArtifactsForGoal(goalId: String): List<ArtifactRowUi> =
         withContext(Dispatchers.IO) { ArtifactQuery(storage).forGoal(goalId) }

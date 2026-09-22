@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Helix</string>
+    <string name="chat_artifacts_count">Session outputs (%1$d)</string>
+    <string name="chat_artifacts_title">Session outputs</string>
+    <string name="chat_artifacts_back">Back to outputs</string>
     <string name="session_fork_action">Branch from here</string>
     <string name="session_fork_title">%1$s · Branch</string>
     <string name="session_fork_failed">Cannot create a complete branch here. Choose an earlier complete message. The original conversation is preserved.</string>

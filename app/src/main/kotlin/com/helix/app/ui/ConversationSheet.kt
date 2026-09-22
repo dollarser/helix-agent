@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
@@ -30,6 +31,7 @@ internal fun ConversationSheet(
     title: String,
     tag: String,
     onDismiss: () -> Unit,
+    scrollContent: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(
@@ -41,7 +43,13 @@ internal fun ConversationSheet(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    title,
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 TextButton(onDismiss, modifier = Modifier.testTag("$tag-close")) {
                     Text(stringResource(R.string.chat_details_close))
                 }
@@ -49,7 +57,7 @@ internal fun ConversationSheet(
             Column(
                 Modifier
                     .weight(1f, fill = false)
-                    .verticalScroll(rememberScrollState())
+                    .then(if (scrollContent) Modifier.verticalScroll(rememberScrollState()) else Modifier)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 content = content,
             )
