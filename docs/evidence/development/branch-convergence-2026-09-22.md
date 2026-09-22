@@ -1,6 +1,6 @@
 # 对话交互与工作台分支收敛
 
-日期：2026-09-22。所有者授权整合其他分支的必要成果，并清理无独立内容的分支及worktree。本记录只写本轮实际结果；候选已完成联合验证，随后进行本地main整合与证据归档。
+日期：2026-09-22。所有者授权整合其他分支的必要成果，并清理无独立内容的分支及worktree。候选完成联合验证后，已将本地main从 `645fa680` 快进到 `b7c4c0b4`；本记录的后续提交只收口整合和清理结果。
 
 ## 整合范围
 
@@ -32,6 +32,8 @@ python3 scripts/debug/2026-09-22/summarize-branch-convergence.py build/branch-co
 
 对应通过日志为 `host-all-r2.log`、`compile-r3.log`、`matrix-r2.log`、`final-summary.json`、`source-integration.log`，均位于忽略目录 `build/branch-convergence-20260922/`。这不是物理设备或完整产品206重新验收，也未使用真实外部账号。
 
+main独立文档WIP通过快照和额外安全stash保全，快进后恢复28路径并逐项核验；README、状态、工作计划采用审阅后的三方文档合并，深度复审仅修复已关闭任务链接并注明历史基线，UI研究保留已实施版本。原始内容仍在快照/stash，未混入本轮提交。恢复后 `./scripts/check-all.sh --source` exit0，日志为main的 `build/branch-convergence-20260922/source-main.log`。
+
 ## 保留的独立分支
 
 `BioHelix`包含独立产品材料及未跟踪文件，不属于本次Helix功能整合；保留分支及worktree。`v0.0.1`承载历史决策，不作为废弃分支删除。
@@ -52,6 +54,13 @@ python3 scripts/debug/2026-09-22/summarize-branch-convergence.py build/branch-co
 
 旧归档3391个文件逐一复核，源/目标缺失及SHA错配均为0。新增convergence归档1320文件、4,635,836,692字节，UI归档647文件、2,095,427,803字节；均验证文件集合与SHA。位置为main忽略目录 `build/worktree-evidence/` 和 `build/branch-convergence-20260922/`。connector-install-design无build，按祖先关系和干净状态清理，不伪造归档证据。
 
-已提前清理main祖先worktree：acceptance-199-206、connector-install-design、compaction、hxa-126、session-fork、small-model-preparation；对应六分支及无worktree的marketplace-catalog已删除。机器配置另存忽略目录，生成缓存可重建。其余本轮分支在main整合、当前证据归档完成后再删除。
+当前集成树另归档2,461文件、6,604,965,596字节，文件集合及SHA全部一致；位置为main的 `build/branch-convergence-20260922/final-active-tree/Helix-hxa-216/build/`，manifest与summary位于 `final-active-tree/`。机器配置另存忽略目录，生成缓存可重建。
+
+所有删除均先核实main祖先关系、工作树无未提交文件与证据归档，使用普通 `git worktree remove` / `git branch -d`，未强制删除。共清理11个worktree、15个本地分支（含本轮临时收敛分支）：
+
+- 先前已整合：acceptance-199-206、connector-install-design、compaction、hxa-126、session-fork、small-model-preparation六个worktree及对应分支，另删无worktree的marketplace-catalog。
+- 本轮整合后：conversation-convergence、hxa-214、hxa-215、hxa-216、ui-interaction-refactor五个worktree；删除conversation-convergence、hxa-214-core、hxa-214-ui、hxa-215-revision、hxa-216-input-delivery、marketplace-ui-tests、ui-interaction-refactor及临时branch-convergence-20260922八个分支。
+
+最终保留main、BioHelix、browser-redesign三个worktree；本地分支另保留历史 `v0.0.1`，共四个。远端分支和原有stash未删除，独立文档WIP仍保持未提交。
 
 物理设备、真实账号及发行范围仍沿各任务保留；本轮未推送、未执行远端CI或发布。
