@@ -19,9 +19,12 @@ class MarketplaceService(
         when (item.type) {
             MarketplaceItemType.SKILL -> {
                 val name = item.targetSkillName ?: item.id
-                val connectorName = item.targetConnectorName ?: "${item.id}-skill"
-                val connector = connectorService.list().firstOrNull { it.name == connectorName }
-                val matched = skillRepository.list().firstOrNull { it.key.name == name }
+                val connector = findInstalled(item)
+                val matched =
+                    skillRepository.list().firstOrNull {
+                        it.key in connector?.skills.orEmpty() &&
+                            it.key.name == name
+                    }
                 when {
                     connector == null -> MarketplaceItemStatus.NOT_INSTALLED
                     matched == null -> MarketplaceItemStatus.NOT_INSTALLED
@@ -31,11 +34,8 @@ class MarketplaceService(
             }
 
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
-                val targetName = item.targetConnectorName ?: item.id
                 val matched =
-                    connectorService.list().firstOrNull { record ->
-                        record.name == targetName || record.name == item.id
-                    }
+                    findInstalled(item)
                 when {
                     matched == null -> MarketplaceItemStatus.NOT_INSTALLED
                     matched.endpoints.any { connectorService.enabled(it) } -> MarketplaceItemStatus.ACTIVE
@@ -46,27 +46,14 @@ class MarketplaceService(
 
     fun install(item: MarketplaceItem): InstalledConnector {
         val existing = findInstalled(item)
-        if (existing != null) {
-            val contentHash =
-                when (item.type) {
-                    MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
-                        ConnectorPackageReader().readJson(item.payload.toByteArray(Charsets.UTF_8)).contentHash
-                    }
-
-                    MarketplaceItemType.SKILL -> {
-                        sha256(item.payload.toByteArray(Charsets.UTF_8))
-                    }
-                }
-            if (existing.hash != contentHash) {
-                uninstall(item)
-            }
-        }
         return when (item.type) {
             MarketplaceItemType.CONNECTOR, MarketplaceItemType.MCP -> {
                 val reader = ConnectorPackageReader()
                 val bundle = reader.readJson(item.payload.toByteArray(Charsets.UTF_8))
                 connectorService.install(
                     bundle.copy(name = item.targetConnectorName ?: item.id, source = "MARKETPLACE"),
+                    identity = "marketplace:${item.id}",
+                    expectedRevision = existing?.revision,
                 )
             }
 
@@ -88,7 +75,13 @@ class MarketplaceService(
                             ),
                         diagnostics = emptyList(),
                     )
-                val installed = connectorService.install(bundle)
+                val installed =
+                    connectorService.install(
+                        bundle,
+                        "marketplace:${item.id}",
+                        existing?.revision,
+                        sessionScoped = false,
+                    )
                 val skillKey = installed.skills.firstOrNull()
                 if (skillKey != null) {
                     connectorService.setSkillEnabled(skillKey, true)
@@ -98,16 +91,10 @@ class MarketplaceService(
         }
     }
 
-    fun findInstalled(item: MarketplaceItem): InstalledConnector? {
-        val targetName =
-            item.targetConnectorName ?: when (item.type) {
-                MarketplaceItemType.SKILL -> "${item.id}-skill"
-                else -> item.id
-            }
-        return connectorService.list().firstOrNull { record ->
-            record.name == targetName || record.name == item.id
+    fun findInstalled(item: MarketplaceItem): InstalledConnector? =
+        connectorService.list().firstOrNull {
+            it.identity == "marketplace:${item.id}"
         }
-    }
 
     fun uninstall(item: MarketplaceItem) {
         findInstalled(item)?.let { connectorService.remove(it) }

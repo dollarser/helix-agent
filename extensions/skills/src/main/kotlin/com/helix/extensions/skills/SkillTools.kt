@@ -132,7 +132,7 @@ object SkillTools {
         repository: SkillRepository,
         call: ExecutableToolCall,
     ): JsonObject {
-        val sessionId = call.args.optionalString("sessionId")
+        val sessionId = call.sessionId
         val offset = call.args.optionalInt("offset") ?: 0
         val limit = call.args.optionalInt("limit") ?: DEFAULT_LIST_LIMIT
         val allItems = repository.list(sessionId)
@@ -160,7 +160,7 @@ object SkillTools {
         call: ExecutableToolCall,
     ): JsonObject {
         val key = call.args.skillKey()
-        val document = repository.read(key, call.args.optionalString("sessionId"))
+        val document = repository.read(key, call.sessionId)
         require(document.rawContent.toByteArray().size <= MAX_INSTRUCTION_BYTES) {
             "Skill instructions exceed activation limit"
         }
@@ -181,7 +181,7 @@ object SkillTools {
             repository.readResource(
                 call.args.skillKey(),
                 call.args.requiredString("path"),
-                call.args.optionalString("sessionId"),
+                call.sessionId,
             )
         return buildJsonObject {
             put("path", JsonPrimitive(resource.relativePath))
@@ -199,7 +199,7 @@ object SkillTools {
     ): JsonObject {
         val key = call.args.skillKey()
         val scope = SkillEnablementScope.valueOf(call.args.requiredString("scope"))
-        repository.setEnabled(key, enabled, scope, call.args.optionalString("sessionId"))
+        repository.setEnabled(key, enabled, scope, call.sessionId)
         return buildJsonObject {
             put("name", JsonPrimitive(key.name))
             put("snapshotHash", JsonPrimitive(key.snapshotHash))
@@ -231,8 +231,6 @@ object SkillTools {
 
     private fun JsonObject.requiredString(key: String): String =
         get(key)?.jsonPrimitive?.content ?: throw IllegalArgumentException("Missing $key")
-
-    private fun JsonObject.optionalString(key: String): String? = get(key)?.jsonPrimitive?.content
 
     private fun JsonObject.optionalInt(key: String): Int? = get(key)?.jsonPrimitive?.content?.toInt()
 

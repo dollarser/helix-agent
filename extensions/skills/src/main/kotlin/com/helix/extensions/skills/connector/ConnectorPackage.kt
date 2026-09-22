@@ -14,6 +14,7 @@ data class ConnectorEndpoint(
     val name: String,
     val url: String,
     val needsCredential: Boolean,
+    val authBindingHash: String? = null,
 )
 
 data class ConnectorSkill(
@@ -28,6 +29,8 @@ data class ConnectorPackage(
     val endpoints: List<ConnectorEndpoint>,
     val skills: List<ConnectorSkill>,
     val diagnostics: List<String>,
+    val versionLabel: String? = null,
+    val releaseNotes: String? = null,
 )
 
 /** Reads a bounded archive without extracting any foreign paths or running setup code. */
@@ -135,7 +138,16 @@ class ConnectorPackageReader {
         val endpoints = servers.mapNotNull { (id, config) -> endpoint(id, config, diagnostics) }
         val skills = skillFiles(files, manifest, diagnostics)
         require(endpoints.isNotEmpty() || skills.isNotEmpty() || diagnostics.isNotEmpty()) { "CONNECTOR_EMPTY" }
-        return ConnectorPackage(name, source, digest(files), endpoints, skills, diagnostics.distinct())
+        return ConnectorPackage(
+            name,
+            source,
+            digest(files),
+            endpoints,
+            skills,
+            diagnostics.distinct(),
+            manifest.string("version")?.take(128),
+            (manifest.string("releaseNotes") ?: files["CHANGELOG.md"]?.toString(Charsets.UTF_8))?.take(2048),
+        )
     }
 
     @Suppress("ReturnCount") // unsupported transports and endpoints are distinct migration outcomes
@@ -161,7 +173,9 @@ class ConnectorPackageReader {
         val auth = config.keys.any { it in AUTH_FIELDS }
         if (auth) diagnostics += "AUTH_REQUIRES_CONFIGURATION:$id"
         if (config.keys.any { it !in SERVER_FIELDS }) diagnostics += "UNSUPPORTED_SERVER_OPTIONS:$id"
-        return ConnectorEndpoint(id, url, auth)
+        // Foreign auth is never imported as a credential. A fingerprint only prevents unsafe reuse on update.
+        val binding = config.filterKeys { it in AUTH_FIELDS }.mapValues { (_, value) -> value.toString().toByteArray() }
+        return ConnectorEndpoint(id, url, auth, if (auth) digest(binding) else null)
     }
 
     private fun skillFiles(

@@ -1307,4 +1307,20 @@
     <string name="nav_group_work">工作</string>
     <string name="nav_group_extensions">扩展</string>
     <string name="nav_group_settings">设置与管理</string>
+    <string name="connector_session_title">会话 Connector</string>
+    <string name="connector_session_hint">只影响本会话后续使用；历史保留。共享 Skill 若有其他有效来源仍可使用。</string>
+    <string name="connector_session_empty">尚未安装 Connector，请前往扩展添加。</string>
+    <string name="connector_session_unavailable">未安装或已移除</string>
+    <string name="connector_session_setup">需配置或启用组件</string>
+    <string name="connector_session_ready">已有可用组件</string>
+    <string name="connector_session_default">默认用于新会话</string>
+    <string name="connector_session_failed">保存失败，请重试</string>
+    <string name="connector_session_configure">管理与修复扩展</string>
+    <string name="connector_cleanup_pending">安装已保存，部分旧组件等待清理。</string>
+    <string name="connector_cleanup_retry">重试清理</string>
+    <string name="connector_update_target">更新 %1$s</string>
+    <string name="connector_update_notes_missing">未提供作者更新说明。</string>
+    <string name="connector_update_components">组件：Skill %1$d，MCP %2$d</string>
+    <string name="connector_update_version">版本：%1$s</string>
+    <string name="connector_update_changes">Skill：%1$d → %2$d；MCP 端点：%3$d → %4$d</string>
 </resources>

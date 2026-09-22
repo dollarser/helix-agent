@@ -45,6 +45,7 @@ fun ConnectorSection(service: ConnectorService) {
     val action = rememberImportActionState()
     var jsonDraft by remember { mutableStateOf("") }
     var showPaste by remember { mutableStateOf(false) }
+    var replaceTarget by remember { mutableStateOf<InstalledConnector?>(null) }
     var preview by remember { mutableStateOf<ConnectorPackage?>(null) }
     var records by remember { mutableStateOf<List<InstalledConnector>>(emptyList()) }
     var loadFailed by remember { mutableStateOf(false) }
@@ -72,7 +73,10 @@ fun ConnectorSection(service: ConnectorService) {
         Text(stringResource(R.string.connector_title), style = MaterialTheme.typography.titleMedium)
         Text(stringResource(R.string.connector_intro))
         OutlinedButton(
-            onClick = { picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream")) },
+            onClick = {
+                replaceTarget = null
+                picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+            },
             enabled = !action.busy,
             modifier = Modifier.testTag("connector-import"),
         ) {
@@ -81,7 +85,10 @@ fun ConnectorSection(service: ConnectorService) {
         OutlinedButton(
             enabled = !action.busy,
             modifier = Modifier.testTag("connector-paste"),
-            onClick = { showPaste = !showPaste },
+            onClick = {
+                replaceTarget = null
+                showPaste = !showPaste
+            },
         ) { Text(stringResource(R.string.connector_paste)) }
         if (showPaste) {
             Text(stringResource(R.string.connector_paste_hint))
@@ -109,7 +116,32 @@ fun ConnectorSection(service: ConnectorService) {
         if (loadFailed || action.failed) {
             Text(stringResource(R.string.connector_failed), color = MaterialTheme.colorScheme.error)
         }
+        if (service.cleanupPending) {
+            Text(stringResource(R.string.connector_cleanup_pending))
+            OutlinedButton(onClick = {
+                action.launch {
+                    withContext(Dispatchers.IO) { service.cleanupRetired() }
+                    revision++
+                }
+            }, enabled = !action.busy) { Text(stringResource(R.string.connector_cleanup_retry)) }
+        }
         preview?.let { bundle ->
+            replaceTarget?.let { old ->
+                Text(stringResource(R.string.connector_update_target, old.name))
+                Text("${old.hash.take(12)} → ${bundle.contentHash.take(12)}")
+                Text(
+                    stringResource(
+                        R.string.connector_update_changes,
+                        old.skills.size,
+                        bundle.skills.size,
+                        old.endpoints.size,
+                        bundle.endpoints.size,
+                    ),
+                )
+            }
+            bundle.versionLabel?.let { Text(stringResource(R.string.connector_update_version, it)) }
+            Text(bundle.releaseNotes ?: stringResource(R.string.connector_update_notes_missing))
+            Text(stringResource(R.string.connector_update_components, bundle.skills.size, bundle.endpoints.size))
             Text("${bundle.name} · ${bundle.source}")
             Text(bundle.contentHash, style = MaterialTheme.typography.bodySmall)
             bundle.endpoints.forEach { Text("${it.name}: ${it.url}") }
@@ -137,7 +169,17 @@ fun ConnectorSection(service: ConnectorService) {
                 enabled = !action.busy && (bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()),
                 onClick = {
                     action.launch {
-                        withContext(Dispatchers.IO) { service.install(bundle) }
+                        withContext(Dispatchers.IO) {
+                            val old = replaceTarget
+                            val installationContext = kotlin.coroutines.coroutineContext
+                            service.install(
+                                bundle,
+                                old?.identity ?: "local:${bundle.source}:${bundle.contentHash}",
+                                old?.revision,
+                                cancelled = { !installationContext[kotlinx.coroutines.Job]!!.isActive },
+                            )
+                        }
+                        replaceTarget = null
                         preview = null
                         jsonDraft = ""
                         showPaste = false
@@ -147,7 +189,10 @@ fun ConnectorSection(service: ConnectorService) {
                 modifier = Modifier.testTag("connector-install"),
             ) { Text(stringResource(R.string.connector_install)) }
             OutlinedButton(
-                onClick = { preview = null },
+                onClick = {
+                    preview = null
+                    replaceTarget = null
+                },
                 enabled = !action.busy,
             ) { Text(stringResource(R.string.common_cancel)) }
         }
@@ -155,10 +200,19 @@ fun ConnectorSection(service: ConnectorService) {
             HorizontalDivider()
             Text(record.name, style = MaterialTheme.typography.titleSmall)
             Text("${record.source} · ${record.hash.take(12)}", style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(enabled = !action.busy, onClick = {
+                replaceTarget = record
+                picker.launch(arrayOf("application/zip", "application/json", "application/octet-stream"))
+            }, modifier = Modifier.testTag("connector-update-${record.id}")) {
+                Text(stringResource(R.string.connector_update_target, record.name))
+            }
             record.diagnostics.forEach { Text(diagnosticText(it), style = MaterialTheme.typography.bodySmall) }
             record.endpoints.forEach { endpoint -> EndpointRow(service, endpoint) }
             record.skills.forEach { key ->
-                var enabled by remember(key, revision) { mutableStateOf(service.skillEnabled(key)) }
+                var enabled by remember(key, revision) { mutableStateOf(false) }
+                LaunchedEffect(key, revision) {
+                    enabled = withContext(Dispatchers.IO) { service.skillEnabled(key) }
+                }
                 Row {
                     Checkbox(checked = enabled, enabled = !action.busy, onCheckedChange = { value ->
                         action.launch {

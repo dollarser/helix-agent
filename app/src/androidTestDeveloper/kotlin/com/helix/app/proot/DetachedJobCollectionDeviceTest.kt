@@ -337,7 +337,11 @@ class DetachedJobCollectionDeviceTest {
             File(root, "workspace").mkdirs()
             workspace.ensureLayout("app")
             val permissions =
-                SessionPermissionService(storage.sessionPermissionConfigs, storage.toolAvailability) { "app" }
+                SessionPermissionService(
+                    storage.sessionPermissionConfigs,
+                    storage.toolAvailability,
+                    workspaceFor = { "app" },
+                )
             val output = DetachedJobOutput(storage, workspace, permissions, { "app" }, File(root, "import"))
             val collector = DetachedJobCollection(context, storage, ownership, output::apply, { _, _ -> })
             return ownership.guard(collector.executor())

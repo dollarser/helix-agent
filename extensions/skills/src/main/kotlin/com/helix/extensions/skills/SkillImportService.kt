@@ -15,7 +15,7 @@ import java.util.stream.Collectors
 class SkillImportService(
     private val stagingRoot: Path,
     private val limits: SkillImportLimits = SkillImportLimits(),
-    skillLoader: SkillLoader = SkillLoader(),
+    private val skillLoader: SkillLoader = SkillLoader(),
 ) {
     private val inspector = SkillSnapshotInspector(limits, skillLoader)
 
@@ -39,6 +39,9 @@ class SkillImportService(
         stage { destination ->
             inspector.copyDirectory(sourceDirectory, destination.resolve(sourceDirectory.fileName.toString()))
         }
+
+    /** Keep a compound install's temporary files under its own recoverable cache directory. */
+    fun withStagingRoot(root: Path): SkillImportService = SkillImportService(root, limits, skillLoader)
 
     fun stageZip(zipPath: Path): StagedSkillImport {
         if (!Files.isRegularFile(zipPath) || Files.isSymbolicLink(zipPath)) invalid("ZIP must be a regular file")
@@ -67,6 +70,7 @@ class SkillImportService(
         }
         val snapshotContainer = nameRoot.resolve(currentPreview.snapshotHash)
         val target = snapshotContainer.resolve(currentPreview.name)
+        removeEmptyContainer(snapshotContainer, target)
         if (Files.exists(snapshotContainer, LinkOption.NOFOLLOW_LINKS)) {
             if (Files.isSymbolicLink(snapshotContainer)) invalid("Existing snapshot path must not be a symlink")
             val installed = inspector.inspect(target, SkillSource.USER_IMPORTED)
@@ -368,5 +372,17 @@ class SkillImportService(
         private const val UNIX_DIRECTORY = 0x4000
         private const val BACKSLASH_BYTE: Byte = 92
         private val DRIVE_PATH = Regex("^[A-Za-z]:.*")
+    }
+
+    private fun removeEmptyContainer(
+        snapshotContainer: Path,
+        target: Path,
+    ) {
+        if (Files.isDirectory(snapshotContainer, LinkOption.NOFOLLOW_LINKS) &&
+            !Files.exists(target, LinkOption.NOFOLLOW_LINKS) &&
+            Files.list(snapshotContainer).use { !it.findAny().isPresent }
+        ) {
+            Files.delete(snapshotContainer)
+        }
     }
 }

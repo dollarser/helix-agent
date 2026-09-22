@@ -306,6 +306,8 @@ private fun DestinationScreen(
                 container.privacyDeletionService,
                 container.fileManager,
                 sessionExport = container.sessionExport,
+                connectors = container.connectorService,
+                onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                 onNavigation = onOpenDrawer,
                 onProviders = { navController.navigate(ShellDestination.Settings.route) },
                 onOpenCommandDetail = { turnId, callId ->

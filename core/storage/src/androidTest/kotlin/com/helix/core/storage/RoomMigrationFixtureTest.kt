@@ -743,8 +743,8 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v26ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v26-export.db", 26)
+    fun v27ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v27-export.db", 27)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -752,8 +752,20 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v26 schema must match the exported v26 schema",
-                (expectedTables() + listOf("composer_drafts", "session_inputs", "session_input_attachments")).sorted(),
+                "code-built v27 schema must match the exported v27 schema",
+                (
+                    expectedTables() +
+                        listOf(
+                            "composer_drafts",
+                            "session_inputs",
+                            "session_input_attachments",
+                            "connector_installations",
+                            "connector_skill_ownership",
+                            "session_connectors",
+                            "connector_catalog_state",
+                            "connector_endpoints",
+                        )
+                ).sorted(),
                 code.tables.sorted(),
             )
             assertEquals(
@@ -820,6 +832,7 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_23_24,
                     HelixDatabase.MIGRATION_24_25,
                     HelixDatabase.MIGRATION_25_26,
+                    HelixDatabase.MIGRATION_26_27,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase

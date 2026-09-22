@@ -142,6 +142,7 @@ class SkillToolsDeviceTest {
                     executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                     deadline = Instant.parse("2030-01-01T00:00:00Z"),
                     cancel = NoCancellation,
+                    sessionId = "device-session",
                 ),
             ) as ToolExecutorResult.Completed
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, result.output))

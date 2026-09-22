@@ -151,7 +151,10 @@ class SessionPermissionServiceAvailabilityTest {
                 FakeSessionPermissionDefaultsDao(),
                 FakeSessionPermissionDraftDao(),
             )
-        val service = SessionPermissionService(configs, availability) { sessionId -> workspaces[sessionId] }
+        val service =
+            SessionPermissionService(configs, availability, workspaceFor = { sessionId ->
+                workspaces[sessionId]
+            })
 
         fun disableAt(
             sourceRef: String,

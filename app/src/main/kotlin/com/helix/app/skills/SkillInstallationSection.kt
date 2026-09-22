@@ -90,7 +90,7 @@ fun SkillInstallationSection(
                 action.launch {
                     val key = withContext(Dispatchers.IO) { service.install(path, reviewed.snapshotHash) }
                     installed = key
-                    enabled = service.isEnabled(key)
+                    enabled = withContext(Dispatchers.IO) { service.isEnabled(key) }
                     preview = null
                 }
             }) { Text(stringResource(R.string.skill_installer_install)) }
@@ -107,7 +107,7 @@ fun SkillInstallationSection(
                     onClick = {
                         action.launch {
                             withContext(Dispatchers.IO) { service.enable(key) }
-                            enabled = service.isEnabled(key)
+                            enabled = withContext(Dispatchers.IO) { service.isEnabled(key) }
                         }
                     },
                     modifier =

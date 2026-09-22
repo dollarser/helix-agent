@@ -30,7 +30,8 @@ class ConnectorInstallationService(
             }
         }
 
-    fun installedId(hash: String): String? = service().list().firstOrNull { it.hash == hash }?.id
+    fun installedId(bundle: ConnectorPackage): String? =
+        service().list().firstOrNull { it.identity == "local:${bundle.source}:${bundle.contentHash}" }?.id
 
     @Synchronized
     fun install(
@@ -43,6 +44,6 @@ class ConnectorInstallationService(
         require(bundle.contentHash == expectedHash) { "CONNECTOR_CONTENT_CHANGED: preview again" }
         check(!cancelled()) { "IMPORT_CANCELLED" }
         // No reads of the original source after hash verification; no connection happens on install.
-        return service().install(bundle)
+        return service().install(bundle, cancelled = cancelled)
     }
 }

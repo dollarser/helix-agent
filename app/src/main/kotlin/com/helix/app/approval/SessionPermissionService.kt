@@ -36,12 +36,25 @@ class SessionPermissionService(
     private val configs: SessionPermissionConfigRepository,
     private val availability: ToolAvailabilityRepository,
     private val workspaceFor: (sessionId: String) -> String?,
+    private val sourceAvailable: (String, String?) -> Boolean = { _, _ -> true },
 ) : SessionPermissionSource,
     ToolAvailabilitySource {
     override fun configFor(sessionId: String): SessionPermissionConfig =
         configs.forSession(sessionId) ?: configs.appDefault()
 
     override fun statesFor(
+        sourceRef: String,
+        toolName: String,
+        sessionId: String?,
+        workspaceRef: String?,
+    ): ToolAvailabilityStates {
+        if (!sourceAvailable(sourceRef, sessionId)) {
+            return ToolAvailabilityStates(global = ToolAvailabilityState.DISABLED)
+        }
+        return workspaceStates(sourceRef, toolName, sessionId, workspaceRef)
+    }
+
+    private fun workspaceStates(
         sourceRef: String,
         toolName: String,
         sessionId: String?,
