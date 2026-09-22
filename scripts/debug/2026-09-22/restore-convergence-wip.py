@@ -32,7 +32,8 @@ def main():
     if args.report.exists():
         raise ValueError("Refusing to overwrite restore report")
     snapshot = json.loads((args.snapshot / "manifest.json").read_text())
-    reviewed = {"docs/README.md", "docs/development/status.md", "docs/development/next-work-plan.md"}
+    reviewed = {"docs/README.md", "docs/development/status.md", "docs/development/next-work-plan.md",
+                "docs/research/execution-engine-deep-review-2026-09-22.md"}
     keep_integrated = {"docs/research/ui-interaction-optimization.md"}
     plan = []
     for name, expected in snapshot["files"].items():
