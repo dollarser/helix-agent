@@ -50,7 +50,7 @@ Deciders: project-owner
 - 设备测试：`MarketplaceDeviceTest` 验证在 Android 环境下 MCP 与 Skill 项的安装、激活状态联动、幂等重装及卸载后的生命周期恢复；
 - 静态与门禁：`./scripts/check-i18n.sh` 三语资源对齐与 0 硬编码 CJK 扫描，`spotlessCheck`、`detekt` 与 `./scripts/check-all.sh` 全量通过。
 
-实现边界澄清：当前替换采用先卸载再安装；成功路径及安装后重启验证不证明替换途中失败保留、强杀原子性或跨组件无残留。单文件 ATOMIC_MOVE 不覆盖 Skill 注册及凭据删除。改进方案见 accepted [ADR-CONNECTORS-003](003-ownership-and-installation.md) / HXA-129，实施中、尚未验收；此处保留已接受的主动重装及降级能力。
+实现边界澄清：212初始交付的先卸载再安装已由[HXA-129](../../completion-records/HXA-129.md)替换为准备后一次发布、引用保护及可重试清理，并通过规定本地验收，尚未合并main。契约见 accepted [ADR-CONNECTORS-003](003-ownership-and-installation.md)；主动重装及降级能力保持。
 
 ## Reconsider when
 

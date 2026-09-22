@@ -7,9 +7,9 @@ Deciders: Project owner（2026-09-22 授权收口并进入 HXA-129 实现）
 
 ## Context
 
-Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据。当前 MarketplaceService 在不同 hash 的替换中先卸载再安装；ConnectorService 先注册 Skill，再原子发布 Connector JSON。单文件 ATOMIC_MOVE 不能把这些操作变成同一个事务：后续失败或进程死亡可能丢失旧配置，或留下已注册但未归属的 Skill。
+Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据。决策时 MarketplaceService 在不同 hash 的替换中先卸载再安装；ConnectorService 先注册 Skill，再原子发布 Connector JSON。单文件 ATOMIC_MOVE 不能把这些操作变成同一个事务：后续失败或进程死亡可能丢失旧配置，或留下已注册但未归属的 Skill。
 
-现有 remove 会保护其他 Connector 引用的 Skill，但不能完整表达独立用户安装的归属。问题需要解决，但不需要因此建设通用安装事务引擎、代码 Diff 页面或新的会话权限系统。本记录已获授权；设计接受不是实现或验收证据。
+决策时 remove 会保护其他 Connector 引用的 Skill，但不能完整表达独立用户安装的归属。问题需要解决，但不需要因此建设通用安装事务引擎、代码 Diff 页面或新的会话权限系统。本记录已获授权；设计接受不是实现或验收证据。
 
 ## Decision
 
@@ -80,7 +80,7 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 ## Verification
 
-本次接受最小Room提交及会话启停契约；HXA-129开始实施，交付状态以任务与验收记录为准。现有 SkillRepository 有 session override 优先于 global override 的组件能力，不等于已经实现按 Connector 聚合的会话选择；接线时复用它而非重写其规则。已有成功重装及安装后重启用例不能证明安装途中强杀安全。
+最小Room提交及会话启停已完成本地实现，见[HXA-129完成记录](../../completion-records/HXA-129.md)；整合与外部边界仍以当前状态为准。现有 SkillRepository 有 session override 优先于 global override 的组件能力，不等于已经实现按 Connector 聚合的会话选择；接线时复用它而非重写其规则。已有成功重装及安装后重启用例不能证明安装途中强杀安全。
 
 实施时先记录唯一提交点及所有可用性读取入口。测试覆盖候选部分准备失败、提交前取消/强杀、提交后清理前强杀、写入失败/低空间、提交响应丢失后重复请求、同名不同身份、两包共享、独立安装与包共存、未变凭据保留、目标变化重新配置和旧数据迁移。
 
@@ -94,7 +94,7 @@ Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据
 
 ## References
 
-- [实施任务 HXA-129](../../development/tasks/HXA-129.md)
+- [HXA-129完成记录](../../completion-records/HXA-129.md)
 - [内置市场契约](005-curated-marketplace.md)
 - [签名索引契约](004-signed-index.md)
 - [会话授权与工具禁用](../permissions/001-session-authorization.md)

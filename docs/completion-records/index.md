@@ -111,6 +111,7 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-124 | [HXA-124 完成记录：Connector 可迁移能力包](HXA-124.md) |
 | HXA-127 | [HXA-127：大 catalog 渐进工具发现](HXA-127.md) |
 | HXA-128 | [HXA-128：CLI/stdio 可移植性 Spike](HXA-128.md) |
+| HXA-129 | [HXA-129：Connector 安全替换、安装归属与会话启停](HXA-129.md) |
 | HXA-130 | [HXA-130：Connector 签名索引与来源验证](HXA-130.md) |
 | HXA-131 | [HXA-131 完成记录](HXA-131.md) |
 | HXA-132 | [HXA-132 完成记录](HXA-132.md) |
