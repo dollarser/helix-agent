@@ -76,14 +76,28 @@ class BrowserTabController(
     // ---------------------------------------------------------------- commands
 
     /** Expected UI capacity refusal, without creating a tab or throwing. */
-    fun tryNewTab(): String? = if (state.tabs.size < maxTabs) newTab() else null
+    fun tryNewTab(isIncognito: Boolean = false): String? = if (state.tabs.size < maxTabs) newTab(isIncognito) else null
 
     /** Creates a blank tab, selects it, and returns its id. Fails at [maxTabs]. */
-    fun newTab(): String {
+    fun newTab(isIncognito: Boolean = false): String {
         check(state.tabs.size < maxTabs) { "tab limit reached: $maxTabs" }
         val id = newTabId()
-        state = state.copy(tabs = state.tabs + BrowserTab(id), selectedId = id)
+        state = state.copy(tabs = state.tabs + BrowserTab(id, isIncognito = isIncognito), selectedId = id)
         return id
+    }
+
+    /** Closes all open tabs. */
+    fun closeAllTabs(): List<TabCommand.Destroy> {
+        val destroys = state.tabs.map { TabCommand.Destroy(it.id) }
+        state = State()
+        return destroys
+    }
+
+    fun setDesktopMode(
+        id: String,
+        enabled: Boolean,
+    ) {
+        replaceTab(id) { it.copy(isDesktopMode = enabled) }
     }
 
     /** Closes the tab; selection moves to the neighbor (or null when it was the last). */
@@ -184,7 +198,18 @@ class BrowserTabController(
         id: String,
         url: String,
     ) {
-        replaceTab(id) { it.copy(url = url, title = null, error = null, isLoading = true, stopped = false) }
+        replaceTab(
+            id,
+        ) { it.copy(url = url, title = null, error = null, isLoading = true, stopped = false, progress = 10) }
+    }
+
+    fun onProgressChanged(
+        id: String,
+        progress: Int,
+    ) {
+        val tab = state.tabs.firstOrNull { it.id == id } ?: return
+        if (tab.error != null) return
+        replaceTab(id) { it.copy(progress = progress, isLoading = progress in 1..99) }
     }
 
     /**
@@ -207,6 +232,7 @@ class BrowserTabController(
                 url = url,
                 title = title,
                 isLoading = false,
+                progress = 100,
                 error = null,
                 stopped = false,
                 canGoBack = canGoBack,

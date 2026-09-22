@@ -8,6 +8,10 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.webkit.WebView
 import androidx.core.graphics.createBitmap
+import com.helix.feature.browser.engine.AdBlockEngine
+import com.helix.feature.browser.engine.SearchEngines
+import com.helix.feature.browser.engine.UserScriptEngine
+import com.helix.feature.browser.engine.WebPageTools
 import com.helix.feature.browser.snapshot.BrowserOrigin
 import com.helix.feature.browser.snapshot.BrowserSnapshot
 import com.helix.feature.browser.snapshot.BrowserSnapshotScript
@@ -17,13 +21,37 @@ import com.helix.feature.browser.snapshot.SnapshotFailure
 import com.helix.feature.browser.snapshot.SnapshotResult
 import com.helix.feature.browser.snapshot.SnapshotToken
 import com.helix.feature.browser.snapshot.TokenVerdict
+import com.helix.feature.browser.storage.Bookmark
+import com.helix.feature.browser.storage.BrowserPreferences
+import com.helix.feature.browser.storage.BrowserStorage
+import com.helix.feature.browser.storage.HistoryItem
+import com.helix.feature.browser.storage.SpeedDial
+import com.helix.feature.browser.storage.UserScript
 import com.helix.feature.browser.webview.WebViewTabHost
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.lang.ref.WeakReference
 import java.net.URL
+
+/**
+ * State of Find in Page.
+ */
+data class FindInPageState(
+    val query: String = "",
+    val activeMatch: Int = 0,
+    val totalMatches: Int = 0,
+    val isSearching: Boolean = false,
+)
 
 /**
  * The browser feature's Android facade (HXA-060): owns the pure [BrowserTabController]
@@ -47,6 +75,10 @@ class BrowserController(
 ) {
     private val appContext = context.applicationContext
 
+    val storage = BrowserStorage(appContext)
+    val adBlock = AdBlockEngine()
+    val userScripts = UserScriptEngine(emptyList())
+
     private val tabs = BrowserTabController()
     private var ownerBinding = WeakReference<BrowserViewOwner>(null)
     private val hosts: Map<String, WebViewTabHost> get() = ownerBinding.get()?.hosts.orEmpty()
@@ -62,20 +94,66 @@ class BrowserController(
     /** The download queue; newly requested items are appended at the end. */
     val downloads: StateFlow<List<DownloadItem>> = downloadQueue.downloads
 
+    private val _preferences = MutableStateFlow(BrowserPreferences())
+    val preferences: StateFlow<BrowserPreferences> = _preferences.asStateFlow()
+
+    private val _bookmarks = MutableStateFlow(emptyList<Bookmark>())
+    val bookmarks: StateFlow<List<Bookmark>> = _bookmarks.asStateFlow()
+
+    private val _history = MutableStateFlow(emptyList<HistoryItem>())
+    val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
+
+    private val _speedDials = MutableStateFlow(emptyList<SpeedDial>())
+    val speedDials: StateFlow<List<SpeedDial>> = _speedDials.asStateFlow()
+
+    private val _scripts = MutableStateFlow(emptyList<UserScript>())
+    val scripts: StateFlow<List<UserScript>> = _scripts.asStateFlow()
+
+    private val _findState = MutableStateFlow(FindInPageState())
+    val findState: StateFlow<FindInPageState> = _findState.asStateFlow()
+
+    private val _contextMenu = MutableStateFlow<ContextMenuData?>(null)
+    val contextMenu: StateFlow<ContextMenuData?> = _contextMenu.asStateFlow()
+
+    fun clearContextMenu() {
+        _contextMenu.value = null
+    }
+
+    val adBlockedCount: StateFlow<Long> = adBlock.blockedCount
+
     // ---------------------------------------------------------------- tab commands
 
-    fun tryNewTab(): String? {
-        val id = tabs.tryNewTab() ?: return null
+    fun tryNewTab(isIncognito: Boolean = false): String? {
+        val id = tabs.tryNewTab(isIncognito) ?: return null
         hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
     }
 
-    fun newTab(): String {
-        val id = tabs.newTab()
+    fun newTab(isIncognito: Boolean = false): String {
+        val id = tabs.newTab(isIncognito)
         hosts.values.forEach { it.cancelDialogs() }
         publish()
         return id
+    }
+
+    fun closeAllTabs() {
+        tabs.closeAllTabs()
+        ownerBinding.get()?.clear()
+        snapshots.clear()
+        publish()
+    }
+
+    fun setDesktopMode(
+        id: String,
+        enabled: Boolean,
+    ) {
+        tabs.setDesktopMode(id, enabled)
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            host(id).setDesktopMode(enabled)
+            host(id).reload()
+        }
+        publish()
     }
 
     fun closeTab(id: String) {
@@ -93,6 +171,19 @@ class BrowserController(
         hosts.values.forEach { it.cancelDialogs() }
         tabs.select(id)
         publish()
+    }
+
+    /**
+     * Smart navigation: automatically classifies user input as a URL or a search query
+     * and performs navigation.
+     */
+    fun smartNavigate(
+        id: String,
+        rawInput: String,
+    ) {
+        val currentEngine = SearchEngines.getById(_preferences.value.searchEngineId)
+        val resolved = SearchEngines.resolveInput(rawInput, currentEngine)
+        navigate(id, resolved)
     }
 
     /**
@@ -391,7 +482,232 @@ class BrowserController(
             )
         }
         tabs.newTab()
+        clearBrowsingHistory()
         publish()
+    }
+
+    // ---------------------------------------------------------------- Find in Page
+
+    fun findInPage(
+        id: String,
+        query: String,
+    ) {
+        _findState.value = _findState.value.copy(query = query, isSearching = true)
+        if (query.isBlank()) {
+            if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+                host(id).clearFindMatches()
+            }
+            _findState.value = _findState.value.copy(activeMatch = 0, totalMatches = 0)
+            return
+        }
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            host(id).findAllAsync(query) { active, total ->
+                _findState.value = _findState.value.copy(activeMatch = active, totalMatches = total)
+            }
+        }
+    }
+
+    fun findNext(
+        id: String,
+        forward: Boolean,
+    ) {
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            host(id).findNext(forward)
+        }
+    }
+
+    fun closeFindInPage(id: String) {
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            host(id).clearFindMatches()
+        }
+        _findState.value = FindInPageState()
+    }
+
+    // ---------------------------------------------------------------- Bookmarks & History & Speed Dials
+
+    private val persistenceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val persistenceMutex = Mutex()
+    private val _storageFailure = MutableStateFlow(false)
+    val storageFailure: StateFlow<Boolean> = _storageFailure.asStateFlow()
+    private var storageReady = false
+
+    init {
+        persistenceScope.launch {
+            persistenceMutex.withLock {
+                try {
+                    _preferences.value = withContext(Dispatchers.IO) { storage.loadPreferences() }
+                    _bookmarks.value = withContext(Dispatchers.IO) { storage.loadBookmarks() }
+                    _history.value = withContext(Dispatchers.IO) { storage.loadHistory() }
+                    _speedDials.value = withContext(Dispatchers.IO) { storage.loadSpeedDials() }
+                    _scripts.value = withContext(Dispatchers.IO) { storage.loadUserScripts() }
+                    adBlock.enabled = _preferences.value.adBlockEnabled
+                    userScripts.updateScripts(_scripts.value)
+                    hosts.values.forEach { it.setNoImageMode(_preferences.value.noImageMode) }
+                    storageReady = true
+                } catch (_: IOException) {
+                    _storageFailure.value = true
+                } catch (_: IllegalArgumentException) {
+                    _storageFailure.value = true
+                }
+            }
+        }
+    }
+
+    fun dismissStorageFailure() {
+        _storageFailure.value = false
+    }
+
+    private fun <T> editStored(
+        state: MutableStateFlow<T>,
+        save: (T) -> Unit,
+        update: (T) -> T,
+        after: (T) -> Unit = {},
+    ) {
+        persistenceScope.launch {
+            persistenceMutex.withLock {
+                if (!storageReady) {
+                    _storageFailure.value = true
+                    return@withLock
+                }
+                try {
+                    val updated = update(state.value)
+                    withContext(Dispatchers.IO) { save(updated) }
+                    state.value = updated
+                    after(updated)
+                } catch (_: IOException) {
+                    _storageFailure.value = true
+                } catch (_: IllegalArgumentException) {
+                    _storageFailure.value = true
+                }
+            }
+        }
+    }
+
+    fun addBookmark(
+        title: String,
+        url: String,
+    ) {
+        if (url.isBlank() || url == BrowserTabController.ABOUT_BLANK) return
+        editStored(_bookmarks, storage::saveBookmarks, { current ->
+            if (current.any { it.url == url }) {
+                current
+            } else {
+                current + Bookmark(title = title.ifBlank { url }.take(2048), url = url)
+            }
+        })
+    }
+
+    fun removeBookmark(id: String) =
+        editStored(_bookmarks, storage::saveBookmarks, {
+            it.filterNot { row -> row.id == id }
+        })
+
+    fun isBookmarked(url: String): Boolean = _bookmarks.value.any { it.url == url }
+
+    fun addHistory(
+        title: String,
+        url: String,
+    ) = editStored(_history, storage::saveHistory, {
+        (
+            listOf(HistoryItem(title = title.ifBlank { url }.take(2048), url = url)) +
+                it.filterNot { row -> row.url == url }
+        ).take(500)
+    })
+
+    fun removeHistory(id: String) = editStored(_history, storage::saveHistory, { it.filterNot { row -> row.id == id } })
+
+    fun clearBrowsingHistory() = editStored(_history, storage::saveHistory, { emptyList() })
+
+    fun addSpeedDial(
+        title: String,
+        url: String,
+    ) = editStored(_speedDials, storage::saveSpeedDials, {
+        it + SpeedDial(title = title.take(2048), url = url, iconText = title.take(2).uppercase().ifBlank { "W" })
+    })
+
+    fun removeSpeedDial(id: String) =
+        editStored(_speedDials, storage::saveSpeedDials, {
+            it.filterNot { row ->
+                row.id ==
+                    id
+            }
+        })
+
+    fun saveUserScript(script: UserScript) =
+        editStored(_scripts, storage::saveUserScripts, {
+            require(script.code.toByteArray().size <= 256 * 1024)
+            it.filterNot { row -> row.id == script.id } + script
+        }, userScripts::updateScripts)
+
+    fun deleteUserScript(id: String) =
+        editStored(
+            _scripts,
+            storage::saveUserScripts,
+            { it.filterNot { row -> row.id == id } },
+            userScripts::updateScripts,
+        )
+
+    fun toggleUserScript(id: String) =
+        editStored(
+            _scripts,
+            storage::saveUserScripts,
+            { it.map { row -> if (row.id == id) row.copy(enabled = !row.enabled) else row } },
+            userScripts::updateScripts,
+        )
+
+    fun setSearchEngine(id: String) =
+        editStored(_preferences, storage::savePreferences, { it.copy(searchEngineId = id) })
+
+    fun toggleAdBlock() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(adBlockEnabled = !it.adBlockEnabled) },
+            { adBlock.enabled = it.adBlockEnabled },
+        )
+
+    fun toggleNoImageMode() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(noImageMode = !it.noImageMode) },
+            { prefs -> hosts.values.forEach { it.setNoImageMode(prefs.noImageMode) } },
+        )
+
+    fun toggleNightMode() =
+        editStored(
+            _preferences,
+            storage::savePreferences,
+            { it.copy(nightMode = !it.nightMode) },
+            { prefs -> hosts.values.forEach { it.setNightMode(prefs.nightMode) } },
+        )
+
+    fun injectEruda(id: String) {
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            WebPageTools.injectEruda(host(id).webView)
+        }
+    }
+
+    fun extractSource(
+        id: String,
+        onResult: (String) -> Unit,
+    ) {
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            WebPageTools.extractSource(host(id).webView, onResult)
+        } else {
+            onResult("")
+        }
+    }
+
+    fun extractReader(
+        id: String,
+        onResult: (title: String, content: String) -> Unit,
+    ) {
+        if (ownerBinding.get()?.hosts?.containsKey(id) == true) {
+            WebPageTools.extractReaderContent(host(id).webView, onResult)
+        } else {
+            onResult("", "")
+        }
     }
 
     // ---------------------------------------------------------------- lifecycle
@@ -455,6 +771,12 @@ class BrowserController(
                             publish()
                         }
 
+                        override fun onProgressChanged(progress: Int) {
+                            if (!live()) return
+                            tabs.onProgressChanged(id, progress)
+                            publish()
+                        }
+
                         override fun onPageFinished(
                             url: String,
                             title: String?,
@@ -463,6 +785,14 @@ class BrowserController(
                         ) {
                             if (!live()) return
                             tabs.onPageFinished(id, url, title, canGoBack, canGoForward)
+                            val tab = tabs.state().tabs.firstOrNull { it.id == id }
+                            val shouldRecord =
+                                tab?.isIncognito == false &&
+                                    url.isNotBlank() &&
+                                    url != BrowserTabController.ABOUT_BLANK
+                            if (shouldRecord) {
+                                addHistory(title ?: url, url)
+                            }
                             publish()
                         }
 
@@ -509,9 +839,25 @@ class BrowserController(
                             if (!live()) return
                             requestDownload(request)
                         }
+
+                        override fun onContextMenu(contextMenu: ContextMenuData) {
+                            if (!live()) return
+                            _contextMenu.value = contextMenu
+                        }
                     },
                     canShowDialogs = { live() && owner.resumed && owner.available && state.value.selectedId == id },
                 )
+            created.adBlockEngine = adBlock
+            created.userScriptEngine = userScripts
+            created.isNightMode = { _preferences.value.nightMode }
+            created.setNoImageMode(_preferences.value.noImageMode)
+            created.setDesktopMode(
+                tabs
+                    .state()
+                    .tabs
+                    .first { it.id == id }
+                    .isDesktopMode,
+            )
             if (!owner.resumed) created.pause()
             created
         }

@@ -13,6 +13,8 @@ package com.helix.feature.browser
 internal interface BrowserTabListener {
     fun onPageStarted(url: String)
 
+    fun onProgressChanged(progress: Int) {}
+
     fun onPageFinished(
         url: String,
         title: String?,
@@ -52,4 +54,18 @@ internal interface BrowserTabListener {
 
     /** A page-initiated download request (androidx.webkit download seam). */
     fun onDownloadRequest(request: DownloadRequest)
+
+    /** User long-pressed a link or image element in the page. */
+    fun onContextMenu(contextMenu: ContextMenuData) {}
+}
+
+sealed interface ContextMenuData {
+    data class Link(
+        val url: String,
+    ) : ContextMenuData
+
+    data class Image(
+        val imageUrl: String,
+        val linkUrl: String? = null,
+    ) : ContextMenuData
 }

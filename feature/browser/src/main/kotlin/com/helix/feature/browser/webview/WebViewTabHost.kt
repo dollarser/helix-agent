@@ -15,6 +15,7 @@ import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -22,7 +23,12 @@ import com.helix.feature.browser.BrowserSecuritySpec
 import com.helix.feature.browser.BrowserTabListener
 import com.helix.feature.browser.BrowserUrlDecision
 import com.helix.feature.browser.BrowserUrlPolicy
+import com.helix.feature.browser.ContextMenuData
 import com.helix.feature.browser.DownloadRequest
+import com.helix.feature.browser.engine.AdBlockEngine
+import com.helix.feature.browser.engine.UserScriptEngine
+import com.helix.feature.browser.engine.WebPageTools
+import java.io.ByteArrayInputStream
 
 /**
  * One Helix tab's System WebView (HXA-060; doc 09 §3.4 WebView 安全约束). Constructed
@@ -53,6 +59,11 @@ internal class WebViewTabHost(
     private var creationContext: Context? = context
     private var viewHolder: WebView? = null
     private val dialogs = BrowserJsDialogs(canShowDialogs)
+
+    var adBlockEngine: AdBlockEngine? = null
+    var userScriptEngine: UserScriptEngine? = null
+    var isNightMode: () -> Boolean = { false }
+
     val webView: WebView
         get() {
             check(!destroyed) { "WebView host is destroyed" }
@@ -153,6 +164,21 @@ internal class WebViewTabHost(
             listener.onMainFrameUnknownError(url)
         }
 
+        override fun shouldInterceptRequest(
+            view: WebView,
+            request: WebResourceRequest,
+        ): WebResourceResponse? {
+            val url = request.url.toString()
+            if (adBlockEngine?.shouldBlock(url) == true) {
+                return WebResourceResponse(
+                    "text/plain",
+                    "UTF-8",
+                    ByteArrayInputStream(ByteArray(0)),
+                )
+            }
+            return super.shouldInterceptRequest(view, request)
+        }
+
         override fun onReceivedSslError(
             view: WebView,
             handler: SslErrorHandler,
@@ -171,6 +197,7 @@ internal class WebViewTabHost(
             dialogs.cancel()
             lastLoadUrl = url
             listener.onPageStarted(url)
+            userScriptEngine?.injectMatchingScripts(view, url, "DOCUMENT_START")
         }
 
         override fun onPageFinished(
@@ -178,11 +205,26 @@ internal class WebViewTabHost(
             url: String,
         ) {
             listener.onPageFinished(url, view.title, view.canGoBack(), view.canGoForward())
+            if (adBlockEngine?.enabled == true) {
+                WebPageTools.injectCss(view, AdBlockEngine.COSMETIC_CSS, "helix-adblock-cosmetic")
+            }
+            userScriptEngine?.injectMatchingScripts(view, url, "DOCUMENT_END")
+            if (isNightMode()) {
+                WebPageTools.applyNightMode(view, true)
+            }
         }
     }
 
     private val chromeClient =
         object : WebChromeClient() {
+            override fun onProgressChanged(
+                view: WebView,
+                newProgress: Int,
+            ) {
+                super.onProgressChanged(view, newProgress)
+                listener.onProgressChanged(newProgress)
+            }
+
             override fun onJsAlert(
                 view: WebView,
                 url: String,
@@ -224,9 +266,14 @@ internal class WebViewTabHost(
             }
         }
 
+    private var noImageMode = false
+    private var desktopMode = false
+
     private fun createView(context: Context): WebView =
         WebView(context).also { view ->
             applyHardenedSettings(view.settings)
+            view.settings.blockNetworkImage = noImageMode
+            if (desktopMode) view.settings.userAgentString = DESKTOP_UA
             view.settings.setSupportMultipleWindows(false) // 不允许页面弹出新窗口（doc 09 §3.2）
             view.webViewClient = client
             view.webChromeClient = chromeClient
@@ -243,6 +290,36 @@ internal class WebViewTabHost(
                         contentLength = if (contentLength < 0) -1L else contentLength,
                     ),
                 )
+            }
+            view.setOnLongClickListener {
+                val hit = view.hitTestResult
+                when (hit.type) {
+                    WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                        val linkUrl = hit.extra
+                        if (!linkUrl.isNullOrBlank()) {
+                            listener.onContextMenu(ContextMenuData.Link(linkUrl))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    WebView.HitTestResult.IMAGE_TYPE,
+                    WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE,
+                    -> {
+                        val imgUrl = hit.extra
+                        if (!imgUrl.isNullOrBlank()) {
+                            listener.onContextMenu(ContextMenuData.Image(imgUrl))
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
+                    else -> {
+                        false
+                    }
+                }
             }
         }
 
@@ -328,6 +405,41 @@ internal class WebViewTabHost(
 
     fun clearCache() = withCreatedView { clearCache(true) }
 
+    fun setDesktopMode(enabled: Boolean) {
+        desktopMode = enabled
+        withCreatedView { settings.userAgentString = if (enabled) DESKTOP_UA else null }
+    }
+
+    fun setNoImageMode(enabled: Boolean) {
+        noImageMode = enabled
+        withCreatedView { settings.blockNetworkImage = enabled }
+    }
+
+    fun setNightMode(enabled: Boolean) =
+        withCreatedView {
+            WebPageTools.applyNightMode(this, enabled)
+        }
+
+    fun findAllAsync(
+        query: String,
+        onFindResult: (active: Int, total: Int) -> Unit,
+    ) = withCreatedView {
+        setFindListener { active, total, _ ->
+            onFindResult(active, total)
+        }
+        findAllAsync(query)
+    }
+
+    fun findNext(forward: Boolean) =
+        withCreatedView {
+            findNext(forward)
+        }
+
+    fun clearFindMatches() =
+        withCreatedView {
+            clearMatches()
+        }
+
     fun destroy() {
         if (destroyed) return
         withCreatedView {
@@ -353,6 +465,7 @@ internal class WebViewTabHost(
             (view.parent as? ViewGroup)?.removeView(view)
             view.webChromeClient = null
             view.setDownloadListener(null)
+            view.setOnLongClickListener(null)
             view.destroy()
         }
     }
@@ -385,6 +498,9 @@ internal class WebViewTabHost(
 
     companion object {
         const val ABOUT_BLANK = "about:blank"
+
+        const val DESKTOP_UA =
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
         /** How long to wait for the fixed snapshot script before failing closed with a null result. */
         const val SNAPSHOT_TIMEOUT_MS = 5_000L

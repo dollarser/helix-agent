@@ -28,6 +28,9 @@ data class BrowserTab(
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     val navigationGeneration: Long = 0,
+    val progress: Int = 0,
+    val isDesktopMode: Boolean = false,
+    val isIncognito: Boolean = false,
 ) {
     /**
      * The short label for the tab strip: the title when the page set one, else the host; null for
