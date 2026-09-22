@@ -74,7 +74,7 @@ CI 收尾：PR #1 已合入远端与本地 main；已验证提交 `437f8d49` 的
 | HXA-199 终端物理专项 | OEM/HOME/安全锁屏/Doze/热压/物理长稳与真实 16 KiB 设备未提供；双 API 模拟器、实际默认时长、覆盖升级及普通双 shell 恢复已验，不重复用模拟器替代真机 |
 | HXA-125 受保护 Connector 服务验收 | WorkBuddy 来源样本已补齐；仍需独立测试账号验证凭据无效、权限拒绝、厂商撤销和重连；匿名服务与 fixture 不替代这些证据 |
 | HXA-126 外部验收 | [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) 已接受；仍缺两家独立服务账号、App 注册与 redirect 条件，动态注册未交付 |
-| HXA-129 | [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 已收窄为安全替换与安装归属，仍待审查；未实现 |
+| HXA-129 | [ADR-CONNECTORS-003](../adr/connectors/003-ownership-and-installation.md) 已收窄为安全替换、安装归属与会话启停，仍待审查；未实现 |
 | Claude / Grok 真实付费调用 | 账号不可用，按所有者决定暂缓；本地与设备夹具通过不代表真实账号验收 |
 | 发布验收 | HXA-122 尚待稳定 applicationId、渠道命名、升级路径与签名发行决策 |
 

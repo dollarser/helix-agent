@@ -162,7 +162,7 @@
 | HXA-126 | 进行中 | Connector OAuth 登录层 | [任务规格](tasks/HXA-126.md) |
 | HXA-127 | 已交付 | 大 catalog 渐进工具发现 | [交付证据](../completion-records/HXA-127.md) |
 | HXA-128 | 已交付 | CLI/stdio Connector 可移植性 Spike | [交付证据](../completion-records/HXA-128.md) |
-| HXA-129 | 待决策 | Connector 安全替换与安装归属 | [任务规格](tasks/HXA-129.md) |
+| HXA-129 | 待决策 | Connector 安全替换、安装归属与会话启停 | [任务规格](tasks/HXA-129.md) |
 | HXA-130 | 已交付 | Connector 签名索引与来源验证 | [交付证据](../completion-records/HXA-130.md) |
 | HXA-147 | 已交付 | 任务交互与移动界面统一 | [交付证据](../completion-records/HXA-147.md) |
 | HXA-148 | 已交付 | Skill Creator 与草稿校验 | [交付证据](../completion-records/HXA-148.md) |
