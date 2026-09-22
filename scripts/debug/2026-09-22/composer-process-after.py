@@ -29,10 +29,19 @@ def adb(*args):
 
 
 def nodes(label):
-    adb("shell", "uiautomator", "dump", "/sdcard/helix-composer.xml")
-    raw = adb("shell", "cat", "/sdcard/helix-composer.xml")
-    (output / (label + ".xml")).write_text(raw)
-    return list(ET.fromstring(raw).iter("node"))
+    # A just-created API36 window may temporarily expose no accessibility root.
+    # Remove the old dump before each attempt so a stale snapshot cannot pass.
+    for attempt in range(5):
+        adb("shell", "rm", "-f", "/sdcard/helix-composer.xml")
+        result = adb("shell", "uiautomator", "dump", "/sdcard/helix-composer.xml")
+        if "UI hierchary dumped to:" not in result:
+            (output / (label + f"-dump-{attempt}.txt")).write_text(result)
+            time.sleep(0.5)
+            continue
+        raw = adb("shell", "cat", "/sdcard/helix-composer.xml")
+        (output / (label + ".xml")).write_text(raw)
+        return list(ET.fromstring(raw).iter("node"))
+    raise RuntimeError("No fresh accessibility snapshot for " + label)
 
 
 def tap(node):
