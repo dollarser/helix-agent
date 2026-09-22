@@ -23,9 +23,9 @@ Deciders: project-owner
    - 一键安装产物直接交由 `ConnectorService` 与 `SkillRepository` 管理，安装后端点一律保持默认未激活状态（`endpoints` 需用户在配置中显式启用）。
    - 受保护 Connector 仅内置结构与占位声明，不内嵌任何硬编码真实 Token；由用户在管理页面通过系统安全存储注入凭据。
 
-3. **幂等安装、无限制降级与生命周期可逆性**：
+3. **幂等安装与用户主动版本替换**：
    - 安装过程保证相同哈希幂等：相同版本重复触发时返回现有记录；
-   - 系统不限制降级安装：支持用户自由安装旧版本或不同版本；当目标条目哈希与已安装版本不一致时，自动彻底清理旧版本记录并写入目标版本，杜绝多版本冲突与悬空碎片；已安装卡片展开后提供「重新安装」操作支持原地覆盖/降级；
+   - 系统不限制降级安装：支持用户自由安装旧版本或不同版本；当目标条目哈希与已安装版本不一致时执行版本替换，成功后展示目标版本；已安装卡片展开后提供「重新安装」操作支持原地覆盖/降级；
    - 卸载 Connector 联动清理对应端点与启用状态；在底层 Connector 记录被移除后，市场卡片状态精准恢复为 `NOT_INSTALLED`，保证用户可重新安装。
 
 4. **交互联动与防抖保护**：
@@ -49,6 +49,8 @@ Deciders: project-owner
 - 单元测试：`MarketplaceCatalogTest` 验证全部精选目录项的 JSON 有效性、字段完整性、资源 ID 及保护凭据标记；
 - 设备测试：`MarketplaceDeviceTest` 验证在 Android 环境下 MCP 与 Skill 项的安装、激活状态联动、幂等重装及卸载后的生命周期恢复；
 - 静态与门禁：`./scripts/check-i18n.sh` 三语资源对齐与 0 硬编码 CJK 扫描，`spotlessCheck`、`detekt` 与 `./scripts/check-all.sh` 全量通过。
+
+实现边界澄清：当前替换采用先卸载再安装；成功路径及安装后重启验证不证明替换途中失败保留、强杀原子性或跨组件无残留。单文件 ATOMIC_MOVE 不覆盖 Skill 注册及凭据删除。改进方案见 proposed [ADR-CONNECTORS-003](003-ownership-and-installation.md) / HXA-129，尚未实现；此处保留已接受的主动重装及降级能力。
 
 ## Reconsider when
 

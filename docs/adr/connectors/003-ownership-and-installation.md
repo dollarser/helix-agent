@@ -1,78 +1,82 @@
-# ADR-CONNECTORS-003: Connector 版本所有权与安装事务
+# ADR-CONNECTORS-003: Connector 安全替换与安装归属
 
 Status: proposed
-Date: 2026-09-16
+Date: 2026-09-22
 HXA: HXA-129
 Deciders: pending
 
 ## Context
 
-这是独立的待评审扩展，不改变已接受能力包和现有执行链的授权边界。
+Connector 安装同时涉及 Skill 快照、注册记录、端点配置和凭据。当前 MarketplaceService 在不同 hash 的替换中先卸载再安装；ConnectorService 先注册 Skill，再原子发布 Connector JSON。单文件 ATOMIC_MOVE 不能把这些操作变成同一个事务：后续失败或进程死亡可能丢失旧配置，或留下已注册但未归属的 Skill。
+
+现有 remove 会保护其他 Connector 引用的 Skill，但不能完整表达独立用户安装的归属。问题需要解决，但不需要因此建设通用安装事务引擎、代码 Diff 页面或新的会话权限系统。本记录仍待接受；设计要求不是当前实现或验收证据。
 
 ## Decision
 
-提议采用现有快照及原子文件上的版本清单和可恢复 journal，不把 Skill/MCP 合并成另一套执行引擎。本记录未批准；原有安装和启用语义在批准实施前保持不变。
+提议以“完整准备、一次发布、可重试清理”实现端侧安全替换。优先复用现有存储和安装入口，不新增场景执行引擎。
 
-### 1. 身份和所有权
+### 1. 稳定身份与最小归属记录
 
-Connector 有稳定 connectorId 与不可变 revisionHash；版本清单引用准确的 SkillKey（source/name/snapshotHash）和 endpoint 配置。owner 记录区分独立用户安装与 Connector revision，不能因包被删除而撤销另一个 owner 的快照或启用意图。
+区分稳定 Connector 身份、不可变内容 hash 和显示名称。市场条目身份包含可信来源及 packageId；本地导入保留独立安装身份。不得仅凭同名或相同内容认领另一个安装。相同目标身份、相同 hash 的重复安装返回已有结果；替换请求绑定预期旧版本，旧版本变化时重新计算目标，不能覆盖并发用户修改。
 
-同名不同 hash 的 Skill 并存；共享只发生在完全相同 SkillKey。移除包先移除其 owner，只有无其他引用的快照才可转入可恢复清理区；不在同一次 remove 中永久擦除潜在独立用户资产。旧快照保留用于显式 rollback，不代表继续启用。
+清单引用准确 SkillKey（source/name/snapshotHash），最小引用记录区分独立用户安装与 Connector 引用。移除包只撤销它自己的引用和启用意图；不得禁用或删除仍属于独立用户或其他包的内容。无法证明归属的旧资产保守保留并提示修复，不按名称批量清除。
 
-### 2. Scope 与实际执行
+维持现有全局/会话启用规则，不在本任务引入新 scope、优先级或授权体系。端点不因 URL 相同而跨包共享账号。安装归属不是 Tool Approval，实际调用继续通过现有 Dispatcher、Capability、Policy 和授权解析。
 
-用户可以选择全局或指定会话启用 Connector revision。有效集合由仍有效的 owner/scope 绑定计算；用户显式全局禁用优先于所有 scope，重新启用时由用户选择 scope。会话结束/删除撤销该会话绑定，不影响全局或其他会话。
+### 2. 更新体验与凭据绑定
 
-必须在 Skill list/read 与 MCP schema 曝光、实际发送前从可信 sessionId 检查绑定，不能只在 UI 隐藏。继续使用现有 Dispatcher/Capability/Policy/Approval，不让包或 Skill 自己写 scope。Connector enablement 仅控制可用性，不能作为执行批准。
+更新页只需作者更新说明、版本及简短组件变化摘要；没有说明时如实显示。无需逐行 JSON/Markdown Diff，不新增每次更新都要通过的独立审查弹窗。用户点击更新即表达对所展示目标版本的安装意图；安装不自动批准后续工具执行。
 
-端点不按 URL 自动跨 Connector 合并；保留独立 serverId、用户选择与凭据别名，避免相同地址意外共享账号。停用取消未发送的本地排队调用；已发送的远端结果继续对账，不重发、不声称撤回副作用。
+摘要绑定旧、新内容 hash。新增或改变的网络目标、认证要求在现有配置/启用入口明确展示；需要重新配置或登录时直接引导修复。目标及认证绑定完全未变时保留现有配置和凭据；URL 路径、origin、OAuth issuer/resource/client 等实际绑定变化时不得盲目复制 token，受影响端点保持未激活直至完成相应配置。其他未变端点不要求重复登录。
 
-### 3. 更新预览和提交
+复用既有 Skill 与端点启用契约，包括市场独立 Skill 的显式安装流程，不新增全包统一禁用或自动授权规则。签名仅证明来源，不能替代用户更新操作、启用或工具授权。
 
-预览绑定 connectorId、旧 revisionHash、新 contentHash、新增/删除/修改的 Skill、endpoint、所需 scope 与凭据变化。确认后输入或当前 revision 变化则预览失效，重新生成差异；同一 transactionId 重复提交只返回原事务结果。
+### 3. 最小提交与恢复协议
 
-保持 endpoint 及 origin、认证绑定未变的配置可保留旧别名；改变任一认证/目标绑定必须建立新禁用端点并重新登录/选择工具，不能复制 token 到新 origin。新增 Skill/MCP 默认不自动启用。
+先在暂存区完整验证候选包及所有组件；提交前不卸载旧版本、不删除旧凭据，也不让候选组件通过独立 Registry 扫描提前生效。准备失败、取消、低空间或写入错误均保留旧的有效安装。
 
-### 4. Journal 与原子视图
+优先使用不可变候选内容及单一权威已提交清单/指针发布目标版本，再幂等清理无引用旧内容。所有相关列表、启用和执行入口必须依据已提交版本，不能只保证 Connector 页面看起来完整。文件方案须说明同卷原子替换、持久写入和平台支持边界；原子 rename 不等于断电持久性证明。
 
-使用 app-private 版本 2 清单、owner/scope ledger、单调 generation 与 journal；不迁移 Room。文件写入遵守同卷临时文件、flush/sync 和原子 rename。journal 的非敏感字段为 transactionId、connectorId、expectedOldRevision、targetRevision、stage、已创建的快照/端点引用和恢复结果；不保存 Secret。
+允许复用 Room 元数据事务，如果它比额外文件账本更简单；文件内容仍在 SQL 事务外，必须先准备并正确引用。实现切片先选定唯一事实源及迁移方式，不同时维护两套权威状态。仅在无法由提交清单和引用推导恢复动作时增加最小恢复记录；不强制 PREPARING 等多阶段 journal、全局 generation 或通用 WAL 框架。
 
-状态为 PREPARING → PREPARED → COMMITTED → CLEANED，另有 ROLLED_BACK / NEEDS_REVIEW。准备阶段完成快照校验和禁用端点准备；所有可用性读者以同一个已提交 generation 为事实源。只有准备完整后才原子替换 active manifest 指针。实际调用前还要核对当前 generation，防止旧曝光窗口或排队调用跨过更新。
+提交前进程死亡：旧版本仍有效，只清理可证明未提交且无引用的暂存内容。提交后进程死亡：按已提交事实恢复并重试清理；重复请求返回既有安装结果，不重放网络或工具调用。清理失败不得使完整的新版本不可用；确实缺失有效内容时仅标记受影响组件待修复。Secret 不写入清单或恢复记录。
 
-崩溃在提交前：根据 journal 清理仅由本事务创建且未被引用的暂存项，旧 revision 继续生效。崩溃在提交后：幂等完成清理，不重新执行远端 Tool。缺文件、损坏 journal 或无法证明所有权时进入 NEEDS_REVIEW，停用受影响包，保留证据和可恢复快照。
+更新不把未发送的旧配置调用静默改投新端点；调用前核对版本/目标及现有授权。已发送调用继续按原配置结算，相关引用释放后才清理；不声称更新能撤回远端副作用。不为此引入新的通用执行调度器。
 
-跨 Skill/MCP/文件写入没有假定的底层 ACID 事务；需要以 generation 读屏障和幂等恢复实现一致可用性。实现必须先验证该屏障覆盖所有生产入口，不能只让 Connector 列表看起来原子。
+### 4. 迁移、降级与范围
 
-### 5. 迁移和回滚
+迁移保留旧记录及无法确定归属的用户资产，保持既有启用选择，不发起网络请求或运行 companion。迁移后缺失组件明确列为待修复，不伪造安装成功。
 
-v1 记录升级前保留原件；扫描现有 Skill/Connector 状态，既有全局启用无法归属时保守登记独立用户 owner，避免迁移撤销已有用户选择。不存在的快照/端点明确列为需修复；迁移不连接网络或运行 companion。
+继续允许用户安装旧版本或重新安装，统一走同一安全替换路径。不建设历史版本浏览器、无限快照保留或一键回滚系统；不恢复被撤销凭据和旧审批。暂存及旧内容清理须有空间边界，且不能清理仍有归属或运行中引用的内容。
 
-用户 rollback 是新的明确事务，引用保留的旧版本内容并重新校验；不恢复已撤销 Secret、旧审批 proof 或已经过期的会话绑定。文件/端点配置回滚不代表撤销远端历史副作用。
-
-实现范围为 app/connector、app/mcp 与 extensions/skills 的所有权/会话读取接线、测试和文档。任何必须修改 core/storage schema、公共 Tool 格式或 Approval 语义的发现，先补本记录评审。
+范围为 app 的 connector/marketplace/mcp 安装接线、extensions/skills 的必要归属读取、测试及文档；若选用 core/storage 元数据，HXA-129 必须先补充具体 schema、迁移与恢复验证。公共工具格式和授权语义保持现有契约。
 
 ## Alternatives considered
 
-- 只增加补偿 catch：不能解决进程被杀、跨存储可见窗口或共享 owner，因此不足以满足完整生命周期。
-- 全部改用 Room：事务表达清楚，但 Skill 文件和外部服务仍不在 SQL 事务内，并扩大迁移范围；首版不选择。
-- 每个 Connector 复制全部 Skill：所有权简单，但同内容重复、编辑/启用混淆与空间成本增加；可作无法共享时的兼容回退，不作为统一模型。
+- 先卸载再安装，加 catch 补偿：无法覆盖进程死亡，并会提前删除旧配置或凭据，不满足安全替换。
+- 多阶段 journal、独立 owner/scope ledger 与全局 generation：预先锁定过多机制；仅保留实现正确提交和归属所需的最小状态。
+- 每次更新要求审查代码 Diff：手机端操作成本高；采用简短更新摘要和实际变化的配置引导。
+- 仅展示作者 Changelog：不能解决共享归属、失败保留及凭据绑定，不能替代上述底层保证。
 
 ## Consequences
 
-新增持久化版本、恢复阶段与生产可用性读屏障，需要明确维护成本。用户得到差异预览、可理解恢复、共享 Skill 不误删与 scope 管理；不会得到任意效果可回滚或自动授权。
+用户获得失败时保留旧安装、未变配置免重设和共享内容不被误撤销的行为。维护成本集中在提交边界与引用归属；不增加会话 scope 管理、插件规划器、版本管理 UI 或重复审批。
 
 ## Verification
 
-已核对当前 ConnectorService.install/remove、v1 encode/decode 与 SkillRepository 的全局/会话 overrides。尚未实现上述 journal、迁移和原子视图。
+本次为源码审查后的需求收窄，未实现安全替换。已有成功重装及安装后重启用例不能证明安装途中强杀安全。
 
-required before acceptance：所有者审查此持久化/启用契约。批准后先实现故障注入模型，再做生产接线；双 flavor JVM、Skill 单测、构建及质量门禁；API29/36 在每个 journal 阶段强杀、重复提交、低空间/写入失败、丢文件、旧版迁移、两个包共享 Skill、独立安装与包并存、跨会话隔离、schema/凭据变更、提交后恢复和显式 rollback。每阶段必须观察真实重启结果，不以 catch 内单测代替设备恢复。
+接受前审查上述行为契约；实施时先记录唯一提交点及所有可用性读取入口。测试覆盖候选部分准备失败、提交前取消/强杀、提交后清理前强杀、写入失败/低空间、提交响应丢失后重复请求、同名不同身份、两包共享、独立安装与包共存、未变凭据保留、目标变化重新配置和旧数据迁移。
+
+确定性故障测试与 API29/36 × consumer/developer 的独占设备恢复测试互补；强杀必须发生在指定提交边界并观察新进程恢复，不以普通安装后重启替代。具体入口及交付证据归 HXA-129，文档检查通过不代表功能验收。
 
 ## Reconsider when
 
-无法让所有现有 Skill/MCP 入口读取同一 generation、跨进程所有权需要数据库事务、保留版本空间过大或实际用户需要更简单 scope 时，重新审查，不牺牲既有独立安装或批准边界。
+不能用单一提交事实覆盖现有 Registry 入口、必要恢复状态显著增长，或真实用户需要历史版本/会话 scope 管理时，单独审查具体需求和端侧成本，不提前扩建框架。
 
 ## References
 
-- [实施状态](../../development/status.md)
-- [开发路线](../../development/roadmap.md)
+- [实施任务 HXA-129](../../development/tasks/HXA-129.md)
+- [内置市场契约](005-curated-marketplace.md)
+- [签名索引契约](004-signed-index.md)
 - [主题入口](README.md)
