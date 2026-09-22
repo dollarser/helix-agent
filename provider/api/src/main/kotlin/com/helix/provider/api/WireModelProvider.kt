@@ -130,7 +130,7 @@ public abstract class WireModelProvider(
                 try {
                     response.body.forEachChunk { chunk ->
                         feedEvents(decoder.feed(chunk))
-                        true
+                        !decoder.protocolEnded
                     }
                     feedEvents(decoder.finish())
                 } catch (_: SocketTimeoutException) {

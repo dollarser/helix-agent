@@ -61,6 +61,8 @@ import kotlinx.serialization.json.longOrNull
  */
 @Suppress("TooManyFunctions", "ReturnCount")
 public class ChatCompletionsStreamDecoder : StreamDecoder {
+    public override var protocolEnded: Boolean = false
+        private set
     private val reader = ChatSseReader()
 
     // Known, recorded trade-off (M3 closeout review): the vendor CHUNK parser is lenient
@@ -86,11 +88,11 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
 
     /** Feed one raw HTTP body chunk; returns the internal events it produced. */
     public override fun feed(chunk: ByteArray): List<ModelEvent> {
-        if (protocolFailed) return emptyList()
+        if (protocolFailed || protocolEnded) return emptyList()
         val out = ArrayList<ModelEvent>()
         for (payload in reader.feed(chunk)) {
             handle(payload, out)
-            if (protocolFailed) break
+            if (protocolFailed || protocolEnded) break
         }
         if (reader.isFailed && !protocolFailed) failProtocol(out, "sse: ${reader.failure}")
         return out
@@ -120,7 +122,11 @@ public class ChatCompletionsStreamDecoder : StreamDecoder {
         payload: String,
         out: MutableList<ModelEvent>,
     ) {
-        if (payload == DONE_TOKEN) return // vendor stream terminator, not an event
+        if (protocolEnded) return
+        if (payload == DONE_TOKEN) {
+            protocolEnded = true
+            return // finish() still rejects a bare DONE with no terminal event.
+        }
         if (protocolFailed) return
         try {
             mapPayload(payload, out)

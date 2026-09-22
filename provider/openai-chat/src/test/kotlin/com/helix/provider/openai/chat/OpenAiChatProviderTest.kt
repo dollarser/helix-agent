@@ -17,14 +17,53 @@ import com.helix.provider.api.wire.WireBody
 import com.helix.provider.api.wire.WireClient
 import com.helix.provider.api.wire.WireRequest
 import com.helix.provider.api.wire.WireResponse
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OpenAiChatProviderTest {
+    @Test
+    fun protocolDoneClosesAnOpenTransportAfterTrailingUsage() =
+        runBlocking {
+            var closed = false
+            var waitedForEof = false
+            val body =
+                object : WireBody {
+                    override suspend fun bytes(): ByteArray = error("stream only")
+
+                    override suspend fun forEachChunk(onChunk: suspend (ByteArray) -> Boolean) {
+                        val chunks =
+                            listOf(
+                                "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+                                "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3," +
+                                    "\"completion_tokens\":2,\"total_tokens\":5}}\n\n",
+                                "data: [DO",
+                                "NE]\n\n",
+                            )
+                        for (chunk in chunks) if (!onChunk(chunk.toByteArray())) return
+                        waitedForEof = true
+                        awaitCancellation()
+                    }
+
+                    override fun close() {
+                        closed = true
+                    }
+                }
+            val events =
+                withTimeout(5_000) {
+                    provider(FakeWire(WireResponse(200, emptyMap(), body))).stream(userRequest()).toList()
+                }
+            assertTrue(events.any { it is ModelEvent.Completed })
+            assertTrue(events.any { it is ModelEvent.Usage })
+            assertEquals(false, waitedForEof)
+            assertTrue(closed)
+        }
+
     private class FakeBody(
         bytes: ByteArray,
     ) : WireBody {

@@ -21,6 +21,9 @@ public fun interface RequestEncoder {
  * protocol violations and no-termination.
  */
 public interface StreamDecoder {
+    /** Protocol terminator consumed; distinct from a completion event followed by usage. */
+    public val protocolEnded: Boolean get() = false
+
     /** Feed one raw body chunk; returns the internal events it produced. */
     public fun feed(chunk: ByteArray): List<ModelEvent>
 

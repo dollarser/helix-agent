@@ -238,6 +238,7 @@ internal class ChatToolCalls(
      * This runs on the work scope's IO thread — the scheduler and the broker's blocking
      * user-decision wait never touch the main thread.
      */
+    @Suppress("TooGenericExceptionCaught") // settle all executed slots before propagating failure
     override fun runToolBatch(
         turn: com.helix.core.storage.entity.TurnEntity,
         turnId: String,
@@ -257,6 +258,7 @@ internal class ChatToolCalls(
                 toolPipeline.scheduler.scheduleBatch(requests)
             }
         var slot = 0
+        var settlementFailure: Exception? = null
         val settled =
             prepareds.map { p ->
                 if (p.preSettled != null) {
@@ -278,11 +280,20 @@ internal class ChatToolCalls(
                             is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
                             is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
                         }
-                    outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
-                    coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
+                    try {
+                        outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
+                        coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
+                    } catch (failure: Exception) {
+                        val first = settlementFailure
+                        if (first == null) settlementFailure = failure else first.addSuppressed(failure)
+                    }
                     SettledCall(p.callId, p.toolNameRaw, outcome)
                 }
             }
+        settlementFailure?.let { failure ->
+            batch.firstError?.let(failure::addSuppressed)
+            throw failure
+        }
         batch.firstError?.let { error ->
             if (error is ApprovalCancelledException) {
                 // The turn is over (doc 11: cancel leaves a durable outcome for every

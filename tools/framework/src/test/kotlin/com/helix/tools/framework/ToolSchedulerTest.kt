@@ -747,6 +747,114 @@ class ToolSchedulerTest {
     // ------------------------------------------------------------------ cross-batch liveness
 
     @Test
+    fun releaseDuringFailedAdmissionCannotBeLostBeforeWaitSubscription() {
+        register(
+            "r.wake",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            TimingExecutor(0, json("{}"), AtomicInteger(), AtomicInteger()),
+        )
+        var armed = false
+        lateinit var scheduler: ToolScheduler
+        val release =
+            ToolScheduler::class.java.getDeclaredMethod("releaseSlot", String::class.java).apply {
+                isAccessible = true
+            }
+        scheduler =
+            ToolScheduler(clock, dispatcher, registry, maxConcurrency = 1, resourceGate = {
+                if (armed) {
+                    armed = false
+                    // Occupancy was evaluated before effectiveConcurrency. Release that slot
+                    // now: the admission still fails, precisely before wait subscription.
+                    release.invoke(scheduler, "held")
+                }
+                1
+            })
+        val claim =
+            ToolScheduler::class.java
+                .getDeclaredMethod(
+                    "tryClaimSlot",
+                    String::class.java,
+                    EffectFootprint::class.java,
+                ).apply { isAccessible = true }
+        val footprint =
+            EffectFootprint(
+                ToolOperationClass.READ_ONLY,
+                ExecutionTargetType.LOCAL_ANDROID,
+                emptySet(),
+                emptySet(),
+                emptySet(),
+                false,
+            )
+        assertEquals(true, claim.invoke(scheduler, "held", footprint))
+        armed = true
+        val result = CompletableFuture<ToolScheduler.BatchResult>()
+        val worker =
+            batchThread("release-window") {
+                result.complete(scheduler.scheduleBatch(listOf(call("wake", "r.wake"))))
+            }
+        try {
+            assertTrue(result.get(5, TimeUnit.SECONDS).outcomes.single() is ToolDispatchOutcome.Succeeded)
+        } finally {
+            release.invoke(scheduler, "held")
+            worker.join(5_000)
+        }
+    }
+
+    @Test
+    fun queuedWriteSeparatesReadsAndTheLaterReadObservesItsValue() {
+        val firstStarted = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val value = AtomicInteger()
+        val observed = AtomicInteger(-1)
+
+        fun executor(body: () -> Unit) =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    body()
+                    return ToolExecutorResult.Completed(json("{}"))
+                }
+            }
+        register(
+            "r.before",
+            ToolOperationClass.READ_ONLY,
+            RiskLevel.L0,
+            executor {
+                firstStarted.countDown()
+                check(releaseFirst.await(5, TimeUnit.SECONDS))
+            },
+        )
+        register("w.change", ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, executor { value.set(42) })
+        register("r.after", ToolOperationClass.READ_ONLY, RiskLevel.L0, executor { observed.set(value.get()) })
+        broker.script(ApprovalAcquisition.Approved(ApprovalProof("write-proof", "1".repeat(64))))
+        val scheduler = ToolScheduler(clock, dispatcher, registry, maxConcurrency = 2)
+        val result = CompletableFuture<ToolScheduler.BatchResult>()
+        val worker =
+            batchThread("queued-write") {
+                result.complete(
+                    scheduler.scheduleBatch(
+                        listOf(
+                            call("before", "r.before"),
+                            call("write", "w.change"),
+                            call("after", "r.after"),
+                        ),
+                    ),
+                )
+            }
+        try {
+            assertTrue(firstStarted.await(5, TimeUnit.SECONDS))
+            releaseFirst.countDown()
+            val batch = result.get(5, TimeUnit.SECONDS)
+            assertNull(batch.firstError)
+            assertTrue(batch.outcomes.all { it is ToolDispatchOutcome.Succeeded })
+            assertEquals(42, observed.get())
+        } finally {
+            releaseFirst.countDown()
+            worker.join(5_000)
+        }
+    }
+
+    @Test
     fun aBatchBlockedOnTheOnlySlotIsWokenByAnotherBatchsRelease() {
         val a1Started = CountDownLatch(1)
         val bGo = CountDownLatch(1)

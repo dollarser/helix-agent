@@ -24,6 +24,19 @@ class ToolResultRepository(
             } else {
                 contentStore.write(content).toStorageString()
             }
+        return appendPrepared(id, toolCallId, status, summary, contentRef)
+    }
+
+    /** Content is materialized before the caller's transaction; only its index is committed here. */
+    fun appendPrepared(
+        id: String,
+        toolCallId: String,
+        status: String,
+        summary: String,
+        contentRef: String?,
+    ): ToolResultEntity {
+        require(status.isNotBlank() && summary.isNotBlank())
+        contentRef?.let(ContentRef::parse)
         val entity = ToolResultEntity(id, toolCallId, status, summary, contentRef, false)
         dao.insert(entity)
         return entity

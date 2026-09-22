@@ -156,6 +156,9 @@ class ToolScheduler(
         val submitted = BooleanArray(stamped.size)
         val pending = futures.toMutableList()
         while (pending.isNotEmpty()) {
+            // Capture before checking admission: a release in the check/subscribe gap
+            // completes this generation, even when no call in this batch has started.
+            val slotSignal = slotStateSignal.get()
             if (admitNext(stamped, footprints, futures, submitted)) continue
             // Nothing new may start (full or all-conflicting): wait for the next
             // completion, then re-evaluate. (A completion can free a slot or a lane.)
@@ -169,7 +172,7 @@ class ToolScheduler(
             pending.forEach { future ->
                 future.whenComplete { _, _ -> waiter.complete(null) }
             }
-            slotStateSignal.get().whenComplete { _, _ -> waiter.complete(null) }
+            slotSignal.whenComplete { _, _ -> waiter.complete(null) }
             waiter.join()
             // Drop exactly the futures that reached a terminal state.
             pending.removeAll { it.isDone }
@@ -234,6 +237,9 @@ class ToolScheduler(
     ): Boolean {
         var started = false
         for (idx in calls.indices) {
+            // A queued conflicting predecessor is a barrier too, not just a running
+            // one. In particular, reads after a waiting write must observe that write.
+            if ((0 until idx).any { !submitted[it] && footprints[it].conflictsWith(footprints[idx]) }) continue
             if (!submitted[idx] && tryClaimSlot(calls[idx].toolCallId, footprints[idx])) {
                 submitted[idx] = true
                 started = true

@@ -57,7 +57,6 @@ internal class ChatToolSettlement(
                 settleExecutionFailed(row, toolCallId, toolName, outcome, sideEffectUnknown)
             }
         }
-        GoalToolCallBudget(storage, clock).finish(toolCallId)
     }
 
     private fun settleSucceeded(
@@ -66,17 +65,15 @@ internal class ChatToolSettlement(
         toolName: String,
         outcome: ToolDispatchOutcome.Succeeded,
     ) {
-        storage.toolCalls.updateState(row, ToolCallState.COMPLETED)
         val summary = boundedSummary(outcome.result.payload)
-        val result =
-            storage.toolResults.append(
-                id = idGenerator(),
-                toolCallId = toolCallId,
-                status = "SUCCEEDED",
-                summary = summary,
-                content = outcome.result.payload,
-            )
-        storage.toolResults.markVerified(result)
+        ToolSettlementWriter(storage, clock, idGenerator).persist(
+            row,
+            ToolCallState.COMPLETED,
+            "SUCCEEDED",
+            summary,
+            outcome.result.payload,
+            verified = true,
+        )
         timeline.setCardStateForCall(toolCallId, ApprovalCardState.SUCCEEDED, null)
         timeline.publishToolRow(
             row.turnId,
@@ -111,13 +108,11 @@ internal class ChatToolSettlement(
         outcome: ToolDispatchOutcome.Denied,
     ) {
         val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
-        storage.toolCalls.updateState(row, ToolCallState.DENIED)
-        storage.toolResults.append(
-            id = idGenerator(),
-            toolCallId = toolCallId,
-            status = "DENIED",
-            summary = outcome.detail,
-            content = null,
+        ToolSettlementWriter(storage, clock, idGenerator).persist(
+            row,
+            ToolCallState.DENIED,
+            "DENIED",
+            outcome.detail,
         )
         timeline.setCardStateForCall(
             toolCallId,
@@ -141,13 +136,11 @@ internal class ChatToolSettlement(
         toolCallId: String,
         toolName: String,
     ) {
-        storage.toolCalls.updateState(row, ToolCallState.CANCELLED)
-        storage.toolResults.append(
-            id = idGenerator(),
-            toolCallId = toolCallId,
-            status = "CANCELLED",
-            summary = str(R.string.tool_summary_cancelled_before_start),
-            content = null,
+        ToolSettlementWriter(storage, clock, idGenerator).persist(
+            row,
+            ToolCallState.CANCELLED,
+            "CANCELLED",
+            str(R.string.tool_summary_cancelled_before_start),
         )
         timeline.setCardStateForCall(toolCallId, ApprovalCardState.FAILED, str(R.string.turn_stopped))
         timeline.publishToolRow(
@@ -176,14 +169,7 @@ internal class ChatToolSettlement(
                     requiresReview = sideEffectUnknown,
                 ),
             )
-        storage.toolCalls.updateState(row, state)
-        storage.toolResults.append(
-            id = idGenerator(),
-            toolCallId = toolCallId,
-            status = state.name,
-            summary = outcome.detail,
-            content = null,
-        )
+        ToolSettlementWriter(storage, clock, idGenerator).persist(row, state, state.name, outcome.detail)
         timeline.setCardStateForCall(
             toolCallId,
             ApprovalCardState.FAILED,
@@ -217,43 +203,46 @@ internal class ChatToolSettlement(
     ): ToolDispatchOutcome.Denied {
         val startedAt = clock.now().toEpochMilli()
         val finishedAt = clock.now().toEpochMilli()
-        storage.toolCalls.append(
-            id = toolCallId,
-            turnId = turn.id,
-            callId = toolCallId,
-            name = toolNameRaw,
-            version = version,
-            argsJson = rawArgs,
-            state = ToolCallState.FAILED.name,
-        )
-        storage.toolResults.append(
-            id = idGenerator(),
-            toolCallId = toolCallId,
-            status = "FAILED",
-            summary = detail,
-            content = null,
-        )
-        toolPipeline.auditSink.record(
-            DispatchAuditEvent(
-                correlationId = toolCallId,
+        storage.withTransaction {
+            storage.toolCalls.append(
+                id = toolCallId,
                 turnId = turn.id,
-                sessionId = turn.sessionId,
-                toolName = toolNameRaw,
-                toolVersion = version,
-                code = code,
-                decisionSource = DecisionSource.FRAMEWORK,
-                riskLevel = null,
-                bindingHash = null,
-                actionFingerprint = null,
-                outputHash = null,
-                outputTruncated = false,
-                startedAt = startedAt,
-                policyDecidedAt = null,
-                approvalAcquiredAt = null,
-                executionStartedAt = null,
-                finishedAt = finishedAt,
-            ),
-        )
+                callId = toolCallId,
+                name = toolNameRaw,
+                version = version,
+                argsJson = rawArgs,
+                state = ToolCallState.FAILED.name,
+            )
+            storage.toolResults.append(
+                id = idGenerator(),
+                toolCallId = toolCallId,
+                status = "FAILED",
+                summary = detail,
+                content = null,
+            )
+            toolPipeline.auditSink.record(
+                DispatchAuditEvent(
+                    correlationId = toolCallId,
+                    turnId = turn.id,
+                    sessionId = turn.sessionId,
+                    toolName = toolNameRaw,
+                    toolVersion = version,
+                    code = code,
+                    decisionSource = DecisionSource.FRAMEWORK,
+                    riskLevel = null,
+                    bindingHash = null,
+                    actionFingerprint = null,
+                    outputHash = null,
+                    outputTruncated = false,
+                    startedAt = startedAt,
+                    policyDecidedAt = null,
+                    approvalAcquiredAt = null,
+                    executionStartedAt = null,
+                    finishedAt = finishedAt,
+                ),
+            )
+            GoalToolCallBudget(storage, clock).finish(toolCallId)
+        }
         timeline.publishToolRow(
             turn.id,
             toolCallId,
@@ -263,7 +252,6 @@ internal class ChatToolSettlement(
             detail,
             null,
         )
-        GoalToolCallBudget(storage, clock).finish(toolCallId)
         return ToolDispatchOutcome.Denied(code, detail)
     }
 

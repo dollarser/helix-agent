@@ -76,6 +76,16 @@ class RecoveryCoordinatorApp(
         val appliedTurns = mutableListOf<TurnApplied>()
         val appliedGoals = mutableListOf<GoalApplied>()
         storage.withTransaction {
+            // A local settlement failure can precede a successfully persisted Turn failure.
+            // Reconcile those children too; a terminal parent is not proof of settled effects.
+            storage.toolCalls.unsettledUnderTerminalTurns().forEach { call ->
+                storage.toolCalls.updateState(call, ToolCallState.NEEDS_REVIEW)
+                val reservation = "goal-tool:${call.callId}"
+                if (storage.goalUsageReservations.byId(reservation) != null) {
+                    GoalUsageReservations(storage).settle(reservation, 0, 0, now)
+                }
+                audit(call.turnId, "recovery.tool_settlement_incomplete", """{"callId":"${call.callId}"}""", now)
+            }
             storage.sessionInputs.parkAllPending("PROCESS_INTERRUPTED", now)
             storage.goalControls.allPending().forEach { control ->
                 check(storage.goalControls.settle(control.goalId, control.revision) == 1)
