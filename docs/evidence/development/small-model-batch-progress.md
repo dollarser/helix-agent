@@ -1,5 +1,7 @@
 # 小模型批次执行进度记录
 
+> 历史材料（2026-09-22 已核对）：此页只记录 2026-09-20 准备批次及当时命令；后续 198、206 已交付，199 剩物理专项。当前顺序见[工作计划](../../development/next-work-plan.md)，不沿用下文分工与待办。
+
 - **执行基线**：`d5645774`
 - **执行分支**：`codex/small-model-preparation`
 - **工作树**：`Helix-small-model-preparation`

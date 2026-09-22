@@ -2,7 +2,10 @@
 
 这些文件记录当时的结果、限制或外部材料，不是当前任务指令。当前进展见[实施状态](../development/status.md)，待完成范围见[路线](../development/roadmap.md)。旧工作树、设备 serial、所有方和命令仅用于解释证据，不能直接复用。
 
+近期整合入口：[2026-09-22 分支整合验证](development/branch-integration-2026-09-22.md)、[199/206 验收](development/acceptance-199-206-2026-09-21.md)、[已完成交接归属](development/completed-handoffs-2026-09-22.md)。项目结构与执行引擎的当前审查见[源码审查](../research/project-structure-and-engine-review.md)。
+
 - [import-materials](connectors/import-materials.md)
+- [2026-09-22 文档、审查与遗留内容收敛](development/document-review-convergence-2026-09-22.md)
 - [2026-09-18 审查复核与修复优先级](development/review-followup-2026-09-18.md)
 - [2026-09-18 授权与 Runtime 修复、分支收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)
 - [HXA-196 平台与核心切片](development/hxa-196-platform-plan-2026-09-18.md)

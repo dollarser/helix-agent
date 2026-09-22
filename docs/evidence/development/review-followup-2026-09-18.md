@@ -1,6 +1,6 @@
 # 2026-09-18 审查复核与后续顺序
 
-后续状态：本页保留修复前审查事实；本轮修复、合并及新证据见[收敛记录](../../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。207/191/206 按所有者最新指示仅写[交接计划](../../development/claude-handoff-207-191-206.md)，未在本轮实施。
+后续状态：本页保留修复前审查事实；本轮修复、合并及新证据见[收敛记录](../../bug-fixes/2026-09-18-authorization-runtime-convergence.md)。207/191/206 在 2026-09-18 当轮仅规划，后来均已交付，见[已完成交接汇总](completed-handoffs-2026-09-22.md)。
 
 ## 范围与结论
 

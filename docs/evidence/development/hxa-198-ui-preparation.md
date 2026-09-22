@@ -1,5 +1,7 @@
 # HXA-198 多会话终端 UI 设计、状态/操作表与测试映射
 
+> 历史材料（2026-09-22 已核对）：此页是 2026-09-20 核心交付前的设计快照；下文 WAITING_CORE 和单会话描述已失效。当前交付见[HXA-198](../../completion-records/HXA-198.md)。
+
 本文档为小模型工作包 D（`docs/development/small-model-handoff.md` 第 6 节）的交付物。
 当前状态：**WAITING_CORE**（核心接口与实现尚未交付，严禁添加伪装双会话的占位代码或未接线 UI）。
 
