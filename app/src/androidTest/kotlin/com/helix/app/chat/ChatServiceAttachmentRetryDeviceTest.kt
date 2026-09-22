@@ -20,6 +20,7 @@ import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.repository.ProviderConfigSpec
+import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.ScopeRootResolver
 import com.helix.feature.files.AttachmentImporter
@@ -129,32 +130,103 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
     }
 
     @Test
-    fun busySessionRetainsApprovedAttachmentsAndRestoresTheUnsentText() {
-        val fixture = newFixture(ApplicationProvider.getApplicationContext())
-        val occupied = kotlinx.coroutines.Job()
-        try {
-            openSessionWithStagedAttachment(fixture, "retained attachment")
-            sendToDisclosure(fixture)
-            // Reserve the session after disclosure, reproducing a competing send winning admission.
-            val field = ChatService::class.java.getDeclaredField("sessionTurnAdmission").apply { isAccessible = true }
-            (field.get(fixture.service) as SessionTurnAdmission).register(SESSION_ID, occupied, "competing-turn")
-            fixture.service.confirmSend()
-            await(fixture, "busy admission reports a reason and restores the draft") {
-                val screen = fixture.service.screen.value
-                screen.blockedReason != null && screen.shareDraftText != null
+    @Suppress("LongMethod") // One real busy-turn handoff proves durable attachment ownership and deduplication.
+    fun busySessionQueuesApprovedAttachmentAndDeliversItExactlyOnceAfterCompletion() =
+        kotlinx.coroutines.runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val wire = QueueCompletionWire()
+            val fixture = newFixture(context, wireClient = wire)
+            try {
+                val source = File(context.cacheDir, "source-${UUID.randomUUID()}.txt")
+                source.writeText(QUEUED_ATTACHMENT_BODY)
+                sourceFiles[URI_KEY] = source
+                fixture.storage.sessions.create(
+                    SESSION_ID,
+                    "attachment retry",
+                    PROVIDER_ID,
+                    "model-x",
+                    System.currentTimeMillis(),
+                )
+                fixture.service.openSession(SESSION_ID)
+                fixture.service.send(FIRST_ACTIVE_TEXT)
+                kotlinx.coroutines.withTimeout(AWAIT_TIMEOUT_MILLIS) { wire.firstRequestOpened.await() }
+
+                fixture.service.stageAttachment(URI_KEY)
+                await(fixture, "the follow-up attachment stages while the first turn is active") {
+                    fixture.service.screen.value.pendingAttachments.size == 1
+                }
+                fixture.service.send(QUEUED_ATTACHMENT_TEXT)
+                await(fixture, "the queued attachment disclosure is shown") {
+                    fixture.service.screen.value.pendingDisclosure != null
+                }
+                val submission = requireNotNull(fixture.service.pendingComposerSubmission())
+                val receipt = fixture.service.confirmSubmission(submission).await()
+                assertTrue(receipt.outcome is ChatSubmissionOutcome.Enqueued)
+                val inputId = (receipt.outcome as ChatSubmissionOutcome.Enqueued).inputId
+                val queued = requireNotNull(fixture.storage.sessionInputs.get(inputId))
+                assertEquals(SessionInputState.PENDING, queued.state)
+                assertEquals(1, queued.attachments.size)
+                assertTrue(
+                    fixture.service.screen.value.pendingAttachments
+                        .isEmpty(),
+                )
+                assertTrue(
+                    fixture.storage.sessionInputs
+                        .readText(queued)
+                        .contains(QUEUED_ATTACHMENT_TEXT),
+                )
+                assertEquals(1, wire.requestBodies.size)
+                assertEquals(
+                    1,
+                    fixture.storage.messages
+                        .listBySession(SESSION_ID)
+                        .count { it.role == ModelRole.USER.name },
+                )
+
+                // Re-driving the same approved intent while busy resolves to the durable queue row.
+                assertEquals(receipt, fixture.service.confirmSubmission(submission).await())
+                assertEquals(1, wire.requestBodies.size)
+                wire.releaseFirstRequest.complete(Unit)
+
+                await(fixture, "the completed owner hands the queued attachment to one successor") {
+                    val current = fixture.storage.sessionInputs.get(inputId)
+                    wire.requestBodies.size == 2 &&
+                        current?.state == SessionInputState.APPENDED &&
+                        current.requestModelCallId != null &&
+                        fixture.storage.turns
+                            .listBySession(SESSION_ID)
+                            .all { it.state == TurnState.COMPLETED.name }
+                }
+                val delivered = requireNotNull(fixture.storage.sessionInputs.get(inputId))
+                val queuedMessage =
+                    fixture.storage.messages
+                        .listBySession(SESSION_ID)
+                        .filter { it.role == ModelRole.USER.name }
+                        .single {
+                            fixture.storage.messages
+                                .readContent(it)
+                                ?.contains(QUEUED_ATTACHMENT_TEXT) == true
+                        }
+                val binding =
+                    fixture.storage.messageAttachments
+                        .listByMessage(queuedMessage.id)
+                        .single()
+                assertEquals(queued.attachments.single().artifactId, binding.artifactId)
+                assertEquals(queued.attachments.single().boundSha256, binding.boundSha256)
+                assertTrue(
+                    wire.requestBodies
+                        .single { it.contains(QUEUED_ATTACHMENT_TEXT) }
+                        .contains(QUEUED_ATTACHMENT_BODY),
+                )
+
+                val acceptedAgain = fixture.service.confirmSubmission(submission).await()
+                assertEquals(ChatSubmissionOutcome.Accepted(delivered.consumedTurnId!!), acceptedAgain.outcome)
+                assertEquals(2, wire.requestBodies.size)
+            } finally {
+                wire.releaseFirstRequest.complete(Unit)
+                settleAndClose(fixture)
             }
-            assertEquals(1, fixture.service.screen.value.pendingAttachments.size)
-            assertEquals("帮我总结这个附件", fixture.service.screen.value.shareDraftText)
-            assertTrue(
-                fixture.storage.turns
-                    .listBySession(SESSION_ID)
-                    .isEmpty(),
-            )
-        } finally {
-            occupied.cancel()
-            settleAndClose(fixture)
         }
-    }
 
     @Test
     fun immediateProviderObservationSeesAnInitializedDraftOwner() {
@@ -703,6 +775,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                 kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
             ),
         observeRequest: (WireRequest) -> Unit = {},
+        wireClient: WireClient? = null,
     ): Fixture {
         val suffix = UUID.randomUUID().toString()
         val storage =
@@ -711,7 +784,8 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         val staging = stagingFor(workspaceRoot)
         val lineStore = InMemoryLineStore()
         val statusStore = ProviderTestStatusStore(lineStore)
-        val providerService = providerService(storage, lineStore, statusStore, suffix, observeRequest)
+        val providerWire = wireClient ?: disabledWire(observeRequest)
+        val providerService = providerService(storage, lineStore, statusStore, suffix, providerWire)
         val providerSpec = seedProvider(storage, statusStore)
         val app = context.applicationContext as HelixApplication
         // HXA-069: ChatService is pure JVM and resolves its emitted string-resource IDs through the
@@ -767,20 +841,14 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         lineStore: InMemoryLineStore,
         statusStore: ProviderTestStatusStore,
         suffix: String,
-        observeRequest: (WireRequest) -> Unit,
+        wireClient: WireClient,
     ): ProviderService =
         ProviderService(
             storage = storage,
             factory =
                 ProviderFactory(
                     credentials = CredentialLookup { ProviderFactory.NO_KEY_PLACEHOLDER },
-                    wire =
-                        object : WireClient {
-                            override suspend fun open(request: WireRequest): WireResponse {
-                                observeRequest(request)
-                                throw IOException("device test: the wire is disabled — no network")
-                            }
-                        },
+                    wire = wireClient,
                     imageSource = {
                         com.helix.app.provider.VisionImageSource {
                             throw IllegalArgumentException("device test: image resolution is disabled — no artifacts")
@@ -791,6 +859,33 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
             testStatus = statusStore,
             idGenerator = { "prov-$suffix" },
         )
+
+    private fun disabledWire(observeRequest: (WireRequest) -> Unit): WireClient =
+        object : WireClient {
+            override suspend fun open(request: WireRequest): WireResponse {
+                observeRequest(request)
+                throw IOException("device test: the wire is disabled — no network")
+            }
+        }
+
+    private class QueueCompletionWire : WireClient {
+        val firstRequestOpened = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val releaseFirstRequest = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val requestBodies = java.util.concurrent.CopyOnWriteArrayList<String>()
+        private val calls =
+            java.util.concurrent.atomic
+                .AtomicInteger()
+
+        override suspend fun open(request: WireRequest): WireResponse {
+            requestBodies += request.body?.toString(Charsets.UTF_8).orEmpty()
+            val call = calls.incrementAndGet()
+            if (call == 1) {
+                firstRequestOpened.complete(Unit)
+                releaseFirstRequest.await()
+            }
+            return sseResponse(textAnswerStream("completed response $call"))
+        }
+    }
 
     /** Seeds the keyless HTTPS provider row and records a passed connection test for it. */
     private fun seedProvider(
@@ -843,6 +938,9 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
         const val PROVIDER_ID = "prov-attach-retry"
         const val SCOPE_ID = "retry-scope"
         const val URI_KEY = "content://helix.test/attachment"
+        const val FIRST_ACTIVE_TEXT = "FIRST-ACTIVE-REQUEST"
+        const val QUEUED_ATTACHMENT_TEXT = "QUEUED-ATTACHMENT-REQUEST"
+        const val QUEUED_ATTACHMENT_BODY = "QUEUED-ATTACHMENT-BODY"
         const val AWAIT_TIMEOUT_MILLIS = 20_000L
         const val POLL_MILLIS = 50L
         const val SETTLE_MILLIS = 500L
