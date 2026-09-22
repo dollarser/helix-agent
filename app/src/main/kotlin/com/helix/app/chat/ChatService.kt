@@ -1423,8 +1423,10 @@ class ChatService(
     /** Recovers a durable receipt without admitting or replaying any model/tool work. */
     suspend fun acceptedComposerReceipt(request: ChatSubmission): ChatSubmissionReceipt? =
         withContext(Dispatchers.IO) {
-            val outcome = completedSubmission(request) as? ChatSubmissionOutcome.Accepted
-            outcome?.let { ChatSubmissionReceipt(request, it) }
+            submissionGate.withLock {
+                val outcome = completedSubmission(request) as? ChatSubmissionOutcome.Accepted
+                outcome?.let { ChatSubmissionReceipt(request, it) }
+            }
         }
 
     /** Materializes a transient draft session so it exists in storage before saving composer drafts. */
@@ -1564,10 +1566,12 @@ class ChatService(
     /** Read-only receipt recovery after a disclosure or recreation; never sends another request. */
     suspend fun acceptedRevision(request: ChatSubmission): Boolean =
         withContext(Dispatchers.IO) {
-            val outcome = completedSubmission(request) ?: return@withContext false
-            if (outcome !is ChatSubmissionOutcome.Accepted) return@withContext false
-            acknowledgeSubmission(ChatSubmissionReceipt(request, outcome))
-            true
+            submissionGate.withLock {
+                val outcome = completedSubmission(request) ?: return@withLock false
+                if (outcome !is ChatSubmissionOutcome.Accepted) return@withLock false
+                acknowledgeSubmission(ChatSubmissionReceipt(request, outcome))
+                true
+            }
         }
 
     /** Discards only this edit snapshot, leaving all historical messages and newer drafts intact. */

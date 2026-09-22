@@ -78,8 +78,17 @@ wait_text('NORMAL-PROCESS-EDIT-215', 'normal-editor-restored')
 new_pid = int(adb('shell', 'pidof', package).strip())
 assert new_pid != pid
 # Dismiss editor without discarding, return to sessions, inspect the committed-before-receipt fixture.
-adb('shell', 'input', 'keyevent', '4')
-tap(wait_text(('会话列表', 'Session list'), 'after-back'))
+for _ in range(2):
+    # An active IME consumes the first Back; only the next Back dismisses the editor.
+    adb('shell', 'input', 'keyevent', '4')
+    time.sleep(1)
+    back = next((n for n in nodes('after-back')
+                 if n.get('content-desc') in ('会话列表', 'Session list')), None)
+    if back is not None:
+        break
+else:
+    raise RuntimeError('Revision editor did not remain closed after dismissing the IME and dialog')
+tap(back)
 tap(wait_text('REVISION-ACCEPTED', 'accepted-session-list'))
 wait_text('NEW-ACCEPTED', 'accepted-no-replay')
 assert not any(n.get('text') == 'OLD-ACCEPTED' for n in nodes('accepted-effective-history'))

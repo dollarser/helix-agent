@@ -26,9 +26,12 @@ spec.loader.exec_module(matrix)
 SCOPE_CLASSES = {
     "214": [
         "com.helix.app.chat.ChatSubmissionReceiptDeviceTest",
+        "com.helix.app.ui.ConversationReceiptRaceDeviceTest",
         "com.helix.app.chat.ConversationStopConsistencyDeviceTest",
+        "com.helix.app.chat.TurnCancellationRaceDeviceTest",
         "com.helix.app.chat.ConversationDraftRecoveryDeviceTest",
         "com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest",
+        "com.helix.app.chat.AttachmentE2eDeviceTest",
         "com.helix.app.ui.ChatStopProgressDeviceTest",
         "com.helix.app.ui.ConversationComposerDeviceTest",
         "com.helix.app.ui.TasksDashboardDeviceTest",

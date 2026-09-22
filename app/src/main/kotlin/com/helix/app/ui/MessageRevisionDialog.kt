@@ -57,7 +57,7 @@ internal fun MessageRevisionDialog(
         val saved = service.saveRevisionText(current, text).await()
         if (saved == null) error = R.string.message_revision_save_failed else draft = saved
     }
-    LaunchedEffect(screen.pendingDisclosure, screen.messages) {
+    LaunchedEffect(draft, screen.pendingDisclosure, screen.messages, screen.activeTurn?.id) {
         val current = draft ?: return@LaunchedEffect
         if (service.acceptedRevision(current)) onClose()
     }

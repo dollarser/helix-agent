@@ -36,8 +36,8 @@ class ConversationStopConsistencyDeviceTest {
             val storage = container.storage
             LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
                 server.start()
-                server.holdChatStreams.set(true)
                 val providerId = createProvider(server.port)
+                server.holdChatStreams.set(true)
                 val session = chat.createSession("Stop consistency fixture", providerId, "fixture-model-a")
                 try {
                     chat.openSession(session)
@@ -102,7 +102,9 @@ class ConversationStopConsistencyDeviceTest {
                     val turn1Id = (receipt1.outcome as ChatSubmissionOutcome.Accepted).turnId
 
                     compose.waitUntil(10_000) {
-                        storage.turns.resolve(turn1Id).state in setOf("COMPLETED", "FAILED")
+                        storage.turns.resolve(turn1Id).state in setOf("COMPLETED", "FAILED") &&
+                            chat.screen.value.activeTurn
+                                ?.id == turn1Id && !chat.screen.value.isSending
                     }
 
                     // Hold stream for turn 2
@@ -119,11 +121,18 @@ class ConversationStopConsistencyDeviceTest {
 
                     // Turn 2 is still running
                     val turn2State = storage.turns.resolve(turn2Id).state
-                    assertEquals("STREAMING", turn2State)
+                    assertEquals(TurnState.RECEIVING_MODEL.name, turn2State)
 
-                    // Now cancel turn 2
+                    // A live stop acknowledges intent; cancellation settlement completes asynchronously.
                     val cancelResult2 = chat.stopTurn(turn2Id)
-                    assertTrue(cancelResult2 is CancelResult.Cancelled || cancelResult2 is CancelResult.AlreadyTerminal)
+                    assertEquals(CancelResult.StopAccepted, cancelResult2)
+                    compose.waitUntil(10_000) {
+                        server.heldStreamDisconnected.get() &&
+                            storage.turns.resolve(turn2Id).state == TurnState.CANCELLED.name &&
+                            !chat.screen.value.isSending
+                    }
+                    assertEquals(CancelResult.AlreadyTerminal(TurnState.CANCELLED), chat.stopTurn(turn2Id))
+                    assertEquals(2, storage.turns.listBySession(session).size)
                 } finally {
                     chat.stop()
                     chat.closeSession()

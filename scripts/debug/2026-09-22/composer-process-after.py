@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise a normal composer save/SIGKILL/reopen and accepted-receipt recovery."""
+"""Exercise normal composer recovery and a seeded durable cancellation boundary without replay."""
 import json
 import os
 from pathlib import Path
@@ -79,6 +79,13 @@ def replace_editor_text(replacement):
     wait_text(replacement, "composer-written")
 
 
+cancel_seed = json.loads(adb("shell", "run-as", package, "cat", "files/composer-cancellation-seed.json"))
+assert cancel_seed["state"] == "CANCELLING" and cancel_seed["seededBoundary"] is True
+(output / "cancellation-seed.json").write_text(json.dumps(cancel_seed, indent=2))
+
+# The cancellation boundary was seeded before normal application startup. Startup
+# recovery parks it; the following real MainActivity SIGKILL/reopen must not replay it.
+# This does not claim a probabilistic kill between a live Stop click and settlement.
 open_session("COMPOSER-RECOVERY")
 wait_text("RECOVER-DRAFT-214", "composer-before")
 replace_editor_text("NORMAL-PROCESS-DRAFT-214")
@@ -92,7 +99,6 @@ wait_text("NORMAL-PROCESS-DRAFT-214", "composer-restored")
 new_pid = int(adb("shell", "pidof", package).strip())
 assert new_pid != pid
 
-adb("shell", "input", "keyevent", "4")
 tap(wait_text(("会话列表", "Session list"), "after-back"))
 tap(wait_text("COMPOSER-ACCEPTED", "accepted-session-list"))
 for _ in range(20):
@@ -113,19 +119,10 @@ fields = [node for node in accepted_nodes if node.get("class") == "android.widge
 assert any(node.get("text") == "ACCEPTED-COMPOSER-214" for node in accepted_nodes)
 assert len(fields) == 1 and fields[0].get("text") == ""
 
-(output / "normal-process.json").write_text(
-    json.dumps(
-        {
-            "beforePid": pid,
-            "afterPid": new_pid,
-            "normalActivity": True,
-            "draftRestored": True,
-            "acceptedHistoryVisible": True,
-            "acceptedComposerCleared": True,
-        },
-        indent=2,
-    )
-)
+tap(wait_text(("会话列表", "Session list"), "accepted-back"))
+tap(wait_text("COMPOSER-CANCELLING", "cancellation-session-list"))
+wait_text("Seeded cancellation boundary", "cancellation-visible")
+time.sleep(2)
 adb("logcat", "-c")
 result = adb(
     "shell",
@@ -140,4 +137,26 @@ result = adb(
 (output / "verify-instrumentation.txt").write_text(result)
 assert "OK (1 test)" in result and "FAILURES!!!" not in result, result
 (output / "verify-logcat.txt").write_text(adb("logcat", "-d", "-s", "TestRunner"))
-print("Normal composer save/kill/reopen and accepted receipt verified", flush=True)
+cancel_verified = json.loads(adb("shell", "run-as", package, "cat", "files/composer-cancellation-verified.json"))
+assert cancel_verified["turnId"] == cancel_seed["turnId"]
+assert cancel_verified["state"] == "INTERRUPTED"
+assert cancel_verified["uncertainCall"] == cancel_seed["runningCall"]
+assert cancel_verified["newExecutions"] == 0 and cancel_verified["newModelCalls"] == 0
+assert cancel_verified["repeatedRecoveryUnchanged"] is True
+(output / "cancellation-verified.json").write_text(json.dumps(cancel_verified, indent=2))
+(output / "normal-process.json").write_text(
+    json.dumps(
+        {
+            "beforePid": pid,
+            "afterPid": new_pid,
+            "normalActivity": True,
+            "draftRestored": True,
+            "acceptedHistoryVisible": True,
+            "acceptedComposerCleared": True,
+            "cancellationBoundarySeeded": True,
+            "cancellationRecovery": cancel_verified,
+        },
+        indent=2,
+    )
+)
+print("Normal composer recovery, accepted receipt and seeded cancellation without replay verified", flush=True)

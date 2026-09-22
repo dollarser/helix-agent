@@ -7,13 +7,16 @@ import androidx.compose.runtime.setValue
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionReceipt
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
 /** An editor identity changes immediately; the database revision advances only on a successful CAS. */
+@Suppress("TooManyFunctions") // Draft recovery keeps all state transitions behind one serialized owner.
 internal class ConversationDraftBuffer(
     val sessionId: String,
     private val newId: () -> String = { UUID.randomUUID().toString() },
@@ -40,6 +43,8 @@ internal class ConversationDraftBuffer(
         get() = value != saved && (saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty())
     val editable: Boolean get() = ready && attachmentsReady && revisionMessageId == null
     val canSubmit: Boolean get() = !sending && missingAttachments.isEmpty()
+    val acceptedReceiptCandidate: ChatSubmission?
+        get() = saved?.takeIf { it.revisedMessageId == null }
 
     fun edit(text: String) {
         if (value.text == text || revisionMessageId != null) return
@@ -56,6 +61,12 @@ internal class ConversationDraftBuffer(
         edited = true
         value = value.copy(attachmentIds = retained, clientRequestId = newId())
     }
+
+    /** Reads service-owned attachment state only after any receipt acknowledgement has settled. */
+    suspend fun synchronizeAttachments(read: () -> List<String>) =
+        guarded(Unit) {
+            gate.withLock { attachments(read()) }
+        }
 
     fun restoredAttachments(missing: List<String>) {
         missingAttachments = missing.toList()
@@ -92,16 +103,18 @@ internal class ConversationDraftBuffer(
         }
 
     /** Serialize writes, preserve newer edits, and never claim that a rejected CAS was saved. */
+    @Suppress("CyclomaticComplexMethod") // Keep CAS and accepted-receipt reconciliation under one mutex.
     suspend fun persist(
         materialize: suspend (String) -> String?,
         load: suspend (String) -> ChatSubmission?,
-        target: ChatSubmission = value,
+        target: ChatSubmission? = null,
         save: suspend (ChatSubmission, Long?) -> Boolean,
     ): Boolean =
         guarded(false) {
             gate.withLock {
+                val requested = target ?: value
                 if (!ready || revisionMessageId != null) return@withLock false
-                if (target == saved || (!dirty && target == value)) {
+                if (requested.sameIntentAs(saved) || (!dirty && requested == value)) {
                     failed = false
                     return@withLock true
                 }
@@ -110,15 +123,17 @@ internal class ConversationDraftBuffer(
                     return@withLock false
                 }
                 val disk = load(sessionId)
+                if (adoptPersistedIntent(requested, disk)) return@withLock true
                 if (disk != saved && disk != pendingSave) {
                     failed = true
                     revisionMessageId = disk?.revisedMessageId
                     return@withLock false
                 }
                 saved = disk
-                val snapshot = target.copy(revision = disk?.revision?.plus(1) ?: 0)
+                val snapshot = requested.copy(revision = disk?.revision?.plus(1) ?: 0)
                 pendingSave = snapshot
                 if (!save(snapshot, disk?.revision)) {
+                    if (adoptPersistedIntent(requested, load(sessionId))) return@withLock true
                     failed = true
                     return@withLock false
                 }
@@ -134,19 +149,23 @@ internal class ConversationDraftBuffer(
         receipt: ChatSubmissionReceipt,
         acknowledge: suspend (ChatSubmissionReceipt) -> Boolean,
         load: suspend (String) -> ChatSubmission?,
-    ) = guarded(Unit) {
-        gate.withLock {
-            if (receipt.submission.sessionId != sessionId) return@withLock
-            acknowledge(receipt)
-            val disk = load(sessionId)
-            if (disk == null || disk == saved) saved = disk
-            val request = receipt.submission
-            if (value.clientRequestId == request.clientRequestId &&
-                value.text == request.text && value.attachmentIds == request.attachmentIds
-            ) {
-                value = ChatSubmission(sessionId, 0, newId(), "")
-                edited = false
-                missingAttachments = emptyList()
+    ) = withContext(NonCancellable) {
+        guarded(Unit) {
+            gate.withLock {
+                if (receipt.submission.sessionId != sessionId || receipt.submission.revisedMessageId != null) {
+                    return@withLock
+                }
+                val cleared = acknowledge(receipt)
+                val disk = if (cleared) null else load(sessionId)
+                if (disk == null || disk == saved) saved = disk
+                val request = receipt.submission
+                if (value.clientRequestId == request.clientRequestId &&
+                    value.text == request.text && value.attachmentIds == request.attachmentIds
+                ) {
+                    value = ChatSubmission(sessionId, 0, newId(), "")
+                    edited = false
+                    missingAttachments = emptyList()
+                }
             }
         }
     }
@@ -170,6 +189,27 @@ internal class ConversationDraftBuffer(
             failed = true
             fallback
         }
+
+    private fun adoptPersistedIntent(
+        target: ChatSubmission,
+        persisted: ChatSubmission?,
+    ): Boolean {
+        if (!target.sameIntentAs(persisted)) return false
+        val current = requireNotNull(persisted)
+        saved = current
+        pendingSave = null
+        if (value.sameIntentAs(current)) value = current
+        failed = false
+        return true
+    }
+
+    private fun ChatSubmission.sameIntentAs(other: ChatSubmission?): Boolean =
+        other != null &&
+            sessionId == other.sessionId &&
+            clientRequestId == other.clientRequestId &&
+            text == other.text &&
+            attachmentIds == other.attachmentIds &&
+            revisedMessageId == other.revisedMessageId
 
     companion object {
         val Saver =

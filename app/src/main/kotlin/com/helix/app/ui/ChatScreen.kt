@@ -76,6 +76,7 @@ fun ChatScreen(
             ConversationDraftBuffer(sessionId ?: "closed-composer")
         }
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
+    var dismissedRevisionId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     var editorEpoch by remember(sessionId) { mutableStateOf(0) }
     val reminderGoal by chatService.reminderGoal.collectAsStateWithLifecycle()
     var goalsOpen by remember { mutableStateOf(false) }
@@ -101,6 +102,11 @@ fun ChatScreen(
     }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { flushBuffer() }
     DisposableEffect(buffer) { onDispose { flushBuffer() } }
+    val acceptOrdinaryReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
+        if (receipt.submission.revisedMessageId == null) {
+            buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+        }
+    }
 
     LaunchedEffect(buffer, editorEpoch) {
         if (sessionId == null) return@LaunchedEffect
@@ -110,15 +116,17 @@ fun ChatScreen(
             if (revision != null) {
                 val draft = chatService.loadComposerDraft(sessionId)
                 if (draft != null && !chatService.acceptedRevision(draft)) {
-                    editMessageId = revision
+                    if (dismissedRevisionId != revision) editMessageId = revision
                 } else {
                     buffer.initialize(chatService::loadComposerDraft)
+                    dismissedRevisionId = null
                 }
             }
             if (buffer.revisionMessageId == null) {
-                val receipt = chatService.acceptedComposerReceipt(buffer.value)
+                dismissedRevisionId = null
+                val receipt = buffer.acceptedReceiptCandidate?.let { chatService.acceptedComposerReceipt(it) }
                 if (receipt != null) {
-                    buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+                    acceptOrdinaryReceipt(receipt)
                 }
                 if (buffer.saved != null || buffer.value.attachmentIds.isNotEmpty()) {
                     val missing = chatService.restoreDraftAttachments(sessionId, buffer.value.attachmentIds)
@@ -142,9 +150,29 @@ fun ChatScreen(
             }
         }
     }
-    LaunchedEffect(buffer, screen.pendingAttachments, buffer.attachmentsReady, buffer.sending, editMessageId) {
-        if (sessionId != null && buffer.attachmentsReady && editMessageId == null) {
-            buffer.attachments(chatService.currentStagedAttachmentIds(sessionId))
+    LaunchedEffect(
+        buffer,
+        buffer.ready,
+        buffer.saved,
+        screen.messages,
+        screen.activeTurn?.id,
+        screen.pendingDisclosure,
+        screen.pendingAttachments,
+        buffer.attachmentsReady,
+        buffer.sending,
+        editMessageId,
+    ) {
+        if (sessionId == null || !buffer.ready || !buffer.attachmentsReady) return@LaunchedEffect
+        if (buffer.revisionMessageId == null) {
+            val request = buffer.acceptedReceiptCandidate
+            val receipt = request?.let { chatService.acceptedComposerReceipt(it) }
+            if (receipt != null) {
+                acceptOrdinaryReceipt(receipt)
+                return@LaunchedEffect
+            }
+        }
+        if (buffer.attachmentsReady && editMessageId == null) {
+            buffer.synchronizeAttachments { chatService.currentStagedAttachmentIds(sessionId) }
         }
     }
     LaunchedEffect(buffer, buffer.value, buffer.saved, buffer.ready, buffer.sending, editMessageId) {
@@ -164,6 +192,7 @@ fun ChatScreen(
     editMessageId?.let { messageId ->
         sessionId?.let { id ->
             MessageRevisionDialog(chatService, id, messageId, screen) {
+                dismissedRevisionId = messageId
                 editMessageId = null
                 editorEpoch += 1
             }
@@ -173,7 +202,7 @@ fun ChatScreen(
     val handleReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
         when (val outcome = receipt.outcome) {
             is ChatSubmissionOutcome.Accepted -> {
-                buffer.accepted(receipt, chatService::acknowledgeSubmission, chatService::loadComposerDraft)
+                acceptOrdinaryReceipt(receipt)
             }
 
             ChatSubmissionOutcome.PendingConfirmation -> {
@@ -302,8 +331,16 @@ fun ChatScreen(
                         onCompact = chatService::compactContext,
                         onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
                         onEditLatest = { messageId ->
-                            scope.launch {
-                                if (saveBuffer()) editMessageId = messageId
+                            if (buffer.revisionMessageId == messageId) {
+                                dismissedRevisionId = null
+                                editMessageId = messageId
+                            } else {
+                                scope.launch {
+                                    if (saveBuffer()) {
+                                        dismissedRevisionId = null
+                                        editMessageId = messageId
+                                    }
+                                }
                             }
                         },
                         onDismissBlocked = { chatService.dismissBlocked() },
@@ -395,7 +432,15 @@ fun ChatScreen(
             onConfirm = {
                 val pending = chatService.pendingComposerSubmission()
                 if (pending != null) {
-                    scope.launch { handleReceipt(chatService.confirmSubmission(pending).await()) }
+                    val ownsOrdinaryComposer = pending.revisedMessageId == null
+                    if (ownsOrdinaryComposer) buffer.sending = true
+                    scope.launch {
+                        try {
+                            handleReceipt(chatService.confirmSubmission(pending).await())
+                        } finally {
+                            if (ownsOrdinaryComposer) buffer.sending = false
+                        }
+                    }
                 } else {
                     chatService.confirmSend()
                 }

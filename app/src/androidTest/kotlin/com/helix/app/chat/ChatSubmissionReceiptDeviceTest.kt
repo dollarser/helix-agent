@@ -1,10 +1,17 @@
 package com.helix.app.chat
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.helix.app.MainActivity
 import com.helix.app.R
@@ -28,6 +35,103 @@ import java.util.UUID
 
 class ChatSubmissionReceiptDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test
+    fun unverifiedProviderRejectsSubmissionWithoutConsumingSavedDraft() =
+        runBlocking {
+            val container = compose.container()
+            val chat = container.chatService
+            val storage = container.storage
+            LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
+                server.start()
+                val provider = createProvider(server.port, verify = false)
+                val session = UUID.randomUUID().toString()
+                storage.sessions.create(session, "Unverified provider draft", provider, null, 1)
+                try {
+                    chat.openSession(session)
+                    val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "Keep this request")
+                    assertTrue(chat.saveComposerDraft(request, null))
+                    val receipt = chat.sendSubmission(request).await()
+                    assertEquals(
+                        ChatSubmissionOutcome.Rejected(
+                            compose.activity.getString(R.string.chat_blocked_provider_untested),
+                        ),
+                        receipt.outcome,
+                    )
+                    assertEquals(request, chat.loadComposerDraft(session))
+                    assertTrue(storage.turns.listBySession(session).isEmpty())
+                } finally {
+                    chat.closeSession()
+                    storage.sessions.archive(session, System.currentTimeMillis())
+                    container.providerService.delete(provider)
+                }
+            }
+        }
+
+    @Test
+    fun emptyInputRejectsSubmissionWithoutConsumingSavedDraft() =
+        runBlocking {
+            val container = compose.container()
+            val chat = container.chatService
+            val session = UUID.randomUUID().toString()
+            container.storage.sessions.create(session, "Invalid input draft", null, null, 1)
+            try {
+                chat.openSession(session)
+                val request = ChatSubmission(session, 0, UUID.randomUUID().toString(), "   ")
+                assertTrue(chat.saveComposerDraft(request, null))
+                assertEquals(
+                    ChatSubmissionOutcome.Rejected("INVALID_INPUT"),
+                    chat.sendSubmission(request).await().outcome,
+                )
+                assertEquals(request, chat.loadComposerDraft(session))
+                assertTrue(
+                    container.storage.turns
+                        .listBySession(session)
+                        .isEmpty(),
+                )
+            } finally {
+                chat.closeSession()
+                container.storage.sessions.archive(session, System.currentTimeMillis())
+            }
+        }
+
+    @Test
+    fun leavingANewSessionImmediatelySavesItsComposerBeforeNavigation() =
+        runBlocking {
+            compose.resetDeterministicUiState()
+            val container = compose.container()
+            val chat = container.chatService
+            chat.newSessionDraft()
+            compose.waitUntil(10_000) { chat.screen.value.isDraft }
+            val session = requireNotNull(chat.screen.value.openSessionId)
+            compose.waitUntil(10_000) {
+                compose.onAllNodesWithTag("chat-input").fetchSemanticsNodes().singleOrNull()?.let {
+                    it.config.getOrNull(SemanticsProperties.Disabled) == null
+                } == true
+            }
+            compose.onNodeWithTag("chat-input").performTextInput("Keep this new draft")
+            compose.onNodeWithTag("chat-back").performClick()
+            compose.waitUntil(10_000) { chat.screen.value.openSessionId == null }
+            assertEquals("Keep this new draft", chat.loadComposerDraft(session)?.text)
+            assertTrue(
+                container.storage.turns
+                    .listBySession(session)
+                    .isEmpty(),
+            )
+            chat.openSession(session)
+            compose.waitUntil(10_000) {
+                compose
+                    .onAllNodesWithTag("chat-input")
+                    .fetchSemanticsNodes()
+                    .singleOrNull()
+                    ?.config
+                    ?.getOrNull(SemanticsProperties.EditableText)
+                    ?.text == "Keep this new draft"
+            }
+            compose.onNodeWithTag("chat-input").assertTextEquals("Keep this new draft")
+            chat.closeSession()
+            container.storage.sessions.archive(session, System.currentTimeMillis())
+        }
 
     @Test
     fun rejectedSubmissionPreservesComposerInputAndMapsSafeReason() =
@@ -81,7 +185,11 @@ class ChatSubmissionReceiptDeviceTest {
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
 
                     compose.onNodeWithTag("chat-input").performTextInput("Hello Assistant")
-                    compose.onNodeWithTag("chat-send").performClick()
+                    // Two immediate activations of the same UI action keep one immutable intent.
+                    compose.onNodeWithTag("chat-send").performSemanticsAction(SemanticsActions.OnClick) { click ->
+                        click()
+                        click()
+                    }
 
                     // Wait for accepted turn and input cleared
                     compose.waitUntil(10_000) {
@@ -91,14 +199,28 @@ class ChatSubmissionReceiptDeviceTest {
                     }
 
                     // On Accepted, the screen input should be cleared
-                    compose.onNodeWithTag("chat-input").assertTextEquals("")
+                    compose.waitUntil(10_000) {
+                        compose
+                            .onNodeWithTag("chat-input")
+                            .fetchSemanticsNode()
+                            .config[SemanticsProperties.EditableText]
+                            .text
+                            .isEmpty()
+                    }
+                    compose.onNodeWithTag("chat-input").assert(
+                        SemanticsMatcher("editable text is empty") {
+                            it.config.getOrNull(SemanticsProperties.EditableText)?.text == ""
+                        },
+                    )
                     // And the composer_drafts table should be acknowledged and cleared
                     compose.waitUntil(10_000) {
                         storage.composerDrafts.get(session) == null
                     }
                     assertNull(storage.composerDrafts.get(session))
+                    assertEquals(1, storage.turns.listBySession(session).size)
                 } finally {
-                    chat.stop()
+                    storage.turns.listBySession(session).forEach { chat.stopTurn(it.id) }
+                    compose.waitUntil(10_000) { !chat.screen.value.isSending }
                     chat.closeSession()
                     storage.sessions.archive(session, System.currentTimeMillis())
                     container.providerService.delete(providerId)
@@ -197,7 +319,8 @@ class ChatSubmissionReceiptDeviceTest {
                     assertEquals(outcome1.turnId, outcome2.turnId)
                     assertEquals(1, storage.turns.listBySession(session).size)
                 } finally {
-                    chat.stop()
+                    storage.turns.listBySession(session).forEach { chat.stopTurn(it.id) }
+                    compose.waitUntil(10_000) { !chat.screen.value.isSending }
                     chat.closeSession()
                     storage.sessions.archive(session, System.currentTimeMillis())
                     container.providerService.delete(providerId)
@@ -205,7 +328,10 @@ class ChatSubmissionReceiptDeviceTest {
             }
         }
 
-    private suspend fun createProvider(port: Int): String {
+    private suspend fun createProvider(
+        port: Int,
+        verify: Boolean = true,
+    ): String {
         val service = compose.container().providerService
         val id =
             service.create(
@@ -224,7 +350,7 @@ class ChatSubmissionReceiptDeviceTest {
                 cleartextConfirmed = true,
             )
         try {
-            check(service.runConnectionTest(id) is ProbeOutcome.Ok)
+            if (verify) check(service.runConnectionTest(id) is ProbeOutcome.Ok)
         } catch (failure: Throwable) {
             service.delete(id)
             throw failure
