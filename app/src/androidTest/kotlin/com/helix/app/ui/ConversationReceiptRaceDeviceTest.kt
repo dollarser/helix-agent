@@ -293,13 +293,27 @@ class ConversationReceiptRaceDeviceTest {
                     compose.waitUntil(WAIT_MILLIS) { chat.screen.value.pendingDisclosure != null }
                     compose.onNodeWithTag("egress-confirm").performClick()
 
-                    compose.waitUntil(WAIT_MILLIS) {
-                        storage.turns.listBySession(session).size == 2 &&
-                            storage.composerDrafts.get(session) == null &&
-                            compose
-                                .onAllNodesWithTag("message-revision-input", useUnmergedTree = true)
-                                .fetchSemanticsNodes()
-                                .isEmpty()
+                    try {
+                        compose.waitUntil(WAIT_MILLIS) {
+                            storage.turns.listBySession(session).size == 2 &&
+                                storage.composerDrafts.get(session) == null &&
+                                revisionInputCount() == 0
+                        }
+                    } catch (failure: ComposeTimeoutException) {
+                        val screen = chat.screen.value
+                        throw AssertionError(
+                            "attachment revision send did not settle: " +
+                                "turns=${storage.turns.listBySession(session)}, " +
+                                "draft=${storage.composerDrafts.get(session)}, " +
+                                "blocked=${screen.blockedReason}, isSending=${screen.isSending}, " +
+                                "pendingDisclosure=${screen.pendingDisclosure != null}, " +
+                                "pendingAttachments=${screen.pendingAttachments.map { it.id }}, " +
+                                "staged=${chat.currentStagedAttachmentIds(session)}, " +
+                                "target=${storage.messages.resolve(target)}, " +
+                                "latestUser=${storage.messages.latestUser(session)}, " +
+                                "revisionNodes=${revisionInputCount()}",
+                            failure,
+                        )
                     }
                     compose.onNodeWithTag("message-revision-input", useUnmergedTree = true).assertDoesNotExist()
                     assertEquals(2, storage.turns.listBySession(session).size)

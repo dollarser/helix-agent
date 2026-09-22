@@ -22,8 +22,10 @@ import com.helix.app.chat.ChatScreenState
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmission
 import com.helix.app.chat.ChatSubmissionOutcome
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** UI owns the editor only; the service owns submission, persistence and stopped-Turn settlement. */
 @Composable
@@ -59,7 +61,9 @@ internal fun MessageRevisionDialog(
     }
     LaunchedEffect(draft, screen.pendingDisclosure, screen.messages, screen.activeTurn?.id) {
         val current = draft ?: return@LaunchedEffect
-        if (service.acceptedRevision(current)) onClose()
+        withContext(NonCancellable) {
+            if (service.acceptedRevision(current)) onClose()
+        }
     }
     val current = draft ?: return
     if (screen.pendingDisclosure != null) return
