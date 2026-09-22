@@ -9,7 +9,7 @@ Deciders: project-owner
 
 在已交付的扩展体系中（[ADR-CONNECTORS-001](001-portable-bundles.md)、[ADR-SKILLS-001](../skills/001-authoring-and-installation.md)），Helix 支持通过本地文件或 ZIP 导入 Connector 以及创作本地 Skill。但在实际使用中，新用户缺乏标准且易于发现的能力模板，需要自行构造 JSON 或编写 frontmatter。
 
-此外，[ADR-CONNECTORS-004](004-signed-index.md) 提出的签名索引仍处于 proposed 状态且明确排除了动态市场网络运行时与 UI。为了让用户开箱即用体验典型的免鉴权公开 MCP 服务、受保护 Connector 及审查/数据库类 Skill，需要建立一个零额外网络依赖、编译期内嵌、完全遵循端侧安全边界的内置精选市场。
+此外，[ADR-CONNECTORS-004](004-signed-index.md) 虽定义了离线签名索引与验证规则，但明确排除了动态市场网络运行时与在线中心化市场 UI。为了让用户开箱即用体验典型的免鉴权公开 MCP 服务、受保护 Connector 及审查/数据库类 Skill，需要建立一个零额外网络依赖、编译期内嵌、完全遵循端侧安全边界的内置精选市场。
 
 ## Decision
 
@@ -23,8 +23,9 @@ Deciders: project-owner
    - 一键安装产物直接交由 `ConnectorService` 与 `SkillRepository` 管理，安装后端点一律保持默认未激活状态（`endpoints` 需用户在配置中显式启用）。
    - 受保护 Connector 仅内置结构与占位声明，不内嵌任何硬编码真实 Token；由用户在管理页面通过系统安全存储注入凭据。
 
-3. **幂等安装与生命周期可逆性**：
-   - 安装过程为幂等事务：已安装项目重复触发时返回现有记录并确保必要组件处于正确可用状态；
+3. **幂等安装、无限制降级与生命周期可逆性**：
+   - 安装过程保证相同哈希幂等：相同版本重复触发时返回现有记录；
+   - 系统不限制降级安装：支持用户自由安装旧版本或不同版本；当目标条目哈希与已安装版本不一致时，自动彻底清理旧版本记录并写入目标版本，杜绝多版本冲突与悬空碎片；已安装卡片展开后提供「重新安装」操作支持原地覆盖/降级；
    - 卸载 Connector 联动清理对应端点与启用状态；在底层 Connector 记录被移除后，市场卡片状态精准恢复为 `NOT_INSTALLED`，保证用户可重新安装。
 
 4. **交互联动与防抖保护**：
