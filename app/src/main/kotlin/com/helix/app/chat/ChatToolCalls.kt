@@ -64,6 +64,7 @@ internal class ChatToolCalls(
             dispatchFacts[it]?.descriptor?.origin
         }
     private val dispatchFacts = java.util.concurrent.ConcurrentHashMap<String, DispatchFacts>()
+    private val executionStartTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     private val pendingApprovals = PendingTurnApprovals()
 
@@ -77,6 +78,8 @@ internal class ChatToolCalls(
     }
 
     fun finishTurn(turnId: String) {
+        val callsForTurn = dispatchFacts.filterValues { it.turnId == turnId }.keys
+        callsForTurn.forEach { executionStartTimes.remove(it) }
         dispatchFacts.values.removeIf { it.turnId == turnId }
         pendingApprovals.finishTurn(turnId)
     }
@@ -270,8 +273,19 @@ internal class ChatToolCalls(
                         null -> error("Missing scheduled settlement")
                     }
                 try {
+                    val durationMs =
+                        executionStartTimes.remove(p.callId)?.let { start ->
+                            (clock.now().toEpochMilli() - start).coerceAtLeast(0L)
+                        }
                     if (p.preSettled == null) {
-                        outcomeStore.settleToolCall(p.row!!, p.callId, p.toolNameRaw, outcome, unknown)
+                        outcomeStore.settleToolCall(
+                            p.row!!,
+                            p.callId,
+                            p.toolNameRaw,
+                            outcome,
+                            unknown,
+                            durationMs,
+                        )
                     }
                     coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
                 } catch (failure: Exception) {
@@ -405,6 +419,7 @@ internal class ChatToolCalls(
                     mode,
                     chatToolsEnabled,
                 ).copy(onExecutionStarting = {
+                    executionStartTimes[toolCallId] = clock.now().toEpochMilli()
                     storage.toolCalls.updateState(row, ToolCallState.RUNNING)
                     timeline.publishToolRow(
                         turnId,
@@ -540,7 +555,18 @@ internal class ChatToolCalls(
                 is ToolScheduler.BatchSettlement.Outcome -> settlement.outcome
                 is ToolScheduler.BatchSettlement.Thrown -> unsettledSlotSettlement(settlement.cause)
             }
-        outcomeStore.settleToolCall(prepared.row!!, toolCallId, toolNameRaw, outcome, unknown)
+        val durationMs =
+            executionStartTimes.remove(toolCallId)?.let { start ->
+                (clock.now().toEpochMilli() - start).coerceAtLeast(0L)
+            }
+        outcomeStore.settleToolCall(
+            prepared.row!!,
+            toolCallId,
+            toolNameRaw,
+            outcome,
+            unknown,
+            durationMs,
+        )
         // The call has settled (either way): its cancel signal has served its purpose.
         // Releasing it here (the direct path has no turn-level finalizer, unlike the
         // stream path) prevents both a process-lifetime leak and a later stop() reaching

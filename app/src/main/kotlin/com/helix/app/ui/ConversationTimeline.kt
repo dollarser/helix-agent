@@ -40,20 +40,23 @@ internal fun ConversationTimeline(
     contentVersion: Any?,
     modifier: Modifier = Modifier,
     followContent: Boolean = true,
+    state: androidx.compose.foundation.lazy.LazyListState =
+        androidx.compose.foundation.lazy
+            .rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
-    key(sessionId, followContent) { FollowingTimeline(contentVersion, modifier, followContent, content) }
+    key(sessionId, followContent) { FollowingTimeline(state, contentVersion, modifier, followContent, content) }
 }
 
 @Composable
 @Suppress("FunctionName", "LongMethod")
 private fun FollowingTimeline(
+    state: androidx.compose.foundation.lazy.LazyListState,
     contentVersion: Any?,
     modifier: Modifier,
     followContent: Boolean,
     content: LazyListScope.() -> Unit,
 ) {
-    val state = rememberLazyListState()
     var following by remember { mutableStateOf(true) }
     var automaticScroll by remember { mutableStateOf(false) }
     val count by remember { derivedStateOf { state.layoutInfo.totalItemsCount } }

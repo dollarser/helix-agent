@@ -49,6 +49,7 @@ internal class ChatToolTimeline(
         stateLabel: String,
         resultSummary: String?,
         card: com.helix.app.approval.ApprovalCardUi?,
+        durationMs: Long? = null,
     ) {
         // Atomic update: this row mutation races other timeline writers (the card sink
         // runs on a scheduler pool thread; settle/cancel run on the IO scope). A
@@ -56,23 +57,23 @@ internal class ChatToolTimeline(
         // this update — and the card is published exactly ONCE, so a lost publish is a
         // turn the user can never approve.
         screenState.update { screen ->
-            val preserved =
-                card ?: screen.toolTimeline
-                    .firstOrNull { it.turnId == turnId && it.callId == callId }
-                    ?.card
+            val existing = screen.toolTimeline.firstOrNull { it.turnId == turnId && it.callId == callId }
+            val preserved = card ?: existing?.card
+            val effectiveDuration = durationMs ?: existing?.durationMs
             screen.copy(
                 toolTimeline =
                     screen.toolTimeline
                         .filterNot { it.turnId == turnId && it.callId == callId }
                         .plus(
                             ToolTimelineRow(
-                                turnId,
-                                callId,
-                                toolName,
-                                requestSummary,
-                                stateLabel,
-                                resultSummary,
-                                preserved,
+                                turnId = turnId,
+                                callId = callId,
+                                toolName = toolName,
+                                requestSummary = requestSummary,
+                                stateLabel = stateLabel,
+                                resultSummary = resultSummary,
+                                card = preserved,
+                                durationMs = effectiveDuration,
                             ),
                         ),
             )

@@ -30,7 +30,7 @@ import com.helix.app.R
 
 /** Navigation and the current title stay visible; task and session actions open on demand. */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun AdaptiveConversationHeader(
     summary: String,
     onBack: () -> Unit,
@@ -38,6 +38,7 @@ internal fun AdaptiveConversationHeader(
     onTasks: () -> Unit = {},
     onNavigation: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var details by remember { mutableStateOf(false) }
@@ -61,6 +62,11 @@ internal fun AdaptiveConversationHeader(
             contentAlignment = Alignment.CenterStart,
         ) {
             Text(summary, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        onSearch?.let { search ->
+            IconButton(search, modifier = Modifier.size(48.dp).testTag("chat-search-toggle")) {
+                Icon(painterResource(R.drawable.ic_files_search), stringResource(R.string.chat_search))
+            }
         }
         IconButton(onBack, modifier = Modifier.size(48.dp).testTag("chat-back")) {
             Icon(painterResource(R.drawable.ic_chat_sessions), stringResource(R.string.chat_back_to_sessions))

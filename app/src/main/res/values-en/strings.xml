@@ -1360,5 +1360,14 @@
     <string name="code_copied">Copied</string>
     <string name="code_block_expand">Expand all %1$d lines</string>
     <string name="code_block_collapse">Collapse code</string>
+    <string name="tool_duration_ms">%1$dms</string>
+    <string name="tool_duration_sec">%1$ss</string>
+    <string name="chat_search">Search</string>
+    <string name="chat_search_placeholder">Search conversation…</string>
+    <string name="chat_search_count">%1$d/%2$d</string>
+    <string name="chat_search_no_matches">No matches</string>
+    <string name="chat_search_prev">Previous match</string>
+    <string name="chat_search_next">Next match</string>
+    <string name="chat_search_close">Close search</string>
 </resources>
 

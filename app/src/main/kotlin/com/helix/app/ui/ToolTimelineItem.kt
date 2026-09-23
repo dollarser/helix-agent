@@ -142,6 +142,27 @@ private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             )
         }
+        row.durationMs?.let { duration ->
+            val formatted =
+                if (duration < 1000L) {
+                    stringResource(R.string.tool_duration_ms, duration)
+                } else {
+                    val sec = String.format(java.util.Locale.US, "%.1f", duration / 1000.0)
+                    stringResource(R.string.tool_duration_sec, sec)
+                }
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.testTag("tool-row-duration-${row.callId}"),
+            ) {
+                Text(
+                    formatted,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+        }
     }
 }
 

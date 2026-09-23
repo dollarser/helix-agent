@@ -39,22 +39,23 @@ internal class ChatToolSettlement(
         toolName: String,
         outcome: ToolDispatchOutcome,
         sideEffectUnknown: Boolean = false,
+        durationMs: Long? = null,
     ) {
         when (outcome) {
             is ToolDispatchOutcome.Succeeded -> {
-                settleSucceeded(row, toolCallId, toolName, outcome)
+                settleSucceeded(row, toolCallId, toolName, outcome, durationMs)
             }
 
             is ToolDispatchOutcome.Denied -> {
-                settleDenied(row, toolCallId, toolName, outcome)
+                settleDenied(row, toolCallId, toolName, outcome, durationMs)
             }
 
             ToolDispatchOutcome.Cancelled -> {
-                settleCancelled(row, toolCallId, toolName)
+                settleCancelled(row, toolCallId, toolName, durationMs)
             }
 
             is ToolDispatchOutcome.ExecutionFailed -> {
-                settleExecutionFailed(row, toolCallId, toolName, outcome, sideEffectUnknown)
+                settleExecutionFailed(row, toolCallId, toolName, outcome, sideEffectUnknown, durationMs)
             }
         }
     }
@@ -64,6 +65,7 @@ internal class ChatToolSettlement(
         toolCallId: String,
         toolName: String,
         outcome: ToolDispatchOutcome.Succeeded,
+        durationMs: Long? = null,
     ) {
         val summary = boundedSummary(outcome.result.payload)
         ToolSettlementWriter(storage, clock, idGenerator).persist(
@@ -83,6 +85,7 @@ internal class ChatToolSettlement(
             str(R.string.tool_state_completed),
             summary,
             null,
+            durationMs,
         )
         publishLedgerForTodoWrite(row)
     }
@@ -106,6 +109,7 @@ internal class ChatToolSettlement(
         toolCallId: String,
         toolName: String,
         outcome: ToolDispatchOutcome.Denied,
+        durationMs: Long? = null,
     ) {
         val userDetail = str(ApprovalUiMapper.codeLabel(outcome.code))
         ToolSettlementWriter(storage, clock, idGenerator).persist(
@@ -128,6 +132,7 @@ internal class ChatToolSettlement(
             str(ApprovalUiMapper.codeLabel(outcome.code)),
             userDetail,
             null,
+            durationMs,
         )
     }
 
@@ -135,6 +140,7 @@ internal class ChatToolSettlement(
         row: com.helix.core.storage.entity.ToolCallEntity,
         toolCallId: String,
         toolName: String,
+        durationMs: Long? = null,
     ) {
         ToolSettlementWriter(storage, clock, idGenerator).persist(
             row,
@@ -151,6 +157,7 @@ internal class ChatToolSettlement(
             str(R.string.tool_state_cancelled),
             str(R.string.tool_summary_cancelled_before_start),
             null,
+            durationMs,
         )
     }
 
@@ -160,6 +167,7 @@ internal class ChatToolSettlement(
         toolName: String,
         outcome: ToolDispatchOutcome.ExecutionFailed,
         sideEffectUnknown: Boolean,
+        durationMs: Long? = null,
     ) {
         val state = if (sideEffectUnknown) ToolCallState.NEEDS_REVIEW else ToolCallState.FAILED
         val userDetail =
@@ -181,7 +189,7 @@ internal class ChatToolSettlement(
             } else {
                 str(R.string.tool_state_failed)
             }
-        timeline.publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, userDetail, null)
+        timeline.publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, userDetail, null, durationMs)
     }
 
     /**

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -19,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +97,17 @@ internal fun ConversationSection(
             voiceDraft = null
         }
     }
+    val timelineListState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val searchController = remember { ConversationSearchController() }
+    var searchActive by remember { mutableStateOf(false) }
+
+    LaunchedEffect(screen, searchActive) {
+        if (searchActive) {
+            searchController.updateMatches(screen)
+        }
+    }
+
     Column(Modifier.fillMaxSize()) {
         AdaptiveConversationHeader(
             summary = screen.sessionTitle.ifBlank { stringResource(R.string.chat_new_session) },
@@ -103,6 +116,7 @@ internal fun ConversationSection(
             onNavigation = intents.onNavigation,
             onRename = intents.onRename,
             onTasks = intents.onTasks,
+            onSearch = { searchActive = !searchActive },
         ) {
             FlowRow {
                 if (!screen.isDraft) {
@@ -190,6 +204,33 @@ internal fun ConversationSection(
                 }
             }
         }
+        if (searchActive) {
+            ConversationSearchBar(
+                query = searchController.query,
+                matchCount = searchController.matches.size,
+                currentMatchIndex = searchController.currentMatchIndex,
+                onQueryChange = { q ->
+                    searchController.onQueryChange(q, screen)
+                    searchController.currentMatch?.let { match ->
+                        coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
+                    }
+                },
+                onPrevMatch = {
+                    searchController.prevMatch()?.let { match ->
+                        coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
+                    }
+                },
+                onNextMatch = {
+                    searchController.nextMatch()?.let { match ->
+                        coroutineScope.launch { timelineListState.animateScrollToItem(match.listIndex) }
+                    }
+                },
+                onClose = {
+                    searchActive = false
+                    searchController.clear()
+                },
+            )
+        }
         if (runControl.mode == AgentMode.GOAL && !screen.isDraft) {
             TextButton(intents.onManageGoal, modifier = Modifier.testTag("goal-manage")) {
                 Text(stringResource(R.string.goal_manage))
@@ -227,7 +268,7 @@ internal fun ConversationSection(
                     .all { it.isEmpty() }
         ConversationTimeline(
             sessionId = screen.openSessionId,
-            followContent = !emptyConversation,
+            followContent = !emptyConversation && !searchActive,
             contentVersion =
                 listOf(
                     screen.messages,
@@ -235,6 +276,7 @@ internal fun ConversationSection(
                     screen.toolTimeline,
                     screen.activeTurn,
                 ),
+            state = timelineListState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
         ) {
             if (emptyConversation) {

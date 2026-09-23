@@ -1360,5 +1360,14 @@
     <string name="code_copied">已复制</string>
     <string name="code_block_expand">展开全部代码（共 %1$d 行）</string>
     <string name="code_block_collapse">收起代码</string>
+    <string name="tool_duration_ms">%1$dms</string>
+    <string name="tool_duration_sec">%1$ss</string>
+    <string name="chat_search">搜索</string>
+    <string name="chat_search_placeholder">搜索会话内容…</string>
+    <string name="chat_search_count">%1$d/%2$d</string>
+    <string name="chat_search_no_matches">无匹配</string>
+    <string name="chat_search_prev">上一个</string>
+    <string name="chat_search_next">下一个</string>
+    <string name="chat_search_close">关闭搜索</string>
 </resources>
 
