@@ -1358,5 +1358,7 @@
     <string name="code_block_default_lang">CODE</string>
     <string name="code_copy">Copy</string>
     <string name="code_copied">Copied</string>
+    <string name="code_block_expand">Expand all %1$d lines</string>
+    <string name="code_block_collapse">Collapse code</string>
 </resources>
 

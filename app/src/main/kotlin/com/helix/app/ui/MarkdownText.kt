@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -210,6 +211,8 @@ private fun MarkdownCodeHeader(
     }
 }
 
+private const val CODE_BLOCK_COLLAPSE_THRESHOLD = 18
+
 @Composable
 @Suppress("FunctionName")
 private fun MarkdownCodeBlock(
@@ -218,6 +221,9 @@ private fun MarkdownCodeBlock(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
+    val lines = remember(code) { code.lines() }
+    val canCollapse = lines.size > CODE_BLOCK_COLLAPSE_THRESHOLD
+    var expanded by remember(code) { mutableStateOf(false) }
 
     LaunchedEffect(copied) {
         if (copied) {
@@ -225,6 +231,13 @@ private fun MarkdownCodeBlock(
             copied = false
         }
     }
+
+    val displayCode =
+        if (!canCollapse || expanded) {
+            code
+        } else {
+            lines.take(CODE_BLOCK_COLLAPSE_THRESHOLD).joinToString("\n")
+        }
 
     Column(
         modifier =
@@ -248,7 +261,7 @@ private fun MarkdownCodeBlock(
             modifier = Modifier.padding(bottom = 4.dp),
         )
         Text(
-            text = code,
+            text = displayCode,
             fontFamily = FontFamily.Monospace,
             style = MaterialTheme.typography.bodySmall,
             modifier =
@@ -256,6 +269,56 @@ private fun MarkdownCodeBlock(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .horizontalScroll(rememberScrollState()),
+        )
+        if (canCollapse) {
+            MarkdownCodeExpandToggle(
+                lineCount = lines.size,
+                expanded = expanded,
+                onToggle = { expanded = !expanded },
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun MarkdownCodeExpandToggle(
+    lineCount: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+) {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .testTag("code-block-expand-toggle"),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val label =
+            if (expanded) {
+                stringResource(R.string.code_block_collapse)
+            } else {
+                stringResource(R.string.code_block_expand, lineCount)
+            }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Icon(
+            painter = painterResource(R.drawable.ic_expand_summary),
+            contentDescription = label,
+            modifier =
+                Modifier
+                    .size(16.dp)
+                    .rotate(if (expanded) 180f else 0f),
+            tint = MaterialTheme.colorScheme.primary,
         )
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,8 @@ import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ConversationEntry
 import com.helix.app.chat.MessageUi
 
+private const val MESSAGE_COPY_FEEDBACK_MS = 1500L
+
 @Composable
 @Suppress("FunctionName")
 internal fun CopyTextButton(
@@ -39,15 +42,30 @@ internal fun CopyTextButton(
     tag: String,
 ) {
     val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(MESSAGE_COPY_FEEDBACK_MS)
+            copied = false
+        }
+    }
+
     IconButton(
-        onClick = { clipboard.setText(AnnotatedString(text)) },
+        onClick = {
+            clipboard.setText(AnnotatedString(text))
+            copied = true
+        },
         enabled = text.isNotEmpty(),
         modifier = Modifier.size(48.dp).testTag(tag),
     ) {
+        val iconRes = if (copied) R.drawable.ic_check else R.drawable.ic_chat_copy
+        val descRes = if (copied) R.string.code_copied else R.string.chat_copy_all
+        val tint = if (copied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         Icon(
-            painterResource(R.drawable.ic_chat_copy),
-            stringResource(R.string.chat_copy_all),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            painterResource(iconRes),
+            stringResource(descRes),
+            tint = tint,
         )
     }
 }

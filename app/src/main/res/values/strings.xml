@@ -1358,5 +1358,7 @@
     <string name="code_block_default_lang">CODE</string>
     <string name="code_copy">复制</string>
     <string name="code_copied">已复制</string>
+    <string name="code_block_expand">展开全部代码（共 %1$d 行）</string>
+    <string name="code_block_collapse">收起代码</string>
 </resources>
 
