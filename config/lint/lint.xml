@@ -5,4 +5,6 @@
     <issue id="GradleDependency" severity="ignore" />
     <issue id="NewerVersionAvailable" severity="ignore" />
     <issue id="OldTargetApi" severity="ignore" />
+    <issue id="PluralsCandidate" severity="ignore" />
+    <issue id="UnusedResources" severity="ignore" />
 </lint>

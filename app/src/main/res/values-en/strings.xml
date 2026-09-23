@@ -1343,7 +1343,7 @@
     <string name="session_capability_title">Session Capabilities</string>
     <string name="session_capability_subtitle">Manage Connectors and tools enabled for this session independently</string>
     <string name="session_capability_empty">No connectors installed yet. Import or configure them in Extensions.</string>
-    <string name="session_capability_enabled_count">%1$d of %2$d connectors enabled</string>
+    <string name="session_capability_enabled_count" tools:ignore="PluralsCandidate">%1$d of %2$d connectors enabled</string>
     <string name="session_capability_status_ready">Ready</string>
     <string name="session_capability_status_needs_config">Needs setup</string>
     <string name="session_capability_status_disabled_globally">Tools globally disabled</string>
