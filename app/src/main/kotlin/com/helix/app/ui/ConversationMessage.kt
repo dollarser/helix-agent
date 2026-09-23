@@ -1,5 +1,6 @@
 package com.helix.app.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
@@ -76,6 +79,8 @@ internal fun MessageRow(
     message: MessageUi,
     onFork: ((String) -> Unit)? = null,
     onEdit: ((String) -> Unit)? = null,
+    searchQuery: String? = null,
+    isCurrentMatch: Boolean = false,
 ) {
     val isUser = message.role == "user"
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
@@ -90,6 +95,12 @@ internal fun MessageRow(
                         MaterialTheme.colorScheme.surfaceContainerHigh
                     } else {
                         MaterialTheme.colorScheme.surfaceContainerLow
+                    },
+                border =
+                    if (isCurrentMatch) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        null
                     },
                 modifier =
                     Modifier
@@ -112,10 +123,26 @@ internal fun MessageRow(
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                 )
                             }
-                            MarkdownText(parsed.text, bodyModifier)
+                            MarkdownText(parsed.text, bodyModifier, searchQuery)
                         } else {
+                            val highlightStyle =
+                                SpanStyle(
+                                    background = MaterialTheme.colorScheme.primaryContainer,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            val annotated =
+                                if (!searchQuery.isNullOrBlank()) {
+                                    highlightAnnotatedString(
+                                        AnnotatedString(message.content),
+                                        searchQuery,
+                                        highlightStyle,
+                                    )
+                                } else {
+                                    AnnotatedString(message.content)
+                                }
                             Text(
-                                message.content,
+                                text = annotated,
                                 style = MaterialTheme.typography.bodyLarge,
                                 modifier = bodyModifier,
                             )
@@ -151,10 +178,17 @@ internal fun MessageRow(
 internal fun TurnOperations(
     entry: ConversationEntry,
     intents: ConversationIntents,
+    activeCallId: String? = null,
 ) {
     if (entry.tools.isEmpty() && entry.recoveries.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("turn-operations-${entry.key}")) {
-        entry.tools.forEach { ToolTimelineItem(it, intents) }
+        entry.tools.forEach {
+            ToolTimelineItem(
+                row = it,
+                intents = intents,
+                isCurrentMatch = it.callId == activeCallId,
+            )
+        }
         if (entry.recoveries.isNotEmpty()) {
             entry.recoveries.forEach {
                 SubscriptionRecoveryActions(it, intents.onInspectSubscription, intents.onRecoverSubscriptionResult)

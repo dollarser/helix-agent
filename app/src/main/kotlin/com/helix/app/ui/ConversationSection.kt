@@ -284,6 +284,9 @@ internal fun ConversationSection(
                     EmptyConversationHint(runControl.mode == AgentMode.GOAL, screen.badge != null)
                 }
             }
+            val currentTargetId = searchController.currentMatch?.targetId.takeIf { searchActive }
+            val activeSearchQuery = searchController.query.takeIf { searchActive && it.isNotBlank() }
+
             com.helix.app.chat.conversationEntries(screen).forEach { entry ->
                 items(entry.messages.filter { it.role == "user" }, key = { it.id }) {
                     MessageRow(
@@ -292,12 +295,25 @@ internal fun ConversationSection(
                         intents.onEditLatest?.takeIf { _ ->
                             it.id == screen.messages.lastOrNull { message -> message.role == "user" }?.id
                         },
+                        searchQuery = activeSearchQuery,
+                        isCurrentMatch = it.id == currentTargetId,
                     )
                 }
                 item(key = "operations-${entry.key}") {
-                    TurnOperations(entry, intents)
+                    TurnOperations(
+                        entry = entry,
+                        intents = intents,
+                        activeCallId = currentTargetId,
+                    )
                 }
-                items(entry.messages.filter { it.role != "user" }, key = { it.id }) { MessageRow(it, intents.onFork) }
+                items(entry.messages.filter { it.role != "user" }, key = { it.id }) {
+                    MessageRow(
+                        it,
+                        intents.onFork,
+                        searchQuery = activeSearchQuery,
+                        isCurrentMatch = it.id == currentTargetId,
+                    )
+                }
                 val past = screen.turns.firstOrNull { it.id == entry.key && it.id != screen.activeTurn?.id }
                 if (past?.state == TurnState.FAILED && past.errorLabel != null) {
                     item(key = "error-${entry.key}") {
@@ -332,7 +348,11 @@ internal fun ConversationSection(
                 item(key = "streaming") {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (!turn.state.isTerminal && !turn.streamingText.isNullOrBlank()) {
-                            MessageRow(MessageUi("streaming", "assistant", turn.streamingText.orEmpty()))
+                            MessageRow(
+                                MessageUi("streaming", "assistant", turn.streamingText.orEmpty()),
+                                searchQuery = activeSearchQuery,
+                                isCurrentMatch = "streaming" == currentTargetId,
+                            )
                         }
                         TurnProgressLabel(
                             turn.state,

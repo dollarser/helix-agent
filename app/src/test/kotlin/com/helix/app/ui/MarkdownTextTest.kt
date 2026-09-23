@@ -35,4 +35,49 @@ class MarkdownTextTest {
         assertEquals("python", codeBlocks[1].language)
         assertEquals(null, codeBlocks[2].language)
     }
+
+    @Test fun highlightAnnotatedStringHighlightsMatchesCaseInsensitively() {
+        val style =
+            androidx.compose.ui.text
+                .SpanStyle(color = androidx.compose.ui.graphics.Color.Yellow)
+        val source =
+            androidx.compose.ui.text
+                .AnnotatedString("Hello world, hello Helix")
+        val result = highlightAnnotatedString(source, "hello", style)
+
+        assertEquals("Hello world, hello Helix", result.text)
+        val matches = result.spanStyles.filter { it.item == style }
+        assertEquals(2, matches.size)
+        assertEquals(0, matches[0].start)
+        assertEquals(5, matches[0].end)
+        assertEquals(13, matches[1].start)
+        assertEquals(18, matches[1].end)
+    }
+
+    @Test fun highlightAnnotatedStringPreservesExistingStyles() {
+        val style =
+            androidx.compose.ui.text
+                .SpanStyle(color = androidx.compose.ui.graphics.Color.Yellow)
+        val source = markdownInline("**bold** target")
+        val result = highlightAnnotatedString(source, "target", style)
+
+        assertEquals("bold target", result.text)
+        val match = result.spanStyles.first { it.item == style }
+        assertEquals(5, match.start)
+        assertEquals(11, match.end)
+        assertTrue(result.spanStyles.any { it.item != style })
+    }
+
+    @Test fun highlightAnnotatedStringWithBlankQueryReturnsOriginal() {
+        val style =
+            androidx.compose.ui.text
+                .SpanStyle(color = androidx.compose.ui.graphics.Color.Yellow)
+        val source =
+            androidx.compose.ui.text
+                .AnnotatedString("no changes")
+        val resultEmpty = highlightAnnotatedString(source, "", style)
+        val resultBlank = highlightAnnotatedString(source, "   ", style)
+        assertEquals(source, resultEmpty)
+        assertEquals(source, resultBlank)
+    }
 }

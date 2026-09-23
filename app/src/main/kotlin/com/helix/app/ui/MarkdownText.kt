@@ -41,22 +41,47 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
+internal fun highlightAnnotatedString(
+    source: AnnotatedString,
+    query: String,
+    highlightStyle: SpanStyle,
+): AnnotatedString {
+    if (query.isBlank() || source.text.isEmpty()) return source
+    return buildAnnotatedString {
+        append(source)
+        var startIndex = 0
+        while (startIndex < source.text.length) {
+            val index = source.text.indexOf(query, startIndex, ignoreCase = true)
+            if (index == -1) break
+            addStyle(highlightStyle, index, index + query.length)
+            startIndex = index + query.length
+        }
+    }
+}
+
 @Composable
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod")
 internal fun MarkdownText(
     source: String,
     modifier: Modifier = Modifier,
+    searchQuery: String? = null,
 ) {
     val blocks = remember(source) { markdownBlocks(source) }
+    val highlightStyle =
+        SpanStyle(
+            background = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
+        )
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         blocks.forEach { block ->
             when (block.kind) {
                 MarkdownBlock.Kind.CODE -> {
-                    MarkdownCodeBlock(block.text, block.language)
+                    MarkdownCodeBlock(block.text, block.language, searchQuery)
                 }
 
                 MarkdownBlock.Kind.TABLE -> {
-                    MarkdownTable(block.text)
+                    MarkdownTable(block.text, searchQuery)
                 }
 
                 MarkdownBlock.Kind.RULE -> {
@@ -78,8 +103,15 @@ internal fun MarkdownText(
                                 MaterialTheme.typography.bodyLarge
                             }
                         }
+                    val inline = markdownInline(block.text)
+                    val annotated =
+                        if (!searchQuery.isNullOrBlank()) {
+                            highlightAnnotatedString(inline, searchQuery, highlightStyle)
+                        } else {
+                            inline
+                        }
                     Text(
-                        markdownInline(block.text),
+                        annotated,
                         style = style,
                         fontStyle = if (block.kind == MarkdownBlock.Kind.QUOTE) FontStyle.Italic else null,
                     )
@@ -91,13 +123,29 @@ internal fun MarkdownText(
 
 @Composable
 @Suppress("FunctionName")
-private fun MarkdownTable(text: String) {
+private fun MarkdownTable(
+    text: String,
+    searchQuery: String? = null,
+) {
+    val highlightStyle =
+        SpanStyle(
+            background = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
+        )
     Column(Modifier.horizontalScroll(rememberScrollState())) {
         text.lines().forEachIndexed { index, line ->
             Row {
                 line.trim().trim('|').split('|').forEach { cell ->
+                    val inline = markdownInline(cell.trim())
+                    val annotated =
+                        if (!searchQuery.isNullOrBlank()) {
+                            highlightAnnotatedString(inline, searchQuery, highlightStyle)
+                        } else {
+                            inline
+                        }
                     Text(
-                        markdownInline(cell.trim()),
+                        annotated,
                         fontWeight = if (index == 0) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.width(160.dp).padding(8.dp),
                     )
@@ -218,6 +266,7 @@ private const val CODE_BLOCK_COLLAPSE_THRESHOLD = 18
 private fun MarkdownCodeBlock(
     code: String,
     language: String?,
+    searchQuery: String? = null,
 ) {
     val clipboardManager = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
@@ -232,11 +281,11 @@ private fun MarkdownCodeBlock(
         }
     }
 
-    val displayCode =
+    val displayLines =
         if (!canCollapse || expanded) {
-            code
+            lines
         } else {
-            lines.take(CODE_BLOCK_COLLAPSE_THRESHOLD).joinToString("\n")
+            lines.take(CODE_BLOCK_COLLAPSE_THRESHOLD)
         }
 
     Column(
@@ -260,15 +309,9 @@ private fun MarkdownCodeBlock(
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
             modifier = Modifier.padding(bottom = 4.dp),
         )
-        Text(
-            text = displayCode,
-            fontFamily = FontFamily.Monospace,
-            style = MaterialTheme.typography.bodySmall,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .horizontalScroll(rememberScrollState()),
+        MarkdownCodeContent(
+            displayLines = displayLines,
+            searchQuery = searchQuery,
         )
         if (canCollapse) {
             MarkdownCodeExpandToggle(
@@ -277,6 +320,51 @@ private fun MarkdownCodeBlock(
                 onToggle = { expanded = !expanded },
             )
         }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun MarkdownCodeContent(
+    displayLines: List<String>,
+    searchQuery: String?,
+) {
+    val highlightStyle =
+        SpanStyle(
+            background = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            fontWeight = FontWeight.Bold,
+        )
+    val lineNumberText =
+        remember(displayLines.size) {
+            (1..displayLines.size).joinToString("\n")
+        }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+                .horizontalScroll(rememberScrollState()),
+    ) {
+        Text(
+            text = lineNumberText,
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+            modifier = Modifier.padding(end = 12.dp),
+        )
+        val codeText = displayLines.joinToString("\n")
+        val annotated =
+            if (!searchQuery.isNullOrBlank()) {
+                highlightAnnotatedString(AnnotatedString(codeText), searchQuery, highlightStyle)
+            } else {
+                AnnotatedString(codeText)
+            }
+        Text(
+            text = annotated,
+            fontFamily = FontFamily.Monospace,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 

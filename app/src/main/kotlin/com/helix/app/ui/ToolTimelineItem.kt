@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -44,12 +45,20 @@ import com.helix.app.R
 internal fun ToolTimelineItem(
     row: com.helix.app.chat.ToolTimelineRow,
     intents: ConversationIntents,
+    isCurrentMatch: Boolean = false,
 ) {
     var details by remember(row.callId) { mutableStateOf(false) }
+    val borderModifier =
+        if (isCurrentMatch) {
+            Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+        } else {
+            Modifier
+        }
     Column(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .then(borderModifier)
                 .background(MaterialTheme.colorScheme.surfaceContainerLow, MaterialTheme.shapes.medium)
                 .padding(8.dp)
                 .testTag("tool-row-${row.callId}"),
