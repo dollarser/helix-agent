@@ -5,6 +5,7 @@ internal data class MarkdownBlock(
     val kind: Kind,
     val text: String,
     val level: Int = 0,
+    val language: String? = null,
 ) {
     enum class Kind { PARAGRAPH, HEADING, CODE, QUOTE, LIST, TABLE, RULE }
 }
@@ -20,10 +21,16 @@ internal fun markdownBlocks(source: String): List<MarkdownBlock> {
         when {
             trimmed.startsWith("```") || trimmed.startsWith("~~~") -> {
                 val marker = trimmed.takeWhile { it == trimmed.first() }
+                val lang = trimmed.drop(marker.length).trim().takeWhile { !it.isWhitespace() }
                 val code = mutableListOf<String>()
                 i++
                 while (i < lines.size && !lines[i].trimStart().startsWith(marker)) code += lines[i++]
-                blocks += MarkdownBlock(MarkdownBlock.Kind.CODE, code.joinToString("\n"))
+                blocks +=
+                    MarkdownBlock(
+                        MarkdownBlock.Kind.CODE,
+                        code.joinToString("\n"),
+                        language = lang.ifBlank { null },
+                    )
             }
 
             line.isBlank() -> {

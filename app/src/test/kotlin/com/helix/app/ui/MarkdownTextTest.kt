@@ -26,4 +26,13 @@ class MarkdownTextTest {
         assertEquals("<script>literal</script>", markdownInline("<script>literal</script>").text)
         assertEquals("*literal*", markdownInline("\\*literal\\*").text)
     }
+
+    @Test fun codeFenceExtractsLanguageTagCorrectly() {
+        val blocks = markdownBlocks("```kotlin\nval a = 1\n```\n```python\nb = 2\n```\n```\nc = 3\n```")
+        val codeBlocks = blocks.filter { it.kind == MarkdownBlock.Kind.CODE }
+        assertEquals(3, codeBlocks.size)
+        assertEquals("kotlin", codeBlocks[0].language)
+        assertEquals("python", codeBlocks[1].language)
+        assertEquals(null, codeBlocks[2].language)
+    }
 }

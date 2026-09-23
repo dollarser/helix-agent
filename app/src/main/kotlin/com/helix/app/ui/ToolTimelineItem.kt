@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 
@@ -117,13 +118,30 @@ private fun ToolTimelineHeading(row: com.helix.app.chat.ToolTimelineRow) {
         Text(
             stringResource(R.string.chat_tool_row, row.toolName),
             style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
         )
-        Text(
-            row.stateLabel,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        val isRunning =
+            row.stateLabel.contains("...") || row.stateLabel.contains("…") ||
+                (row.resultSummary == null && row.card?.state != com.helix.app.approval.ApprovalCardState.DENIED)
+        val isDenied = row.card?.state == com.helix.app.approval.ApprovalCardState.DENIED
+        val badgeColor =
+            when {
+                isDenied -> MaterialTheme.colorScheme.error
+                isRunning -> MaterialTheme.colorScheme.primary
+                else -> MaterialTheme.colorScheme.outline
+            }
+        Surface(
+            shape = RoundedCornerShape(4.dp),
+            color = badgeColor.copy(alpha = 0.12f),
             modifier = Modifier.testTag("tool-row-state-${row.callId}"),
-        )
+        ) {
+            Text(
+                row.stateLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = badgeColor,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 

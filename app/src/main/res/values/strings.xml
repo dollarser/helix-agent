@@ -1355,5 +1355,8 @@
     <string name="connector_update_components_changed">组件变更</string>
     <string name="connector_update_endpoints_reconfigure">网络目标或认证发生变更，需要重新配置凭据</string>
     <string name="connector_update_confirm_button">确认更新</string>
+    <string name="code_block_default_lang">CODE</string>
+    <string name="code_copy">复制</string>
+    <string name="code_copied">已复制</string>
 </resources>
 

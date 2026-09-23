@@ -1355,5 +1355,8 @@
     <string name="connector_update_components_changed">Component changes</string>
     <string name="connector_update_endpoints_reconfigure">Endpoints or auth changed; reconfiguration required</string>
     <string name="connector_update_confirm_button">Confirm Update</string>
+    <string name="code_block_default_lang">CODE</string>
+    <string name="code_copy">Copy</string>
+    <string name="code_copied">Copied</string>
 </resources>
 

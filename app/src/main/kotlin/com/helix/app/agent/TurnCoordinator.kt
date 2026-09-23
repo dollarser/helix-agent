@@ -141,6 +141,7 @@ internal class BatchTurnRuntime(
 
     fun terminalize(state: TurnState) {
         require(state.isTerminal) { "terminal state required" }
+        if (phase.isTerminal) return
         phase = state
     }
 }

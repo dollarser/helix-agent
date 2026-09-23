@@ -3720,28 +3720,37 @@ class ChatService(
                     true
                 }
             }
-        // The terminal row is now durable. Release admission BEFORE publishing terminal UI so a
-        // user reacting immediately cannot hit the still-active coroutine's completion gap.
-        val label = terminalLabel(settledOutcome.state, settledOutcome.errorCode)
-        label?.let {
-            publishTurn(
-                TurnUi(turnId, settledOutcome.state, null, it, settledOutcome.state == TurnState.FAILED),
-            )
+        dispatchTerminalNotifications(sessionId, turnId, settledOutcome, continueDelivery)
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun dispatchTerminalNotifications(
+        sessionId: String,
+        turnId: String,
+        settledOutcome: ModelStreamTerminal,
+        continueDelivery: Boolean,
+    ) {
+        try {
+            val label = terminalLabel(settledOutcome.state, settledOutcome.errorCode)
+            label?.let {
+                publishTurn(
+                    TurnUi(turnId, settledOutcome.state, null, it, settledOutcome.state == TurnState.FAILED),
+                )
+            }
+            if (label == null) {
+                turnLiveFrames.emit(
+                    turnId,
+                    TurnUi(turnId, settledOutcome.state, null, null, settledOutcome.state == TurnState.FAILED),
+                )
+            }
+            refreshScreen()
+            syncGoalReminderForTurn(turnId)
+            if (continueDelivery) requestSessionDrain(sessionId, turnId)
+        } catch (e: Exception) {
+            // R8: post-terminal UI projection, reminder sync or queue drain failure must never
+            // escape to runTurn's outer catch to overwrite the already durable terminal state.
+            Log.e(TAG, "post-terminal notification error for turn $turnId", e)
         }
-        // A terminal with no status label (a clean COMPLETED) never goes through [publishTurn],
-        // whose turn-frame emit is what feeds [AgentTurnHost.observeTurnFrames]. Emit it directly
-        // so a background turn's observer still receives its terminal and its flow completes —
-        // otherwise the observe stream for such a turn would hang. A duplicate terminal is a
-        // no-op: [TurnLiveFrames.emit] drops a frame for a turn it no longer tracks.
-        if (label == null) {
-            turnLiveFrames.emit(
-                turnId,
-                TurnUi(turnId, settledOutcome.state, null, null, settledOutcome.state == TurnState.FAILED),
-            )
-        }
-        refreshScreen()
-        syncGoalReminderForTurn(turnId)
-        if (continueDelivery) requestSessionDrain(sessionId, turnId)
     }
 
     /**
