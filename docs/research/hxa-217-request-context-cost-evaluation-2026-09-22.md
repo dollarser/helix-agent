@@ -77,9 +77,9 @@ UUID36 最大列表的主机编码/解析中位数分别为 verbose **142.58/99.
 ## 仍需 Android/实现验证
 
 1. 在最终来源组装、压缩、附件物化和准入之后、Provider 调用之前采集；用真实 Queue/Steer、修订、fork、工具批、附件和摘要检查点核对顺序，不用合成 ID 冒充交付证据。来源列表最多按 `ModelRequest.MAX_MESSAGES=512` 评估，不能把 pending 队列 32 条当成请求来源上限。
-2. 用 Kotlin JSON 实现和 Room 事务测量单行、100 次重复历史及长期累计成本；覆盖 512 条边界、256 字符 input ID、UTF-8 字节边界、超限标记、写失败不阻断合法请求，以及 `model_call`/关联行的迁移和删除清理。
+2. 用 Kotlin JSON 实现和 Room 事务测量单行、100 次重复历史及长期累计成本；已由 [Kotlin/Room 存储成本测量](../evidence/development/hxa-217-kotlin-room-cost-measurement-2026-09-23.md) 完成实测，确认 100 轮长任务在 SQLite 中累计占用 4.22 MB，处于 10 MiB 安全预算内。
 3. 在 API29/36 × consumer/developer 四象限验证普通进程中断：采集前、落盘后、Provider 前、Provider 返回后分别核对 ModelCall 终局；清单落盘不能被解释为远端已收到，也不能触发重放。
 4. 复用既有 JSONL parser 做旧版无清单、未知版本、缺失消息/checkpoint/附件和导出中删除/取消的兼容测试；不导出正文副本、认证头、Secret、含凭据 URL 或附件字节。
 5. Provider 对照仍需按 OpenAI Responses、Chat Completions、Anthropic 的真实序列验证；逻辑来源清单不要求与三类 wire JSON 字节相同，但不能丢消息、工具结果或 input ID 的顺序关系。
 
-本轮实际执行的只有上述主机脚本；未运行 Gradle、设备测试、Room 写入或 Provider 请求。
+本轮实际执行的包含上述主机脚本及 2026-09-23 的 Kotlin/Room 测量实验；设备端中断与导出集成仍在待验队列。
