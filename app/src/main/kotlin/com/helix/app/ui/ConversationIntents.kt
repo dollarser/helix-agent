@@ -12,6 +12,7 @@ data class ConversationIntents(
     val onStopTurn: ((String) -> Unit)? = null,
     val onCompact: () -> Unit = {},
     val onEditLatest: ((String) -> Unit)? = null,
+    val onRegenerateLatest: ((String) -> Unit)? = null,
     val onFork: ((String) -> Unit)? = null,
     val onDismissBlocked: () -> Unit,
     val onApproveApproval: (String) -> Unit,

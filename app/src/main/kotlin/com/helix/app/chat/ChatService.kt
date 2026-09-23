@@ -2496,34 +2496,40 @@ class ChatService(
                 setBlocked(str(R.string.chat_blocked_provider_untested))
                 return@launch
             }
-            when (val stagedCheck = attachmentRetry.retryStagedFor(session.id, turnId)) {
-                RetryStagedCheck.None -> {
-                    // No bound attachments: EXACTLY today's retry path (no regression).
-                }
-
-                RetryStagedCheck.Unavailable -> {
-                    setBlocked(str(R.string.chat_blocked_snapshot_recheck_failed))
-                    return@launch
-                }
-
-                is RetryStagedCheck.Staged -> {
-                    val gate = AttachmentSendGate.evaluate(stagedCheck.attachments, credentialScan)
-                    if (gate !is AttachmentSendDecision.Ready) {
-                        // Fail-closed, user-visible, NO new turn. A retry cannot re-pick
-                        // files, so the block is a fixed re-verification reason (or the
-                        // credential guard's reason — the matched content is never echoed).
-                        val reason =
-                            if (gate is AttachmentSendDecision.CredentialDetected) {
-                                egressRejectedLabel(gate.reason)
-                            } else {
-                                str(R.string.chat_blocked_snapshot_recheck_failed)
-                            }
-                        setBlocked(reason)
-                        return@launch
-                    }
-                }
-            }
+            if (!verifyRetryAttachments(session.id, turnId)) return@launch
             submitCheckedRetry(providerId, turnId, continueResults)
+        }
+    }
+
+    @Suppress("ReturnCount")
+    private suspend fun verifyRetryAttachments(
+        sessionId: String,
+        turnId: String,
+    ): Boolean {
+        when (val stagedCheck = attachmentRetry.retryStagedFor(sessionId, turnId)) {
+            RetryStagedCheck.None -> {
+                return true
+            }
+
+            RetryStagedCheck.Unavailable -> {
+                setBlocked(str(R.string.chat_blocked_snapshot_recheck_failed))
+                return false
+            }
+
+            is RetryStagedCheck.Staged -> {
+                val gate = AttachmentSendGate.evaluate(stagedCheck.attachments, credentialScan)
+                if (gate !is AttachmentSendDecision.Ready) {
+                    val reason =
+                        if (gate is AttachmentSendDecision.CredentialDetected) {
+                            egressRejectedLabel(gate.reason)
+                        } else {
+                            str(R.string.chat_blocked_snapshot_recheck_failed)
+                        }
+                    setBlocked(reason)
+                    return false
+                }
+                return true
+            }
         }
     }
 
@@ -2542,6 +2548,54 @@ class ChatService(
         } else {
             val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
             submitTurn(text = null, providerId = providerId, retryTurnId = turnId, goalId = goalId)
+        }
+    }
+
+    /**
+     * Regenerate the latest assistant turn in the open session.
+     * The target assistant message (and any subsequent turn artifacts) are superseded in Room,
+     * retaining their audit history while re-driving the model with the original user input.
+     */
+    @Suppress("ReturnCount")
+    fun regenerateLatestTurn(assistantMessageId: String) {
+        val session = currentSession() ?: return
+        if (sessionTurnAdmission.hasActive(session.id)) return
+        workScope.launch {
+            val assistant = runCatching { storage.messages.resolve(assistantMessageId) }.getOrNull() ?: return@launch
+            if (assistant.sessionId != session.id || assistant.role != "ASSISTANT") return@launch
+            val targetTurnId = assistant.turnId ?: return@launch
+
+            val turnId =
+                RetryMessageSource.resolve(
+                    targetTurnId,
+                    storage.turns.listBySession(session.id).map { it.id },
+                    storage.messages
+                        .listBySession(session.id)
+                        .filter { it.role == "USER" }
+                        .mapNotNull { it.turnId }
+                        .toSet(),
+                ) ?: return@launch
+
+            val providerId = session.providerId ?: return@launch
+            if (!providerService.chatSelectable(providerId)) {
+                setBlocked(str(R.string.chat_blocked_provider_untested))
+                return@launch
+            }
+
+            if (!verifyRetryAttachments(session.id, turnId)) return@launch
+
+            val requestId = idGenerator()
+            storage.messages.supersedeFrom(session.id, assistant.sequence, requestId)
+            refreshScreen()
+
+            val goalId = storage.goalTurnBindings.byTurn(turnId)?.let { storage.goalRuns.resolve(it.runId).goalId }
+            submitTurn(
+                text = null,
+                providerId = providerId,
+                retryTurnId = turnId,
+                goalId = goalId,
+                clientRequestId = requestId,
+            )
         }
     }
 

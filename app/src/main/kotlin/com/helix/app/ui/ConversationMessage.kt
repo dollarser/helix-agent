@@ -108,6 +108,7 @@ internal fun MessageRow(
     message: MessageUi,
     onFork: ((String) -> Unit)? = null,
     onEdit: ((String) -> Unit)? = null,
+    onRegenerate: ((String) -> Unit)? = null,
     searchQuery: String? = null,
     isCurrentMatch: Boolean = false,
 ) {
@@ -179,25 +180,51 @@ internal fun MessageRow(
                     }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CopyTextButton(message.content, "chat-copy-${message.id}")
-                ShareTextButton(message.content, "chat-share-${message.id}")
-                if (isUser && onEdit != null) {
-                    TextButton(
-                        onClick = { onEdit(message.id) },
-                        modifier = Modifier.testTag("chat-edit-${message.id}"),
-                    ) {
-                        Text(stringResource(R.string.message_revision_action))
-                    }
-                }
-                if (onFork != null) {
-                    TextButton(
-                        onClick = { onFork(message.id) },
-                        modifier = Modifier.testTag("chat-fork-${message.id}"),
-                    ) {
-                        Text(stringResource(R.string.session_fork_action))
-                    }
-                }
+            MessageActionRow(
+                message = message,
+                isUser = isUser,
+                onFork = onFork,
+                onEdit = onEdit,
+                onRegenerate = onRegenerate,
+            )
+        }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun MessageActionRow(
+    message: MessageUi,
+    isUser: Boolean,
+    onFork: ((String) -> Unit)?,
+    onEdit: ((String) -> Unit)?,
+    onRegenerate: ((String) -> Unit)?,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CopyTextButton(message.content, "chat-copy-${message.id}")
+        ShareTextButton(message.content, "chat-share-${message.id}")
+        if (isUser && onEdit != null) {
+            TextButton(
+                onClick = { onEdit(message.id) },
+                modifier = Modifier.testTag("chat-edit-${message.id}"),
+            ) {
+                Text(stringResource(R.string.message_revision_action))
+            }
+        }
+        if (!isUser && onRegenerate != null) {
+            TextButton(
+                onClick = { onRegenerate(message.id) },
+                modifier = Modifier.testTag("chat-regenerate-${message.id}"),
+            ) {
+                Text(stringResource(R.string.chat_regenerate_action))
+            }
+        }
+        if (onFork != null) {
+            TextButton(
+                onClick = { onFork(message.id) },
+                modifier = Modifier.testTag("chat-fork-${message.id}"),
+            ) {
+                Text(stringResource(R.string.session_fork_action))
             }
         }
     }

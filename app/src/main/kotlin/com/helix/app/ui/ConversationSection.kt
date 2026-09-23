@@ -312,8 +312,14 @@ internal fun ConversationSection(
                 }
                 items(entry.messages.filter { it.role != "user" }, key = { it.id }) {
                     MessageRow(
-                        it,
-                        intents.onFork,
+                        message = it,
+                        onFork = intents.onFork,
+                        onEdit = null,
+                        onRegenerate =
+                            intents.onRegenerateLatest?.takeIf { _ ->
+                                !screen.isSending &&
+                                    it.id == screen.messages.lastOrNull { m -> m.role != "user" }?.id
+                            },
                         searchQuery = activeSearchQuery,
                         isCurrentMatch = it.id == currentTargetId,
                     )

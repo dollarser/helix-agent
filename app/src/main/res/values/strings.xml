@@ -1258,6 +1258,7 @@
     <string name="chat_submission_rejected_confirmation_changed">Confirmation expired or target changed; please resend.</string>
     <string name="chat_submission_rejected_turn_not_accepted">Could not start turn; please try again.</string>
     <string name="chat_draft_attachment_missing">Some attachments in this draft could not be restored. Please re-attach them.</string>
+    <string name="chat_regenerate_action">重新生成</string>
     <string name="message_revision_action">编辑并重发</string>
     <string name="message_revision_title">修订最后一条消息</string>
     <string name="message_revision_note">在当前会话重新生成。旧版本保留在导出记录中；已发生的文件和外部操作不会撤销。原附件会保留并重新检查。</string>

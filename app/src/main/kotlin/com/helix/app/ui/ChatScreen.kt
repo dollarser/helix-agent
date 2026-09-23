@@ -372,6 +372,7 @@ fun ChatScreen(
                         onStopTurn = { turnId -> chatService.stop(turnId) },
                         onCompact = chatService::compactContext,
                         onFork = { messageId -> navigateAfterSave { chatService.forkFromMessage(messageId) } },
+                        onRegenerateLatest = { messageId -> chatService.regenerateLatestTurn(messageId) },
                         onEditLatest = { messageId ->
                             if (buffer.revisionMessageId == messageId) {
                                 dismissedRevisionId = null

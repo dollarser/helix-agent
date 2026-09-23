@@ -89,6 +89,14 @@ class MessageRepository(
         dao.supersedeFrom(sessionId, target.sequence, requestId)
     }
 
+    fun supersedeFrom(
+        sessionId: String,
+        fromSequence: Long,
+        requestId: String,
+    ) {
+        dao.supersedeFrom(sessionId, fromSequence, requestId)
+    }
+
     fun listBySession(sessionId: String): List<MessageEntity> = dao.listBySession(sessionId)
 
     fun pageAfter(

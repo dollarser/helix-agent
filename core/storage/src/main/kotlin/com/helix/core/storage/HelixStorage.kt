@@ -10,6 +10,8 @@ import androidx.room.migration.Migration
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.content.StorageGarbageCollector
+import com.helix.core.storage.content.StorageGcResult
 import com.helix.core.storage.export.SessionExportRepository
 import com.helix.core.storage.repository.A2aAgentRepository
 import com.helix.core.storage.repository.A2aCapabilityRepository
@@ -214,6 +216,18 @@ class HelixStorage internal constructor(
             }
         val unreferencedPaths = artifactPaths.distinct().filter { database.artifactDao().countByRelativePath(it) == 0 }
         return SessionDeletionManifest(sessionId, deletedBodies.size, unreferencedPaths)
+    }
+
+    /**
+     * Reclaims abandoned temporary write files and orphaned large content bodies that have
+     * no references in Room (e.g. after database pruning or aborted transactions).
+     */
+    fun collectGarbage(
+        gracePeriodMillis: Long = StorageGarbageCollector.DEFAULT_GRACE_PERIOD_MS,
+        now: Long = System.currentTimeMillis(),
+    ): StorageGcResult {
+        val root = (contentStore as? FileContentStore)?.root ?: return StorageGcResult(0, 0, 0L, 0)
+        return StorageGarbageCollector.collectGarbage(root, database, gracePeriodMillis, now)
     }
 
     companion object {

@@ -36,7 +36,7 @@ interface ContentStore {
  * unit-testable; the app hands it a directory under `context.filesDir`.
  */
 class FileContentStore(
-    private val root: File,
+    val root: File,
 ) : ContentStore {
     override fun write(content: String): ContentRef {
         val bytes = content.toByteArray(Charsets.UTF_8)

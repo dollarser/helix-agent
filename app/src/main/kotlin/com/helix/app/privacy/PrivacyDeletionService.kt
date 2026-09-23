@@ -8,6 +8,8 @@ import com.helix.app.mcp.McpAppService
 import com.helix.app.provider.ProviderService
 import com.helix.app.root.RootModule
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.content.StorageGarbageCollector
+import com.helix.core.storage.content.StorageGcResult
 import com.helix.core.workspace.FileScopePath
 import com.helix.core.workspace.WorkspaceArtifactStore
 import com.helix.extensions.skills.SkillKey
@@ -83,4 +85,7 @@ class PrivacyDeletionService(
         RootModule.closeSession()
         return DeletionResult("root-session", 1)
     }
+
+    fun cleanOrphanFiles(gracePeriodMillis: Long = StorageGarbageCollector.DEFAULT_GRACE_PERIOD_MS): StorageGcResult =
+        storage.collectGarbage(gracePeriodMillis)
 }
