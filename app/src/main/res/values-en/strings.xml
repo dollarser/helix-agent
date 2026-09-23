@@ -1323,4 +1323,31 @@
     <string name="connector_update_components">Components: Skill %1$d, MCP %2$d</string>
     <string name="connector_update_version">Version: %1$s</string>
     <string name="connector_update_changes">Skills: %1$d → %2$d; MCP endpoints: %3$d → %4$d</string>
+    <string name="chat_suggestion_type_command">Command</string>
+    <string name="chat_suggestion_type_connector">Connector</string>
+    <string name="chat_suggestion_type_skill">Skill</string>
+    <string name="chat_suggestion_type_file">File</string>
+    <string name="chat_suggestion_type_artifact">Artifact</string>
+    <string name="chat_command_plan_desc">Switch to read-only Plan mode</string>
+    <string name="chat_command_act_desc">Switch to normal Act mode</string>
+    <string name="chat_command_goal_desc">Switch to autonomous Goal mode</string>
+    <string name="chat_command_compact_desc">Compact current conversation context</string>
+    <string name="chat_command_clear_desc">Clear composer input draft</string>
+    <string name="chat_command_help_desc">Show available commands and tips</string>
+    <string name="session_capability_title">Session Capabilities</string>
+    <string name="session_capability_subtitle">Manage Connectors and tools enabled for this session independently</string>
+    <string name="session_capability_empty">No connectors installed yet. Import or configure them in Extensions.</string>
+    <string name="session_capability_enabled_count">%1$d of %2$d connectors enabled</string>
+    <string name="session_capability_status_ready">Ready</string>
+    <string name="session_capability_status_needs_config">Needs setup</string>
+    <string name="session_capability_status_disabled_globally">Tools globally disabled</string>
+    <string name="session_capability_remaining_source_hint">Skill is still provided by remaining sources</string>
+    <string name="session_capability_repair_button">Configure</string>
+    <string name="session_capability_toggle_desc">Enable or disable connector for this session</string>
+    <string name="connector_update_title">Update Connector</string>
+    <string name="connector_update_changelog">Changelog</string>
+    <string name="connector_update_components_changed">Component changes</string>
+    <string name="connector_update_endpoints_reconfigure">Endpoints or auth changed; reconfiguration required</string>
+    <string name="connector_update_confirm_button">Confirm Update</string>
 </resources>
+
