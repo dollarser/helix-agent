@@ -42,6 +42,8 @@
     <string name="nav_permissions">权限</string>
     <string name="nav_settings">设置</string>
     <string name="nav_audit">审计</string>
+    <string name="nav_terminal">终端</string>
+    <string name="empty_terminal">终端仅在开发者版本中提供。</string>
     <string name="empty_sessions">会话列表与模型对话（M2）。</string>
     <string name="empty_tasks">跨会话任务视图：后台任务与目标的运行、待处理、完成与失败状态。</string>
     <string name="empty_files">Workspace、SAF 与文件管理器将在 M4 实现。</string>

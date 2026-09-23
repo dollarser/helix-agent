@@ -44,6 +44,8 @@
     <string name="nav_permissions">Permissions</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_audit">Audit</string>
+    <string name="nav_terminal">Terminal</string>
+    <string name="empty_terminal">Terminal is available in the developer edition only.</string>
     <string name="empty_sessions">Session list and model chat (M2).</string>
     <string name="empty_tasks">Cross-session task view: background tasks and goals by running, needs-you, completed and failed state.</string>
     <string name="empty_files">Workspace, SAF and the file manager land in M4.</string>

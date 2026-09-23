@@ -73,4 +73,9 @@ enum class ShellDestination(
         titleRes = R.string.nav_audit,
         emptyStateRes = R.string.empty_audit,
     ),
+    Terminal(
+        route = "terminal",
+        titleRes = R.string.nav_terminal,
+        emptyStateRes = R.string.empty_terminal,
+    ),
 }

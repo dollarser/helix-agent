@@ -204,12 +204,19 @@ internal fun HelixApp(container: AppContainer) {
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet {
+                    val context = androidx.compose.ui.platform.LocalContext.current
                     GroupedNavigation(repository.destinations, currentRoute) { destination ->
-                        navController.navigate(destination.route) {
-                            launchSingleTop = true
-                            popUpTo(repository.initialDestination.route)
+                        if (destination == ShellDestination.Terminal) {
+                            com.helix.app.terminal.ManualTerminalModule
+                                .open(context, ".")
+                            scope.launch { drawerState.close() }
+                        } else {
+                            navController.navigate(destination.route) {
+                                launchSingleTop = true
+                                popUpTo(repository.initialDestination.route)
+                            }
+                            scope.launch { drawerState.close() }
                         }
-                        scope.launch { drawerState.close() }
                     }
                 }
             },
@@ -445,8 +452,13 @@ private fun DestinationScreen(
             PermissionsScreenDestination(container)
         }
 
-        else -> {
-            EmptyDestination(destination, PaddingValues(24.dp))
+        ShellDestination.Terminal -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            androidx.compose.runtime.LaunchedEffect(Unit) {
+                com.helix.app.terminal.ManualTerminalModule
+                    .open(context, ".")
+                navController.popBackStack()
+            }
         }
     }
 }
@@ -476,7 +488,7 @@ private fun AuditScreenDestination(container: AppContainer) {
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "UnusedPrivateMember")
 private fun EmptyDestination(
     destination: ShellDestination,
     contentPadding: PaddingValues,

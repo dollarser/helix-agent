@@ -29,7 +29,8 @@ class MainActivityTest {
         composeRule.onNodeWithTag("screen-sessions").assertIsDisplayed()
         composeRule.onNodeWithTag("open-navigation").performClick()
 
-        ShellDestination.entries.forEach { destination ->
+        val container = (composeRule.activity.application as HelixApplication).appContainer
+        container.shellRepository.destinations.forEach { destination ->
             composeRule
                 .onNodeWithTag("navigation-${destination.route}")
                 .assertIsDisplayed()

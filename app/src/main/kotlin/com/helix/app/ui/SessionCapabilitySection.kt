@@ -102,7 +102,7 @@ fun SessionCapabilitySection(
 }
 
 @Composable
-@Suppress("FunctionName")
+@Suppress("FunctionName", "LongMethod")
 private fun SessionConnectorRow(
     item: SessionConnectorItemUi,
     onToggle: (Boolean) -> Unit,

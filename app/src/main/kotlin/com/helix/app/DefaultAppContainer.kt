@@ -92,8 +92,6 @@ internal class DefaultAppContainer(
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
 
-    override val shellRepository: ShellRepository = FakeShellRepository()
-
     override val storage: HelixStorage = HelixStorage.create(context)
     override val sessionExport =
         com.helix.app.export.SessionExportService(
@@ -119,6 +117,10 @@ internal class DefaultAppContainer(
             executionOwnership,
             profileStore,
         )
+
+    @Suppress("SENSELESS_COMPARISON")
+    override val shellRepository: ShellRepository =
+        FakeShellRepository(terminalAvailable = manualTerminal != null)
 
     override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
     override val lanScopeStore =

@@ -45,6 +45,14 @@ class ShellRepositoryTest {
     }
 
     @Test
+    fun `shell exposes thirteen routes when terminal is available`() {
+        val devRepo = FakeShellRepository(terminalAvailable = true)
+        assertEquals(13, devRepo.destinations.size)
+        assertTrue(ShellDestination.Terminal in devRepo.destinations)
+        assertEquals("terminal", ShellDestination.Terminal.route)
+    }
+
+    @Test
     fun `shell repository is exposed through the container interface type`() {
         // HXA-028: DefaultAppContainer now requires an Android Context (Room +
         // SharedPreferences); the production wiring is exercised by the

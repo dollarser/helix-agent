@@ -46,6 +46,7 @@ object SessionConnectorAvailabilityEvaluator {
     /**
      * Computes the set of available tool identifiers for a session.
      */
+    @Suppress("NestedBlockDepth")
     fun computeAvailableTools(
         sessionEnabledConnectorIds: Set<String>,
         packages: List<InstalledPackageSpec>,

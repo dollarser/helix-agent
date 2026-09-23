@@ -50,7 +50,7 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Sessions -> R.string.nav_group_conversations
 
         ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
-        ShellDestination.Files, ShellDestination.Browser,
+        ShellDestination.Files, ShellDestination.Browser, ShellDestination.Terminal,
         -> R.string.nav_group_work
 
         ShellDestination.Extensions -> R.string.nav_group_extensions

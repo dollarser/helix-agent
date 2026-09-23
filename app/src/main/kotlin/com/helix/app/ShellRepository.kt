@@ -5,7 +5,14 @@ interface ShellRepository {
     val initialDestination: ShellDestination
 }
 
-internal class FakeShellRepository : ShellRepository {
-    override val destinations: List<ShellDestination> = ShellDestination.entries
+internal class FakeShellRepository(
+    terminalAvailable: Boolean = false,
+) : ShellRepository {
+    override val destinations: List<ShellDestination> =
+        if (terminalAvailable) {
+            ShellDestination.entries
+        } else {
+            ShellDestination.entries.filter { it != ShellDestination.Terminal }
+        }
     override val initialDestination: ShellDestination = ShellDestination.Sessions
 }

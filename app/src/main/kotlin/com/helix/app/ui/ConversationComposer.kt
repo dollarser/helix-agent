@@ -27,7 +27,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "LongParameterList")
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 internal fun ConversationComposer(
     input: String,
     onInput: (String) -> Unit,

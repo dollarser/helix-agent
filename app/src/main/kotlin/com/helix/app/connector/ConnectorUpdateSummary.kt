@@ -37,6 +37,7 @@ object ConnectorUpdateDiffEvaluator {
     /**
      * Compares an existing installed package with an incoming update target.
      */
+    @Suppress("ComplexCondition")
     fun evaluate(
         connectorId: String,
         current: PackageSnapshot,

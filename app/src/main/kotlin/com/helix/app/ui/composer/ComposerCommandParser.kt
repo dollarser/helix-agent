@@ -85,6 +85,7 @@ object ComposerCommandParser {
      * Extracts an [AutocompleteQuery] from the input text relative to the cursor.
      * Returns null if no active trigger is detected.
      */
+    @Suppress("ReturnCount")
     fun parseQuery(
         text: String,
         cursor: Int = text.length,
