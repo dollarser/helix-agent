@@ -14,7 +14,8 @@
 - HXA-218 第一批 UI 重构与 HXA-219 产物就地预览已完成各自本地范围，见[完成记录](../completion-records/HXA-218.md)和[完成记录](../completion-records/HXA-219.md)；仍保留其设备/整合边界。
 - 上述214/215/216/218/219已在本轮整合至本地main：完整主机门禁、30批联合设备验证（920项）和恢复main文档后的源码门禁通过，见[收敛记录](../evidence/development/branch-convergence-2026-09-22.md)。本轮未推送或执行远端CI。
 
-- HXA-129 已在 `codex/hxa-129-connector-lifecycle` 本地交付：安全替换、安装归属与会话启停，完整主机门禁及272项定向设备验证通过，见[完成记录](../completion-records/HXA-129.md)。尚未合并 main、推送或运行远端CI。
+- HXA-129 已在 `codex/hxa-129-connector-lifecycle` 本地交付并已整合入 main：安全替换、安装归属与会话启停，完整主机门禁及272项定向设备验证通过，见[完成记录](../completion-records/HXA-129.md)。
+- HXA-217 轻量请求来源记录与 JSONL 可追踪性已完成本地实现与验收，Room 27→28 迁移与设备测试通过，UI 第二阶段对齐 Operit（Thinking Accordion、工具执行内联预览）落地，见[完成记录](../completion-records/HXA-217.md)。
 
 ## In progress
 
@@ -26,11 +27,10 @@
 
 ## Next task
 
-本地引擎及浏览器已整合验收；后续按[工作计划](next-work-plan.md)推进 **129按授权整合 → 217（接受设计后）**。不因文档评估将待修项标记完成。
+129 与 217 均已完成并在 main 整合，后续按[工作计划](next-work-plan.md)推进。
 
-- 129 不再重复开发；后续按授权整合已验证分支。远端CI仍暂缓，不拿本地分支结果冒充 main/远端通过。
-- 217 先接受 ADR-AGENT-010，再补 Kotlin/Room 成本、来源记录和 JSONL 兼容实现；主机格式预评估不替代 Android 或生产验收。
-- 214、215、216、218、219 已有独立完成记录，本轮联合验证范围见收敛记录；后续修改仍按受影响路径重验。
+- 129 与 217 已完成本地交付与主线收敛，远端推送并核对 CI 状态。
+- 后续根据工作计划与架构决策评估 HXA-126、HXA-196、HXA-199 物理专项或待接受的后续提案。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -42,7 +42,6 @@
 | HXA-125 受保护 Connector | WorkBuddy 来源样本已补；仍需独立账号验证凭据无效、权限拒绝、厂商撤销及重连 |
 | HXA-126 外部验收 | 两家独立服务账号、App 注册与 redirect 条件；动态注册未交付 |
 | HXA-190 真实订阅 | Claude/Grok 付费调用账号不可用，按所有者决定暂缓；fixture 不算真实调用通过 |
-| HXA-217 | proposed ADR-AGENT-010待接受及后续实现 |
 | 发布验收 | HXA-122 稳定 applicationId、渠道命名、签名与升级路径待决定；发行顺序 120→122→121→123 |
 
 设备、账号和发行条件项不阻塞无依赖的本地工作；会话目录绑定 ADR-WORKSPACE-004 仍 proposed，不自动启动 HXA-210。

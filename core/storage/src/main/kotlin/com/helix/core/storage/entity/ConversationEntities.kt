@@ -161,6 +161,9 @@ data class ModelCallEntity(
     // content). Null for calls predating v14 and for compaction summary calls.
     val promptFingerprint: String? = null,
     val promptSections: String? = null,
+    // HXA-217 / ADR-AGENT-010: compact request context manifest JSON recording input messages,
+    // input IDs, and compaction boundary. Null for calls predating v28 or compaction summary calls.
+    val requestManifest: String? = null,
 )
 
 /** architecture doc 9.1: `tool_calls` — canonical argsJson + immutable argsHash. */

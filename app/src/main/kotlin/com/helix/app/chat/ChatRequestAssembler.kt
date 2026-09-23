@@ -136,6 +136,8 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
+            messageRefs = history.messageRefs,
+            checkpoint = history.checkpoint,
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
@@ -172,6 +174,8 @@ internal class ChatRequestAssembler(
             model = storage.sessions.resolve(sessionId).modelId ?: config.model,
             messages = history.messages,
             sourceMessageIds = history.messageIds,
+            messageRefs = history.messageRefs,
+            checkpoint = history.checkpoint,
             tools = tools,
             maxOutputTokens = control.budgets.maxOutputTokens,
             reasoning =
@@ -247,6 +251,8 @@ internal class ChatRequestAssembler(
     private data class History(
         val messages: List<ModelMessage>,
         val messageIds: Set<String>,
+        val messageRefs: List<com.helix.core.model.MessageRefEntry> = emptyList(),
+        val checkpoint: Long? = null,
     )
 
     private suspend fun persistedHistory(
@@ -300,8 +306,30 @@ internal class ChatRequestAssembler(
                     restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
                         restored.filter { it.role != ModelRole.SYSTEM }
                 }
-        return History(selected, userRows.mapNotNull { it.messageId }.toSet())
+        return History(
+            messages = selected,
+            messageIds = userRows.mapNotNull { it.messageId }.toSet(),
+            messageRefs = toMessageRefs(historyRows),
+            checkpoint = checkpoint?.coveredThrough,
+        )
     }
+
+    private fun toMessageRefs(
+        historyRows: List<ChatHistoryBuilder.PersistedRow>,
+    ): List<com.helix.core.model.MessageRefEntry> =
+        historyRows.mapNotNull { row ->
+            val id = row.messageId ?: return@mapNotNull null
+            val role =
+                when (row.role.uppercase()) {
+                    "USER" -> com.helix.core.model.MessageRefEntry.ROLE_USER
+                    "ASSISTANT" -> com.helix.core.model.MessageRefEntry.ROLE_ASSISTANT
+                    "TOOL" -> com.helix.core.model.MessageRefEntry.ROLE_TOOL
+                    "SYSTEM" -> com.helix.core.model.MessageRefEntry.ROLE_SYSTEM
+                    else -> return@mapNotNull null
+                }
+            com.helix.core.model
+                .MessageRefEntry(id, role)
+        }
 
     private fun sessionProviderId(sessionId: String): String =
         requireNotNull(storage.sessions.resolve(sessionId).providerId) { "session has no provider" }

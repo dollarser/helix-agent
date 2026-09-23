@@ -778,6 +778,10 @@
     <string name="chat_reasoning_medium">中</string>
     <string name="chat_reasoning_high">高</string>
     <string name="chat_copy_all">全文复制</string>
+    <string name="chat_thought_process">已完成深度思考</string>
+    <string name="chat_thinking_in_progress">思考中…</string>
+    <string name="tool_preview_expand">展开输出</string>
+    <string name="session_details_title">会话详情与环境</string>
     <string name="chat_rename">重命名</string>
     <string name="chat_directory">工作目录</string>
     <string name="chat_directory_none">未归属目录</string>

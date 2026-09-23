@@ -780,6 +780,10 @@
     <string name="chat_reasoning_medium">Medium</string>
     <string name="chat_reasoning_high">High</string>
     <string name="chat_copy_all">Copy all</string>
+    <string name="chat_thought_process">Thought process</string>
+    <string name="chat_thinking_in_progress">Thinking…</string>
+    <string name="tool_preview_expand">Expand output</string>
+    <string name="session_details_title">Session details &amp; environment</string>
     <string name="chat_rename">Rename</string>
     <string name="chat_directory">Directory</string>
     <string name="chat_directory_none">No directory</string>

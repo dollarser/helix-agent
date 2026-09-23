@@ -11,10 +11,11 @@ class ModelCallRepository(
         turnId: String,
         providerSnapshot: String,
         state: String,
+        requestManifest: String? = null,
     ): ModelCallEntity {
         require(providerSnapshot.isNotBlank()) { "providerSnapshot must not be blank" }
         require(state.isNotBlank()) { "state must not be blank" }
-        val entity = ModelCallEntity(id, turnId, providerSnapshot, state, null, null)
+        val entity = ModelCallEntity(id, turnId, providerSnapshot, state, null, null, null, null, requestManifest)
         dao.insert(entity)
         return entity
     }
@@ -53,5 +54,16 @@ class ModelCallRepository(
         require(fingerprint.isNotBlank()) { "fingerprint must not be blank" }
         require(sections.isNotBlank()) { "sections must not be blank" }
         dao.recordPrompt(id, fingerprint, sections)
+    }
+
+    /**
+     * HXA-217 / ADR-AGENT-010: Records the request context manifest compact JSON on the call row.
+     */
+    fun recordRequestManifest(
+        id: String,
+        manifest: String,
+    ) {
+        require(manifest.isNotBlank()) { "manifest must not be blank" }
+        dao.recordRequestManifest(id, manifest)
     }
 }

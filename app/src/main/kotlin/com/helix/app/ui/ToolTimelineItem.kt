@@ -1,6 +1,7 @@
 package com.helix.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -8,9 +9,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,6 +54,9 @@ internal fun ToolTimelineItem(
                 .testTag("tool-row-${row.callId}"),
     ) {
         ToolTimelineSummary(row, details) { details = !details }
+        if (!details && row.resultSummary != null) {
+            ToolResultInlinePreview(row.resultSummary, { details = true }, row.callId)
+        }
         if (details) {
             ExpandableSummary(
                 stringResource(R.string.chat_tool_request, row.requestSummary),
@@ -182,5 +189,48 @@ internal fun ProotRecoveryActions(
             onClick = { action(row.turnId, row.callId, true) },
             modifier = Modifier.testTag("proot-stop-${row.callId}"),
         ) { Text(stringResource(R.string.proot_recovery_stop)) }
+    }
+}
+
+@Composable
+@Suppress("FunctionName")
+private fun ToolResultInlinePreview(
+    summary: String,
+    onExpand: () -> Unit,
+    callId: String,
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clickable(onClick = onExpand)
+                .testTag("tool-inline-preview-$callId"),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = summary.lineSequence().take(3).joinToString("\n"),
+                style =
+                    MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                painter = painterResource(R.drawable.ic_expand_summary),
+                contentDescription = stringResource(R.string.tool_preview_expand),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }

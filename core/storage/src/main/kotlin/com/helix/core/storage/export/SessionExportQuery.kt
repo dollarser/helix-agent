@@ -76,6 +76,7 @@ internal data class SessionExportQuery(
                         "requestId",
                         "promptFingerprint",
                         "promptSections",
+                        "requestManifest",
                     ),
                 ),
                 SessionExportQuery(

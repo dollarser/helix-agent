@@ -85,7 +85,16 @@ internal fun MessageRow(
                             .padding(horizontal = 12.dp, vertical = 8.dp)
                     SelectionContainer {
                         if (!isUser) {
-                            MarkdownText(message.content, bodyModifier)
+                            val parsed = ThinkingParser.parse(message.content)
+                            if (parsed.thinking != null) {
+                                ThinkingAccordion(
+                                    thinking = parsed.thinking,
+                                    isStreaming = parsed.isStreaming,
+                                    messageId = message.id,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                )
+                            }
+                            MarkdownText(parsed.text, bodyModifier)
                         } else {
                             Text(
                                 message.content,

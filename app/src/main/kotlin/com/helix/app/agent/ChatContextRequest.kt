@@ -23,6 +23,10 @@ internal data class ChatContextRequest(
     val prompt: PromptSnapshot? = null,
     /** Transient identity of persisted rows actually selected; never another saved payload. */
     val sourceMessageIds: Set<String> = emptySet(),
+    /** HXA-217 / ADR-AGENT-010: ordered sequence of persisted messages in request context. */
+    val messageRefs: List<com.helix.core.model.MessageRefEntry> = emptyList(),
+    /** The compaction checkpoint covered boundary if active. */
+    val checkpoint: Long? = null,
 ) {
     fun modelRequest(): ModelRequest =
         ModelRequest(

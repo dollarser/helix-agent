@@ -1,9 +1,9 @@
 # ADR-AGENT-010: 模型请求上下文清单
 
-Status: proposed
-Date: 2026-09-22
+Status: accepted
+Date: 2026-09-23
 HXA: HXA-217
-Deciders: Project owner（授权收敛轻量版需求设计，未授权本轮实现）
+Deciders: Project owner（基于 Kotlin/Room 100轮实测 4.22MB 空间安全通过与 256KiB 单行守卫证据，授权实施轻量版来源清单与 JSONL 溯源）
 
 ## Context
 
@@ -60,7 +60,7 @@ Deciders: Project owner（授权收敛轻量版需求设计，未授权本轮实
 
 ## Verification
 
-[HXA-217](../../development/tasks/HXA-217.md) 要求来源与 loopback 请求核对、修订/压缩/真实输入交付、存储测量、JSONL 兼容、内容缺失、写失败与进程中断验证。本轮只修改设计，未实施或执行新功能验收。
+[HXA-217](../../completion-records/HXA-217.md) 要求来源与 loopback 请求核对、修订/压缩/真实输入交付、存储测量、JSONL 兼容、内容缺失、写失败与进程中断验证。本轮只修改设计，未实施或执行新功能验收。
 
 ## Reconsider when
 

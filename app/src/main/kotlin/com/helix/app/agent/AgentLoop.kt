@@ -5,6 +5,8 @@ import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.model.Clock
+import com.helix.core.model.CompactManifestCodec
+import com.helix.core.model.MessageRefEntry
 import com.helix.core.model.ModelRequest
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -163,6 +165,14 @@ internal class AgentLoop(
                 ),
             )
             // The per-request prompt record commits inside collectModelStream, before the wire call.
+            val manifestJson =
+                createRequestManifest(
+                    coordinator.snapshot().modelCallId,
+                    context,
+                    compaction,
+                    request,
+                    turnId,
+                )
             val acc =
                 collectModelStream(
                     coordinator,
@@ -172,6 +182,7 @@ internal class AgentLoop(
                     context.prompt,
                     sessionId,
                     if (compaction == null) context.sourceMessageIds else emptySet(),
+                    manifestJson,
                 )
             val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
             val accountingFailure = admission.finish(acc)
@@ -281,6 +292,47 @@ internal class AgentLoop(
         return boundary
     }
 
+    private fun createRequestManifest(
+        modelCallId: String,
+        context: ChatContextRequest,
+        compaction: ContextCompaction.Plan?,
+        request: ModelRequest,
+        turnId: String,
+    ): String {
+        val manifest =
+            if (compaction == null) {
+                val inputIds: List<String> =
+                    if (context.sourceMessageIds.isNotEmpty()) {
+                        storage.sessionInputs.appendedForMessages(turnId, context.sourceMessageIds).map { it.inputId }
+                    } else {
+                        emptyList()
+                    }
+                CompactManifestCodec.bounded(
+                    callId = modelCallId,
+                    timestamp = clock.now().toEpochMilli(),
+                    checkpoint = context.checkpoint,
+                    messages = context.messageRefs,
+                    inputIds = inputIds,
+                )
+            } else {
+                CompactManifestCodec.bounded(
+                    callId = modelCallId,
+                    timestamp = clock.now().toEpochMilli(),
+                    checkpoint = compaction.coveredThrough,
+                    messages =
+                        request.messages.mapIndexed { idx, msg ->
+                            MessageRefEntry(
+                                messageId = "summary-msg-$idx",
+                                roleCode = MessageRefEntry.fromModelRole(msg.role),
+                            )
+                        },
+                    inputIds = emptyList(),
+                )
+            }
+        return CompactManifestCodec.encodeCompact(manifest)
+    }
+
+    @Suppress("LongParameterList")
     private suspend fun collectModelStream(
         coordinator: TurnCoordinator,
         provider: com.helix.provider.api.ModelProvider,
@@ -289,10 +341,12 @@ internal class AgentLoop(
         prompt: PromptSnapshot? = null,
         sessionId: String,
         sourceMessageIds: Set<String>,
+        manifestJson: String? = null,
     ): ModelStreamState {
         // Per-request prompt record (research doc section 4.4): commits to THIS model-call row
         // plus its audit event before the wire call; summary calls carry no record.
         coordinator.recordPromptSnapshot(prompt, !publishText)
+        coordinator.recordRequestManifest(manifestJson)
         val acc = coordinator.beginModelStream(compacting = !publishText)
         goalTimes[coordinator.id]?.checkActive()
         if (publishText) {

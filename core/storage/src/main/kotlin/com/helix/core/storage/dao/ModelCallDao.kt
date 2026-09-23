@@ -37,4 +37,10 @@ interface ModelCallDao {
         fingerprint: String,
         sections: String,
     )
+
+    @Query("UPDATE model_calls SET requestManifest = :manifest WHERE id = :id")
+    fun recordRequestManifest(
+        id: String,
+        manifest: String,
+    )
 }

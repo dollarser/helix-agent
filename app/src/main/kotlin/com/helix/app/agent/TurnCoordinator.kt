@@ -224,6 +224,17 @@ internal class TurnCoordinator private constructor(
         }
     }
 
+    /**
+     * HXA-217 / ADR-AGENT-010: Records the request context manifest compact JSON on the call row.
+     */
+    fun recordRequestManifest(manifestJson: String?) {
+        if (manifestJson.isNullOrBlank()) return
+        val current = runtime.snapshot()
+        storage.withTransaction {
+            storage.modelCalls.recordRequestManifest(current.modelCallId, manifestJson)
+        }
+    }
+
     fun beginToolBatch(callIds: List<String>) {
         // Validate the full batch before changing durable state.
         require(callIds.isNotEmpty())

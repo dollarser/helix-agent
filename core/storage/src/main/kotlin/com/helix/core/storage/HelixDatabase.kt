@@ -134,7 +134,7 @@ import com.helix.core.storage.entity.TurnEntity
             com.helix.core.storage.entity.SessionInputEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
         ],
-    version = 27,
+    version = 28,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
@@ -214,6 +214,7 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionPermissionDefaultsDao(): SessionPermissionDefaultsDao
 
     companion object {
+        val MIGRATION_27_28 = RequestManifestMigration.MIGRATION_27_28
         val MIGRATION_26_27 = ConnectorMigration.MIGRATION_26_27
         val MIGRATION_25_26 = SessionInputMigration.MIGRATION_25_26
         val MIGRATION_21_22 = HelixMigrations.MIGRATION_21_22

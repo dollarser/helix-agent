@@ -1,7 +1,7 @@
 # HXA-217 请求来源记录 Kotlin/Room 存储成本测量
 
 日期：2026-09-23。
-依据：[HXA-217 任务规格](../../development/tasks/HXA-217.md)与 [ADR-AGENT-010](../../adr/agent/010-request-context-manifest.md)。
+依据：[HXA-217 完成记录](../../completion-records/HXA-217.md)与 [ADR-AGENT-010](../../adr/agent/010-request-context-manifest.md)。
 关联基线评估：[主机格式预评估](../../research/hxa-217-request-context-cost-evaluation-2026-09-22.md)。
 
 ## 1. 测量目标与方法
