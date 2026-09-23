@@ -1366,5 +1366,11 @@
     <string name="chat_search_prev">上一个</string>
     <string name="chat_search_next">下一个</string>
     <string name="chat_search_close">关闭搜索</string>
+    <string name="chat_share_message">分享消息</string>
+    <string name="chat_prompt_suggestion_code_analysis">分析代码库架构与核心依赖</string>
+    <string name="chat_prompt_suggestion_plan_feature">规划新功能并制定技术实施方案</string>
+    <string name="chat_prompt_suggestion_run_tests">执行自动化测试并验证质量门禁</string>
+    <string name="chat_prompt_suggestion_goal_fix">排查并修复未通过的测试用例</string>
+    <string name="chat_prompt_suggestion_goal_refactor">重构指定模块并进行性能优化</string>
 </resources>
 

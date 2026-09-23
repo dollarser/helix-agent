@@ -74,6 +74,35 @@ internal fun CopyTextButton(
 }
 
 @Composable
+@Suppress("FunctionName")
+private fun ShareTextButton(
+    text: String,
+    tag: String,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    IconButton(
+        onClick = {
+            val sendIntent =
+                android.content.Intent().apply {
+                    action = android.content.Intent.ACTION_SEND
+                    putExtra(android.content.Intent.EXTRA_TEXT, text)
+                    type = "text/plain"
+                }
+            val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+            context.startActivity(shareIntent)
+        },
+        enabled = text.isNotEmpty(),
+        modifier = Modifier.size(48.dp).testTag(tag),
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_chat_share),
+            stringResource(R.string.chat_share_message),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
 @Suppress("FunctionName", "LongMethod")
 internal fun MessageRow(
     message: MessageUi,
@@ -152,6 +181,7 @@ internal fun MessageRow(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CopyTextButton(message.content, "chat-copy-${message.id}")
+                ShareTextButton(message.content, "chat-share-${message.id}")
                 if (isUser && onEdit != null) {
                     TextButton(
                         onClick = { onEdit(message.id) },

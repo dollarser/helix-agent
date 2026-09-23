@@ -281,7 +281,11 @@ internal fun ConversationSection(
         ) {
             if (emptyConversation) {
                 item(key = "empty-conversation") {
-                    EmptyConversationHint(runControl.mode == AgentMode.GOAL, screen.badge != null)
+                    EmptyConversationHint(
+                        goalMode = runControl.mode == AgentMode.GOAL,
+                        hasProvider = screen.badge != null,
+                        onSelectPrompt = onInput,
+                    )
                 }
             }
             val currentTargetId = searchController.currentMatch?.targetId.takeIf { searchActive }

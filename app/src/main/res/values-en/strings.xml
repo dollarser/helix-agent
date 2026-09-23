@@ -1369,5 +1369,11 @@
     <string name="chat_search_prev">Previous match</string>
     <string name="chat_search_next">Next match</string>
     <string name="chat_search_close">Close search</string>
+    <string name="chat_share_message">Share message</string>
+    <string name="chat_prompt_suggestion_code_analysis">Analyze codebase architecture and dependencies</string>
+    <string name="chat_prompt_suggestion_plan_feature">Plan a new feature and create an implementation plan</string>
+    <string name="chat_prompt_suggestion_run_tests">Run automated tests and verify quality gates</string>
+    <string name="chat_prompt_suggestion_goal_fix">Investigate and fix failing test cases</string>
+    <string name="chat_prompt_suggestion_goal_refactor">Refactor a specific module and optimize performance</string>
 </resources>
 
