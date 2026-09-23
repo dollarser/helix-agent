@@ -6,11 +6,9 @@
 
 - accepted [ADR-CONNECTORS-001](001-portable-bundles.md)：Connector 能力包
 - accepted [ADR-CONNECTORS-002](002-oauth.md)：Connector public-client OAuth；HXA-126 外部验收未完成
+- accepted [ADR-CONNECTORS-003](003-ownership-and-installation.md)：Connector 安全替换、安装归属与会话启停
 - accepted [ADR-CONNECTORS-004](004-signed-index.md)：Connector 签名索引与来源
 - accepted [ADR-CONNECTORS-005](005-curated-marketplace.md)：内置精选扩展市场与端侧安装契约
 
-## 候选方案（不作为实现授权）
-
-- proposed [ADR-CONNECTORS-003](003-ownership-and-installation.md)：Connector 安全替换、安装归属与会话启停
 
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](../workspace/README.md)，不把一个主题的许可推导成另一个主题的授权。

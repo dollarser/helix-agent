@@ -12,25 +12,11 @@ import com.helix.extensions.skills.SkillEnablementScope
 import com.helix.extensions.skills.SkillImportService
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillRepository
-import com.helix.extensions.skills.SkillSource
-import com.helix.extensions.skills.connector.ConnectorEndpoint
 import com.helix.extensions.skills.connector.ConnectorPackage
 import com.helix.extensions.skills.connector.ConnectorPackageReader
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.UUID
 
-/** UI facade: picker contents never enter chat, Room, logging, or foreign setup code. */
+/** UI facade: bounded metadata and references enter Room; credentials remain in SecretStore. */
 @Suppress("TooManyFunctions") // single UI facade for import, connection and component lifecycle
 class ConnectorService(
     private val context: Context,
@@ -39,8 +25,9 @@ class ConnectorService(
     private val importer: SkillImportService,
     private val skills: SkillRepository,
     val oauthCoordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator? = null,
+    val catalog: ConnectorCatalog = ConnectorCatalog(storage, context.filesDir.toPath().resolve("connectors")),
+    private val installBoundary: (String) -> Unit = {},
 ) {
-    private val root = context.filesDir.toPath().resolve("connectors")
     private val snapshots = context.filesDir.toPath().resolve("skills/snapshots")
     private val reader = ConnectorPackageReader()
 
@@ -64,63 +51,47 @@ class ConnectorService(
     }
 
     @Synchronized
-    fun install(bundle: ConnectorPackage): InstalledConnector {
-        list().firstOrNull { it.hash == bundle.contentHash }?.let { return it }
-        require(bundle.endpoints.isNotEmpty() || bundle.skills.isNotEmpty()) { "CONNECTOR_NO_PORTABLE_COMPONENT" }
-        val staging = Files.createTempDirectory(context.cacheDir.toPath(), "connector-skills-")
-        try {
-            val staged = mutableListOf<com.helix.extensions.skills.StagedSkillImport>()
+    fun install(
+        bundle: ConnectorPackage,
+        identity: String = "local:${bundle.source}:${bundle.contentHash}",
+        expectedRevision: Long? = null,
+        cancelled: () -> Boolean = { false },
+        sessionScoped: Boolean = true,
+    ): InstalledConnector =
+        synchronized(catalog.mutationLock) {
             try {
-                bundle.skills.forEachIndexed { index, skill ->
-                    val directory = staging.resolve(index.toString()).resolve(skill.directory)
-                    skill.files.forEach { (name, bytes) ->
-                        val target = directory.resolve(ConnectorPackageReader.safePath(name))
-                        Files.createDirectories(target.parent)
-                        Files.write(target, bytes)
-                    }
-                    staged += importer.stageDirectory(directory)
+                skills.withSnapshotReferences {
+                    ConnectorInstaller(
+                        context.cacheDir.toPath(),
+                        snapshots,
+                        importer,
+                        skills,
+                        catalog,
+                        installBoundary,
+                    ) {
+                        cleanupPending = true
+                    }.install(bundle, identity, expectedRevision, cancelled, sessionScoped)
                 }
-                val keys = staged.map { item -> skills.registerSnapshot(importer.commit(item, snapshots)) }
-                val id = "conn-" + UUID.randomUUID().toString()
-                val record =
-                    InstalledConnector(
-                        id,
-                        bundle.name,
-                        bundle.source,
-                        bundle.contentHash,
-                        bundle.endpoints.mapIndexed { index, endpoint -> InstalledEndpoint("$id-$index", endpoint) },
-                        keys,
-                        bundle.diagnostics,
-                    )
-                Files.createDirectories(root)
-                val temporary = Files.createTempFile(root, ".pending-", ".tmp")
-                try {
-                    Files.write(temporary, encode(record).toByteArray(Charsets.UTF_8))
-                    Files.move(temporary, root.resolve("$id.json"), StandardCopyOption.ATOMIC_MOVE)
-                } finally {
-                    Files.deleteIfExists(temporary)
-                }
-                return record
             } finally {
-                staged.forEach { importer.discard(it) }
+                runCatching { cleanupRetired() }.onFailure { cleanupPending = true }
             }
-        } finally {
-            deleteTree(staging)
         }
-    }
 
-    @Synchronized
-    fun list(): List<InstalledConnector> {
-        if (!Files.isDirectory(root)) return emptyList()
-        return Files.list(root).use { paths ->
-            paths
-                .filter { it.fileName.toString().endsWith(".json") }
-                .sorted()
-                .map { decode(Files.readAllBytes(it).toString(Charsets.UTF_8)) }
-                .collect(
-                    java.util.stream.Collectors
-                        .toList(),
-                )
+    fun list(): List<InstalledConnector> = catalog.list()
+
+    fun sessionRows(sessionId: String): List<ConnectorSessionRow> {
+        val selected = catalog.selected(sessionId)
+        val installed = list().filter { it.sessionScoped }.associateBy { it.id }
+        return (installed.keys + selected).map { id ->
+            val record = installed[id]
+            ConnectorSessionRow(
+                id,
+                record?.name ?: id,
+                id in selected,
+                record != null && catalog.defaultSelected(id),
+                record != null,
+                record != null && (record.endpoints.any(::enabled) || record.skills.any(::skillEnabled)),
+            )
         }
     }
 
@@ -311,106 +282,70 @@ class ConnectorService(
     }
 
     @Synchronized
-    fun remove(record: InstalledConnector) {
-        val current = list().single { it.id == record.id }
-        current.endpoints.forEach { endpoint ->
-            disable(endpoint)
-            storage.secrets.delete(SecretAlias(endpoint.id))
-            oauthCoordinator?.clearLocal(endpoint.id)
+    fun remove(record: InstalledConnector) =
+        synchronized(catalog.mutationLock) {
+            catalog.remove(record)
+            cleanupRetired()
         }
-        val otherKeys = list().filter { it.id != record.id }.flatMap { it.skills }.toSet()
-        current.skills.filter { it !in otherKeys }.forEach { setSkillEnabled(it, false) }
-        Files.delete(root.resolve("${current.id}.json"))
+
+    @Volatile
+    var cleanupPending: Boolean = false
+        private set
+
+    /** Cleanup failure never rolls back an already published installation. */
+    @Suppress("TooGenericExceptionCaught")
+    @Synchronized
+    fun cleanupRetired() =
+        synchronized(catalog.mutationLock) {
+            cleanupPending = false
+            cleanupStaging()
+            catalog.unusedSkills().forEach { key ->
+                try {
+                    skills.withSnapshotReferences {
+                        // Independent imports can acquire ownership between the initial scan and this lock.
+                        if (key in catalog.unusedSkills() && skills.hasSnapshot(key)) {
+                            skills.removePermanentlyForPrivacy(key)
+                        }
+                    }
+                } catch (_: Exception) {
+                    cleanupPending = true
+                }
+            }
+            catalog.retiredEndpoints().forEach { id ->
+                try {
+                    val cleaned =
+                        mcp.cleanupIfIdle(id) {
+                            if (storage.mcpServers.list().any { it.id == id }) mcp.delete(id)
+                            storage.secrets.delete(SecretAlias(id))
+                            oauthCoordinator?.clearLocal(id)
+                        }
+                    if (!cleaned) cleanupPending = true
+                } catch (_: Exception) {
+                    cleanupPending = true
+                }
+            }
+        }
+
+    @Suppress("TooGenericExceptionCaught") // failed cache cleanup is visible and retried, never rolls back publication
+    private fun cleanupStaging() {
+        try {
+            Files.list(context.cacheDir.toPath()).use { paths ->
+                paths.filter { it.fileName.toString().startsWith("connector-skills-") }.forEach { root ->
+                    deleteStagingTree(root)
+                }
+            }
+        } catch (_: Exception) {
+            cleanupPending = true
+        }
+    }
+
+    private fun deleteStagingTree(root: java.nio.file.Path) {
+        Files.walk(root).use { files ->
+            files.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) }
+        }
     }
 
     private fun requireOwned(endpoint: InstalledEndpoint) {
         require(list().any { endpoint in it.endpoints }) { "CONNECTOR_UNKNOWN_ENDPOINT" }
     }
-
-    private fun deleteTree(path: Path) {
-        if (!Files.exists(path)) return
-        Files.walk(path).use { paths -> paths.sorted(Comparator.reverseOrder()).forEach { Files.deleteIfExists(it) } }
-    }
-}
-
-data class InstalledEndpoint(
-    val id: String,
-    val endpoint: ConnectorEndpoint,
-)
-
-data class InstalledConnector(
-    val id: String,
-    val name: String,
-    val source: String,
-    val hash: String,
-    val endpoints: List<InstalledEndpoint>,
-    val skills: List<SkillKey>,
-    val diagnostics: List<String>,
-)
-
-private fun encode(record: InstalledConnector): String =
-    buildJsonObject {
-        put("formatVersion", 1)
-        put("id", record.id)
-        put("name", record.name)
-        put("source", record.source)
-        put("hash", record.hash)
-        put(
-            "endpoints",
-            JsonArray(
-                record.endpoints.map { server ->
-                    buildJsonObject {
-                        put("id", server.id)
-                        put("name", server.endpoint.name)
-                        put("url", server.endpoint.url)
-                        put("credential", server.endpoint.needsCredential)
-                    }
-                },
-            ),
-        )
-        put(
-            "skills",
-            JsonArray(
-                record.skills.map { skill ->
-                    buildJsonObject {
-                        put("name", skill.name)
-                        put("hash", skill.snapshotHash)
-                    }
-                },
-            ),
-        )
-        put("diagnostics", JsonArray(record.diagnostics.map(::JsonPrimitive)))
-    }.toString()
-
-private fun decode(text: String): InstalledConnector {
-    val obj = Json.parseToJsonElement(text).jsonObject
-    require(obj["formatVersion"]?.jsonPrimitive?.content == "1") { "CONNECTOR_RECORD_VERSION" }
-
-    fun value(key: String) = obj.getValue(key).jsonPrimitive.content
-    return InstalledConnector(
-        value("id"),
-        value("name"),
-        value("source"),
-        value("hash"),
-        obj.getValue("endpoints").jsonArray.map { item ->
-            val e = item.jsonObject
-            InstalledEndpoint(
-                e.getValue("id").jsonPrimitive.content,
-                ConnectorEndpoint(
-                    e.getValue("name").jsonPrimitive.content,
-                    e.getValue("url").jsonPrimitive.content,
-                    e.getValue("credential").jsonPrimitive.content == "true",
-                ),
-            )
-        },
-        obj.getValue("skills").jsonArray.map { item ->
-            val s = item.jsonObject
-            SkillKey(
-                SkillSource.USER_IMPORTED,
-                s.getValue("name").jsonPrimitive.content,
-                s.getValue("hash").jsonPrimitive.content,
-            )
-        },
-        obj.getValue("diagnostics").jsonArray.map { it.jsonPrimitive.content },
-    )
 }

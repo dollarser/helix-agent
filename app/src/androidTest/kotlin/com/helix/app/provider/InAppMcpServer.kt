@@ -27,7 +27,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  * tool name the [ScriptedTaskModelServer] is armed to emit. The server never reads a credential
  * and the fixture never logs the request body beyond the JSON-RPC `method`.
  */
-internal class InAppMcpServer : AutoCloseable {
+internal class InAppMcpServer(
+    private val onMethod: (String) -> Unit = {},
+) : AutoCloseable {
     private val serverSocket: ServerSocket =
         ServerSocket(0, 0, InetAddress.getByName("127.0.0.1"))
 
@@ -118,6 +120,7 @@ internal class InAppMcpServer : AutoCloseable {
         }
         val request = JSONObject(requestBody)
         val method = request.optString("method", "")
+        onMethod(method)
         if (!request.has("id")) {
             // A notification (e.g. `notifications/initialized`) gets a 202 with no body.
             writeResponse(output, 202, "application/json", "")

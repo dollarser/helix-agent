@@ -59,6 +59,8 @@ fun ChatScreen(
     onProviders: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
+    connectors: com.helix.app.connector.ConnectorService? = null,
+    onExtensions: () -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
     val sessions by chatService.sessions.collectAsStateWithLifecycle()
@@ -71,6 +73,11 @@ fun ChatScreen(
     var renameId by remember { mutableStateOf<String?>(null) }
     var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
+    var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
+    if (connectorsOpen && sessionId != null && connectors != null) {
+        com.helix.app.connector
+            .ConnectorSessionPanel(connectors, sessionId, onExtensions) { connectorsOpen = false }
+    }
     val buffer =
         rememberSaveable(sessionId, saver = ConversationDraftBuffer.Saver) {
             ConversationDraftBuffer(sessionId ?: "closed-composer")
@@ -291,6 +298,17 @@ fun ChatScreen(
                         delivery = buffer.editable && buffer.canSubmit,
                     ),
                 composerStatus = {
+                    if (connectors != null && sessionId != null) {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                scope.launch {
+                                    chatService.materializeDraftSession(sessionId)
+                                    connectorsOpen = true
+                                }
+                            },
+                            modifier = Modifier.testTag("session-connectors"),
+                        ) { androidx.compose.material3.Text(stringResource(R.string.connector_session_title)) }
+                    }
                     sessionId?.let { id ->
                         SessionInputQueuePanel(
                             chatService,

@@ -92,8 +92,6 @@ internal class DefaultAppContainer(
     private val appContext: Context = context.applicationContext
     private val processEvidenceStore = ProcessEvidenceStore(context.applicationContext as Application)
 
-    override val shellRepository: ShellRepository = FakeShellRepository()
-
     override val storage: HelixStorage = HelixStorage.create(context)
     override val sessionExport =
         com.helix.app.export.SessionExportService(
@@ -119,6 +117,10 @@ internal class DefaultAppContainer(
             executionOwnership,
             profileStore,
         )
+
+    @Suppress("SENSELESS_COMPARISON")
+    override val shellRepository: ShellRepository =
+        FakeShellRepository(terminalAvailable = manualTerminal != null)
 
     override val runControlStore: RunControlStore = PersistedRunControlStore(lineStore)
     override val lanScopeStore =
@@ -230,11 +232,23 @@ internal class DefaultAppContainer(
     override val skillImportService: SkillImportService =
         SkillImportService(skillsRoot.resolve("staging"))
 
+    private val connectorCatalog =
+        com.helix.app.connector.ConnectorCatalog(
+            storage,
+            context.filesDir.toPath().resolve("connectors"),
+        )
+
     override val skillRepository: SkillRepository =
         SkillRepository(
             snapshotsRoot = skillsRoot.resolve("snapshots"),
             stateFile = skillsRoot.resolve("enablement.txt"),
             trashRoot = skillsRoot.resolve("trash"),
+            sourceAvailable = connectorCatalog::skillAvailable,
+            onIndependentInstall = { connectorCatalog.claim(it, independent = true) },
+            beforeRemove = { key ->
+                require(connectorCatalog.list().none { key in it.skills }) { "SKILL_REFERENCED_BY_CONNECTOR" }
+                connectorCatalog.releaseIndependent(key)
+            },
         )
 
     /**
@@ -459,6 +473,7 @@ internal class DefaultAppContainer(
                     storage.sessionPermissionConfigs,
                     storage.toolAvailability,
                     sessionWorkspace,
+                    connectorCatalog::sourceAvailable,
                 )
             val effectClassifier =
                 SessionToolEffectClassifier(sessionWorkspace) { sessionId, callId ->
@@ -556,6 +571,7 @@ internal class DefaultAppContainer(
         McpAppService(
             storage = McpStorageBridge(storage),
             prepareCredential = { config -> mcpOAuthCoordinator.prepareCredential(config) },
+            sourceAvailable = connectorCatalog::endpointAvailable,
             profile = { profileStore.profile },
             lanScopes = lanScopeStore::current,
             registry = toolRegistry,
@@ -591,6 +607,7 @@ internal class DefaultAppContainer(
                 skillImportService,
                 skillRepository,
                 mcpOAuthCoordinator,
+                connectorCatalog,
             )
     }
 
@@ -729,6 +746,10 @@ internal class DefaultAppContainer(
                 base,
                 AppLanguageStore.localeListFor(AppLanguageStore.stored(base)),
             ).getString(resId, *args)
+    }
+
+    init {
+        appScope.launch(Dispatchers.IO) { connectorService.cleanupRetired() }
     }
 
     private companion object {

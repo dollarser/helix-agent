@@ -27,7 +27,7 @@ import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
 
 @Composable
-@Suppress("FunctionName", "LongMethod", "LongParameterList")
+@Suppress("FunctionName", "LongMethod", "LongParameterList", "CyclomaticComplexMethod")
 internal fun ConversationComposer(
     input: String,
     onInput: (String) -> Unit,
@@ -65,6 +65,58 @@ internal fun ConversationComposer(
                 }
             },
         )
+        val activeQuery =
+            androidx.compose.runtime.remember(input) {
+                com.helix.app.ui.composer.ComposerCommandParser
+                    .parseQuery(input)
+            }
+        if (activeQuery != null) {
+            val suggestions =
+                androidx.compose.runtime.remember(activeQuery) {
+                    com.helix.app.ui.composer.ComposerCommandParser
+                        .filterSuggestions(activeQuery)
+                }
+            com.helix.app.ui.composer.ComposerAutocompletePopup(
+                suggestions = suggestions,
+                onSelect = { item ->
+                    when (item.id) {
+                        "slash:plan" -> {
+                            onMode(AgentMode.CHAT)
+                            onInput("")
+                        }
+
+                        "slash:act" -> {
+                            onMode(AgentMode.CHAT)
+                            onInput("")
+                        }
+
+                        "slash:goal" -> {
+                            onMode(AgentMode.GOAL)
+                            onInput("")
+                        }
+
+                        "slash:compact" -> {
+                            if (canCompact) onCompact()
+                            onInput("")
+                        }
+
+                        "slash:clear" -> {
+                            onInput("")
+                        }
+
+                        else -> {
+                            val (newText, _) =
+                                com.helix.app.ui.composer.ComposerCommandParser.applySuggestion(
+                                    input,
+                                    activeQuery,
+                                    item,
+                                )
+                            onInput(newText)
+                        }
+                    }
+                },
+            )
+        }
         Row(
             Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
             verticalAlignment = Alignment.Bottom,

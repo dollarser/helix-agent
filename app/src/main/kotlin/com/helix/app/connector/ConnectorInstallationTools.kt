@@ -77,7 +77,7 @@ internal object ConnectorInstallationTools {
                                     }
                                 } else {
                                     val bundle = service.preview(path) { call.cancel.isCancelled() }
-                                    previewOutput(bundle, path, service.installedId(bundle.contentHash))
+                                    previewOutput(bundle, path, service.installedId(bundle))
                                 }
                             ToolExecutorResult.Completed(output)
                         } catch (_: Exception) {

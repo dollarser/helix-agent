@@ -58,9 +58,14 @@ class HelixStorage internal constructor(
     val contentStore: ContentStore,
     val secrets: SecretStore,
 ) {
+    val connectorMutationLock = Any()
+
+    val connectors by lazy { database.connectorDao() }
+
     val sessions: SessionRepository by lazy {
         SessionRepository(database.sessionDao(), ::withTransaction) { id, timestamp ->
             sessionPermissionConfigs.setForSession(id, sessionPermissionConfigs.appDefault(), timestamp)
+            connectors.snapshotDefaults(id)
         }
     }
     val composerDrafts by lazy {
@@ -249,6 +254,7 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_23_24,
                 HelixDatabase.MIGRATION_24_25,
                 HelixDatabase.MIGRATION_25_26,
+                HelixDatabase.MIGRATION_26_27,
             )
 
         fun create(context: Context): HelixStorage {

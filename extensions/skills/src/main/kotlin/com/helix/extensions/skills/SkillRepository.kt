@@ -46,6 +46,9 @@ class SkillRepository(
     private val trashRoot: Path,
     builtIns: List<SkillDocument> = BuiltInSkills.documents(),
     private val resourceLimitBytes: Long = 512 * 1024,
+    private val sourceAvailable: (SkillKey, String?) -> Boolean = { _, _ -> true },
+    private val onIndependentInstall: (SkillKey) -> Unit = {},
+    private val beforeRemove: (SkillKey) -> Unit = {},
 ) {
     private val lock = Any()
     private val inspector = SkillSnapshotInspector(SkillImportLimits(), SkillLoader())
@@ -69,6 +72,7 @@ class SkillRepository(
     fun list(sessionId: String? = null): List<SkillListItem> =
         synchronized(lock) {
             records.entries
+                .filter { (key, _) -> sourceAvailable(key, sessionId) }
                 .map { (key, record) ->
                     SkillListItem(key, record.document.catalogEntry.description, isEnabled(key, sessionId))
                 }.sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
@@ -126,7 +130,10 @@ class SkillRepository(
         }
     }
 
-    fun registerSnapshot(snapshot: SkillSnapshotRef): SkillKey =
+    fun registerSnapshot(
+        snapshot: SkillSnapshotRef,
+        independent: Boolean = true,
+    ): SkillKey =
         synchronized(lock) {
             val normalizedRoot = snapshotsRoot.toAbsolutePath().normalize()
             val normalizedDirectory = snapshot.directory.toAbsolutePath().normalize()
@@ -144,13 +151,20 @@ class SkillRepository(
             }
             val document = SkillLoader().load(snapshot.directory, SkillSource.USER_IMPORTED)
             val key = document.catalogEntry.toKey(snapshot.snapshotHash)
+            if (independent) onIndependentInstall(key)
             records[key] = SkillRecord(document, snapshot.directory)
             key
         }
 
+    fun hasSnapshot(key: SkillKey): Boolean = synchronized(lock) { key in records }
+
+    /** A compound publisher holds file references until its durable manifest is committed. */
+    fun <T> withSnapshotReferences(block: () -> T): T = synchronized(lock, block)
+
     fun remove(key: SkillKey): Path =
         synchronized(lock) {
             require(key.source == SkillSource.USER_IMPORTED) { "Built-in and project skills cannot be removed" }
+            beforeRemove(key)
             val record = records[key] ?: throw IllegalArgumentException("Unknown skill snapshot: ${key.name}")
             val source = requireNotNull(record.directory)
             val normalizedRoot = snapshotsRoot.toAbsolutePath().normalize()
@@ -203,9 +217,9 @@ class SkillRepository(
         key: SkillKey,
         sessionId: String?,
     ): Boolean {
+        if (!sourceAvailable(key, sessionId)) return false
         val session = sessionId?.let { sessionOverrides[it]?.get(key) }
-        if (session != null) return session
-        return globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
+        return session ?: globalOverrides[key] ?: (key.source == SkillSource.BUILT_IN)
     }
 
     private fun resourcePath(

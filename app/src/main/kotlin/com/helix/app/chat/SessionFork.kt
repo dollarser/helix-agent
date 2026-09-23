@@ -25,6 +25,7 @@ internal class SessionFork(
             val source = storage.sessions.resolve(sourceSessionId)
             val plan = SessionForkPlan.prepare(storage, sourceSessionId, messageId, checkActive)
             storage.sessions.create(newSessionId, title, source.providerId, source.modelId, now)
+            copyConnectors(sourceSessionId, newSessionId)
             val identities = plan.rows.associate { it.id to UUID.randomUUID().toString() }
             val sequences = mutableMapOf<Long, Long>()
             val artifacts = mutableMapOf<String, String>()
@@ -72,6 +73,19 @@ internal class SessionFork(
                 now,
             )
             checkActive()
+        }
+    }
+
+    private fun copyConnectors(
+        sourceSessionId: String,
+        newSessionId: String,
+    ) {
+        storage.connectors.clearSession(newSessionId)
+        storage.connectors.selected(sourceSessionId).forEach { connectorId ->
+            storage.connectors.select(
+                com.helix.core.storage.entity
+                    .SessionConnectorEntity(newSessionId, connectorId),
+            )
         }
     }
 

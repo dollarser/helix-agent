@@ -75,9 +75,15 @@ class SkillToolsTest {
         val hash = selected.getValue("snapshotHash").jsonPrimitive.content
 
         val disableArgs = keyArgs(source, name, hash, extra = "\"scope\":\"SESSION\",\"sessionId\":\"s1\"")
-        execute(registry, implementations, SkillTools.DISABLE, disableArgs)
+        execute(registry, implementations, SkillTools.DISABLE, disableArgs, "s1")
         val failedRead =
-            executeRaw(registry, implementations, SkillTools.READ, keyArgs(source, name, hash, "\"sessionId\":\"s1\""))
+            executeRaw(
+                registry,
+                implementations,
+                SkillTools.READ,
+                keyArgs(source, name, hash, "\"sessionId\":\"s2\""),
+                "s1",
+            )
         assertTrue(failedRead is ToolExecutorResult.Failed)
 
         val read = execute(registry, implementations, SkillTools.READ, keyArgs(source, name, hash))
@@ -120,8 +126,9 @@ class SkillToolsTest {
         implementations: ToolImplementationRegistry,
         name: String,
         args: String,
+        sessionId: String? = null,
     ): JsonObject {
-        val result = executeRaw(registry, implementations, name, args) as ToolExecutorResult.Completed
+        val result = executeRaw(registry, implementations, name, args, sessionId) as ToolExecutorResult.Completed
         val output = result.output
         val descriptor = registry.resolve(ToolName(name), ToolVersion(1))
         assertEquals(ToolSchemaValidation.Valid, ToolSchemaValidator.validate(descriptor.outputSchema, output))
@@ -133,6 +140,7 @@ class SkillToolsTest {
         implementations: ToolImplementationRegistry,
         name: String,
         args: String,
+        sessionId: String? = null,
     ): ToolExecutorResult {
         val descriptor = registry.resolve(ToolName(name), ToolVersion(1))
         val arguments = Json.parseToJsonElement(args).jsonObject
@@ -146,6 +154,7 @@ class SkillToolsTest {
                 executionTarget = ExecutionTargetType.LOCAL_ANDROID,
                 deadline = Instant.parse("2030-01-01T00:00:00Z"),
                 cancel = NoCancellation,
+                sessionId = sessionId,
             ),
         )
     }

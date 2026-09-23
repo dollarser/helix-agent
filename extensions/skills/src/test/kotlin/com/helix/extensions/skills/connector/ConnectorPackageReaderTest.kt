@@ -18,6 +18,44 @@ class ConnectorPackageReaderTest {
     private val reader = ConnectorPackageReader()
 
     @Test
+    fun updateMetadataIsBoundedAndChangedForeignAuthCannotReuseTheSameBinding() {
+        fun parse(client: String) =
+            reader.parse(
+                mapOf(
+                    ".codex-plugin/plugin.json" to
+                        """{"name":"update","version":"1.2.3","releaseNotes":"Updated client"}""".toByteArray(),
+                    ".mcp.json" to
+                        """{"mcpServers":{"service":{"url":"https://example.com/mcp","oauth":{"clientId":"$client"}}}}""".toByteArray(),
+                ),
+            )
+        val first = parse("client-a")
+        assertEquals("1.2.3", first.versionLabel)
+        assertEquals("Updated client", first.releaseNotes)
+        assertEquals(first.endpoints, parse("client-a").endpoints)
+        assertNotEquals(first.endpoints.single().authBindingHash, parse("client-b").endpoints.single().authBindingHash)
+        assertEquals(
+            64,
+            first.endpoints
+                .single()
+                .authBindingHash!!
+                .length,
+        )
+        val oversized =
+            reader.parse(
+                mapOf(
+                    ".codex-plugin/plugin.json" to
+                        """{"name":"bounded","version":"${"v".repeat(
+                            200,
+                        )}"}""".toByteArray(),
+                    ".mcp.json" to """{"mcpServers":{"service":{"url":"https://example.com/mcp"}}}""".toByteArray(),
+                    "CHANGELOG.md" to "n".repeat(3000).toByteArray(),
+                ),
+            )
+        assertEquals(128, oversized.versionLabel!!.length)
+        assertEquals(2048, oversized.releaseNotes!!.length)
+    }
+
+    @Test
     fun codexDirectAndWrappedAndClaudeConfigsSharePortableContract() {
         for (wrapper in listOf("mcpServers", "mcp_servers", "direct")) {
             val servers = """{"docs":{"url":"https://example.com/mcp","type":"http"}}"""

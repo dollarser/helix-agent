@@ -17,6 +17,7 @@ import com.helix.tools.framework.ToolRegistry
 import kotlinx.serialization.json.JsonObject
 import java.util.concurrent.ConcurrentHashMap
 
+@Suppress("TooManyFunctions") // MCP lifecycle facade includes live-call cleanup coordination
 class McpAppService(
     private val storage: McpStorageBridge,
     private val profile: () -> SafetyProfile,
@@ -24,7 +25,43 @@ class McpAppService(
     private val implementations: ToolImplementationRegistry,
     lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope> = { emptySet() },
     private val prepareCredential: suspend (McpServerConfig) -> Unit = {},
+    private val sourceAvailable: (String, String?) -> Boolean = { _, _ -> true },
 ) {
+    private val callGate = Any()
+    private val liveCalls = mutableMapOf<String, Int>()
+
+    fun cleanupIfIdle(
+        serverId: String,
+        cleanup: () -> Unit,
+    ): Boolean =
+        synchronized(callGate) {
+            if (liveCalls.getOrDefault(serverId, 0) != 0) {
+                false
+            } else {
+                cleanup()
+                true
+            }
+        }
+
+    private fun <T> withLiveCall(
+        serverId: String,
+        admitted: () -> Unit,
+        block: () -> T,
+    ): T {
+        synchronized(callGate) {
+            admitted()
+            liveCalls[serverId] = liveCalls.getOrDefault(serverId, 0) + 1
+        }
+        try {
+            return block()
+        } finally {
+            synchronized(callGate) {
+                val remaining = liveCalls.getValue(serverId) - 1
+                if (remaining == 0) liveCalls.remove(serverId) else liveCalls[serverId] = remaining
+            }
+        }
+    }
+
     private val endpointGate = McpSsrfEndpointGate(profile, lanScopes)
     private val handshake = McpHandshakeService(storage.credentials(), endpointGate, "Helix", "1")
     private val runtime = McpToolRuntime(storage.credentials(), endpointGate, "Helix", "1", prepareCredential)
@@ -32,6 +69,15 @@ class McpAppService(
     private val trackers = ConcurrentHashMap<String, McpSessionCheckpointTracker>()
     private val pendingSummaries = ConcurrentHashMap<String, PendingSend>()
     private val sentBySession = ConcurrentHashMap<String, ArrayDeque<McpSessionSendSummary>>()
+
+    private fun requireSource(
+        serverId: String,
+        sessionId: String?,
+    ) {
+        if (!sourceAvailable(serverId, sessionId)) {
+            throw java.util.concurrent.CancellationException("CONNECTOR_SESSION_DISABLED")
+        }
+    }
 
     fun registerDisabled(
         id: String,
@@ -60,6 +106,7 @@ class McpAppService(
         val baseCaller =
             runtime.caller(enabledConfig) { call ->
                 check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+                requireSource(snapshot.serverId.value, call.sessionId)
                 pendingSummaries.remove(call.toolCallId)?.let { pending ->
                     recordSent(pending.sessionId, pending.summary)
                 }
@@ -71,8 +118,14 @@ class McpAppService(
                 metadata = selected,
                 caller =
                     com.helix.extensions.mcp.McpToolCaller { call, name ->
-                        check(activeBridges[snapshot.serverId.value] === bridge) { "MCP_SERVER_DISABLED_OR_REPLACED" }
-                        baseCaller.call(call, name)
+                        withLiveCall(snapshot.serverId.value, admitted = {
+                            requireSource(snapshot.serverId.value, call.sessionId)
+                            check(
+                                activeBridges[snapshot.serverId.value] === bridge,
+                            ) { "MCP_SERVER_DISABLED_OR_REPLACED" }
+                        }) {
+                            baseCaller.call(call, name)
+                        }
                     },
             )
         storage.persistHandshake(snapshot)
@@ -101,8 +154,8 @@ class McpAppService(
     fun delete(serverId: String) {
         disable(serverId)
         trackers.keys.removeIf { it.endsWith(":$serverId") }
-        pendingSummaries.clear()
-        sentBySession.clear()
+        pendingSummaries.entries.removeIf { it.value.summary.serverId.value == serverId }
+        // Bounded historical disclosure summaries survive uninstall, including other servers' sends.
         storage.delete(serverId)
     }
 
