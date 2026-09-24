@@ -18,6 +18,8 @@
 
 ## 待接受的开发提案
 
+- proposed [ADR-AGENT-011](011-tool-multimodal-vision-feedback.md)：工具产出多模态视觉回流与生命周期管理；对应 HXA-225。
+
 009已交付；008按所有者后续开发授权接受，Goal与Turn有效条款已同步，[216已完成本地验收](../../completion-records/HXA-216.md)，main整合与远端CI独立记账。010已由所有者授权并由 HXA-217 交付。
 
 accepted 只表示设计决定；交付与验收查实施状态和对应任务。跨主题修改同时核对[权限](../permissions/README.md)、[执行域](../runtime/README.md)与[工作目录](../workspace/README.md)，不把一个主题的许可推导成另一个主题的授权。
