@@ -18,7 +18,7 @@ Runtime 管理进程组、PTY、日志和退出事实；应用服务管理来源
 
 ## 后台 Job 工具入口
 
-developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会话权限、限制与审计执行；注册不会冷绑定 Runtime。当前实现和仍待验收的产品边界见 [HXA-196](../development/tasks/HXA-196.md)。
+developer 已注册下列入口，沿既有 Dispatcher 的 schema、能力、会话权限、限制与审计执行；注册不会冷绑定 Runtime。当前实现和产品边界见 [HXA-196](../completion-records/HXA-196.md)。
 
 | 工具 | 参数与行为 |
 | --- | --- |
@@ -67,10 +67,10 @@ PTY 字节流与一次性 Job 日志不共用截断策略。Runtime 内的近期
 | --- | --- |
 | 命令详情与结果入口 | [HXA-194](../completion-records/HXA-194.md) |
 | 日志观察（一次性 Job 已交付） | [HXA-195](../completion-records/HXA-195.md) |
-| 后台 Job | [HXA-196](../development/tasks/HXA-196.md) |
+| 后台 Job | [HXA-196](../completion-records/HXA-196.md) |
 | 单手动终端 | [HXA-197](../completion-records/HXA-197.md) |
 | 多会话 | [HXA-198](../completion-records/HXA-198.md) |
-| 综合验收 | [HXA-199](../development/tasks/HXA-199.md) |
+| 综合验收 | [HXA-199](../completion-records/HXA-199.md) |
 
 公共 G1～G4 命令在[验收规则](../development/verification-matrix.md)，具体失败、取消、日志边界与恢复用例在对应任务，不在多个计划里复制状态。
 

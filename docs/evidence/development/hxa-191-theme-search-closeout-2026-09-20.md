@@ -67,7 +67,7 @@
 
 ## 2026-09-20 接续：API29 夜间模式的真实验证
 
-196 本地阶段收敛、真机验收独立待验后，191 成为唯一开发 checkpoint。进入前固定制品的完整主机门禁、Job 70 项、既有 Runtime 74 项及 release 边界均通过，见 [196 记录](../../development/tasks/HXA-196.md)。本轮先复现主题基线，没有修改生产代码。
+196 本地阶段收敛、真机验收独立待验后，191 成为唯一开发 checkpoint。进入前固定制品的完整主机门禁、Job 70 项、既有 Runtime 74 项及 release 边界均通过，见 [196 记录](../../completion-records/HXA-196.md)。本轮先复现主题基线，没有修改生产代码。
 
 `run-191-theme-device.py developer 29 5626 build/hxa191-theme-baseline-api29-v1` 在新独占模拟器上浅色 6 项通过，深色 6 项全部因 `expectedNight=yes` 而实际为 false 失败。后续采集 `dumpsys uimode` 证实 `mNightModeLocked=true`，设备 `user_setup_complete=1`；v2 尝试初始化设置没有改变结果，已移除此无效措施。不能再将原因表述为镜像“不支持夜间模式”。
 

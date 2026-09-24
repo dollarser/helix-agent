@@ -17,21 +17,21 @@
 
 - HXA-129 已在 `codex/hxa-129-connector-lifecycle` 本地交付并已整合入 main：安全替换、安装归属与会话启停，完整主机门禁及272项定向设备验证通过，见[完成记录](../completion-records/HXA-129.md)。
 - HXA-217 轻量请求来源记录与 JSONL 可追踪性已完成本地实现与验收，Room 27→28 迁移与设备测试通过，UI 第二阶段对齐 Operit（Thinking Accordion、工具执行内联预览）落地，见[完成记录](../completion-records/HXA-217.md)。
+- HXA-196 有租期的独立后台命令 Job 已交付，见[完成记录](../completion-records/HXA-196.md)；异步工具 `code.linux.job.start/status/cancel/collect` 注册、Tasks 面板投影、租期超时控制以及主进程 SIGKILL 硬杀后的 `:proot` 存活与终态证明落盘已全量通过。
+- HXA-199 终端专项集成与交付已交付，见[完成记录](../completion-records/HXA-199.md)；双 API 模拟器 144 项矩阵、真实 2 小时租期与 30 分钟脱离 idle、双 shell 恢复、覆盖安装升级及 OnePlus 6T 物理真机核心专项均通过验收。
 
 ## In progress
 
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
-- [HXA-196](tasks/HXA-196.md)：后台 Job 与结果回收已有实现；主进程死亡存活、带租期后台 Job 及终态证明已在 OnePlus 6T 真机通过验收。
-- [HXA-199](tasks/HXA-199.md)：双 API、实际 30 分钟脱离/默认两小时租期、双 shell 恢复及覆盖升级已验，剩物理专项与收口。
 
 结构治理见[结构审查](../research/project-structure-and-engine-review.md)。[深度复审](../research/execution-engine-deep-review-2026-09-22.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。
 
 ## Next task
 
-129 与 217 均已完成并在 main 整合，后续按[工作计划](next-work-plan.md)推进。
+129、217、196、199 均已完成并在 main 整合。
 
-- 129 与 217 已完成本地交付与主线收敛，远端推送并核对 CI 状态。
-- 后续根据工作计划与架构决策评估 HXA-126、HXA-196、HXA-199 物理专项或待接受的后续提案。
+- 持续关注远端 CI 矩阵运行状态。
+- 根据架构决策评估 HXA-126 动态注册/外部服务接入，或评估 ADR-WORKSPACE-004（HXA-210 会话工作区绑定）。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -39,7 +39,7 @@
 
 | 项目 | 缺少条件 / 决策 |
 | --- | --- |
-| HXA-199 物理专项 | OEM/HOME/安全锁屏/Doze/热压/物理长稳及真实 16 KiB 设备；模拟器不能替代 |
+| 16 KiB 物理硬件巡检 | 搭载 Android 15+ 的 16 KiB 页面物理硬件设备 |
 | HXA-125 受保护 Connector | WorkBuddy 来源样本已补；仍需独立账号验证凭据无效、权限拒绝、厂商撤销及重连 |
 | HXA-126 外部验收 | 两家独立服务账号、App 注册与 redirect 条件；动态注册未交付 |
 | HXA-190 真实订阅 | Claude/Grok 付费调用账号不可用，按所有者决定暂缓；fixture 不算真实调用通过 |

@@ -53,5 +53,5 @@ HXA-196 尚缺生产异步工具、持久互斥与预算接线、任务投影及
 ## Related records
 
 - [前一轮授权与 Runtime 收敛](2026-09-18-authorization-runtime-convergence.md)
-- [HXA-196 剩余范围](../development/tasks/HXA-196.md)
+- [HXA-196 完成记录](../completion-records/HXA-196.md)
 - [Runtime 有效决定](../adr/runtime/README.md)

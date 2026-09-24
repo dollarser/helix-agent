@@ -37,5 +37,5 @@ PRoot script/argv 审批卡依据 `ExecutionTargetType.LOCAL_PROOT` 展示共享
 
 ## Related records
 
-- [HXA-196](../development/tasks/HXA-196.md)
+- [HXA-196](../completion-records/HXA-196.md)
 - [ADR-RUNTIME-001](../adr/runtime/001-execution-domains.md)

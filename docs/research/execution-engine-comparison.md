@@ -176,7 +176,7 @@ main 的 dataSync 前台服务覆盖活动传输阶段，等待审批和停止�
 
 核验时 HXA-196 分支 `63829af2` 已包含独立 detached owner、持久租期绑定、取消/完成结算及私有前台服务核心；分支证据记录主机门禁、API29/36 专项与主进程死亡验证。仍未合入 main，尚缺面向模型的 start/status/cancel 工具、生产授权/预算适配、任务页与结果回收闭环，以及物理设备 HOME/锁屏/Doze 验收。证据位于该提交的 `docs/evidence/development/hxa-196-platform-plan-2026-09-18.md`；这里只区分切片与产品状态，不复制其测试通过结论到当前 main。
 
-后台 Job 完成只是新增执行事实，不自动开始下一次模型请求。后台 Agent 连续运行由 Goal 等上层机制决定，不能通过 Runtime 通知绕过用户激活、预算或恢复门控。HXA-196 的剩余范围以[任务规格](../development/tasks/HXA-196.md)为准。
+后台 Job 完成只是新增执行事实，不自动开始下一次模型请求。后台 Agent 连续运行由 Goal 等上层机制决定，不能通过 Runtime 通知绕过用户激活、预算或恢复门控。HXA-196 的交付范围以[完成记录](../completion-records/HXA-196.md)为准。
 
 ### 3.9 应用能力不应全部变成 Agent 工具
 

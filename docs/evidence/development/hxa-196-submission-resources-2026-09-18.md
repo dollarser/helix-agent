@@ -42,5 +42,5 @@ HXA-196 的异步工具、任务投影、结果回收和物理设备后台验收
 
 ## Related records
 
-- [HXA-196](../../development/tasks/HXA-196.md)
+- [HXA-196](../../completion-records/HXA-196.md)
 - [执行占用切片](hxa-196-execution-ownership-2026-09-18.md)
