@@ -1,11 +1,12 @@
 # 当前实施状态
 
-更新：2026-09-23。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-24。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
 
 ## Completed
 
 全部已交付 HXA 见[完成记录索引](../completion-records/index.md)，M0 见[工程基线](../completion-records/M0.md)。完成仅限记录中的范围，不代表全部产品、真实账号或发行验收。
 
+- 物理真机回归（OnePlus 6T / API 34）：2026-09-24 在真机 `561e3b15` 上完成了全量 184 项物理硬件测试（0 失败），涵盖 `core:storage` Room 1..28 完整迁移与外键约束、P0 核心能力、Root 调度分级与禁用、`MANAGE_EXTERNAL_STORAGE` AppOp 动态切换、HXA-129 连接器生命周期与通道边界，以及 HXA-196 PRoot 独立后台 Job 租期控制与主进程 SIGKILL 硬杀后的 `:proot` 独立进程存活及终态证明对账。详见[真机验收记录](../evidence/development/physical-oneplus-acceptance-2026-09-24.md)。
 - 最近整合：HXA-130 离线签名索引、HXA-212 内置市场、HXA-213 会话 fork 及上下文压缩补强。2026-09-22 合并后完整主机门禁与四象限定向设备 276/276 通过；这是该次制品的历史结果，见[整合验证](../evidence/development/branch-integration-2026-09-22.md)与[压缩修复](../bug-fixes/2026-09-22-context-compaction-admission.md)。该次记录为本地整合、未推送，不推断当前远端。
 - HXA-206 本地核心产品验收、HXA-198 双终端均已完成；同 fixture 对照、Git R1 debug/release、升级及实际恢复范围见[206完成记录](../completion-records/HXA-206.md)、[198完成记录](../completion-records/HXA-198.md)与[199/206证据](../evidence/development/acceptance-199-206-2026-09-21.md)。
 - 191、192、193～195、197、202～205、207～209、211 等已有交付记录，不重新执行旧交接开发包。旧三态工具权限证据不替代 209 会话授权验收。
@@ -20,7 +21,7 @@
 ## In progress
 
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
-- [HXA-196](tasks/HXA-196.md)：后台 Job 与结果回收已有实现；普通 Act 主进程死亡、缺失记录对账与预算释放已有证据。2026-09-20 所有者豁免当次 HOME/锁屏/Doze 真机验收，不计为通过，也不替代其他任务的物理验收。
+- [HXA-196](tasks/HXA-196.md)：后台 Job 与结果回收已有实现；主进程死亡存活、带租期后台 Job 及终态证明已在 OnePlus 6T 真机通过验收。
 - [HXA-199](tasks/HXA-199.md)：双 API、实际 30 分钟脱离/默认两小时租期、双 shell 恢复及覆盖升级已验，剩物理专项与收口。
 
 结构治理见[结构审查](../research/project-structure-and-engine-review.md)。[深度复审](../research/execution-engine-deep-review-2026-09-22.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。

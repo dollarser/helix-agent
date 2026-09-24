@@ -24,8 +24,8 @@ class RequestContextManifestDeviceTest {
                         "VALUES ('s1','Session 1',NULL,NULL,0,NULL,NULL)",
                 )
                 db.execSQL(
-                    "INSERT INTO turns(id,sessionId,clientRequestId,turnNumber,state,modelStep) " +
-                        "VALUES ('t1','s1','req-01',1,'COMPLETED',1)",
+                    "INSERT INTO turns(id,sessionId,state,stepCount,startedAt,clientRequestId) " +
+                        "VALUES ('t1','s1','COMPLETED',1,0,'req-01')",
                 )
                 db.execSQL(
                     "INSERT INTO model_calls(id,turnId,providerSnapshot,state,usage,requestId," +
@@ -33,6 +33,7 @@ class RequestContextManifestDeviceTest {
                 )
             }
             helper.runMigrationsAndValidate(name, 28, true, HelixDatabase.MIGRATION_27_28).use { db ->
+                db.execSQL("PRAGMA foreign_keys = ON")
                 // Verify column was added with NULL for existing rows
                 db.query("SELECT requestManifest FROM model_calls WHERE id = 'c1'").use { cursor ->
                     check(cursor.moveToFirst())

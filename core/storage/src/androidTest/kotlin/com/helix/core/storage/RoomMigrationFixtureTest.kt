@@ -35,7 +35,7 @@ import java.io.File
  * Room migration fixture (HXA-014). The committed schema export in
  * `src/androidTest/assets` is the migration baseline:
  *
- * - the export/code drift loop is closed by [v20ExportMatchesTheCodeBuiltSchema] (the live
+ * - the export/code drift loop is closed by [v28ExportMatchesTheCodeBuiltSchema] (the live
  *   version) plus the JVM contract test; the committed v1 export stays the migration
  *   baseline used by [v1ToV2MigrationRenamesBindingHashAndExpiresLegacyApprovals];
  * - [v1EnforcesForeignKeysAtRuntime] proves the runtime schema enables FK enforcement;
@@ -743,8 +743,17 @@ class RoomMigrationFixtureTest {
     }
 
     @Test
-    fun v27ExportMatchesTheCodeBuiltSchema() {
-        val exportedDb = helper.createDatabase("v27-export.db", 27)
+    fun v28ExportExistsAsATestAsset() {
+        val versions = context.assets.list("com.helix.core.storage.HelixDatabase")
+        assertTrue(
+            "schema export v28 missing from assets: ${versions?.toList()}",
+            versions?.contains("28.json") == true,
+        )
+    }
+
+    @Test
+    fun v28ExportMatchesTheCodeBuiltSchema() {
+        val exportedDb = helper.createDatabase("v28-export.db", 28)
         val exported = schemaFacts(exportedDb)
         exportedDb.close()
 
@@ -752,7 +761,7 @@ class RoomMigrationFixtureTest {
         try {
             val code = schemaFacts(codeDb.openHelper.writableDatabase)
             assertEquals(
-                "code-built v27 schema must match the exported v27 schema",
+                "code-built v28 schema must match the exported v28 schema",
                 (
                     expectedTables() +
                         listOf(
