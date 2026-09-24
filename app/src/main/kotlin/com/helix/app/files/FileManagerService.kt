@@ -27,7 +27,7 @@ import java.nio.file.FileAlreadyExistsException
  * [realFileFor] supplies a transient sharing file, not a model-visible absolute path.
  */
 @Suppress("TooManyFunctions", "LargeClass", "ReturnCount")
-class FileManagerService(
+class FileManagerService internal constructor(
     private val store: WorkspaceArtifactStore,
     private val roots: ScopeRootResolver,
     private val workspaceScopeId: String,
@@ -45,6 +45,7 @@ class FileManagerService(
     private val strings: (Int, Array<out Any>) -> String = { id, _ -> id.toString() },
     private val sharedStorageGranted: () -> Boolean = { false },
     private val manual: ManualFileOperations? = null,
+    private val rootOperations: RootFileOperations? = null,
 ) {
     /** Localizes a stable string-resource id (+ positional args) to the current locale (HXA-069). */
     private fun loc(
@@ -54,6 +55,14 @@ class FileManagerService(
 
     /** True when [scopeId] names a SAF tree scope (`saf-<12hex>`; the only model-safe form, doc 10). */
     private fun isSaf(scopeId: String): Boolean = scopeId.startsWith(SafGrantStore.SCOPE_ID_PREFIX)
+
+    private fun isRoot(scopeId: String): Boolean = scopeId == ROOT_SCOPE_ID
+
+    val isRootSupported: Boolean get() = rootOperations?.isSupported == true
+
+    val isRootGranted: Boolean get() = rootOperations?.isRootGranted() == true
+
+    fun requestRoot(): Boolean = rootOperations?.requestRoot() == true
 
     /** The SAF access, fail-closed when the scope is SAF but the access is absent. */
     private fun requireSaf(scopeId: String): SafTreeScopeAccess =
@@ -202,6 +211,16 @@ class FileManagerService(
                 ),
             )
         }
+        if (rootOperations?.isRootGranted() == true) {
+            list.add(
+                FileSource(
+                    ROOT_SCOPE_ID,
+                    loc(R.string.files_root_fs),
+                    FileSourceKind.ROOT,
+                    supportsMutation = manual?.canWrite(ROOT_SCOPE_ID) == true,
+                ),
+            )
+        }
         return list
     }
 
@@ -233,6 +252,7 @@ class FileManagerService(
         sort: SortKey = SortKey.NAME,
     ): DirectoryListing {
         if (isSaf(scopeId)) return DirectoryListing(safList(scopeId, relativePath, sort), false)
+        if (isRoot(scopeId)) return DirectoryListing(rootList(relativePath, sort), false)
         val listed = store.listDir(FileScopePath(scopeId, relativePath), MAX_LIST_ENTRIES)
         val names = listed.entries
         val atWorkspaceRoot = scopeId == workspaceScopeId && relativePath.isEmpty()
@@ -244,6 +264,15 @@ class FileManagerService(
                 FileEntry(name, rel, s.isDirectory, s.sizeBytes, s.mtimeEpochMillis)
             }
         return DirectoryListing(entries.sortedWith(comparatorFor(sort)), listed.truncated)
+    }
+
+    private fun rootList(
+        relativePath: String,
+        sort: SortKey,
+    ): List<FileEntry> {
+        val ops = rootOperations ?: throw ScopeNotAvailable("Root scope not available")
+        if (!ops.isRootGranted()) throw ScopeNotAvailable("Root permission not granted")
+        return ops.list(relativePath).sortedWith(comparatorFor(sort))
     }
 
     /**
@@ -296,29 +325,57 @@ class FileManagerService(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = DEFAULT_PREVIEW_BYTES,
-    ): String? = preview.previewText(scopeId, relativePath, maxBytes)
+    ): String? =
+        if (isRoot(scopeId)) {
+            rootOperations?.previewText(relativePath, maxBytes)
+        } else {
+            preview.previewText(scopeId, relativePath, maxBytes)
+        }
 
     fun previewImageBytes(
         scopeId: String,
         relativePath: String,
         maxBytes: Long = MAX_IMAGE_PREVIEW_BYTES,
-    ): ByteArray = preview.previewImageBytes(scopeId, relativePath, maxBytes)
+    ): ByteArray =
+        if (isRoot(scopeId)) {
+            rootOperations?.previewImageBytes(relativePath, maxBytes) ?: ByteArray(0)
+        } else {
+            preview.previewImageBytes(scopeId, relativePath, maxBytes)
+        }
 
     fun mimeTypeFor(
         scopeId: String,
         relativePath: String,
-    ): String = preview.mimeTypeFor(scopeId, relativePath)
+    ): String =
+        if (isRoot(scopeId)) {
+            rootOperations?.mimeTypeFor(relativePath) ?: "application/octet-stream"
+        } else {
+            preview.mimeTypeFor(scopeId, relativePath)
+        }
 
     fun fileInfo(
         scopeId: String,
         relativePath: String,
         maxHashBytes: Long = MAX_HASH_BYTES,
-    ): FileMeta = preview.fileInfo(scopeId, relativePath, maxHashBytes)
+    ): FileMeta =
+        if (isRoot(scopeId)) {
+            rootOperations?.fileInfo(relativePath, maxHashBytes)
+                ?: FileMeta(-1L, -1L, "application/octet-stream", false, null, false)
+        } else {
+            preview.fileInfo(scopeId, relativePath, maxHashBytes)
+        }
 
     fun realFileFor(
         scopeId: String,
         relativePath: String,
-    ): File = preview.realFileFor(scopeId, relativePath)
+    ): File =
+        if (isRoot(scopeId)) {
+            val shareDir = File(roots.resolveRoot(workspaceScopeId).toFile(), "cache/share").apply { mkdirs() }
+            rootOperations?.realFileFor(relativePath, shareDir)
+                ?: throw FileNotFoundException("Root file not found: $relativePath")
+        } else {
+            preview.realFileFor(scopeId, relativePath)
+        }
 
     data class FileMeta(
         val sizeBytes: Long,
@@ -590,7 +647,8 @@ class FileManagerService(
         name: String,
     ): String = if (dir.isEmpty()) name else "$dir/$name"
 
-    private companion object {
+    companion object {
+        const val ROOT_SCOPE_ID = "root"
         const val MAX_LIST_ENTRIES = 500
         const val DEFAULT_PREVIEW_BYTES = 64L * 1024
         const val MAX_IMAGE_PREVIEW_BYTES = 4L * 1024 * 1024
@@ -613,6 +671,7 @@ enum class FileSourceKind {
     WORKSPACE,
     ALL_FILES,
     SAF,
+    ROOT,
 }
 
 /**

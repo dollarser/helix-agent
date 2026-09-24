@@ -97,9 +97,22 @@ private fun editableProviderRow() =
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
     onNodeWithTag("open-navigation").performClick()
     waitForIdle()
-    onNodeWithTag("navigation-$route").performScrollTo().performClick()
-    waitForIdle()
-    waitUntil(10_000) { !onNodeWithTag("navigation-$route").isDisplayed() }
+    val destinationTag = "navigation-$route"
+    val groupTag =
+        when (route) {
+            "tasks", "artifacts", "git", "files", "browser", "terminal" -> "navigation-group-work"
+            "capabilities", "readiness", "permissions", "settings", "audit" -> "navigation-group-settings"
+            else -> null
+        }
+    if (groupTag != null && onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty()) {
+        onNodeWithTag(groupTag).performScrollTo().performClick()
+        waitForIdle()
+    }
+    onNodeWithTag(destinationTag).performScrollTo().performClick()
+    waitUntil(10_000) {
+        onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty() ||
+            !onNodeWithTag(destinationTag).isDisplayed()
+    }
 }
 
 /**

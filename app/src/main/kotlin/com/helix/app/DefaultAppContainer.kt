@@ -36,6 +36,7 @@ import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
 import com.helix.app.provider.SubscriptionProviderModule
+import com.helix.app.root.RootFileModule
 import com.helix.app.root.RootModule
 import com.helix.app.runcontrol.AndroidResourceGate
 import com.helix.app.runcontrol.PersistedRunControlStore
@@ -318,7 +319,14 @@ internal class DefaultAppContainer(
      * tree scope service. The `content://` URIs it holds never reach the model (doc 10: 模型只看到
      * scopeId).
      */
-    private val fileServices = AppFileServices(context, scopeRoots, APP_SCOPE_ID, ::resolveLocalized)
+    private val fileServices =
+        AppFileServices(
+            context,
+            scopeRoots,
+            APP_SCOPE_ID,
+            ::resolveLocalized,
+            rootOperations = RootFileModule.create(context),
+        )
     override val safTree: SafTreeScopeService get() = fileServices.safTree
     override val featureFiles: FeatureFiles get() = fileServices.featureFiles
     override val fileManager: FileManagerService get() = fileServices.fileManager

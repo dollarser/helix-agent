@@ -1035,7 +1035,7 @@ class ChatService(
                 setBlocked(str(R.string.chat_blocked_provider_untested))
                 return@launch
             }
-            sessionDraft?.let {
+            sessionDraft?.takeIf { it.session.id == sessionId }?.let {
                 drafts.model(it.session.id, providerId, modelId)
                 refreshScreen()
                 return@launch
@@ -1070,7 +1070,7 @@ class ChatService(
                     providerService.rows.value.firstOrNull { it.id == providerId && it.chatSelectable }
                         ?: return@synchronized
                 if (modelId !in (row.backendModels.orEmpty() + row.model)) return@synchronized
-                val draft = sessionDraft
+                val draft = sessionDraft?.takeIf { it.session.id == requestedSession }
                 if (draft != null) {
                     drafts.model(draft.session.id, providerId, modelId)
                 } else {
@@ -1082,6 +1082,7 @@ class ChatService(
                         setBlocked(str(R.string.chat_blocked_provider_state_changed))
                         return@synchronized
                     }
+                    refreshSessionsNow()
                 }
                 runControlStore.setReasoning(ReasoningEffort.OFF)
                 refreshScreen()
@@ -1094,7 +1095,10 @@ class ChatService(
         storage.turns
             .listBySession(sessionId)
             .lastOrNull()
-            ?.let { !TurnState.valueOf(it.state).isTerminal }
+            ?.let {
+                val state = TurnState.valueOf(it.state)
+                !state.isTerminal && state != TurnState.INTERRUPTED
+            }
             ?: false
 
     // --------------------------------------------------------------------------------

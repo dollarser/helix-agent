@@ -39,6 +39,18 @@ internal class FilesScreenActions(
         args: Array<out Any>,
     ): String = resources.getString(resId, *args)
 
+    fun requestRoot() {
+        scope.launch {
+            val granted = withContext(Dispatchers.IO) { fileManager.requestRoot() }
+            state.replaceSources(fileManager.sources())
+            if (granted) {
+                state.status = str(R.string.files_root_granted)
+            } else {
+                state.status = str(R.string.files_root_required)
+            }
+        }
+    }
+
     fun runImportSingle(
         uri: String,
         policy: ConflictPolicy,

@@ -26,3 +26,4 @@ __pycache__/
 *.log
 # Personal editor state; shared tasks/settings are not blanket-ignored.
 .vscode/*.local.json
+.workbuddy-ai/

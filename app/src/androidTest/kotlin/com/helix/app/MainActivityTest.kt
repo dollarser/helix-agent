@@ -29,13 +29,14 @@ class MainActivityTest {
         composeRule.onNodeWithTag("screen-sessions").assertIsDisplayed()
         composeRule.onNodeWithTag("open-navigation").performClick()
 
-        val container = (composeRule.activity.application as HelixApplication).appContainer
-        container.shellRepository.destinations.forEach { destination ->
-            composeRule
-                .onNodeWithTag("navigation-${destination.route}")
-                .assertIsDisplayed()
-        }
+        composeRule.onNodeWithTag("navigation-sessions").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-group-work").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-extensions").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-group-settings").assertIsDisplayed()
 
+        composeRule.onNodeWithTag("navigation-group-work").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("navigation-browser").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-browser").performClick()
         composeRule.onNodeWithTag("screen-browser").assertIsDisplayed()
     }

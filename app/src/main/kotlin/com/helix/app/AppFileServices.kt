@@ -50,6 +50,7 @@ internal class AppFileServices(
     scopeRoots: ScopeRootResolver,
     appScopeId: String,
     strings: (Int, Array<out Any>) -> String,
+    rootOperations: com.helix.app.files.RootFileOperations? = null,
 ) {
     private val safGrantStore: SafGrantStore =
         SafGrantStore(java.io.File(context.filesDir, "workspaces/saf-grants.json").toPath())
@@ -152,13 +153,23 @@ internal class AppFileServices(
                             context.noBackupFilesDir.toPath().resolve("manual-transfers"),
                         ),
                     backend = { id ->
-                        if (id.startsWith(SafGrantStore.SCOPE_ID_PREFIX)) {
-                            com.helix.app.files
-                                .SafManualFileBackend(context.contentResolver, safGrantStore, safTree, id)
-                        } else {
-                            com.helix.app.files.NioManualFileBackend(id, manualRoots, id == appScopeId) {
-                                if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
-                                    check(sharedStorage.isWritable()) { "Shared storage write permission is required" }
+                        when {
+                            id.startsWith(SafGrantStore.SCOPE_ID_PREFIX) -> {
+                                com.helix.app.files
+                                    .SafManualFileBackend(context.contentResolver, safGrantStore, safTree, id)
+                            }
+
+                            id == FileManagerService.ROOT_SCOPE_ID -> {
+                                rootOperations?.manualBackend() ?: error("Root manual backend not available")
+                            }
+
+                            else -> {
+                                com.helix.app.files.NioManualFileBackend(id, manualRoots, id == appScopeId) {
+                                    if (id == com.helix.app.files.SharedStorageAccess.SCOPE_ID) {
+                                        check(sharedStorage.isWritable()) {
+                                            "Shared storage write permission is required"
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -179,11 +190,16 @@ internal class AppFileServices(
                                 }.isSuccess
                             }
 
+                            id == FileManagerService.ROOT_SCOPE_ID -> {
+                                rootOperations?.isRootGranted() == true
+                            }
+
                             else -> {
                                 false
                             }
                         }
                     },
                 ),
+            rootOperations = rootOperations,
         )
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -41,6 +42,23 @@ class GroupedNavigationDeviceTest {
             }
         }
         ShellDestination.entries.forEach { destination ->
+            val groupTag =
+                when (destination) {
+                    ShellDestination.Tasks, ShellDestination.Artifacts, ShellDestination.Git,
+                    ShellDestination.Files, ShellDestination.Browser, ShellDestination.Terminal,
+                    -> "navigation-group-work"
+
+                    ShellDestination.Capabilities, ShellDestination.Readiness, ShellDestination.Permissions,
+                    ShellDestination.Settings, ShellDestination.Audit,
+                    -> "navigation-group-settings"
+
+                    else -> null
+                }
+            if (groupTag != null &&
+                compose.onAllNodesWithTag("navigation-${destination.route}").fetchSemanticsNodes().isEmpty()
+            ) {
+                compose.onNodeWithTag(groupTag).performScrollTo().performClick()
+            }
             compose
                 .onNodeWithTag(
                     "navigation-${destination.route}",

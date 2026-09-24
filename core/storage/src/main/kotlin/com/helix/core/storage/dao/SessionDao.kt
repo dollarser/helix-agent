@@ -42,7 +42,8 @@ interface SessionDao {
     @Query(
         "UPDATE sessions SET providerId = :providerId, modelId = :modelId " +
             "WHERE id = :id AND archivedAt IS NULL AND NOT EXISTS " +
-            "(SELECT 1 FROM turns WHERE sessionId = :id AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED'))",
+            "(SELECT 1 FROM turns WHERE sessionId = :id AND state NOT IN " +
+            "('COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED'))",
     )
     fun selectModel(
         id: String,

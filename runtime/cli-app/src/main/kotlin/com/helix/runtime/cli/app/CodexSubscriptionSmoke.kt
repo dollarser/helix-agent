@@ -140,7 +140,7 @@ internal class CodexSubscriptionSmoke(
     internal companion object {
         const val MODELS_URL = "https://chatgpt.com/backend-api/codex/models"
         const val RESPONSES_URL = "https://chatgpt.com/backend-api/codex/responses"
-        const val CLIENT_VERSION = "0.153.4"
+        const val CLIENT_VERSION = "0.156.1"
         const val EXPECTED_TEXT = "HELIX_OK"
         const val MAX_TEXT_CHARS = 64
         const val MAX_CATALOG_BYTES = 1024L * 1024L

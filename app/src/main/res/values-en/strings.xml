@@ -446,6 +446,10 @@
     <string name="files_restore_conflict">Restore failed: the original path is taken</string>
     <string name="files_restored_status">Restored</string>
     <string name="files_root_directory">Root</string>
+    <string name="files_root_fs">Root Filesystem</string>
+    <string name="files_request_root">Request Root Access</string>
+    <string name="files_root_granted">Root access granted</string>
+    <string name="files_root_required">Root access required</string>
     <string name="files_saf_button">SAF sources</string>
     <string name="files_saf_directory_fallback">SAF directory</string>
     <string name="files_saf_empty">No authorized SAF sources yet.</string>

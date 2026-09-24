@@ -444,6 +444,10 @@
     <string name="files_restore_conflict">恢复失败：原路径已被占用</string>
     <string name="files_restored_status">已恢复</string>
     <string name="files_root_directory">根目录</string>
+    <string name="files_root_fs">Root 根目录</string>
+    <string name="files_request_root">请求 Root 权限</string>
+    <string name="files_root_granted">Root 权限已获取</string>
+    <string name="files_root_required">需要 Root 权限</string>
     <string name="files_saf_button">SAF 来源</string>
     <string name="files_saf_directory_fallback">SAF 目录</string>
     <string name="files_saf_empty">暂无已授权 SAF 来源。</string>

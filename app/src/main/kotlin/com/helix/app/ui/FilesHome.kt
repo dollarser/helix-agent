@@ -98,6 +98,15 @@ internal fun FilesHome(
                     state.importResult = null
                     state.importOpen = true
                 }, modifier = Modifier.testTag("files-import-open")) { Text(actions.str(R.string.files_import_button)) }
+                if (actions.fileManager.isRootSupported && !actions.fileManager.isRootGranted) {
+                    TextButton(
+                        onClick = { actions.requestRoot() },
+                        modifier = Modifier.testTag("files-root-request"),
+                    ) {
+                        Text(stringResource(R.string.files_request_root))
+                    }
+                }
+                FilesRecoveryPanel(actions)
             }
         }
     }

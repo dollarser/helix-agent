@@ -97,8 +97,7 @@ private fun FilesRecoverableLayout(
         } else {
             null
         }
-    Column(Modifier.fillMaxSize()) {
-        FilesRecoveryPanel(actions)
-        Box(Modifier.weight(1f)) { FilesScreenLayout(state, actions, openSharedStorage, openTerminal) }
+    Box(Modifier.fillMaxSize()) {
+        FilesScreenLayout(state, actions, openSharedStorage, openTerminal)
     }
 }
