@@ -179,6 +179,17 @@ class AppAgentRuntimeTest {
         assertEquals(listOf("t1"), fake.cancelled)
     }
 
+    @Test
+    fun cancelOfNeedsReviewReportsReviewRequiredWithoutDiscarding() {
+        val fake = host().apply { phase = TurnState.NEEDS_REVIEW }
+        val runtime = AppAgentRuntime(fake)
+
+        val result = runBlocking { runtime.cancel(turnId) }
+
+        assertEquals(CancelResult.ReviewRequired, result)
+        assertEquals(listOf("t1"), fake.cancelled)
+    }
+
     // --- observe ---
 
     @Test
@@ -218,6 +229,34 @@ class AppAgentRuntimeTest {
         assertEquals(TurnState.COMPLETED, frames[0].phase)
         assertEquals("final", frames[0].assistantText)
         assertTrue(frames[0].isTerminal)
+    }
+
+    @Test
+    fun liveNeedsReviewEndsObservationWithoutDuplicatePersistedFrame() {
+        val fake =
+            host().apply {
+                frames = listOf(TurnUi("t1", TurnState.NEEDS_REVIEW, null, "review", false))
+                phase = TurnState.NEEDS_REVIEW
+            }
+        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        assertEquals(listOf(TurnState.NEEDS_REVIEW), frames.map { it.phase })
+        assertEquals("review", frames.single().errorLabel)
+        assertTrue(!frames.single().isTerminal)
+    }
+
+    @Test
+    fun lateSubscriberSeesPersistedNeedsReviewOnce() {
+        val fake =
+            host().apply {
+                frames = emptyList()
+                phase = TurnState.NEEDS_REVIEW
+            }
+        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        assertEquals(1, frames.size)
+        assertEquals(TurnState.NEEDS_REVIEW, frames.single().phase)
+        assertTrue(!frames.single().retryable)
     }
 
     @Test
@@ -312,6 +351,7 @@ class AppAgentRuntimeTest {
             goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
             directUserRequest: Boolean,
             revisedMessageId: String?,
+            regenerateMessageId: String?,
         ): String? {
             // Mirror the production host (HX2-01 §2e): idempotent by clientRequestId — a re-driven
             // start carrying an already-claimed id returns the existing turn, never a second.
@@ -331,7 +371,7 @@ class AppAgentRuntimeTest {
         override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {
             cancelled += turnId
             terminalDuringCancel?.let { return TurnCancelOutcome.AlreadyTerminal(it) }
-            // Mirror the host: a parked (INTERRUPTED) turn is discarded, a live one stopped.
+            // Mirror the host: INTERRUPTED is discardable; NEEDS_REVIEW requires explicit review.
             return when (phase) {
                 TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED -> {
                     TurnCancelOutcome.AlreadyTerminal(requireNotNull(phase))
@@ -339,6 +379,10 @@ class AppAgentRuntimeTest {
 
                 TurnState.INTERRUPTED -> {
                     TurnCancelOutcome.DiscardedParked
+                }
+
+                TurnState.NEEDS_REVIEW -> {
+                    TurnCancelOutcome.ReviewRequired
                 }
 
                 else -> {

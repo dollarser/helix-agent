@@ -46,7 +46,7 @@ required_doc_entries = (
     "development/verification-matrix.md",
     "security/testing-and-release.md",
     "references/open-source-projects.md",
-    "history/documentation-review.md",
+    "evidence/development/documentation-review-history-2026-09-02.md",
 )
 for relative_path in required_doc_entries:
     required_path = root / "docs" / relative_path

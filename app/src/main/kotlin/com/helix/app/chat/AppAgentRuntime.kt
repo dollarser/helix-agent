@@ -18,12 +18,9 @@ import kotlinx.coroutines.flow.map
  * Widget / Channel) drives a turn through this, and this delegates to the existing, proven turn
  * machinery via [AgentTurnHost] — never reaching into the model provider or the tool pipeline.
  *
- * [observe] streams ANY turn to its terminal — including a turn in a NON-open (background)
- * session, which is the whole point of the persistent-observation contract: while the turn is
- * live, [AgentTurnHost.observeTurnFrames] streams that turn's live frames (streaming text
- * included), independent of which session the user is viewing; a subscriber that joins after the
- * turn terminalized (or a turn that ended, or never started, before we subscribed) is projected
- * from the turn's persisted state. The stream ends once the turn's terminal phase is observed.
+ * [observe] streams ANY live turn independently of the open session. The live flow closes at a
+ * terminal or durable parked phase (NEEDS_REVIEW / INTERRUPTED); a subscriber that joins after
+ * that boundary is projected from persisted state instead of reviving a live flow.
  */
 internal class AppAgentRuntime(
     private val host: AgentTurnHost,
@@ -34,6 +31,7 @@ internal class AppAgentRuntime(
                 sessionId = command.session.value,
                 clientRequestId = command.clientRequestId,
                 revisedMessageId = command.revisedMessageId,
+                regenerateMessageId = command.regenerateMessageId,
                 text = command.text,
                 providerId = command.providerId.value,
                 retryTurnId = command.retryTurnId?.value,
@@ -63,18 +61,19 @@ internal class AppAgentRuntime(
             is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
             TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
             TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
+            TurnCancelOutcome.ReviewRequired -> CancelResult.ReviewRequired
         }
     }
 
     override fun observe(turnId: TurnId): Flow<TurnSnapshot> =
         flow {
-            var sawTerminal = false
+            var sawDurableStop = false
             host
                 .observeTurnFrames(turnId.value)
                 .map { frame -> liveSnapshot(turnId, frame) }
                 .distinctUntilChanged()
                 .collect { snapshot ->
-                    if (snapshot.isTerminal) sawTerminal = true
+                    if (snapshot.isTerminal || snapshot.phase in PARKED_PHASES) sawDurableStop = true
                     emit(snapshot)
                 }
             // The live flow has now ended: the turn terminalized (its live frames completed the
@@ -83,7 +82,7 @@ internal class AppAgentRuntime(
             // case where a back-pressured live stream dropped it — project the turn's persisted
             // state so the observer still lands on the turn's real phase. A turn that does not
             // exist yields no persisted phase and ends the stream empty.
-            if (!sawTerminal) {
+            if (!sawDurableStop) {
                 host.persistedPhase(turnId.value)?.let { phase -> emit(persistedSnapshot(turnId, phase)) }
             }
         }
@@ -120,4 +119,8 @@ internal class AppAgentRuntime(
         phase: TurnState,
         liveText: String?,
     ): String? = if (phase.isTerminal) host.persistedAssistantText(turnId.value) ?: liveText else liveText
+
+    private companion object {
+        val PARKED_PHASES = setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED)
+    }
 }

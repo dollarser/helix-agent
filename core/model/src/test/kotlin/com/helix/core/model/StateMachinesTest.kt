@@ -22,6 +22,7 @@ class StateMachinesTest {
             TurnState.WAITING_APPROVAL to TurnState.RECORDING_TOOL_RESULT,
             TurnState.WAITING_APPROVAL to TurnState.FAILED,
             TurnState.RUNNING_TOOL to TurnState.RECORDING_TOOL_RESULT,
+            TurnState.RUNNING_TOOL to TurnState.NEEDS_REVIEW,
             TurnState.RUNNING_TOOL to TurnState.FAILED,
             TurnState.RECORDING_TOOL_RESULT to TurnState.BUILDING_CONTEXT,
             TurnState.RECORDING_TOOL_RESULT to TurnState.WAITING_APPROVAL,
@@ -36,9 +37,9 @@ class StateMachinesTest {
             TurnState.RUNNING_TOOL to TurnState.CANCELLING,
             TurnState.RECORDING_TOOL_RESULT to TurnState.CANCELLING,
             TurnState.CANCELLING to TurnState.CANCELLED,
-            // Recovery paths for an interrupted turn.
-            TurnState.INTERRUPTED to TurnState.BUILDING_CONTEXT,
-            TurnState.INTERRUPTED to TurnState.CANCELLED,
+            TurnState.CANCELLING to TurnState.NEEDS_REVIEW,
+            TurnState.NEEDS_REVIEW to TurnState.INTERRUPTED,
+            TurnState.NEEDS_REVIEW to TurnState.CANCELLED,
         )
 
     @Test
@@ -56,7 +57,10 @@ class StateMachinesTest {
 
     @Test
     fun turnTerminalStatesHaveNoOutgoingTransitions() {
-        assertEquals(setOf(TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED), TurnState.TERMINAL)
+        assertEquals(
+            setOf(TurnState.INTERRUPTED, TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED),
+            TurnState.TERMINAL,
+        )
         for (state in TurnState.entries) {
             assertEquals("isTerminal flag for $state", state in TurnState.TERMINAL, state.isTerminal)
         }
@@ -65,7 +69,7 @@ class StateMachinesTest {
     @Test
     fun turnProcessDeathInterruptsOnlyNonTerminalStates() {
         for (state in TurnState.entries) {
-            val expected = !state.isTerminal && state != TurnState.INTERRUPTED
+            val expected = !state.isTerminal && state != TurnState.NEEDS_REVIEW
             assertEquals("process death from $state", expected, state.canBecomeInterruptedOnProcessDeath())
         }
     }
@@ -124,7 +128,7 @@ class StateMachinesTest {
     @Test
     fun toolCallProcessDeathOnlyParksInFlightCalls() {
         for (state in ToolCallState.entries) {
-            val expected = state == ToolCallState.PENDING || state == ToolCallState.RUNNING
+            val expected = state == ToolCallState.RUNNING
             assertEquals("toolCall process death from $state", expected, state.canBecomeInterruptedOnProcessDeath())
         }
     }
@@ -192,6 +196,7 @@ class StateMachinesTest {
             GoalState.RUNNING to GoalState.PAUSED,
             GoalState.RUNNING to GoalState.BLOCKED,
             GoalState.PAUSED to GoalState.BLOCKED,
+            GoalState.BLOCKED to GoalState.RUNNING,
             GoalState.BLOCKED to GoalState.PAUSED,
             GoalState.BLOCKED to GoalState.CANCELLED,
             GoalState.RUNNING to GoalState.COMPLETED,

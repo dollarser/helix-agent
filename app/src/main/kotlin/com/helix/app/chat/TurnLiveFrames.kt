@@ -78,4 +78,10 @@ internal class TurnLiveFrames {
             source.tryEmit(null)
         }
     }
+
+    /** Ends live observation for a non-terminal parked turn after its last durable frame. */
+    fun close(turnId: String) {
+        val source = synchronized(lock) { flows.remove(turnId) } ?: return
+        source.tryEmit(null)
+    }
 }

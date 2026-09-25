@@ -635,7 +635,7 @@ synchronized(turnGate) {
 | `2026-09-24-review-reevaluation.md` | 对 `REVIEW-2026-09-24.md` 的再评估：17 条回源码复验，3 条降级、1 条裁决、13 条确认为真 |
 | `2026-09-24-structure-review.md` | 架构设计、目录结构、类内聚耦合量化（1690 类）、文件拆分重组清单 |
 | `2026-09-24-supplement-verification-and-release.md` | **验证体系（CI 不跑设备测试）、发布就绪度（45 MiB APK / R8 关闭）、静态分析门禁盲区** |
-| `2026-09-24-codex-browser-vs-helix.md` | 与 Codex `control-in-app-browser` / `mcp__node_repl__js` 的浏览器能力差距分析 |
+| [`docs/research/codex-browser-vs-helix-2026-09-24.md`](../../docs/research/codex-browser-vs-helix-2026-09-24.md) | 与 Codex `control-in-app-browser` / `mcp__node_repl__js` 的浏览器能力差距分析（已归 research） |
 
 补充审查 §1 为本报告 P0（进程死亡恢复）给出了**机制性成因**：CI 从不执行设备测试，且 `ProcessRecoveryTest` 的 9 个用例全部只 seed 单个工具调用——与 `PersistedTurn.init` 的错误断言共享同一前提，因此永远无法发现该缺陷。
 

@@ -49,22 +49,7 @@ sealed interface TurnEvent {
             val uncertainToolCallId: ToolCallId?,
         ) : Lifecycle
 
-        /**
-         * A human (recovery flow, HXA-015) resolved the uncertain tool call left by process
-         * death. Applies the given outcome to the tracked call. Valid from INTERRUPTED while
-         * an uncertain call is tracked.
-         */
-        data class UncertainToolCallResolved(
-            val outcome: ToolOutcome,
-        ) : Lifecycle
-
-        /**
-         * Explicit user resume of an interrupted turn. Valid from INTERRUPTED only after the
-         * uncertain call (if any) was resolved.
-         */
-        data object TurnResumed : Lifecycle
-
-        /** User discarded the turn. Valid from INTERRUPTED and CANCELLING. */
+        /** User discarded an in-flight cancellation before it settled. Valid from CANCELLING only. */
         data object TurnDiscarded : Lifecycle
 
         /**

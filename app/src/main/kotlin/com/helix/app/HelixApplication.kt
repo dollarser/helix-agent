@@ -45,12 +45,7 @@ class HelixApplication : Application() {
      * database. It runs on a background thread because Room queries are not allowed on the
      * main thread. HXA-028: the coordinator shares the container's HelixStorage (one database
      * connection per process) instead of opening a second connection.
-     */
-    private val recoveryCoordinator: RecoveryCoordinatorApp by lazy {
-        RecoveryCoordinatorApp(appContainer.storage, SystemClock())
-    }
-
-    /**
+     *
      * The broad catch is intentional (suppressed below): a startup maintenance failure — any
      * persistence, validation or mapping error — must not take the app down on every cold
      * start; it is logged in full and recovery is re-attempted at the next start, with the
@@ -68,7 +63,9 @@ class HelixApplication : Application() {
         Thread(
             {
                 try {
-                    recoveryCoordinator.recover()
+                    requireNotNull(appContainer.turnEngine) {
+                        "main-process AppContainer must provide TurnEngine"
+                    }.recoverOnStartup()
                     appContainer.chatService.onRecoveryCompleted()
                     com.helix.app.goal
                         .GoalReminderReconciler(

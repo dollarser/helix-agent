@@ -1,6 +1,7 @@
 package com.helix.app.agent
 
 import com.helix.app.R
+import com.helix.app.engine.TurnRuntimeAccounting
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.PromptSnapshot
@@ -28,13 +29,19 @@ internal class AgentLoop(
     private val toolExecutor: TurnToolExecutor,
     private val clock: Clock,
     private val idGenerator: () -> String,
-    private val goalTimes: java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>,
-    private val turnCancels: java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>,
+    private val liveHandles: TurnExecutionHandles,
     private val strings: (Int, Array<out Any>) -> String,
     private val refreshScreen: () -> Unit,
     private val applyEvent: (com.helix.core.model.ModelEvent, ModelStreamState, String) -> Unit,
     private val inputDelivery: TurnInputDelivery? = null,
 ) {
+    private val runtimeAccounting = TurnRuntimeAccounting(storage)
+
+    internal enum class Entry {
+        INITIAL,
+        BACKFILL,
+    }
+
     private fun str(
         resId: Int,
         vararg args: Any,
@@ -42,24 +49,21 @@ internal class AgentLoop(
 
     suspend fun runWithGoalTime(
         turnId: String,
-        block: suspend () -> ModelStreamTerminal,
-    ): ModelStreamTerminal {
+        block: suspend () -> TurnLoopResult,
+    ): TurnLoopResult {
         val binding = storage.goalTurnBindings.byTurn(turnId) ?: return block()
         val timer = GoalTimeBudget(storage, clock, binding.runId)
-        goalTimes[turnId] = timer
+        liveHandles.installGoalTime(turnId, timer)
         try {
             return timer.run(
                 onExpiry = {
-                    turnCancels
-                        .getOrPut(
-                            turnId,
-                        ) { TurnCancelSignal { timer.expiredCode() != null } }
-                        .cancel()
+                    requireNotNull(liveHandles.cancelSignal(turnId)) { "TURN_NOT_LIVE: $turnId" }.cancel()
                 },
+                completionWins = { it is TurnLoopResult.ParkedForReview },
                 block = block,
             )
         } finally {
-            goalTimes.remove(turnId)
+            liveHandles.clearGoalTime(turnId, timer)
         }
     }
 
@@ -102,24 +106,39 @@ internal class AgentLoop(
         providerId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-    ): ModelStreamTerminal {
+        entry: Entry = Entry.INITIAL,
+    ): TurnLoopResult {
         val turnId = coordinator.id
         val provider = providerService.modelProviderFor(providerId)
-        var context = contextAssembler.build(sessionId, retryTurnId, control)
+        val runtimeRecord = storage.turnRuntimeRecords.find(turnId)
+        runtimeRecord?.let { runtimeAccounting.validate(it, providerId, control) }
+        var context =
+            when (entry) {
+                Entry.INITIAL -> contextAssembler.build(sessionId, turnId, retryTurnId, control)
+                Entry.BACKFILL -> contextAssembler.buildBackfill(sessionId, turnId, control)
+            }
+        runtimeRecord?.let { require(context.model == it.modelId) { "Turn runtime model drift" } }
         var manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
         var compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
-        var toolRounds = 0
-        val budgetTracker = TurnBudgetTracker(control.budgets)
+        var toolRounds = runtimeRecord?.admittedToolRounds ?: 0
+        val budgetTracker =
+            runtimeRecord?.let {
+                TurnBudgetTracker.restore(
+                    control.budgets,
+                    consumedModelCalls = it.consumedModelCalls,
+                    consumedTokens = it.consumedTokens,
+                )
+            } ?: TurnBudgetTracker(control.budgets)
         val goalBudget = GoalModelCallBudget(storage, clock)
         val contextSettings = providerService.contextSettings(providerId, context.model)
         val window = contextSettings.window
         while (true) {
-            goalTimes[turnId]?.checkActive()
-            if (turnCancels[turnId]?.isCancelled() == true) {
-                return ModelStreamTerminal(TurnState.CANCELLED, null)
+            liveHandles.goalTime(turnId)?.checkActive()
+            if (liveHandles.cancelSignal(turnId)?.isCancelled() == true) {
+                return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             }
             if (!manualCommandPending && appendQueuedSteering(sessionId, coordinator)) {
-                context = contextAssembler.buildBackfill(sessionId, control)
+                context = contextAssembler.buildBackfill(sessionId, turnId, control)
             }
             coordinator.recordDiagnostic(
                 "budget.request",
@@ -138,7 +157,7 @@ internal class AgentLoop(
                     "budget.result",
                     RequestBudgetDiagnostics.result(it.errorCode, null, budgetTracker),
                 )
-                return it
+                return TurnLoopResult.Terminal(it)
             }
             val compaction = prepared.plan
             val admission =
@@ -154,9 +173,10 @@ internal class AgentLoop(
                     "budget.result",
                     RequestBudgetDiagnostics.result(it.errorCode, null, budgetTracker),
                 )
-                return it
+                return TurnLoopResult.Terminal(it)
             }
             val request = requireNotNull(admission.request)
+            runtimeAccounting.checkpointModelAdmission(turnId, budgetTracker)
             coordinator.recordDiagnostic(
                 "budget.admitted",
                 RequestBudgetDiagnostics.admitted(
@@ -184,13 +204,14 @@ internal class AgentLoop(
                     if (compaction == null) context.sourceMessageIds else emptySet(),
                     manifestJson,
                 )
-            val decision = acc.terminal(turnCancels[turnId]?.isCancelled() == true)
+            val decision = acc.terminal(liveHandles.cancelSignal(turnId)?.isCancelled() == true)
             val accountingFailure = admission.finish(acc)
+            runtimeAccounting.checkpointTokens(turnId, budgetTracker)
             coordinator.recordDiagnostic(
                 "budget.result",
                 RequestBudgetDiagnostics.result(accountingFailure?.errorCode ?: decision.errorCode, acc, budgetTracker),
             )
-            accountingFailure?.let { return it }
+            accountingFailure?.let { return TurnLoopResult.Terminal(it) }
             if (compaction != null) {
                 val finished =
                     compactionRound
@@ -203,18 +224,20 @@ internal class AgentLoop(
                             str(R.string.context_compacted),
                         )
                 if (finished != null) {
-                    if (finished.state != TurnState.COMPLETED) return finished
-                    finishResponseOrReturn(sessionId, coordinator, finished)?.let { return it }
-                    context = contextAssembler.buildBackfill(sessionId, control)
+                    if (finished.state != TurnState.COMPLETED) return TurnLoopResult.Terminal(finished)
+                    finishResponseOrReturn(sessionId, coordinator, finished)?.let {
+                        return TurnLoopResult.Terminal(it)
+                    }
+                    context = contextAssembler.buildBackfill(sessionId, turnId, control)
                     manualCommandPending = context.messages.lastOrNull()?.text == ContextCompaction.COMMAND
                     // The explicit compaction command has finished; the accepted user input is
                     // an ordinary request in this same Turn, retaining its budget tracker.
                     compactionRound = compactionRound(sessionId, turnId, providerId, context, control)
                 }
                 refreshScreen()
-                context = contextAssembler.rebuild(sessionId, retryTurnId, control, context)
+                context = contextAssembler.rebuild(sessionId, turnId, retryTurnId, control, context)
             } else {
-                if (decision.state != TurnState.COMPLETED) return decision
+                if (decision.state != TurnState.COMPLETED) return TurnLoopResult.Terminal(decision)
                 compactionRound.observe(context, acc.inputTokens)
                 when (val round = runToolRound(coordinator, acc, toolRounds, control)) {
                     is ToolRoundLimit -> {
@@ -222,17 +245,23 @@ internal class AgentLoop(
                             "budget.result",
                             RequestBudgetDiagnostics.result("TOOL_STEP_LIMIT", acc, budgetTracker),
                         )
-                        return ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT")
+                        return TurnLoopResult.Terminal(ModelStreamTerminal(TurnState.FAILED, "TOOL_STEP_LIMIT"))
                     }
 
                     is ToolRoundContinued -> {
                         toolRounds = round.toolRounds
-                        context = contextAssembler.buildBackfill(sessionId, control)
+                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
+                    }
+
+                    is ToolRoundReviewRequired -> {
+                        return TurnLoopResult.ParkedForReview(round.callIds)
                     }
 
                     else -> {
-                        finishResponseOrReturn(sessionId, coordinator, decision)?.let { return it }
-                        context = contextAssembler.buildBackfill(sessionId, control)
+                        finishResponseOrReturn(sessionId, coordinator, decision)?.let {
+                            return TurnLoopResult.Terminal(it)
+                        }
+                        context = contextAssembler.buildBackfill(sessionId, turnId, control)
                     }
                 }
             }
@@ -348,7 +377,7 @@ internal class AgentLoop(
         coordinator.recordPromptSnapshot(prompt, !publishText)
         coordinator.recordRequestManifest(manifestJson)
         val acc = coordinator.beginModelStream(compacting = !publishText)
-        goalTimes[coordinator.id]?.checkActive()
+        liveHandles.goalTime(coordinator.id)?.checkActive()
         if (publishText) {
             coordinator.recordInputRequestStarted(sourceMessageIds)
             inputDelivery?.requestStarting(
@@ -366,7 +395,7 @@ internal class AgentLoop(
                 if (publishText) {
                     applyEvent(it, acc, coordinator.id)
                 } else {
-                    goalTimes[coordinator.id]?.checkActive()
+                    liveHandles.goalTime(coordinator.id)?.checkActive()
                     acc.apply(it)
                 }
             }
@@ -382,6 +411,10 @@ internal class AgentLoop(
     ) : ToolRoundResult()
 
     private class ToolRoundLimit : ToolRoundResult()
+
+    private class ToolRoundReviewRequired(
+        val callIds: List<String>,
+    ) : ToolRoundResult()
 
     /**
      * Runs ONE tool round when the decision is COMPLETED with finished tool calls: closes
@@ -403,14 +436,16 @@ internal class AgentLoop(
         val calls = acc.finishedToolCalls
         if (calls.isEmpty()) return null
         if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
+        runtimeAccounting.checkpointToolRound(turnId, toolRounds)
         val localBatch = LocalToolCallBatch(calls, idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })
         coordinator.commitModelToolStep(toolExecutor.assistantToolStepJson(localBatch))
         val turn = storage.turns.resolve(turnId)
         val settled = toolExecutor.runToolBatch(turn, turnId, localBatch.calls, coordinator, control)
+        if (settled.requiresReview) return ToolRoundReviewRequired(settled.reviewCallIds)
         val nextCallId = idGenerator()
         coordinator.openNextModelCall(
-            settled.map {
+            settled.calls.map {
                 toolExecutor.toolResultDraft(
                     it.copy(callId = localBatch.wireId(it.callId), resultReference = "$turnId/${it.callId}"),
                 )

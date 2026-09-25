@@ -1,5 +1,7 @@
 package com.helix.app.chat
 
+import com.helix.app.engine.SubmitReceipt
+import com.helix.app.engine.SubmitReceiptDecision
 import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.TurnEntity
 import com.helix.core.storage.repository.MessageAttachmentRepository
@@ -10,8 +12,8 @@ import org.junit.Test
 
 /**
  * Unit tests for the PERSISTENT submit-dedup logic (research doc section 34; HX2-01 §2e): the
- * [TurnInputFingerprint] binds a client-request id to the exact content of a submission, and
- * [TurnDedup] decides how a re-driven id resolves against its receipt row — a same session + input
+ * [TurnInputFingerprint] binds a client-request id to the exact content of a submission, and the
+ * Engine [SubmitReceipt] decides how a re-driven id resolves against its receipt row — a same session + input
  * dedups to the started turn; any divergence is a conflict (fail-closed). Pure, so they run on the
  * JVM where the heavy [ChatService] cannot be constructed.
  */
@@ -82,43 +84,65 @@ class TurnSubmitDedupTest {
     }
 
     @Test
+    fun regenerateMessageIdDifferentiatesFingerprint() {
+        val plain = TurnInputFingerprint.of(null, emptyList())
+        val regen1 = TurnInputFingerprint.of(null, emptyList(), regenerateMessageId = "msg-1")
+        val regen2 = TurnInputFingerprint.of(null, emptyList(), regenerateMessageId = "msg-2")
+        val regen1Duplicate = TurnInputFingerprint.of(null, emptyList(), regenerateMessageId = "msg-1")
+
+        assertNotEquals(plain, regen1)
+        assertNotEquals(regen1, regen2)
+        assertEquals(regen1, regen1Duplicate)
+    }
+
+    @Test
+    fun recoveryPredecessorIsPartOfAcceptedRequestIdentity() {
+        val first = TurnInputFingerprint.of("continue", emptyList(), recoveryFromTurnId = "turn-old-1")
+        val second = TurnInputFingerprint.of("continue", emptyList(), recoveryFromTurnId = "turn-old-2")
+        val duplicate = TurnInputFingerprint.of("continue", emptyList(), recoveryFromTurnId = "turn-old-1")
+
+        assertNotEquals(first, second)
+        assertEquals(first, duplicate)
+    }
+
+    @Test
     fun theFingerprintIsA64CharLowercaseSha256Hex() {
         val fp = TurnInputFingerprint.of("hello", listOf(binding("art-1")))
         assertEquals(64, fp.length)
         assertTrue(fp.all { it in '0'..'9' || it in 'a'..'f' })
     }
 
-    // --- TurnDedup ---
+    // --- Engine SubmitReceipt ---
 
     @Test
     fun anUnknownClientRequestIdIsFresh() {
-        assertEquals(TurnDedupDecision.Fresh, TurnDedup.decide(null, "s1", "fp"))
+        assertEquals(SubmitReceiptDecision.Fresh, SubmitReceipt.decide(null, "s1", "fp"))
     }
 
     @Test
     fun aSameSessionAndInputReDriveDedupsToTheStartedTurn() {
         val fp = TurnInputFingerprint.of("hello", emptyList())
-        val decision = TurnDedup.decide(turn("t1", "s1", fp), "s1", fp)
-        assertEquals(TurnDedupDecision.Dedup("t1"), decision)
+        val decision = SubmitReceipt.decide(turn("t1", "s1", fp), "s1", fp)
+        assertEquals(SubmitReceiptDecision.Deduplicated("t1"), decision)
     }
 
     @Test
     fun aDifferentInputUnderTheSameIdIsAConflict() {
         val fp = TurnInputFingerprint.of("hello", emptyList())
         val other = TurnInputFingerprint.of("different content", emptyList())
-        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s1", other))
+        assertEquals(SubmitReceiptDecision.Conflict, SubmitReceipt.decide(turn("t1", "s1", fp), "s1", other))
     }
 
     @Test
     fun aDifferentSessionUnderTheSameIdIsAConflict() {
         val fp = TurnInputFingerprint.of("hello", emptyList())
-        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s2", fp))
+        assertEquals(SubmitReceiptDecision.Conflict, SubmitReceipt.decide(turn("t1", "s1", fp), "s2", fp))
     }
 
     @Test
     fun aDifferentSessionAndInputIsAConflict() {
         val fp = TurnInputFingerprint.of("hello", emptyList())
         val other = TurnInputFingerprint.of("other", emptyList())
-        assertEquals(TurnDedupDecision.Conflict, TurnDedup.decide(turn("t1", "s1", fp), "s2", other))
+        assertEquals(SubmitReceiptDecision.Conflict, SubmitReceipt.decide(turn("t1", "s1", fp), "s2", other))
     }
 }

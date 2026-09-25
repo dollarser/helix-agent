@@ -1,134 +1,137 @@
-# ADR-AGENT-005: 按会话导出 JSONL 执行记录
+# ADR-AGENT-005: 会话执行追踪与 JSONL 导出
 
 Status: accepted
-Date: 2026-09-17
-HXA: HXA-211
-Deciders: Project owner（2026-09-18 授权在当前会话实施会话 JSONL 导出；沿用本 ADR 的单会话、只读快照边界）
+Date: 2026-09-25
+HXA: HXA-211, HXA-217
+Deciders: Project owner
 
 ## Context
 
-用户需要按会话获取机器可读的对话和执行记录，用于调试、历史检索与评测。当前 Helix 以 Room 保存消息顺序、实体身份、状态与正文引用，以 ContentStore 保存正文；没有每会话 JSONL 对话文件。直接复制数据库与内容目录不适合用户操作，也不是稳定的外部格式。
+Helix 需要两类互相关联但职责不同的可追踪事实：
 
-需求是从现有持久事实导出可关联、可解释的会话轨迹，不是新增运行时事实源。对话恢复、原 Job 对账和外部副作用重放是不同问题，导出文件不能成为自动执行入口。
+1. 用户主动导出的单会话 JSONL，用于调试、历史检索与评测；
+2. 每次 ModelCall 的轻量 request context manifest，用于解释“这次请求实际看到了哪些已持久消息/来源”。
+
+历史上两者分别记录为 ADR-AGENT-005 与 ADR-AGENT-005，但它们属于同一个“会话执行追踪”功能：Room/ContentStore 仍是运行事实源，manifest 是请求级元数据，JSONL 是用户触发的只读投影。二者都不能成为第二套执行状态机或 replay 入口。
 
 ## Decision
 
-新增用户主动发起的单会话 JSONL 导出，覆盖 consumer/developer 均具备的会话存储；不依赖 PRoot、Root、订阅账号或模型调用。实施登记为独立 HXA-211，不将本需求并入命令详情、文件产物导出或生产子 Agent 接线。accepted 表示实施授权，不表示功能已交付。
+### 1. Room/ContentStore 保持唯一执行事实源
 
-### 1. 内容范围与事实来源
+执行过程不实时双写 JSONL。JSONL 和 request manifest 都是现有 durable facts 的可追踪投影：
 
-| 记录类型 | 必须包含的事实 | 边界 |
-| --- | --- | --- |
-| 导出头与会话 | 格式标识/版本、exportId、sessionId、生成时间、快照边界、应用版本、选定内容策略 | 不导出凭据、完整 Provider 配置或其他会话 |
-| 消息 | 稳定 messageId、所属 session/turn、role、kind、会话 sequence、正文或内容引用 | 保留已有用户/assistant/tool 消息；不把 UI 拼接文本当原始消息 |
-| Turn | turnId、持久 phase、开始/结束时间（若有）、终止原因/错误码、已记录预算与用量 | 快照时仍活动的 Turn 明确未终止，不补造最终原因 |
-| 模型调用 | modelCallId、turnId、已存 Provider/模型身份、状态、已有时间/请求来源元数据、用量及结束原因 | 不承诺完整 wire request/response、逐 token 流或未保存的 reasoning |
-| 工具调用及结果 | toolCallId、所属 turn、已有模型关联、工具身份、已保存参数、状态、结果/错误、执行/产物引用 | 已存参数与结果遵守第 5 节；尚未结算与未知副作用分别表达 |
-| 压缩边界 | 稳定 checkpoint 身份或可重复派生键、覆盖消息边界/保留 IDs、摘要正文引用及对应模型调用（若有） | 原消息与摘要分别导出，不以摘要替换原始历史 |
-| 用量 | 已记录的 input/output/total tokens、模型/工具次数、时间等，标明其所属层级和报告/估算来源 | 未知为 null/unknown，不记成 0；ModelCall、Turn、Goal 累计值不能重复求和 |
-| 内容描述 | contentId、来源引用、MIME/编码（若知）、字节数、hash 与算法、可用性 | 消息正文、工具结果及附件/产物引用可复用同一内容描述 |
+- 不参与 Turn recovery；
+- 不授权或 replay ToolCall；
+- 不补造不存在的历史事实；
+- 不保存 Secret、OAuth token、cookie、Approval proof 或可重用凭据。
 
-仅导出选定 session 所属事实。Goal/run 只提供本会话关联与已有累计用量的必要解释；不得顺带扫描其他会话或整个文件系统。审批和执行结论可保存已有状态/原因及关联 ID，不导出可复用的 Approval Proof、Secret 或运行控制凭证。
+### 2. ModelCall 保存轻量 request context manifest
 
-若现有存储缺少某项历史关联、usage 来源或结束原因，输出明确的 unknown/unavailable 与原因；不得根据时间邻近、自然语言、当前配置猜造历史事实。若需要新增采集字段，须在实施任务中单列生产改动与验证，旧历史保持缺失语义。
+每个 ModelCall 可以保存紧凑的 request context manifest，用于说明该请求实际绑定的上下文来源。manifest 记录稳定 identity/sequence 与必要来源元数据，不复制大正文。
 
-### 2. JSONL 信封与版本
+manifest 的目标是：
 
-首版格式名为 `helix.session-export`，`formatVersion` 为 `1`。UTF-8、无 BOM，一行一个合法 JSON object，以 LF 分隔；正文换行按 JSON 字符串转义，禁止跨物理行写一个对象。最后一条为导出完成记录，缺少它的文件不得作为成功导出消费。
+- 关联 request 与已持久 Message/Turn/context checkpoint；
+- 支持 JSONL 导出、诊断和故障复现；
+- 不保存完整 wire request/response；
+- 不保存模型内部 reasoning；
+- 不把当前 UI state 当历史事实。
 
-每行共同字段至少包含 `format`、`formatVersion`、`exportId`、`sequence`、`type`、`recordId`、`sessionId` 与 `data`。`sequence` 是本次导出从 0 开始的连续顺序，不冒充原始执行事件序号；源时间戳和原消息 sequence 保存在各自字段中。
+旧 ModelCall 缺 manifest 时输出 unknown/unavailable，不根据时间邻近或当前配置猜造。
 
-导出头声明各记录类型、排序规则、快照语义与内容策略。导出尾记录总记录数、分类型计数、内容缺失/省略/脱敏统计及完成标记。实现提供机器可校验的格式规范与合成样例；新消费者拒绝不支持的主版本。兼容新增可选字段可忽略，字段语义/关联/排序的不兼容变化升级版本，不静默改变旧版本含义。
+### 3. 用户主动导出单会话 JSONL
 
-### 3. 稳定身份、关联与顺序
+首版格式为 `helix.session-export` / `formatVersion=1`，UTF-8、LF、一行一个 JSON object。导出只覆盖用户选择 session 的 durable facts，并有显式 header/complete footer。
 
-现有 sessionId、turnId、messageId、modelCallId、toolCallId、executionId、artifactId 等原样保留，不因导出生成新的执行身份。`exportId` 只标识一次快照；同一源记录的 `recordId` 在重复导出时保持稳定，使用类型前缀与源 ID 避免不同表 ID 碰撞。无独立 ID 的派生记录使用版本化、确定性的来源复合键，并标记 derived，不伪称原生事件 ID。
+至少可以表达：
 
-JSONL 是关系事实的导出投影，不是完整 event-sourcing 日志。排序应由格式规范固定：头、会话、按确定顺序分组的 Turn/消息/模型调用/工具与结果/压缩记录、内容描述、尾；时间相同或缺失时使用已有顺序及稳定 ID 决胜。消息原始 sequence 单独保留；多个工具的完成先后不得被导出顺序冒充为模型调用顺序。
+- session；
+- message；
+- Turn；
+- ModelCall；
+- ToolCall/ToolResult；
+- context compaction/checkpoint；
+- request context manifest；
+- 已记录 usage、finish/error/review state；
+- content identity/reference metadata。
 
-保留已存在的关联边，允许前向引用；文件解析完成后校验引用闭合。由于历史缺失、删除或不在导出范围而无法解析的引用必须显式标注，不得悄悄删除引用或关联到同名的新对象。同一 recordId 在不同 exportId 中可以有不同状态快照，不能按 ID 去重后无条件覆盖旧快照。
+JSONL 是关系快照，不是 event-sourcing 日志。导出 sequence 是导出文件顺序，不冒充执行先后。
 
-### 4. 大内容与便携性
+### 4. identity 与关联
 
-小型文本可内联，同时保留原内容身份；大型正文、工具输出和二进制采用内容引用，禁止将图片/附件一律 base64 填进 JSONL。内联阈值与单行/总输出/暂存空间上限由实现任务给出可测试的固定配置，达到上限时不得静默截断并标为完整。
+sessionId、turnId、messageId、modelCallId、toolCallId、artifact/content identity 原样保留。exportId 只标识一次导出。
 
-内容描述区分 `inline`、`reference_only`、`missing`、`changed`、`redacted`、`omitted_limit` 等状态。外部引用使用稳定内容/Artifact 身份和已有 hash，不输出私有绝对路径、带授权信息的 URI 或临时下载地址。读取正文时校验身份、长度和 hash；缺失或变化在统计和对应记录中可见。
+无独立 ID 的派生记录使用版本化确定性复合键，并标记 derived。缺失引用必须显式表示，不静默关联到“看起来像”的对象。
 
-首版交付单个 `.jsonl` 文件：小文本内联、大内容引用，不保证离开原设备后引用仍可解析，导出头和 UI 必须明确这一点。独立消费方可分析身份、关系和内联内容，但不得把 reference_only 当已取得全文。包含附件/正文 sidecar 的自包含归档包另行评审，不把单文件导出扩展成全量备份。
+### 5. 大内容与安全边界
 
-若内容经过脱敏，原内容身份与导出内容身份分开；导出字节的 hash 不得冒充原始字节的 hash。任何省略/变换保留原因，评测使用者能够判断材料是否完整。
+小文本可以内联；大正文、工具输出、附件和二进制使用稳定 content/artifact reference，不一律 base64。
 
-### 5. 用户入口与数据边界
+reference_only、missing、changed、redacted、omitted_limit 等状态必须可见。不得输出 App 私有绝对路径、带授权信息的临时 URI 或凭据 header。
 
-由用户在指定会话主动选择导出，经应用服务只读获取记录，通过系统文件创建/分享路径写到所选目标。导出不执行模型、工具、恢复、补拉远端结果或激活 Goal，不要求进入 Advanced。用户选择目的地即表达本次导出动作，不另设逐记录审批。
+脱敏后内容的 hash 不冒充原字节 hash。
 
-导出保留用户对话及工具业务内容，界面用简短范围摘要说明包含哪些材料、是否存在大内容引用及是否完成脱敏；不宣称文件天然匿名。不得序列化 SecretStore、OAuth token、认证 header、cookie、Provider 凭据配置或可用授权证明。沿用已有敏感字段/凭据净化机制，不为本需求另建通用内容审查系统；嵌入自由文本的未知敏感内容不能承诺全部识别。
+### 6. snapshot 与失败语义
 
-凭据字段排除与用户正文导出是不同处理；脱敏、缺失或省略可见，不用空字符串伪装原文。由云盘等系统文档 Provider 承接的目标可能同步到网络，不能承诺系统文件选择器写入永远离线。
+允许导出活动会话“截至某一致快照的 durable facts”。数据库读取、ContentStore 复核和 SAF 写入不得长时间占住 Room write transaction。
 
-### 6. 快照一致性与端侧执行
+取消、空间不足、目标撤权、正文变化、进程死亡或输出关闭失败不能显示成功。只有规定记录与 footer 全部完成才标记成功。
 
-Room 与 ContentStore 继续是唯一事实源；JSONL 是可重新生成的导出物，不参与恢复决策，不在每次消息写入时同步双写。
+首版 JSONL 不是完整备份：reference_only 可能只在原设备可解析；不包含导入、执行回放、跨设备恢复或自动上传。
 
-允许对活动会话导出“截至某快照的已持久事实”。导出头给出 snapshotId/时间及实际边界语义；活动状态原样保留。只读高水位不足以约束可变 Turn/调用状态，实施必须通过一致性读快照及有界暂存等机制固定关系记录，不能分页期间读取不同时间的状态再声称原子快照。
+### 7. UI 与工具边界
 
-数据库读取不等待用户选文件或远端目的地写入；先完成选定目标后的本地快照准备，再流式交付。采用有界缓冲、分页/磁盘暂存与取消检查，避免把整个会话载入内存，或在 Room 写事务中持有慢 SAF I/O。正文引用需固定后复核；并发删除导致不可读时明确记录或终止，不阻塞会话删除无限等待。
+导出由用户在指定会话主动触发，是应用功能，不因为存在该入口就新增 Agent Tool。导出不启动 Provider、Tool、Goal、PRoot 或 recovery。
 
-完整性失败、空间不足、取消、目标撤权或进程死亡不得报告成功。只有全部计划记录、导出尾及输出关闭均成功后才显示已导出；输出关闭不等于远端云盘已完成同步。对不能原子替换的目标，如实保留/标明不完整文件并在可能时清理，仅清理本次创建的输出和暂存，不删除原会话数据；重启不自动重导出或恢复模型执行。
+request manifest 的详情 UI 可以后续增加，但持久字段存在不等于必须建立独立诊断页面。
 
-### 7. 明确不包含
+## Decision history
 
-- 不替换 Room，不建立运行时 JSONL 双写账本或新的执行状态机。
-- 不新增导入、执行回放、自动重放工具、恢复授权或跨设备继续执行。
-- 不补录不存在的 token 流、模型内部思考或完整网络请求包。
-- 不默认导出全部会话、全部工作区文件、账号凭据或外部资源。
-- 不因导出需求新增云端服务、桌面配对、后台永久服务或自动上传。
+- **2026-09-17/18**：接受用户主动单会话 JSONL 导出，HXA-211 交付。
+- **2026-09-23**：接受轻量 ModelCall request context manifest，HXA-217 交付；当时单独记录为 Agent 010，现并入本功能 ADR。
+- **2026-09-25**：文档治理将 JSONL 与 request manifest 合并为一个长期“会话执行追踪”决策文件；没有改变已交付格式或运行时事实源。
 
 ## Alternatives considered
 
-- **每会话实时追加 JSONL，并与 Room 同时作为事实源**：引入双写失败与一致性成本，不是主动导出的必要条件，不采用。
-- **把 Room 全量复制或逐表裸转 JSON**：缺少稳定外部契约，易夹带其他会话、内部配置与敏感字段，不采用。
-- **只导出 UI 文本/Markdown**：适合阅读，但丢失调用关联、用量、压缩边界和失败语义，不能满足本需求。
-- **所有正文与附件全部内联**：单行及文件膨胀、手机内存和分享成本高，采用有界内联与明确引用。
-- **首版只支持已结束会话**：实现较简单，但不利于定位长任务当前状态；采用已持久事实快照，不承诺完整未来结果。
-- **首版同时提供自包含 ZIP、导入和跨设备恢复**：显著扩大数据迁移与执行范围，保持后续独立需求。
+- 每次执行实时追加 JSONL并与 Room 双写：增加双写一致性与恢复复杂度，拒绝。
+- 直接复制数据库/ContentStore：不是稳定用户格式，容易夹带内部配置与其他会话。
+- 只导出 Markdown/UI 文本：丢失调用 identity、状态、usage 和 review/recovery 关系。
+- 全量内联大正文与附件：资源成本不可控，采用有界内联与 reference。
+- 用 manifest 保存完整 request 或 reasoning：扩大敏感数据和存储成本，不采用。
+- JSONL 作为 replay/跨设备恢复输入：不属于当前功能。
 
 ## Consequences
 
-提供稳定的会话分析接口，方便本地调试、历史检索及评测工具消费；保留现有数据库事务、内容存储与恢复机制。代价是定义格式、来源关联、快照、资源上限和输出失败语义，并在历史缺失时如实降低材料完整度。
+会话执行具有稳定的只读分析接口，又不增加第二套运行时事实源。代价是需要维护格式版本、快照一致性、内容引用、缺失语义和 manifest 兼容性。
 
-首版 JSONL 不是完整备份或任意执行重放数据集；大内容引用可能需要原设备另行取回，估算用量不能当精确账单，脱敏/省略会影响评测。导出完成标记只证明规定导出流程完成，不证明记录覆盖了未采集的运行事实。
+HXA-211/217 的完成记录保留当时实际验证；本 ADR 只维护当前功能契约。
 
 ## Verification
 
-HXA-211 已交付，实际命令、制品及验证边界见[完成记录](../../completion-records/HXA-211.md)。以下保留验收要求，不将条目本身当通过证据：
+实际交付证据见 HXA-211、HXA-217。长期验收至少覆盖：
 
-| 验收面 | 必须覆盖 |
-| --- | --- |
-| 内容与关联 | 用户/assistant/tool 消息、多模型调用、并行工具按原序关联、拒绝/失败/取消/unknown、压缩前后历史、用量来源、终止原因 |
-| 稳定格式 | UTF-8/转义/Unicode、每行合法 JSON、连续 sequence、稳定 recordId、重复导出、版本拒绝、前向/缺失引用、头尾计数 |
-| 旧数据 | 缺失关联/usage/原因，不猜造、不补零；空会话及归档会话 |
-| 大内容 | 阈值边界、同 hash 去重引用、缺失/替换/hash 不符、二进制引用、脱敏前后 hash、超限显式结论 |
-| 一致性 | 活动 Turn 完成/取消竞态、工具结果与压缩提交期间导出、并发删除、分页快照稳定，不混入另一会话 |
-| 敏感数据 | 配置/Secret/证明不导出，合成凭据字段净化，普通用户正文不过度删除，变换与省略可见 |
-| Android 输出 | 本地与可控 SAF Provider、选文件取消、写入/关闭失败、撤权、磁盘满、慢输出取消、真实进程中断、临时文件清理 |
-| 资源与 UX | 大会话有界内存/暂存/单行/总量、进度与取消、只有真实完成才提示成功、引用非自包含说明、三语言及窄屏 |
-| 离线分析 | 独立解析器仅凭 JSONL 重建消息顺序和调用关系；未取得大正文时明确不完整；不依赖 App 私有路径或真实账号 |
+- 多 ModelCall 与并行 ToolCall 的 identity/顺序；
+- review/unknown/failed/cancelled 状态；
+- request manifest 与实际 context identity 对应；
+- 重复导出稳定 record identity；
+- Unicode/转义/每行合法 JSON；
+- active session 一致快照；
+- 大内容 reference、missing/changed/redacted；
+- Secret/credential/proof 排除；
+- SAF cancel/write/close failure；
+- 大会话资源上限；
+- 独立解析器无需 App 私有绝对路径。
 
-实现任务登记准确命令与固定上限：完整主机门禁 `./scripts/check-all.sh --all`，API29/36 × consumer/developer 独占设备专项；改变 schema 时追加 Room 转换与真实重启。格式样例只使用合成数据，不把真实会话或凭据提交到仓库。文档阶段运行 `./scripts/check-all.sh --source`，不据此声明导出功能可用。
+设备验证遵守项目 owner-explicit 规则：只有项目所有者在当前任务明确要求时，AI 代理才运行模拟器/真机验证；未要求时记录 `not requested`，已要求但尚未完成时记录 `pending`。GitHub Actions 不执行设备测试。
 
 ## Reconsider when
 
-需要自包含正文/附件包、批量会话导出、导入/恢复、精确请求重建、持续日志镜像或新的格式主版本时，单独评审资源、兼容性和数据范围。已有结构无法提供一致快照或必要关联时，先明确采集/存储改动，不静默降低导出语义。
+需要自包含归档包、批量会话导出、导入/跨设备恢复、完整 wire request capture、长期事件日志或格式 major version 时重新评审。
 
 ## References
 
 - [Agent 主题入口](README.md)
-- [Turn 批次与结算](001-turn-coordination.md)
-- [上下文与压缩](002-context-compaction.md)
-- [附件快照](003-attachments.md)
-- [执行引擎详解与对比](../../research/execution-engine-comparison.md)
-- [MessageRepository](../../../core/storage/src/main/kotlin/com/helix/core/storage/repository/MessageRepository.kt)
-- [ContentStore](../../../core/storage/src/main/kotlin/com/helix/core/storage/content/ContentStore.kt)
+- [上下文压缩](002-context-compaction.md)
+- [HXA-211](../../completion-records/HXA-211.md)
+- [HXA-217](../../completion-records/HXA-217.md)
 - [实施状态](../../development/status.md)
-- [开发路线](../../development/roadmap.md)

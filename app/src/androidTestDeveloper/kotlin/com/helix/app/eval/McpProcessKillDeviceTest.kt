@@ -186,7 +186,7 @@ class McpProcessKillDeviceTest {
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
                 .single { it.type == "recovery.turn_interrupted" }
-        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCall\":\"${call.callId}\""))
+        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[\"${call.callId}\"]"))
         assertEquals("INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         val approval = requireNotNull(storage.approvals.byToolCall(call.callId))

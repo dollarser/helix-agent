@@ -6,7 +6,7 @@
 
 - 删除三份已完成交接指令，独有提交定位与验收边界保留在[历史交接汇总](completed-handoffs-2026-09-22.md)；旧原文在Git历史中可查。
 - 压缩状态页和结构审查，移除重复调用链、过时源码行数及已失效的214/216实施顺序。当前入口、HXA-199和历史准备材料的链接/时间边界同步更新。
-- [深度复审](../../research/execution-engine-deep-review-2026-09-22.md)按当前源码重写：关闭原R1/R5/R9，收窄R4/R8，保留R2/R3/R6/R7及各自证据限制和最小验收。
+- [深度复审](../research-history/execution-engine-deep-review-2026-09-22.md)按当前源码重写：关闭原R1/R5/R9，收窄R4/R8，保留R2/R3/R6/R7及各自证据限制和最小验收。
 - 删除未提交的一次性 `consolidate-review-docs.py`；其效果已在文档diff中，重复执行不安全。保留可复跑的诊断探针和静态依赖清点工具，增加独立输出目录、拒绝覆盖旧基线和新XML检查。
 - 整理前27路径已快照至ignored `build/document-review-convergence/before/`，含原始内容、删除状态及SHA；历史审查正文没有未经备份丢弃。生产/测试/构建文件1944项在探针前后SHA一致。
 
@@ -34,6 +34,6 @@
 
 ## 验证与边界
 
-5个定向探针实际执行，0失败/错误/跳过；其中R1验证修复不变量，其他四项验证诊断现象，不能称为5项缺陷修复。命令、输出身份和限制统一见[深度复审](../../research/execution-engine-deep-review-2026-09-22.md)。本次没有重新执行全量主机或Android设备验收；上一轮920项仍是固定制品的历史证据。
+5个定向探针实际执行，0失败/错误/跳过；其中R1验证修复不变量，其他四项验证诊断现象，不能称为5项缺陷修复。命令、输出身份和限制统一见[深度复审](../research-history/execution-engine-deep-review-2026-09-22.md)。本次没有重新执行全量主机或Android设备验收；上一轮920项仍是固定制品的历史证据。
 
 `./scripts/check-all.sh --source`通过：521份Markdown、202项HXA、36份当前ADR、1523个多语言资源键及密钥扫描均通过；审查Python脚本编译检查与 `git diff --check`通过。输出存于ignored `build/document-review-convergence/`。提交只包括本轮已审阅的docs与审查工具；不提交build证据、绝对主机路径、RootFS或账号数据。当前推送/CI仍未完成，不将本地提交当作远端验收。

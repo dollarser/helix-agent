@@ -214,8 +214,8 @@ class FileGoalProcessKillDeviceTest {
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
                 .single { it.type == "recovery.turn_interrupted" }
-        val uncertain = if (wasUnsettled) "\"${call.callId}\"" else "null"
-        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCall\":$uncertain"))
+        val uncertain = if (wasUnsettled) "\"${call.callId}\"" else ""
+        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
         assertEquals("INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals("file goal published\n", target.readText())

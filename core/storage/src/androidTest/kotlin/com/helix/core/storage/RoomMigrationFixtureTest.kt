@@ -843,6 +843,8 @@ class RoomMigrationFixtureTest {
                     HelixDatabase.MIGRATION_25_26,
                     HelixDatabase.MIGRATION_26_27,
                     HelixDatabase.MIGRATION_27_28,
+                    HelixDatabase.MIGRATION_28_29,
+                    HelixDatabase.MIGRATION_29_30,
                 ).build()
         try {
             val sqlite = roomDb.openHelper.writableDatabase

@@ -157,7 +157,14 @@ private fun recoverySourceFor(
                 toolCalls =
                     storage.toolCalls
                         .listByTurn(turn.id)
-                        .map { call -> ToolCallFact(call.callId, call.name, call.state) },
+                        .map { call ->
+                            ToolCallFact(
+                                callId = call.callId,
+                                toolName = call.name,
+                                state = call.state,
+                                reviewDecision = storage.toolCallReviews.findByToolCallId(call.id)?.decision,
+                            )
+                        },
                 userPaused = turn.pauseRequestedAt != null,
                 goalBound = binding != null,
                 goalState = goal?.status?.state,

@@ -56,7 +56,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - 许可证：Apache-2.0。
 - 用途：Root shell 状态和 Binder RootService。
 - 选择理由：Android Root 领域知名、API 边界清晰、包含 core/service/nio 设计。
-- 供应链：通过 JitPack 获取时只允许该 group 的 exclusive content，固定 tag 并记录 artifact checksum；M9 前不加入构建。
+- 当前供应链：HXA-094 已将 libsu `core` + `service` 6.0.0 纳入生产构建；JitPack 仅允许 `com.github.topjohnwu.libsu` exclusive content，固定版本并由 dependency verification/checksum 锁定。后续版本或来源变化需重新做供应链与设备边界评审。
 
 ### 2.6 A2A Java SDK（候选依赖）
 
@@ -64,7 +64,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - 协议基线：[A2A v1.0](https://a2a-protocol.org/latest/specification/)。
 - 许可证：Apache-2.0；正式引入前仍需核对所选 artifacts 的完整依赖树、NOTICE 和发布版本。
 - 候选用途：M7 的 A2A Client、Agent Card、JSON-RPC/HTTP+JSON transport、SSE 与 Task 生命周期。
-- 当前边界：尚未选为直接依赖。HXA-077 必须先验证 API 29/36、R8、Android HTTP adapter、Java record/serialization、体积和取消/恢复；若不合格，在稳定 facade 后比较最小 Kotlin Client。
+- 当前结论：HXA-077 已验证官方 Java SDK 的 JVM 能力，但严格 Android R8 因 `java.net.http.HttpClient` 边界拒绝直接生产依赖；生产 A2A Client 采用 Helix 自有 facade + OkHttp/SSE + kotlinx.serialization。官方 SDK 继续作为协议/Spike 参考，不进入 runtime 依赖；见 [HXA-077 完成记录](../completion-records/HXA-077.md)。
 
 ## 3. 运行时组件
 
@@ -155,7 +155,7 @@ Helix 项目源码使用根 `LICENSE` 声明的 Apache License 2.0。该选择�
 - [wasm3/wasm3](https://github.com/wasm3/wasm3)：MIT。
 - [WasmEdge/WasmEdge](https://github.com/WasmEdge/WasmEdge)：Apache-2.0。
 - 可能用途：未来替代/补充 JavaScript 执行器。
-- 当前不引入：生成 WASM 的开发体验和 Android 集成复杂度高于 QuickJS；除非 HXA-050 Spike 失败。
+- 当前不引入：HXA-050 已验证 QuickJS/Zipline 关键能力并接受 ADR-RUNTIME-003，WASM runtime 仅保留未来替代/补充研究；只有新的需求或证据触发执行域重新评审时才考虑。
 
 ### 5.5 Sora Editor
 

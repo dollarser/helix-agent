@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-09-24。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-25。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
 
 ## Completed
 
@@ -10,7 +10,7 @@
 - 最近整合：HXA-130 离线签名索引、HXA-212 内置市场、HXA-213 会话 fork 及上下文压缩补强。2026-09-22 合并后完整主机门禁与四象限定向设备 276/276 通过；这是该次制品的历史结果，见[整合验证](../evidence/development/branch-integration-2026-09-22.md)与[压缩修复](../bug-fixes/2026-09-22-context-compaction-admission.md)。该次记录为本地整合、未推送，不推断当前远端。
 - HXA-206 本地核心产品验收、HXA-198 双终端均已完成；同 fixture 对照、Git R1 debug/release、升级及实际恢复范围见[206完成记录](../completion-records/HXA-206.md)、[198完成记录](../completion-records/HXA-198.md)与[199/206证据](../evidence/development/acceptance-199-206-2026-09-21.md)。
 - 191、192、193～195、197、202～205、207～209、211 等已有交付记录，不重新执行旧交接开发包。旧三态工具权限证据不替代 209 会话授权验收。
-- HXA-214 普通 composer、发送回执与统一停止已交付，见[完成记录](../completion-records/HXA-214.md)；HXA-215 最新消息会话内修订已与其联合收敛，见[完成记录](../completion-records/HXA-215.md)。ADR-AGENT-009 已接受。
+- HXA-214 普通 composer、发送回执与统一停止已交付，见[完成记录](../completion-records/HXA-214.md)；HXA-215 最新消息会话内修订已与其联合收敛，见[完成记录](../completion-records/HXA-215.md)。ADR-AGENT-001 已接受。
 - HXA-216 默认排队/显式转向已完成本地验收，见[完成记录](../completion-records/HXA-216.md)；本地结果不替代 main 合并后的矩阵与远端 CI。
 - HXA-218 第一批 UI 重构与 HXA-219 产物就地预览已完成各自本地范围，见[完成记录](../completion-records/HXA-218.md)和[完成记录](../completion-records/HXA-219.md)；仍保留其设备/整合边界。
 - 上述214/215/216/218/219已在本轮整合至本地main：完整主机门禁、30批联合设备验证（920项）和恢复main文档后的源码门禁通过，见[收敛记录](../evidence/development/branch-convergence-2026-09-22.md)。本轮未推送或执行远端CI。
@@ -22,16 +22,17 @@
 
 ## In progress
 
+- [HXA-220](tasks/HXA-220.md)：Core Engine / TurnEngine 生命周期收敛。R1-F 已按 pre-release clean-slate 原则重新收口并通过本轮 host gate：当前 `turn_runtime_records` 不再承载 review receipt/old ModelCall identity，Turn review command 幂等拆为独立 immutable `turn_review_receipts`，legacy `RESUMED/ABANDONED` production compatibility 已删除。下一步 E1-B4 AgentLoop execution boundary。设备状态 `not requested`。
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
 
-结构治理见[结构审查](../research/project-structure-and-engine-review.md)。[深度复审](../research/execution-engine-deep-review-2026-09-22.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。
+结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。[深度复审](../research/modules/01-architecture-and-execution-engine.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。
 
 ## Next task
 
-129、217、196、199 均已完成并在 main 整合。
-
-- 持续关注远端 CI 矩阵运行状态。
-- 根据架构决策评估 HXA-126 动态注册/外部服务接入，或评估 ADR-WORKSPACE-004（HXA-210 会话工作区绑定）。
+- 当前编码主线继续 HXA-220：**E1-B4 AgentLoop execution boundary**，之后推进 B5 observe/adapter 与 E2/E3 cleanup。保留 successor recovery / effect gate / v31 clean-slate migration，不保留废弃 same-Turn compatibility。
+- HXA-126 保持外部服务/账号条件未闭合；不阻塞 HXA-220 的本地主机切片。
+- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”；当前仅为已接受设计，尚未启动代码实现 HXA，真正开始实现时再建立开发任务。
+- HXA-220 主机范围完成后，再按优先级评估 ADR-WORKSPACE-004（HXA-210）、本地模型 Provider 或其他新功能；只有项目所有者当前明确把设备 acceptance 设为前置时，才需要先完成对应设备验收。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -49,10 +50,10 @@
 
 ## Current interfaces
 
-- **执行引擎**：AgentRuntime 统一提交/观察接口，ChatService 仍持有运行协调与 UI 状态；AgentLoop、TurnCoordinator、ToolScheduler/Dispatcher 分别承担模型循环、持久结算、平台并发和授权执行。职责拆分已有交付，不表示状态所有权已经完全分离。
+- **执行引擎**：TurnEngine 已成为 fresh admission、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate 的持久生命周期入口；Room v30 的 `turn_runtime_records` 保存 immutable execution snapshot 与当前 Turn usage/audit。ADR 当前实现已经切到 old Turn execution-terminal + successor Turn continuation；same-Turn resume 的 production caller 已清零，仅剩 caller=0 的 dead helper 与 v30 receipt/schema 只读兼容。ChatService 暂时仍是 AgentLoop/stream/live Job 的 process-local driver。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
 - **上下文与结果**：工具显示和模型投影分离，大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
-- **Runtime**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据，consumer 排除。按需冷绑定，不把 PRoot 描述成凭据隔离或离线沙箱。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
+- **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；具体本地推理 Runtime/模型资产尚未实现。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
 - **应用能力**：手动文件管理与 Agent scope 分离；搜索、主题、准备、终端管理、导出不因 UI 存在而成为 Agent Tool。WebView 由浏览器 Activity owner 持有。
 - **扩展**：MCP、Skill、A2A Client 经统一工具管线；A2A 是外部服务而非本地子 Agent。市场与离线签名索引不等于在线分发系统；OAuth 本地切片不等于外部服务验收。
 

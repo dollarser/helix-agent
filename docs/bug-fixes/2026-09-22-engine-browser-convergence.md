@@ -82,6 +82,6 @@ R8完整Turn通知/队列drain故障注入仍为P2后续验证。Room不会回�
 
 ## Related records
 
-- [引擎复审](../research/execution-engine-deep-review-2026-09-22.md)
+- [引擎复审](../evidence/research-history/execution-engine-deep-review-2026-09-22.md)
 - [原分支审查](../evidence/development/branch-convergence-2026-09-22.md)
 - [构建整理](../evidence/development/repository-hygiene-2026-09-22.md)

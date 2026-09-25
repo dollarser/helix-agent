@@ -206,7 +206,7 @@ MVP 不提供坐标盲点。节点动作失败时可以把截图和节点树返�
 
 采用 [topjohnwu/libsu](https://github.com/topjohnwu/libsu) `core` + `service`，基线 `6.0.0`。它提供 Root Shell 和基于 Binder 的 RootService。不要自行解析不同 Root 管理器协议，也不要把 `su` 字符串散落在业务代码中。
 
-libsu 通过 JitPack 发布。当前 HXA-094 的计划路径是只给 `com.github.topjohnwu.libsu` 使用 exclusive content、固定 tag，并启用 Gradle dependency verification；M9/HXA-094 前不得提前加入 JitPack。HXA-094 必须通过依赖 ADR 记录 Spike、校验和与供应链接受结论。如果项目所有者届时不能接受 JitPack，则改为在仓库内维护经过审查的源码镜像和对应 notice，而不是替换成低维护度 Root 库；该替代方案不是与当前路径并行的隐式选择，必须先获得授权并更新 ADR/路线。
+libsu 通过 JitPack 获取；当前生产依赖已由 HXA-094 按 [ADR-RUNTIME-004](../adr/runtime/004-root-service.md) 验收为 `core` + `service` 6.0.0，仅允许 `com.github.topjohnwu.libsu` 的 exclusive content，并纳入固定版本、checksum/dependency verification 与许可证闭包。后续若改变 libsu 版本、仓库来源或 Root 依赖方案，必须重新做供应链/设备边界评审，不能把替代源作为隐式 fallback。
 
 ### 6.2 产品流程
 

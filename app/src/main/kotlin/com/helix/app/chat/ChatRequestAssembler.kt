@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.app.agent.ChatContextRequest
 import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
+import com.helix.app.agent.RecoveryContextPolicy
 import com.helix.app.agent.TurnContextAssembler
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
@@ -62,14 +63,16 @@ internal class ChatRequestAssembler(
     // AgentLoop port (HX2-02): the loop-facing names of the two plain request paths.
     override suspend fun build(
         sessionId: String,
+        turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
-    ): ChatContextRequest = buildRequest(sessionId, retryTurnId, control)
+    ): ChatContextRequest = buildRequest(sessionId, turnId, retryTurnId, control)
 
     override suspend fun buildBackfill(
         sessionId: String,
+        turnId: String,
         control: RunControlConfig,
-    ): ChatContextRequest = buildBackfillRequest(sessionId, control)
+    ): ChatContextRequest = buildBackfillRequest(sessionId, turnId, control)
 
     /** Read-only repair preflight; the ordinary send path still performs its full admission. */
     suspend fun contextFits(
@@ -96,7 +99,7 @@ internal class ChatRequestAssembler(
             ChatContextRequest(
                 model,
                 system.modelMessages() +
-                    persistedHistory(sessionId, null, system).messages +
+                    persistedHistory(sessionId, null, null, system).messages +
                     ModelMessage(ModelRole.USER, prompt),
                 tools,
                 control.budgets.maxOutputTokens,
@@ -121,12 +124,13 @@ internal class ChatRequestAssembler(
      */
     suspend fun buildRequest(
         sessionId: String,
+        turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest {
         val tools = modelTools(sessionId, control)
         val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
-        val history = persistedHistory(sessionId, retryTurnId, system)
+        val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
         }
@@ -160,11 +164,12 @@ internal class ChatRequestAssembler(
      */
     suspend fun buildBackfillRequest(
         sessionId: String,
+        turnId: String,
         control: RunControlConfig,
     ): ChatContextRequest {
         val tools = modelTools(sessionId, control)
         val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools))
-        val history = persistedHistory(sessionId, null, system)
+        val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"
         }
@@ -192,14 +197,15 @@ internal class ChatRequestAssembler(
 
     override suspend fun rebuild(
         sessionId: String,
+        turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
         previous: ChatContextRequest,
     ): ChatContextRequest =
         if (previous.messages.lastOrNull()?.role == ModelRole.TOOL) {
-            buildBackfillRequest(sessionId, control)
+            buildBackfillRequest(sessionId, turnId, control)
         } else {
-            buildRequest(sessionId, retryTurnId, control)
+            buildRequest(sessionId, turnId, retryTurnId, control)
         }
 
     /** Latest registered contracts admitted by the selected mode. This is exposure only. */
@@ -257,6 +263,7 @@ internal class ChatRequestAssembler(
 
     private suspend fun persistedHistory(
         sessionId: String,
+        currentTurnId: String?,
         retryTurnId: String?,
         system: PromptSnapshot,
     ): History {
@@ -276,7 +283,12 @@ internal class ChatRequestAssembler(
                     messageId = it.id,
                 )
             }
-        val historyRows = ChatHistoryBuilder.rowsForTurn(rows, retryTurnId)
+        val predecessorId = currentTurnId?.let { storage.turns.resolve(it).recoveryFromTurnId }
+        val historyRows =
+            RecoveryContextPolicy.modelHistoryRows(
+                ChatHistoryBuilder.rowsForTurn(rows, retryTurnId),
+                predecessorId,
+            )
         val messages = ChatHistoryBuilder.toModelMessagesStrict(historyRows)
         // USER rows that produce a message: non-blank content (the builder's own rule) — the
         // count must match the history's USER messages exactly, or the pairing would attach an
@@ -289,29 +301,50 @@ internal class ChatRequestAssembler(
         require(userRows.size == userMessages.size) {
             "history USER rows and USER messages diverge — image binding refused"
         }
-        var userRow = 0
-        val restored =
-            messages.map { message ->
-                if (message.role == ModelRole.USER) {
-                    message.copy(images = imageVerifier.imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
-                } else {
-                    message
-                }
-            }
-        val selected =
-            system.modelMessages() +
-                if (checkpoint == null) {
-                    restored
-                } else {
-                    restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
-                        restored.filter { it.role != ModelRole.SYSTEM }
-                }
+        val restored = restoreUserImages(messages, userRows)
+        val selected = selectHistoryMessages(system, sessionId, predecessorId, checkpoint, restored)
         return History(
             messages = selected,
             messageIds = userRows.mapNotNull { it.messageId }.toSet(),
             messageRefs = toMessageRefs(historyRows),
             checkpoint = checkpoint?.coveredThrough,
         )
+    }
+
+    private suspend fun restoreUserImages(
+        messages: List<ModelMessage>,
+        userRows: List<ChatHistoryBuilder.PersistedRow>,
+    ): List<ModelMessage> {
+        var userRow = 0
+        return messages.map { message ->
+            if (message.role == ModelRole.USER) {
+                message.copy(images = imageVerifier.imageReferencesFor(userRows[userRow++].messageId.orEmpty()))
+            } else {
+                message
+            }
+        }
+    }
+
+    private fun selectHistoryMessages(
+        system: PromptSnapshot,
+        sessionId: String,
+        predecessorId: String?,
+        checkpoint: ContextCompaction.Checkpoint?,
+        restored: List<ModelMessage>,
+    ): List<ModelMessage> {
+        val recovery = predecessorId?.let { ModelMessage(ModelRole.SYSTEM, RecoverySummaryBuilder.build(storage, it)) }
+        val unresolved =
+            RecoverySummaryBuilder.unresolvedEffectWarning(storage, sessionId, predecessorId)?.let {
+                ModelMessage(ModelRole.SYSTEM, it)
+            }
+        val history =
+            if (checkpoint == null) {
+                restored
+            } else {
+                restored.filter { it.role == ModelRole.SYSTEM } + ContextCompaction.summaryMessage(checkpoint) +
+                    restored.filter { it.role != ModelRole.SYSTEM }
+            }
+        return system.modelMessages() + listOfNotNull(recovery, unresolved) + history
     }
 
     private fun toMessageRefs(

@@ -29,7 +29,7 @@ interface TurnDao {
 
     @Query(
         "UPDATE turns SET pauseRequestedAt = :now WHERE id = :id AND pauseRequestedAt IS NULL " +
-            "AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED')",
+            "AND state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'NEEDS_REVIEW', 'INTERRUPTED')",
     )
     fun requestPause(
         id: String,
@@ -51,7 +51,7 @@ interface TurnDao {
 
     /** Non-terminal turns left by a previous process — the HXA-015 recovery scan. */
     @Query(
-        "SELECT * FROM turns WHERE state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED') " +
+        "SELECT * FROM turns WHERE state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'INTERRUPTED') " +
             "ORDER BY startedAt ASC, rowid ASC",
     )
     fun listActive(): List<TurnEntity>

@@ -28,13 +28,13 @@
 
 ## 编写与更新
 
-文件为 `<topic>/NNN-short-title.md`，标题为 `ADR-TOPIC-NNN`。编号只在主题内唯一，不映射旧的全局编号。跨主题职责用链接，单个决定不复制到多个目录。
+ADR 按**功能/长期契约**建文件，不按每次讨论、每个补丁或每轮重构建文件。文件为 `<topic>/NNN-short-title.md`，标题为 `ADR-TOPIC-NNN`；编号只在主题内唯一。一个功能后续发生设计变化时直接更新同一 ADR，不为“v2/v3/修订版”继续造编号。跨主题职责用链接，单个功能契约不复制到多个目录。
 
-使用 `Status`、`Date`、`HXA`、`Deciders` 字段及 Context、Decision、Alternatives considered、Consequences、Verification、Reconsider when、References 章节。新方案默认 proposed；只有所有者明确授权才 accepted。不要使用 implemented 作为 ADR 状态。
+使用 `Status`、`Date`、`HXA`、`Deciders` 字段及 Context、Decision、Alternatives considered、Consequences、Verification、Reconsider when、References 章节。功能经历重要取舍变化时增加或更新 `Decision history`，只记录日期、改变了什么、为什么改变，不复制旧全文。新功能默认 proposed；只有所有者明确授权才 accepted。不要使用 implemented 作为 ADR 状态。
 
-同一职责的调整直接收敛现行文本；重要新取舍先以 proposed 评审，授权后合并有效内容并删除失效部分。过时方案只在 Alternatives 中保留有用的“不采用及原因”，不再保留 Supersedes/Superseded by 链或历史副本。删除文档不授权删除用户数据或审计证据。
+同一功能的调整直接覆盖现行 Decision；重要取舍获授权后，把当前有效规则写回正文，并在 `Decision history` 留一条变更记录。过时方案只在 Alternatives 中保留仍有解释价值的“不采用及原因”。不保留 Supersedes/Superseded by 链、旧 ADR 副本或重定向占位；需要逐字追查旧内容时使用 Git 历史。删除文档不授权删除用户数据或审计证据。
 
-改变授权、信任、执行域、数据持久化、跨模块契约、核心依赖或发行边界需要明确决策。普通 bug 修复和事实性路径更新不制造新 ADR。任务完成记录链接当前相关决定并说明验收范围；过去的完成记录不能被解释为新方案已通过。
+改变授权、信任、执行域、数据持久化、跨模块契约、核心依赖或发行边界需要明确决策。若属于现有功能，则更新该功能 ADR；只有独立的新功能边界才新建 ADR。普通 bug 修复和事实性路径更新不制造 ADR。任务完成记录链接当前相关决定并说明验收范围；过去的完成记录不能被解释为新方案已通过。
 
 依赖名称和选型理由可写入决定，当前确切版本以 catalog/lockfile 为准；不要把一次 Spike 版本或旧测试数量写成永久约束。Verification 区分验收要求与已执行证据，不复制长篇流水账。
 

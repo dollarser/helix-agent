@@ -43,8 +43,11 @@ import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
 import com.helix.core.storage.repository.ToolAvailabilityRepository
 import com.helix.core.storage.repository.ToolCallRepository
+import com.helix.core.storage.repository.ToolCallReviewRepository
 import com.helix.core.storage.repository.ToolResultRepository
 import com.helix.core.storage.repository.TurnRepository
+import com.helix.core.storage.repository.TurnReviewReceiptRepository
+import com.helix.core.storage.repository.TurnRuntimeRecordRepository
 import java.io.File
 
 /**
@@ -94,9 +97,22 @@ class HelixStorage internal constructor(
         MessageAttachmentRepository(database.messageAttachmentDao())
     }
     val turns: TurnRepository by lazy { TurnRepository(database.turnDao()) }
+    val turnRuntimeRecords: TurnRuntimeRecordRepository by lazy {
+        TurnRuntimeRecordRepository(database.turnRuntimeRecordDao())
+    }
+    val turnReviewReceipts: TurnReviewReceiptRepository by lazy {
+        TurnReviewReceiptRepository(database.turnReviewReceiptDao())
+    }
     val modelCalls: ModelCallRepository by lazy { ModelCallRepository(database.modelCallDao()) }
     val toolCalls: ToolCallRepository by lazy { ToolCallRepository(database.toolCallDao()) }
     val toolResults: ToolResultRepository by lazy { ToolResultRepository(database.toolResultDao(), contentStore) }
+    val toolCallReviews: ToolCallReviewRepository by lazy {
+        ToolCallReviewRepository(
+            database.toolCallReviewDao(),
+            database.toolCallDao(),
+            database.turnDao(),
+        )
+    }
     val approvals: ApprovalRepository by lazy { ApprovalRepository(database.approvalDao()) }
 
     /**
@@ -270,6 +286,9 @@ class HelixStorage internal constructor(
                 HelixDatabase.MIGRATION_25_26,
                 HelixDatabase.MIGRATION_26_27,
                 HelixDatabase.MIGRATION_27_28,
+                HelixDatabase.MIGRATION_28_29,
+                HelixDatabase.MIGRATION_29_30,
+                HelixDatabase.MIGRATION_30_31,
             )
 
         fun create(context: Context): HelixStorage {

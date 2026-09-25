@@ -81,6 +81,6 @@ Helix 在 HXA-060～063 中构建了完备的 12 个 `browser.*` 浏览器控制
 - [ADR-AGENT-003: 附件快照与请求物化](003-attachments.md)
 - [ADR-AGENT-002: 模型请求上下文与步骤边界压缩](002-context-compaction.md)
 - [ADR-AGENT-006: 模型结果投影、预算诊断与明确继续](006-model-data-budget-boundaries.md)
-- [ADR-AGENT-010: 请求上下文清单与轻量记录](010-request-context-manifest.md)
-- `reviews/2026-09-24/2026-09-24-codex-browser-vs-helix.md`
+- [ADR-AGENT-005: 请求上下文清单与轻量记录](005-session-jsonl-export.md)
+- [Codex 浏览器能力 vs Helix](../../research/modules/04-tools-browser-and-extensions.md)
 - OpenAI Computer-Using Agent (CUA) / Anthropic Computer Use API Specification

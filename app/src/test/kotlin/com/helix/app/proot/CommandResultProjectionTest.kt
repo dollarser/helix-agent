@@ -51,11 +51,11 @@ class CommandResultProjectionTest {
     }
 
     @Test
-    fun parkedCallInInterruptedTurnIsStillRunning() {
-        // A NEEDS_REVIEW call while its turn is still INTERRUPTED has no settled outcome
-        // yet: the details page shows the running state, never a guessed failure.
+    fun parkedCallInInterruptedTurnProjectsUnknownNotRunning() {
+        // INTERRUPTED is execution-terminal. A NEEDS_REVIEW call without a result remains
+        // outcome-unknown, but must never be shown as still running.
         val v = view(callState = "NEEDS_REVIEW", turnState = "INTERRUPTED", resultStatus = null)
-        assertEquals(CommandDetailState.RUNNING, v.state)
+        assertEquals(CommandDetailState.UNKNOWN, v.state)
     }
 
     @Test

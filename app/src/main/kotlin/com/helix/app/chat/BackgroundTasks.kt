@@ -14,8 +14,10 @@ data class BackgroundTaskUi(
     val pauseRequested: Boolean,
     val outcome: String? = null,
 ) {
-    val running: Boolean get() = !state.isTerminal && state != TurnState.INTERRUPTED
-    val canCollect: Boolean get() = !running && !collected
+    val running: Boolean
+        get() = !state.isTerminal && state !in setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED)
+    val canCollect: Boolean
+        get() = (state.isTerminal || state == TurnState.INTERRUPTED) && !collected
 }
 
 internal class BackgroundTaskQuery(

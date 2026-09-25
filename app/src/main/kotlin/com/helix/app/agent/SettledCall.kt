@@ -14,3 +14,18 @@ internal data class SettledCall(
     val outcome: ToolDispatchOutcome,
     val resultReference: String? = null,
 )
+
+/** One fully persisted tool batch. UNKNOWN calls are explicit loop control, not exceptions. */
+internal data class SettledBatch(
+    val calls: List<SettledCall>,
+    val reviewCallIds: List<String>,
+) {
+    init {
+        require(reviewCallIds.distinct().size == reviewCallIds.size) { "duplicate review call id" }
+        val settledIds = calls.mapTo(hashSetOf()) { it.callId }
+        require(reviewCallIds.all { it in settledIds }) { "review call must belong to settled batch" }
+    }
+
+    val requiresReview: Boolean
+        get() = reviewCallIds.isNotEmpty()
+}

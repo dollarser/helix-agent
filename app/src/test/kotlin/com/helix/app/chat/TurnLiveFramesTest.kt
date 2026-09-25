@@ -97,6 +97,22 @@ class TurnLiveFramesTest {
     }
 
     @Test
+    fun aParkedReviewFrameCanCloseLiveObservationWithoutPretendingTerminal() {
+        val frames = TurnLiveFrames()
+        frames.open("t1")
+        runBlocking {
+            val received = mutableListOf<TurnUi>()
+            val collector = launch { received += frames.forTurn("t1").toList() }
+            yield()
+            frames.emit("t1", frame(TurnState.NEEDS_REVIEW))
+            frames.close("t1")
+            collector.join()
+            assertEquals(listOf(TurnState.NEEDS_REVIEW), received.map { it.state })
+        }
+        assertTrue(runBlocking { frames.forTurn("t1").toList() }.isEmpty())
+    }
+
+    @Test
     fun aTerminalFrameStopsTrackingTheTurn() {
         val frames = TurnLiveFrames()
         frames.open("t1")

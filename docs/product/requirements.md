@@ -461,10 +461,10 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 ### 2026-09-03：M7 增加 A2A Client
 
 - 所有者请求：在 M7 的 MCP 与 Skills 之外加入已成为主流互操作协议的 A2A。
-- 纳入需求：A2A v1.0 Client、Agent Card/Skill 发现与启用、`a2a.<agent>.<skill>` Tool bridge、持久 Task/Artifact/流式事件、断线对账和 Android API 29/36/R8 Spike；规划为 HXA-077～079。
+- 纳入需求：A2A v1.0 Client、Agent Card/Skill 发现与启用、`a2a.<agent>.<skill>` Tool bridge、持久 Task/Artifact/流式事件、断线对账和 Android API 29/36/R8 验证；HXA-077～079 已完成对应 Client-only 交付。
 - 产品边界：A2A 与 MCP 互补而非替代；Helix 仍是本机父 Agent，A2A endpoint 是用户配置的外部服务，不是 `ExecutionTarget`/远程 Worker。M7 不托管 A2A Server/webhook，不开放远端直接 ToolCall、任意 peer 通信、递归多 Agent 或凭据/批准继承；这是首阶段边界而非永久否定。后续可按“前台 LAN Server → 用户自备 VPN/隧道/relay → proposal 型反向调用 → 单独决定有界远端 scope”演进。
 - 阶段理由：普通手机的公网入站受 NAT/动态网络和 Android 后台生命周期约束；递归编排还需要预算、循环、级联取消和恢复合同。Advanced 用户可以承担网络入口与外部基础设施的选择责任，但不能替代可达性、任务状态和重复副作用语义。
-- 决定状态：项目所有者于 2026-09-04 接受 ADR-A2A-001 的 Client-only 产品、协议和信任边界。实现仍未开始：尚无 A2A module、SDK/transport 决定、生产代码或设备验收；HXA-077 必须先产出可行实现证据。
+- 决定状态：项目所有者于 2026-09-04 接受 ADR-A2A-001 的 Client-only 产品、协议和信任边界。HXA-077 选择自有 OkHttp/kotlinx.serialization 最小 Client（官方 Java SDK 仅保留 Spike），HXA-078/079 已交付 Agent 配置/发现、Task Tool bridge、持久恢复与 API29/36 专项模拟器证据；物理真机、真实第三方 Agent/代理网络和签名发行仍按发布/外部验收边界单独记账。
 
 ### 2026-09-02：未来自动化兼容与 Advanced 授权
 

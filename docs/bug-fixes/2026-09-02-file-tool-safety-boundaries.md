@@ -45,7 +45,7 @@ HXA-040～044 后的对抗性审查发现四类契约只有部分落位：部分
 
 ## Related records
 
-- [M4 文件工具对抗性审查](../history/documentation-review.md#17-m4-文件工具对抗性审查与复审2026-09-02)
+- [M4 文件工具对抗性审查](../evidence/development/documentation-review-history-2026-09-02.md#17-m4-文件工具对抗性审查与复审2026-09-02)
 - [HXA-041 原子文件操作](../completion-records/HXA-041.md)
 - [HXA-042 基础文件工具](../completion-records/HXA-042.md)
 - [HXA-043 copy/move/delete](../completion-records/HXA-043.md)

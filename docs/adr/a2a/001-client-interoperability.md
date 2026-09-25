@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-16
-HXA: HXA-077
+HXA: HXA-077, HXA-078, HXA-079
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context
@@ -18,6 +18,12 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 - 重连只查/订阅原 Task；发送是否送达未知时待核查，不创建新 Task 重发。取消结果如实对账，不声称已撤回外部副作用。
 - 远端内容均不可信，不继承本地 proof、Secret、scope、系统能力或工具表；建议的本地操作必须由父 Turn 新建工具调用。Artifact 以有界副本导入并验证。
 - Android/R8/体积、许可及最小设备集仍须验收；可选 JVM TLS provider 的定点处理不允许掩盖其他 missing class。
+
+## Decision history
+
+- **2026-09-04**：接受 A2A v1.0 Client-only 产品、协议和信任边界。
+- **2026-09-05**：HXA-077 完成 Android/R8 transport Spike，拒绝官方 Java SDK 作为生产依赖，采用自有 facade + OkHttp/SSE + kotlinx.serialization。
+- **2026-09-05**：HXA-078/079 完成 Agent 配置/发现/快照、Task Tool bridge、Artifact 与断线恢复；Server/webhook/远端直接本机 Tool/递归 peer 编排仍不在当前范围。
 
 ## Alternatives considered
 

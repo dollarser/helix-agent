@@ -56,5 +56,5 @@ HXA-160记录的根级lintDebug命令确实成功，但日志没有App的flavor 
 ## Related records
 
 - [HXA-160](../completion-records/HXA-160.md)
-- [模拟器总计划](../development/emulator-verification-master-plan.md)
-- [浏览器专项](../development/browser-autofill-soak-plan.md)
+- [模拟器总计划](../evidence/development/verification-plans/emulator-verification-master-plan-2026-09-09.md)
+- [浏览器专项](../evidence/development/verification-plans/browser-autofill-soak-plan-2026-09-09.md)

@@ -8,9 +8,9 @@
 git diff --check
 ```
 
-`--source` 只验证文档、脚本契约、国际化与 Secret；不证明功能实现。`--all` 的实际构建/测试/制品范围以脚本为准，设备、真实账号与长稳另行执行。依赖下载允许联网，本机 fixture 服务合法；默认测试不访问真实业务服务、不依赖账号或付费配额。外部 smoke 须显式启用，条件不足记 skip，启用后失败必须记 fail，不能改成 skip。
+`--source` 只验证文档、脚本契约、国际化与 Secret；不证明功能实现。`--all` 的实际构建/测试/制品范围以脚本为准。GitHub Actions 始终不启动模拟器、不连接真机、不执行 device instrumentation/matrix；CI 可做主机测试、静态分析、APK 与 AndroidTest APK 编译。AI 代理默认只准备设备制品/清单，只有项目所有者在当前任务明确要求模拟器或真机验证时才运行对应本地设备测试。状态统一为：未要求=`not requested`；已要求但尚未完成/条件缺失=`pending`；只有本轮实际执行才可记 `passed`/`failed`。真实账号与长稳另行执行。依赖下载允许联网，本机 fixture 服务合法；默认测试不访问真实业务服务、不依赖账号或付费配额。外部 smoke 须显式启用，条件不足记 skip，启用后失败必须记 fail，不能改成 skip。
 
-每个下一 HXA 先检查已知基线失败，保留并修复场景，不能因为“非本次新增”忽略必过门禁。依赖可为兼容性升级，但必须固定可复现版本、锁文件、来源和许可证。
+每个下一 HXA 先检查已知主机基线失败并修复，不能因为“非本次新增”忽略必过主机门禁；项目所有者已报告的相关设备失败也须修复并准备复验。设备验证若未由 owner 在当前任务明确要求，不阻断独立主机切片或 host-complete 记录，但必须标为 `not requested`，不能记作设备通过；若 owner 明确要求设备 acceptance，则在执行完成前标为 `pending`，对应检查通过前不得声明该 acceptance 完成。依赖可为兼容性升级，但必须固定可复现版本、锁文件、来源和许可证。
 
 ## 任务验收入口
 
@@ -44,10 +44,9 @@ P3（产品UI/构建，200/201也需执行）：
 ./gradlew :app:testConsumerDebugUnitTest :app:testDeveloperDebugUnitTest
 ./gradlew :app:assembleConsumerDebug :app:assembleDeveloperDebug :app:assembleConsumerDebugAndroidTest :app:assembleDeveloperDebugAndroidTest
 ./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug
-python3 scripts/run-owned-emulator.py --help
 ```
 
-新增设备类放标准app androidTest source set；涉及Runtime的developer专属子集分开。实现者按runner实际参数保存日期脚本，API29/36分别启动新独占模拟器，不借已有serial；finally只结束自有进程。测试名称不存在/零执行/跳过不能算通过。数据库变更还要运行真实新迁移类；脚本写出最终命令、测试数、exit code与日志路径。
+新增设备类放标准 app androidTest source set；涉及 Runtime 的 developer 专属子集分开。AI 代理默认编译测试 APK 并按 runner 实际参数准备日期脚本和清单；只有 owner 当前任务明确要求设备验证时才启动/使用相应模拟器或真机。执行模拟器验证时使用明确归属的独占实例，不借未授权 serial；执行真机验证时只使用 owner 明确指定或明确授权的设备，并保留无关用户数据。测试名称不存在、零执行或跳过不能算通过；数据库迁移的真实设备用例同样遵守 owner-explicit 规则，并记录命令、测试数、exit code 和日志路径。
 
 ## 终端公共命令 G1/G2/G3/G4
 
@@ -70,9 +69,9 @@ git diff --check
 ./gradlew :app:lintConsumerDebug :app:lintDeveloperDebug :runtime:proot-app:lintDebug :runtime:proot-client:lintDebug
 ```
 
-变更 storage 或 agent 时追加 `./gradlew :core:storage:testDebugUnitTest :core:storage:assembleDebugAndroidTest :core:agent:test`，并用独占设备执行新迁移测试。实际任务形态以实现前查询结果为准；若漂移先修矩阵，不跳过。
+变更 storage 或 agent 时追加 `./gradlew :core:storage:testDebugUnitTest :core:storage:assembleDebugAndroidTest :core:agent:test`。模型准备新迁移测试的 APK 和人工步骤；用户用自有独占设备执行并回填。实际任务形态以实现前查询结果为准；若漂移先修矩阵，不跳过。
 
-**G3：Runtime 回归与新增设备类**
+**G3：Runtime 回归与新增设备类（以下命令仅供用户手动执行，模型与 GitHub Actions 不运行）**
 
 ```bash
 python3 scripts/verify-integrated-runtimes.py --avd Helix_API_29 --port 5622 --output build/terminal-api29-fresh
@@ -80,7 +79,7 @@ python3 scripts/verify-integrated-runtimes.py --avd Helix_API_36 --port 5620 --o
 python3 scripts/run-owned-emulator.py --help
 ```
 
-前两行执行既有 Runtime 回归（2026-09-20 当前 47 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。实现者按 help 的实际参数为本 HXA 新类保存启动脚本到 `scripts/debug/YYYY-MM-DD/`，使用 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner`。每次新 output、未占用端口与新建独占模拟器进程；禁止借用现存 serial，finally 只清理自有进程。AVD 名/端口不适用时按本机状态显式替换并记录。
+前两行执行既有 Runtime 回归（2026-09-20 当前 47 项，以脚本 CASES 和实际非零用例结果为准），不包含各 HXA 全部新增测试，不能充作新增功能验收。模型按 help 的实际参数为本 HXA 新类准备启动脚本到 `scripts/debug/YYYY-MM-DD/`，交付 developer 主 APK 与 androidTest APK、`com.helix.agent.developer.test/com.helix.app.HelixAndroidJUnitRunner` 的人工步骤。用户手动运行时使用新 output、未占用端口和自有独占模拟器进程；不借现存 serial，只清理自己启动的进程。AVD 名/端口不适用时按本机状态显式替换并记录。
 
 **G4：集成/产物**
 
@@ -95,8 +94,8 @@ python3 scripts/verify-integrated-runtime-apks.py --build-type release
 
 ## 设备、恢复与发布
 
-- 每次运行启动自有独占模拟器，记录 PID/serial/AVD/API/ABI，拒绝借用已有实例，finally 只关闭本次进程。测试脚本先保存至 scripts/debug 日期目录，输出放忽略的 build。
-- API29/36 × consumer/developer 是涉及产品/授权公共能力的基本矩阵；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。
+- 用户手动运行模拟器与真机验收；每次使用自有独占模拟器，记录 PID/serial/AVD/API/ABI，不借已有实例，只关闭自己启动的进程。模型仅准备 APK、测试 APK、脚本、fixture、预期与记录模板；脚本放 scripts/debug 日期目录，用户运行输出放忽略的 build。
+- API29/36 × consumer/developer 是涉及产品/授权公共能力的参考矩阵，由用户按任务适用范围手动运行并回填；变体专属功能如实限定。真机/OEM/低内存/Doze/Root/系统 Binder 等证据不能由模拟器替代。未回填不得记设备通过或推送 main。
 - 进程重启测试须确认 fixture 持久化及 PID 变化；Gradle connected 测试可能卸载 App，跨 run 协议采用经验证的 am instrument 入口，不能把 Activity 重建当进程恢复。
 - 取消、拒绝、未知副作用、数据迁移、损坏、低空间与并发竞态按任务要求测试。未知结果只对账，不靠重放验证成功。
 - 新测试类尚未实现时写明待实现；0 tests 或跳过不能完成验收。构建成功不等于功能、账户或安全验收。

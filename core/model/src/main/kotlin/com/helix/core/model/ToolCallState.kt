@@ -7,7 +7,8 @@ package com.helix.core.model
  * PENDING -> AWAITING_APPROVAL | RUNNING | DENIED | FAILED | CANCELLED | NEEDS_REVIEW
  * AWAITING_APPROVAL -> RUNNING | DENIED | CANCELLED | FAILED
  * RUNNING -> COMPLETED | FAILED | CANCELLED | NEEDS_REVIEW
- * process death: PENDING | RUNNING -> INTERRUPTED
+ * process death: RUNNING -> INTERRUPTED; PENDING never crossed the execution-start boundary
+ * and is cancelled by recovery without claiming an unknown external effect.
  * ```
  *
  * [DENIED] covers policy denials and user rejections: a denial is a legal [com.helix.core.model]
@@ -40,8 +41,14 @@ enum class ToolCallState(
         return next in outgoing
     }
 
-    /** Process death only parks in-flight calls; durable states keep their value. */
-    fun canBecomeInterruptedOnProcessDeath(): Boolean = this == PENDING || this == RUNNING
+    /**
+     * Process death only parks a call that crossed the durable execution-start boundary.
+     *
+     * Production writes RUNNING from the dispatcher's onExecutionStarting callback before the
+     * executor is allowed to perform the external effect. A still-PENDING row therefore has
+     * deterministic "not started" semantics and recovery may cancel it without review.
+     */
+    fun canBecomeInterruptedOnProcessDeath(): Boolean = this == RUNNING
 
     private val outgoing: Set<ToolCallState>
         get() =

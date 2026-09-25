@@ -3,13 +3,14 @@ package com.helix.app.chat
 import android.util.Log
 import com.helix.app.R
 import com.helix.app.agent.BufferedModelToolCall
-import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.LocalToolCallBatch
+import com.helix.app.agent.SettledBatch
 import com.helix.app.agent.SettledCall
-import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnCoordinator
+import com.helix.app.agent.TurnExecutionHandles
 import com.helix.app.agent.TurnMessageDraft
 import com.helix.app.agent.TurnToolExecutor
+import com.helix.app.agent.UnresolvedEffectPolicy
 import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.approval.ApprovalUiMapper
@@ -51,13 +52,12 @@ internal class ChatToolCalls(
     private val profile: StateFlow<SafetyProfile>,
     private val workScope: CoroutineScope,
     screen: MutableStateFlow<ChatScreenState>,
-    private val turnCancels: java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>,
-    private val goalTimes: java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>,
+    private val liveHandles: TurnExecutionHandles,
     private val strings: (Int, Array<out Any>) -> String,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
     private val workspaceScopeId: String,
 ) : TurnToolExecutor {
-    private val requests = ChatDispatchRequests(toolPipeline, turnCancels, goalTimes, lanScopes)
+    private val requests = ChatDispatchRequests(toolPipeline, liveHandles, lanScopes)
     private val timeline = ChatToolTimeline(screen, strings)
     private val outcomeStore =
         ChatToolSettlement(storage, toolPipeline, clock, idGenerator, strings, timeline) {
@@ -248,7 +248,7 @@ internal class ChatToolCalls(
         calls: List<BufferedModelToolCall>,
         coordinator: TurnCoordinator,
         control: RunControlConfig,
-    ): List<SettledCall> {
+    ): SettledBatch {
         val prepareds =
             calls.map { call ->
                 prepareToolCall(turn, call.callId, call.name, call.arguments, control.mode, control.chatToolsEnabled)
@@ -262,6 +262,7 @@ internal class ChatToolCalls(
             }
         var slot = 0
         var settlementFailure: Exception? = null
+        val reviewCallIds = mutableListOf<String>()
         val settled =
             prepareds.map { p ->
                 val settlement = if (p.preSettled == null) batch.settlements[slot++] else null
@@ -288,6 +289,7 @@ internal class ChatToolCalls(
                         )
                     }
                     coordinator.settleBatchCall(p.callId, sideEffectUnknown = unknown)
+                    if (unknown) reviewCallIds += p.callId
                 } catch (failure: Exception) {
                     val first = settlementFailure
                     if (first == null) settlementFailure = failure else first.addSuppressed(failure)
@@ -298,16 +300,27 @@ internal class ChatToolCalls(
             batch.firstError?.let(failure::addSuppressed)
             throw failure
         }
-        batch.firstError?.let { error ->
-            if (error is ApprovalCancelledException) {
+        handleBatchError(batch.firstError, reviewCallIds)
+        return SettledBatch(settled, reviewCallIds)
+    }
+
+    private fun handleBatchError(
+        error: Throwable?,
+        reviewCallIds: List<String>,
+    ) {
+        error?.let {
+            if (it is ApprovalCancelledException) {
                 // The turn is over (doc 11: cancel leaves a durable outcome for every
-                // queued call — all slots above are settled); drop the signal and
-                // propagate the turn-level cancellation.
-                turnCancels.remove(turnId)
+                // queued call — all slots above are settled). However an UNKNOWN sibling
+                // wins this race: uncertain external state must be reviewed and cannot be
+                // erased by a simultaneous clean approval cancellation.
+                if (reviewCallIds.isEmpty()) throw it
+                return
             }
-            throw error
+            // Non-approval scheduler/executor failure was durably written as NEEDS_REVIEW.
+            // It is normal parked control flow, not an exception for the generic INTERNAL catch.
+            check(reviewCallIds.isNotEmpty()) { "batch error had no durable review settlement" }
         }
-        return settled
     }
 
     private fun requiresSettlementReview(settlement: ToolScheduler.BatchSettlement?): Boolean {
@@ -353,7 +366,7 @@ internal class ChatToolCalls(
                 toolNameRaw,
                 null,
                 null,
-                outcomeStore.persistRejectedToolCall(
+                outcomeStore.persistPreDispatchDenied(
                     turn,
                     toolCallId,
                     toolNameRaw,
@@ -361,6 +374,7 @@ internal class ChatToolCalls(
                     "unknown",
                     DispatchOutcomeCode.BUDGET_EXHAUSTED,
                     str(R.string.model_error_goal_budget_limit),
+                    PreDispatchDenialKind.FRAMEWORK_REJECTED,
                 ),
             )
         }
@@ -373,33 +387,48 @@ internal class ChatToolCalls(
         mode: AgentMode,
         chatToolsEnabled: Boolean,
     ): PreparedToolCall {
-        val turnId = turn.id
-        val toolName: ToolName? = runCatching { ToolName(toolNameRaw) }.getOrNull()
+        val toolName = runCatching { ToolName(toolNameRaw) }.getOrNull()
         val descriptor = toolPipeline.resolveLatest(toolNameRaw)
         val args = parseToolArgs(rawArgsJson, descriptor, turn.sessionId)
-        // Malformed input the dispatcher can never see (an invalid tool name, non-object
-        // arguments) is persisted + audited HERE as a stable Denied (preSettled).
-        val rejection = invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
-        rejection?.let { return it }
-        val validName = toolName!!
-        val validArgs = args!!
-        val canonical = CanonicalArgs.canonicalize(validArgs)
+        return invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
+            ?: prepareValidatedToolCall(
+                turn,
+                toolCallId,
+                toolNameRaw,
+                requireNotNull(toolName),
+                requireNotNull(args),
+                descriptor,
+                mode,
+                chatToolsEnabled,
+            )
+    }
+
+    @Suppress("LongParameterList")
+    private fun prepareValidatedToolCall(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        toolCallId: String,
+        toolNameRaw: String,
+        toolName: ToolName,
+        args: JsonObject,
+        descriptor: ToolDescriptor?,
+        mode: AgentMode,
+        chatToolsEnabled: Boolean,
+    ): PreparedToolCall {
+        val canonical = CanonicalArgs.canonicalize(args)
+        recoveryEffectRejection(turn, toolCallId, toolNameRaw, canonical, descriptor)?.let { return it }
         val row =
             storage.toolCalls.append(
                 id = toolCallId,
-                turnId = turnId,
+                turnId = turn.id,
                 callId = toolCallId,
                 name = toolNameRaw,
                 version = descriptor?.version?.value?.toString() ?: "0",
                 argsJson = canonical,
                 state = ToolCallState.PENDING.name,
             )
-        // The card facts: profile at REQUEST time (the consumer profile is STANDARD-pinned;
-        // a later switch must not change a pending card — the card renders these trusted
-        // facts, never the live store).
-        val profile = profile.value
+        val currentProfile = profile.value
         timeline.publishToolRow(
-            turnId,
+            turn.id,
             toolCallId,
             toolNameRaw,
             canonical,
@@ -412,17 +441,17 @@ internal class ChatToolCalls(
                 .build(
                     turn,
                     toolCallId,
-                    validName,
+                    toolName,
                     descriptor,
-                    validArgs,
-                    profile,
+                    args,
+                    currentProfile,
                     mode,
                     chatToolsEnabled,
                 ).copy(onExecutionStarting = {
                     executionStartTimes[toolCallId] = clock.now().toEpochMilli()
                     storage.toolCalls.updateState(row, ToolCallState.RUNNING)
                     timeline.publishToolRow(
-                        turnId,
+                        turn.id,
                         toolCallId,
                         toolNameRaw,
                         canonical,
@@ -432,8 +461,31 @@ internal class ChatToolCalls(
                     )
                 })
         dispatchFacts[toolCallId] =
-            DispatchFacts(descriptor, validArgs, profile, DataOrigin.WORKSPACE, turnId, request.egress)
+            DispatchFacts(descriptor, args, currentProfile, DataOrigin.WORKSPACE, turn.id, request.egress)
         return PreparedToolCall(toolCallId, toolNameRaw, row, request, null)
+    }
+
+    private fun recoveryEffectRejection(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        toolCallId: String,
+        toolNameRaw: String,
+        canonicalArgs: String,
+        descriptor: ToolDescriptor?,
+    ): PreparedToolCall? {
+        val unresolved = UnresolvedEffectPolicy.hasUnresolvedEffects(storage, turn.sessionId)
+        if (descriptor == null || UnresolvedEffectPolicy.permits(unresolved, descriptor.operationClass)) return null
+        val denied =
+            outcomeStore.persistPreDispatchDenied(
+                turn = turn,
+                toolCallId = toolCallId,
+                toolNameRaw = toolNameRaw,
+                rawArgs = canonicalArgs,
+                version = descriptor.version.value.toString(),
+                code = DispatchOutcomeCode.POLICY_DENIED,
+                detail = str(R.string.tool_failure_requires_review),
+                kind = PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED,
+            )
+        return PreparedToolCall(toolCallId, toolNameRaw, null, null, denied)
     }
 
     /**
@@ -486,7 +538,7 @@ internal class ChatToolCalls(
                     toolNameRaw,
                     null,
                     null,
-                    outcomeStore.persistRejectedToolCall(
+                    outcomeStore.persistPreDispatchDenied(
                         turn,
                         toolCallId,
                         toolNameRaw,
@@ -494,6 +546,7 @@ internal class ChatToolCalls(
                         "unknown",
                         DispatchOutcomeCode.UNKNOWN_TOOL,
                         str(R.string.tool_rejected_bad_name),
+                        PreDispatchDenialKind.FRAMEWORK_REJECTED,
                     ),
                 )
             }
@@ -504,7 +557,7 @@ internal class ChatToolCalls(
                     toolNameRaw,
                     null,
                     null,
-                    outcomeStore.persistRejectedToolCall(
+                    outcomeStore.persistPreDispatchDenied(
                         turn,
                         toolCallId,
                         toolNameRaw,
@@ -512,6 +565,7 @@ internal class ChatToolCalls(
                         descriptor?.version?.value?.toString() ?: "unknown",
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
                         str(R.string.tool_rejected_bad_args),
+                        PreDispatchDenialKind.FRAMEWORK_REJECTED,
                     ),
                 )
             }
@@ -567,11 +621,6 @@ internal class ChatToolCalls(
             unknown,
             durationMs,
         )
-        // The call has settled (either way): its cancel signal has served its purpose.
-        // Releasing it here (the direct path has no turn-level finalizer, unlike the
-        // stream path) prevents both a process-lifetime leak and a later stop() reaching
-        // a call of this turn that was never started.
-        turnCancels.remove(turnId)
         batch.firstError?.let { error ->
             throw error
         }

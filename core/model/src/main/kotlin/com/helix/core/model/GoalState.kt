@@ -9,7 +9,8 @@ package com.helix.core.model
  * RUNNING        -> INPUT_REQUIRED | PAUSED | BLOCKED | COMPLETED | FAILED | CANCELLED
  * INPUT_REQUIRED -> RUNNING | CANCELLED   (explicit user resume / discard)
  * PAUSED         -> RUNNING | BLOCKED | CANCELLED (explicit continue / dependency / discard)
- * BLOCKED        -> PAUSED | CANCELLED (host recheck after repair / discard)
+ * BLOCKED        -> RUNNING | PAUSED | CANCELLED
+ *                   (review-resolved same run / host recheck after repair / discard)
  * process death: RUNNING -> PAUSED        (durable park; resume is user-explicit)
  * ```
  *
@@ -53,7 +54,7 @@ enum class GoalState(
                 RUNNING -> setOf(INPUT_REQUIRED, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED)
                 INPUT_REQUIRED -> setOf(RUNNING, CANCELLED)
                 PAUSED -> setOf(RUNNING, BLOCKED, CANCELLED)
-                BLOCKED -> setOf(PAUSED, CANCELLED)
+                BLOCKED -> setOf(RUNNING, PAUSED, CANCELLED)
                 COMPLETED, FAILED, CANCELLED -> emptySet()
             }
 

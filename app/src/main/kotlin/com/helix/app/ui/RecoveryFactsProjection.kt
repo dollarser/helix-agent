@@ -58,6 +58,8 @@ data class ToolCallFact(
     val callId: String,
     val toolName: String,
     val state: String,
+    /** Immutable effect-review decision; executor state is intentionally never rewritten. */
+    val reviewDecision: String? = null,
 )
 
 /**
@@ -108,9 +110,10 @@ internal fun recoverySummary(facts: RecoveryFacts): RecoverySummary {
     val calls = facts.toolCalls
     val pendingReview =
         calls.filter { call ->
-            call.state == ToolCallState.NEEDS_REVIEW.name ||
-                call.state == ToolCallState.INTERRUPTED.name ||
-                call.state !in CALL_STATE_NAMES
+            (
+                call.reviewDecision == null &&
+                    call.state in setOf(ToolCallState.NEEDS_REVIEW.name, ToolCallState.INTERRUPTED.name)
+            ) || call.state !in CALL_STATE_NAMES
         }
     val blockClass = blockClassFor(facts, pendingReview)
     val operations = operationsFor(blockClass, facts)
@@ -139,6 +142,7 @@ private fun blockClassFor(
         TurnState.entries.firstOrNull { it.name == facts.turnState }
             ?: return RecoveryBlockClass.NONE
     return when {
+        turn == TurnState.NEEDS_REVIEW -> RecoveryBlockClass.RESULT_UNKNOWN
         !turn.isTerminal && turn != TurnState.INTERRUPTED -> RecoveryBlockClass.NONE
         pendingReview.isNotEmpty() -> RecoveryBlockClass.RESULT_UNKNOWN
         turn == TurnState.INTERRUPTED -> RecoveryBlockClass.RESULT_UNKNOWN

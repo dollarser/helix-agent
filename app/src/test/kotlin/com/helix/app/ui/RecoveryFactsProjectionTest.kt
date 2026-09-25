@@ -77,6 +77,28 @@ class RecoveryFactsProjectionTest {
     }
 
     @Test
+    fun reviewedUncertainCallIsNotStillPendingReview() {
+        val summary =
+            recoverySummary(
+                facts(
+                    turnState = TurnState.INTERRUPTED.name,
+                    calls =
+                        listOf(
+                            ToolCallFact(
+                                callId = "c1",
+                                toolName = "files.write",
+                                state = "NEEDS_REVIEW",
+                                reviewDecision = "CONFIRMED_NOT_APPLIED",
+                            ),
+                        ),
+                ),
+            )
+        assertTrue(summary.pendingReview.isEmpty())
+        assertEquals(RecoveryBlockClass.RESULT_UNKNOWN, summary.blockClass)
+        assertEquals(listOf(RecoveryOperation.QUERY_RESULT), summary.operations)
+    }
+
+    @Test
     fun interruptedProcessDeathParkedCallIsResultUnknown() {
         val summary =
             recoverySummary(

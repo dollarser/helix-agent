@@ -12,6 +12,7 @@ import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallId
+import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.content.FileContentStore
@@ -93,6 +94,53 @@ class TurnCoordinatorDeviceTest {
     }
 
     @Test
+    fun unknownSiblingParksTurnAndDoesNotOpenAnotherModelCall() {
+        val storage = isolatedStorage()
+        try {
+            storage.sessions.create("session-review", "Review", null, null, 1_000L)
+            var nextId = 0
+            val coordinator =
+                TurnCoordinator.start(
+                    storage,
+                    FixedClock(2_000L),
+                    { "review-generated-${nextId++}" },
+                    TurnStartSpec("session-review", "turn-review", "model-review-1", "snapshot", "do work"),
+                )
+
+            val stream = coordinator.beginModelStream()
+            stream.apply(ModelEvent.ToolCallStarted(0, ToolCallId("call-ok"), "time.now"))
+            stream.apply(ModelEvent.ToolArgumentsDelta(0, "{}"))
+            stream.apply(ModelEvent.ToolCallFinished(0))
+            stream.apply(ModelEvent.ToolCallStarted(1, ToolCallId("call-unknown"), "files.write"))
+            stream.apply(ModelEvent.ToolArgumentsDelta(1, "{}"))
+            stream.apply(ModelEvent.ToolCallFinished(1))
+            coordinator.beginToolBatch(listOf("call-ok", "call-unknown"))
+            val toolCallsJson =
+                """[{"id":"call-ok","name":"time.now","arguments":"{}"},""" +
+                    """{"id":"call-unknown","name":"files.write","arguments":"{}"}]"""
+            coordinator.commitModelToolStep(toolCallsJson)
+            seedSettledReviewBatch(storage)
+            coordinator.settleBatchCall("call-ok", sideEffectUnknown = false)
+            coordinator.settleBatchCall("call-unknown", sideEffectUnknown = true)
+
+            coordinator.parkForReview(listOf("call-unknown"))
+
+            assertEquals(TurnState.NEEDS_REVIEW.name, storage.turns.resolve("turn-review").state)
+            assertEquals(TurnState.NEEDS_REVIEW, coordinator.snapshot().phase)
+            assertEquals(listOf("model-review-1"), storage.modelCalls.listByTurn("turn-review").map { it.id })
+            assertEquals("COMPLETED", storage.modelCalls.resolve("model-review-1").state)
+            assertEquals(ToolCallState.COMPLETED.name, storage.toolCalls.resolve("tc-ok").state)
+            assertEquals("SUCCEEDED", storage.toolResults.byToolCall("tc-ok")?.status)
+            assertEquals(ToolCallState.NEEDS_REVIEW.name, storage.toolCalls.resolve("tc-unknown").state)
+            assertTrue(
+                storage.auditEvents.listByCorrelation("session-review").any { it.type == "turn.needs_review" },
+            )
+        } finally {
+            storage.close()
+        }
+    }
+
+    @Test
     fun startBindsAttachmentsAtomicallyWithTheUserMessage() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val storage = isolatedStorage()
@@ -145,6 +193,28 @@ class TurnCoordinatorDeviceTest {
         } finally {
             storage.close()
         }
+    }
+
+    private fun seedSettledReviewBatch(storage: HelixStorage) {
+        storage.toolCalls.append(
+            "tc-ok",
+            "turn-review",
+            "call-ok",
+            "time.now",
+            "1",
+            "{}",
+            ToolCallState.COMPLETED.name,
+        )
+        storage.toolResults.append("result-ok", "tc-ok", "SUCCEEDED", "ok", null)
+        storage.toolCalls.append(
+            "tc-unknown",
+            "turn-review",
+            "call-unknown",
+            "files.write",
+            "1",
+            "{}",
+            ToolCallState.NEEDS_REVIEW.name,
+        )
     }
 
     private fun isolatedStorage(): HelixStorage {

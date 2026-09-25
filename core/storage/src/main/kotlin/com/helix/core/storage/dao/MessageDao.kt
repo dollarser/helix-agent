@@ -45,6 +45,12 @@ interface MessageDao {
     fun latestUser(sessionId: String): MessageEntity?
 
     @Query(
+        "SELECT * FROM messages WHERE sessionId = :sessionId AND role = 'ASSISTANT' " +
+            "AND supersededBy IS NULL ORDER BY sequence DESC LIMIT 1",
+    )
+    fun latestAssistant(sessionId: String): MessageEntity?
+
+    @Query(
         "UPDATE messages SET supersededBy = :requestId WHERE sessionId = :sessionId " +
             "AND sequence >= :from AND supersededBy IS NULL",
     )

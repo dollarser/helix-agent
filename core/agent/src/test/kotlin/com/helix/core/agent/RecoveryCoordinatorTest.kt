@@ -56,10 +56,8 @@ class RecoveryCoordinatorTest {
 
     @Test
     fun `the plan never parks calls under a terminal turn`() {
-        // A PENDING row under a CANCELLED turn is a stale artifact (older versions persisted
-        // queued calls without giving them a terminal state): parking it would fabricate an
-        // "uncertain side effect" that does not exist. The same row under an INTERRUPTED turn
-        // is genuinely in flight and is still parked.
+        // PENDING rows under any terminal parent (including INTERRUPTED) are repaired by the
+        // app/storage terminal-child reconciliation pass, not by the active-turn recovery plan.
         val turns =
             listOf(
                 persistedTurn(turn(1), Phase.CANCELLED, "c1" to ToolCallState.PENDING),
@@ -67,7 +65,8 @@ class RecoveryCoordinatorTest {
             )
         val plan = RecoveryCoordinator.plan(turns, emptyList())
         assertTrue(plan.interruptedTurns.isEmpty())
-        assertEquals(listOf(ToolCallParking(turn(2), toolId("c2"))), plan.parkedToolCalls)
+        assertTrue(plan.cancelledToolCalls.isEmpty())
+        assertTrue(plan.parkedToolCalls.isEmpty())
     }
 
     @Test
@@ -82,7 +81,7 @@ class RecoveryCoordinatorTest {
     @Test
     fun `a waiting model turn parks without an uncertain call`() {
         assertEquals(
-            TurnRecovery.Interrupt(turn(1), null),
+            TurnRecovery.Interrupt(turn(1), emptyList()),
             RecoveryCoordinator.recoveryForTurn(persistedTurn(turn(1), Phase.WAITING_MODEL)),
         )
     }
@@ -98,7 +97,7 @@ class RecoveryCoordinatorTest {
                     "c2" to ToolCallState.PENDING,
                 ),
             )
-        assertEquals(TurnRecovery.Interrupt(turn(1), toolId("c1")), decision)
+        assertEquals(TurnRecovery.Interrupt(turn(1), listOf(toolId("c1"))), decision)
     }
 
     @Test
@@ -107,7 +106,7 @@ class RecoveryCoordinatorTest {
             RecoveryCoordinator.recoveryForTurn(
                 persistedTurn(turn(1), Phase.CANCELLING, "c1" to ToolCallState.RUNNING),
             )
-        assertEquals(TurnRecovery.Interrupt(turn(1), toolId("c1")), decision)
+        assertEquals(TurnRecovery.Interrupt(turn(1), listOf(toolId("c1"))), decision)
     }
 
     @Test
@@ -116,7 +115,7 @@ class RecoveryCoordinatorTest {
             RecoveryCoordinator.recoveryForTurn(
                 persistedTurn(turn(1), Phase.WAITING_APPROVAL, "c1" to ToolCallState.AWAITING_APPROVAL),
             )
-        assertEquals(TurnRecovery.Interrupt(turn(1), null), decision)
+        assertEquals(TurnRecovery.Interrupt(turn(1), emptyList()), decision)
     }
 
     @Test
@@ -128,21 +127,33 @@ class RecoveryCoordinatorTest {
                 "c1" to ToolCallState.COMPLETED,
                 "c2" to ToolCallState.PENDING,
             )
-        assertEquals(TurnRecovery.Interrupt(turn(1), null), RecoveryCoordinator.recoveryForTurn(turnState))
+        assertEquals(TurnRecovery.Interrupt(turn(1), emptyList()), RecoveryCoordinator.recoveryForTurn(turnState))
         val plan = RecoveryCoordinator.plan(listOf(turnState), emptyList())
-        assertEquals(listOf(ToolCallParking(turn(1), toolId("c2"))), plan.parkedToolCalls)
+        assertEquals(listOf(ToolCallParking(turn(1), toolId("c2"))), plan.cancelledToolCalls)
+        assertTrue(plan.parkedToolCalls.isEmpty())
     }
 
     @Test
-    fun `two running calls are a corrupt input`() {
-        assertThrows<IllegalArgumentException>("serial execution allows one RUNNING call") {
+    fun `multiple running calls are all uncertain in a parallel batch`() {
+        val persisted =
             persistedTurn(
                 turn(1),
                 Phase.RUNNING_TOOL,
                 "c1" to ToolCallState.RUNNING,
                 "c2" to ToolCallState.RUNNING,
             )
-        }
+        assertEquals(
+            TurnRecovery.Interrupt(turn(1), listOf(toolId("c1"), toolId("c2"))),
+            RecoveryCoordinator.recoveryForTurn(persisted),
+        )
+        val plan = RecoveryCoordinator.plan(listOf(persisted), emptyList())
+        assertEquals(
+            listOf(
+                ToolCallParking(turn(1), toolId("c1")),
+                ToolCallParking(turn(1), toolId("c2")),
+            ),
+            plan.parkedToolCalls,
+        )
     }
 
     @Test
@@ -160,11 +171,14 @@ class RecoveryCoordinatorTest {
     // ---------------------------------------------------------------- tool call decisions
 
     @Test
-    fun `only in-flight calls are parked`() {
-        assertEquals(
-            ToolCallRecovery.ParkInterrupted,
-            RecoveryCoordinator.recoveryForToolCall(persistedCall("c1", ToolCallState.PENDING)),
-        )
+    fun `not-started calls are cancelled and only execution-started calls are parked`() {
+        for (state in listOf(ToolCallState.PENDING, ToolCallState.AWAITING_APPROVAL)) {
+            assertEquals(
+                state.name,
+                ToolCallRecovery.CancelNotStarted,
+                RecoveryCoordinator.recoveryForToolCall(persistedCall("c1", state)),
+            )
+        }
         assertEquals(
             ToolCallRecovery.ParkInterrupted,
             RecoveryCoordinator.recoveryForToolCall(persistedCall("c1", ToolCallState.RUNNING)),
@@ -175,7 +189,6 @@ class RecoveryCoordinatorTest {
     fun `durable call states are kept`() {
         val durable =
             listOf(
-                ToolCallState.AWAITING_APPROVAL,
                 ToolCallState.NEEDS_REVIEW,
                 ToolCallState.INTERRUPTED,
                 ToolCallState.COMPLETED,
@@ -231,18 +244,13 @@ class RecoveryCoordinatorTest {
         val plan = RecoveryCoordinator.plan(turns, goals)
         assertEquals(
             listOf(
-                TurnRecovery.Interrupt(turn(1), toolId("a")),
-                TurnRecovery.Interrupt(turn(2), null),
+                TurnRecovery.Interrupt(turn(1), listOf(toolId("a"))),
+                TurnRecovery.Interrupt(turn(2), emptyList()),
             ),
             plan.interruptedTurns,
         )
-        assertEquals(
-            listOf(
-                ToolCallParking(turn(1), toolId("a")),
-                ToolCallParking(turn(1), toolId("b")),
-            ),
-            plan.parkedToolCalls,
-        )
+        assertEquals(listOf(ToolCallParking(turn(1), toolId("b"))), plan.cancelledToolCalls)
+        assertEquals(listOf(ToolCallParking(turn(1), toolId("a"))), plan.parkedToolCalls)
         assertEquals(listOf(GoalRecovery.Park(GoalId("goal-b"))), plan.parkedGoals)
         assertFalse(plan.isEmpty)
     }
@@ -253,14 +261,6 @@ class RecoveryCoordinatorTest {
     }
 
     // ---------------------------------------------------------------- gates
-
-    @Test
-    fun `the resume gate requires interrupted phase and a resolved uncertain call`() {
-        assertTrue(RecoveryCoordinator.canResumeTurn(Phase.INTERRUPTED, hasUncertainToolCall = false))
-        assertFalse(RecoveryCoordinator.canResumeTurn(Phase.INTERRUPTED, hasUncertainToolCall = true))
-        assertFalse(RecoveryCoordinator.canResumeTurn(Phase.RUNNING_TOOL, hasUncertainToolCall = false))
-        assertFalse(RecoveryCoordinator.canResumeTurn(Phase.COMPLETED, hasUncertainToolCall = false))
-    }
 
     @Test
     fun `the wake gate only accepts parked or ready goals`() {
@@ -303,7 +303,7 @@ class RecoveryCoordinatorTest {
             )
         assertEquals(Phase.INTERRUPTED, reduced.phase)
         assertEquals(
-            TurnRecovery.Interrupt(Fixtures.turn, reduced.uncertainToolCallId),
+            TurnRecovery.Interrupt(Fixtures.turn, listOfNotNull(reduced.uncertainToolCallId)),
             RecoveryCoordinator.recoveryForTurn(persisted),
         )
 
@@ -322,16 +322,13 @@ class RecoveryCoordinatorTest {
             persistedTurn(Fixtures.turn, Phase.WAITING_APPROVAL, "c1" to ToolCallState.AWAITING_APPROVAL)
         assertEquals(null, reducedAwaiting.uncertainToolCallId)
         assertEquals(
-            TurnRecovery.Interrupt(Fixtures.turn, reducedAwaiting.uncertainToolCallId),
+            TurnRecovery.Interrupt(Fixtures.turn, listOfNotNull(reducedAwaiting.uncertainToolCallId)),
             RecoveryCoordinator.recoveryForTurn(persistedAwaiting),
         )
     }
 
     @Test
-    fun `resuming never replays a call and gates on the uncertain one`() {
-        // The coordinator recovered a turn whose executing call c1 is uncertain; c2 was queued
-        // and never executed. The runtime state reconstructed from the persisted facts must
-        // not be resumable until c1 is resolved.
+    fun `interrupted turn is terminal and recovery never resumes it`() {
         val recovered =
             TurnState(
                 sessionId = Fixtures.session,
@@ -339,32 +336,13 @@ class RecoveryCoordinatorTest {
                 correlationId = Fixtures.correlation,
                 phase = Phase.INTERRUPTED,
                 budgets = Fixtures.budgets(),
-                pendingCalls = listOf(pending(toolId("c2"), ToolCallState.PENDING)),
                 uncertainToolCallId = toolId("c1"),
             )
-        assertFalse(RecoveryCoordinator.canResumeTurn(recovered.phase, hasUncertainToolCall = true))
-
-        val ignored = TurnReducer.reduce(recovered, TurnEvent.Lifecycle.TurnResumed)
-        assertTrue(ignored.ignored)
-
-        val resolved =
-            TurnReducer.reduce(recovered, TurnEvent.Lifecycle.UncertainToolCallResolved(ToolOutcome.TimedOut))
-        assertFalse(resolved.ignored)
-        assertEquals(null, resolved.state.uncertainToolCallId)
-
-        // Now the user resumes: the turn rebuilds context, c2 is recorded as failed-interrupted
-        // (never re-executed), and the only effect is context building — no tool or model work.
-        val resumed = TurnReducer.reduce(resolved.state, TurnEvent.Lifecycle.TurnResumed)
-        assertFalse(resumed.ignored)
-        assertEquals(Phase.BUILDING_CONTEXT, resumed.state.phase)
-        // c1 (the resolved uncertain call, outcome TimedOut from the review above) plus c2.
-        assertEquals(2, resumed.state.recordedOutcomes.size)
-        val c1Outcome = resumed.state.recordedOutcomes.single { it.toolCallId == toolId("c1") }
-        assertEquals(ToolOutcome.TimedOut, c1Outcome.outcome)
-        val c2Outcome = resumed.state.recordedOutcomes.single { it.toolCallId == toolId("c2") }
-        val failed = c2Outcome.outcome as ToolOutcome.Failed
-        assertEquals(ErrorCode.INTERRUPTED, failed.error.code)
-        assertEquals(listOf<TurnEffect>(TurnEffect.BuildContext), resumed.effects)
+        assertTrue(recovered.phase.isTerminal)
+        assertEquals(
+            TurnRecovery.NoAction,
+            RecoveryCoordinator.recoveryForTurn(PersistedTurn(Fixtures.turn, Phase.INTERRUPTED, emptyList())),
+        )
     }
 
     @Test

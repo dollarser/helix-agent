@@ -186,6 +186,7 @@ internal class GoalTimeBudget(
 
     suspend fun <T> run(
         onExpiry: () -> Unit,
+        completionWins: (T) -> Boolean = { false },
         block: suspend () -> T,
     ): T =
         coroutineScope {
@@ -205,7 +206,9 @@ internal class GoalTimeBudget(
                 }
             try {
                 val result = worker.await()
-                checkActive()
+                // Once external-effect uncertainty is already determined, that fact wins a
+                // concurrent Goal deadline race; UNKNOWN must park rather than become retryable.
+                if (!completionWins(result)) checkActive()
                 result
             } catch (e: ApprovalCancelledException) {
                 val code = expiredCode()

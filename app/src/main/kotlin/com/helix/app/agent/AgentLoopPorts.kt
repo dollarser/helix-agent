@@ -19,6 +19,7 @@ internal interface TurnContextAssembler {
     /** The first model request of the turn: persisted history ending with the user message. */
     suspend fun build(
         sessionId: String,
+        turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
     ): ChatContextRequest
@@ -26,6 +27,7 @@ internal interface TurnContextAssembler {
     /** The request after a compaction commit. */
     suspend fun rebuild(
         sessionId: String,
+        turnId: String,
         retryTurnId: String?,
         control: RunControlConfig,
         previous: ChatContextRequest,
@@ -34,6 +36,7 @@ internal interface TurnContextAssembler {
     /** The next tool-loop request: the persisted history ending with the just-settled tool results. */
     suspend fun buildBackfill(
         sessionId: String,
+        turnId: String,
         control: RunControlConfig,
     ): ChatContextRequest
 }
@@ -56,7 +59,7 @@ internal interface TurnToolExecutor {
         calls: List<BufferedModelToolCall>,
         coordinator: TurnCoordinator,
         control: RunControlConfig,
-    ): List<SettledCall>
+    ): SettledBatch
 }
 
 /** Checks a queued steering snapshot without running a model or holding the storage transaction. */

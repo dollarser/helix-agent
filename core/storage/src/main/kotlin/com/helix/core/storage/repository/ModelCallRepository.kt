@@ -57,7 +57,7 @@ class ModelCallRepository(
     }
 
     /**
-     * HXA-217 / ADR-AGENT-010: Records the request context manifest compact JSON on the call row.
+     * HXA-217 / ADR-AGENT-005: Records the request context manifest compact JSON on the call row.
      */
     fun recordRequestManifest(
         id: String,

@@ -7,6 +7,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.TurnBudgets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -63,6 +64,34 @@ class TurnBudgetTrackerTest {
         val bound = requireNotNull(tracker.prepareCall(request().copy(maxOutputTokens = 3)).request)
         val stream = ModelStreamState().also { it.apply(ModelEvent.Usage(1, 4)) }
         assertFalse(tracker.finishCall("call", bound, stream))
+    }
+
+    @Test
+    fun restoredTrackerDoesNotRefundModelCallsOrTokens() {
+        val budgets = TurnBudgets(4, 3, 100, 100, 50)
+        val tracker = TurnBudgetTracker.restore(budgets, consumedModelCalls = 2, consumedTokens = 10)
+
+        assertEquals(2, tracker.consumedCalls)
+        assertEquals(10L, tracker.consumedTokens)
+        assertEquals(TurnBudgetTracker.BeginDecision.ALLOWED, tracker.prepareCall(request("1")).decision)
+        assertEquals(3, tracker.consumedCalls)
+        assertEquals(TurnBudgetTracker.BeginDecision.MODEL_CALL_LIMIT, tracker.prepareCall(request()).decision)
+
+        val tokenBound = TurnBudgetTracker.restore(budgets, consumedModelCalls = 0, consumedTokens = 40)
+        assertEquals(TurnBudgetTracker.BeginDecision.TOKEN_LIMIT, tokenBound.prepareCall(request("1")).decision)
+        assertEquals(0, tokenBound.consumedCalls)
+    }
+
+    @Test
+    fun restoredTrackerRejectsCheckpointOutsideImmutableBudget() {
+        val budgets = TurnBudgets(4, 3, 100, 100, 50)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            TurnBudgetTracker.restore(budgets, consumedModelCalls = 4, consumedTokens = 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            TurnBudgetTracker.restore(budgets, consumedModelCalls = 0, consumedTokens = 51)
+        }
     }
 
     @Test

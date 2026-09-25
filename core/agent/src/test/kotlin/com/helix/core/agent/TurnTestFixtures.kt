@@ -142,6 +142,13 @@ internal fun driveTo(
             reduce(driveTo(Phase.CREATED, budgets), TurnEvent.Lifecycle.CancelRequested).state
         }
 
+        Phase.NEEDS_REVIEW -> {
+            // The legacy serial reducer never produces live-review parking in production;
+            // construct the phase explicitly so exhaustive reducer tests can still cover the
+            // new durable state without inventing a second UNKNOWN transition path.
+            driveTo(Phase.RUNNING_TOOL, budgets).copy(phase = Phase.NEEDS_REVIEW)
+        }
+
         Phase.INTERRUPTED -> {
             TurnReducer.afterProcessDeath(driveTo(Phase.RECEIVING_MODEL, budgets))
         }

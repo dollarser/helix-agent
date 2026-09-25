@@ -247,6 +247,22 @@ internal data class ModelStreamTerminal(
     val errorCode: String?,
 )
 
+/** Agent-loop exit: either a real terminal or a durable-review park request. */
+internal sealed interface TurnLoopResult {
+    data class Terminal(
+        val outcome: ModelStreamTerminal,
+    ) : TurnLoopResult
+
+    data class ParkedForReview(
+        val callIds: List<String>,
+    ) : TurnLoopResult {
+        init {
+            require(callIds.isNotEmpty()) { "review park requires at least one tool call" }
+            require(callIds.distinct().size == callIds.size) { "duplicate review call id" }
+        }
+    }
+}
+
 /** Per-call total accumulated argument budget in UTF-16 code units (bounded working memory). */
 internal const val MAX_TOOL_ARGUMENTS_CHARS = 1_048_576
 internal const val MAX_AGGREGATE_TOOL_ARGUMENTS_CHARS = 2_097_152

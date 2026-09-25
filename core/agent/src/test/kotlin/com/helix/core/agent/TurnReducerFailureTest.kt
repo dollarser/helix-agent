@@ -62,7 +62,6 @@ class TurnReducerFailureTest {
     fun eventsAfterFailureAreIgnored() {
         val failed = driveTo(Phase.FAILED)
         for (event in listOf<TurnEvent>(
-            TurnEvent.Lifecycle.TurnResumed,
             TurnEvent.Lifecycle.ContextReady(Fixtures.call(9), 100),
             TurnEvent.Model.StreamStarted(Fixtures.call(9)),
             TurnEvent.Tool.ResultsRecorded,

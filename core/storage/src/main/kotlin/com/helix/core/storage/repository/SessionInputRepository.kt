@@ -320,7 +320,8 @@ class SessionInputRepository internal constructor(
     }
 
     private fun liveTarget(state: String): Boolean =
-        !TurnState.valueOf(state).isTerminal && state !in setOf(TurnState.CANCELLING.name, TurnState.INTERRUPTED.name)
+        !TurnState.valueOf(state).isTerminal &&
+            state !in setOf(TurnState.CANCELLING.name, TurnState.NEEDS_REVIEW.name, TurnState.INTERRUPTED.name)
 
     private fun editable(
         inputId: String,

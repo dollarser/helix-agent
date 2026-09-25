@@ -88,6 +88,9 @@ sealed interface GoalEvent {
     /** Host rechecked the dependency after an explicit user repair action. */
     data object BlockerResolved : GoalEvent
 
+    /** External-effect review resolved the blocker; the old GoalRun stays closed. */
+    data object ReviewResolved : GoalEvent
+
     /** Sets the goal's next checkpoint and asks the coordinator to schedule its reminder. */
     data class CheckpointScheduled(
         val checkpoint: Checkpoint,

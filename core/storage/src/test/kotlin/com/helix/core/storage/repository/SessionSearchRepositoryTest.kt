@@ -344,6 +344,9 @@ class SessionSearchRepositoryTest {
         override fun latestUser(sessionId: String): MessageEntity? =
             listBySession(sessionId).lastOrNull { it.role == "USER" && it.supersededBy == null }
 
+        override fun latestAssistant(sessionId: String): MessageEntity? =
+            listBySession(sessionId).lastOrNull { it.role == "ASSISTANT" && it.supersededBy == null }
+
         override fun supersedeFrom(
             sessionId: String,
             from: Long,

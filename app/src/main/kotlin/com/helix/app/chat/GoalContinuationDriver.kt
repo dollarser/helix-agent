@@ -198,7 +198,5 @@ internal class GoalContinuationDriver(
             storage.goalControls.find(activation.goalId)?.pendingJson == null &&
             !storage.goalTurnBindings.hasUnsettledCalls(activation.goalId) &&
             storage.goalRuns.listOpenByGoal(activation.goalId).isEmpty() &&
-            storage.toolCalls.listByTurn(turn.id).none {
-                it.state in setOf("DENIED", "NEEDS_REVIEW", "INTERRUPTED")
-            }
+            storage.toolCalls.listByTurn(turn.id).none { it.state == "DENIED" }
 }

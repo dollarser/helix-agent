@@ -24,7 +24,7 @@ flowchart TD
 ## 2. 调研材料中需要修正的结论
 
 - **MCP 不要求全量 schema 永久常驻。** `tools/list` 发现与模型上下文装配是不同接口。可先给 catalog、再搜索和加载工具；把 MCP 全部转成 bash 不是节省上下文的必要条件。Helix 仍使用用户选择工具后的注册方式；HXA-127 已实现 tools.search，只从当前启用 registry 搜索并向下一次模型请求加载最多 16 个 MCP schema，不扩大执行权限。
-- **远程 MCP OAuth 不要求平台后端代持。** MCP 授权支持 public client，以及预注册、client metadata 等注册路径。Android 可设计浏览器授权、PKCE 与本机 SecretStore；特定厂商是否接受 Helix client 要逐家验证。当前 HXA-071 明确只实现 bearer，本任务不越过此边界。
+- **远程 MCP OAuth 不要求平台后端代持。** HXA-071 的首版握手历史上只支持手工 bearer；当前 OAuth 核心已按 [ADR-CONNECTORS-002](../adr/connectors/002-oauth.md) 进入 HXA-126，使用 Android public client、浏览器授权、PKCE 与本机 SecretStore。特定厂商的 client 注册/redirect、两家真实服务账号和动态注册仍以 status/HXA-126 为准，不能从协议支持推导服务方已验收。
 - **把 schema 编译成 CLI 不会自动消除 MCP 运行时依赖。** 如果 wrapper 最终仍调用 MCP server，就仍依赖协议与会话。只有重新实现业务 HTTP API 才可能不再走 MCP，那属于新的 adapter。
 - **模型能加 `--yes` 时，CLI flag 本身不证明用户批准。** 同样，隐藏工具列表不等于撤销已经排队的调用。宿主必须在执行边界检查当前 enablement；已发出的远端副作用不能靠关开关撤回。
 - 环境变量 pop、凭据文件加密、目录 0700 是进程/文件管理措施，不自动隔离同 UID 任意 shell。文档对 QwenWork/WorkBuddy token 位置的观察保留为特定沙箱样本，不能由“没搜到 headers”推导平台绝不会把凭据下发到其他路径。
@@ -66,15 +66,16 @@ QwenWork 用户参考包已支持 `qwenwork.mcp/v1 → dynamic.servers`；新增
 
 HXA-125 模拟器实测补充：MCP 注册适配允许已知的根 JSON Schema 2020-12 声明，剩余 schema 必须通过原有 ToolSchema 子集校验；保留原始来源 hash。API 29/36 的匿名真实服务调用与跨进程恢复已验证，详见[验收进展](../evidence/development/hxa-125-progress.md)。
 
-## 5. 后续分期
+## 5. 当前分期状态
 
-M13 尚未完成；HXA-125 已开始，公开来源与匿名 SDK 验证见[进展记录](../evidence/development/hxa-125-progress.md)。以下 HXA-126～130 均为 planned。具体范围见 roadmap §18。
+长期架构不复制完整 roadmap；当前任务状态以 [status](../development/status.md) 和 [roadmap](../development/roadmap.md) 为准。Connector 相关阶段截至 2026-09-25：
 
-1. **HXA-126 OAuth 登录层**：另立 ADR，定义独立 Android public client、浏览器回调、state/PKCE、issuer/resource 绑定、refresh/revoke、进程死亡恢复；不复制 Codex/Claude/QwenWork/WorkBuddy 凭据。需至少两家真实 MCP server 测试账号。
-2. **HXA-127 大 catalog 渐进发现**：catalog/搜索 → 当前轮加载有限 schema → Dispatcher。风险与并发仍由平台计算，defer_loading 仅为提示；tool schema 更新撤销旧批准。
-3. **HXA-128 CLI/stdio 可移植运行时 Spike**：区分无网离线工具与需要联网/认证的 CLI；按 HXA-073、M11 实际底座重用当前私有进程 Runtime 和生命周期。对每个 CLI 锁定版本、ABI、许可证、依赖与工具拦截，不把安装成功当功能验收。
-4. **HXA-129 完整 bundle 生命周期**：connector 级会话 scope、工具/Skill 原子视图、更新 diff 与 rollback、可恢复安装 journal、显式依赖图。先解决共享 Skill 的所有权，避免一个包停用另一个包仍需的组件。
-5. **HXA-130 市场设计**：在用户本地导入路径稳定后再加签名索引、固定版本与来源审查。市场可信度不能升级 ToolCall 的权限。
+1. **HXA-125 收尾验收**：公开来源与匿名服务/恢复已有证据，受保护服务仍需独立账号下的拒绝、撤销和重连验证；见[进展记录](../evidence/development/hxa-125-progress.md)。
+2. **HXA-126 进行中**：预注册 public-client OAuth 核心已整合；两家真实服务注册/redirect 条件与动态注册仍未闭合。
+3. **HXA-127 已交付**：大 catalog 渐进发现与 `tools.search` 已进入生产路径；见[完成记录](../completion-records/HXA-127.md)。
+4. **HXA-128 已交付**：CLI/stdio 可移植运行时 Spike 已完成，保留其版本/ABI/许可边界；见[完成记录](../completion-records/HXA-128.md)。
+5. **HXA-129 已交付**：Connector 安全替换、安装归属和会话启停已完成；见[完成记录](../completion-records/HXA-129.md)。
+6. **HXA-130 已交付**：签名索引与来源验证已完成；市场/目录产品能力继续受当前 Connector ADR 与 roadmap 约束，不能由签名来源自动提升 ToolCall 权限；见[完成记录](../completion-records/HXA-130.md)。
 
 ## 6. 使用与导出
 

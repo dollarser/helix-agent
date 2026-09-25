@@ -17,23 +17,23 @@ import com.helix.core.model.TurnState as TurnPhase
  * Before Harness 2.0 a turn was started by ChatService reaching straight into the model provider
  * and the tool pipeline, and each entry point owned its own launch / resume / cancel / observe
  * plumbing. This interface is the convergence point: an entry point calls ONLY [AgentRuntime],
- * never the ModelProvider or the tool pipeline directly. The implementation (the adapter over the
- * existing TurnCoordinator / GoalRunCoordinator and the model loop) lives in the app layer; this
- * file owns the framework-free contract so the core stays Android-free, and the mode strategy
- * (Chat / Plan / Act / Goal) is a value selected on one loop via [SubmitTurnCommand.mode].
+ * never the ModelProvider or the tool pipeline directly. The app-layer implementation routes
+ * durable lifecycle decisions through the TurnEngine boundary while the live loop remains an
+ * implementation detail. This file owns the framework-free contract so the core stays Android-free;
+ * the mode strategy (Chat / Plan / Act / Goal) is selected on one loop via [SubmitTurnCommand.mode].
  *
  * [observe] is a replayable stream: a subscriber that joins late (config change, process
- * recovery) still receives the turn's frames from its current phase to the terminal phase.
+ * recovery) still receives the turn's current durable phase. A live observation ends when the
+ * turn terminalizes or parks for explicit review/recovery; a later subscriber re-reads Room.
  * Subscribers hold no coroutine handle — the runtime owns the loop (the UI observes service
  * state; it never holds a Job).
  *
- * Recovery is NOT a per-turn operation on this interface. After process death the app's startup
- * sweep (the [RecoveryCoordinator] applied over storage) marks an in-flight turn
- * [TurnPhase.INTERRUPTED] and parks its possibly-unknown tool side effects; the user then
- * explicitly re-drives the work with a new [submit] — or continues a bound goal with a [submit]
- * carrying its goalId. An interrupted turn's state is simply observed through [observe]. Nothing
- * is ever auto-resumed: a possibly-unknown side effect makes a blind replay unsafe, so the
- * contract deliberately offers no per-turn "resume."
+ * This interface deliberately has no generic per-turn resume command. After process death the
+ * startup recovery sweep parks unresolved work instead of blindly replaying external effects.
+ * Deterministic effect review may resume the SAME durable Turn through the app-layer review/engine
+ * command using its persisted runtime snapshot and checkpoints; acknowledged uncertainty abandons
+ * that Turn. Other interrupted/retry flows remain explicit. [observe] always reflects the durable
+ * parked/terminal phase, while blind automatic replay remains forbidden.
  */
 interface AgentRuntime {
     /**
@@ -46,16 +46,15 @@ interface AgentRuntime {
 
     /**
      * Cancel a live or recoverable turn. A live turn (its loop still running) receives the stop
-     * and unwinds to [TurnPhase.CANCELLED] through [TurnPhase.CANCELLING] — reported as
-     * [CancelResult.StopAccepted]: its settlement (terminal row, goal settlement, audit) completes
-     * asynchronously when the unwind reaches the terminal, so a caller that needs the terminal
-     * observes the turn. A parked [TurnPhase.INTERRUPTED] turn has no live loop and is settled
-     * straight to [TurnPhase.CANCELLED] before this returns ([CancelResult.Cancelled]).
+     * and unwinds to [TurnPhase.CANCELLED] through [TurnPhase.CANCELLING] — unless an in-flight
+     * external effect becomes uncertain, in which case review parking wins the race. A recovered
+     * [TurnPhase.INTERRUPTED] turn may be explicitly discarded. A live [TurnPhase.NEEDS_REVIEW]
+     * fact is not discarded by ordinary cancel; its resolution belongs to the review command.
      * Cancelling an already-terminal turn is an idempotent no-op ([CancelResult.AlreadyTerminal]).
      */
     suspend fun cancel(turnId: TurnId): CancelResult
 
-    /** A replayable stream of [TurnSnapshot] for one turn, from its current phase to terminal. */
+    /** A replayable stream from the current phase until terminal or a durable parked phase. */
     fun observe(turnId: TurnId): Flow<TurnSnapshot>
 }
 
@@ -95,6 +94,7 @@ data class SubmitTurnCommand(
     val goalBudgets: com.helix.core.model.GoalBudgets? = null,
     val directUserRequest: Boolean = false,
     val revisedMessageId: String? = null,
+    val regenerateMessageId: String? = null,
 ) {
     init {
         require(goalContinuation == null || !directUserRequest) { "automatic continuation is not a human request" }
@@ -105,6 +105,12 @@ data class SubmitTurnCommand(
             "a turn needs a driver: user text, a bound goal, or a retryTurnId (none provided)"
         }
         require(clientRequestId.isNotBlank()) { "clientRequestId must not be blank" }
+        require(revisedMessageId == null || regenerateMessageId == null) {
+            "cannot both revise and regenerate"
+        }
+        require(regenerateMessageId == null || text == null) {
+            "regenerate cannot take new user text"
+        }
     }
 }
 
@@ -159,6 +165,9 @@ sealed interface CancelResult {
 
     /** The turn was cancelled and is already settled in [TurnPhase.CANCELLED]. */
     data object Cancelled : CancelResult
+
+    /** The turn has uncertain external effects and must be resolved through the review flow. */
+    data object ReviewRequired : CancelResult
 
     /** The turn was already terminal; cancellation was a no-op. */
     data class AlreadyTerminal(

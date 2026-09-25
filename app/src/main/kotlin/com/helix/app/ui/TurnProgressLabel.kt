@@ -49,6 +49,10 @@ internal fun TurnProgressLabel(
                 R.string.chat_cancelling
             }
 
+            TurnState.NEEDS_REVIEW -> {
+                R.string.tasks_state_needs_review
+            }
+
             TurnState.INTERRUPTED -> {
                 R.string.chat_interrupted
             }

@@ -215,8 +215,8 @@ class ProotGoalProcessKillDeviceTest {
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
                 .single { it.type == "recovery.turn_interrupted" }
-        val uncertain = if (awaitingApproval) "null" else "\"${call.callId}\""
-        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCall\":$uncertain"))
+        val uncertain = if (awaitingApproval) "" else "\"${call.callId}\""
+        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[$uncertain]"))
         assertEquals("INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         val approval = requireNotNull(storage.approvals.byToolCall(call.callId))

@@ -19,13 +19,14 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
 
+private const val COMPACTION_ENVELOPE_RESERVE = 2048L
+
 /** Durable, file-backed checkpoints use the existing message/content transaction and privacy erasure. */
 internal object ContextCompaction {
     const val KIND = "CONTEXT_CHECKPOINT_V1"
     const val COMMAND = "/compact"
     const val MAX_SUMMARY_CHARS = 16_384
     private const val SUMMARY_OUTPUT = 2048L
-    private const val ENVELOPE_RESERVE = 2048L
 
     data class Checkpoint(
         val coveredThrough: Long,
@@ -102,8 +103,7 @@ internal object ContextCompaction {
         inputScale: Double = 1.0,
     ): Plan? {
         require(inputScale.isFinite() && inputScale >= 1.0)
-        val input =
-            maxOf(request.inputTokens(), ContextPressure.inputFloor(storage, sessionId, currentTurnId, request.model))
+        val input = contextInputTokens(storage, sessionId, currentTurnId, request)
         if (!force &&
             !ContextCapacity.shouldCompact(request, settings, control.budgets.maxInputTokens, input)
         ) {
@@ -117,14 +117,7 @@ internal object ContextCompaction {
         previous?.let { prefix.append(summaryMessage(it).text).append('\n') }
         val summaryOutput =
             SummaryOutputBudget.forRequest(request.inputTokens(), control.budgets.maxOutputTokens, settings.window)
-        val reserve = minOf(ENVELOPE_RESERVE, settings.window / 4)
-        val inputLimit =
-            (
-                minOf(
-                    settings.window - summaryOutput.allowance - reserve,
-                    control.budgets.maxInputTokens - reserve,
-                ) / inputScale
-            ).toLong()
+        val inputLimit = compactionInputLimit(control, settings, summaryOutput, inputScale)
         var through: Long? = null
         var prefixBytes = TokenEstimator.utf8Bytes(prefix.toString())
         for (turn in ContextSegments.candidates(storage, history, currentTurnId)) {
@@ -143,7 +136,15 @@ internal object ContextCompaction {
         }
         return through?.let { boundary ->
             val removed = selected.map { it.id }.toSet()
-            val retained = ContextSegments.remainingRequest(storage, history, removed, previous, request) ?: return null
+            val retained =
+                ContextSegments.remainingRequest(
+                    storage,
+                    history,
+                    removed,
+                    previous,
+                    request,
+                    currentTurnId,
+                ) ?: return null
             Plan(
                 boundary,
                 ModelRequest(
@@ -260,4 +261,26 @@ internal object ContextCompaction {
             "Preserve contradictions and explicit user corrections. Do not claim missing facts are known. " +
             "Collapse repeated logs and omit empty sections. " +
             "Use the supplied output budget; prefer retaining critical facts over stylistic brevity."
+}
+
+private fun contextInputTokens(
+    storage: HelixStorage,
+    sessionId: String,
+    currentTurnId: String,
+    request: ChatContextRequest,
+): Long = maxOf(request.inputTokens(), ContextPressure.inputFloor(storage, sessionId, currentTurnId, request.model))
+
+private fun compactionInputLimit(
+    control: RunControlConfig,
+    settings: ProviderContextSettings,
+    summaryOutput: SummaryOutputBudget,
+    inputScale: Double,
+): Long {
+    val reserve = minOf(COMPACTION_ENVELOPE_RESERVE, settings.window / 4)
+    return (
+        minOf(
+            settings.window - summaryOutput.allowance - reserve,
+            control.budgets.maxInputTokens - reserve,
+        ) / inputScale
+    ).toLong()
 }

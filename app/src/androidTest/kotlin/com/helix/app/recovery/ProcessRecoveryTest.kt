@@ -22,6 +22,7 @@ import com.helix.core.model.ToolName
 import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnId
+import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.mapping.StoredGoal
 import org.junit.After
@@ -85,8 +86,9 @@ class ProcessRecoveryTest {
         val report = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
 
         // --- the report: exactly the leftover work, nothing else
-        assertEquals(mapOf("turn-1" to "call-1", "turn-2" to null), report.interruptedTurns)
-        assertEquals(mapOf("turn-1" to listOf("call-1", "call-2")), report.parkedToolCalls)
+        assertEquals(mapOf("turn-1" to listOf("call-1"), "turn-2" to emptyList()), report.interruptedTurns)
+        assertEquals(mapOf("turn-1" to listOf("call-2")), report.cancelledToolCalls)
+        assertEquals(mapOf("turn-1" to listOf("call-1")), report.parkedToolCalls)
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
 
@@ -98,10 +100,11 @@ class ProcessRecoveryTest {
         // --- idempotent: the next start finds nothing left to recover and writes nothing.
         val again = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
         assertTrue(again.interruptedTurns.isEmpty())
+        assertTrue(again.cancelledToolCalls.isEmpty())
         assertTrue(again.parkedToolCalls.isEmpty())
         assertTrue(again.parkedGoals.isEmpty())
         assertTrue(again.closedRuns.isEmpty())
-        assertEquals(2, storage.auditEvents.listByCorrelation("session-1").size)
+        assertEquals(3, storage.auditEvents.listByCorrelation("session-1").size)
         assertEquals(2, storage.auditEvents.listByCorrelation("corr-goal-1").size)
     }
 
@@ -161,7 +164,7 @@ class ProcessRecoveryTest {
 
         val storage = isolatedStorage(context, "rewind-1")
         val report = RecoveryCoordinatorApp(storage, FixedClock(500L)).recover()
-        assertEquals(mapOf("turn-1" to "call-1"), report.interruptedTurns)
+        assertEquals(mapOf("turn-1" to listOf("call-1")), report.interruptedTurns)
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
 
@@ -198,49 +201,17 @@ class ProcessRecoveryTest {
 
         val storage = isolatedStorage(context, "death-3")
         val report = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
-        assertEquals(mapOf("turn-1" to null), report.interruptedTurns)
+        assertEquals(mapOf("turn-1" to emptyList<String>()), report.interruptedTurns)
         assertTrue(report.parkedToolCalls.isEmpty())
-        // The call never executed, so it is not uncertain and keeps its durable state.
+        // Approval was never granted/executed, so recovery deterministically cancels it before execution.
         assertEquals(
-            ToolCallState.AWAITING_APPROVAL.name,
+            ToolCallState.CANCELLED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-3")?.state,
         )
+        assertEquals("CANCELLED", storage.toolResults.byToolCall("call-3")?.status)
 
-        // The runtime state reconstructed from the persisted facts is immediately resumable:
-        // no side-effect review is needed when nothing was in flight.
-        val recovered =
-            RuntimeTurnState(
-                sessionId = SessionId("session-1"),
-                turnId = TurnId("turn-1"),
-                correlationId = CorrelationId("corr-turn-1"),
-                phase = Phase.INTERRUPTED,
-                budgets = TurnBudgets(8, 4, 12_000L, 2_000L, 14_000L),
-                pendingCalls =
-                    listOf(
-                        PendingToolCall(
-                            ToolCallId("call-3"),
-                            ToolName("write"),
-                            ToolVersion(1),
-                            true,
-                            null,
-                            ToolCallState.AWAITING_APPROVAL,
-                        ),
-                    ),
-            )
-        assertTrue(RecoveryCoordinator.canResumeTurn(recovered.phase, hasUncertainToolCall = false))
-        val resumed = TurnReducer.reduce(recovered, TurnEvent.Lifecycle.TurnResumed)
-        assertFalse(resumed.ignored)
-        assertEquals(Phase.BUILDING_CONTEXT, resumed.state.phase)
-        // The unexecuted call is recorded as failed-interrupted (the provider conversation
-        // still receives a result for it) — it is never re-executed: the only effect is
-        // context building, no tool or model work.
-        assertEquals(1, resumed.state.recordedOutcomes.size)
-        val failed =
-            resumed.state.recordedOutcomes
-                .single()
-                .outcome as ToolOutcome.Failed
-        assertEquals(ErrorCode.INTERRUPTED, failed.error.code)
-        assertEquals(listOf<TurnEffect>(TurnEffect.BuildContext), resumed.effects)
+        // INTERRUPTED is execution-terminal. Continuation must create a successor Turn.
+        assertEquals(TurnState.INTERRUPTED.name, storage.turns.resolve("turn-1").state)
     }
 
     // ------------------------------------------------------------------ helpers
@@ -260,16 +231,17 @@ class ProcessRecoveryTest {
     }
 
     private fun assertToolCallsParkedCorrectly(storage: HelixStorage) {
-        // In-flight calls parked; the awaiting-approval call never executed and is untouched;
-        // the completed call is untouched. Nothing was re-executed.
+        // Only execution-started work is parked. The still-PENDING sibling is cancelled with a
+        // deterministic result; awaiting-approval/completed calls keep their durable facts.
         assertEquals(
             ToolCallState.INTERRUPTED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-1")?.state,
         )
         assertEquals(
-            ToolCallState.INTERRUPTED.name,
+            ToolCallState.CANCELLED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-2")?.state,
         )
+        assertEquals("CANCELLED", storage.toolResults.byToolCall("tc-2")?.status)
         assertEquals(
             ToolCallState.AWAITING_APPROVAL.name,
             storage.toolCalls.byTurnAndCallId("turn-2", "call-3")?.state,
@@ -303,20 +275,21 @@ class ProcessRecoveryTest {
     private fun assertRecoveryAuditEvents(storage: HelixStorage) {
         // Every state change has its event in the same committed state (doc 9.2).
         val s1Audit = storage.auditEvents.listByCorrelation("session-1")
-        assertEquals(2, s1Audit.size)
+        assertEquals(3, s1Audit.size)
         val turnEvent = s1Audit.single { it.type == "recovery.turn_interrupted" }
         assertTrue(turnEvent.redactedPayload.contains("\"turn\":\"turn-1\""))
-        assertTrue(turnEvent.redactedPayload.contains("\"uncertainToolCall\":\"call-1\""))
+        assertTrue(turnEvent.redactedPayload.contains("\"uncertainToolCalls\":[\"call-1\"]"))
+        val cancelledEvent = s1Audit.single { it.type == "recovery.tool_calls_cancelled_before_start" }
+        assertTrue(cancelledEvent.redactedPayload.contains("\"call-2\""))
         val parkedEvent = s1Audit.single { it.type == "recovery.tool_calls_parked" }
         assertTrue(parkedEvent.redactedPayload.contains("\"call-1\""))
-        assertTrue(parkedEvent.redactedPayload.contains("\"call-2\""))
         assertEquals(1, storage.auditEvents.listByCorrelation("session-2").size)
         assertTrue(
             storage.auditEvents
                 .listByCorrelation("session-2")
                 .single()
                 .redactedPayload
-                .contains("\"uncertainToolCall\":null"),
+                .contains("\"uncertainToolCalls\":[]"),
         )
         val g1Audit = storage.auditEvents.listByCorrelation("corr-goal-1")
         assertEquals(2, g1Audit.size)

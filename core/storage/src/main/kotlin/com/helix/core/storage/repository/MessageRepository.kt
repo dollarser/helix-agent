@@ -78,6 +78,8 @@ class MessageRepository(
 
     fun allRevisions(sessionId: String): List<MessageEntity> = dao.allRevisions(sessionId)
 
+    fun latestAssistant(sessionId: String): MessageEntity? = dao.latestAssistant(sessionId)
+
     /** Caller owns the transaction with replacement Turn creation; history is retained for audit. */
     fun reviseLatest(
         sessionId: String,
@@ -86,6 +88,21 @@ class MessageRepository(
     ) {
         val target = requireNotNull(dao.latestUser(sessionId)) { "REVISION_TARGET_CHANGED" }
         require(target.id == messageId) { "REVISION_TARGET_CHANGED" }
+        dao.supersedeFrom(sessionId, target.sequence, requestId)
+    }
+
+    /** Caller owns the transaction with replacement Turn creation; history is retained for audit. */
+    fun regenerateLatest(
+        sessionId: String,
+        messageId: String,
+        requestId: String,
+    ) {
+        val target = requireNotNull(dao.byId(messageId)) { "REGENERATE_TARGET_NOT_FOUND" }
+        require(target.sessionId == sessionId) { "REGENERATE_SESSION_MISMATCH" }
+        require(target.role == "ASSISTANT") { "REGENERATE_ROLE_INVALID" }
+        require(target.supersededBy == null) { "REGENERATE_ALREADY_SUPERSEDED" }
+        val latestAssistant = requireNotNull(dao.latestAssistant(sessionId)) { "REGENERATE_TARGET_CHANGED" }
+        require(latestAssistant.id == messageId) { "REGENERATE_TARGET_CHANGED" }
         dao.supersedeFrom(sessionId, target.sequence, requestId)
     }
 

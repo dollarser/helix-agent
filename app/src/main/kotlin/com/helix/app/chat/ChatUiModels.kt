@@ -150,5 +150,9 @@ data class ChatScreenState(
     val isSending: Boolean
         get() =
             preparingDraft ||
-                (activeTurn?.let { !it.state.isTerminal && it.state != TurnState.INTERRUPTED } ?: false)
+                (
+                    activeTurn?.let {
+                        !it.state.isTerminal && it.state !in setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED)
+                    } ?: false
+                )
 }

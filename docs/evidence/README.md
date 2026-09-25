@@ -1,63 +1,26 @@
 # 验收与诊断证据
 
-这些文件记录当时的结果、限制或外部材料，不是当前任务指令。当前进展见[实施状态](../development/status.md)，待完成范围见[路线](../development/roadmap.md)。旧工作树、设备 serial、所有方和命令仅用于解释证据，不能直接复用。
+本目录保存**时间点证据**：验收结果、诊断快照、外部材料、分支整合记录和历史验证计划。它们不是当前任务指令，也不自动代表今天仍通过。
 
-近期整合入口：[2026-09-22 分支整合验证](development/branch-integration-2026-09-22.md)、[199/206 验收](development/acceptance-199-206-2026-09-21.md)、[已完成交接归属](development/completed-handoffs-2026-09-22.md)。项目结构与执行引擎的当前审查见[源码审查](../research/project-structure-and-engine-review.md)。
+当前进展看 [development/status.md](../development/status.md)，未完成任务看 [development/roadmap.md](../development/roadmap.md)，长期契约看 [ADR](../adr/README.md)。旧工作树、设备 serial、owner、命令和模型分工只用于解释当时证据，不能直接复用。
 
-- [2026-09-22 引擎与浏览器修复整合](../bug-fixes/2026-09-22-engine-browser-convergence.md)
-- [import-materials](connectors/import-materials.md)
+## 分类入口
+
+- [development/](development/README.md)：开发/验收/整合/恢复/调查的主要证据库。
+- [development/verification-plans/](development/verification-plans/README.md)：历史设备与长稳验证计划；不是当前设备授权。
+- [connectors/import-materials.md](connectors/import-materials.md)：Connector 来源/导入材料。
+- [diagnostics/hxa185-device-protocol.md](diagnostics/hxa185-device-protocol.md)：专项设备协议诊断。
+- [bug-fixes/](../bug-fixes/README.md)：值得跨任务复用的已修复根因与回归机制。
+- [completion-records/](../completion-records/index.md)：每个已完成 HXA 的交付时点证据，是查具体任务结果的首选入口。
+
+## 近期高价值入口
+
+- [2026-09-22 分支整合验证](development/branch-integration-2026-09-22.md)
+- [199/206 联合验收](development/acceptance-199-206-2026-09-21.md)
+- [已完成交接归属](development/completed-handoffs-2026-09-22.md)
 - [2026-09-22 文档、审查与遗留内容收敛](development/document-review-convergence-2026-09-22.md)
 - [2026-09-22 脚本入口与实验构建整理](development/repository-hygiene-2026-09-22.md)
-- [2026-09-18 审查复核与修复优先级](development/review-followup-2026-09-18.md)
-- [2026-09-18 授权与 Runtime 修复、分支收敛](../bug-fixes/2026-09-18-authorization-runtime-convergence.md)
-- [HXA-196 平台与核心切片](development/hxa-196-platform-plan-2026-09-18.md)
-- [account-connection-and-settings-layout-2026-09-10](development/account-connection-and-settings-layout-2026-09-10.md)
-- [approval-experience-review-2026-09-16](development/approval-experience-review-2026-09-16.md)
-- [browser-context-options](development/browser-context-options.md)
-- [browser-controller-reference-verification](development/browser-controller-reference-verification.md)
-- [browser-network-reference-verification](development/browser-network-reference-verification.md)
-- [builtin-tool-result-review-2026-09-10](development/builtin-tool-result-review-2026-09-10.md)
-- [bundled-runtime-installers-2026-09-10](development/bundled-runtime-installers-2026-09-10.md)
-- [cli-result-durable-recovery-gap](development/cli-result-durable-recovery-gap.md)
-- [connector-stdio-portability](development/connector-stdio-portability.md)
-- [context-window-and-shared-storage](development/context-window-and-shared-storage.md)
-- [dns-and-turn-defaults-2026-09-10](development/dns-and-turn-defaults-2026-09-10.md)
-- [goal-conversation-entry-2026-09-10](development/goal-conversation-entry-2026-09-10.md)
-- [harness-main-integration-2026-09-16](development/harness-main-integration-2026-09-16.md)
-- [hxa-125-progress](development/hxa-125-progress.md)
-- [hxa-144-progress](development/hxa-144-progress.md)
-- [hxa-146-progress](development/hxa-146-progress.md)
-- [hxa102-boundary-audit](development/hxa102-boundary-audit.md)
-- [hxa147-interaction-research](development/hxa147-interaction-research.md)
-- [hxa147-progress](development/hxa147-progress.md)
-- [hxa190-physical-update-2026-09-10](development/hxa190-physical-update-2026-09-10.md)
-- [hxa200-acceptance-2026-09-15](development/hxa200-acceptance-2026-09-15.md)
-- [hxa201-acceptance-2026-09-16](development/hxa201-acceptance-2026-09-16.md)
-- [hxa208-goal-acceptance-2026-09-16](development/hxa208-goal-acceptance-2026-09-16.md)
-- [improvement-review-2026-09-06](development/improvement-review-2026-09-06.md)
-- [improvement-review-2026-09-07](development/improvement-review-2026-09-07.md)
-- [improvement-review-2026-09-10-followup](development/improvement-review-2026-09-10-followup.md)
-- [improvement-review-2026-09-10](development/improvement-review-2026-09-10.md)
-- [integrated-developer-runtimes](development/integrated-developer-runtimes.md)
-- [large-class-responsibility-audit-2026-09-10](development/large-class-responsibility-audit-2026-09-10.md)
-- [m10-closure-followup](development/m10-closure-followup.md)
-- [m7-non-device-progress](development/m7-non-device-progress.md)
-- [m9-non-device-progress](development/m9-non-device-progress.md)
-- [m9-root-exec-decision](development/m9-root-exec-decision.md)
-- [m9-rooted-emulator-experiment](development/m9-rooted-emulator-experiment.md)
-- [main-closure-audit](development/main-closure-audit.md)
-- [main-integration-test-review-2026-09-10](development/main-integration-test-review-2026-09-10.md)
-- [main-merged-verification](development/main-merged-verification.md)
-- [main-optimization-todo](development/main-optimization-todo.md)
-- [native-reference-mitigation](development/native-reference-mitigation.md)
-- [native-reference-release-trace](development/native-reference-release-trace.md)
-- [native-reference-upstream-report](development/native-reference-upstream-report.md)
-- [proot-result-durable-recovery-gap](development/proot-result-durable-recovery-gap.md)
-- [subscription-connection-investigation-2026-09-10](development/subscription-connection-investigation-2026-09-10.md)
-- [subscription-dns-overrides](development/subscription-dns-overrides.md)
-- [verification-gaps-progress](development/verification-gaps-progress.md)
-- [webview-native-reference-investigation](development/webview-native-reference-investigation.md)
-- [wip-takeover-2026-09-16](development/wip-takeover-2026-09-16.md)
-- [hxa185-device-protocol](diagnostics/hxa185-device-protocol.md)
+- [2026-09-22 引擎与浏览器修复整合](../bug-fixes/2026-09-22-engine-browser-convergence.md)
+- [早期文档审查历史](development/documentation-review-history-2026-09-02.md)
 
-- [未闭合 HXA 范围复核](development/open-hxa-review-2026-09-16.md)
+证据文件不维护“当前 backlog”。如果历史 evidence 中出现 `todo`、`pending`、旧 HXA owner 或旧设备状态，先看文件日期/基线，再回到 status/HXA 判断今天是否仍成立。

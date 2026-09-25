@@ -69,6 +69,10 @@ interface AppContainer {
      */
     val agentRuntime: AgentRuntime
 
+    /** Wave-1 durable lifecycle owner. UI still reaches turns through AgentRuntime/services. */
+    val turnEngine: com.helix.app.engine.TurnEngine?
+        get() = null
+
     val capabilityCenter: CapabilityCenter
 
     /**
@@ -87,6 +91,9 @@ interface AppContainer {
      * saved.
      */
     val sessionPermissionEdit: SessionPermissionEditService
+
+    val toolEffectReviewService: com.helix.app.review.ToolEffectReviewService?
+        get() = null
 
     val connectorService: com.helix.app.connector.ConnectorService
         get() = error("Connector service is unavailable in this container")

@@ -29,7 +29,7 @@ Helix 可以借鉴 Codex、DeepSeek Harness 等 Agent Harness 的编排思想，
 | sandbox escalation retry | **不照搬** | 不因失败扩大 Android 权限、scope、网络或切换到低隔离 target；target/参数变化生成新审批。只允许零副作用、同 envelope、同/更强隔离的有界技术重试 | HXA-035/037 |
 | deferred network approval（先连接/发送后补批） | **禁止** | DNS/连接/发送前完成 origin、数据类别、scope 和审批；网络失败不能变成授权 | HXA-033/035/066 |
 | 本地创建云端任务、轮询并 apply diff | **当前不采纳** | 属于 Remote Worker/云端执行与数据出境，需未来新执行目标、威胁模型和 ADR | — |
-| A2A 外部 Agent Client | **M7 已接受，未实现** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力 | HXA-077～079 / ADR-A2A-001 |
+| A2A 外部 Agent Client | **Client-only 已交付** | 用户配置 endpoint；Agent Card/Skill 固定快照；远端 Task 作为 NETWORK ToolCall，不继承本机批准/能力；Server/webhook/远端直接 ToolCall 与递归 peer 编排仍不在当前范围 | HXA-077～079 / ADR-A2A-001 |
 | 跨会话 memories | **延后且默认关闭** | 必须用户可见、可删、按数据类别授权；Secret 与高敏原文不得自动沉淀 | future ADR |
 
 ## 3. 首版确定性 Tool Scheduler

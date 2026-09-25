@@ -573,6 +573,22 @@ internal class DefaultAppContainer(
             },
         )
 
+    override val turnEngine: com.helix.app.engine.TurnEngine by lazy {
+        com.helix.app.engine.TurnEngine(
+            storage = storage,
+            clock = appClock,
+            idGenerator = { idGenerator.next() },
+        )
+    }
+
+    override val toolEffectReviewService: com.helix.app.review.ToolEffectReviewService by lazy {
+        com.helix.app.review.ToolEffectReviewService(
+            storage = storage,
+            clock = appClock,
+            turnEngine = turnEngine,
+        )
+    }
+
     override val auditLogService: AuditLogService = AuditLogService(storage)
 
     override val mcpService: McpAppService =
@@ -667,6 +683,7 @@ internal class DefaultAppContainer(
             lanScopes = lanScopeStore::current,
             clock = appClock,
             idGenerator = { idGenerator.next() },
+            turnEngine = turnEngine,
             toolPipeline = toolPipeline,
             attachmentStaging = attachmentStaging,
             visionSessionBinder = visionImageSource::bindSession,

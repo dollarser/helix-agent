@@ -1,6 +1,6 @@
 # 已完成交接的归属与证据
 
-2026-09-22 整理。此页记录已结束交接的归属，不分配任务、不授权合并，也不新增测试通过结论。当前工作统一读取[状态](../../development/status.md)、[工作计划](../../development/next-work-plan.md)及[实施指南](../../development/implementation-guide.md)。原文可从 Git 历史查回。
+2026-09-22 整理。此页记录已结束交接的归属，不分配任务、不授权合并，也不新增测试通过结论。当前工作统一读取[状态](../../development/status.md)、[当前状态](../../development/status.md)及[实施指南](../../development/implementation-guide.md)。原文可从 Git 历史查回。
 
 | 删除的一次性指令 | 取代它的交付与证据 | 仍未闭合的范围 |
 | --- | --- | --- |

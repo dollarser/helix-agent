@@ -33,8 +33,11 @@ import com.helix.core.storage.dao.SkillDao
 import com.helix.core.storage.dao.SkillSnapshotDao
 import com.helix.core.storage.dao.ToolAvailabilityDao
 import com.helix.core.storage.dao.ToolCallDao
+import com.helix.core.storage.dao.ToolCallReviewDao
 import com.helix.core.storage.dao.ToolResultDao
 import com.helix.core.storage.dao.TurnDao
+import com.helix.core.storage.dao.TurnReviewReceiptDao
+import com.helix.core.storage.dao.TurnRuntimeRecordDao
 import com.helix.core.storage.entity.A2aAgentEntity
 import com.helix.core.storage.entity.A2aCapabilityEntity
 import com.helix.core.storage.entity.A2aTaskEntity
@@ -67,8 +70,11 @@ import com.helix.core.storage.entity.SkillEntity
 import com.helix.core.storage.entity.SkillSnapshotEntity
 import com.helix.core.storage.entity.ToolAvailabilityEntity
 import com.helix.core.storage.entity.ToolCallEntity
+import com.helix.core.storage.entity.ToolCallReviewEntity
 import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.core.storage.entity.TurnReviewReceiptEntity
+import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 
 /**
  * Helix local database (architecture doc 9). Schema version 5 (HXA-068) holds all base tables
@@ -133,11 +139,14 @@ import com.helix.core.storage.entity.TurnEntity
             com.helix.core.storage.entity.ComposerDraftEntity::class,
             com.helix.core.storage.entity.SessionInputEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
+            ToolCallReviewEntity::class,
+            TurnRuntimeRecordEntity::class,
+            TurnReviewReceiptEntity::class,
         ],
-    version = 28,
+    version = 31,
     exportSchema = true,
 )
-@Suppress("TooManyFunctions") // Room @Database requires one accessor per DAO of the 26 doc 9.1 tables
+@Suppress("TooManyFunctions") // Room @Database requires one accessor per persisted aggregate/feature table.
 abstract class HelixDatabase : RoomDatabase() {
     abstract fun connectorDao(): com.helix.core.storage.dao.ConnectorDao
 
@@ -155,11 +164,17 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun turnDao(): TurnDao
 
+    abstract fun turnRuntimeRecordDao(): TurnRuntimeRecordDao
+
+    abstract fun turnReviewReceiptDao(): TurnReviewReceiptDao
+
     abstract fun modelCallDao(): ModelCallDao
 
     abstract fun toolCallDao(): ToolCallDao
 
     abstract fun toolResultDao(): ToolResultDao
+
+    abstract fun toolCallReviewDao(): ToolCallReviewDao
 
     abstract fun approvalDao(): ApprovalDao
 
@@ -214,6 +229,9 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionPermissionDefaultsDao(): SessionPermissionDefaultsDao
 
     companion object {
+        val MIGRATION_30_31 = TurnRecoveryRelationMigration.MIGRATION_30_31
+        val MIGRATION_29_30 = TurnRuntimeMigration.MIGRATION_29_30
+        val MIGRATION_28_29 = ToolCallReviewMigration.MIGRATION_28_29
         val MIGRATION_27_28 = RequestManifestMigration.MIGRATION_27_28
         val MIGRATION_26_27 = ConnectorMigration.MIGRATION_26_27
         val MIGRATION_25_26 = SessionInputMigration.MIGRATION_25_26

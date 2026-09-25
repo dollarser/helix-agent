@@ -1,8 +1,14 @@
 package com.helix.app.agent
 
+import com.helix.app.goal.toRuntimeGoal
+import com.helix.app.goal.toStoredGoal
+import com.helix.core.agent.GoalEvent
+import com.helix.core.agent.GoalReducer
 import com.helix.core.agent.PromptSnapshot
 import com.helix.core.model.Clock
+import com.helix.core.model.GoalState
 import com.helix.core.model.ModelRole
+import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.repository.MessageAttachmentRepository
@@ -29,6 +35,8 @@ internal data class TurnStartSpec(
     val inputFingerprint: String? = null,
     val revisedMessageId: String? = null,
     val inputRevision: Long? = null,
+    val regenerateMessageId: String? = null,
+    val recoveryFromTurnId: String? = null,
 )
 
 /** Materialized and checked outside the transaction; identity is rechecked before consuming. */
@@ -64,16 +72,18 @@ internal data class BatchTurnSnapshot(
  */
 internal class BatchTurnRuntime(
     firstModelCallId: String,
+    initialModelStep: Int = 1,
 ) {
     private var phase = TurnState.WAITING_MODEL
     private var modelCallId = firstModelCallId
-    private var modelStep = 1
+    private var modelStep = initialModelStep
     private var modelCallClosed = false
     private var stream = ModelStreamState()
     private var batchCalls = linkedMapOf<String, BatchCallResolution>()
 
     init {
         require(firstModelCallId.isNotBlank()) { "firstModelCallId must not be blank" }
+        require(initialModelStep >= 1) { "initialModelStep must be >= 1" }
     }
 
     fun snapshot(): BatchTurnSnapshot =
@@ -122,14 +132,21 @@ internal class BatchTurnRuntime(
         batchCalls[callId] = if (sideEffectUnknown) BatchCallResolution.UNKNOWN else BatchCallResolution.SETTLED
     }
 
-    fun requireBatchSettled() {
-        require(batchCalls.isNotEmpty()) { "no active tool batch" }
-        require(batchCalls.values.none { it == BatchCallResolution.PENDING }) { "tool batch still has pending calls" }
-        require(batchCalls.values.none { it == BatchCallResolution.UNKNOWN }) { "tool batch has unknown side effects" }
+    fun parkForReview(reviewCallIds: List<String>) {
+        require(phase == TurnState.RUNNING_TOOL) { "review park requires RUNNING_TOOL, was $phase" }
+        require(modelCallClosed) { "review park requires the model call to be closed" }
+        require(batchCalls.values.none { it == BatchCallResolution.PENDING }) {
+            "review park requires every batch call settled"
+        }
+        val unknown = batchCalls.filterValues { it == BatchCallResolution.UNKNOWN }.keys.toList()
+        require(unknown == reviewCallIds) { "review call identities must match the UNKNOWN batch slots" }
+        phase = TurnState.NEEDS_REVIEW
     }
 
     fun advanceModelCall(nextModelCallId: String) {
-        requireBatchSettled()
+        require(batchCalls.isNotEmpty()) { "no active tool batch" }
+        require(batchCalls.values.none { it == BatchCallResolution.PENDING }) { "tool batch still has pending calls" }
+        require(batchCalls.values.none { it == BatchCallResolution.UNKNOWN }) { "tool batch has unknown side effects" }
         require(nextModelCallId.isNotBlank()) { "nextModelCallId must not be blank" }
         phase = TurnState.WAITING_MODEL
         modelCallId = nextModelCallId
@@ -191,7 +208,7 @@ internal class TurnCoordinator private constructor(
         summaryStream = compacting
         val current = runtime.snapshot()
         require(current.phase == TurnState.WAITING_MODEL)
-        transitionPersisted(TurnState.RECEIVING_MODEL, current.modelStep)
+        beginPersistedModelStream(current.modelStep)
         return runtime.beginModelStream()
     }
 
@@ -226,7 +243,7 @@ internal class TurnCoordinator private constructor(
     }
 
     /**
-     * HXA-217 / ADR-AGENT-010: Records the request context manifest compact JSON on the call row.
+     * HXA-217 / ADR-AGENT-005: Records the request context manifest compact JSON on the call row.
      */
     fun recordRequestManifest(manifestJson: String?) {
         if (manifestJson.isNullOrBlank()) return
@@ -289,13 +306,108 @@ internal class TurnCoordinator private constructor(
         runtime.settleCall(callId, sideEffectUnknown)
     }
 
+    /** Fail-closed boundary hint only; durable ToolCall/Turn rows remain authoritative. */
+    fun hasUnknownBatch(): Boolean =
+        runtime
+            .snapshot()
+            .batchCalls.values
+            .any { it == BatchCallResolution.UNKNOWN }
+
+    /** Ordered UNKNOWN identities only when every sibling has reached an in-memory settlement. */
+    fun settledReviewCallIds(): List<String>? {
+        val snapshot = runtime.snapshot()
+        if (snapshot.batchCalls.values.any { it == BatchCallResolution.PENDING }) return null
+        return snapshot.batchCalls
+            .filterValues { it == BatchCallResolution.UNKNOWN }
+            .keys
+            .toList()
+            .takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * Parks a fully settled UNKNOWN batch without opening another ModelCall. ToolCall executor
+     * facts were committed before this transaction; only aggregate Turn/Goal truth is reconciled.
+     */
+    fun parkForReview(reviewCallIds: List<String>) {
+        storage.withTransaction { persistReviewPark(reviewCallIds) }
+        markRuntimeParked(reviewCallIds)
+    }
+
+    /** Caller owns the outer Room transaction; this method changes durable facts only. */
+    internal fun persistReviewPark(reviewCallIds: List<String>) {
+        val current = runtime.snapshot()
+        require(current.phase == TurnState.RUNNING_TOOL && current.modelCallClosed)
+        val unknown =
+            current.batchCalls
+                .filterValues { it == BatchCallResolution.UNKNOWN }
+                .keys
+                .toList()
+        require(unknown == reviewCallIds && reviewCallIds.isNotEmpty())
+        val turn = storage.turns.resolve(turnId)
+        val persisted = TurnState.valueOf(turn.state)
+        require(persisted in setOf(TurnState.RUNNING_TOOL, TurnState.CANCELLING)) {
+            "review park requires live tool state, was $persisted"
+        }
+        val calls = storage.toolCalls.listByTurn(turnId).associateBy { it.callId }
+        current.batchCalls.keys.forEach { callId ->
+            val state = ToolCallState.valueOf(requireNotNull(calls[callId]).state)
+            require(
+                state !in
+                    setOf(
+                        ToolCallState.PENDING,
+                        ToolCallState.AWAITING_APPROVAL,
+                        ToolCallState.RUNNING,
+                    ),
+            ) { "tool call is not durably settled: $callId ($state)" }
+        }
+        reviewCallIds.forEach { callId ->
+            require(calls[callId]?.state == ToolCallState.NEEDS_REVIEW.name) {
+                "review call is not durably NEEDS_REVIEW: $callId"
+            }
+        }
+        storage.turns.updateState(turn, TurnState.NEEDS_REVIEW, current.modelStep, null, null)
+        storage.goalTurnBindings.byTurn(turnId)?.let { binding ->
+            val run = storage.goalRuns.resolve(binding.runId)
+            val goal = storage.goals.resolve(run.goalId).toRuntimeGoal()
+            if (goal.state == GoalState.RUNNING) {
+                val step = GoalReducer.reduce(goal, GoalEvent.Blocked)
+                check(!step.ignored && step.state.state == GoalState.BLOCKED)
+                storage.goals.updateGoal(step.state.toStoredGoal())
+            } else {
+                check(goal.state == GoalState.BLOCKED) {
+                    "goal bound to review-parked turn must be RUNNING/BLOCKED, was ${goal.state}"
+                }
+            }
+        }
+        storage.auditEvents.append(
+            idGenerator(),
+            sessionId,
+            "turn.needs_review",
+            "agent",
+            "{\"turn\":\"$turnId\",\"toolCalls\":[" +
+                reviewCallIds.joinToString(",") { "\"$it\"" } + "]}",
+            clock.now().toEpochMilli(),
+        )
+    }
+
+    /** Advances process-local state only after the caller's durable transaction committed. */
+    internal fun markRuntimeParked(reviewCallIds: List<String>) {
+        runtime.parkForReview(reviewCallIds)
+    }
+
     /** Atomically records ordered model-visible results and opens the next model step. */
     fun openNextModelCall(
         messages: List<TurnMessageDraft>,
         nextModelCallId: String,
     ) {
-        runtime.requireBatchSettled()
         val current = runtime.snapshot()
+        require(current.batchCalls.isNotEmpty()) { "no active tool batch" }
+        require(current.batchCalls.values.none { it == BatchCallResolution.PENDING }) {
+            "tool batch still has pending calls"
+        }
+        require(current.batchCalls.values.none { it == BatchCallResolution.UNKNOWN }) {
+            "tool batch has unknown side effects"
+        }
         var cancelled = false
         storage.withTransaction {
             var turn = storage.turns.resolve(turnId)
@@ -547,6 +659,14 @@ internal class TurnCoordinator private constructor(
         return settled
     }
 
+    /** Durable remote-request boundary for a live Turn. Old interrupted/reviewed Turns never re-enter here. */
+    private fun beginPersistedModelStream(step: Int) {
+        storage.withTransaction {
+            val turn = requireNotCancelling()
+            storage.turns.updateState(turn, TurnState.RECEIVING_MODEL, step, null, null)
+        }
+    }
+
     private fun transitionPersisted(
         state: TurnState,
         step: Int,
@@ -596,17 +716,6 @@ internal class TurnCoordinator private constructor(
         ): TurnCoordinator {
             val now = clock.now().toEpochMilli()
             storage.withTransaction {
-                spec.revisedMessageId?.let {
-                    require(spec.userText != null && spec.goalRunId == null)
-                    require(
-                        storage.turns.listBySession(spec.sessionId).all { row ->
-                            TurnState.valueOf(row.state).isTerminal
-                        },
-                    ) {
-                        "REVISION_SESSION_BUSY"
-                    }
-                    storage.messages.reviseLatest(spec.sessionId, it, requireNotNull(spec.clientRequestId))
-                }
                 // The receipt (clientRequestId + inputFingerprint) commits WITH the turn row (research
                 // doc section 34): a restart can no longer let the same id re-start a second turn.
                 var turn =
@@ -616,6 +725,7 @@ internal class TurnCoordinator private constructor(
                         now,
                         spec.clientRequestId,
                         spec.inputFingerprint,
+                        spec.recoveryFromTurnId,
                     )
                 spec.goalRunId?.let { storage.goalTurnBindings.bind(spec.turnId, it) }
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)

@@ -114,7 +114,11 @@ data class MessageAttachmentEntity(
                 onDelete = ForeignKey.CASCADE,
             ),
         ],
-    indices = [Index("sessionId"), Index(value = ["clientRequestId"], unique = true)],
+    indices = [
+        Index("sessionId"),
+        Index(value = ["clientRequestId"], unique = true),
+        Index("recoveryFromTurnId"),
+    ],
 )
 data class TurnEntity(
     @PrimaryKey val id: String,
@@ -133,6 +137,8 @@ data class TurnEntity(
     // Null on rows created before v13 (never matched by a non-null re-drive query).
     val clientRequestId: String? = null,
     val inputFingerprint: String? = null,
+    /** Explicit predecessor for a successor Turn; null for ordinary Turns and legacy rows. */
+    val recoveryFromTurnId: String? = null,
 )
 
 /** architecture doc 9.1: `model_calls` — provider snapshot, state, usage, requestId. */
@@ -161,7 +167,7 @@ data class ModelCallEntity(
     // content). Null for calls predating v14 and for compaction summary calls.
     val promptFingerprint: String? = null,
     val promptSections: String? = null,
-    // HXA-217 / ADR-AGENT-010: compact request context manifest JSON recording input messages,
+    // HXA-217 / ADR-AGENT-005: compact request context manifest JSON recording input messages,
     // input IDs, and compaction boundary. Null for calls predating v28 or compaction summary calls.
     val requestManifest: String? = null,
 )

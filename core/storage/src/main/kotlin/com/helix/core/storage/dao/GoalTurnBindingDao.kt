@@ -35,14 +35,20 @@ interface GoalTurnBindingDao {
     @Query(
         "SELECT COUNT(*) FROM goal_turn_bindings b JOIN goal_runs r ON r.id = b.runId " +
             "JOIN tool_calls t ON t.turnId = b.turnId " +
-            "WHERE r.goalId = :goalId AND t.state IN ('NEEDS_REVIEW', 'INTERRUPTED')",
+            "LEFT JOIN tool_call_reviews rv ON rv.toolCallId = t.id " +
+            "WHERE r.goalId = :goalId AND t.state IN ('NEEDS_REVIEW', 'INTERRUPTED') " +
+            "AND rv.toolCallId IS NULL",
     )
     fun unresolvedForGoal(goalId: String): Int
 
     @Query(
         "SELECT COUNT(*) FROM goal_turn_bindings b JOIN goal_runs r ON r.id = b.runId " +
             "JOIN tool_calls t ON t.turnId = b.turnId " +
-            "WHERE r.goalId = :goalId AND t.state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'DENIED')",
+            "LEFT JOIN tool_call_reviews rv ON rv.toolCallId = t.id " +
+            "WHERE r.goalId = :goalId " +
+            "AND t.state NOT IN ('COMPLETED', 'FAILED', 'CANCELLED', 'DENIED') " +
+            "AND NOT (t.state IN ('NEEDS_REVIEW', 'INTERRUPTED') " +
+            "AND rv.toolCallId IS NOT NULL)",
     )
     fun unsettledForGoal(goalId: String): Int
 

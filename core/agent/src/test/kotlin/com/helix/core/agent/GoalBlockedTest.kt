@@ -28,4 +28,23 @@ class GoalBlockedTest {
         assertTrue(GoalReducer.reduce(blocked, GoalEvent.CompleteRequested).ignored)
         assertEquals(GoalState.CANCELLED, GoalReducer.reduce(blocked, GoalEvent.Cancelled).state.state)
     }
+
+    @Test fun reviewResolutionParksForANewRunWithoutChangingUsage() {
+        val ready = GoalReducer.reduce(GoalFixtures.newGoal(), GoalEvent.Ready(null, null)).state
+        val running = GoalReducer.reduce(ready, GoalEvent.Continued(GoalWakeReason.USER_OPEN)).state
+        val blocked = GoalReducer.reduce(running, GoalEvent.Blocked).state
+
+        val resolved = GoalReducer.reduce(blocked, GoalEvent.ReviewResolved)
+
+        assertEquals(GoalState.PAUSED, resolved.state.state)
+        assertEquals(blocked.runCount, resolved.state.runCount)
+        assertEquals(blocked.modelCalls, resolved.state.modelCalls)
+        assertEquals(blocked.toolCalls, resolved.state.toolCalls)
+        assertEquals(blocked.totalTokens, resolved.state.totalTokens)
+        assertTrue(resolved.effects.isEmpty())
+
+        val continued = GoalReducer.reduce(resolved.state, GoalEvent.Continued(GoalWakeReason.USER_OPEN))
+        assertEquals(GoalState.RUNNING, continued.state.state)
+        assertEquals(blocked.runCount + 1, continued.state.runCount)
+    }
 }

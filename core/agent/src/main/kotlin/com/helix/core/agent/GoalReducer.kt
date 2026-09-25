@@ -81,6 +81,10 @@ object GoalReducer {
                 onBlockerResolved(state)
             }
 
+            GoalEvent.ReviewResolved -> {
+                onReviewResolved(state)
+            }
+
             is GoalEvent.CheckpointScheduled -> {
                 onCheckpointScheduled(state, event)
             }
@@ -214,6 +218,13 @@ object GoalReducer {
     private fun onBlockerResolved(state: Goal): GoalStep =
         if (state.state == GoalState.BLOCKED && state.canStartRun()) {
             step(state, state.copy(state = GoalState.PAUSED))
+        } else {
+            GoalStep.unchanged(state)
+        }
+
+    private fun onReviewResolved(state: Goal): GoalStep =
+        if (state.state == GoalState.BLOCKED && state.canStartRun()) {
+            step(state, state.copy(state = GoalState.PAUSED, currentWakeMillis = 0L))
         } else {
             GoalStep.unchanged(state)
         }

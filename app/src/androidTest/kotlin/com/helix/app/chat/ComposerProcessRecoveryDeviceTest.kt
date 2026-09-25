@@ -162,8 +162,10 @@ class ComposerProcessRecoveryDeviceTest {
         assertEquals(listOf(CANCEL_TURN), storage.turns.listBySession(CANCEL_SESSION).map { it.id })
         val calls = storage.toolCalls.listByTurn(CANCEL_TURN)
         assertEquals(setOf(RUNNING_CALL, PENDING_CALL), calls.map { it.id }.toSet())
-        assertTrue(calls.all { it.state == ToolCallState.INTERRUPTED.name })
-        assertTrue(calls.all { storage.toolResults.byToolCall(it.id) == null })
+        assertEquals(ToolCallState.INTERRUPTED.name, calls.single { it.id == RUNNING_CALL }.state)
+        assertEquals(ToolCallState.CANCELLED.name, calls.single { it.id == PENDING_CALL }.state)
+        assertNull(storage.toolResults.byToolCall(RUNNING_CALL))
+        assertEquals("CANCELLED", storage.toolResults.byToolCall(PENDING_CALL)?.status)
         assertNull(storage.executions.byToolCall(PENDING_CALL))
         val execution = storage.executions.byToolCall(RUNNING_CALL)
         assertEquals(CANCEL_EXECUTION, execution?.id)
@@ -173,13 +175,19 @@ class ComposerProcessRecoveryDeviceTest {
         assertEquals(listOf(CANCEL_MODEL), models.map { it.id })
         assertEquals("COMPLETED", models.single().state)
         val audit = storage.auditEvents.listByCorrelation(CANCEL_SESSION)
-        assertEquals(2, audit.size)
+        assertEquals(3, audit.size)
         val interrupted = audit.single { it.type == "recovery.turn_interrupted" }
-        assertTrue(interrupted.redactedPayload.contains("\"uncertainToolCall\":\"$RUNNING_CALL\""))
-        assertTrue(audit.single { it.type == "recovery.tool_calls_parked" }.redactedPayload.contains(PENDING_CALL))
+        assertTrue(interrupted.redactedPayload.contains("\"uncertainToolCalls\":[\"$RUNNING_CALL\"]"))
+        assertTrue(audit.single { it.type == "recovery.tool_calls_parked" }.redactedPayload.contains(RUNNING_CALL))
+        assertTrue(
+            audit.single { it.type == "recovery.tool_calls_cancelled_before_start" }.redactedPayload.contains(
+                PENDING_CALL,
+            ),
+        )
         repeat(2) {
             val report = RecoveryCoordinatorApp(storage, SystemClock()).recover()
             assertTrue(report.interruptedTurns.isEmpty())
+            assertTrue(report.cancelledToolCalls.isEmpty())
             assertTrue(report.parkedToolCalls.isEmpty())
         }
         assertEquals(turn, storage.turns.resolve(CANCEL_TURN))

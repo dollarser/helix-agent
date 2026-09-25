@@ -468,8 +468,10 @@ Helix/
 │   ├── adr/
 │   ├── completion-records/
 │   ├── bug-fixes/
+│   ├── evidence/
+│   ├── research/
 │   ├── postmortems/
-│   └── history/
+│   └── references/
 ├── gradle/
 │   ├── libs.versions.toml
 │   └── wrapper/
@@ -493,8 +495,15 @@ Helix/
 ./gradlew :runtime:cli-app:assembleDebug
 ./gradlew test
 ./gradlew lintConsumerDebug lintDeveloperDebug
+```
+
+设备 instrumentation 不属于默认主机命令。只有项目所有者在当前任务明确要求对应模拟器/真机验证时，才运行例如：
+
+```bash
 ./gradlew connectedConsumerDebugAndroidTest connectedDeveloperDebugAndroidTest
 ```
+
+GitHub Actions 不执行上述 device 命令。
 
 安装当前功能最完整的 developer 测试构建：
 

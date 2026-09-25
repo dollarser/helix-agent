@@ -14,6 +14,7 @@ class TurnRepository(
         startedAt: Long,
         clientRequestId: String? = null,
         inputFingerprint: String? = null,
+        recoveryFromTurnId: String? = null,
     ): TurnEntity {
         require(startedAt >= 0) { "startedAt must be >= 0" }
         val entity =
@@ -27,6 +28,7 @@ class TurnRepository(
                 errorCode = null,
                 clientRequestId = clientRequestId,
                 inputFingerprint = inputFingerprint,
+                recoveryFromTurnId = recoveryFromTurnId,
             )
         dao.insert(entity)
         return entity

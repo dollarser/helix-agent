@@ -55,4 +55,4 @@ Affected modules: app androidTest, local runtime assets
 
 ## Related records
 
-[HXA-218](../completion-records/HXA-218.md)、[UI方案](../research/ui-interaction-optimization.md)。
+[HXA-218](../completion-records/HXA-218.md)、[UI方案](../evidence/research-history/ui-interaction-optimization.md)。

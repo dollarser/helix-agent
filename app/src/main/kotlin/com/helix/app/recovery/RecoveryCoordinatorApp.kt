@@ -5,6 +5,7 @@ import com.helix.core.agent.PersistedGoal
 import com.helix.core.agent.PersistedToolCall
 import com.helix.core.agent.PersistedTurn
 import com.helix.core.agent.RecoveryCoordinator
+import com.helix.core.agent.ToolCallRecovery
 import com.helix.core.agent.TurnRecovery
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalId
@@ -28,9 +29,8 @@ import java.util.UUID
  * (doc 9.2: a Turn/ToolCall state update and its audit event commit together).
  *
  * Invariants (asserted by the process-recovery fixture):
- * - a leftover non-terminal Turn is marked INTERRUPTED and its in-flight (PENDING/RUNNING)
- *   calls are parked INTERRUPTED; a call still in AWAITING_APPROVAL never executed and keeps
- *   its state;
+ * - a leftover non-terminal Turn is marked INTERRUPTED; RUNNING calls are parked INTERRUPTED,
+ *   PENDING calls are cancelled as never-started, and AWAITING_APPROVAL keeps its state;
  * - a RUNNING Goal parks in PAUSED with its checkpoint kept and in-flight wake tracking reset
  *   (ADR-0004); every run row still open for that goal is closed with outcome `INTERRUPTED`
  *   and the usage it had already persisted;
@@ -46,8 +46,10 @@ class RecoveryCoordinatorApp(
 ) {
     /** Deterministic summary of one recovery pass. */
     data class Report(
-        /** turnId to the uncertain tool call that needs side-effect review (null: none). */
-        val interruptedTurns: Map<String, String?>,
+        /** turnId to every execution-started call whose side effect needs review. */
+        val interruptedTurns: Map<String, List<String>>,
+        /** turnId to calls proven never started and cancelled during recovery. */
+        val cancelledToolCalls: Map<String, List<String>>,
         /** turnId to the call ids parked in INTERRUPTED (only turns with parked calls). */
         val parkedToolCalls: Map<String, List<String>>,
         val parkedGoals: List<String>,
@@ -56,13 +58,19 @@ class RecoveryCoordinatorApp(
 
     private data class TurnApplied(
         val turnId: String,
-        val uncertainToolCall: String?,
+        val uncertainToolCalls: List<String>,
+        val cancelledCalls: List<String>,
         val parkedCalls: List<String>,
     )
 
     private data class GoalApplied(
         val goalId: String,
         val closedRuns: List<String>,
+    )
+
+    private data class ToolCallsApplied(
+        val cancelled: List<String>,
+        val parked: List<String>,
     )
 
     /**
@@ -76,29 +84,7 @@ class RecoveryCoordinatorApp(
         val appliedTurns = mutableListOf<TurnApplied>()
         val appliedGoals = mutableListOf<GoalApplied>()
         storage.withTransaction {
-            // A local settlement failure can precede a successfully persisted Turn failure.
-            // Reconcile those children too; a terminal parent is not proof of settled effects.
-            storage.toolCalls.unsettledUnderTerminalTurns().forEach { call ->
-                val neverStarted = call.state in setOf("PENDING", "AWAITING_APPROVAL")
-                storage.toolCalls.updateState(
-                    call,
-                    if (neverStarted) ToolCallState.CANCELLED else ToolCallState.NEEDS_REVIEW,
-                )
-                if (neverStarted && storage.toolResults.byToolCall(call.id) == null) {
-                    storage.toolResults.append(
-                        UUID.randomUUID().toString(),
-                        call.id,
-                        "CANCELLED",
-                        "Cancelled before execution during recovery",
-                        null,
-                    )
-                }
-                val reservation = "goal-tool:${call.callId}"
-                if (storage.goalUsageReservations.byId(reservation) != null) {
-                    GoalUsageReservations(storage).settle(reservation, 0, 0, now)
-                }
-                audit(call.turnId, "recovery.tool_settlement_incomplete", """{"callId":"${call.callId}"}""", now)
-            }
+            reconcileUnsettledUnderTerminalTurns(now)
             storage.sessionInputs.parkAllPending("PROCESS_INTERRUPTED", now)
             storage.goalControls.allPending().forEach { control ->
                 check(storage.goalControls.settle(control.goalId, control.revision) == 1)
@@ -121,7 +107,11 @@ class RecoveryCoordinatorApp(
             }
         }
         return Report(
-            interruptedTurns = appliedTurns.associate { applied -> applied.turnId to applied.uncertainToolCall },
+            interruptedTurns = appliedTurns.associate { applied -> applied.turnId to applied.uncertainToolCalls },
+            cancelledToolCalls =
+                appliedTurns
+                    .filter { applied -> applied.cancelledCalls.isNotEmpty() }
+                    .associate { applied -> applied.turnId to applied.cancelledCalls },
             parkedToolCalls =
                 appliedTurns
                     .filter { applied -> applied.parkedCalls.isNotEmpty() }
@@ -129,6 +119,32 @@ class RecoveryCoordinatorApp(
             parkedGoals = appliedGoals.map { applied -> applied.goalId },
             closedRuns = appliedGoals.flatMap { applied -> applied.closedRuns },
         )
+    }
+
+    private fun reconcileUnsettledUnderTerminalTurns(now: Long) {
+        // A local settlement failure can precede a successfully persisted Turn failure.
+        // Reconcile those children too; a terminal parent is not proof of settled effects.
+        storage.toolCalls.unsettledUnderTerminalTurns().forEach { call ->
+            val neverStarted = call.state in setOf("PENDING", "AWAITING_APPROVAL")
+            storage.toolCalls.updateState(
+                call,
+                if (neverStarted) ToolCallState.CANCELLED else ToolCallState.NEEDS_REVIEW,
+            )
+            if (neverStarted && storage.toolResults.byToolCall(call.id) == null) {
+                storage.toolResults.append(
+                    UUID.randomUUID().toString(),
+                    call.id,
+                    "CANCELLED",
+                    "Cancelled before execution during recovery",
+                    null,
+                )
+            }
+            val reservation = "goal-tool:${call.callId}"
+            if (storage.goalUsageReservations.byId(reservation) != null) {
+                GoalUsageReservations(storage).settle(reservation, 0, 0, now)
+            }
+            audit(call.turnId, "recovery.tool_settlement_incomplete", """{"callId":"${call.callId}"}""", now)
+        }
     }
 
     /** The persisted facts of every non-terminal turn (doc 9.1 `turns` + `tool_calls` rows). */
@@ -152,41 +168,99 @@ class RecoveryCoordinatorApp(
             .listByState(GoalState.RUNNING.name)
             .map { goal -> PersistedGoal(GoalId(goal.id), GoalState.RUNNING) }
 
-    /** Marks the turn INTERRUPTED, parks its in-flight calls, and writes both audit events. */
+    /** Marks the turn INTERRUPTED, cancels never-started calls, parks running calls, and audits both. */
     private fun applyTurnInterruption(
         interrupt: TurnRecovery.Interrupt,
         now: Long,
     ): TurnApplied {
         val turn = storage.turns.resolve(interrupt.turnId.value)
-        val parked =
-            storage.toolCalls
-                .listByTurn(turn.id)
-                .filter { call -> toolCallState(call.state).canBecomeInterruptedOnProcessDeath() }
-                .map { call ->
-                    storage.toolCalls.updateState(call, ToolCallState.INTERRUPTED)
-                    call.callId
-                }.sorted()
+        val calls = applyToolCallRecovery(turn.id, now)
         // A backward wall-clock step between the dead process and this start (manual time
         // change, NTP correction) must not wedge recovery: clamp endedAt to startedAt so the
         // repository invariant holds while the audit keeps the real `now`.
         storage.turns.updateState(turn, TurnState.INTERRUPTED, turn.stepCount, now.coerceAtLeast(turn.startedAt), null)
-        val uncertain = interrupt.uncertainToolCall?.value
+        val uncertain = interrupt.uncertainToolCalls.map { it.value }
+        auditRecoveredTurn(turn.id, turn.sessionId, uncertain, calls, now)
+        return TurnApplied(turn.id, uncertain, calls.cancelled, calls.parked)
+    }
+
+    private fun applyToolCallRecovery(
+        turnId: String,
+        now: Long,
+    ): ToolCallsApplied {
+        val cancelled = mutableListOf<String>()
+        val parked = mutableListOf<String>()
+        storage.toolCalls.listByTurn(turnId).forEach { call ->
+            when (
+                RecoveryCoordinator.recoveryForToolCall(
+                    PersistedToolCall(ToolCallId(call.callId), toolCallState(call.state)),
+                )
+            ) {
+                ToolCallRecovery.CancelNotStarted -> {
+                    storage.toolCalls.updateState(call, ToolCallState.CANCELLED)
+                    if (storage.toolResults.byToolCall(call.id) == null) {
+                        storage.toolResults.append(
+                            UUID.randomUUID().toString(),
+                            call.id,
+                            "CANCELLED",
+                            "Cancelled before execution during recovery",
+                            null,
+                        )
+                    }
+                    val reservation = "goal-tool:${call.callId}"
+                    if (storage.goalUsageReservations.byId(reservation) != null) {
+                        GoalUsageReservations(storage).settle(reservation, 0, 0, now)
+                    }
+                    cancelled += call.callId
+                }
+
+                ToolCallRecovery.ParkInterrupted -> {
+                    storage.toolCalls.updateState(call, ToolCallState.INTERRUPTED)
+                    parked += call.callId
+                }
+
+                ToolCallRecovery.Keep -> {
+                    Unit
+                }
+            }
+        }
+        cancelled.sort()
+        parked.sort()
+        return ToolCallsApplied(cancelled, parked)
+    }
+
+    private fun auditRecoveredTurn(
+        turnId: String,
+        correlationId: String,
+        uncertain: List<String>,
+        calls: ToolCallsApplied,
+        now: Long,
+    ) {
         audit(
-            correlationId = turn.sessionId,
+            correlationId = correlationId,
             type = "recovery.turn_interrupted",
-            payload = """{"turn":"${turn.id}","uncertainToolCall":${uncertain?.let { "\"$it\"" } ?: "null"}}""",
+            payload =
+                """{"turn":"$turnId","uncertainToolCalls":[${uncertain.joinToString(",") { "\"$it\"" }}]}""",
             at = now,
         )
-        if (parked.isNotEmpty()) {
+        if (calls.cancelled.isNotEmpty()) {
             audit(
-                correlationId = turn.sessionId,
-                type = "recovery.tool_calls_parked",
+                correlationId = correlationId,
+                type = "recovery.tool_calls_cancelled_before_start",
                 payload =
-                    """{"turn":"${turn.id}","toolCalls":[${parked.joinToString(",") { "\"$it\"" }}]}""",
+                    """{"turn":"$turnId","toolCalls":[${calls.cancelled.joinToString(",") { "\"$it\"" }}]}""",
                 at = now,
             )
         }
-        return TurnApplied(turn.id, uncertain, parked)
+        if (calls.parked.isNotEmpty()) {
+            audit(
+                correlationId = correlationId,
+                type = "recovery.tool_calls_parked",
+                payload =
+                    """{"turn":"$turnId","toolCalls":[${calls.parked.joinToString(",") { "\"$it\"" }}]}""",
+                at = now,
+            )
+        }
     }
 
     /**

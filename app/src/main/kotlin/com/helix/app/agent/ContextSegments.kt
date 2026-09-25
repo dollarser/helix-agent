@@ -100,9 +100,12 @@ internal object ContextSegments {
         removed: Set<String>,
         previous: ContextCompaction.Checkpoint?,
         request: ChatContextRequest,
+        currentTurnId: String,
     ): ChatContextRequest? {
+        val predecessorId = storage.turns.resolve(currentTurnId).recoveryFromTurnId
         val source =
             history
+                .filter { row -> RecoveryContextPolicy.keep(row.turnId, row.role, predecessorId) }
                 .flatMap { row -> mapped(storage, row).map { row.id to it } }
                 .filter { it.second.role != ModelRole.SYSTEM }
         val actual = request.messages.filter { it.role != ModelRole.SYSTEM }.drop(if (previous == null) 0 else 1)

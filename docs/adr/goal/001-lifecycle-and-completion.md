@@ -15,21 +15,21 @@ Deciders: Project owner（当前有效决定；授权按需求合并重编，不
 
 Goal 是持久目标；Turn/run 是一次有界执行；激活是独立的进程内运行资格，不由持久状态自动恢复。用户以 Goal 模式发送或显式选择连续继续时激活同会话 Driver。普通 Chat/Act 不推断持续运行授权。
 
-Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、预算充足、无未决副作用时继续；完成、阻塞、等待输入、取消、异常、截断或预算不足时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-008](../agent/008-user-input-delivery.md)，216尚需实现和验收。
+Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。每个 GoalRun/Turn 都是一次有界 execution attempt：前轮先持久结算，下一轮绑定激活标识和前轮 ID，准入时重验，重复通知不能重复启动。正常结束且仍有工作、预算充足、无未决副作用时可以创建下一 Run；完成、阻塞、等待输入、取消、异常、截断或预算不足时解除激活。显式停止先解除旧激活，再安全结算当前轮；普通 Queue/Steer 不解除激活、不暂停或取消当前轮。终局后同会话已就绪用户队列优先，普通用户后继结束再重验保留的 Goal 激活；不能因页面处于 Goal 模式创建第二个目标。切换会话本身不取消任务。具体交付与停止停泊按 [ADR-AGENT-001](../agent/001-turn-coordination.md)。
 
-用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复运行。WorkManager/checkpoint 只提醒，不自动调用模型；用户恢复仍需重新准入，未知副作用不得重放。
+用户启动的连续任务通过有效前台服务路径衔接下一轮，Activity 退后台不解除激活。等待审批/输入不维持空转服务；系统拒绝、超时、进程死亡或强停后不自动恢复旧 Run。当前 GoalRun 随旧 Turn 结束为 interrupted/blocked outcome；用户恢复仍需重新准入并创建新的 GoalRun/Turn。WorkManager/checkpoint 只提醒，不自动调用模型；未知副作用不得重放。
 
 ### 状态与阻塞
 
-保留 DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/BLOCKED/COMPLETED/FAILED/CANCELLED。PAUSED 记录可恢复停泊原因；BLOCKED 记录必须处理的具体阻碍，不能直接 Continue，复查通过后转 PAUSED。平台已证实的预算/容量/未知副作用立即门控，不等待模型重复报告。测试失败但 Agent 仍能修复，不应仅因此 blocked。没有全局三轮门槛。
+保留 DRAFT/READY/RUNNING/INPUT_REQUIRED/PAUSED/BLOCKED/COMPLETED/FAILED/CANCELLED。PAUSED 记录可重新准入的停泊原因；BLOCKED 记录必须处理的具体阻碍。未知副作用使 Goal BLOCKED，但 effect review 只解决事实：核查通过后 Goal 进入 PAUSED/READY 的可重新准入语义，再由新的 GoalRun/Turn 继续，不把旧 Run 从 BLOCKED 直接复活为 RUNNING。平台已证实的预算/容量/未知副作用立即门控，不等待模型重复报告。测试失败但 Agent 仍能修复，不应仅因此 blocked。没有全局三轮门槛。
 
 任务列表投影持久 Turn，不另建执行器；取消针对精确 turn ID，结果回收只标记已查看，不重跑或自动转发。暂停请求、阻塞原因、run outcome 与审计持久化；副作用未知优先于“已暂停”展示。
 
 ### 预算与恢复
 
-模型调用、工具调用、累计 token、单次执行时间、累计执行时间共同限制运行；前三项与总时间跨 run 累计，单次时间仅在对应边界清零。耗尽不等于完成；记录具体维度并停泊，只有用户增加必要预算、复查后才能继续。最终上限取 Goal、当前调用及平台限制中更严格者。
+模型调用、工具调用、累计 token、单次执行时间、累计执行时间共同限制运行；Goal 级模型/工具/token/总时间跨 run 累计，单个 Turn/Run 的局部预算在新 attempt 重新计算并受剩余 Goal budget clamp。耗尽不等于完成；记录具体维度并停泊，只有用户增加必要预算、复查后才能继续。最终上限取 Goal、当前调用及平台限制中更严格者。
 
-运行期间保存有界 durable usage checkpoint，恢复保留已记账用量，不把死亡后的墙钟时长计为执行时间，不因反复崩溃赠送预算。结算与 checkpoint 不重复记账。Room 快照与审计是事实源，不因参考桌面产品改成另一套 event-sourcing 引擎。
+运行期间保存有界 durable Goal usage checkpoint，恢复保留已记账累计用量，不把死亡后的墙钟时长计为执行时间，不因反复崩溃赠送预算。旧 Turn 的局部 model-call/tool-round checkpoint 不用于复活同一 Run；successor Run 使用新 Turn budget，Goal 累计 usage 不退款。结算与 checkpoint 不重复记账。Room 快照与审计是事实源，不因参考桌面产品改成另一套 event-sourcing 引擎。
 
 ### 模型工具与完成
 
@@ -44,17 +44,23 @@ Driver 复用 AgentRuntime.submit 与现有 Turn/GoalRunCoordinator。前轮先�
 ## Alternatives considered
 
 - 每轮都必须手动继续：长目标交互过碎，不采用；保留用户明确选择的单轮运行入口。
-- 恢复后自动重新激活：无法表达新的执行意图，也容易重放未知副作用，不采用。
+- 恢复后自动重新激活旧 Run：无法表达新的执行意图，也容易重放未知副作用，不采用；恢复通过重新准入创建新 Run。
 - 全局强制 verifier 绑定：将开放目标变成预配置流程，不采用；任务特定验收可以独立配置。
 - 预算耗尽记成功或永久失败：掩盖剩余工作或关闭可恢复路径，不采用。
+- crash/review 后 same-run resurrection：需要恢复旧 Turn/Run control state，复杂度高且不利于审计；改为新 GoalRun continuation。
 
 ## Consequences
 
-连续执行减少逐轮干预，但驱动需要精确激活标识、持久结算和预算账本。完成判断保留模型可能误判的局限；系统回收后需要用户恢复，不承诺后台无限存活。
+连续执行减少逐轮干预，但驱动需要精确激活标识、持久结算和预算账本。完成判断保留模型可能误判的局限；系统回收后需要用户恢复并重新准入新的 Run，不承诺后台无限存活，也不复活旧 Run。
 
 ## Verification
 
 交付证据看 [HXA-208](../../completion-records/HXA-208.md) 与实施状态。回归覆盖模型 CRUD、revision 冲突、跨轮预算、双 flavor/API29/36、真实进程死亡、后台衔接和未知副作用；已有证据不代表定时/Channel 自动激活或长稳完成。
+
+## Decision history
+
+- **2026-09-22**：接受 Goal 持久生命周期、连续执行、激活、预算与结构化完成报告。
+- **2026-09-25**：恢复模型与 ADR-AGENT-001 对齐：Goal 仍是长期 intent，但 crash/review 后旧 GoalRun 不再 same-run resume；后续 continuation 创建新的 GoalRun/Turn，累计 Goal usage 保留。
 
 ## Reconsider when
 

@@ -82,4 +82,69 @@ class ExecutionOwnershipCancellationTest {
         }
         requireNotNull(gate.acquire("after-real-exit")).close()
     }
+
+    @Suppress("SwallowedException") // Deliberately emulate native IO that ignores interrupt until it actually exits.
+    @Test
+    fun timeoutCannotFreeAnExecutorThatHasNotExited() {
+        val store =
+            object : ExecutionOwnership.Store {
+                override fun read(): ExecutionOwnership.Owner? = null
+
+                override fun compareAndSet(
+                    expected: ExecutionOwnership.Owner?,
+                    replacement: ExecutionOwnership.Owner?,
+                ): Boolean = error("ordinary execution must not persist a detached owner")
+            }
+        val gate = ExecutionOwnership(store)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val executor =
+            object : ToolExecutor {
+                override fun execute(call: ExecutableToolCall): ToolExecutorResult {
+                    entered.countDown()
+                    while (release.count != 0L) {
+                        try {
+                            release.await()
+                        } catch (_: InterruptedException) {
+                            // Still executing: deadline expiry is not executor-exit proof.
+                        }
+                    }
+                    return ToolExecutorResult.Completed(buildJsonObject {})
+                }
+            }
+        val workers = Executors.newSingleThreadExecutor()
+        val callers = Executors.newSingleThreadExecutor()
+        val now = Instant.parse("2026-09-18T00:00:00Z")
+        val clock =
+            object : Clock {
+                override fun now(): Instant = now
+            }
+        val call =
+            ExecutableToolCall(
+                "call-timeout",
+                "write",
+                "1",
+                buildJsonObject {},
+                ExecutionTargetType.LOCAL_PROOT,
+                now.plusMillis(150),
+                NoCancellation,
+            )
+        try {
+            val outcome =
+                callers.submit<ToolExecutorResult?> {
+                    ToolDeadlineRunner(clock, workers).executeWithinDeadline(gate.guard(executor), call)
+                }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            assertEquals(ToolExecutorResult.TimedOut, outcome.get(5, TimeUnit.SECONDS))
+            assertNull(gate.acquire("next-write-after-timeout"))
+            assertNull(gate.acquire("next-read-after-timeout", exclusive = false))
+        } finally {
+            release.countDown()
+            workers.shutdown()
+            callers.shutdown()
+            assertTrue(workers.awaitTermination(5, TimeUnit.SECONDS))
+            assertTrue(callers.awaitTermination(5, TimeUnit.SECONDS))
+        }
+        requireNotNull(gate.acquire("after-timeout-executor-exit")).close()
+    }
 }

@@ -26,13 +26,14 @@ package com.helix.core.model
  * with pre-HXA-039 rows, not as the production batch coordinator's single-call queue.
  *
  * any non-terminal state -> CANCELLING -> CANCELLED
- * process death on any non-terminal state -> INTERRUPTED
- * INTERRUPTED -> BUILDING_CONTEXT (resume, after side-effect review) | CANCELLED (discard)
+ * live UNKNOWN: RUNNING_TOOL/CANCELLING -> NEEDS_REVIEW
+ * process death on an advancing non-terminal state -> INTERRUPTED
+ * NEEDS_REVIEW -> INTERRUPTED (review resolved; old attempt closed) | CANCELLED (explicit abandon)
+ * INTERRUPTED is execution-terminal; continuation always creates a successor Turn.
  * ```
  *
- * Terminal states are [COMPLETED], [FAILED] and [CANCELLED]. [INTERRUPTED] is recoverable but
- * the recovery coordinator (HXA-015) must check for ToolCalls with possibly unknown external
- * side effects before resuming; resuming here only encodes the state-space, not that policy.
+ * Terminal states are [COMPLETED], [FAILED], [CANCELLED] and [INTERRUPTED]. NEEDS_REVIEW is
+ * execution-stopped but remains non-terminal until its effect facts are reviewed/abandoned.
  */
 enum class TurnState(
     val isTerminal: Boolean,
@@ -45,7 +46,8 @@ enum class TurnState(
     RUNNING_TOOL(false),
     RECORDING_TOOL_RESULT(false),
     CANCELLING(false),
-    INTERRUPTED(false),
+    NEEDS_REVIEW(false),
+    INTERRUPTED(true),
     COMPLETED(true),
     FAILED(true),
     CANCELLED(true),
@@ -59,7 +61,7 @@ enum class TurnState(
     fun canTransitionTo(next: TurnState): Boolean =
         when {
             isTerminal -> false
-            next == CANCELLING -> this != CANCELLING && this != INTERRUPTED
+            next == CANCELLING -> this != CANCELLING && this !in setOf(NEEDS_REVIEW, INTERRUPTED)
             else -> next in outgoing
         }
 
@@ -67,7 +69,7 @@ enum class TurnState(
      * Process death (crash, kill, power loss) moves any non-terminal state to [INTERRUPTED].
      * A turn already [INTERRUPTED] stays [INTERRUPTED]; terminal states never change.
      */
-    fun canBecomeInterruptedOnProcessDeath(): Boolean = !isTerminal && this != INTERRUPTED
+    fun canBecomeInterruptedOnProcessDeath(): Boolean = !isTerminal && this !in setOf(NEEDS_REVIEW, INTERRUPTED)
 
     private val outgoing: Set<TurnState>
         get() =
@@ -84,21 +86,23 @@ enum class TurnState(
 
                 WAITING_APPROVAL -> setOf(RUNNING_TOOL, RECORDING_TOOL_RESULT, FAILED)
 
-                RUNNING_TOOL -> setOf(RECORDING_TOOL_RESULT, FAILED)
+                RUNNING_TOOL -> setOf(RECORDING_TOOL_RESULT, NEEDS_REVIEW, FAILED)
 
                 // WAITING_APPROVAL/RUNNING_TOOL remain compatibility edges for persisted
                 // pre-HXA-039 serial reducer state; the production batch coordinator does
                 // not take them for new turns.
                 RECORDING_TOOL_RESULT -> setOf(BUILDING_CONTEXT, WAITING_APPROVAL, RUNNING_TOOL, FAILED)
 
-                CANCELLING -> setOf(CANCELLED)
+                CANCELLING -> setOf(NEEDS_REVIEW, CANCELLED)
 
-                INTERRUPTED -> setOf(BUILDING_CONTEXT, CANCELLED)
+                NEEDS_REVIEW -> setOf(INTERRUPTED, CANCELLED)
+
+                INTERRUPTED -> emptySet()
 
                 COMPLETED, FAILED, CANCELLED -> emptySet()
             }
 
     companion object {
-        val TERMINAL: Set<TurnState> = setOf(COMPLETED, FAILED, CANCELLED)
+        val TERMINAL: Set<TurnState> = setOf(INTERRUPTED, COMPLETED, FAILED, CANCELLED)
     }
 }

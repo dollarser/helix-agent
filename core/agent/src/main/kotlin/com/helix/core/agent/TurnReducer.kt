@@ -44,8 +44,7 @@ object TurnReducer {
      * call still waiting for approval was never executed and is not uncertain.
      *
      * The in-flight model call (committed/active) is dead with the process, so both ids are
-     * cleared: the state must satisfy the same invariants as any INTERRUPTED turn, and a
-     * resume re-issues the model call with a fresh callId via [TurnEvent.Lifecycle.TurnResumed].
+     * cleared. INTERRUPTED is execution-terminal; any continuation starts a successor Turn.
      */
     fun afterProcessDeath(state: TurnState): TurnState {
         if (!state.phase.canBecomeInterruptedOnProcessDeath()) return state
@@ -85,14 +84,6 @@ object TurnReducer {
 
             is TurnEvent.Lifecycle.CancelFinished -> {
                 onCancelFinished(state, event)
-            }
-
-            is TurnEvent.Lifecycle.UncertainToolCallResolved -> {
-                onUncertainResolved(state, event)
-            }
-
-            is TurnEvent.Lifecycle.TurnResumed -> {
-                onResumed(state)
             }
 
             is TurnEvent.Lifecycle.TurnDiscarded -> {
@@ -241,46 +232,8 @@ object TurnReducer {
         return step(state, next, effects + TurnEffect.CompleteTurn("cancelled"))
     }
 
-    private fun onUncertainResolved(
-        state: TurnState,
-        event: TurnEvent.Lifecycle.UncertainToolCallResolved,
-    ): TurnStep {
-        val uncertain = state.uncertainToolCallId
-        if (state.phase != TurnPhase.INTERRUPTED || uncertain == null) return TurnStep.unchanged(state)
-        val next =
-            state.copy(
-                uncertainToolCallId = null,
-                recordedOutcomes = state.recordedOutcomes + RecordedToolOutcome(uncertain, event.outcome),
-            )
-        return step(state, next)
-    }
-
-    /**
-     * Explicit user resume. Calls of the interrupted model response that were never executed
-     * are recorded as failed with [ErrorCode.INTERRUPTED] (never re-executed): provider
-     * conversations require a result for every tool call, and recovery must not replay calls
-     * whose side effects are unclear (HXA-015 owns that review flow).
-     */
-    private fun onResumed(state: TurnState): TurnStep {
-        if (state.phase != TurnPhase.INTERRUPTED || state.uncertainToolCallId != null) {
-            return TurnStep.unchanged(state)
-        }
-        val recordedIds = state.recordedOutcomes.mapTo(mutableSetOf()) { it.toolCallId }
-        val unexecuted =
-            state.pendingCalls
-                .filter { it.toolCallId !in recordedIds }
-                .map { RecordedToolOutcome(it.toolCallId, ToolOutcome.Failed(interruptError(state))) }
-        val next =
-            state.copy(
-                phase = TurnPhase.BUILDING_CONTEXT,
-                pendingCalls = emptyList(),
-                recordedOutcomes = state.recordedOutcomes + unexecuted,
-            )
-        return step(state, next, listOf(TurnEffect.BuildContext))
-    }
-
     private fun onDiscarded(state: TurnState): TurnStep {
-        if (state.phase != TurnPhase.INTERRUPTED && state.phase != TurnPhase.CANCELLING) {
+        if (state.phase != TurnPhase.CANCELLING) {
             return TurnStep.unchanged(state)
         }
         // Same rule as [onCancelFinished]: queued calls that never executed are terminal
@@ -303,14 +256,6 @@ object TurnReducer {
         val effects = cancelledCalls.map { call -> TurnEffect.RecordToolResult(call.toolCallId, ToolOutcome.Cancelled) }
         return step(state, next, effects + TurnEffect.CompleteTurn("discarded"))
     }
-
-    private fun interruptError(state: TurnState): HelixError =
-        HelixError(
-            code = ErrorCode.INTERRUPTED,
-            userMessage = "The tool call was not executed because the turn was interrupted.",
-            retryable = false,
-            correlationId = state.correlationId,
-        )
 
     private fun reduceModel(
         state: TurnState,

@@ -52,6 +52,24 @@ class TurnCoordinatorTest {
     }
 
     @Test
+    fun unknownBatchParksWithOriginalCallOrderAndNeverAdvancesModelCall() {
+        val runtime = BatchTurnRuntime("model-1")
+        runtime.beginModelStream()
+        runtime.beginBatch(listOf("tool-a", "tool-b", "tool-c"))
+        runtime.markModelCallClosed()
+        runtime.settleCall("tool-c", sideEffectUnknown = true)
+        runtime.settleCall("tool-a", sideEffectUnknown = false)
+        runtime.settleCall("tool-b", sideEffectUnknown = true)
+
+        runtime.parkForReview(listOf("tool-b", "tool-c"))
+
+        assertEquals(TurnState.NEEDS_REVIEW, runtime.snapshot().phase)
+        assertEquals("model-1", runtime.snapshot().modelCallId)
+        assertEquals(1, runtime.snapshot().modelStep)
+        assertThrows(IllegalArgumentException::class.java) { runtime.advanceModelCall("model-2") }
+    }
+
+    @Test
     fun duplicateBatchIdentityFailsBeforeChangingPhase() {
         val runtime = BatchTurnRuntime("model-1")
         runtime.beginModelStream()

@@ -10,20 +10,19 @@
 
 遵循[能力规划规则](implementation-guide.md#应用能力与-agent-工具的规划规则)：191搜索/主题、204恢复、205准备是应用功能；195实时输出是宿主协议与展示；207复用扩展与统一工具管线；206验收这些边界。任务数量和默认顺序不因本次规则增加或重排，已授权并行切片仍按其所有权执行。
 
-后续业务扩展优先完善MCP/Connector/Skill接入与现有通用工具；新增原生工具必须有模型主动调用的具体需求。JSONL 已获所有者实施授权并独立立项 HXA-211，首版为用户主动导出；生产子Agent、通用hooks与新编排框架不因对标而自动进入批次B/C。同Turn转向归216，ADR-AGENT-008已接受且本地实现验收完成，不回填旧批次为已交付。此取舍不撤销已接受设计，也不关闭既有验收义务。
+后续业务扩展优先完善MCP/Connector/Skill接入与现有通用工具；新增原生工具必须有模型主动调用的具体需求。JSONL 已获所有者实施授权并独立立项 HXA-211，首版为用户主动导出；生产子Agent、通用hooks与新编排框架不因对标而自动进入批次B/C。同Turn转向归216，ADR-AGENT-001已接受且本地实现验收完成，不回填旧批次为已交付。此取舍不撤销已接受设计，也不关闭既有验收义务。
 
-工具按需曝光的候选优化见[建议文档](../research/tool-exposure-optimization.md)：先测量、再评审立项，不改变当前任务依赖或验收状态。
+工具按需曝光的候选优化见[建议文档](../research/modules/04-tools-browser-and-extensions.md)：先测量、再评审立项，不改变当前任务依赖或验收状态。
+ADR-PROVIDER-001 已接受本地模型作为一等 `ModelProvider`，可驱动完整 Agent loop；当前没有对应实现 HXA，等真正开始模型 Runtime/资产/Provider 代码时再立开发任务，文档研究本身不占 HXA 编号。
 
-## 新增对话交互需求（2026-09-22）
 
-214普通 composer 与215最新消息修订已经联合交付，见[整合边界](hxa-214-core-handoff.md)。216在独立 `codex/hxa-216-input-delivery` 分支完成本地实现与验收；后续 **129按授权整合 → 217**；129已完成本地实现与验收，尚未合并main。217仍需接受对应ADR，已有主机成本预评估但未开始生产实现，详见[工作计划](next-work-plan.md)。
+## 当前架构收敛任务（2026-09-25）
 
-- **214 / P0**：发送回执、草稿保留、统一停止已交付；不改变 Goal 新输入行为。
-- **215 / P1**：最新消息在原会话修订重发已交付并与214联合收敛，009已接受；更早历史编辑使用显式 fork。
-- **216 / P1**：统一默认Queue与显式Steer已完成本地验收，464设备JUnit与完整主机门禁通过；同步收敛ADR-AGENT-008及Goal/Turn有效条款。
-- **217 / P2**：最小请求来源记录及JSONL导出（详情页和详细诊断延期），依赖211导出、216身份契约及 proposed ADR-AGENT-010接受。
+HXA-214～219 已有完成记录，不再作为待开发计划重复维护。当前主线是 [HXA-220](tasks/HXA-220.md)：把已接受的 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md) 落成单一 TurnEngine durable/live owner，并把已实现的 same-Turn crash resume 迁移为 successor-Turn recovery。
 
-三份提案及来源见[Agent ADR入口](../adr/agent/README.md)。实施前重验基线；外部账号/物理专项不阻塞这些本地fixture路径，也不被本批验收关闭。新任务的数据库迁移版本和协调器修改只能有一个所有者。
+- **已落主机切片**：batch-aware recovery、NEEDS_REVIEW/effect review、v29/v30 storage、TurnEngine admission/cancel/park/terminal/recovery、Regenerate/submit receipt ownership、`TurnLiveRegistry` contract；same-Turn resume 代码已实现但现为待迁移旧路径。
+- **仍未闭合**：B3a/B3b live owner、successor identity/RecoverySummary、review 不 resume old Turn、new GoalRun continuation、AgentLoop/observe owner 与 legacy cleanup；设备 process-kill/验收仅在项目所有者当前任务明确要求时执行。
+- **文档入口**：长期语义只读 ADR-AGENT-001；实施范围只读 HXA-220；当前状态只读 status。旧 Wave/playbook/handoff 不再作为执行入口。
 
 ## 执行顺序与依赖
 
@@ -249,3 +248,4 @@
 | HXA-217 | 已交付 | 轻量请求来源记录与 JSONL 可追踪性 | [交付证据](../completion-records/HXA-217.md) |
 | HXA-218 | 已交付 | 会话工作台 UI 与交互重构（第一批） | [交付证据](../completion-records/HXA-218.md) |
 | HXA-219 | 已交付 | 产物就地预览 | [交付证据](../completion-records/HXA-219.md) |
+| HXA-220 | 进行中 | Core Engine / TurnEngine 生命周期收敛 | [任务规格](tasks/HXA-220.md) |

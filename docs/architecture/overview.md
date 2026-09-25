@@ -7,26 +7,28 @@
 | 层 | 所有权 | 不承担的职责 |
 | --- | --- | --- |
 | UI / feature | 用户意图、导航、展示、人工操作入口 | 直接访问 DAO、网络客户端或执行器 |
-| 应用协调 | submit / cancel / observe、会话与 Turn 绑定、请求组装、恢复 | 重新定义工具策略或 Runtime 退出事实 |
-| Agent / Goal | 共用模型循环、工具结果回填、目标生命周期与预算 | 凭模型内容创建用户授权 |
+| TurnEngine | durable admission/cancel/review/terminal/recovery、session blocker、runtime snapshot/checkpoint | UI 投影、重新定义工具策略或 Runtime 退出事实 |
+| 应用协调 / ChatService（迁移期） | 请求组装、stream/UI 投影、process-local Job/AgentLoop driver | 绕过 TurnEngine 改写 durable Turn 生命周期 |
+| Agent / Goal | 共用模型循环、工具结果回填、Goal 生命周期与预算 | 凭模型内容创建用户授权 |
 | Tool Dispatcher | schema、效果归一、策略、授权解析、执行边界复检、持久结算 | 把 Provider 请求当工具执行 |
 | 数据与 Runtime | Room 状态、文件 scope、执行与结果对账 | 因重连而自动重放未知副作用 |
 
 ```mermaid
 flowchart TD
-  UI[会话与任务 UI] --> Coordinator[应用协调与请求组装]
-  Coordinator --> Loop[共用 Agent Loop]
+  UI[会话与任务 UI] --> Coordinator[应用协调 / ChatService]
+  Coordinator --> Engine[TurnEngine durable lifecycle]
+  Coordinator --> Loop[共用 Agent Loop / live driver]
+  Engine --> State[Room durable state / runtime checkpoint]
   Loop --> Provider[ModelProvider]
   Loop --> Dispatcher[Tool Dispatcher]
   Dispatcher --> Tools[文件 / 网络 / 浏览器 / MCP 等工具]
   Dispatcher --> Runtime[获准的本地执行]
   Manual[手动文件管理 / 能力安装 / 浏览器入口] --> Services[对应应用服务]
-  Coordinator --> State[持久状态与审计]
   Dispatcher --> State
   Provider --> Subscription[可选订阅客户端与私有进程]
 ```
 
-手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。核心模块不依赖 UI 或具体 Android 基础设施；feature 通过应用接口提交动作。
+手动文件管理、组件安装和浏览器拥有独立服务路径，不必先建立 Agent Turn。核心模块不依赖 UI 或具体 Android 基础设施；feature 通过应用接口提交动作。HXA-220 期间 ChatService 仍可持有 live Job/stream driver，但 fresh admission、cancel、review park/resolve、terminal settlement、startup recovery 等 durable lifecycle 只通过 TurnEngine；后续迁移 live driver 不改变这条持久所有权。
 
 ## 运行、上下文与恢复
 
@@ -36,7 +38,7 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 
 ## 专项契约
 
-- [执行引擎详解与对比研究](../research/execution-engine-comparison.md)：当前生产调用链、Codex/DSH/Claude Code 参照与端侧补足建议；研究不新增实现授权。
+- [执行引擎详解与对比研究](../research/modules/01-architecture-and-execution-engine.md)：当前生产调用链、Codex/DSH/Claude Code 参照与端侧补足建议；研究不新增实现授权。
 - [Provider](providers.md)：模型协议、连接检测与订阅通路。
 - [Agent 模式与 Goal](agent-modes.md)：运行准入、完成与上下文。
 - [执行域](local-code-execution.md)：同 UID 私有进程与 isolated UID 的真实边界。
@@ -45,4 +47,4 @@ Chat、Plan、Act、Goal 共用执行循环，差异由工具曝光与 Policy �
 - [安全与发布](../security/testing-and-release.md)：授权、审计与验收。
 - [用户操作链](../product/task-experience.md)：工作区、输出、变更和恢复之间的导航。
 
-HXA-194～199 终端链与 proposed Workspace binding 不能仅凭本图声明已实现；HXA-209 会话授权已按[完成记录](../completion-records/HXA-209.md)交付。入口与剩余验收在[路线](../development/roadmap.md)。
+本图只描述当前职责与已接受演进边界；具体功能是否已交付、仍有哪些收尾/发行任务，以[实施状态](../development/status.md)、[任务索引](../development/roadmap.md)和[完成记录](../completion-records/index.md)为准。

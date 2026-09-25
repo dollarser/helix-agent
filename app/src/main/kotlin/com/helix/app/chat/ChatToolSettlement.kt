@@ -17,6 +17,11 @@ import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
+internal enum class PreDispatchDenialKind {
+    FRAMEWORK_REJECTED,
+    RECOVERY_REVIEW_REQUIRED,
+}
+
 /** Persists each scheduled outcome and projects its verified or uncertain state without replay. */
 @Suppress("LongParameterList")
 internal class ChatToolSettlement(
@@ -200,7 +205,7 @@ internal class ChatToolSettlement(
      * same per-call correlation the dispatcher's own audit events use), show the rejection
      * in the timeline, and return the stable typed rejection.
      */
-    fun persistRejectedToolCall(
+    fun persistPreDispatchDenied(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
         toolNameRaw: String,
@@ -208,7 +213,12 @@ internal class ChatToolSettlement(
         version: String,
         code: DispatchOutcomeCode,
         detail: String,
+        kind: PreDispatchDenialKind,
     ): ToolDispatchOutcome.Denied {
+        val recoveryBlocked = kind == PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED
+        val state = if (recoveryBlocked) ToolCallState.DENIED else ToolCallState.FAILED
+        val resultStatus = if (recoveryBlocked) "DENIED" else "FAILED"
+        val source = if (recoveryBlocked) DecisionSource.POLICY else DecisionSource.FRAMEWORK
         val startedAt = clock.now().toEpochMilli()
         val finishedAt = clock.now().toEpochMilli()
         storage.withTransaction {
@@ -219,12 +229,12 @@ internal class ChatToolSettlement(
                 name = toolNameRaw,
                 version = version,
                 argsJson = rawArgs,
-                state = ToolCallState.FAILED.name,
+                state = state.name,
             )
             storage.toolResults.append(
                 id = idGenerator(),
                 toolCallId = toolCallId,
-                status = "FAILED",
+                status = resultStatus,
                 summary = detail,
                 content = null,
             )
@@ -236,14 +246,14 @@ internal class ChatToolSettlement(
                     toolName = toolNameRaw,
                     toolVersion = version,
                     code = code,
-                    decisionSource = DecisionSource.FRAMEWORK,
+                    decisionSource = source,
                     riskLevel = null,
                     bindingHash = null,
                     actionFingerprint = null,
                     outputHash = null,
                     outputTruncated = false,
                     startedAt = startedAt,
-                    policyDecidedAt = null,
+                    policyDecidedAt = finishedAt,
                     approvalAcquiredAt = null,
                     executionStartedAt = null,
                     finishedAt = finishedAt,

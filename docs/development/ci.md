@@ -49,7 +49,7 @@ Push 使用最近 30 次成功运行内、属于 main 祖先且全部 Android jo
 - 组合制品门禁只扫描一次相同的集成 Runtime APK；独立调用订阅边界脚本仍自带扫描。
 - full 档额外运行 `--release-artifacts`，验证实际 Release APK 的组件/dex/native 边界。原 `--artifacts` 只检查 Debug，不能因为构建了 Release 就声称 Release 边界也通过；本地 `--all` 现包含此补充，Debug 档保持原范围。
 
-source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner；当前 CI 不启动模拟器，也不执行付费模型、真实账号或 OEM 长稳。暂不迁移 runner 平台，先测量上述改动的实际收益。
+source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner。CI 的长期边界是 host/build/static：不启动模拟器、不连接真机、不执行 device instrumentation/matrix，也不执行付费模型、真实账号或 OEM 长稳。设备验证仅可在项目所有者当前任务明确要求时由 AI 代理在本地执行，不能迁入 GitHub Actions。暂不迁移 runner 平台，先测量上述改动的实际收益。
 
 ## 验证与使用
 
@@ -61,4 +61,4 @@ source 在 Linux、资产在 arm64 Linux、Android 两分片在 macOS runner；�
 
 调整前基线：[382674c3 / 35515226699](https://github.com/dollarser/helix-agent/actions/runs/35515226699)，总时长约 16 分 40 秒；source 22 秒、资产 2 分 39 秒、analysis 9 分 26 秒、tests-build 13 分 23 秒，两个 Android 分片并行。耗时依赖 runner 与缓存冷热，不能把不同档位的时长差当作同等覆盖加速比例。
 
-新流水线的实际命令、结果和未验边界见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)。后续工作排序见[工作计划](next-work-plan.md)。
+新流水线的实际命令、结果和未验边界见[验证记录](../evidence/development/ci-scoped-gates-2026-09-20.md)。后续工作排序见[当前状态](status.md)。

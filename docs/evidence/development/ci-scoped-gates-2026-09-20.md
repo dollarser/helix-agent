@@ -1,6 +1,6 @@
 # CI 分层验证（2026-09-20）
 
-实现提交：`eeb5f04d`。设计与使用见 [CI 分层](../../development/ci.md)，后续任务见[工作计划](../../development/next-work-plan.md)。不修改应用行为，不重新声明任何 HXA 设备或发行验收。
+实现提交：`eeb5f04d`。设计与使用见 [CI 分层](../../development/ci.md)，后续任务见[当前状态](../../development/status.md)。不修改应用行为，不重新声明任何 HXA 设备或发行验收。
 
 ## 本地结果
 

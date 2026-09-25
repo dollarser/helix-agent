@@ -208,7 +208,7 @@ class A2aProcessKillDeviceTest {
             storage.auditEvents
                 .listByCorrelation(turn.sessionId)
                 .single { it.type == "recovery.turn_interrupted" }
-        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCall\":\"${call.callId}\""))
+        assertTrue(recoveryAudit.redactedPayload.contains("\"uncertainToolCalls\":[\"${call.callId}\"]"))
         assertEquals("INTERRUPTED", run.outcome)
         assertTrue(run.endedAt != null)
         assertEquals(if (unknownTaskId) null else "task-kill", storage.a2aTasks.resolve(call.callId)?.taskId)

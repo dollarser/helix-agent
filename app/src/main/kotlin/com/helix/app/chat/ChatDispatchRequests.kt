@@ -1,7 +1,7 @@
 package com.helix.app.chat
 
-import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnCancelSignal
+import com.helix.app.agent.TurnExecutionHandles
 import com.helix.app.automation.AutomationModule
 import com.helix.app.root.RootModule
 import com.helix.app.tool.ToolPipeline
@@ -19,8 +19,7 @@ import kotlinx.serialization.json.JsonObject
 /** Builds a trusted request from live facts; cancellation and dispatch state stay with their owners. */
 internal class ChatDispatchRequests(
     private val toolPipeline: ToolPipeline,
-    private val turnCancels: java.util.concurrent.ConcurrentHashMap<String, TurnCancelSignal>,
-    private val goalTimes: java.util.concurrent.ConcurrentHashMap<String, GoalTimeBudget>,
+    private val liveHandles: TurnExecutionHandles,
     private val lanScopes: () -> Set<com.helix.core.policy.NetworkOriginScope>,
 ) {
     /**
@@ -98,9 +97,9 @@ internal class ChatDispatchRequests(
             overwritesExisting = false,
             codeOrCommandChanged = false,
             sourceBindingChanged = egressFacts?.third ?: false,
-            cancel = turnCancels.getOrPut(turn.id) { TurnCancelSignal { goalTimes[turn.id]?.expiredCode() != null } },
+            cancel = liveHandles.cancelSignal(turn.id) ?: TurnCancelSignal { false },
             remainingExecutionMillis =
-                goalTimes[turn.id]?.let { timer -> { timer.remainingExecutionMillis() } }
+                liveHandles.goalTime(turn.id)?.let { timer -> { timer.remainingExecutionMillis() } }
                     ?: { Long.MAX_VALUE },
         )
     }

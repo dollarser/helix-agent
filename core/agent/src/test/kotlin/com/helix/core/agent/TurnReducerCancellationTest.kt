@@ -143,21 +143,18 @@ class TurnReducerCancellationTest {
     }
 
     @Test
-    fun discardAfterDeathWithUncertainCallAndQueuedBehindRecordsOnlyTheQueued() {
-        // Same composition through process death: the frozen queue keeps call 2 PENDING behind
-        // the executing call 1; discarding the interrupted turn must record call 2 Cancelled
-        // and leave the uncertain call 1 untouched (it is resolved only by the review flow).
+    fun discardAfterProcessDeathIsIgnoredBecauseInterruptedIsTerminal() {
         val receiving = driveTo(Phase.RECEIVING_MODEL)
         val running =
             TurnReducer.reduce(receiving, TurnEvent.Model.Finished(Fixtures.call(1), 400, twoCallResponse())).state
         val dead = TurnReducer.afterProcessDeath(running)
         assertEquals(Phase.INTERRUPTED, dead.phase)
         assertEquals(Fixtures.tool(1), dead.uncertainToolCallId)
+
         val step = TurnReducer.reduce(dead, TurnEvent.Lifecycle.TurnDiscarded)
-        assertEquals(Phase.CANCELLED, step.state.phase)
-        val outcomes = step.state.recordedOutcomes.associate { it.toolCallId to it.outcome }
-        assertTrue("queued call 2 must be recorded Cancelled", outcomes[Fixtures.tool(2)] is ToolOutcome.Cancelled)
-        assertTrue("uncertain executing call 1 must not be recorded", outcomes[Fixtures.tool(1)] == null)
+        assertTrue(step.ignored)
+        assertEquals(dead, step.state)
+        assertTrue(step.effects.isEmpty())
     }
 
     @Test

@@ -7,7 +7,7 @@ import org.junit.Test
 import kotlin.system.measureNanoTime
 
 /**
- * HXA-217 / ADR-AGENT-010 Kotlin-side storage & encoding benchmark test.
+ * HXA-217 / ADR-AGENT-005 Kotlin-side storage & encoding benchmark test.
  * Confirms byte sizes, 100-turn cumulative growth, and encoding/decoding performance
  * across typical, maximum, and extreme stress scenarios.
  */

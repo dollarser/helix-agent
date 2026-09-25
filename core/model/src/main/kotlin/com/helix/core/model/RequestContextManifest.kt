@@ -31,7 +31,7 @@ data class MessageRefEntry(
 }
 
 /**
- * HXA-217 / ADR-AGENT-010 Lightweight request context manifest.
+ * HXA-217 / ADR-AGENT-005 Lightweight request context manifest.
  * Records the exact ordered sequence of messages, revision input IDs and compaction boundary.
  */
 data class RequestContextManifest(
@@ -54,7 +54,7 @@ data class RequestContextManifest(
  */
 object CompactManifestCodec {
     /**
-     * Serializes manifest to a compact JSON string conforming to ADR-AGENT-010 evaluation.
+     * Serializes manifest to a compact JSON string conforming to ADR-AGENT-005 evaluation.
      */
     fun encodeCompact(manifest: RequestContextManifest): String {
         val sb = StringBuilder(1024)
