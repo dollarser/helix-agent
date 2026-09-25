@@ -5,7 +5,7 @@ import android.os.SystemClock
 import android.system.ErrnoException
 import android.system.Os
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.ProductionMigrationDeviceTest
+import com.helix.app.ProductionStorageBaselineDeviceTest
 import com.helix.app.foreground.DataSyncForegroundServiceDeviceTest
 import com.helix.app.runcontrol.AndroidResourceGateDeviceTest
 import org.json.JSONArray
@@ -28,7 +28,7 @@ class DescriptorPhaseProbeDeviceTest {
         val selected =
             when (workload) {
                 "storage" -> {
-                    listOf(ProductionMigrationDeviceTest::class.java)
+                    listOf(ProductionStorageBaselineDeviceTest::class.java)
                 }
 
                 "notification" -> {
@@ -41,7 +41,7 @@ class DescriptorPhaseProbeDeviceTest {
 
                 "combined" -> {
                     listOf(
-                        ProductionMigrationDeviceTest::class.java,
+                        ProductionStorageBaselineDeviceTest::class.java,
                         DataSyncForegroundServiceDeviceTest::class.java,
                         AndroidResourceGateDeviceTest::class.java,
                     )

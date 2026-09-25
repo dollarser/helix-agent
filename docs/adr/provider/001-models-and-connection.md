@@ -2,7 +2,7 @@
 
 Status: accepted
 Date: 2026-09-16
-HXA: HXA-166, HXA-190, HXA-191
+HXA: HXA-166, HXA-190, HXA-191, HXA-222
 Deciders: Project owner（当前有效决定；授权按需求合并重编，不新增功能接受范围）
 
 ## Context

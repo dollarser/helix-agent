@@ -134,10 +134,10 @@ data class TurnEntity(
     // [clientRequestId] that started this turn and the [inputFingerprint] of the input it carried.
     // The turn row IS the receipt — created atomically with the turn, it survives restart, and the
     // unique index on [clientRequestId] is the DB-level backstop against a second turn for one id.
-    // Null on rows created before v13 (never matched by a non-null re-drive query).
+    // Nullable only for explicit non-submission operations that do not claim a client request.
     val clientRequestId: String? = null,
     val inputFingerprint: String? = null,
-    /** Explicit predecessor for a successor Turn; null for ordinary Turns and legacy rows. */
+    /** Explicit predecessor for a successor Turn; null for ordinary Turns. */
     val recoveryFromTurnId: String? = null,
 )
 
@@ -320,20 +320,17 @@ data class ArtifactEntity(
     @PrimaryKey val id: String,
     val sessionId: String,
     /**
-     * The file's FULL `scope:` model reference (v16) — e.g. `scope:app:output/a2a/...` — not a
+     * The file's FULL `scope:` model reference — e.g. `scope:app:output/a2a/...` — not a
      * bare scope-relative path: the artifact's identity carries its real scope so the unique
      * key, every lookup, open, and invalidation check resolve it against exactly that scope.
-     * Column name is unchanged from v15; only the stored value form changed (v15 rows are
-     * normalized to `scope:app:<path>` by the v15->v16 migration).
      */
     val relativePath: String,
     val mediaType: String,
     val size: Long,
     val sha256: String,
     /**
-     * The turn that last wrote this file (v15, doc 02 §8): lets the artifact dashboard show
-     * which session/turn produced a file. NULL for rows registered before v15 and for
-     * registrations without turn context (e.g. the A2A task-artifact path).
+     * The turn that last wrote this file lets the artifact dashboard show which session/turn
+     * produced it. NULL is valid for registrations without turn context (e.g. A2A task artifacts).
      */
     val turnId: String? = null,
 )

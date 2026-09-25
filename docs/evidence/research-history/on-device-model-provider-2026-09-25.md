@@ -254,7 +254,7 @@ Helix 目前**没有大资产下载能力**（浏览器侧只有 `browser.downlo
 - [执行域](../../adr/runtime/001-execution-domains.md)
 - [竞品平台生态](../../product/competitive-platform-ecosystems.md)
 - [开发环境](../../development/environment.md)、[公共验收规则](../../development/verification-matrix.md)
-- 当前执行引擎决策与任务：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../development/tasks/HXA-220.md)
+- 当前执行引擎决策与已交付实现：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220 交付记录](../../completion-records/HXA-220.md)
 
 **外部**：
 

@@ -25,9 +25,9 @@ data class InstalledConnector(
     val endpoints: List<InstalledEndpoint>,
     val skills: List<SkillKey>,
     val diagnostics: List<String>,
-    val identity: String = "legacy:$id",
-    val revision: Long = 1,
-    val sessionScoped: Boolean = true,
+    val identity: String,
+    val revision: Long,
+    val sessionScoped: Boolean,
     val versionLabel: String? = null,
     val releaseNotes: String? = null,
 )
@@ -103,9 +103,9 @@ internal fun decode(text: String): InstalledConnector {
             )
         },
         obj.getValue("diagnostics").jsonArray.map { it.jsonPrimitive.content },
-        obj["identity"]?.jsonPrimitive?.content ?: "legacy:" + value("id"),
-        obj["revision"]?.jsonPrimitive?.content?.toLong() ?: 1,
-        obj["sessionScoped"]?.jsonPrimitive?.content != "false",
+        value("identity"),
+        value("revision").toLong(),
+        value("sessionScoped").toBooleanStrict(),
         obj["versionLabel"]?.jsonPrimitive?.content,
         obj["releaseNotes"]?.jsonPrimitive?.content,
     )

@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.HelixApplication
 import com.helix.app.internal.PrefsLineStore
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.TurnBudgets
@@ -188,7 +189,7 @@ class SubscriptionChatBoundaryDeviceTest {
         sessions.add(session)
         chat.openSession(session)
         awaitSubscriptionBoundary { chat.screen.value.openSessionId == session }
-        chat.send("hello from subscription boundary fixture")
+        chat.sendTestMessage("hello from subscription boundary fixture")
         return session
     }
 

@@ -1,6 +1,7 @@
 package com.helix.app.provider
 
 import com.helix.app.AppContainer
+import com.helix.app.sendTestMessage
 import com.helix.core.model.ModelEvent
 import com.helix.core.model.ModelMessage
 import com.helix.core.model.ModelRequest
@@ -33,7 +34,7 @@ internal object SubscriptionProviderContractCheck {
         val sessionId = container.chatService.createSession("subscription", providerId, model)
         container.chatService.openSession(sessionId)
         await("session opens") { container.chatService.screen.value.openSessionId == sessionId }
-        container.chatService.send("hello from chat")
+        container.chatService.sendTestMessage(sessionId, "hello from chat")
         await("chat turn completes") {
             container.chatService.screen.value.activeTurn
                 ?.state == TurnState.COMPLETED

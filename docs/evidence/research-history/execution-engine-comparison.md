@@ -1,6 +1,6 @@
 # Helix 执行引擎详解与 Codex、DSH、Claude Code 对比
 
-> **历史 Helix 基线提示（2026-09-25）**：本文的 Helix 侧调用链与“差距”基于 2026-09-18～22；普通 Queue/Steer、修订重发、request context manifest、UNKNOWN/review、TurnEngine durable ownership 等已被后续 HXA 实现或重构。当前执行契约看 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)，当前实施看 [HXA-220](../../development/tasks/HXA-220.md) 与 [status](../../development/status.md)。竞品机制分析仍可参考，但正文不得作为当前 backlog。
+> **历史 Helix 基线提示（2026-09-25）**：本文的 Helix 侧调用链与“差距”基于 2026-09-18～22；普通 Queue/Steer、修订重发、request context manifest、UNKNOWN/review、TurnEngine durable ownership 等已被后续 HXA 实现或重构。当前执行契约看 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)，当前实现证据看 [HXA-220 交付记录](../../completion-records/HXA-220.md) 与 [status](../../development/status.md)。竞品机制分析仍可参考，但正文不得作为当前 backlog。
 
 核验日期：2026-09-18。性质：当前实现解释、外部机制研究与端侧演进建议；不是新增 ADR、HXA 排期或功能验收。本页的“建议补足”不表示已授权实施。当前交付、优先级与有效决定分别以[实施状态](../../development/status.md)、[路线](../../development/roadmap.md)、[ADR](../../adr/README.md)为准。
 
@@ -88,7 +88,7 @@ flowchart TD
 
 | 组件 | 负责什么 |
 | --- | --- |
-| [AgentTurnHost](../../../app/src/main/kotlin/com/helix/app/chat/AgentTurnHost.kt)、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | start/cancel/observe 接缝；session 绑定、clientRequestId 去重、同会话活动 Turn 准入、运行协调 |
+| `AgentTurnHost`（历史路径，HXA-220 E1-B5 已删除）、[ChatService](../../../app/src/main/kotlin/com/helix/app/chat/ChatService.kt) | 当时的 start/cancel/observe 接缝；当前 live execution/observation 已收敛到 TurnEngine，ChatService 保留应用投影 |
 | [AgentLoop](../../../app/src/main/kotlin/com/helix/app/agent/AgentLoop.kt) | 模型请求—工具批—上下文回填循环，以及 Goal 时间约束 |
 | [TurnCoordinator](../../../app/src/main/kotlin/com/helix/app/agent/TurnCoordinator.kt) | 当前 ModelCall/stream 身份、批次聚合 phase、持久事务和终局 |
 | [ModelLoopAdmission](../../../app/src/main/kotlin/com/helix/app/agent/ModelLoopAdmission.kt)、[TurnBudgetTracker](../../../app/src/main/kotlin/com/helix/app/agent/TurnBudgetTracker.kt) | 每次请求的预算准入、输出上限与用量结算 |

@@ -1,6 +1,6 @@
 # 项目结构与文档治理
 
-> **历史基线提示（2026-09-25）**：本文的结构表基于 2026-09-22，HXA-220 已进一步把 admission/cancel/review/terminal/recovery 的 durable lifecycle 收敛到 TurnEngine；`AppAgentRuntime/AgentTurnHost` 是否保留也属于当前重构范围。当前实现与剩余工作以 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../development/tasks/HXA-220.md) 和 [status](../../development/status.md) 为准。下文保留当时结构审查证据，不作为当前 owner/caller graph。
+> **历史基线提示（2026-09-25）**：本文的结构表基于 2026-09-22，HXA-220 已进一步把 admission/cancel/review/terminal/recovery 的 durable lifecycle 收敛到 TurnEngine；`AppAgentRuntime/AgentTurnHost` 是否保留也属于当前重构范围。当前执行契约与实现结果以 [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220 交付记录](../../completion-records/HXA-220.md) 和 [status](../../development/status.md) 为准。下文保留当时结构审查证据，不作为当前 owner/caller graph。
 
 2026-09-22 整理；当前复核基线 `9a9b25dd`。早期审查基线为 `645fa680`，其中取消、回执和输入交付结论已被214～216改变。执行引擎缺陷、证据和优先级统一维护在[深度复审](execution-engine-deep-review-2026-09-22.md)，本页不重复维护问题清单或旧源码行数。
 

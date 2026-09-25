@@ -1,5 +1,7 @@
 package com.helix.app.chat
 
+import com.helix.app.engine.TurnObservation
+import com.helix.app.engine.TurnRuntimeView
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AttachmentBindingIntent
 import com.helix.core.agent.CancelResult
@@ -21,377 +23,220 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Unit tests for [AppAgentRuntime] (research doc section 34; HX2-01): the translation between the
- * framework-free [com.helix.core.agent.AgentRuntime] contract and the production turn path,
- * exercised through a hand-written [AgentTurnHost] fake — no service, no coroutine harness.
- */
 class AppAgentRuntimeTest {
-    private val sessionId = SessionId("s1")
-    private val providerId = ProviderId("p1")
     private val turnId = TurnId("t1")
     private val goalId = GoalId("g1")
     private val budgets = TurnBudgets(8, 9, 128_000, 4_096, 160_000)
-
-    private fun host() = FakeAgentTurnHost()
 
     private fun command(
         mode: AgentMode = AgentMode.CHAT,
         text: String? = "hi",
         reasoning: ReasoningEffort = ReasoningEffort.OFF,
         goalId: GoalId? = null,
-        retryTurnId: TurnId? = null,
         attachments: List<AttachmentBindingIntent> = emptyList(),
         clientRequestId: String = "req-1",
     ) = SubmitTurnCommand(
-        sessionId,
-        providerId,
-        mode,
-        text,
-        budgets,
+        session = SessionId("s1"),
+        providerId = ProviderId("p1"),
+        mode = mode,
+        text = text,
+        budgets = budgets,
         reasoning = reasoning,
         goalId = goalId,
-        retryTurnId = retryTurnId,
         attachments = attachments,
         clientRequestId = clientRequestId,
     )
 
-    // --- submit: the command becomes a per-turn run control and a turn start ---
-
     @Test
-    fun submitReturnsTheStartedTurnIdAndMapsTheControl() {
-        val fake = host()
-        val runtime = AppAgentRuntime(fake)
-
-        val id =
+    fun submitMapsRunControlAndReturnsStartedTurn() {
+        val fixture = Fixture()
+        val result =
             runBlocking {
-                runtime.submit(
+                fixture.agent.submit(
                     command(mode = AgentMode.GOAL, text = null, reasoning = ReasoningEffort.MEDIUM, goalId = goalId),
                 )
             }
 
-        assertEquals(turnId, id)
-        assertEquals("s1", fake.lastStartSession)
-        val control = fake.lastStart!!
-        assertEquals(AgentMode.GOAL, control.mode)
-        assertEquals(budgets, control.budgets)
-        assertEquals(ReasoningEffort.MEDIUM, control.reasoning)
+        assertEquals(turnId, result)
+        assertEquals(AgentMode.GOAL, fixture.lastControl?.mode)
+        assertEquals(budgets, fixture.lastControl?.budgets)
+        assertEquals(ReasoningEffort.MEDIUM, fixture.lastControl?.reasoning)
     }
 
     @Test
-    fun submitSurfacesABlockedStart() {
-        val fake = host().apply { nextStartTurnId = null }
-        val runtime = AppAgentRuntime(fake)
+    fun submitCarriesAttachmentIntentsAndStableRequestId() {
+        val fixture = Fixture()
+        val attachment = AttachmentBindingIntent("art-1", "sha-1")
+
+        runBlocking { fixture.agent.submit(command(attachments = listOf(attachment), clientRequestId = "req-stable")) }
+
+        assertEquals(listOf(attachment), fixture.lastCommand?.attachments)
+        assertEquals("req-stable", fixture.lastCommand?.clientRequestId)
+    }
+
+    @Test
+    fun blockedStartSurfacesTurnStartBlocked() {
+        val fixture = Fixture().apply { nextStartTurnId = null }
 
         assertThrows(TurnStartBlocked::class.java) {
-            runBlocking { runtime.submit(command()) }
+            runBlocking { fixture.agent.submit(command()) }
         }
     }
 
     @Test
-    fun submitCarriesTheProducersApprovedAttachmentIntents() {
-        val intent = AttachmentBindingIntent("art-1", "sha-1")
-        val fake = host()
-        val runtime = AppAgentRuntime(fake)
+    fun repeatedClientRequestIdIsDeduplicatedByCommandSeam() {
+        val fixture = Fixture()
 
-        runBlocking { runtime.submit(command(attachments = listOf(intent))) }
-
-        assertEquals(listOf(intent), fake.lastStartAttachments)
-    }
-
-    @Test
-    fun aResubmittedClientRequestIdReturnsTheSameTurnWithoutStartingASecond() {
-        // HX2-01 §2e: the adapter forwards the stable client-request id; the host dedups on it,
-        // so a re-driven submission with the same id returns the already-started turn — the host
-        // never starts a second turn (this is what collapses a re-driven egress confirm).
-        val fake = host()
-        val runtime = AppAgentRuntime(fake)
         runBlocking {
-            val first = runtime.submit(command(clientRequestId = "req-same"))
-            val resubmitted = runtime.submit(command(clientRequestId = "req-same"))
-            assertEquals(first, resubmitted)
-            assertEquals(1, fake.startedTurns.size)
+            assertEquals(turnId, fixture.agent.submit(command(clientRequestId = "same")))
+            assertEquals(turnId, fixture.agent.submit(command(clientRequestId = "same")))
         }
-    }
 
-    // --- cancel ---
-
-    @Test
-    fun cancelOfAnUnknownTurnIsNotFound() {
-        val fake = host()
-        val runtime = AppAgentRuntime(fake)
-        assertTrue(runBlocking { runtime.cancel(turnId) } is CancelResult.NotFound)
-        assertTrue(fake.cancelled.isEmpty())
+        assertEquals(1, fixture.startedTurns.size)
     }
 
     @Test
-    fun cancelOfATerminalTurnIsAlreadyTerminal() {
-        val fake = host().apply { phase = TurnState.CANCELLED }
-        val runtime = AppAgentRuntime(fake)
-        val result = runBlocking { runtime.cancel(turnId) }
-        assertTrue(result is CancelResult.AlreadyTerminal && result.phase == TurnState.CANCELLED)
-        assertEquals(listOf("t1"), fake.cancelled)
+    fun cancelUnknownTurnIsNotFoundWithoutCallingCancelSeam() {
+        val fixture = Fixture()
+
+        assertEquals(CancelResult.NotFound, runBlocking { fixture.agent.cancel(turnId) })
+        assertTrue(fixture.cancelled.isEmpty())
     }
 
     @Test
-    fun completedTurnStillReachesHostForAtomicQueueAndHandoffStop() {
-        val fake = host().apply { phase = TurnState.COMPLETED }
+    fun cancelTerminalTurnReportsAlreadyTerminal() {
+        val fixture = Fixture().apply { phase = TurnState.INTERRUPTED }
 
-        val result = runBlocking { AppAgentRuntime(fake).cancel(turnId) }
+        val result = runBlocking { fixture.agent.cancel(turnId) }
 
-        assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), result)
-        assertEquals(listOf("t1"), fake.cancelled)
+        assertEquals(CancelResult.AlreadyTerminal(TurnState.INTERRUPTED), result)
+        assertEquals(listOf("t1"), fixture.cancelled)
     }
 
     @Test
-    fun completionWinningCancellationReturnsActualTerminalOutcome() {
-        val fake =
-            host().apply {
-                phase = TurnState.WAITING_MODEL
-                terminalDuringCancel = TurnState.COMPLETED
+    fun cancelLiveTurnReportsStopAccepted() {
+        val fixture =
+            Fixture().apply {
+                phase = TurnState.RUNNING_TOOL
+                cancelOutcome = TurnCancelOutcome.StoppedLive
             }
-        val result = runBlocking { AppAgentRuntime(fake).cancel(turnId) }
-        assertEquals(CancelResult.AlreadyTerminal(TurnState.COMPLETED), result)
-        assertEquals(listOf("t1"), fake.cancelled)
+
+        assertEquals(CancelResult.StopAccepted, runBlocking { fixture.agent.cancel(turnId) })
     }
 
     @Test
-    fun cancelOfALiveTurnReportsStopAccepted() {
-        // A live turn receives the stop and settles asynchronously when its unwind reaches the
-        // terminal — the result is StopAccepted (the stop was accepted), not Cancelled (which
-        // would claim the settlement already completed).
-        val fake = host().apply { phase = TurnState.RUNNING_TOOL }
-        val runtime = AppAgentRuntime(fake)
-        val result = runBlocking { runtime.cancel(turnId) }
-        assertTrue(result is CancelResult.StopAccepted)
-        assertEquals(listOf("t1"), fake.cancelled)
+    fun cancelNeedsReviewReportsReviewRequired() {
+        val fixture =
+            Fixture().apply {
+                phase = TurnState.NEEDS_REVIEW
+                cancelOutcome = TurnCancelOutcome.ReviewRequired
+            }
+
+        assertEquals(CancelResult.ReviewRequired, runBlocking { fixture.agent.cancel(turnId) })
     }
 
     @Test
-    fun cancelOfAParkedInterruptedTurnIsDiscardedAndReportsCancelled() {
-        // A parked (INTERRUPTED) turn has no live loop; the host discards it to CANCELLED and
-        // settles it before returning, so the result is Cancelled (settled now — honest: a real
-        // cancel happened, not a silent no-op).
-        val fake = host().apply { phase = TurnState.INTERRUPTED }
-        val runtime = AppAgentRuntime(fake)
-        val result = runBlocking { runtime.cancel(turnId) }
-        assertTrue(result is CancelResult.Cancelled)
-        assertEquals(listOf("t1"), fake.cancelled)
-    }
-
-    @Test
-    fun cancelOfNeedsReviewReportsReviewRequiredWithoutDiscarding() {
-        val fake = host().apply { phase = TurnState.NEEDS_REVIEW }
-        val runtime = AppAgentRuntime(fake)
-
-        val result = runBlocking { runtime.cancel(turnId) }
-
-        assertEquals(CancelResult.ReviewRequired, result)
-        assertEquals(listOf("t1"), fake.cancelled)
-    }
-
-    // --- observe ---
-
-    @Test
-    fun observeStreamsLiveFramesThroughTheTerminalFrame() {
-        val fake =
-            host().apply {
-                frames =
+    fun liveObservationCarriesStreamingTextAndTerminalPersistedText() {
+        val fixture =
+            Fixture().apply {
+                observations =
                     listOf(
-                        TurnUi("t1", TurnState.WAITING_MODEL, null, null, false),
-                        TurnUi("t1", TurnState.RUNNING_TOOL, "hello", null, false),
-                        TurnUi("t1", TurnState.COMPLETED, null, null, false),
+                        TurnObservation("t1", TurnState.RECEIVING_MODEL, streamingText = "hello"),
+                        TurnObservation("t1", TurnState.COMPLETED),
                     )
+                phase = TurnState.COMPLETED
                 assistantText = "all done"
             }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
 
-        assertEquals(
-            listOf(TurnState.WAITING_MODEL, TurnState.RUNNING_TOOL, TurnState.COMPLETED),
-            frames.map { it.phase },
-        )
-        assertEquals("hello", frames[1].assistantText) // live streaming text on a non-terminal frame
-        assertEquals("all done", frames[2].assistantText) // the terminal frame carries the persisted text
-        assertTrue(frames[2].isTerminal)
+        val frames = runBlocking { fixture.agent.observe(turnId).toList() }
+
+        assertEquals(listOf(TurnState.RECEIVING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
+        assertEquals("hello", frames.first().assistantText)
+        assertEquals("all done", frames.last().assistantText)
     }
 
     @Test
-    fun aLateSubscriberSeesThePersistedTerminalState() {
-        val fake =
-            host().apply {
-                frames = emptyList() // not live: the turn already ended before we subscribed
+    fun lateSubscriberFallsBackToPersistedTerminal() {
+        val fixture =
+            Fixture().apply {
                 phase = TurnState.COMPLETED
                 assistantText = "final"
             }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        val frames = runBlocking { fixture.agent.observe(turnId).toList() }
 
         assertEquals(1, frames.size)
-        assertEquals(TurnState.COMPLETED, frames[0].phase)
-        assertEquals("final", frames[0].assistantText)
-        assertTrue(frames[0].isTerminal)
+        assertEquals(TurnState.COMPLETED, frames.single().phase)
+        assertEquals("final", frames.single().assistantText)
     }
 
     @Test
-    fun liveNeedsReviewEndsObservationWithoutDuplicatePersistedFrame() {
-        val fake =
-            host().apply {
-                frames = listOf(TurnUi("t1", TurnState.NEEDS_REVIEW, null, "review", false))
+    fun parkedObservationEndsWithoutDuplicatePersistedFrame() {
+        val fixture =
+            Fixture().apply {
+                observations =
+                    listOf(
+                        TurnObservation(
+                            "t1",
+                            TurnState.NEEDS_REVIEW,
+                            errorLabel = "review",
+                        ),
+                    )
                 phase = TurnState.NEEDS_REVIEW
             }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        val frames = runBlocking { fixture.agent.observe(turnId).toList() }
 
         assertEquals(listOf(TurnState.NEEDS_REVIEW), frames.map { it.phase })
         assertEquals("review", frames.single().errorLabel)
-        assertTrue(!frames.single().isTerminal)
     }
 
     @Test
-    fun lateSubscriberSeesPersistedNeedsReviewOnce() {
-        val fake =
-            host().apply {
-                frames = emptyList()
-                phase = TurnState.NEEDS_REVIEW
-            }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
-
-        assertEquals(1, frames.size)
-        assertEquals(TurnState.NEEDS_REVIEW, frames.single().phase)
-        assertTrue(!frames.single().retryable)
-    }
-
-    @Test
-    fun observeOfAnUnknownTurnEmitsNothing() {
-        val fake =
-            host().apply {
-                frames = emptyList()
-                phase = null
-            }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
-        assertTrue(frames.isEmpty())
-    }
-
-    @Test
-    fun aLiveFailedTerminalFrameKeepsItsErrorLabelAndRetryable() {
-        val fake =
-            host().apply {
-                frames = listOf(TurnUi("t1", TurnState.FAILED, null, "model error", true))
-                assistantText = "partial"
-            }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
-
-        assertEquals(1, frames.size)
-        assertEquals("model error", frames[0].errorLabel)
-        assertTrue(frames[0].retryable)
-        assertEquals("partial", frames[0].assistantText)
-    }
-
-    @Test
-    fun aBackgroundTurnReachingItsCleanTerminalIsObservedToEnd() {
-        // HX2-01 §2c: the point of persistent observation — a turn that is NOT the open session's
-        // active turn (a background turn) still streams to its terminal via the per-turn
-        // live-frame channel. A clean COMPLETED carries no status label, so the host emits its
-        // terminal directly to that channel; the observer must receive it and the stream must END
-        // (toList returns) rather than hang waiting for a frame that never comes.
-        val fake =
-            host().apply {
-                frames =
-                    listOf(
-                        TurnUi("t1", TurnState.RECEIVING_MODEL, "thinking…", null, false),
-                        TurnUi("t1", TurnState.COMPLETED, null, null, false), // the null-label terminal
-                    )
-                assistantText = "done in the background"
-            }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
-
-        assertEquals(listOf(TurnState.RECEIVING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
-        assertEquals("done in the background", frames[1].assistantText)
-        assertTrue(frames[1].isTerminal)
-    }
-
-    @Test
-    fun whenTheLiveStreamEndsWithoutATerminalTheObserverFallsBackToThePersistedPhase() {
-        // HX2-01 §2c robustness: if the live-frame stream ends without a terminal snapshot (a
-        // back-pressured consumer dropped the terminal frame), the observer is not stranded — it
-        // projects the turn's persisted phase, so a COMPLETED turn is still reported completed.
-        val fake =
-            host().apply {
-                frames = listOf(TurnUi("t1", TurnState.RECEIVING_MODEL, "partial", null, false))
+    fun liveStreamEndingEarlyFallsBackToDurablePhase() {
+        val fixture =
+            Fixture().apply {
+                observations = listOf(TurnObservation("t1", TurnState.RECEIVING_MODEL, streamingText = "partial"))
                 phase = TurnState.COMPLETED
                 assistantText = "final"
             }
-        val frames = runBlocking { AppAgentRuntime(fake).observe(turnId).toList() }
+
+        val frames = runBlocking { fixture.agent.observe(turnId).toList() }
 
         assertEquals(listOf(TurnState.RECEIVING_MODEL, TurnState.COMPLETED), frames.map { it.phase })
-        assertEquals("final", frames[1].assistantText)
-        assertTrue(frames[1].isTerminal)
+        assertEquals("final", frames.last().assistantText)
     }
 
-    private class FakeAgentTurnHost : AgentTurnHost {
+    private class Fixture : TurnRuntimeView {
         var nextStartTurnId: String? = "t1"
-        var lastStartSession: String? = null
-        var lastStart: RunControlConfig? = null
-        var lastStartAttachments: List<AttachmentBindingIntent> = emptyList()
+        var lastCommand: SubmitTurnCommand? = null
+        var lastControl: RunControlConfig? = null
         var phase: TurnState? = null
         var assistantText: String? = null
-        var frames: List<TurnUi> = emptyList()
+        var observations: List<TurnObservation> = emptyList()
+        var cancelOutcome: TurnCancelOutcome? = null
         val cancelled = mutableListOf<String>()
-        val startedTurns = mutableListOf<String>() // turn ids actually started (a dedup hit adds none)
+        val startedTurns = mutableListOf<String>()
         private val claimedClientIds = HashMap<String, String>()
 
-        override suspend fun startTurn(
-            sessionId: String,
-            clientRequestId: String,
-            text: String?,
-            providerId: String,
-            retryTurnId: String?,
-            goalId: String?,
-            attachments: List<AttachmentBindingIntent>,
-            control: RunControlConfig,
-            continuousGoal: Boolean,
-            goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
-            directUserRequest: Boolean,
-            revisedMessageId: String?,
-            regenerateMessageId: String?,
-        ): String? {
-            // Mirror the production host (HX2-01 §2e): idempotent by clientRequestId — a re-driven
-            // start carrying an already-claimed id returns the existing turn, never a second.
-            claimedClientIds[clientRequestId]?.let { existing -> return existing }
-            lastStartSession = sessionId
-            lastStart = control
-            lastStartAttachments = attachments
-            if (nextStartTurnId != null) {
-                claimedClientIds[clientRequestId] = nextStartTurnId!!
-                startedTurns += nextStartTurnId!!
-            }
-            return nextStartTurnId
-        }
+        val agent =
+            AppAgentRuntime(
+                startTurn = { command, control ->
+                    claimedClientIds[command.clientRequestId]
+                        ?: nextStartTurnId?.also { turn ->
+                            lastCommand = command
+                            lastControl = control
+                            claimedClientIds[command.clientRequestId] = turn
+                            startedTurns += turn
+                        }
+                },
+                cancelTurn = { id ->
+                    cancelled += id
+                    cancelOutcome ?: TurnCancelOutcome.AlreadyTerminal(requireNotNull(phase))
+                },
+                runtime = this,
+            )
 
-        var terminalDuringCancel: TurnState? = null
-
-        override suspend fun cancelTurn(turnId: String): TurnCancelOutcome {
-            cancelled += turnId
-            terminalDuringCancel?.let { return TurnCancelOutcome.AlreadyTerminal(it) }
-            // Mirror the host: INTERRUPTED is discardable; NEEDS_REVIEW requires explicit review.
-            return when (phase) {
-                TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED -> {
-                    TurnCancelOutcome.AlreadyTerminal(requireNotNull(phase))
-                }
-
-                TurnState.INTERRUPTED -> {
-                    TurnCancelOutcome.DiscardedParked
-                }
-
-                TurnState.NEEDS_REVIEW -> {
-                    TurnCancelOutcome.ReviewRequired
-                }
-
-                else -> {
-                    TurnCancelOutcome.StoppedLive
-                }
-            }
-        }
-
-        override fun observeTurnFrames(turnId: String): Flow<TurnUi> = flowOf(*frames.toTypedArray())
+        override fun observe(turnId: String): Flow<TurnObservation> = flowOf(*observations.toTypedArray())
 
         override fun persistedPhase(turnId: String): TurnState? = phase
 

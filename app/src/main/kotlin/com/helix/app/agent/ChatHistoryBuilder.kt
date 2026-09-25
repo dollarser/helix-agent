@@ -175,8 +175,7 @@ private fun parseToolCallElement(element: JsonElement): AssistantToolCall {
     return AssistantToolCall(
         ToolCallId(obj.requiredField("id")),
         ToolName(obj.requiredField("name")),
-        // Match dispatch normalization for no-argument calls, including legacy rows.
-        // Keep the call/result pair and its denial; never replay or erase the outcome.
+        // Match dispatch normalization for no-argument calls from current provider adapters.
         obj.requiredField("arguments").ifBlank { "{}" },
     )
 }
@@ -204,10 +203,9 @@ private fun parseToolResult(
         val obj = parsed as? JsonObject ?: failStrict("a tool-result row must be an object")
         val id = obj.requiredField("id")
         val tool = obj.requiredField("tool")
-        val status = (obj["status"] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: "UNKNOWN"
-        val summary = (obj["summary"] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
-        // The persisted envelope carries the settled outcome. New successful rows retain
-        // the Dispatcher-bounded payload; legacy rows may contain only the short preview.
+        val status = obj.requiredField("status")
+        val summary = obj.requiredField("summary")
+        // The persisted envelope carries the settled outcome and the Dispatcher-bounded summary.
         val text = "[$status] $summary".trim()
         require(text.isNotBlank()) { "a tool result row needs a status or summary" }
         ModelMessage(

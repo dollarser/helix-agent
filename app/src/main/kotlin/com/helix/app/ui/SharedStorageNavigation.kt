@@ -42,7 +42,8 @@ internal fun rememberSharedStorageNavigation(
         }
     }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { enter() }
-    val legacy = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { enter() }
+    val preAndroid11Permissions =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { enter() }
     return {
         if (access.isWritable()) {
             enter()
@@ -58,7 +59,7 @@ internal fun rememberSharedStorageNavigation(
                 settings.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
             }
         } else {
-            legacy.launch(
+            preAndroid11Permissions.launch(
                 arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE),
             )
         }

@@ -5,6 +5,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -147,7 +148,8 @@ class FixedMcpEvaluationDeviceTest {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
-            container.chatService.send(
+            container.chatService.sendTestMessage(
+                session,
                 if (cells[0] == "mcp-004") "Start the selected MCP fixture call now." else cells[4],
             )
             awaitTurn(session, cells[0])

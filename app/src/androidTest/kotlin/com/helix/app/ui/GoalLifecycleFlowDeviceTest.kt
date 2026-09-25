@@ -5,6 +5,7 @@ import com.helix.app.MainActivity
 import com.helix.app.foreground.DataSyncForegroundService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -113,7 +114,7 @@ class GoalLifecycleFlowDeviceTest {
                     com.helix.core.model
                         .TurnBudgets(16, 16, 65536, 4096, 100000),
                 )
-                chat.send("Please create a goal and answer 2 + 2.")
+                chat.sendTestMessage("Please create a goal and answer 2 + 2.")
                 await { DataSyncForegroundService.runningInstance.get() != null }
                 val firstService = DataSyncForegroundService.runningInstance.get()
                 if (background) {
@@ -123,7 +124,7 @@ class GoalLifecycleFlowDeviceTest {
                 }
                 if (steer) {
                     await { steps.get() == 1 }
-                    chat.send("Please keep the existing goal and answer now.")
+                    chat.sendTestMessage("Please keep the existing goal and answer now.")
                     await {
                         container.storage.turns
                             .listBySession(session)

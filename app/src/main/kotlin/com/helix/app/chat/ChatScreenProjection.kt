@@ -168,7 +168,7 @@ internal class ChatScreenProjection(
         )
     }
 
-    @Suppress("ReturnCount") // Missing/legacy diagnostic fields must omit the detail, not break chat rendering.
+    @Suppress("ReturnCount") // Missing/corrupt diagnostic fields omit detail rather than breaking chat rendering.
     private fun budgetDetail(entity: TurnEntity): String? {
         if (entity.errorCode !in com.helix.app.runcontrol.BudgetStopReasons.turn) return null
         val call = storage.modelCalls.listByTurn(entity.id).lastOrNull() ?: return null

@@ -1,5 +1,6 @@
 package com.helix.app.engine
 
+import com.helix.app.agent.AgentLoop
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
@@ -10,14 +11,15 @@ import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import kotlinx.coroutines.CoroutineScope
 
 /**
- * Wave-1 durable Turn lifecycle owner.
+ * Durable + live Turn lifecycle owner.
  *
- * Durable lifecycle decisions enter here. During E1-B the coroutine/AgentLoop body is still
- * launched by ChatService, but its process-local Turn ownership moves behind [liveExecution]
- * before the driver itself is extracted.
+ * Admission, execution ownership, AgentLoop driving, settlement, cancellation and observation all
+ * converge here. Room remains durable truth; process-local handles/observations are projections.
  */
+@Suppress("TooManyFunctions") // Lifecycle facade delegates to focused Engine collaborators.
 class TurnEngine internal constructor(
     private val storage: HelixStorage,
     private val clock: Clock,
@@ -25,11 +27,50 @@ class TurnEngine internal constructor(
 ) {
     private val admission = TurnAdmission(storage, clock, idGenerator)
     private val reviewResolution = TurnReviewResolution(storage, clock, idGenerator)
+    private val observations = TurnObservationHub()
+    internal val runtimeView: TurnRuntimeView = StorageTurnRuntimeView(storage, observations)
+    private val systemStops = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     /** Process-local execution handles only; Room remains the durable source of truth. */
     internal val liveExecution = TurnLiveRegistry()
 
     internal val liveHandles = liveExecution.handles
+
+    private val executionDriver by lazy {
+        TurnExecutionDriver(
+            storage = storage,
+            clock = clock,
+            liveExecution = liveExecution,
+            observations = observations,
+            parkForReview = ::parkForReview,
+            settleTerminal = ::settleTerminal,
+            consumeSystemStop = systemStops::remove,
+        )
+    }
+
+    internal fun launchExecution(
+        scope: CoroutineScope,
+        loop: AgentLoop,
+        request: TurnExecutionRequest,
+        hooks: TurnExecutionHooks,
+    ): String = executionDriver.launch(scope, loop, request, hooks)
+
+    internal fun publishObservation(observation: TurnObservation) {
+        observations.emit(observation)
+    }
+
+    internal fun requestSystemStop(
+        turnId: String,
+        reason: String,
+    ) {
+        require(turnId.isNotBlank()) { "turnId must not be blank" }
+        require(reason.isNotBlank()) { "reason must not be blank" }
+        systemStops[turnId] = reason
+    }
+
+    internal fun clearSystemStop(turnId: String) {
+        systemStops.remove(turnId)
+    }
 
     internal fun submissionReceipt(
         clientRequestId: String,

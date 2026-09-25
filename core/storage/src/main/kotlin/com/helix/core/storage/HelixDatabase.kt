@@ -77,21 +77,12 @@ import com.helix.core.storage.entity.TurnReviewReceiptEntity
 import com.helix.core.storage.entity.TurnRuntimeRecordEntity
 
 /**
- * Helix local database (architecture doc 9). Schema version 5 (HXA-068) holds all base tables
- * plus the plan/goal tables of doc section 9.1 (v1, HXA-014), the structured-question receipt
- * table (v3, doc 11 section 4), the message-attachment relation (v4, ADR-0014), and the
- * ADVANCED high-sensitivity egress-rule table (v5, ADR-0005), and A2A Agent/Card snapshot
- * tables (v6, HXA-078), durable A2A task correlation (v7, HXA-079), Goal/Turn associations (v8, HXA-102),
- * and usage reservations (v9, HXA-102):
+ * Helix local database. Before the first public release the current entity graph is the version-1
+ * baseline; no migration chain for earlier internal development schemas is supported.
  *
- * - foreign keys are declared on every relation and enforced (Room enables
- *   `PRAGMA foreign_keys = ON` for schemas that use them; the migration fixture asserts it);
- * - schema export is enabled and the committed export lives in
- *   `src/androidTest/assets/com.helix.core.storage.HelixDatabase/` (Room 2.8
- *   `<databaseFqn>/<version>.json` convention) as the migration fixture for this and future
- *   migrations (doc 9.2: migrations require a schema export plus an instrumentation test);
- * - secrets never enter the schema: `provider_configs` and `mcp_servers` store alias fields
- *   only; large bodies live in files and rows store `ContentRef` references.
+ * Foreign keys and indexes are declared by the current entities and enforced by Room. The
+ * committed schema export is the current baseline contract, not an upgrade fixture. Secrets never
+ * enter the schema: provider/MCP rows store aliases only and large bodies live in the content store.
  */
 @Database(
     entities =
@@ -100,7 +91,6 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.ConnectorInstallationEntity::class,
             com.helix.core.storage.entity.ConnectorSkillOwnershipEntity::class,
             com.helix.core.storage.entity.SessionConnectorEntity::class,
-            com.helix.core.storage.entity.ConnectorCatalogStateEntity::class,
             com.helix.core.storage.entity.ConnectorEndpointEntity::class,
             MessageEntity::class,
             MessageAttachmentEntity::class,
@@ -143,7 +133,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             TurnRuntimeRecordEntity::class,
             TurnReviewReceiptEntity::class,
         ],
-    version = 31,
+    version = 1,
     exportSchema = true,
 )
 @Suppress("TooManyFunctions") // Room @Database requires one accessor per persisted aggregate/feature table.
@@ -229,56 +219,6 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun sessionPermissionDefaultsDao(): SessionPermissionDefaultsDao
 
     companion object {
-        val MIGRATION_30_31 = TurnRecoveryRelationMigration.MIGRATION_30_31
-        val MIGRATION_29_30 = TurnRuntimeMigration.MIGRATION_29_30
-        val MIGRATION_28_29 = ToolCallReviewMigration.MIGRATION_28_29
-        val MIGRATION_27_28 = RequestManifestMigration.MIGRATION_27_28
-        val MIGRATION_26_27 = ConnectorMigration.MIGRATION_26_27
-        val MIGRATION_25_26 = SessionInputMigration.MIGRATION_25_26
-        val MIGRATION_21_22 = HelixMigrations.MIGRATION_21_22
-        val MIGRATION_22_23 = HelixMigrations.MIGRATION_22_23
-        val MIGRATION_24_25 = HelixMigrations.MIGRATION_24_25
-        val MIGRATION_23_24 = HelixMigrations.MIGRATION_23_24
-
-        val MIGRATION_20_21 = HelixMigrations.MIGRATION_20_21
-
-        val MIGRATION_19_20 = HelixMigrations.MIGRATION_19_20
-
-        val MIGRATION_18_19 = HelixMigrations.MIGRATION_18_19
         const val DATABASE_NAME = "helix.db"
-
-        val MIGRATION_17_18 = HelixMigrations.MIGRATION_17_18
-
-        val MIGRATION_16_17 = HelixMigrations.MIGRATION_16_17
-
-        val MIGRATION_15_16 = HelixMigrations.MIGRATION_15_16
-
-        val MIGRATION_14_15 = HelixMigrations.MIGRATION_14_15
-
-        val MIGRATION_13_14 = HelixMigrations.MIGRATION_13_14
-
-        val MIGRATION_12_13 = HelixMigrations.MIGRATION_12_13
-
-        val MIGRATION_11_12 = HelixMigrations.MIGRATION_11_12
-
-        val MIGRATION_10_11 = HelixMigrations.MIGRATION_10_11
-
-        val MIGRATION_9_10 = HelixMigrations.MIGRATION_9_10
-
-        val MIGRATION_8_9 = HelixMigrations.MIGRATION_8_9
-
-        val MIGRATION_7_8 = HelixMigrations.MIGRATION_7_8
-
-        val MIGRATION_1_2 = HelixMigrations.MIGRATION_1_2
-
-        val MIGRATION_2_3 = HelixMigrations.MIGRATION_2_3
-
-        val MIGRATION_3_4 = HelixMigrations.MIGRATION_3_4
-
-        val MIGRATION_4_5 = HelixMigrations.MIGRATION_4_5
-
-        val MIGRATION_5_6 = HelixMigrations.MIGRATION_5_6
-
-        val MIGRATION_6_7 = HelixMigrations.MIGRATION_6_7
     }
 }

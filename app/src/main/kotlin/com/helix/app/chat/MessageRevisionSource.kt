@@ -39,7 +39,7 @@ internal class MessageRevisionSource(
     ): String {
         val row = storage.messages.resolve(messageId)
         val body = storage.messages.readContentBounded(row, 8 * 1024 * 1024).orEmpty()
-        // Legacy messages store the authored prefix and generated attachment blocks together.
+        // Current persisted messages store the authored prefix and generated attachment blocks together.
         // Only split an unambiguous generated first-block marker; never guess at corrupt content.
         return AttachmentContext.authoredPrefix(body, attachmentCount)
     }

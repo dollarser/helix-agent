@@ -10,7 +10,6 @@ import com.helix.app.agent.ChatHistoryBuilder
 import com.helix.app.agent.ContextCompaction
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.GoalTimeBudget
-import com.helix.app.agent.GoalTimeLimitException
 import com.helix.app.agent.LocalToolCallBatch
 import com.helix.app.agent.MAX_MODEL_TEXT_CHARS
 import com.helix.app.agent.ModelStreamState
@@ -20,16 +19,18 @@ import com.helix.app.agent.TurnCancelSignal
 import com.helix.app.agent.TurnContextAssembler
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnInputDelivery
-import com.helix.app.agent.TurnLoopResult
 import com.helix.app.agent.TurnMessageDraft
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
 import com.helix.app.agent.TurnToolExecutor
 import com.helix.app.agent.UnresolvedEffectPolicy
-import com.helix.app.approval.ApprovalCancelledException
 import com.helix.app.chat.ChatAttachmentRetry.RetryStagedCheck
 import com.helix.app.engine.EngineCancelDecision
 import com.helix.app.engine.TurnEngine
+import com.helix.app.engine.TurnExecutionHooks
+import com.helix.app.engine.TurnExecutionRequest
+import com.helix.app.engine.TurnObservation
+import com.helix.app.engine.TurnTerminalProjection
 import com.helix.app.internal.InMemoryLineStore
 import com.helix.app.plan.PlanReview
 import com.helix.app.plan.PlanReviewService
@@ -88,9 +89,7 @@ import com.helix.provider.api.ProviderCapabilities
 import com.helix.tools.framework.ApprovalRequest
 import com.helix.tools.framework.ToolDispatchOutcome
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -184,11 +183,16 @@ class ChatService(
      * without a workspace behaves exactly as before.
      */
     private val projectInstructionsReader: (String) -> String = { "" },
-) : AgentTurnHost {
+) {
     // The unified AgentRuntime (HX2-01): every in-app turn entry drives the turn through this —
     // none reaches launchTurn directly. The container re-exposes the SAME instance as the
     // production entry point (AppContainer.agentRuntime).
-    internal val agentRuntime: AgentRuntime = AppAgentRuntime(this)
+    internal val agentRuntime: AgentRuntime =
+        AppAgentRuntime(
+            startTurn = ::startRuntimeTurn,
+            cancelTurn = ::cancelRuntimeTurn,
+            runtime = turnEngine.runtimeView,
+        )
 
     // The Plan closed loop (research doc section 4.2/4.3; HX2-05): the review state machine the
     // plan surface drives — approve is the ONLY source of a PlanExecutionBinding, and execute
@@ -520,16 +524,6 @@ class ChatService(
         goalContinuation.disarm(sessionId)
         goalUserRequests.entries.removeAll { entry -> entry.value.any { it.sessionId == sessionId } }
     }
-
-    /**
-     * The per-turn live-frame channel behind [AgentTurnHost.observeTurnFrames] (HX2-01 §2c): a
-     * turn's frames stream to observers regardless of the open session, so the app-layer runtime's
-     * `observe` can stream a turn in a NON-open (background) session to its terminal. Its lifetime
-     * equals the turn's — [TurnLiveFrames.open] at start, untracked at terminal — so the map holds
-     * only live turns and cannot grow without bound.
-     */
-    private val turnLiveFrames = TurnLiveFrames()
-    private val systemStops = java.util.concurrent.ConcurrentHashMap<String, String>()
 
     // Written on the main thread (open/close/cancel), read from the work-scope IO pool
     // (sendNow): atomic visibility keeps fresh opens visible to racing sends, and
@@ -1423,7 +1417,8 @@ class ChatService(
     @Suppress("ReturnCount") // draft admission keeps each rejected state explicit
     fun compactContext() {
         if (_screen.value.isDraft || _screen.value.isSending || stagedAttachments.isNotEmpty()) return
-        send(ContextCompaction.COMMAND)
+        val sessionId = openSessionId ?: return
+        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), ContextCompaction.COMMAND))
     }
 
     /** Durable composer API for persisted sessions; never writes messages or starts model work. */
@@ -1652,12 +1647,6 @@ class ChatService(
                 cleared
             }
         }
-
-    /** Legacy producer; UI integration should retain the identity and await [sendSubmission]. */
-    fun send(text: String) {
-        val sessionId = openSessionId ?: return
-        sendSubmission(ChatSubmission(sessionId, 0, idGenerator(), text, stagedAttachments.map { it.artifactId }))
-    }
 
     /** Service-owned admission survives caller cancellation; never reads an outcome from UI state. */
     fun sendSubmission(request: ChatSubmission): kotlinx.coroutines.Deferred<ChatSubmissionReceipt> {
@@ -2094,8 +2083,8 @@ class ChatService(
             }
         // The unified HX2-01 entry dispatches the turn — it persists the user message and its
         // bindings in the turn's transaction and returns whether the start was admitted. The
-        // approved attachments are consumed only on an admitted start; a refused start restores
-        // the text as a draft (a send is never a silent drop).
+        // approved attachments are consumed only on an admitted start; rejected typed submissions
+        // leave the persisted composer draft untouched.
         val outcome =
             submitMessageTurn(
                 submission = submission,
@@ -2109,9 +2098,6 @@ class ChatService(
             synchronized(stagedLock) {
                 stagedAttachments = stagedAttachments.filterNot { it.artifactId in approvedAttachmentIds }
             }
-        } else if (openSessionId == submission.sessionId && storage.composerDrafts.get(submission.sessionId) == null) {
-            // Compatibility for the old composer until it consumes typed receipts.
-            shareDraftText = text
         }
         refreshScreen()
         return outcome
@@ -2320,7 +2306,7 @@ class ChatService(
                 if (storage.goalTurnBindings.byTurn(turnId) == null) return@launch
                 if (!storage.turns.requestPause(turnId, clock.now().toEpochMilli())) return@launch
             }
-            if (systemReason != null) systemStops[turnId] = systemReason
+            if (systemReason != null) turnEngine.requestSystemStop(turnId, systemReason)
             stopTurn(turnId)
         }
     }
@@ -2350,7 +2336,8 @@ class ChatService(
                     .backgroundJobs(storage)
             transportState.value = tasks
                 .firstOrNull {
-                    it.state in com.helix.app.foreground.DataSyncForegroundController.TRANSPORT_ACTIVE
+                    !it.awaitingApproval &&
+                        it.state in com.helix.app.foreground.DataSyncForegroundController.TRANSPORT_ACTIVE
                 }?.state ?: if (goalContinuation.hasHandoff) TurnState.BUILDING_CONTEXT else null
         }
     }
@@ -2608,57 +2595,37 @@ class ChatService(
     }
 
     // --------------------------------------------------------------------------------
-    // AgentTurnHost (HX2-01): the production turn path behind the core AgentRuntime contract
+    // AgentRuntime command adapter — execution ownership lives in TurnEngine.
     // --------------------------------------------------------------------------------
 
-    /**
-     * [com.helix.core.agent.AgentRuntime.submit] starts a turn through the SAME path as every
-     * in-app entry (send / confirmed egress / retry / goal start, which all [submitTurn] into
-     * this) — but for an explicit session and an explicit per-turn run control: the research
-     * doc's unified entry point. Idempotent by [clientRequestId]: a re-driven start carrying an id
-     * it already started returns the existing turn's id, never a second turn (see [launchTurn]).
-     * Returns the started turn's id, or null when the session refused it (fail-closed; the
-     * adapter surfaces that as a start-blocked signal).
-     */
-    override suspend fun startTurn(
-        sessionId: String,
-        clientRequestId: String,
-        text: String?,
-        providerId: String,
-        retryTurnId: String?,
-        goalId: String?,
-        attachments: List<AttachmentBindingIntent>,
+    private suspend fun startRuntimeTurn(
+        command: SubmitTurnCommand,
         control: RunControlConfig,
-        continuousGoal: Boolean,
-        goalContinuation: com.helix.core.agent.GoalContinuationRequest?,
-        directUserRequest: Boolean,
-        revisedMessageId: String?,
-        regenerateMessageId: String?,
     ): String? =
         launchTurn(
-            text = text,
-            providerId = providerId,
-            retryTurnId = retryTurnId,
-            goalId = goalId,
+            text = command.text,
+            providerId = command.providerId.value,
+            retryTurnId = command.retryTurnId?.value,
+            goalId = command.goalId?.value,
             attachmentBindings =
-                attachments.map {
+                command.attachments.map {
                     MessageAttachmentRepository.Binding(
                         artifactId = it.artifactId,
                         purpose = AttachmentPurpose.REFERENCE,
                         boundSha256 = it.boundSha256,
                     )
                 },
-            requestedSessionId = sessionId,
+            requestedSessionId = command.session.value,
             controlOverride = control,
-            clientRequestId = clientRequestId,
-            continuousGoal = continuousGoal,
-            continuation = goalContinuation,
-            directUserRequest = directUserRequest,
-            revisedMessageId = revisedMessageId,
-            regenerateMessageId = regenerateMessageId,
+            clientRequestId = command.clientRequestId,
+            continuousGoal = command.continuousGoal,
+            continuation = command.goalContinuation,
+            directUserRequest = command.directUserRequest,
+            revisedMessageId = command.revisedMessageId,
+            regenerateMessageId = command.regenerateMessageId,
         )
 
-    override suspend fun cancelTurn(turnId: String): TurnCancelOutcome =
+    private suspend fun cancelRuntimeTurn(turnId: String): TurnCancelOutcome =
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val outcome =
                 synchronized(turnGate) {
@@ -2697,7 +2664,6 @@ class ChatService(
                             }
                         }
                     if (result == TurnCancelOutcome.StoppedLive) {
-                        // The cancellation intent is committed before signalling any in-flight work.
                         publishTurn(TurnUi(turnId, TurnState.CANCELLING, null, null, false))
                         active?.signalCancel()
                         toolCalls.cancelPendingApproval(turnId)
@@ -2705,46 +2671,14 @@ class ChatService(
                     }
                     result
                 }
-            if (outcome == TurnCancelOutcome.DiscardedParked) {
-                endTurnSettlement(turnId)
-                turnLiveFrames.emit(
-                    turnId,
-                    TurnUi(turnId, TurnState.CANCELLED, null, terminalLabel(TurnState.CANCELLED, null), false),
-                )
-            }
-            // Read current facts rather than publishing a stale CANCELLING over a fast terminal.
             refreshScreen()
             refreshBackgroundTasks()
             syncGoalReminderForTurn(turnId)
             outcome
         }
 
-    /**
-     * The turn's LIVE frame stream (HX2-01 §2c), independent of the open session: [TurnLiveFrames]
-     * holds the frame channel for every live turn. A turn that is not live (not yet started, or
-     * already ended) yields an empty flow, and the adapter projects the turn's persisted state.
-     */
-    override fun observeTurnFrames(turnId: String): Flow<TurnUi> = turnLiveFrames.forTurn(turnId)
-
-    /** The turn's persisted phase; null when the id addresses no turn row. */
-    override fun persistedPhase(turnId: String): TurnState? =
-        runCatching { storage.turns.resolve(turnId) }.getOrNull()?.let { TurnState.valueOf(it.state) }
-
-    /**
-     * The turn's terminal assistant text (its last assistant row) or null — the adapter uses it
-     * so the terminal frame carries the turn's content.
-     */
-    override fun persistedAssistantText(turnId: String): String? {
-        val turn = runCatching { storage.turns.resolve(turnId) }.getOrNull() ?: return null
-        val assistant =
-            storage.messages
-                .listBySession(turn.sessionId)
-                .lastOrNull { it.turnId == turnId && it.role == com.helix.core.model.ModelRole.ASSISTANT.name }
-        return assistant?.let { storage.messages.readContent(it) }?.takeIf { it.isNotBlank() }
-    }
-
     // --------------------------------------------------------------------------------
-    // Turn execution (service-owned; the UI only observes)
+    // Turn admission + application projections. Engine owns the live driver.
     // --------------------------------------------------------------------------------
 
     /**
@@ -3586,55 +3520,33 @@ class ChatService(
                     snapshot,
                 )
             }
-            return launchAndPublishTurn(sessionId, turnId, coordinator, providerId, retryTurnId, effectiveControl)
+            return launchAndPublishTurn(sessionId, coordinator, providerId, retryTurnId, effectiveControl)
         }
     }
 
-    /**
-     * Launches the turn's worker behind a start gate, registers its admission, opens its live-frame
-     * channel and publishes the initial UI — cancelling the job if publication fails before the gate
-     * completes. Split from [launchTurn] (which keeps the turn-start owner/sequence); this unit owns
-     * the worker / register / publish / cancel handshake.
-     */
+    /** The Engine owns the worker/start gate/AgentLoop lifecycle; Chat supplies only app projections. */
     private fun launchAndPublishTurn(
         sessionId: String,
-        turnId: String,
         coordinator: TurnCoordinator,
         providerId: String,
         retryTurnId: String?,
         effectiveControl: RunControlConfig,
         entry: AgentLoop.Entry = AgentLoop.Entry.INITIAL,
-    ): String {
-        // The worker waits behind this gate until its active-turn entry and initial UI are
-        // published. Without the gate, a fast scheduler can begin streaming before register;
-        // stop() in that window cannot find the job and silently fails to cancel the turn.
-        val startGate = CompletableDeferred<Unit>()
-        val job =
-            workScope.launch(start = CoroutineStart.UNDISPATCHED) {
-                runTurn(sessionId, coordinator, providerId, retryTurnId, startGate, effectiveControl, entry)
-            }
-        var published = false
-        try {
-            turnEngine.liveExecution.claim(
-                sessionId = sessionId,
-                turnId = turnId,
-                job = job,
-                control = effectiveControl,
-            )
-            // The turn is live now — open its per-turn live-frame channel so its frames stream to
-            // [AgentTurnHost.observeTurnFrames] observers regardless of the open session (HX2-01 §2c).
-            turnLiveFrames.open(turnId)
-            if (openSessionId == sessionId) {
-                refreshScreen() // publish the committed user message before the model may emit or wait
-                publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
-            }
-            published = true
-        } finally {
-            if (!published) job.cancel()
-            startGate.complete(Unit)
-        }
-        return turnId
-    }
+    ): String =
+        turnEngine.launchExecution(
+            scope = workScope,
+            loop = agentLoop,
+            request =
+                TurnExecutionRequest(
+                    sessionId = sessionId,
+                    coordinator = coordinator,
+                    providerId = providerId,
+                    retryTurnId = retryTurnId,
+                    control = effectiveControl,
+                    entry = entry,
+                ),
+            hooks = executionHooks(sessionId),
+        )
 
     /** Builds the [TurnStartSpec] for a turn start, carrying the persistent submit-dedup receipt (section 34). */
     private fun turnStartSpec(
@@ -3672,125 +3584,6 @@ class ChatService(
             resolveSession = { id -> runCatching { storage.sessions.resolve(id) }.getOrNull() },
         )
 
-    // The boundary catch is deliberately broad. Ordinary unexpected failures terminalize
-    // with a safe label; once an UNKNOWN effect is known, fail-closed uncertainty wins and
-    // the boundary must never rewrite it as FAILED/INTERNAL.
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun runTurn(
-        sessionId: String,
-        coordinator: TurnCoordinator,
-        providerId: String,
-        retryTurnId: String?,
-        startGate: CompletableDeferred<Unit>,
-        control: RunControlConfig,
-        entry: AgentLoop.Entry = AgentLoop.Entry.INITIAL,
-    ) {
-        val turnId = coordinator.id
-        try {
-            startGate.await()
-            when (
-                val result =
-                    agentLoop.runWithGoalTime(coordinator.id) {
-                        agentLoop.runToolLoop(sessionId, coordinator, providerId, retryTurnId, control, entry)
-                    }
-            ) {
-                is TurnLoopResult.Terminal -> terminalize(sessionId, coordinator, result.outcome)
-                is TurnLoopResult.ParkedForReview -> parkTurnForReview(sessionId, coordinator, result.callIds)
-            }
-        } catch (e: com.helix.app.agent.ContextCapacityException) {
-            terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.FAILED, e.code))
-        } catch (e: GoalTimeLimitException) {
-            turnEngine.liveExecution.byTurn(turnId)?.signalCancel()
-            if (!preserveKnownReviewUncertainty(sessionId, coordinator, e)) {
-                terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.FAILED, e.code))
-            }
-        } catch (e: CancellationException) {
-            if (!preserveKnownReviewUncertainty(sessionId, coordinator, e)) {
-                terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
-            }
-            throw e
-        } catch (e: ApprovalCancelledException) {
-            // Approval cancellation is clean only when no sibling has an uncertain external
-            // effect. UNKNOWN wins a simultaneous stop/review race.
-            Log.i(TAG, "turn $turnId stopped while awaiting approval: ${e.message}")
-            if (!preserveKnownReviewUncertainty(sessionId, coordinator, e)) {
-                terminalize(sessionId, coordinator, ModelStreamTerminal(TurnState.CANCELLED, null))
-            }
-        } catch (e: Exception) {
-            if (!preserveKnownReviewUncertainty(sessionId, coordinator, e)) {
-                // A guard reject, corrupt row or vanished provider that has no known external
-                // uncertainty still terminalizes safely; raw exception text is never surfaced.
-                Log.e(TAG, "turn $turnId failed at the model boundary", e)
-                terminalize(
-                    sessionId,
-                    coordinator,
-                    ModelStreamTerminal(TurnState.FAILED, ErrorCode.INTERNAL.name),
-                )
-            }
-        }
-    }
-
-    /** UNKNOWN dominates timeout/cancel/error races once any effect uncertainty is known. */
-    private fun preserveKnownReviewUncertainty(
-        sessionId: String,
-        coordinator: TurnCoordinator,
-        failure: Throwable,
-    ): Boolean {
-        val reviewCallIds = coordinator.settledReviewCallIds()
-        return when {
-            reviewCallIds != null -> {
-                val parked = runCatching { parkTurnForReview(sessionId, coordinator, reviewCallIds) }
-                parked.exceptionOrNull()?.let { parkFailure ->
-                    failClosedUnknownSettlement(sessionId, coordinator, parkFailure)
-                }
-                true
-            }
-
-            coordinator.hasUnknownBatch() -> {
-                failClosedUnknownSettlement(sessionId, coordinator, failure)
-                true
-            }
-
-            else -> {
-                false
-            }
-        }
-    }
-
-    /**
-     * Last-resort path when UNKNOWN was already durably observed but the aggregate review-park
-     * transaction itself failed. Never convert the Turn to FAILED: keep durable non-terminal facts
-     * for restart recovery, stop live ownership, and park queued delivery so no follow-on work can
-     * run against an unresolved external effect.
-     */
-    private fun failClosedUnknownSettlement(
-        sessionId: String,
-        coordinator: TurnCoordinator,
-        failure: Throwable,
-    ) {
-        val turnId = coordinator.id
-        Log.e(TAG, "turn $turnId could not persist review park; keeping uncertainty fail-closed", failure)
-        synchronized(turnGate) {
-            systemStops.remove(turnId)
-            toolCalls.finishTurn(turnId)
-            turnEngine.liveExecution.release(sessionId, turnId)
-            goalContinuation.disarm(sessionId)
-            runCatching {
-                storage.sessionInputs.parkSessionInputs(
-                    sessionId,
-                    "TURN_NEEDS_REVIEW",
-                    clock.now().toEpochMilli(),
-                )
-            }.onFailure { error -> Log.e(TAG, "could not park queued input after review-park failure", error) }
-        }
-        turnLiveFrames.close(turnId)
-        runCatching {
-            refreshScreen()
-            refreshBackgroundTasks()
-            syncGoalReminderForTurn(turnId)
-        }.onFailure { error -> Log.e(TAG, "could not refresh fail-closed review state for turn $turnId", error) }
-    }
-
     private fun applyEvent(
         event: ModelEvent,
         acc: ModelStreamState,
@@ -3802,125 +3595,122 @@ class ChatService(
         publishTurn(TurnUi(turnId, TurnState.RECEIVING_MODEL, acc.text, null, false))
     }
 
-    /**
-     * Commits a non-terminal review park after every ToolCall sibling is durably settled.
-     * Live-loop ownership is released; successor recovery continues from durable review facts.
-     * Queue delivery is parked and is never auto-drained from this path.
-     */
-    private fun parkTurnForReview(
-        sessionId: String,
-        coordinator: TurnCoordinator,
-        callIds: List<String>,
-    ) {
-        val turnId = coordinator.id
-        synchronized(turnGate) {
-            turnEngine.parkForReview(coordinator, sessionId, callIds)
-            systemStops.remove(turnId)
-            toolCalls.finishTurn(turnId)
-            turnEngine.liveExecution.release(sessionId, turnId)
-            goalContinuation.disarm(sessionId)
-        }
-        runCatching {
-            publishTurn(
-                TurnUi(
-                    turnId,
-                    TurnState.NEEDS_REVIEW,
-                    null,
-                    str(R.string.tool_failure_requires_review),
-                    false,
-                ),
-            )
-            turnLiveFrames.close(turnId)
-            refreshScreen()
-            refreshBackgroundTasks()
-            syncGoalReminderForTurn(turnId)
-        }.onFailure { error ->
-            // Durable review truth already committed. Projection/reminder failure must never
-            // escape to the generic runTurn catch and overwrite NEEDS_REVIEW with FAILED/INTERNAL.
-            Log.e(TAG, "post-review-park notification error for turn $turnId", error)
-            turnLiveFrames.close(turnId)
-        }
-    }
-
-    /**
-     * Persists the turn terminal + the assistant content row (when any) + the
-     * model-call terminal, then refreshes the UI state. Runs from the stream
-     * completion, the stop path or the error path — always exactly once.
-     */
-    private fun terminalize(
-        sessionId: String,
-        coordinator: TurnCoordinator,
-        outcome: ModelStreamTerminal,
-    ) {
-        val turnId = coordinator.id
-        var settledOutcome = systemStops.remove(turnId)?.let { outcome.copy(errorCode = it) } ?: outcome
-        // Release the old owner and reserve the next delivery in the same gate as Stop/admission.
-        val continueDelivery =
-            synchronized(turnGate) {
-                settledOutcome = turnEngine.settleTerminal(coordinator, settledOutcome)
-                endTurnSettlement(turnId)
-                goalLifecycle.settle(turnId)
-                goalUserRequests.remove(turnId)
-                turnEngine.liveExecution.release(sessionId, turnId)
-                if (settledOutcome.state != TurnState.COMPLETED) {
-                    storage.sessionInputs.parkSessionInputs(sessionId, "TURN_NOT_COMPLETED", clock.now().toEpochMilli())
-                    goalContinuation.disarm(sessionId)
-                    false
-                } else {
-                    storage.sessionInputs
-                        .listPending(sessionId)
-                        .filter {
-                            it.delivery == SessionInputDelivery.STEER && it.expectedTurnId == turnId &&
-                                it.state == SessionInputState.PENDING
-                        }.forEach {
-                            storage.sessionInputs.markNeedsAttention(
-                                it.inputId,
-                                it.revision,
-                                "STEER_TARGET_FINISHED",
-                                clock.now().toEpochMilli(),
-                            )
-                        }
-                    val queue = storage.sessionInputs.headQueue(sessionId)
-                    if (queue?.state == SessionInputState.PENDING) {
-                        goalContinuation.reserveUserHandoff(sessionId, turnId)
-                    } else if (storage.sessionInputs.listPending(sessionId).isEmpty()) {
-                        goalContinuation.reserveEligibleHandoff(sessionId, turnId)
-                    }
-                    true
+    private fun executionHooks(sessionId: String): TurnExecutionHooks =
+        object : TurnExecutionHooks {
+            override fun beforeExecution(turnId: String) {
+                if (openSessionId == sessionId) {
+                    refreshScreen()
+                    publishTurn(TurnUi(turnId, TurnState.WAITING_MODEL, null, null, false))
                 }
             }
-        dispatchTerminalNotifications(sessionId, turnId, settledOutcome, continueDelivery)
-    }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun dispatchTerminalNotifications(
-        sessionId: String,
-        turnId: String,
-        settledOutcome: ModelStreamTerminal,
-        continueDelivery: Boolean,
-    ) {
-        try {
-            val label = terminalLabel(settledOutcome.state, settledOutcome.errorCode)
-            label?.let {
+            override fun beforeReviewRelease(turnId: String): String? {
+                synchronized(turnGate) {
+                    turnEngine.clearSystemStop(turnId)
+                    toolCalls.finishTurn(turnId)
+                    goalContinuation.disarm(sessionId)
+                }
+                return str(R.string.tool_failure_requires_review)
+            }
+
+            override fun afterReviewRelease(turnId: String) {
                 publishTurn(
-                    TurnUi(turnId, settledOutcome.state, null, it, settledOutcome.state == TurnState.FAILED),
+                    TurnUi(
+                        turnId,
+                        TurnState.NEEDS_REVIEW,
+                        null,
+                        str(R.string.tool_failure_requires_review),
+                        false,
+                    ),
                 )
+                refreshScreen()
+                refreshBackgroundTasks()
+                syncGoalReminderForTurn(turnId)
             }
-            if (label == null) {
-                turnLiveFrames.emit(
-                    turnId,
-                    TurnUi(turnId, settledOutcome.state, null, null, settledOutcome.state == TurnState.FAILED),
+
+            override fun beforeTerminalRelease(
+                turnId: String,
+                outcome: ModelStreamTerminal,
+            ): TurnTerminalProjection =
+                synchronized(turnGate) {
+                    var completed = false
+                    try {
+                        endTurnSettlement(turnId)
+                        goalLifecycle.settle(turnId)
+                        goalUserRequests.remove(turnId)
+                        val continueDelivery =
+                            if (outcome.state != TurnState.COMPLETED) {
+                                goalContinuation.disarm(sessionId)
+                                false
+                            } else {
+                                storage.sessionInputs
+                                    .listPending(sessionId)
+                                    .filter {
+                                        it.delivery == SessionInputDelivery.STEER &&
+                                            it.expectedTurnId == turnId &&
+                                            it.state == SessionInputState.PENDING
+                                    }.forEach {
+                                        storage.sessionInputs.markNeedsAttention(
+                                            it.inputId,
+                                            it.revision,
+                                            "STEER_TARGET_FINISHED",
+                                            clock.now().toEpochMilli(),
+                                        )
+                                    }
+                                val queue = storage.sessionInputs.headQueue(sessionId)
+                                if (queue?.state == SessionInputState.PENDING) {
+                                    goalContinuation.reserveUserHandoff(sessionId, turnId)
+                                } else if (storage.sessionInputs.listPending(sessionId).isEmpty()) {
+                                    goalContinuation.reserveEligibleHandoff(sessionId, turnId)
+                                }
+                                true
+                            }
+                        completed = true
+                        TurnTerminalProjection(
+                            continueDelivery = continueDelivery,
+                            errorLabel = terminalLabel(outcome.state, outcome.errorCode),
+                        )
+                    } finally {
+                        if (!completed) {
+                            goalUserRequests.remove(turnId)
+                            goalContinuation.disarm(sessionId)
+                        }
+                    }
+                }
+
+            override fun afterTerminalRelease(
+                turnId: String,
+                outcome: ModelStreamTerminal,
+                continueDelivery: Boolean,
+            ) {
+                publishTurn(
+                    TurnUi(
+                        turnId,
+                        outcome.state,
+                        null,
+                        terminalLabel(outcome.state, outcome.errorCode),
+                        outcome.state == TurnState.FAILED,
+                    ),
                 )
+                refreshScreen()
+                syncGoalReminderForTurn(turnId)
+                if (continueDelivery) requestSessionDrain(sessionId, turnId)
             }
-            refreshScreen()
-            syncGoalReminderForTurn(turnId)
-            if (continueDelivery) requestSessionDrain(sessionId, turnId)
-        } catch (e: Exception) {
-            // R8: post-terminal UI projection, reminder sync or queue drain failure must never
-            // escape to runTurn's outer catch to overwrite the already durable terminal state.
-            Log.e(TAG, "post-terminal notification error for turn $turnId", e)
+
+            override fun beforeUnknownRelease(turnId: String) {
+                synchronized(turnGate) {
+                    turnEngine.clearSystemStop(turnId)
+                    toolCalls.finishTurn(turnId)
+                    goalContinuation.disarm(sessionId)
+                }
+            }
+
+            override fun afterUnknownRelease(turnId: String) {
+                refreshScreen()
+                refreshBackgroundTasks()
+                syncGoalReminderForTurn(turnId)
+            }
         }
-    }
 
     /**
      * The post-settlement per-turn cleanup shared by the live unwind ([terminalize]) and the
@@ -4074,9 +3864,15 @@ class ChatService(
         }
 
     private fun publishTurn(turn: TurnUi) {
-        // Feed this turn's live-frame channel first (HX2-01 §2c): observers of a NON-open session's
-        // turn get frames here, since the screen below only reflects the one session on screen.
-        turnLiveFrames.emit(turn.id, turn)
+        turnEngine.publishObservation(
+            TurnObservation(
+                turnId = turn.id,
+                state = turn.state,
+                streamingText = turn.streamingText,
+                errorLabel = turn.errorLabel,
+                retryable = turn.retryable,
+            ),
+        )
         if (_backgroundTasks.value.none { it.id == turn.id && it.state == turn.state }) {
             // A turn-state change settles goal runs and can move plans — re-read the dashboard
             // facts too, so an open Tasks screen tracks the same live state as the task list.

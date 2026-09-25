@@ -136,9 +136,9 @@ data class AttachmentBindingIntent(
 }
 
 /**
- * One observable frame of a turn (HX2-01): the UI-facing projection of the turn's reducer state
- * ([com.helix.core.agent.TurnState]). [assistantText] is the streaming model text (the persisted
- * text at the terminal); [errorLabel] is a SAFE user-visible label, never a raw exception message;
+ * One observable frame of a turn (HX2-01): the UI-facing projection of the durable Turn phase.
+ * [assistantText] is the streaming model text (the persisted text at the terminal); [errorLabel]
+ * is a SAFE user-visible label, never a raw exception message;
  * [retryable] marks whether the user may retry. For Act / Goal turns the terminal frame also
  * carries the completion report (HX2-06) and the model's work memory (HX2-07 [TaskLedger]).
  */

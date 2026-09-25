@@ -9,6 +9,7 @@ import com.helix.app.MainActivity
 import com.helix.app.R
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.agent.CancelResult
@@ -43,7 +44,7 @@ class ConversationStopConsistencyDeviceTest {
                     chat.openSession(session)
                     compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
 
-                    chat.send("Test message to hold")
+                    chat.sendTestMessage("Test message to hold")
                     compose.waitUntil(10_000) { server.heldStreams.get() == 1 }
 
                     val activeTurn = chat.screen.value.activeTurn

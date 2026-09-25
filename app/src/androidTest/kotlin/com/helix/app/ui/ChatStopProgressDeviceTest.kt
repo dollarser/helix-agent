@@ -12,6 +12,7 @@ import com.helix.app.MainActivity
 import com.helix.app.R
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
@@ -62,7 +63,11 @@ class ChatStopProgressDeviceTest {
                 compose.waitUntil(10_000) { chat.screen.value.openSessionId == session }
                 verifyEmptyConversation(!(retry && !goalRetry), session)
                 server.holdChatStreams.set(true)
-                if (retry && !goalRetry) chat.send("Reply briefly.") else chat.continueGoal(goal, "Reply briefly.")
+                if (retry && !goalRetry) {
+                    chat.sendTestMessage("Reply briefly.")
+                } else {
+                    chat.continueGoal(goal, "Reply briefly.")
+                }
                 compose.waitUntil(10_000) { server.heldStreams.get() == 1 }
                 compose.onNodeWithTag("chat-message-user").assertIsDisplayed()
                 assertTrue(

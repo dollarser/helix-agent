@@ -4,24 +4,11 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.agent.GoalWakeReason
-import com.helix.core.agent.PendingToolCall
 import com.helix.core.agent.RecoveryCoordinator
-import com.helix.core.agent.ToolOutcome
-import com.helix.core.agent.TurnEffect
-import com.helix.core.agent.TurnEvent
-import com.helix.core.agent.TurnReducer
 import com.helix.core.model.Clock
-import com.helix.core.model.CorrelationId
-import com.helix.core.model.ErrorCode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalState
-import com.helix.core.model.SessionId
-import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolCallState
-import com.helix.core.model.ToolName
-import com.helix.core.model.ToolVersion
-import com.helix.core.model.TurnBudgets
-import com.helix.core.model.TurnId
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.mapping.StoredGoal
@@ -36,7 +23,6 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.time.Instant
 import java.util.UUID
-import com.helix.core.agent.TurnState as RuntimeTurnState
 import com.helix.core.model.TurnState as Phase
 
 /**
@@ -186,7 +172,7 @@ class ProcessRecoveryTest {
         val dying = isolatedStorage(context, "death-3")
         try {
             dying.sessions.create("session-1", "Waiting approval", null, null, 1_000L)
-            dying.advanceTurnTo("turn-1", "session-1", 1_100L, Phase.WAITING_APPROVAL, 1)
+            dying.advanceTurnTo("turn-1", "session-1", 1_100L, Phase.RUNNING_TOOL, 1)
             dying.seedCall(
                 "tc-1",
                 "turn-1",
@@ -308,7 +294,7 @@ class ProcessRecoveryTest {
         storage.seedCall("tc-1", "turn-1", "call-1", "bash", """{"cmd":"sleep 5"}""", ToolCallState.RUNNING)
         storage.seedCall("tc-2", "turn-1", "call-2", "write", """{"path":"/tmp/a"}""", ToolCallState.PENDING)
 
-        storage.advanceTurnTo("turn-2", "session-2", 1_100L, Phase.WAITING_APPROVAL, 1)
+        storage.advanceTurnTo("turn-2", "session-2", 1_100L, Phase.RUNNING_TOOL, 1)
         storage.seedCall("tc-3", "turn-2", "call-3", "write", """{"path":"/tmp/b"}""", ToolCallState.AWAITING_APPROVAL)
 
         storage.advanceTurnTo("turn-3", "session-3", 1_200L, Phase.COMPLETED, 3, 1_500L)
@@ -482,10 +468,6 @@ class ProcessRecoveryTest {
             when (target) {
                 Phase.RUNNING_TOOL -> {
                     listOf(Phase.BUILDING_CONTEXT, Phase.WAITING_MODEL, Phase.RECEIVING_MODEL, Phase.RUNNING_TOOL)
-                }
-
-                Phase.WAITING_APPROVAL -> {
-                    listOf(Phase.BUILDING_CONTEXT, Phase.WAITING_MODEL, Phase.RECEIVING_MODEL, Phase.WAITING_APPROVAL)
                 }
 
                 Phase.COMPLETED -> {

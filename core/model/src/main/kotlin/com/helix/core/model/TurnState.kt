@@ -9,9 +9,6 @@ package com.helix.core.model
  *        -> WAITING_MODEL
  *        -> FAILED                    (pre-call budget gate exhausted)
  *              -> RECEIVING_MODEL
- *                    -> WAITING_APPROVAL
- *                    |      -> RUNNING_TOOL          (approved)
- *                    |      -> RECORDING_TOOL_RESULT (rejected)
  *                    -> RUNNING_TOOL
  *                    -> COMPLETED
  *                    -> FAILED
@@ -22,8 +19,7 @@ package com.helix.core.model
  * A model response's tool calls are a batch: individual PENDING/AWAITING_APPROVAL/RUNNING/
  * terminal states live on ToolCall rows, while the Turn uses RUNNING_TOOL as the aggregate
  * batch phase. Safe reads may execute concurrently; every result is persisted in original
- * call sequence before BUILDING_CONTEXT. WAITING_APPROVAL remains for recovery compatibility
- * with pre-HXA-039 rows, not as the production batch coordinator's single-call queue.
+ * call sequence before BUILDING_CONTEXT. Approval waiting is therefore a ToolCall fact only.
  *
  * any non-terminal state -> CANCELLING -> CANCELLED
  * live UNKNOWN: RUNNING_TOOL/CANCELLING -> NEEDS_REVIEW
@@ -42,7 +38,6 @@ enum class TurnState(
     BUILDING_CONTEXT(false),
     WAITING_MODEL(false),
     RECEIVING_MODEL(false),
-    WAITING_APPROVAL(false),
     RUNNING_TOOL(false),
     RECORDING_TOOL_RESULT(false),
     CANCELLING(false),
@@ -82,16 +77,11 @@ enum class TurnState(
 
                 WAITING_MODEL -> setOf(RECEIVING_MODEL, FAILED)
 
-                RECEIVING_MODEL -> setOf(BUILDING_CONTEXT, WAITING_APPROVAL, RUNNING_TOOL, COMPLETED, FAILED)
-
-                WAITING_APPROVAL -> setOf(RUNNING_TOOL, RECORDING_TOOL_RESULT, FAILED)
+                RECEIVING_MODEL -> setOf(BUILDING_CONTEXT, RUNNING_TOOL, COMPLETED, FAILED)
 
                 RUNNING_TOOL -> setOf(RECORDING_TOOL_RESULT, NEEDS_REVIEW, FAILED)
 
-                // WAITING_APPROVAL/RUNNING_TOOL remain compatibility edges for persisted
-                // pre-HXA-039 serial reducer state; the production batch coordinator does
-                // not take them for new turns.
-                RECORDING_TOOL_RESULT -> setOf(BUILDING_CONTEXT, WAITING_APPROVAL, RUNNING_TOOL, FAILED)
+                RECORDING_TOOL_RESULT -> setOf(BUILDING_CONTEXT, RUNNING_TOOL, FAILED)
 
                 CANCELLING -> setOf(NEEDS_REVIEW, CANCELLED)
 

@@ -5,6 +5,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -178,7 +179,7 @@ class FixedAccessibilityEvaluationDeviceTest {
             container.chatService.openSession(session)
             container.chatService.setMode(AgentMode.valueOf(cells[2]))
             container.chatService.setTurnBudgets(TurnBudgets(8, 6, 131072, 4096, 131072))
-            container.chatService.send(cells[4])
+            container.chatService.sendTestMessage(session, cells[4])
             awaitTurn(session, cells[0])
             val sensitiveProbe = if (cells[0] == "accessibility-003") probeSensitiveAction() else null
             saveResult(cells, session, context, sensitiveProbe)

@@ -427,7 +427,7 @@ class FileManagerService internal constructor(
         overwrite: Boolean,
     ): FileOpResult = moveOrCopy(scopeId, srcRel, dstRel, overwrite, move = false)
 
-    /** Manual operations use the injected backend; legacy workspace-only tests use the store. */
+    /** Manual operations use the injected backend; workspace-only callers may use the direct store path. */
     @Suppress("TooGenericExceptionCaught", "SwallowedException") // I/O failure maps to a fail-closed FileOpResult
     internal fun moveOrCopy(
         scopeId: String,

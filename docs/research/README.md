@@ -20,6 +20,7 @@ Research 不是实现授权，也不是 current backlog。使用顺序：
 - [工具、浏览器与扩展生态](modules/04-tools-browser-and-extensions.md)
 - [Runtime、Provider 与端侧模型](modules/05-runtime-provider-and-on-device-models.md)
 - [评估、证据与研究方法](modules/06-evaluation-and-evidence.md)
+- [Agent 能力决定因素与提升指引](modules/07-agent-capability-determinants-and-improvement-guide.md)
 
 ## 当前最重要的跨模块裁决
 

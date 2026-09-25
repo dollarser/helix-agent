@@ -15,6 +15,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.sendTestMessage
 import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
@@ -231,7 +232,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             await(fixture, "Goal disclosure appears") { fixture.service.screen.value.pendingDisclosure != null }
             fixture.service.cancelPendingSend()
             fixture.wire.script(sseResponse(textAnswerStream("ordinary")))
-            fixture.service.send("Ordinary message")
+            fixture.service.sendTestMessage("Ordinary message")
             await(fixture, "ordinary disclosure appears") { fixture.service.screen.value.pendingDisclosure != null }
             fixture.service.confirmSend()
             await(fixture, "ordinary turn completes") { turnIsTerminal(fixture) }
@@ -441,7 +442,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .TurnBudgets(2, 1, 20_000, 20_000, 20_000),
             )
             fixture.wire.script(sseResponse(textAnswerStream("done")))
-            fixture.service.send("1234")
+            fixture.service.sendTestMessage("1234")
             await(fixture, "bounded request completes") { turnIsTerminal(fixture) }
             assertEquals(1, fixture.wire.callCount)
             val body = org.json.JSONObject(fixture.wire.lastRequestBody)
@@ -485,7 +486,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 com.helix.core.model
                     .TurnBudgets(2, 1, 100, 1, 1),
             )
-            fixture.service.send("1234")
+            fixture.service.sendTestMessage("1234")
             await(fixture, "budget rejection terminalizes") { turnIsTerminal(fixture) }
             assertEquals(0, fixture.wire.callCount)
             assertEquals(
@@ -532,7 +533,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // rows. A plain send (no staging) launches directly — the disclosure is an
             // ATTACHMENT egress gate, not a per-message one.
             fixture.wire.script(sseResponse(textAnswerStream("第二条回复。")))
-            fixture.service.send("继续")
+            fixture.service.sendTestMessage("继续")
             await(fixture, "the second turn completes") { fixture.wire.callCount == 2 && turnIsTerminal(fixture) }
             assertTrue(
                 "the history request must re-carry the attachment block",
@@ -631,7 +632,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // the production image source (bindSession + registry + containment + magic +
             // budget) — the data URL travels again without re-staging.
             fixture.wire.script(sseResponse(textAnswerStream("第二条。")))
-            fixture.service.send("再看一遍")
+            fixture.service.sendTestMessage("再看一遍")
             await(fixture, "the second image turn completes") { fixture.wire.callCount == 2 && turnIsTerminal(fixture) }
             assertTrue(
                 "the history request must re-carry the image data URL",
@@ -719,7 +720,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     fixture.service.restoreDraftAttachments(SESSION_ID, listOf(rawId)).isEmpty()
                 },
             )
-            fixture.service.send("不要发送被篡改的图片")
+            fixture.service.sendTestMessage("不要发送被篡改的图片")
             await(fixture, "tampered normalized image is blocked") {
                 fixture.service.screen.value.blockedReason != null
             }
@@ -775,7 +776,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
         val fixture = newFixture(vision = false)
         try {
             stageImageAttachment(fixture)
-            fixture.service.send("看看这张图")
+            fixture.service.sendTestMessage("看看这张图")
             await(fixture, "the vision gate blocks before any disclosure") {
                 fixture.service.screen.value.blockedReason != null
             }
@@ -838,7 +839,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // The same image re-enters through a fresh import (the staging was consumed by
             // the first send) — the vision gate then blocks the attachment egress.
             stageImageAttachment(fixture)
-            fixture.service.send("再发一次")
+            fixture.service.sendTestMessage("再发一次")
             await(fixture, "the revoked vision blocks the second send") {
                 fixture.service.screen.value.blockedReason != null
             }
@@ -1115,7 +1116,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                 fixture.storage.turns
                     .listBySession(SESSION_ID)
                     .size
-            fixture.service.send("重新发送")
+            fixture.service.sendTestMessage("重新发送")
             await(fixture, "the resend disclosure is shown") {
                 fixture.service.screen.value.pendingDisclosure != null
             }
@@ -1240,7 +1241,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
                     .isNotEmpty()
             ) {
                 fixture.wire.script(sseResponse(textAnswerStream("不可达。")))
-                fixture.service.send("发送这张图")
+                fixture.service.sendTestMessage("发送这张图")
                 await(
                     fixture,
                     "the forged-header send is blocked",
@@ -1319,7 +1320,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
             // The send consumed the staging; the duplicate send re-imports the SAME durable
             // file through a fresh picker import (the picker path is the only staging entry).
             stageTextAttachment(fixture, "e2e duplicate body\n")
-            fixture.service.send("重复发送")
+            fixture.service.sendTestMessage("重复发送")
             await(fixture, "the second disclosure") { fixture.service.screen.value.pendingDisclosure != null }
             fixture.service.confirmSend()
             await(fixture, "the second turn completes") {
@@ -1709,7 +1710,7 @@ class AttachmentE2eDeviceTest : ForegroundDeviceTestHost() {
     }
 
     private fun sendToDisclosure(fixture: Fixture) {
-        fixture.service.send("处理这个附件")
+        fixture.service.sendTestMessage("处理这个附件")
         await(fixture, "the egress disclosure is shown") { fixture.service.screen.value.pendingDisclosure != null }
     }
 

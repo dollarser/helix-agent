@@ -374,7 +374,7 @@ class MainAppCombinedSoakDeviceTest {
     ): String {
         val finalText = "EV04-CHAT-$block"
         requireNotNull(modelServer).arm(emptyList(), finalText)
-        chat.send("EV04 chat probe $block")
+        chat.sendTestMessage("EV04 chat probe $block")
         val turn = requireTerminal(awaitTurn(session, block))
         val sawFinal =
             container.storage.messages.listBySession(session).any {
@@ -400,7 +400,7 @@ class MainAppCombinedSoakDeviceTest {
             ),
             "EV04 files done $block",
         )
-        chat.send("Write then read the file.")
+        chat.sendTestMessage("Write then read the file.")
         val turn = requireTerminal(awaitTurn(session, block))
         val calls = container.storage.toolCalls.listByTurn(turn.id)
         val writeCall = requireNotNull(calls.firstOrNull { it.name == "write" }) { "files: no write call" }
@@ -455,7 +455,7 @@ class MainAppCombinedSoakDeviceTest {
                 ),
                 "EV04 browser done $block",
             )
-            chat.send("Snapshot the page then click the approved link.")
+            chat.sendTestMessage("Snapshot the page then click the approved link.")
             val turn = requireTerminal(awaitTurn(session, block))
             val calls = container.storage.toolCalls.listByTurn(turn.id)
             val snapCall =
@@ -504,7 +504,7 @@ class MainAppCombinedSoakDeviceTest {
             ),
             "EV04 mcp done $block",
         )
-        chat.send("Read the fixture through MCP.")
+        chat.sendTestMessage("Read the fixture through MCP.")
         val turn = requireTerminal(awaitTurn(session, block))
         val mcpCall =
             requireNotNull(
@@ -664,7 +664,7 @@ class MainAppCombinedSoakDeviceTest {
             ),
             "EV04 proot done $block",
         )
-        chat.send("Run the PRoot job and read back its output.")
+        chat.sendTestMessage("Run the PRoot job and read back its output.")
         val turn = requireTerminal(awaitTurn(session, block))
         val calls = container.storage.toolCalls.listByTurn(turn.id)
         val runCall =
@@ -707,7 +707,7 @@ class MainAppCombinedSoakDeviceTest {
                 "cli: provider probe failed for $cliProviderId"
             }
             chat.openSession(session)
-            chat.send("EV04 cli fixture conversation $block")
+            chat.sendTestMessage("EV04 cli fixture conversation $block")
             val turn = requireTerminal(awaitTurn(session, block))
             require(
                 container.storage.messages.listBySession(session).any {

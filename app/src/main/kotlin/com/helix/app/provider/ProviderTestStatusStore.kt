@@ -18,17 +18,11 @@ import kotlinx.serialization.json.jsonPrimitive
  * as "已可用"). Survives process restarts; written only by
  * [ProviderService.runConnectionTest].
  *
- * Line format:
- * `providerId|state|atMillis|phase|code|retryable|capabilitiesJson|[modelIdsJson]`
- * (7 or 8 fields) where `state` is PASSED|FAILED, `phase`/`code` are `0`/`-`
- * when absent and `capabilitiesJson` is the canonical [ProviderCapabilities]
- * snapshot for PASSED rows (PROBED source). The OPTIONAL 8th field (HXA-059) is
- * the JSON array of the backend model list on PASSED rows; it is omitted when
- * there is no list (no list / the backend does not expose one), so 7-field
- * lines written before HXA-059 stay valid and read back as `modelIds = null`.
- * Provider ids are `RandomIdGenerator` output (alphanumeric + `-`/`_`), and
- * `split("|", limit = 8)` keeps field 8 intact even when a model id contains
- * a `|` (the limit stops the split, the remainder rides in field 8).
+ * Canonical line format:
+ * `providerId|state|atMillis|phase|code|retryable|capabilitiesJson|modelIdsJson`.
+ * Exactly eight fields are required. `modelIdsJson` is a JSON string array or literal `null`;
+ * FAILED rows use `-` for capabilities and `null` for model ids. Provider ids are bounded
+ * internal ids, and `split("|", limit = 8)` keeps the final JSON field intact.
  */
 class ProviderTestStatusStore(
     store: LineStore,
@@ -42,31 +36,23 @@ class ProviderTestStatusStore(
     }
 
     /**
-     * Parses one stored line. Any parse failure of the CORE fields (corruption,
-     * unknown enum, bad capabilities JSON) degrades to the CONSERVATIVE
-     * fallback — a corrupt row must never be read as "passed" (fail-closed,
-     * doc 02 section 13). The OPTIONAL 8th field (the HXA-059 model list) is
-     * parsed INDEPENDENTLY: a bad list degrades to `modelIds = null` while the
-     * PASSED status itself is kept (the list is display data; losing it must
-     * not pretend the provider is untested). The caught exceptions are
-     * intentionally discarded: the row is already isolated and the fallback /
-     * null outcome is fixed, so the exception objects carry nothing the caller
-     * can use.
+     * Parses one canonical stored line. Core-field corruption degrades to the conservative
+     * fallback, so corrupt data is never read as passed. Model-list corruption drops only the
+     * display list while preserving an otherwise valid PASSED result.
      */
     @Suppress("SwallowedException")
     private fun parse(
         fields: List<String>?,
         fallback: ConnectionTestStatus,
     ): ConnectionTestStatus {
-        if (fields == null || fields.size < 7) return fallback
+        if (fields == null || fields.size != FIELD_COUNT) return fallback
         return try {
             when (fields[1]) {
                 "PASSED" -> {
                     ConnectionTestStatus.Passed(
                         atMillis = fields[2].toLong(),
                         capabilities = ProviderCapabilities.parse(fields[6]),
-                        // 7-field (pre-HXA-059) rows read back as "no list".
-                        modelIds = parseModelIds(fields.getOrNull(7)),
+                        modelIds = parseModelIds(fields[7]),
                     )
                 }
 
@@ -75,7 +61,7 @@ class ProviderTestStatusStore(
                         atMillis = fields[2].toLong(),
                         phase = fields[3].toInt(),
                         code = ModelErrorCode.valueOf(fields[4]),
-                        retryable = fields[5].toBoolean(),
+                        retryable = fields[5].toBooleanStrict(),
                     )
                 }
 
@@ -91,14 +77,11 @@ class ProviderTestStatusStore(
     }
 
     /**
-     * The HXA-059 model list from field 8: a JSON array of strings, re-run
-     * through the probe's normalization (drop blanks / de-dup / bound) so a
-     * hand-corrupted or hostile file can never grow the UI list without bound.
-     * Any deviation from the exact JSON-string-array shape → `null` (fail
-     * closed: the list is dropped, the PASSED status is kept).
+     * Field 8 is JSON `null` or a string array. Arrays are normalized and bounded again on read;
+     * malformed lists are dropped without changing the core connection-test result.
      */
-    private fun parseModelIds(raw: String?): List<String>? =
-        raw?.let { strictStringArray(it) }?.let(CapabilityProbe::normalizeModelIds)
+    private fun parseModelIds(raw: String): List<String>? =
+        if (raw == NO_MODEL_LIST) null else strictStringArray(raw)?.let(CapabilityProbe::normalizeModelIds)
 
     /**
      * Strict parse of field 8 into a `List<String>`: the value must be a JSON
@@ -139,29 +122,19 @@ class ProviderTestStatusStore(
             null
         }
 
-    /** The HXA-059 model list as the strict JSON array stored in field 8. */
+    /** The model list as the strict JSON array stored in field 8. */
     private fun modelIdsJson(ids: List<String>): String =
         buildJsonArray { ids.forEach { id -> add(JsonPrimitive(id)) } }.toString()
 
-    /**
-     * Records a PASSED run (with the PROBED capabilities snapshot and the
-     * HXA-059 backend model list). An empty/absent list writes the 7-field
-     * line (backward compatible with pre-HXA-059 readers).
-     */
+    /** Records a PASSED run with probed capabilities and the canonical field-8 value. */
     fun recordPassed(
         providerId: String,
         atMillis: Long,
         capabilities: ProviderCapabilities,
         modelIds: List<String>? = null,
     ) {
-        val modelsField = modelIds?.takeIf { it.isNotEmpty() }?.let(::modelIdsJson)
-        val line =
-            if (modelsField == null) {
-                "$providerId|PASSED|$atMillis|0|-|false|${toJsonString(capabilities)}"
-            } else {
-                "$providerId|PASSED|$atMillis|0|-|false|${toJsonString(capabilities)}|$modelsField"
-            }
-        replace(providerId, line)
+        val modelsField = modelIds?.takeIf { it.isNotEmpty() }?.let(::modelIdsJson) ?: NO_MODEL_LIST
+        replace(providerId, "$providerId|PASSED|$atMillis|0|-|false|${toJsonString(capabilities)}|$modelsField")
     }
 
     /** Records a FAILED run (phase 1..4 + the safe error code class). */
@@ -172,7 +145,7 @@ class ProviderTestStatusStore(
         code: ModelErrorCode,
         retryable: Boolean,
     ) {
-        replace(providerId, "$providerId|FAILED|$atMillis|$phase|${code.name}|$retryable|-")
+        replace(providerId, "$providerId|FAILED|$atMillis|$phase|${code.name}|$retryable|-|$NO_MODEL_LIST")
     }
 
     /** Drops the recorded status (provider deleted). */
@@ -190,5 +163,7 @@ class ProviderTestStatusStore(
 
     private companion object {
         const val KEY = "provider_test_status"
+        const val FIELD_COUNT = 8
+        const val NO_MODEL_LIST = "null"
     }
 }

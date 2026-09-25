@@ -1,5 +1,7 @@
 package com.helix.app.chat
 
+import com.helix.app.engine.TurnObservation
+import com.helix.app.engine.TurnRuntimeView
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.AgentRuntime
 import com.helix.core.agent.CancelResult
@@ -13,54 +15,33 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 /**
- * The app-layer [AgentRuntime] (research doc section 34; HX2-01): the production turn path exposed
- * through the framework-free core contract. Every entry point (Chat / Goal / Share / Voice /
- * Widget / Channel) drives a turn through this, and this delegates to the existing, proven turn
- * machinery via [AgentTurnHost] — never reaching into the model provider or the tool pipeline.
- *
- * [observe] streams ANY live turn independently of the open session. The live flow closes at a
- * terminal or durable parked phase (NEEDS_REVIEW / INTERRUPTED); a subscriber that joins after
- * that boundary is projected from persisted state instead of reviving a live flow.
+ * Thin app adapter from the framework-free [AgentRuntime] contract to the Chat command seam and
+ * Engine-owned runtime view. It owns no Turn execution state.
  */
 internal class AppAgentRuntime(
-    private val host: AgentTurnHost,
+    private val startTurn: suspend (SubmitTurnCommand, RunControlConfig) -> String?,
+    private val cancelTurn: suspend (String) -> TurnCancelOutcome,
+    private val runtime: TurnRuntimeView,
 ) : AgentRuntime {
     override suspend fun submit(command: SubmitTurnCommand): TurnId {
-        val turnId =
-            host.startTurn(
-                sessionId = command.session.value,
-                clientRequestId = command.clientRequestId,
-                revisedMessageId = command.revisedMessageId,
-                regenerateMessageId = command.regenerateMessageId,
-                text = command.text,
-                providerId = command.providerId.value,
-                retryTurnId = command.retryTurnId?.value,
-                goalId = command.goalId?.value,
-                attachments = command.attachments,
-                continuousGoal = command.continuousGoal,
-                goalContinuation = command.goalContinuation,
-                directUserRequest = command.directUserRequest,
-                control =
-                    RunControlConfig(
-                        command.mode,
-                        command.chatToolsEnabled,
-                        command.budgets,
-                        command.reasoning,
-                        command.goalBudgets ?: com.helix.app.runcontrol.GoalBudgetDefaults.VALUE,
-                    ),
-            ) ?: throw TurnStartBlocked()
+        val control =
+            RunControlConfig(
+                command.mode,
+                command.chatToolsEnabled,
+                command.budgets,
+                command.reasoning,
+                command.goalBudgets ?: com.helix.app.runcontrol.GoalBudgetDefaults.VALUE,
+            )
+        val turnId = startTurn(command, control) ?: throw TurnStartBlocked()
         return TurnId(turnId)
     }
 
     override suspend fun cancel(turnId: TurnId): CancelResult {
-        val phase = host.persistedPhase(turnId.value)
+        val phase = runtime.persistedPhase(turnId.value)
         if (phase == null) return CancelResult.NotFound
-        // The durable terminal can precede release of the live owner or its successor handoff.
-        // Only the host can atomically stop that delivery without revoking a newer Turn's Goal.
-        return when (val outcome = host.cancelTurn(turnId.value)) {
+        return when (val outcome = cancelTurn(turnId.value)) {
             is TurnCancelOutcome.AlreadyTerminal -> CancelResult.AlreadyTerminal(outcome.phase)
             TurnCancelOutcome.StoppedLive -> CancelResult.StopAccepted
-            TurnCancelOutcome.DiscardedParked -> CancelResult.Cancelled
             TurnCancelOutcome.ReviewRequired -> CancelResult.ReviewRequired
         }
     }
@@ -68,9 +49,9 @@ internal class AppAgentRuntime(
     override fun observe(turnId: TurnId): Flow<TurnSnapshot> =
         flow {
             var sawDurableStop = false
-            host
-                .observeTurnFrames(turnId.value)
-                .map { frame -> liveSnapshot(turnId, frame) }
+            runtime
+                .observe(turnId.value)
+                .map { observation -> liveSnapshot(turnId, observation) }
                 .distinctUntilChanged()
                 .collect { snapshot ->
                     if (snapshot.isTerminal || snapshot.phase in PARKED_PHASES) sawDurableStop = true
@@ -83,21 +64,21 @@ internal class AppAgentRuntime(
             // state so the observer still lands on the turn's real phase. A turn that does not
             // exist yields no persisted phase and ends the stream empty.
             if (!sawDurableStop) {
-                host.persistedPhase(turnId.value)?.let { phase -> emit(persistedSnapshot(turnId, phase)) }
+                runtime.persistedPhase(turnId.value)?.let { phase -> emit(persistedSnapshot(turnId, phase)) }
             }
         }
 
     /** A live frame for this turn, projected onto a [TurnSnapshot] (streaming text carried). */
     private fun liveSnapshot(
         turnId: TurnId,
-        frame: TurnUi,
+        observation: TurnObservation,
     ): TurnSnapshot =
         TurnSnapshot(
             turnId = turnId,
-            phase = frame.state,
-            assistantText = textFor(turnId, frame.state, frame.streamingText),
-            errorLabel = frame.errorLabel,
-            retryable = frame.retryable,
+            phase = observation.state,
+            assistantText = textFor(turnId, observation.state, observation.streamingText),
+            errorLabel = observation.errorLabel,
+            retryable = observation.retryable,
         )
 
     /** The turn's persisted phase (a late subscriber, or a turn that ended before we subscribed). */
@@ -118,9 +99,23 @@ internal class AppAgentRuntime(
         turnId: TurnId,
         phase: TurnState,
         liveText: String?,
-    ): String? = if (phase.isTerminal) host.persistedAssistantText(turnId.value) ?: liveText else liveText
+    ): String? = if (phase.isTerminal) runtime.persistedAssistantText(turnId.value) ?: liveText else liveText
 
     private companion object {
         val PARKED_PHASES = setOf(TurnState.NEEDS_REVIEW, TurnState.INTERRUPTED)
     }
+}
+
+internal class TurnStartBlocked(
+    message: String = "the turn could not start; its session refused the start",
+) : RuntimeException(message)
+
+internal sealed interface TurnCancelOutcome {
+    data class AlreadyTerminal(
+        val phase: TurnState,
+    ) : TurnCancelOutcome
+
+    data object StoppedLive : TurnCancelOutcome
+
+    data object ReviewRequired : TurnCancelOutcome
 }

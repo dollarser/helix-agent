@@ -1,68 +1,19 @@
 package com.helix.app.connector
 
 import com.helix.core.storage.HelixStorage
-import com.helix.core.storage.entity.ConnectorCatalogStateEntity
 import com.helix.core.storage.entity.ConnectorInstallationEntity
 import com.helix.core.storage.entity.ConnectorSkillOwnershipEntity
 import com.helix.core.storage.entity.SessionConnectorEntity
 import com.helix.extensions.skills.SkillKey
 import com.helix.extensions.skills.SkillSource
-import java.nio.file.Files
-import java.nio.file.Path
 
 /** Durable installation/source facts. User choice and send admission share this local gate. */
 @Suppress("TooManyFunctions") // one application facade for the installation/source facts
 class ConnectorCatalog(
     private val storage: HelixStorage,
-    legacyRoot: Path,
 ) {
     val mutationLock get() = storage.connectorMutationLock
     private val dao = storage.connectors
-
-    init {
-        storage.withTransaction {
-            if (dao.migrated() == 0) {
-                preserveLegacySkills(legacyRoot.parent.resolve("skills/snapshots"))
-                if (Files.isDirectory(legacyRoot)) {
-                    Files.list(legacyRoot).use { paths ->
-                        paths.filter { it.fileName.toString().endsWith(".json") }.sorted().forEach { path ->
-                            val legacy = decode(Files.readAllBytes(path).toString(Charsets.UTF_8))
-                            val identified = legacyConnectorIdentity(legacy)
-                            val record = if (list().any { it.identity == identified.identity }) legacy else identified
-                            dao.insert(entity(record))
-                            record.endpoints.forEach { claimEndpoint(it.id) }
-                            // Old installs cannot prove absence of independent ownership.
-                            record.skills.forEach { claim(it, independent = true) }
-                            storage.sessions.list().forEach { session ->
-                                if (record.sessionScoped) dao.select(SessionConnectorEntity(session.id, record.id))
-                            }
-                        }
-                    }
-                }
-                dao.markMigrated(ConnectorCatalogStateEntity("legacy-imported"))
-            }
-        }
-    }
-
-    private fun preserveLegacySkills(root: Path) {
-        if (!Files.isDirectory(root)) return
-        Files.walk(root, 2).use { paths ->
-            paths
-                .filter { path ->
-                    Files.isDirectory(path, java.nio.file.LinkOption.NOFOLLOW_LINKS) &&
-                        path.parent?.parent == root && path.fileName.toString().matches(Regex("[a-f0-9]{64}"))
-                }.forEach { hashDirectory ->
-                    claim(
-                        SkillKey(
-                            SkillSource.USER_IMPORTED,
-                            hashDirectory.parent.fileName.toString(),
-                            hashDirectory.fileName.toString(),
-                        ),
-                        independent = true,
-                    )
-                }
-        }
-    }
 
     fun claimEndpoint(id: String) {
         dao.claimEndpoint(

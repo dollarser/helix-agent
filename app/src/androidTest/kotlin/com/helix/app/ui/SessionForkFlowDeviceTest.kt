@@ -11,6 +11,7 @@ import androidx.compose.ui.test.printToLog
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -62,7 +63,7 @@ class SessionForkFlowDeviceTest {
                     val branch = requireNotNull(chat.screen.value.openSessionId)
                     compose.onNodeWithTag("session-fork-notice").assertExists()
                     assertTrue(storage.turns.listBySession(branch).isEmpty())
-                    chat.send("Continue the alternate approach")
+                    chat.sendTestMessage("Continue the alternate approach")
                     compose.waitUntil(20_000) {
                         storage.turns
                             .listBySession(branch)

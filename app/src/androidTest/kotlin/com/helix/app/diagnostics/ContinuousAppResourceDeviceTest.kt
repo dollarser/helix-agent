@@ -5,7 +5,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
-import com.helix.app.ProductionMigrationDeviceTest
+import com.helix.app.ProductionStorageBaselineDeviceTest
 import com.helix.app.foreground.DataSyncForegroundServiceDeviceTest
 import com.helix.app.runcontrol.AndroidResourceGateDeviceTest
 import org.junit.Assert.assertTrue
@@ -162,7 +162,7 @@ class ContinuousAppResourceDeviceTest {
     private fun runCycle() {
         val result =
             JUnitCore.runClasses(
-                ProductionMigrationDeviceTest::class.java,
+                ProductionStorageBaselineDeviceTest::class.java,
                 DataSyncForegroundServiceDeviceTest::class.java,
                 AndroidResourceGateDeviceTest::class.java,
             )

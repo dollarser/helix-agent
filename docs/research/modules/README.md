@@ -19,6 +19,7 @@
 5. [工具、浏览器与扩展生态](04-tools-browser-and-extensions.md)
 6. [Runtime、Provider 与端侧模型](05-runtime-provider-and-on-device-models.md)
 7. [评估、证据与研究方法](06-evaluation-and-evidence.md)
+8. [Agent 能力决定因素与提升指引](07-agent-capability-determinants-and-improvement-guide.md)
 
 ## 冲突裁决规则
 

@@ -1,6 +1,6 @@
 # 当前实施状态
 
-更新：2026-09-25。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
+更新：2026-09-26。此页只维护当前结论、下一步和未闭合边界；命令、制品和历史数字归完成记录与证据。现场 HEAD、工作树、远端及设备状态须重新核对。
 
 ## Completed
 
@@ -19,20 +19,24 @@
 - HXA-217 轻量请求来源记录与 JSONL 可追踪性已完成本地实现与验收，Room 27→28 迁移与设备测试通过，UI 第二阶段对齐 Operit（Thinking Accordion、工具执行内联预览）落地，见[完成记录](../completion-records/HXA-217.md)。
 - HXA-196 有租期的独立后台命令 Job 已交付，见[完成记录](../completion-records/HXA-196.md)；异步工具 `code.linux.job.start/status/cancel/collect` 注册、Tasks 面板投影、租期超时控制以及主进程 SIGKILL 硬杀后的 `:proot` 存活与终态证明落盘已全量通过。
 - HXA-199 终端专项集成与交付已交付，见[完成记录](../completion-records/HXA-199.md)；双 API 模拟器 144 项矩阵、真实 2 小时租期与 30 分钟脱离 idle、双 shell 恢复、覆盖安装升级及 OnePlus 6T 物理真机核心专项均通过验收。
+- HXA-220 Core Engine / TurnEngine 生命周期收敛已完成主机验收，见[完成记录](../completion-records/HXA-220.md)：Engine-owned AgentLoop driver/observation、successor recovery、独立 review receipt 已落地，旧 AgentTurnHost/TurnLiveFrames/serial Turn reducer/Turn-level WAITING_APPROVAL 已删除；设备 `not requested`。
+- HXA-221 Pre-release clean-slate baseline cleanup 已完成主机验收，见[完成记录](../completion-records/HXA-221.md)：Room 重置为唯一 v1 / 45-table baseline，1→31 migration 链与旧 Connector/Provider/Criteria/Chat 内部兼容路径已删除；外部协议/Android 兼容保留，设备 `not requested`。
 
 ## In progress
 
-- [HXA-220](tasks/HXA-220.md)：Core Engine / TurnEngine 生命周期收敛。R1-F 已按 pre-release clean-slate 原则重新收口并通过本轮 host gate：当前 `turn_runtime_records` 不再承载 review receipt/old ModelCall identity，Turn review command 幂等拆为独立 immutable `turn_review_receipts`，legacy `RESUMED/ABANDONED` production compatibility 已删除。下一步 E1-B4 AgentLoop execution boundary。设备状态 `not requested`。
 - [HXA-126](tasks/HXA-126.md)：预注册 public-client OAuth 核心切片已整合，见[修复与验证](../bug-fixes/2026-09-21-connector-oauth-merge.md)；两家真实服务与动态注册仍未完成。
+
+## Planned / deferred
+
+- [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。当前重构只保留“不把 Provider 公共边界绑死到 HTTP endpoint”的接口方向；native/runtime/model asset/UI 不进入当前主线。
 
 结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。[深度复审](../research/modules/01-architecture-and-execution-engine.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。
 
 ## Next task
 
-- 当前编码主线继续 HXA-220：**E1-B4 AgentLoop execution boundary**，之后推进 B5 observe/adapter 与 E2/E3 cleanup。保留 successor recovery / effect gate / v31 clean-slate migration，不保留废弃 same-Turn compatibility。
-- HXA-126 保持外部服务/账号条件未闭合；不阻塞 HXA-220 的本地主机切片。
-- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”；当前仅为已接受设计，尚未启动代码实现 HXA，真正开始实现时再建立开发任务。
-- HXA-220 主机范围完成后，再按优先级评估 ADR-WORKSPACE-004（HXA-210）、本地模型 Provider 或其他新功能；只有项目所有者当前明确把设备 acceptance 设为前置时，才需要先完成对应设备验收。
+- 当前编码主线继续 **`refactor/clean-slate-engine` 重构收口与架构复审**：HXA-220/221 已完成，下一步优先复核剩余 ownership/竞态与结构边界，尤其现有深度复审仍未闭合的 R4 实际竞态证据；不在本轮开启新增产品功能。
+- HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
+- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”；HXA-222 已规划但暂缓，待重构主线稳定后再切换为进行中。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 
@@ -50,7 +54,7 @@
 
 ## Current interfaces
 
-- **执行引擎**：TurnEngine 已成为 fresh admission、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate 的持久生命周期入口；Room v30 的 `turn_runtime_records` 保存 immutable execution snapshot 与当前 Turn usage/audit。ADR 当前实现已经切到 old Turn execution-terminal + successor Turn continuation；same-Turn resume 的 production caller 已清零，仅剩 caller=0 的 dead helper 与 v30 receipt/schema 只读兼容。ChatService 暂时仍是 AgentLoop/stream/live Job 的 process-local driver。
+- **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Room 当前是 HXA-221 的 v1 clean-slate baseline，`turn_runtime_records` 只保存 immutable execution snapshot 与当前 Turn usage/audit。old Turn execution-terminal + successor Turn continuation 已完成，same-Turn resume/legacy driver production path 已删除。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
 - **上下文与结果**：工具显示和模型投影分离，大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
 - **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；具体本地推理 Runtime/模型资产尚未实现。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。

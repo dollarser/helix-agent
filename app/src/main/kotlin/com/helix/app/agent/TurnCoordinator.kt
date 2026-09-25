@@ -65,8 +65,7 @@ internal data class BatchTurnSnapshot(
 /**
  * Pure in-process checkpoint for the production batch Turn loop.
  *
- * It deliberately does not reuse the M1 serial [com.helix.core.agent.TurnReducer]: a tool
- * response is one batch whose calls may be concurrently active and independently settle or
+ * A tool response is one batch whose calls may be concurrently active and independently settle or
  * become unknown. The durable ToolCall rows remain authoritative for per-call execution state;
  * this checkpoint owns the aggregate Turn phase and the current ModelCall/stream identity.
  */

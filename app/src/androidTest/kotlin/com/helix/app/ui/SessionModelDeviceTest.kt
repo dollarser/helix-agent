@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
@@ -77,7 +78,7 @@ class SessionModelDeviceTest {
                             ?.model == "fixture-model-b"
                     }
                     assertTrue(storage.sessions.list().none { it.id == chat.screen.value.openSessionId })
-                    chat.send("First model choice")
+                    chat.sendTestMessage("First model choice")
                     compose.waitUntil(20_000) {
                         chat.screen.value.activeTurn
                             ?.state
@@ -110,7 +111,7 @@ class SessionModelDeviceTest {
                     }
                     compose.onNodeWithTag("chat-model-menu").assertIsDisplayed()
                     server.holdChatStreams.set(true)
-                    chat.send("Hold selected model")
+                    chat.sendTestMessage("Hold selected model")
                     compose.waitUntil(20_000) { server.heldStreams.get() == 1 }
                     compose.onNodeWithTag("chat-model-menu").assertIsNotEnabled()
                     chat.selectSessionModel(provider, "fixture-model-a")

@@ -26,7 +26,7 @@ Android 进程死亡还要求区分两类事实：数据库可以原子提交的
 - startup recovery、INTERRUPTED 终局与 RecoverySummary 事实投影；
 - durable runtime snapshot 与当前 Turn 的预算/用量记账。
 
-ChatService 可以在迁移期保留 UI、draft/composer、流式 frame 和 AgentLoop 的 process-local driver，但不得直接写 Turn lifecycle。Room 是 durable truth；Job、Flow、cancel signal、startGate 只属于可丢的进程内执行句柄。
+TurnEngine 同时拥有 durable lifecycle 与 process-local AgentLoop driver；ChatService 只保留 UI、draft/composer、Goal/queue application projection seam，不再持有 worker/startGate/terminal/review settlement。Room 是 durable truth；Job、observation Flow、cancel signal、startGate 都是 Engine 管理的可丢进程内执行句柄。
 
 生产 fresh Turn 必须从 TurnAdmission 进入。GoalRunCoordinator 和 TurnCoordinator 可以作为 Engine 内部 collaborator，但其他入口不得直接调用它们创建 Turn。
 
@@ -211,6 +211,7 @@ UI 不直接访问 DAO。
 - **2026-09-25**：HXA-220 实施中进一步收敛 v30 `turn_runtime_records`、DurableSessionGate、Engine-owned cancel/park/terminal/recovery。
 - **2026-09-25**：结合 Codex/Claude/OpenCode/DeepSeek Harness 与移动端竞品复核，**废止 same-Turn/same-GoalRun crash resume 方向**；采用 old Turn execution-terminal + successor-Turn continuation + RecoverySummary。effect review、execution-start boundary、request idempotency 和 ExecutionOwnership 保留。
 - **2026-09-26**：项目尚未正式上线，R1-F 采用 clean-slate cutover：当前 `turn_runtime_records` 删除 same-Turn review receipt/old ModelCall identity；Turn 级 review 命令幂等独立到 immutable `turn_review_receipts`，逐 ToolCall effect truth 仍在 `tool_call_reviews`，不保留 `RESUMED/ABANDONED` production compatibility。
+- **2026-09-26**：E1-B4/B5/E2/E3 收敛完成：Engine-owned driver/observation 接管 AgentLoop 与 live Turn ownership；删除 `AgentTurnHost`、Chat-owned `TurnLiveFrames`、legacy serial Turn reducer；Turn-level `WAITING_APPROVAL` 删除，审批等待仅是 ToolCall durable fact。
 
 ## Alternatives considered
 
@@ -231,7 +232,7 @@ TurnEngine 仍是唯一 durable owner，UNKNOWN、取消、恢复、Queue、Goal
 
 `turn_runtime_records` 只保留 immutable execution config 与 live usage/audit checkpoint；same-Turn review receipt、next ModelCall rehydrate、old Turn budget restore 和 same-run Goal review 已从当前生产模型删除。Turn 级 review 命令幂等由独立 `turn_review_receipts` 承担，逐 ToolCall effect truth 由 `tool_call_reviews` 承担。新增成本是 successor/predecessor identity、RecoverySummary 和 unresolved-effect side-effect gate；这些事实比恢复旧 control state 更直接可解释。
 
-迁移期 ChatService 仍可以作为 live AgentLoop driver，但不得绕过 Engine 写 durable lifecycle。后续 HXA 继续把 Job registry、cancel/timer、AgentLoop 和 TurnLiveFrames 收进 Engine，不因恢复策略变化回退 single-owner 方向。
+ChatService 已不再作为 live AgentLoop driver：Job registry、cancel/timer、AgentLoop execution 与 per-Turn observation 均由 Engine-owned seam 管理；ChatService 只消费 settlement/observation 更新 UI、reminder 与 queue scheduling。后续不得重新引入第二套 live/durable owner。
 
 ## Verification
 
@@ -261,4 +262,4 @@ AI 代理执行 host tests、静态检查和 AndroidTest APK 编译；模拟器/
 - [Runtime 执行域](../runtime/001-execution-domains.md)
 - [权限与审计](../permissions/README.md)
 - [实施状态](../../development/status.md)
-- [HXA-220](../../development/tasks/HXA-220.md)
+- [HXA-220 交付记录](../../completion-records/HXA-220.md)

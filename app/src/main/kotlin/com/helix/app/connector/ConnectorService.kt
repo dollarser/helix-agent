@@ -25,7 +25,7 @@ class ConnectorService(
     private val importer: SkillImportService,
     private val skills: SkillRepository,
     val oauthCoordinator: com.helix.app.mcp.oauth.McpOAuthCoordinator? = null,
-    val catalog: ConnectorCatalog = ConnectorCatalog(storage, context.filesDir.toPath().resolve("connectors")),
+    val catalog: ConnectorCatalog = ConnectorCatalog(storage),
     private val installBoundary: (String) -> Unit = {},
 ) {
     private val snapshots = context.filesDir.toPath().resolve("skills/snapshots")

@@ -270,7 +270,7 @@ UI 自动化三条通道（无障碍 / Shizuku / Root）、PRoot Ubuntu 24.04、
 本文只解释**为什么端侧 Agent 需要把“上下文恢复”与“外部副作用真相”分开处理**，不是当前任务规格。2026-09-25 同日产生的 Wave/playbook/handoff 文档已经完成使命，其有效结论已收敛到两个长期入口：
 
 - [ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)：TurnEngine、UNKNOWN/review、process-death recovery、runtime snapshot、Queue/Steer、same-Turn resume 与 ExecutionOwnership 的当前长期契约；
-- [HXA-220](../../development/tasks/HXA-220.md)：上述契约的当前实施范围、剩余工作与验收入口。
+- [HXA-220 交付记录](../../completion-records/HXA-220.md)：上述契约的实现结果与主机验收证据。
 
 原临时实现/交接文档已删除，逐字历史可从 Git 获取；不要再从历史 Wave 卡片恢复已被当前 ADR/HXA 改写的顺序或结论。
 

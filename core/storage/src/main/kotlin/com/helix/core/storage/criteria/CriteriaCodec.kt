@@ -1,12 +1,8 @@
 package com.helix.core.storage.criteria
 
 import com.helix.core.model.ArtifactRef
-import com.helix.core.model.CriterionPendingReview
-import com.helix.core.model.CriterionVerificationBinding
-import com.helix.core.model.CriterionVerificationRecord
 import com.helix.core.model.ToolCallId
 import com.helix.core.storage.internal.Value
-import com.helix.core.storage.internal.asBool
 import com.helix.core.storage.internal.asString
 import com.helix.core.storage.internal.parseStrictArray
 
@@ -21,7 +17,6 @@ data class StoredEvidence(
     val verifier: String,
     val artifactRef: ArtifactRef?,
     val toolCallId: ToolCallId?,
-    val verification: CriterionVerificationRecord? = null,
 ) {
     init {
         require(verifier.isNotBlank() && verifier.length <= MAX_VERIFIER_LENGTH) {
@@ -41,12 +36,8 @@ data class StoredCriterion(
     val id: String,
     val description: String,
     val evidence: StoredEvidence?,
-    val binding: CriterionVerificationBinding? = null,
-    val pendingReview: CriterionPendingReview? = null,
 ) {
     init {
-        require(pendingReview == null || pendingReview.matches(binding, id, description))
-        require(pendingReview == null || evidence == null)
         require(id.length in 1..MAX_ID_LENGTH && id.all { it in ID_CHARS }) {
             "criterion id must be 1..$MAX_ID_LENGTH chars of [A-Za-z0-9_-]"
         }
@@ -54,13 +45,6 @@ data class StoredCriterion(
             "description must be 1..$MAX_DESCRIPTION_LENGTH non-blank chars"
         }
     }
-
-    /**
-     * Legacy wire flag records evidence presence only: under ADR-0040 it gates nothing and
-     * completion is the model's judgment; it is historical data for old rows.
-     */
-    val satisfied: Boolean
-        get() = evidence != null
 
     companion object {
         const val MAX_ID_LENGTH = 64
@@ -73,10 +57,8 @@ data class StoredCriterion(
 
 /**
  * Canonical storage encoding of the criteria list: a JSON array of objects with fixed field
- * order `id, description, satisfied, evidence` (evidence: `verifier, artifactRef, toolCallId`;
- * absent references are `null`), same strict rules as the ADR-0001 subset. `satisfied` is
- * derived: true iff evidence is present, including legacy historical evidence. Optional versioned
- * binding/verification fields never upgrade a legacy reference into a validated receipt.
+ * order `id, description, evidence` (evidence: `verifier, artifactRef, toolCallId`; absent
+ * references are `null`). Evidence presence is the only criterion-progress fact stored here.
  */
 object CriteriaCodec {
     fun encode(criteria: List<StoredCriterion>): String {
@@ -95,31 +77,11 @@ object CriteriaCodec {
                         "\"evidence\":{" +
                             "\"verifier\":\"${escape(evidence.verifier)}\"," +
                             "\"artifactRef\":${encodeRef(evidence.artifactRef?.value)}," +
-                            "\"toolCallId\":${encodeRef(evidence.toolCallId?.value)}" +
-                            (
-                                evidence.verification?.let {
-                                    ",\"verification\":" +
-                                        CriterionVerificationCodec.encode(
-                                            it,
-                                        )
-                                }
-                                    ?: ""
-                            ) +
-                            "}"
+                            "\"toolCallId\":${encodeRef(evidence.toolCallId?.value)}}"
                     }
                 "{\"id\":\"${escape(c.id)}\"," +
                     "\"description\":\"${escape(c.description)}\"," +
-                    "\"satisfied\":${c.satisfied}," +
                     evidencePart +
-                    (c.binding?.let { ",\"binding\":" + CriterionVerificationCodec.encodeBinding(it) } ?: "") +
-                    (
-                        c.pendingReview?.let {
-                            ",\"pendingReview\":" +
-                                CriterionVerificationCodec.encodeReview(
-                                    it,
-                                )
-                        } ?: ""
-                    ) +
                     "}"
             }
     }
@@ -139,38 +101,30 @@ object CriteriaCodec {
 
     private fun parseCriterion(item: Value): StoredCriterion {
         val entries = (item as? Value.Obj)?.entries ?: requireNotNull(null) { "criterion must be an object" }
-        val fields = listOf("id", "description", "satisfied", "evidence")
-        require(
-            entries.keys.toList() in listOf(fields, fields + "binding", fields + listOf("binding", "pendingReview")),
-        ) {
-            "criterion requires id, description, satisfied, evidence in that order"
+        val fields = listOf("id", "description", "evidence")
+        require(entries.keys.toList() == fields) {
+            "criterion requires id, description, evidence in that order"
         }
         val id = entries.getValue("id").asString("id")
         val description = entries.getValue("description").asString("description")
-        val satisfied = entries.getValue("satisfied").asBool("satisfied")
         val evidence =
             when (val evidenceValue = entries.getValue("evidence")) {
                 is Value.Null -> null
                 is Value.Obj -> parseEvidence(evidenceValue.entries)
                 else -> requireNotNull(null) { "evidence must be an object or null" }
             }
-        val binding = entries["binding"]?.let(CriterionVerificationCodec::decodeBinding)
-        val review = entries["pendingReview"]?.let(CriterionVerificationCodec::decodeReview)
-        val criterion = StoredCriterion(id, description, evidence, binding, review)
-        require(criterion.satisfied == satisfied) { "criterion '$id' satisfied flag disagrees with evidence" }
-        return criterion
+        return StoredCriterion(id, description, evidence)
     }
 
     private fun parseEvidence(entries: LinkedHashMap<String, Value>): StoredEvidence {
         val fields = listOf("verifier", "artifactRef", "toolCallId")
-        require(entries.keys.toList() == fields || entries.keys.toList() == fields + "verification") {
+        require(entries.keys.toList() == fields) {
             "evidence requires verifier, artifactRef, toolCallId in that order"
         }
         return StoredEvidence(
             verifier = entries.getValue("verifier").asString("verifier"),
             artifactRef = parseRef(entries.getValue("artifactRef"), "artifactRef")?.let { ArtifactRef(it) },
             toolCallId = parseRef(entries.getValue("toolCallId"), "toolCallId")?.let { ToolCallId(it) },
-            verification = entries["verification"]?.let(CriterionVerificationCodec::decode),
         )
     }
 

@@ -206,21 +206,6 @@ class GoalRunCoordinatorDeviceTest {
         withStorage { storage ->
             val coordinator = coordinator(storage)
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
-            val stored = storage.goals.resolve(id)
-            storage.goals.updateGoal(
-                stored.copy(
-                    criteria =
-                        stored.criteria.map {
-                            it.copy(
-                                binding =
-                                    com.helix.core.model.CriterionVerificationBinding(
-                                        com.helix.core.model.CriterionVerificationMethod.LOCAL_TOOL_SUCCESS,
-                                        "read",
-                                    ),
-                            )
-                        },
-                ),
-            )
             val first = requireNotNull(coordinator.start(request(id, "first")))
             first.coordinator.beginModelStream()
             first.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))

@@ -58,21 +58,6 @@ class LongTurnCompactionDeviceTest {
                     listOf("Verified result"),
                     GoalBudgets(40, 40, 400000, 600000, 300000, 1),
                 )
-            val stored = storage.goals.resolve(goal)
-            storage.goals.updateGoal(
-                stored.copy(
-                    criteria =
-                        stored.criteria.map {
-                            it.copy(
-                                binding =
-                                    com.helix.core.model.CriterionVerificationBinding(
-                                        com.helix.core.model.CriterionVerificationMethod.LOCAL_TOOL_SUCCESS,
-                                        "read",
-                                    ),
-                            )
-                        },
-                ),
-            )
             val first =
                 requireNotNull(
                     goals.start(

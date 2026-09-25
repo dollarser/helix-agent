@@ -13,6 +13,7 @@ import com.helix.app.MainActivity
 import com.helix.app.foreground.DataSyncForegroundService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
@@ -93,7 +94,7 @@ class PhysicalBackgroundRecoveryDeviceTest {
                     if (goalId ==
                         null
                     ) {
-                        chat.send("Physical recovery input")
+                        chat.sendTestMessage("Physical recovery input")
                     } else {
                         chat.continueGoal(goalId, "Physical recovery input")
                     }

@@ -1,8 +1,8 @@
 # 进程死亡恢复与 Harness 深度：Session Continuation 优先于 Same-Turn Rehydrate
 
 > 日期：2026-09-25
-> 性质：当前综合研究结论；核心恢复裁决已于 2026-09-25 提升到 ADR-AGENT-001 / ADR-GOAL-001，代码迁移由 HXA-220 执行。
-> 当前实现权威：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../development/tasks/HXA-220.md)。
+> 性质：当前综合研究结论；核心恢复裁决已于 2026-09-25 提升到 ADR-AGENT-001 / ADR-GOAL-001，代码迁移已由 HXA-220 交付。
+> 当前实现权威：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220 交付记录](../../completion-records/HXA-220.md)。
 > 本文解决：Helix 是否有必要在 Android App 被杀后恢复“同一个 Turn / 同一个 GoalRun / 同一个预算进度”，还是只恢复 Session 和事实，让模型在 successor Turn 中继续。
 
 ## 1. 结论

@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 
@@ -12,6 +13,7 @@ data class BackgroundTaskUi(
     val goalId: String?,
     val collected: Boolean,
     val pauseRequested: Boolean,
+    val awaitingApproval: Boolean = false,
     val outcome: String? = null,
 ) {
     val running: Boolean
@@ -35,6 +37,8 @@ internal class BackgroundTaskQuery(
             .sortedByDescending { it.startedAt }
             .map { turn ->
                 val binding = storage.goalTurnBindings.byTurn(turn.id)
+                val awaitingApproval =
+                    storage.toolCalls.listByTurn(turn.id).any { it.state == ToolCallState.AWAITING_APPROVAL.name }
                 BackgroundTaskUi(
                     turn.id,
                     turn.sessionId,
@@ -43,6 +47,7 @@ internal class BackgroundTaskQuery(
                     binding?.let { storage.goalRuns.resolve(it.runId).goalId },
                     turn.resultCollectedAt != null,
                     turn.pauseRequestedAt != null,
+                    awaitingApproval,
                     binding?.let { storage.goalRuns.resolve(it.runId).outcome },
                 )
             }

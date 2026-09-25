@@ -1,7 +1,7 @@
 # 架构与执行引擎
 
 > 更新：2026-09-25。当前综合研究，不覆盖 accepted ADR。
-> 当前实现/任务：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../development/tasks/HXA-220.md)。
+> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220 交付记录](../../completion-records/HXA-220.md)；当前任务见[实施状态](../../development/status.md)。
 > 进程死亡专题：[process-death-recovery-and-harness-depth.md](process-death-recovery-and-harness-depth.md)。
 
 ## 1. 总原则：浅策略，深不变量

@@ -81,8 +81,8 @@ class PlanSubmitIntegrationDeviceTest {
                             put("description", JsonPrimitive("Read the storage spec"))
                         },
                         buildJsonObject {
-                            put("title", JsonPrimitive("Write the migration"))
-                            put("description", JsonPrimitive("Write MIGRATION_15_16"))
+                            put("title", JsonPrimitive("Update the schema"))
+                            put("description", JsonPrimitive("Update the storage schema"))
                         },
                     ),
                 ),
@@ -91,12 +91,12 @@ class PlanSubmitIntegrationDeviceTest {
                 "acceptanceCriteria",
                 JsonArray(
                     listOf(
-                        JsonPrimitive("rows survive a schema migration"),
-                        JsonPrimitive("no duplicate rows after the migration"),
+                        JsonPrimitive("stored rows remain valid"),
+                        JsonPrimitive("no duplicate rows after the update"),
                     ),
                 ),
             )
-            put("assumptions", JsonArray(listOf(JsonPrimitive("single writer during migration"))))
+            put("assumptions", JsonArray(listOf(JsonPrimitive("single writer during update"))))
             put("risks", JsonArray(listOf(JsonPrimitive("legacy paths may collide on the unique index"))))
         }
 

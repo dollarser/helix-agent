@@ -67,7 +67,7 @@ class ProviderStoresTest {
         assertEquals(ConnectionTestStatus.Untested, ProviderTestStatusStore(backing).statusFor("prov_1"))
     }
 
-    // --- HXA-059: the optional 8th field (backend model list) ---
+    // --- canonical 8th field (backend model list or JSON null) ---
 
     @Test
     fun passedWithModelListRoundTripsThroughTheEighthField() {
@@ -86,30 +86,21 @@ class ProviderStoresTest {
     }
 
     @Test
-    fun passedWithoutModelListWritesTheSevenFieldLine() {
+    fun passedWithoutModelListWritesCanonicalNullField() {
         val backing = InMemoryLineStore()
         val store = ProviderTestStatusStore(backing)
         store.recordPassed("prov_1", 5_000L, capabilities, null)
         val line = backing.lines("provider_test_status").single()
-        // No 8th field: a pre-HXA-059 reader (split limit 7) sees a valid row.
-        assertEquals(7, line.split("|").size)
+        assertEquals(8, line.split("|", limit = 8).size)
+        assertTrue(line.endsWith("|null"))
         assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
         store.recordPassed("prov_1", 5_000L, capabilities, emptyList())
-        assertEquals(
-            7,
-            backing
-                .lines("provider_test_status")
-                .single()
-                .split("|")
-                .size,
-        )
+        assertTrue(backing.lines("provider_test_status").single().endsWith("|null"))
         assertEquals(null, (store.statusFor("prov_1") as ConnectionTestStatus.Passed).modelIds)
     }
 
     @Test
-    fun aSevenFieldLegacyLineReadsBackAsNoList() {
-        // A row written before HXA-059 (no model list field) stays valid and
-        // reads back as PASSED with modelIds = null.
+    fun aNonCanonicalSevenFieldLineIsRejected() {
         val backing = InMemoryLineStore()
         backing.setLines(
             "provider_test_status",
@@ -119,9 +110,7 @@ class ProviderStoresTest {
                         .toJsonString(capabilities),
             ),
         )
-        val status = ProviderTestStatusStore(backing).statusFor("prov_1") as ConnectionTestStatus.Passed
-        assertEquals(capabilities, status.capabilities)
-        assertEquals(null, status.modelIds)
+        assertEquals(ConnectionTestStatus.Untested, ProviderTestStatusStore(backing).statusFor("prov_1"))
     }
 
     @Test
@@ -179,15 +168,9 @@ class ProviderStoresTest {
         store.recordPassed("prov_1", 1L, capabilities, listOf("m1"))
         store.recordFailed("prov_1", 2L, phase = 2, code = ModelErrorCode.AUTH, retryable = false)
         assertEquals(ConnectionTestStatus.Failed::class, store.statusFor("prov_1")::class)
-        // The FAILED line never carries a list (7 fields).
-        assertEquals(
-            7,
-            backing
-                .lines("provider_test_status")
-                .single()
-                .split("|")
-                .size,
-        )
+        val failedLine = backing.lines("provider_test_status").single()
+        assertEquals(8, failedLine.split("|", limit = 8).size)
+        assertTrue(failedLine.endsWith("|null"))
         // clear removes the whole line (status + list).
         store.clear("prov_1")
         assertEquals(ConnectionTestStatus.Untested, store.statusFor("prov_1"))

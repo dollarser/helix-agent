@@ -28,7 +28,7 @@ class TasksDashboardProjectionTest {
 
     @Test
     fun waitingApprovalTurnProjectsToNeedsYouWithApprovalLabel() {
-        val rows = rows(task(state = TurnState.WAITING_APPROVAL))
+        val rows = rows(task(state = TurnState.RUNNING_TOOL, awaitingApproval = true))
         val row = turnRow(rows)
         assertEquals(TasksBucket.NEEDS_YOU, row.bucket)
         assertEquals(R.string.tasks_state_awaiting_approval, row.statusRes)
@@ -122,7 +122,7 @@ class TasksDashboardProjectionTest {
     fun runningGoalWithHiddenWaitingApprovalTurnSurfacesTheApprovalWait() {
         val rows =
             rows(
-                task(state = TurnState.WAITING_APPROVAL, goalId = "goal-1"),
+                task(state = TurnState.RUNNING_TOOL, goalId = "goal-1", awaitingApproval = true),
                 goals = listOf(goal(state = "RUNNING")),
             )
         assertEquals(1, rows.size)
@@ -222,7 +222,6 @@ class TasksDashboardProjectionTest {
     @Test
     fun taskStateLabelCoversCancellingWithoutChangingDialogApprovalLabel() {
         assertEquals(R.string.tasks_state_cancelling, taskStateLabel(TurnState.CANCELLING))
-        assertEquals(R.string.goal_state_input, taskStateLabel(TurnState.WAITING_APPROVAL))
         assertEquals(R.string.goal_state_running, taskStateLabel(TurnState.WAITING_MODEL))
     }
 
@@ -276,6 +275,7 @@ class TasksDashboardProjectionTest {
         state: TurnState = TurnState.RUNNING_TOOL,
         goalId: String? = null,
         pauseRequested: Boolean = false,
+        awaitingApproval: Boolean = false,
         outcome: String? = null,
     ): BackgroundTaskUi =
         BackgroundTaskUi(
@@ -286,6 +286,7 @@ class TasksDashboardProjectionTest {
             goalId = goalId,
             collected = false,
             pauseRequested = pauseRequested,
+            awaitingApproval = awaitingApproval,
             outcome = outcome,
         )
 

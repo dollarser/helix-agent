@@ -12,6 +12,7 @@ import com.helix.app.provider.CleartextBindingStore
 import com.helix.app.provider.ProviderFactory
 import com.helix.app.provider.ProviderService
 import com.helix.app.provider.ProviderTestStatusStore
+import com.helix.app.sendTestMessage
 import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.model.ModelRole
 import com.helix.core.model.ProviderProtocol
@@ -148,14 +149,14 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
                     System.currentTimeMillis(),
                 )
                 fixture.service.openSession(SESSION_ID)
-                fixture.service.send(FIRST_ACTIVE_TEXT)
+                fixture.service.sendTestMessage(FIRST_ACTIVE_TEXT)
                 kotlinx.coroutines.withTimeout(AWAIT_TIMEOUT_MILLIS) { wire.firstRequestOpened.await() }
 
                 fixture.service.stageAttachment(URI_KEY)
                 await(fixture, "the follow-up attachment stages while the first turn is active") {
                     fixture.service.screen.value.pendingAttachments.size == 1
                 }
-                fixture.service.send(QUEUED_ATTACHMENT_TEXT)
+                fixture.service.sendTestMessage(QUEUED_ATTACHMENT_TEXT)
                 await(fixture, "the queued attachment disclosure is shown") {
                     fixture.service.screen.value.pendingDisclosure != null
                 }
@@ -611,7 +612,7 @@ class ChatServiceAttachmentRetryDeviceTest : ForegroundDeviceTestHost() {
     }
 
     private fun sendToDisclosure(fixture: Fixture) {
-        fixture.service.send("帮我总结这个附件")
+        fixture.service.sendTestMessage("帮我总结这个附件")
         await(fixture, "the per-send egress disclosure is shown") {
             fixture.service.screen.value.pendingDisclosure != null
         }

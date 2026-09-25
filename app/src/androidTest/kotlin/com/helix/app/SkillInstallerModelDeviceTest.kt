@@ -58,7 +58,7 @@ class SkillInstallerModelDeviceTest {
                 chat.openSession(session)
                 chat.setMode(AgentMode.ACT)
                 chat.setTurnBudgets(TurnBudgets(12, 10, 524288, 32768, 557056))
-                chat.send(
+                chat.sendTestMessage(
                     "Create a useful Skill for summarizing a local text file. Use write to create $path/SKILL.md. " +
                         "Its YAML name must be $name, with description and Markdown instructions. The parent exists. " +
                         "Then call skills.preview on $path and fix any errors. " +

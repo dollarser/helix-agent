@@ -18,8 +18,8 @@ interface ForegroundServiceLauncher {
  * Decides when a user-initiated Provider/MCP transport (or local file processing) runs as a
  * `dataSync` foreground service (roadmap HXA-066, architecture doc 5.1): ONLY while a turn is
  * actively moving data — building context, waiting on / receiving the model, running a tool.
- * The moment the turn waits for the user ([TurnState.WAITING_APPROVAL]) or goes idle (terminal,
- * or no active turn) the foreground service stops, so it is never a background residency.
+ * Approval waits are filtered from the aggregate transport stream before this controller; terminal
+ * or absent work stops the service, so it is never a background residency.
  *
  * The decision is pure JVM — a [TurnState] in, a [ForegroundServiceLauncher] side-effect — so it
  * is host-unit-testable; the real Android start/stop lives in the launcher.
@@ -60,8 +60,8 @@ class DataSyncForegroundController(
     companion object {
         /**
          * The turn phases that move the user's data on the wire. Deliberately excludes
-         * [TurnState.WAITING_APPROVAL] (waiting for the user), [TurnState.CREATED] (no transport
-         * yet), [TurnState.CANCELLING] / [TurnState.INTERRUPTED] (not advancing) and every terminal
+         * [TurnState.CREATED] (no transport yet), [TurnState.CANCELLING] / [TurnState.INTERRUPTED]
+         * (not advancing) and every terminal
          * state (idle, awaiting the next user input).
          */
         val TRANSPORT_ACTIVE: Set<TurnState> =

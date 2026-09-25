@@ -197,7 +197,7 @@ class RecoveryJourneyDeviceTest {
                     chat.setMode(AgentMode.CHAT)
                     chat.setTurnBudgets(TurnBudgets(3, 4, 65536, 128, 65664))
                     server.holdChatStreams.set(true)
-                    chat.send("Recover me, please.")
+                    chat.sendTestMessage("Recover me, please.")
                     settle { server.heldStreams.get() == 1 }
                     // A peer close mid-stream is the production 断网 outcome: a FAILED transport turn.
                     requireNotNull(server.heldSocket.get()).close()

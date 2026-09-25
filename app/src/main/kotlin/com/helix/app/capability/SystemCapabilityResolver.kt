@@ -136,7 +136,7 @@ class SystemCapabilityResolver(
 
     private fun notificationState(): GrantState {
         if (Build.VERSION.SDK_INT < 33) {
-            // Legacy notifications are always allowed below API 33.
+            // POST_NOTIFICATIONS is not a runtime permission below API 33.
             return GrantState.GRANTED
         }
         return permissionState(Manifest.permission.POST_NOTIFICATIONS)

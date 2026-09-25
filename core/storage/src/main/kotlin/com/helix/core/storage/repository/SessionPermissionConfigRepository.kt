@@ -16,7 +16,7 @@ import com.helix.core.storage.entity.SessionPermissionDraftEntity
  * The single write path for the per-session [SessionPermissionConfig] rows and the app-default
  * row; the dispatcher reads through [forSession]/[appDefault] and never mutates the store.
  *
- * Session creation and v23 migration materialize a fixed default snapshot. [setForSession]
+ * Session creation materializes a fixed default snapshot. [setForSession]
  * upserts under the session id and advances the revision; [resetToDefault] stores today's
  * default without inheriting future edits. Production changes run in a caller transaction. Presets are stored
  * as their FIXED rule table — a preset mode carrying any other table is rejected (to edit

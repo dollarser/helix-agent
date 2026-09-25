@@ -75,7 +75,7 @@ A/B/C/D 是维护建议，不是缺陷严重度；没有仅凭体积判定的紧
 
 | 文件 / 行数 | 实际形态与职责 | 建议与不应改变的边界 |
 | --- | --- | --- |
-| [TurnReducer.kt](../../../core/agent/src/main/kotlin/com/helix/core/agent/TurnReducer.kt) · 694 | 状态转换 object：生命周期、模型、工具事件和状态不变量 | 已有事件域方法分组；暂不分散转换规则，先保证状态表可读。不要仅按行数切出相互递归 reducer。 |
+| `TurnReducer.kt`（历史路径，HXA-220 E2/E3 已删除）· 694 | 当时的状态转换 object：生命周期、模型、工具事件和状态不变量 | 历史审查结论；当前生产已由 batch TurnEngine 路径取代，不再保留 serial reducer。 |
 | [ResponsesStreamDecoder.kt](../../../provider/openai-responses/src/main/kotlin/com/helix/provider/openai/responses/ResponsesStreamDecoder.kt) · 470 | 协议流状态机：Responses SSE、工具参数、终态/usage/协议错误 | 协议特定状态保持集中；只提取无状态字段/错误映射，不能因相似而强并不同协议 decoder。 |
 | [WebViewTabHost.kt](../../../feature/browser/src/main/kotlin/com/helix/feature/browser/webview/WebViewTabHost.kt) · 469 | 单 Tab 宿主：WebView 懒创建、客户端回调、JS 等待、暂停/销毁 | 有明确资源所有者；保持集中，只有无状态回调适配值得局部提取，不为行数改 Context/生命周期。 |
 | [AnthropicStreamDecoder.kt](../../../provider/anthropic/src/main/kotlin/com/helix/provider/anthropic/AnthropicStreamDecoder.kt) · 467 | 协议流状态机：message/block/thinking/tool 增量及终态 | 保持独立协议语义和事件顺序；局部可抽错误映射，非优先拆类。 |

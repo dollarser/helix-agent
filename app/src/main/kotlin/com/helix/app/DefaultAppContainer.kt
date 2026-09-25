@@ -234,10 +234,8 @@ internal class DefaultAppContainer(
         SkillImportService(skillsRoot.resolve("staging"))
 
     private val connectorCatalog =
-        com.helix.app.connector.ConnectorCatalog(
-            storage,
-            context.filesDir.toPath().resolve("connectors"),
-        )
+        com.helix.app.connector
+            .ConnectorCatalog(storage)
 
     override val skillRepository: SkillRepository =
         SkillRepository(

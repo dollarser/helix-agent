@@ -16,13 +16,13 @@
 ADR-PROVIDER-001 已接受本地模型作为一等 `ModelProvider`，可驱动完整 Agent loop；当前没有对应实现 HXA，等真正开始模型 Runtime/资产/Provider 代码时再立开发任务，文档研究本身不占 HXA 编号。
 
 
-## 当前架构收敛任务（2026-09-25）
+## 当前架构收敛任务（2026-09-26）
 
-HXA-214～219 已有完成记录，不再作为待开发计划重复维护。当前主线是 [HXA-220](tasks/HXA-220.md)：把已接受的 [ADR-AGENT-001](../adr/agent/001-turn-coordination.md) 落成单一 TurnEngine durable/live owner，并把已实现的 same-Turn crash resume 迁移为 successor-Turn recovery。
+HXA-220 已完成并见[交付证据](../completion-records/HXA-220.md)：TurnEngine durable/live owner、successor recovery、AgentLoop driver/observation 与 legacy serial state cleanup 已通过完整 host gate。
 
-- **已落主机切片**：batch-aware recovery、NEEDS_REVIEW/effect review、v29/v30 storage、TurnEngine admission/cancel/park/terminal/recovery、Regenerate/submit receipt ownership、`TurnLiveRegistry` contract；same-Turn resume 代码已实现但现为待迁移旧路径。
-- **仍未闭合**：B3a/B3b live owner、successor identity/RecoverySummary、review 不 resume old Turn、new GoalRun continuation、AgentLoop/observe owner 与 legacy cleanup；设备 process-kill/验收仅在项目所有者当前任务明确要求时执行。
-- **文档入口**：长期语义只读 ADR-AGENT-001；实施范围只读 HXA-220；当前状态只读 status。旧 Wave/playbook/handoff 不再作为执行入口。
+HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前 Room 是唯一 v1 / 45-table clean-slate baseline，旧内部 migration/Connector/Provider/Criteria/Chat 兼容路径已删除；外部协议与 Android API 兼容继续保留。
+
+当前主线继续 `refactor/clean-slate-engine` 的架构收口与复审；HXA-220/221 已交付，但仍需基于最新代码复核剩余 ownership/并发风险与结构边界。设备内本地模型 [HXA-222](tasks/HXA-222.md) 已规划但暂缓实施，只冻结未来 endpoint-free Provider 的接口方向；ADR-WORKSPACE-004 仍 proposed，因此 HXA-210 也不自动启动。
 
 ## 执行顺序与依赖
 
@@ -248,4 +248,6 @@ HXA-214～219 已有完成记录，不再作为待开发计划重复维护。当
 | HXA-217 | 已交付 | 轻量请求来源记录与 JSONL 可追踪性 | [交付证据](../completion-records/HXA-217.md) |
 | HXA-218 | 已交付 | 会话工作台 UI 与交互重构（第一批） | [交付证据](../completion-records/HXA-218.md) |
 | HXA-219 | 已交付 | 产物就地预览 | [交付证据](../completion-records/HXA-219.md) |
-| HXA-220 | 进行中 | Core Engine / TurnEngine 生命周期收敛 | [任务规格](tasks/HXA-220.md) |
+| HXA-220 | 已交付 | Core Engine / TurnEngine 生命周期收敛 | [交付证据](../completion-records/HXA-220.md) |
+| HXA-221 | 已交付 | Pre-release clean-slate baseline cleanup | [交付证据](../completion-records/HXA-221.md) |
+| HXA-222 | 已规划 / 暂缓 | 设备内本地模型一等 Provider | [任务规格](tasks/HXA-222.md) |

@@ -10,8 +10,7 @@ class ChatUiModelsTest {
         assertFalse(screen(TurnState.INTERRUPTED).isSending)
     }
 
-    @Test fun pendingApprovalAndCancellationStillBelongToALiveSend() {
-        assertTrue(screen(TurnState.WAITING_APPROVAL).isSending)
+    @Test fun toolExecutionAndCancellationStillBelongToALiveSend() {
         assertTrue(screen(TurnState.CANCELLING).isSending)
         assertTrue(screen(TurnState.RUNNING_TOOL).isSending)
     }

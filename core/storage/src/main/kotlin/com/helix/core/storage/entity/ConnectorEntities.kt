@@ -41,11 +41,6 @@ data class SessionConnectorEntity(
     val connectorId: String,
 )
 
-@Entity(tableName = "connector_catalog_state")
-data class ConnectorCatalogStateEntity(
-    @PrimaryKey val id: String,
-)
-
 /** Retained endpoint identity enables cleanup and rejects stale bridges after replacement. */
 @Entity(tableName = "connector_endpoints")
 data class ConnectorEndpointEntity(

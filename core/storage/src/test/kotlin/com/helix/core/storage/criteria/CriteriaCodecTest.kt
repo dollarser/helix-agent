@@ -4,7 +4,6 @@ import com.helix.core.model.ArtifactRef
 import com.helix.core.model.ToolCallId
 import com.helix.core.storage.assertThrows
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -24,7 +23,7 @@ class CriteriaCodecTest {
     }
 
     @Test
-    fun `known vector for unsatisfied and satisfied criteria`() {
+    fun `known vector stores evidence without a duplicate satisfied flag`() {
         val criteria =
             listOf(
                 StoredCriterion("c1", "Login works", null),
@@ -32,8 +31,8 @@ class CriteriaCodecTest {
             )
         val encoded = CriteriaCodec.encode(criteria)
         val expected =
-            """[{"id":"c1","description":"Login works","satisfied":false,"evidence":null},""" +
-                """{"id":"c2","description":"Data syncs","satisfied":true,"evidence":{"verifier":"verifier.login",""" +
+            """[{"id":"c1","description":"Login works","evidence":null},""" +
+                """{"id":"c2","description":"Data syncs","evidence":{"verifier":"verifier.login",""" +
                 """"artifactRef":"artifact-1","toolCallId":"tc-42"}}]"""
         assertEquals(expected, encoded)
         assertEquals(criteria, CriteriaCodec.decode(encoded))
@@ -61,12 +60,6 @@ class CriteriaCodecTest {
         val criterion = StoredCriterion("c1", "has \"quotes\" and \\ backslash and\nnewline", null)
         val decoded = CriteriaCodec.decode(CriteriaCodec.encode(listOf(criterion)))
         assertEquals(criterion, decoded.single())
-    }
-
-    @Test
-    fun `satisfied is derived from evidence presence`() {
-        assertFalse(StoredCriterion("c", "d", null).satisfied)
-        assertTrue(StoredCriterion("c", "d", evidence).satisfied)
     }
 
     @Test
@@ -98,25 +91,19 @@ class CriteriaCodecTest {
         val good = CriteriaCodec.encode(listOf(StoredCriterion("c1", "d", null)))
         assertThrows("object instead of array") { CriteriaCodec.decode("""{"id":"c1"}""") }
         assertThrows("unknown field") {
-            CriteriaCodec.decode("""[{"id":"c1","description":"d","satisfied":false,"evidence":null,"x":1}]""")
+            CriteriaCodec.decode("""[{"id":"c1","description":"d","evidence":null,"x":1}]""")
         }
         assertThrows("wrong field order") {
-            CriteriaCodec.decode("""[{"description":"d","id":"c1","satisfied":false,"evidence":null}]""")
+            CriteriaCodec.decode("""[{"description":"d","id":"c1","evidence":null}]""")
         }
         assertThrows("duplicate id in decode") {
             val dup =
-                """[{"id":"c1","description":"a","satisfied":false,"evidence":null},""" +
-                    """{"id":"c1","description":"b","satisfied":false,"evidence":null}]"""
+                """[{"id":"c1","description":"a","evidence":null},""" +
+                    """{"id":"c1","description":"b","evidence":null}]"""
             CriteriaCodec.decode(dup)
         }
-        assertThrows("flag disagrees with evidence") {
-            CriteriaCodec.decode("""[{"id":"c1","description":"d","satisfied":true,"evidence":null}]""")
-        }
         assertThrows("evidence object with missing field") {
-            CriteriaCodec.decode("""[{"id":"c1","description":"d","satisfied":true,"evidence":{"verifier":"v"}}]""")
-        }
-        assertThrows("satisfied as number") {
-            CriteriaCodec.decode("""[{"id":"c1","description":"d","satisfied":1,"evidence":null}]""")
+            CriteriaCodec.decode("""[{"id":"c1","description":"d","evidence":{"verifier":"v"}}]""")
         }
         // trailing whitespace is insignificant; trailing content is not:
         assertThrows("trailing content") { CriteriaCodec.decode("$good x") }

@@ -1,32 +1,36 @@
 package com.helix.core.agent
 
+import com.helix.core.model.ModelCallId
+
 /**
- * Token usage reported by a provider for one model call. Any field may be missing (null);
- * missing values are never treated as zero by the [TurnReducer] - a conservative estimate is
- * used instead (architecture doc 5.3: "无法准确 tokenizer 时使用保守字节估算，不得将未知 usage
- * 当作 0").
+ * Token accounting for one current model call. Provider usage replaces the conservative byte
+ * estimate for that dimension; missing usage is never treated as zero.
  */
-data class TokenUsage(
-    val inputTokens: Long?,
-    val outputTokens: Long?,
-    val totalTokens: Long?,
+data class CallTokenAccount(
+    val callId: ModelCallId,
+    val requestBytes: Long,
+    val inputTokens: Long? = null,
+    val outputTokens: Long? = null,
+    val totalTokens: Long? = null,
+    val responseBytes: Long = 0,
 ) {
     init {
-        requireNonNegative("inputTokens", inputTokens)
-        requireNonNegative("outputTokens", outputTokens)
-        requireNonNegative("totalTokens", totalTokens)
+        require(
+            listOf(requestBytes, responseBytes, inputTokens, outputTokens, totalTokens)
+                .none { it != null && it < 0 },
+        ) {
+            "token accounting values must be >= 0"
+        }
     }
 
-    private fun requireNonNegative(
-        name: String,
-        value: Long?,
-    ) {
-        if (value != null) require(value >= 0) { "$name must be >= 0" }
-    }
+    val effectiveInput: Long
+        get() = inputTokens ?: TokenEstimator.estimateTokens(requestBytes)
 
-    companion object {
-        val MISSING = TokenUsage(null, null, null)
-    }
+    val effectiveOutput: Long
+        get() = outputTokens ?: TokenEstimator.estimateTokens(responseBytes)
+
+    val effectiveTotal: Long
+        get() = totalTokens ?: effectiveInput + effectiveOutput
 }
 
 /**

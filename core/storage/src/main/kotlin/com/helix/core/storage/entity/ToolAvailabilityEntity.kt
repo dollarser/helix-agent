@@ -8,15 +8,11 @@ import androidx.room.Index
  * ADR-PERMISSIONS-001 section 1.1). Two states only (ENABLED/DISABLED in [state]); the scope is
  * part of the row identity, so "reset to default" is a row delete.
  *
- * - [sourceRef] + [toolName] is the stable tool identity (same contract as
- *   `tool_approval_preferences` — the origin's canonical form + the model-visible name; a
- *   collision-prone display name never identifies a tool).
+ * - [sourceRef] + [toolName] is the stable tool identity: the origin's canonical form plus the
+ *   model-visible name; a collision-prone display name never identifies a tool.
  * - [scopeKind] is the [com.helix.core.model.ToolAvailabilityScope] name; [scopeRef] is empty
  *   for GLOBAL, the workspace `directoryRef` for WORKSPACE, the session id for SESSION.
  * - The composite PRIMARY KEY forbids two rows for the same identity + scope.
- *
- * The migration converts old DENY preference rows (and only DENY) into DISABLED rows; ASK/ALLOW
- * rows carry no availability state and are not converted.
  */
 @Entity(
     tableName = "tool_availability",

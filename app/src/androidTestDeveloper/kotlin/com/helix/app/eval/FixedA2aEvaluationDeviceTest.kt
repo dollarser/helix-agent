@@ -5,6 +5,7 @@ import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
@@ -162,7 +163,8 @@ class FixedA2aEvaluationDeviceTest {
         session: String,
         caseId: String,
     ) {
-        container.chatService.send(
+        container.chatService.sendTestMessage(
+            session,
             "Start the selected A2A fixture task exactly once; do not retry uncertainty.",
         )
         awaitTurn(session, caseId)
@@ -210,7 +212,7 @@ class FixedA2aEvaluationDeviceTest {
             container.storage.turns
                 .listBySession(session)
                 .size
-        container.chatService.send(prompt)
+        container.chatService.sendTestMessage(session, prompt)
         val startDeadline = android.os.SystemClock.elapsedRealtime() + 10_000
         while (container.storage.turns
                 .listBySession(session)

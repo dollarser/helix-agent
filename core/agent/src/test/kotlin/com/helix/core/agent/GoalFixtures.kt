@@ -1,19 +1,10 @@
 package com.helix.core.agent
 
-import com.helix.core.model.ArtifactRef
 import com.helix.core.model.CorrelationId
-import com.helix.core.model.CriterionEvidenceSource
-import com.helix.core.model.CriterionVerificationBinding
-import com.helix.core.model.CriterionVerificationMethod
-import com.helix.core.model.CriterionVerificationRecord
 import com.helix.core.model.ErrorCode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalId
-import com.helix.core.model.GoalRunId
 import com.helix.core.model.HelixError
-import com.helix.core.model.SessionId
-import com.helix.core.model.Sha256
-import com.helix.core.model.TurnId
 import org.junit.Assert.fail
 
 internal object GoalFixtures {

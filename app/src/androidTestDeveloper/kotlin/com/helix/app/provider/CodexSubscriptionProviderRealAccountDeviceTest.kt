@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
 import com.helix.app.MainActivity
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnState
@@ -61,7 +62,7 @@ class CodexSubscriptionProviderRealAccountDeviceTest {
                         effort in container.providerService.reasoningOptions(row.id, selectedModel),
                     )
                 }
-                container.chatService.send(PROMPT)
+                container.chatService.sendTestMessage(sessionId, PROMPT)
                 await("real model turn terminates", timeoutMillis = 120_000) {
                     container.chatService.screen.value.activeTurn
                         ?.state

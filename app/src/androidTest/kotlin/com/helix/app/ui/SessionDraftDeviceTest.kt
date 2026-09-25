@@ -7,6 +7,7 @@ import androidx.compose.ui.test.performTextReplacement
 import com.helix.app.MainActivity
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
 import com.helix.provider.api.CleartextAuthorization
@@ -61,8 +62,8 @@ class SessionDraftDeviceTest {
                     chat.setSessionDirectory("scope:app:work")
                     compose.waitUntil(10_000) { chat.screen.value.directoryRef == "scope:app:work" }
                     val id = requireNotNull(chat.screen.value.openSessionId)
-                    chat.send("First question about a project")
-                    chat.send("Must not create another turn")
+                    chat.sendTestMessage("First question about a project")
+                    chat.sendTestMessage("Must not create another turn")
                     compose.waitUntil(20_000) { storage.sessions.list().any { it.id == id } }
                     assertEquals(before + 1, storage.sessions.list().size)
                     assertEquals("First question about", storage.sessions.resolve(id).title)

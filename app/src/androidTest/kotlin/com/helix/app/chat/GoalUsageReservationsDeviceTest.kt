@@ -379,21 +379,6 @@ class GoalUsageReservationsDeviceTest {
                     listOf("Verified output exists"),
                     GoalBudgets(2, 4, 1_000, 60_000, 10_000, 0),
                 )
-            val stored = storage.goals.resolve(goalId)
-            storage.goals.updateGoal(
-                stored.copy(
-                    criteria =
-                        stored.criteria.map {
-                            it.copy(
-                                binding =
-                                    com.helix.core.model.CriterionVerificationBinding(
-                                        com.helix.core.model.CriterionVerificationMethod.LOCAL_TOOL_SUCCESS,
-                                        "read",
-                                    ),
-                            )
-                        },
-                ),
-            )
             started = requireNotNull(coordinator().start(request("first")))
         }
 

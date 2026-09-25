@@ -6,6 +6,7 @@ import com.helix.core.model.PlanId
 import com.helix.core.model.PlanStep
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,7 +46,7 @@ class GoalReducerLifecycleTest {
 
     @Test
     fun readyPlanMismatchIsRejected() {
-        assertThrows<IllegalArgumentException> { GoalEvent.Ready(PlanId("plan-1"), null) }
+        assertThrows(IllegalArgumentException::class.java) { GoalEvent.Ready(PlanId("plan-1"), null) }
     }
 
     @Test

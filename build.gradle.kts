@@ -132,7 +132,6 @@ val libsuServiceDependency = libs.libsu.service
 val roomRuntimeDependency = libs.room.runtime
 val roomKtxDependency = libs.room.ktx
 val roomCompilerDependency = libs.room.compiler
-val roomTestingDependency = libs.room.testing
 val androidTestCoreKtxDependency = libs.androidx.test.core.ktx
 val androidTestRunnerDependency = libs.androidx.test.runner
 val androidTestJunitDependency = libs.androidx.test.junit
@@ -263,16 +262,12 @@ subprojects {
                 // HXA-211 exports an explicit JSONL projection; reuse the pinned tree codec.
                 dependencies.add("implementation", kotlinxSerializationJsonDependency.get())
                 pluginManager.apply("com.google.devtools.ksp")
-                // Room schema export goes into the androidTest assets so the migration
-                // fixture (HXA-014) can load the committed v1 schema. The Room 2.8 helper
-                // loads `<databaseFqn>/<version>.json` from the asset root.
+                // Commit the single pre-release Room v1 baseline beside Android storage tests.
                 extensions.configure<com.google.devtools.ksp.gradle.KspExtension> {
                     arg("room.schemaLocation", "$projectDir/src/androidTest/assets")
                     arg("room.incremental", "true")
                 }
-                // The JVM contract test (DatabaseContractTest) reads the same committed
-                // export; pass the asset directory explicitly because the unit test's
-                // working directory is the module directory only by Gradle convention.
+                // DatabaseContractTest reads the same committed baseline export.
                 tasks.withType<Test> {
                     systemProperty(
                         "helix.schema.dir",
@@ -289,7 +284,6 @@ subprojects {
                 dependencies.add("androidTestImplementation", androidTestCoreKtxDependency.get())
                 dependencies.add("androidTestImplementation", androidTestRunnerDependency.get())
                 dependencies.add("androidTestImplementation", androidTestJunitDependency.get())
-                dependencies.add("androidTestImplementation", roomTestingDependency.get())
             }
 
             // HXA-044: the SAF adapter persists its tree-grant registry with the pinned

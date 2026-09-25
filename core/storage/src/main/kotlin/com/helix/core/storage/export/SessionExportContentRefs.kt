@@ -22,7 +22,7 @@ internal object SessionExportContentRefs {
                 check(!cursor.isNull(0)) { "Content reference exceeds export limit" }
                 val encoded = cursor.getString(0)
                 val ref = ContentRef.parse(encoded)
-                // All production writers use this canonical form; do not mis-sort malformed legacy rows.
+                // All production writers use this canonical form; reject malformed/noncanonical rows.
                 require(encoded == ref.toStorageString()) { "Noncanonical stored content reference" }
                 if (previous?.sha256 == ref.sha256) {
                     check(previous == ref) { "Conflicting content identities" }

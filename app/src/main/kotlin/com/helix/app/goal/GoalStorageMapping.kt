@@ -32,8 +32,8 @@ internal fun StoredGoal.toRuntimeGoal(): Goal =
         retries = retries,
         lastWakeReason = lastWakeReason?.let(GoalWakeReason::valueOf),
         error = error,
-        // Legacy ledger rows also carry a pause label here. The durable run outcome retains it;
-        // the domain reserves finishReason for terminal goals (ADR-0004).
+        // Stored Goal rows may carry a non-terminal blocker/pause label for UI/audit. The runtime
+        // domain reserves finishReason for terminal Goal states; per-run outcome remains durable.
         finishReason = finishReason.takeIf { GoalState.valueOf(state).isTerminal },
     )
 

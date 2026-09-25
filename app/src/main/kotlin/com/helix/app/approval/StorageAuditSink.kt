@@ -131,10 +131,8 @@ class StorageAuditSink(
         /**
          * Parses a stored row back into a typed record for the audit page. Returns null
          * (fail closed: the row is hidden, never shown raw) when the row is not a
-         * tool-dispatch event or its payload is not a JSON object. Unknown extra keys are
-         * tolerated: HXA-200 rows written before HXA-209 B4 carry preferenceEvaluated /
-         * preferencePresented / preferenceAtStart keys that are no longer produced — such
-         * rows remain readable and the legacy keys are ignored, never reinterpreted.
+         * tool-dispatch event or its payload is not a JSON object. Unknown extra diagnostic keys
+         * are ignored; only the current typed fields below are projected into the audit UI.
          */
         fun parseRow(
             id: String,

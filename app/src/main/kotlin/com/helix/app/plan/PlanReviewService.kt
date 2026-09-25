@@ -41,8 +41,8 @@ internal data class PlanReview(
  * doc's REVIEW_REQUIRED; REJECTED for CANCELLED — the persisted enum, HXA-014.)
  *
  * The service drives [PlanReviewPort] — the production port ([StoragePlanReviewPort]) is
- * backed by [HelixStorage]; unit tests fake it. Same seam shape as HX2-01's
- * [com.helix.app.chat.AgentTurnHost]: the loop is testable without the service or storage.
+ * backed by [HelixStorage]; unit tests fake it. The port keeps the review loop testable without
+ * the service or storage.
  */
 internal class PlanReviewService(
     private val port: PlanReviewPort,

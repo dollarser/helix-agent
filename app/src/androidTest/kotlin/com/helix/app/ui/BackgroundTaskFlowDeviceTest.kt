@@ -7,6 +7,7 @@ import com.helix.app.MainActivity
 import com.helix.app.foreground.DataSyncForegroundService
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
@@ -92,7 +93,11 @@ class BackgroundTaskFlowDeviceTest {
                             } else {
                                 null
                             }
-                        if (goalId == null) chat.send("First input") else chat.continueGoal(goalId, "First input")
+                        if (goalId == null) {
+                            chat.sendTestMessage("First input")
+                        } else {
+                            chat.continueGoal(goalId, "First input")
+                        }
                         compose.waitUntil(
                             10000,
                         ) { chat.backgroundTasks.value.any { it.sessionId == first && it.running } }
@@ -122,7 +127,7 @@ class BackgroundTaskFlowDeviceTest {
                             )
                             assertEquals(1, storage.goalRuns.listByGoal(goalId).size)
                         } else {
-                            chat.send("Second input")
+                            chat.sendTestMessage("Second input")
                             compose.waitUntil(10000) {
                                 storage.turns
                                     .listBySession(second)
@@ -151,7 +156,7 @@ class BackgroundTaskFlowDeviceTest {
                             chat.openSession(first)
                             compose.waitUntil(10000) { chat.screen.value.openSessionId == first }
                             server.holdChatStreams.set(true)
-                            chat.send("Third input")
+                            chat.sendTestMessage("Third input")
                             compose.waitUntil(10000) {
                                 chat.backgroundTasks.value.any {
                                     it.sessionId == first && it.id != firstTurn &&

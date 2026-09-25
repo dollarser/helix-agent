@@ -8,6 +8,7 @@ import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
@@ -93,7 +94,7 @@ class LiveContextCompactionDeviceTest {
                         storage.messages.listBySession(id).any { it.id == original }
                     },
                 )
-                chat.send("What is the project verification code? Reply only with that code.")
+                chat.sendTestMessage("What is the project verification code? Reply only with that code.")
                 compose.waitUntil(180_000) {
                     settled(id, 5)
                 }
@@ -122,7 +123,7 @@ class LiveContextCompactionDeviceTest {
                             ContextCompaction.checkpoint(storage, storage.messages.listBySession(id)),
                         )
                     assertTrue(nextCheckpoint.summary.contains("ORANGE-42"))
-                    chat.send(
+                    chat.sendTestMessage(
                         "Report project verification code, whether deleting original files is allowed, " +
                             "and whether verification is passed or pending. " +
                             "Format: code|YES or NO|PASSED or PENDING. No other text.",

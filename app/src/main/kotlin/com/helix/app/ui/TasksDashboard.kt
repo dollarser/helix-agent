@@ -83,8 +83,7 @@ internal sealed interface TasksRow {
 
                     // Approval waits on the user; a process-death interruption hides unknown
                     // side effects until reviewed — both are "needs you", not "running".
-                    task.state == TurnState.WAITING_APPROVAL ||
-                        task.state == TurnState.NEEDS_REVIEW ||
+                    task.awaitingApproval || task.state == TurnState.NEEDS_REVIEW ||
                         task.state == TurnState.INTERRUPTED -> {
                         TasksBucket.NEEDS_YOU
                     }
@@ -113,7 +112,7 @@ internal sealed interface TasksRow {
                         R.string.tasks_state_needs_review
                     }
 
-                    task.state == TurnState.WAITING_APPROVAL -> {
+                    task.awaitingApproval -> {
                         R.string.tasks_state_awaiting_approval
                     }
 
@@ -162,7 +161,7 @@ internal sealed interface TasksRow {
                         TasksBucket.CANCELLING
                     }
 
-                    activeTurn?.state == TurnState.WAITING_APPROVAL -> {
+                    activeTurn?.awaitingApproval == true -> {
                         TasksBucket.NEEDS_YOU
                     }
 
@@ -186,7 +185,7 @@ internal sealed interface TasksRow {
                         }
                     }
 
-                    activeTurn?.state == TurnState.WAITING_APPROVAL -> {
+                    activeTurn?.awaitingApproval == true -> {
                         R.string.tasks_state_awaiting_approval
                     }
 
@@ -246,7 +245,6 @@ internal fun taskStateLabel(state: TurnState): Int =
         TurnState.CANCELLED -> R.string.goal_state_cancelled
         TurnState.NEEDS_REVIEW -> R.string.tasks_state_needs_review
         TurnState.INTERRUPTED -> R.string.goal_pause_interrupted
-        TurnState.WAITING_APPROVAL -> R.string.goal_state_input
         TurnState.CANCELLING -> R.string.tasks_state_cancelling
         else -> R.string.goal_state_running
     }

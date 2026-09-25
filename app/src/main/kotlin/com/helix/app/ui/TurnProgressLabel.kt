@@ -33,10 +33,6 @@ internal fun TurnProgressLabel(
                 R.string.chat_receiving_model
             }
 
-            TurnState.WAITING_APPROVAL -> {
-                R.string.chat_waiting_approval
-            }
-
             TurnState.RUNNING_TOOL -> {
                 if (awaitingApproval) R.string.chat_waiting_approval else R.string.chat_running_tool
             }

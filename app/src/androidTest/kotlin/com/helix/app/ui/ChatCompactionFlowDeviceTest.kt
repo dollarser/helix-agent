@@ -12,6 +12,7 @@ import com.helix.app.agent.TurnStartSpec
 import com.helix.app.provider.LoopbackModelServer
 import com.helix.app.provider.ProviderContextSettings
 import com.helix.app.provider.ProviderDraft
+import com.helix.app.sendTestMessage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.ModelEvent
@@ -124,7 +125,7 @@ class ChatCompactionFlowDeviceTest {
                     if (goalId != null) {
                         chat.continueGoal(goalId, "Continue with the current request.")
                     } else {
-                        chat.send("Continue with the current request.")
+                        chat.sendTestMessage("Continue with the current request.")
                     }
                 }
                 compose.waitUntil(15_000) { storage.turns.listBySession(session).size == 4 }

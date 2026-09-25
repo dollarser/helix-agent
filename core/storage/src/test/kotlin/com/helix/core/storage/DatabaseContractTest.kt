@@ -3,26 +3,28 @@ package com.helix.core.storage
 import com.helix.core.storage.internal.MiniJson
 import com.helix.core.storage.internal.Value
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/**
- * JVM-side contract check for the Room schema export (the committed v2 fixture; v1 stays
- * committed as the migration baseline). The
- * device-side [RoomMigrationFixtureTest] verifies that the code-built schema matches this
- * export; together the two close the drift loop without a device.
- */
+/** JVM contract for the single pre-release Room baseline exported as schema version 1. */
 class DatabaseContractTest {
     private val expectedTables =
         setOf(
             "sessions",
+            "connector_installations",
+            "connector_skill_ownership",
+            "session_connectors",
+            "connector_endpoints",
             "messages",
+            "message_attachments",
             "turns",
             "model_calls",
             "tool_calls",
             "tool_results",
             "approvals",
+            "interaction_receipts",
             "executions",
             "artifacts",
             "audit_events",
@@ -32,183 +34,130 @@ class DatabaseContractTest {
             "plan_steps",
             "goals",
             "goal_runs",
+            "goal_turn_bindings",
+            "goal_usage_reservations",
             "mcp_servers",
             "mcp_capabilities",
             "skills",
             "skill_snapshots",
             "capability_grants",
             "execution_targets",
-        )
-
-    // Every table that declares at least one FOREIGN KEY in the export (14 tables; sessions
-    // and goals gained provider/plan references with the v1 index+FK hardening).
-    private val fkTables =
-        setOf(
-            "sessions",
-            "messages",
-            "turns",
-            "model_calls",
-            "tool_calls",
-            "tool_results",
-            "approvals",
-            "executions",
-            "artifacts",
-            "plan_steps",
-            "goals",
-            "goal_runs",
-            "mcp_capabilities",
-            "skill_snapshots",
+            "high_sensitivity_rules",
+            "a2a_agents",
+            "a2a_capabilities",
+            "a2a_tasks",
+            "goal_controls",
+            "session_permission_configs",
+            "tool_availability",
+            "session_permission_defaults",
+            "session_permission_drafts",
+            "composer_drafts",
+            "session_inputs",
+            "session_input_attachments",
+            "tool_call_reviews",
+            "turn_runtime_records",
+            "turn_review_receipts",
         )
 
     private fun schemaPath(): File {
-        // The build file passes the asset directory explicitly (the JVM unit test runs from a
-        // Gradle working directory, so user.dir is not reliable across setups); the relative
-        // fallback keeps manual IDE runs working.
         val property = System.getProperty("helix.schema.dir")
         val candidate =
             if (property.isNullOrBlank()) {
-                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/2.json")
+                File("src/androidTest/assets/com.helix.core.storage.HelixDatabase/1.json")
             } else {
-                File(property, "com.helix.core.storage.HelixDatabase/2.json")
+                File(property, "com.helix.core.storage.HelixDatabase/1.json")
             }
         assertTrue("schema export not found at ${candidate.absolutePath}", candidate.isFile)
         return candidate
     }
 
-    private fun loadSchema(): Value.Obj {
-        val value = MiniJson.parse(schemaPath().readText())
-        return value as? Value.Obj ?: throw AssertionError("schema export must be an object")
+    private fun database(): Value.Obj {
+        val root = MiniJson.parse(schemaPath().readText()) as? Value.Obj ?: error("schema export must be an object")
+        return root.entries.getValue("database") as Value.Obj
     }
 
+    private fun entities(): List<Value.Obj> =
+        ((database().entries.getValue("entities") as Value.Arr).items).map { it as Value.Obj }
+
+    private fun entity(table: String): Value.Obj =
+        entities().single { (it.entries.getValue("tableName") as Value.Str).value == table }
+
+    private fun columns(table: String): List<String> =
+        (entity(table).entries.getValue("fields") as Value.Arr).items.map {
+            ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
+        }
+
     @Test
-    fun `exported schema is version 2 with the full section 9-1 table set`() {
-        val database = (loadSchema().entries.getValue("database") as Value.Obj)
-        assertEquals(2L, (database.entries.getValue("version") as Value.Num).value)
-        val entities = (database.entries.getValue("entities") as Value.Arr).items
-        val tables =
-            entities.map { entity ->
-                ((entity as Value.Obj).entries.getValue("tableName") as Value.Str).value
-            }
+    fun `exported schema is the complete version one baseline`() {
+        val database = database()
+        assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
+        val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(22, tables.size)
+        assertEquals(45, tables.size)
     }
 
     @Test
-    fun `every relation declares a foreign key in its create statement`() {
-        val entities =
-            loadSchema()
-                .entries
-                .getValue("database")
-                .let { it as Value.Obj }
-                .entries
-                .getValue("entities") as Value.Arr
-        entities.items.forEach { entity ->
-            val obj = entity as Value.Obj
-            val tableName = (obj.entries.getValue("tableName") as Value.Str).value
-            val createSql = (obj.entries.getValue("createSql") as Value.Str).value
-            assertTrue("$tableName createSql is empty", createSql.isNotBlank())
-            if (tableName in fkTables) {
-                assertTrue(
-                    "$tableName must declare FOREIGN KEY in its create statement",
-                    createSql.contains("FOREIGN KEY"),
-                )
+    fun `foreign-key metadata is reflected in every relation create statement`() {
+        entities().forEach { entity ->
+            val table = (entity.entries.getValue("tableName") as Value.Str).value
+            val createSql = (entity.entries.getValue("createSql") as Value.Str).value
+            val foreignKeys = entity.entries["foreignKeys"] as? Value.Arr
+            assertTrue("$table createSql is empty", createSql.isNotBlank())
+            if (foreignKeys?.items?.isNotEmpty() == true) {
+                assertTrue("$table must declare FOREIGN KEY", createSql.contains("FOREIGN KEY"))
             }
         }
     }
 
     @Test
-    fun `secret fields are aliases only in the exported schema`() {
-        val entities =
-            loadSchema()
-                .entries
-                .getValue("database")
-                .let { it as Value.Obj }
-                .entries
-                .getValue("entities") as Value.Arr
-        entities.items.forEach { entity ->
-            val obj = entity as Value.Obj
-            val tableName = (obj.entries.getValue("tableName") as Value.Str).value
-            if (tableName !in setOf("provider_configs", "mcp_servers")) return@forEach
-            val columns =
-                (obj.entries.getValue("fields") as Value.Arr).items.map {
-                    ((it as Value.Obj).entries.getValue("columnName") as Value.Str)
-                        .value
-                        .lowercase()
-                }
-            val forbidden = columns.filter { it in setOf("apikey", "api_key", "token", "secret", "password") }
-            assertEquals("$tableName must not store plaintext credentials", emptyList<String>(), forbidden)
-        }
-        val provider =
-            (
-                entities.items.first {
-                    (it as Value.Obj).entries.getValue("tableName") == Value.Str("provider_configs")
-                }
-            ) as Value.Obj
-        val providerColumns =
-            (provider.entries.getValue("fields") as Value.Arr).items.map {
-                ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
-            }
-        assertTrue("provider_configs must keep the secretAlias column", "secretAlias" in providerColumns)
+    fun `current turn recovery and review facts are first-class baseline columns`() {
+        assertTrue("recoveryFromTurnId" in columns("turns"))
+        assertEquals(
+            listOf(
+                "turnId",
+                "version",
+                "providerId",
+                "modelId",
+                "providerSnapshot",
+                "mode",
+                "chatToolsEnabled",
+                "budgetsJson",
+                "reasoning",
+                "goalBudgetsJson",
+                "consumedModelCalls",
+                "consumedTokens",
+                "admittedToolRounds",
+            ),
+            columns("turn_runtime_records"),
+        )
+        assertEquals(
+            listOf("turnId", "clientActionId", "actionFingerprint"),
+            columns("turn_review_receipts"),
+        )
+        assertEquals(
+            listOf("toolCallId", "decision", "reviewedAt"),
+            columns("tool_call_reviews"),
+        )
     }
 
     @Test
-    fun `approvals table carries the full binding hash and expiry column`() {
-        val entities =
-            loadSchema()
-                .entries
-                .getValue("database")
-                .let { it as Value.Obj }
-                .entries
-                .getValue("entities") as Value.Arr
-        val approval =
-            (
-                entities.items.first {
-                    (it as Value.Obj).entries.getValue("tableName") == Value.Str("approvals")
-                }
-            ) as Value.Obj
-        val columns =
-            (approval.entries.getValue("fields") as Value.Arr).items.map {
-                ((it as Value.Obj).entries.getValue("columnName") as Value.Str).value
-            }
+    fun `approval binding and secret storage stay fail closed in the baseline`() {
         assertEquals(
             listOf("id", "toolCallId", "bindingHash", "decision", "decidedAt", "consumedAt", "expiresAt"),
-            columns,
+            columns("approvals"),
         )
-        val createSql = (approval.entries.getValue("createSql") as Value.Str).value
-        assertTrue("expiresAt must be NOT NULL", "expiresAt` INTEGER NOT NULL" in createSql)
-        assertTrue("v1 argsHash column must be gone", "argsHash" !in createSql)
+        for (table in listOf("provider_configs", "mcp_servers")) {
+            val lower = columns(table).map(String::lowercase)
+            assertFalse(lower.any { it in setOf("apikey", "api_key", "token", "secret", "password") })
+        }
+        assertTrue("secretAlias" in columns("provider_configs"))
     }
 
     @Test
-    fun `dao set covers every table`() {
-        val daoMethods =
-            HelixDatabase::class.java.methods
-                .map { it.name }
-                .toSet()
-        val expectedDaos =
-            listOf(
-                "sessionDao",
-                "messageDao",
-                "turnDao",
-                "modelCallDao",
-                "toolCallDao",
-                "toolResultDao",
-                "approvalDao",
-                "executionDao",
-                "artifactDao",
-                "auditEventDao",
-                "providerConfigDao",
-                "runtimeInstallDao",
-                "executionTargetDao",
-                "capabilityGrantDao",
-                "planDao",
-                "goalDao",
-                "goalRunDao",
-                "mcpServerDao",
-                "mcpCapabilityDao",
-                "skillDao",
-                "skillSnapshotDao",
-            )
-        expectedDaos.forEach { assertTrue("missing DAO accessor: $it", daoMethods.contains(it)) }
+    fun `legacy internal tables are absent from the baseline`() {
+        val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }.toSet()
+        assertFalse("tool_approval_preferences" in tables)
+        assertFalse("tool_registration_baseline" in tables)
+        assertFalse("tool_baseline_meta" in tables)
     }
 }

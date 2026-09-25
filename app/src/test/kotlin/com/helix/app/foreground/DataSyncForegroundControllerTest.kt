@@ -9,9 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Pins the pure-JVM half of the dataSync foreground decision (roadmap HXA-066, architecture doc
- * 5.1): the foreground service is up ONLY while a turn is actively moving data, and the moment the
- * turn waits for the user ([TurnState.WAITING_APPROVAL]) or goes idle (terminal, or no active
- * turn) it stops. The real Android start/stop is device-verified by
+ * 5.1): the foreground service is up ONLY while a turn is actively moving data; approval-wait
+ * tasks are filtered before this controller and idle/terminal state stops it. The real Android
+ * start/stop is device-verified by
  * [DataSyncForegroundServiceDeviceTest]; these tests lock the decision against a recording fake.
  */
 class DataSyncForegroundControllerTest {
@@ -82,16 +82,6 @@ class DataSyncForegroundControllerTest {
     }
 
     @Test
-    fun waitingForApprovalStopsTheForegroundService() {
-        val launcher = RecordingLauncher()
-        val controller = DataSyncForegroundController(launcher)
-        controller.onTurnState(TurnState.WAITING_MODEL)
-        controller.onTurnState(TurnState.WAITING_APPROVAL)
-        assertEquals(1, launcher.starts.get())
-        assertEquals(1, launcher.stops.get())
-    }
-
-    @Test
     fun everyTerminalStateStopsTheForegroundService() {
         for (state in setOf(TurnState.COMPLETED, TurnState.FAILED, TurnState.CANCELLED)) {
             val launcher = RecordingLauncher()
@@ -120,17 +110,6 @@ class DataSyncForegroundControllerTest {
             DataSyncForegroundController(launcher).onTurnState(state)
             assertEquals("state $state should not start the service", 0, launcher.starts.get())
         }
-    }
-
-    @Test
-    fun resumingAfterApprovalStartsTheServiceAgain() {
-        val launcher = RecordingLauncher()
-        val controller = DataSyncForegroundController(launcher)
-        controller.onTurnState(TurnState.WAITING_MODEL)
-        controller.onTurnState(TurnState.WAITING_APPROVAL)
-        controller.onTurnState(TurnState.RUNNING_TOOL)
-        assertEquals(2, launcher.starts.get())
-        assertEquals(1, launcher.stops.get())
     }
 
     @Test

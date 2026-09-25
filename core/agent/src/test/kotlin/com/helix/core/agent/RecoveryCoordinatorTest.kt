@@ -1,15 +1,13 @@
 package com.helix.core.agent
 
-import com.helix.core.model.ErrorCode
 import com.helix.core.model.GoalId
 import com.helix.core.model.GoalState
 import com.helix.core.model.ToolCallId
 import com.helix.core.model.ToolCallState
-import com.helix.core.model.ToolName
-import com.helix.core.model.ToolVersion
 import com.helix.core.model.TurnId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import com.helix.core.model.TurnState as Phase
@@ -39,11 +37,6 @@ class RecoveryCoordinatorTest {
     ) = PersistedToolCall(toolId(id), state)
 
     private fun toolId(name: String) = ToolCallId(name)
-
-    private fun pending(
-        id: ToolCallId,
-        state: ToolCallState,
-    ): PendingToolCall = PendingToolCall(id, ToolName("write"), ToolVersion(1), false, null, state)
 
     // ---------------------------------------------------------------- turn decisions
 
@@ -113,7 +106,7 @@ class RecoveryCoordinatorTest {
     fun `a call still awaiting approval never executed and is not uncertain`() {
         val decision =
             RecoveryCoordinator.recoveryForTurn(
-                persistedTurn(turn(1), Phase.WAITING_APPROVAL, "c1" to ToolCallState.AWAITING_APPROVAL),
+                persistedTurn(turn(1), Phase.RUNNING_TOOL, "c1" to ToolCallState.AWAITING_APPROVAL),
             )
         assertEquals(TurnRecovery.Interrupt(turn(1), emptyList()), decision)
     }
@@ -158,7 +151,7 @@ class RecoveryCoordinatorTest {
 
     @Test
     fun `duplicate tool call ids are a corrupt input`() {
-        assertThrows<IllegalArgumentException>("unique call ids") {
+        assertThrows(IllegalArgumentException::class.java) {
             persistedTurn(
                 turn(1),
                 Phase.WAITING_MODEL,
@@ -272,77 +265,6 @@ class RecoveryCoordinatorTest {
         assertFalse(RecoveryCoordinator.wakeAllowed(GoalState.COMPLETED))
         assertFalse(RecoveryCoordinator.wakeAllowed(GoalState.FAILED))
         assertFalse(RecoveryCoordinator.wakeAllowed(GoalState.CANCELLED))
-    }
-
-    // ---------------------------------------------------------------- cross-check with the reducers
-
-    @Test
-    fun `the coordinator agrees with the turn reducer across process death`() {
-        // Dying in RUNNING_TOOL: the reducer marks the executing call uncertain, and so does
-        // the coordinator from the persisted rows.
-        val preDeath =
-            TurnState(
-                sessionId = Fixtures.session,
-                turnId = Fixtures.turn,
-                correlationId = Fixtures.correlation,
-                phase = Phase.RUNNING_TOOL,
-                budgets = Fixtures.budgets(),
-                pendingCalls =
-                    listOf(
-                        pending(toolId("c1"), ToolCallState.RUNNING),
-                        pending(toolId("c2"), ToolCallState.PENDING),
-                    ),
-            )
-        val reduced = TurnReducer.afterProcessDeath(preDeath)
-        val persisted =
-            persistedTurn(
-                Fixtures.turn,
-                Phase.RUNNING_TOOL,
-                "c1" to ToolCallState.RUNNING,
-                "c2" to ToolCallState.PENDING,
-            )
-        assertEquals(Phase.INTERRUPTED, reduced.phase)
-        assertEquals(
-            TurnRecovery.Interrupt(Fixtures.turn, listOfNotNull(reduced.uncertainToolCallId)),
-            RecoveryCoordinator.recoveryForTurn(persisted),
-        )
-
-        // Dying in WAITING_APPROVAL: the call never executed; both layers see no uncertainty.
-        val awaiting =
-            TurnState(
-                sessionId = Fixtures.session,
-                turnId = Fixtures.turn,
-                correlationId = Fixtures.correlation,
-                phase = Phase.WAITING_APPROVAL,
-                budgets = Fixtures.budgets(),
-                pendingCalls = listOf(pending(toolId("c1"), ToolCallState.AWAITING_APPROVAL)),
-            )
-        val reducedAwaiting = TurnReducer.afterProcessDeath(awaiting)
-        val persistedAwaiting =
-            persistedTurn(Fixtures.turn, Phase.WAITING_APPROVAL, "c1" to ToolCallState.AWAITING_APPROVAL)
-        assertEquals(null, reducedAwaiting.uncertainToolCallId)
-        assertEquals(
-            TurnRecovery.Interrupt(Fixtures.turn, listOfNotNull(reducedAwaiting.uncertainToolCallId)),
-            RecoveryCoordinator.recoveryForTurn(persistedAwaiting),
-        )
-    }
-
-    @Test
-    fun `interrupted turn is terminal and recovery never resumes it`() {
-        val recovered =
-            TurnState(
-                sessionId = Fixtures.session,
-                turnId = Fixtures.turn,
-                correlationId = Fixtures.correlation,
-                phase = Phase.INTERRUPTED,
-                budgets = Fixtures.budgets(),
-                uncertainToolCallId = toolId("c1"),
-            )
-        assertTrue(recovered.phase.isTerminal)
-        assertEquals(
-            TurnRecovery.NoAction,
-            RecoveryCoordinator.recoveryForTurn(PersistedTurn(Fixtures.turn, Phase.INTERRUPTED, emptyList())),
-        )
     }
 
     @Test

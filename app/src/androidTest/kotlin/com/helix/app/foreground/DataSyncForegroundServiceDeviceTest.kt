@@ -84,7 +84,7 @@ class DataSyncForegroundServiceDeviceTest : com.helix.app.test.ForegroundDeviceT
     }
 
     @Test
-    fun controllerStopsTheForegroundServiceWhenTheTurnWaitsForApproval() {
+    fun controllerStopsTheForegroundServiceWhenAggregateTransportBecomesIdle() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         grantNotificationPermission(context)
         val manager = notifications(context)
@@ -93,8 +93,8 @@ class DataSyncForegroundServiceDeviceTest : com.helix.app.test.ForegroundDeviceT
         waitFor("the turn transport to bring the foreground service up") {
             manager.activeNotifications.any { it.id == DataSyncForegroundService.NOTIFICATION_ID }
         }
-        controller.onTurnState(TurnState.WAITING_APPROVAL)
-        waitFor("waiting for approval to stop the foreground service") {
+        controller.onTurnState(null)
+        waitFor("idle aggregate transport to stop the foreground service") {
             manager.activeNotifications.none { it.id == DataSyncForegroundService.NOTIFICATION_ID }
         }
     }

@@ -200,3 +200,5 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-217 | [HXA-217：轻量请求来源记录与 JSONL 可追踪性](HXA-217.md) |
 | HXA-218 | [HXA-218：会话工作台 UI 与交互重构](HXA-218.md) |
 | HXA-219 | [HXA-219：产物就地预览](HXA-219.md) |
+| HXA-220 | [HXA-220：Core Engine / TurnEngine 生命周期收敛](HXA-220.md) |
+| HXA-221 | [HXA-221：Pre-release Clean-slate Baseline Cleanup](HXA-221.md) |

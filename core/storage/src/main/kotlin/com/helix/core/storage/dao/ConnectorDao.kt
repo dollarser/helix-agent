@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.helix.core.storage.entity.ConnectorCatalogStateEntity
 import com.helix.core.storage.entity.ConnectorInstallationEntity
 import com.helix.core.storage.entity.ConnectorSkillOwnershipEntity
 import com.helix.core.storage.entity.SessionConnectorEntity
@@ -84,10 +83,4 @@ interface ConnectorDao {
             "FROM connector_installations WHERE defaultSelected = 1",
     )
     fun snapshotDefaults(sessionId: String)
-
-    @Query("SELECT COUNT(*) FROM connector_catalog_state WHERE id = 'legacy-imported'")
-    fun migrated(): Int
-
-    @Insert
-    fun markMigrated(row: ConnectorCatalogStateEntity)
 }
