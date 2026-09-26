@@ -106,7 +106,7 @@ class SglangUiSmokeTest {
         )
 
         // --- create the provider against the real endpoint (empty key, cleartext confirmed) ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-ollama").performClick()

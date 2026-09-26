@@ -157,9 +157,17 @@ class HelixThemeDeviceTest {
     fun shellDestinationsOperableInCurrentMode() {
         assumeTrue(recoveryPhase() != "setup")
         compose.resetDeterministicUiState()
-        for (route in listOf("files", "tasks", "permissions", "browser", "settings")) {
+        val destinations =
+            listOf(
+                "files" to "screen-files",
+                "tasks" to "screen-tasks",
+                "settings/permissions/system" to "screen-permissions",
+                "browser" to "screen-browser",
+                "settings" to "screen-settings",
+            )
+        for ((route, tag) in destinations) {
             compose.navigateTo(route)
-            assertPresent("screen-$route")
+            assertPresent(tag)
             // The mode contract still holds while the shell sits on each destination.
             assertThemeMatchesSystemMode()
         }

@@ -48,7 +48,7 @@ class EgressRuleUiTest {
         clearRules(repo)
 
         // --- Standard (after reset): the egress section is ABSENT ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         composeRule.onNodeWithTag("settings-profile-current").assertIsDisplayed()
         assertTrue(
             "egress section must be absent in Standard",
@@ -116,7 +116,7 @@ class EgressRuleUiTest {
 
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         composeRule.onNodeWithTag("egress-section-title").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").performScrollTo()
         composeRule.onNodeWithTag("egress-rule-target").assertIsDisplayed()

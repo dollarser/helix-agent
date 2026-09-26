@@ -18,7 +18,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -32,7 +31,6 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.proot.ProotToolModule
-import com.helix.app.proot.ProotVerificationNote
 import com.helix.app.readiness.CapabilityReadiness
 import com.helix.app.readiness.ReadinessActionKind
 import com.helix.app.readiness.ReadinessGoal
@@ -44,7 +42,6 @@ import com.helix.app.readiness.RuntimeReadiness
 import com.helix.core.model.Capability
 import com.helix.core.model.SafetyProfile
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -67,7 +64,8 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod") // one branch per goal / item kind / state / action
 internal fun CapabilityReadinessScreen(
     container: AppContainer,
-    onOpenSettings: () -> Unit,
+    onOpenModels: () -> Unit,
+    onOpenRuntime: () -> Unit,
 ) {
     val profile by container.profileStore.flow.collectAsState()
     val linuxGoalEnabled = ProotToolModule.AVAILABLE && profile == SafetyProfile.ADVANCED
@@ -91,16 +89,8 @@ internal fun CapabilityReadinessScreen(
     // The profile may drop LINUX under the user; fall back to the always-available CHAT goal.
     val effectiveGoal = if (goal in goals) goal else ReadinessGoal.CHAT
 
-    val scope = rememberCoroutineScope()
     var revision by remember { mutableStateOf(0) }
     var projection by remember { mutableStateOf<ReadinessProjection?>(null) }
-    // The last explicit verify result (a structured note, not a generic error); it belongs to
-    // the current goal, so it is cleared when the goal changes, never by a passive refresh.
-    var verifyNote by remember { mutableStateOf<ProotVerificationNote?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    // Resolved in composition (stringResource is @Composable); the click handlers only read them.
-    val rebaselineSuccess = stringResource(R.string.settings_proot_rebaseline_success)
-    val rebaselineEmpty = stringResource(R.string.settings_proot_rebaseline_empty)
 
     val readProjection: (ReadinessGoal) -> ReadinessProjection = { g ->
         val modelConfigured =
@@ -120,9 +110,6 @@ internal fun CapabilityReadinessScreen(
         )
     }
 
-    LaunchedEffect(effectiveGoal) {
-        verifyNote = null
-    }
     LaunchedEffect(effectiveGoal, revision) {
         projection = withContext(Dispatchers.IO) { readProjection(effectiveGoal) }
     }
@@ -130,42 +117,6 @@ internal fun CapabilityReadinessScreen(
     // Re-open / rotate / returning from Settings or the repair activity: re-read the current
     // state so the view always reflects reality (HXA-205: 重开状态可恢复). Passive — no bind.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { revision += 1 }
-
-    // The explicit user click is the ONLY cold-bind path (HXA-085); afterwards the gate is
-    // re-read so READY shows without a second tap.
-    fun onVerify() {
-        if (busy) return
-        busy = true
-        scope.launch {
-            withContext(Dispatchers.IO) {
-                verifyNote = ProotToolModule.verifyNowNote()
-                projection = readProjection(effectiveGoal)
-            }
-            busy = false
-        }
-    }
-
-    // The explicit user click is the ONLY repair-activity path (install + fix share it); re-read
-    // when the user returns from the companion.
-    fun onRepair() {
-        ProotToolModule.openRepair()
-        revision += 1
-    }
-
-    // The explicit re-baseline action (HXA-087 需更新): only reachable after a verify has shown
-    // the stable lock-mismatch note. Two explicit user actions, never automatic.
-    fun onRebaseline() {
-        scope.launch(Dispatchers.IO) {
-            val existed = ProotToolModule.rebaseline()
-            verifyNote =
-                if (existed) {
-                    ProotVerificationNote(rebaselineSuccess)
-                } else {
-                    ProotVerificationNote(rebaselineEmpty)
-                }
-            projection = readProjection(effectiveGoal)
-        }
-    }
 
     Column(
         Modifier
@@ -210,7 +161,7 @@ internal fun CapabilityReadinessScreen(
         }
 
         TextButton(
-            onClick = { if (!busy) revision += 1 },
+            onClick = { revision += 1 },
             modifier = Modifier.align(Alignment.End).testTag("capability-readiness-refresh"),
         ) {
             Text(stringResource(R.string.cap_refresh))
@@ -231,35 +182,19 @@ internal fun CapabilityReadinessScreen(
                             style = MaterialTheme.typography.labelLarge,
                         )
                         OutlinedButton(
-                            enabled = !busy,
                             onClick = {
                                 when (action) {
-                                    ReadinessActionKind.ADD_MODEL -> onOpenSettings()
-                                    ReadinessActionKind.VERIFY_RUNTIME -> onVerify()
-                                    ReadinessActionKind.REPAIR_RUNTIME -> onRepair()
+                                    ReadinessActionKind.ADD_MODEL -> onOpenModels()
+
+                                    ReadinessActionKind.VERIFY_RUNTIME,
+                                    ReadinessActionKind.REPAIR_RUNTIME,
+                                    -> onOpenRuntime()
                                 }
                             },
                             modifier = Modifier.testTag("capability-readiness-action-${action.route()}"),
                         ) {
                             Text(stringResource(action.labelRes()))
                         }
-                    }
-                }
-                verifyNote?.let { note ->
-                    Text(
-                        note.text,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.testTag("capability-readiness-result"),
-                    )
-                }
-                if (verifyNote?.needsRebaseline == true) {
-                    OutlinedButton(
-                        enabled = !busy,
-                        onClick = { onRebaseline() },
-                        modifier = Modifier.testTag("capability-readiness-action-rebaseline"),
-                    ) {
-                        Text(stringResource(R.string.settings_proot_rebaseline))
                     }
                 }
             }

@@ -93,7 +93,7 @@ internal fun navigationGroupTag(groupResId: Int): String =
     when (groupResId) {
         R.string.nav_group_conversations -> "navigation-group-conversations"
         R.string.nav_group_work -> "navigation-group-work"
-        R.string.nav_group_extensions -> "navigation-group-extensions"
+        R.string.nav_group_configure -> "navigation-group-configure"
         R.string.nav_group_settings -> "navigation-group-settings"
         else -> "navigation-group-$groupResId"
     }
@@ -106,9 +106,7 @@ private fun ShellDestination.navigationGroup(): Int =
         ShellDestination.Files, ShellDestination.Browser, ShellDestination.Terminal,
         -> R.string.nav_group_work
 
-        ShellDestination.Extensions -> R.string.nav_group_extensions
+        ShellDestination.Models, ShellDestination.Extensions, ShellDestination.Setup -> R.string.nav_group_configure
 
-        ShellDestination.Capabilities, ShellDestination.Readiness, ShellDestination.Permissions,
-        ShellDestination.Settings, ShellDestination.Audit,
-        -> R.string.nav_group_settings
+        ShellDestination.Settings -> R.string.nav_group_settings
     }

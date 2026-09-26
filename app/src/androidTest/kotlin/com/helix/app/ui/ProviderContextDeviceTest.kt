@@ -50,7 +50,7 @@ class ProviderContextDeviceTest {
                     )
                 try {
                     check(service.runConnectionTest(id) is ProbeOutcome.Ok)
-                    compose.navigateTo("settings")
+                    compose.navigateTo("models")
                     compose.onNodeWithTag("provider-context-$id").performScrollTo().performClick()
                     compose.waitUntil(10_000) {
                         compose

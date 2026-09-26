@@ -48,7 +48,7 @@ internal fun SessionListSection(
     onTasks: () -> Unit,
     onRename: (String) -> Unit,
     onNavigation: () -> Unit,
-    onProviders: () -> Unit = {},
+    onModels: () -> Unit = {},
     onSearch: (String) -> Unit = {},
     needsProvider: Boolean = false,
 ) {
@@ -158,7 +158,7 @@ internal fun SessionListSection(
         } else {
             if (needsProvider && !archivedOnly) {
                 item(key = "provider-setup") {
-                    OutlinedButton(onProviders, Modifier.testTag("chat-setup-provider")) {
+                    OutlinedButton(onModels, Modifier.testTag("chat-setup-provider")) {
                         Text(stringResource(R.string.chat_setup_provider))
                     }
                 }

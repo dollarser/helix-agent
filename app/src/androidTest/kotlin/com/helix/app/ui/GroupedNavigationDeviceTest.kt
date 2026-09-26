@@ -48,9 +48,8 @@ class GroupedNavigationDeviceTest {
                     ShellDestination.Files, ShellDestination.Browser, ShellDestination.Terminal,
                     -> "navigation-group-work"
 
-                    ShellDestination.Capabilities, ShellDestination.Readiness, ShellDestination.Permissions,
-                    ShellDestination.Settings, ShellDestination.Audit,
-                    -> "navigation-group-settings"
+                    ShellDestination.Models, ShellDestination.Extensions, ShellDestination.Setup,
+                    -> "navigation-group-configure"
 
                     else -> null
                 }
@@ -68,5 +67,8 @@ class GroupedNavigationDeviceTest {
             compose.onNodeWithTag("navigation-${destination.route}").assertIsSelected()
         }
         compose.runOnIdle { assertEquals(ShellDestination.entries, visited) }
+        listOf("capabilities", "readiness", "permissions", "audit").forEach { legacyRoute ->
+            compose.onNodeWithTag("navigation-$legacyRoute").assertDoesNotExist()
+        }
     }
 }

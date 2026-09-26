@@ -20,7 +20,7 @@ class SystemPermissionsNavigationDeviceTest {
         compose.resetDeterministicUiState()
         val permission = Manifest.permission.WRITE_CALENDAR
         val before = compose.activity.checkSelfPermission(permission)
-        compose.navigateTo("permissions")
+        compose.navigateTo("settings/permissions/system")
         listOf(
             "permission-notifications",
             "permission-calendar",
@@ -51,6 +51,6 @@ class SystemPermissionsNavigationDeviceTest {
         chat.closeSession()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
         compose.onNodeWithTag("chat-setup-provider").performScrollTo().performClick()
-        compose.onNodeWithTag("screen-settings").assertIsDisplayed()
+        compose.onNodeWithTag("screen-models").assertIsDisplayed()
     }
 }

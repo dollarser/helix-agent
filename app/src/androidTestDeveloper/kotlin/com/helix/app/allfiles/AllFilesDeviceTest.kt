@@ -149,7 +149,7 @@ class AllFilesDeviceTest {
     @Test
     fun consentScreenShowsLiveStateAndTheSettingsJumpWhenDenied() {
         composeRule.resetDeterministicUiState() // STANDARD profile + gate dismissed
-        composeRule.navigateTo("permissions")
+        composeRule.navigateTo("settings/permissions/system")
         composeRule.onNodeWithTag("permission-files").performScrollTo().performClick()
 
         composeRule.onNodeWithTag("allfiles-explanation").performScrollTo().assertIsDisplayed()

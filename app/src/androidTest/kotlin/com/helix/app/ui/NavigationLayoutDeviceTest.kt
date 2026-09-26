@@ -21,7 +21,7 @@ class NavigationLayoutDeviceTest {
         compose.resetDeterministicUiState()
         try {
             prepareChatLayoutLanguage(compose)
-            compose.navigateTo("settings")
+            compose.navigateTo("models")
             compose
                 .onNodeWithTag("provider-add")
                 .performScrollTo()

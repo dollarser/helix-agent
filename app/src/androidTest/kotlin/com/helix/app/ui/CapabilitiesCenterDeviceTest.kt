@@ -12,8 +12,8 @@ import org.junit.Rule
 import org.junit.Test
 
 /**
- * The P0-B Capability Center (doc section 11 / PX-04): the drawer's capabilities destination
- * opens a real first-class page listing every runtime capability with a live status, and a
+ * The P0-B Capability Center (doc section 11 / PX-04): Setup opens the focused capability page
+ * listing every runtime capability with a live status, and a
  * row expands to what it enables / why / current scope plus honest Test / Repair / Disable
  * actions. On a clean consumer build: files (SAF) read Ready, root reads Unavailable, and the
  * MCP row reports its connected-endpoint count.
@@ -25,7 +25,7 @@ class CapabilitiesCenterDeviceTest {
     fun capabilitiesPageListsLiveRowsAndExpandsActions() {
         runBlocking {
             compose.resetDeterministicUiState()
-            compose.navigateTo("capabilities")
+            compose.navigateTo("setup/capabilities")
             compose.onNodeWithTag("screen-capabilities").assertExists()
 
             // All eight capability rows render.
@@ -63,6 +63,8 @@ class CapabilitiesCenterDeviceTest {
             compose.onNodeWithTag("capability-notifications-test", useUnmergedTree = true).performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("screen-capabilities").assertExists()
+            compose.onNodeWithTag("capability-notifications-manage", useUnmergedTree = true).performClick()
+            compose.onNodeWithTag("permission-notifications").assertIsDisplayed()
         }
     }
 }

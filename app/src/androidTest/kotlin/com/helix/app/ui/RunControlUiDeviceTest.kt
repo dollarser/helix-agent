@@ -64,7 +64,7 @@ class RunControlSettingsUiDeviceTest {
     @Test
     fun recommendedValuesDiscardUnsavedEditsAndRestoreAutomaticInput() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/defaults")
         replace("budget-total", "20000")
         composeRule.onNodeWithTag("budget-recommended").performScrollTo().performClick()
         composeRule.onNodeWithTag("budget-save").performScrollTo().performClick()
@@ -82,7 +82,7 @@ class RunControlSettingsUiDeviceTest {
     @Test
     fun boundedBudgetsPersistAcrossActivityRecreation() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/defaults")
         composeRule.onNodeWithTag("settings-turn-budgets").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag("budget-steps").assertDoesNotExist()
         composeRule.onNodeWithTag("budget-advanced").performScrollTo().performClick()
@@ -97,7 +97,7 @@ class RunControlSettingsUiDeviceTest {
 
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/defaults")
         val expected = TurnBudgets(7, 6, 12_000, 2_000, 14_000)
         check(
             composeRule

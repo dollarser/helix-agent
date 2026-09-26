@@ -49,22 +49,6 @@ internal fun ConversationComposer(
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
-        ComposerToolbar(
-            mode,
-            onMode,
-            reasoning,
-            reasoningSupported,
-            onReasoning,
-            isSending,
-            modelSelector,
-            reasoningOptions = reasoningOptions,
-            trailingOptions = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
-                    ContextWindowIndicator(contextUsage, onCompact, canCompact)
-                }
-            },
-        )
         val activeQuery =
             androidx.compose.runtime.remember(input) {
                 com.helix.app.ui.composer.ComposerCommandParser
@@ -117,35 +101,17 @@ internal fun ConversationComposer(
                 },
             )
         }
-        Row(
-            Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
-            verticalAlignment = Alignment.Bottom,
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(28.dp)),
         ) {
-            IconButton(
-                actions.onVoice,
-                enabled = availability.input,
-                modifier = Modifier.testTag("chat-voice"),
-            ) {
-                Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
-            }
             OutlinedTextField(
                 value = input,
                 onValueChange = onInput,
-                modifier = Modifier.weight(1f).testTag("chat-input"),
+                modifier = Modifier.fillMaxWidth().testTag("chat-input"),
                 placeholder = { Text(stringResource(R.string.chat_input_placeholder)) },
                 enabled = availability.input,
-                trailingIcon = {
-                    IconButton(
-                        actions.onAttach,
-                        enabled = availability.canAttach(),
-                        modifier = Modifier.testTag("chat-attach"),
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_chat_attach),
-                            stringResource(R.string.chat_attachment_button),
-                        )
-                    }
-                },
                 colors =
                     OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color.Transparent,
@@ -154,25 +120,65 @@ internal fun ConversationComposer(
                     ),
                 maxLines = 5,
             )
-            val sendEnabled = input.isNotBlank() || ((!goalMode || isSending) && hasAttachments)
-            IconButton(
-                onClick = actions.onSend,
-                enabled = sendEnabled && availability.delivery,
-                modifier = Modifier.testTag("chat-send"),
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painterResource(R.drawable.ic_composer_send),
-                    stringResource(R.string.common_send),
-                )
-            }
-        }
-        if (isSending) {
-            IconButton(
-                onClick = actions.onStop,
-                enabled = turnState != TurnState.CANCELLING,
-                modifier = Modifier.align(Alignment.End).testTag("chat-stop"),
-            ) {
-                Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
+                IconButton(
+                    actions.onVoice,
+                    enabled = availability.input,
+                    modifier = Modifier.testTag("chat-voice"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
+                }
+                IconButton(
+                    actions.onAttach,
+                    enabled = availability.canAttach(),
+                    modifier = Modifier.testTag("chat-attach"),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_chat_attach),
+                        stringResource(R.string.chat_attachment_button),
+                    )
+                }
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
+                    ComposerToolbar(
+                        mode,
+                        onMode,
+                        reasoning,
+                        reasoningSupported,
+                        onReasoning,
+                        isSending,
+                        modelSelector,
+                        reasoningOptions = reasoningOptions,
+                        trailingOptions = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.chat_context_title), Modifier.weight(1f))
+                                ContextWindowIndicator(contextUsage, onCompact, canCompact)
+                            }
+                        },
+                    )
+                }
+                if (isSending) {
+                    IconButton(
+                        onClick = actions.onStop,
+                        enabled = turnState != TurnState.CANCELLING,
+                        modifier = Modifier.testTag("chat-stop"),
+                    ) {
+                        Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
+                    }
+                }
+                val sendEnabled = input.isNotBlank() || ((!goalMode || isSending) && hasAttachments)
+                IconButton(
+                    onClick = actions.onSend,
+                    enabled = sendEnabled && availability.delivery,
+                    modifier = Modifier.testTag("chat-send"),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_composer_send),
+                        stringResource(R.string.common_send),
+                    )
+                }
             }
         }
     }

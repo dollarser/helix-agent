@@ -15,7 +15,17 @@ class SystemBarInsetsDeviceTest {
     @Test fun allDestinationHeadersStayBelowSystemBarsAfterNavigationAndRecreation() {
         compose.resetDeterministicUiState()
         repeat(2) { pass ->
-            listOf("files", "browser", "extensions", "permissions", "settings", "audit").forEach { route ->
+            listOf(
+                "files",
+                "browser",
+                "models",
+                "extensions",
+                "setup",
+                "settings",
+                "setup/readiness",
+                "settings/permissions/system",
+                "settings/audit",
+            ).forEach { route ->
                 compose.navigateTo(route)
                 val header = compose.onNodeWithTag("shell-top-bar").fetchSemanticsNode().boundsInWindow
                 var top = 0

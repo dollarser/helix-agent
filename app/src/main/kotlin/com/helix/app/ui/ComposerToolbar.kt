@@ -40,7 +40,7 @@ internal fun ComposerOptionRow(content: @Composable RowScope.() -> Unit) {
     )
 }
 
-/** Only mode and model stay in the composer; secondary controls share a bounded sheet. */
+/** Mode/model stay inline; secondary controls share one bounded sheet in the composer action row. */
 @Composable
 @Suppress("FunctionName", "LongParameterList")
 internal fun ComposerToolbar(

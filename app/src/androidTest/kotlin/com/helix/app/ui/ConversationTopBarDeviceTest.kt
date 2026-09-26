@@ -73,9 +73,16 @@ class ConversationTopBarDeviceTest {
         }
         val chatBounds = compose.onNodeWithTag("chat-header").getUnclippedBoundsInRoot()
         val height = chatBounds.bottom - chatBounds.top
-        listOf("files", "browser", "extensions", "permissions", "settings", "audit").forEach { route ->
+        listOf("files", "browser", "models", "extensions", "setup", "settings").forEach { route ->
             compose.navigateTo(route)
             compose.onNodeWithTag("open-navigation").assertIsDisplayed()
+            val bounds = compose.onNodeWithTag("shell-top-bar").getUnclippedBoundsInRoot()
+            assertEquals(height, bounds.bottom - bounds.top)
+        }
+        listOf("setup/readiness", "settings/permissions/system", "settings/audit").forEach { route ->
+            compose.navigateTo(route)
+            compose.onNodeWithTag("navigate-back").assertIsDisplayed()
+            compose.onNodeWithTag("open-navigation").assertDoesNotExist()
             val bounds = compose.onNodeWithTag("shell-top-bar").getUnclippedBoundsInRoot()
             assertEquals(height, bounds.bottom - bounds.top)
         }

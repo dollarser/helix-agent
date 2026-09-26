@@ -330,11 +330,9 @@ class ChatService(
     internal val artifactFiles: StateFlow<List<ArtifactRowUi>> = artifactFilesState
     private val _screen = MutableStateFlow(EMPTY_SCREEN)
 
-    /**
-     * Where the panel's RECONNECT / GRANT_PERMISSION buttons navigate: the provider and
-     * permission repair screen. Wired by the UI layer; the service holds no NavController.
-     */
-    internal var recoverySettingsNavigation: (() -> Unit)? = null
+    /** UI-owned deep links for recovery repair; ChatService still holds no NavController. */
+    internal var recoveryModelsNavigation: (() -> Unit)? = null
+    internal var recoveryPermissionsNavigation: (() -> Unit)? = null
 
     /** HXA-204 slice 2: the panel operations — each keeps its own identity and admission. */
     private val turnRecovery =
@@ -343,7 +341,10 @@ class ChatService(
             workScope,
             _screen,
             { sessionId -> projection.retryTargetFor(sessionId) },
-            { recoverySettingsNavigation?.invoke() },
+            RecoveryRepairNavigation(
+                models = { recoveryModelsNavigation?.invoke() },
+                permissions = { recoveryPermissionsNavigation?.invoke() },
+            ),
             ::continueGoal,
             ::retry,
             ::inspectInterruptedProot,

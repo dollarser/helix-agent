@@ -34,7 +34,7 @@ class AdvancedSwitchTest {
         val providerRowsBefore = container.providerService.rows.value.size
 
         // --- Standard: the switch entry exists (developer build) and is risk-gated ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         composeRule.onNodeWithText("当前：Standard（默认）").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-advanced-switch").performClick()
         composeRule.waitForIdle()
@@ -68,7 +68,7 @@ class AdvancedSwitchTest {
         composeRule.runOnUiThread { composeRule.activity.recreate() }
         composeRule.waitForIdle()
         assertEquals(SafetyProfile.ADVANCED, container.profileStore.profile)
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         composeRule.onNodeWithText("当前：Advanced").assertIsDisplayed()
 
         // --- reversible: back to Standard without the risk dialog (downgrade) ---

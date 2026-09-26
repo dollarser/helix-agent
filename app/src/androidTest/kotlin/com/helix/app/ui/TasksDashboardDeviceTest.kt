@@ -44,11 +44,12 @@ class TasksDashboardDeviceTest {
                 )
             }
 
-            // The drawer now offers the two new destinations.
+            // The drawer keeps Tasks primary and exposes Setup instead of duplicating Capabilities.
             compose.onNodeWithTag("open-navigation").performClick()
             compose.waitForIdle()
             compose.onNodeWithTag("navigation-tasks").assertExists()
-            compose.onNodeWithTag("navigation-capabilities").assertExists()
+            compose.onNodeWithTag("navigation-group-configure").performClick()
+            compose.onNodeWithTag("navigation-setup").assertExists()
 
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()

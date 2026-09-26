@@ -56,7 +56,9 @@ fun ChatScreen(
     privacyDeletionService: com.helix.app.privacy.PrivacyDeletionService,
     fileManager: com.helix.app.files.FileManagerService? = null,
     onNavigation: () -> Unit = {},
-    onProviders: () -> Unit = {},
+    onModels: () -> Unit = {},
+    onAgentDefaults: () -> Unit = {},
+    onPermissions: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
     connectors: com.helix.app.connector.ConnectorService? = null,
@@ -93,7 +95,8 @@ fun ChatScreen(
     exportSessionId?.let { id ->
         if (sessionExport != null) SessionExportDialog(id, sessionExport) { exportSessionId = null }
     }
-    chatService.recoverySettingsNavigation = onProviders
+    chatService.recoveryModelsNavigation = onModels
+    chatService.recoveryPermissionsNavigation = onPermissions
     if (tasksOpen) BackgroundTaskDialog(chatService, onDismiss = { tasksOpen = false })
     LaunchedEffect(sessionId, reminderGoal) { goalsOpen = reminderGoal != null }
 
@@ -275,7 +278,7 @@ fun ChatScreen(
                 search = sessionSearch,
                 onNavigation = onNavigation,
                 onNew = { chatService.newSessionDraft() },
-                onProviders = onProviders,
+                onModels = onModels,
                 needsProvider = providerRows.none { it.chatSelectable },
                 onRename = { renameId = it },
                 onOpen = { chatService.openSession(it) },
@@ -436,7 +439,7 @@ fun ChatScreen(
             // Goal continuation has no durable receipt yet. Preserve the composer instead of
             // treating a fire-and-forget action (or a refusal) as successful consumption.
             onContinued = {},
-            onSettings = onProviders,
+            onSettings = onAgentDefaults,
             selectedGoalId = reminderGoal,
             onDeleteGoal = { id ->
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

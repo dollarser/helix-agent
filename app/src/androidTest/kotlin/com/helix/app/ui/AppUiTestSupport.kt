@@ -93,15 +93,64 @@ private fun editableProviderRow() =
         hasTestTag("provider-row") and hasAnyDescendant(hasTestTag("provider-edit")),
     )
 
-/** Opens the navigation drawer and navigates to the given route tag (e.g. "settings"). */
+/** Navigates through the production IA. Secondary routes must be reached through their landing. */
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
+    val path =
+        when (route) {
+            SETUP_READINESS_ROUTE -> {
+                "setup" to listOf("setup-open-readiness")
+            }
+
+            SETUP_CAPABILITIES_ROUTE -> {
+                "setup" to listOf("setup-open-capabilities")
+            }
+
+            SETUP_RUNTIME_ROUTE -> {
+                "setup" to listOf("setup-open-runtime")
+            }
+
+            SETTINGS_DEFAULTS_ROUTE -> {
+                "settings" to listOf("settings-open-defaults")
+            }
+
+            SETTINGS_PERMISSIONS_ROUTE -> {
+                "settings" to listOf("settings-open-permissions")
+            }
+
+            SETTINGS_SYSTEM_PERMISSIONS_ROUTE -> {
+                "settings" to listOf("settings-open-permissions", "settings-system-permissions")
+            }
+
+            SETTINGS_AUDIT_ROUTE -> {
+                "settings" to listOf("settings-open-audit")
+            }
+
+            else -> {
+                route to emptyList()
+            }
+        }
+    navigatePrimary(path.first)
+    path.second.forEach { tag ->
+        onNodeWithTag(tag).performScrollTo().performClick()
+        waitForIdle()
+    }
+}
+
+private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
+    repeat(4) {
+        if (onAllNodesWithTag("open-navigation").fetchSemanticsNodes().isNotEmpty()) return@repeat
+        if (onAllNodesWithTag("navigate-back").fetchSemanticsNodes().isNotEmpty()) {
+            onNodeWithTag("navigate-back").performClick()
+            waitForIdle()
+        }
+    }
     onNodeWithTag("open-navigation").performClick()
     waitForIdle()
     val destinationTag = "navigation-$route"
     val groupTag =
         when (route) {
             "tasks", "artifacts", "git", "files", "browser", "terminal" -> "navigation-group-work"
-            "capabilities", "readiness", "permissions", "settings", "audit" -> "navigation-group-settings"
+            "models", "extensions", "setup" -> "navigation-group-configure"
             else -> null
         }
     if (groupTag != null && onAllNodesWithTag(destinationTag).fetchSemanticsNodes().isEmpty()) {

@@ -33,7 +33,9 @@ import java.util.Locale
 class ConversationComposerDeviceTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun narrowLargeFontKeepsEditingAndStopAccessible() {
+    @Suppress("LongMethod") // One end-to-end layout/state contract for narrow large-font composer.
+    @Test
+    fun narrowLargeFontKeepsEditingAndStopAccessible() {
         val input = mutableStateOf("")
         val sending = mutableStateOf(false)
         val attachments = mutableStateOf(false)
@@ -59,13 +61,13 @@ class ConversationComposerDeviceTest {
         val field = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
         assertTrue("Editing needs the available width", field.right - field.left >= 100.dp)
         val attach = compose.onNodeWithTag("chat-attach").getUnclippedBoundsInRoot()
-        assertTrue("Attachment plus stays inside the input", attach.left >= field.left && attach.right <= field.right)
         val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
         val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
         val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
         val options = compose.onNodeWithTag("chat-composer-options").getUnclippedBoundsInRoot()
-        assertTrue("Voice and send flank the input", voice.right <= field.left && send.left >= field.right)
-        assertTrue("Toolbar stays above editing", mode.bottom <= field.top && options.bottom <= field.top)
+        listOf(attach, voice, send, mode, options).forEach { bounds ->
+            assertTrue("Composer actions stay in the compact row below editing", bounds.top >= field.bottom)
+        }
         compose.onNodeWithTag("chat-reasoning-menu").assertDoesNotExist()
         compose.onNodeWithTag("chat-send").assertIsNotEnabled()
         compose.runOnIdle { attachments.value = true }
@@ -78,6 +80,9 @@ class ConversationComposerDeviceTest {
             sending.value = true
         }
         assertFits("chat-stop", "chat-send", "chat-input")
+        val stop = compose.onNodeWithTag("chat-stop").getUnclippedBoundsInRoot()
+        val queuedSend = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
+        assertEquals("Stop and Queue/Steer send share one action row", stop.top, queuedSend.top)
         compose.onNodeWithTag("chat-input").assertIsEnabled()
         listOf("chat-attach", "chat-voice").forEach {
             compose.onNodeWithTag(it).assertIsEnabled()

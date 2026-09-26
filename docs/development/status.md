@@ -22,6 +22,7 @@
 - HXA-220 Core Engine / TurnEngine 生命周期收敛已完成主机验收，见[完成记录](../completion-records/HXA-220.md)：Engine-owned AgentLoop driver/observation、successor recovery、独立 review receipt 已落地，旧 AgentTurnHost/TurnLiveFrames/serial Turn reducer/Turn-level WAITING_APPROVAL 已删除；设备 `not requested`。
 - HXA-221 Pre-release clean-slate baseline cleanup 已完成主机验收，见[完成记录](../completion-records/HXA-221.md)：Room 重置为唯一 v1 / 45-table baseline，1→31 migration 链与旧 Connector/Provider/Criteria/Chat 内部兼容路径已删除；外部协议/Android 兼容保留，设备 `not requested`。
 - HXA-223 Post-clean-slate Core Boundary Convergence 已完成，见[完成记录](../completion-records/HXA-223.md)：Turn state CAS、Engine-owned terminal/review/recovery、SessionWorkScheduler 与 SessionInput delivery 边界已收口；Core Engine 第二阶段重构冻结，设备 `not requested`。
+- HXA-226 UI / IA 第二轮收敛已完成主机范围，见[完成记录](../completion-records/HXA-226.md)：Drawer 收敛为唯一 primary homes，Models/Extensions/Setup/Settings focused routes 落地，Readiness/Capabilities 只 deep-link authority，Composer 移除独立 Stop 第三行并保留 active Send=Queue/Steer；设备 `not requested`。
 
 ## In progress
 
@@ -29,15 +30,16 @@
 
 ## Planned / deferred
 
-- [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。当前重构只保留“不把 Provider 公共边界绑死到 HTTP endpoint”的接口方向；native/runtime/model asset/UI 不进入当前主线。
+- [HXA-227](tasks/HXA-227.md)：统一轨迹级 Agent Eval 与失败归因，作为 **下一本地能力工程主线**。复用现有 fixed eval/per-case JSON，统一 trajectory schema、核心 Harness 长轨迹 cases 与聚合报告；当前已规划、尚未启动代码。
+- [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。Provider contract 使用 provisioning × transport × residence × auth 正交维度；内置 llama.cpp 明确定义为 `:model-runtime` private-process 下的 Local Inference Runtime backend（Binder/typed IPC + JNI），不做 localhost inference server。Ollama/SGLang/vLLM/llama-server 只要通过 endpoint 调用都属于 Network transport；native/runtime/model asset 不进入当前主线。
 
 结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。HXA-223 已最终关闭 R4：未证明当前生产存在必现双 owner 终态 race，但 repository 的 stale snapshot 覆盖能力是真实结构风险，现已用 `expectedState + expectedStepCount` CAS fail closed；Turn terminal/review/recovery 与 Session next-work owner 已完成收口。
 
 ## Next task
 
-- **Core Engine clean-slate 重构主线已完成 HXA-220/221/223 并冻结当前 owner 边界。** 不自动开启本地模型或 Workspace；下一项本地工作应单独立项，优先基于当前冻结架构做 UI/IA 第二轮或固定任务 eval，而不是继续机械拆 Core。
+- **下一本地能力工程主线：HXA-227 轨迹级 Agent Eval 与失败归因。** HXA-226 已完成主机范围；后续先建立同任务可比较 baseline，再决定 Provider/Harness/工具的新能力投资。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
 - HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
-- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”；HXA-222 已规划但暂缓，待重构主线稳定后再切换为进行中。
+- ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”以及 Provider 四维正交分类；HXA-222 架构前置已满足但按产品优先级暂缓，不因 HXA-226 UI 改版自动启动。
 
 使用[实施指南](implementation-guide.md)交接；任务规格保存范围，完成记录保存结果，不新增按执行者命名的长期指令。已结束交接的归属见[历史汇总](../evidence/development/completed-handoffs-2026-09-22.md)。开始 HXA 前解决强制基线失败，历史绿色不能替代当前验证。
 

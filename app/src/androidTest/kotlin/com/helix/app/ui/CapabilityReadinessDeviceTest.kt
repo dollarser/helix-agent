@@ -58,7 +58,7 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(recoveryPhase() != "setup")
         deleteEditableProviders(compose.container())
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         compose.onNodeWithTag("capability-readiness-action-add-model").assertIsDisplayed()
         // The manual surfaces stay reachable regardless of model configuration.
@@ -74,7 +74,7 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(recoveryPhase() != "setup")
         createConfiguredProvider(compose.container())
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         compose.onNodeWithTag("capability-readiness-action-add-model").assertDoesNotExist()
         compose.onNodeWithTag("capability-readiness-item-model-state").assertIsDisplayed()
@@ -88,7 +88,7 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(recoveryPhase() != "setup")
         deleteEditableProviders(compose.container())
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         compose.onNodeWithTag("capability-readiness-item-model").assertIsDisplayed()
         compose.onNodeWithTag("capability-readiness-refresh").performClick()
@@ -104,7 +104,7 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(recoveryPhase() != "setup")
         deleteEditableProviders(compose.container())
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         compose.onNodeWithTag("capability-readiness-action-add-model").assertIsDisplayed()
         rebuildReadiness()
@@ -120,7 +120,7 @@ class CapabilityReadinessDeviceTest {
         assumeTrue(recoveryPhase() != "setup")
         val container = compose.container()
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         // Under STANDARD the LINUX goal is hidden in every flavor.
         compose.onNodeWithTag("capability-readiness-goal-linux").assertDoesNotExist()
@@ -140,15 +140,15 @@ class CapabilityReadinessDeviceTest {
         // refusal and the LINUX goal can never be exposed — it stays absent here.
     }
 
-    /** The repair entry is cancelable: opening it (Unavailable without the companion APK) leaves
-     *  the view consistent and recoverable — no crash, no blind auto-continue. Developer only. */
+    /** The readiness repair action routes to the Runtime authority instead of duplicating repair
+     *  controls on the readiness projection. Returning leaves the projection recoverable. */
     @Test
-    fun cancelledOrUnavailableRepairKeepsViewRecoverable() {
+    fun runtimeRepairRoutesToRuntimeAuthorityAndReturns() {
         assumeTrue(ProotToolModule.AVAILABLE)
         assumeTrue(recoveryPhase() != "setup")
         compose.resetDeterministicUiState()
         compose.container().profileStore.switchTo(SafetyProfile.ADVANCED)
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         compose.onNodeWithTag("capability-readiness-goal-linux").performClick()
         waitItems("capability-readiness-item-runtime")
         if (compose
@@ -157,6 +157,9 @@ class CapabilityReadinessDeviceTest {
                 .isNotEmpty()
         ) {
             compose.onNodeWithTag("capability-readiness-action-repair-runtime").performClick()
+            compose.onNodeWithTag("screen-setup-runtime").assertIsDisplayed()
+            compose.onNodeWithTag("settings-proot-repair").assertIsDisplayed()
+            compose.onNodeWithTag("navigate-back").performClick()
             compose.waitForIdle()
         }
         waitItems("capability-readiness-item-runtime")
@@ -198,7 +201,7 @@ class CapabilityReadinessDeviceTest {
 
     private fun assertReadinessRendersPassive() {
         compose.resetDeterministicUiState()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
         compose.onNodeWithTag("capability-readiness-item-model").assertIsDisplayed()
     }
@@ -218,7 +221,7 @@ class CapabilityReadinessDeviceTest {
     private fun rebuildReadiness() {
         compose.runOnUiThread { compose.activity.recreate() }
         compose.waitForIdle()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
     }
 
@@ -227,7 +230,7 @@ class CapabilityReadinessDeviceTest {
         Thread.sleep(1_500)
         compose.activity.intent?.let { compose.activity.startActivity(it) }
         compose.waitForIdle()
-        compose.navigateTo("readiness")
+        compose.navigateTo("setup/readiness")
         waitItems("capability-readiness-item-model")
     }
 

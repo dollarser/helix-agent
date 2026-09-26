@@ -8,12 +8,10 @@ class ShellRepositoryTest {
     private val repository: ShellRepository = FakeShellRepository()
 
     @Test
-    fun `shell exposes exactly twelve unique routes`() {
-        // P0-B added the Tasks dashboard, the Artifact Center, the Git status page and the
-        // Capabilities panel; HXA-205 added the Capability Readiness view.
-        assertEquals(12, repository.destinations.size)
+    fun `shell exposes only primary authority routes`() {
+        assertEquals(10, repository.destinations.size)
         assertEquals(
-            12,
+            10,
             repository.destinations
                 .map(ShellDestination::route)
                 .toSet()
@@ -27,12 +25,10 @@ class ShellRepositoryTest {
                 "git",
                 "files",
                 "browser",
+                "models",
                 "extensions",
-                "capabilities",
-                "readiness",
-                "permissions",
+                "setup",
                 "settings",
-                "audit",
             ),
             repository.destinations.map(ShellDestination::route),
         )
@@ -45,9 +41,9 @@ class ShellRepositoryTest {
     }
 
     @Test
-    fun `shell exposes thirteen routes when terminal is available`() {
+    fun `shell exposes eleven routes when terminal is available`() {
         val devRepo = FakeShellRepository(terminalAvailable = true)
-        assertEquals(13, devRepo.destinations.size)
+        assertEquals(11, devRepo.destinations.size)
         assertTrue(ShellDestination.Terminal in devRepo.destinations)
         assertEquals("terminal", ShellDestination.Terminal.route)
     }

@@ -3,8 +3,9 @@ package com.helix.app
 import androidx.annotation.StringRes
 
 /**
- * The twelve shell destinations (HXA-028; Tasks, Artifacts, Git and Capabilities added by the
- * P0-B product surfaces, Readiness by HXA-205). [route] is the stable, locale-independent nav key;
+ * Primary drawer destinations. HXA-226 deliberately keeps secondary setup/settings pages out of
+ * this enum so the drawer exposes one primary home per capability. [route] is the stable,
+ * locale-independent nav key;
  * [titleRes] / [emptyStateRes] are the user-visible string ids resolved at the UI boundary
  * (HXA-069) so the drawer and top bar follow the active app language.
  */
@@ -43,35 +44,25 @@ enum class ShellDestination(
         titleRes = R.string.nav_browser,
         emptyStateRes = R.string.empty_browser,
     ),
+    Models(
+        route = "models",
+        titleRes = R.string.nav_models,
+        emptyStateRes = R.string.empty_models,
+    ),
     Extensions(
         route = "extensions",
         titleRes = R.string.nav_extensions,
         emptyStateRes = R.string.empty_extensions,
     ),
-    Capabilities(
-        route = "capabilities",
-        titleRes = R.string.nav_capabilities,
-        emptyStateRes = R.string.empty_capabilities,
-    ),
-    Readiness(
-        route = "readiness",
-        titleRes = R.string.nav_readiness,
-        emptyStateRes = R.string.empty_readiness,
-    ),
-    Permissions(
-        route = "permissions",
-        titleRes = R.string.nav_permissions,
-        emptyStateRes = R.string.empty_permissions,
+    Setup(
+        route = "setup",
+        titleRes = R.string.nav_setup,
+        emptyStateRes = R.string.empty_setup,
     ),
     Settings(
         route = "settings",
         titleRes = R.string.nav_settings,
         emptyStateRes = R.string.empty_settings,
-    ),
-    Audit(
-        route = "audit",
-        titleRes = R.string.nav_audit,
-        emptyStateRes = R.string.empty_audit,
     ),
     Terminal(
         route = "terminal",

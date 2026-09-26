@@ -262,7 +262,7 @@ class ProviderModelDiscoveryUiTest {
         template: String = "ollama",
         key: String? = null,
     ) {
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-$template").performClick()

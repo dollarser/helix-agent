@@ -1,16 +1,10 @@
 package com.helix.app.ui
 
-import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Build
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,7 +35,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.helix.app.AppContainer
 import com.helix.app.R
 import com.helix.app.connector.ConnectorService
@@ -67,7 +60,9 @@ import kotlinx.coroutines.withContext
 @Suppress("FunctionName")
 internal fun CapabilitiesScreenDestination(
     container: AppContainer,
-    onOpenSettings: () -> Unit,
+    onOpenSystemPermissions: () -> Unit,
+    onOpenSafety: () -> Unit,
+    onOpenRuntime: () -> Unit,
     onOpenExtensions: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -84,23 +79,12 @@ internal fun CapabilitiesScreenDestination(
             }
     }
 
-    val requestPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) revision += 1
-        }
     val callbacks =
         CapCallbacks(
             onTestNotification = { postTestNotification(context) },
-            onRequestPermission = requestPermission::launch,
-            onOpenAppDetails = {
-                openSystemSettings(
-                    context,
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    "package:${context.packageName}".toUri(),
-                )
-            },
-            onOpenAccessibility = { openSystemSettings(context, Settings.ACTION_ACCESSIBILITY_SETTINGS, null) },
-            onOpenSettings = onOpenSettings,
+            onOpenSystemPermissions = onOpenSystemPermissions,
+            onOpenSafety = onOpenSafety,
+            onOpenRuntime = onOpenRuntime,
             onOpenExtensions = onOpenExtensions,
         )
 
@@ -205,52 +189,37 @@ private fun CapabilityDetailRow(
     }
 }
 
-/**
- * Row-specific Test / Repair / Disable actions. Apps cannot revoke system grants
- * programmatically, so "Repair" requests the permission (or opens the right system screen)
- * and "Disable" points at the system settings where the user actually toggles it off — the
- * honest affordance, never a fake in-app switch.
- */
+/** Capability rows stay observational; management actions deep-link to the single authority. */
 @Composable
 @Suppress("FunctionName")
 private fun CapabilityActions(
     row: CapRow,
     callbacks: CapCallbacks,
 ) {
-    // Grant when the user has not allowed it; otherwise point at the system screen that
-    // actually revokes it (the honest "Disable").
-    val grantOrDisable: (String) -> CapAction = { permission ->
-        if (row.grant == GrantState.DENIED) {
-            CapAction("grant", R.string.cap_action_grant, { callbacks.onRequestPermission(permission) })
-        } else {
-            CapAction("disable", R.string.cap_action_disable, callbacks.onOpenAppDetails)
-        }
-    }
     val actions =
         when (row.key) {
             "notifications" -> {
                 listOf(
                     CapAction("test", R.string.cap_action_test, callbacks.onTestNotification),
-                    if (Build.VERSION.SDK_INT < 33) {
-                        // Notifications need no runtime permission below API 33; only the system toggle.
-                        CapAction("disable", R.string.cap_action_disable, callbacks.onOpenAppDetails)
-                    } else {
-                        grantOrDisable(Manifest.permission.POST_NOTIFICATIONS)
-                    },
+                    CapAction("manage", R.string.cap_action_manage, callbacks.onOpenSystemPermissions),
                 )
             }
 
             "calendar" -> {
-                listOf(grantOrDisable(Manifest.permission.WRITE_CALENDAR))
+                listOf(CapAction("manage", R.string.cap_action_manage, callbacks.onOpenSystemPermissions))
             }
 
             "accessibility" -> {
-                listOf(CapAction("repair", R.string.cap_action_open, callbacks.onOpenAccessibility))
+                listOf(CapAction("manage", R.string.cap_action_manage, callbacks.onOpenSystemPermissions))
+            }
+
+            "root" -> {
+                listOf(CapAction("manage", R.string.cap_action_manage, callbacks.onOpenSafety))
             }
 
             "runtime" -> {
                 if (ProotToolModule.AVAILABLE) {
-                    listOf(CapAction("open", R.string.cap_action_open, callbacks.onOpenSettings))
+                    listOf(CapAction("open", R.string.cap_action_open, callbacks.onOpenRuntime))
                 } else {
                     emptyList()
                 }
@@ -471,10 +440,9 @@ private data class CapAction(
 
 private class CapCallbacks(
     val onTestNotification: () -> Unit,
-    val onRequestPermission: (String) -> Unit,
-    val onOpenAppDetails: () -> Unit,
-    val onOpenAccessibility: () -> Unit,
-    val onOpenSettings: () -> Unit,
+    val onOpenSystemPermissions: () -> Unit,
+    val onOpenSafety: () -> Unit,
+    val onOpenRuntime: () -> Unit,
     val onOpenExtensions: () -> Unit,
 )
 
@@ -499,12 +467,4 @@ private fun postTestNotification(context: Context) {
             .setAutoCancel(true)
             .build()
     manager.notify(TEST_NOTIFICATION_ID, notification)
-}
-
-private fun openSystemSettings(
-    context: Context,
-    action: String,
-    uri: Uri?,
-) {
-    context.startActivity(if (uri != null) Intent(action, uri) else Intent(action))
 }

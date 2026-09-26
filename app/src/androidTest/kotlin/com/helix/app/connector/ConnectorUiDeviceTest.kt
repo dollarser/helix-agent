@@ -5,6 +5,7 @@ import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.MainActivity
@@ -20,9 +21,10 @@ class ConnectorUiDeviceTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun settingsConnectorImportEntrySurvivesActivityRecreation() {
+    fun extensionsConnectorImportEntrySurvivesActivityRecreation() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("extensions")
+        composeRule.onNodeWithTag("extensions-tab-manage").performScrollTo().performClick()
         waitForSettingsRows()
         composeRule.onNodeWithTag("connector-import").performScrollTo()
         composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("connector-import").isDisplayed() }

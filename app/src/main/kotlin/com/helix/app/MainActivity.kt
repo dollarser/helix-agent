@@ -47,6 +47,7 @@ import androidx.navigation.navArgument
 import com.helix.app.allfiles.AllFilesModule
 import com.helix.app.language.AppLanguageStore
 import com.helix.app.root.RootModule
+import com.helix.app.ui.AppAgentDefaultsScreen
 import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.COMMAND_DETAIL_ROUTE
@@ -60,10 +61,22 @@ import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
 import com.helix.app.ui.GitStatusScreenDestination
 import com.helix.app.ui.GroupedNavigation
+import com.helix.app.ui.ModelsConnectionsScreen
+import com.helix.app.ui.PermissionsSafetyScreen
+import com.helix.app.ui.RuntimeSetupScreen
+import com.helix.app.ui.SETTINGS_AUDIT_ROUTE
+import com.helix.app.ui.SETTINGS_DEFAULTS_ROUTE
+import com.helix.app.ui.SETTINGS_PERMISSIONS_ROUTE
+import com.helix.app.ui.SETTINGS_SYSTEM_PERMISSIONS_ROUTE
+import com.helix.app.ui.SETUP_CAPABILITIES_ROUTE
+import com.helix.app.ui.SETUP_READINESS_ROUTE
+import com.helix.app.ui.SETUP_RUNTIME_ROUTE
 import com.helix.app.ui.SettingsScreen
+import com.helix.app.ui.SetupScreen
 import com.helix.app.ui.TASKS_TURN_ROUTE
 import com.helix.app.ui.TasksScreen
 import com.helix.app.ui.commandDetailRoute
+import com.helix.app.ui.secondaryRouteTitle
 import com.helix.app.ui.tasksTurnRoute
 import com.helix.feature.browser.BrowserViewOwner
 import com.helix.feature.browser.ui.BrowserScreen
@@ -195,9 +208,8 @@ internal fun HelixApp(container: AppContainer) {
     val scope = rememberCoroutineScope()
     val currentEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentEntry?.destination?.route ?: repository.initialDestination.route
-    val currentDestination =
-        repository.destinations.firstOrNull { it.route == currentRoute }
-            ?: repository.initialDestination
+    val currentDestination = repository.destinations.firstOrNull { it.route == currentRoute }
+    val currentSecondaryTitle = secondaryRouteTitle(currentRoute)
 
     HelixTheme {
         ModalNavigationDrawer(
@@ -223,7 +235,12 @@ internal fun HelixApp(container: AppContainer) {
         ) {
             Scaffold(
                 topBar = {
-                    ShellTopBar(currentDestination) { scope.launch { drawerState.open() } }
+                    ShellTopBar(
+                        currentDestination = currentDestination,
+                        secondaryTitleRes = currentSecondaryTitle,
+                        onNavigation = { scope.launch { drawerState.open() } },
+                        onBack = { navController.popBackStack() },
+                    )
                 },
             ) { padding ->
                 NavHost(
@@ -240,6 +257,45 @@ internal fun HelixApp(container: AppContainer) {
                                 onOpenDrawer = { scope.launch { drawerState.open() } },
                             )
                         }
+                    }
+                    composable(SETUP_READINESS_ROUTE) {
+                        CapabilityReadinessScreen(
+                            container,
+                            onOpenModels = { navController.navigate(ShellDestination.Models.route) },
+                            onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                        )
+                    }
+                    composable(SETUP_CAPABILITIES_ROUTE) {
+                        CapabilitiesScreenDestination(
+                            container,
+                            onOpenSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                            onOpenSafety = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
+                            onOpenRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+                            onOpenExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                        )
+                    }
+                    composable(SETUP_RUNTIME_ROUTE) {
+                        RuntimeSetupScreen(container.profileStore)
+                    }
+                    composable(SETTINGS_DEFAULTS_ROUTE) {
+                        AppAgentDefaultsScreen(container.runControlStore, container.chatService)
+                    }
+                    composable(SETTINGS_PERMISSIONS_ROUTE) {
+                        PermissionsSafetyScreen(
+                            profileStore = container.profileStore,
+                            egressRules = container.storage.highSensitivityRules,
+                            lanScopeStore = container.lanScopeStore,
+                            chatService = container.chatService,
+                            sessionPermissionEdit = container.sessionPermissionEdit,
+                            toolPipeline = container.toolPipeline,
+                            onSystemPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                        )
+                    }
+                    composable(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) {
+                        PermissionsScreenDestination(container)
+                    }
+                    composable(SETTINGS_AUDIT_ROUTE) {
+                        AuditScreenDestination(container)
                     }
                     // HXA-194: the command details page — its OWN route, not one of the drawer's
                     // destinations: the back button (and the system back) return to exactly
@@ -316,7 +372,9 @@ private fun DestinationScreen(
                 connectors = container.connectorService,
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
                 onNavigation = onOpenDrawer,
-                onProviders = { navController.navigate(ShellDestination.Settings.route) },
+                onModels = { navController.navigate(ShellDestination.Models.route) },
+                onAgentDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
+                onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
                 onOpenCommandDetail = { turnId, callId ->
                     navController.navigate(commandDetailRoute(turnId, callId))
                 },
@@ -368,52 +426,16 @@ private fun DestinationScreen(
             GitStatusScreenDestination()
         }
 
-        // P0-B: the Capability Center (doc section 11) — live statuses plus honest
-        // Test / Repair / Disable actions per capability.
-        ShellDestination.Capabilities -> {
-            CapabilitiesScreenDestination(
-                container,
-                onOpenSettings = {
-                    navController.navigate(ShellDestination.Settings.route) {
-                        launchSingleTop = true
-                    }
-                },
-                onOpenExtensions = {
-                    navController.navigate(ShellDestination.Extensions.route) {
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-
-        // HXA-205: the Capability Readiness view — aggregate model / workspace / capability /
-        // runtime state and give the next action per goal. Read-only; a cold bind or repair
-        // happens only on an explicit user click (passive entry never binds or logs in).
-        ShellDestination.Readiness -> {
-            CapabilityReadinessScreen(
-                container,
-                onOpenSettings = {
-                    navController.navigate(ShellDestination.Settings.route) {
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-
         ShellDestination.Settings -> {
             SettingsScreen(
-                container.profileStore,
-                container.providerService,
-                container.storage.highSensitivityRules,
-                container.runControlStore,
-                container.connectorService,
-                container.lanScopeStore,
-                container.skillAuthoringService,
-                container.skillInstallationService,
-                chatService = container.chatService,
-                sessionPermissionEdit = container.sessionPermissionEdit,
-                toolPipeline = container.toolPipeline,
+                onDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
+                onPermissions = { navController.navigate(SETTINGS_PERMISSIONS_ROUTE) },
+                onAudit = { navController.navigate(SETTINGS_AUDIT_ROUTE) },
             )
+        }
+
+        ShellDestination.Models -> {
+            ModelsConnectionsScreen(container.providerService)
         }
 
         ShellDestination.Extensions -> {
@@ -425,8 +447,12 @@ private fun DestinationScreen(
             )
         }
 
-        ShellDestination.Audit -> {
-            AuditScreenDestination(container)
+        ShellDestination.Setup -> {
+            SetupScreen(
+                onReadiness = { navController.navigate(SETUP_READINESS_ROUTE) },
+                onCapabilities = { navController.navigate(SETUP_CAPABILITIES_ROUTE) },
+                onRuntime = { navController.navigate(SETUP_RUNTIME_ROUTE) },
+            )
         }
 
         // HXA-046: the file-management screen over the always-available
@@ -444,12 +470,6 @@ private fun DestinationScreen(
         // HXA-060: the minimal hardened WebView browser.
         ShellDestination.Browser -> {
             BrowserScreen(container.browser)
-        }
-
-        // HXA-045: the all-files consent screen lives in the developer
-        // flavor; the consumer build keeps the honest empty state.
-        ShellDestination.Permissions -> {
-            PermissionsScreenDestination(container)
         }
 
         ShellDestination.Terminal -> {
@@ -524,17 +544,23 @@ private fun EmptyDestination(
 @Composable
 @Suppress("FunctionName")
 private fun ShellTopBar(
-    currentDestination: ShellDestination,
+    currentDestination: ShellDestination?,
+    secondaryTitleRes: Int?,
     onNavigation: () -> Unit,
+    onBack: () -> Unit,
 ) {
-    if (currentDestination != ShellDestination.Sessions) {
+    if (currentDestination != ShellDestination.Sessions || secondaryTitleRes != null) {
         // Scaffold delegates top insets to its topBar; our compact Row is not a Material TopAppBar.
         Box(
             Modifier.windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
             ),
         ) {
-            CompactPageHeader(stringResource(currentDestination.titleRes), onNavigation)
+            if (secondaryTitleRes != null) {
+                CompactPageHeader(stringResource(secondaryTitleRes), onBack, back = true)
+            } else if (currentDestination != null) {
+                CompactPageHeader(stringResource(currentDestination.titleRes), onNavigation)
+            }
         }
     }
 }

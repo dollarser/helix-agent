@@ -11,21 +11,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.helix.app.R
 
 @Composable
 @Suppress("FunctionName")
 internal fun CompactPageHeader(
     title: String,
     onNavigation: () -> Unit,
+    back: Boolean = false,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 4.dp).testTag("shell-top-bar"),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onNavigation, modifier = Modifier.size(48.dp).testTag("open-navigation")) {
-            NavigationMenuIcon()
+        IconButton(
+            onNavigation,
+            modifier = Modifier.size(48.dp).testTag(if (back) "navigate-back" else "open-navigation"),
+        ) {
+            if (back) {
+                val label = stringResource(R.string.common_back)
+                Text(
+                    "‹",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = label },
+                )
+            } else {
+                NavigationMenuIcon()
+            }
         }
         Text(
             title,

@@ -153,7 +153,7 @@ class AuditScreenTest {
         // Seed: one denied dispatch of the audit tool with a marker in its arguments.
         seedDeniedDispatch("audit-call-${System.nanoTime()}")
 
-        composeRule.navigateTo("audit")
+        composeRule.navigateTo("settings/audit")
 
         // The first page load (unfiltered, on IO) must land: the seeded row is visible, and
         // the tool pick list is published in the SAME emit — so it is populated by now.

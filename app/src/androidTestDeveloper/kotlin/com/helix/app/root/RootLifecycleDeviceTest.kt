@@ -172,7 +172,7 @@ class RootLifecycleDeviceTest {
 
     private fun requestRootThroughTheUi() {
         composeRule.resetDeterministicUiState()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/permissions")
         composeRule.onNodeWithText("当前：Standard（默认）").assertIsDisplayed()
         composeRule.onNodeWithTag("settings-advanced-switch").performClick()
         composeRule.waitForIdle()

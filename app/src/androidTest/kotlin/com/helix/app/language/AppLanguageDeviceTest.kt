@@ -80,7 +80,7 @@ class AppLanguageDeviceTest {
     fun selectingEnglishInSettingsRecreatesTheActivityInEnglish() {
         composeRule.waitForIdle()
         composeRule.dismissFirstLaunchIfNeeded()
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("settings/defaults")
         composeRule.onNodeWithTag("settings-language-EN").performClick()
         // The picker persists EN and calls activity.recreate(); the recreated activity's context
         // is re-wrapped in English by attachBaseContext, so its lookups resolve English regardless

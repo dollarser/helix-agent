@@ -46,7 +46,7 @@ class ProviderFlowTest {
     @Test
     fun untestedAndFailedProvidersAreNotChatSelectable() {
         // --- create from the Ollama template (keyless), re-point to https ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-picker").assertIsDisplayed()
@@ -73,7 +73,7 @@ class ProviderFlowTest {
         assertAbsentFromModelPicker()
 
         // --- connection test against the unreachable endpoint: model-list failure ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNode(editableProviderTag("provider-test")).performScrollTo().performClick()
         composeRule.waitUntil(30_000) {
             composeRule.onAllNodes(editableProviderTag("provider-status-failed")).fetchSemanticsNodes().isNotEmpty()
@@ -87,7 +87,7 @@ class ProviderFlowTest {
         assertAbsentFromModelPicker()
 
         // --- cleanup: the UI delete removes the row (and its secret/binding) ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNode(editableProviderTag("provider-delete")).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(providerName).assertIsNotDisplayed()

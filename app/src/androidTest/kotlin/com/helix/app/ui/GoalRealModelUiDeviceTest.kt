@@ -121,7 +121,7 @@ class GoalRealModelUiDeviceTest {
 
     private fun createGoalThroughUi() {
         val objective = "Reply only GOAL_UI_FIRST. Do not call tools. Fixture ${UUID.randomUUID()}."
-        compose.navigateTo("settings")
+        compose.navigateTo("settings/defaults")
         compose.onNodeWithTag("goal-defaults-edit").performScrollTo().performClick()
         replace("goal-budget-0", "1")
         compose.onNodeWithTag("goal-save").performClick()

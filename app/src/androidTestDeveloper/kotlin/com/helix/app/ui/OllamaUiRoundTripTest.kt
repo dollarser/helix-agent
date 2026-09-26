@@ -88,7 +88,7 @@ class OllamaUiRoundTripTest {
         val networkOpsBefore = container.providerService.networkOperations.value
 
         // --- 1. create from the Ollama template; cleartext gate is explicit ---
-        composeRule.navigateTo("settings")
+        composeRule.navigateTo("models")
         composeRule.onNodeWithTag("provider-add").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("provider-template-ollama").performClick()

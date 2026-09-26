@@ -27,7 +27,7 @@ internal class TurnRecoveryActions(
     private val workScope: CoroutineScope,
     private val screenState: MutableStateFlow<ChatScreenState>,
     private val retryTargetFor: (String?) -> String?,
-    private val onOpenSettings: () -> Unit,
+    private val repairNavigation: RecoveryRepairNavigation,
     private val onContinueGoal: (String, String) -> Unit,
     private val onRetry: () -> Unit,
     private val onInspectProot: (String, String, Boolean) -> Unit,
@@ -42,7 +42,7 @@ internal class TurnRecoveryActions(
      */
     fun reconnect(turnId: String) =
         execute(turnId, RecoveryOperation.RECONNECT) { _, _ ->
-            withContext(Dispatchers.Main.immediate) { onOpenSettings() }
+            withContext(Dispatchers.Main.immediate) { repairNavigation.models() }
         }
 
     /**
@@ -62,7 +62,7 @@ internal class TurnRecoveryActions(
     /** Capability repair: the user grants the missing permission, then a NEW call exercises it. */
     fun grantPermission(turnId: String) =
         execute(turnId, RecoveryOperation.GRANT_PERMISSION) { _, _ ->
-            withContext(Dispatchers.Main.immediate) { onOpenSettings() }
+            withContext(Dispatchers.Main.immediate) { repairNavigation.permissions() }
         }
 
     /** The bound Goal's own explicit continue path — its admission was just re-verified. */
@@ -143,3 +143,8 @@ internal class TurnRecoveryActions(
         val PROOT_TOOL_NAMES: Set<String> = setOf("bash", "code.linux.run")
     }
 }
+
+internal data class RecoveryRepairNavigation(
+    val models: () -> Unit,
+    val permissions: () -> Unit,
+)
