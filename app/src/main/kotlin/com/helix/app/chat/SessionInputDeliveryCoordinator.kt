@@ -4,7 +4,7 @@ import android.util.Log
 import com.helix.app.engine.TurnEngine
 import com.helix.app.provider.ProviderService
 import com.helix.app.runcontrol.RunControlConfig
-import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.runcontrol.SessionRunControlStore
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.VisionLimits
@@ -26,7 +26,7 @@ import kotlinx.coroutines.CancellationException
 internal class SessionInputDeliveryCoordinator(
     private val storage: HelixStorage,
     private val providerService: ProviderService,
-    private val runControlStore: RunControlStore,
+    private val sessionRunControls: SessionRunControlStore,
     private val turnEngine: TurnEngine,
     private val attachmentStaging: AttachmentStagingSupport,
     private val credentialScan: (String) -> String?,
@@ -80,9 +80,13 @@ internal class SessionInputDeliveryCoordinator(
     fun controlFor(input: SessionInputRecord): RunControlConfig =
         if (input.delivery == SessionInputDelivery.STEER) {
             steerControl(input.expectedTurnId)
-                ?: runControlStore.current.copy(mode = AgentMode.valueOf(input.configuration.mode))
+                ?: sessionRunControls
+                    .ensure(input.sessionId, clock.now().toEpochMilli())
+                    .copy(mode = AgentMode.valueOf(input.configuration.mode))
         } else {
-            runControlStore.current.copy(mode = AgentMode.valueOf(input.configuration.mode))
+            sessionRunControls
+                .ensure(input.sessionId, clock.now().toEpochMilli())
+                .copy(mode = AgentMode.valueOf(input.configuration.mode))
         }
 
     fun steerControl(expectedTurnId: String?): RunControlConfig? =
@@ -98,6 +102,7 @@ internal class SessionInputDeliveryCoordinator(
             check(providerService.chatSelectable(provider) && providerService.isCleartextPermitted(provider))
             val facts = providerSnapshot(provider, session.modelId)
             val control = controlFor(input)
+            val selected = sessionRunControls.ensure(input.sessionId, clock.now().toEpochMilli())
             if (input.delivery == SessionInputDelivery.STEER) {
                 val originalCall = storage.modelCalls.listByTurn(requireNotNull(input.expectedTurnId)).firstOrNull()
                 check(originalCall?.providerSnapshot == facts) { "INPUT_CONFIGURATION_CHANGED" }
@@ -112,7 +117,7 @@ internal class SessionInputDeliveryCoordinator(
                         if (input.delivery == SessionInputDelivery.STEER) {
                             control.mode.name
                         } else {
-                            runControlStore.current.mode.name
+                            selected.mode.name
                         },
                     )
             check(valid) { "INPUT_CONFIGURATION_CHANGED" }
@@ -121,6 +126,7 @@ internal class SessionInputDeliveryCoordinator(
                     storage.artifacts.resolve(it.artifactId).mediaType in VisionLimits.NORMALIZED_MEDIA_TYPES
                 }
             check(!hasImages || providerService.capabilitiesFor(provider, session.modelId)?.vision == true)
+            storage.sessionInputs.readReference(input)
             SessionInputAttachments(storage, attachmentStaging, credentialScan).materialize(input)
         } catch (cancel: CancellationException) {
             throw cancel
@@ -146,7 +152,12 @@ internal class SessionInputDeliveryCoordinator(
                 ?: return null
         return revalidate(input)?.let { (content, bindings) ->
             com.helix.app.agent
-                .TurnSteeringDraft(input, content, bindings)
+                .TurnSteeringDraft(
+                    input,
+                    content,
+                    bindings,
+                    listOfNotNull(storage.sessionInputs.readReference(input)),
+                )
         }
     }
 

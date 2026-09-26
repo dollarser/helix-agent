@@ -117,7 +117,6 @@ private fun ApprovalLayoutContent(
                 onDenyApproval = { onDeny() },
                 onStageAttachment = {},
                 onRemoveAttachment = {},
-                onBindProvider = {},
                 onSetMode = {},
                 onSetChatTools = {},
             ),

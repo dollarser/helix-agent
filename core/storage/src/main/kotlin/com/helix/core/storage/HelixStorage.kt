@@ -26,13 +26,16 @@ import com.helix.core.storage.repository.InteractionReceiptRepository
 import com.helix.core.storage.repository.McpCapabilityRepository
 import com.helix.core.storage.repository.McpServerRepository
 import com.helix.core.storage.repository.MessageAttachmentRepository
+import com.helix.core.storage.repository.MessageReferenceSnapshotRepository
 import com.helix.core.storage.repository.MessageRepository
 import com.helix.core.storage.repository.ModelCallRepository
 import com.helix.core.storage.repository.PlanRepository
 import com.helix.core.storage.repository.ProviderConfigRepository
 import com.helix.core.storage.repository.RuntimeInstallRepository
+import com.helix.core.storage.repository.SessionExpertRepository
 import com.helix.core.storage.repository.SessionPermissionConfigRepository
 import com.helix.core.storage.repository.SessionRepository
+import com.helix.core.storage.repository.SessionRunControlRepository
 import com.helix.core.storage.repository.SessionSearchRepository
 import com.helix.core.storage.repository.SkillRepository
 import com.helix.core.storage.repository.SkillSnapshotRepository
@@ -91,6 +94,9 @@ class HelixStorage internal constructor(
     val messageAttachments: MessageAttachmentRepository by lazy {
         MessageAttachmentRepository(database.messageAttachmentDao())
     }
+    val messageReferenceSnapshots: MessageReferenceSnapshotRepository by lazy {
+        MessageReferenceSnapshotRepository(database.messageReferenceSnapshotDao(), contentStore)
+    }
     val turns: TurnRepository by lazy { TurnRepository(database.turnDao()) }
     val turnRuntimeRecords: TurnRuntimeRecordRepository by lazy {
         TurnRuntimeRecordRepository(database.turnRuntimeRecordDao())
@@ -123,6 +129,14 @@ class HelixStorage internal constructor(
             database.sessionPermissionDefaultsDao(),
             database.sessionPermissionDraftDao(),
         )
+    }
+
+    val sessionRunControls: SessionRunControlRepository by lazy {
+        SessionRunControlRepository(database.sessionRunControlDao())
+    }
+
+    val sessionExperts: SessionExpertRepository by lazy {
+        SessionExpertRepository(database.sessionExpertDao())
     }
 
     /**
@@ -201,6 +215,7 @@ class HelixStorage internal constructor(
     fun deleteSessionPermanently(sessionId: String): SessionDeletionManifest {
         require(sessionId.isNotBlank()) { "sessionId must not be blank" }
         val messageRefs = database.messageDao().contentRefsBySession(sessionId)
+        val referenceRefs = database.messageReferenceSnapshotDao().contentRefsByTargetSession(sessionId)
         val resultRefs = database.toolResultDao().contentRefsBySession(sessionId)
         val inputRefs = database.sessionInputDao().contentRefsBySession(sessionId)
         val artifactPaths = database.artifactDao().listBySession(sessionId).map { it.relativePath }
@@ -218,9 +233,10 @@ class HelixStorage internal constructor(
             check(database.sessionDao().deletePermanently(sessionId) == 1) { "session deletion lost its target" }
         }
         val deletedBodies =
-            (messageRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
+            (messageRefs + referenceRefs + resultRefs + inputRefs).distinct().mapNotNull { encoded ->
                 val stillReferenced =
                     database.messageDao().countByContentRef(encoded) > 0 ||
+                        database.messageReferenceSnapshotDao().countByContentRef(encoded) > 0 ||
                         database.toolResultDao().countByContentRef(encoded) > 0 ||
                         database.sessionInputDao().countByContentRef(encoded) > 0
                 if (!stillReferenced && contentStore.delete(ContentRef.parse(encoded))) encoded else null

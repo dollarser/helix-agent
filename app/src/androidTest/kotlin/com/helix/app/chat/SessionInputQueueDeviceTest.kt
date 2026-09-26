@@ -10,6 +10,7 @@ import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.NormalizedEndpoint
 import com.helix.core.model.ProviderProtocol
+import com.helix.core.storage.repository.ConversationReferenceKind
 import com.helix.core.storage.repository.SessionInputDelivery
 import com.helix.core.storage.repository.SessionInputState
 import com.helix.core.workspace.FileScopePath
@@ -117,6 +118,56 @@ class SessionInputQueueDeviceTest {
                         storage.messages.readContent(it) == "old queued"
                     }
                 assertFalse(hasOldQueuedMessage)
+            }
+        }
+
+    @Test
+    fun parkedConversationReferenceRequiresFreshDisclosureBeforeResume() =
+        runBlocking {
+            fixture { chat, session, entered, release, requests ->
+                val first = chat.sendSubmission(submission(session, "first")).await()
+                val firstTurn = (first.outcome as ChatSubmissionOutcome.Accepted).turnId
+                assertTrue(entered.await(10, TimeUnit.SECONDS))
+                val storage = compose.container().storage
+                val source = "reference-source-${UUID.randomUUID()}"
+                storage.sessions.create(source, "Reference source", null, null, System.currentTimeMillis())
+                try {
+                    storage.withTransaction {
+                        storage.messages.append(
+                            "reference-source-message-${UUID.randomUUID()}",
+                            source,
+                            null,
+                            "USER",
+                            "TEXT",
+                            "Frozen source context",
+                        )
+                    }
+                    val queued =
+                        submission(session, "").copy(
+                            referenceSourceSessionId = source,
+                            referenceKind = ConversationReferenceKind.RECENT_MESSAGES,
+                        )
+                    assertTrue(
+                        chat.sendSubmission(queued).await().outcome is ChatSubmissionOutcome.PendingConfirmation,
+                    )
+                    assertTrue(chat.confirmSubmission(queued).await().outcome is ChatSubmissionOutcome.Enqueued)
+
+                    chat.stopTurn(firstTurn)
+                    release.countDown()
+                    compose.waitUntil(15_000) {
+                        storage.sessionInputs.get(queued.clientRequestId)?.state == SessionInputState.NEEDS_ATTENTION &&
+                            !chat.screen.value.isSending
+                    }
+                    val parked = requireNotNull(storage.sessionInputs.get(queued.clientRequestId))
+                    val resume = chat.resumeSessionInput(parked.inputId, parked.revision).await()
+                    assertTrue(resume is ChatSubmissionOutcome.PendingConfirmation)
+                    assertEquals(parked.inputId to parked.revision, chat.pendingSessionInputResume())
+                    assertTrue(chat.cancelSessionInputResume(parked.inputId, parked.revision).await())
+                    assertEquals(SessionInputState.NEEDS_ATTENTION, storage.sessionInputs.get(parked.inputId)?.state)
+                    assertEquals(1, requests.get())
+                } finally {
+                    storage.deleteSessionPermanently(source)
+                }
             }
         }
 

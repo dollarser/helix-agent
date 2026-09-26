@@ -51,16 +51,16 @@ class ConversationComposerDeviceTest {
                             { input.value = it },
                             sending.value,
                             attachments.value,
-                            ComposerActions({}, {}, { sends++ }, { stops++ }),
+                            ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = { stops++ }),
                         )
                     }
                 }
             }
         }
-        assertFits("chat-input", "chat-attach", "chat-voice", "chat-send")
+        assertFits("chat-input", "chat-add", "chat-voice", "chat-send")
         val field = compose.onNodeWithTag("chat-input").getUnclippedBoundsInRoot()
         assertTrue("Editing needs the available width", field.right - field.left >= 100.dp)
-        val attach = compose.onNodeWithTag("chat-attach").getUnclippedBoundsInRoot()
+        val attach = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
         val voice = compose.onNodeWithTag("chat-voice").getUnclippedBoundsInRoot()
         val send = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
         val mode = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
@@ -84,7 +84,7 @@ class ConversationComposerDeviceTest {
         val queuedSend = compose.onNodeWithTag("chat-send").getUnclippedBoundsInRoot()
         assertEquals("Stop and Queue/Steer send share one action row", stop.top, queuedSend.top)
         compose.onNodeWithTag("chat-input").assertIsEnabled()
-        listOf("chat-attach", "chat-voice").forEach {
+        listOf("chat-add", "chat-voice").forEach {
             compose.onNodeWithTag(it).assertIsEnabled()
         }
         compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
@@ -112,15 +112,15 @@ class ConversationComposerDeviceTest {
                             {},
                             false,
                             false,
-                            ComposerActions({}, {}, {}, {}),
+                            ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
                             goalMode = true,
                         )
                     }
                 }
             }
         }
-        assertFits("chat-input", "chat-attach", "chat-voice", "chat-send")
-        val attach = compose.onNodeWithTag("chat-attach").getUnclippedBoundsInRoot()
+        assertFits("chat-input", "chat-add", "chat-voice", "chat-send")
+        val attach = compose.onNodeWithTag("chat-add").getUnclippedBoundsInRoot()
         assertTrue("Attachment label should fit one line", attach.bottom - attach.top < 72.dp)
         compose.onNodeWithTag("chat-send").assertIsEnabled()
     }
@@ -135,7 +135,7 @@ class ConversationComposerDeviceTest {
                     {},
                     sending.value,
                     true,
-                    ComposerActions({}, {}, { sends++ }, {}),
+                    ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
                     goalMode = true,
                 )
             }
@@ -145,6 +145,30 @@ class ConversationComposerDeviceTest {
         compose.onNodeWithTag("chat-send").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, sends) }
         compose.onNodeWithTag("chat-stop").assertIsEnabled()
+    }
+
+    @Test
+    fun conversationReferenceChipEnablesSendAndCanBeRemoved() {
+        val reference = mutableStateOf<String?>("Source conversation")
+        compose.setContent {
+            MaterialTheme {
+                ConversationComposer(
+                    input = "",
+                    onInput = {},
+                    isSending = false,
+                    hasAttachments = false,
+                    actions = ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
+                    referenceLabel = reference.value,
+                    onRemoveReference = { reference.value = null },
+                )
+            }
+        }
+
+        compose.onNodeWithTag("composer-reference-chip").assertIsDisplayed()
+        compose.onNodeWithTag("chat-send").assertIsEnabled()
+        compose.onNodeWithTag("composer-reference-remove").performClick()
+        compose.onNodeWithTag("composer-reference-chip").assertDoesNotExist()
+        compose.onNodeWithTag("chat-send").assertIsNotEnabled()
     }
 
     @Test fun reasoningSelectionIsExplicitAndLockedDuringGeneration() {
@@ -158,7 +182,7 @@ class ConversationComposerDeviceTest {
                     {},
                     sending.value,
                     false,
-                    ComposerActions({}, {}, { sends++ }, {}),
+                    ComposerActions(onFile = {}, onVoice = {}, onSend = { sends++ }, onStop = {}),
                     reasoning = reasoning.value,
                     reasoningSupported = true,
                     onReasoning = { reasoning.value = it },
@@ -191,7 +215,7 @@ class ConversationComposerDeviceTest {
                             {},
                             false,
                             false,
-                            ComposerActions({}, {}, {}, {}),
+                            ComposerActions(onFile = {}, onVoice = {}, onSend = {}, onStop = {}),
                             modelSelector = {
                                 ComposerModelMenu(
                                     emptyList(),
@@ -206,7 +230,7 @@ class ConversationComposerDeviceTest {
                 }
             }
         }
-        assertFits("chat-input", "chat-attach", "chat-send")
+        assertFits("chat-input", "chat-add", "chat-send")
         val modeBefore = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()
         compose.onNodeWithTag("chat-options-row").performTouchInput { swipeLeft() }
         val modeAfter = compose.onNodeWithTag("chat-mode-menu").getUnclippedBoundsInRoot()

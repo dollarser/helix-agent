@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "7c0724fd984a4127d7a4233e24b05a11",
+    "identityHash": "ed1db8b6adc99978fb1942ea9fbd94b4",
     "entities": [
       {
         "tableName": "sessions",
@@ -413,6 +413,103 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "artifactId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "message_reference_snapshots",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`rowId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `messageId` TEXT NOT NULL, `ordinal` INTEGER NOT NULL, `sourceSessionId` TEXT NOT NULL, `sourceSessionTitle` TEXT NOT NULL, `selectionKind` TEXT NOT NULL, `sourceMessageIdsJson` TEXT NOT NULL, `contentRef` TEXT NOT NULL, `contentSha256` TEXT NOT NULL, `createdAtEpoch` INTEGER NOT NULL, FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "rowId",
+            "columnName": "rowId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageId",
+            "columnName": "messageId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ordinal",
+            "columnName": "ordinal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceSessionId",
+            "columnName": "sourceSessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceSessionTitle",
+            "columnName": "sourceSessionTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "selectionKind",
+            "columnName": "selectionKind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceMessageIdsJson",
+            "columnName": "sourceMessageIdsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentRef",
+            "columnName": "contentRef",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contentSha256",
+            "columnName": "contentSha256",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpoch",
+            "columnName": "createdAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "rowId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_message_reference_snapshots_messageId_ordinal",
+            "unique": true,
+            "columnNames": [
+              "messageId",
+              "ordinal"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_message_reference_snapshots_messageId_ordinal` ON `${TABLE_NAME}` (`messageId`, `ordinal`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "messages",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "messageId"
             ],
             "referencedColumns": [
               "id"
@@ -2769,8 +2866,177 @@
         ]
       },
       {
+        "tableName": "session_experts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `profileId` TEXT NOT NULL, `displayName` TEXT NOT NULL, `instruction` TEXT NOT NULL, `recommendedSkillIdsJson` TEXT NOT NULL, `recommendedConnectorIdsJson` TEXT NOT NULL, `recommendedMode` TEXT, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profileId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instruction",
+            "columnName": "instruction",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recommendedSkillIdsJson",
+            "columnName": "recommendedSkillIdsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recommendedConnectorIdsJson",
+            "columnName": "recommendedConnectorIdsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recommendedMode",
+            "columnName": "recommendedMode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpoch",
+            "columnName": "createdAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpoch",
+            "columnName": "updatedAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "session_run_controls",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `turnBudgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `configVersion` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `createdAtEpoch` INTEGER NOT NULL, `updatedAtEpoch` INTEGER NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "chatToolsEnabled",
+            "columnName": "chatToolsEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "turnBudgetsJson",
+            "columnName": "turnBudgetsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reasoning",
+            "columnName": "reasoning",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "goalBudgetsJson",
+            "columnName": "goalBudgetsJson",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configVersion",
+            "columnName": "configVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtEpoch",
+            "columnName": "createdAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpoch",
+            "columnName": "updatedAtEpoch",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "sessionId"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "sessions",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
         "tableName": "composer_drafts",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `clientRequestId` TEXT NOT NULL, `text` TEXT NOT NULL, `attachmentIdsJson` TEXT NOT NULL, `revisedMessageId` TEXT, `delivery` TEXT NOT NULL DEFAULT 'QUEUE', `expectedTurnId` TEXT, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`sessionId` TEXT NOT NULL, `revision` INTEGER NOT NULL, `clientRequestId` TEXT NOT NULL, `text` TEXT NOT NULL, `attachmentIdsJson` TEXT NOT NULL, `revisedMessageId` TEXT, `delivery` TEXT NOT NULL DEFAULT 'QUEUE', `expectedTurnId` TEXT, `referenceSourceSessionId` TEXT, `referenceKind` TEXT, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "sessionId",
@@ -2818,6 +3084,16 @@
             "fieldPath": "expectedTurnId",
             "columnName": "expectedTurnId",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceSourceSessionId",
+            "columnName": "referenceSourceSessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceKind",
+            "columnName": "referenceKind",
+            "affinity": "TEXT"
           }
         ],
         "primaryKey": {
@@ -2842,7 +3118,7 @@
       },
       {
         "tableName": "session_inputs",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`inputId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `sessionId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `delivery` TEXT NOT NULL, `expectedTurnId` TEXT, `revision` INTEGER NOT NULL, `textRef` TEXT NOT NULL, `textBytes` INTEGER NOT NULL, `referenceSourceSessionId` TEXT, `referenceSourceSessionTitle` TEXT, `referenceSelectionKind` TEXT, `referenceSourceMessageIdsJson` TEXT, `referenceContentRef` TEXT, `referenceContentBytes` INTEGER NOT NULL, `referenceContentSha256` TEXT, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `mode` TEXT NOT NULL, `configurationFingerprint` TEXT NOT NULL, `state` TEXT NOT NULL, `consumedTurnId` TEXT, `messageId` TEXT, `requestModelCallId` TEXT, `blockedReason` TEXT, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`inputId`), FOREIGN KEY(`sessionId`) REFERENCES `sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`expectedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`consumedTurnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`messageId`) REFERENCES `messages`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`requestModelCallId`) REFERENCES `model_calls`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
         "fields": [
           {
             "fieldPath": "inputId",
@@ -2896,6 +3172,42 @@
             "columnName": "textBytes",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "referenceSourceSessionId",
+            "columnName": "referenceSourceSessionId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceSourceSessionTitle",
+            "columnName": "referenceSourceSessionTitle",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceSelectionKind",
+            "columnName": "referenceSelectionKind",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceSourceMessageIdsJson",
+            "columnName": "referenceSourceMessageIdsJson",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceContentRef",
+            "columnName": "referenceContentRef",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "referenceContentBytes",
+            "columnName": "referenceContentBytes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "referenceContentSha256",
+            "columnName": "referenceContentSha256",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "providerId",
@@ -3220,7 +3532,7 @@
       },
       {
         "tableName": "turn_runtime_records",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`turnId` TEXT NOT NULL, `version` INTEGER NOT NULL, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `providerSnapshot` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `budgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `consumedModelCalls` INTEGER NOT NULL, `consumedTokens` INTEGER NOT NULL, `admittedToolRounds` INTEGER NOT NULL, PRIMARY KEY(`turnId`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`turnId` TEXT NOT NULL, `version` INTEGER NOT NULL, `providerId` TEXT NOT NULL, `modelId` TEXT NOT NULL, `providerSnapshot` TEXT NOT NULL, `mode` TEXT NOT NULL, `chatToolsEnabled` INTEGER NOT NULL, `budgetsJson` TEXT NOT NULL, `reasoning` TEXT NOT NULL, `goalBudgetsJson` TEXT NOT NULL, `expertProfileJson` TEXT, `consumedModelCalls` INTEGER NOT NULL, `consumedTokens` INTEGER NOT NULL, `admittedToolRounds` INTEGER NOT NULL, PRIMARY KEY(`turnId`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "turnId",
@@ -3281,6 +3593,11 @@
             "columnName": "goalBudgetsJson",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "expertProfileJson",
+            "columnName": "expertProfileJson",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "consumedModelCalls",
@@ -3367,7 +3684,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7c0724fd984a4127d7a4233e24b05a11')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ed1db8b6adc99978fb1942ea9fbd94b4')"
     ]
   }
 }

@@ -5,6 +5,8 @@ import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ProviderResidence
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.storage.repository.ConversationReferenceKind
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.SnapshotKind
@@ -89,6 +91,55 @@ class AttachmentSendAdmissionTest {
         val outcome = AttachmentSendAdmission.admit(gate, "", target, strings)
         val egress = outcome as AttachmentSendAdmission.Outcome.Egress
         assertTrue(egress.decision is EgressDisclosure.Decision.Confirm)
+    }
+
+    @Test
+    fun aFrozenConversationReferenceWithBlankTextStillForcesPerSendConfirmation() {
+        val reference =
+            ConversationReferenceSnapshotInput(
+                sourceSessionId = "source",
+                sourceSessionTitle = "Source",
+                selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                sourceMessageIds = listOf("message"),
+                content = "quoted context",
+            )
+        val outcome =
+            AttachmentSendAdmission.admit(
+                AttachmentSendDecision.Ready(emptyList()),
+                "",
+                target,
+                strings,
+                reference,
+            )
+        val egress = outcome as AttachmentSendAdmission.Outcome.Egress
+        val confirm = egress.decision as EgressDisclosure.Decision.Confirm
+        assertTrue(
+            confirm.summary.categories.contains(
+                EgressDisclosure.DataCategory.HIGH_SENSITIVE_CONVERSATION_REFERENCE,
+            ),
+        )
+    }
+
+    @Test
+    fun aCredentialInsideFrozenConversationReferenceIsRejected() {
+        val reference =
+            ConversationReferenceSnapshotInput(
+                sourceSessionId = "source",
+                sourceSessionTitle = "Source",
+                selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                sourceMessageIds = listOf("message"),
+                content = "key is sk-abcdefghijklmnopq",
+            )
+        val outcome =
+            AttachmentSendAdmission.admit(
+                AttachmentSendDecision.Ready(emptyList()),
+                "",
+                target,
+                strings,
+                reference,
+            )
+        val egress = outcome as AttachmentSendAdmission.Outcome.Egress
+        assertTrue(egress.decision is EgressDisclosure.Decision.Rejected)
     }
 
     @Test

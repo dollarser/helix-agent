@@ -36,6 +36,8 @@ data class TurnRuntimeRecordEntity(
     val budgetsJson: String,
     val reasoning: String,
     val goalBudgetsJson: String,
+    /** Immutable admitted Expert snapshot JSON; null when this Turn has no Expert. */
+    val expertProfileJson: String? = null,
     val consumedModelCalls: Int,
     val consumedTokens: Long,
     val admittedToolRounds: Int,

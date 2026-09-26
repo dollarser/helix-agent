@@ -6,6 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.core.model.TurnState
 import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.FileContentStore
+import com.helix.core.storage.repository.ConversationReferenceKind
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.InputAttachment
 import com.helix.core.storage.repository.InputConfiguration
 import com.helix.core.storage.repository.SessionInputAcceptResult
@@ -278,6 +280,75 @@ class SessionInputStorageDeviceTest {
             assertEquals("shared content", storage.sessionInputs.readText(pending))
             storage.deleteSessionPermanently("other")
             assertFalse(storage.contentStore.exists(ContentRef.parse(pending.textRef)))
+        }
+
+    @Test
+    fun acceptedConversationReferenceKeepsFrozenBytesAfterSourceChangesAndDeletion() =
+        withStorage { storage ->
+            storage.sessions.create("source", "Source", null, null, 0)
+            storage.withTransaction {
+                storage.messages.append("source-old", "source", null, "USER", "TEXT", "original source")
+            }
+            val reference =
+                ConversationReferenceSnapshotInput(
+                    sourceSessionId = "source",
+                    sourceSessionTitle = "Source",
+                    selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                    sourceMessageIds = listOf("source-old"),
+                    content = "frozen source snapshot",
+                )
+            val accepted = accepted(storage, spec("reference", "").copy(reference = reference))
+            assertEquals(reference, storage.sessionInputs.readReference(accepted))
+
+            storage.withTransaction {
+                storage.messages.append("source-new", "source", null, "ASSISTANT", "TEXT", "newer source content")
+            }
+            storage.deleteSessionPermanently("source")
+
+            val reloaded = requireNotNull(storage.sessionInputs.get("reference"))
+            assertEquals(reference, storage.sessionInputs.readReference(reloaded))
+        }
+
+    @Test
+    fun messageReferenceSnapshotSurvivesSourceDeletionAndParticipatesInContentGc() =
+        withStorage { storage ->
+            storage.sessions.create("source", "Source", null, null, 0)
+            val reference =
+                ConversationReferenceSnapshotInput(
+                    sourceSessionId = "source",
+                    sourceSessionTitle = "Source",
+                    selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+                    sourceMessageIds = listOf("source-message"),
+                    content = "independent frozen reference",
+                )
+            storage.withTransaction {
+                storage.messages.append("source-message", "source", null, "USER", "TEXT", "source history")
+                storage.turns.start("target-turn", SESSION, 1)
+                val target =
+                    storage.messages.append("target-message", SESSION, "target-turn", "USER", "TEXT", "question")
+                storage.messageReferenceSnapshots.bind(target.id, listOf(reference), 2)
+            }
+            val raw =
+                storage.database
+                    .messageReferenceSnapshotDao()
+                    .byMessage("target-message")
+                    .single()
+            val contentRef = ContentRef.parse(raw.contentRef)
+
+            storage.deleteSessionPermanently("source")
+            assertTrue(storage.contentStore.exists(contentRef))
+            assertEquals(
+                "independent frozen reference",
+                storage.messageReferenceSnapshots
+                    .forMessage("target-message")
+                    .single()
+                    .content,
+            )
+            storage.collectGarbage(gracePeriodMillis = 0)
+            assertTrue(storage.contentStore.exists(contentRef))
+
+            storage.deleteSessionPermanently(SESSION)
+            assertFalse(storage.contentStore.exists(contentRef))
         }
 
     private fun consume(

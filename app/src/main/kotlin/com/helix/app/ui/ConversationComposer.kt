@@ -12,7 +12,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +29,7 @@ import com.helix.app.R
 import com.helix.app.agent.ChatContextUsage
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
 
 @Composable
@@ -34,6 +40,8 @@ internal fun ConversationComposer(
     isSending: Boolean,
     hasAttachments: Boolean,
     actions: ComposerActions,
+    referenceLabel: String? = null,
+    onRemoveReference: () -> Unit = {},
     goalMode: Boolean = false,
     mode: AgentMode = if (goalMode) AgentMode.GOAL else AgentMode.CHAT,
     onMode: (AgentMode) -> Unit = {},
@@ -41,6 +49,8 @@ internal fun ConversationComposer(
     reasoningSupported: Boolean = false,
     onReasoning: (ReasoningEffort) -> Unit = {},
     modelSelector: (@Composable () -> Unit)? = null,
+    permissionMode: SessionPermissionMode? = null,
+    onPermission: () -> Unit = {},
     contextUsage: ChatContextUsage = ChatContextUsage(),
     onCompact: () -> Unit = {},
     canCompact: Boolean = false,
@@ -48,6 +58,7 @@ internal fun ConversationComposer(
     turnState: TurnState? = null,
     availability: ComposerAvailability = ComposerAvailability(),
 ) {
+    var addOpen by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(8.dp).testTag("chat-composer")) {
         val activeQuery =
             androidx.compose.runtime.remember(input) {
@@ -120,26 +131,34 @@ internal fun ConversationComposer(
                     ),
                 maxLines = 5,
             )
+            if (referenceLabel != null) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.composer_reference_chip, referenceLabel),
+                        modifier = Modifier.weight(1f).testTag("composer-reference-chip"),
+                    )
+                    TextButton(
+                        onClick = onRemoveReference,
+                        enabled = !isSending,
+                        modifier = Modifier.testTag("composer-reference-remove"),
+                    ) {
+                        Text(stringResource(R.string.common_remove))
+                    }
+                }
+            }
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
-                    actions.onVoice,
-                    enabled = availability.input,
-                    modifier = Modifier.testTag("chat-voice"),
+                    { addOpen = true },
+                    enabled = availability.canAttach() || availability.input,
+                    modifier = Modifier.testTag("chat-add"),
                 ) {
-                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
-                }
-                IconButton(
-                    actions.onAttach,
-                    enabled = availability.canAttach(),
-                    modifier = Modifier.testTag("chat-attach"),
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_chat_attach),
-                        stringResource(R.string.chat_attachment_button),
-                    )
+                    Icon(painterResource(R.drawable.ic_composer_add), stringResource(R.string.composer_add_title))
                 }
                 androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
                     ComposerToolbar(
@@ -150,6 +169,8 @@ internal fun ConversationComposer(
                         onReasoning,
                         isSending,
                         modelSelector,
+                        permissionMode = permissionMode,
+                        onPermission = onPermission,
                         reasoningOptions = reasoningOptions,
                         trailingOptions = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -158,6 +179,13 @@ internal fun ConversationComposer(
                             }
                         },
                     )
+                }
+                IconButton(
+                    actions.onVoice,
+                    enabled = availability.input,
+                    modifier = Modifier.testTag("chat-voice"),
+                ) {
+                    Icon(painterResource(R.drawable.ic_composer_voice), stringResource(R.string.chat_voice_button))
                 }
                 if (isSending) {
                     IconButton(
@@ -168,7 +196,9 @@ internal fun ConversationComposer(
                         Icon(painterResource(R.drawable.ic_composer_stop), stringResource(R.string.chat_stop))
                     }
                 }
-                val sendEnabled = input.isNotBlank() || ((!goalMode || isSending) && hasAttachments)
+                val sendEnabled =
+                    input.isNotBlank() ||
+                        ((!goalMode || isSending) && (hasAttachments || referenceLabel != null))
                 IconButton(
                     onClick = actions.onSend,
                     enabled = sendEnabled && availability.delivery,
@@ -181,5 +211,15 @@ internal fun ConversationComposer(
                 }
             }
         }
+    }
+    if (addOpen) {
+        ComposerAddSheet(
+            mode = mode,
+            messageEnabled = availability.canAttach(),
+            sessionConfigEnabled = !isSending,
+            onMode = onMode,
+            actions = actions,
+            onDismiss = { addOpen = false },
+        )
     }
 }

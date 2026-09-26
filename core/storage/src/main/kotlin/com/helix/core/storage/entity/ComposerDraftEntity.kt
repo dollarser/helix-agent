@@ -26,4 +26,6 @@ data class ComposerDraftEntity(
     val revisedMessageId: String? = null,
     @ColumnInfo(defaultValue = "'QUEUE'") val delivery: String = "QUEUE",
     val expectedTurnId: String? = null,
+    val referenceSourceSessionId: String? = null,
+    val referenceKind: String? = null,
 )

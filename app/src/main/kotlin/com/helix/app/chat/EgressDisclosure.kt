@@ -43,6 +43,7 @@ object EgressDisclosure {
         HIGH_SENSITIVE_LOCATION(R.string.data_category_location),
         HIGH_SENSITIVE_FILE_TEXT(R.string.data_category_file_text),
         HIGH_SENSITIVE_IMAGE(R.string.data_category_image),
+        HIGH_SENSITIVE_CONVERSATION_REFERENCE(R.string.data_category_conversation_reference),
         HIGH_SENSITIVE_BROWSER(R.string.data_category_browser),
         HIGH_SENSITIVE_ACCESSIBILITY(R.string.data_category_accessibility),
     }
@@ -79,6 +80,13 @@ object EgressDisclosure {
             val mediaType: String,
             val width: Int,
             val height: Int,
+        ) : OutgoingContent
+
+        /** Frozen bytes copied from another conversation for this submission only. */
+        data class ConversationReference(
+            val sourceLabel: String,
+            val sizeBytes: Long,
+            val sha256: String,
         ) : OutgoingContent
     }
 
@@ -217,6 +225,7 @@ object EgressDisclosure {
                 OutgoingContent.UserText -> set += DataCategory.REGULAR
                 is OutgoingContent.FileText -> set += DataCategory.HIGH_SENSITIVE_FILE_TEXT
                 is OutgoingContent.Image -> set += DataCategory.HIGH_SENSITIVE_IMAGE
+                is OutgoingContent.ConversationReference -> set += DataCategory.HIGH_SENSITIVE_CONVERSATION_REFERENCE
             }
         }
         return if (set.isEmpty()) listOf(DataCategory.REGULAR) else set.toList()

@@ -1,5 +1,6 @@
 package com.helix.core.storage.export
 
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -36,6 +37,20 @@ internal class SessionExportReferences(
             (data["preservedMessageIds"] as? JsonArray)?.forEachIndexed { index, id ->
                 require(id is JsonPrimitive && id.isString) { "Invalid preserved message identity" }
                 references += edge("preservedMessageIds[$index]", "message:", id)
+            }
+        }
+        if (type == SessionExportType.CONVERSATION_REFERENCE) {
+            val encoded = (data["sourceMessageIdsJson"] as? JsonPrimitive)?.contentOrNull
+            if (encoded != null) {
+                val ids =
+                    Json.parseToJsonElement(encoded) as? JsonArray
+                        ?: error("Invalid conversation reference message identities")
+                ids.forEachIndexed { index, id ->
+                    require(id is JsonPrimitive && id.isString) {
+                        "Invalid conversation reference message identity"
+                    }
+                    references += edge("sourceMessageIds[$index]", "message:", id)
+                }
             }
         }
         return JsonObject(data + ("references" to JsonArray(references)))
@@ -75,6 +90,12 @@ internal class SessionExportReferences(
                 SessionExportType.APPROVAL to listOf("toolCallId" to "tool_call:"),
                 SessionExportType.ARTIFACT to listOf("sessionId" to "session:", "turnId" to "turn:"),
                 SessionExportType.ATTACHMENT to listOf("messageId" to "message:", "artifactId" to "artifact:"),
+                SessionExportType.CONVERSATION_REFERENCE to
+                    listOf(
+                        "messageId" to "message:",
+                        "sourceSessionId" to "session:",
+                        "contentId" to "",
+                    ),
                 SessionExportType.GOAL_RUN to listOf("goalId" to "usage:goal:"),
                 SessionExportType.GOAL_BINDING to listOf("turnId" to "turn:", "runId" to "goal_run:"),
                 SessionExportType.COMPACTION to

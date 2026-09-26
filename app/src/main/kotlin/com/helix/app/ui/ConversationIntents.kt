@@ -2,7 +2,6 @@ package com.helix.app.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import com.helix.app.provider.ProviderRowUi
 import com.helix.core.model.AgentMode
 
 data class ConversationIntents(
@@ -18,8 +17,6 @@ data class ConversationIntents(
     val onDenyApproval: (String) -> Unit,
     val onStageAttachment: (String) -> Unit,
     val onRemoveAttachment: (String) -> Unit,
-    /** HXA-056: bind a tested provider to the open (provider-free) draft session. */
-    val onBindProvider: (ProviderRowUi) -> Unit,
     val onSetMode: (AgentMode) -> Unit,
     val onSetChatTools: (Boolean) -> Unit,
     val onSelectModel: (String, String) -> Unit = { _, _ -> },
@@ -27,6 +24,12 @@ data class ConversationIntents(
     val onNew: () -> Unit = {},
     val onTasks: () -> Unit = {},
     val onNavigation: () -> Unit = {},
+    val onSettings: () -> Unit = {},
+    val onReference: () -> Unit = {},
+    val onClearReference: () -> Unit = {},
+    val onExpert: () -> Unit = {},
+    val onSkills: () -> Unit = {},
+    val onConnectors: () -> Unit = {},
     val onManageGoal: () -> Unit = {},
     val onRename: () -> Unit = {},
     val onExport: (() -> Unit)? = null,

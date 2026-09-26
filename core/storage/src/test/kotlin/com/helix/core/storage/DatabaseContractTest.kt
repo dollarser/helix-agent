@@ -19,6 +19,7 @@ class DatabaseContractTest {
             "connector_endpoints",
             "messages",
             "message_attachments",
+            "message_reference_snapshots",
             "turns",
             "model_calls",
             "tool_calls",
@@ -51,6 +52,8 @@ class DatabaseContractTest {
             "tool_availability",
             "session_permission_defaults",
             "session_permission_drafts",
+            "session_experts",
+            "session_run_controls",
             "composer_drafts",
             "session_inputs",
             "session_input_attachments",
@@ -93,7 +96,7 @@ class DatabaseContractTest {
         assertEquals(1L, (database.entries.getValue("version") as Value.Num).value)
         val tables = entities().map { (it.entries.getValue("tableName") as Value.Str).value }
         assertEquals(expectedTables, tables.toSet())
-        assertEquals(45, tables.size)
+        assertEquals(48, tables.size)
     }
 
     @Test
@@ -124,6 +127,7 @@ class DatabaseContractTest {
                 "budgetsJson",
                 "reasoning",
                 "goalBudgetsJson",
+                "expertProfileJson",
                 "consumedModelCalls",
                 "consumedTokens",
                 "admittedToolRounds",
@@ -138,6 +142,59 @@ class DatabaseContractTest {
             listOf("toolCallId", "decision", "reviewedAt"),
             columns("tool_call_reviews"),
         )
+    }
+
+    @Test
+    fun `session workbench facts are first class baseline columns`() {
+        assertEquals(
+            listOf(
+                "sessionId",
+                "mode",
+                "chatToolsEnabled",
+                "turnBudgetsJson",
+                "reasoning",
+                "goalBudgetsJson",
+                "configVersion",
+                "revision",
+                "createdAtEpoch",
+                "updatedAtEpoch",
+            ),
+            columns("session_run_controls"),
+        )
+        assertEquals(
+            listOf(
+                "sessionId",
+                "profileId",
+                "displayName",
+                "instruction",
+                "recommendedSkillIdsJson",
+                "recommendedConnectorIdsJson",
+                "recommendedMode",
+                "revision",
+                "createdAtEpoch",
+                "updatedAtEpoch",
+            ),
+            columns("session_experts"),
+        )
+        assertEquals(
+            listOf(
+                "rowId",
+                "messageId",
+                "ordinal",
+                "sourceSessionId",
+                "sourceSessionTitle",
+                "selectionKind",
+                "sourceMessageIdsJson",
+                "contentRef",
+                "contentSha256",
+                "createdAtEpoch",
+            ),
+            columns("message_reference_snapshots"),
+        )
+        assertTrue("referenceSourceSessionId" in columns("composer_drafts"))
+        assertTrue("referenceKind" in columns("composer_drafts"))
+        assertTrue("referenceContentRef" in columns("session_inputs"))
+        assertTrue("referenceContentSha256" in columns("session_inputs"))
     }
 
     @Test

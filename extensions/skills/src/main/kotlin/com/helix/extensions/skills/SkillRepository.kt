@@ -124,7 +124,9 @@ class SkillRepository(
 
                 SkillEnablementScope.SESSION -> {
                     require(!sessionId.isNullOrBlank()) { "sessionId is required for session enablement" }
+                    require(sessionId.none { it == '|' || it == '\n' || it == '\r' }) { "Invalid sessionId" }
                     sessionOverrides.getOrPut(sessionId) { linkedMapOf() }[key] = enabled
+                    persistState()
                 }
             }
         }
@@ -251,28 +253,72 @@ class SkillRepository(
         if (!Files.isRegularFile(stateFile, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(stateFile)) return
         Files.readAllLines(stateFile, StandardCharsets.UTF_8).forEach { line ->
             val fields = line.split('|')
-            if (fields.size != STATE_FIELD_COUNT) return@forEach
-            if (fields[0] != ENABLED_MARKER && fields[0] != DISABLED_MARKER) return@forEach
-            val source = runCatching { SkillSource.valueOf(fields[1]) }.getOrNull() ?: return@forEach
-            val key = SkillKey(source, fields[2], fields[3])
-            if (records.containsKey(key)) globalOverrides[key] = fields[0] == ENABLED_MARKER
+            when (fields.firstOrNull()) {
+                GLOBAL_SCOPE_MARKER -> loadGlobalState(fields)
+                SESSION_SCOPE_MARKER -> loadSessionState(fields)
+            }
+        }
+    }
+
+    private fun loadGlobalState(fields: List<String>) {
+        if (fields.size == GLOBAL_STATE_FIELD_COUNT) {
+            val enabled = fields[1].toEnabledOrNull()
+            val source = runCatching { SkillSource.valueOf(fields[2]) }.getOrNull()
+            if (enabled != null && source != null) {
+                val key = SkillKey(source, fields[3], fields[4])
+                if (records.containsKey(key)) globalOverrides[key] = enabled
+            }
+        }
+    }
+
+    private fun loadSessionState(fields: List<String>) {
+        if (fields.size == SESSION_STATE_FIELD_COUNT) {
+            val sessionId = fields[1].takeIf { it.isNotBlank() }
+            val enabled = fields[2].toEnabledOrNull()
+            val source = runCatching { SkillSource.valueOf(fields[3]) }.getOrNull()
+            if (sessionId != null && enabled != null && source != null) {
+                val key = SkillKey(source, fields[4], fields[5])
+                if (records.containsKey(key)) {
+                    sessionOverrides.getOrPut(sessionId) { linkedMapOf() }[key] = enabled
+                }
+            }
         }
     }
 
     private fun persistState() {
         Files.createDirectories(stateFile.parent)
         val temporary = Files.createTempFile(stateFile.parent, ".skill-state-", ".tmp")
-        val content =
+        val globalLines =
             globalOverrides.entries
                 .sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
-                .joinToString("\n", postfix = if (globalOverrides.isEmpty()) "" else "\n") { (key, enabled) ->
+                .map { (key, enabled) ->
                     listOf(
+                        GLOBAL_SCOPE_MARKER,
                         if (enabled) ENABLED_MARKER else DISABLED_MARKER,
                         key.source.name,
                         key.name,
                         key.snapshotHash,
                     ).joinToString("|")
                 }
+        val sessionLines =
+            sessionOverrides.entries
+                .sortedBy { it.key }
+                .flatMap { (sessionId, overrides) ->
+                    overrides.entries
+                        .sortedWith(compareBy({ it.key.name }, { it.key.source.name }, { it.key.snapshotHash }))
+                        .map { (key, enabled) ->
+                            listOf(
+                                SESSION_SCOPE_MARKER,
+                                sessionId,
+                                if (enabled) ENABLED_MARKER else DISABLED_MARKER,
+                                key.source.name,
+                                key.name,
+                                key.snapshotHash,
+                            ).joinToString("|")
+                        }
+                }
+        val lines = globalLines + sessionLines
+        val content = lines.joinToString("\n", postfix = if (lines.isEmpty()) "" else "\n")
         Files.write(
             temporary,
             content.toByteArray(StandardCharsets.UTF_8),
@@ -334,6 +380,13 @@ class SkillRepository(
     private fun sha256(bytes: ByteArray): String =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
+    private fun String.toEnabledOrNull(): Boolean? =
+        when (this) {
+            ENABLED_MARKER -> true
+            DISABLED_MARKER -> false
+            else -> null
+        }
+
     private fun SkillCatalogEntry.toKey(hash: String = contentHash): SkillKey = SkillKey(source, name, hash)
 
     private data class SkillRecord(
@@ -343,7 +396,10 @@ class SkillRepository(
 
     companion object {
         private const val MAX_RESOURCE_PATH_LENGTH = 512
-        private const val STATE_FIELD_COUNT = 4
+        private const val GLOBAL_STATE_FIELD_COUNT = 5
+        private const val SESSION_STATE_FIELD_COUNT = 6
+        private const val GLOBAL_SCOPE_MARKER = "G"
+        private const val SESSION_SCOPE_MARKER = "S"
         private const val ENABLED_MARKER = "+"
         private const val DISABLED_MARKER = "-"
         private const val RESOURCE_BUFFER_SIZE = 8192

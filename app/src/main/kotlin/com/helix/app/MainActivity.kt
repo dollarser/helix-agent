@@ -53,6 +53,7 @@ import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.COMMAND_DETAIL_ROUTE
 import com.helix.app.ui.CONVERSATION_HISTORY_ROUTE
 import com.helix.app.ui.CONVERSATION_SEARCH_ROUTE
+import com.helix.app.ui.CONVERSATION_SETTINGS_ROUTE
 import com.helix.app.ui.CapabilitiesScreenDestination
 import com.helix.app.ui.CapabilityReadinessScreen
 import com.helix.app.ui.ChatScreen
@@ -75,6 +76,7 @@ import com.helix.app.ui.SETTINGS_SYSTEM_PERMISSIONS_ROUTE
 import com.helix.app.ui.SETUP_CAPABILITIES_ROUTE
 import com.helix.app.ui.SETUP_READINESS_ROUTE
 import com.helix.app.ui.SETUP_RUNTIME_ROUTE
+import com.helix.app.ui.SessionSettingsScreen
 import com.helix.app.ui.SettingsScreen
 import com.helix.app.ui.SetupScreen
 import com.helix.app.ui.TASKS_TURN_ROUTE
@@ -337,6 +339,17 @@ internal fun HelixApp(container: AppContainer) {
                             },
                         )
                     }
+                    composable(CONVERSATION_SETTINGS_ROUTE) {
+                        SessionSettingsScreen(
+                            chatService = container.chatService,
+                            providerService = container.providerService,
+                            permissionEdit = container.sessionPermissionEdit,
+                            skills = container.skillRepository,
+                            connectors = container.connectorService,
+                            onModels = { navController.navigate(ShellDestination.Models.route) },
+                            onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
+                        )
+                    }
                     composable(SETUP_READINESS_ROUTE) {
                         CapabilityReadinessScreen(
                             container,
@@ -447,6 +460,8 @@ private fun DestinationScreen(
                 container.providerService,
                 container.privacyDeletionService,
                 container.fileManager,
+                sessionPermissionEdit = container.sessionPermissionEdit,
+                skills = container.skillRepository,
                 sessionExport = container.sessionExport,
                 connectors = container.connectorService,
                 onExtensions = { navController.navigate(ShellDestination.Extensions.route) },
@@ -454,6 +469,7 @@ private fun DestinationScreen(
                 onModels = { navController.navigate(ShellDestination.Models.route) },
                 onAgentDefaults = { navController.navigate(SETTINGS_DEFAULTS_ROUTE) },
                 onPermissions = { navController.navigate(SETTINGS_SYSTEM_PERMISSIONS_ROUTE) },
+                onSessionSettings = { navController.navigate(CONVERSATION_SETTINGS_ROUTE) },
                 onOpenCommandDetail = { turnId, callId ->
                     navController.navigate(commandDetailRoute(turnId, callId))
                 },

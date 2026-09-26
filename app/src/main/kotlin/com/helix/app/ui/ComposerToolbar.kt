@@ -14,6 +14,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.core.model.AgentMode
 import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.SessionPermissionMode
 
 @Composable
 @Suppress("FunctionName")
@@ -51,6 +54,8 @@ internal fun ComposerToolbar(
     onReasoning: (ReasoningEffort) -> Unit,
     isSending: Boolean,
     modelSelector: (@Composable () -> Unit)?,
+    permissionMode: SessionPermissionMode? = null,
+    onPermission: () -> Unit = {},
     reasoningOptions: List<ReasoningEffort> = ReasoningEffort.FALLBACK,
     trailingOptions: @Composable () -> Unit = {},
 ) {
@@ -60,6 +65,13 @@ internal fun ComposerToolbar(
             ComposerOptionRow {
                 ComposerOptionPill { ComposerModeMenu(mode, !isSending, onMode) }
                 modelSelector?.let { model -> ComposerOptionPill { model() } }
+                permissionMode?.let { permission ->
+                    ComposerOptionPill {
+                        TextButton(onClick = onPermission, modifier = Modifier.testTag("chat-permission-menu")) {
+                            Text("🛡 ${stringResource(permission.labelRes())}")
+                        }
+                    }
+                }
             }
         }
         IconButton({ options = true }, modifier = Modifier.size(48.dp).testTag("chat-composer-options")) {

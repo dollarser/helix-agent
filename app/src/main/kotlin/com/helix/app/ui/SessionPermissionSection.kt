@@ -63,7 +63,8 @@ internal fun SessionPermissionSection(
     toolPipeline: ToolPipeline,
     chatService: ChatService? = null,
 ) {
-    val controller = rememberPermissionController(edit, toolPipeline, chatService)
+    val tools = remember(toolPipeline) { toolPipeline.registry.all() }
+    val controller = rememberPermissionController(edit, tools, chatService)
     SettingsGroup {
         Text(stringResource(R.string.settings_perm_title), style = MaterialTheme.typography.titleMedium)
         if (controller.failed.value) {
@@ -91,6 +92,37 @@ internal fun SessionPermissionSection(
     }
 }
 
+/** Current-session authorization only; app defaults and GLOBAL tool availability stay in Settings. */
+@Composable
+@Suppress("FunctionName")
+internal fun SessionPermissionSessionSection(
+    edit: SessionPermissionEditService,
+    chatService: ChatService,
+) {
+    val controller = rememberPermissionController(edit, emptyList(), chatService)
+    SettingsGroup {
+        Text(stringResource(R.string.settings_perm_session_label), style = MaterialTheme.typography.titleMedium)
+        if (controller.failed.value) {
+            Text(stringResource(R.string.common_operation_failed), color = MaterialTheme.colorScheme.error)
+        }
+        if (controller.sessionId != null) {
+            PermissionSessionPicker(controller)
+            PermissionCustomEditor(
+                draft = controller.draft.value,
+                onCopyPreset = { controller.copyPresetIntoDraft(it) },
+                onSetRule = { effect, rule -> controller.setDraftRule(effect, rule) },
+            )
+            PermissionTighteningNotice(controller, chatService)
+        } else {
+            Text(
+                stringResource(R.string.settings_perm_session_absent),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 /**
  * The section's state + actions, kept out of the composable so the render tree stays a thin list
  * of pickers. Backed by [SessionPermissionEditService]; every Room read/write runs on IO and any
@@ -100,7 +132,7 @@ internal fun SessionPermissionSection(
 @Suppress("FunctionName", "LongParameterList")
 private fun rememberPermissionController(
     edit: SessionPermissionEditService,
-    toolPipeline: ToolPipeline,
+    tools: List<ToolDescriptor>,
     chatService: ChatService?,
 ): SessionPermissionController {
     val scope = rememberCoroutineScope()
@@ -110,8 +142,6 @@ private fun rememberPermissionController(
             ?.collectAsStateWithLifecycle()
             ?.value
             ?.openSessionId
-    // In-memory tool identity list — safe to read on the main thread (no Room).
-    val tools = remember(toolPipeline) { toolPipeline.registry.all() }
     val defaultMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionMode = remember { mutableStateOf<SessionPermissionMode?>(null) }
     val sessionHasStored = remember { mutableStateOf(false) }

@@ -41,6 +41,7 @@ object StorageGarbageCollector {
             contentRoot = contentRoot,
             referenceChecker = { refString ->
                 database.messageDao().countByContentRef(refString) > 0 ||
+                    database.messageReferenceSnapshotDao().countByContentRef(refString) > 0 ||
                     database.toolResultDao().countByContentRef(refString) > 0 ||
                     database.sessionInputDao().countByContentRef(refString) > 0
             },

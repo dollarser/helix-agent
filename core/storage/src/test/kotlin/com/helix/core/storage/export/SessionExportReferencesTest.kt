@@ -57,6 +57,34 @@ class SessionExportReferencesTest {
         )
     }
 
+    @Test
+    fun conversationReferenceReportsTargetSourceContentAndSourceMessageEdges() {
+        val projection =
+            SessionExportReferences {
+                it in setOf("message:target", "content:hash", "message:source-kept")
+            }
+        val data =
+            Json
+                .parseToJsonElement(
+                    """{"messageId":"target","sourceSessionId":"source","contentId":"content:hash",""" +
+                        """"sourceMessageIdsJson":"[\"source-kept\",\"source-gone\"]"}""",
+                ).jsonObject
+
+        val references =
+            projection
+                .describe(SessionExportType.CONVERSATION_REFERENCE, data)
+                .getValue("references")
+                .jsonArray
+        assertEquals(
+            listOf("included", "not_in_selected_snapshot", "included", "included", "not_in_selected_snapshot"),
+            references.map {
+                it.jsonObject
+                    .getValue("status")
+                    .jsonPrimitive.content
+            },
+        )
+    }
+
     @Test fun missingHistoricalModelAssociationIsNotInferredFromTurnOrCallOrder() {
         val projection = SessionExportReferences { true }
         val data = Json.parseToJsonElement("""{"turnId":"turn","modelCallId":null}""").jsonObject

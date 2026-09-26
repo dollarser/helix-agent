@@ -1,6 +1,6 @@
 package com.helix.app.chat
 
-import com.helix.app.runcontrol.RunControlStore
+import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.model.Clock
 import com.helix.core.storage.HelixStorage
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +13,7 @@ internal class ChatGoalActions(
     private val clock: Clock,
     private val idGenerator: () -> String,
     private val requestAssembler: ChatRequestAssembler,
-    private val runControlStore: RunControlStore,
+    private val runControlForSession: (String) -> RunControlConfig,
     private val openSessionId: () -> String?,
     private val goalReminderSync: (String) -> Unit,
 ) {
@@ -63,7 +63,7 @@ internal class ChatGoalActions(
                     ?.outcome
             val fits =
                 outcome != "BLOCKED(CONTEXT_WINDOW_LIMIT)" ||
-                    requestAssembler.contextFits(session, runControlStore.flow.value, goal.objective)
+                    requestAssembler.contextFits(session, runControlForSession(session), goal.objective)
             GoalBlockerResolution(storage, clock, idGenerator).resolve(goalId, session, fits)
         }
 

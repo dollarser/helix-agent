@@ -8,6 +8,7 @@ import com.helix.core.model.GoalBudgets
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import com.helix.core.storage.entity.TurnRuntimeRecordEntity
+import com.helix.core.storage.repository.ExpertProfile
 import com.helix.core.storage.repository.TurnRuntimeRecordRepository
 
 /** Typed, fail-closed codec between app execution policy and the durable TurnEngine runtime row. */
@@ -18,6 +19,7 @@ internal object TurnRuntimeRecordCodec {
         modelId: String,
         providerSnapshot: String,
         control: RunControlConfig,
+        expert: ExpertProfile? = null,
     ): TurnRuntimeRecordEntity =
         TurnRuntimeRecordEntity(
             turnId = turnId,
@@ -30,6 +32,7 @@ internal object TurnRuntimeRecordCodec {
             budgetsJson = control.budgets.toStorageString(),
             reasoning = control.reasoning.name,
             goalBudgetsJson = control.goalBudgets.toStorageString(),
+            expertProfileJson = expert?.let(ExpertProfileSnapshotCodec::encode),
             consumedModelCalls = 0,
             consumedTokens = 0,
             admittedToolRounds = 0,
@@ -65,6 +68,7 @@ internal object TurnRuntimeRecordCodec {
             modelId = record.modelId,
             providerSnapshot = record.providerSnapshot,
             control = control,
+            expert = record.expertProfileJson?.let(ExpertProfileSnapshotCodec::decode),
             consumedModelCalls = record.consumedModelCalls,
             consumedTokens = record.consumedTokens,
             admittedToolRounds = record.admittedToolRounds,
@@ -78,6 +82,7 @@ internal data class TurnRuntimeSnapshot(
     val modelId: String,
     val providerSnapshot: String,
     val control: RunControlConfig,
+    val expert: ExpertProfile?,
     val consumedModelCalls: Int,
     val consumedTokens: Long,
     val admittedToolRounds: Int,

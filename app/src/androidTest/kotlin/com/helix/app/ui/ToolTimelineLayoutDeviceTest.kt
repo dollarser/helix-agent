@@ -83,7 +83,6 @@ private fun timelineIntents() =
         onDenyApproval = {},
         onStageAttachment = {},
         onRemoveAttachment = {},
-        onBindProvider = {},
         onSetMode = {},
         onSetChatTools = {},
     )

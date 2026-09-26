@@ -58,6 +58,8 @@ internal object SessionInputBinding {
                 put("delivery", request.delivery.name)
                 put("target", request.expectedTurnId)
                 put("revisionTarget", request.revisedMessageId)
+                put("referenceSession", request.referenceSourceSessionId)
+                put("referenceKind", request.referenceKind?.name)
             }.toString(),
         )
 

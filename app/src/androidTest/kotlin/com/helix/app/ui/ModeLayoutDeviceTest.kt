@@ -68,7 +68,6 @@ class ModeLayoutDeviceTest {
             onDenyApproval = {},
             onStageAttachment = {},
             onRemoveAttachment = {},
-            onBindProvider = {},
             onSetMode = { config.value = config.value.copy(mode = it) },
             onSetChatTools = { config.value = config.value.copy(chatToolsEnabled = it) },
         )

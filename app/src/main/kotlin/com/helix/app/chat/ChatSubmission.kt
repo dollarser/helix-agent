@@ -11,10 +11,14 @@ data class ChatSubmission(
     val delivery: com.helix.core.storage.repository.SessionInputDelivery =
         com.helix.core.storage.repository.SessionInputDelivery.QUEUE,
     val expectedTurnId: String? = null,
+    val referenceSourceSessionId: String? = null,
+    val referenceKind: com.helix.core.storage.repository.ConversationReferenceKind? = null,
 ) {
     init {
         require(sessionId.isNotBlank() && clientRequestId.isNotBlank())
         require(revision >= 0)
+        require((referenceSourceSessionId == null) == (referenceKind == null))
+        require(referenceSourceSessionId == null || referenceSourceSessionId != sessionId)
     }
 }
 
@@ -52,6 +56,8 @@ internal fun ChatSubmission.toDraftEntity() =
         revisedMessageId,
         delivery.name,
         expectedTurnId,
+        referenceSourceSessionId,
+        referenceKind?.name,
     )
 
 internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): ChatSubmission {
@@ -71,5 +77,7 @@ internal fun com.helix.core.storage.entity.ComposerDraftEntity.toSubmission(): C
         com.helix.core.storage.repository.SessionInputDelivery
             .valueOf(delivery),
         expectedTurnId,
+        referenceSourceSessionId,
+        referenceKind?.let(com.helix.core.storage.repository.ConversationReferenceKind::valueOf),
     )
 }

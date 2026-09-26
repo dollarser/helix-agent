@@ -40,7 +40,12 @@ internal class ConversationDraftBuffer(
     private val gate = Mutex()
 
     val dirty: Boolean
-        get() = value != saved && (saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty())
+        get() =
+            value != saved &&
+                (
+                    saved != null || value.text.isNotEmpty() || value.attachmentIds.isNotEmpty() ||
+                        value.referenceSourceSessionId != null
+                )
     val editable: Boolean get() = ready && attachmentsReady && revisionMessageId == null
     val canSubmit: Boolean get() = !sending && missingAttachments.isEmpty()
     val acceptedReceiptCandidate: ChatSubmission?
@@ -71,6 +76,22 @@ internal class ConversationDraftBuffer(
         if (value.attachmentIds == retained) return
         edited = true
         value = value.copy(attachmentIds = retained, clientRequestId = newId())
+    }
+
+    fun reference(
+        sourceSessionId: String?,
+        kind: com.helix.core.storage.repository.ConversationReferenceKind?,
+    ) {
+        if (sending || revisionMessageId != null) return
+        require((sourceSessionId == null) == (kind == null))
+        if (value.referenceSourceSessionId == sourceSessionId && value.referenceKind == kind) return
+        edited = true
+        value =
+            value.copy(
+                referenceSourceSessionId = sourceSessionId,
+                referenceKind = kind,
+                clientRequestId = newId(),
+            )
     }
 
     /** Reads service-owned attachment state only after any receipt acknowledgement has settled. */
@@ -170,9 +191,7 @@ internal class ConversationDraftBuffer(
                 val disk = if (cleared) null else load(sessionId)
                 if (disk == null || disk == saved) saved = disk
                 val request = receipt.submission
-                if (value.clientRequestId == request.clientRequestId &&
-                    value.text == request.text && value.attachmentIds == request.attachmentIds
-                ) {
+                if (matchesAcceptedValue(request)) {
                     value = ChatSubmission(sessionId, 0, newId(), "")
                     edited = false
                     missingAttachments = emptyList()
@@ -214,6 +233,13 @@ internal class ConversationDraftBuffer(
         return true
     }
 
+    private fun matchesAcceptedValue(request: ChatSubmission): Boolean =
+        value.clientRequestId == request.clientRequestId &&
+            value.text == request.text &&
+            value.attachmentIds == request.attachmentIds &&
+            value.referenceSourceSessionId == request.referenceSourceSessionId &&
+            value.referenceKind == request.referenceKind
+
     private fun ChatSubmission.sameIntentAs(other: ChatSubmission?): Boolean =
         other != null &&
             sessionId == other.sessionId &&
@@ -221,7 +247,9 @@ internal class ConversationDraftBuffer(
             text == other.text &&
             attachmentIds == other.attachmentIds &&
             revisedMessageId == other.revisedMessageId &&
-            delivery == other.delivery && expectedTurnId == other.expectedTurnId
+            delivery == other.delivery && expectedTurnId == other.expectedTurnId &&
+            referenceSourceSessionId == other.referenceSourceSessionId &&
+            referenceKind == other.referenceKind
 
     companion object {
         val Saver =
@@ -252,6 +280,8 @@ internal class ConversationDraftBuffer(
                         value.revisedMessageId.orEmpty(),
                         value.delivery.name,
                         value.expectedTurnId.orEmpty(),
+                        value.referenceSourceSessionId.orEmpty(),
+                        value.referenceKind?.name.orEmpty(),
                     ),
                 )
             }
@@ -269,6 +299,11 @@ internal class ConversationDraftBuffer(
                 com.helix.core.storage.repository.SessionInputDelivery
                     .valueOf(parts.getOrNull(6) ?: "QUEUE"),
                 parts.getOrNull(7)?.ifEmpty { null },
+                parts.getOrNull(8)?.ifEmpty { null },
+                parts.getOrNull(9)?.ifEmpty { null }?.let {
+                    com.helix.core.storage.repository.ConversationReferenceKind
+                        .valueOf(it)
+                },
             )
         }
     }

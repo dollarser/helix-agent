@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import com.helix.app.R
 import com.helix.app.approval.ApprovalCardState
 import com.helix.app.chat.ChatScreenState
@@ -37,9 +38,12 @@ import com.helix.app.runcontrol.RunControlConfig
 import com.helix.app.voice.SpeechRecognitionLauncher
 import com.helix.app.voice.VoiceInputMapper
 import com.helix.core.model.AgentMode
-import com.helix.core.model.SafetyProfile
+import com.helix.core.model.SessionPermissionMode
 import com.helix.core.model.TurnState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /** Renders one conversation from observable state and explicit UI intents. */
 
@@ -48,22 +52,42 @@ import kotlinx.coroutines.launch
 @Suppress("FunctionName", "LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 internal fun ConversationSection(
     screen: ChatScreenState,
-    profile: SafetyProfile,
     runControl: RunControlConfig,
     input: String,
     onInput: (String) -> Unit,
     bindableProviders: List<ProviderRowUi>,
     intents: ConversationIntents,
+    permissionMode: SessionPermissionMode? = null,
+    referenceLabel: String? = null,
     composerAvailability: ComposerAvailability = ComposerAvailability(),
     composerStatus: @Composable () -> Unit = {},
     artifacts: @Composable () -> Unit = {},
 ) {
+    val context = LocalContext.current
     // The document picker (HXA-049): picking a document NEVER sends — it only stages the
     // one-time private copy through [ConversationIntents.onStageAttachment]. A null result
     // (the user backed out) is ignored.
     val attachmentPicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) intents.onStageAttachment(uri.toString())
+        }
+    val photoPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) intents.onStageAttachment(uri.toString())
+        }
+    var cameraFile by remember { mutableStateOf<File?>(null) }
+    var cameraUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    val cameraLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+            val file = cameraFile
+            val uri = cameraUri
+            if (captured && uri != null) {
+                intents.onStageAttachment(uri.toString())
+            } else {
+                file?.delete()
+            }
+            cameraFile = null
+            cameraUri = null
         }
 
     // HXA-067 voice input: the system recognizer (ACTION_RECOGNIZE_SPEECH) transcribes a
@@ -72,7 +96,6 @@ internal fun ConversationSection(
     // system UI records; we only receive the transcript on return). A cancel, no-match or failed
     // result is a benign no-draft (the system UI already surfaced it); a device with no recognizer
     // is gated pre-launch and shows a transient, path-free notice.
-    val context = LocalContext.current
     val speech = remember { SpeechRecognitionLauncher() }
     var voiceDraft by remember { mutableStateOf<String?>(null) }
     var voiceNotice by remember { mutableStateOf<String?>(null) }
@@ -115,6 +138,7 @@ internal fun ConversationSection(
             onNavigation = intents.onNavigation,
             onRename = intents.onRename,
             onTasks = intents.onTasks,
+            onSettings = intents.onSettings,
             onSearch = { searchActive = !searchActive },
         ) {
             FlowRow {
@@ -131,77 +155,6 @@ internal fun ConversationSection(
                 }
             }
             screen.directoryRef?.let { Text(it) }
-            ModeControlSection(runControl, screen.isSending, intents)
-            Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(
-                        if (profile == SafetyProfile.ADVANCED) {
-                            stringResource(R.string.chat_profile_advanced)
-                        } else {
-                            stringResource(R.string.chat_profile_standard)
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("chat-profile"),
-                    )
-                }
-                screen.badge?.let { badge ->
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        ExpandableSummary(
-                            "${badge.model} · ${badge.displayName}",
-                            style = MaterialTheme.typography.titleSmall,
-                            tag = "chat-provider-summary",
-                        )
-                        Text(
-                            "${UiLabels.displayOrigin(badge.origin)} · " +
-                                stringResource(UiLabels.residenceLabelRes(badge.residence)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (badge.chips.isNotEmpty()) {
-                            // Compose: resolve each chip label in a `for` loop (composable scope); a
-                            // `joinToString` transform lambda is not composable and would not compile.
-                            val chipLabels = mutableListOf<String>()
-                            for (chip in badge.chips) {
-                                chipLabels.add(localizedString(chip.res, chip.args))
-                            }
-                            Text(
-                                chipLabels.joinToString("  "),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-                if (screen.badge == null) {
-                    // HXA-056: the open session has NO provider (a share-draft session) — offer
-                    // the explicit bind so the draft can be reviewed and sent; binding never
-                    // swaps an already-bound session's target (storage fails closed).
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            stringResource(R.string.chat_unbound_provider),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.testTag("chat-unbound-provider"),
-                        )
-                        if (bindableProviders.isEmpty()) Text(stringResource(R.string.chat_no_provider_available))
-                        bindableProviders.forEach { row ->
-                            TextButton(
-                                onClick = { intents.onBindProvider(row) },
-                                modifier = Modifier.testTag("chat-bind-provider"),
-                            ) {
-                                Text(stringResource(R.string.chat_provider_option, row.displayName, row.model))
-                            }
-                        }
-                    }
-                }
-            }
         }
         if (searchActive) {
             ConversationSearchBar(
@@ -461,6 +414,8 @@ internal fun ConversationSection(
             onInput = onInput,
             isSending = screen.isSending,
             hasAttachments = screen.pendingAttachments.isNotEmpty(),
+            referenceLabel = referenceLabel,
+            onRemoveReference = intents.onClearReference,
             goalMode = runControl.mode == AgentMode.GOAL,
             mode = runControl.mode,
             onMode = intents.onSetMode,
@@ -473,6 +428,8 @@ internal fun ConversationSection(
                     intents.onSelectModel,
                 )
             },
+            permissionMode = permissionMode,
+            onPermission = intents.onSettings,
             contextUsage = screen.contextUsage,
             onCompact = intents.onCompact,
             canCompact =
@@ -486,7 +443,33 @@ internal fun ConversationSection(
             availability = composerAvailability,
             actions =
                 ComposerActions(
-                    onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
+                    onFile = { attachmentPicker.launch(arrayOf("*/*")) },
+                    onPhoto = { photoPicker.launch(arrayOf("image/*")) },
+                    onCamera = {
+                        coroutineScope.launch {
+                            val capture =
+                                withContext(Dispatchers.IO) {
+                                    val directory = File(context.filesDir, "attachments/camera")
+                                    check(directory.mkdirs() || directory.isDirectory)
+                                    val file = File.createTempFile("helix-camera-", ".jpg", directory)
+                                    val uri =
+                                        FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            file,
+                                        )
+                                    file to uri
+                                }
+                            cameraFile = capture.first
+                            cameraUri = capture.second
+                            cameraLauncher.launch(capture.second)
+                        }
+                    },
+                    onReference = intents.onReference,
+                    onExpert = intents.onExpert,
+                    onSkills = intents.onSkills,
+                    onConnectors = intents.onConnectors,
+                    onSessionSettings = intents.onSettings,
                     onVoice = {
                         when (VoiceInputMapper.preCheck(speech.isAvailable(context))) {
                             VoiceInputMapper.Outcome.Available -> {

@@ -4,6 +4,8 @@ import com.helix.app.engine.SubmitReceipt
 import com.helix.app.engine.SubmitReceiptDecision
 import com.helix.core.model.TurnState
 import com.helix.core.storage.entity.TurnEntity
+import com.helix.core.storage.repository.ConversationReferenceKind
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -22,6 +24,15 @@ class TurnSubmitDedupTest {
         artifactId: String,
         sha: String = "sha-$artifactId",
     ) = MessageAttachmentRepository.Binding(artifactId, "INPUT", sha)
+
+    private fun reference(content: String) =
+        ConversationReferenceSnapshotInput(
+            sourceSessionId = "source",
+            sourceSessionTitle = "Source",
+            selectionKind = ConversationReferenceKind.RECENT_MESSAGES,
+            sourceMessageIds = listOf("m1"),
+            content = content,
+        )
 
     private fun turn(
         id: String,
@@ -68,6 +79,17 @@ class TurnSubmitDedupTest {
             TurnInputFingerprint.of("x", listOf(binding("art-1"), binding("art-2"))),
             TurnInputFingerprint.of("x", listOf(binding("art-2"), binding("art-1"))),
         )
+    }
+
+    @Test
+    fun aDifferentFrozenConversationReferenceChangesTheFingerprint() {
+        val first = reference("alpha")
+        val second = reference("beta")
+        val fp1 = TurnInputFingerprint.of("x", emptyList(), references = listOf(first))
+        val fp2 = TurnInputFingerprint.of("x", emptyList(), references = listOf(second))
+
+        assertNotEquals(fp1, fp2)
+        assertEquals(fp1, TurnInputFingerprint.of("x", emptyList(), references = listOf(first)))
     }
 
     @Test

@@ -13,11 +13,13 @@ internal object SessionExportContentRefs {
         val query =
             "SELECT CASE WHEN length(CAST(contentRef AS BLOB)) <= 4096 THEN contentRef ELSE NULL END FROM (" +
                 "SELECT contentRef FROM messages WHERE sessionId = ? AND contentRef IS NOT NULL UNION " +
+                "SELECT r.contentRef FROM message_reference_snapshots r JOIN messages m ON m.id=r.messageId " +
+                "WHERE m.sessionId = ? AND r.contentRef IS NOT NULL UNION " +
                 "SELECT r.contentRef FROM tool_results r JOIN tool_calls c ON c.id=r.toolCallId " +
                 "JOIN turns t ON t.id=c.turnId WHERE t.sessionId = ? AND r.contentRef IS NOT NULL) " +
                 "ORDER BY substr(contentRef,-66,64),contentRef"
         var previous: ContentRef? = null
-        database.query(query, arrayOf(sessionId, sessionId)).use { cursor ->
+        database.query(query, arrayOf(sessionId, sessionId, sessionId)).use { cursor ->
             while (cursor.moveToNext()) {
                 check(!cursor.isNull(0)) { "Content reference exceeds export limit" }
                 val encoded = cursor.getString(0)

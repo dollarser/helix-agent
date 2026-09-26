@@ -1,5 +1,9 @@
 package com.helix.app.chat
 
+import com.helix.app.runcontrol.GoalBudgetDefaults
+import com.helix.app.runcontrol.RunControlConfig
+import com.helix.app.runcontrol.TurnBudgetBounds
+import com.helix.core.model.AgentMode
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.feature.files.AttachmentClassifier
 import org.junit.Assert.assertEquals
@@ -15,19 +19,22 @@ import java.util.concurrent.TimeUnit
 class ChatDraftStoreTest {
     private fun draft(id: String = "draft") = SessionEntity(id, "", "provider", "model", 1L, null)
 
+    private fun control() =
+        RunControlConfig(AgentMode.ACT, false, TurnBudgetBounds.DEFAULT, goalBudgets = GoalBudgetDefaults.VALUE)
+
     @Test fun transientEditsAreSavedOnlyOnMaterialization() {
         val store = ChatDraftStore()
-        store.open(draft())
+        store.open(draft(), control())
         store.directory("draft", "scope:workspace:work")
         store.model("draft", "other", "small")
         store.addAttachment("draft", DraftAttachment("a", "test-uri", "a.txt", 3L))
-        var saved: SessionEntity? = null
+        var saved: SessionDraft? = null
         assertNull(store.persist("different", "hello", "fallback") { saved = it })
         assertNull(saved)
         val attachments = store.persist("draft", " hello\nworld ", "fallback") { saved = it }
-        assertEquals("hello world", saved?.title)
-        assertEquals("scope:workspace:work", saved?.directoryRef)
-        assertEquals("other", saved?.providerId)
+        assertEquals("hello world", saved?.session?.title)
+        assertEquals("scope:workspace:work", saved?.session?.directoryRef)
+        assertEquals("other", saved?.session?.providerId)
         assertEquals(listOf("a"), attachments?.map { it.id })
         assertNull(store.current)
         store.persist("draft", "again", "fallback") { error("must not save twice") }
@@ -35,7 +42,7 @@ class ChatDraftStoreTest {
 
     @Test fun failedPersistencePreservesDraftAndCanBeRetriedAfterRelease() {
         val store = ChatDraftStore()
-        store.open(draft())
+        store.open(draft(), control())
         assertTrue(store.beginPreparation("draft"))
         val result = runCatching { store.persist("draft", "hello", "fallback") { error("disk failure") } }
         assertTrue(result.isFailure)
@@ -43,14 +50,14 @@ class ChatDraftStoreTest {
         assertTrue(store.preparing)
         store.finishPreparation()
         assertTrue(store.beginPreparation("draft"))
-        store.persist("draft", "hello", "fallback") { assertEquals("hello", it.title) }
+        store.persist("draft", "hello", "fallback") { assertEquals("hello", it.session.title) }
         store.finishPreparation()
         assertNull(store.current)
     }
 
     @Test fun concurrentPreparationHasOneOwnerAndFreezesItsSnapshot() {
         val store = ChatDraftStore()
-        store.open(draft())
+        store.open(draft(), control())
         val start = CountDownLatch(1)
         val pool = Executors.newFixedThreadPool(2)
         try {
@@ -66,10 +73,10 @@ class ChatDraftStoreTest {
             store.rename("draft", "changed")
             store.model("draft", "changed", "changed")
             store.clear()
-            assertFalse(store.open(draft("new")))
+            assertFalse(store.open(draft("new"), control()))
             assertEquals(draft(), store.current?.session)
             store.finishPreparation()
-            assertTrue(store.open(draft("new")))
+            assertTrue(store.open(draft("new"), control()))
         } finally {
             pool.shutdownNow()
         }
@@ -77,12 +84,12 @@ class ChatDraftStoreTest {
 
     @Test fun attachmentLimitAndStaleDraftMutationsCannotCrossSessions() {
         val store = ChatDraftStore()
-        store.open(draft())
+        store.open(draft(), control())
         repeat(AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE + 2) {
             store.addAttachment("draft", DraftAttachment("$it", "uri", "file", 1L))
         }
         assertEquals(AttachmentClassifier.MAX_ATTACHMENTS_PER_MESSAGE, store.current?.attachments?.size)
-        store.open(draft("new"))
+        store.open(draft("new"), control())
         store.rename("draft", "stale")
         store.addAttachment("draft", DraftAttachment("stale", "uri", "file", 1L))
         assertEquals(draft("new"), store.current?.session)

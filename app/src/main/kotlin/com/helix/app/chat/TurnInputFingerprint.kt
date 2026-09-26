@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import java.security.MessageDigest
 
@@ -16,6 +17,7 @@ internal object TurnInputFingerprint {
     fun of(
         text: String?,
         attachments: List<MessageAttachmentRepository.Binding>,
+        references: List<ConversationReferenceSnapshotInput> = emptyList(),
         revisedMessageId: String? = null,
         regenerateMessageId: String? = null,
         recoveryFromTurnId: String? = null,
@@ -27,6 +29,15 @@ internal object TurnInputFingerprint {
             digest.update(binding.artifactId.toByteArray(Charsets.UTF_8))
             digest.update(SEPARATOR)
             digest.update(binding.boundSha256.toByteArray(Charsets.UTF_8))
+            digest.update(SEPARATOR)
+        }
+        references.forEach { reference ->
+            digest.update("reference:".toByteArray(Charsets.UTF_8))
+            digest.update(reference.sourceSessionId.toByteArray(Charsets.UTF_8))
+            digest.update(SEPARATOR)
+            digest.update(reference.selectionKind.name.toByteArray(Charsets.UTF_8))
+            digest.update(SEPARATOR)
+            digest.update(reference.contentSha256.toByteArray(Charsets.UTF_8))
             digest.update(SEPARATOR)
         }
         if (revisedMessageId != null) {

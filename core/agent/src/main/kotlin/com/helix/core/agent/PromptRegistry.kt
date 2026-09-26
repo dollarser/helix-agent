@@ -35,6 +35,9 @@ enum class PromptSource {
     /** The user's direct request for this step; project files cannot override it. */
     USER_REQUEST,
 
+    /** Durable user-owned Session configuration such as the selected Expert profile. */
+    USER_CONFIGURATION,
+
     /** A project instruction loaded from a selected scope; path/hash/version are recorded. */
     WORKSPACE_INSTRUCTION,
 
@@ -70,7 +73,9 @@ val PromptSource.trust: TrustLevel
         when (this) {
             PromptSource.BUILTIN_TEMPLATE -> TrustLevel.SYSTEM
 
-            PromptSource.USER_REQUEST -> TrustLevel.USER
+            PromptSource.USER_REQUEST,
+            PromptSource.USER_CONFIGURATION,
+            -> TrustLevel.USER
 
             PromptSource.WORKSPACE_INSTRUCTION -> TrustLevel.PROJECT
 

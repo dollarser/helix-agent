@@ -99,12 +99,14 @@ class TurnRuntimeRecordRepositoryTest {
         assertEquals(initial.budgetsJson, current.budgetsJson)
         assertEquals(initial.reasoning, current.reasoning)
         assertEquals(initial.goalBudgetsJson, current.goalBudgetsJson)
+        assertEquals(initial.expertProfileJson, current.expertProfileJson)
     }
 
     private fun record(
         consumedModelCalls: Int = 0,
         consumedTokens: Long = 0,
         admittedToolRounds: Int = 0,
+        expertProfileJson: String? = """{"id":"expert-1"}""",
     ) = TurnRuntimeRecordEntity(
         turnId = "turn-1",
         version = TurnRuntimeRecordRepository.CURRENT_VERSION,
@@ -116,6 +118,7 @@ class TurnRuntimeRecordRepositoryTest {
         budgetsJson = """{"maxModelCalls":8}""",
         reasoning = "LOW",
         goalBudgetsJson = """{"maxModelCalls":24}""",
+        expertProfileJson = expertProfileJson,
         consumedModelCalls = consumedModelCalls,
         consumedTokens = consumedTokens,
         admittedToolRounds = admittedToolRounds,

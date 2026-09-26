@@ -9,7 +9,7 @@ internal object SessionInputValidation {
         spec.expectedTurnId?.let(::identifier)
         require(spec.revision >= 0 && spec.createdAt >= 0)
         require(spec.text.length <= SessionInputRepository.MAX_TEXT_CHARS && '\u0000' !in spec.text)
-        require(spec.text.isNotBlank() || spec.attachments.isNotEmpty())
+        require(spec.text.isNotBlank() || spec.attachments.isNotEmpty() || spec.reference != null)
         require(spec.configuration.modelId.isNotBlank() && spec.configuration.modelId.length <= 256)
         require(spec.configuration.fingerprint.isNotBlank() && spec.configuration.fingerprint.length <= 1024)
         AgentMode.valueOf(spec.configuration.mode)
@@ -24,6 +24,10 @@ internal object SessionInputValidation {
         spec.attachments.forEach {
             identifier(it.artifactId)
             require(it.boundSha256.length == 64 && it.boundSha256.all { char -> char in "0123456789abcdef" })
+        }
+        spec.reference?.let { reference ->
+            require(reference.sourceSessionId != spec.sessionId)
+            require(reference.contentSha256.length == 64)
         }
     }
 
@@ -41,10 +45,19 @@ internal object SessionInputValidation {
             .size
             .toLong()
 
+    fun referenceBytes(spec: SessionInputSpec): Long =
+        spec.reference
+            ?.content
+            ?.toByteArray(Charsets.UTF_8)
+            ?.size
+            ?.toLong()
+            ?: 0L
+
     fun entity(
         spec: SessionInputSpec,
         sequence: Long,
         textRef: String,
+        referenceRef: String?,
     ) = SessionInputEntity(
         inputId = spec.inputId,
         schemaVersion = 1,
@@ -55,6 +68,19 @@ internal object SessionInputValidation {
         revision = spec.revision,
         textRef = textRef,
         textBytes = textBytes(spec),
+        referenceSourceSessionId = spec.reference?.sourceSessionId,
+        referenceSourceSessionTitle = spec.reference?.sourceSessionTitle,
+        referenceSelectionKind = spec.reference?.selectionKind?.name,
+        referenceSourceMessageIdsJson =
+            spec.reference?.sourceMessageIds?.let {
+                kotlinx.serialization.json
+                    .JsonArray(
+                        it.map { id -> kotlinx.serialization.json.JsonPrimitive(id) },
+                    ).toString()
+            },
+        referenceContentRef = referenceRef,
+        referenceContentBytes = referenceBytes(spec),
+        referenceContentSha256 = spec.reference?.contentSha256,
         providerId = spec.configuration.providerId,
         modelId = spec.configuration.modelId,
         mode = spec.configuration.mode,

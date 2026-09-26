@@ -6,6 +6,7 @@ import com.helix.core.storage.content.ContentRef
 import com.helix.core.storage.content.ContentStore
 import com.helix.core.storage.entity.SessionInputAttachmentEntity
 import com.helix.core.storage.entity.SessionInputEntity
+import kotlinx.serialization.json.jsonPrimitive
 
 /** Bounded, transactionally accepted user intents. This repository never starts execution. */
 @Suppress("TooManyFunctions") // One transactional owner for acceptance, consumption and parked-input CAS.
@@ -19,6 +20,23 @@ class SessionInputRepository internal constructor(
 
     fun readText(record: SessionInputRecord): String =
         contentStore.readBounded(ContentRef.parse(record.textRef), MAX_PENDING_BYTES.toInt())
+
+    fun readReference(record: SessionInputRecord): ConversationReferenceSnapshotInput? =
+        record.reference?.let { reference ->
+            val ref = ContentRef.parse(reference.contentRef)
+            require(ref.sha256 == reference.contentSha256 && ref.size == reference.contentBytes)
+            ConversationReferenceSnapshotInput(
+                sourceSessionId = reference.sourceSessionId,
+                sourceSessionTitle = reference.sourceSessionTitle,
+                selectionKind = reference.selectionKind,
+                sourceMessageIds = reference.sourceMessageIds,
+                content =
+                    contentStore.readBounded(
+                        ref,
+                        ConversationReferenceSnapshotInput.MAX_CONTENT_BYTES,
+                    ),
+            )
+        }
 
     /** Both pending states occupy capacity; a blocked head is returned rather than skipped. */
     fun listPending(
@@ -83,12 +101,26 @@ class SessionInputRepository internal constructor(
             if (dao.pendingCount(spec.sessionId) >= MAX_PENDING_COUNT) {
                 return@transaction SessionInputAcceptResult.Rejected("INPUT_QUEUE_FULL")
             }
-            val bytes = SessionInputValidation.textBytes(spec)
+            val bytes = SessionInputValidation.textBytes(spec) + SessionInputValidation.referenceBytes(spec)
             if (dao.pendingBytes(spec.sessionId) + bytes > MAX_PENDING_BYTES) {
                 return@transaction SessionInputAcceptResult.Rejected("INPUT_QUEUE_BYTES")
             }
             val sequence = Math.addExact(dao.lastSequence(spec.sessionId), 1L)
-            val row = SessionInputValidation.entity(spec, sequence, contentStore.write(spec.text).toStorageString())
+            val referenceRef =
+                spec.reference?.let { reference ->
+                    contentStore
+                        .write(
+                            reference.content,
+                        ).also { check(it.sha256 == reference.contentSha256) }
+                        .toStorageString()
+                }
+            val row =
+                SessionInputValidation.entity(
+                    spec,
+                    sequence,
+                    contentStore.write(spec.text).toStorageString(),
+                    referenceRef,
+                )
             dao.insert(row)
             replaceAttachments(spec)
             SessionInputAcceptResult.Accepted(row.record(), false)
@@ -110,14 +142,27 @@ class SessionInputRepository internal constructor(
             if (!validAttachments(replacement) || !targetOwned(replacement.sessionId, replacement.expectedTurnId)) {
                 return@transaction false
             }
-            val bytes = SessionInputValidation.textBytes(replacement)
-            if (dao.pendingBytes(old.sessionId) - old.textBytes + bytes > MAX_PENDING_BYTES) return@transaction false
+            val bytes =
+                SessionInputValidation.textBytes(replacement) + SessionInputValidation.referenceBytes(replacement)
+            if (dao.pendingBytes(old.sessionId) - old.textBytes - old.referenceContentBytes + bytes >
+                MAX_PENDING_BYTES
+            ) {
+                return@transaction false
+            }
+            val referenceRef =
+                replacement.reference?.let { reference ->
+                    contentStore
+                        .write(reference.content)
+                        .also { check(it.sha256 == reference.contentSha256) }
+                        .toStorageString()
+                }
             val next =
                 SessionInputValidation
                     .entity(
                         replacement,
                         old.sequence,
                         contentStore.write(replacement.text).toStorageString(),
+                        referenceRef,
                     ).copy(
                         state = old.state,
                         blockedReason = old.blockedReason,
@@ -348,7 +393,8 @@ class SessionInputRepository internal constructor(
         val record = row.record()
         return record.sessionId == spec.sessionId && record.delivery == spec.delivery &&
             record.expectedTurnId == spec.expectedTurnId && record.configuration == spec.configuration &&
-            record.attachments == spec.attachments && readText(record) == spec.text
+            record.attachments == spec.attachments && readText(record) == spec.text &&
+            readReference(record) == spec.reference
     }
 
     private fun SessionInputEntity.record() =
@@ -371,7 +417,29 @@ class SessionInputRepository internal constructor(
             blockedReason,
             createdAt,
             updatedAt,
+            referenceRecord(),
         )
+
+    private fun SessionInputEntity.referenceRecord(): InputConversationReference? {
+        val sourceId = referenceSourceSessionId ?: return null
+        val title = requireNotNull(referenceSourceSessionTitle)
+        val kind = ConversationReferenceKind.valueOf(requireNotNull(referenceSelectionKind))
+        val messageIds =
+            (
+                kotlinx.serialization.json.Json
+                    .parseToJsonElement(requireNotNull(referenceSourceMessageIdsJson))
+                    as kotlinx.serialization.json.JsonArray
+            ).map { it.jsonPrimitive.content }
+        return InputConversationReference(
+            sourceSessionId = sourceId,
+            sourceSessionTitle = title,
+            selectionKind = kind,
+            sourceMessageIds = messageIds,
+            contentRef = requireNotNull(referenceContentRef),
+            contentBytes = referenceContentBytes,
+            contentSha256 = requireNotNull(referenceContentSha256),
+        )
+    }
 
     private fun <T> transaction(block: () -> T): T =
         database.runInTransaction(java.util.concurrent.Callable { block() })

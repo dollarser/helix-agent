@@ -21,11 +21,13 @@ import com.helix.core.storage.dao.McpCapabilityDao
 import com.helix.core.storage.dao.McpServerDao
 import com.helix.core.storage.dao.MessageAttachmentDao
 import com.helix.core.storage.dao.MessageDao
+import com.helix.core.storage.dao.MessageReferenceSnapshotDao
 import com.helix.core.storage.dao.ModelCallDao
 import com.helix.core.storage.dao.PlanDao
 import com.helix.core.storage.dao.ProviderConfigDao
 import com.helix.core.storage.dao.RuntimeInstallDao
 import com.helix.core.storage.dao.SessionDao
+import com.helix.core.storage.dao.SessionExpertDao
 import com.helix.core.storage.dao.SessionPermissionConfigDao
 import com.helix.core.storage.dao.SessionPermissionDefaultsDao
 import com.helix.core.storage.dao.SessionPermissionDraftDao
@@ -57,12 +59,14 @@ import com.helix.core.storage.entity.McpCapabilityEntity
 import com.helix.core.storage.entity.McpServerEntity
 import com.helix.core.storage.entity.MessageAttachmentEntity
 import com.helix.core.storage.entity.MessageEntity
+import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
 import com.helix.core.storage.entity.ModelCallEntity
 import com.helix.core.storage.entity.PlanEntity
 import com.helix.core.storage.entity.PlanStepEntity
 import com.helix.core.storage.entity.ProviderConfigEntity
 import com.helix.core.storage.entity.RuntimeInstallEntity
 import com.helix.core.storage.entity.SessionEntity
+import com.helix.core.storage.entity.SessionExpertEntity
 import com.helix.core.storage.entity.SessionPermissionConfigEntity
 import com.helix.core.storage.entity.SessionPermissionDefaultsEntity
 import com.helix.core.storage.entity.SessionPermissionDraftEntity
@@ -94,6 +98,7 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             com.helix.core.storage.entity.ConnectorEndpointEntity::class,
             MessageEntity::class,
             MessageAttachmentEntity::class,
+            MessageReferenceSnapshotEntity::class,
             TurnEntity::class,
             ModelCallEntity::class,
             ToolCallEntity::class,
@@ -126,6 +131,8 @@ import com.helix.core.storage.entity.TurnRuntimeRecordEntity
             ToolAvailabilityEntity::class,
             SessionPermissionDefaultsEntity::class,
             SessionPermissionDraftEntity::class,
+            SessionExpertEntity::class,
+            com.helix.core.storage.entity.SessionRunControlEntity::class,
             com.helix.core.storage.entity.ComposerDraftEntity::class,
             com.helix.core.storage.entity.SessionInputEntity::class,
             com.helix.core.storage.entity.SessionInputAttachmentEntity::class,
@@ -151,6 +158,8 @@ abstract class HelixDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
 
     abstract fun messageAttachmentDao(): MessageAttachmentDao
+
+    abstract fun messageReferenceSnapshotDao(): MessageReferenceSnapshotDao
 
     abstract fun turnDao(): TurnDao
 
@@ -214,9 +223,13 @@ abstract class HelixDatabase : RoomDatabase() {
 
     abstract fun sessionPermissionDraftDao(): SessionPermissionDraftDao
 
+    abstract fun sessionExpertDao(): SessionExpertDao
+
     abstract fun toolAvailabilityDao(): ToolAvailabilityDao
 
     abstract fun sessionPermissionDefaultsDao(): SessionPermissionDefaultsDao
+
+    abstract fun sessionRunControlDao(): com.helix.core.storage.dao.SessionRunControlDao
 
     companion object {
         const val DATABASE_NAME = "helix.db"

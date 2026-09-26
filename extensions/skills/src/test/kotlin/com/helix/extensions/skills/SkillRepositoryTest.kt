@@ -37,6 +37,20 @@ class SkillRepositoryTest {
     }
 
     @Test
+    fun `session enablement persists across repository recreation without changing global state`() {
+        val roots = roots()
+        val repository = repository(roots)
+        val key = repository.list().single { it.key.name == "repo-inspection" }.key
+        repository.setEnabled(key, false, SkillEnablementScope.SESSION, "session-a")
+
+        val recreated = repository(roots)
+
+        assertFalse(recreated.list("session-a").single { it.key == key }.enabled)
+        assertTrue(recreated.list("session-b").single { it.key == key }.enabled)
+        assertTrue(recreated.list().single { it.key == key }.enabled)
+    }
+
+    @Test
     fun `imported snapshot defaults disabled and reads only bounded references and assets`() {
         val roots = roots()
         val source = importedSource(roots.root)

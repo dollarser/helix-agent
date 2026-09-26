@@ -8,8 +8,10 @@ import com.helix.core.storage.content.FileContentStore
 import com.helix.core.storage.entity.ApprovalEntity
 import com.helix.core.storage.entity.AuditEventEntity
 import com.helix.core.storage.entity.MessageEntity
+import com.helix.core.storage.entity.MessageReferenceSnapshotEntity
 import com.helix.core.storage.entity.ModelCallEntity
 import com.helix.core.storage.entity.SessionEntity
+import com.helix.core.storage.entity.SessionExpertEntity
 import com.helix.core.storage.entity.ToolCallEntity
 import com.helix.core.storage.entity.ToolResultEntity
 import com.helix.core.storage.entity.TurnEntity
@@ -186,6 +188,83 @@ class SessionExportSnapshotDeviceTest {
             arrayOf("""{"model":"fixture","endpoint":"https://excluded-endpoint.invalid"}"""),
         )
     }
+
+    @Suppress("LongMethod") // One end-to-end export fixture asserts inclusion and deliberate config exclusion.
+    @Test
+    fun conversationReferenceIsExportedWithFrozenContentWhileExpertConfigurationIsExcluded() =
+        fixture { database, directory ->
+            seed(database)
+            val store = FileContentStore(File(directory, "bodies"))
+            val body = store.write("frozen reference body")
+            val referenceId =
+                database.messageReferenceSnapshotDao().insert(
+                    MessageReferenceSnapshotEntity(
+                        messageId = "message",
+                        ordinal = 0,
+                        sourceSessionId = "other",
+                        sourceSessionTitle = "Other conversation",
+                        selectionKind = "RECENT_MESSAGES",
+                        sourceMessageIdsJson = """["other-source-message"]""",
+                        contentRef = body.toStorageString(),
+                        contentSha256 = body.sha256,
+                        createdAtEpoch = 2,
+                    ),
+                )
+            database.sessionExpertDao().insert(
+                SessionExpertEntity(
+                    sessionId = "selected",
+                    profileId = "expert",
+                    displayName = "expert-only-secret",
+                    instruction = "configuration must stay outside session export",
+                    recommendedSkillIdsJson = "[]",
+                    recommendedConnectorIdsJson = "[]",
+                    recommendedMode = null,
+                    revision = 1,
+                    createdAtEpoch = 1,
+                    updatedAtEpoch = 1,
+                ),
+            )
+
+            val output = ByteArrayOutputStream()
+            SessionExportRepository(database, store)
+                .prepare(
+                    "selected",
+                    directory,
+                    "test",
+                    SessionExportSanitizer { text, _ -> text },
+                    {},
+                ).use { it.deliver(output, {}) }
+
+            val exported = output.toString("UTF-8")
+            assertFalse(exported.contains("expert-only-secret"))
+            val rows =
+                exported
+                    .lineSequence()
+                    .filter(String::isNotEmpty)
+                    .map { Json.parseToJsonElement(it).jsonObject }
+                    .toList()
+            val reference =
+                rows.single {
+                    it["recordId"]?.jsonPrimitive?.content == "conversation_reference:$referenceId"
+                }
+            val data = reference.getValue("data").jsonObject
+            assertEquals("content:${body.sha256}", data.getValue("contentId").jsonPrimitive.content)
+            val statuses =
+                data.getValue("references").jsonArray.associate {
+                    it.jsonObject
+                        .getValue("field")
+                        .jsonPrimitive.content to
+                        it.jsonObject
+                            .getValue("status")
+                            .jsonPrimitive.content
+                }
+            assertEquals("included", statuses["messageId"])
+            assertEquals("not_in_selected_snapshot", statuses["sourceSessionId"])
+            assertEquals("included", statuses["contentId"])
+            assertEquals("not_in_selected_snapshot", statuses["sourceMessageIds[0]"])
+            assertTrue(rows.any { it["recordId"]?.jsonPrimitive?.content == "content:${body.sha256}" })
+            assertTrue(exported.contains("frozen reference body"))
+        }
 
     @Test fun contentReferencesAreDeduplicatedAcrossMessagesAndResultsWithoutReadingBodies() =
         fixture { database, directory ->

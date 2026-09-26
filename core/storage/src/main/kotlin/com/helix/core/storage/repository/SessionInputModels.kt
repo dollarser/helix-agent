@@ -28,6 +28,18 @@ data class SessionInputSpec(
     val attachments: List<InputAttachment>,
     val configuration: InputConfiguration,
     val createdAt: Long,
+    val reference: ConversationReferenceSnapshotInput? = null,
+)
+
+/** Immutable accepted reference metadata; body stays in ContentStore until delivery. */
+data class InputConversationReference(
+    val sourceSessionId: String,
+    val sourceSessionTitle: String,
+    val selectionKind: ConversationReferenceKind,
+    val sourceMessageIds: List<String>,
+    val contentRef: String,
+    val contentBytes: Long,
+    val contentSha256: String,
 )
 
 /** Content remains in ContentStore; listing a queue never loads its bodies. */
@@ -50,6 +62,7 @@ data class SessionInputRecord(
     val blockedReason: String?,
     val createdAt: Long,
     val updatedAt: Long,
+    val reference: InputConversationReference? = null,
 )
 
 sealed interface SessionInputAcceptResult {

@@ -143,7 +143,8 @@ class SessionExportRepository internal constructor(
             put(
                 "groupOrder",
                 "header,session,turn,message,model_call,tool_call,tool_result,execution,approval," +
-                    "artifact,attachment,goal_run,goal_binding,usage:goal,usage:audit,compaction,content,complete",
+                    "artifact,attachment,conversation_reference,goal_run,goal_binding,usage:goal,usage:audit," +
+                    "compaction,content,complete",
             )
             put("referencePolicy", "included_or_explicitly_not_in_selected_snapshot_not_recorded_omitted_limit")
             put("recordTypes", buildJsonArray { SessionExportType.entries.forEach { add(it.wireName) } })

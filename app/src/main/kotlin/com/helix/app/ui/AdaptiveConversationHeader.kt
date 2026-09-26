@@ -35,6 +35,7 @@ internal fun AdaptiveConversationHeader(
     summary: String,
     onNew: () -> Unit = {},
     onTasks: () -> Unit = {},
+    onSettings: () -> Unit = {},
     onNavigation: (() -> Unit)? = null,
     onRename: (() -> Unit)? = null,
     onSearch: (() -> Unit)? = null,
@@ -80,6 +81,12 @@ internal fun AdaptiveConversationHeader(
             "chat-conversation-details",
             { details = false },
         ) {
+            TextButton({
+                details = false
+                onSettings()
+            }, modifier = Modifier.testTag("session-settings-open")) {
+                Text(stringResource(R.string.session_settings_title))
+            }
             TextButton({
                 details = false
                 onTasks()

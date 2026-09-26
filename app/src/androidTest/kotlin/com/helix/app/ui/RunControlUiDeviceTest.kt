@@ -41,7 +41,6 @@ class RunControlModeUiDeviceTest {
                             onDenyApproval = {},
                             onStageAttachment = {},
                             onRemoveAttachment = {},
-                            onBindProvider = {},
                             onSetMode = { config = config.copy(mode = it) },
                             onSetChatTools = { config = config.copy(chatToolsEnabled = it) },
                         ),

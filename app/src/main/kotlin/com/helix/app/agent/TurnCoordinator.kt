@@ -11,6 +11,7 @@ import com.helix.core.model.ModelRole
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.core.storage.repository.MessageAttachmentRepository
 import kotlinx.coroutines.CancellationException
 
@@ -28,6 +29,7 @@ internal data class TurnStartSpec(
     val providerSnapshot: String,
     val userText: String?,
     val attachments: List<MessageAttachmentRepository.Binding> = emptyList(),
+    val references: List<ConversationReferenceSnapshotInput> = emptyList(),
     val goalRunId: String? = null,
     // The persistent submit-dedup receipt (research doc section 34; HX2-01 §2e): written onto the
     // turn row atomically with the turn so the client-request id survives a restart.
@@ -44,6 +46,7 @@ internal data class TurnSteeringDraft(
     val input: com.helix.core.storage.repository.SessionInputRecord,
     val content: String,
     val attachments: List<MessageAttachmentRepository.Binding>,
+    val references: List<ConversationReferenceSnapshotInput> = emptyList(),
 )
 
 internal enum class ResponseInputBoundary { RECHECK, CONTINUED, TERMINAL, CANCELLED }
@@ -575,6 +578,9 @@ internal class TurnCoordinator private constructor(
                 draft.content,
             )
         if (draft.attachments.isNotEmpty()) storage.messageAttachments.bind(message.id, draft.attachments)
+        if (draft.references.isNotEmpty()) {
+            storage.messageReferenceSnapshots.bind(message.id, draft.references, clock.now().toEpochMilli())
+        }
         check(
             storage.sessionInputs.markAppended(
                 draft.input.inputId,
@@ -705,7 +711,7 @@ internal class TurnCoordinator private constructor(
                     )
                 spec.goalRunId?.let { storage.goalTurnBindings.bind(spec.turnId, it) }
                 turn = storage.turns.updateState(turn, TurnState.BUILDING_CONTEXT, 0, null, null)
-                if (spec.userText != null || spec.attachments.isNotEmpty()) {
+                if (spec.userText != null || spec.attachments.isNotEmpty() || spec.references.isNotEmpty()) {
                     appendInitialInput(storage, spec, idGenerator(), now)
                 }
                 storage.modelCalls.append(
@@ -744,6 +750,7 @@ internal class TurnCoordinator private constructor(
                     spec.userText.orEmpty(),
                 )
             if (spec.attachments.isNotEmpty()) storage.messageAttachments.bind(message.id, spec.attachments)
+            if (spec.references.isNotEmpty()) storage.messageReferenceSnapshots.bind(message.id, spec.references, now)
             spec.inputRevision?.let { revision ->
                 check(
                     storage.sessionInputs.markAppended(

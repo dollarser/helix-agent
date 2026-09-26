@@ -22,12 +22,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.helix.app.R
+import com.helix.app.approval.SessionPermissionEditService
 import com.helix.app.chat.ChatService
 import com.helix.app.chat.ChatSubmissionErrorMapper
 import com.helix.app.chat.ChatSubmissionOutcome
 import com.helix.app.chat.ChatSubmissionReceipt
 import com.helix.app.provider.ProviderService
+import com.helix.core.model.SessionPermissionMode
+import com.helix.extensions.skills.SkillRepository
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -54,17 +58,19 @@ fun ChatScreen(
     providerService: ProviderService,
     privacyDeletionService: com.helix.app.privacy.PrivacyDeletionService,
     fileManager: com.helix.app.files.FileManagerService? = null,
+    sessionPermissionEdit: SessionPermissionEditService? = null,
+    skills: SkillRepository? = null,
     onNavigation: () -> Unit = {},
     onModels: () -> Unit = {},
     onAgentDefaults: () -> Unit = {},
     onPermissions: () -> Unit = {},
+    onSessionSettings: () -> Unit = {},
     onOpenCommandDetail: (String, String) -> Unit = { _, _ -> },
     sessionExport: com.helix.app.export.SessionExportService? = null,
     connectors: com.helix.app.connector.ConnectorService? = null,
     onExtensions: () -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
-    val profile by chatService.profile.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
@@ -73,14 +79,44 @@ fun ChatScreen(
     var directoryOpen by remember { mutableStateOf(false) }
     val sessionId = screen.openSessionId
     var connectorsOpen by remember(sessionId) { mutableStateOf(false) }
+    var skillsOpen by remember(sessionId) { mutableStateOf(false) }
+    var expertOpen by remember(sessionId) { mutableStateOf(false) }
+    var referenceOpen by remember(sessionId) { mutableStateOf(false) }
+    var permissionRevision by remember(sessionId) { mutableStateOf(0) }
+    var permissionMode by remember(sessionId) { mutableStateOf<SessionPermissionMode?>(null) }
+    val referenceUnavailableReason = stringResource(R.string.chat_blocked_reference_unavailable)
     if (connectorsOpen && sessionId != null && connectors != null) {
         com.helix.app.connector
             .ConnectorSessionPanel(connectors, sessionId, onExtensions) { connectorsOpen = false }
+    }
+    if (skillsOpen && sessionId != null && skills != null) {
+        SkillSessionPanel(skills, sessionId, onExtensions) { skillsOpen = false }
     }
     val buffer =
         rememberSaveable(sessionId, saver = ConversationDraftBuffer.Saver) {
             ConversationDraftBuffer(sessionId ?: "closed-composer")
         }
+    if (expertOpen && sessionId != null) {
+        SessionExpertDialog(chatService, sessionId) { expertOpen = false }
+    }
+    if (referenceOpen && sessionId != null) {
+        ConversationReferencePicker(
+            sessions = screen.sessions,
+            currentSessionId = sessionId,
+            onSelect = { row ->
+                scope.launch {
+                    val kind = chatService.referenceKindForSession(sessionId, row.id).await()
+                    referenceOpen = false
+                    if (kind != null) {
+                        buffer.reference(row.id, kind)
+                    } else {
+                        chatService.showBlockedReason(referenceUnavailableReason)
+                    }
+                }
+            },
+            onDismiss = { referenceOpen = false },
+        )
+    }
     var editMessageId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     var dismissedRevisionId by rememberSaveable(sessionId) { mutableStateOf<String?>(null) }
     var editorEpoch by remember(sessionId) { mutableStateOf(0) }
@@ -109,6 +145,19 @@ fun ChatScreen(
         }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { flushBuffer() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { permissionRevision++ }
+    LaunchedEffect(sessionId, permissionRevision, screen.isDraft, sessionPermissionEdit) {
+        val id = sessionId
+        val edit = sessionPermissionEdit
+        permissionMode =
+            if (id == null || edit == null) {
+                null
+            } else {
+                withContext(Dispatchers.IO) {
+                    if (screen.isDraft) edit.appDefault().mode else (edit.activeConfigFor(id) ?: edit.appDefault()).mode
+                }
+            }
+    }
     DisposableEffect(buffer) { onDispose { flushBuffer() } }
     val acceptOrdinaryReceipt: suspend (ChatSubmissionReceipt) -> Unit = { receipt ->
         if (receipt.submission.revisedMessageId == null) {
@@ -255,6 +304,10 @@ fun ChatScreen(
         }
     }
     val input = buffer.value.text
+    val referenceLabel =
+        buffer.value.referenceSourceSessionId?.let { referenceSessionId ->
+            screen.sessions.firstOrNull { it.id == referenceSessionId }?.title ?: referenceSessionId
+        }
     val navigateAfterSave: (() -> Unit) -> Unit = { navigate ->
         scope.launch {
             val canLeave = buffer.revisionMessageId != null || saveBuffer()
@@ -274,8 +327,9 @@ fun ChatScreen(
         } else {
             ConversationSection(
                 screen = screen,
-                profile = profile,
                 runControl = runControl,
+                permissionMode = permissionMode,
+                referenceLabel = referenceLabel,
                 input = input,
                 onInput = buffer::edit,
                 composerAvailability =
@@ -285,17 +339,6 @@ fun ChatScreen(
                         delivery = buffer.editable && buffer.canSubmit,
                     ),
                 composerStatus = {
-                    if (connectors != null && sessionId != null) {
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                scope.launch {
-                                    chatService.materializeDraftSession(sessionId)
-                                    connectorsOpen = true
-                                }
-                            },
-                            modifier = Modifier.testTag("session-connectors"),
-                        ) { androidx.compose.material3.Text(stringResource(R.string.connector_session_title)) }
-                    }
                     sessionId?.let { id ->
                         SessionInputQueuePanel(
                             chatService,
@@ -347,6 +390,39 @@ fun ChatScreen(
                 intents =
                     ConversationIntents(
                         onNavigation = { navigateAfterSave(onNavigation) },
+                        onSettings = { navigateAfterSave(onSessionSettings) },
+                        onReference = {
+                            if (sessionId != null && buffer.editable && !buffer.sending) referenceOpen = true
+                        },
+                        onClearReference = { buffer.reference(null, null) },
+                        onExpert = {
+                            val id = sessionId
+                            if (id != null) {
+                                scope.launch {
+                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id) expertOpen = true
+                                }
+                            }
+                        },
+                        onSkills = {
+                            val id = sessionId
+                            if (id != null && skills != null) {
+                                scope.launch {
+                                    if (saveBuffer() && chatService.materializeDraftSession(id) == id) skillsOpen = true
+                                }
+                            }
+                        },
+                        onConnectors = {
+                            val id = sessionId
+                            if (id != null && connectors != null) {
+                                scope.launch {
+                                    if (saveBuffer() &&
+                                        chatService.materializeDraftSession(id) == id
+                                    ) {
+                                        connectorsOpen = true
+                                    }
+                                }
+                            }
+                        },
                         onManageGoal = { goalsOpen = true },
                         onTasks = { tasksOpen = true },
                         onNew = { navigateAfterSave { chatService.newSessionDraft() } },
@@ -390,7 +466,6 @@ fun ChatScreen(
                             }
                         },
                         onRemoveAttachment = { chatService.removePendingAttachment(it) },
-                        onBindProvider = { row -> chatService.bindProviderToSession(row.id, row.model) },
                         onSelectModel = chatService::selectSessionModel,
                         onSetMode = chatService::setMode,
                         onSetReasoning = chatService::setReasoning,

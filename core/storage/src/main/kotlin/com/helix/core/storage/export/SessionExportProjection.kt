@@ -158,7 +158,16 @@ internal class SessionExportProjection(
 
     companion object {
         private val BODY_FIELDS =
-            setOf("title", "argsJson", "summary", "limitsJson", "budgets", "redactedPayload", "promptSections")
+            setOf(
+                "title",
+                "sourceSessionTitle",
+                "argsJson",
+                "summary",
+                "limitsJson",
+                "budgets",
+                "redactedPayload",
+                "promptSections",
+            )
         private val STRUCTURED_FIELDS = setOf("argsJson", "limitsJson", "budgets", "redactedPayload", "promptSections")
 
         fun unknown(reason: String): JsonObject =

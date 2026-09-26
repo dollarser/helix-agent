@@ -65,7 +65,12 @@ class MessageEditRecoveryDeviceTest {
                         "fixture",
                         accepted.text,
                         clientRequestId = accepted.clientRequestId,
-                        inputFingerprint = TurnInputFingerprint.of(accepted.text, emptyList(), "accepted-target"),
+                        inputFingerprint =
+                            TurnInputFingerprint.of(
+                                accepted.text,
+                                emptyList(),
+                                revisedMessageId = "accepted-target",
+                            ),
                         revisedMessageId = "accepted-target",
                     ),
                 )

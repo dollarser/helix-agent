@@ -94,6 +94,7 @@ internal class TurnAdmission(
                     modelId = modelId,
                     providerSnapshot = spec.providerSnapshot,
                     control = effectiveControl,
+                    expert = storage.sessionExperts.forSession(spec.sessionId),
                 ),
             )
             result = TurnAdmissionResult.Started(AdmittedTurn(coordinator, effectiveControl, goalId))

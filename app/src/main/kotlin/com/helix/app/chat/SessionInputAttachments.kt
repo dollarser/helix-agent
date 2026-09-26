@@ -57,7 +57,13 @@ internal class SessionInputAttachments(
         target: EgressDisclosure.EgressTarget,
         strings: (Int, Array<out Any>) -> String,
     ): AttachmentSendAdmission.Outcome =
-        AttachmentSendAdmission.admit(verified(input), storage.sessionInputs.readText(input), target, strings)
+        AttachmentSendAdmission.admit(
+            verified(input),
+            storage.sessionInputs.readText(input),
+            target,
+            strings,
+            storage.sessionInputs.readReference(input),
+        )
 
     private fun verified(input: SessionInputRecord): AttachmentSendDecision.Ready {
         val artifacts = input.attachments.map { storage.artifacts.resolve(it.artifactId) }

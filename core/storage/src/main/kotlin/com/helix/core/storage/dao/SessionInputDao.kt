@@ -29,7 +29,7 @@ interface SessionInputDao {
     fun pendingCount(sessionId: String): Int
 
     @Query(
-        "SELECT COALESCE(SUM(textBytes), 0) FROM session_inputs WHERE sessionId = :sessionId " +
+        "SELECT COALESCE(SUM(textBytes + referenceContentBytes), 0) FROM session_inputs WHERE sessionId = :sessionId " +
             "AND state IN ('PENDING','NEEDS_ATTENTION')",
     )
     fun pendingBytes(sessionId: String): Long
@@ -114,9 +114,13 @@ interface SessionInputDao {
         at: Long,
     ): Int
 
-    @Query("SELECT textRef FROM session_inputs WHERE sessionId = :sessionId")
+    @Query(
+        "SELECT textRef FROM session_inputs WHERE sessionId = :sessionId " +
+            "UNION SELECT referenceContentRef FROM session_inputs " +
+            "WHERE sessionId = :sessionId AND referenceContentRef IS NOT NULL",
+    )
     fun contentRefsBySession(sessionId: String): List<String>
 
-    @Query("SELECT COUNT(*) FROM session_inputs WHERE textRef = :contentRef")
+    @Query("SELECT COUNT(*) FROM session_inputs WHERE textRef = :contentRef OR referenceContentRef = :contentRef")
     fun countByContentRef(contentRef: String): Int
 }

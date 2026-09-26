@@ -8,6 +8,7 @@ internal const val SETUP_CAPABILITIES_ROUTE = "setup/capabilities"
 internal const val SETUP_RUNTIME_ROUTE = "setup/runtime"
 internal const val CONVERSATION_HISTORY_ROUTE = "conversation/history"
 internal const val CONVERSATION_SEARCH_ROUTE = "conversation/search"
+internal const val CONVERSATION_SETTINGS_ROUTE = "conversation/settings"
 internal const val SETTINGS_DEFAULTS_ROUTE = "settings/defaults"
 internal const val SETTINGS_PERMISSIONS_ROUTE = "settings/permissions"
 internal const val SETTINGS_SYSTEM_PERMISSIONS_ROUTE = "settings/permissions/system"
@@ -18,6 +19,7 @@ internal fun secondaryRouteTitle(route: String): Int? =
     when (route) {
         CONVERSATION_HISTORY_ROUTE -> R.string.conversation_history_title
         CONVERSATION_SEARCH_ROUTE -> R.string.conversation_search_title
+        CONVERSATION_SETTINGS_ROUTE -> R.string.session_settings_title
         SETUP_READINESS_ROUTE -> R.string.nav_readiness
         SETUP_CAPABILITIES_ROUTE -> R.string.nav_capabilities
         SETUP_RUNTIME_ROUTE -> R.string.setup_runtime_title

@@ -1,9 +1,11 @@
 package com.helix.app.chat
 
+import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.storage.entity.SessionEntity
 
 internal data class SessionDraft(
     val session: SessionEntity,
+    val control: RunControlConfig,
     val attachments: List<DraftAttachment> = emptyList(),
 )
 

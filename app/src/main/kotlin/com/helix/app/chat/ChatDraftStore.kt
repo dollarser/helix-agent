@@ -1,5 +1,6 @@
 package com.helix.app.chat
 
+import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.storage.entity.SessionEntity
 import com.helix.feature.files.AttachmentClassifier
 
@@ -14,10 +15,13 @@ internal class ChatDraftStore {
     @Volatile var preparing: Boolean = false
         private set
 
-    fun open(session: SessionEntity): Boolean =
+    fun open(
+        session: SessionEntity,
+        control: RunControlConfig,
+    ): Boolean =
         synchronized(lock) {
             if (preparing) return@synchronized false
-            current = SessionDraft(session)
+            current = SessionDraft(session, control)
             true
         }
 
@@ -39,13 +43,13 @@ internal class ChatDraftStore {
         openId: String?,
         text: String,
         fallbackTitle: String,
-        save: (SessionEntity) -> Unit,
+        save: (SessionDraft) -> Unit,
     ): List<DraftAttachment>? =
         synchronized(lock) {
             val draft = current ?: return@synchronized emptyList()
             if (draft.session.id != openId) return@synchronized null
             val title = draft.session.title.ifBlank { automaticSessionTitle(text).ifBlank { fallbackTitle } }
-            save(draft.session.copy(title = title))
+            save(draft.copy(session = draft.session.copy(title = title)))
             current = null
             draft.attachments
         }
@@ -71,6 +75,11 @@ internal class ChatDraftStore {
     ) = update(id) {
         it.copy(session = it.session.copy(providerId = providerId, modelId = modelId))
     }
+
+    fun control(
+        id: String,
+        value: RunControlConfig,
+    ) = update(id) { it.copy(control = value) }
 
     fun addAttachment(
         id: String,

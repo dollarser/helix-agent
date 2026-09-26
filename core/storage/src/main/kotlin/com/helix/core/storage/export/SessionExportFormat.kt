@@ -27,6 +27,7 @@ enum class SessionExportType(
     EXECUTION("execution"),
     APPROVAL("approval"),
     ATTACHMENT("attachment"),
+    CONVERSATION_REFERENCE("conversation_reference"),
     ARTIFACT("artifact"),
     COMPACTION("compaction"),
     USAGE("usage"),

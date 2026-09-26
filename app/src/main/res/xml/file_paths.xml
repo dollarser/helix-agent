@@ -6,6 +6,9 @@
     <files-path
         name="workspaces"
         path="workspaces/" />
+    <files-path
+        name="camera-captures"
+        path="attachments/camera/" />
     <external-path
         name="all-files"
         path="." />

@@ -204,11 +204,15 @@ private fun MessageActionRow(
         CopyTextButton(message.content, "chat-copy-${message.id}")
         ShareTextButton(message.content, "chat-share-${message.id}")
         if (isUser && onEdit != null) {
-            TextButton(
+            IconButton(
                 onClick = { onEdit(message.id) },
-                modifier = Modifier.testTag("chat-edit-${message.id}"),
+                modifier = Modifier.size(48.dp).testTag("chat-edit-${message.id}"),
             ) {
-                Text(stringResource(R.string.message_revision_action))
+                Icon(
+                    painterResource(R.drawable.ic_chat_edit),
+                    stringResource(R.string.message_revision_action),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         if (!isUser && onRegenerate != null) {
@@ -220,11 +224,15 @@ private fun MessageActionRow(
             }
         }
         if (onFork != null) {
-            TextButton(
+            IconButton(
                 onClick = { onFork(message.id) },
-                modifier = Modifier.testTag("chat-fork-${message.id}"),
+                modifier = Modifier.size(48.dp).testTag("chat-fork-${message.id}"),
             ) {
-                Text(stringResource(R.string.session_fork_action))
+                Icon(
+                    painterResource(R.drawable.ic_chat_fork),
+                    stringResource(R.string.session_fork_action),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

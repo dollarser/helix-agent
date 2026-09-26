@@ -3,6 +3,7 @@ package com.helix.app.chat
 import com.helix.app.R
 import com.helix.core.model.AttachmentCategory
 import com.helix.core.model.TextAttachmentKind
+import com.helix.core.storage.repository.ConversationReferenceSnapshotInput
 import com.helix.feature.files.AttachmentMaterialization
 import com.helix.feature.files.AttachmentSendDecision
 import com.helix.feature.files.SnapshotKind
@@ -78,15 +79,16 @@ object AttachmentSendAdmission {
         text: String,
         target: EgressDisclosure.EgressTarget,
         strings: (Int, Array<out Any>) -> String,
+        reference: ConversationReferenceSnapshotInput? = null,
     ): Outcome {
         return when (gate) {
             is AttachmentSendDecision.Ready -> {
-                if (text.isBlank() && gate.attachments.isEmpty()) {
+                if (text.isBlank() && gate.attachments.isEmpty() && reference == null) {
                     return Outcome.Blocked(strings(R.string.admission_empty_message, emptyArray()))
                 }
-                val contents = outgoingContents(text, gate.attachments)
+                val contents = outgoingContents(text, gate.attachments, reference)
                 Outcome.Egress(
-                    EgressDisclosure.decide(contents, guardText(text, gate.attachments), target),
+                    EgressDisclosure.decide(contents, guardText(text, gate.attachments, reference), target),
                     gate.attachments,
                 )
             }
@@ -118,6 +120,7 @@ object AttachmentSendAdmission {
     private fun outgoingContents(
         text: String,
         attachments: List<AttachmentMaterialization>,
+        reference: ConversationReferenceSnapshotInput?,
     ): List<EgressDisclosure.OutgoingContent> {
         val contents = mutableListOf<EgressDisclosure.OutgoingContent>()
         if (text.isNotBlank()) contents += EgressDisclosure.OutgoingContent.UserText
@@ -152,6 +155,18 @@ object AttachmentSendAdmission {
                     }
                 }
         }
+        reference?.let {
+            contents +=
+                EgressDisclosure.OutgoingContent.ConversationReference(
+                    sourceLabel = it.sourceSessionTitle,
+                    sizeBytes =
+                        it.content
+                            .toByteArray(Charsets.UTF_8)
+                            .size
+                            .toLong(),
+                    sha256 = it.contentSha256,
+                )
+        }
         return contents
     }
 
@@ -167,12 +182,17 @@ object AttachmentSendAdmission {
     private fun guardText(
         text: String,
         attachments: List<AttachmentMaterialization>,
+        reference: ConversationReferenceSnapshotInput?,
     ): String =
         buildString {
             if (text.isNotBlank()) append(text)
             for (a in attachments.filterIsInstance<AttachmentMaterialization.Text>()) {
                 if (isNotEmpty()) append('\n')
                 append(a.content)
+            }
+            reference?.let {
+                if (isNotEmpty()) append('\n')
+                append(it.content)
             }
         }
 

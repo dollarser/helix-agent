@@ -77,6 +77,25 @@ interface AgentRuntime {
  * starting a second. A producer whose intents never re-drive (a fresh tap) passes a fresh id per
  * intent. The id is opaque to the runtime — it never inspects its value, only its equality.
  */
+data class ConversationReferenceIntent(
+    val sourceSessionId: String,
+    val sourceSessionTitle: String,
+    val selectionKind: String,
+    val sourceMessageIds: List<String>,
+    val content: String,
+    val contentSha256: String,
+) {
+    init {
+        require(sourceSessionId.isNotBlank())
+        require(selectionKind.isNotBlank())
+        require(content.isNotBlank())
+        require(contentSha256.length == 64)
+    }
+}
+
+/**
+ * The unified turn-start intent (HX2-01).
+ */
 data class SubmitTurnCommand(
     val session: SessionId,
     val providerId: ProviderId,
@@ -88,6 +107,7 @@ data class SubmitTurnCommand(
     val goalId: GoalId? = null,
     val retryTurnId: TurnId? = null,
     val attachments: List<AttachmentBindingIntent> = emptyList(),
+    val references: List<ConversationReferenceIntent> = emptyList(),
     val clientRequestId: String,
     val continuousGoal: Boolean = false,
     val goalContinuation: GoalContinuationRequest? = null,
