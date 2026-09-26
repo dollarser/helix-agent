@@ -203,16 +203,17 @@ Advanced 扩大的是可选能力和可配置范围，不是绕过安全内核�
 
 | ID | 优先级 | 需求 | 验收摘要 |
 | --- | --- | --- | --- |
-| FR-LLM-001 | P0 | 配置 Base URL、Model ID、API Key/认证别名 | Secret 不进入 Room 和日志 |
+| FR-LLM-001 | P0 | 网络 API/自建服务配置 endpoint、Model ID 与可选认证；订阅账号和设备内模型使用各自 provisioning 流程 | Secret 不进入 Room 和日志；On-device 不伪造 Base URL/API Key |
 | FR-LLM-002 | P0 | OpenAI Responses 流式文本与工具调用 | 独立协议 fixture 覆盖分片 JSON |
 | FR-LLM-003 | P0 | OpenAI Chat Completions 和 Anthropic Messages | 两个 adapter 分别测试，不猜测式 fallback |
 | FR-LLM-004 | P0 | 分层连接测试与能力探测 | 区分 DNS、TLS、认证、模型、文本流和 ToolCall |
 | FR-LLM-005 | P1 | 多 Provider 切换 | 会话记录协议、Provider/Model 和能力快照 |
-| FR-LLM-006 | P1 | 常用厂商模板与自建服务 | SGLang/Ollama 真机连接；不硬编码模型名 |
+| FR-LLM-006 | P1 | 常用厂商模板与 endpoint-based 自建服务 | Ollama/SGLang/vLLM 按实际 endpoint 作为 Network Provider；不硬编码模型名或按品牌猜 residence |
 | FR-LLM-007 | P1 | 上下文裁剪 | 永不截断待执行工具参数和审批上下文 |
 | FR-LLM-008 | P2 | 第三方订阅协议 Provider | 官方 CLI 路线停止；订阅模块持有 token（同 UID，不构成凭据隔离），developer/Advanced 与 API Key Provider 统一选择，consumer 关闭 |
-| FR-LLM-009 | P0 | Provider 数据去向分类 | 按实际 endpoint 标记本机、已授权局域网、公有云或未知远端；不按 Ollama/SGLang 等模板名猜测 |
-| FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝 |
+| FR-LLM-009 | P0 | Provider 数据去向分类 | Network 按实际 endpoint 标记 loopback、已授权局域网、公有云或未知远端；直接设备内推理单独标 `ON_DEVICE_LOCAL`；不按 Ollama/SGLang/vLLM 模板名猜测 |
+| FR-LLM-010 | P0 | 高敏数据出网门控 | Standard 逐次展示数据类别、Provider/origin 和 scope；Advanced 仅允许精确、限时、可撤销规则；凭据类数据始终拒绝；`ON_DEVICE_LOCAL` 推理本身不是网络出网 |
+| FR-LLM-011 | P1 | Provider provisioning / transport / auth 正交建模 | UI 可分 API/Self-hosted、Subscription、On-device；底层不以三分类替代 Network/On-device transport、residence 与认证事实 |
 
 ### 5.3 Agent Runtime
 
