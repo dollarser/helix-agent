@@ -76,7 +76,6 @@ class ToolTimelineLayoutDeviceTest {
 
 private fun timelineIntents() =
     ConversationIntents(
-        onBack = {},
         onSend = {},
         onStop = {},
         onDismissBlocked = {},

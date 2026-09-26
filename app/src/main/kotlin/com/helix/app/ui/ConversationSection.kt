@@ -111,7 +111,6 @@ internal fun ConversationSection(
     Column(Modifier.fillMaxSize()) {
         AdaptiveConversationHeader(
             summary = screen.sessionTitle.ifBlank { stringResource(R.string.chat_new_session) },
-            onBack = intents.onBack,
             onNew = intents.onNew,
             onNavigation = intents.onNavigation,
             onRename = intents.onRename,

@@ -33,7 +33,6 @@ import com.helix.app.R
 @Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun AdaptiveConversationHeader(
     summary: String,
-    onBack: () -> Unit,
     onNew: () -> Unit = {},
     onTasks: () -> Unit = {},
     onNavigation: (() -> Unit)? = null,
@@ -68,8 +67,8 @@ internal fun AdaptiveConversationHeader(
                 Icon(painterResource(R.drawable.ic_files_search), stringResource(R.string.chat_search))
             }
         }
-        IconButton(onBack, modifier = Modifier.size(48.dp).testTag("chat-back")) {
-            Icon(painterResource(R.drawable.ic_chat_sessions), stringResource(R.string.chat_back_to_sessions))
+        IconButton(onNew, modifier = Modifier.size(48.dp).testTag("chat-new-session")) {
+            Icon(painterResource(R.drawable.ic_chat_new), stringResource(R.string.chat_new_session))
         }
         IconButton({ details = true }, modifier = Modifier.size(48.dp).testTag("chat-conversation-details")) {
             Icon(painterResource(R.drawable.ic_chat_more), stringResource(R.string.chat_conversation_details))
@@ -81,13 +80,6 @@ internal fun AdaptiveConversationHeader(
             "chat-conversation-details",
             { details = false },
         ) {
-            TextButton({
-                details = false
-                onNew()
-            }, modifier = Modifier.testTag("chat-new-session")) {
-                Icon(painterResource(R.drawable.ic_chat_new), null, Modifier.padding(end = 8.dp))
-                Text(stringResource(R.string.chat_new_session))
-            }
             TextButton({
                 details = false
                 onTasks()

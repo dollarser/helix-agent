@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Text
@@ -16,21 +17,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.helix.app.R
 import com.helix.app.ShellDestination
 
-/** Two-level hierarchical navigation drawer: level 1 groups expand to level 2 destinations. */
+/** Conversation-first drawer plus the two-level global work/configure/settings navigation. */
 @Composable
-@Suppress("FunctionName", "LongMethod")
+@Suppress("FunctionName", "LongMethod", "LongParameterList")
 internal fun GroupedNavigation(
     destinations: List<ShellDestination>,
     currentRoute: String,
+    conversation: ConversationDrawerState,
+    onCurrentConversation: () -> Unit,
+    onNewConversation: () -> Unit,
+    onSearchConversations: () -> Unit,
+    onAllConversations: () -> Unit,
+    onOpenConversation: (String) -> Unit,
     onNavigate: (ShellDestination) -> Unit,
 ) {
+    val navigationDestinations = destinations.filter { it != ShellDestination.Sessions }
     val initialExpanded =
-        remember(destinations, currentRoute) {
-            destinations
+        remember(navigationDestinations, currentRoute) {
+            navigationDestinations
                 .groupBy { it.navigationGroup() }
                 .filter { (_, entries) -> entries.any { it.route == currentRoute } }
                 .keys
@@ -39,7 +48,75 @@ internal fun GroupedNavigation(
 
     Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).testTag("navigation-groups")) {
         Text("Helix", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp))
-        destinations.groupBy { it.navigationGroup() }.forEach { (group, entries) ->
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.drawer_new_conversation)) },
+            selected = false,
+            onClick = onNewConversation,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-new-conversation"),
+        )
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.drawer_search_conversations)) },
+            selected = currentRoute == CONVERSATION_SEARCH_ROUTE,
+            onClick = onSearchConversations,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-search-conversations"),
+        )
+        conversation.currentSessionId?.let {
+            Text(
+                stringResource(R.string.drawer_current_conversation),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 28.dp, end = 16.dp, top = 12.dp, bottom = 2.dp),
+            )
+            NavigationDrawerItem(
+                label = {
+                    Text(
+                        conversation.currentTitle.ifBlank { stringResource(R.string.chat_new_session) },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                selected = currentRoute == ShellDestination.Sessions.route,
+                onClick = onCurrentConversation,
+                modifier =
+                    Modifier
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                        .testTag("drawer-current-conversation"),
+            )
+        }
+        Text(
+            stringResource(R.string.drawer_recent),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier =
+                Modifier
+                    .padding(
+                        start = 28.dp,
+                        end = 16.dp,
+                        top = 12.dp,
+                        bottom = 2.dp,
+                    ).testTag("drawer-recent"),
+        )
+        conversation.recent
+            .filterNot { it.isArchived || it.id == conversation.currentSessionId }
+            .forEach { session ->
+                NavigationDrawerItem(
+                    label = { Text(session.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    selected = false,
+                    onClick = { onOpenConversation(session.id) },
+                    modifier =
+                        Modifier
+                            .padding(start = 28.dp, end = 12.dp, top = 2.dp, bottom = 2.dp)
+                            .testTag("drawer-recent-${session.id}"),
+                )
+            }
+        NavigationDrawerItem(
+            label = { Text(stringResource(R.string.drawer_all_conversations)) },
+            selected = currentRoute == CONVERSATION_HISTORY_ROUTE,
+            onClick = onAllConversations,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp).testTag("drawer-all-conversations"),
+        )
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        navigationDestinations.groupBy { it.navigationGroup() }.forEach { (group, entries) ->
             if (entries.size == 1) {
                 val destination = entries.first()
                 NavigationDrawerItem(

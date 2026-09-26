@@ -29,7 +29,12 @@ class MainActivityTest {
         composeRule.onNodeWithTag("screen-sessions").assertIsDisplayed()
         composeRule.onNodeWithTag("open-navigation").performClick()
 
-        composeRule.onNodeWithTag("navigation-sessions").assertIsDisplayed()
+        composeRule.onNodeWithTag("drawer-new-conversation").assertIsDisplayed()
+        composeRule.onNodeWithTag("drawer-search-conversations").assertIsDisplayed()
+        composeRule.onNodeWithTag("drawer-current-conversation").assertIsDisplayed()
+        composeRule.onNodeWithTag("drawer-recent").assertIsDisplayed()
+        composeRule.onNodeWithTag("drawer-all-conversations").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-sessions").assertDoesNotExist()
         composeRule.onNodeWithTag("navigation-group-work").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-group-configure").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-settings").assertIsDisplayed()

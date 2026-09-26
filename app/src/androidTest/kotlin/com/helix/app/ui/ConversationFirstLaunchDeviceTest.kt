@@ -2,6 +2,7 @@ package com.helix.app.ui
 
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import com.helix.app.MainActivity
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
@@ -20,7 +21,6 @@ class ConversationFirstLaunchDeviceTest {
             val container = compose.container()
             val chat = container.chatService
 
-            chat.newSessionDraft()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val sessionId = requireNotNull(chat.screen.value.openSessionId)
             assertTrue(chat.saveDraftForGoal("Conversation-first persisted fixture"))
@@ -46,8 +46,11 @@ class ConversationFirstLaunchDeviceTest {
         val container = compose.container()
         val chat = container.chatService
 
-        chat.newSessionDraft()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
+        val previousDraftId = requireNotNull(chat.screen.value.openSessionId)
+        compose.onNodeWithTag("chat-new-session").performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            chat.screen.value.isDraft && chat.screen.value.openSessionId != previousDraftId
+        }
         val abandonedDraftId = requireNotNull(chat.screen.value.openSessionId)
         assertTrue(container.storage.sessions.find(abandonedDraftId) == null)
 

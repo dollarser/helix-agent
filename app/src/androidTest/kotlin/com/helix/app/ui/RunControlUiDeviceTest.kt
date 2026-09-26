@@ -34,7 +34,6 @@ class RunControlModeUiDeviceTest {
                     turnActive = false,
                     intents =
                         ConversationIntents(
-                            onBack = {},
                             onSend = {},
                             onStop = {},
                             onDismissBlocked = {},

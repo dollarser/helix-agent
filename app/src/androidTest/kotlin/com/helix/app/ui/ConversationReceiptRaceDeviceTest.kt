@@ -374,8 +374,10 @@ class ConversationReceiptRaceDeviceTest {
                 compose.waitForIdle()
                 assertEquals(0, revisionInputCount())
 
-                compose.onNodeWithTag("chat-back").performClick()
-                compose.waitUntil(WAIT_MILLIS) { chat.screen.value.openSessionId == null }
+                compose.onNodeWithTag("chat-new-session").performClick()
+                compose.waitUntil(WAIT_MILLIS) {
+                    chat.screen.value.isDraft && chat.screen.value.openSessionId != session
+                }
                 assertEquals(DISMISSED_REVISION_TEXT, storage.composerDrafts.get(session)?.text)
                 chat.openSession(session)
                 compose.waitUntil(WAIT_MILLIS) {

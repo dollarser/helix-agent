@@ -6,7 +6,6 @@ import com.helix.app.provider.ProviderRowUi
 import com.helix.core.model.AgentMode
 
 data class ConversationIntents(
-    val onBack: () -> Unit,
     val onSend: () -> Unit,
     val onStop: () -> Unit,
     val onStopTurn: ((String) -> Unit)? = null,

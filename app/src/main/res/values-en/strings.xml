@@ -1335,6 +1335,13 @@
     <string name="nav_group_work">Work</string>
     <string name="nav_group_configure">Configure</string>
     <string name="nav_group_settings">Settings and management</string>
+    <string name="drawer_new_conversation">New conversation</string>
+    <string name="drawer_search_conversations">Search conversations</string>
+    <string name="drawer_current_conversation">Current conversation</string>
+    <string name="drawer_recent">Recent</string>
+    <string name="drawer_all_conversations">All conversations</string>
+    <string name="conversation_history_title">All conversations</string>
+    <string name="conversation_search_title">Search conversations</string>
     <string name="connector_session_title">Session connectors</string>
     <string name="connector_session_hint">Applies to future use in this session; history is retained. Shared skills remain available through other active sources.</string>
     <string name="connector_session_empty">No connectors installed. Add one in Extensions.</string>

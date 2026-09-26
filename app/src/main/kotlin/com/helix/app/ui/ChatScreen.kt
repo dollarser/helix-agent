@@ -1,6 +1,5 @@
 package com.helix.app.ui
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
@@ -65,8 +64,6 @@ fun ChatScreen(
     onExtensions: () -> Unit = {},
 ) {
     val screen by chatService.screen.collectAsStateWithLifecycle()
-    val sessions by chatService.sessions.collectAsStateWithLifecycle()
-    val sessionSearch by chatService.sessionSearch.collectAsStateWithLifecycle()
     val profile by chatService.profile.collectAsStateWithLifecycle()
     val runControl by chatService.runControl.collectAsStateWithLifecycle()
     val providerRows by providerService.rows.collectAsStateWithLifecycle()
@@ -264,8 +261,6 @@ fun ChatScreen(
             if (canLeave && chatService.screen.value.openSessionId == sessionId) navigate()
         }
     }
-    BackHandler(enabled = sessionId != null) { navigateAfterSave(chatService::closeSession) }
-
     Column(
         Modifier
             .fillMaxSize()
@@ -273,20 +268,9 @@ fun ChatScreen(
             .testTag("screen-sessions"),
     ) {
         if (screen.openSessionId == null) {
-            SessionListSection(
-                sessions = sessions,
-                search = sessionSearch,
-                onNavigation = onNavigation,
-                onNew = { chatService.newSessionDraft() },
-                onModels = onModels,
-                needsProvider = providerRows.none { it.chatSelectable },
-                onRename = { renameId = it },
-                onOpen = { chatService.openSession(it) },
-                onArchive = { chatService.archiveSession(it) },
-                onRestore = chatService::restoreSession,
-                onTasks = { tasksOpen = true },
-                onSearch = { chatService.searchSessions(it) },
-            )
+            LaunchedEffect(screen.preparingDraft) {
+                if (!screen.preparingDraft) chatService.newSessionDraft()
+            }
         } else {
             ConversationSection(
                 screen = screen,
@@ -362,7 +346,6 @@ fun ChatScreen(
                 },
                 intents =
                     ConversationIntents(
-                        onBack = { navigateAfterSave(chatService::closeSession) },
                         onNavigation = { navigateAfterSave(onNavigation) },
                         onManageGoal = { goalsOpen = true },
                         onTasks = { tasksOpen = true },
@@ -451,13 +434,7 @@ fun ChatScreen(
 
     renameId?.let { id ->
         SessionRenameDialog(
-            if (screen.openSessionId ==
-                id
-            ) {
-                screen.sessionTitle
-            } else {
-                sessions.firstOrNull { it.id == id }?.title.orEmpty()
-            },
+            screen.sessionTitle,
             onDismiss = { renameId = null },
             onSave = {
                 chatService.renameSession(id, it)

@@ -51,11 +51,15 @@ import com.helix.app.ui.AppAgentDefaultsScreen
 import com.helix.app.ui.ArtifactsScreenDestination
 import com.helix.app.ui.AuditScreen
 import com.helix.app.ui.COMMAND_DETAIL_ROUTE
+import com.helix.app.ui.CONVERSATION_HISTORY_ROUTE
+import com.helix.app.ui.CONVERSATION_SEARCH_ROUTE
 import com.helix.app.ui.CapabilitiesScreenDestination
 import com.helix.app.ui.CapabilityReadinessScreen
 import com.helix.app.ui.ChatScreen
 import com.helix.app.ui.CommandResultDetailScreen
 import com.helix.app.ui.CompactPageHeader
+import com.helix.app.ui.ConversationDrawerState
+import com.helix.app.ui.ConversationHistoryScreen
 import com.helix.app.ui.ExtensionsScreen
 import com.helix.app.ui.FilesScreen
 import com.helix.app.ui.FirstLaunchNoticeScreen
@@ -214,6 +218,21 @@ internal fun HelixApp(container: AppContainer) {
     val currentRoute = currentEntry?.destination?.route ?: repository.initialDestination.route
     val currentDestination = repository.destinations.firstOrNull { it.route == currentRoute }
     val currentSecondaryTitle = secondaryRouteTitle(currentRoute)
+    val drawerSessions by container.chatService.sessions.collectAsState()
+    val drawerScreen by container.chatService.screen.collectAsState()
+    val conversationDrawerState =
+        ConversationDrawerState(
+            currentSessionId = drawerScreen.openSessionId,
+            currentTitle = drawerScreen.sessionTitle,
+            recent = drawerSessions.filterNot { it.isArchived }.take(6),
+        )
+
+    fun navigateToConversationRoot() {
+        navController.navigate(ShellDestination.Sessions.route) {
+            launchSingleTop = true
+            popUpTo(repository.initialDestination.route)
+        }
+    }
 
     HelixTheme {
         ModalNavigationDrawer(
@@ -221,7 +240,35 @@ internal fun HelixApp(container: AppContainer) {
             drawerContent = {
                 ModalDrawerSheet {
                     val context = androidx.compose.ui.platform.LocalContext.current
-                    GroupedNavigation(repository.destinations, currentRoute) { destination ->
+                    GroupedNavigation(
+                        destinations = repository.destinations,
+                        currentRoute = currentRoute,
+                        conversation = conversationDrawerState,
+                        onCurrentConversation = {
+                            navigateToConversationRoot()
+                            scope.launch { drawerState.close() }
+                        },
+                        onNewConversation = {
+                            container.chatService.newSessionDraft()
+                            navigateToConversationRoot()
+                            scope.launch { drawerState.close() }
+                        },
+                        onSearchConversations = {
+                            container.chatService.clearSessionSearch()
+                            navController.navigate(CONVERSATION_SEARCH_ROUTE) { launchSingleTop = true }
+                            scope.launch { drawerState.close() }
+                        },
+                        onAllConversations = {
+                            container.chatService.clearSessionSearch()
+                            navController.navigate(CONVERSATION_HISTORY_ROUTE) { launchSingleTop = true }
+                            scope.launch { drawerState.close() }
+                        },
+                        onOpenConversation = { sessionId ->
+                            container.chatService.openSession(sessionId)
+                            navigateToConversationRoot()
+                            scope.launch { drawerState.close() }
+                        },
+                    ) { destination ->
                         if (destination == ShellDestination.Terminal) {
                             com.helix.app.terminal.ManualTerminalModule
                                 .open(context, ".")
@@ -261,6 +308,34 @@ internal fun HelixApp(container: AppContainer) {
                                 onOpenDrawer = { scope.launch { drawerState.open() } },
                             )
                         }
+                    }
+                    composable(CONVERSATION_HISTORY_ROUTE) {
+                        ConversationHistoryScreen(
+                            chatService = container.chatService,
+                            focusSearch = false,
+                            onOpenConversation = { sessionId ->
+                                container.chatService.openSession(sessionId)
+                                navigateToConversationRoot()
+                            },
+                            onNewConversation = {
+                                container.chatService.newSessionDraft()
+                                navigateToConversationRoot()
+                            },
+                        )
+                    }
+                    composable(CONVERSATION_SEARCH_ROUTE) {
+                        ConversationHistoryScreen(
+                            chatService = container.chatService,
+                            focusSearch = true,
+                            onOpenConversation = { sessionId ->
+                                container.chatService.openSession(sessionId)
+                                navigateToConversationRoot()
+                            },
+                            onNewConversation = {
+                                container.chatService.newSessionDraft()
+                                navigateToConversationRoot()
+                            },
+                        )
                     }
                     composable(SETUP_READINESS_ROUTE) {
                         CapabilityReadinessScreen(

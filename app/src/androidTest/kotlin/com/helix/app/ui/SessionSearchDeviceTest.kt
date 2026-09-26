@@ -70,7 +70,7 @@ class SessionSearchDeviceTest {
                     .toInt()
             assertNotEquals("recovery must run in a new process", markerPid, Process.myPid())
             assertSearchSeeds(container.storage)
-            compose.resetDeterministicUiState()
+            uiFixture()
             typeQuery("sunrise")
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
                 compose.onAllNodesWithTag("chat-session-hit-$SEARCH_ALPHA").fetchSemanticsNodes().isNotEmpty()
@@ -210,16 +210,16 @@ class SessionSearchDeviceTest {
         waitHit(SEARCH_ALPHA)
         compose.onNodeWithTag("chat-session-hit-$SEARCH_ALPHA").performScrollTo().performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose.onAllNodesWithTag("chat-back").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("chat-header").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("chat-back").performClick()
         compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
             compose
                 .container()
                 .chatService.sessionSearch.value.query
                 .isEmpty()
         }
-        // The list is back and unfiltered.
+        compose.navigateTo(CONVERSATION_HISTORY_ROUTE)
+        // History is unfiltered after opening a search result.
         assertVisibleOrPresent("chat-session-$SEARCH_BETA")
     }
 
@@ -239,11 +239,12 @@ class SessionSearchDeviceTest {
 
     // ---------- fixture + helpers ----------
 
-    /** Skips in the setup run, then lands on a deterministic, search-free session list. */
+    /** Skips in the setup run, then lands on the dedicated conversation-search secondary route. */
     private fun uiFixture() {
         assumeTrue(recoveryPhase() != "setup")
         compose.container().chatService.clearSessionSearch()
         compose.resetDeterministicUiState()
+        compose.navigateTo(CONVERSATION_SEARCH_ROUTE)
     }
 
     /**

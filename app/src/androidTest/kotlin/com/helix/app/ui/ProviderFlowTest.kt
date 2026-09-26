@@ -111,8 +111,5 @@ class ProviderFlowTest {
         androidx.test.espresso.Espresso
             .pressBack()
         composeRule.waitUntil(10_000) { !composeRule.onNode(isPopup()).isDisplayed() }
-        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-back").isDisplayed() }
-        composeRule.onNodeWithTag("chat-back").performClick()
-        composeRule.waitUntil(10_000) { composeRule.onNodeWithTag("chat-session-list").isDisplayed() }
     }
 }

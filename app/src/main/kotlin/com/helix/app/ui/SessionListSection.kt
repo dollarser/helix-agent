@@ -18,12 +18,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -51,36 +55,44 @@ internal fun SessionListSection(
     onModels: () -> Unit = {},
     onSearch: (String) -> Unit = {},
     needsProvider: Boolean = false,
+    showHeader: Boolean = true,
+    focusSearch: Boolean = false,
 ) {
     var archivedOnly by rememberSaveable { mutableStateOf(false) }
     val visibleSessions = sessions.filter { it.isArchived == archivedOnly }
+    val searchFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(focusSearch) {
+        if (focusSearch) searchFocusRequester.requestFocus()
+    }
     BackHandler(archivedOnly) { archivedOnly = false }
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(8.dp),
+        modifier = Modifier.fillMaxSize().padding(8.dp).testTag("chat-session-list"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        item(key = "header") {
-            Row(
-                modifier = Modifier.fillMaxWidth().testTag("chat-session-list"),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onNavigation, modifier = Modifier.testTag("open-navigation")) {
-                    NavigationMenuIcon()
-                }
-                Text(
-                    stringResource(if (archivedOnly) R.string.chat_archived_list else R.string.chat_session_header),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onTasks, modifier = Modifier.testTag("background-tasks-open")) {
-                    Text(stringResource(R.string.background_tasks))
-                }
-                OutlinedButton(
-                    onClick = onNew,
-                    modifier = Modifier.testTag("chat-new-session"),
+        if (showHeader) {
+            item(key = "header") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(R.string.chat_new_session))
+                    IconButton(onNavigation, modifier = Modifier.testTag("open-navigation")) {
+                        NavigationMenuIcon()
+                    }
+                    Text(
+                        stringResource(if (archivedOnly) R.string.chat_archived_list else R.string.chat_session_header),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onTasks, modifier = Modifier.testTag("background-tasks-open")) {
+                        Text(stringResource(R.string.background_tasks))
+                    }
+                    OutlinedButton(
+                        onClick = onNew,
+                        modifier = Modifier.testTag("chat-new-session"),
+                    ) {
+                        Text(stringResource(R.string.chat_new_session))
+                    }
                 }
             }
         }
@@ -99,7 +111,11 @@ internal fun SessionListSection(
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth().testTag("chat-session-search-field"),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .focusRequester(searchFocusRequester)
+                        .testTag("chat-session-search-field"),
                 singleLine = true,
             )
         }

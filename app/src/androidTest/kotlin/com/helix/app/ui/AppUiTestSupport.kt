@@ -46,21 +46,17 @@ fun AndroidComposeTestRule<*, *>.resetDeterministicUiState() {
     val container = container()
     container.firstLaunch.reset()
     container.profileStore.switchTo(SafetyProfile.STANDARD)
-    // Clear process-local conversation state before recreation. Production launch now restores
-    // the user's persisted conversation target; this helper intentionally closes that restored
-    // target again afterwards so legacy UI tests can still use the history list as a fixture.
+    // Conversation-first fixture: every UI test starts from a fresh ephemeral conversation.
+    // History/search tests must explicitly navigate to their secondary routes.
     container.chatService.closeSession()
+    container.chatService.newSessionDraft()
+    waitUntil(10_000) { container.chatService.screen.value.isDraft }
     runOnUiThread { activity.recreate() }
     waitForIdle()
     dismissFirstLaunchIfNeeded()
     waitUntil(10_000) {
         container.chatService.screen.value.openSessionId != null &&
-            !container.chatService.screen.value.preparingDraft
-    }
-    container.chatService.closeSession()
-    waitUntil(10_000) {
-        container.chatService.screen.value.openSessionId == null &&
-            onAllNodesWithTag("chat-session-list").fetchSemanticsNodes().isNotEmpty()
+            onAllNodesWithTag("chat-header").fetchSemanticsNodes().isNotEmpty()
     }
 }
 
@@ -97,6 +93,16 @@ private fun editableProviderRow() =
 
 /** Navigates through the production IA. Secondary routes must be reached through their landing. */
 fun AndroidComposeTestRule<*, *>.navigateTo(route: String) {
+    if (route == CONVERSATION_HISTORY_ROUTE || route == CONVERSATION_SEARCH_ROUTE) {
+        navigatePrimary("sessions")
+        onNodeWithTag("open-navigation").performClick()
+        waitForIdle()
+        onNodeWithTag(
+            if (route == CONVERSATION_HISTORY_ROUTE) "drawer-all-conversations" else "drawer-search-conversations",
+        ).performScrollTo().performClick()
+        waitForIdle()
+        return
+    }
     val path =
         when (route) {
             SETUP_READINESS_ROUTE -> {
@@ -148,6 +154,16 @@ private fun AndroidComposeTestRule<*, *>.navigatePrimary(route: String) {
     }
     onNodeWithTag("open-navigation").performClick()
     waitForIdle()
+    if (route == "sessions") {
+        val currentTag = "drawer-current-conversation"
+        if (onAllNodesWithTag(currentTag).fetchSemanticsNodes().isNotEmpty()) {
+            onNodeWithTag(currentTag).performScrollTo().performClick()
+        } else {
+            onNodeWithTag("drawer-new-conversation").performScrollTo().performClick()
+        }
+        waitUntil(10_000) { onAllNodesWithTag("chat-header").fetchSemanticsNodes().isNotEmpty() }
+        return
+    }
     val destinationTag = "navigation-$route"
     val groupTag =
         when (route) {

@@ -31,7 +31,7 @@ class ConversationHeaderDeviceTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
                 MaterialTheme {
-                    AdaptiveConversationHeader("Session", {}, { created++ }) {
+                    AdaptiveConversationHeader("Session", { created++ }) {
                         Column {
                             repeat(30) { index -> Text("Setting $index", Modifier.testTag("setting-$index")) }
                         }
@@ -47,7 +47,6 @@ class ConversationHeaderDeviceTest {
     }
 
     @Test fun narrowHeaderRetainsNavigationAndDetailsAtLargeFont() {
-        var back = 0
         var created = 0
         var navigations = 0
         var renames = 0
@@ -59,7 +58,6 @@ class ConversationHeaderDeviceTest {
                     Column(Modifier.width(240.dp)) {
                         AdaptiveConversationHeader(
                             "A long conversation title that must not displace actions",
-                            { back++ },
                             { created++ },
                             onNavigation = { navigations++ },
                             onRename = { renames++ },
@@ -69,7 +67,7 @@ class ConversationHeaderDeviceTest {
                 }
             }
         }
-        listOf("open-navigation", "chat-back", "chat-conversation-details").forEach { tag ->
+        listOf("open-navigation", "chat-new-session", "chat-conversation-details").forEach { tag ->
             compose.onNodeWithTag(tag).assertIsDisplayed()
             val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
             assertTrue(bounds.left >= 0.dp && bounds.right <= 240.dp)
@@ -80,25 +78,19 @@ class ConversationHeaderDeviceTest {
         }
         val title = compose.onNodeWithTag("chat-title").getUnclippedBoundsInRoot()
         assertTrue("Secondary actions must leave a usable title", title.right - title.left >= 80.dp)
-        compose.onNodeWithTag("chat-new-session").assertDoesNotExist()
         compose.onNodeWithTag("background-tasks-open").assertDoesNotExist()
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("open-navigation").performClick()
         compose.onNodeWithTag("chat-title").performClick()
-        compose.onNodeWithTag("chat-back").performClick()
+        compose.onNodeWithTag("chat-new-session").performClick()
         compose.runOnIdle {
             assertEquals(1, navigations)
             assertEquals(1, renames)
-            assertEquals(1, back)
-            assertEquals(0, created)
+            assertEquals(1, created)
         }
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithText("Session settings fixture").assertIsDisplayed()
         compose.onNodeWithTag("chat-conversation-details-close").performClick()
-        compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
-        compose.onNodeWithTag("chat-conversation-details").performClick()
-        compose.onNodeWithTag("chat-new-session").performClick()
-        compose.runOnIdle { assertEquals(1, created) }
         compose.onNodeWithText("Session settings fixture").assertDoesNotExist()
         compose.onNodeWithTag("chat-conversation-details").performClick()
         compose.onNodeWithTag("background-tasks-open").assertIsDisplayed().performClick()

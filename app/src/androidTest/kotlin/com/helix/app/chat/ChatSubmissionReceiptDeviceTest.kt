@@ -96,12 +96,11 @@ class ChatSubmissionReceiptDeviceTest {
         }
 
     @Test
-    fun leavingANewSessionImmediatelySavesItsComposerBeforeNavigation() =
+    fun switchingToANewConversationSavesThePreviousComposerBeforeNavigation() =
         runBlocking {
             compose.resetDeterministicUiState()
             val container = compose.container()
             val chat = container.chatService
-            chat.newSessionDraft()
             compose.waitUntil(10_000) { chat.screen.value.isDraft }
             val session = requireNotNull(chat.screen.value.openSessionId)
             compose.waitUntil(10_000) {
@@ -110,8 +109,11 @@ class ChatSubmissionReceiptDeviceTest {
                 } == true
             }
             compose.onNodeWithTag("chat-input").performTextInput("Keep this new draft")
-            compose.onNodeWithTag("chat-back").performClick()
-            compose.waitUntil(10_000) { chat.screen.value.openSessionId == null }
+            compose.onNodeWithTag("chat-input").assertTextEquals("Keep this new draft")
+            compose.onNodeWithTag("chat-new-session").performClick()
+            compose.waitUntil(10_000) {
+                chat.screen.value.isDraft && chat.screen.value.openSessionId != session
+            }
             assertEquals("Keep this new draft", chat.loadComposerDraft(session)?.text)
             assertTrue(
                 container.storage.turns

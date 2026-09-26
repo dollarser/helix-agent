@@ -7,6 +7,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -25,11 +26,7 @@ class ConversationTopBarDeviceTest {
     @Test fun conversationOwnsTheTopAndNavigationRemainsReachable() {
         compose.resetDeterministicUiState()
         val chat = compose.container().chatService
-        chat.closeSession()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
         compose.onNodeWithTag("shell-top-bar").assertDoesNotExist()
-        compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
         compose.onNodeWithTag("shell-top-bar").assertDoesNotExist()
         val page = compose.onNodeWithTag("screen-sessions").getUnclippedBoundsInRoot()
@@ -51,26 +48,29 @@ class ConversationTopBarDeviceTest {
         compose.onNodeWithTag("shell-top-bar").assertIsDisplayed()
         compose.navigateTo("sessions")
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
-        compose.onNodeWithTag("chat-back").performClick()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.openSessionId == null }
+        compose.onNodeWithTag("chat-back").assertDoesNotExist()
+        compose.navigateTo(CONVERSATION_HISTORY_ROUTE)
         compose.onNodeWithTag("chat-session-list").assertIsDisplayed()
-        compose.onNodeWithTag("open-navigation").assertIsDisplayed()
+        compose.onNodeWithTag("navigate-back").assertIsDisplayed()
+        compose.onNodeWithTag("open-navigation").assertDoesNotExist()
+        compose.onNodeWithTag("navigate-back").performClick()
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            compose.onAllNodesWithTag("chat-header").fetchSemanticsNodes().isNotEmpty()
+        }
+        val beforeNew = chat.screen.value.openSessionId
         compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
+        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
+            chat.screen.value.isDraft && chat.screen.value.openSessionId != beforeNew
+        }
         compose.onNodeWithTag("chat-conversation-details").performClick()
-        compose.onNodeWithTag("chat-new-session").performClick()
+        assertEquals(1, compose.onAllNodesWithTag("chat-new-session").fetchSemanticsNodes().size)
+        compose.onNodeWithTag("chat-conversation-details-close").performClick()
         compose.onNodeWithTag("chat-header").assertIsDisplayed()
         chat.closeSession()
     }
 
     @Test fun destinationHeadersAndRealExtensionsAreReachable() {
         compose.resetDeterministicUiState()
-        compose.onNodeWithTag("chat-new-session").performClick()
-        compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) {
-            compose
-                .container()
-                .chatService.screen.value.isDraft
-        }
         val chatBounds = compose.onNodeWithTag("chat-header").getUnclippedBoundsInRoot()
         val height = chatBounds.bottom - chatBounds.top
         listOf("files", "browser", "models", "extensions", "setup", "settings").forEach { route ->
@@ -102,7 +102,6 @@ class ConversationTopBarDeviceTest {
         runBlocking {
             compose.resetDeterministicUiState()
             val chat = compose.container().chatService
-            chat.newSessionDraft()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val id = requireNotNull(chat.screen.value.openSessionId)
             assertTrue(chat.saveDraftForGoal("Archive label fixture"))
@@ -115,6 +114,7 @@ class ConversationTopBarDeviceTest {
             chat.closeSession()
             chat.archiveSession(id)
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.sessions.value.any { it.id == id && it.isArchived } }
+            compose.navigateTo(CONVERSATION_HISTORY_ROUTE)
             compose.onNodeWithTag("chat-session-$id").assertDoesNotExist()
             compose.onNodeWithTag("chat-archive-list-toggle").performClick()
             assertTrue(
@@ -149,7 +149,6 @@ class ConversationTopBarDeviceTest {
             val container = compose.container()
             val chat = container.chatService
             val storage = container.storage
-            chat.newSessionDraft()
             compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.isDraft }
             val id = requireNotNull(chat.screen.value.openSessionId)
             compose.onNodeWithTag("chat-title").performClick()
@@ -165,7 +164,9 @@ class ConversationTopBarDeviceTest {
                 compose.waitUntil(ASYNC_UI_TIMEOUT_MILLIS) { chat.screen.value.sessionTitle == "My chosen title" }
             } finally {
                 chat.closeSession()
-                storage.sessions.archive(id, System.currentTimeMillis())
+                if (storage.sessions.find(id)?.archivedAt == null) {
+                    storage.sessions.archive(id, System.currentTimeMillis())
+                }
             }
         }
 }

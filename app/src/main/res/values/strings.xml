@@ -1335,6 +1335,13 @@
     <string name="nav_group_work">工作</string>
     <string name="nav_group_configure">配置</string>
     <string name="nav_group_settings">设置与管理</string>
+    <string name="drawer_new_conversation">新会话</string>
+    <string name="drawer_search_conversations">搜索会话</string>
+    <string name="drawer_current_conversation">当前会话</string>
+    <string name="drawer_recent">最近</string>
+    <string name="drawer_all_conversations">全部会话</string>
+    <string name="conversation_history_title">全部会话</string>
+    <string name="conversation_search_title">搜索会话</string>
     <string name="connector_session_title">会话 Connector</string>
     <string name="connector_session_hint">只影响本会话后续使用；历史保留。共享 Skill 若有其他有效来源仍可使用。</string>
     <string name="connector_session_empty">尚未安装 Connector，请前往扩展添加。</string>

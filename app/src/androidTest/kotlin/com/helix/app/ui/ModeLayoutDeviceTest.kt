@@ -61,7 +61,6 @@ class ModeLayoutDeviceTest {
 
     private fun intents() =
         ConversationIntents(
-            onBack = {},
             onSend = {},
             onStop = {},
             onDismissBlocked = {},

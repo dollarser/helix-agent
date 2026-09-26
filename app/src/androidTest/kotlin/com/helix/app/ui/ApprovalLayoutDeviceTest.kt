@@ -110,7 +110,6 @@ private fun ApprovalLayoutContent(
             com.helix.app.chat
                 .ToolTimelineRow("turn", "call", "write", "{}", "待审批", null, card),
             ConversationIntents(
-                onBack = {},
                 onSend = {},
                 onStop = {},
                 onDismissBlocked = {},
