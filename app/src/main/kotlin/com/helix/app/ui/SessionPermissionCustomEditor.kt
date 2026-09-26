@@ -115,8 +115,9 @@ private fun RuleRow(
 /** The localized label for a mode. Tool/schema/enum names are never translated. */
 internal fun SessionPermissionMode.labelRes(): Int =
     when (this) {
+        SessionPermissionMode.APPROVAL_REQUIRED -> R.string.settings_perm_mode_approval_required
+        SessionPermissionMode.WORKSPACE_TRUSTED -> R.string.settings_perm_mode_workspace_trusted
         SessionPermissionMode.FULL_ACCESS -> R.string.settings_perm_mode_full_access
-        SessionPermissionMode.WORKSPACE -> R.string.settings_perm_mode_workspace
         SessionPermissionMode.READ_ONLY -> R.string.settings_perm_mode_read_only
         SessionPermissionMode.CUSTOM -> R.string.settings_perm_mode_custom
     }

@@ -51,7 +51,7 @@ import kotlin.time.Duration.Companion.seconds
  *   the proof is the plan's APPROVED state + the PlanExecutionBinding + the audit trail, not a tool
  *   approval;
  * - a plan session under the FULL_ACCESS preset runs a mutation card-free (Succeeded, no card);
- * - a plan session under READ_ONLY still ASKs for a mutation (an approval card is created — the plan
+ * - a plan session under APPROVAL_REQUIRED still ASKs for a mutation (an approval card is created — the plan
  *   approval did not auto-allow it) and a denial stops it;
  * - a plan session with the tool DISABLED refuses it with TOOL_DISABLED even under FULL_ACCESS —
  *   the plan approval does not override the two-state availability.
@@ -145,12 +145,12 @@ class PlanAuthorizationLinkageDeviceTest {
     }
 
     @Test
-    fun aPlanSessionUnderReadOnlyStillAsksForAMutation() {
+    fun aPlanSessionUnderApprovalRequiredStillAsksForAMutation() {
         val executions = AtomicInteger()
         registerFreshTool(executions)
         approveAPlanInSession()
-        // READ_ONLY resolves the fixture's device mutation to ASK; the approved plan does not change it.
-        saveConfig(SessionPermissionMode.READ_ONLY, System.currentTimeMillis())
+        // APPROVAL_REQUIRED resolves the fixture's device mutation to ASK; the approved plan does not change it.
+        saveConfig(SessionPermissionMode.APPROVAL_REQUIRED, System.currentTimeMillis())
         val handle = dispatchOnThread("pa-call-ro-$run", "pa-turn-ro-$run")
         // An approval card IS created — the plan approval did not auto-allow the mutation.
         val approvalId = approvalIdOf("pa-call-ro-$run")
@@ -158,7 +158,7 @@ class PlanAuthorizationLinkageDeviceTest {
         val outcome = handle.join() as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, outcome.code)
         assertEquals(
-            "READ_ONLY still ASKs a mutation even with an approved plan; a denial stops it",
+            "APPROVAL_REQUIRED still ASKs a mutation even with an approved plan; a denial stops it",
             0,
             executions.get(),
         )

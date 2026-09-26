@@ -32,14 +32,14 @@ class SessionPermissionConfigRepositoryTest {
         val revision =
             repository.setForSession(
                 "session-1",
-                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
                 100L,
             )
         assertEquals(1L, revision)
         val stored = repository.forSession("session-1")
-        assertEquals(SessionPermissionMode.WORKSPACE, stored?.mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, stored?.mode)
         assertEquals(
-            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE),
+            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE_TRUSTED),
             stored?.rules,
         )
         val row = configDao.rows.values.single()
@@ -49,24 +49,24 @@ class SessionPermissionConfigRepositoryTest {
 
     @Test
     fun setForSessionAdvancesTheRevisionAndKeepsTheCreationTime() {
-        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 100L)
+        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED), 100L)
         val revision =
             repository.setForSession(
                 "session-1",
-                SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+                SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
                 200L,
             )
         assertEquals(2L, revision)
         val row = configDao.rows.values.single()
         assertEquals(100L, row.createdAtEpoch)
         assertEquals(200L, row.updatedAtEpoch)
-        assertEquals(SessionPermissionMode.READ_ONLY, repository.forSession("session-1")?.mode)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, repository.forSession("session-1")?.mode)
     }
 
     @Test
     fun setForSessionAcceptsAnExplicitCustomSnapshot() {
         val snapshot =
-            SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY).toMutableMap().apply {
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.APPROVAL_REQUIRED).toMutableMap().apply {
                 put(OperationEffect.FILE_MUTATION_WORKSPACE, OperationRule.DENY)
             }
         repository.setForSession("session-1", SessionPermissionConfig.custom(snapshot), 100L)
@@ -78,8 +78,8 @@ class SessionPermissionConfigRepositoryTest {
     fun setForSessionRejectsAPresetCarryingAForeignRuleTable() {
         val foreign =
             SessionPermissionConfig(
-                SessionPermissionMode.WORKSPACE,
-                SessionPermissionConfig.presetRules(SessionPermissionMode.READ_ONLY),
+                SessionPermissionMode.WORKSPACE_TRUSTED,
+                SessionPermissionConfig.presetRules(SessionPermissionMode.APPROVAL_REQUIRED),
             )
         assertThrows("a preset mode must carry its exact preset rule table") {
             repository.setForSession("session-1", foreign, 100L)
@@ -89,36 +89,36 @@ class SessionPermissionConfigRepositoryTest {
 
     @Test
     fun resetToDefaultStoresAnIndependentSnapshot() {
-        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 100L)
+        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED), 100L)
         repository.resetToDefault("session-1")
-        assertEquals(SessionPermissionMode.READ_ONLY, repository.forSession("session-1")?.mode)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, repository.forSession("session-1")?.mode)
         repository.setAppDefault(SessionPermissionMode.FULL_ACCESS, 200L)
-        assertEquals(SessionPermissionMode.READ_ONLY, repository.forSession("session-1")?.mode)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, repository.forSession("session-1")?.mode)
         repository.resetToDefault("session-1", 300L)
         assertEquals(SessionPermissionMode.FULL_ACCESS, repository.forSession("session-1")?.mode)
     }
 
     @Test
-    fun appDefaultWithoutARowIsTheCompiledReadOnlyDefault() {
+    fun appDefaultWithoutARowIsTheCompiledApprovalRequiredDefault() {
         val appDefault = repository.appDefault()
-        assertEquals(SessionPermissionMode.READ_ONLY, appDefault.mode)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, appDefault.mode)
         assertEquals(
-            SessionPermissionConfig.presetRules(SessionPermissionMode.READ_ONLY),
+            SessionPermissionConfig.presetRules(SessionPermissionMode.APPROVAL_REQUIRED),
             appDefault.rules,
         )
     }
 
     @Test
     fun appDefaultReadsTheStoredPresetRow() {
-        assertEquals(1L, repository.setAppDefault(SessionPermissionMode.WORKSPACE, 10L))
+        assertEquals(1L, repository.setAppDefault(SessionPermissionMode.WORKSPACE_TRUSTED, 10L))
         val appDefault = repository.appDefault()
-        assertEquals(SessionPermissionMode.WORKSPACE, appDefault.mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, appDefault.mode)
         assertEquals(
-            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE),
+            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE_TRUSTED),
             appDefault.rules,
         )
-        assertEquals(2L, repository.setAppDefault(SessionPermissionMode.READ_ONLY, 20L))
-        assertEquals(SessionPermissionMode.READ_ONLY, repository.appDefault().mode)
+        assertEquals(2L, repository.setAppDefault(SessionPermissionMode.APPROVAL_REQUIRED, 20L))
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, repository.appDefault().mode)
     }
 
     @Test
@@ -131,26 +131,26 @@ class SessionPermissionConfigRepositoryTest {
     @Test
     fun changingTheAppDefaultLeavesASessionWithAStoredConfigUntouched() {
         // an existing session pinned an explicit config
-        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 10L)
+        repository.setForSession("session-1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED), 10L)
         // a later change to the new-session default must not rewrite it
-        repository.setAppDefault(SessionPermissionMode.READ_ONLY, 20L)
-        assertEquals(SessionPermissionMode.WORKSPACE, repository.forSession("session-1")?.mode)
+        repository.setAppDefault(SessionPermissionMode.APPROVAL_REQUIRED, 20L)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, repository.forSession("session-1")?.mode)
         assertEquals(
-            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE),
+            SessionPermissionConfig.presetRules(SessionPermissionMode.WORKSPACE_TRUSTED),
             repository.forSession("session-1")?.rules,
         )
     }
 
     @Test
     fun readingTheNewSessionDefaultDoesNotMaterializeAnySession() {
-        // fresh install: no default row, no session row -> compiled READ_ONLY
+        // fresh install: no default row, no session row -> compiled APPROVAL_REQUIRED
         assertNull(repository.forSession("session-new"))
-        assertEquals(SessionPermissionMode.READ_ONLY, repository.appDefault().mode)
-        // the new-session default is changed to WORKSPACE
-        repository.setAppDefault(SessionPermissionMode.WORKSPACE, 20L)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, repository.appDefault().mode)
+        // the new-session default is changed to WORKSPACE_TRUSTED
+        repository.setAppDefault(SessionPermissionMode.WORKSPACE_TRUSTED, 20L)
         // This repository read alone creates no session. SessionRepository snapshots on creation.
         assertNull(repository.forSession("session-new"))
-        assertEquals(SessionPermissionMode.WORKSPACE, repository.appDefault().mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, repository.appDefault().mode)
     }
 
     @Test
@@ -161,12 +161,12 @@ class SessionPermissionConfigRepositoryTest {
     @Test
     fun setCustomDraftStoresTheCopiedSnapshotAndStaysInert() {
         val snapshot =
-            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE).toMutableMap().apply {
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE_TRUSTED).toMutableMap().apply {
                 put(OperationEffect.REMOTE_BUSINESS_MUTATION, OperationRule.ASK)
             }
-        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE, snapshot, 100L)
+        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE_TRUSTED, snapshot, 100L)
         val draft = repository.customDraftFor("session-1")
-        assertEquals(SessionPermissionMode.WORKSPACE, draft?.sourcePreset)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, draft?.sourcePreset)
         assertEquals(snapshot, draft?.rules)
         assertEquals(SessionPermissionConfig.CURRENT_CONFIG_VERSION, draft?.configVersion)
         assertEquals(100L, draft?.updatedAtEpoch)
@@ -176,8 +176,8 @@ class SessionPermissionConfigRepositoryTest {
 
     @Test
     fun setCustomDraftKeepsTheCreationTimeAndAdvancesTheUpdate() {
-        repository.setCustomDraft("session-1", SessionPermissionMode.READ_ONLY, emptyMap(), 100L)
-        repository.setCustomDraft("session-1", SessionPermissionMode.READ_ONLY, emptyMap(), 200L)
+        repository.setCustomDraft("session-1", SessionPermissionMode.APPROVAL_REQUIRED, emptyMap(), 100L)
+        repository.setCustomDraft("session-1", SessionPermissionMode.APPROVAL_REQUIRED, emptyMap(), 200L)
         val row = draftDao.rows.values.single()
         assertEquals(100L, row.createdAtEpoch)
         assertEquals(200L, row.updatedAtEpoch)
@@ -193,7 +193,7 @@ class SessionPermissionConfigRepositoryTest {
 
     @Test
     fun clearCustomDraftRemovesTheRow() {
-        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE, emptyMap(), 100L)
+        repository.setCustomDraft("session-1", SessionPermissionMode.WORKSPACE_TRUSTED, emptyMap(), 100L)
         repository.clearCustomDraft("session-1")
         assertNull(repository.customDraftFor("session-1"))
     }

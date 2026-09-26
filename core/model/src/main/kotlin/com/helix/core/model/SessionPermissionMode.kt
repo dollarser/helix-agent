@@ -3,34 +3,26 @@ package com.helix.core.model
 /**
  * The session authorization mode chosen by the user (ADR-PERMISSIONS-001 section 1).
  *
- * Only a user UI action can select a mode (ADR section 4); the model, web pages, MCP, Skill and
- * scripts never modify it. The mode is stored per session and compiles — together with the
- * CUSTOM rule snapshot — into ONE [com.helix.core.policy.SessionPermissionConfig] consumed by
- * the single permission resolver: there is no separate execution chain per mode (ADR section 2
- * step 4).
+ * Only a user UI action can select a mode. The model, web pages, MCP, Skill and scripts never
+ * modify it. Every preset compiles into ONE [com.helix.core.policy.SessionPermissionConfig]
+ * consumed by the same resolver; [CUSTOM] is the user's explicit ALLOW/ASK/DENY snapshot.
  *
- * - [FULL_ACCESS]: every operation the app can actually perform, including networking,
- *   outside-workspace file operations, commands and device operations. Risk levels still
- *   inform display, audit and anomaly analysis, but never re-gate an authorized operation.
- * - [WORKSPACE]: file operations inside the bound workspace, networking (including the remote
- *   business writes a user task needs), and operations whose local side effects provably stay
- *   inside the workspace; outside-workspace file access, device/system operations and
- *   commands with undetermined side effects ask.
- * - [READ_ONLY]: local read-only operations within the effective read scope, plus network
- *   queries, browsing and reads; local file mutation, remote business writes, commands and
- *   device modifications all ask. Read-only describes the operation effect, not the HTTP
- *   method: a remote post or delete is still a business write.
- * - [CUSTOM]: the user's explicit per-operation-category ALLOW/ASK/DENY rules, copied from a
- *   preset and then edited. The copy is a FIXED snapshot — it never inherits later preset
- *   changes.
- *
- * The explicit `rm -rf` command rule (ADR section 3) requires at least a precise one-time
- * approval in EVERY mode, including [FULL_ACCESS]; the rule feeds the resolver and is not a
- * sixth mode.
+ * - [APPROVAL_REQUIRED]: the default. Workspace reads proceed; external reads and every mutation,
+ *   command, remote business write or device/system mutation ask.
+ * - [WORKSPACE_TRUSTED]: workspace reads and mutations proceed; external file effects, commands,
+ *   remote business writes and device/system mutations ask.
+ * - [FULL_ACCESS]: every ordinary effect the app can actually perform is allowed by the session
+ *   config. Global capability/integrity invariants and the explicit destructive-command rule
+ *   remain in force.
+ * - [READ_ONLY]: workspace reads proceed and external reads ask; mutations, commands, remote
+ *   business writes and device/system mutations are DENIED, never downgraded to one-time approval.
+ * - [CUSTOM]: the user's explicit per-operation-category ALLOW/ASK/DENY rules copied from a preset
+ *   and then edited.
  */
 enum class SessionPermissionMode {
+    APPROVAL_REQUIRED,
+    WORKSPACE_TRUSTED,
     FULL_ACCESS,
-    WORKSPACE,
     READ_ONLY,
     CUSTOM,
 }

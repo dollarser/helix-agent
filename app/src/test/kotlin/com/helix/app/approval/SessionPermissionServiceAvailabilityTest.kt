@@ -136,7 +136,7 @@ class SessionPermissionServiceAvailabilityTest {
     fun configForFallsBackToTheReadonlyAppDefault() {
         val fx = Fixture()
         // no defaults row, no session row: the compiled READ_ONLY default (never a widen)
-        assertEquals(SessionPermissionMode.READ_ONLY, fx.service.configFor("s1").mode)
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, fx.service.configFor("s1").mode)
         fx.configs.setForSession("s1", SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS), 1000L)
         assertEquals(SessionPermissionMode.FULL_ACCESS, fx.service.configFor("s1").mode)
     }

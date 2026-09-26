@@ -65,7 +65,7 @@ import java.util.concurrent.TimeUnit
  *    re-test, re-enable) and the same tool name answers again with the readable result.
  *  - tool disabled / operation ask (developer lane): a tool-level disable is refused at every
  *    surface (schema, discovery, execution entry) before any card even under FULL_ACCESS; under
- *    READ_ONLY the same un-determined remote operation instead ASKS for an approval card, which a
+ *    APPROVAL_REQUIRED the same undetermined remote operation instead ASKS for an approval card, which a
  *    denial refuses.
  *  - actual scope after restart: two explicit `am instrument` invocations (seed then recover,
  *    separated by a force-stop in the driver) prove skill enablement and the session permission mode
@@ -734,7 +734,7 @@ class ExtensionJourneyDeviceTest {
     }
 
     @Test
-    fun anMcpOperationAsksForApprovalUnderReadOnly() {
+    fun anMcpOperationAsksForApprovalUnderApprovalRequired() {
         assumeTrue(
             "an enabled loopback MCP tool needs the developer lane",
             AdvancedProfileAvailability.ADVANCED_AVAILABLE,
@@ -748,8 +748,8 @@ class ExtensionJourneyDeviceTest {
             advancedLoopbackLane(mcp.port) {
                 handshakeAndEnable(serverId)
                 val toolFullName = mcpToolFullName(serverId)
-                // READ_ONLY: an MCP origin is an UNDETERMINED remote mutation, so the ONE resolver ASKS.
-                saveConfig(sessionId, SessionPermissionMode.READ_ONLY)
+                // APPROVAL_REQUIRED: an MCP origin is an undetermined remote mutation, so the ONE resolver ASKS.
+                saveConfig(sessionId, SessionPermissionMode.APPROVAL_REQUIRED)
                 val handle =
                     dispatchOnThread(
                         sessionId,
@@ -804,7 +804,7 @@ class ExtensionJourneyDeviceTest {
         connectorService.setSkillEnabled(installed.skills.single(), true)
         // A non-default session permission mode is also a durable row keyed by the session.
         val sessionId = newSession("restart")
-        saveConfig(sessionId, SessionPermissionMode.READ_ONLY)
+        saveConfig(sessionId, SessionPermissionMode.APPROVAL_REQUIRED)
         Files.write(markerPath(), "${installed.id}\n${Process.myPid()}\n$sessionId\n".toByteArray())
         assertTrue(
             "the seed phase must have enabled the persisted skill",
@@ -841,7 +841,7 @@ class ExtensionJourneyDeviceTest {
             )
             // The session permission mode is persisted -> it is still the non-default mode.
             assertEquals(
-                SessionPermissionMode.READ_ONLY,
+                SessionPermissionMode.APPROVAL_REQUIRED,
                 container.sessionPermissionEdit.activeConfigFor(lines[2])?.mode,
             )
         } finally {

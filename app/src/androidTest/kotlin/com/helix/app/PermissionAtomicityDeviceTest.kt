@@ -54,10 +54,10 @@ class PermissionAtomicityDeviceTest {
             storage.sessions.create("old", "old", null, null, 1L)
             edit.setNewSessionDefault(SessionPermissionMode.FULL_ACCESS, 2L)
             storage.sessions.create("new", "new", null, null, 3L)
-            assertEquals(SessionPermissionMode.READ_ONLY, edit.activeConfigFor("old")?.mode)
+            assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, edit.activeConfigFor("old")?.mode)
             assertEquals(SessionPermissionMode.FULL_ACCESS, edit.activeConfigFor("new")?.mode)
             edit.resetSessionToDefault("old", 4L)
-            edit.setNewSessionDefault(SessionPermissionMode.WORKSPACE, 5L)
+            edit.setNewSessionDefault(SessionPermissionMode.WORKSPACE_TRUSTED, 5L)
             assertEquals(SessionPermissionMode.FULL_ACCESS, edit.activeConfigFor("old")?.mode)
         }
 
@@ -71,15 +71,15 @@ class PermissionAtomicityDeviceTest {
                     edit.saveSessionConfig("s", SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS), 2L)
                 }.isFailure,
             )
-            assertEquals(SessionPermissionMode.READ_ONLY, edit.activeConfigFor("s")?.mode)
+            assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, edit.activeConfigFor("s")?.mode)
             assertTrue(runCatching { edit.setNewSessionDefault(SessionPermissionMode.FULL_ACCESS, 3L) }.isFailure)
-            assertEquals(SessionPermissionMode.READ_ONLY, edit.appDefault().mode)
+            assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, edit.appDefault().mode)
             assertTrue(
                 runCatching {
                     edit.saveCustomDraft(
                         "s",
-                        SessionPermissionMode.READ_ONLY,
-                        SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY),
+                        SessionPermissionMode.APPROVAL_REQUIRED,
+                        SessionPermissionConfig.copyPreset(SessionPermissionMode.APPROVAL_REQUIRED),
                         4L,
                     )
                 }.isFailure,
@@ -94,8 +94,8 @@ class PermissionAtomicityDeviceTest {
             val edit = service(storage)
             edit.saveCustomDraft(
                 "s",
-                SessionPermissionMode.READ_ONLY,
-                SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY),
+                SessionPermissionMode.APPROVAL_REQUIRED,
+                SessionPermissionConfig.copyPreset(SessionPermissionMode.APPROVAL_REQUIRED),
                 2L,
             )
             edit.activateCustomDraft("s", 3L)

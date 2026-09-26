@@ -11,7 +11,7 @@ import org.junit.Test
 
 /**
  * HXA-209 B: the single session permission config and unified resolver
- * (ADR-PERMISSIONS-001). The three presets and CUSTOM compile to ONE config shape and share
+ * (ADR-PERMISSIONS-001). The four presets and CUSTOM compile to ONE config shape and share
  * ONE resolver: multiple effects merge DENY > ASK > ALLOW, an undetermined effect touching a
  * DENY refuses outright (never downgraded to ASK), the rm -rf command rule adds a precise
  * one-time approval in every mode, and tool availability is two-state with outer disable
@@ -19,7 +19,8 @@ import org.junit.Test
  */
 class SessionPermissionPolicyTest {
     private val fullAccess = SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS)
-    private val workspace = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE)
+    private val workspace = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED)
+    private val approvalRequired = SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED)
     private val readOnly = SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY)
 
     // --- preset compilation -------------------------------------------------
@@ -32,23 +33,36 @@ class SessionPermissionPolicyTest {
     }
 
     @Test
-    fun `workspace preset allows inside file and remote mutation, asks the rest`() {
+    fun `workspace trusted allows workspace file effects and asks the rest`() {
         assertEquals(OperationRule.ALLOW, workspace.ruleFor(OperationEffect.FILE_READ_WORKSPACE))
         assertEquals(OperationRule.ALLOW, workspace.ruleFor(OperationEffect.FILE_MUTATION_WORKSPACE))
-        assertEquals(OperationRule.ALLOW, workspace.ruleFor(OperationEffect.REMOTE_BUSINESS_MUTATION))
         assertEquals(OperationRule.ASK, workspace.ruleFor(OperationEffect.FILE_READ_EXTERNAL))
         assertEquals(OperationRule.ASK, workspace.ruleFor(OperationEffect.FILE_MUTATION_EXTERNAL))
+        assertEquals(OperationRule.ASK, workspace.ruleFor(OperationEffect.REMOTE_BUSINESS_MUTATION))
         assertEquals(OperationRule.ASK, workspace.ruleFor(OperationEffect.DEVICE_SYSTEM_MUTATION))
         assertEquals(OperationRule.ASK, workspace.ruleFor(OperationEffect.COMMAND_EXECUTION))
     }
 
     @Test
-    fun `read only preset allows only the workspace read`() {
-        assertEquals(OperationRule.ALLOW, readOnly.ruleFor(OperationEffect.FILE_READ_WORKSPACE))
+    fun `approval required allows workspace reads and asks every other effect`() {
+        assertEquals(OperationRule.ALLOW, approvalRequired.ruleFor(OperationEffect.FILE_READ_WORKSPACE))
         OperationEffect
             .values()
             .filter { it != OperationEffect.FILE_READ_WORKSPACE }
-            .forEach { effect -> assertEquals(OperationRule.ASK, readOnly.ruleFor(effect)) }
+            .forEach { effect -> assertEquals(OperationRule.ASK, approvalRequired.ruleFor(effect)) }
+    }
+
+    @Test
+    fun `read only asks for external read and denies every mutation or command effect`() {
+        assertEquals(OperationRule.ALLOW, readOnly.ruleFor(OperationEffect.FILE_READ_WORKSPACE))
+        assertEquals(OperationRule.ASK, readOnly.ruleFor(OperationEffect.FILE_READ_EXTERNAL))
+        listOf(
+            OperationEffect.FILE_MUTATION_WORKSPACE,
+            OperationEffect.FILE_MUTATION_EXTERNAL,
+            OperationEffect.REMOTE_BUSINESS_MUTATION,
+            OperationEffect.DEVICE_SYSTEM_MUTATION,
+            OperationEffect.COMMAND_EXECUTION,
+        ).forEach { effect -> assertEquals(OperationRule.DENY, readOnly.ruleFor(effect)) }
     }
 
     @Test
@@ -74,18 +88,21 @@ class SessionPermissionPolicyTest {
 
     @Test
     fun `copying a preset materializes a fixed editable snapshot`() {
-        val snapshot = SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY).toMutableMap()
-        assertEquals(readOnly.rules, snapshot)
+        val snapshot = SessionPermissionConfig.copyPreset(SessionPermissionMode.APPROVAL_REQUIRED).toMutableMap()
+        assertEquals(approvalRequired.rules, snapshot)
         snapshot[OperationEffect.COMMAND_EXECUTION] = OperationRule.ALLOW
         val copied = SessionPermissionConfig.custom(snapshot)
         assertEquals(OperationRule.ALLOW, copied.ruleFor(OperationEffect.COMMAND_EXECUTION))
         // The preset definition itself is untouched: no dynamic inheritance either way.
-        assertEquals(OperationRule.ASK, readOnly.ruleFor(OperationEffect.COMMAND_EXECUTION))
+        assertEquals(OperationRule.ASK, approvalRequired.ruleFor(OperationEffect.COMMAND_EXECUTION))
     }
 
     @Test
     fun `an unedited custom copy of a preset resolves exactly like the preset`() {
-        val copied = SessionPermissionConfig.custom(SessionPermissionConfig.copyPreset(SessionPermissionMode.READ_ONLY))
+        val copied =
+            SessionPermissionConfig.custom(
+                SessionPermissionConfig.copyPreset(SessionPermissionMode.APPROVAL_REQUIRED),
+            )
         val footprints =
             listOf(
                 OperationFootprint(setOf(OperationEffect.FILE_READ_WORKSPACE)),
@@ -99,7 +116,7 @@ class SessionPermissionPolicyTest {
             )
         footprints.forEach { footprint ->
             assertEquals(
-                SessionPermissionResolver.resolve(readOnly, footprint, false),
+                SessionPermissionResolver.resolve(approvalRequired, footprint, false),
                 SessionPermissionResolver.resolve(copied, footprint, false),
             )
         }
@@ -160,7 +177,7 @@ class SessionPermissionPolicyTest {
     fun `any ask yields one approval carrying the merged reasons`() {
         val resolution =
             SessionPermissionResolver.resolve(
-                readOnly,
+                approvalRequired,
                 OperationFootprint(
                     setOf(
                         OperationEffect.FILE_READ_WORKSPACE,
@@ -384,7 +401,7 @@ class SessionPermissionPolicyTest {
         // depends ONLY on the mode config, so no old ASK/ALLOW state can resurface.
         val before =
             SessionPermissionResolver.resolve(
-                readOnly,
+                approvalRequired,
                 OperationFootprint(setOf(OperationEffect.FILE_MUTATION_WORKSPACE)),
                 false,
             )
@@ -392,7 +409,7 @@ class SessionPermissionPolicyTest {
         effectiveAvailability(session = ToolAvailabilityState.ENABLED)
         val after =
             SessionPermissionResolver.resolve(
-                readOnly,
+                approvalRequired,
                 OperationFootprint(setOf(OperationEffect.FILE_MUTATION_WORKSPACE)),
                 false,
             )
@@ -445,16 +462,21 @@ class SessionPermissionPolicyTest {
     @Test
     fun `a mode switch to a strictly tighter preset tightens`() {
         assertTrue(workspace.tightens(fullAccess))
+        assertTrue(approvalRequired.tightens(workspace))
+        assertTrue(readOnly.tightens(approvalRequired))
         assertTrue(readOnly.tightens(workspace))
         assertTrue(readOnly.tightens(fullAccess))
     }
 
     @Test
     fun `a mode switch that loosens any effect is not a tightening`() {
-        // FULL_ACCESS allows everything, so it never tightens; WORKSPACE is looser than READ_ONLY.
+        // FULL_ACCESS allows everything; wider presets cannot tighten a stricter one.
         assertTrue(!fullAccess.tightens(workspace))
+        assertTrue(!fullAccess.tightens(approvalRequired))
         assertTrue(!fullAccess.tightens(readOnly))
+        assertTrue(!workspace.tightens(approvalRequired))
         assertTrue(!workspace.tightens(readOnly))
+        assertTrue(!approvalRequired.tightens(readOnly))
     }
 
     @Test

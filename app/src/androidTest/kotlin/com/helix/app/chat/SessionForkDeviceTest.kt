@@ -37,7 +37,10 @@ class SessionForkDeviceTest {
             assertEquals(listOf("original question", "original answer"), bodies)
             assertTrue(copied.all { it.turnId == null && it.id !in originals.map { row -> row.id } })
             assertEquals(originals.take(2).map { it.contentRef }, copied.map { it.contentRef })
-            assertEquals(SessionPermissionMode.READ_ONLY, storage.sessionPermissionConfigs.forSession("fork")?.mode)
+            assertEquals(
+                SessionPermissionMode.APPROVAL_REQUIRED,
+                storage.sessionPermissionConfigs.forSession("fork")?.mode,
+            )
             assertNull(storage.sessions.resolve("fork").directoryRef)
             assertTrue(storage.turns.listBySession("fork").isEmpty())
             assertEquals(originals, storage.messages.listBySession("s"))

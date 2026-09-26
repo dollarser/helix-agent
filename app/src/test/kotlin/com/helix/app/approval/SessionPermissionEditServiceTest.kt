@@ -44,18 +44,18 @@ class SessionPermissionEditServiceTest {
         val revision =
             fx.service.saveSessionConfig(
                 "s1",
-                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
                 1000L,
             )
         assertEquals(1L, revision)
-        assertEquals(SessionPermissionMode.WORKSPACE, fx.configs.forSession("s1")!!.mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, fx.configs.forSession("s1")!!.mode)
         val audit = fx.audit.single()
         assertEquals(SessionPermissionEditService.TYPE, audit.type)
         assertEquals(SessionPermissionEditService.ACTOR, audit.actor)
         assertEquals("s1", audit.correlationId)
         assertEquals("session_config", audit.action())
-        assertEquals("WORKSPACE", audit.str("mode"))
-        assertEquals("1", audit.str("configVersion"))
+        assertEquals("WORKSPACE_TRUSTED", audit.str("mode"))
+        assertEquals("2", audit.str("configVersion"))
         assertEquals("1", audit.str("revision"))
         assertEquals("1000", audit.str("changedAt"))
     }
@@ -79,7 +79,7 @@ class SessionPermissionEditServiceTest {
         val fx = Fixture()
         val smuggled =
             SessionPermissionConfig(
-                mode = SessionPermissionMode.WORKSPACE,
+                mode = SessionPermissionMode.WORKSPACE_TRUSTED,
                 rules = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.DENY),
                 configVersion = SessionPermissionConfig.CURRENT_CONFIG_VERSION,
             )
@@ -98,23 +98,23 @@ class SessionPermissionEditServiceTest {
         val fx = Fixture()
         fx.service.saveSessionConfig("s1", SessionPermissionConfig.of(SessionPermissionMode.FULL_ACCESS), 1000L)
         fx.service.resetSessionToDefault("s1", 2000L)
-        assertEquals(SessionPermissionMode.READ_ONLY, fx.configs.forSession("s1")?.mode)
-        // the session now resolves to the (unset) app default: READ_ONLY
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, fx.configs.forSession("s1")?.mode)
+        // the session now resolves to the (unset) app default: APPROVAL_REQUIRED
         val audit = fx.audit[1]
         assertEquals("reset_to_default", audit.action())
-        assertEquals("READ_ONLY", audit.str("mode"))
+        assertEquals("APPROVAL_REQUIRED", audit.str("mode"))
         assertEquals("s1", audit.correlationId)
     }
 
     @Test
     fun settingTheNewSessionDefaultStoresItAndAudits() {
         val fx = Fixture()
-        val revision = fx.service.setNewSessionDefault(SessionPermissionMode.WORKSPACE, 1000L)
+        val revision = fx.service.setNewSessionDefault(SessionPermissionMode.WORKSPACE_TRUSTED, 1000L)
         assertEquals(1L, revision)
-        assertEquals(SessionPermissionMode.WORKSPACE, fx.configs.appDefault().mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, fx.configs.appDefault().mode)
         val audit = fx.audit.single()
         assertEquals("app_default", audit.action())
-        assertEquals("WORKSPACE", audit.str("mode"))
+        assertEquals("WORKSPACE_TRUSTED", audit.str("mode"))
         assertEquals(SessionPermissionEditService.TYPE, audit.type)
     }
 
@@ -127,8 +127,8 @@ class SessionPermissionEditServiceTest {
         } catch (expected: IllegalArgumentException) {
             // CUSTOM needs an explicit per-session snapshot
         }
-        // a fresh install's default is still READ_ONLY
-        assertEquals(SessionPermissionMode.READ_ONLY, fx.configs.appDefault().mode)
+        // a fresh install's default is still APPROVAL_REQUIRED
+        assertEquals(SessionPermissionMode.APPROVAL_REQUIRED, fx.configs.appDefault().mode)
         assertTrue(fx.audit.isEmpty())
     }
 
@@ -196,19 +196,19 @@ class SessionPermissionEditServiceTest {
     @Test
     fun savingACustomDraftOnAPresetStaysInertAndAuditsTheDraft() {
         val fx = Fixture()
-        fx.service.saveSessionConfig("s1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE), 1000L)
+        fx.service.saveSessionConfig("s1", SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED), 1000L)
         val rules = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.ASK)
-        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, rules, 2000L)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE_TRUSTED, rules, 2000L)
         // the session is on a preset, so the draft is stored but NOT applied to the active config
-        assertEquals(SessionPermissionMode.WORKSPACE, fx.configs.forSession("s1")!!.mode)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, fx.configs.forSession("s1")!!.mode)
         val draft = fx.configs.customDraftFor("s1")
-        assertEquals(SessionPermissionMode.WORKSPACE, draft?.sourcePreset)
+        assertEquals(SessionPermissionMode.WORKSPACE_TRUSTED, draft?.sourcePreset)
         assertEquals(rules, draft?.rules)
         val audit = fx.audit[1]
         assertEquals("custom_draft", audit.action())
-        assertEquals("WORKSPACE", audit.str("mode"))
-        assertEquals("WORKSPACE", audit.str("sourcePreset"))
-        assertEquals("1", audit.str("configVersion"))
+        assertEquals("WORKSPACE_TRUSTED", audit.str("mode"))
+        assertEquals("WORKSPACE_TRUSTED", audit.str("sourcePreset"))
+        assertEquals("2", audit.str("configVersion"))
         assertEquals("2000", audit.str("changedAt"))
     }
 
@@ -218,14 +218,14 @@ class SessionPermissionEditServiceTest {
         val first = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.DENY)
         fx.service.saveSessionConfig("s1", SessionPermissionConfig.custom(first), 1000L)
         val second = mapOf(OperationEffect.COMMAND_EXECUTION to OperationRule.ASK)
-        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, second, 2000L)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE_TRUSTED, second, 2000L)
         // already CUSTOM: the draft is applied in place, so the active rules never drift
         assertEquals(SessionPermissionMode.CUSTOM, fx.configs.forSession("s1")!!.mode)
         assertEquals(second, fx.configs.forSession("s1")!!.rules)
         val audit = fx.audit[1]
         assertEquals("custom_draft", audit.action())
         assertEquals("CUSTOM", audit.str("mode"))
-        assertEquals("WORKSPACE", audit.str("sourcePreset"))
+        assertEquals("WORKSPACE_TRUSTED", audit.str("sourcePreset"))
     }
 
     @Test
@@ -239,7 +239,7 @@ class SessionPermissionEditServiceTest {
     fun activateCustomDraftAppliesTheStoredSnapshotAndAuditsAConfigChange() {
         val fx = Fixture()
         val rules = mapOf(OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.DENY)
-        fx.service.saveCustomDraft("s1", SessionPermissionMode.READ_ONLY, rules, 1000L)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.APPROVAL_REQUIRED, rules, 1000L)
         assertTrue(fx.service.activateCustomDraft("s1", 2000L))
         assertEquals(SessionPermissionMode.CUSTOM, fx.configs.forSession("s1")!!.mode)
         assertEquals(rules, fx.configs.forSession("s1")!!.rules)
@@ -260,7 +260,7 @@ class SessionPermissionEditServiceTest {
     fun savingACustomDraftDoesNotReEnableADisabledTool() {
         val fx = Fixture()
         fx.service.setToolAvailability("built-in", "fs.write", ToolAvailabilityScope.SESSION, "s1", true, 1000L)
-        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE, emptyMap(), 2000L)
+        fx.service.saveCustomDraft("s1", SessionPermissionMode.WORKSPACE_TRUSTED, emptyMap(), 2000L)
         // a mode/draft change never touches tool availability — the tool stays disabled
         assertEquals(
             ToolAvailabilityState.DISABLED,

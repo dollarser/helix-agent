@@ -50,7 +50,7 @@ class SessionPermissionRecoveryDeviceTest {
             }
             container.sessionPermissionEdit.saveSessionConfig(
                 storedSession,
-                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
                 now,
             )
             // The durable identity of THIS process, readable after the kill via run-as.
@@ -73,7 +73,7 @@ class SessionPermissionRecoveryDeviceTest {
             }
             // The stored config survived the restart (it was not re-seeded back to the default).
             assertEquals(
-                SessionPermissionMode.WORKSPACE,
+                SessionPermissionMode.WORKSPACE_TRUSTED,
                 container.sessionPermissionEdit.activeConfigFor(storedSession)?.mode,
             )
             assertEquals(

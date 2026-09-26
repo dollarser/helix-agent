@@ -75,12 +75,12 @@ class SessionPermissionConfigRepository(
 
     /**
      * The app default config: the stored defaults row (preset mode only), or the compiled
-     * READ_ONLY default when the row is missing (fresh install).
+     * APPROVAL_REQUIRED default when the row is missing (fresh install).
      */
     fun appDefault(): SessionPermissionConfig {
         val entity =
             defaults.byId(SessionPermissionDefaultsEntity.DEFAULTS_ROW_ID)
-                ?: return SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY)
+                ?: return SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED)
         val mode = SessionPermissionMode.valueOf(entity.mode)
         require(mode != SessionPermissionMode.CUSTOM) { "the app default must not be CUSTOM" }
         return SessionPermissionConfig(

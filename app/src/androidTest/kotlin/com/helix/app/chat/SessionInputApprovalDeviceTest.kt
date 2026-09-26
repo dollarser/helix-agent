@@ -192,7 +192,7 @@ class SessionInputApprovalDeviceTest {
             try {
                 container.sessionPermissionEdit.saveSessionConfig(
                     session,
-                    SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+                    SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
                     System.currentTimeMillis(),
                 )
                 server.scriptedChat = { body ->

@@ -42,12 +42,12 @@ class ProductFileJourneyDeviceTest {
         )
 
     @Test
-    fun workspacePresetCompletesTheSameFileTaskWithoutApprovalCards() =
-        journey(SessionPermissionMode.WORKSPACE, "workspacePresetCompletesTheSameFileTaskWithoutApprovalCards")
+    fun workspaceTrustedCompletesTheSameFileTaskWithoutApprovalCards() =
+        journey(SessionPermissionMode.WORKSPACE_TRUSTED, "workspaceTrustedCompletesTheSameFileTaskWithoutApprovalCards")
 
     @Test
-    fun readOnlyPresetApprovesTheMutationOnceThenOpensItsArtifact() =
-        journey(SessionPermissionMode.READ_ONLY, "readOnlyPresetApprovesTheMutationOnceThenOpensItsArtifact")
+    fun approvalRequiredApprovesTheMutationOnceThenOpensItsArtifact() =
+        journey(SessionPermissionMode.APPROVAL_REQUIRED, "approvalRequiredApprovesTheMutationOnceThenOpensItsArtifact")
 
     @Test
     fun customWorkspaceCopyCompletesTheFileTaskWithoutApprovalCards() =
@@ -72,7 +72,7 @@ class ProductFileJourneyDeviceTest {
                     val config =
                         if (mode == SessionPermissionMode.CUSTOM) {
                             SessionPermissionConfig.custom(
-                                SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE),
+                                SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE_TRUSTED),
                             )
                         } else {
                             SessionPermissionConfig.of(mode)
@@ -111,7 +111,7 @@ class ProductFileJourneyDeviceTest {
                     steps++
                     compose.onNodeWithTag("chat-send").performClick()
                     steps++
-                    if (mode == SessionPermissionMode.READ_ONLY) {
+                    if (mode == SessionPermissionMode.APPROVAL_REQUIRED) {
                         compose.waitUntil(30000) {
                             container.storage.turns
                                 .listBySession(session)
@@ -154,7 +154,7 @@ class ProductFileJourneyDeviceTest {
                     val approvals = calls.count { container.storage.approvals.byToolCall(it.id) != null }
                     assertEquals(
                         "Unexpected repeated or missing approval card",
-                        if (mode == SessionPermissionMode.READ_ONLY) 1 else 0,
+                        if (mode == SessionPermissionMode.APPROVAL_REQUIRED) 1 else 0,
                         approvals,
                     )
                     assertEquals("source material\nreviewed result\n", file.readText())
@@ -169,12 +169,8 @@ class ProductFileJourneyDeviceTest {
                         container.storage.artifacts
                             .listByTurn(turn.id)
                             .single { it.relativePath == path }
-                    compose.onNodeWithTag("open-navigation").performClick()
-                    steps++
-                    compose.waitForIdle()
-                    compose.onNodeWithTag("navigation-artifacts").performClick()
-                    steps++
-                    compose.waitForIdle()
+                    compose.navigateTo("artifacts")
+                    steps += 2
                     compose.waitUntil(10000) {
                         compose.onAllNodesWithTag("artifact-file-row-${artifact.id}").fetchSemanticsNodes().isNotEmpty()
                     }

@@ -1102,8 +1102,9 @@
     <!-- HXA-209 D3: session authorization settings (mode picker, new-session default, tool list) -->
     <string name="settings_perm_title">会话授权</string>
     <string name="settings_perm_default_label">新会话默认模式</string>
+    <string name="settings_perm_mode_approval_required">需要批准</string>
+    <string name="settings_perm_mode_workspace_trusted">信任工作区</string>
     <string name="settings_perm_mode_full_access">完全访问</string>
-    <string name="settings_perm_mode_workspace">工作区</string>
     <string name="settings_perm_mode_read_only">只读</string>
     <string name="settings_perm_mode_custom">自定义</string>
     <string name="settings_perm_session_label">当前会话模式</string>

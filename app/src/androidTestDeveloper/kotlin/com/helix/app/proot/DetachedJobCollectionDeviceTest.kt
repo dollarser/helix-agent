@@ -147,7 +147,7 @@ class DetachedJobCollectionDeviceTest {
             assertEquals(f.owner, f.ownership.retainedOwner())
             f.storage.sessionPermissionConfigs.setForSession(
                 f.job.binding.sessionId,
-                SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+                SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
                 2,
             )
             assertTrue(executor.execute(f.call) is ToolExecutorResult.Completed)

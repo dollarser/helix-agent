@@ -73,7 +73,7 @@ class LinuxSessionPermissionRecheckTest {
         // WORKSPACE mode asks for COMMAND_EXECUTION, but this exact call already consumed the
         // precise one-time approval for precisely this command — the ASK floor was met at
         // approval time, so the recheck proceeds.
-        val recheck = recheck(config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE))
+        val recheck = recheck(config = SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
         assertNull(recheck.check(linuxCall()))
     }
 
@@ -104,13 +104,13 @@ class LinuxSessionPermissionRecheckTest {
 
     @Test
     fun theBindingPayloadBindsTheJobToItsSessionAndConfigVersion() {
-        val payload = payload(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE))
+        val payload = payload(SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED))
         assertEquals("2", payload.getValue("version").jsonPrimitive.content)
         assertEquals("call-1", payload.getValue("toolCallId").jsonPrimitive.content)
         assertEquals("turn-1", payload.getValue("turnId").jsonPrimitive.content)
         assertEquals("s1", payload.getValue("sessionId").jsonPrimitive.content)
-        assertEquals("WORKSPACE", payload.getValue("mode").jsonPrimitive.content)
-        assertEquals("1", payload.getValue("configVersion").jsonPrimitive.content)
+        assertEquals("WORKSPACE_TRUSTED", payload.getValue("mode").jsonPrimitive.content)
+        assertEquals("2", payload.getValue("configVersion").jsonPrimitive.content)
         assertEquals("job_0123456789ab", payload.getValue("jobId").jsonPrimitive.content)
         assertEquals("exec-1", payload.getValue("executionId").jsonPrimitive.content)
         assertEquals("a".repeat(64), payload.getValue("inputManifestSha256").jsonPrimitive.content)

@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 /**
  * The single-row app default session permission mode (HXA-209, ADR-PERMISSIONS-001). The one
  * row has the fixed id [DEFAULTS_ROW_ID]; a missing row (fresh install before the first write)
- * means the compiled default [com.helix.core.model.SessionPermissionMode.READ_ONLY].
+ * means the compiled default [com.helix.core.model.SessionPermissionMode.APPROVAL_REQUIRED].
  *
  * [mode] is a PRESET mode name only — the app default is never CUSTOM (CUSTOM requires an
  * explicit per-session snapshot). [configVersion] records the rule-set contract version the

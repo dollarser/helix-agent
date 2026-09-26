@@ -1105,8 +1105,9 @@
     <!-- HXA-209 D3: session authorization settings (mode picker, new-session default, tool list) -->
     <string name="settings_perm_title">Session authorization</string>
     <string name="settings_perm_default_label">Default mode for new sessions</string>
+    <string name="settings_perm_mode_approval_required">Approval required</string>
+    <string name="settings_perm_mode_workspace_trusted">Workspace trusted</string>
     <string name="settings_perm_mode_full_access">Full access</string>
-    <string name="settings_perm_mode_workspace">Workspace</string>
     <string name="settings_perm_mode_read_only">Read-only</string>
     <string name="settings_perm_mode_custom">Custom</string>
     <string name="settings_perm_session_label">Current session mode</string>

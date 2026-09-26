@@ -479,16 +479,18 @@ private fun toolKey(descriptor: ToolDescriptor): String = descriptor.origin.cano
  * CUSTOM editor: a custom draft is copied from one of these presets (never from CUSTOM). */
 internal val PRESETS =
     listOf(
+        SessionPermissionMode.APPROVAL_REQUIRED,
+        SessionPermissionMode.WORKSPACE_TRUSTED,
         SessionPermissionMode.FULL_ACCESS,
-        SessionPermissionMode.WORKSPACE,
         SessionPermissionMode.READ_ONLY,
     )
 
 /** All four selectable modes for a session. */
 private val ALL_MODES =
     listOf(
+        SessionPermissionMode.APPROVAL_REQUIRED,
+        SessionPermissionMode.WORKSPACE_TRUSTED,
         SessionPermissionMode.FULL_ACCESS,
-        SessionPermissionMode.WORKSPACE,
         SessionPermissionMode.READ_ONLY,
         SessionPermissionMode.CUSTOM,
     )

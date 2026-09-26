@@ -55,7 +55,7 @@ data class SessionPermissionConfig(
 
     companion object {
         /** Version of the rule-set contract this build speaks; bump only on an explicit contract change. */
-        const val CURRENT_CONFIG_VERSION = 1
+        const val CURRENT_CONFIG_VERSION = 2
 
         /** Compiles a preset mode into the single config shape. CUSTOM has no implicit rules. */
         fun of(mode: SessionPermissionMode): SessionPermissionConfig {
@@ -72,23 +72,7 @@ data class SessionPermissionConfig(
         /** The fixed rule table a preset compiles to (ADR section 1 table). */
         fun presetRules(mode: SessionPermissionMode): Map<OperationEffect, OperationRule> =
             when (mode) {
-                SessionPermissionMode.FULL_ACCESS -> {
-                    OperationEffect.values().associateWith { OperationRule.ALLOW }
-                }
-
-                SessionPermissionMode.WORKSPACE -> {
-                    mapOf(
-                        OperationEffect.FILE_READ_WORKSPACE to OperationRule.ALLOW,
-                        OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.ALLOW,
-                        OperationEffect.REMOTE_BUSINESS_MUTATION to OperationRule.ALLOW,
-                        OperationEffect.FILE_READ_EXTERNAL to OperationRule.ASK,
-                        OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.ASK,
-                        OperationEffect.DEVICE_SYSTEM_MUTATION to OperationRule.ASK,
-                        OperationEffect.COMMAND_EXECUTION to OperationRule.ASK,
-                    )
-                }
-
-                SessionPermissionMode.READ_ONLY -> {
+                SessionPermissionMode.APPROVAL_REQUIRED -> {
                     mapOf(
                         OperationEffect.FILE_READ_WORKSPACE to OperationRule.ALLOW,
                         OperationEffect.FILE_READ_EXTERNAL to OperationRule.ASK,
@@ -97,6 +81,34 @@ data class SessionPermissionConfig(
                         OperationEffect.REMOTE_BUSINESS_MUTATION to OperationRule.ASK,
                         OperationEffect.DEVICE_SYSTEM_MUTATION to OperationRule.ASK,
                         OperationEffect.COMMAND_EXECUTION to OperationRule.ASK,
+                    )
+                }
+
+                SessionPermissionMode.WORKSPACE_TRUSTED -> {
+                    mapOf(
+                        OperationEffect.FILE_READ_WORKSPACE to OperationRule.ALLOW,
+                        OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.ALLOW,
+                        OperationEffect.FILE_READ_EXTERNAL to OperationRule.ASK,
+                        OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.ASK,
+                        OperationEffect.REMOTE_BUSINESS_MUTATION to OperationRule.ASK,
+                        OperationEffect.DEVICE_SYSTEM_MUTATION to OperationRule.ASK,
+                        OperationEffect.COMMAND_EXECUTION to OperationRule.ASK,
+                    )
+                }
+
+                SessionPermissionMode.FULL_ACCESS -> {
+                    OperationEffect.values().associateWith { OperationRule.ALLOW }
+                }
+
+                SessionPermissionMode.READ_ONLY -> {
+                    mapOf(
+                        OperationEffect.FILE_READ_WORKSPACE to OperationRule.ALLOW,
+                        OperationEffect.FILE_READ_EXTERNAL to OperationRule.ASK,
+                        OperationEffect.FILE_MUTATION_WORKSPACE to OperationRule.DENY,
+                        OperationEffect.FILE_MUTATION_EXTERNAL to OperationRule.DENY,
+                        OperationEffect.REMOTE_BUSINESS_MUTATION to OperationRule.DENY,
+                        OperationEffect.DEVICE_SYSTEM_MUTATION to OperationRule.DENY,
+                        OperationEffect.COMMAND_EXECUTION to OperationRule.DENY,
                     )
                 }
 

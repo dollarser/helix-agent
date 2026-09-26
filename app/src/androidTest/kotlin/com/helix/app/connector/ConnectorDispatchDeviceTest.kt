@@ -57,7 +57,7 @@ class ConnectorDispatchDeviceTest {
         c.connectorService.catalog.select(session, record.id, true)
         c.sessionPermissionEdit.saveSessionConfig(
             session,
-            SessionPermissionConfig.of(SessionPermissionMode.READ_ONLY),
+            SessionPermissionConfig.of(SessionPermissionMode.APPROVAL_REQUIRED),
             0,
         )
         pipeline.registry.register(descriptor)

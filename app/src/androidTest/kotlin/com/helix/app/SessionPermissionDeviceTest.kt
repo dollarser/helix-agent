@@ -51,9 +51,10 @@ import kotlin.time.Duration.Companion.seconds
  *
  * - a tool-level disable stops the call BEFORE any card (code TOOL_DISABLED, DecisionSource.USER)
  *   even under FULL_ACCESS which would otherwise execute it: disable is orthogonal to the mode.
- * - re-enabling a tool returns it to the MODE gate (READ_ONLY re-ASKs a card) — it is neither
+ * - re-enabling a tool returns it to the MODE gate (APPROVAL_REQUIRED re-ASKs a card) — it is neither
  *   auto-allowed nor still disabled; a mode switch never re-enables a disabled tool.
  * - FULL_ACCESS AutoProceeds card-free and actually executes (the authorized path).
+ * - READ_ONLY denies mutations at the resolver with no approval card and no side effect.
  * - a preset and an unedited CUSTOM copy of that preset resolve identically through the ONE
  *   resolver, with multi-effect DENY > ASK > ALLOW and the rm-rule floor that still cards even
  *   under FULL_ACCESS.
@@ -289,14 +290,14 @@ class SessionPermissionDeviceTest {
         val executions = AtomicInteger()
         registerFreshTool(executions)
         val now = System.currentTimeMillis()
-        // READ_ONLY resolves the fixture's undetermined device mutation to ASK.
-        saveConfig(SessionPermissionMode.READ_ONLY, now)
-        // Phase 1: disabled under READ_ONLY -> stops before the resolver (TOOL_DISABLED, not ASK).
+        // APPROVAL_REQUIRED resolves the fixture's device mutation to ASK.
+        saveConfig(SessionPermissionMode.APPROVAL_REQUIRED, now)
+        // Phase 1: disabled under APPROVAL_REQUIRED -> stops before the resolver (TOOL_DISABLED, not ASK).
         setToolDisabled(true, now)
         val disabled = dispatchOnThread("sp-call-2a-$run", "sp-turn-2-$run").join() as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.TOOL_DISABLED, disabled.code)
         assertEquals(0, executions.get())
-        // Phase 2: re-enable -> the MODE gate (READ_ONLY) re-ASKs a card; neither auto-allowed nor
+        // Phase 2: re-enable -> the MODE gate (APPROVAL_REQUIRED) re-ASKs a card; neither auto-allowed nor
         // still disabled.
         assertTrue(
             "re-enabling must remove the stored disable row",
@@ -307,7 +308,7 @@ class SessionPermissionDeviceTest {
         container.chatService.denyApproval(approvalId)
         val reEnabled = h2.join() as ToolDispatchOutcome.Denied
         assertEquals(DispatchOutcomeCode.APPROVAL_DENIED, reEnabled.code)
-        assertEquals("READ_ONLY re-ASKs (a card) rather than auto-allowing", 0, executions.get())
+        assertEquals("APPROVAL_REQUIRED re-ASKs (a card) rather than auto-allowing", 0, executions.get())
     }
 
     @Test
@@ -336,7 +337,7 @@ class SessionPermissionDeviceTest {
         val executions = AtomicInteger()
         registerFreshTool(executions)
         val now = System.currentTimeMillis()
-        saveConfig(SessionPermissionMode.READ_ONLY, now)
+        saveConfig(SessionPermissionMode.APPROVAL_REQUIRED, now)
         setToolDisabled(true, now)
         // Switching to FULL_ACCESS must NOT revive the disabled tool.
         saveConfig(SessionPermissionMode.FULL_ACCESS, now + 1)
@@ -347,6 +348,24 @@ class SessionPermissionDeviceTest {
         val outcome = dispatchOnThread("sp-call-4-$run", "sp-turn-4-$run").join() as ToolDispatchOutcome.Denied
         assertEquals("the disable survives a mode switch", DispatchOutcomeCode.TOOL_DISABLED, outcome.code)
         assertEquals(0, executions.get())
+    }
+
+    @Test
+    fun readOnlyDeniesMutationWithoutCardOrSideEffect() {
+        val executions = AtomicInteger()
+        registerFreshTool(executions)
+        saveConfig(SessionPermissionMode.READ_ONLY, System.currentTimeMillis())
+        val callId = "sp-read-only-deny-$run"
+        val outcome = dispatchOnThread(callId, "sp-read-only-deny-turn-$run").join() as ToolDispatchOutcome.Denied
+        assertEquals(DispatchOutcomeCode.OPERATION_DENIED_DOMAIN, outcome.code)
+        assertEquals("READ_ONLY must not execute mutation", 0, executions.get())
+        assertNull("READ_ONLY is a hard deny, not a one-time approval", container.storage.approvals.byToolCall(callId))
+        assertEquals(
+            ToolCallState.DENIED.name,
+            container.storage.toolCalls
+                .resolve(callId)
+                .state,
+        )
     }
 
     @Test
@@ -377,10 +396,10 @@ class SessionPermissionDeviceTest {
 
     @Test
     fun presetsAndCustomResolveThroughOneResolverWithDenyDominating() {
-        // A CUSTOM table copied from WORKSPACE: the workspace-write tightened to DENY, command
+        // A CUSTOM table copied from WORKSPACE_TRUSTED: workspace write tightened to DENY, command
         // execution held at ASK (the workspace read stays ALLOW from the preset).
         val customRules =
-            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE).toMutableMap().apply {
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE_TRUSTED).toMutableMap().apply {
                 put(OperationEffect.FILE_MUTATION_WORKSPACE, OperationRule.DENY)
                 put(OperationEffect.COMMAND_EXECUTION, OperationRule.ASK)
             }
@@ -405,10 +424,10 @@ class SessionPermissionDeviceTest {
         // preset itself (FILE_READ_EXTERNAL is ASK under WORKSPACE in both).
         val externalRead = OperationFootprint(effects = setOf(OperationEffect.FILE_READ_EXTERNAL))
         val presetCopy =
-            SessionPermissionConfig.custom(SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE))
+            SessionPermissionConfig.custom(SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE_TRUSTED))
         val fromPreset =
             SessionPermissionResolver.resolve(
-                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE),
+                SessionPermissionConfig.of(SessionPermissionMode.WORKSPACE_TRUSTED),
                 externalRead,
                 rmCommandHit = false,
             )
@@ -427,20 +446,20 @@ class SessionPermissionDeviceTest {
     @Test
     fun aStoredCustomDraftIsInertUntilReactivated() {
         val now = System.currentTimeMillis()
-        saveConfig(SessionPermissionMode.WORKSPACE, now)
+        saveConfig(SessionPermissionMode.WORKSPACE_TRUSTED, now)
         val draftRules =
-            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE).toMutableMap().apply {
+            SessionPermissionConfig.copyPreset(SessionPermissionMode.WORKSPACE_TRUSTED).toMutableMap().apply {
                 put(OperationEffect.FILE_MUTATION_WORKSPACE, OperationRule.ASK)
             }
         container.sessionPermissionEdit.saveCustomDraft(
             sessionId,
-            SessionPermissionMode.WORKSPACE,
+            SessionPermissionMode.WORKSPACE_TRUSTED,
             draftRules,
             now,
         )
         // Inert: the session is on WORKSPACE (not CUSTOM), so the draft does not change what it runs.
         assertEquals(
-            SessionPermissionMode.WORKSPACE,
+            SessionPermissionMode.WORKSPACE_TRUSTED,
             container.sessionPermissionEdit.activeConfigFor(sessionId)?.mode,
         )
         assertTrue("the draft must be stored", container.sessionPermissionEdit.customDraftFor(sessionId) != null)
