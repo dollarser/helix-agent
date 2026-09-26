@@ -22,7 +22,7 @@
 - HXA-220 Core Engine / TurnEngine 生命周期收敛已完成主机验收，见[完成记录](../completion-records/HXA-220.md)：Engine-owned AgentLoop driver/observation、successor recovery、独立 review receipt 已落地，旧 AgentTurnHost/TurnLiveFrames/serial Turn reducer/Turn-level WAITING_APPROVAL 已删除；设备 `not requested`。
 - HXA-221 Pre-release clean-slate baseline cleanup 已完成主机验收，见[完成记录](../completion-records/HXA-221.md)：Room 重置为唯一 v1 / 45-table baseline，1→31 migration 链与旧 Connector/Provider/Criteria/Chat 内部兼容路径已删除；外部协议/Android 兼容保留，设备 `not requested`。
 - HXA-223 Post-clean-slate Core Boundary Convergence 已完成，见[完成记录](../completion-records/HXA-223.md)：Turn state CAS、Engine-owned terminal/review/recovery、SessionWorkScheduler 与 SessionInput delivery 边界已收口；Core Engine 第二阶段重构冻结，设备 `not requested`。
-- HXA-226 UI / IA 第二轮收敛已交付并完成 API 36 模拟器 smoke，见[完成记录](../completion-records/HXA-226.md)与[模拟器证据](../evidence/development/hxa226-simulator-verification-2026-09-26.md)：未发现 HXA-226 行为回归；唯一失败为三基线均可复现的既有 Tasks Drawer fixture。物理真机仍 `not requested`。
+- HXA-226 UI / IA 第二轮收敛已交付，并完成 targeted smoke 与当前设备基线收敛，见[完成记录](../completion-records/HXA-226.md)、[HXA-226 模拟器证据](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[183-class 当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：fixture/helper 漂移已收敛，runner 已加固为原子 single-writer + failure-signature 分类；强模型复核后 production `NEW_REGRESSION = 0`。物理真机仍 `not requested`。
 
 ## In progress
 
@@ -40,7 +40,7 @@
 
 ## Next task
 
-- **下一本地主线：HXA-228 Conversation-first Shell 与 Session Context Control。** 推荐后续顺序为 **HXA-228 → HXA-229 → HXA-227 baseline → HXA-230**：先冻结 Session input/config，再冻结 model-authored Tool presentation，再建立 Eval baseline，最后用 baseline 衡量 Memory 的收益/污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
+- **下一本地主线：HXA-228 Conversation-first Shell 与 Session Context Control。** 设备测试基线已完成收敛，不再作为前置阻塞。推荐后续顺序为 **HXA-228 → HXA-229 → HXA-227 baseline → HXA-230**：先冻结 Session input/config，再冻结 model-authored Tool presentation，再建立 Eval baseline，最后用 baseline 衡量 Memory 的收益/污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
 - HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
 - ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”以及 Provider 四维正交分类；HXA-222 架构前置已满足但按产品优先级暂缓，不因 HXA-226 UI 改版自动启动。
 

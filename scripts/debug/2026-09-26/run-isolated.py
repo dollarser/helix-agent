@@ -9,7 +9,9 @@ Key invariants:
 """
 
 import argparse
+import atexit
 import datetime
+import fcntl
 import hashlib
 import json
 import os
@@ -46,13 +48,55 @@ def get_git_commit() -> str:
         return "UNKNOWN"
 
 
-def is_pid_alive(pid: int) -> bool:
-    """Check if process with given PID exists."""
+def atomic_write_text(path: str, content: str) -> None:
+    """Durably replace one small evidence file without exposing a partial write."""
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w", encoding="utf-8") as fp:
+        fp.write(content)
+        fp.flush()
+        os.fsync(fp.fileno())
+    os.replace(tmp, path)
+
+
+def atomic_write_json(path: str, payload: Dict) -> None:
+    atomic_write_text(path, json.dumps(payload, indent=2) + "\n")
+
+
+def acquire_single_writer_lock(lock_file: str, payload: Dict) -> int:
+    """Acquire an OS-backed non-blocking exclusive lock and retain its fd for this process."""
+    fd = os.open(lock_file, os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        os.kill(pid, 0)
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            raw = os.read(fd, 8192).decode("utf-8", errors="replace").strip()
+            owner = json.loads(raw) if raw else {}
+        except Exception:
+            owner = {}
+        os.close(fd)
+        raise RuntimeError(
+            f"Another runner owns {lock_file}: pid={owner.get('pid')} run_id={owner.get('run_id')}",
+        )
+
+    encoded = (json.dumps(payload, indent=2) + "\n").encode("utf-8")
+    os.ftruncate(fd, 0)
+    os.lseek(fd, 0, os.SEEK_SET)
+    os.write(fd, encoded)
+    os.fsync(fd)
+
+    def release() -> None:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        except OSError:
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+    atexit.register(release)
+    return fd
 
 
 def run_cmd(cmd: List[str], timeout: Optional[float] = None) -> Tuple[int, str, str]:
@@ -135,14 +179,15 @@ def parse_instrumentation_log(cls_name: str, log_content: str, return_code: int)
     has_crash = bool(re.search(r"^INSTRUMENTATION_RESULT:\s*shortMsg=Process crashed", log_content, re.M))
     has_aborted = bool(re.search(r"^(INSTRUMENTATION_FAILED|INSTRUMENTATION_ABORTED)", log_content, re.M))
 
-    # Check for known phase runner contracts first
-    if cls_name in KNOWN_PHASE_RUNNER_CLASSES:
-        # Check if error matches phase runner requirement
-        if not has_ok:
-            reason = KNOWN_PHASE_RUNNER_CLASSES[cls_name]
-            return "PHASE_RUNNER_REQUIRED", reason
+    # A process crash/timeout is infrastructure evidence, never a phase-runner shortcut.
+    if has_crash or has_aborted or return_code == -999:
+        if return_code == -999:
+            return "NO_VERDICT / PROCESS_CRASH", "Execution timed out"
+        crash_m = re.search(r"^INSTRUMENTATION_RESULT:\s*shortMsg=(.*)$", log_content, re.M)
+        msg = crash_m.group(1).strip() if crash_m else "Process crashed or aborted"
+        return "NO_VERDICT / PROCESS_CRASH", msg
 
-    # Check for phase runner requirement patterns in output
+    # Check for explicit phase-runner requirement patterns in output.
     phase_runner_patterns = [
         "Use the two-phase owned runner",
         "Use the mandatory host storage phases",
@@ -153,13 +198,6 @@ def parse_instrumentation_log(cls_name: str, log_content: str, return_code: int)
     for pattern in phase_runner_patterns:
         if pattern in log_content:
             return "PHASE_RUNNER_REQUIRED", f"Detected phase runner contract: {pattern}"
-
-    if has_crash or has_aborted or return_code == -999:
-        if return_code == -999:
-            return "NO_VERDICT / PROCESS_CRASH", "Execution timed out"
-        crash_m = re.search(r"^INSTRUMENTATION_RESULT:\s*shortMsg=(.*)$", log_content, re.M)
-        msg = crash_m.group(1).strip() if crash_m else "Process crashed or aborted"
-        return "NO_VERDICT / PROCESS_CRASH", msg
 
     if has_ok:
         # Check if all tests were skipped
@@ -222,29 +260,18 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
     os.makedirs(logs_dir, exist_ok=True)
 
-    # 1. Single-writer lock enforcement
+    # 1. Single-writer lock enforcement. flock() closes the TOCTOU window that exists with
+    # exists()+open(); the lock remains held by this process until exit, even after exceptions.
     lock_file = os.path.join(out_dir, ".runner.lock")
     current_pid = os.getpid()
-    if os.path.exists(lock_file):
-        try:
-            with open(lock_file, "r") as fp:
-                lock_data = json.load(fp)
-            existing_pid = lock_data.get("pid")
-            if existing_pid and is_pid_alive(existing_pid):
-                print(
-                    f"FATAL: Another runner (PID {existing_pid}, run_id {lock_data.get('run_id')}) "
-                    f"is active in {out_dir}. Refusing to start to preserve single-writer guarantee.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            else:
-                print(f"Notice: Overwriting stale lock file from inactive PID {existing_pid}.")
-        except Exception:
-            pass
-
-    # Acquire lock
-    with open(lock_file, "w") as fp:
-        json.dump({"pid": current_pid, "run_id": run_id, "started_at": started_at}, fp, indent=2)
+    try:
+        acquire_single_writer_lock(
+            lock_file,
+            {"pid": current_pid, "run_id": run_id, "started_at": started_at},
+        )
+    except RuntimeError as exc:
+        print(f"FATAL: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # Load classes
     classes = []
@@ -288,8 +315,7 @@ def main():
     }
 
     run_json_path = os.path.join(out_dir, "run.json")
-    with open(run_json_path, "w", encoding="utf-8") as fp:
-        json.dump(run_meta, fp, indent=2)
+    atomic_write_json(run_json_path, run_meta)
 
     print("=" * 60)
     print("STARTING ISOLATED DEVICE BASELINE RUN")
@@ -304,10 +330,6 @@ def main():
     # Initial device check
     if not check_device_online(args.serial, adb_path):
         print(f"FATAL: Device {args.serial} is not online or ready.", file=sys.stderr)
-        try:
-            os.remove(lock_file)
-        except OSError:
-            pass
         sys.exit(1)
 
     total_classes = len(unique_classes)
@@ -316,6 +338,22 @@ def main():
         result_path = os.path.join(results_dir, f"{cls}.json")
 
         t0 = time.time()
+
+        # A normal single-stage run is invalid for these classes by contract. Account for the
+        # class explicitly instead of executing a known-invalid phase and then interpreting its
+        # arbitrary assertion failure as product evidence.
+        if cls in KNOWN_PHASE_RUNNER_CLASSES:
+            class_result = {
+                "class": cls,
+                "verdict": "PHASE_RUNNER_REQUIRED",
+                "details": KNOWN_PHASE_RUNNER_CLASSES[cls],
+                "duration_sec": 0.0,
+                "log_path": log_path,
+            }
+            atomic_write_text(log_path, f"PHASE_RUNNER_REQUIRED: {KNOWN_PHASE_RUNNER_CLASSES[cls]}\n")
+            atomic_write_json(result_path, class_result)
+            print(f"[{idx:3d}/{total_classes:3d}] {cls:<58s} -> {'PHASE_RUNNER_REQUIRED':<22s} (0.00s)")
+            continue
 
         # Step 1: Clean state before running class
         run_cmd([adb_path, "-s", args.serial, "shell", "pm", "clear", target_pkg], timeout=15)
@@ -342,8 +380,7 @@ def main():
         duration = time.time() - t0
 
         raw_log = out + ("\n" + err if err else "")
-        with open(log_path, "w", encoding="utf-8") as fp:
-            fp.write(raw_log)
+        atomic_write_text(log_path, raw_log)
 
         # Step 3: Parse verdict
         verdict, details = parse_instrumentation_log(cls, raw_log, rc)
@@ -362,12 +399,7 @@ def main():
                     "duration_sec": duration,
                     "log_path": log_path,
                 }
-                with open(result_path, "w", encoding="utf-8") as fp:
-                    json.dump(class_result, fp, indent=2)
-                try:
-                    os.remove(lock_file)
-                except OSError:
-                    pass
+                atomic_write_json(result_path, class_result)
                 sys.exit(4)
 
         # Step 5: Save class result JSON
@@ -378,20 +410,13 @@ def main():
             "duration_sec": duration,
             "log_path": log_path,
         }
-        with open(result_path, "w", encoding="utf-8") as fp:
-            json.dump(class_result, fp, indent=2)
+        atomic_write_json(result_path, class_result)
 
         print(f"[{idx:3d}/{total_classes:3d}] {cls:<58s} -> {verdict:<22s} ({duration:.2f}s)")
 
     # Run complete: invoke aggregator
     print("\nAll classes executed. Aggregating baseline...")
     summarize(out_dir, manifest_path)
-
-    # Release lock
-    try:
-        os.remove(lock_file)
-    except OSError:
-        pass
 
     print(f"\nRun complete. Full summary written to:\n  {out_dir}/summary.tsv\n  {out_dir}/summary.json")
 

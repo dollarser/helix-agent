@@ -179,3 +179,33 @@ All 4 additional classes discovered by the AST manifest generator (`GoalModelRep
 - **Physical Hardware**: Execution was performed on `emulator-5554` (API 36 / arm64-v8a). Physical hardware (OnePlus 6T) was `not requested`.
 - **Developer Variant**: Consumer debug variant executed. Developer variant (`com.helix.agent.developer`) requires PRoot assets preparation (`scripts/build-proot-assets.sh`).
 - **Dedicated Phase Runners**: 7 `PHASE_RUNNER_REQUIRED` classes require external host runners (`scripts/run-*-process-kill.py`) to orchestrate multi-phase process deaths and AppOps transitions.
+
+---
+
+## 8. Strong-model review follow-up
+
+在 `79385c48 test(device): freeze reproducible emulator baseline` 之后，对 runner 与分类器做了协调者复核。原始 `b303351b` 183-class baseline 的 APK、raw logs、per-class verdict 与“无重复/无遗漏/无 crash 雪崩”执行事实继续保留；复核发现的是 **baseline infrastructure 的未来稳健性缺口**，不是生产行为回归：
+
+1. **single-writer 锁存在 TOCTOU 窗口**：原实现是 `exists() → open("w")`，两个极端同时启动的进程仍可能同时越过检查。后续改为 OS-backed `flock(LOCK_EX | LOCK_NB)`，锁在进程整个生命周期持有；`run.json`、per-class log/result 也改为 temp + `os.replace` 原子替换。
+2. **known/environment 分类原先按 class name 豁免过宽**：同一个历史失败类如果出现新的失败原因，也可能被旧白名单吞掉。后续改为 **class + failure count + required error signatures** 联合匹配；任何签名变化的确定性 `FAIL` 直接进入 `NEW_REGRESSION`。普通 runner 也不再执行已知必须由 host phase runner 编排的 7 类，而是显式记录 `PHASE_RUNNER_REQUIRED`，避免从无效单阶段执行推断产品事实。
+3. **`MainActivityTest` 是第二处 HXA-226 grouped IA fixture 漂移**：旧测试仍断言 Drawer 内直接存在 `navigation-extensions` / `navigation-group-settings`。当前 authority 是 `Configure` group + direct `Settings` primary route。fixture 已对齐，并在同一 API 36 emulator 上 targeted 复跑 **OK (1 test)**。
+
+使用加固后的 signature classifier 对原始 `b303351b` raw logs 做只读重分类，得到：
+
+```text
+PASS                         149
+KNOWN_EXISTING_FAILURE         7
+PHASE_RUNNER_REQUIRED          7
+ENVIRONMENT_LIMITATION         3
+SKIP / ASSUMPTION             16
+NEW_REGRESSION                 1
+NO_VERDICT / PROCESS_CRASH     0
+```
+
+唯一的 `NEW_REGRESSION = 1` 是上述旧 `MainActivityTest` fixture；它在当前测试代码上已经 targeted device PASS。剩余 7 个 known failure 与 3 个 environment limitation 均逐项匹配原历史 failure count + error signature，没有发现隐藏的新产品失败。
+
+因此当前结论保持：
+
+> **production NEW_REGRESSION = 0；设备 baseline 可以冻结，HXA-228 不再被历史 device-fixture 噪声阻塞。**
+
+没有为这次复核修改任何生产代码，也没有重新跑完整 183 类，因为复核后的代码变化只涉及 runner/test classification 与一个已 targeted 验证的测试 fixture；原始全量 baseline 继续作为 `b303351b` 的冻结执行证据。

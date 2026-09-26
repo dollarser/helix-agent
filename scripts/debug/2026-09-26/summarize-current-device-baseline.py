@@ -12,6 +12,7 @@ Enforces:
 import argparse
 import json
 import os
+import re
 import sys
 from typing import Dict, List, Any
 
@@ -26,43 +27,105 @@ KNOWN_PHASE_RUNNER_CLASSES = {
     "com.helix.app.ui.ManualSharedFileDeviceTest": "Requires host storage permission setup (hxaStoragePhase)",
 }
 
-# Known existing failures from historical baseline (a015222d / 7d7f9053 / 2187f05d)
+# Historical failures are matched by class *and* exact-enough failure signature. A class name
+# alone is never an exemption: if the failure count or message changes, it becomes NEW_REGRESSION.
 KNOWN_EXISTING_FAILURES = {
-    "com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest": "Known 1 failure: test chat session is not open",
-    "com.helix.app.ApprovalFlowDeviceTest": "Known 1 failure: timeout waiting for model roundtrip in emulator",
-    "com.helix.app.RecoveryJourneyDeviceTest": "Known 2 failures: timeout waiting for model roundtrip in emulator",
-    "com.helix.app.TaskJourneyDeviceTest": "Known 1 failure: timeout waiting for model roundtrip in emulator",
-    "com.helix.app.chat.GoalModelCancellationDeviceTest": "Known failure: turn total token limit admission budget",
-    "com.helix.app.ui.SessionDraftDeviceTest": "Known failure: expected <1> but was <2>",
-    "com.helix.app.MainActivityTest": "Known fixture drift from HXA-226: asserts ungrouped navigation-extensions in drawer without expanding navigation-group-configure",
-    "com.helix.app.ui.FilesImportExportUiTest": "Known 1 failure: removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions ComposeTimeoutException in windowless emulator",
+    "com.helix.app.chat.ChatServiceAttachmentRetryDeviceTest": {
+        "failures": 1,
+        "required": ("test chat session is not open",),
+    },
+    "com.helix.app.ApprovalFlowDeviceTest": {
+        "failures": 1,
+        "required": ("production state must settle",),
+    },
+    "com.helix.app.RecoveryJourneyDeviceTest": {
+        "failures": 2,
+        "required": (
+            "the production state must settle",
+            "ComposeTimeoutException: Condition still not satisfied after 10000 ms",
+        ),
+    },
+    "com.helix.app.TaskJourneyDeviceTest": {
+        "failures": 1,
+        "required": ("production state must settle",),
+    },
+    "com.helix.app.chat.GoalModelCancellationDeviceTest": {
+        "failures": 4,
+        "required": ("TURN_TOTAL_TOKEN_LIMIT",),
+    },
+    "com.helix.app.ui.SessionDraftDeviceTest": {
+        "failures": 1,
+        "required": ("expected:<1> but was:<2>",),
+    },
+    "com.helix.app.ui.FilesImportExportUiTest": {
+        "failures": 1,
+        "required": (
+            "removingTheCurrentSafLocationReturnsToWorkspaceWithoutStaleActions",
+            "ComposeTimeoutException: Condition still not satisfied after 30000 ms",
+        ),
+    },
 }
 
-# Known environment/injection limitations in headless / windowless emulator
+# Environment limitations receive the same signature discipline; a different failure in the same
+# class is not hidden behind the historical headless-emulator label.
 KNOWN_ENVIRONMENT_LIMITATIONS = {
-    "com.helix.app.ui.ProductFileJourneyDeviceTest": "Touch injection failed in headless emulator (Failed to inject touch input)",
-    "com.helix.app.ui.SessionSearchDeviceTest": "Compose UI timeout in headless emulator",
-    "com.helix.app.ui.GoalLifecycleFlowDeviceTest": "60s UI settlement timeout in headless emulator",
+    "com.helix.app.ui.ProductFileJourneyDeviceTest": {
+        "failures": 4,
+        "required": ("Failed to inject touch input",),
+    },
+    "com.helix.app.ui.SessionSearchDeviceTest": {
+        "failures": 2,
+        "required": (
+            "openingAResultCancelsTheSearch",
+            "clearingTheSearchRestoresTheSessionList",
+            "ComposeTimeoutException: Condition still not satisfied after 10000 ms",
+        ),
+    },
+    "com.helix.app.ui.GoalLifecycleFlowDeviceTest": {
+        "failures": 1,
+        "required": (
+            "humanMessagePreemptsWithoutResettingGoalOrBudget",
+            "Timed out waiting for 60000 ms",
+        ),
+    },
 }
 
 
-def classify_result(cls_name: str, verdict: str, log_snippet: str = "") -> str:
-    """Classifies class outcome into standard baseline categories."""
+def _failure_count(log_content: str):
+    match = re.search(r"Tests run:\s*(\d+),\s*Failures:\s*(\d+)", log_content)
+    return int(match.group(2)) if match else None
+
+
+def _matches_signature(spec: Dict[str, Any], log_content: str) -> bool:
+    expected_failures = spec.get("failures")
+    if expected_failures is not None and _failure_count(log_content) != expected_failures:
+        return False
+    return all(fragment in log_content for fragment in spec.get("required", ()))
+
+
+def classify_result(cls_name: str, verdict: str, log_content: str = "") -> str:
+    """Classify one durable class result without allowing class-name-only exemptions."""
     if verdict == "PASS":
         return "PASS"
-    if verdict == "PHASE_RUNNER_REQUIRED" or cls_name in KNOWN_PHASE_RUNNER_CLASSES:
+    if verdict == "PHASE_RUNNER_REQUIRED":
         return "PHASE_RUNNER_REQUIRED"
-    if verdict == "ENVIRONMENT_LIMITATION" or cls_name in KNOWN_ENVIRONMENT_LIMITATIONS:
-        return "ENVIRONMENT_LIMITATION"
-    if cls_name in KNOWN_EXISTING_FAILURES:
-        return "KNOWN_EXISTING_FAILURE"
     if verdict in ("SKIP / ASSUMPTION", "SKIP"):
         return "SKIP / ASSUMPTION"
     if verdict in ("NO_VERDICT / PROCESS_CRASH", "PROCESS_CRASH"):
         return "NO_VERDICT / PROCESS_CRASH"
     if verdict == "FAIL":
-        # Unclassified failure
-        return "UNRESOLVED"
+        environment_spec = KNOWN_ENVIRONMENT_LIMITATIONS.get(cls_name)
+        if environment_spec and _matches_signature(environment_spec, log_content):
+            return "ENVIRONMENT_LIMITATION"
+        known_spec = KNOWN_EXISTING_FAILURES.get(cls_name)
+        if known_spec and _matches_signature(known_spec, log_content):
+            return "KNOWN_EXISTING_FAILURE"
+        return "NEW_REGRESSION"
+    if verdict == "ENVIRONMENT_LIMITATION":
+        environment_spec = KNOWN_ENVIRONMENT_LIMITATIONS.get(cls_name)
+        if environment_spec and _matches_signature(environment_spec, log_content):
+            return "ENVIRONMENT_LIMITATION"
+        return "NEW_REGRESSION"
     return "UNRESOLVED"
 
 
@@ -112,7 +175,15 @@ def summarize(out_dir: str, manifest_path: str = None) -> Dict[str, Any]:
         seen_classes.add(cls)
 
         verdict = data.get("verdict", "UNRESOLVED")
-        category = classify_result(cls, verdict, data.get("error_msg", ""))
+        log_content = ""
+        log_path = data.get("log_path")
+        if log_path and os.path.isfile(log_path):
+            try:
+                with open(log_path, "r", encoding="utf-8") as log_fp:
+                    log_content = log_fp.read()
+            except OSError:
+                log_content = ""
+        category = classify_result(cls, verdict, log_content)
         data["category"] = category
         executed_results.append(data)
 

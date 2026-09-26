@@ -31,8 +31,8 @@ class MainActivityTest {
 
         composeRule.onNodeWithTag("navigation-sessions").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation-group-work").assertIsDisplayed()
-        composeRule.onNodeWithTag("navigation-extensions").assertIsDisplayed()
-        composeRule.onNodeWithTag("navigation-group-settings").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-group-configure").assertIsDisplayed()
+        composeRule.onNodeWithTag("navigation-settings").assertIsDisplayed()
 
         composeRule.onNodeWithTag("navigation-group-work").performClick()
         composeRule.waitForIdle()
