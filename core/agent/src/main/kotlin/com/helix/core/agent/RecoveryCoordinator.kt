@@ -56,7 +56,7 @@ sealed interface TurnRecovery {
 
 /** Decision for one persisted tool call. */
 sealed interface ToolCallRecovery {
-    /** Durable state (AWAITING_APPROVAL, NEEDS_REVIEW, INTERRUPTED, terminal): unchanged. */
+    /** Durable state (NEEDS_REVIEW, INTERRUPTED, terminal): unchanged. */
     data object Keep : ToolCallRecovery
 
     /** The row never crossed execution-start; cancel it and persist a deterministic result. */

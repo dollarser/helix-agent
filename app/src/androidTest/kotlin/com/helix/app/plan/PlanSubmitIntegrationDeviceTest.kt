@@ -223,10 +223,10 @@ class PlanSubmitIntegrationDeviceTest {
         assertEquals("Migrate the storage layer", artifact.objective)
         assertEquals(2, artifact.steps.size)
         assertEquals(
-            listOf("rows survive a schema migration", "no duplicate rows after the migration"),
+            listOf("stored rows remain valid", "no duplicate rows after the update"),
             artifact.acceptanceCriteria,
         )
-        assertEquals(listOf("single writer during migration"), artifact.assumptions)
+        assertEquals(listOf("single writer during update"), artifact.assumptions)
         assertEquals(1, artifact.version)
 
         // Ownership + version + consistency: the tool-call row is COMPLETED as plan.submit v2

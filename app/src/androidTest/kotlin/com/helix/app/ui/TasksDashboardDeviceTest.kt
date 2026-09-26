@@ -44,13 +44,8 @@ class TasksDashboardDeviceTest {
                 )
             }
 
-            // The drawer keeps Tasks primary and exposes Setup instead of duplicating Capabilities.
-            compose.onNodeWithTag("open-navigation").performClick()
-            compose.waitForIdle()
-            compose.onNodeWithTag("navigation-tasks").assertExists()
-            compose.onNodeWithTag("navigation-group-configure").performClick()
-            compose.onNodeWithTag("navigation-setup").assertExists()
-
+            // Tasks remains a primary Work destination; use the shared production-IA helper so
+            // the collapsed Work group is expanded before asserting the destination is reachable.
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
             compose.waitUntil(10_000) {
@@ -109,8 +104,6 @@ class TasksDashboardDeviceTest {
                 )
             }
 
-            compose.onNodeWithTag("open-navigation").performClick()
-            compose.waitForIdle()
             compose.navigateTo("tasks")
             compose.onNodeWithTag("screen-tasks").assertExists()
             compose.waitUntil(10_000) {

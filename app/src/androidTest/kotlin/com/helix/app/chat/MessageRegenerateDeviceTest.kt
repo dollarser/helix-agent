@@ -12,10 +12,12 @@ import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
+import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ProviderConfigSpec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -30,8 +32,10 @@ class MessageRegenerateDeviceTest {
     @Test
     fun regenerateSupersedesOldAssistantAndSubsequentTurnArtifacts() =
         fixture { storage ->
-            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Calculate 2+2")
+            // `messages.turnId` is a real FK to `turns`; the Turn row must exist before its
+            // messages are written (production order: admit the Turn, then append its messages).
             val turn1 = start(storage, "t1", null)
+            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Calculate 2+2")
             val asst1 = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "It is 5")
             storage.messages.append("tool-1", "s", "t1", "TOOL", "TOOL_RESULT", "tool result")
             turn1.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
@@ -53,8 +57,8 @@ class MessageRegenerateDeviceTest {
     @Test
     fun failedAtomicRegenerateRollsBackSupersedingAndPreservesOldAnswer() =
         fixture { storage ->
-            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Hello")
             val turn1 = start(storage, "t1", null)
+            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Hello")
             val asst1 = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "Original answer")
             // Intentionally leave turn1 running (non-terminal) so session is busy!
             // Attempting to regenerate while session is busy must fail atomically
@@ -87,8 +91,8 @@ class MessageRegenerateDeviceTest {
     @Test
     fun staleOrAlreadySupersededTargetFailsClosedWithoutModifyingStorage() =
         fixture { storage ->
-            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question 1")
             val turn1 = start(storage, "t1", null)
+            storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question 1")
             val asst1 = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "Answer 1")
             turn1.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
@@ -136,8 +140,8 @@ class MessageRegenerateDeviceTest {
         }
 
     private fun completedOriginalAnswer(storage: HelixStorage): String {
-        storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question")
         val original = start(storage, "t1", null)
+        storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question")
         val answer = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "Original")
         original.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         return answer.id
@@ -244,6 +248,19 @@ class MessageRegenerateDeviceTest {
         val root = File(context.filesDir, name)
         val storage = HelixStorage.open(context, name, root)
         try {
+            // `sessions.providerId` is a real FK to `provider_configs`; seed the parent row first.
+            storage.providerConfigs.save(
+                ProviderConfigSpec(
+                    id = "provider",
+                    displayName = "Regenerate provider",
+                    protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                    endpoint = "https://regenerate.invalid/v1",
+                    model = "model",
+                    headersJson = "{}",
+                    secretAlias = "regenerate-provider-secret",
+                    capabilitySnapshot = "{}",
+                ),
+            )
             storage.sessions.create("s", "RegenerateSession", "provider", "model", 1)
             block(storage)
         } finally {

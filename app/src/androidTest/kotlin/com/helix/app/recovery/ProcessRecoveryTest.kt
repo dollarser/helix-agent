@@ -74,7 +74,10 @@ class ProcessRecoveryTest {
 
         // --- the report: exactly the leftover work, nothing else
         assertEquals(mapOf("turn-1" to listOf("call-1"), "turn-2" to emptyList()), report.interruptedTurns)
-        assertEquals(mapOf("turn-1" to listOf("call-2")), report.cancelledToolCalls)
+        assertEquals(
+            mapOf("turn-1" to listOf("call-2"), "turn-2" to listOf("call-3")),
+            report.cancelledToolCalls,
+        )
         assertEquals(mapOf("turn-1" to listOf("call-1")), report.parkedToolCalls)
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
@@ -195,7 +198,7 @@ class ProcessRecoveryTest {
             ToolCallState.CANCELLED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-3")?.state,
         )
-        assertEquals("CANCELLED", storage.toolResults.byToolCall("call-3")?.status)
+        assertEquals("CANCELLED", storage.toolResults.byToolCall("tc-1")?.status)
 
         // INTERRUPTED is execution-terminal. Continuation must create a successor Turn.
         assertEquals(TurnState.INTERRUPTED.name, storage.turns.resolve("turn-1").state)
@@ -218,8 +221,9 @@ class ProcessRecoveryTest {
     }
 
     private fun assertToolCallsParkedCorrectly(storage: HelixStorage) {
-        // Only execution-started work is parked. The still-PENDING sibling is cancelled with a
-        // deterministic result; awaiting-approval/completed calls keep their durable facts.
+        // Only execution-started work is parked. PENDING and AWAITING_APPROVAL both sit before
+        // the execution-start boundary (HXA-220), so both are cancelled with a deterministic
+        // result; completed calls keep their durable facts.
         assertEquals(
             ToolCallState.INTERRUPTED.name,
             storage.toolCalls.byTurnAndCallId("turn-1", "call-1")?.state,
@@ -230,9 +234,10 @@ class ProcessRecoveryTest {
         )
         assertEquals("CANCELLED", storage.toolResults.byToolCall("tc-2")?.status)
         assertEquals(
-            ToolCallState.AWAITING_APPROVAL.name,
+            ToolCallState.CANCELLED.name,
             storage.toolCalls.byTurnAndCallId("turn-2", "call-3")?.state,
         )
+        assertEquals("CANCELLED", storage.toolResults.byToolCall("tc-3")?.status)
         assertEquals(
             ToolCallState.COMPLETED.name,
             storage.toolCalls.byTurnAndCallId("turn-3", "call-4")?.state,
@@ -270,14 +275,12 @@ class ProcessRecoveryTest {
         assertTrue(cancelledEvent.redactedPayload.contains("\"call-2\""))
         val parkedEvent = s1Audit.single { it.type == "recovery.tool_calls_parked" }
         assertTrue(parkedEvent.redactedPayload.contains("\"call-1\""))
-        assertEquals(1, storage.auditEvents.listByCorrelation("session-2").size)
-        assertTrue(
-            storage.auditEvents
-                .listByCorrelation("session-2")
-                .single()
-                .redactedPayload
-                .contains("\"uncertainToolCalls\":[]"),
-        )
+        val s2Audit = storage.auditEvents.listByCorrelation("session-2")
+        assertEquals(2, s2Audit.size)
+        val turn2Event = s2Audit.single { it.type == "recovery.turn_interrupted" }
+        assertTrue(turn2Event.redactedPayload.contains("\"uncertainToolCalls\":[]"))
+        val cancelled2Event = s2Audit.single { it.type == "recovery.tool_calls_cancelled_before_start" }
+        assertTrue(cancelled2Event.redactedPayload.contains("\"call-3\""))
         val g1Audit = storage.auditEvents.listByCorrelation("corr-goal-1")
         assertEquals(2, g1Audit.size)
         assertTrue(g1Audit.any { it.type == "recovery.goal_parked" })
@@ -300,6 +303,12 @@ class ProcessRecoveryTest {
 
         storage.advanceTurnTo("turn-3", "session-3", 1_200L, Phase.COMPLETED, 3, 1_500L)
         storage.seedCall("tc-4", "turn-3", "call-4", "read", """{"path":"/tmp/c"}""", ToolCallState.COMPLETED)
+        // A terminal turn's COMPLETED call only counts as settled once it carries a VERIFIED
+        // result; without one `unsettledUnderTerminalTurns` (correctly) re-opens it as
+        // NEEDS_REVIEW. Seed the fully settled shape so this fixture isolates recovery of the
+        // still-active turns.
+        storage.toolResults.append("result-4", "tc-4", "SUCCEEDED", "read-ok", null)
+        storage.toolResults.markVerified(storage.toolResults.resolve("result-4"))
 
         storage.goals.save(goal("goal-1", GoalState.RUNNING.name, nextCheckpoint = 9_999L, currentWakeMillis = 1_300L))
         storage.goalRuns.open("run-1", "goal-1", GoalWakeReason.USER_OPEN.name, 1_300L)

@@ -7,7 +7,15 @@ import com.helix.app.agent.ContextHistory
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnAdmission
+import com.helix.app.engine.TurnAdmissionResult
+import com.helix.app.runcontrol.RunControlConfig
+import com.helix.core.agent.GoalWakeReason
+import com.helix.core.model.AgentMode
 import com.helix.core.model.Clock
+import com.helix.core.model.GoalBudgets
+import com.helix.core.model.ReasoningEffort
+import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
 import org.junit.Assert.assertEquals
@@ -56,11 +64,13 @@ class MessageRevisionDeviceTest {
         fixture { storage ->
             val running = start(storage, "old", "original")
             val target = storage.messages.latestUser("s")!!.id
-            assertThrows(IllegalArgumentException::class.java) { start(storage, "blocked", "edit", target) }
+            // A busy session is refused by admission (Blocked result), not by a thrown exception.
+            assertTrue(admit(storage, "blocked", "edit", target) is TurnAdmissionResult.Blocked)
             assertEquals(listOf("old"), storage.turns.listBySession("s").map { it.id })
             running.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             start(storage, "next", "new latest").settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
-            assertThrows(IllegalArgumentException::class.java) { start(storage, "stale", "edit", target) }
+            // A stale (no longer latest) revision target still fails closed inside `reviseLatest`.
+            assertThrows(IllegalArgumentException::class.java) { admit(storage, "stale", "edit", target) }
             assertEquals(
                 listOf("original", "new latest"),
                 storage.messages.listBySession("s").map { storage.messages.readContent(it) },
@@ -99,19 +109,52 @@ class MessageRevisionDeviceTest {
             assertEquals(3, storage.messages.allRevisions("s").size)
         }
 
+    /**
+     * REVISE is an admission concern (HXA-220 moved history mutation out of `TurnCoordinator.start`,
+     * which now only creates the Turn row). The fixture must therefore go through `TurnAdmission`
+     * for a revision to take effect at all.
+     */
     private fun start(
         storage: HelixStorage,
         id: String,
         text: String,
         target: String? = null,
     ): TurnCoordinator =
-        TurnCoordinator
+        (
+            admit(storage, id, text, target) as TurnAdmissionResult.Started
+        ).turn.coordinator.also { it.beginModelStream() }
+
+    private fun admit(
+        storage: HelixStorage,
+        id: String,
+        text: String,
+        target: String? = null,
+    ): TurnAdmissionResult =
+        TurnAdmission(storage, testClock) { UUID.randomUUID().toString() }
             .start(
-                storage,
-                testClock,
-                { UUID.randomUUID().toString() },
-                TurnStartSpec("s", id, "model-$id", "snapshot", text, clientRequestId = id, revisedMessageId = target),
-            ).also { it.beginModelStream() }
+                TurnStartSpec(
+                    sessionId = "s",
+                    turnId = id,
+                    firstModelCallId = "model-$id",
+                    providerSnapshot = "snapshot",
+                    userText = text,
+                    clientRequestId = id,
+                    revisedMessageId = target,
+                ),
+                control = control,
+                wakeReason = GoalWakeReason.USER_OPEN,
+                providerId = "provider",
+                modelId = "model",
+            )
+
+    private val control =
+        RunControlConfig(
+            mode = AgentMode.CHAT,
+            chatToolsEnabled = true,
+            budgets = TurnBudgets(4, 4, 8_000, 2_000, 16_000),
+            reasoning = ReasoningEffort.LOW,
+            goalBudgets = GoalBudgets(8, 8, 16_000, 16_000, 32_000, 1),
+        )
 
     private val testClock =
         object : Clock {

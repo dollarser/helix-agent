@@ -31,7 +31,8 @@ import com.helix.core.agent.TurnRecovery as CoreTurnRecovery
  *
  * Invariants (asserted by the process-recovery fixture):
  * - a leftover non-terminal Turn is marked INTERRUPTED; RUNNING calls are parked INTERRUPTED,
- *   PENDING calls are cancelled as never-started, and AWAITING_APPROVAL keeps its state;
+ *   PENDING and AWAITING_APPROVAL calls are cancelled as never-started (both sit before the
+ *   execution-start boundary);
  * - a RUNNING Goal parks in PAUSED with its checkpoint kept and in-flight wake tracking reset
  *   (ADR-0004); every run row still open for that goal is closed with outcome `INTERRUPTED`
  *   and the usage it had already persisted;

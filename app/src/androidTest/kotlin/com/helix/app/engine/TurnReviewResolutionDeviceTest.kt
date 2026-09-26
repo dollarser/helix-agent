@@ -17,12 +17,14 @@ import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.GoalState
 import com.helix.core.model.ModelRole
+import com.helix.core.model.ProviderProtocol
 import com.helix.core.model.ReasoningEffort
 import com.helix.core.model.ToolCallState
 import com.helix.core.model.ToolEffectReviewDecision
 import com.helix.core.model.TurnBudgets
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
+import com.helix.core.storage.repository.ProviderConfigSpec
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -156,6 +158,20 @@ class TurnReviewResolutionDeviceTest {
         val clock = FixedClock(2_000L)
         var nextId = 0
         val ids = { "review-id-" + nextId++ }
+        // `sessions.providerId` is a real FK to `provider_configs` (SET NULL on delete), so the
+        // provider row must exist before the session binds to it.
+        storage.providerConfigs.save(
+            ProviderConfigSpec(
+                id = PROVIDER,
+                displayName = "Review provider",
+                protocol = ProviderProtocol.OPENAI_CHAT_COMPLETIONS,
+                endpoint = "https://provider-review.invalid/v1",
+                model = MODEL,
+                headersJson = "{}",
+                secretAlias = "review-provider-secret",
+                capabilitySnapshot = "{}",
+            ),
+        )
         storage.sessions.create(SESSION, "Review", PROVIDER, MODEL, 1_000L)
         val goalBudgets = GoalBudgets(20, 20, 100_000, 100_000, 100_000, 1)
         val goalId = GoalRunCoordinator(storage, clock, ids).create("finish safely", emptyList(), goalBudgets)
