@@ -152,6 +152,15 @@ class SessionExportSnapshotDeviceTest {
             assertTrue(rows.any { it["recordId"].toString() == "\"message:message\"" })
             assertTrue(rows.any { it["recordId"].toString() == "\"message:checkpoint\"" })
             assertTrue(rows.any { it["recordId"].toString() == "\"compaction:checkpoint\"" })
+            val toolCall = rows.single { it["recordId"]?.jsonPrimitive?.content == "tool_call:tool" }
+            val exportedIntent =
+                toolCall
+                    .getValue("data")
+                    .jsonObject
+                    .getValue("modelIntent")
+                    .jsonObject
+            assertEquals("redacted", exportedIntent.getValue("availability").jsonPrimitive.content)
+            assertEquals("[redacted] intent", exportedIntent.getValue("text").jsonPrimitive.content)
             assertTrue(directory.listFiles().orEmpty().none { it.isFile })
             // Synthetic fixture only, consumed by the independent host parser after instrumentation.
             val context = ApplicationProvider.getApplicationContext<Context>()
@@ -389,7 +398,17 @@ class SessionExportSnapshotDeviceTest {
         database.messageDao().insert(MessageEntity("message", "selected", "turn", "USER", "TEXT", null, 0))
         database.modelCallDao().insert(ModelCallEntity("model", "turn", "{}", "COMPLETED", null, null))
         database.toolCallDao().insert(
-            ToolCallEntity("tool", "turn", "call", "read", "1", "x".repeat(200000), "hash", "RUNNING"),
+            ToolCallEntity(
+                "tool",
+                "turn",
+                "call",
+                "read",
+                "1",
+                "x".repeat(200000),
+                "hash",
+                "RUNNING",
+                "synthetic-secret intent",
+            ),
         )
         database.toolResultDao().insert(ToolResultEntity("result", "tool", "UNKNOWN", "unknown", null, false))
         database.approvalDao().insert(

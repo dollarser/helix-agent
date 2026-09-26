@@ -48,6 +48,7 @@ internal fun ToolTimelineItem(
     isCurrentMatch: Boolean = false,
 ) {
     var details by remember(row.callId) { mutableStateOf(false) }
+    val displayIntent = row.modelIntent ?: ToolPurpose.text(row.toolName, row.requestSummary)
     val borderModifier =
         if (isCurrentMatch) {
             Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
@@ -63,25 +64,12 @@ internal fun ToolTimelineItem(
                 .padding(8.dp)
                 .testTag("tool-row-${row.callId}"),
     ) {
-        ToolTimelineSummary(row, details) { details = !details }
+        ToolTimelineSummary(row, displayIntent, details) { details = !details }
         if (!details && row.resultSummary != null) {
             ToolResultInlinePreview(row.resultSummary, { details = true }, row.callId)
         }
         if (details) {
-            ExpandableSummary(
-                stringResource(R.string.chat_tool_request, row.requestSummary),
-                style = MaterialTheme.typography.bodySmall,
-                tag = "tool-row-args-${row.callId}",
-                collapsedLines = 3,
-            )
-            row.resultSummary?.let { summary ->
-                ExpandableSummary(
-                    stringResource(R.string.chat_tool_result, summary),
-                    style = MaterialTheme.typography.bodySmall,
-                    tag = "tool-row-result-${row.callId}",
-                    collapsedLines = 5,
-                )
-            }
+            ToolTimelineDetails(row, displayIntent)
         }
         CommandDetailEntry(row, intents)
         if (row.prootRecoveryAvailable) {
@@ -95,20 +83,64 @@ internal fun ToolTimelineItem(
 
 @Composable
 @Suppress("FunctionName")
+private fun ToolTimelineDetails(
+    row: com.helix.app.chat.ToolTimelineRow,
+    displayIntent: String,
+) {
+    Text(
+        stringResource(R.string.tool_intent_detail, displayIntent),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-intent-detail-${row.callId}"),
+    )
+    Text(
+        stringResource(R.string.chat_tool_row, row.toolName),
+        style = MaterialTheme.typography.bodySmall,
+    )
+    ExpandableSummary(
+        stringResource(R.string.chat_tool_request, row.requestSummary),
+        style = MaterialTheme.typography.bodySmall,
+        tag = "tool-row-args-${row.callId}",
+        collapsedLines = 3,
+    )
+    row.resultSummary?.let { summary ->
+        ExpandableSummary(
+            stringResource(R.string.chat_tool_result, summary),
+            style = MaterialTheme.typography.bodySmall,
+            tag = "tool-row-result-${row.callId}",
+            collapsedLines = 5,
+        )
+    }
+    Text(
+        stringResource(R.string.tool_status_detail, row.stateLabel),
+        style = MaterialTheme.typography.bodySmall,
+        modifier = Modifier.testTag("tool-row-status-detail-${row.callId}"),
+    )
+    Text(
+        stringResource(R.string.tool_call_id_detail, row.callId),
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.testTag("tool-row-call-id-detail-${row.callId}"),
+    )
+}
+
+@Composable
+@Suppress("FunctionName")
 private fun ToolTimelineSummary(
     row: com.helix.app.chat.ToolTimelineRow,
+    displayIntent: String,
     expanded: Boolean,
     onToggle: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            ToolTimelineHeading(row)
             Text(
-                ToolPurpose.text(row.toolName, row.requestSummary),
-                style = MaterialTheme.typography.bodySmall,
+                displayIntent,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("tool-row-intent-${row.callId}"),
             )
+            ToolTimelineHeading(row)
         }
         IconButton(onClick = onToggle, modifier = Modifier.testTag("tool-details-${row.callId}")) {
             Icon(

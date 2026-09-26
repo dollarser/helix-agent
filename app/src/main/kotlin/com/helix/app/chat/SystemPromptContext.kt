@@ -33,6 +33,7 @@ internal class SystemPromptContext(
         sessionId: String,
         mode: AgentMode,
         fileToolsAvailable: Boolean,
+        toolsAvailable: Boolean,
         expert: ExpertProfile? = null,
     ): PromptSnapshot {
         // The working directory the prompt advertises MUST be the one the file tools resolve
@@ -48,6 +49,18 @@ internal class SystemPromptContext(
             )
         val registry = PromptRegistry()
         PromptEnvironmentSections.register(registry, directory, mode, fileToolsAvailable, templates)
+        if (toolsAvailable) {
+            registry.register(
+                PromptSection(
+                    name = "tool.presentation",
+                    order = -1_650,
+                    scope = PromptScope.TOOL,
+                    source = PromptSource.BUILTIN_TEMPLATE,
+                ) {
+                    ToolPresentationMetadata.PROMPT_GUIDANCE
+                },
+            )
+        }
         expert?.let { profile ->
             registry.register(
                 PromptSection(

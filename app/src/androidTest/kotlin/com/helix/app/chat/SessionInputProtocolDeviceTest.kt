@@ -32,6 +32,9 @@ import java.util.concurrent.TimeUnit
 class SessionInputProtocolDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
+    @Test fun chatCompletionsPreservesPresentationMetadataWithoutLeakingItIntoExecutionArgs() =
+        runBlocking { exercise(ProviderProtocol.OPENAI_CHAT_COMPLETIONS) }
+
     @Test fun responsesPreservesToolPairingBeforeSteeringUser() =
         runBlocking {
             exercise(
@@ -68,16 +71,39 @@ class SessionInputProtocolDeviceTest {
             val call = storage.toolCalls.listByTurn(first.turnId).single()
             assertEquals("time.now", call.name)
             assertEquals("COMPLETED", call.state)
+            assertEquals("{}", call.argsJson)
+            assertEquals(SessionInputProtocolStreams.INTENT, call.modelIntent)
             assertTrue(call.callId.isNotBlank())
             assertNotNull(storage.sessionInputs.get(steer.clientRequestId)?.requestModelCallId)
             assertFalse(wire.request(0).contains(SUPPLEMENT))
+            assertTrue(wire.request(0).contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
             val body = Json.parseToJsonElement(wire.request(1)).jsonObject
-            if (protocol == ProviderProtocol.OPENAI_RESPONSES) {
-                assertResponses(body)
-            } else {
-                assertAnthropic(body)
+            when (protocol) {
+                ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> assertChatCompletions(body)
+                ProviderProtocol.OPENAI_RESPONSES -> assertResponses(body)
+                ProviderProtocol.ANTHROPIC_MESSAGES -> assertAnthropic(body)
             }
         }
+    }
+
+    private fun assertChatCompletions(body: JsonObject) {
+        val messages = body.getValue("messages").jsonArray.map { it.jsonObject }
+        val assistant =
+            messages.single { message ->
+                message.string("role") == "assistant" && message["tool_calls"] != null
+            }
+        val call =
+            assistant
+                .getValue("tool_calls")
+                .jsonArray
+                .single()
+                .jsonObject
+        val function = call.getValue("function").jsonObject
+        val result = messages.single { it.string("role") == "tool" }
+        assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("id"))
+        assertEquals("time.now", function.string("name"))
+        assertFalse(function.string("arguments").contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
+        assertEquals(call.string("id"), result.string("tool_call_id"))
     }
 
     private fun assertResponses(body: JsonObject) {
@@ -87,6 +113,7 @@ class SessionInputProtocolDeviceTest {
         assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("call_id"))
         assertEquals(call.string("call_id"), result.string("call_id"))
         assertEquals("time.now", call.string("name"))
+        assertFalse(call.string("arguments").contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertTrue(result.string("output").isNotBlank())
         val user = items.single { it.string("role") == "user" && it.toString().contains(SUPPLEMENT) }
         assertTrue(items.indexOf(call) < items.indexOf(result))
@@ -108,6 +135,7 @@ class SessionInputProtocolDeviceTest {
         assertEquals("user", user.string("role"))
         assertEquals(SessionInputProtocolStreams.CALL_ID, call.string("id"))
         assertEquals("time.now", call.string("name"))
+        assertFalse(call.getValue("input").toString().contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertEquals(call.string("id"), result.string("tool_use_id"))
         assertTrue(result.getValue("content").toString().length > 2)
         assertTrue(content.indexOf(result) < content.indexOf(supplement))

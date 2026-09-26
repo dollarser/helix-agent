@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -74,7 +75,15 @@ class ApprovalLayoutDeviceTest {
             }
         }
         compose.onNodeWithTag("approval-card-args").assertDoesNotExist()
-        if (inTimeline) compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+        if (inTimeline) {
+            compose.onNodeWithTag("tool-row-args-call").assertDoesNotExist()
+            compose.onNodeWithTag("tool-row-intent-call").assertTextContains("修改发布配置")
+            compose
+                .onNodeWithTag("tool-row-state-call")
+                .assertIsDisplayed()
+                .onChild()
+                .assertTextContains("待审批")
+        }
         compose.onNodeWithTag("approval-details-layout").performScrollTo().performClick()
         compose
             .onNodeWithTag(
@@ -108,7 +117,16 @@ private fun ApprovalLayoutContent(
     if (inTimeline) {
         ToolTimelineItem(
             com.helix.app.chat
-                .ToolTimelineRow("turn", "call", "write", "{}", "待审批", null, card),
+                .ToolTimelineRow(
+                    "turn",
+                    "call",
+                    "write",
+                    "{}",
+                    "待审批",
+                    null,
+                    card,
+                    modelIntent = "修改发布配置",
+                ),
             ConversationIntents(
                 onSend = {},
                 onStop = {},

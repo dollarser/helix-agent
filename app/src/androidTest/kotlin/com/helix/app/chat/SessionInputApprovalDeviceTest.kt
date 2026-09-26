@@ -53,6 +53,7 @@ class SessionInputApprovalDeviceTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test
+    @Suppress("LongMethod") // One end-to-end approval/steer sequence proves ordering and non-execution together.
     fun steerWaitsForDeniedApprovalAndFollowsWholeBatchResults() =
         runBlocking {
             fixture { f ->
@@ -69,6 +70,10 @@ class SessionInputApprovalDeviceTest {
                 val pendingCalls = f.storage.toolCalls.listByTurn(receipt.turnId)
                 val safeCall = pendingCalls.single { it.name == SAFE_TOOL }
                 val askCall = pendingCalls.single { it.name == ASK_TOOL }
+                assertEquals(SAFE_INTENT, safeCall.modelIntent)
+                assertEquals(ASK_INTENT, askCall.modelIntent)
+                assertEquals("{}", safeCall.argsJson)
+                assertEquals("{}", askCall.argsJson)
                 val approval = requireNotNull(f.storage.approvals.byToolCall(askCall.id))
                 assertNull(approval.decision)
                 assertEquals(1, f.requests.size)
@@ -151,6 +156,7 @@ class SessionInputApprovalDeviceTest {
         val first = fixture.requests[0]
         assertTrue(first.contains(SAFE_TOOL))
         assertTrue(first.contains(ASK_TOOL))
+        assertTrue(first.contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
         assertFalse(first.contains(SUPPLEMENT))
         val messages =
             Json
@@ -169,20 +175,83 @@ class SessionInputApprovalDeviceTest {
                 message.string("role") == "user" && message.string("content") == SUPPLEMENT
             }
         assertTrue(assistantIndex >= 0)
+        val assistantCalls =
+            messages[assistantIndex]
+                .getValue("tool_calls")
+                .jsonArray
+                .map {
+                    it.jsonObject
+                        .getValue("function")
+                        .jsonObject
+                        .string("arguments")
+                }
+        assertTrue(assistantCalls.all { ToolPresentationMetadata.RESERVED_INTENT_KEY !in it })
         assertEquals(listOf(SAFE_CALL, ASK_CALL), toolMessages.map { it.value.string("tool_call_id") })
         assertEquals(2, toolMessages.size)
         assertTrue(toolMessages.all { it.index > assistantIndex && it.index < userIndex })
         assertTrue(userIndex > toolMessages.last().index)
     }
 
-    private suspend fun fixture(block: suspend (Fixture) -> Unit) {
+    @Test
+    fun executionFailureKeepsHarnessResultDespiteModelIntent() =
+        runBlocking {
+            fixture(failRead = true) { f ->
+                val outcome =
+                    f.chat
+                        .sendSubmission(submission(f.session, INITIAL_TEXT))
+                        .await()
+                        .outcome
+                assertTrue(outcome is ChatSubmissionOutcome.Accepted || outcome is ChatSubmissionOutcome.Enqueued)
+                await("pending approval") {
+                    f.storage.turns
+                        .listBySession(f.session)
+                        .flatMap { f.storage.toolCalls.listByTurn(it.id) }
+                        .any { it.name == ASK_TOOL && it.state == ToolCallState.AWAITING_APPROVAL.name }
+                }
+                val turnId =
+                    f.storage.turns
+                        .listBySession(f.session)
+                        .single()
+                        .id
+                val ask =
+                    f.storage.toolCalls
+                        .listByTurn(turnId)
+                        .single { it.name == ASK_TOOL }
+                f.chat.denyApproval(requireNotNull(f.storage.approvals.byToolCall(ask.id)).id)
+                await("failed batch settles") {
+                    f.storage.toolCalls.listByTurn(turnId).any {
+                        it.name == SAFE_TOOL && it.state == ToolCallState.FAILED.name
+                    } && !f.chat.screen.value.isSending
+                }
+                val failed =
+                    f.storage.toolCalls
+                        .listByTurn(turnId)
+                        .single { it.name == SAFE_TOOL }
+                assertEquals(SAFE_INTENT, failed.modelIntent)
+                assertEquals("{}", failed.argsJson)
+                val result = requireNotNull(f.storage.toolResults.byToolCall(failed.id))
+                assertTrue(result.summary.contains("fixture execution failed"))
+                assertEquals(
+                    ToolCallState.FAILED.name,
+                    f.storage.toolCalls
+                        .resolve(failed.id)
+                        .state,
+                )
+                assertEquals(0, f.askExecutions.get())
+            }
+        }
+
+    private suspend fun fixture(
+        failRead: Boolean = false,
+        block: suspend (Fixture) -> Unit,
+    ) {
         compose.resetDeterministicUiState()
         val container = compose.container()
         val chat = container.chatService
         val previous = chat.runControl.value
         val safeExecutions = AtomicInteger()
         val askExecutions = AtomicInteger()
-        registerTool(container, SAFE_TOOL, ToolOperationClass.READ_ONLY, RiskLevel.L0, safeExecutions)
+        registerTool(container, SAFE_TOOL, ToolOperationClass.READ_ONLY, RiskLevel.L0, safeExecutions, failRead)
         registerTool(container, ASK_TOOL, ToolOperationClass.LOCAL_MUTATION, RiskLevel.L2, askExecutions)
         LoopbackModelServer(LoopbackModelServer.Mode.OPENAI_LISTED).use { server ->
             server.start()
@@ -221,6 +290,7 @@ class SessionInputApprovalDeviceTest {
         operation: ToolOperationClass,
         risk: RiskLevel,
         executions: AtomicInteger,
+        fail: Boolean = false,
     ) {
         val toolName = ToolName(name)
         val version =
@@ -254,6 +324,8 @@ class SessionInputApprovalDeviceTest {
             object : ToolExecutor {
                 override fun execute(call: ExecutableToolCall): ToolExecutorResult {
                     executions.incrementAndGet()
+                    assertFalse(call.args.toString().contains(ToolPresentationMetadata.RESERVED_INTENT_KEY))
+                    if (fail) return ToolExecutorResult.Failed("fixture execution failed", sideEffectFree = true)
                     return ToolExecutorResult.Completed(buildJsonObject { put("tool", name) })
                 }
             },
@@ -298,9 +370,14 @@ class SessionInputApprovalDeviceTest {
         id: String,
         index: Int,
         name: String,
-    ): String =
-        "{\"id\":\"$id\",\"index\":$index,\"type\":\"function\"," +
-            "\"function\":{\"name\":\"$name\",\"arguments\":\"{}\"}}"
+    ): String {
+        val intent = if (name == SAFE_TOOL) SAFE_INTENT else ASK_INTENT
+        val arguments = """{"__helix_intent":"$intent"}"""
+        return "{\"id\":\"$id\",\"index\":$index,\"type\":\"function\"," +
+            "\"function\":{\"name\":\"$name\",\"arguments\":" +
+            Json.encodeToString(arguments) +
+            "}}"
+    }
 
     private fun submission(
         session: String,
@@ -330,6 +407,8 @@ class SessionInputApprovalDeviceTest {
         const val MODEL = "fixture-model-a"
         const val SAFE_TOOL = "hxatest.input.approval.read"
         const val ASK_TOOL = "hxatest.input.approval.mutate"
+        const val SAFE_INTENT = "Read synthetic state"
+        const val ASK_INTENT = "Apply synthetic mutation"
         const val SAFE_CALL = "approval-safe-call"
         const val ASK_CALL = "approval-denied-call"
         const val INITIAL_TEXT = "Run the approval batch"

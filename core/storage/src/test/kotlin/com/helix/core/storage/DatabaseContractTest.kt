@@ -116,6 +116,10 @@ class DatabaseContractTest {
     fun `current turn recovery and review facts are first-class baseline columns`() {
         assertTrue("recoveryFromTurnId" in columns("turns"))
         assertEquals(
+            listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "modelIntent", "state"),
+            columns("tool_calls"),
+        )
+        assertEquals(
             listOf(
                 "turnId",
                 "version",

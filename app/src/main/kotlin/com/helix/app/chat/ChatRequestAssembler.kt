@@ -99,6 +99,7 @@ internal class ChatRequestAssembler(
                 sessionId,
                 control.mode,
                 fileToolsAvailable(tools),
+                tools.isNotEmpty(),
                 storage.sessionExperts.forSession(sessionId),
             )
         val request =
@@ -140,7 +141,14 @@ internal class ChatRequestAssembler(
                 .find(turnId)
                 ?.let(com.helix.app.engine.TurnRuntimeRecordCodec::decode)
                 ?.expert
-        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools), expert)
+        val system =
+            systemPrompt.build(
+                sessionId,
+                control.mode,
+                fileToolsAvailable(tools),
+                tools.isNotEmpty(),
+                expert,
+            )
         val history = persistedHistory(sessionId, turnId, retryTurnId, system)
         require(history.messages.lastOrNull()?.role == ModelRole.USER) {
             "the request must end with the user message"
@@ -184,7 +192,14 @@ internal class ChatRequestAssembler(
                 .find(turnId)
                 ?.let(com.helix.app.engine.TurnRuntimeRecordCodec::decode)
                 ?.expert
-        val system = systemPrompt.build(sessionId, control.mode, fileToolsAvailable(tools), expert)
+        val system =
+            systemPrompt.build(
+                sessionId,
+                control.mode,
+                fileToolsAvailable(tools),
+                tools.isNotEmpty(),
+                expert,
+            )
         val history = persistedHistory(sessionId, turnId, null, system)
         require(history.messages.lastOrNull()?.role in setOf(ModelRole.TOOL, ModelRole.USER)) {
             "a continuation must end with settled tool results or a user input"
@@ -256,6 +271,7 @@ internal class ChatRequestAssembler(
                 }
             }.take(ModelRequest.MAX_TOOLS)
             .map(FileToolArguments::modelSchema)
+            .map(ToolPresentationMetadata::augment)
     }
 
     /**

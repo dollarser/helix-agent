@@ -42,40 +42,7 @@ internal class ChatScreenProjection(
         if (sessionId == null) return liveRows
         val superseded = storage.messages.supersededTurns(sessionId)
         val sessionTurns = storage.turns.listBySession(sessionId).filterNot { it.id in superseded }
-        val persisted =
-            sessionTurns
-                .flatMap { turn ->
-                    storage.toolCalls
-                        .listByTurn(turn.id)
-                        .map { call ->
-                            val result = storage.toolResults.byToolCall(call.callId)
-                            val interruptedProot =
-                                com.helix.app.proot
-                                    .prootRecoveryEligible(turn.state, call.state) &&
-                                    call.name in setOf("bash", "code.linux.run")
-                            ToolTimelineRow(
-                                turnId = turn.id,
-                                callId = call.callId,
-                                toolName = call.name,
-                                requestSummary = call.argsJson,
-                                stateLabel =
-                                    persistedStateLabel(
-                                        if (turn.state == TurnState.INTERRUPTED.name &&
-                                            call.state == ToolCallState.AWAITING_APPROVAL.name
-                                        ) {
-                                            ToolCallState.INTERRUPTED.name
-                                        } else {
-                                            call.state
-                                        },
-                                    ),
-                                resultSummary = result?.summary,
-                                card = null,
-                                prootRecoveryAvailable =
-                                    ProotToolModule.AVAILABLE &&
-                                        interruptedProot,
-                            )
-                        }
-                }.takeLast(TOOL_TIMELINE_CAP)
+        val persisted = persistedToolTimeline(sessionTurns)
         // Scope the overlay to THIS session's turns: a live row from another session
         // (e.g. a pending card left open when the user switched) must not appear here.
         val turnsInSession = sessionTurns.map { it.id }.toSet()
@@ -93,12 +60,39 @@ internal class ChatScreenProjection(
                         prootRecoveryReport = live.prootRecoveryReport,
                         prootRecoveredOutput = live.prootRecoveredOutput,
                         prootResultUnavailable = live.prootResultUnavailable,
+                        modelIntent = live.modelIntent ?: row.modelIntent,
+                        durationMs = live.durationMs ?: row.durationMs,
                         stateLabel = live.stateLabel,
                         resultSummary = live.resultSummary ?: row.resultSummary,
                     )
                 }.plus(scoped.filter { live -> persisted.none { it.callId == live.callId } })
         }
     }
+
+    private fun persistedToolTimeline(sessionTurns: List<TurnEntity>): List<ToolTimelineRow> =
+        sessionTurns
+            .flatMap { turn ->
+                storage.toolCalls
+                    .listByTurn(turn.id)
+                    .map { call ->
+                        val result = storage.toolResults.byToolCall(call.callId)
+                        val interruptedProot =
+                            com.helix.app.proot
+                                .prootRecoveryEligible(turn.state, call.state) &&
+                                call.name in setOf("bash", "code.linux.run")
+                        ToolTimelineRow(
+                            turnId = turn.id,
+                            callId = call.callId,
+                            toolName = call.name,
+                            modelIntent = call.modelIntent,
+                            requestSummary = call.argsJson,
+                            stateLabel = persistedStateLabel(persistedCallState(turn, call.state)),
+                            resultSummary = result?.summary,
+                            card = null,
+                            prootRecoveryAvailable = ProotToolModule.AVAILABLE && interruptedProot,
+                        )
+                    }
+            }.takeLast(TOOL_TIMELINE_CAP)
 
     /** A persisted tool_call state as its user label (corrupt values fail closed). */
     private fun persistedStateLabel(state: String): String =
@@ -249,3 +243,13 @@ internal class ChatScreenProjection(
         const val TOOL_TIMELINE_CAP = 200
     }
 }
+
+private fun persistedCallState(
+    turn: TurnEntity,
+    callState: String,
+): String =
+    if (turn.state == TurnState.INTERRUPTED.name && callState == ToolCallState.AWAITING_APPROVAL.name) {
+        ToolCallState.INTERRUPTED.name
+    } else {
+        callState
+    }

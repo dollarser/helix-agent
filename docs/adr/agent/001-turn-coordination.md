@@ -202,7 +202,17 @@ Room 是 terminal/interrupted、review、receipt、runtime snapshot、successor 
 
 UI 不直接访问 DAO。
 
+### 15. Tool presentation 不是 execution authority
+
+HXA-229 的 per-call `ToolCallPresentation.modelIntent` 仅描述模型意图。`__helix_intent` 是 model-facing schema 的可选 reserved field；业务 schema 占用该 key 时 fail closed。在 Harness 的 Tool batch 入口一次性提取、sanitize、strip，随后 history 与执行共用 stripped arguments；单调用入口使用同一边界。
+
+Dispatcher、MCP、Skill、effect classifier、approval binding 和 argsHash 只消费业务参数。`tool_calls.argsJson` 保存 stripped canonical args，`modelIntent` 单独持久化；Provider history 不重放 presentation metadata。缺失、非法、secret-like、控制字符、超长或明显结果/权限声明的 intent 回退 `ToolPurpose`，不拒绝原本合法的业务调用。Export 仍经过正文 redaction/sanitizer。
+
+UI 可优先展示 intent，但 status、result、approval、UNKNOWN/NEEDS_REVIEW 始终来自 Harness；展开保留原参数、结果与 call identity。不增加 Activity grouping 或额外 LLM 结果总结。自然语言过滤是有界防护，不是语义真实性证明；通过过滤的文本仍不获得执行或授权权威。
+
 ## Decision history
+
+- **2026-09-27**：HXA-229 冻结 per-call model intent presentation contract，统一 strip/history/persistence 边界；Harness 的执行、审批与副作用事实所有权不变。
 
 - **2026-09-22**：建立 batch-aware Turn coordination、确定性 ToolCall 顺序和 durable settlement（原 ADR-AGENT-001）。
 - **2026-09-22**：统一普通发送 Queue、显式 Steer、统一 Stop 与 Goal 输入交付（当时单独记录为 Agent 008，现并入本文件）。

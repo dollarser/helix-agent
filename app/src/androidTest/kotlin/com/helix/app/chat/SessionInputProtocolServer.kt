@@ -24,7 +24,12 @@ internal class SessionInputProtocolServer(
         val body: String,
     )
 
-    private val streamPath = if (protocol == ProviderProtocol.OPENAI_RESPONSES) "/v1/responses" else "/v1/messages"
+    private val streamPath =
+        when (protocol) {
+            ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> "/v1/chat/completions"
+            ProviderProtocol.OPENAI_RESPONSES -> "/v1/responses"
+            ProviderProtocol.ANTHROPIC_MESSAGES -> "/v1/messages"
+        }
     private val server = ServerSocket(0, 0, InetAddress.getByName("127.0.0.1"))
     private val activeSocket = AtomicReference<Socket?>()
     private val failure = AtomicReference<Throwable?>()

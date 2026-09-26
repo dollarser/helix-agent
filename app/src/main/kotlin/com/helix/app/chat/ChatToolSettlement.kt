@@ -91,6 +91,7 @@ internal class ChatToolSettlement(
             summary,
             null,
             durationMs,
+            modelIntent = row.modelIntent,
         )
         publishLedgerForTodoWrite(row)
     }
@@ -138,6 +139,7 @@ internal class ChatToolSettlement(
             userDetail,
             null,
             durationMs,
+            modelIntent = row.modelIntent,
         )
     }
 
@@ -163,6 +165,7 @@ internal class ChatToolSettlement(
             str(R.string.tool_summary_cancelled_before_start),
             null,
             durationMs,
+            modelIntent = row.modelIntent,
         )
     }
 
@@ -194,7 +197,17 @@ internal class ChatToolSettlement(
             } else {
                 str(R.string.tool_state_failed)
             }
-        timeline.publishToolRow(row.turnId, toolCallId, toolName, row.argsJson, label, userDetail, null, durationMs)
+        timeline.publishToolRow(
+            row.turnId,
+            toolCallId,
+            toolName,
+            row.argsJson,
+            label,
+            userDetail,
+            null,
+            durationMs,
+            row.modelIntent,
+        )
     }
 
     /**
@@ -205,6 +218,7 @@ internal class ChatToolSettlement(
      * same per-call correlation the dispatcher's own audit events use), show the rejection
      * in the timeline, and return the stable typed rejection.
      */
+    @Suppress("LongMethod") // One atomic pre-dispatch settlement must keep row/result/audit/budget truth together.
     fun persistPreDispatchDenied(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
@@ -214,6 +228,7 @@ internal class ChatToolSettlement(
         code: DispatchOutcomeCode,
         detail: String,
         kind: PreDispatchDenialKind,
+        modelIntent: String? = null,
     ): ToolDispatchOutcome.Denied {
         val recoveryBlocked = kind == PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED
         val state = if (recoveryBlocked) ToolCallState.DENIED else ToolCallState.FAILED
@@ -230,6 +245,7 @@ internal class ChatToolSettlement(
                 version = version,
                 argsJson = rawArgs,
                 state = state.name,
+                modelIntent = modelIntent,
             )
             storage.toolResults.append(
                 id = idGenerator(),
@@ -269,6 +285,7 @@ internal class ChatToolSettlement(
             str(R.string.tool_state_denied),
             detail,
             null,
+            modelIntent = modelIntent,
         )
         return ToolDispatchOutcome.Denied(code, detail)
     }

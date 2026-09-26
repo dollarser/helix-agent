@@ -162,6 +162,7 @@ internal class SessionExportProjection(
                 "title",
                 "sourceSessionTitle",
                 "argsJson",
+                "modelIntent",
                 "summary",
                 "limitsJson",
                 "budgets",

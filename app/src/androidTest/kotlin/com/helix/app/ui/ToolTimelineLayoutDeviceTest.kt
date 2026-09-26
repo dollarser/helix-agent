@@ -8,10 +8,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -47,6 +49,109 @@ class ToolTimelineLayoutDeviceTest {
         verifyExpansion("tool-row-result-call", result)
     }
 
+    @Test
+    fun modelIntentIsPrimaryWhileHarnessStateAndRawFactsRemainVisible() {
+        val intent = "检查构建失败原因"
+        render(
+            ToolTimelineRow(
+                turnId = "turn",
+                callId = "call",
+                toolName = "bash",
+                requestSummary = """{"command":["./gradlew","test"]}""",
+                stateLabel = "需要审查",
+                resultSummary = "effect uncertain",
+                card = null,
+                modelIntent = intent,
+                durationMs = 400,
+            ),
+        )
+
+        compose.onNodeWithTag("tool-row-intent-call").assertTextContains(intent)
+        compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
+        compose.onNodeWithTag("tool-row-duration-call").assertIsDisplayed()
+        compose.onNodeWithTag("tool-details-call").performClick()
+        compose.onNodeWithTag("tool-row-intent-detail-call").assertTextContains(intent, substring = true)
+        compose.onNodeWithTag("tool-row-status-detail-call").assertTextContains("需要审查", substring = true)
+        compose.onNodeWithTag("tool-row-call-id-detail-call").assertTextContains("call", substring = true)
+        compose.onNodeWithTag("tool-row-args-call").assertTextContains("./gradlew", substring = true)
+        compose.onNodeWithTag("tool-row-result-call").assertTextContains("effect uncertain", substring = true)
+    }
+
+    @Test fun modelIntentFits320dpAtLargeFont() = assertIntentLayout(320)
+
+    @Test fun modelIntentFits360dpAtLargeFont() = assertIntentLayout(360)
+
+    @Test fun modelIntentFits412dpAtLargeFont() = assertIntentLayout(412)
+
+    @Test fun failureRemainsVisibleBesideModelIntent() {
+        render(
+            ToolTimelineRow(
+                "turn",
+                "call",
+                "write",
+                "{}",
+                "执行失败",
+                "executor failure",
+                null,
+                modelIntent = "修改发布配置",
+            ),
+        )
+        compose.onNodeWithTag("tool-row-intent-call").assertTextContains("修改发布配置")
+        compose
+            .onNodeWithTag("tool-row-state-call")
+            .assertIsDisplayed()
+            .onChild()
+            .assertTextContains("执行失败")
+        compose.onNodeWithTag("tool-details-call").performClick()
+        compose.onNodeWithTag("tool-row-result-call").assertTextContains("executor failure", substring = true)
+    }
+
+    @Test fun deniedStatusRemainsVisibleBesideModelIntent() {
+        render(
+            ToolTimelineRow(
+                "turn",
+                "call",
+                "write",
+                "{}",
+                "已拒绝",
+                "permission denied",
+                null,
+                modelIntent = "修改发布配置",
+            ),
+        )
+        compose
+            .onNodeWithTag("tool-row-state-call")
+            .assertIsDisplayed()
+            .onChild()
+            .assertTextContains("已拒绝")
+    }
+
+    private fun assertIntentLayout(widthDp: Int) {
+        val intent = "Inspect the current isolated execution summary"
+        render(
+            ToolTimelineRow(
+                "turn",
+                "call",
+                "mcp.documents.search_workspace_records",
+                "{}",
+                "执行中",
+                null,
+                null,
+                modelIntent = intent,
+            ),
+            widthDp = widthDp,
+            fontScale = 2f,
+        )
+        val row = compose.onNodeWithTag("tool-row-call").getUnclippedBoundsInRoot()
+        val intentNode = compose.onNodeWithTag("tool-row-intent-call")
+        intentNode.assertIsDisplayed().assertTextContains(intent)
+        compose.onNodeWithTag("tool-row-state-call").assertIsDisplayed()
+        val details = compose.onNodeWithTag("tool-details-call")
+        details.assertIsDisplayed().assertHasClickAction()
+        val bounds = details.getUnclippedBoundsInRoot()
+        assertTrue(bounds.left >= row.left && bounds.right <= row.right)
+    }
+
     private fun verifyExpansion(
         tag: String,
         text: String,
@@ -60,12 +165,16 @@ class ToolTimelineLayoutDeviceTest {
         compose.onNodeWithTag("$tag-toggle").performScrollTo().performClick()
     }
 
-    private fun render(row: ToolTimelineRow) {
+    private fun render(
+        row: ToolTimelineRow,
+        widthDp: Int = 240,
+        fontScale: Float = 1.8f,
+    ) {
         compose.setContent {
             val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 MaterialTheme {
-                    Column(Modifier.width(240.dp).verticalScroll(rememberScrollState())) {
+                    Column(Modifier.width(widthDp.dp).verticalScroll(rememberScrollState())) {
                         ToolTimelineItem(row, timelineIntents())
                     }
                 }

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "ed1db8b6adc99978fb1942ea9fbd94b4",
+    "identityHash": "ee137a158e74ea1b95d0dc22837217f4",
     "entities": [
       {
         "tableName": "sessions",
@@ -723,7 +723,7 @@
       },
       {
         "tableName": "tool_calls",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `callId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` TEXT NOT NULL, `argsJson` TEXT NOT NULL, `argsHash` TEXT NOT NULL, `state` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `turnId` TEXT NOT NULL, `callId` TEXT NOT NULL, `name` TEXT NOT NULL, `version` TEXT NOT NULL, `argsJson` TEXT NOT NULL, `argsHash` TEXT NOT NULL, `modelIntent` TEXT, `state` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`turnId`) REFERENCES `turns`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -766,6 +766,11 @@
             "columnName": "argsHash",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "modelIntent",
+            "columnName": "modelIntent",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "state",
@@ -3684,7 +3689,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ed1db8b6adc99978fb1942ea9fbd94b4')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ee137a158e74ea1b95d0dc22837217f4')"
     ]
   }
 }

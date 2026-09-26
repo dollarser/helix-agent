@@ -438,7 +438,7 @@ internal class AgentLoop(
         if (calls.isEmpty()) return null
         if (toolRounds >= control.budgets.maxSteps) return ToolRoundLimit()
         runtimeAccounting.checkpointToolRound(turnId, toolRounds)
-        val localBatch = LocalToolCallBatch(calls, idGenerator)
+        val localBatch = LocalToolCallBatch(toolExecutor.prepareModelCalls(calls), idGenerator)
         coordinator.beginToolBatch(localBatch.calls.map { it.callId })
         coordinator.commitModelToolStep(toolExecutor.assistantToolStepJson(localBatch))
         val turn = storage.turns.resolve(turnId)

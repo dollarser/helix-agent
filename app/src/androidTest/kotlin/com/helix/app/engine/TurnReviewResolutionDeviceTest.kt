@@ -128,6 +128,9 @@ class TurnReviewResolutionDeviceTest {
                     ToolEffectReviewDecision.ACKNOWLEDGED_UNKNOWN.name,
                     storage.toolCallReviews.findByToolCallId(LOCAL_UNKNOWN)?.decision,
                 )
+                val unknown = storage.toolCalls.resolve(LOCAL_UNKNOWN)
+                assertEquals(ToolCallState.NEEDS_REVIEW.name, unknown.state)
+                assertEquals(UNKNOWN_INTENT, unknown.modelIntent)
             } finally {
                 storage.close()
             }
@@ -145,7 +148,9 @@ class TurnReviewResolutionDeviceTest {
         assertEquals("EFFECT_REVIEW_RESOLVED", turn.errorCode)
         assertEquals(modelCalls, storage.modelCalls.listByTurn(TURN).map { it.id })
         assertEquals(toolMessages, toolResultMessageIds(storage))
-        assertEquals(ToolCallState.NEEDS_REVIEW.name, storage.toolCalls.resolve(LOCAL_UNKNOWN).state)
+        val unknown = storage.toolCalls.resolve(LOCAL_UNKNOWN)
+        assertEquals(ToolCallState.NEEDS_REVIEW.name, unknown.state)
+        assertEquals(UNKNOWN_INTENT, unknown.modelIntent)
         assertEquals("NEEDS_REVIEW", storage.toolResults.byToolCall(LOCAL_UNKNOWN)?.status)
         assertEquals(GoalState.PAUSED.name, storage.goals.resolve(fixture.goalId).state)
         assertEquals(fixture.runCount, storage.goals.resolve(fixture.goalId).runCount)
@@ -248,6 +253,7 @@ class TurnReviewResolutionDeviceTest {
             "1",
             "{}",
             ToolCallState.NEEDS_REVIEW.name,
+            UNKNOWN_INTENT,
         )
         storage.toolResults.append("result-unknown", LOCAL_UNKNOWN, "NEEDS_REVIEW", "effect uncertain", null)
         coordinator.settleBatchCall(LOCAL_OK, sideEffectUnknown = false)
@@ -287,6 +293,7 @@ class TurnReviewResolutionDeviceTest {
         const val SESSION = "session-review"
         const val TURN = "turn-review"
         const val PROVIDER = "provider-review"
+        const val UNKNOWN_INTENT = "Write requested file"
         const val MODEL = "model-review"
         const val SNAPSHOT = """{"providerId":"provider-review","model":"model-review"}"""
         const val MODEL_CALL_1 = "model-call-1"

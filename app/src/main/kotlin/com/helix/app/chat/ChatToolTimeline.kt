@@ -50,6 +50,7 @@ internal class ChatToolTimeline(
         resultSummary: String?,
         card: com.helix.app.approval.ApprovalCardUi?,
         durationMs: Long? = null,
+        modelIntent: String? = null,
     ) {
         // Atomic update: this row mutation races other timeline writers (the card sink
         // runs on a scheduler pool thread; settle/cancel run on the IO scope). A
@@ -60,6 +61,7 @@ internal class ChatToolTimeline(
             val existing = screen.toolTimeline.firstOrNull { it.turnId == turnId && it.callId == callId }
             val preserved = card ?: existing?.card
             val effectiveDuration = durationMs ?: existing?.durationMs
+            val effectiveIntent = modelIntent ?: existing?.modelIntent
             screen.copy(
                 toolTimeline =
                     screen.toolTimeline
@@ -69,6 +71,7 @@ internal class ChatToolTimeline(
                                 turnId = turnId,
                                 callId = callId,
                                 toolName = toolName,
+                                modelIntent = effectiveIntent,
                                 requestSummary = requestSummary,
                                 stateLabel = stateLabel,
                                 resultSummary = resultSummary,

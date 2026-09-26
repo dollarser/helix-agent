@@ -205,3 +205,4 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-223 | [HXA-223：Post-clean-slate Core Boundary Convergence](HXA-223.md) |
 | HXA-226 | [HXA-226：UI / IA 第二轮收敛](HXA-226.md) |
 | HXA-228 | [HXA-228：Conversation-first Shell 与 Session Context Control](HXA-228.md) |
+| HXA-229 | [HXA-229：Model-authored Agent Activity Presentation](HXA-229.md) |

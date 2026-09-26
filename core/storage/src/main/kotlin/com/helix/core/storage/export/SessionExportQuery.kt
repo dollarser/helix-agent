@@ -83,7 +83,7 @@ internal data class SessionExportQuery(
                     SessionExportType.TOOL_CALL,
                     "tool_calls x",
                     "x.turnId IN ($TURN_SCOPE)",
-                    listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "state"),
+                    listOf("id", "turnId", "callId", "name", "version", "argsJson", "argsHash", "state", "modelIntent"),
                 ),
                 SessionExportQuery(
                     SessionExportType.TOOL_RESULT,

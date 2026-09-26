@@ -1,5 +1,6 @@
 package com.helix.tools.root
 
+import android.annotation.SuppressLint
 import android.util.Base64
 import com.topjohnwu.superuser.Shell
 import java.io.File
@@ -49,6 +50,8 @@ object RootFileAccessor {
     fun toAbsolutePath(relativePath: String): String =
         if (relativePath.isEmpty() || relativePath == "/") "/" else "/" + relativePath.trimStart('/')
 
+    // These are explicit root-browser namespace aliases, not this app's private storage directory.
+    @SuppressLint("SdCardPath")
     private fun resolvePath(path: String): String =
         when {
             path.trimEnd('/') == "/data/data" -> "/data/user/0"

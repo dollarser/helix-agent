@@ -1071,6 +1071,9 @@
     <string name="provider_capabilities_failed">Capability detection failed: %1$s. Connection status is unchanged.</string>
     <string name="tool_details_show">Details</string>
     <string name="tool_details_hide">Hide details</string>
+    <string name="tool_intent_detail">Intent: %1$s</string>
+    <string name="tool_status_detail">Status: %1$s</string>
+    <string name="tool_call_id_detail">Call ID: %1$s</string>
     <string name="tool_purpose_write">Write file</string>
     <string name="tool_purpose_edit">Edit file</string>
     <string name="tool_purpose_read">Read content</string>

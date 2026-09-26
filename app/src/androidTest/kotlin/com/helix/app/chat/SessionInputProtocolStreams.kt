@@ -11,15 +11,23 @@ internal object SessionInputProtocolStreams {
     const val CALL_ID = "call_protocol"
 
     fun text(protocol: ProviderProtocol): String =
-        if (protocol == ProviderProtocol.OPENAI_RESPONSES) {
-            event("response.output_text.delta", """{"delta":"fixture answer"}""") + responsesEnd()
-        } else {
-            anthropicStart() +
-                event("content_block_start", """{"index":0,"content_block":{"type":"text","text":""}}""") +
-                event(
-                    "content_block_delta",
-                    """{"index":0,"delta":{"type":"text_delta","text":"fixture answer"}}""",
-                ) + anthropicEnd("end_turn")
+        when (protocol) {
+            ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> {
+                textAnswerStream("fixture answer")
+            }
+
+            ProviderProtocol.OPENAI_RESPONSES -> {
+                event("response.output_text.delta", """{"delta":"fixture answer"}""") + responsesEnd()
+            }
+
+            ProviderProtocol.ANTHROPIC_MESSAGES -> {
+                anthropicStart() +
+                    event("content_block_start", """{"index":0,"content_block":{"type":"text","text":""}}""") +
+                    event(
+                        "content_block_delta",
+                        """{"index":0,"delta":{"type":"text_delta","text":"fixture answer"}}""",
+                    ) + anthropicEnd("end_turn")
+            }
         }
 
     fun tool(
@@ -27,11 +35,16 @@ internal object SessionInputProtocolStreams {
         probe: Boolean,
     ): String {
         val name = if (probe) "echo" else "time.now"
-        val args = if (probe) """{"text":"probe"}""" else "{}"
-        return if (protocol == ProviderProtocol.OPENAI_RESPONSES) {
-            responsesTool(name, args)
-        } else {
-            anthropicTool(name, args)
+        val args =
+            if (probe) {
+                """{"text":"probe"}"""
+            } else {
+                """{"__helix_intent":"$INTENT"}"""
+            }
+        return when (protocol) {
+            ProviderProtocol.OPENAI_CHAT_COMPLETIONS -> toolCallStream(CALL_ID, Json.encodeToString(name), args)
+            ProviderProtocol.OPENAI_RESPONSES -> responsesTool(name, args)
+            ProviderProtocol.ANTHROPIC_MESSAGES -> anthropicTool(name, args)
         }
     }
 
@@ -106,4 +119,6 @@ internal object SessionInputProtocolStreams {
             }
         return "event: $type\ndata: $payload\n\n"
     }
+
+    const val INTENT = "Read current time"
 }

@@ -236,6 +236,7 @@ internal data class BufferedModelToolCall(
     val callId: String,
     val name: String,
     val arguments: String,
+    val presentation: com.helix.core.model.ToolCallPresentation = com.helix.core.model.ToolCallPresentation.EMPTY,
 )
 
 /**

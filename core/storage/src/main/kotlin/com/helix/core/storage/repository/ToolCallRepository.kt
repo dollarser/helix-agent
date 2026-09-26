@@ -12,6 +12,7 @@ class ToolCallRepository(
      * Registers a tool call. `argsJson` must already be canonical (doc 9.2); [argsHash] is
      * computed here so the hash and the stored body cannot drift.
      */
+    @Suppress("LongParameterList") // Mirrors the durable tool_calls row; callers use named fields for new metadata.
     fun append(
         id: String,
         turnId: String,
@@ -20,6 +21,7 @@ class ToolCallRepository(
         version: String,
         argsJson: String,
         state: String,
+        modelIntent: String? = null,
     ): ToolCallEntity {
         require(callId.isNotBlank()) { "callId must not be blank" }
         require(name.isNotBlank()) { "tool name must not be blank" }
@@ -27,14 +29,15 @@ class ToolCallRepository(
         require(state.isNotBlank()) { "state must not be blank" }
         val entity =
             ToolCallEntity(
-                id,
-                turnId,
-                callId,
-                name,
-                version,
-                argsJson,
-                FileContentStore.sha256Hex(argsJson.toByteArray(Charsets.UTF_8)),
-                state,
+                id = id,
+                turnId = turnId,
+                callId = callId,
+                name = name,
+                version = version,
+                argsJson = argsJson,
+                argsHash = FileContentStore.sha256Hex(argsJson.toByteArray(Charsets.UTF_8)),
+                modelIntent = modelIntent,
+                state = state,
             )
         dao.insert(entity)
         return entity

@@ -195,6 +195,7 @@ data class ToolCallEntity(
     val argsJson: String,
     val argsHash: String,
     val state: String,
+    val modelIntent: String? = null,
 )
 
 /** architecture doc 9.1: `tool_results` — one result per tool call, verified flag. */

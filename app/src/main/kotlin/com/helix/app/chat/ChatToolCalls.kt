@@ -194,6 +194,12 @@ internal class ChatToolCalls(
 
     private val messageEncoder = ChatToolMessageEncoder(strings)
 
+    override fun prepareModelCalls(calls: List<BufferedModelToolCall>): List<BufferedModelToolCall> =
+        calls.map { call ->
+            val extracted = ToolPresentationMetadata.extract(call.arguments)
+            call.copy(arguments = extracted.businessArgumentsJson, presentation = extracted.presentation)
+        }
+
     override fun assistantToolStepJson(batch: LocalToolCallBatch): String = messageEncoder.assistantToolStepJson(batch)
 
     override fun toolResultDraft(settled: SettledCall): TurnMessageDraft {
@@ -249,10 +255,7 @@ internal class ChatToolCalls(
         coordinator: TurnCoordinator,
         control: RunControlConfig,
     ): SettledBatch {
-        val prepareds =
-            calls.map { call ->
-                prepareToolCall(turn, call.callId, call.name, call.arguments, control.mode, control.chatToolsEnabled)
-            }
+        val prepareds = prepareBatchCalls(turn, calls, control)
         val requests = prepareds.mapNotNull { it.request }
         val batch =
             if (requests.isEmpty()) {
@@ -303,6 +306,23 @@ internal class ChatToolCalls(
         handleBatchError(batch.firstError, reviewCallIds)
         return SettledBatch(settled, reviewCallIds)
     }
+
+    private fun prepareBatchCalls(
+        turn: com.helix.core.storage.entity.TurnEntity,
+        calls: List<BufferedModelToolCall>,
+        control: RunControlConfig,
+    ): List<PreparedToolCall> =
+        calls.map { call ->
+            prepareToolCall(
+                turn,
+                call.callId,
+                call.name,
+                call.arguments,
+                call.presentation.modelIntent,
+                control.mode,
+                control.chatToolsEnabled,
+            )
+        }
 
     private fun handleBatchError(
         error: Throwable?,
@@ -355,11 +375,21 @@ internal class ChatToolCalls(
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
+        modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
-    ): PreparedToolCall =
-        if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
-            prepareAdmittedToolCall(turn, toolCallId, toolNameRaw, rawArgsJson, mode, chatToolsEnabled)
+    ): PreparedToolCall {
+        val businessArgs = rawArgsJson
+        return if (GoalToolCallBudget(storage, clock).reserve(turn.id, toolCallId)) {
+            prepareAdmittedToolCall(
+                turn,
+                toolCallId,
+                toolNameRaw,
+                businessArgs,
+                modelIntent,
+                mode,
+                chatToolsEnabled,
+            )
         } else {
             PreparedToolCall(
                 toolCallId,
@@ -370,27 +400,39 @@ internal class ChatToolCalls(
                     turn,
                     toolCallId,
                     toolNameRaw,
-                    rawArgsJson,
+                    businessArgs,
                     "unknown",
                     DispatchOutcomeCode.BUDGET_EXHAUSTED,
                     str(R.string.model_error_goal_budget_limit),
                     PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                    modelIntent,
                 ),
             )
         }
+    }
 
     private fun prepareAdmittedToolCall(
         turn: com.helix.core.storage.entity.TurnEntity,
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
+        modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
     ): PreparedToolCall {
         val toolName = runCatching { ToolName(toolNameRaw) }.getOrNull()
         val descriptor = toolPipeline.resolveLatest(toolNameRaw)
         val args = parseToolArgs(rawArgsJson, descriptor, turn.sessionId)
-        return invalidToolCallRejection(turn, toolCallId, toolNameRaw, rawArgsJson, toolName, args, descriptor)
+        return invalidToolCallRejection(
+            turn,
+            toolCallId,
+            toolNameRaw,
+            rawArgsJson,
+            modelIntent,
+            toolName,
+            args,
+            descriptor,
+        )
             ?: prepareValidatedToolCall(
                 turn,
                 toolCallId,
@@ -398,6 +440,7 @@ internal class ChatToolCalls(
                 requireNotNull(toolName),
                 requireNotNull(args),
                 descriptor,
+                modelIntent,
                 mode,
                 chatToolsEnabled,
             )
@@ -411,11 +454,12 @@ internal class ChatToolCalls(
         toolName: ToolName,
         args: JsonObject,
         descriptor: ToolDescriptor?,
+        modelIntent: String?,
         mode: AgentMode,
         chatToolsEnabled: Boolean,
     ): PreparedToolCall {
         val canonical = CanonicalArgs.canonicalize(args)
-        recoveryEffectRejection(turn, toolCallId, toolNameRaw, canonical, descriptor)?.let { return it }
+        recoveryEffectRejection(turn, toolCallId, toolNameRaw, canonical, descriptor, modelIntent)?.let { return it }
         val row =
             storage.toolCalls.append(
                 id = toolCallId,
@@ -425,6 +469,7 @@ internal class ChatToolCalls(
                 version = descriptor?.version?.value?.toString() ?: "0",
                 argsJson = canonical,
                 state = ToolCallState.PENDING.name,
+                modelIntent = modelIntent,
             )
         val currentProfile = profile.value
         timeline.publishToolRow(
@@ -435,6 +480,7 @@ internal class ChatToolCalls(
             str(R.string.tool_state_processing),
             null,
             null,
+            modelIntent = modelIntent,
         )
         val request =
             requests
@@ -471,6 +517,7 @@ internal class ChatToolCalls(
         toolNameRaw: String,
         canonicalArgs: String,
         descriptor: ToolDescriptor?,
+        modelIntent: String?,
     ): PreparedToolCall? {
         val unresolved = UnresolvedEffectPolicy.hasUnresolvedEffects(storage, turn.sessionId)
         if (descriptor == null || UnresolvedEffectPolicy.permits(unresolved, descriptor.operationClass)) return null
@@ -484,6 +531,7 @@ internal class ChatToolCalls(
                 code = DispatchOutcomeCode.POLICY_DENIED,
                 detail = str(R.string.tool_failure_requires_review),
                 kind = PreDispatchDenialKind.RECOVERY_REVIEW_REQUIRED,
+                modelIntent = modelIntent,
             )
         return PreparedToolCall(toolCallId, toolNameRaw, null, null, denied)
     }
@@ -527,6 +575,7 @@ internal class ChatToolCalls(
         toolCallId: String,
         toolNameRaw: String,
         rawArgsJson: String,
+        modelIntent: String?,
         toolName: ToolName?,
         args: JsonObject?,
         descriptor: ToolDescriptor?,
@@ -547,6 +596,7 @@ internal class ChatToolCalls(
                         DispatchOutcomeCode.UNKNOWN_TOOL,
                         str(R.string.tool_rejected_bad_name),
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                        modelIntent,
                     ),
                 )
             }
@@ -566,6 +616,7 @@ internal class ChatToolCalls(
                         DispatchOutcomeCode.INVALID_ARGUMENTS,
                         str(R.string.tool_rejected_bad_args),
                         PreDispatchDenialKind.FRAMEWORK_REJECTED,
+                        modelIntent,
                     ),
                 )
             }
@@ -598,7 +649,17 @@ internal class ChatToolCalls(
         chatToolsEnabled: Boolean = false,
     ): ToolDispatchOutcome {
         val turn = storage.turns.resolve(turnId)
-        val prepared = prepareToolCall(turn, toolCallId, toolNameRaw, rawArgsJson, mode, chatToolsEnabled)
+        val extracted = ToolPresentationMetadata.extract(rawArgsJson)
+        val prepared =
+            prepareToolCall(
+                turn,
+                toolCallId,
+                toolNameRaw,
+                extracted.businessArgumentsJson,
+                extracted.presentation.modelIntent,
+                mode,
+                chatToolsEnabled,
+            )
         prepared.preSettled?.let { return it }
         val batch = toolPipeline.scheduler.scheduleBatch(listOf(prepared.request!!))
         val settlement = batch.settlements.single()

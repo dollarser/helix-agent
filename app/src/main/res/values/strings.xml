@@ -1087,6 +1087,9 @@
     <string name="provider_capabilities_failed">能力检测未通过：%1$s。连接状态保持不变。</string>
     <string name="tool_details_show">查看详情</string>
     <string name="tool_details_hide">收起详情</string>
+    <string name="tool_intent_detail">Intent：%1$s</string>
+    <string name="tool_status_detail">状态：%1$s</string>
+    <string name="tool_call_id_detail">Call ID：%1$s</string>
     <string name="tool_purpose_write">写入文件</string>
     <string name="tool_purpose_edit">修改文件</string>
     <string name="tool_purpose_read">读取内容</string>

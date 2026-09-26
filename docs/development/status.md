@@ -24,6 +24,7 @@
 - HXA-223 Post-clean-slate Core Boundary Convergence 已完成，见[完成记录](../completion-records/HXA-223.md)：Turn state CAS、Engine-owned terminal/review/recovery、SessionWorkScheduler 与 SessionInput delivery 边界已收口；Core Engine 第二阶段重构冻结，设备 `not requested`。
 - HXA-226 UI / IA 第二轮收敛已交付，并完成 targeted smoke 与当前设备基线收敛，见[完成记录](../completion-records/HXA-226.md)、[HXA-226 模拟器证据](../evidence/development/hxa226-simulator-verification-2026-09-26.md)与[183-class 当前设备基线](../evidence/development/current-device-baseline-2026-09-26.md)：fixture/helper 漂移已收敛，runner 已加固为原子 single-writer + failure-signature 分类；强模型复核后 production `NEW_REGRESSION = 0`。物理真机仍 `not requested`。
 - HXA-228 Conversation-first Shell 与 Session Context Control 已交付，见[完成记录](../completion-records/HXA-228.md)与[API 36 simulator evidence](../evidence/development/hxa228-simulator-verification-2026-09-27.md)：Session RunControl 已从全局状态拆成 per-Session durable snapshot，Session Settings / Composer context workbench / Expert / Other-conversation Reference 已落地；Room clean-slate v1 当前为 48 tables。targeted API36 app 16/16、Reference storage 13/13、Reference export 8/8 通过；Memory 仍归 HXA-230，物理真机未在本任务覆盖。
+- HXA-229 Model-authored Agent Activity Presentation 已交付，见[完成记录](../completion-records/HXA-229.md)与[API 36 simulator evidence](../evidence/development/hxa229-simulator-verification-2026-09-27.md)：model-facing Tool schema 统一注入 optional `__helix_intent`，provider-neutral boundary 在业务 validation/permission/effect/dispatcher 前 strip；`tool_calls.modelIntent` durable 保存 sanitized presentation，UI intent-first 且 Harness status/result/approval/UNKNOWN truth 独立。最终 API36 app targeted 19/19、storage reopen/export 9/9 通过。
 
 ## In progress
 
@@ -31,7 +32,6 @@
 
 ## Planned / deferred
 
-- [HXA-229](tasks/HXA-229.md)：Model-authored Agent Activity Presentation。ToolCall 的“做什么/为什么做”优先由模型生成 intent，Harness 仍拥有 status/effect/result truth；当前已规划，建议紧随 HXA-228。
 - [HXA-227](tasks/HXA-227.md)：统一轨迹级 Agent Eval 与失败归因。建议在 HXA-228/HXA-229 冻结 Session input 与 Tool presentation schema 后建立 baseline。
 - [HXA-230](tasks/HXA-230.md)：Markdown-native Hierarchical Agent Memory。Global/User + Project Markdown memory、progressive disclosure、Agent 主动维护；建议 HXA-227 baseline 后实施，完整 Project Memory 等待稳定 Project identity。
 - [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。Provider contract 使用 provisioning × transport × residence × auth 正交维度；内置 llama.cpp 明确定义为 `:model-runtime` private-process 下的 Local Inference Runtime backend（Binder/typed IPC + JNI），不做 localhost inference server。Ollama/SGLang/vLLM/llama-server 只要通过 endpoint 调用都属于 Network transport；native/runtime/model asset 不进入当前主线。
@@ -40,7 +40,7 @@
 
 ## Next task
 
-- **下一本地主线：HXA-229 Model-authored Agent Activity Presentation。** HXA-228 已冻结 Session input/config contract。推荐后续顺序为 **HXA-229 → HXA-227 baseline → HXA-230**：先冻结 model-authored Tool presentation，再建立 Eval baseline，最后用 baseline 衡量 Memory 的收益/污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
+- **下一本地主线：HXA-227 统一轨迹级 Agent Eval 与失败归因。** HXA-228 已冻结 Session input/config，HXA-229 已冻结 model-authored Tool presentation schema。下一步先建立 trajectory/eval baseline，再进入 HXA-230 Memory，用 baseline 衡量 Memory 的收益与污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
 - HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
 - ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”以及 Provider 四维正交分类；HXA-222 架构前置已满足但按产品优先级暂缓，不因 HXA-226 UI 改版自动启动。
 
@@ -62,7 +62,7 @@
 
 - **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Turn state mutation 有 expected-state/step CAS；SessionWorkScheduler 单独仲裁 Queue 与 Goal continuation；TurnCoordinator 只保留 model/tool/compaction round checkpoint。Room 是 HXA-221 的 v1 clean-slate durable truth，old Turn execution-terminal + successor Turn continuation 已完成。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
-- **上下文与结果**：默认启动为 Conversation-first；RunControl/Expert/Skill/Connector/Permission 是 per-Session config，Turn 在 admission 再冻结；Other-conversation Reference 在 submission acceptance 冻结为 bounded immutable snapshot，不持 live Session pointer。工具显示和模型投影分离，大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
+- **上下文与结果**：默认启动为 Conversation-first；RunControl/Expert/Skill/Connector/Permission 是 per-Session config，Turn 在 admission 再冻结；Other-conversation Reference 在 submission acceptance 冻结为 bounded immutable snapshot，不持 live Session pointer。Tool presentation 现在优先显示模型生成的 per-call intent，但 reserved metadata 在业务 validation/permission/effect/dispatcher 前 strip，Harness 继续独占 status/result/approval/UNKNOWN truth。大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
 - **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；具体本地推理 Runtime/模型资产尚未实现。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。
 - **应用能力**：手动文件管理与 Agent scope 分离；搜索、主题、准备、终端管理、导出不因 UI 存在而成为 Agent Tool。WebView 由浏览器 Activity owner 持有。
 - **扩展**：MCP、Skill、A2A Client 经统一工具管线；A2A 是外部服务而非本地子 Agent。市场与离线签名索引不等于在线分发系统；OAuth 本地切片不等于外部服务验收。

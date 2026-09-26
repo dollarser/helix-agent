@@ -22,6 +22,9 @@ class ChatScreenProjectionDeviceTest {
         var storage = HelixStorage.open(app, name, files)
         try {
             storage.sessions.create("session", "Projection", null, null, 1)
+            storage.turns.start("turn", "session", 2)
+            storage.toolCalls.append("call", "turn", "call", "read", "1", "{}", "FAILED", "Inspect file")
+            storage.toolResults.append("result", "call", "FAILED", "fixture failure", null)
             val json = "{\"status\":\"SUCCEEDED\",\"result\":[1,2,3]}"
             val rows =
                 listOf(
@@ -48,6 +51,12 @@ class ChatScreenProjectionDeviceTest {
             storage = HelixStorage.open(app, name, files)
             val projection =
                 ChatScreenProjection(storage, app.appContainer.providerService, { _, _ -> "unused" }, { 0 })
+            val restored = projection.toolTimelineFor("session", emptyList()).single()
+            assertEquals("Inspect file", restored.modelIntent)
+            assertEquals("{}", restored.requestSummary)
+            assertEquals("fixture failure", restored.resultSummary)
+            val withDuration = projection.toolTimelineFor("session", listOf(restored.copy(durationMs = 400))).single()
+            assertEquals(400L, withDuration.durationMs)
             val screen = ChatScreenState(emptyList(), null, null, emptyList(), emptyList(), null, null, null, null)
             val visible = projection.messagesFor("session", screen)
             assertEquals(listOf("message-0", "message-1"), visible.map { it.id })
