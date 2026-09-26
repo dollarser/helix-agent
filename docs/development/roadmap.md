@@ -24,7 +24,7 @@ HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前
 
 HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](tasks/HXA-222.md) 仍已规划但暂缓；ADR-WORKSPACE-004 仍 proposed，因此 HXA-210 不自动启动。
 
-HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)：Drawer/Settings/Conversation authority 已按唯一 primary home 收敛，设备执行 `not requested`。下一阶段进入 **HXA-227**，统一已有 fixed eval 的 trajectory metrics 与失败归因；不授权启动 Workspace、本地模型、Subagent 或 proposed HXA-225 vision feedback。
+HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)与[模拟器验证](../evidence/development/hxa226-simulator-verification-2026-09-26.md)：Drawer/Settings/Conversation authority 已按唯一 primary home 收敛，API 36 模拟器未发现 HXA-226 行为回归，物理真机仍未验。下一阶段按 **HXA-228 → HXA-229 → HXA-227 → HXA-230**：先冻结 Conversation-first Session input/config，再冻结 model-authored Tool presentation schema，再建立 trajectory baseline，最后实现 Markdown-native Memory 并用 baseline 做 A/B；不授权启动本地模型、Subagent 或 proposed HXA-225 vision feedback。HXA-230 的完整 Project Memory 仍需稳定 Project identity。
 
 ## 执行顺序与依赖
 
@@ -256,3 +256,6 @@ HXA-226 已完成并见[交付证据](../completion-records/HXA-226.md)：Drawer
 | HXA-223 | 已交付 | Post-clean-slate Core Boundary Convergence | [交付证据](../completion-records/HXA-223.md) |
 | HXA-226 | 已交付 | UI / IA 第二轮收敛 | [交付证据](../completion-records/HXA-226.md) |
 | HXA-227 | 已规划 | 统一轨迹级 Agent Eval 与失败归因 | [任务规格](tasks/HXA-227.md) |
+| HXA-228 | 已规划 / 下一任务 | Conversation-first Shell 与 Session Context Control | [任务规格](tasks/HXA-228.md) |
+| HXA-229 | 已规划 | Model-authored Agent Activity Presentation | [任务规格](tasks/HXA-229.md) |
+| HXA-230 | 已规划 / 条件实施 | Markdown-native Hierarchical Agent Memory | [任务规格](tasks/HXA-230.md) |

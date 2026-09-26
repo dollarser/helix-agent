@@ -22,7 +22,7 @@
 - HXA-220 Core Engine / TurnEngine 生命周期收敛已完成主机验收，见[完成记录](../completion-records/HXA-220.md)：Engine-owned AgentLoop driver/observation、successor recovery、独立 review receipt 已落地，旧 AgentTurnHost/TurnLiveFrames/serial Turn reducer/Turn-level WAITING_APPROVAL 已删除；设备 `not requested`。
 - HXA-221 Pre-release clean-slate baseline cleanup 已完成主机验收，见[完成记录](../completion-records/HXA-221.md)：Room 重置为唯一 v1 / 45-table baseline，1→31 migration 链与旧 Connector/Provider/Criteria/Chat 内部兼容路径已删除；外部协议/Android 兼容保留，设备 `not requested`。
 - HXA-223 Post-clean-slate Core Boundary Convergence 已完成，见[完成记录](../completion-records/HXA-223.md)：Turn state CAS、Engine-owned terminal/review/recovery、SessionWorkScheduler 与 SessionInput delivery 边界已收口；Core Engine 第二阶段重构冻结，设备 `not requested`。
-- HXA-226 UI / IA 第二轮收敛已完成主机范围，见[完成记录](../completion-records/HXA-226.md)：Drawer 收敛为唯一 primary homes，Models/Extensions/Setup/Settings focused routes 落地，Readiness/Capabilities 只 deep-link authority，Composer 移除独立 Stop 第三行并保留 active Send=Queue/Steer；设备 `not requested`。
+- HXA-226 UI / IA 第二轮收敛已交付并完成 API 36 模拟器 smoke，见[完成记录](../completion-records/HXA-226.md)与[模拟器证据](../evidence/development/hxa226-simulator-verification-2026-09-26.md)：未发现 HXA-226 行为回归；唯一失败为三基线均可复现的既有 Tasks Drawer fixture。物理真机仍 `not requested`。
 
 ## In progress
 
@@ -30,14 +30,17 @@
 
 ## Planned / deferred
 
-- [HXA-227](tasks/HXA-227.md)：统一轨迹级 Agent Eval 与失败归因，作为 **下一本地能力工程主线**。复用现有 fixed eval/per-case JSON，统一 trajectory schema、核心 Harness 长轨迹 cases 与聚合报告；当前已规划、尚未启动代码。
+- [HXA-228](tasks/HXA-228.md)：Conversation-first Shell 与 Session Context Control，作为 **下一本地产品/UI 主线**。默认启动直接进入 Conversation，Drawer 承担 recent/history，`+` 统一 message/session context shortcut，补 Session settings，并先裁决 Permission preset 语义；当前只完成设计与任务规格、尚未启动代码。
+- [HXA-229](tasks/HXA-229.md)：Model-authored Agent Activity Presentation。ToolCall 的“做什么/为什么做”优先由模型生成 intent，Harness 仍拥有 status/effect/result truth；当前已规划，建议紧随 HXA-228。
+- [HXA-227](tasks/HXA-227.md)：统一轨迹级 Agent Eval 与失败归因。建议在 HXA-228/HXA-229 冻结 Session input 与 Tool presentation schema 后建立 baseline。
+- [HXA-230](tasks/HXA-230.md)：Markdown-native Hierarchical Agent Memory。Global/User + Project Markdown memory、progressive disclosure、Agent 主动维护；建议 HXA-227 baseline 后实施，完整 Project Memory 等待稳定 Project identity。
 - [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。Provider contract 使用 provisioning × transport × residence × auth 正交维度；内置 llama.cpp 明确定义为 `:model-runtime` private-process 下的 Local Inference Runtime backend（Binder/typed IPC + JNI），不做 localhost inference server。Ollama/SGLang/vLLM/llama-server 只要通过 endpoint 调用都属于 Network transport；native/runtime/model asset 不进入当前主线。
 
 结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。HXA-223 已最终关闭 R4：未证明当前生产存在必现双 owner 终态 race，但 repository 的 stale snapshot 覆盖能力是真实结构风险，现已用 `expectedState + expectedStepCount` CAS fail closed；Turn terminal/review/recovery 与 Session next-work owner 已完成收口。
 
 ## Next task
 
-- **下一本地能力工程主线：HXA-227 轨迹级 Agent Eval 与失败归因。** HXA-226 已完成主机范围；后续先建立同任务可比较 baseline，再决定 Provider/Harness/工具的新能力投资。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
+- **下一本地主线：HXA-228 Conversation-first Shell 与 Session Context Control。** 推荐后续顺序为 **HXA-228 → HXA-229 → HXA-227 baseline → HXA-230**：先冻结 Session input/config，再冻结 model-authored Tool presentation，再建立 Eval baseline，最后用 baseline 衡量 Memory 的收益/污染。HXA-222 本地模型和 HXA-210 Workspace 均不自动启动。
 - HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
 - ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”以及 Provider 四维正交分类；HXA-222 架构前置已满足但按产品优先级暂缓，不因 HXA-226 UI 改版自动启动。
 

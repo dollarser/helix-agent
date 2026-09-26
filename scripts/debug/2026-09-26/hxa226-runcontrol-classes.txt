@@ -1,0 +1,2 @@
+com.helix.app.ui.RunControlModeUiDeviceTest
+com.helix.app.ui.RunControlSettingsUiDeviceTest
