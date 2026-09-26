@@ -144,6 +144,7 @@ class ChatService(
     profileStore: SafetyProfileStore,
     private val runControlStore: RunControlStore =
         PersistedRunControlStore(InMemoryLineStore()).also { it.setMode(AgentMode.ACT) },
+    private val conversationLaunchStore: ConversationLaunchStore = ConversationLaunchStore(InMemoryLineStore()),
     private val toolPipeline: ToolPipeline,
     private val clock: Clock = SystemClock(),
     private val idGenerator: () -> String,
@@ -702,6 +703,34 @@ class ChatService(
         workScope.launch { refreshSessionsNow() }
     }
 
+    /**
+     * Restores the conversation surface chosen by the user on a normal app launch.
+     * Explicit share/deep-link handlers run before this and therefore win; an already-open
+     * conversation is never replaced by this preference. Missing/archived sessions fail closed
+     * to a fresh ephemeral draft instead of exposing the history list as the default surface.
+     */
+    fun restoreConversationLaunchTarget() {
+        if (openSessionId != null || preparingDraft) return
+        workScope.launch {
+            if (openSessionId != null || preparingDraft) return@launch
+            when (val target = conversationLaunchStore.target()) {
+                ConversationLaunchTarget.NewDraft -> {
+                    newSessionDraft()
+                }
+
+                is ConversationLaunchTarget.Session -> {
+                    val session = storage.sessions.find(target.sessionId)
+                    if (session != null && session.archivedAt == null) {
+                        openSession(target.sessionId)
+                    } else {
+                        conversationLaunchStore.selectNewDraft()
+                        newSessionDraft()
+                    }
+                }
+            }
+        }
+    }
+
     private fun refreshSessionsNow() {
         val providerNames = providerService.rows.value.associate { it.id to it.displayName }
         _sessions.value =
@@ -792,6 +821,7 @@ class ChatService(
             )
         if (!drafts.open(entity)) return
         openSessionId = entity.id
+        conversationLaunchStore.selectNewDraft()
         clearStagedAttachments()
         clearSessionSearch()
         shareDraftText = null
@@ -817,6 +847,11 @@ class ChatService(
                     storage.sessions.updateDetails(row.id, row.title, row.directoryRef)
                 }
             } ?: return null
+        expectedSessionId?.let { id ->
+            storage.sessions.find(id)?.takeIf { it.archivedAt == null }?.let {
+                conversationLaunchStore.selectSession(id)
+            }
+        }
         refreshSessionsNow()
         refreshScreen()
         return attachments
@@ -949,6 +984,7 @@ class ChatService(
         cancelPendingSend()
         drafts.clear()
         openSessionId = id
+        conversationLaunchStore.selectSession(id)
         clearStagedAttachments()
         clearSessionSearch()
         shareDraftText = null // a draft pre-fill belongs to the session it opened for (HXA-056)
@@ -980,6 +1016,7 @@ class ChatService(
         }
         if (openSessionId == sessionId) {
             openSessionId = null
+            conversationLaunchStore.selectNewDraft()
             clearStagedAttachments()
             shareDraftText = null
         }

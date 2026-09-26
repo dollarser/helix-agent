@@ -109,8 +109,12 @@ class MainActivity : ComponentActivity() {
         // local DRAFT — imported + pre-filled, never auto-sent (ADR-0014 §5). Re-runs when the
         // user shares again into the running task (onNewIntent).
         val draft = ShareIntentDraft.draftFrom(intent)
+        val hasGoalReminder =
+            com.helix.app.goal
+                .goalReminderId(intent) != null
         container.chatService.acceptShareDraft(draft.text, draft.imageUris, draft.fileUris)
         acceptGoalReminder(intent)
+        if (draft.isEmpty && !hasGoalReminder) container.chatService.restoreConversationLaunchTarget()
         setContent { HelixApp(container) }
     }
 

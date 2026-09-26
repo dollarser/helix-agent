@@ -46,19 +46,21 @@ fun AndroidComposeTestRule<*, *>.resetDeterministicUiState() {
     val container = container()
     container.firstLaunch.reset()
     container.profileStore.switchTo(SafetyProfile.STANDARD)
-    // Close any session a previous test left open: openSessionId is state of
-    // the PROCESS-level ChatService (it outlives activity recreation by
-    // design — an in-flight turn keeps running), so without this the recreated
-    // activity lands on the stale conversation instead of the session list.
+    // Clear process-local conversation state before recreation. Production launch now restores
+    // the user's persisted conversation target; this helper intentionally closes that restored
+    // target again afterwards so legacy UI tests can still use the history list as a fixture.
     container.chatService.closeSession()
-    // recreate must run on the main thread (Activity contract).
     runOnUiThread { activity.recreate() }
     waitForIdle()
     dismissFirstLaunchIfNeeded()
-    // Settle closeSession's async screen refresh (it re-renders on the
-    // service's IO scope) so the test lands on the deterministic session list.
     waitUntil(10_000) {
-        onAllNodesWithTag("chat-session-list").fetchSemanticsNodes().isNotEmpty()
+        container.chatService.screen.value.openSessionId != null &&
+            !container.chatService.screen.value.preparingDraft
+    }
+    container.chatService.closeSession()
+    waitUntil(10_000) {
+        container.chatService.screen.value.openSessionId == null &&
+            onAllNodesWithTag("chat-session-list").fetchSemanticsNodes().isNotEmpty()
     }
 }
 

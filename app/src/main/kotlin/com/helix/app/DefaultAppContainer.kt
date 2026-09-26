@@ -678,6 +678,9 @@ internal class DefaultAppContainer(
             providerService = providerService,
             profileStore = profileStore,
             runControlStore = runControlStore,
+            conversationLaunchStore =
+                com.helix.app.chat
+                    .ConversationLaunchStore(lineStore),
             lanScopes = lanScopeStore::current,
             clock = appClock,
             idGenerator = { idGenerator.next() },
