@@ -2,7 +2,7 @@ package com.helix.app.chat
 
 import com.helix.app.agent.BatchTurnRuntime
 import com.helix.app.agent.ModelStreamTerminal
-import com.helix.app.agent.TurnCoordinator
+import com.helix.app.engine.TurnSettlement
 import com.helix.core.model.TurnState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,7 +55,7 @@ class TurnTerminalFaultInjectionUnitTest {
         // exception reporting INTERNAL error must settle as CANCELLED, not FAILED.
         val unhandledError = ModelStreamTerminal(TurnState.FAILED, "INTERNAL")
         val settled =
-            TurnCoordinator.settleOutcomeAfterCancelling(
+            TurnSettlement.settleOutcomeAfterCancelling(
                 unhandledError,
                 TurnState.CANCELLING.name,
             )

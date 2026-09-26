@@ -7,8 +7,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -123,7 +123,7 @@ class GoalProcessKillDeviceTest {
         runs: Int,
         wallTime: Long,
     ) {
-        val report = RecoveryCoordinatorApp(storage, clock(wallTime)).recover()
+        val report = TurnRecovery(storage, clock(wallTime)).recover()
         assertEquals(1, report.closedRuns.size)
         val goal = storage.goals.resolve(goalId)
         // ADR-0039: exhaustion blocks continuation; interruption alone remains resumable.
@@ -140,7 +140,7 @@ class GoalProcessKillDeviceTest {
             assertNotNull(it.endedAt)
             assertTrue(storage.goalUsageReservations.pendingForRun(it.id).isEmpty())
         }
-        assertTrue(RecoveryCoordinatorApp(storage, clock(wallTime)).recover().closedRuns.isEmpty())
+        assertTrue(TurnRecovery(storage, clock(wallTime)).recover().closedRuns.isEmpty())
         assertEquals(goal, storage.goals.resolve(goalId))
         if (runs == 2) {
             assertNull(coordinator(storage).start(request(goalId, "forbidden-third")))

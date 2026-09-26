@@ -62,6 +62,28 @@ internal data class BatchTurnSnapshot(
     val batchCalls: Map<String, BatchCallResolution>,
 )
 
+/** Immutable execution facts consumed by the Engine-owned durable terminal settlement. */
+internal data class TurnTerminalCheckpoint(
+    val sessionId: String,
+    val turnId: String,
+    val phase: TurnState,
+    val modelCallId: String,
+    val modelStep: Int,
+    val modelCallClosed: Boolean,
+    val summaryStream: Boolean,
+    val assistantText: String,
+    val usageJson: String?,
+)
+
+/** Immutable UNKNOWN-batch facts consumed by the Engine-owned review parking transaction. */
+internal data class TurnReviewCheckpoint(
+    val sessionId: String,
+    val turnId: String,
+    val modelStep: Int,
+    val batchCalls: Map<String, BatchCallResolution>,
+    val reviewCallIds: List<String>,
+)
+
 /**
  * Pure in-process checkpoint for the production batch Turn loop.
  *
@@ -163,9 +185,12 @@ internal class BatchTurnRuntime(
 }
 
 /**
- * The single production owner of Turn/ModelCall lifecycle persistence for chat execution.
- * External tool effects remain outside Room transactions; their durable per-call settlements
- * are completed first, then model-visible backfill and the next ModelCall commit atomically.
+ * Live execution context for one Turn's model/tool rounds.
+ *
+ * Request/round checkpoints that are inseparable from AgentLoop progress remain here. Durable
+ * admission, cancel/review/recovery and final terminal settlement are owned by TurnEngine and its
+ * collaborators. External tool effects remain outside Room transactions; their durable per-call
+ * settlements complete before model-visible backfill and the next ModelCall commit atomically.
  */
 @Suppress("TooManyFunctions") // one method per lifecycle step + the per-request prompt record (doc 4.4)
 internal class TurnCoordinator private constructor(
@@ -185,6 +210,65 @@ internal class TurnCoordinator private constructor(
     fun snapshot(): BatchTurnSnapshot = runtime.snapshot()
 
     fun currentStream(): ModelStreamState = runtime.currentStream()
+
+    /** Snapshot-only seam: the Engine owns the terminal transaction that consumes these facts. */
+    fun terminalCheckpoint(): TurnTerminalCheckpoint {
+        val current = runtime.snapshot()
+        val stream = runtime.currentStream()
+        return TurnTerminalCheckpoint(
+            sessionId = sessionId,
+            turnId = turnId,
+            phase = current.phase,
+            modelCallId = current.modelCallId,
+            modelStep = current.modelStep,
+            modelCallClosed = current.modelCallClosed,
+            summaryStream = summaryStream,
+            assistantText = stream.text,
+            usageJson = stream.usageJson,
+        )
+    }
+
+    /** Called only after the Engine-owned terminal transaction has committed. */
+    fun markTerminalCommitted(state: TurnState) {
+        runtime.terminalize(state)
+    }
+
+    /** AndroidTest fixture bridge only; production terminalization enters through TurnEngine. */
+    @Deprecated("Fixture only; production uses TurnEngine")
+    internal fun settleFixtureTerminal(outcome: ModelStreamTerminal) {
+        val settled =
+            com.helix.app.engine
+                .TurnSettlement(
+                    storage,
+                    clock,
+                    idGenerator,
+                ).settle(terminalCheckpoint(), outcome)
+        markTerminalCommitted(settled.state)
+    }
+
+    /** AndroidTest fixture bridge only; production review parking enters through TurnEngine. */
+    @Deprecated("Fixture only; production uses TurnEngine")
+    internal fun parkFixtureForReview(reviewCallIds: List<String>) {
+        val checkpoint = reviewCheckpoint(reviewCallIds)
+        storage.withTransaction {
+            com.helix.app.engine
+                .TurnReviewParking(storage, clock, idGenerator)
+                .persist(checkpoint)
+        }
+        markRuntimeParked(reviewCallIds)
+    }
+
+    /** AndroidTest fixture bridge for Steer-vs-final-answer; production injects TurnEngine. */
+    @Deprecated("Fixture only; production injects TurnEngine terminal persistence")
+    internal fun completeResponseOrContinueFixture(
+        prepared: TurnSteeringDraft?,
+        nextModelCallId: String,
+    ): ResponseInputBoundary =
+        completeResponseOrContinue(prepared, nextModelCallId) { checkpoint, outcome ->
+            com.helix.app.engine
+                .TurnSettlement(storage, clock, idGenerator)
+                .settleInTransaction(checkpoint, outcome)
+        }
 
     /** Metadata only: request limits and compaction outcomes survive process death. */
     fun recordDiagnostic(
@@ -323,17 +407,8 @@ internal class TurnCoordinator private constructor(
             .takeIf { it.isNotEmpty() }
     }
 
-    /**
-     * Parks a fully settled UNKNOWN batch without opening another ModelCall. ToolCall executor
-     * facts were committed before this transaction; only aggregate Turn/Goal truth is reconciled.
-     */
-    fun parkForReview(reviewCallIds: List<String>) {
-        storage.withTransaction { persistReviewPark(reviewCallIds) }
-        markRuntimeParked(reviewCallIds)
-    }
-
-    /** Caller owns the outer Room transaction; this method changes durable facts only. */
-    internal fun persistReviewPark(reviewCallIds: List<String>) {
+    /** Snapshot-only seam for the Engine-owned durable review parking transaction. */
+    fun reviewCheckpoint(reviewCallIds: List<String>): TurnReviewCheckpoint {
         val current = runtime.snapshot()
         require(current.phase == TurnState.RUNNING_TOOL && current.modelCallClosed)
         val unknown =
@@ -342,50 +417,12 @@ internal class TurnCoordinator private constructor(
                 .keys
                 .toList()
         require(unknown == reviewCallIds && reviewCallIds.isNotEmpty())
-        val turn = storage.turns.resolve(turnId)
-        val persisted = TurnState.valueOf(turn.state)
-        require(persisted in setOf(TurnState.RUNNING_TOOL, TurnState.CANCELLING)) {
-            "review park requires live tool state, was $persisted"
-        }
-        val calls = storage.toolCalls.listByTurn(turnId).associateBy { it.callId }
-        current.batchCalls.keys.forEach { callId ->
-            val state = ToolCallState.valueOf(requireNotNull(calls[callId]).state)
-            require(
-                state !in
-                    setOf(
-                        ToolCallState.PENDING,
-                        ToolCallState.AWAITING_APPROVAL,
-                        ToolCallState.RUNNING,
-                    ),
-            ) { "tool call is not durably settled: $callId ($state)" }
-        }
-        reviewCallIds.forEach { callId ->
-            require(calls[callId]?.state == ToolCallState.NEEDS_REVIEW.name) {
-                "review call is not durably NEEDS_REVIEW: $callId"
-            }
-        }
-        storage.turns.updateState(turn, TurnState.NEEDS_REVIEW, current.modelStep, null, null)
-        storage.goalTurnBindings.byTurn(turnId)?.let { binding ->
-            val run = storage.goalRuns.resolve(binding.runId)
-            val goal = storage.goals.resolve(run.goalId).toRuntimeGoal()
-            if (goal.state == GoalState.RUNNING) {
-                val step = GoalReducer.reduce(goal, GoalEvent.Blocked)
-                check(!step.ignored && step.state.state == GoalState.BLOCKED)
-                storage.goals.updateGoal(step.state.toStoredGoal())
-            } else {
-                check(goal.state == GoalState.BLOCKED) {
-                    "goal bound to review-parked turn must be RUNNING/BLOCKED, was ${goal.state}"
-                }
-            }
-        }
-        storage.auditEvents.append(
-            idGenerator(),
-            sessionId,
-            "turn.needs_review",
-            "agent",
-            "{\"turn\":\"$turnId\",\"toolCalls\":[" +
-                reviewCallIds.joinToString(",") { "\"$it\"" } + "]}",
-            clock.now().toEpochMilli(),
+        return TurnReviewCheckpoint(
+            sessionId = sessionId,
+            turnId = turnId,
+            modelStep = current.modelStep,
+            batchCalls = current.batchCalls,
+            reviewCallIds = reviewCallIds,
         )
     }
 
@@ -453,9 +490,11 @@ internal class TurnCoordinator private constructor(
      * Linearizes accepted Steer against a final answer. A newly accepted head not represented by
      * the caller's checked snapshot requests revalidation; it cannot be lost to a final commit.
      */
+    @Suppress("LongMethod") // One transaction linearizes accepted Steer against final-answer commit.
     fun completeResponseOrContinue(
         prepared: TurnSteeringDraft?,
         nextModelCallId: String,
+        persistTerminal: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
     ): ResponseInputBoundary {
         val current = runtime.snapshot()
         require(current.phase == TurnState.RECEIVING_MODEL && current.batchCalls.isEmpty())
@@ -506,7 +545,11 @@ internal class TurnCoordinator private constructor(
                     boundary = ResponseInputBoundary.CONTINUED
                 }
             } else {
-                committedTerminal = persistTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
+                committedTerminal =
+                    persistTerminal(
+                        terminalCheckpoint(),
+                        ModelStreamTerminal(TurnState.COMPLETED, null),
+                    )
             }
         }
         if (boundary == ResponseInputBoundary.CONTINUED) runtime.closeSummary(nextModelCallId)
@@ -611,53 +654,6 @@ internal class TurnCoordinator private constructor(
         runtime.closeSummary(nextModelCallId)
     }
 
-    /**
-     * Atomically commits assistant text, Turn terminal, and the still-open ModelCall terminal.
-     * Once the stop path has persisted CANCELLING, [settleOutcomeAfterCancelling] keeps the
-     * cancellation as the conclusion — the state machine otherwise rejects any other
-     * terminal edge out of CANCELLING.
-     */
-    fun terminalize(outcome: ModelStreamTerminal) {
-        val current = runtime.snapshot()
-        if (current.phase.isTerminal) return
-        var settled = outcome
-        storage.withTransaction { settled = persistTerminal(outcome) }
-        runtime.terminalize(settled.state)
-    }
-
-    /** Caller owns the outermost transaction; no in-memory phase changes before its commit. */
-    private fun persistTerminal(outcome: ModelStreamTerminal): ModelStreamTerminal {
-        val current = runtime.snapshot()
-        val stream = runtime.currentStream()
-        val endedAt = clock.now().toEpochMilli()
-        if (!current.modelCallClosed && !summaryStream && stream.text.isNotBlank()) {
-            storage.messages.append(
-                idGenerator(),
-                sessionId,
-                turnId,
-                ModelRole.ASSISTANT.name,
-                ChatHistoryBuilder.KIND_TEXT,
-                stream.text,
-            )
-        }
-        var turn = storage.turns.resolve(turnId)
-        val settled = settleOutcomeAfterCancelling(outcome, turn.state)
-        if (settled.state == TurnState.CANCELLED && turn.state != TurnState.CANCELLING.name) {
-            turn = storage.turns.updateState(turn, TurnState.CANCELLING, current.modelStep, null, null)
-        }
-        storage.turns.updateState(turn, settled.state, current.modelStep, endedAt, settled.errorCode)
-        if (!current.modelCallClosed) {
-            storage.modelCalls.update(
-                storage.modelCalls.resolve(current.modelCallId),
-                callState(settled.state),
-                stream.usageJson,
-                null,
-            )
-        }
-        GoalRunSettlement(storage, clock, idGenerator).settle(turnId)
-        return settled
-    }
-
     /** Durable remote-request boundary for a live Turn. Old interrupted/reviewed Turns never re-enter here. */
     private fun beginPersistedModelStream(step: Int) {
         storage.withTransaction {
@@ -686,26 +682,7 @@ internal class TurnCoordinator private constructor(
     companion object {
         private const val CALL_RUNNING = "RUNNING"
         private const val CALL_COMPLETED = "COMPLETED"
-        private const val CALL_CANCELLED = "CANCELLED"
-        private const val CALL_FAILED = "FAILED"
         const val AUDIT_PROMPT_ASSEMBLED = "prompt.assembled"
-
-        /**
-         * HXA-202 slice 3: once the turn row is durably CANCELLING (persisted by the stop
-         * path), the user's cancellation IS the conclusion — a late failure or completion
-         * outcome must not overwrite it. The state machine admits only CANCELLING to
-         * CANCELLED, so any other terminal outcome is settled as CANCELLED. The error code
-         * is kept for diagnostics (e.g. FGS stops still settle SYSTEM_PAUSED at the goal).
-         */
-        internal fun settleOutcomeAfterCancelling(
-            outcome: ModelStreamTerminal,
-            persistedState: String,
-        ): ModelStreamTerminal =
-            if (persistedState == TurnState.CANCELLING.name && outcome.state != TurnState.CANCELLED) {
-                outcome.copy(state = TurnState.CANCELLED)
-            } else {
-                outcome
-            }
 
         fun start(
             storage: HelixStorage,
@@ -779,12 +756,5 @@ internal class TurnCoordinator private constructor(
                 ) { "Input changed before Turn creation" }
             }
         }
-
-        private fun callState(turn: TurnState): String =
-            when (turn) {
-                TurnState.COMPLETED -> CALL_COMPLETED
-                TurnState.CANCELLED -> CALL_CANCELLED
-                else -> CALL_FAILED
-            }
     }
 }

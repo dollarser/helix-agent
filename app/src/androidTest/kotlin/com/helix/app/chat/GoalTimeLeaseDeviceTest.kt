@@ -6,8 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -76,7 +76,7 @@ class GoalTimeLeaseDeviceTest {
             assertTrue(f.reserve())
             assertTrue(f.journal.checkpointLease("lease", 2_000, 3_000))
             f.started.coordinator.beginModelStream()
-            f.started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            f.started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertNull(
                 f.storage.goalRuns
                     .resolve(f.started.runId)
@@ -126,7 +126,7 @@ class GoalTimeLeaseDeviceTest {
             assertTrue(f.reserve())
             assertTrue(f.journal.checkpointLease("lease", 2_000, 3_000))
             f.reopen()
-            RecoveryCoordinatorApp(f.storage, f.clock).recover()
+            TurnRecovery(f.storage, f.clock).recover()
             assertEquals(
                 8_000L,
                 f.storage.goals
@@ -136,7 +136,7 @@ class GoalTimeLeaseDeviceTest {
             val recovered = f.storage.goalUsageReservations.byId("lease")!!
             assertEquals("INTERRUPTED", recovered.state)
             assertEquals(8_000L, recovered.chargedMillis)
-            RecoveryCoordinatorApp(f.storage, f.clock).recover()
+            TurnRecovery(f.storage, f.clock).recover()
             assertFalse(f.journal.checkpointLease("lease", 4_000, 9_000, terminal = true))
             assertEquals(
                 8_000L,

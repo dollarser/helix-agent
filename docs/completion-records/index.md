@@ -202,3 +202,4 @@ HXA 编号可以不连续；历史预留或退出的任务不补造完成记录�
 | HXA-219 | [HXA-219：产物就地预览](HXA-219.md) |
 | HXA-220 | [HXA-220：Core Engine / TurnEngine 生命周期收敛](HXA-220.md) |
 | HXA-221 | [HXA-221：Pre-release Clean-slate Baseline Cleanup](HXA-221.md) |
+| HXA-223 | [HXA-223：Post-clean-slate Core Boundary Convergence](HXA-223.md) |

@@ -34,10 +34,10 @@ class MessageRegenerateDeviceTest {
             val turn1 = start(storage, "t1", null)
             val asst1 = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "It is 5")
             storage.messages.append("tool-1", "s", "t1", "TOOL", "TOOL_RESULT", "tool result")
-            turn1.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            turn1.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             val replacement = start(storage, "t2", null, regenerateTarget = asst1.id)
-            replacement.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            replacement.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             val reloadedUser = storage.messages.resolve("u1")
             val reloadedAsst = storage.messages.resolve("a1")
@@ -90,12 +90,12 @@ class MessageRegenerateDeviceTest {
             storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question 1")
             val turn1 = start(storage, "t1", null)
             val asst1 = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "Answer 1")
-            turn1.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            turn1.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             // Regenerate a1 once
             val turn2 = start(storage, "t2", null, regenerateTarget = asst1.id)
             val asst2 = storage.messages.append("a2", "s", "t2", "ASSISTANT", "TEXT", "Answer 2")
-            turn2.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            turn2.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             // Trying to regenerate a1 again fails because it is already superseded
             assertThrows(Exception::class.java) {
@@ -117,7 +117,7 @@ class MessageRegenerateDeviceTest {
                 admitRegenerate(admission, "t2", "regen-request", "regen-fingerprint", answerId)
                     as TurnAdmissionResult.Started
             first.turn.coordinator.beginModelStream()
-            first.turn.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            first.turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
 
             val probe = AdmissionProbe()
             val duplicate =
@@ -139,7 +139,7 @@ class MessageRegenerateDeviceTest {
         storage.messages.append("u1", "s", "t1", "USER", "TEXT", "Question")
         val original = start(storage, "t1", null)
         val answer = storage.messages.append("a1", "s", "t1", "ASSISTANT", "TEXT", "Original")
-        original.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+        original.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         return answer.id
     }
 

@@ -398,13 +398,19 @@ class ToolCallReviewRepositoryTest {
 
         override fun updateState(
             id: String,
+            expectedState: String,
+            expectedStepCount: Int,
             state: String,
             stepCount: Int,
             endedAt: Long?,
             errorCode: String?,
-        ) {
-            turns[id]?.let {
-                turns[id] = it.copy(state = state, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
+        ): Int {
+            val current = turns[id]
+            return if (current != null && current.state == expectedState && current.stepCount == expectedStepCount) {
+                turns[id] = current.copy(state = state, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
+                1
+            } else {
+                0
             }
         }
     }

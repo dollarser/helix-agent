@@ -6,8 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.GoalRunSettlement
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalDurableUsageLedger
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -64,7 +64,7 @@ class GoalRunCoordinatorDeviceTest {
                 GoalDurableUsageLedger.Delta(modelCalls = 1, tokens = 30, durationMillis = 100),
                 2_100,
             )
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             val old = storage.goalRuns.resolve(first.runId)
             val second = requireNotNull(coordinator.start(request(id, "second")))
             assertEquals(1, second.budgets.maxModelCalls)
@@ -81,7 +81,7 @@ class GoalRunCoordinatorDeviceTest {
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val started = requireNotNull(coordinator.start(request(id, "first")))
             assertFalse(coordinator.updateBudgets(id, budgets.copy(maxModelCalls = 9)))
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertTrue(coordinator.updateBudgets(id, budgets.copy(maxModelCalls = 9)))
             val persisted = storage.goals.resolve(id)
             assertEquals(9, persisted.budgets.maxModelCalls)
@@ -103,7 +103,7 @@ class GoalRunCoordinatorDeviceTest {
             assertFalse(coordinator.setCheckpoint(id, checkpoint))
             val started = requireNotNull(coordinator.start(request(id, "first")))
             assertTrue(coordinator.setCheckpoint(id, checkpoint))
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             val paused = storage.goals.resolve(id)
             val closed = storage.goalRuns.resolve(started.runId)
             assertEquals(99_000L, paused.nextCheckpoint)
@@ -151,7 +151,7 @@ class GoalRunCoordinatorDeviceTest {
             )
             reconciler.reconcileAll()
             assertEquals(listOf(97_000L), queue.values.toList())
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             val paused = storage.goals.resolve(id)
             reconciler.reconcileAll()
             assertEquals(paused, storage.goals.resolve(id))
@@ -168,7 +168,7 @@ class GoalRunCoordinatorDeviceTest {
                     .Checkpoint(99_000L),
             )
             val next = requireNotNull(coordinator.start(request(id, "second")))
-            next.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.CANCELLED, null))
+            next.coordinator.settleFixtureTerminal(ModelStreamTerminal(com.helix.core.model.TurnState.CANCELLED, null))
             reconciler.reconcileAll()
             assertTrue(queue.isEmpty())
             assertEquals(GoalState.CANCELLED.name, storage.goals.resolve(id).state)
@@ -208,7 +208,7 @@ class GoalRunCoordinatorDeviceTest {
             val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
             val first = requireNotNull(coordinator.start(request(id, "first")))
             first.coordinator.beginModelStream()
-            first.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
             assertEquals(GoalState.PAUSED.name, storage.goals.resolve(id).state)
             val closed = storage.goalRuns.resolve(first.runId)
             assertEquals("RUN_FINISHED", closed.outcome)
@@ -225,7 +225,7 @@ class GoalRunCoordinatorDeviceTest {
                 val coordinator = coordinator(storage)
                 val id = coordinator.create("Check output", listOf("Verified output exists"), budgets)
                 val started = requireNotNull(coordinator.start(request(id, "first")))
-                started.coordinator.terminalize(ModelStreamTerminal(state, "INTERNAL"))
+                started.coordinator.settleFixtureTerminal(ModelStreamTerminal(state, "INTERNAL"))
                 assertEquals(state.name, storage.goals.resolve(id).state)
                 assertEquals(state.name, storage.goalRuns.resolve(started.runId).outcome)
                 assertNull(coordinator.start(request(id, "second")))
@@ -241,7 +241,9 @@ class GoalRunCoordinatorDeviceTest {
             val started = requireNotNull(coordinator.start(request(id, "first")))
             storage.toolCalls.append("uncertain", "first", "uncertain", "files.write", "1", "{}", "NEEDS_REVIEW")
             started.coordinator.beginModelStream()
-            started.coordinator.terminalize(ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null))
+            started.coordinator.settleFixtureTerminal(
+                ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
+            )
             assertEquals(GoalState.BLOCKED.name, storage.goals.resolve(id).state)
             assertEquals("BLOCKED(NEEDS_REVIEW)", storage.goalRuns.resolve(started.runId).outcome)
             assertEquals("NEEDS_REVIEW", storage.toolCalls.resolve("uncertain").state)

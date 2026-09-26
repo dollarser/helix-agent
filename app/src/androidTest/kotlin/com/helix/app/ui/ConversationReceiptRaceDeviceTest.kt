@@ -107,7 +107,7 @@ class ConversationReceiptRaceDeviceTest {
                         ),
                     )
                 coordinator.beginModelStream()
-                coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+                coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
                 assertTrue(chat.currentStagedAttachmentIds(session).isEmpty())
 
                 chat.openSession(session)

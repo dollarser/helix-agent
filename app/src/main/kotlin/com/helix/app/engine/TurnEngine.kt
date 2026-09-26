@@ -4,7 +4,6 @@ import com.helix.app.agent.AgentLoop
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.app.review.TurnReviewResolutionResult
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.GoalWakeReason
@@ -27,6 +26,8 @@ class TurnEngine internal constructor(
 ) {
     private val admission = TurnAdmission(storage, clock, idGenerator)
     private val reviewResolution = TurnReviewResolution(storage, clock, idGenerator)
+    private val reviewParking = TurnReviewParking(storage, clock, idGenerator)
+    private val settlement = TurnSettlement(storage, clock, idGenerator)
     private val observations = TurnObservationHub()
     internal val runtimeView: TurnRuntimeView = StorageTurnRuntimeView(storage, observations)
     private val systemStops = java.util.concurrent.ConcurrentHashMap<String, String>()
@@ -107,7 +108,7 @@ class TurnEngine internal constructor(
 
     internal fun sessionBlocker(sessionId: String): SessionTurnBlocker? = DurableSessionGate(storage).blocker(sessionId)
 
-    internal fun recoverOnStartup(): RecoveryCoordinatorApp.Report = RecoveryCoordinatorApp(storage, clock).recover()
+    internal fun recoverOnStartup(): TurnRecovery.Report = TurnRecovery(storage, clock).recover()
 
     /** Atomically parks the Turn, bound Goal and pending session delivery before dropping the live driver. */
     internal fun parkForReview(
@@ -115,10 +116,11 @@ class TurnEngine internal constructor(
         sessionId: String,
         reviewCallIds: List<String>,
     ) {
+        val checkpoint = coordinator.reviewCheckpoint(reviewCallIds)
         storage.withTransaction {
             val turn = storage.turns.resolve(coordinator.id)
             require(turn.sessionId == sessionId) { "turn/session mismatch" }
-            coordinator.persistReviewPark(reviewCallIds)
+            reviewParking.persist(checkpoint)
             storage.sessionInputs.parkSessionInputs(
                 sessionId,
                 "TURN_NEEDS_REVIEW",
@@ -133,10 +135,16 @@ class TurnEngine internal constructor(
         coordinator: TurnCoordinator,
         outcome: ModelStreamTerminal,
     ): ModelStreamTerminal {
-        coordinator.terminalize(outcome)
-        val turn = storage.turns.resolve(coordinator.id)
-        return ModelStreamTerminal(TurnState.valueOf(turn.state), turn.errorCode)
+        val settled = settlement.settle(coordinator.terminalCheckpoint(), outcome)
+        coordinator.markTerminalCommitted(settled.state)
+        return settled
     }
+
+    /** Transaction-owned terminal write seam used by the Steer-vs-final-answer linearization. */
+    internal fun persistTerminalInTransaction(
+        checkpoint: com.helix.app.agent.TurnTerminalCheckpoint,
+        outcome: ModelStreamTerminal,
+    ): ModelStreamTerminal = settlement.settleInTransaction(checkpoint, outcome)
 
     /**
      * Durable cancellation admission. The caller supplies only whether this process still owns the

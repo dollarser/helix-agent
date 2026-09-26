@@ -122,7 +122,7 @@ class GoalCheckpointDeviceTest {
                     ),
                 )
             started.coordinator.beginModelStream()
-            started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
 
         fun schedule(epoch: Long) {

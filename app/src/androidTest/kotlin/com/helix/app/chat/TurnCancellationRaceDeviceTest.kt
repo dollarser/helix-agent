@@ -34,7 +34,7 @@ class TurnCancellationRaceDeviceTest {
             assertThrows(CancellationException::class.java) { turn.beginModelStream() }
             assertEquals(TurnState.WAITING_MODEL, turn.snapshot().phase)
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
-            turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals(TurnState.CANCELLED.name, storage.turns.resolve("turn").state)
             assertNull(storage.turns.resolve("turn").errorCode)
             assertEquals(listOf("CANCELLED"), storage.modelCalls.listByTurn("turn").map { it.state })
@@ -47,7 +47,7 @@ class TurnCancellationRaceDeviceTest {
             assertThrows(CancellationException::class.java) { turn.beginToolBatch(listOf("tool")) }
             assertTrue(turn.snapshot().batchCalls.isEmpty())
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
-            turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
         }
 
     @Test fun stopAfterBatchPreparationPreventsToolStepBeforeDispatcherRegistration() =
@@ -60,7 +60,7 @@ class TurnCancellationRaceDeviceTest {
             val messages = storage.messages.listBySession("session")
             assertTrue(messages.none { it.kind == ChatHistoryBuilder.KIND_TOOL_CALLS })
             assertEquals(listOf("model"), storage.modelCalls.listByTurn("turn").map { it.id })
-            turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals(TurnState.CANCELLED.name, storage.turns.resolve("turn").state)
             assertNull(storage.turns.resolve("turn").errorCode)
             assertEquals("CANCELLED", storage.modelCalls.resolve("model").state)
@@ -80,7 +80,7 @@ class TurnCancellationRaceDeviceTest {
             assertEquals(listOf("settled result"), results.map(storage.messages::readContent))
             assertEquals(listOf("model"), storage.modelCalls.listByTurn("turn").map { it.id })
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
-            turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals("COMPLETED", storage.modelCalls.resolve("model").state)
             assertNull(storage.turns.resolve("turn").errorCode)
         }
@@ -103,7 +103,7 @@ class TurnCancellationRaceDeviceTest {
             assertThrows(CancellationException::class.java) { turn.commitCompaction(plan, "next-call") }
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("session")))
             assertEquals(listOf("model"), storage.modelCalls.listByTurn("turn").map { it.id })
-            turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals("CANCELLED", storage.modelCalls.resolve("model").state)
         }
 

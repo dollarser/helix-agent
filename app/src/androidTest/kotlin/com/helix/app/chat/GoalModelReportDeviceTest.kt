@@ -49,7 +49,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             report(s, "t", "complete")
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", s.goals.resolve(g).state)
             assertEquals("MODEL_COMPLETED", s.goalRuns.resolve(start.runId).outcome)
             assertEquals(
@@ -70,7 +70,7 @@ class GoalModelReportDeviceTest {
     @Test fun noReportDoesNotCompleteOrBlockForMissingBindings() =
         fixture { s, g, start ->
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
             assertTrue(GoalSummaryQuery(s).forSession("s").single().canContinue)
         }
@@ -79,7 +79,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             report(s, "t", "in_progress")
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
 
@@ -87,7 +87,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             report(s, "t", "blocked")
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
             assertFalse(GoalSummaryQuery(s).forSession("s").single().canContinue)
             assertTrue(GoalBlockerResolution(s, clock, ::id).resolve(g, "s", true))
@@ -98,7 +98,7 @@ class GoalModelReportDeviceTest {
     @Test fun cancellationOverridesCompletedReport() =
         fixture { s, g, start ->
             report(s, "t", "complete")
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals("CANCELLED", s.goals.resolve(g).state)
         }
 
@@ -106,7 +106,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             report(s, "t", "complete")
             s.turns.requestPause("t", 2001)
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
 
@@ -115,7 +115,7 @@ class GoalModelReportDeviceTest {
             s.toolCalls.append("unknown", "t", "unknown", "files.write", "1", "{}", "NEEDS_REVIEW")
             report(s, "t", "complete")
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
         }
 
@@ -125,14 +125,14 @@ class GoalModelReportDeviceTest {
             s.toolCalls.append("later", "t", "later", "time.now", "1", "{}", "COMPLETED")
             assertNull(s.goalModelReport("t"))
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
 
     @Test fun capacityStopDoesNotCompleteDespiteReport() =
         fixture { s, g, start ->
             report(s, "t", "complete")
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
         }
 
@@ -162,7 +162,7 @@ class GoalModelReportDeviceTest {
                 }
             assertEquals(ToolExecutorResult.Cancelled, executor.execute(executableReport().copy(cancel = cancelled)))
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Failed)
         }
 
@@ -173,14 +173,14 @@ class GoalModelReportDeviceTest {
             s.toolResults.append("result", "unverified", "SUCCEEDED", "unchecked", args)
             assertNull(s.goalModelReport("t"))
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
         }
 
     @Test fun failedTurnOverridesCompletedReport() =
         fixture { s, g, start ->
             report(s, "t", "complete")
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "NETWORK"))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "NETWORK"))
             assertEquals("FAILED", s.goals.resolve(g).state)
         }
 
@@ -212,7 +212,7 @@ class GoalModelReportDeviceTest {
         fixture { s, g, start ->
             report(s, "t", "complete")
             s.turns.requestPause("t", 2001)
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             val next =
                 requireNotNull(
                     GoalRunCoordinator(s, clock, ::id).start(
@@ -225,7 +225,7 @@ class GoalModelReportDeviceTest {
                     ),
                 )
             next.coordinator.beginModelStream()
-            next.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            next.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", s.goals.resolve(g).state)
             assertNull(
                 GoalSummaryQuery(s)
@@ -238,7 +238,7 @@ class GoalModelReportDeviceTest {
     @Test fun newestContextBlockerWinsWhenRunTimestampsTie() =
         fixture { s, g, start ->
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val next =
                 requireNotNull(
                     GoalRunCoordinator(s, clock, ::id).start(
@@ -250,7 +250,7 @@ class GoalModelReportDeviceTest {
                         ),
                     ),
                 )
-            next.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
+            next.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
             assertFalse(GoalBlockerResolution(s, clock, ::id).resolve(g, "s", false))
             assertEquals("BLOCKED", s.goals.resolve(g).state)
         }
@@ -304,7 +304,7 @@ class GoalModelReportDeviceTest {
             assertTrue(executor.execute(executableReport()) is ToolExecutorResult.Completed)
             report(s, "t", "complete")
             start.coordinator.beginModelStream()
-            start.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            start.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", s.goals.resolve(goal).state)
             assertTrue(owner.retainedOwner() != null)
         }

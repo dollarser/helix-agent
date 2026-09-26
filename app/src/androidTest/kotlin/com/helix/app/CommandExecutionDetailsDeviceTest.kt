@@ -105,7 +105,7 @@ class CommandExecutionDetailsDeviceTest {
                 TurnStartSpec(SESSION, TURN, "$TURN-model", "command-fixture", "HXA194 command fixture"),
             ).apply {
                 beginModelStream().apply(ModelEvent.TextDelta("HXA194 command fixture result"))
-                terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+                settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             }
     }
 

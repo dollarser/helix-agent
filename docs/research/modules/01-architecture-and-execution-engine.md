@@ -1,7 +1,7 @@
 # 架构与执行引擎
 
-> 更新：2026-09-25。当前综合研究，不覆盖 accepted ADR。
-> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220 交付记录](../../completion-records/HXA-220.md)；当前任务见[实施状态](../../development/status.md)。
+> 更新：2026-09-26。当前综合研究，不覆盖 accepted ADR。
+> 当前执行契约/实现证据：[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)、[HXA-220](../../completion-records/HXA-220.md)、[HXA-221](../../completion-records/HXA-221.md)、[HXA-223](../../completion-records/HXA-223.md)；当前任务见[实施状态](../../development/status.md)。
 > 进程死亡专题：[process-death-recovery-and-harness-depth.md](process-death-recovery-and-harness-depth.md)。
 
 ## 1. 总原则：浅策略，深不变量
@@ -57,21 +57,34 @@ append-only SessionEvent 是 source of truth，persistence/checkpoint policy 保
 
 ### live driver 也应收敛，但不能让 Engine 反向依赖 UI
 
-合理目标：
+HXA-223 后冻结的实际边界：
 
 ```text
-UI / ChatService projection
-        ↓ commands / notifications
+UI / Chat projection
+        ↓ commands
+Application submission / SessionInputDelivery
+        ↓
 TurnEngine
-  ├─ durable lifecycle
-  ├─ live execution registry
-  ├─ AgentLoop driver
+  ├─ admission / cancel
+  ├─ terminal settlement
+  ├─ review park / resolve
+  ├─ startup recovery
+  ├─ live execution registry + AgentLoop driver
   └─ observation hub
         ↓
+AgentLoop → TurnCoordinator
+             └─ model/tool/compaction round checkpoints
+        ↓
 Room / Tool Dispatcher / Provider / Runtime
+
+Turn terminal + owner release
+        ↓
+SessionWorkScheduler
+  ├─ queued user input first
+  └─ eligible Goal continuation
 ```
 
-ChatService 最终保留 composer、screen projection、reminder、queue-drain UI orchestration；不能重新成为 Turn owner。
+ChatService 保留 composer、screen projection、用户 submit/confirm/disclosure 与 UI-facing application commands；Session queue drain/Goal continuation algorithm 已移出，不能重新成为 Turn owner。`TurnCoordinator` 允许写 execution-round checkpoints，但 terminal/review/cancel/recovery durable truth 只属于 Engine-owned collaborators。
 
 ## 4. Recovery 冲突裁决
 
@@ -81,7 +94,7 @@ ChatService 最终保留 composer、screen projection、reminder、queue-drain U
 
 真正必须保留的是 effect truth，而不是旧 Turn 的 control state。详细理由见专题文档。
 
-该方向已于 2026-09-25 提升到 ADR-AGENT-001 / ADR-GOAL-001；HXA-220 负责把现有 same-Turn 旧实现迁移为 successor Turn。迁移完成前旧生产路径必须保持自洽，不能形成双语义。
+该方向已由 ADR-AGENT-001 / ADR-GOAL-001 裁决，并在 HXA-220/223 完成生产 cutover；same-Turn old execution resurrection 不再是当前实现路径。
 
 ## 5. Goal 的合理层级
 
@@ -120,9 +133,9 @@ Codex 最新 Goal 公开设计也把 continuation 放在 safe turn boundary，�
 - 用复杂 workflow DSL 替代模型自身 planning；
 - 为减少行数删除仍承担 fault oracle 的 reducer/test。
 
-## 8. 当前研究建议优先级
+## 8. HXA-223 后优先级
 
-1. 完成 TurnEngine live owner 单一化（与 recovery 策略无冲突）。
-2. 按 ADR-AGENT-001 完成 successor-Turn recovery cutover，停止继续强化 same-Turn rehydrate。
-3. Engine 收口后再做 Workspace/UI 第二轮，不并行重写 core owner 和大 IA。
-4. 用真实任务衡量“浅 Harness + successor Turn”的恢复质量，而不是只比较状态机严密度。
+1. **冻结 Core owner 边界**：没有新的实证缺陷时，不再为行数、命名或竞品形式继续拆 TurnEngine/TurnCoordinator。
+2. **建立固定任务 eval**：用真实 Queue/Steer/Goal/review/recovery 长轨迹验证 task success、recovery-adjusted success、人工介入和 context fidelity，而不是继续凭代码结构判断 Agent 能力。
+3. **UI/IA 第二轮可独立推进**：UI 只消费 application commands/read models，不把 durable lifecycle 写权重新带回 Compose/Chat facade。
+4. **新增能力按 ADR/任务条件进入**：Workspace 仍等待 ADR-WORKSPACE-004；本地模型 HXA-222 已规划但暂缓；Subagent/Workflow 不因竞品存在而自动进入主线。

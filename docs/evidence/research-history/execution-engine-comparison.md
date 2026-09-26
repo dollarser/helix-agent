@@ -94,7 +94,7 @@ flowchart TD
 | [ModelLoopAdmission](../../../app/src/main/kotlin/com/helix/app/agent/ModelLoopAdmission.kt)、[TurnBudgetTracker](../../../app/src/main/kotlin/com/helix/app/agent/TurnBudgetTracker.kt) | 每次请求的预算准入、输出上限与用量结算 |
 | [ContextCompactionRound](../../../app/src/main/kotlin/com/helix/app/agent/ContextCompactionRound.kt) | 压缩规划、收益与失败判断、有限重试、checkpoint 发布 |
 | [SessionPermissionResolver](../../../core/policy/src/main/kotlin/com/helix/core/policy/SessionPermissionResolver.kt) | 汇总操作效果，得出免确认、精确审批或拒绝 |
-| [RecoveryCoordinatorApp](../../../app/src/main/kotlin/com/helix/app/recovery/RecoveryCoordinatorApp.kt) | 启动时处理持久中断事实，停泊 Turn/Goal、结算模型调用 |
+| [TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt) | 启动时处理持久中断事实，停泊 Turn/Goal、结算模型调用 |
 | [DataSyncForegroundController](../../../app/src/main/kotlin/com/helix/app/foreground/DataSyncForegroundController.kt) | 活动传输阶段的前台服务决策，等待用户或不再推进时停止 |
 
 生产 `BatchTurnRuntime` 明确不复用早期 M1 串行 `TurnReducer`：一批工具可以分别运行、结算和进入未知状态。核心 reducer 有纯函数测试价值，但不能据此宣称生产执行只由它驱动、应用层只是薄宿主。生产职责见[ADR-AGENT-001](../../adr/agent/001-turn-coordination.md)。

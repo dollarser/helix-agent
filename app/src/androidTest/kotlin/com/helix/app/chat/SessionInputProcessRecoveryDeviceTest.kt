@@ -3,8 +3,8 @@ package com.helix.app.chat
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.MainActivity
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.provider.ProviderDraft
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.NormalizedEndpoint
@@ -149,7 +149,7 @@ class SessionInputProcessRecoveryDeviceTest {
         val beforeTurns = turns
         val beforeMessages = messages
         val beforeCalls = calls
-        val repeated = RecoveryCoordinatorApp(storage, SystemClock()).recover()
+        val repeated = TurnRecovery(storage, SystemClock()).recover()
         assertTrue(repeated.interruptedTurns.isEmpty())
         assertEquals(
             beforeInputs,

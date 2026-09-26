@@ -6,8 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.goal.GoalLifecycleService
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.app.runcontrol.RunControlConfig
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.AgentMode
@@ -68,12 +68,12 @@ class GoalContinuationDeviceTest {
                 )
             driver.started("session", goal, "provider", control, "goal-first", null, "snapshot")
             first.coordinator.beginModelStream()
-            first.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             driver.reserveUserHandoff("session", "goal-first")
             val user = turn(storage, "user-successor")
             driver.finishHandoff("session", "goal-first")
             user.beginModelStream()
-            user.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            user.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             driver.reserveEligibleHandoff("session", "user-successor")
             assertNull(driver.next("session", "user-successor"))
             assertTrue(driver.hasActivation("session"))
@@ -123,7 +123,7 @@ class GoalContinuationDeviceTest {
             // Re-arm after testing that an unfinished predecessor cannot grant continuation.
             driver.started("session", goal, "provider", control, "first", null, "snapshot")
             first.coordinator.beginModelStream()
-            first.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val next = requireNotNull(driver.next("session", "first"))
             assertTrue(driver.hasHandoff)
             assertTrue(driver.admits("session", goal, requireNotNull(next.goalContinuation), "snapshot"))
@@ -154,7 +154,7 @@ class GoalContinuationDeviceTest {
             assertTrue(storage.goalRuns.listByGoal(goal.id).isEmpty())
             assertNotNull(storage.goalControls.find(goal.id)?.pendingJson)
             turn.beginModelStream()
-            turn.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             service.settle("create")
             assertNull(storage.goalControls.find(goal.id)?.pendingJson)
             assertEquals(2L, storage.goalControls.find(goal.id)?.revision)
@@ -177,7 +177,7 @@ class GoalContinuationDeviceTest {
             assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Completed)
             assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Failed)
             assertEquals("Original", storage.goals.resolve(goal).objective)
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertNull(storage.goalControls.find(goal)?.pendingJson)
             assertEquals("Original", storage.goals.resolve(goal).objective)
         }
@@ -192,7 +192,7 @@ class GoalContinuationDeviceTest {
             "budgets":{"max_model_calls":20},"user_request":"please"}"""
             assertTrue(service.execute(call("update_goal", "edit", args)) is ToolExecutorResult.Completed)
             edit.beginModelStream()
-            edit.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            edit.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             service.settle("edit")
             assertEquals("Changed", storage.goals.resolve(goal).objective)
             assertEquals(
@@ -212,7 +212,7 @@ class GoalContinuationDeviceTest {
                 )
                     is ToolExecutorResult.Completed,
             )
-            cancelled.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            cancelled.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             service.settle("cancel")
             assertEquals("Changed", storage.goals.resolve(goal).objective)
             assertNull(storage.goalControls.find(goal)?.pendingJson)
@@ -249,7 +249,7 @@ class GoalContinuationDeviceTest {
                 "snapshot",
             )
             assertTrue(storage.turns.requestPause("timeout", 2_000))
-            started.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, "FGS_TIMEOUT"))
+            started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, "FGS_TIMEOUT"))
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
             assertEquals(
                 "SYSTEM_PAUSED(FGS_TIMEOUT)",
@@ -305,7 +305,7 @@ class GoalContinuationDeviceTest {
                 )
             assertEquals(first, service.current("session")?.id)
             started.coordinator.beginModelStream()
-            started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals(first, service.current("session")?.id)
         }
 

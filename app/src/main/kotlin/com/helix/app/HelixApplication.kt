@@ -6,7 +6,6 @@ import android.os.Process
 import android.util.Log
 import com.helix.app.diagnostics.ProcessDiagnostics
 import com.helix.app.language.AppLanguageStore
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.SystemClock
 
 class HelixApplication : Application() {

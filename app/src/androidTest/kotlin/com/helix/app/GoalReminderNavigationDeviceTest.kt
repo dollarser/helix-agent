@@ -114,7 +114,7 @@ class GoalReminderNavigationDeviceTest {
                 ),
             )
         started.coordinator.beginModelStream()
-        started.coordinator.terminalize(
+        started.coordinator.settleFixtureTerminal(
             ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
         )
     }

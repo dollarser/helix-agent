@@ -33,6 +33,7 @@ internal class AgentLoop(
     private val strings: (Int, Array<out Any>) -> String,
     private val refreshScreen: () -> Unit,
     private val applyEvent: (com.helix.core.model.ModelEvent, ModelStreamState, String) -> Unit,
+    private val persistTerminalInTransaction: (TurnTerminalCheckpoint, ModelStreamTerminal) -> ModelStreamTerminal,
     private val inputDelivery: TurnInputDelivery? = null,
 ) {
     private val runtimeAccounting = TurnRuntimeAccounting(storage)
@@ -315,7 +316,7 @@ internal class AgentLoop(
         var boundary: ResponseInputBoundary
         do {
             val steering = inputDelivery?.prepareSteering(sessionId, coordinator.id)
-            boundary = coordinator.completeResponseOrContinue(steering, idGenerator())
+            boundary = coordinator.completeResponseOrContinue(steering, idGenerator(), persistTerminalInTransaction)
             if (boundary == ResponseInputBoundary.RECHECK) kotlinx.coroutines.yield()
         } while (boundary == ResponseInputBoundary.RECHECK)
         return boundary

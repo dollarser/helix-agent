@@ -38,7 +38,7 @@
 
 ## R6：让每个已执行槽位都有可恢复的结算事实
 
-位置：[ChatToolCalls.runToolBatch](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[RecoveryCoordinatorApp](../../../app/src/main/kotlin/com/helix/app/recovery/RecoveryCoordinatorApp.kt)（73–125）。
+位置：[ChatToolCalls.runToolBatch](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolCalls.kt)（241–295）、[ChatToolSettlement](../../../app/src/main/kotlin/com/helix/app/chat/ChatToolSettlement.kt)（36–90）、[TurnRecovery（原 RecoveryCoordinatorApp）](../../../app/src/main/kotlin/com/helix/app/engine/TurnRecovery.kt)（73–125）。
 
 batch执行后按序`map`写结果。成功路径先写ToolCall COMPLETED，再append正文/结果、markVerified、投影UI，最后结算Goal预算；外层没有覆盖这些写入的统一事务。局部写失败会中止后续槽位结算，随后Turn终局写仍可能成功。于是可能出现COMPLETED无结果、后续已执行槽位仍未结算；启动恢复只扫描非终态Turn，不能保证找回终态父级下的遗漏。
 

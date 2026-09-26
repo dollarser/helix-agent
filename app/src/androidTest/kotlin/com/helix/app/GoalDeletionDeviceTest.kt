@@ -121,7 +121,7 @@ class GoalDeletionDeviceTest : ForegroundDeviceTestHost() {
             assertNull(storage.goalRuns.resolve(started.runId).endedAt)
             storage.goals.updateGoal(before)
             started.coordinator.beginModelStream()
-            started.coordinator.terminalize(
+            started.coordinator.settleFixtureTerminal(
                 ModelStreamTerminal(com.helix.core.model.TurnState.COMPLETED, null),
             )
             deletion.delete(id)

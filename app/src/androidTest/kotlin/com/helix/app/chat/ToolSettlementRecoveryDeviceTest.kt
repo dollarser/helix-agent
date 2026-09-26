@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.recovery.RecoveryCoordinatorApp
+import com.helix.app.engine.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -122,7 +122,7 @@ class ToolSettlementRecoveryDeviceTest {
             val turn = f.storage.turns.resolve("turn")
             f.storage.turns.updateState(turn, TurnState.FAILED, turn.stepCount, 2_000, "SETTLEMENT_FAILED")
             f.reopen()
-            RecoveryCoordinatorApp(f.storage, f.clock).recover()
+            TurnRecovery(f.storage, f.clock).recover()
             assertEquals(
                 "NEEDS_REVIEW",
                 f.storage.toolCalls
@@ -154,7 +154,7 @@ class ToolSettlementRecoveryDeviceTest {
                     .resolve(f.goalId)
                     .toolCalls,
             )
-            RecoveryCoordinatorApp(f.storage, f.clock).recover()
+            TurnRecovery(f.storage, f.clock).recover()
             assertEquals(
                 3,
                 f.storage.goals

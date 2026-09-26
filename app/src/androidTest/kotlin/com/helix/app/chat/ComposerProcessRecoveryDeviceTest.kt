@@ -5,7 +5,7 @@ import com.helix.app.MainActivity
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.recovery.RecoveryCoordinatorApp
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.ui.container
 import com.helix.app.ui.resetDeterministicUiState
 import com.helix.core.model.Clock
@@ -76,7 +76,7 @@ class ComposerProcessRecoveryDeviceTest {
                     ),
                 )
             coordinator.beginModelStream()
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             seedCancellationIntent(storage, clock)
             compose.container().chatService.closeSession()
         }
@@ -185,7 +185,7 @@ class ComposerProcessRecoveryDeviceTest {
             ),
         )
         repeat(2) {
-            val report = RecoveryCoordinatorApp(storage, SystemClock()).recover()
+            val report = TurnRecovery(storage, SystemClock()).recover()
             assertTrue(report.interruptedTurns.isEmpty())
             assertTrue(report.cancelledToolCalls.isEmpty())
             assertTrue(report.parkedToolCalls.isEmpty())

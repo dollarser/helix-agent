@@ -1,5 +1,6 @@
 package com.helix.app.agent
 
+import com.helix.app.engine.TurnSettlement
 import com.helix.core.model.TurnState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -103,21 +104,21 @@ class TurnCoordinatorTest {
         val cancelling = TurnState.CANCELLING.name
         assertEquals(
             ModelStreamTerminal(TurnState.CANCELLED, "INTERNAL"),
-            TurnCoordinator.settleOutcomeAfterCancelling(
+            TurnSettlement.settleOutcomeAfterCancelling(
                 ModelStreamTerminal(TurnState.FAILED, "INTERNAL"),
                 cancelling,
             ),
         )
         assertEquals(
             ModelStreamTerminal(TurnState.CANCELLED, "GOAL_TIME_WINDOW_EXPIRED"),
-            TurnCoordinator.settleOutcomeAfterCancelling(
+            TurnSettlement.settleOutcomeAfterCancelling(
                 ModelStreamTerminal(TurnState.FAILED, "GOAL_TIME_WINDOW_EXPIRED"),
                 cancelling,
             ),
         )
         assertEquals(
             ModelStreamTerminal(TurnState.CANCELLED, null),
-            TurnCoordinator.settleOutcomeAfterCancelling(
+            TurnSettlement.settleOutcomeAfterCancelling(
                 ModelStreamTerminal(TurnState.COMPLETED, null),
                 cancelling,
             ),
@@ -127,9 +128,9 @@ class TurnCoordinatorTest {
     @Test
     fun cleanCancelledOutcomeAndUnrelatedStatesPassThroughUnchanged() {
         val outcome = ModelStreamTerminal(TurnState.CANCELLED, null)
-        assertEquals(outcome, TurnCoordinator.settleOutcomeAfterCancelling(outcome, TurnState.CANCELLING.name))
+        assertEquals(outcome, TurnSettlement.settleOutcomeAfterCancelling(outcome, TurnState.CANCELLING.name))
         val failed = ModelStreamTerminal(TurnState.FAILED, "INTERNAL")
-        assertEquals(failed, TurnCoordinator.settleOutcomeAfterCancelling(failed, TurnState.RUNNING_TOOL.name))
-        assertEquals(failed, TurnCoordinator.settleOutcomeAfterCancelling(failed, TurnState.CREATED.name))
+        assertEquals(failed, TurnSettlement.settleOutcomeAfterCancelling(failed, TurnState.RUNNING_TOOL.name))
+        assertEquals(failed, TurnSettlement.settleOutcomeAfterCancelling(failed, TurnState.CREATED.name))
     }
 }

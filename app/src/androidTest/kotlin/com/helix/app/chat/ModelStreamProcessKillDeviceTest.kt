@@ -5,8 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.helix.app.HelixApplication
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.provider.ProviderDraft
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.model.AgentMode
 import com.helix.core.model.GoalBudgets
 import com.helix.core.model.NormalizedEndpoint
@@ -202,7 +202,7 @@ class ModelStreamProcessKillDeviceTest {
         assertTrue(goal.runTimeMillis >= facts.getProperty("millis").toLong())
         assertEquals(0L, goal.currentWakeMillis)
         assertTrue(storage.goalUsageReservations.pendingForRun(run.id).isEmpty())
-        assertTrue(RecoveryCoordinatorApp(storage, SystemClock()).recover().closedRuns.isEmpty())
+        assertTrue(TurnRecovery(storage, SystemClock()).recover().closedRuns.isEmpty())
         Thread.sleep(2000)
         assertEquals(goal, storage.goals.resolve(id))
         assertEquals(run, storage.goalRuns.listByGoal(id).single())

@@ -21,6 +21,7 @@
 - HXA-199 终端专项集成与交付已交付，见[完成记录](../completion-records/HXA-199.md)；双 API 模拟器 144 项矩阵、真实 2 小时租期与 30 分钟脱离 idle、双 shell 恢复、覆盖安装升级及 OnePlus 6T 物理真机核心专项均通过验收。
 - HXA-220 Core Engine / TurnEngine 生命周期收敛已完成主机验收，见[完成记录](../completion-records/HXA-220.md)：Engine-owned AgentLoop driver/observation、successor recovery、独立 review receipt 已落地，旧 AgentTurnHost/TurnLiveFrames/serial Turn reducer/Turn-level WAITING_APPROVAL 已删除；设备 `not requested`。
 - HXA-221 Pre-release clean-slate baseline cleanup 已完成主机验收，见[完成记录](../completion-records/HXA-221.md)：Room 重置为唯一 v1 / 45-table baseline，1→31 migration 链与旧 Connector/Provider/Criteria/Chat 内部兼容路径已删除；外部协议/Android 兼容保留，设备 `not requested`。
+- HXA-223 Post-clean-slate Core Boundary Convergence 已完成，见[完成记录](../completion-records/HXA-223.md)：Turn state CAS、Engine-owned terminal/review/recovery、SessionWorkScheduler 与 SessionInput delivery 边界已收口；Core Engine 第二阶段重构冻结，设备 `not requested`。
 
 ## In progress
 
@@ -30,11 +31,11 @@
 
 - [HXA-222](tasks/HXA-222.md)：设备内本地模型一等 Provider 已完成设计与开发计划，但**暂缓实施**。当前重构只保留“不把 Provider 公共边界绑死到 HTTP endpoint”的接口方向；native/runtime/model asset/UI 不进入当前主线。
 
-结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。[深度复审](../research/modules/01-architecture-and-execution-engine.md)已按`9a9b25dd`复核：R1/R5/R9原问题关闭；R2/R3调度、R6结算与R7协议结束已完成本地修复整合；R8终局通知故障注入与异常隔离已完成本地落地与单元验证（TurnTerminalFaultInjectionUnitTest通过，post-terminal通知单向隔离保护）；R4仍需实际竞态证据。
+结构治理见[结构审查](../research/modules/01-architecture-and-execution-engine.md)。HXA-223 已最终关闭 R4：未证明当前生产存在必现双 owner 终态 race，但 repository 的 stale snapshot 覆盖能力是真实结构风险，现已用 `expectedState + expectedStepCount` CAS fail closed；Turn terminal/review/recovery 与 Session next-work owner 已完成收口。
 
 ## Next task
 
-- 当前编码主线继续 **`refactor/clean-slate-engine` 重构收口与架构复审**：HXA-220/221 已完成，下一步优先复核剩余 ownership/竞态与结构边界，尤其现有深度复审仍未闭合的 R4 实际竞态证据；不在本轮开启新增产品功能。
+- **Core Engine clean-slate 重构主线已完成 HXA-220/221/223 并冻结当前 owner 边界。** 不自动开启本地模型或 Workspace；下一项本地工作应单独立项，优先基于当前冻结架构做 UI/IA 第二轮或固定任务 eval，而不是继续机械拆 Core。
 - HXA-126 保持外部服务/账号条件未闭合；不阻塞无依赖的本地开发。
 - ADR-PROVIDER-001 已接受“本地模型是一等 Provider，可驱动完整 Agent loop”；HXA-222 已规划但暂缓，待重构主线稳定后再切换为进行中。
 
@@ -54,7 +55,7 @@
 
 ## Current interfaces
 
-- **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Room 当前是 HXA-221 的 v1 clean-slate baseline，`turn_runtime_records` 只保存 immutable execution snapshot 与当前 Turn usage/audit。old Turn execution-terminal + successor Turn continuation 已完成，same-Turn resume/legacy driver production path 已删除。
+- **执行引擎**：TurnEngine 已统一拥有 fresh admission、AgentLoop live driver/observation、cancel、review park/resolve、terminal settlement、startup recovery 与 durable session gate；Turn state mutation 有 expected-state/step CAS；SessionWorkScheduler 单独仲裁 Queue 与 Goal continuation；TurnCoordinator 只保留 model/tool/compaction round checkpoint。Room 是 HXA-221 的 v1 clean-slate durable truth，old Turn execution-terminal + successor Turn continuation 已完成。
 - **授权与 Goal**：209 实现用户选择的会话预设/CUSTOM、工具启用/禁用与执行前解析；208 按 ADR-GOAL-001 交付。模型及外部扩展不能授予权限；Goal persistence 不扩大 scope。Plan 审阅到执行见 192。
 - **上下文与结果**：工具显示和模型投影分离，大结果可按会话只读分页；模型请求与压缩统一容量准入并保留诊断。Goal、未知副作用和预算停止各有恢复路径；窗口默认值可为估算。
 - **Runtime / Provider**：QuickJS 在非导出 isolated UID 服务；PRoot/订阅在 developer APK 私有进程、共享主 UID，经私有 Binder/PFD 交换有界数据。ADR-PROVIDER-001 已接受设备内本地模型作为一等 `ModelProvider`，能力满足时可直接驱动完整 Agent loop；具体本地推理 Runtime/模型资产尚未实现。后台 Job 与手动 PTY 所有权独立，未知副作用只对账、不自动重放。

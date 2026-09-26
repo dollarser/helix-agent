@@ -58,13 +58,15 @@ interface TurnDao {
 
     @Query(
         "UPDATE turns SET state = :state, stepCount = :stepCount, endedAt = :endedAt, " +
-            "errorCode = :errorCode WHERE id = :id",
+            "errorCode = :errorCode WHERE id = :id AND state = :expectedState AND stepCount = :expectedStepCount",
     )
     fun updateState(
         id: String,
+        expectedState: String,
+        expectedStepCount: Int,
         state: String,
         stepCount: Int,
         endedAt: Long?,
         errorCode: String?,
-    )
+    ): Int
 }

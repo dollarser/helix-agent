@@ -6,8 +6,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.GoalTimeBudget
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnStartSpec
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.recovery.GoalUsageReservations
-import com.helix.app.recovery.RecoveryCoordinatorApp
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalBudgets
@@ -40,7 +40,7 @@ class GoalUsageReservationsDeviceTest {
             assertFalse(query.forSession("session").single().canDelete)
             f.storage.goals.updateGoal(original)
             f.started.coordinator.beginModelStream()
-            f.started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            f.started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val paused = query.forSession("session").single()
             assertTrue(paused.canContinue)
             assertTrue(paused.canEditBudgets)
@@ -111,7 +111,7 @@ class GoalUsageReservationsDeviceTest {
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(1)
                 }
-            RecoveryCoordinatorApp(f.storage, backwards).recover()
+            TurnRecovery(f.storage, backwards).recover()
             val goal = f.storage.goals.resolve(f.goalId)
             assertEquals(1, goal.modelCalls)
             assertEquals(1, goal.toolCalls)
@@ -130,7 +130,7 @@ class GoalUsageReservationsDeviceTest {
                     .pendingForRun(f.started.runId)
                     .isEmpty(),
             )
-            RecoveryCoordinatorApp(
+            TurnRecovery(
                 f.storage,
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(999_999_999)
@@ -142,7 +142,7 @@ class GoalUsageReservationsDeviceTest {
             assertFalse(recovered.reserve(f.model("too-large", 401)))
             assertTrue(recovered.reserve(f.model("last", 400)))
             f.reopen()
-            val report = RecoveryCoordinatorApp(f.storage, backwards).recover()
+            val report = TurnRecovery(f.storage, backwards).recover()
             assertTrue(report.closedRuns.contains(f.started.runId))
             assertEquals(
                 1_000L,
@@ -177,7 +177,7 @@ class GoalUsageReservationsDeviceTest {
                     .resolve(f.goalId)
                     .totalTokens,
             )
-            f.started.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            f.started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals(
                 "CANCELLED",
                 f.storage.goals
@@ -212,7 +212,7 @@ class GoalUsageReservationsDeviceTest {
             assertTrue(journal.settle("first", 0, 100, 2_100))
             assertFalse(journal.reserve(f.reservation("too-large", GoalUsageReservations.Kind.TIME, millis = 5_000)))
             assertTrue(journal.reserve(f.reservation("remaining", GoalUsageReservations.Kind.TIME, millis = 4_900)))
-            RecoveryCoordinatorApp(f.storage, f.clock).recover()
+            TurnRecovery(f.storage, f.clock).recover()
             assertEquals(
                 10_000L,
                 f.storage.goals
@@ -319,7 +319,9 @@ class GoalUsageReservationsDeviceTest {
                     .resolve(f.started.runId)
                     .wakeDurationMillis,
             )
-            f.started.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "GOAL_TIME_WINDOW_EXPIRED"))
+            f.started.coordinator.settleFixtureTerminal(
+                ModelStreamTerminal(TurnState.FAILED, "GOAL_TIME_WINDOW_EXPIRED"),
+            )
             assertEquals(
                 "INTERRUPTED",
                 f.storage.goalRuns
@@ -347,7 +349,7 @@ class GoalUsageReservationsDeviceTest {
                 object : Clock {
                     override fun now(): Instant = Instant.ofEpochMilli(999_999_999)
                 }
-            RecoveryCoordinatorApp(f.storage, later).recover()
+            TurnRecovery(f.storage, later).recover()
             assertEquals(
                 6_200L,
                 f.storage.goals
@@ -355,7 +357,7 @@ class GoalUsageReservationsDeviceTest {
                     .runTimeMillis,
             )
             val recovered = f.storage.goals.resolve(f.goalId)
-            RecoveryCoordinatorApp(f.storage, later).recover()
+            TurnRecovery(f.storage, later).recover()
             assertEquals(recovered, f.storage.goals.resolve(f.goalId))
         }
 

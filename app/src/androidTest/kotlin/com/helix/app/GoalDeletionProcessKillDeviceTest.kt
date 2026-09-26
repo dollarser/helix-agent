@@ -114,7 +114,7 @@ class GoalDeletionProcessKillDeviceTest {
                 ),
             )
         started.coordinator.beginModelStream()
-        started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+        started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         assertTrue(coordinator.setCheckpoint(id, Checkpoint(clock.now().toEpochMilli() + 3_600_000)))
         GoalReminderReconciler(storage, scheduler, clock).reconcile(id)
         return id

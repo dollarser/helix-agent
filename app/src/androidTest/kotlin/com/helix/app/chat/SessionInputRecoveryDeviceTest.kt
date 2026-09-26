@@ -6,7 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
 import com.helix.app.agent.TurnSteeringDraft
-import com.helix.app.recovery.RecoveryCoordinatorApp
+import com.helix.app.engine.TurnRecovery
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -58,7 +58,7 @@ class SessionInputRecoveryDeviceTest {
             val inputBefore = requireNotNull(storage.sessionInputs.get("input"))
             storage.close()
             storage = HelixStorage.open(context, database, content)
-            val report = RecoveryCoordinatorApp(storage, SystemClock()).recover()
+            val report = TurnRecovery(storage, SystemClock()).recover()
             assertTrue(report.interruptedTurns.containsKey("turn"))
             assertEquals(TurnState.INTERRUPTED.name, storage.turns.resolve("turn").state)
             assertEquals(messagesBefore, storage.messages.listBySession("session"))
@@ -77,7 +77,7 @@ class SessionInputRecoveryDeviceTest {
             assertEquals(if (requested) "model" else null, inputAfter.requestModelCallId)
             val modelsAfter = storage.modelCalls.listByTurn("turn")
             val auditAfter = storage.auditEvents.listByCorrelation("session")
-            assertTrue(RecoveryCoordinatorApp(storage, SystemClock()).recover().interruptedTurns.isEmpty())
+            assertTrue(TurnRecovery(storage, SystemClock()).recover().interruptedTurns.isEmpty())
             assertEquals(inputAfter, storage.sessionInputs.get("input"))
             assertEquals(modelsAfter, storage.modelCalls.listByTurn("turn"))
             assertEquals(auditAfter, storage.auditEvents.listByCorrelation("session"))

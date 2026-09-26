@@ -5,7 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.helix.app.agent.ModelStreamTerminal
 import com.helix.app.agent.TurnCoordinator
 import com.helix.app.agent.TurnStartSpec
-import com.helix.app.recovery.RecoveryCoordinatorApp
+import com.helix.app.engine.TurnRecovery
 import com.helix.app.test.ForegroundDeviceTestHost
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.model.Clock
@@ -42,7 +42,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
                         TurnStartSpec("s", "t", "m", "snapshot", "input"),
                     )
                 assertFalse(storage.turns.collectResult("t", 2001))
-                turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+                turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
                 assertTrue(storage.turns.collectResult("t", 2001))
                 assertFalse(storage.turns.collectResult("t", 2002))
             }
@@ -62,7 +62,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
             assertTrue(storage.turns.requestPause("first", 2001))
-            first.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
             assertEquals("USER_PAUSED", storage.goalRuns.resolve(first.runId).outcome)
             assertFalse(storage.turns.requestPause("first", 2002))
@@ -75,16 +75,16 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
             first.coordinator.beginModelStream()
-            first.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertNotNull(coordinator.start(request(goal, "second")))
         }
 
     @Test fun contextBlockerCannotBeAcknowledgedWhileCapacityStillFails() =
         fixture { storage, coordinator, goal ->
             val first = requireNotNull(coordinator.start(request(goal, "first")))
-            first.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
+            first.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
             val resolution = GoalBlockerResolution(storage, clock, ::id)
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertFalse(resolution.resolve(goal, "other-session", true))
@@ -99,7 +99,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             requireNotNull(coordinator.start(request(goal, "first")))
             storage.toolCalls.append("unknown", "first", "unknown", "files.write", "1", "{}", "NEEDS_REVIEW")
             assertTrue(storage.turns.requestPause("first", 2001))
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertFalse(GoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
             assertNull(coordinator.start(request(goal, "second")))
@@ -123,12 +123,12 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
                     ),
                 ),
             )
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
             assertFalse(GoalBlockerResolution(storage, clock, ::id).resolve(goal, "s", true))
             assertNull(coordinator.start(request(goal, "second")))
-            RecoveryCoordinatorApp(storage, clock).recover()
+            TurnRecovery(storage, clock).recover()
             assertEquals(10000L, storage.goals.resolve(goal).totalTokens)
         }
 
@@ -142,7 +142,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
                         ::id,
                         TurnStartSpec("s", "t-$index", "m-$index", "snapshot", "input"),
                     )
-                turn.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+                turn.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             }
             assertEquals(205, BackgroundTaskQuery(storage).read().size)
             assertTrue(BackgroundTaskQuery(storage).read().any { it.id == "t-0" && it.canCollect })
@@ -169,7 +169,7 @@ class BackgroundTaskStorageDeviceTest : ForegroundDeviceTestHost() {
             repeat(30) { index ->
                 val goal = coordinator.create("Goal $index", emptyList(), GoalBudgets(5, 5, 10000, 60000, 10000, 0))
                 val turn = requireNotNull(coordinator.start(request(goal, "race-$index")))
-                turn.coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+                turn.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
                 storage.withTransaction { storage.goals.delete(goal) }
             }
             reader.join(10000)

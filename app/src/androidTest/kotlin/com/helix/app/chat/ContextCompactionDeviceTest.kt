@@ -67,7 +67,7 @@ class ContextCompactionDeviceTest {
             stream.apply(ModelEvent.TextDelta("Keep the original constraints and unresolved work."))
             stream.apply(ModelEvent.Completed("stop"))
             coordinator.commitCompaction(plan, null)
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             val checkpoint =
                 requireNotNull(
                     ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")),
@@ -113,7 +113,7 @@ class ContextCompactionDeviceTest {
             val before = storage.messages.listBySession("s").size
             coordinator.beginModelStream(compacting = true).apply(ModelEvent.TextDelta("unfinished summary"))
             assertThrows(IllegalArgumentException::class.java) { coordinator.commitCompaction(plan, null) }
-            coordinator.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
             assertEquals(before, storage.messages.listBySession("s").size)
             assertEquals(
@@ -192,7 +192,7 @@ class ContextCompactionDeviceTest {
             val reply = coordinator.beginModelStream()
             reply.apply(ModelEvent.TextDelta("The requested answer."))
             reply.apply(ModelEvent.Completed("stop"))
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("COMPLETED", storage.modelCalls.resolve("next-call").state)
             assertTrue(
                 storage.messages.listBySession("s").any {
@@ -223,8 +223,8 @@ class ContextCompactionDeviceTest {
             coordinator.commitCompaction(plan, "pending-after-summary")
             val checkpoint = ContextCompaction.checkpoint(storage, storage.messages.listBySession("s"))
             val recovery =
-                com.helix.app.recovery
-                    .RecoveryCoordinatorApp(storage, clock)
+                com.helix.app.engine
+                    .TurnRecovery(storage, clock)
             recovery.recover()
             assertEquals("INTERRUPTED", storage.turns.resolve(coordinator.id).state)
             assertEquals("INTERRUPTED", storage.modelCalls.resolve("pending-after-summary").state)
@@ -255,7 +255,7 @@ class ContextCompactionDeviceTest {
             stream.apply(ModelEvent.Refusal("Refused"))
             stream.apply(ModelEvent.Completed("stop"))
             assertThrows(IllegalArgumentException::class.java) { coordinator.commitCompaction(plan, null) }
-            coordinator.terminalize(stream.terminal(false))
+            coordinator.settleFixtureTerminal(stream.terminal(false))
             assertNull(ContextCompaction.checkpoint(storage, storage.messages.listBySession("s")))
             assertEquals("REFUSAL", storage.turns.resolve(coordinator.id).errorCode)
         }
@@ -297,14 +297,14 @@ class ContextCompactionDeviceTest {
             coordinator.commitCompaction(plan, null, "Compacted")
             assertEquals(
                 com.helix.app.agent.ResponseInputBoundary.RECHECK,
-                coordinator.completeResponseOrContinue(null, "after-manual"),
+                coordinator.completeResponseOrContinueFixture(null, "after-manual"),
             )
             val draft =
                 com.helix.app.agent
                     .TurnSteeringDraft(accepted.record, "Use the compacted context", emptyList())
             assertEquals(
                 com.helix.app.agent.ResponseInputBoundary.CONTINUED,
-                coordinator.completeResponseOrContinue(draft, "after-manual"),
+                coordinator.completeResponseOrContinueFixture(draft, "after-manual"),
             )
             assertEquals(TurnState.WAITING_MODEL, coordinator.snapshot().phase)
             assertTrue(
@@ -333,7 +333,7 @@ class ContextCompactionDeviceTest {
             val stream = old.beginModelStream()
             stream.apply(ModelEvent.TextDelta("answer-$index"))
             stream.apply(ModelEvent.Completed("stop"))
-            old.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            old.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
         return TurnCoordinator.start(
             storage,

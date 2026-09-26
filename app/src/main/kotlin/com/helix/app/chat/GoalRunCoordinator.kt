@@ -87,7 +87,11 @@ internal class GoalRunCoordinator(
         return ready.id.value
     }
 
-    /** Null means the durable state/budget refuses this wake; no rows or counters change. */
+    /**
+     * Null means the durable state/budget refuses this wake; no rows or counters change.
+     * Production calls this only from TurnAdmission's outer admission transaction; direct uses in
+     * Android tests are fixture construction, not a second runtime admission seam.
+     */
     fun start(request: GoalTurnStart): StartedGoalTurn? {
         var started: StartedGoalTurn? = null
         storage.withTransaction {

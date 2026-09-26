@@ -236,7 +236,7 @@ class TurnReviewResolutionDeviceTest {
         storage.toolResults.append("result-unknown", LOCAL_UNKNOWN, "NEEDS_REVIEW", "effect uncertain", null)
         coordinator.settleBatchCall(LOCAL_OK, sideEffectUnknown = false)
         coordinator.settleBatchCall(LOCAL_UNKNOWN, sideEffectUnknown = true)
-        coordinator.parkForReview(listOf(LOCAL_UNKNOWN))
+        coordinator.parkFixtureForReview(listOf(LOCAL_UNKNOWN))
     }
 
     private fun toolResultMessageIds(storage: HelixStorage): List<String> =

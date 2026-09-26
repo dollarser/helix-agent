@@ -3,6 +3,7 @@ package com.helix.app.recovery
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.engine.TurnRecovery
 import com.helix.core.model.SystemClock
 import com.helix.core.model.TurnState
 import com.helix.core.storage.HelixStorage
@@ -30,7 +31,7 @@ class ModelCallRecoveryDeviceTest {
                 storage.modelCalls.append("completed-$turn", turn, "fixture", "COMPLETED")
             }
             val completed = storage.modelCalls.resolve("completed-active")
-            val recovery = RecoveryCoordinatorApp(storage, SystemClock())
+            val recovery = TurnRecovery(storage, SystemClock())
             recovery.recover()
             listOf("old", "active").forEach { turn ->
                 val call = storage.modelCalls.resolve("running-$turn")

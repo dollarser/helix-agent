@@ -3,6 +3,7 @@ package com.helix.app.recovery
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.helix.app.engine.TurnRecovery
 import com.helix.core.agent.GoalWakeReason
 import com.helix.core.agent.RecoveryCoordinator
 import com.helix.core.model.Clock
@@ -69,7 +70,7 @@ class ProcessRecoveryTest {
 
         // A fresh process opens the same file and recovers.
         val storage = isolatedStorage(context, "death-1")
-        val report = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
+        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
 
         // --- the report: exactly the leftover work, nothing else
         assertEquals(mapOf("turn-1" to listOf("call-1"), "turn-2" to emptyList()), report.interruptedTurns)
@@ -84,7 +85,7 @@ class ProcessRecoveryTest {
         assertRecoveryAuditEvents(storage)
 
         // --- idempotent: the next start finds nothing left to recover and writes nothing.
-        val again = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
+        val again = TurnRecovery(storage, FixedClock(2_000L)).recover()
         assertTrue(again.interruptedTurns.isEmpty())
         assertTrue(again.cancelledToolCalls.isEmpty())
         assertTrue(again.parkedToolCalls.isEmpty())
@@ -110,7 +111,7 @@ class ProcessRecoveryTest {
         // While the goal is still RUNNING, a wake (e.g. a queued notification) is dropped.
         assertFalse(RecoveryCoordinator.wakeAllowed(GoalState.RUNNING))
 
-        val report = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
+        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
 
@@ -149,7 +150,7 @@ class ProcessRecoveryTest {
         }
 
         val storage = isolatedStorage(context, "rewind-1")
-        val report = RecoveryCoordinatorApp(storage, FixedClock(500L)).recover()
+        val report = TurnRecovery(storage, FixedClock(500L)).recover()
         assertEquals(mapOf("turn-1" to listOf("call-1")), report.interruptedTurns)
         assertEquals(listOf("goal-1"), report.parkedGoals)
         assertEquals(listOf("run-1"), report.closedRuns)
@@ -186,7 +187,7 @@ class ProcessRecoveryTest {
         }
 
         val storage = isolatedStorage(context, "death-3")
-        val report = RecoveryCoordinatorApp(storage, FixedClock(2_000L)).recover()
+        val report = TurnRecovery(storage, FixedClock(2_000L)).recover()
         assertEquals(mapOf("turn-1" to emptyList<String>()), report.interruptedTurns)
         assertTrue(report.parkedToolCalls.isEmpty())
         // Approval was never granted/executed, so recovery deterministically cancels it before execution.
@@ -329,7 +330,7 @@ class ProcessRecoveryTest {
         dying.close()
 
         val recovered = isolatedStorage(context, "usage-checkpoint")
-        RecoveryCoordinatorApp(recovered, FixedClock(7_000L)).recover()
+        TurnRecovery(recovered, FixedClock(7_000L)).recover()
         val goal = recovered.goals.resolve("goal-usage")
         assertEquals(1, goal.modelCalls)
         assertEquals(1, goal.toolCalls)
@@ -392,7 +393,7 @@ class ProcessRecoveryTest {
         val before = reopened.goalRuns.resolve("exhausted-run")
         val auditCount = reopened.auditEvents.listByCorrelation(seeded.correlationId).size
         repeat(2) {
-            val report = RecoveryCoordinatorApp(reopened, FixedClock(999_999L)).recover()
+            val report = TurnRecovery(reopened, FixedClock(999_999L)).recover()
             assertTrue(report.closedRuns.isEmpty())
             assertTrue(report.parkedGoals.isEmpty())
         }

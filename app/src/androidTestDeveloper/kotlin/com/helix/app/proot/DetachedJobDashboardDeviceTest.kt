@@ -171,7 +171,7 @@ class DetachedJobDashboardDeviceTest {
                 TurnStartSpec(id, id, "$id-model", "fixture", "Job projection"),
             ).apply {
                 beginModelStream().apply(ModelEvent.TextDelta("Turn complete"))
-                terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+                settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             }
         storage.toolCalls.append(id, id, id, DetachedJobTools.START, "1", """{"script":"sleep 30"}""", "COMPLETED")
         storage.auditEvents.append(

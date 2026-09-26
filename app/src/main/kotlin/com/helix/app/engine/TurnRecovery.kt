@@ -1,12 +1,12 @@
-package com.helix.app.recovery
+package com.helix.app.engine
 
+import com.helix.app.recovery.GoalUsageReservations
 import com.helix.core.agent.GoalRecovery
 import com.helix.core.agent.PersistedGoal
 import com.helix.core.agent.PersistedToolCall
 import com.helix.core.agent.PersistedTurn
 import com.helix.core.agent.RecoveryCoordinator
 import com.helix.core.agent.ToolCallRecovery
-import com.helix.core.agent.TurnRecovery
 import com.helix.core.model.Clock
 import com.helix.core.model.GoalId
 import com.helix.core.model.GoalState
@@ -18,6 +18,7 @@ import com.helix.core.storage.HelixStorage
 import com.helix.core.storage.mapping.enumByName
 import com.helix.core.storage.mapping.turnStateName
 import java.util.UUID
+import com.helix.core.agent.TurnRecovery as CoreTurnRecovery
 
 /**
  * Process-restart recovery (HXA-015): runs when the app starts after any kind of process death
@@ -40,7 +41,7 @@ import java.util.UUID
  * - the operation is idempotent: a second start finds no active turns, no RUNNING goals and no
  *   open runs, and writes nothing.
  */
-class RecoveryCoordinatorApp(
+internal class TurnRecovery(
     private val storage: HelixStorage,
     private val clock: Clock,
 ) {
@@ -170,7 +171,7 @@ class RecoveryCoordinatorApp(
 
     /** Marks the turn INTERRUPTED, cancels never-started calls, parks running calls, and audits both. */
     private fun applyTurnInterruption(
-        interrupt: TurnRecovery.Interrupt,
+        interrupt: CoreTurnRecovery.Interrupt,
         now: Long,
     ): TurnApplied {
         val turn = storage.turns.resolve(interrupt.turnId.value)

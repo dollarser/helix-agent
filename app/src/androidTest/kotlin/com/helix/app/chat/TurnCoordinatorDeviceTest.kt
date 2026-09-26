@@ -74,7 +74,7 @@ class TurnCoordinatorDeviceTest {
 
             val second = coordinator.beginModelStream()
             second.apply(ModelEvent.TextDelta("partial-second"))
-            coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "INTERNAL"))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "INTERNAL"))
 
             assertEquals(TurnState.FAILED.name, storage.turns.resolve("turn-1").state)
             assertEquals("COMPLETED", storage.modelCalls.resolve("model-1").state)
@@ -123,7 +123,7 @@ class TurnCoordinatorDeviceTest {
             coordinator.settleBatchCall("call-ok", sideEffectUnknown = false)
             coordinator.settleBatchCall("call-unknown", sideEffectUnknown = true)
 
-            coordinator.parkForReview(listOf("call-unknown"))
+            coordinator.parkFixtureForReview(listOf("call-unknown"))
 
             assertEquals(TurnState.NEEDS_REVIEW.name, storage.turns.resolve("turn-review").state)
             assertEquals(TurnState.NEEDS_REVIEW, coordinator.snapshot().phase)

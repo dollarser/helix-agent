@@ -70,7 +70,7 @@ class MessageEditRecoveryDeviceTest {
                     ),
                 )
             coordinator.beginModelStream()
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             compose.container().chatService.closeSession()
         }
 

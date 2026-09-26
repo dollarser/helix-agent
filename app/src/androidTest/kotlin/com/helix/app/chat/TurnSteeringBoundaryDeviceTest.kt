@@ -38,9 +38,9 @@ class TurnSteeringBoundaryDeviceTest {
         fixture { storage, coordinator ->
             coordinator.beginModelStream().apply(ModelEvent.TextDelta("first answer"))
             val draft = accept(storage)
-            assertEquals(ResponseInputBoundary.RECHECK, coordinator.completeResponseOrContinue(null, "next"))
+            assertEquals(ResponseInputBoundary.RECHECK, coordinator.completeResponseOrContinueFixture(null, "next"))
             assertEquals(TurnState.RECEIVING_MODEL.name, storage.turns.resolve("turn").state)
-            assertEquals(ResponseInputBoundary.CONTINUED, coordinator.completeResponseOrContinue(draft, "next"))
+            assertEquals(ResponseInputBoundary.CONTINUED, coordinator.completeResponseOrContinueFixture(draft, "next"))
             assertEquals("turn", storage.sessionInputs.get("input")?.consumedTurnId)
             assertEquals(2, coordinator.snapshot().modelStep)
             assertEquals("next", coordinator.snapshot().modelCallId)
@@ -75,7 +75,7 @@ class TurnSteeringBoundaryDeviceTest {
                 storage.turns.updateState(storage.turns.resolve("turn"), TurnState.CANCELLING, 1, null, null)
                 storage.sessionInputs.parkSessionInputs("session", "USER_STOPPED", 3_000)
             }
-            assertEquals(ResponseInputBoundary.CANCELLED, coordinator.completeResponseOrContinue(draft, "never"))
+            assertEquals(ResponseInputBoundary.CANCELLED, coordinator.completeResponseOrContinueFixture(draft, "never"))
             assertEquals(TurnState.CANCELLING.name, storage.turns.resolve("turn").state)
             assertEquals(SessionInputState.NEEDS_ATTENTION, storage.sessionInputs.get("input")?.state)
             assertEquals(1, storage.messages.listBySession("session").count { it.role == "USER" })

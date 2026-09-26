@@ -113,7 +113,7 @@ class LongTurnCompactionDeviceTest {
                 apply(ModelEvent.TextDelta("Step complete"))
                 apply(ModelEvent.Completed("stop"))
             }
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
             assertEquals("PAUSED", storage.goals.resolve(goal).state)
             val runs = storage.goalRuns.listByGoal(goal).size
             // Explicit next wake, without a sleep/idle window. Same synchronous pre-call check.
@@ -152,7 +152,7 @@ class LongTurnCompactionDeviceTest {
             )
             assertEquals(runs + 1, storage.goalRuns.listByGoal(goal).size)
             second.coordinator.beginModelStream()
-            second.coordinator.terminalize(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
+            second.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.FAILED, "CONTEXT_WINDOW_LIMIT"))
             assertEquals("BLOCKED", storage.goals.resolve(goal).state)
             assertEquals(runs + 1, storage.goalRuns.listByGoal(goal).size)
         }
@@ -410,7 +410,7 @@ class LongTurnCompactionDeviceTest {
             stream.apply(ModelEvent.TextDelta("incomplete summary"))
             val cancelled = ModelStreamTerminal(TurnState.CANCELLED, null)
             assertEquals(cancelled, runBlocking { round.finish(plan, stream, cancelled, current, next(), "Compacted") })
-            current.terminalize(cancelled)
+            current.settleFixtureTerminal(cancelled)
             assertNull(
                 com.helix.app.agent.ContextHistory
                     .checkpoint(storage, "s"),
@@ -439,7 +439,7 @@ class LongTurnCompactionDeviceTest {
                     com.helix.app.agent.ContextHistory
                         .checkpoint(storage, "s"),
                 )
-            current.terminalize(ModelStreamTerminal(TurnState.CANCELLED, null))
+            current.settleFixtureTerminal(ModelStreamTerminal(TurnState.CANCELLED, null))
             assertEquals(
                 published,
                 com.helix.app.agent.ContextHistory

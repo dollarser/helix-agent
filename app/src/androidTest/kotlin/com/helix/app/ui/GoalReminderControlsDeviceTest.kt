@@ -303,7 +303,7 @@ class GoalReminderControlsDeviceTest {
                 ),
             )
         started.coordinator.beginModelStream()
-        started.coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+        started.coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         return id
     }
 }

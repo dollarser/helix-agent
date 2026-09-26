@@ -345,7 +345,7 @@ class TaskJourneyDeviceTest {
                 TurnStartSpec(sessionId, turnId, "$turnId-model", "journey-fixture", "HXA202 journey fixture"),
             )
         coordinator.beginModelStream().apply(ModelEvent.TextDelta("HXA202 journey fixture result"))
-        coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+        coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
     }
 
     private fun seedArtifact(

@@ -83,7 +83,19 @@ class TurnRepository(
                 current.canTransitionTo(state) ||
                 (state == TurnState.INTERRUPTED && current.canBecomeInterruptedOnProcessDeath())
         require(valid) { "illegal turn transition $current -> $state" }
-        dao.updateState(turn.id, state.name, stepCount, endedAt, errorCode)
+        check(
+            dao.updateState(
+                turn.id,
+                current.name,
+                turn.stepCount,
+                state.name,
+                stepCount,
+                endedAt,
+                errorCode,
+            ) == 1,
+        ) {
+            "stale turn transition ${turn.id}: expected $current before $state"
+        }
         return turn.copy(state = state.name, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
     }
 }

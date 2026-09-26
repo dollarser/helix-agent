@@ -22,7 +22,7 @@ HXA-220 已完成并见[交付证据](../completion-records/HXA-220.md)：TurnEn
 
 HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前 Room 是唯一 v1 / 45-table clean-slate baseline，旧内部 migration/Connector/Provider/Criteria/Chat 兼容路径已删除；外部协议与 Android API 兼容继续保留。
 
-当前主线继续 `refactor/clean-slate-engine` 的架构收口与复审；HXA-220/221 已交付，但仍需基于最新代码复核剩余 ownership/并发风险与结构边界。设备内本地模型 [HXA-222](tasks/HXA-222.md) 已规划但暂缓实施，只冻结未来 endpoint-free Provider 的接口方向；ADR-WORKSPACE-004 仍 proposed，因此 HXA-210 也不自动启动。
+HXA-223 已完成并见[交付证据](../completion-records/HXA-223.md)：R4 stale-state CAS、Engine terminal/review/recovery owner、Session next-work scheduler 与 SessionInput delivery application boundary 已收口，Core Engine clean-slate 重构进入冻结状态。设备内本地模型 [HXA-222](tasks/HXA-222.md) 仍已规划但暂缓；ADR-WORKSPACE-004 仍 proposed，因此 HXA-210 不自动启动。
 
 ## 执行顺序与依赖
 
@@ -251,3 +251,4 @@ HXA-221 已完成并见[交付证据](../completion-records/HXA-221.md)：当前
 | HXA-220 | 已交付 | Core Engine / TurnEngine 生命周期收敛 | [交付证据](../completion-records/HXA-220.md) |
 | HXA-221 | 已交付 | Pre-release clean-slate baseline cleanup | [交付证据](../completion-records/HXA-221.md) |
 | HXA-222 | 已规划 / 暂缓 | 设备内本地模型一等 Provider | [任务规格](tasks/HXA-222.md) |
+| HXA-223 | 已交付 | Post-clean-slate Core Boundary Convergence | [交付证据](../completion-records/HXA-223.md) |

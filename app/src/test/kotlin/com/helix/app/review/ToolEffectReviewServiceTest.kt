@@ -242,13 +242,19 @@ class ToolEffectReviewServiceTest {
 
         override fun updateState(
             id: String,
+            expectedState: String,
+            expectedStepCount: Int,
             state: String,
             stepCount: Int,
             endedAt: Long?,
             errorCode: String?,
-        ) {
-            rows[id]?.let {
-                rows[id] = it.copy(state = state, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
+        ): Int {
+            val current = rows[id]
+            return if (current != null && current.state == expectedState && current.stepCount == expectedStepCount) {
+                rows[id] = current.copy(state = state, stepCount = stepCount, endedAt = endedAt, errorCode = errorCode)
+                1
+            } else {
+                0
             }
         }
     }

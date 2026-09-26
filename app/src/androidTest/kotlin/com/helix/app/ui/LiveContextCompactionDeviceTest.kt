@@ -200,7 +200,7 @@ class LiveContextCompactionDeviceTest {
             val stream = coordinator.beginModelStream()
             stream.apply(ModelEvent.TextDelta("Understood."))
             stream.apply(ModelEvent.Completed("stop"))
-            coordinator.terminalize(ModelStreamTerminal(TurnState.COMPLETED, null))
+            coordinator.settleFixtureTerminal(ModelStreamTerminal(TurnState.COMPLETED, null))
         }
     }
 }
